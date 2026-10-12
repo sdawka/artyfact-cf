@@ -14,5 +14,10 @@
     "src",
     "test",
     "scripts"
+  ],
+  "references": [
+    {
+      "path": "../model"
+    }
   ]
 }
