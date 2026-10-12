@@ -53,6 +53,14 @@ describe("schema", () => {
     expect(schema.Id.templateRef.safeParse("template.thing.mini-webapp").success).toBe(false);
   });
 
+  it("round-trips a system-one assay hook", () => {
+    const h = roundTrip(schema.AssayHook, {
+      id: "hook.system.purpose", assay: "Purpose measures review", criteria: ["C.system.purpose"], tier: "semantic",
+      engine: "system-one", targetKind: "model", triggers: ["submission"],
+    });
+    expect(h.engine).toBe("system-one");
+  });
+
   it("rejects unknown enum values", () => {
     expect(schema.CrossLink.safeParse({ rel: "likes", to: "x" }).success).toBe(false);
   });

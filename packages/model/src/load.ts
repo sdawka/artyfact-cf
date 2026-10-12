@@ -4,6 +4,8 @@ import * as schema from "./schema";
 import { index, type ModelIndex } from "./model-index";
 
 export interface ParseIssue { path: PropertyKey[]; message: string }
+/** A non-fatal problem found while loading, e.g. an unknown key the schema dropped (often a typo). */
+export interface ModelWarning extends ParseIssue { file: string }
 
 export class ModelParseError extends Error {
   constructor(readonly file: string, readonly issues: ParseIssue[]) {
@@ -36,6 +38,8 @@ export interface SystemModel {
   evolutions: schema.Evolution[];
   /** id → file path it was declared in, or the template ref it came from. */
   origin: Record<string, string>;
+  /** Unknown keys dropped while parsing Genome files. */
+  warnings: ModelWarning[];
   index: ModelIndex;
 }
 
@@ -45,7 +49,20 @@ export const SYSTEM_PLACEHOLDER = "$system";
 
 export const templateRef = (t: Pick<schema.Template, "id" | "version">) => `${t.id}@${t.version}`;
 
-function parseFile<S extends z.ZodType>(file: string, text: string, s: S, listKey?: string): z.infer<S> {
+const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
+
+/** Keys present in the raw YAML but absent from the parsed value: Zod strips unknown keys silently. */
+function droppedKeys(raw: unknown, parsed: unknown, path: PropertyKey[], out: ParseIssue[]) {
+  if (Array.isArray(raw) && Array.isArray(parsed)) raw.forEach((x, i) => droppedKeys(x, parsed[i], [...path, i], out));
+  else if (isObj(raw) && isObj(parsed)) {
+    for (const k of Object.keys(raw)) {
+      if (!(k in parsed)) out.push({ path: [...path, k], message: `unknown key "${k}" ignored` });
+      else droppedKeys(raw[k], parsed[k], [...path, k], out);
+    }
+  }
+}
+
+function parseFile<S extends z.ZodType>(file: string, text: string, s: S, listKey?: string, warnings?: ModelWarning[]): z.infer<S> {
   let raw: unknown;
   try {
     raw = parseYaml(text);
@@ -56,6 +73,11 @@ function parseFile<S extends z.ZodType>(file: string, text: string, s: S, listKe
   else if (listKey && raw && typeof raw === "object" && !(listKey in raw) && "id" in raw) raw = { [listKey]: [raw] };
   const r = s.safeParse(raw ?? {});
   if (!r.success) throw new ModelParseError(file, r.error.issues.map((i) => ({ path: i.path, message: i.message })));
+  if (warnings) {
+    const issues: ParseIssue[] = [];
+    droppedKeys(raw ?? {}, r.data, [], issues);
+    warnings.push(...issues.map((i) => ({ file, ...i })));
+  }
   return r.data;
 }
 
@@ -79,9 +101,11 @@ const norm = (p: string) => p.replace(/\\/g, "/").replace(/^\.?\//, "");
 export function loadSystem(files: Map<string, string>, opts: { revision?: string; templates?: TemplateStore } = {}): SystemModel {
   const byPath = new Map([...files].map(([p, t]) => [norm(p), t] as const).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
   const get = (p: string) => byPath.get(p);
+  const warnings: ModelWarning[] = [];
+  const parse = <S extends z.ZodType>(file: string, text: string, s: S, listKey?: string) => parseFile(file, text, s, listKey, warnings);
   const systemText = get("system.yaml");
   if (systemText === undefined) throw new ModelParseError("system.yaml", [{ path: [], message: "missing system.yaml" }]);
-  const system = parseFile("system.yaml", systemText, schema.SystemFile);
+  const system = parse("system.yaml", systemText, schema.SystemFile);
 
   const origin: Record<string, string> = {};
   // Ids are unique across every kind (one namespace, as `known/1` and `index.byId` assume).
@@ -99,19 +123,19 @@ export function loadSystem(files: Map<string, string>, opts: { revision?: string
   };
 
   const purposeText = get("purpose.yaml") ?? get("purposes.yaml");
-  const purposes = purposeText === undefined ? [] : collect("purpose", "purpose.yaml", parseFile("purpose.yaml", purposeText, schema.PurposeFile, "purposes").purposes);
+  const purposes = purposeText === undefined ? [] : collect("purpose", "purpose.yaml", parse("purpose.yaml", purposeText, schema.PurposeFile, "purposes").purposes);
   const ext = get("externals.yaml");
-  const externals = ext === undefined ? [] : collect("external", "externals.yaml", parseFile("externals.yaml", ext, schema.ExternalsFile, "externals").externals);
+  const externals = ext === undefined ? [] : collect("external", "externals.yaml", parse("externals.yaml", ext, schema.ExternalsFile, "externals").externals);
   const th = get("theory.yaml");
-  const claims = th === undefined ? [] : collect("claim", "theory.yaml", parseFile("theory.yaml", th, schema.TheoryFile, "claims").claims);
+  const claims = th === undefined ? [] : collect("claim", "theory.yaml", parse("theory.yaml", th, schema.TheoryFile, "claims").claims);
   const desc = get("description.yaml");
-  const description = desc === undefined ? undefined : parseFile("description.yaml", desc, schema.Description);
+  const description = desc === undefined ? undefined : parse("description.yaml", desc, schema.Description);
   if (description) {
     collect("feature", "description.yaml", description.features);
     collect("commitment", "description.yaml", description.commitments);
   }
   const kitsText = get("kits.yaml");
-  const kits = parseFile("kits.yaml", kitsText ?? "{}", schema.KitsFile);
+  const kits = parse("kits.yaml", kitsText ?? "{}", schema.KitsFile);
 
   // Instance objects, per owner. Template objects are merged in below.
   const things: { thing: schema.Thing; file: string; dir: string }[] = [];
@@ -124,37 +148,37 @@ export function loadSystem(files: Map<string, string>, opts: { revision?: string
 
   const sysCrit = get("criteria.yaml");
   if (sysCrit !== undefined) {
-    const c = parseFile("criteria.yaml", sysCrit, schema.CriteriaFile, "criteria");
+    const c = parse("criteria.yaml", sysCrit, schema.CriteriaFile, "criteria");
     instCriteria.set(system.id, c.criteria.map((x) => ((origin[x.id] = "criteria.yaml"), x)));
     instHooks.set(system.id, c.hooks.map((x) => ((origin[x.id] = "criteria.yaml"), x)));
   }
 
   for (const [path, text] of byPath) {
     const m = /^things\/([^/]+)\/thing\.yaml$/.exec(path);
-    if (m) things.push({ thing: parseFile(path, text, schema.Thing), file: path, dir: m[1] });
+    if (m) things.push({ thing: parse(path, text, schema.Thing), file: path, dir: m[1] });
   }
   for (const { thing, file, dir } of things) {
     claim("thing", thing.id, file);
     const base = `things/${dir}/`;
     const onto = get(base + "ontology.yaml");
     if (onto !== undefined) {
-      const nodes = flatten(parseFile(base + "ontology.yaml", onto, schema.OntologyFile, "nodes").nodes as NodeInput[], thing.id)
+      const nodes = flatten(parse(base + "ontology.yaml", onto, schema.OntologyFile, "nodes").nodes as NodeInput[], thing.id)
         .map((n) => ({ ...n, owningThing: n.owningThing ?? thing.id }));
       for (const n of nodes) origin[n.id] = base + "ontology.yaml";
       instNodes.set(thing.id, nodes);
     }
     const spec = get(base + "spec.yaml");
-    if (spec !== undefined) requirements.push(...collect("requirement", base + "spec.yaml", parseFile(base + "spec.yaml", spec, schema.SpecFile, "requirements").requirements));
+    if (spec !== undefined) requirements.push(...collect("requirement", base + "spec.yaml", parse(base + "spec.yaml", spec, schema.SpecFile, "requirements").requirements));
     const crit = get(base + "criteria.yaml");
     if (crit !== undefined) {
-      const c = parseFile(base + "criteria.yaml", crit, schema.CriteriaFile, "criteria");
+      const c = parse(base + "criteria.yaml", crit, schema.CriteriaFile, "criteria");
       instCriteria.set(thing.id, c.criteria.map((x) => ((origin[x.id] = base + "criteria.yaml"), x)));
       instHooks.set(thing.id, c.hooks.map((x) => ((origin[x.id] = base + "criteria.yaml"), x)));
     }
   }
   for (const [path, text] of byPath) {
-    if (/^journeys\/[^/]+\.ya?ml$/.test(path)) journeys.push(...collect("journey", path, [parseFile(path, text, schema.Journey)]));
-    else if (/^evolutions\/[^/]+\.ya?ml$/.test(path)) evolutions.push(...collect("evolution", path, [parseFile(path, text, schema.Evolution)]));
+    if (/^journeys\/[^/]+\.ya?ml$/.test(path)) journeys.push(...collect("journey", path, [parse(path, text, schema.Journey)]));
+    else if (/^evolutions\/[^/]+\.ya?ml$/.test(path)) evolutions.push(...collect("evolution", path, [parse(path, text, schema.Evolution)]));
   }
 
   // Template resolution: template objects first (stamped fromTemplate, placeholders rebased), instance ids override.
@@ -211,6 +235,7 @@ export function loadSystem(files: Map<string, string>, opts: { revision?: string
     journeys,
     evolutions,
     origin,
+    warnings,
   };
   return { ...model, index: index(model) };
 }
