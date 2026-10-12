@@ -1,0 +1,44 @@
+# spec §2 Externals and boundary
+externals:
+  - id: ext.owner
+    kind: person
+    name: Owner
+    modeled: The person using the app, their time zone, available attention, goals and accessibility needs
+    external: Their attention, intentions and whether they respond; people control what a relationship means
+    source: { doc: keep-in-touch-world-specification, section: "2" }
+  - id: ext.contacts
+    kind: group
+    name: Contacts
+    modeled: Friends, family and other selected people; some have app accounts and some do not
+    external: Whether and how they respond; what the relationship means to them
+    source: { doc: keep-in-touch-world-specification, section: "2" }
+  - id: ext.relationship-context
+    kind: context
+    name: Relationship context
+    modeled: Distance, changing routines, communication preferences and welcome or unwelcome contact; record uncertainty
+    external: The real state of the relationship
+    source: { doc: keep-in-touch-world-specification, section: "2" }
+  - id: ext.channels
+    kind: service
+    name: Channels
+    modeled: Calls, meetings, SMS, email and other messaging apps
+    external: The app cannot infer their delivery or meaning merely by opening them
+    source: { doc: keep-in-touch-world-specification, section: "2" }
+  - id: ext.device
+    kind: device
+    name: Device
+    modeled: Browser, device notification permissions and selected files; access to a phone gallery is a later capability
+    external: Device capabilities and permissions granted by the owner
+    source: { doc: keep-in-touch-world-specification, section: "2" }
+  - id: ext.providers
+    kind: service
+    name: Providers
+    modeled: Identity, notification and optional model providers, including their limits and failures
+    external: Provider availability, limits and failures
+    source: { doc: keep-in-touch-world-specification, section: "2" }
+  - id: ext.events
+    kind: event
+    name: Events
+    modeled: Changes in routines, travel, milestones and service outages relevant to contact; record source, time and uncertainty, without assuming access to private calendars
+    external: The events themselves and the owner's private calendars
+    source: { doc: keep-in-touch-world-specification, section: "2" }

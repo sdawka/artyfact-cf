@@ -1,0 +1,67 @@
+id: J.control.disconnect
+name: Disconnect from a connected person
+actorGoal: End app-mediated sharing with one person while keeping my private record
+features:
+- GD.connect
+requirements:
+- S.webapp.operations
+- S.webapp.concurrency
+start: d1
+steps:
+- id: d1
+  actor: user
+  action: Open Person with an active connection
+  kind: action
+  screen: screen.person
+  next:
+  - to: d2
+  requirementRefs:
+  - S.webapp.operations
+- id: d2
+  actor: user
+  action: Choose Disconnect and confirm
+  kind: branch
+  screen: screen.person
+  next:
+  - to: d3
+    when: confirm
+  - to: e2
+    when: cancel
+  requirementRefs:
+  - S.webapp.operations
+- id: d3
+  actor: system
+  action: Participant authority checked; sharing revoked; pending deliveries cancelled
+  kind: action
+  screen: screen.person
+  operation: operation.connection.revoke
+  next:
+  - to: d4
+  requirementRefs:
+  - S.webapp.operations
+  - S.webapp.concurrency
+- id: d4
+  actor: counterpart
+  action: Counterpart's access to shared capabilities ends; revocation checked against current state on
+    every read and send
+  kind: reaction
+  next:
+  - to: e1
+  requirementRefs:
+  - S.webapp.concurrency
+- id: e1
+  actor: system
+  action: Pair no longer active; the private ContactRecord remains; delivered external messages are not
+    retracted
+  kind: end
+  next: []
+  requirementRefs:
+  - S.webapp.operations
+- id: e2
+  actor: user
+  action: Connection unchanged
+  kind: end
+  screen: screen.person
+  next: []
+  requirementRefs:
+  - S.webapp.operations

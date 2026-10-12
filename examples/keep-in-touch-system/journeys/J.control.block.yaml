@@ -1,0 +1,76 @@
+id: J.control.block
+name: Block a person
+actorGoal: Stop all app-mediated contact from one person until I remove the block
+features:
+- GD.connect
+requirements:
+- S.webapp.operations
+- S.webapp.prompts
+- S.webapp.concurrency
+start: b1
+steps:
+- id: b1
+  actor: user
+  action: Open Person
+  kind: action
+  screen: screen.person
+  next:
+  - to: b2
+  requirementRefs:
+  - S.webapp.operations
+- id: b2
+  actor: user
+  action: Choose Block and confirm
+  kind: branch
+  screen: screen.person
+  next:
+  - to: b3
+    when: confirm
+  - to: e2
+    when: cancel
+  requirementRefs:
+  - S.webapp.operations
+- id: b3
+  actor: system
+  action: Participant authority checked; sharing revoked; pending deliveries cancelled; Block recorded
+  kind: action
+  screen: screen.person
+  operation: operation.connection.revoke
+  next:
+  - to: b4
+  requirementRefs:
+  - S.webapp.operations
+  - S.webapp.concurrency
+- id: b4
+  actor: system
+  action: Blocker's corresponding goal paused and its suggestions suppressed
+  kind: reaction
+  screen: screen.today
+  next:
+  - to: b5
+  requirementRefs:
+  - S.webapp.prompts
+- id: b5
+  actor: counterpart
+  action: New invitations and acceptances between the two accounts are refused
+  kind: reaction
+  operation: operation.invite.accept
+  next:
+  - to: e1
+  requirementRefs:
+  - S.webapp.concurrency
+- id: e1
+  actor: system
+  action: Block in force until removed
+  kind: end
+  next: []
+  requirementRefs:
+  - S.webapp.operations
+- id: e2
+  actor: user
+  action: No block recorded
+  kind: end
+  screen: screen.person
+  next: []
+  requirementRefs:
+  - S.webapp.operations
