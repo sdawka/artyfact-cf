@@ -2,12 +2,12 @@
  * Orchestration between Artifacts, the model, hooks and the SystemAuthority DO. Routes and the queue
  * consumer call these; all Artifacts I/O and model work happens here (never inside the DO).
  */
-import { diffModels, type schema, type SystemModel } from "@artyfact/model";
+import { diffModels, type Readiness, type schema, type SystemModel } from "@artyfact/model";
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
   CandidatesResponse, ConflictReport, ConflictsResponse, Evaluation, Evolution, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
-  ReadinessResponse, RealizationResponse, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
+  ReadinessResponse, RealizationResponse, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
 } from "../shared/api";
 import { artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
@@ -184,25 +184,32 @@ async function evaluationsFor(env: Env, systemId: string, candidateIds: string[]
   return (await Promise.all(candidateIds.map((id) => stub.evaluations(id)))).flat();
 }
 
+/**
+ * Serialised model + full rules Readiness at a Genome commit, straight from the DO cache when present (no
+ * loadSystem/validate on a cold isolate); on a miss, built once and written through.
+ */
+async function genomeView(env: Env, systemId: string, genomeCommit: string, repo: string): Promise<{ model: SerializedModel; readiness: Readiness }> {
+  const stub = systemStub(env, systemId);
+  const [model, rules] = await Promise.all([stub.getModelCache(genomeCommit, "model"), stub.getModelCache(genomeCommit, "rules")]);
+  if (model && rules) return { model: JSON.parse(model) as SerializedModel, readiness: JSON.parse(rules) as Readiness };
+  const g = await genomeAt(env, systemId, genomeCommit, repo);
+  const view = { model: serializeModel(g.model), readiness: g.readiness };
+  await stub.putModelCache(genomeCommit, { model: JSON.stringify(view.model), rules: JSON.stringify(view.readiness) });
+  return view;
+}
+
 export async function modelBundle(env: Env, systemId: string, rev?: string): Promise<ModelBundle> {
   const s = await headState(env, systemId);
   const r = await resolveRevision(env, s, rev);
-  const g = await genomeAt(env, systemId, r.genomeCommit, r.repo);
-  const evals = await evaluationsFor(env, systemId, r.candidateIds);
-  return {
-    systemId, revision: r.revision, genomeCommit: r.genomeCommit,
-    model: serializeModel(g.model),
-    readiness: readinessReport(g.model, g.readiness, evals),
-    rules: g.readiness,
-  };
+  const [v, evals] = await Promise.all([genomeView(env, systemId, r.genomeCommit, r.repo), evaluationsFor(env, systemId, r.candidateIds)]);
+  return { systemId, revision: r.revision, genomeCommit: r.genomeCommit, model: v.model, readiness: readinessReport(v.model, v.readiness, evals) };
 }
 
 export async function readiness(env: Env, systemId: string, rev?: string): Promise<ReadinessResponse> {
   const s = await headState(env, systemId);
   const r = await resolveRevision(env, s, rev);
-  const g = await genomeAt(env, systemId, r.genomeCommit, r.repo);
-  const evals = await evaluationsFor(env, systemId, r.candidateIds);
-  return { systemId, revision: r.revision, genomeCommit: r.genomeCommit, readiness: readinessReport(g.model, g.readiness, evals), rules: g.readiness };
+  const [v, evals] = await Promise.all([genomeView(env, systemId, r.genomeCommit, r.repo), evaluationsFor(env, systemId, r.candidateIds)]);
+  return { ...readinessReport(v.model, v.readiness, evals), systemId, revision: r.revision, genomeCommit: r.genomeCommit };
 }
 
 // ------------------------------------------------------------------ start work

@@ -28,7 +28,7 @@ All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shar
 | POST | `/systems/import` | admin | `{systemId, genomeRepo, appRepo, force?}` → `ImportSystemResponse` (201); re-import from different repos/commits is 409 `already-imported` unless `force` |
 | GET | `/systems/:id` | - | `SystemSummary` |
 | GET | `/systems/:id/model?rev=` | - | `ModelBundle`; `rev` = `canonical` (default), `sc-…` System commit, `candidate.…`, or a Genome sha |
-| GET | `/systems/:id/readiness?rev=` | - | `ReadinessResponse` |
+| GET | `/systems/:id/readiness?rev=` | - | `ReadinessResponse`: the full rules `Readiness` plus the three-state summary; `/model`'s `readiness` is the same. Both are served from the DO cache when warm |
 | GET | `/systems/:id/work`, `/systems/:id/evolutions` | - | `WorkResponse` |
 | GET | `/systems/:id/evolutions/:eid` | - | `Evolution` |
 | POST | `/systems/:id/evolutions/:eid/realizations` | - | `{agentLabel?, target?, role?}` → `StartWorkResponse` (201); the only response carrying the fork token, also inside `startCommand` (`ARTYFACT_TOKEN=… npx artyfact start <rid> --system … --evolution … --dir …`) |

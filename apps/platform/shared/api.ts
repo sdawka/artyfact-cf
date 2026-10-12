@@ -106,13 +106,19 @@ export interface SystemsResponse {
   systems: SystemSummary[];
 }
 
-/** Readiness report: the three states are never summed. */
-export interface ReadinessReport {
+/** The three readiness states the UI shows; they are never summed. */
+export interface ReadinessSummary {
   modelReadiness: { findings: Finding[]; blockers: Finding[] };
   implementationConformance: { pass: number; fail: number; unknown: number; stale: number; notRun: number };
   outcomeProgress: { observed: number; unknown: number };
   computedAt: string;
 }
+
+/**
+ * The full `@artyfact/model` rules-engine `Readiness` (findings with derivations, `derived` relation → tuples,
+ * packs, snapshotHash, incomplete, actionable) plus the {@link ReadinessSummary}.
+ */
+export type ReadinessReport = Readiness & ReadinessSummary;
 
 /** `SystemModel.index` without functions: `byId` without the duplicated `item`, `path()` materialised. */
 export interface SerializedIndex extends Omit<ModelIndex, "byId" | "path" | "layer"> {
@@ -137,18 +143,14 @@ export interface ModelBundle {
   /** A {@link SerializedModel} from the API; typed loosely so the SPA's fixture bundles fit. */
   model: unknown;
   readiness: ReadinessReport;
-  /** Full rules-engine output behind `readiness.modelReadiness` (findings with derivations). */
-  rules?: Readiness;
 }
 
 /** `GET /api/systems/:id/readiness?rev=`. */
-export interface ReadinessResponse {
+export type ReadinessResponse = ReadinessReport & {
   systemId: SystemId;
   revision: string;
   genomeCommit: CommitHash;
-  readiness: ReadinessReport;
-  rules: Readiness;
-}
+};
 
 // ---------------------------------------------------------------------------
 // Evolutions, realizations, candidates, evaluations, commits

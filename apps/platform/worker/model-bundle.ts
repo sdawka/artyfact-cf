@@ -21,7 +21,7 @@ const BLOCKING = new Set(["error", "missing"]);
 const at = (e: Evaluation) => e.finishedAt ?? e.startedAt ?? "";
 
 /** Rules-engine readiness (+ evaluations at this revision) → the three never-summed readiness states. */
-export function readinessReport(m: SystemModel, r: Readiness, evaluations: Evaluation[], now = new Date()): ReadinessReport {
+export function readinessReport(m: Pick<SystemModel, "criteria">, r: Readiness, evaluations: Evaluation[], now = new Date()): ReadinessReport {
   const findings = r.findings;
   const latest = new Map<string, Evaluation>();
   for (const e of evaluations) {
@@ -44,6 +44,7 @@ export function readinessReport(m: SystemModel, r: Readiness, evaluations: Evalu
     else conf.unknown++; // unknown, waived, or pass without a completed run
   }
   return {
+    ...r,
     modelReadiness: { findings, blockers: findings.filter((f) => BLOCKING.has(f.level)) },
     implementationConformance: conf,
     outcomeProgress: { observed, unknown: unknownOutcome },

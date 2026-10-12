@@ -91,12 +91,13 @@ async function imported() {
 
 describe("routes: import → model → start → submit → promote", () => {
   it("runs the happy path", async () => {
-    const { ns, systemId, appRepo, imp } = await imported();
+    const { ns, systemId, appRepo, genomeRepo, imp } = await imported();
     expect(imp.evolutions).toEqual(["evolution.1", "evolution.2"]);
 
     const list = await call<SystemsResponse>("GET", "/systems");
     expect(list.json.systems.some((s) => s.systemId === systemId)).toBe(true);
 
+    const genomeCalls = ns.repo(genomeRepo).calls.length;
     const model = await call<ModelBundle>("GET", `/systems/${systemId}/model`);
     expect(model.status).toBe(200);
     expect(model.json.genomeCommit).toBe(imp.genomeCommit);
@@ -104,7 +105,14 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(modelOf(model.json).index.paths["screen.people"]).toEqual([systemId, "thing.webapp", "section.ui", "screen.people"]);
     expect(model.json.readiness.modelReadiness).toBeDefined();
     const rd = await call<ReadinessResponse>("GET", `/systems/${systemId}/readiness?rev=${imp.head}`);
-    expect(rd.json.rules.packs.map((p) => p.id)).toEqual(["metamodel"]);
+    expect(rd.json.packs.map((p) => p.id)).toEqual(["metamodel"]);
+    // Full rules Readiness on the wire, served from the DO cache written at import (no Artifacts reads).
+    for (const r of [model.json.readiness, rd.json]) {
+      expect(r).toMatchObject({ snapshotHash: expect.any(String), incomplete: expect.any(Boolean), actionable: expect.any(Boolean) });
+      expect(Object.values(r.derived).every(Array.isArray)).toBe(true);
+      expect(r.findings.every((f) => "derivation" in f)).toBe(true);
+    }
+    expect(ns.repo(genomeRepo).calls.length).toBe(genomeCalls);
 
     const start = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "claude" });
     expect(start.status, JSON.stringify(start.json)).toBe(201);
