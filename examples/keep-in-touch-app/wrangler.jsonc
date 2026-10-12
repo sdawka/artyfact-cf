@@ -7,5 +7,6 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "keep-in-touch", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
   ],
-  "vars": { "BUILD_ID": "dev" }
+  // DEV_AUTH_HEADER accepts x-owner as identity for local runs only; remove it (and set ACCESS_AUD / ACCESS_TEAM_DOMAIN) before deploying.
+  "vars": { "BUILD_ID": "dev", "DEV_AUTH_HEADER": "1" }
 }
