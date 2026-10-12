@@ -1,0 +1,1969 @@
+{
+  "$comment": "hand-made fixture; replaced by scripts/build-fixture.ts once examples/keep-in-touch-system exists",
+  "systemId": "system.keep-in-touch",
+  "revision": "canonical",
+  "genomeCommit": "0000000000000000000000000000000000000000",
+  "model": {
+    "revision": "canonical",
+    "system": {
+      "id": "system.keep-in-touch",
+      "name": "Keep in Touch",
+      "template": "template.social-networking.cloudflare@1",
+      "profile": "profile.private-relationships",
+      "things": [
+        "thing.webapp"
+      ],
+      "phase": "unrealized",
+      "purposes": [
+        "P1"
+      ]
+    },
+    "purposes": [
+      {
+        "id": "P1",
+        "statement": "Help an individual keep in touch with selected people at a personally meaningful frequency and depth, while respecting both people's autonomy.",
+        "beneficiaries": [
+          "ext.owner",
+          "ext.contacts"
+        ],
+        "intendedChange": "More wanted contact and less effort remembering or initiating it.",
+        "successCriteria": [
+          "More wanted contact",
+          "Less effort remembering contact",
+          "Less effort initiating contact"
+        ],
+        "nonGoals": [
+          "Time spent in the app",
+          "Message volume",
+          "Notification opens"
+        ],
+        "constraints": [],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "1"
+        }
+      }
+    ],
+    "externals": [
+      {
+        "id": "ext.owner",
+        "kind": "person",
+        "name": "Owner",
+        "modeled": "The person using the app, their time zone, available attention, goals and accessibility needs",
+        "external": "Whether to respond and what a relationship means",
+        "links": [
+          {
+            "rel": "invokes",
+            "to": "screen.today",
+            "direction": "out",
+            "certainty": "declared",
+            "label": "inspects suggestions"
+          },
+          {
+            "rel": "invokes",
+            "to": "screen.people",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "2"
+        }
+      },
+      {
+        "id": "ext.contacts",
+        "kind": "group",
+        "name": "Contacts",
+        "modeled": "Friends, family and other selected people; some have app accounts and some do not",
+        "external": "Whether to respond and what a relationship means",
+        "links": [],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "2"
+        }
+      },
+      {
+        "id": "ext.relationship-context",
+        "kind": "context",
+        "name": "Relationship context",
+        "modeled": "Distance, changing routines, communication preferences and welcome or unwelcome contact; record uncertainty",
+        "external": "The relationship itself",
+        "links": [],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "2"
+        }
+      },
+      {
+        "id": "ext.channels",
+        "kind": "service",
+        "name": "Channels",
+        "modeled": "Calls, meetings, SMS, email and other messaging apps",
+        "external": "The app cannot infer their delivery or meaning merely by opening them",
+        "links": [],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "2"
+        }
+      },
+      {
+        "id": "ext.device",
+        "kind": "device",
+        "name": "Device",
+        "modeled": "Browser, device notification permissions and selected files",
+        "external": "Access to a phone gallery is a later capability",
+        "links": [],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "2"
+        }
+      },
+      {
+        "id": "ext.providers",
+        "kind": "service",
+        "name": "Providers",
+        "modeled": "Identity, notification and optional model providers",
+        "external": "Their limits and failures",
+        "links": [],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "2"
+        }
+      },
+      {
+        "id": "ext.events",
+        "kind": "event",
+        "name": "Events",
+        "modeled": "Changes in routines, travel, milestones and service outages relevant to contact; record source, time and uncertainty",
+        "external": "Private calendars",
+        "links": [],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "2"
+        }
+      }
+    ],
+    "claims": [
+      {
+        "id": "T1",
+        "name": "Remembering",
+        "purpose": "P1",
+        "mechanism": "Private context and a chosen cadence reduce forgetting",
+        "beneficiaries": [
+          "ext.owner",
+          "ext.contacts"
+        ],
+        "activities": [
+          "entity.RelationshipGoal",
+          "screen.today"
+        ],
+        "outcome": "Wanted contact happens more reliably",
+        "indicator": "Weekly proportion of active goals satisfied by qualifying contact; denominator excludes paused goals",
+        "evaluationMethod": "Two-week personal baseline where the user chooses, then a four-week pilot; compare descriptive trends and interview participants",
+        "limitation": "A before-and-after improvement cannot establish causality",
+        "kind": "hypothesis",
+        "status": "unknown",
+        "deferred": false
+      },
+      {
+        "id": "T2",
+        "name": "Initiating",
+        "purpose": "P1",
+        "mechanism": "One concrete next action lowers initiation effort",
+        "beneficiaries": [
+          "ext.owner",
+          "ext.contacts"
+        ],
+        "activities": [
+          "affordance.SuggestionCard.openPerson"
+        ],
+        "outcome": "Lower initiation effort",
+        "indicator": "User-rated effort before and after use",
+        "evaluationMethod": "Two-week personal baseline where the user chooses, then a four-week pilot; compare descriptive trends and interview participants",
+        "limitation": "A channel opened is not proof that contact occurred",
+        "kind": "hypothesis",
+        "status": "unknown",
+        "deferred": false
+      },
+      {
+        "id": "T3",
+        "name": "Meaning",
+        "purpose": "P1",
+        "mechanism": "User-defined depth prompts help contact feel worthwhile",
+        "beneficiaries": [
+          "ext.owner",
+          "ext.contacts"
+        ],
+        "activities": [
+          "entity.RelationshipGoal"
+        ],
+        "outcome": "Contact feels worthwhile",
+        "indicator": "Optional short reflection on meaningfulness",
+        "evaluationMethod": "Two-week personal baseline where the user chooses, then a four-week pilot; compare descriptive trends and interview participants",
+        "limitation": "Avoid treating a model's rating as relationship truth",
+        "kind": "hypothesis",
+        "status": "unknown",
+        "deferred": false
+      },
+      {
+        "id": "T4",
+        "name": "Autonomy",
+        "purpose": "P1",
+        "mechanism": "Adjustable cadence, pauses and recipient consent reduce unwanted pressure",
+        "beneficiaries": [
+          "ext.owner",
+          "ext.contacts"
+        ],
+        "activities": [
+          "affordance.SuggestionCard.snooze",
+          "policy.pairConsent"
+        ],
+        "outcome": "Less unwanted pressure",
+        "indicator": "Notification burden, snoozes, opt-outs and private burden reports",
+        "evaluationMethod": "Two-week personal baseline where the user chooses, then a four-week pilot; compare descriptive trends and interview participants",
+        "limitation": "Blocking is not a product failure",
+        "kind": "hypothesis",
+        "status": "unknown",
+        "deferred": false
+      },
+      {
+        "id": "T5",
+        "name": "Updates",
+        "purpose": "P1",
+        "mechanism": "Consented digest reading provides context for a personal follow-up",
+        "beneficiaries": [
+          "ext.owner",
+          "ext.contacts"
+        ],
+        "activities": [],
+        "outcome": "Personal follow-up after reading",
+        "indicator": "Reader usefulness and subsequent voluntary contact",
+        "evaluationMethod": "Two-week personal baseline where the user chooses, then a four-week pilot; compare descriptive trends and interview participants",
+        "limitation": "Passive reading never counts as personal contact by default",
+        "kind": "hypothesis",
+        "status": "unknown",
+        "deferred": true
+      }
+    ],
+    "description": {
+      "narrative": "The main experience is a purposeful contacts app. People are the organizing unit. Each relationship has an owner-only intention such as “check in every two weeks” or “make room for a proper conversation monthly.” A calm Today view suggests a finite set of next actions. A user can act, log contact, snooze, pause or revise the goal. There are no streak penalties or public relationship scores.",
+      "features": [
+        {
+          "id": "GD.contacts",
+          "name": "Private contacts",
+          "summary": "Private contacts",
+          "deferred": false,
+          "source": {
+            "doc": "keep-in-touch-world-specification",
+            "section": "3"
+          }
+        },
+        {
+          "id": "GD.goals",
+          "name": "Goals",
+          "summary": "Cadence and depth",
+          "deferred": false,
+          "source": {
+            "doc": "keep-in-touch-world-specification",
+            "section": "3"
+          }
+        },
+        {
+          "id": "GD.connect",
+          "name": "Connect",
+          "summary": "Consented pair connections",
+          "deferred": false,
+          "source": {
+            "doc": "keep-in-touch-world-specification",
+            "section": "3"
+          }
+        },
+        {
+          "id": "GD.prompts",
+          "name": "Prompts",
+          "summary": "Suggested next actions",
+          "deferred": false,
+          "source": {
+            "doc": "keep-in-touch-world-specification",
+            "section": "3"
+          }
+        },
+        {
+          "id": "GD.updates",
+          "name": "Updates",
+          "summary": "Later digests and photo suggestions",
+          "deferred": true,
+          "source": {
+            "doc": "keep-in-touch-world-specification",
+            "section": "3"
+          }
+        }
+      ],
+      "commitments": [
+        {
+          "id": "commitment.one-to-one",
+          "statement": "One-to-one actions",
+          "features": [
+            "GD.connect",
+            "GD.prompts"
+          ],
+          "coupledWith": [
+            "commitment.finite-inbox",
+            "commitment.owner-cadence",
+            "commitment.personal-initiation"
+          ],
+          "source": {
+            "doc": "keep-in-touch-world-specification",
+            "section": "3"
+          }
+        },
+        {
+          "id": "commitment.finite-inbox",
+          "statement": "A finite incoming view",
+          "features": [
+            "GD.prompts"
+          ],
+          "coupledWith": [
+            "commitment.one-to-one"
+          ],
+          "source": {
+            "doc": "keep-in-touch-world-specification",
+            "section": "3"
+          }
+        },
+        {
+          "id": "commitment.owner-cadence",
+          "statement": "Owner-defined cadence and depth",
+          "features": [
+            "GD.goals"
+          ],
+          "coupledWith": [
+            "commitment.one-to-one"
+          ],
+          "source": {
+            "doc": "keep-in-touch-world-specification",
+            "section": "3"
+          }
+        },
+        {
+          "id": "commitment.personal-initiation",
+          "statement": "Personal control over initiating contact",
+          "features": [
+            "GD.contacts",
+            "GD.prompts"
+          ],
+          "coupledWith": [
+            "commitment.one-to-one"
+          ],
+          "source": {
+            "doc": "keep-in-touch-world-specification",
+            "section": "3"
+          }
+        }
+      ],
+      "alternatives": [
+        "Individually addressed updates instead of shared digests"
+      ],
+      "openQuestions": [
+        "Does “no one-to-many outgoing” prohibit reader-driven digest publication?"
+      ]
+    },
+    "kits": {
+      "kits": [
+        {
+          "id": "kit.privacy",
+          "version": "1"
+        },
+        {
+          "id": "kit.cloudflare-webapp",
+          "version": "1"
+        }
+      ],
+      "rulePacks": [
+        {
+          "id": "metamodel",
+          "version": "1"
+        },
+        {
+          "id": "readiness",
+          "version": "1"
+        }
+      ],
+      "required": [
+        "kit.auth"
+      ]
+    },
+    "things": [
+      {
+        "id": "thing.webapp",
+        "name": "Web app",
+        "templateRef": "template.thing.cloudflare-worker-webapp@1",
+        "description": "The app definition within the System Genome; realized by artifact.webapp, one full-stack Worker application.",
+        "artifacts": [
+          {
+            "artifact": "artifact.webapp",
+            "type": "worker-fullstack",
+            "scope": [
+              "thing.webapp"
+            ]
+          },
+          {
+            "artifact": "artifact.model-kit",
+            "type": "model-kit",
+            "scope": []
+          }
+        ],
+        "sections": [
+          "section.ui",
+          "section.domain",
+          "section.authorization",
+          "section.runtime"
+        ],
+        "purposeRefs": [
+          "P1"
+        ]
+      }
+    ],
+    "nodes": [
+      {
+        "id": "section.ui",
+        "kind": "section",
+        "name": "UI",
+        "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "description": "Sign in, Today, People, Person, Goal, Log contact, Invitation and Settings screens and their routes",
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        },
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "section.domain",
+        "kind": "section",
+        "name": "Domain",
+        "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "description": "Account, ContactRecord, RelationshipGoal, ContactEvent, Connection, ConnectionInvite and scheduling types",
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        },
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "section.authorization",
+        "kind": "section",
+        "name": "Authorization",
+        "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "description": "Owner-only access, explicit pair consent and current revocation policies linked to screens and operations",
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        },
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "section.runtime",
+        "kind": "section",
+        "name": "Runtime",
+        "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "description": "Worker app binding, runtime.contactsStore as the intended D1 binding, scheduler and optional adapters",
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        },
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "component.AppShell",
+        "kind": "component",
+        "name": "AppShell",
+        "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "description": "Authenticated screens must share one AppShell containing exactly TopBar, PrimaryNav and RouteOutlet.",
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        },
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "screen.people",
+        "kind": "screen",
+        "name": "People",
+        "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "route": "/people",
+        "roles": [
+          "owner"
+        ],
+        "states": [
+          "loaded",
+          "empty",
+          "loading",
+          "error",
+          "dialog"
+        ],
+        "description": "Exactly PageHeading, SearchInput, AddContact control and ContactCollection. One ContactRow per result; each row has a name and Open control. One AddContactDialog only while invoked, with name, optional channel fields, Save and Cancel",
+        "links": [
+          {
+            "rel": "reads",
+            "to": "entity.ContactRecord",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "governs",
+            "to": "policy.ownerOnly",
+            "direction": "in",
+            "certainty": "declared"
+          }
+        ],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        },
+        "refines": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "component.people.PageHeading",
+        "kind": "component",
+        "name": "PageHeading",
+        "parent": "screen.people",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "component.people.SearchInput",
+        "kind": "component",
+        "name": "SearchInput",
+        "parent": "screen.people",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "affordance.people.addContact",
+        "kind": "affordance",
+        "name": "AddContact",
+        "parent": "screen.people",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "actor": "owner",
+        "trigger": "Activate AddContact",
+        "effects": [
+          "Opens one AddContactDialog"
+        ],
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "component.ContactCollection",
+        "kind": "component",
+        "name": "ContactCollection",
+        "parent": "screen.people",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "links": [
+          {
+            "rel": "reads",
+            "to": "entity.ContactRecord",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "refines": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "component.ContactRow",
+        "kind": "component",
+        "name": "ContactRow",
+        "parent": "component.ContactCollection",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1 per result",
+        "description": "Each row has a name and Open control",
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "affordance.ContactRow.open",
+        "kind": "affordance",
+        "name": "Open",
+        "parent": "component.ContactRow",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "actor": "owner",
+        "trigger": "Activate Open",
+        "effects": [
+          "Navigates to Person /people/:id"
+        ],
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "component.AddContactDialog",
+        "kind": "component",
+        "name": "AddContactDialog",
+        "parent": "screen.people",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1 only while invoked",
+        "description": "Name and channel fields, Save and Cancel; Save invokes operation.contact.save",
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        },
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "affordance.AddContactDialog.save",
+        "kind": "affordance",
+        "name": "Save",
+        "parent": "component.AddContactDialog",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "actor": "owner",
+        "trigger": "Activate Save",
+        "preconditions": [
+          "Owner session",
+          "nonblank name"
+        ],
+        "effects": [
+          "Save only that owner's record; editing does not send invitations"
+        ],
+        "failure": [
+          "Blank name: keep entered values and render one ErrorSummary",
+          "Network error: keep entered values"
+        ],
+        "description": "Save is a semantic affordance whether or not its button has been implemented.",
+        "links": [
+          {
+            "rel": "invokes",
+            "to": "operation.contact.save",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "governs",
+            "to": "policy.ownerOnly",
+            "direction": "in",
+            "certainty": "declared"
+          }
+        ],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6",
+          "quote": "Save is a semantic affordance whether or not its button has been implemented."
+        },
+        "refines": [],
+        "states": [],
+        "roles": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "affordance.AddContactDialog.cancel",
+        "kind": "affordance",
+        "name": "Cancel",
+        "parent": "component.AddContactDialog",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "actor": "owner",
+        "trigger": "Activate Cancel",
+        "effects": [
+          "Closes the dialog without saving"
+        ],
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "screen.today",
+        "kind": "screen",
+        "name": "Today",
+        "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "route": "/today",
+        "roles": [
+          "owner"
+        ],
+        "states": [
+          "loaded",
+          "empty",
+          "loading",
+          "error"
+        ],
+        "description": "Exactly PageHeading, TodayControls and SuggestionCollection; 0–5 cards, or one EmptyState inside the collection.",
+        "links": [
+          {
+            "rel": "reads",
+            "to": "entity.RelationshipGoal",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "governs",
+            "to": "policy.ownerOnly",
+            "direction": "in",
+            "certainty": "declared"
+          }
+        ],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        },
+        "refines": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "component.today.PageHeading",
+        "kind": "component",
+        "name": "PageHeading",
+        "parent": "screen.today",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "component.TodayControls",
+        "kind": "component",
+        "name": "TodayControls",
+        "parent": "screen.today",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "component.SuggestionCollection",
+        "kind": "component",
+        "name": "SuggestionCollection",
+        "parent": "screen.today",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "component.SuggestionCard",
+        "kind": "component",
+        "name": "SuggestionCard",
+        "parent": "component.SuggestionCollection",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "0..5, one per open suggestion",
+        "description": "Each card has one person label, reason, Open person, Log contact and Snooze controls",
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "affordance.SuggestionCard.openPerson",
+        "kind": "affordance",
+        "name": "Open person",
+        "parent": "component.SuggestionCard",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "actor": "owner",
+        "trigger": "Activate Open person",
+        "effects": [
+          "Navigates to Person /people/:id"
+        ],
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "affordance.SuggestionCard.logContact",
+        "kind": "affordance",
+        "name": "Log contact",
+        "parent": "component.SuggestionCard",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "actor": "owner",
+        "trigger": "Activate Log contact",
+        "effects": [
+          "Opens Log contact /people/:id/log"
+        ],
+        "links": [
+          {
+            "rel": "invokes",
+            "to": "operation.contact.log",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "refines": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "affordance.SuggestionCard.snooze",
+        "kind": "affordance",
+        "name": "Snooze",
+        "parent": "component.SuggestionCard",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1",
+        "actor": "owner",
+        "trigger": "Activate Snooze",
+        "effects": [
+          "Snoozing must update its effective due date"
+        ],
+        "links": [
+          {
+            "rel": "writes",
+            "to": "entity.RelationshipGoal",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "refines": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "component.today.EmptyState",
+        "kind": "component",
+        "name": "EmptyState",
+        "parent": "component.SuggestionCollection",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "cardinality": "1 only when no suggestions",
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "entity.Account",
+        "kind": "entity",
+        "name": "Account",
+        "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "description": "ID, identity-provider subject, display name, time zone and notification preferences; one authenticated owner",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "identitySubject",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "displayName",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "timeZone",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "notificationPreferences",
+            "type": "json",
+            "optional": false
+          }
+        ],
+        "links": [
+          {
+            "rel": "storedIn",
+            "to": "binding.contactsStore",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "5"
+        },
+        "refines": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "entity.ContactRecord",
+        "kind": "entity",
+        "name": "ContactRecord",
+        "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "description": "ID, ownerAccountId, display name, optional channels and linkedAccountId; belongs to one owner",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "ownerAccountId",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "displayName",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "channels",
+            "type": "json",
+            "optional": true
+          },
+          {
+            "name": "linkedAccountId",
+            "type": "string",
+            "optional": true
+          },
+          {
+            "name": "version",
+            "type": "integer",
+            "optional": false
+          }
+        ],
+        "invariants": [
+          "belongs to one owner",
+          "Linking it to an Account does not transfer ownership or reveal notes"
+        ],
+        "links": [
+          {
+            "rel": "storedIn",
+            "to": "binding.contactsStore",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "references",
+            "to": "entity.Account",
+            "direction": "out",
+            "certainty": "declared",
+            "label": "ownerAccountId"
+          },
+          {
+            "rel": "governs",
+            "to": "policy.ownerOnly",
+            "direction": "in",
+            "certainty": "declared"
+          }
+        ],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "5"
+        },
+        "refines": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "provisional": false
+      },
+      {
+        "id": "entity.RelationshipGoal",
+        "kind": "entity",
+        "name": "RelationshipGoal",
+        "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "description": "ID, owner, ContactRecord, intervalDays, desiredDepth, channel, anchorDate, pause and snooze; owner-only",
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "ownerAccountId",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "contactRecordId",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "intervalDays",
+            "type": "integer",
+            "optional": false
+          },
+          {
+            "name": "desiredDepth",
+            "type": "light | meaningful | shared-time",
+            "optional": false
+          },
+          {
+            "name": "anchorDate",
+            "type": "date",
+            "optional": false
+          },
+          {
+            "name": "pausedUntil",
+            "type": "date",
+            "optional": true
+          },
+          {
+            "name": "snoozedUntil",
+            "type": "date",
+            "optional": true
+          }
+        ],
+        "invariants": [
+          "intervalDays from 1 through 3650",
+          "owner-only"
+        ],
+        "links": [
+          {
+            "rel": "storedIn",
+            "to": "binding.contactsStore",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "references",
+            "to": "entity.ContactRecord",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "governs",
+            "to": "policy.ownerOnly",
+            "direction": "in",
+            "certainty": "declared"
+          }
+        ],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "5"
+        },
+        "refines": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "provisional": false
+      },
+      {
+        "id": "operation.contact.save",
+        "kind": "operation",
+        "name": "Create or edit private contact",
+        "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "actor": "owner",
+        "preconditions": [
+          "Owner session",
+          "nonblank name"
+        ],
+        "effects": [
+          "Save only that owner's record; editing does not send invitations"
+        ],
+        "failure": [
+          "Blank name returns a validation error",
+          "Stale version returns conflict without overwriting current data"
+        ],
+        "links": [
+          {
+            "rel": "writes",
+            "to": "entity.ContactRecord",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "governs",
+            "to": "policy.ownerOnly",
+            "direction": "in",
+            "certainty": "declared"
+          }
+        ],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        },
+        "refines": [],
+        "states": [],
+        "roles": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "operation.goal.save",
+        "kind": "operation",
+        "name": "Save goal",
+        "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "actor": "owner",
+        "preconditions": [
+          "Owned contact",
+          "valid interval"
+        ],
+        "effects": [
+          "Increment goal version, recompute due state and cancel obsolete jobs"
+        ],
+        "links": [
+          {
+            "rel": "writes",
+            "to": "entity.RelationshipGoal",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "reads",
+            "to": "entity.ContactRecord",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "governs",
+            "to": "policy.ownerOnly",
+            "direction": "in",
+            "certainty": "declared"
+          }
+        ],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        },
+        "refines": [],
+        "states": [],
+        "roles": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "operation.contact.log",
+        "kind": "operation",
+        "name": "Log or revise contact",
+        "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "actor": "owner",
+        "preconditions": [
+          "Owned contact",
+          "nonfuture event time"
+        ],
+        "effects": [
+          "Persist event; recompute affected goals without sending anything"
+        ],
+        "links": [
+          {
+            "rel": "reads",
+            "to": "entity.ContactRecord",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "writes",
+            "to": "entity.RelationshipGoal",
+            "direction": "out",
+            "certainty": "declared",
+            "label": "recompute due state"
+          },
+          {
+            "rel": "governs",
+            "to": "policy.ownerOnly",
+            "direction": "in",
+            "certainty": "declared"
+          }
+        ],
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        },
+        "refines": [],
+        "states": [],
+        "roles": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "policy.ownerOnly",
+        "kind": "policy",
+        "name": "Owner-only access",
+        "parent": "section.authorization",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "mode": "owner-only",
+        "description": "Reads and writes to another owner's private records must return a non-revealing denial.",
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        },
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "policy.pairConsent",
+        "kind": "policy",
+        "name": "Explicit pair consent",
+        "parent": "section.authorization",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "mode": "pair-consent",
+        "description": "Creating the invitation and accepting it provide the two consents.",
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "3"
+        },
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "binding.worker",
+        "kind": "binding",
+        "name": "Worker with static assets",
+        "parent": "section.runtime",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "description": "Workers with Static Assets; authenticated API and invitation routes run through the Worker",
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "8"
+        },
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "id": "binding.contactsStore",
+        "kind": "binding",
+        "name": "Contacts store (D1)",
+        "parent": "section.runtime",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "description": "D1 for accounts, owned contacts, goals, events, consent and jobs",
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "8"
+        },
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      }
+    ],
+    "requirements": [
+      {
+        "id": "S.webapp.screens",
+        "thing": "thing.webapp",
+        "title": "Screens",
+        "text": "Authenticated screens must share one AppShell containing exactly TopBar, PrimaryNav and RouteOutlet. PrimaryNav must contain Today, People and Settings.",
+        "refines": [
+          "GD.contacts",
+          "GD.prompts"
+        ],
+        "subjects": [
+          "component.AppShell",
+          "screen.people",
+          "screen.today"
+        ],
+        "enabled": true,
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        }
+      },
+      {
+        "id": "S.webapp.operations",
+        "thing": "thing.webapp",
+        "title": "Operations",
+        "text": "All mutations must authorize the authenticated owner or explicit connected capability at the server, validate inputs and support an idempotency key.",
+        "refines": [
+          "GD.contacts",
+          "GD.goals"
+        ],
+        "subjects": [
+          "operation.contact.save",
+          "operation.goal.save",
+          "operation.contact.log",
+          "policy.ownerOnly"
+        ],
+        "enabled": true,
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        }
+      },
+      {
+        "id": "S.webapp.prompts",
+        "thing": "thing.webapp",
+        "title": "Prompts",
+        "text": "Today must return at most five suggestions, ordered by effective due date then stable goal ID.",
+        "refines": [
+          "GD.prompts"
+        ],
+        "subjects": [
+          "screen.today",
+          "component.SuggestionCard"
+        ],
+        "enabled": true,
+        "source": {
+          "doc": "keep-in-touch-world-specification",
+          "section": "6"
+        }
+      }
+    ],
+    "criteria": [
+      {
+        "id": "C.webapp.private.owner",
+        "version": 1,
+        "title": "Owner isolation",
+        "claim": "API fixture proves one user cannot read or mutate another's contacts, notes, goals or logs. Include guessed IDs and export",
+        "ownerKind": "thing",
+        "ownerId": "thing.webapp",
+        "subjectKind": "policy",
+        "subjectId": "policy.ownerOnly",
+        "targetKind": "artifact",
+        "sourceRefs": [
+          "S.webapp.operations"
+        ],
+        "refines": [],
+        "satisfies": [],
+        "severity": "hard",
+        "gates": [
+          "candidate",
+          "promotion"
+        ],
+        "deferred": false,
+        "hooks": [
+          "hook.webapp.private.owner"
+        ]
+      },
+      {
+        "id": "C.webapp.screen.people",
+        "version": 1,
+        "title": "People screen composition",
+        "claim": "Refines C.webapp.screen.exact for loaded, empty, loading, error and dialog states",
+        "ownerKind": "thing",
+        "ownerId": "thing.webapp",
+        "subjectKind": "screen",
+        "subjectId": "screen.people",
+        "targetKind": "artifact",
+        "sourceRefs": [
+          "S.webapp.screens"
+        ],
+        "refines": [],
+        "satisfies": [],
+        "severity": "hard",
+        "gates": [
+          "candidate",
+          "promotion"
+        ],
+        "deferred": false,
+        "hooks": [
+          "hook.webapp.screen.people"
+        ]
+      },
+      {
+        "id": "C.webapp.contact.save",
+        "version": 1,
+        "title": "Save contact",
+        "claim": "Validates nonblank name, preserves input on failure and saves only an owned record",
+        "ownerKind": "thing",
+        "ownerId": "thing.webapp",
+        "subjectKind": "affordance",
+        "subjectId": "affordance.AddContactDialog.save",
+        "targetKind": "artifact",
+        "sourceRefs": [
+          "S.webapp.operations"
+        ],
+        "refines": [
+          "C.webapp.private.owner"
+        ],
+        "satisfies": [],
+        "severity": "hard",
+        "gates": [
+          "candidate",
+          "promotion"
+        ],
+        "deferred": false,
+        "hooks": [
+          "hook.webapp.contact.save"
+        ]
+      },
+      {
+        "id": "C.webapp.contact.storage",
+        "version": 1,
+        "title": "Contact storage",
+        "claim": "Checks owner and version constraints and authorized persistence through the declared storage binding",
+        "ownerKind": "thing",
+        "ownerId": "thing.webapp",
+        "subjectKind": "entity",
+        "subjectId": "entity.ContactRecord",
+        "targetKind": "artifact",
+        "sourceRefs": [
+          "S.webapp.operations"
+        ],
+        "refines": [],
+        "satisfies": [],
+        "severity": "hard",
+        "gates": [
+          "candidate",
+          "promotion"
+        ],
+        "deferred": false,
+        "hooks": [
+          "hook.webapp.contact.storage"
+        ]
+      }
+    ],
+    "hooks": [
+      {
+        "id": "hook.webapp.private.owner",
+        "version": 1,
+        "assay": "Cross-account API fixture",
+        "criteria": [
+          "C.webapp.private.owner"
+        ],
+        "tier": "execution",
+        "engine": "vitest",
+        "targetKind": "artifact",
+        "triggers": [
+          "candidate"
+        ],
+        "inputs": {},
+        "timeoutMs": 60000,
+        "costTier": "cheap",
+        "binding": "defined"
+      },
+      {
+        "id": "hook.webapp.screen.people",
+        "version": 1,
+        "assay": "People screen browser fixture",
+        "criteria": [
+          "C.webapp.screen.people"
+        ],
+        "tier": "execution",
+        "engine": "browser",
+        "targetKind": "artifact",
+        "triggers": [
+          "candidate"
+        ],
+        "inputs": {},
+        "timeoutMs": 60000,
+        "costTier": "cheap",
+        "binding": "defined"
+      },
+      {
+        "id": "hook.webapp.contact.save",
+        "version": 1,
+        "assay": "Add contact dialog browser fixture",
+        "criteria": [
+          "C.webapp.contact.save"
+        ],
+        "tier": "execution",
+        "engine": "browser",
+        "targetKind": "artifact",
+        "triggers": [
+          "candidate"
+        ],
+        "inputs": {},
+        "timeoutMs": 60000,
+        "costTier": "cheap",
+        "binding": "defined"
+      },
+      {
+        "id": "hook.webapp.contact.storage",
+        "version": 1,
+        "assay": "Contact storage Workers fixture",
+        "criteria": [
+          "C.webapp.contact.storage"
+        ],
+        "tier": "execution",
+        "engine": "vitest",
+        "targetKind": "artifact",
+        "triggers": [
+          "candidate"
+        ],
+        "inputs": {},
+        "timeoutMs": 60000,
+        "costTier": "cheap",
+        "binding": "defined"
+      }
+    ],
+    "journeys": [
+      {
+        "id": "J.contacts",
+        "name": "Add or edit a private contact",
+        "actorGoal": "Add or edit a private contact through People",
+        "features": [
+          "GD.contacts"
+        ],
+        "requirements": [
+          "S.webapp.screens",
+          "S.webapp.operations"
+        ],
+        "start": "s1",
+        "deferred": false,
+        "steps": [
+          {
+            "id": "s1",
+            "actor": "user",
+            "action": "Open People",
+            "kind": "action",
+            "next": [
+              {
+                "to": "s2"
+              }
+            ],
+            "requirementRefs": [
+              "S.webapp.screens"
+            ],
+            "unresolved": false,
+            "screen": "screen.people",
+            "external": "ext.owner"
+          },
+          {
+            "id": "s2",
+            "actor": "user",
+            "action": "Activate AddContact; AddContactDialog opens",
+            "kind": "action",
+            "next": [
+              {
+                "to": "s3"
+              }
+            ],
+            "requirementRefs": [],
+            "unresolved": false,
+            "screen": "screen.people",
+            "state": "dialog"
+          },
+          {
+            "id": "s3",
+            "actor": "user",
+            "action": "Enter name and optional channel, then choose",
+            "kind": "branch",
+            "next": [
+              {
+                "to": "s4",
+                "when": "Save"
+              },
+              {
+                "to": "e2",
+                "when": "Cancel"
+              }
+            ],
+            "requirementRefs": [],
+            "unresolved": false,
+            "screen": "screen.people"
+          },
+          {
+            "id": "s4",
+            "actor": "system",
+            "action": "Validate nonblank name",
+            "kind": "branch",
+            "next": [
+              {
+                "to": "s5",
+                "when": "valid"
+              },
+              {
+                "to": "f1",
+                "when": "blank name"
+              }
+            ],
+            "requirementRefs": [
+              "S.webapp.operations"
+            ],
+            "unresolved": false,
+            "operation": "operation.contact.save"
+          },
+          {
+            "id": "s5",
+            "actor": "system",
+            "action": "Save only that owner's record",
+            "kind": "reaction",
+            "next": [
+              {
+                "to": "e1"
+              }
+            ],
+            "requirementRefs": [],
+            "unresolved": false,
+            "operation": "operation.contact.save"
+          },
+          {
+            "id": "f1",
+            "actor": "system",
+            "action": "Keep entered values and render one ErrorSummary",
+            "kind": "failure",
+            "next": [
+              {
+                "to": "s3",
+                "when": "retry"
+              }
+            ],
+            "requirementRefs": [],
+            "unresolved": false,
+            "screen": "screen.people"
+          },
+          {
+            "id": "e1",
+            "actor": "system",
+            "action": "Contact appears in ContactCollection",
+            "kind": "end",
+            "next": [],
+            "requirementRefs": [],
+            "unresolved": false,
+            "screen": "screen.people",
+            "state": "loaded"
+          },
+          {
+            "id": "e2",
+            "actor": "user",
+            "action": "Dialog closes; nothing is saved",
+            "kind": "end",
+            "next": [],
+            "requirementRefs": [],
+            "unresolved": false,
+            "screen": "screen.people",
+            "state": "loaded"
+          }
+        ]
+      }
+    ],
+    "evolutions": [
+      {
+        "id": "evolution.1",
+        "title": "Private contact foundation",
+        "intent": "Establish owner-only contacts, app identity and health; existence, health, owner isolation and screen Assays",
+        "state": "actionable",
+        "kind": "implementation",
+        "affectedNodes": [
+          "thing.webapp",
+          "screen.people",
+          "affordance.AddContactDialog.save",
+          "operation.contact.save",
+          "entity.ContactRecord",
+          "policy.ownerOnly"
+        ],
+        "affectedClaims": [
+          "T1"
+        ],
+        "genomeDelta": [],
+        "acceptanceCriteria": [
+          "C.webapp.private.owner",
+          "C.webapp.screen.people",
+          "C.webapp.contact.save",
+          "C.webapp.contact.storage"
+        ],
+        "requiredEvidence": [
+          "existence",
+          "health",
+          "owner isolation",
+          "screen Assays"
+        ],
+        "dependsOn": [],
+        "risk": "medium",
+        "realizations": []
+      },
+      {
+        "id": "evolution.2",
+        "title": "Goals and contact memory",
+        "intent": "Add goal contracts, event qualification and Today prompts; fixed-clock and bounded-card fixtures",
+        "state": "proposed",
+        "kind": "implementation",
+        "affectedNodes": [
+          "screen.today",
+          "entity.RelationshipGoal",
+          "operation.goal.save",
+          "operation.contact.log"
+        ],
+        "affectedClaims": [
+          "T1",
+          "T3"
+        ],
+        "genomeDelta": [],
+        "acceptanceCriteria": [],
+        "requiredEvidence": [
+          "fixed-clock fixtures",
+          "bounded-card fixtures"
+        ],
+        "dependsOn": [
+          "evolution.1"
+        ],
+        "risk": "medium",
+        "realizations": []
+      }
+    ]
+  },
+  "readiness": {
+    "modelReadiness": {
+      "findings": [
+        {
+          "ruleId": "readiness.kit-pinned",
+          "severity": "error",
+          "subject": "system.keep-in-touch",
+          "message": "Required kit kit.auth is not pinned",
+          "nextAction": "Pin an authentication Kit in kits.yaml"
+        }
+      ],
+      "blockers": [
+        {
+          "ruleId": "readiness.kit-pinned",
+          "severity": "error",
+          "subject": "system.keep-in-touch",
+          "message": "Required kit kit.auth is not pinned",
+          "nextAction": "Pin an authentication Kit in kits.yaml"
+        }
+      ]
+    },
+    "implementationConformance": {
+      "pass": 0,
+      "fail": 0,
+      "unknown": 0,
+      "stale": 0,
+      "notRun": 4
+    },
+    "outcomeProgress": {
+      "observed": 0,
+      "unknown": 5
+    },
+    "computedAt": "2026-10-12T00:00:00.000Z"
+  }
+}
