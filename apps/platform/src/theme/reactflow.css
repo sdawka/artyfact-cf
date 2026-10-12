@@ -1,0 +1,30 @@
+/* @xyflow/react overrides: flat surfaces, quiet borders, no shadows, no pills. */
+.react-flow {
+  --xy-background-color: var(--color-background);
+  --xy-node-background-color: var(--color-surface-secondary);
+  --xy-node-color: var(--color-text-primary);
+  --xy-node-border: 1px solid var(--color-border-subtle);
+  --xy-node-border-radius: var(--border-radius-md);
+  --xy-node-boxshadow-hover: none;
+  --xy-node-boxshadow-selected: none;
+  --xy-edge-stroke: var(--color-border-strong);
+  --xy-edge-stroke-selected: var(--color-brand-primary);
+  --xy-connectionline-stroke: var(--color-border-strong);
+  --xy-handle-background-color: var(--color-border-strong);
+  --xy-handle-border-color: var(--color-background);
+  --xy-selection-background-color: color-mix(in oklch, var(--color-brand-primary) 10%, transparent);
+  --xy-selection-border: 1px dashed var(--color-brand-primary);
+  --xy-minimap-background-color: var(--color-surface-primary);
+  --xy-controls-button-background-color: var(--color-surface-secondary);
+  --xy-controls-button-background-color-hover: var(--color-background-hover);
+  --xy-controls-button-color: var(--color-text-secondary);
+  --xy-controls-button-border-color: var(--color-border-subtle);
+  --xy-attribution-background-color: transparent;
+  font-family: var(--font-body);
+}
+.react-flow__node { box-shadow: none; border-radius: var(--border-radius-md); }
+.react-flow__node.selected { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
+.react-flow__controls { box-shadow: none; border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); overflow: hidden; }
+.react-flow__attribution { display: none; }
+.react-flow__edge-text { fill: var(--color-text-secondary); font-size: var(--font-size-xs); }
+.react-flow__edge-textbg { fill: var(--color-background); }
