@@ -16,6 +16,8 @@ for (const route of routes) test('built page and destinations: ' + route, async 
   assert(document.querySelector('meta[name="description"]').content.length > 30);
   assert(!html.includes('AGPL'));
   assert(!document.querySelector('a[href="/app"]'));
+  const headings = [...document.querySelectorAll('h1,h2,h3,h4')].map(h => Number(h.tagName[1]));
+  headings.forEach((level, index) => assert(index === 0 ? level === 1 : level <= headings[index - 1] + 1, 'heading order: ' + headings.join(',')));
   for (const attribute of ['href', 'src', 'content']) {
     const elements = attribute === 'content' ? document.querySelectorAll('meta[property="og:image"]') : document.querySelectorAll('[' + attribute + ']');
     for (const element of elements) {
@@ -47,4 +49,26 @@ test('documented CLI setup remains usable from the realization directory', async
     assert(help.includes('checkpoint'));
     assert(help.includes('submit'));
   } finally { await rm(fork, { recursive: true, force: true }); }
+});
+test('404 page uses the site layout, is not indexed, and stays out of the sitemap', async () => {
+  const html = await readFile(resolve(dist, '404.html'), 'utf8');
+  const document = new JSDOM(html).window.document;
+  assert(document.querySelector('link[rel="stylesheet"]'));
+  assert(document.querySelector('meta[name="theme-color"]'));
+  assert(document.querySelector('meta[name="robots"][content="noindex"]'));
+  assert(document.querySelector('header nav') && document.querySelector('footer'));
+  assert(!(await readFile(resolve(dist, 'sitemap.xml'), 'utf8')).includes('404'));
+});
+test('noscript copy only mentions features the page has', async () => {
+  const note = async route => new JSDOM(await readFile(resolve(dist, '.' + route, 'index.html'), 'utf8')).window.document.querySelector('noscript')?.textContent ?? '';
+  assert(/example shows/.test(await note('/model')));
+  assert(!/copy buttons/.test(await note('/model')));
+  assert(/copy buttons/.test(await note('/connect-agent')));
+  assert(!/example shows/.test(await note('/connect-agent')));
+});
+test('the guide names the hosted origin and the local CLI default', async () => {
+  const html = await readFile(resolve(dist, 'connect-agent/index.html'), 'utf8');
+  assert(html.includes('https://artyfact-platform.dawka.workers.dev'));
+  assert(html.includes('http://localhost:1337') && !html.includes('5173'));
+  assert(html.includes('https://github.com/sdawka/artyfact-cf'));
 });

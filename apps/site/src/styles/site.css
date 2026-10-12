@@ -72,7 +72,7 @@ main, .site-header, .site-footer { width: min(1240px, calc(100% - 96px)); margin
 .subject span { display: block; }
 .subject[aria-pressed="true"] { color: var(--color-brand-primary); background: var(--color-background-active); border-radius: var(--border-radius-md); }
 .example-detail { border-top: 1px solid var(--color-border-subtle); margin: 0 26px; padding: 23px 0 16px; min-height: 220px; }
-.example-detail h3 { font-size: 1.1rem; max-width: 40ch; margin-bottom: 12px; }
+.example-detail .detail-title { font-size: 1.1rem; line-height: 1.4; font-weight: 600; color: var(--color-text-primary); max-width: 40ch; margin-bottom: 12px; }
 .example-detail p { font-size: .82rem; margin-bottom: 12px; }
 .example-detail .detail-context { font-size: .7rem; color: var(--color-text-subtle); }
 .evidence-note { font-size: .72rem; color: var(--color-text-subtle); }

@@ -15,9 +15,10 @@ test.beforeEach(async ({ page }) => {
     } catch { await route.fulfill({ status: 404, body: await readFile(resolve(dist, '404.html')), contentType: 'text/html' }); }
   });
 });
-test('homepage leads to the guide and keeps the platform unavailable', async ({ page }) => {
+test('homepage leads to the guide and links the hosted platform', async ({ page }) => {
   await page.goto('https://artyfact.test/');
   await expect(page.getByRole('heading', { name: /Author systems together/ })).toBeVisible();
+  await expect(page.getByRole('link', { name: 'Open the platform' })).toHaveAttribute('href', 'https://artyfact-platform.dawka.workers.dev');
   await expect(page.locator('a[href="/app"]')).toHaveCount(0);
   await page.getByRole('link', { name: 'Bring your agent', exact: true }).first().click();
   await expect(page).toHaveURL('https://artyfact.test/connect-agent');

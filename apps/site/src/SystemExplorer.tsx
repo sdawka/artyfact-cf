@@ -34,9 +34,9 @@ export function SystemExplorer() {
     </div>
     <div id="system-panel" className="example-detail" role="tabpanel" aria-labelledby={'layer-' + layer} aria-live="polite">
       <p className="detail-context">{layers[layer].description}</p>
-      {layer === 0 ? <><h3>{selected.intent}</h3><p>A declared contract. Its purpose, policies and acceptance criteria give the work its context.</p><span className="evidence-note">Intent is not implementation evidence.</span></>
-        : layer === 1 ? <><h3>{selected.work}</h3><p>{selected.workDetail}</p><div className="forks" aria-label="Two candidate workspaces"><span>Realization A</span><span>Realization B</span></div><span className="evidence-note">Isolated work. Shared subjects. Explicit review.</span></>
-        : <><h3>{selected.observation}</h3><div className="observation"><span>Observed result</span><strong>Unknown</strong></div><p>No live evaluation is being claimed by this example. A planned check and a completed check are different things.</p></>}
+      {layer === 0 ? <><p className="detail-title">{selected.intent}</p><p>A declared contract. Its purpose, policies and acceptance criteria give the work its context.</p><span className="evidence-note">Intent is not implementation evidence.</span></>
+        : layer === 1 ? <><p className="detail-title">{selected.work}</p><p>{selected.workDetail}</p><div className="forks" aria-label="Two candidate workspaces"><span>Realization A</span><span>Realization B</span></div><span className="evidence-note">Isolated work. Shared subjects. Explicit review.</span></>
+        : <><p className="detail-title">{selected.observation}</p><div className="observation"><span>Observed result</span><strong>Unknown</strong></div><p>No live evaluation is being claimed by this example. A planned check and a completed check are different things.</p></>}
     </div>
     <p className="explorer-caption">Choose a subject. Change the layer. It is still the same System.</p>
   </section>;

@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { platformLink, sourceLink } from '../src/config';
+import { platformLink, sourceLink, resolveSiteConfig } from '../src/config';
 
 describe('public destinations', () => {
   it('keeps an unverified platform out of navigation', () => {
@@ -14,5 +14,12 @@ describe('public destinations', () => {
   it('does not invent a public source repository', () => {
     expect(sourceLink('')).toBe(null);
     expect(sourceLink('https://github.com/sdawka/artyfact-cf')).toBe('https://github.com/sdawka/artyfact-cf');
+  });
+  it('defaults to the public repository and hosted demo, with env overrides', () => {
+    expect(resolveSiteConfig({})).toEqual({ platform: 'https://artyfact-platform.dawka.workers.dev', source: 'https://github.com/sdawka/artyfact-cf' });
+    expect(resolveSiteConfig({ SITE_PLATFORM_READY: 'false', SITE_SOURCE_URL: '' })).toEqual({ platform: null, source: null });
+    expect(resolveSiteConfig({ SITE_PLATFORM_URL: '/app' }).platform).toBe('/app');
+    expect(() => resolveSiteConfig({ SITE_PLATFORM_URL: 'http://example.com' })).toThrow();
+    expect(() => resolveSiteConfig({ SITE_SOURCE_URL: 'javascript:alert(1)' })).toThrow();
   });
 });

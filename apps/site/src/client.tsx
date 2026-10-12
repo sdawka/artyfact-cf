@@ -1,6 +1,7 @@
 import './styles/site.css';
 if (document.querySelector('[data-system-explorer]')) {
-  void import('./hydrate').then(({ hydrateExamples }) => hydrateExamples());
+  // The static markup is already usable, so a failed chunk load (flaky network, stale cache after a deploy) is not an error.
+  import('./hydrate').then(({ hydrateExamples }) => hydrateExamples()).catch(() => {});
 }
 for (const button of document.querySelectorAll<HTMLButtonElement>('[data-copy]')) {
   button.hidden = false;
