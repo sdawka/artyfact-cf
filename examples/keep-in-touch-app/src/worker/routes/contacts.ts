@@ -1,6 +1,7 @@
 import { Hono } from "hono";
 import { requireAuth, type AuthVars } from "../auth";
 import type { Env } from "../env";
+import { ctxOf, emitPhenome } from "../phenome";
 
 interface ContactRow {
   id: string;
@@ -31,5 +32,6 @@ contacts.post("/", async (c) => {
     .prepare("INSERT INTO contact_records (id, owner_account_id, display_name, channels_json, version, created_at) VALUES (?, ?, ?, ?, 1, ?)")
     .bind(id, c.get("accountId"), body.displayName.trim(), JSON.stringify(body.channels ?? []), new Date().toISOString())
     .run();
+  emitPhenome(c.env, "contact.saved", { channels: (body.channels ?? []).length }, ctxOf(c), { subject: "contact" });
   return c.json({ id, displayName: body.displayName.trim(), version: 1 }, 201);
 });

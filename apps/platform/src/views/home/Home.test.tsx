@@ -60,6 +60,9 @@ describe("Home", () => {
     stubSystems([evolving, awaiting]);
     renderApp("/");
     await screen.findByRole("link", { name: /Alpha/ });
+    // Each card link is named by the System title only; chips and footer are content, not part of the name.
+    expect(screen.getAllByRole("link").map((l) => l.getAttribute("aria-labelledby") && document.getElementById(l.getAttribute("aria-labelledby")!)?.textContent).filter(Boolean)).toEqual(["Alpha", "Beta"]);
+    expect(screen.getByRole("link", { name: "Alpha" })).toBeTruthy();
     const a = card(/Alpha/);
     const b = card(/Beta/);
     expect(a.querySelector("a")!.getAttribute("data-state")).toBe("evolving");

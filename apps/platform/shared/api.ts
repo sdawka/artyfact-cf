@@ -801,6 +801,8 @@ export interface ChangelogRow {
   deployment: Deployment | null;
   /** Some gating evidence came from the fake System One provider. */
   fakeProvider?: boolean;
+  /** The row's comparison could not be computed (summary counts are zero); it is retried on the next read. */
+  loadError?: string;
 }
 /** `GET /api/systems/:id/changelog?limit=&before=`. */
 export interface ChangelogResponse {

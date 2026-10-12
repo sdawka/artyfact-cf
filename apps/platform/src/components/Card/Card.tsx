@@ -1,4 +1,4 @@
-import type { ElementType, ReactNode } from "react";
+import { useId, type ElementType, type ReactNode } from "react";
 import { Link } from "react-router";
 import styles from "./Card.module.css";
 
@@ -32,20 +32,22 @@ export type CardProps = StaticCard | LinkedCard;
 
 /**
  * Opaque surface with a subtle border, radius md and no shadow. Never nest a Card in a Card.
- * `state` sets `data-state`; `to` turns the whole surface into a single link.
+ * `state` sets `data-state`; `to` turns the whole surface into a single link whose accessible name is the title.
  */
 export function Card({ as: Tag = "section", title, headingLevel = 2, actions, state, to, className, children }: CardProps) {
   const H = `h${headingLevel}` as const;
+  const titleId = useId();
   const head = (title || actions) && (
     <div className={styles.head}>
-      {title && <H className={styles.title}>{title}</H>}
+      {title && <H id={titleId} className={styles.title}>{title}</H>}
       {actions && <div className={styles.actions}>{actions}</div>}
     </div>
   );
   if (to !== undefined) {
     return (
       <Tag className={`${styles.wrap} ${className ?? ""}`}>
-        <Link to={to} className={`u-brackets ${styles.card} ${styles.link}`} data-state={state}>
+        {/* The link is named by its title only; the body stays readable content, not part of the name. */}
+        <Link to={to} className={`u-brackets ${styles.card} ${styles.link}`} data-state={state} aria-labelledby={title ? titleId : undefined}>
           {head}
           {children}
         </Link>

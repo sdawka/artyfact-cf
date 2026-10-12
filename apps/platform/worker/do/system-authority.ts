@@ -1,11 +1,13 @@
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
 import type {
-  ArtifactBinding, Candidate, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PlatformRef, Realization, RealizationStatus, ScaffoldSource, SseEnvelope, SseEvent,
+  ArtifactBinding, Candidate, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Realization, RealizationStatus, ScaffoldSource, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
+import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
+import { ChangelogStore, type CachedChangelog } from "./changelog-store";
 import { RegistryStore } from "./registry";
 import { applySchema } from "./schema";
 
@@ -795,6 +797,21 @@ export class SystemAuthority extends DurableObject<Env> {
     return true;
   }
 
+  // ---- B1 editor: thin delegate ----
+  /**
+   * Record an editor commit's `why` on the candidate manifest as `rationale`; a blank one sets `rationalePending`.
+   * Like the preview URL, it is not part of the manifest hash. Returns false for an unknown candidate.
+   */
+  setCandidateRationale(candidateId: string, rationale: string | null): boolean {
+    const c = this.one("SELECT manifest_json FROM candidates WHERE id = ?", candidateId);
+    if (!c) return false;
+    const { rationale: _r, rationalePending: _p, ...manifest } = json<Record<string, unknown>>(c.manifest_json, {});
+    const next = rationale?.trim() ? { ...manifest, rationale: rationale.trim() } : { ...manifest, rationalePending: true };
+    this.sql.exec("UPDATE candidates SET manifest_json = ? WHERE id = ?", JSON.stringify(next), candidateId);
+    return true;
+  }
+  // ---- end B1 editor ----
+
   /** Claim the hook re-run for `candidateId` so concurrent retries do not all run it; a claim lapses after `ttlMs`. */
   claimEvaluation(candidateId: string, ttlMs = 5 * 60_000): boolean {
     const now = Date.now();
@@ -1244,6 +1261,18 @@ export class SystemAuthority extends DurableObject<Env> {
     this.emit(event);
   }
 
+  // ---------------------------------------------------------------- B2 changelog
+
+  private changelogStore: ChangelogStore | undefined;
+  private changelog(): ChangelogStore {
+    return (this.changelogStore ??= new ChangelogStore(this.sql));
+  }
+  changelogCached(commitId: string): CachedChangelog | null { return this.changelog().get(commitId); }
+  changelogRows(commitIds: string[]): Record<string, string> { return this.changelog().rows(commitIds); }
+  putChangelog(commitId: string, row: string, entry: string | null): void { this.changelog().put(commitId, row, entry); }
+
+  // ---------------------------------------------------------------- end B2 changelog
+
   // ---------------------------------------------------------------- registry (instance `__registry` only)
 
   private registryStore: RegistryStore | undefined;
@@ -1265,4 +1294,21 @@ export class SystemAuthority extends DurableObject<Env> {
   resolveRealization(realizationId: string) { return this.registry().resolveRealization(realizationId); }
   /** Fork repo name → owning realization (queue `resolveFork`). */
   resolveFork(forkRepo: string) { return this.registry().resolveFork(forkRepo); }
+
+  // B4 phenome
+  private phenomeStore: PhenomeStore | undefined;
+  private phenome(): PhenomeStore { return (this.phenomeStore ??= new PhenomeStore(this.sql)); }
+  phenomePrincipal(digest: string): PhenomePrincipal | null { return this.phenome().principalForHash(digest); }
+  /** Store validated events and announce them on the SSE stream; returns, per row, whether it was new. */
+  phenomeIngest(rows: PhenomeRow[], realizationId: string | null, verifyDeployment = false): boolean[] {
+    const out = this.phenome().insert(rows, realizationId, verifyDeployment);
+    const fresh = rows.map((r, i) => ({ r, ...out[i] })).filter((x) => x.fresh);
+    if (fresh.length) {
+      const last = fresh[fresh.length - 1];
+      this.emit({ type: "phenome.ingested", count: fresh.length, ...(last.deploymentId && { deploymentId: last.deploymentId }), commit: last.r.commit });
+    }
+    return out.map((x) => x.fresh);
+  }
+  phenomeEvents(systemId: string, query: PhenomeEventsQuery = {}): PhenomeEventsResponse { return this.phenome().list(systemId, query); }
 }
+

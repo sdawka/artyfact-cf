@@ -5,7 +5,7 @@ import { sha256Hex } from "./util";
 const enc = new TextEncoder();
 
 /** Constant-time comparison of two strings via SHA-256 digests (length-independent). */
-async function safeEqual(a: string, b: string): Promise<boolean> {
+export async function safeEqual(a: string, b: string): Promise<boolean> {
   const [x, y] = await Promise.all([crypto.subtle.digest("SHA-256", enc.encode(a)), crypto.subtle.digest("SHA-256", enc.encode(b))]);
   const ua = new Uint8Array(x), ub = new Uint8Array(y);
   let diff = 0;
@@ -26,7 +26,7 @@ export const requireAdmin: MiddlewareHandler<{ Bindings: Env }> = async (c, next
   await next();
 };
 
-const bearer = (header: string | undefined) => /^Bearer\s+(.+)$/i.exec(header ?? "")?.[1].trim();
+export const bearer = (header: string | undefined) => /^Bearer\s+(.+)$/i.exec(header ?? "")?.[1].trim();
 
 /**
  * A realization's agent routes (checkpoint, submit, sync, GET status and packet): `Authorization: Bearer <secret>`

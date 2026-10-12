@@ -18,39 +18,59 @@ async function allBlobs(repo: ArtifactsRepoLike, tree: string, base: string, out
   }
 }
 
-async function diffTree(repo: ArtifactsRepoLike, a: string, b: string, base: string, d: TreeDiff): Promise<void> {
+/**
+ * Compare tree `a` (read from `ra`) with tree `b` (read from `rb`). Git objects are content-addressed (SHA-1), so equal
+ * hashes mean equal content even when the two trees live in different repos (a fork and its base, or two forks).
+ */
+async function diffTree(ra: ArtifactsRepoLike, rb: ArtifactsRepoLike, a: string, b: string, base: string, d: TreeDiff): Promise<void> {
   if (a === b) return;
-  const [ea, eb] = await Promise.all([entries(repo, a), entries(repo, b)]);
+  const [ea, eb] = await Promise.all([entries(ra, a), entries(rb, b)]);
   for (const [name, x] of ea) {
     const y = eb.get(name);
     const p = base + name;
     if (!y) {
-      if (x.type === "tree") await allBlobs(repo, x.hash, `${p}/`, d.removed);
+      if (x.type === "tree") await allBlobs(ra, x.hash, `${p}/`, d.removed);
       else d.removed.push(p);
     } else if (x.hash !== y.hash || x.type !== y.type) {
-      if (x.type === "tree" && y.type === "tree") await diffTree(repo, x.hash, y.hash, `${p}/`, d);
-      else if (x.type === "tree") { await allBlobs(repo, x.hash, `${p}/`, d.removed); d.added.push(p); }
-      else if (y.type === "tree") { d.removed.push(p); await allBlobs(repo, y.hash, `${p}/`, d.added); }
+      if (x.type === "tree" && y.type === "tree") await diffTree(ra, rb, x.hash, y.hash, `${p}/`, d);
+      else if (x.type === "tree") { await allBlobs(ra, x.hash, `${p}/`, d.removed); d.added.push(p); }
+      else if (y.type === "tree") { d.removed.push(p); await allBlobs(rb, y.hash, `${p}/`, d.added); }
       else d.modified.push(p);
     }
   }
   for (const [name, y] of eb) {
     if (ea.has(name)) continue;
     const p = base + name;
-    if (y.type === "tree") await allBlobs(repo, y.hash, `${p}/`, d.added);
+    if (y.type === "tree") await allBlobs(rb, y.hash, `${p}/`, d.added);
     else d.added.push(p);
   }
 }
 
-/** Recursive tree-hash comparison between two commits; identical subtrees are never expanded. */
-export async function diffTrees(repo: ArtifactsRepoLike, baseCommit: string, headCommit: string): Promise<TreeDiff> {
-  const [a, b] = await Promise.all([repo.readCommit(baseCommit), repo.readCommit(headCommit)]);
-  if (!a) throw unprocessable("unknown-commit", `base commit ${baseCommit} not found`);
-  if (!b) throw unprocessable("unknown-commit", `commit ${headCommit} not found`);
+/** One side of a cross-repo comparison: a repo handle and a commit in it. */
+export interface TreeSide { repo: ArtifactsRepoLike; commit: string }
+
+async function treeOf(side: TreeSide, role: string): Promise<string> {
+  const meta = await side.repo.readCommit(side.commit);
+  if (!meta) throw unprocessable("unknown-commit", `${role} commit ${side.commit} not found`);
+  return meta.treeHash;
+}
+
+/**
+ * Recursive tree-hash comparison between commits in two repos; identical subtrees are never expanded. A null `from`
+ * is the empty tree: every file of `to` is added (the root import compares against nothing).
+ */
+export async function diffTreesAcross(from: TreeSide | null, to: TreeSide): Promise<TreeDiff> {
   const d: TreeDiff = { added: [], modified: [], removed: [] };
-  await diffTree(repo, a.treeHash, b.treeHash, "", d);
+  const [a, b] = await Promise.all([from ? treeOf(from, "base") : null, treeOf(to, "head")]);
+  if (a === null) await allBlobs(to.repo, b, "", d.added);
+  else await diffTree(from!.repo, to.repo, a, b, "", d);
   d.added.sort(); d.modified.sort(); d.removed.sort();
   return d;
+}
+
+/** Recursive tree-hash comparison between two commits of one repo. */
+export function diffTrees(repo: ArtifactsRepoLike, baseCommit: string, headCommit: string): Promise<TreeDiff> {
+  return diffTreesAcross({ repo, commit: baseCommit }, { repo, commit: headCommit });
 }
 
 export interface CandidateManifest {

@@ -9,6 +9,7 @@ import styles from "./home.module.css";
 /** One System on Home: the whole card links to its Overview. */
 export function SystemCard({ system, now }: { system: CardSummary; now: number }) {
   const { state, chips } = cardSignals(system);
+  const updated = system.updatedAt ? relTime(system.updatedAt, now) : "unknown";
   return (
     <Card as="li" to={viewPath(system.systemId, DEFAULT_REV, "overview")} title={system.title || system.systemId} headingLevel={2} state={state}>
       <p className={styles.meta}>
@@ -24,7 +25,7 @@ export function SystemCard({ system, now }: { system: CardSummary; now: number }
       )}
       <p className={styles.footer}>
         <span>head <code>{system.head ? shortRev(system.head) : "unknown"}</code></span>
-        <span>{system.updatedAt && relTime(system.updatedAt, now) !== "unknown" ? `updated ${relTime(system.updatedAt, now)}` : "updated unknown"}</span>
+        <span>updated {updated}</span>
       </p>
     </Card>
   );
