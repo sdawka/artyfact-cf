@@ -126,6 +126,8 @@ export interface RealizationRecord {
   baseRepo: string;
   baseCommit: string;
   evolutionId: string;
+  /** Id (never the secret) of the fork's write token, if one was minted. */
+  tokenId: string | null;
 }
 
 export interface CandidateInput {
@@ -174,7 +176,7 @@ const json = <T>(v: SqlStorageValue | undefined, fallback: T): T => (v == null |
 
 
 const OPEN_CANDIDATE = ["submitted", "evaluated", "selected"];
-const TERMINAL_REALIZATION: RealizationStatus[] = ["promoted", "rejected", "abandoned"];
+export const TERMINAL_REALIZATION: RealizationStatus[] = ["promoted", "rejected", "abandoned"];
 const PING_MS = 15_000;
 const enc = new TextEncoder();
 
@@ -544,6 +546,7 @@ export class SystemAuthority extends DurableObject<Env> {
       baseRepo: String(r.base_repo ?? ""),
       baseCommit: String(r.base_commit ?? ""),
       evolutionId: String(r.evolution_id),
+      tokenId: str(r.token_id),
     };
   }
 

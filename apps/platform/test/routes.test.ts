@@ -485,6 +485,17 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(cands.json.candidates.map((c) => c.state)).toEqual(["rejected"]);
     const via = `/systems/${systemId}/realizations/${rid}/reject`;
     expect((await call<ApiError>("POST", via, { reason: "again" }, ADMIN)).status).toBe(200);
+    // The fork's write token is revoked, and a later push is acked without a retry or a new candidate.
+    expect(fork.tokens).toMatchObject([{ revoked: true }]);
+    files.set("evolutions/late.yaml", "id: late");
+    const late = fork.commit(files, "late push");
+    const acked: string[] = [], retried: string[] = [];
+    const message = { id: "late", attempts: 1, ack: () => acked.push("late"), retry: () => retried.push("late"),
+      body: { type: PUSHED, source: { namespace: "artyfact", repoName: `${genomeRepo}--r1` }, payload: { ref: "refs/heads/main", after: late } } };
+    await queueEntry({ queue: "artyfact-events", messages: [message], ackAll() {}, retryAll() {} } as unknown as MessageBatch<unknown>, env);
+    expect([acked, retried]).toEqual([["late"], []]);
+    const after = await call<{ candidates: { commit: string }[] }>("GET", `/systems/${systemId}/evolutions/evolution.2/candidates`);
+    expect(after.json.candidates.map((c) => c.commit)).toEqual([commit]);
   });
 
   it("the queue consumer submits pushes to known forks once", async () => {

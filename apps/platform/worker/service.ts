@@ -13,7 +13,7 @@ import { artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike 
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
 import { buildGenome, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
 import { loadSourceMap, nodesForPath, type SourceMapEntry } from "./artifacts/source-map";
-import { REGISTRY, type SystemAuthority, type EvolutionSeed, type HeadState, type ManifestExtras, type RealizationRecord } from "./do/system-authority";
+import { REGISTRY, TERMINAL_REALIZATION, type SystemAuthority, type EvolutionSeed, type HeadState, type ManifestExtras, type RealizationRecord } from "./do/system-authority";
 import { badRequest, conflict, fromRpc, HttpError, notFound, unprocessable } from "./errors";
 import type { CandidateRef, FileMap, QueueContext, SubmissionContext } from "./hooks/contract";
 import { hookRunner } from "./hooks/index";
@@ -697,7 +697,13 @@ export async function accept(
 export async function reject(env: Env, systemId: string, rid: string, body: { reason?: unknown }) {
   const reason = typeof body.reason === "string" ? body.reason.trim() : "";
   if (!reason) throw badRequest("reason is required");
+  const rec = await record(env, systemId, rid);
   const realization = await rpc(systemStub(env, systemId).rejectRealization(rid, reason.slice(0, 4000)));
+  // A rejected realization's agent must not keep pushing: revoke the fork's write token (by id; the secret is never stored).
+  if (rec.tokenId) {
+    await withRepo(artifactsFor(env), rec.forkRepo, (r) => r.revokeToken(rec.tokenId!)).catch((e: unknown) =>
+      console.error(`[reject] revoking the write token of ${rid} failed: ${(e as Error)?.message ?? e}`));
+  }
   await refreshRegistry(env, systemId);
   return { realization };
 }
@@ -724,7 +730,16 @@ export function queueContextFor(env: Env): QueueContext {
       systemOf.set(hit.realizationId, hit.systemId);
       return hit.realizationId;
     },
-    submit: async (rid, commit, source) => submit(env, systemOf.get(rid) ?? (await systemForRealization(env, rid)), rid, { commit }, source),
+    submit: async (rid, commit, source) => {
+      const systemId = systemOf.get(rid) ?? (await systemForRealization(env, rid));
+      // A push to a promoted, rejected or abandoned realization can never become a candidate: ack instead of retrying.
+      const status = (await record(env, systemId, rid)).realization.status;
+      if (TERMINAL_REALIZATION.includes(status)) {
+        console.info(`[queue] ${rid} is ${status}; push of ${commit.slice(0, 12)} ignored`);
+        return { ignored: status };
+      }
+      return submit(env, systemId, rid, { commit }, source);
+    },
     markEventSeen: (id) => registryStub(env).markEventSeen(id),
   };
 }
