@@ -3,6 +3,7 @@ import { exports } from "cloudflare:workers";
 import { expect } from "vitest";
 import type { ImportSystemResponse, PromoteResponse, StartWorkResponse, SubmitResponse, SystemCommit } from "../../shared/api";
 import { setArtifactsOverride } from "../../worker/artifacts/client";
+import { walkTree } from "../../worker/artifacts/genome-source";
 import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../../worker/hooks/contract";
 import { noopHookRunner } from "../../worker/hooks/index";
 import { appFiles, genomeFiles } from "../fixtures/genome";
@@ -78,13 +79,15 @@ async function head(f: Flow): Promise<string | null> {
   return (await call<{ head: string | null }>("GET", `/systems/${f.systemId}`)).json.head;
 }
 
-/** Start an app realization on `evolution`, commit `files` (merged over the scaffold) to its fork and submit. */
+/** Start an app realization on `evolution`, commit `files` (merged over its base commit's files) to its fork and submit. */
 export async function submitApp(f: Flow, files: Record<string, string>, evolution = "evolution.1") {
   const start = await call<StartWorkResponse>("POST", `/systems/${f.systemId}/evolutions/${evolution}/realizations`, { agentLabel: "claude" });
   expect(start.status, JSON.stringify(start.json)).toBe(201);
   f.forks++;
   const forkRepo = start.json.realization.workspace.fork;
-  const commit = f.ns.repo(forkRepo).commit({ ...appFiles, ...files }, "app change");
+  const fork = f.ns.repo(forkRepo);
+  const base = await walkTree(fork, start.json.realization.workspace.baseCommit);
+  const commit = fork.commit({ ...Object.fromEntries(base), ...files }, "app change");
   const sub = await call<SubmitResponse>("POST", `/systems/${f.systemId}/realizations/${start.json.realization.id}/submit`, { commit });
   expect(sub.status, JSON.stringify(sub.json)).toBe(201);
   return { rid: start.json.realization.id, forkRepo, commit, candidate: sub.json.candidate.id };
@@ -105,11 +108,7 @@ export async function genomeAmendment(f: Flow, edit: (files: Map<string, string>
   const forkRepo = start.json.realization.workspace.fork;
   const fork = f.ns.repo(forkRepo);
   const baseCommit = start.json.realization.workspace.baseCommit;
-  const files = new Map<string, string>();
-  for (const p of Object.keys(genomeFiles)) {
-    const blob = await fork.readFile({ ref: baseCommit, path: p });
-    if (blob) files.set(p, await blob.text());
-  }
+  const files = await walkTree(fork, baseCommit);
   edit(files);
   const commit = fork.commit(files, "amend");
   const sub = await call<SubmitResponse>("POST", `/systems/${f.systemId}/realizations/${start.json.realization.id}/submit`, { commit });
@@ -124,5 +123,11 @@ export async function genomeAmendment(f: Flow, edit: (files: Map<string, string>
   return out;
 }
 
+const ONTOLOGY = "things/webapp/ontology.yaml";
 export const renameContact = (name: string) => (files: Map<string, string>) =>
-  files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", `name: ${name}`));
+  files.set(ONTOLOGY, files.get(ONTOLOGY)!.replace("name: Contact record", `name: ${name}`));
+/** Renames the People screen too, which the C.people.* criteria have as subject. */
+export const renameContactAndScreen = (name: string) => (files: Map<string, string>) => {
+  renameContact(name)(files);
+  files.set(ONTOLOGY, files.get(ONTOLOGY)!.replace("name: People\n", "name: People v2\n"));
+};
