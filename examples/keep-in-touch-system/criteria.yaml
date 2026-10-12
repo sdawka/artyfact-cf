@@ -33,7 +33,7 @@ criteria:
     targetKind: model
     sourceRefs: [GD.connect]
     gates: [submission, promotion]
-    hooks: [hook.system.topology]
+    hooks: [hook.system.topology, hook.system.topology.semantic]
   - id: C.system.autonomy
     title: Autonomy is preserved
     claim: Require owner-only goals and notes, explicit consent, revocation and notification bounds across enabled scope. A coverage hook must resolve these obligations to C.webapp.private.owner, C.webapp.connection.consent, C.webapp.revocation.current and C.webapp.prompts.bounded
@@ -65,6 +65,18 @@ criteria:
     targetKind: model
     gates: [submission, promotion]
     hooks: [hook.system.promotion]
+  - id: C.system.concurrency
+    title: Concurrent work is surfaced before promotion
+    claim: Concurrent candidates touching the same subjects, journeys or criteria are reported as file, soft-semantic or hard-semantic conflicts before any of them is promoted
+    ownerKind: system
+    ownerId: system.keep-in-touch
+    subjectKind: system
+    subjectId: system.keep-in-touch
+    targetKind: model
+    sourceRefs: []
+    severity: soft
+    gates: [submission, candidate, promotion]
+    hooks: [hook.system.overlap]
 hooks:
   - id: hook.system.structure
     assay: system.structure
@@ -72,9 +84,9 @@ hooks:
     tier: basic
     engine: model-rules
     targetKind: model
-    triggers: [submission, promotion]
+    triggers: [submission]
     inputs: { packs: "metamodel@1" }
-    binding: defined
+    binding: bound
   - id: hook.system.purpose.model
     assay: system.purpose.model
     criteria: [C.system.purpose]
@@ -84,7 +96,7 @@ hooks:
     triggers: [submission]
     inputs: { packs: "theory@1" }
     costTier: cheap
-    binding: defined
+    binding: bound
   - id: hook.system.purpose.outcome
     assay: system.purpose.outcome
     criteria: [C.system.purpose]
@@ -103,7 +115,16 @@ hooks:
     targetKind: model
     triggers: [submission, promotion]
     inputs: { packs: "topology.private-pairs@1" }
-    binding: defined
+    binding: bound
+  - id: hook.system.topology.semantic
+    assay: system.topology.semantic
+    criteria: [C.system.topology]
+    tier: semantic
+    engine: system-one
+    targetKind: model
+    triggers: [submission]
+    costTier: cheap
+    binding: bound
   - id: hook.system.autonomy
     assay: system.autonomy.coverage
     criteria: [C.system.autonomy]
@@ -121,7 +142,7 @@ hooks:
     targetKind: model
     triggers: [submission, promotion]
     inputs: { packs: "readiness@1" }
-    binding: defined
+    binding: bound
   - id: hook.system.promotion
     assay: system.promotion
     criteria: [C.system.promotion]
@@ -130,4 +151,13 @@ hooks:
     targetKind: model
     triggers: [submission, promotion]
     inputs: { check: "base-current,scope-authorized,manifest-exact,evidence-fresh" }
-    binding: defined
+    binding: bound
+  - id: hook.system.overlap
+    assay: system.overlap
+    criteria: [C.system.concurrency]
+    tier: basic
+    engine: diff
+    targetKind: model
+    triggers: [submission, candidate]
+    inputs: { mode: overlap }
+    binding: bound

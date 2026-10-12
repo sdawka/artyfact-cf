@@ -132,7 +132,8 @@ If the focused element disappears while it is open, focus returns to the title. 
 focus to where it was before opening, else to `<main>`. Tabs: What · Why · Dependencies · Changes · Rules & claims · Evidence.
 Changes and Evidence are stubs wired to `useRealizationsTouching` / `useModel().verdictOf`.
 Their slices replace them with `registerTab("changes" | "evidence", Component)` from
-`@/inspector/tabRegistry` (any tab id works; the component gets `{ entry }`). Call it at module
+`@/inspector/tabRegistry`. Only the six `InspectorTab` ids are accepted (`what`, `why`,
+`dependencies`, `changes`, `rules`, `evidence`); new tabs need a shell change. The component gets `{ entry }`. Call it at module
 top level in the view module or in a file under `inspector/bodies/`.
 
 **What-tab bodies:** add `inspector/bodies/<Kind>Body.tsx`:
@@ -157,6 +158,11 @@ SideNav has seven links: Overview · Map · Journeys · Theory · Work · Evalua
 
 ## Tests
 
-vitest + Testing Library (jsdom). Import `@/testing/render` and call `renderApp(url, routes?)`.
-It cleans up, stubs `fetch` offline, polyfills cmdk's jsdom gaps and preloads the fixture bundle.
+vitest + Testing Library (jsdom). Import `@/testing/render` and call
+`renderApp(url, routes?, seed?)`. It cleans up, stubs `fetch` offline, polyfills cmdk's jsdom gaps
+and preloads the fixture bundle. `routes` replaces the real route table. `seed(qc)` runs before
+rendering to put more data in the cache, e.g. `qc.setQueryData(qk.evaluations(systemId), { evaluations })`.
+It returns `{ router, qc, ...renderResult }`. Tests may import `@/api/fixtures` directly; app
+code must not import it statically, because `client.ts` loads it with `import()` to keep the
+JSON out of the main chunk.
 Navigation is async under the data router, so wrap URL assertions in `waitFor`.
