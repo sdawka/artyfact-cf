@@ -1,5 +1,7 @@
 import { useId, useState, type ReactNode } from "react";
 import { useAmendmentReview } from "@/api/queries";
+import { useSystemRoute } from "@/model/useSelection";
+import { whyFor } from "../../code/why";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import type { Candidate, Realization } from "../../../../shared/api";
 import styles from "./AmendmentReview.module.css";
@@ -34,6 +36,9 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 export default function AmendmentReview({ evolutionId, realization, candidate }: AmendmentReviewProps) {
   const q = useAmendmentReview(evolutionId, realization.id);
   const [outcome, setOutcome] = useState<DecisionOutcome | null>(null);
+  const { systemId } = useSystemRoute();
+  // An editor commit's "why" starts the interpretation (shown as pending until edited).
+  const editorWhy = whyFor(systemId, [realization.id]);
 
   if (q.isPending) return <EmptyState title="Loading the amendment review…" live />;
   if (q.isError || !q.data) {
@@ -82,7 +87,8 @@ export default function AmendmentReview({ evolutionId, realization, candidate }:
           realization={realization}
           candidateId={r.candidate ?? candidate.id}
           commit={r.commit ?? candidate.commit}
-          initialInterpretation={afterText(first)}
+          initialInterpretation={editorWhy ?? afterText(first)}
+          prefilledFromWhy={!!editorWhy}
           focusId={first?.id}
           blocked={blocked}
           outcome={outcome}
