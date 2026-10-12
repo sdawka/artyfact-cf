@@ -235,11 +235,13 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
 
   const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role }));
   const rid = reserved.realization.id;
+  let tokenId: string | undefined;
   try {
     await registryStub(env).registerRealization(rid, systemId, evolutionId, reserved.forkRepo);
     const ns = artifactsFor(env);
     const forked = await forkAndWait(ns, reserved.baseRepo, reserved.forkRepo);
     const token = await withRepo(ns, reserved.forkRepo, (r) => r.createToken("write", TOKEN_TTL_S));
+    tokenId = token.id;
     const remote = remoteUrl(env, reserved.forkRepo, forked.remote);
     const { sourceMap, tree, prefix } = await withRepo(ns, reserved.baseRepo, async (r) => ({
       sourceMap: target === "app" ? await sourceMapFor(g.model, r, reserved.baseCommit) : [],
@@ -254,12 +256,21 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
     });
     const realization = await stub.activateRealization(rid, { tokenId: token.id, tokenExpires: token.expiresAt, remote, packet });
     await refreshRegistry(env, systemId);
+    const cli = packet.startCommand.replace("<token>", token.plaintext);
     return {
       systemId, realization, packet, token: { value: token.plaintext, expiresAt: token.expiresAt, remote }, remote,
-      startCommand: packet.startCommand.replace("<token>", token.plaintext),
+      startCommand: cli, cli,
     };
   } catch (e) {
-    await stub.abandonRealization(rid);
+    // Best-effort cleanup; never let it mask the original error. Never log the token itself.
+    const cleanup: Promise<unknown>[] = [
+      stub.abandonRealization(rid),
+      registryStub(env).unregisterRealization(rid),
+    ];
+    if (tokenId) cleanup.push(withRepo(artifactsFor(env), reserved.forkRepo, (r) => r.revokeToken(tokenId!)));
+    for (const r of await Promise.allSettled(cleanup)) {
+      if (r.status === "rejected") console.error(`[startWork] cleanup for ${rid} failed: ${(r.reason as Error)?.message ?? r.reason}`);
+    }
     throw e;
   }
 }

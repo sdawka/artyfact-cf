@@ -196,7 +196,7 @@ export function renderAgentsMd(p: TaskPacket): string {
   const ids = p.acceptanceCriteria.filter((c) => c.gate).map((c) => c.id);
   const cmds = p.commands.length ? p.commands.join("; ") : "npm install; npm run dev; npm test";
   return [
-    "<!-- artyfact:begin -->",
+    "<!-- artyfact:start -->",
     `You are realizing ${p.evolutionId} for ${p.systemId}. Read TASK_PACKET.md fully.`,
     `Permitted edits: ${p.permittedPaths.join(", ") || "(none)"}.`,
     p.target === "app" ? "Never edit system/** or assays/** in an app realization." : `Never edit ${p.protectedPaths.join(", ")}.`,

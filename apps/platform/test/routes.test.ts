@@ -1,10 +1,12 @@
-import { exports } from "cloudflare:workers";
+import { env, exports } from "cloudflare:workers";
+import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
   ApiError, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
   SerializedModel, StartWorkResponse, SubmitResponse, SystemsResponse, HistoryResponse, WorkResponse, ReadinessResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
+import type { SystemAuthority } from "../worker/do/system-authority";
 import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../worker/hooks/contract";
 import { noopHookRunner, resetHooks, setHooks } from "../worker/hooks/index";
 import { appFiles, genomeFiles } from "./fixtures/genome";
@@ -125,6 +127,10 @@ describe("routes: import → model → start → submit → promote", () => {
     const pk = await call<PacketResponse>("GET", `/systems/${systemId}/evolutions/evolution.1/realizations/${rid}/packet`);
     expect(pk.json.packet.hash).toBe(start.json.packet.hash);
     expect(JSON.stringify(pk.json)).not.toContain(start.json.token.value);
+    expect(start.json.cli).toBe(start.json.startCommand);
+    expect(JSON.stringify(pk.json)).not.toContain(start.json.cli);
+    const stored = await runInDurableObject(env.SYSTEMS.getByName(systemId), (i: SystemAuthority) => i.realization(rid));
+    expect(JSON.stringify(stored)).not.toContain(start.json.token.value);
     const viaRegistry = await call<PacketResponse>("GET", `/realizations/${rid}/packet`);
     expect(viaRegistry.json.systemId).toBe(systemId);
 
@@ -281,6 +287,15 @@ describe("routes: import → model → start → submit → promote", () => {
     expect((await call<ApiError>("GET", `/systems/system.none/model`)).status).toBe(404);
     expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x" })).status).toBe(401);
     expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x" }, ADMIN)).status).toBe(400);
+  });
+
+  it("a failed start revokes the token and frees the registry entry", async () => {
+    const { ns, systemId, appRepo } = await imported();
+    ns.repo(appRepo).readTree = async () => { throw new Error("boom"); };
+    const res = await call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {});
+    expect(res.status).toBe(500);
+    expect(ns.repo(`${appRepo}--r1`).tokens).toMatchObject([{ revoked: true }]);
+    expect((await call<ApiError>("GET", `/realizations/realization.1.r1`)).status).toBe(404);
   });
 
   it("never silently re-points an imported System", async () => {

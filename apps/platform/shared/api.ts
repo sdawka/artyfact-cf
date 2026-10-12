@@ -280,6 +280,8 @@ export interface StartWorkResponse {
   remote: string;
   /** Ready to paste: `ARTYFACT_TOKEN=<real token> npx artyfact start <rid> --system <sid> --evolution <eid> --dir <dir>`. */
   startCommand: string;
+  /** Same line as `startCommand` (the integrator's name for it). The only other place the token appears. */
+  cli: string;
 }
 
 /** `GET …/realizations/:rid/packet`. Token is never re-issued here. */

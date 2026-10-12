@@ -906,6 +906,10 @@ export class SystemAuthority extends DurableObject<Env> {
     );
   }
 
+  unregisterRealization(realizationId: string): void {
+    this.sql.exec("DELETE FROM registry_realizations WHERE realization_id = ?", realizationId);
+  }
+
   resolveRealization(realizationId: string): { systemId: string; evolutionId: string; forkRepo: string } | null {
     const r = this.one("SELECT system_id, evolution_id, fork_repo FROM registry_realizations WHERE realization_id = ?", realizationId);
     return r ? { systemId: String(r.system_id), evolutionId: String(r.evolution_id), forkRepo: String(r.fork_repo) } : null;
