@@ -10,6 +10,8 @@ const work = async (c: Ctx) => c.json<WorkResponse>(await systemStub(c.env, c.re
 export const evolutions = new Hono<AppEnv>()
   .get("/systems/:id/work", work)
   .get("/systems/:id/evolutions", work)
+  // Stub (B0) until B5 implements CreateEvolutionRequest → CreateEvolutionResponse.
+  .post("/systems/:id/evolutions", (c) => c.json({ error: "not-implemented" }, 501))
   .get("/systems/:id/evolutions/:eid", async (c) => {
     const e = await systemStub(c.env, c.req.param("id")).evolution(c.req.param("eid"));
     if (!e) throw notFound(`unknown evolution ${c.req.param("eid")}`);

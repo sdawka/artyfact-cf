@@ -526,7 +526,24 @@ describe("schema", () => {
       applySchema(sql);
       applySchema(sql); // idempotent
       const cols = sql.exec("SELECT name FROM pragma_table_info('realizations')").toArray().map((r) => r.name);
-      expect(cols).toEqual(expect.arrayContaining(["base_repo", "base_head", "role", "remote", "rejection_reason"]));
+      expect(cols).toEqual(expect.arrayContaining(["base_repo", "base_head", "role", "remote", "rejection_reason", "subscription_id", "origin"]));
+    });
+  });
+
+  it("creates the iteration-2 tables (builds, deployments, phenome_events, changelog_cache)", async () => {
+    await runInDurableObject(stub(), async (_i: SystemAuthority, state) => {
+      const sql = state.storage.sql;
+      const cols = (t: string) => sql.exec("SELECT name FROM pragma_table_info(?)", t).toArray().map((r) => r.name);
+      expect(cols("builds")).toEqual(expect.arrayContaining(["id", "realization_id", "candidate_id", "commit_hash", "kind", "status", "reporter", "external_id", "steps_json"]));
+      expect(cols("deployments")).toEqual(expect.arrayContaining(["id", "kind", "status", "repo", "commit_hash", "build_row", "ingest_token_hash"]));
+      expect(cols("phenome_events")).toEqual(expect.arrayContaining(["seq", "event_id", "deployment_id", "build_id", "kind", "payload_json"]));
+      expect(cols("changelog_cache")).toEqual(["commit_id", "row_json", "entry_json", "created_at"]);
+      // event_id is unique and seq autoincrements.
+      const ins = (id: string) => sql.exec(`INSERT INTO phenome_events (event_id, thing_id, artifact_id, build_id, commit_hash, kind, emitted_at, received_at)
+        VALUES (?, 't', 'a', 'b', 'c', 'k', 'x', 'y')`, id);
+      ins("e1"); ins("e2");
+      expect(() => ins("e1")).toThrow();
+      expect(sql.exec("SELECT seq FROM phenome_events ORDER BY seq").toArray().map((r) => r.seq)).toEqual([1, 2]);
     });
   });
 });
