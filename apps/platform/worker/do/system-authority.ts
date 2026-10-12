@@ -797,8 +797,13 @@ export class SystemAuthority extends DurableObject<Env> {
       const rows = this.all("SELECT verdict, execution FROM evaluations WHERE candidate_id = ? AND criterion_id = ?", candidateId, criterion);
       // Missing evidence is unknown, never pass.
       if (!rows.length) out.push({ candidate: candidateId, criterion, severity, verdict: "unknown", execution: "missing" });
+      // A criterion with a pass+completed row is green unless another of its hooks ran and did not pass: a not-run
+      // row from a hook off this trigger (e.g. an outcome-only hook before deployment) does not block it.
+      const passed = rows.some((r) => r.verdict === "pass" && r.execution === "completed");
       for (const r of rows) {
-        if (r.verdict !== "pass" || r.execution !== "completed") out.push({ candidate: candidateId, criterion, severity, verdict: String(r.verdict) as V, execution: String(r.execution) as X });
+        if (r.verdict === "pass" && r.execution === "completed") continue;
+        if (passed && r.execution === "not-run") continue;
+        out.push({ candidate: candidateId, criterion, severity, verdict: String(r.verdict) as V, execution: String(r.execution) as X });
       }
     }
     return out;

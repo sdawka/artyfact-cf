@@ -152,6 +152,23 @@ describe("promote", () => {
     });
   });
 
+  it("a criterion passes on one pass+completed hook despite another hook's not-run row, never despite a fail or error", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      const { c1, head } = await twoCandidates(i);
+      const required = { [c1.id]: hard("C.system.purpose") };
+      const second = (verdict: Evaluation["verdict"], execution: Evaluation["execution"]) => ({ ...ev(c1.id, "C.system.purpose", verdict, execution), hook: "hook.system.purpose.outcome" });
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "pass")]); // the Evolution's acceptance criterion
+      for (const [verdict, execution] of [["fail", "completed"], ["unknown", "error"]] as const) {
+        i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "pass"), second(verdict, execution)]);
+        expect(await i.promote(promoteInput([c1.id], head, required))).toMatchObject({ ok: false, code: "blocked", blocking: [expect.objectContaining({ verdict, execution })] });
+      }
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "unknown", "not-run"), second("unknown", "not-run")]);
+      expect(await i.promote(promoteInput([c1.id], head, required))).toMatchObject({ ok: false, code: "blocked" });
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "pass"), second("unknown", "not-run")]);
+      expect(await i.promote(promoteInput([c1.id], head, required))).toMatchObject({ ok: true });
+    });
+  });
+
   it("soft/advisory criteria never block but need a non-empty rationale", async () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
       const { c1, head } = await twoCandidates(i);
