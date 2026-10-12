@@ -60,6 +60,11 @@ describe("task packet", () => {
     expect(p.markdown).toContain("src/ui/people/**");
     expect(p.agentsMd).toContain("You are realizing evolution.1 for system.kit");
     expect(p.agentsMd).toContain("npx artyfact submit");
+    // App realizations learn how to report a preview when CI did not build their submit.
+    expect(p.submitInstructions).toContain("Report a preview");
+    expect(p.markdown).toContain("npx artyfact build-report --status passed --url <preview-url>");
+    expect(p.markdown).toContain("/api/systems/system.kit/realizations/realization.1.r1/builds");
+    expect(p.agentsMd).toContain("npx artyfact build-report");
     // Only placeholders: no bearer header and no workspace secret.
     expect(JSON.stringify(p)).not.toMatch(/Bearer/);
     expect(p.workspace).not.toHaveProperty("secret");
