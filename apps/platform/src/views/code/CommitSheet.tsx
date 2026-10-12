@@ -19,10 +19,10 @@ export interface CommitSheetProps {
   onClose(): void;
   /** Called after a successful commit (the draft is cleared). */
   onCommitted(): void;
+  /** Ids a failed attempt already created (owned by the page so closing the sheet keeps them; never stored). */
+  resume: ManualCommitProgress | null;
+  onResume(progress: ManualCommitProgress | null): void;
 }
-
-/** Ids a failed manual commit already created; a retry reuses them instead of creating duplicates. */
-type Resume = ManualCommitProgress;
 
 /** Plain wording for auth refusals; anything else keeps the server's message. */
 export function commitError(err: unknown): string {
@@ -43,7 +43,7 @@ function loadName(): string {
 }
 
 /** Commit the draft: message, why, target Evolution (or a new one), name, admin token; then a candidate on Work. */
-export function CommitSheet({ repo, fixture, changes, onClose, onCommitted }: CommitSheetProps) {
+export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resume, onResume }: CommitSheetProps) {
   const uid = useId();
   const navigate = useNavigate();
   const href = useKeepParams();
@@ -60,7 +60,6 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted }: Co
   const [name, setName] = useState(loadName);
   // Held in component state only: never persisted.
   const [adminToken, setAdminToken] = useState("");
-  const [resume, setResume] = useState<Resume | null>(null);
 
   const open = (evolutions.data?.evolutions ?? []).filter((e) => STARTABLE.has(e.state));
   const resuming = !!resume?.realizationId && !!resume.secret;
@@ -101,7 +100,7 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted }: Co
       },
       {
         onSuccess: (res) => {
-          setResume(null);
+          onResume(null);
           setAdminToken("");
           if (whyText) rememberWhy(systemId, res.realizationId, whyText);
           emitFx({ kind: "submitted", strength: 1.2 }, formRef.current);
@@ -109,7 +108,7 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted }: Co
           navigate(href("work", { ...(res.evolutionId && { evolution: res.evolutionId }), realization: res.realizationId }));
         },
         onError: (err) => {
-          if (err instanceof ManualCommitError) setResume((prev) => ({ ...prev, ...err.progress }));
+          if (err instanceof ManualCommitError) onResume({ ...resume, ...err.progress });
         },
       },
     );

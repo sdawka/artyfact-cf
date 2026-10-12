@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import type { FileScope } from "../../../shared/api";
-import { useRevisions, useTree } from "@/api/queries";
+import { useRevisions, useTree, type ManualCommitProgress } from "@/api/queries";
 import { Drawer } from "@/components/Drawer/Drawer";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { RevisionPicker } from "@/components/RevisionPicker/RevisionPicker";
@@ -41,6 +41,9 @@ export default function CodePage() {
   const draft = useDraft(systemId, repo, rev);
   const [editingPath, setEditingPath] = useState<string | null>(null);
   const [sheetWidth, setSheetWidth] = useState(440);
+  // A failed commit's evolution, realization and one-time secret, per repo. In memory only (it holds the secret) and
+  // outside the sheet, which unmounts when it closes, so a retry never starts a second realization.
+  const [resume, setResume] = useState<Partial<Record<FileScope, ManualCommitProgress>>>({});
 
   const view = (extra: Record<string, string | null>) => {
     const keep: Record<string, string | null> = { repo: params.get("repo"), path, panel, ...extra };
@@ -139,6 +142,8 @@ export default function CodePage() {
           fixture={fixture}
           changes={draft.toRequestFiles()}
           onClose={() => navigate(view({ panel: null }))}
+          resume={resume[repo] ?? null}
+          onResume={(p) => setResume((prev) => ({ ...prev, [repo]: p ?? undefined }))}
           onCommitted={() => {
             draft.clear();
             setEditingPath(null);

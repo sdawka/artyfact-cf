@@ -192,6 +192,42 @@ describe("Code page", () => {
     expect(paths.filter((p) => p.endsWith("/commit"))).toHaveLength(2);
   });
 
+  it("keeps the started realization when the sheet closes, so the retry starts no second one", async () => {
+    let commits = 0;
+    const calls = stubApi((url) => {
+      if (url.endsWith("/commit") && commits++ === 0) return json(422, { error: { code: "protected-path", message: "system.yaml is protected" } });
+      return undefined;
+    });
+    const { router } = renderApp(`${CODE}?path=system.yaml`, undefined, apiSeed);
+    await waitFor(() => expect(editorText()).toBe(FILES["system.yaml"]));
+    await editCurrent("x: 1\n");
+    fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
+    let sheet = await screen.findByRole("complementary", { name: "Commit" });
+    fillSheet();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Commit" }));
+    expect((await within(sheet).findByRole("alert")).textContent).toMatch(/protected/);
+
+    // Fix the draft: a file link closes the sheet (the Drawer unmounts).
+    await openFile("purpose.yaml");
+    expect(screen.queryByRole("complementary", { name: "Commit" })).toBeNull();
+    await editCurrent("note: ok\n");
+
+    fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
+    sheet = await screen.findByRole("complementary", { name: "Commit" });
+    expect(within(sheet).getByText(/Retrying on realization/)).toBeTruthy();
+    expect(within(sheet).queryByLabelText("Admin token")).toBeNull();
+    fireEvent.change(within(sheet).getByLabelText("Message"), { target: { value: "Second try" } });
+    fireEvent.change(within(sheet).getByLabelText("Why"), { target: { value: "Fixed" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Retry commit" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`/s/${SYSTEM}/r/head/work`));
+    const posts = calls.filter((c) => c.method === "POST");
+    expect(posts.filter((c) => c.url.endsWith("/realizations"))).toHaveLength(1);
+    const retried = posts.filter((c) => c.url.endsWith("/commit"));
+    expect(retried).toHaveLength(2);
+    expect(retried[1]!.auth).toBe(`Bearer ${"s".repeat(64)}`);
+    expect(new URLSearchParams(router.state.location.search).get("realization")).toBe("r.7");
+  });
+
   it("keeps the draft across a reload", async () => {
     stubApi();
     renderApp(`${CODE}?path=system.yaml`, undefined, apiSeed);
