@@ -47,7 +47,7 @@ describe("examples/keep-in-touch", () => {
 
     const promote = await call<ApiError>("POST", `/systems/${systemId}/promote`,
       { candidateIds: [sub.json.candidate.id], expectedHead: imp.json.head, rationale: "" }, { authorization: "Bearer test-admin-token" });
-    expect(promote.status).toBe(409);
+    expect(promote.status, JSON.stringify(promote.json)).toBe(409);
     expect(promote.json.error.code).toBe("blocked");
   });
 });

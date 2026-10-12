@@ -13,7 +13,13 @@ export default defineConfig({
           cloudflareTest({
             wrangler: { configPath: "./wrangler.test.jsonc" },
             // Test-only secret/var values (the real ones live in .dev.vars / Cloudflare secrets).
-            miniflare: { bindings: { ADMIN_TOKEN: "test-admin-token", ACCOUNT_ID: "test-account" } },
+            // Provider and preview vars are pinned off so a developer's .dev.vars (FAKE_S1=1, ALLOW_LOCAL_PREVIEW=1) never leaks in.
+            miniflare: {
+              bindings: {
+                ADMIN_TOKEN: "test-admin-token", ACCOUNT_ID: "test-account",
+                FAKE_S1: "", TYPESAFE_API_KEY: "", OPENROUTER_API_KEY: "", ALLOW_LOCAL_PREVIEW: "", PREVIEW_HOST_ALLOWLIST: "",
+              },
+            },
           }),
         ],
         resolve: { alias },
