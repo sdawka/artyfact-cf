@@ -44,7 +44,8 @@ export default function PhenomeView() {
 function BuildsCard({ builds, production }: { builds: Build[]; production: Deployment | null }) {
   const href = useKeepParams();
   return (
-    <Card title="Builds" headingLevel={2}>
+    <section aria-labelledby="builds-title" className={styles.plain}>
+      <h2 id="builds-title" className={styles.heading}>Builds</h2>
       {builds.length === 0 ? <p className={styles.muted}>No builds yet — <Unknown />.</p> : (
         <ul className={styles.list}>
           {builds.map((b) => (
@@ -71,7 +72,7 @@ function BuildsCard({ builds, production }: { builds: Build[]; production: Deplo
           ))}
         </ul>
       )}
-    </Card>
+    </section>
   );
 }
 
