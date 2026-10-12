@@ -33,7 +33,7 @@ export interface RunnerDeps {
   /** System One client; defaults to `createSystemOne(s1Env ?? {})` (provider off when no key). */
   s1?: SystemOne;
   s1Env?: SystemOneEnv;
-  /** Preview URL policy env (ALLOW_LOCAL_PREVIEW, PREVIEW_HOST_ALLOWLIST); defaults to `s1Env` when that is the Worker env. */
+  /** Preview URL policy env (ALLOW_LOCAL_PREVIEW, PREVIEW_HOST_ALLOWLIST). The Worker wiring passes `env`. Absent → defaults only. */
   previewEnv?: PreviewEnv;
   fetch?: typeof fetch;
   now?: () => Date;
@@ -173,7 +173,7 @@ function vacuous(r: ModelRulesResult, counts: Record<string, number>, what: stri
 export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
   const s1 = deps.s1 ?? createSystemOne(deps.s1Env ?? {});
   const now = () => (deps.now ?? (() => new Date()))().toISOString();
-  const policy = previewPolicy(deps.previewEnv ?? (deps.s1Env as PreviewEnv | undefined) ?? {});
+  const policy = previewPolicy(deps.previewEnv ?? {});
 
   const loadBase = (ctx: ConflictContext): SystemModel => {
     try {

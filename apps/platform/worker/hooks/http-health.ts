@@ -5,7 +5,7 @@
  * `previewUrl` is agent-supplied, so it is validated before any request (SSRF): https only, hostname on the
  * allowlist (`*.workers.dev`, `*.pages.dev`, plus `PREVIEW_HOST_ALLOWLIST`), no IP literals, no credentials, default
  * port; `http(s)://localhost|127.0.0.1` only with `ALLOW_LOCAL_PREVIEW=1`. A rejected URL is `completed / fail`
- * (the agent gave a bad URL). Redirects are not followed (3xx → fail). The body is never echoed: only
+ * (the agent gave a bad URL). Redirects are not followed (3xx → unknown). The body is never echoed: only
  * `{status, ok, buildId}` and short error messages are recorded. Transport failures and timeouts are
  * `execution: error`, never a verdict.
  */
@@ -25,10 +25,13 @@ export interface PreviewPolicy {
 
 export const DEFAULT_PREVIEW_HOSTS = ["*.workers.dev", "*.pages.dev"];
 
+const ALLOWLIST_ENTRY = /^(\*\.)?[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 const normHost = (h: string) => h.trim().toLowerCase().replace(/\.$/, "");
 
 export function previewPolicy(env: PreviewEnv = {}): PreviewPolicy {
-  const extra = (env.PREVIEW_HOST_ALLOWLIST ?? "").split(",").map(normHost).filter(Boolean);
+  // Only well-formed host patterns: `host.tld` or `*.host.tld` (≥ 2 labels). Anything else (bare `*`, `*.`, schemes,
+  // ports, paths) is ignored.
+  const extra = (env.PREVIEW_HOST_ALLOWLIST ?? "").split(",").map(normHost).filter((h) => ALLOWLIST_ENTRY.test(h));
   return { allowLocal: env.ALLOW_LOCAL_PREVIEW === "1", hosts: [...DEFAULT_PREVIEW_HOSTS, ...extra] };
 }
 
@@ -135,7 +138,12 @@ export async function httpHealth(input: HealthInput): Promise<Outcome> {
   let text: string | null;
   try {
     res = await doFetch(url, { signal: ctl.signal, redirect: "manual", headers: { accept: "application/json" } });
-    text = res.status >= 300 && res.status < 400 ? "" : await readCapped(res);
+    if (res.status >= 300 && res.status < 400) {
+      await res.body?.cancel();
+      text = "";
+    } else {
+      text = await readCapped(res);
+    }
   } catch (e) {
     const timedOut = ctl.signal.aborted;
     const msg = clip(timedOut ? `GET timed out after ${timeoutMs} ms` : e instanceof Error ? `${e.name}: ${e.message}` : String(e));
@@ -144,16 +152,22 @@ export async function httpHealth(input: HealthInput): Promise<Outcome> {
     clearTimeout(timer);
   }
 
-  const done = (verdict: "pass" | "fail", obs: { status: number; ok?: unknown; buildId?: unknown }, problem?: string): Outcome => ({
+  const done = (verdict: "pass" | "fail" | "unknown", obs: { status: number; ok?: unknown; buildId?: unknown }, problem?: string): Outcome => ({
     execution: "completed",
     verdict,
     observations: [{ url, status: obs.status, ok: obs.ok, buildId: typeof obs.buildId === "string" ? clip(obs.buildId) : obs.buildId === undefined ? undefined : typeof obs.buildId, ...(problem && { error: clip(problem) }) }],
     interpretation: problem ? clip(problem) : "Preview is healthy and serves this commit.",
-    limitations: ["Checks the preview deployment only."],
+    limitations: [
+      "Checks the preview deployment only.",
+      "A pass proves only that the allowlisted host served a matching buildId, not who operates that host.",
+    ],
     provenance,
   });
 
-  if (res.status >= 300 && res.status < 400) return done("fail", { status: res.status }, `redirect (HTTP ${res.status}) not followed`);
+  // The redirect target was never examined: not evidence either way. `fail` is reserved for an unusable URL.
+  if (res.status >= 300 && res.status < 400) {
+    return { execution: "completed", verdict: "unknown", observations: [{ url, status: res.status }], interpretation: `redirect (HTTP ${res.status}) not followed`, limitations: ["Redirects are not followed."], provenance };
+  }
   if (text === null) return done("fail", { status: res.status }, `body larger than ${MAX_BODY_BYTES} bytes`);
   let body: unknown;
   try {

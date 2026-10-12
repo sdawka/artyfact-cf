@@ -30,10 +30,15 @@ describe("http engine: verdicts", () => {
     expect((await httpHealth({ previewUrl: PREVIEW, commit, fetch: fakeFetch(200, { status: "degraded", buildId: commit }) })).verdict).toBe("fail");
   });
 
-  it("fails on a 3xx without following it", async () => {
-    const o = await httpHealth({ previewUrl: PREVIEW, commit, fetch: fakeFetch(302, "", [], { location: "http://169.254.169.254/" }) });
-    expect(o).toMatchObject({ execution: "completed", verdict: "fail" });
-    expect(o.interpretation).toMatch(/redirect \(HTTP 302\) not followed/);
+  it("is unknown on a 3xx, not followed, recording only url and status", async () => {
+    const o = await httpHealth({ previewUrl: PREVIEW, commit, fetch: fakeFetch(302, "redirect body", [], { location: "http://169.254.169.254/" }) });
+    expect(o).toMatchObject({ execution: "completed", verdict: "unknown", interpretation: "redirect (HTTP 302) not followed" });
+    expect(o.observations).toEqual([{ url: `${PREVIEW}/health`, status: 302 }]);
+  });
+
+  it("states what a pass proves", async () => {
+    const o = await httpHealth({ previewUrl: PREVIEW, commit, fetch: fakeFetch(200, { status: "ok", buildId: commit }) });
+    expect(o.limitations).toContain("A pass proves only that the allowlisted host served a matching buildId, not who operates that host.");
   });
 
   it("fails on a non-JSON body without echoing it", async () => {
@@ -91,7 +96,11 @@ describe("http engine: previewUrl validation (SSRF)", () => {
   it("rejects the bare apex of a wildcard entry and look-alike suffixes", async () => {
     await rejects("https://workers.dev", /allowlist/);
     await rejects("https://kitworkers.dev", /allowlist/);
+    await rejects("https://workers.dev.evil.com", /allowlist/);
+    await rejects("https://evil-workers.dev", /allowlist/);
   });
+
+  it("rejects an allowed host used as userinfo before another host", () => rejects("https://a.workers.dev@evil.com", /credentials/));
   it("rejects IP literals, v4 and v6, including private, loopback and link-local", async () => {
     await rejects("https://10.0.0.1/", /IP address/);
     await rejects("https://169.254.169.254/", /IP address/);
@@ -115,6 +124,12 @@ describe("http engine: previewUrl validation (SSRF)", () => {
     expect(validatePreviewUrl("https://KIT.acct.Workers.Dev./", p).ok).toBe(true);
   });
 
+  it("ignores empty and malformed allowlist entries", () => {
+    const p = previewPolicy({ PREVIEW_HOST_ALLOWLIST: "a.com,,  ,*,*.,*.com,https://b.com,c.com:8443,d.example.org" });
+    expect(p.hosts).toEqual(["*.workers.dev", "*.pages.dev", "a.com", "d.example.org"]);
+    expect(validatePreviewUrl("https://x.workers.dev..", p).ok).toBe(false);
+  });
+
   it("accepts PREVIEW_HOST_ALLOWLIST entries (exact and wildcard)", () => {
     const p = previewPolicy({ PREVIEW_HOST_ALLOWLIST: " preview.example.com , *.staging.example.org " });
     expect(validatePreviewUrl("https://preview.example.com", p).ok).toBe(true);
@@ -131,6 +146,12 @@ describe("http engine: previewUrl validation (SSRF)", () => {
     const o = await httpHealth({ previewUrl: "http://localhost:8787", commit, policy: p, fetch: fakeFetch(200, { status: "ok", buildId: commit }, seen) });
     expect(o.verdict).toBe("pass");
     expect(seen[0].url).toBe("http://localhost:8787/health");
+  });
+
+  it("does not follow a redirect from a local preview host", async () => {
+    const p = previewPolicy({ ALLOW_LOCAL_PREVIEW: "1" });
+    const o = await httpHealth({ previewUrl: "http://localhost:8787", commit, policy: p, fetch: fakeFetch(301, "", [], { location: "http://10.0.0.1/" }) });
+    expect(o).toMatchObject({ execution: "completed", verdict: "unknown" });
   });
 
   it("keeps the health path on the preview origin", async () => {

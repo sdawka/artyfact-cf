@@ -73,6 +73,17 @@ describe("runSubmission", () => {
     expect(JSON.stringify(h.observations)).toContain("no network in tests");
   });
 
+  it("previewEnv reaches the health policy; a default runner rejects the same host", async () => {
+    const ok = (async () => new Response(JSON.stringify({ status: "ok", buildId: COMMIT }))) as unknown as typeof fetch;
+    const c = appCandidate({ previewUrl: "https://p.example.com" });
+    const allowed = createHookRunner({ previewEnv: { PREVIEW_HOST_ALLOWLIST: "p.example.com" }, fetch: ok, now: fixedNow, s1: createSystemOne({}) });
+    expect(by(await allowed.runSubmission(ctxFor(c)), "C.webapp.health")[0]).toMatchObject({ execution: "completed", verdict: "pass" });
+    const deflt = createHookRunner({ fetch: ok, now: fixedNow, s1: createSystemOne({}) });
+    const e = by(await deflt.runSubmission(ctxFor(c)), "C.webapp.health")[0];
+    expect(e).toMatchObject({ execution: "completed", verdict: "fail" });
+    expect(e.observations[0]).toMatch(/previewUrl rejected: host p\.example\.com is not on the preview allowlist/);
+  });
+
   it("an engine that throws becomes execution error with the message", async () => {
     const boom = createHookRunner({ now: fixedNow, s1: createSystemOne({}), fetch: (async () => new Response("{}")) as unknown as typeof fetch });
     const bad = ctxFor(appCandidate(), { tree: null as unknown as [] });
