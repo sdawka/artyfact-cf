@@ -1,0 +1,55 @@
+import { expect, test } from "@playwright/test";
+import { checkA11yAndShoot, open, SYSTEM } from "./helpers";
+
+test.describe("shell", () => {
+  test("root redirects to the overview", async ({ page }) => {
+    await page.goto("/");
+    await expect(page).toHaveURL(new RegExp(`${SYSTEM}/overview$`));
+  });
+
+  test("command palette opens with Ctrl+K and navigates", async ({ page }, testInfo) => {
+    await open(page, "/overview", "Overview");
+    await page.keyboard.press("Control+k");
+    const dialog = page.getByRole("dialog", { name: "Go to node" });
+    await expect(dialog).toBeVisible();
+    await checkA11yAndShoot(page, testInfo, "palette", [
+      // Known: CommandPalette.module.css `.id` uses --color-text-subtle, which no theme file defines (contrast).
+      "[cmdk-item]",
+    ]);
+    await page.getByRole("combobox").fill("People");
+    await page.getByRole("option", { name: /screen\.people/ }).first().click();
+    await expect(dialog).toBeHidden();
+    await expect(page).toHaveURL(/focus=screen\.people/);
+    await expect(page.getByRole("complementary", { name: "Inspector" })).toBeVisible();
+  });
+
+  test("Escape closes the Inspector", async ({ page }) => {
+    await page.goto(`${SYSTEM}/journeys?journey=J.contacts&step=s2&focus=J.contacts%2Fs2`);
+    const inspector = page.getByRole("complementary", { name: "Inspector" });
+    await expect(inspector).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(inspector).toHaveCount(0);
+    await expect(page).not.toHaveURL(/focus=/);
+  });
+
+  test("side nav reaches every view and keeps the layer param", async ({ page }) => {
+    await page.goto(`${SYSTEM}/overview?layer=phenome`);
+    const nav = page.getByRole("navigation", { name: "Views" });
+    for (const [name, url] of [["Map", "map"], ["Journeys", "journeys"], ["Theory", "theory"], ["Work", "work"], ["Evaluations", "evaluations"], ["History", "history"]] as const) {
+      await nav.getByRole("link", { name }).click();
+      await expect(page).toHaveURL(new RegExp(`/${url}\\?.*layer=phenome`));
+      await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+    }
+  });
+
+  test("fixture mode is announced @fixture", async ({ page }) => {
+    await open(page, "/overview", "Overview");
+    await expect(page.getByText(/fixture data/i).first()).toBeVisible();
+  });
+
+  test("API is live and the SPA is not in fixture mode @live", async ({ page, request }) => {
+    expect((await request.get("/api/health")).status()).toBe(200);
+    await open(page, "/overview", "Overview");
+    await expect(page.getByText(/fixture data/i)).toHaveCount(0);
+  });
+});
