@@ -34,14 +34,14 @@ export function diffModels(a: SystemModel, b: SystemModel): SemanticDelta {
     if (fields.length) changed.push({ id, fields });
   }
 
-  const touched = new Set([...removed, ...changed.map((c) => c.id)]);
+  const touched = new Set([...added, ...removed, ...changed.map((c) => c.id)]);
   const sourceRefsChanged = new Set(changed.filter((c) => c.fields.includes("sourceRefs")).map((c) => c.id));
   const affectedCriteria = sorted(
     [...a.criteria, ...b.criteria]
       .filter((c) => touched.has(c.subjectId) || sourceRefsChanged.has(c.id) || c.sourceRefs.some((r) => touched.has(r)))
       .map((c) => c.id),
   );
-  const ids = [...added, ...touched];
+  const ids = [...touched];
   const affectedJourneys = sorted([
     ...ids.flatMap((id) => [...(a.index.journeysByNode[id] ?? []), ...(b.index.journeysByNode[id] ?? [])]),
     ...ids.filter((id) => (A[id] ?? B[id]).type === "journey"),
