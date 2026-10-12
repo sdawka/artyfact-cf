@@ -133,9 +133,8 @@ describe("validateRepoConfig", () => {
     const text = JSON.stringify({
       main: "/proc/self/environ", compatibility_date: "2026-10-12", account_id: "other",
       assets: { directory: "../../etc" }, rules: [{ type: "Text", globs: ["**/environ"] }],
-      d1_databases: [{ binding: "DB", database_id: "x" }], services: [{ binding: "P", service: "artyfact-platform" }],
+      services: [{ binding: "P", service: "artyfact-platform" }],
       durable_objects: { bindings: [{ name: "SA", class_name: "SystemAuthority", script_name: "artyfact-platform" }] },
-      workflows: [{ name: "w", binding: "W", class_name: "C", script_name: "artyfact-platform" }],
       vars: { ARTYFACT_INGEST_TOKEN: "x" }, made_up: 1,
     });
     let message = "";
@@ -145,12 +144,40 @@ describe("validateRepoConfig", () => {
       message = (e as Error).message;
     }
     for (const bit of [
-      "rules is not supported", "d1_databases is not supported", "services is not supported", "made_up is not supported",
+      "rules is not supported", "services is not supported", "made_up is not supported",
       "account_id names another account", "main must be a path inside the repo", "assets.directory must be a path inside the repo",
-      "durable_objects SA binds another Worker's class", "workflow w binds another Worker's Workflow", "vars.ARTYFACT_INGEST_TOKEN is set by the platform",
+      "durable_objects SA binds another Worker's class", "vars.ARTYFACT_INGEST_TOKEN is set by the platform",
     ]) expect(message).toContain(bit);
     expect(() => validateRepoConfig("wrangler.toml", 'main = "x"', { accountId: ACCOUNT })).toThrow(/wrangler.json or wrangler.jsonc only/);
     expect(() => spec("{ nope")).toThrow(/not valid JSON/);
+  });
+
+  it("accepts the keep-in-touch config with its D1 binding as-is", () => {
+    const text = `{
+      "name": "keep-in-touch", "main": "src/index.ts", "compatibility_date": "2026-10-12", "assets": { "directory": "public" },
+      "d1_databases": [
+        { "binding": "DB", "database_name": "keep-in-touch", "database_id": "11111111-2222-3333-4444-555555555555", "migrations_dir": "migrations" }
+      ],
+      // comment
+      "vars": { "BUILD_ID": "dev" }
+    }`;
+    const d1 = [{ binding: "DB", database_name: "keep-in-touch", database_id: "11111111-2222-3333-4444-555555555555", migrations_dir: "migrations" }];
+    expect(deployConfig(spec(text), { workerName: "keep-in-touch-app-r1", accountId: ACCOUNT, nonce: NONCE })).toMatchObject({ d1_databases: d1 });
+  });
+
+  it("refuses migrations that transfer another Worker's Durable Object state", () => {
+    const base = { main: "src/index.ts", compatibility_date: "2026-10-12" };
+    const transfer = { ...base, migrations: [{ tag: "v2", transferred_classes: [{ from: "SystemAuthority", from_script: "artyfact-platform", to: "X" }] }] };
+    expect(() => spec(JSON.stringify(transfer))).toThrow(/migration v2: transferred_classes is not supported/);
+    const rename = { ...base, migrations: [{ tag: "v3", renamed_classes: [{ from: "SystemAuthority", to: "X", from_script: "artyfact-platform" }] }] };
+    expect(() => spec(JSON.stringify(rename))).toThrow(/migration v3: from_script pulls another Worker's Durable Object state/);
+    const ok = { ...base, migrations: [{ tag: "v1", new_sqlite_classes: ["A"] }, { tag: "v2", renamed_classes: [{ from: "A", to: "B" }], deleted_classes: ["C"] }] };
+    expect(() => spec(JSON.stringify(ok))).not.toThrow();
+  });
+
+  it("refuses workflows (their names are account-wide)", () => {
+    const text = JSON.stringify({ main: "src/index.ts", compatibility_date: "2026-10-12", workflows: [{ name: "artyfact-ci", binding: "W", class_name: "C" }] });
+    expect(() => spec(text)).toThrow(/workflows is not supported \(Workflow names are account-wide/);
   });
 
   it("parses JSONC comments and trailing commas without touching strings", () => {
