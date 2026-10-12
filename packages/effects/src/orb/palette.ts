@@ -1,94 +1,78 @@
-/*
- * Adapted from the Crystalized Ball component in React Bits (https://github.com/DavidHDev/react-bits).
- * Copyright (c) 2026 David Haz. Licensed under MIT + Commons Clause License Condition v1.0, NOT Apache-2.0:
- * use inside an application, website or product only; do not sell, sublicense or redistribute this component on its
- * own, in a bundle or as a ported version. Full text: THIRD_PARTY_NOTICES.md.
+/**
+ * Orb palette: every tone the Orb draws with, derived from one base colour in OKLCh so lightness steps look even
+ * across hues. Dark theme tones are light (they glow additively); light theme tones are dark inks.
  */
-
-/** The Orb's palette: one base colour expanded into rim, spark, haze and dust tones in OKLab. */
 import { clamp, fromOklab, toOklab, type Rgb } from "../color";
 
-const WHITE: Rgb = [1, 1, 1];
-const BLACK: Rgb = [0, 0, 0];
+export type OrbTheme = "dark" | "light";
 
-export const easeOut = (t: number) => 1 - Math.pow(1 - t, 3);
-export const wrapAngle = (a: number) => a - Math.PI * 2 * Math.floor((a + Math.PI) / (Math.PI * 2));
-export const mixColor = (a: Rgb, b: Rgb, t: number): Rgb => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+export interface OrbPalette {
+  /** Rim filaments. */
+  rim: Rgb;
+  /** Hottest rim core and surge highlights. */
+  hot: Rgb;
+  /** Soft outer halo and flares. */
+  halo: Rgb;
+  /** Interior haze pool. */
+  haze: Rgb;
+  /** Spark arcs. */
+  spark: Rgb;
+  /** Dust tones: deep, base, light, hue-shifted, and a pale tone for sparse outliers. */
+  dust: readonly [Rgb, Rgb, Rgb, Rgb, Rgb];
+}
 
-/** Mix in OKLab. */
-export const blend = (a: Rgb, b: Rgb, t: number): Rgb => {
+type Lch = [number, number, number];
+
+const toLch = (rgb: Rgb): Lch => {
+  const [L, a, b] = toOklab(rgb);
+  const C = Math.hypot(a, b);
+  const H = C < 1e-5 ? 0 : (Math.atan2(b, a) * 180) / Math.PI;
+  return [L, C, (H + 360) % 360];
+};
+
+const fromLch = ([L, C, H]: Lch): Rgb => {
+  const h = (H * Math.PI) / 180;
+  return fromOklab([clamp(L, 0, 1), Math.max(0, C) * Math.cos(h), Math.max(0, C) * Math.sin(h)]);
+};
+
+/** `rgb` moved by `dL` lightness, scaled by `cScale` chroma and rotated by `dH` degrees, in OKLCh. */
+export function shift(rgb: Rgb, dL = 0, cScale = 1, dH = 0): Rgb {
+  const [L, C, H] = toLch(rgb);
+  return fromLch([L + dL, C * cScale, H + dH]);
+}
+
+/** Mix of `a` and `b` in OKLab; `t` 0 gives `a`, 1 gives `b`. */
+export function blend(a: Rgb, b: Rgb, t: number): Rgb {
+  const k = clamp(t, 0, 1);
   const la = toOklab(a);
   const lb = toOklab(b);
-  return fromOklab([la[0] + (lb[0] - la[0]) * t, la[1] + (lb[1] - la[1]) * t, la[2] + (lb[2] - la[2]) * t]);
-};
-
-/** Rotate hue (degrees), offset lightness and scale chroma in OKLCh. */
-export const shift = (rgb: Rgb, hue: number, lightness: number, chroma: number): Rgb => {
-  const [L, a, b] = toOklab(rgb);
-  const c = Math.hypot(a, b) * chroma;
-  const h = Math.atan2(b, a) + (hue * Math.PI) / 180;
-  return fromOklab([clamp(L + lightness, 0, 1), c * Math.cos(h), c * Math.sin(h)]);
-};
-
-/** Same hue (rotated by `hue`), absolute `lightness`, chroma scaled with a floor so greys keep a tint. */
-export const withLightness = (rgb: Rgb, hue: number, lightness: number, chroma: number): Rgb => {
-  const [, a, b] = toOklab(rgb);
-  const c = Math.max(Math.hypot(a, b) * chroma, 0.02);
-  const h = Math.atan2(b, a) + (hue * Math.PI) / 180;
-  return fromOklab([clamp(lightness, 0, 1), c * Math.cos(h), c * Math.sin(h)]);
-};
-
-/** The Orb's derived colours: rim layers, spark arcs, haze, edge, and five dust tones. */
-export interface OrbPalette {
-  rim: Rgb;
-  rimHot: Rgb;
-  rimMid: Rgb;
-  rimDeep: Rgb;
-  spark: Rgb;
-  sparkGlow: Rgb;
-  haze: Rgb;
-  edge: Rgb;
-  tones: [Rgb, Rgb, Rgb, Rgb, Rgb];
+  return fromOklab([la[0] + (lb[0] - la[0]) * k, la[1] + (lb[1] - la[1]) * k, la[2] + (lb[2] - la[2]) * k]);
 }
 
-/** Builds the palette from one base colour, as in the reference. `light` targets light backgrounds (ink, not light). */
-export function buildPalette(color: Rgb, light = false): OrbPalette {
-  if (light) {
-    const ink = withLightness(color, 0, Math.min(toOklab(color)[0], 0.62), 1.15);
+/** The full palette for a base colour (gamma sRGB 0..1). */
+export function buildPalette(color: Rgb, theme: OrbTheme = "dark"): OrbPalette {
+  const [L, C, H] = toLch(color);
+  // Keep near-greys from blowing up when scaled, and very saturated inputs inside a pleasant range.
+  const c = Math.min(C, 0.2);
+  const at = (l: number, cs: number, dh = 0) => fromLch([l, c * cs, H + dh]);
+  if (theme === "light") {
+    const ink = clamp(L * 0.42, 0.2, 0.36);
     return {
-      rim: ink,
-      rimHot: ink,
-      rimMid: ink,
-      rimDeep: withLightness(color, 0, 0.72, 0.8),
-      spark: withLightness(color, 0, 0.6, 1.2),
-      sparkGlow: withLightness(color, 0, 0.78, 0.8),
-      haze: withLightness(color, 0, 0.8, 0.6),
-      edge: withLightness(color, 0, 0.72, 0.8),
-      tones: [
-        withLightness(color, 0, 0.56, 1.1),
-        withLightness(color, 16, 0.6, 1.05),
-        withLightness(color, -16, 0.5, 1.1),
-        withLightness(color, 0, 0.66, 0.9),
-        withLightness(color, 0, 0.74, 0.7),
-      ],
+      rim: at(ink, 1.1),
+      hot: at(ink - 0.08, 0.9),
+      halo: at(ink + 0.18, 1),
+      haze: at(ink + 0.24, 0.9, 4),
+      spark: at(ink - 0.1, 0.8),
+      dust: [at(ink - 0.06, 1.1, -6), at(ink + 0.06, 1), at(ink + 0.16, 0.9, 6), at(ink + 0.08, 0.9, 22), at(ink + 0.3, 0.5)],
     };
   }
+  const mid = clamp(L, 0.55, 0.85);
   return {
-    rim: color,
-    rimHot: mixColor(color, WHITE, 0.72),
-    rimMid: mixColor(color, BLACK, 0.15),
-    rimDeep: mixColor(color, BLACK, 0.45),
-    spark: mixColor(color, WHITE, 0.45),
-    sparkGlow: shift(color, 0, -0.15, 1),
-    haze: mixColor(color, BLACK, 0.6),
-    edge: shift(color, 0, -0.3, 0.9),
-    tones: [
-      shift(color, 0, -0.06, 1),
-      shift(color, 16, -0.02, 1),
-      shift(color, -16, -0.12, 1.05),
-      shift(blend(color, WHITE, 0.25), 0, 0.04, 1),
-      blend(color, WHITE, 0.7),
-    ],
+    rim: at(Math.max(mid + 0.06, 0.8), 0.9),
+    hot: at(0.97, 0.3),
+    halo: at(mid, 1.1),
+    haze: at(mid - 0.08, 1.15, 4),
+    spark: at(0.98, 0.22),
+    dust: [at(mid - 0.12, 1.15, -6), at(mid, 1), at(Math.min(0.93, mid + 0.09), 0.85, 6), at(mid + 0.02, 0.9, 22), at(0.94, 0.3)],
   };
 }
-

@@ -1,459 +1,377 @@
-/*
- * Adapted from the Crystalized Ball component in React Bits (https://github.com/DavidHDev/react-bits).
- * Copyright (c) 2026 David Haz. Licensed under MIT + Commons Clause License Condition v1.0, NOT Apache-2.0:
- * use inside an application, website or product only; do not sell, sublicense or redistribute this component on its
- * own, in a bundle or as a ported version. Full text: THIRD_PARTY_NOTICES.md.
- */
-// GLSL for the Orb, ported from React Bits unchanged except where marked "artyfact:".
-import { STATE_WIDTH } from "./data";
+// GLSL for the Orb. Two draws per frame and no offscreen targets:
+//  1. `glow`: one full-canvas pass for the rim filaments, flares, halo, spark arcs and the interior haze, worked out in
+//     polar coordinates around the orb centre (units of the orb radius R, y up).
+//  2. `dust`: one point per particle. Positions are derived in the vertex shader from per-particle seeds, the eased
+//     fill and motion weights, and a handful of uniform impulses (pointer stirs and pulse kicks), so the dust is
+//     stateless: nothing is simulated or read back.
 
-export const passVertex = `#version 300 es
+export const MAX_SPARKS = 8;
+export const MAX_STIRS = 6;
+
+const common = `
+const float PI = 3.14159265;
+const float TAU = 6.28318531;
+
+float hash21(vec2 p) {
+  return fract(sin(dot(p, vec2(41.37, 289.11))) * 23758.5453);
+}
+
+// Smooth value noise in 0..1.
+float vnoise(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  float a = hash21(i);
+  float b = hash21(i + vec2(1.0, 0.0));
+  float c = hash21(i + vec2(0.0, 1.0));
+  float d = hash21(i + vec2(1.0, 1.0));
+  return mix(mix(a, b, u.x), mix(c, d, u.x), u.y);
+}
+
+// Noise sampled around a circle, so it is seamless in the angle. freq sets features per turn, drift animates it.
+float ringNoise(float angle, float freq, vec2 drift) {
+  return vnoise(vec2(cos(angle), sin(angle)) * freq + drift);
+}
+
+// Shortest signed angle from b to a.
+float angleDelta(float a, float b) {
+  return mod(a - b + PI, TAU) - PI;
+}
+`;
+
+export const glowVertex = `#version 300 es
 in vec2 position;
-in vec2 uv;
-out vec2 vUv;
 void main() {
-  vUv = uv;
   gl_Position = vec4(position, 0.0, 1.0);
 }
 `;
 
-export const hashChunk = `
-uint scramble(uint v) {
-  v = v * 747796405u + 2891336453u;
-  uint w = ((v >> ((v >> 28u) + 4u)) ^ v) * 277803737u;
-  return (w >> 22u) ^ w;
-}
-
-float random(uint v) {
-  return float(scramble(v)) * (1.0 / 4294967295.0);
-}
-`;
-
-export const dustChunk = `
-uniform float uDustTime;
-uniform vec2 uTurn;
-uniform float uMotion;
-uniform float uFill;
-
-vec3 settle(vec3 p, out float spread) {
-  float bend = exp2((0.5 - uFill) * 1.8);
-  float h = clamp((p.y + 1.0) * 0.5, 0.0, 1.0);
-  float y = 2.0 * pow(h, bend) - 1.0;
-  float from = sqrt(max(1.0 - p.y * p.y, 1e-4));
-  float to = sqrt(max(1.0 - y * y, 0.0));
-  spread = clamp(bend * pow(max(h, 1e-3), bend - 1.0) * to / from, 0.25, 1.0);
-  return vec3(p.xz * (to / from), y).xzy;
-}
-
-vec3 drift(vec4 home, vec4 seed, uint id, out float life, out float spread) {
-  vec3 p = settle(home.xyz, spread);
-  float t = uDustTime;
-  float u = fract(t / seed.z + seed.y);
-  life = sin(3.14159265 * u);
-  float travel = seed.w;
-  if (uMotion < 0.5) {
-    p.y += travel * (u - 0.5);
-  } else if (uMotion < 1.5) {
-    p.y -= travel * (u - 0.5);
-  } else if (uMotion < 2.5) {
-    p += 0.045 * vec3(
-      sin(t * 0.37 + seed.y * 17.0) + 0.5 * sin(t * 0.83 + seed.z * 5.0),
-      sin(t * 0.29 + seed.z * 11.0) + 0.5 * sin(t * 0.61 + seed.w * 7.0),
-      sin(t * 0.33 + seed.w * 23.0)
-    );
-  } else {
-    float loop = t * (0.6 + 0.9 * random(id * 7u + 3u)) * (random(id * 7u + 10u) < 0.5 ? -1.0 : 1.0) + seed.y * 6.2831853;
-    p.xy += (0.025 + 0.05 * random(id * 7u + 16u)) * vec2(cos(loop), sin(loop));
-  }
-  float wobble = 0.002 + 0.006 * random(id * 7u + 1u);
-  float w1 = 0.8 + 2.4 * random(id * 7u + 2u);
-  float w2 = 0.8 + 2.4 * random(id * 7u + 4u);
-  p += wobble * vec3(sin(t * w1 + seed.y * 40.0), cos(t * w2 + seed.z * 30.0), sin(t * (w1 + w2) * 0.5 + seed.w * 20.0));
-  float cy = cos(uTurn.x);
-  float sy = sin(uTurn.x);
-  p.xz = mat2(cy, -sy, sy, cy) * p.xz;
-  float cx = cos(uTurn.y);
-  float sx = sin(uTurn.y);
-  p.yz = mat2(cx, -sx, sx, cx) * p.yz;
-  return p;
-}
-`;
-
-export const fieldFragment = `#version 300 es
+export const glowFragment = `#version 300 es
 precision highp float;
 
-uniform vec2 uCenter;
-uniform float uRadius;
-uniform float uDpr;
-uniform float uLine;
+uniform vec2 uCanvas;    // canvas size, device px
+uniform vec2 uCenter;    // orb centre, device px (bottom-left origin)
+uniform float uRadius;   // R, device px
+uniform float uLine;     // filament half-width, R units
+uniform float uFeather;  // canvas edge fade width, device px
+uniform float uReach;    // room between the rim and the nearest canvas edge, R units
 uniform float uTime;
-uniform float uFrame;
-uniform float uBins;
 uniform float uStrands;
 uniform float uCrackle;
 uniform float uFlares;
 uniform float uGlow;
 uniform float uHaze;
 uniform float uFill;
-uniform float uPresence;
-uniform float uUnfold;
-uniform float uBloom;
-uniform float uInside;
-uniform float uEncode;
-uniform vec3 uRim;
-uniform vec3 uRimHot;
-uniform vec3 uRimMid;
-uniform vec3 uRimDeep;
-uniform vec3 uSpark;
-uniform vec3 uSparkGlow;
+uniform float uIntro;
+uniform float uSurge;
+uniform vec2 uHeat;      // angle (radians), amount 0..1
+uniform float uLight;    // 1 for the light theme (ink on paper)
+uniform vec4 uSparks[${MAX_SPARKS * 2}];
+uniform vec3 uRimColor;
+uniform vec3 uHotColor;
+uniform vec3 uHaloColor;
 uniform vec3 uHazeColor;
-uniform vec3 uEdgeColor;
-uniform vec4 uHeat;
-uniform vec4 uHarmonics[8];
-uniform vec4 uRates[8];
-uniform vec4 uPhases[8];
-uniform vec4 uFlareHarmonics[8];
-uniform vec4 uFlareRates[8];
-uniform vec4 uFlarePhases[8];
-uniform vec4 uArcs[4];
+uniform vec3 uSparkColor;
 
 out vec4 fragColor;
-${hashChunk}
-const float PI = 3.14159265;
-const float TAU = 6.28318531;
-const vec4 AMPS = vec4(0.35, 0.3, 0.22, 0.13);
+${common}
 
-float bell(float d, float w) {
-  float x = d / w;
-  return exp(-x * x);
-}
-
-float segment(vec2 p, vec2 a, vec2 b) {
-  vec2 pa = p - a;
-  vec2 ba = b - a;
-  float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-5), 0.0, 1.0);
-  return length(pa - ba * h);
-}
-
-float pool(vec2 q) {
-  float t = length(q - vec2(0.0, mix(-1.0, -0.66, uFill))) / mix(0.8, 1.35, uFill);
-  return t < 0.6 ? mix(0.5, 0.22, t / 0.6) : mix(0.22, 0.0, clamp((t - 0.6) / 0.4, 0.0, 1.0));
+// One filament of the rim: a ring at radius ~1 that wobbles radially. Returns brightness.
+float filament(float r, float a, float i, float t, float amp, float jitter) {
+  float ph = i * 1.931 + 0.37;
+  float slow = ringNoise(a, 2.3, vec2(t * 0.31 + ph, ph * 0.71 - t * 0.23)) - 0.5;
+  float mid = ringNoise(a, 5.5, vec2(ph * 1.37 - t * 0.57, t * 0.47 + ph)) - 0.5;
+  float fine = ringNoise(a, 26.0, vec2(t * 3.7 + ph * 2.1, ph - t * 2.9)) - 0.5;
+  float off = amp * (slow * 1.7 + mid * 0.8) + fine * jitter;
+  float d = r - (1.0 + off);
+  float w = uLine;
+  return exp(-d * d / (w * w)) + 0.22 * exp(-abs(d) / (w * 3.5));
 }
 
 void main() {
-  vec2 p = gl_FragCoord.xy / uDpr - uCenter;
+  vec2 p = (gl_FragCoord.xy - uCenter) / uRadius;
   float r = length(p);
-  float R = uRadius;
-  float theta = atan(p.y, p.x);
-  float lift = p.y / max(r, 1e-3);
-  float topDim = 1.0 - 0.35 * pow(max(lift, 0.0), 1.5);
-  vec3 col = vec3(0.0);
-  float hot = 0.0;
-  uint frame = uint(uFrame);
+  float a = atan(p.y, p.x);
+  float t = uTime;
 
-  if (r < R) {
-    vec2 q = p / R;
-    float chord = sqrt(max(1.0 - dot(q, q), 0.0));
-    float haze = pool(q) * (0.55 + 0.45 * chord);
-    col += uHazeColor * haze * uHaze * uInside;
-    float e = length(q - vec2(0.0, 0.2)) / 1.2;
-    float edge = 0.5 * pow(smoothstep(0.62, 1.0, e), 1.4);
-    col += uEdgeColor * edge * uInside * (0.5 + 0.5 * uHaze);
-  }
+  // Hover heat: a warm patch on the rim around the pointer angle.
+  float heatD = angleDelta(a, uHeat.x);
+  float heat = uHeat.y * exp(-heatD * heatD / 0.16);
 
-  float dr = r - R;
-  float halo = 1.0 - smoothstep(R * 0.05, R * 0.105, abs(dr - R * 0.0213));
-  col += uRimDeep * 0.18 * halo * topDim * uGlow * uBloom;
-  col += uRim * 0.12 * bell(dr + R * 0.0383, R * 0.032) * uGlow * uBloom;
-  col += uRim * 0.32 * bell(dr, max(R * 0.0117, uLine)) * uPresence * uUnfold;
+  // Intro: the rim draws in from the bottom up both sides, the halo blooms with a brief extra charge.
+  float fromBottom = acos(clamp(-p.y / max(r, 1e-4), -1.0, 1.0)) / PI; // 0 at the bottom, 1 at the top
+  float draw = smoothstep(0.0, 0.6, uIntro) * 1.1;
+  float drawn = clamp((draw - fromBottom) / 0.07, 0.0, 1.0);
+  float front = uIntro < 0.62 ? exp(-pow((fromBottom - draw + 0.03) / 0.05, 2.0)) : 0.0;
+  float charge = sin(PI * clamp((uIntro - 0.3) / 0.6, 0.0, 1.0));
+  float bloom = smoothstep(0.25, 0.85, uIntro) + 0.6 * charge;
 
-  float delta = mod(theta - uHeat.x + PI, TAU) - PI;
-  float heat = uHeat.z * uHeat.y * exp(-delta * delta / 0.3);
-  float crackle = uCrackle + heat * 0.9;
-  float amp = R * 0.016 * (0.3 + 1.4 * crackle) * uUnfold;
-  float jitterAmp = R * 0.0048 * (0.3 + 1.4 * uCrackle) * uUnfold * (1.0 + heat * 0.3);
-  float flareAmp = R * 0.064 * (0.4 + 1.2 * crackle) * uFlares * 1.6 * uUnfold;
+  float crackle = clamp(uCrackle + heat * 0.6 + charge * 0.5, 0.0, 1.6);
+  float topDim = 1.0 - 0.3 * smoothstep(0.05, 1.0, p.y / max(r, 1e-4));
 
-  if (abs(dr) < amp * 2.0 + flareAmp + R * 0.3) {
-    float step = TAU / uBins;
-    float binPos = (theta + PI) / step;
-    float bin0 = floor(binPos);
-    float binF = binPos - bin0;
-    float th0 = bin0 * step - PI;
-    float th1 = th0 + step;
-    uint b0 = uint(mod(bin0, uBins));
-    uint b1 = uint(mod(bin0 + 1.0, uBins));
-    float gain = min(1.0, 2.4 / max(uStrands, 1.0));
-    for (int k = 0; k < 8; k++) {
-      if (float(k) >= uStrands) break;
-      vec4 m = uHarmonics[k];
-      vec4 lead = uRates[k] * uTime + uPhases[k];
-      float wave0 = dot(AMPS, sin(m * th0 + lead));
-      float wave1 = dot(AMPS, sin(m * th1 + lead));
-      uint salt = uint(k) * 1013u + frame * 7919u;
-      vec4 shape = uFlareHarmonics[k];
-      vec4 look = uFlareRates[k];
-      vec4 tone = uFlarePhases[k];
-      float a = amp * shape.w;
-      float off0 = a * wave0 + jitterAmp * (random(b0 + salt) - 0.5);
-      float off1 = a * wave1 + jitterAmp * (random(b1 + salt) - 0.5);
-      float rc = R + mix(off0, off1, binF);
-      float grade = (off1 - off0) / (step * max(r, 1.0));
-      float d = abs(r - rc) * inversesqrt(1.0 + grade * grade);
-      float swell = 0.8 + 0.4 * (0.5 + 0.5 * sin(3.0 * theta + uTime * 0.7 + tone.x * 1.7));
-      float width = uLine * look.w * swell * (1.0 + heat * 0.25);
-      float core = exp(-d * d / (width * width));
-      float sheath = exp(-d * d / (width * width * 3.0));
-      // artyfact: a fractional strand count fades the last strand in, so strands can ease between integers.
-      float strandFade = clamp(uStrands - float(k), 0.0, 1.0);
-      float bright = tone.w * (1.0 + heat * 0.45) * uPresence * strandFade;
-      col += (uRimHot * core * 0.8 + uRim * sheath * 0.32) * bright;
-      hot += core * bright;
-      vec3 fargs = shape.xyz * theta + look.xyz * uTime + tone.xyz;
-      float flare = max(0.0, (sin(fargs.x) + sin(fargs.y) + sin(fargs.z)) / 3.0);
-      flare = (flare * flare + heat * 0.35) * flareAmp;
-      float dw = abs(r - rc - flare);
-      float dm = abs(r - rc - flare * 0.6);
-      float dn = abs(r - rc - flare * 0.25);
-      vec3 glow = uRimDeep * (0.07 * bell(dw, R * 0.09) + 0.16 * bell(dw, R * 0.05));
-      glow += uRimMid * 0.28 * bell(dm, R * 0.027) + uRim * 0.38 * bell(dn, R * 0.013);
-      col += glow * gain * topDim * uGlow * uBloom * (1.0 + heat * 1.4) * strandFade;
+  // Rim filaments (only near the rim).
+  float rim = 0.0;
+  if (abs(r - 1.0) < 0.16) {
+    float amp = 0.006 + 0.024 * crackle + 0.012 * uSurge;
+    float jitter = 0.022 * crackle * crackle + 0.006 * uSurge;
+    for (int i = 0; i < 8; i++) {
+      float fi = float(i);
+      if (fi >= uStrands) break;
+      rim += clamp(uStrands - fi, 0.0, 1.0) * filament(r, a, fi, t * (1.0 + 0.6 * crackle), amp, jitter);
     }
+    rim *= 1.9 / (1.0 + 0.45 * uStrands);
+  }
+  rim *= topDim * (1.0 + heat * 1.3 + uSurge * 0.9) * drawn + front * 1.5 * step(abs(r - 1.0), 0.05) * exp(-pow((r - 1.0) / 0.02, 2.0));
+
+  // Flares: slow outward tongues of glow along the rim; heat raises them locally.
+  float tongue = smoothstep(0.48, 0.92, ringNoise(a, 1.8, vec2(t * 0.11, 3.1 - t * 0.08)));
+  float fl = clamp(tongue * uFlares + heat * 0.35 + uSurge * 0.25 * uFlares, 0.0, 1.4);
+  float reach = 0.035 + 0.2 * fl;
+  float wisp = 0.55 + 0.45 * ringNoise(a, 11.0, vec2(t * 0.9 - r * 7.0, 1.7));
+  // Everything outside the rim fades out before the canvas edge, so the canvas never shows as a box.
+  float room = smoothstep(uReach, uReach * 0.35, max(r - 1.0, 0.0));
+  float flare = r > 1.0 ? exp(-(r - 1.0) / reach) * wisp * room : exp(-(1.0 - r) / 0.025);
+  flare *= fl * 0.55 * topDim * drawn;
+
+  // Halo: tight bloom around the rim plus a wide soft falloff.
+  float out_ = max(r - 1.0, 0.0);
+  float halo = r > 1.0 ? (0.42 * exp(-out_ / 0.06) + 0.14 * exp(-out_ / 0.22)) * room : 0.3 * exp(-(1.0 - r) / 0.045);
+  halo *= uGlow * bloom * topDim * (0.6 + 0.4 * drawn) * (1.0 + 0.6 * uSurge + 0.5 * heat);
+
+  // Sparks: short tapered arcs just inside the rim, each crackling along a jagged path.
+  float spark = 0.0;
+  for (int j = 0; j < ${MAX_SPARKS}; j++) {
+    vec4 s = uSparks[j * 2];      // angle, half-length (radians), radius, bend
+    vec4 m = uSparks[j * 2 + 1];  // progress 0..1, seed, brightness, direction
+    if (m.x <= 0.0 || m.x >= 1.0) continue;
+    float x = angleDelta(a, s.x) / s.y;
+    if (abs(x) >= 1.0) continue;
+    float head = mix(-1.0, 1.25, min(1.0, m.x * 3.2));
+    float shown = smoothstep(head + 0.02, head - 0.12, x * m.w);
+    float fade = (1.0 - m.x) * (1.0 - m.x);
+    float jag = (vnoise(vec2(x * 9.0 + m.y * 17.0, m.x * 14.0)) - 0.5) * 0.026 + (vnoise(vec2(x * 23.0 - m.y * 5.0, m.x * 31.0)) - 0.5) * 0.012;
+    float path = s.z - s.w * (1.0 - x * x) + jag;
+    float d = r - path;
+    float w = uLine * 0.85;
+    float taper = pow(1.0 - x * x, 1.3);
+    spark += taper * shown * fade * m.z * (exp(-d * d / (w * w)) + 0.28 * exp(-abs(d) / (w * 5.0)));
   }
 
-  for (int i = 0; i < 4; i++) {
-    vec4 arc = uArcs[i];
-    if (arc.w <= 0.002) continue;
-    float mid = arc.x + arc.y * 0.5;
-    vec2 center = R * 0.93 * vec2(cos(mid), sin(mid));
-    if (distance(p, center) > R * (abs(arc.y) * 0.6 + 0.1) + 12.0) continue;
-    float ar = R * 0.955;
-    vec2 a0 = ar * vec2(cos(arc.x), sin(arc.x));
-    vec2 a2 = ar * vec2(cos(arc.x + arc.y), sin(arc.x + arc.y));
-    vec2 a1 = R * (0.955 - arc.z) * vec2(cos(mid), sin(mid));
-    float dmin = 1e5;
-    float along = 0.0;
-    vec2 prev = a0;
-    for (int s = 1; s <= 10; s++) {
-      float u = float(s) / 10.0;
-      vec2 b = mix(mix(a0, a1, u), mix(a1, a2, u), u);
-      vec2 pa = p - prev;
-      vec2 ba = b - prev;
-      float h = clamp(dot(pa, ba) / max(dot(ba, ba), 1e-5), 0.0, 1.0);
-      float dist = length(pa - ba * h);
-      if (dist < dmin) {
-        dmin = dist;
-        along = (float(s) - 1.0 + h) / 10.0;
-      }
-      prev = b;
-    }
-    float taper = sqrt(max(sin(PI * along), 0.0));
-    float arcWidth = uLine * (0.55 + 0.6 * taper);
-    float arcCore = exp(-dmin * dmin / (arcWidth * arcWidth));
-    float arcGlow = exp(-dmin * dmin / (arcWidth * arcWidth * 12.0));
-    col += (uSpark * 0.95 * arcCore + uSparkGlow * 0.4 * arcGlow) * arc.w * taper;
-    hot += arcCore * arc.w * taper * 0.6;
-  }
+  // Interior haze pool low in the ball, sized by fill, and a faint shading along the inside of the glass.
+  float inside = smoothstep(1.0, 0.965, r);
+  float cy = -0.72 + 0.42 * uFill;
+  vec2 q = vec2(p.x / 0.82, (p.y - cy) / (0.2 + 0.38 * uFill));
+  float reveal = smoothstep(0.2, 0.9, uIntro);
+  float pool = exp(-dot(q, q) * 1.3) * 0.26 * uHaze * reveal;
+  float edge = exp(-(1.0 - r) / 0.08) * 0.1 * uHaze * (0.5 + 0.5 * reveal);
+  // A soft reflection on the upper left of the glass.
+  vec2 dir = p / max(r, 1e-4);
+  float sheen = exp(-pow((r - 0.87) / 0.035, 2.0)) * smoothstep(0.55, 1.0, dot(dir, vec2(-0.6, 0.8))) * 0.06 * reveal;
+  float interior = (pool + edge) * inside;
 
-  fragColor = vec4(col, hot) * uEncode;
+  // Fade out at the canvas edge so wide halos never show a hard cut.
+  vec2 fc = gl_FragCoord.xy;
+  float edgeFade = smoothstep(0.0, uFeather, min(min(fc.x, uCanvas.x - fc.x), min(fc.y, uCanvas.y - fc.y)));
+
+  vec3 col = uRimColor * rim * 0.95 + uHotColor * rim * rim * 0.35
+    + uHaloColor * (halo + flare)
+    + uHazeColor * interior + uHotColor * sheen
+    + uSparkColor * spark * 1.5;
+  float weight = rim + rim * rim * 0.35 + halo + flare + interior + sheen + spark * 1.5;
+
+  float grain = (hash21(gl_FragCoord.xy + fract(t)) - 0.5) / 255.0;
+  if (uLight > 0.5) {
+    // Ink: the average tone, with coverage from the total energy.
+    vec3 ink = col / max(weight, 1e-4);
+    float alpha = clamp(1.0 - exp(-weight * 1.1), 0.0, 0.94) * edgeFade;
+    fragColor = vec4(ink * alpha, alpha);
+  } else {
+    col = 1.0 - exp(-col * 1.15);
+    col += grain * step(0.004, weight);
+    col = max(col, 0.0) * edgeFade;
+    fragColor = vec4(col, clamp(max(col.r, max(col.g, col.b)), 0.0, 1.0));
+  }
 }
 `;
 
 export const dustVertex = `#version 300 es
 precision highp float;
 
-in float aIndex;
+in vec4 aPlace;   // height, azimuth, radial seeds; tone index
+in vec4 aMotion;  // phase, rate, size seed; kind (0 sediment, 1 shell, 2 outlier)
 
-uniform sampler2D tHome;
-uniform sampler2D tSeed;
-uniform sampler2D tOffset;
-uniform float uStirred;
+uniform vec2 uCanvas;
 uniform vec2 uCenter;
-uniform vec2 uViewport;
 uniform float uRadius;
-uniform float uDpr;
-uniform float uDepth;
-uniform float uTwinkle;
 uniform float uPointScale;
-uniform float uReveal;
-uniform float uEncode;
+uniform float uGain;
+uniform float uTime;
+uniform float uFill;
+uniform vec4 uMotionMix;  // rise, fall, drift, orbit weights
+uniform float uTwinkle;
+uniform float uDepth;
+uniform vec2 uRotation;   // yaw, pitch
+uniform float uIntro;
+uniform float uSurge;
+uniform vec4 uKick;       // direction xy, age (s), strength
+uniform vec4 uStirs[${MAX_STIRS * 2}];
 uniform vec3 uTones[5];
-uniform vec3 uRimTone;
 
 out vec3 vColor;
+out float vAlpha;
 out float vSize;
-${hashChunk}
-${dustChunk}
+
+const float PI = 3.14159265;
+const float TAU = 6.28318531;
+
+vec2 rotate2(vec2 v, float a) {
+  float c = cos(a);
+  float s = sin(a);
+  return vec2(c * v.x - s * v.y, s * v.x + c * v.y);
+}
+
 void main() {
-  ivec2 cell = ivec2(int(mod(aIndex, ${STATE_WIDTH}.0)), int(floor(aIndex / ${STATE_WIDTH}.0)));
-  uint id = uint(aIndex);
-  vec4 home = texelFetch(tHome, cell, 0);
-  vec4 seed = texelFetch(tSeed, cell, 0);
-  float life;
-  float spread;
-  vec3 p = drift(home, seed, id, life, spread);
-  if (uStirred > 0.5) p += texelFetch(tOffset, cell, 0).xyz;
-  float len = length(p);
-  float inside = 1.0 - smoothstep(0.955, 0.985, length(p.xy));
-  if (len > 0.975) p *= 0.975 / len;
+  float kind = aMotion.w;
+  float phase = aMotion.x;
+  float rate = 0.6 + 0.8 * aMotion.y;
+  float az = aPlace.y * TAU;
+  float surface = mix(-0.85, 0.72, uFill);
+  vec3 pos;
+  float alpha;
+  if (kind < 0.5) {
+    // Sediment: denser at the bottom, the settled surface softening into the space above.
+    float y = -1.0 + (surface + 1.2) * pow(aPlace.x, 1.3);
+    float slice = sqrt(max(0.0, 1.0 - y * y));
+    float rad = slice * sqrt(aPlace.z) * 0.96;
+    pos = vec3(rad * cos(az), y, rad * sin(az));
+    alpha = 0.8 * smoothstep(surface + 0.2, surface - 0.15, y);
+  } else if (kind < 1.5) {
+    // Shell: hugging the inside of the glass, thinning out with height.
+    float y = min(0.97, -1.0 + (surface + 1.4) * pow(aPlace.x, 1.15));
+    float slice = sqrt(max(0.0, 1.0 - y * y));
+    float rad = slice * (0.93 + 0.05 * aPlace.z);
+    pos = vec3(rad * cos(az), y, rad * sin(az));
+    alpha = 0.95 * smoothstep(surface + 0.45, surface - 0.1, y);
+  } else {
+    // Outliers: sparse and pale, anywhere in the ball.
+    float y = aPlace.x * 2.0 - 1.0;
+    float ring = sqrt(max(0.0, 1.0 - y * y));
+    float rad = pow(aPlace.z, 0.333) * 0.94;
+    pos = rad * vec3(ring * cos(az), y, ring * sin(az));
+    alpha = 0.75;
+  }
 
-  float front = p.z * 0.5 + 0.5;
-  float depthSize = mix(1.0, 0.7 + 0.6 * front, uDepth);
-  float depthLight = mix(1.0, 0.35 + 0.8 * front, uDepth);
-  float blink = sin(uDustTime * (2.0 + 6.0 * random(id * 7u + 5u)) + random(id * 7u + 6u) * 6.2831853);
-  float twinkle = mix(1.0, smoothstep(-0.9, -0.6, blink), uTwinkle);
-  float fade = smoothstep(0.04, 0.12, life);
-  float order = (home.y + 1.0) * 0.5 * 0.55 + random(id * 7u + 8u) * 0.25;
-  float reveal = smoothstep(order, order + 0.2, uReveal * 1.0);
-  float alpha = random(id * 7u + 9u) < 0.5 || home.w > 3.5 ? 1.0 : 0.6;
+  // Motion. Each mode is an offset and an alpha factor; the eased weights crossfade between modes.
+  float t = uTime;
+  float cycle = fract(t * 0.055 * rate + phase);
+  bool mover = aMotion.y > 0.62 || kind > 1.5;
+  vec3 wobble = vec3(sin(t * 0.7 * rate + phase * 31.0), sin(t * 0.53 * rate + phase * 17.0), cos(t * 0.61 * rate + phase * 23.0));
+  vec3 rise = vec3(0.025 * wobble.x, cycle * 0.5, 0.025 * wobble.z);
+  float riseA = smoothstep(0.0, 0.12, cycle) * (1.0 - smoothstep(0.45, 1.0, cycle));
+  vec3 fall = vec3(0.025 * wobble.x, (1.0 - cycle) * 0.5, 0.025 * wobble.z);
+  float fallA = smoothstep(0.0, 0.3, cycle) * (1.0 - smoothstep(0.88, 1.0, cycle));
+  if (!mover) {
+    rise = vec3(0.008 * wobble);
+    fall = rise;
+    riseA = 1.0;
+    fallA = 1.0;
+  }
+  vec3 drift = 0.05 * wobble;
+  float loopR = 0.03 + 0.045 * aPlace.z;
+  float la = t * 0.85 * rate + phase * TAU;
+  float tiltA = phase * 9.0;
+  vec3 orbit = loopR * vec3(cos(la), sin(la) * cos(tiltA), sin(la) * sin(tiltA));
+  vec3 offset = uMotionMix.x * rise + uMotionMix.y * fall + uMotionMix.z * drift + uMotionMix.w * orbit;
+  alpha *= uMotionMix.x * riseA + uMotionMix.y * fallA + uMotionMix.z + uMotionMix.w;
+  pos += offset;
+  float len = length(pos);
+  if (len > 0.975) pos *= 0.975 / len;
 
-  float size = seed.x * uPointScale * (0.35 + 0.95 * life) * depthSize * mix(0.5, 1.0, reveal);
-  vec2 screen = uCenter + p.xy * uRadius;
-  gl_Position = vec4(screen / uViewport * 2.0 - 1.0, 0.0, 1.0);
-  float px = size * uDpr;
-  gl_PointSize = px + 2.0;
-  vSize = px;
+  // Sway and pointer tilt: rotate the cloud (yaw about the vertical axis, then a little pitch).
+  pos.xz = rotate2(pos.xz, uRotation.x);
+  pos.yz = rotate2(pos.yz, uRotation.y);
+  vec2 sp = pos.xy;
 
-  int tone = int(home.w + 0.5);
-  float rimLit = smoothstep(0.8, 0.97, length(p.xy));
-  vec3 color = uTones[tone] + uRimTone * rimLit * rimLit * 0.12;
-  vColor = color * alpha * fade * twinkle * depthLight * reveal * inside * sqrt(spread) * uEncode;
+  // Pointer stirs: a swirl around each stir point plus a drag along its motion, springing back as it ages.
+  float stirred = 0.0;
+  for (int k = 0; k < ${MAX_STIRS}; k++) {
+    vec4 s = uStirs[k * 2];       // position xy, velocity xy (R units / s)
+    vec4 m = uStirs[k * 2 + 1];   // age (s), strength, spin direction
+    if (m.y <= 0.0) continue;
+    vec2 d = sp - s.xy;
+    float fall_ = exp(-dot(d, d) / 0.16);
+    float env = (1.0 - exp(-m.x * 9.0)) * exp(-m.x * 1.1) * m.y * fall_;
+    vec2 swirled = rotate2(d, m.z * env * 0.7) - d;
+    sp += swirled + s.zw * 0.025 * env;
+    stirred += env;
+  }
+
+  // Pulse kick: an outward push, strongest toward the pulse direction, that springs back.
+  float kenv = (1.0 - exp(-uKick.z * 16.0)) * exp(-uKick.z * 2.4) * uKick.w;
+  vec2 outward = sp / max(length(sp), 1e-3);
+  float toward = length(uKick.xy) > 0.0 ? 0.55 + 0.45 * dot(outward, uKick.xy) : 1.0;
+  sp += outward * kenv * 0.085 * toward * length(sp);
+  float sl = length(sp);
+  if (sl > 0.985) sp *= 0.985 / sl;
+
+  // Intro: reveal from the bottom up.
+  float revealY = -1.15 + 2.5 * smoothstep(0.15, 1.0, uIntro);
+  alpha *= smoothstep(revealY, revealY - 0.25, sp.y);
+
+  // Depth: far particles smaller and dimmer.
+  float near = pos.z * 0.5 + 0.5;
+  float depthK = mix(1.0, 0.25 + 0.85 * near, uDepth);
+  float sizeK = mix(1.0, 0.55 + 0.6 * near, uDepth);
+
+  // Twinkle: occasional bright blinks.
+  float tw = 0.5 + 0.5 * sin(t * (1.3 + 3.2 * aMotion.y) + phase * 57.0);
+  tw = tw * tw * tw;
+  float twinkle = mix(1.0, 0.3 + 1.6 * tw, uTwinkle);
+
+  float bright = alpha * depthK * twinkle * uGain * (1.0 + 0.6 * uSurge + 0.8 * min(stirred, 1.0) + 0.6 * kenv);
+  int tone = int(aPlace.w + 0.5);
+  vColor = uTones[tone];
+  vAlpha = bright * (kind > 1.5 ? 1.2 : 1.0);
+
+  float size = (0.8 + 1.7 * aMotion.z + (kind > 1.5 ? 0.4 : 0.0)) * sizeK * uPointScale;
+  vSize = size;
+  gl_PointSize = size + 1.0;
+  vec2 px = uCenter + sp * uRadius;
+  vec2 clip = px / uCanvas * 2.0 - 1.0;
+  gl_Position = vec4(clip, 0.0, 1.0);
+  if (vAlpha < 0.004) gl_Position = vec4(2.0, 2.0, 2.0, 1.0);
 }
 `;
 
 export const dustFragment = `#version 300 es
 precision highp float;
-
-uniform float uShape;
-
-in vec3 vColor;
-in float vSize;
-
-out vec4 fragColor;
-
-void main() {
-  vec2 q = (gl_PointCoord - 0.5) * (vSize + 2.0);
-  float half_ = max(vSize * 0.5, 0.5);
-  float cover;
-  if (uShape < 0.5) {
-    vec2 c = clamp(half_ - abs(q) + 0.5, 0.0, 1.0);
-    cover = c.x * c.y;
-  } else {
-    cover = clamp(half_ - length(q) + 0.5, 0.0, 1.0);
-  }
-  if (cover <= 0.0) discard;
-  fragColor = vec4(vColor * cover, 0.0);
-}
-`;
-
-export const stirFragment = `#version 300 es
-precision highp float;
-
-uniform sampler2D tHome;
-uniform sampler2D tSeed;
-uniform sampler2D tOffset;
-uniform sampler2D tVelocity;
-uniform float uDt;
-uniform float uReset;
-uniform vec4 uBrush;
-uniform float uBrushPower;
-uniform vec4 uKick;
-
-layout(location = 0) out vec4 outOffset;
-layout(location = 1) out vec4 outVelocity;
-${hashChunk}
-${dustChunk}
-vec3 swirl(vec3 p) {
-  float t = uDustTime * 0.15;
-  vec3 a = vec3(1.7, 1.9, 1.5) * p.yzx + vec3(t, 1.2, 2.1);
-  vec3 b = vec3(2.3, 2.1, 2.7) * p.zxy + vec3(0.4, t * 1.3, 0.9);
-  vec3 ca = cos(a) * vec3(1.7, 1.9, 1.5);
-  vec3 cb = cos(b) * vec3(2.3, 2.1, 2.7);
-  return vec3(ca.z - cb.x, cb.y - ca.x, ca.y - cb.z);
-}
-
-void main() {
-  ivec2 cell = ivec2(gl_FragCoord.xy);
-  if (uReset > 0.5) {
-    outOffset = vec4(0.0);
-    outVelocity = vec4(0.0);
-    return;
-  }
-  uint id = uint(cell.y * ${STATE_WIDTH} + cell.x);
-  vec4 home = texelFetch(tHome, cell, 0);
-  vec4 seed = texelFetch(tSeed, cell, 0);
-  vec3 o = texelFetch(tOffset, cell, 0).xyz;
-  vec3 v = texelFetch(tVelocity, cell, 0).xyz;
-  float life;
-  float spread;
-  vec3 base = drift(home, seed, id, life, spread);
-  vec3 p = base + o;
-
-  float k = mix(0.8, 2.2, random(id * 7u + 11u));
-  vec3 acc = -k * o - 1.5 * sqrt(k) * v;
-
-  vec2 gap = p.xy - uBrush.xy;
-  float touch = exp(-dot(gap, gap) / 0.07) * uBrushPower;
-  acc += (vec3(uBrush.zw, 0.0) - v) * touch * 14.0;
-  float pace = length(v);
-  if (pace > 1e-4) {
-    vec3 heading = v / pace;
-    vec3 curl = swirl(p * 1.6);
-    acc += (curl - heading * dot(curl, heading)) * min(pace, 2.0) * 1.8;
-  }
-
-  if (uKick.z > 0.0) {
-    vec3 jolt = vec3(random(id * 7u + 12u), random(id * 7u + 13u), random(id * 7u + 14u)) - 0.5;
-    float near = exp(-dot(p.xy - uKick.xy, p.xy - uKick.xy) / 0.4);
-    vec3 spinKick = vec3(-p.z, 0.0, p.x) * 0.9;
-    vec3 lift = vec3(0.0, 0.5 + 0.8 * random(id * 7u + 15u), 0.0) * (0.3 + 0.7 * smoothstep(0.2, -0.8, p.y));
-    v += (jolt * 0.8 + spinKick + lift) * uKick.z * (0.4 + 0.45 * near);
-  }
-
-  v += acc * uDt;
-  o += v * uDt;
-  vec3 q = base + o;
-  float len = length(q);
-  if (len > 0.97) {
-    vec3 n = q / len;
-    o -= n * (len - 0.97);
-    v -= n * max(dot(v, n), 0.0) * 1.5;
-  }
-  outOffset = vec4(o, 1.0);
-  outVelocity = vec4(v, 1.0);
-}
-`;
-
-export const compositeFragment = `#version 300 es
-precision highp float;
-
-uniform sampler2D tScene;
+uniform float uRound;
 uniform float uLight;
-uniform float uDecode;
-
-in vec2 vUv;
+in vec3 vColor;
+in float vAlpha;
+in float vSize;
 out vec4 fragColor;
-
-vec3 soften(vec3 x) {
-  vec3 over = max(x - 0.6, 0.0);
-  return min(x, 0.6) + 0.4 * (1.0 - exp(-over / 0.4));
-}
-
 void main() {
-  vec4 scene = texture(tScene, vUv) * uDecode;
-  vec3 light = max(scene.rgb, 0.0);
-  float peak = max(light.r, max(light.g, light.b));
-  if (uLight > 0.5) {
-    vec3 hue = light / max(peak, 1e-4);
-    float cover = 1.0 - exp(-peak * 2.4);
-    vec3 ink = hue * mix(0.92, 0.72, cover);
-    float core = clamp(scene.a * 0.7, 0.0, 1.0) * cover;
-    vec3 tint = mix(vec3(1.0), hue, 0.22);
-    fragColor = vec4(tint * core + ink * cover * (1.0 - core), core + cover * (1.0 - core));
-    return;
+  vec2 c = gl_PointCoord - 0.5;
+  float cover;
+  if (uRound > 0.5) {
+    float d = length(c) * 2.0;
+    float feather = 2.0 / (vSize + 1.0);
+    cover = 1.0 - smoothstep(1.0 - feather, 1.0, d);
+  } else {
+    // Square grain: a crisp box the size of the particle inside the padded point sprite.
+    vec2 e = abs(c) * (vSize + 1.0);
+    vec2 box = 1.0 - smoothstep(vec2(vSize * 0.5 - 0.5), vec2(vSize * 0.5 + 0.5), e);
+    cover = box.x * box.y;
   }
-  light += vec3(max(peak - 1.8, 0.0) * 0.25);
-  vec3 shown = soften(light);
-  fragColor = vec4(shown, max(shown.r, max(shown.g, shown.b)));
+  float a = clamp(vAlpha, 0.0, 1.0) * cover;
+  if (a <= 0.002) discard;
+  if (uLight > 0.5) {
+    a *= 0.85;
+    fragColor = vec4(vColor * a, a);
+  } else {
+    vec3 col = vColor * a;
+    fragColor = vec4(col, max(col.r, max(col.g, col.b)));
+  }
 }
 `;
