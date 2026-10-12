@@ -1,5 +1,7 @@
 import { act, configure, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import { fixtureBundle } from "@/api/fixtures";
+import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 
 const base = "/s/system.keep-in-touch/r/head/journeys";
@@ -12,10 +14,11 @@ describe("Journeys view", () => {
   it("lists every journey and defaults to the first non-deferred one", async () => {
     renderApp(base);
     const catalog = await screen.findByRole("navigation", { name: "Journeys" });
-    expect(within(catalog).getAllByRole("button", { name: /\S/ }).filter((b) => b.hasAttribute("aria-current") || b.closest("li")).length).toBeGreaterThanOrEqual(10);
-    expect(within(catalog).getByText("deferred")).toBeTruthy();
-    const current = catalog.querySelector("[aria-current='true']")!;
-    expect(current.textContent).toContain("Create a pair connection");
+    expect(catalog.querySelectorAll("li")).toHaveLength(10);
+    expect(within(catalog).getAllByText("deferred")).toHaveLength(1);
+    const current = catalog.querySelectorAll("[aria-current='true']");
+    expect(current).toHaveLength(1);
+    expect(current[0]!.textContent).toContain("Connect with someone through a consented invitation");
   });
 
   it("draws J.connect: 14 step buttons in three lanes", async () => {
@@ -32,7 +35,7 @@ describe("Journeys view", () => {
     const second = within(catalog).getAllByRole("button").find((b) => b.textContent?.includes("Reach out to one person"))!;
     act(() => second.click());
     await waitFor(() => expect(search(r).get("journey")).toMatch(/^J\./));
-    expect(search(r).get("journey")).not.toBe("J.connect");
+    expect(search(r).get("journey")).toBe("J.contact");
   });
 
   it("clicking a step sets ?step= and focuses J.connect/s4", async () => {
@@ -58,5 +61,52 @@ describe("Journeys view", () => {
     act(() => chip.click());
     await waitFor(() => expect(r.router.state.location.pathname).toMatch(/\/map$/));
     expect(search(r).get("focus")).toBe("screen.invitation");
+  });
+
+  it("offers zoom, zoom out and fit controls", async () => {
+    renderApp(`${base}?journey=J.connect`);
+    const canvas = await screen.findByTestId("journey-canvas");
+    for (const name of [/zoom in/i, /zoom out/i, /fit view/i]) expect(await within(canvas).findByRole("button", { name })).toBeTruthy();
+  });
+
+  describe("with segments and a provisional step", () => {
+    const seed = (qc: import("@tanstack/react-query").QueryClient) => {
+      const bundle = fixtureBundle();
+      const j = bundle.model.journeys.find((x) => x.id === "J.connect")!;
+      j.segments = [
+        { name: "Invite", steps: ["s1", "s2", "s3"] },
+        { name: "Accept", steps: ["s4", "s5", "s6", "s7"] },
+      ];
+      j.steps.find((x) => x.id === "s1")!.unresolved = true;
+      qc.setQueryData(qk.model("system.keep-in-touch", "head"), bundle);
+    };
+
+    it("a segment tab filters the visible steps", async () => {
+      renderApp(`${base}?journey=J.connect`, undefined, seed);
+      const canvas = await screen.findByTestId("journey-canvas");
+      await waitFor(() => expect(within(canvas).getAllByLabelText(/^Step /)).toHaveLength(14));
+      act(() => screen.getByRole("tab", { name: "Invite" }).click());
+      await waitFor(() => expect(within(canvas).getAllByLabelText(/^Step /)).toHaveLength(3));
+      expect(screen.getByRole("tab", { name: "Invite" }).getAttribute("aria-selected")).toBe("true");
+    });
+
+    it("falls back to all steps when the journey changes", async () => {
+      const r = renderApp(`${base}?journey=J.connect`, undefined, seed);
+      const canvas = await screen.findByTestId("journey-canvas");
+      await waitFor(() => expect(within(canvas).getAllByLabelText(/^Step /)).toHaveLength(14));
+      act(() => screen.getByRole("tab", { name: "Accept" }).click());
+      await waitFor(() => expect(within(canvas).getAllByLabelText(/^Step /)).toHaveLength(4));
+      act(() => void r.router.navigate(`${base}?journey=J.contact`));
+      await waitFor(() => expect(screen.queryByRole("tab", { name: "Accept" })).toBeNull());
+      await waitFor(() => expect(within(canvas).getAllByLabelText(/^Step /)).toHaveLength(7));
+    });
+
+    it("marks the provisional step with a question mark", async () => {
+      renderApp(`${base}?journey=J.connect`, undefined, seed);
+      const canvas = await screen.findByTestId("journey-canvas");
+      const s1 = await within(canvas).findByLabelText(/^Step s1:/);
+      expect(s1.hasAttribute("data-unresolved")).toBe(true);
+      expect(s1.textContent).toContain("?");
+    });
   });
 });

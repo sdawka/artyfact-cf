@@ -14,3 +14,7 @@
   .body { grid-template-columns: 1fr; }
   .canvas { min-height: 360px; }
 }
+.canvas :global(.journey-edge--failure .react-flow__edge-path) { stroke: var(--color-danger); stroke-dasharray: 6 4; }
+.canvas :global(.journey-edge--failure .react-flow__edge-text) { fill: var(--color-danger); }
+.canvas :global(.react-flow__edge-text) { font-size: var(--font-size-xs); }
+.canvas :global(.react-flow__edge-textbg) { fill: var(--color-background); fill-opacity: 1; }

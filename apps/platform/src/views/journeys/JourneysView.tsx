@@ -1,4 +1,4 @@
-import { Background, MarkerType, ReactFlow, ReactFlowProvider, type NodeTypes } from "@xyflow/react";
+import { Background, Controls, MarkerType, ReactFlow, ReactFlowProvider, useReactFlow, useStore, type NodeTypes } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -35,6 +35,30 @@ const ALL = "__all";
 const FLOW = "var(--color-border-strong)";
 const DANGER = "var(--color-danger)";
 
+/** Re-fits when the journey, segment or layout changes, and adds `+` / `-` / `0` keyboard zoom. */
+function ViewportEffects({ fitKey }: { fitKey: string }) {
+  const { zoomIn, zoomOut, fitView } = useReactFlow();
+  const dom = useStore((s) => s.domNode);
+  useEffect(() => {
+    const frame = requestAnimationFrame(() => void fitView({ padding: 0.1, minZoom: 0.5, maxZoom: 1, duration: 0 }));
+    return () => cancelAnimationFrame(frame);
+  }, [fitKey, fitView]);
+  useEffect(() => {
+    if (!dom) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (e.key === "+" || e.key === "=") void zoomIn();
+      else if (e.key === "-") void zoomOut();
+      else if (e.key === "0") void fitView({ padding: 0.1, minZoom: 0.3, maxZoom: 1 });
+      else return;
+      e.preventDefault();
+    };
+    dom.addEventListener("keydown", onKey);
+    return () => dom.removeEventListener("keydown", onKey);
+  }, [dom, zoomIn, zoomOut, fitView]);
+  return null;
+}
+
 export default function JourneysView() {
   const { model } = useModel().bundle;
   const journeys = model.journeys;
@@ -43,8 +67,10 @@ export default function JourneysView() {
 
   const requested = params.get("journey");
   const journey = journeys.find((j) => j.id === requested) ?? journeys.find((j) => !j.deferred) ?? journeys[0];
-  const [segment, setSegment] = useState(ALL);
+  const [picked, setSegment] = useState(ALL);
   const segments = journey?.segments ?? [];
+  // A segment name from another journey (back/forward, deep link) falls back to all steps.
+  const segment = segments.some((s) => s.name === picked) ? picked : ALL;
   const segmentSteps = useMemo(
     () => segments.find((s) => s.name === segment)?.steps,
     [segments, segment],
@@ -57,7 +83,6 @@ export default function JourneysView() {
 
   const select = useCallback(
     (id: string) => {
-      setSegment(ALL);
       setParams((prev) => {
         const next = new URLSearchParams(prev);
         next.set("journey", id);
@@ -119,9 +144,6 @@ export default function JourneysView() {
         ...e,
         focusable: false,
         markerEnd: { type: MarkerType.ArrowClosed, color: e.data?.failure ? DANGER : FLOW },
-        style: e.data?.failure ? { stroke: DANGER, strokeDasharray: "6 4" } : undefined,
-        labelStyle: { fill: e.data?.failure ? DANGER : "var(--color-text-secondary)", fontSize: 11 },
-        labelBgStyle: { fill: "var(--color-background)", fillOpacity: 1 },
         labelBgPadding: [4, 2] as [number, number],
       })),
     [graph.edges],
@@ -162,12 +184,11 @@ export default function JourneysView() {
             <StepContext.Provider value={ctx}>
               <ReactFlowProvider>
                 <ReactFlow
-                  key={`${journey.id}:${segment}:${graph.layoutReady}`}
                   nodes={nodes}
                   edges={edges}
                   nodeTypes={nodeTypes}
                   fitView
-                  fitViewOptions={{ padding: 0.1, maxZoom: 1 }}
+                  fitViewOptions={{ padding: 0.1, minZoom: 0.5, maxZoom: 1 }}
                   minZoom={0.3}
                   nodesDraggable={false}
                   nodesConnectable={false}
@@ -177,6 +198,8 @@ export default function JourneysView() {
                   proOptions={{ hideAttribution: true }}
                 >
                   <Background gap={24} />
+                  <Controls showInteractive={false} position="bottom-right" />
+                  <ViewportEffects fitKey={`${journey.id}:${segment}:${graph.layoutReady}`} />
                 </ReactFlow>
               </ReactFlowProvider>
             </StepContext.Provider>

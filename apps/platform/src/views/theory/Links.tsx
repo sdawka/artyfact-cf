@@ -33,14 +33,14 @@ export function Links({ containerRef, links }: { containerRef: RefObject<HTMLEle
     if (!root) return;
     const box = root.getBoundingClientRect();
     const cell = (key: string) => root.querySelector(`[data-cell="${key}"]`)?.getBoundingClientRect();
-    setSize({ w: root.scrollWidth, h: root.scrollHeight });
-    setPaths(
-      links.flatMap((l) => {
+    setSize((prev) => (prev.w === root.scrollWidth && prev.h === root.scrollHeight ? prev : { w: root.scrollWidth, h: root.scrollHeight }));
+    const next = links.flatMap((l) => {
         const a = cell(l.from);
         const b = cell(l.to);
         return a && b ? [{ id: l.id, d: bezier(a, b, { left: box.left - root.scrollLeft, top: box.top - root.scrollTop }) }] : [];
-      }),
-    );
+      });
+    // Keep the old array when nothing moved, so resize ticks do not re-render the SVG.
+    setPaths((prev) => (prev.length === next.length && prev.every((p, i) => p.d === next[i]!.d && p.id === next[i]!.id) ? prev : next));
   }, [containerRef, links]);
 
   // Not a layout effect: a child's layout effects run before the parent's ref is attached.

@@ -1,8 +1,9 @@
 /**
- * Local elk wrapper for the Journeys canvas. elk's layered algorithm (direction RIGHT) decides each
- * step's column; the lane (actor | system | external) decides its row. elk partitions order layers,
- * not rows, so lane rows are assigned here. Swap for `@/graph/elk` once slice 2.1 lands.
+ * Journeys layout. The shared elk helper (`@/graph/elk`, layered RIGHT) decides each step's column;
+ * the lane (actor | system | external) decides its row. elk partitions order layers, not rows, so
+ * lane rows are assigned here.
  */
+import { LAYERED_RIGHT, layoutGraph } from "@/graph/elk";
 export const LANES = ["actor", "system", "external"] as const;
 export type Lane = (typeof LANES)[number];
 
@@ -46,27 +47,23 @@ export function depthColumns(nodes: LayoutNode[], edges: LayoutEdge[]): Map<stri
   return new Map([...depth].map(([id, d]) => [id, d * COLUMN_PITCH]));
 }
 
-/** Column x per node from elk's layered layout (RIGHT). Loaded lazily; rejects if elk fails. */
+/** Column x per node from the shared elk layout (layered, RIGHT), snapped to a uniform column pitch. */
 export async function elkColumns(nodes: LayoutNode[], edges: LayoutEdge[]): Promise<Map<string, number>> {
-  const { default: ELK } = await import("elkjs/lib/elk.bundled.js");
-  const ids = new Set(nodes.map((n) => n.id));
-  const graph = await new ELK().layout({
-    id: "root",
+  const result = await layoutGraph({
+    nodes: nodes.map((n) => ({ id: n.id, width: n.w, height: n.h })),
+    edges: edges.map((e, i) => ({ id: `e${i}`, source: e.source, target: e.target })),
     layoutOptions: {
-      "elk.algorithm": "layered",
-      "elk.direction": "RIGHT",
+      ...LAYERED_RIGHT,
+      "elk.hierarchyHandling": "SEPARATE_CHILDREN",
       "elk.layered.spacing.nodeNodeBetweenLayers": String(COL_GAP),
       "elk.spacing.nodeNode": String(ROW_GAP),
       "elk.layered.crossingMinimization.strategy": "LAYER_SWEEP",
     },
-    children: nodes.map((n) => ({ id: n.id, width: n.w, height: n.h })),
-    edges: edges
-      .filter((e) => ids.has(e.source) && ids.has(e.target))
-      .map((e, i) => ({ id: `e${i}`, sources: [e.source], targets: [e.target] })),
   });
-  // Snap elk's layers to a uniform column pitch so differently sized nodes never overlap.
-  const layers = [...new Set((graph.children ?? []).map((c) => Math.round(c.x ?? 0)))].sort((a, b) => a - b);
-  return new Map((graph.children ?? []).map((c) => [c.id, layers.indexOf(Math.round(c.x ?? 0)) * COLUMN_PITCH]));
+  // Snap layers to a uniform pitch so differently sized nodes never overlap.
+  const xs = nodes.map((n) => Math.round(result.nodes[n.id]?.x ?? 0));
+  const layers = [...new Set(xs)].sort((x, y) => x - y);
+  return new Map(nodes.map((n, i) => [n.id, layers.indexOf(xs[i]!) * COLUMN_PITCH]));
 }
 
 export interface LaneBand {
