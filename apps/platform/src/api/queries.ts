@@ -359,8 +359,18 @@ function invalidate(qc: QueryClient, systemId: string, ...names: string[]) {
   for (const k of names) void qc.invalidateQueries({ queryKey: k === "systems" ? [k] : [k, systemId] });
 }
 
-/** Which query prefixes each SSE event invalidates (`systems` is global). Exported for tests and for views that subscribe. */
-export const SSE_INVALIDATIONS: Partial<Record<api.SseType | "poll", string[]>> = {
+/** Every list a view may have mounted; the polling fallback (no SSE) refreshes these. */
+const LIVE_LISTS = ["evolutions", "candidates", "builds", "deployments", "phenome", "changelog", "revisions", "systems"];
+
+/**
+ * Which query prefixes each SSE event invalidates (`systems` is global). Exhaustive: `ping` invalidates nothing; `poll`
+ * (the 3 s fallback when EventSource is unavailable) refreshes the live lists. Exported for tests.
+ */
+export const SSE_INVALIDATIONS: Record<api.SseType | "poll", readonly string[]> = {
+  "realization.created": ["evolutions"],
+  "realization.updated": ["evolutions"],
+  checkpoint: ["evolutions"],
+  "evolution.updated": ["evolutions"],
   "evaluation.completed": ["evaluations", "candidates"],
   "candidate.submitted": ["candidates", "conflicts", "evolutions", "revisions", "builds"],
   "conflict.detected": ["candidates", "conflicts", "evolutions"],
@@ -372,6 +382,8 @@ export const SSE_INVALIDATIONS: Partial<Record<api.SseType | "poll", string[]>> 
   "system.updated": ["systems"],
   "system.imported": ["systems"],
   "evolution.created": ["evolutions", "systems"],
+  ping: [],
+  poll: LIVE_LISTS,
 };
 
 /** Subscribes to System events for the current route and invalidates the affected queries. Mount once (Shell does). */
@@ -382,7 +394,7 @@ export function useSystemEvents() {
     () =>
       api.subscribeEvents(systemId, (e) => {
         if (e.type === "candidate.submitted") emitFx({ kind: "submitted" });
-        invalidate(qc, systemId, ...(SSE_INVALIDATIONS[e.type] ?? ["evolutions"]));
+        invalidate(qc, systemId, ...(SSE_INVALIDATIONS[e.type] ?? []));
       }),
     [systemId, qc],
   );

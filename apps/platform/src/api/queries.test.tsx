@@ -2,7 +2,7 @@ import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderApp } from "@/testing/render";
 import { ApiRequestError } from "./client";
-import { ManualCommitError, SSE_INVALIDATIONS, qk, useManualCommit, type ManualCommitInput } from "./queries";
+import { ManualCommitError, SSE_INVALIDATIONS, qk, useManualCommit, useSystemEvents, type ManualCommitInput } from "./queries";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -104,5 +104,57 @@ describe("query keys and SSE invalidations", () => {
     expect(SSE_INVALIDATIONS["system.updated"]).toEqual(["systems"]);
     expect(SSE_INVALIDATIONS["evolution.created"]).toContain("evolutions");
     expect(SSE_INVALIDATIONS["system.promoted"]).toEqual(expect.arrayContaining(["changelog", "revisions"]));
+    expect(SSE_INVALIDATIONS.ping).toEqual([]);
+  });
+});
+
+describe("useSystemEvents", () => {
+  class FakeSource {
+    static CLOSED = 2;
+    static last: FakeSource | undefined;
+    readyState = 1;
+    onmessage: ((e: MessageEvent<string>) => void) | null = null;
+    onerror: (() => void) | null = null;
+    constructor(readonly url: string) {
+      FakeSource.last = this;
+    }
+    addEventListener() {}
+    close() {
+      this.readyState = 2;
+    }
+  }
+  function Events() {
+    useSystemEvents();
+    return null;
+  }
+  const mount = () => {
+    vi.stubGlobal("EventSource", FakeSource);
+    vi.stubGlobal("fetch", vi.fn(async () => json(200, { systems: [{ systemId: "s" }] })));
+    const { qc } = renderApp("/s/s/r/head/p", [{ path: "/s/:systemId/r/:rev/p", element: <Events /> }]);
+    return vi.spyOn(qc, "invalidateQueries");
+  };
+  const send = (data: unknown) => act(() => FakeSource.last!.onmessage!({ data: JSON.stringify(data) } as MessageEvent<string>));
+
+  it("ignores pings and invalidates per event type", async () => {
+    const spy = mount();
+    await waitFor(() => expect(FakeSource.last?.url).toBe("/api/systems/s/events"));
+    send({ type: "ping", at: "" });
+    expect(spy).not.toHaveBeenCalled();
+    send({ type: "phenome.ingested", count: 1, commit: "c", at: "" });
+    expect(spy.mock.calls.map((c) => c[0]!.queryKey)).toEqual([["phenome", "s"], ["systems"]]);
+  });
+
+  it("the polling fallback refreshes the live lists", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    const spy = mount();
+    await waitFor(() => expect(FakeSource.last).toBeTruthy());
+    act(() => {
+      FakeSource.last!.readyState = FakeSource.CLOSED;
+      FakeSource.last!.onerror!();
+    });
+    act(() => void vi.advanceTimersByTime(3_100));
+    const keys = spy.mock.calls.map((c) => c[0]!.queryKey);
+    expect(keys).toEqual(expect.arrayContaining([["builds", "s"], ["deployments", "s"], ["changelog", "s"], ["systems"]]));
+    vi.useRealTimers();
   });
 });

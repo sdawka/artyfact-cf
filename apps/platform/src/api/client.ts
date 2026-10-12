@@ -348,11 +348,16 @@ export interface CompareResult {
   genome: GenomeCompare;
 }
 
-export const SSE_TYPES: SseType[] = [
-  "realization.created", "realization.updated", "checkpoint", "candidate.submitted", "evaluation.completed",
-  "conflict.detected", "evolution.updated", "system.promoted", "genome.accepted",
-  "build.updated", "deployment.updated", "phenome.ingested", "system.updated", "evolution.created",
-];
+/** Every event type, checked exhaustive against `SseEvent` by `satisfies`. */
+const SSE_TYPE_SET = {
+  "realization.created": true, "realization.updated": true, checkpoint: true, "candidate.submitted": true,
+  "evaluation.completed": true, "conflict.detected": true, "evolution.updated": true, "system.promoted": true,
+  "genome.accepted": true, "system.imported": true, "build.updated": true, "deployment.updated": true,
+  "phenome.ingested": true, "system.updated": true, "evolution.created": true, ping: true,
+} satisfies Record<SseType, true>;
+
+/** Named EventSource listeners (the server may also send unnamed `data:` frames, handled by `onmessage`). */
+export const SSE_TYPES = Object.keys(SSE_TYPE_SET) as SseType[];
 
 /**
  * Streams System events. Falls back to polling every 3 s when EventSource is unavailable or
