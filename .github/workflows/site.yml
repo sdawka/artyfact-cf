@@ -1,3 +1,4 @@
+# Mirrored locally by scripts/ci.mjs (`npm run ci`, run by .githooks/pre-push). Keep the steps in sync.
 name: public-site
 on:
   push:
