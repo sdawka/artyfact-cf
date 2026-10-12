@@ -62,3 +62,9 @@ The executed, step-by-step version with real output is `docs/demo-runbook.md`. D
 ## B.8 Tests
 DO (vitest-pool-workers, `runInDurableObject`): CAS stale head; block on unknown; duplicate submit; event dedupe; sibling rejection. Hooks pure tests. source-map glob tests. `walkTree/diffTrees` against mocked `ArtifactsRepo`. CLI: temp bare repo + `node:http` mock server. Manual integration smoke documented. The fake platform (`FAKE_ARTIFACTS=1`) backs the `@fake` Playwright specs; `apps/platform/e2e/iteration2.live.spec.ts` covers the real Git push.
 
+
+## Parts registry and realization lineage (accepted contract)
+
+Implement an immutable versioned Parts catalog with shared and System-private scopes, authorized package publication/import, exact pinned dependency validation, and inspectable provenance. Keep composition execution local and explicit through CLI/agents; model reads never run commands. Preserve separate Genome approval, application realization, and deployment gates. The CI command allowlist is not extended by package commands.
+
+Persist realized output independently from deployment, retaining source binding, Thing, source revision, Genome revision and build/output locator or digest. Phenome ingestion verifies these associations from stored records rather than trusting emitter IDs; old records without lineage stay explicitly unknown. Track delivery and verification in [GRREAT](../grreat/roadmap.md).
