@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { checkA11yAndShoot, successToneElements } from "./helpers";
+import { mockApi } from "./mockApi";
 
 test.describe("home", () => {
   test("lists the fixture System, is axe clean and never green @fixture", async ({ page }, testInfo) => {
@@ -18,5 +19,25 @@ test.describe("home", () => {
     await card.focus();
     await expect(card).toBeFocused();
     await checkA11yAndShoot(page, testInfo, "home-narrow");
+  });
+});
+
+test.describe("home with a populated API", () => {
+  test("two Systems show distinct states; only a passed build is green @fixture", async ({ page }, testInfo) => {
+    await mockApi(page);
+    await page.goto("/");
+    const kit = page.getByRole("link", { name: /Keep in Touch/ });
+    const notes = page.getByRole("link", { name: /Field Notes/ });
+    await expect(kit).toHaveAttribute("data-state", "evolving");
+    await expect(notes).toHaveAttribute("data-state", "attention");
+    await expect(page.getByText("fixture data")).toHaveCount(0);
+    await expect(notes.getByText("not deployed, unknown")).toBeVisible();
+    await expect(kit.locator('[data-status="deployed"]')).toHaveText(/deployed/);
+    const green = await successToneElements(page);
+    expect(green.length).toBeGreaterThan(0);
+    expect(green.every((h) => h.includes("build passed"))).toBe(true);
+    await checkA11yAndShoot(page, testInfo, "home-populated");
+    await kit.click();
+    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
   });
 });
