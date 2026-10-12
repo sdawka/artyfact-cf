@@ -26,6 +26,9 @@ export interface MeterProps {
 
 const GLYPH: Record<MeterTone, string> = { pass: "✓", fail: "×", warn: "!", subtle: "–" };
 
+/** Never-green: a zero count is not evidence, so a pass segment with nothing in it takes the neutral tone. */
+const legendTone = (s: MeterSegment): MeterTone => (s.tone === "pass" && s.count === 0 ? "subtle" : s.tone);
+
 /** Segmented count bar with a legend. Colour is never the only signal: each segment is listed with a glyph, word and count. */
 export function Meter({ title, headline, segments, caption, asOf, emptyText = "nothing counted" }: MeterProps) {
   const total = segments.reduce((n, s) => n + s.count, 0);
@@ -45,13 +48,16 @@ export function Meter({ title, headline, segments, caption, asOf, emptyText = "n
       )}
       {total > 0 ? (
         <ul className={styles.legend}>
-          {segments.map((s) => (
-            <li key={s.key} className={styles.legendItem} data-tone={s.tone} data-zero={s.count === 0 || undefined}>
-              <span aria-hidden="true" className={styles.glyph}>{GLYPH[s.tone]}</span>
-              <span>{s.label}</span>
-              <span className={styles.count}>{s.count}</span>
-            </li>
-          ))}
+          {segments.map((s) => {
+            const tone = legendTone(s);
+            return (
+              <li key={s.key} className={styles.legendItem} data-tone={tone} data-zero={s.count === 0 || undefined}>
+                <span aria-hidden="true" className={styles.glyph}>{GLYPH[tone]}</span>
+                <span>{s.label}</span>
+                <span className={styles.count}>{s.count}</span>
+              </li>
+            );
+          })}
         </ul>
       ) : (
         <p className={styles.empty}>{emptyText}</p>

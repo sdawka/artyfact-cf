@@ -12,7 +12,9 @@
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json",
     "cf-typegen": "wrangler types worker/env.d.ts",
     "build:fixture": "node scripts/build-fixture.ts",
-    "dev:amendment": "vite --config vite.amendment-dev.config.ts --port 5199"
+    "dev:amendment": "vite --config vite.amendment-dev.config.ts --port 5199",
+    "e2e": "npm run build && playwright test",
+    "e2e:live": "npm run build && ARTYFACT_E2E_LIVE=1 playwright test"
   },
   "dependencies": {
     "@artyfact/model": "*",
@@ -33,8 +35,11 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@artyfact/templates": "*",
+    "@axe-core/playwright": "4.13.0",
     "@cloudflare/vite-plugin": "^1.63.1",
     "@cloudflare/vitest-plugin": "^1.4.0",
+    "@playwright/test": "1.64.0",
     "@testing-library/react": "^16.3.3",
     "@types/node": "^26.6.5",
     "@types/picomatch": "^4.0.3",

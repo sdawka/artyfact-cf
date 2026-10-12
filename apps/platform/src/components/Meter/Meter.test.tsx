@@ -26,6 +26,22 @@ describe("Meter", () => {
     render(<Meter title="T" headline="unknown" caption="c" segments={[{ key: "a", label: "a", count: 0, tone: "subtle" }]} emptyText="nothing yet" />);
     expect(screen.getByText("nothing yet")).toBeTruthy();
   });
+  it("gives a zero pass count the neutral tone and a non-zero one the pass tone", () => {
+    const { container, rerender } = render(
+      <Meter title="T" headline="h" caption="c" segments={[
+        { key: "p", label: "pass", count: 0, tone: "pass" },
+        { key: "n", label: "not run", count: 2, tone: "subtle" },
+      ]} />,
+    );
+    expect(container.querySelector('[data-tone="pass"]')).toBeNull();
+    rerender(
+      <Meter title="T" headline="h" caption="c" segments={[
+        { key: "p", label: "pass", count: 1, tone: "pass" },
+        { key: "n", label: "not run", count: 2, tone: "subtle" },
+      ]} />,
+    );
+    expect(container.querySelector('[data-tone="pass"]')).not.toBeNull();
+  });
   it("gives unknown and not-run segments and the unknown headline no pass tone", () => {
     const { container } = render(
       <Meter
