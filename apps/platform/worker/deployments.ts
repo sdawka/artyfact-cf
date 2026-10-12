@@ -10,10 +10,11 @@ import type {
   Build, BuildKind, BuildReport, BuildReportResponse, BuildReporter, BuildStatus, BuildStep, BuildSummary, BuildsResponse, CiBuildParams,
   Deployment, DeploymentCreated, DeploymentRequest, DeploymentsResponse, IngestTokenResponse, SystemCommit,
 } from "../shared/api";
+import { artifactsFor, withRepo } from "./artifacts/client";
 import { newRealizationSecret } from "./auth";
 import { buildSummary } from "./do/builds-store";
 import { TERMINAL_REALIZATION, type HeadState, type RealizationRecord } from "./do/system-authority";
-import { badRequest, conflict, HttpError, notFound } from "./errors";
+import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
 import { genomeAt, refreshRegistry, submit, systemStub } from "./service";
 import { sha256Hex } from "./util";
 
@@ -23,6 +24,28 @@ const STATUSES: BuildStatus[] = ["queued", "running", "passed", "failed", "error
 const HTTP_URL = (v: unknown): v is string => typeof v === "string" && v.length <= 2048 && /^https?:\/\/[^\s]+$/.test(v);
 
 export type CiBinding = Pick<Workflow<CiBuildParams>, "create">;
+
+/**
+ * The only build commands CI may run. They come from the app template's `scaffold.yaml` (platform-side), never from
+ * the app repo or a request body, and anything else is refused before a Workflow starts. Mirrored by
+ * `ALLOWED_COMMANDS` in `apps/ci/src/contract.ts`, which re-checks; `deploy` only names the step there.
+ */
+export const ALLOWED_COMMANDS = {
+  install: ["npm install", "npm ci"],
+  test: ["npm test", "npm run test"],
+  build: ["npm run build"],
+  deploy: ["npx wrangler deploy", "wrangler deploy"],
+} as const satisfies Record<keyof CiBuildParams["commands"], readonly string[]>;
+
+/** Throws unless every command is on {@link ALLOWED_COMMANDS} (`install` and `deploy` required). */
+export function assertAllowedCommands(commands: CiBuildParams["commands"]): void {
+  const bad = (["install", "test", "build", "deploy"] as const).filter((k) => {
+    const v = commands[k];
+    if (v === undefined) return k === "install" || k === "deploy";
+    return !(ALLOWED_COMMANDS[k] as readonly string[]).includes(v);
+  });
+  if (bad.length) throw new Error(`commands not on the CI allowlist: ${bad.map((k) => `${k}=${JSON.stringify(commands[k] ?? null)}`).join(", ")}`);
+}
 
 let ciOverride: CiBinding | null | undefined;
 /** Tests inject a fake Workflow binding (`null` forces "no CI"). */
@@ -92,13 +115,17 @@ async function mintIngestToken(): Promise<{ token: string; hash: string }> {
   return { token, hash: await sha256Hex(token) };
 }
 
-/** Start the Workflow; record the instance id, or an `error` build (and failed deployment) when it cannot start. */
+/**
+ * Check the commands and start the Workflow; record the instance id, or an `error` build (and failed deployment)
+ * when the commands are refused or the Workflow cannot start.
+ */
 async function startCi(env: Env, ci: CiBinding, params: CiBuildParams): Promise<BuildSummary> {
   const stub = systemStub(env, params.systemId);
   const base = {
     id: params.buildId, realization: params.realizationId, candidate: params.candidateId, commit: params.commit, kind: params.kind, reporter: "ci" as const,
   };
   try {
+    assertAllowedCommands(params.commands);
     const instance = await ci.create({ id: workflowInstanceId(params.buildId), params });
     return buildSummary((await stub.upsertBuild({ ...base, status: "queued", externalId: instance.id })).build);
   } catch (e) {
@@ -229,6 +256,14 @@ export function parseReport(body: unknown): BuildReport {
   };
 }
 
+/** An agent reports only commits it submitted (a candidate of its realization) or its fork's current head. */
+async function assertAgentCommit(env: Env, stub: ReturnType<typeof systemStub>, rec: RealizationRecord, commit: string): Promise<void> {
+  if ((await stub.candidates({ realizationId: rec.realization.id })).some((c) => c.commit === commit)) return;
+  const [head] = await withRepo(artifactsFor(env), rec.forkRepo, (repo) => repo.log({ limit: 1 }));
+  if (head?.hash === commit) return;
+  throw unprocessable("unknown-commit", `commit ${commit.slice(0, 12)} is neither a candidate of ${rec.realization.id} nor the head of ${rec.forkRepo}`);
+}
+
 /**
  * Record a build report. Realization reports are previews (an agent may report nothing else); System reports default
  * to production. `passed` + `url` for a realization re-enters `submit(…, {commit, previewUrl}, "ci")`, which stores the
@@ -248,9 +283,20 @@ export async function reportBuild(env: Env, systemId: string, rid: string | null
   if (prev && (prev.realization !== (rid ?? null) || prev.commit !== r.commit)) {
     throw conflict("build-mismatch", `build ${id} belongs to ${prev.realization ?? "the System"} at ${prev.commit.slice(0, 12)}`);
   }
+  if (reporter === "agent" && rec) await assertAgentCommit(env, stub, rec, r.commit);
   let deployment = r.deploymentId ? await stub.deployment(r.deploymentId) : null;
   if (r.deploymentId && (!deployment || (rid && deployment.realization !== rid) || deployment.commit !== r.commit)) {
     throw notFound(`unknown deployment ${r.deploymentId} for this ${rid ? "realization" : "System"} at ${r.commit.slice(0, 12)}`);
+  }
+  // Production without a named deployment: the newest pending one of this commit, or a new record only for the head's
+  // app commit. Anything else was never promoted, so it cannot become the System's live deployment.
+  let pending: Deployment | null = null;
+  if (!deployment && kind === "production" && r.status === "passed") {
+    pending = (await stub.deployments({ kind: "production" })).find((d) => d.status === "pending" && d.commit === r.commit) ?? null;
+    const s = await stub.state();
+    if (!pending && s?.appSource.commit !== r.commit) {
+      throw conflict("not-promoted", `commit ${r.commit.slice(0, 12)} is not the System's app commit and has no pending production deployment`);
+    }
   }
   const candidateOf = async () => (rid ? (await stub.candidates({ realizationId: rid })).find((c) => c.commit === r.commit)?.id ?? null : null);
   const upsert = async (candidate: string | null) => (await stub.upsertBuild({
@@ -269,12 +315,11 @@ export async function reportBuild(env: Env, systemId: string, rid: string | null
     if (build.candidate !== sub.candidate.id) build = await upsert(sub.candidate.id);
   }
 
-  // Production without a named deployment: the newest pending one of this commit, else a new record.
   if (!deployment && kind === "production" && build.status === "passed") {
-    deployment = (await stub.deployments({ kind: "production" })).find((d) => d.status === "pending" && d.commit === r.commit) ?? null;
+    deployment = pending;
     if (!deployment) {
       const s = await stub.state();
-      deployment = await stub.createDeployment({ kind: "production", repo: s?.appSource.commit === r.commit ? s.appSource.repo : (s?.appRepo ?? ""), commit: r.commit, by: reporter, buildRow: id });
+      deployment = await stub.createDeployment({ kind: "production", repo: s!.appSource.repo, commit: r.commit, by: reporter, buildRow: id });
     }
   }
   if (deployment) {

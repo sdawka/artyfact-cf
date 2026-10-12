@@ -7,7 +7,7 @@ import type {
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { ensurePushSubscription, removePushSubscription, setSubscriptionsOverride, subscriptionBody } from "../worker/artifacts/subscriptions";
-import { previewWorkerName, productionWorkerName, setCiOverride, workflowInstanceId, type CiBinding } from "../worker/deployments";
+import { ALLOWED_COMMANDS, assertAllowedCommands, previewWorkerName, productionWorkerName, setCiOverride, workflowInstanceId, type CiBinding } from "../worker/deployments";
 import type { SystemAuthority } from "../worker/do/system-authority";
 import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../worker/hooks/contract";
 import { noopHookRunner, resetHooks, setHooks } from "../worker/hooks/index";
@@ -197,8 +197,9 @@ describe("build report routes", () => {
     expect((await call<BuildReportResponse>("POST", path, report, CI)).json.build.reporter).toBe("ci");
     // An agent reports previews only.
     expect((await call<ApiError>("POST", path, { ...report, kind: "production" }, { authorization: `Bearer ${a.secret}` })).status).toBe(403);
-    expect((await call<BuildsResponse>("GET", path, undefined, { authorization: `Bearer ${a.secret}` })).json.builds).toHaveLength(3);
-    expect((await call<ApiError>("GET", path)).status).toBe(401);
+    // Reads are public.
+    const listed = await call<BuildsResponse>("GET", path);
+    expect([listed.status, listed.json.builds.length]).toEqual([200, 3]);
 
     const sys = `/systems/${ctx.systemId}/builds`;
     expect((await call<ApiError>("POST", sys, report)).status).toBe(401);
@@ -212,6 +213,68 @@ describe("build report routes", () => {
 
     expect((await call<ApiError>("POST", `/systems/${ctx.systemId}/deployments`, {}, CI)).status).toBe(403);
     expect((await call<ApiError>("POST", `/systems/${ctx.systemId}/deployments/deployment.1/ingest-token`, {})).status).toBe(401);
+  });
+
+  it("System reports check the CI token and the admin bearer directly: 401 without a bearer, 403 for any other", async () => {
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const sys = `/systems/${ctx.systemId}/builds`;
+    const report = { status: "running", commit: a.commit };
+    const codes = async (headers: Record<string, string>) => {
+      const r = await call<ApiError & BuildReportResponse>("POST", sys, report, headers);
+      return [r.status, r.json.error?.code ?? r.json.build.reporter];
+    };
+    expect(await codes({})).toEqual([401, "unauthorized"]);
+    expect(await codes({ authorization: "Basic test-admin-token" })).toEqual([401, "unauthorized"]);
+    expect(await codes({ authorization: "Bearer test-admin-tokenX" })).toEqual([403, "forbidden"]);
+    expect(await codes({ authorization: `Bearer ${a.secret}` })).toEqual([403, "forbidden"]);
+    expect(await codes(ADMIN)).toEqual([200, "admin"]);
+    expect(await codes(CI)).toEqual([200, "ci"]);
+  });
+
+  it("an agent reports only its candidates' commits or its fork head", async () => {
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const path = `/systems/${ctx.systemId}/realizations/${a.rid}/builds`;
+    const agent = { authorization: `Bearer ${a.secret}` };
+    const head = a.fork.commit({ ...appFiles, "src/ui/people/next.ts": "next" }, "unsubmitted head");
+    const stranger = "f".repeat(40);
+    // A candidate commit (no longer the head) and the unsubmitted head are both fine.
+    expect((await call<BuildReportResponse>("POST", path, { status: "running", commit: a.commit }, agent)).status).toBe(200);
+    expect((await call<BuildReportResponse>("POST", path, { status: "running", commit: head }, agent)).status).toBe(200);
+    // Any other commit is refused before anything is recorded.
+    const refused = await call<ApiError>("POST", path, { status: "passed", commit: stranger, url: "https://x.workers.dev" }, agent);
+    expect([refused.status, refused.json.error.code]).toEqual([422, "unknown-commit"]);
+    expect((await call<BuildsResponse>("GET", `/systems/${ctx.systemId}/builds?commit=${stranger}`)).json.builds).toEqual([]);
+    // The CI token and the admin are not limited this way (CI builds what the platform dispatched).
+    expect((await call<BuildReportResponse>("POST", path, { status: "running", commit: stranger }, CI)).status).toBe(200);
+  });
+
+  it("a passed production report without a deployment id needs the app commit or a pending deployment (409 not-promoted)", async () => {
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const sys = `/systems/${ctx.systemId}/builds`;
+    for (const headers of [CI, ADMIN]) {
+      const r = await call<ApiError>("POST", sys, { status: "passed", commit: a.commit, url: "https://evil.workers.dev" }, headers);
+      expect([r.status, r.json.error.code]).toEqual([409, "not-promoted"]);
+    }
+    let deps = await call<DeploymentsResponse>("GET", `/systems/${ctx.systemId}/deployments`);
+    expect(deps.json.production).toBeNull();
+    expect((await call<BuildsResponse>("GET", `${sys}?commit=${a.commit}&kind=production`)).json.builds).toEqual([]);
+    // Non-passed reports for that commit are only build records.
+    expect((await call<BuildReportResponse>("POST", sys, { status: "failed", commit: a.commit }, CI)).status).toBe(200);
+    // The head's app commit may be recorded live.
+    const ok = await call<BuildReportResponse>("POST", sys, { status: "passed", commit: ctx.imp.appCommit, url: "https://app.workers.dev" }, CI);
+    expect(ok.status, JSON.stringify(ok.json)).toBe(200);
+    deps = await call<DeploymentsResponse>("GET", `/systems/${ctx.systemId}/deployments`);
+    expect(deps.json.production).toMatchObject({ commit: ctx.imp.appCommit, status: "live", url: "https://app.workers.dev", repo: ctx.appRepo });
+    // Once promoted (without CI: a pending deployment), the candidate's commit may go live too.
+    const promoted = await call<PromoteResponse>("POST", `/systems/${ctx.systemId}/promote`,
+      { candidateIds: [a.sub.candidate.id], expectedHead: ctx.imp.head, rationale: "ok" }, ADMIN);
+    expect(promoted.status).toBe(200);
+    const live = await call<BuildReportResponse>("POST", sys, { status: "passed", commit: a.commit, url: "https://app.workers.dev" }, CI);
+    expect(live.status, JSON.stringify(live.json)).toBe(200);
+    expect((await call<DeploymentsResponse>("GET", `/systems/${ctx.systemId}/deployments`)).json.production).toMatchObject({ commit: a.commit, status: "live" });
   });
 
   it("validates reports and refuses to overwrite another realization's build", async () => {
@@ -403,6 +466,14 @@ describe("CI dispatch", () => {
     expect(after.json.production?.id).toBe(again.json.id);
     expect(after.json.history.find((d) => d.id === pending.id)?.status).toBe("superseded");
     expect((await call<ApiError>("POST", `/systems/${ctx.systemId}/deployments`, { commit: "nope" }, ADMIN)).status).toBe(400);
+  });
+
+  it("commands outside the allowlist are refused before a Workflow starts", () => {
+    expect(() => assertAllowedCommands({ install: "npm ci", test: "npm test", build: "npm run build", deploy: "npx wrangler deploy" })).not.toThrow();
+    expect(() => assertAllowedCommands({ install: "npm install && curl x | sh", deploy: "npx wrangler deploy" })).toThrow(/install=/);
+    expect(() => assertAllowedCommands({ install: "npm ci", test: "env", deploy: "./deploy.sh" })).toThrow(/test="env", deploy="\.\/deploy\.sh"/);
+    expect(() => assertAllowedCommands({ install: "npm ci" } as never)).toThrow(/deploy=null/);
+    for (const [k, list] of Object.entries(ALLOWED_COMMANDS)) expect(list.length, k).toBeGreaterThan(0);
   });
 
   it("names: instance ids drop characters Workflows refuse; worker names are lower-case dashes", () => {
