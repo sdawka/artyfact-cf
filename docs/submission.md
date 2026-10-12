@@ -10,7 +10,7 @@ A Git platform where the System is the unit: agents change a typed model, hooks 
 
 ## Links
 - Repository: `TODO(repo-url)`
-- Demo: `TODO(demo-url)`
+- Demo: https://artyfact-platform.dawka.workers.dev
 - Video: `TODO(video-url)`
 - Licence: Apache-2.0
 

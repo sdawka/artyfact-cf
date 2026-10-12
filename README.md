@@ -12,7 +12,7 @@ Agents work in a loop. The platform hands an agent a task packet cut from the Ge
 
 ## See it in 90 seconds
 
-Hosted demo: `TODO(deploy)` (steps are in `docs/deploy.md` once that file lands).
+Hosted demo: https://artyfact-platform.dawka.workers.dev. Until a System is imported it shows a fixture-mode banner and the bundled example. Deployment steps are in [docs/deploy.md](docs/deploy.md).
 
 ![Map on screen.people, Phenome layer](docs/images/map-screen-people-phenome.png)
 
@@ -108,7 +108,7 @@ No Cloudflare login is needed to try the interface. In fixture mode the SPA uses
 
 ```sh
 npm install
-npm test               # 717 tests pass, 1 skipped (live System One smoke)
+npm test               # 716 tests pass, 1 skipped (live System One smoke)
 npm run typecheck
 npm run e2e            # builds the SPA, runs 14 Playwright tests
 npm run preview:fixture
@@ -132,7 +132,7 @@ npm run dev:amendment -w @artyfact/platform
 
 Admin routes (import, accept, reject, promote) need `ADMIN_TOKEN`. The preview health probe reaches only `*.workers.dev`, `*.pages.dev`, hosts in `PREVIEW_HOST_ALLOWLIST`, or localhost when `ALLOW_LOCAL_PREVIEW=1`.
 
-The full loop against real Artifacts, with two agents and a promotion, is in `docs/demo-runbook.md` (`TODO(runbook)`: link when it lands). Hosted deployment: `docs/deploy.md` (`TODO(deploy)`).
+The full loop against real Artifacts, with two agents and a promotion, is in `docs/demo-runbook.md` (`TODO(runbook)`: link when it lands). Hosted deployment: [docs/deploy.md](docs/deploy.md).
 
 ## Repository layout
 
