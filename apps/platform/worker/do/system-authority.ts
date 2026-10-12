@@ -797,6 +797,21 @@ export class SystemAuthority extends DurableObject<Env> {
     return true;
   }
 
+  // ---- B1 editor: thin delegate ----
+  /**
+   * Record an editor commit's `why` on the candidate manifest as `rationale`; a blank one sets `rationalePending`.
+   * Like the preview URL, it is not part of the manifest hash. Returns false for an unknown candidate.
+   */
+  setCandidateRationale(candidateId: string, rationale: string | null): boolean {
+    const c = this.one("SELECT manifest_json FROM candidates WHERE id = ?", candidateId);
+    if (!c) return false;
+    const { rationale: _r, rationalePending: _p, ...manifest } = json<Record<string, unknown>>(c.manifest_json, {});
+    const next = rationale?.trim() ? { ...manifest, rationale: rationale.trim() } : { ...manifest, rationalePending: true };
+    this.sql.exec("UPDATE candidates SET manifest_json = ? WHERE id = ?", JSON.stringify(next), candidateId);
+    return true;
+  }
+  // ---- end B1 editor ----
+
   /** Claim the hook re-run for `candidateId` so concurrent retries do not all run it; a claim lapses after `ttlMs`. */
   claimEvaluation(candidateId: string, ttlMs = 5 * 60_000): boolean {
     const now = Date.now();
