@@ -9,7 +9,7 @@ import { artifactsFor, withRepo } from "./artifacts/client";
 import { bearer, safeEqual } from "./auth";
 import { type PhenomePrincipal, type PhenomeRow } from "./do/phenome-store";
 import { badRequest, HttpError, notFound } from "./errors";
-import { registryStub, systemStub } from "./service";
+import { refreshRegistry, registryStub, systemStub } from "./service";
 import { canonicalJson, sha256Hex } from "./util";
 
 export type IngestPrincipal = { kind: "admin" } | PhenomePrincipal;
@@ -25,10 +25,7 @@ export function resetPhenomeThrottle(): void {
   refresh = defaultRefresh;
 }
 
-async function defaultRefresh(env: Env, systemId: string): Promise<void> {
-  const summary = await systemStub(env, systemId).summary();
-  if (summary) await registryStub(env).registerSystem(summary);
-}
+const defaultRefresh = refreshRegistry;
 let refresh: (env: Env, systemId: string) => Promise<void> = defaultRefresh;
 /** Test hook: replace the registry refresh (undone by {@link resetPhenomeThrottle}). */
 export function setPhenomeRefresh(fn: (env: Env, systemId: string) => Promise<void>): void {

@@ -50,7 +50,9 @@ describe("GET …/changelog", () => {
       evolutions: [{ id: "evolution.1", title: "List people" }],
       candidates: [{ id: p.candidate, realization: p.rid, commit: p.commit, repo: p.forkRepo, agent: "claude" }],
       summary: { nodesAdded: 0, nodesChanged: 0, nodesRemoved: 0, filesChanged: 1, criteriaAffected: 0 },
-      manifestHash: expect.stringMatching(/^[0-9a-f]{64}$/), platform: null, builds: [], deployment: null,
+      manifestHash: expect.stringMatching(/^[0-9a-f]{64}$/), platform: null, builds: [],
+      // Without CI a promotion leaves a pending production deployment bound to its System commit.
+      deployment: { kind: "production", status: "pending", systemCommit: p.systemCommit.id, commit: p.commit },
     });
     expect(acc).toMatchObject({
       policy: "admin-accept", genomeCommit: g.commit, candidates: [{ id: g.candidate, repo: g.forkRepo }],
@@ -83,7 +85,7 @@ describe("GET …/changelog/:commitId", () => {
     const { f, p } = await threeCommits();
     const e = await get<ChangelogEntry>(routes.changelogEntry(f.systemId, "sc-2"));
     expect(e.status, JSON.stringify(e.json)).toBe(200);
-    expect(e.json.row).toMatchObject({ id: p.systemCommit.id, kind: "promotion", builds: [], deployment: null });
+    expect(e.json.row).toMatchObject({ id: p.systemCommit.id, kind: "promotion", builds: [], deployment: { status: "pending", systemCommit: p.systemCommit.id } });
     expect(e.json.from!.id).toBe(f.imp.head);
     expect(e.json.to.id).toBe(p.systemCommit.id);
     expect(e.json.decision).toMatchObject({ by: "admin", rationale: "ship it" });

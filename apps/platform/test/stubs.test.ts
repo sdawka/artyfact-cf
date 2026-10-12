@@ -58,13 +58,3 @@ describe("read stubs return typed empty shapes", () => {
     expect((await call("GET", routes.revisions("system.nope"))).status).toBe(404);
   });
 });
-
-describe("write stubs are 501 not-implemented", () => {
-  it.each([
-    ["create evolution", routes.evolutions(S), { title: "t", intent: "i" }],
-  ])("%s", async (_name, path, body) => {
-    const r = await call<{ error: string }>("POST", path, body);
-    expect(r.status).toBe(501);
-    expect(r.json).toEqual({ error: "not-implemented" });
-  });
-});

@@ -22,9 +22,14 @@ export const requireAdmin: MiddlewareHandler<{ Bindings: Env }> = async (c, next
   if (!expected) throw new HttpError(503, "admin-unconfigured", "ADMIN_TOKEN is not configured");
   const m = /^Bearer\s+(.+)$/i.exec(c.req.header("authorization") ?? "");
   if (!m) throw new HttpError(401, "unauthorized", "admin bearer token required");
-  if (!(await safeEqual(m[1].trim(), expected))) throw new HttpError(403, "forbidden", "admin bearer token does not match");
+  if (!(await isAdminToken(c.env, m[1]))) throw new HttpError(403, "forbidden", "admin bearer token does not match");
   await next();
 };
+
+/** Whether `token` is the admin bearer (constant time); false when ADMIN_TOKEN is unset or no token is given. */
+export async function isAdminToken(e: Pick<Env, "ADMIN_TOKEN">, token: string | undefined): Promise<boolean> {
+  return !!token && !!e.ADMIN_TOKEN && safeEqual(token.trim(), e.ADMIN_TOKEN);
+}
 
 export const bearer = (header: string | undefined) => /^Bearer\s+(.+)$/i.exec(header ?? "")?.[1].trim();
 

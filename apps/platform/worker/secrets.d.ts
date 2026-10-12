@@ -13,6 +13,8 @@ interface Secrets {
   CF_API_TOKEN?: string;
   /** Queue id of artyfact-artifacts-events, the target of per-fork Artifacts event subscriptions. */
   EVENTS_QUEUE_ID?: string;
+  /** "1" runs the backend on in-memory Artifacts seeded from examples/ (see worker/artifacts/fake-platform.ts). Local only. */
+  FAKE_ARTIFACTS?: string;
   /**
    * Cross-script Workflows binding to artyfact-ci (wrangler.jsonc `workflows`). Typed here as optional because
    * wrangler.test.jsonc omits it; `wrangler types` emits it as required, so drop that generated line after regenerating.
