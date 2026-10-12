@@ -1,0 +1,36 @@
+% theory@1 - Purpose and Theory of Change completeness (R3, R4).
+
+.decl ext(Id: sym, Kind: sym)
+.decl purpose(Id: sym)
+.decl purposeBeneficiary(Purpose: sym, Ext: sym)
+.decl claim(Id: sym)
+.decl claimDeferred(Id: sym)
+.decl claimIndicator(Id: sym)
+.decl claimMethod(Id: sym)
+.decl claimBeneficiary(Claim: sym, Ext: sym)
+.decl criterion(Id: sym, OwnerKind: sym, OwnerId: sym, SubjectId: sym, Severity: sym)
+.decl criterionSourceRef(Criterion: sym, Ref: sym)
+.decl requirementSubject(Requirement: sym, Node: sym)
+.decl claimLinked(Claim: sym)
+.decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+.decl missing(Rule: sym, Subject: sym) .output
+.decl warning(Rule: sym, Subject: sym) .output
+
+.message "purpose.beneficiary" "Purpose {1} names no beneficiaries."
+.message "purpose.beneficiaryKind" "Purpose {1} has a beneficiary that is not a person or group external."
+.message "theory.indicator" "Claim {1} has no indicator."
+.message "theory.method" "Claim {1} has no evaluation method."
+.message "theory.beneficiary" "Claim {1} names no beneficiaries."
+.message "theory.outcomeUnlinked" "Claim {1} is not referenced by any criterion or requirement."
+
+claimLinked(C) :- criterionSourceRef(_,C).
+claimLinked(C) :- criterion(_,_,_,C,_).
+claimLinked(C) :- requirementSubject(_,C).
+
+violation("purpose.beneficiary",P,"hard") :- purpose(P), not purposeBeneficiary(P,_).
+violation("purpose.beneficiaryKind",P,"hard") :- purposeBeneficiary(P,E), ext(E,K), K != "person", K != "group".
+
+missing("theory.indicator",C) :- claim(C), not claimDeferred(C), not claimIndicator(C).
+missing("theory.method",C) :- claim(C), not claimDeferred(C), not claimMethod(C).
+missing("theory.beneficiary",C) :- claim(C), not claimDeferred(C), not claimBeneficiary(C,_).
+warning("theory.outcomeUnlinked",C) :- claim(C), not claimDeferred(C), not claimLinked(C).

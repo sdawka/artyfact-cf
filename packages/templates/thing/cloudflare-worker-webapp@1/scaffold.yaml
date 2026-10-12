@@ -1,0 +1,6 @@
+repo: kit-app
+path: examples/keep-in-touch-app
+commands:
+  install: npm install
+  dev: npm run dev
+  test: npm test
