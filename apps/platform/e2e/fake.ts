@@ -59,7 +59,8 @@ export async function getJson<T>(request: APIRequestContext, path: string): Prom
 export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: string, title: string): Promise<string> {
   // The editor's "New evolution…" cannot list affected nodes, and a Genome candidate may only touch the files of the
   // Evolution's affected nodes, so the Evolution comes from Work with screen.people (defined in the Thing's ontology).
-  await createEvolution(page, title, `Add ${title} to the runtime.`, ["screen.people"]);
+  // A Genome amendment: its default acceptance criteria are the model ones (app criteria would block the accept).
+  await createEvolution(page, title, `Add ${title} to the runtime.`, ["screen.people"], ADMIN_TOKEN, BASE, "genome-amendment");
   await page.goto(`${BASE}/map?focus=screen.people`);
   await page.getByRole("button", { name: "Open in Code" }).or(page.getByRole("link", { name: "Open in Code" })).first().click();
   await expect(page).toHaveURL(/\/code\?.*repo=genome/);
@@ -100,7 +101,7 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
 }
 
 /** Work "+ Evolution": fill the form and create it; the new card is selected afterwards. */
-export async function createEvolution(page: Page, title: string, intent: string, nodes: string[] = [], token = ADMIN_TOKEN, base = BASE): Promise<void> {
+export async function createEvolution(page: Page, title: string, intent: string, nodes: string[] = [], token = ADMIN_TOKEN, base = BASE, kind?: string): Promise<void> {
   await page.goto(`${base}/work`);
   await expect(page.getByRole("heading", { level: 1, name: "Work" })).toBeVisible();
   await page.getByRole("button", { name: "+ Evolution" }).click();
@@ -110,6 +111,7 @@ export async function createEvolution(page: Page, title: string, intent: string,
     await page.getByLabel("Affected nodes").fill(n);
     await page.getByRole("button", { name: "Add node" }).click();
   }
+  if (kind) await page.getByLabel("Kind").selectOption(kind);
   // An untouched list lets the server default the criteria, and hard ones gate Accept; these flows only edit the Genome, so send none.
   await page.getByRole("button", { name: "Clear" }).click();
   await page.getByLabel("Admin token").fill(token);

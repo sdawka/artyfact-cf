@@ -1,6 +1,6 @@
 import { env, exports } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import type { ApiError, EditorCommitResponse, FileResponse, FilesResponse, RealizationResponse, StartWorkResponse } from "../shared/api";
+import type { ApiError, EditorCommitResponse, FileResponse, FilesResponse, GenomeCandidateReview, RealizationResponse, StartWorkResponse } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { COMMIT_TOKEN_TTL_S, commitEdit, MAX_COMMIT_BYTES, setEditorTransport } from "../worker/editor";
 import type { ImportSystemResponse } from "../shared/api";
@@ -352,6 +352,39 @@ describe("editor commit", () => {
     expect(after.text).toContain("Contact record v2");
     const prot = await call<ApiError>("POST", commitPath(f, h.rid), { message: "m", changes: [{ path: "assays/x.yaml", content: "x" }] }, h.auth);
     expect(prot.json.error.code).toBe("protected-path");
+  });
+
+  it("records a Genome edit that does not load as a candidate with its load error, and a second commit fixes it", async () => {
+    resetHooks(); // the real hook runner: it needs the candidate's files even when they do not load
+    const f = await flow();
+    const h = await startHuman(f, "evolution.2");
+    const ontology = "things/webapp/ontology.yaml";
+    const original = async (path: string) => (await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&ref=head&path=${path}`)).json.text!;
+    const cases = [
+      { path: "system.yaml", content: "id: [unclosed\n  : :" }, // YAML parse error
+      { path: ontology, content: "nodes: 5" }, // schema error
+    ];
+    for (const change of cases) {
+      const bad = await call<EditorCommitResponse>("POST", commitPath(f, h.rid), { message: `break ${change.path}`, changes: [change] }, h.auth);
+      expect(bad.status, JSON.stringify(bad.json)).toBe(201);
+      expect(bad.json.submitted.candidate.commit).toBe(bad.json.commit);
+      expect(bad.json.submitted.realization.status).toBe("awaiting-admin");
+      const rv = await call<GenomeCandidateReview>("GET", `/systems/${f.systemId}/realizations/${h.rid}/review`);
+      expect(rv.status, JSON.stringify(rv.json)).toBe(200);
+      expect(rv.json.candidate).toBe(bad.json.submitted.candidate.id);
+      expect(rv.json.loadError).toBeTruthy();
+      // The fork head moved, so the file can be fixed in a follow-up commit on top of the broken one.
+      const at = (await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&ref=${h.rid}&path=${change.path}`)).json;
+      expect(at.ref.commit).toBe(bad.json.commit);
+      const fixed = await call<EditorCommitResponse>("POST", commitPath(f, h.rid), {
+        message: `fix ${change.path}`, expectedHead: bad.json.commit, changes: [{ path: change.path, content: await original(change.path) }],
+      }, h.auth);
+      expect(fixed.status, JSON.stringify(fixed.json)).toBe(201);
+      expect(fixed.json.parent).toBe(bad.json.commit);
+      const ok = await call<GenomeCandidateReview>("GET", `/systems/${f.systemId}/realizations/${h.rid}/review`);
+      expect(ok.json.candidate).toBe(fixed.json.submitted.candidate.id);
+      expect(ok.json.loadError).toBeUndefined();
+    }
   });
 
   it("keeps a Genome edit under the Genome prefix when the Genome lives in system/", async () => {
