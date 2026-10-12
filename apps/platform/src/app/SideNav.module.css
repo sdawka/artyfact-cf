@@ -32,18 +32,15 @@
 }
 @media (max-width: 640px) {
   .nav { padding: var(--spacing-2) var(--spacing-1); }
-  .group { margin-top: var(--spacing-4); }
-.groupHead {
-  margin: 0 0 var(--spacing-1);
-  padding: 0 var(--spacing-3);
-  color: var(--color-text-subtle);
-  font-size: var(--font-size-xs);
-}
-.link { padding: var(--spacing-2); }
+  .group { margin-top: var(--spacing-2); }
+  .link { padding: var(--spacing-2); }
+  .groupHead,
   .label {
     position: absolute;
     width: 1px;
     height: 1px;
+    padding: 0;
+    margin: -1px;
     overflow: hidden;
     clip-path: inset(50%);
     white-space: nowrap;
