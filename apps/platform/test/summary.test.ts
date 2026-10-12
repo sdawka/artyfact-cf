@@ -1,7 +1,7 @@
 import { env, exports } from "cloudflare:workers";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
-  ApiError, BuildReportResponse, CheckpointResponse, CreateEvolutionResponse, DeploymentsResponse, EditorCommitResponse, Evolution, PhenomeIngestResponse,
+  ApiError, BuildReportResponse, ChangelogResponse, CheckpointResponse, CreateEvolutionResponse, DeploymentsResponse, EditorCommitResponse, Evolution, PhenomeIngestResponse,
   PromoteResponse, SseEnvelope, StartWorkResponse, SystemSummary, SystemsResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
@@ -121,6 +121,11 @@ describe("System summary across the lifecycle", () => {
     expect(rep1.system.deployState).toBe("live");
     expect(rep1.system.signifiers).toContain("deployed");
     expect((await listed(id)).latestBuild?.commit).toBe(commit1);
+    // The changelog row of that System commit carries B3's build and deployment.
+    const rows = (await call<ChangelogResponse>("GET", `/systems/${id}/changelog`)).json.rows;
+    const row = rows.find((r) => r.id === p1.out.json.commit.id)!;
+    expect(row.builds.map((b) => b.commit)).toContain(commit1);
+    expect(row.deployment).toMatchObject({ id: pending.id, status: "live", systemCommit: p1.out.json.commit.id });
 
     // second promote → live production is behind
     const start2 = await call<StartWorkResponse>("POST", `/systems/${id}/evolutions/evolution.3/realizations`, { agentLabel: "claude" });

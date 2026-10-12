@@ -932,6 +932,8 @@ export interface DeploymentRequest {
   kind?: BuildKind;
   commit?: CommitHash;
   realization?: string;
+  /** Where the deployment is served (http or https). */
+  url?: string;
 }
 /** The ingest token appears only in the create response and in {@link IngestTokenResponse}; the platform keeps its hash. */
 export type DeploymentCreated = Deployment & { ingestToken?: string };

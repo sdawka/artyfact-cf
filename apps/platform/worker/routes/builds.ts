@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import type { BuildReporter, BuildReportResponse, BuildsResponse, DeploymentCreated, DeploymentsResponse, IngestTokenResponse } from "../../shared/api";
-import { requireAdmin, requireRealizationSecret } from "../auth";
+import { isAdminToken, requireAdmin, requireRealizationSecret } from "../auth";
 import { buildsView, createDeployment, deploymentsView, reportBuild, rotateIngestToken } from "../deployments";
 import { HttpError } from "../errors";
 import { systemStub } from "../service";
@@ -33,7 +33,7 @@ async function systemReporter(c: Ctx): Promise<BuildReporter> {
   const token = bearer(c);
   if (!token) throw new HttpError(401, "unauthorized", "CI or admin bearer token required");
   if (await tokenMatches(token, c.env.CI_REPORT_TOKEN)) return "ci";
-  if (await tokenMatches(token, c.env.ADMIN_TOKEN)) return "admin";
+  if (await isAdminToken(c.env, token)) return "admin";
   throw new HttpError(403, "forbidden", "CI or admin bearer token required");
 }
 

@@ -6,6 +6,7 @@
 import type { BuildSummary, ChangelogEntry, ChangelogResponse, ChangelogRow, Deployment, Evaluation, SystemCommit, SystemCompare, Verdict } from "../shared/api";
 import { foldVerdict, offTriggerHookIds } from "../shared/verdict";
 import { compareSystem, commitKind, findSystemCommit, headStateOf, sideOfCommit } from "./compare";
+import { buildSummary } from "./do/builds-store";
 import type { HeadState } from "./do/system-authority";
 import { badRequest, notFound } from "./errors";
 import { genomeAt, systemStub, type SystemApi } from "./service";
@@ -23,9 +24,18 @@ type CachedRow = Omit<ChangelogRow, keyof LiveFields>;
 type CachedEntry = Omit<ChangelogEntry, "row" | "criteria"> & { row: CachedRow; criteriaIds: string[]; offTriggerHooks: string[] };
 type Titles = Map<string, string>;
 
-/** Builds and the deployment of a System commit. Empty until build and deployment records exist (slice B3). */
-async function liveFields(_env: Env, _systemId: string, _commit: SystemCommit): Promise<LiveFields> {
-  return { builds: [] as BuildSummary[], deployment: null as Deployment | null };
+/**
+ * Builds of the commit's candidate commits (newest first) and the production deployment recorded for this System
+ * commit, from the B3 stores. Live (never cached): builds and deployments change after the commit is made.
+ */
+async function liveFields(env: Env, systemId: string, commit: SystemCommit): Promise<LiveFields> {
+  const stub = systemStub(env, systemId);
+  const cands = await Promise.all(commit.candidates.map((id) => stub.candidate(id)));
+  const commits = [...new Set(cands.flatMap((c) => (c ? [c.commit] : [])))];
+  const builds: BuildSummary[] = (await Promise.all(commits.map((sha) => stub.builds({ commit: sha, limit: 10 })))).flat()
+    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)).map(buildSummary);
+  const deployment: Deployment | null = (await stub.deployments({ kind: "production" })).find((d) => d.systemCommit === commit.id) ?? null;
+  return { builds, deployment };
 }
 
 async function titlesOf(stub: SystemApi): Promise<Titles> {
