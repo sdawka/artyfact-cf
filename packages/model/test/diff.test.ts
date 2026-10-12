@@ -30,6 +30,15 @@ describe("diffModels", () => {
     expect(d.affectedJourneys).toEqual(["J.notes"]);
   });
 
+  it("flags criteria whose subject is added", () => {
+    const a = edit(files, "things/app/criteria.yaml", "subjectId: affordance.NoteForm.save", "subjectId: affordance.NoteForm.delete");
+    const b = edit(a, "things/app/ontology.yaml", "                links:\n                  - { rel: invokes, to: operation.note.save }\n",
+      "                links:\n                  - { rel: invokes, to: operation.note.save }\n              - { id: affordance.NoteForm.delete, kind: affordance, name: Delete }\n");
+    const d = diffModels(load(a), load(b));
+    expect(d.added).toEqual(["affordance.NoteForm.delete"]);
+    expect(d.affectedCriteria).toEqual(["C.app.notes.save"]);
+  });
+
   it("flags criteria whose sourceRefs change", () => {
     const f = edit(files, "things/app/criteria.yaml", "sourceRefs: [S.app.notes]", "sourceRefs: []");
     const d = diffModels(base, load(f));
