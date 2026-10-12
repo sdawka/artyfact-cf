@@ -13,7 +13,9 @@
     "cf-typegen": "wrangler types worker/env.d.ts",
     "build:fixture": "node scripts/build-fixture.ts",
     "dev:amendment": "vite --config vite.amendment-dev.config.ts --port 5199",
-    "e2e": "npm run build && playwright test",
+    "build:spa": "vite build --config vite.fixture.config.ts",
+    "preview:fixture": "npm run build:spa && vite preview --config vite.fixture.config.ts",
+    "e2e": "npm run build:spa && playwright test",
     "e2e:live": "npm run build && ARTYFACT_E2E_LIVE=1 playwright test"
   },
   "dependencies": {
