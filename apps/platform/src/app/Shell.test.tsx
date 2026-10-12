@@ -70,19 +70,19 @@ describe("Shell", () => {
     act(() => within(inspector).getByRole("tab", { name: "Dependencies" }).click());
     expect(within(inspector).getByText("storedIn →")).toBeTruthy();
     expect(within(inspector).getByText("← governs")).toBeTruthy();
-    act(() => within(inspector).getByRole("button", { name: /Contacts store/ }).click());
-    await waitFor(() => expect(within(inspector).getByRole("heading", { level: 2 }).textContent).toContain("Contacts store"));
+    act(() => within(inspector).getByRole("button", { name: /contactsStore/ }).click());
+    await waitFor(() => expect(within(inspector).getByRole("heading", { level: 2 }).textContent).toContain("contactsStore"));
   });
 
   it("[ and ] move focus between siblings", async () => {
     const { router } = renderApp(`${BASE}/overview?focus=screen.people`);
     await screen.findByRole("complementary", { name: "Inspector" });
     key("]");
-    await waitFor(() => expect(search(router).get("focus")).toBe("screen.today"));
+    await waitFor(() => expect(search(router).get("focus")).toBe("screen.person"));
     key("[");
     await waitFor(() => expect(search(router).get("focus")).toBe("screen.people"));
     key("[");
-    await waitFor(() => expect(search(router).get("focus")).toBe("component.AppShell"));
+    await waitFor(() => expect(search(router).get("focus")).toBe("screen.today"));
   });
 
   it("g m goes to the Map keeping params", async () => {

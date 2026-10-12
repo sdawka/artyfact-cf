@@ -10,7 +10,8 @@
     "deploy": "wrangler deploy",
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json",
-    "cf-typegen": "wrangler types worker/env.d.ts"
+    "cf-typegen": "wrangler types worker/env.d.ts",
+    "build:fixture": "node scripts/build-fixture.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "^5.104.2",
@@ -27,6 +28,8 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
+    "@artyfact/model": "*",
+    "@artyfact/templates": "*",
     "@cloudflare/vite-plugin": "^1.63.1",
     "@cloudflare/vitest-plugin": "^1.4.0",
     "@testing-library/react": "^16.3.3",

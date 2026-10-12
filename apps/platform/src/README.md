@@ -82,8 +82,9 @@ submit, promote` (a 409 rejects with `StaleBaseError { currentHead }`) and `acce
 
 **Fixture fallback:** if `/api/systems` fails or is empty, `getModel` serves
 `fixtures/keep-in-touch.model.json` with `source: 'fixture'`, list reads return empty lists and
-writes throw `FixtureModeError`. The TopBar then shows "fixture data". The fixture is hand-made
-until `scripts/build-fixture.ts` generates it from `examples/keep-in-touch-system`.
+writes throw `FixtureModeError`. The TopBar then shows "fixture data". The fixture is generated
+from `examples/keep-in-touch-system` by `npm run build:fixture -w @artyfact/platform`
+(`scripts/build-fixture.ts`: `loadSystem` + templates, readiness from `validate`).
 
 `queries.ts` (TanStack Query 5). Hooks read `systemId`/`rev` from the route: `useSystems,
 useModelBundle, useReadiness, useEvolutions` (polls every 5 s), `useRealization(id), useCandidates(evolutionId),

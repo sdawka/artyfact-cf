@@ -1,0 +1,59 @@
+// Regenerates src/fixtures/keep-in-touch.model.json from examples/keep-in-touch-system:
+// loadSystem + bundled templates, readiness from validate(model, packsFor(model.kits.rulePacks)).
+// Run: npm run build:fixture -w @artyfact/platform
+import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+import { runnerImport } from "vite";
+
+const repo = fileURLToPath(new URL("../../..", import.meta.url));
+const example = join(repo, "examples/keep-in-touch-system");
+const out = fileURLToPath(new URL("../src/fixtures/keep-in-touch.model.json", import.meta.url));
+
+// The model and templates packages are TypeScript sources with extensionless imports; load them through Vite.
+const { module: model } = await runnerImport<typeof import("@artyfact/model")>(join(repo, "packages/model/src/index.ts"));
+const { module: tpl } = await runnerImport<typeof import("@artyfact/templates")>(join(repo, "packages/templates/src/index.ts"));
+
+function readTree(dir: string, files = new Map<string, string>()) {
+  for (const name of readdirSync(dir).sort()) {
+    if (name === "node_modules" || name === "test") continue;
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) readTree(p, files);
+    else if (/\.ya?ml$/.test(name)) files.set(relative(example, p), readFileSync(p, "utf8"));
+  }
+  return files;
+}
+
+const m = model.loadSystem(readTree(example), {
+  revision: "canonical",
+  // The two packages declare structurally different Template types; runtime shapes agree.
+  templates: tpl.templates as never,
+});
+const readiness = model.validate(m, tpl.packsFor(m.kits.rulePacks) as never);
+
+// Map @artyfact/model Readiness onto the wire ReadinessReport (shared/api.ts).
+const severity = (level: string) => (level === "error" || level === "missing" ? "error" : level === "warning" ? "warning" : "info");
+const findings = readiness.findings.map((f) => ({
+  ruleId: f.rule,
+  severity: severity(f.level),
+  subject: f.subject ?? m.system.id,
+  message: f.message,
+  facts: { level: f.level, ...(f.pack && { pack: f.pack }), leaves: f.facts },
+}));
+const active = m.criteria.filter((c) => !c.deferred).length;
+const { index: _index, templates: _templates, ...serialisable } = m;
+
+const bundle = {
+  systemId: m.system.id,
+  revision: "canonical",
+  genomeCommit: "0".repeat(40),
+  model: serialisable,
+  readiness: {
+    modelReadiness: { findings, blockers: findings.filter((f) => f.severity === "error") },
+    implementationConformance: { pass: 0, fail: 0, unknown: 0, stale: 0, notRun: active },
+    outcomeProgress: { observed: 0, unknown: m.claims.filter((c) => !c.deferred).length },
+    computedAt: "1970-01-01T00:00:00.000Z",
+  },
+};
+writeFileSync(out, `${JSON.stringify(bundle, null, 2)}\n`);
+console.log(`wrote ${relative(repo, out)}: ${m.nodes.length} nodes, ${m.criteria.length} criteria, ${findings.length} findings`);

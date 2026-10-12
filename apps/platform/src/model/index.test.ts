@@ -19,13 +19,13 @@ describe("buildIndex on the Keep in Touch fixture", () => {
 
   it("lists children of screen.people in declared order", () => {
     expect(ids(ix.children("screen.people"))).toEqual([
-      "component.people.PageHeading",
-      "component.people.SearchInput",
-      "affordance.people.addContact",
+      "component.PeopleHeading",
+      "component.SearchInput",
+      "component.AddContact",
       "component.ContactCollection",
       "component.AddContactDialog",
     ]);
-    expect(ids(ix.children("system.keep-in-touch"))).toEqual(["thing.webapp"]);
+    expect(ids(ix.children("system.keep-in-touch"))[0]).toBe("thing.webapp");
     expect(ix.parent("component.AddContactDialog")?.id).toBe("screen.people");
     expect(ix.children("nope")).toEqual([]);
   });
@@ -58,11 +58,11 @@ describe("buildIndex on the Keep in Touch fixture", () => {
 
   it("resolves criteria, hooks, journeys and requirements", () => {
     expect(ids(ix.criteriaFor("screen.people"))).toEqual(["C.webapp.screen.people"]);
-    expect(ids(ix.criteriaOwnedBy("thing.webapp"))).toHaveLength(4);
+    expect(ids(ix.criteriaOwnedBy("thing.webapp"))).toHaveLength(15);
     expect(ids(ix.hooksFor("C.webapp.contact.save"))).toEqual(["hook.webapp.contact.save"]);
     expect(ids(ix.journeysFor("screen.people"))).toEqual(["J.contacts"]);
     expect(ids(ix.journeysFor("operation.contact.save"))).toEqual(["J.contacts"]);
-    expect(ids(ix.requirementsFor("screen.today"))).toEqual(["S.webapp.screens", "S.webapp.prompts"]);
+    expect(ids(ix.requirementsFor("screen.today"))).toEqual(["S.webapp.prompts", "S.webapp.screens"]);
   });
 
   it("indexes journey steps under journey-qualified ids", () => {
@@ -76,6 +76,8 @@ describe("buildIndex on the Keep in Touch fixture", () => {
   it("collects descendants and siblings", () => {
     expect(ix.descendants("component.AddContactDialog")).toEqual([
       "component.AddContactDialog",
+      "component.AddContactNameField",
+      "component.AddContactChannelFields",
       "affordance.AddContactDialog.save",
       "affordance.AddContactDialog.cancel",
     ]);

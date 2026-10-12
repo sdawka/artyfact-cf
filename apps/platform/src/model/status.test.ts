@@ -49,6 +49,6 @@ describe("rollup", () => {
       ev({ criterion: "C.webapp.contact.save", verdict: "pass" }),
     ];
     expect(rollup(ix, "screen.people", evals)).toEqual({ ...emptyRollup(), stale: 1, pass: 1 });
-    expect(rollup(ix, "thing.webapp", evals)).toEqual({ ...emptyRollup(), stale: 1, pass: 1, notRun: 2 });
+    expect(rollup(ix, "thing.webapp", evals)).toEqual({ ...emptyRollup(), stale: 1, pass: 1, notRun: 11 });
   });
 });
