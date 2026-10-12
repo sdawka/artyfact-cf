@@ -25,7 +25,7 @@ export function resetPhenomeThrottle(): void {
   refresh = defaultRefresh;
 }
 
-const defaultRefresh = refreshRegistry;
+const defaultRefresh = async (env: Env, systemId: string): Promise<void> => { await refreshRegistry(env, systemId); };
 let refresh: (env: Env, systemId: string) => Promise<void> = defaultRefresh;
 /** Test hook: replace the registry refresh (undone by {@link resetPhenomeThrottle}). */
 export function setPhenomeRefresh(fn: (env: Env, systemId: string) => Promise<void>): void {

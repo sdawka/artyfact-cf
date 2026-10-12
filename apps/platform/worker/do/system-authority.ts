@@ -215,12 +215,22 @@ const json = <T>(v: SqlStorageValue | undefined, fallback: T): T => (v == null |
 const OPEN_CANDIDATE = ["submitted", "evaluated", "selected"];
 export const TERMINAL_REALIZATION: RealizationStatus[] = ["promoted", "rejected", "abandoned"];
 const PING_MS = 15_000;
+/**
+ * Each SSE stream is closed after this long. A held stream keeps this instance (and its code version) alive across a
+ * deploy, so new Worker code would call an old object; EventSource reconnects by itself (`retry: 3000`).
+ */
+let sseLifetimeMs = 5 * 60_000;
+/** Test hook: change the SSE stream lifetime (undefined restores 5 minutes). */
+export function setSseLifetime(ms: number | undefined): void {
+  sseLifetimeMs = ms ?? 5 * 60_000;
+}
 const enc = new TextEncoder();
 
 /** One instance per System: canonical state, realizations, candidates, evaluations and promotion (CAS). */
 export class SystemAuthority extends DurableObject<Env> {
   private sql: SqlStorage;
   private clients = new Set<WritableStreamDefaultWriter<Uint8Array>>();
+  private lifetimes = new Map<WritableStreamDefaultWriter<Uint8Array>, ReturnType<typeof setTimeout>>();
   private pinger: ReturnType<typeof setInterval> | undefined;
 
   constructor(ctx: DurableObjectState, env: Env) {
@@ -254,6 +264,8 @@ export class SystemAuthority extends DurableObject<Env> {
 
   private drop(w: WritableStreamDefaultWriter<Uint8Array>): void {
     if (!this.clients.delete(w)) return;
+    clearTimeout(this.lifetimes.get(w));
+    this.lifetimes.delete(w);
     w.close().catch(() => {});
     if (!this.clients.size && this.pinger) {
       clearInterval(this.pinger);
@@ -270,6 +282,7 @@ export class SystemAuthority extends DurableObject<Env> {
     const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>();
     const writer = writable.getWriter();
     this.clients.add(writer);
+    this.lifetimes.set(writer, setTimeout(() => this.drop(writer), sseLifetimeMs));
     request.signal?.addEventListener("abort", () => this.drop(writer));
     const hello = `retry: 3000\ndata: ${JSON.stringify({ type: "ping", at: nowIso() })}\n\n`;
     this.ctx.waitUntil(writer.write(enc.encode(hello)).catch(() => this.drop(writer)));

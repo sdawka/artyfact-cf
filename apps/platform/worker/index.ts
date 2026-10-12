@@ -46,7 +46,14 @@ const ARTIFACTS_STATUS: Record<string, 404 | 409 | 422 | 503> = {
   NOT_FOUND: 404, ALREADY_EXISTS: 409, FORK_IN_PROGRESS: 409, INVALID_INPUT: 422, INVALID_REPO_NAME: 422, UPSTREAM_UNAVAILABLE: 503,
 };
 
+/** A Worker on new code calling a Durable Object instance still running the previous version (deploy skew). */
+export const isVersionSkew = (err: unknown) => /does not implement (the )?method/i.test((err as Error)?.message ?? "");
+
 app.onError((err, c) => {
+  if (isVersionSkew(err)) {
+    c.header("Retry-After", "5");
+    return c.json<ApiError>({ error: { code: "version-skew", message: "the platform is updating; retry shortly" } }, 503);
+  }
   const e = err instanceof HttpError ? err : fromRpc(err);
   if (e) return c.json<ApiError>({ error: { code: e.code, message: e.message, ...(e.details !== undefined && { details: e.details }) } }, e.status);
   if (err instanceof ArtifactsUnavailableError) return c.json<ApiError>({ error: { code: "artifacts-unavailable", message: err.message } }, 503);
