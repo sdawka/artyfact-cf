@@ -16,6 +16,7 @@
     "build:spa": "vite build --config vite.fixture.config.ts",
     "preview:fixture": "npm run build:spa && vite preview --config vite.fixture.config.ts --port 1338 --strictPort",
     "e2e": "npm run build:spa && playwright test",
+    "e2e:fake": "ARTYFACT_E2E_FAKE=1 playwright test",
     "e2e:live": "npm run build && ARTYFACT_E2E_LIVE=1 playwright test"
   },
   "dependencies": {
