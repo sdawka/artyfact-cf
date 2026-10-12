@@ -8,7 +8,8 @@
   },
   "dependencies": {
     "@artyfact/model": "*",
-    "@artyfact/templates": "*"
+    "@artyfact/templates": "*",
+    "yaml": "^2.9.1"
   },
   "devDependencies": {
     "@types/node": "^26.6.5"

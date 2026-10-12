@@ -1,0 +1,13 @@
+id: evolution.5
+title: Private digests (later)
+intent: Resolve publication topology, audience and subscription contract first; verify no group interaction
+  emerges
+state: proposed
+kind: genome-amendment
+affectedNodes:
+- entity.DigestEdition
+- entity.Subscription
+- section.domain
+acceptanceCriteria:
+- C.webapp.digest.private
+risk: high

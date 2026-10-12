@@ -1,0 +1,91 @@
+id: J.contacts
+name: Add or edit a private contact
+actorGoal: Keep a private record of someone I want to stay in touch with
+features:
+- GD.contacts
+requirements:
+- S.webapp.screens
+- S.webapp.operations
+start: s1
+steps:
+- id: s1
+  actor: user
+  action: Open People
+  kind: action
+  screen: screen.people
+  next:
+  - to: s2
+  requirementRefs:
+  - S.webapp.screens
+- id: s2
+  actor: user
+  action: Choose Add contact (or open an existing row to edit); AddContactDialog opens
+  kind: action
+  screen: screen.people
+  state: dialog open
+  next:
+  - to: s3
+  requirementRefs:
+  - S.webapp.screens
+- id: s3
+  actor: user
+  action: Enter name and optional channel fields
+  kind: action
+  screen: screen.people
+  state: dialog open
+  next:
+  - to: s4
+  requirementRefs:
+  - S.webapp.screens
+- id: s4
+  actor: user
+  action: Save or cancel
+  kind: branch
+  screen: screen.people
+  operation: operation.contact.save
+  next:
+  - to: s5
+    when: save, name nonblank
+  - to: f1
+    when: save, name blank
+  - to: e2
+    when: cancel
+  requirementRefs:
+  - S.webapp.operations
+- id: s5
+  actor: system
+  action: Owner's record saved; no invitation sent; ContactRow appears in ContactCollection
+  kind: reaction
+  screen: screen.people
+  operation: operation.contact.save
+  next:
+  - to: e1
+  requirementRefs:
+  - S.webapp.operations
+- id: f1
+  actor: system
+  action: 'Recoverable validation failure: ErrorSummary shown, entered values kept'
+  kind: failure
+  screen: screen.people
+  state: validation error
+  next:
+  - to: s3
+    when: edit and retry
+  requirementRefs:
+  - S.webapp.screens
+- id: e1
+  actor: system
+  action: Contact saved
+  kind: end
+  screen: screen.people
+  next: []
+  requirementRefs:
+  - S.webapp.operations
+- id: e2
+  actor: user
+  action: Dialog closed; nothing saved
+  kind: end
+  screen: screen.people
+  next: []
+  requirementRefs:
+  - S.webapp.screens
