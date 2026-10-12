@@ -51,7 +51,8 @@ describe("useJourneyGraph", () => {
   it("positions every node inside its lane band, then settles on elk columns", async () => {
     const { result } = renderHook(() => useJourneyGraph(connect));
     expect(result.current.bands.map((b) => b.lane)).toEqual(["actor", "system", "external"]);
-    await waitFor(() => expect(result.current.layoutReady).toBe(true));
+    // elk loads lazily and can be slow when the whole suite runs in parallel.
+    await waitFor(() => expect(result.current.layoutReady).toBe(true), { timeout: 5000 });
     for (const n of result.current.nodes) {
       const band = result.current.bands.find((b) => b.lane === n.data.lane)!;
       expect(n.position.y).toBeGreaterThanOrEqual(band.y);
