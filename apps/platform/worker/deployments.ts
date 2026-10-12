@@ -278,14 +278,18 @@ export async function reportBuild(env: Env, systemId: string, rid: string | null
   if (rid && !rec) throw notFound(`unknown realization ${rid}`);
   const kind: BuildKind = r.kind ?? (rid ? "preview" : "production");
   if (rid && kind !== "preview" && reporter === "agent") throw new HttpError(403, "forbidden", "an agent reports preview builds only");
-  const id = r.id ?? `build.${rid ?? "sys"}.${r.commit.slice(0, 7)}.${reporter}`;
+  // An agent reports only its own row and never touches deployments: client ids and deployment ids are ignored.
+  const agent = reporter === "agent";
+  const id = (!agent && r.id) || `build.${rid ?? "sys"}.${r.commit.slice(0, 7)}.${reporter}`;
+  const deploymentId = agent ? undefined : r.deploymentId;
   const prev = await stub.build(id);
+  if (prev && agent && prev.reporter === "ci") throw new HttpError(403, "forbidden", `build ${id} is reported by CI`);
   if (prev && (prev.realization !== (rid ?? null) || prev.commit !== r.commit)) {
     throw conflict("build-mismatch", `build ${id} belongs to ${prev.realization ?? "the System"} at ${prev.commit.slice(0, 12)}`);
   }
   if (reporter === "agent" && rec) await assertAgentCommit(env, stub, rec, r.commit);
-  let deployment = r.deploymentId ? await stub.deployment(r.deploymentId) : null;
-  if (r.deploymentId && (!deployment || (rid && deployment.realization !== rid) || deployment.commit !== r.commit)) {
+  let deployment = deploymentId ? await stub.deployment(deploymentId) : null;
+  if (deploymentId && (!deployment || (rid && deployment.realization !== rid) || deployment.commit !== r.commit)) {
     throw notFound(`unknown deployment ${r.deploymentId} for this ${rid ? "realization" : "System"} at ${r.commit.slice(0, 12)}`);
   }
   // Production without a named deployment: the newest pending one of this commit, or a new record only for the head's
