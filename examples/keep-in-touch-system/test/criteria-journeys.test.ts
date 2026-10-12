@@ -29,7 +29,7 @@ const journeys = m.journeys;
 
 describe("counts", () => {
   it("has the specified criteria, journeys and evolutions", () => {
-    expect(sysCrit.map((c) => c.id)).toEqual(["structure", "purpose", "topology", "autonomy", "readiness", "promotion"].map((x) => `C.system.${x}`));
+    expect(sysCrit.map((c) => c.id)).toEqual(["structure", "purpose", "topology", "autonomy", "readiness", "promotion", "concurrency"].map((x) => `C.system.${x}`));
     expect(thingCrit).toHaveLength(13);
     expect(m.criteria.filter((c) => c.fromTemplate).map((c) => c.id).sort()).toEqual(["C.webapp.exists", "C.webapp.health"]);
     expect(journeys).toHaveLength(10);
@@ -46,13 +46,32 @@ describe("counts", () => {
 describe("system criteria", () => {
   it("are owned by the System over the model, gated at submission and promotion", () => {
     for (const c of sysCrit) {
-      expect(c).toMatchObject({ ownerKind: "system", ownerId: "system.keep-in-touch", targetKind: "model", gates: ["submission", "promotion"] });
+      const gates = c.id === "C.system.concurrency" ? ["candidate", "promotion"] : ["submission", "promotion"];
+      expect(c).toMatchObject({ ownerKind: "system", ownerId: "system.keep-in-touch", targetKind: "model", gates });
       expect(c.hooks.length).toBeGreaterThan(0);
     }
+    expect(sysCrit.find((c) => c.id === "C.system.concurrency")).toMatchObject({ severity: "soft", sourceRefs: [] });
     expect(sysCrit.find((c) => c.id === "C.system.purpose")!.hooks).toEqual(["hook.system.purpose.model", "hook.system.purpose.outcome"]);
   });
+  it("binds the platform-run hooks by engine, mode and trigger", () => {
+    const expected: Record<string, [string, string | undefined, string[], string]> = {
+      "hook.system.structure": ["model-rules", undefined, ["submission"], "bound"],
+      "hook.system.readiness": ["model-rules", undefined, ["submission", "promotion"], "bound"],
+      "hook.system.topology": ["model-rules", undefined, ["submission", "promotion"], "bound"],
+      "hook.system.topology.semantic": ["system-one", undefined, ["submission"], "bound"],
+      "hook.system.scope": ["diff", "scope", ["submission", "promotion"], "bound"],
+      "hook.system.overlap": ["diff", "overlap", ["submission", "candidate"], "bound"],
+      "hook.system.autonomy": ["model-rules", undefined, ["submission", "promotion"], "defined"],
+    };
+    for (const [id, [engine, mode, triggers, binding]] of Object.entries(expected)) {
+      expect(hook(id), id).toMatchObject({ engine, triggers, binding });
+      expect(hook(id).inputs.mode, id).toBe(mode);
+    }
+    expect(sysCrit.find((c) => c.id === "C.system.promotion")!.hooks).toEqual(["hook.system.scope"]);
+    expect(sysCrit.find((c) => c.id === "C.system.topology")!.hooks).toEqual(["hook.system.topology", "hook.system.topology.semantic"]);
+  });
   it("pins purpose model and outcome hooks", () => {
-    expect(hook("hook.system.purpose.model")).toMatchObject({ engine: "system-one", tier: "semantic", triggers: ["submission"] });
+    expect(hook("hook.system.purpose.model")).toMatchObject({ engine: "system-one", tier: "semantic", triggers: ["submission"], binding: "bound" });
     expect(hook("hook.system.purpose.outcome")).toMatchObject({ engine: "llm", tier: "semantic", targetKind: "observation", triggers: ["outcome"], binding: "defined" });
   });
 });
