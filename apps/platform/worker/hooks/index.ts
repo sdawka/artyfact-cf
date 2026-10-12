@@ -1,9 +1,11 @@
 /**
- * Hook wiring. Defaults are no-ops so the backend runs before the hooks slice lands. At merge, set:
- *   runner: (env) => createHookRunner({ s1Env: env })        // ./run
- *   queue:  createQueueHandler(queueContextFor)               // ./queue, ../service
+ * Hook wiring: the real runner (./run) and queue consumer (./queue). Tests swap them with `setHooks`.
+ * `noopHookRunner` is kept for tests and as a building block.
  */
+import { queueContextFor } from "../service";
 import type { HookRunner } from "./contract";
+import { createQueueHandler } from "./queue";
+import { createHookRunner } from "./run";
 
 export type HookRunnerFactory = (env: Env) => HookRunner;
 export type QueueEntry = (batch: MessageBatch<unknown>, env: Env) => Promise<void>;
@@ -16,10 +18,14 @@ export const noopHookRunner: HookRunner = {
   async conflicts() { return []; },
 };
 
-/** Acks everything: no consumer yet. */
+/** Acks everything (tests). */
 export const ackAllQueue: QueueEntry = async (batch) => { batch.ackAll(); };
 
-const defaults = { runner: (() => noopHookRunner) as HookRunnerFactory, queue: ackAllQueue };
+const realRunner: HookRunnerFactory = (env) => createHookRunner({ s1Env: env });
+// Built lazily: service.ts imports this module, so `queueContextFor` is only safe to read at call time.
+const realQueue: QueueEntry = (batch, env) => createQueueHandler(queueContextFor)(batch, env);
+
+const defaults = { runner: realRunner, queue: realQueue };
 let current = { ...defaults };
 
 export const hookRunner = (env: Env): HookRunner => current.runner(env);

@@ -1,0 +1,7 @@
+id: evolution.1
+title: Save contacts
+intent: Let the owner add a contact from the People screen
+state: actionable
+kind: implementation
+affectedNodes: [screen.people, affordance.AddContactDialog.save, operation.contact.save]
+acceptanceCriteria: [C.webapp.exists, C.webapp.health, C.webapp.private.owner, C.webapp.contact.save]

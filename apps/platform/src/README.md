@@ -121,6 +121,11 @@ event. Keys are in `qk`.
 - `VerdictBadge { verdict: UiVerdict, label? }`: sets `data-verdict` and `data-tone`; only pass is green.
 - `Tabs<T> { tabs, value, onChange, label, children? }`: `.u-segments` with arrow-key navigation.
 - `Drawer { open, label, width, onWidthChange?, minWidth?, maxWidth?, children }`: becomes a bottom sheet at 640 px and below.
+- `Derivation { finding } | { derivation }` (`components/Derivation`): collapsible outline of why a rule fired. `finding` is a
+  model `Finding`; `derivation` is any `explain()` tree (`DerivationTree`, re-exported). Depth limit 6 then "…", EDB facts as
+  `relation(args)` with NodeChips for known ids, "Copy as text" button. `derivationText(tree)` gives the same outline as a string.
+- `Meter { title, headline, segments: {key,label,count,tone: pass|fail|warn|subtle}[], caption, asOf?, emptyText? }`: one segmented
+  count bar per state; each has its own scale and is never summed with another.
 - `CopyButton { value, label? }` (announces "Copied" / "Copy failed"), `EmptyState { title, children?, action?, live? }` (`live` adds `role="status"`),
   `Breadcrumbs { ids, label? }`, `KeyValue { data, omit? }` (strings that are ids render as chips).
 

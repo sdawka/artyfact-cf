@@ -11,7 +11,8 @@
     "test": "vitest run",
     "typecheck": "tsc -p tsconfig.json && tsc -p tsconfig.worker.json",
     "cf-typegen": "wrangler types worker/env.d.ts",
-    "build:fixture": "node scripts/build-fixture.ts"
+    "build:fixture": "node scripts/build-fixture.ts",
+    "dev:amendment": "vite --config vite.amendment-dev.config.ts --port 5199"
   },
   "dependencies": {
     "@artyfact/model": "*",

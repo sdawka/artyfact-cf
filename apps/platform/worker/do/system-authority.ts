@@ -793,7 +793,7 @@ export class SystemAuthority extends DurableObject<Env> {
         if (evo) this.emit({ type: "evolution.updated", evolution: evo });
       }
       for (const r of this.realizations()) {
-        if (r.updatedAt >= (out.commit.createdAt ?? "")) this.emit({ type: "realization.updated", realization: r });
+        if ((r.updatedAt ?? "") >= (out.commit.createdAt ?? "")) this.emit({ type: "realization.updated", realization: r });
       }
       return { ok: true, ...out };
     } catch (e) {

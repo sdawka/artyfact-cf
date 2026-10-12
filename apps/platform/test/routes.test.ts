@@ -58,7 +58,8 @@ const passing: HookRunner = {
   },
   async runGenome(ctx) {
     const base = await noopHookRunner.runGenome(ctx);
-    return { ...base, review: [{ subject: "entity.ContactRecord", judgment: "reviewDelta", level: "info", verdict: "pass", signals: {} as never }] };
+    const signals = { id: "entity.ContactRecord", changeClass: null, contradicts: {}, weakens: null, specificity: null, touchesConsent: null, level: "info", verdict: "pass", provenance: {} };
+    return { ...base, review: [{ subject: "entity.ContactRecord", judgment: "reviewDelta", level: "info", verdict: "pass", signals: signals as never }] };
   },
   async conflicts(ctx) {
     return ctx.openCandidates.length
@@ -306,10 +307,11 @@ describe("routes: import → model → start → submit → promote", () => {
     const rv = await call<GenomeCandidateReview>("GET", `/systems/${systemId}/evolutions/evolution.2/realizations/${start.json.realization.id}/review`);
     expect(rv.status, JSON.stringify(rv.json)).toBe(200);
     expect(rv.json.candidate).toBe(sub.json.candidate.id);
-    expect(rv.json.delta?.changed.map((c) => c.id)).toEqual(["entity.ContactRecord"]);
+    expect(rv.json.delta.changes.map((c) => c.id)).toEqual(["entity.ContactRecord"]);
     expect(rv.json.readinessBase.packs.map((p) => p.id)).toEqual(["metamodel"]);
     expect(rv.json.readinessCandidate).not.toBeNull();
-    expect(rv.json.review).toEqual([{ subject: "entity.ContactRecord", judgment: "reviewDelta", level: "info", verdict: "pass", signals: {} }]);
+    expect(rv.json.review.map((r) => r.id)).toEqual(["entity.ContactRecord"]);
+    expect(rv.json.signals).toHaveLength(1);
     expect(rv.json.evaluations).toEqual(sub.json.evaluations);
     const notGenome = await call<ApiError>("GET", `/systems/${systemId}/realizations/realization.1.r9/review`);
     expect(notGenome.status).toBe(404);

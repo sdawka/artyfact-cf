@@ -2,7 +2,7 @@
  * Orchestration between Artifacts, the model, hooks and the SystemAuthority DO. Routes and the queue
  * consumer call these; all Artifacts I/O and model work happens here (never inside the DO).
  */
-import { diffModels, type Readiness, type schema, type SystemModel } from "@artyfact/model";
+import { diffModels, type schema, type SystemModel } from "@artyfact/model";
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
@@ -15,8 +15,9 @@ import { buildGenome, genomePrefix, listTree, memoGenome, readGenomeFiles, type 
 import { loadSourceMap, nodesForPath, type SourceMapEntry } from "./artifacts/source-map";
 import { REGISTRY, type SystemAuthority, type EvolutionSeed, type HeadState, type ManifestExtras, type RealizationRecord } from "./do/system-authority";
 import { badRequest, conflict, fromRpc, HttpError, notFound, unprocessable } from "./errors";
-import type { CandidateRef, DeltaReview, FileMap, QueueContext, SubmissionContext } from "./hooks/contract";
+import type { CandidateRef, FileMap, QueueContext, SubmissionContext } from "./hooks/contract";
 import { hookRunner } from "./hooks/index";
+import { buildGenomeReview } from "./genome/review";
 import { readinessReport, serializeModel } from "./model-bundle";
 import { buildTaskPacket, gateCriteria, protectedPathsFor, type GateCriterion } from "./packets/task-packet";
 
@@ -390,7 +391,13 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
   const runner = hookRunner(env);
   if (rec.target === "genome") {
     const r = await runner.runGenome(ctx);
-    return { evaluations: r.evaluations, status: "awaiting-admin" as const, review: { readiness: r.readiness, review: r.review } };
+    const base = await genomeAt(env, s.systemId, rec.baseCommit, rec.forkRepo);
+    const candG = await genomeAt(env, s.systemId, cand.commit, rec.forkRepo).catch(() => null);
+    const review = buildGenomeReview({
+      candidate: cand.id, base: base.model, cand: candG?.model ?? null, delta: candG ? diffModels(base.model, candG.model) : null,
+      readinessBase: base.readiness, run: r,
+    });
+    return { evaluations: r.evaluations, status: "awaiting-admin" as const, review };
   }
   return { evaluations: await runner.runSubmission(ctx), status: "evaluated" as const };
 }
@@ -495,17 +502,9 @@ export async function review(env: Env, systemId: string, rid: string): Promise<G
   if (rec.target !== "genome") throw conflict("invalid-state", "review is for genome realizations");
   const candId = rec.realization.candidate;
   if (!candId) throw conflict("not-ready", "realization has no submitted candidate");
-  const [manifest, stored, evaluations, base] = await Promise.all([
-    stub.candidateManifest(candId) as Promise<{ genomeDelta?: GenomeCandidateReview["delta"] } | null>,
-    stub.review(candId),
-    stub.evaluations(candId),
-    genomeAt(env, systemId, rec.baseCommit, rec.forkRepo),
-  ]);
-  const run = stored ? (JSON.parse(stored) as { readiness: Readiness; review: DeltaReview[] }) : null;
-  return {
-    candidate: candId, delta: manifest?.genomeDelta ?? null, readinessBase: base.readiness,
-    readinessCandidate: run?.readiness ?? null, review: (run?.review ?? []) as unknown as GenomeCandidateReview["review"], evaluations,
-  };
+  const [stored, evaluations] = await Promise.all([stub.review(candId), stub.evaluations(candId)]);
+  if (!stored) throw conflict("not-ready", `candidate ${candId} has no review yet (hooks have not run)`);
+  return { ...(JSON.parse(stored) as GenomeCandidateReview), evaluations };
 }
 
 // ------------------------------------------------------------------ promote + accept

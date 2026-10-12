@@ -11,9 +11,12 @@
  * All timestamps are ISO-8601 strings. All routes are under `/api` (see {@link routes}).
  */
 
-import type { Finding, ModelIndex, Readiness, SemanticDelta, SystemModel, schema } from "@artyfact/model";
+import type { Finding, ModelIndex, Readiness, SystemModel, schema } from "@artyfact/model";
+import type { Commitment, ReviewResult, SemanticDelta } from "@artyfact/semantic";
 
-export type { Finding, Readiness, SemanticDelta } from "@artyfact/model";
+export type { Finding, Readiness } from "@artyfact/model";
+export type { SemanticDelta as ModelDelta } from "@artyfact/model";
+export type { SemanticDelta } from "@artyfact/semantic";
 /** Rules-engine readiness (alias kept for the backend). */
 export type RulesReadiness = Readiness;
 export type Verdict = schema.Verdict;
@@ -53,6 +56,7 @@ export const routes = {
   submit: (s: string, e: string, r: string) => `${rz(s, e, r)}/submit`,
   sync: (s: string, e: string, r: string) => `${rz(s, e, r)}/sync`,
   review: (s: string, e: string, r: string) => `${rz(s, e, r)}/review`,
+  reject: (s: string, e: string, r: string) => `${rz(s, e, r)}/reject`,
   evaluations: (s: string, candidate?: string) => `${sys(s)}/evaluations${candidate ? `?candidate=${enc(candidate)}` : ""}`,
   conflicts: (s: string) => `${sys(s)}/conflicts`,
   promote: (s: string) => `${sys(s)}/promote`,
@@ -165,10 +169,11 @@ export interface Checkpoint {
 
 export type RealizationStatus = schema.Realization["status"] | "awaiting-admin";
 
+/** The backend always sets `systemId`, `n`, `createdAt` and `updatedAt`; they are optional so UI fixtures can omit them. */
 export type Realization = Omit<schema.Realization, "status" | "workspace" | "checkpoints"> & {
-  systemId: SystemId;
+  systemId?: SystemId;
   /** System-wide ordinal: the fork is `<repo>--r<n>`. */
-  n: number;
+  n?: number;
   /** `local` = CLI on the user's machine; `hosted` = platform-run agent. */
   mode?: "local" | "hosted";
   /** `repo` is the repo the fork was taken from; `remote` is the fork's git URL (no credentials). */
@@ -177,8 +182,10 @@ export type Realization = Omit<schema.Realization, "status" | "workspace" | "che
   baseRevision?: string | null;
   status: RealizationStatus;
   checkpoints: Checkpoint[];
-  createdAt: string;
-  updatedAt: string;
+  /** Set by `POST …/realizations/:rid/reject`. */
+  rejectionReason?: string;
+  createdAt?: string;
+  updatedAt?: string;
 };
 
 export interface Candidate {
@@ -324,19 +331,6 @@ export interface SyncResponse {
   submitted: SubmitResponse | null;
 }
 
-/** One System One signal on a Genome candidate (hooks `DeltaReview`); opaque here. */
-export type DeltaReviewDto = Record<string, unknown> & { subject: string; judgment: string };
-
-/** `GET …/realizations/:rid/review` for Genome realizations: the admin amendment panel. */
-export interface GenomeCandidateReview {
-  candidate: string;
-  delta: SemanticDelta | null;
-  readinessBase: Readiness;
-  readinessCandidate: Readiness | null;
-  review: DeltaReviewDto[];
-  evaluations: Evaluation[];
-}
-
 export type ConflictKind = "file" | "soft-semantic" | "hard-semantic" | "evidence";
 
 export interface ConflictReport {
@@ -402,17 +396,45 @@ export interface PromoteBlockedResponse extends ApiError {
   error: { code: "blocked" | "advisories-unacknowledged"; message: string; details: { blocking: GateItem[]; advisories: GateItem[] } };
 }
 
-/** `POST /api/systems/:id/evolutions/:eid/accept` (admin) for Genome realizations. Aliases: `realization`, `rationale`. */
+/** One System One review of a changed node (`reviewDelta`): the model proposes, policy decides. */
+export type DeltaReview = ReviewResult;
+
+/**
+ * `GET /api/systems/:id/realizations/:rid/review`: a Genome-targeting candidate with rule findings
+ * (readiness before and after) and System One judgments per changed node.
+ */
+export interface GenomeCandidateReview {
+  delta: SemanticDelta;
+  readinessBase: Readiness;
+  readinessCandidate: Readiness;
+  review: DeltaReview[];
+  evaluations: Evaluation[];
+  /** Candidate id the review belongs to. */
+  candidate?: string;
+  /** Every System One signal from the hooks (reviewDelta, topology, purposeMeasures); `review` is the reviewDelta subset. */
+  signals?: unknown[];
+  /** Commitments the review asked about (statement text for `contradicts.<id>`); optional. */
+  commitments?: Commitment[];
+}
+
+/** `POST /api/systems/:id/evolutions/:eid/accept` (admin) for genome-amendment realizations. */
 export interface AcceptRequest {
-  realizationId?: string;
-  realization?: string;
-  interpretation?: string;
-  rationale?: string;
+  /** Canonical names; the backend also accepts `realization` / `rationale` as aliases. */
+  realizationId: string;
+  interpretation: string;
 }
 export interface AcceptResponse {
   genomeCommit: CommitHash;
   realization: Realization;
   commit: SystemCommit;
+}
+
+/** `POST /api/systems/:id/realizations/:rid/reject` (admin): reject a Genome amendment. */
+export interface RejectRequest {
+  reason: string;
+}
+export interface RejectResponse {
+  realization: Realization;
 }
 
 /** `POST /api/systems/import`. */
