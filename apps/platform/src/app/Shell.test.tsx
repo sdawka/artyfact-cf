@@ -70,9 +70,10 @@ describe("Shell", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/changelog`));
   });
 
-  it("/history redirects to /changelog keeping ?commit=", async () => {
-    const { router } = renderApp(`${BASE}/history?commit=sc-3&evolution=evolution.2`);
+  it("/history redirects to /changelog keeping ?commit= and the hash", async () => {
+    const { router } = renderApp(`${BASE}/history?commit=sc-3&evolution=evolution.2#criteria`);
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/changelog`));
+    expect(router.state.location.hash).toBe("#criteria");
     expect(search(router).get("commit")).toBe("sc-3");
     expect(search(router).get("evolution")).toBe("evolution.2");
   });
