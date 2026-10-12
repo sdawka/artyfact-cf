@@ -131,7 +131,7 @@ describe("compareSystem", () => {
       const cmp = await compareSystemRefs(env, f.systemId, from, "sc-2");
       expect(cmp.from!.id).toBe(f.imp.head);
       expect(cmp.to.id).toBe(p.systemCommit.id);
-      expect(cmp.genome).toEqual({ from: f.imp.genomeCommit, to: f.imp.genomeCommit, delta: null });
+      expect(cmp.genome).toEqual({ from: f.imp.genomeCommit, to: f.imp.genomeCommit, delta: null, files: { added: [], modified: [], removed: [] }, pathNodes: {} });
       expect(cmp.app!.from).toMatchObject({ repo: f.appRepo, commit: f.imp.appCommit });
       expect(cmp.app!.to).toMatchObject({ repo: p.forkRepo, commit: p.commit });
       expect(cmp.app!.files).toEqual({ added: ["src/ui/people/list.ts"], modified: ["src/worker/routes/contacts.ts"], removed: [] });
@@ -153,6 +153,9 @@ describe("compareSystem", () => {
     expect(cmp.genome.delta!.changed).toEqual([{ id: "entity.ContactRecord", fields: ["name"] }, { id: "screen.people", fields: ["name"] }]);
     expect(cmp.genome.delta!.affectedCriteria).toEqual(expect.arrayContaining(["C.people.list", "C.people.sorted"]));
     expect(cmp.genome.delta!.affectedCriteria).not.toContain("C.system.promotion");
+    // The Genome repo's changed file, with the changed nodes it declares.
+    expect(cmp.genome.files).toEqual({ added: [], modified: ["things/webapp/ontology.yaml"], removed: [] });
+    expect(cmp.genome.pathNodes).toEqual({ "things/webapp/ontology.yaml": ["entity.ContactRecord", "screen.people"] });
     expect(cmp.app!.files).toEqual({ added: [], modified: [], removed: [] });
     expect(cmp.app!.from!.commit).toBe(cmp.app!.to.commit);
   });

@@ -3,9 +3,9 @@
  * decision, criteria before/after and code links). Both are computed once per commit and cached in the DO, since
  * System commits are immutable. Builds and the deployment are attached at read time (they change after the commit).
  */
-import type { BuildSummary, ChangelogEntry, ChangelogResponse, ChangelogRow, Deployment, Evaluation, SystemCommit, SystemCompare, Verdict } from "../shared/api";
+import type { BuildSummary, ChangedFiles, ChangelogEntry, ChangelogResponse, ChangelogRow, Deployment, Evaluation, FileScope, ResolvedRef, SystemCommit, SystemCompare, Verdict } from "../shared/api";
 import { foldVerdict, offTriggerHookIds } from "../shared/verdict";
-import { compareSystem, commitKind, findSystemCommit, headStateOf, sideOfCommit } from "./compare";
+import { compareSystem, commitKind, findSystemCommit, headStateOf, sideOfCommit, type SystemSide } from "./compare";
 import { buildSummary } from "./do/builds-store";
 import type { HeadState } from "./do/system-authority";
 import { badRequest, notFound } from "./errors";
@@ -75,12 +75,12 @@ function baseRow(c: SystemCommit, titles: Titles, candidates: ChangelogRow["cand
 
 function rowOf(c: SystemCommit, cmp: SystemCompare, titles: Titles, candidates: ChangelogRow["candidates"]): CachedRow {
   const d = cmp.genome.delta;
-  const files = cmp.app?.files;
+  const count = (f: ChangedFiles | null | undefined) => (f ? f.added.length + f.modified.length + f.removed.length : 0);
   return {
     ...baseRow(c, titles, candidates),
     summary: {
       nodesAdded: d?.added.length ?? 0, nodesChanged: d?.changed.length ?? 0, nodesRemoved: d?.removed.length ?? 0,
-      filesChanged: files ? files.added.length + files.modified.length + files.removed.length : 0,
+      filesChanged: count(cmp.app?.files) + count(cmp.genome.files),
       criteriaAffected: d?.affectedCriteria.length ?? 0,
     },
   };
@@ -110,15 +110,24 @@ async function foldCriteria(env: Env, systemId: string, c: SystemCommit, criteri
   });
 }
 
-function codeLinksOf(cmp: SystemCompare): ChangelogEntry["codeLinks"] {
-  const app = cmp.app;
-  if (!app) return [];
-  const link = (status: "added" | "modified" | "removed") => (path: string) => {
-    const side = status === "removed" ? app.from ?? app.to : app.to;
-    return { path, repo: side.repo, commit: side.commit, nodes: app.pathNodes[path] ?? [], status };
+type CodeLink = ChangelogEntry["codeLinks"][number];
+type Status = CodeLink["status"];
+
+/** Links for one scope's changed files, sorted by path; a removed file links to the `from` side (where it exists). */
+function scopeLinks(scope: FileScope, from: ResolvedRef | null, to: ResolvedRef, files: ChangedFiles, pathNodes: Record<string, string[]>): CodeLink[] {
+  const link = (status: Status) => (path: string): CodeLink => {
+    const side = status === "removed" ? from ?? to : to;
+    return { scope, path, repo: side.repo, commit: side.commit, nodes: pathNodes[path] ?? [], status };
   };
-  return [...app.files.added.map(link("added")), ...app.files.modified.map(link("modified")), ...app.files.removed.map(link("removed"))]
+  return [...files.added.map(link("added")), ...files.modified.map(link("modified")), ...files.removed.map(link("removed"))]
     .sort((a, b) => a.path.localeCompare(b.path));
+}
+
+/** The app's changed files, then the Genome's. */
+function codeLinksOf(cmp: SystemCompare, from: SystemSide | null, to: SystemSide): CodeLink[] {
+  const app = cmp.app ? scopeLinks("app", cmp.app.from, cmp.app.to, cmp.app.files, cmp.app.pathNodes) : [];
+  const genome = cmp.genome.files ? scopeLinks("genome", from?.genome ?? null, to.genome, cmp.genome.files, cmp.genome.pathNodes) : [];
+  return [...app, ...genome];
 }
 
 /**
@@ -140,7 +149,7 @@ async function computeEntry(env: Env, head: HeadState, c: SystemCommit, titles: 
     }),
   ]);
   const entry: CachedEntry = {
-    ...cmp, row: rowOf(c, cmp, titles, candidates), decision: c.decision, codeLinks: codeLinksOf(cmp),
+    ...cmp, row: rowOf(c, cmp, titles, candidates), decision: c.decision, codeLinks: codeLinksOf(cmp, from, to),
     criteriaIds: [...(cmp.genome.delta?.affectedCriteria ?? [])], offTriggerHooks: [...offTriggerHookIds(hooks)].sort(),
   };
   if (!cmp.genome.loadError && hooksLoaded && !degraded) await stub.putChangelog(c.id, JSON.stringify(entry.row), JSON.stringify(entry));

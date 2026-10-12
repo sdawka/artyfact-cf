@@ -219,17 +219,34 @@ function addedOnly(m: SystemModel): ModelDelta {
 
 const loadErr = (e: unknown) => (e as Error)?.message ?? String(e);
 
+interface GenomeSides { delta: ModelDelta | null; loadError?: string; toModel?: SystemModel; fromModel?: SystemModel }
+
 /** Semantic delta between two Genome sides; null when they are the same commit or a side does not load. */
-async function genomeDelta(env: Env, systemId: string, from: ResolvedRef | null, to: ResolvedRef): Promise<{ delta: ModelDelta | null; loadError?: string; toModel?: SystemModel }> {
+async function genomeDelta(env: Env, systemId: string, from: ResolvedRef | null, to: ResolvedRef): Promise<GenomeSides> {
   try {
     const b = await genomeAt(env, systemId, to.commit, to.repo);
     if (!from) return { delta: addedOnly(b.model), toModel: b.model };
     if (from.commit === to.commit) return { delta: null, toModel: b.model };
     const a = await genomeAt(env, systemId, from.commit, from.repo);
-    return { delta: diffModels(a.model, b.model), toModel: b.model };
+    return { delta: diffModels(a.model, b.model), toModel: b.model, fromModel: a.model };
   } catch (e) {
     return { delta: null, loadError: loadErr(e) };
   }
+}
+
+/**
+ * Per changed Genome path, the delta's nodes declared in it: added/changed nodes by where `to` declares them, removed
+ * ones by where `from` did. Model origins are relative to the Genome's root, which may sit under a repo prefix.
+ */
+export function genomePathNodes(g: GenomeSides, paths: string[]): Record<string, string[]> {
+  const d = g.delta;
+  if (!d || !paths.length) return {};
+  const declared: [id: string, file: string | undefined][] = [
+    ...[...d.added, ...d.changed.map((c) => c.id)].map((id) => [id, g.toModel?.origin[id]] as [string, string | undefined]),
+    ...d.removed.map((id) => [id, g.fromModel?.origin[id]] as [string, string | undefined]),
+  ];
+  const at = (path: string, file: string | undefined) => !!file && (path === file || path.endsWith(`/${file}`));
+  return Object.fromEntries(paths.map((p) => [p, sorted(declared.filter(([, file]) => at(p, file)).map(([id]) => id))]));
 }
 
 /** Changed files between two repo sides (`from` null = everything added). Same commit: nothing changed, nothing read. */
@@ -261,14 +278,20 @@ function changedKeys(a: Record<string, string> | undefined, b: Record<string, st
 }
 
 /**
- * Two System sides: Genome commits + semantic delta, the app's changed files (across forks) with the nodes each path
+ * Two System sides: Genome commits + semantic delta and changed files, the app's changed files (across forks) with the nodes each path
  * maps to at `to`, and which manifest keys changed. `from` null compares against nothing (the root import).
  */
 export async function compareSystem(env: Env, head: HeadState, from: SystemSide | null, to: SystemSide): Promise<SystemCompare> {
-  const [genome, files] = await Promise.all([
+  // A Genome kept in the app repo at the same commits is already covered by the app's files.
+  const sameRepo = (a: ResolvedRef | null | undefined, b: ResolvedRef | null | undefined) => (a ?? null) === (b ?? null) || (!!a && !!b && a.repo === b.repo && a.commit === b.commit);
+  const genomeInApp = !!to.app && sameRepo(to.genome, to.app) && sameRepo(from?.genome, from?.app);
+  const [genome, files, genomeFiles] = await Promise.all([
     genomeDelta(env, head.systemId, from?.genome ?? null, to.genome),
     to.app ? changedFiles(env, from?.app ?? null, to.app) : null,
+    genomeInApp ? { added: [], modified: [], removed: [] } : changedFiles(env, from?.genome ?? null, to.genome).catch((e: unknown) => loadErr(e)),
   ]);
+  const gFiles = typeof genomeFiles === "string" ? null : genomeFiles;
+  const gLoadError = genome.loadError ?? (typeof genomeFiles === "string" ? genomeFiles : undefined);
   const app = to.app && files
     ? { from: from?.app ?? null, to: to.app, files, pathNodes: await pathNodesAt(env, genome.toModel, to.app, [...files.added, ...files.modified, ...files.removed]) }
     : null;
@@ -282,7 +305,11 @@ export async function compareSystem(env: Env, head: HeadState, from: SystemSide 
     && !manifest.templateVersions.length && !manifest.hookVersions.length && !manifest.platformChanged;
   return {
     from: from?.commit ?? null, to: to.commit,
-    genome: { from: from?.genome.commit ?? null, to: to.genome.commit, delta: genome.delta, ...(genome.loadError && { loadError: genome.loadError }) },
+    genome: {
+      from: from?.genome.commit ?? null, to: to.genome.commit, delta: genome.delta, files: gFiles,
+      pathNodes: gFiles ? genomePathNodes(genome, [...gFiles.added, ...gFiles.modified, ...gFiles.removed]) : {},
+      ...(gLoadError && { loadError: gLoadError }),
+    },
     app, manifest, identical,
   };
 }
