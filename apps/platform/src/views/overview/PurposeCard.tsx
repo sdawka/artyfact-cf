@@ -2,12 +2,13 @@ import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { useModel } from "@/model/useModel";
 import styles from "./Overview.module.css";
 
-/** P1 first: statement, beneficiaries, intended change, success criteria, non-goals. */
-export function PurposeCard() {
+/** P1 first: statement, beneficiaries, intended change, success criteria, non-goals. `leadShown` skips the first statement (the hero shows it). */
+export function PurposeCard({ leadShown = false }: { leadShown?: boolean } = {}) {
   const m = useModel();
   const purposes = m.index.model.purposes;
   const ordered = [...purposes].sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true }));
   if (!ordered.length) {
+    if (leadShown) return null;
     return (
       <section className={styles.card} aria-labelledby="purpose-title">
         <h2 id="purpose-title" className={styles.cardTitle}>Purpose</h2>
@@ -17,12 +18,12 @@ export function PurposeCard() {
   }
   return (
     <>
-      {ordered.map((p) => (
+      {ordered.map((p, i) => (
         <section key={p.id} className={styles.card} aria-labelledby={`purpose-${p.id}`}>
           <h2 id={`purpose-${p.id}`} className={styles.cardTitle}>
             <span className={styles.purposeId}>{p.id}</span> Purpose
           </h2>
-          <p className={styles.statement}>{p.statement}</p>
+          {!(leadShown && i === 0) && <p className={styles.statement}>{p.statement}</p>}
           <div className={styles.cols}>
             <div className={styles.block}>
               <h3 className={styles.blockTitle}>Beneficiaries</h3>

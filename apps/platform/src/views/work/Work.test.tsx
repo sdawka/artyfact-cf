@@ -405,11 +405,16 @@ describe("PromotionPanel", () => {
 
   it("confirms success and links to History", async () => {
     stubApi(() => json(200, { commit: commit({ id: "newcommit0000" }), rejected: ["cand.2"] }), allPass());
+    const fx: string[] = [];
+    const onFx = (e: Event) => fx.push((e as CustomEvent<{ kind: string; strength?: number }>).detail.kind);
+    window.addEventListener("artyfact:fx", onFx);
     renderApp(url, undefined, seed({ api: true, evals: allPass() }));
     await fill();
     fireEvent.click(submit());
     expect(await screen.findByText(/newcomm/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open in History" }).getAttribute("href")).toContain("commit=newcommit0000");
+    window.removeEventListener("artyfact:fx", onFx);
+    expect(fx).toContain("promoted");
   });
 });
 

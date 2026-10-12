@@ -22,6 +22,8 @@ export interface MeterProps {
   asOf?: string;
   /** Shown instead of a bar when there is nothing to count. */
   emptyText?: string;
+  /** Hover or keyboard focus on the meter (makes it focusable). For decorative reactions only; the meter reads the same without. */
+  onActivate?: (el: HTMLElement) => void;
 }
 
 const GLYPH: Record<MeterTone, string> = { pass: "✓", fail: "×", warn: "!", subtle: "–" };
@@ -30,11 +32,19 @@ const GLYPH: Record<MeterTone, string> = { pass: "✓", fail: "×", warn: "!", s
 const legendTone = (s: MeterSegment): MeterTone => (s.tone === "pass" && s.count === 0 ? "subtle" : s.tone);
 
 /** Segmented count bar with a legend. Colour is never the only signal: each segment is listed with a glyph, word and count. */
-export function Meter({ title, headline, segments, caption, asOf, emptyText = "nothing counted" }: MeterProps) {
+export function Meter({ title, headline, segments, caption, asOf, emptyText = "nothing counted", onActivate }: MeterProps) {
   const total = segments.reduce((n, s) => n + s.count, 0);
   const nonZero = segments.filter((s) => s.count > 0);
   return (
-    <section className={styles.meter} aria-label={title}>
+    <section
+      className={styles.meter}
+      aria-label={title}
+      {...(onActivate && {
+        tabIndex: 0,
+        onPointerEnter: (e: React.PointerEvent<HTMLElement>) => onActivate(e.currentTarget),
+        onFocus: (e: React.FocusEvent<HTMLElement>) => onActivate(e.currentTarget),
+      })}
+    >
       <h3 className={styles.title}>{title}</h3>
       <p className={styles.headline} data-unknown={headline === "unknown" || undefined}>{headline}</p>
       {total > 0 ? (

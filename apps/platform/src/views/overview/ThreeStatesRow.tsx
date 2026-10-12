@@ -5,7 +5,7 @@ import { conformanceMeter, outcomeMeter, readinessMeter, relativeTime, shortRev 
 import styles from "./Overview.module.css";
 
 /** Three separate meters, each on its own scale. They are never summed or averaged. */
-export function ThreeStatesRow() {
+export function ThreeStatesRow({ onMeter }: { onMeter?: (el: HTMLElement) => void } = {}) {
   const m = useModel();
   const { data } = useReadiness();
   const report = data ?? m.bundle.readiness;
@@ -34,6 +34,7 @@ export function ThreeStatesRow() {
           segments={readiness.segments}
           caption="Is the Genome complete and consistent? It does not say the app works or that the Purpose is served."
           asOf={`as of ${rev}, computed ${relativeTime(report.computedAt)}`}
+          onActivate={onMeter}
         />
         <Meter
           title="Implementation conformance"
@@ -45,6 +46,7 @@ export function ThreeStatesRow() {
               ? `as of ${rev}, latest evaluation ${relativeTime(latest)}`
               : `as of ${rev}, no evaluations in scope`
           }
+          onActivate={onMeter}
         />
         <Meter
           title="Outcome progress"
@@ -52,6 +54,7 @@ export function ThreeStatesRow() {
           segments={outcome.segments}
           caption="Is the Purpose being achieved for people? Only observations of Theory claims move it, not tests or readiness."
           asOf={outcome.headline === "unknown" ? "no observations recorded" : `as of ${rev}`}
+          onActivate={onMeter}
         />
       </div>
     </section>

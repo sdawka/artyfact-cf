@@ -1,0 +1,58 @@
+import { resolve } from "node:path";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { checkA11yAndShoot, open, SYSTEM } from "./helpers";
+
+/** Viewport screenshot into e2e-artifacts/ (git-ignored), for review. */
+const shoot = (page: Page, testInfo: TestInfo, name: string) =>
+  page.screenshot({ path: resolve(testInfo.project.outputDir, "..", `${name}.png`) });
+
+test.describe("platform hero moments", () => {
+  test("overview hero: data-driven orb, encoding caption, focusable meters, pulse on artyfact:fx", async ({ page }, testInfo) => {
+    const errors: string[] = [];
+    page.on("pageerror", (e) => errors.push(e.message));
+    await open(page, "/overview", "Overview");
+    const hero = page.getByRole("region", { name: "Keep in Touch" });
+    await expect(hero.getByRole("heading", { level: 2, name: "Keep in Touch" })).toBeVisible();
+    await expect(hero.getByText(/Fill: readiness \d+%/)).toBeVisible();
+    const orb = hero.locator('[data-effect="orb"]');
+    await expect(orb).toHaveAttribute("data-effect-mode", /^(gl|fallback)$/);
+
+    // The orb box is sized before the canvas arrives: no layout shift.
+    const before = await hero.boundingBox();
+    await page.waitForTimeout(500);
+    expect(await hero.boundingBox()).toEqual(before);
+
+    const readiness = hero.getByRole("region", { name: "Model readiness" });
+    await readiness.focus();
+    await expect(readiness).toBeFocused();
+    await checkA11yAndShoot(page, testInfo, "overview-hero");
+    await page.waitForTimeout(2400); // let the intro finish
+    await shoot(page, testInfo, "overview-hero");
+
+    await page.evaluate(() => {
+      const el = document.querySelector('[aria-label="Implementation conformance"]')!.getBoundingClientRect();
+      window.dispatchEvent(new CustomEvent("artyfact:fx", { detail: { kind: "promoted", strength: 1.6, x: el.left + el.width / 2, y: el.top } }));
+    });
+    await page.waitForTimeout(120);
+    await shoot(page, testInfo, "overview-promote-pulse");
+    expect(errors).toEqual([]);
+  });
+
+  test("model loader is an orb with a text status @fixture", async ({ page }, testInfo) => {
+    // Hold the API (fixture mode falls back after it answers) so the loader stays up.
+    let release!: () => void;
+    const held = new Promise<void>((r) => (release = r));
+    await page.route((url) => url.pathname.startsWith("/api/"), async (route) => {
+      await held;
+      await route.continue();
+    });
+    await page.goto(`${SYSTEM}/overview`);
+    const status = page.getByRole("status").filter({ hasText: "Loading model…" });
+    await expect(status).toBeVisible();
+    await expect(status.locator('[aria-hidden="true"] [data-effect="orb"]')).toHaveCount(1);
+    await page.waitForTimeout(1200);
+    await shoot(page, testInfo, "model-loader");
+    release();
+    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+  });
+});

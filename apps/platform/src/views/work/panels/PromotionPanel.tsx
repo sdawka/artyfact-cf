@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useId, useMemo, useState } from "react";
+import { useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { Candidate, ConflictReport, Evolution } from "../../../../shared/api";
 import { ApiRequestError, StaleBaseError } from "@/api/client";
@@ -12,6 +12,7 @@ import { describeConflict, gateCoverage, headOf, splitConflicts, type GateRow } 
 import type { UiVerdict } from "@/model/status";
 import { mergeConflicts, shortSha } from "../lib";
 import { describeIssue } from "../gates";
+import { emitFx } from "@/effects/fx";
 import styles from "../work.module.css";
 
 /** `details` of a refused promotion: `{ blocking, advisories }`. */
@@ -70,6 +71,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   const [rationale, setRationale] = useState("");
   const [ack, setAck] = useState(false);
   const [adminToken, setAdminToken] = useState("");
+  const panelRef = useRef<HTMLElement>(null);
 
   const candidates: Candidate[] = cand?.candidates ?? [];
   const chosen = candidates.filter((c) => selected.includes(c.id));
@@ -118,13 +120,16 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   const submit = (ev: React.FormEvent) => {
     ev.preventDefault();
     if (reasons.length) return;
-    promote.mutate({ body: { candidates: ids, expectedHead: head, rationale: rationale.trim() }, ...(adminToken && { adminToken }) });
+    promote.mutate(
+      { body: { candidates: ids, expectedHead: head, rationale: rationale.trim() }, ...(adminToken && { adminToken }) },
+      { onSuccess: () => emitFx({ kind: "promoted", strength: 1.6 }, panelRef.current) },
+    );
   };
 
   if (promote.isSuccess) {
     const c = promote.data.commit;
     return (
-      <section className={styles.panel} aria-labelledby={`${uid}-h`}>
+      <section ref={panelRef} className={styles.panel} aria-labelledby={`${uid}-h`}>
         <h3 id={`${uid}-h`}>Promoted</h3>
         <p role="status">
           System commit <code>{shortSha(c.id)}</code> recorded. {promote.data.rejected.length > 0 && <>Rejected siblings: {promote.data.rejected.join(", ")}. </>}
@@ -135,7 +140,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   }
 
   return (
-    <section className={styles.panel} aria-labelledby={`${uid}-h`}>
+    <section ref={panelRef} className={styles.panel} aria-labelledby={`${uid}-h`}>
       <h3 id={`${uid}-h`}>Promote {evolution.title}</h3>
 
       <fieldset className={styles.fieldset}>

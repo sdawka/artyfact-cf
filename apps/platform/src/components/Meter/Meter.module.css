@@ -1,4 +1,6 @@
 .meter { display: grid; gap: var(--spacing-2); align-content: start; min-width: 0; }
+.meter[tabindex] { border-radius: var(--border-radius-sm); }
+.meter[tabindex]:focus-visible { outline: var(--focus-ring); outline-offset: 4px; }
 .title { margin: 0; font-family: var(--font-ui); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); }
 .headline { margin: 0; font-size: var(--font-size-xl); color: var(--color-text-primary); }
 .headline[data-unknown] { color: var(--color-text-subtle); }

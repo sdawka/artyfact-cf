@@ -1,6 +1,40 @@
 .view { display: grid; gap: var(--spacing-6); max-width: 1200px; }
 .header { display: grid; gap: var(--spacing-1); }
 .header h1 { margin: 0; }
+
+/* Hero: the System's orb beside its name and primary Purpose, above the three meters. The orb box has a fixed aspect
+   ratio, so the lazily loaded canvas never shifts the layout. */
+.hero { display: grid; gap: var(--spacing-6); min-width: 0; }
+.heroTop {
+  display: grid;
+  grid-template-columns: clamp(200px, 26vw, 320px) minmax(0, 1fr);
+  align-items: center;
+  gap: var(--spacing-8);
+  padding: var(--spacing-4) var(--spacing-6);
+  border-radius: var(--border-radius-md);
+  background: var(--gradient-haze);
+}
+.hero[data-health="passing"] .heroTop { background: var(--gradient-haze-success); }
+.hero[data-health="failing"] .heroTop, .hero[data-health="blocked"] .heroTop { background: var(--gradient-haze-error); }
+.heroOrb { position: relative; width: 100%; aspect-ratio: 1; }
+/* The CSS fallback (effects off, or a software renderer) is a radial gradient; round its box so no square edge shows. */
+.heroOrbFallback { border-radius: 50%; }
+.heroText { display: grid; gap: var(--spacing-3); align-content: center; min-width: 0; }
+.systemName {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(2.25rem, 4.2vw, 3.5rem);
+  font-weight: var(--font-weight-normal);
+  line-height: 1.05;
+  color: var(--color-text-primary);
+}
+.heroPurpose { margin: 0; max-width: 62ch; font-size: var(--font-size-lg); line-height: var(--font-line-height-relaxed); color: var(--color-text-primary); }
+.encoding { margin: 0; max-width: 70ch; color: var(--color-text-secondary); font-family: var(--font-code); font-size: var(--font-size-xs); line-height: var(--font-line-height-relaxed); }
+.encodingLead { color: var(--color-text-primary); }
+@media (max-width: 720px) {
+  .heroTop { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: var(--spacing-4); padding: var(--spacing-4); }
+  .heroOrb { width: min(240px, 70vw); }
+}
 .card, .states {
   display: grid;
   gap: var(--spacing-3);

@@ -1,6 +1,7 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
 import type { AcceptRequest, PromoteRequest, Realization, RejectRequest, StartWorkRequest } from "../../shared/api";
+import { emitFx } from "@/effects/fx";
 import { useSystemRoute } from "@/model/useSelection";
 import * as api from "./client";
 
@@ -153,6 +154,8 @@ export function useSystemEvents() {
           case "evaluation.completed":
             return inv("evaluations", "candidates");
           case "candidate.submitted":
+            emitFx({ kind: "submitted" });
+            return inv("candidates", "conflicts", "evolutions");
           case "conflict.detected":
             return inv("candidates", "conflicts", "evolutions");
           case "system.promoted":

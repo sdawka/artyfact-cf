@@ -18,6 +18,18 @@ describe("Overview", () => {
     expect(screen.getByText(/Is the Purpose being achieved/)).toBeTruthy();
   });
 
+  it("leads with a hero: the System name, its Purpose once, a decorative orb and a caption saying what drives it", async () => {
+    renderApp("/s/system.keep-in-touch/r/head/overview");
+    const hero = await screen.findByRole("region", { name: "Keep in Touch" });
+    expect(within(hero).getByText(/Help an individual keep in touch/)).toBeTruthy();
+    expect(screen.getAllByText(/Help an individual keep in touch/)).toHaveLength(1);
+    expect(hero.querySelector('[data-effect="orb"]')!.closest('[aria-hidden="true"]')).toBeTruthy();
+    const caption = within(hero).getByText(/^Fill: readiness \d+%/);
+    expect(caption.textContent).toMatch(/Crackle: \d+ failing or stale checks? · Strands: \d+ active Evolutions? · Flares: \d+ blockers? · Colour: (passing|failing|blocked|pending)/);
+    // The meters live in the hero and take keyboard focus (the orb sparks toward the focused one).
+    expect(within(hero).getByRole("region", { name: "Model readiness" }).tabIndex).toBe(0);
+  });
+
   it("does not paint a zero pass count in the success tone", async () => {
     renderApp("/s/system.keep-in-touch/r/head/overview");
     const conformance = await screen.findByRole("region", { name: "Implementation conformance" });
