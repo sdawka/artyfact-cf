@@ -6,6 +6,7 @@ import type {
   SerializedModel, StartWorkResponse, SubmitResponse, SystemsResponse, HistoryResponse, WorkResponse, ReadinessResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
+import { clearGenomeMemo } from "../worker/artifacts/genome-source";
 import type { SystemAuthority } from "../worker/do/system-authority";
 import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../worker/hooks/contract";
 import { hookRunner, noopHookRunner, queueEntry, resetHooks, setHooks } from "../worker/hooks/index";
@@ -234,6 +235,38 @@ describe("routes: import → model → start → submit → promote", () => {
       { candidates: [sb.json.candidate.id], expectedHead: pa.json.commit.id, rationale: "B" }, ADMIN);
     expect(pb.status).toBe(409);
     expect(pb.json.error.code).toBe("stale-base");
+  });
+
+  it("refuses promotion with 409 gate-unavailable when the canonical Genome does not load", async () => {
+    const { ns, systemId, appRepo, imp } = await imported();
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const c = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" });
+    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c });
+    expect(sub.status).toBe(201);
+    // Point the Genome source at a repo that does not exist and drop every cached copy of the Genome.
+    await runInDurableObject(env.SYSTEMS.getByName(systemId), (_i: SystemAuthority, state) => {
+      state.storage.sql.exec("DELETE FROM model_cache");
+      state.storage.sql.exec("INSERT OR REPLACE INTO head (k, v) VALUES ('genome_source', 'no-such-repo')");
+    });
+    clearGenomeMemo();
+    const res = await call<ApiError>("POST", `/systems/${systemId}/promote`, { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "x" }, ADMIN);
+    expect(res.status).toBe(409);
+    expect(res.json.error).toMatchObject({ code: "gate-unavailable", message: expect.stringContaining("does not load") });
+    const sys = await call<{ head: string }>("GET", `/systems/${systemId}`);
+    expect(sys.json.head).toBe(imp.head);
+  });
+
+  it("refuses promotion with 409 gate-unavailable when the Evolution is unknown to the System", async () => {
+    const { ns, systemId, appRepo, imp } = await imported();
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const c = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" });
+    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c });
+    await runInDurableObject(env.SYSTEMS.getByName(systemId), (_i: SystemAuthority, state) => {
+      state.storage.sql.exec("DELETE FROM evolutions WHERE id = 'evolution.1'");
+    });
+    const res = await call<ApiError>("POST", `/systems/${systemId}/promote`, { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "x" }, ADMIN);
+    expect(res.status).toBe(409);
+    expect(res.json.error).toMatchObject({ code: "gate-unavailable", message: expect.stringContaining("evolution.1") });
   });
 
   it("blocks promotion when required criteria are not pass+completed", async () => {

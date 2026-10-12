@@ -792,7 +792,8 @@ export class SystemAuthority extends DurableObject<Env> {
     if (!out.some((g) => g.blocking)) {
       const live = acceptance.filter((a) => !deferred.has(a));
       if (!live.length) throw new GateUnavailableError(`${id} has no blocking criteria and its Evolution has no (non-deferred) acceptance criteria`);
-      const unevaluated = live.filter((a) => !this.one("SELECT 1 AS x FROM evaluations WHERE candidate_id = ? AND criterion_id = ?", id, a));
+      // "Evaluated" means a completed run (any verdict): the runner writes a not-run row for every unrunnable acceptance criterion.
+      const unevaluated = live.filter((a) => !this.one("SELECT 1 AS x FROM evaluations WHERE candidate_id = ? AND criterion_id = ? AND execution = 'completed'", id, a));
       if (unevaluated.length) throw new GateUnavailableError(`${id} has no blocking criteria and acceptance criteria ${unevaluated.join(", ")} are unevaluated`);
     }
     return out;

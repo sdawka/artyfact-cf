@@ -107,6 +107,11 @@ export function memoGenome(key: string, make: () => LoadedGenome): LoadedGenome 
   return g;
 }
 
+/** Drop every memoised Genome (tests use it to force a reload from Artifacts). */
+export function clearGenomeMemo(): void {
+  memo.clear();
+}
+
 /** Read the Genome at `commit` from Artifacts and build it (memoised per commit). */
 export async function loadGenomeAt(repo: ArtifactsRepoLike, commit: string): Promise<LoadedGenome> {
   const hit = memo.get(commit);
