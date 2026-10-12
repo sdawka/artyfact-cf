@@ -38,6 +38,9 @@ Durable Object migrations are not rolled back; only add migrations, never edit a
 
 ## Cost
 
-- Workers Free covers static assets and light API traffic; Queues and Durable Objects (SQLite) have free allowances on the Free plan, but Queues and DOs may need Workers Paid for sustained use.
-- Artifacts is billed from 14-15 Oct 2026 (beta pricing ends); check the Artifacts pricing page for the free tier before importing, and keep the number of repos to the two demo repos.
-- Observability logs are enabled; they count against the logs allowance.
+Checked against the Cloudflare docs on 2026-10-12.
+
+- **Artifacts** needs the Workers Paid plan; there is no Free-plan tier. Billing starts 14 Oct 2026. Paid includes the first 10,000 operations and 1 GB-month per month, then $0.15 per extra 1,000 operations and $0.50 per extra GB-month. Two demo repos stay inside the included amounts.
+- **Durable Objects** (SQLite) are available on Free and Paid. Paid includes 25 billion row reads, 50 million row writes and 5 GB of storage per month.
+- **Queues** pricing was not checked; confirm the plan allowance before relying on the consumer.
+- Static assets and Worker requests fall under normal Workers pricing. Observability logs count against the logs allowance.
