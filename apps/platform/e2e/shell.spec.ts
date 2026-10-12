@@ -12,10 +12,7 @@ test.describe("shell", () => {
     await page.keyboard.press("Control+k");
     const dialog = page.getByRole("dialog", { name: "Go to node" });
     await expect(dialog).toBeVisible();
-    await checkA11yAndShoot(page, testInfo, "palette", [
-      // Known: CommandPalette.module.css `.id` uses --color-text-subtle, which no theme file defines (contrast).
-      "[cmdk-item]",
-    ]);
+    await checkA11yAndShoot(page, testInfo, "palette");
     await page.getByRole("combobox").fill("People");
     await page.getByRole("option", { name: /screen\.people/ }).first().click();
     await expect(dialog).toBeHidden();

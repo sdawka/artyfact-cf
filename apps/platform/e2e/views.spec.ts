@@ -70,7 +70,25 @@ test.describe("views", () => {
 
   test("the success-tone detector can see a pass tone (guards the never-green checks) @fixture", async ({ page }) => {
     await open(page, "/overview", "Overview");
-    expect((await successToneElements(page)).length).toBeGreaterThan(0);
+    // The fixture has no non-zero pass count, so plant one: the detector must flag both a tagged and a painted element.
+    await page.evaluate(() => {
+      const tagged = document.createElement("span");
+      tagged.dataset.tone = "pass";
+      tagged.textContent = "1 pass";
+      const painted = document.createElement("span");
+      painted.style.color = "var(--verdict-pass)";
+      painted.textContent = "1 pass";
+      document.body.append(tagged, painted);
+    });
+    expect((await successToneElements(page)).length).toBeGreaterThanOrEqual(2);
+  });
+
+  test("overview paints no zero count in the success tone @fixture", async ({ page }) => {
+    await open(page, "/overview", "Overview");
+    const conformance = page.getByRole("region", { name: "Implementation conformance" });
+    await expect(conformance).toContainText("pass");
+    expect(await conformance.locator('[data-tone="pass"]').count()).toBe(0);
+    expect(await successToneElements(page)).toEqual([]);
   });
 
   test("evaluations empty state is never green @fixture", async ({ page }, testInfo) => {
