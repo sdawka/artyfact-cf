@@ -1,4 +1,5 @@
 import type { Evaluation, SystemCommit } from "../../shared/api";
+import { foldVerdict } from "../../shared/verdict";
 import type { ModelIndex } from "./index";
 
 /** Verdict as the UI shows it. Only `pass` ever renders in the success colour. */
@@ -49,26 +50,14 @@ export function verdictScope(selected: readonly string[], commits: readonly Syst
   return { source: "revision", candidates: [rev] };
 }
 
-const KNOWN = new Set<string>(["pass", "fail", "unknown", "stale", "waived"]);
-const NOT_RUN = new Set<string>(["not-run", "queued", "running", "deferred"]);
-const time = (e: Evaluation) => e.finishedAt ?? e.startedAt ?? "";
-
 /**
- * Verdict of a criterion from its latest in-scope evaluation. No such evaluation, or one that
- * never ran, is `not-run`; `error` is `unknown`. A `pass` only counts when execution `completed`.
+ * Verdict of a criterion over its in-scope evaluations, folded across hooks like the promotion gate
+ * (see shared/verdict.ts): any fail is fail, pass needs every hook's latest row pass+completed. No
+ * in-scope evaluation is `not-run`; `error` is `unknown`. `offTrigger` hooks' not-run rows are ignored.
  */
-export function verdictOf(criterionId: string, evaluations: readonly Evaluation[], scope: VerdictScope): UiVerdict {
+export function verdictOf(criterionId: string, evaluations: readonly Evaluation[], scope: VerdictScope, offTrigger?: ReadonlySet<string>): UiVerdict {
   const allowed = new Set(scope.candidates);
-  let latest: Evaluation | undefined;
-  for (const e of evaluations) {
-    if (e.criterion !== criterionId || !allowed.has(e.candidate)) continue;
-    if (!latest || time(e) >= time(latest)) latest = e;
-  }
-  if (!latest) return "not-run";
-  if (latest.verdict === "stale") return "stale";
-  if (NOT_RUN.has(latest.execution)) return "not-run";
-  if (latest.execution !== "completed") return "unknown";
-  return KNOWN.has(latest.verdict) ? latest.verdict : "unknown";
+  return foldVerdict(evaluations.filter((e) => e.criterion === criterionId && allowed.has(e.candidate)), offTrigger);
 }
 
 /** Colour family for a verdict: only pass is success, fail is danger, everything else subtle. */
@@ -80,14 +69,14 @@ const KEY: Record<UiVerdict, keyof Rollup> = {
 };
 
 /** Verdict counts over the non-deferred criteria whose subject is `nodeId` or any containment descendant. */
-export function rollup(index: ModelIndex, nodeId: string, evaluations: readonly Evaluation[], scope: VerdictScope): Rollup {
+export function rollup(index: ModelIndex, nodeId: string, evaluations: readonly Evaluation[], scope: VerdictScope, offTrigger?: ReadonlySet<string>): Rollup {
   const out = emptyRollup();
   const seen = new Set<string>();
   for (const id of index.descendants(nodeId)) {
     for (const c of index.criteriaFor(id)) {
       if (c.deferred || seen.has(c.id)) continue;
       seen.add(c.id);
-      out[KEY[verdictOf(c.id, evaluations, scope)]]++;
+      out[KEY[verdictOf(c.id, evaluations, scope, offTrigger)]]++;
     }
   }
   return out;

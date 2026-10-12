@@ -1,9 +1,10 @@
-import { Hono } from "hono";
+import { Hono, type MiddlewareHandler } from "hono";
 import type { ApiError, HealthResponse } from "../shared/api";
 import { ArtifactsUnavailableError, artifactsErrorCode } from "./artifacts/client";
 import { SystemAuthority } from "./do/system-authority";
-import { fromRpc, HttpError } from "./errors";
 import { queueEntry } from "./hooks/index";
+import { fromRpc, HttpError, notFound } from "./errors";
+import { registryStub } from "./service";
 import type { AppEnv } from "./routes/app";
 import { evaluations } from "./routes/evaluations";
 import { events } from "./routes/events";
@@ -17,6 +18,15 @@ const app = new Hono<AppEnv>();
 app.get("/api/health", (c) =>
   c.json<HealthResponse>({ status: "ok", service: "artyfact-platform", time: new Date().toISOString() }),
 );
+// Reads of a System the registry does not know are 404 before its Durable Object is instantiated (no schema write,
+// no Artifacts reads for an arbitrary id).
+const knownSystem: MiddlewareHandler<AppEnv> = async (c, next) => {
+  const id = c.req.param("id") ?? "";
+  if (!(await registryStub(c.env).hasSystem(id))) throw notFound(`system ${id} is not imported`);
+  await next();
+};
+app.get("/api/systems/:id", knownSystem);
+app.get("/api/systems/:id/*", knownSystem);
 app.route("/api", systems);
 app.route("/api", evolutions);
 app.route("/api", realizations);

@@ -55,4 +55,13 @@
 }
 .muted { color: var(--color-text-subtle); }
 .errorText { color: var(--verdict-fail); overflow-wrap: anywhere; }
+.fakeTag {
+  display: inline-block;
+  margin-left: var(--spacing-1);
+  padding: 0 var(--spacing-1);
+  color: var(--color-text-secondary);
+  border: 1px dashed var(--color-border-subtle);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+}
 .rowError { display: block; max-width: 28ch; color: var(--verdict-fail); font-size: var(--font-size-xs); overflow-wrap: anywhere; }

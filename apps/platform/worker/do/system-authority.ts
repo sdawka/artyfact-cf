@@ -43,6 +43,22 @@ export class GateUnavailableError extends Error {
   }
 }
 
+/** Genome candidates go through accept (interpretation, Evolution reseed, the candidate Genome's provenance), never /promote. */
+export class UseAcceptError extends Error {
+  constructor(readonly candidates: string[]) {
+    super(`${candidates.join(", ")} ${candidates.length === 1 ? "is a Genome candidate" : "are Genome candidates"}; accept Genome amendments with POST /api/systems/:id/evolutions/:eid/accept`);
+    this.name = "UseAcceptError";
+  }
+}
+
+/** The candidate an accept names is no longer the realization's latest (a newer commit was submitted). */
+export class StaleCandidateError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "StaleCandidateError";
+  }
+}
+
 /** Thrown by RPC methods; the `[code]` message prefix survives RPC so the Worker can map it to HTTP. */
 export class ConflictError extends Error {
   constructor(readonly code: "not-found" | "invalid-state", readonly detail: string) {
@@ -157,24 +173,30 @@ export interface PromoteInput extends ManifestExtras {
   gates: Record<string, GateCriterion[]>;
 }
 
+/** Credentials of a realization that promotion or acceptance ended: its secret is already nulled; the Worker revokes the token. */
+export interface EndedCredential { realizationId: string; forkRepo: string; tokenId: string | null }
+
 export type PromoteResult =
-  | { ok: true; commit: SystemCommit; rejected: string[]; advisories: GateItem[] }
+  | { ok: true; commit: SystemCommit; rejected: string[]; advisories: GateItem[]; ended: EndedCredential[] }
   | { ok: false; code: "stale-base"; currentHead: string | null }
   | { ok: false; code: "blocked" | "advisories-unacknowledged"; blocking: GateItem[]; advisories: GateItem[] }
-  | { ok: false; code: ConflictError["code"] | "gate-unavailable"; message: string };
+  | { ok: false; code: ConflictError["code"] | "gate-unavailable" | "use-accept"; message: string };
 
 export interface AcceptInput extends ManifestExtras {
   realizationId: string;
+  /** The candidate the admin reviewed and its commit: accept refuses `stale-candidate` unless it is still the realization's latest. */
+  candidateId: string;
+  commit: string;
   rationale: string;
   by: string;
   evolutions: EvolutionSeed[];
-  /** Gate criteria the Worker computed for the realization's latest candidate (the same gate as promotion). */
+  /** Gate criteria the Worker computed for `candidateId` (the same gate as promotion). */
   gates?: GateCriterion[];
 }
 
 export type AcceptResult =
-  | { ok: true; commit: SystemCommit; realization: Realization; genomeCommit: string; advisories: GateItem[] }
-  | { ok: false; code: "not-found" | "invalid-state" | "stale-base" | "gate-unavailable"; message: string }
+  | { ok: true; commit: SystemCommit; realization: Realization; genomeCommit: string; advisories: GateItem[]; ended: EndedCredential[] }
+  | { ok: false; code: "not-found" | "invalid-state" | "stale-base" | "stale-candidate" | "gate-unavailable"; message: string }
   | { ok: false; code: "blocked" | "advisories-unacknowledged"; blocking: GateItem[]; advisories: GateItem[] };
 
 export interface PreparedCommit { head: string | null; manifest: SystemManifest; manifestHash: string }
@@ -339,10 +361,6 @@ export class SystemAuthority extends DurableObject<Env> {
     };
   }
 
-  /**
-   * Import: record repos + head commits, write the root System commit (or a new one when the imported
-   * commits changed) and seed Evolutions. Idempotent for the same commits.
-   */
   /** Repos and commits of the last import (null before the first): an import of exactly these keeps the canonical head. */
   importBase(): { genomeRepo: string; genomeCommit: string; appRepo: string; appCommit: string } | null {
     const genomeRepo = this.kv("genome_repo");
@@ -350,7 +368,11 @@ export class SystemAuthority extends DurableObject<Env> {
     return { genomeRepo, genomeCommit: this.kv("imported_genome_commit")!, appRepo: this.kv("app_repo")!, appCommit: this.kv("imported_app_commit")! };
   }
 
-  /** Returns `{ alreadyImported }` (not a throw) when re-pointing an imported System without `force`. */
+  /**
+   * Import: record repos + head commits, write the root System commit (or a new one when the imported
+   * commits changed) and seed Evolutions. Idempotent for the same commits.
+   * Returns `{ alreadyImported }` (not a throw) when re-pointing an imported System without `force`.
+   */
   async bootstrap(input: BootstrapInput): Promise<SystemSummary | { alreadyImported: string }> {
     // Compare with what was last imported (not the current head), so re-importing unchanged repos after a
     // promotion keeps the promoted state.
@@ -643,12 +665,17 @@ export class SystemAuthority extends DurableObject<Env> {
     });
   }
 
-  /** Store token metadata and the SHA-256 of the realization secret (never either plaintext) and the packet; emits `realization.created`. */
-  activateRealization(id: string, input: { tokenId: string; tokenExpires: string; remote: string; packet: TaskPacket; secretHash: string }): Realization {
-    this.sql.exec(
-      "UPDATE realizations SET token_id = ?, token_expires = ?, remote = ?, packet_json = ?, packet_hash = ?, secret_hash = ?, updated_at = ? WHERE id = ?",
+  /**
+   * Store token metadata and the SHA-256 of the realization secret (never either plaintext) and the packet; emits
+   * `realization.created`. Only a `claimed` realization is activated: one rejected or abandoned while its fork was being
+   * made returns `{ refused }` with its status, and the Worker revokes the token it minted.
+   */
+  activateRealization(id: string, input: { tokenId: string; tokenExpires: string; remote: string; packet: TaskPacket; secretHash: string }): Realization | { refused: RealizationStatus | null } {
+    const changed = this.sql.exec(
+      "UPDATE realizations SET token_id = ?, token_expires = ?, remote = ?, packet_json = ?, packet_hash = ?, secret_hash = ?, updated_at = ? WHERE id = ? AND status = 'claimed'",
       input.tokenId, input.tokenExpires, input.remote, JSON.stringify(input.packet), input.packet.hash, input.secretHash, nowIso(), id,
-    );
+    ).rowsWritten;
+    if (!changed) return { refused: (str(this.realizationRow(id)?.status) as RealizationStatus | null) };
     const r = this.realizationDto(this.realizationRow(id)!);
     this.emit({ type: "realization.created", realization: r });
     const evo = this.evolution(r.evolution);
@@ -656,8 +683,9 @@ export class SystemAuthority extends DurableObject<Env> {
     return r;
   }
 
+  /** A failed start: `claimed` → `abandoned`. A realization that already ended (e.g. rejected meanwhile) keeps its status. */
   abandonRealization(id: string): void {
-    this.setRealizationStatus(id, "abandoned");
+    this.sql.exec("UPDATE realizations SET status = 'abandoned', updated_at = ? WHERE id = ? AND status = 'claimed'", nowIso(), id);
   }
 
   /** Admin rejection (e.g. a Genome amendment): realization and its open candidates → rejected, reason kept. */
@@ -986,7 +1014,7 @@ export class SystemAuthority extends DurableObject<Env> {
    * when a required criterion lacks pass+completed. On success: parented System commit, head moved,
    * candidates promoted, sibling candidates rejected, Evolution promoted.
    */
-  promoteTx(input: PromoteInput, prep: PreparedCommit): { commit: SystemCommit; rejected: string[]; advisories: GateItem[] } {
+  promoteTx(input: PromoteInput, prep: PreparedCommit): { commit: SystemCommit; rejected: string[]; advisories: GateItem[]; ended: EndedCredential[] } {
     return this.ctx.storage.transactionSync(() => {
       const head = this.kv("head");
       if (head !== input.expectedHead || head !== prep.head) throw new StaleBaseError(head);
@@ -1000,6 +1028,7 @@ export class SystemAuthority extends DurableObject<Env> {
       for (const c of rows) {
         if (!OPEN_CANDIDATE.includes(String(c.state))) throw new ConflictError("invalid-state", `candidate ${c.id} is ${c.state}`);
       }
+      if (rows.some((c) => c.target === "genome")) throw new UseAcceptError(rows.filter((c) => c.target === "genome").map((c) => String(c.id)));
       const composition = this.compositionProblems(rows, input.artifactId, prep.manifest);
       if (composition.length) throw new ConflictError("invalid-state", composition.join("; "));
       const { advisories, evidenceProviders } = this.checkGate(rows, input.gates, input.rationale);
@@ -1018,14 +1047,13 @@ export class SystemAuthority extends DurableObject<Env> {
         ...(advisories.length && { acknowledged: [...new Set(advisories.map((a) => a.criterion))] }),
       });
       const at = nowIso();
+      const ended = new Set<string>();
       for (const c of rows) {
         this.sql.exec("UPDATE candidates SET state = 'promoted' WHERE id = ?", c.id);
         this.setRealizationStatus(String(c.realization_id), "promoted");
+        ended.add(String(c.realization_id));
       }
       this.setKv("genome_commit", prep.manifest.genomeCommit);
-      // A promoted Genome candidate's commit lives in its fork: move the Genome source with it (as accept does).
-      const genomeRow = rows.find((c) => c.target === "genome" && String(c.commit_hash) === prep.manifest.genomeCommit);
-      if (genomeRow) this.setKv("genome_source", String(genomeRow.fork_repo));
       const app = prep.manifest.artifacts[input.artifactId];
       if (app) {
         this.setKv("app_source_repo", app.repo);
@@ -1034,10 +1062,13 @@ export class SystemAuthority extends DurableObject<Env> {
       for (const s of siblings) {
         this.sql.exec("UPDATE candidates SET state = 'rejected' WHERE id = ?", s.id);
         const live = this.one("SELECT COUNT(*) AS n FROM candidates WHERE realization_id = ? AND state != 'rejected'", s.realization_id);
-        if (Number(live?.n ?? 0) === 0) this.setRealizationStatus(String(s.realization_id), "rejected");
+        if (Number(live?.n ?? 0) === 0) {
+          this.setRealizationStatus(String(s.realization_id), "rejected");
+          ended.add(String(s.realization_id));
+        }
       }
       for (const e of evolutionIds) this.sql.exec("UPDATE evolutions SET status = 'promoted', decided_at = ? WHERE id = ?", at, e);
-      return { commit, rejected, advisories };
+      return { commit, rejected, advisories, ended: this.endCredentials([...ended]) };
     });
   }
 
@@ -1058,25 +1089,56 @@ export class SystemAuthority extends DurableObject<Env> {
       if (e instanceof StaleBaseError) return { ok: false, code: "stale-base", currentHead: e.currentHead };
       if (e instanceof PromotionBlockedError) return { ok: false, code: e.code, blocking: e.blocking, advisories: e.advisories };
       if (e instanceof GateUnavailableError) return { ok: false, code: "gate-unavailable", message: e.message };
+      if (e instanceof UseAcceptError) return { ok: false, code: "use-accept", message: e.message };
       if (e instanceof ConflictError) return { ok: false, code: e.code, message: e.detail };
       throw e;
     }
   }
 
   /**
-   * Admin acceptance of a Genome realization: its latest candidate commit becomes the canonical Genome
-   * (the fork becomes the Genome source), a System commit records it, Evolutions are re-seeded.
-   * Idempotent: accepting an already-promoted realization returns the current head commit.
+   * Null the realization secret of each realization promotion or acceptance ended (inside the caller's transaction),
+   * as reject does. Returns their token ids for the Worker to revoke best-effort.
+   */
+  private endCredentials(realizationIds: string[]): EndedCredential[] {
+    return realizationIds.map((id) => {
+      const r = this.realizationRow(id);
+      this.sql.exec("UPDATE realizations SET secret_hash = NULL WHERE id = ?", id);
+      return { realizationId: id, forkRepo: String(r?.fork_repo ?? ""), tokenId: str(r?.token_id) };
+    });
+  }
+
+  private latestCandidate(realizationId: string): Row | undefined {
+    return this.one("SELECT * FROM candidates WHERE realization_id = ? ORDER BY rowid DESC LIMIT 1", realizationId);
+  }
+
+  /** Why `input`'s candidate is not the one to accept (null when it is the realization's latest, at that commit). */
+  private staleCandidate(input: Pick<AcceptInput, "realizationId" | "candidateId" | "commit">, latest: Row): string | null {
+    if (String(latest.id) !== input.candidateId) {
+      return `candidate ${input.candidateId} is not the latest of ${input.realizationId} (the latest is ${latest.id}); reload the review`;
+    }
+    if (String(latest.commit_hash) !== input.commit) {
+      return `candidate ${input.candidateId} is at ${String(latest.commit_hash).slice(0, 12)}, not ${input.commit.slice(0, 12)}; reload the review`;
+    }
+    return null;
+  }
+
+  /**
+   * Admin acceptance of a Genome realization: the candidate the admin reviewed (`candidateId` at `commit`, which must
+   * still be the realization's latest) becomes the canonical Genome (the fork becomes the Genome source), a System
+   * commit records it, Evolutions are re-seeded. Idempotent: accepting an already-promoted realization's promoted
+   * candidate again returns the current head commit.
    */
   async accept(input: AcceptInput): Promise<AcceptResult> {
     const rec = this.realization(input.realizationId);
     if (!rec) return { ok: false, code: "not-found", message: `unknown realization ${input.realizationId}` };
     if (rec.target !== "genome") return { ok: false, code: "invalid-state", message: "only genome realizations are accepted; promote app candidates" };
-    const cand = this.one("SELECT * FROM candidates WHERE realization_id = ? ORDER BY rowid DESC LIMIT 1", input.realizationId);
+    const cand = this.latestCandidate(input.realizationId);
     if (!cand) return { ok: false, code: "invalid-state", message: "realization has no submitted candidate" };
+    const stale = this.staleCandidate(input, cand);
+    if (stale) return { ok: false, code: "stale-candidate", message: stale };
     if (rec.realization.status === "promoted") {
       const head = this.kv("head")!;
-      return { ok: true, commit: this.systemCommit(head)!, realization: rec.realization, genomeCommit: this.kv("genome_commit")!, advisories: [] };
+      return { ok: true, commit: this.systemCommit(head)!, realization: rec.realization, genomeCommit: this.kv("genome_commit")!, advisories: [], ended: [] };
     }
     if (TERMINAL_REALIZATION.includes(rec.realization.status)) return { ok: false, code: "invalid-state", message: `realization is ${rec.realization.status}` };
     const genomeCommit = String(cand.commit_hash);
@@ -1086,10 +1148,15 @@ export class SystemAuthority extends DurableObject<Env> {
     const evo = this.one("SELECT kind FROM evolutions WHERE id = ?", rec.evolutionId);
     let commit: SystemCommit;
     let advisories: GateItem[] = [];
+    let ended: EndedCredential[] = [];
     try {
       commit = this.ctx.storage.transactionSync(() => {
         const head = this.kv("head");
         if (head !== prep.head) throw new StaleBaseError(head);
+        // A submit may have landed while the commit was prepared: still the reviewed candidate?
+        const latest = this.latestCandidate(input.realizationId);
+        const moved = latest ? this.staleCandidate(input, latest) : "realization has no submitted candidate";
+        if (moved) throw new StaleCandidateError(moved);
         // As in promote: the candidate must be built on the current head, so an amendment based on an older Genome
         // can never replace a newer genomeCommit that landed after its gate was prepared.
         if (str(this.realizationRow(input.realizationId)?.base_head) !== head) throw new StaleBaseError(head);
@@ -1104,12 +1171,14 @@ export class SystemAuthority extends DurableObject<Env> {
         this.setKv("genome_source", rec.forkRepo);
         this.sql.exec("UPDATE candidates SET state = 'promoted' WHERE id = ?", cand.id);
         this.setRealizationStatus(input.realizationId, "promoted");
+        ended = this.endCredentials([input.realizationId]);
         this.seedEvolutions(input.evolutions, genomeCommit);
         this.setEvolutionStatus(rec.evolutionId, evo?.kind === "mixed" ? "genome-approved" : "promoted", true);
         return c;
       });
     } catch (e) {
       if (e instanceof StaleBaseError) return { ok: false, code: "stale-base", message: e.message };
+      if (e instanceof StaleCandidateError) return { ok: false, code: "stale-candidate", message: e.message };
       if (e instanceof PromotionBlockedError) return { ok: false, code: e.code, blocking: e.blocking, advisories: e.advisories };
       if (e instanceof GateUnavailableError) return { ok: false, code: "gate-unavailable", message: e.message };
       throw e;
@@ -1120,7 +1189,7 @@ export class SystemAuthority extends DurableObject<Env> {
     this.emit({ type: "realization.updated", realization });
     const e = this.evolution(rec.evolutionId);
     if (e) this.emit({ type: "evolution.updated", evolution: e });
-    return { ok: true, commit, realization, genomeCommit, advisories };
+    return { ok: true, commit, realization, genomeCommit, advisories, ended };
   }
 
   /** Newest first. */
@@ -1131,6 +1200,34 @@ export class SystemAuthority extends DurableObject<Env> {
   systemCommit(id: string): SystemCommit | null {
     const r = this.one("SELECT * FROM system_commits WHERE id = ?", id);
     return r ? this.commitDto(r) : null;
+  }
+
+  /** Candidates promoted into System commit `id` and its ancestors (the UI's `promotedCandidates` scope); [] when unknown. */
+  promotedCandidates(id: string | null): string[] {
+    const out = new Set<string>();
+    const seen = new Set<string>();
+    for (let cur = id; cur && !seen.has(cur);) {
+      seen.add(cur);
+      const r = this.one("SELECT parent, decision_json FROM system_commits WHERE id = ?", cur);
+      if (!r) break;
+      for (const c of json<{ candidates?: string[] }>(r.decision_json, {}).candidates ?? []) out.add(String(c));
+      cur = str(r.parent);
+    }
+    return [...out];
+  }
+
+  /**
+   * What a 40-hex revision names in this System: a candidate's commit (the newest such candidate), or a Genome commit
+   * recorded in History or imported; null for any other commit (never read from Artifacts).
+   */
+  revisionOfCommit(sha: string): { candidate: string } | { genomeCommit: string } | null {
+    const c = this.one("SELECT id FROM candidates WHERE commit_hash = ? ORDER BY rowid DESC LIMIT 1", sha);
+    if (c) return { candidate: String(c.id) };
+    if (this.kv("genome_commit") === sha || this.kv("imported_genome_commit") === sha) return { genomeCommit: sha };
+    for (const r of this.all("SELECT manifest_json FROM system_commits")) {
+      if (json<SystemManifest | null>(r.manifest_json, null)?.genomeCommit === sha) return { genomeCommit: sha };
+    }
+    return null;
   }
 
   // ---------------------------------------------------------------- events
@@ -1159,6 +1256,8 @@ export class SystemAuthority extends DurableObject<Env> {
 
   registerSystem(summary: SystemSummary): void { this.registry().registerSystem(summary); }
   listSystems(): SystemSummary[] { return this.registry().listSystems(); }
+  /** Whether `systemId` was imported (reads of other ids are refused before their DO is touched). */
+  hasSystem(systemId: string): boolean { return this.registry().hasSystem(systemId); }
   registerRealization(realizationId: string, systemId: string, evolutionId: string, forkRepo: string): void {
     this.registry().registerRealization(realizationId, systemId, evolutionId, forkRepo);
   }

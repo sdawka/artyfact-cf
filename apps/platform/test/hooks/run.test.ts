@@ -44,6 +44,15 @@ describe("hook selection", () => {
     const sel = selectHooks(model, appCandidate({ changedNodes: ["screen.home"] }));
     expect(sel.map((s) => s.criterion.id)).not.toContain("C.webapp.screen.people");
   });
+
+  it("runs a hook triggered only on promotion at the promotion re-run, never at submission", () => {
+    const promotionOnly = { ...model, hooks: model.hooks.map((h) => (h.id === "hook.webapp.exists" ? { ...h, triggers: ["promotion" as const] } : h)) };
+    const at = (trigger?: "submission" | "promotion") => selectHooks(promotionOnly, appCandidate(), trigger).find((s) => s.hook?.id === "hook.webapp.exists")!;
+    expect(at()).toMatchObject({ run: false, skip: expect.stringMatching(/do not include submission or candidate/) });
+    expect(at("submission").run).toBe(false);
+    expect(at("promotion")).toMatchObject({ run: true });
+    expect(at("promotion").skip).toBeUndefined();
+  });
 });
 
 describe("runSubmission", () => {

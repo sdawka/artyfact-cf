@@ -2,7 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
-  ApiError, ConflictsResponse, Evaluation, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
+  ApiError, CandidatesResponse, ConflictsResponse, Evaluation, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
   SerializedModel, StartWorkResponse, SubmitResponse, SystemsResponse, HistoryResponse, WorkResponse, ReadinessResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
@@ -203,7 +203,7 @@ describe("routes: import names and platform provenance", () => {
         ownerId: "system", subjectId: systemId, targetRef: candidate.id, startedAt: at, finishedAt: at, limitations: [], provenance: {},
       });
       i.recordEvaluations(candidate.id, ["C.people.list", "C.people.sorted", "C.people.later"].map(pass), "awaiting-admin");
-      const out = await i.accept({ realizationId: r.realization.id, rationale: "ok", by: "admin", evolutions: [], gates: [], artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+      const out = await i.accept({ realizationId: r.realization.id, candidateId: candidate.id, commit, rationale: "ok", by: "admin", evolutions: [], gates: [], artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
       expect(out, JSON.stringify(out)).toMatchObject({ ok: true });
     });
     const again = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
@@ -665,7 +665,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(rv.json.evaluations).toEqual(sub.json.evaluations);
     const notGenome = await call<ApiError>("GET", `/systems/${systemId}/realizations/realization.1.r9/review`);
     expect(notGenome.status).toBe(404);
-    const body = { realizationId: start.json.realization.id, interpretation: "ok" };
+    const body = { realizationId: start.json.realization.id, candidateId: rv.json.candidate, commit: rv.json.commit, interpretation: "ok" };
     expect((await call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.2/accept`, body)).status).toBe(401);
     const acc = await call<{ genomeCommit: string }>("POST", `/systems/${systemId}/evolutions/evolution.2/accept`, body, ADMIN);
     expect(acc.status, JSON.stringify(acc.json)).toBe(200);
@@ -687,8 +687,8 @@ describe("routes: import → model → start → submit → promote", () => {
     for (const p of Object.keys(genomeFiles)) files.set(p, (await (await fork.readFile({ ref: imp.genomeCommit, path: p }))!.text()));
     files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", "name: Contact v4"));
     const commit = fork.commit(files, "rename");
-    await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${start.realization.id}/submit`, { commit });
-    const res = await call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.2/accept`, { realizationId: start.realization.id, interpretation: "fine" }, ADMIN);
+    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${start.realization.id}/submit`, { commit });
+    const res = await call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.2/accept`, { realizationId: start.realization.id, candidateId: sub.json.candidate.id, commit, interpretation: "fine" }, ADMIN);
     expect(res.status).toBe(409);
     expect(res.json.error.code).toBe("blocked");
     // Only model-level criteria gate a Genome candidate; the artifact criteria gate app candidates.
@@ -866,5 +866,196 @@ describe("routes: import → model → start → submit → promote", () => {
     while (!text.includes("realization.created")) text += dec.decode((await reader.read()).value);
     expect(text).toMatch(/data: \{"type":"realization.created".*"at":"/);
     await reader.cancel();
+  });
+});
+
+describe("routes: final review fixes", () => {
+  /** A Genome realization on evolution.2 and a helper that commits an ontology rename to its fork. */
+  async function genomeWork() {
+    const s = await imported();
+    const start = (await call<StartWorkResponse>("POST", `/systems/${s.systemId}/evolutions/evolution.2/realizations`, {})).json;
+    const fork = s.ns.repo(`${s.genomeRepo}--r1`);
+    const base = new Map<string, string>();
+    for (const p of Object.keys(genomeFiles)) base.set(p, (await (await fork.readFile({ ref: s.imp.genomeCommit, path: p }))!.text()));
+    const amend = (name: string) => {
+      const files = new Map(base);
+      files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", `name: ${name}`));
+      return fork.commit(files, name);
+    };
+    const submitGenome = (commit: string) => call<SubmitResponse>("POST", `/systems/${s.systemId}/realizations/${start.realization.id}/submit`, { commit });
+    return { ...s, start, fork, base, amend, submitGenome };
+  }
+
+  it("I1: accept names the reviewed candidate; a resubmit between review and accept is 409 stale-candidate", async () => {
+    const { systemId, imp, start, fork, amend, submitGenome } = await genomeWork();
+    const rid = start.realization.id;
+    const c1 = amend("Contact v5");
+    expect((await submitGenome(c1)).status).toBe(201);
+    const rv = await call<GenomeCandidateReview>("GET", `/systems/${systemId}/realizations/${rid}/review`);
+    expect(rv.json).toMatchObject({ candidate: expect.stringContaining(c1.slice(0, 7)), commit: c1 });
+    const reviewed = { realizationId: rid, candidateId: rv.json.candidate!, commit: rv.json.commit!, interpretation: "ok" };
+    // The agent submits again before the admin presses Accept.
+    const c2 = amend("Contact v6");
+    expect((await submitGenome(c2)).status).toBe(201);
+    const accept = (body: unknown) => call<ApiError & { genomeCommit?: string }>("POST", `/systems/${systemId}/evolutions/evolution.2/accept`, body, ADMIN);
+    const stale = await accept(reviewed);
+    expect([stale.status, stale.json.error?.code]).toEqual([409, "stale-candidate"]);
+    expect((await call<ModelBundle>("GET", `/systems/${systemId}/model`)).json.genomeCommit).toBe(imp.genomeCommit);
+    // Both fields are required; a commit that does not match the named candidate is stale too.
+    expect((await accept({ realizationId: rid, interpretation: "ok" })).status).toBe(400);
+    const fresh = await call<GenomeCandidateReview>("GET", `/systems/${systemId}/realizations/${rid}/review`);
+    expect(fresh.json.commit).toBe(c2);
+    const wrongCommit = await accept({ ...reviewed, candidateId: fresh.json.candidate, commit: c1 });
+    expect([wrongCommit.status, wrongCommit.json.error?.code]).toEqual([409, "stale-candidate"]);
+    // The candidate the admin now reviewed is accepted, and the agent's credentials end with it (M3).
+    const ok = await accept({ ...reviewed, candidateId: fresh.json.candidate, commit: fresh.json.commit });
+    expect(ok.status, JSON.stringify(ok.json)).toBe(200);
+    expect(ok.json.genomeCommit).toBe(c2);
+    expect(fork.tokens).toMatchObject([{ revoked: true }]);
+    const after = await call<ApiError>("POST", `/systems/${systemId}/realizations/${rid}/checkpoints`, { message: "late" }, { authorization: `Bearer ${start.secret}` });
+    expect(after.status).toBe(403);
+  });
+
+  it("I4: /promote refuses a Genome candidate with 409 use-accept and changes nothing", async () => {
+    const { systemId, imp, amend, submitGenome } = await genomeWork();
+    const sub = await submitGenome(amend("Contact v7"));
+    const res = await call<ApiError>("POST", `/systems/${systemId}/promote`, { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "r" }, ADMIN);
+    expect(res.status).toBe(409);
+    expect(res.json.error).toMatchObject({ code: "use-accept", message: expect.stringContaining("/accept") });
+    expect((await call<{ head: string; genomeCommit: string }>("GET", `/systems/${systemId}`)).json).toMatchObject({ head: imp.head, genomeCommit: imp.genomeCommit });
+    expect((await call<{ candidates: { state: string }[] }>("GET", `/systems/${systemId}/evolutions/evolution.2/candidates`)).json.candidates.map((c) => c.state)).toEqual(["evaluated"]);
+  });
+
+  it("M1: the promotion re-run tells the hooks it is the promotion trigger", async () => {
+    const { ns, systemId, appRepo, imp } = await imported();
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const commit = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" });
+    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit });
+    expect(seen.at(-1)!.trigger).toBe("submission");
+    await call<PromoteResponse>("POST", `/systems/${systemId}/promote`, { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "r" }, ADMIN);
+    expect(seen.at(-1)).toMatchObject({ trigger: "promotion", promotionFacts: expect.any(Object) });
+  });
+
+  it("M2: reads of an unknown System are 404 before its Durable Object exists; rev=<sha> must be a recorded commit", async () => {
+    const unknown = `system.nobody${++seq}`;
+    for (const path of ["", "/model", "/readiness", "/work", "/history", "/candidates", "/evaluations", "/conflicts", "/realizations", "/evolutions/evolution.1/candidates", "/events"]) {
+      const res = await exports.default.fetch(new Request(`http://example.com/api/systems/${unknown}${path}`));
+      expect([path, res.status]).toEqual([path, 404]);
+      await res.body?.cancel();
+    }
+    // /work and /history used to answer 200 from a freshly created DO; the 404 comes from the registry check instead.
+
+    const { ns, systemId, genomeRepo, imp } = await imported();
+    const calls = ns.repo(genomeRepo).calls.length;
+    const foreign = "f".repeat(40);
+    const res = await call<ApiError>("GET", `/systems/${systemId}/model?rev=${foreign}`);
+    expect(res.status).toBe(404);
+    expect(ns.repo(genomeRepo).calls.length).toBe(calls);
+    expect((await call<ModelBundle>("GET", `/systems/${systemId}/model?rev=${imp.genomeCommit}`)).status).toBe(200);
+  });
+
+  it("M3: promotion revokes the promoted and rejected realizations' secrets and write tokens", async () => {
+    const { ns, systemId, appRepo, imp } = await imported();
+    const start = (label: string) => call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: label });
+    const a = (await start("a")).json, b = (await start("b")).json;
+    const ca = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" });
+    const cb = ns.repo(`${appRepo}--r2`).commit({ ...appFiles, "src/ui/people/b.ts": "b" });
+    const sa = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: ca });
+    await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${b.realization.id}/submit`, { commit: cb });
+    const promoted = await call<PromoteResponse>("POST", `/systems/${systemId}/promote`, { candidates: [sa.json.candidate.id], expectedHead: imp.head, rationale: "A" }, ADMIN);
+    expect(promoted.status, JSON.stringify(promoted.json)).toBe(200);
+    expect(promoted.json).not.toHaveProperty("ended");
+    for (const [r, n] of [[a, 1], [b, 2]] as const) {
+      expect(ns.repo(`${appRepo}--r${n}`).tokens).toMatchObject([{ revoked: true }]);
+      const res = await call<ApiError>("POST", `/systems/${systemId}/realizations/${r.realization.id}/checkpoints`, { message: "late" }, { authorization: `Bearer ${r.secret}` });
+      expect(res.status).toBe(403);
+    }
+  });
+
+  it("M4: a reject that lands while start work forks wins; the fresh token is revoked and start answers 409", async () => {
+    const { ns, systemId, appRepo } = await imported();
+    const base = ns.repo(appRepo);
+    const readTree = base.readTree.bind(base);
+    let rejected = false;
+    base.readTree = async (hash: string) => {
+      if (!rejected) {
+        rejected = true;
+        await runInDurableObject(env.SYSTEMS.getByName(systemId), (i: SystemAuthority) => i.rejectRealization("realization.1.r1", "changed my mind"));
+      }
+      return readTree(hash);
+    };
+    const res = await call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {});
+    expect([res.status, res.json.error.code]).toEqual([409, "invalid-state"]);
+    expect(JSON.stringify(res.json)).not.toMatch(/secret-|[0-9a-f]{64}/);
+    expect(ns.repo(`${appRepo}--r1`).tokens).toMatchObject([{ revoked: true }]);
+    const rec = await runInDurableObject(env.SYSTEMS.getByName(systemId), (i: SystemAuthority) => ({ r: i.realization("realization.1.r1"), hash: i.realizationSecretHash("realization.1.r1") }));
+    expect(rec.r).toMatchObject({ tokenId: null, realization: { status: "rejected", rejectionReason: "changed my mind" } });
+    expect(rec.hash).toBeNull();
+  });
+
+  it("M5: readiness at head counts every promoted ancestor's evidence, as the UI does", async () => {
+    const { ns, systemId, appRepo, genomeRepo, imp } = await imported();
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const commit = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" });
+    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit });
+    const p = await call<PromoteResponse>("POST", `/systems/${systemId}/promote`, { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "r" }, ADMIN);
+    const passAt = async () => (await call<ReadinessResponse>("GET", `/systems/${systemId}/readiness`)).json.implementationConformance.pass;
+    const afterApp = await passAt();
+    expect(afterApp).toBeGreaterThan(1);
+    // A Genome amendment whose hooks only evaluate C.system.promotion: the earlier app evidence must still count at head.
+    setHooks({ runner: () => ({ ...passing, async runGenome(ctx) {
+      const out = await passing.runGenome(ctx);
+      return { ...out, evaluations: out.evaluations.filter((e) => e.criterion === "C.system.promotion") };
+    } }) });
+    const g = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.2/realizations`, {})).json;
+    const fork = ns.repo(`${genomeRepo}--r2`);
+    const files = new Map<string, string>();
+    for (const path of Object.keys(genomeFiles)) files.set(path, (await (await fork.readFile({ ref: imp.genomeCommit, path }))!.text()));
+    files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", "name: Contact v8"));
+    const gc = fork.commit(files, "rename");
+    const gs = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${g.realization.id}/submit`, { commit: gc });
+    const acc = await call<{ commit: { id: string; parent: string } }>("POST", `/systems/${systemId}/evolutions/evolution.2/accept`,
+      { realizationId: g.realization.id, candidateId: gs.json.candidate.id, commit: gc, interpretation: "ok" }, ADMIN);
+    expect(acc.status, JSON.stringify(acc.json)).toBe(200);
+    expect(acc.json.commit.parent).toBe(p.json.commit.id);
+    expect(await passAt()).toBeGreaterThanOrEqual(afterApp);
+    const atCommit = await call<ReadinessResponse>("GET", `/systems/${systemId}/readiness?rev=${acc.json.commit.id}`);
+    expect(atCommit.json.implementationConformance.pass).toBeGreaterThanOrEqual(afterApp);
+  });
+
+  it("M8: a Genome over the size limit is refused 422 genome-too-large with the limit, not a 500", async () => {
+    const { systemId, start, fork, base, submitGenome } = await genomeWork();
+    const files = new Map(base);
+    files.set("evolutions/huge.yaml", `# ${"x".repeat(1_100_000)}\n`);
+    const res = await submitGenome(fork.commit(files, "huge"));
+    expect(res.status).toBe(422);
+    const err = (res.json as unknown as ApiError).error;
+    expect(err.code).toBe("genome-too-large");
+    expect(err.message).toMatch(/limit is 1000000 bytes/);
+    expect((await call<{ candidates: unknown[] }>("GET", `/systems/${systemId}/evolutions/evolution.2/candidates`)).json.candidates).toEqual([]);
+    expect(start.realization.status).toBe("claimed");
+  });
+});
+
+describe("routes: candidates carry the server's gate set (I3)", () => {
+  it("lists each candidate's promotion gate as prepareGate computes it; a Genome candidate's leaves artifact criteria out", async () => {
+    const { ns, systemId, appRepo, genomeRepo, imp } = await imported();
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" }) });
+    const app = await call<CandidatesResponse>("GET", `/systems/${systemId}/evolutions/evolution.1/candidates`);
+    const appGate = app.json.gates![sub.json.candidate.id]!;
+    expect(appGate.filter((g) => g.blocking).map((g) => g.id).sort()).toEqual(["C.people.audit", "C.people.list", "C.system.promotion", "C.webapp.exists"]);
+    // A hard acceptance criterion without a bound hook is an advisory, as the DO treats it.
+    expect(appGate.find((g) => g.id === "C.people.sorted")).toMatchObject({ blocking: false });
+    expect(app.json.gatesError).toBeUndefined();
+
+    const g = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.2/realizations`, {})).json;
+    const fork = ns.repo(`${genomeRepo}--r2`);
+    const files = new Map<string, string>();
+    for (const p of Object.keys(genomeFiles)) files.set(p, (await (await fork.readFile({ ref: imp.genomeCommit, path: p }))!.text()));
+    files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", "name: Contact v9"));
+    const gs = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${g.realization.id}/submit`, { commit: fork.commit(files, "rename") });
+    const genome = await call<CandidatesResponse>("GET", `/systems/${systemId}/evolutions/evolution.2/candidates`);
+    expect(genome.json.gates![gs.json.candidate.id]!.filter((x) => x.blocking).map((x) => x.id)).toEqual(["C.system.promotion"]);
   });
 });

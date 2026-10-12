@@ -15,9 +15,9 @@ import { isName, systemRepoNames } from "@artyfact/cli/naming";
 import { readPlatform, unreadableWarning, unsyncedWarning } from "./artifacts/platform";
 import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
-import { buildGenome, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
+import { buildGenome, byteLength, GENOME_MAX_BYTES, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
 import { loadSourceMap, nodesForPath, type SourceMapEntry } from "./artifacts/source-map";
-import { REGISTRY, TERMINAL_REALIZATION, type SystemAuthority, type EvolutionSeed, type HeadState, type ManifestExtras, type RealizationRecord } from "./do/system-authority";
+import { REGISTRY, TERMINAL_REALIZATION, type EndedCredential, type SystemAuthority, type EvolutionSeed, type HeadState, type ManifestExtras, type RealizationRecord } from "./do/system-authority";
 import { badRequest, conflict, fromRpc, HttpError, notFound, unprocessable } from "./errors";
 import type { CandidateRef, FileMap, QueueContext, SubmissionContext } from "./hooks/contract";
 import { hookRunner } from "./hooks/index";
@@ -63,6 +63,19 @@ async function refreshRegistry(env: Env, systemId: string): Promise<void> {
 
 // ------------------------------------------------------------------ genomes
 
+/** One model-cache part is one SQLite row (2 MB cap); a part above this is refused like an oversized Genome. */
+const CACHE_PART_MAX_BYTES = 1_900_000;
+
+function cacheParts(genomeCommit: string, parts: Record<string, string>): Record<string, string> {
+  for (const [part, text] of Object.entries(parts)) {
+    const n = byteLength(text);
+    if (n > CACHE_PART_MAX_BYTES) {
+      throw unprocessable("genome-too-large", `the Genome at ${genomeCommit.slice(0, 12)} is too large to cache: its ${part} is ${n} bytes, the limit is ${CACHE_PART_MAX_BYTES} bytes (Genome YAML is limited to ${GENOME_MAX_BYTES} bytes)`);
+    }
+  }
+  return parts;
+}
+
 /**
  * The Genome at `genomeCommit`, from (1) the per-isolate memo, (2) the DO's cached files, or (3) Artifacts
  * (`repo`), caching files + serialised model + rules readiness in the DO afterwards.
@@ -74,11 +87,11 @@ export async function genomeAt(env: Env, systemId: string, genomeCommit: string,
   if (cached) return memoGenome(key, () => buildGenome(new Map(Object.entries(JSON.parse(cached) as Record<string, string>)), genomeCommit));
   const files = await withRepo(artifactsFor(env), repo, (r) => readGenomeFiles(r, genomeCommit));
   const g = memoGenome(key, () => buildGenome(files, genomeCommit));
-  await stub.putModelCache(genomeCommit, {
+  await stub.putModelCache(genomeCommit, cacheParts(genomeCommit, {
     files: JSON.stringify(Object.fromEntries(files)),
     model: JSON.stringify(serializeModel(g.model)),
     rules: JSON.stringify(g.readiness),
-  });
+  }));
   return g;
 }
 
@@ -202,11 +215,11 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   }));
   if ("alreadyImported" in booted) throw conflict("already-imported", booted.alreadyImported);
   const system = booted;
-  await stub.putModelCache(genomeCommit, {
+  await stub.putModelCache(genomeCommit, cacheParts(genomeCommit, {
     files: JSON.stringify(Object.fromEntries(files)),
     model: JSON.stringify(serializeModel(g.model)),
     rules: JSON.stringify(g.readiness),
-  });
+  }));
   await registryStub(env).registerSystem(system);
   return { system, head: system.head!, genomeRepo, appRepo, genomeCommit, appCommit, evolutions: g.model.evolutions.map((e) => e.id), platform, warnings };
 }
@@ -215,25 +228,35 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
 
 interface ResolvedRevision { revision: string; genomeCommit: string; repo: string; candidateIds: string[] }
 
+/**
+ * Evidence scope of a revision: a System commit (or the head) counts the candidates promoted into it and its ancestors,
+ * as the UI's `promotedCandidates` does; a candidate counts itself. A 40-hex `rev` must be a commit this System
+ * recorded (a candidate's, or a Genome commit in History); any other is 404 and never read from Artifacts.
+ */
 async function resolveRevision(env: Env, s: HeadState, rev: string | undefined): Promise<ResolvedRevision> {
   const stub = systemStub(env, s.systemId);
   if (!rev || rev === "canonical" || rev === "head" || rev === s.head) {
-    const head = s.head ? await stub.systemCommit(s.head) : null;
-    return { revision: rev ?? "canonical", genomeCommit: s.genomeCommit, repo: s.genomeSource, candidateIds: head?.candidates ?? [] };
+    return { revision: rev ?? "canonical", genomeCommit: s.genomeCommit, repo: s.genomeSource, candidateIds: s.head ? await stub.promotedCandidates(s.head) : [] };
   }
   if (rev.startsWith("sc-")) {
     const c = await stub.systemCommit(rev);
     if (!c) throw notFound(`unknown System commit ${rev}`);
-    return { revision: rev, genomeCommit: c.genomeCommit, repo: s.genomeSource, candidateIds: c.candidates };
+    return { revision: rev, genomeCommit: c.genomeCommit, repo: s.genomeSource, candidateIds: await stub.promotedCandidates(rev) };
   }
-  if (rev.startsWith("candidate.")) {
-    const c = await stub.candidate(rev);
-    if (!c) throw notFound(`unknown candidate ${rev}`);
+  const candidateRevision = async (id: string, revision: string): Promise<ResolvedRevision> => {
+    const c = await stub.candidate(id);
+    if (!c) throw notFound(`unknown candidate ${id}`);
     const rec = await stub.realization(c.realization);
-    if (rec?.target === "genome") return { revision: rev, genomeCommit: c.commit, repo: rec.forkRepo, candidateIds: [rev] };
-    return { revision: rev, genomeCommit: s.genomeCommit, repo: s.genomeSource, candidateIds: [rev] };
+    if (rec?.target === "genome") return { revision, genomeCommit: c.commit, repo: rec.forkRepo, candidateIds: [id] };
+    return { revision, genomeCommit: s.genomeCommit, repo: s.genomeSource, candidateIds: [id] };
+  };
+  if (rev.startsWith("candidate.")) return candidateRevision(rev, rev);
+  if (COMMIT_RE.test(rev)) {
+    const known = await stub.revisionOfCommit(rev);
+    if (!known) throw notFound(`commit ${rev} is not recorded in ${s.systemId} (History or candidates)`);
+    if ("candidate" in known) return candidateRevision(known.candidate, rev);
+    return { revision: rev, genomeCommit: rev, repo: s.genomeSource, candidateIds: [] };
   }
-  if (COMMIT_RE.test(rev)) return { revision: rev, genomeCommit: rev, repo: s.genomeSource, candidateIds: [] };
   throw badRequest(`unknown revision ${rev}`);
 }
 
@@ -252,7 +275,7 @@ async function genomeView(env: Env, systemId: string, genomeCommit: string, repo
   if (model && rules) return { model: JSON.parse(model) as SerializedModel, readiness: JSON.parse(rules) as Readiness };
   const g = await genomeAt(env, systemId, genomeCommit, repo);
   const view = { model: serializeModel(g.model), readiness: g.readiness };
-  await stub.putModelCache(genomeCommit, { model: JSON.stringify(view.model), rules: JSON.stringify(view.readiness) });
+  await stub.putModelCache(genomeCommit, cacheParts(genomeCommit, { model: JSON.stringify(view.model), rules: JSON.stringify(view.readiness) }));
   return view;
 }
 
@@ -329,7 +352,15 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
     });
     // The realization secret authorizes the agent's platform calls; only its SHA-256 is stored.
     const secret = newRealizationSecret();
-    const realization = await stub.activateRealization(rid, { tokenId: token.id, tokenExpires: token.expiresAt, remote, packet, secretHash: await sha256Hex(secret) });
+    const activated = await stub.activateRealization(rid, { tokenId: token.id, tokenExpires: token.expiresAt, remote, packet, secretHash: await sha256Hex(secret) });
+    if ("refused" in activated) {
+      // Rejected (or otherwise ended) while the fork was being made: the fresh token must not outlive it.
+      await withRepo(ns, reserved.forkRepo, (r) => r.revokeToken(token.id)).catch((e: unknown) =>
+        console.error(`[startWork] revoking the token of ended ${rid} failed: ${(e as Error)?.message ?? e}`));
+      tokenId = undefined;
+      throw conflict("invalid-state", `realization ${rid} is ${activated.refused ?? "gone"}; it was not activated and its token was revoked`);
+    }
+    const realization = activated;
     await refreshRegistry(env, systemId);
     const cli = packet.startCommand.replace("<token>", token.plaintext).replace("<secret>", secret);
     return {
@@ -337,8 +368,10 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
       token: { value: token.plaintext, expiresAt: token.expiresAt, remote }, secret, remote, startCommand: cli, cli,
     };
   } catch (e) {
-    // Best-effort cleanup; never let it mask the original error. Never log the token itself.
-    const cleanup: Promise<unknown>[] = [
+    // Best-effort cleanup; never let it mask the original error. Never log the token itself. A realization that ended
+    // meanwhile (rejected during the fork) keeps its status and its registry entry.
+    const ended = TERMINAL_REALIZATION.includes((await stub.realization(rid).catch(() => null))?.realization.status ?? "claimed");
+    const cleanup: Promise<unknown>[] = ended ? [] : [
       stub.abandonRealization(rid),
       registryStub(env).unregisterRealization(systemId, rid),
     ];
@@ -514,7 +547,7 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
   const ctx: SubmissionContext = {
     systemId: s.systemId, candidate, genomeCommit: s.genomeCommit, genomeFiles, tree,
     permittedPaths: rec.packet?.permittedPaths ?? [], protectedPaths: rec.packet?.protectedPaths ?? protectedPathsFor(rec.target),
-    openCandidates: others, ...(promotionFacts && { promotionFacts }),
+    openCandidates: others, ...(promotionFacts && { promotionFacts }), trigger,
   };
   const runner = hookRunner(env);
   if (rec.target === "genome") {
@@ -622,6 +655,8 @@ export async function submit(
         const candG = await genomeAt(env, systemId, commit, rec.forkRepo);
         genomeDelta = diffModels(baseG.model, candG.model);
       } catch (e) {
+        // An oversized Genome is refused outright (422), never recorded as a candidate that cannot be cached or reviewed.
+        if (e instanceof HttpError && e.code === "genome-too-large") throw e;
         loadError = (e as Error).message;
       }
       const ids = genomeDelta ? [...genomeDelta.added, ...genomeDelta.removed, ...genomeDelta.changed.map((c) => c.id)] : [];
@@ -671,6 +706,24 @@ export async function sync(env: Env, systemId: string, rid: string): Promise<Syn
   return { head: head.hash, submitted: await submit(env, systemId, rid, { commit: head.hash }, "sync") };
 }
 
+/**
+ * Each candidate's promotion gate as prepareGate computes it (canonical Genome, the DO's Evolution record, the
+ * candidate's target), so the UI's coverage table shows the set the server enforces instead of recomputing it.
+ */
+async function candidateGates(env: Env, systemId: string, evolutionId: string, candidates: { id: string; realization: string }[]): Promise<{ gates?: Record<string, GateCriterion[]>; gatesError?: string }> {
+  const stub = systemStub(env, systemId);
+  try {
+    const g = await canonicalGenome(env, await headState(env, systemId));
+    const evo = await stub.evolution(evolutionId);
+    if (!evo) return { gatesError: `evolution ${evolutionId} is unknown` };
+    const gates: Record<string, GateCriterion[]> = {};
+    for (const c of candidates) gates[c.id] = gateCriteria(g.model, evo, { target: (await stub.realization(c.realization))?.target ?? "app" });
+    return { gates };
+  } catch (e) {
+    return { gatesError: `the promotion gate cannot be computed: ${(e as Error)?.message ?? e}` };
+  }
+}
+
 export async function candidatesView(env: Env, systemId: string, evolutionId: string): Promise<CandidatesResponse> {
   const stub = systemStub(env, systemId);
   const candidates = await stub.candidates({ evolutionId });
@@ -680,6 +733,7 @@ export async function candidatesView(env: Env, systemId: string, evolutionId: st
   return {
     evolution: evolutionId, candidates, evaluations,
     conflicts: stored.conflicts.filter((c) => c.candidates.some((x) => ids.has(x))), conflictsComputedAt: stored.computedAt,
+    ...(await candidateGates(env, systemId, evolutionId, candidates)),
   };
 }
 
@@ -692,7 +746,9 @@ export async function review(env: Env, systemId: string, rid: string): Promise<G
   if (!candId) throw conflict("not-ready", "realization has no submitted candidate");
   const [stored, evaluations] = await Promise.all([stub.review(candId), stub.evaluations(candId)]);
   if (!stored) throw conflict("not-ready", `candidate ${candId} has no review yet (hooks have not run)`);
-  return { ...(JSON.parse(stored) as GenomeCandidateReview), evaluations };
+  const commit = (await stub.candidate(candId))?.commit;
+  // `candidate` + `commit` are what accept must name: the review the admin read.
+  return { ...(JSON.parse(stored) as GenomeCandidateReview), candidate: candId, ...(commit && { commit }), evaluations };
 }
 
 // ------------------------------------------------------------------ promote + accept
@@ -746,6 +802,13 @@ function gateRefusal(out: { code: string; blocking: GateItem[]; advisories: Gate
   return conflict("blocked", "blocking criteria (hard, with a bound hook) lack pass+completed evaluations", details);
 }
 
+/** After promotion or acceptance: revoke the fork write tokens of the realizations it ended (secrets are already nulled). */
+async function revokeEnded(env: Env, ended: EndedCredential[]): Promise<void> {
+  await Promise.all(ended.filter((x) => x.tokenId && x.forkRepo).map((x) =>
+    withRepo(artifactsFor(env), x.forkRepo, (r) => r.revokeToken(x.tokenId!)).catch((e: unknown) =>
+      console.error(`[promote] revoking the write token of ${x.realizationId} failed: ${(e as Error)?.message ?? e}`))));
+}
+
 export async function promote(
   env: Env, systemId: string, body: { candidates?: unknown; candidateIds?: unknown; expectedHead?: unknown; rationale?: unknown },
 ): Promise<PromoteResponse> {
@@ -755,6 +818,15 @@ export async function promote(
   const rationale = typeof body.rationale === "string" ? body.rationale : "";
   const stub = systemStub(env, systemId);
   const s = await headState(env, systemId);
+  // Genome candidates are accepted, never promoted (interpretation, Evolution reseed, the candidate Genome's provenance).
+  const genome: string[] = [];
+  for (const id of ids as string[]) {
+    const c = await stub.candidate(id);
+    if (c && (await stub.realization(c.realization))?.target === "genome") genome.push(id);
+  }
+  if (genome.length) {
+    throw conflict("use-accept", `${genome.join(", ")} ${genome.length === 1 ? "is a Genome candidate" : "are Genome candidates"}; accept Genome amendments with POST /api/systems/${systemId}/evolutions/<evolution>/accept`);
+  }
   const { g, gates } = await prepareGate(env, systemId, s, ids as string[], body.expectedHead as string | null);
   const out = await stub.promote({ candidateIds: ids as string[], expectedHead: body.expectedHead as string | null, rationale, by: "admin", gates, ...manifestExtras(g.model) });
   if (!out.ok) {
@@ -768,24 +840,32 @@ export async function promote(
     if (out.code === "not-found") throw notFound(out.message);
     throw conflict(out.code, out.message);
   }
+  await revokeEnded(env, out.ended);
   await refreshRegistry(env, systemId);
   return { commit: out.commit, rejected: out.rejected, advisories: out.advisories };
 }
 
 export async function accept(
   env: Env, systemId: string, evolutionId: string,
-  body: { realization?: unknown; realizationId?: unknown; rationale?: unknown; interpretation?: unknown },
+  body: { realization?: unknown; realizationId?: unknown; candidateId?: unknown; commit?: unknown; rationale?: unknown; interpretation?: unknown },
 ) {
   const rid = typeof body.realizationId === "string" ? body.realizationId : typeof body.realization === "string" ? body.realization : undefined;
   if (!rid) throw badRequest("realizationId is required");
+  const candId = typeof body.candidateId === "string" && body.candidateId ? body.candidateId : undefined;
+  const reviewed = typeof body.commit === "string" && COMMIT_RE.test(body.commit) ? body.commit : undefined;
+  if (!candId || !reviewed) throw badRequest("candidateId and commit (40 hex) are required: name the candidate you reviewed");
   const rationale = typeof body.interpretation === "string" ? body.interpretation : typeof body.rationale === "string" ? body.rationale : "";
   const stub = systemStub(env, systemId);
   const rec = await record(env, systemId, rid);
   if (rec.evolutionId !== evolutionId) throw badRequest(`realization ${rid} belongs to ${rec.evolutionId}`);
   if (rec.target !== "genome") throw conflict("invalid-state", "only genome realizations are accepted; promote app candidates");
-  const candId = rec.realization.candidate;
-  if (!candId) throw conflict("invalid-state", "realization has no submitted candidate");
-  const cand = (await stub.candidate(candId))!;
+  const latest = rec.realization.candidate;
+  if (!latest) throw conflict("invalid-state", "realization has no submitted candidate");
+  const cand = await stub.candidate(candId);
+  if (latest !== candId || !cand || cand.commit !== reviewed) {
+    const why = latest !== candId ? `the latest is ${latest}` : `it is at ${cand?.commit.slice(0, 12) ?? "no commit"}`;
+    throw conflict("stale-candidate", `candidate ${candId} at ${reviewed.slice(0, 12)} is not what ${rid} would accept (${why}); reload the review`);
+  }
   let g: LoadedGenome;
   try {
     g = await genomeAt(env, systemId, cand.commit, rec.forkRepo);
@@ -796,12 +876,15 @@ export async function accept(
   // The same blocking gate as promotion: hard criteria with a bound hook (scope included) must be pass+completed.
   const s = await headState(env, systemId);
   const { gates } = await prepareGate(env, systemId, s, [candId], s.head);
-  const out = await stub.accept({ realizationId: rid, rationale, by: "admin", evolutions: evolutionSeeds(g.model), gates: gates[candId], ...manifestExtras(g.model) });
+  const out = await stub.accept({
+    realizationId: rid, candidateId: candId, commit: reviewed, rationale, by: "admin", evolutions: evolutionSeeds(g.model), gates: gates[candId], ...manifestExtras(g.model),
+  });
   if (!out.ok) {
     if ("blocking" in out) throw gateRefusal(out);
     if (out.code === "not-found") throw notFound(out.message);
     throw conflict(out.code, out.message);
   }
+  await revokeEnded(env, out.ended);
   await refreshRegistry(env, systemId);
   return { genomeCommit: out.genomeCommit, realization: out.realization, commit: out.commit, advisories: out.advisories };
 }

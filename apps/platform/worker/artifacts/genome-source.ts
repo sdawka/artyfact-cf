@@ -77,8 +77,26 @@ export async function genomePrefix(repo: ArtifactsRepoLike, commit: string): Pro
   return "";
 }
 
+/**
+ * Total YAML bytes a Genome may have. Its files are cached as one DO SQLite row (2 MB cap), so a larger Genome is refused
+ * with 422 `genome-too-large` when it is read, instead of failing later with a 500.
+ */
+export const GENOME_MAX_BYTES = 1_000_000;
+
+export const byteLength = (text: string) => new TextEncoder().encode(text).length;
+
+export function assertGenomeSize(files: Map<string, string>, commit: string): void {
+  let total = 0;
+  for (const text of files.values()) total += byteLength(text);
+  if (total > GENOME_MAX_BYTES) {
+    throw unprocessable("genome-too-large", `the Genome at ${commit.slice(0, 12)} has ${total} bytes of YAML; the limit is ${GENOME_MAX_BYTES} bytes`);
+  }
+}
+
 export async function readGenomeFiles(repo: ArtifactsRepoLike, commit: string): Promise<Map<string, string>> {
-  return walkTree(repo, commit, await genomePrefix(repo, commit), isYaml);
+  const files = await walkTree(repo, commit, await genomePrefix(repo, commit), isYaml);
+  assertGenomeSize(files, commit);
+  return files;
 }
 
 export interface LoadedGenome {

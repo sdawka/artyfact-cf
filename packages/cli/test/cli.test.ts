@@ -6,7 +6,7 @@ import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { main } from "../src/main";
-import { assertId, assertRemote, assertSecret, assertToken, gitEnv } from "../src/git";
+import { assertId, assertRemote, assertSecret, assertToken, commitIfDirty, gitEnv } from "../src/git";
 
 const sh = (cwd: string, ...a: string[]) => execFileSync("git", a, { cwd, encoding: "utf8" }).trim();
 const tmp = mkdtempSync(join(tmpdir(), "artyfact-cli-"));
@@ -92,7 +92,7 @@ describe("artyfact cli", () => {
     expect(existsSync(join(ws, "a.txt"))).toBe(true);
     expect(sh(ws, "status", "--porcelain")).toBe("");
     const ex = readFileSync(join(ws, ".git/info/exclude"), "utf8").split("\n");
-    expect(ex).toEqual(expect.arrayContaining([".artyfact.json", "TASK_PACKET.md", "AGENTS.md"]));
+    expect(ex).toEqual(expect.arrayContaining([".artyfact.json", "TASK_PACKET.md", "AGENTS.md", "node_modules", ".wrangler", "dist/", ".dev.vars*", ".env*", "!*.example"]));
     expect(cfg.secret).toBe(SECRET);
     expect(statSync(join(ws, ".artyfact.json")).mode & 0o777).toBe(0o600);
     expect(calls.find((x) => x.url.endsWith("/packet"))!.auth).toBe(`Bearer ${SECRET}`);
@@ -123,6 +123,37 @@ describe("artyfact cli", () => {
     expect(c.auth).toBe(`Bearer ${SECRET}`);
     expect(r.out).toMatch(/crit\.a\s+pass\s+completed/);
     expect(r.out).toContain("policy.ownerOnly");
+  });
+
+  it("commitIfDirty never stages node_modules, .wrangler or secret files, even without any ignore rules", () => {
+    const repo = join(tmp, "stage");
+    sh(tmp, "init", "-q", "-b", "main", repo);
+    writeFileSync(join(repo, "keep.txt"), "1");
+    sh(repo, "add", "-A");
+    sh(repo, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-q", "-m", "init");
+    const first = sh(repo, "rev-parse", "HEAD");
+    // Only a secret and dependencies changed: nothing is committed.
+    mkdirSync(join(repo, "node_modules/x"), { recursive: true });
+    writeFileSync(join(repo, "node_modules/x/index.js"), "x");
+    mkdirSync(join(repo, "app/.wrangler/state"), { recursive: true });
+    writeFileSync(join(repo, "app/.wrangler/state/db.sqlite"), "x");
+    writeFileSync(join(repo, ".dev.vars"), "SECRET=1");
+    // A symlinked node_modules (the demo runbook shares the checkout's) is a file to git, not a directory.
+    mkdirSync(join(repo, "sub"), { recursive: true });
+    symlinkSync(join(repo, "node_modules"), join(repo, "sub/node_modules"));
+    const notes: string[] = [];
+    expect(commitIfDirty(repo, "only secrets", (s) => notes.push(s))).toBe(first);
+    expect(notes.join("\n")).toContain(".dev.vars");
+    // A real change is committed without them; examples are kept.
+    writeFileSync(join(repo, "src.ts"), "export {}");
+    writeFileSync(join(repo, ".dev.vars.example"), "DEV_AUTH_HEADER=1");
+    writeFileSync(join(repo, ".env.local"), "TOKEN=1");
+    mkdirSync(join(repo, "app"), { recursive: true });
+    writeFileSync(join(repo, "app/.env"), "TOKEN=2");
+    const head = commitIfDirty(repo, "work");
+    expect(head).not.toBe(first);
+    expect(sh(repo, "show", "--name-only", "--format=", "HEAD").split("\n").sort()).toEqual([".dev.vars.example", "src.ts"]);
+    expect(sh(repo, "ls-files")).not.toMatch(/node_modules|\.wrangler|\.dev\.vars$|\.env/);
   });
 
   it("status --json has stable shape", async () => {

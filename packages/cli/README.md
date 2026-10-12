@@ -5,7 +5,8 @@
 count as unset, and an empty `--platform` is a usage error. Without one, the CLI asks http://localhost:1337 to 1346
 (Vite takes the next free port when 1337 is busy) and uses the first whose `/api/health` identifies as artyfact. If
 none does, the command stops with "no artyfact platform found", so a credential never goes to a server that did not
-identify itself.
+identify itself. The one exception sends no credential: `init` without `ARTYFACT_ADMIN_TOKEN` prints its import line for
+http://localhost:1337.
 
 ## `init` and `platform-sync`
 
@@ -19,10 +20,11 @@ npx artyfact platform-sync [--namespace ns]
 `init` reads `system.yaml`, derives the repo names (`src/naming.ts`, shared with the Worker), checks that
 `npx wrangler whoami` and `cf auth whoami` agree on the account (set `CLOUDFLARE_ACCOUNT_ID` when several are
 visible), and creates the namespace (`--namespace`, else `ARTIFACTS_NAMESPACE`, else `artyfact`) and repos when
-missing. It writes `platform` only when that repo is missing or empty; an existing one is left alone, and
+missing. When creating reports that the namespace exists, init confirms it with `cf artifacts namespaces list`, which
+prints one page without a next cursor, so a namespace beyond the first page is refused rather than assumed. It writes `platform` only when that repo is missing or empty; an existing one is left alone, and
 `platform-sync` is the update path. It then pushes the Genome and the app, and calls `POST /api/systems/import` with
 `Authorization: Bearer $ARTYFACT_ADMIN_TOKEN`, over https or plain http to localhost / 127.0.0.1 only. Without that
-variable it prints the `curl` line instead and exits 0. A 409 `already-imported` asks for `--force`. A re-run pushes
+variable it prints the `curl` line instead and exits 0, even when no platform is running. A 409 `already-imported` asks for `--force`. A re-run pushes
 nothing and re-imports as a no-op. Error text names the account by its first 8 characters only. The System id must be lower-case
 (`system.keep-in-touch`), so every id maps to its own repos.
 
@@ -58,7 +60,9 @@ is never taken from argv, never printed, and scrubbed from `TASK_PACKET.md` and 
 secret stops working (403).
 
 `TASK_PACKET.md`, `AGENTS.md` and `.artyfact.json` are listed in the clone's `.git/info/exclude`, so they are never
-committed. If the repo already tracks `AGENTS.md`, the CLI keeps it tracked and maintains a block between
+committed. `start` adds `node_modules`, `.wrangler`, `dist/`, `.dev.vars*` and `.env*` (except `*.example`) there too,
+the same patterns as the app scaffold's `.gitignore`. As a backstop, `checkpoint` and `submit` never stage anything in
+`node_modules` or `.wrangler`, or a secret file (`.dev.vars`, `.env`, `.dev.vars.*`, `.env.*` except `*.example`). If the repo already tracks `AGENTS.md`, the CLI keeps it tracked and maintains a block between
 `<!-- artyfact:start -->` and `<!-- artyfact:end -->`. The remote must be an Artifacts host
 (`<32-hex>.artifacts.cloudflare.net`); `ARTYFACT_ALLOW_REMOTE_HOST=<host>` opts one other host in for local dev.
 `submit` pushes to the remote recorded in `.artyfact.json`, not to `origin`.

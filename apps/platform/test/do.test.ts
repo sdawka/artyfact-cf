@@ -115,7 +115,7 @@ describe("platform provenance", () => {
       i.recordEvaluations(cg.id, [ev(cg.id, "C.people.list", "pass")], "awaiting-admin");
       const amended = [{ ...boot.evolutions[0], acceptanceCriteria: ["C.people.list", "C.people.search"] }, evo2];
       const versions = { templateVersions: { "template.thing.cloudflare-worker-webapp": "2" }, hookVersions: { "hook.people.search": "1" } };
-      expect(await i.accept({ realizationId: g.realization.id, rationale: "ok", by: "admin", evolutions: amended, gates: hard("C.people.list"), artifactId: "artifact.webapp", ...versions })).toMatchObject({ ok: true });
+      expect(await i.accept({ realizationId: g.realization.id, candidateId: cg.id, commit: cg.commit, rationale: "ok", by: "admin", evolutions: amended, gates: hard("C.people.list"), artifactId: "artifact.webapp", ...versions })).toMatchObject({ ok: true });
       const app = i.reserveRealization({ evolutionId: "evolution.2", target: "app" });
       const before = i.state()!;
       const commits = i.history().length;
@@ -405,17 +405,19 @@ describe("promotion binds exactly the promoted commits", () => {
 });
 
 describe("promote a Genome candidate", () => {
-  it("moves genome_source to the fork together with genome_commit", async () => {
+  it("is refused with use-accept; the head, Genome and candidate stay as they are", async () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
       await i.bootstrap(boot);
+      const before = i.state()!;
       const { realization } = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
       const G2 = "2".repeat(40);
       const { candidate } = i.recordCandidate({ realizationId: realization.id, commit: G2, manifest: {}, changedPaths: ["things/webapp/ontology.yaml"], changedNodes: ["entity.ContactRecord"] });
       i.recordEvaluations(candidate.id, [ev(candidate.id, "C.people.list", "pass")], "evaluated");
-      const out = await i.promote(promoteInput([candidate.id], i.state()!.head));
-      if (!out.ok) throw new Error(JSON.stringify(out));
-      expect(i.state()).toMatchObject({ genomeCommit: G2, genomeSource: "kit-system--r1" });
-      expect(out.commit.genomeCommit).toBe(G2);
+      const out = await i.promote(promoteInput([candidate.id], before.head));
+      expect(out).toMatchObject({ ok: false, code: "use-accept", message: expect.stringContaining("/accept") });
+      expect(i.state()).toMatchObject({ head: before.head, genomeCommit: before.genomeCommit, genomeSource: before.genomeSource });
+      expect(i.candidate(candidate.id)!.state).toBe("evaluated");
+      expect(i.history()).toHaveLength(1);
     });
   });
 });
@@ -428,12 +430,12 @@ describe("accept", () => {
       const G2 = "2".repeat(40);
       const { candidate } = i.recordCandidate({ realizationId: realization.id, commit: G2, manifest: {}, changedPaths: ["things/webapp/ontology.yaml"], changedNodes: ["entity.ContactRecord"] });
       i.recordEvaluations(candidate.id, [ev(candidate.id, "C.people.list", "pass")], "awaiting-admin");
-      const out = await i.accept({ realizationId: realization.id, rationale: "ok", by: "admin", evolutions: boot.evolutions, gates: hard("C.people.list"), artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+      const out = await i.accept({ realizationId: realization.id, candidateId: candidate.id, commit: G2, rationale: "ok", by: "admin", evolutions: boot.evolutions, gates: hard("C.people.list"), artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
       if (!out.ok) throw new Error(JSON.stringify(out));
       expect(out.genomeCommit).toBe(G2);
       expect(i.state()).toMatchObject({ genomeCommit: G2, genomeSource: "kit-system--r1", head: out.commit.id });
       expect(out.commit.genomeCommit).toBe(G2);
-      const again = await i.accept({ realizationId: realization.id, rationale: "ok", by: "admin", evolutions: [], artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+      const again = await i.accept({ realizationId: realization.id, candidateId: candidate.id, commit: G2, rationale: "ok", by: "admin", evolutions: [], artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
       expect(again).toMatchObject({ ok: true, genomeCommit: G2 });
       expect(i.history()).toHaveLength(2);
     });
@@ -447,18 +449,18 @@ describe("accept", () => {
       const ca = i.recordCandidate({ realizationId: a.realization.id, commit: "2".repeat(40), manifest: {}, changedPaths: ["x.yaml"], changedNodes: ["entity.ContactRecord"] }).candidate;
       const cb = i.recordCandidate({ realizationId: b.realization.id, commit: "3".repeat(40), manifest: {}, changedPaths: ["x.yaml"], changedNodes: ["entity.ContactRecord"] }).candidate;
       for (const c of [ca, cb]) i.recordEvaluations(c.id, [ev(c.id, "C.people.list", "pass")], "awaiting-admin");
-      const input = (rid: string) => ({ realizationId: rid, rationale: "ok", by: "admin", evolutions: boot.evolutions, gates: hard("C.people.list"), artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
-      expect(await i.accept(input(a.realization.id))).toMatchObject({ ok: true });
+      const input = (rid: string, c: { id: string; commit: string }) => ({ realizationId: rid, candidateId: c.id, commit: c.commit, rationale: "ok", by: "admin", evolutions: boot.evolutions, gates: hard("C.people.list"), artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+      expect(await i.accept(input(a.realization.id, ca))).toMatchObject({ ok: true });
       const head = i.state()!.head;
-      expect(await i.accept(input(b.realization.id))).toMatchObject({ ok: false, code: "stale-base" });
+      expect(await i.accept(input(b.realization.id, cb))).toMatchObject({ ok: false, code: "stale-base" });
       expect(i.state()).toMatchObject({ head, genomeCommit: "2".repeat(40) });
     });
   });
 });
 
 describe("accept uses the promotion gate", () => {
-  const acceptInput = (realizationId: string, gates: GateCriterion[] | undefined, rationale = "") =>
-    ({ realizationId, rationale, by: "admin", evolutions: boot.evolutions, gates, artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+  const acceptInput = (realizationId: string, gates: GateCriterion[] | undefined, rationale = "", c = { id: `candidate.1.r1.${"2".repeat(7)}`, commit: "2".repeat(40) }) =>
+    ({ realizationId, candidateId: c.id, commit: c.commit, rationale, by: "admin", evolutions: boot.evolutions, gates, artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
   const withProvider = (e: Evaluation, provider: string): Evaluation => ({ ...e, provenance: { engine: "system-one", provider } });
 
   it("refuses a blocking criterion that is not pass+completed, and a missing gate", async () => {

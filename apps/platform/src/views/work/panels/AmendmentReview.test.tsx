@@ -175,7 +175,7 @@ describe("AmendmentReview", () => {
     expect(within(addedList).getByRole("list", { name: /Derivation of violation/ })).toBeTruthy();
   });
 
-  it("requires an interpretation to accept and sends it, then shows the new commit and a map link", async () => {
+  it("requires an interpretation to accept and sends it with the reviewed candidate and commit, then shows the new commit and a map link", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith("/api/systems")) return Response.json([{ systemId: SYSTEM_ID, title: "Keep in Touch", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "x", evolutionCounts: {}, updatedAt: "now" }]);
@@ -183,7 +183,8 @@ describe("AmendmentReview", () => {
       return new Response("{}", { status: 404 });
     });
     vi.stubGlobal("fetch", fetchMock);
-    renderReview(makeReview());
+    // The review names the candidate it was built for; accept binds to that one, not to whatever the board shows.
+    renderReview(makeReview({ candidate: "candidate.7", commit: "7".repeat(40) }));
     const user = userEvent.setup();
     const ta = await screen.findByRole("textbox", { name: /accepted interpretation/i });
     await user.clear(ta);
@@ -194,7 +195,7 @@ describe("AmendmentReview", () => {
     await user.click(screen.getByRole("button", { name: /^accept/i }));
     expect(await screen.findByText(/c0ffee1/)).toBeTruthy();
     const body = JSON.parse(String(fetchMock.mock.calls.find(([u]) => String(u).endsWith("/accept"))![1]!.body));
-    expect(body).toEqual({ realizationId: RID, interpretation: "No feed, by design." });
+    expect(body).toEqual({ realizationId: RID, candidateId: "candidate.7", commit: "7".repeat(40), interpretation: "No feed, by design." });
     const link = screen.getByRole("link", { name: /open in map/i });
     expect(link.getAttribute("href")).toContain(`/map?`);
     expect(link.getAttribute("href")).toContain(`focus=${CHANGED}`);

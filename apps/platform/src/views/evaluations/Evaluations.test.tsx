@@ -32,6 +32,18 @@ describe("Evaluations view", () => {
     expect(screen.getByText("No evaluations match these filters.")).toBeTruthy();
   });
 
+  it("tags rows whose provenance provider includes fake, and only those", async () => {
+    renderApp(URL, undefined, seed([
+      evaluation({ id: "e1", criterion: "C.webapp.exists", provenance: { engine: "system-one", provider: "fake,off" } }),
+      evaluation({ id: "e2", criterion: "C.webapp.health", provenance: { engine: "system-one", provider: "typesafe" } }),
+    ]));
+    await screen.findByRole("table");
+    const tags = screen.getAllByText("fake");
+    expect(tags).toHaveLength(1);
+    expect(within(tags[0]!.closest("tr")!).getByRole("button", { name: "Expand evaluation e1" })).toBeTruthy();
+    expect(tags[0]!.getAttribute("title")).toMatch(/fake provider/);
+  });
+
   it("shows the error of a failed run in the row and in the detail", async () => {
     renderApp(URL, undefined, seed([evaluation({ execution: "error", verdict: "unknown", error: "hook timed out after 60000 ms" })]));
     await screen.findByRole("table");

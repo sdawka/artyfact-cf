@@ -2,6 +2,7 @@ import { Fragment, useId, useMemo, useState } from "react";
 import type { Evaluation } from "../../../shared/api";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
+import { FAKE_PROVIDER_TITLE, isFakeProvider } from "@/model/provider";
 import type { UiVerdict } from "@/model/status";
 import { EvaluationDetail } from "./EvaluationDetail";
 import { EXECUTION_FILTERS, VERDICT_FILTERS, evaluationVerdict, newestFirst } from "./lib";
@@ -94,7 +95,10 @@ export function EvaluationsTable({ evaluations, compact, expandedId, onExpand, e
                     </td>
                     <td><NodeChip id={e.criterion} size="sm" showId={!compact} /></td>
                     {!compact && <td><code>{e.candidate}</code></td>}
-                    <td><VerdictBadge verdict={evaluationVerdict(e)} /></td>
+                    <td>
+                      <VerdictBadge verdict={evaluationVerdict(e)} />
+                      {isFakeProvider(e.provenance?.provider) && <span className={styles.fakeTag} title={FAKE_PROVIDER_TITLE}>fake</span>}
+                    </td>
                     <td>
                       {e.execution}
                       {e.execution === "error" && <span className={styles.rowError}>{e.error ?? "no message recorded"}</span>}

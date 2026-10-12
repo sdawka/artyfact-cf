@@ -61,7 +61,7 @@ export default function AmendmentReview({ evolutionId, realization, candidate }:
           <div><dt>Fork</dt><dd><code>{realization.workspace.fork}</code></dd></div>
           <div>
             <dt>Genome commit</dt>
-            <dd><code>{shortSha(realization.workspace.baseCommit)}</code> → <code>{shortSha(candidate.commit)}</code></dd>
+            <dd><code>{shortSha(realization.workspace.baseCommit)}</code> → <code>{shortSha(r.commit ?? candidate.commit)}</code></dd>
           </div>
         </dl>
       </header>
@@ -80,6 +80,8 @@ export default function AmendmentReview({ evolutionId, realization, candidate }:
         <Decision
           evolutionId={evolutionId}
           realization={realization}
+          candidateId={r.candidate ?? candidate.id}
+          commit={r.commit ?? candidate.commit}
           initialInterpretation={afterText(first)}
           focusId={first?.id}
           blocked={blocked}

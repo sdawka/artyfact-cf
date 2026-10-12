@@ -6,6 +6,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, realpathSync, statSync, symlinkSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CliError } from "./git.ts";
+import { isSecretFile } from "./ignore.ts";
 import { isName, slug } from "./naming.ts";
 
 /** The model's template ref (`template.<kind>.<name>@<version>`). */
@@ -57,8 +58,7 @@ export function realSubdir(kind: string, root: string, rel: string): string {
 /** Directories never pushed or copied, whether or not the source is inside a git checkout. */
 export const EXCLUDE_DIRS = new Set(["node_modules", ".wrangler", ".git", "dist", ".artyfact"]);
 export const EXCLUDE_FILES = new Set([".artyfact.json", ".DS_Store"]);
-/** Wrangler and dotenv secret files (`.dev.vars`, `.dev.vars.staging`, `.env`, `.env.local`, ...); `*.example` is kept. */
-export const isSecretFile = (base: string) => /^\.(dev\.vars|env)(\..+)?$/.test(base) && !base.endsWith(".example");
+export { isSecretFile };
 const excluded = (rel: string) => {
   const parts = rel.split("/");
   const base = parts.at(-1)!;

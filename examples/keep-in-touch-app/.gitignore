@@ -1,0 +1,7 @@
+# No trailing slash on the first two: a symlinked node_modules (or .wrangler) is ignored too.
+node_modules
+.wrangler
+dist/
+.dev.vars*
+.env*
+!*.example

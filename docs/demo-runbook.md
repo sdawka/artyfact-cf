@@ -260,7 +260,7 @@ Keep edits inside the packet's permitted paths; the scope check fails `C.system.
 `BUILD_ID` and leave it running in a spare terminal:
 
 ```sh
-cd /tmp/kit-a && ln -s "$REPO/node_modules" node_modules && printf 'node_modules\n.wrangler\n' >> .git/info/exclude
+cd /tmp/kit-a && ln -s "$REPO/node_modules" node_modules   # ignored: the scaffold's .gitignore and start's excludes cover it
 npx wrangler dev --port 8788 --var BUILD_ID:$(git rev-parse HEAD)
 ```
 
@@ -441,8 +441,9 @@ gives every change the benign class, so here it is plainly wrong. A real System 
 classify this as a hard-rule violation. The gate does not depend on it either way. Terminal **ops**:
 
 ```sh
-curl -s -w ' HTTP %{http_code}\n' -XPOST $B/evolutions/evolution.5/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
-  -d '{"realizationId":"realization.5.r5","interpretation":"accept anyway"}'
+# accept names the candidate and commit the review was built for
+curl -s $B/realizations/realization.5.r5/review | jq -c '{realizationId: "realization.5.r5", candidateId: .candidate, commit: .commit, interpretation: "accept anyway"}' \
+  | curl -s -w ' HTTP %{http_code}\n' -XPOST $B/evolutions/evolution.5/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d @-
 ```
 
 ```text
@@ -520,8 +521,9 @@ contradicts per commitment, specificity) are shown in the review panel and label
 rewording as deliberate is the admin's, recorded as the interpretation. Terminal **ops**:
 
 ```sh
-curl -s -XPOST $B/evolutions/evolution.5/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
-  -d '{"realizationId":"realization.5.r6","interpretation":"Deliberate restatement: the commitment now names group discussion explicitly and says a missed goal is never punished. Meaning is unchanged for one-to-one contact."}' \
+curl -s $B/realizations/realization.5.r6/review \
+  | jq -c '{realizationId: "realization.5.r6", candidateId: .candidate, commit: .commit, interpretation: "Deliberate restatement: the commitment now names group discussion explicitly and says a missed goal is never punished. Meaning is unchanged for one-to-one contact."}' \
+  | curl -s -XPOST $B/evolutions/evolution.5/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d @- \
   | jq -c '{genomeCommit, status: .realization.status, commit: .commit.id, parent: .commit.parent, policy: .commit.decision.policy, evidenceProviders: .commit.decision.evidenceProviders}'
 curl -s "$B/model?rev=head" | jq -c '{genomeCommit, errors: ([.readiness.findings[] | select(.level == "error")] | length), commitment: (.model.description.commitments[] | select(.id == "commitment.no-engagement-mechanics") | .statement)}'
 ```
