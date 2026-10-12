@@ -8,3 +8,10 @@ Small Hono Worker (Static Assets + D1) that agents fork to realize evolutions of
 
 Create the D1 database once (`database_name` keep-in-touch), put its id in `wrangler.jsonc`, then apply
 `migrations/0001_contacts.sql`. `source-map.yaml` maps paths to model nodes for the platform.
+
+## Auth
+
+`/api/contacts` requires an identity (`src/worker/auth.ts`); otherwise 401. Deployed, set `ACCESS_AUD` and
+`ACCESS_TEAM_DOMAIN` and put the Worker behind Cloudflare Access: the `Cf-Access-Jwt-Assertion` JWT is verified and
+its `sub` becomes the owner. For local runs copy `.dev.vars.example` to `.dev.vars` (gitignored), which sets `DEV_AUTH_HEADER=1` so requests can send
+an `x-owner` header. It is not in `wrangler.jsonc`, so it never ships. This implements the Genome's provisional `policy.authentication`.
