@@ -3,37 +3,41 @@
  * Opt-in: ARTYFACT_INTEGRATION=1 npm test -w @artyfact/platform -- --project integration
  * Needs `wrangler` logged in (and `cf` if the namespace does not exist yet). Never prints tokens.
  *
- * bootstrap (unique repo names) → wrangler dev (wrangler.integration.jsonc) → import → start ×2 → CLI start ×2 →
- * edit → CLI submit ×2 → conflicts → promote A → promote B with the old head (409) → history; then deletes the repos.
+ * wrangler dev (wrangler.integration.jsonc) → `artyfact init` on a copy of the example renamed `system.itest-keep-in-touch-<run>`
+ * (repos `itest-keep-in-touch-<run>.genome/.app`, plus the shared `platform` repo) → start ×2 → CLI start ×2 → edit →
+ * CLI submit ×2 → conflicts → promote A → promote B with the old head (409) → history; then deletes this run's repos
+ * (never `platform`).
  */
 import { execFile, spawn, type ChildProcess } from "node:child_process";
-import { appendFileSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { appendFileSync, cpSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { promisify } from "node:util";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { ITEST_NAMESPACE, itestPrefix, systemRepoNames } from "@artyfact/cli/naming";
 
 const run = promisify(execFile);
 // The worker tsconfig types process.env as the Worker Env (literal var values); the child processes get plain strings.
 const ENV = process.env as Record<string, string | undefined>;
 const envWith = (extra: Record<string, string>) => ({ ...ENV, ...extra }) as unknown as NodeJS.ProcessEnv;
 const ENABLED = ENV.ARTYFACT_INTEGRATION === "1";
-const NS = "artyfact-test";
+const NS = ITEST_NAMESPACE;
 const PLATFORM = resolve(__dirname, "../..");
 const ROOT = resolve(PLATFORM, "../..");
 const CLI = join(ROOT, "packages/cli/bin/artyfact.js");
-const SYSTEM = "system.keep-in-touch";
-const RUN = `it${Date.now().toString(36)}`;
-const GENOME_REPO = `kit-system-${RUN}`, APP_REPO = `kit-app-${RUN}`;
+const SLUG = itestPrefix("keep-in-touch", Date.now().toString(36));
+const SYSTEM = `system.${SLUG}`;
+const { genomeRepo: GENOME_REPO, appRepo: APP_REPO } = systemRepoNames(SYSTEM);
 const ADMIN = `itest-${crypto.randomUUID()}`;
 const WRANGLER = join(ROOT, "node_modules/.bin/wrangler");
 const wrangler = (...args: string[]) => run(WRANGLER, args, { cwd: PLATFORM, maxBuffer: 1 << 24 });
 /** Every repo this run created: the two imports and their forks (`<repo>--r<n>`), and nothing else. */
-const ours = (name: string) => [GENOME_REPO, APP_REPO].some((r) => name === r || name.startsWith(`${r}--`));
+const ours = (name: string) => name.startsWith(`${SLUG}.`);
 
 let server: ChildProcess | undefined;
 let base = "";
+let head0 = "";
 const work = mkdtempSync(join(tmpdir(), "artyfact-it-"));
 
 async function freePort(): Promise<number> {
@@ -68,7 +72,6 @@ describe.skipIf(!ENABLED)("integration: the demo loop on real Artifacts", () => 
     const who = await wrangler("whoami");
     const accountId = /[0-9a-f]{32}/.exec(who.stdout)?.[0];
     if (!accountId) throw new Error("wrangler whoami shows no account id; run `wrangler login`");
-    await run(join(ROOT, "scripts/bootstrap.sh"), [], { cwd: ROOT, env: envWith({ ACCOUNT_ID: accountId, ARTIFACTS_NAMESPACE: NS, GENOME_REPO, APP_REPO }) });
 
     const port = await freePort();
     base = `http://localhost:${port}`;
@@ -77,14 +80,31 @@ describe.skipIf(!ENABLED)("integration: the demo loop on real Artifacts", () => 
       "dev", "-c", "wrangler.integration.jsonc", "--port", String(port), "--persist-to", join(work, "state"),
       "--var", `ADMIN_TOKEN:${ADMIN}`, "--var", `ACCOUNT_ID:${accountId}`, "--var", "FAKE_S1:1", "--var", `PUBLIC_URL:${base}`,
     ], { cwd: PLATFORM, stdio: ["ignore", "ignore", "pipe"], detached: true });
-    for (let i = 0; i < 90; i++) {
+    let up = false;
+    for (let i = 0; i < 90 && !up; i++) {
       try {
-        if ((await fetch(`${base}/api/health`)).ok) return;
+        up = (await fetch(`${base}/api/health`)).ok;
       } catch { /* not up yet */ }
-      await new Promise((r) => setTimeout(r, 1000));
+      if (!up) await new Promise((r) => setTimeout(r, 1000));
     }
-    throw new Error("wrangler dev did not answer /api/health within 90 s");
-  }, 240_000);
+    if (!up) throw new Error("wrangler dev did not answer /api/health within 90 s");
+
+    // A project copy under this run's System id, so `init` derives this run's repo names.
+    const project = join(work, "project");
+    const skip = (p: string) => !/(^|\/)(node_modules|dist|\.wrangler)(\/|$)/.test(p);
+    cpSync(join(ROOT, "examples/keep-in-touch-system"), join(project, "system"), { recursive: true, filter: skip });
+    cpSync(join(ROOT, "examples/keep-in-touch-app"), join(project, "app"), { recursive: true, filter: skip });
+    for (const f of ["system.yaml", "criteria.yaml"]) {
+      const path = join(project, "system", f);
+      writeFileSync(path, readFileSync(path, "utf8").replaceAll("system.keep-in-touch", SYSTEM));
+    }
+    const { stdout } = await run(process.execPath, [CLI, "init", "--dir", project, "--namespace", NS, "--platform", base], {
+      cwd: work, maxBuffer: 1 << 24, env: envWith({ ARTYFACT_ADMIN_TOKEN: ADMIN, CLOUDFLARE_ACCOUNT_ID: accountId }),
+    });
+    expect(stdout).toContain(`${SYSTEM} -> ${GENOME_REPO}, ${APP_REPO} (namespace ${NS})`);
+    head0 = /imported \S+ at (sc-\S+)/.exec(stdout)?.[1] ?? "";
+    expect(head0, stdout).toMatch(/^sc-1-/);
+  }, 360_000);
 
   afterAll(async () => {
     if (server?.pid) {
@@ -107,10 +127,11 @@ describe.skipIf(!ENABLED)("integration: the demo loop on real Artifacts", () => 
     rmSync(work, { recursive: true, force: true });
   }, 120_000);
 
-  it("import → start ×2 → submit ×2 → conflicts → promote → 409 → history", async () => {
-    const imp = await api("POST", "/systems/import", { systemId: SYSTEM, genomeRepo: GENOME_REPO, appRepo: APP_REPO }, true);
+  it("init → start ×2 → submit ×2 → conflicts → promote → 409 → history", async () => {
+    // A re-import (what a second `init` sends) is a no-op on the same commits, and records the platform commit.
+    const imp = await api("POST", "/systems/import", { systemId: SYSTEM }, true);
     expect(imp.status, JSON.stringify(imp.json)).toBe(201);
-    const head0 = imp.json.head as string;
+    expect(imp.json).toMatchObject({ head: head0, genomeRepo: GENOME_REPO, appRepo: APP_REPO, platform: { repo: "platform" } });
 
     const model = await api(`GET`, `/systems/${SYSTEM}/model?rev=head`);
     expect(model.json.readiness.findings.filter((f: { level: string }) => f.level === "error")).toEqual([]);

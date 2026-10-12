@@ -1,8 +1,10 @@
 # Demo runbook
 
 The whole loop against the real Cloudflare Artifacts service, in order. Every output below comes from one real run
-on 2026-10-12 (wrangler 4.149.0, namespace `artyfact`, repos `keep-in-touch.genome` and `keep-in-touch.app`), with
-tokens and secrets redacted. Commit ids and timestamps will differ on your run.
+on 2026-10-12 (wrangler 4.149.0, namespace `artyfact`, repos `keep-in-touch.genome`, `keep-in-touch.app` and `platform`), with
+tokens and secrets redacted. Commit ids and timestamps will differ on your run. Realization numbers start at r3 here because
+the namespace still held forks `keep-in-touch.app--r1` and `--r2` from an earlier run on a reset platform state: start
+skips any number whose fork already exists.
 
 The two moments to show on video:
 
@@ -30,7 +32,7 @@ the real model.
   before creating anything:
 
   ```sh
-  npx wrangler whoami      # account id 1bae12d5…a117f
+  npx wrangler whoami      # account id 1bae12d5…
   cf auth whoami           # same id
   ```
 
@@ -57,51 +59,110 @@ VARS
 start responses are written to owner-only files in `$RUN`, and each terminal reads the one it needs.
 
 ```sh
-export REPO=$PWD RUN=$HOME/.artyfact-demo B=localhost:5173/api/systems/system.keep-in-touch
+export REPO=$PWD RUN=$HOME/.artyfact-demo B=localhost:1337/api/systems/system.keep-in-touch
 mkdir -p -m 700 "$RUN"; umask 077
 alias artyfact='npx --prefix "$REPO" --no-install artyfact'
-set -a; . "$REPO/apps/platform/.dev.vars"; set +a     # $ADMIN_TOKEN for the admin calls
 ```
 
-## 1. Bootstrap (about 20 s)
-
-Terminal **ops**:
+**Only in terminal ops**, the one the admin uses, load the admin token. The agent terminals A, B and C never get
+it: an agent holds only its own fork token and realization secret, so it cannot start, promote, accept or reject.
 
 ```sh
-GENOME_REPO=keep-in-touch.genome APP_REPO=keep-in-touch.app ./scripts/bootstrap.sh
+export ADMIN_TOKEN=$(sed -n 's/^ADMIN_TOKEN=//p' "$REPO/apps/platform/.dev.vars")
+export ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN                # what `artyfact init` reads
 ```
 
-The script creates the namespace if it is missing (`cf artifacts namespaces create --namespace artyfact`), creates
-the two repos and pushes the two examples with a write token. The token reaches git through exported `GIT_CONFIG_*`
-variables, never a process argv.
-
-```text
-account: 1bae12d5089e4c2ee5c0e62c021a117f  namespace: artyfact
-keep-in-touch.genome head: ffb68c7241cfc12d602d21db932accad10339078
-keep-in-touch.app head: c945510ffdf5c5d8a9e93ce663bd10f88714632c
-```
-
-A second run prints the same heads and pushes nothing.
-
-## 2. Platform and import (about 10 s, then 2 s)
+## 1. Platform (about 10 s)
 
 Terminal **P**:
 
 ```sh
-npm run dev -w @artyfact/platform          # http://localhost:5173, Artifacts binding is remote
+npm run dev -w @artyfact/platform          # http://localhost:1337, Artifacts binding is remote
 ```
+
+## 2. `artyfact init`: push and import in one command (about 30 s)
 
 Terminal **ops**:
 
 ```sh
-curl -s -XPOST localhost:5173/api/systems/import -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
-  -d '{"systemId":"system.keep-in-touch","genomeRepo":"keep-in-touch.genome","appRepo":"keep-in-touch.app"}' | jq -c '{head, genomeCommit, appCommit, evolutions}'
+./scripts/bootstrap.sh       # = npx artyfact init --genome examples/keep-in-touch-system --app examples/keep-in-touch-app
+```
+
+`init` reads `system.yaml` and derives every name from the System id: slug `keep-in-touch`, repos
+`keep-in-touch.genome` and `keep-in-touch.app`, forks `<repo>--r<N>`. It checks that `npx wrangler whoami` and
+`cf auth whoami` show the same account and prints only its prefix. It creates the namespace and repos when missing,
+creates `platform` (templates and rule packs) when it is missing or empty, pushes both projects with short-lived write tokens, and calls
+`POST /api/systems/import` with `$ARTYFACT_ADMIN_TOKEN`. Tokens reach git only through `GIT_CONFIG_*` variables,
+never an argv or the output. A project laid out as `<dir>/system` and `<dir>/app` runs `npx artyfact init --dir <dir>`.
+
+On this namespace the first run stopped, because the Genome repo still held an earlier push made by the old bootstrap
+script, whose tree also carried the package's `dist/` build output:
+
+```text
+system.keep-in-touch -> keep-in-touch.genome, keep-in-touch.app (namespace artyfact)
+account 1bae12d5… (wrangler and cf agree)
+namespace artyfact: exists
+  created repo platform
+platform: created at 6bd3603921dc
+artyfact: keep-in-touch.genome has commits this checkout did not push (head ffb68c7) and its tree differs from …/examples/keep-in-touch-system.
+init never builds over unknown history: merge that history into your project first, or re-run with --adopt to commit your project on top of ffb68c7 (a fast-forward).
+```
+
+`--adopt` commits the project on top of that head:
+
+```sh
+./scripts/bootstrap.sh --adopt
 ```
 
 ```text
-{"head":"sc-1-632b6834","genomeCommit":"ffb68c7241cfc12d602d21db932accad10339078","appCommit":"c945510ffdf5c5d8a9e93ce663bd10f88714632c","evolutions":["evolution.1","evolution.2","evolution.3","evolution.4","evolution.5","evolution.6"]}
+system.keep-in-touch -> keep-in-touch.genome, keep-in-touch.app (namespace artyfact)
+account 1bae12d5… (wrangler and cf agree)
+namespace artyfact: exists
+platform: unchanged at 6bd3603921dc
+keep-in-touch.genome: pushed at 18374568e231
+keep-in-touch.app: unchanged at c945510ffdf5
+imported system.keep-in-touch at sc-1-b11cb27a
+System: http://localhost:1337/s/system.keep-in-touch/r/head/overview
 ```
 
+That run predates the 1337 default; its last line said `5173` and was edited. `platform` was still pushed by every
+run then.
+
+A later run pushes nothing and re-imports with `force: false`, a no-op on the same commits. `platform` already exists,
+so `init` leaves it alone. This run is verbatim. It went to a second local platform on port 1339, so it passed
+`--platform http://localhost:1339`, and the printed URL shows the port the operator passed. With the default it is
+1337. The head is `sc-3-c00256a3` because steps 3 to 11 had run on this namespace since:
+
+```text
+system.keep-in-touch -> keep-in-touch.genome, keep-in-touch.app (namespace artyfact)
+account 1bae12d5… (wrangler and cf agree)
+namespace artyfact: exists
+platform: exists at 6bd3603921dc, left alone (update it with 'npx artyfact platform-sync --namespace artyfact')
+keep-in-touch.genome: unchanged at 18374568e231
+keep-in-touch.app: unchanged at c945510ffdf5
+imported system.keep-in-touch at sc-3-c00256a3
+System: http://localhost:1339/s/system.keep-in-touch/r/head/overview
+```
+
+On an empty namespace the first run creates everything and imports in one go. If the import answers 409
+`already-imported` (the repos moved since the last import), `init` says to re-run with `--force`. Without
+`ARTYFACT_ADMIN_TOKEN` it pushes, prints the exact `curl` import line with a `$ARTYFACT_ADMIN_TOKEN` placeholder, and
+exits 0.
+
+The import response records the `platform` commit; each later System commit carries it too:
+
+```sh
+curl -s -XPOST localhost:1337/api/systems/import -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
+  -d '{"systemId":"system.keep-in-touch"}' | jq -c '{head, genomeRepo, appRepo, platform, warnings, evolutions}'
+```
+
+```text
+{"head":"sc-1-b11cb27a","genomeRepo":"keep-in-touch.genome","appRepo":"keep-in-touch.app","platform":{"repo":"platform","commit":"6bd3603921dcd7e3916906a0ff38a7510195bf1a"},"warnings":[],"evolutions":["evolution.1","evolution.2","evolution.3","evolution.4","evolution.5","evolution.6"]}
+```
+
+`genomeRepo` and `appRepo` default to the derived names. `warnings` is empty because every rule pack and template the
+System pins is in `platform`. A missing pin gives `platform.pin-missing`, and a namespace without `platform` gives a
+`platform.unsynced` readiness warning; neither blocks. Evaluation still uses the packages bundled into the Worker.
 Without the header the import answers 401, and with a wrong token 403.
 
 ```sh
@@ -109,18 +170,18 @@ curl -s "$B/model?rev=head" | jq -c '{genomeCommit, nodes: (.model.index.byId | 
 ```
 
 ```text
-{"genomeCommit":"ffb68c7241cfc12d602d21db932accad10339078","nodes":215,"findings":{"warning hook.unbound":14,"warning kit.unpinned":1}}
+{"genomeCommit":"18374568e231dac73d5cf06517a8994b8bb20fad","nodes":215,"findings":{"warning hook.unbound":14,"warning kit.unpinned":1}}
 ```
 
-The model has 0 errors. The warnings are 14 unbound hooks and the unpinned auth kit. Open http://localhost:5173 to see
-the same System; Overview, Work, Evaluations and History read the live API.
+The model has 0 errors. The warnings are 14 unbound hooks and the unpinned auth kit. Open the printed System URL to
+see the same System; Overview, Work, Evaluations and History read the live API.
 
 ## 3. Event stream (keep it open)
 
 Terminal **sse**:
 
 ```sh
-curl -sN localhost:5173/api/systems/system.keep-in-touch/events
+curl -sN localhost:1337/api/systems/system.keep-in-touch/events
 ```
 
 The stream sends only live events plus a `ping` every 15 s. Events emitted while nothing is connected are not
@@ -138,8 +199,8 @@ for f in a b; do jq -c '{realization: .realization.id, agent: .realization.agent
 ```
 
 ```text
-{"realization":"realization.1.r1","agent":"agent-a","fork":"keep-in-touch.app--r1","baseCommit":"c945510ffdf5c5d8a9e93ce663bd10f88714632c","expiresAt":"2026-10-12T21:16:10.599Z"}
-{"realization":"realization.1.r2","agent":"agent-b","fork":"keep-in-touch.app--r2","baseCommit":"c945510ffdf5c5d8a9e93ce663bd10f88714632c","expiresAt":"2026-10-12T21:16:08.291Z"}
+{"realization":"realization.1.r3","agent":"agent-a","fork":"keep-in-touch.app--r3","baseCommit":"c945510ffdf5c5d8a9e93ce663bd10f88714632c","expiresAt":"2026-10-12T21:53:01.637Z"}
+{"realization":"realization.1.r4","agent":"agent-b","fork":"keep-in-touch.app--r4","baseCommit":"c945510ffdf5c5d8a9e93ce663bd10f88714632c","expiresAt":"2026-10-12T21:53:02.176Z"}
 ```
 
 Each start forks the app repo, waits until the fork is ready, issues a 6-hour write token and a realization secret,
@@ -148,7 +209,7 @@ checkpoint, submit, sync, status and packet calls. When the two requests race, n
 field is the canonical start line:
 
 ```text
-ARTYFACT_TOKEN=<redacted> ARTYFACT_SECRET=<redacted> npx artyfact start realization.1.r1 --system system.keep-in-touch --evolution evolution.1 --dir ./realization.1.r1
+ARTYFACT_TOKEN=<redacted> ARTYFACT_SECRET=<redacted> npx artyfact start realization.1.r3 --system system.keep-in-touch --evolution evolution.1 --dir ./realization.1.r3
 ```
 
 ## 5. Two agents work (terminals **A** and **B**)
@@ -161,7 +222,7 @@ Terminal **A**:
 
 ```sh
 export ARTYFACT_TOKEN=$(jq -r .token.value $RUN/a.json) ARTYFACT_SECRET=$(jq -r .secret $RUN/a.json)
-artyfact start realization.1.r1 --system system.keep-in-touch --evolution evolution.1 --dir /tmp/kit-a
+artyfact start realization.1.r3 --system system.keep-in-touch --evolution evolution.1 --dir /tmp/kit-a
 cd /tmp/kit-a
 # Add the AddContactDialog (markup in public/people/index.html) and its Save handler in
 # public/people/add-contact-dialog.js: POST /api/contacts, keep the values and show one ErrorSummary on failure.
@@ -172,7 +233,7 @@ Terminal **B**:
 
 ```sh
 export ARTYFACT_TOKEN=$(jq -r .token.value $RUN/b.json) ARTYFACT_SECRET=$(jq -r .secret $RUN/b.json)
-artyfact start realization.1.r2 --system system.keep-in-touch --evolution evolution.1 --dir /tmp/kit-b
+artyfact start realization.1.r4 --system system.keep-in-touch --evolution evolution.1 --dir /tmp/kit-b
 cd /tmp/kit-b
 # Owner-only read in src/worker/routes/contacts.ts: GET /api/contacts/:id answers another owner's record
 # (or a guessed id) with the same non-revealing 404.
@@ -183,13 +244,13 @@ artyfact checkpoint "Owner-only GET /api/contacts/:id with non-revealing 404"
 Workspace ready in /tmp/kit-a
 Next: cd /tmp/kit-a && read TASK_PACKET.md, then npm install && npm run dev
 Checkpoint with 'npx artyfact checkpoint "<msg>"'; finish with 'npx artyfact submit'.
-Checkpoint recorded at 5b01edf41255
+Checkpoint recorded at df7eba46bb31
 ```
 
 The checkpoint commits locally and appears at once on the event stream:
 
 ```text
-data: {"type":"checkpoint","realization":"realization.1.r1","checkpoint":{"seq":1,"at":"2026-10-12T15:17:04.267Z","summary":"AddContactDialog markup and save handler","commit":"5b01edf41255198cab7fefb2957bdf6a741a381c"},…}
+data: {"type":"checkpoint","realization":"realization.1.r3","checkpoint":{"seq":1,"at":"2026-10-12T15:53:42.877Z","summary":"AddContactDialog markup and save handler","commit":"df7eba46bb317d2d8437a27492eb1482e13f3fe1"},…}
 ```
 
 Keep edits inside the packet's permitted paths; the scope check fails `C.system.promotion` for anything outside.
@@ -215,7 +276,7 @@ artyfact submit
 A:
 
 ```text
-Submitted 5b01edf41255
+Submitted df7eba46bb31
 criterion                 verdict  execution
 C.system.autonomy         pass     completed
 C.system.concurrency      pass     completed
@@ -243,7 +304,7 @@ at promotion. The `not-run` rows are assays that run in CI, not in the platform.
 B's submit ends with the conflict:
 
 ```text
-Submitted 71745e2c8b7c
+Submitted 8ca7b2a6a231
 criterion                 verdict  execution
 C.system.concurrency      unknown  completed
 …
@@ -257,7 +318,7 @@ curl -s $B/conflicts | jq -c '.conflicts[] | {kind, candidates, nodes, paths, me
 ```
 
 ```text
-{"kind":"soft-semantic","candidates":["candidate.1.r2.71745e2","candidate.1.r1.5b01edf"],"nodes":["operation.contact.save"],"paths":[],"message":"Different files, but both touch nodes operation.contact.save.","interferes":0.05}
+{"kind":"soft-semantic","candidates":["candidate.1.r4.8ca7b2a","candidate.1.r3.df7eba4"],"nodes":["operation.contact.save"],"paths":[],"message":"Different files, but both touch nodes operation.contact.save.","interferes":0.05}
 ```
 
 **Narration.** The conflict is deterministic. A's save handler maps to `affordance.AddContactDialog.save` and
@@ -275,7 +336,7 @@ cd /tmp/kit-a && artyfact submit --json | jq -c '{created, candidate: .candidate
 ```
 
 ```text
-{"created":false,"candidate":"candidate.1.r1.5b01edf"}
+{"created":false,"candidate":"candidate.1.r3.df7eba4"}
 ```
 
 ## 8. Promote A, then B is stale (about 2 s)
@@ -284,53 +345,58 @@ Terminal **ops**:
 
 ```sh
 curl -s -XPOST $B/promote -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{
-  "candidateIds": ["candidate.1.r1.5b01edf"], "expectedHead": "sc-1-632b6834",
-  "rationale": "Ship the save dialog first. Soft overlap with realization.1.r2 on operation.contact.save acknowledged; r2 rebases. Unbound assays are follow-ups."
+  "candidateIds": ["candidate.1.r3.df7eba4"], "expectedHead": "sc-1-b11cb27a",
+  "rationale": "Ship the save dialog first. Soft overlap with realization.1.r4 on operation.contact.save acknowledged; r4 rebases. Unbound assays are follow-ups."
 }' | jq -c '{commit: .commit.id, parent: .commit.parent, manifest: .commit.manifest, rejected, acknowledged: .commit.decision.acknowledged, evidenceProviders: .commit.decision.evidenceProviders}'
 ```
 
 ```text
-{"commit":"sc-2-76f9248c","parent":"sc-1-632b6834","manifest":[{"artifact":"artifact.webapp","type":"worker-fullstack","repo":"keep-in-touch.app--r1","commit":"5b01edf41255198cab7fefb2957bdf6a741a381c","scope":[]}],"rejected":["candidate.1.r2.71745e2"],"acknowledged":["C.webapp.private.owner","C.webapp.screen.exact","C.webapp.contact.save","C.webapp.screen.people","C.webapp.contact.storage","C.system.concurrency","C.webapp.connection.consent","C.webapp.outgoing.single","C.webapp.schedule.correct","C.webapp.prompts.bounded","C.webapp.revocation.current","C.webapp.lifecycle.data"],"evidenceProviders":["fake"]}
+{"commit":"sc-2-88b3ec84","parent":"sc-1-b11cb27a","manifest":[{"artifact":"artifact.webapp","type":"worker-fullstack","repo":"keep-in-touch.app--r3","commit":"df7eba46bb317d2d8437a27492eb1482e13f3fe1","scope":[]}],"rejected":["candidate.1.r4.8ca7b2a"],"acknowledged":["C.webapp.private.owner","C.webapp.screen.exact","C.webapp.contact.save","C.webapp.screen.people","C.webapp.contact.storage","C.system.concurrency","C.webapp.connection.consent","C.webapp.outgoing.single","C.webapp.schedule.correct","C.webapp.prompts.bounded","C.webapp.revocation.current","C.webapp.lifecycle.data"],"evidenceProviders":["fake"]}
 ```
 
 Promotion re-runs the hooks on the exact commit with the promotion facts. The blocking set (hard criteria with a bound
-hook, plus the Evolution's acceptance criteria) is `C.system.purpose`, `C.system.promotion` and `C.webapp.exists`, and
-each passed. `C.system.purpose`'s outcome hook only runs after deployment, so its `not-run` row is disregarded; any
+hook, plus the Evolution's acceptance criteria) for evolution.1 is `C.webapp.exists`, `C.system.structure`,
+`C.system.purpose`, `C.system.topology`, `C.system.readiness` and `C.system.promotion`, and each passed. `C.system.purpose`'s outcome hook only runs after deployment, so its `not-run` row is disregarded; any
 other non-pass row would block. Everything else that is not green is an advisory, acknowledged by the rationale and
 recorded in `decision.acknowledged`; an empty rationale gets 400 `advisories-unacknowledged`.
 `evidenceProviders: ["fake"]` records that the System One judgments behind the gate were canned.
 
 ```sh
 curl -s -w ' HTTP %{http_code}\n' -XPOST $B/promote -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
-  -d '{"candidateIds":["candidate.1.r2.71745e2"],"expectedHead":"sc-1-632b6834","rationale":"B as well"}'
+  -d '{"candidateIds":["candidate.1.r4.8ca7b2a"],"expectedHead":"sc-1-b11cb27a","rationale":"B as well"}'
 ```
 
 ```text
-{"error":{"code":"stale-base","message":"System head moved; reload and retry","details":{"currentHead":"sc-2-76f9248c"}}} HTTP 409
+{"error":{"code":"stale-base","message":"System head moved; reload and retry","details":{"currentHead":"sc-2-88b3ec84"}}} HTTP 409
 ```
 
-B with the current head (`"expectedHead":"sc-2-76f9248c"`) is refused as well, because it was built on the old head:
+B with the current head (`"expectedHead":"sc-2-88b3ec84"`) is refused as well, because it was built on the old head:
 
 ```text
-{"error":{"code":"stale-base","message":"a candidate was built on an earlier System head; rebase it on the current head and resubmit","details":{"currentHead":"sc-2-76f9248c"}}} HTTP 409
+{"error":{"code":"stale-base","message":"a candidate was built on an earlier System head; rebase it on the current head and resubmit","details":{"currentHead":"sc-2-88b3ec84"}}} HTTP 409
 ```
 
 ## 9. Moment 2, amendment 1: a rules violation, refused and rejected
 
-Terminal **C**. evolution.5 is a Genome amendment; its scope covers `things/webapp/ontology.yaml`,
-`description.yaml` (it lists `commitment.no-engagement-mechanics`) and `evolutions/**`.
+evolution.5 is a Genome amendment; its scope covers `things/webapp/ontology.yaml`, `description.yaml` (it lists
+`commitment.no-engagement-mechanics`) and `evolutions/**`. Terminal **ops** starts the work:
 
 ```sh
 curl -s -XPOST $B/evolutions/evolution.5/realizations -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"agentLabel":"agent-c","target":"genome"}' -o $RUN/c1.json
 jq -c '{realization: .realization.id, target: .realization.target, fork: .packet.workspace.fork, permittedPaths: .packet.permittedPaths}' $RUN/c1.json
+```
+
+Terminal **C**:
+
+```sh
 export ARTYFACT_TOKEN=$(jq -r .token.value $RUN/c1.json) ARTYFACT_SECRET=$(jq -r .secret $RUN/c1.json)
-artyfact start realization.5.r3 --system system.keep-in-touch --evolution evolution.5 --dir /tmp/kit-c1
+artyfact start realization.5.r5 --system system.keep-in-touch --evolution evolution.5 --dir /tmp/kit-c1
 cd /tmp/kit-c1
 ```
 
 ```text
-{"realization":"realization.5.r3","target":"genome","fork":"keep-in-touch.genome--r3","permittedPaths":["things/webapp/ontology.yaml","description.yaml","evolutions/**"]}
+{"realization":"realization.5.r5","target":"genome","fork":"keep-in-touch.genome--r5","permittedPaths":["things/webapp/ontology.yaml","description.yaml","evolutions/**"]}
 ```
 
 In `things/webapp/ontology.yaml`, firm up `entity.MessageDraft`: remove `provisional: true` and add
@@ -342,7 +408,7 @@ artyfact submit
 ```
 
 ```text
-Submitted 8a43821885b7
+Submitted 9a83f5e66165
 criterion             verdict  execution
 C.system.autonomy     pass     completed
 C.system.concurrency  pass     completed
@@ -358,7 +424,7 @@ C.system.topology     pass     completed
 The review shows the delta, the violation with its proof tree, and System One's signals:
 
 ```sh
-curl -s $B/realizations/realization.5.r3/review | jq -c '{
+curl -s $B/realizations/realization.5.r5/review | jq -c '{
   delta: [.delta.changes[] | "\(.id) \(.fieldsChanged)"],
   violations: [.readinessCandidate.findings[] | select(.level == "error") | {rule, subject, message, derivation: (.derivation | {rule, children: [.children[].tuple]})}],
   systemOne: [.review[] | {id, class: .changeClass.choice, hardRule: .changeClass.probabilities["hard-rule-violation"], weakens, level, verdict, provider: .provenance.provider}]
@@ -372,46 +438,53 @@ curl -s $B/realizations/realization.5.r3/review | jq -c '{
 **Narration.** The violation is the rules engine's: `topology.recipientArray`, derived from two facts about
 `entity.MessageDraft`. The System One row says "deliberate choice", and it is labelled `provider: "fake"`: the fake
 gives every change the benign class, so here it is plainly wrong. A real System One run would be expected to
-classify this as a hard-rule violation. The gate does not depend on it either way:
+classify this as a hard-rule violation. The gate does not depend on it either way. Terminal **ops**:
 
 ```sh
 curl -s -w ' HTTP %{http_code}\n' -XPOST $B/evolutions/evolution.5/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
-  -d '{"realizationId":"realization.5.r3","interpretation":"accept anyway"}'
+  -d '{"realizationId":"realization.5.r5","interpretation":"accept anyway"}'
 ```
 
-Condensed:
-
 ```text
-{"code":"blocked","blocking":["C.system.topology fail/completed"],"advisories":[]}
-HTTP 409
+{"error":{"code":"blocked","message":"blocking criteria (hard, with a bound hook) lack pass+completed evaluations","details":{"blocking":[{"candidate":"candidate.5.r5.9a83f5e","criterion":"C.system.topology","severity":"hard","verdict":"fail","execution":"completed"}],"advisories":[]}}} HTTP 409
 ```
 
 Accept applies the promotion gate to the Genome candidate (its model-level criteria, scope included): scope passes,
 topology blocks. The admin rejects it with a reason:
 
 ```sh
-curl -s -XPOST $B/realizations/realization.5.r3/reject -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
+curl -s -XPOST $B/realizations/realization.5.r5/reject -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"reason":"topology.recipientArray: a recipients list on MessageDraft breaks the private-pairs topology. Drafts stay addressed to exactly one person."}' \
   | jq -c '{status: .realization.status, reason: .realization.rejectionReason}'
+```
+
+Terminal **C**:
+
+```sh
 artyfact status
 ```
 
 ```text
 {"status":"rejected","reason":"topology.recipientArray: a recipients list on MessageDraft breaks the private-pairs topology. Drafts stay addressed to exactly one person."}
-artyfact: GET /api/systems/system.keep-in-touch/evolutions/evolution.5/realizations/realization.5.r3 -> 403 forbidden: realization secret does not match
+artyfact: GET /api/systems/system.keep-in-touch/evolutions/evolution.5/realizations/realization.5.r5 -> 403 forbidden: realization secret does not match
 ```
 
 Reject revokes the fork's write token and the realization secret together, so agent C can no longer push or report.
 
 ## 10. Moment 2, amendment 2: a deliberate choice, accepted
 
-Terminal **C** again, with a new realization:
+A new realization. Terminal **ops**:
 
 ```sh
 curl -s -XPOST $B/evolutions/evolution.5/realizations -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"agentLabel":"agent-d","target":"genome"}' -o $RUN/c2.json
+```
+
+Terminal **C**:
+
+```sh
 export ARTYFACT_TOKEN=$(jq -r .token.value $RUN/c2.json) ARTYFACT_SECRET=$(jq -r .secret $RUN/c2.json)
-artyfact start realization.5.r4 --system system.keep-in-touch --evolution evolution.5 --dir /tmp/kit-c2
+artyfact start realization.5.r6 --system system.keep-in-touch --evolution evolution.5 --dir /tmp/kit-c2
 cd /tmp/kit-c2
 ```
 
@@ -423,7 +496,7 @@ artyfact submit
 ```
 
 ```text
-Submitted fb7e0f7573d0
+Submitted 49611c90d45f
 criterion             verdict  execution
 C.system.autonomy     pass     completed
 C.system.concurrency  pass     completed
@@ -444,19 +517,18 @@ The same review query:
 
 **Narration.** No rule fires, and the change is inside evolution.5's scope. System One's signals (class, weakens,
 contradicts per commitment, specificity) are shown in the review panel and labelled fake. The decision to treat the
-rewording as deliberate is the admin's, recorded as the interpretation:
+rewording as deliberate is the admin's, recorded as the interpretation. Terminal **ops**:
 
 ```sh
-cd "$REPO"
 curl -s -XPOST $B/evolutions/evolution.5/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
-  -d '{"realizationId":"realization.5.r4","interpretation":"Deliberate restatement: the commitment now names group discussion explicitly and says a missed goal is never punished. Meaning is unchanged for one-to-one contact."}' \
+  -d '{"realizationId":"realization.5.r6","interpretation":"Deliberate restatement: the commitment now names group discussion explicitly and says a missed goal is never punished. Meaning is unchanged for one-to-one contact."}' \
   | jq -c '{genomeCommit, status: .realization.status, commit: .commit.id, parent: .commit.parent, policy: .commit.decision.policy, evidenceProviders: .commit.decision.evidenceProviders}'
 curl -s "$B/model?rev=head" | jq -c '{genomeCommit, errors: ([.readiness.findings[] | select(.level == "error")] | length), commitment: (.model.description.commitments[] | select(.id == "commitment.no-engagement-mechanics") | .statement)}'
 ```
 
 ```text
-{"genomeCommit":"fb7e0f7573d07a20db5317215e490c50d503e6d3","status":"promoted","commit":"sc-3-0b4f5537","parent":"sc-2-76f9248c","policy":"admin-accept","evidenceProviders":["fake"]}
-{"genomeCommit":"fb7e0f7573d07a20db5317215e490c50d503e6d3","errors":0,"commitment":"The core contract has no streak penalties, no public relationship scores and no group discussion; missing a goal is never punished."}
+{"genomeCommit":"49611c90d45fcaa2be54c6774622367866d56d2d","status":"promoted","commit":"sc-3-c00256a3","parent":"sc-2-88b3ec84","policy":"admin-accept","evidenceProviders":["fake"]}
+{"genomeCommit":"49611c90d45fcaa2be54c6774622367866d56d2d","errors":0,"commitment":"The core contract has no streak penalties, no public relationship scores and no group discussion; missing a goal is never punished."}
 ```
 
 ```sh
@@ -464,9 +536,9 @@ curl -s $B/history | jq -c '.commits[] | {id, parent, genome: .genomeCommit[:12]
 ```
 
 ```text
-{"id":"sc-3-0b4f5537","parent":"sc-2-76f9248c","genome":"fb7e0f7573d0","manifest":["keep-in-touch.app--r1@5b01edf41255"],"policy":"admin-accept","providers":["fake"]}
-{"id":"sc-2-76f9248c","parent":"sc-1-632b6834","genome":"ffb68c7241cf","manifest":["keep-in-touch.app--r1@5b01edf41255"],"policy":"admin","providers":["fake"]}
-{"id":"sc-1-632b6834","parent":null,"genome":"ffb68c7241cf","manifest":["keep-in-touch.app@c945510ffdf5"],"policy":"import","providers":null}
+{"id":"sc-3-c00256a3","parent":"sc-2-88b3ec84","genome":"49611c90d45f","manifest":["keep-in-touch.app--r3@df7eba46bb31"],"policy":"admin-accept","providers":["fake"]}
+{"id":"sc-2-88b3ec84","parent":"sc-1-b11cb27a","genome":"18374568e231","manifest":["keep-in-touch.app--r3@df7eba46bb31"],"policy":"admin","providers":["fake"]}
+{"id":"sc-1-b11cb27a","parent":null,"genome":"18374568e231","manifest":["keep-in-touch.app@c945510ffdf5"],"policy":"import","providers":null}
 ```
 
 The model now renders from the accepted fork commit. History marks `sc-2` and `sc-3` "System One: fake provider".
@@ -482,7 +554,7 @@ Artifacts emits `pushed` only from a **repository-level** event subscription (`-
 
 ```sh
 npx wrangler queues subscription create artyfact-artifacts-events --source artifacts.repo --events pushed \
-  --source-namespace artyfact --source-repo-name keep-in-touch.app--r1
+  --source-namespace artyfact --source-repo-name keep-in-touch.app--r3
 ```
 
 The local dev server also never receives messages from a remote queue. **`artyfact submit` is therefore the primary
@@ -494,16 +566,15 @@ converge on one candidate per (realization, commit). The route tests cover that,
 
 | Step | Time |
 |---|---|
-| bootstrap, namespace present | 20 s |
-| dev server ready | 9 s (about 15 s on the very first start) |
-| import | 2.2 s |
-| start realization: fork, ready, token, packet | about 4 s |
-| `artyfact start` (clone) | 1.1–2.5 s |
+| dev server ready | about 1 s warm, 15 s on the very first start |
+| `artyfact init`, namespace present (push, platform, import) | 22–31 s |
+| two concurrent starts: fork, ready, token, packet | 10 s together; a single start about 6 s |
+| `artyfact start` (clone) | 2.2–3.2 s |
 | `artyfact checkpoint` | under 1 s |
-| `artyfact submit`, app | 3.4–3.9 s |
-| `artyfact submit`, Genome | 5.1 s |
-| promote | 1.6 s |
-| integration test, end to end | 58 s |
+| `artyfact submit`, app | 5.9–8.1 s |
+| `artyfact submit`, Genome | 8.2 s |
+| promote | 2.3 s |
+| integration test, end to end (includes `init`) | 102–128 s |
 
 ## Integration test
 
@@ -512,31 +583,36 @@ cf artifacts namespaces create --namespace artyfact-test      # once
 cd apps/platform && ARTYFACT_INTEGRATION=1 npx vitest run --project integration
 ```
 
-The test bootstraps uniquely named repos into `artyfact-test` and runs its own `wrangler dev`
-(`wrangler.integration.jsonc`). It drives import, two starts, two real CLI starts and submits, the conflict,
-promotion, the 409 and history. Then it deletes every repo it created. Without the flag it is skipped.
+The test runs its own `wrangler dev` (`wrangler.integration.jsonc`), then `artyfact init` on a copy of the example
+renamed `system.itest-keep-in-touch-<run>`, so the repos are `itest-keep-in-touch-<run>.genome` and `.app` in
+`artyfact-test`, next to that namespace's shared `platform` repo. It drives two starts, two real CLI starts and
+submits, the conflict, promotion, the 409 and history. Then it deletes the repos and forks of its own run, never
+`platform`. Without the flag it is skipped.
 
 ## Troubleshooting
 
 - **Token expired (401/403 from git):** start tokens last 6 hours (`expiresAt` in the start response). Issue a fresh
   one for the fork and export it, without echoing it:
-  `export ARTYFACT_TOKEN=$(npx wrangler artifacts repos issue-token keep-in-touch.app--r1 --namespace artyfact --scope write --ttl 3600 --json | jq -r .plaintext)`.
+  `export ARTYFACT_TOKEN=$(npx wrangler artifacts repos issue-token keep-in-touch.app--r3 --namespace artyfact --scope write --ttl 3600 --json | jq -r .plaintext)`.
   The JSON fields are `id`, `plaintext`, `scope` and `expires_at`. The plaintext looks like `art_v1_<hex>?expires=<unix>`.
 - **401/403 from a platform call:** start work needs `-H "authorization: Bearer $ADMIN_TOKEN"`. The CLI's calls
   need the realization secret: it is in the clone's `.artyfact.json`, or set `ARTYFACT_SECRET` from the start
   response. Another realization's secret, or the secret of a rejected realization, answers 403.
 - **Fork not ready:** start waits up to 20 s for the fork and then answers with an error. Forks were ready within
   the 4 s start in every run here. Retry the start. The failed realization is abandoned and its token revoked.
-- **409 `fork-exists` on start:** a fork with that name is left over from an earlier run and has moved past the base
-  commit. This happens after you reset the platform state while the namespace still holds forks. Delete the old
-  forks, or reset fully (below).
+- **Realization numbers jump (r3 instead of r1):** forks from an earlier platform state are still in the namespace.
+  Start skips every number whose fork repo exists, so nothing is overwritten or deleted. A 409 `fork-exists` is
+  still possible if two starts race past that check; retry the start.
+- **`init` stops with "has commits this checkout did not push":** someone pushed to the repo, or it was pushed
+  before this checkout recorded its own pushes in `.artyfact/init.json`. Merge that history into the project, or
+  re-run with `--adopt` to commit the project on top (a fast-forward; init never force-pushes).
 - **Health `fail` with "buildId does not match the commit":** the preview served another `BUILD_ID`. In this run the
   first preview served `dev`. Restart it with `--var BUILD_ID:$(git rev-parse HEAD)`. Promotion re-runs the probe.
 - **Wrangler version:** run `npx wrangler --version`. It must be 4.145 or later; 4.149.0 is verified.
 - **`cf artifacts namespaces create` prints help:** the name goes in `--namespace <name>`, not as a positional
   argument.
-- **Schema mismatch after pulling new code:** stop the dev server and delete `apps/platform/.wrangler/state`. There
-  are no Durable Object migrations yet. Then reset the namespace too, or the old forks trigger `fork-exists`.
+- **Schema mismatch after pulling new code:** stop the dev server and move `apps/platform/.wrangler/state` aside.
+  There are no Durable Object migrations yet. Old forks in the namespace are skipped by number.
 - **Dev server exits after a branch switch or `npm install`:** restart `npm run dev`. The Durable Object state
   survives restarts.
 - **Missed events in the UI:** server-sent events are not replayed. Reload the page, or rely on the UI's polling.
@@ -551,4 +627,5 @@ done
 rm -rf apps/platform/.wrangler/state /tmp/kit-a /tmp/kit-b /tmp/kit-c1 /tmp/kit-c2 "$RUN"
 ```
 
-Then start again at step 1.
+Then start again at step 1. To start over without deleting anything in the account, stop the dev server and move
+`apps/platform/.wrangler/state` aside instead: `init` finds the repos unchanged and start skips the old fork numbers.

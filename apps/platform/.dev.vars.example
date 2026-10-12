@@ -9,7 +9,7 @@ ACCOUNT_ID=
 TYPESAFE_API_KEY=
 OPENROUTER_API_KEY=
 # Without a key, FAKE_S1=1 answers from the fake provider so the gate can go green locally; the UI labels those judgments as fake.
-# The fake answers harm questions (engagement substitute, weakens, contradicts, multi-recipient, interference) with a confident no.
+# The fake answers every question with the benign answer the question catalogue declares for it.
 FAKE_S1=1
 # Health hook: allow http://localhost and 127.0.0.1 preview URLs (local dev only). The preview must serve
 # {"status":"ok","buildId":"<candidate commit>"} at /health, e.g. `wrangler dev --var BUILD_ID:$(git rev-parse HEAD)`.

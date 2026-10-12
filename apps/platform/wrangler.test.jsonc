@@ -11,6 +11,6 @@
   "durable_objects": { "bindings": [{ "name": "SYSTEMS", "class_name": "SystemAuthority" }] },
   "queues": { "consumers": [{ "queue": "artyfact-artifacts-events", "max_batch_size": 10, "max_retries": 3 }] },
   // ACCOUNT_ID builds fork remotes (https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/<ns>/<repo>.git); set it in .dev.vars or here.
-  "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "http://localhost:5173", "ACCOUNT_ID": "", "PREVIEW_HOST_ALLOWLIST": "" },
+  "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "http://localhost:1337", "ACCOUNT_ID": "", "PREVIEW_HOST_ALLOWLIST": "" },
   "observability": { "enabled": true }
 }

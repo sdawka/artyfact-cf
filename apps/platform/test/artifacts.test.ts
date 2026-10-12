@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { forkAndWait } from "../worker/artifacts/client";
+import { forkAndWait, withRepo } from "../worker/artifacts/client";
 import { diffTrees } from "../worker/artifacts/candidates";
 import { listTree, walkTree } from "../worker/artifacts/genome-source";
 import { loadSourceMap, nodesForPath, parseSourceMap, permittedGlobs } from "../worker/artifacts/source-map";
@@ -150,5 +150,22 @@ describe("artifactsErrorCode", () => {
     expect(artifactsErrorCode(Object.assign(new Error("x"), { code: "INVALID_TTL" }))).toBe("INVALID_TTL");
     expect(artifactsErrorCode(new Error("ArtifactsError: Repository not found: kit-app."))).toBe("NOT_FOUND");
     expect(artifactsErrorCode(new Error("boom"))).toBeUndefined();
+  });
+});
+
+describe("withRepo disposes RPC results", () => {
+  it("disposes every method result and the repo stub, even when fn throws", async () => {
+    const ns = new FakeArtifacts();
+    const repo = ns.create("r");
+    repo.commit({ "a.txt": "a" });
+    let results = 0, stubs = 0;
+    const log = repo.log.bind(repo);
+    repo.log = async (opts) => Object.assign(await log(opts), { [Symbol.dispose]: () => void results++ });
+    (repo as { [Symbol.dispose]?: () => void })[Symbol.dispose] = () => void stubs++;
+    const [head] = await withRepo(ns, "r", (r) => r.log({ limit: 1 }));
+    expect(head?.hash).toMatch(/^[0-9a-f]{40}$/);
+    expect([results, stubs]).toEqual([1, 1]);
+    await expect(withRepo(ns, "r", async (r) => { await r.log(); throw new Error("boom"); })).rejects.toThrow("boom");
+    expect([results, stubs]).toEqual([2, 2]);
   });
 });

@@ -2,7 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
-  ApiError, ConflictsResponse, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
+  ApiError, ConflictsResponse, Evaluation, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
   SerializedModel, StartWorkResponse, SubmitResponse, SystemsResponse, HistoryResponse, WorkResponse, ReadinessResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
@@ -110,6 +110,131 @@ async function imported(ns?: FakeArtifacts) {
   expect(res.status, JSON.stringify(res.json)).toBe(201);
   return { ...s, systemId, imp: res.json };
 }
+
+describe("routes: import names and platform provenance", () => {
+  /** A System whose repos carry only the derived names `<slug>.genome` / `<slug>.app`. */
+  function slugNamed(ns = new FakeArtifacts()) {
+    const slug = `kitslug${++seq}`, systemId = `system.${slug}`;
+    ns.create(`${slug}.genome`).commit({
+      ...genomeFiles, "system.yaml": genomeFiles["system.yaml"].replace("system.kit", systemId), "criteria.yaml": genomeFiles["criteria.yaml"].replaceAll("system.kit", systemId),
+    }, "genome");
+    ns.create(`${slug}.app`).commit(appFiles, "scaffold");
+    setArtifactsOverride(ns);
+    return { ns, systemId, slug };
+  }
+  const PLATFORM_FILES = {
+    "README.md": "platform", "manifest.json": "{}",
+    "templates/rule-packs/metamodel@1/pack.dl": "% metamodel",
+    "templates/thing/cloudflare-worker-webapp@1/template.yaml": "id: template.thing.cloudflare-worker-webapp",
+  };
+
+  it("derives omitted repo names from the slug, names forks <slug>.app--r<n>, and warns platform.unsynced", async () => {
+    const { ns, systemId, slug } = slugNamed();
+    const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
+    expect(res.status, JSON.stringify(res.json)).toBe(201);
+    expect(res.json).toMatchObject({ genomeRepo: `${slug}.genome`, appRepo: `${slug}.app`, platform: null });
+    expect(res.json.warnings.map((w) => [w.level, w.rule])).toEqual([["warning", "platform.unsynced"]]);
+    const rd = await call<ReadinessResponse>("GET", `/systems/${systemId}/readiness`);
+    expect(rd.json.findings.some((f) => f.rule === "platform.unsynced")).toBe(true);
+    expect(rd.json.modelReadiness.blockers.some((f) => f.rule === "platform.unsynced")).toBe(false);
+    const a = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {});
+    expect(a.status, JSON.stringify(a.json)).toBe(201);
+    expect(a.json.realization.workspace.fork).toBe(`${slug}.app--r1`);
+    expect(ns.repos.has(`${slug}.app--r1`)).toBe(true);
+    const entry = await runInDurableObject(env.SYSTEMS.getByName(REGISTRY), (i: SystemAuthority) => i.resolveFork(`${slug}.app--r1`));
+    expect(entry).toMatchObject({ systemId });
+  });
+
+  it("records the platform commit on import and on later commits, with a warning per missing pin", async () => {
+    const { ns, systemId } = slugNamed();
+    const p1 = ns.create("platform").commit({ "README.md": "platform", "templates/rule-packs/metamodel@1/pack.dl": "% metamodel" }, "sync");
+    const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
+    expect(res.json.platform).toEqual({ repo: "platform", commit: p1 });
+    expect(res.json.warnings.map((w) => [w.rule, w.subject])).toEqual([["platform.pin-missing", "template.thing.cloudflare-worker-webapp@1"]]);
+    const rd = await call<ReadinessResponse>("GET", `/systems/${systemId}/readiness`);
+    expect(rd.json.findings.some((f) => f.rule === "platform.unsynced")).toBe(false);
+
+    const p2 = ns.repo("platform").commit(PLATFORM_FILES, "sync");
+    const again = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
+    expect(again.status).toBe(201);
+    expect(again.json.warnings).toEqual([]);
+    expect(again.json.platform).toEqual({ repo: "platform", commit: p2 });
+    // A platform-only change writes no System commit; it updates the head's recorded provenance in place.
+    expect(again.json.head).toBe(res.json.head);
+    const hist = await call<HistoryResponse>("GET", `/systems/${systemId}/history`);
+    expect(hist.json.commits.map((c) => [c.decision.policy, c.composition?.platform?.commit])).toEqual([["import", p1]]);
+    const state = await runInDurableObject(env.SYSTEMS.getByName(systemId), (i: SystemAuthority) => i.state());
+    expect(state!.platform).toEqual({ repo: "platform", commit: p2 });
+    const same = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
+    expect(same.json.head).toBe(res.json.head);
+  });
+
+  it("never fails the import because platform cannot be read; keeps the recorded provenance and warns", async () => {
+    const { ns, systemId } = slugNamed();
+    const p1 = ns.create("platform").commit(PLATFORM_FILES, "sync");
+    expect((await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN)).json.platform).toEqual({ repo: "platform", commit: p1 });
+    const get = ns.get.bind(ns);
+    ns.get = async (name: string) => (name === "platform" ? Promise.reject(Object.assign(new Error("upstream"), { code: "INTERNAL" })) : get(name));
+    const again = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
+    expect(again.status, JSON.stringify(again.json)).toBe(201);
+    expect(again.json.platform).toEqual({ repo: "platform", commit: p1 });
+    expect(again.json.warnings.map((w) => [w.rule, w.message])).toEqual([["platform.unreadable", expect.stringContaining("(INTERNAL)")]]);
+    const state = await runInDurableObject(env.SYSTEMS.getByName(systemId), (i: SystemAuthority) => i.state());
+    expect(state!.platform).toEqual({ repo: "platform", commit: p1 });
+  });
+
+  it("checks platform pins against the canonical Genome after an accepted amendment", async () => {
+    const { ns, systemId, slug } = slugNamed();
+    ns.create("platform").commit(PLATFORM_FILES, "sync");
+    const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
+    expect(res.json.warnings).toEqual([]);
+    // Accept a Genome amendment that also pins readiness@1, which platform lacks.
+    const files = {
+      ...genomeFiles, "system.yaml": genomeFiles["system.yaml"].replace("system.kit", systemId), "criteria.yaml": genomeFiles["criteria.yaml"].replaceAll("system.kit", systemId),
+      "kits.yaml": genomeFiles["kits.yaml"].replace('  - { id: metamodel, version: "1" }', '  - { id: metamodel, version: "1" }\n  - { id: readiness, version: "1" }'),
+    };
+    await runInDurableObject(env.SYSTEMS.getByName(systemId), async (i: SystemAuthority) => {
+      const r = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
+      const commit = ns.create(r.forkRepo).commit(files, "amend");
+      const { candidate } = i.recordCandidate({ realizationId: r.realization.id, commit, manifest: {}, changedPaths: ["kits.yaml"], changedNodes: [] });
+      const at = new Date().toISOString();
+      const pass = (criterion: string): Evaluation => ({
+        id: "", candidate: candidate.id, criterion, hook: `hook.${criterion}`, verdict: "pass", execution: "completed", observations: [], verifier: "test",
+        ownerId: "system", subjectId: systemId, targetRef: candidate.id, startedAt: at, finishedAt: at, limitations: [], provenance: {},
+      });
+      i.recordEvaluations(candidate.id, ["C.people.list", "C.people.sorted", "C.people.later"].map(pass), "awaiting-admin");
+      const out = await i.accept({ realizationId: r.realization.id, rationale: "ok", by: "admin", evolutions: [], gates: [], artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+      expect(out, JSON.stringify(out)).toMatchObject({ ok: true });
+    });
+    const again = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
+    expect(again.status, JSON.stringify(again.json)).toBe(201);
+    expect(again.json.warnings.map((w) => [w.rule, w.subject])).toEqual([["platform.pin-missing", "readiness@1"]]);
+  });
+
+  it("skips realization numbers whose fork already exists in the namespace", async () => {
+    const { ns, systemId, slug } = slugNamed();
+    // Forks left by an earlier platform state on the same namespace.
+    ns.create(`${slug}.app--r1`).commit({ "README.md": "old run" });
+    ns.create(`${slug}.genome--r2`).commit({ "README.md": "old run" });
+    expect((await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN)).status).toBe(201);
+    const a = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {});
+    expect(a.status, JSON.stringify(a.json)).toBe(201);
+    expect([a.json.realization.id, a.json.realization.workspace.fork]).toEqual(["realization.1.r2", `${slug}.app--r2`]);
+    const b = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {});
+    expect(b.json.realization.workspace.fork).toBe(`${slug}.app--r3`);
+  });
+
+  it("records scaffoldFrom on the app binding and validates it", async () => {
+    const { systemId } = slugNamed();
+    const bad = await call<ApiError>("POST", "/systems/import", { systemId, scaffoldFrom: { repo: "platform", commit: "nope" } }, ADMIN);
+    expect(bad.status).toBe(400);
+    const scaffoldFrom = { repo: "platform", commit: "d".repeat(40), path: "templates/thing/cloudflare-worker-webapp@1/scaffold" };
+    const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, scaffoldFrom }, ADMIN);
+    expect(res.status, JSON.stringify(res.json)).toBe(201);
+    const hist = await call<HistoryResponse>("GET", `/systems/${systemId}/history`);
+    expect(hist.json.commits[0].composition?.artifacts["artifact.webapp"]).toMatchObject({ scaffoldFrom });
+  });
+});
 
 describe("routes: import → model → start → submit → promote", () => {
   it("runs the happy path", async () => {
@@ -449,7 +574,16 @@ describe("routes: import → model → start → submit → promote", () => {
     expect((await call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.404/realizations`, {})).status).toBe(404);
     expect((await call<ApiError>("GET", `/systems/system.none/model`)).status).toBe(404);
     expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x" })).status).toBe(401);
-    expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x" }, ADMIN)).status).toBe(400);
+    expect((await call<ApiError>("POST", `/systems/import`, {}, ADMIN)).status).toBe(400);
+    for (const systemId of ["system.--", "system.a/b", "system.Ünïcode", "system.a..b", "system.Kit"]) {
+      const bad = await call<ApiError>("POST", `/systems/import`, { systemId }, ADMIN);
+      expect([bad.status, bad.json.error.code], systemId).toEqual([400, "invalid-system-id"]);
+    }
+    expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x", appRepo: "../a" }, ADMIN)).status).toBe(400);
+    expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x", genomeRepo: "a..b" }, ADMIN)).status).toBe(400);
+    const missing = await call<ApiError>("POST", `/systems/import`, { systemId: "system.absent" }, ADMIN);
+    expect([missing.status, missing.json.error.code]).toEqual([422, "repo-not-found"]);
+    expect(missing.json.error.message).toContain("absent.genome");
   });
 
   it("a failed start revokes the token and frees the registry entry", async () => {

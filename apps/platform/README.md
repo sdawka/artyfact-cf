@@ -6,14 +6,14 @@ One Cloudflare Worker with Static Assets: Hono serves `/api/*`, a React 19 SPA s
 ```
 npm install            # from the repo root
 cp apps/platform/.dev.vars.example apps/platform/.dev.vars   # then set ADMIN_TOKEN=$(openssl rand -hex 32)
-npm run dev -w @artyfact/platform   # http://localhost:5173 (next free port if taken)
+npm run dev -w @artyfact/platform   # http://localhost:1337 (next free port if taken; the CLI finds it)
 ```
 - `GET /api/health` returns the service status; `/style` is the living style sheet.
 - `npm test -w @artyfact/platform` (workerd + jsdom projects), `npm run typecheck`, `npm run build`.
 - The full demo against real Artifacts is `docs/demo-runbook.md`. The opt-in integration test runs that loop in namespace `artyfact-test`: `ARTYFACT_INTEGRATION=1 npx vitest run --project integration` (uses `wrangler.integration.jsonc`).
 - `npm run cf-typegen` regenerates `worker/env.d.ts` after editing `wrangler.jsonc`.
 - The `ARTIFACTS` binding is `remote: true`, so `npm run dev` (real backend) needs `wrangler login` or `CLOUDFLARE_API_TOKEN`. Nothing else does: tests use `wrangler.test.jsonc`, the same config without that binding (keep the two in sync).
-- `npm run preview:fixture` builds and serves the SPA statically (`vite.fixture.config.ts`, no Cloudflare plugin) on http://localhost:4173 with bundled fixture data. `npm run e2e` runs Playwright against it; no Cloudflare credentials needed. `npm run e2e:live` runs the `@live` specs against `wrangler dev` and does need a login.
+- `npm run preview:fixture` builds and serves the SPA statically (`vite.fixture.config.ts`, no Cloudflare plugin) on http://localhost:1338 with bundled fixture data. `npm run e2e` runs Playwright against it; no Cloudflare credentials needed. `npm run e2e:live` runs the `@live` specs against `wrangler dev` and does need a login.
 - `worker/env.d.ts` is generated; do not hand-edit it (use `cf-typegen`, secrets go in `worker/secrets.d.ts`).
 
 ## Env
@@ -29,7 +29,7 @@ All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shar
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | GET | `/systems` | - | `SystemsResponse` (registry DO `__registry`) |
-| POST | `/systems/import` | admin | `{systemId, genomeRepo, appRepo, force?}` → `ImportSystemResponse` (201); re-import from different repos/commits is 409 `already-imported` unless `force` |
+| POST | `/systems/import` | admin | `{systemId, genomeRepo?, appRepo?, scaffoldFrom?, force?}` → `ImportSystemResponse` (201) with the repos used, `platform` and `warnings`; omitted repos default to `<slug>.genome` / `<slug>.app`, where the slug is the id without `system.`; 400 `invalid-system-id` unless that is lower-case letters, digits, `.`, `_`, `-` (no `..`); a `platform` that cannot be read never fails the import (warning `platform.unreadable`, recorded provenance kept); 422 `repo-not-found` when a repo is missing; re-import from different repos/commits is 409 `already-imported` unless `force` |
 | GET | `/systems/:id` | - | `SystemSummary` |
 | GET | `/systems/:id/model?rev=` | - | `ModelBundle`; `rev` = `canonical` (default), `sc-…` System commit, `candidate.…`, or a Genome sha |
 | GET | `/systems/:id/readiness?rev=` | - | `ReadinessResponse`: the full rules `Readiness` plus the three-state summary; `/model`'s `readiness` is the same. Both are served from the DO cache when warm |
@@ -59,6 +59,15 @@ Promotion gate (fails closed; promote and accept): the blocking set is (the Evol
 `<R>` is any of `/systems/:id/evolutions/:eid/realizations/:rid` (CLI), `/systems/:id/realizations/:rid`, `/realizations/:rid` (System found via the registry; realization ids are unique only per System, so this returns 409 `ambiguous` with `details.systems` when several Systems have that id).
 
 Hooks: the backend calls `HookRunner` (`worker/hooks/contract.ts`); `worker/hooks/index.ts` wires `createHookRunner({ s1Env: env, previewEnv: env })` and the queue consumer. The candidate tree passed to hooks carries blob sizes from a per-System cache; only files some `manifest` hook requires are measured, and any other entry not yet cached has `size: -1` (not measured). The manifest engine treats a size ≤ 0 as empty, so an unmeasured required file fails rather than passes.
+
+## Repos and the `platform` meta repo
+One Artifacts namespace per deployment (the `ARTIFACTS` binding's, `artyfact` in `wrangler.jsonc`). Names come from `@artyfact/cli/naming`: `slug` is the System id without `system.`, lower-cased, `[a-z0-9._-]`; repos `<slug>.genome` and `<slug>.app` (with several worker-fullstack artifacts, `<slug>.<artifact id without "artifact.">`); forks `<repo>--r<N>` with N System-wide. Start skips any N whose fork already exists in the namespace (left by an earlier platform state), so nothing is overwritten.
+
+`platform` holds `templates/{system,thing}/<name>@<v>/` (a Thing's `scaffold/` seeds new app repos), `templates/rule-packs/<id>@<v>/pack.dl`, `README.md` and `manifest.json` `{version, bundleHash}`; `npx artyfact platform-sync` pushes it, and `npx artyfact init` creates it only when it is missing or empty. On import the Worker reads `platform`'s head, checks that every pinned rule pack (`kits.yaml` `rulePacks`) and every template the System uses has its directory there, and records `{repo, commit}` in the DO head; every System commit written afterwards carries it in `composition.platform`. A re-import whose only change is a new `platform` commit updates the head's recorded ref in place and writes no System commit, so open work does not go stale. Pins are checked against the canonical Genome, which after an accepted amendment is no longer the imported one. A missing pin is the import warning `platform.pin-missing`; a namespace without `platform` records `null` and shows the readiness warning `platform.unsynced`. Neither blocks. `kits.yaml` `kits` entries are labels with no files in `platform` yet and are not checked. **Evaluation still uses the template and rule-pack copies bundled into the Worker**; `platform` is provenance only.
+
+`scaffoldFrom: {repo, commit, path?}` on import (sent by `init --from-template`) is recorded on the app's artifact binding and carried through promotions.
+
+Left for later: cross-System dependencies. A Thing template's `scaffold.repo` may name another System's `<slug>.app`, and `init --from-template` forks it, but nothing records or tracks the dependency after that.
 
 ## Layout
 - `worker/` Hono app, Queue handler, Durable Object (`do/system-authority.ts`), generated `env.d.ts`.

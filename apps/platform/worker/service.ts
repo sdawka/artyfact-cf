@@ -6,12 +6,14 @@ import { diffModels, type Readiness, type schema, type SystemModel } from "@arty
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  CandidatesResponse, ConflictReport, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  CandidatesResponse, ConflictReport, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
 import { sha256Hex } from "./util";
-import { artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
+import { isName, systemRepoNames } from "@artyfact/cli/naming";
+import { readPlatform, unreadableWarning, unsyncedWarning } from "./artifacts/platform";
+import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
 import { buildGenome, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
 import { loadSourceMap, nodesForPath, type SourceMapEntry } from "./artifacts/source-map";
@@ -123,28 +125,80 @@ async function sourceMapFor(m: SystemModel, repo: ArtifactsRepoLike, commit: str
 
 // ------------------------------------------------------------------ import
 
-export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; force?: unknown }): Promise<ImportSystemResponse> {
-  const { systemId, genomeRepo, appRepo } = body;
-  if (typeof systemId !== "string" || typeof genomeRepo !== "string" || typeof appRepo !== "string" || !systemId || !genomeRepo || !appRepo) {
-    throw badRequest("systemId, genomeRepo and appRepo are required strings");
+function scaffoldSource(v: unknown): ScaffoldSource | undefined {
+  if (v === undefined || v === null) return undefined;
+  const o = v as Partial<ScaffoldSource>;
+  if (typeof o !== "object" || !isName(o.repo) || typeof o.commit !== "string" || !COMMIT_RE.test(o.commit)
+    || (o.path !== undefined && (typeof o.path !== "string" || o.path.split("/").includes("..")))) {
+    throw badRequest("scaffoldFrom must be {repo, commit (40 hex), path?}");
   }
+  return { repo: o.repo, commit: o.commit, ...(o.path && { path: o.path }) };
+}
+
+/**
+ * `platform`'s head and pin warnings for the canonical Genome. Never fails the import: when `platform` or the canonical
+ * Genome cannot be read, the recorded provenance is kept and a `platform.unreadable` warning says why.
+ */
+async function platformCheck(
+  env: Env, ns: ReturnType<typeof artifactsFor>, systemId: string, imported: SystemModel,
+  canonical: { commit: string; repo: string } | null, recorded: PlatformRef | null,
+): Promise<{ platform: PlatformRef | null; warnings: Finding[] }> {
+  try {
+    const model = canonical ? (await genomeAt(env, systemId, canonical.commit, canonical.repo)).model : imported;
+    return await readPlatform(ns, systemId, model);
+  } catch (e) {
+    return { platform: recorded, warnings: [unreadableWarning(systemId, e)] };
+  }
+}
+
+/** `genomeRepo`/`appRepo` are optional: omitted ones default to `<slug>.genome` / `<slug>.app`. */
+export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown }): Promise<ImportSystemResponse> {
+  const { systemId } = body;
+  if (typeof systemId !== "string" || !systemId) throw badRequest("systemId is a required string");
   if (systemId === REGISTRY) throw badRequest("reserved system id");
+  let derived: ReturnType<typeof systemRepoNames>;
+  try {
+    derived = systemRepoNames(systemId);
+  } catch (e) {
+    throw new HttpError(400, "invalid-system-id", (e as Error).message);
+  }
+  const repoName = (v: unknown, name: string): string | undefined => {
+    if (v === undefined || v === null || v === "") return undefined;
+    if (!isName(v)) throw badRequest(`${name} must be a repo name`);
+    return v;
+  };
+  const givenApp = repoName(body.appRepo, "appRepo");
+  const genomeRepo = repoName(body.genomeRepo, "genomeRepo") ?? derived.genomeRepo;
+  const scaffoldFrom = scaffoldSource(body.scaffoldFrom);
   const ns = artifactsFor(env);
   const headOf = async (name: string) => {
-    const [c] = await withRepo(ns, name, (r) => r.log({ limit: 1 }));
+    const [c] = await withRepo(ns, name, (r) => r.log({ limit: 1 })).catch((e: unknown) => {
+      if (artifactsErrorCode(e) === "NOT_FOUND") throw unprocessable("repo-not-found", `repo ${name} not found in namespace ${env.ARTIFACTS_NAMESPACE}; push it first ('npx artyfact init')`);
+      throw e;
+    });
     if (!c) throw unprocessable("empty-repo", `repo ${name} has no commits`);
     return c.hash;
   };
-  const [genomeCommit, appCommit] = await Promise.all([headOf(genomeRepo), headOf(appRepo)]);
+  const genomeCommit = await headOf(genomeRepo);
   const files = await withRepo(ns, genomeRepo, (r) => readGenomeFiles(r, genomeCommit));
   const g = memoGenome(`${systemId}@${genomeCommit}`, () => buildGenome(files, genomeCommit));
   if (g.model.system.id !== systemId) {
     throw unprocessable("system-mismatch", `Genome in ${genomeRepo} declares ${g.model.system.id}, not ${systemId}`);
   }
+  // With several worker-fullstack artifacts the app repo is named after the bound (first) one.
+  const appArtifacts = g.model.things.flatMap((t) => t.artifacts).filter((a) => a.type === "worker-fullstack").map((a) => a.artifact);
+  const appRepo = givenApp ?? systemRepoNames(systemId, appArtifacts).appRepo;
+  const appCommit = await headOf(appRepo);
   const stub = systemStub(env, systemId);
+  // Pins are checked against the Genome that will be canonical after this import, before the DO applies it: an import
+  // of exactly the last-imported commits keeps the current head (after an accepted amendment, not the imported Genome).
+  const [base, prior] = await Promise.all([stub.importBase(), stub.state()]);
+  const keepsHead = !!base && !!prior && base.genomeRepo === genomeRepo && base.genomeCommit === genomeCommit && base.appRepo === appRepo && base.appCommit === appCommit;
+  const canonical = keepsHead && prior.genomeCommit !== genomeCommit ? { commit: prior.genomeCommit, repo: prior.genomeSource } : null;
+  const { platform, warnings } = await platformCheck(env, ns, systemId, g.model, canonical, prior?.platform ?? null);
   const booted = await rpc(stub.bootstrap({
     systemId, title: g.model.system.name, phase: g.model.system.phase, genomeRepo, appRepo, genomeCommit, appCommit,
-    evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model), force: body.force === true,
+    evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model), platform, ...(scaffoldFrom && { scaffoldFrom }), force: body.force === true,
   }));
   if ("alreadyImported" in booted) throw conflict("already-imported", booted.alreadyImported);
   const system = booted;
@@ -154,7 +208,7 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     rules: JSON.stringify(g.readiness),
   });
   await registryStub(env).registerSystem(system);
-  return { system, head: system.head!, genomeCommit, appCommit, evolutions: g.model.evolutions.map((e) => e.id) };
+  return { system, head: system.head!, genomeRepo, appRepo, genomeCommit, appCommit, evolutions: g.model.evolutions.map((e) => e.id), platform, warnings };
 }
 
 // ------------------------------------------------------------------ model + readiness
@@ -202,18 +256,25 @@ async function genomeView(env: Env, systemId: string, genomeCommit: string, repo
   return view;
 }
 
+/** `platform.unsynced` is a readiness warning (never a blocker) while the System has no recorded `platform` commit. */
+function withPlatform<R extends { findings: Finding[]; modelReadiness: { findings: Finding[]; blockers: Finding[] } }>(s: HeadState, r: R): R {
+  if (s.platform) return r;
+  const w = unsyncedWarning(s.systemId);
+  return { ...r, findings: [...r.findings, w], modelReadiness: { ...r.modelReadiness, findings: [...r.modelReadiness.findings, w] } };
+}
+
 export async function modelBundle(env: Env, systemId: string, rev?: string): Promise<ModelBundle> {
   const s = await headState(env, systemId);
   const r = await resolveRevision(env, s, rev);
   const [v, evals] = await Promise.all([genomeView(env, systemId, r.genomeCommit, r.repo), evaluationsFor(env, systemId, r.candidateIds)]);
-  return { systemId, revision: r.revision, genomeCommit: r.genomeCommit, model: v.model, readiness: readinessReport(v.model, v.readiness, evals) };
+  return { systemId, revision: r.revision, genomeCommit: r.genomeCommit, model: v.model, readiness: withPlatform(s, readinessReport(v.model, v.readiness, evals)) };
 }
 
 export async function readiness(env: Env, systemId: string, rev?: string): Promise<ReadinessResponse> {
   const s = await headState(env, systemId);
   const r = await resolveRevision(env, s, rev);
   const [v, evals] = await Promise.all([genomeView(env, systemId, r.genomeCommit, r.repo), evaluationsFor(env, systemId, r.candidateIds)]);
-  return { ...readinessReport(v.model, v.readiness, evals), systemId, revision: r.revision, genomeCommit: r.genomeCommit };
+  return { ...withPlatform(s, readinessReport(v.model, v.readiness, evals)), systemId, revision: r.revision, genomeCommit: r.genomeCommit };
 }
 
 // ------------------------------------------------------------------ start work
@@ -244,6 +305,7 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
   const evolution = modelEvolution(g.model, evoDto);
   const target = body.target ?? (evolution.kind === "genome-amendment" ? "genome" : "app");
 
+  await skipTakenForkNames(env, stub, target);
   const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role }));
   const rid = reserved.realization.id;
   let tokenId: string | undefined;
@@ -285,6 +347,27 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
       if (r.status === "rejected") console.error(`[startWork] cleanup for ${rid} failed: ${(r.reason as Error)?.message ?? r.reason}`);
     }
     throw e;
+  }
+}
+
+/**
+ * Fork names are `<repo>--r<N>` with N System-wide. A fresh platform state on a namespace that already holds forks from
+ * an earlier one would collide; skip the numbers whose fork repo exists instead of failing (nothing is deleted).
+ * Best effort: a race past this check still ends in forkAndWait's 409 `fork-exists`.
+ */
+async function skipTakenForkNames(env: Env, stub: SystemApi, target: "app" | "genome"): Promise<void> {
+  const ns = artifactsFor(env);
+  for (let i = 0; i < 100; i++) {
+    const next = await stub.nextForkName(target);
+    if (!next) return;
+    const taken = await withRepo(ns, next.forkRepo, (r) => r.info()).then(() => true, (e: unknown) => {
+      const code = artifactsErrorCode(e);
+      if (code === "NOT_FOUND") return false;
+      if (code === "FORK_IN_PROGRESS" || code === "CREATE_IN_PROGRESS") return true;
+      throw e;
+    });
+    if (!taken) return;
+    await stub.skipRealizationNumber(next.n);
   }
 }
 

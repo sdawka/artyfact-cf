@@ -1,5 +1,9 @@
-repo: kit-app
-path: examples/keep-in-touch-app
+# Seeds a new app repo (`artyfact init --from-template`). `repo` names a repo in the platform's Artifacts namespace
+# (`platform`, or another System's `<slug>.app`); `path` selects a subtree, omitted means fork the whole repo.
+# `bundle` is the checkout directory `artyfact platform-sync` copies into platform:<path>.
+repo: platform
+path: templates/thing/cloudflare-worker-webapp@1/scaffold
+bundle: examples/keep-in-touch-app
 commands:
   install: npm install
   dev: npm run dev

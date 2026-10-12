@@ -6,7 +6,7 @@ import { defineConfig, devices } from "@playwright/test";
  * only in fixture mode.
  */
 const live = process.env.ARTYFACT_E2E_LIVE === "1";
-const port = live ? 8787 : 4173;
+const port = live ? 8787 : 1338;
 const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({

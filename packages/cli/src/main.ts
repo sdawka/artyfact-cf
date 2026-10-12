@@ -2,11 +2,13 @@ import { closeSync, constants, existsSync, fchmodSync, lstatSync, openSync, read
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PlatformClient, rzPath } from "./api.ts";
+import { initCommand, platformSyncCommand, type InitIo } from "./init.ts";
+import { DEFAULT_URL, resolvePlatform } from "./platform-url.ts";
 import { mergeAgentsBlock, renderAgentsMd } from "./agents-md.ts";
 import { CliError, assertId, assertRemote, assertSecret, assertToken, commitIfDirty, git, isTracked } from "./git.ts";
 import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
 
-export interface Io {
+export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> {
   out: (s: string) => void;
   err: (s: string) => void;
   cwd: string;
@@ -42,9 +44,12 @@ function lstatOrNull(path: string) {
 function isLink(path: string): boolean {
   try { return lstatSync(path).isSymbolicLink(); } catch { return false; }
 }
-const DEFAULT_URL = "http://localhost:5173";
 
 const USAGE = `artyfact <command>
+
+  init [--dir project] [--genome dir --app dir] [--from-template template.thing.<id>@<v>] [--platform url] [--namespace ns] [--force] [--adopt]
+        push <slug>.genome / <slug>.app and platform, then import the System (needs ARTYFACT_ADMIN_TOKEN, else prints the curl line)
+  platform-sync [--namespace ns]   push packages/templates to the namespace's platform repo (no-op when unchanged)
 
   start <realizationId> [--dir d] [--platform url] --system sid --evolution eid   (or ARTYFACT_SYSTEM / ARTYFACT_EVOLUTION)
         needs ARTYFACT_TOKEN and ARTYFACT_SECRET from the platform's start-work response
@@ -52,6 +57,9 @@ const USAGE = `artyfact <command>
   submit [--preview-url u] [--json]
   status [--json]
   compose <rid> <rid> ...
+
+  --platform defaults to ARTYFACT_PLATFORM, else ARTYFACT_URL, else the first of ${DEFAULT_URL} and the next nine
+  ports whose /api/health identifies as artyfact; with none, the command stops (credentials never go elsewhere).
 `;
 
 export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
@@ -60,10 +68,13 @@ export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
     err: io?.err ?? ((s) => process.stderr.write(`${s}\n`)),
     cwd: io?.cwd ?? process.cwd(),
     env: io?.env ?? process.env,
+    cloud: io?.cloud, fetch: io?.fetch, root: io?.root, pollMs: io?.pollMs,
   };
   try {
     const [cmd, ...rest] = argv;
     switch (cmd) {
+      case "init": return await initCommand(rest, full);
+      case "platform-sync": return await platformSyncCommand(rest, full);
       case "start": return await start(rest, full);
       case "checkpoint": return await checkpoint(rest, full);
       case "submit": return await submit(rest, full);
@@ -127,7 +138,6 @@ async function start(args: string[], io: Io): Promise<number> {
   });
   const rid = positionals[0] && assertId("realization id", positionals[0]);
   if (!rid) throw new CliError("usage: artyfact start <realizationId> [--dir <d>]")  ;
-  const platform = values.platform ?? io.env.ARTYFACT_URL ?? DEFAULT_URL;
   const sysArg = values.system ?? io.env.ARTYFACT_SYSTEM;
   const evoArg = values.evolution ?? io.env.ARTYFACT_EVOLUTION;
   if (!sysArg || !evoArg)
@@ -141,6 +151,7 @@ async function start(args: string[], io: Io): Promise<number> {
     try { return isLink(f) ? undefined : (JSON.parse(readFileSync(f, "utf8")) as WorkspaceConfig); } catch { return undefined; }
   })();
   const secret = secretFor(io, priorCfg?.realizationId === rid ? priorCfg : undefined);
+  const platform = await resolvePlatform(values.platform, io.env, io.fetch ?? fetch, io.err);
   const client = new PlatformClient(platform, secret);
 
   const payload = await client.request<PacketPayload>("GET", rzPath(sysId, evoId, rid, "/packet"));
