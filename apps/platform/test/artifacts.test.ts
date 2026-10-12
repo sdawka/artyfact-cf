@@ -127,3 +127,12 @@ describe("source map", () => {
     expect(permittedGlobs(sm, ["operation.contact.save"], path, kindOf)).toEqual(["src/worker/routes/contacts.ts"]);
   });
 });
+
+describe("artifactsErrorCode", () => {
+  it("reads .code or falls back to the proxied message", async () => {
+    const { artifactsErrorCode } = await import("../worker/artifacts/client");
+    expect(artifactsErrorCode(Object.assign(new Error("x"), { code: "INVALID_TTL" }))).toBe("INVALID_TTL");
+    expect(artifactsErrorCode(new Error("ArtifactsError: Repository not found: kit-app."))).toBe("NOT_FOUND");
+    expect(artifactsErrorCode(new Error("boom"))).toBeUndefined();
+  });
+});

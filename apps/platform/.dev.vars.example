@@ -1,5 +1,9 @@
 # Copy to .dev.vars. Never commit real values.
+# Bearer token for POST /api/systems/:id/promote and /evolutions/:eid/accept.
 ADMIN_TOKEN=dev-admin-token
+# Cloudflare account id (`wrangler whoami` / `cf auth whoami`); used to build fork git remotes.
+# Overrides the empty `ACCOUNT_ID` var in wrangler.jsonc. If unset, the remote returned by the fork call is used.
+ACCOUNT_ID=
 TYPESAFE_API_KEY=
 OPENROUTER_API_KEY=
 FAKE_S1=1

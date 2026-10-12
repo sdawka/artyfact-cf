@@ -81,7 +81,15 @@ export async function withRepo<T>(ns: ArtifactsNamespaceLike, name: string, fn: 
 /** Error code of an `ArtifactsError` (or anything shaped like one), else undefined. */
 export function artifactsErrorCode(e: unknown): string | undefined {
   const code = (e as { code?: unknown } | null)?.code;
-  return typeof code === "string" ? code : undefined;
+  if (typeof code === "string") return code;
+  // Through the remote dev proxy the code is dropped and only "ArtifactsError: <text>" survives.
+  const msg = (e as Error | null)?.message ?? "";
+  if (!msg.includes("ArtifactsError")) return undefined;
+  if (/not found/i.test(msg)) return "NOT_FOUND";
+  if (/already exists/i.test(msg)) return "ALREADY_EXISTS";
+  if (/fork.*in progress/i.test(msg)) return "FORK_IN_PROGRESS";
+  if (/in progress/i.test(msg)) return "CREATE_IN_PROGRESS";
+  return undefined;
 }
 
 export function remoteUrl(env: Env, repo: string, fallback?: string): string {
