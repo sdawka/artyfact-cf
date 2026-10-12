@@ -455,7 +455,7 @@ describe("New Evolution", () => {
     expect(posts).toEqual([{ body: { title: "Reminder nudges", intent: "Nudge owners", kind: "implementation", risk: "low", affectedNodes: ["screen.people"] }, auth: "Bearer s3cret" }]);
     const proposed = await screen.findByRole("region", { name: /Proposed/ });
     expect(await within(proposed).findByRole("button", { name: "Reminder nudges" })).toBeTruthy();
-    expect(screen.queryByRole("region", { name: "New Evolution" })).toBeNull();
+    await waitFor(() => expect(screen.queryByRole("region", { name: "New Evolution" })).toBeNull());
   });
 });
 
