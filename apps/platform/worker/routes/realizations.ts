@@ -1,5 +1,6 @@
 import { Hono } from "hono";
-import { checkpoint, packet, realizationView, review, submit, sync, systemForRealization, systemStub } from "../service";
+import { checkpoint, packet, realizationView, reject, review, submit, sync, systemForRealization, systemStub } from "../service";
+import { requireAdmin } from "../auth";
 import { body, type AppEnv, type Ctx } from "./app";
 
 type Resolve = (c: Ctx) => Promise<string>;
@@ -19,6 +20,7 @@ function mount(app: Hono<AppEnv>, prefix: string, system: Resolve) {
     const out = await submit(c.env, await system(c), rid(c), await body(c), "cli");
     return c.json(out, out.created ? 201 : 200);
   });
+  app.post(`${prefix}/reject`, requireAdmin, async (c) => c.json(await reject(c.env, await system(c), rid(c), await body(c))));
   app.post(`${prefix}/sync`, async (c) => c.json(await sync(c.env, await system(c), rid(c))));
 }
 

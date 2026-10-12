@@ -359,6 +359,28 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(modelOf(model.json).index.byId["entity.ContactRecord"].name).toBe("Contact record v2");
   });
 
+  it("rejects a Genome realization with a reason (admin)", async () => {
+    const { ns, systemId, genomeRepo, imp } = await imported();
+    const start = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.2/realizations`, {})).json;
+    const rid = start.realization.id;
+    const fork = ns.repo(`${genomeRepo}--r1`);
+    const files = new Map<string, string>();
+    for (const p of Object.keys(genomeFiles)) files.set(p, (await (await fork.readFile({ ref: imp.genomeCommit, path: p }))!.text()));
+    files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", "name: Contact v3"));
+    const commit = fork.commit(files, "rename");
+    await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${rid}/submit`, { commit });
+    const path = `/systems/${systemId}/evolutions/evolution.2/realizations/${rid}/reject`;
+    expect((await call<ApiError>("POST", path, { reason: "no" })).status).toBe(401);
+    expect((await call<ApiError>("POST", path, { reason: " " }, ADMIN)).status).toBe(400);
+    const res = await call<{ realization: { status: string; rejectionReason?: string } }>("POST", path, { reason: "renames break exports" }, ADMIN);
+    expect(res.status, JSON.stringify(res.json)).toBe(200);
+    expect(res.json.realization).toMatchObject({ status: "rejected", rejectionReason: "renames break exports" });
+    const cands = await call<{ candidates: { state: string }[] }>("GET", `/systems/${systemId}/evolutions/evolution.2/candidates`);
+    expect(cands.json.candidates.map((c) => c.state)).toEqual(["rejected"]);
+    const via = `/systems/${systemId}/realizations/${rid}/reject`;
+    expect((await call<ApiError>("POST", via, { reason: "again" }, ADMIN)).status).toBe(200);
+  });
+
   it("streams SSE events", async () => {
     const { systemId } = await imported();
     const res = await exports.default.fetch(new Request(`http://example.com/api/systems/${systemId}/events`));

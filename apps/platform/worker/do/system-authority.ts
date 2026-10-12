@@ -164,7 +164,7 @@ CREATE TABLE IF NOT EXISTS evolutions (id TEXT PRIMARY KEY, title TEXT, status T
 CREATE TABLE IF NOT EXISTS realizations (id TEXT PRIMARY KEY, evolution_id TEXT NOT NULL, n INTEGER NOT NULL, target TEXT NOT NULL,
   fork_repo TEXT NOT NULL, token_id TEXT, token_expires TEXT, base_commit TEXT, agent_label TEXT, status TEXT NOT NULL,
   packet_json TEXT, packet_hash TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-  base_repo TEXT, base_head TEXT, role TEXT, remote TEXT);
+  base_repo TEXT, base_head TEXT, role TEXT, remote TEXT, rejection_reason TEXT);
 CREATE TABLE IF NOT EXISTS checkpoints (realization_id TEXT NOT NULL, seq INTEGER NOT NULL, message TEXT, commit_hash TEXT,
   created_at TEXT NOT NULL, PRIMARY KEY (realization_id, seq));
 CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, realization_id TEXT NOT NULL, commit_hash TEXT NOT NULL,
@@ -470,6 +470,7 @@ export class SystemAuthority extends DurableObject<Env> {
       status: String(r.status) as RealizationStatus,
       checkpoints,
       ...(cand && { candidate: String(cand.id) }),
+      ...(r.rejection_reason != null && { rejectionReason: String(r.rejection_reason) }),
       createdAt: String(r.created_at),
       updatedAt: String(r.updated_at),
     };
@@ -551,6 +552,20 @@ export class SystemAuthority extends DurableObject<Env> {
 
   abandonRealization(id: string): void {
     this.setRealizationStatus(id, "abandoned");
+  }
+
+  /** Admin rejection (e.g. a Genome amendment): realization and its open candidates → rejected, reason kept. */
+  rejectRealization(id: string, reason: string): Realization {
+    const r = this.realizationRow(id);
+    if (!r) throw new ConflictError("not-found", `unknown realization ${id}`);
+    if (["promoted", "accepted"].includes(String(r.status))) throw new ConflictError("invalid-state", `realization ${id} is ${r.status}`);
+    this.ctx.storage.transactionSync(() => {
+      this.sql.exec("UPDATE realizations SET status = 'rejected', rejection_reason = ?, updated_at = ? WHERE id = ?", reason, nowIso(), id);
+      this.sql.exec("UPDATE candidates SET state = 'rejected' WHERE realization_id = ? AND state != 'promoted'", id);
+    });
+    const dto = this.realizationDto(this.realizationRow(id)!);
+    this.emit({ type: "realization.updated", realization: dto });
+    return dto;
   }
 
   /** Append a checkpoint; a repeat of the last (summary, commit) is a no-op. claimed → working. */

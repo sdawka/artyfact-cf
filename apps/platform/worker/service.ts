@@ -613,6 +613,15 @@ export async function accept(
   return { genomeCommit: out.genomeCommit, realization: out.realization, commit: out.commit };
 }
 
+/** Admin: reject a realization (Genome amendments in the review panel). `reason` is required. */
+export async function reject(env: Env, systemId: string, rid: string, body: { reason?: unknown }) {
+  const reason = typeof body.reason === "string" ? body.reason.trim() : "";
+  if (!reason) throw badRequest("reason is required");
+  const realization = await rpc(systemStub(env, systemId).rejectRealization(rid, reason.slice(0, 4000)));
+  await refreshRegistry(env, systemId);
+  return { realization };
+}
+
 /** Find which System a realization id belongs to (registry index). */
 export async function systemForRealization(env: Env, rid: string): Promise<string> {
   const hit = await registryStub(env).resolveRealization(rid);
