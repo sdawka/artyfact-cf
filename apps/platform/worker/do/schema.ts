@@ -20,6 +20,7 @@ CREATE INDEX IF NOT EXISTS evaluations_by_candidate ON evaluations (candidate_id
 CREATE TABLE IF NOT EXISTS events_seen (event_id TEXT PRIMARY KEY, seen_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS conflict_reports (key TEXT PRIMARY KEY, candidates_json TEXT NOT NULL, json TEXT NOT NULL, computed_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS conflict_runs (candidate_id TEXT PRIMARY KEY, computed_at TEXT NOT NULL, error TEXT);
+CREATE TABLE IF NOT EXISTS evaluation_claims (candidate_id TEXT PRIMARY KEY, claimed_at INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS blob_sizes (hash TEXT PRIMARY KEY, size INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS candidate_reviews (candidate_id TEXT PRIMARY KEY, json TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS model_cache (genome_commit TEXT NOT NULL, part TEXT NOT NULL, json TEXT NOT NULL, created_at TEXT NOT NULL,

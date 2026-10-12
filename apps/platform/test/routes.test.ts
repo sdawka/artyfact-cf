@@ -9,7 +9,7 @@ import { setArtifactsOverride } from "../worker/artifacts/client";
 import { clearGenomeMemo } from "../worker/artifacts/genome-source";
 import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
 import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../worker/hooks/contract";
-import { hookRunner, noopHookRunner, queueEntry, resetHooks, setHooks } from "../worker/hooks/index";
+import { defaultHookRunner, hookRunner, noopHookRunner, queueEntry, resetHooks, setHooks } from "../worker/hooks/index";
 import { PUSHED } from "../worker/hooks/queue";
 import { appFiles, genomeFiles } from "./fixtures/genome";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
@@ -511,6 +511,79 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(amb.json.error).toMatchObject({ code: "ambiguous", details: { systems: expect.arrayContaining([A.systemId, B.systemId]) } });
     // The System-scoped route still works.
     expect((await call<RealizationResponse>("GET", `/systems/${B.systemId}/realizations/${rb.realization.id}`)).status).toBe(200);
+  });
+
+  it("a retry after failed hooks reports created: false and concurrent retries run the hooks once", async () => {
+    let fail = true, runs = 0;
+    let release!: () => void;
+    const gate = new Promise<void>((r) => { release = r; });
+    setHooks({ runner: () => ({ ...passing, async runSubmission(ctx) {
+      if (fail) { fail = false; throw new Error("runner down"); }
+      runs++;
+      await gate;
+      return passing.runSubmission(ctx);
+    } }) });
+    const { ns, systemId, appRepo } = await imported();
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const commit = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/r.ts": "r" });
+    const path = `/systems/${systemId}/realizations/${a.realization.id}/submit`;
+    expect((await call<ApiError>("POST", path, { commit })).status).toBe(500);
+    const first = call<SubmitResponse>("POST", path, { commit });
+    while (runs === 0) await new Promise((r) => setTimeout(r, 5));
+    const second = await call<SubmitResponse>("POST", path, { commit });
+    expect([second.status, second.json.created]).toEqual([200, false]);
+    release();
+    const done = await first;
+    expect([done.status, done.json.created]).toEqual([200, false]);
+    expect(runs).toBe(1);
+    expect(done.json.evaluations.length).toBeGreaterThan(0);
+  });
+
+  it("the default runner factory passes the Worker env as both s1Env and previewEnv", () => {
+    const calls: unknown[] = [];
+    const made = defaultHookRunner(env, (deps) => { calls.push(deps); return noopHookRunner; });
+    expect(made).toBe(noopHookRunner);
+    expect(calls).toHaveLength(1);
+    expect((calls[0] as { s1Env: unknown }).s1Env).toBe(env);
+    expect((calls[0] as { previewEnv: unknown }).previewEnv).toBe(env);
+    resetHooks();
+    expect(hookRunner(env)).not.toBe(noopHookRunner);
+  });
+
+  it("a CLI submit after a winning queue submit stores the preview URL and re-runs the hooks", async () => {
+    const withHealth: HookRunner = {
+      ...passing,
+      async runSubmission(ctx) {
+        const out = await passing.runSubmission(ctx);
+        return ctx.candidate.previewUrl ? [...out, hookEval(ctx, "C.webapp.health", "completed", "pass")] : out;
+      },
+    };
+    setHooks({ runner: () => withHealth });
+    const { ns, systemId, appRepo } = await imported();
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const rid = a.realization.id;
+    const commit = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/p.ts": "p" });
+    const message = { id: "q-first", attempts: 1, ack: () => {}, retry: () => {},
+      body: { type: PUSHED, source: { namespace: "artyfact", repoName: `${appRepo}--r1` }, payload: { ref: "refs/heads/main", after: commit } } };
+    await queueEntry({ queue: "artyfact-events", messages: [message], ackAll() {}, retryAll() {} } as unknown as MessageBatch<unknown>, env);
+    expect(seen).toHaveLength(1);
+    expect(seen[0].candidate.previewUrl).toBeUndefined();
+
+    const previewUrl = "https://kit-r1.example.workers.dev";
+    const cli = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${rid}/submit`, { commit, previewUrl });
+    expect(cli.status).toBe(200);
+    expect(cli.json.created).toBe(false);
+    expect(seen).toHaveLength(2);
+    expect(seen[1].candidate.previewUrl).toBe(previewUrl);
+    expect(cli.json.evaluations.map((e) => e.criterion)).toContain("C.webapp.health");
+    const stored = await runInDurableObject(env.SYSTEMS.getByName(systemId), (_i: SystemAuthority, state) =>
+      state.storage.sql.exec("SELECT manifest_json FROM candidates WHERE id = ?", cli.json.candidate.id).one().manifest_json);
+    expect(JSON.parse(String(stored)).previewUrl).toBe(previewUrl);
+
+    // The same submit again is a no-op: the preview is already stored.
+    const again = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${rid}/submit`, { commit, previewUrl });
+    expect(again.json.created).toBe(false);
+    expect(seen).toHaveLength(2);
   });
 
   it("streams SSE events", async () => {

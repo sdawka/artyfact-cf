@@ -543,16 +543,20 @@ export async function submit(
       await recordRun(env, systemId, out.candidate.id, await evaluate(env, s, rec, ref, "submission"));
     }
     existing = out.candidate;
-  } else if ((await stub.evaluations(existing.id)).length === 0 && rec.realization.status === "evaluating") {
-    // A retry after hooks failed mid-way: run them again.
-    const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((c) => c.id === existing!.id)!;
-    await recordRun(env, systemId, existing.id, await evaluate(env, s, rec, ref, "submission"));
   } else {
-    const fresh = await record(env, systemId, rid);
-    return {
-      created: false, realization: fresh.realization, candidate: (await stub.candidate(existing.id))!,
-      evaluations: await stub.evaluations(existing.id), conflicts: (await stub.storedConflicts(existing.id)).conflicts,
-    };
+    created = false;
+    // The CLI's preview URL arrives after a queue submit created the candidate: store it and re-run the hooks
+    // (the http health hook needs it). Otherwise re-run only after hooks failed mid-way, and only one retry at a time.
+    const addedPreview = !!previewUrl && (await stub.setPreviewUrl(existing.id, previewUrl));
+    const retry = !addedPreview && (await stub.evaluations(existing.id)).length === 0 && rec.realization.status === "evaluating";
+    if (addedPreview || (retry && (await stub.claimEvaluation(existing.id)))) {
+      try {
+        const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((c) => c.id === existing!.id)!;
+        await recordRun(env, systemId, existing.id, await evaluate(env, s, rec, ref, "submission"));
+      } finally {
+        if (retry) await stub.releaseEvaluation(existing.id);
+      }
+    }
   }
   // A concurrent submit of the same commit may have created the candidate: only the creator recomputes.
   const conflictReports = created ? await computeConflicts(env, systemId, existing.id) : (await stub.storedConflicts(existing.id)).conflicts;

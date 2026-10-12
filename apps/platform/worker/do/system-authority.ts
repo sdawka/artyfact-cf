@@ -688,6 +688,34 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   /**
+   * Store a preview URL on an open candidate that was created without one (a queue submit that beat the CLI's).
+   * Returns false when the candidate already has a preview or is no longer open. The manifest hash excludes the preview.
+   */
+  setPreviewUrl(candidateId: string, previewUrl: string): boolean {
+    const c = this.one("SELECT manifest_json, state FROM candidates WHERE id = ?", candidateId);
+    if (!c || !OPEN_CANDIDATE.includes(String(c.state))) return false;
+    const manifest = json<Record<string, unknown>>(c.manifest_json, {});
+    if (manifest.previewUrl) return false;
+    this.sql.exec("UPDATE candidates SET manifest_json = ? WHERE id = ?", JSON.stringify({ ...manifest, previewUrl }), candidateId);
+    return true;
+  }
+
+  /** Claim the hook re-run for `candidateId` so concurrent retries do not all run it; a claim lapses after `ttlMs`. */
+  claimEvaluation(candidateId: string, ttlMs = 5 * 60_000): boolean {
+    const now = Date.now();
+    return this.ctx.storage.transactionSync(() => {
+      const held = this.one("SELECT claimed_at FROM evaluation_claims WHERE candidate_id = ?", candidateId);
+      if (held && now - Number(held.claimed_at) < ttlMs) return false;
+      this.sql.exec("INSERT OR REPLACE INTO evaluation_claims (candidate_id, claimed_at) VALUES (?, ?)", candidateId, now);
+      return true;
+    });
+  }
+
+  releaseEvaluation(candidateId: string): void {
+    this.sql.exec("DELETE FROM evaluation_claims WHERE candidate_id = ?", candidateId);
+  }
+
+  /**
    * Upsert evaluations (one row per candidate × criterion × hook), move the candidate to `evaluated`
    * and its realization to `status` (evaluated, or awaiting-admin for Genome candidates).
    */

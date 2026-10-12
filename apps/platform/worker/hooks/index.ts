@@ -21,7 +21,10 @@ export const noopHookRunner: HookRunner = {
 /** Acks everything (tests). */
 export const ackAllQueue: QueueEntry = async (batch) => { batch.ackAll(); };
 
-const realRunner: HookRunnerFactory = (env) => createHookRunner({ s1Env: env, previewEnv: env });
+/** The default runner: System One reads its secrets and the preview policy reads its allowlist, both from the Worker env. */
+export const defaultHookRunner = (env: Env, make: typeof createHookRunner = createHookRunner): HookRunner =>
+  make({ s1Env: env, previewEnv: env });
+const realRunner: HookRunnerFactory = (env) => defaultHookRunner(env);
 // Built lazily: service.ts imports this module, so `queueContextFor` is only safe to read at call time.
 const realQueue: QueueEntry = (batch, env) => createQueueHandler(queueContextFor)(batch, env);
 
