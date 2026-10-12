@@ -261,8 +261,10 @@ describe("promotion gate fails closed", () => {
       const gates = { [c1.id]: [{ id: "C.people.list", severity: "soft" as const, blocking: false }] };
       expect(await i.promote(promoteInput([c1.id], head, gates))).toMatchObject({ ok: false, code: "gate-unavailable", message: expect.stringContaining("C.people.list") });
       // A not-run row (what the runner writes for an acceptance criterion with no runnable hook) is not "evaluated".
-      i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "unknown", "not-run")], "evaluated");
-      expect(await i.promote(promoteInput([c1.id], head, gates, "x"))).toMatchObject({ ok: false, code: "gate-unavailable", message: expect.stringContaining("unevaluated") });
+      for (const execution of ["not-run", "error", "queued", "running", "deferred"] as const) {
+        i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "unknown", execution)], "evaluated");
+        expect(await i.promote(promoteInput([c1.id], head, gates, "x")), execution).toMatchObject({ ok: false, code: "gate-unavailable", message: expect.stringContaining("unevaluated") });
+      }
       expect(i.state()!.head).toBe(head);
       i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "unknown")], "evaluated");
       const out = await i.promote(promoteInput([c1.id], head, gates, "soft acceptance acknowledged"));
