@@ -743,7 +743,7 @@ export class SystemAuthority extends DurableObject<Env> {
       if (head !== input.expectedHead || head !== prep.head) throw new StaleBaseError(head);
       if (!input.candidateIds.length) throw new ConflictError("invalid-state", "no candidates to promote");
       const rows = input.candidateIds.map((id) => {
-        const c = this.one("SELECT c.*, r.base_head, r.evolution_id, r.target FROM candidates c JOIN realizations r ON r.id = c.realization_id WHERE c.id = ?", id);
+        const c = this.one("SELECT c.*, r.base_head, r.evolution_id, r.target, r.fork_repo FROM candidates c JOIN realizations r ON r.id = c.realization_id WHERE c.id = ?", id);
         if (!c) throw new ConflictError("not-found", `unknown candidate ${id}`);
         return c;
       });
@@ -777,6 +777,9 @@ export class SystemAuthority extends DurableObject<Env> {
         this.setRealizationStatus(String(c.realization_id), "promoted");
       }
       this.setKv("genome_commit", prep.manifest.genomeCommit);
+      // A promoted Genome candidate's commit lives in its fork: move the Genome source with it (as accept does).
+      const genomeRow = rows.find((c) => c.target === "genome" && String(c.commit_hash) === prep.manifest.genomeCommit);
+      if (genomeRow) this.setKv("genome_source", String(genomeRow.fork_repo));
       const app = prep.manifest.artifacts[input.artifactId];
       if (app) {
         this.setKv("app_source_repo", app.repo);

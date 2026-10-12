@@ -215,6 +215,21 @@ describe("promote", () => {
   });
 });
 
+describe("promote a Genome candidate", () => {
+  it("moves genome_source to the fork together with genome_commit", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      const { realization } = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
+      const G2 = "2".repeat(40);
+      const { candidate } = i.recordCandidate({ realizationId: realization.id, commit: G2, manifest: {}, changedPaths: ["things/webapp/ontology.yaml"], changedNodes: ["entity.ContactRecord"] });
+      const out = await i.promote(promoteInput([candidate.id], i.state()!.head));
+      if (!out.ok) throw new Error(JSON.stringify(out));
+      expect(i.state()).toMatchObject({ genomeCommit: G2, genomeSource: "kit-system--r1" });
+      expect(out.commit.genomeCommit).toBe(G2);
+    });
+  });
+});
+
 describe("accept", () => {
   it("makes a Genome candidate canonical and records a System commit", async () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
