@@ -112,6 +112,8 @@ export async function createEvolution(page: Page, title: string, intent: string,
     await page.getByRole("button", { name: "Add node" }).click();
   }
   if (kind) await page.getByLabel("Kind").selectOption(kind);
+  // An untouched list lets the server default the criteria, and hard ones gate Accept; these flows only edit the Genome, so send none.
+  await page.getByRole("button", { name: "Clear" }).click();
   await page.getByLabel("Admin token").fill(token);
   await page.getByRole("button", { name: "Create Evolution" }).click();
   await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();

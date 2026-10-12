@@ -22,10 +22,14 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
   const [intent, setIntent] = useState("");
   const [nodeInput, setNodeInput] = useState("");
   const [nodes, setNodes] = useState<string[]>([]);
-  const [kind, setKind] = useState<(typeof KINDS)[number]>("implementation");
+  const [kind, setKind] = useState<(typeof KINDS)[number]>("mixed");
   const [risk, setRisk] = useState<(typeof RISKS)[number]>("medium");
+  // null = list untouched: the field is omitted and the server applies the System's defaults for the target.
+  const [picked, setPicked] = useState<string[] | null>(null);
   // Component state only: never persisted, cleared on success.
   const [adminToken, setAdminToken] = useState("");
+
+  const criteria = m.index.entries.filter((e) => e.kind === "criterion");
 
   const reason = m.bundle.source === "fixture"
     ? "Creating an Evolution needs the platform API. The UI is showing fixture data."
@@ -42,7 +46,7 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
   const submit = (ev: React.FormEvent) => {
     ev.preventDefault();
     if (reason) return;
-    const body: CreateEvolutionRequest = { title: title.trim(), intent: intent.trim(), kind, risk, ...(nodes.length && { affectedNodes: nodes }) };
+    const body: CreateEvolutionRequest = { title: title.trim(), intent: intent.trim(), kind, risk, ...(nodes.length && { affectedNodes: nodes }), ...(picked && { acceptanceCriteria: picked }) };
     create.mutate(
       { body, ...(adminToken && { adminToken }) },
       {
@@ -96,6 +100,30 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
             </ul>
           )}
         </div>
+        {criteria.length > 0 && (
+          <fieldset className={styles.fieldset}>
+            <legend>Acceptance criteria</legend>
+            <span className={styles.inlineRow}>
+              <button type="button" className={styles.btn} onClick={() => setPicked(criteria.map((c) => c.id))}>Select all</button>
+              <button type="button" className={styles.btn} onClick={() => setPicked([])}>Clear</button>
+              <span className={styles.muted}>Leave untouched to use the System's defaults for this target</span>
+            </span>
+            <ul className={styles.plain}>
+              {criteria.map((c) => (
+                <li key={c.id}>
+                  <label className={styles.check}>
+                    <input
+                      type="checkbox"
+                      checked={!!picked?.includes(c.id)}
+                      onChange={(e) => { const cur = picked ?? []; setPicked(e.target.checked ? [...cur, c.id] : cur.filter((x) => x !== c.id)); }}
+                    />
+                    <code>{c.id}</code> <span className={styles.muted}>{c.name}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </fieldset>
+        )}
         <div className={styles.field}>
           <label htmlFor={`${uid}-k`}>Kind</label>
           <select id={`${uid}-k`} value={kind} onChange={(e) => setKind(e.target.value as (typeof KINDS)[number])}>
