@@ -54,7 +54,7 @@ export function SystemHero() {
     <section className={styles.hero} aria-labelledby="hero-title" data-health={health}>
       <div className={styles.heroTop}>
         <div ref={box} className={styles.heroOrb} aria-hidden="true">
-          <Orb ref={orb} {...vitals.orb} size={0.86} transition={1.2} />
+          <Orb ref={orb} {...vitals.orb} size={0.86} transition={1.2} fallbackClassName={styles.heroOrbFallback} />
         </div>
         <div className={styles.heroText}>
           <h2 id="hero-title" className={styles.systemName}>{system.name}</h2>

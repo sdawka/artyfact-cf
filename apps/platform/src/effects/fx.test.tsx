@@ -1,6 +1,6 @@
 import { render } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { emitFx, FX_EVENT, parseFx, useEvaluationFx, useFxOnArrival, type FxDetail } from "./fx";
+import { emitFx, FX_EVENT, useEvaluationFx, useFxOnArrival, type FxDetail } from "./fx";
 
 function capture() {
   const seen: FxDetail[] = [];
@@ -20,12 +20,6 @@ describe("emitFx", () => {
     emitFx({ kind: "commit" });
     stop();
     expect(seen).toEqual([{ kind: "promoted", strength: 1.6, x: 200, y: 70 }, { kind: "commit" }]);
-  });
-
-  it("parses only well-formed details and clamps strength", () => {
-    expect(parseFx({ kind: "nope" })).toBeNull();
-    expect(parseFx(null)).toBeNull();
-    expect(parseFx({ kind: "fail", strength: 9, x: "1" })).toEqual({ kind: "fail", strength: 2 });
   });
 });
 

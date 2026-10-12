@@ -17,6 +17,8 @@
 .hero[data-health="passing"] .heroTop { background: var(--gradient-haze-success); }
 .hero[data-health="failing"] .heroTop, .hero[data-health="blocked"] .heroTop { background: var(--gradient-haze-error); }
 .heroOrb { position: relative; width: 100%; aspect-ratio: 1; }
+/* The CSS fallback (effects off, or a software renderer) is a radial gradient; round its box so no square edge shows. */
+.heroOrbFallback { border-radius: 50%; }
 .heroText { display: grid; gap: var(--spacing-3); align-content: center; min-width: 0; }
 .systemName {
   margin: 0;

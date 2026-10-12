@@ -4,21 +4,12 @@
  * depends on a listener, and the hooks here never touch business logic.
  */
 import { useEffect, useRef } from "react";
+import { FX_EVENT, parseAmbientFx, type AmbientFxDetail, type AmbientFxKind } from "./ambientEvents";
 
-export const FX_EVENT = "artyfact:fx";
-
-export type FxKind = "promoted" | "submitted" | "commit" | "fail" | "select";
-
-/** `x`/`y` are viewport (client) coordinates; without them listeners pick their own origin. `strength` 0..2. */
-export interface FxDetail {
-  kind: FxKind;
-  x?: number;
-  y?: number;
-  strength?: number;
-}
-
-const KINDS = new Set<string>(["promoted", "submitted", "commit", "fail", "select"]);
-const num = (v: unknown) => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+export { FX_EVENT };
+/** The `artyfact:fx` detail; one type shared with the Shell's ambient field (`ambientEvents.ts`). */
+export type FxKind = AmbientFxKind;
+export type FxDetail = AmbientFxDetail;
 
 /** Dispatch `artyfact:fx`. With `el`, `x`/`y` default to the viewport centre of its box. */
 export function emitFx(detail: FxDetail, el?: Element | null) {
@@ -31,27 +22,13 @@ export function emitFx(detail: FxDetail, el?: Element | null) {
   window.dispatchEvent(new CustomEvent<FxDetail>(FX_EVENT, { detail: d }));
 }
 
-/** The detail of an `artyfact:fx` event, or null when malformed (anything may dispatch it). */
-export function parseFx(detail: unknown): FxDetail | null {
-  if (!detail || typeof detail !== "object") return null;
-  const d = detail as Record<string, unknown>;
-  if (typeof d.kind !== "string" || !KINDS.has(d.kind)) return null;
-  const x = num(d.x), y = num(d.y), strength = num(d.strength);
-  return {
-    kind: d.kind as FxKind,
-    ...(x !== undefined && { x }),
-    ...(y !== undefined && { y }),
-    ...(strength !== undefined && { strength: Math.min(2, Math.max(0, strength)) }),
-  };
-}
-
 /** Calls `onFx` for every well-formed `artyfact:fx` event while mounted. */
 export function useFx(onFx: (d: FxDetail) => void) {
   const cb = useRef(onFx);
   cb.current = onFx;
   useEffect(() => {
     const listener = (e: Event) => {
-      const d = parseFx((e as CustomEvent).detail);
+      const d = parseAmbientFx((e as CustomEvent).detail);
       if (d) cb.current(d);
     };
     window.addEventListener(FX_EVENT, listener);
