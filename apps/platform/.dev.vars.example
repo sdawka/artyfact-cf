@@ -1,6 +1,6 @@
 # Copy to .dev.vars. Never commit real values.
-# Bearer token for the admin routes (import, promote, accept, reject).
-ADMIN_TOKEN=dev-admin-token
+# Bearer token for the admin routes (import, promote, accept, reject). Generate one: openssl rand -hex 32
+ADMIN_TOKEN=
 # Cloudflare account id (`wrangler whoami` / `cf auth whoami`); used to build fork git remotes.
 # Overrides the empty `ACCOUNT_ID` var in wrangler.jsonc. If unset, the remote returned by the fork call is used.
 ACCOUNT_ID=
@@ -9,8 +9,10 @@ ACCOUNT_ID=
 TYPESAFE_API_KEY=
 OPENROUTER_API_KEY=
 # Without a key, FAKE_S1=1 answers from the fake provider so the gate can go green locally; the UI labels those judgments as fake.
+# The fake answers harm questions (engagement substitute, weakens, contradicts, multi-recipient, interference) with a confident no.
 FAKE_S1=1
-# Health hook: allow http://localhost and 127.0.0.1 preview URLs (local dev only).
+# Health hook: allow http://localhost and 127.0.0.1 preview URLs (local dev only). The preview must serve
+# {"status":"ok","buildId":"<candidate commit>"} at /health, e.g. `wrangler dev --var BUILD_ID:$(git rev-parse HEAD)`.
 ALLOW_LOCAL_PREVIEW=1
 # Extra preview hosts, comma-separated (*.workers.dev and *.pages.dev are always allowed).
 PREVIEW_HOST_ALLOWLIST=

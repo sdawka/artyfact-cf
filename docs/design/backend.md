@@ -50,6 +50,8 @@ Hook selection (`worker/hooks/run.ts`): affected criteria = the Evolution's acce
 AGENTS.md block: "You are realizing <evolution> for <system>. Read TASK_PACKET.md fully. Permitted edits: <globs>. Never edit system/** or assays/** in an app realization. Commands: npm install; npm run dev; npm test. Checkpoint often: `npx artyfact checkpoint "<what/why/left>"`. When acceptance criteria <ids> are met and tests pass: `npx artyfact submit`. Your logs are advisory; the platform verifies."
 
 ## B.7 Demo runbook
+The executed, step-by-step version with real output is `docs/demo-runbook.md`. Differences found running it live: the soft-semantic conflict lands on `operation.contact.save` (via the app's source map), not `policy.ownerOnly`; the Genome flavour must also drop `provisional: true` from `entity.MessageDraft`, since the private-pairs rule skips provisional entities.
+
 `npm i` → `./scripts/bootstrap.sh` → `cd apps/platform && npm run dev` → `curl -XPOST localhost:5173/api/systems/import -d '{"systemId":"system.keep-in-touch","genomeRepo":"kit-system","appRepo":"kit-app"}'` → UI Overview → Map zoom to screen.people → Work: Start work ×2 on evolution.1 → two terminals `npx artyfact start r-1 --dir /tmp/a`, `… r-2 --dir /tmp/b`, run an agent in each → live checkpoints via SSE → both submit → Evaluations (exists ✓ scope ✓ health grey) + soft-semantic conflict on policy.ownerOnly → promote A → B stale-base → History. Flavour 2: agent C `target: genome` edits ontology → awaiting-admin → accept → Map re-renders.
 
 ## B.8 Tests

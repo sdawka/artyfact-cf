@@ -5,11 +5,12 @@ One Cloudflare Worker with Static Assets: Hono serves `/api/*`, a React 19 SPA s
 ## Run
 ```
 npm install            # from the repo root
-cp apps/platform/.dev.vars.example apps/platform/.dev.vars
+cp apps/platform/.dev.vars.example apps/platform/.dev.vars   # then set ADMIN_TOKEN=$(openssl rand -hex 32)
 npm run dev -w @artyfact/platform   # http://localhost:5173 (next free port if taken)
 ```
 - `GET /api/health` returns the service status; `/style` is the living style sheet.
 - `npm test -w @artyfact/platform` (workerd + jsdom projects), `npm run typecheck`, `npm run build`.
+- The full demo against real Artifacts is `docs/demo-runbook.md`. The opt-in integration test runs that loop in namespace `artyfact-test`: `ARTYFACT_INTEGRATION=1 npx vitest run --project integration` (uses `wrangler.integration.jsonc`).
 - `npm run cf-typegen` regenerates `worker/env.d.ts` after editing `wrangler.jsonc`.
 - The `ARTIFACTS` binding is `remote: true`, so `npm run dev` needs `wrangler login`. Tests do not: they use `wrangler.test.jsonc`, the same config without that binding (keep the two in sync).
 - `worker/env.d.ts` is generated; do not hand-edit it (use `cf-typegen`, secrets go in `worker/secrets.d.ts`).
