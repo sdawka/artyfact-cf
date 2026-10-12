@@ -1,0 +1,35 @@
+.view { max-width: 60rem; }
+.filter { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); margin-bottom: var(--spacing-4); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.filter select {
+  padding: var(--spacing-1) var(--spacing-2);
+  color: var(--color-text-primary);
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-sm);
+  font: inherit;
+}
+.filter select:hover, .filter select:focus-visible { border-width: 2px; padding: calc(var(--spacing-1) - 1px) calc(var(--spacing-2) - 1px); }
+.filter select:focus-visible { border-color: var(--color-brand-primary); outline: none; }
+.timeline { list-style: none; margin: 0; padding: 0 0 0 var(--spacing-4); border-left: 2px solid var(--color-border-subtle); display: grid; gap: var(--spacing-4); }
+.item { margin-left: calc(var(--spacing-2) * -1); }
+.card {
+  padding: var(--spacing-4);
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-md);
+}
+.card[data-highlighted] { outline: var(--focus-ring); outline-offset: 2px; }
+.head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--spacing-2); }
+.title { margin: 0; font-family: var(--font-ui); font-size: var(--font-size-base); }
+.facts { display: grid; grid-template-columns: max-content 1fr; gap: var(--spacing-1) var(--spacing-4); margin: var(--spacing-3) 0; font-size: var(--font-size-sm); }
+.facts dt { color: var(--color-text-subtle); }
+.facts dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
+.facts code, .inline { font-family: var(--font-code); }
+.inline { margin-right: var(--spacing-2); }
+.chips, .plain { display: flex; flex-wrap: wrap; gap: var(--spacing-2); margin: 0; padding: 0; list-style: none; }
+.plain { flex-direction: column; gap: var(--spacing-1); }
+.decision { margin: 0; padding-left: var(--spacing-3); border-left: 2px solid var(--color-border); }
+.decision p { margin: 0 0 var(--spacing-1); max-width: 70ch; }
+.decision footer { color: var(--color-text-subtle); font-size: var(--font-size-sm); }
+.muted { color: var(--color-text-subtle); }
+@media (max-width: 640px) { .facts { grid-template-columns: 1fr; } }
