@@ -22,7 +22,6 @@ export interface PhenomeRow {
   artifactId: string;
   buildId: string;
   commit: string;
-  systemCommit: string | null;
   kind: string;
   subject: string | null;
   criterion: string | null;
@@ -41,9 +40,10 @@ export class PhenomeStore {
 
   /** The deployment or realization whose ingest token / secret hashes to `digest` (SHA-256 hex), if any. */
   principalForHash(digest: string): PhenomePrincipal | null {
-    const dep = this.all("SELECT id, commit_hash, realization_id FROM deployments WHERE ingest_token_hash = ? LIMIT 1", digest)[0];
+    const dep = this.all("SELECT id, commit_hash, realization_id FROM deployments WHERE ingest_token_hash = ? AND status IN ('pending', 'live') LIMIT 1", digest)[0];
     if (dep) return { kind: "deployment", id: String(dep.id), commit: String(dep.commit_hash), realizationId: str(dep.realization_id) };
-    const rz = this.all("SELECT id FROM realizations WHERE secret_hash = ? LIMIT 1", digest)[0];
+    // A finished realization (promoted, rejected, abandoned) can no longer add evidence.
+    const rz = this.all("SELECT id FROM realizations WHERE secret_hash = ? AND status NOT IN ('promoted', 'rejected', 'abandoned') LIMIT 1", digest)[0];
     if (!rz) return null;
     const commits = this.all("SELECT commit_hash FROM candidates WHERE realization_id = ?", String(rz.id)).map((r) => String(r.commit_hash));
     return { kind: "realization", id: String(rz.id), commits };
@@ -54,27 +54,47 @@ export class PhenomeStore {
     return str(this.all("SELECT realization_id FROM deployments WHERE id = ?", deploymentId)[0]?.realization_id);
   }
 
+  /** The newest System commit whose manifest binds an app commit starting with `commit`; null when none does. */
+  systemCommitFor(commit: string): string | null {
+    for (const r of this.all("SELECT id, manifest_json FROM system_commits ORDER BY rowid DESC")) {
+      try {
+        const m = JSON.parse(String(r.manifest_json)) as { artifacts?: Record<string, { commit?: string }> };
+        if (Object.values(m.artifacts ?? {}).some((a) => a.commit?.startsWith(commit))) return String(r.id);
+      } catch { /* unreadable manifest binds nothing */ }
+    }
+    return null;
+  }
+
+  /** Whether deployment `id` exists and deploys a commit starting with `commit`. */
+  deploymentDeploys(id: string, commit: string): boolean {
+    const c = str(this.all("SELECT commit_hash FROM deployments WHERE id = ?", id)[0]?.commit_hash);
+    return !!c && c.startsWith(commit);
+  }
+
   /**
-   * Store `rows` in order; a row whose `event_id` is already stored is skipped. Returns, per row, whether it was new.
+   * Store `rows` in order; a row whose `event_id` is already stored is skipped. Returns, per row, whether it was new
+   * and the deployment id kept. The System commit is always derived here from the commit, never taken from the emitter. When `verifyDeployment` is
+   * set (realization principals) a claimed deployment id is kept only if that deployment deploys the event's commit.
    * Afterwards the oldest rows beyond the System cap are deleted.
    */
-  insert(rows: PhenomeRow[], realizationId: string | null): boolean[] {
+  insert(rows: PhenomeRow[], realizationId: string | null, verifyDeployment: boolean): { fresh: boolean; deploymentId: string | null }[] {
     const receivedAt = nowIso();
-    const fresh = rows.map((r) => {
+    const out = rows.map((r) => {
+      const deploymentId = r.deploymentId && (!verifyDeployment || this.deploymentDeploys(r.deploymentId, r.commit)) ? r.deploymentId : null;
       const payloadJson = JSON.stringify({ ...(r.criterion ? { criterion: r.criterion } : {}), payload: r.payload ?? null });
       this.sql.exec(
         `INSERT OR IGNORE INTO phenome_events (event_id, deployment_id, realization_id, thing_id, artifact_id, build_id, commit_hash,
            system_commit, kind, subject, emitted_at, received_at, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        r.eventId, r.deploymentId, (r.deploymentId && this.deploymentRealization(r.deploymentId)) || realizationId, r.thingId, r.artifactId,
-        r.buildId, r.commit, r.systemCommit, r.kind, r.subject, r.emittedAt, receivedAt, payloadJson,
+        r.eventId, deploymentId, (deploymentId && this.deploymentRealization(deploymentId)) || realizationId, r.thingId, r.artifactId,
+        r.buildId, r.commit, this.systemCommitFor(r.commit), r.kind, r.subject, r.emittedAt, receivedAt, payloadJson,
       );
-      return Number(this.all("SELECT changes() AS n")[0].n) > 0;
+      return { fresh: Number(this.all("SELECT changes() AS n")[0].n) > 0, deploymentId };
     });
     this.sql.exec(
       "DELETE FROM phenome_events WHERE seq <= (SELECT seq FROM phenome_events ORDER BY seq DESC LIMIT 1 OFFSET ?)",
       PHENOME_LIMITS.rowsPerSystem,
     );
-    return fresh;
+    return out;
   }
 
   count(): number {
@@ -112,7 +132,7 @@ export class PhenomeStore {
     try { envelope = JSON.parse(String(r.payload_json ?? "{}")) as typeof envelope; } catch { /* unreadable payload stays empty */ }
     const opt = <K extends string>(k: K, v: string | null) => (v === null ? {} : { [k]: v } as Record<K, string>);
     return {
-      id: String(r.event_id), seq: Number(r.seq), systemId, thingId: String(r.thing_id), artifactId: String(r.artifact_id),
+      id: String(r.event_id).replace(/^(admin|deployment:[^:]+|realization:[^:]+):/, ""), seq: Number(r.seq), systemId, thingId: String(r.thing_id), artifactId: String(r.artifact_id),
       buildId: String(r.build_id), commit: String(r.commit_hash), ...opt("systemCommit", str(r.system_commit)),
       ...opt("deploymentId", str(r.deployment_id)), emittedAt: String(r.emitted_at), receivedAt: String(r.received_at),
       kind: String(r.kind), ...opt("subject", str(r.subject)), ...(envelope.criterion ? { criterion: envelope.criterion } : {}),

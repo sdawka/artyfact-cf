@@ -173,7 +173,7 @@ describe("POST phenome/events validation", () => {
 
   it("trims to 5,000 rows, keeping the newest", async () => {
     const rows = Array.from({ length: 5010 }, (_, i) => ({
-      eventId: `r${i}`, deploymentId: null, thingId: "t", artifactId: "a", buildId: A2, commit: A2, systemCommit: null, kind: "k",
+      eventId: `r${i}`, deploymentId: null, thingId: "t", artifactId: "a", buildId: A2, commit: A2, kind: "k",
       subject: null, criterion: null, emittedAt: new Date().toISOString(), payload: i,
     }));
     await inDo((i) => i.phenomeIngest(rows, null));
@@ -195,12 +195,14 @@ describe("GET phenome/events", () => {
     await deployment("dep-1", A2, "tk");
     await post([
       ev({ id: "e1", kind: "health", subject: "svc", deploymentId: "dep-1" }),
-      ev({ id: "e2", kind: "criterion.observed", criterion: "C.people.list", payload: { n: 2 }, systemCommit: "sc-1" }),
+      ev({ id: "e2", kind: "criterion.observed", criterion: "C.people.list", payload: { n: 2 }, systemCommit: "forged" }),
       ev({ id: "e3", commit: A1.slice(0, 10), buildId: A1.slice(0, 10), kind: "health" }),
     ]);
     const all = (await get()).json;
     expect(all.events.map((e) => e.id)).toEqual(["e3", "e2", "e1"]);
-    expect(all.events[1]).toMatchObject({ criterion: "C.people.list", payload: { n: 2 }, systemCommit: "sc-1", systemId: sys, seq: 2 });
+    expect(all.events[1]).toMatchObject({ criterion: "C.people.list", payload: { n: 2 }, systemId: sys, seq: 2 });
+    expect(all.events[1]).not.toHaveProperty("systemCommit");
+    expect(all.events[0].systemCommit).toMatch(/^sc-1/);
     expect(all.events[2]).toMatchObject({ deploymentId: "dep-1", subject: "svc" });
     expect(all.events[0]).not.toHaveProperty("deploymentId");
     expect((await get("?kind=health")).json.events.map((e) => e.id)).toEqual(["e3", "e1"]);
@@ -224,14 +226,64 @@ describe("GET phenome/events", () => {
 
   it("aggregates versions by build, newest first, with counts", async () => {
     await post([
-      ev({ id: "v1", deploymentId: "dep-a", systemCommit: "sc-1" }), ev({ id: "v2", deploymentId: "dep-a", systemCommit: "sc-1" }),
+      ev({ id: "v1", deploymentId: "dep-a", commit: A1, buildId: A1 }), ev({ id: "v2", deploymentId: "dep-a", commit: A1, buildId: A1 }),
       ev({ id: "v3", commit: A3, buildId: A3 }),
     ]);
     const { versions } = (await get("?limit=1")).json;
     expect(versions).toEqual([
       { key: A3, buildId: A3, commit: A3, deployment: null, systemCommit: null, count: 1 },
-      { key: A2, buildId: A2, commit: A2, deployment: "dep-a", systemCommit: "sc-1", count: 2 },
+      { key: A1, buildId: A1, commit: A1, deployment: "dep-a", systemCommit: expect.stringMatching(/^sc-1/), count: 2 },
     ]);
+  });
+});
+
+describe("authorization and tampering", () => {
+  it("a stale deployment token is refused, a pending one is not", async () => {
+    await deployment("dep-old", A2, "old-token");
+    expect((await post([ev()], { authorization: "Bearer old-token" })).status).toBe(200);
+    await inDo((i) => sqlOf(i).exec("UPDATE deployments SET status = 'superseded'"));
+    expect((await post([ev({ id: "later" })], { authorization: "Bearer old-token" })).status).toBe(403);
+    await inDo((i) => sqlOf(i).exec("UPDATE deployments SET status = 'failed'"));
+    expect((await post([ev({ id: "later" })], { authorization: "Bearer old-token" })).status).toBe(403);
+    await inDo((i) => sqlOf(i).exec("UPDATE deployments SET status = 'pending'"));
+    expect((await post([ev({ id: "later" })], { authorization: "Bearer old-token" })).status).toBe(200);
+  });
+
+  it.each(["promoted", "rejected", "abandoned"])("a %s realization's secret is refused", async (status) => {
+    const h = { authorization: `Bearer ${secret}` };
+    expect((await post([ev()], h)).status).toBe(200);
+    await inDo((i) => sqlOf(i).exec("UPDATE realizations SET status = ?", status));
+    expect((await post([ev({ id: "after" })], h)).status).toBe(403);
+  });
+
+  it("derives the System commit from the app commit and ignores the emitter's", async () => {
+    await post([ev({ id: "a", commit: A1, buildId: A1, systemCommit: "sc-99" }), ev({ id: "b", systemCommit: "sc-1" })]);
+    const byId = Object.fromEntries((await get()).json.events.map((e) => [e.id, e]));
+    expect(byId.a.systemCommit).toMatch(/^sc-1-/);
+    expect(byId.b).not.toHaveProperty("systemCommit");
+  });
+
+  it("a realization cannot claim a deployment that does not deploy its commit", async () => {
+    await deployment("dep-real", A2, "t-real");
+    await deployment("dep-other", A3, "t-other");
+    const h = { authorization: `Bearer ${secret}` };
+    await post([ev({ id: "ok", deploymentId: "dep-real" }), ev({ id: "forged", deploymentId: "dep-other" }), ev({ id: "ghost", deploymentId: "dep-none" })], h);
+    const byId = Object.fromEntries((await get()).json.events.map((e) => [e.id, e]));
+    expect(byId.ok.deploymentId).toBe("dep-real");
+    expect(byId.forged).not.toHaveProperty("deploymentId");
+    expect(byId.ghost).not.toHaveProperty("deploymentId");
+  });
+
+  it("the same client event id from two principals does not collide", async () => {
+    await deployment("dep-x", A2, "t-x");
+    expect((await post([ev({ id: "shared" })], { authorization: `Bearer ${secret}` })).json.accepted).toBe(1);
+    expect((await post([ev({ id: "shared" })], { authorization: "Bearer t-x" })).json.accepted).toBe(1);
+    expect((await post([ev({ id: "shared" })])).json.accepted).toBe(1);
+    const again = await post([ev({ id: "shared" })], { authorization: `Bearer ${secret}` });
+    expect(again.json.dropped).toEqual([{ index: 0, reason: "duplicate" }]);
+    const events = (await get()).json.events;
+    expect(events).toHaveLength(3);
+    expect(events.every((e) => e.id === "shared")).toBe(true);
   });
 });
 

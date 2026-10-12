@@ -1272,14 +1272,14 @@ export class SystemAuthority extends DurableObject<Env> {
   private phenome(): PhenomeStore { return (this.phenomeStore ??= new PhenomeStore(this.sql)); }
   phenomePrincipal(digest: string): PhenomePrincipal | null { return this.phenome().principalForHash(digest); }
   /** Store validated events and announce them on the SSE stream; returns, per row, whether it was new. */
-  phenomeIngest(rows: PhenomeRow[], realizationId: string | null): boolean[] {
-    const inserted = this.phenome().insert(rows, realizationId);
-    const fresh = rows.filter((_, i) => inserted[i]);
+  phenomeIngest(rows: PhenomeRow[], realizationId: string | null, verifyDeployment = false): boolean[] {
+    const out = this.phenome().insert(rows, realizationId, verifyDeployment);
+    const fresh = rows.map((r, i) => ({ r, ...out[i] })).filter((x) => x.fresh);
     if (fresh.length) {
       const last = fresh[fresh.length - 1];
-      this.emit({ type: "phenome.ingested", count: fresh.length, ...(last.deploymentId && { deploymentId: last.deploymentId }), commit: last.commit });
+      this.emit({ type: "phenome.ingested", count: fresh.length, ...(last.deploymentId && { deploymentId: last.deploymentId }), commit: last.r.commit });
     }
-    return inserted;
+    return out.map((x) => x.fresh);
   }
   phenomeEvents(systemId: string, query: PhenomeEventsQuery = {}): PhenomeEventsResponse { return this.phenome().list(systemId, query); }
 }

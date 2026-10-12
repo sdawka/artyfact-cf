@@ -88,9 +88,11 @@ export async function ingestEvents(env: Env, systemId: string, principal: Ingest
     staged.push({
       index,
       row: {
-        eventId: e.id ?? (await sha256Hex(canonicalJson({ ...e, systemId }))),
+        // Namespaced per principal so one cannot suppress another's events by reusing an id.
+        eventId: `${principal.kind === "admin" ? "admin" : `${principal.kind}:${principal.id}`}:${e.id ?? (await sha256Hex(canonicalJson({ ...e, systemId })))}`,
         deploymentId: principal.kind === "deployment" ? principal.id : e.deploymentId ?? null,
-        thingId: e.thingId, artifactId: e.artifactId, buildId: e.buildId, commit: e.commit, systemCommit: e.systemCommit ?? null,
+        // thingId and artifactId are recorded as the emitter states them; the model at that commit is not consulted.
+        thingId: e.thingId, artifactId: e.artifactId, buildId: e.buildId, commit: e.commit,
         kind: e.kind, subject: e.subject ?? null, criterion: e.criterion ?? null, emittedAt: e.emittedAt, payload: e.payload,
       },
     });
@@ -99,7 +101,7 @@ export async function ingestEvents(env: Env, systemId: string, principal: Ingest
   let accepted = 0;
   if (staged.length) {
     const realizationId = principal.kind === "realization" ? principal.id : principal.kind === "deployment" ? principal.realizationId : null;
-    const inserted = await stub.phenomeIngest(staged.map((s) => s.row), realizationId);
+    const inserted = await stub.phenomeIngest(staged.map((s) => s.row), realizationId, principal.kind === "realization");
     staged.forEach((s, i) => (inserted[i] ? accepted++ : drop(s.index, "duplicate")));
     if (accepted) await refreshRegistryThrottled(env, systemId);
   }
