@@ -38,10 +38,8 @@ Not done on purpose: platform-hosted agents, a reasoning-model evaluator beyond 
 - Concurrency: several agents fork, work and push at once. The platform records each candidate, detects file and semantic overlap and resolves them through a compare-and-swap promotion.
 
 ## Team
-`TODO(team)`: names and roles are not recorded in the repository.
+Team: solo — sahil.pro
 
 ## Open items
-- Team names and roles.
-- Copyright owner for LICENSE. It reads "artyfact contributors" until the owner names one.
 - Repository and video URLs.
 - Eligibility: the official terms require the source to be under MIT, Apache-2.0 or a BSD 2/3-Clause licence, which is why the licence stays Apache-2.0, and they make US or Canada residency an eligibility condition.
