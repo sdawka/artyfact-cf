@@ -92,7 +92,7 @@ export function defaultMockData(): MockData {
   };
   const compareSystem: SystemCompare = {
     from: sc1, to: sc2,
-    genome: { from: GENOME, to: GENOME, delta: null },
+    genome: { from: GENOME, to: GENOME, delta: null, files: { added: [], modified: [], removed: [] }, pathNodes: {} },
     app: {
       from: { ref: "sc-1", repo: "keep-in-touch-app", commit: OLD_APP, systemCommit: "sc-1" },
       to: { ref: "sc-2", repo: "keep-in-touch-app", commit: HEAD_APP, systemCommit: "sc-2" },
@@ -135,8 +135,8 @@ export function defaultMockData(): MockData {
         ...compareSystem, row: changelog[0]!, decision: sc2.decision,
         criteria: [{ id: "C.webapp.screen.people", before: "not-run", after: "pass", evaluation: "eval.1" }],
         codeLinks: [
-          { path: "src/screens/People.tsx", repo: "keep-in-touch-app", commit: HEAD_APP, nodes: ["screen.people"], status: "added" },
-          { path: "src/index.ts", repo: "keep-in-touch-app", commit: HEAD_APP, nodes: [], status: "modified" },
+          { scope: "app", path: "src/screens/People.tsx", repo: "keep-in-touch-app", commit: HEAD_APP, nodes: ["screen.people"], status: "added" },
+          { scope: "app", path: "src/index.ts", repo: "keep-in-touch-app", commit: HEAD_APP, nodes: [], status: "modified" },
         ],
       },
     },

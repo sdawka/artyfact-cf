@@ -25,15 +25,15 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
 
 function Files({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
   const { systemId } = useSystemRoute();
-  if (!entry.codeLinks.length) return <p className={styles.muted}>No app files changed.</p>;
+  if (!entry.codeLinks.length) return <p className={styles.muted}>No files changed.</p>;
   return (
     <ul className={styles.files}>
       {entry.codeLinks.map((f) => {
         // A removed file only exists on the parent side.
         const rev = f.status === "removed" && row.parent ? row.parent : row.id;
-        const to = `${viewPath(systemId, rev, "code")}?${new URLSearchParams({ repo: "app", path: f.path })}`;
+        const to = `${viewPath(systemId, rev, "code")}?${new URLSearchParams({ repo: f.scope, path: f.path })}`;
         return (
-          <li key={f.path} data-status={f.status}>
+          <li key={`${f.scope}:${f.path}`} data-status={f.status} data-scope={f.scope}>
             <span className={styles.glyph} aria-label={f.status}>{GLYPH[f.status]}</span>
             <Link to={to} className="u-marker"><code>{f.path}</code></Link>
             {f.nodes.map((n) => <NodeChip key={n} id={n} size="sm" />)}

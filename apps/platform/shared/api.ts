@@ -753,8 +753,11 @@ export interface ChangedFiles {
 export interface SystemCompare {
   from: SystemCommit | null;
   to: SystemCommit;
-  /** Genome commits on each side and their semantic delta; null delta with `loadError` when a side does not load. */
-  genome: { from: CommitHash | null; to: CommitHash; delta: ModelDelta | null; loadError?: string };
+  /**
+   * Genome commits on each side, their semantic delta and the Genome repo's changed files (`pathNodes`: the delta's
+   * nodes declared in each path). Null delta and files with `loadError` when a side does not load.
+   */
+  genome: { from: CommitHash | null; to: CommitHash; delta: ModelDelta | null; files: ChangedFiles | null; pathNodes: Record<string, NodeId[]>; loadError?: string };
   /** The app binding's change; null when neither side binds an app. */
   app: { from: ResolvedRef | null; to: ResolvedRef; files: ChangedFiles; pathNodes: Record<string, NodeId[]> } | null;
   manifest: { templateVersions: string[]; hookVersions: string[]; platformChanged: boolean };
@@ -818,7 +821,8 @@ export interface ChangelogEntry extends SystemCompare {
   row: ChangelogRow;
   decision: SystemCommit["decision"];
   criteria: { id: NodeId; before: Verdict | "not-run"; after: Verdict | "not-run"; evaluation?: string }[];
-  codeLinks: { path: string; repo: string; commit: CommitHash; nodes: NodeId[]; status: "added" | "modified" | "removed" }[];
+  /** Changed files of the app and the Genome (`scope`), app first, each sorted by path. */
+  codeLinks: { scope: FileScope; path: string; repo: string; commit: CommitHash; nodes: NodeId[]; status: "added" | "modified" | "removed" }[];
 }
 
 // ---------------------------------------------------------------------------

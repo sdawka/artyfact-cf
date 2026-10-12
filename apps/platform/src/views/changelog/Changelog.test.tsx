@@ -56,6 +56,8 @@ describe("Changelog", () => {
     expect(within(files).getByRole("link", { name: "src/screens/People.tsx" }).getAttribute("href"))
       .toBe(`/s/${SYSTEM}/r/sc-2/code?repo=app&path=src%2Fscreens%2FPeople.tsx`);
     expect(within(files).getByRole("link", { name: "src/old.ts" }).getAttribute("href")).toBe(`/s/${SYSTEM}/r/sc-1/code?repo=app&path=src%2Fold.ts`);
+    expect(within(files).getByRole("link", { name: "things/webapp/ontology.yaml" }).getAttribute("href"))
+      .toBe(`/s/${SYSTEM}/r/sc-2/code?repo=genome&path=things%2Fwebapp%2Fontology.yaml`);
     const criteria = screen.getByRole("region", { name: "Criteria" });
     expect(within(criteria).getByRole("link", { name: "C.webapp.screen.people" }).getAttribute("href"))
       .toBe(`/s/${SYSTEM}/r/head/evaluations?criterion=C.webapp.screen.people`);
