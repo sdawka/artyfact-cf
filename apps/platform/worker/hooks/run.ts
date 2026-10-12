@@ -23,6 +23,7 @@ import type { CandidateRef, ConflictContext, ConflictReport, DeltaReview, Evalua
 import { diffScope } from "./diff-scope";
 import { HEALTH_TIMEOUT_MS, httpHealth } from "./http-health";
 import { manifestExists } from "./manifest-exists";
+import { modelRulesHook } from "./model-checks";
 import { filterFromInputs, loadGenome, modelRules, type GenomeDeps, type ModelRulesResult } from "./model-rules";
 import { computeConflicts } from "./overlap";
 import { errored, errorMessage, notRun, toEvaluation, type Outcome } from "./provenance";
@@ -200,7 +201,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
         };
       }
       case "model-rules":
-        return modelRulesHook(st, h);
+        return modelRulesHook({ ctx: st.ctx, base: st.base, rules: (x) => rulesFor(st, x) }, h);
       case "system-one":
       case "llm": {
         const j = llmJudgment(h, c);
@@ -229,85 +230,6 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
       default:
         return notRun(`Engine ${h.engine} is not run by the platform.`);
     }
-  }
-
-  /** Criteria named in `inputs.requires` must exist in the judged model and not be deferred. */
-  function requiresCheck(st: RunState, h: schema.AssayHook): { missing: string[] } | null {
-    const ids = (h.inputs.requires ?? "").split(",").map((x) => x.trim()).filter(Boolean);
-    if (!ids.length) return null;
-    const m = st.ctx.candidate.target === "genome" ? rulesFor(st, null).model ?? st.base : st.base;
-    const present = new Set(m.criteria.filter((c) => !c.deferred).map((c) => c.id));
-    return { missing: ids.filter((id) => !present.has(id)) };
-  }
-
-  /**
-   * `inputs.check` items (C.system.promotion). Each yields a part; promotion-only facts come from
-   * `ctx.promotionFacts` and are `not-run` when absent.
-   */
-  function promotionCheck(st: RunState, check: string): Outcome {
-    const c = st.ctx.candidate;
-    const facts = st.ctx.promotionFacts;
-    const fact = (v: boolean | undefined, okText: string, failText: string): Outcome =>
-      v === undefined
-        ? notRun(`${check} is established by the DO at promotion (ctx.promotionFacts not supplied).`)
-        : { execution: "completed", verdict: v ? "pass" : "fail", observations: [], interpretation: v ? okText : failText, limitations: [] };
-    switch (check) {
-      case "scope-authorized":
-        return diffScope({ target: c.target, changedPaths: c.changedPaths, changedNodes: c.changedNodes, pathNodes: c.pathNodes, permitted: st.ctx.permittedPaths, protected: st.ctx.protectedPaths });
-      case "base-current":
-        return facts?.currentBaseCommit === undefined
-          ? notRun("base-current needs the current head (ctx.promotionFacts.currentBaseCommit).")
-          : fact(facts.currentBaseCommit === c.baseCommit, "Candidate base is the current head.", `Stale base: candidate is based on ${c.baseCommit.slice(0, 12)}, head is ${facts.currentBaseCommit.slice(0, 12)}.`);
-      case "manifest-exact":
-        return fact(facts?.manifestExact, "Manifest binds exactly this candidate.", "Manifest does not match the candidate.");
-      case "evidence-fresh":
-        return fact(facts?.evidenceFresh, "Required evidence is fresh for this commit.", "Required evidence is stale or belongs to another candidate.");
-      default:
-        return errored(new Error(`Unknown check "${check}"`));
-    }
-  }
-
-  function modelRulesHook(st: RunState, h: schema.AssayHook): Outcome {
-    const checks = (h.inputs.check ?? "").split(",").map((x) => x.trim()).filter(Boolean);
-    const parts: { check: string; o: Outcome }[] = [];
-    if (!checks.length || h.inputs.packs || h.inputs.rulePrefix) parts.push({ check: "rules", o: rulesFor(st, h).outcome });
-    for (const check of checks) {
-      let o: Outcome;
-      try {
-        o = promotionCheck(st, check);
-      } catch (e) {
-        o = errored(e);
-      }
-      parts.push({ check, o });
-    }
-    const req = requiresCheck(st, h);
-    if (req) {
-      parts.push({
-        check: "requires",
-        o: {
-          execution: "completed",
-          verdict: req.missing.length ? "fail" : "pass",
-          observations: [{ kind: "requires", missing: req.missing }],
-          interpretation: req.missing.length ? `Required criteria missing or deferred: ${req.missing.join(", ")}.` : "All required criteria are present.",
-          limitations: [],
-        },
-      });
-    }
-    if (parts.length === 1) return parts[0].o;
-    const failed = parts.filter((p) => p.o.verdict === "fail");
-    const allPass = parts.every((p) => p.o.verdict === "pass" && p.o.execution === "completed");
-    const ran = parts.some((p) => p.o.execution === "completed");
-    return {
-      execution: ran ? "completed" : parts.some((p) => p.o.execution === "error") ? "error" : "not-run",
-      verdict: failed.length ? "fail" : allPass ? "pass" : "unknown",
-      observations: parts.flatMap((p) =>
-        p.check === "rules" || p.check === "requires"
-          ? p.o.observations
-          : [{ check: p.check, execution: p.o.execution, verdict: p.o.verdict, interpretation: p.o.interpretation, observations: p.o.observations, limitations: p.o.limitations }]),
-      interpretation: parts.map((p) => `${p.check}: ${p.o.verdict}${p.o.verdict === "pass" ? "" : ` (${p.o.interpretation ?? p.o.limitations.join("; ")})`}`).join("; "),
-      limitations: parts.flatMap((p) => (p.check === "rules" || p.check === "requires" ? p.o.limitations : [])),
-      provenance: parts.find((p) => p.check === "rules")?.o.provenance,
-    };
   }
 
   function targetRef(st: RunState, h: schema.AssayHook | null): string {
