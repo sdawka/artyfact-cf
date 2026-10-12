@@ -1,0 +1,121 @@
+/* Verdict tokens: only pass uses the success colour; stale is the same subtle tone, dashed. */
+:root {
+  --verdict-pass: var(--color-success);
+  --verdict-fail: var(--color-danger);
+  --verdict-unknown: var(--color-text-subtle);
+  --verdict-stale: var(--color-text-subtle);
+  --verdict-not-run: var(--color-text-subtle);
+  --verdict-pass-bg: var(--color-success-background);
+  --verdict-fail-bg: var(--color-error-background);
+  --verdict-neutral-bg: transparent;
+  --focus-ring: 2px solid var(--color-focus-ring);
+}
+
+.u-focus:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
+/* Four 4px-outside L-corners. One masked pseudo-element; compositor-only transitions. */
+.u-brackets { position: relative; }
+.u-brackets::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 2px solid var(--color-brand-primary);
+  border-radius: inherit;
+  pointer-events: none;
+  opacity: 0;
+  transform: scale(0.97);
+  transition:
+    opacity var(--motion-duration-normal) var(--motion-easing-ease-out),
+    transform var(--motion-duration-normal) var(--motion-easing-ease-out);
+  --corner: 12px;
+  mask:
+    linear-gradient(#000 0 0) top left / var(--corner) var(--corner) no-repeat,
+    linear-gradient(#000 0 0) top right / var(--corner) var(--corner) no-repeat,
+    linear-gradient(#000 0 0) bottom left / var(--corner) var(--corner) no-repeat,
+    linear-gradient(#000 0 0) bottom right / var(--corner) var(--corner) no-repeat;
+}
+.u-brackets:is(:hover, :focus-visible)::after,
+.u-brackets--on::after {
+  opacity: 1;
+  transform: scale(1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .u-brackets::after { transition: none; transform: none; }
+}
+@media (forced-colors: active) {
+  .u-brackets::after { display: none; }
+}
+
+/* Tapered 2px lines above and below the active (or hovered) segment. */
+.u-segments { display: flex; gap: var(--spacing-1); }
+.u-segments > * {
+  position: relative;
+  padding: var(--spacing-2) var(--spacing-4);
+  color: var(--color-text-secondary);
+  background: none;
+  border: 0;
+  font: inherit;
+  cursor: pointer;
+}
+.u-segments > *::before,
+.u-segments > *::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--color-border);
+  opacity: 0;
+  mask-image: linear-gradient(90deg, transparent, #000 18%, #000 82%, transparent);
+  transition: opacity var(--motion-duration-fast) var(--motion-easing-ease-out);
+}
+.u-segments > *::before { top: 0; }
+.u-segments > *::after { bottom: 0; }
+.u-segments > *:hover::before,
+.u-segments > *:hover::after { opacity: 1; }
+.u-segments > [aria-selected="true"],
+.u-segments > [aria-current="true"],
+.u-segments > [aria-current="page"] { color: var(--color-brand-primary); }
+.u-segments > [aria-selected="true"]::before,
+.u-segments > [aria-selected="true"]::after,
+.u-segments > [aria-current="true"]::before,
+.u-segments > [aria-current="true"]::after,
+.u-segments > [aria-current="page"]::before,
+.u-segments > [aria-current="page"]::after {
+  background: var(--color-brand-primary);
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .u-segments > *::before, .u-segments > *::after { transition: none; }
+}
+
+/* Flat apricot marker highlight behind links. Never replaces focus or selection. */
+.u-marker {
+  color: var(--color-text-primary);
+  text-decoration: none;
+  background: color-mix(in oklch, var(--color-brand-primary) 22%, transparent);
+  border-radius: var(--border-radius-sm);
+  padding: 0 0.2em;
+  transition: background var(--motion-duration-fast) var(--motion-easing-ease-out);
+}
+.u-marker:hover {
+  color: var(--color-text-primary);
+  background: color-mix(in oklch, var(--color-brand-primary) 34%, transparent);
+}
+
+/* Verdict badge: text + glyph, never colour alone. */
+.u-verdict {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: 0 var(--spacing-2);
+  border: 1px solid currentColor;
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-sm);
+  line-height: 1.6;
+}
+.u-verdict[data-verdict="pass"] { color: var(--verdict-pass); background: var(--verdict-pass-bg); }
+.u-verdict[data-verdict="fail"] { color: var(--verdict-fail); background: var(--verdict-fail-bg); }
+.u-verdict[data-verdict="unknown"] { color: var(--verdict-unknown); }
+.u-verdict[data-verdict="not-run"] { color: var(--verdict-not-run); }
+.u-verdict[data-verdict="stale"] { color: var(--verdict-stale); border-style: dashed; }

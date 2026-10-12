@@ -1,0 +1,8 @@
+/* Brilon is the display face: wordmark and page h1 only. */
+@font-face {
+  font-family: "Brilon";
+  src: url("./fonts/Brilon-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
