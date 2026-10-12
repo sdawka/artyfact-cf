@@ -76,3 +76,7 @@ App repos are untrusted. Agents write them, and the install and test steps run t
 - **No reads outside the repo.** The deploy step refuses symlinks in the bundle or assets, and an assets directory resolving outside the workspace.
 - **Allowlisted commands.** See above; the CI Worker re-checks them.
 - **Residual risk.** The ingest token is visible in Workflow instance params to account members who can read Workflows.
+
+## Tests in CI
+
+`npm run ci` runs the fixture Playwright suite and then the fake-platform suite (`npm run e2e:fake -w @artyfact/platform`). The fake suite boots `vite --port 1339` with `FAKE_ARTIFACTS=1`, so it needs no Cloudflare login, only the `git` that every runner has. `apps/platform/e2e/iteration2.live.spec.ts` needs a deployment: run it with `ARTYFACT_E2E_LIVE=1 ARTYFACT_ADMIN_TOKEN=… npm run e2e:live -w @artyfact/platform`, plus `ARTYFACT_CI=1` when `artyfact-ci` is deployed so it also waits for a preview build.

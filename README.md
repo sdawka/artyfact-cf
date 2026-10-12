@@ -30,6 +30,16 @@ The amendment review shows the semantic delta, the Readiness findings that were 
 
 More views: [Map on screen.people, Phenome layer](docs/images/map-screen-people-phenome.png), [Journeys](docs/images/journeys-connect.png), [Theory](docs/images/theory.png), [Overview](docs/images/overview.png).
 
+## Features
+
+- **Home.** Every System as a card with signifiers: evolving, pending realization, awaiting review, not built, deployed or behind, observed.
+- **Describe a change.** Create an Evolution, start work for an agent and get a task packet, or edit files in the browser and commit them to a fork over Git. Either way the result is a candidate with its gates.
+- **Code.** Browse the Genome and the app at any revision, edit on head, commit under an Evolution.
+- **Changelog and Compare.** One row per System commit with its semantic delta, files, criteria, builds and deployment. Compare any two revisions at System, Genome or file level.
+- **Builds and deployments.** A new app candidate gets a preview build, so the health assay checks the deployed app. A promotion asks for a production deployment.
+- **Deployments page and the Phenome.** Runtime events from a deployed app, grouped by version and linked to the System commit it runs.
+- **Fake platform.** `FAKE_ARTIFACTS=1` runs the whole backend with no account, and the Playwright `@fake` specs drive the use cases through it.
+
 ## How Cloudflare is used
 
 One Worker serves everything. Static Assets serve the React single-page app. A Hono app handles `/api/*`, and the Worker also exports the queue handler and the Durable Object class.
@@ -116,7 +126,7 @@ npm run e2e            # builds the SPA and runs the Playwright suite
 npm run preview:fixture -w @artyfact/platform
 ```
 
-`npm run e2e` drives a real browser. If Playwright reports a missing browser, run `npx playwright install chromium` once.
+`npm run e2e` drives a real browser. If Playwright reports a missing browser, run `npx playwright install chromium` once. `npm run e2e:fake -w @artyfact/platform` runs the use-case specs against the whole backend on in-memory Artifacts (`FAKE_ARTIFACTS=1`, port 1339), also without a login.
 
 The real backend needs a login, because the `ARTIFACTS` binding is remote even in development. Run `npx wrangler login` or set `CLOUDFLARE_API_TOKEN`. The same applies to deploying.
 
@@ -167,6 +177,25 @@ System: http://localhost:1337/s/system.keep-in-touch/r/head/overview
 A re-run pushes nothing and re-imports as a no-op. Flags and details: [packages/cli/README.md](packages/cli/README.md). Step 2 of the runbook has the same transcript and a later run.
 
 The full loop against real Artifacts, with two agents, a conflict, a promotion and two Genome amendments, is in [docs/demo-runbook.md](docs/demo-runbook.md). It needs a Cloudflare login and an `ADMIN_TOKEN`. Hosted deployment: [docs/deploy.md](docs/deploy.md).
+
+## Phenome event header
+
+A deployed app reports what it observes with `POST /api/systems/:id/phenome/events` and `{"events": [...]}` (up to 100 per request, 8 KB each). The bearer is the deployment's ingest token, a realization secret for a preview, or the admin token. Every event carries this header; `payload` is free-form JSON.
+
+| Field | Meaning |
+|---|---|
+| `systemId`, `thingId`, `artifactId` | Which System, Thing and Artifact emitted the event |
+| `buildId` | The app's `BUILD_ID`, which is its commit |
+| `commit` | The app commit, 7 to 64 hex characters |
+| `systemCommit` | The System commit the app was built for (optional) |
+| `deploymentId` | The deployment that reported it (optional) |
+| `emittedAt` | ISO 8601 time with offset |
+| `kind` | Dotted event kind such as `journey.step` or `criterion.observed` |
+| `subject`, `criterion` | A Genome node and a criterion the event is about (optional) |
+| `id` | Emitter-chosen id; a repeated id is dropped (optional) |
+| `payload` | Any JSON |
+
+The platform stamps `seq`, `receivedAt` and the realization. The Deployments page groups events by `buildId`, else `commit`. The schema is `PhenomeEventHeader` in `packages/model/src/phenome.ts`.
 
 ## Repository layout
 
