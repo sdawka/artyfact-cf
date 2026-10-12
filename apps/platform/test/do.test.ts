@@ -152,6 +152,29 @@ describe("promote", () => {
     });
   });
 
+  it("disregards only the not-run rows of hooks the Worker names off-trigger; every other non-pass row blocks", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      const { c1, head } = await twoCandidates(i);
+      const gate = (off?: string[]) => ({ [c1.id]: [{ id: "C.system.purpose", severity: "hard" as const, blocking: true, ...(off && { offTriggerHooks: off }) }] });
+      const hookB = (verdict: Evaluation["verdict"], execution: Evaluation["execution"]) => ({ ...ev(c1.id, "C.system.purpose", verdict, execution), hook: "hook.purpose.b" });
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "pass")]); // the Evolution's acceptance criterion
+      // Hook A (submission) passed; hook B (promotion, bound) never ran and is not named off-trigger: blocked.
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "pass"), hookB("unknown", "not-run")]);
+      expect(await i.promote(promoteInput([c1.id], head, gate()))).toMatchObject({ ok: false, code: "blocked", blocking: [expect.objectContaining({ execution: "not-run" })] });
+      // Off-trigger covers not-run rows only: any other non-pass row of hook B still blocks.
+      for (const [verdict, execution] of [["fail", "completed"], ["unknown", "completed"], ["unknown", "error"], ["unknown", "queued"], ["unknown", "running"]] as const) {
+        i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "pass"), hookB(verdict, execution)]);
+        expect(await i.promote(promoteInput([c1.id], head, gate(["hook.purpose.b"])))).toMatchObject({ ok: false, code: "blocked" });
+      }
+      // Nothing ran at all: missing evidence, blocked.
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "unknown", "not-run"), hookB("unknown", "not-run")]);
+      expect(await i.promote(promoteInput([c1.id], head, gate(["hook.purpose.b", "hook.C.system.purpose"])))).toMatchObject({ ok: false, code: "blocked" });
+      // Hook B is an outcome-stage hook (named off-trigger by the Worker): its not-run row does not block.
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "pass"), hookB("unknown", "not-run")]);
+      expect(await i.promote(promoteInput([c1.id], head, gate(["hook.purpose.b"])))).toMatchObject({ ok: true });
+    });
+  });
+
   it("soft/advisory criteria never block but need a non-empty rationale", async () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
       const { c1, head } = await twoCandidates(i);
@@ -322,8 +345,9 @@ describe("accept", () => {
       await i.bootstrap(boot);
       const { realization } = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
       const G2 = "2".repeat(40);
-      i.recordCandidate({ realizationId: realization.id, commit: G2, manifest: {}, changedPaths: ["things/webapp/ontology.yaml"], changedNodes: ["entity.ContactRecord"] });
-      const out = await i.accept({ realizationId: realization.id, rationale: "ok", by: "admin", evolutions: boot.evolutions, artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+      const { candidate } = i.recordCandidate({ realizationId: realization.id, commit: G2, manifest: {}, changedPaths: ["things/webapp/ontology.yaml"], changedNodes: ["entity.ContactRecord"] });
+      i.recordEvaluations(candidate.id, [ev(candidate.id, "C.people.list", "pass")], "awaiting-admin");
+      const out = await i.accept({ realizationId: realization.id, rationale: "ok", by: "admin", evolutions: boot.evolutions, gates: hard("C.people.list"), artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
       if (!out.ok) throw new Error(JSON.stringify(out));
       expect(out.genomeCommit).toBe(G2);
       expect(i.state()).toMatchObject({ genomeCommit: G2, genomeSource: "kit-system--r1", head: out.commit.id });
@@ -331,6 +355,62 @@ describe("accept", () => {
       const again = await i.accept({ realizationId: realization.id, rationale: "ok", by: "admin", evolutions: [], artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
       expect(again).toMatchObject({ ok: true, genomeCommit: G2 });
       expect(i.history()).toHaveLength(2);
+    });
+  });
+});
+
+describe("accept uses the promotion gate", () => {
+  const acceptInput = (realizationId: string, gates: GateCriterion[] | undefined, rationale = "") =>
+    ({ realizationId, rationale, by: "admin", evolutions: boot.evolutions, gates, artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+  const withProvider = (e: Evaluation, provider: string): Evaluation => ({ ...e, provenance: { engine: "system-one", provider } });
+
+  it("refuses a blocking criterion that is not pass+completed, and a missing gate", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      const { realization } = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
+      const { candidate } = i.recordCandidate({ realizationId: realization.id, commit: "2".repeat(40), manifest: {}, changedPaths: ["description.yaml"], changedNodes: [] });
+      i.recordEvaluations(candidate.id, [ev(candidate.id, "C.people.list", "pass"), ev(candidate.id, "C.system.promotion", "fail")], "awaiting-admin");
+      const head = i.state()!.head;
+      expect(await i.accept(acceptInput(realization.id, undefined))).toMatchObject({ ok: false, code: "gate-unavailable" });
+      const out = await i.accept(acceptInput(realization.id, hard("C.people.list", "C.system.promotion"), "looks fine"));
+      expect(out).toMatchObject({ ok: false, code: "blocked", blocking: [{ criterion: "C.system.promotion", verdict: "fail" }] });
+      expect(i.state()!.head).toBe(head);
+      expect(i.realization(realization.id)!.realization.status).toBe("awaiting-admin");
+    });
+  });
+
+  it("needs a rationale for advisories and records them with the evidence providers", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      const { realization } = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
+      const { candidate } = i.recordCandidate({ realizationId: realization.id, commit: "2".repeat(40), manifest: {}, changedPaths: ["things/webapp/ontology.yaml"], changedNodes: [] });
+      i.recordEvaluations(candidate.id, [
+        withProvider(ev(candidate.id, "C.people.list", "pass"), "fake"),
+        withProvider(ev(candidate.id, "C.nice", "unknown"), "fake,off"),
+      ], "awaiting-admin");
+      const gates = [...hard("C.people.list"), { id: "C.nice", severity: "soft" as const, blocking: false }];
+      expect(await i.accept(acceptInput(realization.id, gates, " "))).toMatchObject({ ok: false, code: "advisories-unacknowledged", blocking: [] });
+      const out = await i.accept(acceptInput(realization.id, gates, "the wording change is deliberate"));
+      if (!out.ok) throw new Error(JSON.stringify(out));
+      expect(out.advisories.map((a) => a.criterion)).toEqual(["C.nice"]);
+      expect(out.commit.decision).toMatchObject({ policy: "admin-accept", acknowledged: ["C.nice"], evidenceProviders: ["fake", "off"] });
+      expect(i.history()[0].decision.evidenceProviders).toEqual(["fake", "off"]);
+    });
+  });
+});
+
+describe("promote records evidence providers", () => {
+  it("lists the distinct System One providers behind the gating evaluations", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      const { c1, head } = await twoCandidates(i);
+      i.recordEvaluations(c1.id, [
+        { ...ev(c1.id, "C.people.list", "pass"), provenance: { engine: "system-one", provider: "fake" } },
+        { ...ev(c1.id, "C.people.list", "pass"), hook: "hook.rules", provenance: { engine: "rules" } },
+        { ...ev(c1.id, "C.unrelated", "pass"), provenance: { provider: "typesafe" } },
+      ], "evaluated");
+      const out = await i.promote(promoteInput([c1.id], head, { [c1.id]: hard("C.people.list") }));
+      if (!out.ok) throw new Error(JSON.stringify(out));
+      expect(out.commit.decision.evidenceProviders).toEqual(["fake"]);
     });
   });
 });

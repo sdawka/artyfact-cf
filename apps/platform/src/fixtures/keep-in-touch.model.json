@@ -4669,7 +4669,8 @@
         ],
         "deferred": false,
         "hooks": [
-          "hook.system.topology"
+          "hook.system.topology",
+          "hook.system.topology.semantic"
         ]
       },
       {
@@ -4742,6 +4743,30 @@
         "deferred": false,
         "hooks": [
           "hook.system.promotion"
+        ]
+      },
+      {
+        "id": "C.system.concurrency",
+        "version": 1,
+        "title": "Concurrent work is surfaced before promotion",
+        "claim": "Concurrent candidates touching the same subjects, journeys or criteria are reported as file, soft-semantic or hard-semantic conflicts before any of them is promoted",
+        "ownerKind": "system",
+        "ownerId": "system.keep-in-touch",
+        "subjectKind": "system",
+        "subjectId": "system.keep-in-touch",
+        "targetKind": "model",
+        "sourceRefs": [],
+        "refines": [],
+        "satisfies": [],
+        "severity": "soft",
+        "gates": [
+          "submission",
+          "candidate",
+          "promotion"
+        ],
+        "deferred": false,
+        "hooks": [
+          "hook.system.overlap"
         ]
       },
       {
@@ -5142,15 +5167,14 @@
         "engine": "model-rules",
         "targetKind": "model",
         "triggers": [
-          "submission",
-          "promotion"
+          "submission"
         ],
         "inputs": {
           "packs": "metamodel@1"
         },
         "timeoutMs": 60000,
         "costTier": "free",
-        "binding": "defined"
+        "binding": "bound"
       },
       {
         "id": "hook.system.purpose.model",
@@ -5170,7 +5194,7 @@
         },
         "timeoutMs": 60000,
         "costTier": "cheap",
-        "binding": "defined"
+        "binding": "bound"
       },
       {
         "id": "hook.system.purpose.outcome",
@@ -5211,7 +5235,25 @@
         },
         "timeoutMs": 60000,
         "costTier": "free",
-        "binding": "defined"
+        "binding": "bound"
+      },
+      {
+        "id": "hook.system.topology.semantic",
+        "version": 1,
+        "assay": "system.topology.semantic",
+        "criteria": [
+          "C.system.topology"
+        ],
+        "tier": "semantic",
+        "engine": "system-one",
+        "targetKind": "model",
+        "triggers": [
+          "submission"
+        ],
+        "inputs": {},
+        "timeoutMs": 60000,
+        "costTier": "cheap",
+        "binding": "bound"
       },
       {
         "id": "hook.system.autonomy",
@@ -5254,7 +5296,7 @@
         },
         "timeoutMs": 60000,
         "costTier": "free",
-        "binding": "defined"
+        "binding": "bound"
       },
       {
         "id": "hook.system.promotion",
@@ -5275,7 +5317,28 @@
         },
         "timeoutMs": 60000,
         "costTier": "free",
-        "binding": "defined"
+        "binding": "bound"
+      },
+      {
+        "id": "hook.system.overlap",
+        "version": 1,
+        "assay": "system.overlap",
+        "criteria": [
+          "C.system.concurrency"
+        ],
+        "tier": "basic",
+        "engine": "diff",
+        "targetKind": "model",
+        "triggers": [
+          "submission",
+          "candidate"
+        ],
+        "inputs": {
+          "mode": "overlap"
+        },
+        "timeoutMs": 60000,
+        "costTier": "free",
+        "binding": "bound"
       },
       {
         "id": "hook.webapp.exists",
@@ -7125,16 +7188,23 @@
       {
         "id": "evolution.5",
         "title": "Private digests (later)",
-        "intent": "Resolve publication topology, audience and subscription contract first; verify no group interaction emerges",
+        "intent": "Resolve publication topology, audience and subscription contract first; verify no group interaction emerges. Reword the no-engagement-mechanics commitment so a reader-driven digest cannot be read as group discussion.",
         "state": "proposed",
         "kind": "genome-amendment",
         "affectedNodes": [
           "entity.DigestEdition",
           "entity.Subscription",
-          "section.domain"
+          "section.domain",
+          "commitment.no-engagement-mechanics"
         ],
         "affectedClaims": [],
-        "genomeDelta": [],
+        "genomeDelta": [
+          {
+            "op": "change",
+            "path": "description.yaml#commitment.no-engagement-mechanics",
+            "summary": "Restate the commitment so it rules out group discussion explicitly and says a missed goal is never punished."
+          }
+        ],
         "acceptanceCriteria": [
           "C.webapp.digest.private"
         ],
@@ -7196,13 +7266,16 @@
       "C.system.autonomy": "criteria.yaml",
       "C.system.readiness": "criteria.yaml",
       "C.system.promotion": "criteria.yaml",
+      "C.system.concurrency": "criteria.yaml",
       "hook.system.structure": "criteria.yaml",
       "hook.system.purpose.model": "criteria.yaml",
       "hook.system.purpose.outcome": "criteria.yaml",
       "hook.system.topology": "criteria.yaml",
+      "hook.system.topology.semantic": "criteria.yaml",
       "hook.system.autonomy": "criteria.yaml",
       "hook.system.readiness": "criteria.yaml",
       "hook.system.promotion": "criteria.yaml",
+      "hook.system.overlap": "criteria.yaml",
       "thing.webapp": "things/webapp/thing.yaml",
       "screen.signin": "things/webapp/ontology.yaml",
       "component.SignInForm": "things/webapp/ontology.yaml",
@@ -7446,66 +7519,17 @@
         {
           "level": "warning",
           "rule": "hook.unbound",
-          "subject": "C.system.promotion",
-          "message": "Criterion C.system.promotion has a hook whose implementation is missing.",
-          "facts": [
-            [
-              "criterionHook",
-              "C.system.promotion",
-              "hook.system.promotion"
-            ],
-            [
-              "hook",
-              "hook.system.promotion",
-              "defined"
-            ]
-          ],
-          "derivation": {
-            "relation": "warning",
-            "tuple": [
-              "hook.unbound",
-              "C.system.promotion"
-            ],
-            "rule": "readiness@1:39",
-            "edb": false,
-            "children": [
-              {
-                "relation": "criterionHook",
-                "tuple": [
-                  "C.system.promotion",
-                  "hook.system.promotion"
-                ],
-                "edb": true,
-                "children": []
-              },
-              {
-                "relation": "hook",
-                "tuple": [
-                  "hook.system.promotion",
-                  "defined"
-                ],
-                "edb": true,
-                "children": []
-              }
-            ],
-            "alternatives": 1
-          },
-          "pack": "readiness@1"
-        },
-        {
-          "level": "warning",
-          "rule": "hook.unbound",
           "subject": "C.system.purpose",
           "message": "Criterion C.system.purpose has a hook whose implementation is missing.",
           "facts": [
             [
               "criterionHook",
               "C.system.purpose",
-              "hook.system.purpose.model"
+              "hook.system.purpose.outcome"
             ],
             [
               "hook",
-              "hook.system.purpose.model",
+              "hook.system.purpose.outcome",
               "defined"
             ]
           ],
@@ -7522,7 +7546,7 @@
                 "relation": "criterionHook",
                 "tuple": [
                   "C.system.purpose",
-                  "hook.system.purpose.model"
+                  "hook.system.purpose.outcome"
                 ],
                 "edb": true,
                 "children": []
@@ -7530,154 +7554,7 @@
               {
                 "relation": "hook",
                 "tuple": [
-                  "hook.system.purpose.model",
-                  "defined"
-                ],
-                "edb": true,
-                "children": []
-              }
-            ],
-            "alternatives": 1
-          },
-          "pack": "readiness@1"
-        },
-        {
-          "level": "warning",
-          "rule": "hook.unbound",
-          "subject": "C.system.readiness",
-          "message": "Criterion C.system.readiness has a hook whose implementation is missing.",
-          "facts": [
-            [
-              "criterionHook",
-              "C.system.readiness",
-              "hook.system.readiness"
-            ],
-            [
-              "hook",
-              "hook.system.readiness",
-              "defined"
-            ]
-          ],
-          "derivation": {
-            "relation": "warning",
-            "tuple": [
-              "hook.unbound",
-              "C.system.readiness"
-            ],
-            "rule": "readiness@1:39",
-            "edb": false,
-            "children": [
-              {
-                "relation": "criterionHook",
-                "tuple": [
-                  "C.system.readiness",
-                  "hook.system.readiness"
-                ],
-                "edb": true,
-                "children": []
-              },
-              {
-                "relation": "hook",
-                "tuple": [
-                  "hook.system.readiness",
-                  "defined"
-                ],
-                "edb": true,
-                "children": []
-              }
-            ],
-            "alternatives": 1
-          },
-          "pack": "readiness@1"
-        },
-        {
-          "level": "warning",
-          "rule": "hook.unbound",
-          "subject": "C.system.structure",
-          "message": "Criterion C.system.structure has a hook whose implementation is missing.",
-          "facts": [
-            [
-              "criterionHook",
-              "C.system.structure",
-              "hook.system.structure"
-            ],
-            [
-              "hook",
-              "hook.system.structure",
-              "defined"
-            ]
-          ],
-          "derivation": {
-            "relation": "warning",
-            "tuple": [
-              "hook.unbound",
-              "C.system.structure"
-            ],
-            "rule": "readiness@1:39",
-            "edb": false,
-            "children": [
-              {
-                "relation": "criterionHook",
-                "tuple": [
-                  "C.system.structure",
-                  "hook.system.structure"
-                ],
-                "edb": true,
-                "children": []
-              },
-              {
-                "relation": "hook",
-                "tuple": [
-                  "hook.system.structure",
-                  "defined"
-                ],
-                "edb": true,
-                "children": []
-              }
-            ],
-            "alternatives": 1
-          },
-          "pack": "readiness@1"
-        },
-        {
-          "level": "warning",
-          "rule": "hook.unbound",
-          "subject": "C.system.topology",
-          "message": "Criterion C.system.topology has a hook whose implementation is missing.",
-          "facts": [
-            [
-              "criterionHook",
-              "C.system.topology",
-              "hook.system.topology"
-            ],
-            [
-              "hook",
-              "hook.system.topology",
-              "defined"
-            ]
-          ],
-          "derivation": {
-            "relation": "warning",
-            "tuple": [
-              "hook.unbound",
-              "C.system.topology"
-            ],
-            "rule": "readiness@1:39",
-            "edb": false,
-            "children": [
-              {
-                "relation": "criterionHook",
-                "tuple": [
-                  "C.system.topology",
-                  "hook.system.topology"
-                ],
-                "edb": true,
-                "children": []
-              },
-              {
-                "relation": "hook",
-                "tuple": [
-                  "hook.system.topology",
+                  "hook.system.purpose.outcome",
                   "defined"
                 ],
                 "edb": true,
@@ -8317,7 +8194,7 @@
       "fail": 0,
       "unknown": 0,
       "stale": 0,
-      "notRun": 19
+      "notRun": 20
     },
     "outcomeProgress": {
       "observed": 0,

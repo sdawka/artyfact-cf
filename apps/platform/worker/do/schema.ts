@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS evolutions (id TEXT PRIMARY KEY, title TEXT, status T
 CREATE TABLE IF NOT EXISTS realizations (id TEXT PRIMARY KEY, evolution_id TEXT NOT NULL, n INTEGER NOT NULL, target TEXT NOT NULL,
   fork_repo TEXT NOT NULL, token_id TEXT, token_expires TEXT, base_commit TEXT, agent_label TEXT, status TEXT NOT NULL,
   packet_json TEXT, packet_hash TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-  base_repo TEXT, base_head TEXT, role TEXT, remote TEXT, rejection_reason TEXT);
+  base_repo TEXT, base_head TEXT, role TEXT, remote TEXT, rejection_reason TEXT, secret_hash TEXT);
 CREATE TABLE IF NOT EXISTS checkpoints (realization_id TEXT NOT NULL, seq INTEGER NOT NULL, message TEXT, commit_hash TEXT,
   created_at TEXT NOT NULL, PRIMARY KEY (realization_id, seq));
 CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, realization_id TEXT NOT NULL, commit_hash TEXT NOT NULL,
@@ -37,6 +37,7 @@ export const ADDED_COLUMNS: [table: string, column: string, type: string][] = [
   ["realizations", "role", "TEXT"],
   ["realizations", "remote", "TEXT"],
   ["realizations", "rejection_reason", "TEXT"],
+  ["realizations", "secret_hash", "TEXT"],
 ];
 
 export function applySchema(sql: SqlStorage): void {

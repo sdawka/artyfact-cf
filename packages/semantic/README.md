@@ -15,7 +15,7 @@ Thin client, question catalogue, threshold policy and provenance for TypeSafe Sy
 
 `env` also accepts `fetch` for injection in tests. `ask(state, questions, {timeoutMs = 2500, retries = 1, backoffMs = 200, cacheKey})` retries once on timeout, 429 and 529; other failures throw `S1Error`. Successful live replies are cached in memory (200 entries, LRU) under `cacheKeyFor(state, questions, model)`, which a Worker can reuse to persist replies. The `judgments.*` functions never throw: failures become `verdict: 'unknown'`, `level: 'info'`, `provenance.provider: 'error'`.
 
-Fake directives, matched anywhere in `JSON(state)`: `#s1low` (low confidence), `#s1no` (noul 0.05, choice `none` or the last option, score 0), `#s1pick:<key>` (choice key).
+Fake directives, matched anywhere in `JSON(state)`: `#s1low` (low confidence), `#s1no` (noul 0.05, choice `none` or the last option, score 0), `#s1pick:<key>` (choice key), `#s1harm` (every noul a confident yes). Without directives, every question gets the `benign` answer its catalogue entry declares (`yes`/`no` for noul, an option key for choice, a level index for score), so a benign Genome passes. The fake reads nothing else, and `benign` is stripped before a question goes to System One. Fake answers are canned: they ignore the evidence, and every evaluation built on them carries `provenance.provider: "fake"`.
 
 ## Thresholds
 

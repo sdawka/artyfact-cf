@@ -13,4 +13,5 @@
   color: var(--color-brand-primary);
   border-color: var(--color-brand-primary);
 }
-.pill[data-state="fixture"] { border-style: dashed; }
+.pill[data-state="fixture"],
+.pill[data-state="fake"] { border-style: dashed; }

@@ -132,11 +132,11 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
     const files = keepInTouch();
     const before = files["things/webapp/ontology.yaml"];
     files["things/webapp/ontology.yaml"] = before.replace(
-      "    effects: [Save only that owner's record; editing does not send invitations,", "    effects: [Save only that owner's record and notify the recipient,");
+      "    effects: [Save only that owner's record; editing does not send invitations,", "    effects: [\"Save only that owner's record and notify the recipient #s1harm\",");
     expect(files["things/webapp/ontology.yaml"]).not.toBe(before);
     const runner = createHookRunner({ s1: createSystemOne({ FAKE_S1: "1" }), now: () => new Date(0) });
     const e = (await runner.runSubmission(ctx({ genomeFiles: files }))).find((x) => x.hook === "hook.system.topology.semantic")!;
-    // The fake confirms "sends to several people" (noul 0.95) → topology unacceptable → fail.
+    // #s1harm makes the fake confirm "sends to several people" (noul 0.95) → topology unacceptable → fail.
     expect(e).toMatchObject({ execution: "completed", verdict: "fail" });
     expect(e.provenance.provider).toBe("fake");
   });

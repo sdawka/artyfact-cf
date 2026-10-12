@@ -8,7 +8,7 @@ const delta = (...tags: string[]) => ({ changes: tags.map((t, i) => ({ ...withTa
 
 describe('reviewDelta', () => {
   it('>=0.9 contradiction -> error + fail', async () => {
-    const [r] = await reviewDelta(fake, model, delta(''), commitments);
+    const [r] = await reviewDelta(fake, model, delta('#s1harm'), commitments);
     expect(r).toMatchObject({ id: 'ch0', level: 'error', verdict: 'fail' });
     expect(r!.contradicts).toEqual({ C1: 0.95, C2: 0.95 });
     expect(r!.provenance).toMatchObject({ provider: 'fake', model: 'jev-fake' });
@@ -38,6 +38,12 @@ describe('reviewDelta', () => {
     expect(r).toMatchObject({ level: 'warning', verdict: 'unknown' });
     expect(r!.provenance.provider).toBe('typesafe');
   });
+  it('fake default: harm signals confidently absent, deliberate choice -> info + pass', async () => {
+    const [r] = await reviewDelta(fake, model, delta(''), commitments);
+    expect(r).toMatchObject({ level: 'info', verdict: 'pass', weakens: 0.05 });
+    expect(r!.contradicts).toEqual({ C1: 0.05, C2: 0.05 });
+    expect(r!.changeClass).toMatchObject({ choice: 'deliberate-nonstandard-choice' });
+  });
   it('all signals low, clarification -> info + pass', async () => {
     const [r] = await reviewDelta(fake, model, delta('#s1no'), commitments);
     expect(r).toMatchObject({ level: 'info', verdict: 'pass', weakens: 0.05, touchesConsent: 0.05 });
@@ -49,7 +55,7 @@ describe('reviewDelta', () => {
     expect(r).toMatchObject({ level: 'error', verdict: 'fail' });
   });
   it('one result per change, in order', async () => {
-    const rs = await reviewDelta(fake, model, delta('#s1no', '#s1low', ''), commitments);
+    const rs = await reviewDelta(fake, model, delta('#s1no', '#s1low', '#s1harm'), commitments);
     expect(rs.map((r) => r.level)).toEqual(['info', 'warning', 'error']);
   });
   it('provider off -> unknown/info, no fetch; failure -> provider error', async () => {
@@ -76,7 +82,7 @@ describe('reviewDelta', () => {
 const node = (name: string) => ({ id: 'n1', kind: 'operation', name });
 describe('topology', () => {
   it('maps verdicts from thresholds', async () => {
-    const [yes] = await topology(fake, [{ node: node('Broadcast') }]);
+    const [yes] = await topology(fake, [{ node: node('Broadcast #s1harm') }]);
     expect(yes).toMatchObject({ nodeId: 'n1', multiRecipient: 0.95, verdict: 'pass' });
     const [no] = await topology(fake, [{ node: node('Send #s1no') }]);
     expect(no).toMatchObject({ multiRecipient: 0.05, verdict: 'fail' });
@@ -92,8 +98,10 @@ describe('topology', () => {
 
 describe('purposeMeasures', () => {
   const claim = { id: 'T1', mechanism: 'm', outcome: 'o', indicator: 'i' };
-  it('fake default: engagement substitute -> fail; #s1no: not output? -> fail; never pass when unsure', async () => {
-    const [a] = await purposeMeasures(fake, 'p', [claim]);
+  it('fake default: sound measure -> pass; #s1harm: engagement substitute -> fail; never pass when unsure', async () => {
+    const [d] = await purposeMeasures(fake, 'p', [claim]);
+    expect(d!.verdict).toBe('pass');
+    const [a] = await purposeMeasures(fake, 'p #s1harm', [claim]);
     expect(a!.verdict).toBe('fail');
     const [b] = await purposeMeasures(fake, 'p', [{ ...claim, outcome: '#s1low' }]);
     expect(b!.verdict).toBe('unknown');
@@ -114,7 +122,8 @@ describe('purposeMeasures', () => {
 describe('interference', () => {
   const ev = { evolution: 'e', changedSubjects: ['s'], summary: 'x' };
   it('verdict from interferes', async () => {
-    expect((await interference(fake, ev, ev, {})).verdict).toBe('pass');
+    expect((await interference(fake, ev, ev, {})).verdict).toBe('fail');
+    expect((await interference(fake, { ...ev, summary: '#s1harm' }, ev, {})).verdict).toBe('pass');
     expect((await interference(fake, { ...ev, summary: '#s1no' }, ev, {})).verdict).toBe('fail');
     expect((await interference(createSystemOne({}), ev, ev, {})).verdict).toBe('unknown');
   });

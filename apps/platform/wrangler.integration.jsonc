@@ -1,0 +1,12 @@
+{
+  // Integration tests only (test/integration, ARTYFACT_INTEGRATION=1): the real Artifacts service, namespace artyfact-test.
+  "$schema": "../../node_modules/wrangler/config-schema.json",
+  "name": "artyfact-platform-integration",
+  "main": "./worker/index.ts",
+  "compatibility_date": "2026-10-12",
+  "compatibility_flags": ["nodejs_compat"],
+  "artifacts": [{ "binding": "ARTIFACTS", "namespace": "artyfact-test", "remote": true }],
+  "exports": { "SystemAuthority": { "type": "durable-object", "storage": "sqlite" } },
+  "durable_objects": { "bindings": [{ "name": "SYSTEMS", "class_name": "SystemAuthority" }] },
+  "vars": { "ARTIFACTS_NAMESPACE": "artyfact-test", "PUBLIC_URL": "http://localhost:8799", "ACCOUNT_ID": "", "PREVIEW_HOST_ALLOWLIST": "", "FAKE_S1": "1" }
+}

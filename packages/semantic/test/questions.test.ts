@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { classifyStatementQuestions, interferenceQuestions, purposeMeasureQuestions, reviewDeltaQuestions, topologyQuestions } from '../src';
+import { classifyStatementQuestions, fakeAnswers, interferenceQuestions, purposeMeasureQuestions, reviewDeltaQuestions, topologyQuestions, wireQuestions } from '../src';
+import type { Questions } from '../src';
 import { change, commitments, model } from './helpers';
 
 describe('question catalogue (Appendix E)', () => {
@@ -34,5 +35,31 @@ describe('question catalogue (Appendix E)', () => {
     expect(Object.keys(attach)).toEqual(['n1', 'new']);
     for (const d of [...Object.values(kind), ...Object.values(attach)]) expect(d.length).toBeLessThanOrEqual(255);
     expect(q.isDistinctiveChoice!.type).toBe('noul');
+  });
+  it('every catalogue question declares a valid benign answer, and only the fake reads it', () => {
+    const all: [string, Questions][] = [
+      ['reviewDelta', reviewDeltaQuestions(change, commitments, model.governing)],
+      ['topology', topologyQuestions()],
+      ['purposeMeasure', purposeMeasureQuestions()],
+      ['interference', interferenceQuestions()],
+      ['classifyStatement', classifyStatementQuestions('s', [{ kind: 'journey' }], [{ id: 'n1' }])],
+    ];
+    for (const [builder, qs] of all) {
+      for (const [id, q] of Object.entries(qs)) {
+        const at = `${builder}.${id}`;
+        if (q.type === 'noul') expect(['yes', 'no'], at).toContain(q.benign);
+        else if (q.type === 'choice') expect(Object.keys(q.criteria), at).toContain(q.benign);
+        else expect(q.benign !== undefined && q.benign >= 0 && q.benign < q.criteria.length, at).toBe(true);
+      }
+      // The fake answers exactly the declared benign answer.
+      const answers = fakeAnswers({}, qs);
+      for (const [id, q] of Object.entries(qs)) {
+        const a = answers[id]!;
+        if (q.type === 'noul' && a.type === 'noul') expect(a.noul > 0.5 ? 'yes' : 'no', `${builder}.${id}`).toBe(q.benign);
+        if (q.type === 'choice' && a.type === 'choice') expect(a.choice).toBe(q.benign);
+        if (q.type === 'score' && a.type === 'score') expect(a.score).toBe(q.benign);
+      }
+      expect(JSON.stringify(wireQuestions(qs))).not.toContain('benign');
+    }
   });
 });

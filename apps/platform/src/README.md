@@ -94,9 +94,9 @@ AssayHook, Journey, Evolution, Realization, CandidateManifest, SystemCommit` fro
 `ModelBundle.source?` is set by the client.
 
 `client.ts` keeps every route in `paths` (all under `/api/systems/:id/...`). Reads: `getSystems,
-getModel(systemId, rev) → UiBundle, getReadiness, getEvolutions, getRealization, getCandidates,
-getEvaluations(systemId, {candidate?}), getConflicts, getHistory, getPacket`. Writes: `startWork,
-submit, promote` (a 409 rejects with `StaleBaseError { currentHead }`) and `acceptAmendment`.
+getModel(systemId, rev) → UiBundle, getReadiness, getEvolutions, getCandidates,
+getEvaluations(systemId, {candidate?}), getConflicts, getHistory`. Writes: `startWork,
+promote` (a 409 rejects with `StaleBaseError { currentHead }`) and `acceptAmendment`.
 `subscribeEvents(systemId, onEvent)` uses an EventSource and falls back to `{type:'poll'}` every 3 s.
 
 **Fixture fallback:** if `/api/systems` fails or is empty, `getModel` serves
@@ -108,9 +108,9 @@ from `examples/keep-in-touch-system` by `npm run build:fixture -w @artyfact/plat
 (`scripts/build-fixture.ts`: `loadSystem` + templates, readiness from `validate`).
 
 `queries.ts` (TanStack Query 5). Hooks read `systemId`/`rev` from the route: `useSystems,
-useModelBundle, useReadiness, useEvolutions` (polls every 5 s), `useRealization(id), useCandidates(evolutionId),
-useEvaluations({candidate?})` (→ `Evaluation[]`), `useConflicts, useHistory, usePacket(id),
-useRealizationsTouching(nodeId)`. Mutations: `useStartWork, useSubmit, usePromote,
+useModelBundle, useReadiness, useEvolutions` (polls every 5 s), `useCandidates(evolutionId),
+useEvaluations({candidate?})` (→ `Evaluation[]`), `useConflicts, useHistory,
+useRealizationsTouching(nodeId)`. Mutations: `useStartWork, usePromote,
 useAcceptAmendment`. `useSystemEvents()` is mounted once by the Shell and invalidates queries per
 event. Keys are in `qk`.
 

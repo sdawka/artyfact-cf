@@ -174,6 +174,19 @@ describe("Shell", () => {
       const chip = inspector.querySelector('[title="Criterion: C.webapp.screen.people"]')!;
       return chip.closest("section")!.querySelector("[data-verdict]")!.getAttribute("data-verdict");
     };
+    it("marks the TopBar only when a loaded evaluation came from the fake provider", async () => {
+      renderApp(`${BASE}/overview`, undefined, seed);
+      await screen.findByRole("heading", { level: 1, name: "Overview" });
+      expect(screen.queryByText("System One: fake provider")).toBeNull();
+    });
+    it("shows the fake-provider marker in the TopBar", async () => {
+      renderApp(`${BASE}/overview`, undefined, (qc) => {
+        seed(qc);
+        qc.setQueryData(qk.evaluations("system.keep-in-touch"), { evaluations: [{ ...evaluation, provenance: { provider: "fake" } }] });
+      });
+      const pill = await screen.findByText("System One: fake provider");
+      expect(pill.closest("header")).toBeTruthy();
+    });
     it("never shows an unpromoted candidate's pass on the canonical view", async () => {
       renderApp(`${BASE}/overview?focus=screen.people`, undefined, seed);
       expect(await screenPeopleVerdict()).toBe("not-run");

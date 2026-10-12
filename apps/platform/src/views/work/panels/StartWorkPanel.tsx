@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import type { Evolution, Realization, StartWorkRequest, StartWorkResponse } from "../../../../shared/api";
 import { useStartWork } from "@/api/queries";
+import { ApiRequestError } from "@/api/client";
 import { useModel } from "@/model/useModel";
 import { PacketViewer, type PacketViewerProps } from "./PacketViewer";
 import styles from "../work.module.css";
@@ -33,6 +34,13 @@ export function normalizeStartWork(res: StartWorkResponse): StartedWork {
   };
 }
 
+/** Plain wording for the two auth refusals; anything else keeps the server's message. */
+export function startWorkError(err: Error): string {
+  if (err instanceof ApiRequestError && err.status === 401) return "Start work needs the admin token (401). Enter it and try again.";
+  if (err instanceof ApiRequestError && err.status === 403) return "The admin token was refused (403). Check it and try again.";
+  return err.message;
+}
+
 /** Form to claim an Evolution; on success shows the Task Packet and the one-time command. */
 export function StartWorkPanel({ evolution }: { evolution: Evolution }) {
   const uid = useId();
@@ -41,6 +49,8 @@ export function StartWorkPanel({ evolution }: { evolution: Evolution }) {
   const [agentLabel, setAgentLabel] = useState("");
   const [target, setTarget] = useState<"app" | "genome">(evolution.kind === "genome-amendment" ? "genome" : "app");
   const [role, setRole] = useState<(typeof ROLES)[number]>("implementer");
+  // Held in component state only: never persisted, cleared once work has started.
+  const [adminToken, setAdminToken] = useState("");
   const [started, setStarted] = useState<StartedWork | null>(null);
 
   const reason = m.bundle.source === "fixture"
@@ -54,8 +64,8 @@ export function StartWorkPanel({ evolution }: { evolution: Evolution }) {
     if (reason) return;
     const body: StartWorkRequest = { target, role, ...(agentLabel.trim() && { agentLabel: agentLabel.trim() }) };
     start.mutate(
-      { evolutionId: evolution.id, body },
-      { onSuccess: (res) => setStarted(normalizeStartWork(res)) },
+      { evolutionId: evolution.id, body, ...(adminToken && { adminToken }) },
+      { onSuccess: (res) => { setAdminToken(""); setStarted(normalizeStartWork(res)); } },
     );
   };
 
@@ -81,13 +91,17 @@ export function StartWorkPanel({ evolution }: { evolution: Evolution }) {
               {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
+          <div className={styles.field}>
+            <label htmlFor={`${uid}-k`}>Admin token</label>
+            <input id={`${uid}-k`} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} autoComplete="off" />
+          </div>
           <div className={styles.actions}>
             <button type="submit" className={`u-brackets ${styles.primary}`} disabled={!!reason || start.isPending} aria-describedby={reason ? `${uid}-why` : undefined}>
               {start.isPending ? "Starting…" : "Start work"}
             </button>
             {reason && <span id={`${uid}-why`} className={styles.reason}>{reason}</span>}
           </div>
-          {start.isError && <p role="alert" className={styles.error}>{start.error.message}</p>}
+          {start.isError && <p role="alert" className={styles.error}>{startWorkError(start.error)}</p>}
         </form>
       )}
       {started && (

@@ -6,9 +6,11 @@ import { diffModels, type Readiness, type schema, type SystemModel } from "@arty
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  CandidatesResponse, ConflictReport, ConflictsResponse, Evaluation, Evolution, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  CandidatesResponse, ConflictReport, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
 } from "../shared/api";
+import { newRealizationSecret } from "./auth";
+import { sha256Hex } from "./util";
 import { artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
 import { buildGenome, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
@@ -248,7 +250,7 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
   try {
     await registryStub(env).registerRealization(rid, systemId, evolutionId, reserved.forkRepo);
     const ns = artifactsFor(env);
-    const forked = await forkAndWait(ns, reserved.baseRepo, reserved.forkRepo);
+    const forked = await forkAndWait(ns, reserved.baseRepo, reserved.forkRepo, { baseCommit: reserved.baseCommit });
     const token = await withRepo(ns, reserved.forkRepo, (r) => r.createToken("write", TOKEN_TTL_S));
     tokenId = token.id;
     const remote = remoteUrl(env, reserved.forkRepo, forked.remote);
@@ -263,12 +265,14 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
       sourceMap, baseTreePaths: tree, commands: scaffoldCommands(g.model, target),
       concurrentWork: await concurrentWork(env, systemId, evolutionId, rid), platformUrl, genomePrefix: prefix,
     });
-    const realization = await stub.activateRealization(rid, { tokenId: token.id, tokenExpires: token.expiresAt, remote, packet });
+    // The realization secret authorizes the agent's platform calls; only its SHA-256 is stored.
+    const secret = newRealizationSecret();
+    const realization = await stub.activateRealization(rid, { tokenId: token.id, tokenExpires: token.expiresAt, remote, packet, secretHash: await sha256Hex(secret) });
     await refreshRegistry(env, systemId);
-    const cli = packet.startCommand.replace("<token>", token.plaintext);
+    const cli = packet.startCommand.replace("<token>", token.plaintext).replace("<secret>", secret);
     return {
-      systemId, realization, packet, token: { value: token.plaintext, expiresAt: token.expiresAt, remote }, remote,
-      startCommand: cli, cli,
+      systemId, realization, packet: { ...packet, workspace: { ...packet.workspace, secret } },
+      token: { value: token.plaintext, expiresAt: token.expiresAt, remote }, secret, remote, startCommand: cli, cli,
     };
   } catch (e) {
     // Best-effort cleanup; never let it mask the original error. Never log the token itself.
@@ -369,7 +373,8 @@ async function computeConflicts(env: Env, systemId: string, candidateId: string)
   if (!candidate) return [];
   try {
     const reports = await hookRunner(env).conflicts({
-      systemId, candidate, genomeCommit: s.genomeCommit, genomeFiles: await canonicalFiles(env, s), openCandidates: open.filter((c) => c.id !== candidateId),
+      // A realization's earlier commits are superseded by its latest submit, never in conflict with it.
+      systemId, candidate, genomeCommit: s.genomeCommit, genomeFiles: await canonicalFiles(env, s), openCandidates: open.filter((c) => c.realizationId !== candidate.realizationId),
     });
     await stub.storeConflicts(candidateId, reports, null);
     return reports;
@@ -392,7 +397,7 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
   const [genomeFiles, candidate, others] = await Promise.all([
     canonicalFiles(env, s),
     hookRef(env, s.systemId, cand),
-    storedCandidates(env, s.systemId).then((xs) => Promise.all(xs.filter((c) => c.id !== cand.id).map((c) => hookRef(env, s.systemId, c)))),
+    storedCandidates(env, s.systemId).then((xs) => Promise.all(xs.filter((c) => c.realizationId !== cand.realizationId).map((c) => hookRef(env, s.systemId, c)))),
   ]);
   const required = requiredFiles((await canonicalGenome(env, s)).model);
   const { tree, exists, recomputedHash } = await withRepo(artifactsFor(env), rec.forkRepo, async (repo) => {
@@ -609,15 +614,15 @@ export async function review(env: Env, systemId: string, rid: string): Promise<G
 
 // ------------------------------------------------------------------ promote + accept
 
-export async function promote(
-  env: Env, systemId: string, body: { candidates?: unknown; candidateIds?: unknown; expectedHead?: unknown; rationale?: unknown },
-): Promise<PromoteResponse> {
-  const ids = (Array.isArray(body.candidates) ? body.candidates : Array.isArray(body.candidateIds) ? body.candidateIds : []) as unknown[];
-  if (!ids.length || !ids.every((x) => typeof x === "string")) throw badRequest("candidates (or candidateIds) must be a non-empty string array");
-  if (!("expectedHead" in body) || (body.expectedHead !== null && typeof body.expectedHead !== "string")) throw badRequest("expectedHead is required (string or null)");
-  const rationale = typeof body.rationale === "string" ? body.rationale : "";
+/**
+ * The promotion gate for `ids`, computed from the canonical Genome, failing closed. When the head is still
+ * `expectedHead`, the candidates' hooks re-run first with promotionFacts (base-current, manifest-exact, evidence-fresh).
+ * Shared by promote and accept.
+ */
+async function prepareGate(
+  env: Env, systemId: string, s: HeadState, ids: string[], expectedHead: string | null,
+): Promise<{ g: LoadedGenome; gates: Record<string, GateCriterion[]> }> {
   const stub = systemStub(env, systemId);
-  const s = await headState(env, systemId);
   // Fail closed: if the gate cannot be computed, refuse; never treat an exception as "no gates".
   const unavailable = (why: string) => conflict("gate-unavailable", `promotion gate unavailable: ${why}`);
   let g: LoadedGenome;
@@ -627,7 +632,7 @@ export async function promote(
     throw unavailable(`the Genome at ${s.genomeCommit} does not load (${(e as Error)?.message ?? e})`);
   }
   const gates: Record<string, GateCriterion[]> = {};
-  for (const id of ids as string[]) {
+  for (const id of ids) {
     const c = await stub.candidate(id);
     if (!c) throw notFound(`unknown candidate ${id}`);
     const rec = await record(env, systemId, c.realization);
@@ -640,22 +645,43 @@ export async function promote(
       throw unavailable(`criteria for ${id} could not be computed (${(e as Error)?.message ?? e})`);
     }
     // Revalidate on the exact commit before the CAS: hooks re-run with promotionFacts (base-current, manifest-exact, evidence-fresh).
-    if (["submitted", "evaluated", "selected"].includes(c.state) && s.head === body.expectedHead) {
+    if (["submitted", "evaluated", "selected"].includes(c.state) && s.head === expectedHead) {
       await computeConflicts(env, systemId, id);
-      const { evaluations } = await evaluate(env, s, rec, ref, "promotion", ids as string[]);
+      const { evaluations } = await evaluate(env, s, rec, ref, "promotion", ids);
       if (evaluations.length) await stub.recordEvaluations(id, evaluations);
     }
   }
+  return { g, gates };
+}
+
+/** Map a DO gate refusal to its HTTP error (the same for promote and accept). */
+function gateRefusal(out: { code: string; blocking: GateItem[]; advisories: GateItem[] }): HttpError {
+  const details = { blocking: out.blocking, advisories: out.advisories };
+  if (out.code === "advisories-unacknowledged") {
+    return new HttpError(400, out.code, "advisory criteria are not green; acknowledge them with a non-empty rationale", details);
+  }
+  return conflict("blocked", "blocking criteria (hard, with a bound hook) lack pass+completed evaluations", details);
+}
+
+export async function promote(
+  env: Env, systemId: string, body: { candidates?: unknown; candidateIds?: unknown; expectedHead?: unknown; rationale?: unknown },
+): Promise<PromoteResponse> {
+  const ids = (Array.isArray(body.candidates) ? body.candidates : Array.isArray(body.candidateIds) ? body.candidateIds : []) as unknown[];
+  if (!ids.length || !ids.every((x) => typeof x === "string")) throw badRequest("candidates (or candidateIds) must be a non-empty string array");
+  if (!("expectedHead" in body) || (body.expectedHead !== null && typeof body.expectedHead !== "string")) throw badRequest("expectedHead is required (string or null)");
+  const rationale = typeof body.rationale === "string" ? body.rationale : "";
+  const stub = systemStub(env, systemId);
+  const s = await headState(env, systemId);
+  const { g, gates } = await prepareGate(env, systemId, s, ids as string[], body.expectedHead as string | null);
   const out = await stub.promote({ candidateIds: ids as string[], expectedHead: body.expectedHead as string | null, rationale, by: "admin", gates, ...manifestExtras(g.model) });
   if (!out.ok) {
-    if (out.code === "stale-base") throw conflict("stale-base", "System head moved; reload and retry", { currentHead: out.currentHead });
-    if ("blocking" in out) {
-      const details = { blocking: out.blocking, advisories: out.advisories };
-      if (out.code === "advisories-unacknowledged") {
-        throw new HttpError(400, out.code, "advisory criteria are not green; acknowledge them with a non-empty rationale", details);
-      }
-      throw conflict("blocked", "blocking criteria (hard, with a bound hook) lack pass+completed evaluations", details);
+    if (out.code === "stale-base") {
+      const why = out.currentHead === body.expectedHead
+        ? "a candidate was built on an earlier System head; rebase it on the current head and resubmit"
+        : "System head moved; reload and retry";
+      throw conflict("stale-base", why, { currentHead: out.currentHead });
     }
+    if ("blocking" in out) throw gateRefusal(out);
     if (out.code === "not-found") throw notFound(out.message);
     throw conflict(out.code, out.message);
   }
@@ -684,13 +710,17 @@ export async function accept(
     if (e instanceof HttpError) throw e;
     throw unprocessable("invalid-genome", `candidate Genome does not load: ${(e as Error).message}`);
   }
-  const out = await stub.accept({ realizationId: rid, rationale, by: "admin", evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model) });
+  // The same blocking gate as promotion: hard criteria with a bound hook (scope included) must be pass+completed.
+  const s = await headState(env, systemId);
+  const { gates } = await prepareGate(env, systemId, s, [candId], s.head);
+  const out = await stub.accept({ realizationId: rid, rationale, by: "admin", evolutions: evolutionSeeds(g.model), gates: gates[candId], ...manifestExtras(g.model) });
   if (!out.ok) {
+    if ("blocking" in out) throw gateRefusal(out);
     if (out.code === "not-found") throw notFound(out.message);
     throw conflict(out.code, out.message);
   }
   await refreshRegistry(env, systemId);
-  return { genomeCommit: out.genomeCommit, realization: out.realization, commit: out.commit };
+  return { genomeCommit: out.genomeCommit, realization: out.realization, commit: out.commit, advisories: out.advisories };
 }
 
 /** Admin: reject a realization (Genome amendments in the review panel). `reason` is required. */
@@ -706,6 +736,12 @@ export async function reject(env: Env, systemId: string, rid: string, body: { re
   }
   await refreshRegistry(env, systemId);
   return { realization };
+}
+
+/** Every System the registry lists for a realization id (none when unknown); never throws on ambiguity. */
+export async function systemsHoldingRealization(env: Env, rid: string): Promise<string[]> {
+  const hit = await registryStub(env).resolveRealization(rid);
+  return !hit ? [] : "ambiguous" in hit ? hit.ambiguous : [hit.systemId];
 }
 
 /** Find which System a realization id belongs to (registry index). */

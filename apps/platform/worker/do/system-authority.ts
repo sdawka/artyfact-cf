@@ -161,11 +161,14 @@ export interface AcceptInput extends ManifestExtras {
   rationale: string;
   by: string;
   evolutions: EvolutionSeed[];
+  /** Gate criteria the Worker computed for the realization's latest candidate (the same gate as promotion). */
+  gates?: GateCriterion[];
 }
 
 export type AcceptResult =
-  | { ok: true; commit: SystemCommit; realization: Realization; genomeCommit: string }
-  | { ok: false; code: "not-found" | "invalid-state" | "stale-base"; message: string };
+  | { ok: true; commit: SystemCommit; realization: Realization; genomeCommit: string; advisories: GateItem[] }
+  | { ok: false; code: "not-found" | "invalid-state" | "stale-base" | "gate-unavailable"; message: string }
+  | { ok: false; code: "blocked" | "advisories-unacknowledged"; blocking: GateItem[]; advisories: GateItem[] };
 
 export interface PreparedCommit { head: string | null; manifest: SystemManifest; manifestHash: string }
 
@@ -317,6 +320,7 @@ export class SystemAuthority extends DurableObject<Env> {
       decision: {
         by: String(d.by ?? "platform"), policy: String(d.policy ?? "admin"), rationale: String(d.rationale ?? ""), at: String(d.at ?? r.created_at),
         ...(Array.isArray(d.acknowledged) && { acknowledged: d.acknowledged.map(String) }),
+        ...(Array.isArray(d.evidenceProviders) && { evidenceProviders: d.evidenceProviders.map(String) }),
       },
       createdAt: String(r.created_at),
     };
@@ -585,11 +589,11 @@ export class SystemAuthority extends DurableObject<Env> {
     });
   }
 
-  /** Store token metadata (never the plaintext) and the packet; emits `realization.created`. */
-  activateRealization(id: string, input: { tokenId: string; tokenExpires: string; remote: string; packet: TaskPacket }): Realization {
+  /** Store token metadata and the SHA-256 of the realization secret (never either plaintext) and the packet; emits `realization.created`. */
+  activateRealization(id: string, input: { tokenId: string; tokenExpires: string; remote: string; packet: TaskPacket; secretHash: string }): Realization {
     this.sql.exec(
-      "UPDATE realizations SET token_id = ?, token_expires = ?, remote = ?, packet_json = ?, packet_hash = ?, updated_at = ? WHERE id = ?",
-      input.tokenId, input.tokenExpires, input.remote, JSON.stringify(input.packet), input.packet.hash, nowIso(), id,
+      "UPDATE realizations SET token_id = ?, token_expires = ?, remote = ?, packet_json = ?, packet_hash = ?, secret_hash = ?, updated_at = ? WHERE id = ?",
+      input.tokenId, input.tokenExpires, input.remote, JSON.stringify(input.packet), input.packet.hash, input.secretHash, nowIso(), id,
     );
     const r = this.realizationDto(this.realizationRow(id)!);
     this.emit({ type: "realization.created", realization: r });
@@ -608,12 +612,18 @@ export class SystemAuthority extends DurableObject<Env> {
     if (!r) throw new ConflictError("not-found", `unknown realization ${id}`);
     if (["promoted", "accepted"].includes(String(r.status))) throw new ConflictError("invalid-state", `realization ${id} is ${r.status}`);
     this.ctx.storage.transactionSync(() => {
-      this.sql.exec("UPDATE realizations SET status = 'rejected', rejection_reason = ?, updated_at = ? WHERE id = ?", reason, nowIso(), id);
+      // Rejection revokes the realization secret together with the fork's write token.
+      this.sql.exec("UPDATE realizations SET status = 'rejected', rejection_reason = ?, secret_hash = NULL, updated_at = ? WHERE id = ?", reason, nowIso(), id);
       this.sql.exec("UPDATE candidates SET state = 'rejected' WHERE realization_id = ? AND state != 'promoted'", id);
     });
     const dto = this.realizationDto(this.realizationRow(id)!);
     this.emit({ type: "realization.updated", realization: dto });
     return dto;
+  }
+
+  /** SHA-256 (hex) of the realization's secret; null when unknown, not yet active, or revoked. */
+  realizationSecretHash(id: string): string | null {
+    return str(this.realizationRow(id)?.secret_hash);
   }
 
   /** Append a checkpoint; a repeat of the last (summary, commit) is a no-op. claimed → working. */
@@ -793,8 +803,12 @@ export class SystemAuthority extends DurableObject<Env> {
     type V = GateItem["verdict"];
     type X = GateItem["execution"];
     const out: GateItem[] = [];
-    for (const { id: criterion, severity } of gates) {
-      const rows = this.all("SELECT verdict, execution FROM evaluations WHERE candidate_id = ? AND criterion_id = ?", candidateId, criterion);
+    for (const { id: criterion, severity, offTriggerHooks } of gates) {
+      // The Worker names, from the Genome, the hooks that never run before promotion; only their not-run rows are
+      // disregarded. A not-run row of any other hook keeps the criterion blocking, whatever else passed.
+      const off = new Set(offTriggerHooks ?? []);
+      const rows = this.all("SELECT verdict, execution, hook_id FROM evaluations WHERE candidate_id = ? AND criterion_id = ?", candidateId, criterion)
+        .filter((r) => !(r.execution === "not-run" && off.has(String(r.hook_id))));
       // Missing evidence is unknown, never pass.
       if (!rows.length) out.push({ candidate: candidateId, criterion, severity, verdict: "unknown", execution: "missing" });
       for (const r of rows) {
@@ -805,6 +819,38 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   // ---------------------------------------------------------------- promotion
+
+  /**
+   * The gate shared by promote and accept, inside the caller's transaction. Throws {@link PromotionBlockedError} when
+   * a blocking criterion lacks pass+completed, or when advisories exist and `rationale` is empty. Returns the
+   * advisories and the distinct System One providers behind the gating evaluations.
+   */
+  private checkGate(rows: Row[], computed: Record<string, GateCriterion[] | undefined>, rationale: string): { advisories: GateItem[]; evidenceProviders: string[] } {
+    const items: GateItem[] = [];
+    const blockingIds = new Set<string>();
+    const providers = new Set<string>();
+    for (const c of rows) {
+      const gates = this.effectiveGates(c, computed[String(c.id)]);
+      items.push(...this.gateItems(String(c.id), gates));
+      for (const g of gates) {
+        if (g.blocking) blockingIds.add(`${c.id}|${g.id}`);
+        for (const p of this.evaluationProviders(String(c.id), g.id)) providers.add(p);
+      }
+    }
+    const blocking = items.filter((i) => blockingIds.has(`${i.candidate}|${i.criterion}`));
+    const advisories = items.filter((i) => !blockingIds.has(`${i.candidate}|${i.criterion}`));
+    if (blocking.length) throw new PromotionBlockedError("blocked", blocking, advisories);
+    if (advisories.length && !rationale.trim()) throw new PromotionBlockedError("advisories-unacknowledged", [], advisories);
+    return { advisories, evidenceProviders: [...providers].sort() };
+  }
+
+  /** System One providers recorded in the provenance of a candidate's evaluations for one criterion. */
+  private evaluationProviders(candidateId: string, criterion: string): string[] {
+    return this.all("SELECT observations_json FROM evaluations WHERE candidate_id = ? AND criterion_id = ?", candidateId, criterion)
+      .flatMap((r) => String(json<{ extra?: { provenance?: Record<string, unknown> } }>(r.observations_json, {}).extra?.provenance?.provider ?? "").split(","))
+      .map((p) => p.trim())
+      .filter((p) => p && p !== "none");
+  }
 
   /**
    * The gate actually enforced for one candidate, failing closed:
@@ -902,17 +948,7 @@ export class SystemAuthority extends DurableObject<Env> {
       }
       const composition = this.compositionProblems(rows, input.artifactId, prep.manifest);
       if (composition.length) throw new ConflictError("invalid-state", composition.join("; "));
-      const items: GateItem[] = [];
-      const blockingIds = new Set<string>();
-      for (const c of rows) {
-        const gates = this.effectiveGates(c, input.gates[String(c.id)]);
-        items.push(...this.gateItems(String(c.id), gates));
-        for (const g of gates) if (g.blocking) blockingIds.add(`${c.id}|${g.id}`);
-      }
-      const blocking = items.filter((i) => blockingIds.has(`${i.candidate}|${i.criterion}`));
-      const advisories = items.filter((i) => !blockingIds.has(`${i.candidate}|${i.criterion}`));
-      if (blocking.length) throw new PromotionBlockedError("blocked", blocking, advisories);
-      if (advisories.length && !input.rationale.trim()) throw new PromotionBlockedError("advisories-unacknowledged", [], advisories);
+      const { advisories, evidenceProviders } = this.checkGate(rows, input.gates, input.rationale);
 
       const ids = rows.map((c) => String(c.id));
       const evolutionIds = [...new Set(rows.map((c) => String(c.evolution_id)))];
@@ -924,7 +960,7 @@ export class SystemAuthority extends DurableObject<Env> {
       );
       const rejected = siblings.map((s) => String(s.id));
       const commit = this.writeCommit(prep, evolutionIds, {
-        by: input.by, policy: "admin", rationale: input.rationale, candidates: ids, rejected,
+        by: input.by, policy: "admin", rationale: input.rationale, candidates: ids, rejected, evidenceProviders,
         ...(advisories.length && { acknowledged: [...new Set(advisories.map((a) => a.criterion))] }),
       });
       const at = nowIso();
@@ -986,7 +1022,7 @@ export class SystemAuthority extends DurableObject<Env> {
     if (!cand) return { ok: false, code: "invalid-state", message: "realization has no submitted candidate" };
     if (rec.realization.status === "promoted") {
       const head = this.kv("head")!;
-      return { ok: true, commit: this.systemCommit(head)!, realization: rec.realization, genomeCommit: this.kv("genome_commit")! };
+      return { ok: true, commit: this.systemCommit(head)!, realization: rec.realization, genomeCommit: this.kv("genome_commit")!, advisories: [] };
     }
     if (TERMINAL_REALIZATION.includes(rec.realization.status)) return { ok: false, code: "invalid-state", message: `realization is ${rec.realization.status}` };
     const genomeCommit = String(cand.commit_hash);
@@ -995,10 +1031,17 @@ export class SystemAuthority extends DurableObject<Env> {
     }));
     const evo = this.one("SELECT kind FROM evolutions WHERE id = ?", rec.evolutionId);
     let commit: SystemCommit;
+    let advisories: GateItem[] = [];
     try {
       commit = this.ctx.storage.transactionSync(() => {
         if (this.kv("head") !== prep.head) throw new StaleBaseError(this.kv("head"));
-        const c = this.writeCommit(prep, [rec.evolutionId], { by: input.by, policy: "admin-accept", rationale: input.rationale, candidates: [String(cand.id)] });
+        // The same blocking gate as promotion, for the Genome candidate.
+        const gate = this.checkGate([{ ...cand, evolution_id: rec.evolutionId }], { [String(cand.id)]: input.gates }, input.rationale);
+        advisories = gate.advisories;
+        const c = this.writeCommit(prep, [rec.evolutionId], {
+          by: input.by, policy: "admin-accept", rationale: input.rationale, candidates: [String(cand.id)], evidenceProviders: gate.evidenceProviders,
+          ...(advisories.length && { acknowledged: [...new Set(advisories.map((a) => a.criterion))] }),
+        });
         this.setKv("genome_commit", genomeCommit);
         this.setKv("genome_source", rec.forkRepo);
         this.sql.exec("UPDATE candidates SET state = 'promoted' WHERE id = ?", cand.id);
@@ -1009,6 +1052,8 @@ export class SystemAuthority extends DurableObject<Env> {
       });
     } catch (e) {
       if (e instanceof StaleBaseError) return { ok: false, code: "stale-base", message: e.message };
+      if (e instanceof PromotionBlockedError) return { ok: false, code: e.code, blocking: e.blocking, advisories: e.advisories };
+      if (e instanceof GateUnavailableError) return { ok: false, code: "gate-unavailable", message: e.message };
       throw e;
     }
     const realization = this.realizationDto(this.realizationRow(input.realizationId)!);
@@ -1017,7 +1062,7 @@ export class SystemAuthority extends DurableObject<Env> {
     this.emit({ type: "realization.updated", realization });
     const e = this.evolution(rec.evolutionId);
     if (e) this.emit({ type: "evolution.updated", evolution: e });
-    return { ok: true, commit, realization, genomeCommit };
+    return { ok: true, commit, realization, genomeCommit, advisories };
   }
 
   /** Newest first. */

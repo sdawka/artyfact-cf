@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Push the example System and app into Cloudflare Artifacts (namespace + repos kit-system, kit-app).
 # Idempotent: existing namespace/repos are reused; a repo that already has `main` is not overwritten.
-# Usage: scripts/bootstrap.sh [--dry-run]    Env: ACCOUNT_ID, ARTIFACTS_NAMESPACE (default artyfact)
+# Usage: scripts/bootstrap.sh [--dry-run]    Env: ACCOUNT_ID, ARTIFACTS_NAMESPACE (default artyfact),
+#   GENOME_REPO (default kit-system), APP_REPO (default kit-app)
 set -euo pipefail
 
 DRY_RUN=0
@@ -17,7 +18,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NS="${ARTIFACTS_NAMESPACE:-artyfact}"
 
 # repo-name:source-dir
-TARGETS=("kit-system:examples/keep-in-touch-system" "kit-app:examples/keep-in-touch-app")
+TARGETS=("${GENOME_REPO:-kit-system}:examples/keep-in-touch-system" "${APP_REPO:-kit-app}:examples/keep-in-touch-app")
 
 command -v wrangler >/dev/null 2>&1 || wrangler() { npx --no-install wrangler "$@"; }
 
@@ -34,12 +35,12 @@ remote_url() { printf 'https://%s.artifacts.cloudflare.net/git/%s/%s.git' "$ACCO
 
 ensure_namespace() {
   if [ "$DRY_RUN" = 1 ]; then
-    log "+ wrangler artifacts namespaces get $NS || cf artifacts namespaces create $NS"
+    log "+ wrangler artifacts namespaces get $NS || cf artifacts namespaces create --namespace $NS"
     return
   fi
   if wrangler artifacts namespaces get "$NS" >/dev/null 2>&1; then return; fi
   if command -v cf >/dev/null 2>&1; then
-    cf artifacts namespaces create "$NS" >/dev/null
+    cf artifacts namespaces create --namespace "$NS" >/dev/null
   else
     echo "namespace '$NS' not found and 'cf' is unavailable; create it, then re-run" >&2
     exit 1
@@ -52,21 +53,30 @@ ensure_repo() {
     log "+ wrangler artifacts repos get $repo --namespace $NS || wrangler artifacts repos create $repo --namespace $NS"
     return
   fi
-  wrangler artifacts repos get "$repo" --namespace "$NS" >/dev/null 2>&1 \
-    || wrangler artifacts repos create "$repo" --namespace "$NS" >/dev/null
+  wrangler artifacts repos get "$repo" --namespace "$NS" >/dev/null 2>&1 && return
+  local out
+  out="$(wrangler artifacts repos create "$repo" --namespace "$NS" --json 2>&1)" || { printf '%s\n' "$out" | grep -v -i token >&2; exit 1; }
 }
 
 # Issues a write token and prints it to stdout only (callers must keep it out of logs).
+# wrangler 4.149 --json output: {"id","plaintext","scope","expires_at"}; plaintext is "art_v1_<hex>?expires=<unix>".
 issue_token() {
   wrangler artifacts repos issue-token "$1" --namespace "$NS" --scope write --ttl 3600 --json \
-    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);const t=j.token??j.value??j.plaintext??(j.result&&(j.result.token??j.result.value));if(!t){console.error("no token in response");process.exit(1)}process.stdout.write(String(t))})'
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);const t=j.plaintext;if(!t){console.error("no token in response");process.exit(1)}process.stdout.write(String(t))})'
 }
 
 # git with the bearer header supplied through the environment so the token never appears in argv.
+# The bearer header reaches git through exported GIT_CONFIG_* variables set in a subshell. `export` is a shell
+# builtin, so the token never appears in any process argv (not via env(1), not as a git config flag).
 authed_git() {
   local token="$1"; shift
-  local n="${GIT_CONFIG_COUNT:-0}"
-  env "GIT_CONFIG_COUNT=$((n + 1))" "GIT_CONFIG_KEY_$n=http.extraHeader" "GIT_CONFIG_VALUE_$n=Authorization: Bearer $token" git "$@"
+  (
+    n="${GIT_CONFIG_COUNT:-0}"
+    export GIT_CONFIG_COUNT="$((n + 1))"
+    export "GIT_CONFIG_KEY_$n=http.extraHeader"
+    export "GIT_CONFIG_VALUE_$n=Authorization: Bearer $token"
+    exec git "$@"
+  )
 }
 
 head_of() { # token url -> commit or empty
@@ -81,7 +91,7 @@ push_repo() {
   if [ "$DRY_RUN" = 1 ]; then
     log "+ token=\$(wrangler artifacts repos issue-token $repo --namespace $NS --scope write --ttl 3600 --json)"
     log "+ git ls-remote $url refs/heads/main   # skip push if main exists"
-    log "+ tmp=\$(mktemp -d) && tar -C $src --exclude node_modules --exclude .wrangler --exclude .git -cf - . | tar -C \$tmp -xf - && git -C \$tmp init -b main && git -C \$tmp add -A && git -C \$tmp commit -m 'Initial import'"
+    log "+ tmp=\$(mktemp -d) && tar -C $src -cf - --exclude node_modules --exclude .wrangler --exclude .git . | tar -C \$tmp -xf - && git -C \$tmp init -b main && git -C \$tmp add -A && git -C \$tmp commit -m 'Initial import'"
     log "+ git -C \$tmp push $url HEAD:main   # Authorization: Bearer <token> via http.extraHeader"
     return
   fi
@@ -92,7 +102,7 @@ push_repo() {
   if [ -z "$head" ]; then
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' RETURN
-    (cd "$ROOT/$src" && tar --exclude node_modules --exclude .wrangler --exclude .git -cf - .) | tar -xf - -C "$tmp"
+    (cd "$ROOT/$src" && tar -cf - --exclude node_modules --exclude .wrangler --exclude .git .) | tar -xf - -C "$tmp"
     git -C "$tmp" init -q -b main
     git -C "$tmp" add -A
     git -C "$tmp" -c user.name=artyfact -c user.email=artyfact@localhost commit -q -m "Initial import"
@@ -113,4 +123,4 @@ done
 
 log ""
 log "Import into the platform (apps/platform dev server):"
-log "curl -XPOST localhost:5173/api/systems/import -H 'content-type: application/json' -d '{\"systemId\":\"system.keep-in-touch\",\"genomeRepo\":\"kit-system\",\"appRepo\":\"kit-app\"}'"
+log "curl -XPOST localhost:5173/api/systems/import -H \"authorization: Bearer \$ADMIN_TOKEN\" -H 'content-type: application/json' -d '{\"systemId\":\"system.keep-in-touch\",\"genomeRepo\":\"${GENOME_REPO:-kit-system}\",\"appRepo\":\"${APP_REPO:-kit-app}\"}'"

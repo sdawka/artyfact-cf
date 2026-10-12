@@ -33,6 +33,13 @@ const CACHE_SIZE = 200;
 export const cacheKeyFor = (state: unknown, questions: Questions, model: string) =>
   hashOf({ state, questions, model });
 
+/** The catalogue's `benign` hint is for the fake provider only; System One never sees it. */
+export const wireQuestions = (questions: Questions): Questions =>
+  Object.fromEntries(Object.entries(questions).map(([id, q]) => {
+    const { benign: _benign, ...wire } = q;
+    return [id, wire as Questions[string]];
+  }));
+
 export function createSystemOne(env: SystemOneEnv): SystemOne {
   const mode: S1Mode =
     env.FAKE_S1 === '1' ? 'fake' : env.TYPESAFE_API_KEY ? 'typesafe' : env.OPENROUTER_API_KEY ? 'openrouter' : 'off';
@@ -50,7 +57,7 @@ export function createSystemOne(env: SystemOneEnv): SystemOne {
       const res = await doFetch(ENDPOINTS[mode].url, {
         method: 'POST',
         headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ state, model, questions }),
+        body: JSON.stringify({ state, model, questions: wireQuestions(questions) }),
         signal: ctl.signal,
       });
       if (!res.ok) throw new S1Error(`System One HTTP ${res.status}`, 'http', res.status);

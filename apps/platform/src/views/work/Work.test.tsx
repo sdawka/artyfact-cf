@@ -99,26 +99,48 @@ describe("StartWorkPanel", () => {
 
 describe("StartWorkPanel against the API", () => {
   it("submits, then shows the packet and the command once", async () => {
-    const cli = "ARTYFACT_TOKEN=tok_x npx artyfact start realization.9 --system system.keep-in-touch --evolution evolution.1 --dir ./realization.9";
+    const cli = "ARTYFACT_TOKEN=tok_x ARTYFACT_SECRET=sec_x npx artyfact start realization.9 --system system.keep-in-touch --evolution evolution.1 --dir ./realization.9";
     const calls: unknown[] = [];
+    const auth: (string | null)[] = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
       const u = String(url);
       if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
       if (init?.method === "POST" && u.endsWith("/evolutions/evolution.1/realizations")) {
         calls.push(JSON.parse(String(init.body)));
+        auth.push(new Headers(init.headers).get("authorization"));
         return json(201, { realization: realization({ id: "realization.9" }), packet: { json: {}, markdown: "# Task\n\n- build it" }, token: "tok_x", remote: "https://git/fork", cli });
       }
       return json(200, { evolutions: [], realizations: [] });
     }));
     renderApp(`${WORK}?evolution=${EVO1}&panel=start`, undefined, seed({ api: true }));
     fireEvent.change(await screen.findByLabelText("Agent label"), { target: { value: "codex-1" } });
+    const tokenInput = screen.getByLabelText("Admin token") as HTMLInputElement;
+    expect(tokenInput.type).toBe("password");
+    fireEvent.change(tokenInput, { target: { value: "adm_x" } });
     const submit = screen.getAllByRole("button", { name: "Start work" }).find((b) => b.getAttribute("type") === "submit") as HTMLButtonElement;
     expect(submit.disabled).toBe(false);
     fireEvent.click(submit);
     expect(await screen.findAllByText(cli)).toHaveLength(1);
     expect(calls).toEqual([{ agentLabel: "codex-1", target: "app", role: "implementer" }]);
+    expect(auth).toEqual(["Bearer adm_x"]);
     expect(screen.getByRole("heading", { name: "Task" })).toBeTruthy();
-    expect(screen.getByText(/token is not shown again/)).toBeTruthy();
+    expect(screen.getByText(/Neither is shown again/)).toBeTruthy();
+  });
+
+  it.each([
+    [401, /needs the admin token \(401\)/],
+    [403, /admin token was refused \(403\)/],
+  ])("says plainly when start work is refused with %i", async (status, message) => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
+      if (init?.method === "POST") return json(status, { error: { code: status === 401 ? "unauthorized" : "forbidden", message: "nope" } });
+      return json(200, { evolutions: [], realizations: [] });
+    }));
+    renderApp(`${WORK}?evolution=${EVO1}&panel=start`, undefined, seed({ api: true }));
+    await screen.findByLabelText("Admin token");
+    fireEvent.click(screen.getAllByRole("button", { name: "Start work" }).find((b) => b.getAttribute("type") === "submit")!);
+    expect((await screen.findByRole("alert")).textContent).toMatch(message);
   });
 });
 
@@ -138,7 +160,7 @@ describe("PacketViewer", () => {
     vi.setSystemTime(new Date("2026-01-01T00:00:00.000Z"));
     render(<PacketViewer markdown="# Title\n\n- one\n- two" cli={CLI} expiresAt="2026-01-01T00:12:03.000Z" />);
     expect(screen.getAllByText(CLI)).toHaveLength(1);
-    expect(screen.getByText(/token is not shown again/)).toBeTruthy();
+    expect(screen.getByText(/Neither is shown again/)).toBeTruthy();
     expect(screen.getByTestId("token-countdown").textContent).toBe("12 min 03 s");
     act(() => void vi.advanceTimersByTime(3_000));
     expect(screen.getByTestId("token-countdown").textContent).toBe("12 min 00 s");
