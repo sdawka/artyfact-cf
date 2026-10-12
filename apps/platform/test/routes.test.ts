@@ -411,6 +411,23 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(second.json.submitted).toBeNull();
   });
 
+  it("the Genome review carries loadError when the candidate Genome does not load", async () => {
+    const { ns, systemId, genomeRepo, imp } = await imported();
+    const start = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.2/realizations`, {});
+    const fork = ns.repo(`${genomeRepo}--r1`);
+    const files = new Map<string, string>();
+    for (const p of Object.keys(genomeFiles)) files.set(p, (await (await fork.readFile({ ref: imp.genomeCommit, path: p }))!.text()));
+    files.set("things/webapp/ontology.yaml", "entities: [unclosed");
+    const commit = fork.commit(files, "broken");
+    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${start.json.realization.id}/submit`, { commit });
+    expect(sub.status, JSON.stringify(sub.json)).toBe(201);
+    const rv = await call<GenomeCandidateReview>("GET", `/systems/${systemId}/realizations/${start.json.realization.id}/review`);
+    expect(rv.status).toBe(200);
+    expect(rv.json.delta.changes).toEqual([]);
+    expect(rv.json.loadError).toEqual(expect.any(String));
+    expect(rv.json.loadError!.length).toBeGreaterThan(0);
+  });
+
   it("accepts a Genome realization and re-caches the model", async () => {
     const { ns, systemId, genomeRepo, imp } = await imported();
     const start = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.2/realizations`, { agentLabel: "c" });
@@ -430,6 +447,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(rv.status, JSON.stringify(rv.json)).toBe(200);
     expect(rv.json.candidate).toBe(sub.json.candidate.id);
     expect(rv.json.delta.changes.map((c) => c.id)).toEqual(["entity.ContactRecord"]);
+    expect(rv.json.loadError).toBeUndefined();
     expect(rv.json.readinessBase.packs.map((p) => p.id)).toEqual(["metamodel"]);
     expect(rv.json.readinessCandidate).not.toBeNull();
     expect(rv.json.review.map((r) => r.id)).toEqual(["entity.ContactRecord"]);

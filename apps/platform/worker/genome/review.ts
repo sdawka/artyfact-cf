@@ -29,6 +29,8 @@ export interface ReviewInput {
   base: SystemModel;
   /** Null when the candidate Genome does not load. */
   cand: SystemModel | null;
+  /** Why the candidate Genome does not load (set exactly when `cand` is null). */
+  loadError?: string;
   delta: ModelDelta | null;
   readinessBase: Readiness;
   run: { readiness: Readiness; review: DeltaReview[]; evaluations: Evaluation[] };
@@ -44,5 +46,6 @@ export function buildGenomeReview(i: ReviewInput): GenomeCandidateReview {
     signals: i.run.review,
     evaluations: i.run.evaluations,
     commitments: (i.base.description?.commitments ?? []) as GenomeCandidateReview["commitments"],
+    ...(!i.cand && { loadError: i.loadError ?? "the candidate Genome does not load" }),
   };
 }

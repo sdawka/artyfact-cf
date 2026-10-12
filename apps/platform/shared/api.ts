@@ -435,6 +435,8 @@ export interface GenomeCandidateReview {
   signals?: unknown[];
   /** Commitments the review asked about (statement text for `contradicts.<id>`); optional. */
   commitments?: Commitment[];
+  /** Set when the candidate Genome does not load; `delta` is then empty because nothing could be diffed, not because nothing changed. */
+  loadError?: string;
 }
 
 /** `POST /api/systems/:id/evolutions/:eid/accept` (admin) for genome-amendment realizations. */

@@ -432,9 +432,13 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
   if (rec.target === "genome") {
     const r = await runner.runGenome(ctx);
     const base = await genomeAt(env, s.systemId, rec.baseCommit, rec.forkRepo);
-    const candG = await genomeAt(env, s.systemId, cand.commit, rec.forkRepo).catch(() => null);
+    let loadError: string | undefined;
+    const candG = await genomeAt(env, s.systemId, cand.commit, rec.forkRepo).catch((e: unknown) => {
+      loadError = (e as Error)?.message ?? String(e);
+      return null;
+    });
     const review = buildGenomeReview({
-      candidate: cand.id, base: base.model, cand: candG?.model ?? null, delta: candG ? diffModels(base.model, candG.model) : null,
+      candidate: cand.id, base: base.model, cand: candG?.model ?? null, loadError, delta: candG ? diffModels(base.model, candG.model) : null,
       readinessBase: base.readiness, run: r,
     });
     return { evaluations: r.evaluations, status: "awaiting-admin" as const, review };
