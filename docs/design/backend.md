@@ -7,12 +7,10 @@
   "artifacts": [{ "binding": "ARTIFACTS", "namespace": "artyfact", "remote": true }],
   "exports": { "SystemAuthority": { "type": "durable-object", "storage": "sqlite" } },
   "durable_objects": { "bindings": [{ "name": "SYSTEMS", "class_name": "SystemAuthority" }] },
-  "d1_databases": [{ "binding": "INDEX", "database_name": "artyfact-index", "database_id": "<id>" }],
-  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "artyfact-evidence" }],
   "queues": { "consumers": [{ "queue": "artyfact-artifacts-events", "max_batch_size": 10, "max_retries": 3 }] },
   "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "http://localhost:5173" }, "observability": { "enabled": true } }
 ```
-Secrets: `ADMIN_TOKEN` (bearer for accept/promote). D1 is a derived index only (may be skipped; registry table in DO `__registry`). Worker files: `index.ts` (Hono + `queue()` + DO export), `routes/*.ts`, `do/system-authority.ts`, `artifacts/{genome-source,candidates,source-map}.ts`, `hooks/{exists,scope,overlap,genome-amendment,health,run}.ts`, `packets/task-packet.ts`.
+Secrets: `ADMIN_TOKEN` (bearer for accept/promote). No D1 or R2 bindings: the registry lives in DO `__registry`. Worker files: `index.ts` (Hono + `queue()` + DO export), `routes/*.ts`, `do/system-authority.ts`, `artifacts/{genome-source,candidates,source-map}.ts`, `hooks/{exists,scope,overlap,genome-amendment,health,run}.ts`, `packets/task-packet.ts`.
 
 ## B.2 SystemAuthority SQLite + RPC
 ```sql
