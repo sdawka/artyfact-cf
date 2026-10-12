@@ -9,7 +9,7 @@ function Probe() {
   return (
     <div>
       <output data-testid="sel">{JSON.stringify({ focus: s.focusId, layer: s.layer, candidates: s.candidates })}</output>
-      <output data-testid="href">{href("history")}</output>
+      <output data-testid="href">{href("changelog")}</output>
       <button onClick={() => s.setFocus("screen.people")}>focus</button>
       <button onClick={() => s.setFocus("screen.people", { view: "journeys" })}>journeys</button>
       <button onClick={() => s.setLayer("phenome")}>layer</button>
@@ -62,6 +62,6 @@ describe("useSelection", () => {
 
   it("useKeepParams builds view links that carry the global params", () => {
     renderApp("/s/system.keep-in-touch/r/r1/map?focus=T1&layer=phenome&journey=J.contacts", routes);
-    expect(screen.getByTestId("href").textContent).toBe("/s/system.keep-in-touch/r/r1/history?focus=T1&layer=phenome");
+    expect(screen.getByTestId("href").textContent).toBe("/s/system.keep-in-touch/r/r1/changelog?focus=T1&layer=phenome");
   });
 });

@@ -1,9 +1,18 @@
 import { fireEvent, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
+import type { RouteObject } from "react-router";
+import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
-import { renderApp } from "@/testing/render";
+import { ModelProvider } from "@/model/useModel";
+import { renderApp as renderWithRoutes } from "@/testing/render";
 import { SYSTEM, commit } from "../work/testData";
+import HistoryView from "./index";
 
+// `…/history` now redirects to the Changelog; mount the view directly until the Changelog replaces it.
+const routes: RouteObject[] = [
+  { path: "/s/:systemId/r/:rev/history", element: <ModelProvider bundle={fixtureBundle()}><HistoryView /></ModelProvider> },
+];
+const renderApp = (url: string, _routes?: undefined, seed?: Parameters<typeof renderWithRoutes>[2]) => renderWithRoutes(url, routes, seed);
 const URL = `/s/${SYSTEM}/r/head/history`;
 const older = commit({ id: "aaaa000000000000", decision: { by: "admin", policy: "p", rationale: "First", at: "2026-01-01T00:00:00.000Z" } });
 const newer = commit({

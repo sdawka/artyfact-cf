@@ -133,7 +133,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
         <h3 id={`${uid}-h`}>Promoted</h3>
         <p role="status">
           System commit <code>{shortSha(c.id)}</code> recorded. {promote.data.rejected.length > 0 && <>Rejected siblings: {promote.data.rejected.join(", ")}. </>}
-          <Link to={href("history", { commit: c.id, evolution: null, panel: null })} className="u-marker">Open in History</Link>
+          <Link to={href("changelog", { commit: c.id, evolution: null, panel: null })} className="u-marker">Open in Changelog</Link>
         </p>
       </section>
     );

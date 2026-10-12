@@ -1,8 +1,12 @@
-import type {
-  AcceptRequest, AcceptResponse, ApiError, CandidatesResponse, ConflictReport, EvaluationsResponse,
-  EvolutionsResponse, GenomeCandidateReview, HistoryResponse, ModelBundle, PacketResponse, PromoteRequest, PromoteResponse,
-  ReadinessReport, Realization, RejectRequest, RejectResponse, SseEvent, StartWorkRequest, StartWorkResponse, SubmitRequest,
-  SubmitResponse, SystemSummary,
+import {
+  routes,
+  type AcceptRequest, type AcceptResponse, type ApiError, type BuildKind, type BuildsResponse, type CandidatesResponse,
+  type ChangelogEntry, type ChangelogResponse, type CommitHash, type ConflictReport, type CreateEvolutionRequest,
+  type CreateEvolutionResponse, type DeploymentsResponse, type EditorCommitRequest, type EditorCommitResponse, type EvaluationsResponse,
+  type EvolutionsResponse, type FileCompare, type FileResponse, type FileScope, type FilesResponse, type GenomeCandidateReview,
+  type GenomeCompare, type HistoryResponse, type ModelBundle, type PhenomeEventsQuery, type PhenomeEventsResponse, type PromoteRequest,
+  type PromoteResponse, type ReadinessReport, type RejectRequest, type RejectResponse, type RevisionsResponse, type SseEvent,
+  type StartWorkRequest, type StartWorkResponse, type SystemCompare, type SystemSummary,
 } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
 
@@ -58,6 +62,21 @@ export const paths = {
   reject: (s: string, r: string) => `/api/systems/${enc(s)}/realizations/${enc(r)}/reject`,
   accept: (s: string, e: string) => `/api/systems/${enc(s)}/evolutions/${enc(e)}/accept`,
   events: (s: string) => `/api/systems/${enc(s)}/events`,
+  // Iteration 2: the shared contract's paths (API names: `scope` for the UI's `repo`, `ref` for the UI's `rev`).
+  createEvolution: (s: string) => routes.evolutions(s),
+  revisions: routes.revisions,
+  changelog: routes.changelog,
+  changelogEntry: routes.changelogEntry,
+  compareSystem: routes.compareSystem,
+  compareGenome: routes.compareGenome,
+  compareFile: routes.compareFile,
+  files: routes.files,
+  file: routes.file,
+  editorCommit: routes.editorCommit,
+  builds: routes.builds,
+  realizationBuilds: routes.realizationBuilds,
+  deployments: routes.deployments,
+  phenomeEvents: routes.phenomeEvents,
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -106,29 +125,46 @@ async function fixtureSummary(): Promise<SystemSummary> {
     genomeCommit: b.genomeCommit,
     ...(b.model.system.phase !== undefined && { phase: b.model.system.phase }),
     evolutionCounts: {},
-    updatedAt: b.readiness.computedAt,
+    // Iteration-2 fields zero-filled: nothing is built, deployed or observed in the fixture.
+    built: false,
+    realizationCounts: { evolving: 0, pending: 0, awaitingAdmin: 0 },
+    openCandidates: 0,
+    latestBuild: null,
+    deployment: { production: null, previews: 0 },
+    deployState: "none",
+    phenome: { events: 0 },
+    readiness: {
+      errors: b.readiness.modelReadiness.findings.filter((f) => f.level === "error").length,
+      missing: b.readiness.modelReadiness.findings.filter((f) => f.level === "missing").length,
+    },
+    signifiers: [],
+    // The fixture's computedAt is a placeholder epoch; "" renders as "updated unknown".
+    updatedAt: "",
   };
 }
 
+/**
+ * Fixture mode means the API is unreachable (network error or non-2xx on `/api/systems`). A reachable API with
+ * no Systems is a real, empty platform: `getSystems()` returns `[]` and Home shows its empty state.
+ */
 function resolveMode() {
-  mode ??= request<SystemSummary[] | { systems: SystemSummary[] }>(paths.systems())
-    .then(
-      async (r) => {
-        const systems = Array.isArray(r) ? r : (r.systems ?? []);
-        if (systems.length) return { fixture: false, systems };
-        console.warn("artyfact: the API has no Systems, showing fixture data");
-        return { fixture: true, systems: [await fixtureSummary()] };
-      },
-      async (cause: unknown) => {
-        console.warn("artyfact: /api/systems unavailable, showing fixture data", cause);
-        return { fixture: true, systems: [await fixtureSummary()] };
-      },
-    );
+  mode ??= request<SystemSummary[] | { systems: SystemSummary[] }>(paths.systems()).then(
+    (r) => ({ fixture: false, systems: Array.isArray(r) ? r : (r.systems ?? []) }),
+    async (cause: unknown) => {
+      console.warn("artyfact: /api/systems unreachable, showing fixture data", cause);
+      return { fixture: true, systems: [await fixtureSummary()] };
+    },
+  );
   return mode;
 }
 
-/** True when the SPA is serving fixture data because the API is unreachable or has no Systems. */
+/** True when the SPA is serving fixture data because the API is unreachable. */
 export const isFixtureMode = async () => (await resolveMode()).fixture;
+
+export type ClientMode = "api" | "fixture";
+
+/** `fixture` while the API is unreachable (TopBar / Home pill), else `api`. */
+export const getClientMode = async (): Promise<ClientMode> => ((await resolveMode()).fixture ? "fixture" : "api");
 
 /** Forget the cached fixture decision so the next call asks the API again (TopBar "Retry API", tests). */
 export function resetClientMode() {
@@ -184,6 +220,75 @@ export const getConflicts = (systemId: string) =>
 export const getHistory = (systemId: string) =>
   readOrEmpty<HistoryResponse>({ commits: [] }, () => request(paths.history(systemId)));
 
+/** UI revision for file and compare reads; `rev` maps to the API's `ref`, `repo` to its `scope`. */
+export interface FileRef {
+  repo: FileScope;
+  rev?: string;
+}
+
+const fixtureRef = (rev: string | undefined, repo: FileScope) => ({ ref: rev ?? "head", repo: `fixture/${repo}`, commit: "0".repeat(40) });
+const notInFixture = (what: string) => new ApiRequestError(404, "not-found", `${what} is not available in fixture data`);
+
+/** Head, System commits and candidates for revision pickers. Fixture: head only. */
+export const getRevisions = (systemId: string) =>
+  readOrEmpty<RevisionsResponse>({ revisions: [{ id: "head", kind: "head", label: "head" }] }, () => request(paths.revisions(systemId)));
+
+/** Newest first; pass `nextBefore` as `before` for the next page. */
+export const getChangelog = (systemId: string, q: { limit?: number; before?: string } = {}) =>
+  readOrEmpty<ChangelogResponse>({ rows: [] }, () => request(paths.changelog(systemId, q)));
+
+export async function getChangelogEntry(systemId: string, commitId: string): Promise<ChangelogEntry> {
+  if (await isFixtureMode()) throw notInFixture(`Changelog entry ${commitId}`);
+  return request(paths.changelogEntry(systemId, commitId));
+}
+
+/** `from` omitted = the parent of `to`. */
+export async function getCompareSystem(systemId: string, q: { from?: string; to: string }): Promise<SystemCompare> {
+  if (await isFixtureMode()) throw notInFixture("Compare");
+  return request(paths.compareSystem(systemId, q.from, q.to));
+}
+
+export async function getCompareGenome(systemId: string, q: { from?: string; to: string }): Promise<GenomeCompare> {
+  if (await isFixtureMode()) throw notInFixture("Compare");
+  return request(paths.compareGenome(systemId, q.from, q.to));
+}
+
+export async function getCompareFile(systemId: string, q: { repo: FileScope; from?: string; to: string; path: string }): Promise<FileCompare> {
+  if (await isFixtureMode()) throw notInFixture("Compare");
+  return request(paths.compareFile(systemId, q.repo, q.from, q.to, q.path));
+}
+
+/** Files of a repo at a revision. Fixture: the Keep in Touch Genome for `repo: "genome"`, nothing for the app. */
+export async function listFiles(systemId: string, { repo, rev }: FileRef): Promise<FilesResponse> {
+  if (await isFixtureMode()) {
+    const files = repo === "genome" ? (await import("./fixtures").then((m) => m.fixtureFiles())).entries : [];
+    return { ref: fixtureRef(rev, repo), files };
+  }
+  return request(paths.files(systemId, repo, rev));
+}
+
+/** One file's text (null for binary). Fixture: Genome files only. */
+export async function getFile(systemId: string, { repo, rev, path }: FileRef & { path: string }): Promise<FileResponse> {
+  if (await isFixtureMode()) {
+    const f = repo === "genome" ? await import("./fixtures").then((m) => m.fixtureFiles()) : undefined;
+    const entry = f?.entries.find((e) => e.path === path);
+    if (!f || !entry) throw notInFixture(`${repo}:${path}`);
+    return { ref: fixtureRef(rev, repo), path, hash: entry.hash, text: f.files[path] ?? null, size: entry.size, truncated: false, binary: false };
+  }
+  return request(paths.file(systemId, repo, path, rev));
+}
+
+/** System builds, optionally for one commit or kind; with `realization`, that realization's builds. */
+export const getBuilds = (systemId: string, q: { commit?: CommitHash; kind?: BuildKind; realization?: string } = {}) =>
+  readOrEmpty<BuildsResponse>({ builds: [] }, () =>
+    request(q.realization ? paths.realizationBuilds(systemId, q.realization) : paths.builds(systemId, { commit: q.commit, kind: q.kind })),
+  );
+
+export const getDeployments = (systemId: string) =>
+  readOrEmpty<DeploymentsResponse>({ production: null, history: [] }, () => request(paths.deployments(systemId)));
+
+export const getPhenomeEvents = (systemId: string, q: PhenomeEventsQuery = {}) =>
+  readOrEmpty<PhenomeEventsResponse>({ events: [], versions: [] }, () => request(paths.phenomeEvents(systemId, q)));
 
 export async function getAmendmentReview(systemId: string, evolutionId: string, realizationId: string): Promise<GenomeCandidateReview> {
   if (await isFixtureMode()) throw new ApiRequestError(404, "not-found", `No amendment review for ${realizationId} in fixture data`);
@@ -216,14 +321,43 @@ export const rejectAmendment = (systemId: string, realizationId: string, body: R
     post<RejectResponse>(paths.reject(systemId, realizationId), body, adminToken ? { authorization: `Bearer ${adminToken}` } : undefined),
   );
 
+/** Admin only: a new Evolution (state per the System's policy). */
+export const createEvolution = (systemId: string, body: CreateEvolutionRequest, adminToken?: string) =>
+  writeOrThrow("Create evolution", () =>
+    post<CreateEvolutionResponse>(paths.createEvolution(systemId), body, adminToken ? { authorization: `Bearer ${adminToken}` } : undefined),
+  );
+
+/**
+ * Writes files to a realization's fork and submits the commit. `token` is the realization secret (from `startWork`)
+ * or the admin token, sent as `Authorization: Bearer`. A moved fork head (`expectedHead`) is a 409 {@link ApiRequestError}.
+ */
+export const commitFiles = (systemId: string, realizationId: string, body: EditorCommitRequest, token?: string) =>
+  writeOrThrow("Commit", () =>
+    post<EditorCommitResponse>(paths.editorCommit(systemId, realizationId), body, token ? { authorization: `Bearer ${token}` } : undefined),
+  );
+
 // ---------------------------------------------------------------------------
 // Events
 // ---------------------------------------------------------------------------
 
-const SSE_TYPES: SseEvent["type"][] = [
-  "realization.created", "realization.updated", "checkpoint", "candidate.submitted", "evaluation.completed",
-  "conflict.detected", "evolution.updated", "system.promoted", "genome.accepted",
-];
+export type SseType = SseEvent["type"];
+
+/** What `useCompare` returns per level. */
+export interface CompareResult {
+  system: SystemCompare;
+  genome: GenomeCompare;
+}
+
+/** Every event type, checked exhaustive against `SseEvent` by `satisfies`. */
+const SSE_TYPE_SET = {
+  "realization.created": true, "realization.updated": true, checkpoint: true, "candidate.submitted": true,
+  "evaluation.completed": true, "conflict.detected": true, "evolution.updated": true, "system.promoted": true,
+  "genome.accepted": true, "system.imported": true, "build.updated": true, "deployment.updated": true,
+  "phenome.ingested": true, "system.updated": true, "evolution.created": true, ping: true,
+} satisfies Record<SseType, true>;
+
+/** Named EventSource listeners (the server may also send unnamed `data:` frames, handled by `onmessage`). */
+export const SSE_TYPES = Object.keys(SSE_TYPE_SET) as SseType[];
 
 /**
  * Streams System events. Falls back to polling every 3 s when EventSource is unavailable or
