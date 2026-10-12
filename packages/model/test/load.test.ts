@@ -27,7 +27,10 @@ describe("loadSystem", () => {
     expect(m.journeys.map((j) => j.id)).toEqual(["J.notes"]);
     expect(m.evolutions.map((e) => e.id)).toEqual(["evolution.1"]);
     expect(m.description?.features.map((f) => f.id)).toEqual(["GD.notes"]);
-    expect(m.kits).toEqual({ kits: [{ id: "privacy", version: "1.0.0" }], rulePacks: [{ id: "metamodel", version: "1" }], required: ["privacy", "auth"] });
+    expect(m.kits.kits).toEqual([{ id: "privacy", version: "1.0.0" }]);
+    expect(m.kits.rulePacks).toHaveLength(6);
+    expect(m.kits.rulePacks[0]).toEqual({ id: "metamodel", version: "1" });
+    expect(m.kits.required).toEqual(["privacy", "auth"]);
   });
 
   it("flattens nested ontology children and stamps owningThing", () => {
@@ -64,6 +67,13 @@ describe("loadSystem", () => {
   it("throws on duplicate ids across files", () => {
     const dup = edit(files, "things/app/spec.yaml", "id: S.app.notes", "id: S.app.notes\n    thing: thing.app\n    title: dup\n    text: dup\n  - id: S.app.notes");
     expect(() => loadSystem(dup, { templates: store() })).toThrow(/duplicate id S\.app\.notes/);
+  });
+
+  it("throws on an id reused across kinds (node vs external, node vs criterion)", () => {
+    const vsExt = edit(files, "things/app/ontology.yaml", "{ id: entity.Owner, kind: entity,", "{ id: ext.owner, kind: entity,");
+    expect(() => loadSystem(vsExt, { templates: store() })).toThrow(/duplicate id ext\.owner \(node; also a external in externals\.yaml\)/);
+    const vsCrit = edit(files, "things/app/ontology.yaml", "{ id: entity.Owner, kind: entity,", "{ id: C.app.notes.save, kind: entity,");
+    expect(() => loadSystem(vsCrit, { templates: store() })).toThrow(/duplicate id C\.app\.notes\.save \(criterion; also a node/);
   });
 
   it("is independent of file order", () => {

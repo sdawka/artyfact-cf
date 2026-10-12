@@ -84,14 +84,15 @@ export function loadSystem(files: Map<string, string>, opts: { revision?: string
   const system = parseFile("system.yaml", systemText, schema.SystemFile);
 
   const origin: Record<string, string> = {};
-  const seen = new Map<string, Map<string, string>>();
-  const claim = (collection: string, id: string, file: string) => {
-    const ids = seen.get(collection) ?? seen.set(collection, new Map()).get(collection)!;
-    const prev = ids.get(id);
-    if (prev !== undefined) throw new ModelParseError(file, [{ path: [], message: `duplicate id ${id} (also in ${prev})` }]);
-    ids.set(id, file);
+  // Ids are unique across every kind (one namespace, as `known/1` and `index.byId` assume).
+  const seen = new Map<string, { kind: string; file: string }>();
+  const claim = (kind: string, id: string, file: string) => {
+    const prev = seen.get(id);
+    if (prev !== undefined) throw new ModelParseError(file, [{ path: [], message: `duplicate id ${id} (${kind}; also a ${prev.kind} in ${prev.file})` }]);
+    seen.set(id, { kind, file });
     origin[id] = file;
   };
+  claim("system", system.id, "system.yaml");
   const collect = <T extends { id: string }>(collection: string, file: string, items: T[]) => {
     for (const it of items) claim(collection, it.id, file);
     return items;
@@ -105,6 +106,10 @@ export function loadSystem(files: Map<string, string>, opts: { revision?: string
   const claims = th === undefined ? [] : collect("claim", "theory.yaml", parseFile("theory.yaml", th, schema.TheoryFile, "claims").claims);
   const desc = get("description.yaml");
   const description = desc === undefined ? undefined : parseFile("description.yaml", desc, schema.Description);
+  if (description) {
+    collect("feature", "description.yaml", description.features);
+    collect("commitment", "description.yaml", description.commitments);
+  }
   const kitsText = get("kits.yaml");
   const kits = parseFile("kits.yaml", kitsText ?? "{}", schema.KitsFile);
 
