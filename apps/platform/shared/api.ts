@@ -227,8 +227,12 @@ export interface SystemManifest {
 
 /** The model's SystemCommit (`manifest` as artifact bindings) plus the hashed composition. The backend always sets the extras. */
 export type SystemCommit = schema.SystemCommit & {
-  /** `acknowledged`: advisory criteria the promoter accepted with the rationale. */
-  decision: { acknowledged?: NodeId[] };
+  /**
+   * `acknowledged`: advisory criteria the promoter accepted with the rationale. `evidenceProviders`: the distinct
+   * System One providers (`fake`, `typesafe`, `openrouter`, …) behind the gating evaluations; `fake` means the
+   * operator ran with `FAKE_S1=1` and those judgments were canned.
+   */
+  decision: { acknowledged?: NodeId[]; evidenceProviders?: string[] };
   /** The hashed composition manifest. */
   composition?: SystemManifest;
   manifestHash?: Sha256;
@@ -254,8 +258,11 @@ export interface TaskPacket {
   title: string;
   target: "app" | "genome";
   intent: string;
-  /** Fork to clone; never carries a token. */
-  workspace: { repo: string; fork: string; baseCommit: CommitHash; remote: string };
+  /**
+   * Fork to clone; never carries the git token. `secret` (the realization secret) is present only in the StartWork
+   * response's copy, never in the stored packet or GET packet.
+   */
+  workspace: { repo: string; fork: string; baseCommit: CommitHash; remote: string; secret?: string };
   /** `gate: true` = blocks promotion when not pass+completed (hard, not deferred, gated on promotion). */
   acceptanceCriteria: { id: NodeId; title: string; text: string; gate: boolean; severity: string; subject: NodeId; hooks: string[] }[];
   /** Affected nodes as YAML, with their containment path from the System root. */
@@ -283,11 +290,16 @@ export interface StartWorkResponse {
   realization: Realization;
   packet: TaskPacket;
   token: { value: string; expiresAt: string; remote: string };
+  /**
+   * Realization secret (64 hex chars), returned once. Send it as `Authorization: Bearer <secret>` on the realization's
+   * checkpoint, submit, sync, status and packet routes. The platform keeps only its SHA-256.
+   */
+  secret: string;
   /** Fork remote URL (same as `token.remote`). */
   remote: string;
-  /** Ready to paste: `ARTYFACT_TOKEN=<real token> npx artyfact start <rid> --system <sid> --evolution <eid> --dir <dir>`. */
+  /** Ready to paste: `ARTYFACT_TOKEN=<token> ARTYFACT_SECRET=<secret> npx artyfact start <rid> --system <sid> --evolution <eid> --dir <dir>`. */
   startCommand: string;
-  /** Same line as `startCommand` (the integrator's name for it). The only other place the token appears. */
+  /** Same line as `startCommand` (the integrator's name for it). The only other place the token and secret appear. */
   cli: string;
 }
 

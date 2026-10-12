@@ -60,12 +60,14 @@ describe("task packet", () => {
     expect(p.markdown).toContain("src/ui/people/**");
     expect(p.agentsMd).toContain("You are realizing evolution.1 for system.kit");
     expect(p.agentsMd).toContain("npx artyfact submit");
-    expect(JSON.stringify(p)).not.toMatch(/secret|Bearer/);
+    // Only placeholders: no bearer header and no workspace secret.
+    expect(JSON.stringify(p)).not.toMatch(/Bearer/);
+    expect(p.workspace).not.toHaveProperty("secret");
   });
 
   it("carries the CLI start line with a token placeholder", async () => {
     const p = await buildTaskPacket(input());
-    const line = "ARTYFACT_TOKEN=<token> npx artyfact start realization.1.r1 --system system.kit --evolution evolution.1 --dir ./realization.1.r1";
+    const line = "ARTYFACT_TOKEN=<token> ARTYFACT_SECRET=<secret> npx artyfact start realization.1.r1 --system system.kit --evolution evolution.1 --dir ./realization.1.r1";
     expect(p.startCommand).toBe(line);
     expect(p.markdown).toContain(`## Start`);
     expect(p.markdown).toContain(line);

@@ -5,11 +5,12 @@ One Cloudflare Worker with Static Assets: Hono serves `/api/*`, a React 19 SPA s
 ## Run
 ```
 npm install            # from the repo root
-cp apps/platform/.dev.vars.example apps/platform/.dev.vars
+cp apps/platform/.dev.vars.example apps/platform/.dev.vars   # then set ADMIN_TOKEN=$(openssl rand -hex 32)
 npm run dev -w @artyfact/platform   # http://localhost:5173 (next free port if taken)
 ```
 - `GET /api/health` returns the service status; `/style` is the living style sheet.
 - `npm test -w @artyfact/platform` (workerd + jsdom projects), `npm run typecheck`, `npm run build`.
+- The full demo against real Artifacts is `docs/demo-runbook.md`. The opt-in integration test runs that loop in namespace `artyfact-test`: `ARTYFACT_INTEGRATION=1 npx vitest run --project integration` (uses `wrangler.integration.jsonc`).
 - `npm run cf-typegen` regenerates `worker/env.d.ts` after editing `wrangler.jsonc`.
 - The `ARTIFACTS` binding is `remote: true`, so `npm run dev` (real backend) needs `wrangler login` or `CLOUDFLARE_API_TOKEN`. Nothing else does: tests use `wrangler.test.jsonc`, the same config without that binding (keep the two in sync).
 - `npm run preview:fixture` builds and serves the SPA statically (`vite.fixture.config.ts`, no Cloudflare plugin) on http://localhost:4173 with bundled fixture data. `npm run e2e` runs Playwright against it; no Cloudflare credentials needed. `npm run e2e:live` runs the `@live` specs against `wrangler dev` and does need a login.
@@ -23,7 +24,7 @@ set `ACCOUNT_ID` (from `wrangler whoami`) in `.dev.vars` so fork remotes are `ht
 Without `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`, every System One judgment is `unknown`. Hard criteria judged by System One, such as `C.system.purpose`, then keep the promotion gate closed. This is by design: nothing is green without evidence. For local work set `FAKE_S1=1` in `.dev.vars`. The UI labels judgments from the fake provider.
 
 ## API
-All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shared/api.ts`. Admin = `Authorization: Bearer $ADMIN_TOKEN` (401 when missing, 403 when wrong).
+All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shared/api.ts`. Admin = `Authorization: Bearer $ADMIN_TOKEN` (401 when missing, 403 when wrong). Secret = `Authorization: Bearer <secret>`, the realization secret returned once by start work (the DO keeps only its SHA-256, reject revokes it); the admin bearer is also accepted, and another realization's secret is 403. The push queue needs neither.
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
@@ -34,17 +35,17 @@ All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shar
 | GET | `/systems/:id/readiness?rev=` | - | `ReadinessResponse`: the full rules `Readiness` plus the three-state summary; `/model`'s `readiness` is the same. Both are served from the DO cache when warm |
 | GET | `/systems/:id/work`, `/systems/:id/evolutions` | - | `WorkResponse` |
 | GET | `/systems/:id/evolutions/:eid` | - | `Evolution` |
-| POST | `/systems/:id/evolutions/:eid/realizations` | - | `{agentLabel?, target?, role?}` → `StartWorkResponse` (201); the only response carrying the fork token, also inside `startCommand` (`ARTYFACT_TOKEN=… npx artyfact start <rid> --system … --evolution … --dir …`) |
+| POST | `/systems/:id/evolutions/:eid/realizations` | admin | `{agentLabel?, target?, role?}` → `StartWorkResponse` (201); the only response carrying the fork token and the realization `secret` (also in `packet.workspace.secret` and `startCommand`: `ARTYFACT_TOKEN=… ARTYFACT_SECRET=… npx artyfact start <rid> --system … --evolution … --dir …`) |
 | GET | `/systems/:id/evolutions/:eid/realizations` | - | `{realizations}` |
 | GET | `/systems/:id/evolutions/:eid/candidates` | - | `CandidatesResponse` |
-| POST | `/systems/:id/evolutions/:eid/accept` | admin | `{realizationId, interpretation}` → `AcceptResponse` (Genome realizations; `realization` / `rationale` accepted as aliases) |
-| GET | `<R>` | - | `RealizationResponse` (Realization fields at top level, plus `realization`, `candidateDetail`, `evaluations`, `conflicts`) |
-| GET | `<R>/packet` | - | `PacketResponse` (no token; `startCommand` carries a `<token>` placeholder) |
+| POST | `/systems/:id/evolutions/:eid/accept` | admin | `{realizationId, interpretation}` → `AcceptResponse` (Genome realizations; `realization` / `rationale` accepted as aliases). Same gate as promote, after re-running the candidate's hooks with promotion facts: 409 `blocked` `{blocking, advisories}`, 400 `advisories-unacknowledged` without an interpretation, 409 `gate-unavailable` |
+| GET | `<R>` | secret | `RealizationResponse` (Realization fields at top level, plus `realization`, `candidateDetail`, `evaluations`, `conflicts`) |
+| GET | `<R>/packet` | secret | `PacketResponse` (no token or secret; `startCommand` carries `<token>` and `<secret>` placeholders) |
 | GET | `<R>/review` | - | `GenomeCandidateReview` for Genome realizations: delta, base/candidate readiness, DeltaReviews, evaluations |
-| POST | `<R>/checkpoints` | - | `{summary or message, commit?}` → `CheckpointResponse` (201) |
-| POST | `<R>/submit` | - | `{commit, previewUrl?}` → `SubmitResponse`; 201 new, 200 repeat (idempotent on realization+commit); 422 if the commit is not in the fork |
+| POST | `<R>/checkpoints` | secret | `{summary or message, commit?}` → `CheckpointResponse` (201) |
+| POST | `<R>/submit` | secret | `{commit, previewUrl?}` → `SubmitResponse`; 201 new, 200 repeat (idempotent on realization+commit); 422 if the commit is not in the fork |
 | POST | `<R>/reject` | admin | `{reason}` → `RejectResponse`; realization and its open candidates become `rejected`, reason kept, `realization.updated` emitted |
-| POST | `<R>/sync` | - | re-reads the fork head and submits it if new → `SyncResponse` |
+| POST | `<R>/sync` | secret | re-reads the fork head and submits it if new → `SyncResponse` |
 | GET | `/systems/:id/realizations` | - | `{realizations}` |
 | GET | `/systems/:id/candidates` | - | `{candidates}` |
 | GET | `/systems/:id/evaluations?candidate=` | - | `EvaluationsResponse` |
@@ -53,7 +54,7 @@ All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shar
 | GET | `/systems/:id/history` | - | `HistoryResponse`, newest first |
 | GET | `/systems/:id/events` | - | SSE, `data: {type, at, ...}` (`SseEnvelope`), `ping` every 15 s. Events are not replayed (no `id:`); refetch on connect and on every reconnect |
 
-Promotion gate (fails closed): the blocking set is (the Evolution's acceptance criteria ∪ criteria gated on `promotion`) ∩ hard ∩ ≥1 hook with `binding: bound`. Blocking criteria must be pass+completed for this exact candidate; missing evidence is `unknown` and blocks. Other non-passing criteria are `advisories` (400 without a rationale; recorded as `decision.acknowledged`). 409 `gate-unavailable` when the Genome or the criteria cannot be computed, or when nothing blocks and the acceptance criteria are absent or lack a completed evaluation (a `not-run` row does not count). Before the CAS, hooks re-run with `promotionFacts` (base-current; manifest-exact: the composed System manifest binds exactly the promoted commits and each commit still hashes to its submitted manifest; evidence-fresh).
+Promotion gate (fails closed; promote and accept): the blocking set is (the Evolution's acceptance criteria ∪ criteria gated on `promotion`) ∩ hard ∩ ≥1 hook with `binding: bound`. Blocking criteria must be pass+completed for this exact candidate; missing evidence is `unknown` and blocks. The only exception: a `not-run` row from a hook whose `triggers` contain none of `submission`, `candidate`, `promotion` (an outcome hook) is disregarded; the Worker names those hooks from the Genome, and every other non-pass row still blocks. For a Genome candidate the pool leaves out promotion-gated criteria that target the artifact (they gate app candidates); its acceptance criteria stay. Other non-passing criteria are `advisories` (400 without a rationale; recorded as `decision.acknowledged`). 409 `gate-unavailable` when the Genome or the criteria cannot be computed, or when nothing blocks and the acceptance criteria are absent or lack a completed evaluation (a `not-run` row does not count). Before the CAS, hooks re-run with `promotionFacts` (base-current; manifest-exact: the composed System manifest binds exactly the promoted commits and each commit still hashes to its submitted manifest; evidence-fresh). Each System commit records `decision.evidenceProviders`: the distinct System One providers behind the gating evaluations (`fake` under `FAKE_S1=1`, which the UI marks "System One: fake provider").
 
 `<R>` is any of `/systems/:id/evolutions/:eid/realizations/:rid` (CLI), `/systems/:id/realizations/:rid`, `/realizations/:rid` (System found via the registry; realization ids are unique only per System, so this returns 409 `ambiguous` with `details.systems` when several Systems have that id).
 

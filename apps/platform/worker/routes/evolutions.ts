@@ -15,7 +15,8 @@ export const evolutions = new Hono<AppEnv>()
     if (!e) throw notFound(`unknown evolution ${c.req.param("eid")}`);
     return c.json(e);
   })
-  .post("/systems/:id/evolutions/:eid/realizations", async (c) =>
+  // Start work mints an Artifacts write token and a realization secret: admin only.
+  .post("/systems/:id/evolutions/:eid/realizations", requireAdmin, async (c) =>
     c.json(await startWork(c.env, c.req.param("id"), c.req.param("eid"), (await body(c)) as StartWorkRequest, origin(c)), 201))
   .get("/systems/:id/evolutions/:eid/realizations", async (c) =>
     c.json({ realizations: await systemStub(c.env, c.req.param("id")).realizations(c.req.param("eid")) }))

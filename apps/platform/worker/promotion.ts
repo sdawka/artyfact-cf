@@ -4,6 +4,8 @@
  * Blocking set = (the Evolution's acceptanceCriteria ∪ criteria whose `gates` include `promotion`)
  *                ∩ `severity: hard` ∩ has ≥1 hook with `binding: bound`, non-deferred.
  * Acceptance criteria block regardless of their own `gates`: they are what the Evolution promised.
+ * For a Genome candidate (accept, or promote of a Genome candidate), promotion-gated criteria that target the
+ * artifact are left out of the pool: a Genome change has no app tree to evaluate them on. They gate app candidates.
  * Every other criterion in that pool is an advisory when not pass+completed; advisories need a non-empty rationale.
  * Hook selection (`selectHooks`) decides which hooks RUN; it does not shape the gate.
  */
@@ -17,7 +19,17 @@ export interface GateCriterion {
   blocking: boolean;
   /** Deferred acceptance criterion: known to the gate, neither blocking nor advisory. */
   deferred?: true;
+  /**
+   * Hooks of this criterion whose `triggers` include none of submission, candidate or promotion (deployment, outcome
+   * or selection stage). Their `not-run` rows cannot exist before promotion and are disregarded; nothing else is.
+   */
+  offTriggerHooks?: string[];
 }
+
+const PRE_PROMOTION = ["submission", "candidate", "promotion"];
+/** Hook ids of `c` that never run before promotion, from the Genome's hook definitions. */
+export const offTriggerHooks = (m: SystemModel, c: schema.Criterion): string[] =>
+  hooksOf(m, c).filter((h) => !h.triggers.some((t) => PRE_PROMOTION.includes(t))).map((h) => h.id);
 
 /** Hooks attached to a criterion (index ∪ the criterion's own list). */
 export function hooksOf(m: SystemModel, c: schema.Criterion): schema.AssayHook[] {
@@ -33,7 +45,7 @@ export const isBlocking = (m: SystemModel, c: schema.Criterion): boolean =>
  * Gate criteria for `candidate` of `evolution`. Throws if the model or selection is unusable; callers must treat a
  * throw as "gate unavailable", never as "no gates". Acceptance ids missing from the Genome come back blocking.
  */
-export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "acceptanceCriteria">, _candidate?: CandidateRef): GateCriterion[] {
+export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "acceptanceCriteria">, candidate?: Pick<CandidateRef, "target">): GateCriterion[] {
   const byId = new Map(m.criteria.map((c) => [c.id, c] as const));
   const out = new Map<string, GateCriterion>();
   const add = (id: string, blockingSet: boolean) => {
@@ -49,9 +61,11 @@ export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "
       return;
     }
     const blocking = (prev?.blocking ?? false) || (blockingSet && isBlocking(m, c));
-    out.set(id, { id, severity: c.severity ?? "hard", blocking });
+    const off = offTriggerHooks(m, c);
+    out.set(id, { id, severity: c.severity ?? "hard", blocking, ...(off.length && { offTriggerHooks: off }) });
   };
   for (const id of evolution.acceptanceCriteria) add(id, true);
-  for (const c of m.criteria) if (c.gates.includes("promotion")) add(c.id, true);
+  const genome = candidate?.target === "genome";
+  for (const c of m.criteria) if (c.gates.includes("promotion") && !(genome && c.targetKind === "artifact")) add(c.id, true);
   return [...out.values()];
 }

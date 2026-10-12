@@ -134,9 +134,9 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
   return packet;
 }
 
-/** CLI start line. The packet carries the `<token>` placeholder; only the StartWork response fills it in. */
+/** CLI start line. The packet carries `<token>` and `<secret>` placeholders; only the StartWork response fills them in. */
 export function startCommand(systemId: string, evolutionId: string, realizationId: string): string {
-  return `ARTYFACT_TOKEN=<token> npx artyfact start ${realizationId} --system ${systemId} --evolution ${evolutionId} --dir ./${realizationId}`;
+  return `ARTYFACT_TOKEN=<token> ARTYFACT_SECRET=<secret> npx artyfact start ${realizationId} --system ${systemId} --evolution ${evolutionId} --dir ./${realizationId}`;
 }
 
 const bullets = (xs: string[], empty = "_none_") => (xs.length ? xs.map((x) => `- ${x}`).join("\n") : empty);
@@ -150,7 +150,7 @@ export function renderMarkdown(p: TaskPacket): string {
     `Packet hash \`${p.hash}\``,
     "",
     "## Start",
-    "Set up the workspace with the token from the StartWork response:",
+    "Set up the workspace with the token and secret from the StartWork response:",
     "```sh",
     p.startCommand,
     "```",

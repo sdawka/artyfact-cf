@@ -6,9 +6,12 @@ export type ScoreCriteria = string[]; // 2-10 level descriptions
 
 export type Instructions = string | object | unknown[];
 
-export type NoulQuestion = { type: 'noul'; instructions: Instructions; criteria: NoulCriteria };
-export type ChoiceQuestion = { type: 'choice'; instructions: Instructions; criteria: ChoiceCriteria };
-export type ScoreQuestion = { type: 'score'; instructions: Instructions; criteria: ScoreCriteria };
+// `benign` is the answer that raises no concern. The catalogue declares it on every question; only the fake
+// provider reads it, and it is stripped before a question is sent to System One.
+export type NoulQuestion = { type: 'noul'; instructions: Instructions; criteria: NoulCriteria; benign?: 'yes' | 'no' };
+export type ChoiceQuestion = { type: 'choice'; instructions: Instructions; criteria: ChoiceCriteria; benign?: string };
+/** `benign` is a level index into `criteria`. */
+export type ScoreQuestion = { type: 'score'; instructions: Instructions; criteria: ScoreCriteria; benign?: number };
 export type Question = NoulQuestion | ChoiceQuestion | ScoreQuestion;
 export type Questions = Record<string, Question>;
 

@@ -1,6 +1,8 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { resetClientMode } from "@/api/client";
+import { useEvaluations } from "@/api/queries";
+import { FAKE_PROVIDER_TITLE, isFakeProvider } from "@/model/provider";
 import { useModel } from "@/model/useModel";
 import { useKeepParams } from "@/model/useSelection";
 import { LayerSwitch } from "./LayerSwitch";
@@ -13,6 +15,8 @@ export function TopBar({ onOpenPalette }: { onOpenPalette(): void }) {
   const { bundle } = useModel();
   const href = useKeepParams();
   const qc = useQueryClient();
+  const evaluations = useEvaluations();
+  const fakeS1 = (evaluations.data ?? []).some((e) => isFakeProvider(e.provenance?.provider));
   const retry = () => {
     resetClientMode();
     void qc.invalidateQueries();
@@ -32,6 +36,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette(): void }) {
           Retry API
         </button>
       )}
+      {fakeS1 && <StatePill state="fake" title={FAKE_PROVIDER_TITLE}>System One: fake provider</StatePill>}
       <div className={styles.spacer} />
       <LayerSwitch />
       <button type="button" className={`u-brackets ${styles.search}`} onClick={onOpenPalette} aria-keyshortcuts="Meta+K Control+K">

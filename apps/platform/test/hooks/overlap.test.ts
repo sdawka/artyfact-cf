@@ -54,7 +54,8 @@ describe("overlap / conflicts", () => {
     const a = cand("cand.a", ["src/ui/a.tsx"], ["policy.ownerOnly"]);
     const b = cand("cand.b", ["src/worker/b.ts"], ["policy.ownerOnly"]);
     const r = await computeConflicts(ctx(a, [b]), base, { s1: createSystemOne({ FAKE_S1: "1" }) });
-    expect(r[0].semantic).toMatchObject({ interferes: 0.95, verdict: "pass" });
+    // The fake's default rules interference out (noul 0.05); #s1harm would confirm it.
+    expect(r[0].semantic).toMatchObject({ interferes: 0.05, verdict: "fail" });
     expect(r[0].semantic?.provenance.provider).toBe("fake");
   });
 

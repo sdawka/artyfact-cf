@@ -27,6 +27,7 @@ export default defineConfig({
       ? `npx wrangler dev --port ${port}`
       : `npx vite preview --config vite.fixture.config.ts --port ${port} --strictPort`,
     url: baseURL,
+    env: live ? {} : { ARTYFACT_E2E_FIXTURE: "1" },
     reuseExistingServer: !process.env.CI,
     timeout: 60_000,
   },

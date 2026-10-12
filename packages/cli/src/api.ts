@@ -2,9 +2,12 @@ import { CliError } from "./git.ts";
 
 export class PlatformClient {
   readonly base: string;
+  readonly #secret: string | undefined;
 
-  constructor(base: string) {
+  /** `secret` is the realization secret, sent as a bearer token on every call. */
+  constructor(base: string, secret?: string) {
     this.base = base;
+    this.#secret = secret;
   }
 
   async request<T>(method: string, path: string, body?: unknown): Promise<T> {
@@ -13,7 +16,10 @@ export class PlatformClient {
     try {
       res = await fetch(url, {
         method,
-        headers: body === undefined ? undefined : { "content-type": "application/json" },
+        headers: {
+          ...(body !== undefined && { "content-type": "application/json" }),
+          ...(this.#secret && { authorization: `Bearer ${this.#secret}` }),
+        },
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch (e) {

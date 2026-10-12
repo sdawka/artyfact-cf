@@ -10,7 +10,7 @@ export interface Packet {
   commands: string[];
   hash?: string;
   markdown?: string;
-  workspace?: { remote?: string; fork?: string };
+  workspace?: { remote?: string; fork?: string; secret?: string };
 }
 
 export interface PacketPayload {
@@ -45,4 +45,6 @@ export interface WorkspaceConfig {
   remote: string;
   tokenExpires?: string;
   packetHash?: string;
+  /** Realization secret for platform calls. The file is mode 0600 and git-excluded. */
+  secret?: string;
 }

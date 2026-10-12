@@ -28,6 +28,7 @@ export function reviewDeltaQuestions(change: SemanticChange, commitments: Commit
   const q: Questions = {
     changeClass: {
       type: 'choice',
+      benign: 'deliberate-nonstandard-choice',
       instructions:
         'Classify this Genome change (state.change) relative to the System\'s accepted contract (state.commitments and state.governing, in light of state.system.purpose).',
       criteria: {
@@ -39,6 +40,7 @@ export function reviewDeltaQuestions(change: SemanticChange, commitments: Commit
     },
     weakens: {
       type: 'noul',
+      benign: 'no',
       instructions:
         'Compared with state.change.before, does state.change.after weaken, remove or make untestable an obligation in state.governing?',
       criteria: {
@@ -48,6 +50,7 @@ export function reviewDeltaQuestions(change: SemanticChange, commitments: Commit
     },
     specificity: {
       type: 'score',
+      benign: 3,
       instructions: 'How specific and testable is state.change.after as a requirement?',
       criteria: [
         'aspirational, no observable condition',
@@ -58,6 +61,7 @@ export function reviewDeltaQuestions(change: SemanticChange, commitments: Commit
     },
     touchesConsent: {
       type: 'noul',
+      benign: 'no',
       instructions:
         'Does this change (state.change) alter who may see or act on another person\'s data, or the consent needed to do so?',
       criteria: {
@@ -69,6 +73,7 @@ export function reviewDeltaQuestions(change: SemanticChange, commitments: Commit
   for (const c of commitments) {
     q[`contradicts.${c.id}`] = {
       type: 'noul',
+      benign: 'no',
       instructions: `Does state.change.after contradict commitment ${c.id}: "${c.statement}"?`,
       criteria: {
         true: `The changed content contradicts commitment ${c.id}: "${cap(c.statement, 200)}"`,
@@ -88,6 +93,7 @@ export function topologyQuestions(_node?: OntologyNode, _profile?: string): Ques
   return {
     multiRecipient: {
       type: 'noul',
+      benign: 'no',
       instructions: 'Does the operation or affordance described by state.node send or address one action to more than one person at once?',
       criteria: {
         true: 'One action is sent to, or addressed to, more than one person at once (recipient lists, bulk send, group threads).',
@@ -96,6 +102,7 @@ export function topologyQuestions(_node?: OntologyNode, _profile?: string): Ques
     },
     isPublication: {
       type: 'noul',
+      benign: 'yes',
       instructions:
         'Is state.node a reader-driven publication (an author publishes and approved readers independently read) rather than a direct send?',
       criteria: {
@@ -125,6 +132,7 @@ export function purposeMeasureQuestions(_purpose?: string, _claim?: TheoryClaim)
   return {
     engagementSubstitute: {
       type: 'noul',
+      benign: 'no',
       instructions:
         'Does state.claim.indicator measure app engagement (time spent, volume, opens) as if it were the wanted outcome in state.claim.outcome?',
       criteria: {
@@ -134,6 +142,7 @@ export function purposeMeasureQuestions(_purpose?: string, _claim?: TheoryClaim)
     },
     outcomeNotOutput: {
       type: 'noul',
+      benign: 'yes',
       instructions: 'Does state.claim.outcome describe a change for the beneficiary rather than a delivered feature?',
       criteria: {
         true: 'The outcome is a change in the beneficiary\'s situation or behaviour.',
@@ -142,6 +151,7 @@ export function purposeMeasureQuestions(_purpose?: string, _claim?: TheoryClaim)
     },
     measurable: {
       type: 'score',
+      benign: 2,
       instructions: 'How measurable is state.claim, given its indicator and evaluationMethod?',
       criteria: [
         'no way to observe',
@@ -161,6 +171,7 @@ export function interferenceQuestions(_a?: EvolutionSummary, _b?: EvolutionSumma
   return {
     interferes: {
       type: 'noul',
+      benign: 'no',
       instructions:
         'Would applying both changes (state.a and state.b) together alter a shared user journey or an outcome hypothesis in a way neither change alone intends?',
       criteria: {
@@ -170,6 +181,7 @@ export function interferenceQuestions(_a?: EvolutionSummary, _b?: EvolutionSumma
     },
     needsComposition: {
       type: 'noul',
+      benign: 'no',
       instructions: 'Must the two changes (state.a and state.b) be tested together as one composition rather than independently?',
       criteria: {
         true: 'They must be tested together as one composition.',
@@ -199,16 +211,19 @@ export function classifyStatementQuestions(_sentence: string, kinds: KindOption[
   return {
     kind: {
       type: 'choice',
+      benign: Object.keys(kindCriteria)[0],
       instructions: 'What kind of Genome element does state.sentence express?',
       criteria: kindCriteria,
     },
     attachTo: {
       type: 'choice',
+      benign: Object.keys(attach)[0],
       instructions: 'Which existing node in state.candidates does state.sentence most directly describe or constrain? Choose "new" if none fits.',
       criteria: attach,
     },
     isDistinctiveChoice: {
       type: 'noul',
+      benign: 'yes',
       instructions: 'Is state.sentence a deliberate, non-generic design commitment worth preserving verbatim?',
       criteria: {
         true: 'It is a deliberate, specific design commitment worth keeping word for word.',
