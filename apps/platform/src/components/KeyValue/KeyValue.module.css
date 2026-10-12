@@ -1,0 +1,33 @@
+.kv {
+  display: grid;
+  gap: var(--spacing-3);
+  margin: 0;
+}
+.row {
+  display: grid;
+  gap: var(--spacing-1);
+}
+.key {
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-sm);
+}
+.value {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.pre {
+  margin: 0;
+  padding: var(--spacing-2);
+  overflow-x: auto;
+  background: var(--color-background);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+}
