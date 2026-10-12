@@ -4,6 +4,7 @@
 import { hashOf } from './hash';
 import type { Commitment, EvolutionSummary, OntologyNode, SemanticChange, SemanticDelta, SemanticModel, TheoryClaim } from './model-types';
 import { PRIVATE_PAIRS_PROFILE } from './model-types';
+import { S1Error } from './provider';
 import { choiceOutcome, verdict as verdictOf } from './policy';
 import {
   classifyStatementQuestions,
@@ -28,10 +29,12 @@ type Run = { reply: S1Reply | null; provenance: Provenance };
 
 async function run(s1: SystemOne, state: unknown, questions: Questions): Promise<Run> {
   const [stateHash, questionHash] = await Promise.all([hashOf(state), hashOf(questions)]);
+  const t0Ask = Date.now();
   try {
     const reply = await s1.ask(state, questions);
     return { reply, provenance: { provider: reply.provider, model: reply.model, questionHash, stateHash, ms: reply.ms, usage: reply.usage } };
-  } catch {
+  } catch (e) {
+    const error = e instanceof S1Error ? { name: e.name, code: e.code, status: e.status, message: e.message } : { name: (e as Error)?.name ?? 'Error', message: String((e as Error)?.message ?? e) };
     return {
       reply: null,
       provenance: {
@@ -39,8 +42,9 @@ async function run(s1: SystemOne, state: unknown, questions: Questions): Promise
         model: s1.model,
         questionHash,
         stateHash,
-        ms: 0,
+        ms: Date.now() - t0Ask,
         usage: { input_tokens: 0, output_tokens: 0 },
+        error,
       },
     };
   }
@@ -100,7 +104,9 @@ async function reviewOne(s1: SystemOne, m: SemanticModel, change: SemanticChange
     Object.values(contradicts).every((p) => verdictOf(p) === 'fail') &&
     verdictOf(weakens) === 'fail' &&
     changeClass !== null &&
-    (changeClass.outcome === 'clarification' || changeClass.outcome === 'deliberate-nonstandard-choice');
+    verdictOf(changeClass.confidence) === 'pass' &&
+    (changeClass.choice === 'clarification' || changeClass.choice === 'deliberate-nonstandard-choice') &&
+    verdictOf(changeClass.probabilities['hard-rule-violation']) === 'fail';
   const verdict: Verdict = level === 'error' ? 'fail' : clean ? 'pass' : 'unknown';
   return { id: change.id, changeClass, contradicts, weakens, specificity: score(r, 'specificity'), touchesConsent: noul(r, 'touchesConsent'), level, verdict, provenance: r.provenance };
 }
@@ -148,10 +154,11 @@ export const purposeMeasures = (s1: SystemOne, purpose: string, claims: TheoryCl
       const measurable = score(r, 'measurable');
       const eng = verdictOf(engagementSubstitute);
       const out = verdictOf(outcomeNotOutput);
-      const measurableConfident = measurable !== null && measurable.confidence >= 0.5;
+      const measurableSure = measurable !== null && measurable.confidence >= 0.5; // enough to fail
+      const measurableGreen = measurable !== null && verdictOf(measurable.confidence) === 'pass'; // needed to pass
       let verdict: Verdict = 'unknown';
-      if (eng === 'pass' || out === 'fail' || (measurableConfident && measurable.score === 0)) verdict = 'fail';
-      else if (eng === 'fail' && out === 'pass' && measurableConfident && measurable.score >= 1) verdict = 'pass';
+      if (eng === 'pass' || out === 'fail' || (measurableSure && measurable.score === 0)) verdict = 'fail';
+      else if (eng === 'fail' && out === 'pass' && measurableGreen && measurable.score >= 1) verdict = 'pass';
       return { claimId: claim.id, engagementSubstitute, outcomeNotOutput, measurable, verdict, provenance: r.provenance };
     }),
   );

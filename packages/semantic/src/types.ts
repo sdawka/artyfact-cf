@@ -63,6 +63,8 @@ export type Provenance = {
   stateHash: string;
   ms: number;
   usage: Usage;
+  /** Set when provider is 'error' or 'off': why the call failed. */
+  error?: { name: string; message: string; code?: string; status?: number };
 };
 
 export type Verdict = 'pass' | 'fail' | 'unknown';

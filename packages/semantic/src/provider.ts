@@ -55,7 +55,7 @@ export function createSystemOne(env: SystemOneEnv): SystemOne {
       });
       if (!res.ok) throw new S1Error(`System One HTTP ${res.status}`, 'http', res.status);
       const body = (await res.json()) as SystemOneResponse;
-      if (!body || typeof body.answers !== 'object') throw new S1Error('System One: malformed response', 'bad-response');
+      if (!body || typeof body.answers !== 'object' || body.answers === null || Array.isArray(body.answers)) throw new S1Error('System One: malformed response', 'bad-response');
       return body;
     } catch (e) {
       if (e instanceof S1Error) throw e;

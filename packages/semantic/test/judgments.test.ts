@@ -133,3 +133,44 @@ describe('classifyStatements', () => {
     expect(p!.kind!.outcome).toBe('unresolved-interpretation');
   });
 });
+
+describe('never green under threshold', () => {
+  const answersFor = (conf: number, hard = 0.02, measConf = 0.95) => (init: RequestInit) => {
+    const qs = JSON.parse(init.body as string).questions as Record<string, { type: string }>;
+    return jsonRes(okBody(Object.fromEntries(Object.entries(qs).map(([id, q]) => [id,
+      q.type === 'noul' ? { type: 'noul', noul: id === 'outcomeNotOutput' ? 0.97 : 0.02 }
+      : id === 'changeClass' ? { type: 'choice', choice: 'clarification', probabilities: { clarification: conf, 'hard-rule-violation': hard }, confidence: conf }
+      : { type: 'score', score: 2, probabilities: {}, confidence: measConf }]))));
+  };
+  const review = (f: ReturnType<typeof mockFetch>) => reviewDelta(createSystemOne({ TYPESAFE_API_KEY: 'k', fetch: f }), model, delta(''), commitments);
+  it.each([[0.5, 'unknown'], [0.89, 'unknown'], [0.9, 'pass']])('class confidence %s -> %s', async (conf, v) => {
+    const [r] = await review(mockFetch(answersFor(conf)));
+    expect(r!.verdict).toBe(v);
+  });
+  it('hard-rule probability above 0.1 blocks pass', async () => {
+    const [r] = await review(mockFetch(answersFor(0.95, 0.2)));
+    expect(r!.verdict).toBe('unknown');
+  });
+  it.each([[0.5, 'unknown'], [0.89, 'unknown'], [0.9, 'pass']])('measurable confidence %s -> %s', async (conf, v) => {
+    const f = mockFetch(answersFor(0.95, 0.02, conf));
+    const [r] = await purposeMeasures(createSystemOne({ TYPESAFE_API_KEY: 'k', fetch: f }), 'p', [{ id: 'T', mechanism: 'm', outcome: 'o', indicator: 'i' }]);
+    expect(r!.verdict).toBe(v);
+  });
+});
+
+describe('failure provenance', () => {
+  it('records code, status, real ms; null answers do not throw', async () => {
+    const s = createSystemOne({ TYPESAFE_API_KEY: 'k', fetch: mockFetch(() => jsonRes({}, 401)) });
+    const [r] = await reviewDelta(s, model, delta(''), commitments);
+    expect(r!.provenance).toMatchObject({ provider: 'error', error: { name: 'S1Error', code: 'http', status: 401 } });
+    const n = createSystemOne({ TYPESAFE_API_KEY: 'k', fetch: mockFetch(() => jsonRes({ model: 'm', answers: null })) });
+    const [t] = await topology(n, [{ node: node('x') }]);
+    expect(t).toMatchObject({ verdict: 'unknown', multiRecipient: null });
+    expect(t!.provenance.error?.code).toBe('bad-response');
+  });
+  it('non-S1 errors keep name and message', async () => {
+    const bad = { mode: 'typesafe', model: 'm', ask: async () => { throw new RangeError('oops'); } } as never;
+    const [t] = await topology(bad, [{ node: node('x') }]);
+    expect(t!.provenance.error).toMatchObject({ name: 'RangeError', message: 'oops' });
+  });
+});
