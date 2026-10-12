@@ -16,6 +16,7 @@ export const qk = {
   conflicts: (systemId: string) => ["conflicts", systemId] as const,
   history: (systemId: string) => ["history", systemId] as const,
   packet: (systemId: string, id: string) => ["packet", systemId, id] as const,
+  amendmentReview: (systemId: string, id: string) => ["amendmentReview", systemId, id] as const,
 };
 
 /** Used by the route loader (`ensureQueryData`) and by `useModelBundle`. */
@@ -82,6 +83,16 @@ export function usePacket(realizationId: string | undefined) {
   return useQuery({
     queryKey: qk.packet(systemId, realizationId ?? ""),
     queryFn: () => api.getPacket(systemId, realizationId!),
+    enabled: !!realizationId,
+  });
+}
+
+/** Rule findings and System One judgments for a Genome-targeting realization. */
+export function useAmendmentReview(realizationId: string | undefined) {
+  const { systemId } = useSystemRoute();
+  return useQuery({
+    queryKey: qk.amendmentReview(systemId, realizationId ?? ""),
+    queryFn: () => api.getAmendmentReview(systemId, realizationId!),
     enabled: !!realizationId,
   });
 }

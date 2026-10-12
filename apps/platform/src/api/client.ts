@@ -1,6 +1,6 @@
 import type {
   AcceptRequest, AcceptResponse, ApiError, CandidatesResponse, ConflictReport, EvaluationsResponse,
-  EvolutionsResponse, HistoryResponse, ModelBundle, PacketResponse, PromoteRequest, PromoteResponse,
+  EvolutionsResponse, GenomeCandidateReview, HistoryResponse, ModelBundle, PacketResponse, PromoteRequest, PromoteResponse,
   ReadinessReport, Realization, SseEvent, StartWorkRequest, StartWorkResponse, SubmitRequest,
   SubmitResponse, SystemSummary,
 } from "../../shared/api";
@@ -57,6 +57,7 @@ export const paths = {
   startWork: (s: string, e: string) => `/api/systems/${enc(s)}/evolutions/${enc(e)}/realizations`,
   submit: (s: string, r: string) => `/api/systems/${enc(s)}/realizations/${enc(r)}/submit`,
   promote: (s: string) => `/api/systems/${enc(s)}/promote`,
+  amendmentReview: (s: string, r: string) => `/api/systems/${enc(s)}/realizations/${enc(r)}/review`,
   accept: (s: string, e: string) => `/api/systems/${enc(s)}/evolutions/${enc(e)}/accept`,
   events: (s: string) => `/api/systems/${enc(s)}/events`,
 };
@@ -186,6 +187,11 @@ export const getHistory = (systemId: string) =>
 export async function getPacket(systemId: string, realizationId: string): Promise<PacketResponse> {
   if (await isFixtureMode()) throw new ApiRequestError(404, "not-found", `No packet for ${realizationId} in fixture data`);
   return request<PacketResponse>(paths.packet(systemId, realizationId));
+}
+
+export async function getAmendmentReview(systemId: string, realizationId: string): Promise<GenomeCandidateReview> {
+  if (await isFixtureMode()) throw new ApiRequestError(404, "not-found", `No amendment review for ${realizationId} in fixture data`);
+  return request<GenomeCandidateReview>(paths.amendmentReview(systemId, realizationId));
 }
 
 // ---------------------------------------------------------------------------
