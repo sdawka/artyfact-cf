@@ -8,6 +8,7 @@ interface __BaseEnv_Env {
 	ACCOUNT_ID: "1bae12d5089e4c2ee5c0e62c021a117f";
 	PREVIEW_HOST_ALLOWLIST: "";
 	FAKE_S1: "1";
+	WORKERS_SUBDOMAIN: "dawka";
 	SYSTEMS: DurableObjectNamespace<import("./index").SystemAuthority>;
 }
 declare namespace Cloudflare {
@@ -22,7 +23,7 @@ type StringifyValues<EnvType extends Record<string, unknown>> = {
 	[Binding in keyof EnvType]: EnvType[Binding] extends string ? EnvType[Binding] : string;
 };
 declare namespace NodeJS {
-	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "ARTIFACTS_NAMESPACE" | "PUBLIC_URL" | "ACCOUNT_ID" | "PREVIEW_HOST_ALLOWLIST" | "FAKE_S1">> {}
+	interface ProcessEnv extends StringifyValues<Pick<Cloudflare.Env, "ARTIFACTS_NAMESPACE" | "PUBLIC_URL" | "ACCOUNT_ID" | "PREVIEW_HOST_ALLOWLIST" | "FAKE_S1" | "WORKERS_SUBDOMAIN">> {}
 }
 declare module "*.txt" {
 	const value: string;
