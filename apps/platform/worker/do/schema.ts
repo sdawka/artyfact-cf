@@ -26,3 +26,24 @@ CREATE TABLE IF NOT EXISTS candidate_reviews (candidate_id TEXT PRIMARY KEY, jso
 CREATE TABLE IF NOT EXISTS model_cache (genome_commit TEXT NOT NULL, part TEXT NOT NULL, json TEXT NOT NULL, created_at TEXT NOT NULL,
   PRIMARY KEY (genome_commit, part));
 `;
+
+/**
+ * Columns added to tables after they first shipped. `CREATE TABLE IF NOT EXISTS` never alters an existing table,
+ * so each is added on construction when `pragma_table_info` lacks it.
+ */
+export const ADDED_COLUMNS: [table: string, column: string, type: string][] = [
+  ["realizations", "base_repo", "TEXT"],
+  ["realizations", "base_head", "TEXT"],
+  ["realizations", "role", "TEXT"],
+  ["realizations", "remote", "TEXT"],
+  ["realizations", "rejection_reason", "TEXT"],
+];
+
+export function applySchema(sql: SqlStorage): void {
+  for (const stmt of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) sql.exec(stmt);
+  for (const [table, column, type] of ADDED_COLUMNS) {
+    if (!sql.exec("SELECT 1 FROM pragma_table_info(?) WHERE name = ?", table, column).toArray().length) {
+      sql.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${type}`);
+    }
+  }
+}

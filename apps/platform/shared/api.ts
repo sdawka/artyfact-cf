@@ -510,7 +510,10 @@ export type SseEvent =
 
 export type SseEventType = SseEvent["type"];
 
-/** Every SSE `data:` line is one JSON envelope: the event plus its emission time. */
+/**
+ * Every SSE `data:` line is one JSON envelope: the event plus its emission time. Events emitted while no client is
+ * connected are dropped and there is no `id:`/replay, so clients refetch the state they show on connect and on every reconnect.
+ */
 export type SseEnvelope = SseEvent & { at: string };
 
 // ---------------------------------------------------------------------------

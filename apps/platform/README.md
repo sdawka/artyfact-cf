@@ -51,7 +51,7 @@ All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shar
 | GET | `/systems/:id/conflicts` | - | `ConflictsResponse` |
 | POST | `/systems/:id/promote` | admin | `{candidateIds or candidates, expectedHead, rationale}` → `PromoteResponse` (with `advisories`); 409 `stale-base` `{currentHead}`, or `blocked` `{blocking, advisories}`, or `gate-unavailable`, or `invalid-state` (e.g. more than one app or Genome candidate: composition is not supported yet); 400 `advisories-unacknowledged` |
 | GET | `/systems/:id/history` | - | `HistoryResponse`, newest first |
-| GET | `/systems/:id/events` | - | SSE, `data: {type, at, ...}` (`SseEnvelope`), `ping` every 15 s |
+| GET | `/systems/:id/events` | - | SSE, `data: {type, at, ...}` (`SseEnvelope`), `ping` every 15 s. Events are not replayed (no `id:`); refetch on connect and on every reconnect |
 
 Promotion gate (fails closed): the blocking set is (the Evolution's acceptance criteria ∪ criteria gated on `promotion`) ∩ hard ∩ ≥1 hook with `binding: bound`. Blocking criteria must be pass+completed for this exact candidate; missing evidence is `unknown` and blocks. Other non-passing criteria are `advisories` (400 without a rationale; recorded as `decision.acknowledged`). 409 `gate-unavailable` when the Genome or the criteria cannot be computed, or when nothing blocks and the acceptance criteria are absent or lack a completed evaluation (a `not-run` row does not count). Before the CAS, hooks re-run with `promotionFacts` (base-current; manifest-exact: the composed System manifest binds exactly the promoted commits and each commit still hashes to its submitted manifest; evidence-fresh).
 

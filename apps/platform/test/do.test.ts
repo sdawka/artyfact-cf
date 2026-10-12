@@ -333,6 +333,23 @@ describe("accept", () => {
   });
 });
 
+describe("schema", () => {
+  it("adds columns that a table created by an earlier version lacks", async () => {
+    await runInDurableObject(stub(), async (_i: SystemAuthority, state) => {
+      const sql = state.storage.sql;
+      sql.exec("DROP TABLE realizations");
+      sql.exec(`CREATE TABLE realizations (id TEXT PRIMARY KEY, evolution_id TEXT NOT NULL, n INTEGER NOT NULL, target TEXT NOT NULL,
+        fork_repo TEXT NOT NULL, token_id TEXT, token_expires TEXT, base_commit TEXT, agent_label TEXT, status TEXT NOT NULL,
+        packet_json TEXT, packet_hash TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+      const { applySchema } = await import("../worker/do/schema");
+      applySchema(sql);
+      applySchema(sql); // idempotent
+      const cols = sql.exec("SELECT name FROM pragma_table_info('realizations')").toArray().map((r) => r.name);
+      expect(cols).toEqual(expect.arrayContaining(["base_repo", "base_head", "role", "remote", "rejection_reason"]));
+    });
+  });
+});
+
 describe("registry", () => {
   it("indexes systems, realizations and forks in the __registry instance", async () => {
     await runInDurableObject(env.SYSTEMS.getByName(REGISTRY), async (i: SystemAuthority) => {

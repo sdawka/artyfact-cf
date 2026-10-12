@@ -6,7 +6,7 @@ import type {
 } from "../../shared/api";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
 import { RegistryStore } from "./registry";
-import { SCHEMA } from "./schema";
+import { applySchema } from "./schema";
 
 /** Name of the DO instance holding the System registry and the realization/fork index. */
 export const REGISTRY = "__registry";
@@ -187,7 +187,7 @@ export class SystemAuthority extends DurableObject<Env> {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.sql = ctx.storage.sql;
-    for (const stmt of SCHEMA.split(";").map((s) => s.trim()).filter(Boolean)) this.sql.exec(stmt);
+    applySchema(this.sql);
   }
 
   // ---------------------------------------------------------------- helpers
