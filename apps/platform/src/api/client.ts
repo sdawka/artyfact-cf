@@ -5,7 +5,6 @@ import type {
   SubmitResponse, SystemSummary,
 } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
-import { FIXTURE_SYSTEM_ID, fixtureBundle } from "./fixtures";
 
 /** Any non-2xx response. `body` is the parsed {@link ApiError} when the server sent one. */
 export class ApiRequestError extends Error {
@@ -91,8 +90,13 @@ const post = <T>(path: string, body: unknown, headers?: Record<string, string>) 
 
 let mode: Promise<{ fixture: boolean; systems: SystemSummary[] }> | undefined;
 
-function fixtureSummary(): SystemSummary {
-  const b = fixtureBundle();
+export const FIXTURE_SYSTEM_ID = "system.keep-in-touch";
+
+/** The fixture JSON is large, so it is a separate chunk loaded only on the fallback path. */
+const fixtureBundle = () => import("./fixtures").then((m) => m.fixtureBundle());
+
+async function fixtureSummary(): Promise<SystemSummary> {
+  const b = await fixtureBundle();
   return {
     systemId: b.systemId,
     title: b.model.system.name,
@@ -108,16 +112,18 @@ function fixtureSummary(): SystemSummary {
 
 function resolveMode() {
   mode ??= request<SystemSummary[] | { systems: SystemSummary[] }>(paths.systems())
-    .then((r) => {
-      const systems = Array.isArray(r) ? r : (r.systems ?? []);
-      if (systems.length) return { fixture: false, systems };
-      console.warn("artyfact: the API has no Systems, showing fixture data");
-      return { fixture: true, systems: [fixtureSummary()] };
-    })
-    .catch((cause: unknown) => {
-      console.warn("artyfact: /api/systems unavailable, showing fixture data", cause);
-      return { fixture: true, systems: [fixtureSummary()] };
-    });
+    .then(
+      async (r) => {
+        const systems = Array.isArray(r) ? r : (r.systems ?? []);
+        if (systems.length) return { fixture: false, systems };
+        console.warn("artyfact: the API has no Systems, showing fixture data");
+        return { fixture: true, systems: [await fixtureSummary()] };
+      },
+      async (cause: unknown) => {
+        console.warn("artyfact: /api/systems unavailable, showing fixture data", cause);
+        return { fixture: true, systems: [await fixtureSummary()] };
+      },
+    );
   return mode;
 }
 
@@ -157,7 +163,7 @@ export async function getModel(systemId: string, rev: string): Promise<UiBundle>
 }
 
 export async function getReadiness(systemId: string, rev: string): Promise<ReadinessReport> {
-  if (await isFixtureMode()) return fixtureBundle().readiness;
+  if (await isFixtureMode()) return (await fixtureBundle()).readiness;
   return request<ReadinessReport>(paths.readiness(systemId, rev));
 }
 
