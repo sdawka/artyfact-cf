@@ -248,7 +248,7 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
   try {
     await registryStub(env).registerRealization(rid, systemId, evolutionId, reserved.forkRepo);
     const ns = artifactsFor(env);
-    const forked = await forkAndWait(ns, reserved.baseRepo, reserved.forkRepo);
+    const forked = await forkAndWait(ns, reserved.baseRepo, reserved.forkRepo, { baseCommit: reserved.baseCommit });
     const token = await withRepo(ns, reserved.forkRepo, (r) => r.createToken("write", TOKEN_TTL_S));
     tokenId = token.id;
     const remote = remoteUrl(env, reserved.forkRepo, forked.remote);
@@ -649,7 +649,12 @@ export async function promote(
   }
   const out = await stub.promote({ candidateIds: ids as string[], expectedHead: body.expectedHead as string | null, rationale, by: "admin", gates, ...manifestExtras(g.model) });
   if (!out.ok) {
-    if (out.code === "stale-base") throw conflict("stale-base", "System head moved; reload and retry", { currentHead: out.currentHead });
+    if (out.code === "stale-base") {
+      const why = out.currentHead === body.expectedHead
+        ? "a candidate was built on an earlier System head; rebase it on the current head and resubmit"
+        : "System head moved; reload and retry";
+      throw conflict("stale-base", why, { currentHead: out.currentHead });
+    }
     if ("blocking" in out) {
       const details = { blocking: out.blocking, advisories: out.advisories };
       if (out.code === "advisories-unacknowledged") {

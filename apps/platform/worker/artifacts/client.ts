@@ -4,6 +4,8 @@
  * (https://developers.cloudflare.com/artifacts/api/workers-binding/).
  */
 
+import { conflict } from "../errors";
+
 export type TreeEntryType = "tree" | "blob" | "symlink" | "gitlink" | "exec";
 export interface TreeEntry { name: string; mode: string; hash: string; type: TreeEntryType }
 export interface CommitMeta {
@@ -104,27 +106,39 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 /**
  * Fork `base` as `name` and wait until it is usable. Tolerates ALREADY_EXISTS (a retried start)
  * and FORK_IN_PROGRESS on `get`. Ready = `get` + `info` succeed and `status`, if reported, is `ready`.
+ * With `baseCommit`, an existing fork is reused only while its head is still that commit: a fork left over
+ * from another run (e.g. fresh platform state, same Artifacts namespace) is refused with 409 `fork-exists`.
  */
 export async function forkAndWait(
   ns: ArtifactsNamespaceLike,
   base: string,
   name: string,
-  opts: { timeoutMs?: number; intervalMs?: number } = {},
+  opts: { timeoutMs?: number; intervalMs?: number; baseCommit?: string } = {},
 ): Promise<{ remote?: string }> {
   const timeoutMs = opts.timeoutMs ?? 20_000, intervalMs = opts.intervalMs ?? 500;
   let remote: string | undefined;
+  let existed = false;
   await withRepo(ns, base, async (repo) => {
     try {
       remote = (await repo.fork(name, { defaultBranchOnly: true })).remote;
     } catch (e) {
       if (artifactsErrorCode(e) !== "ALREADY_EXISTS" && artifactsErrorCode(e) !== "FORK_IN_PROGRESS") throw e;
+      existed = artifactsErrorCode(e) === "ALREADY_EXISTS";
     }
   });
   const deadline = Date.now() + timeoutMs;
   for (;;) {
     try {
       const info = await withRepo(ns, name, (r) => r.info());
-      if (info.status === undefined || info.status === "ready") return { remote: remote ?? info.remote };
+      if (info.status === undefined || info.status === "ready") {
+        if (existed && opts.baseCommit) {
+          const [head] = await withRepo(ns, name, (r) => r.log({ limit: 1 }));
+          if (head?.hash !== opts.baseCommit) {
+            throw conflict("fork-exists", `repo ${name} already exists at ${head?.hash.slice(0, 12) ?? "no commit"}, not at base ${opts.baseCommit.slice(0, 12)}; delete it (wrangler artifacts repos delete ${name} --namespace <ns>) or reset the platform state`);
+          }
+        }
+        return { remote: remote ?? info.remote };
+      }
     } catch (e) {
       const code = artifactsErrorCode(e);
       if (code !== "FORK_IN_PROGRESS" && code !== "NOT_FOUND" && code !== "CREATE_IN_PROGRESS") throw e;

@@ -91,6 +91,13 @@ describe("forkAndWait", () => {
     await forkAndWait(ns, "kit-app", "kit-app--r1", { intervalMs: 1 });
     await expect(forkAndWait(ns, "kit-app", "kit-app--r1", { intervalMs: 1 })).resolves.toBeDefined();
   });
+  it("refuses an existing fork whose head moved past the base commit (left over from another run)", async () => {
+    const { ns, c3 } = threeCommits();
+    await forkAndWait(ns, "kit-app", "kit-app--r1", { intervalMs: 1, baseCommit: c3 });
+    await expect(forkAndWait(ns, "kit-app", "kit-app--r1", { intervalMs: 1, baseCommit: c3 })).resolves.toBeDefined();
+    ns.repo("kit-app--r1").commit({ "README.md": "someone else's work" });
+    await expect(forkAndWait(ns, "kit-app", "kit-app--r1", { intervalMs: 1, baseCommit: c3 })).rejects.toMatchObject({ status: 409, code: "fork-exists" });
+  });
   it("times out", async () => {
     const { ns } = threeCommits();
     ns.forkDelayPolls = 1000;
