@@ -34,12 +34,12 @@ remote_url() { printf 'https://%s.artifacts.cloudflare.net/git/%s/%s.git' "$ACCO
 
 ensure_namespace() {
   if [ "$DRY_RUN" = 1 ]; then
-    log "+ wrangler artifacts namespaces get $NS || cf artifacts namespaces create $NS"
+    log "+ wrangler artifacts namespaces get $NS || cf artifacts namespaces create --namespace $NS"
     return
   fi
   if wrangler artifacts namespaces get "$NS" >/dev/null 2>&1; then return; fi
   if command -v cf >/dev/null 2>&1; then
-    cf artifacts namespaces create "$NS" >/dev/null
+    cf artifacts namespaces create --namespace "$NS" >/dev/null
   else
     echo "namespace '$NS' not found and 'cf' is unavailable; create it, then re-run" >&2
     exit 1
@@ -57,9 +57,10 @@ ensure_repo() {
 }
 
 # Issues a write token and prints it to stdout only (callers must keep it out of logs).
+# wrangler 4.149 --json output: {"id","plaintext","scope","expires_at"}; plaintext is "art_v1_<hex>?expires=<unix>".
 issue_token() {
   wrangler artifacts repos issue-token "$1" --namespace "$NS" --scope write --ttl 3600 --json \
-    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);const t=j.token??j.value??j.plaintext??(j.result&&(j.result.token??j.result.value));if(!t){console.error("no token in response");process.exit(1)}process.stdout.write(String(t))})'
+    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{const j=JSON.parse(s);const t=j.plaintext;if(!t){console.error("no token in response");process.exit(1)}process.stdout.write(String(t))})'
 }
 
 # git with the bearer header supplied through the environment so the token never appears in argv.
@@ -113,4 +114,4 @@ done
 
 log ""
 log "Import into the platform (apps/platform dev server):"
-log "curl -XPOST localhost:5173/api/systems/import -H 'content-type: application/json' -d '{\"systemId\":\"system.keep-in-touch\",\"genomeRepo\":\"kit-system\",\"appRepo\":\"kit-app\"}'"
+log "curl -XPOST localhost:5173/api/systems/import -H \"authorization: Bearer \$ADMIN_TOKEN\" -H 'content-type: application/json' -d '{\"systemId\":\"system.keep-in-touch\",\"genomeRepo\":\"kit-system\",\"appRepo\":\"kit-app\"}'"
