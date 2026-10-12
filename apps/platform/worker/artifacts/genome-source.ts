@@ -1,10 +1,6 @@
-import { loadSystem, validate, type Readiness, type SystemModel, type TemplateStore } from "@artyfact/model";
-import { packsFor, templates as bundledTemplates } from "@artyfact/templates";
+import { loadSystem, validate, type Readiness, type SystemModel } from "@artyfact/model";
+import { packsFor, templates } from "@artyfact/templates";
 import type { ArtifactsRepoLike, TreeEntry } from "./client";
-
-// @artyfact/templates validates with its own Template schema, which differs from the model's in minor
-// fields (e.g. hook `verdictMapping`); the store is structurally what loadSystem reads.
-export const templates = bundledTemplates as unknown as TemplateStore;
 
 const normPrefix = (p: string) => p.replace(/^\/+|\/+$/g, "");
 
