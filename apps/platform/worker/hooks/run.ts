@@ -179,7 +179,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
         return manifestExists(st.ctx.tree, h.inputs);
       case "diff": {
         if (diffMode(h) === "scope") {
-          return diffScope({ target: cand.target, changedPaths: cand.changedPaths, changedNodes: cand.changedNodes, permitted: st.ctx.permittedPaths, protected: st.ctx.protectedPaths });
+          return diffScope({ target: cand.target, changedPaths: cand.changedPaths, changedNodes: cand.changedNodes, pathNodes: cand.pathNodes, permitted: st.ctx.permittedPaths, protected: st.ctx.protectedPaths });
         }
         const reports = await conflictsFor(st);
         const hard = reports.filter((r) => r.kind === "hard-semantic");
@@ -253,7 +253,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
         : { execution: "completed", verdict: v ? "pass" : "fail", observations: [], interpretation: v ? okText : failText, limitations: [] };
     switch (check) {
       case "scope-authorized":
-        return diffScope({ target: c.target, changedPaths: c.changedPaths, changedNodes: c.changedNodes, permitted: st.ctx.permittedPaths, protected: st.ctx.protectedPaths });
+        return diffScope({ target: c.target, changedPaths: c.changedPaths, changedNodes: c.changedNodes, pathNodes: c.pathNodes, permitted: st.ctx.permittedPaths, protected: st.ctx.protectedPaths });
       case "base-current":
         return facts?.currentBaseCommit === undefined
           ? notRun("base-current needs the current head (ctx.promotionFacts.currentBaseCommit).")

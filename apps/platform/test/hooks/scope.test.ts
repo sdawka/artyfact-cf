@@ -72,4 +72,31 @@ describe("diff scope engine", () => {
     expect(o.verdict).toBe("unknown");
     expect(o.observations).toContainEqual({ platformWritten: ["TASK_PACKET.md"] });
   });
+
+  it("is unknown when changedNodes is empty although real paths changed", () => {
+    const o = diffScope({ ...base, changedPaths: ["src/ui/people.tsx", "TASK_PACKET.md"], changedNodes: [] });
+    expect(o).toMatchObject({ execution: "completed", verdict: "unknown" });
+    expect(o.observations).toContainEqual({ unmapped: ["src/ui/people.tsx"] });
+  });
+
+  it("is unknown when changedNodes is missing altogether", () => {
+    const o = diffScope({ ...base, changedPaths: ["src/ui/people.tsx"], changedNodes: undefined as unknown as string[] });
+    expect(o.verdict).toBe("unknown");
+  });
+
+  it("uses pathNodes per path: any changed path without a node is unmapped", () => {
+    const o = diffScope({
+      ...base,
+      changedPaths: ["src/ui/people.tsx", "src/ui/helpers.ts", "src/ui/x.ts", "AGENTS.md"],
+      changedNodes: ["screen.people"],
+      pathNodes: { "src/ui/people.tsx": ["screen.people"], "src/ui/x.ts": [] },
+    });
+    expect(o.verdict).toBe("unknown");
+    expect(o.observations).toContainEqual({ unmapped: ["src/ui/helpers.ts", "src/ui/x.ts"] });
+  });
+
+  it("passes when pathNodes maps every changed path", () => {
+    const o = diffScope({ ...base, changedPaths: ["src/ui/people.tsx"], changedNodes: ["screen.people"], pathNodes: { "src/ui/people.tsx": ["screen.people", "section.ui"] } });
+    expect(o.verdict).toBe("pass");
+  });
 });

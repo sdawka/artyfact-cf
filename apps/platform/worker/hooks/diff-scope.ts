@@ -11,6 +11,8 @@ export interface ScopeInput {
   target: "app" | "genome";
   changedPaths: string[];
   changedNodes: string[];
+  /** Source-map result per path; preferred over `changedNodes` when present. */
+  pathNodes?: Record<string, string[]>;
   permitted: string[];
   protected: string[];
 }
@@ -22,6 +24,21 @@ export const PLATFORM_WRITTEN = ["TASK_PACKET.md", "AGENTS.md", ".artyfact/**"];
 const isPlatformWritten = picomatch(PLATFORM_WRITTEN, { dot: true });
 
 const matcher = (globs: string[]) => (globs.length ? picomatch(globs, { dot: true }) : () => false);
+
+/**
+ * Changed (non-platform) paths with no model node. With `pathNodes`, per path: no entry, an empty list or only
+ * `unmapped:` markers. Without it, `unmapped:<path>` markers in `changedNodes`, and every path when `changedNodes`
+ * holds no mapped node at all (missing source-map result is not evidence of mapping).
+ */
+function unmappedPaths(paths: string[], input: ScopeInput): string[] {
+  if (input.pathNodes) {
+    return paths.filter((p) => !(input.pathNodes![p] ?? []).some((n) => !n.startsWith(UNMAPPED)));
+  }
+  const nodes = input.changedNodes ?? [];
+  if (!nodes.some((n) => !n.startsWith(UNMAPPED))) return paths;
+  const marked = new Set(nodes.filter((n) => n.startsWith(UNMAPPED)).map((n) => n.slice(UNMAPPED.length)));
+  return paths.filter((p) => marked.has(p));
+}
 
 export function diffScope(input: ScopeInput): Outcome {
   if (input.permitted.length === 0) return errored(new Error("no permitted globs in the Task Packet; scope cannot be checked"));
@@ -38,7 +55,7 @@ export function diffScope(input: ScopeInput): Outcome {
   const protectedTouched = changedPaths.filter((p) => isProtected(p));
   const outsidePermitted = changedPaths.filter((p) => !isPermitted(p) && !protectedTouched.includes(p));
   // Genome candidates are judged by model-rules, not the source map: their paths are Genome files, not app code.
-  const unmapped = input.target === "genome" ? [] : input.changedNodes.filter((n) => n.startsWith(UNMAPPED)).map((n) => n.slice(UNMAPPED.length)).filter((p) => !isPlatformWritten(p));
+  const unmapped = input.target === "genome" ? [] : unmappedPaths(changedPaths, input);
 
   const observations: unknown[] = [...written];
   if (protectedTouched.length) observations.push({ protectedTouched });
