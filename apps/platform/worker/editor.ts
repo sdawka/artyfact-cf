@@ -17,6 +17,8 @@ import { checkpoint, genomeAt, registryStub, submit, systemStub } from "./servic
 
 export const MAX_CHANGES = 50;
 export const MAX_CHANGE_BYTES = 1_000_000;
+/** Total content bytes per commit, and the request body cap: keeps the push's in-memory copies well under 128 MB. */
+export const MAX_COMMIT_BYTES = 8_000_000;
 export const READ_CAP_BYTES = 512 * 1024;
 /** Write tokens for an editor commit live only as long as the push. */
 export const COMMIT_TOKEN_TTL_S = 300;
@@ -121,20 +123,20 @@ export async function readFileAt(env: Env, systemId: string, scope: FileScope, r
 
 // ------------------------------------------------------------------ commit
 
-interface ValidCommit { message: string; why: string; changes: FileChange[]; expectedHead?: string; author?: string }
+interface ValidCommit { message: string; why: string; changes: FileChange[]; expectedHead?: string }
 
 function validateCommit(body: Record<string, unknown>): ValidCommit {
   const b = body as Partial<EditorCommitRequest>;
   if (typeof b.message !== "string" || !b.message.trim()) throw badRequest("message is required");
   if (b.message.length > 4000) throw badRequest("message is longer than 4000 characters");
   if (b.why !== undefined && b.why !== null && typeof b.why !== "string") throw badRequest("why must be a string");
-  if (b.author !== undefined && b.author !== null && typeof b.author !== "string") throw badRequest("author must be a string");
   if (b.expectedHead !== undefined && b.expectedHead !== null && (typeof b.expectedHead !== "string" || !COMMIT_RE.test(b.expectedHead))) {
     throw badRequest("expectedHead must be a 40-character hex sha");
   }
   if (!Array.isArray(b.changes) || b.changes.length === 0) throw badRequest("changes must be a non-empty array");
   if (b.changes.length > MAX_CHANGES) throw unprocessable("too-many-changes", `at most ${MAX_CHANGES} changes per commit (got ${b.changes.length})`);
   const seen = new Set<string>();
+  let total = 0;
   const changes: FileChange[] = b.changes.map((c, i) => {
     const ch = c as { path?: unknown; content?: unknown } | null;
     if (!ch || typeof ch !== "object") throw badRequest(`changes[${i}] must be an object`);
@@ -145,12 +147,13 @@ function validateCommit(body: Record<string, unknown>): ValidCommit {
     if (typeof ch.content === "string") {
       const n = new TextEncoder().encode(ch.content).length;
       if (n > MAX_CHANGE_BYTES) throw unprocessable("file-too-large", `${ch.path} is ${n} bytes; the limit is ${MAX_CHANGE_BYTES}`);
+      total += n;
+      if (total > MAX_COMMIT_BYTES) throw unprocessable("commit-too-large", `the changes total more than ${MAX_COMMIT_BYTES} bytes`);
     }
     return { path: ch.path, content: ch.content };
   });
   return {
-    message: b.message.trim(), why: (b.why ?? "").trim(), changes,
-    ...(b.expectedHead && { expectedHead: b.expectedHead }), ...(b.author?.trim() && { author: b.author.trim() }),
+    message: b.message.trim(), why: (b.why ?? "").trim(), changes, ...(b.expectedHead && { expectedHead: b.expectedHead }),
   };
 }
 
@@ -158,7 +161,8 @@ function pushError(e: PushRejected): HttpError {
   switch (e.code) {
     case "stale-head": return conflict("stale-head", `${e.message}; reload the file and commit again`);
     case "no-change": return unprocessable("no-change", e.message);
-    case "missing-path": case "path-conflict": case "invalid-path": return unprocessable("invalid-path", e.message);
+    case "path-conflict": return unprocessable("path-conflict", e.message);
+    case "missing-path": case "invalid-path": return unprocessable("invalid-path", e.message);
     case "auth": return new HttpError(502, "push-auth", `Artifacts refused the commit's write token: ${e.message}`);
     default: return new HttpError(502, "push-failed", e.message);
   }
@@ -192,7 +196,15 @@ export async function commitEdit(env: Env, systemId: string, rid: string, body: 
       if (guarded) throw unprocessable("protected-path", `${c.path} is protected (${guarded}) in a ${rec.target} realization`);
       if (prefix && !c.path.startsWith(`${prefix}/`)) throw unprocessable("outside-genome", `${c.path} is outside the Genome (${prefix}/)`);
     }
-    const name = input.author ?? (rec.realization.agent.id.replace(/^human:/, "") || by);
+    // The editor reads at most READ_CAP_BYTES of a file; saving such a read back would truncate the file.
+    for (const c of input.changes) {
+      if (c.content === null) continue;
+      const e = await entryAt(repo, parent, c.path);
+      const size = e ? (await repo.readBlob(e.hash))?.size ?? 0 : 0;
+      if (size > READ_CAP_BYTES) throw unprocessable("file-too-large-to-edit", `${c.path} is ${size} bytes; files over ${READ_CAP_BYTES} bytes cannot be edited in the browser`);
+    }
+    // The Git author is the realization's own label (`human:<name>`), never a name the caller picks.
+    const name = rec.realization.agent.id.replace(/^human:/, "") || by;
     const token = await repo.createToken("write", COMMIT_TOKEN_TTL_S);
     try {
       return await pushCommit({
@@ -207,10 +219,13 @@ export async function commitEdit(env: Env, systemId: string, rid: string, body: 
     }
   });
 
-  // The push also reaches the events queue; this submit handles it, so that delivery is acked as a duplicate.
-  await registryStub(env).markEventSeen(eventIdOf({ namespace: env.ARTIFACTS_NAMESPACE, repoName: rec.forkRepo, ref: "refs/heads/main", after: pushed.commit }));
   await checkpoint(env, systemId, rid, { summary: input.message, commit: pushed.commit });
   const submitted = await submit(env, systemId, rid, { commit: pushed.commit }, "ui");
-  await stub.setCandidateRationale(submitted.candidate.id, input.why || null);
+  // Only now, with the candidate recorded, is the queue's delivery of this push redundant. If checkpoint or submit
+  // failed above, the event stays unseen and the queue submits the commit (submit is idempotent per commit).
+  await registryStub(env).markEventSeen(eventIdOf({ namespace: env.ARTIFACTS_NAMESPACE, repoName: rec.forkRepo, ref: "refs/heads/main", after: pushed.commit }));
+  if (!(await stub.setCandidateRationale(submitted.candidate.id, input.why || null))) {
+    console.error(`[editor] candidate ${submitted.candidate.id} of ${rid} vanished before its rationale was recorded`);
+  }
   return { commit: pushed.commit, parent: pushed.parent, tree: pushed.tree, submitted };
 }

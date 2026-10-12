@@ -2,11 +2,13 @@ import { env, exports } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ApiError, EditorCommitResponse, FileResponse, FilesResponse, RealizationResponse, StartWorkResponse } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
-import { COMMIT_TOKEN_TTL_S, setEditorTransport } from "../worker/editor";
+import { COMMIT_TOKEN_TTL_S, commitEdit, MAX_COMMIT_BYTES, setEditorTransport } from "../worker/editor";
+import type { ImportSystemResponse } from "../shared/api";
+import { FakeArtifacts } from "./helpers/fake-artifacts";
 import { resetHooks, setHooks } from "../worker/hooks/index";
 import { handleBatch, PUSHED } from "../worker/hooks/queue";
 import { queueContextFor, systemStub } from "../worker/service";
-import { appFiles } from "./fixtures/genome";
+import { appFiles, genomeFiles } from "./fixtures/genome";
 import { fakeReceivePack, type FakeReceivePack } from "./helpers/fake-receive-pack";
 import { ADMIN, importFresh, passing, promoteApp, type Flow } from "./helpers/flows";
 
@@ -34,6 +36,22 @@ async function startHuman(f: Flow, evolution = "evolution.1") {
   expect(s.status, JSON.stringify(s.json)).toBe(201);
   const rid = s.json.realization.id;
   return { rid, fork: s.json.realization.workspace.fork, auth: { authorization: `Bearer ${s.json.secret}` }, start: s.json };
+}
+
+/** Like importFresh, but the Genome lives under `system/` in its repo. */
+async function importNested(): Promise<Flow> {
+  const ns = new FakeArtifacts();
+  const tag = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
+  const systemId = `system.nest${tag}`, genomeRepo = `nest-genome-${tag}`, appRepo = `nest-app-${tag}`;
+  const files = { ...genomeFiles, "system.yaml": genomeFiles["system.yaml"].replace("system.kit", systemId), "criteria.yaml": genomeFiles["criteria.yaml"].replaceAll("system.kit", systemId) };
+  ns.create(genomeRepo).commit(Object.fromEntries(Object.entries(files).map(([p, t]) => [`system/${p}`, t])), "genome");
+  ns.create(appRepo).commit(appFiles, "scaffold");
+  setArtifactsOverride(ns);
+  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo }, ADMIN);
+  expect(res.status, JSON.stringify(res.json)).toBe(201);
+  rp = fakeReceivePack(ns);
+  setEditorTransport({ fetch: rp.fetch });
+  return { ns, systemId, genomeRepo, appRepo, imp: res.json, forks: 0 };
 }
 
 const commitPath = (f: Flow, rid: string) => `/systems/${f.systemId}/realizations/${rid}/commit`;
@@ -134,6 +152,82 @@ describe("editor commit", () => {
     const checkpoints = (rec?.realization as unknown as { checkpoints: { summary: string; commit?: string }[] }).checkpoints;
     expect(checkpoints.at(-1)).toMatchObject({ summary: "Sort people by name", commit: res.json.commit });
     expect(await stub.candidateManifest(cand.id)).toMatchObject({ rationale: "Owners asked for alphabetical order", commit: res.json.commit });
+  });
+
+  it("uses the realization's label as the Git author, never the caller's", async () => {
+    const f = await flow();
+    const h = await startHuman(f);
+    const res = await call<EditorCommitResponse>("POST", commitPath(f, h.rid), { message: "m", author: "mallory", changes: [{ path: PEOPLE, content: "x" }] }, h.auth);
+    expect(res.status, JSON.stringify(res.json)).toBe(201);
+    expect((await f.ns.repo(h.fork).readCommit(res.json.commit))!.author.name).toBe("ada");
+  });
+
+  it("leaves the push event unseen when submit fails, so the queue still submits the commit", async () => {
+    const f = await flow();
+    const h = await startHuman(f);
+    setHooks({ runner: () => ({ ...passing, async runSubmission() { throw new Error("hooks down"); } }) });
+    const res = await call<ApiError>("POST", commitPath(f, h.rid), { message: "m", changes: [{ path: PEOPLE, content: "q" }] }, h.auth);
+    expect(res.status).toBeGreaterThanOrEqual(500);
+    const head = f.ns.repo(h.fork).head!;
+    setHooks({ runner: () => passing });
+    const out = await handleBatch([{
+      id: "m1", attempts: 1, ack: () => {}, retry: () => {},
+      body: { type: PUSHED, source: { namespace: env.ARTIFACTS_NAMESPACE, repoName: h.fork }, payload: { ref: "refs/heads/main", after: head } },
+    }], queueContextFor(env));
+    expect(out[0]).toMatchObject({ action: "submitted", realizationId: h.rid });
+    expect((await systemStub(env, f.systemId).candidates({ realizationId: h.rid })).map((c) => c.commit)).toEqual([head]);
+  });
+
+  it("revokes the token and answers 502 when the transport throws", async () => {
+    const f = await flow();
+    const h = await startHuman(f);
+    setEditorTransport({ fetch: (async () => { throw new TypeError("network down"); }) as typeof fetch });
+    const res = await call<ApiError>("POST", commitPath(f, h.rid), { message: "m", changes: [{ path: PEOPLE, content: "x" }] }, h.auth);
+    expect(res.status).toBe(502);
+    expect(res.json.error.code).toBe("push-failed");
+    const tokens = f.ns.repo(h.fork).tokens.filter((t) => t.ttl === COMMIT_TOKEN_TTL_S);
+    expect(tokens).toHaveLength(1);
+    expect(tokens[0].revoked).toBe(true);
+  });
+
+  it("caps the commit size: 413 for a large body, 422 commit-too-large for the content sum", async () => {
+    const f = await flow();
+    const h = await startHuman(f);
+    const mb = "x".repeat(1_000_000);
+    const changes = Array.from({ length: 9 }, (_, i) => ({ path: `big/${i}.txt`, content: mb }));
+    const big = await call<ApiError>("POST", commitPath(f, h.rid), { message: "m", changes }, h.auth);
+    expect(big.status).toBe(413);
+    expect(big.json.error.code).toBe("commit-too-large");
+    // Without content-length (a streamed body) the cap applies while reading.
+    const bytes = new TextEncoder().encode(JSON.stringify({ message: "m", changes }));
+    const stream = new ReadableStream<Uint8Array>({ start(ctl) { for (let i = 0; i < bytes.length; i += 1 << 20) ctl.enqueue(bytes.subarray(i, i + (1 << 20))); ctl.close(); } });
+    const streamed = await exports.default.fetch(new Request(`http://example.com/api${commitPath(f, h.rid)}`, { method: "POST", headers: { "content-type": "application/json", ...h.auth }, body: stream }));
+    expect(streamed.status).toBe(413);
+    await expect(commitEdit(env, f.systemId, h.rid, { message: "m", changes }, "t")).rejects.toMatchObject({ status: 422, code: "commit-too-large" });
+    expect(MAX_COMMIT_BYTES).toBe(8_000_000);
+    expect(f.ns.repo(h.fork).tokens.some((t) => t.ttl === COMMIT_TOKEN_TTL_S)).toBe(false);
+  });
+
+  it("refuses to save over a file larger than the read cap, but lets it be deleted", async () => {
+    const f = await flow();
+    await promoteApp(f, { "docs/big.txt": "y".repeat(600 * 1024) }, "evolution.3");
+    const h = await startHuman(f);
+    const edit = await call<ApiError>("POST", commitPath(f, h.rid), { message: "m", changes: [{ path: "docs/big.txt", content: "y".repeat(512 * 1024) }] }, h.auth);
+    expect(edit.status).toBe(422);
+    expect(edit.json.error.code).toBe("file-too-large-to-edit");
+    const del = await call<EditorCommitResponse>("POST", commitPath(f, h.rid), { message: "drop", changes: [{ path: "docs/big.txt", content: null }] }, h.auth);
+    expect(del.status, JSON.stringify(del.json)).toBe(201);
+  });
+
+  it("is 422 path-conflict for a file over a directory or under a file", async () => {
+    const f = await flow();
+    const h = await startHuman(f);
+    for (const path of ["src/ui", "src/index.ts/x"]) {
+      const res = await call<ApiError>("POST", commitPath(f, h.rid), { message: "m", changes: [{ path, content: "x" }] }, h.auth);
+      expect(res.status, path).toBe(422);
+      expect(res.json.error.code).toBe("path-conflict");
+    }
+    expect(await systemStub(env, f.systemId).setCandidateRationale("candidate.nope", "x")).toBe(false);
   });
 
   it("chains a second commit and marks a blank why as pending", async () => {
@@ -258,5 +352,22 @@ describe("editor commit", () => {
     expect(after.text).toContain("Contact record v2");
     const prot = await call<ApiError>("POST", commitPath(f, h.rid), { message: "m", changes: [{ path: "assays/x.yaml", content: "x" }] }, h.auth);
     expect(prot.json.error.code).toBe("protected-path");
+  });
+
+  it("keeps a Genome edit under the Genome prefix when the Genome lives in system/", async () => {
+    const f = await importNested();
+    const h = await startHuman(f, "evolution.2");
+    expect(h.start.realization.target).toBe("genome");
+    const outside = await call<ApiError>("POST", commitPath(f, h.rid), { message: "m", changes: [{ path: "things/webapp/ontology.yaml", content: "x" }] }, h.auth);
+    expect(outside.status).toBe(422);
+    expect(outside.json.error.code).toBe("outside-genome");
+    expect((await call<ApiError>("POST", commitPath(f, h.rid), { message: "m", changes: [{ path: "README.md", content: "x" }] }, h.auth)).json.error.code).toBe("outside-genome");
+    const path = "system/things/webapp/ontology.yaml";
+    const cur = (await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&ref=${h.rid}&path=${path}`)).json;
+    const res = await call<EditorCommitResponse>("POST", commitPath(f, h.rid), {
+      message: "Rename", changes: [{ path, content: cur.text!.replace("name: Contact record", "name: Contact record v2") }],
+    }, h.auth);
+    expect(res.status, JSON.stringify(res.json)).toBe(201);
+    expect(res.json.submitted.candidate.changedPaths).toEqual([path]);
   });
 });
