@@ -96,6 +96,23 @@ describe("layoutGraph worker failures", () => {
     expect(out.width).toBeGreaterThan(0);
     await vi.waitFor(() => expect(workers[0]!.terminated).toBe(true));
   });
+
+  it("aborts a pending worker layout without falling back, and clears the fallback timer", async () => {
+    setElkWorkerFactory(() => new FakeWorker("silent") as unknown as Worker);
+    const ctl = new AbortController();
+    const pending = layoutGraph(req, { timeoutMs: 60_000, signal: ctl.signal });
+    const outcome = pending.then(() => "resolved", (e: Error) => e.name);
+    await new Promise((r) => setTimeout(r, 20)); // let it reach the worker race
+    ctl.abort();
+    expect(await outcome).toBe("AbortError");
+    expect(console.warn).not.toHaveBeenCalled();
+  });
+
+  it("rejects immediately for an already-aborted signal", async () => {
+    const ctl = new AbortController();
+    ctl.abort();
+    await expect(layoutGraph(req, { signal: ctl.signal })).rejects.toMatchObject({ name: "AbortError" });
+  });
 });
 
 describe("requestKey", () => {

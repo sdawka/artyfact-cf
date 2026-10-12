@@ -1,5 +1,5 @@
 import { renderHook, waitFor } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, describe, expect, it, vi } from "vitest";
 import * as elk from "./elk";
 import { clearLayoutCache, useElkLayout } from "./useElkLayout";
 
@@ -12,6 +12,13 @@ const req: elk.LayoutRequest = {
 };
 
 describe("useElkLayout", () => {
+  // The first layout pays a cold dynamic import of the large elk bundle; do that here, with a real
+  // timeout, so the waitFor calls below only wait for a layout, not for module loading under load.
+  beforeAll(async () => {
+    await elk.layoutGraph(req, { worker: false });
+  }, 60_000);
+  afterEach(() => void vi.restoreAllMocks());
+
   it("lays out, then serves the same key from the memo without re-running elk", async () => {
     clearLayoutCache();
     const spy = vi.spyOn(elk, "layoutGraph");
@@ -35,6 +42,23 @@ describe("useElkLayout", () => {
     expect(again.result.current.layout).toBe(first.result.current.layout);
     const bigger = renderHook(() => useElkLayout({ ...req, nodes: [...req.nodes, { id: "c", width: 10, height: 10 }] }));
     expect(bigger.result.current.pending).toBe(true);
+    // Let it finish so no elk work outlives the test (and the jsdom environment).
+    await waitFor(() => expect(bigger.result.current.layout).not.toBeNull());
+  });
+
+  it("cancels pending layout work on unmount", async () => {
+    clearLayoutCache();
+    const seen: AbortSignal[] = [];
+    const real = elk.layoutGraph;
+    vi.spyOn(elk, "layoutGraph").mockImplementation((r, o) => {
+      seen.push(o!.signal!);
+      return real(r, o);
+    });
+    const { unmount } = renderHook(() => useElkLayout(req, "cancel"));
+    expect(seen).toHaveLength(1);
+    expect(seen[0]!.aborted).toBe(false);
+    unmount();
+    expect(seen[0]!.aborted).toBe(true);
   });
 
   it("returns nothing for a null request", () => {
