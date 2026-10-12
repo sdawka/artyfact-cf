@@ -1,6 +1,7 @@
 {
   "name": "@artyfact/example-keep-in-touch-system",
   "version": "0.0.0",
+  "license": "AGPL-3.0-only",
   "private": true,
   "type": "module",
   "scripts": {
