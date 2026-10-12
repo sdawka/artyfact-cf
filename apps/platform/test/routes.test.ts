@@ -247,7 +247,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(res.json.error.code).toBe("blocked");
     const details = res.json.error.details as { blocking: { criterion: string }[]; advisories: { criterion: string }[] };
     // Blocking: hard with a bound hook. C.people.sorted (soft, no hook) is an advisory.
-    expect(details.blocking.map((b) => b.criterion).sort()).toEqual(["C.people.list", "C.system.promotion"]);
+    expect(details.blocking.map((b) => b.criterion).sort()).toEqual(["C.people.list", "C.system.promotion", "C.webapp.exists"]);
     expect(details.advisories.map((b) => b.criterion)).toContain("C.people.sorted");
   });
 

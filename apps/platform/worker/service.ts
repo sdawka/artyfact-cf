@@ -407,10 +407,17 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
   if (trigger === "promotion") {
     const submittedAt = (await stub.candidate(cand.id))?.submittedAt ?? "";
     const g = await canonicalGenome(env, s);
+    const evo = await stub.evolution(rec.evolutionId);
+    let fresh = false;
+    try {
+      fresh = exists && !!evo && evidenceFresh(g.model, evo, candidate, await stub.evaluations(cand.id), submittedAt, s.genomeCommit);
+    } catch (e) {
+      console.error(`[promote] evidence-fresh for ${cand.id} could not be established: ${(e as Error)?.message}`); // fail closed
+    }
     promotionFacts = {
       currentBaseCommit: rec.target === "genome" ? s.genomeCommit : s.appSource.commit,
       manifestExact: !!cand.manifestHash && cand.manifestHash === recomputedHash,
-      evidenceFresh: exists && evidenceFresh(g.model, candidate, await stub.evaluations(cand.id), submittedAt, s.genomeCommit),
+      evidenceFresh: fresh,
     };
   }
   const ctx: SubmissionContext = {
@@ -467,7 +474,9 @@ async function recordRun(env: Env, systemId: string, candidateId: string, run: R
  * `targetRef` binds the commit, the canonical Genome it ran on, or the candidate's preview) at or after submission.
  * Criteria whose hooks consume promotionFacts themselves (inputs.check) are excluded: they are re-run with the facts.
  */
-function evidenceFresh(m: SystemModel, candidate: CandidateRef, evals: Evaluation[], submittedAt: string, genomeCommit: string): boolean {
+function evidenceFresh(
+  m: SystemModel, evolution: Pick<schema.Evolution, "acceptanceCriteria">, candidate: CandidateRef, evals: Evaluation[], submittedAt: string, genomeCommit: string,
+): boolean {
   const byId = new Map(m.criteria.map((c) => [c.id, c] as const));
   const consumesFacts = (id: string) => {
     const c = byId.get(id);
@@ -476,7 +485,7 @@ function evidenceFresh(m: SystemModel, candidate: CandidateRef, evals: Evaluatio
   const binds = (ref: string) =>
     ref === candidate.commit || ref.endsWith(`@${candidate.commit}`) || ref === `genome@${genomeCommit}` || (!!candidate.previewUrl && ref === candidate.previewUrl);
   const at = (e: Evaluation) => e.finishedAt ?? e.startedAt ?? "";
-  for (const g of gateCriteria(m, candidate)) {
+  for (const g of gateCriteria(m, evolution, candidate)) {
     if (!g.blocking || consumesFacts(g.id)) continue;
     const latest = evals.filter((e) => e.criterion === g.id).sort((a, b) => at(b).localeCompare(at(a)))[0];
     if (!latest || latest.candidate !== candidate.id || !binds(latest.targetRef) || !latest.finishedAt || latest.finishedAt < submittedAt) return false;
@@ -598,14 +607,27 @@ export async function promote(
   const rationale = typeof body.rationale === "string" ? body.rationale : "";
   const stub = systemStub(env, systemId);
   const s = await headState(env, systemId);
-  const g = await canonicalGenome(env, s);
+  // Fail closed: if the gate cannot be computed, refuse; never treat an exception as "no gates".
+  const unavailable = (why: string) => conflict("gate-unavailable", `promotion gate unavailable: ${why}`);
+  let g: LoadedGenome;
+  try {
+    g = await canonicalGenome(env, s);
+  } catch (e) {
+    throw unavailable(`the Genome at ${s.genomeCommit} does not load (${(e as Error)?.message ?? e})`);
+  }
   const gates: Record<string, GateCriterion[]> = {};
   for (const id of ids as string[]) {
     const c = await stub.candidate(id);
     if (!c) throw notFound(`unknown candidate ${id}`);
     const rec = await record(env, systemId, c.realization);
     const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((x) => x.id === id)!;
-    gates[id] = gateCriteria(g.model, await hookRef(env, systemId, ref));
+    const evo = await stub.evolution(rec.evolutionId);
+    if (!evo) throw unavailable(`evolution ${rec.evolutionId} is unknown`);
+    try {
+      gates[id] = gateCriteria(g.model, evo, await hookRef(env, systemId, ref));
+    } catch (e) {
+      throw unavailable(`criteria for ${id} could not be computed (${(e as Error)?.message ?? e})`);
+    }
     // Revalidate on the exact commit before the CAS: hooks re-run with promotionFacts (base-current, manifest-exact, evidence-fresh).
     if (["submitted", "evaluated", "selected"].includes(c.state) && s.head === body.expectedHead) {
       await computeConflicts(env, systemId, id);

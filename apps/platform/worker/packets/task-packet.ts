@@ -23,7 +23,7 @@ export interface PacketInput {
   genomePrefix?: string;
 }
 
-/** Blocking criteria among the Evolution's acceptance criteria (hard with a bound hook; see ../promotion.ts). */
+/** Blocking criteria among the Evolution's acceptance criteria (hard with a bound hook, regardless of gates; see ../promotion.ts). */
 export function requiredCriteria(m: SystemModel, evolution: schema.Evolution): string[] {
   const byId = new Map(m.criteria.map((c) => [c.id, c] as const));
   return evolution.acceptanceCriteria.filter((id) => {

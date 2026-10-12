@@ -34,6 +34,14 @@ export class PromotionBlockedError extends Error {
 
 export type { GateCriterion, GateItem };
 
+/** The promotion gate cannot be established; promotion is refused (fail closed). */
+export class GateUnavailableError extends Error {
+  constructor(readonly reason: string) {
+    super(`promotion gate unavailable: ${reason}`);
+    this.name = "GateUnavailableError";
+  }
+}
+
 /** Thrown by RPC methods; the `[code]` message prefix survives RPC so the Worker can map it to HTTP. */
 export class ConflictError extends Error {
   constructor(readonly code: "not-found" | "invalid-state", readonly detail: string) {
@@ -133,7 +141,10 @@ export interface PromoteInput extends ManifestExtras {
   expectedHead: string | null;
   rationale: string;
   by: string;
-  /** candidate id → promotion-gated criteria (computed by the Worker from the model). Hard ones block. */
+  /**
+   * candidate id → gate criteria computed by the Worker (see ../promotion.ts). A candidate without an entry is refused
+   * (`gate-unavailable`); the Evolution's acceptance criteria are added from the DO's own record regardless.
+   */
   gates: Record<string, GateCriterion[]>;
 }
 
@@ -141,7 +152,7 @@ export type PromoteResult =
   | { ok: true; commit: SystemCommit; rejected: string[]; advisories: GateItem[] }
   | { ok: false; code: "stale-base"; currentHead: string | null }
   | { ok: false; code: "blocked" | "advisories-unacknowledged"; blocking: GateItem[]; advisories: GateItem[] }
-  | { ok: false; code: ConflictError["code"]; message: string };
+  | { ok: false; code: ConflictError["code"] | "gate-unavailable"; message: string };
 
 export interface AcceptInput extends ManifestExtras {
   realizationId: string;
@@ -753,7 +764,8 @@ export class SystemAuthority extends DurableObject<Env> {
     const out: GateItem[] = [];
     for (const { id: criterion, severity } of gates) {
       const rows = this.all("SELECT verdict, execution FROM evaluations WHERE candidate_id = ? AND criterion_id = ?", candidateId, criterion);
-      if (!rows.length) out.push({ candidate: candidateId, criterion, severity, verdict: "missing", execution: "missing" });
+      // Missing evidence is unknown, never pass.
+      if (!rows.length) out.push({ candidate: candidateId, criterion, severity, verdict: "unknown", execution: "missing" });
       for (const r of rows) {
         if (r.verdict !== "pass" || r.execution !== "completed") out.push({ candidate: candidateId, criterion, severity, verdict: String(r.verdict) as V, execution: String(r.execution) as X });
       }
@@ -762,6 +774,29 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   // ---------------------------------------------------------------- promotion
+
+  /**
+   * The gate actually enforced for one candidate, failing closed:
+   * - no Worker-computed gate → `gate-unavailable`;
+   * - the Evolution's acceptance criteria (from this DO's record) are always in; any the Worker did not classify block;
+   * - an empty blocking set is only acceptable with ≥1 acceptance criterion, every one evaluated for this candidate.
+   */
+  private effectiveGates(c: Row, computed: GateCriterion[] | undefined): GateCriterion[] {
+    const id = String(c.id);
+    if (!computed) throw new GateUnavailableError(`no gate criteria were computed for ${id}`);
+    const acceptance = json<string[]>(this.one("SELECT criteria_json FROM evolutions WHERE id = ?", c.evolution_id)?.criteria_json, []);
+    const gates = new Map(computed.map((g) => [g.id, g] as const));
+    for (const a of acceptance) if (!gates.has(a)) gates.set(a, { id: a, severity: "hard", blocking: true });
+    const deferred = new Set(computed.filter((g) => g.deferred).map((g) => g.id));
+    const out = [...gates.values()].filter((g) => !g.deferred);
+    if (!out.some((g) => g.blocking)) {
+      const live = acceptance.filter((a) => !deferred.has(a));
+      if (!live.length) throw new GateUnavailableError(`${id} has no blocking criteria and its Evolution has no (non-deferred) acceptance criteria`);
+      const unevaluated = live.filter((a) => !this.one("SELECT 1 AS x FROM evaluations WHERE candidate_id = ? AND criterion_id = ?", id, a));
+      if (unevaluated.length) throw new GateUnavailableError(`${id} has no blocking criteria and acceptance criteria ${unevaluated.join(", ")} are unevaluated`);
+    }
+    return out;
+  }
 
   /** Compose the next manifest for promoting `candidateIds` and hash it (async, so outside the transaction). */
   async preparePromotion(input: PromoteInput): Promise<PreparedCommit> {
@@ -800,8 +835,13 @@ export class SystemAuthority extends DurableObject<Env> {
       for (const c of rows) {
         if (!OPEN_CANDIDATE.includes(String(c.state))) throw new ConflictError("invalid-state", `candidate ${c.id} is ${c.state}`);
       }
-      const items = rows.flatMap((c) => this.gateItems(String(c.id), input.gates[String(c.id)] ?? []));
-      const blockingIds = new Set(rows.flatMap((c) => (input.gates[String(c.id)] ?? []).filter((g) => g.blocking).map((g) => `${c.id}|${g.id}`)));
+      const items: GateItem[] = [];
+      const blockingIds = new Set<string>();
+      for (const c of rows) {
+        const gates = this.effectiveGates(c, input.gates[String(c.id)]);
+        items.push(...this.gateItems(String(c.id), gates));
+        for (const g of gates) if (g.blocking) blockingIds.add(`${c.id}|${g.id}`);
+      }
       const blocking = items.filter((i) => blockingIds.has(`${i.candidate}|${i.criterion}`));
       const advisories = items.filter((i) => !blockingIds.has(`${i.candidate}|${i.criterion}`));
       if (blocking.length) throw new PromotionBlockedError("blocked", blocking, advisories);
@@ -860,6 +900,7 @@ export class SystemAuthority extends DurableObject<Env> {
     } catch (e) {
       if (e instanceof StaleBaseError) return { ok: false, code: "stale-base", currentHead: e.currentHead };
       if (e instanceof PromotionBlockedError) return { ok: false, code: e.code, blocking: e.blocking, advisories: e.advisories };
+      if (e instanceof GateUnavailableError) return { ok: false, code: "gate-unavailable", message: e.message };
       if (e instanceof ConflictError) return { ok: false, code: e.code, message: e.detail };
       throw e;
     }

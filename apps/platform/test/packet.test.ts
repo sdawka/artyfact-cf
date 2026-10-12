@@ -92,8 +92,10 @@ describe("gate criteria", () => {
   it("blocking = hard with a bound hook; the rest are advisories", () => {
     expect(requiredCriteria(genome.model, evolution)).toEqual(["C.people.list"]);
     const ref = { id: "candidate.x", realizationId: "realization.1.r1", evolutionId: "evolution.1", target: "app" as const, commit: "c", baseCommit: "b", changedPaths: [], changedNodes: ["screen.people"] };
-    const gates = gateCriteria(genome.model, ref);
-    expect(gates.filter((g) => g.blocking).map((g) => g.id).sort()).toEqual(["C.people.list", "C.system.promotion"]);
+    const gates = gateCriteria(genome.model, evolution, ref);
+    // Acceptance (C.people.list, gated only on submission) still blocks; C.webapp.exists is promotion-gated + bound.
+    expect(gates.filter((g) => g.blocking).map((g) => g.id).sort()).toEqual(["C.people.list", "C.system.promotion", "C.webapp.exists"]);
+    expect(gateCriteria(genome.model, { acceptanceCriteria: ["C.not.in.genome"] }, ref).find((g) => g.id === "C.not.in.genome")).toEqual({ id: "C.not.in.genome", severity: "hard", blocking: true });
     expect(gates.filter((g) => !g.blocking).map((g) => g.id)).toContain("C.people.sorted");
   });
 });

@@ -46,11 +46,11 @@ All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shar
 | GET | `/systems/:id/candidates` | - | `{candidates}` |
 | GET | `/systems/:id/evaluations?candidate=` | - | `EvaluationsResponse` |
 | GET | `/systems/:id/conflicts` | - | `ConflictsResponse` |
-| POST | `/systems/:id/promote` | admin | `{candidateIds or candidates, expectedHead, rationale}` → `PromoteResponse` (with `advisories`); 409 `stale-base` `{currentHead}`, or `blocked` / `advisories-unacknowledged` `{blocking, advisories}` |
+| POST | `/systems/:id/promote` | admin | `{candidateIds or candidates, expectedHead, rationale}` → `PromoteResponse` (with `advisories`); 409 `stale-base` `{currentHead}`, or `blocked` `{blocking, advisories}`, or `gate-unavailable`; 400 `advisories-unacknowledged` |
 | GET | `/systems/:id/history` | - | `HistoryResponse`, newest first |
 | GET | `/systems/:id/events` | - | SSE, `data: {type, at, ...}` (`SseEnvelope`), `ping` every 15 s |
 
-Promotion gate: hard, non-deferred criteria gated on `promotion` block unless pass+completed. Soft/advisory ones are returned as `advisories` and need a non-empty rationale. Before the CAS, hooks re-run with `promotionFacts` (base-current, manifest-exact, evidence-fresh).
+Promotion gate (fails closed): the blocking set is (the Evolution's acceptance criteria ∪ criteria gated on `promotion`) ∩ hard ∩ ≥1 hook with `binding: bound`. Blocking criteria must be pass+completed for this exact candidate; missing evidence is `unknown` and blocks. Other non-passing criteria are `advisories` (400 without a rationale; recorded as `decision.acknowledged`). 409 `gate-unavailable` when the Genome or the criteria cannot be computed, or when nothing blocks and the acceptance criteria are absent or unevaluated. Before the CAS, hooks re-run with `promotionFacts` (base-current, manifest-exact, evidence-fresh).
 
 `<R>` is any of `/systems/:id/evolutions/:eid/realizations/:rid` (CLI), `/systems/:id/realizations/:rid`, `/realizations/:rid` (System found via the registry).
 

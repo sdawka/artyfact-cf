@@ -37,7 +37,7 @@ async function twoCandidates(i: SystemAuthority) {
 
 type Gates = Record<string, GateCriterion[]>;
 const hard = (...ids: string[]) => ids.map((id) => ({ id, severity: "hard" as const, blocking: true }));
-const promoteInput = (candidateIds: string[], expectedHead: string | null, gates: Gates = {}, rationale = "ship it") => ({
+const promoteInput = (candidateIds: string[], expectedHead: string | null, gates: Gates = Object.fromEntries(candidateIds.map((id) => [id, []])), rationale = "ship it") => ({
   candidateIds, expectedHead, rationale, by: "admin", gates,
   artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {},
 });
@@ -147,7 +147,7 @@ describe("promote", () => {
       i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "pass", "not-run")]);
       expect(await i.promote(input)).toMatchObject({ ok: false, code: "blocked" });
       const missing = await i.promote(promoteInput([c1.id], head, { [c1.id]: hard("C.other") }));
-      expect(missing).toMatchObject({ ok: false, code: "blocked", blocking: [{ criterion: "C.other", verdict: "missing" }] });
+      expect(missing).toMatchObject({ ok: false, code: "blocked", blocking: expect.arrayContaining([expect.objectContaining({ criterion: "C.other", verdict: "unknown", execution: "missing" })]) });
       expect(i.state()!.head).toBe(head);
     });
   });
@@ -160,7 +160,7 @@ describe("promote", () => {
       const refused = await i.promote(promoteInput([c1.id], head, gates, "  "));
       expect(refused).toMatchObject({ ok: false, code: "advisories-unacknowledged", blocking: [] });
       if (refused.ok || !("advisories" in refused)) throw new Error("expected refusal");
-      expect(refused.advisories.map((a) => [a.criterion, a.severity, a.verdict])).toEqual([["C.people.sorted", "soft", "fail"], ["C.nice", "advisory", "missing"]]);
+      expect(refused.advisories.map((a) => [a.criterion, a.severity, a.verdict])).toEqual([["C.people.sorted", "soft", "fail"], ["C.nice", "advisory", "unknown"]]);
       expect(i.state()!.head).toBe(head);
       const out = await i.promote(promoteInput([c1.id], head, gates, "sorting can follow"));
       if (!out.ok) throw new Error(JSON.stringify(out));
@@ -207,10 +207,62 @@ describe("promote", () => {
   it("new app realizations fork from the promoted artifact", async () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
       const { c1, head } = await twoCandidates(i);
-      await i.promote(promoteInput([c1.id], head));
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "pass")], "evaluated");
+      expect(await i.promote(promoteInput([c1.id], head))).toMatchObject({ ok: true });
       await i.bootstrap({ ...boot, evolutions: [{ ...boot.evolutions[0], id: "evolution.3" }] });
       const r = i.reserveRealization({ evolutionId: "evolution.3", target: "app" });
       expect([r.baseRepo, r.baseCommit, r.forkRepo]).toEqual(["kit-app--r1", A2, "kit-app--r3"]);
+    });
+  });
+});
+
+describe("promotion gate fails closed", () => {
+  it("1: refuses with gate-unavailable when no gate was computed for a candidate", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      const { c1, head } = await twoCandidates(i);
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "pass")], "evaluated");
+      const out = await i.promote(promoteInput([c1.id], head, {}));
+      expect(out).toMatchObject({ ok: false, code: "gate-unavailable", message: expect.stringContaining(c1.id) });
+      expect(i.state()!.head).toBe(head);
+    });
+  });
+
+  it("2: the Evolution's acceptance criteria block even when the Worker omitted them", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      const { c1, head } = await twoCandidates(i);
+      const out = await i.promote(promoteInput([c1.id], head, { [c1.id]: [] }));
+      expect(out).toMatchObject({ ok: false, code: "blocked", blocking: [{ criterion: "C.people.list", severity: "hard", verdict: "unknown" }] });
+    });
+  });
+
+  it("3: a blocking criterion with no evaluation for this candidate is blocking with verdict unknown", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      const { c1, c2, head } = await twoCandidates(i);
+      // Evidence on a sibling candidate (another commit) does not count.
+      i.recordEvaluations(c2.id, [ev(c2.id, "C.people.list", "pass"), ev(c2.id, "C.webapp.exists", "pass")], "evaluated");
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "pass")], "evaluated");
+      const out = await i.promote(promoteInput([c1.id], head, { [c1.id]: hard("C.people.list", "C.webapp.exists") }));
+      expect(out).toMatchObject({ ok: false, code: "blocked", blocking: [{ candidate: c1.id, criterion: "C.webapp.exists", verdict: "unknown", execution: "missing" }] });
+    });
+  });
+
+  it("4: an empty blocking set promotes only with acceptance criteria that are all evaluated", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      // No acceptance criteria at all → refuse.
+      await i.bootstrap({ ...boot, evolutions: [{ ...boot.evolutions[0], acceptanceCriteria: [] }] });
+      const r = i.reserveRealization({ evolutionId: "evolution.1", target: "app" });
+      const { candidate } = i.recordCandidate({ realizationId: r.realization.id, commit: A2, manifest: {}, changedPaths: [], changedNodes: [] });
+      const head = i.state()!.head;
+      expect(await i.promote(promoteInput([candidate.id], head))).toMatchObject({ ok: false, code: "gate-unavailable" });
+    });
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      // Acceptance criterion classified as non-blocking (soft) but unevaluated → refuse; once evaluated → promote.
+      const { c1, head } = await twoCandidates(i);
+      const gates = { [c1.id]: [{ id: "C.people.list", severity: "soft" as const, blocking: false }] };
+      expect(await i.promote(promoteInput([c1.id], head, gates))).toMatchObject({ ok: false, code: "gate-unavailable", message: expect.stringContaining("C.people.list") });
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "unknown")], "evaluated");
+      const out = await i.promote(promoteInput([c1.id], head, gates, "soft acceptance acknowledged"));
+      expect(out).toMatchObject({ ok: true, advisories: [{ criterion: "C.people.list" }] });
     });
   });
 });
@@ -222,6 +274,7 @@ describe("promote a Genome candidate", () => {
       const { realization } = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
       const G2 = "2".repeat(40);
       const { candidate } = i.recordCandidate({ realizationId: realization.id, commit: G2, manifest: {}, changedPaths: ["things/webapp/ontology.yaml"], changedNodes: ["entity.ContactRecord"] });
+      i.recordEvaluations(candidate.id, [ev(candidate.id, "C.people.list", "pass")], "evaluated");
       const out = await i.promote(promoteInput([candidate.id], i.state()!.head));
       if (!out.ok) throw new Error(JSON.stringify(out));
       expect(i.state()).toMatchObject({ genomeCommit: G2, genomeSource: "kit-system--r1" });

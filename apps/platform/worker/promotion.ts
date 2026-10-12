@@ -1,8 +1,11 @@
 /**
- * Promotion gate inputs. The criteria in play for a candidate are exactly those the hooks select for it
- * (acceptance ∪ changed subjects ∪ System submission gates, non-deferred). A criterion BLOCKS promotion when it
- * is `severity: hard` and at least one of its hooks has `binding: bound`; every other non-passing criterion is an
- * advisory the promoter acknowledges with a non-empty rationale.
+ * Promotion gate inputs (computed in the Worker, enforced by the DO, which fails closed on anything missing).
+ *
+ * Blocking set = (the Evolution's acceptanceCriteria ∪ criteria whose `gates` include `promotion`)
+ *                ∩ `severity: hard` ∩ has ≥1 hook with `binding: bound`, non-deferred.
+ * Acceptance criteria block regardless of their own `gates`: they are what the Evolution promised.
+ * Every other criterion in play (that set, plus whatever the hooks select for the candidate) is an advisory when not
+ * pass+completed; advisories need a non-empty rationale.
  */
 import type { schema, SystemModel } from "@artyfact/model";
 import type { CandidateRef } from "./hooks/contract";
@@ -11,8 +14,10 @@ import { selectHooks } from "./hooks/run";
 export interface GateCriterion {
   id: string;
   severity: "hard" | "soft" | "advisory";
-  /** Hard with ≥1 bound hook: must be pass+completed. */
+  /** Must be pass+completed for this candidate. */
   blocking: boolean;
+  /** Deferred acceptance criterion: known to the gate, neither blocking nor advisory. */
+  deferred?: true;
 }
 
 /** Hooks attached to a criterion (index ∪ the criterion's own list). */
@@ -21,15 +26,34 @@ export function hooksOf(m: SystemModel, c: schema.Criterion): schema.AssayHook[]
   return m.hooks.filter((h) => ids.has(h.id));
 }
 
+/** Hard, non-deferred, with a bound hook. Whether it is in the blocking set also depends on acceptance/promotion. */
 export const isBlocking = (m: SystemModel, c: schema.Criterion): boolean =>
   (c.severity ?? "hard") === "hard" && !c.deferred && hooksOf(m, c).some((h) => h.binding === "bound");
 
-export function gateCriteria(m: SystemModel, candidate: CandidateRef): GateCriterion[] {
+/**
+ * Gate criteria for `candidate` of `evolution`. Throws if the model or selection is unusable; callers must treat a
+ * throw as "gate unavailable", never as "no gates". Acceptance ids missing from the Genome come back blocking.
+ */
+export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "acceptanceCriteria">, candidate: CandidateRef): GateCriterion[] {
+  const byId = new Map(m.criteria.map((c) => [c.id, c] as const));
   const out = new Map<string, GateCriterion>();
-  for (const s of selectHooks(m, candidate)) {
-    const c = s.criterion;
-    if (out.has(c.id)) continue;
-    out.set(c.id, { id: c.id, severity: c.severity ?? "hard", blocking: isBlocking(m, c) });
-  }
+  const add = (id: string, blockingSet: boolean) => {
+    const c = byId.get(id);
+    const prev = out.get(id);
+    if (!c) {
+      // An acceptance criterion the Genome does not define cannot be evaluated: fail closed.
+      out.set(id, { id, severity: "hard", blocking: true });
+      return;
+    }
+    if (c.deferred) {
+      if (!prev) out.set(id, { id, severity: c.severity ?? "hard", blocking: false, deferred: true });
+      return;
+    }
+    const blocking = (prev?.blocking ?? false) || (blockingSet && isBlocking(m, c));
+    out.set(id, { id, severity: c.severity ?? "hard", blocking });
+  };
+  for (const id of evolution.acceptanceCriteria) add(id, true);
+  for (const c of m.criteria) if (c.gates.includes("promotion")) add(c.id, true);
+  for (const s of selectHooks(m, candidate)) if (!out.has(s.criterion.id) && byId.has(s.criterion.id)) add(s.criterion.id, false);
   return [...out.values()];
 }

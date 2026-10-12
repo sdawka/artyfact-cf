@@ -106,7 +106,7 @@ criteria:
     subjectKind: screen
     subjectId: screen.people
     targetKind: artifact
-    gates: [submission, promotion]
+    gates: [submission]
     hooks: [hook.people.list]
   - id: C.people.sorted
     title: People are sorted by name
