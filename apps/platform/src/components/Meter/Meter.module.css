@@ -1,0 +1,29 @@
+.meter { display: grid; gap: var(--spacing-2); align-content: start; min-width: 0; }
+.title { margin: 0; font-family: var(--font-ui); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); }
+.headline { margin: 0; font-size: var(--font-size-xl); color: var(--color-text-primary); }
+.headline[data-unknown] { color: var(--color-text-subtle); }
+.bar {
+  display: flex;
+  gap: 2px;
+  height: var(--spacing-2);
+  background: var(--color-surface-secondary);
+  border-radius: var(--border-radius-sm);
+  overflow: hidden;
+}
+.bar[data-empty] { border: 1px dashed var(--color-border); background: none; }
+.seg { min-width: 4px; background: var(--color-text-subtle); }
+.seg[data-tone="pass"] { background: var(--verdict-pass); }
+.seg[data-tone="fail"] { background: var(--verdict-fail); }
+.seg[data-tone="warn"] { background: var(--color-semantic-warning); }
+.legend { display: grid; gap: var(--spacing-1); margin: 0; padding: 0; list-style: none; font-size: var(--font-size-sm); }
+.legendItem { display: flex; gap: var(--spacing-2); align-items: baseline; color: var(--color-text-secondary); }
+.legendItem[data-zero] { color: var(--color-text-subtle); }
+.legendItem[data-tone="pass"] .glyph { color: var(--verdict-pass); }
+.legendItem[data-tone="fail"] .glyph { color: var(--verdict-fail); }
+.legendItem[data-tone="warn"] .glyph { color: var(--color-semantic-warning); }
+.glyph { width: var(--spacing-3); color: var(--color-text-subtle); text-align: center; }
+.count { margin-left: auto; font-family: var(--font-code); color: var(--color-text-primary); }
+.legendItem[data-zero] .count { color: var(--color-text-subtle); }
+.empty { margin: 0; color: var(--color-text-subtle); font-size: var(--font-size-sm); }
+.caption { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); max-width: 40ch; }
+.asOf { margin: 0; color: var(--color-text-subtle); font-size: var(--font-size-xs); }
