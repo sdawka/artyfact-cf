@@ -69,10 +69,12 @@ params; `clear()` removes `focus`, which closes the Inspector. Helpers: `useKeep
 `href(viewOrPath, extra?)` (`null` in `extra` removes a param); `useSystemRoute()` returns
 `{ systemId, rev, view }`; `viewPath(systemId, rev, view)`.
 
-`status.ts`: `verdictOf(criterionId, evaluations, scope)` returns
-`'pass'|'fail'|'unknown'|'stale'|'not-run'|'waived'`, using the latest evaluation in scope. No
-in-scope evaluation means `not-run`. `pass` counts only when execution is `completed`;
-`not-run|queued|running|deferred` mean `not-run` and `error` means `unknown`. Other exports:
+`status.ts`: `verdictOf(criterionId, evaluations, scope, offTrigger?)` returns
+`'pass'|'fail'|'unknown'|'stale'|'not-run'|'waived'`, folding the in-scope rows like the promotion
+gate (`shared/verdict.ts`, also used by the Worker's readiness report): the latest row per hook
+counts, any fail is fail, and pass needs every hook's row pass and `completed`. No in-scope
+evaluation means `not-run`; `not-run|queued|running|deferred` mean `not-run` and `error` means
+`unknown`. Not-run rows of `offTrigger` hooks (never run before promotion) are ignored. Other exports:
 `rollup(index, nodeId, evaluations, scope)`, `verdictTone(v)` (`pass|fail|subtle`),
 `promotedCandidates(commits, rev)` and `verdictScope(selected, commits, rev)`.
 
