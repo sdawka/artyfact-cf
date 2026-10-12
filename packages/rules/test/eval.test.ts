@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { factSet, parse, render, run, type Tuple } from "../src/index";
+import { factSet, parse, render, run, RuleParseError, type Tuple } from "../src/index";
 import { AUTHZ, TREE_RULES } from "./fixtures";
 
 const tree = parse(TREE_RULES, "tree.dl");
@@ -189,5 +189,26 @@ exact(X) :- k(X,N), N = count : e(X,_).\n`,
   it("joins on repeated variables within one atom", () => {
     const p = parse(`.decl e(X: sym, Y: sym)\n.decl self(X: sym) .output\nself(X) :- e(X,X).\n`, "rep.dl");
     expect(run(factSet({ e: [["a", "a"], ["a", "b"]] }), [p]).relations.get("self")).toEqual([["a"]]);
+  });
+});
+
+describe("contract rulings", () => {
+  it("render: {n} is the nth argument after the rule id", () => {
+    const m = new Map([["r", "{0} on {1} is {2}; {9} stays"]]);
+    expect(render(m, ["r", "subj", "hard"])).toBe("r on subj is hard; {9} stays");
+  });
+
+  it("accepts identical redeclarations; .output in any program marks the relation as output", () => {
+    const a = parse(`.decl e(X: sym)\n.decl p(X: sym) .output\np(X) :- e(X).\n`, "a.dl");
+    const b = parse(`.decl e(X: sym)\n.decl p(X: sym)\n.decl q(X: sym)\nq(X) :- p(X).\n`, "b.dl");
+    const r = run(factSet({ e: [["1"]] }), [b, a]);
+    expect([...r.relations.keys()]).toEqual(["p"]);
+    expect(r.relations.get("p")).toEqual([["1"]]);
+  });
+
+  it("rejects conflicting redeclarations at run()", () => {
+    const a = parse(`.decl e(X: sym)\n`, "a.dl");
+    const b = parse(`.decl e(X: num)\n`, "b.dl");
+    expect(() => run(factSet({}), [a, b])).toThrow(RuleParseError);
   });
 });
