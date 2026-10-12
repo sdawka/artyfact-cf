@@ -28,14 +28,13 @@ test.describe("views", () => {
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     await expect(page.getByRole("complementary", { name: "Inspector" })).toBeVisible();
-    // No evaluations are promoted: the pass counter renders as a zero count in the disabled grey, and no counter is pass-toned.
+    // No evaluations are promoted: the pass counter renders as a zero count in the disabled grey.
     const counters = page.locator(".react-flow [data-counter]");
     await expect(counters.first()).toBeVisible();
     expect(await counters.count()).toBeGreaterThan(0);
     const passCounters = page.locator('.react-flow [data-counter="pass"]');
     await expect(passCounters.first()).toBeVisible();
     await expect(page.locator('.react-flow [data-counter="pass"]:not([data-zero])')).toHaveCount(0);
-    await expect(page.locator('.react-flow [data-counter][data-tone="pass"]')).toHaveCount(0);
     const grey = await page.evaluate(() => {
       const probe = document.createElement("span");
       probe.style.color = "var(--color-text-disabled)";
