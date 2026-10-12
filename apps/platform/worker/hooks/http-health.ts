@@ -17,7 +17,7 @@ export const HEALTH_TIMEOUT_MS = 2000;
 const MIN_PREFIX = 7;
 
 export function buildIdMatches(buildId: unknown, commit: string): boolean {
-  if (typeof buildId !== "string" || buildId.length < MIN_PREFIX) return false;
+  if (typeof buildId !== "string" || buildId.length < MIN_PREFIX || commit.length < MIN_PREFIX) return false;
   const a = buildId.toLowerCase(), c = commit.toLowerCase();
   return c.startsWith(a) || a.startsWith(c);
 }

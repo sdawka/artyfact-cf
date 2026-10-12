@@ -27,7 +27,7 @@ import { modelRulesHook } from "./model-checks";
 import { filterFromInputs, loadGenome, modelRules, type GenomeDeps, type ModelRulesResult } from "./model-rules";
 import { computeConflicts } from "./overlap";
 import { errored, errorMessage, notRun, toEvaluation, type Outcome } from "./provenance";
-import { aggregate, judgePurpose, reviewGenome, reviewsAsJudged } from "./system-one";
+import { aggregate, judgePurpose, judgeTopology, reviewGenome, reviewsAsJudged, reviewUnavailable } from "./system-one";
 
 export interface RunnerDeps {
   /** System One client; defaults to `createSystemOne(s1Env ?? {})` (provider off when no key). */
@@ -78,6 +78,7 @@ export function selectHooks(m: SystemModel, candidate: CandidateRef): Selected[]
     seen.add(c.id);
     picked.push({ c, reason, phantom });
   };
+  if (!evolution) add(phantomCriterion(`C.evolution-missing.${candidate.evolutionId}`, m), "acceptance", true);
   for (const id of evolution?.acceptanceCriteria ?? []) {
     const c = criteria.get(id);
     add(c ?? phantomCriterion(id, m), "acceptance", !c);
@@ -88,7 +89,8 @@ export function selectHooks(m: SystemModel, candidate: CandidateRef): Selected[]
   const out: Selected[] = [];
   for (const { c, reason, phantom } of picked) {
     if (phantom) {
-      out.push({ criterion: c, hook: null, reason, run: false, skip: `Acceptance criterion ${c.id} is not defined in the Genome.`, notes });
+      const skip = evolution ? `Acceptance criterion ${c.id} is not defined in the Genome.` : notes[0];
+      out.push({ criterion: c, hook: null, reason, run: false, skip, notes });
       continue;
     }
     const hookIds = [...new Set([...(m.index.hooksByCriterion[c.id] ?? []), ...c.hooks])];
@@ -120,19 +122,22 @@ interface RunState {
   conflicts?: Promise<ConflictReport[]>;
 }
 
-function diffMode(h: schema.AssayHook): "scope" | "overlap" {
+/** `inputs.mode`, else inferred from id/assay (flagged so the Evaluation says so). */
+function diffMode(h: schema.AssayHook): { mode: "scope" | "overlap"; inferred: boolean } {
   const mode = h.inputs.mode?.trim();
-  if (mode === "overlap" || mode === "scope") return mode;
-  return /overlap/i.test(`${h.id} ${h.assay}`) ? "overlap" : "scope";
+  if (mode === "overlap" || mode === "scope") return { mode, inferred: false };
+  return { mode: /overlap/i.test(`${h.id} ${h.assay}`) ? "overlap" : "scope", inferred: true };
 }
 
-function llmJudgment(h: schema.AssayHook, c: schema.Criterion): string {
+/** `inputs.judgment`, else inferred from the criterion id (flagged). */
+function llmJudgment(h: schema.AssayHook, c: schema.Criterion): { judgment: string; inferred: boolean } {
   const j = h.inputs.judgment?.trim();
-  if (j) return j;
-  if (/purpose/i.test(c.id)) return "purposeMeasures";
-  if (/topology/i.test(c.id)) return "topology";
-  return "reviewDelta";
+  if (j) return { judgment: j, inferred: false };
+  const judgment = /purpose/i.test(c.id) ? "purposeMeasures" : /topology/i.test(c.id) ? "topology" : "reviewDelta";
+  return { judgment, inferred: true };
 }
+
+const withLimitation = (o: Outcome, text: string): Outcome => ({ ...o, limitations: [...o.limitations, text] });
 
 export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
   const s1 = deps.s1 ?? createSystemOne(deps.s1Env ?? {});
@@ -169,7 +174,13 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
   async function reviewsFor(st: RunState): Promise<DeltaReview[]> {
     if (st.reviews) return st.reviews;
     const r = rulesFor(st, null);
-    st.reviews = r.model && r.delta && r.readiness ? await reviewGenome(s1, st.base, r.model, r.delta, r.readiness.derived) : [];
+    if (r.model && r.delta && r.readiness) {
+      st.reviews = await reviewGenome(s1, st.base, r.model, r.delta, r.readiness.derived);
+    } else {
+      const why = !r.model ? `the Genome candidate does not load (${r.outcome.interpretation ?? "see the structure evaluation"})`
+        : !r.readiness ? "the rules run failed" : `the semantic delta vs base is unavailable (${r.outcome.limitations.join("; ")})`;
+      st.reviews = [reviewUnavailable(st.ctx.candidate.id, `System One review did not run: ${why}.`)];
+    }
     return st.reviews;
   }
 
@@ -179,57 +190,77 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
       case "manifest":
         return manifestExists(st.ctx.tree, h.inputs);
       case "diff": {
-        if (diffMode(h) === "scope") {
-          return diffScope({ target: cand.target, changedPaths: cand.changedPaths, changedNodes: cand.changedNodes, pathNodes: cand.pathNodes, permitted: st.ctx.permittedPaths, protected: st.ctx.protectedPaths });
-        }
-        const reports = await conflictsFor(st);
-        const hard = reports.filter((r) => r.kind === "hard-semantic");
-        const errors = reports.filter((r) => r.error);
-        return {
-          execution: "completed",
-          // pass only with no conflicts at all; hard-semantic fails; file / soft-semantic (and undeterminable
-          // overlap) stay unknown until the reviewer resolves them.
-          verdict: hard.length ? "fail" : reports.length ? "unknown" : "pass",
-          observations: reports,
-          interpretation: reports.length
-            ? `${reports.length} conflict(s) with open candidates: ${reports.map((r) => `${r.kind} with ${r.candidates[1]}`).join("; ")}.`
-            : `No overlap with ${st.ctx.openCandidates.length} open candidate(s).`,
-          limitations: [
-            "File and soft-semantic conflicts are unknown, not pass: a reviewer must resolve or sequence them.",
-            ...errors.map((r) => `Overlap with ${r.candidates[1]} could not be fully determined: ${r.error}`),
-          ],
-        };
+        const { mode, inferred } = diffMode(h);
+        const o = await diffEngine(st, mode);
+        return inferred ? withLimitation(o, `inputs.mode is not set; ran as ${mode} (inferred from the hook id/assay).`) : o;
       }
       case "model-rules":
         return modelRulesHook({ ctx: st.ctx, base: st.base, rules: (x) => rulesFor(st, x) }, h);
       case "system-one":
       case "llm": {
-        const j = llmJudgment(h, c);
-        if (j === "reviewDelta" || j === "topology") {
-          if (cand.target !== "genome") return aggregate([], `${j} (app candidate has no Genome delta)`);
-          return aggregate(reviewsAsJudged((await reviewsFor(st)).filter((r) => r.judgment === j)), j);
-        }
-        if (j === "purposeMeasures") {
-          const m = cand.target === "genome" ? rulesFor(st, null).model : st.base;
-          if (!m) return errored(new Error("Genome candidate does not load; purpose measures cannot be judged"));
-          return aggregate(reviewsAsJudged(await judgePurpose(s1, m)), j);
-        }
-        if (j === "interference") {
-          const judged = (await conflictsFor(st)).filter((r) => r.semantic).map((r) => ({
-            subject: r.candidates.join("+"),
-            // Proposition "they interfere": confirmed → fail, ruled out → pass.
-            verdict: r.semantic!.verdict === "pass" ? ("fail" as const) : r.semantic!.verdict === "fail" ? ("pass" as const) : ("unknown" as const),
-            provenance: r.semantic!.provenance,
-          }));
-          return aggregate(judged, j);
-        }
-        return errored(new Error(`Unknown llm judgment "${j}" on ${h.id}`));
+        const { judgment, inferred } = llmJudgment(h, c);
+        const o = await semanticEngine(st, h, judgment);
+        return inferred ? withLimitation(o, `inputs.judgment is not set; ran ${judgment} (inferred from ${c.id}).`) : o;
       }
       case "http":
         return httpHealth({ previewUrl: cand.previewUrl, commit: cand.commit, path: h.inputs.path, timeoutMs: Math.min(h.timeoutMs, HEALTH_TIMEOUT_MS), fetch: deps.fetch });
       default:
         return notRun(`Engine ${h.engine} is not run by the platform.`);
     }
+  }
+
+  async function diffEngine(st: RunState, mode: "scope" | "overlap"): Promise<Outcome> {
+    const cand = st.ctx.candidate;
+    if (mode === "scope") {
+      return diffScope({ target: cand.target, changedPaths: cand.changedPaths, changedNodes: cand.changedNodes, pathNodes: cand.pathNodes, permitted: st.ctx.permittedPaths, protected: st.ctx.protectedPaths });
+    }
+    const reports = await conflictsFor(st);
+    const hard = reports.filter((r) => r.kind === "hard-semantic");
+    const errors = reports.filter((r) => r.error);
+    return {
+      execution: "completed",
+      // pass only with no conflicts at all; hard-semantic fails; file / soft-semantic (and undeterminable
+      // overlap) stay unknown until the reviewer resolves them.
+      verdict: hard.length ? "fail" : reports.length ? "unknown" : "pass",
+      observations: reports,
+      interpretation: reports.length
+        ? `${reports.length} conflict(s) with open candidates: ${reports.map((r) => `${r.kind} with ${r.candidates[1]}`).join("; ")}.`
+        : `No overlap with ${st.ctx.openCandidates.length} open candidate(s).`,
+      limitations: [
+        ...(reports.length && !hard.length ? ["File and soft-semantic conflicts are unknown, not pass: a reviewer must resolve or sequence them."] : []),
+        ...errors.map((r) => `Overlap with ${r.candidates[1]} could not be fully determined: ${r.error}`),
+      ],
+    };
+  }
+
+  async function semanticEngine(st: RunState, h: schema.AssayHook, j: string): Promise<Outcome> {
+    const cand = st.ctx.candidate;
+    if (j === "reviewDelta") {
+      if (cand.target !== "genome") return aggregate([], "reviewDelta (app candidate has no Genome delta)");
+      return aggregate(reviewsAsJudged((await reviewsFor(st)).filter((r) => r.judgment === j)), j);
+    }
+    if (j === "topology") {
+      // Judge every multi-recipient candidate of the judged model: the candidate Genome, or the canonical one for
+      // app candidates (whose Genome is unchanged).
+      const r = rulesFor(st, null);
+      if (!r.model || !r.readiness) return errored(new Error("Genome does not load or its rules failed; topology cannot be judged"));
+      return aggregate(reviewsAsJudged(await judgeTopology(s1, r.model, r.readiness.derived)), j);
+    }
+    if (j === "purposeMeasures") {
+      const m = cand.target === "genome" ? rulesFor(st, null).model : st.base;
+      if (!m) return errored(new Error("Genome candidate does not load; purpose measures cannot be judged"));
+      return aggregate(reviewsAsJudged(await judgePurpose(s1, m)), j);
+    }
+    if (j === "interference") {
+      const judged = (await conflictsFor(st)).filter((r) => r.semantic).map((r) => ({
+        subject: r.candidates.join("+"),
+        // Proposition "they interfere": confirmed → fail, ruled out → pass.
+        verdict: r.semantic!.verdict === "pass" ? ("fail" as const) : r.semantic!.verdict === "fail" ? ("pass" as const) : ("unknown" as const),
+        provenance: r.semantic!.provenance,
+      }));
+      return aggregate(judged, j);
+    }
+    return errored(new Error(`Unknown System One judgment "${j}" on ${h.id}`));
   }
 
   function targetRef(st: RunState, h: schema.AssayHook | null): string {

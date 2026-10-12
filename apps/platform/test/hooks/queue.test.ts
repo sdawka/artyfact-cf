@@ -80,6 +80,14 @@ describe("queue consumer", () => {
     expect(res[0].action).toBe("ignored");
   });
 
+  it("ignores tag pushes", async () => {
+    const { ctx, submit } = fakeCtx();
+    const tag = { ...pushed(), payload: { ...pushed().payload, ref: "refs/tags/v1" } };
+    const res = await handleBatch([msg(tag)], ctx);
+    expect(submit).not.toHaveBeenCalled();
+    expect(res[0]).toMatchObject({ action: "ignored", error: "push to refs/tags/v1" });
+  });
+
   it("retries when submit fails, and the retry is not swallowed by dedupe", async () => {
     const { ctx, submit } = fakeCtx();
     submit.mockRejectedValueOnce(new Error("DO unavailable"));

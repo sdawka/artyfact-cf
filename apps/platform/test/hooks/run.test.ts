@@ -102,6 +102,20 @@ describe("runSubmission", () => {
     expect(e.limitations.join(" ")).toMatch(/could not be fully determined/);
   });
 
+  it("emits a not-run evaluation when the Evolution is missing from the Genome", async () => {
+    const evs = await runner.runSubmission(ctxFor(appCandidate({ evolutionId: "evolution.99" })));
+    const e = evs.find((x) => x.criterion === "C.evolution-missing.evolution.99");
+    expect(e).toMatchObject({ execution: "not-run", verdict: "unknown", hook: "none" });
+    expect(e!.limitations.join(" ")).toMatch(/evolution\.99 is not in the Genome/);
+  });
+
+  it("flags an inferred diff mode in limitations", async () => {
+    const files = miniGenome();
+    files["criteria.yaml"] = files["criteria.yaml"].replace("    inputs: { mode: overlap }\n", "");
+    const e = by(await runner.runSubmission(ctxFor(appCandidate(), { genomeFiles: files })), "C.system.readiness")[0];
+    expect(e.limitations.join(" ")).toMatch(/inputs\.mode is not set; ran as overlap/);
+  });
+
   it("emits a not-run evaluation for an acceptance criterion missing from the Genome", async () => {
     const files = miniGenome();
     files["evolutions/evolution.1.yaml"] = files["evolutions/evolution.1.yaml"].replace("C.webapp.contact.save]", "C.webapp.contact.save, C.webapp.ghost]");
@@ -152,7 +166,10 @@ describe("runGenome", () => {
     expect(r.readiness.actionable).toBe(false);
     expect(r.readiness.findings[0]).toMatchObject({ level: "error", rule: "genome.parse" });
     expect(by(r.evaluations, "C.system.structure")[0]).toMatchObject({ execution: "completed", verdict: "fail" });
-    expect(r.review).toEqual([]);
+    expect(r.review).toHaveLength(1);
+    expect(r.review[0]).toMatchObject({ level: "warning", verdict: "unknown" });
+    expect(r.review[0].signals.provenance).toMatchObject({ provider: "error" });
+    expect(r.review[0].signals.provenance.error?.message).toMatch(/does not load/);
   });
 
   it("rejects a Genome candidate without files loudly", async () => {

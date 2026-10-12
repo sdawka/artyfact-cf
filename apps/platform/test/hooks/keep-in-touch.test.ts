@@ -54,7 +54,11 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
       "C.webapp.exists", "C.webapp.health", "C.webapp.private.owner", "C.webapp.screen.exact",
       "C.webapp.contact.save", "C.webapp.screen.people", "C.webapp.contact.storage",
     ]);
-    expect(crit).toEqual(expect.arrayContaining(["C.system.structure", "C.system.topology", "C.system.autonomy", "C.system.readiness", "C.system.promotion", "C.system.purpose"]));
+    expect(crit).toEqual(expect.arrayContaining(["C.system.structure", "C.system.topology", "C.system.autonomy", "C.system.readiness", "C.system.promotion", "C.system.purpose", "C.system.concurrency"]));
+    expect(sel.find((s) => s.hook?.id === "hook.system.overlap")).toMatchObject({ run: true, reason: "system-gate", criterion: expect.objectContaining({ id: "C.system.concurrency" }) });
+    expect(sel.find((s) => s.hook?.id === "hook.system.topology.semantic")).toMatchObject({ run: true, criterion: expect.objectContaining({ id: "C.system.topology" }) });
+    expect(sel.find((s) => s.hook?.id === "hook.system.topology")).toMatchObject({ run: true });
+    expect(sel.find((s) => s.hook?.id === "hook.system.promotion")).toMatchObject({ run: true });
     const outcome = sel.find((s) => s.hook?.id === "hook.system.purpose.outcome");
     expect(outcome).toMatchObject({ run: false });
     expect(sel.find((s) => s.hook?.id === "hook.system.purpose.model")).toMatchObject({ run: true });
@@ -74,6 +78,12 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
     expect(promo).toMatchObject({ execution: "completed", verdict: "unknown" });
     expect(promo.observations).toContainEqual(expect.objectContaining({ check: "scope-authorized", verdict: "pass" }));
     expect(promo.observations).toContainEqual(expect.objectContaining({ check: "base-current", execution: "not-run" }));
+    // Overlap hook: no other open candidates → pass; a soft conflict → unknown.
+    expect(evs.find((e) => e.hook === "hook.system.overlap")).toMatchObject({ criterion: "C.system.concurrency", execution: "completed", verdict: "pass" });
+    // Topology semantic: the canonical Genome has no multi-recipient candidates, so nothing is judged → unknown.
+    const topoS1 = evs.find((e) => e.hook === "hook.system.topology.semantic")!;
+    expect(topoS1).toMatchObject({ criterion: "C.system.topology", execution: "completed", verdict: "unknown" });
+    expect(topoS1.limitations.join(" ")).toMatch(/inputs\.judgment is not set; ran topology/);
     const purpose = evs.find((e) => e.hook === "hook.system.purpose.model")!;
     expect(purpose.execution).toBe("completed");
     expect(purpose.provenance.provider).toBe("fake");
@@ -96,6 +106,27 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
     const e = by(await runner.runSubmission(ctx({ genomeFiles: files })), "C.system.autonomy");
     expect(e.verdict).toBe("fail");
     expect(e.observations).toContainEqual({ kind: "requires", missing: ["C.webapp.prompts.bounded"] });
+  });
+
+  it("the overlap hook reports a soft-semantic conflict on the real Genome as unknown", async () => {
+    const runner = createHookRunner({ s1: createSystemOne({}), now: () => new Date(0) });
+    const other: CandidateRef = { ...candidate, id: "cand.kit.r2", realizationId: "realization.1.r2", changedPaths: ["src/worker/routes/contacts.ts"], changedNodes: ["policy.ownerOnly", "screen.people"] };
+    const e = (await runner.runSubmission(ctx({ openCandidates: [other] }))).find((x) => x.hook === "hook.system.overlap")!;
+    expect(e).toMatchObject({ execution: "completed", verdict: "unknown" });
+    expect(e.observations).toContainEqual(expect.objectContaining({ kind: "soft-semantic", nodes: ["screen.people"] }));
+  });
+
+  it("topology semantic judges multi-recipient candidates of the canonical Genome when there are some", async () => {
+    const files = keepInTouch();
+    const before = files["things/webapp/ontology.yaml"];
+    files["things/webapp/ontology.yaml"] = before.replace(
+      "    effects: [Save only that owner's record; editing does not send invitations,", "    effects: [Save only that owner's record and notify the recipient,");
+    expect(files["things/webapp/ontology.yaml"]).not.toBe(before);
+    const runner = createHookRunner({ s1: createSystemOne({ FAKE_S1: "1" }), now: () => new Date(0) });
+    const e = (await runner.runSubmission(ctx({ genomeFiles: files }))).find((x) => x.hook === "hook.system.topology.semantic")!;
+    // The fake confirms "sends to several people" (noul 0.95) → topology unacceptable → fail.
+    expect(e).toMatchObject({ execution: "completed", verdict: "fail" });
+    expect(e.provenance.provider).toBe("fake");
   });
 
   it("system-one engine with provider off is unknown with provenance off", async () => {

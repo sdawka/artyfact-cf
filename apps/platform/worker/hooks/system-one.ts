@@ -82,12 +82,7 @@ export async function reviewGenome(s1: SystemOne, base: SystemModel, cand: Syste
     }),
   );
 
-  const topoNodes = [...new Set((derived.semanticCandidate ?? []).filter((t) => t[0] === MULTI_RECIPIENT && touchedIds.has(String(t[1]))).map((t) => String(t[1])))]
-    .map((id) => s1Node(cand, id))
-    .filter((n): n is S1Node => n !== null);
-  const topo = (await topology(s1, topoNodes.map((node) => ({ node })))).map(
-    (r): DeltaReview => ({ subject: r.nodeId, judgment: "topology", level: levelOfBand(r.multiRecipient), verdict: invert(r.verdict), signals: r }),
-  );
+  const topo = await judgeTopology(s1, cand, derived, touchedIds);
 
   const claims = cand.claims.filter((c) => touchedIds.has(c.id) && !c.deferred);
   const purpose = (await purposeMeasures(s1, purposeOf(cand), claims)).map(
@@ -95,6 +90,28 @@ export async function reviewGenome(s1: SystemOne, base: SystemModel, cand: Syste
   );
 
   return [...reviews, ...topo, ...purpose];
+}
+
+/** topology per `semanticCandidate("topology.multiRecipient")` subject of `m`, optionally limited to `only`. */
+export async function judgeTopology(s1: SystemOne, m: SystemModel, derived: Record<string, Tuple[]>, only?: Set<string>): Promise<DeltaReview[]> {
+  const nodes = [...new Set((derived.semanticCandidate ?? []).filter((t) => t[0] === MULTI_RECIPIENT && (!only || only.has(String(t[1])))).map((t) => String(t[1])))]
+    .map((id) => s1Node(m, id))
+    .filter((n): n is S1Node => n !== null);
+  return (await topology(s1, nodes.map((node) => ({ node })))).map(
+    (r): DeltaReview => ({ subject: r.nodeId, judgment: "topology", level: levelOfBand(r.multiRecipient), verdict: invert(r.verdict), signals: r }),
+  );
+}
+
+/** A review entry that says the review itself could not run, so the admin queue is never silently empty. */
+export function reviewUnavailable(subject: string, message: string): DeltaReview {
+  const provenance: Provenance = { provider: "error", model: "none", questionHash: "", stateHash: "", ms: 0, usage: { input_tokens: 0, output_tokens: 0 }, error: { name: "ReviewUnavailable", message } };
+  return {
+    subject,
+    judgment: "reviewDelta",
+    level: "warning",
+    verdict: "unknown",
+    signals: { id: subject, changeClass: null, contradicts: {}, weakens: null, specificity: null, touchesConsent: null, level: "warning", verdict: "unknown", provenance },
+  };
 }
 
 /** purposeMeasures over every non-deferred claim of `m` (hook binding for C.system.purpose). */

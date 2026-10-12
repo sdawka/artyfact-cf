@@ -47,4 +47,9 @@ describe("http engine", () => {
     expect(t).toMatchObject({ execution: "error", verdict: "unknown" });
     expect(JSON.stringify(t.observations)).toContain("timed out");
   });
+
+  it("never matches when the commit is shorter than 7 chars", async () => {
+    const o = await httpHealth({ previewUrl: "https://p", commit: "", fetch: fakeFetch(200, { status: "ok", buildId: "anything-long" }) });
+    expect(o.verdict).toBe("fail");
+  });
 });

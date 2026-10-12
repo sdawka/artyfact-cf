@@ -2,7 +2,7 @@
  * Queue consumer for Artifacts `cf.artifacts.repo.pushed` events (backend.md B.4). The CLI `submit` is the primary
  * path; this is the safety net.
  *
- * Per message: parse → ignore other types / branch deletions → resolve the fork to a realization (unknown repo →
+ * Per message: parse → ignore other types, branch deletions and non-branch refs (logged at info) → resolve the fork to a realization (unknown repo →
  * ack) → dedupe on `pushed:<namespace>/<repo>:<ref>:<after>` via markEventSeen → submit(realization, after, 'event')
  * → ack. Failures in resolve/dedupe/submit → retry. A redelivery (attempts > 1) bypasses dedupe, because the first
  * attempt marked the event seen before failing; submit is idempotent on (realization, commit), so this is safe.
@@ -63,6 +63,8 @@ function parse(body: unknown): { event: PushedEvent } | { ignored: string } | { 
     return { malformed: "pushed event lacks source.namespace, source.repoName or payload.after" };
   }
   if (ZERO_SHA.test(after)) return { ignored: "branch deletion" };
+  // Realizations push branches; tag and other ref pushes are not submissions. An absent ref is accepted.
+  if (typeof ref === "string" && ref && !ref.startsWith("refs/heads/")) return { ignored: `push to ${ref}` };
   return { event: { namespace, repoName, after, ref: typeof ref === "string" ? ref : "" } };
 }
 
@@ -76,6 +78,7 @@ async function handleOne(m: QueueMessageLike, ctx: QueueContext): Promise<QueueR
     return { messageId: m.id, action: "malformed", error: p.malformed };
   }
   if ("ignored" in p) {
+    console.info(`[queue] ignored message ${m.id}: ${p.ignored}`);
     m.ack();
     return { messageId: m.id, action: "ignored", error: p.ignored };
   }
