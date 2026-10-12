@@ -370,7 +370,10 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   private async applyImport(input: BootstrapInput, unchanged: boolean): Promise<SystemSummary> {
-    const app: ArtifactBinding = { repo: input.appRepo, commit: input.appCommit, ...(input.scaffoldFrom && { scaffoldFrom: input.scaffoldFrom }) };
+    // A re-point of the same app repo without a scaffold source (a re-run of init on a seeded app) keeps the recorded one.
+    const prevApp = this.readManifest(this.kv("head"))?.artifacts?.[input.artifactId];
+    const scaffoldFrom = input.scaffoldFrom ?? (prevApp && this.kv("app_repo") === input.appRepo ? prevApp.scaffoldFrom : undefined);
+    const app: ArtifactBinding = { repo: input.appRepo, commit: input.appCommit, ...(scaffoldFrom && { scaffoldFrom }) };
     const prep = unchanged ? null : await this.prepareCommit(input, () => ({
       genomeCommit: input.genomeCommit,
       artifacts: { [input.artifactId]: app },

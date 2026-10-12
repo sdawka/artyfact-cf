@@ -75,6 +75,16 @@ describe("platform provenance", () => {
     });
   });
 
+  it("keeps the recorded scaffold source when a forced re-import of the same app repo omits it", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap({ ...boot, scaffoldFrom: scaffold });
+      await i.bootstrap({ ...boot, appCommit: A3, force: true });
+      expect(i.history()[0].composition!.artifacts["artifact.webapp"]).toMatchObject({ repo: "kit-app", commit: A3, scaffoldFrom: scaffold });
+      await i.bootstrap({ ...boot, appRepo: "other-app", appCommit: A2, force: true });
+      expect(i.history()[0].composition!.artifacts["artifact.webapp"]).not.toHaveProperty("scaffoldFrom");
+    });
+  });
+
   it("records null without a platform repo; a later platform commit alone updates provenance in place, the next commit carries it", async () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
       await i.bootstrap(boot);
