@@ -5,8 +5,7 @@ describe("naming", () => {
   it("derives the slug from the system id", () => {
     expect(slug("system.keep-in-touch")).toBe("keep-in-touch");
     expect(slug("system.Keep_In.Touch")).toBe("keep_in.touch");
-    expect(slug("system.a b/c!")).toBe("abc");
-    expect(slug("system.-.x")).toBe("x");
+    for (const bad of ["system.a b/c!", "system.-.x", "system.a/b", "system.Ünïcode", "system.a..b", "system._x"]) expect(() => slug(bad), bad).toThrow(/slug/);
     expect(slug("plain")).toBe("plain");
     expect(() => slug("system.")).toThrow(/slug/);
     expect(() => slug("system.--")).toThrow(/slug/);

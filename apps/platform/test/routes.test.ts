@@ -561,8 +561,12 @@ describe("routes: import → model → start → submit → promote", () => {
     expect((await call<ApiError>("GET", `/systems/system.none/model`)).status).toBe(404);
     expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x" })).status).toBe(401);
     expect((await call<ApiError>("POST", `/systems/import`, {}, ADMIN)).status).toBe(400);
-    expect((await call<ApiError>("POST", `/systems/import`, { systemId: "system.--" }, ADMIN)).status).toBe(400);
+    for (const systemId of ["system.--", "system.a/b", "system.Ünïcode", "system.a..b"]) {
+      const bad = await call<ApiError>("POST", `/systems/import`, { systemId }, ADMIN);
+      expect([bad.status, bad.json.error.code], systemId).toEqual([400, "invalid-system-id"]);
+    }
     expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x", appRepo: "../a" }, ADMIN)).status).toBe(400);
+    expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x", genomeRepo: "a..b" }, ADMIN)).status).toBe(400);
     const missing = await call<ApiError>("POST", `/systems/import`, { systemId: "system.absent" }, ADMIN);
     expect([missing.status, missing.json.error.code]).toEqual([422, "repo-not-found"]);
     expect(missing.json.error.message).toContain("absent.genome");

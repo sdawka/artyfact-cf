@@ -6,15 +6,14 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, realpathSync, statSync, symlinkSync } from "node:fs";
 import { dirname, join, relative, resolve, sep } from "node:path";
 import { CliError } from "./git.ts";
+import { isName } from "./naming.ts";
 
-/** Artifacts repo and namespace names. */
-const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 /** The model's template ref (`template.<kind>.<name>@<version>`). */
 const TEMPLATE_REF_RE = /^template\.[\w.-]+@[\w.-]+$/;
 
 /** A name that ends up on an argv or in a URL: Artifacts name rule, never an option, never a path step. */
 export function assertName(kind: string, v: unknown): string {
-  if (typeof v !== "string" || !NAME_RE.test(v) || v.includes("..")) throw new CliError(`invalid ${kind}: ${JSON.stringify(v)}`);
+  if (!isName(v)) throw new CliError(`invalid ${kind}: ${JSON.stringify(v)}`);
   return v;
 }
 

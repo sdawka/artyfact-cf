@@ -11,7 +11,7 @@ import type {
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
 import { sha256Hex } from "./util";
-import { systemRepoNames } from "@artyfact/cli/naming";
+import { isName, systemRepoNames } from "@artyfact/cli/naming";
 import { readPlatform, unsyncedWarning } from "./artifacts/platform";
 import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
@@ -125,12 +125,10 @@ async function sourceMapFor(m: SystemModel, repo: ArtifactsRepoLike, commit: str
 
 // ------------------------------------------------------------------ import
 
-const REPO_RE = /^[a-z0-9][a-z0-9._-]*$/i;
-
 function scaffoldSource(v: unknown): ScaffoldSource | undefined {
   if (v === undefined || v === null) return undefined;
   const o = v as Partial<ScaffoldSource>;
-  if (typeof o !== "object" || typeof o.repo !== "string" || !REPO_RE.test(o.repo) || typeof o.commit !== "string" || !COMMIT_RE.test(o.commit)
+  if (typeof o !== "object" || !isName(o.repo) || typeof o.commit !== "string" || !COMMIT_RE.test(o.commit)
     || (o.path !== undefined && (typeof o.path !== "string" || o.path.split("/").includes("..")))) {
     throw badRequest("scaffoldFrom must be {repo, commit (40 hex), path?}");
   }
@@ -146,17 +144,15 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   try {
     derived = systemRepoNames(systemId);
   } catch (e) {
-    throw badRequest((e as Error).message);
+    throw new HttpError(400, "invalid-system-id", (e as Error).message);
   }
-  if (body.appRepo !== undefined && body.appRepo !== null && body.appRepo !== "" && (typeof body.appRepo !== "string" || !REPO_RE.test(body.appRepo))) {
-    throw badRequest("appRepo must be a repo name");
-  }
-  const pick = (v: unknown, name: string, fallback: string) => {
-    if (v === undefined || v === null || v === "") return fallback;
-    if (typeof v !== "string" || !REPO_RE.test(v)) throw badRequest(`${name} must be a repo name`);
+  const repoName = (v: unknown, name: string): string | undefined => {
+    if (v === undefined || v === null || v === "") return undefined;
+    if (!isName(v)) throw badRequest(`${name} must be a repo name`);
     return v;
   };
-  const genomeRepo = pick(body.genomeRepo, "genomeRepo", derived.genomeRepo);
+  const givenApp = repoName(body.appRepo, "appRepo");
+  const genomeRepo = repoName(body.genomeRepo, "genomeRepo") ?? derived.genomeRepo;
   const scaffoldFrom = scaffoldSource(body.scaffoldFrom);
   const ns = artifactsFor(env);
   const headOf = async (name: string) => {
@@ -175,7 +171,7 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   }
   // With several worker-fullstack artifacts the app repo is named after the bound (first) one.
   const appArtifacts = g.model.things.flatMap((t) => t.artifacts).filter((a) => a.type === "worker-fullstack").map((a) => a.artifact);
-  const appRepo = pick(body.appRepo, "appRepo", systemRepoNames(systemId, appArtifacts).appRepo);
+  const appRepo = givenApp ?? systemRepoNames(systemId, appArtifacts).appRepo;
   const appCommit = await headOf(appRepo);
   const { platform, warnings: importWarnings } = await readPlatform(ns, systemId, g.model);
   const stub = systemStub(env, systemId);

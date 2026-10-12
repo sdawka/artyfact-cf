@@ -6,10 +6,17 @@
 /** The namespace-level repo holding the platform's templates, rule packs and manifest. */
 export const PLATFORM_REPO = "platform";
 
-/** `system.Keep-In-Touch` -> `keep-in-touch`. Throws when nothing usable is left. */
+/** Artifacts repo and namespace names. `..` is refused too, so a name is never an option or a path step. */
+export const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
+export const isName = (v: unknown): v is string => typeof v === "string" && NAME_RE.test(v) && !v.includes("..");
+
+/**
+ * `system.Keep-In-Touch` -> `keep-in-touch`: the lower-cased id without `system.`. Throws when that is not a valid
+ * name, so two ids can never collapse onto the same repos (`system.a/b`, `system.Ünïcode` are refused).
+ */
 export function slug(systemId: string): string {
-  const s = systemId.replace(/^system\./, "").toLowerCase().replace(/[^a-z0-9._-]/g, "").replace(/^[^a-z0-9]+/, "");
-  if (!s) throw new Error(`cannot derive a repo slug from system id ${JSON.stringify(systemId)}`);
+  const s = systemId.replace(/^system\./, "").toLowerCase();
+  if (!isName(s)) throw new Error(`system id ${JSON.stringify(systemId)} does not give a valid repo slug (letters, digits, '.', '_', '-'; no '..')`);
   return s;
 }
 

@@ -587,10 +587,6 @@ export class SystemAuthority extends DurableObject<Env> {
     this.sql.exec("UPDATE realizations SET status = ?, updated_at = ? WHERE id = ?", status, nowIso(), id);
   }
 
-  /**
-   * Allocate the next realization number (System-wide, so fork names never collide across Evolutions)
-   * and record it as `claimed`. The Worker then forks, issues a token and calls {@link activateRealization}.
-   */
   /** The fork name the next realization for `target` would get (realization numbers are System-wide). */
   nextForkName(target: "app" | "genome"): { n: number; forkRepo: string } | null {
     const s = this.state();
@@ -606,6 +602,10 @@ export class SystemAuthority extends DurableObject<Env> {
     });
   }
 
+  /**
+   * Allocate the next realization number (System-wide, so fork names never collide across Evolutions)
+   * and record it as `claimed`. The Worker then forks, issues a token and calls {@link activateRealization}.
+   */
   reserveRealization(input: ReserveInput): ReservedRealization {
     const s = this.state();
     if (!s) throw new ConflictError("not-found", "System not imported");
