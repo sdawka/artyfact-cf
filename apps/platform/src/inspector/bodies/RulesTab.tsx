@@ -109,7 +109,7 @@ export function RulesTab({ entry }: { entry: IndexEntry }) {
   const obligations = OBLIGATION_RELATIONS.flatMap((rel) =>
     (report.derived?.[rel] ?? []).filter((t) => t.some((a) => String(a) === id)).map((t) => ({ rel, t })),
   );
-  const findings = (data ?? m.bundle.readiness).modelReadiness.findings.filter((f) => f.subject === id);
+  const findings = m.bundle.readiness.modelReadiness.findings.filter((f) => f.subject === id);
   const claims = m.index.model.claims.filter((c) => c.activities.includes(id));
 
   if (!scoped.size && !obligations.length && !findings.length && !claims.length) {

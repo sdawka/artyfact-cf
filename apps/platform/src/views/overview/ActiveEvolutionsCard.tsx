@@ -32,7 +32,7 @@ export function ActiveEvolutionsCard() {
               <ul className={styles.plain}>
                 {xs.map((e) => (
                   <li key={e.id} className={styles.evo}>
-                    <Link className="u-marker" to={href("work", { evolution: e.id })}>{e.title}</Link>
+                    <Link className={`u-marker ${styles.evoLink}`} to={href("work", { evolution: e.id })}>{e.title}</Link>
                     <span className={styles.muted}> {e.id} · {e.kind} · {e.risk} risk</span>
                     <ul className={styles.chips} aria-label={`Scope of ${e.title}`}>
                       {e.affectedNodes.slice(0, ACTIVE_LIMIT).map((n) => <li key={n}><NodeChip id={n} size="sm" /></li>)}
