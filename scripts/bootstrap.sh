@@ -23,11 +23,6 @@ command -v wrangler >/dev/null 2>&1 || wrangler() { npx --no-install wrangler "$
 
 log() { printf '%s\n' "$*"; }
 
-# Print the command in dry-run mode, run it otherwise.
-run() {
-  if [ "$DRY_RUN" = 1 ]; then log "+ $*"; else "$@"; fi
-}
-
 resolve_account_id() {
   if [ -n "${ACCOUNT_ID:-}" ]; then return; fi
   if [ "$DRY_RUN" = 1 ]; then ACCOUNT_ID="<ACCOUNT_ID>"; return; fi
@@ -70,11 +65,14 @@ issue_token() {
 # git with the bearer header supplied through the environment so the token never appears in argv.
 authed_git() {
   local token="$1"; shift
-  GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Bearer $token" git "$@"
+  local n="${GIT_CONFIG_COUNT:-0}"
+  env "GIT_CONFIG_COUNT=$((n + 1))" "GIT_CONFIG_KEY_$n=http.extraHeader" "GIT_CONFIG_VALUE_$n=Authorization: Bearer $token" git "$@"
 }
 
 head_of() { # token url -> commit or empty
-  authed_git "$1" ls-remote "$2" refs/heads/main 2>/dev/null | cut -f1
+  local out
+  out="$(authed_git "$1" ls-remote "$2" refs/heads/main)" || { echo "git ls-remote failed for $2 (auth or network)" >&2; exit 1; }
+  printf '%s' "$out" | cut -f1
 }
 
 push_repo() {
@@ -83,7 +81,7 @@ push_repo() {
   if [ "$DRY_RUN" = 1 ]; then
     log "+ token=\$(wrangler artifacts repos issue-token $repo --namespace $NS --scope write --ttl 3600 --json)"
     log "+ git ls-remote $url refs/heads/main   # skip push if main exists"
-    log "+ tmp=\$(mktemp -d) && cp -R $src/. \$tmp && git -C \$tmp init -b main && git -C \$tmp add -A && git -C \$tmp commit -m 'Initial import'"
+    log "+ tmp=\$(mktemp -d) && tar -C $src --exclude node_modules --exclude .wrangler --exclude .git -cf - . | tar -C \$tmp -xf - && git -C \$tmp init -b main && git -C \$tmp add -A && git -C \$tmp commit -m 'Initial import'"
     log "+ git -C \$tmp push $url HEAD:main   # Authorization: Bearer <token> via http.extraHeader"
     return
   fi
