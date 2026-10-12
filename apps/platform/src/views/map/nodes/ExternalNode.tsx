@@ -10,7 +10,7 @@ export function ExternalNode({ data, selected }: NodeProps<ExternalFlowNode>) {
   const { node, dim } = data;
   const ext = useModel().byId(node.id)?.item as External | undefined;
   return (
-    <div className={`${styles.node} ${styles.external}`} data-map-node={node.id} data-role="external" data-dim={dim || undefined} data-selected={selected || undefined}>
+    <div className={`${styles.node} ${styles.external}`} data-map-node={node.id} data-role="external" data-dim={dim || undefined} data-selected={selected || undefined} data-status={data.status}>
       <Handle type="target" position={Position.Left} className={styles.handle} isConnectable={false} />
       <div className={styles.title}>
         <span className={styles.glyph} aria-hidden="true">{kindInfo("external").glyph}</span>

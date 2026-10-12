@@ -5,7 +5,7 @@ Always use tokens (`var(--color-*)`, `--spacing-*`, `--font-*`, `--motion-*`); n
 
 ## Identity
 Aubergine-black ink, one apricot accent (`--color-brand-primary`) for focus, active nav and primary action. 60% background,
-30% surfaces, at most 10% accent and semantic colours. Calm, technical, sentence case. No glassmorphism, nested cards,
+30% surfaces, at most 10% accent and semantic colours. Calm, technical, sentence case. No glass cards, nested cards,
 accent rails/dots, stickers, blobs, forced uppercase, eyebrow labels, hover lift/bounce/rotation.
 
 Glow, gradients and haze are allowed, through the effect tokens (`effects.css`: `--glow-*`, `--shadow-glow-*`,
@@ -15,6 +15,14 @@ Glow, gradients and haze are allowed, through the effect tokens (`effects.css`: 
   Same rule as verdicts: only `pass` may glow in the success colour.
 - Selection: `--shadow-glow-accent` may mark a selected node or card alongside its outline, never instead of it.
 - Ambient haze sits behind content, never behind dense text, and stays dim (`AmbientField` intensity at or under 0.5 behind copy).
+- The Shell owns one fixed `AmbientField` (colour and intensity from `useSystemVitals()`, capped at 0.45) behind every view.
+  Shell chrome sits on veils so it shows through: `--surface-veil` with `--backdrop-veil` for the top bar and nav,
+  `--surface-veil-strong` for the Inspector, `--surface-wash` behind the main column. Cards and panels stay opaque.
+- Graphs: selection gets `--shadow-glow-accent` with its outline, hover `--shadow-glow-accent-soft`, status a faint
+  `--shadow-glow-error-soft` / `--shadow-glow-success-soft`; edges touching the selection carry `.fx-flow`. CSS only.
+- Moments: dispatch `artyfact:fx` on `window` (`{ kind: promoted | submitted | commit | fail | select, x?, y?, strength? }`,
+  viewport coordinates) and the Shell's field ripples there, tinted by kind. The TopBar Effects switch (localStorage
+  `artyfact.effects`, default off under reduced motion) turns WebGL and `.fx-flow` motion off.
 - Text contrast and focus rings win: no glow, gradient or canvas may lower text below AA or hide the 2px focus outline.
 - Effects are decorative (`aria-hidden`), honour reduced motion, and the app must read the same with them off.
 

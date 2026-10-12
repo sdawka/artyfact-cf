@@ -65,3 +65,8 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-xs);
 }
+.group [cmdk-group-heading] {
+  padding: var(--spacing-2) var(--spacing-3) var(--spacing-1);
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+}

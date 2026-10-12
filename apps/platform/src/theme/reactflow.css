@@ -1,6 +1,7 @@
-/* @xyflow/react overrides: flat surfaces, quiet borders, no shadows, no pills. */
+/* @xyflow/react overrides: flat surfaces, quiet borders, no pills. Glow for selection and status lives in the view
+   modules (effect tokens); the canvas is transparent so the Shell's ambient field shows through its wash. */
 .react-flow {
-  --xy-background-color: var(--color-background);
+  --xy-background-color: transparent;
   --xy-node-background-color: var(--color-surface-secondary);
   --xy-node-color: var(--color-text-primary);
   --xy-node-border: 1px solid var(--color-border-subtle);

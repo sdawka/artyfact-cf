@@ -130,7 +130,8 @@ export function useSystemVitals(now?: number): SystemVitals {
   const { data: readinessData } = useReadiness();
   const { data: board } = useEvolutions();
   const { data: commits } = useHistory();
-  const report = readinessData ?? m.bundle.readiness;
+  // A malformed or partial response (old API, test stubs) falls back to the bundled report rather than crashing the Shell.
+  const report = readinessData?.modelReadiness?.findings ? readinessData : m.bundle.readiness;
   return useMemo(() => {
     const criteria = (m.index.model.criteria ?? []).filter((c) => c.ownerKind === "thing" && !c.deferred);
     const live = board?.evolutions ?? [];

@@ -6,15 +6,17 @@ import {
   useReactFlow,
   type NodeMouseHandler,
 } from "@xyflow/react";
-import { useCallback, useEffect, useMemo, useState, type FocusEvent, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs/Breadcrumbs";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { absoluteBoxes, requestKey, type LayoutRequest, type LayoutResult } from "@/graph/elk";
 import { useElkLayout } from "@/graph/useElkLayout";
 import { isTyping } from "@/app/Shell";
 import { useEvolutions } from "@/api/queries";
+import { announceSelect, flowNodeElement } from "@/effects/ambientEvents";
 import { kindInfo } from "@/model/kinds";
 import type { ModelIndex } from "@/model/index";
+import type { Rollup } from "@/model/status";
 import { useModel } from "@/model/useModel";
 import { useSelection, type Layer } from "@/model/useSelection";
 import { CrossLinkEdge, labelAnchor } from "./edges/CrossLinkEdge";
@@ -55,6 +57,7 @@ function flowNodes(
     focusId: string | null;
     halos: Map<string, string[]>;
     lit: Set<string> | null;
+    status: Map<string, MapNodeData["status"]>;
     onOpen: MapNodeData["onOpen"];
     /** Overlay state for the node's accessible name (counters, realizations, candidates). */
     describe: (id: string) => string;
@@ -92,6 +95,7 @@ function flowNodes(
         layer: extra.layer,
         candidates: extra.halos.get(n.id) ?? [],
         dim: !!extra.lit && !extra.lit.has(n.id),
+        status: extra.status.get(n.id),
         onOpen: extra.onOpen,
       };
       const info = kindInfo(n.kind);
@@ -120,6 +124,12 @@ function flowNodes(
     }
   }
   return out;
+}
+
+/** Emphasis glow for a node's subtree verdicts: any fail, or every counted criterion passing (only pass glows green). */
+export function nodeStatus(r: Rollup): MapNodeData["status"] {
+  if (r.fail > 0) return "fail";
+  return r.pass > 0 && r.unknown + r.stale + r.notRun === 0 ? "pass" : undefined;
 }
 
 function neighbourhood(graph: MapGraph, id: string | null): Set<string> | null {
@@ -278,9 +288,10 @@ export function MapView() {
     [layer, rollup, board, halos],
   );
 
+  const status = useMemo(() => new Map(graph.nodes.map((n) => [n.id, nodeStatus(rollup(n.id))])), [graph, rollup]);
   const nodes = useMemo(
-    () => (layout ? flowNodes(graph, layout, request, { layer, focusId, halos, lit, onOpen: openScope, describe }) : []),
-    [graph, layout, request, layer, focusId, halos, lit, openScope, describe],
+    () => (layout ? flowNodes(graph, layout, request, { layer, focusId, halos, lit, status, onOpen: openScope, describe }) : []),
+    [graph, layout, request, layer, focusId, halos, lit, status, openScope, describe],
   );
 
   useEffect(() => {
@@ -319,6 +330,7 @@ export function MapView() {
       layout
         ? graph.edges.map((e) => {
             const active = !!hovered && (e.source === hovered || e.target === hovered);
+            const flow = !!focusId && (e.source === focusId || e.target === focusId);
             const route = layout.edges[e.id];
             const points = route && layoutReversed(graph, e) ? [...route].reverse() : route;
             return {
@@ -326,14 +338,14 @@ export function MapView() {
               source: e.source,
               target: e.target,
               type: "crossLink" as const,
-              data: { edge: e, dim: !!lit && !active, active, showLabel: labelled.has(e.id), ...(points?.length && { points }) },
+              data: { edge: e, dim: !!lit && !active && !flow, active, flow, showLabel: labelled.has(e.id), ...(points?.length && { points }) },
               markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "var(--color-border-strong)" },
               selectable: false,
               focusable: false,
             };
           })
         : [],
-    [graph, layout, hovered, lit, labelled],
+    [graph, layout, hovered, lit, labelled, focusId],
   );
 
   const { kinds, links } = useMemo(() => modelKinds(index), [index]);
@@ -361,6 +373,15 @@ export function MapView() {
 
   const scopeEntry = index.byId(graph.scope);
   const [canvas, setCanvas] = useState<HTMLDivElement | null>(null);
+
+  // A new selection ripples the Shell's ambient field from the node, when it is on screen.
+  const announced = useRef(focusId);
+  useEffect(() => {
+    if (focusId === announced.current) return;
+    announced.current = focusId;
+    if (!focusId || !canvas) return;
+    requestAnimationFrame(() => announceSelect(flowNodeElement(focusId, canvas)));
+  }, [focusId, canvas]);
 
   return (
     <div className={styles.view}>

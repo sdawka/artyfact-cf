@@ -71,5 +71,10 @@ describe("theme css", () => {
     expect(readme).toMatch(/Glow, gradients and haze are allowed/);
     expect(readme).toMatch(/focus rings win/);
     expect(readme).not.toMatch(/No gradients, glow/);
+    for (const t of ["--surface-veil", "--surface-veil-strong", "--surface-wash", "--backdrop-veil", "--shadow-glow-accent-soft", "--shadow-glow-error-soft"]) {
+      expect(effects).toMatch(new RegExp(`${t}:`));
+    }
+    expect(effects).toMatch(/prefers-reduced-motion[\s\S]*\.fx-flow \{ animation: none; \}/);
+    expect(effects).toMatch(/\[data-effects="off"\] \.fx-flow/);
   });
 });

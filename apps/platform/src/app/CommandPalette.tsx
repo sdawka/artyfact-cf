@@ -1,4 +1,5 @@
 import { Command } from "cmdk";
+import { useEffectsPreference } from "@/effects/effectsPreference";
 import { bestViewFor, kindInfo } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
 import { useSelection } from "@/model/useSelection";
@@ -8,6 +9,7 @@ import styles from "./CommandPalette.module.css";
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange(open: boolean): void }) {
   const { index } = useModel();
   const { setFocus } = useSelection();
+  const effects = useEffectsPreference();
   return (
     <Command.Dialog
       open={open}
@@ -39,6 +41,20 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
             </Command.Item>
           );
         })}
+        <Command.Group heading="Settings" className={styles.group}>
+          <Command.Item
+            value="settings.effects"
+            keywords={["effects", "ambient", "animation", "motion", "glow"]}
+            className={styles.item}
+            onSelect={() => {
+              onOpenChange(false);
+              effects.toggle();
+            }}
+          >
+            <span className={styles.glyph} aria-hidden="true">✦</span>
+            <span className={styles.name}>{effects.enabled ? "Turn effects off" : "Turn effects on"}</span>
+          </Command.Item>
+        </Command.Group>
       </Command.List>
     </Command.Dialog>
   );

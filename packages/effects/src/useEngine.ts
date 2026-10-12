@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { hasWebGL2Api } from "./support";
+import { hasFastWebGL2, hasWebGL2Api } from "./support";
 
 /** `pending` until the engine loads (and during SSR), `gl` once the canvas is live, `fallback` for the CSS version. */
 export type EffectMode = "pending" | "gl" | "fallback";
@@ -14,9 +14,10 @@ export type EngineFactory<E, S> = (container: HTMLElement, settings: S, onLost: 
 /**
  * Mounts a WebGL engine into a container once, keeps it updated with the latest settings every render, and disposes it
  * on unmount. The engine module (and ogl) is loaded lazily, so nothing runs during SSR and the main bundle stays small.
- * Without WebGL2, when `enabled` is false, or if the GPU drops the context, `mode` becomes `fallback`.
+ * Without WebGL2, on a software renderer (unless `allowSoftware`), when `enabled` is false, or if the GPU drops the
+ * context, `mode` becomes `fallback`.
  */
-export function useEngine<E extends Disposable<S>, S>(load: () => Promise<EngineFactory<E, S>>, settings: S, enabled: boolean) {
+export function useEngine<E extends Disposable<S>, S>(load: () => Promise<EngineFactory<E, S>>, settings: S, enabled: boolean, allowSoftware = false) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const engineRef = useRef<E | null>(null);
   const latest = useRef(settings);
@@ -24,7 +25,7 @@ export function useEngine<E extends Disposable<S>, S>(load: () => Promise<Engine
   const [mode, setMode] = useState<EffectMode>("pending");
 
   useEffect(() => {
-    if (!enabled || !hasWebGL2Api()) {
+    if (!enabled || !hasWebGL2Api() || (!allowSoftware && !hasFastWebGL2())) {
       setMode("fallback");
       return;
     }
@@ -52,7 +53,7 @@ export function useEngine<E extends Disposable<S>, S>(load: () => Promise<Engine
     };
     // `load` is a module-level constant in every caller.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled]);
+  }, [enabled, allowSoftware]);
 
   useEffect(() => {
     engineRef.current?.update(latest.current);

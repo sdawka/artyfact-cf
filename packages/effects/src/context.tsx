@@ -18,11 +18,14 @@ export interface EffectsSettings {
   enabled: boolean;
   /** True renders one still WebGL frame per effect: no animation, no pointer response, `pulse()` does nothing. */
   reducedMotion: boolean;
+  /** Run WebGL on a software renderer (SwiftShader, llvmpipe) too. Off by default: there effects use their CSS fallback. */
+  allowSoftwareRenderer: boolean;
 }
 
 interface ProviderValue {
   enabled?: boolean;
   reducedMotion?: boolean;
+  allowSoftwareRenderer?: boolean;
 }
 
 const EffectsContext = createContext<ProviderValue>({});
@@ -32,18 +35,25 @@ export interface EffectsProviderProps {
   enabled?: boolean;
   /** Override for reduced motion. Default: follow `prefers-reduced-motion`. */
   reducedMotion?: boolean;
+  /**
+   * Opt-out of the software-renderer guard, for tests or screenshots that need the live WebGL path on a machine without
+   * a GPU. Default false: on SwiftShader or llvmpipe every effect keeps its CSS fallback (see `hasFastWebGL2`).
+   */
+  allowSoftwareRenderer?: boolean;
   children?: ReactNode;
 }
 
 /**
  * Global switch for every effect below it. Without a provider, effects are on and follow `prefers-reduced-motion`.
+ * Either way, on a software WebGL renderer effects render their CSS fallback unless `allowSoftwareRenderer` is set.
  * Nested providers override only the props they set.
  */
-export function EffectsProvider({ enabled, reducedMotion, children }: EffectsProviderProps) {
+export function EffectsProvider({ enabled, reducedMotion, allowSoftwareRenderer, children }: EffectsProviderProps) {
   const parent = useContext(EffectsContext);
   const value: ProviderValue = {
     enabled: enabled ?? parent.enabled,
     reducedMotion: reducedMotion ?? parent.reducedMotion,
+    allowSoftwareRenderer: allowSoftwareRenderer ?? parent.allowSoftwareRenderer,
   };
   return <EffectsContext.Provider value={value}>{children}</EffectsContext.Provider>;
 }
@@ -52,7 +62,7 @@ export function EffectsProvider({ enabled, reducedMotion, children }: EffectsPro
 export function useEffectsSettings(): EffectsSettings {
   const ctx = useContext(EffectsContext);
   const system = useSystemReducedMotion();
-  return { enabled: ctx.enabled ?? true, reducedMotion: ctx.reducedMotion ?? system };
+  return { enabled: ctx.enabled ?? true, reducedMotion: ctx.reducedMotion ?? system, allowSoftwareRenderer: ctx.allowSoftwareRenderer ?? false };
 }
 
 /** Whether effects render with WebGL at all (false means CSS fallbacks only). */

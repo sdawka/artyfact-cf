@@ -8,7 +8,9 @@
   border-radius: var(--border-radius-md);
   background: var(--color-surface-secondary);
   color: var(--color-text-primary);
-  transition: opacity var(--motion-duration-fast) var(--motion-easing-ease-out);
+  transition:
+    opacity var(--motion-duration-fast) var(--motion-easing-ease-out),
+    box-shadow var(--motion-duration-normal) var(--motion-easing-ease-out);
 }
 .node {
   display: flex;
@@ -26,6 +28,12 @@
   background: color-mix(in oklch, var(--color-surface-primary) 60%, transparent);
   border-color: var(--color-border);
 }
+/* Glow (effects.css tokens): status emphasis, then hover, then selection on top. Selection keeps its focus outline. */
+.node[data-status="fail"] { box-shadow: var(--shadow-glow-error-soft); }
+.node[data-status="pass"] { box-shadow: var(--shadow-glow-success-soft); }
+.node:hover { box-shadow: var(--shadow-glow-accent-soft); }
+.node[data-selected],
+.group[data-selected] { box-shadow: var(--shadow-glow-accent); }
 .node[data-dim],
 .group[data-dim] { opacity: 0.35; }
 .node[data-ring],

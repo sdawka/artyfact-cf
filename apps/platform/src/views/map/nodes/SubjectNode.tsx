@@ -18,6 +18,7 @@ export function SubjectNode({ data, selected }: NodeProps<SubjectFlowNode>) {
       data-dim={dim || undefined}
       data-ring={(layer === "proteome" && realizations > 0) || undefined}
       data-selected={selected || undefined}
+      data-status={data.status}
     >
       <Handle type="target" position={Position.Left} className={styles.handle} isConnectable={false} />
       <div className={styles.title}>
