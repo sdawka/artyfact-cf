@@ -53,8 +53,9 @@ ensure_repo() {
     log "+ wrangler artifacts repos get $repo --namespace $NS || wrangler artifacts repos create $repo --namespace $NS"
     return
   fi
-  wrangler artifacts repos get "$repo" --namespace "$NS" >/dev/null 2>&1 \
-    || wrangler artifacts repos create "$repo" --namespace "$NS" >/dev/null
+  wrangler artifacts repos get "$repo" --namespace "$NS" >/dev/null 2>&1 && return
+  local out
+  out="$(wrangler artifacts repos create "$repo" --namespace "$NS" --json 2>&1)" || { printf '%s\n' "$out" | grep -v -i token >&2; exit 1; }
 }
 
 # Issues a write token and prints it to stdout only (callers must keep it out of logs).
