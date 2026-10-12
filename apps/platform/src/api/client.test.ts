@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
-  FixtureModeError, StaleBaseError, getClientMode, getEvaluations, getModel, getSystems, promote, resetClientMode, startWork, subscribeEvents,
+  ApiRequestError, FixtureModeError, SSE_TYPES, StaleBaseError, commitFiles, createEvolution, getBuilds, getChangelog, getChangelogEntry,
+  getClientMode, getCompareFile, getCompareGenome, getCompareSystem, getDeployments, getEvaluations, getFile, getModel, getPhenomeEvents,
+  getRevisions, getSystems, listFiles, promote, resetClientMode, startWork, subscribeEvents,
 } from "./client";
 
 const json = (status: number, body: unknown) =>
@@ -88,5 +90,87 @@ describe("subscribeEvents", () => {
     await getSystems();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+describe("iteration-2 reads and writes", () => {
+  const live = () => {
+    const calls: { url: string; init?: RequestInit }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, init });
+      if (url === "/api/systems") return json(200, { systems: [{ systemId: "s" }] });
+      return json(200, { ok: url });
+    }));
+    return calls;
+  };
+
+  it("maps the UI's repo/rev to the API's scope/ref and calls the contract paths", async () => {
+    const calls = live();
+    await listFiles("s", { repo: "app", rev: "sc-2" });
+    await getFile("s", { repo: "genome", rev: "head", path: "things/web app.yaml" });
+    await getCompareFile("s", { repo: "app", from: "sc-1", to: "sc-2", path: "src/a.ts" });
+    await getCompareSystem("s", { to: "sc-2" });
+    await getCompareGenome("s", { from: "sc-1", to: "head" });
+    await getChangelog("s", { limit: 20, before: "sc-9" });
+    await getChangelogEntry("s", "sc-3");
+    await getRevisions("s");
+    await getBuilds("s", { commit: "abc", kind: "preview" });
+    await getBuilds("s", { realization: "r1" });
+    await getDeployments("s");
+    await getPhenomeEvents("s", { deployment: "d1", limit: 50 });
+    expect(calls.slice(1).map((c) => c.url)).toEqual([
+      "/api/systems/s/files?scope=app&ref=sc-2",
+      "/api/systems/s/file?scope=genome&ref=head&path=things%2Fweb%20app.yaml",
+      "/api/systems/s/compare/file?scope=app&from=sc-1&to=sc-2&path=src%2Fa.ts",
+      "/api/systems/s/compare/system?to=sc-2",
+      "/api/systems/s/compare/genome?from=sc-1&to=head",
+      "/api/systems/s/changelog?limit=20&before=sc-9",
+      "/api/systems/s/changelog/sc-3",
+      "/api/systems/s/revisions",
+      "/api/systems/s/builds?commit=abc&kind=preview",
+      "/api/systems/s/realizations/r1/builds",
+      "/api/systems/s/deployments",
+      "/api/systems/s/phenome/events?deployment=d1&limit=50",
+    ]);
+  });
+
+  it("createEvolution and commitFiles POST with a bearer token", async () => {
+    const calls = live();
+    await createEvolution("s", { title: "T", intent: "I" }, "admin-tok");
+    await commitFiles("s", "r1", { message: "m", changes: [{ path: "a", content: null }] }, "secret");
+    const [create, commit] = calls.slice(1);
+    expect(create!.url).toBe("/api/systems/s/evolutions");
+    expect((create!.init!.headers as Record<string, string>).authorization).toBe("Bearer admin-tok");
+    expect(commit!.url).toBe("/api/systems/s/realizations/r1/commit");
+    expect((commit!.init!.headers as Record<string, string>).authorization).toBe("Bearer secret");
+    expect(JSON.parse(commit!.init!.body as string)).toEqual({ message: "m", changes: [{ path: "a", content: null }] });
+  });
+
+  it("in fixture mode serves Genome files, head-only revisions and empty lists, and refuses writes", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("Failed to fetch"))));
+    const tree = await listFiles("system.keep-in-touch", { repo: "genome" });
+    expect(tree.files.map((f) => f.path)).toContain("system.yaml");
+    const file = await getFile("system.keep-in-touch", { repo: "genome", path: "system.yaml" });
+    expect(file.text).toContain("system.keep-in-touch");
+    expect((await listFiles("system.keep-in-touch", { repo: "app" })).files).toEqual([]);
+    expect((await getRevisions("system.keep-in-touch")).revisions).toEqual([{ id: "head", kind: "head", label: "head" }]);
+    expect(await getChangelog("system.keep-in-touch")).toEqual({ rows: [] });
+    expect(await getBuilds("system.keep-in-touch")).toEqual({ builds: [] });
+    expect(await getDeployments("system.keep-in-touch")).toEqual({ production: null, history: [] });
+    expect(await getPhenomeEvents("system.keep-in-touch")).toEqual({ events: [], versions: [] });
+    await expect(getChangelogEntry("system.keep-in-touch", "sc-1")).rejects.toBeInstanceOf(ApiRequestError);
+    await expect(getFile("system.keep-in-touch", { repo: "app", path: "src/index.ts" })).rejects.toBeInstanceOf(ApiRequestError);
+    await expect(createEvolution("system.keep-in-touch", { title: "T", intent: "I" })).rejects.toBeInstanceOf(FixtureModeError);
+    await expect(commitFiles("system.keep-in-touch", "r", { message: "m", changes: [] })).rejects.toBeInstanceOf(FixtureModeError);
+  });
+
+  it("zero-fills the fixture summary's iteration-2 fields", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json(503, {})));
+    const [s] = await getSystems();
+    expect(s).toMatchObject({ built: false, latestBuild: null, deployState: "none", signifiers: [], deployment: { production: null, previews: 0 } });
+  });
+
+  it("listens for the new SSE types", () => {
+    expect(SSE_TYPES).toEqual(expect.arrayContaining(["build.updated", "deployment.updated", "phenome.ingested", "system.updated", "evolution.created"]));
   });
 });

@@ -10,3 +10,12 @@ import raw from "@/fixtures/keep-in-touch.model.json";
 export function fixtureBundle(): UiBundle {
   return { ...(structuredClone(raw) as unknown as Omit<UiBundle, "source">), source: "fixture" };
 }
+
+export interface FixtureFiles {
+  entries: { path: string; hash: string; size: number }[];
+  files: Record<string, string>;
+}
+
+/** The Keep in Touch Genome files (`{ entries, files }`), a separate chunk loaded only when a fixture file route is read. */
+export const fixtureFiles = (): Promise<FixtureFiles> =>
+  import("@/fixtures/keep-in-touch.files.json").then((m) => m.default as FixtureFiles);

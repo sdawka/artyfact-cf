@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import type { BuildStatus } from "../../../shared/api";
 import { cardSignals, type CardSummary } from "./signifiers";
 
 const base: CardSummary = {
@@ -21,8 +22,8 @@ describe("cardSignals", () => {
     expect(keys({ ...base, deployState: "live" })).toEqual(["deploy:neutral"]);
     expect(keys({ ...base, deployState: "behind" })).toEqual(["deploy:attention"]);
     expect(keys({ ...base, deployState: "failed" })).toEqual(["deploy:fail"]);
-    const build = (status: string) => cardSignals({ ...base, latestBuild: { id: "b", status, commit: "c" } }).chips.find((c) => c.key === "build")!.tone;
-    expect(["queued", "running", "passed", "failed", "error"].map(build)).toEqual(["neutral", "neutral", "pass", "fail", "fail"]);
+    const build = (status: BuildStatus) => cardSignals({ ...base, latestBuild: { id: "b", status, kind: "preview", commit: "c" } }).chips.find((c) => c.key === "build")!.tone;
+    expect((["queued", "running", "passed", "failed", "error"] as const).map(build)).toEqual(["neutral", "neutral", "pass", "fail", "fail"]);
   });
 
   it("uses counts in labels", () => {

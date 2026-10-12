@@ -1,12 +1,6 @@
-// TODO(rebase): import RevisionOption from shared/api once b0-contract lands.
-export interface RevisionOption {
-  id: string;
-  kind: "head" | "commit" | "candidate";
-  label: string;
-  at?: string;
-  evolution?: string;
-  state?: string;
-}
+import type { RevisionOption } from "../../shared/api";
+
+export type { RevisionOption };
 
 const HEX40 = /^[0-9a-f]{40}$/i;
 

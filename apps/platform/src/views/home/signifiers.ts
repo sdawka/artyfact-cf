@@ -1,22 +1,8 @@
 import type { SystemSummary } from "../../../shared/api";
 import { buildTone, type ChipTone } from "@/components/StatusChip/StatusChip";
 
-// TODO(rebase): replace with the shared/api SystemSummary fields once b0-contract lands.
-type Signifier =
-  | "evolving" | "pending-realization" | "awaiting-admin" | "not-fully-built" | "built" | "deployed" | "behind" | "observed" | "unrealized";
-interface BuildSummaryLike { id: string; status: string; kind?: string; commit: string; url?: string; buildId?: string; finishedAt?: string }
-interface SummaryExtras {
-  signifiers: Signifier[];
-  realizationCounts: { evolving: number; pending: number; awaitingAdmin: number };
-  openCandidates: number;
-  latestBuild: BuildSummaryLike | null;
-  deployment: { production: unknown; previews: number };
-  deployState: "none" | "pending" | "live" | "behind" | "failed";
-  built: boolean;
-}
-
-/** A SystemSummary from any server version: every field added in iteration 2 may be missing. */
-export type CardSummary = SystemSummary & Partial<SummaryExtras>;
+/** A SystemSummary from any server version: every iteration-2 field is optional and may be missing. */
+export type CardSummary = SystemSummary;
 
 export interface CardChip {
   key: string;

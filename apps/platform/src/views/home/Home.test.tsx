@@ -16,7 +16,7 @@ const evolving: CardSummary = {
   ...base,
   signifiers: ["evolving", "pending-realization", "not-fully-built"],
   realizationCounts: { evolving: 1, pending: 2, awaitingAdmin: 0 },
-  latestBuild: { id: "b1", status: "running", commit: "c".repeat(40) },
+  latestBuild: { id: "b1", status: "running", kind: "production", commit: "c".repeat(40) },
   deployment: { production: null, previews: 0 },
   deployState: "none",
 };
@@ -25,8 +25,11 @@ const awaiting: CardSummary = {
   systemId: "system.b", title: "Beta",
   signifiers: ["evolving", "awaiting-admin", "built", "deployed"],
   realizationCounts: { evolving: 1, pending: 0, awaitingAdmin: 1 },
-  latestBuild: { id: "b2", status: "passed", commit: "d".repeat(40) },
-  deployment: { production: {}, previews: 1 },
+  latestBuild: { id: "b2", status: "passed", kind: "production", commit: "d".repeat(40) },
+  deployment: {
+    production: { id: "d1", kind: "production", status: "live", repo: "app", commit: "d".repeat(40), by: "admin", createdAt: "", updatedAt: "" },
+    previews: 1,
+  },
   deployState: "live",
 };
 
