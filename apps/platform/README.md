@@ -57,7 +57,7 @@ Promotion gate (fails closed): the blocking set is (the Evolution's acceptance c
 
 `<R>` is any of `/systems/:id/evolutions/:eid/realizations/:rid` (CLI), `/systems/:id/realizations/:rid`, `/realizations/:rid` (System found via the registry; realization ids are unique only per System, so this returns 409 `ambiguous` with `details.systems` when several Systems have that id).
 
-Hooks: the backend calls `HookRunner` (`worker/hooks/contract.ts`); `worker/hooks/index.ts` wires the implementation (no-op until the hooks slice lands).
+Hooks: the backend calls `HookRunner` (`worker/hooks/contract.ts`); `worker/hooks/index.ts` wires `createHookRunner({ s1Env: env, previewEnv: env })` and the queue consumer. The candidate tree passed to hooks carries blob sizes from a per-System cache; only files some `manifest` hook requires are measured, and any other entry not yet cached has `size: -1` (not measured). The manifest engine treats a size ≤ 0 as empty, so an unmeasured required file fails rather than passes.
 
 ## Layout
 - `worker/` Hono app, Queue handler, Durable Object (`do/system-authority.ts`), generated `env.d.ts`.
