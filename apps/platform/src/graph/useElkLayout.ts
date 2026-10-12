@@ -42,19 +42,18 @@ export function useElkLayout(request: LayoutRequest | null, keyOverride?: string
 
   useEffect(() => {
     if (!request || cache.has(key)) return;
-    let live = true;
-    layoutGraph(request).then(
+    const ctl = new AbortController();
+    layoutGraph(request, { signal: ctl.signal }).then(
       (layout) => {
         remember(key, layout);
-        if (live) setState({ key, layout, error: null });
+        if (!ctl.signal.aborted) setState({ key, layout, error: null });
       },
       (err: unknown) => {
-        if (live) setState({ key, layout: null, error: err instanceof Error ? err : new Error(String(err)) });
+        if (!ctl.signal.aborted) setState({ key, layout: null, error: err instanceof Error ? err : new Error(String(err)) });
       },
     );
-    return () => {
-      live = false;
-    };
+    // Unmount or key change cancels pending work (timer cleared, no elk run started) instead of just ignoring it.
+    return () => ctl.abort();
     // `request` is identified by `key`.
   }, [key, request === null]);
 

@@ -211,28 +211,52 @@ const canUseWorker = () =>
 /**
  * Lays out `req`. Uses the Web Worker when available (`worker: false` forces the main thread).
  * If the worker errors, fails to load, or takes longer than `timeoutMs`, it is terminated and the
- * layout runs on the main thread (and later layouts skip the worker).
+ * layout runs on the main thread (and later layouts skip the worker). `signal` cancels pending work:
+ * the timer is cleared, nothing new is started, and the promise rejects with an `AbortError`.
  */
-export async function layoutGraph(req: LayoutRequest, opts: { worker?: boolean; timeoutMs?: number } = {}): Promise<LayoutResult> {
+export async function layoutGraph(
+  req: LayoutRequest,
+  opts: { worker?: boolean; timeoutMs?: number; signal?: AbortSignal } = {},
+): Promise<LayoutResult> {
+  const { signal } = opts;
+  const aborted = () => new DOMException("elk layout aborted", "AbortError");
+  if (signal?.aborted) throw aborted();
   const graph = toElkGraph(req);
   if (opts.worker !== false && !workerBroken && canUseWorker()) {
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let onAbort: (() => void) | undefined;
+    let wasAborted = false;
     try {
       const { elk, failed } = await inWorker();
-      const timeout = new Promise<never>((_, reject) => {
+      if (signal?.aborted) throw aborted();
+      // The fallback timer and the abort listener both settle this race, and `finally` clears both,
+      // so neither can fire after the layout has finished or been cancelled.
+      const cancelled = new Promise<never>((_, reject) => {
         timer = setTimeout(() => reject(new Error("elk worker timed out")), opts.timeoutMs ?? WORKER_TIMEOUT_MS);
+        onAbort = () => {
+          wasAborted = true;
+          reject(aborted());
+        };
+        signal?.addEventListener("abort", onAbort, { once: true });
       });
       // postMessage clones the graph, so `graph` is still pristine for the fallback.
-      return fromElkGraph(await Promise.race([elk.layout(graph), failed, timeout]));
+      return fromElkGraph(await Promise.race([elk.layout(graph), failed, cancelled]));
     } catch (err) {
+      // A cancelled layout is not a worker failure: leave the shared worker alone and do not fall back.
+      if (wasAborted || signal?.aborted) throw aborted();
       console.warn("artyfact: elk worker failed, laying out on the main thread", err);
       workerBroken = true;
       resetWorker();
     } finally {
       clearTimeout(timer);
+      if (onAbort) signal?.removeEventListener("abort", onAbort);
     }
   }
-  return fromElkGraph(await (await inThread()).layout(graph));
+  const thread = await inThread();
+  if (signal?.aborted) throw aborted(); // never start elk work for an unmounted caller
+  const result = await thread.layout(graph);
+  if (signal?.aborted) throw aborted();
+  return fromElkGraph(result);
 }
 
 /** A stable string for a request's shape (ids, sizes, nesting, options, edges): the memo key for its layout. */
