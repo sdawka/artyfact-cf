@@ -6,8 +6,8 @@ import { diffModels, type Readiness, type schema, type SystemModel } from "@arty
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  CandidatesResponse, ConflictReport, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
-  ReadinessResponse, RealizationResponse, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
+  Candidate, CandidatesResponse, ConflictReport, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  ReadinessResponse, RealizationResponse, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SubmitSource, SyncResponse,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
 import { sha256Hex } from "./util";
@@ -24,6 +24,8 @@ import { hookRunner } from "./hooks/index";
 import { buildGenomeReview } from "./genome/review";
 import { readinessReport, serializeModel } from "./model-bundle";
 import { buildTaskPacket, protectedPathsFor } from "./packets/task-packet";
+import { ensurePushSubscription, removePushSubscription } from "./artifacts/subscriptions";
+import { dispatchPreviewBuild, requestProductionDeploy } from "./deployments";
 import { gateCriteria, hooksOf, type GateCriterion } from "./promotion";
 
 const TOKEN_TTL_S = 21_600;
@@ -56,7 +58,7 @@ async function headState(env: Env, systemId: string): Promise<HeadState> {
   return s;
 }
 
-async function refreshRegistry(env: Env, systemId: string): Promise<void> {
+export async function refreshRegistry(env: Env, systemId: string): Promise<void> {
   const summary = await systemStub(env, systemId).summary();
   if (summary) await registryStub(env).registerSystem(summary);
 }
@@ -361,6 +363,9 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
       throw conflict("invalid-state", `realization ${rid} is ${activated.refused ?? "gone"}; it was not activated and its token was revoked`);
     }
     const realization = activated;
+    // B3: the fork's push subscription feeds the queue safety net (best effort; a no-op without CF_API_TOKEN).
+    const subscription = await ensurePushSubscription(env, reserved.forkRepo);
+    if (subscription) await stub.setRealizationSubscription(rid, subscription);
     await refreshRegistry(env, systemId);
     const cli = packet.startCommand.replace("<token>", token.plaintext).replace("<secret>", secret);
     return {
@@ -419,7 +424,8 @@ export async function packet(env: Env, systemId: string, rid: string): Promise<P
 export async function realizationView(env: Env, systemId: string, rid: string): Promise<RealizationResponse> {
   const stub = systemStub(env, systemId);
   const rec = await record(env, systemId, rid);
-  const candidate = rec.realization.candidate ? await stub.candidate(rec.realization.candidate) : null;
+  const stored0 = rec.realization.candidate ? await stub.candidate(rec.realization.candidate) : null;
+  const candidate = stored0 ? (await withBuilds(stub, [stored0]))[0] : null;
   const evaluations = candidate ? await stub.evaluations(candidate.id) : [];
   const stored = candidate ? await stub.storedConflicts(candidate.id) : null;
   return {
@@ -621,7 +627,12 @@ function evidenceFresh(
   return true;
 }
 
-export type SubmitSource = "cli" | "event" | "sync" | "ui";
+/** B3: each candidate with the latest build of its commit (`Candidate.build`). */
+async function withBuilds<C extends Candidate>(stub: SystemApi, cands: C[]): Promise<C[]> {
+  if (!cands.length) return cands;
+  const builds = await stub.candidateBuilds(cands.map((c) => ({ id: c.id, realization: c.realization, commit: c.commit })));
+  return cands.map((c) => (builds[c.id] ? { ...c, build: builds[c.id] } : c));
+}
 
 export async function submit(
   env: Env, systemId: string, rid: string, body: { commit?: unknown; previewUrl?: unknown }, source: SubmitSource,
@@ -668,6 +679,8 @@ export async function submit(
     if (out.created) {
       const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((c) => c.id === out.candidate.id)!;
       await recordRun(env, systemId, out.candidate.id, await evaluate(env, s, rec, ref, "submission"));
+      // B3: every app candidate gets a preview build (no-op without the CI binding).
+      await dispatchPreviewBuild(env, s, rec, out.candidate);
     }
     existing = out.candidate;
   } else {
@@ -690,8 +703,9 @@ export async function submit(
   if (created) for (const c of conflictReports) await stub.publish({ type: "conflict.detected", conflict: c });
   await refreshRegistry(env, systemId);
   const fresh = await record(env, systemId, rid);
+  const [candidate] = await withBuilds(stub, [(await stub.candidate(existing.id))!]);
   return {
-    created, realization: fresh.realization, candidate: (await stub.candidate(existing.id))!,
+    created, realization: fresh.realization, candidate,
     evaluations: await stub.evaluations(existing.id), conflicts: conflictReports,
   };
 }
@@ -726,7 +740,7 @@ async function candidateGates(env: Env, systemId: string, evolutionId: string, c
 
 export async function candidatesView(env: Env, systemId: string, evolutionId: string): Promise<CandidatesResponse> {
   const stub = systemStub(env, systemId);
-  const candidates = await stub.candidates({ evolutionId });
+  const candidates = await withBuilds(stub, await stub.candidates({ evolutionId }));
   const evaluations = (await Promise.all(candidates.map((c) => stub.evaluations(c.id)))).flat();
   const stored = await stub.storedConflicts();
   const ids = new Set(candidates.map((c) => c.id));
@@ -802,11 +816,24 @@ function gateRefusal(out: { code: string; blocking: GateItem[]; advisories: Gate
   return conflict("blocked", "blocking criteria (hard, with a bound hook) lack pass+completed evaluations", details);
 }
 
-/** After promotion or acceptance: revoke the fork write tokens of the realizations it ended (secrets are already nulled). */
-async function revokeEnded(env: Env, ended: EndedCredential[]): Promise<void> {
-  await Promise.all(ended.filter((x) => x.tokenId && x.forkRepo).map((x) =>
-    withRepo(artifactsFor(env), x.forkRepo, (r) => r.revokeToken(x.tokenId!)).catch((e: unknown) =>
-      console.error(`[promote] revoking the write token of ${x.realizationId} failed: ${(e as Error)?.message ?? e}`))));
+/**
+ * After promotion or acceptance: revoke the fork write tokens of the realizations it ended (secrets are already nulled)
+ * and remove their push subscriptions.
+ */
+async function revokeEnded(env: Env, systemId: string, ended: EndedCredential[]): Promise<void> {
+  await Promise.all([
+    ...ended.filter((x) => x.tokenId && x.forkRepo).map((x) =>
+      withRepo(artifactsFor(env), x.forkRepo, (r) => r.revokeToken(x.tokenId!)).catch((e: unknown) =>
+        console.error(`[promote] revoking the write token of ${x.realizationId} failed: ${(e as Error)?.message ?? e}`))),
+    ...ended.map((x) => unsubscribe(env, systemId, x.realizationId)),
+  ]);
+}
+
+/** B3: remove a realization's push subscription (best effort) and forget it once it is gone. */
+async function unsubscribe(env: Env, systemId: string, rid: string): Promise<void> {
+  const stub = systemStub(env, systemId);
+  const id = await stub.realizationSubscription(rid);
+  if (id && (await removePushSubscription(env, id))) await stub.setRealizationSubscription(rid, null);
 }
 
 export async function promote(
@@ -840,7 +867,10 @@ export async function promote(
     if (out.code === "not-found") throw notFound(out.message);
     throw conflict(out.code, out.message);
   }
-  await revokeEnded(env, out.ended);
+  await revokeEnded(env, systemId, out.ended);
+  // B3: production deploy of the promoted app binding (pending record; CI deploys it when bound).
+  const promotedFrom = (await stub.candidate(ids[0] as string))?.realization;
+  await requestProductionDeploy(env, systemId, out.commit, manifestExtras(g.model).artifactId, promotedFrom);
   await refreshRegistry(env, systemId);
   return { commit: out.commit, rejected: out.rejected, advisories: out.advisories };
 }
@@ -884,7 +914,7 @@ export async function accept(
     if (out.code === "not-found") throw notFound(out.message);
     throw conflict(out.code, out.message);
   }
-  await revokeEnded(env, out.ended);
+  await revokeEnded(env, systemId, out.ended);
   await refreshRegistry(env, systemId);
   return { genomeCommit: out.genomeCommit, realization: out.realization, commit: out.commit, advisories: out.advisories };
 }
@@ -900,6 +930,7 @@ export async function reject(env: Env, systemId: string, rid: string, body: { re
     await withRepo(artifactsFor(env), rec.forkRepo, (r) => r.revokeToken(rec.tokenId!)).catch((e: unknown) =>
       console.error(`[reject] revoking the write token of ${rid} failed: ${(e as Error)?.message ?? e}`));
   }
+  await unsubscribe(env, systemId, rid);
   await refreshRegistry(env, systemId);
   return { realization };
 }

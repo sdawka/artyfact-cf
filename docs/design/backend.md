@@ -30,6 +30,7 @@ Namespace `artyfact`; repos `<slug>.genome`, `<slug>.app` (Keep in Touch: `keep-
 
 ## B.4 Protocol & hooks
 `POST /evolutions/:id/realizations {agentLabel?, target?}` (admin) → fork + token + realization secret (only its SHA-256 is stored; required as a bearer on the realization's checkpoint/submit/sync/status/packet routes, revoked on reject) + packet (JSON + markdown: intent, acceptance criteria, Genome excerpts for affected nodes, journeys, commitments, permitted/protected paths, entry files with certainty, commands, concurrent work, submit instructions, hash). Submission by CLI `POST /submit {commit, previewUrl?}` or Queue `cf.artifacts.repo.pushed` → resolve fork → `submit(id, head, 'event')`; idempotent on (realization, commit); `events_seen` dedupes.
+Builds and deployments (iteration 2, [`docs/ci.md`](../ci.md)): a new app candidate dispatches the `artyfact-ci` Workflow (optional `env.CI`); CI, agent or admin build reports land in `builds`; a passed preview with a URL re-enters `submit(…, {commit, previewUrl}, 'ci')` so `C.webapp.health` runs; `promote` records a pending production deployment that a passed production report sets `live`.
 | hook | criterion | verdict |
 |---|---|---|
 | exists | C.webapp.exists | required files present & non-empty at commit |
