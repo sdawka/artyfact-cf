@@ -469,3 +469,17 @@ describe("itemVerdict (server gate items)", () => {
     expect(itemVerdict({ criterion: "c", verdict: "fail", execution: "error" })).toBe("unknown");
   });
 });
+
+describe("BuildChip", () => {
+  it("shows unknown without a build and the status with a preview link", async () => {
+    const { BuildChip } = await import("./BuildChip");
+    const { container, rerender } = render(<BuildChip />);
+    expect(screen.getByText("build unknown")).toBeTruthy();
+    expect(container.querySelector('[data-tone="pass"]')).toBeNull();
+    rerender(<BuildChip build={{ id: "b", status: "passed", kind: "preview", commit: "abc", url: "https://p.example.dev" }} />);
+    expect(screen.getByText("build passed").getAttribute("data-tone")).toBe("pass");
+    expect(screen.getByRole("link", { name: "Preview" }).getAttribute("rel")).toContain("noopener");
+    rerender(<BuildChip build={{ id: "b", status: "failed", kind: "preview", commit: "abc" }} />);
+    expect(screen.getByText("build failed").getAttribute("data-tone")).toBe("fail");
+  });
+});
