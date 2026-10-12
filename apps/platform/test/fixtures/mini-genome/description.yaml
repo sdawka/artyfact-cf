@@ -1,0 +1,5 @@
+narrative: A private contact list that reminds an owner whom to reach out to.
+features:
+  - { id: GD.contacts, name: Contacts, summary: Keep a private list of contacts }
+commitments:
+  - { id: commitment.one-to-one, statement: Every outgoing action addresses exactly one person, features: [GD.contacts] }
