@@ -63,7 +63,7 @@ export function Orb({
   const settings: OrbEngineSettings = {
     params, light: theme === "light", size, speed, interactive, hoverStrength, intro, paused, reducedMotion: fx.reducedMotion, transition,
   };
-  const { containerRef, engineRef, mode } = useEngine<OrbEngine, OrbEngineSettings>(loadOrb, settings, fx.enabled);
+  const { containerRef, engineRef, mode } = useEngine<OrbEngine, OrbEngineSettings>(loadOrb, settings, fx.enabled, fx.allowSoftwareRenderer);
 
   useImperativeHandle(ref, () => ({
     pulse: (strength, angle) => engineRef.current?.pulse(strength, angle),

@@ -45,7 +45,7 @@ export function AmbientField({
 }: AmbientFieldProps) {
   const fx = useEffectsSettings();
   const settings: AmbientEngineSettings = { color, intensity, density, motion, parallax, paused, reducedMotion: fx.reducedMotion, transition };
-  const { containerRef, engineRef, mode } = useEngine<AmbientEngine, AmbientEngineSettings>(loadAmbient, settings, fx.enabled);
+  const { containerRef, engineRef, mode } = useEngine<AmbientEngine, AmbientEngineSettings>(loadAmbient, settings, fx.enabled, fx.allowSoftwareRenderer);
 
   useImperativeHandle(ref, () => ({
     pulse: (x, y, strength) => engineRef.current?.pulse(x, y, strength),

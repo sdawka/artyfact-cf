@@ -22,4 +22,4 @@ export { buildPalette, type OrbPalette } from "./orb/palette";
 export { FALLBACK_CLASS } from "./Fallback";
 export type { EffectMode } from "./useEngine";
 export { markRectsDirty } from "./pointer";
-export { isSoftwareRenderer } from "./support";
+export { hasFastWebGL2, isSoftwareRenderer } from "./support";

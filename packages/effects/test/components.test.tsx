@@ -63,7 +63,7 @@ describe("EffectsProvider", () => {
     const matchMedia = vi.fn().mockReturnValue({ matches: true, addEventListener() {}, removeEventListener() {} });
     vi.stubGlobal("matchMedia", matchMedia);
     const { result } = renderHook(() => useEffectsSettings());
-    expect(result.current).toEqual({ enabled: true, reducedMotion: true });
+    expect(result.current).toEqual({ enabled: true, reducedMotion: true, allowSoftwareRenderer: false });
     vi.unstubAllGlobals();
   });
 
