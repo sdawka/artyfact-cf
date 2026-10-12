@@ -23,3 +23,5 @@ The D1 `database_id` in `wrangler.jsonc` is a placeholder.
 - `shared/api.ts` wire types shared by Worker and SPA.
 - `src/` SPA; `src/theme/` whimsy theme (rules in `src/theme/README.md`).
 - `test/` Worker tests; `src/**/*.test.ts` UI tests.
+
+Amendment review panel fixtures (no backend): `npm run dev:amendment -w @artyfact/platform`, then open `http://localhost:5199/amendment-dev.html?scenario=deliberate|hard|review|fake|off|findings`. It uses its own Vite config because the Cloudflare plugin's SPA fallback hides extra html pages.

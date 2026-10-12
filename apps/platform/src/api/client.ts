@@ -1,7 +1,7 @@
 import type {
   AcceptRequest, AcceptResponse, ApiError, CandidatesResponse, ConflictReport, EvaluationsResponse,
-  EvolutionsResponse, HistoryResponse, ModelBundle, PacketResponse, PromoteRequest, PromoteResponse,
-  ReadinessReport, Realization, SseEvent, StartWorkRequest, StartWorkResponse, SubmitRequest,
+  EvolutionsResponse, GenomeCandidateReview, HistoryResponse, ModelBundle, PacketResponse, PromoteRequest, PromoteResponse,
+  ReadinessReport, Realization, RejectRequest, RejectResponse, SseEvent, StartWorkRequest, StartWorkResponse, SubmitRequest,
   SubmitResponse, SystemSummary,
 } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
@@ -56,6 +56,9 @@ export const paths = {
   startWork: (s: string, e: string) => `/api/systems/${enc(s)}/evolutions/${enc(e)}/realizations`,
   submit: (s: string, r: string) => `/api/systems/${enc(s)}/realizations/${enc(r)}/submit`,
   promote: (s: string) => `/api/systems/${enc(s)}/promote`,
+  amendmentReview: (s: string, e: string, r: string) =>
+    `/api/systems/${enc(s)}/evolutions/${enc(e)}/realizations/${enc(r)}/review`,
+  reject: (s: string, r: string) => `/api/systems/${enc(s)}/realizations/${enc(r)}/reject`,
   accept: (s: string, e: string) => `/api/systems/${enc(s)}/evolutions/${enc(e)}/accept`,
   events: (s: string) => `/api/systems/${enc(s)}/events`,
 };
@@ -194,6 +197,11 @@ export async function getPacket(systemId: string, realizationId: string): Promis
   return request<PacketResponse>(paths.packet(systemId, realizationId));
 }
 
+export async function getAmendmentReview(systemId: string, evolutionId: string, realizationId: string): Promise<GenomeCandidateReview> {
+  if (await isFixtureMode()) throw new ApiRequestError(404, "not-found", `No amendment review for ${realizationId} in fixture data`);
+  return request<GenomeCandidateReview>(paths.amendmentReview(systemId, evolutionId, realizationId));
+}
+
 // ---------------------------------------------------------------------------
 // Writes
 // ---------------------------------------------------------------------------
@@ -213,6 +221,11 @@ export const promote = (systemId: string, body: PromoteRequest, adminToken?: str
 export const acceptAmendment = (systemId: string, evolutionId: string, body: AcceptRequest, adminToken?: string) =>
   writeOrThrow("Accept amendment", () =>
     post<AcceptResponse>(paths.accept(systemId, evolutionId), body, adminToken ? { authorization: `Bearer ${adminToken}` } : undefined),
+  );
+
+export const rejectAmendment = (systemId: string, realizationId: string, body: RejectRequest, adminToken?: string) =>
+  writeOrThrow("Reject amendment", () =>
+    post<RejectResponse>(paths.reject(systemId, realizationId), body, adminToken ? { authorization: `Bearer ${adminToken}` } : undefined),
   );
 
 // ---------------------------------------------------------------------------
