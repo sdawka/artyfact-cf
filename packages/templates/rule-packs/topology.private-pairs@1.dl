@@ -9,6 +9,7 @@
 .decl outgoingDirect(Node: sym)
 .decl entityField(Entity: sym, Name: sym, Type: sym)
 .decl provisional(Id: sym)
+.decl link(From: sym, Rel: sym, To: sym, Certainty: sym)
 .decl accountRefField(Entity: sym, Name: sym)
 .decl connection(Entity: sym)
 .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
@@ -30,6 +31,11 @@ violation("topology.groupEnabled",N,"hard") :- node(N,K,_), K != "external", nod
 
 connection(E) :- node(E,"entity",_), nodeName(E,"connection").
 accountRefField(E,F) :- entityField(E,F,Ty), matches(Ty,"^ref:entity[.]Account").
+
+% An operation that writes an entity addressing another account is an outgoing direct action;
+% so is an affordance that invokes one. Used by topology.recipientArray with cardinality "many".
+outgoingDirect(Op) :- node(Op,"operation",_), link(Op,"writes",E,_), accountRefField(E,_).
+outgoingDirect(A) :- node(A,"affordance",_), link(A,"invokes",Op,_), outgoingDirect(Op).
 violation("topology.pairCardinality",E,"hard") :- connection(E), not accountRefField(E,_).
 violation("topology.pairCardinality",E,"hard") :- connection(E), N = count : accountRefField(E,_), N != 2.
 
