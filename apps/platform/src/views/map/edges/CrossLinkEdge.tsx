@@ -5,9 +5,8 @@ import styles from "./CrossLinkEdge.module.css";
 
 const DASH: Record<string, string | undefined> = { solid: undefined, dashed: "6 4", dotted: "1.5 4" };
 
-/** Path through elk's orthogonal route and the label at the middle of its longest segment. */
-function routePath(points: ElkPoint[]): [string, number, number] {
-  const d = points.map((p, i) => `${i ? "L" : "M"}${p.x},${p.y}`).join(" ");
+/** Where the label chip of an elk route goes: the middle of its longest segment. */
+export function labelAnchor(points: readonly ElkPoint[]): [number, number] {
   let best = 0;
   let mid: [number, number] = [points[0]!.x, points[0]!.y];
   for (let i = 1; i < points.length; i++) {
@@ -19,7 +18,13 @@ function routePath(points: ElkPoint[]): [string, number, number] {
       mid = [(a.x + b.x) / 2, (a.y + b.y) / 2];
     }
   }
-  return [d, mid[0], mid[1]];
+  return mid;
+}
+
+/** Path through elk's orthogonal route, with the label anchor. */
+function routePath(points: ElkPoint[]): [string, number, number] {
+  const d = points.map((p, i) => `${i ? "L" : "M"}${p.x},${p.y}`).join(" ");
+  return [d, ...labelAnchor(points)];
 }
 
 /** A cross-link. Style carries certainty (solid declared, dashed assumed, dotted proposed); colour does not. */
@@ -30,7 +35,7 @@ export function CrossLinkEdge(props: EdgeProps<CrossLinkFlowEdge>) {
     data?.points && data.points.length > 1
       ? routePath(data.points)
       : getSmoothStepPath({ sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, borderRadius: 4 });
-  const text = `${edge.label ?? edge.type}${edge.count > 1 ? ` ×${edge.count}` : ""}`;
+  const text = `${edge.type}${edge.count > 1 ? ` ×${edge.count}` : ""}`;
   return (
     <>
       <BaseEdge
@@ -40,6 +45,7 @@ export function CrossLinkEdge(props: EdgeProps<CrossLinkFlowEdge>) {
         className={styles.path}
         style={{ strokeDasharray: DASH[edge.stroke], opacity: data?.dim ? 0.15 : 1, strokeWidth: data?.active ? 2 : 1.25 }}
       />
+      {data?.showLabel !== false && (
       <EdgeLabelRenderer>
         <span
           className={`nodrag nopan ${styles.label}`}
@@ -48,11 +54,12 @@ export function CrossLinkEdge(props: EdgeProps<CrossLinkFlowEdge>) {
           data-edge-type={edge.type}
           data-certainty={edge.certainty}
           style={{ transform: `translate(-50%, -50%) translate(${labelX}px, ${labelY}px)` }}
-          title={`${edge.type}, ${edge.certainty}${edge.count > 1 ? `, ${edge.count} links` : ""}`}
+          title={`${edge.label ? `${edge.label}: ` : ""}${edge.type}, ${edge.certainty}${edge.count > 1 ? `, ${edge.count} links` : ""}`}
         >
           {text}
         </span>
       </EdgeLabelRenderer>
+      )}
     </>
   );
 }

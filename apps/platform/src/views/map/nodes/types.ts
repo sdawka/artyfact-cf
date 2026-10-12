@@ -23,6 +23,8 @@ export interface CrossLinkData extends Record<string, unknown> {
   dim: boolean;
   /** Touches the hovered node. */
   active: boolean;
+  /** False when the chip would collide with another (the hovered node's edges are placed first). */
+  showLabel?: boolean;
   /** elk route (absolute); straight smooth-step fallback when absent. */
   points?: ElkPoint[];
 }

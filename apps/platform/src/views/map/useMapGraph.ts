@@ -213,7 +213,7 @@ export function useMapGraph(scope: string, filters: MapFilterState): MapGraph {
 export const NODE_WIDTH = 216;
 /** Node heights per layer: overlays add a badge row. */
 export const nodeHeight = (layer: Layer) => (layer === "genome" ? 52 : 80);
-export const GROUP_PADDING = "[top=52,left=20,bottom=20,right=20]";
+export const GROUP_PADDING = "[top=72,left=20,bottom=20,right=20]";
 
 /** elk request: externals in partition 0 (left), the scope group and outside nodes in partition 1. */
 export function mapLayoutRequest(graph: MapGraph, layer: Layer): LayoutRequest {
@@ -233,8 +233,17 @@ export function mapLayoutRequest(graph: MapGraph, layer: Layer): LayoutRequest {
     }
   }
   return {
-    layoutOptions: { ...LAYERED_RIGHT, "elk.partitioning.activate": "true", "elk.padding": "[top=24,left=24,bottom=24,right=24]" },
+    layoutOptions: { ...LAYERED_RIGHT, "elk.partitioning.activate": "true", "elk.layered.spacing.nodeNodeBetweenLayers": "112", "elk.spacing.edgeEdge": "20", "elk.layered.spacing.edgeEdgeBetweenLayers": "20", "elk.layered.spacing.edgeNodeBetweenLayers": "24", "elk.padding": "[top=24,left=24,bottom=24,right=24]" },
     nodes,
-    edges: graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+    // Externals sit left of the boundary: edges into them are laid out reversed so they flow left to right.
+    edges: graph.edges.map((e) =>
+      layoutReversed(graph, e) ? { id: e.id, source: e.target, target: e.source } : { id: e.id, source: e.source, target: e.target },
+    ),
   };
+}
+
+/** True when `mapLayoutRequest` hands elk this edge reversed (its route must be flipped back). */
+export function layoutReversed(graph: MapGraph, e: MapEdge): boolean {
+  const role = (id: string) => graph.nodes.find((n) => n.id === id)?.role;
+  return role(e.target) === "external" && role(e.source) !== "external";
 }

@@ -90,3 +90,13 @@ describe("HierarchyTree", () => {
     expect(rendered).toBeLessThan(60);
   });
 });
+
+describe("fitViewport", () => {
+  it("centres the graph and caps the zoom", async () => {
+    const { fitViewport } = await import("./MapView");
+    const v = fitViewport(1000, 200, 800, 600);
+    expect(v.zoom).toBeCloseTo(800 / (1000 * 1.24));
+    expect(v.x).toBeCloseTo((800 - 1000 * v.zoom) / 2);
+    expect(fitViewport(100, 100, 800, 600).zoom).toBe(1.1);
+  });
+});

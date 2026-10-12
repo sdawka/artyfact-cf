@@ -99,6 +99,8 @@ describe("mapLayoutRequest", () => {
     expect(n("screen.people").layoutOptions?.["elk.partitioning.partition"]).toBe("1");
     expect(n("entity.ContactRecord").layoutOptions?.["elk.partitioning.partition"]).toBe("1");
     expect(req.nodes.indexOf(n("screen.people"))).toBeLessThan(req.nodes.indexOf(n("component.SearchInput")));
+    const serves = req.edges.find((e) => e.id === "screen.people>serves>ext.owner")!;
+    expect([serves.source, serves.target]).toEqual(["ext.owner", "screen.people"]);
     expect(mapLayoutRequest(g, "phenome").nodes.find((x) => x.id === "component.SearchInput")!.height).toBeGreaterThan(n("component.SearchInput").height);
   });
 });

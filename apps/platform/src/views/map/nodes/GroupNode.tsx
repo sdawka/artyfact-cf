@@ -21,12 +21,14 @@ export function GroupNode({ data, selected }: NodeProps<GroupFlowNode>) {
     >
       <Handle type="target" position={Position.Left} className={styles.handle} isConnectable={false} />
       <div className={styles.groupHead}>
-        <span className={styles.glyph} aria-hidden="true">{info.glyph}</span>
-        <span className={styles.name}>{node.name}</span>
-        <span className={styles.kind}>{info.label}</span>
-        <span className={styles.groupBadges}>
+        <div className={styles.title}>
+          <span className={styles.glyph} aria-hidden="true">{info.glyph}</span>
+          <span className={styles.name}>{node.name}</span>
+        </div>
+        <div className={styles.meta}>
+          <span className={styles.kind}>{info.label} · scope</span>
           <LayerBadges id={node.id} layer={layer} realizations={realizations} />
-        </span>
+        </div>
       </div>
       {node.childCount === 0 && <p className={styles.empty}>Nothing inside</p>}
       <Handle type="source" position={Position.Right} className={styles.handle} isConnectable={false} />

@@ -3,7 +3,6 @@ import {
   MarkerType,
   ReactFlow,
   ReactFlowProvider,
-  useNodesInitialized,
   useReactFlow,
   type NodeMouseHandler,
 } from "@xyflow/react";
@@ -16,7 +15,7 @@ import { kindInfo } from "@/model/kinds";
 import type { ModelIndex } from "@/model/index";
 import { useModel } from "@/model/useModel";
 import { useSelection, type Layer } from "@/model/useSelection";
-import { CrossLinkEdge } from "./edges/CrossLinkEdge";
+import { CrossLinkEdge, labelAnchor } from "./edges/CrossLinkEdge";
 import { HierarchyTree } from "./HierarchyTree";
 import { MapFilters } from "./MapFilters";
 import { BoundaryNode } from "./nodes/BoundaryNode";
@@ -26,7 +25,7 @@ import { SubjectNode } from "./nodes/SubjectNode";
 import type { CrossLinkFlowEdge, MapFlowNode, MapNodeData } from "./nodes/types";
 import { candidateHalos } from "./overlays/overlayData";
 import { useCandidateTouches } from "./overlays/useCandidateTouches";
-import { DEFAULT_FILTERS, findingSubjectIds, mapLayoutRequest, mapScopeFor, useMapGraph, type MapFilterState, type MapGraph } from "./useMapGraph";
+import { DEFAULT_FILTERS, findingSubjectIds, layoutReversed, mapLayoutRequest, mapScopeFor, useMapGraph, type MapFilterState, type MapGraph } from "./useMapGraph";
 import styles from "./MapView.module.css";
 
 const NODE_TYPES = { subject: SubjectNode, external: ExternalNode, scope: GroupNode, boundary: BoundaryNode };
@@ -36,7 +35,6 @@ const FIT = { padding: 0.12, maxZoom: 1.1 };
 
 const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
-const reducedMotion = () => typeof window !== "undefined" && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
 function flowNodes(
   graph: MapGraph,
@@ -107,13 +105,35 @@ function neighbourhood(graph: MapGraph, id: string | null): Set<string> | null {
   return lit;
 }
 
-/** Re-fits the viewport when the laid-out graph changes (not on focus or hover). */
-function FitOnChange({ token }: { token: string }) {
+/** Viewport that centres a `w`×`h` graph in a `cw`×`ch` canvas with {@link FIT} padding and zoom cap. */
+export function fitViewport(w: number, h: number, cw: number, ch: number) {
+  const pad = 1 + 2 * FIT.padding;
+  const zoom = Math.max(0.15, Math.min(FIT.maxZoom, cw / (w * pad), ch / (h * pad)));
+  return { x: (cw - w * zoom) / 2, y: (ch - h * zoom) / 2, zoom };
+}
+
+/**
+ * Fits each new graph (the flow is remounted per layout key) from the elk size and the canvas size,
+ * without waiting for React Flow to measure. Canvas resizes in the next 1.5 s (the Inspector opening
+ * with the new focus) fit again; later resizes keep the user's view.
+ */
+function FitNewGraph({ width, height, container }: { width: number; height: number; container: HTMLElement | null }) {
   const rf = useReactFlow();
-  const ready = useNodesInitialized();
   useEffect(() => {
-    if (ready) void rf.fitView({ ...FIT, duration: reducedMotion() ? 0 : 240 });
-  }, [token, ready, rf]);
+    if (!container || !width || !height) return;
+    const start = Date.now();
+    const fit = () => {
+      const { clientWidth: cw, clientHeight: ch } = container;
+      if (cw && ch) void rf.setViewport(fitViewport(width, height, cw, ch));
+    };
+    fit();
+    if (typeof ResizeObserver === "undefined") return;
+    const ro = new ResizeObserver(() => {
+      if (Date.now() - start < 1500) fit();
+    });
+    ro.observe(container);
+    return () => ro.disconnect();
+  }, [container, width, height, rf]);
   return null;
 }
 
@@ -169,6 +189,12 @@ export function MapView() {
   const touches = useCandidateTouches(candidates);
   const halos = useMemo(() => candidateHalos(index, graph, touches), [index, graph, touches]);
   const [hovered, setHovered] = useState<string | null>(null);
+  // A new scope starts with no hover (the hovered node may now be the frame).
+  const [hoverScope, setHoverScope] = useState(graph.scope);
+  if (hoverScope !== graph.scope) {
+    setHoverScope(graph.scope);
+    setHovered(null);
+  }
   const lit = useMemo(() => neighbourhood(graph, hovered), [graph, hovered]);
 
   const openScope = useCallback(
@@ -203,25 +229,46 @@ export function MapView() {
     () => (layout ? flowNodes(graph, layout, request, { layer, focusId, halos, lit, onOpen: openScope }) : []),
     [graph, layout, request, layer, focusId, halos, lit, openScope],
   );
+  // Label chips that would overlap an earlier one are hidden; the hovered node's edges get first pick.
+  const labelled = useMemo(() => {
+    const shown = new Set<string>();
+    if (!layout) return shown;
+    const placed: [number, number][] = [];
+    const touchesHover = (e: MapGraph["edges"][number]) => (hovered && (e.source === hovered || e.target === hovered) ? 1 : 0);
+    for (const e of [...graph.edges].sort((a, b) => touchesHover(b) - touchesHover(a) || b.count - a.count)) {
+      const route = layout.edges[e.id];
+      if (!route || route.length < 2) {
+        shown.add(e.id);
+        continue;
+      }
+      const [x, y] = labelAnchor(route);
+      if (placed.some(([px, py]) => Math.abs(px - x) < 72 && Math.abs(py - y) < 20)) continue;
+      placed.push([x, y]);
+      shown.add(e.id);
+    }
+    return shown;
+  }, [graph, layout, hovered]);
+
   const edges = useMemo<CrossLinkFlowEdge[]>(
     () =>
       layout
         ? graph.edges.map((e) => {
             const active = !!hovered && (e.source === hovered || e.target === hovered);
-            const points = layout.edges[e.id];
+            const route = layout.edges[e.id];
+            const points = route && layoutReversed(graph, e) ? [...route].reverse() : route;
             return {
               id: e.id,
               source: e.source,
               target: e.target,
               type: "crossLink" as const,
-              data: { edge: e, dim: !!lit && !active, active, ...(points?.length && { points }) },
+              data: { edge: e, dim: !!lit && !active, active, showLabel: labelled.has(e.id), ...(points?.length && { points }) },
               markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "var(--color-border-strong)" },
               selectable: false,
               focusable: false,
             };
           })
         : [],
-    [graph, layout, hovered, lit],
+    [graph, layout, hovered, lit, labelled],
   );
 
   const { kinds, links } = useMemo(() => modelKinds(index), [index]);
@@ -251,6 +298,7 @@ export function MapView() {
   };
 
   const scopeEntry = index.byId(graph.scope);
+  const [canvas, setCanvas] = useState<HTMLDivElement | null>(null);
 
   return (
     <div className={styles.view}>
@@ -270,6 +318,7 @@ export function MapView() {
           </div>
         </header>
         <div
+          ref={setCanvas}
           className={styles.canvas}
           onKeyDown={onCanvasKeyDown}
           onFocus={onCanvasFocus}
@@ -281,15 +330,13 @@ export function MapView() {
               {error.message}
             </EmptyState>
           ) : (
-            <ReactFlowProvider>
+            <ReactFlowProvider key={layoutKey}>
               <ReactFlow<MapFlowNode, CrossLinkFlowEdge>
                 aria-label={`Map of ${scopeEntry?.name ?? graph.scope}`}
                 nodes={nodes}
                 edges={edges}
                 nodeTypes={NODE_TYPES}
                 edgeTypes={EDGE_TYPES}
-                fitView
-                fitViewOptions={FIT}
                 minZoom={0.15}
                 maxZoom={2}
                 nodesDraggable={false}
@@ -307,7 +354,7 @@ export function MapView() {
                 proOptions={{ hideAttribution: true }}
               >
                 <Controls showInteractive={false} position="bottom-right" />
-                <FitOnChange token={layoutKey} />
+                <FitNewGraph width={layout?.width ?? 0} height={layout?.height ?? 0} container={canvas} />
               </ReactFlow>
             </ReactFlowProvider>
           )}
