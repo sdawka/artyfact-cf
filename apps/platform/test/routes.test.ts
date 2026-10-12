@@ -236,6 +236,19 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(pb.json.error.code).toBe("stale-base");
   });
 
+  it("a realization's later submit neither conflicts with nor counts its own earlier candidate", async () => {
+    const { ns, systemId, appRepo } = await imported();
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" })).json;
+    const fork = ns.repo(`${appRepo}--r1`);
+    const c1 = fork.commit({ ...appFiles, "src/ui/people/a.ts": "a" });
+    const c2 = fork.commit({ ...appFiles, "src/ui/people/a.ts": "a2" });
+    await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c1 });
+    const second = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c2 });
+    expect(second.status).toBe(201);
+    expect(second.json.conflicts).toEqual([]);
+    expect(seen.at(-1)!.openCandidates).toEqual([]);
+  });
+
   it("refuses to promote two app candidates in one System commit (409 invalid-state, manifestExact false)", async () => {
     const { ns, systemId, appRepo, imp } = await imported();
     const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;

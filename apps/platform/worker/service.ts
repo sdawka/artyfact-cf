@@ -369,7 +369,8 @@ async function computeConflicts(env: Env, systemId: string, candidateId: string)
   if (!candidate) return [];
   try {
     const reports = await hookRunner(env).conflicts({
-      systemId, candidate, genomeCommit: s.genomeCommit, genomeFiles: await canonicalFiles(env, s), openCandidates: open.filter((c) => c.id !== candidateId),
+      // A realization's earlier commits are superseded by its latest submit, never in conflict with it.
+      systemId, candidate, genomeCommit: s.genomeCommit, genomeFiles: await canonicalFiles(env, s), openCandidates: open.filter((c) => c.realizationId !== candidate.realizationId),
     });
     await stub.storeConflicts(candidateId, reports, null);
     return reports;
@@ -392,7 +393,7 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
   const [genomeFiles, candidate, others] = await Promise.all([
     canonicalFiles(env, s),
     hookRef(env, s.systemId, cand),
-    storedCandidates(env, s.systemId).then((xs) => Promise.all(xs.filter((c) => c.id !== cand.id).map((c) => hookRef(env, s.systemId, c)))),
+    storedCandidates(env, s.systemId).then((xs) => Promise.all(xs.filter((c) => c.realizationId !== cand.realizationId).map((c) => hookRef(env, s.systemId, c)))),
   ]);
   const required = requiredFiles((await canonicalGenome(env, s)).model);
   const { tree, exists, recomputedHash } = await withRepo(artifactsFor(env), rec.forkRepo, async (repo) => {
