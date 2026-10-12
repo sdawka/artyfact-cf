@@ -12,7 +12,8 @@ export function fakeHash(text: string): string {
   return out.slice(0, 40);
 }
 
-type Obj = { kind: "blob"; text: string } | { kind: "tree"; entries: TreeEntry[] } | { kind: "commit"; meta: CommitMeta };
+/** `bytes`, when set, is the blob's exact content (binary-safe); `text` is its UTF-8 reading. */
+type Obj = { kind: "blob"; text: string; bytes?: Uint8Array } | { kind: "tree"; entries: TreeEntry[] } | { kind: "commit"; meta: CommitMeta };
 
 class Store {
   objects = new Map<string, Obj>();
@@ -115,7 +116,7 @@ export class FakeRepo implements ArtifactsRepoLike {
   async readBlob(hash: string) {
     this.calls.push(`readBlob:${hash.slice(0, 7)}`);
     const o = this.store.objects.get(hash);
-    return o?.kind === "blob" ? new Blob([o.text]) : null;
+    return o?.kind === "blob" ? (o.bytes ? new Blob([o.bytes as Uint8Array<ArrayBuffer>]) : new Blob([o.text])) : null;
   }
   async readFile({ ref, path }: { ref: string; path: string }) {
     this.calls.push(`readFile:${path}`);
