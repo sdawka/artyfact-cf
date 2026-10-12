@@ -64,7 +64,7 @@ criteria:
     subjectId: system.keep-in-touch
     targetKind: model
     gates: [submission, promotion]
-    hooks: [hook.system.scope]
+    hooks: [hook.system.promotion]
   - id: C.system.concurrency
     title: Concurrent work is surfaced before promotion
     claim: Concurrent candidates touching the same subjects, journeys or criteria are reported as file, soft-semantic or hard-semantic conflicts before any of them is promoted
@@ -75,7 +75,7 @@ criteria:
     targetKind: model
     sourceRefs: []
     severity: soft
-    gates: [candidate, promotion]
+    gates: [submission, candidate, promotion]
     hooks: [hook.system.overlap]
 hooks:
   - id: hook.system.structure
@@ -143,14 +143,14 @@ hooks:
     triggers: [submission, promotion]
     inputs: { packs: "readiness@1" }
     binding: bound
-  - id: hook.system.scope
-    assay: system.scope
+  - id: hook.system.promotion
+    assay: system.promotion
     criteria: [C.system.promotion]
     tier: basic
-    engine: diff
+    engine: model-rules
     targetKind: model
     triggers: [submission, promotion]
-    inputs: { mode: scope }
+    inputs: { check: "base-current,scope-authorized,manifest-exact,evidence-fresh" }
     binding: bound
   - id: hook.system.overlap
     assay: system.overlap

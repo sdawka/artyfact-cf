@@ -46,7 +46,7 @@ describe("counts", () => {
 describe("system criteria", () => {
   it("are owned by the System over the model, gated at submission and promotion", () => {
     for (const c of sysCrit) {
-      const gates = c.id === "C.system.concurrency" ? ["candidate", "promotion"] : ["submission", "promotion"];
+      const gates = c.id === "C.system.concurrency" ? ["submission", "candidate", "promotion"] : ["submission", "promotion"];
       expect(c).toMatchObject({ ownerKind: "system", ownerId: "system.keep-in-touch", targetKind: "model", gates });
       expect(c.hooks.length).toBeGreaterThan(0);
     }
@@ -59,7 +59,7 @@ describe("system criteria", () => {
       "hook.system.readiness": ["model-rules", undefined, ["submission", "promotion"], "bound"],
       "hook.system.topology": ["model-rules", undefined, ["submission", "promotion"], "bound"],
       "hook.system.topology.semantic": ["system-one", undefined, ["submission"], "bound"],
-      "hook.system.scope": ["diff", "scope", ["submission", "promotion"], "bound"],
+      "hook.system.promotion": ["model-rules", undefined, ["submission", "promotion"], "bound"],
       "hook.system.overlap": ["diff", "overlap", ["submission", "candidate"], "bound"],
       "hook.system.autonomy": ["model-rules", undefined, ["submission", "promotion"], "defined"],
     };
@@ -67,7 +67,7 @@ describe("system criteria", () => {
       expect(hook(id), id).toMatchObject({ engine, triggers, binding });
       expect(hook(id).inputs.mode, id).toBe(mode);
     }
-    expect(sysCrit.find((c) => c.id === "C.system.promotion")!.hooks).toEqual(["hook.system.scope"]);
+    expect(sysCrit.find((c) => c.id === "C.system.promotion")!.hooks).toEqual(["hook.system.promotion"]);
     expect(sysCrit.find((c) => c.id === "C.system.topology")!.hooks).toEqual(["hook.system.topology", "hook.system.topology.semantic"]);
   });
   it("pins purpose model and outcome hooks", () => {
