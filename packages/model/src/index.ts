@@ -11,3 +11,4 @@ export type { DerivationTree, FactSet, Tuple, Value } from "@artyfact/rules";
 export { diffModels, overlap } from "./diff";
 export type { SemanticDelta } from "./diff";
 export { toMermaid } from "./mermaid";
+export { PhenomeEventHeader, PHENOME_LIMITS } from "./phenome";

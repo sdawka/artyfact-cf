@@ -1,8 +1,7 @@
 /**
  * @artyfact/effects: WebGL signature effects for artyfact UIs.
  *
- * - `Orb`: glowing rim, flares, spark arcs and dust. Adapted from React Bits (MIT + Commons Clause, see src/orb/* and
- *   THIRD_PARTY_NOTICES.md); this package is private and must never be published.
+ * - `Orb`: a glass sphere with a plasma rim, flares, spark arcs, settled dust and a haze pool.
  * - `AmbientField`: cheap full-bleed haze and motes for page backgrounds.
  * - `EffectsProvider` / `useEffectsEnabled`: a global off switch and reduced-motion handling.
  *
@@ -18,7 +17,7 @@ export {
 export { WHIMSY, type OrbMotion, type OrbParams, type OrbParticleShape } from "./presets";
 export { ORB_PRESETS, ORB_PRESET_NAMES, resolveOrbParams, type OrbPresetName } from "./orb/presets";
 export { parseColor, parseCssColor, type Rgb } from "./color";
-export { buildPalette, type OrbPalette } from "./orb/palette";
+export { buildPalette, type OrbPalette, type OrbTheme } from "./orb/palette";
 export { FALLBACK_CLASS } from "./Fallback";
 export type { EffectMode } from "./useEngine";
 export { markRectsDirty } from "./pointer";

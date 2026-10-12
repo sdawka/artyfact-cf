@@ -8,7 +8,8 @@ CREATE TABLE IF NOT EXISTS evolutions (id TEXT PRIMARY KEY, title TEXT, status T
 CREATE TABLE IF NOT EXISTS realizations (id TEXT PRIMARY KEY, evolution_id TEXT NOT NULL, n INTEGER NOT NULL, target TEXT NOT NULL,
   fork_repo TEXT NOT NULL, token_id TEXT, token_expires TEXT, base_commit TEXT, agent_label TEXT, status TEXT NOT NULL,
   packet_json TEXT, packet_hash TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-  base_repo TEXT, base_head TEXT, role TEXT, remote TEXT, rejection_reason TEXT, secret_hash TEXT);
+  base_repo TEXT, base_head TEXT, role TEXT, remote TEXT, rejection_reason TEXT, secret_hash TEXT,
+  subscription_id TEXT, origin TEXT);
 CREATE TABLE IF NOT EXISTS checkpoints (realization_id TEXT NOT NULL, seq INTEGER NOT NULL, message TEXT, commit_hash TEXT,
   created_at TEXT NOT NULL, PRIMARY KEY (realization_id, seq));
 CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, realization_id TEXT NOT NULL, commit_hash TEXT NOT NULL,
@@ -25,6 +26,22 @@ CREATE TABLE IF NOT EXISTS blob_sizes (hash TEXT PRIMARY KEY, size INTEGER NOT N
 CREATE TABLE IF NOT EXISTS candidate_reviews (candidate_id TEXT PRIMARY KEY, json TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS model_cache (genome_commit TEXT NOT NULL, part TEXT NOT NULL, json TEXT NOT NULL, created_at TEXT NOT NULL,
   PRIMARY KEY (genome_commit, part));
+CREATE TABLE IF NOT EXISTS builds (id TEXT PRIMARY KEY, realization_id TEXT, candidate_id TEXT, commit_hash TEXT NOT NULL,
+  kind TEXT NOT NULL, status TEXT NOT NULL, url TEXT, build_id TEXT, logs_url TEXT, reporter TEXT NOT NULL, external_id TEXT,
+  steps_json TEXT, error TEXT, started_at TEXT, finished_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS builds_by_commit ON builds (commit_hash, kind);
+CREATE INDEX IF NOT EXISTS builds_by_realization ON builds (realization_id, created_at);
+CREATE INDEX IF NOT EXISTS builds_by_candidate ON builds (candidate_id);
+CREATE TABLE IF NOT EXISTS deployments (id TEXT PRIMARY KEY, kind TEXT NOT NULL, status TEXT NOT NULL, repo TEXT NOT NULL,
+  commit_hash TEXT NOT NULL, system_commit TEXT, realization_id TEXT, build_row TEXT, url TEXT, build_id TEXT, by TEXT NOT NULL,
+  ingest_token_hash TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS deployments_by_kind ON deployments (kind, status, created_at);
+CREATE TABLE IF NOT EXISTS phenome_events (seq INTEGER PRIMARY KEY AUTOINCREMENT, event_id TEXT NOT NULL UNIQUE, deployment_id TEXT,
+  realization_id TEXT, thing_id TEXT NOT NULL, artifact_id TEXT NOT NULL, build_id TEXT NOT NULL, commit_hash TEXT NOT NULL,
+  system_commit TEXT, kind TEXT NOT NULL, subject TEXT, emitted_at TEXT NOT NULL, received_at TEXT NOT NULL, payload_json TEXT);
+CREATE INDEX IF NOT EXISTS phenome_by_build ON phenome_events (build_id, seq);
+CREATE INDEX IF NOT EXISTS phenome_by_deployment ON phenome_events (deployment_id, seq);
+CREATE TABLE IF NOT EXISTS changelog_cache (commit_id TEXT PRIMARY KEY, row_json TEXT NOT NULL, entry_json TEXT, created_at TEXT NOT NULL);
 `;
 
 /**
@@ -38,6 +55,8 @@ export const ADDED_COLUMNS: [table: string, column: string, type: string][] = [
   ["realizations", "remote", "TEXT"],
   ["realizations", "rejection_reason", "TEXT"],
   ["realizations", "secret_hash", "TEXT"],
+  ["realizations", "subscription_id", "TEXT"],
+  ["realizations", "origin", "TEXT"],
 ];
 
 export function applySchema(sql: SqlStorage): void {
