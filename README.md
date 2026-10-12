@@ -86,7 +86,7 @@ flowchart LR
 
 The Genome is loaded and validated by a Datalog engine running versioned Rule Packs. The same Genome and the same packs give the same findings, and each finding carries its derivation. File mapping, scope checks, existence checks, overlap detection and the promotion gate are plain code.
 
-System One is asked only questions that need judgment: is a change a deliberate non-standard choice or a violation, does an edit contradict a stated commitment, would two changes interfere. Its answers are probabilities. At 0.9 or above they count as confident, between 0.5 and 0.9 they are labelled "review", and low confidence never produces a pass. The admin decides. Promotion blocks on hard criteria that have a bound hook, and a Evolution's acceptance criteria always count. A blocking criterion with no completed evaluation is `unknown`, and `unknown` blocks.
+System One is asked only questions that need judgment: is a change a deliberate non-standard choice or a violation, does an edit contradict a stated commitment, would two changes interfere. Its answers are probabilities. At 0.9 or above they count as confident, between 0.5 and 0.9 they are labelled "review", and low confidence never produces a pass. The admin decides. Promotion blocks on hard criteria that have a bound hook, and an Evolution's acceptance criteria always count. A blocking criterion with no completed evaluation is `unknown`, and `unknown` blocks.
 
 Without a System One provider (`TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`), set `FAKE_S1=1` or the purpose gate stays `unknown` and promotion stays closed. The UI labels judgments from the fake provider.
 
@@ -108,7 +108,7 @@ An agent (or its operator) starts work on an Evolution. The platform forks, issu
 
 ## Run it locally
 
-This runs in fixture mode: the SPA uses a bundled copy of the Keep in Touch System, and nothing is written to Cloudflare. Node 22 or newer is assumed.
+This runs in fixture mode: the SPA uses a bundled copy of the Keep in Touch System, and nothing is written to Cloudflare.
 
 ```sh
 npm install
@@ -119,7 +119,7 @@ npm run dev -w @artyfact/platform   # http://localhost:5173
 npm run e2e                         # builds the SPA, 14 Playwright tests
 ```
 
-`npm run dev` opens with a "fixture data" badge because the Artifacts binding is not used until you import a System. A remote binding needs `wrangler login`. The amendment review has its own fixture page:
+`npm run dev` shows a "fixture data" badge until a System is imported through the API. A remote binding needs `wrangler login`. The amendment review has its own fixture page:
 
 ```sh
 npm run dev:amendment -w @artyfact/platform
