@@ -114,7 +114,7 @@ function EventsCard({ events, versions, buildFilter, deployment }: {
       {shown.length === 0 ? (
         <>
           <p className={styles.muted}>No events ingested.</p>
-          <pre className={styles.raw}>{EXAMPLE}</pre>
+          <pre className={styles.raw} tabIndex={0} aria-label="Example ingest request">{EXAMPLE}</pre>
         </>
       ) : keys.map((k) => {
         const group = shown.filter((e) => keyOf(e) === k);
