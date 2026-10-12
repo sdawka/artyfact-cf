@@ -6,7 +6,7 @@ import { contacts } from "./worker/routes/contacts";
 const app = new Hono<{ Bindings: Env }>();
 
 app.get("/health", (c) => {
-  emitPhenome(c.env, "health", { status: "ok" }, ctxOf(c));
+  emitPhenome(c.env, "health", { status: "ok" }, ctxOf(c), { minIntervalMs: 60_000 });
   return c.json({ status: "ok", buildId: c.env.BUILD_ID ?? "dev" });
 });
 app.route("/api/contacts", contacts);

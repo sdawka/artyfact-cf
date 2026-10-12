@@ -1,11 +1,11 @@
 import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { PHENOME_LIMITS, PhenomeEventHeader } from "@artyfact/model";
-import { beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { PhenomeEventsResponse, PhenomeIngestResponse } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { REGISTRY, type BootstrapInput, type SystemAuthority } from "../worker/do/system-authority";
-import { ingestEvents, ingestPrincipal, resetPhenomeThrottle } from "../worker/phenome";
+import { ingestEvents, ingestPrincipal, resetPhenomeThrottle, setPhenomeRefresh } from "../worker/phenome";
 import { sha256Hex } from "../worker/util";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 
@@ -74,6 +74,8 @@ async function deployment(id: string, commit: string, token: string, realization
     );
   });
 }
+
+afterEach(() => vi.restoreAllMocks());
 
 describe("PhenomeEventHeader", () => {
   it("accepts a full header and omits optional fields", () => {
@@ -196,7 +198,7 @@ describe("GET phenome/events", () => {
     await post([
       ev({ id: "e1", kind: "health", subject: "svc", deploymentId: "dep-1" }),
       ev({ id: "e2", kind: "criterion.observed", criterion: "C.people.list", payload: { n: 2 }, systemCommit: "forged" }),
-      ev({ id: "e3", commit: A1.slice(0, 10), buildId: A1.slice(0, 10), kind: "health" }),
+      ev({ id: "e3", commit: A1, buildId: A1, kind: "health" }),
     ]);
     const all = (await get()).json;
     expect(all.events.map((e) => e.id)).toEqual(["e3", "e2", "e1"]);
@@ -287,6 +289,68 @@ describe("authorization and tampering", () => {
   });
 });
 
+describe("commit resolution", () => {
+  it("a short prefix never drives deployment or System commit lookups", async () => {
+    // A realization candidate that shares a 7-hex prefix with the System's bound app commit and a live deployment.
+    const lookalike = A1.slice(0, 7) + "9".repeat(33);
+    await inDo((i) => { i.recordCandidate({ realizationId: rid, commit: lookalike, manifest: {}, changedPaths: [], changedNodes: [] }); });
+    await deployment("dep-prod", A1, "t-prod");
+    const r = await post([ev({ id: "forge", commit: A1.slice(0, 7), buildId: A1.slice(0, 7), deploymentId: "dep-prod" })], { authorization: `Bearer ${secret}` });
+    expect(r.json.accepted).toBe(1);
+    const [e] = (await get()).json.events;
+    expect(e.commit).toBe(lookalike);
+    expect(e.buildId).toBe(lookalike);
+    expect(e).not.toHaveProperty("deploymentId");
+    expect(e).not.toHaveProperty("systemCommit");
+  });
+
+  it("stores the full hash and a single version key for short and full forms", async () => {
+    const h = { authorization: `Bearer ${secret}` };
+    await post([ev({ id: "s", commit: A2.slice(0, 7), buildId: A2.slice(0, 7) }), ev({ id: "f" })], h);
+    const { events, versions } = (await get()).json;
+    expect(events.map((x) => x.commit)).toEqual([A2, A2]);
+    expect(versions).toHaveLength(1);
+    expect(versions[0]).toMatchObject({ key: A2, count: 2 });
+  });
+
+  it("drops a non-admin event whose buildId is not its commit", async () => {
+    const r = await post([ev({ id: "b", buildId: "something-else" })], { authorization: `Bearer ${secret}` });
+    expect(r.json).toEqual({ accepted: 0, dropped: [{ index: 0, reason: "build-mismatch" }] });
+  });
+
+  it("accepts a deployment's recorded build id", async () => {
+    await deployment("dep-b", A2, "t-b");
+    await inDo((i) => sqlOf(i).exec("UPDATE deployments SET build_id = 'build-7'"));
+    const r = await post([ev({ id: "b", buildId: "build-7" })], { authorization: "Bearer t-b" });
+    expect(r.json.accepted).toBe(1);
+  });
+
+  it("an event id containing colons round-trips", async () => {
+    await post([ev({ id: "a:b:c" })], { authorization: `Bearer ${secret}` });
+    expect((await get()).json.events[0].id).toBe("a:b:c");
+  });
+
+  it("looks the fork head up once per request, even when it fails", async () => {
+    const rec = await inDo((i) => i.realization(rid)!);
+    let reads = 0;
+    const repo = ns.repo(rec.forkRepo);
+    const log = repo.log.bind(repo);
+    repo.log = ((...a: Parameters<typeof log>) => { reads++; return log(...a); }) as typeof repo.log;
+    await post(Array.from({ length: 5 }, (_, i) => ev({ id: `u${i}`, commit: "e".repeat(40), buildId: "e".repeat(40) })), { authorization: `Bearer ${secret}` });
+    expect(reads).toBe(1);
+  });
+});
+
+describe("unknown Systems and limits", () => {
+  it("404s a non-admin POST to a System the registry does not know, before any principal lookup", async () => {
+    expect((await post([ev()], { authorization: "Bearer anything" }, "system.never")).status).toBe(404);
+  });
+
+  it("limit=0 is a 400", async () => {
+    expect((await exports.default.fetch(new Request(`http://example.com/api/systems/${sys}/phenome/events?limit=0`))).status).toBe(400);
+  });
+});
+
 describe("registry refresh and SSE", () => {
   const registryUpdatedAt = async () => {
     const r = env.SYSTEMS.getByName(REGISTRY);
@@ -307,6 +371,31 @@ describe("registry refresh and SSE", () => {
     resetPhenomeThrottle();
     await ingestEvents(env, sys, principal, { events: [ev({ id: "t3" })] });
     expect(await registryUpdatedAt()).not.toBe("marker");
+  });
+
+  it("refreshes again once the 10 s window has passed", async () => {
+    let calls = 0;
+    setPhenomeRefresh(async () => { calls++; });
+    let now = 1_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const principal = await ingestPrincipal(env, sys, ADMIN.authorization);
+    const go = (id: string) => ingestEvents(env, sys, principal, { events: [ev({ id })] });
+    await go("w1"); now += 9_999; await go("w2");
+    expect(calls).toBe(1);
+    now += 2; await go("w3");
+    expect(calls).toBe(2);
+  });
+
+  it("a failing refresh does not fail the ingest and is retried next time", async () => {
+    let calls = 0;
+    setPhenomeRefresh(async () => { calls++; throw new Error("registry down"); });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const principal = await ingestPrincipal(env, sys, ADMIN.authorization);
+    const r = await ingestEvents(env, sys, principal, { events: [ev({ id: "x1" })] });
+    expect(r.accepted).toBe(1);
+    await ingestEvents(env, sys, principal, { events: [ev({ id: "x2" })] });
+    expect(calls).toBe(2);
+    expect((await get()).json.events).toHaveLength(2);
   });
 
   it("emits phenome.ingested on the System's SSE stream", async () => {

@@ -1,7 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import app from "../src/index";
 import type { Env } from "../src/worker/env";
-import { emitPhenome } from "../src/worker/phenome";
+import { emitPhenome, resetPhenomeThrottle } from "../src/worker/phenome";
 
 const base = {
   BUILD_ID: "abc1234", ARTYFACT_PLATFORM_URL: "https://platform.example/", ARTYFACT_SYSTEM_ID: "sys-1",
@@ -13,7 +13,7 @@ const stubFetch = () => {
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 };
-afterEach(() => vi.unstubAllGlobals());
+afterEach(() => { vi.unstubAllGlobals(); vi.restoreAllMocks(); resetPhenomeThrottle(); });
 
 describe("emitPhenome", () => {
   it("posts one event with the standard header and bearer token via waitUntil", async () => {
@@ -46,6 +46,12 @@ describe("emitPhenome", () => {
     const f = stubFetch();
     emitPhenome({ ...base, BUILD_ID: "dev" } as Env, "health", {});
     expect(f).not.toHaveBeenCalled();
+  });
+
+  it("sets a request timeout", async () => {
+    const f = stubFetch();
+    emitPhenome(base, "x", 1);
+    expect(f.mock.calls[0][1]!.signal).toBeInstanceOf(AbortSignal);
   });
 
   it("never throws or rejects when the platform is unreachable", async () => {
@@ -91,6 +97,22 @@ describe("app wiring", () => {
     const body = f.mock.calls[0][1]!.body as string;
     expect(JSON.parse(body).events[0].kind).toBe("contact.saved");
     expect(body).not.toContain("Secret Name");
+  });
+
+  it("throttles /health to one event per minute per isolate", async () => {
+    const f = stubFetch();
+    let now = 5_000_000;
+    vi.spyOn(Date, "now").mockImplementation(() => now);
+    const hit = async () => {
+      const waits: Promise<unknown>[] = [];
+      await app.fetch(new Request("http://x/health"), base, { waitUntil: (p: Promise<unknown>) => void waits.push(p), passThroughOnException() {} } as unknown as ExecutionContext);
+      await Promise.all(waits);
+    };
+    await hit(); await hit();
+    expect(f).toHaveBeenCalledTimes(1);
+    now += 60_001;
+    await hit();
+    expect(f).toHaveBeenCalledTimes(2);
   });
 
   it("works without an execution context and without platform config", async () => {

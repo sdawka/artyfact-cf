@@ -11,12 +11,18 @@ const int = (v: string | undefined, name: string) => {
   return n;
 };
 
+const limit = (v: string | undefined) => {
+  const n = int(v, "limit");
+  if (n === 0) throw badRequest("limit must be at least 1");
+  return n;
+};
+
 export const phenome = new Hono<AppEnv>()
   .get("/systems/:id/phenome/events", async (c) => {
     const q = c.req.query();
     const query: PhenomeEventsQuery = {
       ...(q.deployment && { deployment: q.deployment }), ...(q.commit && { commit: q.commit }), ...(q.kind && { kind: q.kind }),
-      ...(q.realization && { realization: q.realization }), limit: int(q.limit, "limit"), before: int(q.before, "before"),
+      ...(q.realization && { realization: q.realization }), limit: limit(q.limit), before: int(q.before, "before"),
     };
     return c.json(await listEvents(c.env, c.req.param("id"), query));
   })
