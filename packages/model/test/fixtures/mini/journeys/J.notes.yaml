@@ -1,0 +1,17 @@
+id: J.notes
+name: Write a note
+actorGoal: Owner records a thought
+features: [GD.notes]
+requirements: [S.app.notes]
+start: s1
+steps:
+  - { id: s1, actor: user, action: Open notes, screen: screen.list, next: [{ to: s2 }] }
+  - id: s2
+    actor: user
+    action: Has something to write?
+    kind: branch
+    next:
+      - { to: s3, when: yes }
+      - { to: e1, when: no }
+  - { id: s3, actor: user, action: Save note, screen: screen.edit, operation: operation.note.save, requirementRefs: [S.app.notes], next: [{ to: e1 }] }
+  - { id: e1, actor: system, action: Done, kind: end }

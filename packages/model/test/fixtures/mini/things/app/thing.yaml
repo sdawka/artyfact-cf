@@ -1,0 +1,7 @@
+id: thing.app
+name: Notes app
+templateRef: template.thing.mini-webapp@1
+description: The notes web app
+artifacts:
+  - { artifact: artifact.app, type: worker-fullstack, repo: mini-app }
+sections: [section.ui, section.domain]

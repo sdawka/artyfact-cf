@@ -8,7 +8,11 @@
     ".": "./src/index.ts"
   },
   "dependencies": {
+    "@artyfact/rules": "*",
     "yaml": "^2.9.1",
     "zod": "^4.6.6"
+  },
+  "scripts": {
+    "test": "vitest run"
   }
 }

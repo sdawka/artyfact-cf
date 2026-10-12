@@ -1,0 +1,34 @@
+% Inline pack for model tests: a handful of rules from docs/design/rules.md.
+.decl node(Id: sym, Kind: sym, Thing: sym)
+.decl link(From: sym, Rel: sym, To: sym, Certainty: sym)
+.decl parent(Child: sym, Parent: sym)
+.decl external(Ext: sym, Kind: sym)
+.decl thing(Id: sym, Template: sym)
+.decl section(Thing: sym, Id: sym)
+.decl templateRequires(Tpl: sym, Section: sym)
+.decl hook(Id: sym, Crit: sym, Engine: sym, Tier: sym, Binding: sym)
+.decl criterion(Id: sym, OwnerKind: sym, Owner: sym, SubjectKind: sym, Subject: sym, TargetKind: sym, Severity: sym, Deferred: bool)
+.decl effectText(Id: sym, Text: sym)
+.decl ancestor(X: sym, Y: sym)
+.decl governedBy(N: sym, P: sym)
+.decl mutating(Op: sym)
+.decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+.decl missing(Rule: sym, Subject: sym) .output
+.decl warning(Rule: sym, Subject: sym) .output
+.decl semanticCandidate(Rule: sym, Subject: sym, Text: sym) .output
+.message "authz.ungoverned" "Operation writes data but no authorization policy governs it."
+.message "ref.dangling" "A link points at an unknown id."
+
+ancestor(X,Z) :- parent(X,Z).
+ancestor(X,Z) :- parent(X,Y), ancestor(Y,Z).
+governedBy(N,P) :- link(N,"governs",P,_).
+governedBy(N,P) :- link(P,"governs",N,_).
+governedBy(N,P) :- ancestor(N,A), governedBy(A,P).
+governedBy(Op,P) :- link(Aff,"invokes",Op,_), governedBy(Aff,P).
+mutating(Op) :- node(Op,"operation",_), link(Op,"writes",_,_).
+violation("authz.ungoverned",Op,"hard") :- mutating(Op), not governedBy(Op,_).
+violation("ref.dangling",F,"hard") :- link(F,_,T,_), not node(T,_,_), not external(T,_).
+violation("template.sectionMissing",T,"hard") :- thing(T,Tpl), templateRequires(Tpl,Sec), not section(T,Sec).
+missing("coverage.hook",C) :- criterion(C,_,_,_,_,_,_,false), not hook(_,C,_,_,_).
+warning("hook.unbound",H) :- hook(H,_,_,_,"defined").
+semanticCandidate("topology.multiRecipient",N,Text) :- effectText(N,Text), contains(Text,"recipient").
