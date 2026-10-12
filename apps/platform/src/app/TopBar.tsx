@@ -1,4 +1,6 @@
+import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
+import { resetClientMode } from "@/api/client";
 import { useModel } from "@/model/useModel";
 import { useKeepParams } from "@/model/useSelection";
 import { LayerSwitch } from "./LayerSwitch";
@@ -10,6 +12,11 @@ import styles from "./TopBar.module.css";
 export function TopBar({ onOpenPalette }: { onOpenPalette(): void }) {
   const { bundle } = useModel();
   const href = useKeepParams();
+  const qc = useQueryClient();
+  const retry = () => {
+    resetClientMode();
+    void qc.invalidateQueries();
+  };
   return (
     <header className={styles.bar}>
       <Link to={href("overview")} className={`wordmark ${styles.wordmark}`}>artyfact</Link>
@@ -19,6 +26,11 @@ export function TopBar({ onOpenPalette }: { onOpenPalette(): void }) {
         <StatePill state="fixture" title="The platform API is unavailable or has no Systems; showing the bundled Keep in Touch fixture.">
           fixture data
         </StatePill>
+      )}
+      {bundle.source === "fixture" && (
+        <button type="button" className={`u-brackets ${styles.retry}`} onClick={retry}>
+          Retry API
+        </button>
       )}
       <div className={styles.spacer} />
       <LayerSwitch />

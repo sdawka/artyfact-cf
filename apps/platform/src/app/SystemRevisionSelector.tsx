@@ -22,7 +22,7 @@ export function SystemRevisionSelector() {
   const candidates = (params.get("candidates") ?? "").split(",").filter(Boolean);
   const go = (s: string, r: string) => {
     const qs = params.toString();
-    navigate(`${viewPath(s, r, view ?? "overview")}${qs ? `?${qs}` : ""}`);
+    void navigate(`${viewPath(s, r, view ?? "overview")}${qs ? `?${qs}` : ""}`);
   };
   const systemOptions = systems.some((s) => s.systemId === systemId)
     ? systems

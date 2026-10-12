@@ -87,7 +87,7 @@ export function useSelection(): Selection {
 
   const setFocus = useCallback(
     (id: string | null, opts: { view?: ViewName } = {}) => {
-      if (opts.view && opts.view !== current) navigate(href(opts.view, { focus: id }));
+      if (opts.view && opts.view !== current) void navigate(href(opts.view, { focus: id }));
       else update("focus", id);
     },
     [current, href, navigate, update],

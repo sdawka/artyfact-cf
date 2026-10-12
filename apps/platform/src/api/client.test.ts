@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FixtureModeError, StaleBaseError, getEvaluations, getModel, getSystems, promote, resetClientMode, startWork } from "./client";
+import { FixtureModeError, StaleBaseError, getEvaluations, getModel, getSystems, promote, resetClientMode, startWork, subscribeEvents } from "./client";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -37,5 +37,48 @@ describe("api client fixture fallback", () => {
     const err = await promote("system.x", { candidates: ["c"], expectedHead: "c1", rationale: "r" }).catch((e: unknown) => e);
     expect(err).toBeInstanceOf(StaleBaseError);
     expect((err as StaleBaseError).currentHead).toBe("c2");
+  });
+});
+
+describe("subscribeEvents", () => {
+  it("polls only after the EventSource is CLOSED, not on a transient error", async () => {
+    vi.useFakeTimers();
+    const sources: FakeSource[] = [];
+    class FakeSource {
+      static CLOSED = 2;
+      readyState = 0;
+      onmessage: ((e: MessageEvent) => void) | null = null;
+      onerror: (() => void) | null = null;
+      constructor(readonly url: string) {
+        sources.push(this);
+      }
+      addEventListener() {}
+      close() {
+        this.readyState = 2;
+      }
+    }
+    vi.stubGlobal("EventSource", FakeSource);
+    vi.stubGlobal("fetch", vi.fn(async () => json(200, [{ systemId: "system.x" }])));
+    const onEvent = vi.fn();
+    const stop = subscribeEvents("system.x", onEvent, { pollMs: 100 });
+    await vi.waitFor(() => expect(sources).toHaveLength(1));
+    sources[0]!.readyState = 0; // reconnecting
+    sources[0]!.onerror?.();
+    vi.advanceTimersByTime(250);
+    expect(onEvent).not.toHaveBeenCalled();
+    sources[0]!.readyState = FakeSource.CLOSED;
+    sources[0]!.onerror?.();
+    vi.advanceTimersByTime(250);
+    expect(onEvent).toHaveBeenCalledWith({ type: "poll" });
+    stop();
+    vi.useRealTimers();
+  });
+
+  it("logs why it fell back to fixture data", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    vi.stubGlobal("fetch", vi.fn(async () => json(503, { error: { code: "down", message: "down" } })));
+    await getSystems();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });

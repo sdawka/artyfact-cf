@@ -110,16 +110,21 @@ function resolveMode() {
   mode ??= request<SystemSummary[] | { systems: SystemSummary[] }>(paths.systems())
     .then((r) => {
       const systems = Array.isArray(r) ? r : (r.systems ?? []);
-      return systems.length ? { fixture: false, systems } : { fixture: true, systems: [fixtureSummary()] };
+      if (systems.length) return { fixture: false, systems };
+      console.warn("artyfact: the API has no Systems, showing fixture data");
+      return { fixture: true, systems: [fixtureSummary()] };
     })
-    .catch(() => ({ fixture: true, systems: [fixtureSummary()] }));
+    .catch((cause: unknown) => {
+      console.warn("artyfact: /api/systems unavailable, showing fixture data", cause);
+      return { fixture: true, systems: [fixtureSummary()] };
+    });
   return mode;
 }
 
 /** True when the SPA is serving fixture data because the API is unreachable or has no Systems. */
 export const isFixtureMode = async () => (await resolveMode()).fixture;
 
-/** Test hook: forget the cached fixture decision. */
+/** Forget the cached fixture decision so the next call asks the API again (TopBar "Retry API", tests). */
 export function resetClientMode() {
   mode = undefined;
 }
@@ -244,7 +249,10 @@ export function subscribeEvents(
     };
     source.onmessage = handle;
     for (const t of SSE_TYPES) source.addEventListener(t, handle as EventListener);
-    source.onerror = poll;
+    // EventSource reconnects by itself; poll only once the browser has given up.
+    source.onerror = () => {
+      if (source?.readyState === EventSource.CLOSED) poll();
+    };
   });
   return () => {
     closed = true;

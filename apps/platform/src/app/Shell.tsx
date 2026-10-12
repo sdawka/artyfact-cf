@@ -47,7 +47,7 @@ function useShellShortcuts(openPalette: () => void, paletteOpen: boolean) {
       const now = Date.now();
       if (now - gAt.current < 1000 && GO_KEYS[e.key]) {
         gAt.current = 0;
-        navigate(href(GO_KEYS[e.key]!));
+        void navigate(href(GO_KEYS[e.key]!));
         return;
       }
       gAt.current = e.key === "g" ? now : 0;

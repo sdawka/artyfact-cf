@@ -101,7 +101,9 @@ submit, promote` (a 409 rejects with `StaleBaseError { currentHead }`) and `acce
 
 **Fixture fallback:** if `/api/systems` fails or is empty, `getModel` serves
 `fixtures/keep-in-touch.model.json` with `source: 'fixture'`, list reads return empty lists and
-writes throw `FixtureModeError`. The TopBar then shows "fixture data". The fixture is generated
+writes throw `FixtureModeError`. The TopBar then shows "fixture data" and a "Retry API" button
+(`resetClientMode()` + refetch); the cause is logged with `console.warn`. SSE falls back to
+polling only once the EventSource is `CLOSED`. The fixture is generated
 from `examples/keep-in-touch-system` by `npm run build:fixture -w @artyfact/platform`
 (`scripts/build-fixture.ts`: `loadSystem` + templates, readiness from `validate`).
 
@@ -119,7 +121,7 @@ event. Keys are in `qk`.
 - `VerdictBadge { verdict: UiVerdict, label? }`: sets `data-verdict` and `data-tone`; only pass is green.
 - `Tabs<T> { tabs, value, onChange, label, children? }`: `.u-segments` with arrow-key navigation.
 - `Drawer { open, label, width, onWidthChange?, minWidth?, maxWidth?, children }`: becomes a bottom sheet at 640 px and below.
-- `CopyButton { value, label? }`, `EmptyState { title, children?, action? }`,
+- `CopyButton { value, label? }` (announces "Copied" / "Copy failed"), `EmptyState { title, children?, action?, live? }` (`live` adds `role="status"`),
   `Breadcrumbs { ids, label? }`, `KeyValue { data, omit? }` (strings that are ids render as chips).
 
 ## Inspector (`inspector/`)
@@ -128,8 +130,10 @@ Open iff `focus` is set. Header: chip, kind, id + copy, containment breadcrumbs 
 buttons (`openInViews`). Focus (non-modal): opening moves focus to the title (`h2`, tabIndex -1).
 If the focused element disappears while it is open, focus returns to the title. Closing restores
 focus to where it was before opening, else to `<main>`. Tabs: What · Why · Dependencies · Changes · Rules & claims · Evidence.
-Changes and Evidence are stubs wired to `useRealizationsTouching` / `useEvaluations`; their
-slices may replace them by registering richer bodies or by proposing a change.
+Changes and Evidence are stubs wired to `useRealizationsTouching` / `useModel().verdictOf`.
+Their slices replace them with `registerTab("changes" | "evidence", Component)` from
+`@/inspector/tabRegistry` (any tab id works; the component gets `{ entry }`). Call it at module
+top level in the view module or in a file under `inspector/bodies/`.
 
 **What-tab bodies:** add `inspector/bodies/<Kind>Body.tsx`:
 

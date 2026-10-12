@@ -1,17 +1,10 @@
+import { Tabs } from "@/components/Tabs/Tabs";
 import { LAYERS, useSelection, type Layer } from "@/model/useSelection";
 
-const LABELS: Record<Layer, string> = { genome: "Genome", proteome: "Proteome", phenome: "Phenome" };
+const TABS = LAYERS.map((id) => ({ id, label: { genome: "Genome", proteome: "Proteome", phenome: "Phenome" }[id] }));
 
-/** Genome · Proteome · Phenome over the same subjects; writes `?layer=`. */
+/** Genome · Proteome · Phenome over the same subjects; writes `?layer=`. Roving tabindex and arrow keys via Tabs. */
 export function LayerSwitch() {
   const { layer, setLayer } = useSelection();
-  return (
-    <div className="u-segments" role="tablist" aria-label="Layer">
-      {LAYERS.map((l) => (
-        <button key={l} type="button" role="tab" aria-selected={l === layer} onClick={() => setLayer(l)}>
-          {LABELS[l]}
-        </button>
-      ))}
-    </div>
-  );
+  return <Tabs<Layer> tabs={TABS} value={layer} onChange={setLayer} label="Layer" />;
 }

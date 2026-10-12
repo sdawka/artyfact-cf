@@ -12,7 +12,13 @@ afterEach(cleanup);
 beforeEach(() => {
   resetClientMode();
   vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new Error("offline in tests"))));
+  // The expected fixture-fallback warning; anything else still reaches the console.
+  const warn = console.warn.bind(console);
+  vi.spyOn(console, "warn").mockImplementation((...args: unknown[]) => {
+    if (typeof args[0] !== "string" || !args[0].startsWith("artyfact:")) warn(...args);
+  });
 });
+afterEach(() => vi.restoreAllMocks());
 afterEach(() => vi.unstubAllGlobals());
 
 // jsdom gaps used by cmdk / Radix.

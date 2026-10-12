@@ -47,6 +47,9 @@ describe("Shell", () => {
     act(() => within(tabs).getByRole("tab", { name: "Proteome" }).click());
     await waitFor(() => expect(search(router).get("layer")).toBe("proteome"));
     expect(within(tabs).getByRole("tab", { name: "Proteome" }).getAttribute("aria-selected")).toBe("true");
+    act(() => void fireEvent.keyDown(within(tabs).getByRole("tab", { name: "Proteome" }), { key: "ArrowRight" }));
+    await waitFor(() => expect(search(router).get("layer")).toBe("phenome"));
+    expect(document.activeElement).toBe(within(tabs).getByRole("tab", { name: "Phenome" }));
   });
 
   it("opens the Inspector iff focus is set, and Esc closes it", async () => {

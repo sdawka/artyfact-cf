@@ -13,7 +13,7 @@ export interface TabsProps<T extends string> {
   onChange(id: T): void;
   /** Accessible name of the tab list. */
   label: string;
-  /** Rendered as the panel of the selected tab. */
+  /** Rendered as the panel of the selected tab. Omit for a segmented control (e.g. LayerSwitch). */
   children?: ReactNode;
 }
 
@@ -42,7 +42,7 @@ export function Tabs<T extends string>({ tabs, value, onChange, label, children 
             id={`${base}-${t.id}`}
             data-tab={t.id}
             aria-selected={t.id === value}
-            aria-controls={`${base}-panel`}
+            aria-controls={children !== undefined ? `${base}-panel` : undefined}
             tabIndex={t.id === value ? 0 : -1}
             disabled={t.disabled}
             onClick={() => onChange(t.id)}

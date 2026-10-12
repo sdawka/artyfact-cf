@@ -15,6 +15,18 @@
 }
 .wordmark:hover { color: var(--color-brand-primary); }
 .spacer { flex: 1; }
+.retry {
+  padding: 0 var(--spacing-2);
+  color: var(--color-text-secondary);
+  background: none;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-sm);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  line-height: 1.8;
+  cursor: pointer;
+}
+.retry:hover { color: var(--color-text-primary); }
 .search {
   display: inline-flex;
   align-items: center;
