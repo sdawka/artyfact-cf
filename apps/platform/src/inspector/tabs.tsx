@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { useRealizationsTouching } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
@@ -8,6 +7,8 @@ import type { Criterion, Requirement, Source, TheoryClaim } from "@/model/types"
 import { useModel } from "@/model/useModel";
 import { BodyFor } from "./bodies";
 import { RulesTab } from "./bodies/RulesTab";
+import { ChangesTab } from "./ChangesTab";
+import { EvidenceTab } from "./EvidenceTab";
 import styles from "./Inspector.module.css";
 
 export const INSPECTOR_TABS = [
@@ -131,58 +132,7 @@ export function DependenciesTab({ entry }: TabProps) {
   );
 }
 
-/**
- * Stub (owned by the Work/History slice): evolutions in the model that affect this object and
- * realizations of them from the live board (`useRealizationsTouching`).
- */
-export function ChangesTab({ entry }: TabProps) {
-  const m = useModel();
-  const { data: realizations, isLoading } = useRealizationsTouching(entry.id);
-  const evolutions = (m.index.model.evolutions ?? []).filter((e) => e.affectedNodes.includes(entry.id));
-  if (!evolutions.length && !realizations.length) {
-    return <EmptyState title={isLoading ? "Loading changes…" : "No evolutions touch this object."} />;
-  }
-  return (
-    <div className={styles.stack}>
-      <Row label="Evolutions"><Chips ids={evolutions.map((e) => e.id)} /></Row>
-      <Row label="Realizations">
-        {realizations.length ? (
-          <ul className={styles.chips}>
-            {realizations.map((r) => (
-              <li key={r.id}><NodeChip id={r.id} kind="realization" label={`${r.id} · ${r.status}`} size="sm" interactive={false} /></li>
-            ))}
-          </ul>
-        ) : (
-          <span className={styles.muted}>none</span>
-        )}
-      </Row>
-    </div>
-  );
-}
-
-/**
- * Stub (owned by the Evaluations slice): current verdict per criterion on this object, from
- * `useEvaluations()`. Raw evidence links arrive with that slice.
- */
-export function EvidenceTab({ entry }: TabProps) {
-  const m = useModel();
-  const inScope = new Set(m.scope.candidates);
-  const criteria = m.criteriaFor(entry.id);
-  if (!criteria.length) return <EmptyState title="No criteria have this object as their subject." />;
-  return (
-    <ul className={styles.plain}>
-      {criteria.map((c) => (
-        <li key={c.id} className={styles.cardHead}>
-          <NodeChip id={c.id} size="sm" />
-          <VerdictBadge verdict={m.verdictOf(c.id)} />
-          <span className={styles.muted}>{m.evaluations.filter((e) => e.criterion === c.id && inScope.has(e.candidate)).length} in-scope evaluations</span>
-        </li>
-      ))}
-    </ul>
-  );
-}
-
-export { RulesTab };
+export { ChangesTab, EvidenceTab, RulesTab };
 
 export const TAB_COMPONENTS: Record<InspectorTab, (p: TabProps) => ReactNode> = {
   what: WhatTab,

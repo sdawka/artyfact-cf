@@ -21,7 +21,7 @@ import { type Readiness, type SystemModel, type schema } from "@artyfact/model";
 import { createSystemOne, type SystemOne, type SystemOneEnv } from "@artyfact/semantic";
 import type { CandidateRef, ConflictContext, ConflictReport, DeltaReview, Evaluation, GenomeContext, GenomeResult, HookRunner, SubmissionContext } from "./contract";
 import { diffScope } from "./diff-scope";
-import { HEALTH_TIMEOUT_MS, httpHealth } from "./http-health";
+import { HEALTH_TIMEOUT_MS, httpHealth, previewPolicy, type PreviewEnv } from "./http-health";
 import { manifestExists } from "./manifest-exists";
 import { modelRulesHook } from "./model-checks";
 import { filterFromInputs, loadGenome, modelRules, selectableRules, type GenomeDeps, type ModelRulesResult } from "./model-rules";
@@ -33,6 +33,8 @@ export interface RunnerDeps {
   /** System One client; defaults to `createSystemOne(s1Env ?? {})` (provider off when no key). */
   s1?: SystemOne;
   s1Env?: SystemOneEnv;
+  /** Preview URL policy env (ALLOW_LOCAL_PREVIEW, PREVIEW_HOST_ALLOWLIST). The Worker wiring passes `env`. Absent → defaults only. */
+  previewEnv?: PreviewEnv;
   fetch?: typeof fetch;
   now?: () => Date;
   genome?: GenomeDeps;
@@ -171,6 +173,7 @@ function vacuous(r: ModelRulesResult, counts: Record<string, number>, what: stri
 export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
   const s1 = deps.s1 ?? createSystemOne(deps.s1Env ?? {});
   const now = () => (deps.now ?? (() => new Date()))().toISOString();
+  const policy = previewPolicy(deps.previewEnv ?? {});
 
   const loadBase = (ctx: ConflictContext): SystemModel => {
     try {
@@ -235,7 +238,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
         return o;
       }
       case "http":
-        return httpHealth({ previewUrl: cand.previewUrl, commit: cand.commit, path: h.inputs.path, timeoutMs: Math.min(h.timeoutMs, HEALTH_TIMEOUT_MS), fetch: deps.fetch });
+        return httpHealth({ previewUrl: cand.previewUrl, commit: cand.commit, path: h.inputs.path, timeoutMs: Math.min(h.timeoutMs, HEALTH_TIMEOUT_MS), fetch: deps.fetch, policy });
       default:
         return notRun(`Engine ${h.engine} is not run by the platform.`);
     }

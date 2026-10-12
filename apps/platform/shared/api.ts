@@ -163,7 +163,8 @@ export type Evolution = schema.Evolution & {
 };
 
 export interface Checkpoint {
-  seq: number;
+  /** Per-realization ordinal; always set by the backend (optional for UI fixtures). */
+  seq?: number;
   at: string;
   summary: string;
   commit?: CommitHash;
@@ -203,6 +204,10 @@ export interface Candidate {
   /** Model nodes touched, via source-map; `unmapped:<path>` for misses. */
   changedSubjects: string[];
   genomeChanges: string[];
+  /** Candidate manifest hash (`CandidateManifest.hash`). */
+  hash?: string;
+  /** Per-subject operation, when the backend can tell added from changed from removed. */
+  subjectDelta?: { added?: string[]; changed?: string[]; removed?: string[] };
   submittedAt: string;
   state: "submitted" | "evaluated" | "selected" | "promoted" | "rejected";
 }
@@ -350,6 +355,10 @@ export interface ConflictReport {
   /** File paths, node ids, claim ids or evidence keys that collide. */
   subjects: string[];
   message: string;
+  /** Model node ids that collide (newer backend shape). */
+  nodes?: string[];
+  /** File paths that collide (newer backend shape). */
+  paths?: string[];
 }
 
 /** `GET /api/systems/:id/evolutions/:eid/candidates`. */

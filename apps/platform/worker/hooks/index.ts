@@ -21,7 +21,7 @@ export const noopHookRunner: HookRunner = {
 /** Acks everything (tests). */
 export const ackAllQueue: QueueEntry = async (batch) => { batch.ackAll(); };
 
-const realRunner: HookRunnerFactory = (env) => createHookRunner({ s1Env: env });
+const realRunner: HookRunnerFactory = (env) => createHookRunner({ s1Env: env, previewEnv: env });
 // Built lazily: service.ts imports this module, so `queueContextFor` is only safe to read at call time.
 const realQueue: QueueEntry = (batch, env) => createQueueHandler(queueContextFor)(batch, env);
 

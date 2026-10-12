@@ -7,3 +7,7 @@ ACCOUNT_ID=
 TYPESAFE_API_KEY=
 OPENROUTER_API_KEY=
 FAKE_S1=1
+# Health hook: allow http://localhost and 127.0.0.1 preview URLs (local dev only).
+ALLOW_LOCAL_PREVIEW=1
+# Extra preview hosts, comma-separated (*.workers.dev and *.pages.dev are always allowed).
+PREVIEW_HOST_ALLOWLIST=

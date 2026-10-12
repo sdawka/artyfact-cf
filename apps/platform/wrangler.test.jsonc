@@ -14,6 +14,6 @@
   "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "artyfact-evidence" }],
   "queues": { "consumers": [{ "queue": "artyfact-artifacts-events", "max_batch_size": 10, "max_retries": 3 }] },
   // ACCOUNT_ID builds fork remotes (https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/<ns>/<repo>.git); set it in .dev.vars or here.
-  "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "http://localhost:5173", "ACCOUNT_ID": "" },
+  "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "http://localhost:5173", "ACCOUNT_ID": "", "PREVIEW_HOST_ALLOWLIST": "" },
   "observability": { "enabled": true }
 }
