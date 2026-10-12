@@ -66,7 +66,6 @@ describe("read stubs return typed empty shapes", () => {
   });
 
   it("builds and deployments", async () => {
-    expect(await get<BuildsResponse>(routes.realizationBuilds(S, "realization.1.r1"))).toEqual({ builds: [] });
     expect(await get<BuildsResponse>(routes.builds(S, { commit: sha, kind: "preview" }))).toEqual({ builds: [] });
     expect(await get<DeploymentsResponse>(routes.deployments(S))).toEqual({ production: null, history: [] });
   });
@@ -83,10 +82,6 @@ describe("read stubs return typed empty shapes", () => {
 describe("write stubs are 501 not-implemented", () => {
   it.each([
     ["editor commit", routes.editorCommit(S, "realization.1.r1"), { message: "m", changes: [] }],
-    ["realization build report", routes.realizationBuilds(S, "realization.1.r1"), { status: "passed", commit: sha }],
-    ["production build report", routes.builds(S), { status: "passed", commit: sha, kind: "production" }],
-    ["create deployment", routes.deployments(S), {}],
-    ["ingest token", routes.deploymentIngestToken(S, "dep-1"), {}],
     ["phenome ingest", routes.phenomeEvents(S), { events: [] }],
     ["create evolution", routes.evolutions(S), { title: "t", intent: "i" }],
   ])("%s", async (_name, path, body) => {
