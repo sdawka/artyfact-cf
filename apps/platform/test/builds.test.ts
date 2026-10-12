@@ -250,6 +250,27 @@ describe("build report routes", () => {
     expect((await call<BuildReportResponse>("POST", path, { status: "running", commit: stranger }, CI)).status).toBe(200);
   });
 
+  it("an agent cannot name CI's build row or a deployment, and cannot overwrite a CI-reported row", async () => {
+    setCiOverride(fakeCi);
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const { params } = created[0];
+    const path = `/systems/${ctx.systemId}/realizations/${a.rid}/builds`;
+    const agent = { authorization: `Bearer ${a.secret}` };
+    const own = `build.${a.rid}.${a.commit.slice(0, 7)}.agent`;
+    // A client id and deployment id are ignored: the report lands on the agent's own row.
+    const r = await call<BuildReportResponse>("POST", path, { id: params.buildId, status: "failed", commit: a.commit, deploymentId: params.deploymentId }, agent);
+    expect([r.status, r.json.build.id, r.json.build.reporter]).toEqual([200, own, "agent"]);
+    const after = await inDo(ctx.systemId, (i) => ({ ci: i.build(params.buildId), dep: i.deployment(params.deploymentId!) }));
+    expect(after.ci).toMatchObject({ status: "queued", reporter: "ci" });
+    expect(after.dep).toMatchObject({ status: "pending" });
+    // A row CI reported is never updated by the agent.
+    const head = a.fork.commit({ ...appFiles, "src/ui/people/head.ts": "h" }, "head");
+    await inDo(ctx.systemId, (i) => i.upsertBuild({ id: `build.${a.rid}.${head.slice(0, 7)}.agent`, realization: a.rid, candidate: null, commit: head, kind: "preview", status: "running", reporter: "ci" }));
+    const denied = await call<ApiError>("POST", path, { status: "passed", commit: head }, agent);
+    expect([denied.status, denied.json.error.code]).toEqual([403, "forbidden"]);
+  });
+
   it("a passed production report without a deployment id needs the app commit or a pending deployment (409 not-promoted)", async () => {
     const ctx = await imported();
     const a = await submitted(ctx);
