@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FixtureModeError, StaleBaseError, getEvaluations, getModel, getSystems, promote, resetClientMode, startWork, subscribeEvents } from "./client";
+import {
+  FixtureModeError, StaleBaseError, getClientMode, getEvaluations, getModel, getSystems, promote, resetClientMode, startWork, subscribeEvents,
+} from "./client";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -18,9 +20,15 @@ describe("api client fixture fallback", () => {
     await expect(startWork("system.keep-in-touch", "evolution.1")).rejects.toBeInstanceOf(FixtureModeError);
   });
 
-  it("serves the fixture when /api/systems is empty", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => json(200, [])));
-    expect((await getModel("system.keep-in-touch", "head")).source).toBe("fixture");
+  it("treats an empty /api/systems as a real, empty platform (not fixture mode)", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => json(200, { systems: [] })));
+    expect(await getSystems()).toEqual([]);
+    expect(await getClientMode()).toBe("api");
+  });
+
+  it("reports fixture mode when the API is unreachable", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("Failed to fetch"))));
+    expect(await getClientMode()).toBe("fixture");
   });
 
   it("uses the API when systems exist and types a 409 stale base", async () => {

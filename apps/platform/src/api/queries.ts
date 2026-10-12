@@ -8,6 +8,7 @@ import * as api from "./client";
 /** Query keys. Invalidate by prefix, e.g. `["evaluations", systemId]`. */
 export const qk = {
   systems: () => ["systems"] as const,
+  clientMode: () => ["clientMode"] as const,
   model: (systemId: string, rev: string) => ["model", systemId, rev] as const,
   readiness: (systemId: string, rev: string) => ["readiness", systemId, rev] as const,
   evolutions: (systemId: string) => ["evolutions", systemId] as const,
@@ -23,6 +24,9 @@ export const modelQuery = (systemId: string, rev: string) =>
   queryOptions({ queryKey: qk.model(systemId, rev), queryFn: () => api.getModel(systemId, rev), staleTime: 30_000 });
 
 export const useSystems = () => useQuery({ queryKey: qk.systems(), queryFn: api.getSystems });
+
+/** `api` or `fixture` (API unreachable). Invalidate `qk.clientMode()` after `resetClientMode()`. */
+export const useClientMode = () => useQuery({ queryKey: qk.clientMode(), queryFn: api.getClientMode });
 
 export function useModelBundle(systemId?: string, rev?: string) {
   const route = useSystemRoute();

@@ -106,29 +106,33 @@ async function fixtureSummary(): Promise<SystemSummary> {
     genomeCommit: b.genomeCommit,
     ...(b.model.system.phase !== undefined && { phase: b.model.system.phase }),
     evolutionCounts: {},
-    updatedAt: b.readiness.computedAt,
+    // The fixture's computedAt is a placeholder epoch; "" renders as "updated unknown".
+    updatedAt: "",
   };
 }
 
+/**
+ * Fixture mode means the API is unreachable (network error or non-2xx on `/api/systems`). A reachable API with
+ * no Systems is a real, empty platform: `getSystems()` returns `[]` and Home shows its empty state.
+ */
 function resolveMode() {
-  mode ??= request<SystemSummary[] | { systems: SystemSummary[] }>(paths.systems())
-    .then(
-      async (r) => {
-        const systems = Array.isArray(r) ? r : (r.systems ?? []);
-        if (systems.length) return { fixture: false, systems };
-        console.warn("artyfact: the API has no Systems, showing fixture data");
-        return { fixture: true, systems: [await fixtureSummary()] };
-      },
-      async (cause: unknown) => {
-        console.warn("artyfact: /api/systems unavailable, showing fixture data", cause);
-        return { fixture: true, systems: [await fixtureSummary()] };
-      },
-    );
+  mode ??= request<SystemSummary[] | { systems: SystemSummary[] }>(paths.systems()).then(
+    (r) => ({ fixture: false, systems: Array.isArray(r) ? r : (r.systems ?? []) }),
+    async (cause: unknown) => {
+      console.warn("artyfact: /api/systems unreachable, showing fixture data", cause);
+      return { fixture: true, systems: [await fixtureSummary()] };
+    },
+  );
   return mode;
 }
 
-/** True when the SPA is serving fixture data because the API is unreachable or has no Systems. */
+/** True when the SPA is serving fixture data because the API is unreachable. */
 export const isFixtureMode = async () => (await resolveMode()).fixture;
+
+export type ClientMode = "api" | "fixture";
+
+/** `fixture` while the API is unreachable (TopBar / Home pill), else `api`. */
+export const getClientMode = async (): Promise<ClientMode> => ((await resolveMode()).fixture ? "fixture" : "api");
 
 /** Forget the cached fixture decision so the next call asks the API again (TopBar "Retry API", tests). */
 export function resetClientMode() {
