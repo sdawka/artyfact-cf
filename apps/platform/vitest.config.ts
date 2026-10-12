@@ -4,7 +4,7 @@ import { defineConfig } from "vitest/config";
 
 const alias = { "@": fileURLToPath(new URL("./src", import.meta.url)) };
 
-// Two projects: Worker code runs in workerd, UI/theme tests run in jsdom.
+// Worker code runs in workerd, UI/theme tests in jsdom, the opt-in integration loop in Node.
 export default defineConfig({
   test: {
     projects: [
@@ -17,12 +17,14 @@ export default defineConfig({
           }),
         ],
         resolve: { alias },
-        test: { name: "worker", include: ["test/**/*.test.ts"], testTimeout: 30_000 },
+        test: { name: "worker", include: ["test/**/*.test.ts"], exclude: ["test/integration/**"], testTimeout: 30_000 },
       },
       {
         resolve: { alias },
         test: { name: "ui", environment: "jsdom", include: ["src/**/*.test.{ts,tsx}"] },
       },
+      // Real Artifacts (namespace artyfact-test); skipped unless ARTYFACT_INTEGRATION=1. See test/integration/loop.test.ts.
+      { test: { name: "integration", environment: "node", include: ["test/integration/**/*.test.ts"] } },
     ],
   },
 });
