@@ -21,7 +21,7 @@ function input(over: Partial<PacketInput> = {}): PacketInput {
     baseTreePaths: Object.keys(appFiles),
     commands: ["npm install", "npm run dev", "npm test"],
     concurrentWork: [],
-    platformUrl: "http://localhost:5173",
+    platformUrl: "http://localhost:1337",
     ...over,
   };
 }

@@ -122,7 +122,7 @@ The real backend needs a login, because the `ARTIFACTS` binding is remote even i
 
 ```sh
 cp apps/platform/.dev.vars.example apps/platform/.dev.vars
-npm run dev -w @artyfact/platform   # http://localhost:5173
+npm run dev -w @artyfact/platform   # http://localhost:1337
 ```
 
 The amendment review has its own fixture page and needs no login:

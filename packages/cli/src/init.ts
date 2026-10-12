@@ -12,6 +12,7 @@ import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
 import { CliError, git } from "./git.ts";
 import { assertName, assertSystemId, assertTemplateRef, copyFiles, isInside, projectFiles, realDir, realSubdir } from "./safety.ts";
 import { PLATFORM_REPO, platformTemplateDir, systemRepoNames } from "./naming.ts";
+import { resolvePlatform } from "./platform-url.ts";
 
 export interface InitIo {
   out: (s: string) => void;
@@ -26,7 +27,6 @@ export interface InitIo {
   pollMs?: number;
 }
 
-const DEFAULT_URL = "http://localhost:5173";
 const DEFAULT_NAMESPACE = "artyfact";
 const IDENTITY = ["-c", "user.name=artyfact", "-c", "user.email=artyfact@localhost"];
 
@@ -304,7 +304,6 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const appPath = appGiven ? resolve(io.cwd, values.app as string) : join(project, "app");
   const appDir = existsSync(appPath) ? realDir(appGiven ? "--app" : "app dir", appPath, appGiven ? undefined : project) : appPath;
   const fromTemplate = values["from-template"] === undefined ? undefined : assertTemplateRef(values["from-template"]);
-  const platformUrl = ((values.platform as string | undefined) ?? io.env.ARTYFACT_URL ?? DEFAULT_URL).replace(/\/$/, "");
   const ns = namespaceOf(values, io);
 
   const systemYaml = join(genomeDir, "system.yaml");
@@ -341,6 +340,7 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
       scaffoldFrom = await seedFromTemplate(ctx, fromTemplate!, names.appRepo);
     }
 
+    const platformUrl = await resolvePlatform(values.platform as string | undefined, io.env, io.fetch ?? fetch, io.err);
     return await importIntoPlatform(io, platformUrl, { systemId, genomeRepo: names.genomeRepo, appRepo: names.appRepo, ...(scaffoldFrom && { scaffoldFrom }) }, values.force === true);
   } finally {
     writeState(stateFile, state);

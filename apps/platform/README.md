@@ -6,14 +6,14 @@ One Cloudflare Worker with Static Assets: Hono serves `/api/*`, a React 19 SPA s
 ```
 npm install            # from the repo root
 cp apps/platform/.dev.vars.example apps/platform/.dev.vars   # then set ADMIN_TOKEN=$(openssl rand -hex 32)
-npm run dev -w @artyfact/platform   # http://localhost:5173 (next free port if taken)
+npm run dev -w @artyfact/platform   # http://localhost:1337 (next free port if taken; the CLI finds it)
 ```
 - `GET /api/health` returns the service status; `/style` is the living style sheet.
 - `npm test -w @artyfact/platform` (workerd + jsdom projects), `npm run typecheck`, `npm run build`.
 - The full demo against real Artifacts is `docs/demo-runbook.md`. The opt-in integration test runs that loop in namespace `artyfact-test`: `ARTYFACT_INTEGRATION=1 npx vitest run --project integration` (uses `wrangler.integration.jsonc`).
 - `npm run cf-typegen` regenerates `worker/env.d.ts` after editing `wrangler.jsonc`.
 - The `ARTIFACTS` binding is `remote: true`, so `npm run dev` (real backend) needs `wrangler login` or `CLOUDFLARE_API_TOKEN`. Nothing else does: tests use `wrangler.test.jsonc`, the same config without that binding (keep the two in sync).
-- `npm run preview:fixture` builds and serves the SPA statically (`vite.fixture.config.ts`, no Cloudflare plugin) on http://localhost:4173 with bundled fixture data. `npm run e2e` runs Playwright against it; no Cloudflare credentials needed. `npm run e2e:live` runs the `@live` specs against `wrangler dev` and does need a login.
+- `npm run preview:fixture` builds and serves the SPA statically (`vite.fixture.config.ts`, no Cloudflare plugin) on http://localhost:1338 with bundled fixture data. `npm run e2e` runs Playwright against it; no Cloudflare credentials needed. `npm run e2e:live` runs the `@live` specs against `wrangler dev` and does need a login.
 - `worker/env.d.ts` is generated; do not hand-edit it (use `cf-typegen`, secrets go in `worker/secrets.d.ts`).
 
 ## Env

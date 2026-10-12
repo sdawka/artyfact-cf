@@ -59,7 +59,7 @@ VARS
 start responses are written to owner-only files in `$RUN`, and each terminal reads the one it needs.
 
 ```sh
-export REPO=$PWD RUN=$HOME/.artyfact-demo B=localhost:5173/api/systems/system.keep-in-touch
+export REPO=$PWD RUN=$HOME/.artyfact-demo B=localhost:1337/api/systems/system.keep-in-touch
 mkdir -p -m 700 "$RUN"; umask 077
 alias artyfact='npx --prefix "$REPO" --no-install artyfact'
 ```
@@ -77,7 +77,7 @@ export ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN                # what `artyfact init` r
 Terminal **P**:
 
 ```sh
-npm run dev -w @artyfact/platform          # http://localhost:5173, Artifacts binding is remote
+npm run dev -w @artyfact/platform          # http://localhost:1337, Artifacts binding is remote
 ```
 
 ## 2. `artyfact init`: push and import in one command (about 30 s)
@@ -122,7 +122,7 @@ platform: unchanged at 6bd3603921dc
 keep-in-touch.genome: pushed at 18374568e231
 keep-in-touch.app: unchanged at c945510ffdf5
 imported system.keep-in-touch at sc-1-b11cb27a
-System: http://localhost:5173/s/system.keep-in-touch/r/head/overview
+System: http://localhost:1337/s/system.keep-in-touch/r/head/overview
 ```
 
 A second run pushes nothing and re-imports with `force: false`, which is a no-op on the same commits:
@@ -142,7 +142,7 @@ exits 0.
 The import response records the `platform` commit; each later System commit carries it too:
 
 ```sh
-curl -s -XPOST localhost:5173/api/systems/import -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
+curl -s -XPOST localhost:1337/api/systems/import -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"systemId":"system.keep-in-touch"}' | jq -c '{head, genomeRepo, appRepo, platform, warnings, evolutions}'
 ```
 
@@ -171,7 +171,7 @@ see the same System; Overview, Work, Evaluations and History read the live API.
 Terminal **sse**:
 
 ```sh
-curl -sN localhost:5173/api/systems/system.keep-in-touch/events
+curl -sN localhost:1337/api/systems/system.keep-in-touch/events
 ```
 
 The stream sends only live events plus a `ping` every 15 s. Events emitted while nothing is connected are not

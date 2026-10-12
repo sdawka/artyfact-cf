@@ -1,7 +1,8 @@
 # @artyfact/cli
 
-`artyfact init|platform-sync|start|checkpoint|submit|status|compose`. Platform URL from `ARTYFACT_URL` or `--platform`
-(default http://localhost:5173).
+`artyfact init|platform-sync|start|checkpoint|submit|status|compose`. Platform URL from `--platform`, else `ARTYFACT_PLATFORM` (or the older `ARTYFACT_URL`),
+else http://localhost:1337. When Vite moved to the next free port, the CLI uses the first of the next ten ports that
+answers `/api/health` as artyfact.
 
 ## `init` and `platform-sync`
 

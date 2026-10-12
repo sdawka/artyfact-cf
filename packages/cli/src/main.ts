@@ -3,6 +3,7 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PlatformClient, rzPath } from "./api.ts";
 import { initCommand, platformSyncCommand, type InitIo } from "./init.ts";
+import { DEFAULT_URL, resolvePlatform } from "./platform-url.ts";
 import { mergeAgentsBlock, renderAgentsMd } from "./agents-md.ts";
 import { CliError, assertId, assertRemote, assertSecret, assertToken, commitIfDirty, git, isTracked } from "./git.ts";
 import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
@@ -43,7 +44,6 @@ function lstatOrNull(path: string) {
 function isLink(path: string): boolean {
   try { return lstatSync(path).isSymbolicLink(); } catch { return false; }
 }
-const DEFAULT_URL = "http://localhost:5173";
 
 const USAGE = `artyfact <command>
 
@@ -57,6 +57,9 @@ const USAGE = `artyfact <command>
   submit [--preview-url u] [--json]
   status [--json]
   compose <rid> <rid> ...
+
+  --platform defaults to ARTYFACT_PLATFORM, else ARTYFACT_URL, else ${DEFAULT_URL}; when Vite moved to the next free
+  port, the first of the next ten ports that answers as artyfact is used.
 `;
 
 export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
@@ -135,7 +138,6 @@ async function start(args: string[], io: Io): Promise<number> {
   });
   const rid = positionals[0] && assertId("realization id", positionals[0]);
   if (!rid) throw new CliError("usage: artyfact start <realizationId> [--dir <d>]")  ;
-  const platform = values.platform ?? io.env.ARTYFACT_URL ?? DEFAULT_URL;
   const sysArg = values.system ?? io.env.ARTYFACT_SYSTEM;
   const evoArg = values.evolution ?? io.env.ARTYFACT_EVOLUTION;
   if (!sysArg || !evoArg)
@@ -149,6 +151,7 @@ async function start(args: string[], io: Io): Promise<number> {
     try { return isLink(f) ? undefined : (JSON.parse(readFileSync(f, "utf8")) as WorkspaceConfig); } catch { return undefined; }
   })();
   const secret = secretFor(io, priorCfg?.realizationId === rid ? priorCfg : undefined);
+  const platform = await resolvePlatform(values.platform, io.env, io.fetch ?? fetch, io.err);
   const client = new PlatformClient(platform, secret);
 
   const payload = await client.request<PacketPayload>("GET", rzPath(sysId, evoId, rid, "/packet"));
