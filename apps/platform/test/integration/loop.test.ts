@@ -52,9 +52,12 @@ async function api<T = Record<string, any>>(method: string, path: string, body?:
   return { status: res.status, json: (await res.json()) as T };
 }
 
-/** Run the real CLI binary; the token only ever travels in the environment. */
-async function cli(args: string[], cwd: string, token: string): Promise<string> {
-  const { stdout } = await run(process.execPath, [CLI, ...args], { cwd, env: envWith({ ARTYFACT_TOKEN: token, ARTYFACT_URL: base }) });
+/**
+ * Run the real CLI binary; credentials only ever travel in the environment. The secret is passed to `start` only:
+ * later commands read the copy `start` saved in `.artyfact.json`.
+ */
+async function cli(args: string[], cwd: string, token: string, secret = ""): Promise<string> {
+  const { stdout } = await run(process.execPath, [CLI, ...args], { cwd, env: envWith({ ARTYFACT_TOKEN: token, ARTYFACT_SECRET: secret, ARTYFACT_URL: base }) });
   return stdout;
 }
 
@@ -97,17 +100,21 @@ describe.skipIf(!ENABLED)("integration: the demo loop on real Artifacts", () => 
     const model = await api(`GET`, `/systems/${SYSTEM}/model?rev=head`);
     expect(model.json.readiness.findings.filter((f: { level: string }) => f.level === "error")).toEqual([]);
 
-    const start = (agentLabel: string) => api("POST", `/systems/${SYSTEM}/evolutions/evolution.1/realizations`, { agentLabel });
+    expect((await api("POST", `/systems/${SYSTEM}/evolutions/evolution.1/realizations`, { agentLabel: "anon" })).status).toBe(401);
+    const start = (agentLabel: string) => api("POST", `/systems/${SYSTEM}/evolutions/evolution.1/realizations`, { agentLabel }, true);
     const [a, b] = (await Promise.all([start("agent-a"), start("agent-b")])).map((r) => {
       expect(r.status, JSON.stringify(r.json)).toBe(201);
       created.push(r.json.packet.workspace.fork);
-      return { rid: r.json.realization.id as string, token: r.json.token.value as string, fork: r.json.packet.workspace.fork as string };
+      return {
+        rid: r.json.realization.id as string, token: r.json.token.value as string, secret: r.json.secret as string,
+        fork: r.json.packet.workspace.fork as string,
+      };
     });
     expect(new Set([a.fork, b.fork])).toEqual(new Set([`${APP_REPO}--r1`, `${APP_REPO}--r2`]));
 
     const dirA = join(work, "a"), dirB = join(work, "b");
-    await cli(["start", a.rid, "--system", SYSTEM, "--evolution", "evolution.1", "--dir", dirA], work, a.token);
-    await cli(["start", b.rid, "--system", SYSTEM, "--evolution", "evolution.1", "--dir", dirB], work, b.token);
+    await cli(["start", a.rid, "--system", SYSTEM, "--evolution", "evolution.1", "--dir", dirA], work, a.token, a.secret);
+    await cli(["start", b.rid, "--system", SYSTEM, "--evolution", "evolution.1", "--dir", dirB], work, b.token, b.secret);
 
     // A: the AddContactDialog save handler. B: owner-only read in the contacts routes. Different files.
     writeFileSync(join(dirA, "public/people/add-contact-dialog.js"), "// Save posts the contact and keeps values on failure.\nexport {};\n");

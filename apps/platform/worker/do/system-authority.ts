@@ -585,11 +585,11 @@ export class SystemAuthority extends DurableObject<Env> {
     });
   }
 
-  /** Store token metadata (never the plaintext) and the packet; emits `realization.created`. */
-  activateRealization(id: string, input: { tokenId: string; tokenExpires: string; remote: string; packet: TaskPacket }): Realization {
+  /** Store token metadata and the SHA-256 of the realization secret (never either plaintext) and the packet; emits `realization.created`. */
+  activateRealization(id: string, input: { tokenId: string; tokenExpires: string; remote: string; packet: TaskPacket; secretHash: string }): Realization {
     this.sql.exec(
-      "UPDATE realizations SET token_id = ?, token_expires = ?, remote = ?, packet_json = ?, packet_hash = ?, updated_at = ? WHERE id = ?",
-      input.tokenId, input.tokenExpires, input.remote, JSON.stringify(input.packet), input.packet.hash, nowIso(), id,
+      "UPDATE realizations SET token_id = ?, token_expires = ?, remote = ?, packet_json = ?, packet_hash = ?, secret_hash = ?, updated_at = ? WHERE id = ?",
+      input.tokenId, input.tokenExpires, input.remote, JSON.stringify(input.packet), input.packet.hash, input.secretHash, nowIso(), id,
     );
     const r = this.realizationDto(this.realizationRow(id)!);
     this.emit({ type: "realization.created", realization: r });
@@ -608,12 +608,18 @@ export class SystemAuthority extends DurableObject<Env> {
     if (!r) throw new ConflictError("not-found", `unknown realization ${id}`);
     if (["promoted", "accepted"].includes(String(r.status))) throw new ConflictError("invalid-state", `realization ${id} is ${r.status}`);
     this.ctx.storage.transactionSync(() => {
-      this.sql.exec("UPDATE realizations SET status = 'rejected', rejection_reason = ?, updated_at = ? WHERE id = ?", reason, nowIso(), id);
+      // Rejection revokes the realization secret together with the fork's write token.
+      this.sql.exec("UPDATE realizations SET status = 'rejected', rejection_reason = ?, secret_hash = NULL, updated_at = ? WHERE id = ?", reason, nowIso(), id);
       this.sql.exec("UPDATE candidates SET state = 'rejected' WHERE realization_id = ? AND state != 'promoted'", id);
     });
     const dto = this.realizationDto(this.realizationRow(id)!);
     this.emit({ type: "realization.updated", realization: dto });
     return dto;
+  }
+
+  /** SHA-256 (hex) of the realization's secret; null when unknown, not yet active, or revoked. */
+  realizationSecretHash(id: string): string | null {
+    return str(this.realizationRow(id)?.secret_hash);
   }
 
   /** Append a checkpoint; a repeat of the last (summary, commit) is a no-op. claimed → working. */

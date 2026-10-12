@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { checkpoint, packet, realizationView, reject, review, submit, sync, systemForRealization, systemStub } from "../service";
-import { requireAdmin } from "../auth";
+import { requireAdmin, requireRealizationSecret } from "../auth";
 import { body, type AppEnv, type Ctx } from "./app";
 
 type Resolve = (c: Ctx) => Promise<string>;
@@ -12,16 +12,23 @@ type Resolve = (c: Ctx) => Promise<string>;
  */
 function mount(app: Hono<AppEnv>, prefix: string, system: Resolve) {
   const rid = (c: Ctx) => c.req.param("rid")!;
-  app.get(prefix, async (c) => c.json(await realizationView(c.env, await system(c), rid(c))));
-  app.get(`${prefix}/packet`, async (c) => c.json(await packet(c.env, await system(c), rid(c))));
+  /** The System id, once the caller holds this realization's secret or the admin bearer (401 precedes any lookup). */
+  const authed = async (c: Ctx) => {
+    let systemId: string | undefined;
+    await requireRealizationSecret(c.env, c.req.header("authorization"), async () =>
+      systemStub(c.env, (systemId = await system(c))).realizationSecretHash(rid(c)));
+    return systemId ?? system(c);
+  };
+  app.get(prefix, async (c) => c.json(await realizationView(c.env, await authed(c), rid(c))));
+  app.get(`${prefix}/packet`, async (c) => c.json(await packet(c.env, await authed(c), rid(c))));
   app.get(`${prefix}/review`, async (c) => c.json(await review(c.env, await system(c), rid(c))));
-  app.post(`${prefix}/checkpoints`, async (c) => c.json(await checkpoint(c.env, await system(c), rid(c), await body(c)), 201));
+  app.post(`${prefix}/checkpoints`, async (c) => c.json(await checkpoint(c.env, await authed(c), rid(c), await body(c)), 201));
   app.post(`${prefix}/submit`, async (c) => {
-    const out = await submit(c.env, await system(c), rid(c), await body(c), "cli");
+    const out = await submit(c.env, await authed(c), rid(c), await body(c), "cli");
     return c.json(out, out.created ? 201 : 200);
   });
   app.post(`${prefix}/reject`, requireAdmin, async (c) => c.json(await reject(c.env, await system(c), rid(c), await body(c))));
-  app.post(`${prefix}/sync`, async (c) => c.json(await sync(c.env, await system(c), rid(c))));
+  app.post(`${prefix}/sync`, async (c) => c.json(await sync(c.env, await authed(c), rid(c))));
 }
 
 export const realizations = new Hono<AppEnv>();

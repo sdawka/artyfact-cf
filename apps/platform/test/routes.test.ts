@@ -17,11 +17,30 @@ import { FakeArtifacts } from "./helpers/fake-artifacts";
 const ADMIN = { authorization: "Bearer test-admin-token" };
 let seq = 0;
 
-async function call<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}): Promise<{ status: number; json: T }> {
+/** Realization secrets seen in start responses, by realization id. */
+const secrets = new Map<string, string>();
+const START_RE = /\/evolutions\/[^/]+\/realizations$/;
+const RZ_RE = /\/realizations\/([^/]+)(\/(packet|checkpoints|submit|sync))?$/;
+
+/**
+ * Without explicit `headers`, a call carries the credentials its route needs: the admin bearer on start work, and the
+ * realization's own secret on its guarded routes. Pass `headers` (even `{}`) to test auth itself.
+ */
+function defaultAuth(method: string, path: string): Record<string, string> {
+  if (method === "POST" && START_RE.test(path)) return ADMIN;
+  const s = secrets.get(RZ_RE.exec(path)?.[1] ?? "");
+  return s ? { authorization: `Bearer ${s}` } : {};
+}
+
+async function call<T>(method: string, path: string, body?: unknown, headers?: Record<string, string>): Promise<{ status: number; json: T }> {
   const res = await exports.default.fetch(new Request(`http://example.com/api${path}`, {
-    method, headers: { "content-type": "application/json", ...headers }, ...(body !== undefined && { body: JSON.stringify(body) }),
+    method, headers: { "content-type": "application/json", ...(headers ?? defaultAuth(method, path)) },
+    ...(body !== undefined && { body: JSON.stringify(body) }),
   }));
-  return { status: res.status, json: (await res.json()) as T };
+  const json = (await res.json()) as T;
+  const started = json as Partial<StartWorkResponse>;
+  if (started.secret && started.realization?.id) secrets.set(started.realization.id, started.secret);
+  return { status: res.status, json };
 }
 
 /** Each test gets its own System id so DO state never leaks between tests. */
@@ -122,10 +141,12 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(start.json.realization.workspace.fork).toBe(`${appRepo}--r1`);
     expect(start.json.remote).toBe(`https://test-account.artifacts.cloudflare.net/git/artyfact/${appRepo}--r1.git`);
     expect(start.json.token.value).toMatch(/^secret-/);
+    expect(start.json.secret).toMatch(/^[0-9a-f]{64}$/);
+    expect(start.json.packet.workspace.secret).toBe(start.json.secret);
     expect(start.json.startCommand).toBe(
-      `ARTYFACT_TOKEN=${start.json.token.value} npx artyfact start ${rid} --system ${systemId} --evolution evolution.1 --dir ./${rid}`,
+      `ARTYFACT_TOKEN=${start.json.token.value} ARTYFACT_SECRET=${start.json.secret} npx artyfact start ${rid} --system ${systemId} --evolution evolution.1 --dir ./${rid}`,
     );
-    expect(start.json.packet.startCommand).toContain("ARTYFACT_TOKEN=<token> npx artyfact start");
+    expect(start.json.packet.startCommand).toContain("ARTYFACT_TOKEN=<token> ARTYFACT_SECRET=<secret> npx artyfact start");
     expect(start.json.packet.markdown).toContain(start.json.packet.startCommand);
     expect(JSON.stringify(start.json.packet)).not.toContain(start.json.token.value);
     expect(start.json.packet.permittedPaths.sort()).toEqual(["src/ui/**", "src/ui/people/**"]);
@@ -138,8 +159,10 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(JSON.stringify(pk.json)).not.toContain(start.json.token.value);
     expect(start.json.cli).toBe(start.json.startCommand);
     expect(JSON.stringify(pk.json)).not.toContain(start.json.cli);
+    expect(JSON.stringify(pk.json)).not.toContain(start.json.secret);
     const stored = await runInDurableObject(env.SYSTEMS.getByName(systemId), (i: SystemAuthority) => i.realization(rid));
     expect(JSON.stringify(stored)).not.toContain(start.json.token.value);
+    expect(JSON.stringify(stored)).not.toContain(start.json.secret);
     const viaRegistry = await call<PacketResponse>("GET", `/realizations/${rid}/packet`);
     expect(viaRegistry.json.systemId).toBe(systemId);
 
@@ -375,6 +398,37 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(all.json.errors).toEqual([{ candidate: view.json.candidateDetail!.id, error: "overlap exploded" }]);
   });
 
+  it("start work needs the admin bearer; realization routes need that realization's secret or the admin bearer", async () => {
+    const { ns, systemId, appRepo } = await imported();
+    const startPath = `/systems/${systemId}/evolutions/evolution.1/realizations`;
+    expect((await call<ApiError>("POST", startPath, {}, {})).status).toBe(401);
+    expect((await call<ApiError>("POST", startPath, {}, { authorization: "Bearer nope" })).status).toBe(403);
+    const a = (await call<StartWorkResponse>("POST", startPath, { agentLabel: "a" }, ADMIN)).json;
+    const b = (await call<StartWorkResponse>("POST", startPath, { agentLabel: "b" }, ADMIN)).json;
+    expect(a.secret).not.toBe(b.secret);
+    const bearer = (s: string) => ({ authorization: `Bearer ${s}` });
+    const commit = ns.repo(`${appRepo}--r2`).commit({ ...appFiles, "src/ui/people/b.ts": "b" }, "b");
+    const rB = `/systems/${systemId}/evolutions/evolution.1/realizations/${b.realization.id}`;
+    const routes: [string, string, unknown?][] = [
+      ["GET", rB], ["GET", `${rB}/packet`], ["POST", `${rB}/checkpoints`, { message: "m" }],
+      ["POST", `${rB}/sync`], ["POST", `${rB}/submit`, { commit }],
+      ["POST", `/systems/${systemId}/realizations/${b.realization.id}/sync`],
+    ];
+    for (const [method, path, body] of routes) {
+      const at = `${method} ${path}`;
+      expect((await call<ApiError>(method, path, body, {})).status, at).toBe(401);
+      expect((await call<ApiError>(method, path, body, bearer("f".repeat(64)))).status, at).toBe(403);
+      // The secret of realization A is not a key to B.
+      expect((await call<ApiError>(method, path, body, bearer(a.secret))).status, at).toBe(403);
+      expect((await call<ApiError>(method, path, body, bearer(b.secret))).status, at).toBeLessThan(300);
+      expect((await call<ApiError>(method, path, body, ADMIN)).status, at).toBeLessThan(300);
+    }
+    // The registry route checks before it resolves.
+    expect((await call<ApiError>("GET", `/realizations/${b.realization.id}/packet`, undefined, {})).status).toBe(401);
+    // The UI's review stays open.
+    expect((await call<ApiError>("GET", `${rB}/review`, undefined, {})).status).not.toBe(401);
+  });
+
   it("rejects unknown commits and validates input", async () => {
     const { systemId } = await imported();
     const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
@@ -382,7 +436,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(bad.status).toBe(422);
     expect(bad.json.error.code).toBe("unknown-commit");
     expect((await call<ApiError>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: "nope" })).status).toBe(400);
-    expect((await call<ApiError>("GET", `/systems/${systemId}/realizations/realization.9.r9`)).status).toBe(404);
+    expect((await call<ApiError>("GET", `/systems/${systemId}/realizations/realization.9.r9`, undefined, ADMIN)).status).toBe(404);
     expect((await call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.404/realizations`, {})).status).toBe(404);
     expect((await call<ApiError>("GET", `/systems/system.none/model`)).status).toBe(404);
     expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x" })).status).toBe(401);
@@ -498,8 +552,11 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(cands.json.candidates.map((c) => c.state)).toEqual(["rejected"]);
     const via = `/systems/${systemId}/realizations/${rid}/reject`;
     expect((await call<ApiError>("POST", via, { reason: "again" }, ADMIN)).status).toBe(200);
-    // The fork's write token is revoked, and a later push is acked without a retry or a new candidate.
+    // The fork's write token and the realization secret are revoked together.
     expect(fork.tokens).toMatchObject([{ revoked: true }]);
+    const revoked = await call<ApiError>("POST", `/systems/${systemId}/realizations/${rid}/submit`, { commit }, { authorization: `Bearer ${start.secret}` });
+    expect(revoked.status).toBe(403);
+    // A later push is acked without a retry or a new candidate.
     files.set("evolutions/late.yaml", "id: late");
     const late = fork.commit(files, "late push");
     const acked: string[] = [], retried: string[] = [];

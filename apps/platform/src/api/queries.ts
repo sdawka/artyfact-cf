@@ -116,8 +116,8 @@ export function useStartWork() {
   const { systemId } = useSystemRoute();
   const qc = useQueryClient();
   return useMutation({
-    mutationFn: ({ evolutionId, body }: { evolutionId: string; body?: StartWorkRequest }) =>
-      api.startWork(systemId, evolutionId, body),
+    mutationFn: ({ evolutionId, body, adminToken }: { evolutionId: string; body?: StartWorkRequest; adminToken?: string }) =>
+      api.startWork(systemId, evolutionId, body, adminToken),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.evolutions(systemId) }),
   });
 }

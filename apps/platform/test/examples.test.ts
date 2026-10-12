@@ -34,14 +34,14 @@ describe("examples/keep-in-touch", () => {
     const model = await call<ModelBundle>("GET", `/systems/${systemId}/model`);
     expect((model.json.model as SerializedModel).index.byId["screen.people"]?.kind).toBe("screen");
 
-    const start = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" });
+    const start = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" }, { authorization: "Bearer test-admin-token" });
     expect(start.status, JSON.stringify(start.json)).toBe(201);
     expect(start.json.packet.permittedPaths).toEqual(expect.arrayContaining(["src/index.ts", "src/worker/routes/contacts.ts", "public/people/**"]));
     expect(start.json.packet.protectedPaths).toEqual(["system/**", "assays/**"]);
     expect(start.json.packet.acceptanceCriteria.map((c) => c.id)).toContain("C.webapp.exists");
 
     const commit = ns.repo("ex-app--r1").commit({ ...app, "public/people/list.js": "export {}" });
-    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${start.json.realization.id}/submit`, { commit });
+    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${start.json.realization.id}/submit`, { commit }, { authorization: `Bearer ${start.json.secret}` });
     expect(sub.status, JSON.stringify(sub.json)).toBe(201);
     expect(sub.json.candidate.changedSubjects).toEqual(["component.AddContactDialog", "screen.people"]);
 

@@ -9,6 +9,8 @@ import type {
   CandidatesResponse, ConflictReport, ConflictsResponse, Evaluation, Evolution, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
 } from "../shared/api";
+import { newRealizationSecret } from "./auth";
+import { sha256Hex } from "./util";
 import { artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
 import { buildGenome, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
@@ -263,12 +265,14 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
       sourceMap, baseTreePaths: tree, commands: scaffoldCommands(g.model, target),
       concurrentWork: await concurrentWork(env, systemId, evolutionId, rid), platformUrl, genomePrefix: prefix,
     });
-    const realization = await stub.activateRealization(rid, { tokenId: token.id, tokenExpires: token.expiresAt, remote, packet });
+    // The realization secret authorizes the agent's platform calls; only its SHA-256 is stored.
+    const secret = newRealizationSecret();
+    const realization = await stub.activateRealization(rid, { tokenId: token.id, tokenExpires: token.expiresAt, remote, packet, secretHash: await sha256Hex(secret) });
     await refreshRegistry(env, systemId);
-    const cli = packet.startCommand.replace("<token>", token.plaintext);
+    const cli = packet.startCommand.replace("<token>", token.plaintext).replace("<secret>", secret);
     return {
-      systemId, realization, packet, token: { value: token.plaintext, expiresAt: token.expiresAt, remote }, remote,
-      startCommand: cli, cli,
+      systemId, realization, packet: { ...packet, workspace: { ...packet.workspace, secret } },
+      token: { value: token.plaintext, expiresAt: token.expiresAt, remote }, secret, remote, startCommand: cli, cli,
     };
   } catch (e) {
     // Best-effort cleanup; never let it mask the original error. Never log the token itself.

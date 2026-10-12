@@ -49,7 +49,7 @@ export function PacketViewer({ markdown, cli, expiresAt, remote }: PacketViewerP
           ) : showCli ? (
             <>
               <p className={styles.warn} role="note">
-                This command contains the write token. The token is not shown again, so copy it now.
+                This command contains the write token and the realization secret. Neither is shown again, so copy it now.
               </p>
               <pre className={styles.cliLine}><code>{cli}</code></pre>
               <div className={styles.actions}>

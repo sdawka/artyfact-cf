@@ -206,8 +206,11 @@ export async function getAmendmentReview(systemId: string, evolutionId: string, 
 // Writes
 // ---------------------------------------------------------------------------
 
-export const startWork = (systemId: string, evolutionId: string, body: StartWorkRequest = {}) =>
-  writeOrThrow("Start work", () => post<StartWorkResponse>(paths.startWork(systemId, evolutionId), body));
+/** Admin only: the response carries the one-time write token and realization secret. */
+export const startWork = (systemId: string, evolutionId: string, body: StartWorkRequest = {}, adminToken?: string) =>
+  writeOrThrow("Start work", () =>
+    post<StartWorkResponse>(paths.startWork(systemId, evolutionId), body, adminToken ? { authorization: `Bearer ${adminToken}` } : undefined),
+  );
 
 export const submit = (systemId: string, realizationId: string, body: SubmitRequest) =>
   writeOrThrow("Submit", () => post<SubmitResponse>(paths.submit(systemId, realizationId), body));

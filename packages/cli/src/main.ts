@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PlatformClient, rzPath } from "./api.ts";
 import { mergeAgentsBlock, renderAgentsMd } from "./agents-md.ts";
-import { CliError, assertId, assertRemote, assertToken, commitIfDirty, git, isTracked } from "./git.ts";
+import { CliError, assertId, assertRemote, assertSecret, assertToken, commitIfDirty, git, isTracked } from "./git.ts";
 import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
 
 export interface Io {
@@ -47,6 +47,7 @@ const DEFAULT_URL = "http://localhost:5173";
 const USAGE = `artyfact <command>
 
   start <realizationId> [--dir d] [--platform url] --system sid --evolution eid   (or ARTYFACT_SYSTEM / ARTYFACT_EVOLUTION)
+        needs ARTYFACT_TOKEN and ARTYFACT_SECRET from the platform's start-work response
   checkpoint "<message>"
   submit [--preview-url u] [--json]
   status [--json]
@@ -104,6 +105,16 @@ function readConfig(io: Io): { cfg: WorkspaceConfig; dir: string } {
   return { cfg, dir };
 }
 
+/** `ARTYFACT_SECRET` overrides the secret saved in `.artyfact.json`. */
+function secretFor(io: Io, cfg?: WorkspaceConfig): string {
+  const s = io.env.ARTYFACT_SECRET || cfg?.secret;
+  if (!s) throw new CliError("no realization secret; set ARTYFACT_SECRET (shown once when work is started)");
+  return assertSecret(s);
+}
+
+/** A client that authenticates as this realization. */
+const clientFor = (io: Io, cfg: WorkspaceConfig) => new PlatformClient(cfg.platform, secretFor(io, cfg));
+
 function tokenFor(io: Io): string {
   const t = io.env.ARTYFACT_TOKEN;
   if (!t) throw new CliError("no write token; set ARTYFACT_TOKEN for this command (it is never stored on disk)");
@@ -123,7 +134,14 @@ async function start(args: string[], io: Io): Promise<number> {
     throw new CliError("--system and --evolution (or ARTYFACT_SYSTEM / ARTYFACT_EVOLUTION) are required; the platform's printed CLI line includes them");
   const sysId = assertId("system id", sysArg);
   const evoId = assertId("evolution id", evoArg);
-  const client = new PlatformClient(platform);
+  const dir = resolve(io.cwd, values.dir ?? rid);
+  if (isLink(dir)) throw new CliError(`refusing symlinked directory: ${dir}`);
+  const priorCfg = (() => {
+    const f = join(dir, CONFIG);
+    try { return isLink(f) ? undefined : (JSON.parse(readFileSync(f, "utf8")) as WorkspaceConfig); } catch { return undefined; }
+  })();
+  const secret = secretFor(io, priorCfg?.realizationId === rid ? priorCfg : undefined);
+  const client = new PlatformClient(platform, secret);
 
   const payload = await client.request<PacketPayload>("GET", rzPath(sysId, evoId, rid, "/packet"));
   const packet = payload.packet;
@@ -133,15 +151,16 @@ async function start(args: string[], io: Io): Promise<number> {
   const realizationId = assertId("realization id", packet.realizationId ?? payload.realization?.id ?? rid);
   // The platform must not ship credentials in the packet; drop any that slip through before writing to disk.
   const leaked = [(packet.workspace as { token?: string } | undefined)?.token, payload.token?.value].filter((x): x is string => !!x);
-  if (packet.workspace) delete (packet.workspace as { token?: string }).token;
+  if (packet.workspace) {
+    delete (packet.workspace as { token?: string }).token;
+    delete packet.workspace.secret;
+  }
   const token = io.env.ARTYFACT_TOKEN || leaked[0];
   if (!token) throw new CliError("no write token; set ARTYFACT_TOKEN for this command (shown once when work is started)");
   assertToken(token);
-  const secrets = [...leaked, io.env.ARTYFACT_TOKEN].filter((x): x is string => !!x);
+  const secrets = [...leaked, io.env.ARTYFACT_TOKEN, secret].filter((x): x is string => !!x);
   const scrub = (text: string) => secrets.reduce((t, k) => t.replaceAll(k, "***"), text);
 
-  const dir = resolve(io.cwd, values.dir ?? rid);
-  if (isLink(dir)) throw new CliError(`refusing symlinked directory: ${dir}`);
   // A non-empty target is only acceptable if it is the clone we made for this realization.
   const reuse = existsSync(dir) && readdirSync(dir).length > 0;
   if (reuse) {
@@ -164,7 +183,7 @@ async function start(args: string[], io: Io): Promise<number> {
   const cfg: WorkspaceConfig = {
     platform, systemId, evolutionId: evoId, realizationId, forkRepo, remote,
     tokenExpires: payload.realization?.workspace?.tokenExpiresAt ?? payload.token?.expiresAt,
-    packetHash: packet.hash,
+    packetHash: packet.hash, secret,
   };
   // Per-realization files stay out of the fork: exclude them unless the repo already tracks them.
   if (isTracked(dir, "TASK_PACKET.md")) throw new CliError("TASK_PACKET.md is tracked in this repo; refusing to overwrite it");
@@ -192,8 +211,8 @@ async function checkpoint(args: string[], io: Io): Promise<number> {
   const message = positionals[0];
   if (!message) throw new CliError('usage: artyfact checkpoint "<message>"');
   const { cfg, dir } = readConfig(io);
+  const client = clientFor(io, cfg);
   const commit = commitIfDirty(dir, message);
-  const client = new PlatformClient(cfg.platform);
   await client.request("POST", rzPath(cfg.systemId, cfg.evolutionId, cfg.realizationId, "/checkpoints"), { message, summary: message, commit });
   io.out(`Checkpoint recorded at ${commit.slice(0, 12)}`);
   return 0;
@@ -218,11 +237,12 @@ async function submit(args: string[], io: Io): Promise<number> {
   const { values } = parse(args, { "preview-url": { type: "string" }, json: { type: "boolean" } });
   const { cfg, dir } = readConfig(io);
   const token = tokenFor(io);
+  const client = clientFor(io, cfg);
   const commit = commitIfDirty(dir, "artyfact submit");
   git(dir, ["push", "--", cfg.remote, "HEAD:main"], token);
   const body: { commit: string; previewUrl?: string } = { commit };
   if (values["preview-url"]) body.previewUrl = values["preview-url"];
-  const res = await new PlatformClient(cfg.platform).request<SubmitPayload>(
+  const res = await client.request<SubmitPayload>(
     "POST", rzPath(cfg.systemId, cfg.evolutionId, cfg.realizationId, "/submit"), body);
   if (values.json) { io.out(JSON.stringify(res, null, 2)); return 0; }
   io.out(`Submitted ${commit.slice(0, 12)}`);
@@ -233,7 +253,7 @@ async function submit(args: string[], io: Io): Promise<number> {
 async function status(args: string[], io: Io): Promise<number> {
   const { values } = parse(args, { json: { type: "boolean" } });
   const { cfg } = readConfig(io);
-  const res = await new PlatformClient(cfg.platform).request<{
+  const res = await clientFor(io, cfg).request<{
     realization?: { status?: string; workspace?: { tokenExpiresAt?: string } };
     status?: string; evaluations?: EvaluationRow[]; conflicts?: ConflictRow[];
   }>("GET", rzPath(cfg.systemId, cfg.evolutionId, cfg.realizationId));

@@ -18,8 +18,10 @@ fake judgments. To use TypeSafe, put `TYPESAFE_API_KEY` in `apps/platform/.dev.v
 ## 0. Prerequisites (once)
 
 - Node 24, git, jq, `openssl`.
-- `wrangler` logged in (`npx wrangler login`) and `cf` logged in (`cf auth login`). They log in separately, so check
-  that both show the same account before creating anything:
+- Run `npx wrangler login` first. `npm run dev`, `vite preview` and `npm run e2e` all fail without it, because the
+  Worker's Artifacts binding is remote even in local dev.
+- `cf` logged in (`cf auth login`). Wrangler and `cf` log in separately, so check that both show the same account
+  before creating anything:
 
   ```sh
   npx wrangler whoami      # account id 1bae12d5…a117f
@@ -123,11 +125,11 @@ replayed, so the UI refetches after it reconnects.
 ## 4. Two concurrent realizations on evolution.1 (about 4 s each)
 
 ```sh
-T=$(mktemp -d)      # private (0700); holds the responses with tokens for a moment
-curl -s -XPOST $B/evolutions/evolution.1/realizations -H 'content-type: application/json' -d '{"agentLabel":"agent-a"}' > $T/a.json &
-curl -s -XPOST $B/evolutions/evolution.1/realizations -H 'content-type: application/json' -d '{"agentLabel":"agent-b"}' > $T/b.json &
+T=$(mktemp -d)      # private (0700); holds the responses with tokens and secrets for a moment
+curl -s -XPOST $B/evolutions/evolution.1/realizations -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{"agentLabel":"agent-a"}' > $T/a.json &
+curl -s -XPOST $B/evolutions/evolution.1/realizations -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{"agentLabel":"agent-b"}' > $T/b.json &
 wait
-A=$(cat $T/a.json); Bj=$(cat $T/b.json); rm -rf $T     # keep the tokens in variables; never echo them
+A=$(cat $T/a.json); Bj=$(cat $T/b.json); rm -rf $T     # keep tokens and secrets in variables; never echo them
 for j in "$A" "$Bj"; do echo "$j" | jq -c '{realization: .realization.id, agent: .realization.agent.id, fork: .packet.workspace.fork, baseCommit: .packet.workspace.baseCommit, expiresAt: .token.expiresAt}'; done
 ```
 
@@ -136,23 +138,26 @@ for j in "$A" "$Bj"; do echo "$j" | jq -c '{realization: .realization.id, agent:
 {"realization":"realization.1.r1","agent":"agent-b","fork":"kit-app--r1","baseCommit":"daf5934e262aaf2634f93d220224a84203dc153d","expiresAt":"2026-10-12T15:32:18.650Z"}
 ```
 
-Each start forks the app repo, waits until the fork is ready, issues a 6-hour write token and builds the task packet.
+Start work is admin only. Each start forks the app repo, waits until the fork is ready, issues a 6-hour write token
+and a realization secret, and builds the task packet. The platform keeps only the secret's SHA-256; the agent sends
+the secret on its checkpoint, submit, sync, status and packet calls.
 When the two requests race, numbering follows arrival, so agent-a got `r2` here. The `cli` field is the canonical
 start line:
 
 ```text
-ARTYFACT_TOKEN=<redacted> npx artyfact start realization.1.r2 --system system.keep-in-touch --evolution evolution.1 --dir ./realization.1.r2
+ARTYFACT_TOKEN=<redacted> ARTYFACT_SECRET=<redacted> npx artyfact start realization.1.r2 --system system.keep-in-touch --evolution evolution.1 --dir ./realization.1.r2
 ```
 
 ## 5. Two agents work (terminals **A** and **B**)
 
 Run whichever agent you like on `TASK_PACKET.md`, or make the two edits by hand. Use the realization id from your
-start response.
+start response. `start` saves the secret in the clone's `.artyfact.json` (mode 0600, git-excluded), so later
+commands need only `ARTYFACT_TOKEN`, and only for `submit`.
 
 Terminal **A**:
 
 ```sh
-export ARTYFACT_TOKEN=$(echo "$A" | jq -r .token.value)
+export ARTYFACT_TOKEN=$(echo "$A" | jq -r .token.value) ARTYFACT_SECRET=$(echo "$A" | jq -r .secret)
 artyfact start realization.1.r2 --system system.keep-in-touch --evolution evolution.1 --dir /tmp/kit-a
 cd /tmp/kit-a
 # Add the AddContactDialog (markup in public/people/index.html) and its Save handler in
@@ -163,7 +168,7 @@ artyfact checkpoint "AddContactDialog markup and save handler"
 Terminal **B**:
 
 ```sh
-export ARTYFACT_TOKEN=$(echo "$Bj" | jq -r .token.value)
+export ARTYFACT_TOKEN=$(echo "$Bj" | jq -r .token.value) ARTYFACT_SECRET=$(echo "$Bj" | jq -r .secret)
 artyfact start realization.1.r1 --system system.keep-in-touch --evolution evolution.1 --dir /tmp/kit-b
 cd /tmp/kit-b
 # Owner-only read in src/worker/routes/contacts.ts: GET /api/contacts/:id answers another owner's record
@@ -304,9 +309,9 @@ curl -s $B/history | jq -c '.commits[] | {id, parent, genome: .genomeCommit[:12]
 ## 9. Genome amendment: start C (about 4 s)
 
 ```sh
-C=$(curl -s -XPOST $B/evolutions/evolution.5/realizations -H 'content-type: application/json' -d '{"agentLabel":"agent-c","target":"genome"}')
+C=$(curl -s -XPOST $B/evolutions/evolution.5/realizations -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{"agentLabel":"agent-c","target":"genome"}')
 echo "$C" | jq -c '{realization: .realization.id, target: .realization.target, fork: .packet.workspace.fork}'
-export ARTYFACT_TOKEN=$(echo "$C" | jq -r .token.value)
+export ARTYFACT_TOKEN=$(echo "$C" | jq -r .token.value) ARTYFACT_SECRET=$(echo "$C" | jq -r .secret)
 artyfact start realization.5.r3 --system system.keep-in-touch --evolution evolution.5 --dir /tmp/kit-c
 cd /tmp/kit-c
 ```
@@ -434,6 +439,9 @@ promotion, the 409 and history. Then it deletes every repo it created. Without t
   one for the fork and export it, without echoing it:
   `export ARTYFACT_TOKEN=$(npx wrangler artifacts repos issue-token kit-app--r1 --namespace artyfact --scope write --ttl 3600 --json | jq -r .plaintext)`.
   The JSON fields are `id`, `plaintext`, `scope` and `expires_at`. The plaintext looks like `art_v1_<hex>?expires=<unix>`.
+- **401/403 from a platform call:** start work needs `-H "authorization: Bearer $ADMIN_TOKEN"`. The CLI's calls
+  need the realization secret: it is in the clone's `.artyfact.json`, or set `ARTYFACT_SECRET` from the start
+  response. Another realization's secret, or the secret of a rejected realization, answers 403.
 - **Fork not ready:** start waits up to 20 s for the fork and then answers with an error. Forks were ready within
   the 4 s start in every run here. Retry the start. The failed realization is abandoned and its token revoked.
 - **409 `fork-exists` on start:** a fork with that name is left over from an earlier run and has moved past the base

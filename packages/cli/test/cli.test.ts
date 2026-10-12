@@ -1,12 +1,12 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, statSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { main } from "../src/main";
-import { assertId, assertRemote, assertToken, gitEnv } from "../src/git";
+import { assertId, assertRemote, assertSecret, assertToken, gitEnv } from "../src/git";
 
 const sh = (cwd: string, ...a: string[]) => execFileSync("git", a, { cwd, encoding: "utf8" }).trim();
 const tmp = mkdtempSync(join(tmpdir(), "artyfact-cli-"));
@@ -14,7 +14,9 @@ const bare = join(tmp, "fork.git");
 const REMOTE = "https://artifacts.invalid/git/ns/kit-app--r1.git";
 const REMOTE2 = "https://artifacts.invalid/git/ns/other.git";
 let packetRemote = REMOTE;
-const calls: { method: string; url: string; body: any }[] = [];
+const SECRET = "a1".repeat(32);
+const SECRET2 = "b2".repeat(32);
+const calls: { method: string; url: string; body: any; auth?: string }[] = [];
 let server: Server;
 let base = "";
 
@@ -52,7 +54,7 @@ beforeAll(async () => {
     let raw = "";
     req.on("data", (c) => (raw += c));
     req.on("end", () => {
-      calls.push({ method: req.method!, url: req.url!, body: raw ? JSON.parse(raw) : undefined });
+      calls.push({ method: req.method!, url: req.url!, body: raw ? JSON.parse(raw) : undefined, auth: req.headers.authorization });
       res.setHeader("content-type", "application/json");
       if (req.url!.endsWith("/packet")) return res.end(JSON.stringify({ packet: packet() }));
       if (req.url!.endsWith("/submit"))
@@ -67,9 +69,9 @@ beforeAll(async () => {
 });
 afterAll(() => server.close());
 
-function run(argv: string[], cwd = tmp) {
+function run(argv: string[], cwd = tmp, env: Record<string, string> = {}) {
   const out: string[] = [], err: string[] = [];
-  return main(argv, { cwd, env: { ...process.env, ARTYFACT_URL: base, ARTYFACT_TOKEN: "tok123" }, out: (s) => out.push(s), err: (s) => err.push(s) })
+  return main(argv, { cwd, env: { ...process.env, ARTYFACT_URL: base, ARTYFACT_TOKEN: "tok123", ARTYFACT_SECRET: SECRET, ...env }, out: (s) => out.push(s), err: (s) => err.push(s) })
     .then((code) => ({ code, out: out.join("\n"), err: err.join("\n") }));
 }
 
@@ -91,16 +93,22 @@ describe("artyfact cli", () => {
     expect(sh(ws, "status", "--porcelain")).toBe("");
     const ex = readFileSync(join(ws, ".git/info/exclude"), "utf8").split("\n");
     expect(ex).toEqual(expect.arrayContaining([".artyfact.json", "TASK_PACKET.md", "AGENTS.md"]));
+    expect(cfg.secret).toBe(SECRET);
+    expect(statSync(join(ws, ".artyfact.json")).mode & 0o777).toBe(0o600);
+    expect(calls.find((x) => x.url.endsWith("/packet"))!.auth).toBe(`Bearer ${SECRET}`);
+    expect(r.out).not.toContain(SECRET);
   });
 
   it("checkpoint commits and posts the commit", async () => {
     writeFileSync(join(ws, "b.txt"), "x");
-    const r = await run(["checkpoint", "added b"], ws);
+    // No ARTYFACT_SECRET: the secret saved by start authenticates the call.
+    const r = await run(["checkpoint", "added b"], ws, { ARTYFACT_SECRET: "" });
     expect(r.code).toBe(0);
     const c = calls.find((x) => x.url.endsWith("/checkpoints"))!;
     expect(c.url).toBe("/api/systems/system.keep-in-touch/evolutions/evolution.1/realizations/r-1/checkpoints");
     expect(c.body.message).toBe("added b");
     expect(c.body.commit).toBe(sh(ws, "rev-parse", "HEAD"));
+    expect(c.auth).toBe(`Bearer ${SECRET}`);
     expect(sh(ws, "show", "--name-only", "--format=", "HEAD")).toBe("b.txt");
   });
 
@@ -112,13 +120,29 @@ describe("artyfact cli", () => {
     expect(sh(bare, "rev-parse", "main")).toBe(head);
     const c = calls.find((x) => x.url.endsWith("/submit"))!;
     expect(c.body).toEqual({ commit: head, previewUrl: "http://p" });
+    expect(c.auth).toBe(`Bearer ${SECRET}`);
     expect(r.out).toMatch(/crit\.a\s+pass\s+completed/);
     expect(r.out).toContain("policy.ownerOnly");
   });
 
   it("status --json has stable shape", async () => {
-    const r = await run(["status", "--json"], ws);
+    // ARTYFACT_SECRET overrides the saved secret.
+    const r = await run(["status", "--json"], ws, { ARTYFACT_SECRET: SECRET2 });
+    expect(calls.at(-1)!.auth).toBe(`Bearer ${SECRET2}`);
     expect(JSON.parse(r.out)).toEqual({ realizationId: "r-1", status: "working", evaluations: [], conflicts: [], tokenExpires: "2030-01-01T00:00:00Z" });
+  });
+
+  it("start requires a well-formed realization secret and never echoes it", async () => {
+    const before = calls.length;
+    const none = await run(["start", "r-1", "--dir", join(tmp, "nosec"), "--system", "s", "--evolution", "e"], tmp, { ARTYFACT_SECRET: "" });
+    expect(none.code).toBe(1);
+    expect(none.err).toContain("ARTYFACT_SECRET");
+    const bad = await run(["start", "r-1", "--dir", join(tmp, "nosec"), "--system", "s", "--evolution", "e"], tmp, { ARTYFACT_SECRET: "x\r\nX-Evil: 1" });
+    expect(bad.code).toBe(1);
+    expect(bad.err).not.toContain("X-Evil");
+    expect(calls.length).toBe(before);
+    expect(() => assertSecret("A1".repeat(32))).toThrow();
+    expect(assertSecret(SECRET)).toBe(SECRET);
   });
 
   it("start requires --system and --evolution", async () => {
@@ -168,7 +192,11 @@ describe("artyfact cli", () => {
     it("writes the token to no file in the workspace or git config", () => {
       const walk = (d: string): string[] =>
         execFileSync("find", [d, "-type", "f", "-not", "-path", "*/objects/*"], { encoding: "utf8" }).split("\n").filter(Boolean);
-      for (const f of walk(ws)) expect(readFileSync(f, "utf8"), f).not.toContain("tok123");
+      for (const f of walk(ws)) {
+        expect(readFileSync(f, "utf8"), f).not.toContain("tok123");
+        // The realization secret lives only in the 0600, git-excluded config.
+        if (!f.endsWith(".artyfact.json")) expect(readFileSync(f, "utf8"), f).not.toContain(SECRET);
+      }
     });
 
     it("strips a token the platform leaks in the packet", async () => {
@@ -176,15 +204,16 @@ describe("artyfact cli", () => {
       const orig = packet;
       const leakyServer = createServer((_req, res) => {
         res.setHeader("content-type", "application/json");
-        const p = { ...orig(), markdown: "secret leaked-tok here", workspace: { remote: packetRemote, fork: "kit-app--r1", token: "leaked-tok" } };
+        const p = { ...orig(), markdown: `secret leaked-tok here ${SECRET}`, workspace: { remote: packetRemote, fork: "kit-app--r1", token: "leaked-tok", secret: SECRET } };
         res.end(JSON.stringify({ packet: p }));
       }).listen(0);
       await new Promise((r) => leakyServer.once("listening", r));
       const url = `http://127.0.0.1:${(leakyServer.address() as any).port}`;
-      const code = await main(["start", "r-1", "--dir", ws2, "--system", "system.keep-in-touch", "--evolution", "evolution.1"], { cwd: tmp, env: { ...process.env, ARTYFACT_URL: url, ARTYFACT_TOKEN: "" }, out: () => {}, err: () => {} });
+      const code = await main(["start", "r-1", "--dir", ws2, "--system", "system.keep-in-touch", "--evolution", "evolution.1"], { cwd: tmp, env: { ...process.env, ARTYFACT_URL: url, ARTYFACT_TOKEN: "", ARTYFACT_SECRET: SECRET }, out: () => {}, err: () => {} });
       leakyServer.close();
       expect(code).toBe(0);
       for (const f of ["TASK_PACKET.md", "AGENTS.md", ".artyfact.json"]) expect(readFileSync(join(ws2, f), "utf8")).not.toContain("leaked-tok");
+      for (const f of ["TASK_PACKET.md", "AGENTS.md"]) expect(readFileSync(join(ws2, f), "utf8")).not.toContain(SECRET);
     });
 
     it("lists .artyfact.json in the clone's .git/info/exclude", () => {
