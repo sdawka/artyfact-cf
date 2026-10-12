@@ -12,6 +12,6 @@ describe("FindingBody", () => {
     expect((await screen.findAllByText("rule.x")).length).toBeGreaterThan(0);
     expect(screen.getByText("Something is off")).toBeTruthy();
     expect(screen.getByText("error")).toBeTruthy();
-    expect(screen.getByRole("tree", { name: /Derivation of violation/ })).toBeTruthy();
+    expect(screen.getByLabelText(/Derivation of violation/)).toBeTruthy();
   });
 });
