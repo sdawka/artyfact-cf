@@ -1,0 +1,29 @@
+/* Effect tokens: glow, haze and ambient motion, derived from the whimsy palette. See README "Identity" for where they
+   may be used. Load after whimsy.css. */
+
+:root {
+  /* Glow colours: the accent and state colours at partial alpha, for box-shadow and drop-shadow. */
+  --glow-accent: oklch(0.79 0.125 60 / 0.42);
+  --glow-success: oklch(0.723 0.081 166.2 / 0.38);
+  --glow-error: oklch(0.686 0.107 25.3 / 0.42);
+  --glow-info: oklch(0.693 0.055 211.4 / 0.38);
+
+  /* Glow shadows: a hairline ring plus a soft bloom. For state emphasis and selection, never for plain cards. */
+  --shadow-glow-accent: 0 0 0 1px oklch(0.79 0.125 60 / 0.35), 0 0 18px -2px var(--glow-accent);
+  --shadow-glow-success: 0 0 0 1px oklch(0.723 0.081 166.2 / 0.3), 0 0 18px -2px var(--glow-success);
+  --shadow-glow-error: 0 0 0 1px oklch(0.686 0.107 25.3 / 0.35), 0 0 18px -2px var(--glow-error);
+  --shadow-glow-info: 0 0 0 1px oklch(0.693 0.055 211.4 / 0.3), 0 0 18px -2px var(--glow-info);
+
+  /* Haze: a low radial pool of accent light fading into the aubergine background. Backgrounds of signature areas only. */
+  --gradient-haze: radial-gradient(120% 80% at 50% 115%, oklch(0.79 0.125 60 / 0.14) 0%, oklch(0.18 0.018 286 / 0) 70%);
+  --gradient-haze-success: radial-gradient(120% 80% at 50% 115%, oklch(0.723 0.081 166.2 / 0.12) 0%, oklch(0.18 0.018 286 / 0) 70%);
+  --gradient-haze-error: radial-gradient(120% 80% at 50% 115%, oklch(0.686 0.107 25.3 / 0.14) 0%, oklch(0.18 0.018 286 / 0) 70%);
+
+  /* Ambient motion: slow loops such as breathing glows. Effects ease data changes over about this long. */
+  --motion-duration-ambient: 2400ms;
+  --motion-easing-ambient: cubic-bezier(0.37, 0, 0.63, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --motion-duration-ambient: 0ms; }
+}

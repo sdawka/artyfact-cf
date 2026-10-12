@@ -20,3 +20,66 @@
   flex-wrap: wrap;
   gap: var(--spacing-2);
 }
+.muted {
+  color: var(--color-text-secondary);
+}
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  margin-block: var(--spacing-2);
+}
+.orbGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
+  gap: var(--spacing-4);
+}
+.orbTile {
+  margin: 0;
+  display: grid;
+  gap: var(--spacing-2);
+  justify-items: start;
+}
+.orbBox {
+  width: 100%;
+  aspect-ratio: 1;
+  background: var(--color-background);
+  border-radius: var(--border-radius-lg);
+}
+.smallButton {
+  padding: var(--spacing-1) var(--spacing-3);
+  color: var(--color-text-primary);
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-md);
+  font: inherit;
+  cursor: pointer;
+}
+.ambientPanel {
+  position: relative;
+  height: 18rem;
+  overflow: hidden;
+  background: var(--color-background);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-lg);
+}
+.ambientText {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  padding: var(--spacing-4);
+  color: var(--color-text-secondary);
+}
+.glows {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-4);
+}
+.glow {
+  padding: var(--spacing-2) var(--spacing-4);
+  background: var(--color-surface-secondary);
+  border-radius: var(--border-radius-md);
+}
+.glow[data-glow="accent"] { box-shadow: var(--shadow-glow-accent); }
+.glow[data-glow="success"] { box-shadow: var(--shadow-glow-success); }
+.glow[data-glow="error"] { box-shadow: var(--shadow-glow-error); }
