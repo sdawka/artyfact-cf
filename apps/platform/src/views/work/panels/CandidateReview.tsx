@@ -8,6 +8,7 @@ import { verdictOf as verdictFor } from "@/model/status";
 import { useModel } from "@/model/useModel";
 import { useSelection, useSystemRoute } from "@/model/useSelection";
 import { EvaluationsTable } from "../../evaluations/EvaluationsTable";
+import { BuildChip } from "../BuildChip";
 import { aggregate, subjectGroups } from "../lib";
 import styles from "../work.module.css";
 
@@ -52,7 +53,7 @@ export function CandidateReview({ realization, candidate, evolution }: Props) {
         </button>
       </div>
       <p className={styles.rmeta}>
-        Candidate <code>{candidate.id}</code> · {candidate.state} · base <code>{candidate.baseRevision}</code>
+        Candidate <code>{candidate.id}</code> · {candidate.state} · base <code>{candidate.baseRevision}</code> · <BuildChip build={candidate.build} />
       </p>
       <Tabs<Tab> tabs={tabs} value={tab} onChange={setTab} label="Candidate review sections">
         {tab === "delta" && <SemanticDelta candidate={candidate} />}

@@ -1,6 +1,3 @@
-import { ViewStub } from "@/app/ViewStub";
+import PhenomeView from "./PhenomeView";
 
-/** Placeholder until its slice lands; renders the view's `h1` so the route works. */
-export default function PhenomeView() {
-  return <ViewStub view="phenome" />;
-}
+export default PhenomeView;

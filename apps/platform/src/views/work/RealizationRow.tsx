@@ -1,6 +1,7 @@
 import { memo } from "react";
 import type { Candidate, ConflictReport, Realization } from "../../../shared/api";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
+import { BuildChip } from "./BuildChip";
 import { ConflictChips } from "./ConflictChips";
 import { relTime, shortSha } from "./lib";
 import styles from "./work.module.css";
@@ -38,6 +39,7 @@ export const RealizationRow = memo(function RealizationRow({ realization: r, can
           {subjects.map((s) => <li key={s}><NodeChip id={s} size="sm" /></li>)}
         </ul>
       )}
+      {candidate && <div className={styles.rmeta}><BuildChip build={candidate.build} /></div>}
       <ConflictChips conflicts={conflicts} />
       <div className={styles.actions}>
         <button type="button" className={`u-brackets ${styles.btn}`} aria-pressed={reviewing} onClick={() => onReview(r.id)}>
