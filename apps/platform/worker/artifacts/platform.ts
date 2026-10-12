@@ -27,6 +27,12 @@ export function unsyncedWarning(systemId: string): Finding {
   return warning("platform.unsynced", systemId, `no '${PLATFORM_REPO}' repo in this namespace; run 'npx artyfact platform-sync' to record template and rule-pack provenance`);
 }
 
+/** `platform` could not be read (an Artifacts error other than not-found): the import goes on with this warning. */
+export function unreadableWarning(systemId: string, e: unknown): Finding {
+  const cls = artifactsErrorCode(e) ?? (e instanceof Error ? e.name : typeof e);
+  return warning("platform.unreadable", systemId, `could not read '${PLATFORM_REPO}' or check its pins (${cls}); the recorded platform provenance is kept`);
+}
+
 /** Head of `platform` and a warning per pin it lacks; `platform: null` + `platform.unsynced` when the repo is absent or empty. */
 export async function readPlatform(ns: ArtifactsNamespaceLike, systemId: string, m: Pick<SystemModel, "kits" | "templates">): Promise<{ platform: PlatformRef | null; warnings: Finding[] }> {
   try {

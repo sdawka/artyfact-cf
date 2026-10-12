@@ -6,13 +6,13 @@ import { diffModels, type Readiness, type schema, type SystemModel } from "@arty
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  CandidatesResponse, ConflictReport, Finding, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  CandidatesResponse, ConflictReport, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
 import { sha256Hex } from "./util";
 import { isName, systemRepoNames } from "@artyfact/cli/naming";
-import { readPlatform, unsyncedWarning } from "./artifacts/platform";
+import { readPlatform, unreadableWarning, unsyncedWarning } from "./artifacts/platform";
 import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
 import { buildGenome, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
@@ -135,6 +135,22 @@ function scaffoldSource(v: unknown): ScaffoldSource | undefined {
   return { repo: o.repo, commit: o.commit, ...(o.path && { path: o.path }) };
 }
 
+/**
+ * `platform`'s head and pin warnings for the canonical Genome. Never fails the import: when `platform` or the canonical
+ * Genome cannot be read, the recorded provenance is kept and a `platform.unreadable` warning says why.
+ */
+async function platformCheck(
+  env: Env, ns: ReturnType<typeof artifactsFor>, systemId: string, imported: SystemModel,
+  canonical: { commit: string; repo: string } | null, recorded: PlatformRef | null,
+): Promise<{ platform: PlatformRef | null; warnings: Finding[] }> {
+  try {
+    const model = canonical ? (await genomeAt(env, systemId, canonical.commit, canonical.repo)).model : imported;
+    return await readPlatform(ns, systemId, model);
+  } catch (e) {
+    return { platform: recorded, warnings: [unreadableWarning(systemId, e)] };
+  }
+}
+
 /** `genomeRepo`/`appRepo` are optional: omitted ones default to `<slug>.genome` / `<slug>.app`. */
 export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown }): Promise<ImportSystemResponse> {
   const { systemId } = body;
@@ -173,19 +189,19 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   const appArtifacts = g.model.things.flatMap((t) => t.artifacts).filter((a) => a.type === "worker-fullstack").map((a) => a.artifact);
   const appRepo = givenApp ?? systemRepoNames(systemId, appArtifacts).appRepo;
   const appCommit = await headOf(appRepo);
-  const { platform, warnings: importWarnings } = await readPlatform(ns, systemId, g.model);
   const stub = systemStub(env, systemId);
+  // Pins are checked against the Genome that will be canonical after this import, before the DO applies it: an import
+  // of exactly the last-imported commits keeps the current head (after an accepted amendment, not the imported Genome).
+  const [base, prior] = await Promise.all([stub.importBase(), stub.state()]);
+  const keepsHead = !!base && !!prior && base.genomeRepo === genomeRepo && base.genomeCommit === genomeCommit && base.appRepo === appRepo && base.appCommit === appCommit;
+  const canonical = keepsHead && prior.genomeCommit !== genomeCommit ? { commit: prior.genomeCommit, repo: prior.genomeSource } : null;
+  const { platform, warnings } = await platformCheck(env, ns, systemId, g.model, canonical, prior?.platform ?? null);
   const booted = await rpc(stub.bootstrap({
     systemId, title: g.model.system.name, phase: g.model.system.phase, genomeRepo, appRepo, genomeCommit, appCommit,
     evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model), platform, ...(scaffoldFrom && { scaffoldFrom }), force: body.force === true,
   }));
   if ("alreadyImported" in booted) throw conflict("already-imported", booted.alreadyImported);
   const system = booted;
-  // Pins are checked against the canonical Genome: after an accepted amendment it is no longer the imported one.
-  const canonical = await stub.state();
-  const warnings = canonical && canonical.genomeCommit !== genomeCommit
-    ? (await readPlatform(ns, systemId, (await genomeAt(env, systemId, canonical.genomeCommit, canonical.genomeSource)).model)).warnings
-    : importWarnings;
   await stub.putModelCache(genomeCommit, {
     files: JSON.stringify(Object.fromEntries(files)),
     model: JSON.stringify(serializeModel(g.model)),

@@ -343,6 +343,13 @@ export class SystemAuthority extends DurableObject<Env> {
    * Import: record repos + head commits, write the root System commit (or a new one when the imported
    * commits changed) and seed Evolutions. Idempotent for the same commits.
    */
+  /** Repos and commits of the last import (null before the first): an import of exactly these keeps the canonical head. */
+  importBase(): { genomeRepo: string; genomeCommit: string; appRepo: string; appCommit: string } | null {
+    const genomeRepo = this.kv("genome_repo");
+    if (!genomeRepo) return null;
+    return { genomeRepo, genomeCommit: this.kv("imported_genome_commit")!, appRepo: this.kv("app_repo")!, appCommit: this.kv("imported_app_commit")! };
+  }
+
   /** Returns `{ alreadyImported }` (not a throw) when re-pointing an imported System without `force`. */
   async bootstrap(input: BootstrapInput): Promise<SystemSummary | { alreadyImported: string }> {
     // Compare with what was last imported (not the current head), so re-importing unchanged repos after a
