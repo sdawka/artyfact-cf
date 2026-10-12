@@ -39,6 +39,7 @@ export interface ConflictRow {
 export interface WorkspaceConfig {
   platform: string;
   systemId: string;
+  evolutionId: string;
   realizationId: string;
   forkRepo: string;
   remote: string;

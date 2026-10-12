@@ -30,6 +30,6 @@ export class PlatformClient {
   }
 }
 
-/** Route builder: `/api/systems/:sid/realizations/:rid/...` (backend.md B.7). */
-export const rzPath = (systemId: string, rid: string, tail = "") =>
-  `/api/systems/${encodeURIComponent(systemId)}/realizations/${encodeURIComponent(rid)}${tail}`;
+/** Route builder: `/api/systems/:sid/evolutions/:eid/realizations/:rid/...` (backend.md B.7). */
+export const rzPath = (systemId: string, evolutionId: string, rid: string, tail = "") =>
+  `/api/systems/${encodeURIComponent(systemId)}/evolutions/${encodeURIComponent(evolutionId)}/realizations/${encodeURIComponent(rid)}${tail}`;

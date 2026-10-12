@@ -42,7 +42,7 @@ const DEFAULT_URL = "http://localhost:5173";
 
 const USAGE = `artyfact <command>
 
-  start <realizationId> [--dir d] [--platform url] [--system sid]
+  start <realizationId> [--dir d] [--platform url] --system sid --evolution eid   (or ARTYFACT_SYSTEM / ARTYFACT_EVOLUTION)
   checkpoint "<message>"
   submit [--preview-url u] [--json]
   status [--json]
@@ -90,6 +90,7 @@ function readConfig(io: Io): { cfg: WorkspaceConfig; dir: string } {
   const cfg = JSON.parse(readFileSync(file, "utf8")) as WorkspaceConfig;
   assertId("systemId in config", cfg.systemId);
   assertId("realizationId in config", cfg.realizationId);
+  assertId("evolutionId in config", cfg.evolutionId);
   return { cfg, dir };
 }
 
@@ -101,22 +102,22 @@ function tokenFor(io: Io): string {
 
 async function start(args: string[], io: Io): Promise<number> {
   const { values, positionals } = parse(args, {
-    dir: { type: "string" }, platform: { type: "string" }, system: { type: "string" },
+    dir: { type: "string" }, platform: { type: "string" }, system: { type: "string" }, evolution: { type: "string" },
   });
   const rid = positionals[0] && assertId("realization id", positionals[0]);
   if (!rid) throw new CliError("usage: artyfact start <realizationId> [--dir <d>]")  ;
   const platform = values.platform ?? io.env.ARTYFACT_URL ?? DEFAULT_URL;
-  if (values.system) assertId("system id", values.system);
+  const sysArg = values.system ?? io.env.ARTYFACT_SYSTEM;
+  const evoArg = values.evolution ?? io.env.ARTYFACT_EVOLUTION;
+  if (!sysArg || !evoArg)
+    throw new CliError("--system and --evolution (or ARTYFACT_SYSTEM / ARTYFACT_EVOLUTION) are required; the platform's printed CLI line includes them");
+  const sysId = assertId("system id", sysArg);
+  const evoId = assertId("evolution id", evoArg);
   const client = new PlatformClient(platform);
 
-  // With --system use the system-scoped route; otherwise discover the system from the packet.
-  const payload = values.system
-    ? await client.request<PacketPayload>("GET", rzPath(values.system, rid, "/packet"))
-    : await client.request<PacketPayload>("GET", `/api/realizations/${encodeURIComponent(rid)}/packet`);
+  const payload = await client.request<PacketPayload>("GET", rzPath(sysId, evoId, rid, "/packet"));
   const packet = payload.packet;
-  const systemIdRaw = values.system ?? packet.systemId ?? payload.systemId ?? payload.realization?.systemId;
-  if (!systemIdRaw) throw new CliError("packet carries no systemId; pass --system <id>");
-  const systemId = assertId("system id", systemIdRaw);
+  const systemId = sysId;
   const remote = assertHttpsUrl("workspace.remote", packet.workspace?.remote ?? payload.remote ?? payload.token?.remote);
   const forkRepo = assertId("fork repo", packet.workspace?.fork ?? payload.realization?.workspace?.fork);
   const realizationId = assertId("realization id", packet.realizationId ?? payload.realization?.id ?? rid);
@@ -143,7 +144,7 @@ async function start(args: string[], io: Io): Promise<number> {
   }
 
   const cfg: WorkspaceConfig = {
-    platform, systemId, realizationId, forkRepo, remote,
+    platform, systemId, evolutionId: evoId, realizationId, forkRepo, remote,
     tokenExpires: payload.realization?.workspace?.tokenExpiresAt ?? payload.token?.expiresAt,
     packetHash: packet.hash,
   };
@@ -169,7 +170,7 @@ async function checkpoint(args: string[], io: Io): Promise<number> {
   const { cfg, dir } = readConfig(io);
   const commit = commitIfDirty(dir, message);
   const client = new PlatformClient(cfg.platform);
-  await client.request("POST", rzPath(cfg.systemId, cfg.realizationId, "/checkpoints"), { message, summary: message, commit });
+  await client.request("POST", rzPath(cfg.systemId, cfg.evolutionId, cfg.realizationId, "/checkpoints"), { message, summary: message, commit });
   io.out(`Checkpoint recorded at ${commit.slice(0, 12)}`);
   return 0;
 }
@@ -198,7 +199,7 @@ async function submit(args: string[], io: Io): Promise<number> {
   const body: { commit: string; previewUrl?: string } = { commit };
   if (values["preview-url"]) body.previewUrl = values["preview-url"];
   const res = await new PlatformClient(cfg.platform).request<SubmitPayload>(
-    "POST", rzPath(cfg.systemId, cfg.realizationId, "/submit"), body);
+    "POST", rzPath(cfg.systemId, cfg.evolutionId, cfg.realizationId, "/submit"), body);
   if (values.json) { io.out(JSON.stringify(res, null, 2)); return 0; }
   io.out(`Submitted ${commit.slice(0, 12)}`);
   printEvals(io, res.evaluations ?? [], res.conflicts ?? []);
@@ -211,7 +212,7 @@ async function status(args: string[], io: Io): Promise<number> {
   const res = await new PlatformClient(cfg.platform).request<{
     realization?: { status?: string; workspace?: { tokenExpiresAt?: string } };
     status?: string; evaluations?: EvaluationRow[]; conflicts?: ConflictRow[];
-  }>("GET", rzPath(cfg.systemId, cfg.realizationId));
+  }>("GET", rzPath(cfg.systemId, cfg.evolutionId, cfg.realizationId));
   const out = {
     realizationId: cfg.realizationId,
     status: res.realization?.status ?? res.status ?? "unknown",

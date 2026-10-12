@@ -63,7 +63,7 @@ describe("artyfact cli", () => {
   const ws = join(tmp, "ws");
 
   it("start writes packet, AGENTS.md, config and excludes config", async () => {
-    const r = await run(["start", "r-1", "--dir", ws]);
+    const r = await run(["start", "r-1", "--dir", ws, "--system", "system.keep-in-touch", "--evolution", "evolution.1"]);
     expect(r.code).toBe(0);
     expect(readFileSync(join(ws, "TASK_PACKET.md"), "utf8")).toContain("Do it");
     const agents = readFileSync(join(ws, "AGENTS.md"), "utf8");
@@ -81,7 +81,7 @@ describe("artyfact cli", () => {
     const r = await run(["checkpoint", "added b"], ws);
     expect(r.code).toBe(0);
     const c = calls.find((x) => x.url.endsWith("/checkpoints"))!;
-    expect(c.url).toBe("/api/systems/system.keep-in-touch/realizations/r-1/checkpoints");
+    expect(c.url).toBe("/api/systems/system.keep-in-touch/evolutions/evolution.1/realizations/r-1/checkpoints");
     expect(c.body.message).toBe("added b");
     expect(c.body.commit).toBe(sh(ws, "rev-parse", "HEAD"));
   });
@@ -103,10 +103,16 @@ describe("artyfact cli", () => {
     expect(JSON.parse(r.out)).toEqual({ realizationId: "r-1", status: "working", evaluations: [], conflicts: [], tokenExpires: "2030-01-01T00:00:00Z" });
   });
 
+  it("start requires --system and --evolution", async () => {
+    const r = await run(["start", "r-1", "--dir", join(tmp, "nosys")]);
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("platform's printed CLI line");
+  });
+
   it("errors are non-zero without a stack", async () => {
     expect((await run(["status"], tmp)).code).toBe(1);
     expect((await run(["bogus"])).code).toBe(1);
-    const noTok = await main(["start", "r-9", "--dir", join(tmp, "x")], { cwd: tmp, env: { ARTYFACT_URL: base }, out: () => {}, err: () => {} });
+    const noTok = await main(["start", "r-9", "--dir", join(tmp, "x"), "--system", "s", "--evolution", "e"], { cwd: tmp, env: { ARTYFACT_URL: base }, out: () => {}, err: () => {} });
     expect(noTok).toBe(1);
     expect((await run(["compose", "r-1", "r-2"])).out).toContain("not implemented");
   });
@@ -137,7 +143,7 @@ describe("artyfact cli", () => {
       }).listen(0);
       await new Promise((r) => leakyServer.once("listening", r));
       const url = `http://127.0.0.1:${(leakyServer.address() as any).port}`;
-      const code = await main(["start", "r-1", "--dir", ws2], { cwd: tmp, env: { ...process.env, ARTYFACT_URL: url, ARTYFACT_TOKEN: "" }, out: () => {}, err: () => {} });
+      const code = await main(["start", "r-1", "--dir", ws2, "--system", "system.keep-in-touch", "--evolution", "evolution.1"], { cwd: tmp, env: { ...process.env, ARTYFACT_URL: url, ARTYFACT_TOKEN: "" }, out: () => {}, err: () => {} });
       leakyServer.close();
       expect(code).toBe(0);
       for (const f of ["TASK_PACKET.md", "AGENTS.md", ".artyfact.json"]) expect(readFileSync(join(ws2, f), "utf8")).not.toContain("leaked-tok");
@@ -154,7 +160,7 @@ describe("artyfact cli", () => {
       const dir = join(tmp, "evil");
       mkdirSync(dir);
       symlinkSync(victim, join(dir, "TASK_PACKET.md"));
-      const r = await run(["start", "r-1", "--dir", dir]);
+      const r = await run(["start", "r-1", "--dir", dir, "--system", "system.keep-in-touch", "--evolution", "evolution.1"]);
       expect(r.code).toBe(1);
       expect(readFileSync(victim, "utf8")).toBe("original");
     });
@@ -163,10 +169,10 @@ describe("artyfact cli", () => {
       const victim = join(tmp, "victim2.txt");
       writeFileSync(victim, "original");
       const dir = join(tmp, "ws3");
-      expect((await run(["start", "r-1", "--dir", dir])).code).toBe(0);
+      expect((await run(["start", "r-1", "--dir", dir, "--system", "system.keep-in-touch", "--evolution", "evolution.1"])).code).toBe(0);
       execFileSync("rm", [join(dir, "AGENTS.md")]);
       symlinkSync(victim, join(dir, "AGENTS.md"));
-      const r = await run(["start", "r-1", "--dir", dir]);
+      const r = await run(["start", "r-1", "--dir", dir, "--system", "system.keep-in-touch", "--evolution", "evolution.1"]);
       expect(r.code).toBe(1);
       expect(readFileSync(victim, "utf8")).toBe("original");
     });
