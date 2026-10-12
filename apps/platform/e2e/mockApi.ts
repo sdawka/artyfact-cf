@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { Page, Route } from "@playwright/test";
 import type {
-  Build, ChangelogEntry, ChangelogRow, Deployment, DeploymentsResponse, FileResponse, FilesResponse, GenomeCompare, ModelBundle,
+  Build, ChangelogEntry, ChangelogRow, Deployment, DeploymentsResponse, FileCompare, FileResponse, FilesResponse, GenomeCompare, ModelBundle,
   PhenomeEventsResponse, RevisionOption, SystemCommit, SystemCompare, SystemSummary,
 } from "../shared/api";
 
@@ -9,7 +9,8 @@ import type {
  * Route mock for populated visuals in fixture mode: `await mockApi(page)` before `page.goto` makes `/api/**` answer
  * from {@link MockData} (override any part with `mockApi(page, { builds: [...] })`), so the SPA runs in API mode with
  * realistic data and no backend. Unlisted API routes answer 404 `not-found`; the SSE stream answers 204 (the client
- * then polls). Every list is newest first, like the server.
+ * then polls). Every list is newest first, like the server. Non-GET requests answer 405 `method-not-allowed` unless
+ * `writes` handles them (return true once the route is fulfilled), so a write flow never reads a GET body by mistake.
  */
 export interface MockData {
   systems: SystemSummary[];
@@ -27,6 +28,8 @@ export interface MockData {
   builds: Build[];
   deployments: DeploymentsResponse;
   phenome: PhenomeEventsResponse;
+  /** Handler for POST/PUT/PATCH/DELETE; return true when it fulfilled the route. */
+  writes?: (route: Route, url: URL) => Promise<boolean> | boolean;
 }
 
 export const SID = "system.keep-in-touch";
@@ -114,7 +117,8 @@ export function defaultMockData(): MockData {
         genomeCommit: GENOME, phase: "unrealized", evolutionCounts: { proposed: 1 }, updatedAt: minutesAgo(60 * 5),
         built: false, realizationCounts: { evolving: 0, pending: 1, awaitingAdmin: 1 }, openCandidates: 0, latestBuild: null,
         deployment: { production: null, previews: 0 }, deployState: "none", phenome: { events: 0 }, readiness: { errors: 2, missing: 3 },
-        signifiers: ["pending-realization", "awaiting-admin", "not-fully-built", "unrealized"],
+        // A Genome candidate awaits accept, so candidates exist: `unrealized` (no candidates ever) does not apply.
+        signifiers: ["pending-realization", "awaiting-admin", "not-fully-built"],
       },
     ],
     bundles: { [SID]: { ...bundle, revision: "head" } },
@@ -170,6 +174,10 @@ export async function mockApi(page: Page, overrides: Partial<MockData> = {}): Pr
 
   await page.route((url) => url.pathname.startsWith("/api/"), async (route) => {
     const url = new URL(route.request().url());
+    if (route.request().method() !== "GET") {
+      if (data.writes && (await data.writes(route, url))) return;
+      return json(route, { error: { code: "method-not-allowed", message: `${route.request().method()} ${url.pathname} is not mocked` } }, 405);
+    }
     const q = url.searchParams;
     const parts = url.pathname.split("/").slice(2).map(decodeURIComponent); // ["systems", id, ...rest]
     if (parts[0] === "health") return json(route, { status: "ok", service: "artyfact-platform", time: new Date().toISOString() });
@@ -207,7 +215,10 @@ export async function mockApi(page: Page, overrides: Partial<MockData> = {}): Pr
           const path = q.get("path") ?? "";
           const text = data.files[scope][path] ?? null;
           const side = (ref: string) => ({ ref, repo: `mock/${scope}`, commit: HEAD_APP, hash: text === null ? null : `h-${path}`, text, size: text?.length ?? 0 });
-          return json(route, { path, from: { ...side(q.get("from") ?? "parent"), text: null, hash: null, size: 0 }, to: side(q.get("to") ?? "head"), truncated: false, binary: false });
+          const body: FileCompare = {
+            path, from: { ...side(q.get("from") ?? "parent"), text: null, hash: null, size: 0 }, to: side(q.get("to") ?? "head"), truncated: false, binary: false,
+          };
+          return json(route, body);
         }
         return notFound(route, url.pathname);
       case "files":
