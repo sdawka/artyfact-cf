@@ -110,6 +110,9 @@ export async function createEvolution(page: Page, title: string, intent: string,
     await page.getByLabel("Affected nodes").fill(n);
     await page.getByRole("button", { name: "Add node" }).click();
   }
+  // All criteria are checked by default and hard ones gate Accept; these flows only edit the Genome, so start with none.
+  const boxes = page.getByRole("group", { name: "Acceptance criteria" }).getByRole("checkbox");
+  for (const box of await boxes.all()) await box.uncheck();
   await page.getByLabel("Admin token").fill(token);
   await page.getByRole("button", { name: "Create Evolution" }).click();
   await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
