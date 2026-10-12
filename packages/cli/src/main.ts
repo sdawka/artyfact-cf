@@ -56,6 +56,8 @@ const USAGE = `artyfact <command>
         needs ARTYFACT_TOKEN and ARTYFACT_SECRET from the platform's start-work response
   checkpoint "<message>"
   submit [--preview-url u] [--json]
+  build-report --status queued|running|passed|failed|error [--url u] [--commit sha] [--logs-url u] [--error msg] [--json]
+        report a preview build of this realization when platform CI did not (defaults: commit = HEAD)
   status [--json]
   compose <rid> <rid> ...
 
@@ -79,6 +81,7 @@ export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
       case "start": return await start(rest, full);
       case "checkpoint": return await checkpoint(rest, full);
       case "submit": return await submit(rest, full);
+      case "build-report": return await buildReport(rest, full);
       case "status": return await status(rest, full);
       case "compose": return compose(rest, full);
       case undefined: case "help": case "--help": full.out(USAGE); return cmd ? 0 : 1;
@@ -260,6 +263,35 @@ async function submit(args: string[], io: Io): Promise<number> {
   if (values.json) { io.out(JSON.stringify(res, null, 2)); return 0; }
   io.out(`Submitted ${commit.slice(0, 12)}`);
   printEvals(io, res.evaluations ?? [], res.conflicts ?? []);
+  return 0;
+}
+
+const BUILD_STATUSES = ["queued", "running", "passed", "failed", "error"];
+const HTTP_URL = /^https?:\/\/[^\s]+$/;
+
+/** The agent's fallback for platform CI: report this realization's preview build (a `passed` URL re-runs the hooks). */
+async function buildReport(args: string[], io: Io): Promise<number> {
+  const { values } = parse(args, {
+    status: { type: "string" }, url: { type: "string" }, commit: { type: "string" }, "logs-url": { type: "string" }, error: { type: "string" }, json: { type: "boolean" },
+  });
+  const status = values.status;
+  if (!status || !BUILD_STATUSES.includes(status)) throw new CliError(`--status must be one of ${BUILD_STATUSES.join(", ")}`);
+  for (const k of ["url", "logs-url"] as const) {
+    if (values[k] !== undefined && !HTTP_URL.test(values[k]!)) throw new CliError(`--${k} must be an http(s) URL`);
+  }
+  if (status === "passed" && !values.url) io.err("note: a passed report without --url records the build but cannot run the preview health check");
+  const { cfg, dir } = readConfig(io);
+  const commit = values.commit ?? git(dir, ["rev-parse", "HEAD"]);
+  if (!/^[0-9a-f]{40}$/.test(commit)) throw new CliError("--commit must be a 40-character hex sha");
+  const body: Record<string, string> = { status, commit, kind: "preview" };
+  if (values.url) body.url = values.url;
+  if (values["logs-url"]) body.logsUrl = values["logs-url"];
+  if (values.error) body.error = values.error.slice(0, 4000);
+  const res = await clientFor(io, cfg).request<{ build?: { id?: string; status?: string }; evaluations?: EvaluationRow[] }>(
+    "POST", `/api/systems/${encodeURIComponent(cfg.systemId)}/realizations/${encodeURIComponent(cfg.realizationId)}/builds`, body);
+  if (values.json) { io.out(JSON.stringify(res, null, 2)); return 0; }
+  io.out(`Build ${res.build?.id ?? "?"} for ${commit.slice(0, 12)}: ${res.build?.status ?? status}`);
+  if (res.evaluations) printEvals(io, res.evaluations, []);
   return 0;
 }
 

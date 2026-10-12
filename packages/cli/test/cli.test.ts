@@ -61,6 +61,9 @@ beforeAll(async () => {
         return res.end(JSON.stringify({ evaluations: [{ criterion: "crit.a", verdict: "pass", execution: "completed" }],
           conflicts: [{ kind: "soft-semantic", subjects: ["policy.ownerOnly"], message: "overlap" }] }));
       if (req.url!.endsWith("/checkpoints")) return res.end("{}");
+      if (req.url!.endsWith("/builds"))
+        return res.end(JSON.stringify({ build: { id: "build.r-1.abc1234.agent", status: JSON.parse(raw).status },
+          evaluations: [{ criterion: "crit.health", verdict: "pass", execution: "completed" }] }));
       res.end(JSON.stringify({ realization: { status: "working", workspace: { tokenExpiresAt: "2030-01-01T00:00:00Z" } }, evaluations: [], conflicts: [] }));
     });
   }).listen(0);
@@ -86,6 +89,7 @@ describe("artyfact cli", () => {
     expect(agents).toContain("src/ui/people/**");
     expect(agents).toContain("crit.a, crit.b");
     expect(agents).toContain("npm install; npm test");
+    expect(agents).toContain("npx artyfact build-report --status passed --url");
     const cfg = JSON.parse(readFileSync(join(ws, ".artyfact.json"), "utf8"));
     expect(cfg).toMatchObject({ platform: base, systemId: "system.keep-in-touch", realizationId: "r-1", forkRepo: "kit-app--r1", remote: REMOTE, packetHash: "abc" });
     expect(readFileSync(join(ws, ".git/info/exclude"), "utf8")).toContain(".artyfact.json");
@@ -123,6 +127,30 @@ describe("artyfact cli", () => {
     expect(c.auth).toBe(`Bearer ${SECRET}`);
     expect(r.out).toMatch(/crit\.a\s+pass\s+completed/);
     expect(r.out).toContain("policy.ownerOnly");
+  });
+
+  it("build-report posts a preview build for HEAD with the realization secret and prints evaluations", async () => {
+    const r = await run(["build-report", "--status", "passed", "--url", "https://kit-app-r1.dawka.workers.dev"], ws);
+    expect(r.code).toBe(0);
+    const c = calls.at(-1)!;
+    expect(c.method).toBe("POST");
+    expect(c.url).toBe("/api/systems/system.keep-in-touch/realizations/r-1/builds");
+    expect(c.body).toEqual({ status: "passed", commit: sh(ws, "rev-parse", "HEAD"), kind: "preview", url: "https://kit-app-r1.dawka.workers.dev" });
+    expect(c.auth).toBe(`Bearer ${SECRET}`);
+    expect(r.out).toContain("build.r-1.abc1234.agent");
+    expect(r.out).toMatch(/crit\.health\s+pass/);
+  });
+
+  it("build-report validates status, URLs and commit before calling the platform", async () => {
+    const before = calls.length;
+    expect((await run(["build-report", "--status", "done"], ws)).err).toContain("--status must be one of");
+    expect((await run(["build-report", "--status", "passed", "--url", "javascript:alert(1)"], ws)).err).toContain("--url must be an http(s) URL");
+    expect((await run(["build-report", "--status", "failed", "--commit", "abc"], ws)).err).toContain("40-character");
+    expect(calls.length).toBe(before);
+    const failed = await run(["build-report", "--status", "failed", "--error", "tests failed", "--json"], ws);
+    expect(failed.code).toBe(0);
+    expect(calls.at(-1)!.body).toMatchObject({ status: "failed", error: "tests failed" });
+    expect(JSON.parse(failed.out).build.status).toBe("failed");
   });
 
   it("commitIfDirty never stages node_modules, .wrangler or secret files, even without any ignore rules", () => {
