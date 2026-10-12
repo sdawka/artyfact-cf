@@ -18,6 +18,15 @@ describe("Overview", () => {
     expect(screen.getByText(/Is the Purpose being achieved/)).toBeTruthy();
   });
 
+  it("does not paint a zero pass count in the success tone", async () => {
+    renderApp("/s/system.keep-in-touch/r/head/overview");
+    const conformance = await screen.findByRole("region", { name: "Implementation conformance" });
+    const pass = within(conformance).getByText("pass", { selector: "li > span" }).closest("li")!;
+    expect(pass.textContent).toContain("0");
+    expect(pass.getAttribute("data-tone")).not.toBe("pass");
+    expect(conformance.querySelector('[data-tone="pass"]')).toBeNull();
+  });
+
   it("lists kit.unpinned with an expandable derivation", async () => {
     renderApp("/s/system.keep-in-touch/r/head/overview");
     const row = (await screen.findByText("kit.unpinned")).closest("li")!;
