@@ -220,12 +220,13 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model), platform, ...(scaffoldFrom && { scaffoldFrom }), force: body.force === true,
   }));
   if ("alreadyImported" in booted) throw conflict("already-imported", booted.alreadyImported);
-  const system = booted;
   await stub.putModelCache(genomeCommit, cacheParts(genomeCommit, {
     files: JSON.stringify(Object.fromEntries(files)),
     model: JSON.stringify(serializeModel(g.model)),
     rules: JSON.stringify(g.readiness),
   }));
+  // Re-read the summary now that the rules readiness is cached (B5: readiness counts and signifiers).
+  const system = (await systemStub(env, systemId).summary()) ?? booted;
   await registryStub(env).registerSystem(system);
   return { system, head: system.head!, genomeRepo, appRepo, genomeCommit, appCommit, evolutions: g.model.evolutions.map((e) => e.id), platform, warnings };
 }
@@ -326,6 +327,7 @@ async function concurrentWork(env: Env, systemId: string, evolutionId: string, e
 
 export async function startWork(env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string): Promise<StartWorkResponse> {
   if (body.target !== undefined && body.target !== "app" && body.target !== "genome") throw badRequest("target must be app or genome");
+  if (body.origin !== undefined && body.origin !== "cli" && body.origin !== "editor") throw badRequest("origin must be cli or editor");
   const stub = systemStub(env, systemId);
   const s = await headState(env, systemId);
   const evoDto = await stub.evolution(evolutionId);
@@ -335,7 +337,6 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
   const target = body.target ?? (evolution.kind === "genome-amendment" ? "genome" : "app");
 
   await skipTakenForkNames(env, stub, target);
-  if (body.origin !== undefined && body.origin !== "cli" && body.origin !== "editor") throw badRequest("origin must be cli or editor");
   const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin }));
   const rid = reserved.realization.id;
   let tokenId: string | undefined;
