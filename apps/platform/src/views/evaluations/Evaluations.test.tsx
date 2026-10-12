@@ -32,6 +32,16 @@ describe("Evaluations view", () => {
     expect(screen.getByText("No evaluations match these filters.")).toBeTruthy();
   });
 
+  it("starts filtered to ?criterion=", async () => {
+    renderApp(`${URL}?criterion=C.webapp.health`, undefined, seed([
+      evaluation({ id: "e1", criterion: "C.webapp.exists" }),
+      evaluation({ id: "e2", criterion: "C.webapp.health", verdict: "fail" }),
+    ]));
+    await screen.findByRole("table");
+    expect((screen.getByLabelText("Criterion") as HTMLSelectElement).value).toBe("C.webapp.health");
+    expect(screen.getAllByRole("row")).toHaveLength(2);
+  });
+
   it("tags rows whose provenance provider includes fake, and only those", async () => {
     renderApp(URL, undefined, seed([
       evaluation({ id: "e1", criterion: "C.webapp.exists", provenance: { engine: "system-one", provider: "fake,off" } }),

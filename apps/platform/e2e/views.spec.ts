@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { checkA11yAndShoot, open, successToneElements } from "./helpers";
+import { mockApi } from "./mockApi";
 
 test.describe("views", () => {
   test("overview: P1, three meters with distinct captions, literal unknown", async ({ page }, testInfo) => {
@@ -142,6 +143,47 @@ test.describe("views", () => {
     await expect(page.getByText("No evaluations yet — nothing is known")).toBeVisible();
     expect(await successToneElements(page)).toEqual([]);
     await checkA11yAndShoot(page, testInfo, "evaluations-empty");
+  });
+
+  test("changelog empty state is never green @fixture", async ({ page }, testInfo) => {
+    await open(page, "/changelog", "Changelog");
+    await expect(page.getByText(/No System commits yet/)).toBeVisible();
+    expect(await successToneElements(page)).toEqual([]);
+    await checkA11yAndShoot(page, testInfo, "changelog-empty");
+  });
+
+  test("changelog: ?commit= expands the entry; only a passed build and a pass verdict are green @fixture", async ({ page }, testInfo) => {
+    await mockApi(page);
+    await open(page, "/changelog?commit=sc-2", "Changelog");
+    const list = page.getByRole("list", { name: "System commits, newest first" });
+    await expect(list.getByRole("button", { name: /^sc-2/ })).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByText("nodes +2 ~1 −0 · 4 files · 3 criteria")).toBeVisible();
+    const files = page.getByRole("region", { name: "Files" });
+    await expect(files.getByRole("link", { name: "src/screens/People.tsx" })).toHaveAttribute("href", /\/r\/sc-2\/code\?repo=app&path=src%2Fscreens%2FPeople\.tsx/);
+    await expect(page.getByRole("link", { name: "Compare with parent" })).toBeVisible();
+    // Green only inside a tagged pass element (the badge's ✓ glyph included), and every tagged one says pass/passed.
+    for (const hit of await successToneElements(page)) expect(hit).toMatch(/pass|: ✓$/);
+    for (const text of await page.locator('[data-tone="pass"]').allInnerTexts()) expect(text).toMatch(/pass/);
+    await checkA11yAndShoot(page, testInfo, "changelog-entry");
+  });
+
+  test("compare: file level shows a line diff of an added file @fixture", async ({ page }, testInfo) => {
+    await mockApi(page);
+    await open(page, "/compare?level=files&path=src/screens/People.tsx", "Compare");
+    await expect(page.getByLabel("From", { exact: true })).toHaveValue("sc-1");
+    await expect(page.getByLabel("To", { exact: true })).toHaveValue("head");
+    const diff = page.getByRole("table", { name: "src/screens/People.tsx" });
+    await expect(diff.locator('[data-op="add"]')).toHaveCount(3);
+    await expect(diff.locator('[data-op="del"]')).toHaveCount(0);
+    expect(await successToneElements(page)).toEqual([]);
+    await checkA11yAndShoot(page, testInfo, "compare-files");
+  });
+
+  test("compare: System level table @fixture", async ({ page }, testInfo) => {
+    await mockApi(page);
+    await open(page, "/compare", "Compare");
+    await expect(page.getByRole("table", { name: "System commits compared" })).toBeVisible();
+    await checkA11yAndShoot(page, testInfo, "compare-system");
   });
 
   test("deployments: empty state says unknown and nothing is green", async ({ page }, testInfo) => {

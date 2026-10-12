@@ -155,11 +155,21 @@ starts with `[name, systemId]`, so `invalidateQueries({ queryKey: [name, systemI
   renders only for `passed` / `pass`; `buildTone(status)` maps a build status to a tone.
 - `RevisionPicker { id, label, value, onChange, options }`: labelled native select grouped Head · System commits ·
   Candidates (options from `useRevisions()`); an unlisted `value` stays selectable.
+- `LineDiff { from, to, label, context? }`: unified line diff (`data-op add|del|ctx`, sign cells, 3 lines of context, longer
+  unchanged runs behind "… n unchanged lines"); a null side means the file was added / removed. Pure core: `hunks.ts` `lineDiff()`.
 - `CodeView { value, path, label, readOnly?, onChange? }` (default export; always `lazy()`-import it): CodeMirror 6 with line
   numbers, yaml/js/ts/json/md by extension and token colours; read-only sets `aria-readonly`. Tests: `@/testing/codemirror`
   `editorText(root)`, `typeInEditor(root, text)` (throws when read-only).
 - `CopyButton { value, label? }` (announces "Copied" / "Copy failed"), `EmptyState { title, children?, action?, live? }` (`live` adds `role="status"`),
   `Breadcrumbs { ids, label? }`, `KeyValue { data, omit? }` (strings that are ids render as chips).
+
+## Views added in iteration 2
+
+- `views/changelog`: System commits newest first; a row expands into its `ChangelogEntry` (`?commit=` expands and marks one,
+  `?evolution=` filters, `?panel=new` opens the New Evolution panel). `views/compare/genomeDelta.ts` joins an id-level
+  `ModelDelta` with both sides' models for `SemanticDelta`.
+- `views/compare`: two `RevisionPicker`s + Swap, levels System / Genome / Files (`?from=&to=&level=&repo=&path=`).
+- `views/work/panels/NewEvolutionPanel.tsx`: admin form behind "+ Evolution" (Work and Changelog).
 
 ## Inspector (`inspector/`)
 

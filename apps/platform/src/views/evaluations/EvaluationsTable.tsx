@@ -16,15 +16,17 @@ interface Props {
   expandedId?: string | null;
   onExpand?(id: string | null): void;
   emptyTitle?: string;
+  /** Initial criterion filter (the view passes `?criterion=`). */
+  initialCriterion?: string | null;
 }
 
 const ALL = "";
 
 /** Evidence table: filter by candidate / criterion / verdict / execution; expand a row for the full evaluation. */
-export function EvaluationsTable({ evaluations, compact, expandedId, onExpand, emptyTitle }: Props) {
+export function EvaluationsTable({ evaluations, compact, expandedId, onExpand, emptyTitle, initialCriterion }: Props) {
   const uid = useId();
   const [candidate, setCandidate] = useState(ALL);
-  const [criterion, setCriterion] = useState(ALL);
+  const [criterion, setCriterion] = useState(initialCriterion ?? ALL);
   const [verdict, setVerdict] = useState<UiVerdict | typeof ALL>(ALL);
   const [execution, setExecution] = useState(ALL);
   const [local, setLocal] = useState<string | null>(null);
@@ -37,7 +39,10 @@ export function EvaluationsTable({ evaluations, compact, expandedId, onExpand, e
 
   const sorted = useMemo(() => newestFirst(evaluations), [evaluations]);
   const candidates = useMemo(() => [...new Set(evaluations.map((e) => e.candidate))].sort(), [evaluations]);
-  const criteria = useMemo(() => [...new Set(evaluations.map((e) => e.criterion))].sort(), [evaluations]);
+  const criteria = useMemo(
+    () => [...new Set([...evaluations.map((e) => e.criterion), ...(initialCriterion ? [initialCriterion] : [])])].sort(),
+    [evaluations, initialCriterion],
+  );
   const rows = sorted.filter(
     (e) =>
       (!candidate || e.candidate === candidate) &&
