@@ -14,6 +14,11 @@ const brief = (r: ReturnType<typeof run>, level?: string) =>
 const ONTO = "things/app/ontology.yaml";
 
 describe("validate with the real packs", () => {
+  it("allows a Genome-only Thing with no Parts or artifacts", () => {
+    const f = edit(files, "things/app/thing.yaml", /artifacts:\n  - \{ artifact: artifact\.app, type: worker-fullstack, repo: mini-app \}\n/, "artifacts: []\n");
+    expect(brief(run(f), "error")).toEqual([]);
+  });
+
   it("clean fixture → 0 errors, documented warnings, pinned pack hashes", () => {
     const m = loadSystem(files, { templates: store() });
     const packs = packsFor(m.kits.rulePacks);

@@ -3,7 +3,7 @@ import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
   ApiError, BuildReportResponse, BuildsResponse, CandidatesResponse, CiBuildParams, DeploymentCreated, DeploymentsResponse, ImportSystemResponse,
-  IngestTokenResponse, PromoteResponse, RealizationResponse, StartWorkResponse, SubmitResponse, SystemSummary,
+  IngestTokenResponse, PromoteResponse, RealizationResponse, RealizedArtifactsResponse, StartWorkResponse, SubmitResponse, SystemSummary,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { ensurePushSubscription, removePushSubscription, setSubscriptionsOverride, subscriptionBody } from "../worker/artifacts/subscriptions";
@@ -114,6 +114,42 @@ const inDo = <T>(systemId: string, fn: (i: SystemAuthority, state: DurableObject
 
 describe("builds store (DO)", () => {
   const C1 = "1".repeat(40), C2 = "2".repeat(40);
+
+  it("records one independently identified realized artifact per build while preserving shared source lineage", async () => {
+    await inDo(`system.outputs${++seq}`, (i) => {
+      const lineage = {
+        realization: null, candidate: null, commit: C1, kind: "production" as const, status: "passed" as const, reporter: "ci" as const,
+        sourceRepo: "kit-app", genomeCommit: C2, thingId: "thing.webapp", artifactId: "artifact.webapp",
+      };
+      const first = i.upsertBuild({ id: "build.one", ...lineage, output: { locator: "workers-version:v1", digest: "sha256:one" } }).build;
+      const second = i.upsertBuild({ id: "build.two", ...lineage, output: { locator: "workers-version:v2", digest: "sha256:two" } }).build;
+
+      expect(first.output).toMatchObject({
+        id: "output.build.one", build: "build.one", thingId: "thing.webapp", artifactId: "artifact.webapp",
+        source: { repo: "kit-app", commit: C1 }, genomeCommit: C2, locator: "workers-version:v1", digest: "sha256:one",
+      });
+      expect(second.output).toMatchObject({ id: "output.build.two", build: "build.two", source: { repo: "kit-app", commit: C1 } });
+      expect(i.realizedArtifacts().map((x) => x.id).sort()).toEqual(["output.build.one", "output.build.two"]);
+      expect(i.realizedArtifactForBuild("build.one")).toEqual(first.output);
+      expect(i.realizedArtifact("output.build.two")).toEqual(second.output);
+    });
+  });
+
+  it("does not invent outputs and refuses output mutation or ownership drift on replay", async () => {
+    await inDo(`system.output-replay${++seq}`, (i) => {
+      const base = {
+        id: "build.same", realization: null, candidate: null, commit: C1, kind: "production" as const, status: "passed" as const, reporter: "ci" as const,
+        sourceRepo: "kit-app", genomeCommit: C2, thingId: "thing.webapp", artifactId: "artifact.webapp",
+      };
+      expect(i.upsertBuild(base).build.output).toBeUndefined();
+      expect(i.realizedArtifacts()).toEqual([]);
+      const created = i.upsertBuild({ ...base, output: { digest: "sha256:same" } }).build.output;
+      expect(created).toMatchObject({ id: "output.build.same", digest: "sha256:same" });
+      expect(i.upsertBuild({ ...base, output: { digest: "sha256:same" } }).build.output).toEqual(created);
+      expect(() => i.upsertBuild({ ...base, output: { digest: "sha256:different" } })).toThrow(/cannot change/i);
+      expect(() => i.upsertBuild({ ...base, thingId: "thing.other", output: { digest: "sha256:same" } })).toThrow(/lineage/i);
+    });
+  });
 
   it("upserts idempotently and never lets a late running report replace a terminal status", async () => {
     await inDo(`system.store${++seq}`, (i) => {
@@ -303,7 +339,8 @@ describe("build report routes", () => {
     const a = await submitted(ctx);
     const path = `/systems/${ctx.systemId}/realizations/${a.rid}/builds`;
     for (const bad of [{ status: "done", commit: a.commit }, { status: "passed", commit: "abc" }, { status: "passed", commit: a.commit, url: "javascript:x" },
-      { status: "passed", commit: a.commit, steps: [{ name: "x" }] }, { status: "passed", commit: a.commit, id: "../x" }]) {
+      { status: "passed", commit: a.commit, steps: [{ name: "x" }] }, { status: "passed", commit: a.commit, id: "../x" },
+      { status: "passed", commit: a.commit, output: {} }, { status: "running", commit: a.commit, output: { digest: "sha256:x" } }]) {
       expect((await call<ApiError>("POST", path, bad, CI)).status, JSON.stringify(bad)).toBe(400);
     }
     await call("POST", `/systems/${ctx.systemId}/builds`, { id: "build.shared", status: "running", commit: a.commit }, CI);
@@ -312,20 +349,77 @@ describe("build report routes", () => {
     expect((await call<ApiError>("POST", path, { status: "passed", commit: a.commit, deploymentId: "deployment.99" }, CI)).status).toBe(404);
   });
 
+  it("cannot attribute a Genome realization build to an application artifact", async () => {
+    const ctx = await imported();
+    const secret = "genome-output-secret";
+    const hash = await sha256Hex(secret);
+    const rid = await inDo(ctx.systemId, (i) => {
+      const r = i.reserveRealization({ evolutionId: "evolution.1", target: "genome", agentLabel: "genome" });
+      i.activateRealization(r.realization.id, { tokenId: "genome-token", tokenExpires: new Date(Date.now() + 1e6).toISOString(), remote: "x", packet: { hash: "h" } as never, secretHash: hash });
+      i.recordCandidate({ realizationId: r.realization.id, commit: ctx.imp.genomeCommit, manifest: {}, changedPaths: [], changedNodes: [] });
+      return r.realization.id;
+    });
+    const response = await call<ApiError>("POST", `/systems/${ctx.systemId}/realizations/${rid}/builds`, {
+      status: "passed", commit: ctx.imp.genomeCommit, output: { locator: "workers-version:genome-is-not-app" },
+    }, { authorization: `Bearer ${secret}` });
+    expect(response.status, JSON.stringify(response.json)).toBe(409);
+    expect(response.json.error.code).toBe("output-lineage-unknown");
+    expect(await inDo(ctx.systemId, (i) => i.realizedArtifacts())).toEqual([]);
+  });
+
+  it("redeploys one realized output as distinct deployment instances with validated source ownership", async () => {
+    const ctx = await imported();
+    await inDo(ctx.systemId, (i) => {
+      const state = i.state()!;
+      i.upsertBuild({ id: "build.reusable", realization: null, candidate: null, kind: "production", status: "passed", reporter: "ci",
+        commit: ctx.imp.appCommit!, sourceRepo: state.appSource!.repo, genomeCommit: state.genomeCommit,
+        thingId: "thing.webapp", artifactId: "artifact.webapp", buildId: "runtime.reusable", output: { locator: "workers-version:reusable" } });
+    });
+    const path = `/systems/${ctx.systemId}/deployments`;
+    const first = await call<DeploymentCreated>("POST", path, { outputId: "output.build.reusable", url: "https://one.workers.dev" }, ADMIN);
+    const second = await call<DeploymentCreated>("POST", path, { outputId: "output.build.reusable", url: "https://two.workers.dev" }, ADMIN);
+    expect(first.status, JSON.stringify(first.json)).toBe(201);
+    expect(second.status, JSON.stringify(second.json)).toBe(201);
+    expect(first.json.id).not.toBe(second.json.id);
+    expect(first.json.output).toBe("output.build.reusable");
+    expect(second.json).toMatchObject({ output: "output.build.reusable", build: "build.reusable", buildId: "runtime.reusable" });
+    expect((await call<ApiError>("POST", path, { outputId: "output.missing" }, ADMIN)).status).toBe(404);
+    expect((await call<ApiError>("POST", path, { outputId: "output.build.reusable", commit: "f".repeat(40) }, ADMIN)).status).toBe(409);
+    await inDo(ctx.systemId, (i) => {
+      i.upsertBuild({ id: "build.foreign", realization: null, candidate: null, kind: "production", status: "passed", reporter: "ci",
+        commit: ctx.imp.appCommit!, sourceRepo: "another-repo", genomeCommit: i.state()!.genomeCommit,
+        thingId: "thing.webapp", artifactId: "artifact.webapp", output: { digest: "sha256:foreign" } });
+    });
+    expect((await call<ApiError>("POST", path, { outputId: "output.build.foreign" }, ADMIN)).status).toBe(409);
+  });
+
+  it("binds the first passed runtime build before hooks create its candidate", async () => {
+    const ctx = await imported();
+    const a = await started(ctx);
+    const commit = a.fork.commit({ ...appFiles, "src/ui/people/list.ts": "export const first = true" }, "first candidate");
+    const url = `https://${previewWorkerName(ctx.systemId, 1)}.dawka.workers.dev`;
+    const response = await call<BuildReportResponse>("POST", `/systems/${ctx.systemId}/realizations/${a.rid}/builds`, {
+      status: "passed", commit, url, buildId: "build.first.unique",
+    }, { authorization: `Bearer ${a.secret}` });
+    expect(response.status, JSON.stringify(response.json)).toBe(200);
+    expect(seen.at(-1)?.candidate).toMatchObject({ commit, previewUrl: url, expectedBuildId: "build.first.unique" });
+  });
+
   it("passed + url stores the preview on the candidate, re-runs the hooks and returns the evaluations (C.webapp.health)", async () => {
     const ctx = await imported();
     const a = await submitted(ctx);
     expect(seen).toHaveLength(1);
     const url = `https://${previewWorkerName(ctx.systemId, 1)}.dawka.workers.dev`;
     const out = await call<BuildReportResponse>("POST", `/systems/${ctx.systemId}/realizations/${a.rid}/builds`,
-      { status: "passed", commit: a.commit, url, buildId: a.commit, steps: [{ name: "deploy", status: "passed", durationMs: 1200 }] }, { authorization: `Bearer ${a.secret}` });
+      { status: "passed", commit: a.commit, url, buildId: "build.preview.unique", steps: [{ name: "deploy", status: "passed", durationMs: 1200 }] }, { authorization: `Bearer ${a.secret}` });
     expect(out.status, JSON.stringify(out.json)).toBe(200);
-    expect(out.json.build).toMatchObject({ status: "passed", url, candidate: a.sub.candidate.id, buildId: a.commit, steps: [{ name: "deploy", durationMs: 1200 }] });
+    expect(out.json.build).toMatchObject({ status: "passed", url, candidate: a.sub.candidate.id, buildId: "build.preview.unique", steps: [{ name: "deploy", durationMs: 1200 }] });
     expect(out.json.candidate?.id).toBe(a.sub.candidate.id);
     expect(out.json.candidate?.build).toMatchObject({ status: "passed", url });
     expect(out.json.evaluations?.map((e) => e.criterion)).toContain("C.webapp.health");
     expect(seen).toHaveLength(2);
     expect(seen[1].candidate.previewUrl).toBe(url);
+    expect(seen[1].candidate.expectedBuildId).toBe("build.preview.unique");
     const manifest = await inDo(ctx.systemId, (i) => i.candidateManifest(a.sub.candidate.id));
     expect(manifest!.previewUrl).toBe(url);
     // Replaying the report changes nothing and runs no hooks.
@@ -337,6 +431,19 @@ describe("build report routes", () => {
     const view = await call<RealizationResponse>("GET", `/systems/${ctx.systemId}/realizations/${a.rid}`, undefined, ADMIN);
     expect(view.json.candidateDetail?.build?.url).toBe(url);
     expect((await summary(ctx.systemId)).latestBuild).toMatchObject({ status: "passed", commit: a.commit });
+  });
+
+  it("keeps a preview output on the realization's starting Genome after the canonical Genome advances", async () => {
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const laterGenome = "e".repeat(40);
+    await inDo(ctx.systemId, (_i, state) => state.storage.sql.exec("UPDATE head SET v = ? WHERE k = 'genome_commit'", laterGenome));
+    const out = await call<BuildReportResponse>("POST", `/systems/${ctx.systemId}/realizations/${a.rid}/builds`, {
+      id: "build.old-genome", status: "passed", commit: a.commit, output: { digest: "sha256:old-genome-output" },
+    }, CI);
+    expect(out.status, JSON.stringify(out.json)).toBe(200);
+    expect(out.json.build.output).toMatchObject({ genomeCommit: ctx.imp.genomeCommit, source: { repo: a.forkName, commit: a.commit } });
+    expect(out.json.build.output?.genomeCommit).not.toBe(laterGenome);
   });
 
   it("a failed report leaves the candidate untouched", async () => {
@@ -391,12 +498,28 @@ describe("CI dispatch", () => {
     const path = `/systems/${ctx.systemId}/realizations/${w.rid}/builds`;
     await call("POST", path, { id: buildId, status: "running", kind: "preview", commit, externalId: instanceId, deploymentId: params.deploymentId }, CI);
     const url = `https://${params.workerName}.dawka.workers.dev`;
-    const passed = await call<BuildReportResponse>("POST", path, { id: buildId, status: "passed", kind: "preview", commit, url, buildId: commit, deploymentId: params.deploymentId }, CI);
+    const passed = await call<BuildReportResponse>("POST", path, {
+      id: buildId, status: "passed", kind: "preview", commit, url, buildId: commit, deploymentId: params.deploymentId,
+      output: { locator: "workers-version:preview-1", digest: "sha256:preview-1" },
+    }, CI);
     expect(passed.status, JSON.stringify(passed.json)).toBe(200);
     expect(passed.json.evaluations?.find((e) => e.criterion === "C.webapp.health")?.targetRef).toBe(url);
     const deps = await call<DeploymentsResponse>("GET", `/systems/${ctx.systemId}/deployments`);
     expect(deps.json.production).toBeNull();
-    expect(deps.json.history.find((d) => d.id === params.deploymentId)).toMatchObject({ status: "live", url, buildId: commit, candidate: sub.json.candidate.id });
+    expect(passed.json.build.output).toMatchObject({
+      id: `output.${buildId}`, thingId: "thing.webapp", artifactId: "artifact.webapp", source: { repo: w.forkName, commit },
+      genomeCommit: ctx.imp.genomeCommit, locator: "workers-version:preview-1", digest: "sha256:preview-1",
+    });
+    expect(deps.json.history.find((d) => d.id === params.deploymentId)).toMatchObject({
+      status: "live", url, buildId: commit, candidate: sub.json.candidate.id, output: `output.${buildId}`,
+    });
+    const artifacts = await call<RealizedArtifactsResponse>("GET", `/systems/${ctx.systemId}/artifacts`);
+    expect(artifacts.json.artifacts.map((a) => a.id)).toContain(`output.${buildId}`);
+    const mutation = await call<ApiError>("POST", path, {
+      id: buildId, status: "passed", kind: "preview", commit, deploymentId: params.deploymentId,
+      output: { locator: "workers-version:preview-2" },
+    }, CI);
+    expect([mutation.status, mutation.json.error.code]).toEqual([409, "output-mismatch"]);
     expect((await summary(ctx.systemId)).deployment?.previews).toBe(1);
   });
 
@@ -445,10 +568,15 @@ describe("CI dispatch", () => {
 
     const url = `https://${params.workerName}.dawka.workers.dev`;
     const rep = await call<BuildReportResponse>("POST", `/systems/${ctx.systemId}/builds`,
-      { id: params.buildId, status: "passed", kind: "production", commit: a.commit, url, buildId: a.commit, deploymentId: params.deploymentId }, CI);
+      {
+        id: params.buildId, status: "passed", kind: "production", commit: a.commit, url, buildId: a.commit, deploymentId: params.deploymentId,
+        output: { locator: "workers-version:production-1" },
+      }, CI);
     expect(rep.status, JSON.stringify(rep.json)).toBe(200);
     deps = await call<DeploymentsResponse>("GET", `/systems/${ctx.systemId}/deployments`);
-    expect(deps.json.production).toMatchObject({ id: params.deploymentId, status: "live", url, commit: a.commit });
+    expect(deps.json.production).toMatchObject({
+      id: params.deploymentId, status: "live", url, commit: a.commit, output: `output.${params.buildId}`,
+    });
     const sum = await summary(ctx.systemId);
     expect(sum.deployState).toBe("live");
     expect(sum.deployment?.production?.id).toBe(params.deploymentId);

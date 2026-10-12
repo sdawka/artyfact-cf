@@ -35,6 +35,21 @@ describe("emitPhenome", () => {
     expect(typeof events[0].id).toBe("string");
   });
 
+  it("reports distinct runtime build and source identities set by CI", async () => {
+    const f = stubFetch();
+    const sourceCommit = "a".repeat(40);
+    emitPhenome({ ...base, BUILD_ID: "build.preview.123", ARTYFACT_SOURCE_COMMIT: sourceCommit, ARTYFACT_GENOME_COMMIT: "b".repeat(40) }, "health", {});
+    const event = JSON.parse(f.mock.calls[0][1]!.body as string).events[0];
+    expect(event).toMatchObject({ buildId: "build.preview.123", commit: sourceCommit });
+    expect(event.commit).not.toBe(event.buildId);
+  });
+
+  it("does not fall back to a legacy build hash when explicit source identity is invalid", () => {
+    const f = stubFetch();
+    emitPhenome({ ...base, ARTYFACT_SOURCE_COMMIT: "dev" }, "health", {});
+    expect(f).not.toHaveBeenCalled();
+  });
+
   it("is a silent no-op without the platform URL or system id", () => {
     const f = stubFetch();
     emitPhenome({ ...base, ARTYFACT_PLATFORM_URL: undefined } as Env, "health", {});

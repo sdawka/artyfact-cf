@@ -66,10 +66,13 @@ test('noscript copy only mentions features the page has', async () => {
   assert(/copy buttons/.test(await note('/connect-agent')));
   assert(!/example shows/.test(await note('/connect-agent')));
 });
-test('the guide names the hosted origin and the local CLI default', async () => {
+test('the guide names the hosted origin and the verified local CLI discovery order', async () => {
   const html = await readFile(resolve(dist, 'connect-agent/index.html'), 'utf8');
   assert(html.includes('https://artyfact-platform.dawka.workers.dev'));
-  assert(html.includes('http://localhost:1337') && !html.includes('5173'));
+  const discovery = html.slice(html.indexOf('The CLI uses'));
+  assert(discovery.indexOf('--platform') < discovery.indexOf('ARTYFACT_PLATFORM') && discovery.indexOf('ARTYFACT_PLATFORM') < discovery.indexOf('ARTYFACT_URL'));
+  assert(html.includes('localhost:1337') && html.includes('localhost:1346') && !html.includes('5173'));
+  assert(!html.includes('CLI defaults to'));
   assert(html.includes('https://github.com/sdawka/artyfact-cf'));
 });
 test('effects stay off the critical path and out of the static markup', async () => {

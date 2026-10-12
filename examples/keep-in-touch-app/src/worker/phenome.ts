@@ -15,15 +15,16 @@ export function resetPhenomeThrottle(): void {
 /**
  * Report a Phenome event to the artyfact platform with the standard header: which System, Thing, Artifact,
  * build and deployment emitted it, so events trace back to a version. Silent no-op unless ARTYFACT_PLATFORM_URL
- * and ARTYFACT_SYSTEM_ID are set and BUILD_ID is a commit hash; never throws and never blocks the response. Keep payloads free of personal data.
+ * and ARTYFACT_SYSTEM_ID are set and source identity is a commit hash; never throws and never blocks the response. Keep payloads free of personal data.
  */
 export function emitPhenome(env: Env, kind: string, payload: unknown, ctx?: WaitUntil, opts: { subject?: string; minIntervalMs?: number } = {}): void {
   const base = env.ARTYFACT_PLATFORM_URL?.trim();
   const systemId = env.ARTYFACT_SYSTEM_ID?.trim();
   if (!base || !systemId) return;
   const buildId = env.BUILD_ID || "dev";
-  // The platform ties events to a commit, so a build without a hex commit (local "dev") reports nothing.
-  if (!/^[0-9a-f]{7,64}$/.test(buildId)) return;
+  // Current CI separates runtime build identity from source. Old hex BUILD_ID values remain compatible.
+  const commit = env.ARTYFACT_SOURCE_COMMIT ?? buildId;
+  if (!/^[0-9a-f]{7,64}$/.test(commit)) return;
   if (opts.minIntervalMs) {
     // Per isolate: noisy sources (a public, polled /health) must not flood the platform's capped event log.
     const key = `${kind}|${opts.subject ?? ""}`, now = Date.now();
@@ -36,7 +37,7 @@ export function emitPhenome(env: Env, kind: string, payload: unknown, ctx?: Wait
     thingId: env.ARTYFACT_THING_ID || "unknown",
     artifactId: env.ARTYFACT_ARTIFACT_ID || "unknown",
     buildId,
-    commit: buildId,
+    commit,
     ...(env.ARTYFACT_DEPLOYMENT_ID ? { deploymentId: env.ARTYFACT_DEPLOYMENT_ID } : {}),
     emittedAt: new Date().toISOString(),
     kind,

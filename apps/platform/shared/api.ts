@@ -623,7 +623,7 @@ export interface ImportSystemResponse {
   genomeRepo: string;
   appRepo: string;
   genomeCommit: CommitHash;
-  appCommit: CommitHash;
+  appCommit: CommitHash | null;
   /** Evolutions seeded from the Genome's `evolutions/*.yaml`. */
   evolutions: NodeId[];
   platform: PlatformRef | null;
@@ -865,12 +865,13 @@ export interface BuildStep {
 
 /** What CI, an agent or an admin reports about a build. Without `id` a new build row is created. */
 export interface BuildReport {
+  output?: RealizedArtifactReport;
   id?: string;
   status: BuildStatus;
   kind?: BuildKind;
   commit: CommitHash;
   url?: string;
-  /** The deployed app's `BUILD_ID` (its commit). */
+  /** Runtime build identifier, separate from source revision and realized output identity. */
   buildId?: string;
   logsUrl?: string;
   /** Workflow instance id. */
@@ -882,7 +883,12 @@ export interface BuildReport {
   finishedAt?: string;
 }
 
-export interface Build extends Omit<BuildReport, "id" | "kind"> {
+export interface Build extends Omit<BuildReport, "id" | "kind" | "output"> {
+  source?: { repo: string; commit: CommitHash };
+  genomeCommit?: CommitHash;
+  thingId?: string;
+  artifactId?: string;
+  output?: RealizedArtifact;
   id: string;
   kind: BuildKind;
   realization: string | null;
@@ -908,6 +914,8 @@ export interface BuildsResponse {
 export type DeploymentStatus = "pending" | "live" | "superseded" | "failed";
 
 export interface Deployment {
+  /** Absent for historic or unreported output identity. */
+  output?: string;
   id: string;
   kind: BuildKind;
   status: DeploymentStatus;
@@ -933,6 +941,8 @@ export interface DeploymentsResponse {
 }
 /** `POST /api/systems/:id/deployments` (admin). Defaults: production of the head's app commit. */
 export interface DeploymentRequest {
+  /** Reuse an existing realized output; its stored source must match the deployment scope. */
+  outputId?: string;
   kind?: BuildKind;
   commit?: CommitHash;
   realization?: string;
@@ -949,6 +959,9 @@ export interface IngestTokenResponse {
 
 /** Parameters the platform passes to the `artyfact-ci` Workflow (`env.CI.create({ params })`). */
 export interface CiBuildParams {
+  thingId?: string;
+  artifactId?: string;
+  genomeCommit?: CommitHash;
   buildId: string;
   systemId: SystemId;
   realizationId: string | null;
@@ -971,6 +984,8 @@ export interface CiBuildParams {
 
 /** A stored Phenome event. */
 export interface PhenomeEvent extends PhenomeEventHeader {
+  outputId?: string;
+  genomeCommit?: CommitHash;
   seq: number;
   receivedAt: string;
   realization?: string;
@@ -999,5 +1014,18 @@ export interface PhenomeEventsQuery {
 export interface PhenomeEventsResponse {
   events: PhenomeEvent[];
   nextBefore?: number;
-  versions: { key: string; buildId: string; commit: CommitHash; deployment: string | null; systemCommit: string | null; count: number }[];
+  versions: { output: string | null; genomeCommit: string | null; key: string; buildId: string; commit: CommitHash; deployment: string | null; systemCommit: string | null; count: number }[];
 }
+
+// Immutable reusable package catalog. System-scoped packages are never listed on the public home.
+export type PartScope = { kind: "shared" } | { kind: "system"; systemId: string };
+export interface PartRecord { package: schema.PartPackage; scope: PartScope; digest: string; publishedAt: string }
+export interface PartSummary { partId: string; version: string; name?: string; description?: string; scope: PartScope; digest: string; publishedAt: string; dependencies: schema.PartRef[] }
+export interface PartsResponse { parts: PartSummary[] }
+export interface PartResponse { part: PartRecord }
+export interface PublishPartRequest { package: schema.PartPackage }
+
+/** One specific output, independent of the source binding and of its deployments. */
+export interface RealizedArtifact { id: string; thingId: string; artifactId: string; source: { repo: string; commit: CommitHash }; genomeCommit: CommitHash; build: string; locator?: string; digest?: string; createdAt: string }
+export interface RealizedArtifactReport { locator?: string; digest?: string }
+export interface RealizedArtifactsResponse { artifacts: RealizedArtifact[] }

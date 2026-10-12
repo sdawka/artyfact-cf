@@ -36,7 +36,7 @@ test('public content is useful without JavaScript', async ({ page }) => {
   await page.route('**/*.js', route => route.abort());
   await page.goto('https://artyfact.test/model');
   await expect(page.getByRole('heading', { name: /One System/ })).toBeVisible();
-  await expect(page.getByText('Only the owner can read a private contact.')).toBeVisible();
+  await expect(page.locator('.detail-title').filter({ hasText: /A Thing can begin with its Genome alone/ })).toBeVisible();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://artyfact.ing/model');
 });
 const orb = '[data-hero-orb] [data-effect="orb"]';

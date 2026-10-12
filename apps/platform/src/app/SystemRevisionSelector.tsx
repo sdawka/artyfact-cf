@@ -1,8 +1,8 @@
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useRevisions, useSystems } from "@/api/queries";
 import { revisionGroups } from "@/model/revisions";
 import { useModel } from "@/model/useModel";
-import { useSystemRoute, viewPath } from "@/model/useSelection";
+import { thingPath, useSystemRoute, viewPath } from "@/model/useSelection";
 import { StatePill, type RevisionState } from "./StatePill";
 import styles from "./SystemRevisionSelector.module.css";
 
@@ -16,6 +16,7 @@ export function revisionState(rev: string, candidates: string[]): RevisionState 
 export function SystemRevisionSelector() {
   const { systemId, rev, view } = useSystemRoute();
   const [params] = useSearchParams();
+  const { thingId } = useParams();
   const navigate = useNavigate();
   const { bundle } = useModel();
   const { data: systems = [] } = useSystems();
@@ -23,7 +24,8 @@ export function SystemRevisionSelector() {
   const candidates = (params.get("candidates") ?? "").split(",").filter(Boolean);
   const go = (s: string, r: string) => {
     const qs = params.toString();
-    void navigate(`${viewPath(s, r, view ?? "overview")}${qs ? `?${qs}` : ""}`);
+    const path = s === systemId && thingId ? `${thingPath(s, r, thingId)}${view ? `/${view}` : ""}` : viewPath(s, r, view ?? "overview");
+    void navigate(`${path}${qs ? `?${qs}` : ""}`);
   };
   const systemOptions = systems.some((s) => s.systemId === systemId)
     ? systems

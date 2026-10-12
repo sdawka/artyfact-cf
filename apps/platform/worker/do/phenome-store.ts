@@ -3,7 +3,7 @@
  * lookups that resolve an ingest token to a deployment or a realization. Pattern: `worker/do/registry.ts`.
  */
 import { PHENOME_LIMITS } from "@artyfact/model";
-import type { PhenomeEvent, PhenomeEventsQuery, PhenomeEventsResponse } from "../../shared/api";
+import type { PhenomeEvent, PhenomeEventsQuery, PhenomeEventsResponse, RealizedArtifact } from "../../shared/api";
 import { nowIso } from "../util";
 
 type Row = Record<string, SqlStorageValue>;
@@ -11,7 +11,10 @@ const str = (v: SqlStorageValue | undefined): string | null => (typeof v === "st
 
 /** What an ingest token stands for. A deployment token may only report its own deployment's build. */
 export type PhenomePrincipal =
-  | { kind: "deployment"; id: string; commit: string; buildId: string | null; realizationId: string | null }
+  | {
+      kind: "deployment"; id: string; commit: string; buildId: string | null; realizationId: string | null; repo: string;
+      systemCommit: string | null; association: RealizedArtifact | null;
+    }
   | { kind: "realization"; id: string; commits: string[] };
 
 /** A validated event ready to store. `eventId` is the emitter's id or a content hash. */
@@ -27,6 +30,9 @@ export interface PhenomeRow {
   criterion: string | null;
   emittedAt: string;
   payload: unknown;
+  realizedArtifactId?: string | null;
+  genomeCommit?: string | null;
+  sourceRepo?: string;
 }
 
 const FULL_HASH = /^[0-9a-f]{40}$/;
@@ -41,13 +47,48 @@ export class PhenomeStore {
 
   /** The deployment or realization whose ingest token / secret hashes to `digest` (SHA-256 hex), if any. */
   principalForHash(digest: string): PhenomePrincipal | null {
-    const dep = this.all("SELECT id, commit_hash, build_id, realization_id FROM deployments WHERE ingest_token_hash = ? AND status IN ('pending', 'live') LIMIT 1", digest)[0];
-    if (dep) return { kind: "deployment", id: String(dep.id), commit: String(dep.commit_hash), buildId: str(dep.build_id), realizationId: str(dep.realization_id) };
+    const dep = this.all(
+      `SELECT id, commit_hash, build_id, realization_id, repo, system_commit, realized_artifact_id, build_row
+       FROM deployments WHERE ingest_token_hash = ? AND status IN ('pending', 'live') LIMIT 1`, digest,
+    )[0];
+    if (dep) {
+      const outputId = str(dep.realized_artifact_id);
+      const association = outputId ? this.realizedArtifact(outputId) : this.realizedArtifactForBuild(str(dep.build_row));
+      return {
+        kind: "deployment", id: String(dep.id), commit: String(dep.commit_hash), buildId: str(dep.build_id),
+        realizationId: str(dep.realization_id), repo: String(dep.repo), systemCommit: str(dep.system_commit), association,
+      };
+    }
     // A finished realization (promoted, rejected, abandoned) can no longer add evidence.
     const rz = this.all("SELECT id FROM realizations WHERE secret_hash = ? AND status NOT IN ('promoted', 'rejected', 'abandoned') LIMIT 1", digest)[0];
     if (!rz) return null;
     const commits = this.all("SELECT commit_hash FROM candidates WHERE realization_id = ?", String(rz.id)).map((r) => String(r.commit_hash));
     return { kind: "realization", id: String(rz.id), commits };
+  }
+
+  private realizedArtifact(id: string): RealizedArtifact | null {
+    const r = this.all("SELECT * FROM realized_artifacts WHERE id = ?", id)[0];
+    return r ? this.outputDto(r) : null;
+  }
+
+  private realizedArtifactForBuild(buildRow: string | null): RealizedArtifact | null {
+    if (!buildRow) return null;
+    const output = this.all("SELECT * FROM realized_artifacts WHERE build_row = ?", buildRow)[0];
+    if (output) return this.outputDto(output);
+    const r = this.all("SELECT source_repo, commit_hash, genome_commit, thing_id, artifact_id, created_at FROM builds WHERE id = ?", buildRow)[0];
+    if (!r || !str(r.source_repo) || !str(r.genome_commit) || !str(r.thing_id) || !str(r.artifact_id)) return null;
+    return {
+      id: "", thingId: String(r.thing_id), artifactId: String(r.artifact_id), source: { repo: String(r.source_repo), commit: String(r.commit_hash) },
+      genomeCommit: String(r.genome_commit), build: buildRow, createdAt: String(r.created_at),
+    };
+  }
+
+  private outputDto(r: Row): RealizedArtifact {
+    return {
+      id: String(r.id), thingId: String(r.thing_id), artifactId: String(r.artifact_id), source: { repo: String(r.source_repo), commit: String(r.source_commit) },
+      genomeCommit: String(r.genome_commit), build: String(r.build_row), ...(str(r.locator) && { locator: str(r.locator)! }),
+      ...(str(r.digest) && { digest: str(r.digest)! }), createdAt: String(r.created_at),
+    };
   }
 
   /** The realization a deployment belongs to, for attributing events that name it. */
@@ -68,9 +109,9 @@ export class PhenomeStore {
   }
 
   /** Whether deployment `id` exists and deploys exactly the full commit `commit`. */
-  deploymentDeploys(id: string, commit: string): boolean {
-    const c = str(this.all("SELECT commit_hash FROM deployments WHERE id = ?", id)[0]?.commit_hash);
-    return FULL_HASH.test(commit) && c === commit;
+  deploymentDeploys(id: string, commit: string, sourceRepo?: string): boolean {
+    const d = this.all("SELECT commit_hash, repo FROM deployments WHERE id = ?", id)[0];
+    return FULL_HASH.test(commit) && str(d?.commit_hash) === commit && (!sourceRepo || str(d?.repo) === sourceRepo);
   }
 
   /**
@@ -88,13 +129,13 @@ export class PhenomeStore {
       return scCache.get(commit)!;
     };
     const out = rows.map((r) => {
-      const deploymentId = r.deploymentId && (!verifyDeployment || this.deploymentDeploys(r.deploymentId, r.commit)) ? r.deploymentId : null;
+      const deploymentId = r.deploymentId && (!verifyDeployment || this.deploymentDeploys(r.deploymentId, r.commit, r.sourceRepo)) ? r.deploymentId : null;
       const payloadJson = JSON.stringify({ ...(r.criterion ? { criterion: r.criterion } : {}), payload: r.payload ?? null });
       this.sql.exec(
         `INSERT OR IGNORE INTO phenome_events (event_id, deployment_id, realization_id, thing_id, artifact_id, build_id, commit_hash,
-           system_commit, kind, subject, emitted_at, received_at, payload_json) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           system_commit, kind, subject, emitted_at, received_at, payload_json, realized_artifact_id, genome_commit) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         r.eventId, deploymentId, (deploymentId && this.deploymentRealization(deploymentId)) || realizationId, r.thingId, r.artifactId,
-        r.buildId, r.commit, systemCommitOf(r.commit), r.kind, r.subject, r.emittedAt, receivedAt, payloadJson,
+        r.buildId, r.commit, systemCommitOf(r.commit), r.kind, r.subject, r.emittedAt, receivedAt, payloadJson, r.realizedArtifactId ?? null, r.genomeCommit ?? null,
       );
       return { fresh: Number(this.all("SELECT changes() AS n")[0].n) > 0, deploymentId };
     });
@@ -125,12 +166,12 @@ export class PhenomeStore {
     const events = page.map((r) => this.dto(systemId, r));
     // Bare columns alongside MAX(seq) come from the newest event of each version.
     const versions = this.all(
-      `SELECT build_id, commit_hash, deployment_id, system_commit, COUNT(*) AS n, MAX(seq) AS newest FROM phenome_events
-       GROUP BY build_id, commit_hash ORDER BY newest DESC LIMIT ?`,
+      `SELECT build_id, commit_hash, deployment_id, system_commit, realized_artifact_id, genome_commit, COUNT(*) AS n, MAX(seq) AS newest FROM phenome_events
+       GROUP BY build_id, commit_hash, realized_artifact_id, genome_commit ORDER BY newest DESC LIMIT ?`,
       MAX_VERSIONS,
     ).map((r) => ({
-      key: String(r.build_id), buildId: String(r.build_id), commit: String(r.commit_hash),
-      deployment: str(r.deployment_id), systemCommit: str(r.system_commit), count: Number(r.n),
+      key: str(r.realized_artifact_id) ?? String(r.build_id), buildId: String(r.build_id), commit: String(r.commit_hash),
+      output: str(r.realized_artifact_id), genomeCommit: str(r.genome_commit), deployment: str(r.deployment_id), systemCommit: str(r.system_commit), count: Number(r.n),
     }));
     return { events, ...(rows.length > limit && { nextBefore: Number(page[page.length - 1].seq) }), versions };
   }
@@ -143,6 +184,7 @@ export class PhenomeStore {
     return {
       id: eventId.slice(eventId.indexOf("\u001f") + 1), seq: Number(r.seq), systemId, thingId: String(r.thing_id), artifactId: String(r.artifact_id),
       buildId: String(r.build_id), commit: String(r.commit_hash), ...opt("systemCommit", str(r.system_commit)),
+      ...opt("outputId", str(r.realized_artifact_id)), ...opt("genomeCommit", str(r.genome_commit)),
       ...opt("deploymentId", str(r.deployment_id)), emittedAt: String(r.emitted_at), receivedAt: String(r.received_at),
       kind: String(r.kind), ...opt("subject", str(r.subject)), ...(envelope.criterion ? { criterion: envelope.criterion } : {}),
       payload: envelope.payload ?? null, ...opt("realization", str(r.realization_id)),

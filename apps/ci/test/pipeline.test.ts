@@ -5,7 +5,7 @@ import {
   CONFIG_ENV, SECRETS_ENV, WRANGLER, bundleConfig, deployConfig, parseJsonc, validateRepoConfig, type DeploySpec,
 } from "../src/deploy-config";
 import {
-  assertReportUrl, deployVars, planSteps, report, reportBody, runPipeline, shQuote, validateParams,
+  assertReportUrl, deployedOutput, deployVars, planSteps, report, reportBody, runPipeline, shQuote, validateParams,
   type CiLike, type DoStep, type FetchLike, type PlannedStep, type RunnerLike,
 } from "../src/pipeline";
 
@@ -86,11 +86,27 @@ describe("planSteps", () => {
     expect(JSON.parse(step(steps, "deploy").env![CONFIG_ENV]!)).toMatchObject({ no_bundle: true, main: `/workspace/.artyfact-build-${NONCE}/index.js` });
   });
 
-  it("deploys under the worker name with BUILD_ID forced to the commit, every var quoted", () => {
+  it("deploys under the worker name with a unique runtime build id and authoritative lineage vars", () => {
     const cmd = step(plan(params({ vars: { ARTYFACT_NOTE: "it's; rm -rf /", BUILD_ID: "dev" } })), "deploy").command;
-    expect(cmd).toContain(`--name 'keep-in-touch-app-r1' --var 'ARTYFACT_NOTE:it'\\''s; rm -rf /' --var 'BUILD_ID:${COMMIT}' --env-file`);
+    expect(cmd).toContain(`--name 'keep-in-touch-app-r1' --var 'ARTYFACT_NOTE:it'\\''s; rm -rf /' --var 'ARTYFACT_SOURCE_COMMIT:${COMMIT}' --var 'BUILD_ID:build.realization.1.aaaaaaa.ci' --env-file`);
     expect(cmd).not.toContain("--secrets-file");
     expect(shQuote("a'b")).toBe(`'a'\\''b'`);
+  });
+
+  it("keeps repeated builds of one source distinct at runtime and exports platform lineage instead of supplied identity vars", () => {
+    const first = deployVars(params({
+      thingId: "thing.one", artifactId: "artifact.one", genomeCommit: "b".repeat(40),
+      vars: { BUILD_ID: "forged-build", ARTYFACT_SOURCE_COMMIT: "forged-source", ARTYFACT_GENOME_COMMIT: "forged-genome", ARTYFACT_THING_ID: "forged-thing", ARTYFACT_ARTIFACT_ID: "forged-artifact", ARTYFACT_INGEST_TOKEN: INGEST },
+    }));
+    const second = deployVars(params({ buildId: "build.realization.2.aaaaaaa.ci", thingId: "thing.one", artifactId: "artifact.one", genomeCommit: "b".repeat(40) }));
+    expect(first).toMatchObject({
+      BUILD_ID: "build.realization.1.aaaaaaa.ci", ARTYFACT_SOURCE_COMMIT: COMMIT,
+      ARTYFACT_GENOME_COMMIT: "b".repeat(40), ARTYFACT_THING_ID: "thing.one", ARTYFACT_ARTIFACT_ID: "artifact.one",
+    });
+    expect(JSON.stringify(first)).not.toContain("forged");
+    expect(first).not.toHaveProperty("ARTYFACT_INGEST_TOKEN");
+    expect(second.BUILD_ID).toBe("build.realization.2.aaaaaaa.ci");
+    expect(second.BUILD_ID).not.toBe(first.BUILD_ID);
   });
 
   it("skips absent test and build commands", () => {
@@ -187,12 +203,12 @@ describe("validateRepoConfig", () => {
 });
 
 describe("reportBody", () => {
-  it("carries the build row id, kind and commit; buildId and url only when passed", () => {
+  it("carries the build row id, kind and commit; runtime buildId and url only when passed", () => {
     expect(reportBody(params(), "running", { externalId: "inst", startedAt: "t0" })).toEqual({
       id: "build.realization.1.aaaaaaa.ci", status: "running", kind: "preview", commit: COMMIT, externalId: "inst", startedAt: "t0",
     });
     expect(reportBody(params({ kind: "production", deploymentId: "deploy.1" }), "passed", { url: "https://x.workers.dev" })).toMatchObject({
-      status: "passed", kind: "production", buildId: COMMIT, url: "https://x.workers.dev", deploymentId: "deploy.1",
+      status: "passed", kind: "production", buildId: "build.realization.1.aaaaaaa.ci", url: "https://x.workers.dev", deploymentId: "deploy.1",
     });
     const failed = reportBody(params(), "failed", { url: "https://x", error: "e".repeat(5000) });
     expect(failed.url).toBeUndefined();
@@ -222,12 +238,13 @@ describe("report", () => {
 
 // ---------------------------------------------------------------- runPipeline with fakes
 
-function harness(opts: { failAt?: string; throwPlain?: boolean; reportStatus?: number; files?: Record<string, string> } = {}) {
+function harness(opts: { failAt?: string; throwPlain?: boolean; reportStatus?: number; files?: Record<string, string>; deployStdout?: string } = {}) {
   const stepNames: string[] = [];
   const step: DoStep = async (name, fn) => (stepNames.push(name), fn());
   const ran: PlannedStep[] = [];
-  const runnerFor = (): RunnerLike => ({
+  const runnerFor = (logs?: RunnerLike["logs"]): RunnerLike => ({
     exitCode: 0,
+    ...(logs && { logs }),
     runner: async (s) => run(s),
   });
   const run = async (s: PlannedStep): Promise<RunnerLike> => {
@@ -236,7 +253,7 @@ function harness(opts: { failAt?: string; throwPlain?: boolean; reportStatus?: n
       if (opts.throwPlain) throw new Error("sandbox unavailable");
       throw Object.assign(new Error(`${s.name} failed: exit code 1`), { name: "CiRunnerFailure", runner: { name: s.name } });
     }
-    return runnerFor();
+    return runnerFor(s.name === "deploy" && opts.deployStdout ? { stdout: opts.deployStdout } : undefined);
   };
   const ci: CiLike = { runner: run };
   const reports: BuildReport[] = [];
@@ -251,12 +268,13 @@ function harness(opts: { failAt?: string; throwPlain?: boolean; reportStatus?: n
 }
 
 describe("runPipeline", () => {
-  it("reports running, runs every runner chained, then reports passed with the workers.dev URL", async () => {
+  it("reports a passed deployment with an exact Worker version locator from deploy stdout", async () => {
     const h = harness();
     const out = await runPipeline({ ...h.input, params: params() });
     expect(h.ran.map((s) => s.name)).toEqual(["install", "test", "build", "bundle", "deploy"]);
     expect(h.reports.map((r) => r.status)).toEqual(["running", "passed"]);
-    expect(out).toMatchObject({ status: "passed", url: "https://keep-in-touch-app-r1.dawka.workers.dev", buildId: COMMIT, externalId: "inst-1" });
+    expect(out).toMatchObject({ status: "passed", url: "https://keep-in-touch-app-r1.dawka.workers.dev", buildId: "build.realization.1.aaaaaaa.ci", externalId: "inst-1" });
+    expect(out.output).toBeUndefined();
     expect(out.logsUrl).toBe("https://dash.cloudflare.com/acc/workers/workflows/artyfact-ci/instance/inst-1");
     expect(out.steps!.map((s) => [s.name, s.status])).toEqual([
       ["config", "passed"], ["install", "passed"], ["test", "passed"], ["build", "passed"], ["bundle", "passed"], ["deploy", "passed"],
@@ -264,7 +282,29 @@ describe("runPipeline", () => {
     // Each report, the config read and the nonce are durable steps of their own.
     expect(h.stepNames).toEqual(expect.arrayContaining(["report running", "read wrangler config", "bundle nonce", "report passed"]));
     expect(JSON.stringify(h.reports)).not.toContain(INGEST);
-    expect(h.ran.find((s) => s.name === "deploy")!.command).toContain(`--var 'BUILD_ID:${COMMIT}'`);
+    expect(h.ran.find((s) => s.name === "deploy")!.command).toContain("--var 'BUILD_ID:build.realization.1.aaaaaaa.ci'");
+  });
+
+  it("records the exact deployed Worker version and leaves output unknown when Wrangler does not establish one", async () => {
+    const version = "01234567-89ab-cdef-0123-456789abcdef";
+    const withVersion = harness({ deployStdout: `Uploaded keep-in-touch-app-r1\nCurrent Version ID: ${version}\n` });
+    const out = await runPipeline({ ...withVersion.input, params: params() });
+    expect(out.output).toEqual({ locator: `cloudflare:workers:accounts/${ACCOUNT}/workers/keep-in-touch-app-r1/versions/${version}` });
+
+    const unknown = harness({ deployStdout: "Deployed to https://keep-in-touch-app-r1.dawka.workers.dev" });
+    const unknownOut = await runPipeline({ ...unknown.input, params: params() });
+    expect(unknownOut.output).toBeUndefined();
+  });
+
+  it("keeps two builds of the same source distinct in runtime and realized output identity", async () => {
+    const first = await runPipeline({ ...harness({ deployStdout: "Current Version ID: 11111111-1111-1111-1111-111111111111" }).input, params: params() });
+    const second = await runPipeline({
+      ...harness({ deployStdout: "Current Version ID: 22222222-2222-2222-2222-222222222222" }).input,
+      params: params({ buildId: "build.realization.2.aaaaaaa.ci" }),
+    });
+    expect(second.commit).toBe(first.commit);
+    expect(second.buildId).not.toBe(first.buildId);
+    expect(second.output).not.toEqual(first.output);
   });
 
   it("a failing runner reports failed with its step, never deploys, and rethrows", async () => {
@@ -310,5 +350,33 @@ describe("runPipeline", () => {
     await expect(runPipeline({ ...h.input, params: params({ reportUrl: "https://evil.example/x" }) })).rejects.toThrow(/not the platform/);
     expect(h.reports).toEqual([]);
     expect(h.ran).toEqual([]);
+  });
+});
+
+
+describe("bounded deployed output logs", () => {
+  const version = "11111111-1111-1111-1111-111111111111";
+  const runner = (stdout: string | ReadableStream<Uint8Array>) => ({ exitCode: 0, logs: { stdout }, runner: async () => { throw new Error("unused"); } });
+  it("ignores identifiers beyond the byte cap in a single oversized chunk", async () => {
+    const bytes = new TextEncoder().encode("x".repeat(128 * 1024) + `\nCurrent Version ID: ${version}\n`);
+    const stdout = new ReadableStream<Uint8Array>({ start(c) { c.enqueue(bytes); c.close(); } });
+    expect(await deployedOutput(params(), ACCOUNT, runner(stdout))).toBeUndefined();
+  });
+  it("caps string logs by UTF-8 bytes, rather than characters", async () => {
+    const stdout = "é".repeat(70 * 1024) + `\nCurrent Version ID: ${version}\n`;
+    expect(await deployedOutput(params(), ACCOUNT, runner(stdout))).toBeUndefined();
+  });
+  it("does not identify an incomplete line truncated at the cap", async () => {
+    const line = `Current Version ID: ${version}`;
+    const stdout = "x".repeat(128 * 1024 - line.length - 1) + `\n${line}` + "extra\n";
+    expect(await deployedOutput(params(), ACCOUNT, runner(stdout))).toBeUndefined();
+  });
+  it("reads version identifiers split across stream chunks", async () => {
+    const stdout = new ReadableStream<Uint8Array>({ start(c) {
+      for (const piece of [`Current Version ID: ${version.slice(0, 15)}`, `${version.slice(15)}\n`]) c.enqueue(new TextEncoder().encode(piece));
+      c.close();
+    } });
+    expect(await deployedOutput(params(), ACCOUNT, runner(stdout))).toEqual({ locator: workerVersionLocatorForTest() });
+    function workerVersionLocatorForTest() { return `cloudflare:workers:accounts/${ACCOUNT}/workers/${params().workerName}/versions/${version}`; }
   });
 });

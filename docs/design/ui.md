@@ -35,7 +35,7 @@ Genome and App tabs, a revision picker, a file tree and a CodeMirror pane. Editi
 `compare?from=&to=&level=system|genome|files&path=`. System: commit, Genome commit, manifest, template and hook versions. Genome: the semantic delta. Files: changed App and Genome files with a line diff (`data-op="add|del"` rows) for the selected path.
 
 ## C.7d Deployments
-`/phenome`, labelled Deployments: builds with steps, deployments (each links to its System commit and its events), runtime events grouped by version key (`buildId`, else `commit`) with the System commit, and the outcome criteria. `?deployment=` and `?build=` filter.
+`/phenome`, labelled Deployments: builds with steps, deployments (each links to its System commit and its events), runtime events grouped by version key (realized output ID when known, else `buildId` or `commit`) with the System commit, and the outcome criteria. `?deployment=` and `?build=` filter.
 
 ## C.8 Inspector
 Header (NodeChip, id copy, Open in Map/Journeys/Theory/Work) + tabs What (kind body registry `bodies/index.ts`, each agent appends own file) · Why (sources, GD→S→C chain, Purpose/Theory, commitment bundles) · Dependencies (links grouped by type) · Changes · Rules & claims (owner / subject / target on three lines) · Evidence.

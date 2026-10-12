@@ -1,6 +1,6 @@
 # CI, builds and deployments
 
-Every app candidate gets a build record. When a preview build passes with a URL, the candidate stores that URL and its hooks run again. That is how `C.webapp.health` checks the deployed app's `/health` against `BUILD_ID=<commit>`. Promotions ask for a production deployment. The System's deployed version is its latest `live` production deployment.
+Every app candidate gets a build record. When a preview build passes with a URL, the candidate stores that URL and its hooks run again. That is how `C.webapp.health` checks the deployed app's `/health` against the exact runtime build identity recorded by the passed CI build (legacy reports without that identity retain commit-prefix matching). Promotions ask for a production deployment. The System's deployed version is its latest `live` production deployment.
 
 ## Flow
 
@@ -16,7 +16,7 @@ The platform dispatches CI itself. Repo-level subscriptions need `namespace` + `
 
 Deployed app vars come from `wrangler deploy --var`:
 
-- `BUILD_ID` is the commit.
+- `BUILD_ID` is the unique platform build row ID; `ARTYFACT_SOURCE_COMMIT` is the source commit. `ARTYFACT_GENOME_COMMIT`, `ARTYFACT_THING_ID`, and `ARTYFACT_ARTIFACT_ID` retain separate lineage when known.
 - `ARTYFACT_PLATFORM_URL`, `ARTYFACT_SYSTEM_ID`, `ARTYFACT_THING_ID` and `ARTYFACT_ARTIFACT_ID` identify the app.
 - `ARTYFACT_DEPLOYMENT_ID` identifies the deployment for Phenome events.
 - `ARTYFACT_REALIZATION_ID` is set on previews and `ARTYFACT_SYSTEM_COMMIT` on production.

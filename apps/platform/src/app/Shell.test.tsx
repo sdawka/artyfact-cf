@@ -18,13 +18,13 @@ describe("Shell", () => {
     const card = await screen.findByRole("link", { name: /Keep in Touch/ });
     expect(screen.queryByRole("navigation", { name: "Views" })).toBeNull();
     act(() => card.click());
-    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/overview`));
-    expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp`));
+    expect(await screen.findByRole("heading", { level: 1, name: "Keep in Touch web app" })).toBeTruthy();
   });
 
-  it("redirects /s/:systemId to its head overview", async () => {
+  it("redirects /s/:systemId to its sole Thing workspace", async () => {
     const { router } = renderApp("/s/system.keep-in-touch");
-    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/overview`));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp`));
   });
 
   it("renders Overview plus three groups (4, 4, 1) whose links keep focus, layer and candidates", async () => {
@@ -36,10 +36,11 @@ describe("Shell", () => {
     ]);
     const links = within(nav).getAllByRole("link");
     expect(links.map((l) => l.textContent)).toEqual([
-      "◎Overview", "▦Map", "⇢Journeys", "△Theory", "{}Code", "⎇Work", "✓Evaluations", "↺Changelog", "⇄Compare", "◍Deployments",
+      "◎Overview", "▦Map", "⇢Journeys", "△Theory", "{}Code", "⎇Work", "✓Evaluations", "↺Changelog", "⇄Compare", "◍Deployments", "▧Private Parts",
     ]);
     expect(within(groups[2]!).getByRole("link", { name: /Deployments/ }).getAttribute("href")).toContain(`${BASE}/phenome`);
-    for (const l of links) {
+    expect(within(nav).getByRole("link", { name: "Private Parts" }).getAttribute("href")).toBe(`${BASE}/parts`);
+    for (const l of links.filter((link) => link.getAttribute("title") !== "Private Parts")) {
       const qs = new URLSearchParams(l.getAttribute("href")!.split("?")[1]);
       expect(qs.get("layer")).toBe("phenome");
       expect(qs.get("focus")).toBe("screen.people");

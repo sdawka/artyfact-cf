@@ -1,4 +1,4 @@
-% metamodel@1 - structural integrity of the Genome (R1, R2, R10, R11).
+% metamodel@1 - structural integrity of the Genome (R1, R2, R10, and section resolution from R11).
 % EDB relations are emitted by @artyfact/model toFacts(); see ../README.md "Fact relations".
 
 .decl known(Id: sym)
@@ -20,7 +20,6 @@
 .message "owner.unknown" "Node {1} is owned by a Thing or System that does not exist."
 .message "criterion.subjectMissing" "Criterion {1} has a subject that does not exist."
 .message "criterion.ownerMissing" "Criterion {1} is owned by a System or Thing that does not exist."
-.message "thing.noArtifact" "Thing {1} binds no artifact."
 .message "thing.sectionMissing" "Thing {1} lists a section that does not exist."
 
 reaches(X,Y) :- parent(X,Y).
@@ -34,5 +33,4 @@ violation("owner.unknown",N,"hard") :- node(N,_,T), T != "", not thing(T,_), not
 violation("criterion.subjectMissing",C,"hard") :- criterion(C,_,_,S,_), not known(S).
 violation("criterion.ownerMissing",C,"hard") :- criterion(C,"thing",O,_,_), not thing(O,_).
 violation("criterion.ownerMissing",C,"hard") :- criterion(C,"system",O,_,_), not system(O).
-violation("thing.noArtifact",T,"hard") :- thing(T,_), not thingArtifact(T,_).
 violation("thing.sectionMissing",T,"hard") :- thingSection(T,S), not known(S).

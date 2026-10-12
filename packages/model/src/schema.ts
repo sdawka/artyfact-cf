@@ -15,6 +15,8 @@ export const Id = {
   evolution: id("evolution."),
   realization: id("realization."),
   artifact: id("artifact."),
+  part: id("part."),
+  recipe: id("recipe."),
   template: id("template."),
   /** A pinned template reference, `template.<kind>.<name>@<version>`; also what the loader stamps into `fromTemplate`. */
   templateRef: z.string().regex(/^template\.[\w.-]+@[\w.-]+$/),
@@ -180,12 +182,201 @@ export const ArtifactBinding = z.object({
 });
 export type ArtifactBinding = z.infer<typeof ArtifactBinding>;
 
+/** Exact immutable package coordinate. Floating tags and version ranges are intentionally rejected. */
+export const PartRef = z.object({
+  id: Id.part,
+  version: z.string().regex(/^\d+(?:\.\d+){0,2}(?:-[0-9A-Za-z.-]+)?$/),
+});
+export type PartRef = z.infer<typeof PartRef>;
+
+export const PartInputValue = z.union([str, z.number(), z.boolean(), z.null()]);
+export type PartInputValue = z.infer<typeof PartInputValue>;
+export const PartPath = z.string().min(1).refine((path) =>
+  !path.startsWith("/") && !path.startsWith("\\") && !/^[A-Za-z]:/.test(path) &&
+  !path.includes("\\") && !/[\u0000-\u001f\u007f]/.test(path) && path.split("/").every((segment) => segment !== "" && segment !== "." && segment !== ".." && segment !== "__proto__"),
+{ message: "Part paths must be normalized relative paths without traversal" });
+export const PartInputDefinition = z.object({
+  name: z.string().regex(/^[A-Za-z][\w.-]*$/),
+  description: str.optional(),
+  required: z.boolean().default(false),
+  default: PartInputValue.optional(),
+});
+export type PartInputDefinition = z.infer<typeof PartInputDefinition>;
+
+export const PartContentKind = z.enum(["model", "file"]);
+export type PartContentKind = z.infer<typeof PartContentKind>;
+const PartEntries = z.unknown().superRefine((value, ctx) => {
+  // Zod intentionally drops __proto__ record keys; reject rather than silently losing a file.
+  if (value && typeof value === "object" && Object.hasOwn(value, "__proto__")) {
+    ctx.addIssue({ code: "custom", message: "Part paths must not use __proto__" });
+  }
+}).pipe(z.record(PartPath, str));
+export const PartPayload = z.object({
+  model: PartEntries.default({}),
+  files: PartEntries.default({}),
+});
+export type PartPayload = z.infer<typeof PartPayload>;
+export const PartSelection = z.object({
+  include: z.array(PartPath).optional(),
+  rename: z.record(PartPath, PartPath).default({}),
+});
+export type PartSelection = z.infer<typeof PartSelection>;
+export const PartMask = z.object({ model: z.array(PartPath).default([]), files: z.array(PartPath).default([]) });
+export type PartMask = z.infer<typeof PartMask>;
+export const PartReplacement = z.object({ kind: PartContentKind, path: PartPath, contribution: str });
+export type PartReplacement = z.infer<typeof PartReplacement>;
+export const PartCombination = z.object({
+  kind: PartContentKind,
+  path: PartPath,
+  contribution: str,
+  strategy: z.enum(["append", "prepend"]),
+  separator: str.default("\n"),
+});
+export type PartCombination = z.infer<typeof PartCombination>;
+export const PartCommand = z.object({
+  id: z.string().regex(/^[A-Za-z][\w.-]*$/),
+  run: str,
+  purpose: str,
+  cwd: str.optional(),
+});
+export type PartCommand = z.infer<typeof PartCommand>;
+
+export const PartContribution = z.object({
+  id: z.string().regex(/^[A-Za-z][\w.-]*$/),
+  part: PartRef,
+  inputs: z.record(z.string(), PartInputValue).default({}),
+  model: PartSelection.optional(),
+  files: PartSelection.optional(),
+  mask: PartMask.default({ model: [], files: [] }),
+  replacements: z.array(PartReplacement).default([]),
+  combinations: z.array(PartCombination).default([]),
+});
+export type PartContribution = z.infer<typeof PartContribution>;
+export const PartRecipe = z.object({
+  id: Id.recipe,
+  contributions: z.array(PartContribution),
+  /** Explicit authoring commands; model composition returns these as inert data. */
+  commands: z.array(PartCommand).default([]),
+});
+export type PartRecipe = z.infer<typeof PartRecipe>;
+
+export const PartVisibility = z.enum(["shared", "system-private"]);
+export type PartVisibility = z.infer<typeof PartVisibility>;
+export const PartPackage = z.object({
+  id: Id.part,
+  version: PartRef.shape.version,
+  name: str,
+  description: str.optional(),
+  visibility: PartVisibility,
+  systemId: Id.system.optional(),
+  published: z.boolean().default(false),
+  digest: z.string().regex(/^sha256:[0-9a-f]{64}$/).optional(),
+  inputs: z.array(PartInputDefinition).default([]),
+  payload: PartPayload.default({ model: {}, files: {} }),
+  recipe: PartRecipe.optional(),
+  commands: z.array(PartCommand).default([]),
+}).superRefine((value, ctx) => {
+  if (value.visibility === "system-private" && value.systemId === undefined) {
+    ctx.addIssue({ code: "custom", path: ["systemId"], message: "system-private Parts require systemId" });
+  }
+  if (value.visibility === "shared" && value.systemId !== undefined) {
+    ctx.addIssue({ code: "custom", path: ["systemId"], message: "shared Parts cannot declare systemId" });
+  }
+  if (new Set(value.inputs.map((input) => input.name)).size !== value.inputs.length) {
+    ctx.addIssue({ code: "custom", path: ["inputs"], message: "input names must be unique" });
+  }
+});
+export type PartPackage = z.infer<typeof PartPackage>;
+
+export const PartUse = z.object({
+  contribution: z.string().regex(/^[A-Za-z][\w.-]*$/),
+  part: PartRef,
+  inputs: z.record(z.string(), PartInputValue).default({}),
+});
+export type PartUse = z.infer<typeof PartUse>;
+
+export const PartOutputMapping = z.object({
+  kind: PartContentKind,
+  path: PartPath,
+  /** Package/extraction origin. Command-created output has no package source path. */
+  sourcePath: PartPath.optional(),
+  contribution: str,
+  part: PartRef.optional(),
+  disposition: z.enum(["retained", "adapted", "replaced", "combined", "excluded"]),
+  by: str.optional(),
+  command: z.object({ id: PartCommand.shape.id, contribution: str, action: z.enum(["created", "changed", "deleted"]) }).optional(),
+}).refine((mapping) => mapping.sourcePath !== undefined || mapping.command !== undefined, { message: "output needs a source path or explicit command origin" });
+export type PartOutputMapping = z.infer<typeof PartOutputMapping>;
+export const CompositionProvenance = z.object({
+  recipe: Id.recipe,
+  packages: z.array(z.object({ contribution: str, part: PartRef, digest: str.optional() })),
+  inputs: z.array(z.object({ contribution: str, values: z.record(z.string(), PartInputValue) })),
+  outputs: z.array(PartOutputMapping),
+});
+export type CompositionProvenance = z.infer<typeof CompositionProvenance>;
+export const SavedPartCommand = PartCommand.extend({ contribution: str });
+export type SavedPartCommand = z.infer<typeof SavedPartCommand>;
+export const SavedComposition = z.object({
+  version: z.literal(1),
+  recipe: PartRecipe,
+  model: z.record(PartPath, str),
+  files: z.record(PartPath, str),
+  provenance: CompositionProvenance,
+  commands: z.array(SavedPartCommand),
+});
+export type SavedComposition = z.infer<typeof SavedComposition>;
+
+export const Generalization = z.object({
+  kind: PartContentKind,
+  path: PartPath,
+  value: str.min(1),
+  input: z.string().regex(/^[A-Za-z][\w.-]*$/),
+  default: PartInputValue.optional(),
+});
+export const ExtractionRequest = z.object({
+  source: PartPayload.extend({ revision: str }),
+  package: z.object({
+    id: Id.part,
+    version: PartRef.shape.version,
+    name: str,
+    description: str.optional(),
+    visibility: PartVisibility,
+    systemId: Id.system.optional(),
+  }),
+  select: z.object({ model: z.array(PartPath).optional(), files: z.array(PartPath).optional() }).default({}),
+  mask: PartMask.default({ model: [], files: [] }),
+  generalize: z.array(Generalization).default([]),
+});
+export type ExtractionRequest = z.infer<typeof ExtractionRequest>;
+export const ExtractionResult = z.object({
+  part: PartPackage,
+  sourceRevision: str,
+  provenance: z.object({ outputs: z.array(PartOutputMapping) }),
+});
+export type ExtractionResult = z.infer<typeof ExtractionResult>;
+
+export const UpgradeRequest = z.object({ baseline: PartPayload, current: PartPayload, next: PartPayload });
+export type UpgradeRequest = z.infer<typeof UpgradeRequest>;
+export const UpgradeConflict = z.object({
+  kind: PartContentKind,
+  path: PartPath,
+  baseline: str.optional(),
+  current: str.optional(),
+  next: str.optional(),
+});
+export type UpgradeConflict = z.infer<typeof UpgradeConflict>;
+export const UpgradeResult = z.object({ result: PartPayload, conflicts: z.array(UpgradeConflict) });
+export type UpgradeResult = z.infer<typeof UpgradeResult>;
+
 export const Thing = z.object({
   id: Id.thing,
   name: str,
-  templateRef: str.nullable(),
+  templateRef: str.nullable().default(null),
   description: str,
-  artifacts: z.array(ArtifactBinding),
+  artifacts: z.array(ArtifactBinding).default([]),
+  parts: z.array(PartUse).default([]),
+  /** Saved composition metadata. Loading a Thing never reruns the recipe or its commands. */
+  composition: CompositionProvenance.optional(),
   /** Defaults to the template's `sections` when omitted (filled in by the loader). */
   sections: z.array(AnyId).optional(),
   purposeRefs: strs,

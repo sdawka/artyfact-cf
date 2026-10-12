@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -307,6 +307,21 @@ describe("artyfact init", { timeout: 60_000 }, () => {
     expect(r.code, r.err).toBe(0);
     // Inside the checkout the repo's own ignore rules apply: no build output in the Genome.
     expect(filesAt(cloud.path("artyfact", "keep-in-touch.genome")).some((f) => f.startsWith("dist/"))).toBe(false);
+  });
+
+  it("imports a Genome-only System without creating or naming an app repo", async () => {
+    const cloud = localCloud(join(tmp, "cloud-genome-only"));
+    const dir = project("genome-only", false);
+    for (const thing of readdirSync(join(dir, "system/things"))) {
+      const file = join(dir, "system/things", thing, "thing.yaml");
+      writeFileSync(file, readFileSync(file, "utf8").replace(/artifacts:\n(?:\s+-[^\n]*\n(?:\s+[^\n]*\n)*)?/g, "artifacts: []\n"));
+    }
+    const p = mockPlatform();
+    const r = await run(["init", "--dir", dir], { cloud: cloud.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    expect(r.code, r.err).toBe(0);
+    expect(r.out).toContain("system.keep-in-touch -> keep-in-touch.genome (namespace artyfact)");
+    expect(p.requests[0]!.body).toEqual({ systemId: "system.keep-in-touch", genomeRepo: "keep-in-touch.genome", force: false });
+    expect(existsSync(cloud.path("artyfact", "keep-in-touch.app"))).toBe(false);
   });
 });
 

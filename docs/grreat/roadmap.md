@@ -2,7 +2,7 @@
 # Deliver Parts composition in one integration PR
 
 - Intended outcome: Implement [[goals]] using the contracts in [model](../design/model.md), [backend](../design/backend.md), and [UI](../design/ui.md).
-- Work: Primary owns architecture, shared DTOs, authority/schema/routing integration, canonical docs, lockfile, validation, and the single draft PR. Workers own only the paths below, must accommodate other edits, and do not spawn children or create PRs.
+- Work: For this delivery, the primary only orchestrates Sol agents and owns final judgment. The Sol integration implementer owns shared DTOs, authority/schema/routing integration, canonical docs, lockfile, validation, and preparation of the single draft PR. Workers own only their assigned paths, accommodate other edits, and do not spawn children or create PRs.
 - Dependency order: C1 and C7 start together. Once C1 contracts stabilize, C2/C3/C4 can run in parallel. C5 follows C3. C6 follows C2/C3. C7 finalizes executable guidance after C4. C8 reviews the integrated branch. No schedule estimates.
 
 ### Task 1: C1 — model and pure composition (hard)

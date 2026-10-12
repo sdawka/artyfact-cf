@@ -242,7 +242,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
         return o;
       }
       case "http":
-        return httpHealth({ previewUrl: cand.previewUrl, commit: cand.commit, path: h.inputs.path, timeoutMs: Math.min(h.timeoutMs, HEALTH_TIMEOUT_MS), fetch: deps.fetch, policy });
+        return httpHealth({ previewUrl: cand.previewUrl, commit: cand.commit, expectedBuildId: cand.expectedBuildId, path: h.inputs.path, timeoutMs: Math.min(h.timeoutMs, HEALTH_TIMEOUT_MS), fetch: deps.fetch, policy });
       default:
         return notRun(`Engine ${h.engine} is not run by the platform.`);
     }

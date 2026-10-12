@@ -1,8 +1,8 @@
-export type { Value, Tuple, ColumnType, Decl, Term, Atom, CmpOp, Literal, Rule, Program, Stratum } from "./types";
-export { RuleParseError, StratificationError } from "./types";
-export type { FactSet, RunOptions, Derivation, Result } from "./engine";
-export { factSet, run, render } from "./engine";
-export type { DerivationTree } from "./explain";
-export { explain } from "./explain";
-export { parse } from "./parse";
-export { stratify } from "./stratify";
+export type { Value, Tuple, ColumnType, Decl, Term, Atom, CmpOp, Literal, Rule, Program, Stratum } from "./types.ts";
+export { RuleParseError, StratificationError } from "./types.ts";
+export type { FactSet, RunOptions, Derivation, Result } from "./engine.ts";
+export { factSet, run, render } from "./engine.ts";
+export type { DerivationTree } from "./explain.ts";
+export { explain } from "./explain.ts";
+export { parse } from "./parse.ts";
+export { stratify } from "./stratify.ts";

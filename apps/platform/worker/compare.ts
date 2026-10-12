@@ -61,7 +61,10 @@ async function atSystemCommit(stub: SystemApi, head: HeadState, scope: RefScope,
 
 function atHead(head: HeadState, scope: RefScope, ref: string): ResolvedRef {
   const sc = head.head ? { systemCommit: head.head } : {};
-  if (scope === "app") return { ref, repo: head.appSource.repo, commit: head.appSource.commit, ...sc };
+  if (scope === "app") {
+    if (!head.appSource) throw notFound("This Thing has no source artifact yet");
+    return { ref, repo: head.appSource.repo, commit: head.appSource.commit, ...sc };
+  }
   return { ref, repo: head.genomeSource, commit: head.genomeCommit, ...sc };
 }
 
@@ -100,7 +103,7 @@ async function atRealization(env: Env, stub: SystemApi, head: HeadState, scope: 
 async function atCommit(stub: SystemApi, head: HeadState, scope: RefScope, sha: string): Promise<ResolvedRef> {
   const known = await stub.revisionOfCommit(sha);
   if (known && "candidate" in known) return atCandidate(stub, head, scope, sha, known.candidate);
-  if (scope === "app" && sha === head.appSource.commit) return atHead(head, scope, sha);
+  if (scope === "app" && sha === head.appSource?.commit) return atHead(head, scope, sha);
   if (scope === "genome" && sha === head.genomeCommit) return atHead(head, scope, sha);
   // Oldest first: the System commit that first bound this commit.
   const history = (await stub.history()).reverse();

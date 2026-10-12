@@ -54,10 +54,16 @@ export function validateParams(p: CiBuildParams): void {
   if (problems.length) throw new Error(`invalid CI params: ${problems.join("; ")}`);
 }
 
-/** Plain vars for `--var`: everything but {@link SECRET_VARS}; `BUILD_ID` is always the commit, whatever `vars` says. */
+/** Plain vars for `--var`: runtime and lineage identities come from the signed platform params, never caller vars. */
 export function deployVars(p: CiBuildParams): Record<string, string> {
-  const plain = Object.entries(p.vars ?? {}).filter(([k]) => !SECRET_VARS.has(k));
-  return { ...Object.fromEntries(plain), BUILD_ID: p.commit };
+  const reserved = new Set(["BUILD_ID", "ARTYFACT_SOURCE_COMMIT", "ARTYFACT_GENOME_COMMIT", "ARTYFACT_THING_ID", "ARTYFACT_ARTIFACT_ID"]);
+  const plain = Object.entries(p.vars ?? {}).filter(([k]) => !SECRET_VARS.has(k) && !reserved.has(k));
+  return {
+    ...Object.fromEntries(plain), BUILD_ID: p.buildId, ARTYFACT_SOURCE_COMMIT: p.commit,
+    ...(p.genomeCommit && { ARTYFACT_GENOME_COMMIT: p.genomeCommit }),
+    ...(p.thingId && { ARTYFACT_THING_ID: p.thingId }),
+    ...(p.artifactId && { ARTYFACT_ARTIFACT_ID: p.artifactId }),
+  };
 }
 
 /** Credentials among `vars`: uploaded as Worker secrets by the deploy step and seen by no other step. */
@@ -135,7 +141,7 @@ export interface ReportExtra {
 /** The {@link BuildReport} for one status change of the build `p.buildId`. */
 export function reportBody(p: CiBuildParams, status: BuildStatus, extra: ReportExtra = {}): BuildReport {
   const body: BuildReport = { id: p.buildId, status, kind: p.kind, commit: p.commit };
-  if (status === "passed") body.buildId = p.commit;
+  if (status === "passed") body.buildId = p.buildId;
   if (extra.url && status === "passed") body.url = extra.url;
   if (p.deploymentId) body.deploymentId = p.deploymentId;
   if (extra.externalId) body.externalId = extra.externalId;
@@ -182,6 +188,8 @@ export type DoStep = <T>(name: string, fn: () => Promise<T>) => Promise<T>;
 
 export interface RunnerLike {
   exitCode: number;
+  /** Sandbox logs; only deploy stdout is inspected for the exact deployed Worker version. */
+  logs?: { stdout: string | ReadableStream<Uint8Array> };
   runner(options: PlannedStep): Promise<RunnerLike>;
 }
 export interface CiLike {
@@ -207,6 +215,49 @@ export interface PipelineInput {
 function failedRunner(e: unknown): string | null {
   const err = e as { name?: string; runner?: { name?: string } };
   return err?.name === "CiRunnerFailure" ? (err.runner?.name ?? "unknown") : null;
+}
+
+const VERSION_ID = /^[ \t]*(?:Current|Worker) Version ID:[ \t]*([0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12})[ \t]*\r?$/im;
+const MAX_DEPLOY_LOG_BYTES = 128 * 1024;
+
+/** A stable API locator for the exact Worker version Wrangler reported after the upload. */
+export function workerVersionLocator(accountId: string, workerName: string, versionId: string): string {
+  return `cloudflare:workers:accounts/${encodeURIComponent(accountId)}/workers/${encodeURIComponent(workerName)}/versions/${versionId.toLowerCase()}`;
+}
+
+/** Consume at most one bounded deploy stdout stream and retain only Wrangler's version identifier. */
+export async function deployedOutput(p: CiBuildParams, accountId: string, runner: RunnerLike | null): Promise<BuildReport["output"]> {
+  const stdout = runner?.logs?.stdout;
+  if (!stdout) return undefined;
+  let text = "";
+  let capped = false;
+  if (typeof stdout === "string") {
+    // Slice before encoding so arbitrarily long string logs never allocate an unbounded byte buffer.
+    const bytes = new TextEncoder().encode(stdout.slice(0, MAX_DEPLOY_LOG_BYTES));
+    text = new TextDecoder().decode(bytes.subarray(0, MAX_DEPLOY_LOG_BYTES));
+    capped = bytes.byteLength >= MAX_DEPLOY_LOG_BYTES;
+  } else {
+    const reader = stdout.getReader();
+    const decoder = new TextDecoder();
+    let remaining = MAX_DEPLOY_LOG_BYTES;
+    try {
+      while (remaining > 0) {
+        const next = await reader.read();
+        if (next.done) break;
+        const chunk = next.value.subarray(0, remaining);
+        remaining -= chunk.byteLength;
+        text += decoder.decode(chunk, { stream: true });
+      }
+      text += decoder.decode();
+      capped = remaining === 0;
+    } finally {
+      await reader.cancel();
+    }
+  }
+  // At the cap, a trailing line may be incomplete; never turn its truncated prefix into output identity.
+  if (capped && !text.endsWith("\n")) text = text.slice(0, text.lastIndexOf("\n") + 1);
+  const versionId = VERSION_ID.exec(text)?.[1];
+  return versionId ? { locator: workerVersionLocator(accountId, p.workerName, versionId) } : undefined;
 }
 
 /**
@@ -251,8 +302,10 @@ export async function runPipeline(input: PipelineInput): Promise<BuildReport> {
       workspace = await (workspace ? workspace.runner(s) : input.ci.runner(s));
       steps.push({ name: s.name, status: "passed", durationMs: Date.parse(await now(`${s.name}: finished`)) - t0 });
     }
+    const output = await step("deployed output", () => deployedOutput(p, input.accountId, workspace));
     const finishedAt = await now("finished");
     const passed = reportBody(p, "passed", { ...base, url: workerUrl(p.workerName, input.workersSubdomain), steps, startedAt, finishedAt });
+    if (output) passed.output = output;
     await send("report passed", passed);
     return passed;
   } catch (e) {
