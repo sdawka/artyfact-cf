@@ -25,7 +25,6 @@ export function PhaseCard() {
         <dt>System</dt><dd><NodeChip id={system.id} size="sm" /></dd>
         <dt>Phase</dt><dd>{system.phase}</dd>
         <dt>Head</dt><dd>{system.head ? <code>{system.head.slice(0, 7)}</code> : "unknown"}</dd>
-        <dt>Revision</dt><dd><code>{m.bundle.revision.length > 12 ? m.bundle.revision.slice(0, 7) : m.bundle.revision}</code></dd>
         <dt>Genome commit</dt><dd>{commit && !isZeros(commit) ? <code>{commit.slice(0, 7)}</code> : "unknown"}</dd>
         <dt>Rule packs</dt>
         <dd>{packs.length ? <ul className={styles.codeList}>{packs.map((p) => <li key={p}><code>{p}</code></li>)}</ul> : "unknown"}</dd>
