@@ -491,7 +491,7 @@ describe("New Evolution", () => {
     fireEvent.change(within(panel).getByLabelText("Admin token"), { target: { value: "s3cret" } });
     fireEvent.click(within(panel).getByRole("button", { name: "Create Evolution" }));
     await waitFor(() => expect(router.state.location.search).toBe("?evolution=evolution.new"));
-    expect(posts).toEqual([{ body: { title: "Reminder nudges", intent: "Nudge owners", kind: "implementation", risk: "low", affectedNodes: ["screen.people"] }, auth: "Bearer s3cret" }]);
+    expect(posts).toEqual([{ body: { title: "Reminder nudges", intent: "Nudge owners", kind: "mixed", risk: "low", affectedNodes: ["screen.people"] }, auth: "Bearer s3cret" }]);
     const proposed = await screen.findByRole("region", { name: /Proposed/ });
     expect(await within(proposed).findByRole("button", { name: "Reminder nudges" })).toBeTruthy();
     await waitFor(() => expect(screen.queryByRole("region", { name: "New Evolution" })).toBeNull());

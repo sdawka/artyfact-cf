@@ -22,7 +22,7 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
   const [intent, setIntent] = useState("");
   const [nodeInput, setNodeInput] = useState("");
   const [nodes, setNodes] = useState<string[]>([]);
-  const [kind, setKind] = useState<(typeof KINDS)[number]>("implementation");
+  const [kind, setKind] = useState<(typeof KINDS)[number]>("mixed");
   const [risk, setRisk] = useState<(typeof RISKS)[number]>("medium");
   // null = list untouched: the field is omitted and the server applies the System's defaults for the target.
   const [picked, setPicked] = useState<string[] | null>(null);
