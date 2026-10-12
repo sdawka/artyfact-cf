@@ -1,0 +1,2 @@
+.links { position: absolute; inset: 0; pointer-events: none; overflow: visible; }
+.links path { fill: none; stroke: var(--color-border-strong); stroke-width: 1.5; }
