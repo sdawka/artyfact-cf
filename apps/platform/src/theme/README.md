@@ -5,8 +5,18 @@ Always use tokens (`var(--color-*)`, `--spacing-*`, `--font-*`, `--motion-*`); n
 
 ## Identity
 Aubergine-black ink, one apricot accent (`--color-brand-primary`) for focus, active nav and primary action. 60% background,
-30% surfaces, at most 10% accent and semantic colours. Calm, technical, sentence case. No gradients, glow, glassmorphism,
-nested cards, accent rails/dots, stickers, blobs, forced uppercase, eyebrow labels, hover lift/bounce/rotation.
+30% surfaces, at most 10% accent and semantic colours. Calm, technical, sentence case. No glassmorphism, nested cards,
+accent rails/dots, stickers, blobs, forced uppercase, eyebrow labels, hover lift/bounce/rotation.
+
+Glow, gradients and haze are allowed, through the effect tokens (`effects.css`: `--glow-*`, `--shadow-glow-*`,
+`--gradient-haze*`, `--motion-duration-ambient`) and `@artyfact/effects` (`Orb`, `AmbientField`):
+- Signature moments: the System's orb, hero areas, promotion and commit events. At most one orb in view per screen region.
+- State emphasis: glow in a state colour on the element whose state changed or needs attention (a failing gate, a fresh pass).
+  Same rule as verdicts: only `pass` may glow in the success colour.
+- Selection: `--shadow-glow-accent` may mark a selected node or card alongside its outline, never instead of it.
+- Ambient haze sits behind content, never behind dense text, and stays dim (`AmbientField` intensity at or under 0.5 behind copy).
+- Text contrast and focus rings win: no glow, gradient or canvas may lower text below AA or hide the 2px focus outline.
+- Effects are decorative (`aria-hidden`), honour reduced motion, and the app must read the same with them off.
 
 ## Type
 - Display `--font-display` (Georgia; the Brilon face is not shipped because its licence is unconfirmed): the wordmark (`.wordmark`) and the page `h1` only.

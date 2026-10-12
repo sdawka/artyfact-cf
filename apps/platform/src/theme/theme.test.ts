@@ -4,9 +4,9 @@ import { join } from "node:path";
 
 // Vitest processes imported CSS (and `?raw` yields ''), so read the sources from disk.
 const read = (name: string) => readFileSync(join(import.meta.dirname, name), "utf8");
-const [tokens, whimsy, utilities, reactflow, index] = [
-  "tokens.css", "whimsy.css", "utilities.css", "reactflow.css", "index.css",
-].map((n) => read(n)) as [string, string, string, string, string];
+const [tokens, whimsy, utilities, reactflow, effects, index] = [
+  "tokens.css", "whimsy.css", "utilities.css", "reactflow.css", "effects.css", "index.css",
+].map((n) => read(n)) as [string, string, string, string, string, string];
 
 const balanced = (css: string) => css.split("{").length === css.split("}").length;
 
@@ -29,7 +29,7 @@ describe("theme css", () => {
   });
 
   it("has balanced braces in every file", () => {
-    for (const css of [tokens, whimsy, utilities, reactflow, index]) {
+    for (const css of [tokens, whimsy, utilities, reactflow, effects, index]) {
       expect(balanced(css)).toBe(true);
     }
   });
@@ -56,8 +56,20 @@ describe("theme css", () => {
   });
 
   it("imports in order", () => {
-    const order = ["tokens", "whimsy", "utilities", "reactflow"].map((n) => index.indexOf(`./${n}.css`));
+    const order = ["tokens", "whimsy", "utilities", "reactflow", "effects"].map((n) => index.indexOf(`./${n}.css`));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
+  });
+
+  it("defines effect tokens from the palette, and the README allows glow with limits", () => {
+    for (const t of ["--glow-accent", "--glow-success", "--glow-error", "--gradient-haze", "--shadow-glow-accent", "--shadow-glow-success", "--shadow-glow-error", "--motion-duration-ambient"]) {
+      expect(effects).toMatch(new RegExp(`${t}:`));
+    }
+    expect(effects).toMatch(/--glow-accent:\s*oklch\(0\.79 0\.125 60 \//);
+    expect(effects).toMatch(/prefers-reduced-motion[\s\S]*--motion-duration-ambient:\s*0ms/);
+    const readme = read("README.md");
+    expect(readme).toMatch(/Glow, gradients and haze are allowed/);
+    expect(readme).toMatch(/focus rings win/);
+    expect(readme).not.toMatch(/No gradients, glow/);
   });
 });

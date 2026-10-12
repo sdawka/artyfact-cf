@@ -20,6 +20,7 @@
   },
   "dependencies": {
     "@artyfact/cli": "*",
+    "@artyfact/effects": "*",
     "@artyfact/model": "*",
     "@artyfact/rules": "*",
     "@artyfact/semantic": "*",

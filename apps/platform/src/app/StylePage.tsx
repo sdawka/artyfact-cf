@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import {
+  AmbientField, EffectsProvider, Orb, ORB_PRESET_NAMES, type AmbientFieldHandle, type OrbHandle, type OrbPresetName,
+} from "@artyfact/effects";
 import type { UiVerdict as Verdict } from "@/model/status";
 import styles from "./StylePage.module.css";
 
@@ -11,6 +14,73 @@ const VERDICTS: { verdict: Verdict; glyph: string }[] = [
 ];
 
 const TABS = ["Overview", "Map", "Work"];
+
+const PRESET_USE: Record<OrbPresetName, string> = {
+  apricot: "Accent. Default, neutral or in progress.",
+  verdant: "Success. Every gate passes.",
+  ember: "Error. Failing or blocked.",
+  tide: "Info. Waiting on evidence.",
+  dusk: "Background hue. Idle or ambient.",
+};
+
+function OrbTile({ preset }: { preset: OrbPresetName }) {
+  const orb = useRef<OrbHandle>(null);
+  return (
+    <figure className={styles.orbTile} data-preset={preset}>
+      <div className={styles.orbBox}>
+        <Orb ref={orb} preset={preset} particleCount={9000} />
+      </div>
+      <figcaption>
+        <code>{preset}</code> <span className={styles.muted}>{PRESET_USE[preset]}</span>
+      </figcaption>
+      <button type="button" className={`u-brackets ${styles.smallButton}`} onClick={() => orb.current?.pulse(1)}>
+        Pulse<span className="sr-only"> {preset}</span>
+      </button>
+    </figure>
+  );
+}
+
+function EffectsSection() {
+  const [enabled, setEnabled] = useState(true);
+  const [intensity, setIntensity] = useState(0.5);
+  const field = useRef<AmbientFieldHandle>(null);
+  return (
+    <EffectsProvider enabled={enabled}>
+      <h2>Signature effects</h2>
+      <p>
+        Glow and haze mark signature moments, state changes and selection. They are decorative, follow reduced motion,
+        and the page reads the same with them off.
+      </p>
+      <label className={styles.toggle}>
+        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> Effects on
+      </label>
+      <div className={styles.orbGrid}>
+        {ORB_PRESET_NAMES.map((p) => <OrbTile key={p} preset={p} />)}
+      </div>
+
+      <h3>Ambient field</h3>
+      <div
+        className={styles.ambientPanel}
+        data-testid="ambient-panel"
+        onPointerDown={(e) => field.current?.pulse(e.clientX, e.clientY, 1)}
+      >
+        <AmbientField ref={field} intensity={intensity} density={0.5} />
+        <p className={styles.ambientText}>Click inside the panel to send a ripple.</p>
+      </div>
+      <label className={styles.toggle}>
+        Intensity{" "}
+        <input type="range" min={0} max={1} step={0.05} value={intensity} onChange={(e) => setIntensity(Number(e.target.value))} />
+      </label>
+
+      <h3>Glow tokens</h3>
+      <p className={styles.glows}>
+        <span className={styles.glow} data-glow="accent">accent</span>
+        <span className={styles.glow} data-glow="success">success</span>
+        <span className={styles.glow} data-glow="error">error</span>
+      </p>
+    </EffectsProvider>
+  );
+}
 
 /** Living style sheet for the whimsy theme, served at /style. */
 export function StylePage() {
@@ -57,6 +127,8 @@ export function StylePage() {
           </span>
         ))}
       </p>
+
+      <EffectsSection />
     </main>
   );
 }
