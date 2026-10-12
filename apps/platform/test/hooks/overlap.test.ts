@@ -32,6 +32,12 @@ describe("overlap / conflicts", () => {
     expect(r).toEqual([expect.objectContaining({ kind: "file", paths: ["src/ui/people.tsx"], nodes: ["screen.people"] })]);
   });
 
+  it("ignores platform-written files when looking for file conflicts", async () => {
+    const a = cand("cand.a", ["TASK_PACKET.md", "AGENTS.md", ".artyfact/candidate.json", "src/ui/people.tsx"], ["screen.people"]);
+    const b = cand("cand.b", ["TASK_PACKET.md", "AGENTS.md", ".artyfact/candidate.json", "src/ui/home.tsx"], ["screen.home"]);
+    expect(await computeConflicts(ctx(a, [b]), base)).toEqual([]);
+  });
+
   it("returns [] when nothing overlaps", async () => {
     const a = cand("cand.a", ["src/ui/people.tsx"], ["screen.people"]);
     const b = cand("cand.b", ["src/ui/home.tsx"], ["screen.home"]);

@@ -1,6 +1,8 @@
 /**
  * `diff` engine, scope mode (C.system.promotion): changed paths ⊆ permitted globs, no protected glob touched, every
  * path mapped to a model node. Order: protected → fail; outside permitted → fail; unmapped → unknown; else pass.
+ * Files the CLI writes at the clone root (TASK_PACKET.md, AGENTS.md, .artyfact/**) are always permitted and mapped;
+ * they are reported as `platformWritten` so the UI can grey them out.
  */
 import picomatch from "picomatch";
 import { errored, type Outcome } from "./provenance";
@@ -15,24 +17,30 @@ export interface ScopeInput {
 
 export const UNMAPPED = "unmapped:";
 const GENOME_GLOB = "system/**";
+/** Written by `artyfact start` at the clone root; never a scope violation. */
+export const PLATFORM_WRITTEN = ["TASK_PACKET.md", "AGENTS.md", ".artyfact/**"];
+const isPlatformWritten = picomatch(PLATFORM_WRITTEN, { dot: true });
 
 const matcher = (globs: string[]) => (globs.length ? picomatch(globs, { dot: true }) : () => false);
 
 export function diffScope(input: ScopeInput): Outcome {
   if (input.permitted.length === 0) return errored(new Error("no permitted globs in the Task Packet; scope cannot be checked"));
-  if (input.changedPaths.length === 0) {
-    return { execution: "completed", verdict: "unknown", observations: [{ changedPaths: 0 }], interpretation: "No changed paths vs base; nothing to judge.", limitations: [] };
+  const platformWritten = input.changedPaths.filter((p) => isPlatformWritten(p));
+  const written = platformWritten.length ? [{ platformWritten }] : [];
+  const changedPaths = input.changedPaths.filter((p) => !isPlatformWritten(p));
+  if (changedPaths.length === 0) {
+    return { execution: "completed", verdict: "unknown", observations: [{ changedPaths: 0 }, ...written], interpretation: "No changed paths vs base besides platform-written files; nothing to judge.", limitations: [] };
   }
   const isPermitted = matcher(input.permitted);
   const isProtected = matcher(input.protected);
   const isGenome = picomatch(GENOME_GLOB, { dot: true });
 
-  const protectedTouched = input.changedPaths.filter((p) => isProtected(p));
-  const outsidePermitted = input.changedPaths.filter((p) => !isPermitted(p) && !protectedTouched.includes(p));
+  const protectedTouched = changedPaths.filter((p) => isProtected(p));
+  const outsidePermitted = changedPaths.filter((p) => !isPermitted(p) && !protectedTouched.includes(p));
   // Genome candidates are judged by model-rules, not the source map: their paths are Genome files, not app code.
-  const unmapped = input.target === "genome" ? [] : input.changedNodes.filter((n) => n.startsWith(UNMAPPED)).map((n) => n.slice(UNMAPPED.length));
+  const unmapped = input.target === "genome" ? [] : input.changedNodes.filter((n) => n.startsWith(UNMAPPED)).map((n) => n.slice(UNMAPPED.length)).filter((p) => !isPlatformWritten(p));
 
-  const observations: unknown[] = [];
+  const observations: unknown[] = [...written];
   if (protectedTouched.length) observations.push({ protectedTouched });
   if (outsidePermitted.length) observations.push({ outsidePermitted });
   if (unmapped.length) observations.push({ unmapped });
@@ -48,5 +56,5 @@ export function diffScope(input: ScopeInput): Outcome {
   if (unmapped.length) {
     return { execution: "completed", verdict: "unknown", observations, interpretation: `Paths not mapped to any model node: ${unmapped.join(", ")}.`, limitations };
   }
-  return { execution: "completed", verdict: "pass", observations: [{ changedPaths: input.changedPaths.length }], interpretation: "Every changed path is permitted and mapped.", limitations };
+  return { execution: "completed", verdict: "pass", observations: [{ changedPaths: changedPaths.length }, ...written], interpretation: "Every changed path is permitted and mapped.", limitations };
 }

@@ -2,7 +2,8 @@
  * Overlap between this candidate and each other open candidate of the System (C.system.readiness).
  *
  * Per pair:
- * - `file`: same target repo and at least one path changed by both.
+ * - `file`: same target repo and at least one path changed by both (CLI-written TASK_PACKET.md, AGENTS.md and
+ *   .artyfact/** excluded: every candidate changes them).
  * - `soft-semantic`: no shared path, but shared model nodes or criteria both reach (`overlap()` from the model).
  * - `hard-semantic`: both are Genome candidates sharing nodes, and the composed Genome (base + A's files + B's
  *   files) has a hard violation that neither has alone, on a node either touches.
@@ -12,7 +13,8 @@
 import { diffModels, overlap, type SemanticDelta, type SystemModel } from "@artyfact/model";
 import { interference, type SystemOne } from "@artyfact/semantic";
 import type { CandidateRef, ConflictContext, ConflictReport, FileMap } from "./contract";
-import { UNMAPPED } from "./diff-scope";
+import picomatch from "picomatch";
+import { PLATFORM_WRITTEN, UNMAPPED } from "./diff-scope";
 import { loadGenome, runRules, type GenomeDeps } from "./model-rules";
 import { errorMessage } from "./provenance";
 
@@ -29,6 +31,7 @@ interface Footprint {
   note?: string;
 }
 
+const isPlatformWritten = picomatch(PLATFORM_WRITTEN, { dot: true });
 const uniq = (xs: Iterable<string>) => [...new Set(xs)].sort();
 const emptyDelta = (): SemanticDelta => ({ added: [], removed: [], changed: [], affectedCriteria: [], affectedJourneys: [] });
 const touched = (d: SemanticDelta) => uniq([...d.added, ...d.removed, ...d.changed.map((c) => c.id)]);
@@ -97,7 +100,7 @@ export async function computeConflicts(ctx: ConflictContext, base: SystemModel, 
     if (other.id === ctx.candidate.id) continue;
     const them = footprint(other, base, deps);
     const notes = [me.note, them.note].filter(Boolean) as string[];
-    const paths = other.target === ctx.candidate.target ? uniq(ctx.candidate.changedPaths.filter((p) => other.changedPaths.includes(p))) : [];
+    const paths = other.target === ctx.candidate.target ? uniq(ctx.candidate.changedPaths.filter((p) => !isPlatformWritten(p) && other.changedPaths.includes(p))) : [];
     const o = overlap(me.delta, them.delta, base);
     const nodes = uniq([...o.shared, ...me.nodes.filter((n) => them.nodes.includes(n))]);
     const candidates = [ctx.candidate.id, other.id];

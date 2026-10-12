@@ -50,4 +50,26 @@ describe("diff scope engine", () => {
     const o = diffScope({ ...base, permitted: ["src/**"], changedPaths: ["src/.env.example"], changedNodes: ["section.ui"] });
     expect(o.verdict).toBe("pass");
   });
+
+  it("treats CLI-written files as always permitted and mapped, listing them as platform-written", () => {
+    const written = ["TASK_PACKET.md", "AGENTS.md", ".artyfact/candidate.json", ".artyfact/packet.json"];
+    const o = diffScope({
+      ...base,
+      changedPaths: ["src/ui/people.tsx", ...written],
+      changedNodes: ["screen.people", ...written.map((p) => `unmapped:${p}`)],
+    });
+    expect(o).toMatchObject({ execution: "completed", verdict: "pass" });
+    expect(o.observations).toContainEqual({ platformWritten: written });
+  });
+
+  it("does not exempt look-alikes in subdirectories", () => {
+    const o = diffScope({ ...base, changedPaths: ["docs/AGENTS.md"], changedNodes: ["unmapped:docs/AGENTS.md"] });
+    expect(o.verdict).toBe("fail");
+  });
+
+  it("a change set of only platform-written files is unknown, not a vacuous pass", () => {
+    const o = diffScope({ ...base, changedPaths: ["TASK_PACKET.md"], changedNodes: ["unmapped:TASK_PACKET.md"] });
+    expect(o.verdict).toBe("unknown");
+    expect(o.observations).toContainEqual({ platformWritten: ["TASK_PACKET.md"] });
+  });
 });
