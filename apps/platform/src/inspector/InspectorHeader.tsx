@@ -1,10 +1,11 @@
+import { Link } from "react-router";
 import { Breadcrumbs } from "@/components/Breadcrumbs/Breadcrumbs";
 import { CopyButton } from "@/components/CopyButton/CopyButton";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import type { IndexEntry } from "@/model/index";
 import { kindInfo, VIEW_LABELS, type ViewName } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
-import { useSelection, useSystemRoute } from "@/model/useSelection";
+import { useKeepParams, useSelection, useSystemRoute } from "@/model/useSelection";
 import styles from "./Inspector.module.css";
 
 const THEORY = new Set(["purpose", "claim", "external", "feature", "commitment"]);
@@ -24,6 +25,8 @@ export function InspectorHeader({ entry }: { entry: IndexEntry }) {
   const { setFocus, clear } = useSelection();
   const { view } = useSystemRoute();
   const path = m.path(entry.id).map((e) => e.id);
+  const href = useKeepParams();
+  const doc = (entry.item as { source?: { doc?: unknown } } | undefined)?.source?.doc;
   return (
     <header className={styles.header}>
       <div className={styles.titleRow}>
@@ -52,6 +55,11 @@ export function InspectorHeader({ entry }: { entry: IndexEntry }) {
             Open in {VIEW_LABELS[v]}
           </button>
         ))}
+        {typeof doc === "string" && doc && (
+          <Link className={`u-brackets ${styles.openButton}`} to={href("code", { repo: "genome", path: doc })}>
+            Open in Code
+          </Link>
+        )}
       </div>
     </header>
   );
