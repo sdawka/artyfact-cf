@@ -139,6 +139,32 @@ function llmJudgment(h: schema.AssayHook, c: schema.Criterion): { judgment: stri
 
 const withLimitation = (o: Outcome, text: string): Outcome => ({ ...o, limitations: [...o.limitations, text] });
 
+const MULTI_RECIPIENT = "topology.multiRecipient";
+const touchedCount = (d: { added: string[]; removed: string[]; changed: unknown[] }) => d.added.length + d.removed.length + d.changed.length;
+
+/** The model-rules run for this candidate completed fully: its (absence of) outputs is evidence. */
+const rulesSound = (r: ModelRulesResult) => !!r.model && !!r.readiness && !r.readiness.incomplete && r.outcome.execution === "completed";
+
+function rulesUnsound(r: ModelRulesResult, what: string): Outcome {
+  const why = !r.model ? "the Genome does not load" : !r.readiness ? "its rules run failed" : r.readiness.incomplete ? "its rules run is incomplete" : `its rules run did not complete (${r.outcome.execution})`;
+  return { execution: "completed", verdict: "unknown", observations: [], interpretation: `${what} cannot be judged: ${why}.`, limitations: ["No sound rules run to establish what needs judging."] };
+}
+
+/**
+ * Ruling: a System One hook whose input set is empty because a complete, sound rules run flagged nothing passes by
+ * that evidence. Nothing is sent to System One.
+ */
+function vacuous(r: ModelRulesResult, counts: Record<string, number>, what: string): Outcome {
+  return {
+    execution: "completed",
+    verdict: "pass",
+    observations: [{ ...counts, rulesRun: r.readiness?.snapshotHash ?? "" }],
+    interpretation: `${what}: nothing to judge.`,
+    limitations: ["vacuous: no candidates flagged by the rules; nothing was judged"],
+    provenance: { provider: "none", rulesRun: r.readiness?.snapshotHash ?? "" },
+  };
+}
+
 export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
   const s1 = deps.s1 ?? createSystemOne(deps.s1Env ?? {});
   const now = () => (deps.now ?? (() => new Date()))().toISOString();
@@ -240,19 +266,25 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
     const cand = st.ctx.candidate;
     if (j === "reviewDelta") {
       if (cand.target !== "genome") return aggregate([], "reviewDelta (app candidate has no Genome delta)");
-      return aggregate(reviewsAsJudged((await reviewsFor(st)).filter((r) => r.judgment === j)), j);
+      const r = rulesFor(st, null);
+      const reviews = (await reviewsFor(st)).filter((x) => x.judgment === j);
+      if (rulesSound(r) && r.delta && touchedCount(r.delta) === 0) return vacuous(r, { changes: 0 }, j);
+      return aggregate(reviewsAsJudged(reviews), j);
     }
     if (j === "topology") {
       // Judge every multi-recipient candidate of the judged model: the candidate Genome, or the canonical one for
       // app candidates (whose Genome is unchanged).
       const r = rulesFor(st, null);
-      if (!r.model || !r.readiness) return errored(new Error("Genome does not load or its rules failed; topology cannot be judged"));
-      return aggregate(reviewsAsJudged(await judgeTopology(s1, r.model, r.readiness.derived)), j);
+      if (!rulesSound(r)) return rulesUnsound(r, j);
+      const flagged = (r.readiness!.derived.semanticCandidate ?? []).filter((t) => t[0] === MULTI_RECIPIENT);
+      if (flagged.length === 0) return vacuous(r, { semanticCandidates: 0 }, j);
+      return aggregate(reviewsAsJudged(await judgeTopology(s1, r.model!, r.readiness!.derived)), j);
     }
     if (j === "purposeMeasures") {
-      const m = cand.target === "genome" ? rulesFor(st, null).model : st.base;
-      if (!m) return errored(new Error("Genome candidate does not load; purpose measures cannot be judged"));
-      return aggregate(reviewsAsJudged(await judgePurpose(s1, m)), j);
+      const r = rulesFor(st, null);
+      if (!rulesSound(r)) return rulesUnsound(r, j);
+      if (r.model!.claims.filter((c) => !c.deferred).length === 0) return vacuous(r, { claims: 0 }, j);
+      return aggregate(reviewsAsJudged(await judgePurpose(s1, r.model!)), j);
     }
     if (j === "interference") {
       const judged = (await conflictsFor(st)).filter((r) => r.semantic).map((r) => ({

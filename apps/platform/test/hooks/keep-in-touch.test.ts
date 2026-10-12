@@ -90,9 +90,11 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
     expect(promo.observations).toContainEqual(expect.objectContaining({ check: "base-current", execution: "not-run" }));
     // Overlap hook: no other open candidates → pass; a soft conflict → unknown.
     expect(evs.find((e) => e.hook === "hook.system.overlap")).toMatchObject({ criterion: "C.system.concurrency", execution: "completed", verdict: "pass" });
-    // Topology semantic: the canonical Genome has no multi-recipient candidates, so nothing is judged → unknown.
+    // Topology semantic: a sound rules run flagged no multi-recipient candidates → vacuous pass by that evidence.
     const topoS1 = evs.find((e) => e.hook === "hook.system.topology.semantic")!;
-    expect(topoS1).toMatchObject({ criterion: "C.system.topology", execution: "completed", verdict: "unknown" });
+    expect(topoS1).toMatchObject({ criterion: "C.system.topology", execution: "completed", verdict: "pass" });
+    expect(topoS1.observations).toEqual([{ semanticCandidates: 0, rulesRun: expect.stringMatching(/^[0-9a-f]{64}$/) }]);
+    expect(topoS1.limitations).toContain("vacuous: no candidates flagged by the rules; nothing was judged");
     expect(topoS1.limitations.join(" ")).toMatch(/inputs\.judgment is not set; ran topology/);
     const purpose = evs.find((e) => e.hook === "hook.system.purpose.model")!;
     expect(purpose.execution).toBe("completed");
@@ -143,6 +145,26 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
     const runner = createHookRunner({ s1: createSystemOne({}), now: () => new Date(0) });
     const e = (await runner.runSubmission(ctx())).find((x) => x.hook === "hook.system.purpose.model")!;
     expect(e.limitations.join(" ")).toMatch(/hook inputs packs ignored/);
+  });
+
+  it("topology semantic with candidates flagged and the provider off is unknown", async () => {
+    const files = keepInTouch();
+    files["things/webapp/ontology.yaml"] = files["things/webapp/ontology.yaml"].replace(
+      "    effects: [Save only that owner's record; editing does not send invitations,", "    effects: [Save only that owner's record and notify the recipient,");
+    const runner = createHookRunner({ s1: createSystemOne({}), now: () => new Date(0) });
+    const e = (await runner.runSubmission(ctx({ genomeFiles: files }))).find((x) => x.hook === "hook.system.topology.semantic")!;
+    expect(e).toMatchObject({ execution: "completed", verdict: "unknown" });
+    expect(e.provenance.provider).toBe("off");
+  });
+
+  it("topology semantic is unknown when the rules run errored (no vacuous pass without evidence)", async () => {
+    const runner = createHookRunner({
+      s1: createSystemOne({ FAKE_S1: "1" }), now: () => new Date(0),
+      genome: { packsFor: () => { throw new Error("pack store unavailable"); } },
+    });
+    const e = (await runner.runSubmission(ctx())).find((x) => x.hook === "hook.system.topology.semantic")!;
+    expect(e).toMatchObject({ execution: "completed", verdict: "unknown" });
+    expect(e.interpretation).toMatch(/rules run failed|did not complete/);
   });
 
   it("system-one engine with provider off is unknown with provenance off", async () => {
