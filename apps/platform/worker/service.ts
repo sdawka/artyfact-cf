@@ -386,7 +386,8 @@ export async function conflicts(env: Env, systemId: string): Promise<ConflictsRe
 }
 
 /** Run hooks for a recorded candidate; returns evaluations in wire form and the realization status to set. */
-async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: StoredCandidate, trigger: "submission" | "promotion") {
+/** `promoting` is the full candidate set of the promotion (its composed manifest must bind exactly their commits). */
+async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: StoredCandidate, trigger: "submission" | "promotion", promoting: string[] = [cand.id]) {
   const stub = systemStub(env, s.systemId);
   const [genomeFiles, candidate, others] = await Promise.all([
     canonicalFiles(env, s),
@@ -408,6 +409,7 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
     const submittedAt = (await stub.candidate(cand.id))?.submittedAt ?? "";
     const g = await canonicalGenome(env, s);
     const evo = await stub.evolution(rec.evolutionId);
+    const composed = await stub.composedManifestExact(promoting, manifestExtras(g.model).artifactId);
     let fresh = false;
     try {
       fresh = exists && !!evo && evidenceFresh(g.model, evo, candidate, await stub.evaluations(cand.id), submittedAt, s.genomeCommit);
@@ -416,7 +418,8 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
     }
     promotionFacts = {
       currentBaseCommit: rec.target === "genome" ? s.genomeCommit : s.appSource.commit,
-      manifestExact: !!cand.manifestHash && cand.manifestHash === recomputedHash,
+      // The composed manifest binds exactly the promoted commits, and this candidate's commit still hashes to what was submitted.
+      manifestExact: composed.exact && !!cand.manifestHash && cand.manifestHash === recomputedHash,
       evidenceFresh: fresh,
     };
   }
@@ -631,7 +634,7 @@ export async function promote(
     // Revalidate on the exact commit before the CAS: hooks re-run with promotionFacts (base-current, manifest-exact, evidence-fresh).
     if (["submitted", "evaluated", "selected"].includes(c.state) && s.head === body.expectedHead) {
       await computeConflicts(env, systemId, id);
-      const { evaluations } = await evaluate(env, s, rec, ref, "promotion");
+      const { evaluations } = await evaluate(env, s, rec, ref, "promotion", ids as string[]);
       if (evaluations.length) await stub.recordEvaluations(id, evaluations);
     }
   }

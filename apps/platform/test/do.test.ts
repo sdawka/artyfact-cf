@@ -140,7 +140,7 @@ describe("promote", () => {
       const required = { [c1.id]: hard("C.people.list", "C.webapp.exists") };
       i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "unknown"), ev(c1.id, "C.webapp.exists", "pass")]);
       const input = promoteInput([c1.id], head, required);
-      expect(() => i.promoteTx(input, { head, manifest: { genomeCommit: G1, artifacts: {}, templateVersions: {}, hookVersions: {} }, manifestHash: "0".repeat(64) }))
+      expect(() => i.promoteTx(input, { head, manifest: { genomeCommit: G1, artifacts: { "artifact.webapp": { repo: "kit-app--r1", commit: A2 } }, templateVersions: {}, hookVersions: {} }, manifestHash: "0".repeat(64) }))
         .toThrow(PromotionBlockedError);
       const r1 = await i.promote(input);
       expect(r1).toEqual({ ok: false, code: "blocked", blocking: [{ candidate: c1.id, criterion: "C.people.list", severity: "hard", verdict: "unknown", execution: "completed" }], advisories: [] });
@@ -267,6 +267,33 @@ describe("promotion gate fails closed", () => {
       i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "unknown")], "evaluated");
       const out = await i.promote(promoteInput([c1.id], head, gates, "soft acceptance acknowledged"));
       expect(out).toMatchObject({ ok: true, advisories: [{ criterion: "C.people.list" }] });
+    });
+  });
+});
+
+describe("promotion binds exactly the promoted commits", () => {
+  it("refuses more than one app candidate with invalid-state until composition exists", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      const { c1, c2, head } = await twoCandidates(i);
+      const pass = (id: string) => i.recordEvaluations(id, [ev(id, "C.people.list", "pass")], "evaluated");
+      pass(c1.id); pass(c2.id);
+      expect(i.composedManifestExact([c1.id, c2.id], "artifact.webapp")).toMatchObject({ exact: false, problems: expect.arrayContaining([expect.stringContaining("2 app candidates")]) });
+      expect(i.composedManifestExact([c1.id], "artifact.webapp")).toEqual({ exact: true, problems: [] });
+      const out = await i.promote(promoteInput([c1.id, c2.id], head));
+      expect(out).toMatchObject({ ok: false, code: "invalid-state", message: expect.stringContaining("2 app candidates") });
+      expect(i.state()!.head).toBe(head);
+      expect(i.candidate(c1.id)!.state).toBe("evaluated");
+    });
+  });
+
+  it("refuses a prepared manifest that does not bind every candidate's commit", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      const { c1, head } = await twoCandidates(i);
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "pass")], "evaluated");
+      const input = promoteInput([c1.id], head);
+      const other = { head, manifest: { genomeCommit: G1, artifacts: { "artifact.webapp": { repo: "kit-app--r2", commit: A3 } }, templateVersions: {}, hookVersions: {} }, manifestHash: "0".repeat(64) };
+      expect(() => i.promoteTx(input, other)).toThrow(/does not bind/);
+      expect(i.state()!.head).toBe(head);
     });
   });
 });

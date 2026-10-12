@@ -237,6 +237,23 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(pb.json.error.code).toBe("stale-base");
   });
 
+  it("refuses to promote two app candidates in one System commit (409 invalid-state, manifestExact false)", async () => {
+    const { ns, systemId, appRepo, imp } = await imported();
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const c1 = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" });
+    const s1 = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c1 });
+    // A second candidate from the same realization at a later commit.
+    const c2 = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a2" });
+    const s2 = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c2 });
+    expect(s2.json.candidate.id).not.toBe(s1.json.candidate.id);
+    const res = await call<ApiError>("POST", `/systems/${systemId}/promote`, { candidates: [s1.json.candidate.id, s2.json.candidate.id], expectedHead: imp.head, rationale: "x" }, ADMIN);
+    expect(res.status).toBe(409);
+    expect(res.json.error).toMatchObject({ code: "invalid-state", message: expect.stringContaining("2 app candidates") });
+    expect(seen.filter((x) => x.promotionFacts).map((x) => x.promotionFacts!.manifestExact)).toEqual([false, false]);
+    const sys = await call<{ head: string }>("GET", `/systems/${systemId}`);
+    expect(sys.json.head).toBe(imp.head);
+  });
+
   it("refuses promotion with 409 gate-unavailable when the canonical Genome does not load", async () => {
     const { ns, systemId, appRepo, imp } = await imported();
     const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;

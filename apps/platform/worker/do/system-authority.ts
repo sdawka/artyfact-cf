@@ -799,21 +799,54 @@ export class SystemAuthority extends DurableObject<Env> {
     return out;
   }
 
+  private promotionRows(candidateIds: string[]): (Row | undefined)[] {
+    return candidateIds.map((id) => this.one(
+      "SELECT c.id, c.commit_hash, r.fork_repo, r.target FROM candidates c JOIN realizations r ON r.id = c.realization_id WHERE c.id = ?", id,
+    ));
+  }
+
+  private compose(cands: (Row | undefined)[], artifactId: string, prev: SystemManifest | null): SystemManifest {
+    const artifacts = { ...(prev?.artifacts ?? {}) };
+    let genomeCommit = prev?.genomeCommit ?? this.kv("genome_commit") ?? "";
+    for (const c of cands) {
+      if (!c) continue;
+      if (c.target === "genome") genomeCommit = String(c.commit_hash);
+      else artifacts[artifactId] = { repo: String(c.fork_repo), commit: String(c.commit_hash) };
+    }
+    return { genomeCommit, artifacts, templateVersions: {}, hookVersions: {} };
+  }
+
+  /**
+   * Why the composed manifest does not bind exactly these candidates' commits (empty when it does).
+   * Until multi-candidate composition exists, at most one candidate per target can be promoted at once.
+   */
+  private compositionProblems(cands: Row[], artifactId: string, manifest: SystemManifest): string[] {
+    const problems: string[] = [];
+    for (const target of ["app", "genome"]) {
+      const n = cands.filter((c) => String(c.target) === target).length;
+      if (n > 1) problems.push(`${n} ${target} candidates cannot be composed into one System commit yet; promote one at a time`);
+    }
+    for (const c of cands) {
+      const bound = c.target === "genome"
+        ? manifest.genomeCommit === String(c.commit_hash)
+        : manifest.artifacts[artifactId]?.commit === String(c.commit_hash) && manifest.artifacts[artifactId]?.repo === String(c.fork_repo);
+      if (!bound) problems.push(`the composed manifest does not bind ${c.id} at ${String(c.commit_hash).slice(0, 12)}`);
+    }
+    return problems;
+  }
+
+  /** The promotion-time `manifestExact` fact: composing `candidateIds` onto the head binds exactly their commits. */
+  composedManifestExact(candidateIds: string[], artifactId: string): { exact: boolean; problems: string[] } {
+    const cands = this.promotionRows(candidateIds);
+    if (cands.some((c) => !c)) return { exact: false, problems: ["unknown candidate"] };
+    const problems = this.compositionProblems(cands as Row[], artifactId, this.compose(cands, artifactId, this.readManifest(this.kv("head"))));
+    return { exact: problems.length === 0, problems };
+  }
+
   /** Compose the next manifest for promoting `candidateIds` and hash it (async, so outside the transaction). */
   async preparePromotion(input: PromoteInput): Promise<PreparedCommit> {
-    const cands = input.candidateIds.map((id) => this.one(
-      "SELECT c.commit_hash, r.fork_repo, r.target FROM candidates c JOIN realizations r ON r.id = c.realization_id WHERE c.id = ?", id,
-    ));
-    return this.prepareCommit(input, (prev) => {
-      const artifacts = { ...(prev?.artifacts ?? {}) };
-      let genomeCommit = prev?.genomeCommit ?? this.kv("genome_commit") ?? "";
-      for (const c of cands) {
-        if (!c) continue;
-        if (c.target === "genome") genomeCommit = String(c.commit_hash);
-        else artifacts[input.artifactId] = { repo: String(c.fork_repo), commit: String(c.commit_hash) };
-      }
-      return { genomeCommit, artifacts, templateVersions: {}, hookVersions: {} };
-    });
+    const cands = this.promotionRows(input.candidateIds);
+    return this.prepareCommit(input, (prev) => this.compose(cands, input.artifactId, prev));
   }
 
   /**
@@ -836,6 +869,8 @@ export class SystemAuthority extends DurableObject<Env> {
       for (const c of rows) {
         if (!OPEN_CANDIDATE.includes(String(c.state))) throw new ConflictError("invalid-state", `candidate ${c.id} is ${c.state}`);
       }
+      const composition = this.compositionProblems(rows, input.artifactId, prep.manifest);
+      if (composition.length) throw new ConflictError("invalid-state", composition.join("; "));
       const items: GateItem[] = [];
       const blockingIds = new Set<string>();
       for (const c of rows) {
