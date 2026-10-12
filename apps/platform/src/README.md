@@ -34,6 +34,8 @@ their view and are dropped when the view changes. `useSystemRoute().systemId` is
 It is lazy-loaded inside `<main>`, under a `ModelProvider`, so `useModel()` and `useSelection()`
 work. Use `<h1>` for the view title.
 
+
+`views/phenome` (Deployments): builds, deployments, runtime events grouped by version key, observation criteria. `views/work/BuildChip` shows a candidate's build status (literal "unknown" when none); `views/overview/DeployCard` reads `useDeployments()`.
 ## Model (`model/`)
 
 `useModel()` returns `ModelApi` (throws outside the provider; `useModelOptional()` returns null):
