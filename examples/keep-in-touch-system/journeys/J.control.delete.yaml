@@ -44,7 +44,7 @@ steps:
   - S.webapp.operations
 - id: z4
   actor: system
-  action: Access revoked immediately, sessions and jobs cancelled, connections ended
+  action: Access revoked immediately, sessions and jobs cancelled
   kind: action
   operation: operation.data.delete
   next:

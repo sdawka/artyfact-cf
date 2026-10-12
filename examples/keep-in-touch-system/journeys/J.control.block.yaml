@@ -5,6 +5,7 @@ features:
 - GD.connect
 requirements:
 - S.webapp.operations
+- S.webapp.prompts
 - S.webapp.concurrency
 start: b1
 steps:
@@ -48,7 +49,7 @@ steps:
   next:
   - to: b5
   requirementRefs:
-  - S.webapp.operations
+  - S.webapp.prompts
 - id: b5
   actor: counterpart
   action: New invitations and acceptances between the two accounts are refused

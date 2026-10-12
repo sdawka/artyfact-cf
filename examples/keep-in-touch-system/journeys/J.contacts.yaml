@@ -19,7 +19,7 @@ steps:
   - S.webapp.screens
 - id: s2
   actor: user
-  action: Choose Add contact; AddContactDialog opens
+  action: Choose Add contact (or open an existing row to edit); AddContactDialog opens
   kind: action
   screen: screen.people
   state: dialog open

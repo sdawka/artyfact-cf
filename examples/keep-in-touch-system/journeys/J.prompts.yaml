@@ -58,6 +58,7 @@ steps:
   action: Snooze the suggestion; its effective due date moves
   kind: action
   screen: screen.today
+  operation: operation.goal.save
   next:
   - to: e2
   requirementRefs:

@@ -135,6 +135,7 @@ criteria:
     subjectId: section.domain
     targetKind: artifact
     gates: [candidate, promotion]
+    applicableWhen: module enabled
     deferred: true
     hooks: [hook.webapp.digest.private]
   - id: C.webapp.photo.approved
@@ -146,6 +147,7 @@ criteria:
     subjectId: section.domain
     targetKind: artifact
     gates: [candidate, promotion]
+    applicableWhen: module enabled
     deferred: true
     hooks: [hook.webapp.photo.approved]
 hooks:

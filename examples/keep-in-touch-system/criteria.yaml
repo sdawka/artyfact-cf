@@ -1,4 +1,5 @@
 # System-owned criteria (spec section 7, "System criteria").
+# sourceRefs on structure, purpose, topology and autonomy are editorial links; the spec table gives none.
 criteria:
   - id: C.system.structure
     title: System structure is complete
@@ -62,7 +63,7 @@ criteria:
     subjectKind: system
     subjectId: system.keep-in-touch
     targetKind: model
-    gates: [promotion]
+    gates: [submission, promotion]
     hooks: [hook.system.promotion]
 hooks:
   - id: hook.system.structure
@@ -78,7 +79,7 @@ hooks:
     assay: system.purpose.model
     criteria: [C.system.purpose]
     tier: semantic
-    engine: model-rules
+    engine: system-one
     targetKind: model
     triggers: [submission]
     inputs: { packs: "theory@1" }
@@ -125,8 +126,8 @@ hooks:
     assay: system.promotion
     criteria: [C.system.promotion]
     tier: basic
-    engine: diff
+    engine: model-rules
     targetKind: model
-    triggers: [promotion]
+    triggers: [submission, promotion]
     inputs: { check: "base-current,scope-authorized,manifest-exact,evidence-fresh" }
     binding: defined
