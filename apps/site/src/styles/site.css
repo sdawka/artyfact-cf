@@ -119,7 +119,8 @@ html, body { overflow-x: clip; } /* html stops body's overflow propagating to th
 .ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: var(--gradient-haze); }
 .site-header, main, .site-footer { position: relative; z-index: 1; }
 .hero-example { position: relative; isolation: isolate; }
-.hero-orb { position: absolute; z-index: -1; left: 80%; top: 30%; width: min(135%, 900px); aspect-ratio: 1; translate: -50% -50%; pointer-events: none; }
+.hero-orb { position: absolute; z-index: -1; left: 80%; top: 30%; width: min(135%, 900px); aspect-ratio: 1; translate: -50% -50%; pointer-events: none;
+  mask-image: radial-gradient(circle closest-side, #000 86%, transparent 100%); }
 .hero-orb::before { content: ''; position: absolute; inset: 0; pointer-events: none; transition: opacity var(--motion-duration-ambient) var(--motion-easing-ambient);
   background: radial-gradient(circle closest-side, transparent 55%, oklch(0.79 0.125 60 / .3) 61%, oklch(0.79 0.125 60 / .08) 66%, transparent 72%),
     radial-gradient(ellipse 45% 26% at 50% 66%, oklch(0.79 0.125 60 / .16), transparent); }

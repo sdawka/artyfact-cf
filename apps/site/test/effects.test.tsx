@@ -45,3 +45,14 @@ it('mounts the orb and ambient field into their slots and follows the explorer',
   expect(slot.dataset.orbFacet).toBe('proteome');
   expect(slot.dataset.orbState).toBe('Proteome · A private relationship');
 });
+
+it('treats software-rendered WebGL as unavailable', async () => {
+  const { hasFastWebGL2 } = await import('../src/effects');
+  const stub = (renderer: string | null) => vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue(
+    (renderer === null ? null : { RENDERER: 1, getParameter: () => renderer, getExtension: () => null }) as never);
+  stub(null); expect(hasFastWebGL2()).toBe(false);
+  stub('ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (LLVM 10.0.0)), SwiftShader driver)'); expect(hasFastWebGL2()).toBe(false);
+  stub('llvmpipe (LLVM 15.0.7, 256 bits)'); expect(hasFastWebGL2()).toBe(false);
+  stub('ANGLE (Apple, ANGLE Metal Renderer: Apple M4)'); expect(hasFastWebGL2()).toBe(true);
+  vi.restoreAllMocks();
+});

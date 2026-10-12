@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { createRoot } from 'react-dom/client';
-import { AmbientField, Orb, type AmbientFieldHandle, type OrbHandle } from '@artyfact/effects';
+import { AmbientField, EffectsProvider, Orb, type AmbientFieldHandle, type OrbHandle } from '@artyfact/effects';
 import { currentSelection, subscribeSelection } from './systemState';
 import { layerAngle, orbState, subjectAngle } from './orbState';
 
@@ -50,9 +50,30 @@ function Ambient() {
   return <AmbientField ref={field} position="absolute" color={color} intensity={0.32} density={0.35} motion={0.6} parallax={0.35} />;
 }
 
+const SOFTWARE_RENDERER = /swiftshader|llvmpipe|softpipe|software|basic render driver/i;
+
+/**
+ * False without WebGL2 or when it is software rendered (SwiftShader, llvmpipe: machines and CI runners without a
+ * usable GPU). There the orb's particle field takes most of the main thread and the explorer stops responding to
+ * input, so the effects keep their CSS fallbacks instead. Chromium does not flag SwiftShader through
+ * failIfMajorPerformanceCaveat, so the renderer string is checked too.
+ */
+export function hasFastWebGL2(): boolean {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2', { failIfMajorPerformanceCaveat: true });
+    if (!gl) return false;
+    const info = gl.getExtension('WEBGL_debug_renderer_info');
+    const renderer = String(gl.getParameter(gl.RENDERER)) + ' ' + String(info ? gl.getParameter(info.UNMASKED_RENDERER_WEBGL) : '');
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return !SOFTWARE_RENDERER.test(renderer);
+  } catch { return false; }
+}
+
 export function mountEffects() {
+  const enabled = hasFastWebGL2();
+  const mount = (slot: HTMLElement, node: React.ReactNode) => createRoot(slot).render(<EffectsProvider enabled={enabled}>{node}</EffectsProvider>);
   const orbSlot = document.querySelector<HTMLElement>('[data-hero-orb]');
-  if (orbSlot) createRoot(orbSlot).render(<HeroOrb slot={orbSlot} />);
+  if (orbSlot) mount(orbSlot, <HeroOrb slot={orbSlot} />);
   const ambientSlot = document.querySelector<HTMLElement>('[data-ambient]');
-  if (ambientSlot) createRoot(ambientSlot).render(<Ambient />);
+  if (ambientSlot) mount(ambientSlot, <Ambient />);
 }

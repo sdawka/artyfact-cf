@@ -1,21 +1,7 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { readFile, stat } from 'node:fs/promises';
-import { resolve, extname } from 'node:path';
-const dist = resolve(import.meta.dirname, '../dist');
-const types: Record<string, string> = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.xml': 'application/xml' };
-test.beforeEach(async ({ page }) => {
-  await page.route('https://artyfact.test/**', async route => {
-    const path = decodeURIComponent(new URL(route.request().url()).pathname);
-    let file = resolve(dist, '.' + path);
-    if (!file.startsWith(dist + '/') && file !== dist) return route.fulfill({ status: 404 });
-    try {
-      if ((await stat(file)).isDirectory()) file += '/index.html';
-      await route.fulfill({ body: await readFile(file), contentType: types[extname(file)] || 'text/plain',
-        headers: { 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" } });
-    } catch { await route.fulfill({ status: 404, body: await readFile(resolve(dist, '404.html')), contentType: 'text/html' }); }
-  });
-});
+import { serveDist } from './serve';
+test.beforeEach(({ page }) => serveDist(page));
 test('homepage leads to the guide and links the hosted platform', async ({ page }) => {
   await page.goto('https://artyfact.test/');
   await expect(page.getByRole('heading', { name: /Author systems together/ })).toBeVisible();
