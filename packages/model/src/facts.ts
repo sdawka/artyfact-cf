@@ -2,7 +2,7 @@ import { factSet, type FactSet, type Tuple } from "@artyfact/rules";
 import type { SystemModel } from "./load";
 import { templateRef } from "./load";
 
-/** Every EDB relation toFacts() emits (docs: plan "packages/rules" — EDB relations). Always present, possibly empty. */
+/** Every EDB relation toFacts() may emit (plan "packages/rules": EDB relations). Empty ones are omitted by factSet(). */
 export const RELATIONS = [
   "node", "name", "parent", "link", "thing", "section", "requirement", "reqSubject", "refines", "criterion", "gate",
   "hook", "sourceRef", "satisfies", "purpose", "beneficiary", "external", "claim", "claimHas", "journey", "step",

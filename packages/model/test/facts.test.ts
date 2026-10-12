@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { loadSystem, toFacts } from "../src/index";
+import { loadSystem, RELATIONS as EXPORTED, toFacts } from "../src/index";
 import { readTree, store } from "./helpers";
 
 vi.mock("@artyfact/rules", () => import("./stubs/rules"));
@@ -17,8 +17,11 @@ describe("toFacts", () => {
   const fs = toFacts(m);
   const rel = (r: string) => fs.relations.get(r) ?? [];
 
-  it("emits exactly the documented relations", () => {
-    expect([...fs.relations.keys()].sort()).toEqual([...RELATIONS].sort());
+  it("emits only the documented relations, and the fixture exercises all but the opt-in ones", () => {
+    expect([...EXPORTED].sort()).toEqual([...RELATIONS].sort());
+    const keys = [...fs.relations.keys()];
+    expect(keys.filter((k) => !RELATIONS.includes(k))).toEqual([]);
+    expect(RELATIONS.filter((k) => !keys.includes(k)).sort()).toEqual(["policyConflict", "provisional", "satisfies"]);
   });
 
   it("emits the expected tuples", () => {

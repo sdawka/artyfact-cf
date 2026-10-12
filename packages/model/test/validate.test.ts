@@ -33,7 +33,7 @@ describe("validate", () => {
     const r = run(f);
     const e = errors(r);
     expect(e.map((x) => [x.rule, x.subject])).toEqual([["authz.ungoverned", "operation.note.save"]]);
-    expect(e[0].message).toMatch(/no authorization policy/);
+    expect(e[0].message).toBe("Operation operation.note.save writes data but no authorization policy governs it.");
     expect(e[0].pack).toBe("test.pack@1");
     expect(e[0].derivation.relation).toBe("violation");
     expect(e[0].derivation.children.map((c) => c.relation)).toEqual(["mutating"]);

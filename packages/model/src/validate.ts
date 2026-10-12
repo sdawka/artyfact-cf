@@ -30,8 +30,8 @@ export interface Readiness {
 const LEVEL_ORDER: Finding["level"][] = ["error", "missing", "warning", "info"];
 
 function leaves(t: DerivationTree, out: Tuple[] = []): Tuple[] {
-  if (t.children.length === 0) out.push([t.relation, ...t.tuple]);
-  else for (const c of t.children) leaves(c, out);
+  if (t.edb) out.push([t.relation, ...t.tuple]);
+  for (const c of t.children) leaves(c, out);
   return out;
 }
 

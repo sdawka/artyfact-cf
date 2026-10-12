@@ -19,7 +19,7 @@ export interface Result {
   stats: { iterations: number; derivedTuples: number; ms: number };
   messages: Map<string, string>;
 }
-export interface DerivationTree { relation: string; tuple: Tuple; rule?: string; children: DerivationTree[] }
+export interface DerivationTree { relation: string; tuple: Tuple; rule?: string; edb: boolean; children: DerivationTree[]; truncated?: boolean; cycle?: boolean }
 
 const key = (rel: string, t: Tuple) => rel + "\u0000" + JSON.stringify(t);
 const cmpTuple = (a: Tuple, b: Tuple) => (JSON.stringify(a) < JSON.stringify(b) ? -1 : JSON.stringify(a) > JSON.stringify(b) ? 1 : 0);
@@ -28,6 +28,7 @@ export function factSet(input: Record<string, Tuple[]> | Map<string, Tuple[]>): 
   const entries = input instanceof Map ? [...input] : Object.entries(input);
   const relations = new Map<string, Tuple[]>();
   for (const [rel, tuples] of entries.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))) {
+    if (!tuples.length) continue; // like the real engine: empty relations are omitted
     const uniq = new Map(tuples.map((t) => [JSON.stringify(t), t]));
     relations.set(rel, [...uniq.values()].sort(cmpTuple));
   }
@@ -175,12 +176,13 @@ export function run(facts: FactSet, programs: Program[], opts: { maxIterations?:
 export function explain(result: Result, relation: string, tuple: Tuple, depth = 6, seen = new Set<string>()): DerivationTree {
   const k = key(relation, tuple);
   const d = result.derivations.get(k)?.[0];
-  if (!d || depth <= 0 || seen.has(k)) return { relation, tuple, children: [] };
+  if (!d) return { relation, tuple, edb: true, children: [] };
+  if (depth <= 0 || seen.has(k)) return { relation, tuple, rule: d.rule, edb: false, children: [], truncated: true };
   const next = new Set(seen).add(k);
-  return { relation, tuple, rule: d.rule, children: d.body.map((b) => explain(result, b.relation, b.tuple, depth - 1, next)) };
+  return { relation, tuple, rule: d.rule, edb: false, children: d.body.map((b) => explain(result, b.relation, b.tuple, depth - 1, next)) };
 }
 
 export function render(messages: Map<string, string>, tuple: Tuple): string {
   const tpl = messages.get(String(tuple[0]));
-  return tpl ? tpl.replace(/\{(\d+)\}/g, (_, n) => String(tuple[Number(n) - 1] ?? "")) : String(tuple[0]);
+  return tpl ? tpl.replace(/\{(\d+)\}/g, (_, n) => String(tuple[Number(n)] ?? "")) : String(tuple[0]);
 }

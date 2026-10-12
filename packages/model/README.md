@@ -82,8 +82,9 @@ colliding node ids; that case is not supported yet.
 
 ## Facts
 
-`toFacts()` always emits each of these relations, empty or not. Tuples are deduped and sorted, and the hash is sha256
-over the canonical form, so it does not depend on file or key order:
+`toFacts()` emits only these relations (exported as `RELATIONS`). `factSet()` leaves out relations that have no tuples.
+Tuples are deduped and sorted, and the hash is sha256 over the canonical form, so it does not depend on file or key
+order:
 
 `node(Id,Kind,Thing)` `name(Id,Text)` `parent(Child,Parent)` `link(From,Rel,To,Certainty)` `thing(Id,Template)`
 `section(Thing,Id)` `requirement(Id,Thing,Enabled)` `reqSubject(Req,Node)` `refines(A,B)`
@@ -122,7 +123,7 @@ pack convention relations into `Finding`s:
 
 `message` is the pack's `.message` template rendered by `rules.render`, or the rule id if the pack has no template.
 `derivation` is `rules.explain(result, relation, tuple)`. `facts` holds the derivation's leaf facts as
-`[relation, ...tuple]`. `pack` names the program that derived the finding. `Readiness.packs[].hash` is the sha256 of
+`[relation, ...tuple]`, taken from the EDB nodes of the tree. `pack` names the program that derived the finding. `Readiness.packs[].hash` is the sha256 of
 each pack's source. `derived` holds every output relation. `actionable` is true when there are no errors and the run
 is complete. Findings are sorted by level, rule, then subject.
 
@@ -132,5 +133,5 @@ The real engine is being built on branch `w0-rules`. Until it merges, `tsconfig.
 `test/stubs/rules.ts`, a naive evaluator with the same exported API. Test files that run the engine
 (`facts.test.ts`, `validate.test.ts`) also `vi.mock("@artyfact/rules", …)` it. When the engine lands:
 1. Delete `test/stubs/rules.ts`, the `paths` entry in `tsconfig.json`, and the two `vi.mock` lines.
-2. Run the tests.
+2. Run the tests. They already pass against the engine on `w0-rules` (commit c44c96b), and `src/` typechecks against it.
 `src/` imports only from `@artyfact/rules`.

@@ -16,7 +16,7 @@
 .decl missing(Rule: sym, Subject: sym) .output
 .decl warning(Rule: sym, Subject: sym) .output
 .decl semanticCandidate(Rule: sym, Subject: sym, Text: sym) .output
-.message "authz.ungoverned" "Operation writes data but no authorization policy governs it."
+.message "authz.ungoverned" "Operation {1} writes data but no authorization policy governs it."
 .message "ref.dangling" "A link points at an unknown id."
 
 ancestor(X,Z) :- parent(X,Z).
