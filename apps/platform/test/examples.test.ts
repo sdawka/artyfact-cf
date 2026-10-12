@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 /** The real example System and app (examples/) through the import → start → submit path, hooks as no-ops. */
 import { exports } from "cloudflare:workers";
 import { afterEach, describe, expect, it } from "vitest";
