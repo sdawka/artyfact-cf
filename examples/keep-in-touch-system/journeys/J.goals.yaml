@@ -1,0 +1,81 @@
+id: J.goals
+name: Set a cadence and depth
+actorGoal: Choose how often and how deeply I want to be in touch with one person
+features:
+- GD.goals
+requirements:
+- S.webapp.qualification
+- S.webapp.due
+start: g1
+steps:
+- id: g1
+  actor: user
+  action: Open a person
+  kind: action
+  screen: screen.person
+  next:
+  - to: g2
+  requirementRefs:
+  - S.webapp.screens
+- id: g2
+  actor: user
+  action: Choose Edit goal
+  kind: action
+  screen: screen.goal
+  next:
+  - to: g3
+  requirementRefs:
+  - S.webapp.qualification
+- id: g3
+  actor: user
+  action: Set interval (1-3650 days), desired depth (light, meaningful or shared-time), preferred channel
+    and enabled
+  kind: action
+  screen: screen.goal
+  next:
+  - to: g4
+  requirementRefs:
+  - S.webapp.qualification
+- id: g4
+  actor: system
+  action: SchedulePreview shows the due date and which historical events would qualify under the chosen
+    depth
+  kind: reaction
+  screen: screen.goal
+  next:
+  - to: g5
+  requirementRefs:
+  - S.webapp.qualification
+  - S.webapp.due
+- id: g5
+  actor: user
+  action: Save or cancel
+  kind: branch
+  screen: screen.goal
+  operation: operation.goal.save
+  next:
+  - to: e1
+    when: save, interval valid
+  - to: g3
+    when: interval invalid, values kept
+  - to: e2
+    when: cancel
+  requirementRefs:
+  - S.webapp.qualification
+- id: e1
+  actor: system
+  action: Goal version incremented, due state recomputed, obsolete jobs cancelled; no ContactEvent created
+  kind: end
+  screen: screen.person
+  operation: operation.goal.save
+  next: []
+  requirementRefs:
+  - S.webapp.due
+- id: e2
+  actor: user
+  action: No change saved; no goal shown as no goal, not an inferred target
+  kind: end
+  screen: screen.person
+  next: []
+  requirementRefs:
+  - S.webapp.screens

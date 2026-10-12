@@ -76,6 +76,14 @@ describe("loadSystem", () => {
     expect(() => loadSystem(vsCrit, { templates: store() })).toThrow(/duplicate id C\.app\.notes\.save \(criterion; also a node/);
   });
 
+  it("warns about unknown keys instead of dropping them silently", () => {
+    expect(m.warnings).toEqual([]);
+    const typo = edit(files, "things/app/ontology.yaml", "    mode: owner-only", "    mdoe: owner-only");
+    const r = loadSystem(typo, { templates: store() });
+    expect(r.warnings).toEqual([{ file: "things/app/ontology.yaml", path: ["nodes", 5, "mdoe"], message: 'unknown key "mdoe" ignored' }]);
+    expect(r.nodes.find((n) => n.id === "policy.ownerOnly")!.mode).toBeUndefined();
+  });
+
   it("is independent of file order", () => {
     const reversed = new Map([...files].reverse());
     const r = loadSystem(reversed, { templates: store() });

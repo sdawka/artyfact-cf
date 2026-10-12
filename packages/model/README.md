@@ -18,7 +18,8 @@ src/
   sha256.ts       synchronous SHA-256 (pack hashes)
 test/
   fixtures/mini/  minimal Genome (1 system, 1 thing, 2 screens, 3 components, …)
-  fixtures/test-pack.dl  inline Rule Pack used by validate tests
+  conformance.test.ts  emitted relations/arities vs docs/design/facts.md and the real packs' .decl blocks
+  validate.test.ts     validate() with the real packs (../templates/rule-packs, read as files, no package dependency)
 ```
 
 ## API
@@ -36,7 +37,7 @@ toMermaid(m.journeys[0]);
 ```
 
 `SystemModel` holds the parsed collections (`system`, `purposes`, `externals`, `claims`, `description`, `kits`,
-`things`, `templates`, `nodes`, `requirements`, `criteria`, `hooks`, `journeys`, `evolutions`), `origin` (id → the file
+`things`, `templates`, `nodes`, `requirements`, `criteria`, `hooks`, `journeys`, `evolutions`), `warnings`, `origin` (id → the file
 it was declared in, or the template ref it came from), and `index`. Every field except `index.path`/`index.layer` is
 plain JSON. After a JSON round-trip, rebuild the index with `index(model)`.
 
@@ -56,7 +57,8 @@ plain JSON. After a JSON round-trip, rebuild the index with `index(model)`.
 | `things/<dir>/criteria.yaml` | `{criteria: [], hooks: []}`, owned by the Thing |
 | `journeys/*.yaml`, `evolutions/*.yaml` | one `Journey` / `Evolution` per file |
 
-The loader ignores other paths. Duplicate ids within a collection throw `ModelParseError`. File order never affects
+The loader ignores other paths. Ids are unique across all kinds; a reused id throws `ModelParseError`. Unknown keys
+(usually typos) are dropped by the schemas and reported in `model.warnings` as `{file, path, message}`. File order never affects
 the result.
 
 ## How templates resolve
