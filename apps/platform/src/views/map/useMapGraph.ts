@@ -94,6 +94,29 @@ export function mapScopeFor(index: ModelIndex, id: string | null | undefined): s
   }
 }
 
+/**
+ * Where `id` sits on the Map: itself for the System, things, nodes and Externals; a criterion's
+ * subject; a step's screen. `null` for objects with no place on the Map (requirements, journeys,
+ * purposes, claims, hooks, ...), whose focus must not move the Map.
+ */
+export function mapLocationFor(index: ModelIndex, id: string | null | undefined): string | null {
+  const e = id ? index.byId(id) : undefined;
+  if (!e) return null;
+  switch (e.type) {
+    case "system":
+    case "thing":
+    case "node":
+    case "external":
+      return e.id;
+    case "criterion":
+      return mapLocationFor(index, (e.item as Criterion).subjectId);
+    case "step":
+      return mapLocationFor(index, (e.item as JourneyStep).screen);
+    default:
+      return null;
+  }
+}
+
 /** Node ids named by findings (criterion subjects resolve to the criterion's subject). */
 export function findingSubjectIds(index: ModelIndex, findings: readonly Pick<Finding, "subject">[]): Set<string> {
   const out = new Set<string>();
@@ -165,7 +188,9 @@ export function buildMapGraph(
     return true;
   };
 
-  const allLinks = index.entries.flatMap((e) => (e.type === "node" || e.type === "external" ? index.crossLinks(e.id, "out") : []));
+  // Every link once: `crossLinks(id, "out")` is keyed by the normalised source, which may be any entry
+  // (a `direction: "in"` link can point from a thing or the System).
+  const allLinks = index.entries.flatMap((e) => index.crossLinks(e.id, "out"));
   const outsidePending: typeof allLinks = [];
   for (const l of allLinks) {
     if ((l.rel as string) === "contains" || hiddenLinks.has(l.rel)) continue;
@@ -201,19 +226,25 @@ export function buildMapGraph(
   return { scope: scopeId, nodes: [...nodes.values()], edges, ids: new Set(nodes.keys()) };
 }
 
-/** Graph for the current model, readiness findings and filters; memoised per (scope, filters). */
-export function useMapGraph(scope: string, filters: MapFilterState): MapGraph {
+/** Subjects of the current readiness findings (API readiness, else the bundle's); one source for filter and count. */
+export function useFindingSubjects(): Set<string> {
   const { index, bundle } = useModel();
   const { data: readiness } = useReadiness();
   const findings = (readiness ?? bundle.readiness)?.modelReadiness?.findings;
-  const subjects = useMemo(() => findingSubjectIds(index, findings ?? []), [index, findings]);
+  return useMemo(() => findingSubjectIds(index, findings ?? []), [index, findings]);
+}
+
+/** Graph for the current model, readiness findings and filters; memoised per (scope, filters, findings). */
+export function useMapGraph(scope: string, filters: MapFilterState): MapGraph {
+  const { index } = useModel();
+  const subjects = useFindingSubjects();
   return useMemo(() => buildMapGraph(index, scope, filters, subjects), [index, scope, filters, subjects]);
 }
 
 export const NODE_WIDTH = 216;
 /** Node heights per layer: overlays add a badge row. */
 export const nodeHeight = (layer: Layer) => (layer === "genome" ? 52 : 80);
-export const GROUP_PADDING = "[top=52,left=20,bottom=20,right=20]";
+export const GROUP_PADDING = "[top=72,left=20,bottom=20,right=20]";
 
 /** elk request: externals in partition 0 (left), the scope group and outside nodes in partition 1. */
 export function mapLayoutRequest(graph: MapGraph, layer: Layer): LayoutRequest {
@@ -233,8 +264,17 @@ export function mapLayoutRequest(graph: MapGraph, layer: Layer): LayoutRequest {
     }
   }
   return {
-    layoutOptions: { ...LAYERED_RIGHT, "elk.partitioning.activate": "true", "elk.padding": "[top=24,left=24,bottom=24,right=24]" },
+    layoutOptions: { ...LAYERED_RIGHT, "elk.partitioning.activate": "true", "elk.layered.spacing.nodeNodeBetweenLayers": "112", "elk.spacing.edgeEdge": "20", "elk.layered.spacing.edgeEdgeBetweenLayers": "20", "elk.layered.spacing.edgeNodeBetweenLayers": "24", "elk.padding": "[top=24,left=24,bottom=24,right=24]" },
     nodes,
-    edges: graph.edges.map((e) => ({ id: e.id, source: e.source, target: e.target })),
+    // Externals sit left of the boundary: edges into them are laid out reversed so they flow left to right.
+    edges: graph.edges.map((e) =>
+      layoutReversed(graph, e) ? { id: e.id, source: e.target, target: e.source } : { id: e.id, source: e.source, target: e.target },
+    ),
   };
+}
+
+/** True when `mapLayoutRequest` hands elk this edge reversed (its route must be flipped back). */
+export function layoutReversed(graph: MapGraph, e: MapEdge): boolean {
+  const role = (id: string) => graph.nodes.find((n) => n.id === id)?.role;
+  return role(e.target) === "external" && role(e.source) !== "external";
 }

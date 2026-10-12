@@ -1,6 +1,4 @@
-import { ViewStub } from "@/app/ViewStub";
+import { MapView } from "./MapView";
 
-/** Stub; replaced by the Map view slice. Contract: default-export the view component. */
-export default function MapView() {
-  return <ViewStub view="map" />;
-}
+/** Map view (ui.md §C.2): semantic zoom over containment, cross-links, layer and candidate overlays. */
+export default MapView;

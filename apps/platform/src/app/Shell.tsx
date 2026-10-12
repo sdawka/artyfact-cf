@@ -15,7 +15,8 @@ export const GO_KEYS: Record<string, ViewName> = {
   o: "overview", m: "map", j: "journeys", t: "theory", w: "work", e: "evaluations", h: "history",
 };
 
-const isTyping = (t: EventTarget | null) =>
+/** True when a key event comes from a text field (shortcuts should ignore it). Views reuse it. */
+export const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
 function useShellShortcuts(openPalette: () => void, paletteOpen: boolean) {

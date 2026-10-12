@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fixtureBundle } from "@/api/fixtures";
 import { buildIndex } from "@/model/index";
-import { buildMapGraph, certaintyStroke, DEFAULT_FILTERS, findingSubjectIds, mapLayoutRequest, mapScopeFor } from "./useMapGraph";
+import { buildMapGraph, certaintyStroke, DEFAULT_FILTERS, findingSubjectIds, mapLayoutRequest, mapLocationFor, mapScopeFor } from "./useMapGraph";
 
 const index = buildIndex(fixtureBundle());
 const ids = (g: ReturnType<typeof buildMapGraph>, role?: string) =>
@@ -70,6 +70,42 @@ describe("buildMapGraph", () => {
   });
 });
 
+describe("buildMapGraph edge cases", () => {
+  it("falls back to the System for an unknown scope id", () => {
+    const g = buildMapGraph(index, "nope.missing");
+    expect(g.scope).toBe("system.keep-in-touch");
+    expect(g.nodes.find((n) => n.role === "scope")?.id).toBe("system.keep-in-touch");
+  });
+
+  it("ignores links to ids that are not in the model", () => {
+    const m = structuredClone(fixtureBundle().model);
+    m.nodes.find((n) => n.id === "component.SearchInput")!.links.push({ rel: "reads", to: "entity.Missing", direction: "out", certainty: "declared" });
+    const g = buildMapGraph(buildIndex(m), "screen.people");
+    expect(g.ids.has("entity.Missing")).toBe(false);
+    expect(g.edges.some((e) => e.target === "entity.Missing" || e.source === "component.SearchInput")).toBe(false);
+  });
+
+  it("keeps direction-in links whose normalised source is a thing", () => {
+    const m = structuredClone(fixtureBundle().model);
+    m.nodes.find((n) => n.id === "component.SearchInput")!.links.push({ rel: "dependsOn", to: "thing.webapp", direction: "in", certainty: "assumed" });
+    const g = buildMapGraph(buildIndex(m), "screen.people");
+    expect(g.nodes.find((n) => n.id === "thing.webapp")?.role).toBe("outside");
+    expect(g.edges.find((e) => e.source === "thing.webapp" && e.target === "component.SearchInput")).toMatchObject({ type: "dependsOn", stroke: "dashed" });
+  });
+});
+
+describe("mapLocationFor", () => {
+  it("places spatial objects, criteria and steps; other objects have no place", () => {
+    expect(mapLocationFor(index, "screen.people")).toBe("screen.people");
+    expect(mapLocationFor(index, "ext.owner")).toBe("ext.owner");
+    expect(mapLocationFor(index, "C.webapp.contact.storage")).toBe("entity.ContactRecord");
+    expect(mapLocationFor(index, "S.webapp.scope")).toBeNull();
+    expect(mapLocationFor(index, "nope")).toBeNull();
+    const step = index.entries.find((e) => e.type === "step" && (e.item as { screen?: string }).screen);
+    if (step) expect(mapLocationFor(index, step.id)).toBe((step.item as { screen: string }).screen);
+  });
+});
+
 describe("mapScopeFor", () => {
   it("containers scope to themselves, leaves and others to their container or the System", () => {
     expect(mapScopeFor(index, "screen.people")).toBe("screen.people");
@@ -84,7 +120,7 @@ describe("mapScopeFor", () => {
 describe("findingSubjectIds", () => {
   it("resolves criterion subjects to their nodes", () => {
     const crit = index.entries.find((e) => e.type === "criterion")!;
-    const s = findingSubjectIds(index, [{ rule: "x", level: "warning", subject: crit.id, message: "" }]);
+    const s = findingSubjectIds(index, [{ subject: crit.id }]);
     expect(s.has((crit.item as { subjectId: string }).subjectId)).toBe(true);
   });
 });
@@ -99,6 +135,8 @@ describe("mapLayoutRequest", () => {
     expect(n("screen.people").layoutOptions?.["elk.partitioning.partition"]).toBe("1");
     expect(n("entity.ContactRecord").layoutOptions?.["elk.partitioning.partition"]).toBe("1");
     expect(req.nodes.indexOf(n("screen.people"))).toBeLessThan(req.nodes.indexOf(n("component.SearchInput")));
+    const serves = req.edges.find((e) => e.id === "screen.people>serves>ext.owner")!;
+    expect([serves.source, serves.target]).toEqual(["ext.owner", "screen.people"]);
     expect(mapLayoutRequest(g, "phenome").nodes.find((x) => x.id === "component.SearchInput")!.height).toBeGreaterThan(n("component.SearchInput").height);
   });
 });

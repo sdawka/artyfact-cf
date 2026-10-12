@@ -27,6 +27,16 @@ describe("useElkLayout", () => {
     expect(spy).toHaveBeenCalledTimes(1);
   });
 
+  it("defaults the key to the request's shape, so an equal request hits the memo", async () => {
+    clearLayoutCache();
+    const first = renderHook(() => useElkLayout(req));
+    await waitFor(() => expect(first.result.current.layout).not.toBeNull());
+    const again = renderHook(() => useElkLayout(structuredClone(req)));
+    expect(again.result.current.layout).toBe(first.result.current.layout);
+    const bigger = renderHook(() => useElkLayout({ ...req, nodes: [...req.nodes, { id: "c", width: 10, height: 10 }] }));
+    expect(bigger.result.current.pending).toBe(true);
+  });
+
   it("returns nothing for a null request", () => {
     const { result } = renderHook(() => useElkLayout(null, "none"));
     expect(result.current).toEqual({ layout: null, pending: false, error: null });

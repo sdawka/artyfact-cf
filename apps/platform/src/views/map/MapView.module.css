@@ -1,0 +1,85 @@
+.view {
+  display: grid;
+  grid-template-columns: minmax(200px, 260px) minmax(0, 1fr);
+  gap: var(--spacing-5);
+  height: 100%;
+  min-height: 0;
+}
+.rail {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  min-height: 0;
+  overflow: hidden;
+}
+.stage {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+  min-width: 0;
+  min-height: 0;
+}
+.header {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+.titleRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-4);
+  align-items: baseline;
+}
+.h1 { margin: 0; }
+.hints {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-4);
+  align-items: center;
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+}
+.legend {
+  display: flex;
+  gap: var(--spacing-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.legend li {
+  display: inline-flex;
+  gap: var(--spacing-1);
+  align-items: center;
+}
+.legendLine {
+  stroke: var(--color-border-strong);
+  stroke-width: 1.5;
+}
+.hint { color: var(--color-text-subtle); }
+.canvas {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 360px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+}
+.canvas :global(.react-flow__node):focus-visible {
+  outline: var(--focus-ring);
+  outline-offset: 2px;
+}
+.pending {
+  position: absolute;
+  top: var(--spacing-3);
+  left: var(--spacing-3);
+  margin: 0;
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-sm);
+}
+@media (max-width: 900px) {
+  .view {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+  .rail { max-height: 36vh; }
+}
