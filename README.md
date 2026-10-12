@@ -111,7 +111,7 @@ npm install
 npm test               # 716 tests pass, 1 skipped (live System One smoke)
 npm run typecheck
 npm run e2e            # builds the SPA, runs 14 Playwright tests
-npm run preview:fixture
+npm run preview:fixture -w @artyfact/platform
 ```
 
 `npm run e2e` drives a real browser. If Playwright reports a missing browser, run `npx playwright install chromium` once.
