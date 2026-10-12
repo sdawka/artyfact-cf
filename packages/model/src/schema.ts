@@ -227,7 +227,7 @@ export const AssayHook = z.object({
   assay: str,
   criteria: z.array(Id.crit),
   tier: z.enum(["basic", "execution", "semantic"]),
-  engine: z.enum(["manifest", "diff", "model-rules", "vitest", "browser", "http", "llm"]),
+  engine: z.enum(["manifest", "diff", "model-rules", "system-one", "vitest", "browser", "http", "llm"]),
   targetKind: TargetKind,
   triggers: z.array(Gate),
   inputs: z.record(z.string(), z.string()).default({}),

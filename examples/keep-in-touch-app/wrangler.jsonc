@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "keep-in-touch",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-12",
+  "assets": { "directory": "public" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "keep-in-touch", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
+  ],
+  "vars": { "BUILD_ID": "dev" }
+}
