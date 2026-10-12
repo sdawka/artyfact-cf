@@ -43,6 +43,18 @@ test.describe("views", () => {
       probe.remove();
       return c;
     });
+    // Positively: not-run counters are present, non-zero, and paint the not-run token.
+    const notRun = page.locator('.react-flow [data-counter="notRun"]:not([data-zero])');
+    await expect(notRun.first()).toBeVisible();
+    const notRunColor = await page.evaluate(() => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--verdict-not-run)";
+      document.body.append(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      return c;
+    });
+    for (const el of await notRun.all()) await expect(el).toHaveCSS("color", notRunColor);
     for (const el of await passCounters.all()) await expect(el).toHaveCSS("color", grey);
     await checkA11yAndShoot(page, testInfo, "map-phenome");
   });
