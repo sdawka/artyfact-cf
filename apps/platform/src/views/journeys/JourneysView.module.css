@@ -1,0 +1,16 @@
+.view { display: flex; flex-direction: column; gap: var(--spacing-4); height: 100%; min-height: 0; }
+.head h1 { margin: 0; }
+.sub { margin: var(--spacing-1) 0 0; color: var(--color-text-secondary); max-width: 70ch; }
+.body { display: grid; grid-template-columns: minmax(220px, 280px) 1fr; gap: var(--spacing-4); flex: 1; min-height: 0; }
+.stage { display: flex; flex-direction: column; gap: var(--spacing-3); min-width: 0; min-height: 0; }
+.canvas {
+  flex: 1;
+  min-height: 420px;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-md);
+  overflow: hidden;
+}
+@media (max-width: 800px) {
+  .body { grid-template-columns: 1fr; }
+  .canvas { min-height: 360px; }
+}
