@@ -2,12 +2,23 @@
  * Wire types shared by the Worker (apps/platform/worker) and the SPA (src/api/client.ts).
  *
  * Source of truth: docs/design/backend.md (B.2, B.4, B.5, B.7) and docs/design/ui.md (C.0, C.6).
- * Domain DTOs (Evolution, Realization, ...) mirror docs/design/model.md. `@artyfact/model` does not
- * export them yet; once it does, replace the local definitions below with
- * `export type { Evolution, ... } from "@artyfact/model"` and keep the names unchanged.
+ * Domain DTOs (Evolution, Realization, ...) are the wire forms of docs/design/model.md objects; they
+ * carry runtime state (status, timestamps) the Genome schema does not, so they stay local. Types that
+ * are identical to `@artyfact/model` exports are re-exported from it below.
  *
  * All timestamps are ISO-8601 strings. All routes are under `/api`.
  */
+
+import type { ModelIndex, SystemModel } from "@artyfact/model";
+
+export type {
+  /** Rules-engine readiness for a Genome snapshot (findings carry derivations). */
+  Readiness as RulesReadiness,
+  /** One rules-engine finding (`level`, `rule`, `subject`, `derivation`). */
+  Finding as RuleFinding,
+  SemanticDelta,
+} from "@artyfact/model";
+import type { Readiness as RulesReadiness } from "@artyfact/model";
 
 // ---------------------------------------------------------------------------
 // Primitives
@@ -78,8 +89,36 @@ export interface ModelBundle {
   /** Revision the model was loaded at: `canonical`, a System commit id, or a candidate id. */
   revision: string;
   genomeCommit: CommitHash;
-  model: unknown;
+  model: SerializedModel;
   readiness: ReadinessReport;
+  /** Full rules-engine output behind `readiness.modelReadiness` (findings with derivations). */
+  rules?: RulesReadiness;
+}
+
+/** `SystemModel.index` without functions: `byId` without the duplicated `item`, `path()` materialised. */
+export interface SerializedIndex extends Omit<ModelIndex, "byId" | "path" | "layer"> {
+  byId: Record<NodeId, { id: NodeId; type: string; kind: string; name: string }>;
+  /** Containment path from the System root, for every indexed id. */
+  paths: Record<NodeId, NodeId[]>;
+  /** Nearest `section` at or above each id, where there is one. */
+  layers: Record<NodeId, NodeId>;
+}
+
+/** `@artyfact/model`'s `SystemModel` as JSON (see `serializeModel` in the Worker). */
+export type SerializedModel = Omit<SystemModel, "index"> & { index: SerializedIndex };
+
+/** `GET /api/systems/:id/readiness?rev=`. */
+export interface ReadinessResponse {
+  systemId: SystemId;
+  revision: string;
+  genomeCommit: CommitHash;
+  readiness: ReadinessReport;
+  rules: RulesReadiness;
+}
+
+/** `GET /api/systems`. */
+export interface SystemsResponse {
+  systems: SystemSummary[];
 }
 
 // ---------------------------------------------------------------------------
@@ -114,6 +153,7 @@ export type RealizationStatus =
 
 export interface Realization {
   id: string;
+  systemId: SystemId;
   evolution: NodeId;
   /** 1-based ordinal within the evolution (`kit-app--rN`). */
   n: number;
@@ -126,7 +166,10 @@ export interface Realization {
   target: "app" | "genome";
   /** `local` = CLI on the user's machine; `hosted` = platform-run agent. */
   mode?: "local" | "hosted";
-  workspace: { repo: string; fork: string; baseCommit: CommitHash; tokenExpiresAt?: string };
+  /** `repo` is the repo the fork was taken from; `remote` is the fork's git URL (no credentials). */
+  workspace: { repo: string; fork: string; baseCommit: CommitHash; tokenExpiresAt?: string; remote?: string };
+  /** System head when work started; promotion is stale-base if the head has moved since. */
+  baseRevision?: string | null;
   status: RealizationStatus;
   checkpoints: Checkpoint[];
   candidate?: string;
@@ -162,6 +205,14 @@ export interface Evaluation {
   id: string;
   candidate: string;
   criterion: NodeId;
+  ownerId?: NodeId;
+  subjectId?: NodeId;
+  targetRef?: string;
+  startedAt?: string;
+  finishedAt?: string;
+  interpretation?: string;
+  limitations?: string[];
+  provenance?: Record<string, unknown>;
   hook: "exists" | "scope" | "genome-amendment" | "overlap" | "health" | "semantic" | (string & {});
   execution: Execution;
   verdict: Verdict;
@@ -202,57 +253,96 @@ export interface SystemCommit {
 // Work protocol (backend.md B.4/B.5)
 // ---------------------------------------------------------------------------
 
-/** `POST /api/evolutions/:id/realizations` body. */
+/** `POST /api/systems/:id/evolutions/:eid/realizations` body. */
 export interface StartWorkRequest {
   agentLabel?: string;
   target?: "app" | "genome";
+  role?: Realization["agent"]["role"];
 }
 
 /** Machine-readable form of the Task Packet; `markdown` is the same content for agents. */
 export interface TaskPacket {
+  systemId: SystemId;
+  realizationId: string;
   evolutionId: NodeId;
+  title: string;
+  target: "app" | "genome";
   intent: string;
-  acceptanceCriteria: { id: NodeId; text: string; gate: boolean }[];
-  genomeExcerpts: { id: NodeId; kind: string; body: string }[];
+  /** Fork to clone; never carries a token. */
+  workspace: { repo: string; fork: string; baseCommit: CommitHash; remote: string };
+  /** `gate: true` = required for promotion (hard, not deferred). */
+  acceptanceCriteria: { id: NodeId; title: string; text: string; gate: boolean; severity: string; subject: NodeId; hooks: string[] }[];
+  /** Affected nodes as YAML, with their containment path from the System root. */
+  genomeExcerpts: { id: NodeId; kind: string; path: NodeId[]; body: string }[];
   journeys: { id: NodeId; title: string; steps: string[] }[];
   commitments: string[];
   permittedPaths: string[];
   protectedPaths: string[];
   entryFiles: { path: string; certainty: Certainty }[];
   commands: string[];
-  concurrentWork: { realization: string; agentLabel?: string; changedSubjects: string[] }[];
+  concurrentWork: { realization: string; agentLabel?: string; status: string; changedSubjects: string[] }[];
   submitInstructions: string;
+  /** SHA-256 of the canonical JSON of every other field except `markdown` and `agentsMd`. */
   hash: Sha256;
   markdown: string;
+  /** Harness-agnostic AGENTS.md block (backend.md B.6). */
+  agentsMd: string;
 }
 
 /** Response to start work. `token` is a write token for the fork, shown once. */
 export interface StartWorkResponse {
+  systemId: SystemId;
   realization: Realization;
   packet: TaskPacket;
   token: { value: string; expiresAt: string; remote: string };
+  /** Fork remote URL (same as `token.remote`). */
+  remote: string;
 }
 
 /** `GET /api/realizations/:id/packet`. Token is never re-issued here. */
 export interface PacketResponse {
+  systemId: SystemId;
   realization: Realization;
   packet: TaskPacket;
   /** Fork remote URL (without credentials). */
   remote: string;
 }
 
-/** `POST /api/realizations/:id/checkpoint`. */
+/** `POST …/realizations/:rid/checkpoints`. `message` is accepted as an alias of `summary`. */
 export interface CheckpointRequest {
-  summary: string;
+  summary?: string;
+  message?: string;
   commit?: CommitHash;
 }
+export interface CheckpointResponse {
+  realization: Realization;
+  checkpoint: Checkpoint;
+}
 
-/** `POST /api/realizations/:id/submit`. Idempotent on (realization, commit). */
+/** `GET …/realizations/:rid`: the realization with its latest candidate's evaluations and conflicts. */
+export interface RealizationResponse {
+  systemId: SystemId;
+  realization: Realization;
+  candidate?: Candidate;
+  evaluations: Evaluation[];
+  conflicts: ConflictReport[];
+}
+
+/** `POST …/realizations/:rid/sync`: `submitted` is null when the fork head is already a candidate. */
+export interface SyncResponse {
+  head: CommitHash | null;
+  submitted: SubmitResponse | null;
+}
+
+/** `POST …/realizations/:rid/submit`. Idempotent on (realization, commit). */
 export interface SubmitRequest {
   commit: CommitHash;
   previewUrl?: string;
 }
 export interface SubmitResponse {
+  /** false when this (realization, commit) was already submitted; hooks are not re-run. */
+  created: boolean;
+  realization: Realization;
   candidate: Candidate;
   evaluations: Evaluation[];
   conflicts: ConflictReport[];
@@ -269,7 +359,7 @@ export interface ConflictReport {
   message: string;
 }
 
-/** `GET /api/evolutions/:id/candidates`. */
+/** `GET /api/systems/:id/evolutions/:eid/candidates`. */
 export interface CandidatesResponse {
   evolution: NodeId;
   candidates: Candidate[];
@@ -288,8 +378,9 @@ export type EvolutionsResponse = WorkResponse;
 
 /** `POST /api/systems/:id/promote` (Authorization: Bearer ADMIN_TOKEN). */
 export interface PromoteRequest {
-  /** Candidate(s) to promote; several for a composed promotion. */
-  candidates: string[];
+  /** Candidate(s) to promote; several for a composed promotion. `candidateIds` is accepted as an alias. */
+  candidates?: string[];
+  candidateIds?: string[];
   /** Head the client saw; mismatch yields 409 {@link StaleBaseResponse}. */
   expectedHead: string | null;
   rationale: string;
@@ -302,15 +393,26 @@ export interface PromoteResponse {
 export interface StaleBaseResponse extends ApiError {
   error: { code: "stale-base"; message: string; details: { currentHead: string | null } };
 }
+/** 409 when a required-gate criterion lacks `verdict=pass, execution=completed`. */
+export interface PromoteBlockedResponse extends ApiError {
+  error: {
+    code: "blocked";
+    message: string;
+    details: { blocking: { candidate: string; criterion: NodeId; verdict: Verdict | "missing"; execution: Execution | "missing" }[] };
+  };
+}
 
-/** `POST /api/systems/:id/accept` for genome-amendment realizations. */
+/** `POST /api/systems/:id/evolutions/:eid/accept` (admin) for genome realizations. Aliases: `realizationId`, `interpretation`. */
 export interface AcceptRequest {
-  realization: string;
-  rationale: string;
+  realization?: string;
+  realizationId?: string;
+  rationale?: string;
+  interpretation?: string;
 }
 export interface AcceptResponse {
   genomeCommit: CommitHash;
   realization: Realization;
+  commit: SystemCommit;
 }
 
 /** `POST /api/systems/import`. */
@@ -319,9 +421,20 @@ export interface ImportSystemRequest {
   genomeRepo: string;
   appRepo: string;
 }
+export interface ImportSystemResponse {
+  system: SystemSummary;
+  head: string;
+  genomeCommit: CommitHash;
+  appCommit: CommitHash;
+  /** Evolutions seeded from the Genome's `evolutions/*.yaml`. */
+  evolutions: NodeId[];
+}
 
 export interface EvaluationsResponse {
   evaluations: Evaluation[];
+}
+export interface ConflictsResponse {
+  conflicts: ConflictReport[];
 }
 export interface HistoryResponse {
   /** Newest first. */
@@ -341,9 +454,14 @@ export type SseEvent =
   | { type: "conflict.detected"; conflict: ConflictReport }
   | { type: "evolution.updated"; evolution: Evolution }
   | { type: "system.promoted"; commit: SystemCommit }
-  | { type: "genome.accepted"; genomeCommit: CommitHash };
+  | { type: "genome.accepted"; genomeCommit: CommitHash }
+  | { type: "system.imported"; system: SystemSummary }
+  | { type: "ping" };
 
 export type SseEventType = SseEvent["type"];
+
+/** Every SSE `data:` line is one JSON envelope: the event plus its emission time. */
+export type SseEnvelope = SseEvent & { at: string };
 
 // ---------------------------------------------------------------------------
 // Health
