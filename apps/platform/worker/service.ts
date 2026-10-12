@@ -7,7 +7,7 @@ import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
   Candidate, CandidatesResponse, ConflictReport, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
-  ReadinessResponse, RealizationResponse, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
+  ReadinessResponse, RealizationResponse, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SubmitSource, SyncResponse,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
 import { sha256Hex } from "./util";
@@ -626,8 +626,6 @@ function evidenceFresh(
   }
   return true;
 }
-
-export type SubmitSource = "cli" | "event" | "sync" | "ui" | "ci";
 
 /** B3: each candidate with the latest build of its commit (`Candidate.build`). */
 async function withBuilds<C extends Candidate>(stub: SystemApi, cands: C[]): Promise<C[]> {
