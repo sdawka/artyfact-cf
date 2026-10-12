@@ -51,7 +51,7 @@ export function promotionCheck(env: ModelCheckEnv, check: string): Outcome {
     case "evidence-fresh":
       return fact(facts?.evidenceFresh, "Required evidence is fresh for this commit.", "Required evidence is stale or belongs to another candidate.");
     default:
-      return erroredOutcome(new Error(`Unknown check "${check}"`));
+      return erroredOutcome(new Error(`Unknown check "${check}"`), { interpretation: `Unknown check "${check}"` });
   }
 }
 

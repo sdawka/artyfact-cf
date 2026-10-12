@@ -33,6 +33,16 @@ describe("model-rules on the real Keep in Touch Genome", () => {
     expect(modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["metamodel@1"] } }).outcome.verdict).toBe("pass");
     expect(modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["topology.private-pairs@2"] } }).outcome.verdict).toBe("unknown");
   });
+
+  it("a rule filter that selects no rule is unknown, naming the filter, even when the Genome violates", () => {
+    const typo = modelRules({ files: keepInTouchMany(), revision: "m", filter: { rulePrefix: "topolgy." } });
+    expect(typo.outcome.verdict).toBe("unknown");
+    expect(typo.outcome.observations).toContainEqual(expect.objectContaining({ kind: "filter-selects-no-rules", filter: { rulePrefix: "topolgy." } }));
+    const ok = modelRules({ files: keepInTouchMany(), revision: "m", filter: { rulePrefix: "topology." } });
+    expect(ok.outcome.verdict).toBe("fail");
+    const wrongPack = modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["metamodel@1"], rulePrefix: "topology." } });
+    expect(wrongPack.outcome.verdict).toBe("unknown");
+  });
 });
 
 describe("hook selection and runSubmission on the real evolution.1", () => {
@@ -127,6 +137,12 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
     // The fake confirms "sends to several people" (noul 0.95) → topology unacceptable → fail.
     expect(e).toMatchObject({ execution: "completed", verdict: "fail" });
     expect(e.provenance.provider).toBe("fake");
+  });
+
+  it("flags inputs the System One route ignores", async () => {
+    const runner = createHookRunner({ s1: createSystemOne({}), now: () => new Date(0) });
+    const e = (await runner.runSubmission(ctx())).find((x) => x.hook === "hook.system.purpose.model")!;
+    expect(e.limitations.join(" ")).toMatch(/hook inputs packs ignored/);
   });
 
   it("system-one engine with provider off is unknown with provenance off", async () => {

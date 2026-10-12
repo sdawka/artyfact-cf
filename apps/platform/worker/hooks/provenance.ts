@@ -80,7 +80,7 @@ export function errored(e: unknown, extra: Partial<Outcome> = {}): Outcome {
     verdict: "unknown",
     observations: [{ error: errorMessage(e) }, ...(extra.observations ?? [])],
     limitations: extra.limitations ?? [],
-    ...(extra.interpretation !== undefined && { interpretation: extra.interpretation }),
+    interpretation: extra.interpretation ?? errorMessage(e),
     ...(extra.provenance && { provenance: extra.provenance }),
   };
 }

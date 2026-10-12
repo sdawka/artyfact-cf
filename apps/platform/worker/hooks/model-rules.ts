@@ -68,9 +68,26 @@ export interface ModelRulesResult {
   delta?: SemanticDelta;
 }
 
+const packsOf = (model: SystemModel, deps: GenomeDeps = {}): RulePack[] => (deps.packsFor ?? bundledPacksFor)(model.kits.rulePacks);
+
 export function runRules(model: SystemModel, deps: GenomeDeps = {}): Readiness {
-  const packs = (deps.packsFor ?? bundledPacksFor)(model.kits.rulePacks);
-  return validate(model, packs);
+  return validate(model, packsOf(model, deps));
+}
+
+const RULE_HEAD = /^\s*(violation|missing|warning|semanticCandidate)\("([^"]+)"/gm;
+
+/** Rule ids (as Findings name them) that `filter` can select from `packs`. */
+export function selectableRules(packs: RulePack[], filter: RulesFilter): string[] {
+  const out = new Set<string>();
+  for (const p of packs) {
+    const name = `${p.id}@${p.version}`;
+    if (filter.packs && !filter.packs.includes(name) && !filter.packs.includes(p.id)) continue;
+    for (const m of p.source.matchAll(RULE_HEAD)) {
+      const rule = m[1] === "semanticCandidate" ? `semantic:${m[2]}` : m[2];
+      if (!filter.rulePrefix || rule.startsWith(filter.rulePrefix)) out.add(rule);
+    }
+  }
+  return [...out].sort();
 }
 
 export function modelRules(input: ModelRulesInput): ModelRulesResult {
@@ -93,8 +110,10 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
   }
 
   let readiness: Readiness;
+  let packs: RulePack[];
   try {
-    readiness = runRules(model, input.deps);
+    packs = packsOf(model, input.deps);
+    readiness = validate(model, packs);
   } catch (e) {
     return { model, outcome: errored(e, { interpretation: "Running the pinned rule packs failed." }) };
   }
@@ -131,6 +150,10 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
   const notPinned = (input.filter?.packs ?? []).filter((w) => !ran.includes(w) && !readiness.packs.some((p) => p.id === w));
   if (notPinned.length) observations.push({ kind: "packs-not-pinned", packs: notPinned, pinned: ran });
 
+  // A filter that can select no rule at all checks nothing: never a pass (e.g. a mistyped rulePrefix).
+  const selectsNothing = input.filter !== undefined && readiness.packs.length > 0 && !notPinned.length && selectableRules(packs, input.filter).length === 0;
+  if (selectsNothing) observations.push({ kind: "filter-selects-no-rules", filter: input.filter, droppedErrors: readiness.findings.filter((f) => f.level === "error").map(key) });
+
   let verdict: Outcome["verdict"];
   let interpretation: string;
   if (readiness.packs.length === 0) {
@@ -139,6 +162,9 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
   } else if (errors.length) {
     verdict = "fail";
     interpretation = `${errors.length} hard violation(s): ${errors.map(key).join("; ")}.`;
+  } else if (selectsNothing) {
+    verdict = "unknown";
+    interpretation = `The hook's rule filter ${JSON.stringify(input.filter)} selects no rule in the pinned packs; nothing was checked.`;
   } else if (notPinned.length) {
     verdict = "unknown";
     interpretation = `The hook asks for pack(s) ${notPinned.join(", ")}, which kits.yaml does not pin; they did not run.`;

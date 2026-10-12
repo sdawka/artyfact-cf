@@ -199,8 +199,11 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
       case "system-one":
       case "llm": {
         const { judgment, inferred } = llmJudgment(h, c);
-        const o = await semanticEngine(st, h, judgment);
-        return inferred ? withLimitation(o, `inputs.judgment is not set; ran ${judgment} (inferred from ${c.id}).`) : o;
+        let o = await semanticEngine(st, h, judgment);
+        if (inferred) o = withLimitation(o, `inputs.judgment is not set; ran ${judgment} (inferred from ${c.id}).`);
+        const ignored = Object.keys(h.inputs).filter((k) => k !== "judgment");
+        if (ignored.length) o = withLimitation(o, `System One hook inputs ${ignored.join(", ")} ignored by the ${judgment} judgment.`);
+        return o;
       }
       case "http":
         return httpHealth({ previewUrl: cand.previewUrl, commit: cand.commit, path: h.inputs.path, timeoutMs: Math.min(h.timeoutMs, HEALTH_TIMEOUT_MS), fetch: deps.fetch });

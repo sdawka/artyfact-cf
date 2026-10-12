@@ -29,6 +29,7 @@ describe("model-rules checks", () => {
     const o = modelRulesHook(env(), hook({ check: "scope-authorized,bogus" }));
     expect(o).toMatchObject({ execution: "completed", verdict: "unknown" });
     expect(o.limitations.join(" ")).toContain("bogus errored");
+    expect(o.interpretation).toContain('bogus: unknown (Unknown check "bogus")');
   });
 
   it("only not-run parts → not-run", () => {
