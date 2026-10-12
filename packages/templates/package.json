@@ -4,5 +4,22 @@
   "private": true,
   "type": "module",
   "main": "src/index.ts",
-  "exports": { ".": "./src/index.ts" }
+  "exports": {
+    ".": "./src/index.ts"
+  },
+  "scripts": {
+    "build": "node scripts/bundle.ts",
+    "prepare": "node scripts/bundle.ts",
+    "pretest": "node scripts/bundle.ts",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@artyfact/model": "*",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.6"
+  },
+  "devDependencies": {
+    "@artyfact/rules": "*",
+    "@types/node": "^26.6.5"
+  }
 }

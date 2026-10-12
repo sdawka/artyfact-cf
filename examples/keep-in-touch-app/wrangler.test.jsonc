@@ -1,0 +1,8 @@
+// Test-only config: no remote bindings, so tests run offline. Keep in sync with wrangler.jsonc.
+{
+  "name": "keep-in-touch",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-12",
+  "d1_databases": [{ "binding": "DB", "database_name": "keep-in-touch", "database_id": "00000000-0000-0000-0000-000000000000" }],
+  "vars": { "BUILD_ID": "test" }
+}

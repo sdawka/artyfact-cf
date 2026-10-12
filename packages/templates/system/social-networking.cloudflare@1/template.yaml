@@ -1,0 +1,37 @@
+id: template.system.social-networking.cloudflare
+kind: system
+version: "1"
+name: Social networking on Cloudflare
+description: >-
+  Genome skeleton for a social-networking System deployed on Cloudflare Workers.
+  Systems using the private-relationships profile must treat relationships as
+  private to the pair that forms them: no feed, no public graph, no group
+  broadcast. The topology.private-pairs rule pack enforces this.
+sections:
+  - section.purpose
+  - section.externals
+  - section.theory
+  - section.description
+requires:
+  - template.thing.*
+nodes:
+  - id: section.purpose
+    kind: section
+    name: Purpose
+    parent: "$system"
+    description: Why the System exists, who benefits, and what must change for them.
+  - id: section.externals
+    kind: section
+    name: Externals
+    parent: "$system"
+    description: People, groups, contexts and services outside the System boundary that it serves or depends on.
+  - id: section.theory
+    kind: section
+    name: Theory of change
+    parent: "$system"
+    description: Claims linking activities to outcomes, each with an indicator and an evaluation method.
+  - id: section.description
+    kind: section
+    name: Description
+    parent: "$system"
+    description: Narrative, features, commitments, alternatives and open questions.

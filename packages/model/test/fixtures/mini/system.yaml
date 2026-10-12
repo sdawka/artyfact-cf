@@ -1,0 +1,7 @@
+id: system.mini
+name: Mini Notes
+template: null
+profile: private-notes
+things: [thing.app]
+phase: unrealized
+purposes: [P1]

@@ -1,0 +1,42 @@
+% topology.private-pairs@1 - private-relationships profile: relationships are one-to-one, never broadcast (R9).
+% effectText(Node, Text) holds lowercased field names, effects and cardinality-bearing text of a node.
+% nodeName/2 is lowercased too. entityField/3 carries the raw YAML type string (ref:entity.Account, list<ref:entity.Account>, ...).
+
+.decl node(Id: sym, Kind: sym, Thing: sym)
+.decl nodeName(Id: sym, Name: sym)
+.decl effectText(Node: sym, Text: sym)
+.decl cardinality(Node: sym, Value: sym)
+.decl outgoingDirect(Node: sym)
+.decl entityField(Entity: sym, Name: sym, Type: sym)
+.decl provisional(Id: sym)
+.decl link(From: sym, Rel: sym, To: sym, Certainty: sym)
+.decl accountRefField(Entity: sym, Name: sym)
+.decl connection(Entity: sym)
+.decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+.decl semanticCandidate(Rule: sym, Subject: sym, Text: sym) .output
+
+.message "topology.recipientArray" "{1} sends to a list of recipients, which the private-pairs topology forbids."
+.message "topology.groupEnabled" "{1} introduces a group construct; relationships must stay between exactly two accounts."
+.message "topology.pairCardinality" "Connection {1} must declare exactly two account references."
+.message "topology.multiRecipient" "{1} may address several recipients; ask whether it breaks one-to-one delivery."
+
+violation("topology.recipientArray",N,"hard") :- effectText(N,T), contains(T,"recipient[]").
+violation("topology.recipientArray",N,"hard") :- effectText(N,T), contains(T,"recipients[]").
+violation("topology.recipientArray",N,"hard") :- effectText(N,T), contains(T,"recipient list").
+violation("topology.recipientArray",N,"hard") :- effectText(N,T), contains(T,"bulk").
+violation("topology.recipientArray",N,"hard") :- outgoingDirect(N), cardinality(N,"many").
+violation("topology.recipientArray",E,"hard") :- node(E,"entity",_), not provisional(E), entityField(E,_,Ty), contains(Ty,"list<ref:entity.Account").
+
+violation("topology.groupEnabled",N,"hard") :- node(N,K,_), K != "external", nodeName(N,Nm), matches(Nm,"^(group|circle|community|channel)( |$)").
+
+connection(E) :- node(E,"entity",_), nodeName(E,"connection").
+accountRefField(E,F) :- entityField(E,F,Ty), matches(Ty,"^ref:entity[.]Account").
+
+% An operation that writes an entity addressing another account is an outgoing direct action;
+% so is an affordance that invokes one. Used by topology.recipientArray with cardinality "many".
+outgoingDirect(Op) :- node(Op,"operation",_), link(Op,"writes",E,_), accountRefField(E,_).
+outgoingDirect(A) :- node(A,"affordance",_), link(A,"invokes",Op,_), outgoingDirect(Op).
+violation("topology.pairCardinality",E,"hard") :- connection(E), not accountRefField(E,_).
+violation("topology.pairCardinality",E,"hard") :- connection(E), N = count : accountRefField(E,_), N != 2.
+
+semanticCandidate("topology.multiRecipient",N,T) :- effectText(N,T), contains(T,"recipient").

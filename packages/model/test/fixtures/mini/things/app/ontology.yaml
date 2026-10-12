@@ -1,0 +1,60 @@
+nodes:
+  - id: section.ui
+    kind: section
+    name: Notes UI
+    children:
+      - id: screen.list
+        kind: screen
+        name: Notes
+        route: /notes
+        children:
+          - { id: component.Header, kind: component, name: Header }
+          - { id: component.NoteRow, kind: component, name: Note row, cardinality: 1 per note }
+      - id: screen.edit
+        kind: screen
+        name: Edit note
+        route: /notes/:id
+        children:
+          - id: component.NoteForm
+            kind: component
+            name: Note form
+            fields:
+              - { name: body, type: text }
+            children:
+              - id: affordance.NoteForm.save
+                kind: affordance
+                name: Save
+                actor: owner
+                effects: [Persists the note for its owner]
+                links:
+                  - { rel: invokes, to: operation.note.save }
+  - id: entity.Note
+    kind: entity
+    name: Note
+    parent: section.domain
+    fields:
+      - { name: owner, type: ref:entity.Owner }
+      - { name: body, type: text }
+    invariants: [body is non-empty]
+  - { id: entity.Owner, kind: entity, name: Owner, parent: section.domain }
+  - id: operation.note.save
+    kind: operation
+    name: Save note
+    parent: section.domain
+    links:
+      - { rel: writes, to: entity.Note }
+  - id: operation.note.list
+    kind: operation
+    name: List notes
+    parent: section.domain
+    links:
+      - { rel: reads, to: entity.Note }
+  - id: policy.ownerOnly
+    kind: policy
+    name: Owner only
+    parent: section.domain
+    mode: owner-only
+    links:
+      - { rel: governs, to: operation.note.save }
+      - { rel: governs, to: operation.note.list }
+      - { rel: governs, to: entity.Note }

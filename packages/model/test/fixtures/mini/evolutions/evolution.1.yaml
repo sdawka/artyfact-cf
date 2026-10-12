@@ -1,0 +1,7 @@
+id: evolution.1
+title: Save notes
+intent: Implement saving a note
+state: proposed
+kind: implementation
+affectedNodes: [affordance.NoteForm.save, operation.note.save]
+acceptanceCriteria: [C.app.notes.save, C.app.exists]

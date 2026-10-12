@@ -1,1 +1,13 @@
-export const name = "@artyfact/model";
+export * as schema from "./schema";
+export { loadSystem, ModelParseError, templateRef, THING_PLACEHOLDER, SYSTEM_PLACEHOLDER } from "./load";
+export type { SystemModel, TemplateStore, ParseIssue, ModelWarning } from "./load";
+export { index } from "./model-index";
+export type { ModelIndex, IndexEntry, EntryType, LinkRef } from "./model-index";
+export { toFacts, RELATIONS, stepKey } from "./facts";
+export type { RelationName } from "./facts";
+export { validate } from "./validate";
+export type { Finding, Readiness, RulePack } from "./validate";
+export type { DerivationTree, FactSet, Tuple, Value } from "@artyfact/rules";
+export { diffModels, overlap } from "./diff";
+export type { SemanticDelta } from "./diff";
+export { toMermaid } from "./mermaid";
