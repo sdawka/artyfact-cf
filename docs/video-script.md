@@ -12,7 +12,7 @@ Target length about 8 minutes, hard limits 5 to 10. Every command comes from [de
 - [ ] `npx wrangler login` and `cf auth login` show the same account (runbook step 0).
 - [ ] `apps/platform/.dev.vars` has `ADMIN_TOKEN`, `ACCOUNT_ID`, `FAKE_S1=1`, `ALLOW_LOCAL_PREVIEW=1`. Never show it.
 - [ ] Reset to a clean state first, so no forks from an earlier run exist (runbook "Reset"). A leftover fork makes start return 409 `fork-exists`.
-- [ ] Bootstrap and import are done before recording, unless you want them on camera (steps 1 and 2, about 20 s and 12 s).
+- [ ] Bootstrap and import (`init`) are done before recording, unless you want them on camera (steps 1 and 2, about 10 s and 30 s).
 - [ ] The `export` block from step 0 is run in every terminal: ops, sse, A, B, C.
 - [ ] Start tokens last six hours. Start work close to recording.
 - [ ] Decide on the preview for agent A. With it, health passes. Without it, health stays `unknown` and the narration says why (step 5, optional preview).
@@ -57,7 +57,7 @@ Say. A new wording can look like a violation when it is a decision. The platform
 
 ## Not on camera
 - The Queue consumer. Pushes reach it only through a per-fork repository subscription, which is not created automatically, so the CLI submit path is what the video shows.
-- Bootstrap. The video uses `scripts/bootstrap.sh`. `npx artyfact init` is described in the README as the next release, with `TODO(init-transcript)` for its transcript.
+- Bootstrap. The video uses `scripts/bootstrap.sh`, a wrapper over `npx artyfact init` (runbook step 2).
 
 ## Screenshots
 All taken from a local run of this runbook with `FAKE_S1=1`, saved in `docs/images/`.

@@ -34,7 +34,7 @@ Not done on purpose: platform-hosted agents, a reasoning-model evaluator beyond 
 
 ## How Workers and Artifacts are used
 - Workers: one Worker with Static Assets for the SPA, a Hono API, a Queue consumer and the `SystemAuthority` Durable Object with SQLite.
-- Artifacts: namespace with a Genome repository and an app repository. Binding reads of commits and trees, forks per realization, scoped write tokens, and a Queue consumer for `cf.artifacts.repo.pushed` events alongside the CLI submit path.
+- Artifacts: one namespace with a Genome repository and an app repository per System, plus a shared `platform` repository of templates and Rule Packs. Binding reads of commits and trees, forks per realization, scoped write tokens, and a Queue consumer for `cf.artifacts.repo.pushed` events alongside the CLI submit path.
 - Concurrency: several agents fork, work and push at once. The platform records each candidate, detects file and semantic overlap and resolves them through a compare-and-swap promotion.
 
 ## Team

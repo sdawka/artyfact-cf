@@ -34,7 +34,7 @@ More views: [Map on screen.people, Phenome layer](docs/images/map-screen-people-
 
 One Worker serves everything. Static Assets serve the React single-page app. A Hono app handles `/api/*`, and the Worker also exports the queue handler and the Durable Object class.
 
-**Artifacts.** The Genome and the app live in Artifacts repositories in one namespace. The Worker reads them through the `ARTIFACTS` binding: it reads commits and trees, walks them, and loads the Genome at an exact commit. No Git library runs in the Worker. Starting a realization forks the app repository (or the Genome repository for an amendment), waits for the fork to be ready, and issues a write token that expires after six hours. The token and a per-realization secret are returned once, in the response to the start-work call. Agents clone and push with ordinary Git over HTTPS.
+**Artifacts.** The Genome and the app live in Artifacts repositories in one namespace, next to a shared `platform` repository of templates and Rule Packs. The Worker reads them through the `ARTIFACTS` binding: it reads commits and trees, walks them, and loads the Genome at an exact commit. No Git library runs in the Worker. Starting a realization forks the app repository (or the Genome repository for an amendment), waits for the fork to be ready, and issues a write token that expires after six hours. The token and a per-realization secret are returned once, in the response to the start-work call. Agents clone and push with ordinary Git over HTTPS.
 
 **Submission and push events on Queues.** The primary path is the CLI `submit` command, which pushes to the fork and then calls the API with the commit. The Worker also has a Queue consumer for Artifacts push events (`cf.artifacts.repo.pushed`). It resolves the fork to its realization and submits the new head. Artifacts emits push events only for a repository-level subscription, and this version does not create one per fork automatically, so the consumer is wired and tested but is a deployed-only convenience. Both paths are idempotent on realization and commit, and a redelivered event does nothing.
 
@@ -134,7 +134,37 @@ npm run dev:amendment -w @artyfact/platform
 
 Admin routes (import, start work, accept, reject, promote) need `ADMIN_TOKEN`. Read routes are unauthenticated. The preview health probe reaches only `*.workers.dev`, `*.pages.dev`, hosts in `PREVIEW_HOST_ALLOWLIST`, or localhost when `ALLOW_LOCAL_PREVIEW=1`.
 
-**Importing a project.** `npx artyfact init --dir <project>` takes a cloned project from its `system.yaml` to an imported System in one command. It derives the repository names from the System id (`<slug>.genome` and `<slug>.app`) and checks that Wrangler and `cf` use the same account. It creates the namespace and repositories if missing, pushes with short-lived tokens, and syncs the namespace's shared `platform` repository. Then it calls the import API with `ARTYFACT_ADMIN_TOKEN`. `--from-template` seeds a new app from a scaffold held in the namespace. For the example, `scripts/bootstrap.sh` runs `init` on `examples/`. Step 2 of the runbook shows a real transcript.
+**Importing a project.** `npx artyfact init --dir <project>` takes a cloned project from its `system.yaml` to an imported System in one command. For the example, `scripts/bootstrap.sh` is a wrapper that runs `init` on `examples/`.
+
+- **Names.** One Artifacts namespace per deployment (`artyfact` by default). The repository names come from the System id: `system.keep-in-touch` gives `keep-in-touch.genome` and `keep-in-touch.app`. Forks are `<repo>--r<N>`. The id must be lower-case, so two ids never share repositories.
+- **The `platform` repository.** It holds the Thing and System templates and the Rule Packs. `init` creates it when it is missing or empty, and `npx artyfact platform-sync` is the way to update it. The import records its commit on the System head and on every System commit. Evaluation still uses the packages bundled into the Worker. `platform` is provenance only.
+- **Pushes.** `init` checks that Wrangler and `cf` use the same account and prints only its first eight characters. It never rewrites history: it fast-forwards a repository only from the head it last pushed, and `--adopt` commits on top of history it did not push. Secret files (`.dev.vars`, `.env` and their variants, except `*.example`), `node_modules`, `.wrangler` and `dist` are never pushed, even when tracked.
+- **Import.** It then calls the import API with `ARTYFACT_ADMIN_TOKEN`. Without the token it prints the `curl` line and exits 0. `--from-template <name>@<version>` seeds a new app from a scaffold named in `platform`.
+
+The CLI finds the platform from `--platform`, then `ARTYFACT_PLATFORM`, then `ARTYFACT_URL`, then a local server on port 1337 to 1346 that identifies as artyfact. If none does it stops with an error and sends no credential. Every local URL in these docs is `http://localhost:1337`. This is a real run, with the account shortened by `init` itself. The first call stopped on history it did not push. `--adopt` fast-forwarded over it. The run predates the 1337 default, so its last line was edited from the old port:
+
+```text
+$ ./scripts/bootstrap.sh
+system.keep-in-touch -> keep-in-touch.genome, keep-in-touch.app (namespace artyfact)
+account 1bae12d5… (wrangler and cf agree)
+namespace artyfact: exists
+  created repo platform
+platform: created at 6bd3603921dc
+artyfact: keep-in-touch.genome has commits this checkout did not push (head ffb68c7) and its tree differs from …/examples/keep-in-touch-system.
+init never builds over unknown history: merge that history into your project first, or re-run with --adopt to commit your project on top of ffb68c7 (a fast-forward).
+
+$ ./scripts/bootstrap.sh --adopt
+system.keep-in-touch -> keep-in-touch.genome, keep-in-touch.app (namespace artyfact)
+account 1bae12d5… (wrangler and cf agree)
+namespace artyfact: exists
+platform: unchanged at 6bd3603921dc
+keep-in-touch.genome: pushed at 18374568e231
+keep-in-touch.app: unchanged at c945510ffdf5
+imported system.keep-in-touch at sc-1-b11cb27a
+System: http://localhost:1337/s/system.keep-in-touch/r/head/overview
+```
+
+A re-run pushes nothing and re-imports as a no-op. Flags and details: [packages/cli/README.md](packages/cli/README.md). Step 2 of the runbook has the same transcript and a later run.
 
 The full loop against real Artifacts, with two agents, a conflict, a promotion and two Genome amendments, is in [docs/demo-runbook.md](docs/demo-runbook.md). It needs a Cloudflare login and an `ADMIN_TOKEN`. Hosted deployment: [docs/deploy.md](docs/deploy.md).
 

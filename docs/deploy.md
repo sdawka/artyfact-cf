@@ -4,7 +4,7 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 
 **Prerequisite:** the account must be on Workers Paid; Artifacts is unavailable on Free.
 
-**Status:** first deploy done on 2026-10-12 at https://artyfact-platform.dawka.workers.dev. Queue, DO migration, vars and `ADMIN_TOKEN` are in place. The operator keeps the `ADMIN_TOKEN` plaintext outside the repo; rotate it with `wrangler secret put ADMIN_TOKEN`. The System import is a separate step.
+**Status:** first deploy done on 2026-10-12 at https://artyfact-platform.dawka.workers.dev. Queue, DO migration, vars and `ADMIN_TOKEN` are in place. The operator keeps the `ADMIN_TOKEN` plaintext outside the repo; rotate it with `wrangler secret put ADMIN_TOKEN`. The System import is a separate step: `./scripts/bootstrap.sh` (a wrapper over `npx artyfact init`) with `--platform $URL`, as in the runbook.
 
 ## Resources
 
@@ -13,7 +13,7 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 | Worker + static assets | `artyfact-platform` | `npm run deploy` |
 | Durable Object `SystemAuthority` (SQLite) | migration in `wrangler.jsonc` `exports` | first deploy |
 | Queue consumer | `artyfact-artifacts-events` | `npx wrangler queues create artyfact-artifacts-events` before the first deploy |
-| Artifacts namespace `artyfact` | `keep-in-touch.genome`, `keep-in-touch.app` repos | the import runbook, not this doc |
+| Artifacts namespace `artyfact` | `platform`, `keep-in-touch.genome`, `keep-in-touch.app` repos | `artyfact init` (runbook step 2), not this doc |
 | Secret `ADMIN_TOKEN` | | `wrangler secret put` |
 
 There is no D1 or R2. `FAKE_S1=1` is a plain var because no System One key is set; the UI labels those judgments as fake.
