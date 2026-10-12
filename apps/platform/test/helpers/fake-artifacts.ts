@@ -62,6 +62,11 @@ export class FakeRepo implements ArtifactsRepoLike {
     return meta.hash;
   }
 
+  /** Drop a commit object (simulates a force-push/GC losing the submitted commit). */
+  forget(hash: string): void {
+    this.store.objects.delete(hash);
+  }
+
   async info() {
     this.calls.push("info");
     const status = this.readyAfter > 0 ? (this.readyAfter--, "forking") : "ready";

@@ -22,23 +22,33 @@ export interface PacketInput {
   genomePrefix?: string;
 }
 
-const isRequired = (c: schema.Criterion) => c.severity === "hard" && !c.deferred;
+/** A hard, non-deferred criterion gated on promotion: it blocks promotion unless pass+completed. */
+const isRequired = (c: schema.Criterion) => (c.severity ?? "hard") === "hard" && !c.deferred && c.gates.includes("promotion");
+
+export interface GateCriterion { id: string; severity: "hard" | "soft" | "advisory" }
 
 /**
- * Criteria that must be pass+completed before a candidate of `evolution` may be promoted:
- * hard, non-deferred acceptance criteria ∪ hard, non-deferred criteria gated on `promotion`
- * whose target matches the realization (artifact for app, model for genome).
+ * Criteria that gate promotion of a candidate of `evolution` (non-deferred, `gates` includes `promotion`),
+ * drawn from the Evolution's acceptance criteria ∪ System-wide criteria whose target matches the
+ * realization (artifact for app, model for genome). Hard ones block; soft/advisory ones are advisories
+ * the promoter acknowledges with a rationale.
  */
-export function requiredCriteria(m: SystemModel, evolution: schema.Evolution, target: "app" | "genome"): string[] {
+export function gateCriteria(m: SystemModel, evolution: schema.Evolution, target: "app" | "genome"): GateCriterion[] {
   const byId = new Map(m.criteria.map((c) => [c.id, c] as const));
-  const out = new Set<string>();
-  for (const id of evolution.acceptanceCriteria) {
-    const c = byId.get(id);
-    if (c && isRequired(c)) out.add(id);
-  }
   const kind = target === "app" ? "artifact" : "model";
-  for (const c of m.criteria) if (isRequired(c) && c.gates.includes("promotion") && c.targetKind === kind) out.add(c.id);
-  return [...out];
+  const ids = new Set(evolution.acceptanceCriteria);
+  for (const c of m.criteria) if (c.targetKind === kind) ids.add(c.id);
+  const out: GateCriterion[] = [];
+  for (const id of ids) {
+    const c = byId.get(id);
+    if (c && !c.deferred && c.gates.includes("promotion")) out.push({ id, severity: c.severity ?? "hard" });
+  }
+  return out;
+}
+
+/** Ids of the blocking (hard) gate criteria. */
+export function requiredCriteria(m: SystemModel, evolution: schema.Evolution, target: "app" | "genome"): string[] {
+  return gateCriteria(m, evolution, target).filter((g) => g.severity === "hard").map((g) => g.id);
 }
 
 export function protectedPathsFor(target: "app" | "genome"): string[] {
@@ -133,6 +143,7 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
     entryFiles: i.target === "app" ? entryFiles(i.sourceMap, affected, i.baseTreePaths) : [],
     commands: i.commands,
     concurrentWork: i.concurrentWork,
+    startCommand: startCommand(i.systemId, i.evolution.id, i.realizationId),
     submitInstructions,
   };
   const hash = await sha256Hex(canonicalJson(body));
@@ -140,6 +151,11 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
   packet.markdown = renderMarkdown(packet);
   packet.agentsMd = renderAgentsMd(packet);
   return packet;
+}
+
+/** CLI start line. The packet carries the `<token>` placeholder; only the StartWork response fills it in. */
+export function startCommand(systemId: string, evolutionId: string, realizationId: string): string {
+  return `ARTYFACT_TOKEN=<token> npx artyfact start ${realizationId} --system ${systemId} --evolution ${evolutionId} --dir ./${realizationId}`;
 }
 
 const bullets = (xs: string[], empty = "_none_") => (xs.length ? xs.map((x) => `- ${x}`).join("\n") : empty);
@@ -151,6 +167,12 @@ export function renderMarkdown(p: TaskPacket): string {
     `System \`${p.systemId}\` · Evolution \`${p.evolutionId}\` · Realization \`${p.realizationId}\` (${p.target})`,
     `Fork \`${p.workspace.fork}\` from \`${p.workspace.repo}\` at \`${p.workspace.baseCommit}\``,
     `Packet hash \`${p.hash}\``,
+    "",
+    "## Start",
+    "Set up the workspace with the token from the StartWork response:",
+    "```sh",
+    p.startCommand,
+    "```",
     "",
     "## Intent",
     p.intent,

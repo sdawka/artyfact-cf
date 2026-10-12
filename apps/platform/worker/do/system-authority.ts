@@ -1,6 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
+import type { GateCriterion } from "../packets/task-packet";
 import type {
-  Candidate, Checkpoint, Evaluation, Evolution, EvolutionState, Realization, RealizationStatus, SseEnvelope, SseEvent,
+  Candidate, Checkpoint, Evaluation, GateItem, Evolution, EvolutionState, Realization, RealizationStatus, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
@@ -15,14 +16,18 @@ export class StaleBaseError extends Error {
   }
 }
 
-export interface BlockingCriterion { candidate: string; criterion: string; verdict: string; execution: string }
+/** @deprecated name kept for callers: a hard {@link GateItem}. */
+export type BlockingCriterion = GateItem;
 
+/** Refusal: hard items block; advisories only refuse when the rationale is empty. */
 export class PromotionBlockedError extends Error {
-  constructor(readonly blocking: BlockingCriterion[]) {
-    super(`promotion blocked by ${blocking.length} required criteria`);
+  constructor(readonly code: "blocked" | "advisories-unacknowledged", readonly blocking: GateItem[], readonly advisories: GateItem[]) {
+    super(code === "blocked" ? `promotion blocked by ${blocking.length} hard criteria` : "advisories must be acknowledged with a rationale");
     this.name = "PromotionBlockedError";
   }
 }
+
+export type { GateCriterion, GateItem };
 
 /** Thrown by RPC methods; the `[code]` message prefix survives RPC so the Worker can map it to HTTP. */
 export class ConflictError extends Error {
@@ -121,14 +126,14 @@ export interface PromoteInput extends ManifestExtras {
   expectedHead: string | null;
   rationale: string;
   by: string;
-  /** candidate id → required criterion ids (computed by the Worker from the model). */
-  required: Record<string, string[]>;
+  /** candidate id → promotion-gated criteria (computed by the Worker from the model). Hard ones block. */
+  gates: Record<string, GateCriterion[]>;
 }
 
 export type PromoteResult =
-  | { ok: true; commit: SystemCommit; rejected: string[] }
+  | { ok: true; commit: SystemCommit; rejected: string[]; advisories: GateItem[] }
   | { ok: false; code: "stale-base"; currentHead: string | null }
-  | { ok: false; code: "blocked"; blocking: BlockingCriterion[] }
+  | { ok: false; code: "blocked" | "advisories-unacknowledged"; blocking: GateItem[]; advisories: GateItem[] }
   | { ok: false; code: "not-found" | "invalid-state"; message: string };
 
 export interface AcceptInput extends ManifestExtras {
@@ -167,10 +172,11 @@ CREATE TABLE IF NOT EXISTS evaluations (id TEXT PRIMARY KEY, candidate_id TEXT N
   execution TEXT NOT NULL, verdict TEXT NOT NULL, observations_json TEXT, evidence_key TEXT, verifier TEXT, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS evaluations_by_candidate ON evaluations (candidate_id, criterion_id);
 CREATE TABLE IF NOT EXISTS events_seen (event_id TEXT PRIMARY KEY, seen_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS candidate_reviews (candidate_id TEXT PRIMARY KEY, json TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS model_cache (genome_commit TEXT NOT NULL, part TEXT NOT NULL, json TEXT NOT NULL, created_at TEXT NOT NULL,
   PRIMARY KEY (genome_commit, part));
 CREATE TABLE IF NOT EXISTS registry_systems (system_id TEXT PRIMARY KEY, summary_json TEXT NOT NULL, updated_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS registry_realizations (realization_id TEXT PRIMARY KEY, system_id TEXT NOT NULL, fork_repo TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS registry_realizations (realization_id TEXT PRIMARY KEY, system_id TEXT NOT NULL, evolution_id TEXT NOT NULL DEFAULT '', fork_repo TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS registry_by_fork ON registry_realizations (fork_repo);
 `;
 
@@ -301,10 +307,13 @@ export class SystemAuthority extends DurableObject<Env> {
 
   private commitDto(r: Row): SystemCommit {
     const d = json<Record<string, unknown>>(r.decision_json, {});
+    const composition = json(r.manifest_json, {} as SystemManifest);
     return {
       id: String(r.id),
       parent: str(r.parent),
-      manifest: json(r.manifest_json, {} as SystemManifest),
+      genomeCommit: composition.genomeCommit,
+      manifest: Object.entries(composition.artifacts ?? {}).map(([artifact, b]) => ({ artifact, type: "worker-fullstack" as const, repo: b.repo, commit: b.commit, scope: [] })),
+      composition,
       manifestHash: String(r.manifest_hash),
       evolutions: json(r.evolution_ids, []),
       candidates: (d.candidates as string[]) ?? [],
@@ -379,6 +388,15 @@ export class SystemAuthority extends DurableObject<Env> {
     }
   }
 
+  /** Persist the hooks' runGenome result (readiness + DeltaReviews) for a Genome candidate. */
+  putReview(candidateId: string, json: string): void {
+    this.sql.exec("INSERT OR REPLACE INTO candidate_reviews (candidate_id, json, created_at) VALUES (?, ?, ?)", candidateId, json, nowIso());
+  }
+
+  review(candidateId: string): string | null {
+    return str(this.one("SELECT json FROM candidate_reviews WHERE candidate_id = ?", candidateId)?.json);
+  }
+
   getModelCache(genomeCommit: string, part: string): string | null {
     return str(this.one("SELECT json FROM model_cache WHERE genome_commit = ? AND part = ?", genomeCommit, part)?.json);
   }
@@ -397,7 +415,7 @@ export class SystemAuthority extends DurableObject<Env> {
       baseRevision: seed.baseRevision, kind: seed.kind, affectedNodes: seed.affectedNodes ?? [], affectedClaims: seed.affectedClaims ?? [],
       genomeDelta: seed.genomeDelta ?? [], acceptanceCriteria: seed.acceptanceCriteria ?? [], requiredEvidence: seed.requiredEvidence ?? [],
       dependsOn: seed.dependsOn ?? [], risk: seed.risk ?? "medium", realizations,
-      ...(d && { decision: { by: d.by, policy: d.policy, rationale: d.rationale, at: d.at } }),
+      ...(d && { decision: d.rationale, decisionRecord: { by: d.by, policy: d.policy, rationale: d.rationale, at: d.at } }),
     };
   }
 
@@ -611,17 +629,17 @@ export class SystemAuthority extends DurableObject<Env> {
     const stored: Evaluation[] = [];
     this.ctx.storage.transactionSync(() => {
       for (const e of evaluations) {
-        const at = e.at ?? e.finishedAt ?? nowIso();
-        const hook = e.hook ?? "unknown";
-        const id = e.id || `${candidateId}:${e.criterion}:${hook}`;
-        const { id: _i, candidate: _c, criterion: _k, hook: _h, execution: _x, verdict: _v, observations, evidenceKey: _ek, verifier: _vf, at: _a, ...extra } = e;
+        const at = e.finishedAt ?? e.startedAt ?? nowIso();
+        const hook = e.hook || "none";
+        const id = e.id || `${candidateId}:${hook}:${e.criterion}`;
+        const { id: _i, candidate: _c, criterion: _k, hook: _h, execution: _x, verdict: _v, observations, verifier: _vf, ...extra } = e;
         this.sql.exec("DELETE FROM evaluations WHERE candidate_id = ? AND criterion_id = ? AND hook_id = ?", candidateId, e.criterion, hook);
         this.sql.exec(
           "INSERT OR REPLACE INTO evaluations (id, candidate_id, criterion_id, hook_id, execution, verdict, observations_json, evidence_key, verifier, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-          id, candidateId, e.criterion, hook, e.execution, e.verdict, JSON.stringify({ observations: observations ?? null, extra }),
-          e.evidenceKey ?? null, e.verifier ?? "artyfact-platform", at,
+          id, candidateId, e.criterion, hook, e.execution, e.verdict, JSON.stringify({ observations: observations ?? [], extra }),
+          null, e.verifier ?? "artyfact-platform", at,
         );
-        stored.push({ ...e, id, candidate: candidateId, hook, at });
+        stored.push({ ...e, id, candidate: candidateId, hook });
       }
       if (OPEN_CANDIDATE.includes(String(cand.state))) this.sql.exec("UPDATE candidates SET state = 'evaluated' WHERE id = ?", candidateId);
       const real = this.realizationRow(String(cand.realization_id));
@@ -638,13 +656,14 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   private evaluationDto(r: Row): Evaluation {
-    const o = json<{ observations?: unknown; extra?: Record<string, unknown> }>(r.observations_json, {});
+    const o = json<{ observations?: unknown[]; extra?: Partial<Evaluation> }>(r.observations_json, {});
     return {
+      ownerId: "", subjectId: "", targetRef: "", startedAt: String(r.created_at), limitations: [], provenance: {},
       ...(o.extra ?? {}),
       id: String(r.id), candidate: String(r.candidate_id), criterion: String(r.criterion_id), hook: String(r.hook_id),
       execution: String(r.execution) as Evaluation["execution"], verdict: String(r.verdict) as Evaluation["verdict"],
-      observations: o.observations ?? null, ...(r.evidence_key != null && { evidenceKey: String(r.evidence_key) }),
-      verifier: String(r.verifier ?? "artyfact-platform"), at: String(r.created_at),
+      observations: Array.isArray(o.observations) ? o.observations : [],
+      verifier: String(r.verifier ?? "artyfact-platform"),
     };
   }
 
@@ -670,14 +689,16 @@ export class SystemAuthority extends DurableObject<Env> {
     return r ? this.candidateDto(r) : null;
   }
 
-  /** Criteria among `required` lacking `verdict=pass && execution=completed` for `candidateId`. */
-  blockingCriteria(candidateId: string, required: string[]): BlockingCriterion[] {
-    const out: BlockingCriterion[] = [];
-    for (const criterion of required) {
+  /** Gate criteria lacking `verdict=pass && execution=completed` on every evaluation for `candidateId`. */
+  gateItems(candidateId: string, gates: GateCriterion[]): GateItem[] {
+    type V = GateItem["verdict"];
+    type X = GateItem["execution"];
+    const out: GateItem[] = [];
+    for (const { id: criterion, severity } of gates) {
       const rows = this.all("SELECT verdict, execution FROM evaluations WHERE candidate_id = ? AND criterion_id = ?", candidateId, criterion);
-      if (!rows.length) out.push({ candidate: candidateId, criterion, verdict: "missing", execution: "missing" });
+      if (!rows.length) out.push({ candidate: candidateId, criterion, severity, verdict: "missing", execution: "missing" });
       for (const r of rows) {
-        if (r.verdict !== "pass" || r.execution !== "completed") out.push({ candidate: candidateId, criterion, verdict: String(r.verdict), execution: String(r.execution) });
+        if (r.verdict !== "pass" || r.execution !== "completed") out.push({ candidate: candidateId, criterion, severity, verdict: String(r.verdict) as V, execution: String(r.execution) as X });
       }
     }
     return out;
@@ -708,7 +729,7 @@ export class SystemAuthority extends DurableObject<Env> {
    * when a required criterion lacks pass+completed. On success: parented System commit, head moved,
    * candidates promoted, sibling candidates rejected, Evolution promoted.
    */
-  promoteTx(input: PromoteInput, prep: PreparedCommit): { commit: SystemCommit; rejected: string[] } {
+  promoteTx(input: PromoteInput, prep: PreparedCommit): { commit: SystemCommit; rejected: string[]; advisories: GateItem[] } {
     return this.ctx.storage.transactionSync(() => {
       const head = this.kv("head");
       if (head !== input.expectedHead || head !== prep.head) throw new StaleBaseError(head);
@@ -722,8 +743,11 @@ export class SystemAuthority extends DurableObject<Env> {
       for (const c of rows) {
         if (!OPEN_CANDIDATE.includes(String(c.state))) throw new ConflictError("invalid-state", `candidate ${c.id} is ${c.state}`);
       }
-      const blocking = rows.flatMap((c) => this.blockingCriteria(String(c.id), input.required[String(c.id)] ?? []));
-      if (blocking.length) throw new PromotionBlockedError(blocking);
+      const items = rows.flatMap((c) => this.gateItems(String(c.id), input.gates[String(c.id)] ?? []));
+      const blocking = items.filter((i) => i.severity === "hard");
+      const advisories = items.filter((i) => i.severity !== "hard");
+      if (blocking.length) throw new PromotionBlockedError("blocked", blocking, advisories);
+      if (advisories.length && !input.rationale.trim()) throw new PromotionBlockedError("advisories-unacknowledged", [], advisories);
 
       const ids = rows.map((c) => String(c.id));
       const evolutionIds = [...new Set(rows.map((c) => String(c.evolution_id)))];
@@ -734,7 +758,10 @@ export class SystemAuthority extends DurableObject<Env> {
         ...evolutionIds, ...ids,
       );
       const rejected = siblings.map((s) => String(s.id));
-      const commit = this.writeCommit(prep, evolutionIds, { by: input.by, policy: "admin", rationale: input.rationale, candidates: ids, rejected });
+      const commit = this.writeCommit(prep, evolutionIds, {
+        by: input.by, policy: "admin", rationale: input.rationale, candidates: ids, rejected,
+        ...(advisories.length && { advisories: advisories.map((a) => `${a.candidate}:${a.criterion}`) }),
+      });
       const at = nowIso();
       for (const c of rows) {
         this.sql.exec("UPDATE candidates SET state = 'promoted' WHERE id = ?", c.id);
@@ -752,7 +779,7 @@ export class SystemAuthority extends DurableObject<Env> {
         if (Number(live?.n ?? 0) === 0) this.setRealizationStatus(String(s.realization_id), "rejected");
       }
       for (const e of evolutionIds) this.sql.exec("UPDATE evolutions SET status = 'promoted', decided_at = ? WHERE id = ?", at, e);
-      return { commit, rejected };
+      return { commit, rejected, advisories };
     });
   }
 
@@ -766,12 +793,12 @@ export class SystemAuthority extends DurableObject<Env> {
         if (evo) this.emit({ type: "evolution.updated", evolution: evo });
       }
       for (const r of this.realizations()) {
-        if (r.updatedAt >= out.commit.createdAt) this.emit({ type: "realization.updated", realization: r });
+        if (r.updatedAt >= (out.commit.createdAt ?? "")) this.emit({ type: "realization.updated", realization: r });
       }
       return { ok: true, ...out };
     } catch (e) {
       if (e instanceof StaleBaseError) return { ok: false, code: "stale-base", currentHead: e.currentHead };
-      if (e instanceof PromotionBlockedError) return { ok: false, code: "blocked", blocking: e.blocking };
+      if (e instanceof PromotionBlockedError) return { ok: false, code: e.code, blocking: e.blocking, advisories: e.advisories };
       if (e instanceof ConflictError) return { ok: false, code: e.code, message: e.detail };
       throw e;
     }
@@ -862,21 +889,22 @@ export class SystemAuthority extends DurableObject<Env> {
     return this.all("SELECT summary_json FROM registry_systems ORDER BY system_id").map((r) => json<SystemSummary>(r.summary_json, {} as SystemSummary));
   }
 
-  registerRealization(realizationId: string, systemId: string, forkRepo: string): void {
+  registerRealization(realizationId: string, systemId: string, evolutionId: string, forkRepo: string): void {
     this.sql.exec(
-      `INSERT INTO registry_realizations (realization_id, system_id, fork_repo) VALUES (?, ?, ?)
-       ON CONFLICT(realization_id) DO UPDATE SET system_id = excluded.system_id, fork_repo = excluded.fork_repo`,
-      realizationId, systemId, forkRepo,
+      `INSERT INTO registry_realizations (realization_id, system_id, evolution_id, fork_repo) VALUES (?, ?, ?, ?)
+       ON CONFLICT(realization_id) DO UPDATE SET system_id = excluded.system_id, evolution_id = excluded.evolution_id, fork_repo = excluded.fork_repo`,
+      realizationId, systemId, evolutionId, forkRepo,
     );
   }
 
-  resolveRealization(realizationId: string): { systemId: string; forkRepo: string } | null {
-    const r = this.one("SELECT system_id, fork_repo FROM registry_realizations WHERE realization_id = ?", realizationId);
-    return r ? { systemId: String(r.system_id), forkRepo: String(r.fork_repo) } : null;
+  resolveRealization(realizationId: string): { systemId: string; evolutionId: string; forkRepo: string } | null {
+    const r = this.one("SELECT system_id, evolution_id, fork_repo FROM registry_realizations WHERE realization_id = ?", realizationId);
+    return r ? { systemId: String(r.system_id), evolutionId: String(r.evolution_id), forkRepo: String(r.fork_repo) } : null;
   }
 
-  resolveFork(forkRepo: string): { systemId: string; realizationId: string } | null {
-    const r = this.one("SELECT system_id, realization_id FROM registry_realizations WHERE fork_repo = ?", forkRepo);
-    return r ? { systemId: String(r.system_id), realizationId: String(r.realization_id) } : null;
+  /** Fork repo name → owning realization (queue `resolveFork`). */
+  resolveFork(forkRepo: string): { systemId: string; evolutionId: string; realizationId: string } | null {
+    const r = this.one("SELECT system_id, evolution_id, realization_id FROM registry_realizations WHERE fork_repo = ?", forkRepo);
+    return r ? { systemId: String(r.system_id), evolutionId: String(r.evolution_id), realizationId: String(r.realization_id) } : null;
   }
 }

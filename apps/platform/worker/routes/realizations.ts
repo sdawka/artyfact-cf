@@ -1,5 +1,5 @@
 import { Hono } from "hono";
-import { checkpoint, packet, realizationView, submit, sync, systemForRealization, systemStub } from "../service";
+import { checkpoint, packet, realizationView, review, submit, sync, systemForRealization, systemStub } from "../service";
 import { body, type AppEnv, type Ctx } from "./app";
 
 type Resolve = (c: Ctx) => Promise<string>;
@@ -13,6 +13,7 @@ function mount(app: Hono<AppEnv>, prefix: string, system: Resolve) {
   const rid = (c: Ctx) => c.req.param("rid")!;
   app.get(prefix, async (c) => c.json(await realizationView(c.env, await system(c), rid(c))));
   app.get(`${prefix}/packet`, async (c) => c.json(await packet(c.env, await system(c), rid(c))));
+  app.get(`${prefix}/review`, async (c) => c.json(await review(c.env, await system(c), rid(c))));
   app.post(`${prefix}/checkpoints`, async (c) => c.json(await checkpoint(c.env, await system(c), rid(c), await body(c)), 201));
   app.post(`${prefix}/submit`, async (c) => {
     const out = await submit(c.env, await system(c), rid(c), await body(c), "cli");

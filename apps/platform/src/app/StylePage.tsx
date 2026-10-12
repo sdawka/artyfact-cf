@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Verdict } from "../../shared/api";
+import type { UiVerdict as Verdict } from "@/model/status";
 import styles from "./StylePage.module.css";
 
 const VERDICTS: { verdict: Verdict; glyph: string }[] = [

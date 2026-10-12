@@ -2,23 +2,63 @@
  * Wire types shared by the Worker (apps/platform/worker) and the SPA (src/api/client.ts).
  *
  * Source of truth: docs/design/backend.md (B.2, B.4, B.5, B.7) and docs/design/ui.md (C.0, C.6).
- * Domain DTOs (Evolution, Realization, ...) are the wire forms of docs/design/model.md objects; they
- * carry runtime state (status, timestamps) the Genome schema does not, so they stay local. Types that
- * are identical to `@artyfact/model` exports are re-exported from it below.
+ * Domain types (Verdict, Execution, Evaluation, Finding, Readiness, Criterion, AssayHook, Journey,
+ * CandidateManifest) are re-exported from `@artyfact/model`. Evolution, Realization and SystemCommit are
+ * the model types extended with the runtime fields the platform adds (status, timestamps, ids); a value
+ * of the wire type is always usable where the model type is expected, except that a Genome realization
+ * waiting for admin acceptance has status `awaiting-admin`.
  *
- * All timestamps are ISO-8601 strings. All routes are under `/api`.
+ * All timestamps are ISO-8601 strings. All routes are under `/api` (see {@link routes}).
  */
 
-import type { ModelIndex, SystemModel } from "@artyfact/model";
+import type { Finding, ModelIndex, Readiness, SemanticDelta, SystemModel, schema } from "@artyfact/model";
 
-export type {
-  /** Rules-engine readiness for a Genome snapshot (findings carry derivations). */
-  Readiness as RulesReadiness,
-  /** One rules-engine finding (`level`, `rule`, `subject`, `derivation`). */
-  Finding as RuleFinding,
-  SemanticDelta,
-} from "@artyfact/model";
-import type { Readiness as RulesReadiness } from "@artyfact/model";
+export type { Finding, Readiness, SemanticDelta } from "@artyfact/model";
+/** Rules-engine readiness (alias kept for the backend). */
+export type RulesReadiness = Readiness;
+export type Verdict = schema.Verdict;
+export type Execution = schema.Execution;
+export type Evaluation = schema.Evaluation;
+export type Criterion = schema.Criterion;
+export type AssayHook = schema.AssayHook;
+export type Journey = schema.Journey;
+export type EvolutionState = schema.EvolutionState;
+export type CandidateManifest = schema.CandidateManifest;
+
+// ---------------------------------------------------------------------------
+// Routes (all under /api). The CLI uses the evolution-scoped realization routes.
+// ---------------------------------------------------------------------------
+
+const enc = encodeURIComponent;
+const sys = (s: string) => `/api/systems/${enc(s)}`;
+/** Realization routes: `/api/systems/:sid/evolutions/:eid/realizations/:rid` (also served at `/api/systems/:sid/realizations/:rid` and `/api/realizations/:rid`). */
+const rz = (s: string, e: string, r: string) => `${sys(s)}/evolutions/${enc(e)}/realizations/${enc(r)}`;
+
+export const routes = {
+  health: () => "/api/health",
+  systems: () => "/api/systems",
+  importSystem: () => "/api/systems/import",
+  system: (s: string) => sys(s),
+  model: (s: string, rev?: string) => `${sys(s)}/model${rev ? `?rev=${enc(rev)}` : ""}`,
+  readiness: (s: string, rev?: string) => `${sys(s)}/readiness${rev ? `?rev=${enc(rev)}` : ""}`,
+  work: (s: string) => `${sys(s)}/work`,
+  evolutions: (s: string) => `${sys(s)}/evolutions`,
+  evolution: (s: string, e: string) => `${sys(s)}/evolutions/${enc(e)}`,
+  startWork: (s: string, e: string) => `${sys(s)}/evolutions/${enc(e)}/realizations`,
+  candidates: (s: string, e: string) => `${sys(s)}/evolutions/${enc(e)}/candidates`,
+  accept: (s: string, e: string) => `${sys(s)}/evolutions/${enc(e)}/accept`,
+  realization: (s: string, e: string, r: string) => rz(s, e, r),
+  packet: (s: string, e: string, r: string) => `${rz(s, e, r)}/packet`,
+  checkpoints: (s: string, e: string, r: string) => `${rz(s, e, r)}/checkpoints`,
+  submit: (s: string, e: string, r: string) => `${rz(s, e, r)}/submit`,
+  sync: (s: string, e: string, r: string) => `${rz(s, e, r)}/sync`,
+  review: (s: string, e: string, r: string) => `${rz(s, e, r)}/review`,
+  evaluations: (s: string, candidate?: string) => `${sys(s)}/evaluations${candidate ? `?candidate=${enc(candidate)}` : ""}`,
+  conflicts: (s: string) => `${sys(s)}/conflicts`,
+  promote: (s: string) => `${sys(s)}/promote`,
+  history: (s: string) => `${sys(s)}/history`,
+  events: (s: string) => `${sys(s)}/events`,
+} as const;
 
 // ---------------------------------------------------------------------------
 // Primitives
@@ -31,11 +71,6 @@ export type SystemId = string;
 export type CommitHash = string;
 /** SHA-256 hex of canonical JSON. */
 export type Sha256 = string;
-
-/** Result of evaluating one criterion. Only `pass` renders in the success colour. */
-export type Verdict = "pass" | "fail" | "unknown" | "stale" | "not-run";
-/** Whether the verifier actually ran. A `pass` without `completed` never counts. */
-export type Execution = "completed" | "not-run" | "errored" | "timed-out";
 
 export type Certainty = "declared" | "assumed" | "proposed";
 
@@ -62,14 +97,9 @@ export interface SystemSummary {
   updatedAt: string;
 }
 
-/** A finding produced by the rules engine (`@artyfact/rules`). */
-export interface Finding {
-  ruleId: string;
-  severity: "error" | "warning" | "info";
-  subject: NodeId;
-  message: string;
-  facts?: Record<string, unknown>;
-  nextAction?: string;
+/** `GET /api/systems`. */
+export interface SystemsResponse {
+  systems: SystemSummary[];
 }
 
 /** Readiness report: the three states are never summed. */
@@ -78,21 +108,6 @@ export interface ReadinessReport {
   implementationConformance: { pass: number; fail: number; unknown: number; stale: number; notRun: number };
   outcomeProgress: { observed: number; unknown: number };
   computedAt: string;
-}
-
-/**
- * `GET /api/systems/:id/model?rev=`. `model` is the parsed System (shape defined by
- * `@artyfact/model`'s `System`); it is opaque here so the contract package can evolve.
- */
-export interface ModelBundle {
-  systemId: SystemId;
-  /** Revision the model was loaded at: `canonical`, a System commit id, or a candidate id. */
-  revision: string;
-  genomeCommit: CommitHash;
-  model: SerializedModel;
-  readiness: ReadinessReport;
-  /** Full rules-engine output behind `readiness.modelReadiness` (findings with derivations). */
-  rules?: RulesReadiness;
 }
 
 /** `SystemModel.index` without functions: `byId` without the duplicated `item`, `path()` materialised. */
@@ -107,75 +122,39 @@ export interface SerializedIndex extends Omit<ModelIndex, "byId" | "path" | "lay
 /** `@artyfact/model`'s `SystemModel` as JSON (see `serializeModel` in the Worker). */
 export type SerializedModel = Omit<SystemModel, "index"> & { index: SerializedIndex };
 
+/** `GET /api/systems/:id/model?rev=`. */
+export interface ModelBundle {
+  systemId: SystemId;
+  /** `fixture` when the SPA fell back to its bundled example (client-side only). */
+  source?: "api" | "fixture";
+  /** Revision the model was loaded at: `canonical`, a System commit id, a candidate id or a Genome sha. */
+  revision: string;
+  genomeCommit: CommitHash;
+  /** A {@link SerializedModel} from the API; typed loosely so the SPA's fixture bundles fit. */
+  model: unknown;
+  readiness: ReadinessReport;
+  /** Full rules-engine output behind `readiness.modelReadiness` (findings with derivations). */
+  rules?: Readiness;
+}
+
 /** `GET /api/systems/:id/readiness?rev=`. */
 export interface ReadinessResponse {
   systemId: SystemId;
   revision: string;
   genomeCommit: CommitHash;
   readiness: ReadinessReport;
-  rules: RulesReadiness;
-}
-
-/** `GET /api/systems`. */
-export interface SystemsResponse {
-  systems: SystemSummary[];
+  rules: Readiness;
 }
 
 // ---------------------------------------------------------------------------
 // Evolutions, realizations, candidates, evaluations, commits
 // ---------------------------------------------------------------------------
 
-export type EvolutionState =
-  | "proposed" | "genome-approved" | "actionable" | "realizing"
-  | "evaluated" | "promoted" | "rejected" | "withdrawn";
-
-export interface Evolution {
-  id: NodeId;
-  title: string;
-  intent: string;
-  state: EvolutionState;
-  baseRevision?: string;
-  kind: "implementation" | "genome-amendment" | "mixed";
-  affectedNodes: NodeId[];
-  affectedClaims: NodeId[];
-  genomeDelta: { op: "add" | "change" | "remove"; path: string; summary: string }[];
-  acceptanceCriteria: NodeId[];
-  requiredEvidence: string[];
-  dependsOn: NodeId[];
-  risk: "low" | "medium" | "high";
-  realizations: string[];
-  decision?: { by: string; policy: string; rationale: string; at: string };
-}
-
-export type RealizationStatus =
-  | "claimed" | "working" | "submitted" | "evaluating" | "evaluated"
-  | "selected" | "promoted" | "rejected" | "abandoned" | "awaiting-admin";
-
-export interface Realization {
-  id: string;
-  systemId: SystemId;
-  evolution: NodeId;
-  /** 1-based ordinal within the evolution (`kit-app--rN`). */
-  n: number;
-  agent: {
-    id: string;
-    harness?: string;
-    role: "implementer" | "assay-author" | "verifier" | "reviewer" | "repairer";
-  };
-  /** `app` forks the app repo; `genome` forks the Genome repo (amendment). */
-  target: "app" | "genome";
-  /** `local` = CLI on the user's machine; `hosted` = platform-run agent. */
-  mode?: "local" | "hosted";
-  /** `repo` is the repo the fork was taken from; `remote` is the fork's git URL (no credentials). */
-  workspace: { repo: string; fork: string; baseCommit: CommitHash; tokenExpiresAt?: string; remote?: string };
-  /** System head when work started; promotion is stale-base if the head has moved since. */
-  baseRevision?: string | null;
-  status: RealizationStatus;
-  checkpoints: Checkpoint[];
-  candidate?: string;
-  createdAt: string;
-  updatedAt: string;
-}
+/** The Genome's Evolution plus runtime state; `state` is the platform's current state. */
+export type Evolution = schema.Evolution & {
+  /** Who decided and why (`decision` keeps the model's string form: the rationale). */
+  decisionRecord?: { by: string; policy: string; rationale: string; at: string };
+};
 
 export interface Checkpoint {
   seq: number;
@@ -183,6 +162,24 @@ export interface Checkpoint {
   summary: string;
   commit?: CommitHash;
 }
+
+export type RealizationStatus = schema.Realization["status"] | "awaiting-admin";
+
+export type Realization = Omit<schema.Realization, "status" | "workspace" | "checkpoints"> & {
+  systemId: SystemId;
+  /** System-wide ordinal: the fork is `<repo>--r<n>`. */
+  n: number;
+  /** `local` = CLI on the user's machine; `hosted` = platform-run agent. */
+  mode?: "local" | "hosted";
+  /** `repo` is the repo the fork was taken from; `remote` is the fork's git URL (no credentials). */
+  workspace: schema.Realization["workspace"] & { remote?: string };
+  /** System head when work started; promotion is stale-base if the head has moved since. */
+  baseRevision?: string | null;
+  status: RealizationStatus;
+  checkpoints: Checkpoint[];
+  createdAt: string;
+  updatedAt: string;
+};
 
 export interface Candidate {
   id: string;
@@ -201,28 +198,6 @@ export interface Candidate {
   state: "submitted" | "evaluated" | "selected" | "promoted" | "rejected";
 }
 
-export interface Evaluation {
-  id: string;
-  candidate: string;
-  criterion: NodeId;
-  ownerId?: NodeId;
-  subjectId?: NodeId;
-  targetRef?: string;
-  startedAt?: string;
-  finishedAt?: string;
-  interpretation?: string;
-  limitations?: string[];
-  provenance?: Record<string, unknown>;
-  hook: "exists" | "scope" | "genome-amendment" | "overlap" | "health" | "semantic" | (string & {});
-  execution: Execution;
-  verdict: Verdict;
-  observations: unknown;
-  /** R2 key of raw evidence, if any. */
-  evidenceKey?: string;
-  verifier: string;
-  at: string;
-}
-
 export interface ArtifactBinding {
   repo: string;
   commit: CommitHash;
@@ -236,18 +211,13 @@ export interface SystemManifest {
   hookVersions: Record<string, string>;
 }
 
-export interface SystemCommit {
-  id: string;
-  parent: string | null;
-  manifest: SystemManifest;
-  manifestHash: Sha256;
-  evolutions: NodeId[];
-  candidates: string[];
-  rejected: string[];
-  evidence: string[];
-  decision: { by: string; policy: string; rationale: string; at: string };
-  createdAt: string;
-}
+/** The model's SystemCommit (`manifest` as artifact bindings) plus the hashed composition. The backend always sets the extras. */
+export type SystemCommit = schema.SystemCommit & {
+  /** The hashed composition manifest. */
+  composition?: SystemManifest;
+  manifestHash?: Sha256;
+  createdAt?: string;
+};
 
 // ---------------------------------------------------------------------------
 // Work protocol (backend.md B.4/B.5)
@@ -257,10 +227,10 @@ export interface SystemCommit {
 export interface StartWorkRequest {
   agentLabel?: string;
   target?: "app" | "genome";
-  role?: Realization["agent"]["role"];
+  role?: schema.Realization["agent"]["role"];
 }
 
-/** Machine-readable form of the Task Packet; `markdown` is the same content for agents. */
+/** Machine-readable form of the Task Packet; `markdown` is the same content for agents. Never carries a token. */
 export interface TaskPacket {
   systemId: SystemId;
   realizationId: string;
@@ -270,7 +240,7 @@ export interface TaskPacket {
   intent: string;
   /** Fork to clone; never carries a token. */
   workspace: { repo: string; fork: string; baseCommit: CommitHash; remote: string };
-  /** `gate: true` = required for promotion (hard, not deferred). */
+  /** `gate: true` = blocks promotion when not pass+completed (hard, not deferred, gated on promotion). */
   acceptanceCriteria: { id: NodeId; title: string; text: string; gate: boolean; severity: string; subject: NodeId; hooks: string[] }[];
   /** Affected nodes as YAML, with their containment path from the System root. */
   genomeExcerpts: { id: NodeId; kind: string; path: NodeId[]; body: string }[];
@@ -281,6 +251,8 @@ export interface TaskPacket {
   entryFiles: { path: string; certainty: Certainty }[];
   commands: string[];
   concurrentWork: { realization: string; agentLabel?: string; status: string; changedSubjects: string[] }[];
+  /** `ARTYFACT_TOKEN=<token> npx artyfact start …` with the literal placeholder `<token>`. */
+  startCommand: string;
   submitInstructions: string;
   /** SHA-256 of the canonical JSON of every other field except `markdown` and `agentsMd`. */
   hash: Sha256;
@@ -289,7 +261,7 @@ export interface TaskPacket {
   agentsMd: string;
 }
 
-/** Response to start work. `token` is a write token for the fork, shown once. */
+/** Response to start work. The only place the fork write token appears. */
 export interface StartWorkResponse {
   systemId: SystemId;
   realization: Realization;
@@ -297,9 +269,11 @@ export interface StartWorkResponse {
   token: { value: string; expiresAt: string; remote: string };
   /** Fork remote URL (same as `token.remote`). */
   remote: string;
+  /** Ready to paste: `ARTYFACT_TOKEN=<real token> npx artyfact start <rid> --system <sid> --evolution <eid> --dir <dir>`. */
+  startCommand: string;
 }
 
-/** `GET /api/realizations/:id/packet`. Token is never re-issued here. */
+/** `GET …/realizations/:rid/packet`. Token is never re-issued here. */
 export interface PacketResponse {
   systemId: SystemId;
   realization: Realization;
@@ -308,10 +282,10 @@ export interface PacketResponse {
   remote: string;
 }
 
-/** `POST …/realizations/:rid/checkpoints`. `message` is accepted as an alias of `summary`. */
+/** `POST …/realizations/:rid/checkpoints`. `summary` is accepted as an alias of `message`. */
 export interface CheckpointRequest {
-  summary?: string;
   message?: string;
+  summary?: string;
   commit?: CommitHash;
 }
 export interface CheckpointResponse {
@@ -319,20 +293,16 @@ export interface CheckpointResponse {
   checkpoint: Checkpoint;
 }
 
-/** `GET …/realizations/:rid`: the realization with its latest candidate's evaluations and conflicts. */
-export interface RealizationResponse {
-  systemId: SystemId;
+/**
+ * `GET …/realizations/:rid`: the realization's own fields at the top level (so it is a {@link Realization}),
+ * plus the latest candidate, its evaluations and conflicts.
+ */
+export type RealizationResponse = Realization & {
   realization: Realization;
-  candidate?: Candidate;
+  candidateDetail?: Candidate;
   evaluations: Evaluation[];
   conflicts: ConflictReport[];
-}
-
-/** `POST …/realizations/:rid/sync`: `submitted` is null when the fork head is already a candidate. */
-export interface SyncResponse {
-  head: CommitHash | null;
-  submitted: SubmitResponse | null;
-}
+};
 
 /** `POST …/realizations/:rid/submit`. Idempotent on (realization, commit). */
 export interface SubmitRequest {
@@ -346,6 +316,25 @@ export interface SubmitResponse {
   candidate: Candidate;
   evaluations: Evaluation[];
   conflicts: ConflictReport[];
+}
+
+/** `POST …/realizations/:rid/sync`: `submitted` is null when the fork head is already a candidate. */
+export interface SyncResponse {
+  head: CommitHash | null;
+  submitted: SubmitResponse | null;
+}
+
+/** One System One signal on a Genome candidate (hooks `DeltaReview`); opaque here. */
+export type DeltaReviewDto = Record<string, unknown> & { subject: string; judgment: string };
+
+/** `GET …/realizations/:rid/review` for Genome realizations: the admin amendment panel. */
+export interface GenomeCandidateReview {
+  candidate: string;
+  delta: SemanticDelta | null;
+  readinessBase: Readiness;
+  readinessCandidate: Readiness | null;
+  review: DeltaReviewDto[];
+  evaluations: Evaluation[];
 }
 
 export type ConflictKind = "file" | "soft-semantic" | "hard-semantic" | "evidence";
@@ -376,6 +365,15 @@ export interface WorkResponse {
 /** `GET /api/systems/:id/evolutions` (client `getEvolutions`). Same payload as the work board. */
 export type EvolutionsResponse = WorkResponse;
 
+/** A criterion that does not meet pass+completed on a candidate. */
+export interface GateItem {
+  candidate: string;
+  criterion: NodeId;
+  severity: "hard" | "soft" | "advisory";
+  verdict: Verdict | "missing";
+  execution: Execution | "missing";
+}
+
 /** `POST /api/systems/:id/promote` (Authorization: Bearer ADMIN_TOKEN). */
 export interface PromoteRequest {
   /** Candidate(s) to promote; several for a composed promotion. `candidateIds` is accepted as an alias. */
@@ -383,31 +381,33 @@ export interface PromoteRequest {
   candidateIds?: string[];
   /** Head the client saw; mismatch yields 409 {@link StaleBaseResponse}. */
   expectedHead: string | null;
+  /** Required (non-empty) when the promotion has advisories; it acknowledges them. */
   rationale: string;
 }
 export interface PromoteResponse {
   commit: SystemCommit;
   /** Sibling candidates marked rejected by this promotion. */
   rejected: string[];
+  /** Soft/advisory promotion-gated criteria that were not pass+completed, acknowledged by the rationale. */
+  advisories: GateItem[];
 }
 export interface StaleBaseResponse extends ApiError {
   error: { code: "stale-base"; message: string; details: { currentHead: string | null } };
 }
-/** 409 when a required-gate criterion lacks `verdict=pass, execution=completed`. */
+/**
+ * 409 `blocked`: a hard promotion-gated criterion lacks pass+completed. 409 `advisories-unacknowledged`:
+ * no blocking items, but advisories exist and the rationale is empty.
+ */
 export interface PromoteBlockedResponse extends ApiError {
-  error: {
-    code: "blocked";
-    message: string;
-    details: { blocking: { candidate: string; criterion: NodeId; verdict: Verdict | "missing"; execution: Execution | "missing" }[] };
-  };
+  error: { code: "blocked" | "advisories-unacknowledged"; message: string; details: { blocking: GateItem[]; advisories: GateItem[] } };
 }
 
-/** `POST /api/systems/:id/evolutions/:eid/accept` (admin) for genome realizations. Aliases: `realizationId`, `interpretation`. */
+/** `POST /api/systems/:id/evolutions/:eid/accept` (admin) for Genome realizations. Aliases: `realization`, `rationale`. */
 export interface AcceptRequest {
-  realization?: string;
   realizationId?: string;
-  rationale?: string;
+  realization?: string;
   interpretation?: string;
+  rationale?: string;
 }
 export interface AcceptResponse {
   genomeCommit: CommitHash;

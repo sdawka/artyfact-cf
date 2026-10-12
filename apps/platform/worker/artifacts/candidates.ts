@@ -1,5 +1,6 @@
 import type { ArtifactsRepoLike, TreeEntry } from "./client";
 import { nodesForPath, type SourceMapEntry } from "./source-map";
+import { canonicalJson, sha256Hex } from "../util";
 
 export interface TreeDiff { added: string[]; modified: string[]; removed: string[] }
 
@@ -78,4 +79,13 @@ export async function buildCandidateManifest(
   const diff = await diffTrees(repo, input.baseCommit, input.commit);
   const changedPaths = [...diff.added, ...diff.modified, ...diff.removed].sort();
   return { ...input, diff, changedPaths, changedNodes: changedNodesFor(sourceMap, changedPaths) };
+}
+
+/**
+ * Hash of what a candidate binds: repo, base, commit and the exact diff. Recorded at submission and
+ * recomputed from the fork at promotion (`promotionFacts.manifestExact`).
+ */
+export function manifestHash(m: Pick<CandidateManifest, "realizationId" | "target" | "repo" | "baseCommit" | "commit" | "changedPaths" | "diff">): Promise<string> {
+  const { realizationId, target, repo, baseCommit, commit, changedPaths, diff } = m;
+  return sha256Hex(canonicalJson({ realizationId, target, repo, baseCommit, commit, changedPaths, diff }));
 }

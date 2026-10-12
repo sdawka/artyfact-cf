@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildGenome } from "../worker/artifacts/genome-source";
 import { loadSourceMap } from "../worker/artifacts/source-map";
-import { buildTaskPacket, requiredCriteria, type PacketInput } from "../worker/packets/task-packet";
+import { buildTaskPacket, gateCriteria, requiredCriteria, type PacketInput } from "../worker/packets/task-packet";
 import { appFiles, genomeFiles } from "./fixtures/genome";
 
 const genome = buildGenome(new Map(Object.entries(genomeFiles).filter(([p]) => p.endsWith(".yaml"))), "g1");
@@ -28,7 +28,7 @@ function input(over: Partial<PacketInput> = {}): PacketInput {
 describe("task packet", () => {
   it("carries acceptance criteria with gate flags", async () => {
     const p = await buildTaskPacket(input());
-    expect(p.acceptanceCriteria.map((c) => [c.id, c.gate])).toEqual([["C.people.list", true], ["C.people.later", false]]);
+    expect(p.acceptanceCriteria.map((c) => [c.id, c.gate])).toEqual([["C.people.list", true], ["C.people.sorted", false], ["C.people.later", false]]);
     expect(p.acceptanceCriteria[0]).toMatchObject({ title: "People screen lists contacts", subject: "screen.people", hooks: ["hook.people.list"] });
   });
 
@@ -62,6 +62,14 @@ describe("task packet", () => {
     expect(JSON.stringify(p)).not.toMatch(/secret|Bearer/);
   });
 
+  it("carries the CLI start line with a token placeholder", async () => {
+    const p = await buildTaskPacket(input());
+    const line = "ARTYFACT_TOKEN=<token> npx artyfact start realization.1.r1 --system system.kit --evolution evolution.1 --dir ./realization.1.r1";
+    expect(p.startCommand).toBe(line);
+    expect(p.markdown).toContain(`## Start`);
+    expect(p.markdown).toContain(line);
+  });
+
   it("has a stable hash that changes with content", async () => {
     const a = await buildTaskPacket(input());
     const b = await buildTaskPacket(input());
@@ -79,9 +87,11 @@ describe("task packet", () => {
   });
 });
 
-describe("requiredCriteria", () => {
-  it("is hard, non-deferred acceptance criteria plus promotion-gated criteria for the target", () => {
+describe("gateCriteria", () => {
+  it("is non-deferred promotion-gated criteria: acceptance plus System-wide for the target; hard ones block", () => {
     expect(requiredCriteria(genome.model, evolution, "app").sort()).toEqual(["C.people.list", "C.system.promotion", "C.webapp.exists"]);
+    const soft = gateCriteria(genome.model, evolution, "app").filter((g) => g.severity !== "hard");
+    expect(soft).toEqual([{ id: "C.people.sorted", severity: "soft" }]);
     const evo2 = genome.model.evolutions.find((e) => e.id === "evolution.2")!;
     expect(requiredCriteria(genome.model, evo2, "genome")).toEqual([]);
   });

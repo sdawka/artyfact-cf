@@ -2,23 +2,23 @@
  * Orchestration between Artifacts, the model, hooks and the SystemAuthority DO. Routes and the queue
  * consumer call these; all Artifacts I/O and model work happens here (never inside the DO).
  */
-import { diffModels, type schema, type SystemModel } from "@artyfact/model";
+import { diffModels, type Readiness, type schema, type SystemModel } from "@artyfact/model";
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  CandidatesResponse, ConflictReport, Evaluation, Evolution, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  CandidatesResponse, ConflictReport, Evolution, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
 } from "../shared/api";
 import { artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
-import { buildCandidateManifest, type CandidateManifest } from "./artifacts/candidates";
+import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
 import { buildGenome, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
 import { loadSourceMap, nodesForPath, type SourceMapEntry } from "./artifacts/source-map";
 import { REGISTRY, type SystemAuthority, type EvolutionSeed, type HeadState, type ManifestExtras, type RealizationRecord } from "./do/system-authority";
 import { badRequest, conflict, fromRpc, HttpError, notFound, unprocessable } from "./errors";
-import type { CandidateRef, Evaluation as HookEvaluation, FileMap, QueueContext, SubmissionContext } from "./hooks/contract";
+import type { CandidateRef, DeltaReview, FileMap, QueueContext, SubmissionContext } from "./hooks/contract";
 import { hookRunner } from "./hooks/index";
 import { readinessReport, serializeModel } from "./model-bundle";
-import { buildTaskPacket, protectedPathsFor, requiredCriteria } from "./packets/task-packet";
+import { buildTaskPacket, gateCriteria, protectedPathsFor, type GateCriterion } from "./packets/task-packet";
 
 const TOKEN_TTL_S = 21_600;
 const COMMIT_RE = /^[0-9a-f]{40}$/;
@@ -164,7 +164,7 @@ async function resolveRevision(env: Env, s: HeadState, rev: string | undefined):
   if (rev.startsWith("sc-")) {
     const c = await stub.systemCommit(rev);
     if (!c) throw notFound(`unknown System commit ${rev}`);
-    return { revision: rev, genomeCommit: c.manifest.genomeCommit, repo: s.genomeSource, candidateIds: c.candidates };
+    return { revision: rev, genomeCommit: c.genomeCommit, repo: s.genomeSource, candidateIds: c.candidates };
   }
   if (rev.startsWith("candidate.")) {
     const c = await stub.candidate(rev);
@@ -206,7 +206,7 @@ export async function readiness(env: Env, systemId: string, rev?: string): Promi
 // ------------------------------------------------------------------ start work
 
 function modelEvolution(m: SystemModel, dto: Evolution): schema.Evolution {
-  return m.evolutions.find((e) => e.id === dto.id) ?? ({ ...dto, decision: dto.decision?.rationale } as unknown as schema.Evolution);
+  return m.evolutions.find((e) => e.id === dto.id) ?? ({ ...dto } as unknown as schema.Evolution);
 }
 
 async function concurrentWork(env: Env, systemId: string, evolutionId: string, exclude: string) {
@@ -234,7 +234,7 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
   const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role }));
   const rid = reserved.realization.id;
   try {
-    await registryStub(env).registerRealization(rid, systemId, reserved.forkRepo);
+    await registryStub(env).registerRealization(rid, systemId, evolutionId, reserved.forkRepo);
     const ns = artifactsFor(env);
     const forked = await forkAndWait(ns, reserved.baseRepo, reserved.forkRepo);
     const token = await withRepo(ns, reserved.forkRepo, (r) => r.createToken("write", TOKEN_TTL_S));
@@ -252,7 +252,10 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
     });
     const realization = await stub.activateRealization(rid, { tokenId: token.id, tokenExpires: token.expiresAt, remote, packet });
     await refreshRegistry(env, systemId);
-    return { systemId, realization, packet, token: { value: token.plaintext, expiresAt: token.expiresAt, remote }, remote };
+    return {
+      systemId, realization, packet, token: { value: token.plaintext, expiresAt: token.expiresAt, remote }, remote,
+      startCommand: packet.startCommand.replace("<token>", token.plaintext),
+    };
   } catch (e) {
     await stub.abandonRealization(rid);
     throw e;
@@ -277,7 +280,7 @@ export async function realizationView(env: Env, systemId: string, rid: string): 
   const candidate = rec.realization.candidate ? await stub.candidate(rec.realization.candidate) : null;
   const evaluations = candidate ? await stub.evaluations(candidate.id) : [];
   const conflicts = candidate ? await conflictsFor(env, systemId, candidate.id).catch(() => []) : [];
-  return { systemId, realization: rec.realization, ...(candidate && { candidate }), evaluations, conflicts };
+  return { ...rec.realization, systemId, realization: rec.realization, ...(candidate && { candidateDetail: candidate }), evaluations, conflicts };
 }
 
 export async function checkpoint(env: Env, systemId: string, rid: string, body: { summary?: unknown; message?: unknown; commit?: unknown }) {
@@ -297,6 +300,7 @@ interface StoredCandidate extends CandidateManifest {
   id: string;
   state: string;
   pathNodes?: Record<string, string[]>;
+  manifestHash?: string;
 }
 
 async function storedCandidates(env: Env, systemId: string, filter: { open?: boolean; evolutionId?: string } = { open: true }): Promise<StoredCandidate[]> {
@@ -308,7 +312,7 @@ async function storedCandidates(env: Env, systemId: string, filter: { open?: boo
       realizationId: c.realization, evolutionId: c.evolution, target: m.target ?? "app", repo: m.repo ?? "", baseRepo: m.baseRepo ?? "",
       baseCommit: m.baseCommit ?? "", commit: c.commit, changedPaths: c.changedPaths, changedNodes: c.changedSubjects,
       diff: m.diff ?? { added: [], modified: [], removed: [] }, ...(m.previewUrl && { previewUrl: m.previewUrl }),
-      ...(m.pathNodes && { pathNodes: m.pathNodes }), id: c.id, state: c.state,
+      ...(m.pathNodes && { pathNodes: m.pathNodes }), ...(m.manifestHash && { manifestHash: m.manifestHash }), id: c.id, state: c.state,
     };
   }));
 }
@@ -325,19 +329,6 @@ async function hookRef(env: Env, systemId: string, c: StoredCandidate): Promise<
 
 async function canonicalFiles(env: Env, s: HeadState): Promise<FileMap> {
   return Object.fromEntries((await canonicalGenome(env, s)).files);
-}
-
-/** Map the model's Evaluation (hooks) to the wire/storage DTO. `unknown` stays non-green. */
-export function toApiEvaluation(e: HookEvaluation): Evaluation {
-  const execution: Evaluation["execution"] = e.execution === "completed" ? "completed" : e.execution === "error" ? "errored" : "not-run";
-  const verdict: Evaluation["verdict"] = e.verdict === "waived" ? "unknown" : e.verdict;
-  return {
-    id: e.id, candidate: e.candidate, criterion: e.criterion, hook: e.hook, execution, verdict, observations: e.observations,
-    verifier: e.verifier, at: e.finishedAt ?? e.startedAt, ownerId: e.ownerId, subjectId: e.subjectId, targetRef: e.targetRef,
-    startedAt: e.startedAt, ...(e.finishedAt && { finishedAt: e.finishedAt }), ...(e.interpretation && { interpretation: e.interpretation }),
-    limitations: e.limitations,
-    provenance: { ...e.provenance, ...(e.execution !== execution && { execution: e.execution }), ...(e.verdict !== verdict && { verdict: e.verdict }) },
-  };
 }
 
 async function conflictsFor(env: Env, systemId: string, candidateId?: string): Promise<ConflictReport[]> {
@@ -372,21 +363,23 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
     hookRef(env, s.systemId, cand),
     storedCandidates(env, s.systemId).then((xs) => Promise.all(xs.filter((c) => c.id !== cand.id).map((c) => hookRef(env, s.systemId, c)))),
   ]);
-  const tree = await withRepo(artifactsFor(env), rec.forkRepo, async (repo) => {
-    const listing = await listTree(repo, cand.commit);
-    return Promise.all([...listing].map(async ([path, e]) => ({ path, size: (await repo.readBlob(e.hash))?.size ?? 0 })));
+  const { tree, exists, recomputedHash } = await withRepo(artifactsFor(env), rec.forkRepo, async (repo) => {
+    const exists = !!(await repo.readCommit(cand.commit));
+    const listing = exists ? await listTree(repo, cand.commit) : new Map<string, { hash: string }>();
+    const tree = await Promise.all([...listing].map(async ([path, e]) => ({ path, size: (await repo.readBlob(e.hash))?.size ?? 0 })));
+    const recomputedHash = trigger === "promotion" && exists
+      ? await manifestHash(await buildCandidateManifest(repo, { realizationId: cand.realizationId, evolutionId: cand.evolutionId, target: cand.target, repo: cand.repo, baseRepo: cand.baseRepo, baseCommit: cand.baseCommit, commit: cand.commit }, []))
+      : undefined;
+    return { tree, exists, recomputedHash };
   });
   let promotionFacts: SubmissionContext["promotionFacts"];
   if (trigger === "promotion") {
-    const g = await canonicalGenome(env, s);
-    const evoDto = await stub.evolution(rec.evolutionId);
-    const required = requiredCriteria(g.model, modelEvolution(g.model, evoDto!), rec.target);
-    const have = new Set((await stub.evaluations(cand.id)).map((e) => e.criterion));
-    const app = s.manifest ? Object.values(s.manifest.artifacts)[0] : undefined;
+    const submittedAt = (await stub.candidate(cand.id))?.submittedAt ?? "";
+    const evidence = (await stub.evaluations(cand.id)).filter((e) => e.execution === "completed");
     promotionFacts = {
-      currentBaseCommit: rec.target === "genome" ? s.genomeCommit : (app?.commit ?? s.appSource.commit),
-      manifestExact: true,
-      evidenceFresh: required.every((id) => have.has(id)),
+      currentBaseCommit: rec.target === "genome" ? s.genomeCommit : s.appSource.commit,
+      manifestExact: !!cand.manifestHash && cand.manifestHash === recomputedHash,
+      evidenceFresh: exists && evidence.every((e) => !!e.finishedAt && e.finishedAt >= submittedAt),
     };
   }
   const ctx: SubmissionContext = {
@@ -397,9 +390,17 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
   const runner = hookRunner(env);
   if (rec.target === "genome") {
     const r = await runner.runGenome(ctx);
-    return { evaluations: r.evaluations.map(toApiEvaluation), status: "awaiting-admin" as const };
+    return { evaluations: r.evaluations, status: "awaiting-admin" as const, review: { readiness: r.readiness, review: r.review } };
   }
-  return { evaluations: (await runner.runSubmission(ctx)).map(toApiEvaluation), status: "evaluated" as const };
+  return { evaluations: await runner.runSubmission(ctx), status: "evaluated" as const };
+}
+
+type Run = Awaited<ReturnType<typeof evaluate>>;
+
+async function recordRun(env: Env, systemId: string, candidateId: string, run: Run): Promise<void> {
+  const stub = systemStub(env, systemId);
+  if (run.review) await stub.putReview(candidateId, JSON.stringify(run.review));
+  await stub.recordEvaluations(candidateId, run.evaluations, run.status);
 }
 
 export type SubmitSource = "cli" | "event" | "sync" | "ui";
@@ -417,7 +418,7 @@ export async function submit(
 
   let existing = (await stub.candidates({ realizationId: rid })).find((c) => c.commit === commit);
   if (!existing) {
-    const manifest = await withRepo(ns, rec.forkRepo, async (repo) => {
+    const built = await withRepo(ns, rec.forkRepo, async (repo) => {
       if (!(await repo.readCommit(commit))) throw unprocessable("unknown-commit", `commit ${commit} not found in ${rec.forkRepo}; push before submitting`);
       const input = { realizationId: rid, evolutionId: rec.evolutionId, target: rec.target, repo: rec.forkRepo, baseRepo: rec.baseRepo, baseCommit: rec.baseCommit, commit, ...(previewUrl && { previewUrl }) };
       if (rec.target === "app") {
@@ -440,18 +441,17 @@ export async function submit(
       const ids = genomeDelta ? [...genomeDelta.added, ...genomeDelta.removed, ...genomeDelta.changed.map((c) => c.id)] : [];
       return { ...m, changedNodes: [...new Set(ids)].sort(), genomeChanges: m.changedPaths, ...(genomeDelta && { genomeDelta }), ...(loadError && { loadError }) };
     });
+    const manifest = { ...built, manifestHash: await manifestHash(built) };
     const out = await rpc(stub.recordCandidate({ realizationId: rid, commit, manifest, changedPaths: manifest.changedPaths, changedNodes: manifest.changedNodes }));
     if (out.created) {
       const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((c) => c.id === out.candidate.id)!;
-      const { evaluations, status } = await evaluate(env, s, rec, ref, "submission");
-      await stub.recordEvaluations(out.candidate.id, evaluations, status);
+      await recordRun(env, systemId, out.candidate.id, await evaluate(env, s, rec, ref, "submission"));
     }
     existing = out.candidate;
   } else if ((await stub.evaluations(existing.id)).length === 0 && rec.realization.status === "evaluating") {
     // A retry after hooks failed mid-way: run them again.
     const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((c) => c.id === existing!.id)!;
-    const { evaluations, status } = await evaluate(env, s, rec, ref, "submission");
-    await stub.recordEvaluations(existing.id, evaluations, status);
+    await recordRun(env, systemId, existing.id, await evaluate(env, s, rec, ref, "submission"));
   } else {
     const fresh = await record(env, systemId, rid);
     return {
@@ -488,6 +488,26 @@ export async function candidatesView(env: Env, systemId: string, evolutionId: st
   return { evolution: evolutionId, candidates, evaluations, conflicts: all.filter((c) => c.candidates.some((x) => ids.has(x))) };
 }
 
+/** Genome candidate review panel: semantic delta, base vs candidate readiness, DeltaReviews, evaluations. */
+export async function review(env: Env, systemId: string, rid: string): Promise<GenomeCandidateReview> {
+  const stub = systemStub(env, systemId);
+  const rec = await record(env, systemId, rid);
+  if (rec.target !== "genome") throw conflict("invalid-state", "review is for genome realizations");
+  const candId = rec.realization.candidate;
+  if (!candId) throw conflict("not-ready", "realization has no submitted candidate");
+  const [manifest, stored, evaluations, base] = await Promise.all([
+    stub.candidateManifest(candId) as Promise<{ genomeDelta?: GenomeCandidateReview["delta"] } | null>,
+    stub.review(candId),
+    stub.evaluations(candId),
+    genomeAt(env, systemId, rec.baseCommit, rec.forkRepo),
+  ]);
+  const run = stored ? (JSON.parse(stored) as { readiness: Readiness; review: DeltaReview[] }) : null;
+  return {
+    candidate: candId, delta: manifest?.genomeDelta ?? null, readinessBase: base.readiness,
+    readinessCandidate: run?.readiness ?? null, review: (run?.review ?? []) as unknown as GenomeCandidateReview["review"], evaluations,
+  };
+}
+
 // ------------------------------------------------------------------ promote + accept
 
 export async function promote(
@@ -500,30 +520,33 @@ export async function promote(
   const stub = systemStub(env, systemId);
   const s = await headState(env, systemId);
   const g = await canonicalGenome(env, s);
-  const required: Record<string, string[]> = {};
+  const gates: Record<string, GateCriterion[]> = {};
   for (const id of ids as string[]) {
     const c = await stub.candidate(id);
     if (!c) throw notFound(`unknown candidate ${id}`);
     const rec = await record(env, systemId, c.realization);
     const evoDto = await stub.evolution(rec.evolutionId);
     const evolution = modelEvolution(g.model, evoDto!);
-    required[id] = requiredCriteria(g.model, evolution, rec.target);
-    // Revalidate on the exact commit before the CAS (exists + scope, per hooks with a promotion trigger).
+    gates[id] = gateCriteria(g.model, evolution, rec.target);
+    // Revalidate on the exact commit before the CAS: hooks re-run with promotionFacts (base-current, manifest-exact, evidence-fresh).
     if (["submitted", "evaluated", "selected"].includes(c.state) && s.head === body.expectedHead) {
       const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((x) => x.id === id)!;
       const { evaluations } = await evaluate(env, s, rec, ref, "promotion");
       if (evaluations.length) await stub.recordEvaluations(id, evaluations);
     }
   }
-  const out = await stub.promote({ candidateIds: ids as string[], expectedHead: body.expectedHead as string | null, rationale, by: "admin", required, ...manifestExtras(g.model) });
+  const out = await stub.promote({ candidateIds: ids as string[], expectedHead: body.expectedHead as string | null, rationale, by: "admin", gates, ...manifestExtras(g.model) });
   if (!out.ok) {
     if (out.code === "stale-base") throw conflict("stale-base", "System head moved; reload and retry", { currentHead: out.currentHead });
-    if (out.code === "blocked") throw conflict("blocked", "required criteria lack pass+completed evaluations", { blocking: out.blocking });
+    if ("blocking" in out) {
+      const msg = out.code === "blocked" ? "hard promotion criteria lack pass+completed evaluations" : "soft/advisory criteria are not green; promote with a non-empty rationale";
+      throw conflict(out.code, msg, { blocking: out.blocking, advisories: out.advisories });
+    }
     if (out.code === "not-found") throw notFound(out.message);
     throw conflict(out.code, out.message);
   }
   await refreshRegistry(env, systemId);
-  return { commit: out.commit, rejected: out.rejected };
+  return { commit: out.commit, rejected: out.rejected, advisories: out.advisories };
 }
 
 export async function accept(

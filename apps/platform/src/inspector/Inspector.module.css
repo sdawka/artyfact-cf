@@ -1,0 +1,101 @@
+.inspector {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-3);
+}
+.header {
+  display: grid;
+  gap: var(--spacing-2);
+}
+.titleRow {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--spacing-2);
+}
+.title {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-ui);
+  font-size: var(--font-size-lg);
+}
+.idRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+  font-size: var(--font-size-sm);
+}
+.idCode {
+  overflow-wrap: anywhere;
+  color: var(--color-text-secondary);
+}
+.openIn {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+}
+.openButton,
+.close {
+  padding: var(--spacing-1) var(--spacing-2);
+  color: var(--color-text-primary);
+  background: var(--color-surface-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-sm);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.openButton[aria-current="page"] { color: var(--color-brand-primary); }
+.stack {
+  display: grid;
+  gap: var(--spacing-3);
+}
+.row {
+  display: grid;
+  gap: var(--spacing-1);
+}
+.rowLabel {
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-sm);
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-1);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.plain {
+  display: grid;
+  gap: var(--spacing-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.muted { color: var(--color-text-subtle); }
+.quote {
+  margin: var(--spacing-2) 0 0;
+  padding-left: var(--spacing-3);
+  color: var(--color-text-secondary);
+  border-left: 2px solid var(--color-border-subtle);
+}
+.card {
+  display: grid;
+  gap: var(--spacing-2);
+  padding: var(--spacing-3);
+  background: var(--color-surface-secondary);
+  border-radius: var(--border-radius-md);
+}
+.cardHead {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.lines {
+  display: grid;
+  gap: var(--spacing-1);
+  font-size: var(--font-size-sm);
+}

@@ -1,8 +1,8 @@
 import { exports } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
-  ApiError, Evaluation, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
-  StartWorkResponse, SubmitResponse, SystemsResponse, HistoryResponse, WorkResponse, ReadinessResponse,
+  ApiError, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
+  SerializedModel, StartWorkResponse, SubmitResponse, SystemsResponse, HistoryResponse, WorkResponse, ReadinessResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../worker/hooks/contract";
@@ -34,18 +34,32 @@ function setup() {
 }
 
 const seen: SubmissionContext[] = [];
-const REQUIRED = ["C.people.list", "C.system.promotion", "C.webapp.exists"];
-const hookEval = (ctx: SubmissionContext, criterion: string, execution: HookEvaluation["execution"], verdict: HookEvaluation["verdict"]): HookEvaluation => ({
-  id: `${ctx.candidate.id}:hook:${criterion}`, candidate: ctx.candidate.id, hook: `hook:${criterion}`, criterion, ownerId: "o", subjectId: "s",
-  targetRef: ctx.candidate.commit, execution, verdict, verifier: "artyfact-platform", startedAt: new Date().toISOString(),
-  observations: [{ promotion: !!ctx.promotionFacts }], limitations: [], provenance: {},
-});
+const REQUIRED = ["C.people.list", "C.people.sorted", "C.system.promotion", "C.webapp.exists"];
+const modelOf = (b: ModelBundle) => b.model as SerializedModel;
+const hookEval = (ctx: SubmissionContext, criterion: string, execution: HookEvaluation["execution"], verdict: HookEvaluation["verdict"]): HookEvaluation => {
+  const at = new Date().toISOString();
+  return {
+    id: `${ctx.candidate.id}:hook:${criterion}`, candidate: ctx.candidate.id, hook: `hook:${criterion}`, criterion, ownerId: "o", subjectId: "s",
+    targetRef: ctx.candidate.commit, execution, verdict, verifier: "artyfact-platform", startedAt: at,
+    ...(execution === "completed" && { finishedAt: at }), observations: [{ promotion: !!ctx.promotionFacts }], limitations: [], provenance: {},
+  };
+};
+/** Mirrors the hooks slice's C.system.promotion: not-run without promotionFacts, pass only when every fact holds. */
+const promotionEval = (ctx: SubmissionContext): HookEvaluation => {
+  const f = ctx.promotionFacts;
+  if (!f) return hookEval(ctx, "C.system.promotion", "not-run", "unknown");
+  const ok = f.currentBaseCommit === ctx.candidate.baseCommit && f.manifestExact === true && f.evidenceFresh === true;
+  return hookEval(ctx, "C.system.promotion", "completed", ok ? "pass" : "fail");
+};
 const passing: HookRunner = {
   async runSubmission(ctx) {
     seen.push(ctx);
-    return REQUIRED.map((c) => hookEval(ctx, c, "completed", "pass"));
+    return REQUIRED.map((c) => (c === "C.system.promotion" ? promotionEval(ctx) : hookEval(ctx, c, "completed", "pass")));
   },
-  async runGenome(ctx) { return { ...(await noopHookRunner.runGenome(ctx)) }; },
+  async runGenome(ctx) {
+    const base = await noopHookRunner.runGenome(ctx);
+    return { ...base, review: [{ subject: "entity.ContactRecord", judgment: "reviewDelta", level: "info", verdict: "pass", signals: {} as never }] };
+  },
   async conflicts(ctx) {
     return ctx.openCandidates.length
       ? [{ kind: "soft-semantic", candidates: [ctx.candidate.id, ...ctx.openCandidates.map((c) => c.id)].sort(), subjects: ["screen.people"], nodes: ["screen.people"], paths: [], message: "both touch screen.people" }]
@@ -83,8 +97,8 @@ describe("routes: import → model → start → submit → promote", () => {
     const model = await call<ModelBundle>("GET", `/systems/${systemId}/model`);
     expect(model.status).toBe(200);
     expect(model.json.genomeCommit).toBe(imp.genomeCommit);
-    expect(model.json.model.index.byId["screen.people"]).toEqual({ id: "screen.people", type: "node", kind: "screen", name: "People" });
-    expect(model.json.model.index.paths["screen.people"]).toEqual([systemId, "thing.webapp", "section.ui", "screen.people"]);
+    expect(modelOf(model.json).index.byId["screen.people"]).toEqual({ id: "screen.people", type: "node", kind: "screen", name: "People" });
+    expect(modelOf(model.json).index.paths["screen.people"]).toEqual([systemId, "thing.webapp", "section.ui", "screen.people"]);
     expect(model.json.readiness.modelReadiness).toBeDefined();
     const rd = await call<ReadinessResponse>("GET", `/systems/${systemId}/readiness?rev=${imp.head}`);
     expect(rd.json.rules.packs.map((p) => p.id)).toEqual(["metamodel"]);
@@ -96,6 +110,12 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(start.json.realization.workspace.fork).toBe(`${appRepo}--r1`);
     expect(start.json.remote).toBe(`https://test-account.artifacts.cloudflare.net/git/artyfact/${appRepo}--r1.git`);
     expect(start.json.token.value).toMatch(/^secret-/);
+    expect(start.json.startCommand).toBe(
+      `ARTYFACT_TOKEN=${start.json.token.value} npx artyfact start ${rid} --system ${systemId} --evolution evolution.1 --dir ./${rid}`,
+    );
+    expect(start.json.packet.startCommand).toContain("ARTYFACT_TOKEN=<token> npx artyfact start");
+    expect(start.json.packet.markdown).toContain(start.json.packet.startCommand);
+    expect(JSON.stringify(start.json.packet)).not.toContain(start.json.token.value);
     expect(start.json.packet.permittedPaths.sort()).toEqual(["src/ui/**", "src/ui/people/**"]);
     expect(start.json.packet.commands).toEqual(["npm install", "npm run dev", "npm test"]);
     expect(ns.repo(`${appRepo}--r1`).tokens).toEqual([{ id: expect.any(String), scope: "write", ttl: 21600 }]);
@@ -118,7 +138,8 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(sub.status, JSON.stringify(sub.json)).toBe(201);
     expect(sub.json.candidate.changedPaths).toEqual(["src/ui/people/list.ts"]);
     expect(sub.json.candidate.changedSubjects.sort()).toEqual(["component.AddContactDialog", "screen.people", "section.ui"]);
-    expect(sub.json.evaluations.map((e) => e.criterion).sort()).toEqual(["C.people.list", "C.system.promotion", "C.webapp.exists"]);
+    expect(sub.json.evaluations.map((e) => e.criterion).sort()).toEqual(REQUIRED);
+    expect(sub.json.evaluations.find((e) => e.criterion === "C.system.promotion")).toMatchObject({ execution: "not-run", verdict: "unknown" });
     expect(sub.json.realization.status).toBe("evaluated");
     expect(seen[0].tree).toContainEqual({ path: "src/ui/people/list.ts", size: 22 });
     expect(seen[0].candidate.pathNodes!["src/ui/people/list.ts"].sort()).toEqual(["component.AddContactDialog", "screen.people", "section.ui"]);
@@ -134,7 +155,9 @@ describe("routes: import → model → start → submit → promote", () => {
 
     const view = await call<RealizationResponse>("GET", `/systems/${systemId}/evolutions/evolution.1/realizations/${rid}`);
     expect(view.json.realization.checkpoints).toHaveLength(1);
-    expect(view.json.evaluations).toHaveLength(3);
+    expect(view.json.id).toBe(rid);
+    expect(view.json.candidateDetail?.id).toBe(sub.json.candidate.id);
+    expect(view.json.evaluations).toHaveLength(4);
 
     // Promotion requires the admin token.
     const body = { candidateIds: [sub.json.candidate.id], expectedHead: imp.head, rationale: "looks right" };
@@ -142,7 +165,8 @@ describe("routes: import → model → start → submit → promote", () => {
     const promoted = await call<PromoteResponse>("POST", `/systems/${systemId}/promote`, body, ADMIN);
     expect(promoted.status, JSON.stringify(promoted.json)).toBe(200);
     expect(promoted.json.commit.parent).toBe(imp.head);
-    expect(promoted.json.commit.manifest.artifacts["artifact.webapp"]).toEqual({ repo: `${appRepo}--r1`, commit });
+    expect(promoted.json.commit.composition!.artifacts["artifact.webapp"]).toEqual({ repo: `${appRepo}--r1`, commit });
+    expect(promoted.json.advisories).toEqual([]);
     expect(seen.at(-1)!.promotionFacts).toEqual({ currentBaseCommit: imp.appCommit, manifestExact: true, evidenceFresh: true });
 
     // Replaying the same promotion is stale.
@@ -189,8 +213,54 @@ describe("routes: import → model → start → submit → promote", () => {
     const res = await call<ApiError>("POST", `/systems/${systemId}/promote`, { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "" }, ADMIN);
     expect(res.status).toBe(409);
     expect(res.json.error.code).toBe("blocked");
-    const crits = (res.json.error.details as { blocking: { criterion: string }[] }).blocking.map((b) => b.criterion).sort();
-    expect(crits).toEqual(["C.people.list", "C.system.promotion", "C.webapp.exists"]);
+    const details = res.json.error.details as { blocking: { criterion: string }[]; advisories: { criterion: string }[] };
+    expect(details.blocking.map((b) => b.criterion).sort()).toEqual(["C.people.list", "C.system.promotion", "C.webapp.exists"]);
+    expect(details.advisories.map((b) => b.criterion)).toEqual(["C.people.sorted"]);
+  });
+
+  it("C.system.promotion blocks without promotionFacts and passes with them", async () => {
+    const { ns, systemId, appRepo, imp } = await imported();
+    // A runner that ignores the promotion revalidation (as if promotionFacts were never supplied).
+    let useFacts = false;
+    setHooks({ runner: () => ({ ...passing, async runSubmission(ctx) { return passing.runSubmission(useFacts ? ctx : { ...ctx, promotionFacts: undefined }); } }) });
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const c = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" });
+    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c });
+    const body = { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "ok" };
+    const blocked = await call<ApiError>("POST", `/systems/${systemId}/promote`, body, ADMIN);
+    expect(blocked.status).toBe(409);
+    expect(blocked.json.error).toMatchObject({ code: "blocked", details: { blocking: [{ criterion: "C.system.promotion", verdict: "unknown", execution: "not-run" }] } });
+    useFacts = true;
+    const ok = await call<PromoteResponse>("POST", `/systems/${systemId}/promote`, body, ADMIN);
+    expect(ok.status, JSON.stringify(ok.json)).toBe(200);
+  });
+
+  it("refuses a red soft criterion without a rationale and promotes with one", async () => {
+    const { ns, systemId, appRepo, imp } = await imported();
+    setHooks({ runner: () => ({ ...passing, async runSubmission(ctx) {
+      return (await passing.runSubmission(ctx)).map((e) => (e.criterion === "C.people.sorted" ? { ...e, verdict: "fail" as const } : e));
+    } }) });
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const c = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" });
+    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c });
+    const body = { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "" };
+    const refused = await call<ApiError>("POST", `/systems/${systemId}/promote`, body, ADMIN);
+    expect(refused.status).toBe(409);
+    expect(refused.json.error).toMatchObject({ code: "advisories-unacknowledged", details: { blocking: [], advisories: [{ criterion: "C.people.sorted", severity: "soft", verdict: "fail" }] } });
+    const ok = await call<PromoteResponse>("POST", `/systems/${systemId}/promote`, { ...body, rationale: "sorting follows next week" }, ADMIN);
+    expect(ok.status, JSON.stringify(ok.json)).toBe(200);
+    expect(ok.json.advisories.map((x) => x.criterion)).toEqual(["C.people.sorted"]);
+  });
+
+  it("detects a manifest that no longer matches the fork", async () => {
+    const { ns, systemId, appRepo, imp } = await imported();
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const c = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" });
+    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c });
+    ns.repo(`${appRepo}--r1`).forget(c);
+    const res = await call<ApiError>("POST", `/systems/${systemId}/promote`, { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "x" }, ADMIN);
+    expect(res.status).toBe(409);
+    expect(seen.at(-1)!.promotionFacts).toMatchObject({ manifestExact: false, evidenceFresh: false });
   });
 
   it("rejects unknown commits and validates input", async () => {
@@ -233,6 +303,16 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(sub.status, JSON.stringify(sub.json)).toBe(201);
     expect(sub.json.realization.status).toBe("awaiting-admin");
     expect(sub.json.candidate.changedSubjects).toEqual(["entity.ContactRecord"]);
+    const rv = await call<GenomeCandidateReview>("GET", `/systems/${systemId}/evolutions/evolution.2/realizations/${start.json.realization.id}/review`);
+    expect(rv.status, JSON.stringify(rv.json)).toBe(200);
+    expect(rv.json.candidate).toBe(sub.json.candidate.id);
+    expect(rv.json.delta?.changed.map((c) => c.id)).toEqual(["entity.ContactRecord"]);
+    expect(rv.json.readinessBase.packs.map((p) => p.id)).toEqual(["metamodel"]);
+    expect(rv.json.readinessCandidate).not.toBeNull();
+    expect(rv.json.review).toEqual([{ subject: "entity.ContactRecord", judgment: "reviewDelta", level: "info", verdict: "pass", signals: {} }]);
+    expect(rv.json.evaluations).toEqual(sub.json.evaluations);
+    const notGenome = await call<ApiError>("GET", `/systems/${systemId}/realizations/realization.1.r9/review`);
+    expect(notGenome.status).toBe(404);
     const body = { realizationId: start.json.realization.id, interpretation: "ok" };
     expect((await call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.2/accept`, body)).status).toBe(401);
     const acc = await call<{ genomeCommit: string }>("POST", `/systems/${systemId}/evolutions/evolution.2/accept`, body, ADMIN);
@@ -240,7 +320,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(acc.json.genomeCommit).toBe(commit);
     const model = await call<ModelBundle>("GET", `/systems/${systemId}/model`);
     expect(model.json.genomeCommit).toBe(commit);
-    expect(model.json.model.index.byId["entity.ContactRecord"].name).toBe("Contact record v2");
+    expect(modelOf(model.json).index.byId["entity.ContactRecord"].name).toBe("Contact record v2");
   });
 
   it("streams SSE events", async () => {

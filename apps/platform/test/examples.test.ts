@@ -2,7 +2,7 @@
 /** The real example System and app (examples/) through the import → start → submit path, hooks as no-ops. */
 import { exports } from "cloudflare:workers";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ApiError, ImportSystemResponse, ModelBundle, StartWorkResponse, SubmitResponse } from "../shared/api";
+import type { ApiError, ImportSystemResponse, ModelBundle, SerializedModel, StartWorkResponse, SubmitResponse } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 
@@ -32,7 +32,7 @@ describe("examples/keep-in-touch", () => {
     expect(imp.status, JSON.stringify(imp.json)).toBe(201);
     expect(imp.json.evolutions).toContain("evolution.1");
     const model = await call<ModelBundle>("GET", `/systems/${systemId}/model`);
-    expect(model.json.model.index.byId["screen.people"]?.kind).toBe("screen");
+    expect((model.json.model as SerializedModel).index.byId["screen.people"]?.kind).toBe("screen");
 
     const start = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" });
     expect(start.status, JSON.stringify(start.json)).toBe(201);

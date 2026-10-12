@@ -105,8 +105,18 @@ criteria:
     subjectKind: screen
     subjectId: screen.people
     targetKind: artifact
-    gates: [submission]
+    gates: [submission, promotion]
     hooks: [hook.people.list]
+  - id: C.people.sorted
+    title: People are sorted by name
+    claim: The People screen lists contacts alphabetically
+    ownerKind: thing
+    ownerId: thing.webapp
+    subjectKind: screen
+    subjectId: screen.people
+    targetKind: artifact
+    severity: soft
+    gates: [submission, promotion]
   - id: C.people.later
     title: Deferred nicety
     claim: Later
@@ -145,7 +155,7 @@ intent: Show the owner's contacts on the People screen
 state: actionable
 kind: implementation
 affectedNodes: [screen.people]
-acceptanceCriteria: [C.people.list, C.people.later]
+acceptanceCriteria: [C.people.list, C.people.sorted, C.people.later]
 `,
   "evolutions/evolution.2.yaml": `
 id: evolution.2

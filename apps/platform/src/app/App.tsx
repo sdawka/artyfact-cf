@@ -1,20 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Navigate, Route, Routes } from "react-router";
-import { StylePage } from "@/app/StylePage";
+import { createBrowserRouter, RouterProvider } from "react-router";
+import { createRoutes } from "./routes";
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 5_000, refetchOnWindowFocus: false } },
 });
+const router = createBrowserRouter(createRoutes(queryClient));
 
 export function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <Routes>
-          <Route path="/style" element={<StylePage />} />
-          <Route path="*" element={<Navigate to="/style" replace />} />
-        </Routes>
-      </BrowserRouter>
+      <RouterProvider router={router} />
     </QueryClientProvider>
   );
 }
