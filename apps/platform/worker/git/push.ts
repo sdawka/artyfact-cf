@@ -139,7 +139,8 @@ export function parseAdvertisement(bytes: Uint8Array): Map<string, string> {
   return refs;
 }
 
-const STALE = /non-fast-forward|fetch first|stale info|failed to (update|lock)|cannot lock|already exists|expected/i;
+/** Refusals meaning "the ref moved": git's own wording and Artifacts' (`ng refs/heads/main stale ref`). */
+const STALE = /non-fast-forward|fetch first|\bstale\b|failed to (update|lock)|cannot lock|already exists|expected/i;
 
 /** Read a report-status response (plain or side-banded) and throw on anything but `unpack ok` + `ok <ref>`. */
 export function checkReport(bytes: Uint8Array, ref: string): void {

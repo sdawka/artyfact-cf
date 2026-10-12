@@ -118,6 +118,8 @@ describe("pushCommit", () => {
     const { rp, opts } = await setup();
     rp.rejectNext = "non-fast-forward";
     await expect(pushCommit(opts)).rejects.toMatchObject({ code: "stale-head" });
+    rp.rejectNext = "stale ref"; // Artifacts' wording, seen live
+    await expect(pushCommit(opts)).rejects.toMatchObject({ code: "stale-head" });
     rp.rejectNext = "pre-receive hook declined";
     await expect(pushCommit(opts)).rejects.toMatchObject({ code: "rejected", message: expect.stringContaining("hook declined") });
   });
