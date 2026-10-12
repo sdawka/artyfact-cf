@@ -2,7 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
-  ApiError, ConflictsResponse, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
+  ApiError, ConflictsResponse, Evaluation, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
   SerializedModel, StartWorkResponse, SubmitResponse, SystemsResponse, HistoryResponse, WorkResponse, ReadinessResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
@@ -158,10 +158,43 @@ describe("routes: import names and platform provenance", () => {
     const again = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
     expect(again.status).toBe(201);
     expect(again.json.warnings).toEqual([]);
+    expect(again.json.platform).toEqual({ repo: "platform", commit: p2 });
+    // A platform-only change writes no System commit; it updates the head's recorded provenance in place.
+    expect(again.json.head).toBe(res.json.head);
     const hist = await call<HistoryResponse>("GET", `/systems/${systemId}/history`);
-    expect(hist.json.commits.map((c) => [c.decision.policy, c.composition?.platform?.commit])).toEqual([["platform-sync", p2], ["import", p1]]);
+    expect(hist.json.commits.map((c) => [c.decision.policy, c.composition?.platform?.commit])).toEqual([["import", p1]]);
+    const state = await runInDurableObject(env.SYSTEMS.getByName(systemId), (i: SystemAuthority) => i.state());
+    expect(state!.platform).toEqual({ repo: "platform", commit: p2 });
     const same = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
-    expect(same.json.head).toBe(again.json.head);
+    expect(same.json.head).toBe(res.json.head);
+  });
+
+  it("checks platform pins against the canonical Genome after an accepted amendment", async () => {
+    const { ns, systemId, slug } = slugNamed();
+    ns.create("platform").commit(PLATFORM_FILES, "sync");
+    const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
+    expect(res.json.warnings).toEqual([]);
+    // Accept a Genome amendment that also pins readiness@1, which platform lacks.
+    const files = {
+      ...genomeFiles, "system.yaml": genomeFiles["system.yaml"].replace("system.kit", systemId), "criteria.yaml": genomeFiles["criteria.yaml"].replaceAll("system.kit", systemId),
+      "kits.yaml": genomeFiles["kits.yaml"].replace('  - { id: metamodel, version: "1" }', '  - { id: metamodel, version: "1" }\n  - { id: readiness, version: "1" }'),
+    };
+    await runInDurableObject(env.SYSTEMS.getByName(systemId), async (i: SystemAuthority) => {
+      const r = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
+      const commit = ns.create(r.forkRepo).commit(files, "amend");
+      const { candidate } = i.recordCandidate({ realizationId: r.realization.id, commit, manifest: {}, changedPaths: ["kits.yaml"], changedNodes: [] });
+      const at = new Date().toISOString();
+      const pass = (criterion: string): Evaluation => ({
+        id: "", candidate: candidate.id, criterion, hook: `hook.${criterion}`, verdict: "pass", execution: "completed", observations: [], verifier: "test",
+        ownerId: "system", subjectId: systemId, targetRef: candidate.id, startedAt: at, finishedAt: at, limitations: [], provenance: {},
+      });
+      i.recordEvaluations(candidate.id, ["C.people.list", "C.people.sorted", "C.people.later"].map(pass), "awaiting-admin");
+      const out = await i.accept({ realizationId: r.realization.id, rationale: "ok", by: "admin", evolutions: [], gates: [], artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+      expect(out, JSON.stringify(out)).toMatchObject({ ok: true });
+    });
+    const again = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
+    expect(again.status, JSON.stringify(again.json)).toBe(201);
+    expect(again.json.warnings.map((w) => [w.rule, w.subject])).toEqual([["platform.pin-missing", "readiness@1"]]);
   });
 
   it("skips realization numbers whose fork already exists in the namespace", async () => {

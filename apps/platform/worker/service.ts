@@ -177,7 +177,7 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   const appArtifacts = g.model.things.flatMap((t) => t.artifacts).filter((a) => a.type === "worker-fullstack").map((a) => a.artifact);
   const appRepo = pick(body.appRepo, "appRepo", systemRepoNames(systemId, appArtifacts).appRepo);
   const appCommit = await headOf(appRepo);
-  const { platform, warnings } = await readPlatform(ns, systemId, g.model);
+  const { platform, warnings: importWarnings } = await readPlatform(ns, systemId, g.model);
   const stub = systemStub(env, systemId);
   const booted = await rpc(stub.bootstrap({
     systemId, title: g.model.system.name, phase: g.model.system.phase, genomeRepo, appRepo, genomeCommit, appCommit,
@@ -185,6 +185,11 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   }));
   if ("alreadyImported" in booted) throw conflict("already-imported", booted.alreadyImported);
   const system = booted;
+  // Pins are checked against the canonical Genome: after an accepted amendment it is no longer the imported one.
+  const canonical = await stub.state();
+  const warnings = canonical && canonical.genomeCommit !== genomeCommit
+    ? (await readPlatform(ns, systemId, (await genomeAt(env, systemId, canonical.genomeCommit, canonical.genomeSource)).model)).warnings
+    : importWarnings;
   await stub.putModelCache(genomeCommit, {
     files: JSON.stringify(Object.fromEntries(files)),
     model: JSON.stringify(serializeModel(g.model)),

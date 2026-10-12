@@ -352,22 +352,17 @@ export class SystemAuthority extends DurableObject<Env> {
     if (!unchanged && imported[0] !== null && !input.force) {
       return { alreadyImported: `system ${input.systemId} is already imported from ${imported[0]}@${String(imported[1]).slice(0, 7)} + ${imported[2]}@${String(imported[3]).slice(0, 7)}; pass force to re-point it` };
     }
-    // Same repos and commits but a different `platform` commit: record it on a new commit that keeps the current
-    // composition (a re-import must never undo promotions).
+    // Same repos and commits but a different `platform` commit: update the recorded provenance in place. No System
+    // commit is written, so the head, its versions and every open realization's base stay as they are; the next real
+    // System commit carries the new ref in its manifest (prepareCommit falls back to the recorded one).
     const platformMoved = unchanged && imported[0] !== null && canonicalJson(this.platformRef()) !== canonicalJson(input.platform);
-    return platformMoved ? this.recordPlatform(input) : this.applyImport(input, unchanged);
+    return platformMoved ? this.recordPlatform(input.platform) : this.applyImport(input, unchanged);
   }
 
-  private async recordPlatform(input: BootstrapInput): Promise<SystemSummary> {
-    const prep = await this.prepareCommit(input, (prev) => ({ ...(prev ?? { genomeCommit: input.genomeCommit, artifacts: {}, templateVersions: {}, hookVersions: {} }) }));
+  private recordPlatform(platform: PlatformRef | null): SystemSummary {
     this.ctx.storage.transactionSync(() => {
-      if (this.kv("head") !== prep.head) throw new StaleBaseError(this.kv("head"));
-      this.setKv("platform_json", JSON.stringify(input.platform));
-      this.writeCommit(prep, [], {
-        by: "platform", policy: "platform-sync",
-        rationale: input.platform ? `platform ${input.platform.repo}@${input.platform.commit.slice(0, 7)}` : "platform repo absent",
-      });
-      this.seedEvolutions(input.evolutions, input.genomeCommit);
+      this.setKv("platform_json", JSON.stringify(platform));
+      this.setKv("updated_at", nowIso());
     });
     const summary = this.summary()!;
     this.emit({ type: "system.imported", system: summary });

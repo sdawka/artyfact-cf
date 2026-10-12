@@ -75,26 +75,55 @@ describe("platform provenance", () => {
     });
   });
 
-  it("records null without a platform repo; a later platform commit alone adds a commit that keeps the composition", async () => {
+  it("records null without a platform repo; a later platform commit alone updates provenance in place, the next commit carries it", async () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
       await i.bootstrap(boot);
       expect(i.state()!.platform).toBeNull();
       expect(i.history()[0].composition!.platform).toBeNull();
       expect(i.history()[0].composition!.artifacts["artifact.webapp"]).not.toHaveProperty("scaffoldFrom");
+      const head = i.state()!.head;
+      const s = (await i.bootstrap({ ...boot, platform: P1 })) as SystemSummary;
+      expect(s.head).toBe(head);
+      expect(i.history()).toHaveLength(1);
+      expect(i.state()!.platform).toEqual(P1);
+      expect(i.history()[0].composition!.platform).toBeNull();
       const r = i.reserveRealization({ evolutionId: "evolution.1", target: "app" });
       const { candidate } = i.recordCandidate({ realizationId: r.realization.id, commit: A2, manifest: {}, changedPaths: ["src/a.ts"], changedNodes: ["screen.people"] });
       i.recordEvaluations(candidate.id, [ev(candidate.id, "C.people.list", "pass")], "evaluated");
-      expect(await i.promote(promoteInput([candidate.id], i.state()!.head))).toMatchObject({ ok: true });
-      const s = (await i.bootstrap({ ...boot, platform: P1 })) as SystemSummary;
-      const last = i.history()[0];
-      expect(s.head).toBe(last.id);
-      expect(last.decision.policy).toBe("platform-sync");
-      expect(last.composition).toMatchObject({ platform: P1, artifacts: { "artifact.webapp": { repo: "kit-app--r1", commit: A2 } } });
-      const n = i.history().length;
-      await i.bootstrap({ ...boot, platform: P1 });
-      expect(i.history()).toHaveLength(n);
-      await i.bootstrap({ ...boot, platform: P2 });
-      expect(i.history()).toHaveLength(n + 1);
+      expect(await i.promote(promoteInput([candidate.id], head))).toMatchObject({ ok: true });
+      expect(i.history()[0].composition).toMatchObject({ platform: P1, artifacts: { "artifact.webapp": { repo: "kit-app--r1", commit: A2 } } });
+    });
+  });
+
+  it("a platform-only re-import after an accepted amendment keeps the head, its versions and open work", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      const evo2 = { ...boot.evolutions[0], id: "evolution.2", title: "Search people" };
+      const imported = { ...boot, evolutions: [boot.evolutions[0], evo2] };
+      await i.bootstrap({ ...imported, platform: P1 });
+      const g = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
+      const cg = i.recordCandidate({ realizationId: g.realization.id, commit: "2".repeat(40), manifest: {}, changedPaths: ["x.yaml"], changedNodes: ["screen.people"] }).candidate;
+      i.recordEvaluations(cg.id, [ev(cg.id, "C.people.list", "pass")], "awaiting-admin");
+      const amended = [{ ...boot.evolutions[0], acceptanceCriteria: ["C.people.list", "C.people.search"] }, evo2];
+      const versions = { templateVersions: { "template.thing.cloudflare-worker-webapp": "2" }, hookVersions: { "hook.people.search": "1" } };
+      expect(await i.accept({ realizationId: g.realization.id, rationale: "ok", by: "admin", evolutions: amended, gates: hard("C.people.list"), artifactId: "artifact.webapp", ...versions })).toMatchObject({ ok: true });
+      const app = i.reserveRealization({ evolutionId: "evolution.2", target: "app" });
+      const before = i.state()!;
+      const commits = i.history().length;
+      expect(before.manifest).toMatchObject({ genomeCommit: "2".repeat(40), ...versions, platform: P1 });
+
+      // The original import again (its Genome still has the old versions and criteria), with a new platform commit.
+      await i.bootstrap({ ...imported, platform: P2 });
+      const after = i.state()!;
+      expect(i.history()).toHaveLength(commits);
+      expect(after).toEqual({ ...before, platform: P2 });
+      expect(after.manifest).toMatchObject(versions);
+      expect(i.evolution("evolution.1")!.acceptanceCriteria).toEqual(["C.people.list", "C.people.search"]);
+
+      // Open work is not stale: the app realization still promotes on the unchanged head.
+      const ca = i.recordCandidate({ realizationId: app.realization.id, commit: A2, manifest: {}, changedPaths: ["src/a.ts"], changedNodes: ["screen.people"] }).candidate;
+      i.recordEvaluations(ca.id, [ev(ca.id, "C.people.list", "pass")], "evaluated");
+      expect(await i.promote(promoteInput([ca.id], after.head))).toMatchObject({ ok: true });
+      expect(i.history()[0].composition).toMatchObject({ platform: P2, genomeCommit: "2".repeat(40) });
     });
   });
 });
