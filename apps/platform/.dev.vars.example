@@ -16,3 +16,8 @@ FAKE_S1=1
 ALLOW_LOCAL_PREVIEW=1
 # Extra preview hosts, comma-separated (*.workers.dev and *.pages.dev are always allowed).
 PREVIEW_HOST_ALLOWLIST=
+# CI (artyfact-ci Workflow): bearer CI sends with build reports, the API token it deploys app Workers with, and the
+# artyfact-artifacts-events queue id per-fork event subscriptions deliver to. Leave empty to run without CI.
+CI_REPORT_TOKEN=
+CF_API_TOKEN=
+EVENTS_QUEUE_ID=

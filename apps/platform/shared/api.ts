@@ -11,10 +11,10 @@
  * All timestamps are ISO-8601 strings. All routes are under `/api` (see {@link routes}).
  */
 
-import type { Finding, ModelIndex, Readiness, SystemModel, schema } from "@artyfact/model";
+import type { Finding, ModelIndex, PhenomeEventHeader, Readiness, SemanticDelta as ModelDelta, SystemModel, schema } from "@artyfact/model";
 import type { Commitment, ReviewResult, SemanticDelta } from "@artyfact/semantic";
 
-export type { Finding, Readiness } from "@artyfact/model";
+export type { Finding, PhenomeEventHeader, Readiness } from "@artyfact/model";
 export type { SemanticDelta as ModelDelta } from "@artyfact/model";
 export type { SemanticDelta } from "@artyfact/semantic";
 /** Rules-engine readiness (alias kept for the backend). */
@@ -34,6 +34,13 @@ export type CandidateManifest = schema.CandidateManifest;
 
 const enc = encodeURIComponent;
 const sys = (s: string) => `/api/systems/${enc(s)}`;
+/** `?a=1&b=2` from the defined, non-empty entries; "" when there are none. */
+const qs = (q: Record<string, string | number | undefined>) => {
+  const p = Object.entries(q).filter(([, v]) => v !== undefined && v !== "").map(([k, v]) => `${k}=${enc(String(v))}`);
+  return p.length ? `?${p.join("&")}` : "";
+};
+/** System-scoped realization routes added in iteration 2: `/api/systems/:sid/realizations/:rid`. */
+const srz = (s: string, r: string) => `${sys(s)}/realizations/${enc(r)}`;
 /** Realization routes: `/api/systems/:sid/evolutions/:eid/realizations/:rid` (also served at `/api/systems/:sid/realizations/:rid` and `/api/realizations/:rid`). */
 const rz = (s: string, e: string, r: string) => `${sys(s)}/evolutions/${enc(e)}/realizations/${enc(r)}`;
 
@@ -62,6 +69,37 @@ export const routes = {
   promote: (s: string) => `${sys(s)}/promote`,
   history: (s: string) => `${sys(s)}/history`,
   events: (s: string) => `${sys(s)}/events`,
+
+  // Iteration 2. `evolutions(s)` also takes POST {@link CreateEvolutionRequest} (admin).
+  /** Editor: `GET` → {@link FilesResponse}. */
+  files: (s: string, scope: FileScope, ref?: RefString) => `${sys(s)}/files${qs({ scope, ref })}`,
+  /** Editor: `GET` → {@link FileResponse}. */
+  file: (s: string, scope: FileScope, path: string, ref?: RefString) => `${sys(s)}/file${qs({ scope, ref, path })}`,
+  /** Editor: `POST` {@link EditorCommitRequest} → {@link EditorCommitResponse}. */
+  editorCommit: (s: string, r: string) => `${srz(s, r)}/commit`,
+  /** `GET` → {@link RevisionsResponse}. */
+  revisions: (s: string) => `${sys(s)}/revisions`,
+  /** `GET` → {@link ChangelogResponse}, newest first; `before` is a System commit id. */
+  changelog: (s: string, q: { limit?: number; before?: string } = {}) => `${sys(s)}/changelog${qs(q)}`,
+  /** `GET` → {@link ChangelogEntry}. */
+  changelogEntry: (s: string, commitId: string) => `${sys(s)}/changelog/${enc(commitId)}`,
+  /** `GET` → {@link SystemCompare}. `from` omitted = the parent of `to`. */
+  compareSystem: (s: string, from: RefString | undefined, to: RefString) => `${sys(s)}/compare/system${qs({ from, to })}`,
+  /** `GET` → {@link GenomeCompare}. */
+  compareGenome: (s: string, from: RefString | undefined, to: RefString) => `${sys(s)}/compare/genome${qs({ from, to })}`,
+  /** `GET` → {@link FileCompare}. */
+  compareFile: (s: string, scope: FileScope, from: RefString | undefined, to: RefString, path: string) =>
+    `${sys(s)}/compare/file${qs({ scope, from, to, path })}`,
+  /** `POST` {@link BuildReport} → {@link BuildReportResponse}; `GET` → {@link BuildsResponse}. */
+  realizationBuilds: (s: string, r: string) => `${srz(s, r)}/builds`,
+  /** `GET` → {@link BuildsResponse}; `POST` {@link BuildReport} (production report) → {@link BuildReportResponse}. */
+  builds: (s: string, q: { commit?: CommitHash; kind?: BuildKind } = {}) => `${sys(s)}/builds${qs(q)}`,
+  /** `GET` → {@link DeploymentsResponse}; `POST` {@link DeploymentRequest} → {@link DeploymentCreated}. */
+  deployments: (s: string) => `${sys(s)}/deployments`,
+  /** `POST` → {@link IngestTokenResponse}: mints a fresh Phenome ingest token for the deployment. */
+  deploymentIngestToken: (s: string, d: string) => `${sys(s)}/deployments/${enc(d)}/ingest-token`,
+  /** `POST` {@link PhenomeIngestRequest} → {@link PhenomeIngestResponse}; `GET` → {@link PhenomeEventsResponse}. */
+  phenomeEvents: (s: string, q: PhenomeEventsQuery = {}) => `${sys(s)}/phenome/events${qs({ ...q })}`,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -87,6 +125,20 @@ export interface ApiError {
 // Systems and the model bundle
 // ---------------------------------------------------------------------------
 
+/**
+ * What the System list and overview show as badges, derived by `summary()`:
+ * `evolving` a realization is claimed/working/evaluating; `pending-realization` evaluated candidates not promoted, or
+ * actionable evolutions with no realization; `awaiting-admin` a Genome candidate awaits accept; `built` a promotion
+ * bound an app commit; `deployed` production is live on `appCommit`; `behind` live production is older than `appCommit`;
+ * `not-fully-built` readiness errors/missing > 0 or not built; `observed` a Phenome event in the last 24 h;
+ * `unrealized` phase unrealized and no candidates ever.
+ */
+export type Signifier =
+  | "evolving" | "pending-realization" | "awaiting-admin" | "not-fully-built" | "built" | "deployed" | "behind" | "observed" | "unrealized";
+
+/** Production deployment state relative to `appCommit`. */
+export type DeployState = "none" | "pending" | "live" | "behind" | "failed";
+
 export interface SystemSummary {
   systemId: SystemId;
   title: string;
@@ -99,6 +151,18 @@ export interface SystemSummary {
   /** Number of evolutions per state, e.g. `{ actionable: 2 }`. */
   evolutionCounts: Partial<Record<EvolutionState, number>>;
   updatedAt: string;
+  // Iteration 2: optional until the backend slice that computes them lands, and so summaries stored before it parse.
+  /** App commit bound at the head. */
+  appCommit?: CommitHash;
+  built?: boolean;
+  realizationCounts?: { evolving: number; pending: number; awaitingAdmin: number };
+  openCandidates?: number;
+  latestBuild?: BuildSummary | null;
+  deployment?: { production: Deployment | null; previews: number };
+  deployState?: DeployState;
+  phenome?: { events: number; lastEmittedAt?: string };
+  readiness?: { errors: number; missing: number };
+  signifiers?: Signifier[];
 }
 
 /** `GET /api/systems`. */
@@ -210,6 +274,10 @@ export interface Candidate {
   subjectDelta?: { added?: string[]; changed?: string[]; removed?: string[] };
   submittedAt: string;
   state: "submitted" | "evaluated" | "selected" | "promoted" | "rejected";
+  /** Preview URL from the submit or a later build report. */
+  previewUrl?: string;
+  /** Latest build of this candidate's commit. */
+  build?: BuildSummary;
 }
 
 export interface ArtifactBinding {
@@ -265,6 +333,26 @@ export interface StartWorkRequest {
   agentLabel?: string;
   target?: "app" | "genome";
   role?: schema.Realization["agent"]["role"];
+  /** Who drives the realization: the CLI (default) or the in-browser editor. */
+  origin?: RealizationOrigin;
+}
+
+export type RealizationOrigin = "cli" | "editor";
+
+/** What triggered a submit: the CLI, a push event, a sync, the UI (editor commit), or a CI report. */
+export type SubmitSource = "cli" | "event" | "sync" | "ui" | "ci";
+
+/** `POST /api/systems/:id/evolutions` (admin): a new Evolution in state `proposed`/`actionable` per policy. */
+export interface CreateEvolutionRequest {
+  title: string;
+  intent: string;
+  affectedNodes?: NodeId[];
+  kind?: schema.Evolution["kind"];
+  risk?: schema.Evolution["risk"];
+  acceptanceCriteria?: NodeId[];
+}
+export interface CreateEvolutionResponse {
+  evolution: Evolution;
 }
 
 /** Machine-readable form of the Task Packet; `markdown` is the same content for agents. Never carries a token. */
@@ -571,6 +659,11 @@ export type SseEvent =
   | { type: "system.promoted"; commit: SystemCommit }
   | { type: "genome.accepted"; genomeCommit: CommitHash }
   | { type: "system.imported"; system: SystemSummary }
+  | { type: "build.updated"; build: Build }
+  | { type: "deployment.updated"; deployment: Deployment }
+  | { type: "phenome.ingested"; count: number; deploymentId?: string; commit: CommitHash }
+  | { type: "system.updated"; system: SystemSummary }
+  | { type: "evolution.created"; evolution: Evolution }
   | { type: "ping" };
 
 export type SseEventType = SseEvent["type"];
@@ -589,4 +682,312 @@ export interface HealthResponse {
   status: "ok";
   service: "artyfact-platform";
   time: string;
+}
+
+// ---------------------------------------------------------------------------
+// Iteration 2: refs, files, compare, changelog
+// ---------------------------------------------------------------------------
+
+/**
+ * A revision the compare, file and changelog routes accept: `head`, a System commit id (`sc-N…`), a candidate id,
+ * a 40-hex commit of the scoped repo, or a realization id (= its fork head).
+ */
+export type RefString = string;
+
+/** Which repo a file route reads: the app (Artifacts app repo or a fork) or the Genome. */
+export type FileScope = "app" | "genome";
+
+/** A {@link RefString} resolved to a concrete repo and commit. */
+export interface ResolvedRef {
+  ref: RefString;
+  repo: string;
+  commit: CommitHash;
+  /** The System commit the ref names or binds, when there is one. */
+  systemCommit?: string;
+  /** The candidate the ref names, when it is one. */
+  candidate?: string;
+}
+
+/** One entry of the revision picker. */
+export interface RevisionOption {
+  id: RefString;
+  kind: "head" | "commit" | "candidate";
+  label: string;
+  at?: string;
+  evolution?: NodeId;
+  /** Candidate state, for `candidate` options. */
+  state?: string;
+}
+/** `GET /api/systems/:id/revisions`. */
+export interface RevisionsResponse {
+  revisions: RevisionOption[];
+}
+
+/** `GET /api/systems/:id/files?scope=&ref=`. */
+export interface FilesResponse {
+  ref: ResolvedRef;
+  files: { path: string; hash: string; size?: number }[];
+}
+/** `GET /api/systems/:id/file?scope=&ref=&path=`. `text` is null for binary files. */
+export interface FileResponse {
+  ref: ResolvedRef;
+  path: string;
+  hash: string;
+  text: string | null;
+  size: number;
+  truncated: boolean;
+  binary: boolean;
+  /** Model nodes the path maps to (source map). */
+  nodes?: NodeId[];
+}
+
+export interface ChangedFiles {
+  added: string[];
+  modified: string[];
+  removed: string[];
+}
+
+/** `GET /api/systems/:id/compare/system?from=&to=`: two System commits side by side. */
+export interface SystemCompare {
+  from: SystemCommit | null;
+  to: SystemCommit;
+  /** Genome commits on each side and their semantic delta; null delta with `loadError` when a side does not load. */
+  genome: { from: CommitHash | null; to: CommitHash; delta: ModelDelta | null; loadError?: string };
+  /** The app binding's change; null when neither side binds an app. */
+  app: { from: ResolvedRef | null; to: ResolvedRef; files: ChangedFiles; pathNodes: Record<string, NodeId[]> } | null;
+  manifest: { templateVersions: string[]; hookVersions: string[]; platformChanged: boolean };
+  identical: boolean;
+}
+
+/** `GET /api/systems/:id/compare/genome?from=&to=`. */
+export interface GenomeCompare {
+  from: ResolvedRef | null;
+  to: ResolvedRef;
+  delta: ModelDelta | null;
+  loadError?: string;
+  files: ChangedFiles;
+}
+
+/** One side of a {@link FileCompare}; `hash`/`text` are null when the path is absent on that side. */
+export type FileSide = ResolvedRef & { hash: string | null; text: string | null; size: number };
+
+/** `GET /api/systems/:id/compare/file?scope=&from=&to=&path=`. */
+export interface FileCompare {
+  path: string;
+  from: FileSide;
+  to: FileSide;
+  truncated: boolean;
+  binary: boolean;
+}
+
+/** One System commit in the changelog list. */
+export interface ChangelogRow {
+  id: string;
+  parent: string | null;
+  at: string;
+  by: string;
+  policy: string;
+  rationale: string;
+  /** The rationale is still being written (async summary). */
+  rationalePending?: boolean;
+  kind: "import" | "promotion" | "acceptance";
+  evolutions: { id: NodeId; title: string }[];
+  candidates: { id: string; realization: string; commit: CommitHash; repo: string; agent: string }[];
+  genomeCommit: CommitHash;
+  summary: { nodesAdded: number; nodesChanged: number; nodesRemoved: number; filesChanged: number; criteriaAffected: number };
+  manifestHash: Sha256 | null;
+  platform: PlatformRef | null;
+  builds: BuildSummary[];
+  deployment: Deployment | null;
+  /** Some gating evidence came from the fake System One provider. */
+  fakeProvider?: boolean;
+}
+/** `GET /api/systems/:id/changelog?limit=&before=`. */
+export interface ChangelogResponse {
+  rows: ChangelogRow[];
+  /** Pass as `before` for the next page; absent on the last page. */
+  nextBefore?: string;
+}
+
+/** `GET /api/systems/:id/changelog/:commitId`: a System commit against its parent, with criteria and code links. */
+export interface ChangelogEntry extends SystemCompare {
+  row: ChangelogRow;
+  decision: SystemCommit["decision"];
+  criteria: { id: NodeId; before: Verdict | "not-run"; after: Verdict | "not-run"; evaluation?: string }[];
+  codeLinks: { path: string; repo: string; commit: CommitHash; nodes: NodeId[]; status: "added" | "modified" | "removed" }[];
+}
+
+// ---------------------------------------------------------------------------
+// Iteration 2: editor
+// ---------------------------------------------------------------------------
+
+/** `POST /api/systems/:id/realizations/:rid/commit`: write files to the realization's fork and submit the result. */
+export interface EditorCommitRequest {
+  message: string;
+  /** Why the change was made; recorded on the candidate. */
+  why?: string;
+  /** `content: null` deletes the path. */
+  changes: { path: string; content: string | null }[];
+  /** Fork head the editor saw; mismatch is 409. */
+  expectedHead?: CommitHash;
+  author?: string;
+}
+export interface EditorCommitResponse {
+  commit: CommitHash;
+  parent: CommitHash;
+  tree: string;
+  submitted: SubmitResponse;
+  build?: BuildSummary;
+}
+
+// ---------------------------------------------------------------------------
+// Iteration 2: builds and deployments
+// ---------------------------------------------------------------------------
+
+export type BuildStatus = "queued" | "running" | "passed" | "failed" | "error";
+export type BuildKind = "preview" | "production";
+export type BuildReporter = "ci" | "agent" | "admin";
+
+export interface BuildStep {
+  name: string;
+  status: BuildStatus;
+  durationMs?: number;
+  logsUrl?: string;
+}
+
+/** What CI, an agent or an admin reports about a build. Without `id` a new build row is created. */
+export interface BuildReport {
+  id?: string;
+  status: BuildStatus;
+  kind?: BuildKind;
+  commit: CommitHash;
+  url?: string;
+  /** The deployed app's `BUILD_ID` (its commit). */
+  buildId?: string;
+  logsUrl?: string;
+  /** Workflow instance id. */
+  externalId?: string;
+  deploymentId?: string;
+  steps?: BuildStep[];
+  error?: string;
+  startedAt?: string;
+  finishedAt?: string;
+}
+
+export interface Build extends Omit<BuildReport, "id" | "kind"> {
+  id: string;
+  kind: BuildKind;
+  realization: string | null;
+  candidate: string | null;
+  reporter: BuildReporter;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type BuildSummary = Pick<Build, "id" | "status" | "kind" | "commit" | "url" | "buildId" | "finishedAt">;
+
+/** `POST …/realizations/:rid/builds` and `POST /api/systems/:id/builds`. */
+export interface BuildReportResponse {
+  build: Build;
+  candidate?: Candidate;
+  evaluations?: Evaluation[];
+}
+/** `GET …/realizations/:rid/builds` and `GET /api/systems/:id/builds?commit=&kind=`. */
+export interface BuildsResponse {
+  builds: Build[];
+}
+
+export type DeploymentStatus = "pending" | "live" | "superseded" | "failed";
+
+export interface Deployment {
+  id: string;
+  kind: BuildKind;
+  status: DeploymentStatus;
+  repo: string;
+  commit: CommitHash;
+  systemCommit?: string;
+  realization?: string;
+  candidate?: string;
+  /** Build row id. */
+  build?: string;
+  url?: string;
+  buildId?: string;
+  by: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** `GET /api/systems/:id/deployments`. */
+export interface DeploymentsResponse {
+  production: Deployment | null;
+  /** Newest first. */
+  history: Deployment[];
+}
+/** `POST /api/systems/:id/deployments` (admin). Defaults: production of the head's app commit. */
+export interface DeploymentRequest {
+  kind?: BuildKind;
+  commit?: CommitHash;
+  realization?: string;
+}
+/** The ingest token appears only in the create response and in {@link IngestTokenResponse}; the platform keeps its hash. */
+export type DeploymentCreated = Deployment & { ingestToken?: string };
+/** `POST /api/systems/:id/deployments/:did/ingest-token` (admin). */
+export interface IngestTokenResponse {
+  deployment: Deployment;
+  ingestToken: string;
+}
+
+/** Parameters the platform passes to the `artyfact-ci` Workflow (`env.CI.create({ params })`). */
+export interface CiBuildParams {
+  buildId: string;
+  systemId: SystemId;
+  realizationId: string | null;
+  candidateId: string | null;
+  namespace: string;
+  repo: string;
+  commit: CommitHash;
+  kind: BuildKind;
+  workerName: string;
+  vars: Record<string, string>;
+  commands: { install: string; test?: string; build?: string; deploy: string };
+  /** Where the Workflow posts {@link BuildReport}s. */
+  reportUrl: string;
+  deploymentId?: string;
+}
+
+// ---------------------------------------------------------------------------
+// Iteration 2: Phenome (events the deployed app emits)
+// ---------------------------------------------------------------------------
+
+/** A stored Phenome event. */
+export interface PhenomeEvent extends PhenomeEventHeader {
+  seq: number;
+  receivedAt: string;
+  realization?: string;
+}
+
+/** `POST /api/systems/:id/phenome/events` (ingest token). At most 100 events, 8 KB each. */
+export interface PhenomeIngestRequest {
+  events: PhenomeEventHeader[];
+}
+export interface PhenomeIngestResponse {
+  accepted: number;
+  dropped: { index: number; reason: string }[];
+}
+
+export interface PhenomeEventsQuery {
+  deployment?: string;
+  commit?: CommitHash;
+  kind?: string;
+  realization?: string;
+  limit?: number;
+  /** A `seq`: events strictly older. */
+  before?: number;
+}
+
+/** `GET /api/systems/:id/phenome/events?…`: newest first, plus per-version counts. */
+export interface PhenomeEventsResponse {
+  events: PhenomeEvent[];
+  nextBefore?: number;
+  versions: { key: string; buildId: string; commit: CommitHash; deployment: string | null; systemCommit: string | null; count: number }[];
 }
