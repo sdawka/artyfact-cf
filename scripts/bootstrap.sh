@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Push the example System and app into Cloudflare Artifacts (namespace + repos kit-system, kit-app).
 # Idempotent: existing namespace/repos are reused; a repo that already has `main` is not overwritten.
-# Usage: scripts/bootstrap.sh [--dry-run]    Env: ACCOUNT_ID, ARTIFACTS_NAMESPACE (default artyfact)
+# Usage: scripts/bootstrap.sh [--dry-run]    Env: ACCOUNT_ID, ARTIFACTS_NAMESPACE (default artyfact),
+#   GENOME_REPO (default kit-system), APP_REPO (default kit-app)
 set -euo pipefail
 
 DRY_RUN=0
@@ -17,7 +18,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 NS="${ARTIFACTS_NAMESPACE:-artyfact}"
 
 # repo-name:source-dir
-TARGETS=("kit-system:examples/keep-in-touch-system" "kit-app:examples/keep-in-touch-app")
+TARGETS=("${GENOME_REPO:-kit-system}:examples/keep-in-touch-system" "${APP_REPO:-kit-app}:examples/keep-in-touch-app")
 
 command -v wrangler >/dev/null 2>&1 || wrangler() { npx --no-install wrangler "$@"; }
 
@@ -114,4 +115,4 @@ done
 
 log ""
 log "Import into the platform (apps/platform dev server):"
-log "curl -XPOST localhost:5173/api/systems/import -H \"authorization: Bearer \$ADMIN_TOKEN\" -H 'content-type: application/json' -d '{\"systemId\":\"system.keep-in-touch\",\"genomeRepo\":\"kit-system\",\"appRepo\":\"kit-app\"}'"
+log "curl -XPOST localhost:5173/api/systems/import -H \"authorization: Bearer \$ADMIN_TOKEN\" -H 'content-type: application/json' -d '{\"systemId\":\"system.keep-in-touch\",\"genomeRepo\":\"${GENOME_REPO:-kit-system}\",\"appRepo\":\"${APP_REPO:-kit-app}\"}'"
