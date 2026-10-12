@@ -54,6 +54,24 @@ test.describe("shell", () => {
     }
   });
 
+  test("narrow screens collapse the rail to glyphs and hide group heads visually", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${SYSTEM}/overview`);
+    const nav = page.getByRole("navigation", { name: "Views" });
+    await expect(nav.getByRole("group")).toHaveCount(3);
+    for (const name of ["Genome", "Proteome", "Phenome"]) {
+      const head = nav.getByText(name, { exact: true });
+      await expect(head).toBeAttached();
+      expect((await head.boundingBox())!.width).toBeLessThanOrEqual(1);
+    }
+    const label = nav.getByText("Deployments", { exact: true });
+    expect((await label.boundingBox())!.width).toBeLessThanOrEqual(1);
+    expect((await nav.boundingBox())!.width).toBeLessThan(80);
+    await nav.getByRole("link", { name: "Deployments" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Deployments" })).toBeVisible();
+    await checkA11yAndShoot(page, testInfo, "shell-narrow");
+  });
+
   test("fixture mode is announced @fixture", async ({ page }) => {
     await open(page, "/overview", "Overview");
     await expect(page.getByText(/fixture data/i).first()).toBeVisible();

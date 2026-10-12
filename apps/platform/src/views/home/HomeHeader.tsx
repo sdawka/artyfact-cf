@@ -2,8 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router";
 import { resetClientMode } from "@/api/client";
 import { useClientMode } from "@/api/queries";
-import { FIXTURE_TITLE } from "@/app/TopBar";
-import { StatePill } from "@/app/StatePill";
+import { FIXTURE_TITLE, StatePill } from "@/app/StatePill";
 import styles from "./home.module.css";
 
 /** Wordmark plus, in fixture mode, the "fixture data" pill and a Retry button. */

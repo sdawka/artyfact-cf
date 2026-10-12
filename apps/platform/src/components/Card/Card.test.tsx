@@ -12,9 +12,10 @@ describe("Card", () => {
     expect(container.firstElementChild!.getAttribute("data-state")).toBe("attention");
   });
 
-  it("with `to`, the whole card is one link", () => {
+  it("with `to`, the whole card is one link named by its title", () => {
     render(<MemoryRouter><Card as="article" to="/x" title="Alpha" state="unbuilt">details</Card></MemoryRouter>);
-    const link = screen.getByRole("link", { name: /Alpha.*details/ });
+    const link = screen.getByRole("link", { name: "Alpha" });
+    expect(link.textContent).toContain("details");
     expect(link.getAttribute("href")).toBe("/x");
     expect(link.getAttribute("data-state")).toBe("unbuilt");
     expect(link.className).toContain("u-brackets");

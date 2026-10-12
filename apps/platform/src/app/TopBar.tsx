@@ -6,12 +6,9 @@ import { useEffectsPreference } from "@/effects/effectsPreference";
 import { FAKE_PROVIDER_TITLE, isFakeProvider } from "@/model/provider";
 import { useModel } from "@/model/useModel";
 import { PhaseBadge } from "./PhaseBadge";
-import { StatePill } from "./StatePill";
+import { FIXTURE_TITLE, StatePill } from "./StatePill";
 import { SystemRevisionSelector } from "./SystemRevisionSelector";
 import styles from "./TopBar.module.css";
-
-/** Tooltip on the "fixture data" pill (TopBar and Home header). */
-export const FIXTURE_TITLE = "The platform API is unreachable; showing the bundled Keep in Touch fixture.";
 
 export function TopBar({ onOpenPalette }: { onOpenPalette(): void }) {
   const { bundle } = useModel();
