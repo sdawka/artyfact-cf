@@ -40,6 +40,8 @@ Namespace `artyfact`; repos `kit-system`, `kit-app`; forks `kit-app--rN`, `kit-s
 | overlap | C.system.readiness | ConflictReport{file \| soft-semantic \| hard-semantic \| evidence} across concurrent candidates; via `overlap()` |
 | health | C.webapp.health | fetch `previewUrl/health`, compare buildId; no URL → not-run/unknown |
 
+Hook selection (`worker/hooks/run.ts`): affected criteria = the Evolution's acceptance criteria ∪ criteria whose `subjectId` is in the candidate's changed nodes ∪ System criteria gated on `submission`. Subject matching is exact: there is no ancestor or descendant expansion. Genome authors must bind each criterion to the node that the source map reports for the files realizing it. Every hook of an affected criterion yields an Evaluation. Hooks the platform cannot run come back `not-run/unknown`.
+
 ## B.5 Composition & promotion
 `GET /evolutions/:id/candidates` (candidates + evaluations + conflicts). `POST /systems/:id/promote` revalidates exists+scope on the exact commit then CAS. Two complementary candidates: `artyfact compose r1 r2` on the user's machine (fork `kit-app--cN`, push merged tree, submit as composed candidate bound to both). `GET /history` newest-first.
 

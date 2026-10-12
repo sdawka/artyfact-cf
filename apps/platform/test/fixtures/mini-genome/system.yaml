@@ -1,0 +1,7 @@
+id: system.mini-kit
+name: Mini Keep in Touch
+template: null
+profile: private-relationships
+things: [thing.webapp]
+phase: unrealized
+purposes: [P1]

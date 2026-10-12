@@ -43,13 +43,19 @@ describe("Shell", () => {
   it("LayerSwitch writes ?layer=", async () => {
     const { router } = renderApp(`${BASE}/map`);
     const tabs = await screen.findByRole("tablist", { name: "Layer" });
-    expect(within(tabs).getByRole("tab", { name: "Genome" }).getAttribute("aria-selected")).toBe("true");
-    act(() => within(tabs).getByRole("tab", { name: "Proteome" }).click());
-    await waitFor(() => expect(search(router).get("layer")).toBe("proteome"));
-    expect(within(tabs).getByRole("tab", { name: "Proteome" }).getAttribute("aria-selected")).toBe("true");
-    act(() => void fireEvent.keyDown(within(tabs).getByRole("tab", { name: "Proteome" }), { key: "ArrowRight" }));
-    await waitFor(() => expect(search(router).get("layer")).toBe("phenome"));
-    expect(document.activeElement).toBe(within(tabs).getByRole("tab", { name: "Phenome" }));
+    const tab = (name: string) => within(tabs).getByRole("tab", { name });
+    expect(tab("Genome").getAttribute("aria-selected")).toBe("true");
+    await act(async () => tab("Proteome").click());
+    await waitFor(() => {
+      expect(search(router).get("layer")).toBe("proteome");
+      expect(tab("Proteome").getAttribute("aria-selected")).toBe("true");
+    });
+    await act(async () => void fireEvent.keyDown(tab("Proteome"), { key: "ArrowRight" }));
+    await waitFor(() => {
+      expect(search(router).get("layer")).toBe("phenome");
+      expect(tab("Phenome").getAttribute("aria-selected")).toBe("true");
+      expect(document.activeElement).toBe(tab("Phenome"));
+    });
   });
 
   it("opens the Inspector iff focus is set, and Esc closes it", async () => {

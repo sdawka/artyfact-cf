@@ -7,6 +7,7 @@ import type { IndexEntry, LinkRef } from "@/model/index";
 import type { Criterion, Requirement, Source, TheoryClaim } from "@/model/types";
 import { useModel } from "@/model/useModel";
 import { BodyFor } from "./bodies";
+import { RulesTab } from "./bodies/RulesTab";
 import styles from "./Inspector.module.css";
 
 export const INSPECTOR_TABS = [
@@ -159,48 +160,6 @@ export function ChangesTab({ entry }: TabProps) {
   );
 }
 
-/** Criteria about this object (owner / subject / target on three lines), rule findings and claims. */
-export function RulesTab({ entry }: TabProps) {
-  const m = useModel();
-  const criteria = [...m.criteriaFor(entry.id), ...m.criteriaOwnedBy(entry.id)].filter(
-    (c, i, xs) => xs.findIndex((x) => x.id === c.id) === i,
-  );
-  const findings = m.bundle.readiness.modelReadiness.findings.filter((f) => f.subject === entry.id);
-  const claims = m.index.model.claims.filter((c) => c.activities.includes(entry.id));
-  if (!criteria.length && !findings.length && !claims.length) {
-    return <EmptyState title="No criteria, findings or claims reference this object." />;
-  }
-  return (
-    <div className={styles.stack}>
-      {criteria.map((c) => (
-        <section key={c.id} className={styles.card}>
-          <div className={styles.cardHead}>
-            <NodeChip id={c.id} size="sm" />
-            <VerdictBadge verdict={m.verdictOf(c.id)} />
-          </div>
-          <div className={styles.lines}>
-            <div><span className={styles.muted}>Owner</span> <NodeChip id={c.ownerId} size="sm" /></div>
-            <div><span className={styles.muted}>Subject</span> <NodeChip id={c.subjectId} size="sm" /></div>
-            <div><span className={styles.muted}>Target</span> {c.targetKind} · gates {c.gates.join(", ") || "none"}</div>
-          </div>
-        </section>
-      ))}
-      {findings.length > 0 && (
-        <Row label="Findings">
-          <ul className={styles.plain}>
-            {findings.map((f, i) => (
-              <li key={`${f.rule}-${i}`}>
-                <code>{f.rule}</code> {f.level}: {f.message}
-              </li>
-            ))}
-          </ul>
-        </Row>
-      )}
-      {claims.length > 0 && <Row label="Claims"><Chips ids={claims.map((c) => c.id)} /></Row>}
-    </div>
-  );
-}
-
 /**
  * Stub (owned by the Evaluations slice): current verdict per criterion on this object, from
  * `useEvaluations()`. Raw evidence links arrive with that slice.
@@ -222,6 +181,8 @@ export function EvidenceTab({ entry }: TabProps) {
     </ul>
   );
 }
+
+export { RulesTab };
 
 export const TAB_COMPONENTS: Record<InspectorTab, (p: TabProps) => ReactNode> = {
   what: WhatTab,

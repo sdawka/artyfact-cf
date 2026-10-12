@@ -121,6 +121,11 @@ event. Keys are in `qk`.
 - `VerdictBadge { verdict: UiVerdict, label? }`: sets `data-verdict` and `data-tone`; only pass is green.
 - `Tabs<T> { tabs, value, onChange, label, children? }`: `.u-segments` with arrow-key navigation.
 - `Drawer { open, label, width, onWidthChange?, minWidth?, maxWidth?, children }`: becomes a bottom sheet at 640 px and below.
+- `Derivation { finding } | { derivation }` (`components/Derivation`): collapsible outline of why a rule fired. `finding` is a
+  model `Finding`; `derivation` is any `explain()` tree (`DerivationTree`, re-exported). Depth limit 6 then "…", EDB facts as
+  `relation(args)` with NodeChips for known ids, "Copy as text" button. `derivationText(tree)` gives the same outline as a string.
+- `Meter { title, headline, segments: {key,label,count,tone: pass|fail|warn|subtle}[], caption, asOf?, emptyText? }`: one segmented
+  count bar per state; each has its own scale and is never summed with another.
 - `CopyButton { value, label? }` (announces "Copied" / "Copy failed"), `EmptyState { title, children?, action?, live? }` (`live` adds `role="status"`),
   `Breadcrumbs { ids, label? }`, `KeyValue { data, omit? }` (strings that are ids render as chips).
 
@@ -132,7 +137,8 @@ If the focused element disappears while it is open, focus returns to the title. 
 focus to where it was before opening, else to `<main>`. Tabs: What · Why · Dependencies · Changes · Rules & claims · Evidence.
 Changes and Evidence are stubs wired to `useRealizationsTouching` / `useModel().verdictOf`.
 Their slices replace them with `registerTab("changes" | "evidence", Component)` from
-`@/inspector/tabRegistry` (any tab id works; the component gets `{ entry }`). Call it at module
+`@/inspector/tabRegistry`. Only the six `InspectorTab` ids are accepted (`what`, `why`,
+`dependencies`, `changes`, `rules`, `evidence`); new tabs need a shell change. The component gets `{ entry }`. Call it at module
 top level in the view module or in a file under `inspector/bodies/`.
 
 **What-tab bodies:** add `inspector/bodies/<Kind>Body.tsx`:
@@ -157,6 +163,11 @@ SideNav has seven links: Overview · Map · Journeys · Theory · Work · Evalua
 
 ## Tests
 
-vitest + Testing Library (jsdom). Import `@/testing/render` and call `renderApp(url, routes?)`.
-It cleans up, stubs `fetch` offline, polyfills cmdk's jsdom gaps and preloads the fixture bundle.
+vitest + Testing Library (jsdom). Import `@/testing/render` and call
+`renderApp(url, routes?, seed?)`. It cleans up, stubs `fetch` offline, polyfills cmdk's jsdom gaps
+and preloads the fixture bundle. `routes` replaces the real route table. `seed(qc)` runs before
+rendering to put more data in the cache, e.g. `qc.setQueryData(qk.evaluations(systemId), { evaluations })`.
+It returns `{ router, qc, ...renderResult }`. Tests may import `@/api/fixtures` directly; app
+code must not import it statically, because `client.ts` loads it with `import()` to keep the
+JSON out of the main chunk.
 Navigation is async under the data router, so wrap URL assertions in `waitFor`.

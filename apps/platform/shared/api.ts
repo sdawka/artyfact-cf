@@ -9,7 +9,8 @@
  * All timestamps are ISO-8601 strings. All routes are under `/api`.
  */
 
-import type { Finding, schema } from "@artyfact/model";
+import type { Finding, Readiness, schema } from "@artyfact/model";
+import type { Commitment, ReviewResult, SemanticDelta } from "@artyfact/semantic";
 
 export type { Finding, Readiness } from "@artyfact/model";
 export type Verdict = schema.Verdict;
@@ -231,13 +232,39 @@ export interface StaleBaseResponse extends ApiError {
   error: { code: "stale-base"; message: string; details: { currentHead: string | null } };
 }
 
+/** One System One review of a changed node (`reviewDelta`): the model proposes, policy decides. */
+export type DeltaReview = ReviewResult;
+
+/**
+ * `GET /api/systems/:id/realizations/:rid/review`: a Genome-targeting candidate with rule findings
+ * (readiness before and after) and System One judgments per changed node.
+ */
+export interface GenomeCandidateReview {
+  delta: SemanticDelta;
+  readinessBase: Readiness;
+  readinessCandidate: Readiness;
+  review: DeltaReview[];
+  evaluations: Evaluation[];
+  /** Commitments the review asked about (statement text for `contradicts.<id>`); optional. */
+  commitments?: Commitment[];
+}
+
 /** `POST /api/systems/:id/accept` for genome-amendment realizations. */
 export interface AcceptRequest {
-  realization: string;
-  rationale: string;
+  /** Canonical names; the backend also accepts `realization` / `rationale`. */
+  realizationId: string;
+  interpretation: string;
 }
 export interface AcceptResponse {
   genomeCommit: CommitHash;
+  realization: Realization;
+}
+
+/** `POST /api/systems/:id/realizations/:rid/reject` (admin): reject a Genome amendment. */
+export interface RejectRequest {
+  reason: string;
+}
+export interface RejectResponse {
   realization: Realization;
 }
 

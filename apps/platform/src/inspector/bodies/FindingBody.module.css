@@ -1,0 +1,11 @@
+.body { display: grid; gap: var(--spacing-2); }
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.message { margin: 0; max-width: 70ch; }
+.level { text-transform: none; }
+.level[data-tone="fail"] { color: var(--verdict-fail); background: var(--verdict-fail-bg); }
+.level[data-tone="subtle"] { color: var(--color-text-subtle); }

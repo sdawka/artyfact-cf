@@ -1,11 +1,10 @@
 import type {
   AcceptRequest, AcceptResponse, ApiError, CandidatesResponse, ConflictReport, EvaluationsResponse,
-  EvolutionsResponse, HistoryResponse, ModelBundle, PacketResponse, PromoteRequest, PromoteResponse,
-  ReadinessReport, Realization, SseEvent, StartWorkRequest, StartWorkResponse, SubmitRequest,
+  EvolutionsResponse, GenomeCandidateReview, HistoryResponse, ModelBundle, PacketResponse, PromoteRequest, PromoteResponse,
+  ReadinessReport, Realization, RejectRequest, RejectResponse, SseEvent, StartWorkRequest, StartWorkResponse, SubmitRequest,
   SubmitResponse, SystemSummary,
 } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
-import { FIXTURE_SYSTEM_ID, fixtureBundle } from "./fixtures";
 
 /** Any non-2xx response. `body` is the parsed {@link ApiError} when the server sent one. */
 export class ApiRequestError extends Error {
@@ -57,6 +56,9 @@ export const paths = {
   startWork: (s: string, e: string) => `/api/systems/${enc(s)}/evolutions/${enc(e)}/realizations`,
   submit: (s: string, r: string) => `/api/systems/${enc(s)}/realizations/${enc(r)}/submit`,
   promote: (s: string) => `/api/systems/${enc(s)}/promote`,
+  amendmentReview: (s: string, e: string, r: string) =>
+    `/api/systems/${enc(s)}/evolutions/${enc(e)}/realizations/${enc(r)}/review`,
+  reject: (s: string, r: string) => `/api/systems/${enc(s)}/realizations/${enc(r)}/reject`,
   accept: (s: string, e: string) => `/api/systems/${enc(s)}/evolutions/${enc(e)}/accept`,
   events: (s: string) => `/api/systems/${enc(s)}/events`,
 };
@@ -91,8 +93,13 @@ const post = <T>(path: string, body: unknown, headers?: Record<string, string>) 
 
 let mode: Promise<{ fixture: boolean; systems: SystemSummary[] }> | undefined;
 
-function fixtureSummary(): SystemSummary {
-  const b = fixtureBundle();
+export const FIXTURE_SYSTEM_ID = "system.keep-in-touch";
+
+/** The fixture JSON is large, so it is a separate chunk loaded only on the fallback path. */
+const fixtureBundle = () => import("./fixtures").then((m) => m.fixtureBundle());
+
+async function fixtureSummary(): Promise<SystemSummary> {
+  const b = await fixtureBundle();
   return {
     systemId: b.systemId,
     title: b.model.system.name,
@@ -108,16 +115,18 @@ function fixtureSummary(): SystemSummary {
 
 function resolveMode() {
   mode ??= request<SystemSummary[] | { systems: SystemSummary[] }>(paths.systems())
-    .then((r) => {
-      const systems = Array.isArray(r) ? r : (r.systems ?? []);
-      if (systems.length) return { fixture: false, systems };
-      console.warn("artyfact: the API has no Systems, showing fixture data");
-      return { fixture: true, systems: [fixtureSummary()] };
-    })
-    .catch((cause: unknown) => {
-      console.warn("artyfact: /api/systems unavailable, showing fixture data", cause);
-      return { fixture: true, systems: [fixtureSummary()] };
-    });
+    .then(
+      async (r) => {
+        const systems = Array.isArray(r) ? r : (r.systems ?? []);
+        if (systems.length) return { fixture: false, systems };
+        console.warn("artyfact: the API has no Systems, showing fixture data");
+        return { fixture: true, systems: [await fixtureSummary()] };
+      },
+      async (cause: unknown) => {
+        console.warn("artyfact: /api/systems unavailable, showing fixture data", cause);
+        return { fixture: true, systems: [await fixtureSummary()] };
+      },
+    );
   return mode;
 }
 
@@ -157,7 +166,7 @@ export async function getModel(systemId: string, rev: string): Promise<UiBundle>
 }
 
 export async function getReadiness(systemId: string, rev: string): Promise<ReadinessReport> {
-  if (await isFixtureMode()) return fixtureBundle().readiness;
+  if (await isFixtureMode()) return (await fixtureBundle()).readiness;
   return request<ReadinessReport>(paths.readiness(systemId, rev));
 }
 
@@ -188,6 +197,11 @@ export async function getPacket(systemId: string, realizationId: string): Promis
   return request<PacketResponse>(paths.packet(systemId, realizationId));
 }
 
+export async function getAmendmentReview(systemId: string, evolutionId: string, realizationId: string): Promise<GenomeCandidateReview> {
+  if (await isFixtureMode()) throw new ApiRequestError(404, "not-found", `No amendment review for ${realizationId} in fixture data`);
+  return request<GenomeCandidateReview>(paths.amendmentReview(systemId, evolutionId, realizationId));
+}
+
 // ---------------------------------------------------------------------------
 // Writes
 // ---------------------------------------------------------------------------
@@ -207,6 +221,11 @@ export const promote = (systemId: string, body: PromoteRequest, adminToken?: str
 export const acceptAmendment = (systemId: string, evolutionId: string, body: AcceptRequest, adminToken?: string) =>
   writeOrThrow("Accept amendment", () =>
     post<AcceptResponse>(paths.accept(systemId, evolutionId), body, adminToken ? { authorization: `Bearer ${adminToken}` } : undefined),
+  );
+
+export const rejectAmendment = (systemId: string, realizationId: string, body: RejectRequest, adminToken?: string) =>
+  writeOrThrow("Reject amendment", () =>
+    post<RejectResponse>(paths.reject(systemId, realizationId), body, adminToken ? { authorization: `Bearer ${adminToken}` } : undefined),
   );
 
 // ---------------------------------------------------------------------------
