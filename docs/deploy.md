@@ -2,6 +2,10 @@
 
 One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything from the repo root unless noted. Use Wrangler: the project has `wrangler.jsonc` and no `cloudflare.config.ts`.
 
+**Prerequisite:** the account must be on Workers Paid; Artifacts is unavailable on Free.
+
+**Status:** first deploy done on 2026-10-12 at https://artyfact-platform.dawka.workers.dev. Queue, DO migration, vars and `ADMIN_TOKEN` are in place. The operator keeps the `ADMIN_TOKEN` plaintext outside the repo; rotate it with `wrangler secret put ADMIN_TOKEN`. The System import is a separate step.
+
 ## Resources
 
 | Resource | Name | Created by |
