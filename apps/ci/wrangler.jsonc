@@ -1,0 +1,26 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // artyfact-ci builds and deploys app commits. The platform starts its Workflow through a cross-script binding
+  // (apps/platform/wrangler.jsonc `workflows[].script_name = "artyfact-ci"`), so there is no push trigger here.
+  "name": "artyfact-ci",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-12",
+  "compatibility_flags": ["nodejs_compat"],
+  // Read tokens for checkout and the cache fingerprint come from this binding (same namespace as the platform).
+  "artifacts": [{ "binding": "ARTIFACTS", "namespace": "artyfact" }],
+  "containers": [{ "class_name": "CiSandbox", "image": "./Dockerfile", "max_instances": 5, "instance_type": "standard-4" }],
+  "durable_objects": { "bindings": [{ "name": "SANDBOX", "class_name": "CiSandbox" }] },
+  "exports": { "CiSandbox": { "type": "durable-object", "storage": "sqlite" } },
+  "workflows": [{ "name": "artyfact-ci", "binding": "CI_WORKFLOW", "class_name": "ArtyfactCI" }],
+  // Workspace snapshots and the install cache. BACKUP_BUCKET_NAME must equal bucket_name.
+  "r2_buckets": [{ "binding": "BACKUP_BUCKET", "bucket_name": "artyfact-ci-cache" }],
+  // Secrets (wrangler secret put): CI_REPORT_TOKEN (same value as the platform's), CF_TOKEN (Workers deploy token,
+  // injected only into the deploy step), R2_ACCESS_KEY_ID and R2_SECRET_ACCESS_KEY (R2 token for the cache bucket).
+  "vars": {
+    "PLATFORM_URL": "https://artyfact-platform.dawka.workers.dev",
+    "WORKERS_SUBDOMAIN": "dawka",
+    "BACKUP_BUCKET_NAME": "artyfact-ci-cache",
+    "CLOUDFLARE_ACCOUNT_ID": "1bae12d5089e4c2ee5c0e62c021a117f"
+  },
+  "observability": { "enabled": true, "logs": { "enabled": true } }
+}
