@@ -3,8 +3,7 @@ import type { ApiError, HealthResponse } from "../shared/api";
 import { ArtifactsUnavailableError, artifactsErrorCode } from "./artifacts/client";
 import { SystemAuthority } from "./do/system-authority";
 import { fromRpc, HttpError } from "./errors";
-import type { QueueContext } from "./hooks/contract";
-import { queueHandler } from "./hooks/index";
+import { queueEntry } from "./hooks/index";
 import type { AppEnv } from "./routes/app";
 import { evaluations } from "./routes/evaluations";
 import { events } from "./routes/events";
@@ -12,7 +11,6 @@ import { evolutions } from "./routes/evolutions";
 import { history } from "./routes/history";
 import { realizations } from "./routes/realizations";
 import { systems } from "./routes/systems";
-import { registryStub, submit, systemForRealization, systemStub } from "./service";
 
 const app = new Hono<AppEnv>();
 
@@ -44,15 +42,6 @@ app.onError((err, c) => {
 
 app.notFound((c) => c.json<ApiError>({ error: { code: "not-found", message: `no route ${c.req.method} ${new URL(c.req.url).pathname}` } }, 404));
 
-function queueContext(env: Env): QueueContext {
-  return {
-    env,
-    resolveFork: (repo) => registryStub(env).resolveFork(repo),
-    submit: async (rid, commit, source, systemId) => submit(env, systemId ?? (await systemForRealization(env, rid)), rid, { commit }, source),
-    markEventSeen: (id, systemId) => (systemId ? systemStub(env, systemId) : registryStub(env)).markEventSeen(id),
-  };
-}
-
 export { SystemAuthority };
 export { app };
 
@@ -60,6 +49,6 @@ export default {
   fetch: app.fetch,
   /** Artifacts push events (`cf.artifacts.repo.pushed`): delegated to the hooks slice's consumer. */
   async queue(batch: MessageBatch, env: Env): Promise<void> {
-    await queueHandler(batch, queueContext(env));
+    await queueEntry(batch, env);
   },
 } satisfies ExportedHandler<Env>;

@@ -6,16 +6,16 @@ import { diffModels, type schema, type SystemModel } from "@artyfact/model";
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  CandidatesResponse, ConflictReport, Evolution, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  CandidatesResponse, ConflictReport, Evaluation, Evolution, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
 } from "../shared/api";
 import { artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, type CandidateManifest } from "./artifacts/candidates";
 import { buildGenome, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
-import { loadSourceMap, type SourceMapEntry } from "./artifacts/source-map";
+import { loadSourceMap, nodesForPath, type SourceMapEntry } from "./artifacts/source-map";
 import { REGISTRY, type SystemAuthority, type EvolutionSeed, type HeadState, type ManifestExtras, type RealizationRecord } from "./do/system-authority";
 import { badRequest, conflict, fromRpc, HttpError, notFound, unprocessable } from "./errors";
-import type { CandidateRef, ModelAtBase, SubmitSource } from "./hooks/contract";
+import type { CandidateRef, Evaluation as HookEvaluation, FileMap, QueueContext, SubmissionContext } from "./hooks/contract";
 import { hookRunner } from "./hooks/index";
 import { readinessReport, serializeModel } from "./model-bundle";
 import { buildTaskPacket, protectedPathsFor, requiredCriteria } from "./packets/task-packet";
@@ -292,74 +292,117 @@ export async function checkpoint(env: Env, systemId: string, rid: string, body: 
 
 // ------------------------------------------------------------------ submit
 
-async function candidateRefs(env: Env, systemId: string, filter: { open?: boolean; evolutionId?: string } = { open: true }): Promise<CandidateRef[]> {
+/** A candidate as stored: DO row + the manifest recorded at submission. */
+interface StoredCandidate extends CandidateManifest {
+  id: string;
+  state: string;
+  pathNodes?: Record<string, string[]>;
+}
+
+async function storedCandidates(env: Env, systemId: string, filter: { open?: boolean; evolutionId?: string } = { open: true }): Promise<StoredCandidate[]> {
   const stub = systemStub(env, systemId);
   const cands = await stub.candidates(filter);
   return Promise.all(cands.map(async (c) => {
-    const m = ((await stub.candidateManifest(c.id)) ?? {}) as Partial<CandidateManifest> & { genomeDelta?: CandidateRef["genomeDelta"] };
+    const m = ((await stub.candidateManifest(c.id)) ?? {}) as Partial<StoredCandidate>;
     return {
       realizationId: c.realization, evolutionId: c.evolution, target: m.target ?? "app", repo: m.repo ?? "", baseRepo: m.baseRepo ?? "",
       baseCommit: m.baseCommit ?? "", commit: c.commit, changedPaths: c.changedPaths, changedNodes: c.changedSubjects,
       diff: m.diff ?? { added: [], modified: [], removed: [] }, ...(m.previewUrl && { previewUrl: m.previewUrl }),
-      ...(m.genomeDelta && { genomeDelta: m.genomeDelta }),
-      id: c.id, state: c.state, submittedAt: c.submittedAt,
+      ...(m.pathNodes && { pathNodes: m.pathNodes }), id: c.id, state: c.state,
     };
   }));
 }
 
-async function baseModel(env: Env, s: HeadState): Promise<ModelAtBase> {
-  const g = await canonicalGenome(env, s);
-  return { genomeCommit: s.genomeCommit, model: g.model, readiness: g.readiness };
+/** Stored candidate → the hooks' CandidateRef (Genome candidates carry their file map from the DO cache). */
+async function hookRef(env: Env, systemId: string, c: StoredCandidate): Promise<CandidateRef> {
+  const genomeFiles = c.target === "genome" ? await systemStub(env, systemId).getModelCache(c.commit, "files") : null;
+  return {
+    id: c.id, realizationId: c.realizationId, evolutionId: c.evolutionId, target: c.target, commit: c.commit, baseCommit: c.baseCommit,
+    changedPaths: c.changedPaths, changedNodes: c.changedNodes, ...(c.pathNodes && { pathNodes: c.pathNodes }),
+    ...(c.previewUrl && { previewUrl: c.previewUrl }), ...(genomeFiles && { genomeFiles: JSON.parse(genomeFiles) as FileMap }),
+  };
+}
+
+async function canonicalFiles(env: Env, s: HeadState): Promise<FileMap> {
+  return Object.fromEntries((await canonicalGenome(env, s)).files);
+}
+
+/** Map the model's Evaluation (hooks) to the wire/storage DTO. `unknown` stays non-green. */
+export function toApiEvaluation(e: HookEvaluation): Evaluation {
+  const execution: Evaluation["execution"] = e.execution === "completed" ? "completed" : e.execution === "error" ? "errored" : "not-run";
+  const verdict: Evaluation["verdict"] = e.verdict === "waived" ? "unknown" : e.verdict;
+  return {
+    id: e.id, candidate: e.candidate, criterion: e.criterion, hook: e.hook, execution, verdict, observations: e.observations,
+    verifier: e.verifier, at: e.finishedAt ?? e.startedAt, ownerId: e.ownerId, subjectId: e.subjectId, targetRef: e.targetRef,
+    startedAt: e.startedAt, ...(e.finishedAt && { finishedAt: e.finishedAt }), ...(e.interpretation && { interpretation: e.interpretation }),
+    limitations: e.limitations,
+    provenance: { ...e.provenance, ...(e.execution !== execution && { execution: e.execution }), ...(e.verdict !== verdict && { verdict: e.verdict }) },
+  };
 }
 
 async function conflictsFor(env: Env, systemId: string, candidateId?: string): Promise<ConflictReport[]> {
   const s = await headState(env, systemId);
-  const open = await candidateRefs(env, systemId);
-  const candidate = candidateId ? open.find((c) => c.id === candidateId) : undefined;
-  if (candidateId && !candidate) return [];
-  return hookRunner(env).conflicts({ env, systemId, base: await baseModel(env, s), ...(candidate && { candidate }), openCandidates: open });
+  const open = await Promise.all((await storedCandidates(env, systemId)).map((c) => hookRef(env, systemId, c)));
+  const subjects = candidateId ? open.filter((c) => c.id === candidateId) : open;
+  if (!subjects.length) return [];
+  const genomeFiles = await canonicalFiles(env, s);
+  const runner = hookRunner(env);
+  const seen = new Set<string>();
+  const out: ConflictReport[] = [];
+  for (const candidate of subjects) {
+    const reports = await runner.conflicts({ systemId, candidate, genomeCommit: s.genomeCommit, genomeFiles, openCandidates: open.filter((c) => c.id !== candidate.id) });
+    for (const r of reports) {
+      const key = `${r.kind}|${[...r.candidates].sort().join(",")}|${[...r.subjects].sort().join(",")}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        out.push(r);
+      }
+    }
+  }
+  return out;
 }
 
 export const conflicts = (env: Env, systemId: string) => conflictsFor(env, systemId);
 
-/** Run hooks for a recorded candidate and store their evaluations. */
-async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: CandidateRef, trigger: "submission" | "promotion") {
+/** Run hooks for a recorded candidate; returns evaluations in wire form and the realization status to set. */
+async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: StoredCandidate, trigger: "submission" | "promotion") {
   const stub = systemStub(env, s.systemId);
-  const base = await baseModel(env, s);
-  const evoDto = await stub.evolution(rec.evolutionId);
-  const evolution = modelEvolution(base.model, evoDto ?? ({ id: rec.evolutionId, acceptanceCriteria: [], affectedNodes: [] } as unknown as Evolution));
-  const critById = new Map(base.model.criteria.map((c) => [c.id, c] as const));
-  const others = (await candidateRefs(env, s.systemId)).filter((c) => c.id !== cand.id);
-  const runner = hookRunner(env);
-  const ns = artifactsFor(env);
-  return withRepo(ns, rec.forkRepo, async (repo) => {
-    const common = {
-      env, systemId: s.systemId, trigger, candidate: cand, realization: rec.realization, evolution, base,
-      acceptanceCriteria: evolution.acceptanceCriteria.map((id) => critById.get(id)).filter((c): c is schema.Criterion => !!c),
-      requiredCriteria: requiredCriteria(base.model, evolution, rec.target),
-      permittedPaths: rec.packet?.permittedPaths ?? [], protectedPaths: rec.packet?.protectedPaths ?? protectedPathsFor(rec.target),
-      sourceMap: rec.target === "app" ? await sourceMapFor(base.model, repo, rec.baseCommit) : [],
-      otherCandidates: others, ...(cand.previewUrl && { previewUrl: cand.previewUrl }), repo,
-    };
-    if (rec.target === "genome") {
-      const [baseFiles, candidateFiles] = await Promise.all([readGenomeFiles(repo, rec.baseCommit), readGenomeFiles(repo, cand.commit)]);
-      const review = await runner.runGenome({ ...common, baseFiles, candidateFiles });
-      return { evaluations: review.evaluations, status: "awaiting-admin" as const };
-    }
-    let listing: Map<string, { hash: string }> | undefined;
-    const files = async () => (listing ??= await listTree(repo, cand.commit));
-    const evaluations = await runner.runSubmission({
-      ...common,
-      listFiles: async () => [...(await files()).keys()],
-      readFile: async (path) => (await (await repo.readFile({ ref: cand.commit, path }))?.text()) ?? null,
-      fileSize: async (path) => {
-        const e = (await files()).get(path);
-        return e ? ((await repo.readBlob(e.hash))?.size ?? null) : null;
-      },
-    });
-    return { evaluations, status: "evaluated" as const };
+  const [genomeFiles, candidate, others] = await Promise.all([
+    canonicalFiles(env, s),
+    hookRef(env, s.systemId, cand),
+    storedCandidates(env, s.systemId).then((xs) => Promise.all(xs.filter((c) => c.id !== cand.id).map((c) => hookRef(env, s.systemId, c)))),
+  ]);
+  const tree = await withRepo(artifactsFor(env), rec.forkRepo, async (repo) => {
+    const listing = await listTree(repo, cand.commit);
+    return Promise.all([...listing].map(async ([path, e]) => ({ path, size: (await repo.readBlob(e.hash))?.size ?? 0 })));
   });
+  let promotionFacts: SubmissionContext["promotionFacts"];
+  if (trigger === "promotion") {
+    const g = await canonicalGenome(env, s);
+    const evoDto = await stub.evolution(rec.evolutionId);
+    const required = requiredCriteria(g.model, modelEvolution(g.model, evoDto!), rec.target);
+    const have = new Set((await stub.evaluations(cand.id)).map((e) => e.criterion));
+    const app = s.manifest ? Object.values(s.manifest.artifacts)[0] : undefined;
+    promotionFacts = {
+      currentBaseCommit: rec.target === "genome" ? s.genomeCommit : (app?.commit ?? s.appSource.commit),
+      manifestExact: true,
+      evidenceFresh: required.every((id) => have.has(id)),
+    };
+  }
+  const ctx: SubmissionContext = {
+    systemId: s.systemId, candidate, genomeCommit: s.genomeCommit, genomeFiles, tree,
+    permittedPaths: rec.packet?.permittedPaths ?? [], protectedPaths: rec.packet?.protectedPaths ?? protectedPathsFor(rec.target),
+    openCandidates: others, ...(promotionFacts && { promotionFacts }),
+  };
+  const runner = hookRunner(env);
+  if (rec.target === "genome") {
+    const r = await runner.runGenome(ctx);
+    return { evaluations: r.evaluations.map(toApiEvaluation), status: "awaiting-admin" as const };
+  }
+  return { evaluations: (await runner.runSubmission(ctx)).map(toApiEvaluation), status: "evaluated" as const };
 }
+
+export type SubmitSource = "cli" | "event" | "sync" | "ui";
 
 export async function submit(
   env: Env, systemId: string, rid: string, body: { commit?: unknown; previewUrl?: unknown }, source: SubmitSource,
@@ -379,7 +422,9 @@ export async function submit(
       const input = { realizationId: rid, evolutionId: rec.evolutionId, target: rec.target, repo: rec.forkRepo, baseRepo: rec.baseRepo, baseCommit: rec.baseCommit, commit, ...(previewUrl && { previewUrl }) };
       if (rec.target === "app") {
         const base = await canonicalGenome(env, s);
-        return { ...(await buildCandidateManifest(repo, input, await sourceMapFor(base.model, repo, rec.baseCommit))) };
+        const sm = await sourceMapFor(base.model, repo, rec.baseCommit);
+        const m = await buildCandidateManifest(repo, input, sm);
+        return { ...m, pathNodes: Object.fromEntries(m.changedPaths.map((p) => [p, nodesForPath(sm, p).filter((n) => !n.startsWith("unmapped:"))])) };
       }
       // Genome realization: changed nodes are the semantic delta's ids.
       const m = await buildCandidateManifest(repo, input, []);
@@ -397,14 +442,14 @@ export async function submit(
     });
     const out = await rpc(stub.recordCandidate({ realizationId: rid, commit, manifest, changedPaths: manifest.changedPaths, changedNodes: manifest.changedNodes }));
     if (out.created) {
-      const ref = (await candidateRefs(env, systemId, { evolutionId: rec.evolutionId })).find((c) => c.id === out.candidate.id)!;
+      const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((c) => c.id === out.candidate.id)!;
       const { evaluations, status } = await evaluate(env, s, rec, ref, "submission");
       await stub.recordEvaluations(out.candidate.id, evaluations, status);
     }
     existing = out.candidate;
   } else if ((await stub.evaluations(existing.id)).length === 0 && rec.realization.status === "evaluating") {
     // A retry after hooks failed mid-way: run them again.
-    const ref = (await candidateRefs(env, systemId, { evolutionId: rec.evolutionId })).find((c) => c.id === existing!.id)!;
+    const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((c) => c.id === existing!.id)!;
     const { evaluations, status } = await evaluate(env, s, rec, ref, "submission");
     await stub.recordEvaluations(existing.id, evaluations, status);
   } else {
@@ -465,7 +510,7 @@ export async function promote(
     required[id] = requiredCriteria(g.model, evolution, rec.target);
     // Revalidate on the exact commit before the CAS (exists + scope, per hooks with a promotion trigger).
     if (["submitted", "evaluated", "selected"].includes(c.state) && s.head === body.expectedHead) {
-      const ref = (await candidateRefs(env, systemId, { evolutionId: rec.evolutionId })).find((x) => x.id === id)!;
+      const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((x) => x.id === id)!;
       const { evaluations } = await evaluate(env, s, rec, ref, "promotion");
       if (evaluations.length) await stub.recordEvaluations(id, evaluations);
     }
@@ -516,4 +561,16 @@ export async function systemForRealization(env: Env, rid: string): Promise<strin
   const hit = await registryStub(env).resolveRealization(rid);
   if (!hit) throw notFound(`unknown realization ${rid}`);
   return hit.systemId;
+}
+
+/** Queue consumer callbacks for the hooks slice's `createQueueHandler(queueContextFor)`. */
+export function queueContextFor(env: Env): QueueContext {
+  return {
+    async resolveFork(namespace, repoName) {
+      if (namespace !== env.ARTIFACTS_NAMESPACE) return null;
+      return (await registryStub(env).resolveFork(repoName))?.realizationId ?? null;
+    },
+    submit: async (rid, commit, source) => submit(env, await systemForRealization(env, rid), rid, { commit }, source),
+    markEventSeen: (id) => registryStub(env).markEventSeen(id),
+  };
 }

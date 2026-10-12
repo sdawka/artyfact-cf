@@ -1,112 +1,136 @@
 /**
- * Contract between the backend core (slice 1.2) and the hook engines + queue consumer (slice 1.3).
- * Interfaces only. The wiring lives in `./index.ts`; implementations in `./run.ts` / `./queue.ts`.
+ * HookRunner contract between the SystemAuthority DO / routes (slice 1.2) and the hook engines (slice 1.3).
  *
- * All contexts are built by the Worker (routes or queue), never inside the Durable Object, so hooks
- * may read Artifacts through `repo` and run `@artyfact/model` / `@artyfact/rules` directly.
+ * Every context is plain, JSON-serialisable data: the caller reads Artifacts (trees, Genome files) and passes the
+ * result in. The engines never touch the ARTIFACTS binding. Engine dependencies that are not data (System One
+ * provider, fetch, clock) are given once to `createHookRunner()` in `run.ts`, not per call.
+ *
+ * Evaluation is the `@artyfact/model` schema type (execution: not-run | queued | running | completed | deferred |
+ * error; verdict: pass | fail | unknown | stale | waived). `unknown` is never green; a hook that throws records
+ * `execution: "error"` with the message in `observations`.
  */
-import type { Readiness, SemanticDelta, SystemModel, schema } from "@artyfact/model";
-import type { ConflictReport, Evaluation, Realization, SubmitResponse } from "../../shared/api";
-import type { ArtifactsRepoLike } from "../artifacts/client";
-import type { CandidateManifest } from "../artifacts/candidates";
-import type { SourceMapEntry } from "../artifacts/source-map";
+import type { Readiness, SemanticDelta, schema } from "@artyfact/model";
+import type { InterferenceResult, Level, PurposeMeasureResult, ReviewResult, SemanticChange, TopologyResult, Verdict } from "@artyfact/semantic";
+import type { ConflictReport as ApiConflictReport } from "../../shared/api";
 
-export type { CandidateManifest };
+export type Evaluation = schema.Evaluation;
 
-/** A candidate as hooks see it: the manifest plus its platform id and current state. */
-export interface CandidateRef extends CandidateManifest {
+/** Plain file map: repo-relative path → UTF-8 content. */
+export type FileMap = Record<string, string>;
+
+/** One blob in the candidate's tree at `commit`. */
+export interface TreeEntry {
+  path: string;
+  /** Size in bytes. */
+  size: number;
+}
+
+/** A submitted candidate, as stored by the DO. */
+export interface CandidateRef {
   id: string;
-  state: "submitted" | "evaluated" | "selected" | "promoted" | "rejected";
-  submittedAt: string;
-  /** Genome realizations: delta of the candidate Genome vs base, when it loaded. */
-  genomeDelta?: SemanticDelta;
+  realizationId: string;
+  evolutionId: string;
+  /** `app` forks the app repo; `genome` forks the Genome repo (amendment). */
+  target: "app" | "genome";
+  commit: string;
+  baseCommit: string;
+  /** Repo-relative paths changed vs `baseCommit` (added, modified and removed). */
+  changedPaths: string[];
+  /** Model node ids via source-map; `unmapped:<path>` for misses. */
+  changedNodes: string[];
+  /**
+   * Source-map result per changed path (path → node ids; `[]` or absent = unmapped). When present, scope uses it
+   * per path; when absent, scope falls back to `changedNodes` and is `unknown` if that is empty.
+   */
+  pathNodes?: Record<string, string[]>;
+  previewUrl?: string;
+  /**
+   * `target: "genome"` only: the full Genome file map at `commit`. Paths are Genome-relative (`system.yaml`,
+   * `things/webapp/ontology.yaml`); a `system/` prefix is accepted and stripped.
+   */
+  genomeFiles?: FileMap;
 }
 
-/** Canonical model at the candidate's base Genome commit. */
-export interface ModelAtBase {
-  genomeCommit: string;
-  model: SystemModel;
-  readiness: Readiness;
-}
-
-interface BaseContext {
-  env: Env;
+/** Input to `runSubmission`, `runGenome` and `conflicts`. */
+export interface SubmissionContext {
   systemId: string;
-  /** Promotion revalidation sets `promotion`; normal submission uses `submission`. */
-  trigger: "submission" | "promotion";
   candidate: CandidateRef;
-  realization: Realization;
-  evolution: schema.Evolution;
-  base: ModelAtBase;
-  /** Evolution acceptance criteria resolved against `base.model` (missing ids dropped). */
-  acceptanceCriteria: schema.Criterion[];
-  /** Criteria that must be pass+completed before promotion (computed by the backend). */
-  requiredCriteria: string[];
-  /** From the Task Packet: what the realization may and may not touch. */
+  /** Canonical Genome commit the candidate is based on, and its full file map. Criteria and hooks come from here. */
+  genomeCommit: string;
+  genomeFiles: FileMap;
+  /** Blobs in the candidate tree at `candidate.commit` (manifest engine). */
+  tree: TreeEntry[];
+  /** Globs from the Task Packet (picomatch, `dot: true`). */
   permittedPaths: string[];
   protectedPaths: string[];
-  sourceMap: SourceMapEntry[];
-  /** Other open (submitted/evaluated) candidates in the same System, newest first. */
-  otherCandidates: CandidateRef[];
-  previewUrl?: string;
-  /** The fork, for reading the candidate tree (e.g. required files). Valid only during the call. */
-  repo: ArtifactsRepoLike;
-}
-
-/** App realizations: evaluate a candidate commit of the app fork. */
-export interface SubmissionContext extends BaseContext {
-  /** All blob paths at the candidate commit (repo-relative). */
-  listFiles(): Promise<string[]>;
-  /** File text at the candidate commit, or null if absent. */
-  readFile(path: string): Promise<string | null>;
-  /** Byte size of a file at the candidate commit, or null if absent. */
-  fileSize(path: string): Promise<number | null>;
-}
-
-/** Genome realizations: evaluate a candidate commit of the Genome fork. */
-export interface GenomeContext extends BaseContext {
-  /** Genome YAML files (path relative to the Genome root) at base and at the candidate commit. */
-  baseFiles: Map<string, string>;
-  candidateFiles: Map<string, string>;
-}
-
-export interface GenomeReview {
-  readiness: Readiness | null;
-  /** Review signals for the Genome candidate (e.g. System One `reviewDelta`). Opaque to the backend. */
-  review: unknown[];
-  evaluations: Evaluation[];
-  /** Candidate model delta vs base, if computed. */
-  delta?: SemanticDelta;
-}
-
-export interface ConflictContext {
-  env: Env;
-  systemId: string;
-  base: ModelAtBase;
-  /** When set, report conflicts involving this candidate only; otherwise all pairs. */
-  candidate?: CandidateRef;
+  /** Other open (submitted, not promoted/rejected) candidates of the same System, excluding `candidate`. */
   openCandidates: CandidateRef[];
+  /**
+   * Facts only the DO knows, for `inputs.check` items on promotion hooks (C.system.promotion). Omit at submission:
+   * the matching checks are then `not-run` and the criterion stays `unknown`. Supply at promotion revalidation.
+   */
+  promotionFacts?: PromotionFacts;
+}
+
+export interface PromotionFacts {
+  /** Current head commit of the candidate's target repo in the System manifest; `base-current` = equals candidate.baseCommit. */
+  currentBaseCommit?: string;
+  /** `manifest-exact`: the composed manifest to promote binds exactly this candidate's commit(s). */
+  manifestExact?: boolean;
+  /** `evidence-fresh`: every required evaluation was produced for this candidate at this commit. */
+  evidenceFresh?: boolean;
+}
+
+export type GenomeContext = SubmissionContext;
+export type ConflictContext = Pick<SubmissionContext, "systemId" | "candidate" | "genomeCommit" | "genomeFiles" | "openCandidates">;
+
+/**
+ * A conflict between candidates. Extends the wire DTO (`subjects` = nodes ∪ paths) with the split lists.
+ * `semantic` carries the System One interference judgment for the pair, when it ran.
+ */
+export interface ConflictReport extends ApiConflictReport {
+  nodes: string[];
+  paths: string[];
+  semantic?: InterferenceResult;
+  /** Set when overlap could not be fully determined (a Genome that does not load, a composition check that threw). */
+  error?: string;
+}
+
+/** One System One signal on a Genome candidate, for the admin review queue. Never a gate by itself. */
+export interface DeltaReview {
+  /** Node, claim or other model id the signal is about. */
+  subject: string;
+  judgment: "reviewDelta" | "topology" | "purposeMeasures";
+  level: Level;
+  verdict: Verdict;
+  /** reviewDelta only: the change as sent to System One. */
+  change?: SemanticChange;
+  signals: ReviewResult | TopologyResult | PurposeMeasureResult;
+}
+
+export interface GenomeResult {
+  readiness: Readiness;
+  review: DeltaReview[];
+  evaluations: Evaluation[];
 }
 
 export interface HookRunner {
+  /** Selects the candidate's hooks (see run.ts) and returns one Evaluation per (hook, criterion), never missing a required one. */
   runSubmission(ctx: SubmissionContext): Promise<Evaluation[]>;
-  runGenome(ctx: GenomeContext): Promise<GenomeReview>;
+  /** Genome realizations: rules on the fork (Readiness), System One review of the delta, plus runSubmission's evaluations. */
+  runGenome(ctx: GenomeContext): Promise<GenomeResult>;
+  /** File / soft-semantic / hard-semantic conflicts between `candidate` and each open candidate. */
   conflicts(ctx: ConflictContext): Promise<ConflictReport[]>;
 }
 
-export type HookRunnerFactory = (env: Env) => HookRunner;
-
-export type SubmitSource = "cli" | "event" | "sync" | "ui";
-
-/** What the queue consumer gets per batch. */
+/** Queue consumer callbacks (queue.ts). */
 export interface QueueContext {
-  env: Env;
-  /** Fork repo name → owning realization, or null for repos the platform did not create. */
-  resolveFork(repo: string): Promise<{ systemId: string; realizationId: string } | null>;
-  /** Submit `commit` for a realization; idempotent on (realization, commit). */
-  submit(realizationId: string, commit: string, source: SubmitSource, systemId?: string): Promise<SubmitResponse>;
-  /** Record an event id; resolves false if it was already seen (skip it). */
-  markEventSeen(id: string, systemId?: string): Promise<boolean>;
+  /** Realization id owning the Artifacts repo `repoName` (a fork), or null when the repo is not a known fork. */
+  resolveFork(namespace: string, repoName: string): Promise<string | null>;
+  /** DO submit, idempotent on (realization, commit). */
+  submit(realizationId: string, commit: string, source: "event"): Promise<unknown>;
+  /** Records `id` in events_seen; true when it was new. */
+  markEventSeen(id: string): Promise<boolean>;
 }
 
-export type QueueHandler = (batch: MessageBatch<unknown>, ctx: QueueContext) => Promise<void>;
+export type { SemanticDelta };

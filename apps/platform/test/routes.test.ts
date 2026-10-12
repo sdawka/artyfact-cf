@@ -5,8 +5,8 @@ import type {
   StartWorkResponse, SubmitResponse, SystemsResponse, HistoryResponse, WorkResponse, ReadinessResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
-import type { HookRunner, SubmissionContext } from "../worker/hooks/contract";
-import { resetHooks, setHooks } from "../worker/hooks/index";
+import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../worker/hooks/contract";
+import { noopHookRunner, resetHooks, setHooks } from "../worker/hooks/index";
 import { appFiles, genomeFiles } from "./fixtures/genome";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 
@@ -34,18 +34,21 @@ function setup() {
 }
 
 const seen: SubmissionContext[] = [];
+const REQUIRED = ["C.people.list", "C.system.promotion", "C.webapp.exists"];
+const hookEval = (ctx: SubmissionContext, criterion: string, execution: HookEvaluation["execution"], verdict: HookEvaluation["verdict"]): HookEvaluation => ({
+  id: `${ctx.candidate.id}:hook:${criterion}`, candidate: ctx.candidate.id, hook: `hook:${criterion}`, criterion, ownerId: "o", subjectId: "s",
+  targetRef: ctx.candidate.commit, execution, verdict, verifier: "artyfact-platform", startedAt: new Date().toISOString(),
+  observations: [{ promotion: !!ctx.promotionFacts }], limitations: [], provenance: {},
+});
 const passing: HookRunner = {
   async runSubmission(ctx) {
     seen.push(ctx);
-    return ctx.requiredCriteria.map((criterion): Evaluation => ({
-      id: "", candidate: ctx.candidate.id, criterion, hook: `hook:${criterion}`, execution: "completed", verdict: "pass",
-      observations: { trigger: ctx.trigger }, verifier: "artyfact-platform", at: new Date().toISOString(),
-    }));
+    return REQUIRED.map((c) => hookEval(ctx, c, "completed", "pass"));
   },
-  async runGenome() { return { readiness: null, review: [], evaluations: [] }; },
+  async runGenome(ctx) { return { ...(await noopHookRunner.runGenome(ctx)) }; },
   async conflicts(ctx) {
-    return ctx.candidate && ctx.openCandidates.length > 1
-      ? [{ kind: "soft-semantic", candidates: ctx.openCandidates.map((c) => c.id), subjects: ["screen.people"], message: "both touch screen.people" }]
+    return ctx.openCandidates.length
+      ? [{ kind: "soft-semantic", candidates: [ctx.candidate.id, ...ctx.openCandidates.map((c) => c.id)].sort(), subjects: ["screen.people"], nodes: ["screen.people"], paths: [], message: "both touch screen.people" }]
       : [];
   },
 };
@@ -117,9 +120,11 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(sub.json.candidate.changedSubjects.sort()).toEqual(["component.AddContactDialog", "screen.people", "section.ui"]);
     expect(sub.json.evaluations.map((e) => e.criterion).sort()).toEqual(["C.people.list", "C.system.promotion", "C.webapp.exists"]);
     expect(sub.json.realization.status).toBe("evaluated");
-    expect(seen[0].acceptanceCriteria.map((c) => c.id)).toEqual(["C.people.list", "C.people.later"]);
-    expect(await seen[0].listFiles()).toContain("src/ui/people/list.ts");
-    expect(await seen[0].fileSize("src/ui/people/list.ts")).toBe(22);
+    expect(seen[0].tree).toContainEqual({ path: "src/ui/people/list.ts", size: 22 });
+    expect(seen[0].candidate.pathNodes!["src/ui/people/list.ts"].sort()).toEqual(["component.AddContactDialog", "screen.people", "section.ui"]);
+    expect(seen[0].genomeFiles["system.yaml"]).toContain(systemId);
+    expect(seen[0].permittedPaths.sort()).toEqual(["src/ui/**", "src/ui/people/**"]);
+    expect(seen[0].promotionFacts).toBeUndefined();
 
     // Same commit again: one candidate.
     const again = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${rid}/submit`, { commit });
@@ -138,7 +143,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(promoted.status, JSON.stringify(promoted.json)).toBe(200);
     expect(promoted.json.commit.parent).toBe(imp.head);
     expect(promoted.json.commit.manifest.artifacts["artifact.webapp"]).toEqual({ repo: `${appRepo}--r1`, commit });
-    expect(seen.some((c) => c.trigger === "promotion")).toBe(true);
+    expect(seen.at(-1)!.promotionFacts).toEqual({ currentBaseCommit: imp.appCommit, manifestExact: true, evidenceFresh: true });
 
     // Replaying the same promotion is stale.
     const stale = await call<ApiError>("POST", `/systems/${systemId}/promote`, body, ADMIN);
@@ -177,9 +182,7 @@ describe("routes: import → model → start → submit → promote", () => {
 
   it("blocks promotion when required criteria are not pass+completed", async () => {
     const { ns, systemId, appRepo, imp } = await imported();
-    setHooks({ runner: () => ({ ...passing, async runSubmission(ctx) {
-      return [{ id: "", candidate: ctx.candidate.id, criterion: "C.people.list", hook: "hook.people.list", execution: "not-run", verdict: "unknown", observations: null, verifier: "artyfact-platform", at: new Date().toISOString() }];
-    } }) });
+    setHooks({ runner: () => ({ ...passing, async runSubmission(ctx) { return [hookEval(ctx, "C.people.list", "not-run", "unknown")]; } }) });
     const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
     const c = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" });
     const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c });
