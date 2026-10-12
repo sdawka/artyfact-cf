@@ -47,6 +47,8 @@ Further conventions: `entityField(Entity, Name, Type)` carries the raw YAML type
 
 `kits.yaml` is `{ kits, rulePacks, required }`; call `packsFor(model.kits.rulePacks)`. `template.sectionMissing` keys on the Thing's declared `sections`; `template.criterionMissing` only fires when an instance overrides a template criterion with a different owner.
 
+`topology.private-pairs@1` rules: `topology.recipientArray`, `topology.groupEnabled`, `topology.pairCardinality`, `topology.multiRecipient`. The pack derives `outgoingDirect/1` (an operation that writes an entity with an `ref:entity.Account` field, or an affordance invoking one) from `node`, `link` and `entityField`; `recipientArray` fires when such a node has `cardinality: many`.
+
 ## Tests
 
-Packs run on the real `@artyfact/rules` engine. `src/schema.ts` is a local copy of the `Template` schema, to be replaced by the `@artyfact/model` one. A test regenerates the bundle and fails if `src/generated/files.ts` is stale.
+Packs run on the real `@artyfact/rules` engine. The `Template` schema comes from `@artyfact/model` (which must not depend on this package). A test regenerates the bundle and fails if `src/generated/files.ts` is stale.

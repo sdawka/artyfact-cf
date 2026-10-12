@@ -1,8 +1,9 @@
 import { parse as parseYaml } from "yaml";
 import { files } from "./generated/files";
-import { Template } from "./schema";
+import { schema } from "@artyfact/model";
 
-export type { Template } from "./schema";
+const { Template } = schema;
+export type Template = schema.Template;
 
 export interface TemplateStore {
   get(ref: string): Template | undefined;
