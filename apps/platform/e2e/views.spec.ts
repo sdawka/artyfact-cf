@@ -123,4 +123,11 @@ test.describe("views", () => {
     expect(await successToneElements(page)).toEqual([]);
     await checkA11yAndShoot(page, testInfo, "evaluations-empty");
   });
+
+  test("deployments: empty state says unknown and nothing is green", async ({ page }, testInfo) => {
+    await open(page, "/phenome", "Deployments");
+    await expect(page.getByText(/No deployments recorded/)).toContainText("unknown");
+    expect(await successToneElements(page)).toEqual([]);
+    await checkA11yAndShoot(page, testInfo, "deployments");
+  });
 });
