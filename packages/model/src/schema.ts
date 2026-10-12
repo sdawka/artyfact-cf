@@ -343,6 +343,8 @@ export const Evaluation = z.object({
   interpretation: str.optional(),
   limitations: strs,
   provenance: z.record(z.string(), z.string()).default({}),
+  /** Why an `error` execution failed (hooks contract). */
+  error: str.optional(),
 });
 export type Evaluation = z.infer<typeof Evaluation>;
 
