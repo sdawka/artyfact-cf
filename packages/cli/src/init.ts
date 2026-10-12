@@ -331,9 +331,11 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const hasApp = existsSync(join(appDir, "package.json")) || (existsSync(appDir) && readdirSync(appDir).length > 0);
   if (hasApp && fromTemplate) throw new CliError(`--from-template seeds a project without an app, but ${appDir} exists`);
   io.out(`${systemId} -> ${names.genomeRepo}, ${names.appRepo} (namespace ${ns})`);
+  // Resolved before anything is pushed: without an explicit URL or a local platform that identifies itself, stop here.
+  const platformUrl = await resolvePlatform(values.platform as string | undefined, io.env, io.fetch ?? fetch, io.err);
 
   const cloud = connect(io, ns);
-  return withAccountScrubbed(cloud, () => initWith(io, values, { project, genomeDir, appDir, hasApp, fromTemplate, ns, systemId, names, cloud }));
+  return withAccountScrubbed(cloud, () => initWith(io, { project, genomeDir, appDir, hasApp, fromTemplate, ns, systemId, names, cloud, platformUrl, force: values.force === true, adopt: values.adopt === true }));
 }
 
 /** CLI errors name the account by its prefix only (git and wrangler failures can echo remote URLs holding the id). */
@@ -349,11 +351,11 @@ async function withAccountScrubbed<T>(cloud: Cloud, fn: () => Promise<T>): Promi
 
 interface InitPlan {
   project: string; genomeDir: string; appDir: string; hasApp: boolean; fromTemplate: string | undefined; ns: string; systemId: string;
-  names: ReturnType<typeof systemRepoNames>; cloud: Cloud;
+  names: ReturnType<typeof systemRepoNames>; cloud: Cloud; platformUrl: string; force: boolean; adopt: boolean;
 }
 
-async function initWith(io: InitIo, values: Record<string, unknown>, plan: InitPlan): Promise<number> {
-  const { project, genomeDir, appDir, hasApp, fromTemplate, ns, systemId, names, cloud } = plan;
+async function initWith(io: InitIo, plan: InitPlan): Promise<number> {
+  const { project, genomeDir, appDir, hasApp, fromTemplate, ns, systemId, names, cloud, platformUrl, force, adopt } = plan;
   const stateFile = stateFileFor(io, project);
   const state = readState(stateFile);
   const key = `${cloud.remote(ns, "").replace(/\.git$/, "")}`;
@@ -362,13 +364,13 @@ async function initWith(io: InitIo, values: Record<string, unknown>, plan: InitP
     initPlatform(ctx);
 
     ensureRepo(io, cloud, ns, names.genomeRepo);
-    const genome = pushTree(ctx, names.genomeRepo, genomeDir, `Import ${systemId} Genome`, { adopt: values.adopt === true });
+    const genome = pushTree(ctx, names.genomeRepo, genomeDir, `Import ${systemId} Genome`, { adopt });
     io.out(`${names.genomeRepo}: ${genome.action} at ${genome.head.slice(0, 12)}`);
 
     let scaffoldFrom: { repo: string; commit: string; path?: string } | undefined;
     if (hasApp) {
       ensureRepo(io, cloud, ns, names.appRepo);
-      const app = pushTree(ctx, names.appRepo, appDir, `Import ${systemId} app`, { adopt: values.adopt === true });
+      const app = pushTree(ctx, names.appRepo, appDir, `Import ${systemId} app`, { adopt });
       io.out(`${names.appRepo}: ${app.action} at ${app.head.slice(0, 12)}`);
     } else if (fromTemplate) {
       scaffoldFrom = await seedFromTemplate(ctx, fromTemplate, names.appRepo);
@@ -379,8 +381,7 @@ async function initWith(io: InitIo, values: Record<string, unknown>, plan: InitP
       io.out(`${names.appRepo}: no local app; using its head ${head.slice(0, 12)}`);
     }
 
-    const platformUrl = await resolvePlatform(values.platform as string | undefined, io.env, io.fetch ?? fetch, io.err);
-    return await importIntoPlatform(io, platformUrl, { systemId, genomeRepo: names.genomeRepo, appRepo: names.appRepo, ...(scaffoldFrom && { scaffoldFrom }) }, values.force === true);
+    return await importIntoPlatform(io, platformUrl, { systemId, genomeRepo: names.genomeRepo, appRepo: names.appRepo, ...(scaffoldFrom && { scaffoldFrom }) }, force);
   } finally {
     writeState(stateFile, state);
   }

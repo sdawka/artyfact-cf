@@ -139,15 +139,19 @@ describe("account confirmation", () => {
     expect(() => bad.account()).toThrow(/different accounts/);
   });
 
-  it("decides namespace existence by get, else by create; an empty repo list is never proof", () => {
+  it("decides namespace existence by get, else by create confirmed with list; an empty repo list is never proof", () => {
     const who = JSON.stringify({ accounts: [{ id: ACCOUNT }] });
-    const cloudWith = (create: { status: number; stderr: string }) => {
+    const listed = JSON.stringify([{ namespace: "artyfact", jurisdiction: "unrestricted", repo_count: 16 }]);
+    // The real cf answer for an existing namespace (captured live).
+    const exists409 = `\n┌ APIError\n│ [10201] Namespace already exists\n│ 409 Conflict · HTTP /accounts/${ACCOUNT}/artifacts/namespaces\n└\n`;
+    const cloudWith = (create: { status: number; stderr: string }, list = listed) => {
       const argvs: string[][] = [];
       const c = cloudCli((cmd, args) => {
         argvs.push([cmd, ...args]);
         if (args.includes("whoami")) return { status: 0, stdout: who, stderr: "" };
         if (args.includes("get")) return { status: 1, stdout: "", stderr: "Access denied [code: 10004]" };
-        // A missing namespace lists as an empty array: must not count as "exists".
+        if (cmd === "cf" && args[2] === "list") return { status: 0, stdout: list, stderr: "" };
+        // A missing namespace's repos list as an empty array: never consulted.
         if (args.includes("list")) return { status: 0, stdout: "[]", stderr: "" };
         if (args.includes("create")) return { ...create, stdout: "" };
         return { status: 0, stdout: "{}", stderr: "" };
@@ -155,13 +159,22 @@ describe("account confirmation", () => {
       c.account();
       return { c, argvs };
     };
-    const fresh = cloudWith({ status: 0, stderr: "" });
+    const fresh = cloudWith({ status: 0, stderr: "" }, "[]");
     expect(fresh.c.ensureNamespace("brand-new")).toBe("created");
-    expect(fresh.argvs).toContainEqual(["cf", "artifacts", "namespaces", "create", "--namespace", "brand-new"]);
-    expect(cloudWith({ status: 1, stderr: "APIError [409] namespace already exists" }).c.ensureNamespace("artyfact")).toBe("exists");
-    const denied = cloudWith({ status: 1, stderr: `401 Unauthorized · HTTP /accounts/${ACCOUNT}/artifacts/namespaces` });
+    expect(fresh.argvs).toContainEqual(["cf", "artifacts", "namespaces", "create", "--body", JSON.stringify({ namespace: "brand-new" })]);
+    expect(fresh.argvs.some((a) => a[0] === "npx" && a.includes("list"))).toBe(false);
+
+    const existing = cloudWith({ status: 1, stderr: exists409 });
+    expect(existing.c.ensureNamespace("artyfact")).toBe("exists");
+    expect(existing.argvs).toContainEqual(["cf", "artifacts", "namespaces", "list"]);
+    // 10201 but not listed: refuse rather than guess.
+    expect(() => cloudWith({ status: 1, stderr: exists409 }, "[]").c.ensureNamespace("artyfact")).toThrow(/says it exists, but .* list does not show it/);
+
+    const denied = cloudWith({ status: 1, stderr: `401 Unauthorized · HTTP /accounts/${ACCOUNT}/artifacts/namespaces` }, "[]");
     expect(() => denied.c.ensureNamespace("artyfact")).toThrow(/cf artifacts namespaces create artyfact failed: 401 Unauthorized · HTTP \/accounts\/01234567…\/artifacts/);
     try { denied.c.ensureNamespace("artyfact"); } catch (e) { expect((e as Error).message).not.toContain(ACCOUNT); }
+    // A failed create of a namespace that is listed (e.g. a transient error) still counts as exists.
+    expect(cloudWith({ status: 1, stderr: "502 Bad Gateway" }).c.ensureNamespace("artyfact")).toBe("exists");
   });
 });
 
@@ -298,14 +311,14 @@ describe("artyfact init --from-template", { timeout: 60_000 }, () => {
   it("seeds <slug>.app from the platform scaffold subtree and records scaffoldFrom", async () => {
     const lc = localCloud(join(tmp, "cloud-tpl"));
     const dir = project("tpl-proj", false);
-    writeFileSync(join(dir, "system", "system.yaml"), readFileSync(join(dir, "system", "system.yaml"), "utf8").replace("id: system.keep-in-touch", "id: system.Fresh_App"));
+    writeFileSync(join(dir, "system", "system.yaml"), readFileSync(join(dir, "system", "system.yaml"), "utf8").replace("id: system.keep-in-touch", "id: system.fresh_app"));
     const p = mockPlatform();
     const r = await run(["init", "--dir", dir, "--from-template", "template.thing.cloudflare-worker-webapp@1"], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
     expect(r.code, r.err).toBe(0);
     const platformHead = headOf(lc.path("artyfact", "platform"));
     const path = "templates/thing/cloudflare-worker-webapp@1/scaffold";
     expect(p.requests[0]!.body).toEqual({
-      systemId: "system.Fresh_App", genomeRepo: "fresh_app.genome", appRepo: "fresh_app.app", force: false,
+      systemId: "system.fresh_app", genomeRepo: "fresh_app.genome", appRepo: "fresh_app.app", force: false,
       scaffoldFrom: { repo: "platform", commit: platformHead, path },
     });
     expect(filesAt(lc.path("artyfact", "fresh_app.app"))).toEqual(filesAt(lc.path("artyfact", "platform")).filter((f) => f.startsWith(`${path}/`)).map((f) => f.slice(path.length + 1)));
@@ -316,7 +329,7 @@ describe("artyfact init --from-template", { timeout: 60_000 }, () => {
     const plain = await run(["init", "--dir", dir, "--force"], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
     expect(plain.code, plain.err).toBe(0);
     expect(plain.out).toContain(`fresh_app.app: no local app; using its head ${headOf(lc.path("artyfact", "fresh_app.app")).slice(0, 12)}`);
-    expect(p.requests[2]!.body).toEqual({ systemId: "system.Fresh_App", genomeRepo: "fresh_app.genome", appRepo: "fresh_app.app", force: true });
+    expect(p.requests[2]!.body).toEqual({ systemId: "system.fresh_app", genomeRepo: "fresh_app.genome", appRepo: "fresh_app.app", force: true });
     noTokenLeaks(lc.tokens, r.out, r.err, again.out, plain.out);
   });
 
@@ -449,6 +462,31 @@ describe("security", { timeout: 60_000 }, () => {
     expect(p.requests.map((q) => q.url)).toEqual(["http://localhost:1339/api/systems/import", "http://127.0.0.1:1339/api/systems/import"]);
   });
 
+  it("never sends a credential to a local server that did not identify itself as artyfact", async () => {
+    const lc = localCloud(join(tmp, "cloud-sec-foreign"));
+    const dir = project("sec-foreign");
+    const authed: string[] = [];
+    // Port 1337 serves some other app with 200; nothing else listens.
+    const foreign = (async (input: string | URL | Request, init?: RequestInit) => {
+      const url = new URL(String(input));
+      if (new Headers(init?.headers).get("authorization")) authed.push(url.href);
+      if (url.port === "1337") return new Response("<html>other app</html>", { status: 200 });
+      throw new TypeError("fetch failed: ECONNREFUSED");
+    }) as typeof fetch;
+    const r = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: foreign, env: { ARTYFACT_URL: "", ARTYFACT_ADMIN_TOKEN: "adm-tok" } });
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("no artyfact platform found on localhost:1337–1346");
+    expect(authed).toEqual([]);
+    // Stopped before anything was pushed.
+    expect(existsSync(lc.path("artyfact", "keep-in-touch.genome"))).toBe(false);
+
+    const s = await run(["start", "realization.1.r1", "--dir", join(tmp, "sec-foreign-ws"), "--system", "system.keep-in-touch", "--evolution", "evolution.1"],
+      { cloud: lc.cloud, fetch: foreign, env: { ARTYFACT_URL: "", ARTYFACT_SECRET: "ab".repeat(32), ARTYFACT_TOKEN: "art_v1_x" } });
+    expect(s.code).toBe(1);
+    expect(s.err).toContain("no artyfact platform found on localhost:1337–1346");
+    expect(authed).toEqual([]);
+  });
+
   it("refuses a default project dir that resolves outside --dir", async () => {
     const lc = localCloud(join(tmp, "cloud-sec-out"));
     const outside = project("sec-outside");
@@ -470,7 +508,7 @@ describe("security", { timeout: 60_000 }, () => {
     }
     const t = await run(["init", "--dir", join(tmp, "sec-names-tpl"), "--genome", join(dir, "system"), "--from-template=-c"], { cloud: lc.cloud });
     expect([t.code, t.err]).toEqual([1, expect.stringContaining("invalid template ref")]);
-    for (const id of ["system.a/b", "system..x", "--upload-pack=evil", "-c"]) {
+    for (const id of ["system.a/b", "system..x", "--upload-pack=evil", "-c", "system.Keep-In-Touch"]) {
       setId(dir, id);
       const r = await run(["init", "--dir", dir], { cloud: lc.cloud });
       expect([r.code, r.err], id).toEqual([1, expect.stringContaining("invalid system id")]);

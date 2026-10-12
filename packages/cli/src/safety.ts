@@ -6,7 +6,7 @@ import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, realpathSync, statSync, symlinkSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CliError } from "./git.ts";
-import { isName } from "./naming.ts";
+import { isName, slug } from "./naming.ts";
 
 /** The model's template ref (`template.<kind>.<name>@<version>`). */
 const TEMPLATE_REF_RE = /^template\.[\w.-]+@[\w.-]+$/;
@@ -17,7 +17,16 @@ export function assertName(kind: string, v: unknown): string {
   return v;
 }
 
-export const assertSystemId = (v: unknown): string => assertName("system id", v);
+/** A system id that maps one-to-one onto repo names (see `slug`): checked before any network call. */
+export function assertSystemId(v: unknown): string {
+  assertName("system id", v);
+  try {
+    slug(v as string);
+  } catch (e) {
+    throw new CliError(`invalid system id: ${(e as Error).message}`);
+  }
+  return v as string;
+}
 
 export function assertTemplateRef(v: unknown): string {
   if (typeof v !== "string" || !TEMPLATE_REF_RE.test(v) || v.includes("..")) throw new CliError(`invalid template ref: ${JSON.stringify(v)}`);

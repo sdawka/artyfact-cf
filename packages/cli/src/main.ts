@@ -58,8 +58,8 @@ const USAGE = `artyfact <command>
   status [--json]
   compose <rid> <rid> ...
 
-  --platform defaults to ARTYFACT_PLATFORM, else ARTYFACT_URL, else ${DEFAULT_URL}; when Vite moved to the next free
-  port, the first of the next ten ports that answers as artyfact is used.
+  --platform defaults to ARTYFACT_PLATFORM, else ARTYFACT_URL, else the first of ${DEFAULT_URL} and the next nine
+  ports whose /api/health identifies as artyfact; with none, the command stops (credentials never go elsewhere).
 `;
 
 export async function main(argv: string[], io?: Partial<Io>): Promise<number> {

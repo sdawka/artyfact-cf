@@ -39,10 +39,26 @@ describe("resolvePlatform", () => {
     expect(notes).toEqual(["platform found at http://localhost:1339 (port 1337 is taken by something else)"]);
   });
 
-  it("falls back to the configured default when nothing answers as artyfact", async () => {
-    const { f, asked } = localhost({ 1340: () => Response.json({ service: "other" }) });
-    expect(await resolvePlatform(undefined, {}, f)).toBe(DEFAULT_URL);
+  it("has no fallback: stops when nothing on 1337-1346 identifies as artyfact, even if 1337 answers 200", async () => {
+    const { f, asked } = localhost({ 1337: () => new Response("<html>other app</html>", { status: 200 }), 1340: () => Response.json({ service: "other" }) });
+    await expect(resolvePlatform(undefined, {}, f)).rejects.toThrow("no artyfact platform found on localhost:1337–1346; start it with `npm run dev` or pass --platform");
     expect(asked).toHaveLength(10);
+    expect(DEFAULT_URL).toBe("http://localhost:1337");
+  });
+
+  it("an explicit URL wins over an identified local platform and is never probed", async () => {
+    const { f, asked } = localhost({ 1337: artyfact });
+    expect(await resolvePlatform("https://p.example", {}, f)).toBe("https://p.example");
+    expect(await resolvePlatform(undefined, { ARTYFACT_URL: "http://localhost:9999" }, f)).toBe("http://localhost:9999");
+    expect(asked).toEqual([]);
+  });
+
+  it("an empty --platform is a usage error; an empty environment variable counts as unset", async () => {
+    const { f } = localhost({ 1337: artyfact });
+    await expect(resolvePlatform("", {}, f)).rejects.toThrow("--platform needs a URL");
+    await expect(resolvePlatform("  ", {}, f)).rejects.toThrow("--platform needs a URL");
+    expect(await resolvePlatform(undefined, { ARTYFACT_PLATFORM: "", ARTYFACT_URL: "https://u.example" }, f)).toBe("https://u.example");
+    expect(await resolvePlatform(undefined, { ARTYFACT_PLATFORM: "", ARTYFACT_URL: "" }, f)).toBe("http://localhost:1337");
   });
 });
 

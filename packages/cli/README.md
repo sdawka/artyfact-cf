@@ -1,8 +1,11 @@
 # @artyfact/cli
 
-`artyfact init|platform-sync|start|checkpoint|submit|status|compose`. Platform URL from `--platform`, else `ARTYFACT_PLATFORM` (or the older `ARTYFACT_URL`),
-else http://localhost:1337. When Vite moved to the next free port, the CLI uses the first of the next ten ports that
-answers `/api/health` as artyfact.
+`artyfact init|platform-sync|start|checkpoint|submit|status|compose`. Platform URL from `--platform`, else
+`ARTYFACT_PLATFORM`, else the older `ARTYFACT_URL`. An explicit URL is used as given and never probed. Empty variables
+count as unset, and an empty `--platform` is a usage error. Without one, the CLI asks http://localhost:1337 to 1346
+(Vite takes the next free port when 1337 is busy) and uses the first whose `/api/health` identifies as artyfact. If
+none does, the command stops with "no artyfact platform found", so a credential never goes to a server that did not
+identify itself.
 
 ## `init` and `platform-sync`
 
@@ -20,7 +23,8 @@ missing. It writes `platform` only when that repo is missing or empty; an existi
 `platform-sync` is the update path. It then pushes the Genome and the app, and calls `POST /api/systems/import` with
 `Authorization: Bearer $ARTYFACT_ADMIN_TOKEN`, over https or plain http to localhost / 127.0.0.1 only. Without that
 variable it prints the `curl` line instead and exits 0. A 409 `already-imported` asks for `--force`. A re-run pushes
-nothing and re-imports as a no-op. Error text names the account by its first 8 characters only.
+nothing and re-imports as a no-op. Error text names the account by its first 8 characters only. The System id must be lower-case
+(`system.keep-in-touch`), so every id maps to its own repos.
 
 Pushes never rewrite history. An empty repo gets a root commit. A repo whose head already has the project's tree is
 left alone. Otherwise init commits on top of the head, but only when that head is the one this checkout last pushed,

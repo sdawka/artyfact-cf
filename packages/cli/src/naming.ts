@@ -11,12 +11,15 @@ export const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 export const isName = (v: unknown): v is string => typeof v === "string" && NAME_RE.test(v) && !v.includes("..");
 
 /**
- * `system.Keep-In-Touch` -> `keep-in-touch`: the lower-cased id without `system.`. Throws when that is not a valid
- * name, so two ids can never collapse onto the same repos (`system.a/b`, `system.Ünïcode` are refused).
+ * `system.keep-in-touch` -> `keep-in-touch`: the id without `system.`, used verbatim. The id must already be lower-case
+ * and a valid name, so the mapping is one-to-one and two ids never share repos (`system.Kit`, `system.a/b`,
+ * `system.Ünïcode` are refused rather than folded onto another id's repos).
  */
 export function slug(systemId: string): string {
-  const s = systemId.replace(/^system\./, "").toLowerCase();
-  if (!isName(s)) throw new Error(`system id ${JSON.stringify(systemId)} does not give a valid repo slug (letters, digits, '.', '_', '-'; no '..')`);
+  const s = systemId.replace(/^system\./, "");
+  if (!isName(s) || s !== s.toLowerCase()) {
+    throw new Error(`system id ${JSON.stringify(systemId)} does not give a valid repo slug (lower-case letters, digits, '.', '_', '-'; no '..')`);
+  }
   return s;
 }
 

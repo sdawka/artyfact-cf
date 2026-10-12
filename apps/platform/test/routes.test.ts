@@ -169,6 +169,20 @@ describe("routes: import names and platform provenance", () => {
     expect(same.json.head).toBe(res.json.head);
   });
 
+  it("never fails the import because platform cannot be read; keeps the recorded provenance and warns", async () => {
+    const { ns, systemId } = slugNamed();
+    const p1 = ns.create("platform").commit(PLATFORM_FILES, "sync");
+    expect((await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN)).json.platform).toEqual({ repo: "platform", commit: p1 });
+    const get = ns.get.bind(ns);
+    ns.get = async (name: string) => (name === "platform" ? Promise.reject(Object.assign(new Error("upstream"), { code: "INTERNAL" })) : get(name));
+    const again = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
+    expect(again.status, JSON.stringify(again.json)).toBe(201);
+    expect(again.json.platform).toEqual({ repo: "platform", commit: p1 });
+    expect(again.json.warnings.map((w) => [w.rule, w.message])).toEqual([["platform.unreadable", expect.stringContaining("(INTERNAL)")]]);
+    const state = await runInDurableObject(env.SYSTEMS.getByName(systemId), (i: SystemAuthority) => i.state());
+    expect(state!.platform).toEqual({ repo: "platform", commit: p1 });
+  });
+
   it("checks platform pins against the canonical Genome after an accepted amendment", async () => {
     const { ns, systemId, slug } = slugNamed();
     ns.create("platform").commit(PLATFORM_FILES, "sync");
@@ -561,7 +575,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect((await call<ApiError>("GET", `/systems/system.none/model`)).status).toBe(404);
     expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x" })).status).toBe(401);
     expect((await call<ApiError>("POST", `/systems/import`, {}, ADMIN)).status).toBe(400);
-    for (const systemId of ["system.--", "system.a/b", "system.Ünïcode", "system.a..b"]) {
+    for (const systemId of ["system.--", "system.a/b", "system.Ünïcode", "system.a..b", "system.Kit"]) {
       const bad = await call<ApiError>("POST", `/systems/import`, { systemId }, ADMIN);
       expect([bad.status, bad.json.error.code], systemId).toEqual([400, "invalid-system-id"]);
     }

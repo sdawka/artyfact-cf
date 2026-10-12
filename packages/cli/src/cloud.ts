@@ -82,6 +82,15 @@ export function cloudCli(exec: Exec, env: Record<string, string | undefined>): C
     }
     return p;
   };
+  const listsNamespace = (ns: string): boolean => {
+    const l = cf("artifacts", "namespaces", "list");
+    if (l.status !== 0) return false;
+    try {
+      return jsonOf<{ namespace?: unknown }[]>(l.stdout, "cf artifacts namespaces list").some((n) => n?.namespace === ns);
+    } catch {
+      return false;
+    }
+  };
   return {
     accountId: () => accountId,
     account() {
@@ -94,11 +103,15 @@ export function cloudCli(exec: Exec, env: Record<string, string | undefined>): C
     ensureNamespace(ns) {
       ok(ns);
       // `namespaces get` has answered "Access denied" (10004) for an existing namespace. An empty repo list proves
-      // nothing, so the fallback is create, where "already exists" means it exists.
+      // nothing, so the fallback is create. A failed create counts as "exists" only when the namespace is listed.
       if (wrangler("artifacts", "namespaces", "get", ns).status === 0) return "exists";
-      const c = cf("artifacts", "namespaces", "create", "--namespace", ns);
+      const c = cf("artifacts", "namespaces", "create", "--body", JSON.stringify({ namespace: ns }));
       if (c.status === 0) return "created";
-      if (/already exists|already_exists/i.test(`${c.stderr}\n${c.stdout}`)) return "exists";
+      const text = `${c.stderr}\n${c.stdout}`;
+      // Real answer for an existing namespace: `[10201] Namespace already exists`, 409 Conflict.
+      const saysExists = /\[10201\]/.test(text) || /namespace already exists/i.test(text);
+      if (listsNamespace(ns)) return "exists";
+      if (saysExists) throw new CliError(`cf artifacts namespaces create ${ns}: the API says it exists, but cf artifacts namespaces list does not show it`);
       must(c, `cf artifacts namespaces create ${ns}`);
       return "created";
     },

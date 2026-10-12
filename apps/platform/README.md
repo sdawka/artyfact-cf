@@ -29,7 +29,7 @@ All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shar
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | GET | `/systems` | - | `SystemsResponse` (registry DO `__registry`) |
-| POST | `/systems/import` | admin | `{systemId, genomeRepo?, appRepo?, scaffoldFrom?, force?}` → `ImportSystemResponse` (201) with the repos used, `platform` and `warnings`; omitted repos default to `<slug>.genome` / `<slug>.app`; 422 `repo-not-found` when a repo is missing; re-import from different repos/commits is 409 `already-imported` unless `force` |
+| POST | `/systems/import` | admin | `{systemId, genomeRepo?, appRepo?, scaffoldFrom?, force?}` → `ImportSystemResponse` (201) with the repos used, `platform` and `warnings`; omitted repos default to `<slug>.genome` / `<slug>.app`, where the slug is the id without `system.`; 400 `invalid-system-id` unless that is lower-case letters, digits, `.`, `_`, `-` (no `..`); a `platform` that cannot be read never fails the import (warning `platform.unreadable`, recorded provenance kept); 422 `repo-not-found` when a repo is missing; re-import from different repos/commits is 409 `already-imported` unless `force` |
 | GET | `/systems/:id` | - | `SystemSummary` |
 | GET | `/systems/:id/model?rev=` | - | `ModelBundle`; `rev` = `canonical` (default), `sc-…` System commit, `candidate.…`, or a Genome sha |
 | GET | `/systems/:id/readiness?rev=` | - | `ReadinessResponse`: the full rules `Readiness` plus the three-state summary; `/model`'s `readiness` is the same. Both are served from the DO cache when warm |
