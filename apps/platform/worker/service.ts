@@ -376,10 +376,11 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
     hookRef(env, s.systemId, cand),
     storedCandidates(env, s.systemId).then((xs) => Promise.all(xs.filter((c) => c.id !== cand.id).map((c) => hookRef(env, s.systemId, c)))),
   ]);
+  const required = requiredFiles((await canonicalGenome(env, s)).model);
   const { tree, exists, recomputedHash } = await withRepo(artifactsFor(env), rec.forkRepo, async (repo) => {
     const exists = !!(await repo.readCommit(cand.commit));
     const listing = exists ? await listTree(repo, cand.commit) : new Map<string, { hash: string }>();
-    const tree = await Promise.all([...listing].map(async ([path, e]) => ({ path, size: (await repo.readBlob(e.hash))?.size ?? 0 })));
+    const tree = await treeWithSizes(stub, repo, listing, required);
     const recomputedHash = trigger === "promotion" && exists
       ? await manifestHash(await buildCandidateManifest(repo, { realizationId: cand.realizationId, evolutionId: cand.evolutionId, target: cand.target, repo: cand.repo, baseRepo: cand.baseRepo, baseCommit: cand.baseCommit, commit: cand.commit }, []))
       : undefined;
@@ -412,6 +413,28 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
     return { evaluations: r.evaluations, status: "awaiting-admin" as const, review };
   }
   return { evaluations: await runner.runSubmission(ctx), status: "evaluated" as const };
+}
+
+/** Paths every `manifest` hook requires (`inputs.requiredFiles`), normalised. */
+function requiredFiles(m: SystemModel): Set<string> {
+  const norm = (p: string) => p.trim().replace(/^\.?\//, "");
+  return new Set(m.hooks.filter((h) => h.engine === "manifest").flatMap((h) => (h.inputs.requiredFiles ?? "").split(",").map(norm)).filter(Boolean));
+}
+
+/**
+ * Candidate tree for the hooks. Sizes come from the DO's blob-size cache; only `required` files that are not
+ * cached are read (and cached). Any other blob whose size is not cached yet is reported with `size: -1`
+ * ("not measured"): only the manifest engine reads sizes, and only for required files.
+ */
+async function treeWithSizes(stub: SystemApi, repo: ArtifactsRepoLike, listing: Map<string, { hash: string }>, required: Set<string>) {
+  const known = await stub.blobSizes([...new Set([...listing.values()].map((e) => e.hash))]);
+  const measured: Record<string, number> = {};
+  await Promise.all([...listing].filter(([p, e]) => required.has(p) && known[e.hash] === undefined).map(async ([, e]) => {
+    const blob = await repo.readBlob(e.hash);
+    if (blob) measured[e.hash] = blob.size;
+  }));
+  if (Object.keys(measured).length) await stub.putBlobSizes(measured);
+  return [...listing].map(([path, e]) => ({ path, size: known[e.hash] ?? measured[e.hash] ?? -1 }));
 }
 
 type Run = Awaited<ReturnType<typeof evaluate>>;

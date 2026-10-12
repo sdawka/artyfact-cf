@@ -148,7 +148,11 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(sub.json.evaluations.map((e) => e.criterion).sort()).toEqual(REQUIRED);
     expect(sub.json.evaluations.find((e) => e.criterion === "C.system.promotion")).toMatchObject({ execution: "not-run", verdict: "unknown" });
     expect(sub.json.realization.status).toBe("evaluated");
-    expect(seen[0].tree).toContainEqual({ path: "src/ui/people/list.ts", size: 22 });
+    // Only the manifest hook's required files are read for sizes; other blobs are "not measured" (-1).
+    expect(seen[0].tree).toContainEqual({ path: "wrangler.jsonc", size: 2 });
+    expect(seen[0].tree).toContainEqual({ path: "src/ui/people/list.ts", size: -1 });
+    // Reads: the three required files plus source-map.yaml (for pathNodes); never the other blobs.
+    expect(fork.calls.filter((c) => c.startsWith("readBlob:"))).toHaveLength(4);
     expect(seen[0].candidate.pathNodes!["src/ui/people/list.ts"].sort()).toEqual(["component.AddContactDialog", "screen.people", "section.ui"]);
     expect(seen[0].genomeFiles["system.yaml"]).toContain(systemId);
     expect(seen[0].permittedPaths.sort()).toEqual(["src/ui/**", "src/ui/people/**"]);

@@ -174,6 +174,7 @@ CREATE TABLE IF NOT EXISTS evaluations (id TEXT PRIMARY KEY, candidate_id TEXT N
   execution TEXT NOT NULL, verdict TEXT NOT NULL, observations_json TEXT, evidence_key TEXT, verifier TEXT, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS evaluations_by_candidate ON evaluations (candidate_id, criterion_id);
 CREATE TABLE IF NOT EXISTS events_seen (event_id TEXT PRIMARY KEY, seen_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS blob_sizes (hash TEXT PRIMARY KEY, size INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS candidate_reviews (candidate_id TEXT PRIMARY KEY, json TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS model_cache (genome_commit TEXT NOT NULL, part TEXT NOT NULL, json TEXT NOT NULL, created_at TEXT NOT NULL,
   PRIMARY KEY (genome_commit, part));
@@ -394,6 +395,20 @@ export class SystemAuthority extends DurableObject<Env> {
     for (const [part, text] of Object.entries(parts)) {
       this.sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES (?, ?, ?, ?)", genomeCommit, part, text, at);
     }
+  }
+
+  /** Known blob sizes (git blob hashes are immutable, so a size never changes). */
+  blobSizes(hashes: string[]): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (let i = 0; i < hashes.length; i += 90) {
+      const chunk = hashes.slice(i, i + 90);
+      for (const r of this.all(`SELECT hash, size FROM blob_sizes WHERE hash IN (${chunk.map(() => "?").join(",")})`, ...chunk)) out[String(r.hash)] = Number(r.size);
+    }
+    return out;
+  }
+
+  putBlobSizes(sizes: Record<string, number>): void {
+    for (const [hash, size] of Object.entries(sizes)) this.sql.exec("INSERT OR IGNORE INTO blob_sizes (hash, size) VALUES (?, ?)", hash, size);
   }
 
   /** Persist the hooks' runGenome result (readiness + DeltaReviews) for a Genome candidate. */

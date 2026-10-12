@@ -113,6 +113,7 @@ export class FakeRepo implements ArtifactsRepoLike {
     return o?.kind === "tree" ? o.entries : null;
   }
   async readBlob(hash: string) {
+    this.calls.push(`readBlob:${hash.slice(0, 7)}`);
     const o = this.store.objects.get(hash);
     return o?.kind === "blob" ? new Blob([o.text]) : null;
   }
