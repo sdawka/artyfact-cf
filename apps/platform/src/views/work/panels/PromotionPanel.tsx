@@ -25,11 +25,14 @@ function serverIssues(err: unknown): { blocking: unknown[]; advisories: unknown[
 interface GateItemLike { candidate?: string; criterion: string; severity?: string; verdict?: string; execution?: string }
 const isGateItem = (x: unknown): x is GateItemLike => !!x && typeof x === "object" && typeof (x as GateItemLike).criterion === "string";
 
-/** What the badge should say for a server gate item: only a completed run has a verdict. */
-function itemVerdict(i: GateItemLike): UiVerdict {
+/** What the badge should say for a server gate item. */
+export function itemVerdict(i: GateItemLike): UiVerdict {
+  const known = i.verdict === "pass" || i.verdict === "fail" || i.verdict === "stale" || i.verdict === "waived" || i.verdict === "unknown";
   if (i.execution === "error") return "unknown";
-  if (i.execution !== "completed") return "not-run";
-  return i.verdict === "pass" || i.verdict === "fail" || i.verdict === "stale" || i.verdict === "waived" ? i.verdict : "unknown";
+  if (i.execution !== undefined && i.execution !== "completed") return "not-run";
+  if (!known) return "not-run";
+  // An absent execution falls back to the verdict; only `pass` needs a completed run to count.
+  return i.verdict === "pass" && i.execution !== "completed" ? "unknown" : (i.verdict as UiVerdict);
 }
 
 /** A server-reported blocking or advisory item: criterion chip with its title, candidate, verdict and execution. */
@@ -62,7 +65,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   const { data: cand } = useCandidates(evolution.id);
   const { data: allConflicts } = useConflicts();
   const { data: commits } = useHistory();
-  const { data: board } = useEvolutions();
+  const { data: board, isPending: boardLoading } = useEvolutions();
   const promote = usePromote();
   const [rationale, setRationale] = useState("");
   const [ack, setAck] = useState(false);
@@ -72,7 +75,11 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   const chosen = candidates.filter((c) => selected.includes(c.id));
   const ids = chosen.map((c) => c.id);
   const head = headOf(commits);
-  const targets = [...new Set(chosen.map((c) => board?.realizations.find((r) => r.id === c.realization)?.target ?? "app"))];
+  // A candidate whose realization is not on the board has an unknown target: treat it as both.
+  const targets = [...new Set(chosen.flatMap((c) => {
+    const t = board?.realizations.find((r) => r.id === c.realization)?.target;
+    return t ? [t] : (["app", "genome"] as const);
+  }))];
   const rows = useMemo(
     () => gateCoverage(m.index.model.criteria ?? [], evolution, m.evaluations, ids, targets),
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -90,6 +97,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   const refused = serverIssues(promote.error);
   const failing = required.filter((r) => r.blocking);
   const reasons: string[] = [];
+  if (boardLoading) reasons.push("Loading board data…");
   if (fixture) reasons.push("Promotion needs the platform API. The UI is showing fixture data.");
   if (!ids.length) reasons.push("Select at least one candidate.");
   if (ids.length && failing.length) reasons.push(`${failing.length} required gate${failing.length === 1 ? " is" : "s are"} not pass/completed: ${failing.map((r) => r.criterion.id).join(", ")}.`);

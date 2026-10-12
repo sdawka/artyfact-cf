@@ -32,6 +32,16 @@ describe("Evaluations view", () => {
     expect(screen.getByText("No evaluations match these filters.")).toBeTruthy();
   });
 
+  it("shows the error of a failed run in the row and in the detail", async () => {
+    renderApp(URL, undefined, seed([evaluation({ execution: "error", verdict: "unknown", error: "hook timed out after 60000 ms" })]));
+    await screen.findByRole("table");
+    expect(screen.getAllByText("hook timed out after 60000 ms")).toHaveLength(1);
+    expect(document.querySelector('[data-verdict="pass"]')).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Expand evaluation eval.1" }));
+    expect(screen.getAllByText("hook timed out after 60000 ms")).toHaveLength(2);
+    expect(screen.getByRole("region", { name: "Error" })).toBeTruthy();
+  });
+
   it("never shows a not-run evaluation as pass", async () => {
     renderApp(URL, undefined, seed([evaluation({ execution: "not-run", verdict: "pass" })]));
     await screen.findByRole("table");

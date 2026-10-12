@@ -95,7 +95,10 @@ export function EvaluationsTable({ evaluations, compact, expandedId, onExpand, e
                     <td><NodeChip id={e.criterion} size="sm" showId={!compact} /></td>
                     {!compact && <td><code>{e.candidate}</code></td>}
                     <td><VerdictBadge verdict={evaluationVerdict(e)} /></td>
-                    <td>{e.execution}</td>
+                    <td>
+                      {e.execution}
+                      {e.execution === "error" && <span className={styles.rowError}>{e.error ?? "no message recorded"}</span>}
+                    </td>
                     {!compact && <td><code>{e.hook}</code></td>}
                   </tr>
                   {isOpen && (

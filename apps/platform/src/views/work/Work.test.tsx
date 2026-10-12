@@ -6,13 +6,14 @@ import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 import { PacketViewer } from "./panels/PacketViewer";
+import { itemVerdict } from "./panels/PromotionPanel";
 import { SYSTEM, candidate, commit, evaluation, realization } from "./testData";
 
 const WORK = `/s/${SYSTEM}/r/head/work`;
 const EVO1 = "evolution.1";
-// Same selection rule as the server: acceptance criteria plus artifact-targeted ones, promotion-gated, not deferred.
+// Same selection rule as the server (target unknown here, so both): acceptance criteria plus artifact- and model-targeted ones, promotion-gated, not deferred.
 const REQUIRED = fixtureBundle().model.criteria
-  .filter((c) => !c.deferred && c.gates.includes("promotion") && (fixtureBundle().model.evolutions[0]!.acceptanceCriteria.includes(c.id) || c.targetKind === "artifact"))
+  .filter((c) => !c.deferred && c.gates.includes("promotion") && (fixtureBundle().model.evolutions[0]!.acceptanceCriteria.includes(c.id) || (c.targetKind === "artifact" || c.targetKind === "model")))
   .map((c) => c.id);
 const evalFor = (c: string, o = {}) => evaluation({ id: `e.${c}`, criterion: c, hook: `hook.${c}`, ...o });
 
@@ -213,11 +214,11 @@ describe("CandidateReview", () => {
     expect(within(review).getAllByRole("row")).toHaveLength(2);
   });
 
-  it("falls back for genome amendments until the amendment panel exists", async () => {
+  it("mounts the amendment review for genome realizations with the evolution id and system id", async () => {
     renderApp(url, undefined, seed({ realizations: [realization({ target: "genome" })], candidates: [candidate()] }));
     const review = await screen.findByRole("region", { name: "Review realization.1" });
     fireEvent.click(within(review).getByRole("tab", { name: "Amendment" }));
-    expect(within(review).getByText(/Amendment review is not available/)).toBeTruthy();
+    expect(await within(review).findByText(/amendment review/i)).toBeTruthy();
   });
 
   it("says there is nothing to review before a candidate is submitted", async () => {
@@ -251,6 +252,17 @@ describe("PromotionPanel", () => {
     const row = within(table).getByText("C.webapp.exists", { exact: false }).closest("tr")!;
     expect(row.querySelector('[data-verdict="unknown"]')).not.toBeNull();
     expect(row.querySelector('[data-verdict="pass"]')).toBeNull();
+  });
+
+  it("stays disabled with a reason while board data loads", async () => {
+    renderApp(url, undefined, (qc) => {
+      seed({ api: true, evals: allPass() })(qc);
+      qc.removeQueries({ queryKey: qk.evolutions(SYSTEM) });
+      vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    });
+    await fill();
+    expect(submit().disabled).toBe(true);
+    expect(screen.getByText("Loading board data…")).toBeTruthy();
   });
 
   it("does not let a waived verdict satisfy a required gate", async () => {
@@ -338,5 +350,16 @@ describe("PromotionPanel", () => {
     fireEvent.click(submit());
     expect(await screen.findByText(/newcomm/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open in History" }).getAttribute("href")).toContain("commit=newcommit0000");
+  });
+});
+
+describe("itemVerdict (server gate items)", () => {
+  it("falls back to the verdict when execution is absent; only pass needs a completed run", () => {
+    expect(itemVerdict({ criterion: "c", verdict: "fail" })).toBe("fail");
+    expect(itemVerdict({ criterion: "c", verdict: "pass" })).toBe("unknown");
+    expect(itemVerdict({ criterion: "c", verdict: "pass", execution: "completed" })).toBe("pass");
+    expect(itemVerdict({ criterion: "c", verdict: "pass", execution: "running" })).toBe("not-run");
+    expect(itemVerdict({ criterion: "c", verdict: "missing", execution: "missing" })).toBe("not-run");
+    expect(itemVerdict({ criterion: "c", verdict: "fail", execution: "error" })).toBe("unknown");
   });
 });

@@ -1,4 +1,4 @@
-import { lazy, Suspense, useMemo, useState, type ComponentType } from "react";
+import { lazy, Suspense, useMemo, useState } from "react";
 import type { Candidate, Evolution, Realization } from "../../../../shared/api";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
@@ -6,17 +6,14 @@ import { Tabs } from "@/components/Tabs/Tabs";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
 import { verdictOf as verdictFor } from "@/model/status";
 import { useModel } from "@/model/useModel";
-import { useSelection } from "@/model/useSelection";
+import { useSelection, useSystemRoute } from "@/model/useSelection";
 import { EvaluationsTable } from "../../evaluations/EvaluationsTable";
 import { aggregate, subjectGroups } from "../lib";
 import styles from "../work.module.css";
 
 type Tab = "delta" | "files" | "evals" | "amendment";
 
-// Slice 2.6 owns ./AmendmentReview.tsx. The glob is empty until that file exists, so nothing
-// breaks here before it lands; once it does, it is picked up with no edit.
-const amendmentModules = import.meta.glob<{ default: ComponentType<Record<string, unknown>> }>("./AmendmentReview.tsx");
-const AmendmentReview = Object.values(amendmentModules)[0] ? lazy(Object.values(amendmentModules)[0]!) : null;
+const AmendmentReview = lazy(() => import("./AmendmentReview"));
 
 interface Props {
   realization: Realization;
@@ -28,6 +25,7 @@ interface Props {
 export function CandidateReview({ realization, candidate, evolution }: Props) {
   const [tab, setTab] = useState<Tab>("delta");
   const { candidates: selected, setCandidates } = useSelection();
+  const { systemId } = useSystemRoute();
   const tabs = [
     { id: "delta" as const, label: "Semantic delta" },
     { id: "files" as const, label: "Files" },
@@ -61,13 +59,9 @@ export function CandidateReview({ realization, candidate, evolution }: Props) {
         {tab === "files" && <Files candidate={candidate} />}
         {tab === "evals" && <CandidateEvaluations candidate={candidate} />}
         {tab === "amendment" &&
-          (AmendmentReview ? (
-            <Suspense fallback={<p role="status">Loading amendment…</p>}>
-              <AmendmentReview realization={realization} evolution={evolution} candidate={candidate} />
-            </Suspense>
-          ) : (
-            <EmptyState title="Amendment review is not available in this build." />
-          ))}
+          <Suspense fallback={<p role="status">Loading amendment…</p>}>
+            <AmendmentReview systemId={systemId} evolutionId={evolution.id} realization={realization} candidate={candidate} />
+          </Suspense>}
       </Tabs>
     </section>
   );

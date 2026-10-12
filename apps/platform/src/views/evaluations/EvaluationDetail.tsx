@@ -32,6 +32,12 @@ export function EvaluationDetail({ evaluation: e }: { evaluation: Evaluation }) 
           <p className={styles.muted}>unknown: hook {e.hook} is not in this revision. Verifier: {e.verifier}</p>
         )}
       </section>
+      {e.execution === "error" && (
+        <section aria-label="Error">
+          <h4>Error</h4>
+          <p className={styles.errorText} role="alert">{e.error ?? "The run failed and recorded no message."}</p>
+        </section>
+      )}
       <section aria-label="Raw observations">
         <h4>Raw observations</h4>
         {e.observations?.length ? (
