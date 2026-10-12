@@ -43,7 +43,8 @@ describe("Derivation", () => {
   it("accepts a finding and stops at depth 6 with an ellipsis", () => {
     let t: DerivationTree = { relation: "leaf", tuple: [], edb: true, children: [] };
     for (let i = 0; i < 8; i++) t = { relation: `r${i}`, tuple: [], rule: "p:1", edb: false, children: [t] };
-    render(<Derivation finding={{ level: "error", rule: "x", message: "m", facts: [], derivation: t }} />);
+    const finding = { level: "error" as const, rule: "x", message: "m", facts: [], derivation: t };
+    render(<Derivation finding={finding} />);
     expect(screen.getByText("r1")).toBeTruthy();
     expect(screen.queryByText("r0")).toBeNull();
     expect(screen.getByText("…")).toBeTruthy();
@@ -56,7 +57,7 @@ describe("Derivation", () => {
   });
 
   it("copies an indented text outline", async () => {
-    const writeText = vi.fn(async () => undefined);
+    const writeText = vi.fn(async (_t: string) => undefined);
     vi.stubGlobal("navigator", { clipboard: { writeText } });
     render(<Derivation derivation={tree} />);
     act(() => screen.getByRole("button", { name: "Copy derivation as text" }).click());
