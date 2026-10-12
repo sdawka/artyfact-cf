@@ -5,10 +5,12 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { main } from "../src/main";
+import { assertHttpsUrl, assertId, gitEnv } from "../src/git";
 
 const sh = (cwd: string, ...a: string[]) => execFileSync("git", a, { cwd, encoding: "utf8" }).trim();
 const tmp = mkdtempSync(join(tmpdir(), "artyfact-cli-"));
 const bare = join(tmp, "fork.git");
+const REMOTE = "https://artifacts.invalid/git/ns/kit-app--r1.git";
 const calls: { method: string; url: string; body: any }[] = [];
 let server: Server;
 let base = "";
@@ -17,7 +19,7 @@ const packet = () => ({
   systemId: "system.keep-in-touch", realizationId: "r-1", evolutionId: "evolution.1", hash: "abc",
   markdown: "# Task\nDo it", acceptanceCriteria: [{ id: "crit.a" }, { id: "crit.b" }],
   permittedPaths: ["src/ui/people/**"], protectedPaths: ["system/**"], commands: ["npm install", "npm test"],
-  workspace: { remote: bare, fork: "kit-app--r1" },
+  workspace: { remote: REMOTE, fork: "kit-app--r1" },
 });
 
 beforeAll(async () => {
@@ -28,6 +30,10 @@ beforeAll(async () => {
   sh(seed, "add", "-A");
   sh(seed, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "init");
   sh(seed, "push", bare, "main");
+  // Map the https remote onto the local bare repo so clone/push work offline.
+  process.env.GIT_CONFIG_COUNT = "1";
+  process.env.GIT_CONFIG_KEY_0 = `url.${bare}.insteadOf`;
+  process.env.GIT_CONFIG_VALUE_0 = REMOTE;
   server = createServer((req, res) => {
     let raw = "";
     req.on("data", (c) => (raw += c));
@@ -49,7 +55,7 @@ afterAll(() => server.close());
 
 function run(argv: string[], cwd = tmp) {
   const out: string[] = [], err: string[] = [];
-  return main(argv, { cwd, env: { ARTYFACT_URL: base }, out: (s) => out.push(s), err: (s) => err.push(s) })
+  return main(argv, { cwd, env: { ...process.env, ARTYFACT_URL: base, ARTYFACT_TOKEN: "tok123" }, out: (s) => out.push(s), err: (s) => err.push(s) })
     .then((code) => ({ code, out: out.join("\n"), err: err.join("\n") }));
 }
 
@@ -57,7 +63,7 @@ describe("artyfact cli", () => {
   const ws = join(tmp, "ws");
 
   it("start writes packet, AGENTS.md, config and excludes config", async () => {
-    const r = await run(["start", "r-1", "--dir", ws, "--token", "tok123"]);
+    const r = await run(["start", "r-1", "--dir", ws]);
     expect(r.code).toBe(0);
     expect(readFileSync(join(ws, "TASK_PACKET.md"), "utf8")).toContain("Do it");
     const agents = readFileSync(join(ws, "AGENTS.md"), "utf8");
@@ -65,7 +71,7 @@ describe("artyfact cli", () => {
     expect(agents).toContain("crit.a, crit.b");
     expect(agents).toContain("npm install; npm test");
     const cfg = JSON.parse(readFileSync(join(ws, ".artyfact.json"), "utf8"));
-    expect(cfg).toMatchObject({ platform: base, systemId: "system.keep-in-touch", realizationId: "r-1", forkRepo: "kit-app--r1", remote: bare, packetHash: "abc" });
+    expect(cfg).toMatchObject({ platform: base, systemId: "system.keep-in-touch", realizationId: "r-1", forkRepo: "kit-app--r1", remote: REMOTE, packetHash: "abc" });
     expect(readFileSync(join(ws, ".git/info/exclude"), "utf8")).toContain(".artyfact.json");
     expect(existsSync(join(ws, "a.txt"))).toBe(true);
   });
@@ -100,7 +106,53 @@ describe("artyfact cli", () => {
   it("errors are non-zero without a stack", async () => {
     expect((await run(["status"], tmp)).code).toBe(1);
     expect((await run(["bogus"])).code).toBe(1);
-    expect((await run(["start", "r-9", "--dir", join(tmp, "x")])).err).toContain("token");
+    const noTok = await main(["start", "r-9", "--dir", join(tmp, "x")], { cwd: tmp, env: { ARTYFACT_URL: base }, out: () => {}, err: () => {} });
+    expect(noTok).toBe(1);
     expect((await run(["compose", "r-1", "r-2"])).out).toContain("not implemented");
+  });
+
+  describe("security", () => {
+    it("passes the token via env, never argv", () => {
+      const env = gitEnv("sekret", {});
+      expect(env.GIT_CONFIG_KEY_0).toBe("http.extraHeader");
+      expect(env.GIT_CONFIG_VALUE_0).toBe("Authorization: Bearer sekret");
+      expect(gitEnv("t", { GIT_CONFIG_COUNT: "1" }).GIT_CONFIG_KEY_1).toBe("http.extraHeader");
+      const src = readFileSync(new URL("../src/git.ts", import.meta.url), "utf8");
+      expect(src).not.toMatch(/\["-c",\s*`http\.extraHeader/);
+    });
+
+    it("writes the token to no file in the workspace or git config", () => {
+      const walk = (d: string): string[] =>
+        execFileSync("find", [d, "-type", "f", "-not", "-path", "*/objects/*"], { encoding: "utf8" }).split("\n").filter(Boolean);
+      for (const f of walk(ws)) expect(readFileSync(f, "utf8"), f).not.toContain("tok123");
+    });
+
+    it("strips a token the platform leaks in the packet", async () => {
+      const ws2 = join(tmp, "ws2");
+      const orig = packet;
+      const leakyServer = createServer((_req, res) => {
+        res.setHeader("content-type", "application/json");
+        const p = { ...orig(), markdown: "secret leaked-tok here", workspace: { remote: REMOTE, fork: "kit-app--r1", token: "leaked-tok" } };
+        res.end(JSON.stringify({ packet: p }));
+      }).listen(0);
+      await new Promise((r) => leakyServer.once("listening", r));
+      const url = `http://127.0.0.1:${(leakyServer.address() as any).port}`;
+      const code = await main(["start", "r-1", "--dir", ws2], { cwd: tmp, env: { ...process.env, ARTYFACT_URL: url, ARTYFACT_TOKEN: "" }, out: () => {}, err: () => {} });
+      leakyServer.close();
+      expect(code).toBe(0);
+      for (const f of ["TASK_PACKET.md", "AGENTS.md", ".artyfact.json"]) expect(readFileSync(join(ws2, f), "utf8")).not.toContain("leaked-tok");
+    });
+
+    it("rejects option-like ids and non-https remotes", async () => {
+      expect(() => assertId("id", "--upload-pack=x")).toThrow();
+      expect(() => assertId("id", "a/b")).toThrow();
+      expect(() => assertId("id", "..")).toThrow();
+      expect(assertId("id", "system.keep-in-touch")).toBe("system.keep-in-touch");
+      expect(() => assertHttpsUrl("r", "ext::sh -c x")).toThrow();
+      expect(() => assertHttpsUrl("r", "/tmp/repo")).toThrow();
+      const r = await run(["start", "--", "--upload-pack=x"]);
+      expect(r.code).toBe(1);
+      expect(r.err).toContain("invalid");
+    });
   });
 });

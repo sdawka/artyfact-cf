@@ -44,6 +44,4 @@ export interface WorkspaceConfig {
   remote: string;
   tokenExpires?: string;
   packetHash?: string;
-  /** Write token for the fork; the file is excluded from git via .git/info/exclude. */
-  token?: string;
 }

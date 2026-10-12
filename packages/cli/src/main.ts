@@ -3,7 +3,7 @@ import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PlatformClient, rzPath } from "./api.ts";
 import { renderAgentsMd } from "./agents-md.ts";
-import { CliError, commitIfDirty, git } from "./git.ts";
+import { CliError, assertHttpsUrl, assertId, commitIfDirty, git } from "./git.ts";
 import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
 
 export interface Io {
@@ -18,7 +18,7 @@ const DEFAULT_URL = "http://localhost:5173";
 
 const USAGE = `artyfact <command>
 
-  start <realizationId> [--dir d] [--token t] [--platform url] [--system sid]
+  start <realizationId> [--dir d] [--platform url] [--system sid]
   checkpoint "<message>"
   submit [--preview-url u] [--json]
   status [--json]
@@ -62,24 +62,26 @@ function readConfig(io: Io): { cfg: WorkspaceConfig; dir: string } {
   const dir = resolve(io.cwd);
   const file = join(dir, CONFIG);
   if (!existsSync(file)) throw new CliError(`${CONFIG} not found in ${dir}; run 'artyfact start <realizationId>' first`);
-  return { cfg: JSON.parse(readFileSync(file, "utf8")) as WorkspaceConfig, dir };
+  const cfg = JSON.parse(readFileSync(file, "utf8")) as WorkspaceConfig;
+  assertId("systemId in config", cfg.systemId);
+  assertId("realizationId in config", cfg.realizationId);
+  return { cfg, dir };
 }
 
-function tokenFor(cfg: WorkspaceConfig, io: Io): string {
-  const t = io.env.ARTYFACT_TOKEN ?? cfg.token;
-  if (!t) throw new CliError("no write token; set ARTYFACT_TOKEN or re-run start with --token");
+function tokenFor(io: Io): string {
+  const t = io.env.ARTYFACT_TOKEN;
+  if (!t) throw new CliError("no write token; set ARTYFACT_TOKEN for this command (it is never stored on disk)");
   return t;
 }
 
 async function start(args: string[], io: Io): Promise<number> {
   const { values, positionals } = parse(args, {
-    dir: { type: "string" }, token: { type: "string" }, platform: { type: "string" }, system: { type: "string" },
+    dir: { type: "string" }, platform: { type: "string" }, system: { type: "string" },
   });
-  const rid = positionals[0];
-  if (!rid) throw new CliError("usage: artyfact start <realizationId> [--dir <d>] [--token <t>]");
+  const rid = positionals[0] && assertId("realization id", positionals[0]);
+  if (!rid) throw new CliError("usage: artyfact start <realizationId> [--dir <d>]")  ;
   const platform = values.platform ?? io.env.ARTYFACT_URL ?? DEFAULT_URL;
-  const token = values.token ?? io.env.ARTYFACT_TOKEN;
-  if (!token) throw new CliError("no write token; pass --token or set ARTYFACT_TOKEN (shown once when work is started)");
+  if (values.system) assertId("system id", values.system);
   const client = new PlatformClient(platform);
 
   // With --system use the system-scoped route; otherwise discover the system from the packet.
@@ -87,23 +89,30 @@ async function start(args: string[], io: Io): Promise<number> {
     ? await client.request<PacketPayload>("GET", rzPath(values.system, rid, "/packet"))
     : await client.request<PacketPayload>("GET", `/api/realizations/${encodeURIComponent(rid)}/packet`);
   const packet = payload.packet;
-  const systemId = values.system ?? packet.systemId ?? payload.systemId ?? payload.realization?.systemId;
-  if (!systemId) throw new CliError("packet carries no systemId; pass --system <id>");
-  const remote = packet.workspace?.remote ?? payload.remote ?? payload.token?.remote;
-  if (!remote) throw new CliError("packet carries no workspace.remote");
-  const forkRepo = packet.workspace?.fork ?? payload.realization?.workspace?.fork ?? "";
+  const systemIdRaw = values.system ?? packet.systemId ?? payload.systemId ?? payload.realization?.systemId;
+  if (!systemIdRaw) throw new CliError("packet carries no systemId; pass --system <id>");
+  const systemId = assertId("system id", systemIdRaw);
+  const remote = assertHttpsUrl("workspace.remote", packet.workspace?.remote ?? payload.remote ?? payload.token?.remote);
+  const forkRepo = assertId("fork repo", packet.workspace?.fork ?? payload.realization?.workspace?.fork);
+  const realizationId = assertId("realization id", packet.realizationId ?? payload.realization?.id ?? rid);
+  // The platform must not ship credentials in the packet; drop any that slip through before writing to disk.
+  const leaked = [(packet.workspace as { token?: string } | undefined)?.token, payload.token?.value].filter((x): x is string => !!x);
+  if (packet.workspace) delete (packet.workspace as { token?: string }).token;
+  const token = io.env.ARTYFACT_TOKEN || leaked[0];
+  if (!token) throw new CliError("no write token; set ARTYFACT_TOKEN for this command (shown once when work is started)");
+  const scrub = (text: string) => leaked.reduce((t, k) => t.replaceAll(k, "***"), text);
 
   const dir = resolve(io.cwd, values.dir ?? rid);
   mkdirSync(dir, { recursive: true });
-  git(io.cwd, ["clone", remote, dir], token);
+  git(io.cwd, ["clone", "--", remote, dir], token);
 
   const cfg: WorkspaceConfig = {
-    platform, systemId, realizationId: packet.realizationId ?? payload.realization?.id ?? rid, forkRepo, remote,
+    platform, systemId, realizationId, forkRepo, remote,
     tokenExpires: payload.realization?.workspace?.tokenExpiresAt ?? payload.token?.expiresAt,
-    packetHash: packet.hash, token,
+    packetHash: packet.hash,
   };
-  writeFileSync(join(dir, "TASK_PACKET.md"), packet.markdown ?? JSON.stringify(packet, null, 2));
-  writeFileSync(join(dir, "AGENTS.md"), renderAgentsMd(packet, systemId));
+  writeFileSync(join(dir, "TASK_PACKET.md"), scrub(packet.markdown ?? JSON.stringify(packet, null, 2)));
+  writeFileSync(join(dir, "AGENTS.md"), scrub(renderAgentsMd(packet, systemId)));
   writeFileSync(join(dir, CONFIG), `${JSON.stringify(cfg, null, 2)}\n`);
   chmodSync(join(dir, CONFIG), 0o600);
   const exclude = join(dir, ".git", "info", "exclude");
@@ -147,9 +156,9 @@ function printEvals(io: Io, evaluations: EvaluationRow[], conflicts: ConflictRow
 async function submit(args: string[], io: Io): Promise<number> {
   const { values } = parse(args, { "preview-url": { type: "string" }, json: { type: "boolean" } });
   const { cfg, dir } = readConfig(io);
-  const token = tokenFor(cfg, io);
+  const token = tokenFor(io);
   const commit = commitIfDirty(dir, "artyfact submit");
-  git(dir, ["push", "origin", "HEAD:main"], token);
+  git(dir, ["push", "--", "origin", "HEAD:main"], token);
   const body: { commit: string; previewUrl?: string } = { commit };
   if (values["preview-url"]) body.previewUrl = values["preview-url"];
   const res = await new PlatformClient(cfg.platform).request<SubmitPayload>(
