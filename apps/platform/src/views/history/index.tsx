@@ -3,6 +3,7 @@ import { useSearchParams } from "react-router";
 import { useHistory } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
+import { useFxOnArrival } from "@/effects/fx";
 import type { CommitView } from "./CommitCard";
 import { Timeline } from "./Timeline";
 import styles from "./history.module.css";
@@ -18,6 +19,7 @@ export default function HistoryView() {
     () => [...(data ?? [])].sort((a, b) => b.decision.at.localeCompare(a.decision.at)) as CommitView[],
     [data],
   );
+  useFxOnArrival(data, (c) => c.id, () => ({ kind: "commit" }));
   const evolutions = useMemo(() => [...new Set(commits.flatMap((c) => c.evolutions))].sort(), [commits]);
   const shown = evolution ? commits.filter((c) => c.evolutions.includes(evolution)) : commits;
   const setEvolution = (v: string) =>
@@ -41,7 +43,7 @@ export default function HistoryView() {
           The System commits could not be fetched. This is not the same as having none.
         </EmptyState>
       ) : commits.length === 0 ? (
-        <EmptyState title="No System commits yet — nothing has been promoted.">
+        <EmptyState orb="dusk" title="No System commits yet — nothing has been promoted.">
           A System commit is created when candidates are promoted with a recorded rationale.
         </EmptyState>
       ) : (

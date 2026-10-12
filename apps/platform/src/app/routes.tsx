@@ -2,6 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { isRouteErrorResponse, Link, redirect, useRouteError, type RouteObject } from "react-router";
 import { modelQuery, useModelBundle } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
+import { OrbLoader } from "@/components/OrbLoader/OrbLoader";
 import { VIEWS, type ViewName } from "@/model/kinds";
 import { ModelProvider } from "@/model/useModel";
 import { DEFAULT_REV, DEFAULT_SYSTEM_ID, viewPath } from "@/model/useSelection";
@@ -25,7 +26,7 @@ export const viewModules: Record<ViewName, () => Promise<ViewModule>> = {
 function SystemLayout() {
   const { data, error } = useModelBundle();
   if (error) throw error;
-  if (!data) return <p className={styles.loading}>Loading model…</p>;
+  if (!data) return <OrbLoader label="Loading model…" />;
   return (
     <ModelProvider bundle={data}>
       <Shell />
@@ -64,7 +65,7 @@ export function createRoutes(queryClient: QueryClient): RouteObject[] {
         currentParams.systemId !== nextParams.systemId || currentParams.rev !== nextParams.rev,
       element: <SystemLayout />,
       errorElement: <RouteError />,
-      hydrateFallbackElement: <p className={styles.loading}>Loading model…</p>,
+      hydrateFallbackElement: <OrbLoader label="Loading model…" />,
       children: [
         { index: true, loader: ({ params }) => redirect(viewPath(params.systemId!, params.rev!, "overview")) },
         ...VIEWS.map((view) => ({

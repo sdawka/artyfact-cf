@@ -3,21 +3,18 @@ import { BlockersList } from "./BlockersList";
 import { DeployCard } from "./DeployCard";
 import { PhaseCard } from "./PhaseCard";
 import { PurposeCard } from "./PurposeCard";
-import { ThreeStatesRow } from "./ThreeStatesRow";
-import { useModel } from "@/model/useModel";
+import { SystemHero } from "./SystemHero";
 import styles from "./Overview.module.css";
 
-/** Landing view: the Purpose, three separate states, active Evolutions, and blockers with why. */
+/** Landing view: the System hero (orb, name, Purpose, three separate states), Purpose detail, active Evolutions, and blockers with why. */
 export default function OverviewView() {
-  const m = useModel();
   return (
     <div className={styles.view}>
       <header className={styles.header}>
         <h1 id="view-title">Overview</h1>
-        <p className={styles.muted}>{m.index.model.system.name}</p>
       </header>
-      <PurposeCard />
-      <ThreeStatesRow />
+      <SystemHero />
+      <PurposeCard leadShown />
       <div className={styles.twoCol}>
         <ActiveEvolutionsCard />
         <BlockersList />

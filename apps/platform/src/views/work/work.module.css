@@ -68,6 +68,10 @@
 .primary { color: var(--color-text-inverse); background: var(--color-brand-primary); border-color: var(--color-brand-primary); }
 .primary:disabled { color: var(--color-text-disabled); background: var(--color-surface-disabled); border-color: var(--color-border-subtle); cursor: not-allowed; }
 .btn:focus-visible, .primary:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+/* Primary action glow (effect tokens): on hover and keyboard focus, alongside the focus outline, never instead of it. */
+.primary { transition: box-shadow 160ms ease-out; }
+.primary:not(:disabled):hover, .primary:not(:disabled):focus-visible { box-shadow: var(--shadow-glow-accent); }
+@media (prefers-reduced-motion: reduce) { .primary { transition: none; } }
 
 /* Panels and forms */
 .panel { display: grid; gap: var(--spacing-3); padding: var(--spacing-4); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); }

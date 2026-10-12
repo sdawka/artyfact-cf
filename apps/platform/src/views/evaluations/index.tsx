@@ -1,4 +1,5 @@
 import { useSearchParams } from "react-router";
+import { useEvaluationFx } from "@/effects/fx";
 import { useModel } from "@/model/useModel";
 import { EvaluationsTable } from "./EvaluationsTable";
 import styles from "./evaluations.module.css";
@@ -7,6 +8,7 @@ import styles from "./evaluations.module.css";
 export default function EvaluationsView() {
   const m = useModel();
   const [params, setParams] = useSearchParams();
+  useEvaluationFx(m.evaluations);
   const expand = (id: string | null) =>
     setParams((prev) => {
       const next = new URLSearchParams(prev);
