@@ -33,16 +33,25 @@ describe("walkTree", () => {
     expect([...files.keys()]).toEqual(["src/index.ts"]);
     expect(repo.calls.filter((c) => c.startsWith("readFile"))).toEqual(["readFile:src/index.ts"]);
   });
-  it("throws on an unknown commit", async () => {
+  it("throws a 422 unknown-commit on an unknown commit", async () => {
     const { repo } = threeCommits();
-    await expect(walkTree(repo, "f".repeat(40))).rejects.toThrow(/commit/);
+    await expect(walkTree(repo, "f".repeat(40))).rejects.toMatchObject({ status: 422, code: "unknown-commit" });
+    await expect(diffTrees(repo, "f".repeat(40), "e".repeat(40))).rejects.toMatchObject({ status: 422, code: "unknown-commit" });
+  });
+  it("distinguishes an absent prefix (empty) from a missing tree object (error)", async () => {
+    const { repo, c1 } = threeCommits();
+    expect((await listTree(repo, c1, "nope")).size).toBe(0);
+    const realReadTree = repo.readTree.bind(repo);
+    let first = true;
+    repo.readTree = async (h) => (first ? ((first = false), realReadTree(h)) : null);
+    await expect(listTree(repo, c1, "docs/a")).rejects.toMatchObject({ status: 422, code: "missing-tree" });
   });
   it("listTree lists paths without reading blobs", async () => {
     const { repo, c3 } = threeCommits();
     repo.calls.length = 0;
     const paths = await listTree(repo, c3);
     expect([...paths.keys()].sort()).toEqual(["migrations/0001.sql", "package.json", "src/index.ts", "src/ui/people/new.css"]);
-    expect(repo.calls.some((c) => c.startsWith("readFile"))).toBe(false);
+    expect(repo.calls.some((c) => c.startsWith("readFile") || c.startsWith("readBlob"))).toBe(false);
   });
 });
 

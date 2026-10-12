@@ -1,12 +1,13 @@
 import { loadSystem, validate, type Readiness, type SystemModel } from "@artyfact/model";
 import { packsFor, templates } from "@artyfact/templates";
+import { unprocessable } from "../errors";
 import type { ArtifactsRepoLike, TreeEntry } from "./client";
 
 const normPrefix = (p: string) => p.replace(/^\/+|\/+$/g, "");
 
 async function rootTree(repo: ArtifactsRepoLike, commit: string): Promise<string> {
   const meta = await repo.readCommit(commit);
-  if (!meta) throw new Error(`commit ${commit} not found in repo`);
+  if (!meta) throw unprocessable("unknown-commit", `commit ${commit} not found in the repo`);
   return meta.treeHash;
 }
 
@@ -15,8 +16,9 @@ async function treeAt(repo: ArtifactsRepoLike, commit: string, prefix: string): 
   let tree = await rootTree(repo, commit);
   for (const part of normPrefix(prefix).split("/").filter(Boolean)) {
     const entries = await repo.readTree(tree);
-    const e = entries?.find((x) => x.name === part && x.type === "tree");
-    if (!e) return null;
+    if (!entries) throw unprocessable("missing-tree", `tree ${tree} (on the way to ${prefix}) not found`);
+    const e = entries.find((x) => x.name === part && x.type === "tree");
+    if (!e) return null; // the prefix is not present at this commit
     tree = e.hash;
   }
   return tree;
@@ -26,7 +28,7 @@ async function treeAt(repo: ArtifactsRepoLike, commit: string, prefix: string): 
 export async function listTreeFrom(repo: ArtifactsRepoLike, tree: string, base = ""): Promise<Map<string, TreeEntry>> {
   const out = new Map<string, TreeEntry>();
   const entries = await repo.readTree(tree);
-  if (!entries) throw new Error(`tree ${tree} not found`);
+  if (!entries) throw unprocessable("missing-tree", `tree ${tree} not found`);
   const subtrees: Promise<Map<string, TreeEntry>>[] = [];
   for (const e of entries) {
     const p = base + e.name;

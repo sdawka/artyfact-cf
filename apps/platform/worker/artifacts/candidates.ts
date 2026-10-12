@@ -1,5 +1,6 @@
 import type { ArtifactsRepoLike, TreeEntry } from "./client";
 import { nodesForPath, type SourceMapEntry } from "./source-map";
+import { unprocessable } from "../errors";
 import { canonicalJson, sha256Hex } from "../util";
 
 export interface TreeDiff { added: string[]; modified: string[]; removed: string[] }
@@ -44,8 +45,8 @@ async function diffTree(repo: ArtifactsRepoLike, a: string, b: string, base: str
 /** Recursive tree-hash comparison between two commits; identical subtrees are never expanded. */
 export async function diffTrees(repo: ArtifactsRepoLike, baseCommit: string, headCommit: string): Promise<TreeDiff> {
   const [a, b] = await Promise.all([repo.readCommit(baseCommit), repo.readCommit(headCommit)]);
-  if (!a) throw new Error(`base commit ${baseCommit} not found`);
-  if (!b) throw new Error(`commit ${headCommit} not found`);
+  if (!a) throw unprocessable("unknown-commit", `base commit ${baseCommit} not found`);
+  if (!b) throw unprocessable("unknown-commit", `commit ${headCommit} not found`);
   const d: TreeDiff = { added: [], modified: [], removed: [] };
   await diffTree(repo, a.treeHash, b.treeHash, "", d);
   d.added.sort(); d.modified.sort(); d.removed.sort();
