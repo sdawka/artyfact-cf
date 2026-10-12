@@ -44,3 +44,4 @@ Not done on purpose: platform-hosted agents, a reasoning-model evaluator beyond 
 - Team names and roles.
 - Copyright owner for LICENSE. It reads "artyfact contributors" until the owner names one.
 - Repository, demo and video URLs.
+- Eligibility: the official terms require the source to be under MIT, Apache-2.0 or a BSD 2/3-Clause licence, which is why the licence stays Apache-2.0, and they make US or Canada residency an eligibility condition.
