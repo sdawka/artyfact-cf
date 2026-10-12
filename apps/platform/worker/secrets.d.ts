@@ -5,8 +5,6 @@ interface Secrets {
   ADMIN_TOKEN: string;
   TYPESAFE_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
-  /** "1" enables the fake System One semantic judge. */
-  FAKE_S1?: string;
   /** "1" lets the health hook fetch http://localhost / 127.0.0.1 previews. `.dev.vars` only, never deployed. */
   ALLOW_LOCAL_PREVIEW?: string;
 }

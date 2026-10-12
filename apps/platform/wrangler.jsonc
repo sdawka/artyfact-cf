@@ -13,7 +13,8 @@
   // ACCOUNT_ID builds fork remotes (https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/<ns>/<repo>.git); set it in .dev.vars or here.
   // PREVIEW_HOST_ALLOWLIST: extra hosts the health hook may fetch agent-supplied preview URLs from, comma-separated
   // (`app.example.com` exact, `*.example.com` subdomains); *.workers.dev and *.pages.dev are always allowed.
+  // FAKE_S1=1: no System One provider key is configured yet, so the fake judge answers (the UI labels those judgments).
   // ALLOW_LOCAL_PREVIEW=1 (http://localhost / 127.0.0.1 previews) belongs in .dev.vars only, never in deployed vars.
-  "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "http://localhost:5173", "ACCOUNT_ID": "", "PREVIEW_HOST_ALLOWLIST": "" },
+  "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "https://artyfact-platform.dawka.workers.dev", "ACCOUNT_ID": "1bae12d5089e4c2ee5c0e62c021a117f", "PREVIEW_HOST_ALLOWLIST": "", "FAKE_S1": "1" },
   "observability": { "enabled": true }
 }
