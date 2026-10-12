@@ -4,12 +4,14 @@ on:
     paths:
       - apps/site/**
       - packages/cli/**
+      - packages/effects/**
       - package-lock.json
       - .github/workflows/site.yml
   pull_request:
     paths:
       - apps/site/**
       - packages/cli/**
+      - packages/effects/**
       - package-lock.json
       - .github/workflows/site.yml
 
@@ -29,6 +31,7 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run typecheck -w @artyfact/site
+      - run: npm run test -w @artyfact/site
       - run: npm run build -w @artyfact/site
       - run: npm run test:build -w @artyfact/site
       - name: Read pinned Playwright version

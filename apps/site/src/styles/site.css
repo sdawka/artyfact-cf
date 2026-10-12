@@ -1,5 +1,6 @@
 @import './tokens.css';
 @import './whimsy.css';
+@import './effects.css';
 @import './utilities.css';
 * { box-sizing: border-box; }
 html { background: var(--color-background); scroll-behavior: smooth; }
@@ -70,6 +71,7 @@ main, .site-header, .site-footer { width: min(1240px, calc(100% - 96px)); margin
 .subject::after { content: ''; width: 1px; height: 12px; background: var(--color-border); position: absolute; top: 0; left: 50%; }
 .subject small { display: block; font-size: .65rem; color: var(--color-text-subtle); margin-bottom: 8px; }
 .subject span { display: block; }
+.subject[aria-pressed="true"] small { color: var(--color-text-secondary); }
 .subject[aria-pressed="true"] { color: var(--color-brand-primary); background: var(--color-background-active); border-radius: var(--border-radius-md); }
 .example-detail { border-top: 1px solid var(--color-border-subtle); margin: 0 26px; padding: 23px 0 16px; min-height: 220px; }
 .example-detail .detail-title { font-size: 1.1rem; line-height: 1.4; font-weight: 600; color: var(--color-text-primary); max-width: 40ch; margin-bottom: 12px; }
@@ -111,6 +113,35 @@ pre code { font-size: .8rem; overflow-wrap: normal; }
 .code-actions span { font-size: .78rem; color: var(--color-text-subtle); }
 blockquote { margin: 25px 0; padding-left: 25px; border-left: 2px solid var(--color-brand-primary); color: var(--color-text-primary); }
 .independent { display: grid; grid-template-columns: 1fr 1fr; gap: 70px; }
+/* Effects. The hero orb and the ambient field mount after hydration (src/effects.tsx); until then, and without JS or
+   WebGL2, the CSS haze below stands in. Content stacks above the fixed field. */
+html, body { overflow-x: clip; } /* html stops body's overflow propagating to the viewport, so body clips the orb's bleed */
+.ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: var(--gradient-haze); }
+.site-header, main, .site-footer { position: relative; z-index: 1; }
+.hero-example { position: relative; isolation: isolate; }
+.hero-orb { position: absolute; z-index: -1; left: 80%; top: 30%; width: min(135%, 900px); aspect-ratio: 1; translate: -50% -50%; pointer-events: none; }
+.hero-orb::before { content: ''; position: absolute; inset: 0; pointer-events: none; transition: opacity var(--motion-duration-ambient) var(--motion-easing-ambient);
+  background: radial-gradient(circle closest-side, transparent 55%, oklch(0.79 0.125 60 / .3) 61%, oklch(0.79 0.125 60 / .08) 66%, transparent 72%),
+    radial-gradient(ellipse 45% 26% at 50% 66%, oklch(0.79 0.125 60 / .16), transparent); }
+.hero-orb:has([data-effect-mode="gl"], [data-effect-mode="fallback"])::before { opacity: 0; }
+.hero .explorer { background: color-mix(in oklch, var(--color-surface-primary) 86%, transparent); backdrop-filter: blur(22px) saturate(1.2); -webkit-backdrop-filter: blur(22px) saturate(1.2);
+  box-shadow: 0 40px 90px -50px oklch(0 0 0 / .7); }
+.orb-caption { position: relative; margin: 16px 2px 0; font-size: .78rem; color: var(--color-text-subtle); display: flex; gap: 10px; align-items: baseline; }
+.orb-caption::before { content: ''; flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--color-brand-primary); box-shadow: 0 0 10px 1px var(--glow-accent); translate: 0 -1px; }
+.button.primary { box-shadow: 0 0 26px -10px var(--glow-accent); transition: box-shadow var(--motion-duration-normal) var(--motion-easing-ease-out), background var(--motion-duration-normal) var(--motion-easing-ease-out); }
+.button.primary:is(:hover, :focus-visible) { box-shadow: var(--shadow-glow-accent), 0 0 40px -6px var(--glow-accent); }
+.button:not(.primary) { transition: box-shadow var(--motion-duration-normal) var(--motion-easing-ease-out); }
+.button:not(.primary):is(:hover, :focus-visible) { box-shadow: var(--shadow-glow-accent); }
+.workflow-list li { position: relative; }
+.workflow-list li::before { content: ''; position: absolute; top: -1px; left: 0; width: 64px; height: 1px; background: var(--color-brand-primary); box-shadow: 0 0 16px 2px var(--glow-accent);
+  animation: step-breathe calc(var(--motion-duration-ambient) * 2) var(--motion-easing-ambient) infinite alternate; transition: width var(--motion-duration-ambient) var(--motion-easing-ambient); }
+.workflow-list li:nth-child(2)::before { animation-delay: calc(var(--motion-duration-ambient) * -.5); }
+.workflow-list li:nth-child(3)::before { animation-delay: calc(var(--motion-duration-ambient) * -1); }
+.workflow-list li:nth-child(4)::before { animation-delay: calc(var(--motion-duration-ambient) * -1.5); }
+.workflow-list li:hover::before { width: 100%; }
+.step-number { text-shadow: 0 0 22px var(--glow-accent); }
+.closing { background: var(--gradient-haze); }
+@keyframes step-breathe { from { opacity: .45; } to { opacity: 1; } }
 .no-script { width: min(1240px, calc(100% - 48px)); margin: 20px auto; font-size: .85rem; }
 @media (max-width: 1050px) {
   main, .site-header, .site-footer { width: calc(100% - 64px); }
@@ -130,7 +161,8 @@ blockquote { margin: 25px 0; padding-left: 25px; border-left: 2px solid var(--co
   .hero { padding: 55px 0 65px; }
   .hero h1 { font-size: clamp(3.4rem, 12vw, 5rem); }
   .hero-copy > p:not(.lead) { max-width: 55ch; }
-  .hero-example { margin-top: 15px; }
+  .hero-example { margin-top: 0; padding-top: min(50vw, 300px); }
+  .hero-orb { left: 50%; top: 0; translate: -50% 0; width: min(120vw, 620px); }
   .section { padding-block: 55px; }
   .workflow-list, .state-grid { grid-template-columns: repeat(2, 1fr); gap: 30px; }
   .guide-layout { grid-template-columns: 1fr; gap: 20px; }

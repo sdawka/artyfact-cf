@@ -72,3 +72,14 @@ test('the guide names the hosted origin and the local CLI default', async () => 
   assert(html.includes('http://localhost:1337') && !html.includes('5173'));
   assert(html.includes('https://github.com/sdawka/artyfact-cf'));
 });
+test('effects stay off the critical path and out of the static markup', async () => {
+  const html = await readFile(resolve(dist, 'index.html'), 'utf8');
+  const document = new JSDOM(html).window.document;
+  const slot = document.querySelector('[data-hero-orb]');
+  assert(slot && slot.getAttribute('aria-hidden') === 'true' && slot.children.length === 0);
+  assert(document.querySelector('[data-ambient]')?.children.length === 0);
+  assert(/System's state/.test(document.querySelector('.orb-caption')?.textContent ?? ''));
+  assert(!document.querySelector('canvas'));
+  assert.equal(document.querySelectorAll('script').length, 1);
+  assert(!/effects-|engine-|modulepreload/.test(html), 'effects must load after hydration, not from the page head');
+});

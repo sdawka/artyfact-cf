@@ -1,19 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
+import type { SystemSelection } from './systemState';
 
-const subjects = [
+export const subjects = [
   { name: 'Save a contact', kind: 'Operation', intent: 'Only the owner can read a private contact.', work: 'Two isolated realizations', workDetail: 'A dialog change and an API change can touch the same permission, even when they edit different files.', observation: 'Permission checks need evidence for the exact candidate.' },
   { name: 'A private relationship', kind: 'Entity', intent: 'Private notes belong to their author.', work: 'A contract to preserve', workDetail: 'The storage mapping and owner-only policy travel with the task, not just the file paths.', observation: 'A passing storage check would not prove that every access path is private.' },
   { name: 'Wanted contact', kind: 'Purpose', intent: 'More wanted contact, less effort remembering.', work: 'Work with a reason', workDetail: 'Contact features serve this purpose. More notifications or time in the app are not substitutes for it.', observation: 'Outcomes need observations from people, with a time and context.' },
 ];
-const layers = [
+export const layers = [
   { name: 'Genome', meaning: 'The intent', description: 'What should hold true.' },
   { name: 'Proteome', meaning: 'The work', description: 'Who realizes and checks it.' },
   { name: 'Phenome', meaning: 'The evidence', description: 'What can be observed.' },
 ];
 
-export function SystemExplorer() {
+/** `onSelect` hears every layer or subject change (and the initial state after mount); the markup does not depend on it. */
+export function SystemExplorer({ onSelect }: { onSelect?: (selection: SystemSelection) => void }) {
   const [layer, setLayer] = useState(0);
   const [subject, setSubject] = useState(0);
+  useEffect(() => { onSelect?.({ layer, subject }); }, [layer, subject, onSelect]);
   const selected = subjects[subject];
   return <section className="explorer" aria-label="Interactive Keep in Touch example">
     <div className="explorer-heading"><span>Keep in Touch</span><span className="example-label">Illustrative System</span></div>

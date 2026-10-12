@@ -15,6 +15,7 @@ function Code({ id, children }: { id: string; children: string }) { return <div 
 function Platform({ config }: { config: SiteConfig }) { return config.platform ? <a className="button u-brackets" href={config.platform}>Open the platform</a> : <p className="availability"><span className="availability-mark" aria-hidden="true" />The hosted handoff is being prepared. The guide is ready.</p>; }
 export function Site({ path, config, explorerHtml }: { path: PagePath | '/404'; config: SiteConfig; explorerHtml?: string }) {
   return <>
+    {path !== '/404' && <div className="ambient" data-ambient="" aria-hidden="true" />}
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="site-header">
       <a className="brand" href="/" aria-label="Artyfact home"><Wordmark /></a>
@@ -29,7 +30,7 @@ function Home({ config, explorerHtml }: { config: SiteConfig; explorerHtml?: str
   return <>
     <section className="hero">
       <div className="hero-copy"><h1>Author systems<br /> together.</h1><p className="lead">Give your agent the whole picture.</p><p>Define what you are building, give agents scoped work, and review the evidence before accepting a change.</p><div className="actions"><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a><a className="text-link" href="/model">Understand the model</a></div><Platform config={config} /></div>
-      <div className="hero-example"><Explorer html={explorerHtml} /></div>
+      <div className="hero-example"><div className="hero-orb" data-hero-orb="" aria-hidden="true" /><Explorer html={explorerHtml} /><p className="orb-caption">The orb behind it is drawn from this System's state. Change a layer or subject and it answers.</p></div>
     </section>
     <section className="statement section"><div><h2>Start with a purpose.<br />Keep it in the work.</h2></div><div className="prose"><p>An agent needs to know why a change matters, whose needs it serves, and what must stay true.</p><p>Artyfact gives that context a home: a <a href="/model">System</a>. Its model links purpose, structure, journeys and contracts to the work that realizes them and the evidence that checks them.</p><p>Keep in Touch is our first example. The purpose is more wanted contact with people you choose. Private notes, consent and a calm experience follow from that purpose.</p></div></section>
     <section className="section workflow"><div className="section-heading"><h2>A clear handoff.<br />Room for different approaches.</h2><p>Use your own agent and local tools. Artyfact supplies the task, context and isolated workspace.</p></div>
