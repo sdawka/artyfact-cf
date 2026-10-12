@@ -81,7 +81,9 @@ const passing: HookRunner = {
   async runGenome(ctx) {
     const base = await noopHookRunner.runGenome(ctx);
     const signals = { id: "entity.ContactRecord", changeClass: null, contradicts: {}, weakens: null, specificity: null, touchesConsent: null, level: "info", verdict: "pass", provenance: {} };
-    return { ...base, review: [{ subject: "entity.ContactRecord", judgment: "reviewDelta", level: "info", verdict: "pass", signals: signals as never }] };
+    // Genome candidates face the same gate as app candidates at accept, so they get the same evaluations.
+    const evaluations = REQUIRED.map((c) => (c === "C.system.promotion" ? promotionEval(ctx) : hookEval(ctx, c, "completed", "pass")));
+    return { ...base, evaluations, review: [{ subject: "entity.ContactRecord", judgment: "reviewDelta", level: "info", verdict: "pass", signals: signals as never }] };
   },
   async conflicts(ctx) {
     return ctx.openCandidates.length
@@ -423,8 +425,15 @@ describe("routes: import → model → start → submit → promote", () => {
       expect((await call<ApiError>(method, path, body, bearer(b.secret))).status, at).toBeLessThan(300);
       expect((await call<ApiError>(method, path, body, ADMIN)).status, at).toBeLessThan(300);
     }
-    // The registry route checks before it resolves.
-    expect((await call<ApiError>("GET", `/realizations/${b.realization.id}/packet`, undefined, {})).status).toBe(401);
+    // The registry route checks the secret before it resolves: realization ids repeat across Systems in this test
+    // run, yet the secret names its System, and a non-admin never sees 404 or 409 `ambiguous`.
+    const viaRegistry = `/realizations/${b.realization.id}/packet`;
+    expect((await call<ApiError>("GET", viaRegistry, undefined, {})).status).toBe(401);
+    expect((await call<ApiError>("GET", viaRegistry, undefined, bearer("f".repeat(64)))).status).toBe(403);
+    expect((await call<ApiError>("GET", viaRegistry, undefined, bearer(a.secret))).status).toBe(403);
+    const own = await call<PacketResponse>("GET", viaRegistry, undefined, bearer(b.secret));
+    expect([own.status, own.json.systemId]).toEqual([200, systemId]);
+    expect((await call<ApiError>("GET", "/realizations/realization.9.r99/packet", undefined, bearer(b.secret))).status).toBe(403);
     // The UI's review stays open.
     expect((await call<ApiError>("GET", `${rB}/review`, undefined, {})).status).not.toBe(401);
   });
@@ -532,6 +541,27 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(modelOf(model.json).index.byId["entity.ContactRecord"].name).toBe("Contact record v2");
   });
 
+  it("accept refuses a Genome candidate the promotion gate blocks (409 blocked)", async () => {
+    setHooks({ runner: () => ({ ...passing, async runGenome(ctx) {
+      const out = await passing.runGenome(ctx);
+      return { ...out, evaluations: out.evaluations.map((e) => (e.criterion === "C.system.promotion" ? { ...e, verdict: "fail" as const } : e)) };
+    } }) });
+    const { ns, systemId, genomeRepo, imp } = await imported();
+    const start = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.2/realizations`, {})).json;
+    const fork = ns.repo(`${genomeRepo}--r1`);
+    const files = new Map<string, string>();
+    for (const p of Object.keys(genomeFiles)) files.set(p, (await (await fork.readFile({ ref: imp.genomeCommit, path: p }))!.text()));
+    files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", "name: Contact v4"));
+    const commit = fork.commit(files, "rename");
+    await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${start.realization.id}/submit`, { commit });
+    const res = await call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.2/accept`, { realizationId: start.realization.id, interpretation: "fine" }, ADMIN);
+    expect(res.status).toBe(409);
+    expect(res.json.error.code).toBe("blocked");
+    // Only model-level criteria gate a Genome candidate; the artifact criteria gate app candidates.
+    expect((res.json.error.details as { blocking: { criterion: string }[] }).blocking.map((b) => b.criterion)).toEqual(["C.system.promotion"]);
+    expect((await call<ModelBundle>("GET", `/systems/${systemId}/model`)).json.genomeCommit).toBe(imp.genomeCommit);
+  });
+
   it("rejects a Genome realization with a reason (admin)", async () => {
     const { ns, systemId, genomeRepo, imp } = await imported();
     const start = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.2/realizations`, {})).json;
@@ -604,12 +634,16 @@ describe("routes: import → model → start → submit → promote", () => {
     const inB = await call<{ candidates: { commit: string }[] }>("GET", `/systems/${B.systemId}/evolutions/evolution.1/candidates`);
     expect(inA.json.candidates.map((c) => c.commit)).toEqual([commit]);
     expect(inB.json.candidates).toEqual([]);
-    // The System-less route refuses to guess.
-    const amb = await call<ApiError>("GET", `/realizations/${ra.realization.id}`);
+    // The System-less route refuses to guess for the admin; a realization secret names its own System.
+    const amb = await call<ApiError>("GET", `/realizations/${ra.realization.id}`, undefined, ADMIN);
     expect(amb.status).toBe(409);
     expect(amb.json.error).toMatchObject({ code: "ambiguous", details: { systems: expect.arrayContaining([A.systemId, B.systemId]) } });
+    for (const [r, sid] of [[ra, A.systemId], [rb, B.systemId]] as const) {
+      const own = await call<RealizationResponse>("GET", `/realizations/${r.realization.id}`, undefined, { authorization: `Bearer ${r.secret}` });
+      expect([own.status, own.json.systemId]).toEqual([200, sid]);
+    }
     // The System-scoped route still works.
-    expect((await call<RealizationResponse>("GET", `/systems/${B.systemId}/realizations/${rb.realization.id}`)).status).toBe(200);
+    expect((await call<RealizationResponse>("GET", `/systems/${B.systemId}/realizations/${rb.realization.id}`, undefined, { authorization: `Bearer ${rb.secret}` })).status).toBe(200);
   });
 
   it("a retry after failed hooks reports created: false and concurrent retries run the hooks once", async () => {

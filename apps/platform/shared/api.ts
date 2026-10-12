@@ -227,8 +227,12 @@ export interface SystemManifest {
 
 /** The model's SystemCommit (`manifest` as artifact bindings) plus the hashed composition. The backend always sets the extras. */
 export type SystemCommit = schema.SystemCommit & {
-  /** `acknowledged`: advisory criteria the promoter accepted with the rationale. */
-  decision: { acknowledged?: NodeId[] };
+  /**
+   * `acknowledged`: advisory criteria the promoter accepted with the rationale. `evidenceProviders`: the distinct
+   * System One providers (`fake`, `typesafe`, `openrouter`, …) behind the gating evaluations; `fake` means the
+   * operator ran with `FAKE_S1=1` and those judgments were canned.
+   */
+  decision: { acknowledged?: NodeId[]; evidenceProviders?: string[] };
   /** The hashed composition manifest. */
   composition?: SystemManifest;
   manifestHash?: Sha256;

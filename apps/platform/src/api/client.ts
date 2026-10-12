@@ -46,15 +46,12 @@ export const paths = {
   model: (s: string, rev: string) => `/api/systems/${enc(s)}/model?rev=${enc(rev)}`,
   readiness: (s: string, rev: string) => `/api/systems/${enc(s)}/readiness?rev=${enc(rev)}`,
   evolutions: (s: string) => `/api/systems/${enc(s)}/evolutions`,
-  realization: (s: string, r: string) => `/api/systems/${enc(s)}/realizations/${enc(r)}`,
   candidates: (s: string, e: string) => `/api/systems/${enc(s)}/evolutions/${enc(e)}/candidates`,
   evaluations: (s: string, candidate?: string) =>
     `/api/systems/${enc(s)}/evaluations${candidate ? `?candidate=${enc(candidate)}` : ""}`,
   conflicts: (s: string) => `/api/systems/${enc(s)}/conflicts`,
   history: (s: string) => `/api/systems/${enc(s)}/history`,
-  packet: (s: string, r: string) => `/api/systems/${enc(s)}/realizations/${enc(r)}/packet`,
   startWork: (s: string, e: string) => `/api/systems/${enc(s)}/evolutions/${enc(e)}/realizations`,
-  submit: (s: string, r: string) => `/api/systems/${enc(s)}/realizations/${enc(r)}/submit`,
   promote: (s: string) => `/api/systems/${enc(s)}/promote`,
   amendmentReview: (s: string, e: string, r: string) =>
     `/api/systems/${enc(s)}/evolutions/${enc(e)}/realizations/${enc(r)}/review`,
@@ -173,11 +170,6 @@ export async function getReadiness(systemId: string, rev: string): Promise<Readi
 export const getEvolutions = (systemId: string) =>
   readOrEmpty<EvolutionsResponse>({ evolutions: [], realizations: [] }, () => request(paths.evolutions(systemId)));
 
-export async function getRealization(systemId: string, realizationId: string): Promise<Realization> {
-  if (await isFixtureMode()) throw new ApiRequestError(404, "not-found", `No realization ${realizationId} in fixture data`);
-  return request<Realization>(paths.realization(systemId, realizationId));
-}
-
 export const getCandidates = (systemId: string, evolutionId: string) =>
   readOrEmpty<CandidatesResponse>({ evolution: evolutionId, candidates: [], evaluations: [], conflicts: [] }, () =>
     request(paths.candidates(systemId, evolutionId)),
@@ -192,10 +184,6 @@ export const getConflicts = (systemId: string) =>
 export const getHistory = (systemId: string) =>
   readOrEmpty<HistoryResponse>({ commits: [] }, () => request(paths.history(systemId)));
 
-export async function getPacket(systemId: string, realizationId: string): Promise<PacketResponse> {
-  if (await isFixtureMode()) throw new ApiRequestError(404, "not-found", `No packet for ${realizationId} in fixture data`);
-  return request<PacketResponse>(paths.packet(systemId, realizationId));
-}
 
 export async function getAmendmentReview(systemId: string, evolutionId: string, realizationId: string): Promise<GenomeCandidateReview> {
   if (await isFixtureMode()) throw new ApiRequestError(404, "not-found", `No amendment review for ${realizationId} in fixture data`);
@@ -211,9 +199,6 @@ export const startWork = (systemId: string, evolutionId: string, body: StartWork
   writeOrThrow("Start work", () =>
     post<StartWorkResponse>(paths.startWork(systemId, evolutionId), body, adminToken ? { authorization: `Bearer ${adminToken}` } : undefined),
   );
-
-export const submit = (systemId: string, realizationId: string, body: SubmitRequest) =>
-  writeOrThrow("Submit", () => post<SubmitResponse>(paths.submit(systemId, realizationId), body));
 
 /** Rejects with {@link StaleBaseError} when `expectedHead` is no longer the head. */
 export const promote = (systemId: string, body: PromoteRequest, adminToken?: string) =>

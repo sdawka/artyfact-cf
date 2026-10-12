@@ -66,10 +66,17 @@ issue_token() {
 }
 
 # git with the bearer header supplied through the environment so the token never appears in argv.
+# The bearer header reaches git through exported GIT_CONFIG_* variables set in a subshell. `export` is a shell
+# builtin, so the token never appears in any process argv (not via env(1), not as a git config flag).
 authed_git() {
   local token="$1"; shift
-  local n="${GIT_CONFIG_COUNT:-0}"
-  env "GIT_CONFIG_COUNT=$((n + 1))" "GIT_CONFIG_KEY_$n=http.extraHeader" "GIT_CONFIG_VALUE_$n=Authorization: Bearer $token" git "$@"
+  (
+    n="${GIT_CONFIG_COUNT:-0}"
+    export GIT_CONFIG_COUNT="$((n + 1))"
+    export "GIT_CONFIG_KEY_$n=http.extraHeader"
+    export "GIT_CONFIG_VALUE_$n=Authorization: Bearer $token"
+    exec git "$@"
+  )
 }
 
 head_of() { # token url -> commit or empty
@@ -84,7 +91,7 @@ push_repo() {
   if [ "$DRY_RUN" = 1 ]; then
     log "+ token=\$(wrangler artifacts repos issue-token $repo --namespace $NS --scope write --ttl 3600 --json)"
     log "+ git ls-remote $url refs/heads/main   # skip push if main exists"
-    log "+ tmp=\$(mktemp -d) && tar -C $src --exclude node_modules --exclude .wrangler --exclude .git -cf - . | tar -C \$tmp -xf - && git -C \$tmp init -b main && git -C \$tmp add -A && git -C \$tmp commit -m 'Initial import'"
+    log "+ tmp=\$(mktemp -d) && tar -C $src -cf - --exclude node_modules --exclude .wrangler --exclude .git . | tar -C \$tmp -xf - && git -C \$tmp init -b main && git -C \$tmp add -A && git -C \$tmp commit -m 'Initial import'"
     log "+ git -C \$tmp push $url HEAD:main   # Authorization: Bearer <token> via http.extraHeader"
     return
   fi
@@ -95,7 +102,7 @@ push_repo() {
   if [ -z "$head" ]; then
     tmp="$(mktemp -d)"
     trap 'rm -rf "$tmp"' RETURN
-    (cd "$ROOT/$src" && tar --exclude node_modules --exclude .wrangler --exclude .git -cf - .) | tar -xf - -C "$tmp"
+    (cd "$ROOT/$src" && tar -cf - --exclude node_modules --exclude .wrangler --exclude .git .) | tar -xf - -C "$tmp"
     git -C "$tmp" init -q -b main
     git -C "$tmp" add -A
     git -C "$tmp" -c user.name=artyfact -c user.email=artyfact@localhost commit -q -m "Initial import"

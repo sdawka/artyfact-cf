@@ -1,6 +1,8 @@
 import type { SystemCommit } from "../../../shared/api";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { CopyButton } from "@/components/CopyButton/CopyButton";
+import { StatePill } from "@/app/StatePill";
+import { FAKE_PROVIDER_TITLE, isFakeProvider } from "@/model/provider";
 import styles from "./history.module.css";
 
 /** The backend may add phase/deploy details to a commit; none of it is in the model schema yet. */
@@ -32,6 +34,9 @@ export function CommitCard({ commit: c, highlighted }: { commit: CommitView; hig
         <h3 id={`commit-title-${c.id}`} className={styles.title}>
           System commit <code>{short(c.id)}</code>
         </h3>
+        {(c.decision.evidenceProviders ?? []).some(isFakeProvider) && (
+          <StatePill state="fake" title={FAKE_PROVIDER_TITLE}>System One: fake provider</StatePill>
+        )}
         <CopyButton value={c.id} label="Copy commit id" />
       </header>
       <dl className={styles.facts}>
@@ -70,7 +75,10 @@ export function CommitCard({ commit: c, highlighted }: { commit: CommitView; hig
           ) : "none"}
         </dd>
         <dt>Evidence</dt>
-        <dd>{c.evidence.length} evaluation{c.evidence.length === 1 ? "" : "s"}</dd>
+        <dd>
+          {c.evidence.length} evaluation{c.evidence.length === 1 ? "" : "s"}
+          {c.decision.evidenceProviders?.length ? `; System One providers: ${c.decision.evidenceProviders.join(", ")}` : ""}
+        </dd>
       </dl>
       <blockquote className={styles.decision}>
         <p>{c.decision.rationale || "No rationale recorded."}</p>

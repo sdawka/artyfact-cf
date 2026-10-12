@@ -1,23 +1,25 @@
 import { Hono } from "hono";
-import { checkpoint, packet, realizationView, reject, review, submit, sync, systemForRealization, systemStub } from "../service";
+import { checkpoint, packet, realizationView, reject, review, submit, sync, systemForRealization, systemsHoldingRealization, systemStub } from "../service";
 import { requireAdmin, requireRealizationSecret } from "../auth";
 import { body, type AppEnv, type Ctx } from "./app";
 
 type Resolve = (c: Ctx) => Promise<string>;
+/** System ids that may hold the realization in the path, without throwing (an unknown one yields none). */
+type Holders = (c: Ctx) => Promise<string[]>;
 
 /**
  * The same realization routes under three prefixes:
  * `/systems/:id/evolutions/:eid/realizations/:rid` (CLI), `/systems/:id/realizations/:rid`,
  * and `/realizations/:rid` (System resolved through the registry).
  */
-function mount(app: Hono<AppEnv>, prefix: string, system: Resolve) {
+function mount(app: Hono<AppEnv>, prefix: string, system: Resolve, holders: Holders) {
   const rid = (c: Ctx) => c.req.param("rid")!;
-  /** The System id, once the caller holds this realization's secret or the admin bearer (401 precedes any lookup). */
+  /** The System id, once the caller holds this realization's secret or the admin bearer. The secret is checked first. */
   const authed = async (c: Ctx) => {
-    let systemId: string | undefined;
-    await requireRealizationSecret(c.env, c.req.header("authorization"), async () =>
-      systemStub(c.env, (systemId = await system(c))).realizationSecretHash(rid(c)));
-    return systemId ?? system(c);
+    const who = await requireRealizationSecret(c.env, c.req.header("authorization"), async () =>
+      Promise.all((await holders(c)).map(async (systemId) => ({ systemId, hash: await systemStub(c.env, systemId).realizationSecretHash(rid(c)) }))));
+    // Only the admin reaches the resolver's 404 / 409 `ambiguous`.
+    return who.admin ? system(c) : who.systemId;
   };
   app.get(prefix, async (c) => c.json(await realizationView(c.env, await authed(c), rid(c))));
   app.get(`${prefix}/packet`, async (c) => c.json(await packet(c.env, await authed(c), rid(c))));
@@ -33,7 +35,8 @@ function mount(app: Hono<AppEnv>, prefix: string, system: Resolve) {
 
 export const realizations = new Hono<AppEnv>();
 const bySystem: Resolve = async (c) => c.req.param("id")!;
-mount(realizations, "/systems/:id/evolutions/:eid/realizations/:rid", bySystem);
-mount(realizations, "/systems/:id/realizations/:rid", bySystem);
-mount(realizations, "/realizations/:rid", (c) => systemForRealization(c.env, c.req.param("rid")!));
+const ownSystem: Holders = async (c) => [c.req.param("id")!];
+mount(realizations, "/systems/:id/evolutions/:eid/realizations/:rid", bySystem, ownSystem);
+mount(realizations, "/systems/:id/realizations/:rid", bySystem, ownSystem);
+mount(realizations, "/realizations/:rid", (c) => systemForRealization(c.env, c.req.param("rid")!), (c) => systemsHoldingRealization(c.env, c.req.param("rid")!));
 realizations.get("/systems/:id/realizations", async (c) => c.json({ realizations: await systemStub(c.env, c.req.param("id")).realizations() }));

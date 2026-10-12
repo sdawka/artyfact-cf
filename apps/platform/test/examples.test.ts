@@ -64,4 +64,18 @@ describe("gate on the real Genome", () => {
     expect(gates.find((x) => x.id === "C.system.promotion")?.offTriggerHooks).toBeUndefined();
     expect(gates.find((x) => x.id === "C.webapp.exists")?.offTriggerHooks).toBeUndefined();
   });
+
+  it("gates a Genome candidate on model-level criteria only, keeping its acceptance criteria", async () => {
+    const { buildGenome } = await import("../worker/artifacts/genome-source");
+    const { gateCriteria } = await import("../worker/promotion");
+    const g = buildGenome(new Map(Object.entries(genome)), "0".repeat(40));
+    const evo5 = g.model.evolutions.find((e) => e.id === "evolution.5")!;
+    const ids = gateCriteria(g.model, evo5, { target: "genome" }).map((x) => x.id);
+    expect(ids).toContain("C.system.promotion");
+    expect(ids).toContain("C.system.topology");
+    expect(ids.filter((id) => id.startsWith("C.webapp.") && !evo5.acceptanceCriteria.includes(id))).toEqual([]);
+    expect(ids).toEqual(expect.arrayContaining(evo5.acceptanceCriteria));
+    // App candidates keep the artifact criteria.
+    expect(gateCriteria(g.model, evo5, { target: "app" }).map((x) => x.id)).toContain("C.webapp.exists");
+  });
 });

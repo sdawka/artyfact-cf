@@ -4,6 +4,8 @@
  * Blocking set = (the Evolution's acceptanceCriteria ∪ criteria whose `gates` include `promotion`)
  *                ∩ `severity: hard` ∩ has ≥1 hook with `binding: bound`, non-deferred.
  * Acceptance criteria block regardless of their own `gates`: they are what the Evolution promised.
+ * For a Genome candidate (accept, or promote of a Genome candidate), promotion-gated criteria that target the
+ * artifact are left out of the pool: a Genome change has no app tree to evaluate them on. They gate app candidates.
  * Every other criterion in that pool is an advisory when not pass+completed; advisories need a non-empty rationale.
  * Hook selection (`selectHooks`) decides which hooks RUN; it does not shape the gate.
  */
@@ -43,7 +45,7 @@ export const isBlocking = (m: SystemModel, c: schema.Criterion): boolean =>
  * Gate criteria for `candidate` of `evolution`. Throws if the model or selection is unusable; callers must treat a
  * throw as "gate unavailable", never as "no gates". Acceptance ids missing from the Genome come back blocking.
  */
-export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "acceptanceCriteria">, _candidate?: CandidateRef): GateCriterion[] {
+export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "acceptanceCriteria">, candidate?: Pick<CandidateRef, "target">): GateCriterion[] {
   const byId = new Map(m.criteria.map((c) => [c.id, c] as const));
   const out = new Map<string, GateCriterion>();
   const add = (id: string, blockingSet: boolean) => {
@@ -63,6 +65,7 @@ export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "
     out.set(id, { id, severity: c.severity ?? "hard", blocking, ...(off.length && { offTriggerHooks: off }) });
   };
   for (const id of evolution.acceptanceCriteria) add(id, true);
-  for (const c of m.criteria) if (c.gates.includes("promotion")) add(c.id, true);
+  const genome = candidate?.target === "genome";
+  for (const c of m.criteria) if (c.gates.includes("promotion") && !(genome && c.targetKind === "artifact")) add(c.id, true);
   return [...out.values()];
 }

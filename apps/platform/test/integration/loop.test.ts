@@ -27,12 +27,14 @@ const SYSTEM = "system.keep-in-touch";
 const RUN = `it${Date.now().toString(36)}`;
 const GENOME_REPO = `kit-system-${RUN}`, APP_REPO = `kit-app-${RUN}`;
 const ADMIN = `itest-${crypto.randomUUID()}`;
-const wrangler = (...args: string[]) => run("npx", ["--no-install", "wrangler", ...args], { cwd: PLATFORM, maxBuffer: 1 << 24 });
+const WRANGLER = join(ROOT, "node_modules/.bin/wrangler");
+const wrangler = (...args: string[]) => run(WRANGLER, args, { cwd: PLATFORM, maxBuffer: 1 << 24 });
+/** Every repo this run created: the two imports and their forks (`<repo>--r<n>`), and nothing else. */
+const ours = (name: string) => [GENOME_REPO, APP_REPO].some((r) => name === r || name.startsWith(`${r}--`));
 
 let server: ChildProcess | undefined;
 let base = "";
 const work = mkdtempSync(join(tmpdir(), "artyfact-it-"));
-const created: string[] = [];
 
 async function freePort(): Promise<number> {
   return new Promise((ok, fail) => {
@@ -66,15 +68,15 @@ describe.skipIf(!ENABLED)("integration: the demo loop on real Artifacts", () => 
     const who = await wrangler("whoami");
     const accountId = /[0-9a-f]{32}/.exec(who.stdout)?.[0];
     if (!accountId) throw new Error("wrangler whoami shows no account id; run `wrangler login`");
-    created.push(GENOME_REPO, APP_REPO);
     await run(join(ROOT, "scripts/bootstrap.sh"), [], { cwd: ROOT, env: envWith({ ACCOUNT_ID: accountId, ARTIFACTS_NAMESPACE: NS, GENOME_REPO, APP_REPO }) });
 
     const port = await freePort();
     base = `http://localhost:${port}`;
-    server = spawn("npx", [
-      "--no-install", "wrangler", "dev", "-c", "wrangler.integration.jsonc", "--port", String(port), "--persist-to", join(work, "state"),
+    // wrangler directly (not via npx) in its own process group, so teardown can stop workerd with it.
+    server = spawn(WRANGLER, [
+      "dev", "-c", "wrangler.integration.jsonc", "--port", String(port), "--persist-to", join(work, "state"),
       "--var", `ADMIN_TOKEN:${ADMIN}`, "--var", `ACCOUNT_ID:${accountId}`, "--var", "FAKE_S1:1", "--var", `PUBLIC_URL:${base}`,
-    ], { cwd: PLATFORM, stdio: ["ignore", "ignore", "pipe"], detached: false });
+    ], { cwd: PLATFORM, stdio: ["ignore", "ignore", "pipe"], detached: true });
     for (let i = 0; i < 90; i++) {
       try {
         if ((await fetch(`${base}/api/health`)).ok) return;
@@ -85,8 +87,21 @@ describe.skipIf(!ENABLED)("integration: the demo loop on real Artifacts", () => 
   }, 240_000);
 
   afterAll(async () => {
-    server?.kill("SIGTERM");
-    for (const repo of created) {
+    if (server?.pid) {
+      const exited = new Promise((r) => server!.once("exit", r));
+      try { process.kill(-server.pid, "SIGTERM"); } catch { /* already gone */ }
+      await Promise.race([exited, new Promise((r) => setTimeout(r, 10_000))]);
+    }
+    // List the namespace rather than trusting a local record, so a fork from a start that failed an assertion is
+    // still removed. Only this run's repos match `ours`.
+    let names: string[] = [GENOME_REPO, APP_REPO, `${APP_REPO}--r1`, `${APP_REPO}--r2`];
+    try {
+      const { stdout } = await wrangler("artifacts", "repos", "list", "--namespace", NS, "--json");
+      names = (JSON.parse(stdout) as { name: string }[]).map((r) => r.name);
+    } catch (e) {
+      console.error(`cleanup: listing ${NS} failed (${(e as Error).message.split("\n")[0]}); deleting the expected names`);
+    }
+    for (const repo of names.filter(ours)) {
       await wrangler("artifacts", "repos", "delete", repo, "--namespace", NS, "--force").catch((e: Error) => console.error(`cleanup ${repo}: ${e.message.split("\n")[0]}`));
     }
     rmSync(work, { recursive: true, force: true });
@@ -104,7 +119,6 @@ describe.skipIf(!ENABLED)("integration: the demo loop on real Artifacts", () => 
     const start = (agentLabel: string) => api("POST", `/systems/${SYSTEM}/evolutions/evolution.1/realizations`, { agentLabel }, true);
     const [a, b] = (await Promise.all([start("agent-a"), start("agent-b")])).map((r) => {
       expect(r.status, JSON.stringify(r.json)).toBe(201);
-      created.push(r.json.packet.workspace.fork);
       return {
         rid: r.json.realization.id as string, token: r.json.token.value as string, secret: r.json.secret as string,
         fork: r.json.packet.workspace.fork as string,

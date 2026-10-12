@@ -72,6 +72,8 @@ describe('request shape', () => {
     expect(url).toBe('https://openrouter.ai/api/v1/systemone');
     expect((init!.headers as Record<string, string>).Authorization).toBe('Bearer ok');
     expect(JSON.parse(init!.body as string).model).toBe('jev-1.13');
+    await s1.ask(state, { b: { type: 'noul', instructions: 'i', criteria: { true: 't', false: 'f' }, benign: 'no' } });
+    expect(f.mock.calls[1]![1]!.body as string).not.toContain('benign');
     expect(createSystemOne({ TYPESAFE_API_KEY: 't', OPENROUTER_API_KEY: 'o', fetch: f }).mode).toBe('typesafe');
   });
 

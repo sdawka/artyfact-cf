@@ -37,6 +37,15 @@ describe("History view", () => {
     expect(within(cards[0]!).getByRole("button", { name: /People screen/ })).toBeTruthy();
   });
 
+  it("marks a commit whose gating evidence came from the fake System One provider", async () => {
+    const fake = { ...newer, decision: { ...newer.decision, evidenceProviders: ["fake"] } };
+    renderApp(URL, undefined, (qc) => qc.setQueryData(qk.history(SYSTEM), { commits: [older, fake] }));
+    const cards = await screen.findAllByRole("article");
+    expect(within(cards[0]!).getByText("System One: fake provider")).toBeTruthy();
+    expect(within(cards[0]!).getByText(/System One providers: fake/)).toBeTruthy();
+    expect(within(cards[1]!).queryByText("System One: fake provider")).toBeNull();
+  });
+
   it("says history could not be loaded, not that it is empty", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) =>
       String(url).endsWith("/api/systems")

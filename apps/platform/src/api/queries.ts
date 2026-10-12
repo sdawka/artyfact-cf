@@ -1,6 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
-import type { AcceptRequest, PromoteRequest, Realization, RejectRequest, StartWorkRequest, SubmitRequest } from "../../shared/api";
+import type { AcceptRequest, PromoteRequest, Realization, RejectRequest, StartWorkRequest } from "../../shared/api";
 import { useSystemRoute } from "@/model/useSelection";
 import * as api from "./client";
 
@@ -10,12 +10,10 @@ export const qk = {
   model: (systemId: string, rev: string) => ["model", systemId, rev] as const,
   readiness: (systemId: string, rev: string) => ["readiness", systemId, rev] as const,
   evolutions: (systemId: string) => ["evolutions", systemId] as const,
-  realization: (systemId: string, id: string) => ["realization", systemId, id] as const,
   candidates: (systemId: string, evolutionId: string) => ["candidates", systemId, evolutionId] as const,
   evaluations: (systemId: string, candidate?: string) => ["evaluations", systemId, candidate ?? null] as const,
   conflicts: (systemId: string) => ["conflicts", systemId] as const,
   history: (systemId: string) => ["history", systemId] as const,
-  packet: (systemId: string, id: string) => ["packet", systemId, id] as const,
   amendmentReview: (systemId: string, id: string) => ["amendmentReview", systemId, id] as const,
 };
 
@@ -39,15 +37,6 @@ export function useReadiness() {
 export function useEvolutions() {
   const { systemId } = useSystemRoute();
   return useQuery({ queryKey: qk.evolutions(systemId), queryFn: () => api.getEvolutions(systemId), refetchInterval: 5_000 });
-}
-
-export function useRealization(realizationId: string | undefined) {
-  const { systemId } = useSystemRoute();
-  return useQuery({
-    queryKey: qk.realization(systemId, realizationId ?? ""),
-    queryFn: () => api.getRealization(systemId, realizationId!),
-    enabled: !!realizationId,
-  });
 }
 
 export function useCandidates(evolutionId: string | undefined) {
@@ -76,15 +65,6 @@ export function useConflicts() {
 export function useHistory() {
   const { systemId } = useSystemRoute();
   return useQuery({ queryKey: qk.history(systemId), queryFn: () => api.getHistory(systemId), select: (r) => r.commits });
-}
-
-export function usePacket(realizationId: string | undefined) {
-  const { systemId } = useSystemRoute();
-  return useQuery({
-    queryKey: qk.packet(systemId, realizationId ?? ""),
-    queryFn: () => api.getPacket(systemId, realizationId!),
-    enabled: !!realizationId,
-  });
 }
 
 /** Rule findings and System One judgments for a Genome-targeting realization. */
@@ -119,20 +99,6 @@ export function useStartWork() {
     mutationFn: ({ evolutionId, body, adminToken }: { evolutionId: string; body?: StartWorkRequest; adminToken?: string }) =>
       api.startWork(systemId, evolutionId, body, adminToken),
     onSuccess: () => qc.invalidateQueries({ queryKey: qk.evolutions(systemId) }),
-  });
-}
-
-export function useSubmit() {
-  const { systemId } = useSystemRoute();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ realizationId, body }: { realizationId: string; body: SubmitRequest }) =>
-      api.submit(systemId, realizationId, body),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: qk.evolutions(systemId) });
-      void qc.invalidateQueries({ queryKey: ["candidates", systemId] });
-      void qc.invalidateQueries({ queryKey: ["evaluations", systemId] });
-    },
   });
 }
 
@@ -171,7 +137,6 @@ export function useRejectAmendment() {
       api.rejectAmendment(systemId, realizationId, body, adminToken),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: qk.evolutions(systemId) });
-      void qc.invalidateQueries({ queryKey: ["realization", systemId] });
     },
   });
 }
@@ -195,7 +160,7 @@ export function useSystemEvents() {
           case "genome.accepted":
             return inv("model", "readiness", "evolutions");
           default:
-            return inv("evolutions", "realization");
+            return inv("evolutions");
         }
       }),
     [systemId, qc],

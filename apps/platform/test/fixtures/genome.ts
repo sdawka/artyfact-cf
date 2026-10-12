@@ -46,7 +46,7 @@ criteria:
     ownerId: system.kit
     subjectKind: system
     subjectId: system.kit
-    targetKind: artifact
+    targetKind: model
     gates: [submission, promotion]
     hooks: [hook.system.scope]
 hooks:
