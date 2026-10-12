@@ -117,7 +117,15 @@ export async function genomeAt(env: Env, systemId: string, genomeCommit: string,
   const cached = await stub.getModelCache(genomeCommit, "files");
   if (cached) return memoGenome(key, () => buildGenome(new Map(Object.entries(JSON.parse(cached) as Record<string, string>)), genomeCommit));
   const files = await withRepo(artifactsFor(env), repo, (r) => readGenomeFiles(r, genomeCommit));
-  const g = memoGenome(key, () => buildGenome(files, genomeCommit));
+  let g: LoadedGenome;
+  try {
+    g = memoGenome(key, () => buildGenome(files, genomeCommit));
+  } catch (e) {
+    // A Genome that does not load still caches its files: the hooks read a candidate's files from here and report the
+    // load error (degraded review) instead of refusing the run. The next genomeAt rebuilds from them and throws again.
+    await stub.putModelCache(genomeCommit, cacheParts(genomeCommit, { files: JSON.stringify(Object.fromEntries(files)) }));
+    throw e;
+  }
   await stub.putModelCache(genomeCommit, cacheParts(genomeCommit, {
     files: JSON.stringify(Object.fromEntries(files)),
     model: JSON.stringify(serializeModel(g.model)),
