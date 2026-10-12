@@ -95,6 +95,26 @@ test.describe("views", () => {
     await checkA11yAndShoot(page, testInfo, "work-start");
   });
 
+  test("code: read-only tree and editor, a local edit, and Commit disabled with its reason @fixture", async ({ page }, testInfo) => {
+    await open(page, "/code", "Code");
+    const files = page.getByRole("navigation", { name: "Files" });
+    await files.getByRole("link", { name: /^system\.yaml/ }).click();
+    const content = page.locator(".cm-content");
+    await expect(content).toHaveAttribute("aria-readonly", "true");
+    await expect(page.getByText("read-only · canonical")).toBeVisible();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
+    await expect(content).toHaveAttribute("aria-readonly", "false");
+    await content.click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.type("\n# edited in the browser");
+    await expect(page.getByText("editing · 1 pending")).toBeVisible();
+    await page.getByRole("link", { name: "Commit…" }).click();
+    const sheet = page.getByRole("complementary", { name: "Commit" });
+    await expect(sheet.getByRole("button", { name: "Commit", exact: true })).toBeDisabled();
+    await expect(sheet.getByText("Commit needs the platform API.")).toBeVisible();
+    await checkA11yAndShoot(page, testInfo, "code-commit");
+  });
+
   test("the success-tone detector can see a pass tone (guards the never-green checks) @fixture", async ({ page }) => {
     await open(page, "/overview", "Overview");
     // The fixture has no non-zero pass count, so plant one: the detector must flag both a tagged and a painted element.

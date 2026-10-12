@@ -34,6 +34,16 @@ globalThis.ResizeObserver ??= class {
   disconnect() {}
 } as unknown as typeof ResizeObserver;
 
+// jsdom gaps used by CodeMirror (layout measurement on ranges).
+if (typeof Range !== "undefined") {
+  Range.prototype.getClientRects ??= function getClientRects() {
+    return Object.assign([], { item: () => null }) as unknown as DOMRectList;
+  };
+  Range.prototype.getBoundingClientRect ??= function getBoundingClientRect() {
+    return new DOMRect();
+  };
+}
+
 export function testQueryClient() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
   qc.setQueryData(qk.model("system.keep-in-touch", "head"), fixtureBundle());

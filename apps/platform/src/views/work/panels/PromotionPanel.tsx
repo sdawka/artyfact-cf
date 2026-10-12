@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { useId, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { Candidate, ConflictReport, Evolution } from "../../../../shared/api";
 import { ApiRequestError, StaleBaseError } from "@/api/client";
@@ -13,6 +13,7 @@ import type { UiVerdict } from "@/model/status";
 import { mergeConflicts, shortSha } from "../lib";
 import { describeIssue } from "../gates";
 import { emitFx } from "@/effects/fx";
+import { whyFor } from "../../code/why";
 import styles from "../work.module.css";
 
 /** `details` of a refused promotion: `{ blocking, advisories }`. */
@@ -69,6 +70,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   const { isPending: boardLoading } = useEvolutions();
   const promote = usePromote();
   const [rationale, setRationale] = useState("");
+  const [rationaleEdited, setRationaleEdited] = useState(false);
   const [ack, setAck] = useState(false);
   const [adminToken, setAdminToken] = useState("");
   const panelRef = useRef<HTMLElement>(null);
@@ -76,6 +78,11 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   const candidates: Candidate[] = cand?.candidates ?? [];
   const chosen = candidates.filter((c) => selected.includes(c.id));
   const ids = chosen.map((c) => c.id);
+  // Realize an editor commit: start from the commit's "why" until the admin edits it.
+  const editorWhy = whyFor(systemId, chosen.map((c) => c.realization));
+  useEffect(() => {
+    if (!rationaleEdited) setRationale(editorWhy ?? "");
+  }, [editorWhy, rationaleEdited]);
   const head = headOf(commits);
   // The gate set comes from the server (the set it enforces); verdicts fold every hook's row like the server does.
   const coverage = useMemo(
@@ -223,7 +230,8 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
       <form onSubmit={submit} className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`${uid}-r`}>Rationale</label>
-          <textarea id={`${uid}-r`} value={rationale} onChange={(e) => setRationale(e.target.value)} rows={4} required />
+          <textarea id={`${uid}-r`} value={rationale} onChange={(e) => { setRationaleEdited(true); setRationale(e.target.value); }} rows={4} required />
+          {editorWhy && !rationaleEdited && <p className={styles.muted}>Rationale pending: pre-filled from the editor commit's why. Edit it to confirm.</p>}
         </div>
         {advisoryCount > 0 && (
           <label className={styles.check}>

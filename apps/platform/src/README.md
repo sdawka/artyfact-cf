@@ -157,6 +157,9 @@ starts with `[name, systemId]`, so `invalidateQueries({ queryKey: [name, systemI
   Candidates (options from `useRevisions()`); an unlisted `value` stays selectable.
 - `LineDiff { from, to, label, context? }`: unified line diff (`data-op add|del|ctx`, sign cells, 3 lines of context, longer
   unchanged runs behind "… n unchanged lines"); a null side means the file was added / removed. Pure core: `hunks.ts` `lineDiff()`.
+- `CodeView { value, path, label, readOnly?, onChange? }` (default export; always `lazy()`-import it): CodeMirror 6 with line
+  numbers, yaml/js/ts/json/md by extension and token colours; read-only sets `aria-readonly`. Tests: `@/testing/codemirror`
+  `editorText(root)`, `typeInEditor(root, text)` (throws when read-only).
 - `CopyButton { value, label? }` (announces "Copied" / "Copy failed"), `EmptyState { title, children?, action?, live? }` (`live` adds `role="status"`),
   `Breadcrumbs { ids, label? }`, `KeyValue { data, omit? }` (strings that are ids render as chips).
 
