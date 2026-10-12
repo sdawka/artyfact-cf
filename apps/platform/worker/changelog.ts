@@ -200,8 +200,9 @@ export async function changelog(env: Env, systemId: string, q: { limit?: string;
     try {
       return await serveRow(env, systemId, c, (await computeEntry(env, head, c, titles)).row, titles);
     } catch (e) {
-      console.error(`[changelog] ${systemId} ${c.id}: ${(e as Error)?.message ?? e}`);
-      return serveRow(env, systemId, c, baseRow(c, titles, (await candidatesOf(stub, c)).candidates), titles);
+      const loadError = (e as Error)?.message ?? String(e);
+      console.error(`[changelog] ${systemId} ${c.id}: ${loadError}`);
+      return serveRow(env, systemId, c, { ...baseRow(c, titles, (await candidatesOf(stub, c)).candidates), loadError }, titles);
     }
   });
   return { rows, ...(start + limit < history.length && page.length && { nextBefore: page.at(-1)!.id }) };

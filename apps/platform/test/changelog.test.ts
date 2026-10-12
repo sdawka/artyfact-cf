@@ -188,10 +188,12 @@ describe("changelog cache soundness", () => {
     const page = await get<ChangelogResponse>(routes.changelog(f.systemId));
     expect(page.status, JSON.stringify(page.json)).toBe(200);
     expect(page.json.rows.map((r) => r.id)).toEqual([g.systemCommit!.id, p.systemCommit.id, f.imp.head]);
-    expect(page.json.rows[1]).toMatchObject({ kind: "promotion", rationale: "ship it", summary: { nodesAdded: 0, nodesChanged: 0, nodesRemoved: 0, filesChanged: 0, criteriaAffected: 0 } });
+    expect(page.json.rows[1]).toMatchObject({ kind: "promotion", rationale: "ship it", summary: { nodesAdded: 0, nodesChanged: 0, nodesRemoved: 0, filesChanged: 0, criteriaAffected: 0 }, loadError: expect.stringContaining(p.forkRepo) });
+    expect(page.json.rows[0]!.loadError).toBeUndefined();
     f.ns.repos.set(p.forkRepo, fork);
     const retried = await get<ChangelogResponse>(routes.changelog(f.systemId));
     expect(retried.json.rows[1]!.summary.filesChanged).toBe(1);
+    expect(retried.json.rows[1]!.loadError).toBeUndefined();
   });
 
   it("serves current Evolution titles over the ones cached with the row", async () => {
