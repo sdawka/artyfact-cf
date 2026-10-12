@@ -596,6 +596,21 @@ export class SystemAuthority extends DurableObject<Env> {
    * Allocate the next realization number (System-wide, so fork names never collide across Evolutions)
    * and record it as `claimed`. The Worker then forks, issues a token and calls {@link activateRealization}.
    */
+  /** The fork name the next realization for `target` would get (realization numbers are System-wide). */
+  nextForkName(target: "app" | "genome"): { n: number; forkRepo: string } | null {
+    const s = this.state();
+    if (!s) return null;
+    const n = Number(this.kv("realization_seq") ?? 0) + 1;
+    return { n, forkRepo: forkName(target === "genome" ? s.genomeRepo : s.appRepo, n) };
+  }
+
+  /** Skip realization number `n` (its fork name is taken in the namespace, e.g. by an earlier platform state). No-op unless `n` is next. */
+  skipRealizationNumber(n: number): void {
+    this.ctx.storage.transactionSync(() => {
+      if (Number(this.kv("realization_seq") ?? 0) + 1 === n) this.setKv("realization_seq", String(n));
+    });
+  }
+
   reserveRealization(input: ReserveInput): ReservedRealization {
     const s = this.state();
     if (!s) throw new ConflictError("not-found", "System not imported");

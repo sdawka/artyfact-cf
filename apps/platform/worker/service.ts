@@ -288,6 +288,7 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
   const evolution = modelEvolution(g.model, evoDto);
   const target = body.target ?? (evolution.kind === "genome-amendment" ? "genome" : "app");
 
+  await skipTakenForkNames(env, stub, target);
   const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role }));
   const rid = reserved.realization.id;
   let tokenId: string | undefined;
@@ -329,6 +330,27 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
       if (r.status === "rejected") console.error(`[startWork] cleanup for ${rid} failed: ${(r.reason as Error)?.message ?? r.reason}`);
     }
     throw e;
+  }
+}
+
+/**
+ * Fork names are `<repo>--r<N>` with N System-wide. A fresh platform state on a namespace that already holds forks from
+ * an earlier one would collide; skip the numbers whose fork repo exists instead of failing (nothing is deleted).
+ * Best effort: a race past this check still ends in forkAndWait's 409 `fork-exists`.
+ */
+async function skipTakenForkNames(env: Env, stub: SystemApi, target: "app" | "genome"): Promise<void> {
+  const ns = artifactsFor(env);
+  for (let i = 0; i < 100; i++) {
+    const next = await stub.nextForkName(target);
+    if (!next) return;
+    const taken = await withRepo(ns, next.forkRepo, (r) => r.info()).then(() => true, (e: unknown) => {
+      const code = artifactsErrorCode(e);
+      if (code === "NOT_FOUND") return false;
+      if (code === "FORK_IN_PROGRESS" || code === "CREATE_IN_PROGRESS") return true;
+      throw e;
+    });
+    if (!taken) return;
+    await stub.skipRealizationNumber(next.n);
   }
 }
 

@@ -164,6 +164,19 @@ describe("routes: import names and platform provenance", () => {
     expect(same.json.head).toBe(again.json.head);
   });
 
+  it("skips realization numbers whose fork already exists in the namespace", async () => {
+    const { ns, systemId, slug } = slugNamed();
+    // Forks left by an earlier platform state on the same namespace.
+    ns.create(`${slug}.app--r1`).commit({ "README.md": "old run" });
+    ns.create(`${slug}.genome--r2`).commit({ "README.md": "old run" });
+    expect((await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN)).status).toBe(201);
+    const a = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {});
+    expect(a.status, JSON.stringify(a.json)).toBe(201);
+    expect([a.json.realization.id, a.json.realization.workspace.fork]).toEqual(["realization.1.r2", `${slug}.app--r2`]);
+    const b = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {});
+    expect(b.json.realization.workspace.fork).toBe(`${slug}.app--r3`);
+  });
+
   it("records scaffoldFrom on the app binding and validates it", async () => {
     const { systemId } = slugNamed();
     const bad = await call<ApiError>("POST", "/systems/import", { systemId, scaffoldFrom: { repo: "platform", commit: "nope" } }, ADMIN);
