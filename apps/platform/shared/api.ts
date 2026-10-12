@@ -440,10 +440,12 @@ export interface RejectResponse {
 }
 
 /** `POST /api/systems/import`. */
+/** `POST /api/systems/import` (admin). Re-importing a System from different repos/commits is 409 `already-imported` unless `force`. */
 export interface ImportSystemRequest {
   systemId: SystemId;
   genomeRepo: string;
   appRepo: string;
+  force?: boolean;
 }
 export interface ImportSystemResponse {
   system: SystemSummary;

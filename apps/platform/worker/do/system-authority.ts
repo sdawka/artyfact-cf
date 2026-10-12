@@ -31,7 +31,7 @@ export type { GateCriterion, GateItem };
 
 /** Thrown by RPC methods; the `[code]` message prefix survives RPC so the Worker can map it to HTTP. */
 export class ConflictError extends Error {
-  constructor(readonly code: "not-found" | "invalid-state", readonly detail: string) {
+  constructor(readonly code: "not-found" | "invalid-state" | "already-imported", readonly detail: string) {
     super(`[${code}] ${detail}`);
     this.name = "ConflictError";
   }
@@ -70,6 +70,8 @@ export interface BootstrapInput extends ManifestExtras {
   genomeCommit: string;
   appCommit: string;
   evolutions: EvolutionSeed[];
+  /** Re-point an existing System at different repos/commits (admin). Without it that is `[already-imported]`. */
+  force?: boolean;
 }
 
 export interface HeadState {
@@ -134,7 +136,7 @@ export type PromoteResult =
   | { ok: true; commit: SystemCommit; rejected: string[]; advisories: GateItem[] }
   | { ok: false; code: "stale-base"; currentHead: string | null }
   | { ok: false; code: "blocked" | "advisories-unacknowledged"; blocking: GateItem[]; advisories: GateItem[] }
-  | { ok: false; code: "not-found" | "invalid-state"; message: string };
+  | { ok: false; code: ConflictError["code"]; message: string };
 
 export interface AcceptInput extends ManifestExtras {
   realizationId: string;
@@ -336,6 +338,9 @@ export class SystemAuthority extends DurableObject<Env> {
     // promotion keeps the promoted state.
     const imported = [this.kv("genome_repo"), this.kv("imported_genome_commit"), this.kv("app_repo"), this.kv("imported_app_commit")];
     const unchanged = imported.join("|") === [input.genomeRepo, input.genomeCommit, input.appRepo, input.appCommit].join("|");
+    if (!unchanged && imported[0] !== null && !input.force) {
+      throw new ConflictError("already-imported", `system ${input.systemId} is already imported from ${imported[0]}@${String(imported[1]).slice(0, 7)} + ${imported[2]}@${String(imported[3]).slice(0, 7)}; pass force to re-point it`);
+    }
     const prep = unchanged ? null : await this.prepareCommit(input, () => ({
       genomeCommit: input.genomeCommit,
       artifacts: { [input.artifactId]: { repo: input.appRepo, commit: input.appCommit } },

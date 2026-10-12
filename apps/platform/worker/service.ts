@@ -121,7 +121,7 @@ async function sourceMapFor(m: SystemModel, repo: ArtifactsRepoLike, commit: str
 
 // ------------------------------------------------------------------ import
 
-export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown }): Promise<ImportSystemResponse> {
+export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; force?: unknown }): Promise<ImportSystemResponse> {
   const { systemId, genomeRepo, appRepo } = body;
   if (typeof systemId !== "string" || typeof genomeRepo !== "string" || typeof appRepo !== "string" || !systemId || !genomeRepo || !appRepo) {
     throw badRequest("systemId, genomeRepo and appRepo are required strings");
@@ -140,10 +140,10 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     throw unprocessable("system-mismatch", `Genome in ${genomeRepo} declares ${g.model.system.id}, not ${systemId}`);
   }
   const stub = systemStub(env, systemId);
-  const system = await stub.bootstrap({
+  const system = await rpc(stub.bootstrap({
     systemId, title: g.model.system.name, phase: g.model.system.phase, genomeRepo, appRepo, genomeCommit, appCommit,
-    evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model),
-  });
+    evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model), force: body.force === true,
+  }));
   await stub.putModelCache(genomeCommit, {
     files: JSON.stringify(Object.fromEntries(files)),
     model: JSON.stringify(serializeModel(g.model)),

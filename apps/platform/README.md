@@ -20,12 +20,12 @@ set `ACCOUNT_ID` (from `wrangler whoami`) in `.dev.vars` so fork remotes are `ht
 The D1 `database_id` in `wrangler.jsonc` is a placeholder.
 
 ## API
-All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shared/api.ts`. Admin = `Authorization: Bearer $ADMIN_TOKEN`.
+All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shared/api.ts`. Admin = `Authorization: Bearer $ADMIN_TOKEN` (401 when missing, 403 when wrong).
 
 | Method | Path | Auth | Notes |
 |---|---|---|---|
 | GET | `/systems` | - | `SystemsResponse` (registry DO `__registry`) |
-| POST | `/systems/import` | - | `{systemId, genomeRepo, appRepo}` → `ImportSystemResponse` (201) |
+| POST | `/systems/import` | admin | `{systemId, genomeRepo, appRepo, force?}` → `ImportSystemResponse` (201); re-import from different repos/commits is 409 `already-imported` unless `force` |
 | GET | `/systems/:id` | - | `SystemSummary` |
 | GET | `/systems/:id/model?rev=` | - | `ModelBundle`; `rev` = `canonical` (default), `sc-…` System commit, `candidate.…`, or a Genome sha |
 | GET | `/systems/:id/readiness?rev=` | - | `ReadinessResponse` |

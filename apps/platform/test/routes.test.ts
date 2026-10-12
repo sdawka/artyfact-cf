@@ -82,7 +82,7 @@ function uniqueSystem(ns: FakeArtifacts, genomeRepo: string): string {
 async function imported() {
   const s = setup();
   const systemId = uniqueSystem(s.ns, s.genomeRepo);
-  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo: s.genomeRepo, appRepo: s.appRepo });
+  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo: s.genomeRepo, appRepo: s.appRepo }, ADMIN);
   expect(res.status, JSON.stringify(res.json)).toBe(201);
   return { ...s, systemId, imp: res.json };
 }
@@ -279,7 +279,21 @@ describe("routes: import → model → start → submit → promote", () => {
     expect((await call<ApiError>("GET", `/systems/${systemId}/realizations/realization.9.r9`)).status).toBe(404);
     expect((await call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.404/realizations`, {})).status).toBe(404);
     expect((await call<ApiError>("GET", `/systems/system.none/model`)).status).toBe(404);
-    expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x" })).status).toBe(400);
+    expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x" })).status).toBe(401);
+    expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x" }, ADMIN)).status).toBe(400);
+  });
+
+  it("never silently re-points an imported System", async () => {
+    const { ns, systemId, genomeRepo, appRepo, imp } = await imported();
+    const body = { systemId, genomeRepo, appRepo };
+    const same = await call<ImportSystemResponse>("POST", "/systems/import", body, ADMIN);
+    expect([same.status, same.json.head]).toEqual([201, imp.head]);
+    ns.repo(appRepo).commit({ ...appFiles, "README.md": "moved" }, "moved");
+    const moved = await call<ApiError>("POST", "/systems/import", body, ADMIN);
+    expect([moved.status, moved.json.error.code]).toEqual([409, "already-imported"]);
+    const forced = await call<ImportSystemResponse>("POST", "/systems/import", { ...body, force: true }, ADMIN);
+    expect(forced.status).toBe(201);
+    expect(forced.json.head).not.toBe(imp.head);
   });
 
   it("sync submits a new fork head once", async () => {
