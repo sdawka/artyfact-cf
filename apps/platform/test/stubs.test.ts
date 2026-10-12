@@ -87,7 +87,6 @@ describe("write stubs are 501 not-implemented", () => {
     ["production build report", routes.builds(S), { status: "passed", commit: sha, kind: "production" }],
     ["create deployment", routes.deployments(S), {}],
     ["ingest token", routes.deploymentIngestToken(S, "dep-1"), {}],
-    ["phenome ingest", routes.phenomeEvents(S), { events: [] }],
     ["create evolution", routes.evolutions(S), { title: "t", intent: "i" }],
   ])("%s", async (_name, path, body) => {
     const r = await call<{ error: string }>("POST", path, body);

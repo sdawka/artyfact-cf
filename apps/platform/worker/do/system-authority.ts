@@ -1,11 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
 import type {
-  ArtifactBinding, Candidate, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PlatformRef, Realization, RealizationStatus, ScaffoldSource, SseEnvelope, SseEvent,
+  ArtifactBinding, Candidate, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Realization, RealizationStatus, ScaffoldSource, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
+import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
 import { RegistryStore } from "./registry";
 import { applySchema } from "./schema";
 
@@ -1265,4 +1266,21 @@ export class SystemAuthority extends DurableObject<Env> {
   resolveRealization(realizationId: string) { return this.registry().resolveRealization(realizationId); }
   /** Fork repo name → owning realization (queue `resolveFork`). */
   resolveFork(forkRepo: string) { return this.registry().resolveFork(forkRepo); }
+
+  // B4 phenome
+  private phenomeStore: PhenomeStore | undefined;
+  private phenome(): PhenomeStore { return (this.phenomeStore ??= new PhenomeStore(this.sql)); }
+  phenomePrincipal(digest: string): PhenomePrincipal | null { return this.phenome().principalForHash(digest); }
+  /** Store validated events and announce them on the SSE stream; returns, per row, whether it was new. */
+  phenomeIngest(rows: PhenomeRow[], realizationId: string | null): boolean[] {
+    const inserted = this.phenome().insert(rows, realizationId);
+    const fresh = rows.filter((_, i) => inserted[i]);
+    if (fresh.length) {
+      const last = fresh[fresh.length - 1];
+      this.emit({ type: "phenome.ingested", count: fresh.length, ...(last.deploymentId && { deploymentId: last.deploymentId }), commit: last.commit });
+    }
+    return inserted;
+  }
+  phenomeEvents(systemId: string, query: PhenomeEventsQuery = {}): PhenomeEventsResponse { return this.phenome().list(systemId, query); }
 }
+

@@ -4,7 +4,7 @@ import type { Env } from "../src/worker/env";
 import { emitPhenome } from "../src/worker/phenome";
 
 const base = {
-  BUILD_ID: "abc123", ARTYFACT_PLATFORM_URL: "https://platform.example/", ARTYFACT_SYSTEM_ID: "sys-1",
+  BUILD_ID: "abc1234", ARTYFACT_PLATFORM_URL: "https://platform.example/", ARTYFACT_SYSTEM_ID: "sys-1",
   ARTYFACT_THING_ID: "thing.webapp", ARTYFACT_ARTIFACT_ID: "art.worker", ARTYFACT_DEPLOYMENT_ID: "dep-1", ARTYFACT_INGEST_TOKEN: "tok",
 } as unknown as Env;
 
@@ -28,7 +28,7 @@ describe("emitPhenome", () => {
     const { events } = JSON.parse(init!.body as string);
     expect(events).toHaveLength(1);
     expect(events[0]).toMatchObject({
-      systemId: "sys-1", thingId: "thing.webapp", artifactId: "art.worker", buildId: "abc123", commit: "abc123",
+      systemId: "sys-1", thingId: "thing.webapp", artifactId: "art.worker", buildId: "abc1234", commit: "abc1234",
       deploymentId: "dep-1", kind: "health", subject: "svc", payload: { status: "ok" },
     });
     expect(Number.isNaN(Date.parse(events[0].emittedAt))).toBe(false);
@@ -39,6 +39,12 @@ describe("emitPhenome", () => {
     const f = stubFetch();
     emitPhenome({ ...base, ARTYFACT_PLATFORM_URL: undefined } as Env, "health", {});
     emitPhenome({ ...base, ARTYFACT_SYSTEM_ID: "" } as Env, "health", {});
+    expect(f).not.toHaveBeenCalled();
+  });
+
+  it("sends nothing for a non-commit BUILD_ID such as dev", () => {
+    const f = stubFetch();
+    emitPhenome({ ...base, BUILD_ID: "dev" } as Env, "health", {});
     expect(f).not.toHaveBeenCalled();
   });
 
@@ -89,7 +95,7 @@ describe("app wiring", () => {
 
   it("works without an execution context and without platform config", async () => {
     const f = stubFetch();
-    const res = await app.fetch(new Request("http://x/health"), { BUILD_ID: "t" } as Env);
+    const res = await app.fetch(new Request("http://x/health"), { BUILD_ID: "dev" } as Env);
     expect(res.status).toBe(200);
     expect(f).not.toHaveBeenCalled();
   });
