@@ -1,9 +1,12 @@
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, configure, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { renderApp } from "@/testing/render";
 
 const base = "/s/system.keep-in-touch/r/head/journeys";
 const search = (r: { router: { state: { location: { search: string } } } }) => new URLSearchParams(r.router.state.location.search);
+
+// The view chunk, elk and React Flow load lazily; give them room when the whole suite runs in parallel.
+configure({ asyncUtilTimeout: 5000 });
 
 describe("Journeys view", () => {
   it("lists every journey and defaults to the first non-deferred one", async () => {

@@ -1,4 +1,4 @@
-import { act, screen, waitFor, within } from "@testing-library/react";
+import { act, configure, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
@@ -7,6 +7,9 @@ import { rowLinks } from "./LogicModel";
 
 const url = "/s/system.keep-in-touch/r/head/theory";
 const banner = "Hypotheses, not a validated causal model";
+
+// The view chunk, elk and React Flow load lazily; give them room when the whole suite runs in parallel.
+configure({ asyncUtilTimeout: 5000 });
 
 describe("Theory view", () => {
   it("shows the hypotheses banner and one row per claim", async () => {
