@@ -1,3 +1,4 @@
+/// <reference types="vite/client" />
 import type { FileMap } from "../../worker/hooks/contract";
 
 const raw = import.meta.glob("../fixtures/mini-genome/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
