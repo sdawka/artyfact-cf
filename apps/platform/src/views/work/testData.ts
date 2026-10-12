@@ -51,7 +51,7 @@ export const commit = (o: Partial<SystemCommit> = {}): SystemCommit => ({
   id: "c0ffee0000000000",
   parent: null,
   genomeCommit: "9999999999999999",
-  manifest: [{ artifact: "artifact.webapp", type: "app", repo: "artifacts/webapp", commit: "abcdef1234567890", scope: [] }],
+  manifest: [{ artifact: "artifact.webapp", type: "worker-fullstack", repo: "artifacts/webapp", commit: "abcdef1234567890", scope: [] }],
   evolutions: ["evolution.1"],
   candidates: ["cand.1"],
   rejected: [],

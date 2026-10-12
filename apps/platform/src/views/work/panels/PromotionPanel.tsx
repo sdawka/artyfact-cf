@@ -1,0 +1,218 @@
+import { useQueryClient } from "@tanstack/react-query";
+import { useId, useMemo, useState } from "react";
+import { Link } from "react-router";
+import type { Candidate, ConflictReport, Evolution } from "../../../../shared/api";
+import { ApiRequestError, StaleBaseError } from "@/api/client";
+import { useCandidates, useConflicts, useHistory, usePromote } from "@/api/queries";
+import { NodeChip } from "@/components/NodeChip/NodeChip";
+import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
+import { useModel } from "@/model/useModel";
+import { useKeepParams, useSelection, useSystemRoute } from "@/model/useSelection";
+import { describeConflict, describeIssue, gateCoverage, headOf, splitConflicts, type GateRow } from "../gates";
+import { mergeConflicts, shortSha } from "../lib";
+import styles from "../work.module.css";
+
+/** `details` of a refused promotion: `{ blocking, advisories }`. */
+function serverIssues(err: unknown): { blocking: string[]; advisories: string[] } | null {
+  if (!(err instanceof ApiRequestError) || err instanceof StaleBaseError) return null;
+  const d = err.body?.error?.details as { blocking?: unknown[]; advisories?: unknown[] } | undefined;
+  if (!d || (!Array.isArray(d.blocking) && !Array.isArray(d.advisories))) return null;
+  return { blocking: (d.blocking ?? []).map(describeIssue), advisories: (d.advisories ?? []).map(describeIssue) };
+}
+
+/** Promote selected candidates: manifest, base vs head, gate coverage, advisories, rationale, compare-and-swap. */
+export function PromotionPanel({ evolution }: { evolution: Evolution }) {
+  const uid = useId();
+  const m = useModel();
+  const qc = useQueryClient();
+  const { systemId } = useSystemRoute();
+  const href = useKeepParams();
+  const { candidates: selected, setCandidates } = useSelection();
+  const { data: cand } = useCandidates(evolution.id);
+  const { data: allConflicts } = useConflicts();
+  const { data: commits } = useHistory();
+  const promote = usePromote();
+  const [rationale, setRationale] = useState("");
+  const [ack, setAck] = useState(false);
+  const [adminToken, setAdminToken] = useState("");
+
+  const candidates: Candidate[] = cand?.candidates ?? [];
+  const chosen = candidates.filter((c) => selected.includes(c.id));
+  const ids = chosen.map((c) => c.id);
+  const head = headOf(commits);
+  const rows = useMemo(
+    () => gateCoverage(m.index.model.criteria ?? [], evolution, m.evaluations, ids),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [m.index.model.criteria, evolution, m.evaluations, ids.join(",")],
+  );
+  const required = rows.filter((r) => r.criterion.severity === "hard");
+  const softRows = rows.filter((r) => r.criterion.severity !== "hard");
+  const conflicts: ConflictReport[] = mergeConflicts(cand?.conflicts, allConflicts);
+  const split = splitConflicts(conflicts, ids);
+  const refusedAdvisories = serverIssues(promote.error)?.advisories.length ?? 0;
+  const advisoryCount = softRows.filter((r) => r.verdict !== "pass").length + split.advisories.length + refusedAdvisories;
+
+  const fixture = m.bundle.source === "fixture";
+  const stale = promote.error instanceof StaleBaseError ? promote.error : null;
+  const refused = serverIssues(promote.error);
+  const failing = required.filter((r) => r.blocking);
+  const reasons: string[] = [];
+  if (fixture) reasons.push("Promotion needs the platform API. The UI is showing fixture data.");
+  if (!ids.length) reasons.push("Select at least one candidate.");
+  if (ids.length && failing.length) reasons.push(`${failing.length} required gate${failing.length === 1 ? " is" : "s are"} not pass/completed: ${failing.map((r) => r.criterion.id).join(", ")}.`);
+  if (split.blocking.length) reasons.push(`${split.blocking.length} blocking conflict${split.blocking.length === 1 ? "" : "s"} between the selected candidates.`);
+  if (!rationale.trim()) reasons.push("Write a rationale.");
+  if (advisoryCount > 0 && !ack) reasons.push("Acknowledge the advisories in the rationale.");
+  if (stale) reasons.push(`The head moved to ${shortSha(stale.currentHead)}; refresh and re-evaluate.`);
+
+  const refresh = () => {
+    promote.reset();
+    for (const k of ["evolutions", "candidates", "evaluations", "history", "conflicts"]) void qc.invalidateQueries({ queryKey: [k, systemId] });
+  };
+  const submit = (ev: React.FormEvent) => {
+    ev.preventDefault();
+    if (reasons.length) return;
+    promote.mutate({ body: { candidates: ids, expectedHead: head, rationale: rationale.trim() }, ...(adminToken && { adminToken }) });
+  };
+
+  if (promote.isSuccess) {
+    const c = promote.data.commit;
+    return (
+      <section className={styles.panel} aria-labelledby={`${uid}-h`}>
+        <h3 id={`${uid}-h`}>Promoted</h3>
+        <p role="status">
+          System commit <code>{shortSha(c.id)}</code> recorded. {promote.data.rejected.length > 0 && <>Rejected siblings: {promote.data.rejected.join(", ")}. </>}
+          <Link to={href("history", { commit: c.id, evolution: null, panel: null })} className="u-marker">Open in History</Link>
+        </p>
+      </section>
+    );
+  }
+
+  return (
+    <section className={styles.panel} aria-labelledby={`${uid}-h`}>
+      <h3 id={`${uid}-h`}>Promote {evolution.title}</h3>
+
+      <fieldset className={styles.fieldset}>
+        <legend>Candidates to promote</legend>
+        {candidates.length ? (
+          <ul className={styles.plain}>
+            {candidates.map((c) => (
+              <li key={c.id}>
+                <label>
+                  <input
+                    type="checkbox"
+                    checked={selected.includes(c.id)}
+                    onChange={(e) => setCandidates(e.target.checked ? [...selected, c.id] : selected.filter((x) => x !== c.id))}
+                  />{" "}
+                  <code>{c.id}</code> <span className={styles.muted}>{c.state} · manifest {c.hash ? shortSha(c.hash) : "unknown"}</span>
+                </label>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className={styles.muted}>No submitted candidates for this Evolution.</p>
+        )}
+      </fieldset>
+
+      <dl className={styles.facts}>
+        <dt>Manifest hash</dt>
+        <dd>{chosen.length ? chosen.map((c) => <code key={c.id} className={styles.inlineCode}>{c.hash ?? "unknown"}</code>) : "none selected"}</dd>
+        <dt>Base</dt>
+        <dd>{chosen.length ? chosen.map((c) => <code key={c.id} className={styles.inlineCode}>{c.baseRevision}</code>) : "none selected"}</dd>
+        <dt>Current head</dt>
+        <dd><code>{head ?? "none (first promotion)"}</code></dd>
+      </dl>
+
+      <h4>Required gates</h4>
+      {ids.length ? (
+        <GateTable rows={required} label="Required gate coverage" />
+      ) : (
+        <p className={styles.muted}>Select a candidate to see gate coverage. Without one every gate is not-run.</p>
+      )}
+
+      <div className={styles.advisories} role="group" aria-label="Advisories">
+        <h4>Advisories</h4>
+        <p className={styles.muted}>Advisories never block promotion, but the rationale must say how each was weighed.</p>
+        {softRows.length === 0 && split.advisories.length === 0 && !refused?.advisories.length ? (
+          <p className={styles.muted}>none</p>
+        ) : (
+          <>
+            {softRows.length > 0 && <GateTable rows={softRows} label="Advisory criteria" />}
+            {(split.advisories.length > 0 || !!refused?.advisories.length) && (
+              <ul className={styles.plain}>
+                {split.advisories.map((c, i) => <li key={`c${i}`}>{describeConflict(c)}</li>)}
+                {refused?.advisories.map((a, i) => <li key={`s${i}`}>{a}</li>)}
+              </ul>
+            )}
+          </>
+        )}
+      </div>
+
+      {(split.blocking.length > 0 || !!refused?.blocking.length) && (
+        <div className={styles.blocking} role="group" aria-label="Blocking">
+          <h4>Blocking</h4>
+          <ul className={styles.plain}>
+            {split.blocking.map((c, i) => <li key={`c${i}`}>{describeConflict(c)}</li>)}
+            {refused?.blocking.map((b, i) => <li key={`s${i}`}>{b}</li>)}
+          </ul>
+        </div>
+      )}
+
+      {stale && (
+        <div role="alert" className={styles.error}>
+          <p>The head moved to <code>{shortSha(stale.currentHead)}</code>; re-evaluate before promoting.</p>
+          <button type="button" className={`u-brackets ${styles.btn}`} onClick={refresh}>Refresh</button>
+        </div>
+      )}
+      {promote.isError && !stale && !refused && <p role="alert" className={styles.error}>{promote.error.message}</p>}
+
+      <form onSubmit={submit} className={styles.form}>
+        <div className={styles.field}>
+          <label htmlFor={`${uid}-r`}>Rationale</label>
+          <textarea id={`${uid}-r`} value={rationale} onChange={(e) => setRationale(e.target.value)} rows={4} required />
+        </div>
+        {advisoryCount > 0 && (
+          <label className={styles.check}>
+            <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> My rationale addresses the {advisoryCount} advisor{advisoryCount === 1 ? "y" : "ies"}
+          </label>
+        )}
+        <div className={styles.field}>
+          <label htmlFor={`${uid}-t`}>Admin token</label>
+          <input id={`${uid}-t`} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} autoComplete="off" />
+        </div>
+        <div className={styles.actions}>
+          <button type="submit" className={`u-brackets ${styles.primary}`} disabled={reasons.length > 0 || promote.isPending} aria-describedby={reasons.length ? `${uid}-why` : undefined}>
+            {promote.isPending ? "Promoting…" : "Promote"}
+          </button>
+        </div>
+        {reasons.length > 0 && (
+          <ul id={`${uid}-why`} className={styles.reasons} aria-label="Why promotion is disabled">
+            {reasons.map((r) => <li key={r}>{r}</li>)}
+          </ul>
+        )}
+      </form>
+      <p className={styles.muted}>Compare-and-swap on head <code>{head ?? "none"}</code>: the server refuses if it has moved.</p>
+    </section>
+  );
+}
+
+function GateTable({ rows, label }: { rows: GateRow[]; label: string }) {
+  if (!rows.length) return <p className={styles.muted}>none</p>;
+  return (
+    <table className={styles.gates} aria-label={label}>
+      <thead>
+        <tr><th scope="col">Criterion</th><th scope="col">Hook</th><th scope="col">Verdict</th><th scope="col">Execution</th></tr>
+      </thead>
+      <tbody>
+        {rows.map((r) => (
+          <tr key={r.criterion.id}>
+            <td><NodeChip id={r.criterion.id} size="sm" /></td>
+            <td><code>{r.hook}</code></td>
+            <td><VerdictBadge verdict={r.verdict} /></td>
+            <td>{r.execution}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
