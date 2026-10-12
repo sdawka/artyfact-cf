@@ -9,6 +9,11 @@ import { appArtifactIds, flatYaml, systemIdOf } from "../src/init.ts";
 import { WORKSPACE_IGNORES } from "../src/ignore.ts";
 import { main } from "../src/main.ts";
 
+// A hook or wrapper can export GIT_DIR, GIT_INDEX_FILE and friends; every git call here must target its own temp repos, never the caller's.
+for (const k of Object.keys(process.env)) {
+  if (/^GIT_(DIR|WORK_TREE|INDEX_FILE|PREFIX|COMMON_DIR|OBJECT_DIRECTORY|ALTERNATE_OBJECT_DIRECTORIES|QUARANTINE_PATH|NAMESPACE|CEILING_DIRECTORIES|CONFIG\w*)$/.test(k)) delete process.env[k];
+}
+
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
 const tmp = mkdtempSync(join(tmpdir(), "artyfact-init-test-"));
 const ACCOUNT = "0123456789abcdef0123456789abcdef";

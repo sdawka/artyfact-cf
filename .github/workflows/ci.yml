@@ -1,58 +1,45 @@
-# Mirrored locally by scripts/ci.mjs (`npm run ci`, run by .githooks/pre-push). Keep the steps in sync.
+# The steps live in scripts/ci.mjs, which the pre-push hook runs too (`npm run ci`).
 name: ci
 
 on:
-  push:
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  workflow_dispatch:
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    # Self-hosted Macs: never run code from forks on them.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: [self-hosted, macOS, ARM64]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 24
-      - name: Cache node_modules
-        id: modules
-        uses: actions/cache@v4
-        with:
-          path: node_modules
-          key: node-modules-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+          cache: npm
       - run: npm ci
-        if: steps.modules.outputs.cache-hit != 'true'
-      - run: npm run typecheck
-      - run: npm test
-      - run: npm run build -w @artyfact/platform
-
-      - name: Read pinned Playwright version
-        id: pw
-        run: echo "version=$(node -p "require('./apps/platform/package.json').devDependencies['@playwright/test']")" >> "$GITHUB_OUTPUT"
-      - name: Cache Playwright browsers
-        id: browsers
-        uses: actions/cache@v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
-      - name: Install Chromium and system deps
-        if: steps.browsers.outputs.cache-hit != 'true'
-        run: npx playwright install --with-deps chromium
-      - name: Install system deps only
-        if: steps.browsers.outputs.cache-hit == 'true'
-        run: npx playwright install-deps chromium
-
-      - name: Playwright (fixture mode, no Cloudflare login)
-        run: npm run e2e
-        working-directory: apps/platform
+      - run: npx playwright install chromium
+      - name: Pull request, scoped to the changes
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: npm run ci -- --changed --base "origin/$BASE_REF"
+      - name: Manual run, everything
+        if: github.event_name == 'workflow_dispatch'
+        run: npm run ci
       - uses: actions/upload-artifact@v4
-        if: always()
+        if: failure()
         with:
           name: e2e-artifacts
-          path: apps/platform/e2e-artifacts
+          path: |
+            apps/platform/e2e-artifacts
+            apps/site/e2e-artifacts
           retention-days: 14
           if-no-files-found: ignore
