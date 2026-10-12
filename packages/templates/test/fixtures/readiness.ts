@@ -5,6 +5,7 @@ const tpl = "template.thing.t@1";
 export const valid = {
   known: [["section.ui"], ["op.x"]],
   node: [["section.ui", "section", "thing.a"]],
+  thingSection: [["thing.a", "section.ui"]],
   thing: [["thing.a", tpl]],
   templateKnown: [[tpl]],
   templateRequires: [[tpl, "section.ui"]],

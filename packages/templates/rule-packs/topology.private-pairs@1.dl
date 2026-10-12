@@ -1,6 +1,6 @@
 % topology.private-pairs@1 - private-relationships profile: relationships are one-to-one, never broadcast (R9).
 % effectText(Node, Text) holds lowercased field names, effects and cardinality-bearing text of a node.
-% nodeName/2 is lowercased too.
+% nodeName/2 is lowercased too. entityField/3 carries the raw YAML type string (ref:entity.Account, list<ref:entity.Account>, ...).
 
 .decl node(Id: sym, Kind: sym, Thing: sym)
 .decl nodeName(Id: sym, Name: sym)
@@ -8,6 +8,8 @@
 .decl cardinality(Node: sym, Value: sym)
 .decl outgoingDirect(Node: sym)
 .decl entityField(Entity: sym, Name: sym, Type: sym)
+.decl provisional(Id: sym)
+.decl accountRefField(Entity: sym, Name: sym)
 .decl connection(Entity: sym)
 .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
 .decl semanticCandidate(Rule: sym, Subject: sym, Text: sym) .output
@@ -22,11 +24,13 @@ violation("topology.recipientArray",N,"hard") :- effectText(N,T), contains(T,"re
 violation("topology.recipientArray",N,"hard") :- effectText(N,T), contains(T,"recipient list").
 violation("topology.recipientArray",N,"hard") :- effectText(N,T), contains(T,"bulk").
 violation("topology.recipientArray",N,"hard") :- outgoingDirect(N), cardinality(N,"many").
+violation("topology.recipientArray",E,"hard") :- node(E,"entity",_), not provisional(E), entityField(E,_,Ty), contains(Ty,"list<ref:entity.Account").
 
 violation("topology.groupEnabled",N,"hard") :- node(N,K,_), K != "external", nodeName(N,Nm), matches(Nm,"^(group|circle|community|channel)( |$)").
 
 connection(E) :- node(E,"entity",_), nodeName(E,"connection").
-violation("topology.pairCardinality",E,"hard") :- connection(E), not entityField(E,_,"accountRef").
-violation("topology.pairCardinality",E,"hard") :- connection(E), N = count : entityField(E,_,"accountRef"), N != 2.
+accountRefField(E,F) :- entityField(E,F,Ty), matches(Ty,"^ref:entity[.]Account").
+violation("topology.pairCardinality",E,"hard") :- connection(E), not accountRefField(E,_).
+violation("topology.pairCardinality",E,"hard") :- connection(E), N = count : accountRefField(E,_), N != 2.
 
-semanticCandidate("topology.multiRecipient",N,T) :- effectText(N,T), matches(T,"(all|every|each|many|multiple) (contacts|people|recipients|connections)").
+semanticCandidate("topology.multiRecipient",N,T) :- effectText(N,T), contains(T,"recipient").

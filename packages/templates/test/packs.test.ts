@@ -14,7 +14,7 @@ const inventory: Record<string, string[]> = {
   readiness: ["coverage.requirement", "coverage.hook", "hook.unbound", "template.sectionMissing", "template.criterionMissing", "template.unknown", "kit.unpinned", "evolution.acceptanceMissing", "evolution.affectsMissing"],
   authorization: ["authz.ungoverned", "authz.policyConflict", "authz.privateReadUngoverned"],
   theory: ["purpose.beneficiary", "purpose.beneficiaryKind", "theory.indicator", "theory.method", "theory.beneficiary", "theory.outcomeUnlinked"],
-  journeys: ["journey.startMissing", "journey.nextDangling", "journey.noEnd", "journey.screenUncovered", "journey.stepRefMissing", "journey.operationUncovered"],
+  journeys: ["journey.startMissing", "journey.nextDangling", "journey.noEnd", "journey.screenUncovered", "journey.stepRefMissing", "journey.operationUncovered", "screen.noComponents", "affordance.incomplete"],
   "topology.private-pairs": ["topology.recipientArray", "topology.groupEnabled", "topology.pairCardinality", "topology.multiRecipient"],
 };
 

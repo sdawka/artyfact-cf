@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { parseSource, usingRealEngine } from "./engine";
+import { parseSource } from "./engine";
+import { render } from "../scripts/bundle";
 import { pack, packsFor, rulePacks, templateFile, templateRefs, templates } from "../src/index";
 import { files } from "../src/generated/files";
 
@@ -123,20 +124,25 @@ describe("rule packs", () => {
     expect(pack("metamodel").version).toBe("1");
   });
 
+  it("pack() resolves the highest version, comparing numerically", () => {
+    expect(pack("readiness").version).toBe("1");
+  });
+
   it("packsFor and pack throw on unknown packs", () => {
     expect(() => packsFor([{ id: "nope", version: "1" }])).toThrow(/unknown rule pack nope@1/);
     expect(() => packsFor([{ id: "readiness", version: "9" }])).toThrow();
     expect(() => pack("nope")).toThrow();
   });
 
-  it.todo("run the packs through the real @artyfact/rules engine once it merges (engine.ts switches automatically)");
-  it(`engine in use: ${usingRealEngine ? "@artyfact/rules" : "local reference stub"}`, () => {
-    expect(typeof usingRealEngine).toBe("boolean");
-  });
 });
 
 describe("generated bundle", () => {
-  // Freshness is guaranteed by `pretest`/`prepare` regenerating src/generated/files.ts; CI can `git diff --exit-code` it.
+  it("src/generated/files.ts is up to date with the template and pack files", async () => {
+    const { readFileSync } = await import("node:fs");
+    const committed = readFileSync(new URL("../src/generated/files.ts", import.meta.url), "utf8");
+    expect(render()).toBe(committed);
+  });
+
   it("holds every template file and rule pack", () => {
     expect(Object.keys(files).sort()).toEqual([
       "rule-packs/authorization@1.dl",

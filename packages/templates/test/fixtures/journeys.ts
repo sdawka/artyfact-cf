@@ -2,7 +2,10 @@ import type { PackFixture } from "./types";
 
 export const valid = {
   known: [["screen.a"], ["op.a"]],
-  node: [["screen.a", "screen", "thing.a"], ["op.a", "operation", "thing.a"]],
+  node: [["screen.a", "screen", "thing.a"], ["op.a", "operation", "thing.a"], ["comp.a", "component", "thing.a"], ["aff.a", "affordance", "thing.a"]],
+  parent: [["comp.a", "screen.a"]],
+  hasActor: [["aff.a"]],
+  hasEffects: [["aff.a"]],
   journey: [["J.1", "s1"], ["J.later", "s1"]],
   journeyDeferred: [["J.later"]],
   step: [["J.1", "s1"], ["J.1", "s2"], ["J.1", "s3"], ["J.later", "s1"]],
@@ -26,6 +29,9 @@ export const journeys: PackFixture = {
       facts: { stepRef: [["J.1", "s2", "ghost"]], stepUnresolved: [["J.1", "s2"]] },
     },
     { name: "screen in no journey", rule: "journey.screenUncovered", subject: "screen.b", facts: { node: [["screen.b", "screen", "thing.a"]] } },
+    { name: "screen without components", rule: "screen.noComponents", subject: "screen.c", relation: "missing", facts: { node: [["screen.c", "screen", "thing.a"]], stepScreen: [["J.1", "s2", "screen.c"]] } },
+    { name: "affordance without actor", rule: "affordance.incomplete", subject: "aff.b", relation: "missing", facts: { node: [["aff.b", "affordance", "thing.a"]], hasEffects: [["aff.b"]] } },
+    { name: "affordance without effects", rule: "affordance.incomplete", subject: "aff.c", relation: "missing", facts: { node: [["aff.c", "affordance", "thing.a"]], hasActor: [["aff.c"]] } },
     { name: "operation in no journey", rule: "journey.operationUncovered", subject: "op.b", facts: { node: [["op.b", "operation", "thing.a"]] } },
   ],
 };

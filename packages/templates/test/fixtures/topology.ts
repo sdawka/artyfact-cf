@@ -7,16 +7,22 @@ export const valid = {
     ["ext.group", "external", ""],
   ],
   nodeName: [["entity.Connection", "connection"], ["op.invite", "invite"], ["ext.group", "group chats"]],
-  entityField: [["entity.Connection", "a", "accountRef"], ["entity.Connection", "b", "accountRef"]],
+  entityField: [["entity.Connection", "a", "ref:entity.Account"], ["entity.Connection", "b", "ref:entity.Account"]],
   effectText: [["op.invite", "creates an invite for one person"]],
   cardinality: [["op.invite", "one"]],
   outgoingDirect: [["op.invite"]],
 };
 
+const entity = (id: string, fieldTypes: string[], extra: Record<string, string[][]> = {}) => ({
+  node: [[id, "entity", "thing.a"]],
+  entityField: fieldTypes.map((t, i) => [id, `f${i}`, t]),
+  ...extra,
+});
+
 const connection = (id: string, refs: number) => ({
   node: [[id, "entity", "thing.a"]],
   nodeName: [[id, "connection"]],
-  entityField: Array.from({ length: refs }, (_, i) => [id, `acct${i}`, "accountRef"]),
+  entityField: Array.from({ length: refs }, (_, i) => [id, `acct${i}`, "ref:entity.Account"]),
 });
 
 export const topology: PackFixture = {
@@ -35,9 +41,14 @@ export const topology: PackFixture = {
     { name: "connection with one account ref", rule: "topology.pairCardinality", subject: "entity.C1", facts: connection("entity.C1", 1) },
     { name: "connection with no account refs", rule: "topology.pairCardinality", subject: "entity.C0", facts: connection("entity.C0", 0) },
     { name: "connection with three account refs", rule: "topology.pairCardinality", subject: "entity.C3", facts: connection("entity.C3", 3) },
+    { name: "list of accounts on an entity", rule: "topology.recipientArray", subject: "entity.Fanout", facts: entity("entity.Fanout", ["list<ref:entity.Account>"]) },
     {
-      name: "may address many people", rule: "topology.multiRecipient", subject: "op.send", relation: "semanticCandidate",
-      facts: { effectText: [["op.send", "sends a nudge to all contacts"]] },
+      name: "provisional entity with account list is ignored", rule: "topology.recipientArray", subject: "entity.Draft", relation: "none",
+      facts: entity("entity.Draft", ["list<ref:entity.Account>"], { provisional: [["entity.Draft"]] }),
+    },
+    {
+      name: "mentions recipients", rule: "topology.multiRecipient", subject: "op.send", relation: "semanticCandidate",
+      facts: { effectText: [["op.send", "notifies the recipient of each nudge"]] },
     },
   ],
 };

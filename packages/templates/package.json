@@ -18,6 +18,7 @@
     "zod": "^4.6.6"
   },
   "devDependencies": {
-    "@artyfact/rules": "*"
+    "@artyfact/rules": "*",
+    "@types/node": "^26.6.5"
   }
 }

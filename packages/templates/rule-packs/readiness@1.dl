@@ -1,8 +1,11 @@
 % readiness@1 - is the Genome ready to be realized and verified? (R5, R6, R12, evolutions, kits).
+% template.sectionMissing keys on the Thing's declared sections. template.criterionMissing only fires when an
+% instance overrides a template criterion with a different owner (the loader always prepends template criteria).
 
 .decl known(Id: sym)
 .decl node(Id: sym, Kind: sym, Thing: sym)
 .decl thing(Id: sym, Template: sym)
+.decl thingSection(Thing: sym, Section: sym)
 .decl requirementEnabled(Id: sym)
 .decl criterion(Id: sym, OwnerKind: sym, OwnerId: sym, SubjectId: sym, Severity: sym)
 .decl criterionDeferred(Id: sym)
@@ -35,7 +38,7 @@ missing("coverage.requirement",R) :- requirementEnabled(R), not criterionSourceR
 missing("coverage.hook",C) :- criterion(C,_,_,_,_), not criterionDeferred(C), not criterionHook(C,_).
 warning("hook.unbound",C) :- criterionHook(C,H), hook(H,B), B != "bound", not criterionDeferred(C).
 
-violation("template.sectionMissing",T,"hard") :- thing(T,Tpl), templateKnown(Tpl), templateRequires(Tpl,S), not node(S,_,T).
+violation("template.sectionMissing",T,"hard") :- thing(T,Tpl), templateKnown(Tpl), templateRequires(Tpl,S), not thingSection(T,S).
 violation("template.criterionMissing",T,"hard") :- thing(T,Tpl), templateKnown(Tpl), templateRequiresCriterion(Tpl,C), not criterion(C,_,T,_,_).
 violation("template.unknown",T,"hard") :- thing(T,Tpl), Tpl != "", not templateKnown(Tpl).
 

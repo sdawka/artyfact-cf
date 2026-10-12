@@ -32,6 +32,7 @@ export const theory: PackFixture = {
   invalid: [
     { name: "purpose without beneficiaries", rule: "purpose.beneficiary", subject: "P2", facts: { purpose: [["P2"]] } },
     { name: "service as beneficiary", rule: "purpose.beneficiaryKind", subject: "P1", facts: { purposeBeneficiary: [["P1", "ext.svc"]] } },
+    { name: "non-external beneficiary", rule: "purpose.beneficiaryKind", subject: "P1", facts: { purposeBeneficiary: [["P1", "thing.a"]] } },
     { name: "claim without indicator", rule: "theory.indicator", subject: "T2", facts: claim("T2", { ...all, indicator: false }) },
     { name: "claim without method", rule: "theory.method", subject: "T3", facts: claim("T3", { ...all, method: false }) },
     { name: "claim without beneficiary", rule: "theory.beneficiary", subject: "T4", facts: claim("T4", { ...all, beneficiary: false }) },

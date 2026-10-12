@@ -43,6 +43,10 @@ Packs are written against the relations `toFacts()` in `@artyfact/model` emits. 
 
 Message templates use `{1}` for the finding's subject (the second tuple argument), as in `docs/design/rules.md` D.1.
 
+Further conventions: `entityField(Entity, Name, Type)` carries the raw YAML type string (`ref:entity.Account`, `list<ref:entity.Account>`); `hasActor/1` and `hasEffects/1` mark affordances with a non-empty actor/effects; `kitRequired/1` comes from `kits.yaml` `required`, `kitPinned/2` from `kits`.
+
+`kits.yaml` is `{ kits, rulePacks, required }`; call `packsFor(model.kits.rulePacks)`. `template.sectionMissing` keys on the Thing's declared `sections`; `template.criterionMissing` only fires when an instance overrides a template criterion with a different owner.
+
 ## Tests
 
-`test/stubs/rules.ts` is a throwaway reference evaluator for the `.dl` subset; `test/engine.ts` switches to `@artyfact/rules` automatically once it exports `parse`, `run` and `factSet`. `src/schema.ts` is a local copy of the `Template` schema to replace with the `@artyfact/model` one.
+Packs run on the real `@artyfact/rules` engine. `src/schema.ts` is a local copy of the `Template` schema, to be replaced by the `@artyfact/model` one. A test regenerates the bundle and fails if `src/generated/files.ts` is stale.

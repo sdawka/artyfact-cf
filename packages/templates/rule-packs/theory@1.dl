@@ -17,7 +17,7 @@
 .decl warning(Rule: sym, Subject: sym) .output
 
 .message "purpose.beneficiary" "Purpose {1} names no beneficiaries."
-.message "purpose.beneficiaryKind" "Purpose {1} has a beneficiary that is not a person or group external."
+.message "purpose.beneficiaryKind" "Purpose {1} has a beneficiary that is not a person or group external (or does not exist)."
 .message "theory.indicator" "Claim {1} has no indicator."
 .message "theory.method" "Claim {1} has no evaluation method."
 .message "theory.beneficiary" "Claim {1} names no beneficiaries."
@@ -28,7 +28,7 @@ claimLinked(C) :- criterion(_,_,_,C,_).
 claimLinked(C) :- requirementSubject(_,C).
 
 violation("purpose.beneficiary",P,"hard") :- purpose(P), not purposeBeneficiary(P,_).
-violation("purpose.beneficiaryKind",P,"hard") :- purposeBeneficiary(P,E), ext(E,K), K != "person", K != "group".
+violation("purpose.beneficiaryKind",P,"hard") :- purposeBeneficiary(P,E), not ext(E,"person"), not ext(E,"group").
 
 missing("theory.indicator",C) :- claim(C), not claimDeferred(C), not claimIndicator(C).
 missing("theory.method",C) :- claim(C), not claimDeferred(C), not claimMethod(C).
