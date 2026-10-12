@@ -23,7 +23,7 @@ describe("Overview", () => {
     const row = (await screen.findByText("kit.unpinned")).closest("li")!;
     expect(within(row).getByText("Pin the kit in kits.yaml.")).toBeTruthy();
     fireEvent.click(within(row).getByRole("button", { name: /Explain/ }));
-    await waitFor(() => expect(within(row).getByRole("tree")).toBeTruthy());
+    await waitFor(() => expect(within(row).getByLabelText(/^Derivation of/)).toBeTruthy());
     expect(within(row).getByText(/kitRequired/)).toBeTruthy();
   });
 

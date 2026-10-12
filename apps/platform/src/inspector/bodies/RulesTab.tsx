@@ -106,13 +106,14 @@ export function RulesTab({ entry }: { entry: IndexEntry }) {
   }
 
   const report = (data ?? m.bundle.readiness) as { derived?: Derived };
+  const derived = report.derived;
   const obligations = OBLIGATION_RELATIONS.flatMap((rel) =>
-    (report.derived?.[rel] ?? []).filter((t) => t.some((a) => String(a) === id)).map((t) => ({ rel, t })),
+    (derived?.[rel] ?? []).filter((t) => t.some((a) => String(a) === id)).map((t) => ({ rel, t })),
   );
   const findings = m.bundle.readiness.modelReadiness.findings.filter((f) => f.subject === id);
   const claims = m.index.model.claims.filter((c) => c.activities.includes(id));
 
-  if (!scoped.size && !obligations.length && !findings.length && !claims.length) {
+    if (derived && !scoped.size && !obligations.length && !findings.length && !claims.length) {
     return <EmptyState title="No criteria, derived obligations, findings or claims reference this object." />;
   }
   return (
@@ -123,7 +124,14 @@ export function RulesTab({ entry }: { entry: IndexEntry }) {
           <ul className={styles.list}>{[...scoped.values()].map((s) => <CriterionCard key={s.criterion.id} s={s} />)}</ul>
         </section>
       )}
-      {obligations.length > 0 && (
+      {!derived && (
+        <section aria-label="Derived obligations" className={styles.section}>
+          <h3 className={styles.title}>Derived obligations</h3>
+          <p className={styles.text}>unknown</p>
+          <p className={styles.muted}>The API did not supply derived relations, so obligations such as governed-by cannot be listed.</p>
+        </section>
+      )}
+      {derived && obligations.length > 0 && (
         <section aria-label="Derived obligations" className={styles.section}>
           <h3 className={styles.title}>Derived obligations</h3>
           <ul className={styles.list}>
@@ -146,20 +154,3 @@ export function RulesTab({ entry }: { entry: IndexEntry }) {
     </div>
   );
 }
-
-// tabRegistry -> tabs -> bodies -> this file is an import cycle: tabRegistry may still be evaluating when this
-// file loads (a ReferenceError from its `registry` const), so retry until it has finished.
-function register(attempt = 0) {
-  import("../tabRegistry").then(
-    (r) => {
-      try {
-        r.registerTab("rules", RulesTab);
-      } catch (e) {
-        if (attempt < 50) setTimeout(() => register(attempt + 1), 0);
-        else throw e;
-      }
-    },
-    () => undefined,
-  );
-}
-register();

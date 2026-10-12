@@ -61,12 +61,12 @@ function Meta({ node }: { node: DerivationTree }) {
   );
 }
 
-function Node({ node, depth, label }: { node: DerivationTree; depth: number; label: string }) {
+function Node({ node, depth }: { node: DerivationTree; depth: number }) {
   const [open, setOpen] = useState(true);
   const branch = node.children.length > 0;
   const atLimit = depth >= MAX_DEPTH;
   return (
-    <li role="treeitem" aria-expanded={branch ? open : undefined} aria-label={label} className={styles.item}>
+    <li className={styles.item}>
       <div className={styles.line}>
         {branch ? (
           <button
@@ -88,9 +88,9 @@ function Node({ node, depth, label }: { node: DerivationTree; depth: number; lab
         atLimit ? (
           <div className={styles.more} aria-label="deeper levels not shown">…</div>
         ) : (
-          <ul role="group" className={styles.children}>
+          <ul className={styles.children}>
             {node.children.map((c, i) => (
-              <Node key={`${c.relation}-${i}`} node={c} depth={depth + 1} label={head(c)} />
+              <Node key={`${c.relation}-${i}`} node={c} depth={depth + 1} />
             ))}
           </ul>
         )
@@ -114,8 +114,8 @@ export function Derivation(props: DerivationProps) {
   };
   return (
     <div className={styles.derivation}>
-      <ul role="tree" aria-label={`Derivation of ${head(tree)}`} className={styles.tree}>
-        <Node node={tree} depth={0} label={head(tree)} />
+      <ul aria-label={`Derivation of ${head(tree)}`} className={styles.tree}>
+        <Node node={tree} depth={0} />
       </ul>
       <div className={styles.foot}>
         <button

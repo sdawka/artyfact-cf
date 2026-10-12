@@ -53,7 +53,7 @@ describe("Derivation", () => {
   it("renders id arguments as chips when the argument is not a model id as plain text", () => {
     render(<Derivation derivation={tree} />);
     // Outside a model provider ids are text, not buttons.
-    expect(within(screen.getAllByRole("tree")[0]!).getAllByText("C.a").length).toBeGreaterThan(0);
+    expect(within(screen.getAllByLabelText(/^Derivation of/)[0]!).getAllByText("C.a").length).toBeGreaterThan(0);
   });
 
   it("copies an indented text outline", async () => {

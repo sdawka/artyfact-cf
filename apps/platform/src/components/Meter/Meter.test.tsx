@@ -26,4 +26,20 @@ describe("Meter", () => {
     render(<Meter title="T" headline="unknown" caption="c" segments={[{ key: "a", label: "a", count: 0, tone: "subtle" }]} emptyText="nothing yet" />);
     expect(screen.getByText("nothing yet")).toBeTruthy();
   });
+  it("gives unknown and not-run segments and the unknown headline no pass tone", () => {
+    const { container } = render(
+      <Meter
+        title="T"
+        headline="unknown"
+        caption="c"
+        segments={[
+          { key: "u", label: "unknown", count: 2, tone: "subtle" },
+          { key: "n", label: "not run", count: 3, tone: "subtle" },
+        ]}
+      />,
+    );
+    expect(container.querySelector('[data-tone="pass"]')).toBeNull();
+    expect(container.querySelectorAll('[data-tone="subtle"]').length).toBeGreaterThan(0);
+    expect(screen.getByText("unknown", { selector: "p" }).getAttribute("data-unknown")).not.toBeNull();
+  });
 });

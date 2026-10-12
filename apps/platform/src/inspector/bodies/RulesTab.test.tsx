@@ -41,13 +41,14 @@ describe("RulesTab", () => {
     expect(within(section).queryByText("ancestor")).toBeNull();
     expect(within(section).getAllByRole("listitem").length).toBe(2);
     fireEvent.click(within(section).getByRole("button", { name: /Explain.*governedBy/ }));
-    await waitFor(() => expect(within(section).getByRole("tree")).toBeTruthy());
+    await waitFor(() => expect(within(section).getByLabelText(/^Derivation of/)).toBeTruthy());
   });
 
-  it("omits derived obligations when the report has none", async () => {
+  it("says unknown, not nothing, when the report has no derived relations", async () => {
     renderApp(url);
     const inspector = await openRules();
-    await within(inspector).findByRole("region", { name: "Criteria" });
-    expect(within(inspector).queryByRole("region", { name: "Derived obligations" })).toBeNull();
+    const section = await within(inspector).findByRole("region", { name: "Derived obligations" });
+    expect(within(section).getByText("unknown")).toBeTruthy();
+    expect(within(section).getByText(/API did not supply derived relations/)).toBeTruthy();
   });
 });
