@@ -9,9 +9,15 @@ export default defineConfig({
   test: {
     projects: [
       {
-        plugins: [cloudflareTest({ wrangler: { configPath: "./wrangler.test.jsonc" } })],
+        plugins: [
+          cloudflareTest({
+            wrangler: { configPath: "./wrangler.test.jsonc" },
+            // Test-only secret/var values (the real ones live in .dev.vars / Cloudflare secrets).
+            miniflare: { bindings: { ADMIN_TOKEN: "test-admin-token", ACCOUNT_ID: "test-account" } },
+          }),
+        ],
         resolve: { alias },
-        test: { name: "worker", include: ["test/**/*.test.ts"] },
+        test: { name: "worker", include: ["test/**/*.test.ts"], testTimeout: 30_000 },
       },
       {
         resolve: { alias },
