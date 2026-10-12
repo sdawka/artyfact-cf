@@ -191,7 +191,9 @@ describe("editor commit", () => {
     expect(prot.json.error.code).toBe("protected-path");
     expect((await post({ message: "m", changes: [{ path: "assays/a.yaml", content: "x" }] })).json.error.code).toBe("protected-path");
     expect((await post({ message: "m", changes: [{ path: "../x", content: "x" }] })).json.error.code).toBe("invalid-path");
-    expect((await post({ message: "m", changes: [{ path: ".git/config", content: "x" }] })).json.error.code).toBe("invalid-path");
+    for (const bad of [".git/config", "src/.GIT/x", "a\\b", "a\0b", `${"s".repeat(256)}`]) {
+      expect((await post({ message: "m", changes: [{ path: bad, content: "x" }] })).json.error.code, bad).toBe("invalid-path");
+    }
     expect((await post({ message: "m", changes: Array.from({ length: 51 }, (_, i) => ({ path: `f${i}`, content: "x" })) })).json.error.code).toBe("too-many-changes");
     expect((await post({ message: "m", changes: [{ path: "big.txt", content: "x".repeat(1_000_001) }] })).json.error.code).toBe("file-too-large");
     expect((await post({ message: "m", changes: [{ path: "nope.txt", content: null }] })).json.error.code).toBe("invalid-path");

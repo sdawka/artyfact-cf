@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { listTree } from "../../worker/artifacts/genome-source";
 import { diffTrees } from "../../worker/artifacts/candidates";
-import { authHeader, checkReport, parseAdvertisement, pushCommit, PushRejected, rewriteTree, type PushCommitOptions } from "../../worker/git/push";
+import { authHeader, checkReport, parseAdvertisement, pathProblem, pushCommit, PushRejected, rewriteTree, type PushCommitOptions } from "../../worker/git/push";
 import { FLUSH, parsePkts, pkt, pktText } from "../../worker/git/pkt-line";
 import { concatBytes } from "../../worker/git/objects";
 import { FakeArtifacts } from "../helpers/fake-artifacts";
@@ -57,6 +57,36 @@ describe("rewriteTree", () => {
     const out = await rewriteTree(repo, "e".repeat(40), [{ path: "run.sh", content: "#!/bin/sh\n" }]);
     const { parseTree } = await import("../../worker/git/objects");
     expect(parseTree(out.objects.find((o) => o.type === "tree")!.body)[0]).toMatchObject({ name: "run.sh", mode: "100755", type: "exec" });
+  });
+
+  it.each([
+    ["empty", ""],
+    ["absolute", "/etc/passwd"],
+    ["parent segment", "../x"],
+    ["nested parent segment", "src/../../x"],
+    ["dot segment", "./x"],
+    ["empty segment", "a//b"],
+    ["trailing slash", "src/"],
+    [".git", ".git/config"],
+    [".GIT any case", "sub/.Git/hooks/pre-commit"],
+    ["backslash", "a\\b"],
+    ["NUL", "a\0b"],
+    ["long segment", `${"s".repeat(256)}.ts`],
+    ["long path", Array.from({ length: 20 }, () => "d".repeat(250)).join("/")],
+  ])("refuses an unsafe path (%s) before reading anything", async (_case, path) => {
+    const { repo, base } = repoWith(FILES);
+    const root = (await repo.readCommit(base))!.treeHash;
+    repo.calls.length = 0;
+    expect(pathProblem(path)).not.toBeNull();
+    await expect(rewriteTree(repo, root, [{ path, content: "x" }])).rejects.toMatchObject({ name: "PushRejected", code: "invalid-path" });
+    await expect(rewriteTree(repo, root, [{ path, content: null }])).rejects.toMatchObject({ code: "invalid-path" });
+    expect(repo.calls).toEqual([]);
+  });
+
+  it("accepts ordinary paths, including dotfiles and 255-byte segments", () => {
+    for (const p of ["README.md", ".gitignore", "src/.env.example", "a/.github/workflows/ci.yml", `${"s".repeat(252)}.ts`, "dir/..hidden", "x.git"]) {
+      expect(pathProblem(p), p).toBeNull();
+    }
   });
 
   it("deleting the last file yields the empty tree", async () => {
@@ -138,6 +168,12 @@ describe("pushCommit", () => {
     expect(atob(rp.requests[0].authorization!.slice(6))).toBe(`x-access-token:${token.plaintext}`);
     rp.acceptBasic = false;
     await expect(pushCommit({ ...opts, parent: (await opts.repo.log({ limit: 1 }))[0].hash, changes: [{ path: "src/a.ts", content: "AA\n" }], auth: "basic" })).rejects.toMatchObject({ code: "auth" });
+  });
+
+  it("refuses an unsafe path without contacting the remote", async () => {
+    const { rp, opts } = await setup();
+    await expect(pushCommit({ ...opts, changes: [{ path: "../escape", content: "x" }] })).rejects.toMatchObject({ code: "invalid-path" });
+    expect(rp.requests).toEqual([]);
   });
 
   it("refuses a no-op change without contacting the remote", async () => {

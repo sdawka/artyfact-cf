@@ -11,7 +11,7 @@ import { FLUSH, demuxSideband, parsePkts, pkt, pktText } from "./pkt-line";
 /** One edit: new file content, or null to delete the file. */
 export interface FileChange { path: string; content: string | Uint8Array | null }
 
-export type PushRejectCode = "stale-head" | "auth" | "rejected" | "unpack" | "protocol" | "no-change" | "missing-path" | "path-conflict";
+export type PushRejectCode = "stale-head" | "auth" | "rejected" | "unpack" | "protocol" | "no-change" | "missing-path" | "path-conflict" | "invalid-path";
 
 export class PushRejected extends Error {
   constructor(readonly code: PushRejectCode, message: string, readonly status?: number) {
@@ -23,11 +23,35 @@ export class PushRejected extends Error {
 export const ZERO_ID = "0".repeat(40);
 const EMPTY_TREE: GitObject = encodeTree([]);
 
+export const MAX_PATH_BYTES = 4096;
+export const MAX_SEGMENT_BYTES = 255;
+const utf8Length = (s: string) => new TextEncoder().encode(s).length;
+
+/**
+ * Why `path` cannot name a file in a tree, or null when it can: empty, absolute, too long, or a segment that is
+ * empty, `.`, `..`, `.git` (any case), longer than 255 bytes, or contains a backslash or NUL.
+ */
+export function pathProblem(path: string): string | null {
+  if (typeof path !== "string" || !path) return "is empty";
+  if (path.startsWith("/")) return "is absolute";
+  if (utf8Length(path) > MAX_PATH_BYTES) return `is longer than ${MAX_PATH_BYTES} bytes`;
+  for (const seg of path.split("/")) {
+    if (!seg) return "has an empty segment";
+    if (seg === "." || seg === "..") return `has a ${seg} segment`;
+    if (seg.toLowerCase() === ".git") return "has a .git segment";
+    if (/[\\\0]/.test(seg)) return "contains a backslash or NUL";
+    if (utf8Length(seg) > MAX_SEGMENT_BYTES) return `has a segment longer than ${MAX_SEGMENT_BYTES} bytes`;
+  }
+  return null;
+}
+
 type Node = { file: string | Uint8Array | null } | { dir: Map<string, Node> };
 
 function changeTree(changes: FileChange[]): Map<string, Node> {
   const root = new Map<string, Node>();
   for (const c of changes) {
+    const problem = pathProblem(c.path);
+    if (problem) throw new PushRejected("invalid-path", `path ${JSON.stringify(String(c.path).slice(0, 200))} ${problem}`);
     const parts = c.path.split("/");
     let here = root;
     for (let i = 0; i < parts.length; i++) {

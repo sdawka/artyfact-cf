@@ -10,7 +10,7 @@ import { globMatch, loadSourceMap, nodesForPath } from "./artifacts/source-map";
 import { resolveRef } from "./compare";
 import { TERMINAL_REALIZATION, type HeadState } from "./do/system-authority";
 import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
-import { pushCommit, PushRejected, type AuthScheme, type FileChange } from "./git/push";
+import { pathProblem, pushCommit, PushRejected, type AuthScheme, type FileChange } from "./git/push";
 import { protectedPathsFor } from "./packets/task-packet";
 import { eventIdOf } from "./hooks/queue";
 import { checkpoint, genomeAt, registryStub, submit, systemStub } from "./service";
@@ -40,10 +40,9 @@ export function parseScope(v: string | undefined): FileScope {
   throw badRequest("scope must be app or genome");
 }
 
-/** A repo-relative file path: no leading slash, no empty, `.` or `..` segments, no backslash or NUL. */
+/** A repo-relative file path the git layer accepts (see `pathProblem`). */
 export function validPath(p: unknown): p is string {
-  if (typeof p !== "string" || !p || p.length > 4096 || p.startsWith("/") || /[\\\0]/.test(p)) return false;
-  return p.split("/").every((s) => s !== "" && s !== "." && s !== "..") && p.split("/")[0] !== ".git";
+  return typeof p === "string" && pathProblem(p) === null;
 }
 
 // ------------------------------------------------------------------ reads
@@ -159,7 +158,7 @@ function pushError(e: PushRejected): HttpError {
   switch (e.code) {
     case "stale-head": return conflict("stale-head", `${e.message}; reload the file and commit again`);
     case "no-change": return unprocessable("no-change", e.message);
-    case "missing-path": case "path-conflict": return unprocessable("invalid-path", e.message);
+    case "missing-path": case "path-conflict": case "invalid-path": return unprocessable("invalid-path", e.message);
     case "auth": return new HttpError(502, "push-auth", `Artifacts refused the commit's write token: ${e.message}`);
     default: return new HttpError(502, "push-failed", e.message);
   }
