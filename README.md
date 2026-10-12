@@ -1,6 +1,6 @@
 # artyfact
 
-[![License: AGPL-3.0-only](https://img.shields.io/badge/license-AGPL--3.0--only-blue.svg)](LICENSE)
+[![License: Apache-2.0](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
 
 A collaboration platform whose main object is the whole System, not a repository. It runs on Cloudflare Workers and Cloudflare Artifacts. It was built for the Cloudflare "Build the Next-Gen Git Platform" competition.
 
@@ -165,4 +165,4 @@ The full loop against real Artifacts, with two agents, a conflict, a promotion a
 
 ## Licence
 
-GNU Affero General Public License v3.0 only (AGPL-3.0-only). If you run a modified version of artyfact as a network service, section 13 requires you to offer its users the corresponding source. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Apache-2.0. See [LICENSE](LICENSE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -15,4 +15,4 @@ npm run e2e
 - Never commit `.dev.vars` or tokens.
 - Commit messages are short and say what changed.
 
-Design notes are in `docs/design`. Licence: AGPL-3.0-only. Contributions are accepted under the same licence.
+Design notes are in `docs/design`. Licence: Apache-2.0.
