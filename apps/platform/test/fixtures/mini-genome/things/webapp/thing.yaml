@@ -1,0 +1,6 @@
+id: thing.webapp
+name: Web app
+templateRef: template.thing.cloudflare-worker-webapp@1
+description: The Keep in Touch web app
+artifacts:
+  - { artifact: artifact.webapp, type: worker-fullstack, repo: kit-app }

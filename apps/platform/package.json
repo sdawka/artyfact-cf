@@ -15,6 +15,9 @@
   },
   "dependencies": {
     "@artyfact/model": "*",
+    "@artyfact/rules": "*",
+    "@artyfact/semantic": "*",
+    "@artyfact/templates": "*",
     "@tanstack/react-query": "^5.104.2",
     "@tanstack/react-virtual": "^3.14.15",
     "@xyflow/react": "^12.12.0",
