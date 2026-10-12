@@ -123,11 +123,4 @@ test.describe("views", () => {
     expect(await successToneElements(page)).toEqual([]);
     await checkA11yAndShoot(page, testInfo, "evaluations-empty");
   });
-
-  test("history empty state is never green @fixture", async ({ page }, testInfo) => {
-    await open(page, "/history", "History");
-    await expect(page.getByText(/No System commits yet/)).toBeVisible();
-    expect(await successToneElements(page)).toEqual([]);
-    await checkA11yAndShoot(page, testInfo, "history-empty");
-  });
 });

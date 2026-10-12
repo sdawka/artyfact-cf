@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Evaluation, Finding, SystemCommit } from "../../shared/api";
 import { fixtureBundle } from "@/api/fixtures";
@@ -12,17 +12,33 @@ const search = (router: { state: { location: { search: string } } }) => new URLS
 const key = (k: string, init: KeyboardEventInit = {}) => act(() => void fireEvent.keyDown(window, { key: k, ...init }));
 
 describe("Shell", () => {
-  it("redirects / to the Keep in Touch overview", async () => {
+  it("renders Home at /", async () => {
     const { router } = renderApp("/");
+    expect(await screen.findByRole("heading", { level: 1, name: "Systems" })).toBeTruthy();
+    const card = await screen.findByRole("link", { name: /Keep in Touch/ });
+    expect(screen.queryByRole("navigation", { name: "Views" })).toBeNull();
+    act(() => card.click());
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/overview`));
     expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
   });
 
-  it("renders seven nav links that preserve focus, layer and candidates", async () => {
+  it("redirects /s/:systemId to its head overview", async () => {
+    const { router } = renderApp("/s/system.keep-in-touch");
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/overview`));
+  });
+
+  it("renders Overview plus three groups (4, 4, 1) whose links keep focus, layer and candidates", async () => {
     renderApp(`${BASE}/overview?layer=phenome&focus=screen.people&candidates=c1&journey=J.contacts`);
     const nav = await screen.findByRole("navigation", { name: "Views" });
+    const groups = within(nav).getAllByRole("group");
+    expect(groups.map((g) => [g.getAttribute("aria-labelledby") && document.getElementById(g.getAttribute("aria-labelledby")!)?.textContent, within(g).getAllByRole("link").length])).toEqual([
+      ["Genome", 4], ["Proteome", 4], ["Phenome", 1],
+    ]);
     const links = within(nav).getAllByRole("link");
-    expect(links.map((l) => l.textContent)).toEqual(["◎Overview", "▦Map", "⇢Journeys", "△Theory", "⎇Work", "✓Evaluations", "↺History"]);
+    expect(links.map((l) => l.textContent)).toEqual([
+      "◎Overview", "▦Map", "⇢Journeys", "△Theory", "{}Code", "⎇Work", "✓Evaluations", "↺Changelog", "⇄Compare", "◍Deployments",
+    ]);
+    expect(within(groups[2]!).getByRole("link", { name: /Deployments/ }).getAttribute("href")).toContain(`${BASE}/phenome`);
     for (const l of links) {
       const qs = new URLSearchParams(l.getAttribute("href")!.split("?")[1]);
       expect(qs.get("layer")).toBe("phenome");
@@ -33,6 +49,47 @@ describe("Shell", () => {
     expect(within(nav).getByRole("link", { name: /Overview/ }).getAttribute("aria-current")).toBe("page");
   });
 
+  it("wordmark links to /", async () => {
+    renderApp(`${BASE}/overview?focus=screen.people`);
+    expect((await screen.findByRole("link", { name: "artyfact" })).getAttribute("href")).toBe("/");
+  });
+
+  it("g l opens the Changelog and g h (legacy) does too", async () => {
+    const { router } = renderApp(`${BASE}/overview?focus=screen.people`);
+    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    key("g");
+    key("l");
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/changelog`));
+    expect(await screen.findByRole("heading", { level: 1, name: "Changelog" })).toBeTruthy();
+    expect(search(router).get("focus")).toBe("screen.people");
+    key("g");
+    key("d");
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/phenome`));
+    key("g");
+    key("h");
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/changelog`));
+  });
+
+  it("/history redirects to /changelog keeping ?commit=", async () => {
+    const { router } = renderApp(`${BASE}/history?commit=sc-3&evolution=evolution.2`);
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/changelog`));
+    expect(search(router).get("commit")).toBe("sc-3");
+    expect(search(router).get("evolution")).toBe("evolution.2");
+  });
+
+  it("routes Code, Compare and Deployments to views with their h1", async () => {
+    for (const [view, name] of [["code", "Code"], ["compare", "Compare"], ["phenome", "Deployments"]] as const) {
+      renderApp(`${BASE}/${view}`);
+      expect(await screen.findByRole("heading", { level: 1, name })).toBeTruthy();
+      cleanup();
+    }
+  });
+
+  it("unknown paths offer a way Home", async () => {
+    renderApp("/nope");
+    expect((await screen.findByRole("link", { name: "Open Home" })).getAttribute("href")).toBe("/");
+  });
+
   it("shows the fixture pill, phase and canonical state", async () => {
     renderApp(`${BASE}/overview`);
     expect(await screen.findByText("fixture data")).toBeTruthy();
@@ -40,8 +97,10 @@ describe("Shell", () => {
     expect(screen.getByText("canonical")).toBeTruthy();
   });
 
-  it("LayerSwitch writes ?layer=", async () => {
+  it("LayerSwitch sits in the Map header (not the TopBar) and writes ?layer=", async () => {
     const { router } = renderApp(`${BASE}/map`);
+    const topBar = (await screen.findByRole("link", { name: "artyfact" })).closest("header")!;
+    expect(within(topBar).queryByRole("tablist", { name: "Layer" })).toBeNull();
     const tabs = await screen.findByRole("tablist", { name: "Layer" });
     const tab = (name: string) => within(tabs).getByRole("tab", { name });
     expect(tab("Genome").getAttribute("aria-selected")).toBe("true");

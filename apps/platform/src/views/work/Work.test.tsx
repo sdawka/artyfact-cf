@@ -403,7 +403,7 @@ describe("PromotionPanel", () => {
     await waitFor(() => expect(screen.queryByRole("group", { name: "Blocking" })).toBeNull());
   });
 
-  it("confirms success and links to History", async () => {
+  it("confirms success and links to the Changelog", async () => {
     stubApi(() => json(200, { commit: commit({ id: "newcommit0000" }), rejected: ["cand.2"] }), allPass());
     const fx: string[] = [];
     const onFx = (e: Event) => fx.push((e as CustomEvent<{ kind: string; strength?: number }>).detail.kind);
@@ -412,7 +412,7 @@ describe("PromotionPanel", () => {
     await fill();
     fireEvent.click(submit());
     expect(await screen.findByText(/newcomm/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Open in History" }).getAttribute("href")).toContain("commit=newcommit0000");
+    expect(screen.getByRole("link", { name: "Open in Changelog" }).getAttribute("href")).toContain("commit=newcommit0000");
     window.removeEventListener("artyfact:fx", onFx);
     expect(fx).toContain("promoted");
   });

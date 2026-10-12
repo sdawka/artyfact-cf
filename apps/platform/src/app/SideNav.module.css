@@ -13,6 +13,13 @@
   padding: 0;
   list-style: none;
 }
+.group { margin-top: var(--spacing-4); }
+.groupHead {
+  margin: 0 0 var(--spacing-1);
+  padding: 0 var(--spacing-3);
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+}
 .link {
   display: inline-flex;
   align-items: center;
@@ -25,7 +32,14 @@
 }
 @media (max-width: 640px) {
   .nav { padding: var(--spacing-2) var(--spacing-1); }
-  .link { padding: var(--spacing-2); }
+  .group { margin-top: var(--spacing-4); }
+.groupHead {
+  margin: 0 0 var(--spacing-1);
+  padding: 0 var(--spacing-3);
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+}
+.link { padding: var(--spacing-2); }
   .label {
     position: absolute;
     width: 1px;

@@ -13,12 +13,15 @@ export type Layer = (typeof LAYERS)[number];
 
 const isView = (s: string | undefined): s is ViewName => !!s && (VIEWS as readonly string[]).includes(s);
 
-/** `systemId`, `rev` and the current view from `/s/:systemId/r/:rev/:view`. */
+/**
+ * `systemId`, `rev` and the current view from `/s/:systemId/r/:rev/:view`. Outside `/s/` (Home, `/style`)
+ * `systemId` is `""`: there is no current System, and System-scoped queries stay disabled.
+ */
 export function useSystemRoute(): { systemId: string; rev: string; view: ViewName | undefined } {
   const { systemId, rev } = useParams();
   const { pathname } = useLocation();
   const last = pathname.split("/").filter(Boolean).at(-1);
-  return { systemId: systemId ?? DEFAULT_SYSTEM_ID, rev: rev ?? DEFAULT_REV, view: isView(last) ? last : undefined };
+  return { systemId: systemId ?? "", rev: rev ?? DEFAULT_REV, view: isView(last) ? last : undefined };
 }
 
 export const viewPath = (systemId: string, rev: string, view: ViewName) =>
