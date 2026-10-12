@@ -32,13 +32,13 @@ export function loadGenome(files: FileMap, revision: string, deps: GenomeDeps = 
 }
 
 export interface RulesFilter {
-  /** Pack ids (without version) whose findings count. */
+  /** Packs whose findings count: `id` (any version) or `id@version`. */
   packs?: string[];
   /** Only findings whose rule starts with this prefix count. */
   rulePrefix?: string;
 }
 
-/** Parse `hook.inputs` (`packs: "metamodel,readiness"`, `rulePrefix: "topology."`). */
+/** Parse `hook.inputs` (`packs: "metamodel@1,readiness"`, `rulePrefix: "topology."`). */
 export function filterFromInputs(inputs: Record<string, string>): RulesFilter | undefined {
   const packs = inputs.packs?.split(",").map((s) => s.trim()).filter(Boolean);
   const rulePrefix = inputs.rulePrefix?.trim();
@@ -47,7 +47,7 @@ export function filterFromInputs(inputs: Record<string, string>): RulesFilter | 
 }
 
 const keep = (f: Finding, filter?: RulesFilter) =>
-  (!filter?.packs || (f.pack !== undefined && filter.packs.includes(f.pack.slice(0, f.pack.lastIndexOf("@"))))) &&
+  (!filter?.packs || (f.pack !== undefined && (filter.packs.includes(f.pack) || filter.packs.includes(f.pack.slice(0, f.pack.lastIndexOf("@")))))) &&
   (!filter?.rulePrefix || f.rule.startsWith(filter.rulePrefix));
 
 const key = (f: Finding) => `${f.rule} ${f.subject ?? ""}`.trim();
@@ -127,6 +127,10 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
     }
   }
 
+  const ran = readiness.packs.map((p) => `${p.id}@${p.version}`);
+  const notPinned = (input.filter?.packs ?? []).filter((w) => !ran.includes(w) && !readiness.packs.some((p) => p.id === w));
+  if (notPinned.length) observations.push({ kind: "packs-not-pinned", packs: notPinned, pinned: ran });
+
   let verdict: Outcome["verdict"];
   let interpretation: string;
   if (readiness.packs.length === 0) {
@@ -135,6 +139,9 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
   } else if (errors.length) {
     verdict = "fail";
     interpretation = `${errors.length} hard violation(s): ${errors.map(key).join("; ")}.`;
+  } else if (notPinned.length) {
+    verdict = "unknown";
+    interpretation = `The hook asks for pack(s) ${notPinned.join(", ")}, which kits.yaml does not pin; they did not run.`;
   } else if (readiness.incomplete) {
     verdict = "unknown";
     interpretation = "The rules run hit its iteration cap; results are incomplete.";

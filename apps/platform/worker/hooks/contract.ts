@@ -60,6 +60,20 @@ export interface SubmissionContext {
   protectedPaths: string[];
   /** Other open (submitted, not promoted/rejected) candidates of the same System, excluding `candidate`. */
   openCandidates: CandidateRef[];
+  /**
+   * Facts only the DO knows, for `inputs.check` items on promotion hooks (C.system.promotion). Omit at submission:
+   * the matching checks are then `not-run` and the criterion stays `unknown`. Supply at promotion revalidation.
+   */
+  promotionFacts?: PromotionFacts;
+}
+
+export interface PromotionFacts {
+  /** Current head commit of the candidate's target repo in the System manifest; `base-current` = equals candidate.baseCommit. */
+  currentBaseCommit?: string;
+  /** `manifest-exact`: the composed manifest to promote binds exactly this candidate's commit(s). */
+  manifestExact?: boolean;
+  /** `evidence-fresh`: every required evaluation was produced for this candidate at this commit. */
+  evidenceFresh?: boolean;
 }
 
 export type GenomeContext = SubmissionContext;
