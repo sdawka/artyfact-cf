@@ -77,7 +77,7 @@
 }
 @media (max-width: 640px) {
   .hints { flex-wrap: wrap; }
-  .hint { white-space: normal; }
+  .hints > .hint { white-space: normal; }
 }
 .canvas {
   position: relative;
