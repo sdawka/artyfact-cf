@@ -153,6 +153,9 @@ starts with `[name, systemId]`, so `invalidateQueries({ queryKey: [name, systemI
   renders only for `passed` / `pass`; `buildTone(status)` maps a build status to a tone.
 - `RevisionPicker { id, label, value, onChange, options }`: labelled native select grouped Head · System commits ·
   Candidates (options from `useRevisions()`); an unlisted `value` stays selectable.
+- `CodeView { value, path, label, readOnly?, onChange? }` (default export; always `lazy()`-import it): CodeMirror 6 with line
+  numbers, yaml/js/ts/json/md by extension and token colours; read-only sets `aria-readonly`. Tests: `@/testing/codemirror`
+  `editorText(root)`, `typeInEditor(root, text)` (throws when read-only).
 - `CopyButton { value, label? }` (announces "Copied" / "Copy failed"), `EmptyState { title, children?, action?, live? }` (`live` adds `role="status"`),
   `Breadcrumbs { ids, label? }`, `KeyValue { data, omit? }` (strings that are ids render as chips).
 
