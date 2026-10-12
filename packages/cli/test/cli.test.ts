@@ -241,6 +241,7 @@ describe("artyfact cli", () => {
     it("rejects tokens that could inject header lines", () => {
       expect(() => assertToken("abc\r\nX-Evil: 1")).toThrow();
       expect(assertToken("abc.DEF-123_~+/=")).toBeTruthy();
+      expect(assertToken("art_v1_0123abcd?expires=1760000000")).toBeTruthy();
     });
 
     it("submit pushes to the configured remote, not whatever origin says", async () => {

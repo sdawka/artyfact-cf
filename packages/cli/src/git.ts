@@ -25,7 +25,8 @@ export function assertId(kind: string, v: unknown): string {
 
 const ARTIFACTS_HOST_RE = /^[0-9a-f]{32}\.artifacts\.cloudflare\.net$/;
 const REMOTE_PATH_RE = /^\/git\/[A-Za-z0-9._-]+\/[A-Za-z0-9._-]+\.git$/;
-const TOKEN_RE = /^[A-Za-z0-9._~+/=-]+$/;
+// Artifacts tokens look like "art_v1_<hex>?expires=<unix>", so "?" and "&" are allowed.
+const TOKEN_RE = /^[A-Za-z0-9._~+/=?&-]+$/;
 
 /** The token is only ever sent to an Artifacts git remote; `ARTYFACT_ALLOW_REMOTE_HOST` opts one other host in (tests, local dev). */
 export function assertRemote(kind: string, v: unknown, env: Record<string, string | undefined> = process.env): string {
