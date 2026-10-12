@@ -89,6 +89,15 @@ describe("rewriteTree", () => {
     }
   });
 
+  it("refuses a file written over a directory and a path written under a file", async () => {
+    const { repo, base } = repoWith(FILES);
+    const root = (await repo.readCommit(base))!.treeHash;
+    await expect(rewriteTree(repo, root, [{ path: "src", content: "x" }])).rejects.toMatchObject({ code: "path-conflict", message: expect.stringContaining("is a directory") });
+    await expect(rewriteTree(repo, root, [{ path: "src/deep", content: "x" }])).rejects.toMatchObject({ code: "path-conflict" });
+    await expect(rewriteTree(repo, root, [{ path: "README.md/x", content: "x" }])).rejects.toMatchObject({ code: "path-conflict", message: expect.stringContaining("is a file") });
+    await expect(rewriteTree(repo, root, [{ path: "src/a.ts/b/c", content: "x" }])).rejects.toMatchObject({ code: "path-conflict" });
+  });
+
   it("deleting the last file yields the empty tree", async () => {
     const { repo, base } = repoWith({ "only.txt": "1" });
     const out = await rewriteTree(repo, (await repo.readCommit(base))!.treeHash, [{ path: "only.txt", content: null }]);
@@ -150,6 +159,12 @@ describe("pushCommit", () => {
     await expect(pushCommit(opts)).rejects.toMatchObject({ code: "stale-head" });
     rp.rejectNext = "stale ref"; // Artifacts' wording, seen live
     await expect(pushCommit(opts)).rejects.toMatchObject({ code: "stale-head" });
+    for (const reason of ["failed to update ref", "expected 1 file", "reference already exists"]) {
+      rp.rejectNext = reason; // not "the ref moved": no reload loop
+      await expect(pushCommit(opts)).rejects.toMatchObject({ code: "rejected" });
+    }
+    rp.rejectNext = "cannot lock ref 'refs/heads/main'";
+    await expect(pushCommit(opts)).rejects.toMatchObject({ code: "stale-head" });
     rp.rejectNext = "pre-receive hook declined";
     await expect(pushCommit(opts)).rejects.toMatchObject({ code: "rejected", message: expect.stringContaining("hook declined") });
   });
@@ -168,6 +183,35 @@ describe("pushCommit", () => {
     expect(atob(rp.requests[0].authorization!.slice(6))).toBe(`x-access-token:${token.plaintext}`);
     rp.acceptBasic = false;
     await expect(pushCommit({ ...opts, parent: (await opts.repo.log({ limit: 1 }))[0].hash, changes: [{ path: "src/a.ts", content: "AA\n" }], auth: "basic" })).rejects.toMatchObject({ code: "auth" });
+  });
+
+  it("maps a network failure to a protocol rejection", async () => {
+    const { opts } = await setup();
+    await expect(pushCommit({ ...opts, fetch: (async () => { throw new TypeError("connection reset"); }) as typeof fetch }))
+      .rejects.toMatchObject({ name: "PushRejected", code: "protocol", message: expect.stringContaining("connection reset") });
+  });
+
+  it("round-trips binary content byte for byte", async () => {
+    const { repo, opts } = await setup();
+    const bytes = new Uint8Array([0, 255, 254, 10, 0, 128, 1]);
+    const out = await pushCommit({ ...opts, changes: [{ path: "assets/x.bin", content: bytes }] });
+    const blob = await repo.readFile({ ref: out.commit, path: "assets/x.bin" });
+    expect([...new Uint8Array(await blob!.arrayBuffer())]).toEqual([...bytes]);
+  });
+
+  it("stores nothing from a refused push (quarantine)", async () => {
+    const { repo, rp, opts, base } = await setup();
+    const before = repo.store.objects.size;
+    rp.rejectNext = "pre-receive hook declined";
+    await expect(pushCommit(opts)).rejects.toMatchObject({ code: "rejected" });
+    rp.advertiseHead = base; // the advertisement says base, but the ref is elsewhere: the server refuses
+    repo.head = repo.commit({ other: "1" });
+    const sizeAfterMove = repo.store.objects.size;
+    await expect(pushCommit(opts)).rejects.toMatchObject({ code: "stale-head" });
+    expect(repo.store.objects.size).toBe(sizeAfterMove);
+    expect(sizeAfterMove - before).toBe(3); // only the local commit(): blob, tree, commit
+    expect(rp.pushes).toHaveLength(2);
+    expect(rp.pushes.every((p) => !repo.store.objects.has(p.new))).toBe(true);
   });
 
   it("refuses an unsafe path without contacting the remote", async () => {

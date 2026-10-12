@@ -101,12 +101,15 @@ export function fakeReceivePack(ns: FakeArtifacts, repo?: string): FakeReceivePa
     } catch (e) {
       return report(`unpack ${(e as Error).message}`, `ng ${ref} unpacker error`);
     }
+    // Parse everything first; like real git's quarantine, nothing reaches the store unless the update is accepted.
+    type Obj = Parameters<typeof r.store.objects.set>[1];
+    const pending = new Map<string, Obj>();
     const stored: ReceivedPush["objects"] = [];
     for (const o of objects) {
       const hash = await hashObject(o);
       stored.push({ hash, type: o.type });
-      if (o.type === "blob") r.store.objects.set(hash, { kind: "blob", text: new TextDecoder().decode(o.body) });
-      else if (o.type === "tree") r.store.objects.set(hash, { kind: "tree", entries: parseTree(o.body) });
+      if (o.type === "blob") pending.set(hash, { kind: "blob", text: new TextDecoder().decode(o.body), bytes: o.body });
+      else if (o.type === "tree") pending.set(hash, { kind: "tree", entries: parseTree(o.body) });
       else {
         const c = parseCommit(o.body);
         const meta: CommitMeta = {
@@ -114,7 +117,7 @@ export function fakeReceivePack(ns: FakeArtifacts, repo?: string): FakeReceivePa
           author: { name: c.author.name, email: c.author.email }, committer: { name: c.committer.name, email: c.committer.email },
           authoredAt: c.author.at, committedAt: c.committer.at,
         };
-        r.store.objects.set(hash, { kind: "commit", meta });
+        pending.set(hash, { kind: "commit", meta });
       }
     }
     state.pushes.push({ repo: r.name, old: oldId, new: newId, ref, capabilities: caps.split(" ").filter(Boolean), objects: stored, authorization });
@@ -124,21 +127,21 @@ export function fakeReceivePack(ns: FakeArtifacts, repo?: string): FakeReceivePa
       return report("unpack ok", `ng ${ref} ${reason}`);
     }
     if (ref !== "refs/heads/main") return report("unpack ok", `ng ${ref} only refs/heads/main is writable here`);
-    if (oldId !== (r.head ?? "0".repeat(40))) return report("unpack ok", `ng ${ref} non-fast-forward`);
-    // Connectivity: the new commit, its tree and every entry of the pushed trees must exist.
+    if (oldId !== (r.head ?? "0".repeat(40))) return report("unpack ok", `ng ${ref} stale ref`);
+    // Connectivity: the new commit, its tree, its parents and every entry of the pushed trees must exist.
+    const get = (h: string) => pending.get(h) ?? r.store.objects.get(h);
     const missing: string[] = [];
-    const has = (h: string) => r.store.objects.has(h);
-    const c = r.store.objects.get(newId);
+    const c = get(newId);
     if (c?.kind !== "commit") missing.push(newId);
     else {
-      if (!has(c.meta.treeHash)) missing.push(c.meta.treeHash);
-      for (const p of c.meta.parents) if (!has(p)) missing.push(p);
+      if (!get(c.meta.treeHash)) missing.push(c.meta.treeHash);
+      for (const p of c.meta.parents) if (!get(p)) missing.push(p);
     }
-    for (const o of stored) {
-      const t = r.store.objects.get(o.hash);
-      if (t?.kind === "tree") for (const e of t.entries) if (e.type !== "gitlink" && !has(e.hash)) missing.push(e.hash);
+    for (const o of pending.values()) {
+      if (o.kind === "tree") for (const e of o.entries) if (e.type !== "gitlink" && !get(e.hash)) missing.push(e.hash);
     }
     if (missing.length) return report(`unpack missing objects ${missing.join(",")}`, `ng ${ref} missing necessary objects`);
+    for (const [h, o] of pending) r.store.objects.set(h, o);
     r.head = newId;
     return report("unpack ok", `ok ${ref}`);
   }) as typeof fetch;

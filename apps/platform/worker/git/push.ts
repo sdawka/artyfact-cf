@@ -100,12 +100,16 @@ export async function rewriteTree(repo: ArtifactsRepoLike, treeHash: string | nu
           changed = true;
           continue;
         }
+        // Writing a file where a directory stands would silently drop everything under it.
+        if (cur?.type === "tree") throw new PushRejected("path-conflict", `${path} is a directory; it cannot be written as a file`);
         const hash = await add(encodeBlob(node.file));
         const type: EntryKind = cur?.type === "exec" || cur?.type === "symlink" ? cur.type : "blob";
         if (cur && cur.hash === hash && cur.type === type) continue;
         items.set(name, { name, hash, type });
         changed = true;
       } else {
+        // Writing under an existing file would silently turn that file into a directory.
+        if (cur && cur.type !== "tree") throw new PushRejected("path-conflict", `${path} is a file; nothing can be written under it`);
         const sub = await rewrite(cur?.type === "tree" ? cur.hash : null, node.dir, `${path}/`);
         if (!sub.changed && cur?.type === "tree") continue;
         changed = true;
@@ -164,7 +168,7 @@ export function parseAdvertisement(bytes: Uint8Array): Map<string, string> {
 }
 
 /** Refusals meaning "the ref moved": git's own wording and Artifacts' (`ng refs/heads/main stale ref`). */
-const STALE = /non-fast-forward|fetch first|\bstale\b|failed to (update|lock)|cannot lock|already exists|expected/i;
+const STALE = /non-fast-forward|fetch first|\bstale\b|cannot lock|failed to lock/i;
 
 /** Read a report-status response (plain or side-banded) and throw on anything but `unpack ok` + `ok <ref>`. */
 export function checkReport(bytes: Uint8Array, ref: string): void {
@@ -199,7 +203,15 @@ async function expectOk(res: Response, what: string): Promise<Uint8Array> {
  */
 export async function pushCommit(o: PushCommitOptions): Promise<PushCommitResult> {
   const ref = o.ref ?? "refs/heads/main";
-  const doFetch = o.fetch ?? fetch;
+  const transport = o.fetch ?? fetch;
+  // A network failure is a push failure like any other (the caller still revokes its token).
+  const doFetch: typeof fetch = async (input, init) => {
+    try {
+      return await transport(input, init);
+    } catch (e) {
+      throw new PushRejected("protocol", `could not reach the Git remote: ${(e as Error)?.message ?? e}`);
+    }
+  };
   const headers = { authorization: authHeader(o.token, o.auth), "user-agent": "git/artyfact" };
   const base = o.remote.replace(/\/+$/, "");
 
