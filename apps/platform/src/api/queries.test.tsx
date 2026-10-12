@@ -1,7 +1,8 @@
 import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderApp } from "@/testing/render";
-import { SSE_INVALIDATIONS, qk, useManualCommit, type ManualCommitInput } from "./queries";
+import { ApiRequestError } from "./client";
+import { ManualCommitError, SSE_INVALIDATIONS, qk, useManualCommit, type ManualCommitInput } from "./queries";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -12,6 +13,7 @@ function Probe({ input }: { input: ManualCommitInput }) {
     <div>
       <button onClick={() => m.mutate(input)}>go</button>
       <output data-testid="out">{m.data ? JSON.stringify({ r: m.data.realizationId, e: m.data.evolutionId, c: m.data.result.commit }) : m.error?.message ?? ""}</output>
+      <output data-testid="err">{m.error instanceof ManualCommitError ? JSON.stringify({ step: m.error.step, ...m.error.progress, status: (m.error.cause as ApiRequestError).status }) : ""}</output>
     </div>
   );
 }
@@ -42,6 +44,49 @@ describe("useManualCommit", () => {
     ]);
     expect(calls[2]!.body).toMatchObject({ origin: "editor", target: "app" });
     await waitFor(() => expect(spy).toHaveBeenCalledWith({ queryKey: ["builds", "s"] }));
+  });
+});
+
+describe("useManualCommit failures and resume", () => {
+  type Call = { url: string; auth?: string };
+  const stub = (fail: "start" | "commit" | null) => {
+    const calls: Call[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      calls.push({ url, auth: (init?.headers as Record<string, string> | undefined)?.authorization });
+      if (url === "/api/systems") return json(200, { systems: [{ systemId: "s" }] });
+      if (url === "/api/systems/s/evolutions") return json(201, { evolution: { id: "evolution.9" } });
+      if (url.endsWith("/realizations") && init?.method === "POST")
+        return fail === "start" ? json(500, { error: { code: "boom", message: "start failed" } }) : json(201, { realization: { id: "r9" }, secret: "sec" });
+      if (url.endsWith("/commit"))
+        return fail === "commit" ? json(409, { error: { code: "head-moved", message: "fork head moved" } }) : json(200, { commit: "c".repeat(40), parent: "p", tree: "t", submitted: {} });
+      return json(404, {});
+    }));
+    return calls;
+  };
+  const run = (input: ManualCommitInput) => {
+    renderApp("/s/s/r/head/p", [{ path: "/s/:systemId/r/:rev/p", element: <Probe input={input} /> }]);
+    act(() => screen.getByRole("button", { name: "go" }).click());
+  };
+  const commit = { message: "m", changes: [{ path: "a", content: "x" }] };
+
+  it("keeps the new Evolution id when startWork fails", async () => {
+    stub("start");
+    run({ newEvolution: { title: "T", intent: "I" }, adminToken: "adm", commit });
+    await waitFor(() => expect(JSON.parse(screen.getByTestId("err").textContent!)).toEqual({ step: "startWork", evolutionId: "evolution.9", status: 500 }));
+  });
+
+  it("keeps the realization id and its one-time secret when the commit fails", async () => {
+    stub("commit");
+    run({ evolutionId: "evolution.9", adminToken: "adm", commit });
+    await waitFor(() =>
+      expect(JSON.parse(screen.getByTestId("err").textContent!)).toEqual({ step: "commit", evolutionId: "evolution.9", realizationId: "r9", secret: "sec", status: 409 }));
+  });
+
+  it("resumes with an existing realization and secret without creating or starting anything", async () => {
+    const calls = stub(null);
+    run({ realizationId: "r9", secret: "sec", evolutionId: "evolution.9", commit });
+    await waitFor(() => expect(screen.getByTestId("out").textContent).toContain('"r":"r9"'));
+    expect(calls.slice(1)).toEqual([{ url: "/api/systems/s/realizations/r9/commit", auth: "Bearer sec" }]);
   });
 });
 

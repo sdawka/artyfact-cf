@@ -275,9 +275,13 @@ export function useCreateEvolution() {
 /** Input of {@link useManualCommit}. */
 export interface ManualCommitInput {
   commit: EditorCommitRequest;
+  /** Resume: commit to this existing realization (e.g. from a {@link ManualCommitError}) instead of starting one. */
   realizationId?: string;
-  token?: string;
+  /** The realization's secret when resuming; falls back to `adminToken`. */
+  secret?: string;
+  /** Existing Evolution to start the realization on. */
   evolutionId?: string;
+  /** Created first when neither `evolutionId` nor `realizationId` is given. */
   newEvolution?: CreateEvolutionRequest;
   target?: "app" | "genome";
   adminToken?: string;
@@ -290,18 +294,41 @@ export interface ManualCommitResult {
   result: EditorCommitResponse;
 }
 
+/** What a failed manual commit had already created, so the caller can retry without duplicating it. */
+export interface ManualCommitProgress {
+  evolutionId?: string;
+  realizationId?: string;
+  /** Present when this call started the realization: the only copy of its one-time secret. */
+  secret?: string;
+}
+
 /**
- * A manual commit from the editor. Uses `realizationId` + `token` (its secret, or the admin token) when given;
- * otherwise starts an editor realization on `evolutionId`, creating the Evolution first from `newEvolution`.
- * Creating and starting need `adminToken`.
+ * A step of {@link useManualCommit} failed after an earlier step succeeded. Retry by passing `progress.realizationId`
+ * + `progress.secret` (or just `progress.evolutionId`) back in. `cause` is the original error (e.g. a 409 `ApiRequestError`).
+ */
+export class ManualCommitError extends Error {
+  constructor(
+    readonly step: "startWork" | "commit",
+    readonly progress: ManualCommitProgress,
+    readonly cause: unknown,
+  ) {
+    super(cause instanceof Error ? cause.message : String(cause));
+    this.name = "ManualCommitError";
+  }
+}
+
+/**
+ * A manual commit from the editor. With `realizationId` (+ `secret`) it only commits. Otherwise it starts an
+ * `origin: "editor"` realization on `evolutionId`, creating the Evolution first from `newEvolution`; creating and starting
+ * need `adminToken`. A failure after the Evolution or realization exists throws {@link ManualCommitError} with what exists.
  */
 export function useManualCommit() {
   const { systemId } = useSystemRoute();
   const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: ManualCommitInput): Promise<ManualCommitResult> => {
+  return useMutation<ManualCommitResult, Error, ManualCommitInput>({
+    mutationFn: async (input) => {
       if (input.realizationId) {
-        const result = await api.commitFiles(systemId, input.realizationId, input.commit, input.token ?? input.adminToken);
+        const result = await api.commitFiles(systemId, input.realizationId, input.commit, input.secret ?? input.adminToken);
         return { evolutionId: input.evolutionId, realizationId: input.realizationId, result };
       }
       let evolutionId = input.evolutionId;
@@ -309,9 +336,19 @@ export function useManualCommit() {
         if (!input.newEvolution) throw new Error("Pick an Evolution or describe a new one.");
         evolutionId = (await api.createEvolution(systemId, input.newEvolution, input.adminToken)).evolution.id;
       }
-      const started = await api.startWork(systemId, evolutionId, { origin: "editor", target: input.target ?? "app", agentLabel: "editor" }, input.adminToken);
-      const result = await api.commitFiles(systemId, started.realization.id, input.commit, started.secret);
-      return { evolutionId, realizationId: started.realization.id, secret: started.secret, result };
+      let started: Awaited<ReturnType<typeof api.startWork>>;
+      try {
+        started = await api.startWork(systemId, evolutionId, { origin: "editor", target: input.target ?? "app", agentLabel: "editor" }, input.adminToken);
+      } catch (cause) {
+        throw new ManualCommitError("startWork", { evolutionId }, cause);
+      }
+      const progress = { evolutionId, realizationId: started.realization.id, secret: started.secret };
+      try {
+        const result = await api.commitFiles(systemId, started.realization.id, input.commit, started.secret);
+        return { ...progress, result };
+      } catch (cause) {
+        throw new ManualCommitError("commit", progress, cause);
+      }
     },
     onSettled: () => invalidate(qc, systemId, "evolutions", "candidates", "builds", "revisions", "tree", "file", "systems"),
   });
