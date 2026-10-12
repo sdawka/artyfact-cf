@@ -65,6 +65,6 @@ Each task: own files only, TDD, vitest green, commit on a branch in its own work
 2.5 **Backend integration** — wire 1.2 + 1.3 + 1.4 end-to-end against remote Artifacts: `scripts/bootstrap.sh` run, `POST /systems/import`, start two realizations, push from two clones, confirm Queue + CLI submit both idempotent, overlap report appears, promote, history. Fix seams; write `docs/demo-runbook.md`.
 
 **Wave 3 — integration & submission (2 agents + me)**
-3.1 E2E: Playwright smoke per route (App. C §11) + axe; full `npm test`; `wrangler deploy` to a public URL (Brilon → Georgia unless licence confirmed); D1/R2/Queue resources created with `wrangler`.
+3.1 E2E: Playwright smoke per route (App. C §11) + axe; full `npm test`; `wrangler deploy` to a public `*.workers.dev` URL (Georgia fallback; no fonts licence file); Queue `artyfact-artifacts-events`, the `SystemAuthority` DO migration and the `ADMIN_TOKEN` secret created with `wrangler` (no D1/R2); see `docs/deploy.md`.
 3.2 README (vision, how Cloudflare is used, run instructions, architecture diagram), LICENSE check, demo video script following `docs/demo-runbook.md`; submission form fields drafted.
 
