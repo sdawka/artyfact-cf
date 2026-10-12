@@ -127,6 +127,9 @@ nodes:
                 failure: [Stale version returns conflict without overwriting current data]
                 links:
                   - { rel: writes, to: entity.Suggestion }
+                  # spec §5 puts "pause and snooze" on RelationshipGoal; §6 S.webapp.prompts: "Snoozing must update its effective due date"
+                  - { rel: writes, to: entity.RelationshipGoal }
+                  # Approximation: the spec defines no separate snooze operation, so goal.save carries the goal-version update.
                   - { rel: invokes, to: operation.goal.save }
           - id: component.EmptyState
             kind: component
@@ -869,19 +872,20 @@ nodes:
     parent: section.domain
     description: Owner session; nonblank name. Save only that owner's record; editing does not send invitations
     preconditions: [Owner session, Nonblank name]
-    effects: [Save only that owner's record; editing does not send invitations, Creation returns an immutable ID and version]
+    effects: [Save only that owner's record; editing does not send invitations, Creation must return an immutable ID and version]
     failure: [Reads and writes to another owner's private records return a non-revealing denial, Concurrent stale-version edits return conflict without overwriting current data]
     source: { doc: keep-in-touch-world-specification, section: "6" }
     links:
       - { rel: writes, to: entity.ContactRecord }
       - { rel: governs, to: policy.ownerOnly, direction: in }
+      - { rel: governs, to: policy.authentication, direction: in } # S.webapp.operations: mutations authorize the authenticated owner
   - id: operation.goal.save
     kind: operation
     name: Save goal
     parent: section.domain
     description: Owned contact and valid interval. Increment goal version, recompute due state and cancel obsolete jobs
     preconditions: [Owned contact, Valid interval]
-    effects: [Increment goal version, Recompute due state, Cancel obsolete jobs, Revising a goal does not create a ContactEvent]
+    effects: [Increment goal version, Recompute due state, Cancel obsolete jobs, Revising a goal must not create a ContactEvent]
     failure: [Invalid interval is rejected with a validation error, Stale version returns conflict]
     source: { doc: keep-in-touch-world-specification, section: "6" }
     links:
@@ -890,6 +894,7 @@ nodes:
       - { rel: writes, to: entity.Suggestion }
       - { rel: writes, to: entity.NotificationJob }
       - { rel: governs, to: policy.ownerOnly, direction: in }
+      - { rel: governs, to: policy.authentication, direction: in } # S.webapp.operations: mutations authorize the authenticated owner
   - id: operation.contact.log
     kind: operation
     name: Log or revise contact
@@ -904,6 +909,7 @@ nodes:
       - { rel: writes, to: entity.ContactEvent }
       - { rel: writes, to: entity.Suggestion }
       - { rel: governs, to: policy.ownerOnly, direction: in }
+      - { rel: governs, to: policy.authentication, direction: in } # S.webapp.operations: mutations authorize the authenticated owner
   - id: operation.invite.create
     kind: operation
     name: Create invite
@@ -916,6 +922,7 @@ nodes:
     links:
       - { rel: writes, to: entity.ConnectionInvite }
       - { rel: governs, to: policy.pairConsent, direction: in }
+      - { rel: governs, to: policy.authentication, direction: in } # S.webapp.operations: mutations authorize the authenticated owner
   - id: operation.invite.accept
     kind: operation
     name: Accept invite
@@ -934,6 +941,7 @@ nodes:
       - { rel: writes, to: entity.ConnectionInvite }
       - { rel: writes, to: entity.Connection }
       - { rel: governs, to: policy.pairConsent, direction: in }
+      - { rel: governs, to: policy.authentication, direction: in } # S.webapp.operations: mutations authorize the authenticated owner
   - id: operation.connection.revoke
     kind: operation
     name: Disconnect or block
@@ -947,7 +955,11 @@ nodes:
       - { rel: writes, to: entity.Connection }
       - { rel: writes, to: entity.Block }
       - { rel: writes, to: entity.NotificationJob }
+      # S.webapp.prompts: "Blocking a linked counterpart must pause the blocker's corresponding goal and suppress its suggestions"
+      - { rel: writes, to: entity.RelationshipGoal }
+      - { rel: writes, to: entity.Suggestion }
       - { rel: governs, to: policy.revocation, direction: in }
+      - { rel: governs, to: policy.authentication, direction: in } # S.webapp.operations: mutations authorize the authenticated owner
   - id: operation.data.export
     kind: operation
     name: Export
@@ -962,6 +974,7 @@ nodes:
       - { rel: reads, to: entity.RelationshipGoal }
       - { rel: reads, to: entity.ContactEvent }
       - { rel: governs, to: policy.ownerOnly, direction: in }
+      - { rel: governs, to: policy.authentication, direction: in } # S.webapp.operations: mutations authorize the authenticated owner
   - id: operation.data.delete
     kind: operation
     name: Delete
@@ -976,6 +989,7 @@ nodes:
       - { rel: writes, to: entity.ContactRecord }
       - { rel: writes, to: entity.NotificationJob }
       - { rel: governs, to: policy.ownerOnly, direction: in }
+      - { rel: governs, to: policy.authentication, direction: in } # S.webapp.operations: mutations authorize the authenticated owner
 
   # ---------------------------------------------------------------- Authorization: policies (spec §6 navigation, §7)
   # policy.authentication comes from the Thing template (provisional until an auth Kit is pinned).
@@ -1001,9 +1015,29 @@ nodes:
     description: Read and send authorization must check revocation against current authoritative state; a block overrides connection and sharing
     source: { doc: keep-in-touch-world-specification, section: "6" }
 
+  # ---------------------------------------------------------------- Template shell links (nodes come from the template)
+  # S.webapp.screens: "PrimaryNav must contain Today, People and Settings"
+  - id: component.PrimaryNav
+    kind: component
+    name: PrimaryNav
+    parent: component.AppShell
+    owningThing: thing.webapp
+    description: Primary navigation containing Today, People and Settings
+    links:
+      - { rel: references, to: screen.today }
+      - { rel: references, to: screen.people }
+      - { rel: references, to: screen.settings }
+
   # ---------------------------------------------------------------- Runtime: binding (spec §6, §8)
   # Template ids binding.worker and binding.scheduler are inherited. The template's provisional binding.d1 placeholder
   # stays as shipped; the intended D1 binding for this Thing is binding.contactsStore.
+  - id: binding.d1
+    kind: binding
+    name: D1 database
+    parent: section.runtime
+    owningThing: thing.webapp
+    provisional: true
+    description: Template placeholder, superseded by binding.contactsStore
   - id: binding.contactsStore
     kind: binding
     name: contactsStore (D1)

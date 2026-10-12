@@ -2,7 +2,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { loadSystem, validate, type TemplateStore } from "@artyfact/model";
+import { loadSystem, validate } from "@artyfact/model";
 import { packsFor, templates } from "@artyfact/templates";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
@@ -18,8 +18,7 @@ function readTree(dir: string, out = new Map<string, string>()) {
 }
 
 const files = readTree(root);
-// @artyfact/templates and @artyfact/model declare structurally different Template types (verdictMapping); runtime shapes agree.
-const m = loadSystem(files, { templates: templates as unknown as TemplateStore });
+const m = loadSystem(files, { templates });
 const count = (kind: string, pred: (n: (typeof m.nodes)[number]) => boolean = () => true) =>
   m.nodes.filter((n) => n.kind === kind && pred(n)).length;
 
@@ -83,9 +82,10 @@ describe("keep-in-touch Genome (system, purpose, externals, theory, description,
 
   it("has no hard model findings from the pinned rule packs", () => {
     const r = validate(m, packsFor(m.kits.rulePacks));
-    const errors = r.findings.filter((f) => f.level === "error").map((f) => `${f.rule} ${f.subject}`);
-    expect(errors).toEqual([]);
-    // The unpinned auth Kit is the intended readiness finding.
+    expect(r.findings.filter((f) => f.level === "error")).toEqual([]);
+    // Criteria, journeys and evolutions come from a sibling slice; only the template hook and the intended auth Kit finding are expected here.
+    const unexpected = r.findings.filter((f) => !["hook.unbound", "kit.unpinned", "coverage.requirement", "journey.operationUncovered", "journey.screenUncovered", "theory.outcomeUnlinked"].includes(f.rule));
+    expect(unexpected).toEqual([]);
     expect(r.findings.some((f) => f.rule === "kit.unpinned" && f.subject === "auth")).toBe(true);
   });
 });

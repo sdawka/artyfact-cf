@@ -5,8 +5,6 @@ externals:
     name: Owner
     modeled: The person using the app, their time zone, available attention, goals and accessibility needs
     external: Their attention, intentions and whether they respond; people control what a relationship means
-    links:
-      - { rel: invokes, to: affordance.AddContactDialog.save, label: saves a private contact }
     source: { doc: keep-in-touch-world-specification, section: "2" }
   - id: ext.contacts
     kind: group

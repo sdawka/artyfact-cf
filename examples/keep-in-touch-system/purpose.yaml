@@ -15,6 +15,7 @@ purposes:
       - Time spent in the app (diagnostic measure only)
       - Message volume (diagnostic measure only)
       - Notification opens (diagnostic measure only)
+      - Streak penalties, public relationship scores and group discussion (spec §3)
     constraints:
       - Private contacts, goals and notes stay owner-only; connecting accounts adds consensual sharing capabilities and does not turn private notes or goals into shared data.
       - The app can help before any friend installs it.
