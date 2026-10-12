@@ -340,8 +340,36 @@ describe("registry", () => {
       expect(i.resolveFork("reg-test-app--r1")).toEqual({ systemId: "system.reg-test", evolutionId: "evolution.1", realizationId: "realization.1.r1" });
       expect(i.resolveRealization("realization.1.r1")).toMatchObject({ systemId: "system.reg-test", evolutionId: "evolution.1" });
       expect(i.resolveFork("nope")).toBeNull();
-      i.unregisterRealization("realization.1.r1");
+      i.unregisterRealization("system.reg-test", "realization.1.r1");
       expect(i.resolveFork("reg-test-app--r1")).toBeNull();
+    });
+  });
+
+  it("keeps the same realization id in two Systems apart", async () => {
+    await runInDurableObject(env.SYSTEMS.getByName(REGISTRY), async (i: SystemAuthority) => {
+      i.registerRealization("realization.9.r1", "system.reg-a", "evolution.9", "reg-a-app--r1");
+      i.registerRealization("realization.9.r1", "system.reg-b", "evolution.9", "reg-b-app--r1");
+      // Both forks still resolve to their own System.
+      expect(i.resolveFork("reg-a-app--r1")).toEqual({ systemId: "system.reg-a", evolutionId: "evolution.9", realizationId: "realization.9.r1" });
+      expect(i.resolveFork("reg-b-app--r1")).toEqual({ systemId: "system.reg-b", evolutionId: "evolution.9", realizationId: "realization.9.r1" });
+      expect(i.resolveRealization("realization.9.r1")).toEqual({ ambiguous: ["system.reg-a", "system.reg-b"] });
+      // Unregistering B's realization (a failed start) leaves A's entry alone.
+      i.unregisterRealization("system.reg-b", "realization.9.r1");
+      expect(i.resolveFork("reg-a-app--r1")).toMatchObject({ systemId: "system.reg-a" });
+      expect(i.resolveFork("reg-b-app--r1")).toBeNull();
+      expect(i.resolveRealization("realization.9.r1")).toEqual({ systemId: "system.reg-a", evolutionId: "evolution.9", forkRepo: "reg-a-app--r1" });
+    });
+  });
+
+  it("migrates the earlier realization-keyed table", async () => {
+    await runInDurableObject(env.SYSTEMS.getByName(`${REGISTRY}`), async (_i: SystemAuthority, state) => {
+      state.storage.sql.exec("CREATE TABLE registry_realizations (realization_id TEXT PRIMARY KEY, system_id TEXT NOT NULL, fork_repo TEXT NOT NULL)");
+      state.storage.sql.exec("INSERT INTO registry_realizations VALUES ('realization.8.r1', 'system.old', 'old-app--r1')");
+      const { RegistryStore } = await import("../worker/do/registry");
+      const store = new RegistryStore(state.storage.sql);
+      expect(store.resolveFork("old-app--r1")).toEqual({ systemId: "system.old", evolutionId: "", realizationId: "realization.8.r1" });
+      const tables = state.storage.sql.exec("SELECT name FROM sqlite_master WHERE type = 'table'").toArray().map((r) => r.name);
+      expect(tables).not.toContain("registry_realizations");
     });
   });
 

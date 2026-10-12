@@ -274,7 +274,7 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
     // Best-effort cleanup; never let it mask the original error. Never log the token itself.
     const cleanup: Promise<unknown>[] = [
       stub.abandonRealization(rid),
-      registryStub(env).unregisterRealization(rid),
+      registryStub(env).unregisterRealization(systemId, rid),
     ];
     if (tokenId) cleanup.push(withRepo(artifactsFor(env), reserved.forkRepo, (r) => r.revokeToken(tokenId!)));
     for (const r of await Promise.allSettled(cleanup)) {
@@ -698,6 +698,9 @@ export async function reject(env: Env, systemId: string, rid: string, body: { re
 export async function systemForRealization(env: Env, rid: string): Promise<string> {
   const hit = await registryStub(env).resolveRealization(rid);
   if (!hit) throw notFound(`unknown realization ${rid}`);
+  if ("ambiguous" in hit) {
+    throw conflict("ambiguous", `realization ${rid} exists in more than one System; use /systems/:systemId/realizations/${rid}`, { systems: hit.ambiguous });
+  }
   return hit.systemId;
 }
 

@@ -1028,7 +1028,7 @@ export class SystemAuthority extends DurableObject<Env> {
   registerRealization(realizationId: string, systemId: string, evolutionId: string, forkRepo: string): void {
     this.registry().registerRealization(realizationId, systemId, evolutionId, forkRepo);
   }
-  unregisterRealization(realizationId: string): void { this.registry().unregisterRealization(realizationId); }
+  unregisterRealization(systemId: string, realizationId: string): void { this.registry().unregisterRealization(systemId, realizationId); }
   resolveRealization(realizationId: string) { return this.registry().resolveRealization(realizationId); }
   /** Fork repo name → owning realization (queue `resolveFork`). */
   resolveFork(forkRepo: string) { return this.registry().resolveFork(forkRepo); }

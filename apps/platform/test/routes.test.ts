@@ -7,7 +7,7 @@ import type {
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { clearGenomeMemo } from "../worker/artifacts/genome-source";
-import type { SystemAuthority } from "../worker/do/system-authority";
+import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
 import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../worker/hooks/contract";
 import { hookRunner, noopHookRunner, queueEntry, resetHooks, setHooks } from "../worker/hooks/index";
 import { PUSHED } from "../worker/hooks/queue";
@@ -25,8 +25,7 @@ async function call<T>(method: string, path: string, body?: unknown, headers: Re
 }
 
 /** Each test gets its own System id so DO state never leaks between tests. */
-function setup() {
-  const ns = new FakeArtifacts();
+function setup(ns = new FakeArtifacts()) {
   const id = `system.kit`;
   const suffix = `-${++seq}`;
   const genomeRepo = `kit-system${suffix}`, appRepo = `kit-app${suffix}`;
@@ -83,8 +82,8 @@ function uniqueSystem(ns: FakeArtifacts, genomeRepo: string): string {
   return id;
 }
 
-async function imported() {
-  const s = setup();
+async function imported(ns?: FakeArtifacts) {
+  const s = setup(ns);
   const systemId = uniqueSystem(s.ns, s.genomeRepo);
   const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo: s.genomeRepo, appRepo: s.appRepo }, ADMIN);
   expect(res.status, JSON.stringify(res.json)).toBe(201);
@@ -383,7 +382,8 @@ describe("routes: import → model → start → submit → promote", () => {
     const res = await call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {});
     expect(res.status).toBe(500);
     expect(ns.repo(`${appRepo}--r1`).tokens).toMatchObject([{ revoked: true }]);
-    expect((await call<ApiError>("GET", `/realizations/realization.1.r1`)).status).toBe(404);
+    const entry = await runInDurableObject(env.SYSTEMS.getByName(REGISTRY), (i: SystemAuthority) => i.resolveFork(`${appRepo}--r1`));
+    expect(entry).toBeNull();
   });
 
   it("never silently re-points an imported System", async () => {
@@ -487,6 +487,30 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(acked).toEqual(["m1", "m2"]);
     const cands = await call<{ candidates: { commit: string }[] }>("GET", `/systems/${systemId}/evolutions/evolution.1/candidates`);
     expect(cands.json.candidates.map((c) => c.commit)).toEqual([commit]);
+  });
+
+  it("keeps the same realization id in two Systems apart (queue, /realizations/:rid)", async () => {
+    const A = await imported(), B = await imported(A.ns);
+    const startIn = (sid: string) => call<StartWorkResponse>("POST", `/systems/${sid}/evolutions/evolution.1/realizations`, {});
+    const ra = (await startIn(A.systemId)).json, rb = (await startIn(B.systemId)).json;
+    expect(ra.realization.id).toBe(rb.realization.id);
+    // A push to A's fork lands in A even though B registered the same realization id later.
+    const commit = A.ns.repo(`${A.appRepo}--r1`).commit({ ...appFiles, "src/ui/people/q.ts": "q" });
+    const acked: string[] = [];
+    const message = { id: "two-systems", attempts: 1, ack: () => acked.push("two-systems"), retry: () => {},
+      body: { type: PUSHED, source: { namespace: "artyfact", repoName: `${A.appRepo}--r1` }, payload: { ref: "refs/heads/main", after: commit } } };
+    await queueEntry({ queue: "artyfact-events", messages: [message], ackAll() {}, retryAll() {} } as unknown as MessageBatch<unknown>, env);
+    expect(acked).toEqual(["two-systems"]);
+    const inA = await call<{ candidates: { commit: string }[] }>("GET", `/systems/${A.systemId}/evolutions/evolution.1/candidates`);
+    const inB = await call<{ candidates: { commit: string }[] }>("GET", `/systems/${B.systemId}/evolutions/evolution.1/candidates`);
+    expect(inA.json.candidates.map((c) => c.commit)).toEqual([commit]);
+    expect(inB.json.candidates).toEqual([]);
+    // The System-less route refuses to guess.
+    const amb = await call<ApiError>("GET", `/realizations/${ra.realization.id}`);
+    expect(amb.status).toBe(409);
+    expect(amb.json.error).toMatchObject({ code: "ambiguous", details: { systems: expect.arrayContaining([A.systemId, B.systemId]) } });
+    // The System-scoped route still works.
+    expect((await call<RealizationResponse>("GET", `/systems/${B.systemId}/realizations/${rb.realization.id}`)).status).toBe(200);
   });
 
   it("streams SSE events", async () => {
