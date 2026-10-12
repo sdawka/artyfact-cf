@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { isRouteErrorResponse, Link, redirect, useRouteError, type RouteObject } from "react-router";
+import { isRouteErrorResponse, Link, Navigate, redirect, useLocation, useParams, useRouteError, type RouteObject } from "react-router";
 import { modelQuery, useModelBundle } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { OrbLoader } from "@/components/OrbLoader/OrbLoader";
@@ -26,9 +26,14 @@ export const viewModules: Record<ViewName, () => Promise<ViewModule>> = {
   phenome: () => import("@/views/phenome"),
 };
 
-/** `…/history` was renamed to `…/changelog`; old links keep their search params (`?commit=`, `?evolution=`). */
-function historyRedirect({ params, request }: { params: { systemId?: string; rev?: string }; request: Request }) {
-  return redirect(`${viewPath(params.systemId!, params.rev!, "changelog")}${new URL(request.url).search}`);
+/**
+ * `…/history` was renamed to `…/changelog`; old links keep their search params (`?commit=`, `?evolution=`) and hash.
+ * A component, not a loader: loader requests never carry the URL fragment.
+ */
+function HistoryRedirect() {
+  const { systemId, rev } = useParams();
+  const { search, hash } = useLocation();
+  return <Navigate replace to={{ pathname: viewPath(systemId!, rev!, "changelog"), search, hash }} />;
 }
 
 function SystemLayout() {
@@ -77,7 +82,7 @@ export function createRoutes(queryClient: QueryClient): RouteObject[] {
       hydrateFallbackElement: <OrbLoader label="Loading model…" />,
       children: [
         { index: true, loader: ({ params }) => redirect(viewPath(params.systemId!, params.rev!, "overview")) },
-        { path: "history", loader: historyRedirect },
+        { path: "history", element: <HistoryRedirect /> },
         ...VIEWS.map((view) => ({
           path: view,
           lazy: async () => ({ Component: (await viewModules[view]()).default }),

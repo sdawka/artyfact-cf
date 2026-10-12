@@ -40,4 +40,11 @@ test.describe("home with a populated API", () => {
     await kit.click();
     await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
   });
+
+  test("mockApi refuses unmocked writes with 405 @fixture", async ({ page }) => {
+    await mockApi(page);
+    await page.goto("/");
+    const status = await page.evaluate(async () => (await fetch("/api/systems/system.keep-in-touch/evolutions", { method: "POST", body: "{}" })).status);
+    expect(status).toBe(405);
+  });
 });

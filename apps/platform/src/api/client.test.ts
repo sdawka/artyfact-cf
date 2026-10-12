@@ -171,6 +171,6 @@ describe("iteration-2 reads and writes", () => {
   });
 
   it("listens for the new SSE types", () => {
-    expect(SSE_TYPES).toEqual(expect.arrayContaining(["build.updated", "deployment.updated", "phenome.ingested", "system.updated", "evolution.created"]));
+    expect(SSE_TYPES).toEqual(expect.arrayContaining(["build.updated", "deployment.updated", "phenome.ingested", "system.updated", "evolution.created", "system.imported"]));
   });
 });
