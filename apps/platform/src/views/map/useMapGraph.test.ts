@@ -84,7 +84,7 @@ describe("mapScopeFor", () => {
 describe("findingSubjectIds", () => {
   it("resolves criterion subjects to their nodes", () => {
     const crit = index.entries.find((e) => e.type === "criterion")!;
-    const s = findingSubjectIds(index, [{ rule: "x", level: "warning", subject: crit.id, message: "" }]);
+    const s = findingSubjectIds(index, [{ subject: crit.id }]);
     expect(s.has((crit.item as { subjectId: string }).subjectId)).toBe(true);
   });
 });
