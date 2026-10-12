@@ -10,7 +10,7 @@ import { clearGenomeMemo } from "../worker/artifacts/genome-source";
 import type { SystemAuthority } from "../worker/do/system-authority";
 import { resetHooks, setHooks } from "../worker/hooks/index";
 import { FILE_COMPARE_MAX_BYTES, compareFile } from "../worker/compare";
-import { appFiles } from "./fixtures/genome";
+import { appFiles, genomeFiles } from "./fixtures/genome";
 import { call as apiCall, genomeAmendment, importFresh, passing, promoteApp, renameContactAndScreen, type Flow } from "./helpers/flows";
 
 beforeEach(() => setHooks({ runner: () => passing }));
@@ -56,10 +56,12 @@ describe("GET …/changelog", () => {
     });
     expect(acc).toMatchObject({
       policy: "admin-accept", genomeCommit: g.commit, candidates: [{ id: g.candidate, repo: g.forkRepo }],
-      summary: { nodesAdded: 0, nodesChanged: 2, nodesRemoved: 0, filesChanged: 0 },
+      // The Genome amendment's one changed file counts.
+      summary: { nodesAdded: 0, nodesChanged: 2, nodesRemoved: 0, filesChanged: 1 },
     });
     expect(acc!.summary.criteriaAffected).toBeGreaterThanOrEqual(2);
-    expect(root.summary.filesChanged).toBe(Object.keys(appFiles).length);
+    // The app's files and the Genome repo's (its fixture files plus the flow's extra Evolutions).
+    expect(root.summary.filesChanged).toBeGreaterThanOrEqual(Object.keys(appFiles).length + Object.keys(genomeFiles).length);
     expect(root.summary.nodesAdded).toBeGreaterThan(5);
     expect(root.candidates).toEqual([]);
   });
@@ -91,7 +93,7 @@ describe("GET …/changelog/:commitId", () => {
     expect(e.json.decision).toMatchObject({ by: "admin", rationale: "ship it" });
     expect(e.json.genome.delta).toBeNull();
     expect(e.json.codeLinks).toEqual([{
-      path: "src/ui/people/list.ts", repo: p.forkRepo, commit: p.commit, status: "added",
+      scope: "app", path: "src/ui/people/list.ts", repo: p.forkRepo, commit: p.commit, status: "added",
       nodes: expect.arrayContaining(["screen.people", "component.AddContactDialog"]),
     }]);
     const list = e.json.criteria.find((c) => c.id === "C.people.list");
@@ -104,7 +106,12 @@ describe("GET …/changelog/:commitId", () => {
     const e = await get<ChangelogEntry>(routes.changelogEntry(f.systemId, g.systemCommit!.id));
     expect(e.json.row.kind).toBe("acceptance");
     expect(e.json.genome.delta!.changed.map((c) => [c.id, c.fields])).toEqual([["entity.ContactRecord", ["name"]], ["screen.people", ["name"]]]);
-    expect(e.json.codeLinks).toEqual([]);
+    // The app is unchanged; the Genome file that declares the changed nodes links to the accepted fork.
+    expect(e.json.genome.files).toEqual({ added: [], modified: ["things/webapp/ontology.yaml"], removed: [] });
+    expect(e.json.codeLinks).toEqual([{
+      scope: "genome", path: "things/webapp/ontology.yaml", repo: g.forkRepo, commit: g.commit, status: "modified",
+      nodes: ["entity.ContactRecord", "screen.people"],
+    }]);
     expect(e.json.criteria.map((c) => c.id)).toEqual(expect.arrayContaining(["C.people.list", "C.people.sorted"]));
     // Evidence from the earlier app promotion still counts before and after.
     expect(e.json.criteria.find((c) => c.id === "C.people.list")).toMatchObject({ before: "pass", after: "pass" });
@@ -116,8 +123,14 @@ describe("GET …/changelog/:commitId", () => {
     expect(root.json).toMatchObject({ from: null, row: { kind: "import", parent: null }, genome: { from: null, to: f.imp.genomeCommit } });
     expect(root.json.genome.delta!.removed).toEqual([]);
     expect(root.json.genome.delta!.added).toContain("screen.people");
-    expect(root.json.codeLinks.every((l) => l.status === "added" && l.repo === f.appRepo)).toBe(true);
-    expect(root.json.codeLinks.map((l) => l.path)).toEqual(Object.keys(appFiles).sort());
+    expect(root.json.codeLinks.every((l) => l.status === "added")).toBe(true);
+    const app = root.json.codeLinks.filter((l) => l.scope === "app");
+    expect(app.every((l) => l.repo === f.appRepo)).toBe(true);
+    expect(app.map((l) => l.path)).toEqual(Object.keys(appFiles).sort());
+    const genome = root.json.codeLinks.filter((l) => l.scope === "genome");
+    expect(genome.map((l) => l.path)).toEqual(expect.arrayContaining(Object.keys(genomeFiles)));
+    expect(genome.every((l) => l.repo === f.genomeRepo && l.commit === f.imp.genomeCommit)).toBe(true);
+    expect(root.json.row.summary.filesChanged).toBe(root.json.codeLinks.length);
     expect((await get<ChangelogEntry>(routes.changelogEntry(f.systemId, "head"))).json.row.id).toBe(g.systemCommit!.id);
   });
 
@@ -164,6 +177,22 @@ describe("changelog cache soundness", () => {
     resetCalls(f);
     await get<ChangelogEntry>(routes.changelogEntry(f.systemId, "sc-3"));
     expect(repoCalls(f)).toBe(0);
+  });
+
+  it("ignores rows cached under an older cache version and recomputes them", async () => {
+    const { f, g } = await threeCommits();
+    await get<ChangelogResponse>(routes.changelog(f.systemId));
+    // A row cached before Genome files were counted: no version, zero files, no code links.
+    await runInDurableObject(env.SYSTEMS.getByName(f.systemId), async (_i: SystemAuthority, state) => {
+      const r = state.storage.sql.exec("SELECT row_json, entry_json FROM changelog_cache WHERE commit_id = ?", g.systemCommit!.id).one();
+      const row = { ...JSON.parse(String(r.row_json)), summary: { ...JSON.parse(String(r.row_json)).summary, filesChanged: 0 } };
+      const entry = { ...JSON.parse(String(r.entry_json)), row, codeLinks: [] };
+      state.storage.sql.exec("UPDATE changelog_cache SET row_json = ?, entry_json = ?, version = NULL WHERE commit_id = ?", JSON.stringify(row), JSON.stringify(entry), g.systemCommit!.id);
+    });
+    const rows = (await get<ChangelogResponse>(routes.changelog(f.systemId))).json.rows;
+    expect(rows[0]!.summary.filesChanged).toBe(1);
+    const e = await get<ChangelogEntry>(routes.changelogEntry(f.systemId, g.systemCommit!.id));
+    expect(e.json.codeLinks.map((l) => [l.scope, l.path])).toEqual([["genome", "things/webapp/ontology.yaml"]]);
   });
 
   it("folds criteria on every read, so evaluations recorded after the commit show", async () => {

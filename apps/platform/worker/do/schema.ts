@@ -57,6 +57,7 @@ export const ADDED_COLUMNS: [table: string, column: string, type: string][] = [
   ["realizations", "secret_hash", "TEXT"],
   ["realizations", "subscription_id", "TEXT"],
   ["realizations", "origin", "TEXT"],
+  ["changelog_cache", "version", "INTEGER"],
 ];
 
 export function applySchema(sql: SqlStorage): void {
