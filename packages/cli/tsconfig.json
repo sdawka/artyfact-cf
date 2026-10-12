@@ -2,7 +2,7 @@
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
     "composite": true, "noEmit": false, "emitDeclarationOnly": true, "outDir": "dist", "rootDir": ".",
-    "allowImportingTsExtensions": true, "types": ["node"], "lib": ["ES2023"]
+    "allowImportingTsExtensions": true, "erasableSyntaxOnly": true, "types": ["node"], "lib": ["ES2023"]
   },
   "include": ["src", "test"]
 }

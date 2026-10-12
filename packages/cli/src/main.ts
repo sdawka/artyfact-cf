@@ -2,8 +2,8 @@ import { closeSync, constants, existsSync, fchmodSync, lstatSync, openSync, read
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PlatformClient, rzPath } from "./api.ts";
-import { renderAgentsMd } from "./agents-md.ts";
-import { CliError, assertHttpsUrl, assertId, commitIfDirty, git } from "./git.ts";
+import { mergeAgentsBlock, renderAgentsMd } from "./agents-md.ts";
+import { CliError, assertId, assertRemote, assertToken, commitIfDirty, git, isTracked } from "./git.ts";
 import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
 
 export interface Io {
@@ -33,6 +33,10 @@ function safeWrite(path: string, data: string, mode = 0o644, append = false): vo
   } finally {
     closeSync(fd);
   }
+}
+
+function lstatOrNull(path: string) {
+  try { return lstatSync(path); } catch { return null; }
 }
 
 function isLink(path: string): boolean {
@@ -87,17 +91,23 @@ function readConfig(io: Io): { cfg: WorkspaceConfig; dir: string } {
   const file = join(dir, CONFIG);
   if (isLink(file)) throw new CliError(`refusing to read symlinked ${CONFIG}`);
   if (!existsSync(file)) throw new CliError(`${CONFIG} not found in ${dir}; run 'artyfact start <realizationId>' first`);
-  const cfg = JSON.parse(readFileSync(file, "utf8")) as WorkspaceConfig;
+  let cfg: WorkspaceConfig;
+  try {
+    cfg = JSON.parse(readFileSync(file, "utf8")) as WorkspaceConfig;
+  } catch (e) {
+    throw new CliError(`invalid ${CONFIG}: ${(e as Error).message}`);
+  }
   assertId("systemId in config", cfg.systemId);
   assertId("realizationId in config", cfg.realizationId);
   assertId("evolutionId in config", cfg.evolutionId);
+  assertRemote("remote in config", cfg.remote, io.env);
   return { cfg, dir };
 }
 
 function tokenFor(io: Io): string {
   const t = io.env.ARTYFACT_TOKEN;
   if (!t) throw new CliError("no write token; set ARTYFACT_TOKEN for this command (it is never stored on disk)");
-  return t;
+  return assertToken(t);
 }
 
 async function start(args: string[], io: Io): Promise<number> {
@@ -118,7 +128,7 @@ async function start(args: string[], io: Io): Promise<number> {
   const payload = await client.request<PacketPayload>("GET", rzPath(sysId, evoId, rid, "/packet"));
   const packet = payload.packet;
   const systemId = sysId;
-  const remote = assertHttpsUrl("workspace.remote", packet.workspace?.remote ?? payload.remote ?? payload.token?.remote);
+  const remote = assertRemote("workspace.remote", packet.workspace?.remote ?? payload.remote ?? payload.token?.remote, io.env);
   const forkRepo = assertId("fork repo", packet.workspace?.fork ?? payload.realization?.workspace?.fork);
   const realizationId = assertId("realization id", packet.realizationId ?? payload.realization?.id ?? rid);
   // The platform must not ship credentials in the packet; drop any that slip through before writing to disk.
@@ -126,7 +136,9 @@ async function start(args: string[], io: Io): Promise<number> {
   if (packet.workspace) delete (packet.workspace as { token?: string }).token;
   const token = io.env.ARTYFACT_TOKEN || leaked[0];
   if (!token) throw new CliError("no write token; set ARTYFACT_TOKEN for this command (shown once when work is started)");
-  const scrub = (text: string) => leaked.reduce((t, k) => t.replaceAll(k, "***"), text);
+  assertToken(token);
+  const secrets = [...leaked, io.env.ARTYFACT_TOKEN].filter((x): x is string => !!x);
+  const scrub = (text: string) => secrets.reduce((t, k) => t.replaceAll(k, "***"), text);
 
   const dir = resolve(io.cwd, values.dir ?? rid);
   if (isLink(dir)) throw new CliError(`refusing symlinked directory: ${dir}`);
@@ -136,8 +148,14 @@ async function start(args: string[], io: Io): Promise<number> {
     const cfgPath = join(dir, CONFIG);
     let prior: Partial<WorkspaceConfig> = {};
     try { if (!isLink(cfgPath)) prior = JSON.parse(readFileSync(cfgPath, "utf8")); } catch { /* not ours */ }
-    if (prior.realizationId !== realizationId || !existsSync(join(dir, ".git")))
-      throw new CliError(`${dir} exists and is not empty; choose another --dir`);
+    const foreign = () => new CliError(`${dir} exists and is not empty; choose another --dir`);
+    if (prior.realizationId !== realizationId) throw foreign();
+    // .git and .git/info must be real directories and origin must be the validated remote.
+    for (const sub of [".git", join(".git", "info")]) {
+      const st = lstatOrNull(join(dir, sub));
+      if (sub === ".git" ? !st?.isDirectory() : st && !st.isDirectory()) throw foreign();
+    }
+    if (git(dir, ["config", "--get", "remote.origin.url"]) !== remote) throw foreign();
   } else {
     mkdirSync(dir, { recursive: true });
     git(io.cwd, ["clone", "--", remote, dir], token);
@@ -148,14 +166,20 @@ async function start(args: string[], io: Io): Promise<number> {
     tokenExpires: payload.realization?.workspace?.tokenExpiresAt ?? payload.token?.expiresAt,
     packetHash: packet.hash,
   };
+  // Per-realization files stay out of the fork: exclude them unless the repo already tracks them.
+  if (isTracked(dir, "TASK_PACKET.md")) throw new CliError("TASK_PACKET.md is tracked in this repo; refusing to overwrite it");
+  const agentsTracked = isTracked(dir, "AGENTS.md");
   const exclude = join(dir, ".git", "info", "exclude");
   mkdirSync(join(dir, ".git", "info"), { recursive: true });
   const existing = existsSync(exclude) ? readFileSync(exclude, "utf8") : "";
-  if (!existing.includes(CONFIG)) safeWrite(exclude, `${existing && !existing.endsWith("\n") ? "\n" : ""}${CONFIG}\n`, 0o644, true);
+  const have = new Set(existing.split("\n"));
+  const want = [CONFIG, "TASK_PACKET.md", ...(agentsTracked ? [] : ["AGENTS.md"])].filter((l) => !have.has(l));
+  if (want.length) safeWrite(exclude, `${existing && !existing.endsWith("\n") ? "\n" : ""}${want.join("\n")}\n`, 0o644, true);
   safeWrite(join(dir, "TASK_PACKET.md"), scrub(packet.markdown ?? JSON.stringify(packet, null, 2)));
-  safeWrite(join(dir, "AGENTS.md"), scrub(renderAgentsMd(packet, systemId)));
+  const block = scrub(renderAgentsMd(packet, systemId));
+  const agentsPath = join(dir, "AGENTS.md");
+  safeWrite(agentsPath, agentsTracked ? mergeAgentsBlock(readFileSync(agentsPath, "utf8"), block) : block);
   safeWrite(join(dir, CONFIG), `${JSON.stringify(cfg, null, 2)}\n`, 0o600);
-
 
   io.out(`Workspace ready in ${dir}`);
   io.out(`Next: cd ${dir} && read TASK_PACKET.md, then npm install && npm run dev`);
@@ -195,7 +219,7 @@ async function submit(args: string[], io: Io): Promise<number> {
   const { cfg, dir } = readConfig(io);
   const token = tokenFor(io);
   const commit = commitIfDirty(dir, "artyfact submit");
-  git(dir, ["push", "--", "origin", "HEAD:main"], token);
+  git(dir, ["push", "--", cfg.remote, "HEAD:main"], token);
   const body: { commit: string; previewUrl?: string } = { commit };
   if (values["preview-url"]) body.previewUrl = values["preview-url"];
   const res = await new PlatformClient(cfg.platform).request<SubmitPayload>(

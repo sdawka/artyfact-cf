@@ -1,16 +1,19 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { main } from "../src/main";
-import { assertHttpsUrl, assertId, gitEnv } from "../src/git";
+import { assertId, assertRemote, assertToken, gitEnv } from "../src/git";
 
 const sh = (cwd: string, ...a: string[]) => execFileSync("git", a, { cwd, encoding: "utf8" }).trim();
 const tmp = mkdtempSync(join(tmpdir(), "artyfact-cli-"));
 const bare = join(tmp, "fork.git");
 const REMOTE = "https://artifacts.invalid/git/ns/kit-app--r1.git";
+const REMOTE2 = "https://artifacts.invalid/git/ns/other.git";
+let packetRemote = REMOTE;
 const calls: { method: string; url: string; body: any }[] = [];
 let server: Server;
 let base = "";
@@ -19,7 +22,7 @@ const packet = () => ({
   systemId: "system.keep-in-touch", realizationId: "r-1", evolutionId: "evolution.1", hash: "abc",
   markdown: "# Task\nDo it", acceptanceCriteria: [{ id: "crit.a" }, { id: "crit.b" }],
   permittedPaths: ["src/ui/people/**"], protectedPaths: ["system/**"], commands: ["npm install", "npm test"],
-  workspace: { remote: REMOTE, fork: "kit-app--r1" },
+  workspace: { remote: packetRemote, fork: "kit-app--r1" },
 });
 
 beforeAll(async () => {
@@ -31,9 +34,20 @@ beforeAll(async () => {
   sh(seed, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "init");
   sh(seed, "push", bare, "main");
   // Map the https remote onto the local bare repo so clone/push work offline.
-  process.env.GIT_CONFIG_COUNT = "1";
+  const bare2 = join(tmp, "fork2.git");
+  sh(tmp, "init", "--bare", "-b", "main", bare2);
+  const seed2 = join(tmp, "seed2");
+  sh(tmp, "init", "-b", "main", seed2);
+  writeFileSync(join(seed2, "AGENTS.md"), "# Mine\n");
+  sh(seed2, "add", "-A");
+  sh(seed2, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-m", "init");
+  sh(seed2, "push", bare2, "main");
+  process.env.ARTYFACT_ALLOW_REMOTE_HOST = "artifacts.invalid";
+  process.env.GIT_CONFIG_COUNT = "2";
   process.env.GIT_CONFIG_KEY_0 = `url.${bare}.insteadOf`;
   process.env.GIT_CONFIG_VALUE_0 = REMOTE;
+  process.env.GIT_CONFIG_KEY_1 = `url.${bare2}.insteadOf`;
+  process.env.GIT_CONFIG_VALUE_1 = REMOTE2;
   server = createServer((req, res) => {
     let raw = "";
     req.on("data", (c) => (raw += c));
@@ -74,6 +88,9 @@ describe("artyfact cli", () => {
     expect(cfg).toMatchObject({ platform: base, systemId: "system.keep-in-touch", realizationId: "r-1", forkRepo: "kit-app--r1", remote: REMOTE, packetHash: "abc" });
     expect(readFileSync(join(ws, ".git/info/exclude"), "utf8")).toContain(".artyfact.json");
     expect(existsSync(join(ws, "a.txt"))).toBe(true);
+    expect(sh(ws, "status", "--porcelain")).toBe("");
+    const ex = readFileSync(join(ws, ".git/info/exclude"), "utf8").split("\n");
+    expect(ex).toEqual(expect.arrayContaining([".artyfact.json", "TASK_PACKET.md", "AGENTS.md"]));
   });
 
   it("checkpoint commits and posts the commit", async () => {
@@ -84,6 +101,7 @@ describe("artyfact cli", () => {
     expect(c.url).toBe("/api/systems/system.keep-in-touch/evolutions/evolution.1/realizations/r-1/checkpoints");
     expect(c.body.message).toBe("added b");
     expect(c.body.commit).toBe(sh(ws, "rev-parse", "HEAD"));
+    expect(sh(ws, "show", "--name-only", "--format=", "HEAD")).toBe("b.txt");
   });
 
   it("submit pushes, posts and prints evaluations and conflicts", async () => {
@@ -118,13 +136,33 @@ describe("artyfact cli", () => {
   });
 
   describe("security", () => {
-    it("passes the token via env, never argv", () => {
+    it("passes the token via env, never argv", async () => {
       const env = gitEnv("sekret", {});
       expect(env.GIT_CONFIG_KEY_0).toBe("http.extraHeader");
       expect(env.GIT_CONFIG_VALUE_0).toBe("Authorization: Bearer sekret");
       expect(gitEnv("t", { GIT_CONFIG_COUNT: "1" }).GIT_CONFIG_KEY_1).toBe("http.extraHeader");
-      const src = readFileSync(new URL("../src/git.ts", import.meta.url), "utf8");
-      expect(src).not.toMatch(/\["-c",\s*`http\.extraHeader/);
+      // Real run with a git shim on PATH that records every argv.
+      const shim = join(tmp, "shim");
+      const log = join(tmp, "argv.log");
+      mkdirSync(shim);
+      const realGit = execFileSync("which", ["git"], { encoding: "utf8" }).trim();
+      writeFileSync(join(shim, "git"), `#!/bin/sh\nprintf '%s\\n' "$@" >> ${log}\nexec ${realGit} "$@"\n`);
+      chmodSync(join(shim, "git"), 0o755);
+      const oldPath = process.env.PATH;
+      process.env.PATH = `${shim}:${oldPath}`;
+      try {
+        const d = join(tmp, "ws-shim");
+        expect((await run(["start", "r-1", "--dir", d, "--system", "system.keep-in-touch", "--evolution", "evolution.1"])).code).toBe(0);
+        writeFileSync(join(d, "z.txt"), "z");
+        expect((await run(["submit"], d)).code).toBe(0);
+      } finally {
+        process.env.PATH = oldPath;
+      }
+      const argv = readFileSync(log, "utf8");
+      expect(argv).toContain("clone");
+      expect(argv).toContain("push");
+      expect(argv).not.toContain("tok123");
+      expect(argv).not.toContain("Bearer");
     });
 
     it("writes the token to no file in the workspace or git config", () => {
@@ -138,7 +176,7 @@ describe("artyfact cli", () => {
       const orig = packet;
       const leakyServer = createServer((_req, res) => {
         res.setHeader("content-type", "application/json");
-        const p = { ...orig(), markdown: "secret leaked-tok here", workspace: { remote: REMOTE, fork: "kit-app--r1", token: "leaked-tok" } };
+        const p = { ...orig(), markdown: "secret leaked-tok here", workspace: { remote: packetRemote, fork: "kit-app--r1", token: "leaked-tok" } };
         res.end(JSON.stringify({ packet: p }));
       }).listen(0);
       await new Promise((r) => leakyServer.once("listening", r));
@@ -182,11 +220,74 @@ describe("artyfact cli", () => {
       expect(() => assertId("id", "a/b")).toThrow();
       expect(() => assertId("id", "..")).toThrow();
       expect(assertId("id", "system.keep-in-touch")).toBe("system.keep-in-touch");
-      expect(() => assertHttpsUrl("r", "ext::sh -c x")).toThrow();
-      expect(() => assertHttpsUrl("r", "/tmp/repo")).toThrow();
+      expect(() => assertRemote("r", "ext::sh -c x", {})).toThrow();
+      expect(() => assertRemote("r", "/tmp/repo", {})).toThrow();
       const r = await run(["start", "--", "--upload-pack=x"]);
       expect(r.code).toBe(1);
       expect(r.err).toContain("invalid");
     });
+
+    it("pins the remote host and path", () => {
+      const good = `https://${"a".repeat(32)}.artifacts.cloudflare.net/git/ns/repo.git`;
+      expect(assertRemote("r", good, {})).toBe(good);
+      expect(() => assertRemote("r", "https://evil.example/git/ns/repo.git", {})).toThrow();
+      expect(() => assertRemote("r", `https://${"a".repeat(32)}.artifacts.cloudflare.net.evil.com/git/ns/repo.git`, {})).toThrow();
+      expect(() => assertRemote("r", `https://u:p@${"a".repeat(32)}.artifacts.cloudflare.net/git/ns/repo.git`, {})).toThrow();
+      expect(() => assertRemote("r", `https://${"a".repeat(32)}.artifacts.cloudflare.net/other/repo.git`, {})).toThrow();
+      expect(() => assertRemote("r", "https://evil.example/git/ns/repo.git", { ARTYFACT_ALLOW_REMOTE_HOST: "other.example" })).toThrow();
+      expect(assertRemote("r", "https://evil.example/git/ns/repo.git", { ARTYFACT_ALLOW_REMOTE_HOST: "evil.example" })).toBeTruthy();
+    });
+
+    it("rejects tokens that could inject header lines", () => {
+      expect(() => assertToken("abc\r\nX-Evil: 1")).toThrow();
+      expect(assertToken("abc.DEF-123_~+/=")).toBeTruthy();
+    });
+
+    it("submit pushes to the configured remote, not whatever origin says", async () => {
+      const d = join(tmp, "ws-origin");
+      expect((await run(["start", "r-1", "--dir", d, "--system", "system.keep-in-touch", "--evolution", "evolution.1"])).code).toBe(0);
+      sh(d, "remote", "set-url", "origin", "https://evil.invalid/git/ns/x.git");
+      writeFileSync(join(d, "o.txt"), "o");
+      const r = await run(["submit"], d);
+      expect(r.code).toBe(0);
+      expect(sh(bare, "rev-parse", "main")).toBe(sh(d, "rev-parse", "HEAD"));
+    });
+
+    it("keeps a tracked AGENTS.md and merges the block idempotently", async () => {
+      packetRemote = REMOTE2;
+      try {
+        const d = join(tmp, "ws-tracked");
+        const args = ["start", "r-1", "--dir", d, "--system", "system.keep-in-touch", "--evolution", "evolution.1"];
+        expect((await run(args)).code).toBe(0);
+        const first = readFileSync(join(d, "AGENTS.md"), "utf8");
+        expect(first).toContain("# Mine");
+        expect(first.match(/artyfact:start/g)).toHaveLength(1);
+        expect(first).toContain("src/ui/people/**");
+        expect(readFileSync(join(d, ".git/info/exclude"), "utf8").split("\n")).not.toContain("AGENTS.md");
+        expect((await run(args)).code).toBe(0);
+        expect(readFileSync(join(d, "AGENTS.md"), "utf8")).toBe(first);
+      } finally {
+        packetRemote = REMOTE;
+      }
+    });
+
+    it("rejects a corrupt config with context", async () => {
+      const d = join(tmp, "ws-corrupt");
+      mkdirSync(d);
+      writeFileSync(join(d, ".artyfact.json"), "{nope");
+      const r = await run(["status"], d);
+      expect(r.code).toBe(1);
+      expect(r.err).toContain("invalid .artyfact.json");
+    });
+  });
+
+  it("the real binary runs under node (type stripping)", () => {
+    const bin = fileURLToPath(new URL("../bin/artyfact.js", import.meta.url));
+    const help = spawnSync(process.execPath, [bin, "--help"], { encoding: "utf8" });
+    expect(help.status).toBe(0);
+    expect(help.stdout).toContain("artyfact <command>");
+    const bad = spawnSync(process.execPath, [bin, "start", "r-1"], { encoding: "utf8", env: { ...process.env, ARTYFACT_SYSTEM: "", ARTYFACT_EVOLUTION: "" } });
+    expect(bad.status).not.toBe(0);
+    expect(bad.stderr).toContain("platform's printed CLI line");
   });
 });

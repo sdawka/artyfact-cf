@@ -1,7 +1,11 @@
 import { CliError } from "./git.ts";
 
 export class PlatformClient {
-  constructor(readonly base: string) {}
+  readonly base: string;
+
+  constructor(base: string) {
+    this.base = base;
+  }
 
   async request<T>(method: string, path: string, body?: unknown): Promise<T> {
     const url = `${this.base.replace(/\/$/, "")}${path}`;
