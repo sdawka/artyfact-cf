@@ -88,11 +88,18 @@ describe("runSubmission", () => {
     expect(e.interpretation).toContain("Genome amendment required");
   });
 
-  it("reports overlap in the readiness evaluation observations", async () => {
+  it("a soft-semantic overlap makes the overlap evaluation unknown, with the report in observations", async () => {
     const other = appCandidate({ id: "cand.r2", realizationId: "realization.1.r2", changedPaths: ["src/worker/routes/contacts.ts"], changedNodes: ["screen.people"] });
     const e = by(await runner.runSubmission(ctxFor(appCandidate(), { openCandidates: [other] })), "C.system.readiness")[0];
-    expect(e.verdict).toBe("pass");
+    expect(e).toMatchObject({ execution: "completed", verdict: "unknown" });
     expect(e.observations).toContainEqual(expect.objectContaining({ kind: "soft-semantic", candidates: ["cand.r1", "cand.r2"] }));
+  });
+
+  it("an unloadable open candidate makes the overlap evaluation unknown, never pass", async () => {
+    const broken = appCandidate({ id: "cand.g9", target: "genome", changedPaths: ["system.yaml"], changedNodes: [], genomeFiles: { ...miniGenome(), "system.yaml": "id: 1\n" } });
+    const e = by(await runner.runSubmission(ctxFor(appCandidate(), { openCandidates: [broken] })), "C.system.readiness")[0];
+    expect(e).toMatchObject({ execution: "completed", verdict: "unknown" });
+    expect(e.limitations.join(" ")).toMatch(/could not be fully determined/);
   });
 
   it("emits a not-run evaluation for an acceptance criterion missing from the Genome", async () => {

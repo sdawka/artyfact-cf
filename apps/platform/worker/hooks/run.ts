@@ -183,16 +183,20 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
         }
         const reports = await conflictsFor(st);
         const hard = reports.filter((r) => r.kind === "hard-semantic");
+        const errors = reports.filter((r) => r.error);
         return {
           execution: "completed",
-          // Reporting overlap is the obligation; only a hard-semantic conflict fails it. Soft/file conflicts are
-          // listed for the reviewer and resolved by promotion CAS (the loser goes stale).
-          verdict: hard.length ? "fail" : "pass",
+          // pass only with no conflicts at all; hard-semantic fails; file / soft-semantic (and undeterminable
+          // overlap) stay unknown until the reviewer resolves them.
+          verdict: hard.length ? "fail" : reports.length ? "unknown" : "pass",
           observations: reports,
           interpretation: reports.length
             ? `${reports.length} conflict(s) with open candidates: ${reports.map((r) => `${r.kind} with ${r.candidates[1]}`).join("; ")}.`
             : `No overlap with ${st.ctx.openCandidates.length} open candidate(s).`,
-          limitations: ["Soft-semantic conflicts are signals, not verdicts; System One interference is attached when available."],
+          limitations: [
+            "File and soft-semantic conflicts are unknown, not pass: a reviewer must resolve or sequence them.",
+            ...errors.map((r) => `Overlap with ${r.candidates[1]} could not be fully determined: ${r.error}`),
+          ],
         };
       }
       case "model-rules":
