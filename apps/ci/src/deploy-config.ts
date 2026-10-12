@@ -31,7 +31,7 @@ export class DeployRefused extends Error {
 
 /** Keys copied into both generated configs after validation. */
 const COPIED = [
-  "compatibility_date", "compatibility_flags", "vars", "durable_objects", "migrations", "workflows", "triggers",
+  "compatibility_date", "compatibility_flags", "vars", "durable_objects", "migrations", "d1_databases", "triggers",
   "observability", "placement", "limits", "workers_dev", "preview_urls", "keep_vars",
 ] as const;
 /** Keys that only affect bundling (bundle config only). */
@@ -60,12 +60,15 @@ const REFUSED: Record<string, string> = {
   tail_consumers: "a tail consumer receives another Worker's logs",
   services: "service bindings reach other Workers in the account",
   kv_namespaces: "bindings to existing account resources are not available to app Workers",
-  d1_databases: "bindings to existing account resources are not available to app Workers",
+  workflows: "Workflow names are account-wide, so an app could take over another Worker's Workflow",
   r2_buckets: "bindings to existing account resources are not available to app Workers",
   queues: "bindings to existing account resources are not available to app Workers",
   unsafe: "unsafe bindings are not available to app Workers",
   secrets: "secrets are set by the platform",
 };
+
+/** Durable Object migration fields an app may use; `transferred_classes` / `from_script` move another Worker's state. */
+const MIGRATION_KEYS: ReadonlySet<string> = new Set(["tag", "new_classes", "new_sqlite_classes", "renamed_classes", "deleted_classes"]);
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 
@@ -149,11 +152,19 @@ export function validateRepoConfig(file: string, text: string, opts: { accountId
       else if (b.script_name !== undefined || b.environment !== undefined) problems.push(`durable_objects ${b.name} binds another Worker's class`);
     }
   }
-  if (raw.workflows !== undefined) {
-    if (!Array.isArray(raw.workflows)) problems.push("workflows must be a list");
-    for (const w of Array.isArray(raw.workflows) ? raw.workflows : []) {
-      if (!isObj(w)) problems.push("each workflow must be an object");
-      else if (w.script_name !== undefined) problems.push(`workflow ${String(w.name)} binds another Worker's Workflow`);
+  if (raw.migrations !== undefined) {
+    if (!Array.isArray(raw.migrations)) problems.push("migrations must be a list");
+    for (const m of Array.isArray(raw.migrations) ? raw.migrations : []) {
+      if (!isObj(m)) {
+        problems.push("each migration must be an object");
+        continue;
+      }
+      for (const k of Object.keys(m)) {
+        if (!MIGRATION_KEYS.has(k)) problems.push(`migration ${String(m.tag)}: ${k} is not supported (only ${[...MIGRATION_KEYS].join(", ")})`);
+      }
+      for (const r of Array.isArray(m.renamed_classes) ? m.renamed_classes : []) {
+        if (isObj(r) && r.from_script !== undefined) problems.push(`migration ${String(m.tag)}: from_script pulls another Worker's Durable Object state`);
+      }
     }
   }
   if (raw.vars !== undefined) {

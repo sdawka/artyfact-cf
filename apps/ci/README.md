@@ -39,7 +39,7 @@ npx wrangler secret put CI_REPORT_TOKEN
 cd ../.. && npm run deploy
 ```
 
-**`CF_TOKEN` permissions.** Create a custom API token with exactly one permission, `Account / Workers Scripts / Edit`, limited to this account. Never reuse the platform's admin token or its Artifacts token (`CF_API_TOKEN`). The token reaches the `deploy` step only; see the trust model below.
+**`CF_TOKEN` permissions.** Create a custom API token with `Account / Workers Scripts / Edit`, plus `Account / D1 / Edit` when apps bind D1, limited to this account. Never reuse the platform's admin token or its Artifacts token (`CF_API_TOKEN`). The token reaches the `deploy` step only; see the trust model below.
 
 **R2 keys.** Create them in the dashboard under R2, Manage API tokens. Scope the token to the `artyfact-ci-cache` bucket with Object Read & Write.
 
@@ -52,15 +52,15 @@ cd ../.. && npm run deploy
 | `BACKUP_BUCKET_NAME` | Equal to the R2 bucket name. |
 | `CLOUDFLARE_ACCOUNT_ID` | Account for the Artifacts git remote and the deploy. |
 
-**App prerequisites.** The app config must use only allowlisted keys: `main`, `compatibility_*`, `vars`, its own `durable_objects` / `migrations` / `workflows`, `assets`, `triggers`, `observability`, `placement`, `limits`, `workers_dev`, `preview_urls`, `keep_vars` and the bundling options `define`, `minify`, `jsx_*`, `tsconfig`. Bindings to existing account resources (D1, KV, R2, Queues, services) are refused, so the scaffold's D1 binding has to go before its builds can pass. `wrangler.toml` is not read.
+**App prerequisites.** The app config must use only allowlisted keys: `main`, `compatibility_*`, `vars`, its own `durable_objects` and `migrations` (`tag`, `new_classes`, `new_sqlite_classes`, `renamed_classes` without `from_script`, `deleted_classes`), `d1_databases`, `assets`, `triggers`, `observability`, `placement`, `limits`, `workers_dev`, `preview_urls`, `keep_vars` and the bundling options `define`, `minify`, `jsx_*`, `tsconfig`. Workflows, services and bindings to existing KV, R2 or Queues are refused. D1 bindings are accepted as-is, so `CF_TOKEN` needs `D1: Edit` when an app binds D1. `wrangler.toml` is not read.
 
 ## Trust model
 
 App repos are untrusted: agents write them, and `npm install` / `npm test` run their code. The design keeps that code away from every credential, so the most a hostile commit can do is break or misuse its own preview Worker. **Preview Workers are the blast radius.**
 
-- **Credentials only on `deploy`.** `CF_TOKEN` is a Workers Scripts: Edit token for this account and nothing else. `@cloudflare/ci` injects it as `CLOUDFLARE_API_TOKEN` into the deploy runner only. `install`, `test`, `build` and `bundle` get no Cloudflare credentials, no `ARTYFACT_INGEST_TOKEN` and no platform secrets. The Artifacts token used for checkout is never in a command's environment.
+- **Credentials only on `deploy`.** `CF_TOKEN` is a Workers Scripts: Edit token for this account, plus D1: Edit for apps that bind D1. `@cloudflare/ci` injects it as `CLOUDFLARE_API_TOKEN` into the deploy runner only. `install`, `test`, `build` and `bundle` get no Cloudflare credentials, no `ARTYFACT_INGEST_TOKEN` and no platform secrets. The Artifacts token used for checkout is never in a command's environment.
 - **Nothing from the repo runs on `deploy`.** Every runner is a fresh container from this image. The deploy step runs `/opt/artyfact/bin/wrangler` (Wrangler `4.149.0`, pinned in the `Dockerfile`) by absolute path under `env -i`, with `PATH` reset to the system directories and no `NODE_OPTIONS`, `NPM_CONFIG_*` or `.env` (`--env-file=/dev/null`, cwd outside the repo). It uploads a bundle made earlier, so esbuild never runs with the token present.
-- **Platform-written config.** `--config` points at a config the Worker generated from the validated repo config, with absolute workspace paths. `build.command`, module `rules`, `alias`, `base_dir`, `containers`, file-path bindings, routes, `services`, `tail_consumers`, other Workers' Durable Objects or Workflows, and bindings to existing account resources are refused.
+- **Platform-written config.** `--config` points at a config the Worker generated from the validated repo config, with absolute workspace paths. `build.command`, module `rules`, `alias`, `base_dir`, `containers`, file-path bindings, routes, `services`, `tail_consumers`, `workflows`, other Workers' Durable Objects, state-transferring migrations, and KV / R2 / Queues bindings are refused.
 - **No reading outside the repo.** The deploy step refuses a missing bundle, any symlink in the bundle or the assets directory, and an assets directory that resolves outside `/workspace`. The bundle directory name carries a per-build random nonce, so no tracked or installed file can be planted there.
 - **Commands are allowlisted.** `install`, `test` and `build` are template defaults the platform checks against `ALLOWED_COMMANDS`; this Worker checks them again.
 - **Residual risks.** The ingest token travels in the Workflow instance params (`CiBuildParams.vars`), which account members with Workflows read access can see. A hostile app can still serve anything from its own preview Worker, use its own Durable Objects, and spend its own request quota. Production deploys of a promoted commit carry the same limits.
