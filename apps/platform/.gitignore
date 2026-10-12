@@ -1,3 +1,4 @@
 .dev.vars
 .wrangler
 dist
+e2e-artifacts
