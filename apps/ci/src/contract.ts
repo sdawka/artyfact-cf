@@ -20,8 +20,9 @@ export interface CiBuildParams {
   kind: BuildKind;
   /** `<slug>-app-r<N>` for a preview, `<slug>-app` for production. */
   workerName: string;
-  /** Deployed as `--var KEY:VALUE`; `BUILD_ID` is always the commit. */
+  /** Deployed as `--var KEY:VALUE` (`BUILD_ID` is always the commit), except the credentials in `SECRET_VARS` (`deploy-config.ts`), which become Worker secrets. */
   vars: Record<string, string>;
+  /** Each one of {@link ALLOWED_COMMANDS}; `deploy` only names the step (the pinned image Wrangler always deploys). */
   commands: { install: string; test?: string; build?: string; deploy: string };
   /** Where the Workflow posts {@link BuildReport}s (must be under the Worker's `PLATFORM_URL`). */
   reportUrl: string;
@@ -50,3 +51,14 @@ export interface BuildReport {
   startedAt?: string;
   finishedAt?: string;
 }
+
+/**
+ * The only commands a build may run, chosen by the platform from template defaults. Mirrors `ALLOWED_COMMANDS` in
+ * `apps/platform/worker/deployments.ts`; the Worker re-checks so a bad dispatch cannot widen it.
+ */
+export const ALLOWED_COMMANDS = {
+  install: ["npm install", "npm ci"],
+  test: ["npm test", "npm run test"],
+  build: ["npm run build"],
+  deploy: ["npx wrangler deploy", "wrangler deploy"],
+} as const satisfies Record<keyof CiBuildParams["commands"], readonly string[]>;

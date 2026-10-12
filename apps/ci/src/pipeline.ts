@@ -1,24 +1,34 @@
 /**
  * The artyfact CI pipeline as plain functions: which runners to start, what to report, and the run itself over
- * injected `step`, `ci` and `fetch`. `src/index.ts` wires these to `@cloudflare/ci`; tests drive them with fakes.
+ * injected `step`, `ci`, `fetch` and repo reads. `src/index.ts` wires these to `@cloudflare/ci`; tests drive them
+ * with fakes. The deploy half lives in `deploy-config.ts`.
  */
-import type { BuildReport, BuildStatus, BuildStep, CiBuildParams } from "./contract";
+import { ALLOWED_COMMANDS, type BuildReport, type BuildStatus, type BuildStep, type CiBuildParams } from "./contract";
+import {
+  bundleCommand, bundleConfig, CONFIG_ENV, CONFIG_FILES, deployCommand, deployConfig, DeployRefused, SECRET_VARS, SECRETS_ENV,
+  validateRepoConfig, type DeploySpec,
+} from "./deploy-config";
+
+export { shQuote } from "./deploy-config";
 
 const COMMIT_RE = /^[0-9a-f]{40}$/;
 /** Worker script names: lowercase alphanumerics and dashes, at most 63 characters, no leading or trailing dash. */
 const WORKER_NAME_RE = /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/;
 const VAR_NAME_RE = /^[A-Z_][A-Z0-9_]*$/;
+const NONCE_RE = /^[0-9a-f]{32}$/;
 const ERROR_MAX = 4000;
 
-export type StepName = "install" | "test" | "build" | "deploy";
+export type StepName = "install" | "test" | "build" | "bundle" | "deploy";
 
 /** One `ci.runner()` call. Field names match `@cloudflare/ci` RunnerOptions. */
 export interface PlannedStep {
   name: StepName;
   command: string;
   cache?: { inputs: string[] };
+  /** Literal env for this runner only (redacted from step notifications by `@cloudflare/ci`). */
+  env?: Record<string, string>;
   config: { retries: { limit: number; delay: number; backoff?: "constant" | "linear" | "exponential" } };
-  cloudflareCredentials?: true | { accountId: string };
+  cloudflareCredentials?: { accountId: string };
 }
 
 /** Throws with every problem when `p` is not a usable {@link CiBuildParams}. */
@@ -30,9 +40,12 @@ export function validateParams(p: CiBuildParams): void {
   if (typeof p.commit !== "string" || !COMMIT_RE.test(p.commit)) problems.push("commit must be 40 lowercase hex");
   if (p.kind !== "preview" && p.kind !== "production") problems.push("kind must be preview or production");
   if (typeof p.workerName !== "string" || !WORKER_NAME_RE.test(p.workerName)) problems.push("workerName must be a Worker script name");
-  if (!p.commands || !nonEmpty(p.commands.install) || !nonEmpty(p.commands.deploy)) problems.push("commands.install and commands.deploy are required");
-  for (const k of ["test", "build"] as const) {
-    if (p.commands?.[k] !== undefined && typeof p.commands[k] !== "string") problems.push(`commands.${k} must be a string`);
+  if (!p.commands || typeof p.commands !== "object") problems.push("commands are required");
+  for (const k of ["install", "test", "build", "deploy"] as const) {
+    const v = p.commands?.[k];
+    const required = k === "install" || k === "deploy";
+    if (v === undefined && !required) continue;
+    if (!(ALLOWED_COMMANDS[k] as readonly unknown[]).includes(v)) problems.push(`commands.${k} must be one of ${ALLOWED_COMMANDS[k].join(", ")}`);
   }
   for (const [k, v] of Object.entries(p.vars ?? {})) {
     if (!VAR_NAME_RE.test(k)) problems.push(`var ${k} is not an UPPER_SNAKE name`);
@@ -41,35 +54,67 @@ export function validateParams(p: CiBuildParams): void {
   if (problems.length) throw new Error(`invalid CI params: ${problems.join("; ")}`);
 }
 
-/** POSIX single-quoting: the value reaches the command verbatim. */
-export const shQuote = (v: string) => `'${v.replaceAll("'", `'\\''`)}'`;
-
-/** `--var` flags for the deploy; `BUILD_ID` is always the commit, whatever `vars` says. */
+/** Plain vars for `--var`: everything but {@link SECRET_VARS}; `BUILD_ID` is always the commit, whatever `vars` says. */
 export function deployVars(p: CiBuildParams): Record<string, string> {
-  return { ...p.vars, BUILD_ID: p.commit };
+  const plain = Object.entries(p.vars ?? {}).filter(([k]) => !SECRET_VARS.has(k));
+  return { ...Object.fromEntries(plain), BUILD_ID: p.commit };
 }
 
-export function deployCommand(p: CiBuildParams): string {
-  const vars = Object.entries(deployVars(p)).sort(([a], [b]) => a.localeCompare(b)).map(([k, v]) => `--var ${shQuote(`${k}:${v}`)}`);
-  return [p.commands.deploy.trim(), "--name", shQuote(p.workerName), ...vars].join(" ");
+/** Credentials among `vars`: uploaded as Worker secrets by the deploy step and seen by no other step. */
+export function deploySecrets(p: CiBuildParams): Record<string, string> {
+  return Object.fromEntries(Object.entries(p.vars ?? {}).filter(([k]) => SECRET_VARS.has(k)));
+}
+
+export interface PlanOptions {
+  accountId: string;
+  /** The validated repo Wrangler config. */
+  spec: DeploySpec;
+  /** 32 hex chars from a durable step; names the bundle directory. */
+  nonce: string;
 }
 
 /**
- * install (cached on the lockfile) → test → build → deploy (the only step that sees Cloudflare credentials).
- * Test and build failures are deterministic and not retried; install and deploy retry once.
+ * install (cached on the lockfile) → test → build → bundle → deploy. Only deploy holds credentials or secrets, and
+ * only bundle and deploy run Wrangler, always the pinned image copy under a cleared environment. Test, build and
+ * bundle failures are deterministic and not retried; install and deploy retry once.
  */
-export function planSteps(p: CiBuildParams, opts: { accountId?: string } = {}): PlannedStep[] {
+export function planSteps(p: CiBuildParams, o: PlanOptions): PlannedStep[] {
   validateParams(p);
+  if (!o.accountId) throw new Error("CLOUDFLARE_ACCOUNT_ID is not configured");
+  if (!NONCE_RE.test(o.nonce)) throw new Error("bundle nonce must be 32 hex chars");
   const once = { retries: { limit: 1, delay: 10_000, backoff: "constant" as const } };
   const never = { retries: { limit: 0, delay: 1_000 } };
+  const target = { workerName: p.workerName, accountId: o.accountId };
+  const secrets = deploySecrets(p);
+  const hasSecrets = Object.keys(secrets).length > 0;
   const steps: PlannedStep[] = [
-    { name: "install", command: p.commands.install.trim(), cache: { inputs: ["package.json", "package-lock.json"] }, config: once },
+    { name: "install", command: p.commands.install, cache: { inputs: ["package.json", "package-lock.json"] }, config: once },
   ];
-  if (p.commands.test?.trim()) steps.push({ name: "test", command: p.commands.test.trim(), config: never });
-  if (p.commands.build?.trim()) steps.push({ name: "build", command: p.commands.build.trim(), config: never });
-  steps.push({ name: "deploy", command: deployCommand(p), config: once, cloudflareCredentials: opts.accountId ? { accountId: opts.accountId } : true });
+  if (p.commands.test) steps.push({ name: "test", command: p.commands.test, config: never });
+  if (p.commands.build) steps.push({ name: "build", command: p.commands.build, config: never });
+  steps.push(
+    { name: "bundle", command: bundleCommand(o.nonce), env: { [CONFIG_ENV]: JSON.stringify(bundleConfig(o.spec, target)) }, config: never },
+    {
+      name: "deploy",
+      command: deployCommand(o.spec, { nonce: o.nonce, workerName: p.workerName, vars: deployVars(p), hasSecrets }),
+      env: { [CONFIG_ENV]: JSON.stringify(deployConfig(o.spec, { ...target, nonce: o.nonce })), ...(hasSecrets && { [SECRETS_ENV]: JSON.stringify(secrets) }) },
+      config: once,
+      cloudflareCredentials: { accountId: o.accountId },
+    },
+  );
   return steps;
 }
+
+/** The first Wrangler config at the commit, in Wrangler's lookup order. */
+export async function readRepoConfig(readFile: (path: string) => Promise<string | null>): Promise<{ file: string; text: string } | null> {
+  for (const file of CONFIG_FILES) {
+    const text = await readFile(file);
+    if (text !== null) return { file, text };
+  }
+  return null;
+}
+
+const randomNonce = () => [...crypto.getRandomValues(new Uint8Array(16))].map((b) => b.toString(16).padStart(2, "0")).join("");
 
 export const workerUrl = (workerName: string, subdomain: string) => `https://${workerName}.${subdomain}.workers.dev`;
 
@@ -149,10 +194,12 @@ export interface PipelineInput {
   step: DoStep;
   ci: CiLike;
   fetch: FetchLike;
+  /** Reads a file of `params.repo` at `params.commit` (null when absent), outside the sandbox. */
+  readFile: (path: string) => Promise<string | null>;
   reportToken: string;
   platformUrl: string;
   workersSubdomain: string;
-  accountId?: string;
+  accountId: string;
   workflowName?: string;
 }
 
@@ -163,9 +210,10 @@ function failedRunner(e: unknown): string | null {
 }
 
 /**
- * Report running → install → test → build → deploy → report passed with the Worker URL. A failing runner reports
- * `failed` (its step marked failed); anything else reports `error`. Either way the error is rethrown afterwards so
- * the Workflow instance ends errored. Every report and timestamp is its own durable step.
+ * Report running → check the repo's Wrangler config → install → test → build → bundle → deploy → report passed with
+ * the Worker URL. A refused config or a failing runner reports `failed` (its step marked failed); anything else
+ * reports `error`. Either way the error is rethrown afterwards so the Workflow instance ends errored. Every report,
+ * read and timestamp is its own durable step.
  */
 export async function runPipeline(input: PipelineInput): Promise<BuildReport> {
   const { params: p, step } = input;
@@ -178,9 +226,8 @@ export async function runPipeline(input: PipelineInput): Promise<BuildReport> {
   };
 
   assertReportUrl(p.reportUrl, input.platformUrl);
-  let plan: PlannedStep[];
   try {
-    plan = planSteps(p, { accountId: input.accountId });
+    validateParams(p);
   } catch (e) {
     await send("report error", reportBody(p, "error", { ...base, error: (e as Error).message }));
     throw e;
@@ -189,9 +236,17 @@ export async function runPipeline(input: PipelineInput): Promise<BuildReport> {
   const startedAt = await now("started");
   await send("report running", reportBody(p, "running", { ...base, startedAt }));
   const steps: BuildStep[] = [];
+  let current: string = "config";
   try {
+    const config = await step("read wrangler config", () => readRepoConfig(input.readFile));
+    if (!config) throw new DeployRefused(`no ${CONFIG_FILES.join(" / ")} at ${p.commit.slice(0, 7)}`);
+    const spec = validateRepoConfig(config.file, config.text, { accountId: input.accountId });
+    steps.push({ name: "config", status: "passed" });
+    const nonce = await step("bundle nonce", async () => randomNonce());
+    const plan = planSteps(p, { accountId: input.accountId, spec, nonce });
     let workspace: RunnerLike | null = null;
     for (const s of plan) {
+      current = s.name;
       const t0 = Date.parse(await now(`${s.name}: started`));
       workspace = await (workspace ? workspace.runner(s) : input.ci.runner(s));
       steps.push({ name: s.name, status: "passed", durationMs: Date.parse(await now(`${s.name}: finished`)) - t0 });
@@ -202,10 +257,10 @@ export async function runPipeline(input: PipelineInput): Promise<BuildReport> {
     return passed;
   } catch (e) {
     const runner = failedRunner(e);
-    const failedAt = plan.find((s) => s.name === runner) ?? plan[steps.length];
-    if (failedAt) steps.push({ name: failedAt.name, status: runner ? "failed" : "error" });
+    const failed = runner !== null || (e as Error)?.name === "DeployRefused";
+    steps.push({ name: runner && runner !== "unknown" ? runner : current, status: failed ? "failed" : "error" });
     const finishedAt = await now("finished");
-    const body = reportBody(p, runner ? "failed" : "error", { ...base, steps, startedAt, finishedAt, error: (e as Error)?.message ?? String(e) });
+    const body = reportBody(p, failed ? "failed" : "error", { ...base, steps, startedAt, finishedAt, error: (e as Error)?.message ?? String(e) });
     await send(`report ${body.status}`, body);
     throw e;
   }

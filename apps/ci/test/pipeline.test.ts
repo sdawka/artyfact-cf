@@ -1,48 +1,161 @@
+import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import type { BuildReport, CiBuildParams } from "../src/contract";
 import {
-  assertReportUrl, deployCommand, planSteps, report, reportBody, runPipeline, shQuote, validateParams,
+  CONFIG_ENV, SECRETS_ENV, WRANGLER, bundleConfig, deployConfig, parseJsonc, validateRepoConfig, type DeploySpec,
+} from "../src/deploy-config";
+import {
+  assertReportUrl, deployVars, planSteps, report, reportBody, runPipeline, shQuote, validateParams,
   type CiLike, type DoStep, type FetchLike, type PlannedStep, type RunnerLike,
 } from "../src/pipeline";
 
 const COMMIT = "a".repeat(40);
 const PLATFORM = "https://artyfact-platform.example.workers.dev";
+const INGEST = "ingest-secret-value";
+const NONCE = "0123456789abcdef0123456789abcdef";
+const ACCOUNT = "acc";
 
 const params = (over: Partial<CiBuildParams> = {}): CiBuildParams => ({
   buildId: "build.realization.1.aaaaaaa.ci", systemId: "system.keep-in-touch", realizationId: "realization.1", candidateId: "candidate.1.r1.aaaaaaa",
   namespace: "artyfact", repo: "keep-in-touch.app--r1", commit: COMMIT, kind: "preview", workerName: "keep-in-touch-app-r1",
-  vars: { ARTYFACT_SYSTEM_ID: "system.keep-in-touch", ARTYFACT_PLATFORM_URL: PLATFORM, BUILD_ID: "dev" },
+  vars: { ARTYFACT_SYSTEM_ID: "system.keep-in-touch", ARTYFACT_PLATFORM_URL: PLATFORM, BUILD_ID: "dev", ARTYFACT_INGEST_TOKEN: INGEST },
   commands: { install: "npm ci", test: "npm test", build: "npm run build", deploy: "npx wrangler deploy" },
   reportUrl: `${PLATFORM}/api/systems/system.keep-in-touch/realizations/realization.1/builds`,
   ...over,
 });
 
+const REPO_CONFIG = `{
+  "$schema": "node_modules/wrangler/config-schema.json", // editor hint
+  "name": "keep-in-touch",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-12",
+  /* static files */
+  "assets": { "directory": "public", "binding": "ASSETS" },
+  "durable_objects": { "bindings": [{ "name": "STORE", "class_name": "Store" }] },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Store"] }],
+  "vars": { "GREETING": "hi // not a comment" },
+}`;
+const spec = (text = REPO_CONFIG): DeploySpec => validateRepoConfig("wrangler.jsonc", text, { accountId: ACCOUNT });
+const plan = (p = params()) => planSteps(p, { accountId: ACCOUNT, spec: spec(), nonce: NONCE });
+const step = (steps: PlannedStep[], name: string) => steps.find((s) => s.name === name)!;
+const shellSyntaxOk = (script: string) => execFileSync("sh", ["-n", "-c", script]);
+
 describe("planSteps", () => {
-  it("installs with a lockfile cache, tests, builds, then deploys with credentials only on deploy", () => {
-    const steps = planSteps(params(), { accountId: "acc" });
-    expect(steps.map((s) => s.name)).toEqual(["install", "test", "build", "deploy"]);
+  it("installs with a lockfile cache, tests, builds, bundles, then deploys; credentials only on deploy", () => {
+    const steps = plan();
+    expect(steps.map((s) => s.name)).toEqual(["install", "test", "build", "bundle", "deploy"]);
     expect(steps[0]).toMatchObject({ command: "npm ci", cache: { inputs: ["package.json", "package-lock.json"] } });
-    expect(steps.filter((s) => s.cloudflareCredentials)).toEqual([expect.objectContaining({ name: "deploy", cloudflareCredentials: { accountId: "acc" } })]);
-    expect(steps.find((s) => s.name === "test")!.config.retries.limit).toBe(0);
+    expect(steps.filter((s) => s.cloudflareCredentials)).toEqual([expect.objectContaining({ name: "deploy", cloudflareCredentials: { accountId: ACCOUNT } })]);
+    expect(step(steps, "test").config.retries.limit).toBe(0);
   });
 
-  it("skips absent test and build commands", () => {
-    const steps = planSteps(params({ commands: { install: "npm ci", deploy: "npx wrangler deploy", test: " " } }));
-    expect(steps.map((s) => s.name)).toEqual(["install", "deploy"]);
-    expect(steps[1]!.cloudflareCredentials).toBe(true);
+  it("keeps the ingest token and platform secrets away from every step but deploy, and off the deploy command line", () => {
+    const steps = plan();
+    for (const s of steps.filter((x) => x.name !== "deploy")) {
+      expect(JSON.stringify(s)).not.toContain(INGEST);
+      expect(s.env?.[SECRETS_ENV]).toBeUndefined();
+      expect(s.cloudflareCredentials).toBeUndefined();
+    }
+    for (const s of steps.filter((x) => ["install", "test", "build"].includes(x.name))) expect(s.env).toBeUndefined();
+    const deploy = step(steps, "deploy");
+    expect(JSON.parse(deploy.env![SECRETS_ENV]!)).toEqual({ ARTYFACT_INGEST_TOKEN: INGEST });
+    expect(deploy.command).not.toContain(INGEST);
+    expect(deploy.command).not.toContain("ARTYFACT_INGEST_TOKEN");
+    expect(deploy.command).toContain(`--secrets-file "$C/secrets.json"`);
+    expect(deployVars(params())).not.toHaveProperty("ARTYFACT_INGEST_TOKEN");
+  });
+
+  it("runs only the pinned image Wrangler, under a cleared environment, on platform-written configs", () => {
+    const steps = plan();
+    for (const name of ["bundle", "deploy"]) {
+      const cmd = step(steps, name).command;
+      expect(cmd).toContain(`/usr/bin/env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=`);
+      expect(cmd).toContain(`${WRANGLER} deploy`);
+      expect(cmd).toContain("--env-file=/dev/null --autoconfig=false");
+      expect(cmd).toMatch(/^set -eu\nexport PATH=\/usr\/local\/bin:\/usr\/bin:\/bin\nunset NODE_OPTIONS/);
+      expect(cmd).not.toMatch(/\bnpx\b|\bnpm\b|node_modules/);
+      expect(cmd).not.toMatch(/--config '?\/workspace/);
+      shellSyntaxOk(cmd);
+    }
+    expect(step(steps, "bundle").command).toContain(`--dry-run --config '/tmp/artyfact-${NONCE}'/wrangler.json --outdir '/workspace/.artyfact-build-${NONCE}'`);
+    const deploy = step(steps, "deploy").command;
+    expect(deploy).toContain("CLOUDFLARE_API_BASE_URL=https://api.cloudflare.com/client/v4");
+    expect(deploy).toContain(`CLOUDFLARE_API_TOKEN="$CLOUDFLARE_API_TOKEN" CLOUDFLARE_ACCOUNT_ID="$CLOUDFLARE_ACCOUNT_ID"`);
+    expect(deploy).toContain(`[ -z "$(find '/workspace/.artyfact-build-${NONCE}' -type l -print -quit)" ]`);
+    expect(deploy).toContain(`case "$A/" in /workspace/*)`);
+    expect(JSON.parse(step(steps, "deploy").env![CONFIG_ENV]!)).toMatchObject({ no_bundle: true, main: `/workspace/.artyfact-build-${NONCE}/index.js` });
   });
 
   it("deploys under the worker name with BUILD_ID forced to the commit, every var quoted", () => {
-    const cmd = deployCommand(params({ vars: { ARTYFACT_NOTE: "it's; rm -rf /", BUILD_ID: "dev" } }));
-    expect(cmd).toBe(`npx wrangler deploy --name 'keep-in-touch-app-r1' --var 'ARTYFACT_NOTE:it'\\''s; rm -rf /' --var 'BUILD_ID:${COMMIT}'`);
+    const cmd = step(plan(params({ vars: { ARTYFACT_NOTE: "it's; rm -rf /", BUILD_ID: "dev" } })), "deploy").command;
+    expect(cmd).toContain(`--name 'keep-in-touch-app-r1' --var 'ARTYFACT_NOTE:it'\\''s; rm -rf /' --var 'BUILD_ID:${COMMIT}' --env-file`);
+    expect(cmd).not.toContain("--secrets-file");
     expect(shQuote("a'b")).toBe(`'a'\\''b'`);
   });
 
-  it("refuses unusable params with every problem listed", () => {
+  it("skips absent test and build commands", () => {
+    expect(plan(params({ commands: { install: "npm ci", deploy: "npx wrangler deploy" } })).map((s) => s.name)).toEqual(["install", "bundle", "deploy"]);
+  });
+
+  it("refuses unusable params with every problem listed, including commands off the allowlist", () => {
     expect(() => validateParams(params({ commit: "abc", workerName: "Bad_Name", vars: { "bad-name": "x", OK: "a\nb" } }))).toThrow(
       /commit must be 40.*workerName.*var bad-name.*var OK must be a single-line/,
     );
-    expect(() => planSteps(params({ commands: { install: "", deploy: "" } }))).toThrow(/commands.install/);
+    expect(() => validateParams(params({ commands: { install: "npm ci && curl evil", test: "npm test; env", deploy: "./deploy.sh" } }))).toThrow(
+      /commands.install must be one of.*commands.test must be one of.*commands.deploy must be one of/,
+    );
+    expect(() => planSteps(params(), { accountId: ACCOUNT, spec: spec(), nonce: "short" })).toThrow(/nonce/);
+  });
+});
+
+describe("validateRepoConfig", () => {
+  it("accepts a self-contained config and writes repo paths as absolute workspace paths", () => {
+    const s = spec();
+    expect(s).toMatchObject({ file: "wrangler.jsonc", main: "src/index.ts", assets: { directory: "public", binding: "ASSETS" } });
+    const target = { workerName: "keep-in-touch-app-r1", accountId: ACCOUNT };
+    const bundle = bundleConfig(s, target);
+    expect(bundle).toMatchObject({ name: target.workerName, account_id: ACCOUNT, main: "/workspace/src/index.ts", vars: { GREETING: "hi // not a comment" } });
+    expect(bundle).not.toHaveProperty("assets");
+    expect(deployConfig(s, { ...target, nonce: NONCE })).toEqual({
+      name: target.workerName, account_id: ACCOUNT, main: `/workspace/.artyfact-build-${NONCE}/index.js`, no_bundle: true,
+      compatibility_date: "2026-10-12", vars: { GREETING: "hi // not a comment" },
+      durable_objects: { bindings: [{ name: "STORE", class_name: "Store" }] }, migrations: [{ tag: "v1", new_sqlite_classes: ["Store"] }],
+      assets: { directory: "/workspace/public", binding: "ASSETS" },
+    });
+  });
+
+  it("refuses build.command with a clear reason", () => {
+    const text = JSON.stringify({ main: "src/index.ts", compatibility_date: "2026-10-12", build: { command: "npm run build" } });
+    expect(() => spec(text)).toThrow(/refusing to deploy wrangler.jsonc: build.command is set: artyfact CI never runs a Wrangler custom build/);
+  });
+
+  it("refuses keys that reach outside the repo or the preview Worker", () => {
+    const text = JSON.stringify({
+      main: "/proc/self/environ", compatibility_date: "2026-10-12", account_id: "other",
+      assets: { directory: "../../etc" }, rules: [{ type: "Text", globs: ["**/environ"] }],
+      d1_databases: [{ binding: "DB", database_id: "x" }], services: [{ binding: "P", service: "artyfact-platform" }],
+      durable_objects: { bindings: [{ name: "SA", class_name: "SystemAuthority", script_name: "artyfact-platform" }] },
+      workflows: [{ name: "w", binding: "W", class_name: "C", script_name: "artyfact-platform" }],
+      vars: { ARTYFACT_INGEST_TOKEN: "x" }, made_up: 1,
+    });
+    let message = "";
+    try {
+      spec(text);
+    } catch (e) {
+      message = (e as Error).message;
+    }
+    for (const bit of [
+      "rules is not supported", "d1_databases is not supported", "services is not supported", "made_up is not supported",
+      "account_id names another account", "main must be a path inside the repo", "assets.directory must be a path inside the repo",
+      "durable_objects SA binds another Worker's class", "workflow w binds another Worker's Workflow", "vars.ARTYFACT_INGEST_TOKEN is set by the platform",
+    ]) expect(message).toContain(bit);
+    expect(() => validateRepoConfig("wrangler.toml", 'main = "x"', { accountId: ACCOUNT })).toThrow(/wrangler.json or wrangler.jsonc only/);
+    expect(() => spec("{ nope")).toThrow(/not valid JSON/);
+  });
+
+  it("parses JSONC comments and trailing commas without touching strings", () => {
+    expect(parseJsonc('{ "a": "x // y /* z */", /* c */ "b": [1, 2,], // d\n }')).toEqual({ a: "x // y /* z */", b: [1, 2] });
+    expect(parseJsonc('{ "q": "say \\"hi\\" // ok" }')).toEqual({ q: 'say "hi" // ok' });
   });
 });
 
@@ -82,7 +195,7 @@ describe("report", () => {
 
 // ---------------------------------------------------------------- runPipeline with fakes
 
-function harness(opts: { failAt?: string; throwPlain?: boolean; reportStatus?: number } = {}) {
+function harness(opts: { failAt?: string; throwPlain?: boolean; reportStatus?: number; files?: Record<string, string> } = {}) {
   const stepNames: string[] = [];
   const step: DoStep = async (name, fn) => (stepNames.push(name), fn());
   const ran: PlannedStep[] = [];
@@ -104,7 +217,9 @@ function harness(opts: { failAt?: string; throwPlain?: boolean; reportStatus?: n
     reports.push(JSON.parse(init.body) as BuildReport);
     return { ok: (opts.reportStatus ?? 200) < 300, status: opts.reportStatus ?? 200, text: async () => "" };
   };
-  const input = { instanceId: "inst-1", step, ci, fetch: fetchFn, reportToken: "tok", platformUrl: PLATFORM, workersSubdomain: "dawka", accountId: "acc" };
+  const files = opts.files ?? { "wrangler.jsonc": REPO_CONFIG };
+  const readFile = async (path: string) => files[path] ?? null;
+  const input = { instanceId: "inst-1", step, ci, fetch: fetchFn, readFile, reportToken: "tok", platformUrl: PLATFORM, workersSubdomain: "dawka", accountId: ACCOUNT };
   return { stepNames, ran, reports, input };
 }
 
@@ -112,13 +227,16 @@ describe("runPipeline", () => {
   it("reports running, runs every runner chained, then reports passed with the workers.dev URL", async () => {
     const h = harness();
     const out = await runPipeline({ ...h.input, params: params() });
-    expect(h.ran.map((s) => s.name)).toEqual(["install", "test", "build", "deploy"]);
+    expect(h.ran.map((s) => s.name)).toEqual(["install", "test", "build", "bundle", "deploy"]);
     expect(h.reports.map((r) => r.status)).toEqual(["running", "passed"]);
     expect(out).toMatchObject({ status: "passed", url: "https://keep-in-touch-app-r1.dawka.workers.dev", buildId: COMMIT, externalId: "inst-1" });
     expect(out.logsUrl).toBe("https://dash.cloudflare.com/acc/workers/workflows/artyfact-ci/instance/inst-1");
-    expect(out.steps!.map((s) => [s.name, s.status])).toEqual([["install", "passed"], ["test", "passed"], ["build", "passed"], ["deploy", "passed"]]);
-    // Each report is a durable step of its own.
-    expect(h.stepNames).toEqual(expect.arrayContaining(["report running", "report passed"]));
+    expect(out.steps!.map((s) => [s.name, s.status])).toEqual([
+      ["config", "passed"], ["install", "passed"], ["test", "passed"], ["build", "passed"], ["bundle", "passed"], ["deploy", "passed"],
+    ]);
+    // Each report, the config read and the nonce are durable steps of their own.
+    expect(h.stepNames).toEqual(expect.arrayContaining(["report running", "read wrangler config", "bundle nonce", "report passed"]));
+    expect(JSON.stringify(h.reports)).not.toContain(INGEST);
     expect(h.ran.find((s) => s.name === "deploy")!.command).toContain(`--var 'BUILD_ID:${COMMIT}'`);
   });
 
@@ -129,14 +247,28 @@ describe("runPipeline", () => {
     const last = h.reports.at(-1)!;
     expect(last).toMatchObject({ status: "failed", error: expect.stringContaining("exit code 1"), externalId: "inst-1" });
     expect(last.url).toBeUndefined();
-    expect(last.steps!.map((s) => [s.name, s.status])).toEqual([["install", "passed"], ["test", "failed"]]);
+    expect(last.steps!.map((s) => [s.name, s.status])).toEqual([["config", "passed"], ["install", "passed"], ["test", "failed"]]);
   });
 
   it("an infrastructure error reports error", async () => {
     const h = harness({ failAt: "install", throwPlain: true });
     await expect(runPipeline({ ...h.input, params: params() })).rejects.toThrow(/sandbox unavailable/);
     expect(h.reports.map((r) => r.status)).toEqual(["running", "error"]);
-    expect(h.reports[1]!.steps).toEqual([{ name: "install", status: "error" }]);
+    expect(h.reports[1]!.steps).toEqual([{ name: "config", status: "passed" }, { name: "install", status: "error" }]);
+  });
+
+  it("a repo config with build.command fails the build at the config step without running anything", async () => {
+    const h = harness({ files: { "wrangler.json": JSON.stringify({ main: "src/index.ts", compatibility_date: "2026-10-12", build: { command: "curl x | sh" } }) } });
+    await expect(runPipeline({ ...h.input, params: params() })).rejects.toThrow(/build.command is set/);
+    expect(h.ran).toEqual([]);
+    expect(h.reports.at(-1)).toMatchObject({ status: "failed", steps: [{ name: "config", status: "failed" }], error: expect.stringContaining("build.command") });
+  });
+
+  it("a commit without a Wrangler config fails at the config step", async () => {
+    const h = harness({ files: {} });
+    await expect(runPipeline({ ...h.input, params: params() })).rejects.toThrow(/no wrangler.json/);
+    expect(h.ran).toEqual([]);
+    expect(h.reports.at(-1)).toMatchObject({ status: "failed", steps: [{ name: "config", status: "failed" }] });
   });
 
   it("invalid params report error without running anything", async () => {

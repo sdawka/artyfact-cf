@@ -18,10 +18,12 @@ Deployed app vars come from `wrangler deploy --var`:
 
 - `BUILD_ID` is the commit.
 - `ARTYFACT_PLATFORM_URL`, `ARTYFACT_SYSTEM_ID`, `ARTYFACT_THING_ID` and `ARTYFACT_ARTIFACT_ID` identify the app.
-- `ARTYFACT_DEPLOYMENT_ID` and `ARTYFACT_INGEST_TOKEN` identify the deployment for Phenome events.
+- `ARTYFACT_DEPLOYMENT_ID` identifies the deployment for Phenome events.
 - `ARTYFACT_REALIZATION_ID` is set on previews and `ARTYFACT_SYSTEM_COMMIT` on production.
 
-Each deployment gets its own ingest token. The platform stores only its SHA-256. The token travels to CI in the Workflow params and ends up as a plain var on the app Worker.
+`ARTYFACT_INGEST_TOKEN` is a credential, so it is never a `--var`. The deploy step uploads it as a Worker secret with `--secrets-file`. Each deployment gets its own ingest token, and the platform stores only its SHA-256. The token travels to CI in the Workflow params. The CI Worker treats the names in `SECRET_VARS` (`apps/ci/src/deploy-config.ts`) as secrets.
+
+Build commands come from the app template's `scaffold.yaml` and must be in `ALLOWED_COMMANDS` (`worker/deployments.ts`): `npm install` or `npm ci`, `npm test` or `npm run test`, `npm run build`. Anything else leaves an `error` build and starts nothing. The request body and the app repo never supply commands.
 
 ## Records
 
@@ -45,9 +47,10 @@ Candidates carry `build`, the latest build of their commit.
 
 | Route | Auth |
 | --- | --- |
-| `POST`, `GET /api/systems/:id/realizations/:rid/builds` | `CI_REPORT_TOKEN`, admin, or the realization secret. An agent may report previews only. |
+| `GET /api/systems/:id/realizations/:rid/builds` | public |
+| `POST /api/systems/:id/realizations/:rid/builds` | `CI_REPORT_TOKEN`, admin, or the realization secret. An agent may report previews only, for a commit that is one of the realization's candidates or its fork head. |
 | `GET /api/systems/:id/builds?commit=&kind=&realization=` | public |
-| `POST /api/systems/:id/builds` (production reports) | `CI_REPORT_TOKEN` or admin |
+| `POST /api/systems/:id/builds` (production reports) | `CI_REPORT_TOKEN` or admin. A `passed` report without `deploymentId` must be for the head's app commit or a commit with a pending production deployment; otherwise `409 not-promoted`. |
 | `GET /api/systems/:id/deployments` → `{production, history}` | public |
 | `POST /api/systems/:id/deployments` `{kind?, commit?, realization?, url?}` | admin. It records a deployment made outside CI as `live` and returns `ingestToken` once. |
 | `POST /api/systems/:id/deployments/:did/ingest-token` | admin. It rotates the token; the old one stops working. |
@@ -62,3 +65,14 @@ Candidates carry `build`, the latest build of their commit.
 - `PUBLIC_URL` is where CI posts its reports.
 
 **CI Worker** (`apps/ci`): deploy steps, secrets and the R2 bucket are in [`apps/ci/README.md`](../apps/ci/README.md). Deploy `artyfact-ci` before redeploying the platform, so the `CI` binding has a target.
+
+## Trust model
+
+App repos are untrusted. Agents write them, and the install and test steps run their code. CI keeps that code away from every credential, so a hostile commit can at most break or misuse its own app Worker. **Preview Workers are the blast radius**, plus the production app Worker once a commit is promoted.
+
+- **One narrow credential, one step.** The CI Worker's `CF_TOKEN` has only `Workers Scripts: Edit` on this account. It is never the platform admin token or the Artifacts token (`CF_API_TOKEN`). Only the deploy step receives it. Install, test, build and bundle get no Cloudflare credentials, no `ARTYFACT_INGEST_TOKEN` and no platform secrets.
+- **Nothing from the repo runs with the token.** The deploy step runs a Wrangler pinned in the CI image (`/opt/artyfact/bin/wrangler`, version in `apps/ci/Dockerfile`) by absolute path, under `env -i` with a system-only `PATH`, no `NODE_OPTIONS` / `NPM_CONFIG_*`, and no `.env`. It uploads a bundle made by a credential-free step, so esbuild never runs where it could read the token.
+- **Platform-written Wrangler config.** The CI Worker reads the repo's `wrangler.json(c)` at the commit and keeps only allowlisted, self-contained keys. `build.command` fails the build with an explicit reason. So do module rules, aliases, containers, routes, service bindings, other Workers' Durable Objects or Workflows, and bindings to existing account resources (D1, KV, R2, Queues).
+- **No reads outside the repo.** The deploy step refuses symlinks in the bundle or assets, and an assets directory resolving outside the workspace.
+- **Allowlisted commands.** See above; the CI Worker re-checks them.
+- **Residual risk.** The ingest token is visible in Workflow instance params to account members who can read Workflows.

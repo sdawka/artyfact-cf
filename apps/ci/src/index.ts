@@ -46,6 +46,11 @@ export class ArtyfactCI extends CIWorkflow<CloudflareArtifacts, CiEnv> {
       step: ((name: string, fn: () => Promise<unknown>) => step.do(name, fn as () => Promise<never>)) as DoStep,
       ci: ci as unknown as CiLike,
       fetch: ((url, init) => fetch(url, init)) as FetchLike,
+      readFile: async (path) => {
+        const repo = await this.env.ARTIFACTS.get(params.repo);
+        const blob = await repo.readFile({ ref: params.commit, path });
+        return blob ? blob.text() : null;
+      },
       reportToken: this.env.CI_REPORT_TOKEN, platformUrl: this.env.PLATFORM_URL, workersSubdomain: this.env.WORKERS_SUBDOMAIN,
       accountId: this.env.CLOUDFLARE_ACCOUNT_ID,
     });
