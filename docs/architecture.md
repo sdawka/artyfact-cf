@@ -16,7 +16,8 @@ sequenceDiagram
   W->>A: fork app repo, wait ready, issue write token
   W-->>P: task packet, CLI line, token (once)
   G->>A: clone fork, work, git push
-  A-->>Q: cf.artifacts.repo.pushed
+  G->>W: submit (CLI, primary path)
+  A-->>Q: cf.artifacts.repo.pushed (optional)
   Q->>W: queue handler
   W->>A: read commit and trees, diff against base
   W->>D: record candidate, run hooks, store evaluations
@@ -30,6 +31,8 @@ sequenceDiagram
 **Static Assets and the Worker.** `run_worker_first` is set for `/api/*` only. Every other path serves the single-page app. The SPA polls the API and also listens to `/api/systems/:id/events` over server-sent events. Events are not replayed, so the SPA refetches on every connect.
 
 **Artifacts.** Two repositories hold the example System: the Genome and the app. A realization forks one of them. Reads go through the binding: read a commit, read its tree, read files, and compare tree entry hashes to find changed paths. A `source-map.yaml` in the app maps paths to Genome nodes. A path with no mapping becomes `unmapped:<path>` and its verdict is `unknown`, never a guess.
+
+**Submission paths.** `artyfact submit` pushes the commit to the fork and calls the API. A Queue consumer for `cf.artifacts.repo.pushed` does the same from the event. Artifacts only emits push events for a repository-level subscription, which is not created automatically per fork, so the CLI path is the primary one. Both converge on one candidate per realization and commit.
 
 **Hooks.** Each Criterion lists hooks, and each hook names an engine: manifest, diff, model-rules, system-one or http. A submission runs the hooks of the Evolution's acceptance criteria, of criteria whose subject is a changed node, and of System criteria gated on submission. A hook the platform cannot run comes back `not-run` with verdict `unknown`. The http health hook only fetches preview hosts on the allowlist, does not follow redirects and does not echo response bodies.
 

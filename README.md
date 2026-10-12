@@ -14,29 +14,29 @@ Agents work in a loop. The platform hands an agent a task packet cut from the Ge
 
 Hosted demo: https://artyfact-platform.dawka.workers.dev. Until a System is imported it shows a fixture-mode banner and the bundled example. Deployment steps are in [docs/deploy.md](docs/deploy.md).
 
-![Map on screen.people, Phenome layer](docs/images/map-screen-people-phenome.png)
+![Map with two candidates overlapping on operation.contact.save](docs/images/map-candidates.png)
 
-The Map shows `screen.people`, its parts, and the Externals and operations it touches. The layer switch swaps Genome, Proteome and Phenome over the same nodes. With candidates on, a bracket halo marks nodes a candidate touches and a double bracket marks nodes two candidates share.
+The Map with candidates switched on. A bracket halo marks a node a candidate touches. A double bracket and an "overlap" chip mark a node that two candidates share. The layer switch swaps Genome, Proteome and Phenome over the same nodes.
 
-![Work board](docs/images/work-board.png)
+![Work, two realizations and the soft-semantic conflict](docs/images/work-conflict.png)
 
-The Work board groups Evolutions by state. Starting work on an Evolution forks the repository, issues a token and shows the task packet and the CLI line. When two candidates overlap in meaning, the conflict shows here even if their files do not overlap.
+The Work board groups Evolutions by state. Each realization shows its agent, fork, last checkpoint and the nodes its files map to. The soft-semantic chip is the conflict between the two agents. Their files do not overlap.
 
-![Amendment review, deliberate choice](docs/images/amendment-deliberate.png)
+![Amendment review, a rules violation](docs/images/amendment-violation.png)
 
-![Amendment review, hard rule violation](docs/images/amendment-hard.png)
+![Amendment review, a deliberate choice](docs/images/amendment-deliberate.png)
 
-The amendment review separates a deliberate non-standard choice from a rule violation. The two screenshots come from the fixture page described below. The screenshots above were taken in fixture mode, so they show no live candidates yet. See `docs/images/` and the notes in `docs/video-script.md` for what is retaken live.
+The amendment review shows the semantic delta, the Readiness findings that were added and resolved, and System One's signals. The first amendment adds a recipient list to a draft and is blocked by a rule. The second rewords a commitment and is a deliberate choice. These shots were taken from a local run with the fake System One provider, and the panel says so on the page.
 
-More views: [Journeys](docs/images/journeys-connect.png), [Theory](docs/images/theory.png), [Overview](docs/images/overview.png).
+More views: [Map on screen.people, Phenome layer](docs/images/map-screen-people-phenome.png), [Journeys](docs/images/journeys-connect.png), [Theory](docs/images/theory.png), [Overview](docs/images/overview.png).
 
 ## How Cloudflare is used
 
 One Worker serves everything. Static Assets serve the React single-page app. A Hono app handles `/api/*`, and the Worker also exports the queue handler and the Durable Object class.
 
-**Artifacts.** The Genome and the app live in Artifacts repositories in one namespace. The Worker reads them through the `ARTIFACTS` binding: it reads commits and trees, walks them, and loads the Genome at an exact commit. No Git library runs in the Worker. Starting a realization forks the app repository (or the Genome repository for an amendment), waits for the fork to be ready, and issues a write token that expires after six hours. The token is returned once, in the response to the start-work call. Agents clone and push with ordinary Git over HTTPS.
+**Artifacts.** The Genome and the app live in Artifacts repositories in one namespace. The Worker reads them through the `ARTIFACTS` binding: it reads commits and trees, walks them, and loads the Genome at an exact commit. No Git library runs in the Worker. Starting a realization forks the app repository (or the Genome repository for an amendment), waits for the fork to be ready, and issues a write token that expires after six hours. The token and a per-realization secret are returned once, in the response to the start-work call. Agents clone and push with ordinary Git over HTTPS.
 
-**Push events on Queues.** Artifacts push events (`cf.artifacts.repo.pushed`) arrive on a Queue. The consumer resolves the fork to its realization and submits the new head. The CLI `submit` command does the same over HTTP. Both paths are idempotent on realization and commit, and the event id is recorded so a redelivered event does nothing.
+**Submission and push events on Queues.** The primary path is the CLI `submit` command, which pushes to the fork and then calls the API with the commit. The Worker also has a Queue consumer for Artifacts push events (`cf.artifacts.repo.pushed`). It resolves the fork to its realization and submits the new head. Artifacts emits push events only for a repository-level subscription, and this version does not create one per fork automatically, so the consumer is wired and tested but is a deployed-only convenience. Both paths are idempotent on realization and commit, and a redelivered event does nothing.
 
 **Durable Object with SQLite.** `SystemAuthority` is one Durable Object per System. It stores the head, System commits, Evolutions, realizations, candidates, evaluations and seen events. `promote` runs in one synchronous transaction. It reads the head, compares it with the caller's expected head, checks the promotion gate, writes a new System commit with a hashed manifest, moves the head and rejects sibling candidates. Promotion changes the manifest, not Git history.
 
@@ -71,7 +71,7 @@ flowchart LR
   A1 -->|git push to fork| ART
   A2 -->|git push to fork| ART
   A1 -->|submit| API
-  ART -->|cf.artifacts.repo.pushed| QUE --> Q
+  ART -.->|cf.artifacts.repo.pushed, optional| QUE --> Q
   Q --> Hooks
   API --> Hooks
   Hooks --> S1
@@ -98,9 +98,11 @@ An agent (or its operator) starts work on an Evolution. The platform forks, issu
 
 ## The two moments
 
-**Two agents, different files, one conflict.** Two agents work on different Evolutions. Their changed files do not overlap. Both touch nodes that serve the same journey and policy, and the platform reports a soft-semantic conflict between the candidates. The reviewer sees it on the Work board before promotion. Details and commands: `TODO(runbook)`.
+**Two agents, different files, one conflict.** Agent A edits the add-contact dialog's save handler. Agent B edits the contacts routes. No file is shared. Through the app's source map both files reach the node `operation.contact.save`, and the platform reports a soft-semantic conflict between the candidates. The overlap is derived from the Genome and the source map, so it does not depend on a model. System One is also asked whether the changes interfere. With the fake provider it answers "low", and the video says so. The reviewer sees the conflict on the Work board and the Map before promotion. Promoting A and then trying B returns 409 `stale-base`, and promoting B on the current head is refused because it was built on the old one.
 
-**A deliberate choice is not a rule violation.** An agent amends the Genome. One amendment makes a coherent product decision that no accepted rule forbids. Another contradicts a stated commitment. The review panel shows the first as a deliberate choice, with the model's probabilities as plain numbers, and the second as a flagged violation that blocks acceptance. The admin decides in both cases and records the interpretation. Details and commands: `TODO(runbook)`.
+**A rule violation is not a deliberate choice.** One agent amends the Genome so that a draft message has a list of recipients. The rules engine proves a `topology.recipientArray` violation and shows its derivation. Accepting the amendment returns 409 and the admin rejects it with a reason. A second agent rewords a commitment. No rule fires, the review panel shows System One's signals, and the admin accepts it with an interpretation. The commit records which provider backed the evidence, here `fake`. The fake provider labels both amendments "deliberate choice", including the violating one, and the rules engine and the gate do not rely on it.
+
+The exact commands and output for both are in [docs/demo-runbook.md](docs/demo-runbook.md) (steps 7 to 10).
 
 ## Run it locally
 
@@ -132,7 +134,9 @@ npm run dev:amendment -w @artyfact/platform
 
 Admin routes (import, accept, reject, promote) need `ADMIN_TOKEN`. The preview health probe reaches only `*.workers.dev`, `*.pages.dev`, hosts in `PREVIEW_HOST_ALLOWLIST`, or localhost when `ALLOW_LOCAL_PREVIEW=1`.
 
-The full loop against real Artifacts, with two agents and a promotion, is in `docs/demo-runbook.md` (`TODO(runbook)`: link when it lands). Hosted deployment: [docs/deploy.md](docs/deploy.md).
+**Importing a project.** One command takes a cloned project from its `system.yaml` to an imported System: `npx artyfact init`. It reads the System file, derives repository names from the System id (`<slug>.genome` and `<slug>.app`), checks that Wrangler and `cf` are logged in to the same account, and creates the namespace and repositories if they are missing. It pushes the Genome and the app with short-lived write tokens that never appear on a command line, syncs the shared `platform` repository that holds the templates and Rule Packs, and calls the import API with `ARTYFACT_ADMIN_TOKEN`. It is safe to run twice. A repository that already has history is pushed to only if the push is a fast-forward. `--from-template <template.thing.id@version>` seeds a new app repository from a scaffold held in the namespace. The older `scripts/bootstrap.sh` becomes a thin wrapper over it. `TODO(init-transcript)`
+
+The full loop against real Artifacts, with two agents, a conflict, a promotion and two Genome amendments, is in [docs/demo-runbook.md](docs/demo-runbook.md). It needs a Cloudflare login and an `ADMIN_TOKEN`. Hosted deployment: [docs/deploy.md](docs/deploy.md).
 
 ## Repository layout
 
@@ -157,7 +161,7 @@ The full loop against real Artifacts, with two agents and a promotion, is in `do
 - Platform-hosted agents. Agents run on the user's machine.
 - Replay of server-sent events after a disconnect. The UI polls and refetches on reconnect.
 - Composing more than one app candidate or Genome candidate in one promotion. The API returns `invalid-state`.
-- Authentication beyond one admin bearer token. Start work, checkpoint, submit and sync are unauthenticated in this version.
+- Authentication beyond one admin bearer token and per-realization secrets. Start work needs the admin bearer. Checkpoint, submit, sync, status and packet need the per-realization secret returned once by start work, or the admin bearer. The platform keeps only the secret's hash, and rejecting a realization revokes it. There are no user accounts.
 
 ## Licence
 

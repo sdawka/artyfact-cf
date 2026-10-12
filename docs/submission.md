@@ -28,13 +28,13 @@ Genome amendments get a review of their own. An agent can propose a change to th
 
 The platform is strict about what counts as evidence. A verdict is pass, fail, unknown, stale or waived. Only pass is drawn green. Missing evidence is unknown and blocks promotion. The model is asked only for judgment, never for a pass without confidence. Everything else is deterministic code and a Datalog rule engine that records its derivations.
 
-Everything runs on Cloudflare. One Worker serves the API and the single-page app through Static Assets. Artifacts hold the Genome and the app. The Worker reads them through the binding, forks them and issues tokens. Push events arrive on a Queue. A Durable Object with SQLite holds the System state and does the promotion swap. Evaluations and their evidence are stored in the Durable Object's SQLite.
+Everything runs on Cloudflare. One Worker serves the API and the single-page app through Static Assets. Artifacts hold the Genome and the app. The Worker reads them through the binding, forks them and issues tokens. A Queue consumer handles Artifacts push events, and the CLI submit command is the primary path. A Durable Object with SQLite holds the System state and does the promotion swap. Evaluations and their evidence are stored in the Durable Object's SQLite.
 
 Not done on purpose: platform-hosted agents, a reasoning-model evaluator beyond System One, paid runs and a Git-parity suite.
 
 ## How Workers and Artifacts are used
 - Workers: one Worker with Static Assets for the SPA, a Hono API, a Queue consumer and the `SystemAuthority` Durable Object with SQLite.
-- Artifacts: namespace with a Genome repository and an app repository. Binding reads of commits and trees, forks per realization, scoped write tokens, and `cf.artifacts.repo.pushed` events delivered through a Queue.
+- Artifacts: namespace with a Genome repository and an app repository. Binding reads of commits and trees, forks per realization, scoped write tokens, and a Queue consumer for `cf.artifacts.repo.pushed` events alongside the CLI submit path.
 - Concurrency: several agents fork, work and push at once. The platform records each candidate, detects file and semantic overlap and resolves them through a compare-and-swap promotion.
 
 ## Team
