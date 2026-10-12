@@ -23,15 +23,18 @@ export interface DecisionProps {
   blocked: boolean;
   outcome: DecisionOutcome | null;
   onOutcome(o: DecisionOutcome): void;
+  /** The interpretation starts from an editor commit's "why"; say so until it is edited. */
+  prefilledFromWhy?: boolean;
 }
 
 /** Accept (interpretation required) or reject (reason required). Both need the platform API. */
-export function Decision({ evolutionId, realization, candidateId, commit, initialInterpretation, focusId, blocked, outcome, onOutcome }: DecisionProps) {
+export function Decision({ evolutionId, realization, candidateId, commit, initialInterpretation, focusId, blocked, outcome, onOutcome, prefilledFromWhy = false }: DecisionProps) {
   const m = useModel();
   const href = useKeepParams();
   const accept = useAcceptAmendment();
   const reject = useRejectAmendment();
   const [interpretation, setInterpretation] = useState(initialInterpretation);
+  const [edited, setEdited] = useState(false);
   const [reason, setReason] = useState("");
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [rejectError, setRejectError] = useState<string | null>(null);
@@ -82,8 +85,9 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
           rows={4}
           value={interpretation}
           disabled={!!outcome}
-          onChange={(e) => setInterpretation(e.target.value)}
+          onChange={(e) => { setEdited(true); setInterpretation(e.target.value); }}
         />
+        {prefilledFromWhy && !edited && !outcome && <p className={styles.muted}>Rationale pending: pre-filled from the editor commit's why. Edit it to confirm.</p>}
         {acceptError && <p className={styles.error} role="alert">{acceptError}</p>}
       </div>
       <div className={styles.actions}>
