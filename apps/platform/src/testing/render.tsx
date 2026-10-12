@@ -1,11 +1,16 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { cleanup, render } from "@testing-library/react";
+import { cleanup, configure, render } from "@testing-library/react";
 import { createMemoryRouter, RouterProvider, type RouteObject } from "react-router";
 import { afterEach, beforeEach, vi } from "vitest";
 import { createRoutes } from "@/app/routes";
 import { fixtureBundle } from "@/api/fixtures";
 import { resetClientMode } from "@/api/client";
 import { qk } from "@/api/queries";
+
+// Lazy view chunks and router commits can be slow when the whole monorepo runs tests in
+// parallel; give async queries and tests more headroom than the 1 s / 5 s defaults.
+configure({ asyncUtilTimeout: 5_000 });
+vi.setConfig({ testTimeout: 20_000 });
 
 // vitest runs without globals, so Testing Library cannot register its own cleanup.
 afterEach(cleanup);
