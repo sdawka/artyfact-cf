@@ -10,8 +10,8 @@ export interface MapNodeData extends Record<string, unknown> {
   candidates: string[];
   /** Dimmed while another node is hovered. */
   dim: boolean;
-  /** Make this node the Map scope (double-click / "Open"). */
-  onOpen: (id: string) => void;
+  /** Open this node on the Map (double-click / "inside ›"); `viaKeyboard` moves focus to the new frame. */
+  onOpen: (id: string, viaKeyboard?: boolean) => void;
 }
 
 export interface BoundaryData extends Record<string, unknown> {

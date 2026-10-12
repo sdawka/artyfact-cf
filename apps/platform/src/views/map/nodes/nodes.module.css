@@ -26,8 +26,10 @@
   background: color-mix(in oklch, var(--color-surface-primary) 60%, transparent);
   border-color: var(--color-border);
 }
-[data-dim] { opacity: 0.35; }
-[data-ring] { border: 2px solid var(--color-brand-primary); }
+.node[data-dim],
+.group[data-dim] { opacity: 0.35; }
+.node[data-ring],
+.group[data-ring] { border: 2px solid var(--color-brand-primary); }
 
 .title {
   display: flex;

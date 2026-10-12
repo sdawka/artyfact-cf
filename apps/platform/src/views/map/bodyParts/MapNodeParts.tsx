@@ -1,5 +1,5 @@
 /**
- * Shared pieces for the Map slice's What-tab bodies (Screen, Component, Affordance). Registers nothing.
+ * Shared pieces for the Map slice's What-tab bodies (`inspector/bodies/{Screen,Component,Affordance}Body.tsx`). Kept out of `bodies/` because that folder is imported eagerly as body registrations.
  */
 import type { ReactNode } from "react";
 import { NodeChip } from "@/components/NodeChip/NodeChip";

@@ -1,3 +1,4 @@
+import type { EvolutionsResponse } from "../../../../shared/api";
 import type { ModelIndex } from "@/model/index";
 import type { Rollup } from "@/model/status";
 import type { MapGraph } from "../useMapGraph";
@@ -37,4 +38,11 @@ export function candidateHalos(index: ModelIndex, graph: MapGraph, touches: Read
     for (const id of hit) (out.get(id) ?? out.set(id, []).get(id)!).push(candidate);
   }
   return out;
+}
+
+/** Realizations of evolutions affecting `id` (same rule as `useRealizationsTouching`), for accessible names. */
+export function realizationCount(board: EvolutionsResponse | undefined, id: string): number {
+  if (!board) return 0;
+  const evolutions = new Set(board.evolutions.filter((e) => e.affectedNodes.includes(id)).map((e) => e.id));
+  return board.realizations.filter((r) => evolutions.has(r.evolution)).length;
 }

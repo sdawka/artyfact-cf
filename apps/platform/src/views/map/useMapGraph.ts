@@ -94,6 +94,29 @@ export function mapScopeFor(index: ModelIndex, id: string | null | undefined): s
   }
 }
 
+/**
+ * Where `id` sits on the Map: itself for the System, things, nodes and Externals; a criterion's
+ * subject; a step's screen. `null` for objects with no place on the Map (requirements, journeys,
+ * purposes, claims, hooks, ...), whose focus must not move the Map.
+ */
+export function mapLocationFor(index: ModelIndex, id: string | null | undefined): string | null {
+  const e = id ? index.byId(id) : undefined;
+  if (!e) return null;
+  switch (e.type) {
+    case "system":
+    case "thing":
+    case "node":
+    case "external":
+      return e.id;
+    case "criterion":
+      return mapLocationFor(index, (e.item as Criterion).subjectId);
+    case "step":
+      return mapLocationFor(index, (e.item as JourneyStep).screen);
+    default:
+      return null;
+  }
+}
+
 /** Node ids named by findings (criterion subjects resolve to the criterion's subject). */
 export function findingSubjectIds(index: ModelIndex, findings: readonly Pick<Finding, "subject">[]): Set<string> {
   const out = new Set<string>();
@@ -165,7 +188,9 @@ export function buildMapGraph(
     return true;
   };
 
-  const allLinks = index.entries.flatMap((e) => (e.type === "node" || e.type === "external" ? index.crossLinks(e.id, "out") : []));
+  // Every link once: `crossLinks(id, "out")` is keyed by the normalised source, which may be any entry
+  // (a `direction: "in"` link can point from a thing or the System).
+  const allLinks = index.entries.flatMap((e) => index.crossLinks(e.id, "out"));
   const outsidePending: typeof allLinks = [];
   for (const l of allLinks) {
     if ((l.rel as string) === "contains" || hiddenLinks.has(l.rel)) continue;
@@ -201,12 +226,18 @@ export function buildMapGraph(
   return { scope: scopeId, nodes: [...nodes.values()], edges, ids: new Set(nodes.keys()) };
 }
 
-/** Graph for the current model, readiness findings and filters; memoised per (scope, filters). */
-export function useMapGraph(scope: string, filters: MapFilterState): MapGraph {
+/** Subjects of the current readiness findings (API readiness, else the bundle's); one source for filter and count. */
+export function useFindingSubjects(): Set<string> {
   const { index, bundle } = useModel();
   const { data: readiness } = useReadiness();
   const findings = (readiness ?? bundle.readiness)?.modelReadiness?.findings;
-  const subjects = useMemo(() => findingSubjectIds(index, findings ?? []), [index, findings]);
+  return useMemo(() => findingSubjectIds(index, findings ?? []), [index, findings]);
+}
+
+/** Graph for the current model, readiness findings and filters; memoised per (scope, filters, findings). */
+export function useMapGraph(scope: string, filters: MapFilterState): MapGraph {
+  const { index } = useModel();
+  const subjects = useFindingSubjects();
   return useMemo(() => buildMapGraph(index, scope, filters, subjects), [index, scope, filters, subjects]);
 }
 

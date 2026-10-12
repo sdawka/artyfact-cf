@@ -32,7 +32,7 @@ export function SubjectNode({ data, selected }: NodeProps<SubjectFlowNode>) {
             className={`nodrag nopan u-brackets ${styles.open}`}
             onClick={(e) => {
               e.stopPropagation();
-              onOpen(node.id);
+              onOpen(node.id, e.detail === 0); // detail 0: activated from the keyboard
             }}
             aria-label={`Open ${node.name} (${node.childCount} inside)`}
           >

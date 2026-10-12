@@ -1,5 +1,5 @@
 import type { OntologyNode } from "@/model/types";
-import { Field, ListField, NodeBodyFrame } from "./MapNodeParts";
+import { Field, ListField, NodeBodyFrame } from "@/views/map/bodyParts/MapNodeParts";
 import { registerBody, type BodyProps } from "./registry";
 
 /** Screen: route, roles and states, then the components inside. */

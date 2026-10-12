@@ -9,8 +9,10 @@ import {
 import { useCallback, useEffect, useMemo, useState, type FocusEvent, type KeyboardEvent } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs/Breadcrumbs";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
-import { absoluteBoxes, type LayoutRequest, type LayoutResult } from "@/graph/elk";
+import { absoluteBoxes, requestKey, type LayoutRequest, type LayoutResult } from "@/graph/elk";
 import { useElkLayout } from "@/graph/useElkLayout";
+import { isTyping } from "@/app/Shell";
+import { useEvolutions } from "@/api/queries";
 import { kindInfo } from "@/model/kinds";
 import type { ModelIndex } from "@/model/index";
 import { useModel } from "@/model/useModel";
@@ -23,9 +25,19 @@ import { ExternalNode } from "./nodes/ExternalNode";
 import { GroupNode } from "./nodes/GroupNode";
 import { SubjectNode } from "./nodes/SubjectNode";
 import type { CrossLinkFlowEdge, MapFlowNode, MapNodeData } from "./nodes/types";
-import { candidateHalos } from "./overlays/overlayData";
+import { candidateHalos, phenomeCounters, realizationCount } from "./overlays/overlayData";
 import { useCandidateTouches } from "./overlays/useCandidateTouches";
-import { DEFAULT_FILTERS, findingSubjectIds, layoutReversed, mapLayoutRequest, mapScopeFor, useMapGraph, type MapFilterState, type MapGraph } from "./useMapGraph";
+import {
+  DEFAULT_FILTERS,
+  layoutReversed,
+  mapLayoutRequest,
+  mapLocationFor,
+  mapScopeFor,
+  useFindingSubjects,
+  useMapGraph,
+  type MapFilterState,
+  type MapGraph,
+} from "./useMapGraph";
 import styles from "./MapView.module.css";
 
 const NODE_TYPES = { subject: SubjectNode, external: ExternalNode, scope: GroupNode, boundary: BoundaryNode };
@@ -33,22 +45,30 @@ const EDGE_TYPES = { crossLink: CrossLinkEdge };
 const BOUNDARY_ID = "__boundary";
 const FIT = { padding: 0.12, maxZoom: 1.1 };
 
-const isTyping = (t: EventTarget | null) =>
-  t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
 
 function flowNodes(
   graph: MapGraph,
   layout: LayoutResult,
   request: LayoutRequest,
-  extra: { layer: Layer; focusId: string | null; halos: Map<string, string[]>; lit: Set<string> | null; onOpen: (id: string) => void },
+  extra: {
+    layer: Layer;
+    focusId: string | null;
+    halos: Map<string, string[]>;
+    lit: Set<string> | null;
+    onOpen: MapNodeData["onOpen"];
+    /** Overlay state for the node's accessible name (counters, realizations, candidates). */
+    describe: (id: string) => string;
+  },
 ): MapFlowNode[] {
   const out: MapFlowNode[] = [];
   const abs = absoluteBoxes(layout, request);
-  const externals = graph.nodes.filter((n) => n.role === "external");
-  const internals = graph.nodes.filter((n) => n.role === "scope" || n.role === "outside");
+  // Only nodes the layout placed (a stale layout must never crash the view).
+  const placed = (role: (r: string) => boolean) => graph.nodes.filter((n) => role(n.role) && abs[n.id]).map((n) => abs[n.id]!);
+  const externals = placed((r) => r === "external");
+  const internals = placed((r) => r === "scope" || r === "outside");
   if (externals.length && internals.length) {
-    const right = Math.max(...externals.map((n) => abs[n.id]!.x + abs[n.id]!.width));
-    const left = Math.min(...internals.map((n) => abs[n.id]!.x));
+    const right = Math.max(...externals.map((b) => b.x + b.width));
+    const left = Math.min(...internals.map((b) => b.x));
     out.push({
       id: BOUNDARY_ID,
       type: "boundary",
@@ -85,7 +105,14 @@ function flowNodes(
         selected: n.id === extra.focusId,
         draggable: false,
         connectable: false,
-        ariaLabel: `${info.label} ${n.name}${n.role === "scope" ? ", current scope" : n.role === "outside" ? ", outside this scope" : ""}`,
+        ariaLabel: [
+          `${info.label} ${n.name}`,
+          n.role === "scope" ? "current scope" : n.role === "outside" ? "outside this scope" : "",
+          n.childCount ? `${n.childCount} inside` : "",
+          extra.describe(n.id),
+        ]
+          .filter(Boolean)
+          .join(", "),
       };
       if (role === "scope") out.push({ ...base, type: "scope", zIndex: 0 });
       else if (role === "external") out.push({ ...base, type: "external" });
@@ -142,7 +169,7 @@ function modelKinds(index: ModelIndex) {
   const links = new Set<string>();
   for (const e of index.entries) {
     if (e.type === "thing" || e.type === "node") kinds.add(e.kind);
-    if (e.type === "node" || e.type === "external") for (const l of index.crossLinks(e.id, "out")) if ((l.rel as string) !== "contains") links.add(l.rel);
+    for (const l of index.crossLinks(e.id, "out")) if ((l.rel as string) !== "contains") links.add(l.rel);
   }
   return { kinds: [...kinds].sort(), links: [...links].sort() };
 }
@@ -168,22 +195,25 @@ function CertaintyLegend() {
 }
 
 export function MapView() {
-  const { index, bundle, path, parent } = useModel();
+  const { index, path, parent, rollup } = useModel();
   const { focusId, setFocus, layer, candidates } = useSelection();
   const root = index.model.system.id;
   const [scope, setScope] = useState(() => mapScopeFor(index, focusId));
   const [filters, setFilters] = useState<MapFilterState>(DEFAULT_FILTERS);
   const graph = useMapGraph(scope, filters);
 
-  // Focus inside the current view keeps the layout; focus elsewhere (palette, tree, breadcrumbs) re-scopes.
+  // Focus on something already on screen keeps the layout. Focus on a Map location elsewhere (palette,
+  // tree, breadcrumbs) re-scopes to it. Objects with no Map location (requirements, journeys, ...) keep the view.
   const [seenFocus, setSeenFocus] = useState(focusId);
   if (focusId !== seenFocus) {
     setSeenFocus(focusId);
-    if (focusId && !graph.ids.has(focusId)) setScope(mapScopeFor(index, focusId));
+    const at = mapLocationFor(index, focusId);
+    if (at && !graph.ids.has(at)) setScope(mapScopeFor(index, at));
   }
 
   const request = useMemo(() => mapLayoutRequest(graph, layer), [graph, layer]);
-  const layoutKey = `${bundle.systemId}@${bundle.revision}:${bundle.genomeCommit}|${graph.scope}|${JSON.stringify(filters)}|${layer}`;
+  // Derived from the request itself, so any change to the graph's shape gets a fresh layout.
+  const layoutKey = useMemo(() => requestKey(request), [request]);
   const { layout, pending, error } = useElkLayout(request, layoutKey);
 
   const touches = useCandidateTouches(candidates);
@@ -197,12 +227,18 @@ export function MapView() {
   }
   const lit = useMemo(() => neighbourhood(graph, hovered), [graph, hovered]);
 
+  // After a keyboard scope change the old control is gone: put keyboard focus on the new scope frame.
+  const [focusFrame, setFocusFrame] = useState<string | null>(null);
+
+  // Containers open as the scope; a leaf or outside node opens its container (never an empty frame).
   const openScope = useCallback(
-    (id: string) => {
+    (id: string, viaKeyboard = false) => {
       const e = index.byId(id);
       if (!e || e.type === "external") return;
-      setScope(id);
+      const next = index.children(id).length ? id : mapScopeFor(index, id);
+      setScope(next);
       setFocus(id);
+      if (viaKeyboard) setFocusFrame(next);
     },
     [index, setFocus],
   );
@@ -212,6 +248,7 @@ export function MapView() {
     const up = parent(graph.scope)?.id ?? root;
     setScope(up);
     setFocus(up);
+    setFocusFrame(up);
   }, [graph.scope, root, parent, setFocus]);
 
   useEffect(() => {
@@ -225,10 +262,38 @@ export function MapView() {
     return () => window.removeEventListener("keydown", onKey);
   }, [goUp]);
 
-  const nodes = useMemo(
-    () => (layout ? flowNodes(graph, layout, request, { layer, focusId, halos, lit, onOpen: openScope }) : []),
-    [graph, layout, request, layer, focusId, halos, lit, openScope],
+  const { data: board } = useEvolutions();
+  const describe = useCallback(
+    (id: string) => {
+      const parts: string[] = [];
+      if (layer === "phenome") parts.push(`evidence ${phenomeCounters(rollup(id)).map((c) => `${c.count} ${c.label}`).join(", ")}`);
+      if (layer === "proteome") {
+        const n = realizationCount(board, id);
+        parts.push(`${n} ${n === 1 ? "realization" : "realizations"}`);
+      }
+      const touched = halos.get(id);
+      if (touched?.length) parts.push(`touched by ${touched.join(" and ")}${touched.length > 1 ? " (overlap)" : ""}`);
+      return parts.join(", ");
+    },
+    [layer, rollup, board, halos],
   );
+
+  const nodes = useMemo(
+    () => (layout ? flowNodes(graph, layout, request, { layer, focusId, halos, lit, onOpen: openScope, describe }) : []),
+    [graph, layout, request, layer, focusId, halos, lit, openScope, describe],
+  );
+
+  useEffect(() => {
+    if (!focusFrame || !nodes.some((n) => n.id === focusFrame)) return;
+    const raf = requestAnimationFrame(() => {
+      const el = document.querySelector<HTMLElement>(`.react-flow__node[data-id="${CSS.escape(focusFrame)}"]`);
+      if (el) {
+        el.focus();
+        setFocusFrame(null);
+      }
+    });
+    return () => cancelAnimationFrame(raf);
+  }, [focusFrame, nodes]);
   // Label chips that would overlap an earlier one are hidden; the hovered node's edges get first pick.
   const labelled = useMemo(() => {
     const shown = new Set<string>();
@@ -272,10 +337,7 @@ export function MapView() {
   );
 
   const { kinds, links } = useMemo(() => modelKinds(index), [index]);
-  const findingCount = useMemo(
-    () => findingSubjectIds(index, bundle.readiness?.modelReadiness?.findings ?? []).size,
-    [index, bundle],
-  );
+  const findingCount = useFindingSubjects().size;
 
   const onNodeClick: NodeMouseHandler<MapFlowNode> = (_, n) => {
     if (n.type !== "boundary" && n.id !== focusId) setFocus(n.id);

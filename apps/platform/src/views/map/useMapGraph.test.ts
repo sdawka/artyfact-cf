@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fixtureBundle } from "@/api/fixtures";
 import { buildIndex } from "@/model/index";
-import { buildMapGraph, certaintyStroke, DEFAULT_FILTERS, findingSubjectIds, mapLayoutRequest, mapScopeFor } from "./useMapGraph";
+import { buildMapGraph, certaintyStroke, DEFAULT_FILTERS, findingSubjectIds, mapLayoutRequest, mapLocationFor, mapScopeFor } from "./useMapGraph";
 
 const index = buildIndex(fixtureBundle());
 const ids = (g: ReturnType<typeof buildMapGraph>, role?: string) =>
@@ -67,6 +67,42 @@ describe("buildMapGraph", () => {
     const g = buildMapGraph(buildIndex(m), "screen.people");
     const e = g.edges.find((x) => x.source === "component.ContactCollection" && x.target === "entity.ContactRecord");
     expect(e).toMatchObject({ certainty: "proposed", stroke: "dotted", count: 2 });
+  });
+});
+
+describe("buildMapGraph edge cases", () => {
+  it("falls back to the System for an unknown scope id", () => {
+    const g = buildMapGraph(index, "nope.missing");
+    expect(g.scope).toBe("system.keep-in-touch");
+    expect(g.nodes.find((n) => n.role === "scope")?.id).toBe("system.keep-in-touch");
+  });
+
+  it("ignores links to ids that are not in the model", () => {
+    const m = structuredClone(fixtureBundle().model);
+    m.nodes.find((n) => n.id === "component.SearchInput")!.links.push({ rel: "reads", to: "entity.Missing", direction: "out", certainty: "declared" });
+    const g = buildMapGraph(buildIndex(m), "screen.people");
+    expect(g.ids.has("entity.Missing")).toBe(false);
+    expect(g.edges.some((e) => e.target === "entity.Missing" || e.source === "component.SearchInput")).toBe(false);
+  });
+
+  it("keeps direction-in links whose normalised source is a thing", () => {
+    const m = structuredClone(fixtureBundle().model);
+    m.nodes.find((n) => n.id === "component.SearchInput")!.links.push({ rel: "dependsOn", to: "thing.webapp", direction: "in", certainty: "assumed" });
+    const g = buildMapGraph(buildIndex(m), "screen.people");
+    expect(g.nodes.find((n) => n.id === "thing.webapp")?.role).toBe("outside");
+    expect(g.edges.find((e) => e.source === "thing.webapp" && e.target === "component.SearchInput")).toMatchObject({ type: "dependsOn", stroke: "dashed" });
+  });
+});
+
+describe("mapLocationFor", () => {
+  it("places spatial objects, criteria and steps; other objects have no place", () => {
+    expect(mapLocationFor(index, "screen.people")).toBe("screen.people");
+    expect(mapLocationFor(index, "ext.owner")).toBe("ext.owner");
+    expect(mapLocationFor(index, "C.webapp.contact.storage")).toBe("entity.ContactRecord");
+    expect(mapLocationFor(index, "S.webapp.scope")).toBeNull();
+    expect(mapLocationFor(index, "nope")).toBeNull();
+    const step = index.entries.find((e) => e.type === "step" && (e.item as { screen?: string }).screen);
+    if (step) expect(mapLocationFor(index, step.id)).toBe((step.item as { screen: string }).screen);
   });
 });
 
