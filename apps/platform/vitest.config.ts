@@ -18,6 +18,8 @@ export default defineConfig({
               bindings: {
                 ADMIN_TOKEN: "test-admin-token", ACCOUNT_ID: "test-account",
                 FAKE_S1: "", TYPESAFE_API_KEY: "", OPENROUTER_API_KEY: "", ALLOW_LOCAL_PREVIEW: "", PREVIEW_HOST_ALLOWLIST: "",
+                // CI reports authenticate with this; the CI binding and event subscriptions are injected per test.
+                CI_REPORT_TOKEN: "test-ci-token", CF_API_TOKEN: "", EVENTS_QUEUE_ID: "",
               },
             },
           }),

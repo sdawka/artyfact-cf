@@ -1,6 +1,6 @@
 # @artyfact/cli
 
-`artyfact init|platform-sync|start|checkpoint|submit|status|compose`. Platform URL from `--platform`, else
+`artyfact init|platform-sync|start|checkpoint|submit|build-report|status|compose`. Platform URL from `--platform`, else
 `ARTYFACT_PLATFORM`, else the older `ARTYFACT_URL`. An explicit URL is used as given and never probed. Empty variables
 count as unset, and an empty `--platform` is a usage error. Without one, the CLI asks http://localhost:1337 to 1346
 (Vite takes the next free port when 1337 is busy) and uses the first whose `/api/health` identifies as artyfact. If
@@ -66,3 +66,16 @@ the same patterns as the app scaffold's `.gitignore`. As a backstop, `checkpoint
 `<!-- artyfact:start -->` and `<!-- artyfact:end -->`. The remote must be an Artifacts host
 (`<32-hex>.artifacts.cloudflare.net`); `ARTYFACT_ALLOW_REMOTE_HOST=<host>` opts one other host in for local dev.
 `submit` pushes to the remote recorded in `.artyfact.json`, not to `origin`.
+
+## `build-report`
+
+```sh
+npx artyfact build-report --status passed --url https://<worker>.<subdomain>.workers.dev [--commit <sha>] [--logs-url u]
+npx artyfact build-report --status failed --error "tests failed"
+```
+
+The agent's fallback when platform CI did not build a submit. It posts a preview build for the commit (default `HEAD`)
+to `POST /api/systems/:id/realizations/:rid/builds` with the realization secret, like the other agent commands. A
+`passed` report with `--url` stores the preview on the candidate and re-runs the hooks, so the health check runs
+against it; the command prints the resulting evaluations. Statuses are `queued`, `running`, `passed`, `failed` and
+`error`; URLs must be http(s).

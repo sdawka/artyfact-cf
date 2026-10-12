@@ -15,6 +15,7 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 | Queue consumer | `artyfact-artifacts-events` | `npx wrangler queues create artyfact-artifacts-events` before the first deploy |
 | Artifacts namespace `artyfact` | `platform`, `keep-in-touch.genome`, `keep-in-touch.app` repos | `artyfact init` (runbook step 2), not this doc |
 | Secret `ADMIN_TOKEN` | | `wrangler secret put` |
+| CI Worker `artyfact-ci` (Workflow, Sandbox container, R2 `artyfact-ci-cache`) and secret `CI_REPORT_TOKEN` | optional | [`apps/ci/README.md`](../apps/ci/README.md), see [`ci.md`](ci.md) |
 
 There is no D1 or R2. `FAKE_S1=1` is a plain var because no System One key is set; the UI labels those judgments as fake.
 

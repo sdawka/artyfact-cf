@@ -105,6 +105,7 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
     `Commit your work and run \`npx artyfact submit\` from the workspace (pushes HEAD to ${i.workspace.fork} main and posts the commit).`,
     `Equivalent API call: POST ${i.platformUrl}/api/systems/${i.systemId}/evolutions/${i.evolution.id}/realizations/${i.realizationId}/submit {"commit": "<sha>", "previewUrl": "<optional>"}.`,
     required.length ? `Submit when ${required.join(", ")} are met and tests pass.` : "Submit when the intent is met and tests pass.",
+    ...(i.target === "app" ? [reportPreview(i.platformUrl, i.systemId, i.realizationId)] : []),
   ].join(" ");
 
   const body = {
@@ -192,6 +193,11 @@ export function renderMarkdown(p: TaskPacket): string {
   ].join("\n");
 }
 
+/** "Report a preview": CI builds each submit; the agent reports one only when CI did not. */
+function reportPreview(platformUrl: string, systemId: string, rid: string): string {
+  return `Report a preview: platform CI builds and deploys each submitted commit and reports the preview itself. If no build appears for your submit, deploy one and run \`npx artyfact build-report --status passed --url <preview-url>\` (POST ${platformUrl}/api/systems/${systemId}/realizations/${rid}/builds {"status": "passed", "commit": "<sha>", "url": "<preview-url>"}).`;
+}
+
 export function renderAgentsMd(p: TaskPacket): string {
   const ids = p.acceptanceCriteria.filter((c) => c.gate).map((c) => c.id);
   const cmds = p.commands.length ? p.commands.join("; ") : "npm install; npm run dev; npm test";
@@ -203,6 +209,7 @@ export function renderAgentsMd(p: TaskPacket): string {
     `Commands: ${cmds}.`,
     'Checkpoint often: `npx artyfact checkpoint "<what/why/left>"`.',
     `When acceptance criteria ${ids.join(", ") || "(see TASK_PACKET.md)"} are met and tests pass: \`npx artyfact submit\`.`,
+    ...(p.target === "app" ? ["Report a preview: CI builds each submit. If it reports no build, deploy one and run `npx artyfact build-report --status passed --url <preview-url>`."] : []),
     "Your logs are advisory; the platform verifies.",
     "<!-- artyfact:end -->",
     "",

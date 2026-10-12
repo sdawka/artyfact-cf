@@ -1,11 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
 import type {
-  ArtifactBinding, Candidate, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Realization, RealizationStatus, ScaffoldSource, SseEnvelope, SseEvent,
+  ArtifactBinding, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Realization, RealizationStatus, ScaffoldSource, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
+import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentInput } from "./builds-store";
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
 import { ChangelogStore, type CachedChangelog } from "./changelog-store";
 import { RegistryStore } from "./registry";
@@ -310,6 +311,7 @@ export class SystemAuthority extends DurableObject<Env> {
     return {
       systemId: s.systemId, title: s.title, head: s.head, genomeRepo: s.genomeRepo, appRepo: s.appRepo,
       genomeCommit: s.genomeCommit, phase: s.phase, evolutionCounts: counts, updatedAt: this.kv("updated_at") ?? nowIso(),
+      ...this.buildsSummary(s.appSource.commit), // B3 builds
     };
   }
 
@@ -1260,6 +1262,64 @@ export class SystemAuthority extends DurableObject<Env> {
   publish(event: SseEvent): void {
     this.emit(event);
   }
+
+  // ---------------------------------------------------------------- B3 builds
+  // Builds, deployments and per-fork event subscriptions. Logic lives in BuildsStore; these delegate and emit SSE.
+
+  private buildsStore: BuildsStore | undefined;
+  private builds_(): BuildsStore {
+    return (this.buildsStore ??= new BuildsStore(this.sql));
+  }
+
+  /** Upsert a build row (idempotent; see BuildsStore.upsertBuild); emits `build.updated` when something changed. */
+  upsertBuild(input: BuildUpsert): { build: Build; changed: boolean } {
+    const out = this.builds_().upsertBuild(input);
+    if (out.changed) this.emit({ type: "build.updated", build: out.build });
+    return out;
+  }
+  build(id: string): Build | null { return this.builds_().build(id); }
+  builds(filter: { realization?: string; candidate?: string; commit?: string; kind?: BuildKind; limit?: number } = {}): Build[] { return this.builds_().builds(filter); }
+  latestBuild(commit: string, kind?: BuildKind): BuildSummary | null { return this.builds_().latestBuild(commit, kind); }
+  /** Latest build per candidate id, for attaching `Candidate.build`. */
+  candidateBuilds(cands: { id: string; realization: string; commit: string }[]): Record<string, BuildSummary> {
+    const out: Record<string, BuildSummary> = {};
+    for (const c of cands) {
+      const b = this.builds_().candidateBuild(c.id, c.realization, c.commit);
+      if (b) out[c.id] = b;
+    }
+    return out;
+  }
+
+  private emitDeployments(ds: Deployment[]): void {
+    for (const deployment of ds) this.emit({ type: "deployment.updated", deployment });
+  }
+  createDeployment(input: DeploymentInput): Deployment {
+    const out = this.builds_().createDeployment(input);
+    this.emitDeployments([out.deployment, ...out.superseded]);
+    return out.deployment;
+  }
+  setDeploymentResult(id: string, result: { status?: "live" | "failed"; buildRow?: string; url?: string; buildId?: string }): Deployment | null {
+    const out = this.builds_().setDeploymentResult(id, result);
+    if (out?.changed) this.emitDeployments([out.deployment, ...out.superseded]);
+    return out?.deployment ?? null;
+  }
+  deployment(id: string): Deployment | null { return this.builds_().deployment(id); }
+  deployments(filter: { kind?: BuildKind; limit?: number } = {}): Deployment[] { return this.builds_().deployments(filter); }
+  liveProduction(): Deployment | null { return this.builds_().liveProduction(); }
+  setDeploymentIngestHash(id: string, hash: string): Deployment | null { return this.builds_().setIngestTokenHash(id, hash); }
+  deploymentByIngestHash(hash: string): Deployment | null { return this.builds_().deploymentByIngestHash(hash); }
+  /** `latestBuild`, `deployment` and `deployState` for {@link summary}. */
+  buildsSummary(appCommit: string | null | undefined): BuildsSummaryPart { return this.builds_().summaryPart(appCommit); }
+
+  /** The Artifacts event subscription feeding this realization's fork pushes to the queue (null when none). */
+  realizationSubscription(id: string): string | null {
+    return str(this.one("SELECT subscription_id FROM realizations WHERE id = ?", id)?.subscription_id);
+  }
+  setRealizationSubscription(id: string, subscriptionId: string | null): void {
+    this.sql.exec("UPDATE realizations SET subscription_id = ? WHERE id = ?", subscriptionId, id);
+  }
+
+  // ---------------------------------------------------------------- end B3 builds
 
   // ---------------------------------------------------------------- B2 changelog
 

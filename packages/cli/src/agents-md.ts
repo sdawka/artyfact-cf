@@ -26,6 +26,7 @@ You are realizing ${packet.evolutionId ?? "this evolution"} for ${system}. Read 
 - Commands: ${cmds}
 - Checkpoint often: \`npx artyfact checkpoint "<what/why/left>"\`
 - When acceptance criteria ${ids} are met and tests pass: \`npx artyfact submit\`
+- Report a preview: platform CI builds and deploys each submit. If it reports no build, deploy one yourself and run \`npx artyfact build-report --status passed --url <preview-url>\`
 - Your logs are advisory; the platform verifies.
 `;
 }
