@@ -1,0 +1,5 @@
+.badge { white-space: nowrap; }
+.badge[data-tone="pass"] { color: var(--verdict-pass); background: var(--verdict-pass-bg); }
+.badge[data-tone="fail"] { color: var(--verdict-fail); background: var(--verdict-fail-bg); }
+.badge[data-tone="subtle"] { color: var(--verdict-unknown); background: var(--verdict-neutral-bg); }
+.badge[data-verdict="stale"] { border-style: dashed; }
