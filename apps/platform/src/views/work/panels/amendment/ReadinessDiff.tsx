@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
-import { DerivationOutline, LevelBadge } from "@/inspector/bodies/FindingBody";
+import { Derivation } from "@/components/Derivation/Derivation";
+import { LevelBadge } from "@/inspector/bodies/FindingBody";
 import type { Finding } from "../../../../../shared/api";
 import styles from "../AmendmentReview.module.css";
 import type { ReadinessDiff as Diff } from "./diffReadiness";
@@ -20,7 +21,7 @@ function Row({ finding }: { finding: Finding }) {
         <span aria-hidden="true">{open ? "▾" : "▸"}</span> Derivation
       </button>
       <div id={panel} hidden={!open}>
-        {open && <DerivationOutline tree={finding.derivation} />}
+        {open && <Derivation finding={finding} />}
       </div>
     </li>
   );

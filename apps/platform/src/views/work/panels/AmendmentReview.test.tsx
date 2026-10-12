@@ -159,7 +159,7 @@ describe("AmendmentReview", () => {
     expect(toggle.getAttribute("aria-expanded")).toBe("false");
     await userEvent.click(toggle);
     expect(toggle.getAttribute("aria-expanded")).toBe("true");
-    expect(within(addedList).getByText(/node\(section\.purpose\)/)).toBeTruthy();
+    expect(within(addedList).getByRole("tree", { name: /Derivation of violation/ })).toBeTruthy();
   });
 
   it("requires an interpretation to accept and sends it, then shows the new commit and a map link", async () => {
