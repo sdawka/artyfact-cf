@@ -100,4 +100,13 @@ describe("gate criteria", () => {
     expect(gateCriteria(genome.model, { acceptanceCriteria: ["C.not.in.genome"] }, ref).find((g) => g.id === "C.not.in.genome")).toEqual({ id: "C.not.in.genome", severity: "hard", blocking: true });
     expect(gates.filter((g) => !g.blocking).map((g) => g.id)).toContain("C.people.sorted");
   });
+
+  it("a hard acceptance criterion whose only hook is binding: defined is in the pool but not blocking", () => {
+    const files = Object.entries(genomeFiles).filter(([p]) => p.endsWith(".yaml")).map(([p, t]) =>
+      [p, p === "things/webapp/criteria.yaml" ? t.replace(/(id: hook\.people\.lint[\s\S]*?binding: )bound/, "$1defined") : t] as [string, string]);
+    const g = buildGenome(new Map(files), "g2");
+    const ref = { id: "candidate.x", realizationId: "realization.1.r1", evolutionId: "evolution.1", target: "app" as const, commit: "c", baseCommit: "b", changedPaths: [], changedNodes: [] };
+    const gates = gateCriteria(g.model, { acceptanceCriteria: ["C.people.lint"] }, ref);
+    expect(gates.find((x) => x.id === "C.people.lint")).toEqual({ id: "C.people.lint", severity: "hard", blocking: false });
+  });
 });
