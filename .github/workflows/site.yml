@@ -1,0 +1,55 @@
+name: public-site
+on:
+  push:
+    paths:
+      - apps/site/**
+      - packages/cli/**
+      - package-lock.json
+      - .github/workflows/site.yml
+  pull_request:
+    paths:
+      - apps/site/**
+      - packages/cli/**
+      - package-lock.json
+      - .github/workflows/site.yml
+
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify-site:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck -w @artyfact/site
+      - run: npm run build -w @artyfact/site
+      - run: npm run test:build -w @artyfact/site
+      - name: Read pinned Playwright version
+        id: pw
+        run: echo "version=$(node -p "require('./apps/site/package.json').devDependencies['@playwright/test']")" >> "$GITHUB_OUTPUT"
+      - name: Cache Playwright browsers
+        id: browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.pw.outputs.version }}
+      - name: Install Chromium and system deps
+        if: steps.browsers.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+      - name: Install system deps only
+        if: steps.browsers.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+      - run: npm run e2e -w @artyfact/site
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: public-site-browser-results
+          path: apps/site/e2e-artifacts
+          if-no-files-found: ignore

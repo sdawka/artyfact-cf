@@ -1,0 +1,34 @@
+{
+  "name": "@artyfact/site",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "Apache-2.0",
+  "scripts": {
+    "dev": "npm run build && vite preview --host 127.0.0.1 --port 4180",
+    "build": "vite build && vite build --ssr src/render.tsx --outDir .render && node .render/render.js",
+    "preview": "vite preview --host 127.0.0.1 --port 4180",
+    "typecheck": "tsc --noEmit -p tsconfig.json",
+    "test": "vitest run --config vitest.config.ts",
+    "e2e": "playwright test",
+    "deploy": "npm run build && wrangler deploy",
+    "test:build": "node --test test/site-build.test.mjs"
+  },
+  "dependencies": {
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "vite": "^8.3.4",
+    "@vitejs/plugin-react": "^6.1.2",
+    "@types/node": "^26.6.5",
+    "@playwright/test": "1.64.0",
+    "@testing-library/react": "^16.3.3",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "jsdom": "^30.1.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3",
+    "wrangler": "4.149.0"
+  }
+}
