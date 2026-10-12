@@ -13,5 +13,5 @@ Create the D1 database once (`database_name` keep-in-touch), put its id in `wran
 
 `/api/contacts` requires an identity (`src/worker/auth.ts`); otherwise 401. Deployed, set `ACCESS_AUD` and
 `ACCESS_TEAM_DOMAIN` and put the Worker behind Cloudflare Access: the `Cf-Access-Jwt-Assertion` JWT is verified and
-its `sub` becomes the owner. The scaffold ships with `DEV_AUTH_HEADER=1` in `wrangler.jsonc` so local runs can send
-an `x-owner` header; remove it before deploying. This implements the Genome's provisional `policy.authentication`.
+its `sub` becomes the owner. For local runs copy `.dev.vars.example` to `.dev.vars` (gitignored), which sets `DEV_AUTH_HEADER=1` so requests can send
+an `x-owner` header. It is not in `wrangler.jsonc`, so it never ships. This implements the Genome's provisional `policy.authentication`.

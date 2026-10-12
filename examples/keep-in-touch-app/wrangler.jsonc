@@ -7,6 +7,6 @@
   "d1_databases": [
     { "binding": "DB", "database_name": "keep-in-touch", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
   ],
-  // DEV_AUTH_HEADER accepts x-owner as identity for local runs only; remove it (and set ACCESS_AUD / ACCESS_TEAM_DOMAIN) before deploying.
-  "vars": { "BUILD_ID": "dev", "DEV_AUTH_HEADER": "1" }
+  // Deployed identity comes from Cloudflare Access: set ACCESS_AUD and ACCESS_TEAM_DOMAIN. For local runs copy .dev.vars.example to .dev.vars.
+  "vars": { "BUILD_ID": "dev" }
 }
