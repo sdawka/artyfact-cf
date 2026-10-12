@@ -11,13 +11,13 @@ npm run dev -w @artyfact/platform   # http://localhost:5173 (next free port if t
 - `GET /api/health` returns the service status; `/style` is the living style sheet.
 - `npm test -w @artyfact/platform` (workerd + jsdom projects), `npm run typecheck`, `npm run build`.
 - `npm run cf-typegen` regenerates `worker/env.d.ts` after editing `wrangler.jsonc`.
-- The `ARTIFACTS` binding is `remote: true`, so `npm run dev` needs `wrangler login`. Tests do not: they use `wrangler.test.jsonc`, the same config without that binding (keep the two in sync).
+- The `ARTIFACTS` binding is `remote: true`, so `npm run dev` (real backend) needs `wrangler login` or `CLOUDFLARE_API_TOKEN`. Nothing else does: tests use `wrangler.test.jsonc`, the same config without that binding (keep the two in sync).
+- `npm run preview:fixture` builds and serves the SPA statically (`vite.fixture.config.ts`, no Cloudflare plugin) on http://localhost:4173 with bundled fixture data. `npm run e2e` runs Playwright against it; no Cloudflare credentials needed. `npm run e2e:live` runs the `@live` specs against `wrangler dev` and does need a login.
 - `worker/env.d.ts` is generated; do not hand-edit it (use `cf-typegen`, secrets go in `worker/secrets.d.ts`).
 
 ## Env
 Secrets (`.dev.vars`): `ADMIN_TOKEN`, `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`, `FAKE_S1`, `ALLOW_LOCAL_PREVIEW`. Vars live in `wrangler.jsonc`;
 set `ACCOUNT_ID` (from `wrangler whoami`) in `.dev.vars` so fork remotes are `https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/<ns>/<repo>.git`.
-The D1 `database_id` in `wrangler.jsonc` is a placeholder.
 
 ### System One provider
 Without `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`, every System One judgment is `unknown`. Hard criteria judged by System One, such as `C.system.purpose`, then keep the promotion gate closed. This is by design: nothing is green without evidence. For local work set `FAKE_S1=1` in `.dev.vars`. The UI labels judgments from the fake provider.

@@ -9,9 +9,6 @@
   "assets": { "not_found_handling": "single-page-application", "run_worker_first": ["/api/*"] },
   "exports": { "SystemAuthority": { "type": "durable-object", "storage": "sqlite" } },
   "durable_objects": { "bindings": [{ "name": "SYSTEMS", "class_name": "SystemAuthority" }] },
-  // Derived index only; replace the placeholder id after `cf`/wrangler creates the database.
-  "d1_databases": [{ "binding": "INDEX", "database_name": "artyfact-index", "database_id": "00000000-0000-0000-0000-000000000000" }],
-  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "artyfact-evidence" }],
   "queues": { "consumers": [{ "queue": "artyfact-artifacts-events", "max_batch_size": 10, "max_retries": 3 }] },
   // ACCOUNT_ID builds fork remotes (https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/<ns>/<repo>.git); set it in .dev.vars or here.
   "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "http://localhost:5173", "ACCOUNT_ID": "", "PREVIEW_HOST_ALLOWLIST": "" },
