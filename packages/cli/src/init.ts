@@ -12,7 +12,7 @@ import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
 import { CliError, git } from "./git.ts";
 import { assertName, assertSystemId, assertTemplateRef, copyFiles, isInside, projectFiles, realDir, realSubdir } from "./safety.ts";
 import { PLATFORM_REPO, platformTemplateDir, systemRepoNames } from "./naming.ts";
-import { assertBearerTransport, resolvePlatform } from "./platform-url.ts";
+import { assertBearerTransport, DEFAULT_URL, resolvePlatform } from "./platform-url.ts";
 
 export interface InitIo {
   out: (s: string) => void;
@@ -331,8 +331,11 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const hasApp = existsSync(join(appDir, "package.json")) || (existsSync(appDir) && readdirSync(appDir).length > 0);
   if (hasApp && fromTemplate) throw new CliError(`--from-template seeds a project without an app, but ${appDir} exists`);
   io.out(`${systemId} -> ${names.genomeRepo}, ${names.appRepo} (namespace ${ns})`);
-  // Resolved before anything is pushed: without an explicit URL or a local platform that identifies itself, stop here.
-  const platformUrl = await resolvePlatform(values.platform as string | undefined, io.env, io.fetch ?? fetch, io.err);
+  // Resolved before anything is pushed. When the admin token will be sent, an explicit URL or a local platform that
+  // identifies itself is required, else stop here. Without the token nothing is sent: the printed import line falls back
+  // to the default URL.
+  const sendsBearer = !!io.env.ARTYFACT_ADMIN_TOKEN;
+  const platformUrl = await resolvePlatform(values.platform as string | undefined, io.env, io.fetch ?? fetch, io.err, sendsBearer ? undefined : DEFAULT_URL);
 
   const cloud = connect(io, ns);
   return withAccountScrubbed(cloud, () => initWith(io, { project, genomeDir, appDir, hasApp, fromTemplate, ns, systemId, names, cloud, platformUrl, force: values.force === true, adopt: values.adopt === true }));

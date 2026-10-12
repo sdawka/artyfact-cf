@@ -2,7 +2,8 @@
  * Which platform the CLI talks to: an explicit URL (`--platform`, `ARTYFACT_PLATFORM`, `ARTYFACT_URL`; the operator
  * asserted it, so it is never probed or overridden), else the first local port from 1337 whose `/api/health`
  * identifies itself as artyfact (Vite moves to the next free port when 1337 is taken), else an error. There is no
- * silent fallback: credentials never go to a server that did not identify itself.
+ * silent fallback: credentials never go to a server that did not identify itself. A caller that will send no credential
+ * (init without an admin token, which only prints the import line) passes `fallback` and gets it instead of the error.
  */
 import { CliError } from "./git.ts";
 
@@ -16,6 +17,7 @@ export async function resolvePlatform(
   env: Record<string, string | undefined>,
   fetchFn: typeof fetch = fetch,
   note: (s: string) => void = () => {},
+  fallback?: string,
 ): Promise<string> {
   if (explicit !== undefined && !explicit.trim()) throw new CliError("--platform needs a URL");
   // An empty environment variable counts as unset.
@@ -27,6 +29,10 @@ export async function resolvePlatform(
       if (port !== DEFAULT_PORT) note(`platform found at ${url} (port ${DEFAULT_PORT} is taken by something else)`);
       return url;
     }
+  }
+  if (fallback !== undefined) {
+    note(`no artyfact platform found on localhost:${DEFAULT_PORT}–${LAST_PORT}; the import line uses ${fallback}`);
+    return fallback;
   }
   throw new CliError(`no artyfact platform found on localhost:${DEFAULT_PORT}–${LAST_PORT}; start it with \`npm run dev\` or pass --platform`);
 }

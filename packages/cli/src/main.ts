@@ -6,6 +6,7 @@ import { initCommand, platformSyncCommand, type InitIo } from "./init.ts";
 import { DEFAULT_URL, resolvePlatform } from "./platform-url.ts";
 import { mergeAgentsBlock, renderAgentsMd } from "./agents-md.ts";
 import { CliError, assertId, assertRemote, assertSecret, assertToken, commitIfDirty, git, isTracked } from "./git.ts";
+import { WORKSPACE_IGNORES } from "./ignore.ts";
 import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
 
 export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> {
@@ -203,7 +204,8 @@ async function start(args: string[], io: Io): Promise<number> {
   mkdirSync(join(dir, ".git", "info"), { recursive: true });
   const existing = existsSync(exclude) ? readFileSync(exclude, "utf8") : "";
   const have = new Set(existing.split("\n"));
-  const want = [CONFIG, "TASK_PACKET.md", ...(agentsTracked ? [] : ["AGENTS.md"])].filter((l) => !have.has(l));
+  // Dependencies, Wrangler state, build output and local secrets stay out of the fork too (the scaffold's .gitignore says the same).
+  const want = [CONFIG, "TASK_PACKET.md", ...(agentsTracked ? [] : ["AGENTS.md"]), ...WORKSPACE_IGNORES].filter((l) => !have.has(l));
   if (want.length) safeWrite(exclude, `${existing && !existing.endsWith("\n") ? "\n" : ""}${want.join("\n")}\n`, 0o644, true);
   safeWrite(join(dir, "TASK_PACKET.md"), scrub(packet.markdown ?? JSON.stringify(packet, null, 2)));
   const block = scrub(renderAgentsMd(packet, systemId));
@@ -223,7 +225,7 @@ async function checkpoint(args: string[], io: Io): Promise<number> {
   if (!message) throw new CliError('usage: artyfact checkpoint "<message>"');
   const { cfg, dir } = readConfig(io);
   const client = clientFor(io, cfg);
-  const commit = commitIfDirty(dir, message);
+  const commit = commitIfDirty(dir, message, io.err);
   await client.request("POST", rzPath(cfg.systemId, cfg.evolutionId, cfg.realizationId, "/checkpoints"), { message, summary: message, commit });
   io.out(`Checkpoint recorded at ${commit.slice(0, 12)}`);
   return 0;
@@ -249,7 +251,7 @@ async function submit(args: string[], io: Io): Promise<number> {
   const { cfg, dir } = readConfig(io);
   const token = tokenFor(io);
   const client = clientFor(io, cfg);
-  const commit = commitIfDirty(dir, "artyfact submit");
+  const commit = commitIfDirty(dir, "artyfact submit", io.err);
   git(dir, ["push", "--", cfg.remote, "HEAD:main"], token);
   const body: { commit: string; previewUrl?: string } = { commit };
   if (values["preview-url"]) body.previewUrl = values["preview-url"];

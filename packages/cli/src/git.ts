@@ -1,4 +1,5 @@
 import { spawnSync } from "node:child_process";
+import { NEVER_STAGED_DIRS, neverStaged } from "./ignore.ts";
 
 export class CliError extends Error {}
 
@@ -69,14 +70,25 @@ export function isDirty(cwd: string): boolean {
   return git(cwd, ["status", "--porcelain"]) !== "";
 }
 
-/** Stage everything and commit when the tree is dirty; returns HEAD sha. */
-export function commitIfDirty(cwd: string, message: string): string {
+/**
+ * Stage every change except dependencies, Wrangler state and secret files, and commit when anything is staged; returns
+ * HEAD sha. `note` hears which paths were left unstaged. The exclusion holds even in a repo without a `.gitignore`.
+ */
+export function commitIfDirty(cwd: string, message: string, note: (s: string) => void = () => {}): string {
   if (isDirty(cwd)) {
-    git(cwd, ["add", "-A"]);
-    // Fall back to a neutral identity only when the user has none configured.
-    const hasEmail = spawnSync("git", ["config", "user.email"], { cwd, encoding: "utf8" }).stdout.trim() !== "";
-    const identity = hasEmail ? [] : ["-c", "user.name=artyfact", "-c", "user.email=artyfact@localhost"];
-    git(cwd, [...identity, "commit", "-m", message, "--"]);
+    git(cwd, ["add", "-A", "--", ".", ...NEVER_STAGED_DIRS.flatMap((d) => [`:(exclude,glob)**/${d}`, `:(exclude,glob)**/${d}/**`])]);
+    const staged = git(cwd, ["diff", "--cached", "--name-only", "--no-renames", "-z"]).split("\0").filter(Boolean);
+    const dropped = staged.filter(neverStaged);
+    if (dropped.length) {
+      git(cwd, ["--literal-pathspecs", "reset", "-q", "--", ...dropped]);
+      note(`not staged (secret files are never committed): ${dropped.join(", ")}`);
+    }
+    if (spawnSync("git", ["diff", "--cached", "--quiet"], { cwd }).status === 1) {
+      // Fall back to a neutral identity only when the user has none configured.
+      const hasEmail = spawnSync("git", ["config", "user.email"], { cwd, encoding: "utf8" }).stdout.trim() !== "";
+      const identity = hasEmail ? [] : ["-c", "user.name=artyfact", "-c", "user.email=artyfact@localhost"];
+      git(cwd, [...identity, "commit", "-m", message, "--"]);
+    }
   }
   return git(cwd, ["rev-parse", "HEAD"]);
 }

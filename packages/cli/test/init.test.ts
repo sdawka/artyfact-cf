@@ -6,6 +6,7 @@ import { fileURLToPath } from "node:url";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { agreeOnAccount, cloudCli, type Cloud, type Exec } from "../src/cloud.ts";
 import { appArtifactIds, flatYaml, systemIdOf } from "../src/init.ts";
+import { WORKSPACE_IGNORES } from "../src/ignore.ts";
 import { main } from "../src/main.ts";
 
 const ROOT = fileURLToPath(new URL("../../../", import.meta.url));
@@ -266,6 +267,33 @@ describe("artyfact init", { timeout: 60_000 }, () => {
     expect(r.out).toContain(`"genomeRepo":"keep-in-touch.genome"`);
   });
 
+  it("without ARTYFACT_ADMIN_TOKEN and no identified platform, still pushes and prints the curl line for the default URL", async () => {
+    const lc = localCloud(join(tmp, "cloud-no-platform"));
+    const dir2 = project("no-platform");
+    const seenUrls: string[] = [];
+    const nothing = (async (input: string | URL | Request, init?: RequestInit) => {
+      seenUrls.push(String(input));
+      expect(new Headers(init?.headers).get("authorization")).toBeNull();
+      throw new TypeError("fetch failed: ECONNREFUSED");
+    }) as typeof fetch;
+    const r = await run(["init", "--dir", dir2], { cloud: lc.cloud, fetch: nothing, env: { ARTYFACT_URL: "" } });
+    expect(r.code, r.err).toBe(0);
+    expect(existsSync(lc.path("artyfact", "keep-in-touch.genome"))).toBe(true);
+    expect(r.out).toContain(`curl -sS -XPOST http://localhost:1337/api/systems/import -H "authorization: Bearer $ARTYFACT_ADMIN_TOKEN"`);
+    expect(r.err).toContain("no artyfact platform found on localhost:1337–1346; the import line uses http://localhost:1337");
+    expect(seenUrls.every((u) => u.endsWith("/api/health"))).toBe(true);
+  });
+
+  it("ships the app scaffold's .gitignore into the app repo (dependencies, Wrangler state, secrets)", async () => {
+    const files = filesAt(lc.path("artyfact", "keep-in-touch.app"));
+    expect(files).toContain(".gitignore");
+    expect(files).toContain(".dev.vars.example");
+    expect(filesAt(lc.path("artyfact", "platform"))).toContain("templates/thing/cloudflare-worker-webapp@1/scaffold/.gitignore");
+    // The scaffold ignores exactly what start excludes in a clone: dependencies, Wrangler state, build output, secrets.
+    const lines = readFileSync(join(ROOT, "examples/keep-in-touch-app/.gitignore"), "utf8").split("\n").filter((l) => l && !l.startsWith("#"));
+    expect(lines).toEqual([...WORKSPACE_IGNORES]);
+  });
+
   it("works on the examples layout with --genome and --app", async () => {
     const cloud = localCloud(join(tmp, "cloud-examples"));
     const p = mockPlatform();
@@ -322,6 +350,7 @@ describe("artyfact init --from-template", { timeout: 60_000 }, () => {
       scaffoldFrom: { repo: "platform", commit: platformHead, path },
     });
     expect(filesAt(lc.path("artyfact", "fresh_app.app"))).toEqual(filesAt(lc.path("artyfact", "platform")).filter((f) => f.startsWith(`${path}/`)).map((f) => f.slice(path.length + 1)));
+    expect(filesAt(lc.path("artyfact", "fresh_app.app"))).toContain(".gitignore");
     const again = await run(["init", "--dir", dir, "--from-template", "template.thing.cloudflare-worker-webapp@1"], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
     expect(again.out).toContain("fresh_app.app: already has history");
     expect(p.requests[1]!.body).not.toHaveProperty("scaffoldFrom");
