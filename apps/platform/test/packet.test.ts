@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildGenome } from "../worker/artifacts/genome-source";
 import { loadSourceMap } from "../worker/artifacts/source-map";
+import { diffScope } from "../worker/hooks/diff-scope";
 import { buildTaskPacket, requiredCriteria, type PacketInput } from "../worker/packets/task-packet";
 import { gateCriteria } from "../worker/promotion";
 import { appFiles, genomeFiles } from "./fixtures/genome";
@@ -37,6 +38,20 @@ describe("task packet", () => {
     const p = await buildTaskPacket(input());
     expect(p.permittedPaths.sort()).toEqual(["src/ui/**", "src/ui/people/**"]);
     expect(p.protectedPaths).toEqual(["system/**", "assays/**"]);
+  });
+
+  it("treats an empty scope as unconstrained, still refusing protected paths", async () => {
+    const unscoped = { ...evolution, affectedNodes: [] };
+    const g = await buildTaskPacket(input({ target: "genome", evolution: unscoped }));
+    expect(g.permittedPaths).toEqual(["**"]);
+    const scope = (target: "app" | "genome", p: { permittedPaths: string[]; protectedPaths: string[] }, changedPaths: string[]) =>
+      diffScope({ target, changedPaths, changedNodes: [], permitted: p.permittedPaths, protected: p.protectedPaths }).verdict;
+    expect(scope("genome", g, ["things/webapp/ontology.yaml"])).toBe("pass");
+    expect(scope("genome", g, ["assays/hooks.yaml"])).toBe("fail");
+    expect((await buildTaskPacket(input({ target: "genome", evolution: unscoped, genomePrefix: "system/" }))).permittedPaths).toEqual(["system/**"]);
+    const a = await buildTaskPacket(input({ evolution: unscoped }));
+    expect(a.permittedPaths).toEqual(["**"]);
+    expect(scope("app", a, ["system/things/webapp/ontology.yaml"])).toBe("fail");
   });
 
   it("lists entry files with certainty", async () => {
