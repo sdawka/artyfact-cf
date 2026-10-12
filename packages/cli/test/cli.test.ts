@@ -1,6 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { existsSync, mkdtempSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -141,6 +141,34 @@ describe("artyfact cli", () => {
       leakyServer.close();
       expect(code).toBe(0);
       for (const f of ["TASK_PACKET.md", "AGENTS.md", ".artyfact.json"]) expect(readFileSync(join(ws2, f), "utf8")).not.toContain("leaked-tok");
+    });
+
+    it("lists .artyfact.json in the clone's .git/info/exclude", () => {
+      expect(readFileSync(join(ws, ".git/info/exclude"), "utf8").split("\n")).toContain(".artyfact.json");
+      expect(sh(ws, "status", "--porcelain")).not.toContain(".artyfact.json");
+    });
+
+    it("refuses a non-empty --dir that is not our clone, without writing through symlinks", async () => {
+      const victim = join(tmp, "victim.txt");
+      writeFileSync(victim, "original");
+      const dir = join(tmp, "evil");
+      mkdirSync(dir);
+      symlinkSync(victim, join(dir, "TASK_PACKET.md"));
+      const r = await run(["start", "r-1", "--dir", dir]);
+      expect(r.code).toBe(1);
+      expect(readFileSync(victim, "utf8")).toBe("original");
+    });
+
+    it("refuses to write through a symlink even inside our own clone", async () => {
+      const victim = join(tmp, "victim2.txt");
+      writeFileSync(victim, "original");
+      const dir = join(tmp, "ws3");
+      expect((await run(["start", "r-1", "--dir", dir])).code).toBe(0);
+      execFileSync("rm", [join(dir, "AGENTS.md")]);
+      symlinkSync(victim, join(dir, "AGENTS.md"));
+      const r = await run(["start", "r-1", "--dir", dir]);
+      expect(r.code).toBe(1);
+      expect(readFileSync(victim, "utf8")).toBe("original");
     });
 
     it("rejects option-like ids and non-https remotes", async () => {

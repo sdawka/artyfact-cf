@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync, appendFileSync, mkdirSync, chmodSync } from "node:fs";
+import { closeSync, constants, existsSync, fchmodSync, lstatSync, openSync, readFileSync, readdirSync, writeSync, mkdirSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PlatformClient, rzPath } from "./api.ts";
@@ -14,6 +14,30 @@ export interface Io {
 }
 
 const CONFIG = ".artyfact.json";
+
+/** Write a file without ever following a symlink at the target (O_NOFOLLOW) and refuse symlinked paths. */
+function safeWrite(path: string, data: string, mode = 0o644, append = false): void {
+  if (existsSync(path) || isLink(path)) {
+    if (lstatSync(path).isSymbolicLink()) throw new CliError(`refusing to write through symlink: ${path}`);
+  }
+  const flags = constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW | (append ? constants.O_APPEND : constants.O_TRUNC);
+  let fd: number;
+  try {
+    fd = openSync(path, flags, mode);
+  } catch (e) {
+    throw new CliError(`cannot write ${path}: ${(e as Error).message}`);
+  }
+  try {
+    writeSync(fd, data);
+    if (!append) fchmodSync(fd, mode);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function isLink(path: string): boolean {
+  try { return lstatSync(path).isSymbolicLink(); } catch { return false; }
+}
 const DEFAULT_URL = "http://localhost:5173";
 
 const USAGE = `artyfact <command>
@@ -61,6 +85,7 @@ function parse(args: string[], options: Record<string, { type: "string" | "boole
 function readConfig(io: Io): { cfg: WorkspaceConfig; dir: string } {
   const dir = resolve(io.cwd);
   const file = join(dir, CONFIG);
+  if (isLink(file)) throw new CliError(`refusing to read symlinked ${CONFIG}`);
   if (!existsSync(file)) throw new CliError(`${CONFIG} not found in ${dir}; run 'artyfact start <realizationId>' first`);
   const cfg = JSON.parse(readFileSync(file, "utf8")) as WorkspaceConfig;
   assertId("systemId in config", cfg.systemId);
@@ -103,22 +128,33 @@ async function start(args: string[], io: Io): Promise<number> {
   const scrub = (text: string) => leaked.reduce((t, k) => t.replaceAll(k, "***"), text);
 
   const dir = resolve(io.cwd, values.dir ?? rid);
-  mkdirSync(dir, { recursive: true });
-  git(io.cwd, ["clone", "--", remote, dir], token);
+  if (isLink(dir)) throw new CliError(`refusing symlinked directory: ${dir}`);
+  // A non-empty target is only acceptable if it is the clone we made for this realization.
+  const reuse = existsSync(dir) && readdirSync(dir).length > 0;
+  if (reuse) {
+    const cfgPath = join(dir, CONFIG);
+    let prior: Partial<WorkspaceConfig> = {};
+    try { if (!isLink(cfgPath)) prior = JSON.parse(readFileSync(cfgPath, "utf8")); } catch { /* not ours */ }
+    if (prior.realizationId !== realizationId || !existsSync(join(dir, ".git")))
+      throw new CliError(`${dir} exists and is not empty; choose another --dir`);
+  } else {
+    mkdirSync(dir, { recursive: true });
+    git(io.cwd, ["clone", "--", remote, dir], token);
+  }
 
   const cfg: WorkspaceConfig = {
     platform, systemId, realizationId, forkRepo, remote,
     tokenExpires: payload.realization?.workspace?.tokenExpiresAt ?? payload.token?.expiresAt,
     packetHash: packet.hash,
   };
-  writeFileSync(join(dir, "TASK_PACKET.md"), scrub(packet.markdown ?? JSON.stringify(packet, null, 2)));
-  writeFileSync(join(dir, "AGENTS.md"), scrub(renderAgentsMd(packet, systemId)));
-  writeFileSync(join(dir, CONFIG), `${JSON.stringify(cfg, null, 2)}\n`);
-  chmodSync(join(dir, CONFIG), 0o600);
   const exclude = join(dir, ".git", "info", "exclude");
   mkdirSync(join(dir, ".git", "info"), { recursive: true });
   const existing = existsSync(exclude) ? readFileSync(exclude, "utf8") : "";
-  if (!existing.includes(CONFIG)) appendFileSync(exclude, `${existing && !existing.endsWith("\n") ? "\n" : ""}${CONFIG}\n`);
+  if (!existing.includes(CONFIG)) safeWrite(exclude, `${existing && !existing.endsWith("\n") ? "\n" : ""}${CONFIG}\n`, 0o644, true);
+  safeWrite(join(dir, "TASK_PACKET.md"), scrub(packet.markdown ?? JSON.stringify(packet, null, 2)));
+  safeWrite(join(dir, "AGENTS.md"), scrub(renderAgentsMd(packet, systemId)));
+  safeWrite(join(dir, CONFIG), `${JSON.stringify(cfg, null, 2)}\n`, 0o600);
+
 
   io.out(`Workspace ready in ${dir}`);
   io.out(`Next: cd ${dir} && read TASK_PACKET.md, then npm install && npm run dev`);
