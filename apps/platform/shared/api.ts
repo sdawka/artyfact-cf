@@ -409,8 +409,8 @@ export interface StaleBaseResponse extends ApiError {
   error: { code: "stale-base"; message: string; details: { currentHead: string | null } };
 }
 /**
- * 409 `blocked`: a hard promotion-gated criterion lacks pass+completed. 409 `advisories-unacknowledged`:
- * no blocking items, but advisories exist and the rationale is empty.
+ * 409 `blocked`: a blocking criterion lacks pass+completed. 400 `advisories-unacknowledged`:
+ * no blocking items, but advisories exist and the rationale is empty (a request the caller fixes by adding one).
  */
 export interface PromoteBlockedResponse extends ApiError {
   error: { code: "blocked" | "advisories-unacknowledged"; message: string; details: { blocking: GateItem[]; advisories: GateItem[] } };
