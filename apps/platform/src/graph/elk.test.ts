@@ -1,5 +1,5 @@
-import { describe, expect, it } from "vitest";
-import { absoluteBoxes, layoutGraph, LAYERED_RIGHT, partition, toElkGraph, type LayoutRequest } from "./elk";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { absoluteBoxes, layoutGraph, LAYERED_RIGHT, partition, requestKey, setElkWorkerFactory, toElkGraph, type LayoutRequest } from "./elk";
 
 const req: LayoutRequest = {
   layoutOptions: { ...LAYERED_RIGHT, "elk.partitioning.activate": "true" },
@@ -48,5 +48,62 @@ describe("layoutGraph (in-thread fallback)", () => {
     expect(abs.a!.x).toBe(group.x + out.nodes.a!.x);
     expect(out.width).toBeGreaterThan(0);
     expect(out.height).toBeGreaterThan(0);
+  });
+});
+
+class FakeWorker extends EventTarget {
+  onmessage: ((e: MessageEvent) => void) | null = null;
+  terminated = false;
+  constructor(private mode: "error" | "silent") {
+    super();
+  }
+  postMessage() {
+    if (this.mode === "error") setTimeout(() => this.dispatchEvent(new Event("error")), 0);
+  }
+  terminate() {
+    this.terminated = true;
+  }
+}
+
+describe("layoutGraph worker failures", () => {
+  beforeEach(() => void vi.spyOn(console, "warn").mockImplementation(() => {}));
+  afterEach(() => {
+    setElkWorkerFactory(null);
+    vi.restoreAllMocks();
+  });
+
+  it("falls back to the main thread when the worker fails to load", async () => {
+    const workers: FakeWorker[] = [];
+    setElkWorkerFactory(() => {
+      const w = new FakeWorker("error");
+      workers.push(w);
+      return w as unknown as Worker;
+    });
+    const out = await layoutGraph(req);
+    expect(Number.isFinite(out.nodes.a!.x)).toBe(true);
+    expect(workers).toHaveLength(1);
+    await vi.waitFor(() => expect(workers[0]!.terminated).toBe(true));
+  });
+
+  it("falls back when the worker never answers", async () => {
+    const workers: FakeWorker[] = [];
+    setElkWorkerFactory(() => {
+      const w = new FakeWorker("silent");
+      workers.push(w);
+      return w as unknown as Worker;
+    });
+    const out = await layoutGraph(req, { timeoutMs: 30 });
+    expect(out.width).toBeGreaterThan(0);
+    await vi.waitFor(() => expect(workers[0]!.terminated).toBe(true));
+  });
+});
+
+describe("requestKey", () => {
+  it("is stable for the same shape and changes with nodes, sizes or edges", () => {
+    const k = requestKey(req);
+    expect(requestKey(structuredClone(req))).toBe(k);
+    expect(requestKey({ ...req, nodes: req.nodes.slice(1) })).not.toBe(k);
+    expect(requestKey({ ...req, nodes: req.nodes.map((n) => (n.id === "a" ? { ...n, height: 41 } : n)) })).not.toBe(k);
+    expect(requestKey({ ...req, edges: req.edges.slice(1) })).not.toBe(k);
   });
 });

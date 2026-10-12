@@ -145,38 +145,115 @@ export function absoluteBoxes(result: LayoutResult, req: Pick<LayoutRequest, "no
 
 interface ElkLike {
   layout(graph: ElkNode): Promise<ElkNode>;
+  terminateWorker?(): void;
 }
 
-let workerElk: Promise<ElkLike> | null = null;
+/** A started worker-backed elk plus a promise that rejects if the worker script fails to load or errors. */
+interface WorkerElk {
+  elk: ElkLike;
+  failed: Promise<never>;
+}
+
+/** Creates the elk worker. Replaceable in tests via {@link setElkWorkerFactory}. */
+type WorkerFactory = () => Worker;
+const defaultFactory: WorkerFactory = () => new Worker(new URL("./elk.worker.ts", import.meta.url), { type: "module" });
+let workerFactory: WorkerFactory | null = null;
+
+/** Tests: force the worker path with a fake worker (`null` restores the default and environment detection). */
+export function setElkWorkerFactory(factory: WorkerFactory | null) {
+  workerFactory = factory;
+  resetWorker();
+  workerBroken = false;
+}
+
+/** How long a worker layout may take (including loading the worker script) before falling back. */
+export const WORKER_TIMEOUT_MS = 10_000;
+
+let workerElk: Promise<WorkerElk> | null = null;
 let threadElk: Promise<ElkLike> | null = null;
+/** Set after a worker failure; later layouts go straight to the main thread. */
+let workerBroken = false;
 
 function inThread(): Promise<ElkLike> {
   threadElk ??= import("elkjs/lib/elk.bundled.js").then((m) => new m.default());
   return threadElk;
 }
 
-function inWorker(): Promise<ElkLike> {
-  workerElk ??= import("elkjs/lib/elk-api.js").then(
-    (m) => new m.default({ workerFactory: () => new Worker(new URL("./elk.worker.ts", import.meta.url), { type: "module" }) }),
-  );
+function inWorker(): Promise<WorkerElk> {
+  workerElk ??= import("elkjs/lib/elk-api.js").then((m) => {
+    let fail: (err: unknown) => void = () => {};
+    const failed = new Promise<never>((_, reject) => (fail = reject));
+    failed.catch(() => {}); // observed by the race in layoutGraph; never an unhandled rejection
+    const elk = new m.default({
+      workerFactory: () => {
+        const w = (workerFactory ?? defaultFactory)();
+        // elk-api only listens for messages, so a worker that fails to load would hang every layout.
+        w.addEventListener("error", (e) => fail(new Error(`elk worker error: ${(e as ErrorEvent).message ?? "failed to load"}`)));
+        w.addEventListener("messageerror", () => fail(new Error("elk worker message error")));
+        return w;
+      },
+    });
+    return { elk, failed };
+  });
   return workerElk;
 }
 
-const canUseWorker = () => typeof Worker !== "undefined" && typeof window !== "undefined" && !("happyDOM" in window) && !/jsdom/i.test(navigator.userAgent);
+function resetWorker() {
+  const pending = workerElk;
+  workerElk = null;
+  void pending?.then((w) => w.elk.terminateWorker?.()).catch(() => {});
+}
+
+const canUseWorker = () =>
+  workerFactory !== null ||
+  (typeof Worker !== "undefined" && typeof window !== "undefined" && !/jsdom/i.test(navigator.userAgent));
 
 /**
- * Lays out `req`. Uses the Web Worker when available (`worker: false` forces the main thread);
- * if the worker fails, retries once on the main thread.
+ * Lays out `req`. Uses the Web Worker when available (`worker: false` forces the main thread).
+ * If the worker errors, fails to load, or takes longer than `timeoutMs`, it is terminated and the
+ * layout runs on the main thread (and later layouts skip the worker).
  */
-export async function layoutGraph(req: LayoutRequest, opts: { worker?: boolean } = {}): Promise<LayoutResult> {
+export async function layoutGraph(req: LayoutRequest, opts: { worker?: boolean; timeoutMs?: number } = {}): Promise<LayoutResult> {
   const graph = toElkGraph(req);
-  if (opts.worker !== false && canUseWorker()) {
+  if (opts.worker !== false && !workerBroken && canUseWorker()) {
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      return fromElkGraph(await (await inWorker()).layout(structuredClone(graph)));
+      const { elk, failed } = await inWorker();
+      const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => reject(new Error("elk worker timed out")), opts.timeoutMs ?? WORKER_TIMEOUT_MS);
+      });
+      // postMessage clones the graph, so `graph` is still pristine for the fallback.
+      return fromElkGraph(await Promise.race([elk.layout(graph), failed, timeout]));
     } catch (err) {
       console.warn("artyfact: elk worker failed, laying out on the main thread", err);
-      workerElk = null;
+      workerBroken = true;
+      resetWorker();
+    } finally {
+      clearTimeout(timer);
     }
   }
   return fromElkGraph(await (await inThread()).layout(graph));
+}
+
+/** A stable string for a request's shape (ids, sizes, nesting, options, edges): the memo key for its layout. */
+export function requestKey(req: LayoutRequest): string {
+  const opts = (o?: LayoutOptions) => (o ? Object.keys(o).sort().map((k) => `${k}=${o[k]}`).join(",") : "");
+  const parts = [opts(req.layoutOptions)];
+  for (const n of req.nodes) parts.push(`n${n.id}|${n.width}x${n.height}|${n.parentId ?? ""}|${opts(n.layoutOptions)}`);
+  for (const e of req.edges) parts.push(`e${e.id}|${e.source}>${e.target}|${opts(e.layoutOptions)}`);
+  return hash(parts.join("\n"));
+}
+
+/** cyrb53: a fast 53-bit string hash, as base-36 (plus length to make collisions even less likely). */
+function hash(s: string): string {
+  let h1 = 0xdeadbeef;
+  let h2 = 0x41c6ce57;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    h1 = Math.imul(h1 ^ c, 2654435761);
+    h2 = Math.imul(h2 ^ c, 1597334677);
+  }
+  h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+  h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+  return `${(4294967296 * (2097151 & h2) + (h1 >>> 0)).toString(36)}.${s.length.toString(36)}`;
 }
