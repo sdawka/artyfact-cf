@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
 import type {
-  ArtifactBinding, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Realization, RealizationStatus, ScaffoldSource, SseEnvelope, SseEvent,
+  ArtifactBinding, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
 import { forkName } from "@artyfact/cli/naming";
@@ -133,6 +133,8 @@ export interface ReserveInput {
   target: "app" | "genome";
   agentLabel?: string;
   role?: Realization["agent"]["role"];
+  /** B5: who drives the realization (stored in `realizations.origin`). */
+  origin?: RealizationOrigin;
 }
 
 export interface ReservedRealization {
@@ -311,7 +313,7 @@ export class SystemAuthority extends DurableObject<Env> {
     return {
       systemId: s.systemId, title: s.title, head: s.head, genomeRepo: s.genomeRepo, appRepo: s.appRepo,
       genomeCommit: s.genomeCommit, phase: s.phase, evolutionCounts: counts, updatedAt: this.kv("updated_at") ?? nowIso(),
-      ...this.buildsSummary(s.appSource.commit), // B3 builds
+      ...this.summaryExtras(s), // B5 summary (includes B3 builds)
     };
   }
 
@@ -577,6 +579,7 @@ export class SystemAuthority extends DurableObject<Env> {
       agent: { id: str(r.agent_label) ?? `agent-${r.n}`, role: (str(r.role) ?? "implementer") as Realization["agent"]["role"] },
       target: String(r.target) as "app" | "genome",
       mode: "local",
+      origin: (str(r.origin) ?? "cli") as RealizationOrigin,
       workspace: {
         repo: String(r.base_repo ?? ""), fork: String(r.fork_repo), baseCommit: String(r.base_commit ?? ""),
         ...(r.token_expires != null && { tokenExpiresAt: String(r.token_expires) }),
@@ -660,9 +663,10 @@ export class SystemAuthority extends DurableObject<Env> {
       const forkRepo = forkName(namingRepo, n);
       const at = nowIso();
       this.sql.exec(
-        `INSERT INTO realizations (id, evolution_id, n, target, fork_repo, base_commit, agent_label, status, created_at, updated_at, base_repo, base_head, role)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'claimed', ?, ?, ?, ?, ?)`,
+        `INSERT INTO realizations (id, evolution_id, n, target, fork_repo, base_commit, agent_label, status, created_at, updated_at, base_repo, base_head, role, origin)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'claimed', ?, ?, ?, ?, ?, ?)`,
         id, input.evolutionId, n, input.target, forkRepo, baseCommit, input.agentLabel ?? null, at, at, baseRepo, s.head, input.role ?? "implementer",
+        input.origin ?? "cli",
       );
       if (["proposed", "genome-approved", "actionable"].includes(String(evo.status))) this.setEvolutionStatus(input.evolutionId, "realizing");
       return { realization: this.realizationDto(this.realizationRow(id)!), baseRepo, baseCommit, forkRepo };
@@ -1320,6 +1324,90 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   // ---------------------------------------------------------------- end B3 builds
+
+  // ---------------------------------------------------------------- B5 summary
+  // Home-page summary fields and signifiers, `system.updated`, and describe-a-change Evolutions.
+
+  private readinessMemo = new Map<string, { errors: number; missing: number }>();
+
+  /** Error/missing finding counts of the cached rules readiness at `genomeCommit`; undefined until it is cached. */
+  private readinessCounts(genomeCommit: string): { errors: number; missing: number } | undefined {
+    const hit = this.readinessMemo.get(genomeCommit);
+    if (hit) return hit;
+    const raw = this.getModelCache(genomeCommit, "rules");
+    if (!raw) return undefined;
+    const findings = (JSON.parse(raw) as { findings?: { level: string }[] }).findings ?? [];
+    const out = { errors: findings.filter((f) => f.level === "error").length, missing: findings.filter((f) => f.level === "missing").length };
+    this.readinessMemo.set(genomeCommit, out);
+    return out;
+  }
+
+  private count(q: string, ...args: SqlStorageValue[]): number {
+    return Number(this.one(q, ...args)?.n ?? 0);
+  }
+
+  private summaryExtras(s: HeadState): Omit<SystemSummary, "systemId" | "title" | "head" | "genomeRepo" | "appRepo" | "genomeCommit" | "phase" | "evolutionCounts" | "updatedAt"> {
+    const builds = this.buildsSummary(s.appSource.commit);
+    const inStatus = (xs: string[]) => this.count(`SELECT COUNT(*) AS n FROM realizations WHERE status IN (${xs.map(() => "?").join(",")})`, ...xs);
+    const realizationCounts = {
+      evolving: inStatus(["claimed", "working", "evaluating"]),
+      pending: inStatus(["submitted", "evaluated", "selected"]),
+      awaitingAdmin: inStatus(["awaiting-admin"]),
+    };
+    const openCandidates = this.count(`SELECT COUNT(*) AS n FROM candidates WHERE state IN ('submitted','evaluated','selected')`);
+    const evaluatedOpen = this.count(`SELECT COUNT(*) AS n FROM candidates WHERE state IN ('evaluated','selected')`);
+    const actionableIdle = this.count(`SELECT COUNT(*) AS n FROM evolutions e WHERE e.status = 'actionable'
+      AND NOT EXISTS (SELECT 1 FROM realizations r WHERE r.evolution_id = e.id)`);
+    const everCandidates = this.count("SELECT COUNT(*) AS n FROM candidates");
+    const built = this.count(`SELECT COUNT(*) AS n FROM candidates c JOIN realizations r ON r.id = c.realization_id
+      WHERE c.state = 'promoted' AND r.target = 'app'`) > 0;
+    const ph = this.one("SELECT COUNT(*) AS n, MAX(emitted_at) AS emitted, MAX(received_at) AS received FROM phenome_events");
+    const phenome = { events: Number(ph?.n ?? 0), ...(ph?.emitted != null && { lastEmittedAt: String(ph.emitted) }) };
+    const readiness = this.readinessCounts(s.genomeCommit);
+    const observed = ph?.received != null && Date.now() - Date.parse(String(ph.received)) < 24 * 3600_000;
+
+    const signifiers: Signifier[] = [];
+    if (realizationCounts.evolving) signifiers.push("evolving");
+    if (evaluatedOpen || actionableIdle) signifiers.push("pending-realization");
+    if (realizationCounts.awaitingAdmin) signifiers.push("awaiting-admin");
+    if (!built || (readiness && readiness.errors + readiness.missing > 0)) signifiers.push("not-fully-built");
+    if (built) signifiers.push("built");
+    if (builds.deployState === "live") signifiers.push("deployed");
+    if (builds.deployState === "behind") signifiers.push("behind");
+    if (observed) signifiers.push("observed");
+    if (s.phase === "unrealized" && everCandidates === 0) signifiers.push("unrealized");
+
+    return {
+      ...(s.appSource.commit && { appCommit: s.appSource.commit }),
+      built, realizationCounts, openCandidates, ...builds, phenome, ...(readiness && { readiness }), signifiers,
+    };
+  }
+
+  /** The current summary, announced as `system.updated` (the Worker then copies it into the registry). */
+  publishSummary(): SystemSummary | null {
+    const summary = this.summary();
+    if (summary) this.emit({ type: "system.updated", system: summary });
+    return summary;
+  }
+
+  /** Describe-a-change: a new `actionable` Evolution with the next free `evolution.N` id; emits `evolution.created`. */
+  createEvolution(input: Omit<EvolutionSeed, "id" | "state">): Evolution {
+    if (!this.state()) throw new ConflictError("not-found", "System not imported");
+    return this.ctx.storage.transactionSync(() => {
+      let n = 0;
+      for (const r of this.all("SELECT id FROM evolutions")) {
+        const m = /^evolution\.(\d+)$/.exec(String(r.id));
+        if (m) n = Math.max(n, Number(m[1]));
+      }
+      const id = `evolution.${n + 1}`;
+      this.seedEvolutions([{ ...input, id, state: "actionable" }], this.kv("genome_commit") ?? "");
+      const evolution = this.evolution(id)!;
+      this.emit({ type: "evolution.created", evolution });
+      return evolution;
+    });
+  }
+
+  // ---------------------------------------------------------------- end B5 summary
 
   // ---------------------------------------------------------------- B2 changelog
 

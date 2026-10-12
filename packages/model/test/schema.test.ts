@@ -64,4 +64,12 @@ describe("schema", () => {
   it("rejects unknown enum values", () => {
     expect(schema.CrossLink.safeParse({ rel: "likes", to: "x" }).success).toBe(false);
   });
+
+  it("accepts a realization whose agent role is author (the editor's manual commits)", () => {
+    const r = schema.Realization.parse({
+      id: "realization.1.r1", evolution: "evolution.1", agent: { id: "human:sam", role: "author" }, target: "app",
+      workspace: { repo: "kit.app", fork: "kit.app--r1", baseCommit: "abc" }, status: "working",
+    });
+    expect(r.agent.role).toBe("author");
+  });
 });

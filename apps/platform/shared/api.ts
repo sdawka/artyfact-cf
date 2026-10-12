@@ -243,6 +243,8 @@ export type Realization = Omit<schema.Realization, "status" | "workspace" | "che
   n?: number;
   /** `local` = CLI on the user's machine; `hosted` = platform-run agent. */
   mode?: "local" | "hosted";
+  /** Who drives it: the CLI (default) or the in-browser editor. */
+  origin?: RealizationOrigin;
   /** `repo` is the repo the fork was taken from; `remote` is the fork's git URL (no credentials). */
   workspace: schema.Realization["workspace"] & { remote?: string };
   /** System head when work started; promotion is stale-base if the head has moved since. */

@@ -292,7 +292,7 @@ export const Evolution = z.object({
 export type Evolution = z.infer<typeof Evolution>;
 
 export const Workspace = z.object({ repo: str, fork: str, baseCommit: str, tokenExpiresAt: str.optional() });
-export const AgentRole = z.enum(["implementer", "assay-author", "verifier", "reviewer", "repairer"]);
+export const AgentRole = z.enum(["implementer", "assay-author", "verifier", "reviewer", "repairer", "author"]);
 
 export const Realization = z.object({
   id: Id.realization,

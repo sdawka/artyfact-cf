@@ -6,7 +6,7 @@ import { diffModels, type Readiness, type schema, type SystemModel } from "@arty
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  Candidate, CandidatesResponse, ConflictReport, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SubmitSource, SyncResponse,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
@@ -58,8 +58,12 @@ async function headState(env: Env, systemId: string): Promise<HeadState> {
   return s;
 }
 
+/**
+ * Recompute the System's summary, announce it on its SSE stream (`system.updated`) and copy it into the registry
+ * (`GET /api/systems`). Called after every state change the Home page shows.
+ */
 export async function refreshRegistry(env: Env, systemId: string): Promise<void> {
-  const summary = await systemStub(env, systemId).summary();
+  const summary = await systemStub(env, systemId).publishSummary();
   if (summary) await registryStub(env).registerSystem(summary);
 }
 
@@ -216,12 +220,13 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model), platform, ...(scaffoldFrom && { scaffoldFrom }), force: body.force === true,
   }));
   if ("alreadyImported" in booted) throw conflict("already-imported", booted.alreadyImported);
-  const system = booted;
   await stub.putModelCache(genomeCommit, cacheParts(genomeCommit, {
     files: JSON.stringify(Object.fromEntries(files)),
     model: JSON.stringify(serializeModel(g.model)),
     rules: JSON.stringify(g.readiness),
   }));
+  // Re-read the summary now that the rules readiness is cached (B5: readiness counts and signifiers).
+  const system = (await systemStub(env, systemId).summary()) ?? booted;
   await registryStub(env).registerSystem(system);
   return { system, head: system.head!, genomeRepo, appRepo, genomeCommit, appCommit, evolutions: g.model.evolutions.map((e) => e.id), platform, warnings };
 }
@@ -322,6 +327,7 @@ async function concurrentWork(env: Env, systemId: string, evolutionId: string, e
 
 export async function startWork(env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string): Promise<StartWorkResponse> {
   if (body.target !== undefined && body.target !== "app" && body.target !== "genome") throw badRequest("target must be app or genome");
+  if (body.origin !== undefined && body.origin !== "cli" && body.origin !== "editor") throw badRequest("origin must be cli or editor");
   const stub = systemStub(env, systemId);
   const s = await headState(env, systemId);
   const evoDto = await stub.evolution(evolutionId);
@@ -331,7 +337,7 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
   const target = body.target ?? (evolution.kind === "genome-amendment" ? "genome" : "app");
 
   await skipTakenForkNames(env, stub, target);
-  const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role }));
+  const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin }));
   const rid = reserved.realization.id;
   let tokenId: string | undefined;
   try {
@@ -442,6 +448,7 @@ export async function checkpoint(env: Env, systemId: string, rid: string, body: 
     throw badRequest("commit must be a 40-character hex sha");
   }
   const out = await rpc(systemStub(env, systemId).checkpoint(rid, { summary: summary.slice(0, 4000), ...(typeof body.commit === "string" && { commit: body.commit }) }));
+  await refreshRegistry(env, systemId);
   return out;
 }
 
@@ -975,4 +982,46 @@ export function queueContextFor(env: Env): QueueContext {
     },
     markEventSeen: (id) => registryStub(env).markEventSeen(id),
   };
+}
+
+// ------------------------------------------------------------------ B5 describe-a-change
+
+const EVOLUTION_KINDS: schema.Evolution["kind"][] = ["implementation", "genome-amendment", "mixed"];
+const RISKS: schema.Evolution["risk"][] = ["low", "medium", "high"];
+
+function stringList(v: unknown, field: string): string[] {
+  if (v === undefined) return [];
+  if (!Array.isArray(v) || v.some((x) => typeof x !== "string" || !x.trim())) throw badRequest(`${field} must be an array of ids`);
+  return [...new Set(v as string[])];
+}
+
+/**
+ * `POST /api/systems/:id/evolutions` (admin): describe a change in words and get an `actionable` Evolution to start
+ * work on. Affected nodes and acceptance criteria must exist in the canonical Genome (an unknown criterion would
+ * block promotion forever).
+ */
+export async function createEvolution(env: Env, systemId: string, body: Record<string, unknown>): Promise<CreateEvolutionResponse> {
+  const title = typeof body.title === "string" ? body.title.trim() : "";
+  const intent = typeof body.intent === "string" ? body.intent.trim() : "";
+  if (!title || title.length > 200) throw badRequest("title is required (at most 200 characters)");
+  if (!intent || intent.length > 4000) throw badRequest("intent is required (at most 4000 characters)");
+  const kind = (body.kind ?? "implementation") as schema.Evolution["kind"];
+  if (!EVOLUTION_KINDS.includes(kind)) throw badRequest(`kind must be one of ${EVOLUTION_KINDS.join(", ")}`);
+  const risk = (body.risk ?? "medium") as schema.Evolution["risk"];
+  if (!RISKS.includes(risk)) throw badRequest(`risk must be one of ${RISKS.join(", ")}`);
+  const affectedNodes = stringList(body.affectedNodes, "affectedNodes");
+  const acceptanceCriteria = stringList(body.acceptanceCriteria, "acceptanceCriteria");
+  const s = await headState(env, systemId);
+  const m = (await canonicalGenome(env, s)).model;
+  const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id]);
+  if (unknownNodes.length) throw badRequest(`unknown nodes: ${unknownNodes.join(", ")}`);
+  const criteria = new Set(m.criteria.map((c) => c.id));
+  const unknownCriteria = acceptanceCriteria.filter((id) => !criteria.has(id));
+  if (unknownCriteria.length) throw badRequest(`unknown criteria: ${unknownCriteria.join(", ")}`);
+  const evolution = await rpc(systemStub(env, systemId).createEvolution({
+    title, intent, kind, risk, affectedNodes, acceptanceCriteria,
+    affectedClaims: [], genomeDelta: [], requiredEvidence: [], dependsOn: [], ...(s.head && { baseRevision: s.head }),
+  }));
+  await refreshRegistry(env, systemId);
+  return { evolution };
 }
