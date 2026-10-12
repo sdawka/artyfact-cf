@@ -3,7 +3,9 @@ import { schema, type TemplateStore } from "../src/index";
 
 // Fixtures are bundled with Vite's import.meta.glob, so tests need no Node APIs.
 const mini = import.meta.glob("./fixtures/mini/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
-const packSource = Object.values(import.meta.glob("./fixtures/test-pack.dl", { query: "?raw", import: "default", eager: true }))[0] as string;
+// The real Rule Packs, read from the repo (not via @artyfact/templates, which would make model ↔ templates cyclic).
+const packFiles = import.meta.glob("../../templates/rule-packs/*.dl", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+const factsDoc = Object.values(import.meta.glob("../../../docs/design/facts.md", { query: "?raw", import: "default", eager: true }))[0] as string;
 
 /** The mini fixture as loadSystem input: repo-relative path → text. */
 export function readTree(): Map<string, string> {
@@ -63,4 +65,21 @@ export function edit(files: Map<string, string>, path: string, from: string | Re
   return new Map(files).set(path, after);
 }
 
-export const pack = { id: "test.pack", version: "1", source: packSource };
+export interface Pack { id: string; version: string; source: string }
+
+/** All real packs, as `{id, version, source}` from `rule-packs/<id>@<version>.dl`. */
+export const realPacks: Pack[] = Object.entries(packFiles).map(([path, source]) => {
+  const [id, version] = path.split("/").pop()!.replace(/\.dl$/, "").split("@");
+  return { id, version, source };
+}).sort((a, b) => (a.id < b.id ? -1 : 1));
+
+/** Same selection rule as @artyfact/templates packsFor(): exact id + version. */
+export function packsFor(pins: { id: string; version: string }[]): Pack[] {
+  return pins.map((p) => {
+    const found = realPacks.find((r) => r.id === p.id && r.version === p.version);
+    if (!found) throw new Error(`unknown rule pack ${p.id}@${p.version}`);
+    return found;
+  });
+}
+
+export { factsDoc };
