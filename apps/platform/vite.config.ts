@@ -14,7 +14,7 @@ export default defineConfig({
     ...(fake && {
       config: (c) => {
         delete (c as { artifacts?: unknown }).artifacts;
-        c.vars = { ...c.vars, FAKE_ARTIFACTS: "1", ADMIN_TOKEN: process.env.ADMIN_TOKEN ?? "fake-admin-token" };
+        c.vars = { ...c.vars, FAKE_ARTIFACTS: "1", ALLOW_LOCAL_PREVIEW: "1", ADMIN_TOKEN: process.env.ADMIN_TOKEN ?? "fake-admin-token" };
       },
     }),
   })],
