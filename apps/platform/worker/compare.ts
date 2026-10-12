@@ -346,8 +346,10 @@ async function readSide(env: Env, ref: ResolvedRef, path: string): Promise<ReadS
     if (!blob) throw unprocessable("missing-blob", `blob ${hash} (${path}) not found in ${ref.repo}`);
     const bytes = new Uint8Array(await blob.slice(0, FILE_COMPARE_MAX_BYTES).arrayBuffer());
     const binary = bytes.includes(0);
-    const text = binary ? null : new TextDecoder().decode(bytes);
-    return { side: { ...ref, hash, text, size: blob.size }, truncated: blob.size > FILE_COMPARE_MAX_BYTES, binary };
+    const truncated = blob.size > FILE_COMPARE_MAX_BYTES;
+    // A cut text drops a trailing partial UTF-8 sequence (a streaming decode holds it back) instead of ending in U+FFFD.
+    const text = binary ? null : new TextDecoder().decode(bytes, { stream: truncated });
+    return { side: { ...ref, hash, text, size: blob.size }, truncated, binary };
   });
 }
 

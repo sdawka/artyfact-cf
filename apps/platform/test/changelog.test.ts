@@ -1,3 +1,5 @@
+import { env } from "cloudflare:workers";
+import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
   ApiError, ChangelogEntry, ChangelogResponse, FileCompare, GenomeCompare, HistoryResponse, RevisionsResponse, SystemCompare,
@@ -5,7 +7,9 @@ import type {
 import { routes } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { clearGenomeMemo } from "../worker/artifacts/genome-source";
+import type { SystemAuthority } from "../worker/do/system-authority";
 import { resetHooks, setHooks } from "../worker/hooks/index";
+import { FILE_COMPARE_MAX_BYTES, compareFile } from "../worker/compare";
 import { appFiles } from "./fixtures/genome";
 import { call as apiCall, genomeAmendment, importFresh, passing, promoteApp, renameContactAndScreen, type Flow } from "./helpers/flows";
 
@@ -133,6 +137,85 @@ describe("GET …/changelog/:commitId", () => {
     expect((await apiCall<ApiError>("GET", `/systems/${f.systemId}/changelog/sc-5`)).status).toBe(404);
     expect((await apiCall<ApiError>("GET", `/systems/${f.systemId}/changelog/${"a".repeat(40)}`)).status).toBe(400);
     expect((await apiCall<ApiError>("GET", `/systems/${f.systemId}/changelog/main`)).status).toBe(400);
+  });
+});
+
+describe("changelog cache soundness", () => {
+  it("does not cache an entry whose Genome failed to load; the next read recomputes and then caches", async () => {
+    const { f, g } = await threeCommits();
+    // Drop the DO's cached Genomes and make the accepted fork unreadable for one entry computation.
+    await runInDurableObject(env.SYSTEMS.getByName(f.systemId), async (_i: SystemAuthority, state) => { state.storage.sql.exec("DELETE FROM model_cache"); });
+    clearGenomeMemo();
+    const fork = f.ns.repo(g.forkRepo);
+    const readCommit = fork.readCommit.bind(fork);
+    fork.readCommit = async () => { throw new Error("transient Artifacts failure"); };
+    const degraded = await get<ChangelogEntry>(routes.changelogEntry(f.systemId, "sc-3"));
+    expect(degraded.status, JSON.stringify(degraded.json)).toBe(200);
+    expect(degraded.json.genome).toMatchObject({ delta: null, loadError: expect.stringContaining("transient") });
+    fork.readCommit = readCommit;
+    const fresh = await get<ChangelogEntry>(routes.changelogEntry(f.systemId, "sc-3"));
+    expect(fresh.json.genome.loadError).toBeUndefined();
+    expect(fresh.json.genome.delta!.changed.map((c) => c.id)).toEqual(["entity.ContactRecord", "screen.people"]);
+    expect(fresh.json.row.summary.nodesChanged).toBe(2);
+    // Sound now, so cached: a third read touches no repo.
+    clearGenomeMemo();
+    resetCalls(f);
+    await get<ChangelogEntry>(routes.changelogEntry(f.systemId, "sc-3"));
+    expect(repoCalls(f)).toBe(0);
+  });
+
+  it("folds criteria on every read, so evaluations recorded after the commit show", async () => {
+    const { f, p } = await threeCommits();
+    const first = await get<ChangelogEntry>(routes.changelogEntry(f.systemId, "sc-2"));
+    expect(first.json.criteria.find((c) => c.id === "C.people.list")!.after).toBe("pass");
+    await runInDurableObject(env.SYSTEMS.getByName(f.systemId), async (i: SystemAuthority) => {
+      const later = new Date(Date.now() + 60_000).toISOString();
+      i.recordEvaluations(p.candidate, [{
+        id: `${p.candidate}:hook:C.people.list`, candidate: p.candidate, hook: "hook:C.people.list", criterion: "C.people.list", ownerId: "o", subjectId: "s",
+        targetRef: p.commit, execution: "completed", verdict: "fail", verifier: "artyfact-platform", startedAt: later, finishedAt: later, observations: [], limitations: [], provenance: {},
+      }]);
+    });
+    resetCalls(f);
+    const again = await get<ChangelogEntry>(routes.changelogEntry(f.systemId, "sc-2"));
+    expect(again.json.criteria.find((c) => c.id === "C.people.list")!.after).toBe("fail");
+    expect(repoCalls(f)).toBe(0);
+  });
+
+  it("serves a degraded row for a commit that cannot be computed instead of failing the page, and retries it later", async () => {
+    const { f, p, g } = await threeCommits();
+    const fork = f.ns.repos.get(p.forkRepo)!;
+    f.ns.repos.delete(p.forkRepo);
+    const page = await get<ChangelogResponse>(routes.changelog(f.systemId));
+    expect(page.status, JSON.stringify(page.json)).toBe(200);
+    expect(page.json.rows.map((r) => r.id)).toEqual([g.systemCommit!.id, p.systemCommit.id, f.imp.head]);
+    expect(page.json.rows[1]).toMatchObject({ kind: "promotion", rationale: "ship it", summary: { nodesAdded: 0, nodesChanged: 0, nodesRemoved: 0, filesChanged: 0, criteriaAffected: 0 } });
+    f.ns.repos.set(p.forkRepo, fork);
+    const retried = await get<ChangelogResponse>(routes.changelog(f.systemId));
+    expect(retried.json.rows[1]!.summary.filesChanged).toBe(1);
+  });
+
+  it("serves current Evolution titles over the ones cached with the row", async () => {
+    const { f } = await threeCommits();
+    await get<ChangelogResponse>(routes.changelog(f.systemId));
+    await runInDurableObject(env.SYSTEMS.getByName(f.systemId), async (_i: SystemAuthority, state) => {
+      state.storage.sql.exec("UPDATE evolutions SET title = 'People list v2' WHERE id = 'evolution.1'");
+    });
+    const rows = (await get<ChangelogResponse>(routes.changelog(f.systemId))).json.rows;
+    expect(rows.find((r) => r.kind === "promotion")!.evolutions).toEqual([{ id: "evolution.1", title: "People list v2" }]);
+  });
+});
+
+describe("file compare truncation", () => {
+  it("cuts on a UTF-8 boundary, never leaving a replacement character", async () => {
+    const f = await importFresh();
+    // 3-byte characters after one ASCII byte: the 512 KB cut falls inside a character.
+    const text = `a${"€".repeat(200_000)}`;
+    await promoteApp(f, { "notes/euro.txt": text });
+    const cmp = await compareFile(env, f.systemId, "app", "sc-1", "sc-2", "notes/euro.txt");
+    expect(cmp.truncated).toBe(true);
+    expect(cmp.to.text!.endsWith("\uFFFD")).toBe(false);
+    expect(new TextEncoder().encode(cmp.to.text!).length).toBeLessThanOrEqual(FILE_COMPARE_MAX_BYTES);
+    expect(cmp.to.text!.length).toBe(1 + Math.floor((FILE_COMPARE_MAX_BYTES - 1) / 3));
   });
 });
 
