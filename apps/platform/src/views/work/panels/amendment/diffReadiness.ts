@@ -1,6 +1,7 @@
 import type { Finding, Readiness } from "../../../../../shared/api";
 
-export const findingKey = (f: Finding) => `${f.rule}\u0000${f.subject ?? ""}\u0000${f.message}`;
+/** A finding is the same finding when rule and subject match; rewording the message does not make it new. */
+export const findingKey = (f: Finding) => `${f.rule}\u0000${f.subject ?? ""}`;
 
 export interface ReadinessDiff {
   /** In the base, gone in the candidate. */

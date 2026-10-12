@@ -32,7 +32,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
  * (model judgments) shown in separate sections, then accept or reject.
  */
 export default function AmendmentReview({ evolutionId, realization, candidate }: AmendmentReviewProps) {
-  const q = useAmendmentReview(realization.id);
+  const q = useAmendmentReview(evolutionId, realization.id);
   const [outcome, setOutcome] = useState<DecisionOutcome | null>(null);
 
   if (q.isPending) return <EmptyState title="Loading the amendment review…" live />;

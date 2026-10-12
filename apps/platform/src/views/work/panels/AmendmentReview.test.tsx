@@ -51,6 +51,11 @@ describe("diffReadiness", () => {
     expect(d.added.map((f) => f.rule)).toEqual(["r.fresh"]);
     expect(d.hardAdded.map((f) => f.rule)).toEqual(["r.fresh"]);
   });
+  it("treats a reworded message on the same rule and subject as the same finding", () => {
+    const d = diffReadiness(readiness([finding("error", "r", "a", "old words")]), readiness([finding("error", "r", "a", "new words")]));
+    expect(d.added).toHaveLength(0);
+    expect(d.hardAdded).toHaveLength(0);
+  });
   it("treats the same rule on another subject as different", () => {
     const d = diffReadiness(readiness([finding("info", "r", "a", "m")]), readiness([finding("info", "r", "b", "m")]));
     expect(d.resolved).toHaveLength(1);
@@ -181,27 +186,38 @@ describe("AmendmentReview", () => {
     await user.click(screen.getByRole("button", { name: /^accept/i }));
     expect(await screen.findByText(/c0ffee1/)).toBeTruthy();
     const body = JSON.parse(String(fetchMock.mock.calls.find(([u]) => String(u).endsWith("/accept"))![1]!.body));
-    expect(body).toEqual({ realization: RID, rationale: "No feed, by design." });
+    expect(body).toEqual({ realizationId: RID, interpretation: "No feed, by design." });
     const link = screen.getByRole("link", { name: /open in map/i });
     expect(link.getAttribute("href")).toContain(`/map?`);
     expect(link.getAttribute("href")).toContain(`focus=${CHANGED}`);
   });
 
-  it("requires a reason to reject", async () => {
+  it("requires a reason to reject, then posts it and shows the rejected state", async () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/api/systems")) return Response.json([{ systemId: SYSTEM_ID, title: "Keep in Touch", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "x", evolutionCounts: {}, updatedAt: "now" }]);
+      if (url.endsWith(`/realizations/${RID}/reject`) && init?.method === "POST") return Response.json({ realization });
+      return new Response("{}", { status: 404 });
+    });
+    vi.stubGlobal("fetch", fetchMock);
     renderReview(makeReview({ review: [judged("hard-rule-violation", 0.95)] }));
     const user = userEvent.setup();
     await user.click(await screen.findByRole("button", { name: /^reject/i }));
     expect(screen.getByText(/reason is required/i)).toBeTruthy();
+    expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith("/reject"))).toBe(false);
     await user.type(screen.getByRole("textbox", { name: /rejection reason/i }), "Uses engagement as a measure.");
     await user.click(screen.getByRole("button", { name: /^reject/i }));
     await waitFor(() => expect(screen.getByText(/^rejected$/i)).toBeTruthy());
+    const body = JSON.parse(String(fetchMock.mock.calls.find(([u]) => String(u).endsWith("/reject"))![1]!.body));
+    expect(body).toEqual({ reason: "Uses engagement as a measure." });
   });
 
-  it("disables accept with a reason in fixture mode but keeps reject", async () => {
+  it("disables accept and reject with a reason in fixture mode", async () => {
     renderReview(makeReview(), { live: false });
     await screen.findByRole("region", { name: /System One signals/i });
     expect((screen.getByRole("button", { name: /^accept/i }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText(/fixture data/i)).toBeTruthy();
-    expect((screen.getByRole("button", { name: /^reject/i }) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getAllByText(/fixture data/i)).toHaveLength(2);
+    expect((screen.getByRole("button", { name: /^reject/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.getByText(/nothing can be rejected/i)).toBeTruthy();
   });
 });

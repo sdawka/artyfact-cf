@@ -1,4 +1,4 @@
-// Dev-only fixture page: `npm run dev -w @artyfact/platform`, then open
+// Dev-only fixture page: `npm run dev:amendment -w @artyfact/platform`, then open http://localhost:5199
 // /amendment-dev.html?scenario=deliberate|hard|review|fake|off|findings
 // It is not part of the production build (nothing links to it).
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";

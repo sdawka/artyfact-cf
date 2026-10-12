@@ -82,11 +82,11 @@
 .tag { color: var(--color-text-subtle); font-size: var(--font-size-sm); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-sm); padding: 0 var(--spacing-1); }
 .classRow { border: 1px solid transparent; }
 .classRow[data-top="true"] { border-color: currentColor; font-weight: 600; }
-[data-tone="pass"] { color: var(--verdict-pass); }
-[data-tone="fail"] { color: var(--verdict-fail); }
-[data-tone="review"] { color: var(--color-text-primary); }
-[data-tone="review"] .tag { border-color: var(--color-status-warning); color: var(--color-status-warning); }
-[data-tone="subtle"] { color: var(--color-text-secondary); }
+.panel [data-tone="pass"] { color: var(--verdict-pass); }
+.panel [data-tone="fail"] { color: var(--verdict-fail); }
+.panel [data-tone="review"] { color: var(--color-text-primary); }
+.panel [data-tone="review"] .tag { border-color: var(--color-status-warning); color: var(--color-status-warning); }
+.panel [data-tone="subtle"] { color: var(--color-text-secondary); }
 .flag {
   margin: 0;
   padding: var(--spacing-2) var(--spacing-3);

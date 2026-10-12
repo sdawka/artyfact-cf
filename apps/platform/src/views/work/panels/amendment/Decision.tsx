@@ -1,6 +1,6 @@
 import { useId, useState } from "react";
 import { Link } from "react-router";
-import { useAcceptAmendment } from "@/api/queries";
+import { useAcceptAmendment, useRejectAmendment } from "@/api/queries";
 import { useModel } from "@/model/useModel";
 import { useKeepParams } from "@/model/useSelection";
 import type { Realization } from "../../../../../shared/api";
@@ -22,11 +22,12 @@ export interface DecisionProps {
   onOutcome(o: DecisionOutcome): void;
 }
 
-/** Accept (interpretation required) or reject (reason required). Reject has no backend route yet, so it is recorded in this view only. */
+/** Accept (interpretation required) or reject (reason required). Both need the platform API. */
 export function Decision({ evolutionId, realization, initialInterpretation, focusId, blocked, outcome, onOutcome }: DecisionProps) {
   const m = useModel();
   const href = useKeepParams();
   const accept = useAcceptAmendment();
+  const reject = useRejectAmendment();
   const [interpretation, setInterpretation] = useState(initialInterpretation);
   const [reason, setReason] = useState("");
   const [acceptError, setAcceptError] = useState<string | null>(null);
@@ -42,18 +43,27 @@ export function Decision({ evolutionId, realization, initialInterpretation, focu
         ? "Accept is blocked: a hard violation is present. Reject it, or ask the agent to fix the Genome and resubmit."
         : null;
 
+  const rejectDisabledReason = outcome
+    ? "This amendment is already decided."
+    : fixture
+      ? "Fixture data: the platform API is not connected, so nothing can be rejected."
+      : null;
+
   const doAccept = () => {
     if (!interpretation.trim()) return setAcceptError("Interpretation is required to accept.");
     setAcceptError(null);
     accept.mutate(
-      { evolutionId, body: { realization: realization.id, rationale: interpretation.trim() } },
+      { evolutionId, body: { realizationId: realization.id, interpretation: interpretation.trim() } },
       { onSuccess: (r) => onOutcome({ kind: "accepted", genomeCommit: r.genomeCommit }) },
     );
   };
   const doReject = () => {
     if (!reason.trim()) return setRejectError("A reason is required to reject.");
     setRejectError(null);
-    onOutcome({ kind: "rejected", reason: reason.trim() });
+    reject.mutate(
+      { realizationId: realization.id, body: { reason: reason.trim() } },
+      { onSuccess: () => onOutcome({ kind: "rejected", reason: reason.trim() }) },
+    );
   };
 
   return (
@@ -86,6 +96,7 @@ export function Decision({ evolutionId, realization, initialInterpretation, focu
         {acceptDisabledReason && !outcome && <p id={ids.why} className={styles.muted}>{acceptDisabledReason}</p>}
       </div>
       {accept.error && <p className={styles.error} role="alert">{accept.error.message}</p>}
+      {reject.error && <p className={styles.error} role="alert">{reject.error.message}</p>}
 
       <div className={styles.fieldBlock}>
         <label htmlFor={ids.reason}>Rejection reason</label>
@@ -93,9 +104,16 @@ export function Decision({ evolutionId, realization, initialInterpretation, focu
         {rejectError && <p className={styles.error} role="alert">{rejectError}</p>}
       </div>
       <div className={styles.actions}>
-        <button type="button" className="u-brackets" disabled={!!outcome} onClick={doReject}>
-          Reject amendment
+        <button
+          type="button"
+          className="u-brackets"
+          disabled={!!rejectDisabledReason || reject.isPending}
+          aria-describedby={rejectDisabledReason ? `${ids.why}-reject` : undefined}
+          onClick={doReject}
+        >
+          {reject.isPending ? "Rejecting…" : "Reject amendment"}
         </button>
+        {rejectDisabledReason && !outcome && <p id={`${ids.why}-reject`} className={styles.muted}>{rejectDisabledReason}</p>}
       </div>
 
       {outcome?.kind === "accepted" && (
@@ -112,8 +130,7 @@ export function Decision({ evolutionId, realization, initialInterpretation, focu
       )}
       {outcome?.kind === "rejected" && (
         <div className={styles.result} role="status">
-          <p>Reason recorded: {outcome.reason}</p>
-          <p className={styles.muted}>There is no reject endpoint yet, so this is kept in this view only; the realization status is unchanged.</p>
+          <p>Rejected. Reason recorded: {outcome.reason}</p>
         </div>
       )}
     </div>

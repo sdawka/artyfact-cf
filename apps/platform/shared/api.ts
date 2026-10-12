@@ -251,11 +251,20 @@ export interface GenomeCandidateReview {
 
 /** `POST /api/systems/:id/accept` for genome-amendment realizations. */
 export interface AcceptRequest {
-  realization: string;
-  rationale: string;
+  /** Canonical names; the backend also accepts `realization` / `rationale`. */
+  realizationId: string;
+  interpretation: string;
 }
 export interface AcceptResponse {
   genomeCommit: CommitHash;
+  realization: Realization;
+}
+
+/** `POST /api/systems/:id/realizations/:rid/reject` (admin): reject a Genome amendment. */
+export interface RejectRequest {
+  reason: string;
+}
+export interface RejectResponse {
   realization: Realization;
 }
 

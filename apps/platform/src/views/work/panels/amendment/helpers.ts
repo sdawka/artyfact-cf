@@ -1,5 +1,5 @@
 import type { Commitment, SemanticChange } from "@artyfact/semantic";
-import { verdict } from "@artyfact/semantic";
+import { band, verdict } from "@artyfact/semantic";
 
 /** System One bands for display. Only `pass` (>= 0.9) may ever be shown as success. */
 export type SignalBand = "pass" | "review" | "fail" | "unknown";
@@ -8,7 +8,7 @@ export function signalBand(p: number | null | undefined): SignalBand {
   const v = verdict(p);
   if (v === "pass") return "pass";
   if (v === "fail") return "fail";
-  return p >= 0.5 ? "review" : "unknown";
+  return band(p) === "review" ? "review" : "unknown";
 }
 
 export const fmt = (p: number | null | undefined) => (typeof p === "number" ? p.toFixed(2) : "unknown");

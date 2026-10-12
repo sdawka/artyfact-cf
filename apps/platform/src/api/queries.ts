@@ -1,6 +1,6 @@
 import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
-import type { AcceptRequest, PromoteRequest, Realization, StartWorkRequest, SubmitRequest } from "../../shared/api";
+import type { AcceptRequest, PromoteRequest, Realization, RejectRequest, StartWorkRequest, SubmitRequest } from "../../shared/api";
 import { useSystemRoute } from "@/model/useSelection";
 import * as api from "./client";
 
@@ -88,12 +88,12 @@ export function usePacket(realizationId: string | undefined) {
 }
 
 /** Rule findings and System One judgments for a Genome-targeting realization. */
-export function useAmendmentReview(realizationId: string | undefined) {
+export function useAmendmentReview(evolutionId: string | undefined, realizationId: string | undefined) {
   const { systemId } = useSystemRoute();
   return useQuery({
     queryKey: qk.amendmentReview(systemId, realizationId ?? ""),
-    queryFn: () => api.getAmendmentReview(systemId, realizationId!),
-    enabled: !!realizationId,
+    queryFn: () => api.getAmendmentReview(systemId, evolutionId!, realizationId!),
+    enabled: !!realizationId && !!evolutionId,
   });
 }
 
@@ -159,6 +159,19 @@ export function useAcceptAmendment() {
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["model", systemId] });
       void qc.invalidateQueries({ queryKey: qk.evolutions(systemId) });
+    },
+  });
+}
+
+export function useRejectAmendment() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ realizationId, body, adminToken }: { realizationId: string; body: RejectRequest; adminToken?: string }) =>
+      api.rejectAmendment(systemId, realizationId, body, adminToken),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: qk.evolutions(systemId) });
+      void qc.invalidateQueries({ queryKey: ["realization", systemId] });
     },
   });
 }
