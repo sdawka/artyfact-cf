@@ -6,12 +6,14 @@ import { diffModels, type Readiness, type schema, type SystemModel } from "@arty
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  CandidatesResponse, ConflictReport, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  CandidatesResponse, ConflictReport, Finding, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
 import { sha256Hex } from "./util";
-import { artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
+import { systemRepoNames } from "@artyfact/cli/naming";
+import { readPlatform, unsyncedWarning } from "./artifacts/platform";
+import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
 import { buildGenome, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
 import { loadSourceMap, nodesForPath, type SourceMapEntry } from "./artifacts/source-map";
@@ -123,28 +125,63 @@ async function sourceMapFor(m: SystemModel, repo: ArtifactsRepoLike, commit: str
 
 // ------------------------------------------------------------------ import
 
-export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; force?: unknown }): Promise<ImportSystemResponse> {
-  const { systemId, genomeRepo, appRepo } = body;
-  if (typeof systemId !== "string" || typeof genomeRepo !== "string" || typeof appRepo !== "string" || !systemId || !genomeRepo || !appRepo) {
-    throw badRequest("systemId, genomeRepo and appRepo are required strings");
+const REPO_RE = /^[a-z0-9][a-z0-9._-]*$/i;
+
+function scaffoldSource(v: unknown): ScaffoldSource | undefined {
+  if (v === undefined || v === null) return undefined;
+  const o = v as Partial<ScaffoldSource>;
+  if (typeof o !== "object" || typeof o.repo !== "string" || !REPO_RE.test(o.repo) || typeof o.commit !== "string" || !COMMIT_RE.test(o.commit)
+    || (o.path !== undefined && (typeof o.path !== "string" || o.path.split("/").includes("..")))) {
+    throw badRequest("scaffoldFrom must be {repo, commit (40 hex), path?}");
   }
+  return { repo: o.repo, commit: o.commit, ...(o.path && { path: o.path }) };
+}
+
+/** `genomeRepo`/`appRepo` are optional: omitted ones default to `<slug>.genome` / `<slug>.app`. */
+export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown }): Promise<ImportSystemResponse> {
+  const { systemId } = body;
+  if (typeof systemId !== "string" || !systemId) throw badRequest("systemId is a required string");
   if (systemId === REGISTRY) throw badRequest("reserved system id");
+  let derived: ReturnType<typeof systemRepoNames>;
+  try {
+    derived = systemRepoNames(systemId);
+  } catch (e) {
+    throw badRequest((e as Error).message);
+  }
+  if (body.appRepo !== undefined && body.appRepo !== null && body.appRepo !== "" && (typeof body.appRepo !== "string" || !REPO_RE.test(body.appRepo))) {
+    throw badRequest("appRepo must be a repo name");
+  }
+  const pick = (v: unknown, name: string, fallback: string) => {
+    if (v === undefined || v === null || v === "") return fallback;
+    if (typeof v !== "string" || !REPO_RE.test(v)) throw badRequest(`${name} must be a repo name`);
+    return v;
+  };
+  const genomeRepo = pick(body.genomeRepo, "genomeRepo", derived.genomeRepo);
+  const scaffoldFrom = scaffoldSource(body.scaffoldFrom);
   const ns = artifactsFor(env);
   const headOf = async (name: string) => {
-    const [c] = await withRepo(ns, name, (r) => r.log({ limit: 1 }));
+    const [c] = await withRepo(ns, name, (r) => r.log({ limit: 1 })).catch((e: unknown) => {
+      if (artifactsErrorCode(e) === "NOT_FOUND") throw unprocessable("repo-not-found", `repo ${name} not found in namespace ${env.ARTIFACTS_NAMESPACE}; push it first ('npx artyfact init')`);
+      throw e;
+    });
     if (!c) throw unprocessable("empty-repo", `repo ${name} has no commits`);
     return c.hash;
   };
-  const [genomeCommit, appCommit] = await Promise.all([headOf(genomeRepo), headOf(appRepo)]);
+  const genomeCommit = await headOf(genomeRepo);
   const files = await withRepo(ns, genomeRepo, (r) => readGenomeFiles(r, genomeCommit));
   const g = memoGenome(`${systemId}@${genomeCommit}`, () => buildGenome(files, genomeCommit));
   if (g.model.system.id !== systemId) {
     throw unprocessable("system-mismatch", `Genome in ${genomeRepo} declares ${g.model.system.id}, not ${systemId}`);
   }
+  // With several worker-fullstack artifacts the app repo is named after the bound (first) one.
+  const appArtifacts = g.model.things.flatMap((t) => t.artifacts).filter((a) => a.type === "worker-fullstack").map((a) => a.artifact);
+  const appRepo = pick(body.appRepo, "appRepo", systemRepoNames(systemId, appArtifacts).appRepo);
+  const appCommit = await headOf(appRepo);
+  const { platform, warnings } = await readPlatform(ns, systemId, g.model);
   const stub = systemStub(env, systemId);
   const booted = await rpc(stub.bootstrap({
     systemId, title: g.model.system.name, phase: g.model.system.phase, genomeRepo, appRepo, genomeCommit, appCommit,
-    evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model), force: body.force === true,
+    evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model), platform, ...(scaffoldFrom && { scaffoldFrom }), force: body.force === true,
   }));
   if ("alreadyImported" in booted) throw conflict("already-imported", booted.alreadyImported);
   const system = booted;
@@ -154,7 +191,7 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     rules: JSON.stringify(g.readiness),
   });
   await registryStub(env).registerSystem(system);
-  return { system, head: system.head!, genomeCommit, appCommit, evolutions: g.model.evolutions.map((e) => e.id) };
+  return { system, head: system.head!, genomeRepo, appRepo, genomeCommit, appCommit, evolutions: g.model.evolutions.map((e) => e.id), platform, warnings };
 }
 
 // ------------------------------------------------------------------ model + readiness
@@ -202,18 +239,25 @@ async function genomeView(env: Env, systemId: string, genomeCommit: string, repo
   return view;
 }
 
+/** `platform.unsynced` is a readiness warning (never a blocker) while the System has no recorded `platform` commit. */
+function withPlatform<R extends { findings: Finding[]; modelReadiness: { findings: Finding[]; blockers: Finding[] } }>(s: HeadState, r: R): R {
+  if (s.platform) return r;
+  const w = unsyncedWarning(s.systemId);
+  return { ...r, findings: [...r.findings, w], modelReadiness: { ...r.modelReadiness, findings: [...r.modelReadiness.findings, w] } };
+}
+
 export async function modelBundle(env: Env, systemId: string, rev?: string): Promise<ModelBundle> {
   const s = await headState(env, systemId);
   const r = await resolveRevision(env, s, rev);
   const [v, evals] = await Promise.all([genomeView(env, systemId, r.genomeCommit, r.repo), evaluationsFor(env, systemId, r.candidateIds)]);
-  return { systemId, revision: r.revision, genomeCommit: r.genomeCommit, model: v.model, readiness: readinessReport(v.model, v.readiness, evals) };
+  return { systemId, revision: r.revision, genomeCommit: r.genomeCommit, model: v.model, readiness: withPlatform(s, readinessReport(v.model, v.readiness, evals)) };
 }
 
 export async function readiness(env: Env, systemId: string, rev?: string): Promise<ReadinessResponse> {
   const s = await headState(env, systemId);
   const r = await resolveRevision(env, s, rev);
   const [v, evals] = await Promise.all([genomeView(env, systemId, r.genomeCommit, r.repo), evaluationsFor(env, systemId, r.candidateIds)]);
-  return { ...readinessReport(v.model, v.readiness, evals), systemId, revision: r.revision, genomeCommit: r.genomeCommit };
+  return { ...withPlatform(s, readinessReport(v.model, v.readiness, evals)), systemId, revision: r.revision, genomeCommit: r.genomeCommit };
 }
 
 // ------------------------------------------------------------------ start work

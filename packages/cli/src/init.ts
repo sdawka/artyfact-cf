@@ -1,0 +1,441 @@
+/**
+ * `artyfact init` and `artyfact platform-sync` (slice 2.7): take a project from `system.yaml` to an imported System.
+ * Write tokens reach git only through `GIT_CONFIG_*` (see `gitEnv`); they are never printed or put on an argv.
+ */
+import { createHash } from "node:crypto";
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, relative, resolve } from "node:path";
+import { spawnSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { parseArgs } from "node:util";
+import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
+import { CliError, git } from "./git.ts";
+import { PLATFORM_REPO, platformTemplateDir, systemRepoNames } from "./naming.ts";
+
+export interface InitIo {
+  out: (s: string) => void;
+  err: (s: string) => void;
+  cwd: string;
+  env: Record<string, string | undefined>;
+  cloud?: Cloud;
+  fetch?: typeof fetch;
+  /** Checkout root holding `packages/templates` (defaults to this package's monorepo). */
+  root?: string;
+  /** Delay between fork readiness polls (tests use 0). */
+  pollMs?: number;
+}
+
+const DEFAULT_URL = "http://localhost:5173";
+const DEFAULT_NAMESPACE = "artyfact";
+const IDENTITY = ["-c", "user.name=artyfact", "-c", "user.email=artyfact@localhost"];
+/** Never pushed, whether or not the source is inside a git checkout. */
+const EXCLUDE = ["node_modules/", ".wrangler/", ".git/", "dist/", ".dev.vars", ".env", ".artyfact.json", ".artyfact/", "*.tsbuildinfo", ".DS_Store"];
+
+const here = dirname(fileURLToPath(import.meta.url));
+const defaultRoot = () => resolve(here, "../../..");
+
+function parse(args: string[], options: Record<string, { type: "string" | "boolean" }>) {
+  try {
+    return parseArgs({ args, options, allowPositionals: false }).values as Record<string, string | boolean | undefined>;
+  } catch (e) {
+    throw new CliError((e as Error).message);
+  }
+}
+
+// ------------------------------------------------------------------ project reading
+
+/** `id:` of a system.yaml (top-level scalar; the CLI carries no YAML dependency). */
+export function systemIdOf(yaml: string): string {
+  const m = /^id:\s*["']?([A-Za-z0-9._-]+)["']?\s*(#.*)?$/m.exec(yaml);
+  if (!m) throw new CliError("system.yaml has no top-level `id:`");
+  return m[1]!;
+}
+
+/** worker-fullstack artifact ids declared in `things/**\/thing.yaml`, in file order. */
+export function appArtifactIds(genomeDir: string): string[] {
+  const dir = join(genomeDir, "things");
+  if (!existsSync(dir)) return [];
+  const ids: string[] = [];
+  for (const thing of readdirSync(dir).sort()) {
+    const f = join(dir, thing, "thing.yaml");
+    if (!existsSync(f)) continue;
+    const text = readFileSync(f, "utf8");
+    for (const m of text.matchAll(/artifact:\s*["']?(artifact\.[A-Za-z0-9._-]+)["']?([^\n]*\n?(?:[ \t]+[^\n]*\n?){0,4})/g)) {
+      if (/type:\s*["']?worker-fullstack/.test(m[0])) ids.push(m[1]!);
+    }
+  }
+  return ids;
+}
+
+/** `key: value` lines of a flat YAML file such as scaffold.yaml. */
+export function flatYaml(text: string): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const line of text.split("\n")) {
+    const m = /^([A-Za-z_][\w-]*):\s*["']?([^"'#\n]*?)["']?\s*(#.*)?$/.exec(line);
+    if (m && m[2]) out[m[1]!] = m[2];
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------ git plumbing
+
+interface Remote { url: string; token: string }
+
+function lsRemoteHead(cwd: string, r: Remote): string {
+  return git(cwd, ["ls-remote", "--", r.url, "refs/heads/main"], r.token).split(/\s/)[0] ?? "";
+}
+
+/** Files of `src` that belong in the repo: the checkout's own ignore rules when inside git, plus {@link EXCLUDE}. */
+function sourceFiles(src: string): string[] | null {
+  const inside = spawnSync("git", ["-C", src, "rev-parse", "--is-inside-work-tree"], { encoding: "utf8" });
+  if (inside.status !== 0 || inside.stdout.trim() !== "true") return null;
+  const r = spawnSync("git", ["-C", src, "ls-files", "-z", "-co", "--exclude-standard", "--", "."], { encoding: "utf8", maxBuffer: 64 << 20 });
+  if (r.status !== 0) throw new CliError(`git ls-files failed in ${src}`);
+  return r.stdout.split("\0").filter(Boolean).filter((p) => existsSync(join(src, p)));
+}
+
+/** A scratch git dir whose index holds exactly the project tree of `src`; returns the tree hash. */
+function stageTree(work: string, src: string): string {
+  git(work, ["init", "-q", "-b", "main"]);
+  writeFileSync(join(work, ".git", "info", "exclude"), `${EXCLUDE.join("\n")}\n`);
+  const gd = ["--git-dir", join(work, ".git"), "--work-tree", src];
+  const files = sourceFiles(src);
+  if (files === null) {
+    git(work, [...gd, "add", "-A", "--", "."]);
+  } else {
+    const list = join(work, "files");
+    writeFileSync(list, files.join("\0"));
+    if (files.length) git(work, [...gd, "add", "--pathspec-from-file", list, "--pathspec-file-nul"]);
+  }
+  return git(work, ["--git-dir", join(work, ".git"), "write-tree"]);
+}
+
+interface StateFile { pushed: Record<string, string> }
+
+function readState(file: string): StateFile {
+  try {
+    const s = JSON.parse(readFileSync(file, "utf8")) as StateFile;
+    return { pushed: s.pushed ?? {} };
+  } catch {
+    return { pushed: {} };
+  }
+}
+
+function writeState(file: string, s: StateFile) {
+  mkdirSync(dirname(file), { recursive: true });
+  writeFileSync(file, `${JSON.stringify(s, null, 2)}\n`);
+}
+
+export type PushResult = { head: string; action: "pushed" | "unchanged" | "created" };
+
+/**
+ * Make `repo`'s `main` hold the tree of `src`, never rewriting history: an empty repo gets a root commit; a repo whose
+ * head already has this tree is left alone; otherwise a commit on top of the head is pushed, but only when that head
+ * is the one this checkout last pushed (or `owned`/`adopt`), so foreign history is never silently built over.
+ */
+function pushTree(
+  ctx: { cloud: Cloud; ns: string; state: StateFile; key: string },
+  repo: string, src: string, message: string, opts: { owned?: boolean; adopt?: boolean } = {},
+): PushResult {
+  const r: Remote = { url: ctx.cloud.remote(ctx.ns, repo), token: ctx.cloud.token(ctx.ns, repo, "write") };
+  const work = mkdtempSync(join(tmpdir(), "artyfact-init-"));
+  try {
+    const tree = stageTree(work, src);
+    const head = lsRemoteHead(work, r);
+    const gd = ["--git-dir", join(work, ".git")];
+    if (head) {
+      git(work, [...gd, "fetch", "-q", "--depth=1", "--", r.url, "refs/heads/main"], r.token);
+      const remoteTree = git(work, [...gd, "rev-parse", "FETCH_HEAD^{tree}"]);
+      if (remoteTree === tree) {
+        ctx.state.pushed[ctx.key + repo] = head;
+        return { head, action: "unchanged" };
+      }
+      if (!opts.owned && !opts.adopt && ctx.state.pushed[ctx.key + repo] !== head) {
+        throw new CliError(`${repo} has commits this checkout did not push (head ${head.slice(0, 7)}) and its tree differs from ${src}.
+init never builds over unknown history: merge that history into your project first, or re-run with --adopt to commit your project on top of ${head.slice(0, 7)} (a fast-forward).`);
+      }
+    }
+    const commit = git(work, [...IDENTITY, ...gd, "commit-tree", tree, ...(head ? ["-p", head] : []), "-m", message]);
+    try {
+      git(work, [...gd, "push", "-q", "--", r.url, `${commit}:refs/heads/main`], r.token);
+    } catch (e) {
+      throw new CliError(`push to ${repo} was rejected (main moved while init ran, or the push is not a fast-forward); re-run init. ${(e as Error).message}`);
+    }
+    ctx.state.pushed[ctx.key + repo] = commit;
+    return { head: commit, action: head ? "pushed" : "created" };
+  } finally {
+    rmSync(work, { recursive: true, force: true });
+  }
+}
+
+/** Shallow clone of `repo`'s main into a temp dir (read token via env). */
+function cloneShallow(cloud: Cloud, ns: string, repo: string): { dir: string; head: string; cleanup: () => void } {
+  const r: Remote = { url: cloud.remote(ns, repo), token: cloud.token(ns, repo, "read") };
+  const parent = mkdtempSync(join(tmpdir(), "artyfact-clone-"));
+  const dir = join(parent, "repo");
+  git(parent, ["clone", "-q", "--depth=1", "--", r.url, dir], r.token);
+  return { dir, head: git(dir, ["rev-parse", "HEAD"]), cleanup: () => rmSync(parent, { recursive: true, force: true }) };
+}
+
+function ensureRepo(io: InitIo, cloud: Cloud, ns: string, repo: string) {
+  if (cloud.repoExists(ns, repo)) return;
+  cloud.createRepo(ns, repo);
+  io.out(`  created repo ${repo}`);
+}
+
+// ------------------------------------------------------------------ platform repo
+
+const sha256 = (s: string | Buffer) => createHash("sha256").update(s).digest("hex");
+
+function walk(dir: string, base = dir): string[] {
+  return readdirSync(dir).sort().flatMap((n) => {
+    const p = join(dir, n);
+    return statSync(p).isDirectory() ? walk(p, base) : [relative(base, p)];
+  });
+}
+
+/** Copy the project files of `src` (same selection as a push) into `dst`. */
+function copyProject(src: string, dst: string) {
+  const files = sourceFiles(src) ?? walk(src).filter((p) => !EXCLUDE.some((x) => (x.endsWith("/") ? p.split("/").includes(x.slice(0, -1)) : p.split("/").at(-1) === x)));
+  for (const f of files) {
+    mkdirSync(dirname(join(dst, f)), { recursive: true });
+    cpSync(join(src, f), join(dst, f));
+  }
+}
+
+/**
+ * Lay out the `platform` repo content from the checkout: `templates/{system,thing}/<name>@<v>/`, Thing scaffolds under
+ * `scaffold/` (from scaffold.yaml `bundle`), rule packs at `templates/rule-packs/<id>@<v>/pack.dl`, README, manifest.
+ */
+export function buildPlatformTree(root: string, out: string): { bundleHash: string; templates: string[]; packs: string[] } {
+  root = resolve(root);
+  const tpl = join(root, "packages", "templates");
+  const templates: string[] = [], packs: string[] = [];
+  for (const kind of ["system", "thing"] as const) {
+    const kdir = join(tpl, kind);
+    if (!existsSync(kdir)) continue;
+    for (const nameVer of readdirSync(kdir).sort()) {
+      const src = join(kdir, nameVer);
+      if (!existsSync(join(src, "template.yaml"))) continue;
+      const ref = `template.${kind}.${nameVer}`;
+      const dst = join(out, platformTemplateDir(ref)!);
+      mkdirSync(dst, { recursive: true });
+      for (const f of readdirSync(src).sort()) if (f.endsWith(".yaml")) cpSync(join(src, f), join(dst, f));
+      const scaffold = existsSync(join(src, "scaffold.yaml")) ? flatYaml(readFileSync(join(src, "scaffold.yaml"), "utf8")) : {};
+      if (scaffold.bundle) {
+        const from = resolve(root, scaffold.bundle);
+        if (!from.startsWith(root + "/") || !existsSync(from)) throw new CliError(`${ref} scaffold bundle ${scaffold.bundle} not found in the checkout`);
+        copyProject(from, join(dst, "scaffold"));
+      }
+      templates.push(ref);
+    }
+  }
+  const pdir = join(tpl, "rule-packs");
+  for (const f of existsSync(pdir) ? readdirSync(pdir).sort() : []) {
+    if (!f.endsWith(".dl")) continue;
+    const idVer = f.slice(0, -3);
+    mkdirSync(join(out, "templates", "rule-packs", idVer), { recursive: true });
+    cpSync(join(pdir, f), join(out, "templates", "rule-packs", idVer, "pack.dl"));
+    packs.push(idVer);
+  }
+  writeFileSync(join(out, "README.md"), `# platform
+
+Templates and rule packs of this artyfact deployment, written by \`npx artyfact platform-sync\`.
+Systems in this namespace pin them in \`kits.yaml\` / \`system.yaml\`; the platform records this repo's commit as provenance
+on every System commit. Evaluation still runs the copies bundled into the platform Worker.
+
+- \`templates/system/<name>@<v>/\`, \`templates/thing/<name>@<v>/\` (a Thing's \`scaffold/\` seeds new app repos)
+- \`templates/rule-packs/<id>@<v>/pack.dl\`
+- \`manifest.json\`: \`{version, bundleHash}\`
+
+Templates: ${templates.join(", ")}
+Rule packs: ${packs.join(", ")}
+`);
+  const files = walk(out).filter((p) => p !== "manifest.json");
+  const bundleHash = sha256(files.map((p) => `${p}\0${sha256(readFileSync(join(out, p)))}\n`).join(""));
+  writeFileSync(join(out, "manifest.json"), `${JSON.stringify({ version: 1, bundleHash }, null, 2)}\n`);
+  return { bundleHash, templates, packs };
+}
+
+interface Ctx { io: InitIo; cloud: Cloud; ns: string; state: StateFile; key: string }
+
+function syncPlatform(c: Ctx): PushResult & { bundleHash: string } {
+  ensureRepo(c.io, c.cloud, c.ns, PLATFORM_REPO);
+  const out = mkdtempSync(join(tmpdir(), "artyfact-platform-"));
+  try {
+    const built = buildPlatformTree(c.io.root ?? defaultRoot(), out);
+    const res = pushTree(c, PLATFORM_REPO, out, `platform-sync ${built.bundleHash.slice(0, 12)}`, { owned: true });
+    return { ...res, bundleHash: built.bundleHash };
+  } finally {
+    rmSync(out, { recursive: true, force: true });
+  }
+}
+
+// ------------------------------------------------------------------ commands
+
+function namespaceOf(values: Record<string, unknown>, io: InitIo): string {
+  const ns = (values.namespace as string | undefined) ?? io.env.ARTIFACTS_NAMESPACE ?? DEFAULT_NAMESPACE;
+  if (!/^[a-z0-9][a-z0-9._-]*$/.test(ns)) throw new CliError(`invalid namespace ${JSON.stringify(ns)}`);
+  return ns;
+}
+
+function connect(io: InitIo, ns: string): Cloud {
+  const cloud = io.cloud ?? cloudCli(spawnExec(io.root ?? defaultRoot()), io.env);
+  const account = cloud.account();
+  io.out(`account ${account.slice(0, 8)}… (wrangler and cf agree)`);
+  io.out(`namespace ${ns}: ${cloud.ensureNamespace(ns)}`);
+  return cloud;
+}
+
+const stateFileFor = (io: InitIo, project: string) => join(project, ".artyfact", "init.json");
+
+export async function platformSyncCommand(args: string[], io: InitIo): Promise<number> {
+  const values = parse(args, { namespace: { type: "string" } });
+  const ns = namespaceOf(values, io);
+  const cloud = connect(io, ns);
+  const res = syncPlatform({ io, cloud, ns, state: { pushed: {} }, key: "" });
+  io.out(`${PLATFORM_REPO}: ${res.action} at ${res.head.slice(0, 12)} (bundle ${res.bundleHash.slice(0, 12)})`);
+  return 0;
+}
+
+export async function initCommand(args: string[], io: InitIo): Promise<number> {
+  const values = parse(args, {
+    dir: { type: "string" }, genome: { type: "string" }, app: { type: "string" }, platform: { type: "string" },
+    namespace: { type: "string" }, "from-template": { type: "string" }, force: { type: "boolean" }, adopt: { type: "boolean" },
+  });
+  const project = resolve(io.cwd, (values.dir as string | undefined) ?? ".");
+  const genomeDir = resolve(io.cwd, (values.genome as string | undefined) ?? join(project, "system"));
+  const appDir = resolve(io.cwd, (values.app as string | undefined) ?? join(project, "app"));
+  const fromTemplate = values["from-template"] as string | undefined;
+  const platformUrl = ((values.platform as string | undefined) ?? io.env.ARTYFACT_URL ?? DEFAULT_URL).replace(/\/$/, "");
+  const ns = namespaceOf(values, io);
+
+  const systemYaml = join(genomeDir, "system.yaml");
+  if (!existsSync(systemYaml)) throw new CliError(`no system.yaml in ${genomeDir}; pass --dir <project> (with system/) or --genome <dir>`);
+  const systemId = systemIdOf(readFileSync(systemYaml, "utf8"));
+  const names = systemRepoNames(systemId, appArtifactIds(genomeDir));
+  const hasApp = existsSync(join(appDir, "package.json")) || (existsSync(appDir) && readdirSync(appDir).length > 0);
+  if (!hasApp && !fromTemplate) throw new CliError(`no app in ${appDir}; pass --app <dir>, or --from-template <template.thing.id@version> to seed ${names.appRepo}`);
+  if (hasApp && fromTemplate) throw new CliError(`--from-template seeds a project without an app, but ${appDir} exists`);
+  io.out(`${systemId} -> ${names.genomeRepo}, ${names.appRepo} (namespace ${ns})`);
+
+  const cloud = connect(io, ns);
+  const stateFile = stateFileFor(io, project);
+  const state = readState(stateFile);
+  const key = `${cloud.remote(ns, "").replace(/\.git$/, "")}`;
+  const ctx: Ctx = { io, cloud, ns, state, key };
+  try {
+    const plat = syncPlatform(ctx);
+    io.out(`${PLATFORM_REPO}: ${plat.action} at ${plat.head.slice(0, 12)}`);
+
+    ensureRepo(io, cloud, ns, names.genomeRepo);
+    const genome = pushTree(ctx, names.genomeRepo, genomeDir, `Import ${systemId} Genome`, { adopt: values.adopt === true });
+    io.out(`${names.genomeRepo}: ${genome.action} at ${genome.head.slice(0, 12)}`);
+
+    let scaffoldFrom: { repo: string; commit: string; path?: string } | undefined;
+    if (hasApp) {
+      ensureRepo(io, cloud, ns, names.appRepo);
+      const app = pushTree(ctx, names.appRepo, appDir, `Import ${systemId} app`, { adopt: values.adopt === true });
+      io.out(`${names.appRepo}: ${app.action} at ${app.head.slice(0, 12)}`);
+    } else {
+      scaffoldFrom = await seedFromTemplate(ctx, fromTemplate!, names.appRepo);
+    }
+
+    return await importIntoPlatform(io, platformUrl, { systemId, genomeRepo: names.genomeRepo, appRepo: names.appRepo, ...(scaffoldFrom && { scaffoldFrom }) }, values.force === true);
+  } finally {
+    writeState(stateFile, state);
+  }
+}
+
+/**
+ * Seed `<slug>.app` from a Thing template's scaffold (read from `platform`): fork a whole repo, or copy a subtree and push.
+ * Returns the scaffold source to record on the app binding, or undefined when the app repo already has history.
+ */
+async function seedFromTemplate(c: Ctx, ref: string, appRepo: string): Promise<{ repo: string; commit: string; path?: string } | undefined> {
+  const dir = platformTemplateDir(ref);
+  if (!dir || !ref.startsWith("template.thing.")) throw new CliError(`--from-template takes a Thing template ref like template.thing.cloudflare-worker-webapp@1, not ${ref}`);
+  if (c.cloud.repoExists(c.ns, appRepo)) {
+    const r: Remote = { url: c.cloud.remote(c.ns, appRepo), token: c.cloud.token(c.ns, appRepo, "read") };
+    const head = lsRemoteHead(c.io.cwd, r);
+    if (head) {
+      c.io.out(`${appRepo}: already has history at ${head.slice(0, 12)}; not re-seeding`);
+      return undefined;
+    }
+  }
+  const plat = cloneShallow(c.cloud, c.ns, PLATFORM_REPO);
+  try {
+    const file = join(plat.dir, dir, "scaffold.yaml");
+    if (!existsSync(file)) throw new CliError(`${PLATFORM_REPO} has no ${dir}/scaffold.yaml; run 'npx artyfact platform-sync' or pick another template`);
+    const sc = flatYaml(readFileSync(file, "utf8"));
+    const repo = sc.repo ?? PLATFORM_REPO;
+    const path = sc.path?.replace(/^\/+|\/+$/g, "") || undefined;
+    if (path?.split("/").includes("..")) throw new CliError(`scaffold path ${path} escapes the repo`);
+    if (!path) {
+      // Whole repo: an Artifacts fork keeps its history (another System's `<slug>.app` works the same way).
+      if (c.cloud.repoExists(c.ns, appRepo)) throw new CliError(`${appRepo} exists (empty); a whole-repo scaffold needs to fork into a new repo. Remove it or use a path scaffold.`);
+      const srcHead = lsRemoteHead(c.io.cwd, { url: c.cloud.remote(c.ns, repo), token: c.cloud.token(c.ns, repo, "read") });
+      if (!srcHead) throw new CliError(`scaffold repo ${repo} has no commits`);
+      c.cloud.fork(c.ns, repo, appRepo);
+      const head = await waitForHead(c, appRepo);
+      c.io.out(`${appRepo}: forked from ${repo}@${srcHead.slice(0, 12)}`);
+      return { repo, commit: head };
+    }
+    const source = repo === PLATFORM_REPO ? plat : cloneShallow(c.cloud, c.ns, repo);
+    try {
+      const sub = join(source.dir, path);
+      if (!existsSync(sub)) throw new CliError(`${repo}@${source.head.slice(0, 7)} has no ${path}`);
+      ensureRepo(c.io, c.cloud, c.ns, appRepo);
+      const res = pushTree(c, appRepo, sub, `Seed from ${ref} (${repo}:${path}@${source.head.slice(0, 7)})`);
+      c.io.out(`${appRepo}: seeded from ${repo}:${path}@${source.head.slice(0, 12)} at ${res.head.slice(0, 12)}`);
+      return { repo, commit: source.head, path };
+    } finally {
+      if (source !== plat) source.cleanup();
+    }
+  } finally {
+    plat.cleanup();
+  }
+}
+
+async function waitForHead(c: Ctx, repo: string): Promise<string> {
+  const deadline = Date.now() + 30_000;
+  for (;;) {
+    try {
+      const head = lsRemoteHead(c.io.cwd, { url: c.cloud.remote(c.ns, repo), token: c.cloud.token(c.ns, repo, "read") });
+      if (head) return head;
+    } catch {
+      /* fork still in progress */
+    }
+    if (Date.now() > deadline) throw new CliError(`fork ${repo} not readable after 30 s`);
+    await new Promise((r) => setTimeout(r, c.io.pollMs ?? 1000));
+  }
+}
+
+async function importIntoPlatform(io: InitIo, base: string, body: Record<string, unknown>, force: boolean): Promise<number> {
+  const url = `${base}/api/systems/import`;
+  const payload = JSON.stringify({ ...body, force });
+  const admin = io.env.ARTYFACT_ADMIN_TOKEN;
+  if (!admin) {
+    io.out("");
+    io.out("ARTYFACT_ADMIN_TOKEN is not set, so the System was not imported. Import it with:");
+    io.out(`  curl -sS -XPOST ${url} -H "authorization: Bearer $ARTYFACT_ADMIN_TOKEN" -H 'content-type: application/json' -d '${payload}'`);
+    return 0;
+  }
+  let res: Response;
+  try {
+    res = await (io.fetch ?? fetch)(url, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${admin}` }, body: payload });
+  } catch (e) {
+    throw new CliError(`cannot reach the platform at ${base}: ${(e as Error).message}`);
+  }
+  const text = await res.text();
+  let json: { head?: string; warnings?: { rule: string; subject?: string; message: string }[]; error?: { code?: string; message?: string } } = {};
+  try { json = JSON.parse(text); } catch { /* not JSON */ }
+  if (res.status === 409 && json.error?.code === "already-imported") {
+    throw new CliError(`${json.error.message ?? "already imported from other commits"}\nRe-run with --force to re-point ${body.systemId} at these commits.`);
+  }
+  if (!res.ok) throw new CliError(`import failed: ${res.status} ${json.error ? `${json.error.code}: ${json.error.message}` : text.slice(0, 200)}`);
+  io.out(`imported ${body.systemId} at ${json.head}`);
+  for (const w of json.warnings ?? []) io.out(`  warning ${w.rule}${w.subject ? ` (${w.subject})` : ""}: ${w.message}`);
+  io.out(`System: ${base}/s/${encodeURIComponent(String(body.systemId))}/r/head/overview`);
+  return 0;
+}

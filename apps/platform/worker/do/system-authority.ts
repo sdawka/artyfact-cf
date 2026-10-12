@@ -1,9 +1,10 @@
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
 import type {
-  Candidate, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, Realization, RealizationStatus, SseEnvelope, SseEvent,
+  ArtifactBinding, Candidate, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PlatformRef, Realization, RealizationStatus, ScaffoldSource, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
+import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
 import { RegistryStore } from "./registry";
 import { applySchema } from "./schema";
@@ -72,6 +73,8 @@ export interface ManifestExtras {
   artifactId: string;
   templateVersions: Record<string, string>;
   hookVersions: Record<string, string>;
+  /** Set on import; later commits carry the head's recorded `platform`. */
+  platform?: PlatformRef | null;
 }
 
 export interface BootstrapInput extends ManifestExtras {
@@ -82,6 +85,8 @@ export interface BootstrapInput extends ManifestExtras {
   appRepo: string;
   genomeCommit: string;
   appCommit: string;
+  platform: PlatformRef | null;
+  scaffoldFrom?: ScaffoldSource;
   evolutions: EvolutionSeed[];
   /** Re-point an existing System at different repos/commits (admin). Without it that is `[already-imported]`. */
   force?: boolean;
@@ -99,6 +104,8 @@ export interface HeadState {
   genomeSource: string;
   /** Repo + commit of the canonical app (the promoted fork after a promotion). */
   appSource: { repo: string; commit: string };
+  /** `platform` repo commit recorded at import (null when absent or imported before 2.7). */
+  platform: PlatformRef | null;
   manifest: SystemManifest | null;
 }
 
@@ -266,6 +273,7 @@ export class SystemAuthority extends DurableObject<Env> {
       genomeCommit: this.kv("genome_commit")!,
       genomeSource: this.kv("genome_source") ?? this.kv("genome_repo")!,
       appSource: { repo: this.kv("app_source_repo") ?? this.kv("app_repo")!, commit: this.kv("app_source_commit")! },
+      platform: this.platformRef(),
       manifest: this.readManifest(head),
     };
   }
@@ -281,11 +289,16 @@ export class SystemAuthority extends DurableObject<Env> {
     };
   }
 
+  private platformRef(): PlatformRef | null {
+    return json<PlatformRef | null>(this.kv("platform_json"), null);
+  }
+
   private async prepareCommit(extras: ManifestExtras, patch: (prev: SystemManifest | null) => SystemManifest): Promise<PreparedCommit> {
     const head = this.kv("head");
     const manifest = patch(this.readManifest(head));
     manifest.templateVersions = extras.templateVersions;
     manifest.hookVersions = extras.hookVersions;
+    manifest.platform = extras.platform !== undefined ? extras.platform : this.platformRef();
     return { head, manifest, manifestHash: await sha256Hex(canonicalJson(manifest)) };
   }
 
@@ -339,13 +352,33 @@ export class SystemAuthority extends DurableObject<Env> {
     if (!unchanged && imported[0] !== null && !input.force) {
       return { alreadyImported: `system ${input.systemId} is already imported from ${imported[0]}@${String(imported[1]).slice(0, 7)} + ${imported[2]}@${String(imported[3]).slice(0, 7)}; pass force to re-point it` };
     }
-    return this.applyImport(input, unchanged);
+    // Same repos and commits but a different `platform` commit: record it on a new commit that keeps the current
+    // composition (a re-import must never undo promotions).
+    const platformMoved = unchanged && imported[0] !== null && canonicalJson(this.platformRef()) !== canonicalJson(input.platform);
+    return platformMoved ? this.recordPlatform(input) : this.applyImport(input, unchanged);
+  }
+
+  private async recordPlatform(input: BootstrapInput): Promise<SystemSummary> {
+    const prep = await this.prepareCommit(input, (prev) => ({ ...(prev ?? { genomeCommit: input.genomeCommit, artifacts: {}, templateVersions: {}, hookVersions: {} }) }));
+    this.ctx.storage.transactionSync(() => {
+      if (this.kv("head") !== prep.head) throw new StaleBaseError(this.kv("head"));
+      this.setKv("platform_json", JSON.stringify(input.platform));
+      this.writeCommit(prep, [], {
+        by: "platform", policy: "platform-sync",
+        rationale: input.platform ? `platform ${input.platform.repo}@${input.platform.commit.slice(0, 7)}` : "platform repo absent",
+      });
+      this.seedEvolutions(input.evolutions, input.genomeCommit);
+    });
+    const summary = this.summary()!;
+    this.emit({ type: "system.imported", system: summary });
+    return summary;
   }
 
   private async applyImport(input: BootstrapInput, unchanged: boolean): Promise<SystemSummary> {
+    const app: ArtifactBinding = { repo: input.appRepo, commit: input.appCommit, ...(input.scaffoldFrom && { scaffoldFrom: input.scaffoldFrom }) };
     const prep = unchanged ? null : await this.prepareCommit(input, () => ({
       genomeCommit: input.genomeCommit,
-      artifacts: { [input.artifactId]: { repo: input.appRepo, commit: input.appCommit } },
+      artifacts: { [input.artifactId]: app },
       templateVersions: {}, hookVersions: {},
     }));
     this.ctx.storage.transactionSync(() => {
@@ -362,6 +395,7 @@ export class SystemAuthority extends DurableObject<Env> {
         this.setKv("genome_source", input.genomeRepo);
         this.setKv("app_source_repo", input.appRepo);
         this.setKv("app_source_commit", input.appCommit);
+        this.setKv("platform_json", JSON.stringify(input.platform));
         this.writeCommit(prep, [], {
           by: "platform", policy: "import",
           rationale: `import ${input.genomeRepo}@${input.genomeCommit.slice(0, 7)} + ${input.appRepo}@${input.appCommit.slice(0, 7)}`,
@@ -577,7 +611,7 @@ export class SystemAuthority extends DurableObject<Env> {
       const namingRepo = input.target === "genome" ? s.genomeRepo : s.appRepo;
       const baseRepo = input.target === "genome" ? s.genomeSource : s.appSource.repo;
       const baseCommit = input.target === "genome" ? s.genomeCommit : s.appSource.commit;
-      const forkRepo = `${namingRepo}--r${n}`;
+      const forkRepo = forkName(namingRepo, n);
       const at = nowIso();
       this.sql.exec(
         `INSERT INTO realizations (id, evolution_id, n, target, fork_repo, base_commit, agent_label, status, created_at, updated_at, base_repo, base_head, role)
@@ -888,7 +922,7 @@ export class SystemAuthority extends DurableObject<Env> {
     for (const c of cands) {
       if (!c) continue;
       if (c.target === "genome") genomeCommit = String(c.commit_hash);
-      else artifacts[artifactId] = { repo: String(c.fork_repo), commit: String(c.commit_hash) };
+      else artifacts[artifactId] = { ...artifacts[artifactId], repo: String(c.fork_repo), commit: String(c.commit_hash) };
     }
     return { genomeCommit, artifacts, templateVersions: {}, hookVersions: {} };
   }

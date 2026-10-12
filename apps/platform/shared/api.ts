@@ -215,6 +215,21 @@ export interface Candidate {
 export interface ArtifactBinding {
   repo: string;
   commit: CommitHash;
+  /** Where the app's first code came from when it was seeded from a template scaffold (`artyfact init --from-template`). */
+  scaffoldFrom?: ScaffoldSource;
+}
+
+/** A scaffold source in the namespace: a whole repo (forked) or a subtree of one (copied). */
+export interface ScaffoldSource {
+  repo: string;
+  commit: CommitHash;
+  path?: string;
+}
+
+/** The `platform` meta repo the System was imported against (provenance only; evaluation uses the bundled packages). */
+export interface PlatformRef {
+  repo: string;
+  commit: CommitHash;
 }
 
 /** Composition manifest hashed (canonical JSON, SHA-256) into a System commit. */
@@ -223,6 +238,8 @@ export interface SystemManifest {
   artifacts: Record<NodeId, ArtifactBinding>;
   templateVersions: Record<string, string>;
   hookVersions: Record<string, string>;
+  /** `platform` repo commit at import; null when the namespace had no `platform` repo. Absent on states from before 2.7. */
+  platform?: PlatformRef | null;
 }
 
 /** The model's SystemCommit (`manifest` as artifact bindings) plus the hashed composition. The backend always sets the extras. */
@@ -471,21 +488,30 @@ export interface RejectResponse {
   realization: Realization;
 }
 
-/** `POST /api/systems/import`. */
-/** `POST /api/systems/import` (admin). Re-importing a System from different repos/commits is 409 `already-imported` unless `force`. */
+/**
+ * `POST /api/systems/import` (admin). Re-importing a System from different repos/commits is 409 `already-imported` unless `force`.
+ * `genomeRepo`/`appRepo` default to `<slug>.genome` / `<slug>.app` (see `@artyfact/cli/naming`).
+ */
 export interface ImportSystemRequest {
   systemId: SystemId;
-  genomeRepo: string;
-  appRepo: string;
+  genomeRepo?: string;
+  appRepo?: string;
+  /** Recorded on the app's artifact binding when the app repo was seeded from a template scaffold. */
+  scaffoldFrom?: ScaffoldSource;
   force?: boolean;
 }
 export interface ImportSystemResponse {
   system: SystemSummary;
   head: string;
+  genomeRepo: string;
+  appRepo: string;
   genomeCommit: CommitHash;
   appCommit: CommitHash;
   /** Evolutions seeded from the Genome's `evolutions/*.yaml`. */
   evolutions: NodeId[];
+  platform: PlatformRef | null;
+  /** Non-blocking import findings: `platform.unsynced`, `platform.pin-missing`. */
+  warnings: Finding[];
 }
 
 export interface EvaluationsResponse {

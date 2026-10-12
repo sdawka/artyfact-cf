@@ -2,11 +2,12 @@ import { closeSync, constants, existsSync, fchmodSync, lstatSync, openSync, read
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PlatformClient, rzPath } from "./api.ts";
+import { initCommand, platformSyncCommand, type InitIo } from "./init.ts";
 import { mergeAgentsBlock, renderAgentsMd } from "./agents-md.ts";
 import { CliError, assertId, assertRemote, assertSecret, assertToken, commitIfDirty, git, isTracked } from "./git.ts";
 import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
 
-export interface Io {
+export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> {
   out: (s: string) => void;
   err: (s: string) => void;
   cwd: string;
@@ -46,6 +47,10 @@ const DEFAULT_URL = "http://localhost:5173";
 
 const USAGE = `artyfact <command>
 
+  init [--dir project] [--genome dir --app dir] [--from-template template.thing.<id>@<v>] [--platform url] [--namespace ns] [--force] [--adopt]
+        push <slug>.genome / <slug>.app and platform, then import the System (needs ARTYFACT_ADMIN_TOKEN, else prints the curl line)
+  platform-sync [--namespace ns]   push packages/templates to the namespace's platform repo (no-op when unchanged)
+
   start <realizationId> [--dir d] [--platform url] --system sid --evolution eid   (or ARTYFACT_SYSTEM / ARTYFACT_EVOLUTION)
         needs ARTYFACT_TOKEN and ARTYFACT_SECRET from the platform's start-work response
   checkpoint "<message>"
@@ -60,10 +65,13 @@ export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
     err: io?.err ?? ((s) => process.stderr.write(`${s}\n`)),
     cwd: io?.cwd ?? process.cwd(),
     env: io?.env ?? process.env,
+    cloud: io?.cloud, fetch: io?.fetch, root: io?.root, pollMs: io?.pollMs,
   };
   try {
     const [cmd, ...rest] = argv;
     switch (cmd) {
+      case "init": return await initCommand(rest, full);
+      case "platform-sync": return await platformSyncCommand(rest, full);
       case "start": return await start(rest, full);
       case "checkpoint": return await checkpoint(rest, full);
       case "submit": return await submit(rest, full);

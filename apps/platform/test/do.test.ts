@@ -10,7 +10,7 @@ const stub = () => env.SYSTEMS.getByName(`test-${++n}-${Date.now()}`);
 
 const boot: BootstrapInput = {
   systemId: "system.kit", title: "Kit", genomeRepo: "kit-system", appRepo: "kit-app", genomeCommit: G1, appCommit: A1,
-  artifactId: "artifact.webapp", templateVersions: { "template.thing.cloudflare-worker-webapp": "1" }, hookVersions: {},
+  artifactId: "artifact.webapp", templateVersions: { "template.thing.cloudflare-worker-webapp": "1" }, hookVersions: {}, platform: null,
   evolutions: [{
     id: "evolution.1", title: "List people", intent: "x", state: "actionable", kind: "implementation", affectedNodes: ["screen.people"],
     affectedClaims: [], genomeDelta: [], acceptanceCriteria: ["C.people.list"], requiredEvidence: [], dependsOn: [], risk: "low",
@@ -53,6 +53,48 @@ describe("SystemAuthority bootstrap", () => {
       expect(i.history()).toHaveLength(1);
       expect(i.history()[0].genomeCommit).toBe(G1);
       expect(i.history()[0].composition).toMatchObject({ genomeCommit: G1, artifacts: { "artifact.webapp": { repo: "kit-app", commit: A1 } } });
+    });
+  });
+});
+
+describe("platform provenance", () => {
+  const P1 = { repo: "platform", commit: "e".repeat(40) }, P2 = { repo: "platform", commit: "f".repeat(40) };
+  const scaffold = { repo: "platform", commit: "d".repeat(40), path: "templates/thing/cloudflare-worker-webapp@1/scaffold" };
+
+  it("records platform in the head and every commit's manifest, and the scaffold source on the app binding", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap({ ...boot, platform: P1, scaffoldFrom: scaffold });
+      expect(i.state()!.platform).toEqual(P1);
+      expect(i.history()[0].composition).toMatchObject({ platform: P1, artifacts: { "artifact.webapp": { repo: "kit-app", commit: A1, scaffoldFrom: scaffold } } });
+      const r = i.reserveRealization({ evolutionId: "evolution.1", target: "app" });
+      const { candidate } = i.recordCandidate({ realizationId: r.realization.id, commit: A2, manifest: {}, changedPaths: ["src/a.ts"], changedNodes: ["screen.people"] });
+      i.recordEvaluations(candidate.id, [ev(candidate.id, "C.people.list", "pass")], "evaluated");
+      const out = await i.promote(promoteInput([candidate.id], i.state()!.head));
+      expect(out).toMatchObject({ ok: true });
+      expect(i.history()[0].composition).toMatchObject({ platform: P1, artifacts: { "artifact.webapp": { repo: "kit-app--r1", commit: A2, scaffoldFrom: scaffold } } });
+    });
+  });
+
+  it("records null without a platform repo; a later platform commit alone adds a commit that keeps the composition", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      expect(i.state()!.platform).toBeNull();
+      expect(i.history()[0].composition!.platform).toBeNull();
+      expect(i.history()[0].composition!.artifacts["artifact.webapp"]).not.toHaveProperty("scaffoldFrom");
+      const r = i.reserveRealization({ evolutionId: "evolution.1", target: "app" });
+      const { candidate } = i.recordCandidate({ realizationId: r.realization.id, commit: A2, manifest: {}, changedPaths: ["src/a.ts"], changedNodes: ["screen.people"] });
+      i.recordEvaluations(candidate.id, [ev(candidate.id, "C.people.list", "pass")], "evaluated");
+      expect(await i.promote(promoteInput([candidate.id], i.state()!.head))).toMatchObject({ ok: true });
+      const s = (await i.bootstrap({ ...boot, platform: P1 })) as SystemSummary;
+      const last = i.history()[0];
+      expect(s.head).toBe(last.id);
+      expect(last.decision.policy).toBe("platform-sync");
+      expect(last.composition).toMatchObject({ platform: P1, artifacts: { "artifact.webapp": { repo: "kit-app--r1", commit: A2 } } });
+      const n = i.history().length;
+      await i.bootstrap({ ...boot, platform: P1 });
+      expect(i.history()).toHaveLength(n);
+      await i.bootstrap({ ...boot, platform: P2 });
+      expect(i.history()).toHaveLength(n + 1);
     });
   });
 });

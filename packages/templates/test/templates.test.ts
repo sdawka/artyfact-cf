@@ -87,7 +87,7 @@ describe("templates", () => {
       { glob: "src/worker/routes/**", nodes: ["section.domain"] },
       { glob: "system/**", nodes: ["genome"] },
     ]);
-    expect(t.scaffold).toEqual({ repo: "kit-app", path: "examples/keep-in-touch-app" });
+    expect(t.scaffold).toEqual({ repo: "platform", path: "templates/thing/cloudflare-worker-webapp@1/scaffold" });
     expect(templateFile(thingRef, "scaffold.yaml")).toMatch(/commands:\n {2}install:/);
   });
 
