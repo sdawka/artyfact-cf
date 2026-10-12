@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 // Vitest processes imported CSS (and `?raw` yields ''), so read the sources from disk.
@@ -10,7 +10,24 @@ const [tokens, whimsy, utilities, reactflow, fonts, index] = [
 
 const balanced = (css: string) => css.split("{").length === css.split("}").length;
 
+const cssFiles = (dir: string): string[] =>
+  readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+    const p = join(dir, e.name);
+    return e.isDirectory() ? cssFiles(p) : e.name.endsWith(".css") ? [p] : [];
+  });
+
 describe("theme css", () => {
+  it("uses tokens only: no hex or rgb() colours in theme or module css", () => {
+    const srcDir = join(import.meta.dirname, "..");
+    const files = cssFiles(srcDir).filter((f) => f.includes("/theme/") || f.endsWith(".module.css"));
+    expect(files.length).toBeGreaterThan(5);
+    for (const f of files) {
+      const css = readFileSync(f, "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+      expect(css, f).not.toMatch(/#[0-9a-fA-F]{3,8}\b/);
+      expect(css, f).not.toMatch(/\brgba?\(/);
+    }
+  });
+
   it("has balanced braces in every file", () => {
     for (const css of [tokens, whimsy, utilities, reactflow, fonts, index]) {
       expect(balanced(css)).toBe(true);

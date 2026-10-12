@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type { Verdict } from "../../shared/api";
+import styles from "./StylePage.module.css";
 
 const VERDICTS: { verdict: Verdict; glyph: string }[] = [
   { verdict: "pass", glyph: "✓" },
@@ -15,11 +16,11 @@ const TABS = ["Overview", "Map", "Work"];
 export function StylePage() {
   const [tab, setTab] = useState("Map");
   return (
-    <main style={{ maxWidth: "70ch", margin: "0 auto", padding: "var(--spacing-12) var(--spacing-4)" }}>
-      <p className="wordmark" style={{ fontSize: "var(--font-size-4xl)", margin: 0 }}>
+    <main className={styles.page}>
+      <p className={`wordmark ${styles.wordmark}`}>
         artyfact
       </p>
-      <h1 style={{ fontSize: "var(--font-size-3xl)" }}>Style sheet</h1>
+      <h1 className={styles.title}>Style sheet</h1>
       <p>
         A System is what you are building and why. This page shows the pieces every view is made
         from, so they stay the same across the app. Display lettering is for the wordmark and page
@@ -28,13 +29,8 @@ export function StylePage() {
 
       <h2>Bracket card</h2>
       <div
-        className="u-brackets"
+        className={`u-brackets ${styles.card}`}
         tabIndex={0}
-        style={{
-          padding: "var(--spacing-4)",
-          background: "var(--color-surface-secondary)",
-          borderRadius: "var(--border-radius-md)",
-        }}
       >
         Hover or focus this card to see the corner brackets.
       </div>
@@ -54,7 +50,7 @@ export function StylePage() {
       </p>
 
       <h2>Verdicts</h2>
-      <p style={{ display: "flex", gap: "var(--spacing-2)", flexWrap: "wrap" }}>
+      <p className={styles.verdicts}>
         {VERDICTS.map(({ verdict, glyph }) => (
           <span key={verdict} className="u-verdict" data-verdict={verdict}>
             <span aria-hidden="true">{glyph}</span> {verdict}

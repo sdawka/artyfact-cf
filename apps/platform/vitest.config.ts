@@ -9,7 +9,7 @@ export default defineConfig({
   test: {
     projects: [
       {
-        plugins: [cloudflareTest({ wrangler: { configPath: "./wrangler.jsonc" } })],
+        plugins: [cloudflareTest({ wrangler: { configPath: "./wrangler.test.jsonc" } })],
         resolve: { alias },
         test: { name: "worker", include: ["test/**/*.test.ts"] },
       },

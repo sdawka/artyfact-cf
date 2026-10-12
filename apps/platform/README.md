@@ -11,7 +11,8 @@ npm run dev -w @artyfact/platform   # http://localhost:5173 (next free port if t
 - `GET /api/health` returns the service status; `/style` is the living style sheet.
 - `npm test -w @artyfact/platform` (workerd + jsdom projects), `npm run typecheck`, `npm run build`.
 - `npm run cf-typegen` regenerates `worker/env.d.ts` after editing `wrangler.jsonc`.
-- The `ARTIFACTS` binding is `remote: true`, so dev and tests need a Cloudflare login (`wrangler login`).
+- The `ARTIFACTS` binding is `remote: true`, so `npm run dev` needs `wrangler login`. Tests do not: they use `wrangler.test.jsonc`, the same config without that binding (keep the two in sync).
+- `worker/env.d.ts` is generated; do not hand-edit it (use `cf-typegen`, secrets go in `worker/secrets.d.ts`).
 
 ## Env
 Secrets (`.dev.vars`): `ADMIN_TOKEN`, `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`, `FAKE_S1`. Vars live in `wrangler.jsonc`.

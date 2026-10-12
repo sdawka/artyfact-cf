@@ -283,6 +283,9 @@ export interface WorkResponse {
   realizations: Realization[];
 }
 
+/** `GET /api/systems/:id/evolutions` (client `getEvolutions`). Same payload as the work board. */
+export type EvolutionsResponse = WorkResponse;
+
 /** `POST /api/systems/:id/promote` (Authorization: Bearer ADMIN_TOKEN). */
 export interface PromoteRequest {
   /** Candidate(s) to promote; several for a composed promotion. */
