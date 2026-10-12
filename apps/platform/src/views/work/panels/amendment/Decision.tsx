@@ -12,6 +12,9 @@ export type DecisionOutcome = { kind: "accepted"; genomeCommit: string } | { kin
 export interface DecisionProps {
   evolutionId: string;
   realization: Realization;
+  /** The candidate whose review the admin is reading, and its commit: accept names exactly these. */
+  candidateId: string;
+  commit: string;
   /** Text the interpretation starts with (the changed node's after-text). */
   initialInterpretation: string;
   /** First changed node, for the Map link after accept. */
@@ -23,7 +26,7 @@ export interface DecisionProps {
 }
 
 /** Accept (interpretation required) or reject (reason required). Both need the platform API. */
-export function Decision({ evolutionId, realization, initialInterpretation, focusId, blocked, outcome, onOutcome }: DecisionProps) {
+export function Decision({ evolutionId, realization, candidateId, commit, initialInterpretation, focusId, blocked, outcome, onOutcome }: DecisionProps) {
   const m = useModel();
   const href = useKeepParams();
   const accept = useAcceptAmendment();
@@ -53,7 +56,7 @@ export function Decision({ evolutionId, realization, initialInterpretation, focu
     if (!interpretation.trim()) return setAcceptError("Interpretation is required to accept.");
     setAcceptError(null);
     accept.mutate(
-      { evolutionId, body: { realizationId: realization.id, interpretation: interpretation.trim() } },
+      { evolutionId, body: { realizationId: realization.id, candidateId, commit, interpretation: interpretation.trim() } },
       { onSuccess: (r) => onOutcome({ kind: "accepted", genomeCommit: r.genomeCommit }) },
     );
   };

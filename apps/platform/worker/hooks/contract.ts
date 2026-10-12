@@ -70,6 +70,11 @@ export interface SubmissionContext {
    * the matching checks are then `not-run` and the criterion stays `unknown`. Supply at promotion revalidation.
    */
   promotionFacts?: PromotionFacts;
+  /**
+   * Why the hooks run: at `submission` (default) hooks triggered on submission or candidate run; at the `promotion`
+   * re-run, hooks triggered on promotion run as well (and system criteria gated on promotion are selected).
+   */
+  trigger?: "submission" | "promotion";
 }
 
 export interface PromotionFacts {

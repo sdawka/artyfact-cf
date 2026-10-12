@@ -56,6 +56,7 @@ export interface Selected {
 
 const PLATFORM_ENGINES = new Set<schema.AssayHook["engine"]>(["manifest", "diff", "model-rules", "system-one", "llm", "http"]);
 const SUBMISSION_TRIGGERS = new Set<schema.Gate>(["submission", "candidate"]);
+const PROMOTION_TRIGGERS = new Set<schema.Gate>(["submission", "candidate", "promotion"]);
 
 /** A stand-in for an acceptance criterion id the Genome does not define, so the gap still shows. */
 function phantomCriterion(id: string, m: SystemModel): schema.Criterion {
@@ -66,7 +67,8 @@ function phantomCriterion(id: string, m: SystemModel): schema.Criterion {
   };
 }
 
-export function selectHooks(m: SystemModel, candidate: CandidateRef): Selected[] {
+export function selectHooks(m: SystemModel, candidate: CandidateRef, trigger: "submission" | "promotion" = "submission"): Selected[] {
+  const runsOn = trigger === "promotion" ? PROMOTION_TRIGGERS : SUBMISSION_TRIGGERS;
   const criteria = new Map(m.criteria.map((c) => [c.id, c] as const));
   const hooks = new Map(m.hooks.map((h) => [h.id, h] as const));
   const evolution = m.evolutions.find((e) => e.id === candidate.evolutionId);
@@ -86,7 +88,9 @@ export function selectHooks(m: SystemModel, candidate: CandidateRef): Selected[]
     add(c ?? phantomCriterion(id, m), "acceptance", !c);
   }
   for (const c of m.criteria) if (changed.has(c.subjectId)) add(c, "subject");
-  for (const c of m.criteria) if (c.ownerKind === "system" && c.gates.includes("submission")) add(c, "system-gate");
+  for (const c of m.criteria) {
+    if (c.ownerKind === "system" && (c.gates.includes("submission") || (trigger === "promotion" && c.gates.includes("promotion")))) add(c, "system-gate");
+  }
 
   const out: Selected[] = [];
   for (const { c, reason, phantom } of picked) {
@@ -106,7 +110,7 @@ export function selectHooks(m: SystemModel, candidate: CandidateRef): Selected[]
     for (const h of bound) {
       let skip: string | undefined;
       if (!PLATFORM_ENGINES.has(h.engine)) skip = `Engine ${h.engine} runs in the agent's or CI environment, not in the platform.`;
-      else if (h.engine !== "http" && !h.triggers.some((t) => SUBMISSION_TRIGGERS.has(t))) skip = `Triggers [${h.triggers.join(", ")}] do not include submission or candidate.`;
+      else if (h.engine !== "http" && !h.triggers.some((t) => runsOn.has(t))) skip = `Triggers [${h.triggers.join(", ")}] do not include ${trigger === "promotion" ? "submission, candidate or promotion" : "submission or candidate"}.`;
       out.push({ criterion: c, hook: h, reason, run: !skip, ...(skip && { skip }), notes: cNotes });
     }
   }
@@ -321,7 +325,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
   }
 
   async function evaluate(st: RunState): Promise<Evaluation[]> {
-    const selected = selectHooks(st.base, st.ctx.candidate);
+    const selected = selectHooks(st.base, st.ctx.candidate, st.ctx.trigger);
     const cache = new Map<string, Promise<{ o: Outcome; startedAt: string; finishedAt: string }>>();
     const out: Evaluation[] = [];
     for (const s of selected) {

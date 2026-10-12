@@ -41,6 +41,10 @@ export class RegistryStore {
     );
   }
 
+  hasSystem(systemId: string): boolean {
+    return !!this.one("SELECT 1 AS x FROM registry_systems WHERE system_id = ?", systemId);
+  }
+
   listSystems(): SystemSummary[] {
     return (this.sql.exec("SELECT summary_json FROM registry_systems ORDER BY system_id").toArray() as Row[])
       .map((r) => JSON.parse(String(r.summary_json)) as SystemSummary);
