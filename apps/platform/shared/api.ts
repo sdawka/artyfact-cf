@@ -9,7 +9,8 @@
  * All timestamps are ISO-8601 strings. All routes are under `/api`.
  */
 
-import type { Finding, schema } from "@artyfact/model";
+import type { Finding, Readiness, schema } from "@artyfact/model";
+import type { Commitment, ReviewResult, SemanticDelta } from "@artyfact/semantic";
 
 export type { Finding, Readiness } from "@artyfact/model";
 export type Verdict = schema.Verdict;
@@ -109,6 +110,10 @@ export interface Candidate {
   /** Model nodes touched, via source-map; `unmapped:<path>` for misses. */
   changedSubjects: string[];
   genomeChanges: string[];
+  /** Candidate manifest hash (`CandidateManifest.hash`). */
+  hash?: string;
+  /** Per-subject operation, when the backend can tell added from changed from removed. */
+  subjectDelta?: { added?: string[]; changed?: string[]; removed?: string[] };
   submittedAt: string;
   state: "submitted" | "evaluated" | "selected" | "promoted" | "rejected";
 }
@@ -134,6 +139,7 @@ export interface SystemManifest {
 export interface StartWorkRequest {
   agentLabel?: string;
   target?: "app" | "genome";
+  role?: "implementer" | "assay-author" | "verifier" | "reviewer" | "repairer";
 }
 
 /** Machine-readable form of the Task Packet; `markdown` is the same content for agents. */
@@ -159,6 +165,10 @@ export interface StartWorkResponse {
   realization: Realization;
   packet: TaskPacket;
   token: { value: string; expiresAt: string; remote: string };
+  /** Fork remote without credentials. */
+  remote?: string;
+  /** Ready-to-paste `ARTYFACT_TOKEN=... npx artyfact start ...` line, shown once. */
+  cli?: string;
 }
 
 /** `GET /api/realizations/:id/packet`. Token is never re-issued here. */
@@ -195,6 +205,10 @@ export interface ConflictReport {
   /** File paths, node ids, claim ids or evidence keys that collide. */
   subjects: string[];
   message: string;
+  /** Model node ids that collide (newer backend shape). */
+  nodes?: string[];
+  /** File paths that collide (newer backend shape). */
+  paths?: string[];
 }
 
 /** `GET /api/evolutions/:id/candidates`. */
@@ -231,13 +245,39 @@ export interface StaleBaseResponse extends ApiError {
   error: { code: "stale-base"; message: string; details: { currentHead: string | null } };
 }
 
+/** One System One review of a changed node (`reviewDelta`): the model proposes, policy decides. */
+export type DeltaReview = ReviewResult;
+
+/**
+ * `GET /api/systems/:id/realizations/:rid/review`: a Genome-targeting candidate with rule findings
+ * (readiness before and after) and System One judgments per changed node.
+ */
+export interface GenomeCandidateReview {
+  delta: SemanticDelta;
+  readinessBase: Readiness;
+  readinessCandidate: Readiness;
+  review: DeltaReview[];
+  evaluations: Evaluation[];
+  /** Commitments the review asked about (statement text for `contradicts.<id>`); optional. */
+  commitments?: Commitment[];
+}
+
 /** `POST /api/systems/:id/accept` for genome-amendment realizations. */
 export interface AcceptRequest {
-  realization: string;
-  rationale: string;
+  /** Canonical names; the backend also accepts `realization` / `rationale`. */
+  realizationId: string;
+  interpretation: string;
 }
 export interface AcceptResponse {
   genomeCommit: CommitHash;
+  realization: Realization;
+}
+
+/** `POST /api/systems/:id/realizations/:rid/reject` (admin): reject a Genome amendment. */
+export interface RejectRequest {
+  reason: string;
+}
+export interface RejectResponse {
   realization: Realization;
 }
 
