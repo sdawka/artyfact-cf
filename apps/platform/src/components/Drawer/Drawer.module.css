@@ -3,7 +3,9 @@
   display: flex;
   min-width: 0;
   height: 100%;
-  background: var(--color-surface-primary);
+  background: var(--surface-veil-strong);
+  -webkit-backdrop-filter: var(--backdrop-veil);
+  backdrop-filter: var(--backdrop-veil);
   border-left: 1px solid var(--color-border-subtle);
 }
 .handle {

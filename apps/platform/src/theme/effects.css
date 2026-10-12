@@ -19,6 +19,18 @@
   --gradient-haze-success: radial-gradient(120% 80% at 50% 115%, oklch(0.723 0.081 166.2 / 0.12) 0%, oklch(0.18 0.018 286 / 0) 70%);
   --gradient-haze-error: radial-gradient(120% 80% at 50% 115%, oklch(0.686 0.107 25.3 / 0.14) 0%, oklch(0.18 0.018 286 / 0) 70%);
 
+  /* Shell veils: translucent backgrounds that let the Shell's ambient field show through. Text sits on the veil, never
+     on bare canvas; at these mixes the field (intensity <= 0.5) keeps every text token above AA. */
+  --surface-veil: color-mix(in oklch, var(--color-background) 78%, transparent);
+  --surface-veil-strong: color-mix(in oklch, var(--color-surface-primary) 90%, transparent);
+  --surface-wash: color-mix(in oklch, var(--color-background) 40%, transparent);
+  --backdrop-veil: blur(14px) saturate(1.15);
+
+  /* Soft glows for hover and status emphasis on graph nodes: bloom only, no ring. */
+  --shadow-glow-accent-soft: 0 0 14px -4px var(--glow-accent);
+  --shadow-glow-success-soft: 0 0 12px -5px var(--glow-success);
+  --shadow-glow-error-soft: 0 0 12px -4px var(--glow-error);
+
   /* Ambient motion: slow loops such as breathing glows. Effects ease data changes over about this long. */
   --motion-duration-ambient: 2400ms;
   --motion-easing-ambient: cubic-bezier(0.37, 0, 0.63, 1);
@@ -26,4 +38,32 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root { --motion-duration-ambient: 0ms; }
+}
+
+/* Accent glow for primary actions and active nav: on hover and press only, alongside (never instead of) the outline. */
+.u-glow-accent { transition: box-shadow var(--motion-duration-fast) var(--motion-easing-ease-out); }
+.u-glow-accent:is(:hover, :active):not(:disabled) { box-shadow: var(--shadow-glow-accent); }
+.shell-nav a { transition: box-shadow var(--motion-duration-fast) var(--motion-easing-ease-out), background-color var(--motion-duration-fast) var(--motion-easing-ease-out); }
+.shell-nav a[aria-current="page"] { box-shadow: var(--shadow-glow-accent-soft); }
+.shell-nav a:is(:hover, :active)[aria-current="page"] { box-shadow: var(--shadow-glow-accent); }
+
+/* Flow along graph edges that touch the selection: a dash of light travelling source to target over the base stroke.
+   CSS only, a handful of paths at a time; stopped when effects are off or motion is reduced. */
+.fx-flow {
+  fill: none;
+  stroke: var(--color-brand-primary);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-dasharray: 3 13;
+  opacity: 0.85;
+  filter: drop-shadow(0 0 3px var(--glow-accent));
+  pointer-events: none;
+  animation: fx-flow 1.6s linear infinite;
+}
+@keyframes fx-flow {
+  to { stroke-dashoffset: -16; }
+}
+[data-effects="off"] .fx-flow { animation: none; filter: none; }
+@media (prefers-reduced-motion: reduce) {
+  .fx-flow { animation: none; }
 }

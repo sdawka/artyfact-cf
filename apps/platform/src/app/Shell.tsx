@@ -1,6 +1,8 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Outlet, useNavigate } from "react-router";
 import { useSystemEvents } from "@/api/queries";
+import { EffectsPreferenceProvider, useEffectsPreference } from "@/effects/effectsPreference";
+import { ShellAmbient } from "@/effects/ShellAmbient";
 import { InspectorDrawer } from "@/inspector/InspectorDrawer";
 import type { ViewName } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
@@ -58,14 +60,24 @@ function useShellShortcuts(openPalette: () => void, paletteOpen: boolean) {
   }, [focusId, setFocus, clear, siblings, navigate, href, openPalette, paletteOpen]);
 }
 
-/** App frame: TopBar over SideNav · main · Inspector (grid `auto 1fr auto`). */
+/** App frame: TopBar over SideNav · main · Inspector (grid `auto 1fr auto`), over the ambient field. */
 export function Shell() {
+  return (
+    <EffectsPreferenceProvider>
+      <ShellAmbient />
+      <ShellFrame />
+    </EffectsPreferenceProvider>
+  );
+}
+
+function ShellFrame() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   useShellShortcuts(openPalette, paletteOpen);
   useSystemEvents();
+  const { enabled } = useEffectsPreference();
   return (
-    <div className={styles.shell}>
+    <div className={styles.shell} data-effects={enabled ? "on" : "off"}>
       <a className="sr-only" href="#main">Skip to content</a>
       <TopBar onOpenPalette={openPalette} />
       <SideNav />

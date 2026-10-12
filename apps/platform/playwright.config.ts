@@ -6,7 +6,8 @@ import { defineConfig, devices } from "@playwright/test";
  * only in fixture mode.
  */
 const live = process.env.ARTYFACT_E2E_LIVE === "1";
-const port = live ? 8787 : 1338;
+// ARTYFACT_E2E_PORT picks another port when the default is taken (e.g. by a parallel checkout, whose server would be reused).
+const port = Number(process.env.ARTYFACT_E2E_PORT) || (live ? 8787 : 1338);
 const baseURL = `http://localhost:${port}`;
 
 export default defineConfig({
