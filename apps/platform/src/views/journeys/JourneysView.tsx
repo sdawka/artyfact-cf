@@ -1,4 +1,4 @@
-import { Background, Controls, MarkerType, ReactFlow, ReactFlowProvider, useReactFlow, useStore, type NodeTypes } from "@xyflow/react";
+import { Background, ControlButton, Controls, MarkerType, ReactFlow, ReactFlowProvider, useReactFlow, useStore, type NodeTypes } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
@@ -35,27 +35,60 @@ const ALL = "__all";
 const FLOW = "var(--color-border-strong)";
 const DANGER = "var(--color-danger)";
 
-/** Re-fits when the journey, segment or layout changes, and adds `+` / `-` / `0` keyboard zoom. */
-function ViewportEffects({ fitKey }: { fitKey: string }) {
-  const { zoomIn, zoomOut, fitView } = useReactFlow();
+const PAD = 0.05;
+
+/**
+ * Viewport for a `w`×`h` graph in a `cw`×`ch` canvas, computed from elk's size (React Flow's
+ * `useNodesInitialized` never fires for these nodes, same as the Map). `minZoom` keeps a long journey
+ * legible: below it the graph is anchored top-left and scrolls instead of shrinking.
+ */
+export function fitViewport(w: number, h: number, cw: number, ch: number, minZoom = 0.5) {
+  const pad = 1 + 2 * PAD;
+  const fit = Math.min(1, cw / (w * pad), ch / (h * pad));
+  const zoom = Math.max(minZoom, fit);
+  return {
+    zoom,
+    x: w * zoom * pad > cw ? cw * PAD : (cw - w * zoom) / 2,
+    y: h * zoom * pad > ch ? ch * PAD : (ch - h * zoom) / 2,
+  };
+}
+
+/** Fit-everything button for the zoom controls (the built-in one needs measured nodes). */
+function FitControl({ width, height, container }: { width: number; height: number; container: HTMLElement | null }) {
+  const rf = useReactFlow();
+  return (
+    <ControlButton
+      title="Fit view"
+      aria-label="Fit view"
+      onClick={() => container && void rf.setViewport(fitViewport(width, height, container.clientWidth, container.clientHeight, 0.15))}
+    >
+      <span aria-hidden="true">⤢</span>
+    </ControlButton>
+  );
+}
+
+/** Fits on journey, segment or layout change, and adds `+` / `-` / `0` (fit everything) keyboard zoom. */
+function ViewportEffects({ fitKey, width, height, container }: { fitKey: string; width: number; height: number; container: HTMLElement | null }) {
+  const rf = useReactFlow();
   const dom = useStore((s) => s.domNode);
   useEffect(() => {
-    const frame = requestAnimationFrame(() => void fitView({ padding: 0.1, minZoom: 0.5, maxZoom: 1, duration: 0 }));
-    return () => cancelAnimationFrame(frame);
-  }, [fitKey, fitView]);
+    if (!container || !width || !height) return;
+    const { clientWidth: cw, clientHeight: ch } = container;
+    if (cw && ch) void rf.setViewport(fitViewport(width, height, cw, ch));
+  }, [fitKey, width, height, container, rf]);
   useEffect(() => {
     if (!dom) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.metaKey || e.ctrlKey || e.altKey) return;
-      if (e.key === "+" || e.key === "=") void zoomIn();
-      else if (e.key === "-") void zoomOut();
-      else if (e.key === "0") void fitView({ padding: 0.1, minZoom: 0.3, maxZoom: 1 });
+      if (e.key === "+" || e.key === "=") void rf.zoomIn();
+      else if (e.key === "-") void rf.zoomOut();
+      else if (e.key === "0") void rf.setViewport(fitViewport(width, height, dom.clientWidth, dom.clientHeight, 0.15));
       else return;
       e.preventDefault();
     };
     dom.addEventListener("keydown", onKey);
     return () => dom.removeEventListener("keydown", onKey);
-  }, [dom, zoomIn, zoomOut, fitView]);
+  }, [dom, rf, width, height]);
   return null;
 }
 
@@ -67,6 +100,7 @@ export default function JourneysView() {
 
   const requested = params.get("journey");
   const journey = journeys.find((j) => j.id === requested) ?? journeys.find((j) => !j.deferred) ?? journeys[0];
+  const [canvas, setCanvas] = useState<HTMLDivElement | null>(null);
   const [picked, setSegment] = useState(ALL);
   const segments = journey?.segments ?? [];
   // A segment name from another journey (back/forward, deep link) falls back to all steps.
@@ -180,15 +214,14 @@ export default function JourneysView() {
               tabs={[{ id: ALL, label: "All steps" }, ...segments.map((s) => ({ id: s.name, label: s.name }))]}
             />
           )}
-          <div className={styles.canvas} data-testid="journey-canvas" aria-label={`${journey.name} flow, ${graph.nodes.length} steps`} role="group">
+          <div ref={setCanvas} className={styles.canvas} data-testid="journey-canvas" aria-label={`${journey.name} flow, ${graph.nodes.length} steps`} role="group">
             <StepContext.Provider value={ctx}>
               <ReactFlowProvider>
                 <ReactFlow
                   nodes={nodes}
                   edges={edges}
                   nodeTypes={nodeTypes}
-                  fitView
-                  fitViewOptions={{ padding: 0.1, minZoom: 0.5, maxZoom: 1 }}
+                  defaultViewport={{ x: 0, y: 0, zoom: 0.6 }}
                   minZoom={0.3}
                   nodesDraggable={false}
                   nodesConnectable={false}
@@ -198,8 +231,10 @@ export default function JourneysView() {
                   proOptions={{ hideAttribution: true }}
                 >
                   <Background gap={24} />
-                  <Controls showInteractive={false} position="bottom-right" />
-                  <ViewportEffects fitKey={`${journey.id}:${segment}:${graph.layoutReady}`} />
+                  <Controls showInteractive={false} showFitView={false} position="bottom-right">
+                    <FitControl width={graph.width} height={graph.height} container={canvas} />
+                  </Controls>
+                  <ViewportEffects fitKey={`${journey.id}:${segment}:${graph.layoutReady}`} width={graph.width} height={graph.height} container={canvas} />
                 </ReactFlow>
               </ReactFlowProvider>
             </StepContext.Provider>
