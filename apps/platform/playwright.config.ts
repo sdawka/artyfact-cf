@@ -1,9 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
 
 /**
- * Fixture mode (default): `vite preview` of the built SPA. The API 404s, so the SPA falls back
- * to its bundled fixture. Live mode (`ARTYFACT_E2E_LIVE=1`): `wrangler dev` serves the built
- * SPA and the Worker API together; specs tagged `@live` run only there, specs tagged `@fixture`
+ * Fixture mode (default): `vite preview` of the static SPA built by `vite.fixture.config.ts` (no Cloudflare plugin, no login). The API 404s, so the SPA falls back
+ * to its bundled fixture. Live mode (`ARTYFACT_E2E_LIVE=1`): `wrangler dev` serves the SPA built by `npm run build` and the Worker API together; specs tagged `@live` run only there, specs tagged `@fixture`
  * only in fixture mode.
  */
 const live = process.env.ARTYFACT_E2E_LIVE === "1";
@@ -26,7 +25,7 @@ export default defineConfig({
   webServer: {
     command: live
       ? `npx wrangler dev --port ${port}`
-      : `npx vite preview --port ${port} --strictPort`,
+      : `npx vite preview --config vite.fixture.config.ts --port ${port} --strictPort`,
     url: baseURL,
     env: live ? {} : { ARTYFACT_E2E_FIXTURE: "1" },
     reuseExistingServer: !process.env.CI,

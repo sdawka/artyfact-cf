@@ -9,7 +9,7 @@ Aubergine-black ink, one apricot accent (`--color-brand-primary`) for focus, act
 nested cards, accent rails/dots, stickers, blobs, forced uppercase, eyebrow labels, hover lift/bounce/rotation.
 
 ## Type
-- Display `--font-display` (Brilon, Georgia fallback): the wordmark (`.wordmark`) and the page `h1` only.
+- Display `--font-display` (Georgia; the Brilon face is not shipped because its licence is unconfirmed): the wordmark (`.wordmark`) and the page `h1` only.
 - Body/UI `--font-body`/`--font-ui` (Trebuchet MS): everything else. Measure max 70ch.
 - Code `--font-code`: code and machine values only, never headings or labels.
 

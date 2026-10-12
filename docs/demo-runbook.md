@@ -26,7 +26,7 @@ the real model.
 ## 0. Prerequisites (once)
 
 - Node 24, git, jq, `openssl`.
-- Run `npx wrangler login` first. `npm run dev`, `vite preview` and `npm run e2e` all fail without it, because the
+- Run `npx wrangler login` first. `npm run dev` fails without it, because the
   Worker's Artifacts binding is remote even in local dev.
 - `cf` logged in (`cf auth login`). Wrangler and `cf` log in separately, so check that both show the same account
   before creating anything:
