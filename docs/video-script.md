@@ -57,7 +57,7 @@ Say. A new wording can look like a violation when it is a decision. The platform
 
 ## Not on camera
 - The Queue consumer. Pushes reach it only through a per-fork repository subscription, which is not created automatically, so the CLI submit path is what the video shows.
-- Bootstrap and `npx artyfact init`. See the README. The init transcript is `TODO(init-transcript)`.
+- Bootstrap. The video uses `scripts/bootstrap.sh`. `npx artyfact init` is described in the README as the next release, with `TODO(init-transcript)` for its transcript.
 
 ## Screenshots
 All taken from a local run of this runbook with `FAKE_S1=1`, saved in `docs/images/`.

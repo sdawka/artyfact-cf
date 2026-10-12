@@ -26,7 +26,7 @@ The Work board groups Evolutions by state. Each realization shows its agent, for
 
 ![Amendment review, a deliberate choice](docs/images/amendment-deliberate.png)
 
-The amendment review shows the semantic delta, the Readiness findings that were added and resolved, and System One's signals. The first amendment adds a recipient list to a draft and is blocked by a rule. The second rewords a commitment and is a deliberate choice. These shots were taken from a local run with the fake System One provider, and the panel says so on the page.
+The amendment review shows the semantic delta, the Readiness findings that were added and resolved, and System One's signals. The first amendment adds a recipient list to a draft and is blocked by a rule. Its screenshot shows the delta and the findings only. The second rewords a commitment and is a deliberate choice, and its screenshot also shows System One's signals. These shots were taken from a local run with the fake System One provider, and the panel labels those judgments, as the second shot shows.
 
 More views: [Map on screen.people, Phenome layer](docs/images/map-screen-people-phenome.png), [Journeys](docs/images/journeys-connect.png), [Theory](docs/images/theory.png), [Overview](docs/images/overview.png).
 
@@ -82,7 +82,7 @@ flowchart LR
 
 The Genome is loaded and validated by a Datalog engine running versioned Rule Packs. The same Genome and the same packs give the same findings, and each finding carries its derivation. File mapping, scope checks, existence checks, overlap detection and the promotion gate are plain code.
 
-System One is asked only questions that need judgment: is a change a deliberate non-standard choice or a violation, does an edit contradict a stated commitment, would two changes interfere. Its answers are probabilities. At 0.9 or above they count as confident, between 0.5 and 0.9 they are labelled "review", and low confidence never produces a pass. The admin decides. Promotion blocks on hard criteria that have a bound hook, and an Evolution's acceptance criteria are always in the gate pool. Those that are hard and have a bound hook block. A blocking criterion with no completed evaluation is `unknown`, and `unknown` blocks.
+System One is asked only questions that need judgment: is a change a deliberate non-standard choice or a violation, does an edit contradict a stated commitment, would two changes interfere. Its answers are probabilities. At 0.9 or above they count as confident, between 0.5 and 0.9 they are labelled "review", and low confidence never produces a pass. The admin decides. Promotion blocks on hard criteria that have a bound hook, and an Evolution's acceptance criteria are always in the gate pool. Those that are hard and have a bound hook block. A blocking criterion with no completed evaluation is `unknown`, and `unknown` blocks. The exception is an outcome hook that only runs after deployment: its `not-run` row is disregarded.
 
 Without a System One provider (`TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`), set `FAKE_S1=1` or the purpose gate stays `unknown` and promotion stays closed. The UI labels judgments from the fake provider. `.dev.vars.example` sets `FAKE_S1=1`, and it takes precedence over real keys. A local run copied from the example therefore uses the fake provider until you remove that line.
 
@@ -132,9 +132,9 @@ npm run dev:amendment -w @artyfact/platform
 # http://localhost:5199/amendment-dev.html?scenario=deliberate|hard|review|fake|off|findings
 ```
 
-Admin routes (import, accept, reject, promote) need `ADMIN_TOKEN`. The preview health probe reaches only `*.workers.dev`, `*.pages.dev`, hosts in `PREVIEW_HOST_ALLOWLIST`, or localhost when `ALLOW_LOCAL_PREVIEW=1`.
+Admin routes (import, start work, accept, reject, promote) need `ADMIN_TOKEN`. Read routes are unauthenticated. The preview health probe reaches only `*.workers.dev`, `*.pages.dev`, hosts in `PREVIEW_HOST_ALLOWLIST`, or localhost when `ALLOW_LOCAL_PREVIEW=1`.
 
-**Importing a project.** One command takes a cloned project from its `system.yaml` to an imported System: `npx artyfact init`. It reads the System file, derives repository names from the System id (`<slug>.genome` and `<slug>.app`), checks that Wrangler and `cf` are logged in to the same account, and creates the namespace and repositories if they are missing. It pushes the Genome and the app with short-lived write tokens that never appear on a command line, syncs the shared `platform` repository that holds the templates and Rule Packs, and calls the import API with `ARTYFACT_ADMIN_TOKEN`. It is safe to run twice. A repository that already has history is pushed to only if the push is a fast-forward. `--from-template <template.thing.id@version>` seeds a new app repository from a scaffold held in the namespace. The older `scripts/bootstrap.sh` becomes a thin wrapper over it. `TODO(init-transcript)`
+**Importing a project.** Today the example System is pushed to Artifacts with `scripts/bootstrap.sh` and imported through the API, as the runbook shows. The next release replaces that script with one command, `npx artyfact init`, that takes a cloned project from its `system.yaml` to an imported System. It will derive repository names from the System id (`<slug>.genome` and `<slug>.app`), check that Wrangler and `cf` use the same account, create the namespace and repositories if missing, push with short-lived tokens, sync a shared `platform` repository and call the import API. `--from-template` will seed a new app from a scaffold held in the namespace. This is described from the design and is not in the current CLI. `TODO(init-transcript)`
 
 The full loop against real Artifacts, with two agents, a conflict, a promotion and two Genome amendments, is in [docs/demo-runbook.md](docs/demo-runbook.md). It needs a Cloudflare login and an `ADMIN_TOKEN`. Hosted deployment: [docs/deploy.md](docs/deploy.md).
 

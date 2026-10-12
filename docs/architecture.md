@@ -44,7 +44,7 @@ sequenceDiagram
 
 **Genome amendments.** An agent can target the Genome repository instead of the app. The platform loads the amended Genome, runs the Rule Packs, diffs the Readiness findings, and asks System One to review each changed node. The admin accepts or rejects. Accepting records the fork commit as the new Genome commit and the review panel requires an interpretation, which is stored with the decision.
 
-**Secrets and auth.** `ADMIN_TOKEN` guards import, accept, reject and promote. Fork tokens are scoped to one fork and returned only when work starts. The CLI reads the token from an environment variable and never writes it to disk.
+**Secrets and auth.** `ADMIN_TOKEN` guards import, start work, accept, reject and promote. Checkpoint, submit, sync, status and packet take the per-realization secret or the admin token. Read routes are unauthenticated. Fork tokens are scoped to one fork and returned only when work starts. The CLI reads the token from an environment variable and never writes it to disk.
 
 ## Data
 
