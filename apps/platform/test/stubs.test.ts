@@ -2,8 +2,8 @@ import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
-  routes, type BuildsResponse, type ChangelogEntry, type ChangelogResponse, type DeploymentsResponse, type FileCompare, type FileResponse,
-  type FilesResponse, type GenomeCompare, type PhenomeEventsResponse, type RevisionsResponse, type SystemCompare,
+  routes, type BuildsResponse, type ChangelogEntry, type ChangelogResponse, type DeploymentsResponse, type FileCompare,
+  type GenomeCompare, type PhenomeEventsResponse, type RevisionsResponse, type SystemCompare,
 } from "../shared/api";
 import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
 
@@ -46,12 +46,6 @@ describe("route builders", () => {
 });
 
 describe("read stubs return typed empty shapes", () => {
-  it("editor", async () => {
-    expect(await get<FilesResponse>(routes.files(S, "app"))).toEqual({ ref: { ref: "head", repo: "", commit: "" }, files: [] });
-    const f = await get<FileResponse>(routes.file(S, "genome", "system.yaml", sha));
-    expect(f).toMatchObject({ ref: { ref: sha }, path: "system.yaml", text: null, size: 0, truncated: false, binary: false });
-  });
-
   it("changelog and compare", async () => {
     expect(await get<RevisionsResponse>(routes.revisions(S))).toEqual({ revisions: [] });
     expect(await get<ChangelogResponse>(routes.changelog(S, { limit: 5 }))).toEqual({ rows: [] });
@@ -82,7 +76,6 @@ describe("read stubs return typed empty shapes", () => {
 
 describe("write stubs are 501 not-implemented", () => {
   it.each([
-    ["editor commit", routes.editorCommit(S, "realization.1.r1"), { message: "m", changes: [] }],
     ["realization build report", routes.realizationBuilds(S, "realization.1.r1"), { status: "passed", commit: sha }],
     ["production build report", routes.builds(S), { status: "passed", commit: sha, kind: "production" }],
     ["create deployment", routes.deployments(S), {}],
