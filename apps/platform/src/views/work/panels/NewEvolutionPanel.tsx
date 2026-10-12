@@ -24,8 +24,13 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
   const [nodes, setNodes] = useState<string[]>([]);
   const [kind, setKind] = useState<(typeof KINDS)[number]>("implementation");
   const [risk, setRisk] = useState<(typeof RISKS)[number]>("medium");
+  // Unchecked criterion ids; everything is checked by default, even if the model loads late.
+  const [unchecked, setUnchecked] = useState<string[]>([]);
   // Component state only: never persisted, cleared on success.
   const [adminToken, setAdminToken] = useState("");
+
+  const criteria = m.index.entries.filter((e) => e.kind === "criterion");
+  const criteriaIds = criteria.map((c) => c.id).filter((id) => !unchecked.includes(id));
 
   const reason = m.bundle.source === "fixture"
     ? "Creating an Evolution needs the platform API. The UI is showing fixture data."
@@ -42,7 +47,7 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
   const submit = (ev: React.FormEvent) => {
     ev.preventDefault();
     if (reason) return;
-    const body: CreateEvolutionRequest = { title: title.trim(), intent: intent.trim(), kind, risk, ...(nodes.length && { affectedNodes: nodes }) };
+    const body: CreateEvolutionRequest = { title: title.trim(), intent: intent.trim(), kind, risk, ...(nodes.length && { affectedNodes: nodes }), ...(criteriaIds.length && { acceptanceCriteria: criteriaIds }) };
     create.mutate(
       { body, ...(adminToken && { adminToken }) },
       {
@@ -96,6 +101,25 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
             </ul>
           )}
         </div>
+        {criteria.length > 0 && (
+          <fieldset className={styles.fieldset}>
+            <legend>Acceptance criteria</legend>
+            <ul className={styles.plain}>
+              {criteria.map((c) => (
+                <li key={c.id}>
+                  <label className={styles.check}>
+                    <input
+                      type="checkbox"
+                      checked={!unchecked.includes(c.id)}
+                      onChange={(e) => setUnchecked(e.target.checked ? unchecked.filter((x) => x !== c.id) : [...unchecked, c.id])}
+                    />
+                    <code>{c.id}</code> <span className={styles.muted}>{c.name}</span>
+                  </label>
+                </li>
+              ))}
+            </ul>
+          </fieldset>
+        )}
         <div className={styles.field}>
           <label htmlFor={`${uid}-k`}>Kind</label>
           <select id={`${uid}-k`} value={kind} onChange={(e) => setKind(e.target.value as (typeof KINDS)[number])}>
