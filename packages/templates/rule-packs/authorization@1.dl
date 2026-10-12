@@ -1,0 +1,33 @@
+% authorization@1 - every state-changing operation is governed by a policy, directly or by inheritance.
+% link/4 is emitted in "out" orientation: link(From, Rel, To, Certainty).
+
+.decl node(Id: sym, Kind: sym, Thing: sym)
+.decl parent(Child: sym, Parent: sym)
+.decl link(From: sym, Rel: sym, To: sym, Certainty: sym)
+.decl policyMode(Policy: sym, Mode: sym)
+.decl ancestor(X: sym, A: sym)
+.decl governedDirect(X: sym, Policy: sym)
+.decl governedBy(X: sym, Policy: sym)
+.decl mutating(Op: sym)
+.decl privateEntity(E: sym)
+.decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+
+.message "authz.ungoverned" "Operation {1} writes data but no authorization policy governs it (directly, via its affordances, or inherited)."
+.message "authz.policyConflict" "{1} is directly governed by policies with different modes."
+.message "authz.privateReadUngoverned" "Operation {1} reads an owner-only entity but no authorization policy governs it."
+
+ancestor(X,A) :- parent(X,A).
+ancestor(X,A) :- parent(X,Y), ancestor(Y,A).
+
+governedDirect(X,P) :- link(P,"governs",X,_), node(P,"policy",_).
+governedBy(X,P) :- governedDirect(X,P).
+governedBy(X,P) :- ancestor(X,A), governedDirect(A,P).
+governedBy(Op,P) :- link(Aff,"invokes",Op,_), governedBy(Aff,P).
+governedBy(X,P) :- link(X,"inherits",Y,_), governedBy(Y,P).
+
+mutating(Op) :- node(Op,"operation",_), link(Op,"writes",_,_).
+privateEntity(E) :- governedBy(E,P), policyMode(P,"owner-only").
+
+violation("authz.ungoverned",Op,"hard") :- mutating(Op), not governedBy(Op,_).
+violation("authz.policyConflict",X,"hard") :- governedDirect(X,P1), governedDirect(X,P2), policyMode(P1,M1), policyMode(P2,M2), M1 != M2.
+violation("authz.privateReadUngoverned",Op,"hard") :- link(Op,"reads",E,_), node(Op,"operation",_), privateEntity(E), not governedBy(Op,_).

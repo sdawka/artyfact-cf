@@ -1,0 +1,38 @@
+% metamodel@1 - structural integrity of the Genome (R1, R2, R10, R11).
+% EDB relations are emitted by @artyfact/model toFacts(); see ../README.md "Fact relations".
+
+.decl known(Id: sym)
+.decl ref(From: sym, Via: sym, To: sym)
+.decl parent(Child: sym, Parent: sym)
+.decl node(Id: sym, Kind: sym, Thing: sym)
+.decl system(Id: sym)
+.decl thing(Id: sym, Template: sym)
+.decl criterion(Id: sym, OwnerKind: sym, OwnerId: sym, SubjectId: sym, Severity: sym)
+.decl thingArtifact(Thing: sym, Artifact: sym)
+.decl thingSection(Thing: sym, Section: sym)
+.decl reaches(X: sym, Y: sym)
+.decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+
+.message "ref.dangling" "{1} refers to an id that does not exist in the model."
+.message "ref.parentMissing" "{1} is contained in a parent that does not exist."
+.message "tree.cycle" "{1} is part of a containment cycle."
+.message "tree.multiParent" "{1} has more than one containment parent."
+.message "owner.unknown" "Node {1} is owned by a Thing or System that does not exist."
+.message "criterion.subjectMissing" "Criterion {1} has a subject that does not exist."
+.message "criterion.ownerMissing" "Criterion {1} is owned by a System or Thing that does not exist."
+.message "thing.noArtifact" "Thing {1} binds no artifact."
+.message "thing.sectionMissing" "Thing {1} lists a section that does not exist."
+
+reaches(X,Y) :- parent(X,Y).
+reaches(X,Z) :- parent(X,Y), reaches(Y,Z).
+
+violation("ref.dangling",From,"hard") :- ref(From,_,To), not known(To).
+violation("ref.parentMissing",C,"hard") :- parent(C,P), not known(P).
+violation("tree.cycle",X,"hard") :- reaches(X,X).
+violation("tree.multiParent",X,"hard") :- parent(X,P1), parent(X,P2), P1 != P2.
+violation("owner.unknown",N,"hard") :- node(N,_,T), T != "", not thing(T,_), not system(T).
+violation("criterion.subjectMissing",C,"hard") :- criterion(C,_,_,S,_), not known(S).
+violation("criterion.ownerMissing",C,"hard") :- criterion(C,"thing",O,_,_), not thing(O,_).
+violation("criterion.ownerMissing",C,"hard") :- criterion(C,"system",O,_,_), not system(O).
+violation("thing.noArtifact",T,"hard") :- thing(T,_), not thingArtifact(T,_).
+violation("thing.sectionMissing",T,"hard") :- thingSection(T,S), not known(S).

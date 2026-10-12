@@ -1,0 +1,48 @@
+% readiness@1 - is the Genome ready to be realized and verified? (R5, R6, R12, evolutions, kits).
+% template.sectionMissing keys on the Thing's declared sections. template.criterionMissing only fires when an
+% instance overrides a template criterion with a different owner (the loader always prepends template criteria).
+
+.decl known(Id: sym)
+.decl node(Id: sym, Kind: sym, Thing: sym)
+.decl thing(Id: sym, Template: sym)
+.decl thingSection(Thing: sym, Section: sym)
+.decl requirementEnabled(Id: sym)
+.decl criterion(Id: sym, OwnerKind: sym, OwnerId: sym, SubjectId: sym, Severity: sym)
+.decl criterionDeferred(Id: sym)
+.decl criterionSourceRef(Criterion: sym, Ref: sym)
+.decl criterionHook(Criterion: sym, Hook: sym)
+.decl hook(Id: sym, Binding: sym)
+.decl templateKnown(Template: sym)
+.decl templateRequires(Template: sym, Section: sym)
+.decl templateRequiresCriterion(Template: sym, Criterion: sym)
+.decl kitRequired(Kit: sym)
+.decl kitPinned(Kit: sym, Version: sym)
+.decl evolution(Id: sym, State: sym)
+.decl evolutionAcceptance(Evolution: sym, Criterion: sym)
+.decl evolutionAffects(Evolution: sym, Node: sym)
+.decl missing(Rule: sym, Subject: sym) .output
+.decl warning(Rule: sym, Subject: sym) .output
+.decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+
+.message "coverage.requirement" "Requirement {1} is enabled but no criterion lists it in sourceRefs."
+.message "coverage.hook" "Criterion {1} is not deferred but has no assay hook."
+.message "hook.unbound" "Criterion {1} has a hook whose implementation is missing."
+.message "template.sectionMissing" "Thing {1} lacks a section its template requires."
+.message "template.criterionMissing" "Thing {1} lacks a criterion its template requires."
+.message "template.unknown" "Thing {1} references a template that is not known."
+.message "kit.unpinned" "Kit {1} is required but not pinned."
+.message "evolution.acceptanceMissing" "Evolution {1} has no acceptance criteria."
+.message "evolution.affectsMissing" "Evolution {1} affects no nodes."
+
+missing("coverage.requirement",R) :- requirementEnabled(R), not criterionSourceRef(_,R).
+missing("coverage.hook",C) :- criterion(C,_,_,_,_), not criterionDeferred(C), not criterionHook(C,_).
+warning("hook.unbound",C) :- criterionHook(C,H), hook(H,B), B != "bound", not criterionDeferred(C).
+
+violation("template.sectionMissing",T,"hard") :- thing(T,Tpl), templateKnown(Tpl), templateRequires(Tpl,S), not thingSection(T,S).
+violation("template.criterionMissing",T,"hard") :- thing(T,Tpl), templateKnown(Tpl), templateRequiresCriterion(Tpl,C), not criterion(C,_,T,_,_).
+violation("template.unknown",T,"hard") :- thing(T,Tpl), Tpl != "", not templateKnown(Tpl).
+
+warning("kit.unpinned",K) :- kitRequired(K), not kitPinned(K,_).
+
+missing("evolution.acceptanceMissing",E) :- evolution(E,S), S != "rejected", S != "withdrawn", S != "promoted", not evolutionAcceptance(E,_).
+missing("evolution.affectsMissing",E) :- evolution(E,S), S != "rejected", S != "withdrawn", S != "promoted", not evolutionAffects(E,_).

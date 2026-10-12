@@ -1,0 +1,22 @@
+.page {
+  max-width: 70ch;
+  margin: 0 auto;
+  padding: var(--spacing-12) var(--spacing-4);
+}
+.wordmark {
+  margin: 0;
+  font-size: var(--font-size-4xl);
+}
+.title {
+  font-size: var(--font-size-3xl);
+}
+.card {
+  padding: var(--spacing-4);
+  background: var(--color-surface-secondary);
+  border-radius: var(--border-radius-md);
+}
+.verdicts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-2);
+}
