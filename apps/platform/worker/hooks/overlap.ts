@@ -46,7 +46,8 @@ function footprint(c: CandidateRef, base: SystemModel, deps: OverlapDeps): Footp
   const fromNodes = (note?: string): Footprint => ({
     c, nodes: uniq(mapped), delta: { ...emptyDelta(), changed: uniq(mapped).map((id) => ({ id, fields: [] })) }, ...(note && { note }),
   });
-  if (c.target !== "genome" || !c.genomeFiles) return fromNodes();
+  if (c.target !== "genome") return fromNodes();
+  if (!c.genomeFiles) return fromNodes(`genome files unavailable for ${c.id}`);
   try {
     const model = loadGenome(c.genomeFiles, c.commit, deps.genome);
     const delta = diffModels(base, model);

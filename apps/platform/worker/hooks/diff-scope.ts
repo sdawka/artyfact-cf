@@ -11,7 +11,7 @@ export interface ScopeInput {
   target: "app" | "genome";
   changedPaths: string[];
   changedNodes: string[];
-  /** Source-map result per path; preferred over `changedNodes` when present. */
+  /** Source-map result per path. Required for a pass: without it, every non-platform path is unattributed. */
   pathNodes?: Record<string, string[]>;
   permitted: string[];
   protected: string[];
@@ -26,18 +26,13 @@ const isPlatformWritten = picomatch(PLATFORM_WRITTEN, { dot: true });
 const matcher = (globs: string[]) => (globs.length ? picomatch(globs, { dot: true }) : () => false);
 
 /**
- * Changed (non-platform) paths with no model node. With `pathNodes`, per path: no entry, an empty list or only
- * `unmapped:` markers. Without it, `unmapped:<path>` markers in `changedNodes`, and every path when `changedNodes`
- * holds no mapped node at all (missing source-map result is not evidence of mapping).
+ * Changed (non-platform) paths with no model node, per `pathNodes` (no entry, an empty list or only `unmapped:`
+ * markers). Without `pathNodes` no path can be attributed, so every changed non-platform path counts as unmapped:
+ * scope never passes on `changedNodes` alone.
  */
 function unmappedPaths(paths: string[], input: ScopeInput): string[] {
-  if (input.pathNodes) {
-    return paths.filter((p) => !(input.pathNodes![p] ?? []).some((n) => !n.startsWith(UNMAPPED)));
-  }
-  const nodes = input.changedNodes ?? [];
-  if (!nodes.some((n) => !n.startsWith(UNMAPPED))) return paths;
-  const marked = new Set(nodes.filter((n) => n.startsWith(UNMAPPED)).map((n) => n.slice(UNMAPPED.length)));
-  return paths.filter((p) => marked.has(p));
+  if (!input.pathNodes) return paths;
+  return paths.filter((p) => !(input.pathNodes![p] ?? []).some((n) => !n.startsWith(UNMAPPED)));
 }
 
 export function diffScope(input: ScopeInput): Outcome {
@@ -61,7 +56,9 @@ export function diffScope(input: ScopeInput): Outcome {
   if (protectedTouched.length) observations.push({ protectedTouched });
   if (outsidePermitted.length) observations.push({ outsidePermitted });
   if (unmapped.length) observations.push({ unmapped });
-  const limitations = input.target === "genome" ? ["Genome candidate: source-map coverage is not checked here; model-rules judges the Genome."] : [];
+  const limitations = input.target === "genome"
+    ? ["Genome candidate: source-map coverage is not checked here; model-rules judges the Genome."]
+    : input.pathNodes ? [] : ["pathNodes not supplied: changed paths cannot be attributed to model nodes."];
 
   if (protectedTouched.length || outsidePermitted.length) {
     const genomeTouched = input.target === "app" && protectedTouched.some((p) => isGenome(p));

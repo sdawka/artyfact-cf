@@ -48,7 +48,7 @@ describe("model-rules on the real Keep in Touch Genome", () => {
 describe("hook selection and runSubmission on the real evolution.1", () => {
   const candidate: CandidateRef = {
     id: "cand.kit.r1", realizationId: "realization.1.r1", evolutionId: "evolution.1", target: "app", commit: COMMIT, baseCommit: BASE,
-    changedPaths: ["src/ui/people/PeopleScreen.tsx"], changedNodes: ["screen.people"],
+    changedPaths: ["src/ui/people/PeopleScreen.tsx"], changedNodes: ["screen.people"], pathNodes: { "src/ui/people/PeopleScreen.tsx": ["screen.people"] },
   };
   const ctx = (over: Partial<SubmissionContext> = {}): SubmissionContext => ({
     systemId: "system.keep-in-touch", candidate, genomeCommit: BASE, genomeFiles: keepInTouch(),

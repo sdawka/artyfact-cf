@@ -9,7 +9,7 @@ const base = {
 
 describe("diff scope engine", () => {
   it("passes when every change is permitted and mapped", () => {
-    const o = diffScope({ ...base, changedPaths: ["src/ui/people.tsx"], changedNodes: ["screen.people"] });
+    const o = diffScope({ ...base, changedPaths: ["src/ui/people.tsx"], changedNodes: ["screen.people"], pathNodes: { "src/ui/people.tsx": ["screen.people"] } });
     expect(o).toMatchObject({ execution: "completed", verdict: "pass" });
   });
 
@@ -47,7 +47,7 @@ describe("diff scope engine", () => {
   });
 
   it("matches dotfiles", () => {
-    const o = diffScope({ ...base, permitted: ["src/**"], changedPaths: ["src/.env.example"], changedNodes: ["section.ui"] });
+    const o = diffScope({ ...base, permitted: ["src/**"], changedPaths: ["src/.env.example"], changedNodes: ["section.ui"], pathNodes: { "src/.env.example": ["section.ui"] } });
     expect(o.verdict).toBe("pass");
   });
 
@@ -57,6 +57,7 @@ describe("diff scope engine", () => {
       ...base,
       changedPaths: ["src/ui/people.tsx", ...written],
       changedNodes: ["screen.people", ...written.map((p) => `unmapped:${p}`)],
+      pathNodes: { "src/ui/people.tsx": ["screen.people"] },
     });
     expect(o).toMatchObject({ execution: "completed", verdict: "pass" });
     expect(o.observations).toContainEqual({ platformWritten: written });
@@ -98,5 +99,12 @@ describe("diff scope engine", () => {
   it("passes when pathNodes maps every changed path", () => {
     const o = diffScope({ ...base, changedPaths: ["src/ui/people.tsx"], changedNodes: ["screen.people"], pathNodes: { "src/ui/people.tsx": ["screen.people", "section.ui"] } });
     expect(o.verdict).toBe("pass");
+  });
+
+  it("without pathNodes never passes, even with mapped changedNodes and no unmapped markers", () => {
+    const o = diffScope({ ...base, changedPaths: ["src/ui/people.tsx", "src/ui/other.tsx"], changedNodes: ["screen.people"] });
+    expect(o).toMatchObject({ execution: "completed", verdict: "unknown" });
+    expect(o.observations).toContainEqual({ unmapped: ["src/ui/people.tsx", "src/ui/other.tsx"] });
+    expect(o.limitations.join(" ")).toMatch(/pathNodes not supplied/);
   });
 });

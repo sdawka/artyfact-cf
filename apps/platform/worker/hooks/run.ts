@@ -24,7 +24,7 @@ import { diffScope } from "./diff-scope";
 import { HEALTH_TIMEOUT_MS, httpHealth } from "./http-health";
 import { manifestExists } from "./manifest-exists";
 import { modelRulesHook } from "./model-checks";
-import { filterFromInputs, loadGenome, modelRules, type GenomeDeps, type ModelRulesResult } from "./model-rules";
+import { filterFromInputs, loadGenome, modelRules, selectableRules, type GenomeDeps, type ModelRulesResult } from "./model-rules";
 import { computeConflicts } from "./overlap";
 import { errored, errorMessage, notRun, toEvaluation, type Outcome } from "./provenance";
 import { aggregate, judgePurpose, judgeTopology, reviewGenome, reviewsAsJudged, reviewUnavailable } from "./system-one";
@@ -140,6 +140,8 @@ function llmJudgment(h: schema.AssayHook, c: schema.Criterion): { judgment: stri
 const withLimitation = (o: Outcome, text: string): Outcome => ({ ...o, limitations: [...o.limitations, text] });
 
 const MULTI_RECIPIENT = "topology.multiRecipient";
+/** The pack that emits `semanticCandidate("topology.multiRecipient", …)`. */
+const TOPOLOGY_PACK = "topology.private-pairs";
 const touchedCount = (d: { added: string[]; removed: string[]; changed: unknown[] }) => d.added.length + d.removed.length + d.changed.length;
 
 /** The model-rules run for this candidate completed fully: its (absence of) outputs is evidence. */
@@ -152,7 +154,8 @@ function rulesUnsound(r: ModelRulesResult, what: string): Outcome {
 
 /**
  * Ruling: a System One hook whose input set is empty because a complete, sound rules run flagged nothing passes by
- * that evidence. Nothing is sent to System One.
+ * that evidence (topology with zero candidates from a pack that ran; reviewDelta with an empty Genome delta).
+ * purposeMeasures with zero claims is NOT vacuous (readiness gap → unknown). Nothing is sent to System One.
  */
 function vacuous(r: ModelRulesResult, counts: Record<string, number>, what: string): Outcome {
   return {
@@ -277,13 +280,22 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
       const r = rulesFor(st, null);
       if (!rulesSound(r)) return rulesUnsound(r, j);
       const flagged = (r.readiness!.derived.semanticCandidate ?? []).filter((t) => t[0] === MULTI_RECIPIENT);
-      if (flagged.length === 0) return vacuous(r, { semanticCandidates: 0 }, j);
+      if (flagged.length === 0) {
+        // Zero candidates is evidence only if a pack that emits this family actually ran.
+        if (!selectableRules(r.packs ?? [], { rulePrefix: `semantic:${MULTI_RECIPIENT}` }).length) {
+          return { execution: "completed", verdict: "unknown", observations: [{ note: `pack not run: ${TOPOLOGY_PACK}` }], interpretation: `topology cannot be judged: no pinned pack flags ${MULTI_RECIPIENT} candidates.`, limitations: [`pack not run: ${TOPOLOGY_PACK}`] };
+        }
+        return vacuous(r, { semanticCandidates: 0 }, j);
+      }
       return aggregate(reviewsAsJudged(await judgeTopology(s1, r.model!, r.readiness!.derived)), j);
     }
     if (j === "purposeMeasures") {
       const r = rulesFor(st, null);
       if (!rulesSound(r)) return rulesUnsound(r, j);
-      if (r.model!.claims.filter((c) => !c.deferred).length === 0) return vacuous(r, { claims: 0 }, j);
+      // Ruling: absence of theory is a readiness gap, not evidence.
+      if (r.model!.claims.filter((c) => !c.deferred).length === 0) {
+        return { execution: "completed", verdict: "unknown", observations: [{ note: "no non-deferred claims" }], interpretation: "purposeMeasures: no non-deferred claims to judge.", limitations: ["no non-deferred claims"] };
+      }
       return aggregate(reviewsAsJudged(await judgePurpose(s1, r.model!)), j);
     }
     if (j === "interference") {

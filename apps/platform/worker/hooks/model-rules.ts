@@ -63,6 +63,8 @@ export interface ModelRulesInput {
 
 export interface ModelRulesResult {
   outcome: Outcome;
+  /** The packs that ran (with sources), when the rules run started. */
+  packs?: RulePack[];
   model?: SystemModel;
   readiness?: Readiness;
   delta?: SemanticDelta;
@@ -151,8 +153,12 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
   if (notPinned.length) observations.push({ kind: "packs-not-pinned", packs: notPinned, pinned: ran });
 
   // A filter that can select no rule at all checks nothing: never a pass (e.g. a mistyped rulePrefix).
-  const selectsNothing = input.filter !== undefined && readiness.packs.length > 0 && !notPinned.length && selectableRules(packs, input.filter).length === 0;
+  const selectable = input.filter !== undefined && readiness.packs.length > 0 && !notPinned.length ? selectableRules(packs, input.filter) : undefined;
+  const selectsNothing = selectable !== undefined && selectable.length === 0;
+  // semanticCandidate rules only produce info findings: a filter selecting only those can never fail.
+  const selectsOnlyInfo = selectable !== undefined && selectable.length > 0 && selectable.every((r) => r.startsWith("semantic:"));
   if (selectsNothing) observations.push({ kind: "filter-selects-no-rules", filter: input.filter, droppedErrors: readiness.findings.filter((f) => f.level === "error").map(key) });
+  if (selectsOnlyInfo) observations.push({ kind: "filter-selects-only-info-rules", filter: input.filter, rules: selectable });
 
   let verdict: Outcome["verdict"];
   let interpretation: string;
@@ -162,9 +168,11 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
   } else if (errors.length) {
     verdict = "fail";
     interpretation = `${errors.length} hard violation(s): ${errors.map(key).join("; ")}.`;
-  } else if (selectsNothing) {
+  } else if (selectsNothing || selectsOnlyInfo) {
     verdict = "unknown";
-    interpretation = `The hook's rule filter ${JSON.stringify(input.filter)} selects no rule in the pinned packs; nothing was checked.`;
+    interpretation = selectsNothing
+      ? `The hook's rule filter ${JSON.stringify(input.filter)} selects no rule in the pinned packs; nothing was checked.`
+      : `The hook's rule filter ${JSON.stringify(input.filter)} selects only info-level rules, which cannot fail.`;
   } else if (notPinned.length) {
     verdict = "unknown";
     interpretation = `The hook asks for pack(s) ${notPinned.join(", ")}, which kits.yaml does not pin; they did not run.`;
@@ -179,6 +187,7 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
   return {
     model,
     readiness,
+    packs,
     delta,
     outcome: { execution: "completed", verdict, observations, interpretation, limitations, provenance: { snapshotHash: readiness.snapshotHash, packs: readiness.packs.map((p) => `${p.id}@${p.version}:${p.hash.slice(0, 12)}`).join(",") } },
   };

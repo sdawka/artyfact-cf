@@ -39,8 +39,8 @@ export interface CandidateRef {
   /** Model node ids via source-map; `unmapped:<path>` for misses. */
   changedNodes: string[];
   /**
-   * Source-map result per changed path (path → node ids; `[]` or absent = unmapped). When present, scope uses it
-   * per path; when absent, scope falls back to `changedNodes` and is `unknown` if that is empty.
+   * Source-map result per changed path (path → node ids; `[]` or absent = unmapped). Scope needs it to pass an app
+   * candidate: when absent, every changed non-platform path is unattributed and scope is at best `unknown`.
    */
   pathNodes?: Record<string, string[]>;
   previewUrl?: string;

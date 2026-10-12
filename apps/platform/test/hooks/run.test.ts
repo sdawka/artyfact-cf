@@ -8,7 +8,7 @@ import { BASE, COMMIT, miniGenome, withRecipients } from "./fixtures";
 
 const appCandidate = (over: Partial<CandidateRef> = {}): CandidateRef => ({
   id: "cand.r1", realizationId: "realization.1.r1", evolutionId: "evolution.1", target: "app", commit: COMMIT, baseCommit: BASE,
-  changedPaths: ["src/ui/people/PeopleScreen.tsx"], changedNodes: ["screen.people"], ...over,
+  changedPaths: ["src/ui/people/PeopleScreen.tsx"], changedNodes: ["screen.people"], pathNodes: { "src/ui/people/PeopleScreen.tsx": ["screen.people"] }, ...over,
 });
 
 const ctxFor = (candidate: CandidateRef, over: Partial<SubmissionContext> = {}): SubmissionContext => ({
@@ -177,7 +177,7 @@ describe("runGenome", () => {
     await expect(runner.runGenome(ctxFor(genomeCandidate(undefined as unknown as Record<string, string>)))).rejects.toThrow(/genomeFiles/);
   });
 
-  it("vacuous judgments: a Genome candidate without topology candidates or claims passes; an unparsable one is unknown", async () => {
+  it("vacuous judgments: topology with zero candidates passes; zero claims, an unpinned topology pack or an unparsable candidate is unknown", async () => {
     const files = miniGenome();
     files["criteria.yaml"] = files["criteria.yaml"].replace("hooks:\n", [
       "  - id: C.system.topology", "    title: Topology", "    claim: One recipient per send.", "    ownerKind: system", "    ownerId: system.mini-kit",
@@ -191,16 +191,38 @@ describe("runGenome", () => {
       "    targetKind: model", "    triggers: [submission]", "    inputs: { judgment: purposeMeasures }",
       "",
     ].join("\n"));
-    const noClaims = { ...files, "theory.yaml": "claims: []\n" };
+    const noClaims: Record<string, string> = { ...files, "theory.yaml": "claims: []\n" };
     const runner = createHookRunner({ s1: createSystemOne({}), now: fixedNow });
     const r = await runner.runGenome(ctxFor(genomeCandidate(noClaims), { genomeFiles: files, permittedPaths: ["**"] }));
     expect(by(r.evaluations, "C.system.topology")[0]).toMatchObject({ execution: "completed", verdict: "pass", observations: [expect.objectContaining({ semanticCandidates: 0 })] });
-    expect(by(r.evaluations, "C.system.purpose")[0]).toMatchObject({ execution: "completed", verdict: "pass", observations: [expect.objectContaining({ claims: 0 })] });
-    expect(by(r.evaluations, "C.system.purpose")[0].limitations).toContain("vacuous: no candidates flagged by the rules; nothing was judged");
+    // Ruling: zero claims is a readiness gap, not evidence.
+    expect(by(r.evaluations, "C.system.purpose")[0]).toMatchObject({ execution: "completed", verdict: "unknown", observations: [{ note: "no non-deferred claims" }] });
+
+    // Topology pack not pinned: zero candidates is no evidence.
+    const noTopo = { ...noClaims, "kits.yaml": noClaims["kits.yaml"].replace('  - { id: topology.private-pairs, version: "1" }\n', "") };
+    expect(noTopo["kits.yaml"]).not.toContain("topology");
+    const r2 = await runner.runGenome(ctxFor(genomeCandidate(noTopo), { genomeFiles: files, permittedPaths: ["**"] }));
+    expect(by(r2.evaluations, "C.system.topology")[0]).toMatchObject({ verdict: "unknown", observations: [{ note: "pack not run: topology.private-pairs" }] });
 
     const broken = await runner.runGenome(ctxFor(genomeCandidate({ ...files, "system.yaml": "id: 1\n" }), { genomeFiles: files, permittedPaths: ["**"] }));
     expect(by(broken.evaluations, "C.system.topology")[0]).toMatchObject({ verdict: "unknown" });
     expect(by(broken.evaluations, "C.system.purpose")[0]).toMatchObject({ verdict: "unknown" });
+  });
+
+  it("reviewDelta on a Genome candidate with an empty delta passes vacuously", async () => {
+    const files = miniGenome();
+    files["criteria.yaml"] = files["criteria.yaml"].replace("hooks:\n", [
+      "  - id: C.system.review", "    title: Review", "    claim: Amendments are reviewed.", "    ownerKind: system", "    ownerId: system.mini-kit",
+      "    subjectKind: system", "    subjectId: system.mini-kit", "    targetKind: model", "    gates: [submission]", "    hooks: [hook.system.review]",
+      "hooks:",
+      "  - id: hook.system.review", "    assay: r", "    criteria: [C.system.review]", "    tier: semantic", "    engine: system-one",
+      "    targetKind: model", "    triggers: [submission]", "    inputs: { judgment: reviewDelta }", "",
+    ].join("\n"));
+    const runner = createHookRunner({ s1: createSystemOne({}), now: fixedNow });
+    const r = await runner.runGenome(ctxFor(genomeCandidate(files), { genomeFiles: files, permittedPaths: ["**"] }));
+    const e = by(r.evaluations, "C.system.review")[0];
+    expect(e).toMatchObject({ execution: "completed", verdict: "pass", observations: [expect.objectContaining({ changes: 0 })] });
+    expect(e.limitations).toContain("vacuous: no candidates flagged by the rules; nothing was judged");
   });
 
   it("an llm hook folds the review into one evaluation via policy", async () => {

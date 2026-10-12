@@ -32,6 +32,12 @@ describe("model-rules engine", () => {
     expect(topo.outcome.verdict).toBe("fail");
   });
 
+  it("a filter selecting only info-level rules is unknown", () => {
+    const r = modelRules({ files: withRecipients(), revision: "c2", filter: { packs: ["topology.private-pairs"], rulePrefix: "semantic:" } });
+    expect(r.outcome.verdict).toBe("unknown");
+    expect(r.outcome.observations).toContainEqual(expect.objectContaining({ kind: "filter-selects-only-info-rules", filter: { packs: ["topology.private-pairs"], rulePrefix: "semantic:" } }));
+  });
+
   it("fails (not errors) when the Genome does not parse, listing the issues", () => {
     const files = { ...miniGenome(), "system.yaml": "id: 42\n" };
     const r = modelRules({ files, revision: "c3" });

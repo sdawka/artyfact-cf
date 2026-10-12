@@ -153,4 +153,14 @@ describe("overlap / conflicts", () => {
     expect(r[0].kind).toBe("hard-semantic");
     expect(r[0].message).toContain("criterion.subjectMissing");
   });
+
+  it("an open Genome candidate without genomeFiles is reported, not dropped", async () => {
+    const a = cand("cand.a", ["src/ui/people.tsx"], ["screen.people"]);
+    const b = cand("cand.b", ["things/webapp/ontology.yaml"], [], { target: "genome" });
+    const r = await computeConflicts(ctx(a, [b]), base);
+    expect(r).toHaveLength(1);
+    expect(r[0]).toMatchObject({ kind: "soft-semantic", nodes: [] });
+    expect(r[0].message).toContain("genome files unavailable for cand.b");
+    expect(r[0].error).toBeDefined();
+  });
 });
