@@ -4,13 +4,17 @@ import type { Answer, Questions } from './types';
 //   #s1low        low-confidence answers (noul 0.55, confidence 0.3)
 //   #s1no         noul 0.05; choice -> 'none' or the last option; score 0
 //   #s1pick:<key> choice -> that key when the question offers it
-// Otherwise confident "yes" / first option / top score.
-export function fakeAnswer(q: Questions[string], flatState: string): Answer {
+//   #s1harm       every noul answers a confident "yes", harm questions included
+// Otherwise confident "yes" / first option / top score, except noul questions whose "yes" means harm
+// (HARM_IDS): those default to a confident "no", so a benign Genome reads as benign under FAKE_S1=1.
+const HARM_IDS = /^(engagementSubstitute|weakens|contradicts\..+|multiRecipient|isPublication|interferes|needsComposition)$/;
+
+export function fakeAnswer(q: Questions[string], flatState: string, id = ''): Answer {
   const low = flatState.includes('#s1low');
   const no = flatState.includes('#s1no');
   const wanted = /#s1pick:([\w-]+)/.exec(flatState)?.[1];
   const conf = low ? 0.3 : 0.95;
-  if (q.type === 'noul') return { type: 'noul', noul: low ? 0.55 : no ? 0.05 : 0.95 };
+  if (q.type === 'noul') return { type: 'noul', noul: low ? 0.55 : no ? 0.05 : flatState.includes('#s1harm') || !HARM_IDS.test(id) ? 0.95 : 0.05 };
   if (q.type === 'choice') {
     const labels = Object.keys(q.criteria);
     const pick =
@@ -36,5 +40,5 @@ export function fakeAnswer(q: Questions[string], flatState: string): Answer {
 
 export function fakeAnswers(state: unknown, questions: Questions): Record<string, Answer> {
   const flat = JSON.stringify(state ?? '');
-  return Object.fromEntries(Object.entries(questions).map(([id, q]) => [id, fakeAnswer(q, flat)]));
+  return Object.fromEntries(Object.entries(questions).map(([id, q]) => [id, fakeAnswer(q, flat, id)]));
 }
