@@ -8,7 +8,8 @@ import type {
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import type { SystemAuthority } from "../worker/do/system-authority";
 import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../worker/hooks/contract";
-import { noopHookRunner, resetHooks, setHooks } from "../worker/hooks/index";
+import { hookRunner, noopHookRunner, queueEntry, resetHooks, setHooks } from "../worker/hooks/index";
+import { PUSHED } from "../worker/hooks/queue";
 import { appFiles, genomeFiles } from "./fixtures/genome";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 
@@ -413,6 +414,26 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(cands.json.candidates.map((c) => c.state)).toEqual(["rejected"]);
     const via = `/systems/${systemId}/realizations/${rid}/reject`;
     expect((await call<ApiError>("POST", via, { reason: "again" }, ADMIN)).status).toBe(200);
+  });
+
+  it("the queue consumer submits pushes to known forks once", async () => {
+    resetHooks();
+    expect(hookRunner(env)).not.toBe(noopHookRunner); // the real runner from ./hooks/run is the default
+    setHooks({ runner: () => passing });
+    const { ns, systemId, appRepo } = await imported();
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const commit = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/q.ts": "q" });
+    const acked: string[] = [];
+    const msg = (id: string) => ({
+      id, attempts: 1, ack: () => acked.push(id), retry: () => {},
+      body: { type: PUSHED, source: { namespace: "artyfact", repoName: `${appRepo}--r1` }, payload: { ref: "refs/heads/main", after: commit } },
+    });
+    const batch = (id: string) => ({ queue: "artyfact-events", messages: [msg(id)], ackAll() {}, retryAll() {} }) as unknown as MessageBatch<unknown>;
+    await queueEntry(batch("m1"), env);
+    await queueEntry(batch("m2"), env);
+    expect(acked).toEqual(["m1", "m2"]);
+    const cands = await call<{ candidates: { commit: string }[] }>("GET", `/systems/${systemId}/evolutions/evolution.1/candidates`);
+    expect(cands.json.candidates.map((c) => c.commit)).toEqual([commit]);
   });
 
   it("streams SSE events", async () => {

@@ -678,12 +678,17 @@ export async function systemForRealization(env: Env, rid: string): Promise<strin
 
 /** Queue consumer callbacks for the hooks slice's `createQueueHandler(queueContextFor)`. */
 export function queueContextFor(env: Env): QueueContext {
+  // resolveFork knows the System; remember it so submit never has to guess between Systems with the same rid.
+  const systemOf = new Map<string, string>();
   return {
     async resolveFork(namespace, repoName) {
       if (namespace !== env.ARTIFACTS_NAMESPACE) return null;
-      return (await registryStub(env).resolveFork(repoName))?.realizationId ?? null;
+      const hit = await registryStub(env).resolveFork(repoName);
+      if (!hit) return null;
+      systemOf.set(hit.realizationId, hit.systemId);
+      return hit.realizationId;
     },
-    submit: async (rid, commit, source) => submit(env, await systemForRealization(env, rid), rid, { commit }, source),
+    submit: async (rid, commit, source) => submit(env, systemOf.get(rid) ?? (await systemForRealization(env, rid)), rid, { commit }, source),
     markEventSeen: (id) => registryStub(env).markEventSeen(id),
   };
 }
