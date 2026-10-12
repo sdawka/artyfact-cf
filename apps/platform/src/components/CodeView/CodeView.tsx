@@ -38,7 +38,8 @@ const fromProps = Annotation.define<boolean>();
 const editability = (readOnly: boolean): Extension => [
   EditorState.readOnly.of(readOnly),
   EditorView.editable.of(!readOnly),
-  EditorView.contentAttributes.of({ "aria-readonly": String(readOnly) }),
+  // tabindex keeps read-only content (contenteditable=false) keyboard reachable for reading and scrolling.
+  EditorView.contentAttributes.of({ "aria-readonly": String(readOnly), tabindex: "0" }),
 ];
 
 /**

@@ -2,7 +2,7 @@ import { useId, useRef, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router";
 import type { EditorCommitRequest, FileScope, StartWorkRequest } from "../../../shared/api";
 import { ApiRequestError, FixtureModeError } from "@/api/client";
-import { useEvolutions, useManualCommit } from "@/api/queries";
+import { ManualCommitError, useEvolutions, useManualCommit, type ManualCommitProgress } from "@/api/queries";
 import { emitFx } from "@/effects/fx";
 import { useKeepParams, useSystemRoute } from "@/model/useSelection";
 import { rememberWhy } from "./why";
@@ -22,25 +22,11 @@ export interface CommitSheetProps {
 }
 
 /** Ids a failed manual commit already created; a retry reuses them instead of creating duplicates. */
-interface Resume {
-  evolutionId?: string;
-  realizationId?: string;
-  secret?: string;
-}
-
-function resumeFrom(err: unknown): Resume | null {
-  if (!err || typeof err !== "object") return null;
-  const e = err as Resume;
-  const r: Resume = {
-    ...(typeof e.evolutionId === "string" && { evolutionId: e.evolutionId }),
-    ...(typeof e.realizationId === "string" && { realizationId: e.realizationId }),
-    ...(typeof e.secret === "string" && { secret: e.secret }),
-  };
-  return Object.keys(r).length ? r : null;
-}
+type Resume = ManualCommitProgress;
 
 /** Plain wording for auth refusals; anything else keeps the server's message. */
 export function commitError(err: unknown): string {
+  if (err instanceof ManualCommitError) return commitError(err.cause);
   if (err instanceof FixtureModeError) return "Commit needs the platform API.";
   if (err instanceof ApiRequestError && err.status === 401) return "Commit needs the admin token (401). Enter it and try again.";
   if (err instanceof ApiRequestError && err.status === 403) return "The admin token was refused (403). Check it and try again.";
@@ -101,6 +87,7 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted }: Co
     }
     const whyText = leaveToAgent ? undefined : why.trim();
     const body: EditorCommitRequest = { message: message.trim(), changes, author: name.trim(), ...(whyText && { why: whyText }) };
+    // "author" is the editor's role on the wire; the model's AgentRole enum does not list it yet (the server stores it as given).
     const startWork = { agentLabel: `human:${name.trim()}`, target: repo, role: "author", origin: "editor" } as unknown as StartWorkRequest;
     const evolutionId = resume?.evolutionId ?? (target === NEW ? undefined : target);
     commit.mutate(
@@ -109,7 +96,7 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted }: Co
         target: repo,
         startWork,
         ...(adminToken && { adminToken }),
-        ...(resuming ? { realizationId: resume!.realizationId, secret: resume!.secret } : {}),
+        ...(resuming && { realizationId: resume.realizationId, secret: resume.secret }),
         ...(evolutionId ? { evolutionId } : { newEvolution: { title: title.trim(), intent: intent.trim() } }),
       },
       {
@@ -122,8 +109,7 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted }: Co
           navigate(href("work", { ...(res.evolutionId && { evolution: res.evolutionId }), realization: res.realizationId }));
         },
         onError: (err) => {
-          const r = resumeFrom(err);
-          if (r) setResume((prev) => ({ ...prev, ...r }));
+          if (err instanceof ManualCommitError) setResume((prev) => ({ ...prev, ...err.progress }));
         },
       },
     );

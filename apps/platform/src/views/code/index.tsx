@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import type { FileScope } from "../../../shared/api";
 import { useRevisions, useTree } from "@/api/queries";
@@ -64,6 +64,15 @@ export default function CodePage() {
   const changes = useMemo(() => new Map<string, ChangeKind>(draft.pending.map((c) => [c.path, c.kind])), [draft.pending]);
   const existing = useMemo(() => new Set(entries.map((e) => e.path)), [entries]);
 
+  // A path that is not in the tree may be a document id (Inspector "Open in Code"): open the file it names.
+  useEffect(() => {
+    if (!path || !tree.data || existing.has(path)) return;
+    const stem = (p: string) => (p.split("/").pop() ?? p).replace(/\.[^.]+$/, "");
+    const match = listed.find((f) => stem(f.path) === path);
+    if (match) navigate(fileHref(match.path), { replace: true });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [path, tree.data, existing]);
+
   const editing = draft.pending.length > 0 || editingPath !== null;
   const pill = editing ? `editing · ${draft.pending.length} pending` : `read-only · ${HEADS.has(rev) ? "canonical" : shortRev(rev)}`;
 
@@ -84,6 +93,8 @@ export default function CodePage() {
         </div>
       </header>
 
+      <div className={styles.workspace}>
+      <div className={styles.content}>
       {fixtureNoApp ? (
         <EmptyState title="The fixture has no app repo.">Switch to Genome to browse the fixture's files.</EmptyState>
       ) : tree.isError ? (
@@ -120,6 +131,7 @@ export default function CodePage() {
           </div>
         </div>
       )}
+      </div>
 
       <Drawer open={panel === "commit"} label="Commit" width={sheetWidth} onWidthChange={setSheetWidth}>
         <CommitSheet
@@ -133,6 +145,7 @@ export default function CodePage() {
           }}
         />
       </Drawer>
+      </div>
     </section>
   );
 }
