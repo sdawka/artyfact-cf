@@ -1,0 +1,107 @@
+.node,
+.group {
+  position: relative;
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-md);
+  background: var(--color-surface-secondary);
+  color: var(--color-text-primary);
+  transition: opacity var(--motion-duration-fast) var(--motion-easing-ease-out);
+}
+.node {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2) var(--spacing-3);
+  cursor: pointer;
+}
+.node[data-role="outside"] { background: var(--color-surface-primary); }
+.external {
+  background: transparent;
+  border-style: dashed;
+}
+.group {
+  background: color-mix(in oklch, var(--color-surface-primary) 60%, transparent);
+  border-color: var(--color-border);
+}
+.node[data-dim],
+.group[data-dim] { opacity: 0.35; }
+.node[data-ring],
+.group[data-ring] { border: 2px solid var(--color-brand-primary); }
+
+.title {
+  display: flex;
+  gap: var(--spacing-2);
+  align-items: baseline;
+  min-width: 0;
+}
+.glyph { color: var(--color-text-subtle); flex: none; }
+.name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+}
+.meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.kind {
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+}
+.open {
+  padding: 0 var(--spacing-1);
+  border: 0;
+  border-radius: var(--border-radius-sm);
+  background: none;
+  color: var(--color-text-secondary);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+}
+.open:hover { color: var(--color-brand-primary); }
+.open:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.badges:empty { display: none; }
+
+.groupHead {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2) var(--spacing-4);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.groupHead .name { font-size: var(--font-size-base); }
+.empty {
+  margin: 0;
+  padding: var(--spacing-3) var(--spacing-4);
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-sm);
+}
+
+.handle {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.boundary {
+  width: 0;
+  border-left: 1px dashed var(--color-border-strong);
+  pointer-events: none;
+}
+.boundaryLabel {
+  position: absolute;
+  top: 0;
+  left: var(--spacing-2);
+  color: var(--color-text-subtle);
+  font-size: var(--font-size-xs);
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .node, .group { transition: none; }
+}

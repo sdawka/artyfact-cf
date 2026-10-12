@@ -159,7 +159,8 @@ SideNav has seven links: Overview · Map · Journeys · Theory · Work · Evalua
 
 
 ⌘K / Ctrl+K opens the palette. Esc clears focus. `[` / `]` move to the previous / next sibling.
-`g` then `o m j t w e h` goes to that view. Shortcuts are ignored while typing in inputs.
+`g` then `o m j t w e h` goes to that view. Shortcuts are ignored while typing in inputs
+(`isTyping(target)`, exported from `app/Shell.tsx` for views' own shortcuts, e.g. the Map's Backspace).
 
 ## Tests
 

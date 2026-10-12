@@ -1,0 +1,57 @@
+.phenome {
+  display: inline-flex;
+  gap: var(--spacing-2);
+  font-family: var(--font-code);
+  font-size: var(--font-size-xs);
+  line-height: 1;
+}
+.counter {
+  display: inline-flex;
+  gap: 2px;
+  align-items: center;
+  color: var(--color-text-subtle);
+}
+.counter[data-tone="pass"] { color: var(--verdict-pass); }
+.counter[data-tone="fail"] { color: var(--verdict-fail); }
+.counter[data-zero] { color: var(--color-text-disabled); }
+
+.proteome {
+  font-size: var(--font-size-xs);
+  color: var(--color-text-subtle);
+}
+.proteome[data-active] { color: var(--color-brand-primary); }
+
+/* Always-on corner brackets, like .u-brackets--on; the overlap variant adds a second, wider set. */
+.halo,
+.halo[data-overlap]::after {
+  position: absolute;
+  inset: -6px;
+  border: 2px solid var(--color-brand-primary);
+  border-radius: var(--border-radius-lg);
+  pointer-events: none;
+  --corner: 12px;
+  mask:
+    linear-gradient(black 0 0) top left / var(--corner) var(--corner) no-repeat,
+    linear-gradient(black 0 0) top right / var(--corner) var(--corner) no-repeat,
+    linear-gradient(black 0 0) bottom left / var(--corner) var(--corner) no-repeat,
+    linear-gradient(black 0 0) bottom right / var(--corner) var(--corner) no-repeat;
+}
+.halo[data-overlap]::after {
+  content: "";
+  inset: -7px;
+  border-width: 2px;
+}
+.overlap {
+  position: absolute;
+  top: calc(-1 * var(--spacing-5));
+  right: 0;
+  padding: 0 var(--spacing-1);
+  border-radius: var(--border-radius-sm);
+  background: var(--color-background);
+  color: var(--color-brand-primary);
+  font-size: var(--font-size-xs);
+  line-height: 1.4;
+}
+@media (forced-colors: active) {
+  .halo { mask: none; border-color: Highlight; }
+}
