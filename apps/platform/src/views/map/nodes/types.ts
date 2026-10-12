@@ -10,6 +10,8 @@ export interface MapNodeData extends Record<string, unknown> {
   candidates: string[];
   /** Dimmed while another node is hovered. */
   dim: boolean;
+  /** Subtree verdict emphasis: a faint error glow for any fail, success only when every counted criterion passes. */
+  status?: "pass" | "fail" | undefined;
   /** Open this node on the Map (double-click / "inside ›"); `viaKeyboard` moves focus to the new frame. */
   onOpen: (id: string, viaKeyboard?: boolean) => void;
 }
@@ -23,6 +25,8 @@ export interface CrossLinkData extends Record<string, unknown> {
   dim: boolean;
   /** Touches the hovered node. */
   active: boolean;
+  /** Touches the selected (focused) node: drawn with an animated flow. */
+  flow?: boolean;
   /** False when the chip would collide with another (the hovered node's edges are placed first). */
   showLabel?: boolean;
   /** elk route (absolute); straight smooth-step fallback when absent. */

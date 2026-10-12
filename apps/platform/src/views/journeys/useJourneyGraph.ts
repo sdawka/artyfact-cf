@@ -30,6 +30,8 @@ export interface StepEdgeData extends Record<string, unknown> {
   /** The edge leads into a `failure` step. */
   failure: boolean;
   when?: string;
+  /** Touches the selected step: drawn with an animated flow. */
+  flow?: boolean;
 }
 export type StepEdge = Edge<StepEdgeData>;
 

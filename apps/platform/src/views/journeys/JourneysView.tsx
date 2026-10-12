@@ -1,12 +1,14 @@
-import { Background, ControlButton, Controls, MarkerType, ReactFlow, ReactFlowProvider, useReactFlow, useStore, type NodeTypes } from "@xyflow/react";
+import { Background, ControlButton, Controls, MarkerType, ReactFlow, ReactFlowProvider, useReactFlow, useStore, type EdgeTypes, type NodeTypes } from "@xyflow/react";
 import "@xyflow/react/dist/style.css";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
+import { announceSelect, flowNodeElement } from "@/effects/ambientEvents";
 import { Tabs } from "@/components/Tabs/Tabs";
 import { useModel } from "@/model/useModel";
 import { useSelection } from "@/model/useSelection";
 import styles from "./JourneysView.module.css";
+import { FlowStepEdge } from "./FlowStepEdge";
 import { JourneyCatalog } from "./JourneyCatalog";
 import { Legend } from "./Legend";
 import { ActionNode } from "./nodes/ActionNode";
@@ -29,6 +31,7 @@ const nodeTypes: NodeTypes = {
   terminal: TerminalNode,
   lane: LaneNode,
 };
+const edgeTypes: EdgeTypes = { smoothstep: FlowStepEdge };
 const LANE_LABELS = { actor: "Actor", system: "System", external: "External" } as const;
 const ALL = "__all";
 
@@ -176,14 +179,24 @@ export default function JourneysView() {
     () =>
       graph.edges.map((e) => ({
         ...e,
+        data: { ...e.data!, flow: !!activeStep && (e.source === activeStep || e.target === activeStep) },
         focusable: false,
         markerEnd: { type: MarkerType.ArrowClosed, color: e.data?.failure ? DANGER : FLOW },
         labelBgPadding: [4, 2] as [number, number],
       })),
-    [graph.edges],
+    [graph.edges, activeStep],
   );
 
   const ctx = useMemo(() => ({ activeStep, pick }), [activeStep, pick]);
+
+  // A newly selected step ripples the Shell's ambient field from the node.
+  const announced = useRef(activeStep);
+  useEffect(() => {
+    if (activeStep === announced.current) return;
+    announced.current = activeStep;
+    if (!activeStep || !canvas) return;
+    requestAnimationFrame(() => announceSelect(flowNodeElement(activeStep, canvas)));
+  }, [activeStep, canvas]);
 
   if (!journey) {
     return (
@@ -221,6 +234,7 @@ export default function JourneysView() {
                   nodes={nodes}
                   edges={edges}
                   nodeTypes={nodeTypes}
+                  edgeTypes={edgeTypes}
                   defaultViewport={{ x: 0, y: 0, zoom: 0.6 }}
                   minZoom={0.3}
                   nodesDraggable={false}
