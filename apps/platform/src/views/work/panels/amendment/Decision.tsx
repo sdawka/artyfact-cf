@@ -36,9 +36,11 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
   const [interpretation, setInterpretation] = useState(initialInterpretation);
   const [edited, setEdited] = useState(false);
   const [reason, setReason] = useState("");
+  // Held in component state only: never persisted.
+  const [adminToken, setAdminToken] = useState("");
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [rejectError, setRejectError] = useState<string | null>(null);
-  const ids = { interp: useId(), reason: useId(), why: useId() };
+  const ids = { interp: useId(), reason: useId(), why: useId(), token: useId() };
 
   const fixture = m.bundle.source === "fixture";
   const acceptDisabledReason = outcome
@@ -59,7 +61,7 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
     if (!interpretation.trim()) return setAcceptError("Interpretation is required to accept.");
     setAcceptError(null);
     accept.mutate(
-      { evolutionId, body: { realizationId: realization.id, candidateId, commit, interpretation: interpretation.trim() } },
+      { evolutionId, body: { realizationId: realization.id, candidateId, commit, interpretation: interpretation.trim() }, ...(adminToken && { adminToken }) },
       { onSuccess: (r) => onOutcome({ kind: "accepted", genomeCommit: r.genomeCommit }) },
     );
   };
@@ -67,13 +69,17 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
     if (!reason.trim()) return setRejectError("A reason is required to reject.");
     setRejectError(null);
     reject.mutate(
-      { realizationId: realization.id, body: { reason: reason.trim() } },
+      { realizationId: realization.id, body: { reason: reason.trim() }, ...(adminToken && { adminToken }) },
       { onSuccess: () => onOutcome({ kind: "rejected", reason: reason.trim() }) },
     );
   };
 
   return (
     <div className={styles.decision}>
+      <div className={styles.fieldBlock}>
+        <label htmlFor={ids.token}>Admin token</label>
+        <input id={ids.token} type="password" value={adminToken} disabled={!!outcome} autoComplete="off" onChange={(e) => setAdminToken(e.target.value)} />
+      </div>
       <div className={styles.fieldBlock}>
         <label htmlFor={ids.interp}>Accepted interpretation</label>
         <p id={`${ids.interp}-hint`} className={styles.muted}>

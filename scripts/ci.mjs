@@ -84,6 +84,7 @@ if (platform) {
     ["platform: unit tests", "npm test"],
     ["platform: build", "npm run build -w @artyfact/platform"],
     ["platform: e2e (fixture)", "npm run e2e"],
+    ["platform: e2e (fake platform)", "npm run e2e:fake -w @artyfact/platform"],
   );
 }
 if (site) {

@@ -32,6 +32,14 @@ Everything runs on Cloudflare. One Worker serves the API and the single-page app
 
 Not done on purpose: platform-hosted agents, a reasoning-model evaluator beyond System One, paid runs and a Git-parity suite.
 
+## Features
+- Home with a card per System and signifiers for evolving, pending, awaiting review, not built, deployed and observed.
+- Describe a change in the browser or hand it to an agent: Evolution, task packet, in-browser editor with a real Git push to a fork.
+- Changelog and Compare across System, Genome and file level.
+- Preview builds and production deployments through a CI Worker, with a health assay on the deployed preview.
+- Deployments page with runtime events from the running app, tied to the System commit.
+- A fake platform (`FAKE_ARTIFACTS=1`) and Playwright specs that drive the five use cases through the UI.
+
 ## How Workers and Artifacts are used
 - Workers: one Worker with Static Assets for the SPA, a Hono API, a Queue consumer and the `SystemAuthority` Durable Object with SQLite.
 - Artifacts: one namespace with a Genome repository and an app repository per System, plus a shared `platform` repository of templates and Rule Packs. Binding reads of commits and trees, forks per realization, scoped write tokens, and a Queue consumer for `cf.artifacts.repo.pushed` events alongside the CLI submit path.
