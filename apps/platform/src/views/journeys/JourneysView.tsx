@@ -120,7 +120,9 @@ export default function JourneysView() {
         focusable: false,
         markerEnd: { type: MarkerType.ArrowClosed, color: e.data?.failure ? DANGER : FLOW },
         style: e.data?.failure ? { stroke: DANGER, strokeDasharray: "6 4" } : undefined,
-        labelStyle: e.data?.failure ? { fill: DANGER } : undefined,
+        labelStyle: { fill: e.data?.failure ? DANGER : "var(--color-text-secondary)", fontSize: 11 },
+        labelBgStyle: { fill: "var(--color-background)", fillOpacity: 1 },
+        labelBgPadding: [4, 2] as [number, number],
       })),
     [graph.edges],
   );
@@ -160,7 +162,7 @@ export default function JourneysView() {
             <StepContext.Provider value={ctx}>
               <ReactFlowProvider>
                 <ReactFlow
-                  key={`${journey.id}:${segment}`}
+                  key={`${journey.id}:${segment}:${graph.layoutReady}`}
                   nodes={nodes}
                   edges={edges}
                   nodeTypes={nodeTypes}

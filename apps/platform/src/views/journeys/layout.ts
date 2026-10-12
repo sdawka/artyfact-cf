@@ -6,13 +6,14 @@
 export const LANES = ["actor", "system", "external"] as const;
 export type Lane = (typeof LANES)[number];
 
-export const NODE_W = 208;
-export const NODE_H = 76;
-export const DECISION_W = 232;
+export const NODE_W = 184;
+export const NODE_H = 92;
+export const DECISION_W = 200;
 export const DECISION_H = 116;
-export const COL_GAP = 56;
+export const COL_GAP = 48;
 export const ROW_GAP = 20;
 export const LANE_PAD = 24;
+export const COLUMN_PITCH = DECISION_W + COL_GAP;
 export const LANE_LABEL_W = 96;
 
 export interface LayoutNode {
@@ -42,7 +43,7 @@ export function depthColumns(nodes: LayoutNode[], edges: LayoutEdge[]): Map<stri
     }
     if (!changed) break;
   }
-  return new Map([...depth].map(([id, d]) => [id, d * (NODE_W + COL_GAP)]));
+  return new Map([...depth].map(([id, d]) => [id, d * COLUMN_PITCH]));
 }
 
 /** Column x per node from elk's layered layout (RIGHT). Loaded lazily; rejects if elk fails. */
@@ -63,7 +64,9 @@ export async function elkColumns(nodes: LayoutNode[], edges: LayoutEdge[]): Prom
       .filter((e) => ids.has(e.source) && ids.has(e.target))
       .map((e, i) => ({ id: `e${i}`, sources: [e.source], targets: [e.target] })),
   });
-  return new Map((graph.children ?? []).map((c) => [c.id, c.x ?? 0]));
+  // Snap elk's layers to a uniform column pitch so differently sized nodes never overlap.
+  const layers = [...new Set((graph.children ?? []).map((c) => Math.round(c.x ?? 0)))].sort((a, b) => a - b);
+  return new Map((graph.children ?? []).map((c) => [c.id, layers.indexOf(Math.round(c.x ?? 0)) * COLUMN_PITCH]));
 }
 
 export interface LaneBand {

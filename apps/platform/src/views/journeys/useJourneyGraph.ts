@@ -82,7 +82,9 @@ export function buildJourneyGraph(journey: Journey | undefined, visible?: readon
       type,
       position: { x: 0, y: 0 },
       data: { journeyId: journey.id, step, lane, failure: step.kind === "failure", unresolved: step.unresolved },
-      ...sizeOf(type),
+      width: sizeOf(type).w,
+      height: sizeOf(type).h,
+      style: { width: sizeOf(type).w, height: sizeOf(type).h },
     };
   });
   const edges: StepEdge[] = [];
