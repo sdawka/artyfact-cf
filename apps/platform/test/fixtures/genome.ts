@@ -118,6 +118,26 @@ criteria:
     targetKind: artifact
     severity: soft
     gates: [submission, promotion]
+  - id: C.people.audit
+    title: People screen passes the promotion audit
+    claim: Checked only at promotion
+    ownerKind: thing
+    ownerId: thing.webapp
+    subjectKind: screen
+    subjectId: screen.people
+    targetKind: artifact
+    gates: [promotion]
+    hooks: [hook.people.audit]
+  - id: C.people.lint
+    title: People screen lints at submission
+    claim: Checked only at submission
+    ownerKind: thing
+    ownerId: thing.webapp
+    subjectKind: screen
+    subjectId: screen.people
+    targetKind: artifact
+    gates: [submission]
+    hooks: [hook.people.lint]
   - id: C.people.later
     title: Deferred nicety
     claim: Later
@@ -129,6 +149,22 @@ criteria:
     deferred: true
     gates: [submission]
 hooks:
+  - id: hook.people.audit
+    assay: people audit
+    criteria: [C.people.audit]
+    tier: execution
+    engine: vitest
+    targetKind: artifact
+    triggers: [promotion]
+    binding: bound
+  - id: hook.people.lint
+    assay: people lint
+    criteria: [C.people.lint]
+    tier: execution
+    engine: vitest
+    targetKind: artifact
+    triggers: [submission]
+    binding: bound
   - id: hook.people.list
     assay: people list test
     criteria: [C.people.list]

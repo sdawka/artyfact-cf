@@ -93,8 +93,10 @@ describe("gate criteria", () => {
     expect(requiredCriteria(genome.model, evolution)).toEqual(["C.people.list"]);
     const ref = { id: "candidate.x", realizationId: "realization.1.r1", evolutionId: "evolution.1", target: "app" as const, commit: "c", baseCommit: "b", changedPaths: [], changedNodes: ["screen.people"] };
     const gates = gateCriteria(genome.model, evolution, ref);
-    // Acceptance (C.people.list, gated only on submission) still blocks; C.webapp.exists is promotion-gated + bound.
-    expect(gates.filter((g) => g.blocking).map((g) => g.id).sort()).toEqual(["C.people.list", "C.system.promotion", "C.webapp.exists"]);
+    // Pool = acceptance ∪ promotion-gated. C.people.list (acceptance, gated only on submission) blocks;
+    // C.people.audit ([promotion] only, bound) blocks; C.people.lint ([submission] only, bound, not acceptance) is not in the gate.
+    expect(gates.filter((g) => g.blocking).map((g) => g.id).sort()).toEqual(["C.people.audit", "C.people.list", "C.system.promotion", "C.webapp.exists"]);
+    expect(gates.map((g) => g.id)).not.toContain("C.people.lint");
     expect(gateCriteria(genome.model, { acceptanceCriteria: ["C.not.in.genome"] }, ref).find((g) => g.id === "C.not.in.genome")).toEqual({ id: "C.not.in.genome", severity: "hard", blocking: true });
     expect(gates.filter((g) => !g.blocking).map((g) => g.id)).toContain("C.people.sorted");
   });

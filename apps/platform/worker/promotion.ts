@@ -4,12 +4,11 @@
  * Blocking set = (the Evolution's acceptanceCriteria ∪ criteria whose `gates` include `promotion`)
  *                ∩ `severity: hard` ∩ has ≥1 hook with `binding: bound`, non-deferred.
  * Acceptance criteria block regardless of their own `gates`: they are what the Evolution promised.
- * Every other criterion in play (that set, plus whatever the hooks select for the candidate) is an advisory when not
- * pass+completed; advisories need a non-empty rationale.
+ * Every other criterion in that pool is an advisory when not pass+completed; advisories need a non-empty rationale.
+ * Hook selection (`selectHooks`) decides which hooks RUN; it does not shape the gate.
  */
 import type { schema, SystemModel } from "@artyfact/model";
 import type { CandidateRef } from "./hooks/contract";
-import { selectHooks } from "./hooks/run";
 
 export interface GateCriterion {
   id: string;
@@ -34,7 +33,7 @@ export const isBlocking = (m: SystemModel, c: schema.Criterion): boolean =>
  * Gate criteria for `candidate` of `evolution`. Throws if the model or selection is unusable; callers must treat a
  * throw as "gate unavailable", never as "no gates". Acceptance ids missing from the Genome come back blocking.
  */
-export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "acceptanceCriteria">, candidate: CandidateRef): GateCriterion[] {
+export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "acceptanceCriteria">, _candidate?: CandidateRef): GateCriterion[] {
   const byId = new Map(m.criteria.map((c) => [c.id, c] as const));
   const out = new Map<string, GateCriterion>();
   const add = (id: string, blockingSet: boolean) => {
@@ -54,6 +53,5 @@ export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "
   };
   for (const id of evolution.acceptanceCriteria) add(id, true);
   for (const c of m.criteria) if (c.gates.includes("promotion")) add(c.id, true);
-  for (const s of selectHooks(m, candidate)) if (!out.has(s.criterion.id) && byId.has(s.criterion.id)) add(s.criterion.id, false);
   return [...out.values()];
 }

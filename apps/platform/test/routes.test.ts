@@ -37,7 +37,7 @@ function setup() {
 }
 
 const seen: SubmissionContext[] = [];
-const REQUIRED = ["C.people.list", "C.people.sorted", "C.system.promotion", "C.webapp.exists"];
+const REQUIRED = ["C.people.audit", "C.people.list", "C.people.sorted", "C.system.promotion", "C.webapp.exists"];
 const modelOf = (b: ModelBundle) => b.model as SerializedModel;
 const hookEval = (ctx: SubmissionContext, criterion: string, execution: HookEvaluation["execution"], verdict: HookEvaluation["verdict"]): HookEvaluation => {
   const at = new Date().toISOString();
@@ -177,7 +177,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(view.json.realization.checkpoints).toHaveLength(1);
     expect(view.json.id).toBe(rid);
     expect(view.json.candidateDetail?.id).toBe(sub.json.candidate.id);
-    expect(view.json.evaluations).toHaveLength(4);
+    expect(view.json.evaluations).toHaveLength(REQUIRED.length);
 
     // Promotion requires the admin token.
     const body = { candidateIds: [sub.json.candidate.id], expectedHead: imp.head, rationale: "looks right" };
@@ -238,7 +238,7 @@ describe("routes: import → model → start → submit → promote", () => {
 
   it("blocks promotion when required criteria are not pass+completed", async () => {
     const { ns, systemId, appRepo, imp } = await imported();
-    setHooks({ runner: () => ({ ...passing, async runSubmission(ctx) { return [hookEval(ctx, "C.people.list", "not-run", "unknown")]; } }) });
+    setHooks({ runner: () => ({ ...passing, async runSubmission(ctx) { return [hookEval(ctx, "C.people.list", "not-run", "unknown"), hookEval(ctx, "C.people.lint", "completed", "fail")]; } }) });
     const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
     const c = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" });
     const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c });
@@ -246,9 +246,12 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(res.status).toBe(409);
     expect(res.json.error.code).toBe("blocked");
     const details = res.json.error.details as { blocking: { criterion: string }[]; advisories: { criterion: string }[] };
-    // Blocking: hard with a bound hook. C.people.sorted (soft, no hook) is an advisory.
-    expect(details.blocking.map((b) => b.criterion).sort()).toEqual(["C.people.list", "C.system.promotion", "C.webapp.exists"]);
+    // Pool = acceptance ∪ promotion-gated, then hard + bound hook blocks. C.people.list is acceptance though gated
+    // [submission] only; C.people.audit is [promotion] only. C.people.sorted (soft, no hook) is an advisory.
+    expect(details.blocking.map((b) => b.criterion).sort()).toEqual(["C.people.audit", "C.people.list", "C.system.promotion", "C.webapp.exists"]);
     expect(details.advisories.map((b) => b.criterion)).toContain("C.people.sorted");
+    // C.people.lint is [submission] only and not acceptance: a failing evaluation neither blocks nor advises.
+    expect([...details.blocking, ...details.advisories].map((b) => b.criterion)).not.toContain("C.people.lint");
   });
 
   it("C.system.promotion blocks without promotionFacts and passes with them", async () => {
