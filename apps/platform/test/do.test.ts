@@ -537,7 +537,7 @@ describe("schema", () => {
       expect(cols("builds")).toEqual(expect.arrayContaining(["id", "realization_id", "candidate_id", "commit_hash", "kind", "status", "reporter", "external_id", "steps_json"]));
       expect(cols("deployments")).toEqual(expect.arrayContaining(["id", "kind", "status", "repo", "commit_hash", "build_row", "ingest_token_hash"]));
       expect(cols("phenome_events")).toEqual(expect.arrayContaining(["seq", "event_id", "deployment_id", "build_id", "kind", "payload_json"]));
-      expect(cols("changelog_cache")).toEqual(["commit_id", "row_json", "entry_json", "created_at"]);
+      expect(cols("changelog_cache")).toEqual(["commit_id", "row_json", "entry_json", "created_at", "version"]);
       // event_id is unique and seq autoincrements.
       const ins = (id: string) => sql.exec(`INSERT INTO phenome_events (event_id, thing_id, artifact_id, build_id, commit_hash, kind, emitted_at, received_at)
         VALUES (?, 't', 'a', 'b', 'c', 'k', 'x', 'y')`, id);
