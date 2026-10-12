@@ -64,7 +64,11 @@ export { SystemAuthority };
 export { app };
 
 export default {
-  fetch: app.fetch,
+  async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+    // FAKE_ARTIFACTS=1: in-memory Artifacts seeded with examples/ (local demos and e2e; never set when deployed).
+    if (env.FAKE_ARTIFACTS === "1") await (await import("./artifacts/fake-platform")).ensureFakePlatform(env);
+    return app.fetch(request, env, ctx);
+  },
   /** Artifacts push events (`cf.artifacts.repo.pushed`): delegated to the hooks slice's consumer. */
   async queue(batch: MessageBatch, env: Env): Promise<void> {
     await queueEntry(batch, env);
