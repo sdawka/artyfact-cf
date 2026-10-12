@@ -5,6 +5,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { CliError } from "./git.ts";
+import { assertName } from "./safety.ts";
 
 export interface Cloud {
   /** The account both CLIs are logged in to (throws when they disagree). */
@@ -67,6 +68,11 @@ export function cloudCli(exec: Exec, env: Record<string, string | undefined>): C
   const childEnv = () => (accountId ? { CLOUDFLARE_ACCOUNT_ID: accountId } : {});
   const wrangler = (...args: string[]) => exec("npx", ["--no-install", "wrangler", ...args], childEnv());
   const cf = (...args: string[]) => exec("cf", args, childEnv());
+  // Every namespace and repo name is checked before it reaches an argv (never an option, never a path step).
+  const ok = (ns: string, ...repos: string[]) => {
+    assertName("namespace", ns);
+    for (const r of repos) assertName("repo name", r);
+  };
   const must = (p: Proc, what: string) => {
     if (p.status !== 0) throw new CliError(`${what} failed: ${scrubbed(p.stderr || p.stdout) || `exit ${p.status}`}`);
     return p;
@@ -80,15 +86,20 @@ export function cloudCli(exec: Exec, env: Record<string, string | undefined>): C
       return accountId;
     },
     ensureNamespace(ns) {
+      ok(ns);
+      // `namespaces get` has answered "Access denied" (10004) for an existing namespace; listing its repos is the fallback.
       if (wrangler("artifacts", "namespaces", "get", ns).status === 0) return "exists";
+      if (wrangler("artifacts", "repos", "list", "--namespace", ns, "--json").status === 0) return "exists";
       must(cf("artifacts", "namespaces", "create", "--namespace", ns), `cf artifacts namespaces create ${ns}`);
       return "created";
     },
-    repoExists: (ns, repo) => wrangler("artifacts", "repos", "get", repo, "--namespace", ns).status === 0,
+    repoExists: (ns, repo) => (ok(ns, repo), wrangler("artifacts", "repos", "get", repo, "--namespace", ns).status === 0),
     createRepo(ns, repo) {
+      ok(ns, repo);
       must(wrangler("artifacts", "repos", "create", repo, "--namespace", ns, "--json"), `wrangler artifacts repos create ${repo}`);
     },
     token(ns, repo, scope) {
+      ok(ns, repo);
       const p = must(wrangler("artifacts", "repos", "issue-token", repo, "--namespace", ns, "--scope", scope, "--ttl", "3600", "--json"),
         `wrangler artifacts repos issue-token ${repo}`);
       const t = jsonOf<{ plaintext?: unknown }>(p.stdout, "issue-token").plaintext;
@@ -96,11 +107,14 @@ export function cloudCli(exec: Exec, env: Record<string, string | undefined>): C
       return t;
     },
     fork(ns, src, dst) {
+      ok(ns, src, dst);
       must(cf("artifacts", "namespaces", "repos", "fork", src, "--namespace", ns, "--body", JSON.stringify({ name: dst, default_branch_only: true })),
         `cf artifacts namespaces repos fork ${src}`);
     },
     remote(ns, repo) {
       if (!accountId) throw new CliError("account not confirmed");
+      assertName("namespace", ns);
+      if (repo) assertName("repo name", repo);
       return `https://${accountId}.artifacts.cloudflare.net/git/${ns}/${repo}.git`;
     },
   };

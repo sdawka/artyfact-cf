@@ -3,14 +3,14 @@
  * Write tokens reach git only through `GIT_CONFIG_*` (see `gitEnv`); they are never printed or put on an argv.
  */
 import { createHash } from "node:crypto";
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from "node:fs";
+import { cpSync, existsSync, lstatSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, readlinkSync, realpathSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
 import { CliError, git } from "./git.ts";
+import { assertName, assertSystemId, assertTemplateRef, copyFiles, isInside, projectFiles, realDir, realSubdir } from "./safety.ts";
 import { PLATFORM_REPO, platformTemplateDir, systemRepoNames } from "./naming.ts";
 
 export interface InitIo {
@@ -29,8 +29,6 @@ export interface InitIo {
 const DEFAULT_URL = "http://localhost:5173";
 const DEFAULT_NAMESPACE = "artyfact";
 const IDENTITY = ["-c", "user.name=artyfact", "-c", "user.email=artyfact@localhost"];
-/** Never pushed, whether or not the source is inside a git checkout. */
-const EXCLUDE = ["node_modules/", ".wrangler/", ".git/", "dist/", ".dev.vars", ".env", ".artyfact.json", ".artyfact/", "*.tsbuildinfo", ".DS_Store"];
 
 const here = dirname(fileURLToPath(import.meta.url));
 const defaultRoot = () => resolve(here, "../../..");
@@ -47,7 +45,7 @@ function parse(args: string[], options: Record<string, { type: "string" | "boole
 
 /** `id:` of a system.yaml (top-level scalar; the CLI carries no YAML dependency). */
 export function systemIdOf(yaml: string): string {
-  const m = /^id:\s*["']?([A-Za-z0-9._-]+)["']?\s*(#.*)?$/m.exec(yaml);
+  const m = /^id:\s*["']?([^\s"'#]+)["']?\s*(#.*)?$/m.exec(yaml);
   if (!m) throw new CliError("system.yaml has no top-level `id:`");
   return m[1]!;
 }
@@ -59,7 +57,7 @@ export function appArtifactIds(genomeDir: string): string[] {
   const ids: string[] = [];
   for (const thing of readdirSync(dir).sort()) {
     const f = join(dir, thing, "thing.yaml");
-    if (!existsSync(f)) continue;
+    if (!existsSync(f) || !isInside(realpathSync(genomeDir), realpathSync(f))) continue;
     const text = readFileSync(f, "utf8");
     for (const m of text.matchAll(/artifact:\s*["']?(artifact\.[A-Za-z0-9._-]+)["']?([^\n]*\n?(?:[ \t]+[^\n]*\n?){0,4})/g)) {
       if (/type:\s*["']?worker-fullstack/.test(m[0])) ids.push(m[1]!);
@@ -86,29 +84,19 @@ function lsRemoteHead(cwd: string, r: Remote): string {
   return git(cwd, ["ls-remote", "--", r.url, "refs/heads/main"], r.token).split(/\s/)[0] ?? "";
 }
 
-/** Files of `src` that belong in the repo: the checkout's own ignore rules when inside git, plus {@link EXCLUDE}. */
-function sourceFiles(src: string): string[] | null {
-  const inside = spawnSync("git", ["-C", src, "rev-parse", "--is-inside-work-tree"], { encoding: "utf8" });
-  if (inside.status !== 0 || inside.stdout.trim() !== "true") return null;
-  const r = spawnSync("git", ["-C", src, "ls-files", "-z", "-co", "--exclude-standard", "--", "."], { encoding: "utf8", maxBuffer: 64 << 20 });
-  if (r.status !== 0) throw new CliError(`git ls-files failed in ${src}`);
-  return r.stdout.split("\0").filter(Boolean).filter((p) => existsSync(join(src, p)));
-}
-
-/** A scratch git dir whose index holds exactly the project tree of `src`; returns the tree hash. */
-function stageTree(work: string, src: string): string {
+/**
+ * A scratch git dir whose index holds exactly the project tree of `src` (a real path): the files {@link projectFiles}
+ * allows, symlinks kept as links only when they point inside `src`. Returns the tree hash and the skipped paths.
+ */
+function stageTree(work: string, src: string): { tree: string; skipped: string[] } {
+  src = realpathSync(src);
   git(work, ["init", "-q", "-b", "main"]);
-  writeFileSync(join(work, ".git", "info", "exclude"), `${EXCLUDE.join("\n")}\n`);
-  const gd = ["--git-dir", join(work, ".git"), "--work-tree", src];
-  const files = sourceFiles(src);
-  if (files === null) {
-    git(work, [...gd, "add", "-A", "--", "."]);
-  } else {
-    const list = join(work, "files");
-    writeFileSync(list, files.join("\0"));
-    if (files.length) git(work, [...gd, "add", "--pathspec-from-file", list, "--pathspec-file-nul"]);
-  }
-  return git(work, ["--git-dir", join(work, ".git"), "write-tree"]);
+  const gd = ["--literal-pathspecs", "--git-dir", join(work, ".git"), "--work-tree", src];
+  const { files, skipped } = projectFiles(src);
+  const list = join(work, "files");
+  writeFileSync(list, files.join("\0"));
+  if (files.length) git(work, [...gd, "add", "-f", "--pathspec-from-file", list, "--pathspec-file-nul"]);
+  return { tree: git(work, ["--git-dir", join(work, ".git"), "write-tree"]), skipped };
 }
 
 interface StateFile { pushed: Record<string, string> }
@@ -135,13 +123,14 @@ export type PushResult = { head: string; action: "pushed" | "unchanged" | "creat
  * is the one this checkout last pushed (or `owned`/`adopt`), so foreign history is never silently built over.
  */
 function pushTree(
-  ctx: { cloud: Cloud; ns: string; state: StateFile; key: string },
+  ctx: { io: InitIo; cloud: Cloud; ns: string; state: StateFile; key: string },
   repo: string, src: string, message: string, opts: { owned?: boolean; adopt?: boolean } = {},
 ): PushResult {
   const r: Remote = { url: ctx.cloud.remote(ctx.ns, repo), token: ctx.cloud.token(ctx.ns, repo, "write") };
   const work = mkdtempSync(join(tmpdir(), "artyfact-init-"));
   try {
-    const tree = stageTree(work, src);
+    const { tree, skipped } = stageTree(work, src);
+    for (const p of skipped) ctx.io.out(`  skipped ${p} (symlink or path outside ${src})`);
     const head = lsRemoteHead(work, r);
     const gd = ["--git-dir", join(work, ".git")];
     if (head) {
@@ -188,20 +177,17 @@ function ensureRepo(io: InitIo, cloud: Cloud, ns: string, repo: string) {
 
 const sha256 = (s: string | Buffer) => createHash("sha256").update(s).digest("hex");
 
+/** Files under `dir`, without following symlinks (a link is an entry). */
 function walk(dir: string, base = dir): string[] {
   return readdirSync(dir).sort().flatMap((n) => {
     const p = join(dir, n);
-    return statSync(p).isDirectory() ? walk(p, base) : [relative(base, p)];
+    return lstatSync(p).isDirectory() ? walk(p, base) : [relative(base, p)];
   });
 }
 
-/** Copy the project files of `src` (same selection as a push) into `dst`. */
+/** Copy the project files of `src` (same selection as a push, symlinks never followed out of it) into `dst`. */
 function copyProject(src: string, dst: string) {
-  const files = sourceFiles(src) ?? walk(src).filter((p) => !EXCLUDE.some((x) => (x.endsWith("/") ? p.split("/").includes(x.slice(0, -1)) : p.split("/").at(-1) === x)));
-  for (const f of files) {
-    mkdirSync(dirname(join(dst, f)), { recursive: true });
-    cpSync(join(src, f), join(dst, f));
-  }
+  copyFiles(src, projectFiles(src).files, dst);
 }
 
 /**
@@ -209,7 +195,7 @@ function copyProject(src: string, dst: string) {
  * `scaffold/` (from scaffold.yaml `bundle`), rule packs at `templates/rule-packs/<id>@<v>/pack.dl`, README, manifest.
  */
 export function buildPlatformTree(root: string, out: string): { bundleHash: string; templates: string[]; packs: string[] } {
-  root = resolve(root);
+  root = realDir("checkout", root);
   const tpl = join(root, "packages", "templates");
   const templates: string[] = [], packs: string[] = [];
   for (const kind of ["system", "thing"] as const) {
@@ -218,15 +204,13 @@ export function buildPlatformTree(root: string, out: string): { bundleHash: stri
     for (const nameVer of readdirSync(kdir).sort()) {
       const src = join(kdir, nameVer);
       if (!existsSync(join(src, "template.yaml"))) continue;
-      const ref = `template.${kind}.${nameVer}`;
+      const ref = assertTemplateRef(`template.${kind}.${nameVer}`);
       const dst = join(out, platformTemplateDir(ref)!);
       mkdirSync(dst, { recursive: true });
       for (const f of readdirSync(src).sort()) if (f.endsWith(".yaml")) cpSync(join(src, f), join(dst, f));
       const scaffold = existsSync(join(src, "scaffold.yaml")) ? flatYaml(readFileSync(join(src, "scaffold.yaml"), "utf8")) : {};
       if (scaffold.bundle) {
-        const from = resolve(root, scaffold.bundle);
-        if (!from.startsWith(root + "/") || !existsSync(from)) throw new CliError(`${ref} scaffold bundle ${scaffold.bundle} not found in the checkout`);
-        copyProject(from, join(dst, "scaffold"));
+        copyProject(realSubdir(`${ref} scaffold bundle`, root, scaffold.bundle), join(dst, "scaffold"));
       }
       templates.push(ref);
     }
@@ -253,7 +237,8 @@ Templates: ${templates.join(", ")}
 Rule packs: ${packs.join(", ")}
 `);
   const files = walk(out).filter((p) => p !== "manifest.json");
-  const bundleHash = sha256(files.map((p) => `${p}\0${sha256(readFileSync(join(out, p)))}\n`).join(""));
+  const content = (p: string) => (lstatSync(join(out, p)).isSymbolicLink() ? `link:${readlinkSync(join(out, p))}` : readFileSync(join(out, p)));
+  const bundleHash = sha256(files.map((p) => `${p}\0${sha256(content(p))}\n`).join(""));
   writeFileSync(join(out, "manifest.json"), `${JSON.stringify({ version: 1, bundleHash }, null, 2)}\n`);
   return { bundleHash, templates, packs };
 }
@@ -276,8 +261,7 @@ function syncPlatform(c: Ctx): PushResult & { bundleHash: string } {
 
 function namespaceOf(values: Record<string, unknown>, io: InitIo): string {
   const ns = (values.namespace as string | undefined) ?? io.env.ARTIFACTS_NAMESPACE ?? DEFAULT_NAMESPACE;
-  if (!/^[a-z0-9][a-z0-9._-]*$/.test(ns)) throw new CliError(`invalid namespace ${JSON.stringify(ns)}`);
-  return ns;
+  return assertName("namespace", ns);
 }
 
 function connect(io: InitIo, ns: string): Cloud {
@@ -304,17 +288,32 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
     dir: { type: "string" }, genome: { type: "string" }, app: { type: "string" }, platform: { type: "string" },
     namespace: { type: "string" }, "from-template": { type: "string" }, force: { type: "boolean" }, adopt: { type: "boolean" },
   });
-  const project = resolve(io.cwd, (values.dir as string | undefined) ?? ".");
-  const genomeDir = resolve(io.cwd, (values.genome as string | undefined) ?? join(project, "system"));
-  const appDir = resolve(io.cwd, (values.app as string | undefined) ?? join(project, "app"));
-  const fromTemplate = values["from-template"] as string | undefined;
+  // Every path is resolved with realpath. Defaults (`<dir>/system`, `<dir>/app`) must stay inside the project; an
+  // explicitly given --genome/--app directory is its own root. Nothing outside these roots is read or pushed.
+  const dirArg = resolve(io.cwd, (values.dir as string | undefined) ?? ".");
+  if (!existsSync(dirArg)) {
+    // With --genome the project dir only holds init's state; otherwise there is nothing to read.
+    if (values.genome === undefined) throw new CliError(`no system.yaml in ${join(dirArg, "system")}; pass --dir <project> (with system/) or --genome <dir>`);
+    mkdirSync(dirArg, { recursive: true });
+  }
+  const project = realDir("--dir", dirArg);
+  const genomeDir = values.genome !== undefined
+    ? realDir("--genome", resolve(io.cwd, values.genome as string))
+    : (existsSync(join(project, "system")) ? realDir("genome dir", join(project, "system"), project) : join(project, "system"));
+  const appGiven = values.app !== undefined;
+  const appPath = appGiven ? resolve(io.cwd, values.app as string) : join(project, "app");
+  const appDir = existsSync(appPath) ? realDir(appGiven ? "--app" : "app dir", appPath, appGiven ? undefined : project) : appPath;
+  const fromTemplate = values["from-template"] === undefined ? undefined : assertTemplateRef(values["from-template"]);
   const platformUrl = ((values.platform as string | undefined) ?? io.env.ARTYFACT_URL ?? DEFAULT_URL).replace(/\/$/, "");
   const ns = namespaceOf(values, io);
 
   const systemYaml = join(genomeDir, "system.yaml");
   if (!existsSync(systemYaml)) throw new CliError(`no system.yaml in ${genomeDir}; pass --dir <project> (with system/) or --genome <dir>`);
-  const systemId = systemIdOf(readFileSync(systemYaml, "utf8"));
+  if (!isInside(genomeDir, realpathSync(systemYaml))) throw new CliError(`system.yaml in ${genomeDir} resolves outside it`);
+  const systemId = assertSystemId(systemIdOf(readFileSync(systemYaml, "utf8")));
   const names = systemRepoNames(systemId, appArtifactIds(genomeDir));
+  assertName("genome repo", names.genomeRepo);
+  assertName("app repo", names.appRepo);
   const hasApp = existsSync(join(appDir, "package.json")) || (existsSync(appDir) && readdirSync(appDir).length > 0);
   if (!hasApp && !fromTemplate) throw new CliError(`no app in ${appDir}; pass --app <dir>, or --from-template <template.thing.id@version> to seed ${names.appRepo}`);
   if (hasApp && fromTemplate) throw new CliError(`--from-template seeds a project without an app, but ${appDir} exists`);
@@ -354,6 +353,7 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
  */
 async function seedFromTemplate(c: Ctx, ref: string, appRepo: string): Promise<{ repo: string; commit: string; path?: string } | undefined> {
   const dir = platformTemplateDir(ref);
+  assertTemplateRef(ref);
   if (!dir || !ref.startsWith("template.thing.")) throw new CliError(`--from-template takes a Thing template ref like template.thing.cloudflare-worker-webapp@1, not ${ref}`);
   if (c.cloud.repoExists(c.ns, appRepo)) {
     const r: Remote = { url: c.cloud.remote(c.ns, appRepo), token: c.cloud.token(c.ns, appRepo, "read") };
@@ -368,9 +368,8 @@ async function seedFromTemplate(c: Ctx, ref: string, appRepo: string): Promise<{
     const file = join(plat.dir, dir, "scaffold.yaml");
     if (!existsSync(file)) throw new CliError(`${PLATFORM_REPO} has no ${dir}/scaffold.yaml; run 'npx artyfact platform-sync' or pick another template`);
     const sc = flatYaml(readFileSync(file, "utf8"));
-    const repo = sc.repo ?? PLATFORM_REPO;
-    const path = sc.path?.replace(/^\/+|\/+$/g, "") || undefined;
-    if (path?.split("/").includes("..")) throw new CliError(`scaffold path ${path} escapes the repo`);
+    const repo = assertName("scaffold repo", sc.repo ?? PLATFORM_REPO);
+    const path = sc.path?.replace(/\/+$/g, "") || undefined;
     if (!path) {
       // Whole repo: an Artifacts fork keeps its history (another System's `<slug>.app` works the same way).
       if (c.cloud.repoExists(c.ns, appRepo)) throw new CliError(`${appRepo} exists (empty); a whole-repo scaffold needs to fork into a new repo. Remove it or use a path scaffold.`);
@@ -383,8 +382,7 @@ async function seedFromTemplate(c: Ctx, ref: string, appRepo: string): Promise<{
     }
     const source = repo === PLATFORM_REPO ? plat : cloneShallow(c.cloud, c.ns, repo);
     try {
-      const sub = join(source.dir, path);
-      if (!existsSync(sub)) throw new CliError(`${repo}@${source.head.slice(0, 7)} has no ${path}`);
+      const sub = realSubdir(`${repo}@${source.head.slice(0, 7)} scaffold path`, realpathSync(source.dir), path);
       ensureRepo(c.io, c.cloud, c.ns, appRepo);
       const res = pushTree(c, appRepo, sub, `Seed from ${ref} (${repo}:${path}@${source.head.slice(0, 7)})`);
       c.io.out(`${appRepo}: seeded from ${repo}:${path}@${source.head.slice(0, 12)} at ${res.head.slice(0, 12)}`);

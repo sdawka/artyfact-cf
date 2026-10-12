@@ -399,6 +399,22 @@ describe("accept", () => {
       expect(i.history()).toHaveLength(2);
     });
   });
+
+  it("refuses a Genome candidate built on an earlier head (another accept landed first)", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      const a = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
+      const b = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
+      const ca = i.recordCandidate({ realizationId: a.realization.id, commit: "2".repeat(40), manifest: {}, changedPaths: ["x.yaml"], changedNodes: ["entity.ContactRecord"] }).candidate;
+      const cb = i.recordCandidate({ realizationId: b.realization.id, commit: "3".repeat(40), manifest: {}, changedPaths: ["x.yaml"], changedNodes: ["entity.ContactRecord"] }).candidate;
+      for (const c of [ca, cb]) i.recordEvaluations(c.id, [ev(c.id, "C.people.list", "pass")], "awaiting-admin");
+      const input = (rid: string) => ({ realizationId: rid, rationale: "ok", by: "admin", evolutions: boot.evolutions, gates: hard("C.people.list"), artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+      expect(await i.accept(input(a.realization.id))).toMatchObject({ ok: true });
+      const head = i.state()!.head;
+      expect(await i.accept(input(b.realization.id))).toMatchObject({ ok: false, code: "stale-base" });
+      expect(i.state()).toMatchObject({ head, genomeCommit: "2".repeat(40) });
+    });
+  });
 });
 
 describe("accept uses the promotion gate", () => {

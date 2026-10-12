@@ -70,11 +70,37 @@ export class ArtifactsUnavailableError extends Error {
   }
 }
 
-/** Open a repo handle, run `fn`, and always release the RPC stub. */
+/** Release an RPC result's stubs, if it carries any (plain data stays readable after disposal). */
+export function disposeResult(v: unknown): void {
+  const d = (v as { [Symbol.dispose]?: () => void } | null | undefined)?.[Symbol.dispose];
+  if (typeof d === "function") d.call(v);
+}
+
+/**
+ * The repo handle with every method's RPC result disposed as soon as it arrives. Workers RPC results that hold
+ * stubs must be disposed; through the remote-binding proxy in local dev each result is disposable, and leaving one
+ * to GC logs "An RPC result was not disposed properly".
+ */
+function disposingRepo(repo: ArtifactsRepoLike): ArtifactsRepoLike {
+  return new Proxy(repo, {
+    get(target, prop, receiver) {
+      const v = Reflect.get(target, prop, receiver) as unknown;
+      if (typeof v !== "function" || prop === Symbol.dispose) return v;
+      return async (...args: unknown[]) => {
+        // Reflect.apply, not v.apply: an RPC method stub would treat `.apply` as a remote method name.
+        const out = await (Reflect.apply(v as (...a: unknown[]) => Promise<unknown>, target, args) as Promise<unknown>);
+        disposeResult(out);
+        return out;
+      };
+    },
+  });
+}
+
+/** Open a repo handle, run `fn`, dispose every RPC result, and always release the repo stub. */
 export async function withRepo<T>(ns: ArtifactsNamespaceLike, name: string, fn: (repo: ArtifactsRepoLike) => Promise<T>): Promise<T> {
   const repo = await ns.get(name);
   try {
-    return await fn(repo);
+    return await fn(disposingRepo(repo));
   } finally {
     repo[Symbol.dispose]?.();
   }

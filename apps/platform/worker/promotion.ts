@@ -44,6 +44,12 @@ export const isBlocking = (m: SystemModel, c: schema.Criterion): boolean =>
 /**
  * Gate criteria for `candidate` of `evolution`. Throws if the model or selection is unusable; callers must treat a
  * throw as "gate unavailable", never as "no gates". Acceptance ids missing from the Genome come back blocking.
+ *
+ * For a Genome candidate, promotion-gated criteria with `targetKind: "artifact"` are left out (they gate app candidates;
+ * their hooks inspect the app tree). This keys on the criterion's target kind, not on whether its hooks could run
+ * on a Genome: it assumes artifact-targeted criteria carry only artifact hooks (manifest, http-health, scope). An
+ * artifact criterion with a `model-rules` or `system-one` hook would be dropped from a Genome candidate's gate;
+ * no Genome has one today. The Evolution's own acceptance criteria are always kept.
  */
 export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "acceptanceCriteria">, candidate?: Pick<CandidateRef, "target">): GateCriterion[] {
   const byId = new Map(m.criteria.map((c) => [c.id, c] as const));

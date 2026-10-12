@@ -1083,7 +1083,11 @@ export class SystemAuthority extends DurableObject<Env> {
     let advisories: GateItem[] = [];
     try {
       commit = this.ctx.storage.transactionSync(() => {
-        if (this.kv("head") !== prep.head) throw new StaleBaseError(this.kv("head"));
+        const head = this.kv("head");
+        if (head !== prep.head) throw new StaleBaseError(head);
+        // As in promote: the candidate must be built on the current head, so an amendment based on an older Genome
+        // can never replace a newer genomeCommit that landed after its gate was prepared.
+        if (str(this.realizationRow(input.realizationId)?.base_head) !== head) throw new StaleBaseError(head);
         // The same blocking gate as promotion, for the Genome candidate.
         const gate = this.checkGate([{ ...cand, evolution_id: rec.evolutionId }], { [String(cand.id)]: input.gates }, input.rationale);
         advisories = gate.advisories;

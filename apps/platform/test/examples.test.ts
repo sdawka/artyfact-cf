@@ -78,4 +78,13 @@ describe("gate on the real Genome", () => {
     // App candidates keep the artifact criteria.
     expect(gateCriteria(g.model, evo5, { target: "app" }).map((x) => x.id)).toContain("C.webapp.exists");
   });
+
+  it("keeps a non-deferred artifact acceptance criterion blocking for a Genome candidate", async () => {
+    const { buildGenome } = await import("../worker/artifacts/genome-source");
+    const { gateCriteria } = await import("../worker/promotion");
+    const g = buildGenome(new Map(Object.entries(genome)), "0".repeat(40));
+    const evo1 = g.model.evolutions.find((e) => e.id === "evolution.1")!;
+    expect(evo1.acceptanceCriteria).toContain("C.webapp.exists");
+    expect(gateCriteria(g.model, evo1, { target: "genome" }).find((x) => x.id === "C.webapp.exists")).toMatchObject({ blocking: true });
+  });
 });

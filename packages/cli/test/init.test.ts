@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -123,7 +123,7 @@ describe("account confirmation", () => {
       expect(env?.CLOUDFLARE_ACCOUNT_ID ?? ACCOUNT).toBe(ACCOUNT);
       if (args.includes("whoami")) return { status: 0, stdout: `banner\n${who}`, stderr: "" };
       if (args.includes("issue-token")) return { status: 0, stdout: JSON.stringify({ id: "t1", plaintext: "art_v1_secret?expires=1" }), stderr: "" };
-      if (args.includes("get")) return { status: 1, stdout: "", stderr: "not found" };
+      if (args.includes("get") || args.includes("list")) return { status: 1, stdout: "", stderr: "not found" };
       return { status: 0, stdout: "{}", stderr: "" };
     };
     const c = cloudCli(exec, {});
@@ -305,5 +305,72 @@ describe("artyfact init --from-template", { timeout: 60_000 }, () => {
     expect([both.code, both.err]).toEqual([1, expect.stringContaining("exists")]);
     const none = await run(["init", "--dir", join(tmp, "nowhere")], { cloud: lc.cloud });
     expect([none.code, none.err]).toEqual([1, expect.stringContaining("no system.yaml")]);
+  });
+});
+
+describe("security", { timeout: 60_000 }, () => {
+  const setId = (dir: string, id: string) =>
+    writeFileSync(join(dir, "system", "system.yaml"), readFileSync(join(dir, "system", "system.yaml"), "utf8").replace("id: system.keep-in-touch", `id: ${id}`));
+
+  it("skips a symlink to /etc inside the project and pushes nothing outside it", async () => {
+    const lc = localCloud(join(tmp, "cloud-sec-link"));
+    const dir = project("sec-link");
+    symlinkSync("/etc", join(dir, "system", "etc"));
+    symlinkSync("/etc/hosts", join(dir, "app", "hosts"));
+    symlinkSync("README.md", join(dir, "app", "readme-link"));
+    const r = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: mockPlatform().fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    expect(r.code, r.err).toBe(0);
+    expect(r.out).toContain("skipped etc (symlink or path outside");
+    expect(r.out).toContain("skipped hosts (symlink or path outside");
+    const genome = filesAt(lc.path("artyfact", "keep-in-touch.genome"));
+    const app = filesAt(lc.path("artyfact", "keep-in-touch.app"));
+    expect(genome.some((f) => f.startsWith("etc"))).toBe(false);
+    expect(app).not.toContain("hosts");
+    // A link that stays inside the project is kept as a link, never dereferenced.
+    expect(app).toContain("readme-link");
+    expect(sh(tmp, "--git-dir", lc.path("artyfact", "keep-in-touch.app"), "cat-file", "-p", "main:readme-link")).toBe("README.md");
+  });
+
+  it("refuses a default project dir that resolves outside --dir", async () => {
+    const lc = localCloud(join(tmp, "cloud-sec-out"));
+    const outside = project("sec-outside");
+    const dir = join(tmp, "sec-escape");
+    mkdirSync(dir);
+    symlinkSync(join(outside, "system"), join(dir, "system"));
+    const r = await run(["init", "--dir", dir], { cloud: lc.cloud });
+    expect(r.code).toBe(1);
+    expect(r.err).toMatch(/genome dir .* resolves to .*, outside/);
+    expect(existsSync(lc.path("artyfact", "keep-in-touch.genome"))).toBe(false);
+  });
+
+  it("rejects option-like and path-like names before any argv", async () => {
+    const lc = localCloud(join(tmp, "cloud-sec-names"));
+    const dir = project("sec-names");
+    for (const ns of ["-c", "--upload-pack=touch /tmp/pwned", "a/b", ".."]) {
+      const r = await run(["init", "--dir", dir, `--namespace=${ns}`], { cloud: lc.cloud });
+      expect([r.code, r.err], ns).toEqual([1, expect.stringContaining("invalid namespace")]);
+    }
+    const t = await run(["init", "--dir", join(tmp, "sec-names-tpl"), "--genome", join(dir, "system"), "--from-template=-c"], { cloud: lc.cloud });
+    expect([t.code, t.err]).toEqual([1, expect.stringContaining("invalid template ref")]);
+    for (const id of ["system.a/b", "system..x", "--upload-pack=evil", "-c"]) {
+      setId(dir, id);
+      const r = await run(["init", "--dir", dir], { cloud: lc.cloud });
+      expect([r.code, r.err], id).toEqual([1, expect.stringContaining("invalid system id")]);
+    }
+    expect(existsSync(join(lc.root, "artyfact"))).toBe(false);
+  });
+
+  it("rejects a scaffold repo that looks like an option and a scaffold path that leaves the repo", async () => {
+    for (const [scaffold, message] of [["repo: --upload-pack=evil\n", "invalid scaffold repo"], ["repo: platform\npath: ../../etc\n", "must be a relative path inside the repo"]] as const) {
+      const lc = localCloud(join(tmp, `cloud-sec-sc-${message.length}`));
+      const root = join(tmp, `sec-sc-root-${message.length}`);
+      mkdirSync(join(root, "packages/templates/thing/evil@1"), { recursive: true });
+      writeFileSync(join(root, "packages/templates/thing/evil@1/template.yaml"), "id: template.thing.evil\nversion: '1'\n");
+      writeFileSync(join(root, "packages/templates/thing/evil@1/scaffold.yaml"), scaffold);
+      const dir = project(`sec-sc-${message.length}`, false);
+      const r = await run(["init", "--dir", dir, "--from-template", "template.thing.evil@1"], { cloud: lc.cloud, root });
+      expect([r.code, r.err]).toEqual([1, expect.stringContaining(message)]);
+      expect(existsSync(lc.path("artyfact", "keep-in-touch.app"))).toBe(false);
+    }
   });
 });

@@ -32,7 +32,7 @@ the real model.
   before creating anything:
 
   ```sh
-  npx wrangler whoami      # account id 1bae12d5…a117f
+  npx wrangler whoami      # account id 1bae12d5…
   cf auth whoami           # same id
   ```
 
@@ -62,7 +62,13 @@ start responses are written to owner-only files in `$RUN`, and each terminal rea
 export REPO=$PWD RUN=$HOME/.artyfact-demo B=localhost:5173/api/systems/system.keep-in-touch
 mkdir -p -m 700 "$RUN"; umask 077
 alias artyfact='npx --prefix "$REPO" --no-install artyfact'
-set -a; . "$REPO/apps/platform/.dev.vars"; set +a     # $ADMIN_TOKEN for the admin calls
+```
+
+**Only in terminal ops**, the one the admin uses, load the admin token. The agent terminals A, B and C never get
+it: an agent holds only its own fork token and realization secret, so it cannot start, promote, accept or reject.
+
+```sh
+export ADMIN_TOKEN=$(sed -n 's/^ADMIN_TOKEN=//p' "$REPO/apps/platform/.dev.vars")
 export ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN                # what `artyfact init` reads
 ```
 
@@ -339,8 +345,8 @@ curl -s -XPOST $B/promote -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-ty
 ```
 
 Promotion re-runs the hooks on the exact commit with the promotion facts. The blocking set (hard criteria with a bound
-hook, plus the Evolution's acceptance criteria) is `C.system.purpose`, `C.system.promotion` and `C.webapp.exists`, and
-each passed. `C.system.purpose`'s outcome hook only runs after deployment, so its `not-run` row is disregarded; any
+hook, plus the Evolution's acceptance criteria) for evolution.1 is `C.webapp.exists`, `C.system.structure`,
+`C.system.purpose`, `C.system.topology`, `C.system.readiness` and `C.system.promotion`, and each passed. `C.system.purpose`'s outcome hook only runs after deployment, so its `not-run` row is disregarded; any
 other non-pass row would block. Everything else that is not green is an advisory, acknowledged by the rationale and
 recorded in `decision.acknowledged`; an empty rationale gets 400 `advisories-unacknowledged`.
 `evidenceProviders: ["fake"]` records that the System One judgments behind the gate were canned.
@@ -362,13 +368,18 @@ B with the current head (`"expectedHead":"sc-2-88b3ec84"`) is refused as well, b
 
 ## 9. Moment 2, amendment 1: a rules violation, refused and rejected
 
-Terminal **C**. evolution.5 is a Genome amendment; its scope covers `things/webapp/ontology.yaml`,
-`description.yaml` (it lists `commitment.no-engagement-mechanics`) and `evolutions/**`.
+evolution.5 is a Genome amendment; its scope covers `things/webapp/ontology.yaml`, `description.yaml` (it lists
+`commitment.no-engagement-mechanics`) and `evolutions/**`. Terminal **ops** starts the work:
 
 ```sh
 curl -s -XPOST $B/evolutions/evolution.5/realizations -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"agentLabel":"agent-c","target":"genome"}' -o $RUN/c1.json
 jq -c '{realization: .realization.id, target: .realization.target, fork: .packet.workspace.fork, permittedPaths: .packet.permittedPaths}' $RUN/c1.json
+```
+
+Terminal **C**:
+
+```sh
 export ARTYFACT_TOKEN=$(jq -r .token.value $RUN/c1.json) ARTYFACT_SECRET=$(jq -r .secret $RUN/c1.json)
 artyfact start realization.5.r5 --system system.keep-in-touch --evolution evolution.5 --dir /tmp/kit-c1
 cd /tmp/kit-c1
@@ -417,18 +428,15 @@ curl -s $B/realizations/realization.5.r5/review | jq -c '{
 **Narration.** The violation is the rules engine's: `topology.recipientArray`, derived from two facts about
 `entity.MessageDraft`. The System One row says "deliberate choice", and it is labelled `provider: "fake"`: the fake
 gives every change the benign class, so here it is plainly wrong. A real System One run would be expected to
-classify this as a hard-rule violation. The gate does not depend on it either way:
+classify this as a hard-rule violation. The gate does not depend on it either way. Terminal **ops**:
 
 ```sh
 curl -s -w ' HTTP %{http_code}\n' -XPOST $B/evolutions/evolution.5/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"realizationId":"realization.5.r5","interpretation":"accept anyway"}'
 ```
 
-Condensed:
-
 ```text
-{"code":"blocked","blocking":["C.system.topology fail/completed"],"advisories":[]}
-HTTP 409
+{"error":{"code":"blocked","message":"blocking criteria (hard, with a bound hook) lack pass+completed evaluations","details":{"blocking":[{"candidate":"candidate.5.r5.9a83f5e","criterion":"C.system.topology","severity":"hard","verdict":"fail","execution":"completed"}],"advisories":[]}}} HTTP 409
 ```
 
 Accept applies the promotion gate to the Genome candidate (its model-level criteria, scope included): scope passes,
@@ -438,6 +446,11 @@ topology blocks. The admin rejects it with a reason:
 curl -s -XPOST $B/realizations/realization.5.r5/reject -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"reason":"topology.recipientArray: a recipients list on MessageDraft breaks the private-pairs topology. Drafts stay addressed to exactly one person."}' \
   | jq -c '{status: .realization.status, reason: .realization.rejectionReason}'
+```
+
+Terminal **C**:
+
+```sh
 artyfact status
 ```
 
@@ -450,11 +463,16 @@ Reject revokes the fork's write token and the realization secret together, so ag
 
 ## 10. Moment 2, amendment 2: a deliberate choice, accepted
 
-Terminal **C** again, with a new realization:
+A new realization. Terminal **ops**:
 
 ```sh
 curl -s -XPOST $B/evolutions/evolution.5/realizations -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"agentLabel":"agent-d","target":"genome"}' -o $RUN/c2.json
+```
+
+Terminal **C**:
+
+```sh
 export ARTYFACT_TOKEN=$(jq -r .token.value $RUN/c2.json) ARTYFACT_SECRET=$(jq -r .secret $RUN/c2.json)
 artyfact start realization.5.r6 --system system.keep-in-touch --evolution evolution.5 --dir /tmp/kit-c2
 cd /tmp/kit-c2
@@ -489,10 +507,9 @@ The same review query:
 
 **Narration.** No rule fires, and the change is inside evolution.5's scope. System One's signals (class, weakens,
 contradicts per commitment, specificity) are shown in the review panel and labelled fake. The decision to treat the
-rewording as deliberate is the admin's, recorded as the interpretation:
+rewording as deliberate is the admin's, recorded as the interpretation. Terminal **ops**:
 
 ```sh
-cd "$REPO"
 curl -s -XPOST $B/evolutions/evolution.5/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
   -d '{"realizationId":"realization.5.r6","interpretation":"Deliberate restatement: the commitment now names group discussion explicitly and says a missed goal is never punished. Meaning is unchanged for one-to-one contact."}' \
   | jq -c '{genomeCommit, status: .realization.status, commit: .commit.id, parent: .commit.parent, policy: .commit.decision.policy, evidenceProviders: .commit.decision.evidenceProviders}'
