@@ -9,7 +9,7 @@ artyfact
 A Git platform where the System is the unit: agents change a typed model, hooks check it, promotion is compare-and-swap.
 
 ## Links
-- Repository: `TODO(repo-url)`
+- Repository: https://github.com/sdawka/artyfact-cf
 - Demo: https://artyfact-platform.dawka.workers.dev
 - Video: `TODO(video-url)`
 - Licence: Apache-2.0
