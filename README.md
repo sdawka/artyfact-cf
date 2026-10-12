@@ -108,9 +108,9 @@ No Cloudflare login is needed to try the interface. In fixture mode the SPA uses
 
 ```sh
 npm install
-npm test               # 716 tests pass, 1 skipped (live System One smoke)
+npm test               # unit tests; the live System One smoke test is skipped without a key
 npm run typecheck
-npm run e2e            # builds the SPA, runs 14 Playwright tests
+npm run e2e            # builds the SPA and runs the Playwright suite
 npm run preview:fixture -w @artyfact/platform
 ```
 
