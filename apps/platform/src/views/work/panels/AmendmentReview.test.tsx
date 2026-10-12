@@ -56,6 +56,14 @@ describe("diffReadiness", () => {
     expect(d.added).toHaveLength(0);
     expect(d.hardAdded).toHaveLength(0);
   });
+  it("counts a warning escalating to error as added (blocking) and the reverse as resolved", () => {
+    const up = diffReadiness(readiness([finding("warning", "r", "a", "m")]), readiness([finding("error", "r", "a", "m")]));
+    expect(up.hardAdded.map((f) => f.rule)).toEqual(["r"]);
+    expect(up.resolved.map((f) => f.level)).toEqual([]);
+    const down = diffReadiness(readiness([finding("error", "r", "a", "m")]), readiness([finding("warning", "r", "a", "m")]));
+    expect(down.resolved.map((f) => f.level)).toEqual(["error"]);
+    expect(down.added).toHaveLength(0);
+  });
   it("treats the same rule on another subject as different", () => {
     const d = diffReadiness(readiness([finding("info", "r", "a", "m")]), readiness([finding("info", "r", "b", "m")]));
     expect(d.resolved).toHaveLength(1);

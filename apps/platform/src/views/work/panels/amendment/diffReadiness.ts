@@ -12,13 +12,22 @@ export interface ReadinessDiff {
   hardAdded: Finding[];
 }
 
+/** Hard (blocking) findings are `error`; moving into or out of `error` counts as added or resolved. */
+const hard = (f: Finding | undefined) => f?.level === "error";
+
 export function diffReadiness(base: Readiness, candidate: Readiness): ReadinessDiff {
-  const baseKeys = new Set(base.findings.map(findingKey));
-  const candKeys = new Set(candidate.findings.map(findingKey));
-  const added = candidate.findings.filter((f) => !baseKeys.has(findingKey(f)));
+  const baseBy = new Map(base.findings.map((f) => [findingKey(f), f]));
+  const candBy = new Map(candidate.findings.map((f) => [findingKey(f), f]));
+  const added = candidate.findings.filter((f) => {
+    const was = baseBy.get(findingKey(f));
+    return !was || (hard(f) && !hard(was));
+  });
   return {
-    resolved: base.findings.filter((f) => !candKeys.has(findingKey(f))),
+    resolved: base.findings.filter((f) => {
+      const now = candBy.get(findingKey(f));
+      return !now || (hard(f) && !hard(now));
+    }),
     added,
-    hardAdded: added.filter((f) => f.level === "error"),
+    hardAdded: added.filter(hard),
   };
 }
