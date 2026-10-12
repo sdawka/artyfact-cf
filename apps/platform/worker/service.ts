@@ -706,6 +706,24 @@ export async function sync(env: Env, systemId: string, rid: string): Promise<Syn
   return { head: head.hash, submitted: await submit(env, systemId, rid, { commit: head.hash }, "sync") };
 }
 
+/**
+ * Each candidate's promotion gate as prepareGate computes it (canonical Genome, the DO's Evolution record, the
+ * candidate's target), so the UI's coverage table shows the set the server enforces instead of recomputing it.
+ */
+async function candidateGates(env: Env, systemId: string, evolutionId: string, candidates: { id: string; realization: string }[]): Promise<{ gates?: Record<string, GateCriterion[]>; gatesError?: string }> {
+  const stub = systemStub(env, systemId);
+  try {
+    const g = await canonicalGenome(env, await headState(env, systemId));
+    const evo = await stub.evolution(evolutionId);
+    if (!evo) return { gatesError: `evolution ${evolutionId} is unknown` };
+    const gates: Record<string, GateCriterion[]> = {};
+    for (const c of candidates) gates[c.id] = gateCriteria(g.model, evo, { target: (await stub.realization(c.realization))?.target ?? "app" });
+    return { gates };
+  } catch (e) {
+    return { gatesError: `the promotion gate cannot be computed: ${(e as Error)?.message ?? e}` };
+  }
+}
+
 export async function candidatesView(env: Env, systemId: string, evolutionId: string): Promise<CandidatesResponse> {
   const stub = systemStub(env, systemId);
   const candidates = await stub.candidates({ evolutionId });
@@ -715,6 +733,7 @@ export async function candidatesView(env: Env, systemId: string, evolutionId: st
   return {
     evolution: evolutionId, candidates, evaluations,
     conflicts: stored.conflicts.filter((c) => c.candidates.some((x) => ids.has(x))), conflictsComputedAt: stored.computedAt,
+    ...(await candidateGates(env, systemId, evolutionId, candidates)),
   };
 }
 

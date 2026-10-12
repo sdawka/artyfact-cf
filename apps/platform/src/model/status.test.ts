@@ -43,6 +43,18 @@ describe("verdictOf", () => {
     expect(verdictOf(C, evals, verdictScope([], [], "head"))).toBe("not-run");
     expect(verdictOf(C, evals, verdictScope(["cand.unpromoted"], [], "head"))).toBe("pass");
   });
+  it("folds every hook's row like the gate: a failing model-rules row and a later passing system-one row is fail", () => {
+    const rules = ev({ id: "r", hook: "hook.system.topology", verdict: "fail", startedAt: "2026-10-01T00:00:00Z" });
+    const semantic = ev({ id: "s", hook: "hook.system.topology.semantic", verdict: "pass", startedAt: "2026-10-01T00:00:05Z" });
+    expect(verdictOf(C, [rules, semantic], only("cand.1"))).toBe("fail");
+    expect(verdictOf(C, [semantic, rules], only("cand.1"))).toBe("fail");
+    expect(verdictOf(C, [{ ...rules, verdict: "pass" }, semantic], only("cand.1"))).toBe("pass");
+    // A hook that has not run keeps the criterion from passing, unless it never runs before promotion.
+    const pending = ev({ id: "p", hook: "hook.deploy", execution: "not-run", verdict: "unknown" });
+    expect(verdictOf(C, [semantic, pending], only("cand.1"))).toBe("not-run");
+    expect(verdictOf(C, [semantic, pending], only("cand.1"), new Set(["hook.deploy"]))).toBe("pass");
+    expect(verdictOf(C, [semantic, ev({ id: "x", hook: "hook.x", execution: "error" })], only("cand.1"))).toBe("unknown");
+  });
   it("passes stale and waived through", () => {
     expect(verdictOf(C, [ev({ verdict: "stale" })], only("cand.1"))).toBe("stale");
     expect(verdictOf(C, [ev({ verdict: "waived" })], only("cand.1"))).toBe("waived");

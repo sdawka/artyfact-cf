@@ -1,5 +1,6 @@
 import type { Readiness, SystemModel } from "@artyfact/model";
 import type { Evaluation, ReadinessReport, SerializedIndex, SerializedModel } from "../shared/api";
+import { foldVerdict, offTriggerHookIds } from "../shared/verdict";
 
 /** SystemModel → JSON-safe form: index functions materialised, `byId` without duplicated items. */
 export function serializeModel(m: SystemModel): SerializedModel {
@@ -18,29 +19,29 @@ export function serializeModel(m: SystemModel): SerializedModel {
 }
 
 const BLOCKING = new Set(["error", "missing"]);
-const at = (e: Evaluation) => e.finishedAt ?? e.startedAt ?? "";
 
-/** Rules-engine readiness (+ evaluations at this revision) → the three never-summed readiness states. */
-export function readinessReport(m: Pick<SystemModel, "criteria">, r: Readiness, evaluations: Evaluation[], now = new Date()): ReadinessReport {
+/**
+ * Rules-engine readiness (+ evaluations at this revision) → the three never-summed readiness states. Each criterion's
+ * rows are folded across hooks like the promotion gate (shared/verdict.ts): one failing hook makes it fail.
+ */
+export function readinessReport(m: Pick<SystemModel, "criteria"> & { hooks?: SystemModel["hooks"] }, r: Readiness, evaluations: Evaluation[], now = new Date()): ReadinessReport {
   const findings = r.findings;
-  const latest = new Map<string, Evaluation>();
-  for (const e of evaluations) {
-    const prev = latest.get(e.criterion);
-    if (!prev || at(prev) <= at(e)) latest.set(e.criterion, e);
-  }
+  const byCriterion = new Map<string, Evaluation[]>();
+  for (const e of evaluations) byCriterion.set(e.criterion, [...(byCriterion.get(e.criterion) ?? []), e]);
+  const offTrigger = offTriggerHookIds(m.hooks);
   const conf = { pass: 0, fail: 0, unknown: 0, stale: 0, notRun: 0 };
   let observed = 0, unknownOutcome = 0;
   for (const c of m.criteria) {
-    const e = latest.get(c.id);
+    const v = foldVerdict(byCriterion.get(c.id) ?? [], offTrigger);
     if (c.targetKind === "observation" || c.gates.includes("outcome")) {
-      if (e?.verdict === "pass") observed++;
+      if (v === "pass") observed++;
       else unknownOutcome++;
       continue;
     }
-    if (!e || e.execution === "not-run" || e.execution === "queued" || e.execution === "deferred") conf.notRun++;
-    else if (e.verdict === "pass" && e.execution === "completed") conf.pass++;
-    else if (e.verdict === "fail") conf.fail++;
-    else if (e.verdict === "stale") conf.stale++;
+    if (v === "not-run") conf.notRun++;
+    else if (v === "pass") conf.pass++;
+    else if (v === "fail") conf.fail++;
+    else if (v === "stale") conf.stale++;
     else conf.unknown++; // unknown, waived, or pass without a completed run
   }
   return {

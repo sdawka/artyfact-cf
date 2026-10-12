@@ -10,21 +10,10 @@
  * Hook selection (`selectHooks`) decides which hooks RUN; it does not shape the gate.
  */
 import type { schema, SystemModel } from "@artyfact/model";
+import type { GateCriterion } from "../shared/api";
 import type { CandidateRef } from "./hooks/contract";
 
-export interface GateCriterion {
-  id: string;
-  severity: "hard" | "soft" | "advisory";
-  /** Must be pass+completed for this candidate. */
-  blocking: boolean;
-  /** Deferred acceptance criterion: known to the gate, neither blocking nor advisory. */
-  deferred?: true;
-  /**
-   * Hooks of this criterion whose `triggers` include none of submission, candidate or promotion (deployment, outcome
-   * or selection stage). Their `not-run` rows cannot exist before promotion and are disregarded; nothing else is.
-   */
-  offTriggerHooks?: string[];
-}
+export type { GateCriterion };
 
 const PRE_PROMOTION = ["submission", "candidate", "promotion"];
 /** Hook ids of `c` that never run before promotion, from the Genome's hook definitions. */

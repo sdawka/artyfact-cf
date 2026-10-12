@@ -65,7 +65,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   const { data: cand } = useCandidates(evolution.id);
   const { data: allConflicts } = useConflicts();
   const { data: commits } = useHistory();
-  const { data: board, isPending: boardLoading } = useEvolutions();
+  const { isPending: boardLoading } = useEvolutions();
   const promote = usePromote();
   const [rationale, setRationale] = useState("");
   const [ack, setAck] = useState(false);
@@ -75,18 +75,15 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   const chosen = candidates.filter((c) => selected.includes(c.id));
   const ids = chosen.map((c) => c.id);
   const head = headOf(commits);
-  // A candidate whose realization is not on the board has an unknown target: treat it as both.
-  const targets = [...new Set(chosen.flatMap((c) => {
-    const t = board?.realizations.find((r) => r.id === c.realization)?.target;
-    return t ? [t] : (["app", "genome"] as const);
-  }))];
-  const rows = useMemo(
-    () => gateCoverage(m.index.model.criteria ?? [], evolution, m.evaluations, ids, targets),
+  // The gate set comes from the server (the set it enforces); verdicts fold every hook's row like the server does.
+  const coverage = useMemo(
+    () => gateCoverage(m.index.model.criteria ?? [], cand?.gates, m.evaluations, ids),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [m.index.model.criteria, evolution, m.evaluations, ids.join(","), targets.join(",")],
+    [m.index.model.criteria, cand?.gates, m.evaluations, ids.join(",")],
   );
-  const required = rows.filter((r) => r.criterion.severity === "hard");
-  const softRows = rows.filter((r) => r.criterion.severity !== "hard");
+  const rows = coverage.rows;
+  const required = rows.filter((r) => r.required);
+  const softRows = rows.filter((r) => !r.required);
   const conflicts: ConflictReport[] = mergeConflicts(cand?.conflicts, allConflicts);
   const split = splitConflicts(conflicts, ids);
   const refusedAdvisories = serverIssues(promote.error)?.advisories.length ?? 0;
@@ -100,6 +97,9 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   if (boardLoading) reasons.push("Loading board data…");
   if (fixture) reasons.push("Promotion needs the platform API. The UI is showing fixture data.");
   if (!ids.length) reasons.push("Select at least one candidate.");
+  if (!fixture && coverage.missing.length) {
+    reasons.push(`The server reported no promotion gate for ${coverage.missing.join(", ")}${cand?.gatesError ? ` (${cand.gatesError})` : ""}; refresh before promoting.`);
+  }
   if (ids.length && failing.length) reasons.push(`${failing.length} required gate${failing.length === 1 ? " is" : "s are"} not pass/completed: ${failing.map((r) => r.criterion.id).join(", ")}.`);
   if (split.blocking.length) reasons.push(`${split.blocking.length} blocking conflict${split.blocking.length === 1 ? "" : "s"} between the selected candidates.`);
   if (!rationale.trim()) reasons.push("Write a rationale.");

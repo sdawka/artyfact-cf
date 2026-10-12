@@ -1,51 +1,82 @@
-import type { ConflictReport, Evaluation, Evolution, SystemCommit } from "../../../shared/api";
+import type { ConflictReport, Evaluation, GateCriterion, SystemCommit } from "../../../shared/api";
+import { rowVerdict } from "../../../shared/verdict";
 import { verdictOf, type UiVerdict } from "@/model/status";
 import type { Criterion } from "@/model/types";
 import { conflictSubjects } from "./lib";
 
 export interface GateRow {
   criterion: Criterion;
+  /** The hook whose row decides the verdict (the worst one), else the criterion's first hook. */
   hook: string;
   verdict: UiVerdict;
   execution: string;
-  /** Only `hard` criteria block. `soft` and `advisory` ones are advisories. */
+  /** In the server's blocking set for at least one selected candidate; the others are advisories. */
+  required: boolean;
+  /** Required and not pass. */
   blocking: boolean;
 }
 
+export interface GateCoverage {
+  rows: GateRow[];
+  /** Selected candidates the server reported no gate set for: promotion cannot be judged for them. */
+  missing: string[];
+}
+
+const RANK: UiVerdict[] = ["fail", "stale", "unknown", "not-run", "waived", "pass"];
+const worst = (vs: UiVerdict[]): UiVerdict => RANK[Math.min(...vs.map((v) => RANK.indexOf(v)))] ?? "not-run";
 const time = (e: Evaluation) => e.finishedAt ?? e.startedAt ?? "";
 
+/** Stand-in for a gate criterion the Genome on screen does not define (an acceptance id the server keeps as blocking). */
+const unknownCriterion = (g: GateCriterion): Criterion =>
+  ({ id: g.id, title: g.id, claim: "", severity: g.severity, gates: ["promotion"], hooks: [], deferred: false, targetKind: "model" }) as unknown as Criterion;
+
 /**
- * Promotion-gated criteria that apply to `evolution`, as the server selects them: its acceptance
- * criteria plus every criterion targeting what the realization changes (`artifact` for an app
- * realization, `model` for a genome one), minus deferred. Verdict and execution come from the
- * latest evaluation by the selected candidates only; none means `not-run`. Only `pass` (which
- * needs `completed`) satisfies a gate; `waived` does not.
+ * Coverage of the server's promotion gate (`gates`, from the candidates response) for the selected candidates. Each
+ * candidate's rows for a criterion are folded like the DO folds them (any fail is fail, pass needs every hook's row
+ * pass+completed, off-trigger not-run rows ignored); across candidates the worst verdict shows. Deferred criteria are
+ * left out. Only `pass` satisfies a gate; `waived` does not.
  */
 export function gateCoverage(
   criteria: readonly Criterion[],
-  evolution: Evolution,
+  gates: Readonly<Record<string, readonly GateCriterion[]>> | undefined,
   evaluations: readonly Evaluation[],
   candidateIds: readonly string[],
-  targets: readonly ("app" | "genome")[] = ["app"],
-): GateRow[] {
-  const kinds = new Set<string>(targets.map((t) => (t === "app" ? "artifact" : "model")));
-  const scope = { source: "selected" as const, candidates: candidateIds };
-  return criteria
-    .filter((c) => !c.deferred && c.gates.includes("promotion") && (evolution.acceptanceCriteria.includes(c.id) || kinds.has(c.targetKind)))
-    .map((c) => {
-      const verdict = verdictOf(c.id, evaluations, scope);
-      let latest: Evaluation | undefined;
-      for (const e of evaluations) {
-        if (e.criterion === c.id && candidateIds.includes(e.candidate) && (!latest || time(e) >= time(latest))) latest = e;
-      }
-      return {
-        criterion: c,
-        hook: latest?.hook ?? c.hooks[0] ?? "unknown",
-        verdict,
-        execution: latest?.execution ?? "not-run",
-        blocking: c.severity === "hard" && verdict !== "pass",
-      };
-    });
+): GateCoverage {
+  const byId = new Map(criteria.map((c) => [c.id, c] as const));
+  const merged = new Map<string, { g: GateCriterion; required: boolean; verdicts: UiVerdict[]; rows: Evaluation[] }>();
+  const missing: string[] = [];
+  for (const cid of candidateIds) {
+    const set = gates?.[cid];
+    if (!set) {
+      missing.push(cid);
+      continue;
+    }
+    for (const g of set) {
+      if (g.deferred) continue;
+      const off = new Set(g.offTriggerHooks ?? []);
+      const verdict = verdictOf(g.id, evaluations, { source: "selected", candidates: [cid] }, off);
+      const rows = evaluations.filter((e) => e.criterion === g.id && e.candidate === cid && !(e.execution === "not-run" && off.has(e.hook)));
+      const m = merged.get(g.id) ?? { g, required: false, verdicts: [], rows: [] };
+      m.required ||= g.blocking;
+      m.verdicts.push(verdict);
+      m.rows.push(...rows);
+      merged.set(g.id, m);
+    }
+  }
+  const rows = [...merged.values()].map(({ g, required, verdicts, rows: evs }) => {
+    const verdict = worst(verdicts);
+    const decisive = evs.filter((e) => rowVerdict(e) === verdict).sort((a, b) => time(b).localeCompare(time(a)))[0];
+    const criterion = byId.get(g.id) ?? unknownCriterion(g);
+    return {
+      criterion,
+      hook: decisive?.hook ?? criterion.hooks[0] ?? "unknown",
+      verdict,
+      execution: decisive?.execution ?? (evs.length ? evs[0]!.execution : "not-run"),
+      required,
+      blocking: required && verdict !== "pass",
+    };
+  });
+  return { rows, missing };
 }
 
 export interface ConflictSplit {

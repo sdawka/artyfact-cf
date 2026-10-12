@@ -2,7 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
-  ApiError, ConflictsResponse, Evaluation, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
+  ApiError, CandidatesResponse, ConflictsResponse, Evaluation, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
   SerializedModel, StartWorkResponse, SubmitResponse, SystemsResponse, HistoryResponse, WorkResponse, ReadinessResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
@@ -1034,5 +1034,28 @@ describe("routes: final review fixes", () => {
     expect(err.message).toMatch(/limit is 1000000 bytes/);
     expect((await call<{ candidates: unknown[] }>("GET", `/systems/${systemId}/evolutions/evolution.2/candidates`)).json.candidates).toEqual([]);
     expect(start.realization.status).toBe("claimed");
+  });
+});
+
+describe("routes: candidates carry the server's gate set (I3)", () => {
+  it("lists each candidate's promotion gate as prepareGate computes it; a Genome candidate's leaves artifact criteria out", async () => {
+    const { ns, systemId, appRepo, genomeRepo, imp } = await imported();
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" }) });
+    const app = await call<CandidatesResponse>("GET", `/systems/${systemId}/evolutions/evolution.1/candidates`);
+    const appGate = app.json.gates![sub.json.candidate.id]!;
+    expect(appGate.filter((g) => g.blocking).map((g) => g.id).sort()).toEqual(["C.people.audit", "C.people.list", "C.system.promotion", "C.webapp.exists"]);
+    // A hard acceptance criterion without a bound hook is an advisory, as the DO treats it.
+    expect(appGate.find((g) => g.id === "C.people.sorted")).toMatchObject({ blocking: false });
+    expect(app.json.gatesError).toBeUndefined();
+
+    const g = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.2/realizations`, {})).json;
+    const fork = ns.repo(`${genomeRepo}--r2`);
+    const files = new Map<string, string>();
+    for (const p of Object.keys(genomeFiles)) files.set(p, (await (await fork.readFile({ ref: imp.genomeCommit, path: p }))!.text()));
+    files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", "name: Contact v9"));
+    const gs = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${g.realization.id}/submit`, { commit: fork.commit(files, "rename") });
+    const genome = await call<CandidatesResponse>("GET", `/systems/${systemId}/evolutions/evolution.2/candidates`);
+    expect(genome.json.gates![gs.json.candidate.id]!.filter((x) => x.blocking).map((x) => x.id)).toEqual(["C.system.promotion"]);
   });
 });

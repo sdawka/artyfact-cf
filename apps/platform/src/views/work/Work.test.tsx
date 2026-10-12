@@ -15,13 +15,20 @@ const EVO1 = "evolution.1";
 const REQUIRED = fixtureBundle().model.criteria
   .filter((c) => !c.deferred && c.gates.includes("promotion") && (fixtureBundle().model.evolutions[0]!.acceptanceCriteria.includes(c.id) || (c.targetKind === "artifact" || c.targetKind === "model")))
   .map((c) => c.id);
+/** The server's gate set for cand.1 (candidates response `gates`): hard criteria block, the rest are advisories. */
+const GATES = {
+  "cand.1": REQUIRED.map((id) => {
+    const severity = fixtureBundle().model.criteria.find((c) => c.id === id)!.severity ?? "hard";
+    return { id, severity, blocking: severity === "hard" };
+  }),
+};
 const evalFor = (c: string, o = {}) => evaluation({ id: `e.${c}`, criterion: c, hook: `hook.${c}`, ...o });
 
-interface Seed { api?: boolean; evals?: ReturnType<typeof evaluation>[]; conflicts?: ConflictReport[]; commits?: ReturnType<typeof commit>[]; realizations?: ReturnType<typeof realization>[]; candidates?: ReturnType<typeof candidate>[] }
+interface Seed { gates?: typeof GATES | null; api?: boolean; evals?: ReturnType<typeof evaluation>[]; conflicts?: ConflictReport[]; commits?: ReturnType<typeof commit>[]; realizations?: ReturnType<typeof realization>[]; candidates?: ReturnType<typeof candidate>[] }
 const seed = (s: Seed = {}) => (qc: QueryClient) => {
   if (s.api) qc.setQueryData(qk.model(SYSTEM, "head"), { ...fixtureBundle(), source: "api" as const });
   qc.setQueryData(qk.evolutions(SYSTEM), { evolutions: [], realizations: s.realizations ?? [] });
-  qc.setQueryData(qk.candidates(SYSTEM, EVO1), { evolution: EVO1, candidates: s.candidates ?? [candidate()], evaluations: [], conflicts: [] });
+  qc.setQueryData(qk.candidates(SYSTEM, EVO1), { evolution: EVO1, candidates: s.candidates ?? [candidate()], evaluations: [], conflicts: [], ...(s.gates !== null && { gates: s.gates ?? GATES }) });
   qc.setQueryData(qk.evaluations(SYSTEM, undefined), { evaluations: s.evals ?? [] });
   qc.setQueryData(qk.conflicts(SYSTEM), { conflicts: s.conflicts ?? [] });
   qc.setQueryData(qk.history(SYSTEM), { commits: s.commits ?? [] });
@@ -35,7 +42,7 @@ const stubApi = (promote: () => Response, evals: ReturnType<typeof evaluation>[]
     if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
     if (u.endsWith("/promote")) return promote();
     if (u.includes("/model")) return json(200, fixtureBundle());
-    if (u.includes("/candidates")) return json(200, { evolution: EVO1, candidates: [candidate()], evaluations: [], conflicts: [] });
+    if (u.includes("/candidates")) return json(200, { evolution: EVO1, candidates: [candidate()], evaluations: [], conflicts: [], gates: GATES });
     if (u.includes("/evaluations")) return json(200, { evaluations: evals });
     if (u.includes("/evolutions")) return json(200, { evolutions: [], realizations: [] });
     if (u.includes("/conflicts")) return json(200, { conflicts: [] });
@@ -274,6 +281,37 @@ describe("PromotionPanel", () => {
     const row = within(table).getByText("C.webapp.exists", { exact: false }).closest("tr")!;
     expect(row.querySelector('[data-verdict="unknown"]')).not.toBeNull();
     expect(row.querySelector('[data-verdict="pass"]')).toBeNull();
+  });
+
+  it("renders a criterion fail when one hook fails and another passes, never green", async () => {
+    const evals = allPass().filter((e) => e.criterion !== "C.webapp.exists").concat(
+      evalFor("C.webapp.exists", { id: "e.rules", hook: "hook.rules", verdict: "fail", startedAt: "2026-10-01T00:00:00Z", finishedAt: "2026-10-01T00:00:00Z" }),
+      evalFor("C.webapp.exists", { id: "e.semantic", hook: "hook.semantic", verdict: "pass", startedAt: "2026-10-01T00:00:09Z", finishedAt: "2026-10-01T00:00:09Z" }),
+    );
+    renderApp(url, undefined, seed({ api: true, evals }));
+    await fill();
+    expect(submit().disabled).toBe(true);
+    expect(screen.getByText(/1 required gate is not pass\/completed: C\.webapp\.exists/)).toBeTruthy();
+    const row = screen.getByRole("table", { name: "Required gate coverage" }).querySelector('[title="Criterion: C.webapp.exists"]')!.closest("tr")!;
+    expect(row.querySelector('[data-verdict="fail"]')).not.toBeNull();
+    expect(row.querySelector('[data-verdict="pass"]')).toBeNull();
+    expect(within(row).getByText("hook.rules")).toBeTruthy();
+  });
+
+  it("shows the server's gate set and refuses to judge a candidate the server reported none for", async () => {
+    // Only C.webapp.exists is in the server's set: the table follows it, not a local selection rule.
+    renderApp(url, undefined, seed({ api: true, evals: allPass(), gates: { "cand.1": [{ id: "C.webapp.exists", severity: "hard", blocking: true }] } }));
+    await fill();
+    const table = screen.getByRole("table", { name: "Required gate coverage" });
+    expect(within(table).getAllByRole("row")).toHaveLength(2);
+    expect(submit().disabled).toBe(false);
+  });
+
+  it("is disabled with a reason when the server did not report the gate set", async () => {
+    renderApp(url, undefined, seed({ api: true, evals: allPass(), gates: null }));
+    await fill();
+    expect(submit().disabled).toBe(true);
+    expect(screen.getByText(/reported no promotion gate for cand\.1/)).toBeTruthy();
   });
 
   it("stays disabled with a reason while board data loads", async () => {

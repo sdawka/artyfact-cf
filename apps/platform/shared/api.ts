@@ -390,6 +390,21 @@ export interface ConflictReport {
   paths?: string[];
 }
 
+/** One criterion of a candidate's promotion gate, as the Worker computes it and the DO enforces it (worker/promotion.ts). */
+export interface GateCriterion {
+  id: string;
+  severity: "hard" | "soft" | "advisory";
+  /** Must be pass+completed for this candidate. Non-blocking ones are advisories that need a rationale when not green. */
+  blocking: boolean;
+  /** Deferred acceptance criterion: known to the gate, neither blocking nor advisory. */
+  deferred?: true;
+  /**
+   * Hooks of this criterion whose `triggers` include none of submission, candidate or promotion (deployment, outcome
+   * or selection stage). Their `not-run` rows cannot exist before promotion and are disregarded; nothing else is.
+   */
+  offTriggerHooks?: string[];
+}
+
 /** `GET /api/systems/:id/evolutions/:eid/candidates`. */
 export interface CandidatesResponse {
   evolution: NodeId;
@@ -397,6 +412,10 @@ export interface CandidatesResponse {
   evaluations: Evaluation[];
   conflicts: ConflictReport[];
   conflictsComputedAt?: string | null;
+  /** Candidate id → its promotion gate from the canonical Genome (the set the server enforces). Absent when it cannot be computed. */
+  gates?: Record<string, GateCriterion[]>;
+  /** Why `gates` is absent (the Genome does not load, the Evolution is unknown); promotion would be refused `gate-unavailable`. */
+  gatesError?: string;
 }
 
 /** `GET /api/systems/:id/work`: board data, polled every 5 s or streamed. */

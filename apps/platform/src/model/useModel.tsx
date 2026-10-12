@@ -2,6 +2,7 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import type { Evaluation } from "../../shared/api";
 import { useEvaluations, useHistory } from "@/api/queries";
 import { buildIndex, type ModelIndex } from "./index";
+import { offTriggerHookIds } from "../../shared/verdict";
 import { rollup, verdictOf, verdictScope, type Rollup, type UiVerdict, type VerdictScope } from "./status";
 import type { UiBundle } from "./types";
 import { useSelection, useSystemRoute } from "./useSelection";
@@ -17,6 +18,8 @@ export interface ModelApi extends Omit<ModelIndex, "model" | "entries"> {
   verdictOf(criterionId: string): UiVerdict;
   /** Verdict counts for `id` and its descendants within `scope`. */
   rollup(id: string): Rollup;
+  /** Hooks that never run before promotion (their not-run rows do not count against a verdict). */
+  offTrigger: ReadonlySet<string>;
 }
 
 const ModelContext = createContext<ModelApi | null>(null);
@@ -32,14 +35,16 @@ export function ModelProvider({ bundle, children }: { bundle: UiBundle; children
   const value = useMemo<ModelApi>(() => {
     const { model: _model, entries: _entries, ...lookups } = index;
     const evals = evaluations ?? [];
+    const offTrigger = offTriggerHookIds(index.model.hooks);
     return {
       ...lookups,
       bundle,
       index,
       scope,
       evaluations: evals,
-      verdictOf: (cid) => verdictOf(cid, evals, scope),
-      rollup: (id) => rollup(index, id, evals, scope),
+      offTrigger,
+      verdictOf: (cid) => verdictOf(cid, evals, scope, offTrigger),
+      rollup: (id) => rollup(index, id, evals, scope, offTrigger),
     };
   }, [bundle, index, evaluations, scope]);
   return <ModelContext.Provider value={value}>{children}</ModelContext.Provider>;
