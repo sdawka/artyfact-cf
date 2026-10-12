@@ -2,7 +2,6 @@ import { useCallback, useMemo } from "react";
 import { useLocation, useNavigate, useParams, useSearchParams } from "react-router";
 import { VIEWS, type ViewName } from "./kinds";
 
-export const DEFAULT_SYSTEM_ID = "system.keep-in-touch";
 export const DEFAULT_REV = "head";
 
 /** Search params every nav link carries across views. View-specific params (journey, step, ...) are dropped. */
