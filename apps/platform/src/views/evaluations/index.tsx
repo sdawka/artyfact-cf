@@ -22,7 +22,7 @@ export default function EvaluationsView() {
       <p className={styles.lede}>
         Evidence per criterion and candidate. A row says what was asked, how it was checked and what was observed. Nothing here is a verdict on the canonical System unless that candidate was promoted.
       </p>
-      <EvaluationsTable evaluations={m.evaluations} expandedId={params.get("evaluation")} onExpand={expand} />
+      <EvaluationsTable evaluations={m.evaluations} expandedId={params.get("evaluation")} onExpand={expand} initialCriterion={params.get("criterion")} />
     </section>
   );
 }
