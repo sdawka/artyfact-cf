@@ -5,6 +5,8 @@ import type {
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
+import { RegistryStore } from "./registry";
+import { SCHEMA } from "./schema";
 
 /** Name of the DO instance holding the System registry and the realization/fork index. */
 export const REGISTRY = "__registry";
@@ -34,7 +36,7 @@ export type { GateCriterion, GateItem };
 
 /** Thrown by RPC methods; the `[code]` message prefix survives RPC so the Worker can map it to HTTP. */
 export class ConflictError extends Error {
-  constructor(readonly code: "not-found" | "invalid-state" | "already-imported", readonly detail: string) {
+  constructor(readonly code: "not-found" | "invalid-state", readonly detail: string) {
     super(`[${code}] ${detail}`);
     this.name = "ConflictError";
   }
@@ -158,35 +160,7 @@ type Row = Record<string, SqlStorageValue>;
 const str = (v: SqlStorageValue | undefined) => (v == null ? null : String(v));
 const json = <T>(v: SqlStorageValue | undefined, fallback: T): T => (v == null || v === "" ? fallback : (JSON.parse(String(v)) as T));
 
-const SCHEMA = `
-CREATE TABLE IF NOT EXISTS head (k TEXT PRIMARY KEY, v TEXT);
-CREATE TABLE IF NOT EXISTS system_commits (id TEXT PRIMARY KEY, parent TEXT, manifest_json TEXT NOT NULL, manifest_hash TEXT NOT NULL,
-  evolution_ids TEXT NOT NULL, decision_json TEXT NOT NULL, created_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS evolutions (id TEXT PRIMARY KEY, title TEXT, status TEXT, kind TEXT, base_commit TEXT, scope_json TEXT,
-  criteria_json TEXT, affected_nodes TEXT, created_at TEXT, decided_at TEXT);
-CREATE TABLE IF NOT EXISTS realizations (id TEXT PRIMARY KEY, evolution_id TEXT NOT NULL, n INTEGER NOT NULL, target TEXT NOT NULL,
-  fork_repo TEXT NOT NULL, token_id TEXT, token_expires TEXT, base_commit TEXT, agent_label TEXT, status TEXT NOT NULL,
-  packet_json TEXT, packet_hash TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
-  base_repo TEXT, base_head TEXT, role TEXT, remote TEXT, rejection_reason TEXT);
-CREATE TABLE IF NOT EXISTS checkpoints (realization_id TEXT NOT NULL, seq INTEGER NOT NULL, message TEXT, commit_hash TEXT,
-  created_at TEXT NOT NULL, PRIMARY KEY (realization_id, seq));
-CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, realization_id TEXT NOT NULL, commit_hash TEXT NOT NULL,
-  manifest_json TEXT, changed_paths TEXT, changed_nodes TEXT, created_at TEXT NOT NULL, state TEXT NOT NULL DEFAULT 'submitted',
-  UNIQUE (realization_id, commit_hash));
-CREATE TABLE IF NOT EXISTS evaluations (id TEXT PRIMARY KEY, candidate_id TEXT NOT NULL, criterion_id TEXT NOT NULL, hook_id TEXT,
-  execution TEXT NOT NULL, verdict TEXT NOT NULL, observations_json TEXT, evidence_key TEXT, verifier TEXT, created_at TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS evaluations_by_candidate ON evaluations (candidate_id, criterion_id);
-CREATE TABLE IF NOT EXISTS events_seen (event_id TEXT PRIMARY KEY, seen_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS conflict_reports (key TEXT PRIMARY KEY, candidates_json TEXT NOT NULL, json TEXT NOT NULL, computed_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS conflict_runs (candidate_id TEXT PRIMARY KEY, computed_at TEXT NOT NULL, error TEXT);
-CREATE TABLE IF NOT EXISTS blob_sizes (hash TEXT PRIMARY KEY, size INTEGER NOT NULL);
-CREATE TABLE IF NOT EXISTS candidate_reviews (candidate_id TEXT PRIMARY KEY, json TEXT NOT NULL, created_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS model_cache (genome_commit TEXT NOT NULL, part TEXT NOT NULL, json TEXT NOT NULL, created_at TEXT NOT NULL,
-  PRIMARY KEY (genome_commit, part));
-CREATE TABLE IF NOT EXISTS registry_systems (system_id TEXT PRIMARY KEY, summary_json TEXT NOT NULL, updated_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS registry_realizations (realization_id TEXT PRIMARY KEY, system_id TEXT NOT NULL, evolution_id TEXT NOT NULL DEFAULT '', fork_repo TEXT NOT NULL);
-CREATE INDEX IF NOT EXISTS registry_by_fork ON registry_realizations (fork_repo);
-`;
+
 
 const OPEN_CANDIDATE = ["submitted", "evaluated", "selected"];
 const TERMINAL_REALIZATION: RealizationStatus[] = ["promoted", "rejected", "abandoned"];
@@ -339,14 +313,19 @@ export class SystemAuthority extends DurableObject<Env> {
    * Import: record repos + head commits, write the root System commit (or a new one when the imported
    * commits changed) and seed Evolutions. Idempotent for the same commits.
    */
-  async bootstrap(input: BootstrapInput): Promise<SystemSummary> {
+  /** Returns `{ alreadyImported }` (not a throw) when re-pointing an imported System without `force`. */
+  async bootstrap(input: BootstrapInput): Promise<SystemSummary | { alreadyImported: string }> {
     // Compare with what was last imported (not the current head), so re-importing unchanged repos after a
     // promotion keeps the promoted state.
     const imported = [this.kv("genome_repo"), this.kv("imported_genome_commit"), this.kv("app_repo"), this.kv("imported_app_commit")];
     const unchanged = imported.join("|") === [input.genomeRepo, input.genomeCommit, input.appRepo, input.appCommit].join("|");
     if (!unchanged && imported[0] !== null && !input.force) {
-      throw new ConflictError("already-imported", `system ${input.systemId} is already imported from ${imported[0]}@${String(imported[1]).slice(0, 7)} + ${imported[2]}@${String(imported[3]).slice(0, 7)}; pass force to re-point it`);
+      return { alreadyImported: `system ${input.systemId} is already imported from ${imported[0]}@${String(imported[1]).slice(0, 7)} + ${imported[2]}@${String(imported[3]).slice(0, 7)}; pass force to re-point it` };
     }
+    return this.applyImport(input, unchanged);
+  }
+
+  private async applyImport(input: BootstrapInput, unchanged: boolean): Promise<SystemSummary> {
     const prep = unchanged ? null : await this.prepareCommit(input, () => ({
       genomeCommit: input.genomeCommit,
       artifacts: { [input.artifactId]: { repo: input.appRepo, commit: input.appCommit } },
@@ -957,40 +936,23 @@ export class SystemAuthority extends DurableObject<Env> {
     this.emit(event);
   }
 
-  // ---------------------------------------------------------------- registry (instance `__registry`)
+  // ---------------------------------------------------------------- registry (instance `__registry` only)
 
-  registerSystem(summary: SystemSummary): void {
-    this.sql.exec(
-      `INSERT INTO registry_systems (system_id, summary_json, updated_at) VALUES (?, ?, ?)
-       ON CONFLICT(system_id) DO UPDATE SET summary_json = excluded.summary_json, updated_at = excluded.updated_at`,
-      summary.systemId, JSON.stringify(summary), nowIso(),
-    );
+  private registryStore: RegistryStore | undefined;
+
+  /** The registry lives only in the `__registry` instance; System instances refuse registry calls. */
+  private registry(): RegistryStore {
+    if (this.ctx.id.name !== REGISTRY) throw new ConflictError("invalid-state", "registry calls go to the __registry instance");
+    return (this.registryStore ??= new RegistryStore(this.sql));
   }
 
-  listSystems(): SystemSummary[] {
-    return this.all("SELECT summary_json FROM registry_systems ORDER BY system_id").map((r) => json<SystemSummary>(r.summary_json, {} as SystemSummary));
-  }
-
+  registerSystem(summary: SystemSummary): void { this.registry().registerSystem(summary); }
+  listSystems(): SystemSummary[] { return this.registry().listSystems(); }
   registerRealization(realizationId: string, systemId: string, evolutionId: string, forkRepo: string): void {
-    this.sql.exec(
-      `INSERT INTO registry_realizations (realization_id, system_id, evolution_id, fork_repo) VALUES (?, ?, ?, ?)
-       ON CONFLICT(realization_id) DO UPDATE SET system_id = excluded.system_id, evolution_id = excluded.evolution_id, fork_repo = excluded.fork_repo`,
-      realizationId, systemId, evolutionId, forkRepo,
-    );
+    this.registry().registerRealization(realizationId, systemId, evolutionId, forkRepo);
   }
-
-  unregisterRealization(realizationId: string): void {
-    this.sql.exec("DELETE FROM registry_realizations WHERE realization_id = ?", realizationId);
-  }
-
-  resolveRealization(realizationId: string): { systemId: string; evolutionId: string; forkRepo: string } | null {
-    const r = this.one("SELECT system_id, evolution_id, fork_repo FROM registry_realizations WHERE realization_id = ?", realizationId);
-    return r ? { systemId: String(r.system_id), evolutionId: String(r.evolution_id), forkRepo: String(r.fork_repo) } : null;
-  }
-
+  unregisterRealization(realizationId: string): void { this.registry().unregisterRealization(realizationId); }
+  resolveRealization(realizationId: string) { return this.registry().resolveRealization(realizationId); }
   /** Fork repo name → owning realization (queue `resolveFork`). */
-  resolveFork(forkRepo: string): { systemId: string; evolutionId: string; realizationId: string } | null {
-    const r = this.one("SELECT system_id, evolution_id, realization_id FROM registry_realizations WHERE fork_repo = ?", forkRepo);
-    return r ? { systemId: String(r.system_id), evolutionId: String(r.evolution_id), realizationId: String(r.realization_id) } : null;
-  }
+  resolveFork(forkRepo: string) { return this.registry().resolveFork(forkRepo); }
 }

@@ -1,8 +1,8 @@
 import { env } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import type { Evaluation } from "../shared/api";
-import { StaleBaseError, PromotionBlockedError, type BootstrapInput, type GateCriterion, type SystemAuthority } from "../worker/do/system-authority";
+import type { Evaluation, SystemSummary } from "../shared/api";
+import { REGISTRY, StaleBaseError, PromotionBlockedError, type BootstrapInput, type GateCriterion, type SystemAuthority } from "../worker/do/system-authority";
 
 const G1 = "1".repeat(40), A1 = "a".repeat(40), A2 = "b".repeat(40), A3 = "c".repeat(40);
 let n = 0;
@@ -45,10 +45,10 @@ const promoteInput = (candidateIds: string[], expectedHead: string | null, gates
 describe("SystemAuthority bootstrap", () => {
   it("writes a root System commit and seeds evolutions; idempotent for the same commits", async () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
-      const s = await i.bootstrap(boot);
+      const s = (await i.bootstrap(boot)) as SystemSummary;
       expect(s.head).toMatch(/^sc-1-/);
       expect(s.evolutionCounts).toEqual({ actionable: 1 });
-      const again = await i.bootstrap(boot);
+      const again = (await i.bootstrap(boot)) as SystemSummary;
       expect(again.head).toBe(s.head);
       expect(i.history()).toHaveLength(1);
       expect(i.history()[0].genomeCommit).toBe(G1);
@@ -250,12 +250,22 @@ describe("accept", () => {
 });
 
 describe("registry", () => {
-  it("indexes systems, realizations and forks", async () => {
-    await runInDurableObject(stub(), async (i: SystemAuthority) => {
-      i.registerRealization("realization.1.r1", "system.kit", "evolution.1", "kit-app--r1");
-      expect(i.resolveFork("kit-app--r1")).toEqual({ systemId: "system.kit", evolutionId: "evolution.1", realizationId: "realization.1.r1" });
-      expect(i.resolveRealization("realization.1.r1")).toEqual({ systemId: "system.kit", evolutionId: "evolution.1", forkRepo: "kit-app--r1" });
+  it("indexes systems, realizations and forks in the __registry instance", async () => {
+    await runInDurableObject(env.SYSTEMS.getByName(REGISTRY), async (i: SystemAuthority) => {
+      i.registerRealization("realization.1.r1", "system.reg-test", "evolution.1", "reg-test-app--r1");
+      expect(i.resolveFork("reg-test-app--r1")).toEqual({ systemId: "system.reg-test", evolutionId: "evolution.1", realizationId: "realization.1.r1" });
+      expect(i.resolveRealization("realization.1.r1")).toMatchObject({ systemId: "system.reg-test", evolutionId: "evolution.1" });
       expect(i.resolveFork("nope")).toBeNull();
+      i.unregisterRealization("realization.1.r1");
+      expect(i.resolveFork("reg-test-app--r1")).toBeNull();
+    });
+  });
+
+  it("refuses registry calls on a System instance", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority, state) => {
+      expect(() => i.resolveFork("x")).toThrow(/__registry/);
+      const tables = state.storage.sql.exec("SELECT name FROM sqlite_master WHERE type = 'table'").toArray().map((r) => r.name);
+      expect(tables).not.toContain("registry_systems");
     });
   });
 });

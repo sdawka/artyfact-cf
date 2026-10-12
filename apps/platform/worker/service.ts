@@ -140,10 +140,12 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     throw unprocessable("system-mismatch", `Genome in ${genomeRepo} declares ${g.model.system.id}, not ${systemId}`);
   }
   const stub = systemStub(env, systemId);
-  const system = await rpc(stub.bootstrap({
+  const booted = await rpc(stub.bootstrap({
     systemId, title: g.model.system.name, phase: g.model.system.phase, genomeRepo, appRepo, genomeCommit, appCommit,
     evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model), force: body.force === true,
   }));
+  if ("alreadyImported" in booted) throw conflict("already-imported", booted.alreadyImported);
+  const system = booted;
   await stub.putModelCache(genomeCommit, {
     files: JSON.stringify(Object.fromEntries(files)),
     model: JSON.stringify(serializeModel(g.model)),
