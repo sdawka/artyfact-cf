@@ -91,7 +91,7 @@ Terminal **ops**:
 `init` reads `system.yaml` and derives every name from the System id: slug `keep-in-touch`, repos
 `keep-in-touch.genome` and `keep-in-touch.app`, forks `<repo>--r<N>`. It checks that `npx wrangler whoami` and
 `cf auth whoami` show the same account and prints only its prefix. It creates the namespace and repos when missing,
-pushes `platform` (templates and rule packs) and both projects with short-lived write tokens, and calls
+creates `platform` (templates and rule packs) when it is missing or empty, pushes both projects with short-lived write tokens, and calls
 `POST /api/systems/import` with `$ARTYFACT_ADMIN_TOKEN`. Tokens reach git only through `GIT_CONFIG_*` variables,
 never an argv or the output. A project laid out as `<dir>/system` and `<dir>/app` runs `npx artyfact init --dir <dir>`.
 
@@ -125,13 +125,23 @@ imported system.keep-in-touch at sc-1-b11cb27a
 System: http://localhost:1337/s/system.keep-in-touch/r/head/overview
 ```
 
-A second run pushes nothing and re-imports with `force: false`, which is a no-op on the same commits:
+That run predates the 1337 default; its last line said `5173` and was edited. `platform` was still pushed by every
+run then.
+
+A later run pushes nothing and re-imports with `force: false`, a no-op on the same commits. `platform` already exists,
+so `init` leaves it alone. This run is verbatim. It went to a second local platform on port 1339, so it passed
+`--platform http://localhost:1339`, and the printed URL shows the port the operator passed. With the default it is
+1337. The head is `sc-3-c00256a3` because steps 3 to 11 had run on this namespace since:
 
 ```text
-platform: unchanged at 6bd3603921dc
+system.keep-in-touch -> keep-in-touch.genome, keep-in-touch.app (namespace artyfact)
+account 1bae12d5… (wrangler and cf agree)
+namespace artyfact: exists
+platform: exists at 6bd3603921dc, left alone (update it with 'npx artyfact platform-sync --namespace artyfact')
 keep-in-touch.genome: unchanged at 18374568e231
 keep-in-touch.app: unchanged at c945510ffdf5
-imported system.keep-in-touch at sc-1-b11cb27a
+imported system.keep-in-touch at sc-3-c00256a3
+System: http://localhost:1339/s/system.keep-in-touch/r/head/overview
 ```
 
 On an empty namespace the first run creates everything and imports in one go. If the import answers 409
