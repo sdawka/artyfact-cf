@@ -24,9 +24,10 @@ export class PromotionBlockedError extends Error {
   }
 }
 
+/** Thrown by RPC methods; the `[code]` message prefix survives RPC so the Worker can map it to HTTP. */
 export class ConflictError extends Error {
-  constructor(readonly code: "not-found" | "invalid-state", message: string) {
-    super(message);
+  constructor(readonly code: "not-found" | "invalid-state", readonly detail: string) {
+    super(`[${code}] ${detail}`);
     this.name = "ConflictError";
   }
 }
@@ -771,7 +772,7 @@ export class SystemAuthority extends DurableObject<Env> {
     } catch (e) {
       if (e instanceof StaleBaseError) return { ok: false, code: "stale-base", currentHead: e.currentHead };
       if (e instanceof PromotionBlockedError) return { ok: false, code: "blocked", blocking: e.blocking };
-      if (e instanceof ConflictError) return { ok: false, code: e.code, message: e.message };
+      if (e instanceof ConflictError) return { ok: false, code: e.code, message: e.detail };
       throw e;
     }
   }
