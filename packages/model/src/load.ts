@@ -23,8 +23,9 @@ export interface SystemModel {
   externals: schema.Externals[];
   claims: schema.TheoryClaim[];
   description?: schema.Description;
-  kits: schema.Kit[];
-  things: schema.Thing[];
+  kits: schema.KitsFile;
+  /** Things with `sections` defaulted from their template when omitted. */
+  things: schema.ResolvedThing[];
   /** Templates resolved for this model (system template first, then one per distinct Thing templateRef). */
   templates: schema.Template[];
   nodes: schema.OntologyNode[];
@@ -105,7 +106,7 @@ export function loadSystem(files: Map<string, string>, opts: { revision?: string
   const desc = get("description.yaml");
   const description = desc === undefined ? undefined : parseFile("description.yaml", desc, schema.Description);
   const kitsText = get("kits.yaml");
-  const kits = kitsText === undefined ? [] : parseFile("kits.yaml", kitsText, schema.KitsFile, "kits").kits;
+  const kits = parseFile("kits.yaml", kitsText ?? "{}", schema.KitsFile);
 
   // Instance objects, per owner. Template objects are merged in below.
   const things: { thing: schema.Thing; file: string; dir: string }[] = [];
@@ -156,7 +157,7 @@ export function loadSystem(files: Map<string, string>, opts: { revision?: string
   const nodes: schema.OntologyNode[] = [];
   const criteria: schema.Criterion[] = [];
   const hooks: schema.AssayHook[] = [];
-  const resolve = (ref: string | null, kind: "system" | "thing", owner: string, file: string) => {
+  const resolve = (ref: string | null, kind: "system" | "thing", owner: string, file: string): schema.Template | undefined => {
     let tpl: schema.Template | undefined;
     if (ref) {
       tpl = opts.templates?.get(ref);
@@ -180,9 +181,13 @@ export function loadSystem(files: Map<string, string>, opts: { revision?: string
     merge("node", tplNodes, instNodes.get(owner) ?? [], nodes);
     merge("criterion", tplCriteria, instCriteria.get(owner) ?? [], criteria);
     merge("hook", tplHooks, instHooks.get(owner) ?? [], hooks);
+    return tpl;
   };
   resolve(system.template, "system", system.id, "system.yaml");
-  for (const { thing, file } of things) resolve(thing.templateRef, "thing", thing.id, file);
+  const resolvedThings = things.map(({ thing, file }): schema.ResolvedThing => {
+    const tpl = resolve(thing.templateRef, "thing", thing.id, file);
+    return { ...thing, sections: thing.sections ?? tpl?.sections ?? [] };
+  });
 
   const model = {
     revision: opts.revision,
@@ -192,7 +197,7 @@ export function loadSystem(files: Map<string, string>, opts: { revision?: string
     claims,
     description,
     kits,
-    things: things.map((t) => t.thing),
+    things: resolvedThings,
     templates,
     nodes,
     requirements,

@@ -49,7 +49,7 @@ plain JSON. After a JSON round-trip, rebuild the index with `index(model)`.
 | `purpose.yaml` | `Purpose`, `Purpose[]` or `{purposes: []}` |
 | `externals.yaml` / `theory.yaml` | `{externals: []}` / `{claims: []}` (or a bare list) |
 | `description.yaml` | `Description` |
-| `kits.yaml` | `{kits: [{id, version?, required=true}]}`. A kit without `version` is unpinned |
+| `kits.yaml` | `{kits: [{id, version}], rulePacks: [{id, version}], required: [kitId]}`. A required kit missing from `kits` is unpinned |
 | `criteria.yaml` | `{criteria: [], hooks: []}`, owned by the System |
 | `things/<dir>/thing.yaml` | `Thing` |
 | `things/<dir>/ontology.yaml` | `{nodes: []}`. Nodes may nest `children`; the loader flattens them and sets `parent`. Top-level nodes without a `parent` get the Thing id. `owningThing` defaults to the Thing |
@@ -75,38 +75,35 @@ referencing file. For each resolved template:
 4. Template objects come first. An instance object with the same id replaces the template object at that position
    (no `fromTemplate`). Instance-only objects follow.
 
-`toFacts()` then emits `thing(Thing, TemplateRef)`, `templateRequires(TemplateRef, Section)` for each template's
-`sections`, and `fromTemplate(Id, TemplateRef)`. Packs compare these against `section(Thing, Id)` (from
-`Thing.sections`) to catch missing sections. Two Things that instantiate the same Thing template would produce
+`toFacts()` then emits `thing(Thing, TemplateRef)`, `templateKnown(TemplateRef)`, `templateRequires(TemplateRef, Section)` and
+`templateRequiresCriterion(TemplateRef, Criterion)`. Packs compare these against the Thing's sections (from
+`Thing.sections`, emitted as `thingSection`) to catch missing sections. When `thing.yaml` omits `sections`, the template's are used. Two Things that instantiate the same Thing template would produce
 colliding node ids; that case is not supported yet.
 
 ## Facts
 
-`toFacts()` emits only these relations (exported as `RELATIONS`). `factSet()` leaves out relations that have no tuples.
+The fact schema is `docs/design/facts.md` (derived from the Rule Packs' `.decl` blocks, which consume it). `toFacts()`
+emits only those EDB relations (exported as `RELATIONS`). `factSet()` leaves out relations that have no tuples.
 Tuples are deduped and sorted, and the hash is sha256 over the canonical form, so it does not depend on file or key
-order:
+order.
 
-`node(Id,Kind,Thing)` `name(Id,Text)` `parent(Child,Parent)` `link(From,Rel,To,Certainty)` `thing(Id,Template)`
-`section(Thing,Id)` `requirement(Id,Thing,Enabled)` `reqSubject(Req,Node)` `refines(A,B)`
-`criterion(Id,OwnerKind,Owner,SubjectKind,Subject,TargetKind,Severity,Deferred)` `gate(Crit,Gate)`
-`hook(Id,Crit,Engine,Tier,Binding)` `sourceRef(Crit,Ref)` `satisfies(Crit,SysCrit)` `purpose(P)` `beneficiary(P,Ext)`
-`external(Ext,Kind)` `claim(T,Deferred)` `claimHas(T,Field)` `journey(J,Deferred)` `step(J,S,Kind)`
-`stepScreen(J,S,Screen)` `stepOp(J,S,Op)` `stepNext(J,S,S2)` `evolution(E,State,Kind)` `affects(E,Node)`
-`acceptance(E,Crit)` `templateRequires(Tpl,Section)` `fromTemplate(Id,Tpl)` `provisional(Id)` `effectText(Id,Text)`
-`fieldType(Id,Field,Type)` `cardinality(Id,Text)` `invariant(Id,Text)` `policyConflict(P1,P2)` `kitPinned(Kit,Version)`
-`kitRequired(Kit)`
-
-Conventions:
-- `node` covers the System (Thing `""`), Things (Thing = itself), ontology nodes, and also externals, purposes, claims
-  (kind `external`/`purpose`/`claim`, Thing `""`) and requirements (Thing = `requirement.thing`). This lets
-  `not node(T,_,_)` decide whether a reference resolves. Criteria, hooks and GD features are not nodes.
-- `parent(Thing, System)` is emitted for every Thing.
-- `link` comes from node and external `links`, with direction normalised (`direction: in` swaps from/to).
-- `policyConflict(P1,P2)` comes from a link `{rel: references, to: P2, label: conflicts}` declared on policy node P1.
-- `hook(H,C,…)` uses the union of `hook.criteria` and `criterion.hooks`.
-- `claimHas(T,F)` is emitted for each non-empty field among purpose, mechanism, beneficiaries, activities,
-  outcome, indicator, evaluationMethod, limitation.
-- Booleans are real booleans (`claim(T,false)`).
+Choices this package makes within that schema:
+- `node(Id,Kind,Thing)` covers the System (Thing `""`), Things (Thing = itself), ontology nodes (Thing =
+  `owningThing`) and externals (kind `external`, Thing `""`). `nodeName` and `effectText` are lowercased.
+- `known(Id)` covers every declared id: system, things, nodes, externals, purposes, claims, GD features, commitments,
+  requirements, criteria, hooks, journeys, steps (as `J.x/s1`, see `stepKey`), evolutions, resolved templates
+  (`id@version`) and pinned kits.
+- `ref(From,Via,To)` uses these `Via` values: `parent`, `refines` (nodes, requirements, criteria), `subjects`,
+  `sourceRefs`, `beneficiaries` (purposes, claims), `acceptanceCriteria`, `links`, and `screen`/`operation`/`external`
+  from step `J.x/s1`. Steps marked `unresolved` emit no `ref`; they still emit `stepRef`, which the journeys pack checks
+  with `stepUnresolved` taken into account.
+- `link` is in OUT orientation (`direction: in` is swapped). `parent(Thing, System)` is emitted for every Thing.
+- `entityField` is emitted only for `entity` nodes and carries the raw YAML type. `policyMode` is emitted only for
+  `policy` nodes with `mode`, and `hasActor`/`hasEffects` only for affordances.
+- `criterionHook(C,H)` uses the union of `hook.criteria` and `criterion.hooks`, limited to hooks that exist.
+- `thingSection` is the Thing's `sections`, or the template's `sections` when the Thing omits them.
+- `kitPinned` comes from `kits.yaml` `kits` and `kitRequired` from `required`. `model.kits.rulePacks` is what callers
+  pass to `packsFor()`.
 
 ## How packs run
 
@@ -121,7 +118,7 @@ pack convention relations into `Finding`s:
 | `warning(Rule,Subject)` | `warning` |
 | `semanticCandidate(Rule,Subject,Text)` | `info`, rule `semantic:<Rule>` |
 
-`message` is the pack's `.message` template rendered by `rules.render`, or the rule id if the pack has no template.
+`message` is the pack's `.message` template rendered by `rules.render`, where `{n}` is the nth argument after the rule id (`{1}` = Subject). It is the rule id if the pack has no template.
 `derivation` is `rules.explain(result, relation, tuple)`. `facts` holds the derivation's leaf facts as
 `[relation, ...tuple]`, taken from the EDB nodes of the tree. `pack` names the program that derived the finding. `Readiness.packs[].hash` is the sha256 of
 each pack's source. `derived` holds every output relation. `actionable` is true when there are no errors and the run

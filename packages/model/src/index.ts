@@ -3,7 +3,7 @@ export { loadSystem, ModelParseError, templateRef, THING_PLACEHOLDER, SYSTEM_PLA
 export type { SystemModel, TemplateStore, ParseIssue } from "./load";
 export { index } from "./model-index";
 export type { ModelIndex, IndexEntry, EntryType, LinkRef } from "./model-index";
-export { toFacts, RELATIONS } from "./facts";
+export { toFacts, RELATIONS, stepKey } from "./facts";
 export type { RelationName } from "./facts";
 export { validate } from "./validate";
 export type { Finding, Readiness, RulePack } from "./validate";

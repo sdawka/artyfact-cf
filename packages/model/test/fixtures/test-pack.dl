@@ -1,16 +1,21 @@
-% Inline pack for model tests: a handful of rules from docs/design/rules.md.
+% Inline pack for model tests, using the fact schema in docs/design/facts.md.
 .decl node(Id: sym, Kind: sym, Thing: sym)
 .decl link(From: sym, Rel: sym, To: sym, Certainty: sym)
 .decl parent(Child: sym, Parent: sym)
-.decl external(Ext: sym, Kind: sym)
+.decl ref(From: sym, Via: sym, To: sym)
+.decl known(Id: sym)
 .decl thing(Id: sym, Template: sym)
-.decl section(Thing: sym, Id: sym)
-.decl templateRequires(Tpl: sym, Section: sym)
-.decl hook(Id: sym, Crit: sym, Engine: sym, Tier: sym, Binding: sym)
-.decl criterion(Id: sym, OwnerKind: sym, Owner: sym, SubjectKind: sym, Subject: sym, TargetKind: sym, Severity: sym, Deferred: bool)
-.decl effectText(Id: sym, Text: sym)
-.decl ancestor(X: sym, Y: sym)
-.decl governedBy(N: sym, P: sym)
+.decl thingSection(Thing: sym, Section: sym)
+.decl templateKnown(Template: sym)
+.decl templateRequires(Template: sym, Section: sym)
+.decl criterion(Id: sym, OwnerKind: sym, OwnerId: sym, SubjectId: sym, Severity: sym)
+.decl criterionDeferred(Id: sym)
+.decl criterionHook(Criterion: sym, Hook: sym)
+.decl hook(Id: sym, Binding: sym)
+.decl effectText(Node: sym, Text: sym)
+.decl ancestor(X: sym, A: sym)
+.decl governedDirect(X: sym, Policy: sym)
+.decl governedBy(X: sym, Policy: sym)
 .decl mutating(Op: sym)
 .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
 .decl missing(Rule: sym, Subject: sym) .output
@@ -19,16 +24,16 @@
 .message "authz.ungoverned" "Operation {1} writes data but no authorization policy governs it."
 .message "ref.dangling" "A link points at an unknown id."
 
-ancestor(X,Z) :- parent(X,Z).
-ancestor(X,Z) :- parent(X,Y), ancestor(Y,Z).
-governedBy(N,P) :- link(N,"governs",P,_).
-governedBy(N,P) :- link(P,"governs",N,_).
-governedBy(N,P) :- ancestor(N,A), governedBy(A,P).
+ancestor(X,A) :- parent(X,A).
+ancestor(X,A) :- parent(X,Y), ancestor(Y,A).
+governedDirect(X,P) :- link(P,"governs",X,_), node(P,"policy",_).
+governedBy(X,P) :- governedDirect(X,P).
+governedBy(X,P) :- ancestor(X,A), governedDirect(A,P).
 governedBy(Op,P) :- link(Aff,"invokes",Op,_), governedBy(Aff,P).
 mutating(Op) :- node(Op,"operation",_), link(Op,"writes",_,_).
 violation("authz.ungoverned",Op,"hard") :- mutating(Op), not governedBy(Op,_).
-violation("ref.dangling",F,"hard") :- link(F,_,T,_), not node(T,_,_), not external(T,_).
-violation("template.sectionMissing",T,"hard") :- thing(T,Tpl), templateRequires(Tpl,Sec), not section(T,Sec).
-missing("coverage.hook",C) :- criterion(C,_,_,_,_,_,_,false), not hook(_,C,_,_,_).
-warning("hook.unbound",H) :- hook(H,_,_,_,"defined").
+violation("ref.dangling",From,"hard") :- ref(From,_,To), not known(To).
+violation("template.sectionMissing",T,"hard") :- thing(T,Tpl), templateKnown(Tpl), templateRequires(Tpl,S), not thingSection(T,S).
+missing("coverage.hook",C) :- criterion(C,_,_,_,_), not criterionDeferred(C), not criterionHook(C,_).
+warning("hook.unbound",C) :- criterionHook(C,H), hook(H,B), B != "bound", not criterionDeferred(C).
 semanticCandidate("topology.multiRecipient",N,Text) :- effectText(N,Text), contains(Text,"recipient").

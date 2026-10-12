@@ -2,111 +2,153 @@ import { factSet, type FactSet, type Tuple } from "@artyfact/rules";
 import type { SystemModel } from "./load";
 import { templateRef } from "./load";
 
-/** Every EDB relation toFacts() may emit (plan "packages/rules": EDB relations). Empty ones are omitted by factSet(). */
+/**
+ * Every EDB relation toFacts() may emit — exactly docs/design/facts.md (the rule packs' `.decl` blocks).
+ * Empty relations are omitted by factSet().
+ */
 export const RELATIONS = [
-  "node", "name", "parent", "link", "thing", "section", "requirement", "reqSubject", "refines", "criterion", "gate",
-  "hook", "sourceRef", "satisfies", "purpose", "beneficiary", "external", "claim", "claimHas", "journey", "step",
-  "stepScreen", "stepOp", "stepNext", "evolution", "affects", "acceptance", "templateRequires", "fromTemplate",
-  "provisional", "effectText", "fieldType", "cardinality", "invariant", "policyConflict", "kitPinned", "kitRequired",
+  "system", "thing", "thingArtifact", "thingSection", "node", "nodeName", "parent", "link", "ref", "known",
+  "provisional", "effectText", "entityField", "cardinality", "policyMode", "hasActor", "hasEffects",
+  "ext", "purpose", "purposeBeneficiary", "claim", "claimDeferred", "claimIndicator", "claimMethod", "claimBeneficiary",
+  "requirementEnabled", "requirementSubject",
+  "criterion", "criterionDeferred", "criterionSourceRef", "criterionHook", "hook",
+  "journey", "journeyDeferred", "step", "stepEnd", "stepNext", "stepScreen", "stepOperation", "stepRef", "stepUnresolved",
+  "evolution", "evolutionAcceptance", "evolutionAffects",
+  "templateKnown", "templateRequires", "templateRequiresCriterion", "kitPinned", "kitRequired",
 ] as const;
 export type RelationName = (typeof RELATIONS)[number];
 
-const CLAIM_FIELDS = ["purpose", "mechanism", "beneficiaries", "activities", "outcome", "indicator", "evaluationMethod", "limitation"] as const;
+/** Step ids are journey-local; `known`/`ref` use `<journey>/<step>`. */
+export const stepKey = (journey: string, step: string) => `${journey}/${step}`;
 
 export function toFacts(m: SystemModel): FactSet {
   const r = Object.fromEntries(RELATIONS.map((k) => [k, [] as Tuple[]])) as Record<RelationName, Tuple[]>;
   const emit = (rel: RelationName, ...t: Tuple) => r[rel].push(t);
+  const known = (id: string) => emit("known", id);
+  const ref = (from: string, via: string, tos: Iterable<string | undefined>) => {
+    for (const to of tos) if (to) emit("ref", from, via, to);
+  };
 
+  emit("system", m.system.id);
   emit("node", m.system.id, "system", "");
-  emit("name", m.system.id, m.system.name);
+  emit("nodeName", m.system.id, m.system.name.toLowerCase());
+  known(m.system.id);
   for (const t of m.things) {
-    emit("node", t.id, "thing", t.id);
-    emit("name", t.id, t.name);
-    emit("parent", t.id, m.system.id);
     emit("thing", t.id, t.templateRef ?? "");
-    for (const s of t.sections) emit("section", t.id, s);
+    emit("node", t.id, "thing", t.id);
+    emit("nodeName", t.id, t.name.toLowerCase());
+    emit("parent", t.id, m.system.id);
+    known(t.id);
+    for (const a of t.artifacts) emit("thingArtifact", t.id, a.artifact);
+    for (const s of t.sections) emit("thingSection", t.id, s);
   }
-  const kindOf = new Map(m.nodes.map((n) => [n.id, n.kind]));
   for (const n of m.nodes) {
     emit("node", n.id, n.kind, n.owningThing ?? "");
-    emit("name", n.id, n.name);
-    if (n.parent) emit("parent", n.id, n.parent);
-    for (const x of n.refines) emit("refines", n.id, x);
-    if (n.fromTemplate) emit("fromTemplate", n.id, n.fromTemplate);
+    emit("nodeName", n.id, n.name.toLowerCase());
+    known(n.id);
+    if (n.parent) {
+      emit("parent", n.id, n.parent);
+      ref(n.id, "parent", [n.parent]);
+    }
+    ref(n.id, "refines", n.refines);
     if (n.provisional) emit("provisional", n.id);
-    for (const e of n.effects) emit("effectText", n.id, e);
-    for (const f of n.fields) emit("fieldType", n.id, f.name, f.type);
+    for (const e of n.effects) emit("effectText", n.id, e.toLowerCase());
+    if (n.kind === "entity") for (const f of n.fields) emit("entityField", n.id, f.name, f.type);
     if (n.cardinality !== undefined) emit("cardinality", n.id, n.cardinality);
-    for (const i of n.invariants) emit("invariant", n.id, i);
+    if (n.kind === "policy" && n.mode !== undefined) emit("policyMode", n.id, n.mode);
+    if (n.kind === "affordance" && n.actor) emit("hasActor", n.id);
+    if (n.kind === "affordance" && n.effects.length) emit("hasEffects", n.id);
   }
-  // Links, direction-normalised (shared with the index). Policy conflicts are declared as
-  // `{rel: references, to: <policy>, label: conflicts}` on a policy node.
+  // Links in OUT orientation (the index has already swapped `direction: in`).
   for (const links of Object.values(m.index.linksOut)) {
     for (const l of links) {
       emit("link", l.from, l.rel, l.to, l.certainty);
-      if (l.rel === "references" && l.label === "conflicts" && kindOf.get(l.from) === "policy") emit("policyConflict", l.from, l.to);
+      ref(l.from, "links", [l.to]);
     }
   }
   for (const e of m.externals) {
+    emit("ext", e.id, e.kind);
     emit("node", e.id, "external", "");
-    emit("name", e.id, e.name);
-    emit("external", e.id, e.kind);
+    emit("nodeName", e.id, e.name.toLowerCase());
+    known(e.id);
   }
   for (const p of m.purposes) {
-    emit("node", p.id, "purpose", "");
     emit("purpose", p.id);
-    for (const b of p.beneficiaries) emit("beneficiary", p.id, b);
+    known(p.id);
+    for (const b of p.beneficiaries) emit("purposeBeneficiary", p.id, b);
+    ref(p.id, "beneficiaries", p.beneficiaries);
   }
   for (const c of m.claims) {
-    emit("node", c.id, "claim", "");
-    emit("name", c.id, c.name);
-    emit("claim", c.id, c.deferred);
-    for (const f of CLAIM_FIELDS) if (c[f].length > 0) emit("claimHas", c.id, f);
+    emit("claim", c.id);
+    known(c.id);
+    if (c.deferred) emit("claimDeferred", c.id);
+    if (c.indicator.trim()) emit("claimIndicator", c.id);
+    if (c.evaluationMethod.trim()) emit("claimMethod", c.id);
+    for (const b of c.beneficiaries) emit("claimBeneficiary", c.id, b);
+    ref(c.id, "beneficiaries", c.beneficiaries);
   }
+  for (const f of m.description?.features ?? []) known(f.id);
+  for (const c of m.description?.commitments ?? []) known(c.id);
   for (const q of m.requirements) {
-    emit("node", q.id, "requirement", q.thing);
-    emit("name", q.id, q.title);
-    emit("requirement", q.id, q.thing, q.enabled);
-    for (const s of q.subjects) emit("reqSubject", q.id, s);
-    for (const x of q.refines) emit("refines", q.id, x);
+    known(q.id);
+    if (q.enabled) emit("requirementEnabled", q.id);
+    for (const s of q.subjects) emit("requirementSubject", q.id, s);
+    ref(q.id, "subjects", q.subjects);
+    ref(q.id, "refines", q.refines);
   }
-  const hookById = new Map(m.hooks.map((h) => [h.id, h]));
   for (const c of m.criteria) {
-    emit("name", c.id, c.title);
-    emit("criterion", c.id, c.ownerKind, c.ownerId, c.subjectKind, c.subjectId, c.targetKind, c.severity, c.deferred);
-    for (const g of c.gates) emit("gate", c.id, g);
-    for (const s of c.sourceRefs) emit("sourceRef", c.id, s);
-    for (const s of c.satisfies) emit("satisfies", c.id, s);
-    for (const x of c.refines) emit("refines", c.id, x);
-    if (c.fromTemplate) emit("fromTemplate", c.id, c.fromTemplate);
+    known(c.id);
+    emit("criterion", c.id, c.ownerKind, c.ownerId, c.subjectId, c.severity);
+    if (c.deferred) emit("criterionDeferred", c.id);
+    for (const s of c.sourceRefs) emit("criterionSourceRef", c.id, s);
+    ref(c.id, "sourceRefs", c.sourceRefs);
+    ref(c.id, "refines", c.refines);
   }
-  for (const [crit, hs] of Object.entries(m.index.hooksByCriterion)) {
-    for (const id of hs) {
-      const h = hookById.get(id)!;
-      emit("hook", h.id, crit, h.engine, h.tier, h.binding);
-    }
+  for (const [crit, hs] of Object.entries(m.index.hooksByCriterion)) for (const h of hs) emit("criterionHook", crit, h);
+  for (const h of m.hooks) {
+    known(h.id);
+    emit("hook", h.id, h.binding);
   }
-  for (const h of m.hooks) if (h.fromTemplate) emit("fromTemplate", h.id, h.fromTemplate);
   for (const j of m.journeys) {
-    emit("name", j.id, j.name);
-    emit("journey", j.id, j.deferred);
+    known(j.id);
+    emit("journey", j.id, j.start);
+    if (j.deferred) emit("journeyDeferred", j.id);
     for (const s of j.steps) {
-      emit("step", j.id, s.id, s.kind);
-      if (s.screen) emit("stepScreen", j.id, s.id, s.screen);
-      if (s.operation) emit("stepOp", j.id, s.id, s.operation);
+      const key = stepKey(j.id, s.id);
+      known(key);
+      emit("step", j.id, s.id);
+      if (s.kind === "end") emit("stepEnd", j.id, s.id);
+      if (s.unresolved) emit("stepUnresolved", j.id, s.id);
       for (const n of s.next) emit("stepNext", j.id, s.id, n.to);
+      if (s.screen) emit("stepScreen", j.id, s.id, s.screen);
+      if (s.operation) emit("stepOperation", j.id, s.id, s.operation);
+      for (const id of [s.screen, s.operation, s.external, ...s.requirementRefs]) if (id) emit("stepRef", j.id, s.id, id);
+      // Unresolved steps are allowed to point at ids that do not exist yet (journey.stepRefMissing honours this too).
+      if (!s.unresolved) {
+        ref(key, "screen", [s.screen]);
+        ref(key, "operation", [s.operation]);
+        ref(key, "external", [s.external]);
+      }
     }
   }
   for (const e of m.evolutions) {
-    emit("name", e.id, e.title);
-    emit("evolution", e.id, e.state, e.kind);
-    for (const n of e.affectedNodes) emit("affects", e.id, n);
-    for (const c of e.acceptanceCriteria) emit("acceptance", e.id, c);
+    known(e.id);
+    emit("evolution", e.id, e.state);
+    for (const c of e.acceptanceCriteria) emit("evolutionAcceptance", e.id, c);
+    for (const n of e.affectedNodes) emit("evolutionAffects", e.id, n);
+    ref(e.id, "acceptanceCriteria", e.acceptanceCriteria);
   }
-  for (const t of m.templates) for (const s of t.sections) emit("templateRequires", templateRef(t), s);
-  for (const k of m.kits) {
-    if (k.required) emit("kitRequired", k.id);
-    if (k.version !== undefined) emit("kitPinned", k.id, k.version);
+  for (const t of m.templates) {
+    const tr = templateRef(t);
+    emit("templateKnown", tr);
+    known(tr);
+    for (const s of t.sections) emit("templateRequires", tr, s);
+    for (const c of t.criteria) emit("templateRequiresCriterion", tr, c.id);
   }
+  for (const k of m.kits.kits) {
+    emit("kitPinned", k.id, k.version);
+    known(k.id);
+  }
+  for (const k of m.kits.required) emit("kitRequired", k);
   return factSet(r);
 }

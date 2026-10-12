@@ -21,8 +21,8 @@ describe("validate", () => {
 
   it("folds warning/semanticCandidate into warning/info findings", () => {
     const r = run(files);
-    expect(r.findings).toContainEqual(expect.objectContaining({ level: "warning", rule: "hook.unbound", subject: "hook.app.notes.save" }));
-    const f = edit(files, "things/app/ontology.yaml", "Persists the note for its owner", "Sends the note to every recipient");
+    expect(r.findings).toContainEqual(expect.objectContaining({ level: "warning", rule: "hook.unbound", subject: "C.app.notes.save" }));
+    const f = edit(files, "things/app/ontology.yaml", "Persists the note for its owner", "Sends the note to every Recipient");
     const s = run(f);
     expect(s.findings).toContainEqual(expect.objectContaining({ level: "info", rule: "semantic:topology.multiRecipient", subject: "affordance.NoteForm.save" }));
     expect(s.actionable).toBe(true);

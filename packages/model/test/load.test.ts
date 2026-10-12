@@ -27,7 +27,7 @@ describe("loadSystem", () => {
     expect(m.journeys.map((j) => j.id)).toEqual(["J.notes"]);
     expect(m.evolutions.map((e) => e.id)).toEqual(["evolution.1"]);
     expect(m.description?.features.map((f) => f.id)).toEqual(["GD.notes"]);
-    expect(m.kits).toEqual([{ id: "privacy", version: "1.0.0", required: true }]);
+    expect(m.kits).toEqual({ kits: [{ id: "privacy", version: "1.0.0" }], rulePacks: [{ id: "metamodel", version: "1" }], required: ["privacy", "auth"] });
   });
 
   it("flattens nested ontology children and stamps owningThing", () => {
@@ -103,6 +103,12 @@ describe("template resolution", () => {
 
   it("puts template objects before instance objects", () => {
     expect(m.nodes.findIndex((n) => n.id === "component.AppShell")).toBeLessThan(m.nodes.findIndex((n) => n.id === "screen.list"));
+  });
+
+  it("defaults Thing sections from the template when omitted", () => {
+    expect(m.things[0].sections).toEqual(["section.ui", "section.domain"]);
+    const f = edit(files, "things/app/thing.yaml", "sections: [section.ui, section.domain]\n", "");
+    expect(loadSystem(f, { templates: store() }).things[0].sections).toEqual(["section.ui", "section.domain"]);
   });
 
   it("throws ModelParseError for a missing template", () => {

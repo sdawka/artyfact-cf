@@ -53,6 +53,8 @@ nodes:
     kind: policy
     name: Owner only
     parent: section.domain
+    mode: owner-only
     links:
       - { rel: governs, to: operation.note.save }
+      - { rel: governs, to: operation.note.list }
       - { rel: governs, to: entity.Note }

@@ -1,2 +1,5 @@
 kits:
   - { id: privacy, version: 1.0.0 }
+rulePacks:
+  - { id: metamodel, version: "1" }
+required: [privacy, auth]

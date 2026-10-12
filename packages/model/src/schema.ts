@@ -77,6 +77,8 @@ export const OntologyNode = z.object({
   fields: z.array(Field).default([]),
   invariants: strs,
   provisional: z.boolean().default(false),
+  /** Policy mode, e.g. "owner-only", "pair-consent" (policy nodes; emitted as policyMode/2). */
+  mode: str.optional(),
   fromTemplate: Id.templateRef.optional(),
 });
 export type OntologyNode = z.infer<typeof OntologyNode>;
@@ -184,10 +186,13 @@ export const Thing = z.object({
   templateRef: str.nullable(),
   description: str,
   artifacts: z.array(ArtifactBinding),
-  sections: z.array(AnyId),
+  /** Defaults to the template's `sections` when omitted (filled in by the loader). */
+  sections: z.array(AnyId).optional(),
   purposeRefs: strs,
 });
 export type Thing = z.infer<typeof Thing>;
+/** A Thing after loading: `sections` is always present. */
+export type ResolvedThing = Thing & { sections: string[] };
 
 export const Gate = z.enum(["submission", "candidate", "selection", "promotion", "deployment", "outcome"]);
 export type Gate = z.infer<typeof Gate>;
@@ -408,10 +413,10 @@ export const Template = z.object({
 });
 export type Template = z.infer<typeof Template>;
 
-/** kits.yaml: Kits the System requires; a Kit without `version` is unpinned (readiness finding). */
-export const Kit = z.object({ id: AnyId, version: str.optional(), required: z.boolean().default(true) });
-export type Kit = z.infer<typeof Kit>;
-export const KitsFile = z.object({ kits: z.array(Kit).default([]) });
+/** kits.yaml: pinned Kits, pinned Rule Packs (`packsFor(model.kits.rulePacks)`), and the Kit ids the System requires. */
+export const Pin = z.object({ id: AnyId, version: str });
+export type Pin = z.infer<typeof Pin>;
+export const KitsFile = z.object({ kits: z.array(Pin).default([]), rulePacks: z.array(Pin).default([]), required: strs });
 export type KitsFile = z.infer<typeof KitsFile>;
 
 // File containers. A list file may be a bare array or `{<key>: [...]}`.
