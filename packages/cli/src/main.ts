@@ -1,0 +1,262 @@
+import { closeSync, constants, existsSync, fchmodSync, lstatSync, openSync, readFileSync, readdirSync, writeSync, mkdirSync } from "node:fs";
+import { join, resolve } from "node:path";
+import { parseArgs } from "node:util";
+import { PlatformClient, rzPath } from "./api.ts";
+import { mergeAgentsBlock, renderAgentsMd } from "./agents-md.ts";
+import { CliError, assertId, assertRemote, assertToken, commitIfDirty, git, isTracked } from "./git.ts";
+import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
+
+export interface Io {
+  out: (s: string) => void;
+  err: (s: string) => void;
+  cwd: string;
+  env: Record<string, string | undefined>;
+}
+
+const CONFIG = ".artyfact.json";
+
+/** Write a file without ever following a symlink at the target (O_NOFOLLOW) and refuse symlinked paths. */
+function safeWrite(path: string, data: string, mode = 0o644, append = false): void {
+  if (existsSync(path) || isLink(path)) {
+    if (lstatSync(path).isSymbolicLink()) throw new CliError(`refusing to write through symlink: ${path}`);
+  }
+  const flags = constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW | (append ? constants.O_APPEND : constants.O_TRUNC);
+  let fd: number;
+  try {
+    fd = openSync(path, flags, mode);
+  } catch (e) {
+    throw new CliError(`cannot write ${path}: ${(e as Error).message}`);
+  }
+  try {
+    writeSync(fd, data);
+    if (!append) fchmodSync(fd, mode);
+  } finally {
+    closeSync(fd);
+  }
+}
+
+function lstatOrNull(path: string) {
+  try { return lstatSync(path); } catch { return null; }
+}
+
+function isLink(path: string): boolean {
+  try { return lstatSync(path).isSymbolicLink(); } catch { return false; }
+}
+const DEFAULT_URL = "http://localhost:5173";
+
+const USAGE = `artyfact <command>
+
+  start <realizationId> [--dir d] [--platform url] --system sid --evolution eid   (or ARTYFACT_SYSTEM / ARTYFACT_EVOLUTION)
+  checkpoint "<message>"
+  submit [--preview-url u] [--json]
+  status [--json]
+  compose <rid> <rid> ...
+`;
+
+export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
+  const full: Io = {
+    out: io?.out ?? ((s) => process.stdout.write(`${s}\n`)),
+    err: io?.err ?? ((s) => process.stderr.write(`${s}\n`)),
+    cwd: io?.cwd ?? process.cwd(),
+    env: io?.env ?? process.env,
+  };
+  try {
+    const [cmd, ...rest] = argv;
+    switch (cmd) {
+      case "start": return await start(rest, full);
+      case "checkpoint": return await checkpoint(rest, full);
+      case "submit": return await submit(rest, full);
+      case "status": return await status(rest, full);
+      case "compose": return compose(rest, full);
+      case undefined: case "help": case "--help": full.out(USAGE); return cmd ? 0 : 1;
+      default: throw new CliError(`unknown command '${cmd}'\n${USAGE}`);
+    }
+  } catch (e) {
+    full.err(`artyfact: ${(e as Error).message}`);
+    return 1;
+  }
+}
+
+function parse(args: string[], options: Record<string, { type: "string" | "boolean" }>) {
+  try {
+    const r = parseArgs({ args, options, allowPositionals: true });
+    return { values: r.values as Record<string, string | undefined> & { json?: boolean }, positionals: r.positionals };
+  } catch (e) {
+    throw new CliError((e as Error).message);
+  }
+}
+
+function readConfig(io: Io): { cfg: WorkspaceConfig; dir: string } {
+  const dir = resolve(io.cwd);
+  const file = join(dir, CONFIG);
+  if (isLink(file)) throw new CliError(`refusing to read symlinked ${CONFIG}`);
+  if (!existsSync(file)) throw new CliError(`${CONFIG} not found in ${dir}; run 'artyfact start <realizationId>' first`);
+  let cfg: WorkspaceConfig;
+  try {
+    cfg = JSON.parse(readFileSync(file, "utf8")) as WorkspaceConfig;
+  } catch (e) {
+    throw new CliError(`invalid ${CONFIG}: ${(e as Error).message}`);
+  }
+  assertId("systemId in config", cfg.systemId);
+  assertId("realizationId in config", cfg.realizationId);
+  assertId("evolutionId in config", cfg.evolutionId);
+  assertRemote("remote in config", cfg.remote, io.env);
+  return { cfg, dir };
+}
+
+function tokenFor(io: Io): string {
+  const t = io.env.ARTYFACT_TOKEN;
+  if (!t) throw new CliError("no write token; set ARTYFACT_TOKEN for this command (it is never stored on disk)");
+  return assertToken(t);
+}
+
+async function start(args: string[], io: Io): Promise<number> {
+  const { values, positionals } = parse(args, {
+    dir: { type: "string" }, platform: { type: "string" }, system: { type: "string" }, evolution: { type: "string" },
+  });
+  const rid = positionals[0] && assertId("realization id", positionals[0]);
+  if (!rid) throw new CliError("usage: artyfact start <realizationId> [--dir <d>]")  ;
+  const platform = values.platform ?? io.env.ARTYFACT_URL ?? DEFAULT_URL;
+  const sysArg = values.system ?? io.env.ARTYFACT_SYSTEM;
+  const evoArg = values.evolution ?? io.env.ARTYFACT_EVOLUTION;
+  if (!sysArg || !evoArg)
+    throw new CliError("--system and --evolution (or ARTYFACT_SYSTEM / ARTYFACT_EVOLUTION) are required; the platform's printed CLI line includes them");
+  const sysId = assertId("system id", sysArg);
+  const evoId = assertId("evolution id", evoArg);
+  const client = new PlatformClient(platform);
+
+  const payload = await client.request<PacketPayload>("GET", rzPath(sysId, evoId, rid, "/packet"));
+  const packet = payload.packet;
+  const systemId = sysId;
+  const remote = assertRemote("workspace.remote", packet.workspace?.remote ?? payload.remote ?? payload.token?.remote, io.env);
+  const forkRepo = assertId("fork repo", packet.workspace?.fork ?? payload.realization?.workspace?.fork);
+  const realizationId = assertId("realization id", packet.realizationId ?? payload.realization?.id ?? rid);
+  // The platform must not ship credentials in the packet; drop any that slip through before writing to disk.
+  const leaked = [(packet.workspace as { token?: string } | undefined)?.token, payload.token?.value].filter((x): x is string => !!x);
+  if (packet.workspace) delete (packet.workspace as { token?: string }).token;
+  const token = io.env.ARTYFACT_TOKEN || leaked[0];
+  if (!token) throw new CliError("no write token; set ARTYFACT_TOKEN for this command (shown once when work is started)");
+  assertToken(token);
+  const secrets = [...leaked, io.env.ARTYFACT_TOKEN].filter((x): x is string => !!x);
+  const scrub = (text: string) => secrets.reduce((t, k) => t.replaceAll(k, "***"), text);
+
+  const dir = resolve(io.cwd, values.dir ?? rid);
+  if (isLink(dir)) throw new CliError(`refusing symlinked directory: ${dir}`);
+  // A non-empty target is only acceptable if it is the clone we made for this realization.
+  const reuse = existsSync(dir) && readdirSync(dir).length > 0;
+  if (reuse) {
+    const cfgPath = join(dir, CONFIG);
+    let prior: Partial<WorkspaceConfig> = {};
+    try { if (!isLink(cfgPath)) prior = JSON.parse(readFileSync(cfgPath, "utf8")); } catch { /* not ours */ }
+    const foreign = () => new CliError(`${dir} exists and is not empty; choose another --dir`);
+    if (prior.realizationId !== realizationId) throw foreign();
+    // .git and .git/info must be real directories and origin must be the validated remote.
+    for (const sub of [".git", join(".git", "info")]) {
+      const st = lstatOrNull(join(dir, sub));
+      if (sub === ".git" ? !st?.isDirectory() : st && !st.isDirectory()) throw foreign();
+    }
+    if (git(dir, ["config", "--get", "remote.origin.url"]) !== remote) throw foreign();
+  } else {
+    mkdirSync(dir, { recursive: true });
+    git(io.cwd, ["clone", "--", remote, dir], token);
+  }
+
+  const cfg: WorkspaceConfig = {
+    platform, systemId, evolutionId: evoId, realizationId, forkRepo, remote,
+    tokenExpires: payload.realization?.workspace?.tokenExpiresAt ?? payload.token?.expiresAt,
+    packetHash: packet.hash,
+  };
+  // Per-realization files stay out of the fork: exclude them unless the repo already tracks them.
+  if (isTracked(dir, "TASK_PACKET.md")) throw new CliError("TASK_PACKET.md is tracked in this repo; refusing to overwrite it");
+  const agentsTracked = isTracked(dir, "AGENTS.md");
+  const exclude = join(dir, ".git", "info", "exclude");
+  mkdirSync(join(dir, ".git", "info"), { recursive: true });
+  const existing = existsSync(exclude) ? readFileSync(exclude, "utf8") : "";
+  const have = new Set(existing.split("\n"));
+  const want = [CONFIG, "TASK_PACKET.md", ...(agentsTracked ? [] : ["AGENTS.md"])].filter((l) => !have.has(l));
+  if (want.length) safeWrite(exclude, `${existing && !existing.endsWith("\n") ? "\n" : ""}${want.join("\n")}\n`, 0o644, true);
+  safeWrite(join(dir, "TASK_PACKET.md"), scrub(packet.markdown ?? JSON.stringify(packet, null, 2)));
+  const block = scrub(renderAgentsMd(packet, systemId));
+  const agentsPath = join(dir, "AGENTS.md");
+  safeWrite(agentsPath, agentsTracked ? mergeAgentsBlock(readFileSync(agentsPath, "utf8"), block) : block);
+  safeWrite(join(dir, CONFIG), `${JSON.stringify(cfg, null, 2)}\n`, 0o600);
+
+  io.out(`Workspace ready in ${dir}`);
+  io.out(`Next: cd ${dir} && read TASK_PACKET.md, then npm install && npm run dev`);
+  io.out(`Checkpoint with 'npx artyfact checkpoint "<msg>"'; finish with 'npx artyfact submit'.`);
+  return 0;
+}
+
+async function checkpoint(args: string[], io: Io): Promise<number> {
+  const { positionals } = parse(args, {});
+  const message = positionals[0];
+  if (!message) throw new CliError('usage: artyfact checkpoint "<message>"');
+  const { cfg, dir } = readConfig(io);
+  const commit = commitIfDirty(dir, message);
+  const client = new PlatformClient(cfg.platform);
+  await client.request("POST", rzPath(cfg.systemId, cfg.evolutionId, cfg.realizationId, "/checkpoints"), { message, summary: message, commit });
+  io.out(`Checkpoint recorded at ${commit.slice(0, 12)}`);
+  return 0;
+}
+
+interface SubmitPayload { evaluations?: EvaluationRow[]; conflicts?: ConflictRow[]; candidate?: unknown }
+
+function table(rows: EvaluationRow[]): string {
+  const head = ["criterion", "verdict", "execution"];
+  const body = rows.map((r) => [r.criterion, r.verdict, r.execution]);
+  const w = head.map((h, i) => Math.max(h.length, ...body.map((b) => b[i]!.length)));
+  const line = (c: string[]) => c.map((x, i) => x.padEnd(w[i]!)).join("  ").trimEnd();
+  return [line(head), ...body.map(line)].join("\n");
+}
+
+function printEvals(io: Io, evaluations: EvaluationRow[], conflicts: ConflictRow[]) {
+  io.out(evaluations.length ? table(evaluations) : "No evaluations yet.");
+  for (const c of conflicts) io.out(`conflict [${c.kind}] ${c.subjects.join(", ")}: ${c.message}`);
+}
+
+async function submit(args: string[], io: Io): Promise<number> {
+  const { values } = parse(args, { "preview-url": { type: "string" }, json: { type: "boolean" } });
+  const { cfg, dir } = readConfig(io);
+  const token = tokenFor(io);
+  const commit = commitIfDirty(dir, "artyfact submit");
+  git(dir, ["push", "--", cfg.remote, "HEAD:main"], token);
+  const body: { commit: string; previewUrl?: string } = { commit };
+  if (values["preview-url"]) body.previewUrl = values["preview-url"];
+  const res = await new PlatformClient(cfg.platform).request<SubmitPayload>(
+    "POST", rzPath(cfg.systemId, cfg.evolutionId, cfg.realizationId, "/submit"), body);
+  if (values.json) { io.out(JSON.stringify(res, null, 2)); return 0; }
+  io.out(`Submitted ${commit.slice(0, 12)}`);
+  printEvals(io, res.evaluations ?? [], res.conflicts ?? []);
+  return 0;
+}
+
+async function status(args: string[], io: Io): Promise<number> {
+  const { values } = parse(args, { json: { type: "boolean" } });
+  const { cfg } = readConfig(io);
+  const res = await new PlatformClient(cfg.platform).request<{
+    realization?: { status?: string; workspace?: { tokenExpiresAt?: string } };
+    status?: string; evaluations?: EvaluationRow[]; conflicts?: ConflictRow[];
+  }>("GET", rzPath(cfg.systemId, cfg.evolutionId, cfg.realizationId));
+  const out = {
+    realizationId: cfg.realizationId,
+    status: res.realization?.status ?? res.status ?? "unknown",
+    evaluations: res.evaluations ?? [],
+    conflicts: res.conflicts ?? [],
+    tokenExpires: res.realization?.workspace?.tokenExpiresAt ?? cfg.tokenExpires ?? null,
+  };
+  if (values.json) { io.out(JSON.stringify(out, null, 2)); return 0; }
+  io.out(`${out.realizationId}: ${out.status}`);
+  if (out.tokenExpires) io.out(`token expires: ${out.tokenExpires}`);
+  printEvals(io, out.evaluations, out.conflicts);
+  return 0;
+}
+
+function compose(args: string[], io: Io): number {
+  if (args.length < 2) throw new CliError("usage: artyfact compose <rid> <rid> ...");
+  io.out(`'compose' is not implemented yet. Manual merge steps for ${args.join(", ")}:
+  1. artyfact start ${args[0]} --dir ./compose   (base workspace)
+  2. In ./compose: git remote add other <fork-remote-of-second-realization>; git fetch other
+  3. git merge other/main   (resolve conflicts, keeping acceptance criteria satisfied)
+  4. npm test, then 'npx artyfact submit' to submit the composed result.`);
+  return 0;
+}
