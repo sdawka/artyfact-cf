@@ -11,7 +11,7 @@
   "scripts": {
     "build": "npm run build --workspaces --if-present",
     "test": "vitest run",
-    "typecheck": "tsc -b packages/model packages/rules packages/semantic packages/templates packages/cli examples/keep-in-touch-system && npm run typecheck -w @artyfact/platform && npm run typecheck -w @artyfact/example-keep-in-touch-app",
+    "typecheck": "tsc -b packages/effects packages/model packages/rules packages/semantic packages/templates packages/cli examples/keep-in-touch-system && npm run typecheck -w @artyfact/platform && npm run typecheck -w @artyfact/example-keep-in-touch-app",
     "lint": "echo \"lint not configured\"",
     "e2e": "npm run e2e -w @artyfact/platform",
     "deploy": "npm run build -w @artyfact/platform && npm run deploy -w @artyfact/platform"
