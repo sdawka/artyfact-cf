@@ -284,6 +284,8 @@ export interface ManualCommitInput {
   /** Created first when neither `evolutionId` nor `realizationId` is given. */
   newEvolution?: CreateEvolutionRequest;
   target?: "app" | "genome";
+  /** Start-work body, used verbatim when this call starts the realization (default: editor origin, `target`, agentLabel "editor"). */
+  startWork?: StartWorkRequest;
   adminToken?: string;
 }
 export interface ManualCommitResult {
@@ -338,7 +340,8 @@ export function useManualCommit() {
       }
       let started: Awaited<ReturnType<typeof api.startWork>>;
       try {
-        started = await api.startWork(systemId, evolutionId, { origin: "editor", target: input.target ?? "app", agentLabel: "editor" }, input.adminToken);
+        const body: StartWorkRequest = input.startWork ?? { origin: "editor", target: input.target ?? "app", agentLabel: "editor" };
+        started = await api.startWork(systemId, evolutionId, body, input.adminToken);
       } catch (cause) {
         throw new ManualCommitError("startWork", { evolutionId }, cause);
       }

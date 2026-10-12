@@ -48,11 +48,11 @@ describe("useManualCommit", () => {
 });
 
 describe("useManualCommit failures and resume", () => {
-  type Call = { url: string; auth?: string };
+  type Call = { url: string; auth?: string; body?: unknown };
   const stub = (fail: "start" | "commit" | null) => {
     const calls: Call[] = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
-      calls.push({ url, auth: (init?.headers as Record<string, string> | undefined)?.authorization });
+      calls.push({ url, auth: (init?.headers as Record<string, string> | undefined)?.authorization, ...(init?.body ? { body: JSON.parse(init.body as string) } : {}) });
       if (url === "/api/systems") return json(200, { systems: [{ systemId: "s" }] });
       if (url === "/api/systems/s/evolutions") return json(201, { evolution: { id: "evolution.9" } });
       if (url.endsWith("/realizations") && init?.method === "POST")
@@ -76,17 +76,18 @@ describe("useManualCommit failures and resume", () => {
   });
 
   it("keeps the realization id and its one-time secret when the commit fails", async () => {
-    stub("commit");
-    run({ evolutionId: "evolution.9", adminToken: "adm", commit });
+    const calls = stub("commit");
+    run({ evolutionId: "evolution.9", adminToken: "adm", commit, startWork: { origin: "editor", target: "genome", agentLabel: "human:sam", role: "implementer" } });
     await waitFor(() =>
       expect(JSON.parse(screen.getByTestId("err").textContent!)).toEqual({ step: "commit", evolutionId: "evolution.9", realizationId: "r9", secret: "sec", status: 409 }));
+    expect(calls.find((c) => c.url.endsWith("/realizations"))!.body).toEqual({ origin: "editor", target: "genome", agentLabel: "human:sam", role: "implementer" });
   });
 
   it("resumes with an existing realization and secret without creating or starting anything", async () => {
     const calls = stub(null);
     run({ realizationId: "r9", secret: "sec", evolutionId: "evolution.9", commit });
     await waitFor(() => expect(screen.getByTestId("out").textContent).toContain('"r":"r9"'));
-    expect(calls.slice(1)).toEqual([{ url: "/api/systems/s/realizations/r9/commit", auth: "Bearer sec" }]);
+    expect(calls.slice(1).map((c) => [c.url, c.auth])).toEqual([["/api/systems/s/realizations/r9/commit", "Bearer sec"]]);
   });
 });
 
