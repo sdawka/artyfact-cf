@@ -21,8 +21,6 @@ interface Props {
 export function CommitRow({ row, expanded, current, now, onToggle }: Props) {
   const detailId = `commit-detail-${row.id}`;
   const build = row.builds[0];
-  // Set by the server when the row's comparison could not be computed (its counts are then zeros, not facts).
-  const loadError = (row as ChangelogRow & { loadError?: string }).loadError;
   return (
     <li id={`commit-${row.id}`} className={styles.row} data-current={current || undefined} {...(current && { "aria-current": "true" as const })}>
       <div className={styles.rowHead}>
@@ -46,7 +44,7 @@ export function CommitRow({ row, expanded, current, now, onToggle }: Props) {
             <span className={styles.rationale}>{row.rationale || "No rationale recorded."}</span>
           </span>
           <span className={styles.line}>
-            <span className={styles.summary}>{loadError ? "summary unknown" : summaryLine(row.summary)}</span>
+            <span className={styles.summary}>{row.loadError ? "summary unknown" : summaryLine(row.summary)}</span>
             {row.fakeProvider && <StatePill state="fake" title={FAKE_PROVIDER_TITLE}>System One: fake provider</StatePill>}
             {row.rationalePending && <StatusChip status="pending" label="rationale pending" tone="attention" />}
             {build && <StatusChip status={build.status} label={`${build.kind} build ${build.status}`} tone={buildTone(build.status)} />}
