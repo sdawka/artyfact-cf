@@ -1,20 +1,7 @@
-import { test, expect } from '@playwright/test';
-import { readFile, stat } from 'node:fs/promises';
-import { resolve, extname } from 'node:path';
-const dist = resolve(import.meta.dirname, '../dist');
-const types: Record<string, string> = { '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.png': 'image/png', '.xml': 'application/xml' };
-test.beforeEach(async ({ page }) => {
-  await page.route('https://artyfact.test/**', async route => {
-    const path = decodeURIComponent(new URL(route.request().url()).pathname);
-    let file = resolve(dist, '.' + path);
-    if (!file.startsWith(dist + '/') && file !== dist) return route.fulfill({ status: 404 });
-    try {
-      if ((await stat(file)).isDirectory()) file += '/index.html';
-      await route.fulfill({ body: await readFile(file), contentType: types[extname(file)] || 'text/plain',
-        headers: { 'content-security-policy': "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; object-src 'none'; base-uri 'none'; frame-ancestors 'none'; form-action 'none'" } });
-    } catch { await route.fulfill({ status: 404, body: await readFile(resolve(dist, '404.html')), contentType: 'text/html' }); }
-  });
-});
+import { test, expect, type Page } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
+import { serveDist } from './serve';
+test.beforeEach(({ page }) => serveDist(page));
 test('homepage leads to the guide and links the hosted platform', async ({ page }) => {
   await page.goto('https://artyfact.test/');
   await expect(page.getByRole('heading', { name: /Author systems together/ })).toBeVisible();
@@ -51,4 +38,47 @@ test('public content is useful without JavaScript', async ({ page }) => {
   await expect(page.getByRole('heading', { name: /One System/ })).toBeVisible();
   await expect(page.getByText('Only the owner can read a private contact.')).toBeVisible();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://artyfact.ing/model');
+});
+const orb = '[data-hero-orb] [data-effect="orb"]';
+// Headless Chromium may or may not offer WebGL2; either the live canvas or the CSS fallback is a mounted effect.
+const mounted = (page: Page) => expect(page.locator(orb)).toHaveAttribute('data-effect-mode', /^(gl|fallback)$/, { timeout: 15000 });
+function watchErrors(page: Page) {
+  const errors: string[] = [];
+  page.on('pageerror', error => errors.push(error.message));
+  page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
+  return errors;
+}
+test('hero orb mounts after hydration and answers the example System', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.goto('https://artyfact.test/');
+  await expect(page.getByText(/drawn from this System's state/)).toBeVisible();
+  await mounted(page);
+  await expect(page.locator('[data-ambient] [data-effect="ambient"]')).toHaveCount(1);
+  const slot = page.locator('[data-hero-orb]');
+  await expect(slot).toHaveAttribute('data-orb-facet', 'genome');
+  await page.getByRole('tab', { name: /Phenome/ }).click();
+  await expect(slot).toHaveAttribute('data-orb-facet', 'phenome');
+  await page.getByRole('tab', { name: /Genome/ }).click();
+  await page.getByRole('button', { name: /Wanted contact/ }).click();
+  await expect(slot).toHaveAttribute('data-orb-facet', 'purpose');
+  // The explorer stays usable above the orb.
+  await expect(page.getByRole('tabpanel')).toContainText('More wanted contact');
+  expect(errors).toEqual([]);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test('effects respect reduced motion', async ({ page }) => {
+  const errors = watchErrors(page);
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('https://artyfact.test/');
+  await mounted(page);
+  await page.getByRole('tab', { name: /Proteome/ }).click();
+  await expect(page.locator('[data-hero-orb]')).toHaveAttribute('data-orb-facet', 'proteome');
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector('.workflow-list li')!, '::before').animationName)).toBe('none');
+  expect(errors).toEqual([]);
+});
+for (const path of ['/', '/model', '/connect-agent']) test('no axe violations with effects mounted: ' + path, async ({ page }) => {
+  await page.goto('https://artyfact.test' + path);
+  await expect(page.locator('[data-ambient] [data-effect="ambient"]')).toHaveAttribute('data-effect-mode', /^(gl|fallback)$/, { timeout: 15000 });
+  const { violations } = await new AxeBuilder({ page }).analyze();
+  expect(violations.map(v => v.id + ': ' + v.nodes.map(n => n.target.join(' ')).join(', '))).toEqual([]);
 });
