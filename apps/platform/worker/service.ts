@@ -7,7 +7,7 @@ import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
   Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
-  ReadinessResponse, RealizationResponse, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SubmitSource, SyncResponse,
+  ReadinessResponse, RealizationResponse, SystemSummary, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SubmitSource, SyncResponse,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
 import { sha256Hex } from "./util";
@@ -62,9 +62,34 @@ async function headState(env: Env, systemId: string): Promise<HeadState> {
  * Recompute the System's summary, announce it on its SSE stream (`system.updated`) and copy it into the registry
  * (`GET /api/systems`). Called after every state change the Home page shows.
  */
-export async function refreshRegistry(env: Env, systemId: string): Promise<void> {
+export async function refreshRegistry(env: Env, systemId: string): Promise<SystemSummary | null> {
   const summary = await systemStub(env, systemId).publishSummary();
   if (summary) await registryStub(env).registerSystem(summary);
+  return summary;
+}
+
+const BACKFILL_CONCURRENCY = 4;
+
+/**
+ * `GET /api/systems`. Registry rows written before the summary gained signifiers (B5) are recomputed once, here,
+ * through {@link refreshRegistry}, a few at a time; a System whose refresh fails keeps its old row.
+ */
+export async function listSystems(env: Env): Promise<SystemSummary[]> {
+  const rows = await registryStub(env).listSystems();
+  const stale = rows.filter((s) => !Array.isArray(s.signifiers));
+  if (!stale.length) return rows;
+  const fresh = new Map<string, SystemSummary>();
+  for (let i = 0; i < stale.length; i += BACKFILL_CONCURRENCY) {
+    await Promise.all(stale.slice(i, i + BACKFILL_CONCURRENCY).map(async (s) => {
+      try {
+        const out = await refreshRegistry(env, s.systemId);
+        if (out) fresh.set(s.systemId, out);
+      } catch (e) {
+        console.error(`[systems] backfilling the summary of ${s.systemId} failed: ${(e as Error)?.message ?? e}`);
+      }
+    }));
+  }
+  return rows.map((s) => fresh.get(s.systemId) ?? s);
 }
 
 // ------------------------------------------------------------------ genomes
