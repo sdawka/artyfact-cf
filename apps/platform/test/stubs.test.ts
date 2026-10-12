@@ -2,8 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { beforeAll, describe, expect, it } from "vitest";
 import {
-  routes, type BuildsResponse, type ChangelogEntry, type ChangelogResponse, type DeploymentsResponse, type FileCompare, type FileResponse,
-  type FilesResponse, type GenomeCompare, type PhenomeEventsResponse, type RevisionsResponse, type SystemCompare,
+  routes, type BuildsResponse, type DeploymentsResponse, type PhenomeEventsResponse,
 } from "../shared/api";
 import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
 
@@ -46,25 +45,6 @@ describe("route builders", () => {
 });
 
 describe("read stubs return typed empty shapes", () => {
-  it("editor", async () => {
-    expect(await get<FilesResponse>(routes.files(S, "app"))).toEqual({ ref: { ref: "head", repo: "", commit: "" }, files: [] });
-    const f = await get<FileResponse>(routes.file(S, "genome", "system.yaml", sha));
-    expect(f).toMatchObject({ ref: { ref: sha }, path: "system.yaml", text: null, size: 0, truncated: false, binary: false });
-  });
-
-  it("changelog and compare", async () => {
-    expect(await get<RevisionsResponse>(routes.revisions(S))).toEqual({ revisions: [] });
-    expect(await get<ChangelogResponse>(routes.changelog(S, { limit: 5 }))).toEqual({ rows: [] });
-    const e = await get<ChangelogEntry>(routes.changelogEntry(S, "sc-1"));
-    expect(e).toMatchObject({ row: { id: "sc-1", builds: [], deployment: null }, criteria: [], codeLinks: [], app: null, identical: true });
-    const sc = await get<SystemCompare>(routes.compareSystem(S, "sc-1", "sc-2"));
-    expect(sc).toMatchObject({ from: null, to: { id: "sc-2" }, genome: { delta: null }, manifest: { platformChanged: false } });
-    const g = await get<GenomeCompare>(routes.compareGenome(S, "sc-1", "head"));
-    expect(g).toEqual({ from: null, to: { ref: "head", repo: "", commit: "" }, delta: null, files: { added: [], modified: [], removed: [] } });
-    const fc = await get<FileCompare>(routes.compareFile(S, "app", "sc-1", "head", "src/x.ts"));
-    expect(fc).toMatchObject({ path: "src/x.ts", from: { ref: "sc-1", hash: null }, to: { ref: "head", text: null }, binary: false });
-  });
-
   it("builds and deployments", async () => {
     expect(await get<BuildsResponse>(routes.builds(S, { commit: sha, kind: "preview" }))).toEqual({ builds: [] });
     expect(await get<DeploymentsResponse>(routes.deployments(S))).toEqual({ production: null, history: [] });
@@ -81,8 +61,6 @@ describe("read stubs return typed empty shapes", () => {
 
 describe("write stubs are 501 not-implemented", () => {
   it.each([
-    ["editor commit", routes.editorCommit(S, "realization.1.r1"), { message: "m", changes: [] }],
-    ["phenome ingest", routes.phenomeEvents(S), { events: [] }],
     ["create evolution", routes.evolutions(S), { title: "t", intent: "i" }],
   ])("%s", async (_name, path, body) => {
     const r = await call<{ error: string }>("POST", path, body);

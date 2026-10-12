@@ -1,6 +1,9 @@
 // Regenerates src/fixtures/keep-in-touch.model.json from examples/keep-in-touch-system:
 // loadSystem + bundled templates, readiness from validate(model, packsFor(model.kits.rulePacks)).
+// Also writes src/fixtures/keep-in-touch.files.json ({ entries, files }) from the same tree, so the Code view
+// can browse the Genome in fixture mode. `hash` is the git blob id of the content.
 // Run: npm run build:fixture -w @artyfact/platform
+import { createHash } from "node:crypto";
 import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -9,6 +12,7 @@ import { runnerImport } from "vite";
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
 const example = join(repo, "examples/keep-in-touch-system");
 const out = fileURLToPath(new URL("../src/fixtures/keep-in-touch.model.json", import.meta.url));
+const filesOut = fileURLToPath(new URL("../src/fixtures/keep-in-touch.files.json", import.meta.url));
 if (!existsSync(join(example, "system.yaml"))) {
   console.error(`build-fixture: ${relative(repo, example)}/system.yaml not found; the example Genome is required.`);
   process.exit(1);
@@ -28,7 +32,8 @@ function readTree(dir: string, files = new Map<string, string>()) {
   return files;
 }
 
-const m = model.loadSystem(readTree(example), {
+const tree = readTree(example);
+const m = model.loadSystem(tree, {
   revision: "canonical",
   // The two packages declare structurally different Template types; runtime shapes agree.
   templates: tpl.templates as never,
@@ -54,3 +59,15 @@ const bundle = {
 };
 writeFileSync(out, `${JSON.stringify(bundle, null, 2)}\n`);
 console.log(`wrote ${relative(repo, out)}: ${m.nodes.length} nodes, ${m.criteria.length} criteria, ${findings.length} findings`);
+
+const blobId = (text: string) => {
+  const body = Buffer.from(text, "utf8");
+  return createHash("sha1").update(`blob ${body.length}\0`).update(body).digest("hex");
+};
+const paths = [...tree.keys()].sort();
+const files = {
+  entries: paths.map((path) => ({ path, hash: blobId(tree.get(path)!), size: Buffer.byteLength(tree.get(path)!, "utf8") })),
+  files: Object.fromEntries(paths.map((path) => [path, tree.get(path)!])),
+};
+writeFileSync(filesOut, `${JSON.stringify(files, null, 2)}\n`);
+console.log(`wrote ${relative(repo, filesOut)}: ${paths.length} files`);

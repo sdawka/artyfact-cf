@@ -1,11 +1,11 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { isRouteErrorResponse, Link, redirect, useRouteError, type RouteObject } from "react-router";
+import { isRouteErrorResponse, Link, Navigate, redirect, useLocation, useParams, useRouteError, type RouteObject } from "react-router";
 import { modelQuery, useModelBundle } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { OrbLoader } from "@/components/OrbLoader/OrbLoader";
 import { VIEWS, type ViewName } from "@/model/kinds";
 import { ModelProvider } from "@/model/useModel";
-import { DEFAULT_REV, DEFAULT_SYSTEM_ID, viewPath } from "@/model/useSelection";
+import { DEFAULT_REV, viewPath } from "@/model/useSelection";
 import { Shell } from "./Shell";
 import { StylePage } from "./StylePage";
 import styles from "./Shell.module.css";
@@ -18,10 +18,23 @@ export const viewModules: Record<ViewName, () => Promise<ViewModule>> = {
   map: () => import("@/views/map"),
   journeys: () => import("@/views/journeys"),
   theory: () => import("@/views/theory"),
+  code: () => import("@/views/code"),
   work: () => import("@/views/work"),
   evaluations: () => import("@/views/evaluations"),
-  history: () => import("@/views/history"),
+  changelog: () => import("@/views/changelog"),
+  compare: () => import("@/views/compare"),
+  phenome: () => import("@/views/phenome"),
 };
+
+/**
+ * `…/history` was renamed to `…/changelog`; old links keep their search params (`?commit=`, `?evolution=`) and hash.
+ * A component, not a loader: loader requests never carry the URL fragment.
+ */
+function HistoryRedirect() {
+  const { systemId, rev } = useParams();
+  const { search, hash } = useLocation();
+  return <Navigate replace to={{ pathname: viewPath(systemId!, rev!, "changelog"), search, hash }} />;
+}
 
 function SystemLayout() {
   const { data, error } = useModelBundle();
@@ -41,7 +54,7 @@ function RouteError() {
     <main className={styles.errorPage}>
       <EmptyState
         title="This System could not be loaded."
-        action={<Link className="u-marker" to={viewPath(DEFAULT_SYSTEM_ID, DEFAULT_REV, "overview")}>Open Keep in Touch</Link>}
+        action={<Link className="u-marker" to="/">Open Home</Link>}
       >
         <code>{message}</code>
       </EmptyState>
@@ -52,8 +65,9 @@ function RouteError() {
 /** Route table. A function of the QueryClient so loaders can prefetch the model bundle. */
 export function createRoutes(queryClient: QueryClient): RouteObject[] {
   return [
-    { path: "/", loader: () => redirect(viewPath(DEFAULT_SYSTEM_ID, DEFAULT_REV, "overview")) },
+    { path: "/", lazy: async () => ({ Component: (await import("@/views/home")).default }), errorElement: <RouteError /> },
     { path: "/style", element: <StylePage /> },
+    { path: "/s/:systemId", loader: ({ params }) => redirect(viewPath(params.systemId!, DEFAULT_REV, "overview")) },
     {
       path: "/s/:systemId/r/:rev",
       loader: async ({ params }) => {
@@ -68,6 +82,7 @@ export function createRoutes(queryClient: QueryClient): RouteObject[] {
       hydrateFallbackElement: <OrbLoader label="Loading model…" />,
       children: [
         { index: true, loader: ({ params }) => redirect(viewPath(params.systemId!, params.rev!, "overview")) },
+        { path: "history", element: <HistoryRedirect /> },
         ...VIEWS.map((view) => ({
           path: view,
           lazy: async () => ({ Component: (await viewModules[view]()).default }),

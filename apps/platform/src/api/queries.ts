@@ -1,6 +1,9 @@
-import { queryOptions, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { queryOptions, useInfiniteQuery, useMutation, useQuery, useQueryClient, type QueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo } from "react";
-import type { AcceptRequest, PromoteRequest, Realization, RejectRequest, StartWorkRequest } from "../../shared/api";
+import type {
+  AcceptRequest, BuildKind, CommitHash, CreateEvolutionRequest, EditorCommitRequest, EditorCommitResponse, FileScope,
+  PhenomeEventsQuery, PromoteRequest, Realization, RejectRequest, StartWorkRequest,
+} from "../../shared/api";
 import { emitFx } from "@/effects/fx";
 import { useSystemRoute } from "@/model/useSelection";
 import * as api from "./client";
@@ -8,6 +11,7 @@ import * as api from "./client";
 /** Query keys. Invalidate by prefix, e.g. `["evaluations", systemId]`. */
 export const qk = {
   systems: () => ["systems"] as const,
+  clientMode: () => ["clientMode"] as const,
   model: (systemId: string, rev: string) => ["model", systemId, rev] as const,
   readiness: (systemId: string, rev: string) => ["readiness", systemId, rev] as const,
   evolutions: (systemId: string) => ["evolutions", systemId] as const,
@@ -16,13 +20,36 @@ export const qk = {
   conflicts: (systemId: string) => ["conflicts", systemId] as const,
   history: (systemId: string) => ["history", systemId] as const,
   amendmentReview: (systemId: string, id: string) => ["amendmentReview", systemId, id] as const,
+  // Iteration 2. Every key starts with [name, systemId] so `invalidateQueries({ queryKey: [name, systemId] })` hits all variants.
+  revisions: (systemId: string) => ["revisions", systemId] as const,
+  changelog: (systemId: string, limit?: number) => ["changelog", systemId, limit ?? null] as const,
+  changelogEntry: (systemId: string, commitId: string) => ["changelogEntry", systemId, commitId] as const,
+  compare: (systemId: string, level: CompareLevel, from: string | undefined, to: string) => ["compare", systemId, level, from ?? null, to] as const,
+  compareFile: (systemId: string, repo: FileScope, from: string | undefined, to: string, path: string) =>
+    ["compareFile", systemId, repo, from ?? null, to, path] as const,
+  tree: (systemId: string, repo: FileScope, rev: string) => ["tree", systemId, repo, rev] as const,
+  file: (systemId: string, repo: FileScope, rev: string, path: string) => ["file", systemId, repo, rev, path] as const,
+  builds: (systemId: string, q: BuildsQuery = {}) => ["builds", systemId, q.realization ?? null, q.commit ?? null, q.kind ?? null] as const,
+  deployments: (systemId: string) => ["deployments", systemId] as const,
+  phenome: (systemId: string, q: PhenomeEventsQuery = {}) => ["phenome", systemId, q] as const,
 };
+
+/** `system` = two System commits (SystemCompare); `genome` = two Genome revisions (GenomeCompare). File level uses `useCompareFile`. */
+export type CompareLevel = "system" | "genome";
+export interface BuildsQuery {
+  commit?: CommitHash;
+  kind?: BuildKind;
+  realization?: string;
+}
 
 /** Used by the route loader (`ensureQueryData`) and by `useModelBundle`. */
 export const modelQuery = (systemId: string, rev: string) =>
   queryOptions({ queryKey: qk.model(systemId, rev), queryFn: () => api.getModel(systemId, rev), staleTime: 30_000 });
 
 export const useSystems = () => useQuery({ queryKey: qk.systems(), queryFn: api.getSystems });
+
+/** `api` or `fixture` (API unreachable). Invalidate `qk.clientMode()` after `resetClientMode()`. */
+export const useClientMode = () => useQuery({ queryKey: qk.clientMode(), queryFn: api.getClientMode });
 
 export function useModelBundle(systemId?: string, rev?: string) {
   const route = useSystemRoute();
@@ -78,6 +105,101 @@ export function useAmendmentReview(evolutionId: string | undefined, realizationI
   });
 }
 
+// ---------------------------------------------------------------------------
+// Iteration 2 reads. All read systemId from the route and stay disabled outside `/s/`.
+// ---------------------------------------------------------------------------
+
+/** Revision picker options (head, System commits, candidates). */
+export function useRevisions() {
+  const { systemId } = useSystemRoute();
+  return useQuery({
+    queryKey: qk.revisions(systemId),
+    queryFn: () => api.getRevisions(systemId),
+    select: (r) => r.revisions,
+    enabled: !!systemId,
+  });
+}
+
+/** Changelog rows, newest first, paged with `fetchNextPage()`; rows are `data.pages.flatMap((p) => p.rows)`. */
+export function useChangelog(opts: { limit?: number } = {}) {
+  const { systemId } = useSystemRoute();
+  return useInfiniteQuery({
+    queryKey: qk.changelog(systemId, opts.limit),
+    queryFn: ({ pageParam }) => api.getChangelog(systemId, { limit: opts.limit, before: pageParam }),
+    initialPageParam: undefined as string | undefined,
+    getNextPageParam: (last) => last.nextBefore,
+    enabled: !!systemId,
+  });
+}
+
+/** One System commit against its parent (immutable once written). */
+export function useChangelogEntry(commitId: string | null | undefined) {
+  const { systemId } = useSystemRoute();
+  return useQuery({
+    queryKey: qk.changelogEntry(systemId, commitId ?? ""),
+    queryFn: () => api.getChangelogEntry(systemId, commitId!),
+    enabled: !!systemId && !!commitId,
+    staleTime: 5 * 60_000,
+  });
+}
+
+/** `level: "system"` → `SystemCompare`, `"genome"` → `GenomeCompare`. `from` omitted = the parent of `to`. */
+export function useCompare<L extends CompareLevel>(q: { level: L; from?: string; to: string | null | undefined }) {
+  const { systemId } = useSystemRoute();
+  return useQuery({
+    queryKey: qk.compare(systemId, q.level, q.from, q.to ?? ""),
+    queryFn: (): Promise<L extends "system" ? api.CompareResult["system"] : api.CompareResult["genome"]> =>
+      (q.level === "system" ? api.getCompareSystem(systemId, { from: q.from, to: q.to! }) : api.getCompareGenome(systemId, { from: q.from, to: q.to! })) as never,
+    enabled: !!systemId && !!q.to,
+  });
+}
+
+/** One file on both sides of a compare. */
+export function useCompareFile(q: { repo: FileScope; from?: string; to: string | null | undefined; path: string | null | undefined }) {
+  const { systemId } = useSystemRoute();
+  return useQuery({
+    queryKey: qk.compareFile(systemId, q.repo, q.from, q.to ?? "", q.path ?? ""),
+    queryFn: () => api.getCompareFile(systemId, { repo: q.repo, from: q.from, to: q.to!, path: q.path! }),
+    enabled: !!systemId && !!q.to && !!q.path,
+  });
+}
+
+/** File list of `repo` at `rev` (default: the route's rev). */
+export function useTree(q: { repo: FileScope; rev?: string }) {
+  const { systemId, rev: routeRev } = useSystemRoute();
+  const rev = q.rev ?? routeRev;
+  return useQuery({ queryKey: qk.tree(systemId, q.repo, rev), queryFn: () => api.listFiles(systemId, { repo: q.repo, rev }), enabled: !!systemId });
+}
+
+/** One file's content; disabled until `path` is set. */
+export function useFile(q: { repo: FileScope; rev?: string; path: string | null | undefined }) {
+  const { systemId, rev: routeRev } = useSystemRoute();
+  const rev = q.rev ?? routeRev;
+  return useQuery({
+    queryKey: qk.file(systemId, q.repo, rev, q.path ?? ""),
+    queryFn: () => api.getFile(systemId, { repo: q.repo, rev, path: q.path! }),
+    enabled: !!systemId && !!q.path,
+  });
+}
+
+/** Builds (newest first), optionally for one realization, commit or kind. */
+export function useBuilds(q: BuildsQuery = {}) {
+  const { systemId } = useSystemRoute();
+  return useQuery({ queryKey: qk.builds(systemId, q), queryFn: () => api.getBuilds(systemId, q), select: (r) => r.builds, enabled: !!systemId });
+}
+
+/** `{ production, history }`. */
+export function useDeployments() {
+  const { systemId } = useSystemRoute();
+  return useQuery({ queryKey: qk.deployments(systemId), queryFn: () => api.getDeployments(systemId), enabled: !!systemId });
+}
+
+/** Runtime events (newest first) plus per-version counts. */
+export function usePhenomeEvents(q: PhenomeEventsQuery = {}) {
+  const { systemId } = useSystemRoute();
+  return useQuery({ queryKey: qk.phenome(systemId, q), queryFn: () => api.getPhenomeEvents(systemId, q), enabled: !!systemId });
+}
+
 /** Realizations of evolutions whose `affectedNodes` include `nodeId` (Inspector Changes tab). */
 export function useRealizationsTouching(nodeId: string | undefined): { data: Realization[]; isLoading: boolean } {
   const q = useEvolutions();
@@ -110,9 +232,7 @@ export function usePromote() {
   return useMutation({
     mutationFn: ({ body, adminToken }: { body: PromoteRequest; adminToken?: string }) => api.promote(systemId, body, adminToken),
     onSettled: () => {
-      for (const k of ["evolutions", "candidates", "history", "model", "readiness", "systems"]) {
-        void qc.invalidateQueries({ queryKey: k === "systems" ? [k] : [k, systemId] });
-      }
+      invalidate(qc, systemId, "evolutions", "candidates", "history", "changelog", "revisions", "model", "readiness", "systems");
     },
   });
 }
@@ -142,6 +262,133 @@ export function useRejectAmendment() {
   });
 }
 
+/** Admin: create an Evolution. */
+export function useCreateEvolution() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, adminToken }: { body: CreateEvolutionRequest; adminToken?: string }) => api.createEvolution(systemId, body, adminToken),
+    onSuccess: () => invalidate(qc, systemId, "evolutions", "systems"),
+  });
+}
+
+/** Input of {@link useManualCommit}. */
+export interface ManualCommitInput {
+  commit: EditorCommitRequest;
+  /** Resume: commit to this existing realization (e.g. from a {@link ManualCommitError}) instead of starting one. */
+  realizationId?: string;
+  /** The realization's secret when resuming; falls back to `adminToken`. */
+  secret?: string;
+  /** Existing Evolution to start the realization on. */
+  evolutionId?: string;
+  /** Created first when neither `evolutionId` nor `realizationId` is given. */
+  newEvolution?: CreateEvolutionRequest;
+  target?: "app" | "genome";
+  /** Start-work body, used verbatim when this call starts the realization (default: editor origin, `target`, agentLabel "editor"). */
+  startWork?: StartWorkRequest;
+  adminToken?: string;
+}
+export interface ManualCommitResult {
+  evolutionId: string | undefined;
+  realizationId: string;
+  /** The realization secret when this call started the realization (shown once; never stored). */
+  secret?: string;
+  result: EditorCommitResponse;
+}
+
+/** What a failed manual commit had already created, so the caller can retry without duplicating it. */
+export interface ManualCommitProgress {
+  evolutionId?: string;
+  realizationId?: string;
+  /** Present when this call started the realization: the only copy of its one-time secret. */
+  secret?: string;
+}
+
+/**
+ * A step of {@link useManualCommit} failed after an earlier step succeeded. Retry by passing `progress.realizationId`
+ * + `progress.secret` (or just `progress.evolutionId`) back in. `cause` is the original error (e.g. a 409 `ApiRequestError`).
+ */
+export class ManualCommitError extends Error {
+  constructor(
+    readonly step: "startWork" | "commit",
+    readonly progress: ManualCommitProgress,
+    readonly cause: unknown,
+  ) {
+    super(cause instanceof Error ? cause.message : String(cause));
+    this.name = "ManualCommitError";
+  }
+}
+
+/**
+ * A manual commit from the editor. With `realizationId` (+ `secret`) it only commits. Otherwise it starts an
+ * `origin: "editor"` realization on `evolutionId`, creating the Evolution first from `newEvolution`; creating and starting
+ * need `adminToken`. A failure after the Evolution or realization exists throws {@link ManualCommitError} with what exists.
+ */
+export function useManualCommit() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation<ManualCommitResult, Error, ManualCommitInput>({
+    mutationFn: async (input) => {
+      if (input.realizationId) {
+        const result = await api.commitFiles(systemId, input.realizationId, input.commit, input.secret ?? input.adminToken);
+        return { evolutionId: input.evolutionId, realizationId: input.realizationId, result };
+      }
+      let evolutionId = input.evolutionId;
+      if (!evolutionId) {
+        if (!input.newEvolution) throw new Error("Pick an Evolution or describe a new one.");
+        evolutionId = (await api.createEvolution(systemId, input.newEvolution, input.adminToken)).evolution.id;
+      }
+      let started: Awaited<ReturnType<typeof api.startWork>>;
+      try {
+        const body: StartWorkRequest = input.startWork ?? { origin: "editor", target: input.target ?? "app", agentLabel: "editor" };
+        started = await api.startWork(systemId, evolutionId, body, input.adminToken);
+      } catch (cause) {
+        throw new ManualCommitError("startWork", { evolutionId }, cause);
+      }
+      const progress = { evolutionId, realizationId: started.realization.id, secret: started.secret };
+      try {
+        const result = await api.commitFiles(systemId, started.realization.id, input.commit, started.secret);
+        return { ...progress, result };
+      } catch (cause) {
+        throw new ManualCommitError("commit", progress, cause);
+      }
+    },
+    onSettled: () => invalidate(qc, systemId, "evolutions", "candidates", "builds", "revisions", "tree", "file", "systems"),
+  });
+}
+
+/** Invalidates `[name, systemId]` for each name (`systems` is global: `["systems"]`). */
+function invalidate(qc: QueryClient, systemId: string, ...names: string[]) {
+  for (const k of names) void qc.invalidateQueries({ queryKey: k === "systems" ? [k] : [k, systemId] });
+}
+
+/** Every list a view may have mounted; the polling fallback (no SSE) refreshes these. */
+const LIVE_LISTS = ["evolutions", "candidates", "builds", "deployments", "phenome", "changelog", "revisions", "systems"];
+
+/**
+ * Which query prefixes each SSE event invalidates (`systems` is global). Exhaustive: `ping` invalidates nothing; `poll`
+ * (the 3 s fallback when EventSource is unavailable) refreshes the live lists. Exported for tests.
+ */
+export const SSE_INVALIDATIONS: Record<api.SseType | "poll", readonly string[]> = {
+  "realization.created": ["evolutions"],
+  "realization.updated": ["evolutions"],
+  checkpoint: ["evolutions"],
+  "evolution.updated": ["evolutions"],
+  "evaluation.completed": ["evaluations", "candidates"],
+  "candidate.submitted": ["candidates", "conflicts", "evolutions", "revisions", "builds"],
+  "conflict.detected": ["candidates", "conflicts", "evolutions"],
+  "system.promoted": ["history", "changelog", "revisions", "model", "readiness", "evolutions", "candidates", "tree", "file", "compare", "systems"],
+  "genome.accepted": ["model", "readiness", "evolutions", "changelog", "revisions", "tree", "file"],
+  "build.updated": ["builds", "candidates", "changelog", "changelogEntry", "systems"],
+  "deployment.updated": ["deployments", "changelog", "changelogEntry", "phenome", "systems"],
+  "phenome.ingested": ["phenome", "systems"],
+  "system.updated": ["systems"],
+  "system.imported": ["systems"],
+  "evolution.created": ["evolutions", "systems"],
+  ping: [],
+  poll: LIVE_LISTS,
+};
+
 /** Subscribes to System events for the current route and invalidates the affected queries. Mount once (Shell does). */
 export function useSystemEvents() {
   const { systemId } = useSystemRoute();
@@ -149,22 +396,8 @@ export function useSystemEvents() {
   useEffect(
     () =>
       api.subscribeEvents(systemId, (e) => {
-        const inv = (...keys: string[]) => keys.forEach((k) => void qc.invalidateQueries({ queryKey: [k, systemId] }));
-        switch (e.type) {
-          case "evaluation.completed":
-            return inv("evaluations", "candidates");
-          case "candidate.submitted":
-            emitFx({ kind: "submitted" });
-            return inv("candidates", "conflicts", "evolutions");
-          case "conflict.detected":
-            return inv("candidates", "conflicts", "evolutions");
-          case "system.promoted":
-            return inv("history", "model", "readiness", "evolutions", "candidates");
-          case "genome.accepted":
-            return inv("model", "readiness", "evolutions");
-          default:
-            return inv("evolutions");
-        }
+        if (e.type === "candidate.submitted") emitFx({ kind: "submitted" });
+        invalidate(qc, systemId, ...(SSE_INVALIDATIONS[e.type] ?? []));
       }),
     [systemId, qc],
   );

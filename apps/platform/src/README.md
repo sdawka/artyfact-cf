@@ -1,6 +1,6 @@
 # SPA contracts (apps/platform/src)
 
-What the view slices (Map, Journeys + Theory, Work/Evaluations/History/Overview) code against.
+What the view slices (Map, Journeys + Theory, Code, Work/Evaluations/Changelog/Compare, Deployments, Overview, Home) code against.
 Design source: `docs/design/ui.md` §C. Theme rules: `theme/README.md` (tokens only, CSS Modules,
 `.u-brackets` / `.u-segments`, only `pass` is green).
 
@@ -16,20 +16,26 @@ Design source: `docs/design/ui.md` §C. Theme rules: `theme/README.md` (tokens o
 
 ## Routes and params
 
-`/s/:systemId/r/:rev/{overview|map|journeys|theory|work|evaluations|history}`. `/` redirects to
-`/s/system.keep-in-touch/r/head/overview`; `/s/:id/r/:rev` redirects to its overview; `/style`
-is the style sheet. The `/s/:systemId/r/:rev` loader prefetches the model bundle (`modelQuery`)
-and does not re-run on search-param changes.
+`/` is **Home** (`views/home`, outside the System shell: own header, `h1 Systems`, one card per System).
+`/s/:systemId/r/:rev/{overview|map|journeys|theory|code|work|evaluations|changelog|compare|phenome}`;
+`phenome` is labelled "Deployments". `/s/:id` and `/s/:id/r/:rev` redirect to the head / that revision's overview;
+`…/history` redirects to `…/changelog` keeping its search params; `/style` is the style sheet; anything else shows
+`RouteError` with an "Open Home" link. The `/s/:systemId/r/:rev` loader prefetches the model bundle (`modelQuery`) and does
+not re-run on search-param changes. View params: `code?repo=genome|app&path=&panel=commit`,
+`changelog?commit=&evolution=&panel=new`, `compare?from=&to=&level=system|genome|files&path=`, `evaluations?criterion=`,
+`phenome?deployment=&build=`. The UI says `rev`/`repo`; the client maps them to the API's `ref`/`scope`.
 
 Global params, kept by every nav link: `focus` (any indexed id), `layer`
 (`genome|proteome|phenome`, default `genome`), `candidates` (csv). View-specific params (`journey`,
-`step`, `evolution`, `realization`, `panel`, `evaluation`, `commit`) belong to their view and are
-dropped when the view changes.
+`step`, `evolution`, `realization`, `panel`, `evaluation`, `commit`, `repo`, `path`, `from`, `to`, `level`, ...) belong to
+their view and are dropped when the view changes. `useSystemRoute().systemId` is `""` outside `/s/`.
 
 **View module contract:** `views/<name>/index.tsx` default-exports a component taking no props.
 It is lazy-loaded inside `<main>`, under a `ModelProvider`, so `useModel()` and `useSelection()`
 work. Use `<h1>` for the view title.
 
+
+`views/phenome` (Deployments): builds, deployments, runtime events grouped by version key, observation criteria. `views/work/BuildChip` shows a candidate's build status (literal "unknown" when none); `views/overview/DeployCard` reads `useDeployments()`.
 ## Model (`model/`)
 
 `useModel()` returns `ModelApi` (throws outside the provider; `useModelOptional()` returns null):
@@ -86,7 +92,9 @@ view. Any other `rev` is treated as a candidate id and scopes to itself. `ModelP
 the scope; prefer `useModel().verdictOf` and `useModel().rollup`.
 
 `kinds.ts`: `KINDS` / `kindInfo(kind)` (glyph + label for every kind), `bestViewFor(kind)`,
-`VIEWS`, `VIEW_LABELS`.
+`VIEWS`, `VIEW_LABELS`, `VIEW_GLYPHS`, `VIEW_GROUPS` (Overview, then Genome · Proteome · Phenome), `GO_KEYS`.
+`time.ts`: `relTime(iso, now)`, `shortSha(hash)`, `useNow(ms)` (literal "unknown" for missing values).
+`revisions.ts`: `RevisionOption`, `shortRev(ref)`, `revisionGroups(options, value?)`.
 
 ## API (`api/`)
 
@@ -95,26 +103,38 @@ AssayHook, Journey, Evolution, Realization, CandidateManifest, SystemCommit` fro
 `ReadinessReport.modelReadiness.findings` carries model `Finding`s (`rule`, `level`, `subject?`).
 `ModelBundle.source?` is set by the client.
 
-`client.ts` keeps every route in `paths` (all under `/api/systems/:id/...`). Reads: `getSystems,
-getModel(systemId, rev) → UiBundle, getReadiness, getEvolutions, getCandidates,
-getEvaluations(systemId, {candidate?}), getConflicts, getHistory`. Writes: `startWork,
-promote` (a 409 rejects with `StaleBaseError { currentHead }`) and `acceptAmendment`.
-`subscribeEvents(systemId, onEvent)` uses an EventSource and falls back to `{type:'poll'}` every 3 s.
+`client.ts` keeps every route in `paths` (all under `/api/systems/:id/...`; iteration-2 paths come from
+`shared/api.ts` `routes`). Reads: `getSystems, getModel(systemId, rev) → UiBundle, getReadiness, getEvolutions,
+getCandidates, getEvaluations(systemId, {candidate?}), getConflicts, getHistory, getRevisions, getChangelog(systemId,
+{limit?, before?}), getChangelogEntry, getCompareSystem / getCompareGenome(systemId, {from?, to}), getCompareFile(systemId,
+{repo, from?, to, path}), listFiles(systemId, {repo, rev?}), getFile(systemId, {repo, rev?, path}), getBuilds(systemId,
+{commit?, kind?, realization?}), getDeployments, getPhenomeEvents(systemId, query), getClientMode() → 'api' | 'fixture'`.
+Writes: `startWork, promote` (a 409 rejects with `StaleBaseError { currentHead }`), `acceptAmendment`, `rejectAmendment`,
+`createEvolution(systemId, body, adminToken)`, `commitFiles(systemId, realizationId, body, token)` (token = the realization
+secret or the admin token; all send `Authorization: Bearer`).
+`subscribeEvents(systemId, onEvent)` uses an EventSource (`SSE_TYPES`) and falls back to `{type:'poll'}` every 3 s.
 
-**Fixture fallback:** if `/api/systems` fails or is empty, `getModel` serves
-`fixtures/keep-in-touch.model.json` with `source: 'fixture'`, list reads return empty lists and
-writes throw `FixtureModeError`. The TopBar then shows "fixture data" and a "Retry API" button
-(`resetClientMode()` + refetch); the cause is logged with `console.warn`. SSE falls back to
-polling only once the EventSource is `CLOSED`. The fixture is generated
-from `examples/keep-in-touch-system` by `npm run build:fixture -w @artyfact/platform`
-(`scripts/build-fixture.ts`: `loadSystem` + templates, readiness from `validate`).
+**Fixture fallback:** fixture mode means the API is **unreachable** (network error or non-2xx on `/api/systems`). A
+reachable API with no Systems is a real empty platform: Home shows "No Systems yet." with an init link. In fixture mode
+`getModel` serves `fixtures/keep-in-touch.model.json` with `source: 'fixture'`, `listFiles`/`getFile` serve the Genome
+from `fixtures/keep-in-touch.files.json` (app scope is empty), `getRevisions` returns head only, other list reads return
+empty lists, entry/compare reads 404 and writes throw `FixtureModeError`. The TopBar and Home header then show "fixture
+data" and "Retry API" (`resetClientMode()` + refetch); the cause is logged with `console.warn`. The fixture summary
+zero-fills the iteration-2 `SystemSummary` fields. Both fixture files are generated from `examples/keep-in-touch-system`
+by `npm run build:fixture -w @artyfact/platform` (`scripts/build-fixture.ts`).
 
-`queries.ts` (TanStack Query 5). Hooks read `systemId`/`rev` from the route: `useSystems,
-useModelBundle, useReadiness, useEvolutions` (polls every 5 s), `useCandidates(evolutionId),
-useEvaluations({candidate?})` (→ `Evaluation[]`), `useConflicts, useHistory,
-useRealizationsTouching(nodeId)`. Mutations: `useStartWork, usePromote,
-useAcceptAmendment`. `useSystemEvents()` is mounted once by the Shell and invalidates queries per
-event. Keys are in `qk`.
+`queries.ts` (TanStack Query 5). Hooks read `systemId`/`rev` from the route (iteration-2 hooks are disabled outside
+`/s/`): `useSystems, useClientMode, useModelBundle, useReadiness, useEvolutions` (polls every 5 s),
+`useCandidates(evolutionId), useEvaluations({candidate?})` (→ `Evaluation[]`), `useConflicts, useHistory,
+useRealizationsTouching(nodeId), useRevisions` (→ `RevisionOption[]`), `useChangelog({limit?})` (infinite: rows are
+`data.pages.flatMap(p => p.rows)`, `fetchNextPage()`), `useChangelogEntry(commitId), useCompare({level: 'system'|'genome',
+from?, to}), useCompareFile({repo, from?, to, path}), useTree({repo, rev?}), useFile({repo, rev?, path}),
+useBuilds({commit?, kind?, realization?})` (→ `Build[]`), `useDeployments()` (→ `{production, history}`),
+`usePhenomeEvents(query)`. Mutations: `useStartWork, usePromote, useAcceptAmendment, useRejectAmendment,
+useCreateEvolution, useManualCommit` (`{commit, realizationId?+token? | evolutionId? | newEvolution?, adminToken?}`:
+create the Evolution if needed, start an `origin: 'editor'` realization, then `commitFiles` with its secret).
+`useSystemEvents()` is mounted once by the Shell and invalidates per `SSE_INVALIDATIONS`. Keys are in `qk`; every key
+starts with `[name, systemId]`, so `invalidateQueries({ queryKey: [name, systemId] })` reaches every variant.
 
 ## Components (`components/<Name>/<Name>.tsx`)
 
@@ -128,6 +148,13 @@ event. Keys are in `qk`.
   `relation(args)` with NodeChips for known ids, "Copy as text" button. `derivationText(tree)` gives the same outline as a string.
 - `Meter { title, headline, segments: {key,label,count,tone: pass|fail|warn|subtle}[], caption, asOf?, emptyText? }`: one segmented
   count bar per state; each has its own scale and is never summed with another.
+- `Card { as?, title?, headingLevel?, actions?, state?, to?, children }`: the one card surface (opaque, subtle border, radius
+  md, no shadow, never nested). `to` makes the whole card one `Link` with `u-brackets` (then no `actions`). `data-state`
+  `attention` = apricot border, `unbuilt` = dashed.
+- `StatusChip { status, label?, tone?: neutral|attention|fail|pass, glyph?, title? }`: bordered status word. `tone="pass"`
+  renders only for `passed` / `pass`; `buildTone(status)` maps a build status to a tone.
+- `RevisionPicker { id, label, value, onChange, options }`: labelled native select grouped Head · System commits ·
+  Candidates (options from `useRevisions()`); an unlisted `value` stays selectable.
 - `CopyButton { value, label? }` (announces "Copied" / "Copy failed"), `EmptyState { title, children?, action?, live? }` (`live` adds `role="status"`),
   `Breadcrumbs { ids, label? }`, `KeyValue { data, omit? }` (strings that are ids render as chips).
 
@@ -157,11 +184,14 @@ Unregistered kinds use `GenericBody`, a key/value dump.
 
 ## Shell
 
-SideNav has seven links: Overview · Map · Journeys · Theory · Work · Evaluations · History. Each keeps the global params.
-
+SideNav: Overview, then three `role="group"` sections with a sentence-case heading: Genome (Map, Journeys, Theory, Code),
+Proteome (Work, Evaluations, Changelog, Compare), Phenome (Deployments). Each link keeps the global params; at 640 px and
+below labels and group headings become screen-reader only. The wordmark links to Home. The Layer switch lives in the Map
+header (visual label "Overlay", `aria-label="Layer"`); `?layer=` stays global.
 
 ⌘K / Ctrl+K opens the palette. Esc clears focus. `[` / `]` move to the previous / next sibling.
-`g` then `o m j t w e h` goes to that view. Shortcuts are ignored while typing in inputs
+`g` then `o m j t c w e l x d` goes to Overview, Map, Journeys, Theory, Code, Work, Evaluations, Changelog, Compare,
+Deployments (`h`, the old History key, opens the Changelog). Shortcuts are ignored while typing in inputs
 (`isTyping(target)`, exported from `app/Shell.tsx` for views' own shortcuts, e.g. the Map's Backspace).
 
 ## Tests
@@ -170,7 +200,9 @@ vitest + Testing Library (jsdom). Import `@/testing/render` and call
 `renderApp(url, routes?, seed?)`. It cleans up, stubs `fetch` offline, polyfills cmdk's jsdom gaps
 and preloads the fixture bundle. `routes` replaces the real route table. `seed(qc)` runs before
 rendering to put more data in the cache, e.g. `qc.setQueryData(qk.evaluations(systemId), { evaluations })`.
-It returns `{ router, qc, ...renderResult }`. Tests may import `@/api/fixtures` directly; app
+It returns `{ router, qc, ...renderResult }`. E2E: `e2e/mockApi.ts` `mockApi(page, overrides?)` fulfils `/api/**`
+from realistic data (two Systems, changelog, compare, files, builds, deployments, Phenome events) for populated visuals in
+fixture mode. Tests may import `@/api/fixtures` directly; app
 code must not import it statically, because `client.ts` loads it with `import()` to keep the
 JSON out of the main chunk.
 Navigation is async under the data router, so wrap URL assertions in `waitFor`.

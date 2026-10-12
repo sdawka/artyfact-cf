@@ -2,9 +2,20 @@ import { expect, test } from "@playwright/test";
 import { checkA11yAndShoot, open, SYSTEM } from "./helpers";
 
 test.describe("shell", () => {
-  test("root redirects to the overview", async ({ page }) => {
+  test("root is Home and a System card opens its overview", async ({ page }) => {
     await page.goto("/");
+    await expect(page.getByRole("heading", { level: 1, name: "Systems" })).toBeVisible();
+    await page.getByRole("link", { name: /Keep in Touch/ }).click();
     await expect(page).toHaveURL(new RegExp(`${SYSTEM}/overview$`));
+    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    await page.getByRole("link", { name: "artyfact" }).click();
+    await expect(page).toHaveURL(/\/$/);
+  });
+
+  test("old History links land on the Changelog with their params", async ({ page }) => {
+    await page.goto(`${SYSTEM}/history?commit=sc-1`);
+    await expect(page).toHaveURL(new RegExp(`${SYSTEM}/changelog\\?commit=sc-1$`));
+    await expect(page.getByRole("heading", { level: 1, name: "Changelog" })).toBeVisible();
   });
 
   test("command palette opens with Ctrl+K and navigates", async ({ page }, testInfo) => {
@@ -32,11 +43,33 @@ test.describe("shell", () => {
   test("side nav reaches every view and keeps the layer param", async ({ page }) => {
     await page.goto(`${SYSTEM}/overview?layer=phenome`);
     const nav = page.getByRole("navigation", { name: "Views" });
-    for (const [name, url] of [["Map", "map"], ["Journeys", "journeys"], ["Theory", "theory"], ["Work", "work"], ["Evaluations", "evaluations"], ["History", "history"]] as const) {
-      await nav.getByRole("link", { name }).click();
+    const views = [
+      ["Map", "map"], ["Journeys", "journeys"], ["Theory", "theory"], ["Code", "code"], ["Work", "work"],
+      ["Evaluations", "evaluations"], ["Changelog", "changelog"], ["Compare", "compare"], ["Deployments", "phenome"], ["Overview", "overview"],
+    ] as const;
+    for (const [name, url] of views) {
+      await nav.getByRole("link", { name, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/${url}\\?.*layer=phenome`));
       await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
     }
+  });
+
+  test("narrow screens collapse the rail to glyphs and hide group heads visually", async ({ page }, testInfo) => {
+    await page.setViewportSize({ width: 390, height: 844 });
+    await page.goto(`${SYSTEM}/overview`);
+    const nav = page.getByRole("navigation", { name: "Views" });
+    await expect(nav.getByRole("group")).toHaveCount(3);
+    for (const name of ["Genome", "Proteome", "Phenome"]) {
+      const head = nav.getByText(name, { exact: true });
+      await expect(head).toBeAttached();
+      expect((await head.boundingBox())!.width).toBeLessThanOrEqual(1);
+    }
+    const label = nav.getByText("Deployments", { exact: true });
+    expect((await label.boundingBox())!.width).toBeLessThanOrEqual(1);
+    expect((await nav.boundingBox())!.width).toBeLessThan(80);
+    await nav.getByRole("link", { name: "Deployments" }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Deployments" })).toBeVisible();
+    await checkA11yAndShoot(page, testInfo, "shell-narrow");
   });
 
   test("fixture mode is announced @fixture", async ({ page }) => {

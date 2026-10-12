@@ -12,6 +12,7 @@ import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { absoluteBoxes, requestKey, type LayoutRequest, type LayoutResult } from "@/graph/elk";
 import { useElkLayout } from "@/graph/useElkLayout";
 import { isTyping } from "@/app/Shell";
+import { LayerSwitch } from "@/app/LayerSwitch";
 import { useEvolutions } from "@/api/queries";
 import { announceSelect, flowNodeElement } from "@/effects/ambientEvents";
 import { kindInfo } from "@/model/kinds";
@@ -394,6 +395,10 @@ export function MapView() {
           <div className={styles.titleRow}>
             <h1 id="map-title" className={styles.h1}>Map</h1>
             <Breadcrumbs ids={path(graph.scope).map((e) => e.id)} label="Map scope" />
+            <div className={styles.overlay}>
+              <span aria-hidden="true">Overlay</span>
+              <LayerSwitch />
+            </div>
           </div>
           <div className={styles.hints}>
             <CertaintyLegend />

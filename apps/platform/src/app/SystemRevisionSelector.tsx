@@ -1,5 +1,6 @@
 import { useNavigate, useSearchParams } from "react-router";
-import { useHistory, useSystems } from "@/api/queries";
+import { useRevisions, useSystems } from "@/api/queries";
+import { revisionGroups } from "@/model/revisions";
 import { useModel } from "@/model/useModel";
 import { useSystemRoute, viewPath } from "@/model/useSelection";
 import { StatePill, type RevisionState } from "./StatePill";
@@ -18,7 +19,7 @@ export function SystemRevisionSelector() {
   const navigate = useNavigate();
   const { bundle } = useModel();
   const { data: systems = [] } = useSystems();
-  const { data: commits = [] } = useHistory();
+  const { data: revisions = [] } = useRevisions();
   const candidates = (params.get("candidates") ?? "").split(",").filter(Boolean);
   const go = (s: string, r: string) => {
     const qs = params.toString();
@@ -27,8 +28,7 @@ export function SystemRevisionSelector() {
   const systemOptions = systems.some((s) => s.systemId === systemId)
     ? systems
     : [{ systemId, title: bundle.model.system.name }, ...systems];
-  const revOptions = ["head", ...commits.map((c) => c.id)];
-  if (!revOptions.includes(rev)) revOptions.push(rev);
+  const revOptions = revisions.some((r) => r.id === "head") ? revisions : [{ id: "head", kind: "head" as const, label: "head" }, ...revisions];
   return (
     <div className={styles.selector}>
       <label className={styles.field}>
@@ -42,8 +42,12 @@ export function SystemRevisionSelector() {
       <label className={styles.field}>
         <span className="sr-only">Revision</span>
         <select className={styles.select} value={rev} onChange={(e) => go(systemId, e.target.value)}>
-          {revOptions.map((r) => (
-            <option key={r} value={r}>{r === "head" ? "head" : r.slice(0, 10)}</option>
+          {revisionGroups(revOptions, rev).map((g) => (
+            <optgroup key={g.label} label={g.label}>
+              {g.options.map((r) => (
+                <option key={r.id} value={r.id}>{r.label}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
       </label>

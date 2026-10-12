@@ -403,7 +403,7 @@ describe("PromotionPanel", () => {
     await waitFor(() => expect(screen.queryByRole("group", { name: "Blocking" })).toBeNull());
   });
 
-  it("confirms success and links to History", async () => {
+  it("confirms success and links to the Changelog", async () => {
     stubApi(() => json(200, { commit: commit({ id: "newcommit0000" }), rejected: ["cand.2"] }), allPass());
     const fx: string[] = [];
     const onFx = (e: Event) => fx.push((e as CustomEvent<{ kind: string; strength?: number }>).detail.kind);
@@ -412,7 +412,7 @@ describe("PromotionPanel", () => {
     await fill();
     fireEvent.click(submit());
     expect(await screen.findByText(/newcomm/)).toBeTruthy();
-    expect(screen.getByRole("link", { name: "Open in History" }).getAttribute("href")).toContain("commit=newcommit0000");
+    expect(screen.getByRole("link", { name: "Open in Changelog" }).getAttribute("href")).toContain("commit=newcommit0000");
     window.removeEventListener("artyfact:fx", onFx);
     expect(fx).toContain("promoted");
   });
@@ -426,5 +426,19 @@ describe("itemVerdict (server gate items)", () => {
     expect(itemVerdict({ criterion: "c", verdict: "pass", execution: "running" })).toBe("not-run");
     expect(itemVerdict({ criterion: "c", verdict: "missing", execution: "missing" })).toBe("not-run");
     expect(itemVerdict({ criterion: "c", verdict: "fail", execution: "error" })).toBe("unknown");
+  });
+});
+
+describe("BuildChip", () => {
+  it("shows unknown without a build and the status with a preview link", async () => {
+    const { BuildChip } = await import("./BuildChip");
+    const { container, rerender } = render(<BuildChip />);
+    expect(screen.getByText("build unknown")).toBeTruthy();
+    expect(container.querySelector('[data-tone="pass"]')).toBeNull();
+    rerender(<BuildChip build={{ id: "b", status: "passed", kind: "preview", commit: "abc", url: "https://p.example.dev" }} />);
+    expect(screen.getByText("build passed").getAttribute("data-tone")).toBe("pass");
+    expect(screen.getByRole("link", { name: "Preview" }).getAttribute("rel")).toContain("noopener");
+    rerender(<BuildChip build={{ id: "b", status: "failed", kind: "preview", commit: "abc" }} />);
+    expect(screen.getByText("build failed").getAttribute("data-tone")).toBe("fail");
   });
 });

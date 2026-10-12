@@ -31,9 +31,20 @@
   align-items: baseline;
 }
 .h1 { margin: 0; }
+.overlay {
+  display: inline-flex;
+  margin-left: auto;
+  align-items: center;
+  gap: var(--spacing-2);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+}
+/* Compact segments so the title row stays one line when the Inspector narrows the stage. */
+.overlay :global(.u-segments) > * { padding: var(--spacing-1) var(--spacing-2); }
+/* One line: opening the Inspector must not push the canvas down (the hint truncates instead). */
 .hints {
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   gap: var(--spacing-4);
   align-items: center;
   color: var(--color-text-subtle);
@@ -55,7 +66,19 @@
   stroke: var(--color-border-strong);
   stroke-width: 1.5;
 }
-.hint { color: var(--color-text-subtle); }
+.hints > * { flex: none; }
+.hints > .hint {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--color-text-subtle);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+@media (max-width: 640px) {
+  .hints { flex-wrap: wrap; }
+  .hints > .hint { white-space: normal; }
+}
 .canvas {
   position: relative;
   flex: 1 1 auto;

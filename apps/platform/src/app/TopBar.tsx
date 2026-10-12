@@ -5,16 +5,13 @@ import { useEvaluations } from "@/api/queries";
 import { useEffectsPreference } from "@/effects/effectsPreference";
 import { FAKE_PROVIDER_TITLE, isFakeProvider } from "@/model/provider";
 import { useModel } from "@/model/useModel";
-import { useKeepParams } from "@/model/useSelection";
-import { LayerSwitch } from "./LayerSwitch";
 import { PhaseBadge } from "./PhaseBadge";
-import { StatePill } from "./StatePill";
+import { FIXTURE_TITLE, StatePill } from "./StatePill";
 import { SystemRevisionSelector } from "./SystemRevisionSelector";
 import styles from "./TopBar.module.css";
 
 export function TopBar({ onOpenPalette }: { onOpenPalette(): void }) {
   const { bundle } = useModel();
-  const href = useKeepParams();
   const qc = useQueryClient();
   const evaluations = useEvaluations();
   const effects = useEffectsPreference();
@@ -25,11 +22,11 @@ export function TopBar({ onOpenPalette }: { onOpenPalette(): void }) {
   };
   return (
     <header className={styles.bar}>
-      <Link to={href("overview")} className={`wordmark ${styles.wordmark}`}>artyfact</Link>
+      <Link to="/" className={`wordmark ${styles.wordmark}`} title="Home: all Systems">artyfact</Link>
       <SystemRevisionSelector />
       <PhaseBadge phase={bundle.model.system.phase} />
       {bundle.source === "fixture" && (
-        <StatePill state="fixture" title="The platform API is unavailable or has no Systems; showing the bundled Keep in Touch fixture.">
+        <StatePill state="fixture" title={FIXTURE_TITLE}>
           fixture data
         </StatePill>
       )}
@@ -40,7 +37,6 @@ export function TopBar({ onOpenPalette }: { onOpenPalette(): void }) {
       )}
       {fakeS1 && <StatePill state="fake" title={FAKE_PROVIDER_TITLE}>System One: fake provider</StatePill>}
       <div className={styles.spacer} />
-      <LayerSwitch />
       <button
         type="button"
         className={`u-brackets ${styles.effects}`}

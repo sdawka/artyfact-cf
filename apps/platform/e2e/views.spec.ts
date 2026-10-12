@@ -124,10 +124,10 @@ test.describe("views", () => {
     await checkA11yAndShoot(page, testInfo, "evaluations-empty");
   });
 
-  test("history empty state is never green @fixture", async ({ page }, testInfo) => {
-    await open(page, "/history", "History");
-    await expect(page.getByText(/No System commits yet/)).toBeVisible();
+  test("deployments: empty state says unknown and nothing is green", async ({ page }, testInfo) => {
+    await open(page, "/phenome", "Deployments");
+    await expect(page.getByText(/No deployments recorded/)).toContainText("unknown");
     expect(await successToneElements(page)).toEqual([]);
-    await checkA11yAndShoot(page, testInfo, "history-empty");
+    await checkA11yAndShoot(page, testInfo, "deployments");
   });
 });
