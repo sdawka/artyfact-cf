@@ -36,7 +36,7 @@ work. Use `<h1>` for the view title.
 
 | Member | Returns |
 |---|---|
-| `bundle` | `UiBundle` = `ModelBundle` with `model: ModelJson` and `source: 'api' \| 'fixture'` |
+| `bundle` | `UiBundle` = `ModelBundle` with `model: ModelJson` and `source` (`'api' \| 'fixture'`) always set |
 | `index` | the pure `ModelIndex` (also has `model` and `entries`, every indexed object in declaration order) |
 | `byId(id)` | `IndexEntry \| undefined`, which is `{ id, type, kind, name, item }` (`item` is the raw model object) |
 | `children(id)` / `parent(id)` / `siblings(id)` | `IndexEntry[]` / `IndexEntry \| undefined` / `IndexEntry[]` (containment) |
@@ -47,16 +47,21 @@ work. Use `<h1>` for the view title.
 | `journeysFor(id)` | `Journey[]` (step screen/operation/external/requirementRefs plus journey requirements/features) |
 | `requirementsFor(id)` | `Requirement[]` (by `subjects`) |
 | `path(id)` | `IndexEntry[]` from the System root down to `id`; `[entry]` outside containment; `[]` if unknown |
-| `rollup(id, {candidate?})` | `Rollup` `{ pass, fail, unknown, stale, notRun, waived }` over non-deferred criteria in the subtree |
+| `scope` | `VerdictScope` `{ source: 'selected' \| 'promoted' \| 'revision', candidates }`: whose evaluations count (see below) |
+| `evaluations` | every loaded `Evaluation` (unscoped; never show a verdict from it without `scope`) |
+| `verdictOf(criterionId)` | `UiVerdict` within `scope` |
+| `rollup(id)` | `Rollup` `{ pass, fail, unknown, stale, notRun, waived }` over non-deferred criteria in the subtree, within `scope` |
 
 Containment: System → things → nodes by `parent`; journeys → steps. **Steps are indexed as
-`<journeyId>.<stepId>`** (`stepId(j, s)` in `model/index.ts`) because step ids repeat across journeys.
+`<journeyId>/<stepId>`**, e.g. `J.connect/s4` (`stepId(j, s)` in `model/index.ts`, same as the model
+package's `stepKey`). Use that form in `?focus=` and anywhere a step is named; rule findings about
+steps use it too, so they open in the Inspector.
 `buildIndex(bundleOrModel)` is pure. Use it directly in tests and in derived hooks such as
 `useMapGraph`.
 
-`ModelJson` (`model/types.ts`) mirrors `@artyfact/model` `SystemModel` without `index`: `system,
-purposes, externals, claims (alias theory), description, kits, things, nodes, requirements,
-criteria, hooks, journeys, evolutions`. Defaulted fields are optional.
+`ModelJson` (`model/types.ts`) is `@artyfact/model`'s `SystemModel` without `index` (and with
+`templates` optional). Domain types in `model/types.ts` are aliases of the model package's
+`schema` types. The bundle comes from the loader, so defaulted fields are always present.
 
 `useSelection()` returns `{ focusId, setFocus(id | null, { view? }), layer, setLayer, candidates,
 setCandidates(ids), clear() }`. `setFocus` with a `view` navigates there and keeps the global
@@ -64,15 +69,29 @@ params; `clear()` removes `focus`, which closes the Inspector. Helpers: `useKeep
 `href(viewOrPath, extra?)` (`null` in `extra` removes a param); `useSystemRoute()` returns
 `{ systemId, rev, view }`; `viewPath(systemId, rev, view)`.
 
-`status.ts`: `verdictOf(criterionId, evaluations, {candidate?})` returns
-`'pass'|'fail'|'unknown'|'stale'|'not-run'|'waived'`. No evaluation means `not-run`. `pass` counts
-only when execution is `completed`; `errored`/`timed-out` mean `unknown`. Other exports:
-`rollup(index, nodeId, evaluations)` and `verdictTone(v)` (`pass|fail|subtle`).
+`status.ts`: `verdictOf(criterionId, evaluations, scope)` returns
+`'pass'|'fail'|'unknown'|'stale'|'not-run'|'waived'`, using the latest evaluation in scope. No
+in-scope evaluation means `not-run`. `pass` counts only when execution is `completed`;
+`not-run|queued|running|deferred` mean `not-run` and `error` means `unknown`. Other exports:
+`rollup(index, nodeId, evaluations, scope)`, `verdictTone(v)` (`pass|fail|subtle`),
+`promotedCandidates(commits, rev)` and `verdictScope(selected, commits, rev)`.
+
+**Verdict scope (binding):** with `?candidates=`, only those candidates' evaluations count.
+Without it, on `head`/`canonical` or a System commit id, only candidates promoted into that
+revision count (from History: `commits[].candidates` from that commit back). If there are none,
+every verdict is `not-run`, so an unpromoted candidate's pass never shows green on the canonical
+view. Any other `rev` is treated as a candidate id and scopes to itself. `ModelProvider` derives
+the scope; prefer `useModel().verdictOf` and `useModel().rollup`.
 
 `kinds.ts`: `KINDS` / `kindInfo(kind)` (glyph + label for every kind), `bestViewFor(kind)`,
 `VIEWS`, `VIEW_LABELS`.
 
 ## API (`api/`)
+
+DTOs: `shared/api.ts` re-exports `Verdict, Execution, Evaluation, Finding, Readiness, Criterion,
+AssayHook, Journey, Evolution, Realization, CandidateManifest, SystemCommit` from `@artyfact/model`.
+`ReadinessReport.modelReadiness.findings` carries model `Finding`s (`rule`, `level`, `subject?`).
+`ModelBundle.source?` is set by the client.
 
 `client.ts` keeps every route in `paths` (all under `/api/systems/:id/...`). Reads: `getSystems,
 getModel(systemId, rev) → UiBundle, getReadiness, getEvolutions, getRealization, getCandidates,
@@ -106,7 +125,9 @@ event. Keys are in `qk`.
 ## Inspector (`inspector/`)
 
 Open iff `focus` is set. Header: chip, kind, id + copy, containment breadcrumbs and "Open in"
-buttons (`openInViews`). Tabs: What · Why · Dependencies · Changes · Rules & claims · Evidence.
+buttons (`openInViews`). Focus (non-modal): opening moves focus to the title (`h2`, tabIndex -1).
+If the focused element disappears while it is open, focus returns to the title. Closing restores
+focus to where it was before opening, else to `<main>`. Tabs: What · Why · Dependencies · Changes · Rules & claims · Evidence.
 Changes and Evidence are stubs wired to `useRealizationsTouching` / `useEvaluations`; their
 slices may replace them by registering richer bodies or by proposing a change.
 
@@ -122,7 +143,10 @@ Every `.tsx` in `bodies/` is imported eagerly by `bodies/index.ts`, so no other 
 Calling `registerBody` from a view module also works; the Inspector re-renders when it loads.
 Unregistered kinds use `GenericBody`, a key/value dump.
 
-## Shell shortcuts
+## Shell
+
+SideNav has seven links: Overview · Map · Journeys · Theory · Work · Evaluations · History. Each keeps the global params.
+
 
 ⌘K / Ctrl+K opens the palette. Esc clears focus. `[` / `]` move to the previous / next sibling.
 `g` then `o m j t w e h` goes to that view. Shortcuts are ignored while typing in inputs.

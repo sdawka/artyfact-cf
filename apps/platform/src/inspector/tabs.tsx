@@ -1,10 +1,9 @@
 import type { ReactNode } from "react";
-import { useEvaluations, useRealizationsTouching } from "@/api/queries";
+import { useRealizationsTouching } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
 import type { IndexEntry, LinkRef } from "@/model/index";
-import { verdictOf } from "@/model/status";
 import type { Criterion, Requirement, Source, TheoryClaim } from "@/model/types";
 import { useModel } from "@/model/useModel";
 import { BodyFor } from "./bodies";
@@ -63,7 +62,7 @@ export function WhyTab({ entry }: TabProps) {
     ...(m.index.model.criteria ?? []).filter((c) => (c.sourceRefs ?? []).some((s) => reqIds.has(s))),
   ].filter((c, i, xs) => xs.findIndex((x) => x.id === c.id) === i);
 
-  const claims: TheoryClaim[] = (m.index.model.claims ?? m.index.model.theory ?? []).filter((c) => (c.activities ?? []).includes(id));
+  const claims: TheoryClaim[] = m.index.model.claims.filter((c) => c.activities.includes(id));
   const purposes = new Set<string>(claims.map((c) => c.purpose));
   const commitments = (m.index.model.description?.commitments ?? []).filter((c) => c.features.some((f) => features.has(f)));
   const crit = entry.type === "criterion" ? (entry.item as Criterion) : undefined;
@@ -163,12 +162,11 @@ export function ChangesTab({ entry }: TabProps) {
 /** Criteria about this object (owner / subject / target on three lines), rule findings and claims. */
 export function RulesTab({ entry }: TabProps) {
   const m = useModel();
-  const { data: evaluations = [] } = useEvaluations();
   const criteria = [...m.criteriaFor(entry.id), ...m.criteriaOwnedBy(entry.id)].filter(
     (c, i, xs) => xs.findIndex((x) => x.id === c.id) === i,
   );
   const findings = m.bundle.readiness.modelReadiness.findings.filter((f) => f.subject === entry.id);
-  const claims = (m.index.model.claims ?? m.index.model.theory ?? []).filter((c) => (c.activities ?? []).includes(entry.id));
+  const claims = m.index.model.claims.filter((c) => c.activities.includes(entry.id));
   if (!criteria.length && !findings.length && !claims.length) {
     return <EmptyState title="No criteria, findings or claims reference this object." />;
   }
@@ -178,7 +176,7 @@ export function RulesTab({ entry }: TabProps) {
         <section key={c.id} className={styles.card}>
           <div className={styles.cardHead}>
             <NodeChip id={c.id} size="sm" />
-            <VerdictBadge verdict={verdictOf(c.id, evaluations)} />
+            <VerdictBadge verdict={m.verdictOf(c.id)} />
           </div>
           <div className={styles.lines}>
             <div><span className={styles.muted}>Owner</span> <NodeChip id={c.ownerId} size="sm" /></div>
@@ -191,8 +189,8 @@ export function RulesTab({ entry }: TabProps) {
         <Row label="Findings">
           <ul className={styles.plain}>
             {findings.map((f, i) => (
-              <li key={`${f.ruleId}-${i}`}>
-                <code>{f.ruleId}</code> {f.severity}: {f.message}
+              <li key={`${f.rule}-${i}`}>
+                <code>{f.rule}</code> {f.level}: {f.message}
               </li>
             ))}
           </ul>
@@ -209,7 +207,7 @@ export function RulesTab({ entry }: TabProps) {
  */
 export function EvidenceTab({ entry }: TabProps) {
   const m = useModel();
-  const { data: evaluations = [] } = useEvaluations();
+  const inScope = new Set(m.scope.candidates);
   const criteria = m.criteriaFor(entry.id);
   if (!criteria.length) return <EmptyState title="No criteria have this object as their subject." />;
   return (
@@ -217,8 +215,8 @@ export function EvidenceTab({ entry }: TabProps) {
       {criteria.map((c) => (
         <li key={c.id} className={styles.cardHead}>
           <NodeChip id={c.id} size="sm" />
-          <VerdictBadge verdict={verdictOf(c.id, evaluations)} />
-          <span className={styles.muted}>{evaluations.filter((e) => e.criterion === c.id).length} evaluations</span>
+          <VerdictBadge verdict={m.verdictOf(c.id)} />
+          <span className={styles.muted}>{m.evaluations.filter((e) => e.criterion === c.id && inScope.has(e.candidate)).length} in-scope evaluations</span>
         </li>
       ))}
     </ul>

@@ -3,10 +3,11 @@ import { VIEW_LABELS, type ViewName } from "@/model/kinds";
 import { useKeepParams } from "@/model/useSelection";
 import styles from "./SideNav.module.css";
 
-/** Primary views in the rail. Journeys is reached from the Map, the Inspector and `g j`. */
+/** The seven views, in rail order. */
 export const NAV_VIEWS: { view: ViewName; glyph: string }[] = [
   { view: "overview", glyph: "◎" },
   { view: "map", glyph: "▦" },
+  { view: "journeys", glyph: "⇢" },
   { view: "theory", glyph: "△" },
   { view: "work", glyph: "⎇" },
   { view: "evaluations", glyph: "✓" },

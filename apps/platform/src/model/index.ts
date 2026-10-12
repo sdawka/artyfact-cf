@@ -49,8 +49,11 @@ export interface ModelIndex {
   path(id: string): IndexEntry[];
 }
 
-/** Journey steps are indexed under `<journeyId>.<stepId>` because step ids repeat across journeys. */
-export const stepId = (journeyId: string, step: string) => `${journeyId}.${step}`;
+/**
+ * Journey steps are indexed under `<journeyId>/<stepId>` (step ids repeat across journeys). Same
+ * format as `@artyfact/model`'s `stepKey`, so rule findings about steps resolve here.
+ */
+export const stepId = (journeyId: string, step: string) => `${journeyId}/${step}`;
 
 const push = (r: Map<string, string[]>, k: string, v: string) => {
   const xs = r.get(k);
@@ -58,10 +61,10 @@ const push = (r: Map<string, string[]>, k: string, v: string) => {
   else if (!xs.includes(v)) xs.push(v);
 };
 
-/** Builds O(1) lookup maps over a bundle (or a bare model). Pure; call once per bundle. */
+/** Builds O(1) lookup maps over a bundle (or a bare model). Pure; call once per bundle. Missing lists are treated as empty. */
 export function buildIndex(source: UiBundle | ModelJson): ModelIndex {
   const model: ModelJson = "model" in source ? source.model : source;
-  const claims = model.claims ?? model.theory ?? [];
+  const claims = model.claims ?? [];
   const things = model.things ?? [];
   const nodes = model.nodes ?? [];
   const externals = model.externals ?? [];

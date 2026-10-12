@@ -27,7 +27,7 @@ export function InspectorHeader({ entry }: { entry: IndexEntry }) {
   return (
     <header className={styles.header}>
       <div className={styles.titleRow}>
-        <h2 className={styles.title}>
+        <h2 className={styles.title} tabIndex={-1} data-inspector-title>
           <NodeChip id={entry.id} interactive={false} />
         </h2>
         <button type="button" className={`u-brackets ${styles.close}`} onClick={clear} aria-label="Close inspector">

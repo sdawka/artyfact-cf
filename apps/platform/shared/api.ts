@@ -2,12 +2,28 @@
  * Wire types shared by the Worker (apps/platform/worker) and the SPA (src/api/client.ts).
  *
  * Source of truth: docs/design/backend.md (B.2, B.4, B.5, B.7) and docs/design/ui.md (C.0, C.6).
- * Domain DTOs (Evolution, Realization, ...) mirror docs/design/model.md. `@artyfact/model` does not
- * export them yet; once it does, replace the local definitions below with
- * `export type { Evolution, ... } from "@artyfact/model"` and keep the names unchanged.
+ * Domain types (Verdict, Execution, Evaluation, Finding, Readiness, Criterion, AssayHook, Journey,
+ * Evolution, Realization, CandidateManifest, SystemCommit) are re-exported from `@artyfact/model`;
+ * only wire-specific DTOs are declared here.
  *
  * All timestamps are ISO-8601 strings. All routes are under `/api`.
  */
+
+import type { Finding, schema } from "@artyfact/model";
+
+export type { Finding, Readiness } from "@artyfact/model";
+export type Verdict = schema.Verdict;
+export type Execution = schema.Execution;
+export type Evaluation = schema.Evaluation;
+export type Criterion = schema.Criterion;
+export type AssayHook = schema.AssayHook;
+export type Journey = schema.Journey;
+export type Evolution = schema.Evolution;
+export type EvolutionState = schema.EvolutionState;
+export type Realization = schema.Realization;
+export type RealizationStatus = Realization["status"];
+export type CandidateManifest = schema.CandidateManifest;
+export type SystemCommit = schema.SystemCommit;
 
 // ---------------------------------------------------------------------------
 // Primitives
@@ -20,11 +36,6 @@ export type SystemId = string;
 export type CommitHash = string;
 /** SHA-256 hex of canonical JSON. */
 export type Sha256 = string;
-
-/** Result of evaluating one criterion. Only `pass` renders in the success colour. */
-export type Verdict = "pass" | "fail" | "unknown" | "stale" | "not-run";
-/** Whether the verifier actually ran. A `pass` without `completed` never counts. */
-export type Execution = "completed" | "not-run" | "errored" | "timed-out";
 
 export type Certainty = "declared" | "assumed" | "proposed";
 
@@ -51,16 +62,6 @@ export interface SystemSummary {
   updatedAt: string;
 }
 
-/** A finding produced by the rules engine (`@artyfact/rules`). */
-export interface Finding {
-  ruleId: string;
-  severity: "error" | "warning" | "info";
-  subject: NodeId;
-  message: string;
-  facts?: Record<string, unknown>;
-  nextAction?: string;
-}
-
 /** Readiness report: the three states are never summed. */
 export interface ReadinessReport {
   modelReadiness: { findings: Finding[]; blockers: Finding[] };
@@ -75,6 +76,8 @@ export interface ReadinessReport {
  */
 export interface ModelBundle {
   systemId: SystemId;
+  /** `fixture` when the SPA fell back to its bundled example (client-side only). */
+  source?: "api" | "fixture";
   /** Revision the model was loaded at: `canonical`, a System commit id, or a candidate id. */
   revision: string;
   genomeCommit: CommitHash;
@@ -85,54 +88,6 @@ export interface ModelBundle {
 // ---------------------------------------------------------------------------
 // Evolutions, realizations, candidates, evaluations, commits
 // ---------------------------------------------------------------------------
-
-export type EvolutionState =
-  | "proposed" | "genome-approved" | "actionable" | "realizing"
-  | "evaluated" | "promoted" | "rejected" | "withdrawn";
-
-export interface Evolution {
-  id: NodeId;
-  title: string;
-  intent: string;
-  state: EvolutionState;
-  baseRevision?: string;
-  kind: "implementation" | "genome-amendment" | "mixed";
-  affectedNodes: NodeId[];
-  affectedClaims: NodeId[];
-  genomeDelta: { op: "add" | "change" | "remove"; path: string; summary: string }[];
-  acceptanceCriteria: NodeId[];
-  requiredEvidence: string[];
-  dependsOn: NodeId[];
-  risk: "low" | "medium" | "high";
-  realizations: string[];
-  decision?: { by: string; policy: string; rationale: string; at: string };
-}
-
-export type RealizationStatus =
-  | "claimed" | "working" | "submitted" | "evaluating" | "evaluated"
-  | "selected" | "promoted" | "rejected" | "abandoned" | "awaiting-admin";
-
-export interface Realization {
-  id: string;
-  evolution: NodeId;
-  /** 1-based ordinal within the evolution (`kit-app--rN`). */
-  n: number;
-  agent: {
-    id: string;
-    harness?: string;
-    role: "implementer" | "assay-author" | "verifier" | "reviewer" | "repairer";
-  };
-  /** `app` forks the app repo; `genome` forks the Genome repo (amendment). */
-  target: "app" | "genome";
-  /** `local` = CLI on the user's machine; `hosted` = platform-run agent. */
-  mode?: "local" | "hosted";
-  workspace: { repo: string; fork: string; baseCommit: CommitHash; tokenExpiresAt?: string };
-  status: RealizationStatus;
-  checkpoints: Checkpoint[];
-  candidate?: string;
-  createdAt: string;
-  updatedAt: string;
-}
 
 export interface Checkpoint {
   seq: number;
@@ -158,20 +113,6 @@ export interface Candidate {
   state: "submitted" | "evaluated" | "selected" | "promoted" | "rejected";
 }
 
-export interface Evaluation {
-  id: string;
-  candidate: string;
-  criterion: NodeId;
-  hook: "exists" | "scope" | "genome-amendment" | "overlap" | "health" | "semantic" | (string & {});
-  execution: Execution;
-  verdict: Verdict;
-  observations: unknown;
-  /** R2 key of raw evidence, if any. */
-  evidenceKey?: string;
-  verifier: string;
-  at: string;
-}
-
 export interface ArtifactBinding {
   repo: string;
   commit: CommitHash;
@@ -183,19 +124,6 @@ export interface SystemManifest {
   artifacts: Record<NodeId, ArtifactBinding>;
   templateVersions: Record<string, string>;
   hookVersions: Record<string, string>;
-}
-
-export interface SystemCommit {
-  id: string;
-  parent: string | null;
-  manifest: SystemManifest;
-  manifestHash: Sha256;
-  evolutions: NodeId[];
-  candidates: string[];
-  rejected: string[];
-  evidence: string[];
-  decision: { by: string; policy: string; rationale: string; at: string };
-  createdAt: string;
 }
 
 // ---------------------------------------------------------------------------

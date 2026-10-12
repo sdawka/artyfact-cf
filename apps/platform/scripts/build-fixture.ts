@@ -1,7 +1,7 @@
 // Regenerates src/fixtures/keep-in-touch.model.json from examples/keep-in-touch-system:
 // loadSystem + bundled templates, readiness from validate(model, packsFor(model.kits.rulePacks)).
 // Run: npm run build:fixture -w @artyfact/platform
-import { readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { runnerImport } from "vite";
@@ -9,6 +9,10 @@ import { runnerImport } from "vite";
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
 const example = join(repo, "examples/keep-in-touch-system");
 const out = fileURLToPath(new URL("../src/fixtures/keep-in-touch.model.json", import.meta.url));
+if (!existsSync(join(example, "system.yaml"))) {
+  console.error(`build-fixture: ${relative(repo, example)}/system.yaml not found; the example Genome is required.`);
+  process.exit(1);
+}
 
 // The model and templates packages are TypeScript sources with extensionless imports; load them through Vite.
 const { module: model } = await runnerImport<typeof import("@artyfact/model")>(join(repo, "packages/model/src/index.ts"));
@@ -31,15 +35,8 @@ const m = model.loadSystem(readTree(example), {
 });
 const readiness = model.validate(m, tpl.packsFor(m.kits.rulePacks) as never);
 
-// Map @artyfact/model Readiness onto the wire ReadinessReport (shared/api.ts).
-const severity = (level: string) => (level === "error" || level === "missing" ? "error" : level === "warning" ? "warning" : "info");
-const findings = readiness.findings.map((f) => ({
-  ruleId: f.rule,
-  severity: severity(f.level),
-  subject: f.subject ?? m.system.id,
-  message: f.message,
-  facts: { level: f.level, ...(f.pack && { pack: f.pack }), leaves: f.facts },
-}));
+// The wire ReadinessReport (shared/api.ts) carries @artyfact/model Findings unchanged.
+const findings = readiness.findings;
 const active = m.criteria.filter((c) => !c.deferred).length;
 const { index: _index, templates: _templates, ...serialisable } = m;
 
@@ -49,7 +46,7 @@ const bundle = {
   genomeCommit: "0".repeat(40),
   model: serialisable,
   readiness: {
-    modelReadiness: { findings, blockers: findings.filter((f) => f.severity === "error") },
+    modelReadiness: { findings, blockers: findings.filter((f) => f.level === "error" || f.level === "missing") },
     implementationConformance: { pass: 0, fail: 0, unknown: 0, stale: 0, notRun: active },
     outcomeProgress: { observed: 0, unknown: m.claims.filter((c) => !c.deferred).length },
     computedAt: "1970-01-01T00:00:00.000Z",

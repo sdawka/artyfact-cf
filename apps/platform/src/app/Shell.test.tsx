@@ -1,5 +1,10 @@
+import type { QueryClient } from "@tanstack/react-query";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
+import type { Evaluation, Finding, SystemCommit } from "../../shared/api";
+import { fixtureBundle } from "@/api/fixtures";
+import { qk } from "@/api/queries";
+import { buildIndex } from "@/model/index";
 import { renderApp } from "@/testing/render";
 
 const BASE = "/s/system.keep-in-touch/r/head";
@@ -13,11 +18,11 @@ describe("Shell", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
   });
 
-  it("renders six nav links that preserve focus, layer and candidates", async () => {
+  it("renders seven nav links that preserve focus, layer and candidates", async () => {
     renderApp(`${BASE}/overview?layer=phenome&focus=screen.people&candidates=c1&journey=J.contacts`);
     const nav = await screen.findByRole("navigation", { name: "Views" });
     const links = within(nav).getAllByRole("link");
-    expect(links.map((l) => l.textContent)).toEqual(["◎Overview", "▦Map", "△Theory", "⎇Work", "✓Evaluations", "↺History"]);
+    expect(links.map((l) => l.textContent)).toEqual(["◎Overview", "▦Map", "⇢Journeys", "△Theory", "⎇Work", "✓Evaluations", "↺History"]);
     for (const l of links) {
       const qs = new URLSearchParams(l.getAttribute("href")!.split("?")[1]);
       expect(qs.get("layer")).toBe("phenome");
@@ -75,14 +80,16 @@ describe("Shell", () => {
   });
 
   it("[ and ] move focus between siblings", async () => {
+    const sibs = buildIndex(fixtureBundle()).siblings("screen.people").map((e) => e.id);
+    const i = sibs.indexOf("screen.people");
     const { router } = renderApp(`${BASE}/overview?focus=screen.people`);
     await screen.findByRole("complementary", { name: "Inspector" });
     key("]");
-    await waitFor(() => expect(search(router).get("focus")).toBe("screen.person"));
+    await waitFor(() => expect(search(router).get("focus")).toBe(sibs[i + 1]));
     key("[");
     await waitFor(() => expect(search(router).get("focus")).toBe("screen.people"));
     key("[");
-    await waitFor(() => expect(search(router).get("focus")).toBe("screen.today"));
+    await waitFor(() => expect(search(router).get("focus")).toBe(sibs[i - 1]));
   });
 
   it("g m goes to the Map keeping params", async () => {
@@ -97,5 +104,74 @@ describe("Shell", () => {
   it("serves the existing style page at /style", async () => {
     renderApp("/style");
     expect(await screen.findByRole("heading", { level: 1, name: "Style sheet" })).toBeTruthy();
+  });
+
+  it("moves focus to the Inspector title on open and restores it on Esc", async () => {
+    const { router } = renderApp(`${BASE}/overview`);
+    const nav = await screen.findByRole("navigation", { name: "Views" });
+    const mapLink = within(nav).getByRole("link", { name: /Map/ });
+    mapLink.focus();
+    await act(() => router.navigate(`${BASE}/overview?focus=screen.people`));
+    const inspector = await screen.findByRole("complementary", { name: "Inspector" });
+    await waitFor(() => expect(document.activeElement).toBe(within(inspector).getByRole("heading", { level: 2 })));
+    key("Escape");
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Inspector" })).toBeNull());
+    expect(document.activeElement).toBe(mapLink);
+  });
+
+  it("resizes the Inspector with the arrow keys on its handle", async () => {
+    renderApp(`${BASE}/overview?focus=screen.people`);
+    const handle = await screen.findByRole("separator", { name: "Resize Inspector" });
+    const before = Number(handle.getAttribute("aria-valuenow"));
+    act(() => void fireEvent.keyDown(handle, { key: "ArrowLeft" }));
+    expect(Number(handle.getAttribute("aria-valuenow"))).toBe(before + 16);
+    act(() => void fireEvent.keyDown(handle, { key: "ArrowRight" }));
+    expect(Number(handle.getAttribute("aria-valuenow"))).toBe(before);
+  });
+
+  it("opens rule findings about journey steps (`<journey>/<step>`) in the Inspector", async () => {
+    const finding: Finding = {
+      level: "warning", rule: "journeys.unresolved", subject: "J.connect/s4", message: "Step s4 is unresolved",
+      facts: [], derivation: { relation: "warning", tuple: [], edb: false, children: [] } as unknown as Finding["derivation"],
+    };
+    renderApp(`${BASE}/overview?focus=${encodeURIComponent("J.connect/s4")}`, undefined, (qc) => {
+      const b = fixtureBundle();
+      b.readiness.modelReadiness.findings.push(finding);
+      qc.setQueryData(qk.model("system.keep-in-touch", "head"), b);
+    });
+    const inspector = await screen.findByRole("complementary", { name: "Inspector" });
+    expect(within(inspector).getAllByText("J.connect/s4").length).toBeGreaterThan(0);
+    act(() => within(inspector).getByRole("tab", { name: "Rules & claims" }).click());
+    expect(within(inspector).getByText(/Step s4 is unresolved/)).toBeTruthy();
+  });
+
+  describe("verdict scope in the Inspector", () => {
+    const evaluation: Evaluation = {
+      id: "ev.1", candidate: "cand.unpromoted", hook: "hook.webapp.screen.people", criterion: "C.webapp.screen.people",
+      ownerId: "thing.webapp", subjectId: "screen.people", targetRef: "artifact.webapp@abc", execution: "completed",
+      verdict: "pass", verifier: "v", startedAt: "2026-10-01T00:00:00Z", observations: [], limitations: [], provenance: {},
+    };
+    const history: SystemCommit[] = [{
+      id: "sc.1", parent: null, genomeCommit: "g", manifest: [], evolutions: [], candidates: ["cand.old"], rejected: [],
+      evidence: [], decision: { by: "admin", policy: "p", rationale: "r", at: "2026-10-01T00:00:00Z" },
+    }];
+    const seed = (qc: QueryClient) => {
+      qc.setQueryData(qk.evaluations("system.keep-in-touch"), { evaluations: [evaluation] });
+      qc.setQueryData(qk.history("system.keep-in-touch"), { commits: history });
+    };
+    const screenPeopleVerdict = async () => {
+      const inspector = await screen.findByRole("complementary", { name: "Inspector" });
+      act(() => within(inspector).getByRole("tab", { name: "Rules & claims" }).click());
+      const chip = inspector.querySelector('[title="Criterion: C.webapp.screen.people"]')!;
+      return chip.closest("section")!.querySelector("[data-verdict]")!.getAttribute("data-verdict");
+    };
+    it("never shows an unpromoted candidate's pass on the canonical view", async () => {
+      renderApp(`${BASE}/overview?focus=screen.people`, undefined, seed);
+      expect(await screenPeopleVerdict()).toBe("not-run");
+    });
+    it("shows it when that candidate is selected", async () => {
+      renderApp(`${BASE}/overview?focus=screen.people&candidates=cand.unpromoted`, undefined, seed);
+      expect(await screenPeopleVerdict()).toBe("pass");
+    });
   });
 });

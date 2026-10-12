@@ -7395,416 +7395,919 @@
     "modelReadiness": {
       "findings": [
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.system.autonomy",
           "message": "Criterion C.system.autonomy has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.system.autonomy",
-                "hook.system.autonomy"
-              ],
-              [
-                "hook",
-                "hook.system.autonomy",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.system.autonomy",
+              "hook.system.autonomy"
+            ],
+            [
+              "hook",
+              "hook.system.autonomy",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.system.autonomy"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.system.autonomy",
+                  "hook.system.autonomy"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.system.autonomy",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.system.promotion",
           "message": "Criterion C.system.promotion has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.system.promotion",
-                "hook.system.promotion"
-              ],
-              [
-                "hook",
-                "hook.system.promotion",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.system.promotion",
+              "hook.system.promotion"
+            ],
+            [
+              "hook",
+              "hook.system.promotion",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.system.promotion"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.system.promotion",
+                  "hook.system.promotion"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.system.promotion",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.system.purpose",
           "message": "Criterion C.system.purpose has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.system.purpose",
-                "hook.system.purpose.model"
-              ],
-              [
-                "hook",
-                "hook.system.purpose.model",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.system.purpose",
+              "hook.system.purpose.model"
+            ],
+            [
+              "hook",
+              "hook.system.purpose.model",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.system.purpose"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.system.purpose",
+                  "hook.system.purpose.model"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.system.purpose.model",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.system.readiness",
           "message": "Criterion C.system.readiness has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.system.readiness",
-                "hook.system.readiness"
-              ],
-              [
-                "hook",
-                "hook.system.readiness",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.system.readiness",
+              "hook.system.readiness"
+            ],
+            [
+              "hook",
+              "hook.system.readiness",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.system.readiness"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.system.readiness",
+                  "hook.system.readiness"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.system.readiness",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.system.structure",
           "message": "Criterion C.system.structure has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.system.structure",
-                "hook.system.structure"
-              ],
-              [
-                "hook",
-                "hook.system.structure",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.system.structure",
+              "hook.system.structure"
+            ],
+            [
+              "hook",
+              "hook.system.structure",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.system.structure"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.system.structure",
+                  "hook.system.structure"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.system.structure",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.system.topology",
           "message": "Criterion C.system.topology has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.system.topology",
-                "hook.system.topology"
-              ],
-              [
-                "hook",
-                "hook.system.topology",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.system.topology",
+              "hook.system.topology"
+            ],
+            [
+              "hook",
+              "hook.system.topology",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.system.topology"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.system.topology",
+                  "hook.system.topology"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.system.topology",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.webapp.connection.consent",
           "message": "Criterion C.webapp.connection.consent has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.webapp.connection.consent",
-                "hook.webapp.connection.consent"
-              ],
-              [
-                "hook",
-                "hook.webapp.connection.consent",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.webapp.connection.consent",
+              "hook.webapp.connection.consent"
+            ],
+            [
+              "hook",
+              "hook.webapp.connection.consent",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.webapp.connection.consent"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.webapp.connection.consent",
+                  "hook.webapp.connection.consent"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.webapp.connection.consent",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.webapp.contact.save",
           "message": "Criterion C.webapp.contact.save has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.webapp.contact.save",
-                "hook.webapp.contact.save"
-              ],
-              [
-                "hook",
-                "hook.webapp.contact.save",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.webapp.contact.save",
+              "hook.webapp.contact.save"
+            ],
+            [
+              "hook",
+              "hook.webapp.contact.save",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.webapp.contact.save"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.webapp.contact.save",
+                  "hook.webapp.contact.save"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.webapp.contact.save",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.webapp.contact.storage",
           "message": "Criterion C.webapp.contact.storage has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.webapp.contact.storage",
-                "hook.webapp.contact.storage"
-              ],
-              [
-                "hook",
-                "hook.webapp.contact.storage",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.webapp.contact.storage",
+              "hook.webapp.contact.storage"
+            ],
+            [
+              "hook",
+              "hook.webapp.contact.storage",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.webapp.contact.storage"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.webapp.contact.storage",
+                  "hook.webapp.contact.storage"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.webapp.contact.storage",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.webapp.health",
           "message": "Criterion C.webapp.health has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.webapp.health",
-                "hook.webapp.health"
-              ],
-              [
-                "hook",
-                "hook.webapp.health",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.webapp.health",
+              "hook.webapp.health"
+            ],
+            [
+              "hook",
+              "hook.webapp.health",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.webapp.health"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.webapp.health",
+                  "hook.webapp.health"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.webapp.health",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.webapp.lifecycle.data",
           "message": "Criterion C.webapp.lifecycle.data has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.webapp.lifecycle.data",
-                "hook.webapp.lifecycle.data"
-              ],
-              [
-                "hook",
-                "hook.webapp.lifecycle.data",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.webapp.lifecycle.data",
+              "hook.webapp.lifecycle.data"
+            ],
+            [
+              "hook",
+              "hook.webapp.lifecycle.data",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.webapp.lifecycle.data"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.webapp.lifecycle.data",
+                  "hook.webapp.lifecycle.data"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.webapp.lifecycle.data",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.webapp.outgoing.single",
           "message": "Criterion C.webapp.outgoing.single has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.webapp.outgoing.single",
-                "hook.webapp.outgoing.single"
-              ],
-              [
-                "hook",
-                "hook.webapp.outgoing.single",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.webapp.outgoing.single",
+              "hook.webapp.outgoing.single"
+            ],
+            [
+              "hook",
+              "hook.webapp.outgoing.single",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.webapp.outgoing.single"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.webapp.outgoing.single",
+                  "hook.webapp.outgoing.single"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.webapp.outgoing.single",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.webapp.private.owner",
           "message": "Criterion C.webapp.private.owner has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.webapp.private.owner",
-                "hook.webapp.private.owner"
-              ],
-              [
-                "hook",
-                "hook.webapp.private.owner",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.webapp.private.owner",
+              "hook.webapp.private.owner"
+            ],
+            [
+              "hook",
+              "hook.webapp.private.owner",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.webapp.private.owner"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.webapp.private.owner",
+                  "hook.webapp.private.owner"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.webapp.private.owner",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.webapp.prompts.bounded",
           "message": "Criterion C.webapp.prompts.bounded has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.webapp.prompts.bounded",
-                "hook.webapp.prompts.bounded"
-              ],
-              [
-                "hook",
-                "hook.webapp.prompts.bounded",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.webapp.prompts.bounded",
+              "hook.webapp.prompts.bounded"
+            ],
+            [
+              "hook",
+              "hook.webapp.prompts.bounded",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.webapp.prompts.bounded"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.webapp.prompts.bounded",
+                  "hook.webapp.prompts.bounded"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.webapp.prompts.bounded",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.webapp.revocation.current",
           "message": "Criterion C.webapp.revocation.current has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.webapp.revocation.current",
-                "hook.webapp.revocation.current"
-              ],
-              [
-                "hook",
-                "hook.webapp.revocation.current",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.webapp.revocation.current",
+              "hook.webapp.revocation.current"
+            ],
+            [
+              "hook",
+              "hook.webapp.revocation.current",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.webapp.revocation.current"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.webapp.revocation.current",
+                  "hook.webapp.revocation.current"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.webapp.revocation.current",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.webapp.schedule.correct",
           "message": "Criterion C.webapp.schedule.correct has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.webapp.schedule.correct",
-                "hook.webapp.schedule.correct"
-              ],
-              [
-                "hook",
-                "hook.webapp.schedule.correct",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.webapp.schedule.correct",
+              "hook.webapp.schedule.correct"
+            ],
+            [
+              "hook",
+              "hook.webapp.schedule.correct",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.webapp.schedule.correct"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.webapp.schedule.correct",
+                  "hook.webapp.schedule.correct"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.webapp.schedule.correct",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.webapp.screen.exact",
           "message": "Criterion C.webapp.screen.exact has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.webapp.screen.exact",
-                "hook.webapp.screen.exact"
-              ],
-              [
-                "hook",
-                "hook.webapp.screen.exact",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.webapp.screen.exact",
+              "hook.webapp.screen.exact"
+            ],
+            [
+              "hook",
+              "hook.webapp.screen.exact",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.webapp.screen.exact"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.webapp.screen.exact",
+                  "hook.webapp.screen.exact"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.webapp.screen.exact",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "hook.unbound",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "hook.unbound",
           "subject": "C.webapp.screen.people",
           "message": "Criterion C.webapp.screen.people has a hook whose implementation is missing.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "criterionHook",
-                "C.webapp.screen.people",
-                "hook.webapp.screen.people"
-              ],
-              [
-                "hook",
-                "hook.webapp.screen.people",
-                "defined"
-              ]
+          "facts": [
+            [
+              "criterionHook",
+              "C.webapp.screen.people",
+              "hook.webapp.screen.people"
+            ],
+            [
+              "hook",
+              "hook.webapp.screen.people",
+              "defined"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "hook.unbound",
+              "C.webapp.screen.people"
+            ],
+            "rule": "readiness@1:39",
+            "edb": false,
+            "children": [
+              {
+                "relation": "criterionHook",
+                "tuple": [
+                  "C.webapp.screen.people",
+                  "hook.webapp.screen.people"
+                ],
+                "edb": true,
+                "children": []
+              },
+              {
+                "relation": "hook",
+                "tuple": [
+                  "hook.webapp.screen.people",
+                  "defined"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         },
         {
-          "ruleId": "kit.unpinned",
-          "severity": "warning",
+          "level": "warning",
+          "rule": "kit.unpinned",
           "subject": "auth",
           "message": "Kit auth is required but not pinned.",
-          "facts": {
-            "level": "warning",
-            "pack": "readiness@1",
-            "leaves": [
-              [
-                "kitRequired",
-                "auth"
-              ]
+          "facts": [
+            [
+              "kitRequired",
+              "auth"
             ]
-          }
+          ],
+          "derivation": {
+            "relation": "warning",
+            "tuple": [
+              "kit.unpinned",
+              "auth"
+            ],
+            "rule": "readiness@1:45",
+            "edb": false,
+            "children": [
+              {
+                "relation": "kitRequired",
+                "tuple": [
+                  "auth"
+                ],
+                "edb": true,
+                "children": []
+              }
+            ],
+            "alternatives": 1
+          },
+          "pack": "readiness@1"
         }
       ],
       "blockers": []

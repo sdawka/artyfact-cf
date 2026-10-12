@@ -29,9 +29,13 @@ export function testQueryClient() {
   return qc;
 }
 
-/** Renders the real route table (or `routes`) at `url` with the fixture bundle preloaded. */
-export function renderApp(url: string, routes?: RouteObject[]) {
+/**
+ * Renders the real route table (or `routes`) at `url` with the fixture bundle preloaded.
+ * `seed` can put more data in the cache first (e.g. `qc.setQueryData(qk.evaluations(id), ...)`).
+ */
+export function renderApp(url: string, routes?: RouteObject[], seed?: (qc: QueryClient) => void) {
   const qc = testQueryClient();
+  seed?.(qc);
   const router = createMemoryRouter(routes ?? createRoutes(qc), { initialEntries: [url] });
   const utils = render(
     <QueryClientProvider client={qc}>
