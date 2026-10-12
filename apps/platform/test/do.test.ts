@@ -36,7 +36,7 @@ async function twoCandidates(i: SystemAuthority) {
 }
 
 type Gates = Record<string, GateCriterion[]>;
-const hard = (...ids: string[]) => ids.map((id) => ({ id, severity: "hard" as const }));
+const hard = (...ids: string[]) => ids.map((id) => ({ id, severity: "hard" as const, blocking: true }));
 const promoteInput = (candidateIds: string[], expectedHead: string | null, gates: Gates = {}, rationale = "ship it") => ({
   candidateIds, expectedHead, rationale, by: "admin", gates,
   artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {},
@@ -155,7 +155,7 @@ describe("promote", () => {
   it("soft/advisory criteria never block but need a non-empty rationale", async () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
       const { c1, head } = await twoCandidates(i);
-      const gates: Gates = { [c1.id]: [...hard("C.people.list"), { id: "C.people.sorted", severity: "soft" }, { id: "C.nice", severity: "advisory" }] };
+      const gates: Gates = { [c1.id]: [...hard("C.people.list"), { id: "C.people.sorted", severity: "soft" as const, blocking: false }, { id: "C.nice", severity: "advisory" as const, blocking: false }] };
       i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "pass"), ev(c1.id, "C.people.sorted", "fail")], "evaluated");
       const refused = await i.promote(promoteInput([c1.id], head, gates, "  "));
       expect(refused).toMatchObject({ ok: false, code: "advisories-unacknowledged", blocking: [] });
@@ -165,13 +165,14 @@ describe("promote", () => {
       const out = await i.promote(promoteInput([c1.id], head, gates, "sorting can follow"));
       if (!out.ok) throw new Error(JSON.stringify(out));
       expect(out.advisories.map((a) => a.criterion)).toEqual(["C.people.sorted", "C.nice"]);
+      expect(out.commit.decision.acknowledged).toEqual(["C.people.sorted", "C.nice"]);
     });
   });
 
   it("reports advisories alongside hard blockers", async () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
       const { c1, head } = await twoCandidates(i);
-      const out = await i.promote(promoteInput([c1.id], head, { [c1.id]: [...hard("C.people.list"), { id: "C.people.sorted", severity: "soft" }] }));
+      const out = await i.promote(promoteInput([c1.id], head, { [c1.id]: [...hard("C.people.list"), { id: "C.people.sorted", severity: "soft" as const, blocking: false }] }));
       expect(out).toMatchObject({ ok: false, code: "blocked", blocking: [{ criterion: "C.people.list" }], advisories: [{ criterion: "C.people.sorted" }] });
     });
   });

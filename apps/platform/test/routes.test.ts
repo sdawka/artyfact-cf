@@ -163,6 +163,8 @@ describe("routes: import → model → start → submit → promote", () => {
     // Promotion requires the admin token.
     const body = { candidateIds: [sub.json.candidate.id], expectedHead: imp.head, rationale: "looks right" };
     expect((await call<ApiError>("POST", `/systems/${systemId}/promote`, body)).status).toBe(401);
+    const wrong = await call<ApiError>("POST", `/systems/${systemId}/promote`, body, { authorization: "Bearer nope" });
+    expect([wrong.status, wrong.json.error.code]).toEqual([403, "forbidden"]);
     const promoted = await call<PromoteResponse>("POST", `/systems/${systemId}/promote`, body, ADMIN);
     expect(promoted.status, JSON.stringify(promoted.json)).toBe(200);
     expect(promoted.json.commit.parent).toBe(imp.head);
@@ -215,8 +217,9 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(res.status).toBe(409);
     expect(res.json.error.code).toBe("blocked");
     const details = res.json.error.details as { blocking: { criterion: string }[]; advisories: { criterion: string }[] };
-    expect(details.blocking.map((b) => b.criterion).sort()).toEqual(["C.people.list", "C.system.promotion", "C.webapp.exists"]);
-    expect(details.advisories.map((b) => b.criterion)).toEqual(["C.people.sorted"]);
+    // Blocking: hard with a bound hook. C.people.sorted (soft, no hook) is an advisory.
+    expect(details.blocking.map((b) => b.criterion).sort()).toEqual(["C.people.list", "C.system.promotion"]);
+    expect(details.advisories.map((b) => b.criterion)).toContain("C.people.sorted");
   });
 
   it("C.system.promotion blocks without promotionFacts and passes with them", async () => {
@@ -246,11 +249,12 @@ describe("routes: import → model → start → submit → promote", () => {
     const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c });
     const body = { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "" };
     const refused = await call<ApiError>("POST", `/systems/${systemId}/promote`, body, ADMIN);
-    expect(refused.status).toBe(409);
+    expect(refused.status).toBe(400);
     expect(refused.json.error).toMatchObject({ code: "advisories-unacknowledged", details: { blocking: [], advisories: [{ criterion: "C.people.sorted", severity: "soft", verdict: "fail" }] } });
     const ok = await call<PromoteResponse>("POST", `/systems/${systemId}/promote`, { ...body, rationale: "sorting follows next week" }, ADMIN);
     expect(ok.status, JSON.stringify(ok.json)).toBe(200);
     expect(ok.json.advisories.map((x) => x.criterion)).toEqual(["C.people.sorted"]);
+    expect(ok.json.commit.decision.acknowledged).toEqual(["C.people.sorted"]);
   });
 
   it("detects a manifest that no longer matches the fork", async () => {
@@ -262,6 +266,7 @@ describe("routes: import → model → start → submit → promote", () => {
     const res = await call<ApiError>("POST", `/systems/${systemId}/promote`, { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "x" }, ADMIN);
     expect(res.status).toBe(409);
     expect(seen.at(-1)!.promotionFacts).toMatchObject({ manifestExact: false, evidenceFresh: false });
+    expect(res.json.error).toMatchObject({ code: "blocked", details: { blocking: [{ criterion: "C.system.promotion", verdict: "fail", execution: "completed" }] } });
   });
 
   it("rejects unknown commits and validates input", async () => {

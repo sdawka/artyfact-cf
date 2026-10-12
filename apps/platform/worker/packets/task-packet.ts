@@ -2,6 +2,7 @@ import type { schema, SystemModel } from "@artyfact/model";
 import { stringify as toYaml } from "yaml";
 import type { Certainty, TaskPacket } from "../../shared/api";
 import { globMatch, permittedGlobs, type SourceMapEntry } from "../artifacts/source-map";
+import { isBlocking } from "../promotion";
 import { canonicalJson, sha256Hex } from "../util";
 
 export interface PacketInput {
@@ -22,33 +23,13 @@ export interface PacketInput {
   genomePrefix?: string;
 }
 
-/** A hard, non-deferred criterion gated on promotion: it blocks promotion unless pass+completed. */
-const isRequired = (c: schema.Criterion) => (c.severity ?? "hard") === "hard" && !c.deferred && c.gates.includes("promotion");
-
-export interface GateCriterion { id: string; severity: "hard" | "soft" | "advisory" }
-
-/**
- * Criteria that gate promotion of a candidate of `evolution` (non-deferred, `gates` includes `promotion`),
- * drawn from the Evolution's acceptance criteria ∪ System-wide criteria whose target matches the
- * realization (artifact for app, model for genome). Hard ones block; soft/advisory ones are advisories
- * the promoter acknowledges with a rationale.
- */
-export function gateCriteria(m: SystemModel, evolution: schema.Evolution, target: "app" | "genome"): GateCriterion[] {
+/** Blocking criteria among the Evolution's acceptance criteria (hard with a bound hook; see ../promotion.ts). */
+export function requiredCriteria(m: SystemModel, evolution: schema.Evolution): string[] {
   const byId = new Map(m.criteria.map((c) => [c.id, c] as const));
-  const kind = target === "app" ? "artifact" : "model";
-  const ids = new Set(evolution.acceptanceCriteria);
-  for (const c of m.criteria) if (c.targetKind === kind) ids.add(c.id);
-  const out: GateCriterion[] = [];
-  for (const id of ids) {
+  return evolution.acceptanceCriteria.filter((id) => {
     const c = byId.get(id);
-    if (c && !c.deferred && c.gates.includes("promotion")) out.push({ id, severity: c.severity ?? "hard" });
-  }
-  return out;
-}
-
-/** Ids of the blocking (hard) gate criteria. */
-export function requiredCriteria(m: SystemModel, evolution: schema.Evolution, target: "app" | "genome"): string[] {
-  return gateCriteria(m, evolution, target).filter((g) => g.severity === "hard").map((g) => g.id);
+    return c ? isBlocking(m, c) : false;
+  });
 }
 
 export function protectedPathsFor(target: "app" | "genome"): string[] {
@@ -96,7 +77,7 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
   const acceptanceCriteria = i.evolution.acceptanceCriteria.map((id) => {
     const c = critById.get(id);
     return c
-      ? { id, title: c.title, text: c.claim, gate: isRequired(c), severity: c.severity, subject: c.subjectId, hooks: m.index.hooksByCriterion[id] ?? c.hooks }
+      ? { id, title: c.title, text: c.claim, gate: isBlocking(m, c), severity: c.severity, subject: c.subjectId, hooks: m.index.hooksByCriterion[id] ?? c.hooks }
       : { id, title: id, text: "(criterion not found in the Genome)", gate: true, severity: "hard", subject: "", hooks: [] };
   });
   const genomeExcerpts = affected

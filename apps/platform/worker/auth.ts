@@ -12,11 +12,15 @@ async function safeEqual(a: string, b: string): Promise<boolean> {
   return diff === 0;
 }
 
-/** `Authorization: Bearer <ADMIN_TOKEN>` for accept/promote. Fails closed when the secret is unset. */
+/**
+ * `Authorization: Bearer <ADMIN_TOKEN>` for admin routes. Fails closed when the secret is unset.
+ * 401 `unauthorized` when no bearer token is sent, 403 `forbidden` when it does not match.
+ */
 export const requireAdmin: MiddlewareHandler<{ Bindings: Env }> = async (c, next) => {
   const expected = c.env.ADMIN_TOKEN;
   if (!expected) throw new HttpError(503, "admin-unconfigured", "ADMIN_TOKEN is not configured");
   const m = /^Bearer\s+(.+)$/i.exec(c.req.header("authorization") ?? "");
-  if (!m || !(await safeEqual(m[1].trim(), expected))) throw new HttpError(401, "unauthorized", "admin bearer token required");
+  if (!m) throw new HttpError(401, "unauthorized", "admin bearer token required");
+  if (!(await safeEqual(m[1].trim(), expected))) throw new HttpError(403, "forbidden", "admin bearer token does not match");
   await next();
 };

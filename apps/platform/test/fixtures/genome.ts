@@ -54,9 +54,10 @@ hooks:
     assay: diff scope
     criteria: [C.system.promotion]
     tier: basic
-    engine: diff
+    engine: model-rules
     targetKind: artifact
     triggers: [submission, promotion]
+    inputs: { check: "base-current,scope-authorized,manifest-exact,evidence-fresh" }
     binding: bound
 `,
   "things/webapp/thing.yaml": `
@@ -135,6 +136,7 @@ hooks:
     engine: vitest
     targetKind: artifact
     triggers: [submission]
+    binding: bound
 `,
   "journeys/J.add.yaml": `
 id: J.add

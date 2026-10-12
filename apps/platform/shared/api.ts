@@ -220,6 +220,8 @@ export interface SystemManifest {
 
 /** The model's SystemCommit (`manifest` as artifact bindings) plus the hashed composition. The backend always sets the extras. */
 export type SystemCommit = schema.SystemCommit & {
+  /** `acknowledged`: advisory criteria the promoter accepted with the rationale. */
+  decision: { acknowledged?: NodeId[] };
   /** The hashed composition manifest. */
   composition?: SystemManifest;
   manifestHash?: Sha256;

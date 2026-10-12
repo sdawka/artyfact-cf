@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { buildGenome } from "../worker/artifacts/genome-source";
 import { loadSourceMap } from "../worker/artifacts/source-map";
-import { buildTaskPacket, gateCriteria, requiredCriteria, type PacketInput } from "../worker/packets/task-packet";
+import { buildTaskPacket, requiredCriteria, type PacketInput } from "../worker/packets/task-packet";
+import { gateCriteria } from "../worker/promotion";
 import { appFiles, genomeFiles } from "./fixtures/genome";
 
 const genome = buildGenome(new Map(Object.entries(genomeFiles).filter(([p]) => p.endsWith(".yaml"))), "g1");
@@ -87,12 +88,12 @@ describe("task packet", () => {
   });
 });
 
-describe("gateCriteria", () => {
-  it("is non-deferred promotion-gated criteria: acceptance plus System-wide for the target; hard ones block", () => {
-    expect(requiredCriteria(genome.model, evolution, "app").sort()).toEqual(["C.people.list", "C.system.promotion", "C.webapp.exists"]);
-    const soft = gateCriteria(genome.model, evolution, "app").filter((g) => g.severity !== "hard");
-    expect(soft).toEqual([{ id: "C.people.sorted", severity: "soft" }]);
-    const evo2 = genome.model.evolutions.find((e) => e.id === "evolution.2")!;
-    expect(requiredCriteria(genome.model, evo2, "genome")).toEqual([]);
+describe("gate criteria", () => {
+  it("blocking = hard with a bound hook; the rest are advisories", () => {
+    expect(requiredCriteria(genome.model, evolution)).toEqual(["C.people.list"]);
+    const ref = { id: "candidate.x", realizationId: "realization.1.r1", evolutionId: "evolution.1", target: "app" as const, commit: "c", baseCommit: "b", changedPaths: [], changedNodes: ["screen.people"] };
+    const gates = gateCriteria(genome.model, ref);
+    expect(gates.filter((g) => g.blocking).map((g) => g.id).sort()).toEqual(["C.people.list", "C.system.promotion"]);
+    expect(gates.filter((g) => !g.blocking).map((g) => g.id)).toContain("C.people.sorted");
   });
 });

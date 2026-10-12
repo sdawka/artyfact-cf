@@ -1,5 +1,5 @@
 import { DurableObject } from "cloudflare:workers";
-import type { GateCriterion } from "../packets/task-packet";
+import type { GateCriterion } from "../promotion";
 import type {
   Candidate, Checkpoint, Evaluation, GateItem, Evolution, EvolutionState, Realization, RealizationStatus, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
@@ -319,7 +319,10 @@ export class SystemAuthority extends DurableObject<Env> {
       candidates: (d.candidates as string[]) ?? [],
       rejected: (d.rejected as string[]) ?? [],
       evidence: (d.evidence as string[]) ?? [],
-      decision: { by: String(d.by ?? "platform"), policy: String(d.policy ?? "admin"), rationale: String(d.rationale ?? ""), at: String(d.at ?? r.created_at) },
+      decision: {
+        by: String(d.by ?? "platform"), policy: String(d.policy ?? "admin"), rationale: String(d.rationale ?? ""), at: String(d.at ?? r.created_at),
+        ...(Array.isArray(d.acknowledged) && { acknowledged: d.acknowledged.map(String) }),
+      },
       createdAt: String(r.created_at),
     };
   }
@@ -744,8 +747,9 @@ export class SystemAuthority extends DurableObject<Env> {
         if (!OPEN_CANDIDATE.includes(String(c.state))) throw new ConflictError("invalid-state", `candidate ${c.id} is ${c.state}`);
       }
       const items = rows.flatMap((c) => this.gateItems(String(c.id), input.gates[String(c.id)] ?? []));
-      const blocking = items.filter((i) => i.severity === "hard");
-      const advisories = items.filter((i) => i.severity !== "hard");
+      const blockingIds = new Set(rows.flatMap((c) => (input.gates[String(c.id)] ?? []).filter((g) => g.blocking).map((g) => `${c.id}|${g.id}`)));
+      const blocking = items.filter((i) => blockingIds.has(`${i.candidate}|${i.criterion}`));
+      const advisories = items.filter((i) => !blockingIds.has(`${i.candidate}|${i.criterion}`));
       if (blocking.length) throw new PromotionBlockedError("blocked", blocking, advisories);
       if (advisories.length && !input.rationale.trim()) throw new PromotionBlockedError("advisories-unacknowledged", [], advisories);
 
@@ -760,7 +764,7 @@ export class SystemAuthority extends DurableObject<Env> {
       const rejected = siblings.map((s) => String(s.id));
       const commit = this.writeCommit(prep, evolutionIds, {
         by: input.by, policy: "admin", rationale: input.rationale, candidates: ids, rejected,
-        ...(advisories.length && { advisories: advisories.map((a) => `${a.candidate}:${a.criterion}`) }),
+        ...(advisories.length && { acknowledged: [...new Set(advisories.map((a) => a.criterion))] }),
       });
       const at = nowIso();
       for (const c of rows) {

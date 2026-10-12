@@ -6,7 +6,7 @@ import { diffModels, type schema, type SystemModel } from "@artyfact/model";
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  CandidatesResponse, ConflictReport, Evolution, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  CandidatesResponse, ConflictReport, Evaluation, Evolution, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
 } from "../shared/api";
 import { artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
@@ -19,7 +19,8 @@ import type { CandidateRef, FileMap, QueueContext, SubmissionContext } from "./h
 import { hookRunner } from "./hooks/index";
 import { buildGenomeReview } from "./genome/review";
 import { readinessReport, serializeModel } from "./model-bundle";
-import { buildTaskPacket, gateCriteria, protectedPathsFor, type GateCriterion } from "./packets/task-packet";
+import { buildTaskPacket, protectedPathsFor } from "./packets/task-packet";
+import { gateCriteria, hooksOf, type GateCriterion } from "./promotion";
 
 const TOKEN_TTL_S = 21_600;
 const COMMIT_RE = /^[0-9a-f]{40}$/;
@@ -376,11 +377,11 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
   let promotionFacts: SubmissionContext["promotionFacts"];
   if (trigger === "promotion") {
     const submittedAt = (await stub.candidate(cand.id))?.submittedAt ?? "";
-    const evidence = (await stub.evaluations(cand.id)).filter((e) => e.execution === "completed");
+    const g = await canonicalGenome(env, s);
     promotionFacts = {
       currentBaseCommit: rec.target === "genome" ? s.genomeCommit : s.appSource.commit,
       manifestExact: !!cand.manifestHash && cand.manifestHash === recomputedHash,
-      evidenceFresh: exists && evidence.every((e) => !!e.finishedAt && e.finishedAt >= submittedAt),
+      evidenceFresh: exists && evidenceFresh(g.model, candidate, await stub.evaluations(cand.id), submittedAt, s.genomeCommit),
     };
   }
   const ctx: SubmissionContext = {
@@ -408,6 +409,28 @@ async function recordRun(env: Env, systemId: string, candidateId: string, run: R
   const stub = systemStub(env, systemId);
   if (run.review) await stub.putReview(candidateId, JSON.stringify(run.review));
   await stub.recordEvaluations(candidateId, run.evaluations, run.status);
+}
+
+/**
+ * `evidence-fresh`: every blocking criterion's latest evaluation was produced for this candidate's commit (its
+ * `targetRef` binds the commit, the canonical Genome it ran on, or the candidate's preview) at or after submission.
+ * Criteria whose hooks consume promotionFacts themselves (inputs.check) are excluded: they are re-run with the facts.
+ */
+function evidenceFresh(m: SystemModel, candidate: CandidateRef, evals: Evaluation[], submittedAt: string, genomeCommit: string): boolean {
+  const byId = new Map(m.criteria.map((c) => [c.id, c] as const));
+  const consumesFacts = (id: string) => {
+    const c = byId.get(id);
+    return !!c && hooksOf(m, c).some((h) => /base-current|manifest-exact|evidence-fresh/.test(h.inputs.check ?? ""));
+  };
+  const binds = (ref: string) =>
+    ref === candidate.commit || ref.endsWith(`@${candidate.commit}`) || ref === `genome@${genomeCommit}` || (!!candidate.previewUrl && ref === candidate.previewUrl);
+  const at = (e: Evaluation) => e.finishedAt ?? e.startedAt ?? "";
+  for (const g of gateCriteria(m, candidate)) {
+    if (!g.blocking || consumesFacts(g.id)) continue;
+    const latest = evals.filter((e) => e.criterion === g.id).sort((a, b) => at(b).localeCompare(at(a)))[0];
+    if (!latest || latest.candidate !== candidate.id || !binds(latest.targetRef) || !latest.finishedAt || latest.finishedAt < submittedAt) return false;
+  }
+  return true;
 }
 
 export type SubmitSource = "cli" | "event" | "sync" | "ui";
@@ -524,12 +547,10 @@ export async function promote(
     const c = await stub.candidate(id);
     if (!c) throw notFound(`unknown candidate ${id}`);
     const rec = await record(env, systemId, c.realization);
-    const evoDto = await stub.evolution(rec.evolutionId);
-    const evolution = modelEvolution(g.model, evoDto!);
-    gates[id] = gateCriteria(g.model, evolution, rec.target);
+    const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((x) => x.id === id)!;
+    gates[id] = gateCriteria(g.model, await hookRef(env, systemId, ref));
     // Revalidate on the exact commit before the CAS: hooks re-run with promotionFacts (base-current, manifest-exact, evidence-fresh).
     if (["submitted", "evaluated", "selected"].includes(c.state) && s.head === body.expectedHead) {
-      const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((x) => x.id === id)!;
       const { evaluations } = await evaluate(env, s, rec, ref, "promotion");
       if (evaluations.length) await stub.recordEvaluations(id, evaluations);
     }
@@ -538,8 +559,11 @@ export async function promote(
   if (!out.ok) {
     if (out.code === "stale-base") throw conflict("stale-base", "System head moved; reload and retry", { currentHead: out.currentHead });
     if ("blocking" in out) {
-      const msg = out.code === "blocked" ? "hard promotion criteria lack pass+completed evaluations" : "soft/advisory criteria are not green; promote with a non-empty rationale";
-      throw conflict(out.code, msg, { blocking: out.blocking, advisories: out.advisories });
+      const details = { blocking: out.blocking, advisories: out.advisories };
+      if (out.code === "advisories-unacknowledged") {
+        throw new HttpError(400, out.code, "advisory criteria are not green; acknowledge them with a non-empty rationale", details);
+      }
+      throw conflict("blocked", "blocking criteria (hard, with a bound hook) lack pass+completed evaluations", details);
     }
     if (out.code === "not-found") throw notFound(out.message);
     throw conflict(out.code, out.message);
