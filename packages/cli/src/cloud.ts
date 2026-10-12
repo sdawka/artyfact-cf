@@ -10,12 +10,14 @@ import { assertName } from "./safety.ts";
 export interface Cloud {
   /** The account both CLIs are logged in to (throws when they disagree). */
   account(): string;
+  /** The confirmed account id, once {@link account} ran (used to shorten it in error text). */
+  accountId?(): string | undefined;
   ensureNamespace(ns: string): "exists" | "created";
   repoExists(ns: string, repo: string): boolean;
   createRepo(ns: string, repo: string): void;
   /** Short-lived repo-scoped token (`plaintext`). */
   token(ns: string, repo: string, scope: "read" | "write"): string;
-  /** Fork `src` as `dst` (whole repo, default branch) and wait until it is readable. */
+  /** Fork `src` as `dst` (whole repo, default branch). The fork completes asynchronously; init polls until it is readable. */
   fork(ns: string, src: string, dst: string): void;
   remote(ns: string, repo: string): string;
 }
@@ -74,10 +76,14 @@ export function cloudCli(exec: Exec, env: Record<string, string | undefined>): C
     for (const r of repos) assertName("repo name", r);
   };
   const must = (p: Proc, what: string) => {
-    if (p.status !== 0) throw new CliError(`${what} failed: ${scrubbed(p.stderr || p.stdout) || `exit ${p.status}`}`);
+    if (p.status !== 0) {
+      const detail = scrubbed(p.stderr || p.stdout) || `exit ${p.status}`;
+      throw new CliError(`${what} failed: ${accountId ? detail.replaceAll(accountId, `${accountId.slice(0, 8)}…`) : detail}`);
+    }
     return p;
   };
   return {
+    accountId: () => accountId,
     account() {
       const w = must(wrangler("whoami", "--json"), "npx wrangler whoami");
       const c = must(cf("auth", "whoami"), "cf auth whoami");
@@ -87,10 +93,13 @@ export function cloudCli(exec: Exec, env: Record<string, string | undefined>): C
     },
     ensureNamespace(ns) {
       ok(ns);
-      // `namespaces get` has answered "Access denied" (10004) for an existing namespace; listing its repos is the fallback.
+      // `namespaces get` has answered "Access denied" (10004) for an existing namespace. An empty repo list proves
+      // nothing, so the fallback is create, where "already exists" means it exists.
       if (wrangler("artifacts", "namespaces", "get", ns).status === 0) return "exists";
-      if (wrangler("artifacts", "repos", "list", "--namespace", ns, "--json").status === 0) return "exists";
-      must(cf("artifacts", "namespaces", "create", "--namespace", ns), `cf artifacts namespaces create ${ns}`);
+      const c = cf("artifacts", "namespaces", "create", "--namespace", ns);
+      if (c.status === 0) return "created";
+      if (/already exists|already_exists/i.test(`${c.stderr}\n${c.stdout}`)) return "exists";
+      must(c, `cf artifacts namespaces create ${ns}`);
       return "created";
     },
     repoExists: (ns, repo) => (ok(ns, repo), wrangler("artifacts", "repos", "get", repo, "--namespace", ns).status === 0),

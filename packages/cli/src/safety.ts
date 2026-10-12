@@ -4,7 +4,7 @@
  */
 import { spawnSync } from "node:child_process";
 import { copyFileSync, existsSync, lstatSync, mkdirSync, readdirSync, readlinkSync, realpathSync, statSync, symlinkSync } from "node:fs";
-import { dirname, join, relative, resolve, sep } from "node:path";
+import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { CliError } from "./git.ts";
 import { isName } from "./naming.ts";
 
@@ -47,11 +47,14 @@ export function realSubdir(kind: string, root: string, rel: string): string {
 
 /** Directories never pushed or copied, whether or not the source is inside a git checkout. */
 export const EXCLUDE_DIRS = new Set(["node_modules", ".wrangler", ".git", "dist", ".artyfact"]);
-export const EXCLUDE_FILES = new Set([".dev.vars", ".env", ".artyfact.json", ".DS_Store"]);
+export const EXCLUDE_FILES = new Set([".artyfact.json", ".DS_Store"]);
+/** Wrangler and dotenv secret files (`.dev.vars`, `.dev.vars.staging`, `.env`, `.env.local`, ...); `*.example` is kept. */
+export const isSecretFile = (base: string) => /^\.(dev\.vars|env)(\..+)?$/.test(base) && !base.endsWith(".example");
 const excluded = (rel: string) => {
   const parts = rel.split("/");
   const base = parts.at(-1)!;
-  return parts.slice(0, -1).some((p) => EXCLUDE_DIRS.has(p)) || EXCLUDE_DIRS.has(base) || EXCLUDE_FILES.has(base) || base.endsWith(".tsbuildinfo");
+  return parts.slice(0, -1).some((p) => EXCLUDE_DIRS.has(p)) || EXCLUDE_DIRS.has(base) || EXCLUDE_FILES.has(base) || isSecretFile(base)
+    || base.endsWith(".tsbuildinfo");
 };
 
 /** Walk without following symlinks; a symlink is reported as an entry, never descended. */
@@ -75,7 +78,7 @@ function candidates(root: string): string[] {
 
 /**
  * Files of `root` (real path) that may be pushed or copied: regular files whose directory resolves inside `root`, and
- * symlinks whose target resolves inside `root` (kept as links). Symlinks pointing outside, dangling ones and anything
+ * relative symlinks whose target resolves inside `root` (kept as links). Symlinks pointing outside, dangling ones and anything
  * else are skipped and reported.
  */
 export function projectFiles(root: string): { files: string[]; skipped: string[] } {
@@ -88,6 +91,8 @@ export function projectFiles(root: string): { files: string[]; skipped: string[]
     try { parent = realpathSync(dirname(abs)); } catch { skipped.push(rel); continue; }
     if (!isInside(root, parent)) { skipped.push(rel); continue; }
     if (st.isSymbolicLink()) {
+      // Only relative links travel: an absolute target leaks a local path and dangles in any clone.
+      if (isAbsolute(readlinkSync(abs))) { skipped.push(rel); continue; }
       let target: string;
       try { target = realpathSync(abs); } catch { skipped.push(rel); continue; }
       if (!isInside(root, target)) { skipped.push(rel); continue; }

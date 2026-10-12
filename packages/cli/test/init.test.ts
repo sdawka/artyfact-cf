@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
+import { chmodSync, cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -78,7 +78,7 @@ async function run(args: string[], opts: { cloud: Cloud; fetch?: typeof fetch; e
   const out: string[] = [], err: string[] = [];
   const code = await main(args, {
     out: (s) => out.push(s), err: (s) => err.push(s), cwd: tmp,
-    env: { ARTYFACT_URL: "http://platform.test", ...opts.env }, cloud: opts.cloud, fetch: opts.fetch, root: opts.root ?? ROOT, pollMs: 0,
+    env: { ARTYFACT_URL: "https://platform.test", ...opts.env }, cloud: opts.cloud, fetch: opts.fetch, root: opts.root ?? ROOT, pollMs: 0,
   });
   return { code, out: out.join("\n"), err: err.join("\n") };
 }
@@ -123,12 +123,13 @@ describe("account confirmation", () => {
       expect(env?.CLOUDFLARE_ACCOUNT_ID ?? ACCOUNT).toBe(ACCOUNT);
       if (args.includes("whoami")) return { status: 0, stdout: `banner\n${who}`, stderr: "" };
       if (args.includes("issue-token")) return { status: 0, stdout: JSON.stringify({ id: "t1", plaintext: "art_v1_secret?expires=1" }), stderr: "" };
-      if (args.includes("get") || args.includes("list")) return { status: 1, stdout: "", stderr: "not found" };
+      if (args.includes("get")) return { status: 1, stdout: "", stderr: "Access denied [code: 10004]" };
       return { status: 0, stdout: "{}", stderr: "" };
     };
     const c = cloudCli(exec, {});
     expect(c.account()).toBe(ACCOUNT);
     expect(c.ensureNamespace("artyfact")).toBe("created");
+    expect(argvs.some((a) => a.includes("list"))).toBe(false);
     expect(c.token("artyfact", "x.app", "write")).toBe("art_v1_secret?expires=1");
     c.fork("artyfact", "other.app", "x.app");
     expect(c.remote("artyfact", "x.app")).toBe(`https://${ACCOUNT}.artifacts.cloudflare.net/git/artyfact/x.app.git`);
@@ -136,6 +137,31 @@ describe("account confirmation", () => {
     expect(argvs).toContainEqual(["cf", "artifacts", "namespaces", "repos", "fork", "other.app", "--namespace", "artyfact", "--body", JSON.stringify({ name: "x.app", default_branch_only: true })]);
     const bad = cloudCli((cmd, args) => (args.includes("whoami") ? { status: 0, stdout: JSON.stringify({ accounts: [{ id: cmd === "cf" ? "f".repeat(32) : ACCOUNT }] }), stderr: "" } : { status: 0, stdout: "", stderr: "" }), {});
     expect(() => bad.account()).toThrow(/different accounts/);
+  });
+
+  it("decides namespace existence by get, else by create; an empty repo list is never proof", () => {
+    const who = JSON.stringify({ accounts: [{ id: ACCOUNT }] });
+    const cloudWith = (create: { status: number; stderr: string }) => {
+      const argvs: string[][] = [];
+      const c = cloudCli((cmd, args) => {
+        argvs.push([cmd, ...args]);
+        if (args.includes("whoami")) return { status: 0, stdout: who, stderr: "" };
+        if (args.includes("get")) return { status: 1, stdout: "", stderr: "Access denied [code: 10004]" };
+        // A missing namespace lists as an empty array: must not count as "exists".
+        if (args.includes("list")) return { status: 0, stdout: "[]", stderr: "" };
+        if (args.includes("create")) return { ...create, stdout: "" };
+        return { status: 0, stdout: "{}", stderr: "" };
+      }, {});
+      c.account();
+      return { c, argvs };
+    };
+    const fresh = cloudWith({ status: 0, stderr: "" });
+    expect(fresh.c.ensureNamespace("brand-new")).toBe("created");
+    expect(fresh.argvs).toContainEqual(["cf", "artifacts", "namespaces", "create", "--namespace", "brand-new"]);
+    expect(cloudWith({ status: 1, stderr: "APIError [409] namespace already exists" }).c.ensureNamespace("artyfact")).toBe("exists");
+    const denied = cloudWith({ status: 1, stderr: `401 Unauthorized · HTTP /accounts/${ACCOUNT}/artifacts/namespaces` });
+    expect(() => denied.c.ensureNamespace("artyfact")).toThrow(/cf artifacts namespaces create artyfact failed: 401 Unauthorized · HTTP \/accounts\/01234567…\/artifacts/);
+    try { denied.c.ensureNamespace("artyfact"); } catch (e) { expect((e as Error).message).not.toContain(ACCOUNT); }
   });
 });
 
@@ -151,9 +177,9 @@ describe("artyfact init", { timeout: 60_000 }, () => {
     expect(r.out).toContain("account 01234567… (wrangler and cf agree)");
     expect(r.out).not.toContain(ACCOUNT);
     expect(r.out).toMatch(/keep-in-touch\.genome: created at [0-9a-f]{12}/);
-    expect(r.out).toContain("System: http://platform.test/s/system.keep-in-touch/r/head/overview");
+    expect(r.out).toContain("System: https://platform.test/s/system.keep-in-touch/r/head/overview");
     expect(p.requests).toEqual([{
-      url: "http://platform.test/api/systems/import", auth: "Bearer adm-tok",
+      url: "https://platform.test/api/systems/import", auth: "Bearer adm-tok",
       body: { systemId: "system.keep-in-touch", genomeRepo: "keep-in-touch.genome", appRepo: "keep-in-touch.app", force: false },
     }]);
     expect(filesAt(lc.path("artyfact", "keep-in-touch.genome"))).toContain("system.yaml");
@@ -173,7 +199,7 @@ describe("artyfact init", { timeout: 60_000 }, () => {
     const r = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "adm-tok" } });
     expect(r.code, r.err).toBe(0);
     expect(r.out).toMatch(/keep-in-touch\.genome: unchanged/);
-    expect(r.out).toMatch(/platform: unchanged/);
+    expect(r.out).toMatch(/platform: exists at [0-9a-f]{12}, left alone \(update it with 'npx artyfact platform-sync --namespace artyfact'\)/);
     expect(["keep-in-touch.genome", "keep-in-touch.app", "platform"].map((n) => headOf(lc.path("artyfact", n)))).toEqual(heads);
     expect(p.requests[0]!.body.force).toBe(false);
   });
@@ -223,7 +249,7 @@ describe("artyfact init", { timeout: 60_000 }, () => {
     expect(r.code, r.err).toBe(0);
     expect(p.requests).toEqual([]);
     expect(r.out).toContain("ARTYFACT_ADMIN_TOKEN is not set");
-    expect(r.out).toContain(`curl -sS -XPOST http://platform.test/api/systems/import -H "authorization: Bearer $ARTYFACT_ADMIN_TOKEN"`);
+    expect(r.out).toContain(`curl -sS -XPOST https://platform.test/api/systems/import -H "authorization: Bearer $ARTYFACT_ADMIN_TOKEN"`);
     expect(r.out).toContain(`"genomeRepo":"keep-in-touch.genome"`);
   });
 
@@ -235,6 +261,22 @@ describe("artyfact init", { timeout: 60_000 }, () => {
     expect(r.code, r.err).toBe(0);
     // Inside the checkout the repo's own ignore rules apply: no build output in the Genome.
     expect(filesAt(cloud.path("artyfact", "keep-in-touch.genome")).some((f) => f.startsWith("dist/"))).toBe(false);
+  });
+});
+
+describe("init and an existing platform repo", { timeout: 60_000 }, () => {
+  it("leaves a non-empty platform alone (an older checkout never overwrites it); platform-sync is the update path", async () => {
+    const lc = localCloud(join(tmp, "cloud-plat-old"));
+    expect((await run(["platform-sync"], { cloud: lc.cloud })).code).toBe(0);
+    const head = headOf(lc.path("artyfact", "platform"));
+    // A checkout whose templates differ (older or newer) runs init against the same namespace.
+    const root = join(tmp, "old-root");
+    mkdirSync(join(root, "packages/templates/thing/old@1"), { recursive: true });
+    writeFileSync(join(root, "packages/templates/thing/old@1/template.yaml"), "id: template.thing.old\nversion: '1'\n");
+    const r = await run(["init", "--dir", project("plat-old")], { cloud: lc.cloud, root, fetch: mockPlatform().fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    expect(r.code, r.err).toBe(0);
+    expect(r.out).toContain(`platform: exists at ${head.slice(0, 12)}, left alone`);
+    expect(headOf(lc.path("artyfact", "platform"))).toBe(head);
   });
 });
 
@@ -270,7 +312,12 @@ describe("artyfact init --from-template", { timeout: 60_000 }, () => {
     const again = await run(["init", "--dir", dir, "--from-template", "template.thing.cloudflare-worker-webapp@1"], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
     expect(again.out).toContain("fresh_app.app: already has history");
     expect(p.requests[1]!.body).not.toHaveProperty("scaffoldFrom");
-    noTokenLeaks(lc.tokens, r.out, r.err, again.out);
+    // Re-running without the flag works too: the app lives only in its repo (the platform keeps the recorded scaffoldFrom).
+    const plain = await run(["init", "--dir", dir, "--force"], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    expect(plain.code, plain.err).toBe(0);
+    expect(plain.out).toContain(`fresh_app.app: no local app; using its head ${headOf(lc.path("artyfact", "fresh_app.app")).slice(0, 12)}`);
+    expect(p.requests[2]!.body).toEqual({ systemId: "system.Fresh_App", genomeRepo: "fresh_app.genome", appRepo: "fresh_app.app", force: true });
+    noTokenLeaks(lc.tokens, r.out, r.err, again.out, plain.out);
   });
 
   it("forks a whole-repo scaffold such as another System's <slug>.app", async () => {
@@ -305,6 +352,8 @@ describe("artyfact init --from-template", { timeout: 60_000 }, () => {
     expect([both.code, both.err]).toEqual([1, expect.stringContaining("exists")]);
     const none = await run(["init", "--dir", join(tmp, "nowhere")], { cloud: lc.cloud });
     expect([none.code, none.err]).toEqual([1, expect.stringContaining("no system.yaml")]);
+    const noApp = await run(["init", "--dir", project("bad-noapp", false)], { cloud: lc.cloud });
+    expect([noApp.code, noApp.err]).toEqual([1, expect.stringContaining("keep-in-touch.app has no commits; pass --app <dir>, or --from-template")]);
   });
 });
 
@@ -318,17 +367,86 @@ describe("security", { timeout: 60_000 }, () => {
     symlinkSync("/etc", join(dir, "system", "etc"));
     symlinkSync("/etc/hosts", join(dir, "app", "hosts"));
     symlinkSync("README.md", join(dir, "app", "readme-link"));
+    // Points inside the project, but by absolute path: the text would leak a local path and dangle in a clone.
+    symlinkSync(join(realpathSync(dir), "app", "README.md"), join(dir, "app", "abs-link"));
     const r = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: mockPlatform().fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
     expect(r.code, r.err).toBe(0);
-    expect(r.out).toContain("skipped etc (symlink or path outside");
-    expect(r.out).toContain("skipped hosts (symlink or path outside");
+    expect(r.out).toContain("skipped etc (absolute or outside symlink");
+    expect(r.out).toContain("skipped hosts (absolute or outside symlink");
+    expect(r.out).toContain("skipped abs-link (absolute or outside symlink");
     const genome = filesAt(lc.path("artyfact", "keep-in-touch.genome"));
     const app = filesAt(lc.path("artyfact", "keep-in-touch.app"));
     expect(genome.some((f) => f.startsWith("etc"))).toBe(false);
     expect(app).not.toContain("hosts");
+    expect(app).not.toContain("abs-link");
     // A link that stays inside the project is kept as a link, never dereferenced.
     expect(app).toContain("readme-link");
     expect(sh(tmp, "--git-dir", lc.path("artyfact", "keep-in-touch.app"), "cat-file", "-p", "main:readme-link")).toBe("README.md");
+  });
+
+  for (const mode of ["no git", "git, untracked", "git, tracked"] as const) {
+    it(`never pushes secret files (${mode}); .dev.vars.example is kept`, async () => {
+      const lc = localCloud(join(tmp, `cloud-sec-secrets-${mode.replace(/\W+/g, "-")}`));
+      const dir = project(`sec-secrets-${mode.replace(/\W+/g, "-")}`);
+      const app = join(dir, "app");
+      const secrets = [".dev.vars", ".dev.vars.staging", ".env", ".env.local", ".env.production", "sub/.env.local"];
+      mkdirSync(join(app, "sub"), { recursive: true });
+      for (const f of [...secrets, ".dev.vars.example", ".env.example"]) writeFileSync(join(app, f), "SECRET=1\n");
+      if (mode !== "no git") {
+        sh(app, "init", "-q", "-b", "main");
+        writeFileSync(join(app, ".gitignore"), "node_modules\n");
+        if (mode === "git, tracked") {
+          sh(app, "add", "-f", "-A");
+          sh(app, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "tracked secrets");
+        }
+      }
+      const r = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: mockPlatform().fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+      expect(r.code, r.err).toBe(0);
+      const pushed = filesAt(lc.path("artyfact", "keep-in-touch.app"));
+      for (const f of secrets) expect(pushed, f).not.toContain(f);
+      expect(pushed).toEqual(expect.arrayContaining([".dev.vars.example", ".env.example"]));
+    });
+  }
+
+  it("stops with a clear message when the server rejects the push", async () => {
+    const lc = localCloud(join(tmp, "cloud-sec-reject"));
+    const dir = project("sec-reject");
+    expect((await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: mockPlatform().fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } })).code).toBe(0);
+    const genome = lc.path("artyfact", "keep-in-touch.genome");
+    const before = headOf(genome);
+    writeFileSync(join(genome, "hooks", "pre-receive"), "#!/bin/sh\necho 'main moved' >&2\nexit 1\n");
+    chmodSync(join(genome, "hooks", "pre-receive"), 0o755);
+    writeFileSync(join(dir, "system", "README.md"), "changed\n");
+    const p = mockPlatform();
+    const r = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("push to keep-in-touch.genome was rejected");
+    expect(headOf(genome)).toBe(before);
+    expect(p.requests).toEqual([]);
+  });
+
+  it("names the account by its prefix only, also in git errors that echo the remote", async () => {
+    const lc = localCloud(join(tmp, "cloud-sec-acct"));
+    const cloud: Cloud = { ...lc.cloud, accountId: () => ACCOUNT, remote: (ns, repo) => `file:///nonexistent/${ACCOUNT}/${ns}/${repo}.git` };
+    const r = await run(["init", "--dir", project("sec-acct")], { cloud });
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("git ls-remote failed");
+    expect(r.err).toContain("01234567…");
+    expect(r.err).not.toContain(ACCOUNT);
+  });
+
+  it("sends the admin token over https or to localhost only", async () => {
+    const lc = localCloud(join(tmp, "cloud-sec-http"));
+    const dir = project("sec-http");
+    const p = mockPlatform();
+    const r = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a", ARTYFACT_URL: "http://platform.test" } });
+    expect([r.code, r.err]).toEqual([1, expect.stringContaining("refusing to send ARTYFACT_ADMIN_TOKEN to http://platform.test")]);
+    expect(p.requests).toEqual([]);
+    for (const url of ["http://localhost:1339", "http://127.0.0.1:1339"]) {
+      const ok = await run(["init", "--dir", dir, "--platform", url], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+      expect(ok.code, ok.err).toBe(0);
+    }
+    expect(p.requests.map((q) => q.url)).toEqual(["http://localhost:1339/api/systems/import", "http://127.0.0.1:1339/api/systems/import"]);
   });
 
   it("refuses a default project dir that resolves outside --dir", async () => {

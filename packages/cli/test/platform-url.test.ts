@@ -45,3 +45,17 @@ describe("resolvePlatform", () => {
     expect(asked).toHaveLength(10);
   });
 });
+
+describe("assertBearerTransport", () => {
+  it("allows https and plain http to localhost or 127.0.0.1 only", async () => {
+    const { assertBearerTransport } = await import("../src/platform-url.ts");
+    for (const ok of ["https://p.example", "http://localhost:1337", "http://127.0.0.1:8787"]) expect(() => assertBearerTransport(ok, "x")).not.toThrow();
+    for (const bad of ["http://p.example", "http://localhost.evil.com", "http://10.0.0.1", "ftp://localhost", "nope"]) expect(() => assertBearerTransport(bad, "x"), bad).toThrow();
+  });
+
+  it("PlatformClient refuses to carry a realization secret over plain http to a remote host", async () => {
+    const { PlatformClient } = await import("../src/api.ts");
+    expect(() => new PlatformClient("http://p.example", "s3cret")).toThrow(/refusing to send the realization secret/);
+    expect(() => new PlatformClient("http://p.example")).not.toThrow();
+  });
+});

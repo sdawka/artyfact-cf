@@ -3,6 +3,8 @@
  * Otherwise the local default is http://localhost:1337; Vite moves to the next free port when 1337 is taken, so the
  * CLI asks the next few ports for the platform's health route and uses the first that answers as artyfact.
  */
+import { CliError } from "./git.ts";
+
 export const DEFAULT_PORT = 1337;
 export const DEFAULT_URL = `http://localhost:${DEFAULT_PORT}`;
 const PROBE_PORTS = 10;
@@ -33,4 +35,17 @@ async function isPlatform(base: string, fetchFn: typeof fetch): Promise<boolean>
   } catch {
     return false;
   }
+}
+
+/** Bearer credentials (admin token, realization secret) go over https, or plain http to localhost / 127.0.0.1 only. */
+export function assertBearerTransport(base: string, what: string): void {
+  let u: URL;
+  try {
+    u = new URL(base);
+  } catch {
+    throw new CliError(`invalid platform URL ${JSON.stringify(base)}`);
+  }
+  if (u.protocol === "https:") return;
+  if (u.protocol === "http:" && (u.hostname === "localhost" || u.hostname === "127.0.0.1")) return;
+  throw new CliError(`refusing to send ${what} to ${u.origin}: use https (plain http only to localhost or 127.0.0.1)`);
 }

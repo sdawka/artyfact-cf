@@ -12,7 +12,7 @@ import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
 import { CliError, git } from "./git.ts";
 import { assertName, assertSystemId, assertTemplateRef, copyFiles, isInside, projectFiles, realDir, realSubdir } from "./safety.ts";
 import { PLATFORM_REPO, platformTemplateDir, systemRepoNames } from "./naming.ts";
-import { resolvePlatform } from "./platform-url.ts";
+import { assertBearerTransport, resolvePlatform } from "./platform-url.ts";
 
 export interface InitIo {
   out: (s: string) => void;
@@ -130,7 +130,7 @@ function pushTree(
   const work = mkdtempSync(join(tmpdir(), "artyfact-init-"));
   try {
     const { tree, skipped } = stageTree(work, src);
-    for (const p of skipped) ctx.io.out(`  skipped ${p} (symlink or path outside ${src})`);
+    for (const p of skipped) ctx.io.out(`  skipped ${p} (absolute or outside symlink, or a path outside ${src})`);
     const head = lsRemoteHead(work, r);
     const gd = ["--git-dir", join(work, ".git")];
     if (head) {
@@ -245,6 +245,19 @@ Rule packs: ${packs.join(", ")}
 
 interface Ctx { io: InitIo; cloud: Cloud; ns: string; state: StateFile; key: string }
 
+/** `init` writes `platform` only when it is missing or empty; updates are `platform-sync`'s job (never an older checkout's). */
+function initPlatform(c: Ctx): void {
+  const head = c.cloud.repoExists(c.ns, PLATFORM_REPO)
+    ? lsRemoteHead(c.io.cwd, { url: c.cloud.remote(c.ns, PLATFORM_REPO), token: c.cloud.token(c.ns, PLATFORM_REPO, "read") })
+    : "";
+  if (head) {
+    c.io.out(`${PLATFORM_REPO}: exists at ${head.slice(0, 12)}, left alone (update it with 'npx artyfact platform-sync --namespace ${c.ns}')`);
+    return;
+  }
+  const plat = syncPlatform(c);
+  c.io.out(`${PLATFORM_REPO}: ${plat.action} at ${plat.head.slice(0, 12)}`);
+}
+
 function syncPlatform(c: Ctx): PushResult & { bundleHash: string } {
   ensureRepo(c.io, c.cloud, c.ns, PLATFORM_REPO);
   const out = mkdtempSync(join(tmpdir(), "artyfact-platform-"));
@@ -278,9 +291,11 @@ export async function platformSyncCommand(args: string[], io: InitIo): Promise<n
   const values = parse(args, { namespace: { type: "string" } });
   const ns = namespaceOf(values, io);
   const cloud = connect(io, ns);
-  const res = syncPlatform({ io, cloud, ns, state: { pushed: {} }, key: "" });
-  io.out(`${PLATFORM_REPO}: ${res.action} at ${res.head.slice(0, 12)} (bundle ${res.bundleHash.slice(0, 12)})`);
-  return 0;
+  return withAccountScrubbed(cloud, async () => {
+    const res = syncPlatform({ io, cloud, ns, state: { pushed: {} }, key: "" });
+    io.out(`${PLATFORM_REPO}: ${res.action} at ${res.head.slice(0, 12)} (bundle ${res.bundleHash.slice(0, 12)})`);
+    return 0;
+  });
 }
 
 export async function initCommand(args: string[], io: InitIo): Promise<number> {
@@ -314,18 +329,37 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   assertName("genome repo", names.genomeRepo);
   assertName("app repo", names.appRepo);
   const hasApp = existsSync(join(appDir, "package.json")) || (existsSync(appDir) && readdirSync(appDir).length > 0);
-  if (!hasApp && !fromTemplate) throw new CliError(`no app in ${appDir}; pass --app <dir>, or --from-template <template.thing.id@version> to seed ${names.appRepo}`);
   if (hasApp && fromTemplate) throw new CliError(`--from-template seeds a project without an app, but ${appDir} exists`);
   io.out(`${systemId} -> ${names.genomeRepo}, ${names.appRepo} (namespace ${ns})`);
 
   const cloud = connect(io, ns);
+  return withAccountScrubbed(cloud, () => initWith(io, values, { project, genomeDir, appDir, hasApp, fromTemplate, ns, systemId, names, cloud }));
+}
+
+/** CLI errors name the account by its prefix only (git and wrangler failures can echo remote URLs holding the id). */
+async function withAccountScrubbed<T>(cloud: Cloud, fn: () => Promise<T>): Promise<T> {
+  try {
+    return await fn();
+  } catch (e) {
+    const id = cloud.accountId?.();
+    if (id && e instanceof Error) e.message = e.message.replaceAll(id, `${id.slice(0, 8)}…`);
+    throw e;
+  }
+}
+
+interface InitPlan {
+  project: string; genomeDir: string; appDir: string; hasApp: boolean; fromTemplate: string | undefined; ns: string; systemId: string;
+  names: ReturnType<typeof systemRepoNames>; cloud: Cloud;
+}
+
+async function initWith(io: InitIo, values: Record<string, unknown>, plan: InitPlan): Promise<number> {
+  const { project, genomeDir, appDir, hasApp, fromTemplate, ns, systemId, names, cloud } = plan;
   const stateFile = stateFileFor(io, project);
   const state = readState(stateFile);
   const key = `${cloud.remote(ns, "").replace(/\.git$/, "")}`;
   const ctx: Ctx = { io, cloud, ns, state, key };
   try {
-    const plat = syncPlatform(ctx);
-    io.out(`${PLATFORM_REPO}: ${plat.action} at ${plat.head.slice(0, 12)}`);
+    initPlatform(ctx);
 
     ensureRepo(io, cloud, ns, names.genomeRepo);
     const genome = pushTree(ctx, names.genomeRepo, genomeDir, `Import ${systemId} Genome`, { adopt: values.adopt === true });
@@ -336,8 +370,13 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
       ensureRepo(io, cloud, ns, names.appRepo);
       const app = pushTree(ctx, names.appRepo, appDir, `Import ${systemId} app`, { adopt: values.adopt === true });
       io.out(`${names.appRepo}: ${app.action} at ${app.head.slice(0, 12)}`);
+    } else if (fromTemplate) {
+      scaffoldFrom = await seedFromTemplate(ctx, fromTemplate, names.appRepo);
     } else {
-      scaffoldFrom = await seedFromTemplate(ctx, fromTemplate!, names.appRepo);
+      // A re-run of a template-seeded project: the app lives only in its repo. The platform keeps the recorded scaffoldFrom.
+      const head = cloud.repoExists(ns, names.appRepo) ? lsRemoteHead(io.cwd, { url: cloud.remote(ns, names.appRepo), token: cloud.token(ns, names.appRepo, "read") }) : "";
+      if (!head) throw new CliError(`no app in ${appDir} and ${names.appRepo} has no commits; pass --app <dir>, or --from-template <template.thing.id@version> to seed it`);
+      io.out(`${names.appRepo}: no local app; using its head ${head.slice(0, 12)}`);
     }
 
     const platformUrl = await resolvePlatform(values.platform as string | undefined, io.env, io.fetch ?? fetch, io.err);
@@ -419,6 +458,7 @@ async function importIntoPlatform(io: InitIo, base: string, body: Record<string,
     io.out(`  curl -sS -XPOST ${url} -H "authorization: Bearer $ARTYFACT_ADMIN_TOKEN" -H 'content-type: application/json' -d '${payload}'`);
     return 0;
   }
+  assertBearerTransport(base, "ARTYFACT_ADMIN_TOKEN");
   let res: Response;
   try {
     res = await (io.fetch ?? fetch)(url, { method: "POST", headers: { "content-type": "application/json", authorization: `Bearer ${admin}` }, body: payload });

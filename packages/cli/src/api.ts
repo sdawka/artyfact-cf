@@ -1,4 +1,5 @@
 import { CliError } from "./git.ts";
+import { assertBearerTransport } from "./platform-url.ts";
 
 export class PlatformClient {
   readonly base: string;
@@ -6,6 +7,7 @@ export class PlatformClient {
 
   /** `secret` is the realization secret, sent as a bearer token on every call. */
   constructor(base: string, secret?: string) {
+    if (secret) assertBearerTransport(base, "the realization secret");
     this.base = base;
     this.#secret = secret;
   }
