@@ -1,0 +1,41 @@
+% journeys@1 - screen/affordance completeness (R7) and journey well-formedness and coverage (R8).
+% step(J,S) is emitted for every step; stepRef(J,S,Id) for every id a step mentions.
+
+.decl known(Id: sym)
+.decl node(Id: sym, Kind: sym, Thing: sym)
+.decl provisional(Id: sym)
+.decl parent(Child: sym, Parent: sym)
+.decl hasActor(Id: sym)
+.decl hasEffects(Id: sym)
+.decl journey(Id: sym, Start: sym)
+.decl journeyDeferred(Id: sym)
+.decl step(Journey: sym, Step: sym)
+.decl stepEnd(Journey: sym, Step: sym)
+.decl stepNext(Journey: sym, Step: sym, To: sym)
+.decl stepRef(Journey: sym, Step: sym, Id: sym)
+.decl stepScreen(Journey: sym, Step: sym, Screen: sym)
+.decl stepOperation(Journey: sym, Step: sym, Operation: sym)
+.decl stepUnresolved(Journey: sym, Step: sym)
+.decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+.decl missing(Rule: sym, Subject: sym) .output
+.decl warning(Rule: sym, Subject: sym) .output
+
+.message "journey.startMissing" "Journey {1} starts at a step that does not exist."
+.message "journey.nextDangling" "Journey {1} has a step whose next step does not exist."
+.message "journey.noEnd" "Journey {1} has no end step."
+.message "journey.screenUncovered" "Screen {1} appears in no journey."
+.message "journey.stepRefMissing" "Journey {1} has a step referring to an id that does not exist."
+.message "screen.noComponents" "Screen {1} enumerates no components."
+.message "affordance.incomplete" "Affordance {1} lacks an actor or effects."
+.message "journey.operationUncovered" "Operation {1} is invoked by no journey step."
+
+violation("journey.startMissing",J,"hard") :- journey(J,S), not step(J,S).
+violation("journey.nextDangling",J,"hard") :- stepNext(J,_,T), not step(J,T).
+violation("journey.stepRefMissing",J,"hard") :- stepRef(J,S,Id), not stepUnresolved(J,S), not known(Id).
+missing("journey.noEnd",J) :- journey(J,_), not journeyDeferred(J), not stepEnd(J,_).
+warning("journey.screenUncovered",S) :- node(S,"screen",_), not provisional(S), not stepScreen(_,_,S).
+warning("journey.operationUncovered",O) :- node(O,"operation",_), not provisional(O), not stepOperation(_,_,O).
+
+missing("screen.noComponents",S) :- node(S,"screen",_), not provisional(S), not parent(_,S).
+missing("affordance.incomplete",A) :- node(A,"affordance",_), not provisional(A), not hasActor(A).
+missing("affordance.incomplete",A) :- node(A,"affordance",_), not provisional(A), not hasEffects(A).
