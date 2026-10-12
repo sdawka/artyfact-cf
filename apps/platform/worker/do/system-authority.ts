@@ -7,6 +7,7 @@ import type {
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
+import { ChangelogStore, type CachedChangelog } from "./changelog-store";
 import { RegistryStore } from "./registry";
 import { applySchema } from "./schema";
 
@@ -1244,6 +1245,18 @@ export class SystemAuthority extends DurableObject<Env> {
   publish(event: SseEvent): void {
     this.emit(event);
   }
+
+  // ---------------------------------------------------------------- B2 changelog
+
+  private changelogStore: ChangelogStore | undefined;
+  private changelog(): ChangelogStore {
+    return (this.changelogStore ??= new ChangelogStore(this.sql));
+  }
+  changelogCached(commitId: string): CachedChangelog | null { return this.changelog().get(commitId); }
+  changelogRows(commitIds: string[]): Record<string, string> { return this.changelog().rows(commitIds); }
+  putChangelog(commitId: string, row: string, entry: string | null): void { this.changelog().put(commitId, row, entry); }
+
+  // ---------------------------------------------------------------- end B2 changelog
 
   // ---------------------------------------------------------------- registry (instance `__registry` only)
 
