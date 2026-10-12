@@ -8,7 +8,7 @@
 .group h4 { margin: 0 0 var(--spacing-1); color: var(--color-text-subtle); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); }
 
 /* Board */
-.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(15rem, 1fr); gap: var(--spacing-4); overflow-x: auto; padding-bottom: var(--spacing-2); }
+.board { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(15rem, 1fr); gap: var(--spacing-4); max-height: 28rem; overflow: auto; padding: var(--spacing-1) var(--spacing-1) var(--spacing-2); }
 .column { display: grid; align-content: start; gap: var(--spacing-2); min-width: 0; }
 .colHead { margin: 0; padding-bottom: var(--spacing-1); border-bottom: 1px solid var(--color-border-subtle); font-family: var(--font-ui); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-secondary); }
 .count { color: var(--color-text-subtle); font-weight: var(--font-weight-normal); }
@@ -117,3 +117,5 @@
   .board { grid-auto-columns: minmax(80%, 1fr); }
   .facts { grid-template-columns: 1fr; }
 }
+.panel p, .detail p, .cli p { margin: 0; }
+.panel h4 { margin-top: var(--spacing-1); }
