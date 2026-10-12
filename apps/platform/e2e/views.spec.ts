@@ -15,7 +15,7 @@ test.describe("views", () => {
       captions.push((await caption.innerText()).trim());
     }
     expect(new Set(captions).size).toBe(3);
-    await expect(page.getByText("unknown", { exact: false }).first()).toBeVisible();
+    await expect(page.getByRole("region", { name: "Outcome progress" }).getByText("unknown", { exact: true }).first()).toBeVisible();
     await checkA11yAndShoot(page, testInfo, "overview");
   });
 
@@ -28,8 +28,23 @@ test.describe("views", () => {
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     await expect(page.getByRole("complementary", { name: "Inspector" })).toBeVisible();
-    // No evaluations are promoted, so no badge may be success-toned.
-    await expect(page.locator('.react-flow [data-verdict="pass"]:not(:has-text("0"))')).toHaveCount(0);
+    // No evaluations are promoted: the pass counter renders as a zero count in the disabled grey, and no counter is pass-toned.
+    const counters = page.locator(".react-flow [data-counter]");
+    await expect(counters.first()).toBeVisible();
+    expect(await counters.count()).toBeGreaterThan(0);
+    const passCounters = page.locator('.react-flow [data-counter="pass"]');
+    await expect(passCounters.first()).toBeVisible();
+    await expect(page.locator('.react-flow [data-counter="pass"]:not([data-zero])')).toHaveCount(0);
+    await expect(page.locator('.react-flow [data-counter][data-tone="pass"]')).toHaveCount(0);
+    const grey = await page.evaluate(() => {
+      const probe = document.createElement("span");
+      probe.style.color = "var(--color-text-disabled)";
+      document.body.append(probe);
+      const c = getComputedStyle(probe).color;
+      probe.remove();
+      return c;
+    });
+    for (const el of await passCounters.all()) await expect(el).toHaveCSS("color", grey);
     await checkA11yAndShoot(page, testInfo, "map-phenome");
   });
 

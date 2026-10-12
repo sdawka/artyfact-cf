@@ -31,12 +31,15 @@ export async function successToneElements(page: Page): Promise<string[]> {
     probe.style.color = "var(--verdict-pass)";
     document.body.append(probe);
     const pass = getComputedStyle(probe).color;
+    probe.style.color = "";
+    probe.style.backgroundColor = "var(--verdict-pass-bg)";
+    const passBg = getComputedStyle(probe).backgroundColor;
     probe.remove();
     const hits: string[] = [];
     for (const el of document.body.querySelectorAll("*")) {
       const cs = getComputedStyle(el);
       const tagged = el.matches('[data-tone="pass"], [data-verdict="pass"]');
-      const painted = [cs.color, cs.backgroundColor, cs.borderTopColor, cs.fill].includes(pass) && el.textContent?.trim() !== "";
+      const painted = ([cs.color, cs.backgroundColor, cs.borderTopColor, cs.fill].includes(pass) || cs.backgroundColor === passBg) && el.textContent?.trim() !== "";
       if (tagged || painted) hits.push(`${el.tagName.toLowerCase()}.${el.className}: ${el.textContent?.slice(0, 40)}`);
     }
     return hits;
