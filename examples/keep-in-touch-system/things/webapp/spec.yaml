@@ -1,0 +1,99 @@
+# spec §6 Specification for the webapp Thing (spec.webapp.core). Normative text quoted from the source document.
+requirements:
+  - id: S.webapp.scope
+    thing: thing.webapp
+    title: Core scope
+    text: >-
+      the app must provide private contacts, goals, contact logging, invitation-based pair connections, in-app due
+      prompts and settings. Direct in-app messaging, subscriptions, digests, media automation and groups must remain
+      disabled in the core scope. Opening an external channel must require a user gesture; unsupported channels must
+      offer copyable contact details.
+    refines: [GD.contacts, GD.goals, GD.connect, GD.prompts]
+    subjects: [thing.webapp, affordance.PersonActionBar.openChannel]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+  - id: S.webapp.qualification
+    thing: thing.webapp
+    title: Goal qualification
+    text: >-
+      an enabled goal must have intervalDays from 1 through 3650 and desiredDepth in light, meaningful or shared-time.
+      These are the owner's labels, not a global quality ranking. A ContactEvent must qualify only when the owner
+      explicitly marks that it met this goal. The app must record the goal ID and desiredDepth at confirmation and
+      count only qualifications matching the current desiredDepth. Changing depth may change which historical events
+      qualify; SchedulePreview must show that effect before saving. Editing or deleting an event must recompute the schedule.
+    refines: [GD.goals, GD.prompts]
+    subjects: [entity.RelationshipGoal, entity.ContactEvent, component.SchedulePreview, operation.contact.log]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+  - id: S.webapp.due
+    thing: thing.webapp
+    title: Due dates
+    text: >-
+      the app must use local calendar dates in the owner's IANA time zone. The anchor must be the latest qualifying
+      event date, or the goal creation date when none exists. dueDate must equal anchor plus intervalDays. A goal must
+      become due when today's date reaches dueDate, unless paused or snoozed until a later date. Revising a goal must
+      not create a ContactEvent. Date and time-zone fixtures must cover daylight-saving changes.
+    refines: [GD.goals, GD.prompts]
+    subjects: [entity.RelationshipGoal, entity.Suggestion, operation.goal.save]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+  - id: S.webapp.prompts
+    thing: thing.webapp
+    title: Today prompts
+    text: >-
+      Today must return at most five suggestions, ordered by effective due date then stable goal ID. There must be at
+      most one open suggestion per goal version and due cycle. Logging qualifying contact must resolve its suggestion.
+      Snoozing must update its effective due date; pausing must suppress prompts. Blocking a linked counterpart must
+      pause the blocker's corresponding goal and suppress its suggestions. In-app reminders are required. Optional
+      external reminders, when enabled, must be limited to one owner notification per local day containing a link
+      without contact details. Reminder delivery must recheck preferences and cancellations.
+    refines: [GD.prompts]
+    subjects: [screen.today, entity.Suggestion, entity.NotificationJob]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+  - id: S.webapp.screens
+    thing: thing.webapp
+    title: Screens
+    text: >-
+      authenticated screens must share one AppShell containing exactly TopBar, PrimaryNav and RouteOutlet. PrimaryNav
+      must contain Today, People and Settings. Counts below specify required RouteOutlet composition, excluding the
+      shell. All private screens must show one StatePanel for loading or fatal error in place of loaded content. Forms
+      must keep entered values after recoverable validation or network errors and render one ErrorSummary when needed.
+    refines: [GD.contacts, GD.goals, GD.connect, GD.prompts]
+    subjects: [screen.signin, screen.today, screen.people, screen.person, screen.goal, screen.logContact, screen.invitation, screen.settings]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+  - id: S.webapp.authentication
+    thing: thing.webapp
+    title: Authentication
+    text: >-
+      sensitive token routes must not leak tokens through analytics or referrers. Login continuation must preserve a
+      validated invitation without consuming it. A pinned authentication Kit must specify the identity provider and
+      its callback routes before realization.
+    refines: [GD.connect]
+    subjects: [screen.signin, screen.invitation, policy.authentication]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+  - id: S.webapp.operations
+    thing: thing.webapp
+    title: Operations
+    text: >-
+      all mutations must authorize the authenticated owner or explicit connected capability at the server, validate
+      inputs and support an idempotency key. Creation must return an immutable ID and version. Reads and writes to
+      another owner's private records must return a non-revealing denial. Concurrent stale-version edits must return
+      conflict without overwriting current data. Each operation row below defines required preconditions and effects.
+    refines: [GD.contacts, GD.goals, GD.connect]
+    subjects:
+      - operation.contact.save
+      - operation.goal.save
+      - operation.contact.log
+      - operation.invite.create
+      - operation.invite.accept
+      - operation.connection.revoke
+      - operation.data.export
+      - operation.data.delete
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+  - id: S.webapp.concurrency
+    thing: thing.webapp
+    title: Concurrency and revocation
+    text: >-
+      invite redemption must survive two concurrent accept requests without two pairs or two redemptions. Read and
+      send authorization must check revocation against current authoritative state. Already delivered external
+      messages or copied data remain outside our ability to retract.
+    refines: [GD.connect]
+    subjects: [operation.invite.accept, entity.Connection, policy.revocation]
+    source: { doc: keep-in-touch-world-specification, section: "6" }

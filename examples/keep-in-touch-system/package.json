@@ -1,0 +1,16 @@
+{
+  "name": "@artyfact/example-keep-in-touch-system",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@artyfact/model": "*",
+    "@artyfact/templates": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.5"
+  }
+}

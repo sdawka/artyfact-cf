@@ -1,0 +1,1014 @@
+# Nested ontology for thing.webapp. Sections, AppShell/TopBar/PrimaryNav/RouteOutlet, StatePanel, ErrorSummary,
+# binding.worker, binding.scheduler and policy.authentication come from template.thing.cloudflare-worker-webapp@1
+# and are not redeclared here; this file only adds links to them (e.g. policy.authentication governs the
+# sign-in and invitation screens via `direction: in` links).
+# Source: spec §6 "Screen and route" table (UI), §5 "Domain ontology" (entities), §6 "Operation" table
+# (operations), §6 "Nested ontology navigation" (policies, bindings).
+nodes:
+  # ---------------------------------------------------------------- UI: screens (spec §6 screen table)
+  - id: screen.signin
+    kind: screen
+    name: Sign in
+    parent: section.ui
+    route: /signin
+    roles: [anonymous]
+    states: [loaded, loading, error]
+    description: One SignInForm with one Continue control and one privacy link; no private content
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: serves, to: ext.owner }
+      - { rel: governs, to: policy.authentication, direction: in }
+      - { rel: references, to: ext.providers, label: identity provider }
+    children:
+      - id: component.SignInForm
+        kind: component
+        name: SignInForm
+        cardinality: exactly one
+        description: One SignInForm
+        source: { doc: keep-in-touch-world-specification, section: "6" }
+        children:
+          - id: component.SignInContinue
+            kind: component
+            name: Continue
+            cardinality: exactly one
+            description: One Continue control
+            children:
+              - id: affordance.SignInContinue.continue
+                kind: affordance
+                name: Continue
+                actor: ext.owner
+                trigger: Owner activates Continue
+                preconditions: [Not signed in]
+                effects:
+                  - Starts sign-in with the pinned identity provider
+                  - Login continuation preserves a validated invitation without consuming it
+                failure: [Provider unavailable shows the shared ErrorSummary]
+                source: { doc: keep-in-touch-world-specification, section: "6" }
+                links:
+                  - { rel: references, to: ext.providers }
+      - id: component.PrivacyLink
+        kind: component
+        name: PrivacyLink
+        cardinality: exactly one
+        description: One privacy link
+
+  - id: screen.today
+    kind: screen
+    name: Today
+    parent: section.ui
+    route: /today
+    roles: [owner]
+    states: [loaded, loading, empty, error]
+    description: >-
+      Exactly PageHeading, TodayControls and SuggestionCollection; 0–5 cards, or one EmptyState inside the collection.
+      Each card has one person label, reason, Open person, Log contact and Snooze controls
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: serves, to: ext.owner }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+    children:
+      - id: component.TodayHeading
+        kind: component
+        name: PageHeading
+        cardinality: exactly one
+      - id: component.TodayControls
+        kind: component
+        name: TodayControls
+        cardinality: exactly one
+      - id: component.SuggestionCollection
+        kind: component
+        name: SuggestionCollection
+        cardinality: exactly one
+        description: Today must return at most five suggestions, ordered by effective due date then stable goal ID
+        links:
+          - { rel: reads, to: entity.Suggestion }
+        children:
+          - id: component.SuggestionCard
+            kind: component
+            name: SuggestionCard
+            cardinality: 0..5, one per open suggestion
+            description: Each card has one person label, reason, Open person, Log contact and Snooze controls
+            links:
+              - { rel: reads, to: entity.Suggestion }
+            children:
+              - id: component.SuggestionPersonLabel
+                kind: component
+                name: PersonLabel
+                cardinality: exactly one per card
+              - id: component.SuggestionReason
+                kind: component
+                name: Reason
+                cardinality: exactly one per card
+              - id: affordance.SuggestionCard.openPerson
+                kind: affordance
+                name: Open person
+                actor: ext.owner
+                trigger: Owner activates Open person on a card
+                preconditions: [Owned contact]
+                effects: [Navigates to /people/:id for the suggestion's target ContactRecord]
+                failure: [Contact not found shows a non-revealing denial]
+              - id: affordance.SuggestionCard.logContact
+                kind: affordance
+                name: Log contact
+                actor: ext.owner
+                trigger: Owner activates Log contact on a card
+                preconditions: [Owned contact]
+                effects: [Navigates to /people/:id/log]
+                failure: [Contact not found shows a non-revealing denial]
+              - id: affordance.SuggestionCard.snooze
+                kind: affordance
+                name: Snooze
+                actor: ext.owner
+                trigger: Owner activates Snooze on a card
+                preconditions: [Open suggestion for an enabled goal]
+                effects:
+                  - Snoozing must update its effective due date
+                  - Cancels obsolete notification jobs for the snoozed suggestion
+                failure: [Stale version returns conflict without overwriting current data]
+                links:
+                  - { rel: writes, to: entity.Suggestion }
+                  - { rel: invokes, to: operation.goal.save }
+          - id: component.EmptyState
+            kind: component
+            name: EmptyState
+            cardinality: 1 only when there are no suggestions, inside the collection
+            description: One EmptyState inside the collection
+
+  - id: screen.people
+    kind: screen
+    name: People
+    parent: section.ui
+    route: /people
+    roles: [owner]
+    states: [loaded, loading, empty, error]
+    description: >-
+      Exactly PageHeading, SearchInput, AddContact control and ContactCollection. One ContactRow per result; each row
+      has a name and Open control. One AddContactDialog only while invoked, with name, optional channel fields, Save and Cancel
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: serves, to: ext.owner }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+    children:
+      - id: component.PeopleHeading
+        kind: component
+        name: PageHeading
+        cardinality: exactly one
+      - id: component.SearchInput
+        kind: component
+        name: SearchInput
+        cardinality: exactly one
+      - id: component.AddContact
+        kind: component
+        name: AddContact
+        cardinality: exactly one
+        description: AddContact control
+        children:
+          - id: affordance.AddContact.open
+            kind: affordance
+            name: Add contact
+            actor: ext.owner
+            trigger: Owner activates AddContact
+            effects: [Opens the AddContactDialog; nothing is saved until Save]
+            failure: []
+      - id: component.ContactCollection
+        kind: component
+        name: ContactCollection
+        cardinality: exactly one
+        links:
+          - { rel: reads, to: entity.ContactRecord }
+        children:
+          - id: component.ContactRow
+            kind: component
+            name: ContactRow
+            cardinality: 1 per result
+            description: One ContactRow per result; each row has a name and Open control
+            links:
+              - { rel: reads, to: entity.ContactRecord }
+            children:
+              - id: component.ContactRowName
+                kind: component
+                name: Name
+                cardinality: exactly one per row
+              - id: affordance.ContactRow.open
+                kind: affordance
+                name: Open
+                actor: ext.owner
+                trigger: Owner activates the row Open control
+                preconditions: [Owned contact]
+                effects: [Navigates to /people/:id]
+                failure: [Another owner's record returns a non-revealing denial]
+      - id: component.AddContactDialog
+        kind: component
+        name: AddContactDialog
+        cardinality: 1 only while invoked
+        states: [closed, open, validation-error, saving]
+        description: One AddContactDialog only while invoked, with name, optional channel fields, Save and Cancel
+        source: { doc: keep-in-touch-world-specification, section: "6" }
+        children:
+          - id: component.AddContactNameField
+            kind: component
+            name: NameField
+            cardinality: exactly one
+            description: Name field; nonblank name is required
+          - id: component.AddContactChannelFields
+            kind: component
+            name: ChannelFields
+            cardinality: optional
+            description: Optional channel fields
+          - id: affordance.AddContactDialog.save
+            kind: affordance
+            name: Save
+            actor: ext.owner
+            trigger: Owner activates Save in the dialog
+            preconditions: [Owner session, Nonblank name]
+            effects:
+              - Save invokes operation.contact.save
+              - Save only that owner's record; editing does not send invitations
+            failure:
+              - Validation failure keeps entered values and renders one ErrorSummary
+              - Network error keeps entered values and renders one ErrorSummary
+            source: { doc: keep-in-touch-world-specification, section: "6" }
+            links:
+              - { rel: invokes, to: operation.contact.save }
+          - id: affordance.AddContactDialog.cancel
+            kind: affordance
+            name: Cancel
+            actor: ext.owner
+            trigger: Owner activates Cancel in the dialog
+            effects: [Closes the dialog and discards the draft; nothing is saved]
+            failure: []
+
+  - id: screen.person
+    kind: screen
+    name: Person
+    parent: section.ui
+    route: /people/:id
+    roles: [owner]
+    states: [loaded, loading, error]
+    description: >-
+      Exactly PersonSummary, GoalPanel, ContactHistory, PrivateNotes, ConnectionPanel and ActionBar. History has one
+      row per event. Actions are Edit goal, Log contact and Open channel; connection status determines Invite,
+      Disconnect or Block availability
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: serves, to: ext.owner }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+    children:
+      - id: component.PersonSummary
+        kind: component
+        name: PersonSummary
+        cardinality: exactly one
+        links:
+          - { rel: reads, to: entity.ContactRecord }
+      - id: component.GoalPanel
+        kind: component
+        name: GoalPanel
+        cardinality: exactly one
+        description: No saved goal displays as no goal, not as an inferred target
+        links:
+          - { rel: reads, to: entity.RelationshipGoal }
+      - id: component.ContactHistory
+        kind: component
+        name: ContactHistory
+        cardinality: exactly one
+        links:
+          - { rel: reads, to: entity.ContactEvent }
+        children:
+          - id: component.HistoryRow
+            kind: component
+            name: HistoryRow
+            cardinality: 1 per event
+            description: History has one row per event
+      - id: component.PrivateNotes
+        kind: component
+        name: PrivateNotes
+        cardinality: exactly one
+        description: Owner-only notes; linking a ContactRecord to an Account never reveals them
+        links:
+          - { rel: reads, to: entity.ContactEvent }
+      - id: component.ConnectionPanel
+        kind: component
+        name: ConnectionPanel
+        cardinality: exactly one
+        description: Connection status determines Invite, Disconnect or Block availability
+        links:
+          - { rel: reads, to: entity.Connection }
+        children:
+          - id: affordance.ConnectionPanel.invite
+            kind: affordance
+            name: Invite
+            actor: ext.owner
+            trigger: Owner activates Invite
+            preconditions: [Contact is not connected, No block in either direction]
+            effects: [Invokes operation.invite.create and shows the invitation QR or connection code]
+            failure: [Not available when already connected or blocked]
+            links:
+              - { rel: invokes, to: operation.invite.create }
+          - id: affordance.ConnectionPanel.disconnect
+            kind: affordance
+            name: Disconnect
+            actor: ext.owner
+            trigger: Owner confirms Disconnect
+            preconditions: [Active Connection with this contact's linked account]
+            effects: [Removes shared capabilities while private records remain under the owner's control]
+            failure: [Not available when there is no active Connection]
+            links:
+              - { rel: invokes, to: operation.connection.revoke }
+          - id: affordance.ConnectionPanel.block
+            kind: affordance
+            name: Block
+            actor: ext.owner
+            trigger: Owner confirms Block
+            preconditions: [Contact is linked to an Account]
+            effects:
+              - A block prevents new app-mediated contact until removed
+              - Pauses the blocker's corresponding goal and suppresses its suggestions
+            failure: [Not available when the contact has no linked account]
+            links:
+              - { rel: invokes, to: operation.connection.revoke }
+      - id: component.PersonActionBar
+        kind: component
+        name: ActionBar
+        cardinality: exactly one
+        description: Actions are Edit goal, Log contact and Open channel
+        children:
+          - id: affordance.PersonActionBar.editGoal
+            kind: affordance
+            name: Edit goal
+            actor: ext.owner
+            trigger: Owner activates Edit goal
+            preconditions: [Owned contact]
+            effects: [Navigates to /people/:id/goal]
+            failure: []
+          - id: affordance.PersonActionBar.logContact
+            kind: affordance
+            name: Log contact
+            actor: ext.owner
+            trigger: Owner activates Log contact
+            preconditions: [Owned contact]
+            effects: [Navigates to /people/:id/log]
+            failure: []
+          - id: affordance.PersonActionBar.openChannel
+            kind: affordance
+            name: Open channel
+            actor: ext.owner
+            trigger: A user gesture on Open channel
+            preconditions: [Contact has a recorded channel or copyable contact details]
+            effects:
+              - Opening an external channel must require a user gesture
+              - Opening a channel does not automatically mark contact as completed
+              - Unsupported channels must offer copyable contact details
+            failure: [Unsupported channel offers copyable contact details instead]
+            source: { doc: keep-in-touch-world-specification, section: "6" }
+            links:
+              - { rel: references, to: ext.channels, label: opens the preferred channel }
+
+  - id: screen.goal
+    kind: screen
+    name: Goal
+    parent: section.ui
+    route: /people/:id/goal
+    roles: [owner]
+    states: [loaded, loading, error, validation-error, no-goal]
+    description: >-
+      Exactly PageHeading, GoalForm and SchedulePreview. Form contains interval, depth, preferred channel and enabled
+      controls, plus Save and Cancel. No saved goal displays as no goal, not as an inferred target
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: serves, to: ext.owner }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+    children:
+      - id: component.GoalHeading
+        kind: component
+        name: PageHeading
+        cardinality: exactly one
+      - id: component.GoalForm
+        kind: component
+        name: GoalForm
+        cardinality: exactly one
+        description: Form contains interval, depth, preferred channel and enabled controls, plus Save and Cancel
+        children:
+          - id: component.GoalIntervalField
+            kind: component
+            name: IntervalField
+            cardinality: exactly one
+            description: intervalDays from 1 through 3650
+          - id: component.GoalDepthField
+            kind: component
+            name: DepthField
+            cardinality: exactly one
+            description: desiredDepth in light, meaningful or shared-time
+          - id: component.GoalChannelField
+            kind: component
+            name: PreferredChannelField
+            cardinality: exactly one
+          - id: component.GoalEnabledToggle
+            kind: component
+            name: EnabledToggle
+            cardinality: exactly one
+          - id: affordance.GoalForm.save
+            kind: affordance
+            name: Save
+            actor: ext.owner
+            trigger: Owner activates Save
+            preconditions: [Owned contact, Valid interval]
+            effects:
+              - Invokes operation.goal.save
+              - Increment goal version, recompute due state and cancel obsolete jobs
+            failure:
+              - Validation failure keeps entered values and renders one ErrorSummary
+              - Stale version returns conflict
+            links:
+              - { rel: invokes, to: operation.goal.save }
+          - id: affordance.GoalForm.cancel
+            kind: affordance
+            name: Cancel
+            actor: ext.owner
+            trigger: Owner activates Cancel
+            effects: [Returns to /people/:id without saving]
+            failure: []
+      - id: component.SchedulePreview
+        kind: component
+        name: SchedulePreview
+        cardinality: exactly one
+        description: >-
+          SchedulePreview must show that effect before saving. Changing depth may change which historical events qualify
+        links:
+          - { rel: reads, to: entity.RelationshipGoal }
+          - { rel: reads, to: entity.ContactEvent }
+
+  - id: screen.logContact
+    kind: screen
+    name: Log contact
+    parent: section.ui
+    route: /people/:id/log
+    roles: [owner]
+    states: [loaded, loading, error, validation-error, no-goal]
+    description: >-
+      Exactly PersonSummary and ContactEventForm. Form contains date and time, channel, depth, Met this goal checkbox,
+      optional note, Save and Cancel. Met this goal defaults unchecked and is disabled when no current goal exists
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: serves, to: ext.owner }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+    children:
+      - id: component.LogPersonSummary
+        kind: component
+        name: PersonSummary
+        cardinality: exactly one
+      - id: component.ContactEventForm
+        kind: component
+        name: ContactEventForm
+        cardinality: exactly one
+        children:
+          - id: component.EventDateTimeField
+            kind: component
+            name: DateTimeField
+            cardinality: exactly one
+            description: Date and time; a nonfuture event time is required
+          - id: component.EventChannelSelect
+            kind: component
+            name: ChannelSelect
+            cardinality: exactly one
+          - id: component.EventDepthSelect
+            kind: component
+            name: DepthSelect
+            cardinality: exactly one
+          - id: component.MetGoalCheckbox
+            kind: component
+            name: MetGoalCheckbox
+            cardinality: exactly one
+            states: [unchecked, checked, disabled]
+            description: Met this goal defaults unchecked and is disabled when no current goal exists
+          - id: component.EventNoteField
+            kind: component
+            name: NoteField
+            cardinality: optional
+            description: Optional private note
+          - id: affordance.ContactEventForm.save
+            kind: affordance
+            name: Save
+            actor: ext.owner
+            trigger: Owner activates Save
+            preconditions: [Owned contact, Nonfuture event time]
+            effects:
+              - Persist event; recompute affected goals without sending anything
+              - A ContactEvent must qualify only when the owner explicitly marks that it met this goal
+            failure:
+              - Validation failure keeps entered values and renders one ErrorSummary
+              - Stale version returns conflict
+            links:
+              - { rel: invokes, to: operation.contact.log }
+          - id: affordance.ContactEventForm.cancel
+            kind: affordance
+            name: Cancel
+            actor: ext.owner
+            trigger: Owner activates Cancel
+            effects: [Returns to /people/:id without saving]
+            failure: []
+
+  - id: screen.invitation
+    kind: screen
+    name: Invitation
+    parent: section.ui
+    route: /connect/:token
+    roles: [invitee]
+    states: [valid, invalid, expired, used, loading, error]
+    description: >-
+      Exactly InvitePreview and ConsentPanel after validation; Accept and Decline controls. Invalid, expired or used
+      invitations show one UnavailablePanel and no acceptance control
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: serves, to: ext.owner }
+      - { rel: governs, to: policy.authentication, direction: in }
+      - { rel: governs, to: policy.pairConsent, direction: in }
+    children:
+      - id: component.InvitePreview
+        kind: component
+        name: InvitePreview
+        cardinality: exactly one after validation
+        description: The recipient sees who is inviting them
+        links:
+          - { rel: reads, to: entity.ConnectionInvite }
+      - id: component.ConsentPanel
+        kind: component
+        name: ConsentPanel
+        cardinality: exactly one after validation
+        children:
+          - id: affordance.ConsentPanel.accept
+            kind: affordance
+            name: Accept
+            actor: ext.owner
+            trigger: Signed-in invitee activates Accept
+            preconditions: [Signed-in distinct invitee, Valid unused credential, No block in either direction]
+            effects:
+              - Atomically consume invite and create or return the unique active pair
+              - Creating the invitation and accepting it provide the two consents
+            failure:
+              - Invalid, expired or used invitations show one UnavailablePanel and no acceptance control
+              - Concurrent accept yields one pair and one redemption
+            links:
+              - { rel: invokes, to: operation.invite.accept }
+          - id: affordance.ConsentPanel.decline
+            kind: affordance
+            name: Decline
+            actor: ext.owner
+            trigger: Signed-in invitee activates Decline
+            effects: [Leaves the invitation unaccepted; no pair is created]
+            failure: []
+      - id: component.UnavailablePanel
+        kind: component
+        name: UnavailablePanel
+        cardinality: 1 only for invalid, expired or used invitations
+        description: Invalid, expired or used invitations show one UnavailablePanel and no acceptance control
+
+  - id: screen.settings
+    kind: screen
+    name: Settings
+    parent: section.ui
+    route: /settings
+    roles: [owner]
+    states: [loaded, loading, error]
+    description: >-
+      Exactly ProfilePreferences, NotificationPreferences, ExportControls and DeletionControls. Export and deletion
+      act only on the authenticated owner's data
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: serves, to: ext.owner }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+    children:
+      - id: component.ProfilePreferences
+        kind: component
+        name: ProfilePreferences
+        cardinality: exactly one
+        links:
+          - { rel: reads, to: entity.Account }
+      - id: component.NotificationPreferences
+        kind: component
+        name: NotificationPreferences
+        cardinality: exactly one
+        links:
+          - { rel: reads, to: entity.Account }
+      - id: component.ExportControls
+        kind: component
+        name: ExportControls
+        cardinality: exactly one
+        children:
+          - id: affordance.ExportControls.export
+            kind: affordance
+            name: Export
+            actor: ext.owner
+            trigger: Owner reauthenticates and activates Export
+            preconditions: [Owner reauthentication]
+            effects: [Export authorized records of the authenticated owner only]
+            failure: [Reauthentication failure denies the export]
+            links:
+              - { rel: invokes, to: operation.data.export }
+      - id: component.DeletionControls
+        kind: component
+        name: DeletionControls
+        cardinality: exactly one
+        children:
+          - id: affordance.DeletionControls.delete
+            kind: affordance
+            name: Delete account
+            actor: ext.owner
+            trigger: Owner reauthenticates and confirms deletion
+            preconditions: [Owner reauthentication]
+            effects: [Deletion revokes access immediately, cancels jobs and purges owned live data within seven days]
+            failure: [Reauthentication failure denies the deletion]
+            links:
+              - { rel: invokes, to: operation.data.delete }
+
+  # ---------------------------------------------------------------- Domain: entities (spec §5 table)
+  # "These are domain types and runtime records inside thing.webapp. They are not separate Things."
+  - id: entity.Account
+    kind: entity
+    name: Account
+    parent: section.domain
+    description: ID, identity-provider subject, display name, time zone and notification preferences; one authenticated owner
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: id, type: string }
+      - { name: identitySubject, type: string }
+      - { name: displayName, type: string }
+      - { name: timeZone, type: iana-time-zone }
+      - { name: notificationPreferences, type: json }
+    invariants: [One authenticated owner]
+    links:
+      - { rel: storedIn, to: binding.contactsStore }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+  - id: entity.ContactRecord
+    kind: entity
+    name: ContactRecord
+    parent: section.domain
+    description: >-
+      ID, ownerAccountId, display name, optional channels and linkedAccountId; belongs to one owner.
+      A ContactRecord is a person's private representation of another person. Linking it to an Account does not
+      transfer ownership or reveal notes
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: id, type: string }
+      - { name: ownerAccountId, type: "ref:entity.Account" }
+      - { name: displayName, type: string }
+      - { name: channels, type: "list<json>", optional: true }
+      - { name: linkedAccountId, type: "ref:entity.Account", optional: true }
+      - { name: version, type: int }
+    invariants:
+      - Belongs to one owner
+      - Owner-only
+      - Linking to an Account does not transfer ownership or reveal notes
+      - At most one linked contact per owner and counterpart account
+    links:
+      - { rel: storedIn, to: binding.contactsStore }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+  - id: entity.ConnectionInvite
+    kind: entity
+    name: ConnectionInvite
+    parent: section.domain
+    description: ID, inviter, token hash, expiry and state; optional recipient binding; never contains login credentials
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: id, type: string }
+      - { name: inviterAccountId, type: "ref:entity.Account" }
+      - { name: tokenHash, type: string }
+      - { name: expiresAt, type: timestamp }
+      - { name: state, type: "enum pending|accepted|expired|revoked" }
+      - { name: boundAccountId, type: "ref:entity.Account", optional: true }
+    invariants:
+      - Never contains login credentials
+      - Stores only a token hash
+      - Allows one successful acceptance
+    links:
+      - { rel: storedIn, to: binding.contactsStore }
+      - { rel: governs, to: policy.pairConsent, direction: in }
+  - id: entity.Connection
+    kind: entity
+    name: Connection
+    parent: section.domain
+    description: ID, two distinct account IDs in canonical order, acceptance provenance and state; at most one active pair
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: id, type: string }
+      - { name: firstAccountId, type: "ref:entity.Account" }
+      - { name: secondAccountId, type: "ref:entity.Account" }
+      - { name: acceptanceProvenance, type: json }
+      - { name: state, type: "enum active|disconnected|blocked" }
+    invariants:
+      - Exactly two distinct accounts in a connected pair; a user may have many independent pairs
+      - Account IDs in canonical order
+      - At most one active pair
+    links:
+      - { rel: storedIn, to: binding.contactsStore }
+      - { rel: governs, to: policy.pairConsent, direction: in }
+  - id: entity.Block
+    kind: entity
+    name: Block
+    parent: section.domain
+    description: Blocker and blocked account IDs; overrides connection, sharing and subscription permissions
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: blockerAccountId, type: "ref:entity.Account" }
+      - { name: blockedAccountId, type: "ref:entity.Account" }
+    invariants: [Overrides connection, sharing and subscription permissions]
+    links:
+      - { rel: storedIn, to: binding.contactsStore }
+      - { rel: governs, to: policy.revocation, direction: in }
+  - id: entity.RelationshipGoal
+    kind: entity
+    name: RelationshipGoal
+    parent: section.domain
+    description: ID, owner, ContactRecord, intervalDays, desiredDepth, channel, anchorDate, pause and snooze; owner-only
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: id, type: string }
+      - { name: ownerAccountId, type: "ref:entity.Account" }
+      - { name: contactRecordId, type: "ref:entity.ContactRecord" }
+      - { name: intervalDays, type: "int 1..3650" }
+      - { name: desiredDepth, type: "enum light|meaningful|shared-time" }
+      - { name: channel, type: string, optional: true }
+      - { name: anchorDate, type: local-date }
+      - { name: pausedAt, type: timestamp, optional: true }
+      - { name: snoozedUntil, type: local-date, optional: true }
+      - { name: version, type: int }
+    invariants:
+      - Owner-only
+      - At most one current goal per owned contact
+      - Goal is never exposed to its contact
+    links:
+      - { rel: storedIn, to: binding.contactsStore }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+  - id: entity.ContactEvent
+    kind: entity
+    name: ContactEvent
+    parent: section.domain
+    description: ID, owner, ContactRecord, time, channel, self-reported depth and optional private note; one contact target
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: id, type: string }
+      - { name: ownerAccountId, type: "ref:entity.Account" }
+      - { name: contactRecordId, type: "ref:entity.ContactRecord" }
+      - { name: occurredAt, type: timestamp }
+      - { name: channel, type: string }
+      - { name: selfReportedDepth, type: "enum light|meaningful|shared-time" }
+      - { name: privateNote, type: string, optional: true }
+      - { name: qualifiedGoalId, type: "ref:entity.RelationshipGoal", optional: true }
+      - { name: qualifiedDepth, type: "enum light|meaningful|shared-time", optional: true }
+    invariants:
+      - One contact target
+      - Qualifies only when the owner explicitly marks that it met this goal
+      - Records the goal ID and desiredDepth at confirmation
+    links:
+      - { rel: storedIn, to: binding.contactsStore }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+  - id: entity.Suggestion
+    kind: entity
+    name: Suggestion
+    parent: section.domain
+    description: ID, goal version, reason, due date, target ContactRecord and state; does not itself contact anybody
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: id, type: string }
+      - { name: goalId, type: "ref:entity.RelationshipGoal" }
+      - { name: goalVersion, type: int }
+      - { name: reason, type: string }
+      - { name: dueDate, type: local-date }
+      - { name: targetContactRecordId, type: "ref:entity.ContactRecord" }
+      - { name: state, type: "enum open|resolved|snoozed|suppressed" }
+    invariants:
+      - Does not itself contact anybody
+      - At most one open suggestion per goal version and due cycle
+    links:
+      - { rel: storedIn, to: binding.contactsStore }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+  - id: entity.NotificationJob
+    kind: entity
+    name: NotificationJob
+    parent: section.domain
+    description: ID, owner, suggestion and preference version, scheduled time, delivery state and deduplication key
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: id, type: string }
+      - { name: ownerAccountId, type: "ref:entity.Account" }
+      - { name: suggestionId, type: "ref:entity.Suggestion" }
+      - { name: preferenceVersion, type: int }
+      - { name: scheduledAt, type: timestamp }
+      - { name: deliveryState, type: "enum scheduled|delivered|cancelled|failed" }
+      - { name: dedupKey, type: string }
+    invariants:
+      - Delivery rechecks preferences and cancellations
+      - One owner notification per local day containing a link without contact details
+      - Queue bodies carry minimal IDs, not private relationship notes
+    links:
+      - { rel: storedIn, to: binding.contactsStore }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+      - { rel: triggers, to: ext.providers, label: optional external reminder }
+  # --- provisional (later) entities, spec §5 "later" rows
+  - id: entity.MessageDraft
+    kind: entity
+    name: MessageDraft
+    parent: section.domain
+    provisional: true
+    description: ID, author, exactly one recipient, body, approved attachments and state; no autonomous send
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: id, type: string }
+      - { name: authorAccountId, type: "ref:entity.Account" }
+      - { name: recipientAccountId, type: "ref:entity.Account" }
+      - { name: body, type: string }
+      - { name: approvedAttachments, type: "list<ref:entity.MediaAsset>", optional: true }
+      - { name: state, type: string }
+    invariants: [Exactly one recipient, No autonomous send]
+  - id: entity.DigestEdition
+    kind: entity
+    name: DigestEdition
+    parent: section.domain
+    provisional: true
+    description: ID, author, content version, publication time and access policy; no shared discussion thread
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: id, type: string }
+      - { name: authorAccountId, type: "ref:entity.Account" }
+      - { name: contentVersion, type: int }
+      - { name: publishedAt, type: timestamp }
+      - { name: accessPolicy, type: json }
+    invariants: [No shared discussion thread, Immutable publication timestamp]
+  - id: entity.Subscription
+    kind: entity
+    name: Subscription
+    parent: section.domain
+    provisional: true
+    description: Subscriber, author, approval, start time and state; directed and independently revocable
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: subscriberAccountId, type: "ref:entity.Account" }
+      - { name: authorAccountId, type: "ref:entity.Account" }
+      - { name: approval, type: json }
+      - { name: startsAt, type: timestamp }
+      - { name: state, type: string }
+    invariants: [Directed and independently revocable, Subscription does not imply reciprocal subscription]
+  - id: entity.MediaAsset
+    kind: entity
+    name: MediaAsset
+    parent: section.domain
+    provisional: true
+    description: ID, owner, private object key, permission provenance, retention and per-resource access grants
+    source: { doc: keep-in-touch-world-specification, section: "5" }
+    fields:
+      - { name: id, type: string }
+      - { name: ownerAccountId, type: "ref:entity.Account" }
+      - { name: privateObjectKey, type: string }
+      - { name: permissionProvenance, type: json }
+      - { name: retention, type: json }
+    invariants: [Private bucket only, No permanent public media URL]
+
+  # ---------------------------------------------------------------- Domain: operations (spec §6 operation table)
+  - id: operation.contact.save
+    kind: operation
+    name: Create or edit private contact
+    parent: section.domain
+    description: Owner session; nonblank name. Save only that owner's record; editing does not send invitations
+    preconditions: [Owner session, Nonblank name]
+    effects: [Save only that owner's record; editing does not send invitations, Creation returns an immutable ID and version]
+    failure: [Reads and writes to another owner's private records return a non-revealing denial, Concurrent stale-version edits return conflict without overwriting current data]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: writes, to: entity.ContactRecord }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+  - id: operation.goal.save
+    kind: operation
+    name: Save goal
+    parent: section.domain
+    description: Owned contact and valid interval. Increment goal version, recompute due state and cancel obsolete jobs
+    preconditions: [Owned contact, Valid interval]
+    effects: [Increment goal version, Recompute due state, Cancel obsolete jobs, Revising a goal does not create a ContactEvent]
+    failure: [Invalid interval is rejected with a validation error, Stale version returns conflict]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: reads, to: entity.ContactRecord }
+      - { rel: writes, to: entity.RelationshipGoal }
+      - { rel: writes, to: entity.Suggestion }
+      - { rel: writes, to: entity.NotificationJob }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+  - id: operation.contact.log
+    kind: operation
+    name: Log or revise contact
+    parent: section.domain
+    description: Owned contact, nonfuture event time. Persist event; recompute affected goals without sending anything
+    preconditions: [Owned contact, Nonfuture event time]
+    effects: [Persist event, Recompute affected goals without sending anything, Logging qualifying contact resolves its suggestion]
+    failure: [Future event time is rejected, Stale version returns conflict]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: reads, to: entity.RelationshipGoal }
+      - { rel: writes, to: entity.ContactEvent }
+      - { rel: writes, to: entity.Suggestion }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+  - id: operation.invite.create
+    kind: operation
+    name: Create invite
+    parent: section.domain
+    description: Authenticated inviter. Generate at least 128 bits of randomness, store only a token hash, expire after 24 hours and allow one successful acceptance
+    preconditions: [Authenticated inviter]
+    effects: [Generate at least 128 bits of randomness, Store only a token hash, Expire after 24 hours, Allow one successful acceptance]
+    failure: [Unauthenticated inviter is denied, Blocked pair is refused]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: writes, to: entity.ConnectionInvite }
+      - { rel: governs, to: policy.pairConsent, direction: in }
+  - id: operation.invite.accept
+    kind: operation
+    name: Accept invite
+    parent: section.domain
+    description: Signed-in distinct invitee, valid unused credential, no block in either direction. Atomically consume invite and create or return the unique active pair
+    preconditions: [Signed-in distinct invitee, Valid unused credential, No block in either direction]
+    effects: [Atomically consume invite and create or return the unique active pair]
+    failure:
+      - Invalid, expired or used credential is refused
+      - Self-connection is refused
+      - Block in either direction is refused
+      - Two concurrent accept requests yield neither two pairs nor two redemptions
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: reads, to: entity.Block }
+      - { rel: writes, to: entity.ConnectionInvite }
+      - { rel: writes, to: entity.Connection }
+      - { rel: governs, to: policy.pairConsent, direction: in }
+  - id: operation.connection.revoke
+    kind: operation
+    name: Disconnect or block
+    parent: section.domain
+    description: Participant authority. Revoke affected app sharing and cancel pending deliveries; a block prevents new app-mediated contact until removed
+    preconditions: [Participant authority]
+    effects: [Revoke affected app sharing, Cancel pending deliveries, A block prevents new app-mediated contact until removed, Blocking pauses the blocker's corresponding goal]
+    failure: [Non-participant is denied, Already delivered external messages or copied data cannot be retracted]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: writes, to: entity.Connection }
+      - { rel: writes, to: entity.Block }
+      - { rel: writes, to: entity.NotificationJob }
+      - { rel: governs, to: policy.revocation, direction: in }
+  - id: operation.data.export
+    kind: operation
+    name: Export
+    parent: section.domain
+    description: Owner reauthentication. Export authorized records
+    preconditions: [Owner reauthentication]
+    effects: [Export authorized records, Export excludes other people's data]
+    failure: [Reauthentication failure denies the export]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: reads, to: entity.ContactRecord }
+      - { rel: reads, to: entity.RelationshipGoal }
+      - { rel: reads, to: entity.ContactEvent }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+  - id: operation.data.delete
+    kind: operation
+    name: Delete
+    parent: section.domain
+    description: Owner reauthentication. Deletion revokes access immediately, cancels jobs and purges owned live data within seven days. Backup expiry follows a pinned retention policy disclosed separately
+    preconditions: [Owner reauthentication]
+    effects: [Revoke access immediately, Cancel jobs, Purge owned live data within seven days, Backup expiry follows a pinned retention policy disclosed separately]
+    failure: [Reauthentication failure denies the deletion]
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+    links:
+      - { rel: writes, to: entity.Account }
+      - { rel: writes, to: entity.ContactRecord }
+      - { rel: writes, to: entity.NotificationJob }
+      - { rel: governs, to: policy.ownerOnly, direction: in }
+
+  # ---------------------------------------------------------------- Authorization: policies (spec §6 navigation, §7)
+  # policy.authentication comes from the Thing template (provisional until an auth Kit is pinned).
+  - id: policy.ownerOnly
+    kind: policy
+    name: Owner-only access
+    parent: section.authorization
+    mode: owner-only
+    description: Owner-only access to private contacts, goals, notes and logs; another owner's records return a non-revealing denial
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+  - id: policy.pairConsent
+    kind: policy
+    name: Pair consent
+    parent: section.authorization
+    mode: pair-consent
+    description: Explicit pair consent - creating the invitation and accepting it provide the two consents; an active pair is created once
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+  - id: policy.revocation
+    kind: policy
+    name: Current revocation
+    parent: section.authorization
+    mode: revocation
+    description: Read and send authorization must check revocation against current authoritative state; a block overrides connection and sharing
+    source: { doc: keep-in-touch-world-specification, section: "6" }
+
+  # ---------------------------------------------------------------- Runtime: binding (spec §6, §8)
+  # Template ids binding.worker and binding.scheduler are inherited. The template's provisional binding.d1 placeholder
+  # stays as shipped; the intended D1 binding for this Thing is binding.contactsStore.
+  - id: binding.contactsStore
+    kind: binding
+    name: contactsStore (D1)
+    parent: section.runtime
+    description: runtime.contactsStore as the intended D1 binding for accounts, owned contacts, goals, events, consent and jobs; foreign keys, unique pair keys and conditional writes enforce structure
+    source: { doc: keep-in-touch-world-specification, section: "8" }
+    links:
+      - { rel: dependsOn, to: ext.providers, label: Cloudflare is provider context }
