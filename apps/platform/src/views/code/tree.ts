@@ -3,6 +3,7 @@ export interface FileEntry {
   path: string;
   hash: string;
   size?: number;
+  nodes?: string[];
 }
 
 export interface TreeDir {
