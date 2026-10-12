@@ -200,6 +200,8 @@ export interface PipelineInput {
   platformUrl: string;
   workersSubdomain: string;
   accountId: string;
+  /** `database_name` -> account D1 id, for app configs that commit a placeholder `database_id`. */
+  d1DatabaseIds?: Readonly<Record<string, string>>;
   workflowName?: string;
 }
 
@@ -240,7 +242,7 @@ export async function runPipeline(input: PipelineInput): Promise<BuildReport> {
   try {
     const config = await step("read wrangler config", () => readRepoConfig(input.readFile));
     if (!config) throw new DeployRefused(`no ${CONFIG_FILES.join(" / ")} at ${p.commit.slice(0, 7)}`);
-    const spec = validateRepoConfig(config.file, config.text, { accountId: input.accountId });
+    const spec = validateRepoConfig(config.file, config.text, { accountId: input.accountId, d1DatabaseIds: input.d1DatabaseIds });
     steps.push({ name: "config", status: "passed" });
     const nonce = await step("bundle nonce", async () => randomNonce());
     const plan = planSteps(p, { accountId: input.accountId, spec, nonce });

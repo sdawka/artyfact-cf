@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import type { BuildReport, CiBuildParams } from "../src/contract";
 import {
-  CONFIG_ENV, SECRETS_ENV, WRANGLER, bundleConfig, deployConfig, parseJsonc, validateRepoConfig, type DeploySpec,
+  CONFIG_ENV, DeployRefused, SECRETS_ENV, WRANGLER, bundleConfig, deployConfig, parseD1DatabaseIds, parseJsonc, validateRepoConfig, type DeploySpec,
 } from "../src/deploy-config";
 import {
   assertReportUrl, deployVars, planSteps, report, reportBody, runPipeline, shQuote, validateParams,
@@ -163,6 +163,44 @@ describe("validateRepoConfig", () => {
     }`;
     const d1 = [{ binding: "DB", database_name: "keep-in-touch", database_id: "11111111-2222-3333-4444-555555555555", migrations_dir: "migrations" }];
     expect(deployConfig(spec(text), { workerName: "keep-in-touch-app-r1", accountId: ACCOUNT, nonce: NONCE })).toMatchObject({ d1_databases: d1 });
+  });
+
+  const d1Config = (database_id?: string) => JSON.stringify({
+    main: "src/index.ts", compatibility_date: "2026-10-12",
+    d1_databases: [{ binding: "DB", database_name: "keep-in-touch", ...(database_id !== undefined && { database_id }), migrations_dir: "migrations" }],
+  });
+  const REAL_ID = "11111111-2222-3333-4444-555555555555";
+  const MAPPED_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const d1Target = { workerName: "keep-in-touch-app-r1", accountId: ACCOUNT };
+  const withIds = (text: string, ids: Record<string, string>) => validateRepoConfig("wrangler.jsonc", text, { accountId: ACCOUNT, d1DatabaseIds: ids });
+
+  it("substitutes the platform's D1 id for a placeholder or missing database_id", () => {
+    for (const id of ["00000000-0000-0000-0000-000000000000", undefined]) {
+      const s = withIds(d1Config(id), { "keep-in-touch": MAPPED_ID });
+      const d1 = [{ binding: "DB", database_name: "keep-in-touch", database_id: MAPPED_ID, migrations_dir: "migrations" }];
+      expect(deployConfig(s, { ...d1Target, nonce: NONCE })).toMatchObject({ d1_databases: d1 });
+      expect(bundleConfig(s, d1Target)).toMatchObject({ d1_databases: d1 });
+    }
+  });
+
+  it("refuses a placeholder database_id whose database_name has no mapping", () => {
+    expect(() => withIds(d1Config("00000000-0000-0000-0000-000000000000"), { other: MAPPED_ID }))
+      .toThrow(/d1_databases DB: no account database is mapped to database_name "keep-in-touch".*D1_DATABASE_IDS/);
+    expect(() => spec(d1Config(undefined))).toThrow(/no account database is mapped/);
+    expect(() => withIds(d1Config(undefined), {})).toThrow(DeployRefused);
+    expect(() => spec(JSON.stringify({ main: "src/index.ts", d1_databases: { binding: "DB" } }))).toThrow(/d1_databases must be a list/);
+    expect(() => spec(JSON.stringify({ main: "src/index.ts", d1_databases: [{ binding: "DB" }] }))).toThrow(/needs binding and database_name/);
+  });
+
+  it("keeps a real database_id untouched even when the name is mapped", () => {
+    const s = withIds(d1Config(REAL_ID), { "keep-in-touch": MAPPED_ID });
+    expect(deployConfig(s, { ...d1Target, nonce: NONCE })).toMatchObject({ d1_databases: [{ database_id: REAL_ID }] });
+  });
+
+  it("parses D1_DATABASE_IDS from an object or JSON string, dropping non-string and placeholder ids", () => {
+    expect(parseD1DatabaseIds({ a: MAPPED_ID, b: 3, c: "00000000-0000-0000-0000-000000000000" })).toEqual({ a: MAPPED_ID });
+    expect(parseD1DatabaseIds(JSON.stringify({ a: MAPPED_ID }))).toEqual({ a: MAPPED_ID });
+    for (const bad of [undefined, null, "not json", "[1]", ["x"], 7]) expect(parseD1DatabaseIds(bad)).toEqual({});
   });
 
   it("refuses migrations that transfer another Worker's Durable Object state", () => {

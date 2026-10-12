@@ -52,7 +52,14 @@ cd ../.. && npm run deploy
 | `BACKUP_BUCKET_NAME` | Equal to the R2 bucket name. |
 | `CLOUDFLARE_ACCOUNT_ID` | Account for the Artifacts git remote and the deploy. |
 
-**App prerequisites.** The app config must use only allowlisted keys: `main`, `compatibility_*`, `vars`, its own `durable_objects` and `migrations` (`tag`, `new_classes`, `new_sqlite_classes`, `renamed_classes` without `from_script`, `deleted_classes`), `d1_databases`, `assets`, `triggers`, `observability`, `placement`, `limits`, `workers_dev`, `preview_urls`, `keep_vars` and the bundling options `define`, `minify`, `jsx_*`, `tsconfig`. Workflows, services and bindings to existing KV, R2 or Queues are refused. D1 bindings are accepted as-is, so `CF_TOKEN` needs `D1: Edit` when an app binds D1. `wrangler.toml` is not read.
+**App prerequisites.** The app config must use only allowlisted keys: `main`, `compatibility_*`, `vars`, its own `durable_objects` and `migrations` (`tag`, `new_classes`, `new_sqlite_classes`, `renamed_classes` without `from_script`, `deleted_classes`), `d1_databases`, `assets`, `triggers`, `observability`, `placement`, `limits`, `workers_dev`, `preview_urls`, `keep_vars` and the bundling options `define`, `minify`, `jsx_*`, `tsconfig`. Workflows, services and bindings to existing KV, R2 or Queues are refused. D1 bindings with a real id are accepted as-is, so `CF_TOKEN` needs `D1: Edit` when an app binds D1. `wrangler.toml` is not read.
+
+**App databases.** The platform maps `database_name` to account D1 ids through the `D1_DATABASE_IDS` var in `wrangler.jsonc`, so the app repo keeps the all-zero placeholder `database_id`. A placeholder or missing id with no mapping refuses the deploy with the database name in the message. To add one: create the database, apply the app's migrations, add `"<database_name>": "<id>"` to `D1_DATABASE_IDS`, then redeploy this Worker.
+
+```sh
+cf d1 create --name keep-in-touch --primary-location-hint enam
+cf d1 migrations apply <id> --dir examples/keep-in-touch-app/migrations
+```
 
 ## Trust model
 
