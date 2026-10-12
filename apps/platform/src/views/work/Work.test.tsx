@@ -421,7 +421,7 @@ describe("PromotionPanel", () => {
 const ALL_CRITERIA = fixtureBundle().model.criteria.map((c) => c.id);
 
 describe("New Evolution", () => {
-  it("sends every criterion by default and omits one that is unchecked", async () => {
+  it("omits acceptanceCriteria untouched, sends the picked ids once touched, and [] when cleared", async () => {
     const posts: { acceptanceCriteria?: string[] }[] = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
       const u = String(url);
@@ -439,14 +439,23 @@ describe("New Evolution", () => {
     fireEvent.change(within(panel).getByLabelText("Intent"), { target: { value: "I" } });
     const boxes = within(panel).getAllByRole("checkbox") as HTMLInputElement[];
     expect(boxes.length).toBe(ALL_CRITERIA.length);
-    expect(boxes.every((b) => b.checked)).toBe(true);
-    fireEvent.click(within(panel).getByRole("button", { name: "Create Evolution" }));
+    expect(boxes.some((b) => b.checked)).toBe(false);
+    const create = () => fireEvent.click(within(panel).getByRole("button", { name: "Create Evolution" }));
+    create();
     await waitFor(() => expect(posts.length).toBe(1));
-    expect(posts[0]!.acceptanceCriteria).toEqual(ALL_CRITERIA);
-    fireEvent.click(boxes[0]!);
-    fireEvent.click(within(panel).getByRole("button", { name: "Create Evolution" }));
+    expect("acceptanceCriteria" in posts[0]!).toBe(false);
+    fireEvent.click(boxes[1]!);
+    create();
     await waitFor(() => expect(posts.length).toBe(2));
-    expect(posts[1]!.acceptanceCriteria).toEqual(ALL_CRITERIA.slice(1));
+    expect(posts[1]!.acceptanceCriteria).toEqual([ALL_CRITERIA[1]]);
+    fireEvent.click(boxes[1]!);
+    create();
+    await waitFor(() => expect(posts.length).toBe(3));
+    expect(posts[2]!.acceptanceCriteria).toEqual([]);
+    fireEvent.click(within(panel).getByRole("button", { name: "Select all" }));
+    create();
+    await waitFor(() => expect(posts.length).toBe(4));
+    expect(posts[3]!.acceptanceCriteria).toEqual(ALL_CRITERIA);
   });
 
   it("+ Evolution opens the panel, disabled with the standard reason on fixture data", async () => {
@@ -482,7 +491,7 @@ describe("New Evolution", () => {
     fireEvent.change(within(panel).getByLabelText("Admin token"), { target: { value: "s3cret" } });
     fireEvent.click(within(panel).getByRole("button", { name: "Create Evolution" }));
     await waitFor(() => expect(router.state.location.search).toBe("?evolution=evolution.new"));
-    expect(posts).toEqual([{ body: { title: "Reminder nudges", intent: "Nudge owners", kind: "implementation", risk: "low", affectedNodes: ["screen.people"], acceptanceCriteria: ALL_CRITERIA }, auth: "Bearer s3cret" }]);
+    expect(posts).toEqual([{ body: { title: "Reminder nudges", intent: "Nudge owners", kind: "implementation", risk: "low", affectedNodes: ["screen.people"] }, auth: "Bearer s3cret" }]);
     const proposed = await screen.findByRole("region", { name: /Proposed/ });
     expect(await within(proposed).findByRole("button", { name: "Reminder nudges" })).toBeTruthy();
     await waitFor(() => expect(screen.queryByRole("region", { name: "New Evolution" })).toBeNull());

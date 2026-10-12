@@ -24,13 +24,12 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
   const [nodes, setNodes] = useState<string[]>([]);
   const [kind, setKind] = useState<(typeof KINDS)[number]>("implementation");
   const [risk, setRisk] = useState<(typeof RISKS)[number]>("medium");
-  // Unchecked criterion ids; everything is checked by default, even if the model loads late.
-  const [unchecked, setUnchecked] = useState<string[]>([]);
+  // null = list untouched: the field is omitted and the server applies the System's defaults for the target.
+  const [picked, setPicked] = useState<string[] | null>(null);
   // Component state only: never persisted, cleared on success.
   const [adminToken, setAdminToken] = useState("");
 
   const criteria = m.index.entries.filter((e) => e.kind === "criterion");
-  const criteriaIds = criteria.map((c) => c.id).filter((id) => !unchecked.includes(id));
 
   const reason = m.bundle.source === "fixture"
     ? "Creating an Evolution needs the platform API. The UI is showing fixture data."
@@ -47,7 +46,7 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
   const submit = (ev: React.FormEvent) => {
     ev.preventDefault();
     if (reason) return;
-    const body: CreateEvolutionRequest = { title: title.trim(), intent: intent.trim(), kind, risk, ...(nodes.length && { affectedNodes: nodes }), ...(criteriaIds.length && { acceptanceCriteria: criteriaIds }) };
+    const body: CreateEvolutionRequest = { title: title.trim(), intent: intent.trim(), kind, risk, ...(nodes.length && { affectedNodes: nodes }), ...(picked && { acceptanceCriteria: picked }) };
     create.mutate(
       { body, ...(adminToken && { adminToken }) },
       {
@@ -104,14 +103,19 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
         {criteria.length > 0 && (
           <fieldset className={styles.fieldset}>
             <legend>Acceptance criteria</legend>
+            <span className={styles.inlineRow}>
+              <button type="button" className={styles.btn} onClick={() => setPicked(criteria.map((c) => c.id))}>Select all</button>
+              <button type="button" className={styles.btn} onClick={() => setPicked([])}>Clear</button>
+              <span className={styles.muted}>Leave untouched to use the System's defaults for this target</span>
+            </span>
             <ul className={styles.plain}>
               {criteria.map((c) => (
                 <li key={c.id}>
                   <label className={styles.check}>
                     <input
                       type="checkbox"
-                      checked={!unchecked.includes(c.id)}
-                      onChange={(e) => setUnchecked(e.target.checked ? unchecked.filter((x) => x !== c.id) : [...unchecked, c.id])}
+                      checked={!!picked?.includes(c.id)}
+                      onChange={(e) => { const cur = picked ?? []; setPicked(e.target.checked ? [...cur, c.id] : cur.filter((x) => x !== c.id)); }}
                     />
                     <code>{c.id}</code> <span className={styles.muted}>{c.name}</span>
                   </label>
