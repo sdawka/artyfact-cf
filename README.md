@@ -34,15 +34,15 @@ More views: [Journeys](docs/images/journeys-connect.png), [Theory](docs/images/t
 
 One Worker serves everything. Static Assets serve the React single-page app. A Hono app handles `/api/*`, and the Worker also exports the queue handler and the Durable Object class.
 
-**Artifacts.** The Genome and the app live in Artifacts repositories in one namespace. The Worker reads them through the `ARTIFACTS` binding: it reads commits and trees, walks them, and loads the Genome at an exact commit. No Git library runs in the Worker. Starting a realization forks the app repository (or the Genome repository for an amendment), waits for the fork to be ready, and issues a write token that expires after six hours. The token is returned once, to the person who starts the work. Agents clone and push with ordinary Git over HTTPS.
+**Artifacts.** The Genome and the app live in Artifacts repositories in one namespace. The Worker reads them through the `ARTIFACTS` binding: it reads commits and trees, walks them, and loads the Genome at an exact commit. No Git library runs in the Worker. Starting a realization forks the app repository (or the Genome repository for an amendment), waits for the fork to be ready, and issues a write token that expires after six hours. The token is returned once, in the response to the start-work call. Agents clone and push with ordinary Git over HTTPS.
 
 **Push events on Queues.** Artifacts push events (`cf.artifacts.repo.pushed`) arrive on a Queue. The consumer resolves the fork to its realization and submits the new head. The CLI `submit` command does the same over HTTP. Both paths are idempotent on realization and commit, and the event id is recorded so a redelivered event does nothing.
 
 **Durable Object with SQLite.** `SystemAuthority` is one Durable Object per System. It stores the head, System commits, Evolutions, realizations, candidates, evaluations and seen events. `promote` runs in one synchronous transaction. It reads the head, compares it with the caller's expected head, checks the promotion gate, writes a new System commit with a hashed manifest, moves the head and rejects sibling candidates. Promotion changes the manifest, not Git history.
 
-**D1 and R2.** D1 holds a derived index only. R2 holds evidence blobs. Both can be rebuilt or skipped without losing the System.
+**Storage.** The System's state lives in two places: the Artifacts repositories and the Durable Object's SQLite. Evaluations and their observations are stored in the Durable Object.
 
-**System One.** Semantic judgments, such as classifying a Genome change, go to System One through TypeSafe. The key is a Worker secret. Without a provider every judgment is `unknown`. See the run notes for `FAKE_S1`.
+**System One.** Semantic judgments, such as classifying a Genome change, go to System One through TypeSafe, or through OpenRouter if only that key is set. The key is a Worker secret. Without a provider every judgment is `unknown`. See the run notes for `FAKE_S1`.
 
 The longer version, with a diagram, is in [docs/architecture.md](docs/architecture.md).
 
@@ -63,8 +63,6 @@ flowchart LR
   DO[(SystemAuthority<br/>Durable Object + SQLite)]
   ART[(Artifacts<br/>genome repo, app repo, forks)]
   QUE[[Queue<br/>artifacts events]]
-  R2[(R2 evidence)]
-  D1[(D1 index)]
   S1[System One]
 
   UI -->|polls, SSE| API
@@ -78,17 +76,15 @@ flowchart LR
   API --> Hooks
   Hooks --> S1
   Hooks --> DO
-  DO --> R2
-  DO --> D1
 ```
 
 ## What is deterministic and what is model-judged
 
 The Genome is loaded and validated by a Datalog engine running versioned Rule Packs. The same Genome and the same packs give the same findings, and each finding carries its derivation. File mapping, scope checks, existence checks, overlap detection and the promotion gate are plain code.
 
-System One is asked only questions that need judgment: is a change a deliberate non-standard choice or a violation, does an edit contradict a stated commitment, would two changes interfere. Its answers are probabilities. At 0.9 or above they count as confident, between 0.5 and 0.9 they are labelled "review", and low confidence never produces a pass. The admin decides. Promotion blocks on hard criteria that have a bound hook, and an Evolution's acceptance criteria always count. A blocking criterion with no completed evaluation is `unknown`, and `unknown` blocks.
+System One is asked only questions that need judgment: is a change a deliberate non-standard choice or a violation, does an edit contradict a stated commitment, would two changes interfere. Its answers are probabilities. At 0.9 or above they count as confident, between 0.5 and 0.9 they are labelled "review", and low confidence never produces a pass. The admin decides. Promotion blocks on hard criteria that have a bound hook, and an Evolution's acceptance criteria are always in the gate pool. Those that are hard and have a bound hook block. A blocking criterion with no completed evaluation is `unknown`, and `unknown` blocks.
 
-Without a System One provider (`TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`), set `FAKE_S1=1` or the purpose gate stays `unknown` and promotion stays closed. The UI labels judgments from the fake provider.
+Without a System One provider (`TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`), set `FAKE_S1=1` or the purpose gate stays `unknown` and promotion stays closed. The UI labels judgments from the fake provider. `.dev.vars.example` sets `FAKE_S1=1`, and it takes precedence over real keys. A local run copied from the example therefore uses the fake provider until you remove that line.
 
 ## The model in two paragraphs
 
@@ -108,18 +104,26 @@ An agent (or its operator) starts work on an Evolution. The platform forks, issu
 
 ## Run it locally
 
-This runs in fixture mode: the SPA uses a bundled copy of the Keep in Touch System, and nothing is written to Cloudflare.
+No Cloudflare login is needed to try the interface. In fixture mode the SPA uses a bundled copy of the Keep in Touch System and nothing talks to Cloudflare.
 
 ```sh
 npm install
-npm test            # 717 tests pass, 1 skipped (live System One smoke)
+npm test               # 717 tests pass, 1 skipped (live System One smoke)
 npm run typecheck
-cp apps/platform/.dev.vars.example apps/platform/.dev.vars
-npm run dev -w @artyfact/platform   # http://localhost:5173
-npm run e2e                         # builds the SPA, 14 Playwright tests
+npm run e2e            # builds the SPA, runs 14 Playwright tests
+npm run preview:fixture
 ```
 
-`npm run dev` shows a "fixture data" badge until a System is imported through the API. A remote binding needs `wrangler login`. The amendment review has its own fixture page:
+`npm run e2e` drives a real browser. If Playwright reports a missing browser, run `npx playwright install chromium` once.
+
+The real backend needs a login, because the `ARTIFACTS` binding is remote even in development. Run `npx wrangler login` or set `CLOUDFLARE_API_TOKEN`. The same applies to deploying.
+
+```sh
+cp apps/platform/.dev.vars.example apps/platform/.dev.vars
+npm run dev -w @artyfact/platform   # http://localhost:5173
+```
+
+The amendment review has its own fixture page and needs no login:
 
 ```sh
 npm run dev:amendment -w @artyfact/platform
@@ -153,7 +157,7 @@ The full loop against real Artifacts, with two agents and a promotion, is in `do
 - Platform-hosted agents. Agents run on the user's machine.
 - Replay of server-sent events after a disconnect. The UI polls and refetches on reconnect.
 - Composing more than one app candidate or Genome candidate in one promotion. The API returns `invalid-state`.
-- Authentication beyond one admin bearer token.
+- Authentication beyond one admin bearer token. Start work, checkpoint, submit and sync are unauthenticated in this version.
 
 ## Licence
 

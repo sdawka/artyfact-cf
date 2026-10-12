@@ -28,7 +28,7 @@ Genome amendments get a review of their own. An agent can propose a change to th
 
 The platform is strict about what counts as evidence. A verdict is pass, fail, unknown, stale or waived. Only pass is drawn green. Missing evidence is unknown and blocks promotion. The model is asked only for judgment, never for a pass without confidence. Everything else is deterministic code and a Datalog rule engine that records its derivations.
 
-Everything runs on Cloudflare. One Worker serves the API and the single-page app through Static Assets. Artifacts hold the Genome and the app. The Worker reads them through the binding, forks them and issues tokens. Push events arrive on a Queue. A Durable Object with SQLite holds the System state and does the promotion swap. R2 holds evidence and D1 holds a rebuildable index.
+Everything runs on Cloudflare. One Worker serves the API and the single-page app through Static Assets. Artifacts hold the Genome and the app. The Worker reads them through the binding, forks them and issues tokens. Push events arrive on a Queue. A Durable Object with SQLite holds the System state and does the promotion swap. Evaluations and their evidence are stored in the Durable Object's SQLite.
 
 Not done on purpose: platform-hosted agents, a reasoning-model evaluator beyond System One, paid runs and a Git-parity suite.
 
@@ -38,4 +38,9 @@ Not done on purpose: platform-hosted agents, a reasoning-model evaluator beyond 
 - Concurrency: several agents fork, work and push at once. The platform records each candidate, detects file and semantic overlap and resolves them through a compare-and-swap promotion.
 
 ## Team
-`TODO(team)`: names and roles are not recorded in the repository. Open question for the project owner.
+`TODO(team)`: names and roles are not recorded in the repository.
+
+## Open items
+- Team names and roles.
+- Copyright owner for LICENSE. It reads "artyfact contributors" until the owner names one.
+- Repository, demo and video URLs.

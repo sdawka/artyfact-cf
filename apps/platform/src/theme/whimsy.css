@@ -3,7 +3,7 @@
 
 :root {
   color-scheme: dark;
-  --font-display: "Brilon", Georgia, serif;
+  --font-display: Georgia, serif;
   --font-body: "Trebuchet MS", Verdana, sans-serif;
   --font-ui: "Trebuchet MS", Verdana, sans-serif;
   --font-code: SFMono-Regular, Consolas, monospace;
