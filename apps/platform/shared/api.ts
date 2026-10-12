@@ -313,6 +313,10 @@ export type RealizationResponse = Realization & {
   candidateDetail?: Candidate;
   evaluations: Evaluation[];
   conflicts: ConflictReport[];
+  /** When the stored conflicts were last computed (at submit/promote); null if never. */
+  conflictsComputedAt?: string | null;
+  /** Set when the last conflict run for this candidate failed. */
+  conflictsError?: string;
 };
 
 /** `POST …/realizations/:rid/submit`. Idempotent on (realization, commit). */
@@ -352,6 +356,7 @@ export interface CandidatesResponse {
   candidates: Candidate[];
   evaluations: Evaluation[];
   conflicts: ConflictReport[];
+  conflictsComputedAt?: string | null;
 }
 
 /** `GET /api/systems/:id/work`: board data, polled every 5 s or streamed. */
@@ -461,8 +466,12 @@ export interface ImportSystemResponse {
 export interface EvaluationsResponse {
   evaluations: Evaluation[];
 }
+/** Stored conflicts among open candidates, computed at submit and promote (never on read). */
 export interface ConflictsResponse {
   conflicts: ConflictReport[];
+  computedAt: string | null;
+  /** Candidates whose last conflict run failed. */
+  errors: { candidate: string; error: string }[];
 }
 export interface HistoryResponse {
   /** Newest first. */

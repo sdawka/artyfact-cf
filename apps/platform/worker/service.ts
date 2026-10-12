@@ -6,7 +6,7 @@ import { diffModels, type schema, type SystemModel } from "@artyfact/model";
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  CandidatesResponse, ConflictReport, Evaluation, Evolution, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  CandidatesResponse, ConflictReport, ConflictsResponse, Evaluation, Evolution, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, StartWorkRequest, StartWorkResponse, SubmitResponse, SyncResponse,
 } from "../shared/api";
 import { artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
@@ -292,8 +292,12 @@ export async function realizationView(env: Env, systemId: string, rid: string): 
   const rec = await record(env, systemId, rid);
   const candidate = rec.realization.candidate ? await stub.candidate(rec.realization.candidate) : null;
   const evaluations = candidate ? await stub.evaluations(candidate.id) : [];
-  const conflicts = candidate ? await conflictsFor(env, systemId, candidate.id).catch(() => []) : [];
-  return { ...rec.realization, systemId, realization: rec.realization, ...(candidate && { candidateDetail: candidate }), evaluations, conflicts };
+  const stored = candidate ? await stub.storedConflicts(candidate.id) : null;
+  return {
+    ...rec.realization, systemId, realization: rec.realization, ...(candidate && { candidateDetail: candidate }), evaluations,
+    conflicts: stored?.conflicts ?? [], conflictsComputedAt: stored?.computedAt ?? null,
+    ...(stored?.errors.length && { conflictsError: stored.errors.map((e) => e.error).join("; ") }),
+  };
 }
 
 export async function checkpoint(env: Env, systemId: string, rid: string, body: { summary?: unknown; message?: unknown; commit?: unknown }) {
@@ -344,29 +348,33 @@ async function canonicalFiles(env: Env, s: HeadState): Promise<FileMap> {
   return Object.fromEntries((await canonicalGenome(env, s)).files);
 }
 
-async function conflictsFor(env: Env, systemId: string, candidateId?: string): Promise<ConflictReport[]> {
+/**
+ * Run the hooks' conflict check for one candidate against the other open candidates and store the result in the
+ * DO (submit and promote only; reads serve stored results). A failing run is stored as an error, never hidden.
+ */
+async function computeConflicts(env: Env, systemId: string, candidateId: string): Promise<ConflictReport[]> {
+  const stub = systemStub(env, systemId);
   const s = await headState(env, systemId);
   const open = await Promise.all((await storedCandidates(env, systemId)).map((c) => hookRef(env, systemId, c)));
-  const subjects = candidateId ? open.filter((c) => c.id === candidateId) : open;
-  if (!subjects.length) return [];
-  const genomeFiles = await canonicalFiles(env, s);
-  const runner = hookRunner(env);
-  const seen = new Set<string>();
-  const out: ConflictReport[] = [];
-  for (const candidate of subjects) {
-    const reports = await runner.conflicts({ systemId, candidate, genomeCommit: s.genomeCommit, genomeFiles, openCandidates: open.filter((c) => c.id !== candidate.id) });
-    for (const r of reports) {
-      const key = `${r.kind}|${[...r.candidates].sort().join(",")}|${[...r.subjects].sort().join(",")}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        out.push(r);
-      }
-    }
+  const candidate = open.find((c) => c.id === candidateId);
+  if (!candidate) return [];
+  try {
+    const reports = await hookRunner(env).conflicts({
+      systemId, candidate, genomeCommit: s.genomeCommit, genomeFiles: await canonicalFiles(env, s), openCandidates: open.filter((c) => c.id !== candidateId),
+    });
+    await stub.storeConflicts(candidateId, reports, null);
+    return reports;
+  } catch (e) {
+    const error = (e as Error)?.message ?? String(e);
+    console.error(`[conflicts] ${candidateId}: ${error}`);
+    await stub.storeConflicts(candidateId, [], error);
+    return [];
   }
-  return out;
 }
 
-export const conflicts = (env: Env, systemId: string) => conflictsFor(env, systemId);
+export async function conflicts(env: Env, systemId: string): Promise<ConflictsResponse> {
+  return systemStub(env, systemId).storedConflicts();
+}
 
 /** Run hooks for a recorded candidate; returns evaluations in wire form and the realization status to set. */
 async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: StoredCandidate, trigger: "submission" | "promotion") {
@@ -481,6 +489,7 @@ export async function submit(
   const ns = artifactsFor(env);
 
   let existing = (await stub.candidates({ realizationId: rid })).find((c) => c.commit === commit);
+  let created = true;
   if (!existing) {
     const built = await withRepo(ns, rec.forkRepo, async (repo) => {
       if (!(await repo.readCommit(commit))) throw unprocessable("unknown-commit", `commit ${commit} not found in ${rec.forkRepo}; push before submitting`);
@@ -507,6 +516,7 @@ export async function submit(
     });
     const manifest = { ...built, manifestHash: await manifestHash(built) };
     const out = await rpc(stub.recordCandidate({ realizationId: rid, commit, manifest, changedPaths: manifest.changedPaths, changedNodes: manifest.changedNodes }));
+    created = out.created;
     if (out.created) {
       const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((c) => c.id === out.candidate.id)!;
       await recordRun(env, systemId, out.candidate.id, await evaluate(env, s, rec, ref, "submission"));
@@ -520,15 +530,16 @@ export async function submit(
     const fresh = await record(env, systemId, rid);
     return {
       created: false, realization: fresh.realization, candidate: (await stub.candidate(existing.id))!,
-      evaluations: await stub.evaluations(existing.id), conflicts: await conflictsFor(env, systemId, existing.id),
+      evaluations: await stub.evaluations(existing.id), conflicts: (await stub.storedConflicts(existing.id)).conflicts,
     };
   }
-  const conflictReports = await conflictsFor(env, systemId, existing.id);
-  for (const c of conflictReports) await stub.publish({ type: "conflict.detected", conflict: c });
+  // A concurrent submit of the same commit may have created the candidate: only the creator recomputes.
+  const conflictReports = created ? await computeConflicts(env, systemId, existing.id) : (await stub.storedConflicts(existing.id)).conflicts;
+  if (created) for (const c of conflictReports) await stub.publish({ type: "conflict.detected", conflict: c });
   await refreshRegistry(env, systemId);
   const fresh = await record(env, systemId, rid);
   return {
-    created: true, realization: fresh.realization, candidate: (await stub.candidate(existing.id))!,
+    created, realization: fresh.realization, candidate: (await stub.candidate(existing.id))!,
     evaluations: await stub.evaluations(existing.id), conflicts: conflictReports,
   };
 }
@@ -547,9 +558,12 @@ export async function candidatesView(env: Env, systemId: string, evolutionId: st
   const stub = systemStub(env, systemId);
   const candidates = await stub.candidates({ evolutionId });
   const evaluations = (await Promise.all(candidates.map((c) => stub.evaluations(c.id)))).flat();
-  const all = candidates.length ? await conflictsFor(env, systemId) : [];
+  const stored = await stub.storedConflicts();
   const ids = new Set(candidates.map((c) => c.id));
-  return { evolution: evolutionId, candidates, evaluations, conflicts: all.filter((c) => c.candidates.some((x) => ids.has(x))) };
+  return {
+    evolution: evolutionId, candidates, evaluations,
+    conflicts: stored.conflicts.filter((c) => c.candidates.some((x) => ids.has(x))), conflictsComputedAt: stored.computedAt,
+  };
 }
 
 /** Genome candidate review panel: semantic delta, base vs candidate readiness, DeltaReviews, evaluations. */
@@ -585,6 +599,7 @@ export async function promote(
     gates[id] = gateCriteria(g.model, await hookRef(env, systemId, ref));
     // Revalidate on the exact commit before the CAS: hooks re-run with promotionFacts (base-current, manifest-exact, evidence-fresh).
     if (["submitted", "evaluated", "selected"].includes(c.state) && s.head === body.expectedHead) {
+      await computeConflicts(env, systemId, id);
       const { evaluations } = await evaluate(env, s, rec, ref, "promotion");
       if (evaluations.length) await stub.recordEvaluations(id, evaluations);
     }

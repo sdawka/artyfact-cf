@@ -1,13 +1,16 @@
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
 import type {
-  Candidate, Checkpoint, Evaluation, GateItem, Evolution, EvolutionState, Realization, RealizationStatus, SseEnvelope, SseEvent,
+  Candidate, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, Realization, RealizationStatus, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
 
 /** Name of the DO instance holding the System registry and the realization/fork index. */
 export const REGISTRY = "__registry";
+
+/** A hooks ConflictReport as stored (plain JSON). */
+export type StoredConflict = ConflictReport & { nodes?: string[]; paths?: string[]; error?: string };
 
 export class StaleBaseError extends Error {
   constructor(readonly currentHead: string | null) {
@@ -174,6 +177,8 @@ CREATE TABLE IF NOT EXISTS evaluations (id TEXT PRIMARY KEY, candidate_id TEXT N
   execution TEXT NOT NULL, verdict TEXT NOT NULL, observations_json TEXT, evidence_key TEXT, verifier TEXT, created_at TEXT NOT NULL);
 CREATE INDEX IF NOT EXISTS evaluations_by_candidate ON evaluations (candidate_id, criterion_id);
 CREATE TABLE IF NOT EXISTS events_seen (event_id TEXT PRIMARY KEY, seen_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS conflict_reports (key TEXT PRIMARY KEY, candidates_json TEXT NOT NULL, json TEXT NOT NULL, computed_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS conflict_runs (candidate_id TEXT PRIMARY KEY, computed_at TEXT NOT NULL, error TEXT);
 CREATE TABLE IF NOT EXISTS blob_sizes (hash TEXT PRIMARY KEY, size INTEGER NOT NULL);
 CREATE TABLE IF NOT EXISTS candidate_reviews (candidate_id TEXT PRIMARY KEY, json TEXT NOT NULL, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS model_cache (genome_commit TEXT NOT NULL, part TEXT NOT NULL, json TEXT NOT NULL, created_at TEXT NOT NULL,
@@ -395,6 +400,41 @@ export class SystemAuthority extends DurableObject<Env> {
     for (const [part, text] of Object.entries(parts)) {
       this.sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES (?, ?, ?, ?)", genomeCommit, part, text, at);
     }
+  }
+
+  /**
+   * Replace the stored conflict reports involving `candidateId` with a fresh run (computed at submit and promote).
+   * Reports are keyed by kind + candidates + subjects, so a pair computed from either side is stored once.
+   */
+  storeConflicts(candidateId: string, reports: StoredConflict[], error: string | null): void {
+    const at = nowIso();
+    this.ctx.storage.transactionSync(() => {
+      for (const r of this.all("SELECT key, candidates_json FROM conflict_reports")) {
+        if (json<string[]>(r.candidates_json, []).includes(candidateId)) this.sql.exec("DELETE FROM conflict_reports WHERE key = ?", r.key);
+      }
+      for (const r of reports) {
+        const cands = [...r.candidates].sort();
+        const key = `${r.kind}|${cands.join(",")}|${[...r.subjects].sort().join(",")}`;
+        this.sql.exec("INSERT OR REPLACE INTO conflict_reports (key, candidates_json, json, computed_at) VALUES (?, ?, ?, ?)", key, JSON.stringify(cands), JSON.stringify(r), at);
+      }
+      this.sql.exec("INSERT OR REPLACE INTO conflict_runs (candidate_id, computed_at, error) VALUES (?, ?, ?)", candidateId, at, error);
+    });
+  }
+
+  /** Stored reports among open candidates (optionally those involving `candidateId`), with run times and errors. */
+  storedConflicts(candidateId?: string): { conflicts: StoredConflict[]; computedAt: string | null; errors: { candidate: string; error: string }[] } {
+    const open = new Set(this.all("SELECT id FROM candidates WHERE state IN ('submitted', 'evaluated', 'selected')").map((r) => String(r.id)));
+    const conflicts: StoredConflict[] = [];
+    for (const r of this.all("SELECT candidates_json, json FROM conflict_reports ORDER BY key")) {
+      const cands = json<string[]>(r.candidates_json, []);
+      if (!cands.every((c) => open.has(c)) || (candidateId && !cands.includes(candidateId))) continue;
+      conflicts.push(json<StoredConflict>(r.json, {} as StoredConflict));
+    }
+    const runs = this.all("SELECT candidate_id, computed_at, error FROM conflict_runs")
+      .filter((r) => open.has(String(r.candidate_id)) && (!candidateId || r.candidate_id === candidateId));
+    const computedAt = runs.map((r) => String(r.computed_at)).sort().at(-1) ?? null;
+    const errors = runs.filter((r) => r.error != null).map((r) => ({ candidate: String(r.candidate_id), error: String(r.error) }));
+    return { conflicts, computedAt, errors };
   }
 
   /** Known blob sizes (git blob hashes are immutable, so a size never changes). */

@@ -2,7 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
-  ApiError, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
+  ApiError, ConflictsResponse, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
   SerializedModel, StartWorkResponse, SubmitResponse, SystemsResponse, HistoryResponse, WorkResponse, ReadinessResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
@@ -203,8 +203,18 @@ describe("routes: import → model → start → submit → promote", () => {
     await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: ca });
     const sb = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${b.realization.id}/submit`, { commit: cb });
     expect(sb.json.conflicts).toHaveLength(1);
-    const conflicts = await call<{ conflicts: unknown[] }>("GET", `/systems/${systemId}/conflicts`);
+    const conflicts = await call<ConflictsResponse>("GET", `/systems/${systemId}/conflicts`);
     expect(conflicts.status).toBe(200);
+    expect(conflicts.json.conflicts).toHaveLength(1);
+    expect(conflicts.json.computedAt).toEqual(expect.any(String));
+    // Reads serve stored results: the runner is not called on GET.
+    let calls = 0;
+    setHooks({ runner: () => ({ ...passing, async conflicts(ctx) { calls++; return passing.conflicts(ctx); } }) });
+    await call("GET", `/systems/${systemId}/conflicts`);
+    await call("GET", `/systems/${systemId}/realizations/${a.realization.id}`);
+    await call("GET", `/systems/${systemId}/evolutions/evolution.1/candidates`);
+    expect(calls).toBe(0);
+    setHooks({ runner: () => passing });
     const cands = await call<{ candidates: { id: string }[] }>("GET", `/systems/${systemId}/evolutions/evolution.1/candidates`);
     expect(cands.json.candidates).toHaveLength(2);
 
@@ -277,6 +287,18 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(res.status).toBe(409);
     expect(seen.at(-1)!.promotionFacts).toMatchObject({ manifestExact: false, evidenceFresh: false });
     expect(res.json.error).toMatchObject({ code: "blocked", details: { blocking: [{ criterion: "C.system.promotion", verdict: "fail", execution: "completed" }] } });
+  });
+
+  it("stores a failed conflict run as an error instead of hiding it", async () => {
+    const { ns, systemId, appRepo } = await imported();
+    setHooks({ runner: () => ({ ...passing, async conflicts() { throw new Error("overlap exploded"); } }) });
+    const a = (await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {})).json;
+    const c = ns.repo(`${appRepo}--r1`).commit({ ...appFiles, "src/ui/people/a.ts": "a" });
+    await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${a.realization.id}/submit`, { commit: c });
+    const view = await call<RealizationResponse>("GET", `/systems/${systemId}/realizations/${a.realization.id}`);
+    expect(view.json.conflictsError).toBe("overlap exploded");
+    const all = await call<ConflictsResponse>("GET", `/systems/${systemId}/conflicts`);
+    expect(all.json.errors).toEqual([{ candidate: view.json.candidateDetail!.id, error: "overlap exploded" }]);
   });
 
   it("rejects unknown commits and validates input", async () => {
