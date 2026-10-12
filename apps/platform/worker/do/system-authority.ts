@@ -793,17 +793,16 @@ export class SystemAuthority extends DurableObject<Env> {
     type V = GateItem["verdict"];
     type X = GateItem["execution"];
     const out: GateItem[] = [];
-    for (const { id: criterion, severity } of gates) {
-      const rows = this.all("SELECT verdict, execution FROM evaluations WHERE candidate_id = ? AND criterion_id = ?", candidateId, criterion);
+    for (const { id: criterion, severity, offTriggerHooks } of gates) {
+      // The Worker names, from the Genome, the hooks that never run before promotion; only their not-run rows are
+      // disregarded. A not-run row of any other hook keeps the criterion blocking, whatever else passed.
+      const off = new Set(offTriggerHooks ?? []);
+      const rows = this.all("SELECT verdict, execution, hook_id FROM evaluations WHERE candidate_id = ? AND criterion_id = ?", candidateId, criterion)
+        .filter((r) => !(r.execution === "not-run" && off.has(String(r.hook_id))));
       // Missing evidence is unknown, never pass.
       if (!rows.length) out.push({ candidate: candidateId, criterion, severity, verdict: "unknown", execution: "missing" });
-      // A criterion with a pass+completed row is green unless another of its hooks ran and did not pass: a not-run
-      // row from a hook off this trigger (e.g. an outcome-only hook before deployment) does not block it.
-      const passed = rows.some((r) => r.verdict === "pass" && r.execution === "completed");
       for (const r of rows) {
-        if (r.verdict === "pass" && r.execution === "completed") continue;
-        if (passed && r.execution === "not-run") continue;
-        out.push({ candidate: candidateId, criterion, severity, verdict: String(r.verdict) as V, execution: String(r.execution) as X });
+        if (r.verdict !== "pass" || r.execution !== "completed") out.push({ candidate: candidateId, criterion, severity, verdict: String(r.verdict) as V, execution: String(r.execution) as X });
       }
     }
     return out;

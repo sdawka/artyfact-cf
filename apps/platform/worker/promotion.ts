@@ -17,7 +17,17 @@ export interface GateCriterion {
   blocking: boolean;
   /** Deferred acceptance criterion: known to the gate, neither blocking nor advisory. */
   deferred?: true;
+  /**
+   * Hooks of this criterion whose `triggers` include none of submission, candidate or promotion (deployment, outcome
+   * or selection stage). Their `not-run` rows cannot exist before promotion and are disregarded; nothing else is.
+   */
+  offTriggerHooks?: string[];
 }
+
+const PRE_PROMOTION = ["submission", "candidate", "promotion"];
+/** Hook ids of `c` that never run before promotion, from the Genome's hook definitions. */
+export const offTriggerHooks = (m: SystemModel, c: schema.Criterion): string[] =>
+  hooksOf(m, c).filter((h) => !h.triggers.some((t) => PRE_PROMOTION.includes(t))).map((h) => h.id);
 
 /** Hooks attached to a criterion (index ∪ the criterion's own list). */
 export function hooksOf(m: SystemModel, c: schema.Criterion): schema.AssayHook[] {
@@ -49,7 +59,8 @@ export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "
       return;
     }
     const blocking = (prev?.blocking ?? false) || (blockingSet && isBlocking(m, c));
-    out.set(id, { id, severity: c.severity ?? "hard", blocking });
+    const off = offTriggerHooks(m, c);
+    out.set(id, { id, severity: c.severity ?? "hard", blocking, ...(off.length && { offTriggerHooks: off }) });
   };
   for (const id of evolution.acceptanceCriteria) add(id, true);
   for (const c of m.criteria) if (c.gates.includes("promotion")) add(c.id, true);

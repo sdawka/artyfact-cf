@@ -51,3 +51,17 @@ describe("examples/keep-in-touch", () => {
     expect(promote.json.error.code).toBe("blocked");
   });
 });
+
+describe("gate on the real Genome", () => {
+  it("names only deployment/outcome/selection-stage hooks off-trigger", async () => {
+    const { buildGenome } = await import("../worker/artifacts/genome-source");
+    const { gateCriteria } = await import("../worker/promotion");
+    const g = buildGenome(new Map(Object.entries(genome)), "0".repeat(40));
+    const evo = g.model.evolutions.find((e) => e.id === "evolution.1")!;
+    const gates = gateCriteria(g.model, evo);
+    expect(gates.find((x) => x.id === "C.system.purpose")).toMatchObject({ blocking: true, offTriggerHooks: ["hook.system.purpose.outcome"] });
+    // Promotion-stage and submission-stage hooks are never off-trigger.
+    expect(gates.find((x) => x.id === "C.system.promotion")?.offTriggerHooks).toBeUndefined();
+    expect(gates.find((x) => x.id === "C.webapp.exists")?.offTriggerHooks).toBeUndefined();
+  });
+});

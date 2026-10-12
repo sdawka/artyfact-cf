@@ -152,20 +152,26 @@ describe("promote", () => {
     });
   });
 
-  it("a criterion passes on one pass+completed hook despite another hook's not-run row, never despite a fail or error", async () => {
+  it("disregards only the not-run rows of hooks the Worker names off-trigger; every other non-pass row blocks", async () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
       const { c1, head } = await twoCandidates(i);
-      const required = { [c1.id]: hard("C.system.purpose") };
-      const second = (verdict: Evaluation["verdict"], execution: Evaluation["execution"]) => ({ ...ev(c1.id, "C.system.purpose", verdict, execution), hook: "hook.system.purpose.outcome" });
+      const gate = (off?: string[]) => ({ [c1.id]: [{ id: "C.system.purpose", severity: "hard" as const, blocking: true, ...(off && { offTriggerHooks: off }) }] });
+      const hookB = (verdict: Evaluation["verdict"], execution: Evaluation["execution"]) => ({ ...ev(c1.id, "C.system.purpose", verdict, execution), hook: "hook.purpose.b" });
       i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "pass")]); // the Evolution's acceptance criterion
-      for (const [verdict, execution] of [["fail", "completed"], ["unknown", "error"]] as const) {
-        i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "pass"), second(verdict, execution)]);
-        expect(await i.promote(promoteInput([c1.id], head, required))).toMatchObject({ ok: false, code: "blocked", blocking: [expect.objectContaining({ verdict, execution })] });
+      // Hook A (submission) passed; hook B (promotion, bound) never ran and is not named off-trigger: blocked.
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "pass"), hookB("unknown", "not-run")]);
+      expect(await i.promote(promoteInput([c1.id], head, gate()))).toMatchObject({ ok: false, code: "blocked", blocking: [expect.objectContaining({ execution: "not-run" })] });
+      // Off-trigger covers not-run rows only: any other non-pass row of hook B still blocks.
+      for (const [verdict, execution] of [["fail", "completed"], ["unknown", "completed"], ["unknown", "error"], ["unknown", "queued"], ["unknown", "running"]] as const) {
+        i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "pass"), hookB(verdict, execution)]);
+        expect(await i.promote(promoteInput([c1.id], head, gate(["hook.purpose.b"])))).toMatchObject({ ok: false, code: "blocked" });
       }
-      i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "unknown", "not-run"), second("unknown", "not-run")]);
-      expect(await i.promote(promoteInput([c1.id], head, required))).toMatchObject({ ok: false, code: "blocked" });
-      i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "pass"), second("unknown", "not-run")]);
-      expect(await i.promote(promoteInput([c1.id], head, required))).toMatchObject({ ok: true });
+      // Nothing ran at all: missing evidence, blocked.
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "unknown", "not-run"), hookB("unknown", "not-run")]);
+      expect(await i.promote(promoteInput([c1.id], head, gate(["hook.purpose.b", "hook.C.system.purpose"])))).toMatchObject({ ok: false, code: "blocked" });
+      // Hook B is an outcome-stage hook (named off-trigger by the Worker): its not-run row does not block.
+      i.recordEvaluations(c1.id, [ev(c1.id, "C.system.purpose", "pass"), hookB("unknown", "not-run")]);
+      expect(await i.promote(promoteInput([c1.id], head, gate(["hook.purpose.b"])))).toMatchObject({ ok: true });
     });
   });
 
