@@ -3,6 +3,7 @@ import { useEvaluationFx } from "@/effects/fx";
 import { useModel } from "@/model/useModel";
 import { EvolutionBoard } from "./EvolutionBoard";
 import { EvolutionDetail } from "./EvolutionDetail";
+import { NewEvolutionPanel } from "./panels/NewEvolutionPanel";
 import { useWorkData } from "./data";
 import { useParam } from "./lib";
 import styles from "./work.module.css";
@@ -13,12 +14,27 @@ export default function WorkView() {
   useEvaluationFx(useModel().evaluations);
   const [evolutionId, setEvolutionId] = useParam("evolution");
   const [realizationId] = useParam("realization");
+  const [panel, setPanel] = useParam("panel");
+  const creating = panel === "new";
   // A deep link to a realization opens its Evolution even without ?evolution=.
   const effectiveId = evolutionId ?? realizations.find((r) => r.id === realizationId)?.evolution ?? null;
   const selected = evolutions.find((e) => e.id === effectiveId);
   return (
     <section aria-labelledby="view-title" className={styles.view}>
-      <h1 id="view-title">Work</h1>
+      <div className={styles.detailHead}>
+        <h1 id="view-title">Work</h1>
+        <button
+          type="button"
+          className={`u-brackets ${styles.btn}`}
+          aria-pressed={creating}
+          onClick={() => (creating ? setPanel(null) : setPanel("new", { evolution: null, realization: null }))}
+        >
+          + Evolution
+        </button>
+      </div>
+      {creating && (
+        <NewEvolutionPanel onCreated={(e) => setEvolutionId(e.id, { panel: null })} onCancel={() => setPanel(null)} />
+      )}
       {evolutions.length === 0 ? (
         <EmptyState orb title="No Evolutions yet — nothing is waiting to be built." />
       ) : (

@@ -418,6 +418,47 @@ describe("PromotionPanel", () => {
   });
 });
 
+describe("New Evolution", () => {
+  it("+ Evolution opens the panel, disabled with the standard reason on fixture data", async () => {
+    const { router } = renderApp(`${WORK}?evolution=${EVO1}`);
+    fireEvent.click(await screen.findByRole("button", { name: "+ Evolution" }));
+    await waitFor(() => expect(router.state.location.search).toBe("?panel=new"));
+    const panel = await screen.findByRole("region", { name: "New Evolution" });
+    expect((within(panel).getByRole("button", { name: "Create Evolution" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(panel).getByText("Creating an Evolution needs the platform API. The UI is showing fixture data.")).toBeTruthy();
+  });
+
+  it("creates an Evolution with affected nodes, selects it and shows its card in Proposed", async () => {
+    const created = { ...fixtureBundle().model.evolutions[0]!, id: "evolution.new", title: "Reminder nudges", intent: "Nudge owners", state: "proposed" as const, affectedNodes: ["screen.people"], acceptanceCriteria: [] };
+    const posts: { body: unknown; auth: string | null }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
+      if (u.endsWith("/evolutions") && init?.method === "POST") {
+        posts.push({ body: JSON.parse(String(init.body)), auth: new Headers(init.headers).get("authorization") });
+        return json(201, { evolution: created });
+      }
+      if (u.includes("/evolutions")) return json(200, { evolutions: [created], realizations: [] });
+      return json(404, { error: { code: "not-found", message: "no" } });
+    }));
+    const { router } = renderApp(`${WORK}?panel=new`, undefined, seed({ api: true }));
+    const panel = await screen.findByRole("region", { name: "New Evolution" });
+    fireEvent.change(within(panel).getByLabelText("Title"), { target: { value: "Reminder nudges" } });
+    fireEvent.change(within(panel).getByLabelText("Intent"), { target: { value: "Nudge owners" } });
+    fireEvent.change(within(panel).getByLabelText("Affected nodes"), { target: { value: "screen.people" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Add node" }));
+    expect(within(panel).getByRole("button", { name: "Remove screen.people" })).toBeTruthy();
+    fireEvent.change(within(panel).getByLabelText("Risk"), { target: { value: "low" } });
+    fireEvent.change(within(panel).getByLabelText("Admin token"), { target: { value: "s3cret" } });
+    fireEvent.click(within(panel).getByRole("button", { name: "Create Evolution" }));
+    await waitFor(() => expect(router.state.location.search).toBe("?evolution=evolution.new"));
+    expect(posts).toEqual([{ body: { title: "Reminder nudges", intent: "Nudge owners", kind: "implementation", risk: "low", affectedNodes: ["screen.people"] }, auth: "Bearer s3cret" }]);
+    const proposed = await screen.findByRole("region", { name: /Proposed/ });
+    expect(await within(proposed).findByRole("button", { name: "Reminder nudges" })).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "New Evolution" })).toBeNull();
+  });
+});
+
 describe("itemVerdict (server gate items)", () => {
   it("falls back to the verdict when execution is absent; only pass needs a completed run", () => {
     expect(itemVerdict({ criterion: "c", verdict: "fail" })).toBe("fail");
