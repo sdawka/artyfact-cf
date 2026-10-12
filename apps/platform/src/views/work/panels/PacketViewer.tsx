@@ -27,8 +27,8 @@ function CopyText({ value, label }: { value: string; label: string }) {
 
 export interface PacketViewerProps {
   markdown: string;
-  /** The one-line command including the write token. Shown once. */
-  cli?: string | undefined;
+  /** The one-line command including the write token, shown once. `null`: the server sent none. */
+  cli?: string | null | undefined;
   /** `realization.workspace.tokenExpiresAt`. */
   expiresAt?: string | undefined;
   remote?: string | undefined;
@@ -41,10 +41,12 @@ export function PacketViewer({ markdown, cli, expiresAt, remote }: PacketViewerP
   const showCli = !!cli && !hidden;
   return (
     <div className={styles.packet}>
-      {cli && (
+      {cli !== undefined && (
         <section className={styles.cli} aria-label="Start command">
           <h3>Start command</h3>
-          {showCli ? (
+          {cli === null ? (
+            <p className={styles.warn} role="note">Command unavailable: the server did not return one. The token is not shown again.</p>
+          ) : showCli ? (
             <>
               <p className={styles.warn} role="note">
                 This command contains the write token. The token is not shown again, so copy it now.

@@ -3,21 +3,52 @@ import { useId, useMemo, useState } from "react";
 import { Link } from "react-router";
 import type { Candidate, ConflictReport, Evolution } from "../../../../shared/api";
 import { ApiRequestError, StaleBaseError } from "@/api/client";
-import { useCandidates, useConflicts, useHistory, usePromote } from "@/api/queries";
+import { useCandidates, useConflicts, useEvolutions, useHistory, usePromote } from "@/api/queries";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
 import { useModel } from "@/model/useModel";
 import { useKeepParams, useSelection, useSystemRoute } from "@/model/useSelection";
-import { describeConflict, describeIssue, gateCoverage, headOf, splitConflicts, type GateRow } from "../gates";
+import { describeConflict, gateCoverage, headOf, splitConflicts, type GateRow } from "../gates";
+import type { UiVerdict } from "@/model/status";
 import { mergeConflicts, shortSha } from "../lib";
+import { describeIssue } from "../gates";
 import styles from "../work.module.css";
 
 /** `details` of a refused promotion: `{ blocking, advisories }`. */
-function serverIssues(err: unknown): { blocking: string[]; advisories: string[] } | null {
+function serverIssues(err: unknown): { blocking: unknown[]; advisories: unknown[] } | null {
   if (!(err instanceof ApiRequestError) || err instanceof StaleBaseError) return null;
   const d = err.body?.error?.details as { blocking?: unknown[]; advisories?: unknown[] } | undefined;
   if (!d || (!Array.isArray(d.blocking) && !Array.isArray(d.advisories))) return null;
-  return { blocking: (d.blocking ?? []).map(describeIssue), advisories: (d.advisories ?? []).map(describeIssue) };
+  return { blocking: d.blocking ?? [], advisories: d.advisories ?? [] };
+}
+
+interface GateItemLike { candidate?: string; criterion: string; severity?: string; verdict?: string; execution?: string }
+const isGateItem = (x: unknown): x is GateItemLike => !!x && typeof x === "object" && typeof (x as GateItemLike).criterion === "string";
+
+/** What the badge should say for a server gate item: only a completed run has a verdict. */
+function itemVerdict(i: GateItemLike): UiVerdict {
+  if (i.execution === "error") return "unknown";
+  if (i.execution !== "completed") return "not-run";
+  return i.verdict === "pass" || i.verdict === "fail" || i.verdict === "stale" || i.verdict === "waived" ? i.verdict : "unknown";
+}
+
+/** A server-reported blocking or advisory item: criterion chip with its title, candidate, verdict and execution. */
+function IssueList({ items }: { items: readonly unknown[] }) {
+  return (
+    <ul className={styles.plain}>
+      {items.map((x, i) =>
+        isGateItem(x) ? (
+          <li key={`${x.candidate ?? ""}-${x.criterion}-${i}`} className={styles.inlineRow}>
+            <NodeChip id={x.criterion} size="sm" showId />
+            <VerdictBadge verdict={itemVerdict(x)} />
+            <span className={styles.muted}>{[x.candidate, x.execution && x.execution !== "completed" ? x.execution : undefined, x.severity].filter(Boolean).join(" · ")}</span>
+          </li>
+        ) : (
+          <li key={i}>{typeof x === "string" ? x : describeIssue(x)}</li>
+        ),
+      )}
+    </ul>
+  );
 }
 
 /** Promote selected candidates: manifest, base vs head, gate coverage, advisories, rationale, compare-and-swap. */
@@ -31,6 +62,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   const { data: cand } = useCandidates(evolution.id);
   const { data: allConflicts } = useConflicts();
   const { data: commits } = useHistory();
+  const { data: board } = useEvolutions();
   const promote = usePromote();
   const [rationale, setRationale] = useState("");
   const [ack, setAck] = useState(false);
@@ -40,10 +72,11 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   const chosen = candidates.filter((c) => selected.includes(c.id));
   const ids = chosen.map((c) => c.id);
   const head = headOf(commits);
+  const targets = [...new Set(chosen.map((c) => board?.realizations.find((r) => r.id === c.realization)?.target ?? "app"))];
   const rows = useMemo(
-    () => gateCoverage(m.index.model.criteria ?? [], evolution, m.evaluations, ids),
+    () => gateCoverage(m.index.model.criteria ?? [], evolution, m.evaluations, ids, targets),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [m.index.model.criteria, evolution, m.evaluations, ids.join(",")],
+    [m.index.model.criteria, evolution, m.evaluations, ids.join(","), targets.join(",")],
   );
   const required = rows.filter((r) => r.criterion.severity === "hard");
   const softRows = rows.filter((r) => r.criterion.severity !== "hard");
@@ -63,8 +96,13 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   if (split.blocking.length) reasons.push(`${split.blocking.length} blocking conflict${split.blocking.length === 1 ? "" : "s"} between the selected candidates.`);
   if (!rationale.trim()) reasons.push("Write a rationale.");
   if (advisoryCount > 0 && !ack) reasons.push("Acknowledge the advisories in the rationale.");
+  if (refused?.blocking.length) reasons.push(`The server refused: ${refused.blocking.length} blocking item${refused.blocking.length === 1 ? "" : "s"} (listed above). Fix them, then refresh.`);
   if (stale) reasons.push(`The head moved to ${shortSha(stale.currentHead)}; refresh and re-evaluate.`);
 
+  const setSelection = (next: string[]) => {
+    if (promote.isError) promote.reset();
+    setCandidates(next);
+  };
   const refresh = () => {
     promote.reset();
     for (const k of ["evolutions", "candidates", "evaluations", "history", "conflicts"]) void qc.invalidateQueries({ queryKey: [k, systemId] });
@@ -102,7 +140,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
                   <input
                     type="checkbox"
                     checked={selected.includes(c.id)}
-                    onChange={(e) => setCandidates(e.target.checked ? [...selected, c.id] : selected.filter((x) => x !== c.id))}
+                    onChange={(e) => setSelection(e.target.checked ? [...selected, c.id] : selected.filter((x) => x !== c.id))}
                   />{" "}
                   <code>{c.id}</code> <span className={styles.muted}>{c.state} · manifest {c.hash ? shortSha(c.hash) : "unknown"}</span>
                 </label>
@@ -141,9 +179,9 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
             {(split.advisories.length > 0 || !!refused?.advisories.length) && (
               <ul className={styles.plain}>
                 {split.advisories.map((c, i) => <li key={`c${i}`}>{describeConflict(c)}</li>)}
-                {refused?.advisories.map((a, i) => <li key={`s${i}`}>{a}</li>)}
               </ul>
             )}
+            {!!refused?.advisories.length && <IssueList items={refused.advisories} />}
           </>
         )}
       </div>
@@ -151,10 +189,13 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
       {(split.blocking.length > 0 || !!refused?.blocking.length) && (
         <div className={styles.blocking} role="group" aria-label="Blocking">
           <h4>Blocking</h4>
-          <ul className={styles.plain}>
-            {split.blocking.map((c, i) => <li key={`c${i}`}>{describeConflict(c)}</li>)}
-            {refused?.blocking.map((b, i) => <li key={`s${i}`}>{b}</li>)}
-          </ul>
+          {split.blocking.length > 0 && <ul className={styles.plain}>{split.blocking.map((c, i) => <li key={`c${i}`}>{describeConflict(c)}</li>)}</ul>}
+          {!!refused?.blocking.length && (
+            <>
+              <IssueList items={refused.blocking} />
+              <button type="button" className={`u-brackets ${styles.btn}`} onClick={refresh}>Refresh</button>
+            </>
+          )}
         </div>
       )}
 

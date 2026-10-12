@@ -4,7 +4,17 @@ import { CopyButton } from "@/components/CopyButton/CopyButton";
 import styles from "./history.module.css";
 
 /** The backend may add phase/deploy details to a commit; none of it is in the model schema yet. */
-export type CommitView = SystemCommit & { phase?: string; deploy?: { url?: string; status?: string } };
+export type CommitView = Omit<SystemCommit, "decision"> & {
+  decision: SystemCommit["decision"] & { acknowledged?: unknown[] };
+  phase?: string;
+  deploy?: { url?: string; status?: string };
+};
+
+/** Criterion ids from `decision.acknowledged`: plain ids or gate items. */
+const acknowledged = (c: CommitView): string[] =>
+  (c.decision.acknowledged ?? []).flatMap((x) =>
+    typeof x === "string" ? [x] : x && typeof (x as { criterion?: unknown }).criterion === "string" ? [(x as { criterion: string }).criterion] : [],
+  );
 
 const short = (s: string | null | undefined) => (s ? s.slice(0, 10) : "none");
 
@@ -64,6 +74,14 @@ export function CommitCard({ commit: c, highlighted }: { commit: CommitView; hig
       </dl>
       <blockquote className={styles.decision}>
         <p>{c.decision.rationale || "No rationale recorded."}</p>
+        {acknowledged(c).length > 0 && (
+          <div className={styles.ack}>
+            <span className={styles.muted}>Advisories acknowledged</span>
+            <ul className={styles.chips}>
+              {[...new Set(acknowledged(c))].map((id) => <li key={id}><NodeChip id={id} size="sm" /></li>)}
+            </ul>
+          </div>
+        )}
         <footer>
           {c.decision.by} · <time dateTime={c.decision.at}>{c.decision.at}</time> · policy {c.decision.policy}
         </footer>

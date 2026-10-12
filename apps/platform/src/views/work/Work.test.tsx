@@ -10,10 +10,10 @@ import { SYSTEM, candidate, commit, evaluation, realization } from "./testData";
 
 const WORK = `/s/${SYSTEM}/r/head/work`;
 const EVO1 = "evolution.1";
-const REQUIRED = [
-  "C.system.structure", "C.system.purpose", "C.system.topology", "C.system.autonomy", "C.system.readiness", "C.system.promotion",
-  "C.webapp.exists", "C.webapp.private.owner", "C.webapp.screen.exact", "C.webapp.screen.people", "C.webapp.contact.save", "C.webapp.contact.storage",
-];
+// Same selection rule as the server: acceptance criteria plus artifact-targeted ones, promotion-gated, not deferred.
+const REQUIRED = fixtureBundle().model.criteria
+  .filter((c) => !c.deferred && c.gates.includes("promotion") && (fixtureBundle().model.evolutions[0]!.acceptanceCriteria.includes(c.id) || c.targetKind === "artifact"))
+  .map((c) => c.id);
 const evalFor = (c: string, o = {}) => evaluation({ id: `e.${c}`, criterion: c, hook: `hook.${c}`, ...o });
 
 interface Seed { api?: boolean; evals?: ReturnType<typeof evaluation>[]; conflicts?: ConflictReport[]; commits?: ReturnType<typeof commit>[]; realizations?: ReturnType<typeof realization>[]; candidates?: ReturnType<typeof candidate>[] }
@@ -118,6 +118,14 @@ describe("StartWorkPanel against the API", () => {
     expect(calls).toEqual([{ agentLabel: "codex-1", target: "app", role: "implementer" }]);
     expect(screen.getByRole("heading", { name: "Task" })).toBeTruthy();
     expect(screen.getByText(/token is not shown again/)).toBeTruthy();
+  });
+});
+
+describe("PacketViewer without a command", () => {
+  it("says the command is unavailable and never invents one", () => {
+    render(<PacketViewer markdown="# T" cli={null} expiresAt="2026-01-01T01:00:00.000Z" />);
+    expect(screen.getByText(/Command unavailable/)).toBeTruthy();
+    expect(document.body.textContent).not.toContain("npx artyfact");
   });
 });
 
@@ -245,12 +253,21 @@ describe("PromotionPanel", () => {
     expect(row.querySelector('[data-verdict="pass"]')).toBeNull();
   });
 
-  it("treats a pass that never completed as not run", async () => {
-    const evals = allPass().map((e) => (e.criterion === "C.system.structure" ? { ...e, execution: "queued" as const } : e));
+  it("does not let a waived verdict satisfy a required gate", async () => {
+    const evals = allPass().map((e) => (e.criterion === "C.webapp.exists" ? { ...e, verdict: "waived" as const } : e));
     renderApp(url, undefined, seed({ api: true, evals }));
     await fill();
     expect(submit().disabled).toBe(true);
-    expect(screen.getAllByText(/C\.system\.structure/).length).toBeGreaterThan(0);
+    const row = within(screen.getByRole("table", { name: "Required gate coverage" })).getAllByText(/C\.webapp\.exists/)[0]!.closest("tr")!;
+    expect(row.querySelector('[data-verdict="waived"]')).not.toBeNull();
+  });
+
+  it("treats a pass that never completed as not run", async () => {
+    const evals = allPass().map((e) => (e.criterion === "C.webapp.exists" ? { ...e, execution: "queued" as const } : e));
+    renderApp(url, undefined, seed({ api: true, evals }));
+    await fill();
+    expect(submit().disabled).toBe(true);
+    expect(screen.getAllByText(/C\.webapp\.exists/).length).toBeGreaterThan(0);
   });
 
   it("is enabled when every required gate passes and a rationale is written", async () => {
@@ -297,12 +314,21 @@ describe("PromotionPanel", () => {
   });
 
   it("renders blocking and advisory groups from a server refusal", async () => {
-    stubApi(() => json(422, { error: { code: "promotion-refused", message: "refused", details: { blocking: [{ criterion: "C.x", message: "not green" }], advisories: ["C.system.concurrency overlaps"] } } }), allPass());
+    stubApi(() => json(409, { error: { code: "blocked", message: "refused", details: { blocking: [{ candidate: "cand.1", criterion: "C.webapp.exists", severity: "hard", verdict: "missing", execution: "missing" }], advisories: [{ candidate: "cand.1", criterion: "C.webapp.screen.people", severity: "soft", verdict: "unknown", execution: "completed" }] } } }), allPass());
     renderApp(url, undefined, seed({ api: true, evals: allPass() }));
     await fill();
     fireEvent.click(submit());
-    expect(await screen.findByText("C.x: not green")).toBeTruthy();
-    expect(within(screen.getByRole("group", { name: "Advisories" })).getByText("C.system.concurrency overlaps")).toBeTruthy();
+    const blocking = await screen.findByRole("group", { name: "Blocking" });
+    expect(within(blocking).getByRole("button", { name: /Web app exists/ })).toBeTruthy();
+    expect(within(blocking).getByText("C.webapp.exists")).toBeTruthy();
+    expect(blocking.querySelector('[data-verdict="not-run"]')).not.toBeNull();
+    const adv = screen.getByRole("group", { name: "Advisories" });
+    expect(within(adv).getByText("C.webapp.screen.people")).toBeTruthy();
+    expect(adv.querySelector('[data-verdict="unknown"]')).not.toBeNull();
+    expect(submit().disabled).toBe(true);
+    expect(screen.getByText(/The server refused: 1 blocking item/)).toBeTruthy();
+    fireEvent.click(within(blocking).getByRole("button", { name: "Refresh" }));
+    await waitFor(() => expect(screen.queryByRole("group", { name: "Blocking" })).toBeNull());
   });
 
   it("confirms success and links to History", async () => {

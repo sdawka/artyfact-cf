@@ -9,7 +9,7 @@ import styles from "./history.module.css";
 
 /** Vertical timeline of System commits, newest first, filterable by Evolution. `?commit=` highlights one. */
 export default function HistoryView() {
-  const { data, isLoading } = useHistory();
+  const { data, isLoading, isError, refetch } = useHistory();
   const [params, setParams] = useSearchParams();
   const evolution = params.get("evolution") ?? "";
   const highlight = params.get("commit");
@@ -33,6 +33,13 @@ export default function HistoryView() {
       <h1 id="view-title">History</h1>
       {isLoading ? (
         <p role="status">Loading history…</p>
+      ) : isError ? (
+        <EmptyState
+          title="Could not load history."
+          action={<button type="button" className="u-brackets" onClick={() => void refetch()}>Retry</button>}
+        >
+          The System commits could not be fetched. This is not the same as having none.
+        </EmptyState>
       ) : commits.length === 0 ? (
         <EmptyState title="No System commits yet — nothing has been promoted.">
           A System commit is created when candidates are promoted with a recorded rationale.

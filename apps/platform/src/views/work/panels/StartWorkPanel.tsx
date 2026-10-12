@@ -2,7 +2,6 @@ import { useId, useState } from "react";
 import type { Evolution, Realization, StartWorkRequest, StartWorkResponse } from "../../../../shared/api";
 import { useStartWork } from "@/api/queries";
 import { useModel } from "@/model/useModel";
-import { useSystemRoute } from "@/model/useSelection";
 import { PacketViewer, type PacketViewerProps } from "./PacketViewer";
 import styles from "../work.module.css";
 
@@ -13,8 +12,8 @@ export interface StartedWork extends PacketViewerProps {
   realization: Realization;
 }
 
-/** Accepts both the token-object and the flat `token` + `cli` response shapes. */
-export function normalizeStartWork(res: StartWorkResponse, ctx: { systemId: string; evolutionId: string }): StartedWork {
+/** Accepts both the token-object and the flat `token` response shapes; the command comes only from `cli`. */
+export function normalizeStartWork(res: StartWorkResponse): StartedWork {
   const r = res as unknown as {
     realization: Realization;
     packet?: { markdown?: string };
@@ -23,12 +22,8 @@ export function normalizeStartWork(res: StartWorkResponse, ctx: { systemId: stri
     cli?: string;
   };
   const tok = typeof r.token === "string" ? { value: r.token } : (r.token ?? {});
-  const rid = r.realization.id;
-  const cli =
-    r.cli ??
-    (tok.value
-      ? `ARTYFACT_TOKEN=${tok.value} npx artyfact start ${rid} --system ${ctx.systemId} --evolution ${ctx.evolutionId} --dir ./${rid}`
-      : undefined);
+  // `cli` is the server's ready-to-paste line. Never build one here: flags would drift from the real CLI.
+  const cli = r.cli ?? null;
   return {
     realization: r.realization,
     markdown: r.packet?.markdown ?? "",
@@ -42,7 +37,6 @@ export function normalizeStartWork(res: StartWorkResponse, ctx: { systemId: stri
 export function StartWorkPanel({ evolution }: { evolution: Evolution }) {
   const uid = useId();
   const m = useModel();
-  const { systemId } = useSystemRoute();
   const start = useStartWork();
   const [agentLabel, setAgentLabel] = useState("");
   const [target, setTarget] = useState<"app" | "genome">(evolution.kind === "genome-amendment" ? "genome" : "app");
@@ -61,7 +55,7 @@ export function StartWorkPanel({ evolution }: { evolution: Evolution }) {
     const body: StartWorkRequest = { target, role, ...(agentLabel.trim() && { agentLabel: agentLabel.trim() }) };
     start.mutate(
       { evolutionId: evolution.id, body },
-      { onSuccess: (res) => setStarted(normalizeStartWork(res, { systemId, evolutionId: evolution.id })) },
+      { onSuccess: (res) => setStarted(normalizeStartWork(res)) },
     );
   };
 

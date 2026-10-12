@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import type { Candidate, ConflictReport, EvolutionState } from "../../../shared/api";
 import type { UiVerdict } from "@/model/status";
@@ -84,14 +84,17 @@ export function subjectGroups(c: Candidate): { added: string[]; changed: string[
 /** Reads/writes one search param, keeping the others. Empty/null removes it. */
 export function useParam(key: string): [string | null, (v: string | null, also?: Record<string, string | null>) => void] {
   const [params, setParams] = useSearchParams();
-  const set = (v: string | null, also: Record<string, string | null> = {}) =>
-    setParams((prev) => {
-      const next = new URLSearchParams(prev);
-      for (const [k, val] of Object.entries({ [key]: v, ...also })) {
-        if (val === null || val === "") next.delete(k);
-        else next.set(k, val);
-      }
-      return next;
-    });
+  const set = useCallback(
+    (v: string | null, also: Record<string, string | null> = {}) =>
+      setParams((prev) => {
+        const next = new URLSearchParams(prev);
+        for (const [k, val] of Object.entries({ [key]: v, ...also })) {
+          if (val === null || val === "") next.delete(k);
+          else next.set(k, val);
+        }
+        return next;
+      }),
+    [key, setParams],
+  );
   return [params.get(key), set];
 }

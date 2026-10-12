@@ -15,19 +15,23 @@ export interface GateRow {
 const time = (e: Evaluation) => e.finishedAt ?? e.startedAt ?? "";
 
 /**
- * Promotion-gated criteria that apply to `evolution`: its acceptance criteria plus System-owned
- * ones, minus deferred. Verdict and execution come from the latest evaluation by the selected
- * candidates only; none means `not-run`.
+ * Promotion-gated criteria that apply to `evolution`, as the server selects them: its acceptance
+ * criteria plus every criterion targeting what the realization changes (`artifact` for an app
+ * realization, `model` for a genome one), minus deferred. Verdict and execution come from the
+ * latest evaluation by the selected candidates only; none means `not-run`. Only `pass` (which
+ * needs `completed`) satisfies a gate; `waived` does not.
  */
 export function gateCoverage(
   criteria: readonly Criterion[],
   evolution: Evolution,
   evaluations: readonly Evaluation[],
   candidateIds: readonly string[],
+  targets: readonly ("app" | "genome")[] = ["app"],
 ): GateRow[] {
+  const kinds = new Set<string>(targets.map((t) => (t === "app" ? "artifact" : "model")));
   const scope = { source: "selected" as const, candidates: candidateIds };
   return criteria
-    .filter((c) => !c.deferred && c.gates.includes("promotion") && (evolution.acceptanceCriteria.includes(c.id) || c.ownerKind === "system"))
+    .filter((c) => !c.deferred && c.gates.includes("promotion") && (evolution.acceptanceCriteria.includes(c.id) || kinds.has(c.targetKind)))
     .map((c) => {
       const verdict = verdictOf(c.id, evaluations, scope);
       let latest: Evaluation | undefined;
@@ -39,7 +43,7 @@ export function gateCoverage(
         hook: latest?.hook ?? c.hooks[0] ?? "unknown",
         verdict,
         execution: latest?.execution ?? "not-run",
-        blocking: c.severity === "hard" && verdict !== "pass" && verdict !== "waived",
+        blocking: c.severity === "hard" && verdict !== "pass",
       };
     });
 }

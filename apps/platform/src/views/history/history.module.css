@@ -33,3 +33,4 @@
 .decision footer { color: var(--color-text-subtle); font-size: var(--font-size-sm); }
 .muted { color: var(--color-text-subtle); }
 @media (max-width: 640px) { .facts { grid-template-columns: 1fr; } }
+.ack { display: grid; gap: var(--spacing-1); margin-bottom: var(--spacing-2); font-size: var(--font-size-sm); }

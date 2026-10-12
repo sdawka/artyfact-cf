@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useCallback, useMemo } from "react";
 import type { Evolution, Realization } from "../../../shared/api";
 import { useCandidates, useConflicts } from "@/api/queries";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
@@ -11,6 +11,8 @@ import { RealizationRow } from "./RealizationRow";
 import { conflictsOf, mergeConflicts, useNow, useParam } from "./lib";
 import styles from "./work.module.css";
 
+const NO_CONFLICTS: never[] = [];
+
 /** Right/lower pane for `?evolution=`: criteria, realizations, and the start / review / promote panels. */
 export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evolution; realizations: readonly Realization[] }) {
   const m = useModel();
@@ -21,6 +23,13 @@ export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evo
   const { data: global } = useConflicts();
   const conflicts = useMemo(() => mergeConflicts(cand?.conflicts, global), [cand?.conflicts, global]);
   const candidateOf = (r: Realization) => cand?.candidates.find((c) => c.realization === r.id || c.id === r.candidate);
+  // Stable per-candidate arrays and callback so RealizationRow's memo holds across refetches.
+  const conflictsByCandidate = useMemo(() => {
+    const out = new Map<string, ReturnType<typeof conflictsOf>>();
+    for (const c of cand?.candidates ?? []) out.set(c.id, conflictsOf(conflicts, c.id));
+    return out;
+  }, [cand?.candidates, conflicts]);
+  const toggleReview = useCallback((id: string) => setReview(id === reviewId ? null : id), [setReview, reviewId]);
   const mine = realizations.filter((r) => r.evolution === e.id);
   const reviewing = mine.find((r) => r.id === reviewId);
 
@@ -57,10 +66,10 @@ export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evo
                 key={r.id}
                 realization={r}
                 candidate={c}
-                conflicts={conflictsOf(conflicts, c?.id)}
+                conflicts={(c && conflictsByCandidate.get(c.id)) || NO_CONFLICTS}
                 now={now}
                 reviewing={r.id === reviewId}
-                onReview={(id) => setReview(id === reviewId ? null : id)}
+                onReview={toggleReview}
               />
             );
           })}

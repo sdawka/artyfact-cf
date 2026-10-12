@@ -85,7 +85,7 @@ export function EvaluationsTable({ evaluations, compact, expandedId, onExpand, e
                         type="button"
                         className={styles.expand}
                         aria-expanded={isOpen}
-                        aria-controls={`${uid}-${e.id}`}
+                        aria-controls={isOpen ? `${uid}-${e.id}` : undefined}
                         aria-label={`${isOpen ? "Collapse" : "Expand"} evaluation ${e.id}`}
                         onClick={() => toggle(e.id)}
                       >
