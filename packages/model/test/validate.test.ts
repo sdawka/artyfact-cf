@@ -1,9 +1,7 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { loadSystem, validate } from "../src/index";
 import { sha256 } from "../src/sha256";
 import { edit, pack, readTree, store } from "./helpers";
-
-vi.mock("@artyfact/rules", () => import("./stubs/rules"));
 
 const files = readTree();
 const run = (f: Map<string, string>) => validate(loadSystem(f, { templates: store() }), [pack]);

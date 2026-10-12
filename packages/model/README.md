@@ -19,7 +19,6 @@ src/
 test/
   fixtures/mini/  minimal Genome (1 system, 1 thing, 2 screens, 3 components, …)
   fixtures/test-pack.dl  inline Rule Pack used by validate tests
-  stubs/rules.ts  temporary stand-in for @artyfact/rules (see below)
 ```
 
 ## API
@@ -123,12 +122,3 @@ pack convention relations into `Finding`s:
 `[relation, ...tuple]`, taken from the EDB nodes of the tree. `pack` names the program that derived the finding. `Readiness.packs[].hash` is the sha256 of
 each pack's source. `derived` holds every output relation. `actionable` is true when there are no errors and the run
 is complete. Findings are sorted by level, rule, then subject.
-
-## `@artyfact/rules` stub (temporary)
-
-The real engine is being built on branch `w0-rules`. Until it merges, `tsconfig.json` maps `@artyfact/rules` to
-`test/stubs/rules.ts`, a naive evaluator with the same exported API. Test files that run the engine
-(`facts.test.ts`, `validate.test.ts`) also `vi.mock("@artyfact/rules", …)` it. When the engine lands:
-1. Delete `test/stubs/rules.ts`, the `paths` entry in `tsconfig.json`, and the two `vi.mock` lines.
-2. Run the tests. They already pass against the engine on `w0-rules` (commit c44c96b), and `src/` typechecks against it.
-`src/` imports only from `@artyfact/rules`.

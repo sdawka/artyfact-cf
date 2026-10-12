@@ -1,8 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import { loadSystem, RELATIONS as EXPORTED, toFacts } from "../src/index";
 import { edit, readTree, store } from "./helpers";
-
-vi.mock("@artyfact/rules", () => import("./stubs/rules"));
 
 // docs/design/facts.md: every relation in the `.decl` list that is not derived by a pack, plus the amendments.
 const RELATIONS = [
