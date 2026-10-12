@@ -1021,6 +1021,18 @@ export function queueContextFor(env: Env): QueueContext {
 
 const EVOLUTION_KINDS: schema.Evolution["kind"][] = ["implementation", "genome-amendment", "mixed"];
 const RISKS: schema.Evolution["risk"][] = ["low", "medium", "high"];
+/**
+ * Default acceptance criteria of a new Evolution: the System's criteria whose `targetKind` matches its target. An
+ * `implementation` targets the app (`artifact`, `runtime`), a `genome-amendment` the model. Without an explicit kind
+ * (the Work form and the editor send none) or for `mixed`, the target is unknown and only `model` criteria apply:
+ * an acceptance criterion stays blocking whatever the candidate's target (see gateCriteria), and artifact or runtime
+ * criteria could never pass on a Genome candidate.
+ */
+function defaultCriteria(m: SystemModel, kind: schema.Evolution["kind"] | undefined): string[] {
+  const keep = (c: schema.Criterion) =>
+    kind === "implementation" ? c.targetKind === "artifact" || c.targetKind === "runtime" : c.targetKind === "model";
+  return m.criteria.filter(keep).map((c) => c.id);
+}
 
 function stringList(v: unknown, field: string): string[] {
   if (v === undefined) return [];
@@ -1031,7 +1043,9 @@ function stringList(v: unknown, field: string): string[] {
 /**
  * `POST /api/systems/:id/evolutions` (admin): describe a change in words and get an `actionable` Evolution to start
  * work on. Affected nodes and acceptance criteria must exist in the canonical Genome (an unknown criterion would
- * block promotion forever).
+ * block promotion forever). Without `affectedNodes` the scope is empty, which means unconstrained (the Task Packet
+ * permits every path except the protected ones). Without `acceptanceCriteria` it defaults to the System's criteria
+ * whose `targetKind` matches the Evolution's target (see defaultCriteria).
  */
 export async function createEvolution(env: Env, systemId: string, body: Record<string, unknown>): Promise<CreateEvolutionResponse> {
   const title = typeof body.title === "string" ? body.title.trim() : "";
@@ -1043,9 +1057,11 @@ export async function createEvolution(env: Env, systemId: string, body: Record<s
   const risk = (body.risk ?? "medium") as schema.Evolution["risk"];
   if (!RISKS.includes(risk)) throw badRequest(`risk must be one of ${RISKS.join(", ")}`);
   const affectedNodes = stringList(body.affectedNodes, "affectedNodes");
-  const acceptanceCriteria = stringList(body.acceptanceCriteria, "acceptanceCriteria");
   const s = await headState(env, systemId);
   const m = (await canonicalGenome(env, s)).model;
+  const acceptanceCriteria = body.acceptanceCriteria === undefined
+    ? defaultCriteria(m, body.kind === undefined ? undefined : kind)
+    : stringList(body.acceptanceCriteria, "acceptanceCriteria");
   const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id]);
   if (unknownNodes.length) throw badRequest(`unknown nodes: ${unknownNodes.join(", ")}`);
   const criteria = new Set(m.criteria.map((c) => c.id));

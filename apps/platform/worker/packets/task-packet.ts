@@ -96,9 +96,12 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
   const related = allCommitments.filter((c) => c.features.some((f) => features.has(f)));
   const commitments = (related.length ? related : allCommitments).map((c) => c.statement);
 
-  const permittedPaths = i.target === "app"
-    ? permittedGlobs(i.sourceMap, affected, (id) => m.index.path(id), kindOf(m))
-    : genomePermitted(m, affected, i.genomePrefix ?? "");
+  // An empty scope is unconstrained: everything is permitted, and the protected paths are still refused first.
+  const permittedPaths = !affected.length
+    ? [i.target === "genome" && i.genomePrefix ? `${i.genomePrefix.replace(/\/+$/, "")}/**` : "**"]
+    : i.target === "app"
+      ? permittedGlobs(i.sourceMap, affected, (id) => m.index.path(id), kindOf(m))
+      : genomePermitted(m, affected, i.genomePrefix ?? "");
   const protectedPaths = protectedPathsFor(i.target);
   const required = acceptanceCriteria.filter((c) => c.gate).map((c) => c.id);
   const submitInstructions = [
