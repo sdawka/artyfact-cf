@@ -1,0 +1,21 @@
+.body { display: grid; gap: var(--spacing-2); }
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+.message { margin: 0; max-width: 70ch; }
+.level { text-transform: none; }
+.level[data-tone="fail"] { color: var(--verdict-fail); background: var(--verdict-fail-bg); }
+.level[data-tone="subtle"] { color: var(--color-text-subtle); }
+.outline {
+  margin: 0;
+  padding-left: var(--spacing-4);
+  list-style: none;
+  border-left: 1px solid var(--color-border-subtle);
+  font-size: var(--font-size-sm);
+}
+.outline li { padding: var(--spacing-1) 0; }
+.outline code { font-family: var(--font-code); }
+.muted { color: var(--color-text-subtle); }

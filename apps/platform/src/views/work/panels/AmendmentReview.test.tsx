@@ -6,7 +6,7 @@ import { qk, useModelBundle } from "@/api/queries";
 import { ModelProvider } from "@/model/useModel";
 import { renderApp } from "@/testing/render";
 import AmendmentReview from "./AmendmentReview";
-import { diffReadiness } from "./amendment/readinessDiff";
+import { diffReadiness } from "./amendment/diffReadiness";
 import {
   candidate, EID, finding, judged, makeReview, readiness, realization, RID, SYSTEM_ID, CHANGED, COMMITMENT,
 } from "./amendment/testData";
@@ -169,8 +169,8 @@ describe("AmendmentReview", () => {
       if (url.endsWith(`/evolutions/${EID}/accept`) && init?.method === "POST") return Response.json({ genomeCommit: "c0ffee1234567", realization });
       return new Response("{}", { status: 404 });
     });
-    renderReview(makeReview());
     vi.stubGlobal("fetch", fetchMock);
+    renderReview(makeReview());
     const user = userEvent.setup();
     const ta = await screen.findByRole("textbox", { name: /accepted interpretation/i });
     await user.clear(ta);
