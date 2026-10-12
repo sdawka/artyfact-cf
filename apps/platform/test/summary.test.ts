@@ -179,6 +179,21 @@ describe("POST /api/systems/:id/evolutions", () => {
     await sse.close();
   });
 
+  it("defaults absent acceptance criteria to the System's criteria matching the Evolution's target", async () => {
+    const f = await importFresh();
+    const create = async (kind: string) => (await call<CreateEvolutionResponse>("POST", `/systems/${f.systemId}/evolutions`, { title: "t", intent: "i", kind }, ADMIN)).json.evolution;
+    const app = await create("implementation");
+    expect(app.acceptanceCriteria).toContain("C.people.list");
+    expect(app.acceptanceCriteria).not.toContain("C.system.promotion");
+    expect((await create("genome-amendment")).acceptanceCriteria).toEqual(["C.system.promotion"]);
+    // An unknown target (no kind, or mixed) keeps only model criteria: app ones could never pass on a Genome candidate.
+    expect((await create("mixed")).acceptanceCriteria).toEqual(["C.system.promotion"]);
+    const unknown = await call<CreateEvolutionResponse>("POST", `/systems/${f.systemId}/evolutions`, { title: "t", intent: "i" }, ADMIN);
+    expect(unknown.json.evolution).toMatchObject({ kind: "implementation", acceptanceCriteria: ["C.system.promotion"] });
+    const explicit = await call<CreateEvolutionResponse>("POST", `/systems/${f.systemId}/evolutions`, { title: "t", intent: "i", acceptanceCriteria: [] }, ADMIN);
+    expect(explicit.json.evolution.acceptanceCriteria).toEqual([]);
+  });
+
   it("is 401 without and 403 with a wrong admin bearer", async () => {
     const f = await importFresh();
     const body = { title: "t", intent: "i" };
