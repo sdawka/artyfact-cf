@@ -1,0 +1,20 @@
+criteria:
+  - id: C.system.structure
+    title: Structure is consistent
+    claim: Every reference resolves
+    ownerKind: system
+    ownerId: system.mini
+    subjectKind: system
+    subjectId: system.mini
+    targetKind: model
+    gates: [submission, promotion]
+    hooks: [hook.system.structure]
+hooks:
+  - id: hook.system.structure
+    assay: Run metamodel rules
+    criteria: [C.system.structure]
+    tier: basic
+    engine: model-rules
+    targetKind: model
+    triggers: [submission]
+    binding: bound
