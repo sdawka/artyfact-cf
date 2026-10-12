@@ -1,0 +1,24 @@
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  padding: 0 var(--spacing-2);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-xs);
+  line-height: 1.8;
+  white-space: nowrap;
+}
+.chip[data-tone="attention"] {
+  color: var(--color-brand-primary);
+  border-color: var(--color-brand-primary);
+}
+.chip[data-tone="fail"] {
+  color: var(--verdict-fail);
+  border-color: var(--verdict-fail);
+}
+.chip[data-tone="pass"] {
+  color: var(--verdict-pass);
+  border-color: var(--verdict-pass);
+}
