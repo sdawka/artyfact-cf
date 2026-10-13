@@ -175,9 +175,10 @@ const NEEDS = "If you need a file another task owns, checkpoint `needs:<path>` a
  * declaration. `ownGlobs` are the task's permitted globs (left out of the files it is told to avoid).
  */
 export function independenceStatement(task: Pick<Task, "id">, plan: Pick<TaskPlan, "tasks" | "conflicts" | "appCommit" | "waves">, ownGlobs: string[] = []): string {
-  const others = plan.tasks.filter((t) => t.id !== task.id);
-  const mine = plan.conflicts.filter((c) => c.tasks.includes(task.id));
+  const ended = new Set(plan.tasks.filter((t) => t.status === "rejected" || t.status === "abandoned").map((t) => t.id));
+  const others = plan.tasks.filter((t) => t.id !== task.id && !ended.has(t.id));
   const other = (c: TaskConflict) => (c.tasks[0] === task.id ? c.tasks[1] : c.tasks[0]);
+  const mine = plan.conflicts.filter((c) => c.tasks.includes(task.id) && !ended.has(other(c)));
   const withConflict = new Set(mine.map(other));
   const free = others.filter((t) => !withConflict.has(t.id)).map((t) => t.id);
   const at = plan.appCommit ? ` at ${plan.appCommit.slice(0, 12)}` : "";

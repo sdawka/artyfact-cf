@@ -2,7 +2,7 @@
  * Orchestration between Artifacts, the model, hooks and the SystemAuthority DO. Routes and the queue
  * consumer call these; all Artifacts I/O and model work happens here (never inside the DO).
  */
-import { diffModels, type Readiness, type schema, type SystemModel } from "@artyfact/model";
+import { diffModels, schema, type Readiness, type SystemModel } from "@artyfact/model";
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
@@ -387,7 +387,8 @@ async function concurrentWork(env: Env, systemId: string, exclude: string): Prom
     realization: r.id,
     agentLabel: r.agent.id,
     status: r.status,
-    changedSubjects: cands.filter((c) => c.realization === r.id).at(-1)?.changedSubjects ?? [],
+    // candidates() lists the newest first.
+    changedSubjects: cands.find((c) => c.realization === r.id)?.changedSubjects ?? [],
     evolution: r.evolution,
     ...(r.task && { task: r.task }),
     permittedPaths: (await stub.realization(r.id))?.packet?.permittedPaths ?? [],
@@ -407,7 +408,7 @@ function packetTask(task: Task, plan: TaskPlan | null, ownGlobs: string[], wave:
   const minusOwn = (globs: string[]) => globs.filter((g) => !ownGlobs.includes(g));
   const running = concurrent.filter((w) => w.task && w.task !== task.id);
   const doNotTouch = new Map<string, string[]>();
-  for (const t of others) if (t.status !== "promoted") doNotTouch.set(t.id, minusOwn(t.footprint.globs));
+  for (const t of others) if (!["promoted", "rejected", "abandoned"].includes(t.status)) doNotTouch.set(t.id, minusOwn(t.footprint.globs));
   for (const w of running) if (!doNotTouch.has(w.task!)) doNotTouch.set(w.task!, minusOwn(w.permittedPaths));
   const runningIds = new Set(running.map((w) => w.task!));
   const siblings = wave === null ? [] : (plan?.waves[wave - 1] ?? []).filter((id) => id !== task.id && !runningIds.has(id))
@@ -425,18 +426,30 @@ function packetTask(task: Task, plan: TaskPlan | null, ownGlobs: string[], wave:
   };
 }
 
+/** A started realization; `planStale` reports a task plan made at another app commit (never refused). */
+export type TaskStartResponse = StartWorkResponse & { planStale?: { plannedAt: string | null; startedAt: string } };
+
 /**
+ * A task's claim did not start work: `existing` when the label already holds it with an activated realization,
+ * otherwise the DO's refusal. Callers turn it into a 200 or a 409.
+ */
+export class ClaimOutcome extends Error {
+  constructor(readonly outcome: { fresh: false; task: Task } | { refused: "not-found" | "in-progress" | "taken" | "blocked" | "invalid-state"; by?: string; blockedOn?: string[] }) {
+    super("refused" in outcome ? `claim refused: ${outcome.refused}` : "claim exists");
+    this.name = "ClaimOutcome";
+  }
+}
+
+/**
+ * Start a realization of an Evolution.
+ *
  * `opts.expectedBase`: refuse with 409 `stale-base` unless the realization would fork from this commit.
  * `opts.permittedExtra`: Genome-relative globs added to the packet's permitted paths (under the Genome prefix), for
  * nodes the realization will create and the base model cannot know.
+ * `opts.task`: claim this Task for `body.agentLabel` and reserve the realization in one DO transaction (a claim that is
+ * not fresh throws {@link ClaimOutcome}); the packet is scoped to the task's nodes and criteria, with its globs
+ * recomputed against the fork's base tree. A failed start abandons the realization, which releases the task.
  */
-/**
- * A start for a Task (`opts.task`, claimed by the caller): the packet is scoped to the task's nodes and criteria, the
- * realization records the task and is bound to it once active; a failed start releases the task. The task's globs are
- * recomputed against the fork's base tree; `planStale` reports a plan made at another app commit (never refused).
- */
-export type TaskStartResponse = StartWorkResponse & { planStale?: { plannedAt: string | null; startedAt: string } };
-
 export async function startWork(
   env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string,
   opts: { expectedBase?: string; permittedExtra?: string[]; task?: string; wave?: number | null } = {},
@@ -454,17 +467,21 @@ export async function startWork(
   if (opts.task && !task) throw notFound(`unknown task ${opts.task}`);
   const commands = scaffoldCommands(g.model, target, task ? task.nodes : evolution.affectedNodes);
 
-  await skipTakenForkNames(env, stub, target).catch(async (e: unknown) => {
-    if (task) await stub.releaseTask(task.id).catch(() => undefined);
-    throw e;
-  });
-  const reserved = await rpc(stub.reserveRealization({
+  await skipTakenForkNames(env, stub, target);
+  const reserveInput = {
     evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin,
-    ...(opts.expectedBase && { expectedBase: opts.expectedBase }), ...(task && { taskId: task.id }),
-  })).catch(async (e: unknown) => {
-    if (task) await stub.releaseTask(task.id).catch(() => undefined);
-    throw e;
-  });
+    ...(opts.expectedBase && { expectedBase: opts.expectedBase }),
+  };
+  let reserved: Awaited<ReturnType<SystemApi["reserveRealization"]>>;
+  if (task) {
+    const out = await rpc(stub.claimAndReserve({ ...reserveInput, taskId: task.id, agentLabel: body.agentLabel ?? `agent:${task.id}` }));
+    if (!("fresh" in out) || !out.fresh) throw new ClaimOutcome(out);
+    // A takeover of a lapsed claim ended the earlier realization: its token must not outlive it.
+    if (out.ended.length) await revokeEnded(env, systemId, out.ended);
+    reserved = out.reserved;
+  } else {
+    reserved = await rpc(stub.reserveRealization(reserveInput));
+  }
   const rid = reserved.realization.id;
   let tokenId: string | undefined;
   try {
@@ -526,7 +543,6 @@ export async function startWork(
       registryStub(env).unregisterRealization(systemId, rid),
     ];
     if (tokenId) cleanup.push(withRepo(artifactsFor(env), reserved.forkRepo, (r) => r.revokeToken(tokenId!)));
-    if (task) cleanup.push(stub.releaseTask(task.id));
     for (const r of await Promise.allSettled(cleanup)) {
       if (r.status === "rejected") console.error(`[startWork] cleanup for ${rid} failed: ${(r.reason as Error)?.message ?? r.reason}`);
     }
@@ -646,10 +662,10 @@ async function computeConflicts(env: Env, systemId: string, candidateId: string)
   const candidate = open.find((c) => c.id === candidateId);
   if (!candidate) return [];
   try {
-    const reports = await hookRunner(env).conflicts({
+    const reports = await withTasks(stub, open, await hookRunner(env).conflicts({
       // A realization's earlier commits are superseded by its latest submit, never in conflict with it.
       systemId, candidate, genomeCommit: s.genomeCommit, genomeFiles: await canonicalFiles(env, s), openCandidates: open.filter((c) => c.realizationId !== candidate.realizationId),
-    });
+    }));
     await stub.storeConflicts(candidateId, reports, null);
     return reports;
   } catch (e) {
@@ -658,6 +674,35 @@ async function computeConflicts(env: Env, systemId: string, candidateId: string)
     await stub.storeConflicts(candidateId, [], error);
     return [];
   }
+}
+
+/**
+ * Names the Tasks of the candidates in each report (`ConflictReport.tasks`), and when their plan already predicted the
+ * conflict between those tasks, says so in the message.
+ */
+async function withTasks<R extends ConflictReport>(stub: SystemApi, open: CandidateRef[], reports: R[]): Promise<R[]> {
+  const byCandidate = new Map<string, string>();
+  for (const c of open) {
+    const t = (await stub.realization(c.realizationId))?.taskId;
+    if (t) byCandidate.set(c.id, t);
+  }
+  if (!byCandidate.size) return reports;
+  const plans = new Map<string, TaskPlan | null>();
+  const planOf = async (evolutionId: string) => {
+    if (!plans.has(evolutionId)) plans.set(evolutionId, await stub.plan(evolutionId));
+    return plans.get(evolutionId)!;
+  };
+  return Promise.all(reports.map(async (r) => {
+    const tasks = [...new Set(r.candidates.map((c) => byCandidate.get(c)).filter((t): t is string => !!t))].sort();
+    if (!tasks.length) return r;
+    let message = r.message;
+    if (tasks.length === 2) {
+      const evo = open.find((c) => byCandidate.get(c.id) === tasks[0])?.evolutionId;
+      const planned = evo ? (await planOf(evo))?.conflicts.find((c) => [...c.tasks].sort().join() === tasks.join()) : undefined;
+      if (planned) message = `${message} The plan predicted this (${planned.kind}).`;
+    }
+    return { ...r, tasks, message };
+  }));
 }
 
 export async function conflicts(env: Env, systemId: string): Promise<ConflictsResponse> {
@@ -1233,7 +1278,6 @@ export async function createEvolution(
 // ------------------------------------------------------------------ tasks, waves and claims (backend.md B.9)
 
 const TASK_STATUSES: readonly TaskStatus[] = ["planned", "claimed", "realizing", "evaluated", "promoted", "rejected", "abandoned"];
-const LIVE_TASK: readonly TaskStatus[] = ["claimed", "realizing", "evaluated"];
 
 function agentLabelOf(v: unknown, field = "agentLabel"): string {
   if (typeof v !== "string" || !v.trim() || v.length > 200) throw badRequest(`${field} must be a non-empty string of at most 200 characters`);
@@ -1242,7 +1286,8 @@ function agentLabelOf(v: unknown, field = "agentLabel"): string {
 
 function roleOf(v: unknown): StartWorkRequest["role"] {
   if (v === undefined) return undefined;
-  if (typeof v !== "string" || !v.trim()) throw badRequest("role must be a non-empty string");
+  const roles = schema.AgentRole.options as readonly string[];
+  if (typeof v !== "string" || !roles.includes(v)) throw badRequest(`role must be one of ${roles.join(", ")}`);
   return v as StartWorkRequest["role"];
 }
 
@@ -1278,6 +1323,7 @@ export async function listTasks(env: Env, systemId: string, q: TasksQuery): Prom
 
 /** `GET /systems/:id/tasks/:tid` (public): the task and its plan's conflicts that involve it. */
 export async function taskView(env: Env, systemId: string, taskId: string): Promise<TaskResponse> {
+  await headState(env, systemId);
   const stub = systemStub(env, systemId);
   const task = await taskOrThrow(stub, taskId);
   const plan = await stub.plan(task.evolutionId);
@@ -1286,6 +1332,7 @@ export async function taskView(env: Env, systemId: string, taskId: string): Prom
 
 /** `POST /systems/:id/tasks/:tid/release` (admin): the task returns to `planned` (its realization keeps its status). */
 export async function releaseTask(env: Env, systemId: string, taskId: string): Promise<TaskResponse> {
+  await headState(env, systemId);
   const stub = systemStub(env, systemId);
   await taskOrThrow(stub, taskId);
   await rpc(stub.releaseTask(taskId));
@@ -1295,9 +1342,10 @@ export async function releaseTask(env: Env, systemId: string, taskId: string): P
 
 /**
  * `POST /systems/:id/tasks/:tid/claim` (admin): claim the task for `agentLabel` and start its realization (fork,
- * token, secret, task-scoped packet): 201 `fresh: true`. The same label again while its claim or realization is live:
- * 200 `fresh: false` with the stored packet and no credentials. 409 `task-taken {by}`, `task-blocked {blockedOn}`,
- * `invalid-state`.
+ * token, secret, task-scoped packet) in one claim-and-reserve step: 201 `fresh: true`. The same label again while
+ * its realization is live (its lease renewed if it lapsed): 200 `fresh: false` with the stored packet and no
+ * credentials. 409 `task-taken {by}`, `task-blocked {blockedOn}`, `invalid-state` (also "claim in progress" while a
+ * claim's realization is being started, whatever the label).
  */
 export async function claimTask(
   env: Env, systemId: string, taskId: string, body: { agentLabel?: unknown; role?: unknown }, platformUrl: string,
@@ -1307,25 +1355,29 @@ export async function claimTask(
   const stub = systemStub(env, systemId);
   await headState(env, systemId);
   const before = await taskOrThrow(stub, taskId);
-  const out = await rpc(stub.claimTask(taskId, agentLabel));
-  if ("refused" in out) {
-    // A label whose claim already became a running realization gets that realization back.
-    if (out.refused === "invalid-state" && LIVE_TASK.includes(before.status) && before.claim?.agentLabel === agentLabel && before.realizationId) {
-      return { status: 200, body: await reclaimed(env, systemId, before) };
-    }
-    if (out.refused === "not-found") throw notFound(`unknown task ${taskId}`);
-    if (out.refused === "taken") throw conflict("task-taken", `task ${taskId} is claimed by ${out.by}`, { by: out.by });
-    if (out.refused === "blocked") {
-      throw conflict("task-blocked", `task ${taskId} is blocked by ${(out.blockedOn ?? []).join(", ")} (not yet promoted)`, { blockedOn: out.blockedOn ?? [] });
-    }
-    throw conflict("invalid-state", `task ${taskId} is ${before.status}; only a planned task can be claimed`);
+  const plan = await stub.plan(before.evolutionId);
+  try {
+    const started = await startWork(env, systemId, before.evolutionId, { agentLabel, ...(role && { role }) }, platformUrl,
+      { task: taskId, wave: plan ? waveOf(plan, taskId) : null });
+    // The secret is the response's own field; the packet copy stays free of it.
+    const { secret: _secret, ...workspace } = started.packet.workspace;
+    return { status: 201, body: { ...started, packet: { ...started.packet, workspace }, task: await taskOrThrow(stub, taskId), fresh: true } };
+  } catch (e) {
+    if (!(e instanceof ClaimOutcome)) throw e;
+    const o = e.outcome;
+    if (!("refused" in o)) return { status: 200, body: await reclaimed(env, systemId, o.task) };
+    throw claimRefusal(taskId, o, before.status);
   }
-  if (!out.fresh && out.claimed.realizationId) return { status: 200, body: await reclaimed(env, systemId, out.claimed) };
-  // A fresh claim, or the same label's claim whose start never completed: start its realization now.
-  const plan = await stub.plan(out.claimed.evolutionId);
-  const started = await startWork(env, systemId, out.claimed.evolutionId, { agentLabel, ...(role && { role }) }, platformUrl,
-    { task: taskId, wave: plan ? waveOf(plan, taskId) : null });
-  return { status: 201, body: { ...started, task: await taskOrThrow(stub, taskId), fresh: true } };
+}
+
+function claimRefusal(taskId: string, o: Extract<ClaimOutcome["outcome"], { refused: string }>, status: TaskStatus): HttpError {
+  if (o.refused === "not-found") return notFound(`unknown task ${taskId}`);
+  if (o.refused === "taken") return conflict("task-taken", `task ${taskId} is claimed by ${o.by}`, { by: o.by });
+  if (o.refused === "blocked") {
+    return conflict("task-blocked", `task ${taskId} is blocked by ${(o.blockedOn ?? []).join(", ")} (not yet promoted)`, { blockedOn: o.blockedOn ?? [] });
+  }
+  if (o.refused === "in-progress") return conflict("invalid-state", `task ${taskId}: claim in progress (${o.by} is starting its realization)`);
+  return conflict("invalid-state", `task ${taskId} is ${status}; only a planned task can be claimed`);
 }
 
 /** A repeat claim: the stored packet, no credentials (they were issued once). */
@@ -1367,23 +1419,21 @@ export async function startWave(
   const out: StartWaveResponse & { started: TaskStartResponse[] } = { wave: n, started: [], skipped: [] };
   for (const id of ids) {
     const label = (labels as Record<string, string>)[id]?.trim() || `agent:${id}`;
-    const claim = await rpc(stub.claimTask(id, label));
-    if ("refused" in claim) {
-      const reason = claim.refused === "taken" ? `claimed by ${claim.by}`
-        : claim.refused === "blocked" ? `blocked by ${(claim.blockedOn ?? []).join(", ")} (not yet promoted)`
-          : `task is ${status.get(id) ?? "unknown"}`;
-      out.skipped.push({ task: id, reason });
-      continue;
-    }
-    if (!claim.fresh && claim.claimed.realizationId) {
-      out.skipped.push({ task: id, reason: `already claimed by ${label}; its credentials were issued with that claim` });
-      continue;
-    }
     try {
       const started = await startWork(env, systemId, evolutionId, { agentLabel: label, ...(role && { role }) }, platformUrl, { task: id, wave: n });
       out.started.push({ ...started, task: id });
     } catch (e) {
-      out.skipped.push({ task: id, reason: `start failed: ${(e as Error)?.message ?? e}` });
+      if (!(e instanceof ClaimOutcome)) {
+        out.skipped.push({ task: id, reason: `start failed: ${(e as Error)?.message ?? e}` });
+        continue;
+      }
+      const o = e.outcome;
+      const reason = !("refused" in o) ? `already claimed by ${label}; its credentials were issued with that claim`
+        : o.refused === "taken" ? `claimed by ${o.by}`
+          : o.refused === "blocked" ? `blocked by ${(o.blockedOn ?? []).join(", ")} (not yet promoted)`
+            : o.refused === "in-progress" ? `claim in progress by ${o.by}`
+              : `task is ${status.get(id) ?? "unknown"}`;
+      out.skipped.push({ task: id, reason });
     }
   }
   return out;
