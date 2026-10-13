@@ -1,6 +1,7 @@
 import { useId, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import type { TemplateUpgradeAction, TemplateUpgradeFile, TemplateUpgradePlan } from "../../../shared/api";
+import { useAdminTokenField } from "@/api/adminToken";
 import { ApiRequestError } from "@/api/client";
 import { useApplyTemplateUpgrade, useTemplateUpgrade } from "@/api/queries";
 import { useModel } from "@/model/useModel";
@@ -20,8 +21,8 @@ const short = (c: string | null | undefined) => (c ? c.slice(0, 7) : "none");
 
 /** Plain wording for the two auth refusals and "already up to date"; anything else keeps the server's message. */
 export function upgradeError(err: Error): string {
-  if (err instanceof ApiRequestError && err.status === 401) return "The upgrade needs the admin token (401). Enter it and try again.";
-  if (err instanceof ApiRequestError && err.status === 403) return "The admin token was refused (403). Check it and try again.";
+  if (err instanceof ApiRequestError && err.status === 401) return "The upgrade needs the admin token (401). Set the admin token in the header and try again.";
+  if (err instanceof ApiRequestError && err.status === 403) return "The admin token was refused (403). Check it in the header and try again.";
   if (err instanceof ApiRequestError && err.code === "up-to-date") return "The app is already up to date with the template.";
   return err.message;
 }
@@ -89,8 +90,8 @@ export function TemplateUpgradePanel({ plan }: { plan: TemplateUpgradePlan }) {
   const navigate = useNavigate();
   const apply = useApplyTemplateUpgrade();
   const [include, setInclude] = useState<string[]>([]);
-  // Held in component state only: never persisted, cleared once the upgrade has started.
-  const [adminToken, setAdminToken] = useState("");
+  // Pre-filled from the header token; a typed value is a one-off.
+  const [adminToken, setAdminToken, resetAdminToken] = useAdminTokenField();
 
   const toggle = (path: string, on: boolean) => setInclude((xs) => (on ? [...xs, path] : xs.filter((x) => x !== path)));
   // The app has its own copy of these, so Compare can show how it changed.
@@ -102,7 +103,7 @@ export function TemplateUpgradePanel({ plan }: { plan: TemplateUpgradePlan }) {
       { body: { include }, ...(adminToken && { adminToken }) },
       {
         onSuccess: (res) => {
-          setAdminToken("");
+          resetAdminToken();
           void navigate(href("work", { evolution: res.evolution.id, realization: res.realization.id }));
         },
       },
