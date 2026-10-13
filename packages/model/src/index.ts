@@ -1,6 +1,6 @@
 export * as schema from "./schema.ts";
 export { KNOWN_KINDS } from "./schema.ts";
-export { fromGraph, LegacyGenomeError, loadGenome, ModelParseError } from "./genome.ts";
+export { fromGraph, LegacyGenomeError, loadGenome, ModelParseError, stepKey } from "./genome.ts";
 export type { LoadOptions, ModelWarning, ParseIssue, SystemModel, TemplateStore } from "./genome.ts";
 export { index } from "./model-index.ts";
 export type { ModelIndex, IndexEntry, EntryType, LinkRef } from "./model-index.ts";

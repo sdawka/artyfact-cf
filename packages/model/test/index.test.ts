@@ -14,10 +14,10 @@ describe("index", () => {
     expect(ix.byId["ext.owner"]).toMatchObject({ type: "external", kind: "external" });
   });
 
-  // Siblings follow the node tree's directory order; v2 has no order field.
+  // Siblings follow the node tree's directory order (v2 has no order field), except a Thing's sections, which follow its list.
   it("builds containment children from system down", () => {
     expect(ix.children["system.mini"]).toEqual(["thing.app"]);
-    expect(ix.children["thing.app"]).toEqual(["section.domain", "section.ui"]);
+    expect(ix.children["thing.app"]).toEqual(["section.ui", "section.domain"]);
     expect(ix.children["section.ui"]).toEqual(["component.AppShell", "screen.edit", "screen.list"]);
   });
 

@@ -68,6 +68,9 @@ export interface SystemModel {
   index: ModelIndex;
 }
 
+/** A journey step's graph id: `<journey id>/<local id>` (`J.contacts/s1`), as rule findings name steps. */
+export const stepKey = (journey: string, step: string) => `${journey}/${step}`;
+
 export interface LoadOptions { revision?: string; templates: TemplateStore }
 
 /** Reads a v2 Genome (path → text) into a `SystemModel`. Throws `LegacyGenomeError` or `ModelParseError`. */
@@ -195,7 +198,16 @@ export function fromGraph(graph: Graph, templates: TemplateStore, tree: GenomeTr
     ? { narrative: narrative ?? "", features, commitments, alternatives: strs(root.fields.alternatives), openQuestions: strs(root.fields.openQuestions) }
     : undefined;
 
-  const nodes = graph.nodes.filter((n) => !KNOWN.has(n.kind)).map((n): schema.OntologyNode => {
+  // Siblings keep the tree's directory order, except a Thing's sections: the slots they hold are refilled in the
+  // order of its `sections` list.
+  const ordered = [...graph.nodes];
+  for (const t of graph.nodes.filter((n) => n.kind === "thing")) {
+    const listed = strs(t.fields.sections);
+    const slots = ordered.flatMap((n, i) => (n.parent === t.id && listed.includes(n.id) ? [i] : []));
+    const inOrder = slots.map((i) => ordered[i]!).sort((a, b) => listed.indexOf(a.id) - listed.indexOf(b.id));
+    slots.forEach((slot, k) => (ordered[slot] = inOrder[k]!));
+  }
+  const nodes = ordered.filter((n) => !KNOWN.has(n.kind)).map((n): schema.OntologyNode => {
     const f = n.fields;
     return {
       ...f,

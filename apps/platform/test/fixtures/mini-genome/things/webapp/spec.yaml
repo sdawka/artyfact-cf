@@ -1,7 +1,0 @@
-requirements:
-  - id: S.webapp.contacts
-    thing: thing.webapp
-    title: Contacts
-    text: The owner must be able to save and list their contacts, and nobody else may see them.
-    refines: [GD.contacts]
-    subjects: [screen.people, screen.home]

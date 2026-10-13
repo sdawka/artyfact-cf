@@ -1,6 +1,0 @@
-externals:
-  - id: ext.owner
-    kind: person
-    name: Owner
-    modeled: Account and contact list
-    external: Their relationships

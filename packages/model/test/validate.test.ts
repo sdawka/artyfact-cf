@@ -40,6 +40,17 @@ describe("validate with the real packs", () => {
     expect(r.findings.find((f) => f.rule === "kit.unpinned")!.message).toContain("auth");
   });
 
+  it("runs no template pack that derives findings when none is pinned", () => {
+    const r = run(edit(files, "node.yaml", /  rulePacks:\n(    .*\n|      .*\n)*/, ""));
+    expect(r.packs.map((p) => p.id).filter((id) => !id.startsWith("engine."))).toEqual(["facts"]);
+    expect(brief(r).filter((x) => x[0] !== "info" && x[1] !== "node.provisional")).toEqual([]);
+  });
+
+  it("reports the engine's own packs apart from the pinned ones", () => {
+    const r = run(files);
+    expect(r.packs.filter((p) => p.id === "metamodel" || p.id === "engine.metamodel").map((p) => p.id)).toEqual(["engine.metamodel", "metamodel"]);
+  });
+
   it("runs only the pinned template packs, and warns on a pin no template declares", () => {
     const f = edit(files, "node.yaml", /    - id: topology\.private-pairs\n      version: "1"\n/, "    - id: ghost\n      version: \"1\"\n");
     const r = run(f);
@@ -105,7 +116,7 @@ describe("validate with the real packs", () => {
   it("folds soft violations into warnings", () => {
     const soft = { id: "test.soft", version: "1", source: '.decl node(Id: sym, Kind: sym, Thing: sym)\n.decl violation(Rule: sym, Subject: sym, Severity: sym) .output\nviolation("x.soft",N,"soft") :- node(N,"policy",_).\n' };
     const m = load(files);
-    const r = validate({ ...m, kits: { ...m.kits, rulePacks: [] }, template: { ...m.template, rules: [soft] } });
+    const r = validate({ ...m, kits: { ...m.kits, rulePacks: [{ id: "test.soft", version: "1" }] }, template: { ...m.template, rules: [soft] } });
     expect(brief(r)).toContainEqual(["warning", "x.soft", "policy.ownerOnly"]);
     expect(r.findings.find((x) => x.rule === "x.soft")!.pack).toBe("test.soft@1");
     expect(r.actionable).toBe(true);
