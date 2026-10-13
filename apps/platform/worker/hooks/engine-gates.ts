@@ -13,7 +13,7 @@ import {
 } from "@artyfact/ontology";
 import { readinessTemplate, unavailablePins } from "@artyfact/model";
 import type { FileMap } from "./contract";
-import { loadGenome, selectableRules, type RulesFilter } from "./model-rules";
+import { loadGenome, packMatches, selectableRules, type RulesFilter } from "./model-rules";
 import type { Outcome } from "./provenance";
 
 const TEXT_PACK = "text@1";
@@ -44,12 +44,6 @@ export function engineRun(files: FileMap): EngineRun {
 const packName = (p: { id: string; version: string }) => `${p.id}@${p.version}`;
 const isText = (f: Finding) => f.pack === TEXT_PACK;
 const isChecks = (f: Finding) => f.pack === `${CHECKS}@1`;
-
-/** A wanted pack matches by `id@version` or `id`; the ported artyfact packs also answer to their v1 names (`readiness@1`). */
-function packMatches(wanted: string, p: { id: string; version: string }): boolean {
-  const ids = [p.id, p.id.replace(/^artyfact\./, "")];
-  return ids.some((id) => wanted === id || wanted === `${id}@${p.version}`);
-}
 
 function packsOf(t: Template) {
   const checks = checksPack(t);

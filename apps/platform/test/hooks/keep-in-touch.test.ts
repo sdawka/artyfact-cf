@@ -50,20 +50,23 @@ describe("model-rules on the real Keep in Touch Genome", () => {
     expect(r.readiness.findings.some((f) => f.rule === "topology.recipientArray")).toBe(false);
   });
 
-  it("the topology hook (inputs.packs with a version) sees it; the structure hook does not; an unpinned pack is unknown", () => {
-    expect(modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["topology.private-pairs@1"] } }).outcome.verdict).toBe("fail");
-    expect(modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["metamodel@1"] } }).outcome.verdict).toBe("pass");
-    expect(modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["topology.private-pairs@2"] } }).outcome.verdict).toBe("unknown");
+  it("the topology hook (inputs.packs with a version) sees it; the structure hook does not; an unrun pack version is unknown", () => {
+    const r = engineRun(keepInTouchMany());
+    expect(engineRules(r, { packs: ["topology.private-pairs@1"] }).verdict).toBe("fail");
+    expect(engineRules(r, { packs: ["artyfact.topology.private-pairs"] }).verdict).toBe("fail");
+    expect(engineRules(r, { packs: ["metamodel@1"] }).verdict).toBe("pass");
+    const v2 = engineRules(r, { packs: ["topology.private-pairs@2"] });
+    expect(v2.verdict).toBe("unknown");
+    expect(v2.observations).toContainEqual(expect.objectContaining({ kind: "packs-not-run", packs: ["topology.private-pairs@2"] }));
   });
 
   it("a rule filter that selects no rule is unknown, naming the filter, even when the Genome violates", () => {
-    const typo = modelRules({ files: keepInTouchMany(), revision: "m", filter: { rulePrefix: "topolgy." } });
-    expect(typo.outcome.verdict).toBe("unknown");
-    expect(typo.outcome.observations).toContainEqual(expect.objectContaining({ kind: "filter-selects-no-rules", filter: { rulePrefix: "topolgy." } }));
-    const ok = modelRules({ files: keepInTouchMany(), revision: "m", filter: { rulePrefix: "topology." } });
-    expect(ok.outcome.verdict).toBe("fail");
-    const wrongPack = modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["metamodel@1"], rulePrefix: "topology." } });
-    expect(wrongPack.outcome.verdict).toBe("unknown");
+    const r = engineRun(keepInTouchMany());
+    const typo = engineRules(r, { rulePrefix: "topolgy." });
+    expect(typo.verdict).toBe("unknown");
+    expect(typo.interpretation).toBe('The hook\'s rule filter {"rulePrefix":"topolgy."} selects no rule in the template\'s packs; nothing was checked.');
+    expect(engineRules(r, { rulePrefix: "topology." }).verdict).toBe("fail");
+    expect(engineRules(r, { packs: ["metamodel@1"], rulePrefix: "topology." }).verdict).toBe("unknown");
   });
 });
 

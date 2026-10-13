@@ -201,21 +201,17 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
     }
   };
 
-  const rulesFor = (st: RunState, h: schema.AssayHook | null): ModelRulesResult => {
-    const filter = h ? filterFromInputs(h.inputs) : undefined;
+  /** The judged Genome's model, readiness and delta (once per run); hook filters apply on the engine path only. */
+  const rulesFor = (st: RunState): ModelRulesResult => {
+    if (st.rules) return st.rules;
     const c = st.ctx.candidate;
     if (c.target === "genome") {
       if (!c.genomeFiles) throw new Error(`Genome candidate ${c.id} has no genomeFiles`);
-      if (!filter && st.rules) return st.rules;
-      const r = modelRules({ files: c.genomeFiles, revision: c.commit, base: st.base, filter, deps: deps.genome });
-      if (!filter) st.rules = r;
-      return r;
+      return (st.rules = modelRules({ files: c.genomeFiles, revision: c.commit, base: st.base, deps: deps.genome }));
     }
-    if (!filter && st.rules) return st.rules;
-    const r = modelRules({ files: st.ctx.genomeFiles, revision: st.ctx.genomeCommit, filter, deps: deps.genome });
+    const r = modelRules({ files: st.ctx.genomeFiles, revision: st.ctx.genomeCommit, deps: deps.genome });
     r.outcome.limitations.push("App candidate: the Genome is unchanged, so rules ran on the canonical Genome at base.");
-    if (!filter) st.rules = r;
-    return r;
+    return (st.rules = r);
   };
 
   /** The judged Genome on the engine: the candidate's for a Genome target, the canonical one for an app target. */
@@ -283,7 +279,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
 
   async function reviewsFor(st: RunState): Promise<DeltaReview[]> {
     if (st.reviews) return st.reviews;
-    const r = rulesFor(st, null);
+    const r = rulesFor(st);
     if (r.model && r.delta && r.readiness) {
       st.reviews = await reviewGenome(s1, st.base, r.model, r.delta, r.readiness.derived);
     } else {
@@ -305,7 +301,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
         return inferred ? withLimitation(o, `inputs.mode is not set; ran as ${mode} (inferred from the hook id/assay).`) : o;
       }
       case "model-rules":
-        return modelRulesHook({ ctx: st.ctx, base: st.base, rules: (x) => rulesFor(st, x), engine: (x) => engineHook(st, x) }, h);
+        return modelRulesHook({ ctx: st.ctx, base: st.base, rules: () => rulesFor(st), engine: (x) => engineHook(st, x) }, h);
       case "system-one":
       case "llm": {
         const { judgment, inferred } = llmJudgment(h, c);
@@ -350,7 +346,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
     const cand = st.ctx.candidate;
     if (j === "reviewDelta") {
       if (cand.target !== "genome") return aggregate([], "reviewDelta (app candidate has no Genome delta)");
-      const r = rulesFor(st, null);
+      const r = rulesFor(st);
       const reviews = (await reviewsFor(st)).filter((x) => x.judgment === j);
       if (rulesSound(r) && r.delta && touchedCount(r.delta) === 0) return vacuous(r, { changes: 0 }, j);
       return aggregate(reviewsAsJudged(reviews), j);
@@ -358,7 +354,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
     if (j === "topology") {
       // Judge every multi-recipient candidate of the judged model: the candidate Genome, or the canonical one for
       // app candidates (whose Genome is unchanged).
-      const r = rulesFor(st, null);
+      const r = rulesFor(st);
       if (!rulesSound(r)) return rulesUnsound(r, j);
       const flagged = (r.readiness!.derived.semanticCandidate ?? []).filter((t) => t[0] === MULTI_RECIPIENT);
       if (flagged.length === 0) {
@@ -371,7 +367,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
       return aggregate(reviewsAsJudged(await judgeTopology(s1, r.model!, r.readiness!.derived)), j);
     }
     if (j === "purposeMeasures") {
-      const r = rulesFor(st, null);
+      const r = rulesFor(st);
       if (!rulesSound(r)) return rulesUnsound(r, j);
       // Ruling: absence of theory is a readiness gap, not evidence.
       if (r.model!.claims.filter((c) => !c.deferred).length === 0) {
@@ -465,7 +461,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
         throw new Error(`runGenome needs a Genome candidate with genomeFiles (got target ${ctx.candidate.target}${ctx.candidate.genomeFiles ? "" : ", no genomeFiles"})`);
       }
       const st: RunState = { ctx, base: loadBase(ctx) };
-      const rules = rulesFor(st, null);
+      const rules = rulesFor(st);
       const readiness = rules.readiness ?? failedReadiness(rules);
       const review = await reviewsFor(st);
       const evaluations = await evaluate(st);

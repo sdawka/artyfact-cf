@@ -16,8 +16,8 @@ import { errored as erroredOutcome, errorMessage, notRun, type Outcome } from ".
 export interface ModelCheckEnv {
   ctx: SubmissionContext;
   base: SystemModel;
-  /** model-rules result for the candidate (Genome target) or the canonical Genome (app target), filtered by `h`. */
-  rules(h: schema.AssayHook | null): ModelRulesResult;
+  /** model-rules result (model, readiness, delta) for the candidate (Genome target) or the canonical Genome (app target). */
+  rules(): ModelRulesResult;
   /** The rules part on the engine for the same Genome, filtered by `h` (checks@1 judged on changed nodes). */
   engine(h: schema.AssayHook): Promise<Outcome>;
 }
@@ -26,7 +26,7 @@ export interface ModelCheckEnv {
 function requiresCheck(env: ModelCheckEnv, h: schema.AssayHook): { missing: string[] } | null {
   const ids = (h.inputs.requires ?? "").split(",").map((x) => x.trim()).filter(Boolean);
   if (!ids.length) return null;
-  const m = env.ctx.candidate.target === "genome" ? env.rules(null).model ?? env.base : env.base;
+  const m = env.ctx.candidate.target === "genome" ? env.rules().model ?? env.base : env.base;
   const present = new Set(m.criteria.filter((c) => !c.deferred).map((c) => c.id));
   return { missing: ids.filter((id) => !present.has(id)) };
 }

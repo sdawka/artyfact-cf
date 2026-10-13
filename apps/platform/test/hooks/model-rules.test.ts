@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { genomeRoot, loadGenome, modelRules } from "../../worker/hooks/model-rules";
+import { genomeRoot, loadGenome, modelRules, packMatches, selectableRules } from "../../worker/hooks/model-rules";
+import { engineRules, engineRun } from "../../worker/hooks/engine-gates";
 import { miniGenome, withRecipients } from "./fixtures";
 
 describe("model-rules engine", () => {
@@ -25,17 +26,20 @@ describe("model-rules engine", () => {
     expect(r.delta?.changed).toContainEqual({ id: "entity.ContactRecord", fields: ["fields"] });
   });
 
-  it("filters findings by hook inputs (packs / rulePrefix)", () => {
-    const onlyMeta = modelRules({ files: withRecipients(), revision: "c2", filter: { packs: ["metamodel"] } });
-    expect(onlyMeta.outcome.verdict).toBe("pass");
-    const topo = modelRules({ files: withRecipients(), revision: "c2", filter: { rulePrefix: "topology." } });
-    expect(topo.outcome.verdict).toBe("fail");
+  it("judges every finding; a hook's packs/rulePrefix filter applies on the engine path", () => {
+    expect(modelRules({ files: withRecipients(), revision: "c2" }).outcome.verdict).toBe("fail");
+    const r = engineRun(withRecipients());
+    expect(engineRules(r, { packs: ["metamodel"] }).verdict).toBe("pass");
+    expect(engineRules(r, { rulePrefix: "topology." }).verdict).toBe("fail");
   });
 
-  it("a filter selecting only info-level rules is unknown", () => {
-    const r = modelRules({ files: withRecipients(), revision: "c2", filter: { packs: ["topology.private-pairs"], rulePrefix: "semantic:" } });
-    expect(r.outcome.verdict).toBe("unknown");
-    expect(r.outcome.observations).toContainEqual(expect.objectContaining({ kind: "filter-selects-only-info-rules", filter: { packs: ["topology.private-pairs"], rulePrefix: "semantic:" } }));
+  it("matches packs by id or id@version, and the ported artyfact packs by their v1 names", () => {
+    const p = { id: "artyfact.readiness", version: "1" };
+    expect(["artyfact.readiness", "artyfact.readiness@1", "readiness", "readiness@1"].map((w) => packMatches(w, p))).toEqual([true, true, true, true]);
+    expect(["readiness@2", "artyfact", "ready"].map((w) => packMatches(w, p))).toEqual([false, false, false]);
+    const packs = [{ id: "artyfact.topology.private-pairs", version: "1", source: 'violation("topology.recipientArray", X) :- a(X).\nmissing("topology.x", X) :- b(X).' }];
+    expect(selectableRules(packs, { packs: ["topology.private-pairs@1"], rulePrefix: "topology.r" })).toEqual(["topology.recipientArray"]);
+    expect(selectableRules(packs, { packs: ["metamodel@1"] })).toEqual([]);
   });
 
   it("fails (not errors) when the Genome does not parse, listing the issues", () => {
@@ -52,7 +56,7 @@ describe("model-rules engine", () => {
     expect(r.readiness?.actionable).toBe(false);
     expect(r.outcome.interpretation).toContain("rulePack.unavailable nope@9");
     // A hook that filters on the missing pack still sees its error.
-    expect(modelRules({ files, revision: "c4", filter: { packs: ["nope@9"] } }).outcome.verdict).toBe("fail");
+    expect(engineRules(engineRun(files), { packs: ["nope@9"] }).verdict).toBe("fail");
   });
 
   it("runs the engine's own packs when no pack is pinned", () => {
