@@ -1,27 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import type { SystemSelection } from './systemState';
 
-export const subjects = [
-  { name: 'Keep in Touch app', kind: 'Thing', intent: 'A Thing can begin with its Genome alone: purpose, structure and contracts, before Parts or source exist.', work: 'Two isolated realizations', workDetail: 'A System is the context and governance wrapper, even when this one Thing is the whole application.', observation: 'Runtime evidence resolves through the authoritative Thing, source and realized-output association.' },
-  { name: 'A private relationship', kind: 'Entity', intent: 'Private notes belong to their author.', work: 'A contract to preserve', workDetail: 'Optional Parts can contribute a partial or complete capability at any scale. Composition and upgrades are explicit and save provenance.', observation: 'A passing storage check would not prove that every access path is private.' },
-  { name: 'Wanted contact', kind: 'Purpose', intent: 'More wanted contact, less effort remembering.', work: 'Work with a reason', workDetail: 'Source and realized output stay distinct, so a build can be linked to the source and Genome it came from.', observation: 'Outcomes need observations from people, with a time and context.' },
-];
-export const layers = [
-  { name: 'Genome', meaning: 'The intent', description: 'What should hold true.' },
-  { name: 'Proteome', meaning: 'The work', description: 'Who realizes and checks it.' },
-  { name: 'Phenome', meaning: 'The evidence', description: 'What can be observed.' },
-];
+const layers = [
+  { name: 'Genome', meaning: 'What should hold true' },
+  { name: 'Proteome', meaning: 'How it is realized' },
+  { name: 'Phenome', meaning: 'What is observed' },
+] as const;
 
-/** `onSelect` hears every layer or subject change (and the initial state after mount); the markup does not depend on it. */
+/** One proposed Artyfact feature, viewed from three angles. The example claims no live work or evidence. */
 export function SystemExplorer({ onSelect }: { onSelect?: (selection: SystemSelection) => void }) {
   const [layer, setLayer] = useState(0);
-  const [subject, setSubject] = useState(0);
-  useEffect(() => { onSelect?.({ layer, subject }); }, [layer, subject, onSelect]);
-  const selected = subjects[subject];
-  return <section className="explorer" aria-label="Interactive Keep in Touch example">
-    <div className="explorer-heading"><span>Keep in Touch</span><span className="example-label">Illustrative System</span></div>
-    <div className="layer-tabs" role="tablist" aria-label="Layers of the same System">
-      {layers.map((item, index) => <button key={item.name} role="tab" id={'layer-' + index} aria-controls="system-panel"
+  useEffect(() => { onSelect?.({ layer, subject: 0 }); }, [layer, onSelect]);
+
+  return <section className="explorer model-feature-explorer" aria-label="Illustrative Artyfact feature through three views">
+    <header className="explorer-heading">
+      <div><p className="example-label">Illustrative target</p><h3>Make changes easy to scope and specify</h3></div>
+      <span className="example-system">Artyfact System</span>
+    </header>
+    <div className="feature-subject">
+      <span>Same feature in every view</span>
+      <strong>Clarify a requested change before work starts</strong>
+    </div>
+    <div className="layer-tabs" role="tablist" aria-label="Parallel views of the illustrative feature">
+      {layers.map((item, index) => <button key={item.name} role="tab" id={'model-layer-' + index} aria-controls="model-layer-panel"
         aria-selected={layer === index} tabIndex={layer === index ? 0 : -1}
         onClick={() => setLayer(index)}
         onKeyDown={event => {
@@ -29,18 +30,35 @@ export function SystemExplorer({ onSelect }: { onSelect?: (selection: SystemSele
           if (next !== null) { event.preventDefault(); setLayer(next); (event.currentTarget.parentElement?.children[next] as HTMLButtonElement)?.focus(); }
         }}><span>{item.name}</span><small>{item.meaning}</small></button>)}
     </div>
-    <div className="subject-map">
-      <p className="map-purpose">A System for the relationships you choose.</p>
-      <div className="map-stem" aria-hidden="true"><span /></div>
-      <div className="subject-choices">{subjects.map((item, index) => <button className="subject u-brackets" aria-pressed={subject === index}
-        key={item.name} onClick={() => setSubject(index)}><small>{item.kind}</small><span>{item.name}</span></button>)}</div>
+    <div id="model-layer-panel" className="example-detail" role="tabpanel" aria-labelledby={'model-layer-' + layer} aria-live="polite">
+      {layer === 0 ? <>
+        <h4>What needs to be clear?</h4>
+        <p>The proposed Genome names the requested behavior, affected subjects and acceptance criteria before an agent begins.</p>
+        <div className="feature-facts">
+          <p><span>Requested behavior</span><strong>Make the scope of a change inspectable.</strong></p>
+          <p><span>Affected subjects</span><strong>Evolution, scope editor, affected-node map.</strong></p>
+          <p><span>Criterion</span><strong>A reviewer can see the intended change and its affected subjects before work starts.</strong></p>
+        </div>
+        <p className="evidence-note">A declared criterion is a target, not evidence that the feature exists.</p>
+      </> : layer === 1 ? <>
+        <h4>Your agents can be the Proteome.</h4>
+        <p>An agent could receive the scoped intent, implement the interface and mapping, then submit a candidate for review.</p>
+        <p className="feature-test"><span>Proposed acceptance test</span>Given a requested change, when a reviewer opens it before work starts, then its intended behavior and affected subjects are visible.</p>
+        <div className="feature-facts">
+          <p><span>Work</span><strong>Implement the scope editor and mapping.</strong></p>
+          <p><span>Check</span><strong>Run the proposed acceptance test against the candidate.</strong></p>
+          <p><span>Instrumentation</span><strong>Emit events that could connect input, intent and mapping.</strong></p>
+        </div>
+        <p className="evidence-note">This is an illustrative target. It does not show an agent running or a passing test.</p>
+      </> : <>
+        <h4>What could the System observe?</h4>
+        <p>This sample event stream shows the observations the feature would need to relate. Every event below shares the illustrative change reference <code>example-scope-01</code>. It is a proposed stream, not live Artyfact telemetry.</p>
+        <ol className="feature-events" aria-label="Proposed event stream">
+          <li>Input received</li><li>Intent confirmed</li><li>Change mapped</li><li>Evaluation completed</li>
+        </ol>
+        <p className="evidence-note">Correlated events and a completed check would still not prove that scoping feels easy to people.</p>
+      </>}
     </div>
-    <div id="system-panel" className="example-detail" role="tabpanel" aria-labelledby={'layer-' + layer} aria-live="polite">
-      <p className="detail-context">{layers[layer].description}</p>
-      {layer === 0 ? <><p className="detail-title">{selected.intent}</p><p>A declared contract. Its purpose, policies and acceptance criteria give the work its context.</p><span className="evidence-note">Intent is not implementation evidence.</span></>
-        : layer === 1 ? <><p className="detail-title">{selected.work}</p><p>{selected.workDetail}</p><div className="forks" aria-label="Two candidate workspaces"><span>Realization A</span><span>Realization B</span></div><span className="evidence-note">Isolated work. Shared subjects. Explicit review.</span></>
-        : <><p className="detail-title">{selected.observation}</p><div className="observation"><span>Observed result</span><strong>Unknown</strong></div><p>No live evaluation is being claimed by this example. A planned check and a completed check are different things.</p></>}
-    </div>
-    <p className="explorer-caption">Choose a subject. Change the layer. It is still the same System.</p>
+    <p className="explorer-caption">Genome, Proteome and Phenome are parallel views of this feature, not successive build stages.</p>
   </section>;
 }
