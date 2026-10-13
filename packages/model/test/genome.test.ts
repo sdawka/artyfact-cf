@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { parseTree } from "@artyfact/ontology";
+import { artyfactGenome, parseTree } from "@artyfact/ontology";
 import { fromGraph, LegacyGenomeError, loadGenome, ModelParseError } from "../src/index";
-import { edit, load, pathOf, readTree, store, SYSTEM_TEMPLATE, THING_TEMPLATE } from "./helpers";
+import { edit, load, miniSystemTemplate, miniThingTemplate, pathOf, readTree, store, SYSTEM_TEMPLATE, THING_TEMPLATE } from "./helpers";
 
 const files = readTree();
 
@@ -61,5 +61,40 @@ describe("loadGenome", () => {
 
   it("keeps the revision it was loaded at", () => {
     expect(loadGenome(files, { templates: store(), revision: "abc" }).revision).toBe("abc");
+  });
+});
+
+describe("node files (design §3)", () => {
+  // Kind defaults must be declared alike by every template that declares the kind (composition), so both do.
+  const screen = { ...artyfactGenome.kinds!.screen, files: ["src/{slug}/**", "ids/{id}.ts"] };
+  const sectionUi = { id: "section.ui", kind: "section", parent: "$self", fields: { name: "UI" }, files: ["src/ui/**"] };
+  const templates = {
+    get: (ref: string) => ref === SYSTEM_TEMPLATE ? { ...miniSystemTemplate, kinds: { screen } }
+      : ref === THING_TEMPLATE ? { ...miniThingTemplate, kinds: { screen }, files: ["package.json"], nodes: [...miniThingTemplate.nodes, sectionUi] }
+      : store().get(ref),
+  };
+  const tree = new Map(edit(files, "thing.app/node.yaml", "template: template.thing.mini-webapp@1\n", "template: template.thing.mini-webapp@1\nroot: apps/notes/\n"))
+    .set("thing.app/section.ui/screen.list/node.yaml", `${files.get("thing.app/section.ui/screen.list/node.yaml")!.trimEnd()}\nfiles: [public/list.html]\n`)
+    .set("thing.api/node.yaml", "id: thing.api\nkind: thing\ntemplate: template.thing.mini-webapp@1\nroot: apps/api\nfields: {name: API}\n");
+
+  it("unites kind, prefilled-node, template-root and own globs under the nearest root", () => {
+    const m = loadGenome(tree, { templates });
+    expect(m.files["thing.app"]).toEqual([{ glob: "apps/notes/package.json", declared: false }]);
+    expect(m.files["section.ui"]).toEqual([{ glob: "apps/notes/src/ui/**", declared: false }]);
+    expect(m.files["screen.list"]).toEqual([
+      { glob: "apps/notes/src/screen.list/**", declared: false },
+      { glob: "apps/notes/ids/screen.list.ts", declared: false },
+      { glob: "apps/notes/public/list.html", declared: true },
+    ]);
+    expect(m.files["thing.api"]).toEqual([{ glob: "apps/api/package.json", declared: false }]);
+    expect(m.files["system.mini"]).toBeUndefined();
+    expect(m.files["operation.note.save"]).toBeUndefined();
+  });
+
+  it("is relative to the repo root without a root, and empty without any files", () => {
+    expect(load().files).toEqual({});
+    const m = loadGenome(new Map(files).set("thing.app/section.ui/screen.list/node.yaml",
+      `${files.get("thing.app/section.ui/screen.list/node.yaml")!.trimEnd()}\nfiles: [public/list.html]\n`), { templates: store() });
+    expect(m.files).toEqual({ "screen.list": [{ glob: "public/list.html", declared: true }] });
   });
 });

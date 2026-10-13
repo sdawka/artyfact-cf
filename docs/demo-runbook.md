@@ -322,7 +322,7 @@ curl -s $B/conflicts | jq -c '.conflicts[] | {kind, candidates, nodes, paths, me
 ```
 
 **Narration.** The conflict is deterministic. A's save handler maps to `affordance.AddContactDialog.save` and
-`operation.contact.save` through the app's `source-map.yaml`; B's routes file maps to the same operation,
+`operation.contact.save` through those nodes' `files` in the Genome; B's routes file maps to the same operation,
 `policy.ownerOnly` and `entity.ContactRecord`. `paths` is empty because no file is shared. `interferes: 0.05` is
 System One's answer to "do these changes interfere?", and 0.05 means "no". That number is from the fake provider,
 whose canned answer is always the benign one, so say on video that the overlap is the platform's finding and the

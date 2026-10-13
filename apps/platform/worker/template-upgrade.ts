@@ -15,7 +15,7 @@ import { listTree } from "./artifacts/genome-source";
 import { resolveRef } from "./compare";
 import { commitEdit, MAX_CHANGES, sniffBinary } from "./editor";
 import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
-import { createEvolution, genomeAt, startWork, systemStub } from "./service";
+import { appThing, createEvolution, genomeAt, startWork, systemStub } from "./service";
 
 export const LOCK_PATH = ".artyfact/template.json";
 export const UPGRADE_AGENT = "human:template-upgrade";
@@ -124,7 +124,7 @@ async function templateOf(env: Env, systemId: string, lock: TemplateLock | null)
   const s = await systemStub(env, systemId).state();
   if (!s) throw notFound(`system ${systemId} is not imported`);
   const m = (await genomeAt(env, systemId, s.genomeCommit, s.genomeSource)).model;
-  const thing = m.things.find((t) => t.artifacts.some((a) => a.type === "worker-fullstack")) ?? m.things[0];
+  const thing = appThing(m);
   const dir = thing?.templateRef ? platformTemplateDir(thing.templateRef) : undefined;
   if (!dir || !dir.startsWith("templates/thing/")) {
     throw unprocessable("no-app-template", `the app Thing ${thing?.id ?? "(none)"} has no Thing template to upgrade from`);

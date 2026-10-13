@@ -34,6 +34,8 @@ fields:
     - At most one linked contact per owner and counterpart account
 links:
   - { rel: storedIn, to: binding.contactsStore }
+files:
+  - src/worker/routes/contacts.ts
 criteria:
   - id: C.webapp.contact.storage
     title: Contact storage

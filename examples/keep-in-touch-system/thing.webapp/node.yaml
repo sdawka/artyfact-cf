@@ -20,6 +20,8 @@ fields:
       type: model-kit
       repo: keep-in-touch-model-kit
       scope: []
+files:
+  - src/index.ts
 criteria:
   - id: C.webapp.exists
     title: Web app exists

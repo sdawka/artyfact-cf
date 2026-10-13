@@ -1,6 +1,6 @@
-# meta@1 template (docs/design/ontology.md section 3). Source globs replace source-map.defaults.yaml: `files` is what the Thing
-# itself realises, the prefilled nodes carry the rest, all relative to the Thing's root. `system/**` (the Genome mirror) has no
-# node; v1 maps it to the pseudo-node "genome" and W6 decides its place. template.v1.yaml and criteria.yaml are legacy, kept until W4.
+# meta@1 template (docs/design/ontology.md section 3). Source globs: `files` is what the Thing itself realises, the prefilled
+# nodes carry the rest, all relative to the Thing's root. `system/**` (the Genome mirror) maps to no node: app candidates may
+# not change it (a protected path). template.v1.yaml and criteria.yaml are legacy, kept until W4.
 id: template.thing.cloudflare-worker-webapp
 version: 1
 meta: 1
@@ -147,43 +147,6 @@ nodes:
       scaffold:
         repo: platform
         path: templates/thing/cloudflare-worker-webapp@1/scaffold
-      sourceMapDefaults:
-        - glob: src/worker/health.ts
-          nodes:
-            - $thing
-        - glob: migrations/**
-          nodes:
-            - binding.d1
-        - glob: src/ui/**
-          nodes:
-            - section.ui
-        - glob: src/worker/routes/**
-          nodes:
-            - section.domain
-        - glob: system/**
-          nodes:
-            - genome
-        - glob: "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.test.jsonc,.gitignore,.dev.vars.example,README.md}"
-          nodes:
-            - $thing
-        - glob: src/index.ts
-          nodes:
-            - $thing
-        - glob: src/worker/env.ts
-          nodes:
-            - $thing
-        - glob: src/worker/phenome.ts
-          nodes:
-            - $thing
-        - glob: test/**
-          nodes:
-            - $thing
-        - glob: public/*
-          nodes:
-            - $thing
-        - glob: .artyfact/**
-          nodes:
-            - $thing
   - id: section.ui
     kind: section
     parent: $self

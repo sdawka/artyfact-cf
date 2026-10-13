@@ -158,7 +158,7 @@ The v1 (by-concern) layout is dropped. The rules:
 | An inline hook | A `hook` node (`hookFields`) whose `criteria` field lists every criterion that declares or names it |
 | `template` (root) | `graph.template` is the root's template ref. A Thing's `template` and `root` stay in the codec's tree index (source map, template resolution) and are not fields |
 | `template` (any node) | A `template` node and a `pinned` link. The node is the one the meta@1 template declares for itself in `nodes` (`{id: <ref>, kind: template}`), else `{kind, version}` from the ref |
-| `files` | Not in the graph; the node-attached source map reads them (W6) |
+| `files` | Not in the graph; the loader computes each node's effective globs (`SystemModel.files`, §3) and the platform's source map (`sourceMapFor`) groups them by glob |
 | `evolutions/*.yaml` | `evolution` nodes with no parent, plus `acceptance` and `affects` links, as in v1 |
 
 The projection also emits the nodes the v1 adapter derives from fields, so they compare equal: `kit` nodes with `pinned` and `requires` links from the root's `kits` and `required`; `artifact` nodes with `artifact` links from a Thing's `artifacts`; `template` nodes with `pinned` links from `template`.
@@ -219,6 +219,7 @@ So the plan's "kind-wide criteria" means `checks`. Hook-bearing acceptance crite
 - `{id}` and `{slug}` in a kind default stand for the node's id and directory name.
 - Every glob is prefixed with the nearest `root` at or above the node (the Thing's app root); with no `root` it is relative to the app repo root.
 - A nearer template's kind declaration replaces the whole kind, `files` included. The template-level `files` come from the nearest template that declares any.
+- A path maps to every node whose effective globs match it, across all Things; a path no glob matches is `unmapped:<path>`. A Task Packet permits the globs of the Evolution's affected nodes and their ancestors below the Thing. The node's own `files` are `declared` entry files, the defaults `assumed`. There is no repo-level `source-map.yaml`, and the Genome mirror `system/**` maps to no node (app candidates may not change it).
 
 **View hints** (`KindViewSchema` and `TemplateViewSchema` in `src/genome/view.ts`, merged over `extends`) replace every `switch (kind)` in the UI:
 

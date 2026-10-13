@@ -19,3 +19,6 @@ fields:
     - Concurrent stale-version edits return conflict without overwriting current data
 links:
   - { rel: writes, to: entity.ContactRecord }
+files:
+  - src/worker/routes/contacts.ts
+  - public/people/add-contact-dialog.js

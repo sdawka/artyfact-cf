@@ -41,7 +41,7 @@ export const hookFields = (h: schema.AssayHook) => compact({
 export const templateFields = (t: schema.Template) => compact({
   kind: t.kind, version: t.version, name: t.name, description: t.description, sections: t.sections,
   criteria: t.criteria.map((c) => c.id), hooks: t.hooks.map((h) => h.id), requires: t.requires,
-  scaffold: t.scaffold, sourceMapDefaults: t.sourceMapDefaults,
+  scaffold: t.scaffold,
 });
 
 class Builder {

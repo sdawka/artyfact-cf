@@ -92,14 +92,15 @@ describe("meta@1 templates", () => {
     expect(inst.filter((n) => n.kind === "hook").map((n) => n.id)).toEqual(v1.hooks.map((h) => h.id));
   });
 
-  it("the worker's source globs carry today's source-map defaults, relative to the Thing root", () => {
+  it("the worker's source globs sit on its root and prefilled nodes, relative to the Thing root", () => {
     const t = loadMetaTemplate(workerRef);
-    const v1 = templates.get(workerRef)!.sourceMapDefaults!;
     const fromNodes = Object.fromEntries(t.nodes.filter((n) => n.files).map((n) => [n.id, n.files]));
     expect(fromNodes).toEqual({ "binding.d1": ["migrations/**"], "section.ui": ["src/ui/**"], "section.domain": ["src/worker/routes/**"] });
-    const expected = v1.filter((e) => e.nodes[0] !== "genome");
-    expect([...(t.files ?? []), ...Object.values(fromNodes).flat()].sort()).toEqual(expected.map((e) => e.glob).sort());
-    expect(expected.filter((e) => e.nodes[0] === "$thing").map((e) => e.glob)).toEqual(t.files);
+    expect(t.files).toEqual([
+      "src/worker/health.ts",
+      "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.test.jsonc,.gitignore,.dev.vars.example,README.md}",
+      "src/index.ts", "src/worker/env.ts", "src/worker/phenome.ts", "test/**", "public/*", ".artyfact/**",
+    ]);
     expect(loadMetaTemplate(vueRef).files).toBeUndefined();
   });
 });

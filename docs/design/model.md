@@ -37,7 +37,7 @@ export const Evaluation = { id, candidate, hook, criterion, ownerId, subjectId, 
 export const SystemCommit = { id, parent: string|null, genomeCommit, manifest: ArtifactBinding[], evolutions: Id.evolution[], candidates: string[], rejected=[], evidence: string[], decision: {by, policy, rationale, at} };
 export const TaskPacket = { version: 1, hash, system, thing, evolution, realization, role, target, pinned: {genomeCommit, kits: string[]}, intent, acceptanceCriteria: Criterion[], requirements: Requirement[], nodes: OntologyNode[], journeys: Journey[], commitments: Commitment[], workspace: {...workspace, token}, permittedPaths: string[], protectedPaths: string[], entryFiles: {path, why, certainty}[], commands: Record<string,string>, concurrentWork: string[], submit: {branch, manifestPath: ".artyfact/candidate.json", instructions} };
 export const SystemFile = { id: Id.system, name, template: string|null, profile?, things: Id.thing[], phase="unrealized", head?, purposes: string[] };
-export const Template = { id: Id.template, kind: system|thing, version: string, name, description?, sections: AnyId[]=[], nodes: OntologyNode[]=[], criteria: Criterion[]=[], hooks: AssayHook[]=[], scaffold?: {repo?, path?}, sourceMapDefaults?: {glob, nodes: string[]}[], requires: string[]=[] };
+export const Template = { id: Id.template, kind: system|thing, version: string, name, description?, sections: AnyId[]=[], nodes: OntologyNode[]=[], criteria: Criterion[]=[], hooks: AssayHook[]=[], scaffold?: {repo?, path?}, requires: string[]=[] };
 ```
 
 ## A.3 Loader / validate / diff

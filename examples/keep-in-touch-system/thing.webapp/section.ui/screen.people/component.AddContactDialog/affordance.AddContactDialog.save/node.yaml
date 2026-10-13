@@ -20,6 +20,8 @@ fields:
     - Network error keeps entered values and renders one ErrorSummary
 links:
   - { rel: invokes, to: operation.contact.save }
+files:
+  - public/people/add-contact-dialog.js
 criteria:
   - id: C.webapp.contact.save
     title: Contact save

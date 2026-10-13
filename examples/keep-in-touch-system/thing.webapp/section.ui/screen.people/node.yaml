@@ -18,6 +18,8 @@ fields:
     - owner
 links:
   - { rel: serves, to: ext.owner }
+files:
+  - public/people/**
 criteria:
   - id: C.webapp.screen.people
     title: People screen

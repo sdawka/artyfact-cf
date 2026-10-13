@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { buildGenome } from "../worker/artifacts/genome-source";
-import { loadSourceMap } from "../worker/artifacts/source-map";
+import { nodesForPath, sourceMapFor } from "../worker/artifacts/source-map";
 import { diffScope } from "../worker/hooks/diff-scope";
 import { buildTaskPacket, requiredCriteria, type PacketInput } from "../worker/packets/task-packet";
 import { gateCriteria } from "../worker/promotion";
@@ -8,7 +8,6 @@ import { appFiles, genomeFiles } from "./fixtures/genome";
 
 const genome = buildGenome(new Map(Object.entries(genomeFiles).filter(([p]) => p.endsWith(".yaml"))), "g1");
 const evolution = genome.model.evolutions.find((e) => e.id === "evolution.1")!;
-const tpl = genome.model.templates.find((t) => t.id === "template.thing.cloudflare-worker-webapp")!;
 
 function input(over: Partial<PacketInput> = {}): PacketInput {
   return {
@@ -18,7 +17,6 @@ function input(over: Partial<PacketInput> = {}): PacketInput {
     model: genome.model,
     evolution,
     workspace: { repo: "kit-app", fork: "kit-app--r1", baseCommit: "a".repeat(40), remote: "https://acc.artifacts.cloudflare.net/git/artyfact/kit-app--r1.git" },
-    sourceMap: loadSourceMap(tpl.sourceMapDefaults, "thing.webapp", appFiles["source-map.yaml"]),
     baseTreePaths: Object.keys(appFiles),
     commands: ["npm install", "npm run dev", "npm test"],
     concurrentWork: [],
@@ -34,7 +32,7 @@ describe("task packet", () => {
     expect(p.acceptanceCriteria[0]).toMatchObject({ title: "People screen lists contacts", subject: "screen.people", hooks: ["hook.people.list"] });
   });
 
-  it("derives permitted globs from the source map and protects system/assays", async () => {
+  it("derives permitted globs from the affected nodes' files and protects system/assays", async () => {
     const p = await buildTaskPacket(input());
     expect(p.permittedPaths.sort()).toEqual(["src/ui/**", "src/ui/people/**"]);
     expect(p.protectedPaths).toEqual(["system/**", "assays/**"]);
@@ -130,5 +128,30 @@ describe("gate criteria", () => {
     const ref = { id: "candidate.x", realizationId: "realization.1.r1", evolutionId: "evolution.1", target: "app" as const, commit: "c", baseCommit: "b", changedPaths: [], changedNodes: [] };
     const gates = gateCriteria(g.model, { acceptanceCriteria: ["C.people.lint"] }, ref);
     expect(gates.find((x) => x.id === "C.people.lint")).toEqual({ id: "C.people.lint", severity: "hard", blocking: false });
+  });
+});
+
+describe("node-attached source map: two Things with different roots", () => {
+  const files = new Map(Object.entries(genomeFiles).filter(([p]) => p.endsWith(".yaml")));
+  const web = files.get("thing.webapp/node.yaml")!;
+  files.set("thing.webapp/node.yaml", web.replace("template: template.thing.cloudflare-worker-webapp@1\n", "template: template.thing.cloudflare-worker-webapp@1\nroot: apps/web\n"));
+  files.set("thing.admin/node.yaml", "id: thing.admin\nkind: thing\ntemplate: template.thing.cloudflare-worker-webapp@1\nroot: apps/admin\nfields: {name: Admin}\n");
+  files.set("thing.admin/screen.audit/node.yaml", "id: screen.audit\nkind: screen\nfields: {name: Audit}\nfiles: [src/ui/audit/**]\n");
+  const two = buildGenome(files, "g2").model;
+  const sm = sourceMapFor(two);
+
+  it("prefixes each Thing's globs with its own root", () => {
+    expect(nodesForPath(sm, "apps/web/src/ui/people/list.html").sort()).toEqual(["component.AddContactDialog", "screen.people", "section.ui"]);
+    expect(nodesForPath(sm, "apps/web/package.json")).toEqual(["thing.webapp"]);
+    expect(nodesForPath(sm, "apps/admin/package.json")).toEqual(["thing.admin"]);
+    expect(nodesForPath(sm, "apps/admin/src/ui/audit/log.html")).toEqual(["screen.audit"]);
+    expect(nodesForPath(sm, "src/ui/people/list.html")).toEqual(["unmapped:src/ui/people/list.html"]);
+  });
+
+  it("scopes a packet to the affected Thing's root", async () => {
+    const p = await buildTaskPacket(input({ model: two, evolution: { ...evolution, affectedNodes: ["screen.people"] } }));
+    expect(p.permittedPaths.sort()).toEqual(["apps/web/src/ui/**", "apps/web/src/ui/people/**"]);
+    const q = await buildTaskPacket(input({ model: two, evolution: { ...evolution, affectedNodes: ["screen.audit"] } }));
+    expect(q.permittedPaths).toEqual(["apps/admin/src/ui/audit/**"]);
   });
 });

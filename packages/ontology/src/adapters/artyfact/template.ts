@@ -30,7 +30,7 @@ const OWN: Record<string, F[]> = {
     f("kind", "string", ["hypothesis", "invariant"]), f("status", "string", ["unknown", "supported", "challenged", "inconclusive"]), f("deferred", "boolean"),
   ],
   requirement: [f("thing", "ref"), ...strings("title", "text"), f("enabled", "boolean")],
-  template: [f("kind", "string", ["system", "thing"]), ...strings("version", "name", "description"), ...lists("sections", "criteria", "hooks", "requires", "sourceMapDefaults"), f("scaffold", "object")],
+  template: [f("kind", "string", ["system", "thing"]), ...strings("version", "name", "description"), ...lists("sections", "criteria", "hooks", "requires"), f("scaffold", "object")],
   kit: [f("version")],
   artifact: [f("type", "string", schema.ArtifactType.options), ...strings("repo", "commit"), f("scope", "list")],
   feature: [...strings("name", "summary"), f("deferred", "boolean"), f("source", "object")],

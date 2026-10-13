@@ -16,7 +16,7 @@ import { readPlatform, unreadableWarning, unsyncedWarning } from "./artifacts/pl
 import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
 import { buildGenome, byteLength, GENOME_MAX_BYTES, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
-import { loadSourceMap, nodesForPath, type SourceMapEntry } from "./artifacts/source-map";
+import { nodesForPath, sourceMapFor } from "./artifacts/source-map";
 import { REGISTRY, TERMINAL_REALIZATION, type EndedCredential, type SystemAuthority, type EvolutionSeed, type HeadState, type ManifestExtras, type RealizationRecord } from "./do/system-authority";
 import { badRequest, conflict, fromRpc, HttpError, notFound, unprocessable } from "./errors";
 import type { CandidateRef, FileMap, QueueContext, SubmissionContext } from "./hooks/contract";
@@ -153,26 +153,21 @@ function manifestExtras(m: SystemModel): ManifestExtras {
   };
 }
 
-/** The Thing realized by the app repo and its template (for source-map defaults + scaffold commands). */
-function appThing(m: SystemModel): { thing?: schema.ResolvedThing; template?: schema.Template } {
-  const thing = m.things.find((t) => t.artifacts.some((a) => a.type === "worker-fullstack")) ?? m.things[0];
-  const template = thing?.templateRef ? m.templates.find((t) => `${t.id}@${t.version}` === thing.templateRef) : undefined;
-  return { thing, template };
+/**
+ * The Thing whose worker-fullstack artifact the app repo builds (else the first Thing): its template gives the scaffold
+ * commands, CI commands and template upgrades. The source map does not use it; it covers every node (`sourceMapFor`).
+ */
+export function appThing(m: SystemModel): schema.ResolvedThing | undefined {
+  return m.things.find((t) => t.artifacts.some((a) => a.type === "worker-fullstack")) ?? m.things[0];
 }
 
 function scaffoldCommands(m: SystemModel, target: "app" | "genome"): string[] {
   if (target === "genome") return ["npm install", "npm test"];
-  const ref = appThing(m).thing?.templateRef;
+  const ref = appThing(m)?.templateRef;
   const text = ref ? templateFile(ref, "scaffold.yaml") : undefined;
   const cmds = (text ? (parseYaml(text) as { commands?: Record<string, string> })?.commands : undefined) ?? {};
   const list = Object.values(cmds).filter((c): c is string => typeof c === "string");
   return list.length ? list : ["npm install", "npm run dev", "npm test"];
-}
-
-async function sourceMapFor(m: SystemModel, repo: ArtifactsRepoLike, commit: string): Promise<SourceMapEntry[]> {
-  const { thing, template } = appThing(m);
-  const blob = await repo.readFile({ ref: commit, path: "source-map.yaml" });
-  return loadSourceMap(template?.sourceMapDefaults, thing?.id, blob ? await blob.text() : undefined);
 }
 
 // ------------------------------------------------------------------ import
@@ -383,15 +378,14 @@ export async function startWork(
     const token = await withRepo(ns, reserved.forkRepo, (r) => r.createToken("write", TOKEN_TTL_S));
     tokenId = token.id;
     const remote = remoteUrl(env, reserved.forkRepo, forked.remote);
-    const { sourceMap, tree, prefix } = await withRepo(ns, reserved.baseRepo, async (r) => ({
-      sourceMap: target === "app" ? await sourceMapFor(g.model, r, reserved.baseCommit) : [],
+    const { tree, prefix } = await withRepo(ns, reserved.baseRepo, async (r) => ({
       tree: target === "app" ? [...(await listTree(r, reserved.baseCommit)).keys()] : [],
       prefix: target === "genome" ? await genomePrefix(r, reserved.baseCommit) : "",
     }));
     const packet = await buildTaskPacket({
       systemId, realizationId: rid, target, model: g.model, evolution,
       workspace: { repo: reserved.baseRepo, fork: reserved.forkRepo, baseCommit: reserved.baseCommit, remote },
-      sourceMap, baseTreePaths: tree, commands: scaffoldCommands(g.model, target),
+      baseTreePaths: tree, commands: scaffoldCommands(g.model, target),
       concurrentWork: await concurrentWork(env, systemId, evolutionId, rid), platformUrl, genomePrefix: prefix,
     });
     // The realization secret authorizes the agent's platform calls; only its SHA-256 is stored.
@@ -705,7 +699,7 @@ export async function submit(
       const input = { realizationId: rid, evolutionId: rec.evolutionId, target: rec.target, repo: rec.forkRepo, baseRepo: rec.baseRepo, baseCommit: rec.baseCommit, commit, ...(previewUrl && { previewUrl }) };
       if (rec.target === "app") {
         const base = await canonicalGenome(env, s);
-        const sm = await sourceMapFor(base.model, repo, rec.baseCommit);
+        const sm = sourceMapFor(base.model);
         const m = await buildCandidateManifest(repo, input, sm);
         return { ...m, pathNodes: Object.fromEntries(m.changedPaths.map((p) => [p, nodesForPath(sm, p).filter((n) => !n.startsWith("unmapped:"))])) };
       }

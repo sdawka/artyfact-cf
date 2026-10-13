@@ -27,6 +27,9 @@ links:
   - { rel: governs, to: operation.contact.log }
   - { rel: governs, to: operation.data.export }
   - { rel: governs, to: operation.data.delete }
+files:
+  - src/worker/auth.ts
+  - src/worker/routes/contacts.ts
 criteria:
   - id: C.webapp.private.owner
     title: Owner-only access

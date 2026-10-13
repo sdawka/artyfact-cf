@@ -40,7 +40,9 @@ describe("convertV1 (Keep in Touch)", () => {
       for (const p of Object.keys(readDir(FIXTURE))) rmSync(join(FIXTURE, p));
       for (const [p, text] of tree) { mkdirSync(dirname(join(FIXTURE, p)), { recursive: true }); writeFileSync(join(FIXTURE, p), text); }
     }
-    expect(new Map(Object.entries(readDir(FIXTURE)))).toEqual(tree);
+    // Node `files` came from the app repo's v1 source-map.yaml, not the v1 Genome, and were moved onto the example by hand.
+    const withoutFiles = Object.entries(readDir(FIXTURE)).map(([p, t]) => [p, t.replace(/^files:\n(  - .*\n)+/m, "")] as const);
+    expect(new Map(withoutFiles)).toEqual(tree);
     expect(isLegacyGenome(tree.keys())).toBe(false);
   });
 

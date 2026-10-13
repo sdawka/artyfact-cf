@@ -15,7 +15,7 @@ import { newRealizationSecret } from "./auth";
 import { buildSummary } from "./do/builds-store";
 import { TERMINAL_REALIZATION, type HeadState, type RealizationRecord } from "./do/system-authority";
 import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
-import { genomeAt, refreshRegistry, submit, systemStub } from "./service";
+import { appThing, genomeAt, refreshRegistry, submit, systemStub } from "./service";
 import { sha256Hex } from "./util";
 
 const COMMIT_RE = /^[0-9a-f]{40}$/;
@@ -114,7 +114,7 @@ async function appInfo(env: Env, s: HeadState, genomeCommit = s.genomeCommit): P
   const fallback: AppInfo = { thingId: "unknown", artifactId: "artifact.webapp", commands: { install: "npm install", test: "npm test", deploy: "npx wrangler deploy" } };
   try {
     const m = await modelAt(env, s, genomeCommit);
-    const thing = m.things.find((t) => t.artifacts.some((a) => a.type === "worker-fullstack")) ?? m.things[0];
+    const thing = appThing(m);
     const artifact = thing?.artifacts.find((a) => a.type === "worker-fullstack");
     const text = thing?.templateRef ? templateFile(thing.templateRef, "scaffold.yaml") : undefined;
     const cmds = (text ? (parseYaml(text) as { commands?: Record<string, unknown> })?.commands : undefined) ?? {};

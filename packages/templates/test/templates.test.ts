@@ -71,7 +71,7 @@ describe("templates", () => {
     expect(t.nodes.find((n) => n.id === "policy.authentication")?.provisional).toBe(true);
   });
 
-  it("worker template hooks, source map and scaffold match the brief", () => {
+  it("worker template hooks and scaffold match the brief", () => {
     const t = templates.get(thingRef)!;
     const exists = t.hooks.find((h) => h.id === "hook.webapp.exists")!;
     expect(exists).toMatchObject({ engine: "manifest", tier: "basic", binding: "bound", criteria: ["C.webapp.exists"] });
@@ -80,20 +80,6 @@ describe("templates", () => {
     expect(health).toMatchObject({ engine: "http", tier: "execution", binding: "defined", timeoutMs: 2000 });
     expect(health.inputs.path).toBe("/health");
     expect(t.criteria.find((c) => c.id === "C.webapp.exists")!.hooks).toEqual(["hook.webapp.exists"]);
-    expect(t.sourceMapDefaults).toEqual([
-      { glob: "src/worker/health.ts", nodes: ["$thing"] },
-      { glob: "migrations/**", nodes: ["binding.d1"] },
-      { glob: "src/ui/**", nodes: ["section.ui"] },
-      { glob: "src/worker/routes/**", nodes: ["section.domain"] },
-      { glob: "system/**", nodes: ["genome"] },
-      { glob: "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.test.jsonc,.gitignore,.dev.vars.example,README.md}", nodes: ["$thing"] },
-      { glob: "src/index.ts", nodes: ["$thing"] },
-      { glob: "src/worker/env.ts", nodes: ["$thing"] },
-      { glob: "src/worker/phenome.ts", nodes: ["$thing"] },
-      { glob: "test/**", nodes: ["$thing"] },
-      { glob: "public/*", nodes: ["$thing"] },
-      { glob: ".artyfact/**", nodes: ["$thing"] },
-    ]);
     expect(t.scaffold).toEqual({ repo: "platform", path: "templates/thing/cloudflare-worker-webapp@1/scaffold" });
     expect(templateFile(thingRef, "scaffold.yaml")).toMatch(/commands:\n {2}install:/);
   });
@@ -165,7 +151,6 @@ describe("generated bundle", () => {
       "thing/cloudflare-worker-service@1/template.yaml",
       "thing/cloudflare-worker-webapp@1/criteria.yaml",
       "thing/cloudflare-worker-webapp@1/scaffold.yaml",
-      "thing/cloudflare-worker-webapp@1/source-map.defaults.yaml",
       "thing/cloudflare-worker-webapp@1/template.v1.yaml",
       "thing/cloudflare-worker-webapp@1/template.yaml",
       "thing/static-site@1/template.yaml",
