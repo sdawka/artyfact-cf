@@ -7,10 +7,10 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const config = { platform: null, source: null };
 
-it('starts with the domain and lets people choose Things and typed connections', () => {
+it('introduces Ontology Driven Development before explaining Things and typed connections', () => {
   render(<Site path="/model" config={config} />);
 
-  expect(screen.getByRole('heading', { level: 1, name: /Start with the domain/ })).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1, name: /^Ontology Driven Development$/ })).toBeTruthy();
   expect(screen.getByText(/one or more Things you want to make/)).toBeTruthy();
   expect(screen.getByText(/You choose how to divide the System into Things/i)).toBeTruthy();
   expect(screen.getByText(/within a typed model/i)).toBeTruthy();

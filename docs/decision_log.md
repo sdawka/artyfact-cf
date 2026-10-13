@@ -43,3 +43,7 @@ Explain Artyfact from the domain outward: a System is the outer context with one
 Native scroll selects homepage chapters; short reversible animations settle fully even when scrolling stops. Preserve readable still intervals, spatial hysteresis, direct controls and local demo state. Focus locks the accepted chapter and settles its artwork immediately. Keep supporting inspection and provenance outside the bounded sticky narrative so content never overlaps it. This supersedes continuously scrubbing every illustration property.
 
 Use one clearly illustrative Artyfact scoped-change request to connect the model page's domain, chosen Thing boundaries, nested subjects, reusable content, three parallel views and evidence questions. Keep proposed behavior and observations distinct from implemented APIs and live outcome evidence.
+
+## 2026-10-13T11:40:45-04:00 — Ontology Driven Development explanation
+
+Lead the public `/model` page with Ontology Driven Development and the benefits of a semantic layer over code storage and delivery: reusable context, precise implementation scope, explicit dependencies, preserved intent, shared constraints and traceable evidence. Follow with Artyfact’s meta ontology, reusing the System-first explanation and clearly illustrative feature. Use a benefits overview within the existing site style; this supersedes starting the page directly with the domain model.

@@ -25,6 +25,22 @@ test('model layers work with keyboard and keep illustrative evidence labelled', 
   expect(errors).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+test('model jump links remain usable on a narrow screen with reduced motion', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('https://artyfact.test/model');
+  const navigation = page.getByRole('navigation', { name: 'On this page' });
+  await navigation.getByRole('link', { name: 'Artyfact’s meta ontology' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#meta-ontology$/);
+  await expect(page.locator('#meta-ontology')).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'Artyfact’s meta ontology', exact: true })).toBeInViewport();
+  await navigation.getByRole('link', { name: 'Why a semantic layer' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#benefits$/);
+  await expect(page.locator('#benefits')).toBeFocused();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
 test('code copying reports success or a useful fallback', async ({ page }) => {
   await page.goto('https://artyfact.test/connect-agent');
   await page.evaluate(() => Object.defineProperty(navigator, 'clipboard', { configurable: true, value: { writeText: async () => { throw new Error('Unavailable'); } } }));
@@ -37,7 +53,11 @@ test('code copying reports success or a useful fallback', async ({ page }) => {
 test('public content is useful without JavaScript', async ({ page }) => {
   await page.route('**/*.js', route => route.abort());
   await page.goto('https://artyfact.test/model');
-  await expect(page.getByRole('heading', { name: /Start with the domain/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Ontology Driven Development$/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Why add a semantic layer?', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Artyfact’s meta ontology', exact: true })).toBeVisible();
+  await page.getByRole('navigation', { name: 'On this page' }).getByRole('link', { name: 'Artyfact’s meta ontology' }).click();
+  await expect(page).toHaveURL(/#meta-ontology$/);
   await expect(page.getByText(/A Thing can begin with its Genome alone/)).toBeVisible();
   await expect(page.locator('.model-view-panels > section')).toHaveCount(3);
   for(const panel of await page.locator('.model-view-panels > section').all()) await expect(panel).toBeVisible();
