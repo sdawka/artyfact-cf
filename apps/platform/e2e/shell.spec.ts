@@ -2,15 +2,15 @@ import { expect, test } from "@playwright/test";
 import { checkA11yAndShoot, open, SYSTEM, systemCard } from "./helpers";
 
 test.describe("shell", () => {
-  test("a single-Thing System card opens its Thing workspace with an explicit System overview", async ({ page }) => {
+  test("a single-Thing System card opens its environment atlas", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Systems" })).toBeVisible();
     await systemCard(page, /Peopling/).click();
-    await expect(page).toHaveURL(new RegExp(`${SYSTEM}/things/thing.webapp$`));
-    await expect(page.getByRole("heading", { level: 1, name: "Peopling web app" })).toBeVisible();
-    await expect(page.getByRole("navigation", { name: "Thing workspace breadcrumb" })).toBeVisible();
-    await page.getByRole("link", { name: "System overview", exact: true }).click();
-    await expect(page).toHaveURL(new RegExp(`${SYSTEM}/overview$`));
+    await expect(page).toHaveURL(new RegExp(`${SYSTEM}/map\\?scope=environment$`));
+    await expect(page.getByRole("heading", { level: 1, name: "Map" })).toBeVisible();
+    await expect(page.locator('[data-map-node="system.peopling"]')).toBeVisible();
+    await page.getByRole("navigation", { name: "Views" }).getByRole("link", { name: "Overview", exact: true }).click();
+    await expect(page).toHaveURL(new RegExp(`${SYSTEM}/overview\\?scope=environment$`));
     await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
     await page.getByRole("link", { name: "artyfact" }).click();
     await expect(page).toHaveURL(/\/$/);
@@ -31,7 +31,9 @@ test.describe("shell", () => {
     await page.getByRole("combobox").fill("People");
     await page.getByRole("option", { name: /screen\.people/ }).first().click();
     await expect(dialog).toBeHidden();
-    await expect(page).toHaveURL(/focus=screen\.people/);
+    await expect(page).toHaveURL(/\/map\?.*focus=screen\.people/);
+    await expect(page.getByRole("complementary", { name: "Inspector" })).toHaveCount(0);
+    await page.getByRole("complementary", { name: "Map selection" }).getByRole("button", { name: "Details", exact: true }).click();
     await expect(page.getByRole("complementary", { name: "Inspector" })).toBeVisible();
   });
 

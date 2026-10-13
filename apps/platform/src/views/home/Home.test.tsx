@@ -45,13 +45,13 @@ describe("Home", () => {
     expect(screen.getByText("No reusable Parts published yet.")).toBeTruthy();
   });
 
-  it("shows the fixture System in fixture mode and opens its Overview", async () => {
+  it("shows the fixture System in fixture mode and opens its environment", async () => {
     const { router } = renderApp("/");
     const link = await screen.findByRole("link", { name: /^Peopling$/ });
     expect(screen.getByText("fixture data")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry API" })).toBeTruthy();
     act(() => link.click());
-    await waitFor(() => expect(router.state.location.pathname).toBe("/s/system.peopling/r/head/things/thing.webapp"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/s/system.peopling/r/head/map"));
   });
 
   it("shows the empty state with an init link when the API has no Systems", async () => {

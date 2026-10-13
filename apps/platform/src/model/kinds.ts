@@ -54,12 +54,12 @@ export interface ViewGroup {
 }
 
 /**
- * SideNav order: Overview, then the Genome, Proteome and Phenome groups. Compare is not on the rail; it opens from a
+ * SideNav order: Map, Overview, then the Genome, Proteome and Phenome groups. Compare is not on the rail; it opens from a
  * Changelog row ("Compare with parent") and `g x`.
  */
 export const VIEW_GROUPS: ViewGroup[] = [
-  { label: null, views: ["overview"] },
-  { label: "Genome", question: LAYER_QUESTIONS.genome, views: ["map", "journeys", "theory", "code"] },
+  { label: null, views: ["map", "overview"] },
+  { label: "Genome", question: LAYER_QUESTIONS.genome, views: ["journeys", "theory", "code"] },
   { label: "Proteome", question: LAYER_QUESTIONS.proteome, views: ["work", "review", "evaluations", "changelog"] },
   { label: "Phenome", question: LAYER_QUESTIONS.phenome, views: ["phenome"] },
 ];

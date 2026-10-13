@@ -29,7 +29,7 @@ export function SubjectNode({ data, selected }: NodeProps<SubjectFlowNode>) {
         <span className={styles.name}>{name}</span>
       </div>
       <div className={styles.meta}>
-        <span className={styles.kind}>{node.role === "outside" ? `${info.label} · outside` : info.label}</span>
+        <span className={styles.kind}>{node.role === "outside" ? `${info.label} · outside this scope` : info.label}</span>
         {node.childCount > 0 && (
           <button
             type="button"
@@ -44,6 +44,8 @@ export function SubjectNode({ data, selected }: NodeProps<SubjectFlowNode>) {
           </button>
         )}
       </div>
+      {node.description && <p className={styles.purpose}>{node.description}</p>}
+      {!!node.preview.length && <ul className={styles.preview} aria-label="Inside preview">{node.preview.map((child) => <li key={child.id}>{child.name}</li>)}</ul>}
       <div className={styles.badges}>
         <LayerBadges id={node.id} layer={layer} realizations={realizations} />
       </div>

@@ -66,13 +66,10 @@ function SystemLayout() {
   );
 }
 
-/** A System with one Thing starts at that Thing; multi-Thing Systems retain their explicit overview. */
+/** Every System starts at its environment, including Systems with a single Thing. */
 async function systemEntry(queryClient: QueryClient, systemId: string, rev: string) {
-  const bundle = await queryClient.ensureQueryData(modelQuery(systemId, rev));
-  const things = bundle.model.things ?? [];
-  return things.length === 1
-    ? redirect(`/s/${encodeURIComponent(systemId)}/r/${encodeURIComponent(rev)}/things/${encodeURIComponent(things[0]!.id)}`)
-    : redirect(viewPath(systemId, rev, "overview"));
+  await queryClient.ensureQueryData(modelQuery(systemId, rev));
+  return redirect(`${viewPath(systemId, rev, "map")}?scope=environment`);
 }
 
 /**

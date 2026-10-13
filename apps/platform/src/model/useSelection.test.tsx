@@ -14,6 +14,7 @@ function Probe() {
       <button onClick={() => s.setFocus("screen.people", { view: "journeys" })}>journeys</button>
       <button onClick={() => s.setLayer("phenome")}>layer</button>
       <button onClick={() => s.setCandidates(["c1", "c2"])}>candidates</button>
+      <output data-testid="mapHref">{href("map")}</output>
       <button onClick={() => s.clear()}>clear</button>
     </div>
   );
@@ -71,5 +72,36 @@ describe("useSelection", () => {
   it("useKeepParams builds view links that carry the global params", () => {
     renderApp("/s/system.peopling/r/r1/map?focus=T1&layer=phenome&journey=J.contacts", routes);
     expect(screen.getByTestId("href").textContent).toBe("/s/system.peopling/r/r1/changelog?focus=T1&layer=phenome");
+  });
+});
+
+
+describe("atlas parameters across views", () => {
+  it("retains scope across specialized views without leaking inspect", () => {
+    const { router } = renderApp("/s/system.peopling/r/head/map?scope=thing.webapp&focus=screen.people&inspect=1", routes);
+    click("journeys");
+    const qs = new URLSearchParams(router.state.location.search);
+    expect(qs.get("scope")).toBe("thing.webapp");
+    expect(qs.has("inspect")).toBe(false);
+    expect(screen.getByTestId("mapHref").textContent).toContain("scope=thing.webapp");
+  });
+  it("clear removes map Details as well as selection", () => {
+    const { router } = renderApp("/s/system.peopling/r/head/map?scope=environment&focus=screen.people&inspect=1", routes);
+    click("clear");
+    expect(router.state.location.search).toBe("?scope=environment");
+    expect(router.state.historyAction).toBe("REPLACE");
+  });
+});
+
+
+describe("specialized view compatibility", () => {
+  it("retains push history for selection in other views", () => {
+    const { router } = renderApp("/s/system.peopling/r/head/theory", routes);
+    click("focus");
+    expect(router.state.historyAction).toBe("PUSH");
+  });
+  it("returns to explicit environment scope from a Thing view without injecting Thing focus", () => {
+    renderApp("/s/system.peopling/r/head/things/thing.webapp/theory?scope=environment", routes);
+    expect(screen.getByTestId("mapHref").textContent).toBe("/s/system.peopling/r/head/map?scope=environment");
   });
 });

@@ -16,6 +16,7 @@ const edgeFor = (certainty: MapEdge["certainty"]): MapEdge => ({
   certainty,
   stroke: certaintyStroke(certainty),
   count: 1,
+  members: [{ from: "a", to: "b", rel: "reads", certainty }],
 });
 
 function dashOf(certainty: MapEdge["certainty"], points = true) {

@@ -1,10 +1,11 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { Link, Outlet, useNavigate, useParams } from "react-router";
+import { Link, Outlet, useNavigate, useParams, useSearchParams } from "react-router";
 import { useSystemEvents } from "@/api/queries";
 import { EffectsPreferenceProvider, useEffectsPreference } from "@/effects/effectsPreference";
 import { ShellAmbient } from "@/effects/ShellAmbient";
 import { InspectorDrawer } from "@/inspector/InspectorDrawer";
 import { GO_KEYS, type ViewName } from "@/model/kinds";
+import { useAtlasNavigation } from "@/model/useAtlasNavigation";
 import { useModel } from "@/model/useModel";
 import { thingPath, useKeepParams, useSelection, useSystemRoute, viewPath } from "@/model/useSelection";
 import { CommandPalette } from "./CommandPalette";
@@ -32,6 +33,10 @@ export const isTyping = (t: EventTarget | null) =>
 function useShellShortcuts(openPalette: () => void, paletteOpen: boolean) {
   const { focusId, setFocus, clear } = useSelection();
   const { siblings } = useModel();
+  const { view } = useSystemRoute();
+  const [params] = useSearchParams();
+  const { closeDetails } = useAtlasNavigation();
+  const detailsOpen = view === "map" && params.get("inspect") === "1";
   const navigate = useNavigate();
   const href = useKeepParams();
   const gAt = useRef(0);
@@ -45,7 +50,8 @@ function useShellShortcuts(openPalette: () => void, paletteOpen: boolean) {
       }
       if (paletteOpen || isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "Escape" && focusId) {
-        clear();
+        if (detailsOpen) closeDetails();
+        else clear();
         return;
       }
       if ((e.key === "[" || e.key === "]") && focusId) {
@@ -65,7 +71,7 @@ function useShellShortcuts(openPalette: () => void, paletteOpen: boolean) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusId, setFocus, clear, siblings, navigate, href, openPalette, paletteOpen]);
+  }, [focusId, setFocus, clear, siblings, navigate, href, openPalette, paletteOpen, detailsOpen, closeDetails]);
 }
 
 /** App frame: TopBar over SideNav · main · Inspector (grid `auto 1fr auto`), over the ambient field. */
@@ -89,12 +95,12 @@ function ShellFrame() {
   useSystemEvents();
   const { enabled } = useEffectsPreference();
   return (
-    <div className={styles.shell} data-effects={enabled ? "on" : "off"}>
+    <div className={styles.shell} data-effects={enabled ? "on" : "off"} data-view={view}>
       <a className="sr-only" href="#main">Skip to content</a>
       <TopBar onOpenPalette={openPalette} />
       <SideNav />
       <main id="main" className={styles.main} tabIndex={-1}>
-        {thing && view && view !== "overview" && <nav className={styles.breadcrumb} aria-label="Thing workspace breadcrumb">
+        {thing && view && view !== "overview" && view !== "map" && <nav className={styles.breadcrumb} aria-label="Thing workspace breadcrumb">
           <Link to={viewPath(systemId, rev, "overview")} className="u-marker">{bundle.model.system.name}</Link>
           <span aria-hidden="true">/</span><Link to={thingPath(systemId, rev, thing.id)} className="u-marker">{thing.name}</Link>
           <Link to={viewPath(systemId, rev, "overview")} className="u-marker">System overview</Link>

@@ -74,13 +74,11 @@ test.describe("ambient shell", () => {
 
   test("map: selection glows, its edges flow, and it ripples from the node", async ({ page }, testInfo) => {
     await recordFx(page);
-    await page.goto(`${SYSTEM}/map`);
+    await page.goto(`${SYSTEM}/map?scope=thing.webapp`);
     await expect(page.getByRole("heading", { level: 1, name: "Map" })).toBeVisible();
-    const edge = page.locator(".react-flow__edge[aria-label^='Edge from']").first();
-    await expect(edge).toBeAttached();
-    const source = (await edge.getAttribute("aria-label"))!.replace(/^Edge from (\S+) to .*$/, "$1");
-    const node = page.locator(`.react-flow__node[data-id="${source}"]`);
-    // Where the node is when clicked (opening the Inspector refits the graph afterwards).
+    const node = page.locator('.react-flow__node[data-id="section.ui"]');
+    await expect(node).toBeVisible();
+    // Selection reveals connections without opening Details or moving the camera.
     const box = (await node.boundingBox())!;
     await node.click();
     await expect(node.locator("[data-selected]")).toBeVisible();

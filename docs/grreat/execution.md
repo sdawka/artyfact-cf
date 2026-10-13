@@ -3,11 +3,11 @@
 
 ## Now
 
-- Released the [approved lifecycle](../design/lifecycle.md): PR [#64](https://github.com/sdawka/artyfact-cf/pull/64) merged on green hosted CI at `df6dcdb`; site, platform and CI Worker are deployed. Original checkout and user changes are preserved.
-- Verified: full local CI, independent release review (38 targeted tests), public health/model and authenticated Realization/import/operations APIs for both existing Systems, plus desktop/mobile route and no-JavaScript model smoke checks. Detailed evidence: [[journals/2026-10-13-lifecycle]].
-- Production admin credential was rotated as authorized and the ignored local environment file updated. Live metrics and feature flags await operations bindings and credentials; no live Flagship behavior is claimed.
-- GRREAT protocol validates 7 records. Direct-RPC sync remains pending missing credentials and a separate Artyfact destination; earlier conflict checkpoints are preserved.
-- Last updated: 2026-10-13.
+- Current milestone: System atlas is implemented and locally verified on `feat/system-atlas`: environment-first entry, real containment mosaic, quiet selection and explicit Details, with Map ahead of Overview.
+- Latest evidence reported by the primary: all independent review findings addressed; source review passed; exact camera replay diagnostic and browser regression passed. Full `npm run ci` exited 0, all 10 steps passed in 204.8s. Detailed totals: [[journals/2026-10-13-system-atlas]].
+- Next action: push one PR and verify all hosted CI checks before merge. No atlas deployment is claimed.
+- Blockers: direct-RPC sync remains pending missing credentials and a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
+- Last updated: 2026-10-13T19:35:34-04:00.
 
 ## Work history
 

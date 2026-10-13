@@ -5,7 +5,7 @@
   width: 100%;
   height: 100%;
   border: 1px solid var(--color-border-subtle);
-  border-radius: var(--border-radius-md);
+  border-radius: 0;
   background: var(--color-surface-secondary);
   color: var(--color-text-primary);
   transition:
@@ -16,7 +16,8 @@
   display: flex;
   flex-direction: column;
   gap: var(--spacing-1);
-  padding: var(--spacing-2) var(--spacing-3);
+  padding: var(--spacing-3) var(--spacing-4);
+  overflow: hidden;
   cursor: pointer;
 }
 .node[data-role="outside"] { background: var(--color-surface-primary); }
@@ -37,7 +38,7 @@
 .node[data-dim],
 .group[data-dim] { opacity: 0.35; }
 .node[data-ring],
-.group[data-ring] { border: 2px solid var(--color-brand-primary); }
+.group[data-ring] { outline: 1px solid var(--color-brand-primary); outline-offset: -2px; }
 
 .title {
   display: flex;
@@ -61,7 +62,7 @@
 }
 .kind {
   color: var(--color-text-subtle);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
 }
 .open {
   padding: 0 var(--spacing-1);
@@ -70,7 +71,7 @@
   background: none;
   color: var(--color-text-secondary);
   font: inherit;
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   cursor: pointer;
 }
 .open:hover { color: var(--color-brand-primary); }
@@ -115,7 +116,7 @@
   width: 100%;
   height: 100%;
   border: 1px dashed var(--color-border-subtle);
-  border-radius: var(--border-radius-md);
+  border-radius: 0;
   pointer-events: none;
 }
 .bandLabel {
@@ -129,3 +130,14 @@
 @media (prefers-reduced-motion: reduce) {
   .node, .group { transition: none; }
 }
+
+/* Atlas containment is an actual packed surface. Shared geometry is supplied by atlasLayout. */
+.node[data-role="child"] { border-width: 0 1px 1px 0; border-color: var(--color-border); }
+.node[data-selected], .group[data-selected] { outline: 2px solid var(--color-brand-primary); outline-offset: -2px; box-shadow: var(--shadow-glow-accent-soft); }
+.name { font-family: var(--font-heading); font-size: var(--font-size-lg); line-height: 1.25; }
+.purpose { margin: var(--spacing-2) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); line-height: 1.5; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.preview { display: flex; flex-wrap: wrap; gap: 2px var(--spacing-2); padding: 0; margin: var(--spacing-2) 0 0; list-style: none; color: var(--color-text-subtle); font-size: var(--font-size-sm); max-height: 42px; overflow: hidden; }
+.preview li + li::before { content: "/ "; color: var(--color-border); }
+.badges { position: absolute; bottom: var(--spacing-2); left: var(--spacing-4); right: var(--spacing-3); }
+.groupHead { height: 80px; box-sizing: border-box; }
+.groupHead .title .name { font-family: var(--font-heading); font-size: var(--font-size-xl); }

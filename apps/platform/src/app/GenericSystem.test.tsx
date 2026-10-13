@@ -1,6 +1,6 @@
 import "@/views/map/testing/flowEnv";
 import { join } from "node:path";
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { qk } from "@/api/queries";
 import { kindViews } from "@/model/kinds";
@@ -49,19 +49,22 @@ describe("a System whose templates have other kinds than the webapp's", () => {
       .toBe("purpose.reliable-jobs Operators submit a job once and see it finish, instead of resubmitting after silent failures.");
   });
 
-  it("renders the Map in template bands with the templates' labels and glyphs", async () => {
-    await renderClean(at("map"));
-    await waitFor(() => expect(document.querySelector('[data-map-node="endpoint.submit"]')).not.toBeNull(), { timeout: 4000 });
-    const bands = [...document.querySelectorAll("[data-map-band]")].map((b) => b.getAttribute("data-map-band"));
-    expect(bands).toEqual(expect.arrayContaining(["experience", "domain", "runtime"]));
-    expect(bands.indexOf("experience")).toBeLessThan(bands.indexOf("runtime"));
+  it("keeps real containment levels and displays template-only kind labels and glyphs", async () => {
+    const { router } = await renderClean(at("map"));
+    await waitFor(() => expect(document.querySelector('[data-map-node="system.toolkit"]')).not.toBeNull());
+    expect(document.querySelector('[data-map-node="endpoint.submit"]')).toBeNull();
+    await act(() => router.navigate(at("map", "?scope=system.toolkit")));
+    expect(document.querySelector('[data-map-node="thing.api"]')).not.toBeNull();
+    expect(document.querySelector('[data-map-node="section.purpose"]')).not.toBeNull();
+    expect(document.querySelector('[data-map-node="endpoint.submit"]')).toBeNull();
+    await act(() => router.navigate(at("map", "?scope=thing.api")));
+    expect(document.querySelector('[data-map-node="thing.api.runtime"]')).not.toBeNull();
+    expect(document.querySelector('[data-map-node="durable-object.counter"]')).toBeNull();
+    await act(() => router.navigate(at("map", "?scope=thing.api.runtime")));
     const node = document.querySelector<HTMLElement>('[data-map-node="durable-object.counter"]')!;
     expect(within(node).getByText("DO")).toBeTruthy();
     expect(within(node).getByText("Durable Object")).toBeTruthy();
-    expect(document.querySelector('[data-map-node="thing.api"]')).toBeNull(); // a Thing is in no layer
-    // Root children the template puts in a Map layer are drawn too (intent band), and the tree names them by hint.
-    expect(bands).toContain("intent");
-    expect(document.querySelector('[data-map-node="purpose.reliable-jobs"]')).not.toBeNull();
+    await act(() => screen.getByRole("button", { name: /^Tree$/ }).click());
     const tree = screen.getByRole("tree", { name: "Containment" });
     expect(within(tree).getAllByText(", Thing").length).toBe(4);
     expect(within(tree).getAllByText(", Purpose").length).toBe(1);

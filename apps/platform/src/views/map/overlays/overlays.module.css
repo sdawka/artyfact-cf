@@ -2,7 +2,7 @@
   display: inline-flex;
   gap: var(--spacing-2);
   font-family: var(--font-code);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   line-height: 1;
 }
 .counter {
@@ -16,7 +16,7 @@
 .counter[data-zero] { color: var(--color-text-disabled); }
 
 .proteome {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--color-text-subtle);
 }
 .proteome[data-active] { color: var(--color-brand-primary); }
@@ -49,7 +49,7 @@
   border-radius: var(--border-radius-sm);
   background: var(--color-background);
   color: var(--color-brand-primary);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   line-height: 1.4;
   text-decoration: none;
   pointer-events: auto;

@@ -55,3 +55,11 @@ Use the model page itself for its deep ontology example: explaining Artyfact is 
 ## 2026-10-13T15:54:28-04:00 — Genome evolution and realization lifecycle
 
 Evolution applies only to Genome changes. Accept the Genome revision first, then realize it through a separate implementation plan containing scoped Tasks and agent attempts, with one integrated implementation review. The local agent harness runs agents; Artyfact owns plans, dependencies, branches, review and evidence. Domain ontologies stay open through native imports or reviewed agent conversion, with the richer events/effects/assays model in optional packs. Base Phenome includes deployments, runtime/custom metrics and Cloudflare feature flags; live flag configuration is operational state. The public explanation must convey this complete journey.
+
+## 2026-10-13T19:02:43-04:00 — System atlas entry and containment
+
+Make Map the System front door, opening the environment even when there is only one Thing; this supersedes the earlier single-Thing default entry. Show the System with every declared external, including disconnected actors, then enter actual containment one level at a time. Keep explicit Thing links and specialized views. Use a tightly packed rectangular mosaic with content-based size budgets, thin shared dividers and stable geometry across selection, Details and Genome/Proteome/Phenome overlays; template layers must not hide real containers.
+
+## 2026-10-13T19:02:43-04:00 — Quiet atlas exploration
+
+Selection reveals boundary relationships without opening the Inspector; Details opens it explicitly. Enter only nonempty containers, leaving leaves inspectable. Keep original relationship endpoints, labels, certainty and counts available with endpoint paths and Locate actions. Separate scope, selection and Details in Map URLs and history, restore cameras per System/revision/scope, and provide explicit Up/Enter alongside gesture navigation, keyboard, mobile and reduced-motion paths.

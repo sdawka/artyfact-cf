@@ -2,13 +2,16 @@ import { Command } from "cmdk";
 import { useEffectsPreference } from "@/effects/effectsPreference";
 import { bestViewFor, kindColour, titleOf, useKindViews } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
-import { useSelection } from "@/model/useSelection";
+import { useAtlasNavigation } from "@/model/useAtlasNavigation";
+import { useSelection, useSystemRoute } from "@/model/useSelection";
 import styles from "./CommandPalette.module.css";
 
 /** ⌘K: search every indexed object by name or id; Enter focuses it in the view that suits its kind. */
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange(open: boolean): void }) {
   const { index } = useModel();
   const { setFocus } = useSelection();
+  const atlas = useAtlasNavigation();
+  const { view } = useSystemRoute();
   const views = useKindViews();
   const effects = useEffectsPreference();
   return (
@@ -34,7 +37,8 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
               className={styles.item}
               onSelect={() => {
                 onOpenChange(false);
-                setFocus(e.id, { view: bestViewFor(e.type) });
+                if (bestViewFor(e.type) === "map" || (view === "map" && ["system", "external"].includes(e.type))) atlas.locate(e.id);
+                else setFocus(e.id, { view: bestViewFor(e.type) });
               }}
             >
               <span className={styles.glyph} style={kindColour(info)} aria-hidden="true">{info.glyph}</span>

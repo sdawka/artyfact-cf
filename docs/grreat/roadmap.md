@@ -27,7 +27,7 @@ Own `apps/ci/**` except primary-owned `src/contract.ts`. Report build/output/sou
 
 ### Task 6: C6 — application experience (medium)
 
-Own `apps/platform/src/**` and browser tests. Show separate Systems and reusable Parts sections, keep System-private Parts scoped, inspect package provenance and source/realized/runtime aspects. A single-Thing System enters the full Thing workspace with System breadcrumb/overview; adding another Thing preserves direct links. Depends on C2/C3 contracts.
+Own `apps/platform/src/**` and browser tests. Show separate Systems and reusable Parts sections, keep System-private Parts scoped, inspect package provenance and source/realized/runtime aspects. System entry now opens the Map environment even with one Thing, superseding the earlier automatic Thing entry; explicit Thing workspaces retain System breadcrumb/overview and stable direct links when another Thing is added. Depends on C2/C3 contracts.
 
 ### Task 7: C7 — public pages (medium)
 
@@ -44,7 +44,7 @@ Read-only whole-branch correctness/security/regression review. Primary fixes fin
 3. Nested/repeated Parts retain contribution identity; extraction masks actually exclude payload, source is unchanged; upgrade preserves customization or reports conflicts.
 4. Shared and System-private catalogs enforce access and dependency visibility; published versions cannot mutate.
 5. Multiple builds of the same source produce distinct realized outputs; deployments and Phenome evidence have authoritative Thing/source/Genome/output lineage; unknown history remains unknown.
-6. Home shows Systems and Parts. Single-Thing entry and stable direct Thing links work across single-to-multiple transition; overview stays accessible. Product-wide luminous containers preserve state, accessibility and motion preferences without literal orbs.
+6. Home shows Systems and Parts. System entry opens Map environment even with one Thing, while stable direct Thing links work across single-to-multiple transition; overview stays accessible. Product-wide luminous containers preserve state, accessibility and motion preferences without literal orbs.
 7. Public pages and real CLI guidance agree; static and accessible pages remain usable. The homepage explains fullstack composition and explicit Button replacement, preserves source/output/runtime identity, and shows parallel views through native scrolling with keyboard, reduced-motion and short-viewport fallbacks.
 8. Existing review gates, command allowlists, invalid-Genome review, criteria scoping, and changelog regressions pass; relevant tests, typecheck, builds, and browser checks pass against the integrated revision.
 
@@ -67,3 +67,11 @@ Use the public model page itself as the canonical worked example, with an explan
 ## Genome lifecycle implementation
 
 The current approved follow-up is [the lifecycle specification](../design/lifecycle.md). Deliver shared lifecycle authority, ontology import and optional outcomes, metrics/Flagship, platform and CLI journey, then public-story integration. Lifecycle contracts own the integration boundary; ontology and operations can proceed independently. Completion is the specification's acceptance scenarios with independent review, full local/hosted CI and separately reported live evidence.
+
+## System atlas follow-up
+
+Map becomes the System front door with environment-first entry, true containment, a stable content-sized mosaic and quiet selection with explicit Details. No backend or ontology changes. Preserve explicit Thing links and specialized views.
+
+Completion criteria: all declared externals appear at environment, including disconnected actors; template layers cannot skip real containers; grouped relationships retain original endpoint paths, direction, labels and certainty; scope/history and Details remain separate; one-hop outside context and offscreen links remain discoverable; pan, depth gestures, camera restoration, mobile, keyboard and reduced-motion paths work. Independent review and full local/hosted CI establish implementation evidence; deployment is separate.
+
+Current atlas status: implementation and independent review fixes are complete; the camera replay regression and consolidated local CI pass. Push/PR and hosted CI remain pending; no deployment is claimed. Evidence: [[journals/2026-10-13-system-atlas]].

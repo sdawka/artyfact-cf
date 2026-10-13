@@ -18,8 +18,9 @@ export function ExternalNode({ data, selected }: NodeProps<ExternalFlowNode>) {
         <span className={styles.name}>{node.name}</span>
       </div>
       <div className={styles.meta}>
-        <span className={styles.kind}>{info.label}{ext?.kind ? ` · ${ext.kind}` : ""}</span>
+        <span className={styles.kind}>{info.label}{ext?.kind ? ` · ${ext.kind}` : ""} · outside System</span>
       </div>
+      {node.description && <p className={styles.purpose}>{node.description}</p>}
       <Handle type="source" position={Position.Right} className={styles.handle} isConnectable={false} />
     </div>
   );
