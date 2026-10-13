@@ -1,14 +1,14 @@
 /**
  * Planners that split an Evolution into Tasks (backend.md B.9). Mirrors `packages/ontology/src/route/translate.ts`:
- * a system prompt, a reply schema, an OpenRouter planner at temperature 0, a fake for `FAKE_S1=1`, an off planner and
+ * a system prompt, a reply schema, an OpenRouter planner at temperature 0 (no cache: a planner is built per request), a fake for `FAKE_S1=1`, an off planner and
  * `plannerFromEnv`. A planner never throws: failures come back as `{ error }`; `planner.ts` validates every reply and
  * falls back to the deterministic plan when there is none.
  */
-import { hashOf, OPENROUTER_CHAT_URL } from "@artyfact/ontology";
+import { DEFAULT_TRANSLATE_MODEL, OPENROUTER_CHAT_URL } from "@artyfact/ontology";
 import { z } from "zod";
 
-/** The translator's default model (OpenRouter, $0.10/M input, $0.50/M output on 2026-10-13). */
-export const DEFAULT_PLAN_MODEL = "openai/gpt-6-luna";
+/** The translator's default model. */
+export const DEFAULT_PLAN_MODEL = DEFAULT_TRANSLATE_MODEL;
 
 export const PLAN_SYSTEM_PROMPT = [
   "You split one change (an Evolution) of a specified software system into Tasks that separate coding agents do in parallel.",
@@ -27,8 +27,9 @@ export const PLAN_SYSTEM_PROMPT = [
 const id = z.string().min(1);
 export const PlanReplySchema = z.object({
   tasks: z.array(z.object({
-    title: z.string().min(1),
-    intent: z.string().default(""),
+    // Capped: titles and intents flow into task packets.
+    title: z.string().min(1).transform((x) => x.slice(0, 200)),
+    intent: z.string().default("").transform((x) => x.slice(0, 2000)),
     nodes: z.array(id).min(1),
     dependsOn: z.array(z.string()).default([]),
     acceptanceCriteria: z.array(id).default([]),
@@ -91,12 +92,12 @@ export interface OpenRouterPlannerOptions {
   timeoutMs?: number;
   /** Attempts after the first on network errors, 429 and 5xx. Default 1. */
   retries?: number;
+  /** Wait before retry k is `backoffMs * k`. Default 1000. */
+  backoffMs?: number;
   maxTokens?: number;
 }
 
 interface ChatBody { model?: string; choices?: { message?: { content?: unknown } }[]; error?: { code?: number | string; message?: string } }
-
-const CACHE_MAX = 50;
 
 /** OpenRouter chat completions as a {@link Planner}. The key goes only in `Authorization` and is redacted from errors. */
 export function openRouterPlanner(o: OpenRouterPlannerOptions): Planner {
@@ -104,7 +105,6 @@ export function openRouterPlanner(o: OpenRouterPlannerOptions): Planner {
   const model = o.model || DEFAULT_PLAN_MODEL;
   const url = o.url ?? OPENROUTER_CHAT_URL;
   const redact = (s: string) => (key ? s.split(key).join("[redacted]") : s);
-  const cache = new Map<string, PlanReply>();
 
   async function attempt(ctx: PlanContext): Promise<PlanReply & { retry?: boolean }> {
     const ac = new AbortController();
@@ -147,16 +147,12 @@ export function openRouterPlanner(o: OpenRouterPlannerOptions): Planner {
     mode: "http",
     model,
     async plan(ctx) {
-      const cacheKey = hashOf({ ctx, model });
-      const hit = cache.get(cacheKey);
-      if (hit) return hit;
       let out = await attempt(ctx);
-      for (let i = 0; i < (o.retries ?? 1) && out.retry; i++) out = await attempt(ctx);
-      const { retry: _r, ...reply } = out;
-      if (reply.tasks) {
-        cache.set(cacheKey, reply);
-        if (cache.size > CACHE_MAX) cache.delete(cache.keys().next().value!);
+      for (let k = 1; k <= (o.retries ?? 1) && out.retry; k++) {
+        await new Promise((r) => setTimeout(r, (o.backoffMs ?? 1000) * k));
+        out = await attempt(ctx);
       }
+      const { retry: _r, ...reply } = out;
       return reply;
     },
   };
