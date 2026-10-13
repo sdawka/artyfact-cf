@@ -245,8 +245,24 @@ export function genomePathNodes(g: GenomeSides, paths: string[]): Record<string,
     ...[...d.added, ...d.changed.map((c) => c.id)].map((id) => [id, g.toModel?.origin[id]] as [string, string | undefined]),
     ...d.removed.map((id) => [id, g.fromModel?.origin[id]] as [string, string | undefined]),
   ];
-  const at = (path: string, file: string | undefined) => !!file && (path === file || path.endsWith(`/${file}`));
-  return Object.fromEntries(paths.map((p) => [p, sorted(declared.filter(([, file]) => at(p, file)).map(([id]) => id))]));
+  return Object.fromEntries(paths.map((p) => [p, sorted(declared.filter(([, file]) => declaredAt(p, file)).map(([id]) => id))]));
+}
+
+/** Whether repo path `path` is the Genome file `file`: model origins are relative to the Genome's root, which may sit under a repo prefix. */
+const declaredAt = (path: string, file: string | undefined) => !!file && (path === file || path.endsWith(`/${file}`));
+
+/** Per repo path, the ids model `m` declares in it (by the same match as {@link genomePathNodes}). */
+export function declaredNodes(m: SystemModel, paths: string[]): Record<string, string[]> {
+  const byFile = new Map<string, string[]>();
+  for (const [id, file] of Object.entries(m.origin)) {
+    if (!m.index.byId[id]) continue;
+    const ids = byFile.get(file);
+    if (ids) ids.push(id);
+    else byFile.set(file, [id]);
+  }
+  // `path` and each of its suffixes after a `/`: the files `declaredAt` would match.
+  const suffixes = (p: string) => [p, ...[...p.matchAll(/\//g)].map((x) => p.slice(x.index + 1))];
+  return Object.fromEntries(paths.map((p) => [p, sorted(suffixes(p).flatMap((f) => byFile.get(f) ?? []))]));
 }
 
 /** Changed files between two repo sides (`from` null = everything added). Same commit: nothing changed, nothing read. */
