@@ -1,7 +1,7 @@
 id: endpoint.submit
 kind: endpoint
 fields:
-  title: Submit job
+  name: Submit job
   description: Accepts a job and starts the ingest workflow for it.
   route: POST /jobs
   auth: Operator session token; callers without one receive 401.

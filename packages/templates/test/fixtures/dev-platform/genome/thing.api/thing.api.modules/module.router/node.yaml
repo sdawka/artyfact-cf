@@ -1,7 +1,7 @@
 id: module.router
 kind: module
 fields:
-  title: Router
+  name: Router
   description: Maps each route to its handler and turns thrown errors into responses.
   path: src/router
 links:

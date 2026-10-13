@@ -2,56 +2,19 @@
 id: template.thing.cloudflare-worker-service
 version: 1
 meta: 1
+extends: template.meta.artyfact-genome@1
 kinds:
-  system:
-    description: The software system as a whole.
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string, required: true}
-      - {name: narrative, type: string}
-      - {name: alternatives, type: list}
-      - {name: openQuestions, type: list}
-    completeness: {fields: [title, description]}
-    criteria:
-      noun: system
-      instanceOf: A system is a set of Things that together serve one purpose.
-      grounded: It names the purpose it serves and what each of its Things is for.
-    view: {label: System, plural: Systems, glyph: "Sy", colour: indigo, layer: system, fields: [title, description, narrative, alternatives, openQuestions]}
-  thing:
-    description: One deployable or publishable unit of the system, built from one template.
-    parents: [system]
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string, required: true}
-      - {name: purposeRefs, type: refs}
-    completeness: {fields: [title, description]}
-    criteria:
-      noun: thing
-      instanceOf: A Thing is one deployable or publishable unit with a single owner and a single build.
-      grounded: It names what it provides to the rest of the system.
-    view: {label: Thing, plural: Things, glyph: "Th", colour: indigo, layer: thing, fields: [title, description, purposeRefs]}
-  section:
-    description: Groups the nodes of one area of a Thing or of the System.
-    parents: [system, thing]
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string}
-    criteria:
-      noun: section
-      instanceOf: A section groups the items of one area.
-      tangible: false
-    view: {label: Section, plural: Sections, glyph: "§", colour: slate}
   endpoint:
     description: One HTTP route the Worker serves.
     parents: [section]
     fields:
-      - {name: title, type: string, required: true}
+      - {name: name, type: string, required: true}
       - {name: description, type: string, required: true}
       - {name: route, type: string, required: true}
       - {name: auth, type: string, required: true}
       - {name: request, type: string}
       - {name: response, type: string}
-    completeness: {fields: [title, description, route, auth]}
+    completeness: {fields: [name, description, route, auth]}
     criteria:
       noun: endpoint
       instanceOf: An endpoint is one HTTP route that takes a request and returns a response.
@@ -70,17 +33,17 @@ kinds:
       - id: failureResponses
         text: States the status and body returned when the request is invalid or the dependency it needs fails.
         defect: specificity.underspecified
-    view: {label: Endpoint, plural: Endpoints, glyph: "/", colour: blue, layer: surface, title: title, fields: [title, route, auth, description, request, response]}
+    view: {label: Endpoint, plural: Endpoints, glyph: "/", colour: blue, layer: experience, title: name, fields: [name, route, auth, description, request, response]}
   durable-object:
     description: A Durable Object class and what one instance of it owns.
     parents: [section]
     fields:
-      - {name: title, type: string, required: true}
+      - {name: name, type: string, required: true}
       - {name: description, type: string, required: true}
       - {name: className, type: string}
       - {name: key, type: string}
       - {name: storage, type: string}
-    completeness: {fields: [title, description]}
+    completeness: {fields: [name, description]}
     criteria:
       noun: Durable Object
       instanceOf: A Durable Object is a class whose instances each own private state and serialise access to it.
@@ -89,16 +52,16 @@ kinds:
       - id: instanceKey
         text: Names what identifies one instance and the state that instance owns.
         defect: specificity.underspecified
-    view: {label: Durable Object, plural: Durable Objects, glyph: "DO", colour: violet, layer: runtime, fields: [title, className, key, storage, description]}
+    view: {label: Durable Object, plural: Durable Objects, glyph: "DO", colour: violet, layer: runtime, title: name, fields: [name, className, key, storage, description]}
   workflow:
     description: A Cloudflare Workflow, a durable multi-step process.
     parents: [section]
     fields:
-      - {name: title, type: string, required: true}
+      - {name: name, type: string, required: true}
       - {name: description, type: string, required: true}
       - {name: trigger, type: string}
       - {name: steps, type: list}
-    completeness: {fields: [title, description]}
+    completeness: {fields: [name, description]}
     criteria:
       noun: workflow
       instanceOf: A workflow is a durable process of named steps that survives restarts.
@@ -107,16 +70,16 @@ kinds:
       - id: stepFailure
         text: States what starts it and what happens to the run when a step fails after its retries.
         defect: specificity.underspecified
-    view: {label: Workflow, plural: Workflows, glyph: "Wf", colour: amber, layer: runtime, fields: [title, trigger, steps, description]}
+    view: {label: Workflow, plural: Workflows, glyph: "Wf", colour: amber, layer: runtime, title: name, fields: [name, trigger, steps, description]}
   queue:
     description: A Cloudflare Queue the Worker produces to or consumes from.
     parents: [section]
     fields:
-      - {name: title, type: string, required: true}
+      - {name: name, type: string, required: true}
       - {name: description, type: string, required: true}
       - {name: message, type: string}
       - {name: retry, type: string}
-    completeness: {fields: [title, description]}
+    completeness: {fields: [name, description]}
     criteria:
       noun: queue
       instanceOf: A queue carries messages from producers to a consumer.
@@ -125,35 +88,15 @@ kinds:
       - id: poisonMessage
         text: States the message shape and what the consumer does with a message that keeps failing.
         defect: specificity.underspecified
-    view: {label: Queue, plural: Queues, glyph: "Q", colour: orange, layer: runtime, fields: [title, message, retry, description]}
-  binding:
-    description: A resource the Worker reaches through its env.
-    parents: [section]
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string, required: true}
-      - {name: type, type: string, enum: [d1, kv, r2, durable-object, queue, workflow, service, ai, assets, var, secret, other], required: true}
-      - {name: envName, type: string}
-    completeness: {fields: [title, description, type]}
-    criteria:
-      noun: binding
-      instanceOf: A binding is a named resource the Worker reaches through its env.
-      grounded: It names the resource type and the env name the code uses.
-    checks:
-      - id: envNameShape
-        text: Its env name is upper snake case, as Wrangler binding names conventionally are.
-        field: envName
-        pattern: "^[A-Z][A-Z0-9_]*$"
-        level: warning
-    view: {label: Binding, plural: Bindings, glyph: "B", colour: lime, layer: runtime, fields: [title, type, envName, description]}
+    view: {label: Queue, plural: Queues, glyph: "Q", colour: orange, layer: runtime, title: name, fields: [name, message, retry, description]}
   module:
     description: A cohesive piece of source code with one responsibility.
     parents: [section, module]
     fields:
-      - {name: title, type: string, required: true}
+      - {name: name, type: string, required: true}
       - {name: description, type: string, required: true}
       - {name: path, type: string}
-    completeness: {fields: [title, description]}
+    completeness: {fields: [name, description]}
     criteria:
       noun: module
       instanceOf: A module is a cohesive piece of source code with one responsibility.
@@ -168,10 +111,10 @@ kinds:
         pattern: "^(?![/.])(?!.*\\.\\.)\\S+$"
         level: warning
     files: ["src/{slug}/**", "src/{slug}.ts", "worker/{slug}/**", "worker/{slug}.ts"]
-    view: {label: Module, plural: Modules, glyph: "M", colour: teal, layer: code, fields: [title, description, path]}
+    view: {label: Module, plural: Modules, glyph: "M", colour: teal, layer: domain, title: name, fields: [name, description, path]}
 relations:
   dependsOn:
-    description: The source needs the target to build or run; a Thing depends on another Thing, a module on another module.
+    description: The source needs the target to build or run; a Thing depends on another Thing, a module on another module. Redeclared so that module is an endpoint.
     from: [thing, module]
     to: [thing, module]
   exposes:
@@ -191,17 +134,22 @@ relations:
     from: [module]
     to: [endpoint, durable-object, workflow, queue]
 nodes:
-  - {id: $self.api, kind: section, parent: $self, fields: {title: API, description: "The routes the Worker serves and who may call them."}}
-  - {id: $self.runtime, kind: section, parent: $self, fields: {title: Runtime, description: "Durable Objects, Workflows and queues the Worker runs."}}
-  - {id: $self.state, kind: section, parent: $self, fields: {title: State, description: "The bindings that hold the Worker's data and its secrets."}, files: ["migrations/**"]}
-  - {id: $self.modules, kind: section, parent: $self, fields: {title: Modules, description: "The source modules and what each is responsible for."}, files: ["src/**", "worker/**"]}
+  - id: template.thing.cloudflare-worker-service@1
+    kind: template
+    fields:
+      kind: thing
+      version: "1"
+      name: Cloudflare Worker service
+      description: "A Cloudflare Worker that serves an API: endpoints, Durable Objects, Workflows, queues and the bindings they use."
+      sections:
+        - section.api
+        - section.runtime
+        - section.state
+        - section.modules
+  - {id: $self.api, kind: section, parent: $self, fields: {name: API, revision: 1, description: "The routes the Worker serves and who may call them.", fromTemplate: template.thing.cloudflare-worker-service@1}}
+  - {id: $self.runtime, kind: section, parent: $self, fields: {name: Runtime, revision: 1, description: "Durable Objects, Workflows and queues the Worker runs.", fromTemplate: template.thing.cloudflare-worker-service@1}}
+  - {id: $self.state, kind: section, parent: $self, fields: {name: State, revision: 1, description: "The bindings that hold the Worker's data and its secrets.", fromTemplate: template.thing.cloudflare-worker-service@1}, files: ["migrations/**"]}
+  - {id: $self.modules, kind: section, parent: $self, fields: {name: Modules, revision: 1, description: "The source modules and what each is responsible for.", fromTemplate: template.thing.cloudflare-worker-service@1}, files: ["src/**", "worker/**"]}
 files:
   - "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.json,wrangler.toml,.gitignore,README.md}"
   - "test/**"
-view:
-  layers:
-    - {id: system, label: System, description: "The system as a whole."}
-    - {id: thing, label: Things, description: The deployable units.}
-    - {id: surface, label: Surface, description: What callers can reach.}
-    - {id: runtime, label: Runtime, description: "Durable Objects, Workflows, queues and bindings."}
-    - {id: code, label: Code, description: The modules that realise the rest.}

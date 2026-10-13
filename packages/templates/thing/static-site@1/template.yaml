@@ -2,54 +2,17 @@
 id: template.thing.static-site
 version: 1
 meta: 1
+extends: template.meta.artyfact-genome@1
 kinds:
-  system:
-    description: The software system as a whole.
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string, required: true}
-      - {name: narrative, type: string}
-      - {name: alternatives, type: list}
-      - {name: openQuestions, type: list}
-    completeness: {fields: [title, description]}
-    criteria:
-      noun: system
-      instanceOf: A system is a set of Things that together serve one purpose.
-      grounded: It names the purpose it serves and what each of its Things is for.
-    view: {label: System, plural: Systems, glyph: "Sy", colour: indigo, layer: system, fields: [title, description, narrative, alternatives, openQuestions]}
-  thing:
-    description: One deployable or publishable unit of the system, built from one template.
-    parents: [system]
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string, required: true}
-      - {name: purposeRefs, type: refs}
-    completeness: {fields: [title, description]}
-    criteria:
-      noun: thing
-      instanceOf: A Thing is one deployable or publishable unit with a single owner and a single build.
-      grounded: It names what it provides to the rest of the system.
-    view: {label: Thing, plural: Things, glyph: "Th", colour: indigo, layer: thing, fields: [title, description, purposeRefs]}
-  section:
-    description: Groups the nodes of one area of a Thing or of the System.
-    parents: [system, thing]
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string}
-    criteria:
-      noun: section
-      instanceOf: A section groups the items of one area.
-      tangible: false
-    view: {label: Section, plural: Sections, glyph: "§", colour: slate}
   page:
     description: One page of the site, served at one route.
     parents: [section]
     fields:
-      - {name: title, type: string, required: true}
+      - {name: name, type: string, required: true}
       - {name: description, type: string, required: true}
       - {name: route, type: string, required: true}
       - {name: rendering, type: string, enum: [static, prerendered, client]}
-    completeness: {fields: [title, description, route]}
+    completeness: {fields: [name, description, route]}
     criteria:
       noun: page
       instanceOf: A page is one document the site serves at one route.
@@ -64,16 +27,16 @@ kinds:
       - id: visitorPurpose
         text: States what a visitor comes to the page to do or learn.
         defect: specificity.underspecified
-    view: {label: Page, plural: Pages, glyph: "Pg", colour: pink, layer: surface, fields: [title, route, rendering, description]}
+    view: {label: Page, plural: Pages, glyph: "Pg", colour: pink, layer: experience, title: name, fields: [name, route, rendering, description]}
   asset:
     description: A file the build copies or generates for the site to serve.
     parents: [section, page]
     fields:
-      - {name: title, type: string, required: true}
+      - {name: name, type: string, required: true}
       - {name: description, type: string, required: true}
       - {name: path, type: string, required: true}
       - {name: type, type: string, enum: [image, font, style, script, data, other]}
-    completeness: {fields: [title, description, path]}
+    completeness: {fields: [name, description, path]}
     criteria:
       noun: asset
       instanceOf: An asset is a file the build copies or generates for the site to serve.
@@ -87,12 +50,8 @@ kinds:
       - id: provenance
         text: States whether the build copies the asset or generates it, and from what.
         defect: specificity.underspecified
-    view: {label: Asset, plural: Assets, glyph: "As", colour: amber, layer: build, fields: [title, path, type, description]}
+    view: {label: Asset, plural: Assets, glyph: "As", colour: amber, layer: runtime, title: name, fields: [name, path, type, description]}
 relations:
-  dependsOn:
-    description: The source needs the target to build or run; a Thing depends on another Thing.
-    from: [thing]
-    to: [thing]
   exposes:
     description: The Thing offers the target as part of its public surface.
     from: [thing]
@@ -106,15 +65,19 @@ relations:
     from: [thing]
     to: [thing]
 nodes:
-  - {id: $self.pages, kind: section, parent: $self, fields: {title: Pages, description: "The routes the site serves and what each shows."}, files: ["src/pages/**"]}
-  - {id: $self.build, kind: section, parent: $self, fields: {title: Build, description: "The files the build copies or generates, and how."}, files: ["public/**", "scripts/**"]}
+  - id: template.thing.static-site@1
+    kind: template
+    fields:
+      kind: thing
+      version: "1"
+      name: Static site
+      description: "A static site built ahead of time and served as files: its pages and the assets they use."
+      sections:
+        - section.pages
+        - section.build
+  - {id: $self.pages, kind: section, parent: $self, fields: {name: Pages, revision: 1, description: "The routes the site serves and what each shows.", fromTemplate: template.thing.static-site@1}, files: ["src/pages/**"]}
+  - {id: $self.build, kind: section, parent: $self, fields: {name: Build, revision: 1, description: "The files the build copies or generates, and how.", fromTemplate: template.thing.static-site@1}, files: ["public/**", "scripts/**"]}
 files:
   - "{package.json,package-lock.json,tsconfig.json,vite.config.*,astro.config.*,wrangler.jsonc,.gitignore,README.md}"
   - "src/**"
   - "test/**"
-view:
-  layers:
-    - {id: system, label: System, description: "The system as a whole."}
-    - {id: thing, label: Things, description: "The deployable units."}
-    - {id: surface, label: Surface, description: "What a visitor can reach."}
-    - {id: build, label: Build, description: "The files the build produces."}

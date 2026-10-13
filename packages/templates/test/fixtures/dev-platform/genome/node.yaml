@@ -2,6 +2,6 @@ id: system.toolkit
 kind: system
 template: template.system.dev-platform.cloudflare@1
 fields:
-  title: Toolkit
+  name: Toolkit
   description: A small platform that ingests jobs, shares one parsing library and ships a CLI and a status site.
   narrative: The API accepts jobs, the library parses them, the CLI deploys the API and the site shows its health.

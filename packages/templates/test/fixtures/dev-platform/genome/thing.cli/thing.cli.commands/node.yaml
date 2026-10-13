@@ -1,5 +1,5 @@
 id: thing.cli.commands
 kind: section
 fields:
-  title: Commands
+  name: Commands
   description: The commands the tool runs and their options.

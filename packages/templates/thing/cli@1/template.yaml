@@ -2,54 +2,17 @@
 id: template.thing.cli
 version: 1
 meta: 1
+extends: template.meta.artyfact-genome@1
 kinds:
-  system:
-    description: The software system as a whole.
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string, required: true}
-      - {name: narrative, type: string}
-      - {name: alternatives, type: list}
-      - {name: openQuestions, type: list}
-    completeness: {fields: [title, description]}
-    criteria:
-      noun: system
-      instanceOf: A system is a set of Things that together serve one purpose.
-      grounded: It names the purpose it serves and what each of its Things is for.
-    view: {label: System, plural: Systems, glyph: "Sy", colour: indigo, layer: system, fields: [title, description, narrative, alternatives, openQuestions]}
-  thing:
-    description: One deployable or publishable unit of the system, built from one template.
-    parents: [system]
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string, required: true}
-      - {name: purposeRefs, type: refs}
-    completeness: {fields: [title, description]}
-    criteria:
-      noun: thing
-      instanceOf: A Thing is one deployable or publishable unit with a single owner and a single build.
-      grounded: It names what it provides to the rest of the system.
-    view: {label: Thing, plural: Things, glyph: "Th", colour: indigo, layer: thing, fields: [title, description, purposeRefs]}
-  section:
-    description: Groups the nodes of one area of a Thing or of the System.
-    parents: [system, thing]
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string}
-    criteria:
-      noun: section
-      instanceOf: A section groups the items of one area.
-      tangible: false
-    view: {label: Section, plural: Sections, glyph: "§", colour: slate}
   command:
     description: One command or subcommand the tool runs.
     parents: [section, command]
     fields:
-      - {name: title, type: string, required: true}
+      - {name: name, type: string, required: true}
       - {name: description, type: string, required: true}
       - {name: usage, type: string, required: true}
       - {name: exitCodes, type: string}
-    completeness: {fields: [title, description, usage]}
+    completeness: {fields: [name, description, usage]}
     criteria:
       noun: command
       instanceOf: A command is one action the tool runs from the command line, with arguments and an exit status.
@@ -64,17 +27,17 @@ kinds:
         field: usage
         pattern: "^[a-z][\\w-]*(\\s|$)"
         level: warning
-    view: {label: Command, plural: Commands, glyph: "$", colour: green, layer: surface, fields: [title, usage, exitCodes, description]}
+    view: {label: Command, plural: Commands, glyph: "$", colour: green, layer: experience, title: name, fields: [name, usage, exitCodes, description]}
   option:
     description: One flag or argument of a command.
     parents: [command]
     fields:
-      - {name: title, type: string, required: true}
+      - {name: name, type: string, required: true}
       - {name: description, type: string, required: true}
       - {name: flag, type: string, required: true}
       - {name: valueType, type: string, enum: [boolean, string, number, path, choice]}
       - {name: default, type: string}
-    completeness: {fields: [title, description, flag]}
+    completeness: {fields: [name, description, flag]}
     criteria:
       noun: option
       instanceOf: An option is one flag or argument that changes how a command runs.
@@ -88,15 +51,15 @@ kinds:
       - id: effectStated
         text: States its default and what changes when it is set.
         defect: specificity.underspecified
-    view: {label: Option, plural: Options, glyph: "--", colour: teal, layer: surface, fields: [title, flag, valueType, default, description]}
+    view: {label: Option, plural: Options, glyph: "--", colour: teal, layer: experience, title: name, fields: [name, flag, valueType, default, description]}
   module:
     description: A cohesive piece of source code with one responsibility.
     parents: [section, module]
     fields:
-      - {name: title, type: string, required: true}
+      - {name: name, type: string, required: true}
       - {name: description, type: string, required: true}
       - {name: path, type: string}
-    completeness: {fields: [title, description]}
+    completeness: {fields: [name, description]}
     criteria:
       noun: module
       instanceOf: A module is a cohesive piece of source code with one responsibility.
@@ -111,10 +74,10 @@ kinds:
         pattern: "^(?![/.])(?!.*\\.\\.)\\S+$"
         level: warning
     files: ["src/{slug}/**", "src/{slug}.ts", "worker/{slug}/**", "worker/{slug}.ts"]
-    view: {label: Module, plural: Modules, glyph: "M", colour: teal, layer: code, fields: [title, description, path]}
+    view: {label: Module, plural: Modules, glyph: "M", colour: teal, layer: domain, title: name, fields: [name, description, path]}
 relations:
   dependsOn:
-    description: The source needs the target to build or run; a Thing depends on another Thing, a module on another module.
+    description: The source needs the target to build or run; a Thing depends on another Thing, a module on another module. Redeclared so that module is an endpoint.
     from: [thing, module]
     to: [thing, module]
   exposes:
@@ -134,14 +97,18 @@ relations:
     from: [module]
     to: [command, option]
 nodes:
-  - {id: $self.commands, kind: section, parent: $self, fields: {title: Commands, description: "The commands the tool runs and their options."}, files: ["bin/**"]}
-  - {id: $self.modules, kind: section, parent: $self, fields: {title: Modules, description: "The source modules and what each is responsible for."}, files: ["src/**"]}
+  - id: template.thing.cli@1
+    kind: template
+    fields:
+      kind: thing
+      version: "1"
+      name: Command-line tool
+      description: "A command-line tool: its commands and options, and the modules behind them."
+      sections:
+        - section.commands
+        - section.modules
+  - {id: $self.commands, kind: section, parent: $self, fields: {name: Commands, revision: 1, description: "The commands the tool runs and their options.", fromTemplate: template.thing.cli@1}, files: ["bin/**"]}
+  - {id: $self.modules, kind: section, parent: $self, fields: {name: Modules, revision: 1, description: "The source modules and what each is responsible for.", fromTemplate: template.thing.cli@1}, files: ["src/**"]}
 files:
   - "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,.gitignore,README.md}"
   - "test/**"
-view:
-  layers:
-    - {id: system, label: System, description: "The system as a whole."}
-    - {id: thing, label: Things, description: "The deployable units."}
-    - {id: surface, label: Surface, description: "What a person types."}
-    - {id: code, label: Code, description: "The modules that realise the commands."}

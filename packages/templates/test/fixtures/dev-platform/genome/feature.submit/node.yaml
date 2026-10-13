@@ -1,0 +1,5 @@
+id: feature.submit
+kind: feature
+fields:
+  name: Submit a job
+  summary: An operator submits a job over HTTP and gets its id back.

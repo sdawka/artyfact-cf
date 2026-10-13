@@ -1,5 +1,5 @@
 id: thing.site.build
 kind: section
 fields:
-  title: Build
+  name: Build
   description: The files the build copies or generates, and how.

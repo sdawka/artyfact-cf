@@ -1,5 +1,5 @@
 id: thing.core.modules
 kind: section
 fields:
-  title: Modules
+  name: Modules
   description: The source modules and what each is responsible for.

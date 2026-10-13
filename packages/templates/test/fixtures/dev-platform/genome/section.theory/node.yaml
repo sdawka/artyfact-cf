@@ -1,5 +1,5 @@
 id: section.theory
 kind: section
 fields:
-  title: Theory of change
+  name: Theory of change
   description: Claims linking what the system does to its outcomes, each with an indicator.

@@ -1,0 +1,7 @@
+id: artifact.site
+kind: artifact
+fields:
+  type: external
+  repo: toolkit
+  scope:
+    - apps/site

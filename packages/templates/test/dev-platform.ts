@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { parseNodeFile, type Graph, type GraphLink, type GraphNode, type TemplateInput } from "@artyfact/ontology";
-import { metaTemplateSource } from "../src/index";
+import { loadMetaTemplate } from "../src/index";
 
 export const GENERIC_THINGS = [
   "template.thing.cloudflare-worker-service@1",
@@ -16,36 +16,33 @@ export const SYSTEM = "template.system.dev-platform.cloudflare@1";
 export const COMPOSED = "template.test.dev-platform-composed@1";
 
 type Source = Record<string, any>;
-const source = (ref: string): Source => {
-  const s = metaTemplateSource(ref);
-  if (!s) throw new Error(`no meta@1 template ${ref}`);
-  return s;
-};
 
 const union = <T>(a: T[] = [], b: T[] = []): T[] => [...new Set([...a, ...b])];
 
 /**
- * One evaluable template from several: the union of their kinds and relations. A kind several templates declare must be
- * declared identically, so that the shared vocabulary (system, thing, section, module) cannot drift. Relation endpoints
- * are united, which is what lets a page of a static site `calls` an endpoint of a Worker. Rule packs, prefilled nodes and
- * the System's view come from the System template.
+ * One evaluable template from several, each loaded over the artyfact base: the union of their kinds, relation endpoints
+ * and rule packs. A kind several templates declare beyond the base (`module`) must be declared identically. Relation
+ * endpoints are united, which is what lets a page of a static site `calls` an endpoint of a Worker. The System's view
+ * and nodes win. (W4 replaces this with per-node template resolution.)
  */
 export function compose(refs: string[], id = "template.test.dev-platform-composed"): TemplateInput {
-  const sources = refs.map(source);
+  const loaded = refs.map((r) => loadMetaTemplate(r));
   const kinds: Record<string, unknown> = {};
   const relations: Record<string, Source> = {};
-  for (const s of sources) {
-    for (const [k, def] of Object.entries(s.kinds as Source)) {
+  const rules = new Map<string, Source>();
+  for (const t of loaded) {
+    for (const [k, def] of Object.entries(t.kinds)) {
       if (k in kinds && JSON.stringify(kinds[k]) !== JSON.stringify(def)) throw new Error(`kind ${k} is declared differently by two templates`);
       kinds[k] = def;
     }
-    for (const [r, def] of Object.entries((s.relations ?? {}) as Source)) {
+    for (const [r, def] of Object.entries(t.relations)) {
       const had = relations[r];
       relations[r] = had ? { ...had, from: union(had.from, def.from), to: union(had.to, def.to) } : { ...def };
     }
+    for (const r of t.rules) rules.set(r.id, r);
   }
-  const system = sources.find((s) => s.id === SYSTEM.slice(0, -2)) ?? sources[0]!;
-  return { id, version: 1, meta: 1, kinds, relations, rules: system.rules, view: system.view } as TemplateInput;
+  const system = loaded.find((t) => t.ref === SYSTEM)!;
+  return { id, version: 1, meta: 1, kinds, relations, rules: [...rules.values()], view: system.view } as TemplateInput;
 }
 
 const skip = (name: string) => name.startsWith(".");

@@ -3,7 +3,8 @@ kind: thing
 template: template.thing.static-site@1
 root: apps/site
 fields:
-  title: Status site
+  name: Status site
   description: The public page that shows the health of the API.
 links:
+  - {rel: artifact, to: artifact.site}
   - {rel: exposes, to: page.status}

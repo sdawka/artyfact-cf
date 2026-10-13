@@ -1,5 +1,4 @@
 id: commitment.no-loss
 kind: commitment
 fields:
-  title: No lost jobs
   statement: A job that was accepted is either finished or reported as failed, never dropped.

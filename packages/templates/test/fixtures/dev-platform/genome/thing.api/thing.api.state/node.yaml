@@ -1,5 +1,5 @@
 id: thing.api.state
 kind: section
 fields:
-  title: State
+  name: State
   description: The bindings that hold the Worker's data and its secrets.

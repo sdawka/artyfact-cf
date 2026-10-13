@@ -1,7 +1,7 @@
 id: option.verbose
 kind: option
 fields:
-  title: verbose
+  name: verbose
   description: Prints each deployment step; off by default.
   flag: --verbose
   valueType: boolean

@@ -3,9 +3,10 @@ kind: thing
 template: template.thing.cli@1
 root: packages/cli
 fields:
-  title: Jobs CLI
+  name: Jobs CLI
   description: The command-line tool operators use to deploy the API and submit jobs.
 links:
+  - {rel: artifact, to: artifact.cli}
   - {rel: dependsOn, to: thing.core}
   - {rel: deploys, to: thing.api}
   - {rel: exposes, to: command.deploy}

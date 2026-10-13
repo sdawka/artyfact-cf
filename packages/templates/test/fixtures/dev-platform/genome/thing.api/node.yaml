@@ -3,9 +3,10 @@ kind: thing
 template: template.thing.cloudflare-worker-service@1
 root: apps/api
 fields:
-  title: Jobs API
+  name: Jobs API
   description: The Worker that accepts jobs and runs them to completion.
 links:
+  - {rel: artifact, to: artifact.api}
   - {rel: dependsOn, to: thing.core}
   - {rel: exposes, to: endpoint.health}
   - {rel: exposes, to: endpoint.submit}

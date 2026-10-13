@@ -1,5 +1,5 @@
 id: section.purpose
 kind: section
 fields:
-  title: Purpose
+  name: Purpose
   description: Why the system exists, who benefits and what must change for them.

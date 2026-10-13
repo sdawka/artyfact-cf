@@ -1,7 +1,7 @@
 id: command.deploy
 kind: command
 fields:
-  title: deploy
+  name: deploy
   description: Deploys the API Worker and exits non-zero when the deployment fails its health check.
   usage: jobs deploy <environment>
 links:

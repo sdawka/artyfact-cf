@@ -1,7 +1,7 @@
 id: module.parser
 kind: module
 fields:
-  title: Parser
+  name: Parser
   description: Reads the job file format and reports errors with line numbers.
   path: src/parser
 links:

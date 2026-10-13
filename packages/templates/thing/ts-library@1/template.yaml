@@ -2,54 +2,17 @@
 id: template.thing.ts-library
 version: 1
 meta: 1
+extends: template.meta.artyfact-genome@1
 kinds:
-  system:
-    description: The software system as a whole.
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string, required: true}
-      - {name: narrative, type: string}
-      - {name: alternatives, type: list}
-      - {name: openQuestions, type: list}
-    completeness: {fields: [title, description]}
-    criteria:
-      noun: system
-      instanceOf: A system is a set of Things that together serve one purpose.
-      grounded: It names the purpose it serves and what each of its Things is for.
-    view: {label: System, plural: Systems, glyph: "Sy", colour: indigo, layer: system, fields: [title, description, narrative, alternatives, openQuestions]}
-  thing:
-    description: One deployable or publishable unit of the system, built from one template.
-    parents: [system]
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string, required: true}
-      - {name: purposeRefs, type: refs}
-    completeness: {fields: [title, description]}
-    criteria:
-      noun: thing
-      instanceOf: A Thing is one deployable or publishable unit with a single owner and a single build.
-      grounded: It names what it provides to the rest of the system.
-    view: {label: Thing, plural: Things, glyph: "Th", colour: indigo, layer: thing, fields: [title, description, purposeRefs]}
-  section:
-    description: Groups the nodes of one area of a Thing or of the System.
-    parents: [system, thing]
-    fields:
-      - {name: title, type: string, required: true}
-      - {name: description, type: string}
-    criteria:
-      noun: section
-      instanceOf: A section groups the items of one area.
-      tangible: false
-    view: {label: Section, plural: Sections, glyph: "§", colour: slate}
   export:
     description: One name the package makes public.
     parents: [section, module]
     fields:
-      - {name: title, type: string, required: true}
+      - {name: name, type: string, required: true}
       - {name: description, type: string, required: true}
       - {name: signature, type: string, required: true}
       - {name: stability, type: string, enum: [stable, experimental, deprecated]}
-    completeness: {fields: [title, description, signature]}
+    completeness: {fields: [name, description, signature]}
     criteria:
       noun: export
       instanceOf: An export is one function, class, type or constant the package makes public.
@@ -64,15 +27,15 @@ kinds:
         field: signature
         pattern: "^(export\\s+)?(async\\s+)?(function|class|const|type|interface|enum)\\s+\\w+"
         level: warning
-    view: {label: Export, plural: Exports, glyph: "Ex", colour: blue, layer: surface, fields: [title, signature, stability, description]}
+    view: {label: Export, plural: Exports, glyph: "Ex", colour: blue, layer: experience, title: name, fields: [name, signature, stability, description]}
   module:
     description: A cohesive piece of source code with one responsibility.
     parents: [section, module]
     fields:
-      - {name: title, type: string, required: true}
+      - {name: name, type: string, required: true}
       - {name: description, type: string, required: true}
       - {name: path, type: string}
-    completeness: {fields: [title, description]}
+    completeness: {fields: [name, description]}
     criteria:
       noun: module
       instanceOf: A module is a cohesive piece of source code with one responsibility.
@@ -87,10 +50,10 @@ kinds:
         pattern: "^(?![/.])(?!.*\\.\\.)\\S+$"
         level: warning
     files: ["src/{slug}/**", "src/{slug}.ts", "worker/{slug}/**", "worker/{slug}.ts"]
-    view: {label: Module, plural: Modules, glyph: "M", colour: teal, layer: code, fields: [title, description, path]}
+    view: {label: Module, plural: Modules, glyph: "M", colour: teal, layer: domain, title: name, fields: [name, description, path]}
 relations:
   dependsOn:
-    description: The source needs the target to build or run; a Thing depends on another Thing, a module on another module.
+    description: The source needs the target to build or run; a Thing depends on another Thing, a module on another module. Redeclared so that module is an endpoint.
     from: [thing, module]
     to: [thing, module]
   exposes:
@@ -110,14 +73,18 @@ relations:
     from: [module]
     to: [export]
 nodes:
-  - {id: $self.api, kind: section, parent: $self, fields: {title: API, description: "The names the package exports and how callers use them."}}
-  - {id: $self.modules, kind: section, parent: $self, fields: {title: Modules, description: "The source modules and what each is responsible for."}, files: ["src/**"]}
+  - id: template.thing.ts-library@1
+    kind: template
+    fields:
+      kind: thing
+      version: "1"
+      name: TypeScript library
+      description: "A TypeScript package other Things import: its public exports and the modules behind them."
+      sections:
+        - section.api
+        - section.modules
+  - {id: $self.api, kind: section, parent: $self, fields: {name: API, revision: 1, description: "The names the package exports and how callers use them.", fromTemplate: template.thing.ts-library@1}}
+  - {id: $self.modules, kind: section, parent: $self, fields: {name: Modules, revision: 1, description: "The source modules and what each is responsible for.", fromTemplate: template.thing.ts-library@1}, files: ["src/**"]}
 files:
   - "{package.json,package-lock.json,tsconfig.json,tsconfig.build.json,vitest.config.ts,.gitignore,README.md}"
   - "test/**"
-view:
-  layers:
-    - {id: system, label: System, description: "The system as a whole."}
-    - {id: thing, label: Things, description: "The deployable units."}
-    - {id: surface, label: Surface, description: "What callers can import."}
-    - {id: code, label: Code, description: "The modules that realise the exports."}
