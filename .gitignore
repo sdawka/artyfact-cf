@@ -7,6 +7,8 @@ dist
 .artyfact.json
 coverage
 *.log
+# Genome node directories may end in .log (operation.contact.log).
+!packages/ontology/test/fixtures/genome-v2/**/*.log
 .DS_Store
 *.tsbuildinfo
 .artyfact/
