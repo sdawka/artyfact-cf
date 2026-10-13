@@ -230,6 +230,11 @@ test('pointer demo activation survives assisted scrolling until deliberate scrol
   await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)))));
   await expect(page.locator(scene)).toHaveAttribute('data-system-view','phenome');
   await randomize.click(); await expect(randomize).toBeFocused();
+  // The second ordinary click may itself assist-scroll; restore the intended
+  // narrative position before verifying deliberate wheel release.
+  await narrative(page,'proteome');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)))));
+  await expect(page.locator(scene)).toHaveAttribute('data-system-view','phenome');
   await page.mouse.wheel(0,1);
   await expect(page.locator(scene)).toHaveAttribute('data-system-view','proteome');
 });
