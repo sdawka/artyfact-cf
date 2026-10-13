@@ -6,6 +6,7 @@
  */
 import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
+import { parse as parseYaml } from "yaml";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { fakeSystemOne, fakeTranslator, scriptedSystemOne } from "@artyfact/ontology";
 import { routes, type ApiError, type ImportSystemResponse, type IntentAcceptResponse, type Proposal } from "../shared/api";
@@ -241,6 +242,17 @@ describe("POST /intents/:pid/accept", () => {
     const after = (await filesAt(s, r.json.realization.workspace.fork, r.json.commit)).get(path)!;
     expect(after).toContain(`description: "${p.ops[0]!.fields!.description}"`);
     expect(after.split("\n").filter((l) => !l.includes("description:"))).toEqual(before.split("\n").filter((l) => !l.includes("description:")));
+  });
+
+  it("carries a #files: directive as an update op and writes files into the node", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Bind the Today screen #files:src/today/**,lib/today.ts")).json;
+    expect(p.ops).toEqual([{ id: "op.1", op: "update", node: "screen.today", files: ["src/today/**", "lib/today.ts"] }]);
+    const r = await accept(s, p, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    const path = r.json.candidate.changedPaths[0]!;
+    const after = (await filesAt(s, r.json.realization.workspace.fork, r.json.commit)).get(path)!;
+    expect(parseYaml(after).files).toEqual(["src/today/**", "lib/today.ts"]);
   });
 
   it("records the touched nodes as the candidate's changed subjects", async () => {
