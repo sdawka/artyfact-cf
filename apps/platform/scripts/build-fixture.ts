@@ -22,6 +22,7 @@ if (!existsSync(join(example, "node.yaml"))) {
 // The model and templates packages are TypeScript sources with extensionless imports; load them through Vite.
 const { module: model } = await runnerImport<typeof import("@artyfact/model")>(join(repo, "packages/model/src/index.ts"));
 const { module: tpl } = await runnerImport<typeof import("@artyfact/templates")>(join(repo, "packages/templates/src/index.ts"));
+const { module: bundleOf } = await runnerImport<typeof import("../worker/model-bundle")>(fileURLToPath(new URL("../worker/model-bundle.ts", import.meta.url)));
 
 function readTree(dir: string, files = new Map<string, string>()) {
   for (const name of readdirSync(dir).sort()) {
@@ -40,7 +41,8 @@ const readiness = model.validate(m);
 // The wire ReadinessReport (shared/api.ts) carries @artyfact/model Findings unchanged.
 const findings = readiness.findings;
 const active = m.criteria.filter((c) => !c.deferred).length;
-const { index: _index, templates: _templates, graph: _graph, template: _template, ...serialisable } = m;
+const { index: _index, templates: _templates, graph: _graph, template, ...rest } = m;
+const serialisable = { ...rest, views: bundleOf.modelViews(template) };
 
 const bundle = {
   systemId: m.system.id,

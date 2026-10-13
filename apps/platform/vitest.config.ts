@@ -29,7 +29,7 @@ export default defineConfig({
       },
       {
         resolve: { alias },
-        test: { name: "ui", environment: "jsdom", include: ["src/**/*.test.{ts,tsx}"], setupFiles: ["src/testing/setup.ts"] },
+        test: { name: "ui", environment: "jsdom", include: ["src/**/*.test.{ts,tsx}"] },
       },
       // Node-only checks that shell out (git index-pack for the pack writer); always on.
       { test: { name: "node", environment: "node", include: ["test/node/**/*.test.ts"] } },

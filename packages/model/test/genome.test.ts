@@ -59,6 +59,12 @@ describe("loadGenome", () => {
     expect(m.journeys[0]!.steps.find((s) => s.id === "s3")).toMatchObject({ screen: "screen.edit", operation: "operation.note.save" });
   });
 
+  it("gives purposes and journeys their containment parent in the tree", () => {
+    const m = load();
+    expect(m.purposes.map((p) => p.parent)).toEqual(["system.mini"]);
+    expect(m.journeys.find((j) => j.id === "J.notes")!.parent).toBe("thing.app");
+  });
+
   it("lists the pinned templates, System first, and composes them into the evaluated template", () => {
     const m = load();
     expect(m.templates.map((t) => `${t.id}@${t.version}`)).toEqual([SYSTEM_TEMPLATE, THING_TEMPLATE]);

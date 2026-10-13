@@ -12,7 +12,7 @@
  */
 
 import type { Finding, ModelIndex, PhenomeEventHeader, Readiness, SemanticDelta as ModelDelta, SystemModel, schema } from "@artyfact/model";
-import type { LinkCertainty, NodeCriterion } from "@artyfact/ontology";
+import type { LinkCertainty, MapLayer, NodeCriterion, ResolvedKindView } from "@artyfact/ontology";
 import type { Commitment, ReviewResult, SemanticDelta } from "@artyfact/semantic";
 
 export type { Finding, PhenomeEventHeader, Readiness } from "@artyfact/model";
@@ -209,8 +209,14 @@ export interface SerializedIndex extends Omit<ModelIndex, "byId" | "path" | "lay
   layers: Record<NodeId, NodeId>;
 }
 
+/** The composed template's view hints: every declared kind resolved, and the Map layers in template order. */
+export interface ModelViews {
+  kinds: Record<string, ResolvedKindView>;
+  layers: MapLayer[];
+}
+
 /** `@artyfact/model`'s `SystemModel` as JSON (see `serializeModel` in the Worker). */
-export type SerializedModel = Omit<SystemModel, "index" | "graph" | "template"> & { index: SerializedIndex };
+export type SerializedModel = Omit<SystemModel, "index" | "graph" | "template"> & { index: SerializedIndex; views: ModelViews };
 
 /** `GET /api/systems/:id/model?rev=`. */
 export interface ModelBundle {

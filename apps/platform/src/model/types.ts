@@ -4,7 +4,7 @@
  * optional). The bundle is produced by the loader, so every defaulted field is present.
  */
 import type { schema, SystemModel } from "@artyfact/model";
-import type { ModelBundle } from "../../shared/api";
+import type { ModelBundle, ModelViews } from "../../shared/api";
 
 export type Relation = schema.Relation;
 export type Certainty = schema.Certainty;
@@ -32,7 +32,11 @@ export type SystemFile = schema.SystemFile;
 export type KitsFile = schema.KitsFile;
 
 
-export type ModelJson = Omit<SystemModel, "index" | "templates"> & { templates?: SystemModel["templates"] };
+export type ModelJson = Omit<SystemModel, "index" | "templates" | "graph" | "template"> & {
+  templates?: SystemModel["templates"];
+  /** The composed template's view hints (`serializeModel`); absent from older bundles. */
+  views?: ModelViews;
+};
 
 /** Where the bundle came from; the TopBar shows a "fixture data" pill for `fixture`. */
 export type BundleSource = NonNullable<ModelBundle["source"]>;

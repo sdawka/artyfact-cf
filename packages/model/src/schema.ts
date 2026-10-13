@@ -110,6 +110,8 @@ export type Externals = z.infer<typeof Externals>;
 
 export const Purpose = z.object({
   id: z.string().regex(/^P\d+$/),
+  /** The containment parent in the Genome tree (the System, or the node whose directory holds this one). */
+  parent: AnyId.optional(),
   statement: str,
   beneficiaries: z.array(Id.ext),
   intendedChange: str,
@@ -122,6 +124,8 @@ export type Purpose = z.infer<typeof Purpose>;
 
 export const TheoryClaim = z.object({
   id: Id.claim,
+  /** The containment parent in the Genome tree (the System, or the node whose directory holds this one). */
+  parent: AnyId.optional(),
   name: str,
   purpose: str,
   mechanism: str,
@@ -139,6 +143,8 @@ export type TheoryClaim = z.infer<typeof TheoryClaim>;
 
 export const GDFeature = z.object({
   id: Id.gd,
+  /** The containment parent in the Genome tree (the System, or the node whose directory holds this one). */
+  parent: AnyId.optional(),
   name: str,
   summary: str,
   deferred: z.boolean().default(false),
@@ -148,6 +154,8 @@ export type GDFeature = z.infer<typeof GDFeature>;
 
 export const Commitment = z.object({
   id: AnyId,
+  /** The containment parent in the Genome tree (the System, or the node whose directory holds this one). */
+  parent: AnyId.optional(),
   statement: str,
   features: z.array(Id.gd),
   coupledWith: strs,
@@ -451,6 +459,8 @@ export type JourneyStep = z.infer<typeof JourneyStep>;
 
 export const Journey = z.object({
   id: Id.journey,
+  /** The containment parent in the Genome tree (the System, or the node whose directory holds this one). */
+  parent: AnyId.optional(),
   name: str,
   actorGoal: str,
   features: z.array(Id.gd),

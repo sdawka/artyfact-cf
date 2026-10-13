@@ -7,7 +7,7 @@ import { useModel } from "@/model/useModel";
 import styles from "./NodeBody.module.css";
 
 /** Keys every node carries or another tab shows (Why: source and refines; Dependencies: links). */
-const STRUCTURAL = new Set(["id", "kind", "name", "parent", "links", "revision", "source", "refines", "provisional", "fromTemplate", "template"]);
+const STRUCTURAL = new Set(["id", "kind", "name", "parent", "links", "revision", "source", "refines", "provisional", "fromTemplate", "template", "owningThing"]);
 
 /** The node's own field names: its properties, or a v2 node's `fields` map. */
 function ownFields(item: Record<string, unknown>): string[] {

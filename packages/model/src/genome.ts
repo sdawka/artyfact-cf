@@ -174,7 +174,7 @@ export function fromGraph(graph: Graph, templates: TemplateStore, tree: GenomeTr
   });
 
   const purposes = ofKind("purpose").map((n): schema.Purpose => ({
-    id: n.id, statement: str(n.fields.statement) ?? "", beneficiaries: linksOf(n.id, "beneficiary"), intendedChange: str(n.fields.intendedChange) ?? "",
+    id: n.id, ...opt("parent", n.parent), statement: str(n.fields.statement) ?? "", beneficiaries: linksOf(n.id, "beneficiary"), intendedChange: str(n.fields.intendedChange) ?? "",
     successCriteria: strs(n.fields.successCriteria), nonGoals: strs(n.fields.nonGoals), constraints: strs(n.fields.constraints),
     ...opt("source", n.fields.source as schema.Source | undefined),
   }));
@@ -183,17 +183,17 @@ export function fromGraph(graph: Graph, templates: TemplateStore, tree: GenomeTr
     links: crossLinks(n.id), ...opt("source", n.fields.source as schema.Source | undefined),
   }));
   const claims = ofKind("claim").map((n): schema.TheoryClaim => ({
-    id: n.id, name: nameOf(n), purpose: str(n.fields.purpose) ?? "", mechanism: str(n.fields.mechanism) ?? "",
+    id: n.id, ...opt("parent", n.parent), name: nameOf(n), purpose: str(n.fields.purpose) ?? "", mechanism: str(n.fields.mechanism) ?? "",
     beneficiaries: linksOf(n.id, "beneficiary"), activities: strs(n.fields.activities), outcome: str(n.fields.outcome) ?? "",
     indicator: str(n.fields.indicator) ?? "", evaluationMethod: str(n.fields.evaluationMethod) ?? "", limitation: str(n.fields.limitation) ?? "",
     kind: (str(n.fields.kind) ?? "hypothesis") as schema.TheoryClaim["kind"], status: (str(n.fields.status) ?? "unknown") as schema.TheoryClaim["status"],
     deferred: bool(n.fields.deferred, false),
   }));
   const features = ofKind("feature").map((n): schema.GDFeature => ({
-    id: n.id, name: nameOf(n), summary: str(n.fields.summary) ?? "", deferred: bool(n.fields.deferred, false), ...opt("source", n.fields.source as schema.Source | undefined),
+    id: n.id, ...opt("parent", n.parent), name: nameOf(n), summary: str(n.fields.summary) ?? "", deferred: bool(n.fields.deferred, false), ...opt("source", n.fields.source as schema.Source | undefined),
   }));
   const commitments = ofKind("commitment").map((n): schema.Commitment => ({
-    id: n.id, statement: str(n.fields.statement) ?? "", features: strs(n.fields.features), coupledWith: strs(n.fields.coupledWith),
+    id: n.id, ...opt("parent", n.parent), statement: str(n.fields.statement) ?? "", features: strs(n.fields.features), coupledWith: strs(n.fields.coupledWith),
     ...opt("source", n.fields.source as schema.Source | undefined),
   }));
   const narrative = str(root.fields.narrative);
@@ -256,7 +256,7 @@ export function fromGraph(graph: Graph, templates: TemplateStore, tree: GenomeTr
     const f = j.fields;
     const start = str(f.start) ?? "";
     return {
-      id: j.id, name: nameOf(j), actorGoal: str(f.actorGoal) ?? "", features: strs(f.features), requirements: strs(f.requirements), start,
+      id: j.id, ...opt("parent", j.parent), name: nameOf(j), actorGoal: str(f.actorGoal) ?? "", features: strs(f.features), requirements: strs(f.requirements), start,
       steps: inSequence((childrenOf.get(j.id) ?? []).filter((s) => s.kind === "step").map((s) => step(j.id, s)), start),
       deferred: bool(f.deferred, false), ...opt("segments", Array.isArray(f.segments) ? f.segments as schema.Journey["segments"] : undefined),
     };

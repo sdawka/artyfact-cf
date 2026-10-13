@@ -92,10 +92,11 @@ every verdict is `not-run`, so an unpromoted candidate's pass never shows green 
 view. Any other `rev` is treated as a candidate id and scopes to itself. `ModelProvider` derives
 the scope; prefer `useModel().verdictOf` and `useModel().rollup`.
 
-`kinds.ts`: template view hints (`docs/design/ontology.md` §3), the one place the SPA resolves them. `useKindView(kind)` /
-`useKindViews()` (`{ of(kind), declares(kind), layers }`; the base template's hints outside a System) and the pure
-`kindViews(model)` resolve the System's template refs (`system.template`, Things' `templateRef`, node `template`) through
-`@artyfact/templates` and `resolveKindView`: `label`, `plural`, `glyph`, `colour`, `layer`, `fields`, `title`, `summary`.
+`kinds.ts`: template view hints (`docs/design/ontology.md` §3), the one place the SPA reads them. The Worker resolves
+the System's composed template once and ships it as the model's `views` map (`serializeModel` / `modelViews`:
+`{ kinds, layers }`); `useKindView(kind)` / `useKindViews()` and the pure `kindViews(model)` read it
+(`{ of(kind), declares(kind), layers }`: `label`, `plural`, `glyph`, `colour`, `layer`, `fields`, `title`, `summary`), with
+bare defaults only for a model without the map.
 `titleOf` / `summaryOf(entry, view)` read the hinted fields (`fieldValue` also reads a v2 node's `fields` map); `kindColour(view)`
 sets `--kind` for glyphs. No code in `src/` branches on a kind name (`no-kind-switch.test.ts`); kinds are plain strings.
 Also `bestViewFor(entryType)`, `VIEW_KINDS` (Journeys needs `journey`, Theory `claim`; SideNav hides a view whose kind no

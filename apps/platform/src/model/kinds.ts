@@ -86,60 +86,42 @@ export const VIEW_KINDS: Partial<Record<ViewName, string>> = { journeys: "journe
 export type { MapLayer, ResolvedKindView as KindView };
 
 /**
- * How the UI shows every kind of one System, from its templates' view hints (`docs/design/ontology.md` §3). This module
- * is the one place the SPA resolves hints; a server-provided `views` map can replace `kindViews` without touching views.
+ * How the UI shows every kind of one System, from its composed template's view hints (`docs/design/ontology.md` §3),
+ * which the server resolves and ships as the model's `views` map. This module is the one place the SPA reads hints.
  */
 export interface KindViews {
-  /** Hints for `kind`, defaults filled in (a kind no template declares gets defaults only). */
+  /** Hints for `kind`, defaults filled in (a kind the template does not declare gets defaults only). */
   of(kind: string): ResolvedKindView;
-  /** True when one of the System's templates declares `kind`. */
+  /** True when the System's composed template declares `kind` (always, for a model without `views`). */
   declares(kind: string): boolean;
-  /** Map bands in template layer order, drawn left to right; empty when the templates declare none. */
+  /** Map bands in template layer order, drawn left to right; empty when the template declares none. */
   layers: MapLayer[];
 }
 
-/** Template refs a model pins: the System's, each Thing's (v1 `templateRef`, v2 `template`), node pins, then `templates`. */
-export function templateRefs(model: ModelJson): string[] {
-  const refs: unknown[] = [model.system.template];
-  for (const t of model.things ?? []) refs.push((t as { templateRef?: unknown; template?: unknown }).templateRef ?? (t as { template?: unknown }).template);
-  for (const n of model.nodes ?? []) refs.push((n as { template?: unknown }).template);
-  for (const t of model.templates ?? []) refs.push(`${t.id}@${t.version}`);
-  return [...new Set(refs.filter((r): r is string => typeof r === "string" && r.length > 0))];
-}
-
-// The resolver (bundled templates + the ontology engine's template loader) is a lazy chunk: the System route loader
-// and app start call `loadKindViews()`, so views render with it loaded.
-type Resolver = typeof import("./kindResolver");
-let resolver: Resolver | undefined;
-let loading: Promise<void> | undefined;
-
-/** Loads the hint resolver once; `kindViews` answers bare defaults until it has. */
-export function loadKindViews(): Promise<void> {
-  loading ??= import("./kindResolver").then((m) => {
-    resolver = m;
-  });
-  return loading;
-}
-
-/** Before the resolver loads: the kind name and neutral defaults, nothing declared, no layers. */
-const BARE: KindViews = {
-  of: (kind) => ({ kind, label: kind, plural: kind, glyph: "•", colour: "neutral", fields: [], summary: "description" }),
-  declares: () => true,
-  layers: [],
+const sentence = (kind: string) => {
+  const words = kind.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[-_.]+/g, " ").trim().toLowerCase();
+  return words ? words[0]!.toUpperCase() + words.slice(1) : kind;
 };
 
-const byRefs = new Map<string, KindViews>();
+/** The engine's defaults for a kind with no hints (`resolveKindView` on an undeclared kind). */
+const bare = (kind: string): ResolvedKindView => {
+  const label = sentence(kind);
+  return { kind, label, plural: `${label}s`, glyph: "•", colour: "neutral", fields: [], summary: "description" };
+};
+
+/** A model without a `views` map (an older bundle): defaults for every kind, all declared, no layers. */
+const BARE: KindViews = { of: bare, declares: () => true, layers: [] };
+
 const byModel = new WeakMap<ModelJson, KindViews>();
 
-/** The kind views of the model's templates (the base template's for no model), memoised per model and per ref list. */
+/** The kind views the model carries, memoised per model; bare defaults for no model or a missing map. */
 export function kindViews(model: ModelJson | undefined): KindViews {
-  if (!resolver) return BARE;
-  const hit = model && byModel.get(model);
+  const map = model?.views;
+  if (!model || !map) return BARE;
+  const hit = byModel.get(model);
   if (hit) return hit;
-  const refs = model ? templateRefs(model) : [];
-  const key = refs.join("\n");
-  const views = byRefs.get(key) ?? byRefs.set(key, resolver.kindViewsFor(refs)).get(key)!;
-  if (model) byModel.set(model, views);
+  const views: KindViews = { of: (kind) => map.kinds[kind] ?? bare(kind), declares: (kind) => kind in map.kinds, layers: map.layers };
+  byModel.set(model, views);
   return views;
 }
 

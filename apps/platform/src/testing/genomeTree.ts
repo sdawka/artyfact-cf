@@ -1,50 +1,29 @@
 /**
- * Test helper: a v2 Genome tree (`node.yaml` per directory) as the model wire the SPA reads (`UiBundle`), so views can
- * be rendered against any template's kinds before the API serves v2 Genomes.
+ * Test helper: a v2 Genome tree (`node.yaml` per directory) loaded with the bundled templates and shaped like the
+ * model wire the SPA reads (`UiBundle`, `views` included), so views can be rendered against any template's kinds.
  */
 import { readdirSync, readFileSync, statSync } from "node:fs";
-import { join } from "node:path";
-import { parse as parseYaml } from "yaml";
-import { parseNodeFile } from "@artyfact/ontology";
+import { join, relative } from "node:path";
+import { loadGenome } from "@artyfact/model";
+import { metaTemplates } from "@artyfact/templates";
 import type { ModelJson, UiBundle } from "@/model/types";
+import { modelViews } from "../../worker/model-bundle";
 
-const LISTS = ["refines", "states", "roles", "preconditions", "effects", "failure", "fields", "invariants"] as const;
+function readTree(root: string, dir = root, files = new Map<string, string>()) {
+  for (const name of readdirSync(dir).sort()) {
+    const p = join(dir, name);
+    if (statSync(p).isDirectory()) readTree(root, p, files);
+    else if (/\.ya?ml$/.test(name)) files.set(relative(root, p), readFileSync(p, "utf8"));
+  }
+  return files;
+}
 
 export function bundleFromGenomeTree(dir: string): UiBundle {
-  const read = (path: string) => parseNodeFile(parseYaml(readFileSync(join(path, "node.yaml"), "utf8")));
-  const root = read(dir);
-  const things: Record<string, unknown>[] = [];
-  const nodes: Record<string, unknown>[] = [];
-  const walk = (path: string, parent: string) => {
-    for (const name of readdirSync(path).sort()) {
-      const child = join(path, name);
-      if (name.startsWith(".") || !statSync(child).isDirectory() || !readdirSync(child).includes("node.yaml")) continue;
-      const n = read(child);
-      const f = (n.fields ?? {}) as Record<string, unknown>;
-      const name_ = String(f.name ?? f.statement ?? f.title ?? n.id);
-      if (n.kind === "thing") {
-        things.push({ id: n.id, name: name_, description: f.description, templateRef: n.template ?? null, artifacts: [], purposeRefs: [], sections: [] });
-      } else {
-        nodes.push({
-          ...Object.fromEntries(LISTS.map((k) => [k, []])),
-          ...f,
-          id: n.id, kind: n.kind, name: name_, parent, revision: 1, ...(n.template && { template: n.template }),
-          links: (n.links ?? []).map((l) => ({ rel: l.rel, to: l.to, direction: "out", certainty: l.certainty ?? "declared" })),
-        });
-      }
-      walk(child, n.id);
-    }
-  };
-  walk(dir, root.id);
-  const f = (root.fields ?? {}) as Record<string, unknown>;
-  const model = {
-    revision: "head",
-    system: { id: root.id, name: String(f.name ?? root.id), template: root.template ?? null, things: things.map((t) => t.id), phase: "unrealized", purposes: [] },
-    purposes: [], externals: [], claims: [], kits: { kits: [], rulePacks: [], required: [] }, things, nodes,
-    requirements: [], criteria: [], hooks: [], journeys: [], evolutions: [], warnings: [], origin: {},
-  } as unknown as ModelJson;
+  const m = loadGenome(readTree(dir), { revision: "head", templates: metaTemplates });
+  const { index: _index, templates: _templates, graph: _graph, template, ...rest } = m;
+  const model = JSON.parse(JSON.stringify({ ...rest, views: modelViews(template) })) as ModelJson;
   return {
-    systemId: root.id,
+    systemId: m.system.id,
     revision: "head",
     genomeCommit: "0".repeat(40),
     model,

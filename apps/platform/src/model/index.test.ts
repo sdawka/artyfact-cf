@@ -78,7 +78,14 @@ describe("buildIndex on the Keep in Touch fixture", () => {
     const d = ix.descendants("component.AddContactDialog");
     expect(d[0]).toBe("component.AddContactDialog");
     expect(d).toContain("affordance.AddContactDialog.save");
-    expect(ids(ix.siblings("section.domain"))).toEqual(["section.ui", "section.domain", "section.authorization", "section.runtime"]);
+    // The webapp Thing holds its journeys beside its sections (their `parent` in the Genome tree).
+    expect(ids(ix.siblings("section.domain")).filter((id) => !id.startsWith("J."))).toEqual(["section.ui", "section.domain", "section.authorization", "section.runtime"]);
+    expect(ix.parent("J.connect")?.id).toBe("thing.webapp");
+  });
+
+  it("takes containment from the server's parent, not the declaring file's path", () => {
+    const model = { ...bundle.model, origin: { ...bundle.model.origin, "J.connect": "elsewhere/J.connect/node.yaml" } };
+    expect(buildIndex(model).parent("J.connect")?.id).toBe("thing.webapp");
   });
 
   it("tolerates missing lists in an opaque bundle", () => {
