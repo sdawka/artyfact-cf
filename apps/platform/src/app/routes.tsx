@@ -3,7 +3,7 @@ import { isRouteErrorResponse, Link, Navigate, redirect, useLocation, useParams,
 import { modelQuery, useModelBundle } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { LoadingState } from "@/components/LoadingState/LoadingState";
-import { VIEWS, type ViewName } from "@/model/kinds";
+import { loadKindViews, VIEWS, type ViewName } from "@/model/kinds";
 import { ModelProvider } from "@/model/useModel";
 import { DEFAULT_REV, viewPath } from "@/model/useSelection";
 import { Shell } from "./Shell";
@@ -81,7 +81,7 @@ export function createRoutes(queryClient: QueryClient): RouteObject[] {
     {
       path: "/s/:systemId/r/:rev",
       loader: async ({ params }) => {
-        await queryClient.ensureQueryData(modelQuery(params.systemId!, params.rev!));
+        await Promise.all([queryClient.ensureQueryData(modelQuery(params.systemId!, params.rev!)), loadKindViews()]);
         return null;
       },
       // Search-param changes (focus, layer, ...) must not refetch the bundle.

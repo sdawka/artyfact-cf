@@ -1,5 +1,5 @@
 import { useInRouterContext } from "react-router";
-import { kindInfo } from "@/model/kinds";
+import { kindColour, titleOf, useKindViews } from "@/model/kinds";
 import { useModelOptional } from "@/model/useModel";
 import { useSelection } from "@/model/useSelection";
 import styles from "./NodeChip.module.css";
@@ -35,11 +35,11 @@ function FocusChip(props: NodeChipProps) {
 
 function Chip({ id, label, kind, showId, size = "md", onSelect, interactive, className }: NodeChipProps) {
   const entry = useModelOptional()?.byId(id);
-  const info = kindInfo(kind ?? entry?.kind);
-  const name = label ?? entry?.name ?? id;
+  const info = useKindViews().of(kind ?? entry?.kind ?? "unknown");
+  const name = label ?? (entry ? titleOf(entry, info) : id);
   const content = (
     <>
-      <span className={styles.glyph} aria-hidden="true">{info.glyph}</span>
+      <span className={styles.glyph} style={kindColour(info)} aria-hidden="true">{info.glyph}</span>
       <span className={styles.name}>{name}</span>
       {showId && name !== id && <code className={styles.id}>{id}</code>}
       <span className="sr-only">, {info.label}</span>
@@ -47,14 +47,14 @@ function Chip({ id, label, kind, showId, size = "md", onSelect, interactive, cla
   );
   const cls = [styles.chip, styles[size], className].filter(Boolean).join(" ");
   if (interactive === false || !onSelect) {
-    return <span className={cls} title={`${info.label}: ${id}`} data-kind={info.label.toLowerCase()}>{content}</span>;
+    return <span className={cls} title={`${info.label}: ${id}`} data-kind={info.kind}>{content}</span>;
   }
   return (
     <button
       type="button"
       className={`u-brackets ${cls} ${styles.button}`}
       title={`${info.label}: ${id}`}
-      data-kind={info.label.toLowerCase()}
+      data-kind={info.kind}
       onClick={() => onSelect(id)}
     >
       {content}

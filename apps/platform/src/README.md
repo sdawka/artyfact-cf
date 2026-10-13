@@ -91,8 +91,14 @@ every verdict is `not-run`, so an unpromoted candidate's pass never shows green 
 view. Any other `rev` is treated as a candidate id and scopes to itself. `ModelProvider` derives
 the scope; prefer `useModel().verdictOf` and `useModel().rollup`.
 
-`kinds.ts`: `KINDS` / `kindInfo(kind)` (glyph + label for every kind), `bestViewFor(kind)`,
-`VIEWS`, `VIEW_LABELS`, `VIEW_GLYPHS`, `VIEW_GROUPS` (Overview, then Genome · Proteome · Phenome), `GO_KEYS`.
+`kinds.ts`: template view hints (`docs/design/ontology.md` §3), the one place the SPA resolves them. `useKindView(kind)` /
+`useKindViews()` (`{ of(kind), declares(kind), layers }`; the base template's hints outside a System) and the pure
+`kindViews(model)` resolve the System's template refs (`system.template`, Things' `templateRef`, node `template`) through
+`@artyfact/templates` and `resolveKindView`: `label`, `plural`, `glyph`, `colour`, `layer`, `fields`, `title`, `summary`.
+`titleOf` / `summaryOf(entry, view)` read the hinted fields (`fieldValue` also reads a v2 node's `fields` map); `kindColour(view)`
+sets `--kind` for glyphs. No code in `src/` branches on a kind name (`no-kind-switch.test.ts`); kinds are plain strings.
+Also `bestViewFor(entryType)`, `VIEW_KINDS` (Journeys needs `journey`, Theory `claim`; SideNav hides a view whose kind no
+template declares), `VIEWS`, `VIEW_LABELS`, `VIEW_GLYPHS`, `VIEW_GROUPS` (Overview, then Genome · Proteome · Phenome), `GO_KEYS`.
 `time.ts`: `relTime(iso, now)`, `shortSha(hash)`, `useNow(ms)` (literal "unknown" for missing values).
 `revisions.ts`: `RevisionOption`, `shortRev(ref)`, `revisionGroups(options, value?)`.
 
@@ -188,23 +194,29 @@ Their slices replace them with `registerTab("changes" | "evidence", Component)` 
 `dependencies`, `changes`, `rules`, `evidence`); new tabs need a shell change. The component gets `{ entry }`. Call it at module
 top level in the view module or in a file under `inspector/bodies/`.
 
-**What-tab bodies:** add `inspector/bodies/<Kind>Body.tsx`:
+**What-tab bodies:** Genome nodes use `inspector/NodeBody.tsx`: the kind's hint `fields` in order (lists of records as a
+table), then the containment children; the header shows the hint `title` as the name and the `summary` field under it.
+Model objects with their own shape (System, Thing, Section, criteria, claims, steps, ...) register a body in
+`inspector/bodies/<Type>Body.tsx`:
 
 ```tsx
 import { registerBody, type BodyProps } from "./registry";
-function ScreenBody({ entry }: BodyProps) { /* entry.item is the OntologyNode */ }
-registerBody("screen", ScreenBody);
+function HookBody({ entry }: BodyProps) { /* entry.item is the AssayHook */ }
+registerBody("hook", HookBody);
 ```
 
 Every `.tsx` in `bodies/` is imported eagerly by `bodies/index.ts`, so no other edit is needed.
 Calling `registerBody` from a view module also works; the Inspector re-renders when it loads.
-Unregistered kinds use `GenericBody`, a key/value dump.
+Other unregistered objects use `GenericBody`, a key/value dump. Never register a body for a template node kind.
 
 ## Shell
 
 SideNav: Overview, then three `role="group"` sections with a sentence-case heading: Genome (Map, Journeys, Theory, Code),
 Proteome (Work, Evaluations, Changelog, Compare), Phenome (Deployments). Each link keeps the global params; at 640 px and
-below labels and group headings become screen-reader only. The wordmark links to Home. The Layer switch lives in the Map
+below labels and group headings become screen-reader only. The wordmark links to Home.
+Map bands: with template `view.layers`, a scope's children are its nearest descendants whose kind is in a layer (undrawn
+containers are looked through), drawn in one labelled band frame per layer in template order along the flow; the rail's
+Filters list the layers. Without layers, every kind is drawn and children band by containment depth (no frames). The Layer switch lives in the Map
 header (visual label "Overlay", `aria-label="Layer"`); `?layer=` stays global.
 
 ⌘K / Ctrl+K opens the palette. Esc clears focus. `[` / `]` move to the previous / next sibling.

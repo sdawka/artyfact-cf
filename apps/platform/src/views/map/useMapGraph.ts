@@ -3,7 +3,8 @@ import type { Finding } from "@artyfact/model";
 import { useReadiness } from "@/api/queries";
 import { LAYERED_RIGHT, partition, type LayoutRequest } from "@/graph/elk";
 import type { ModelIndex } from "@/model/index";
-import type { AnyKind, Certainty, Criterion, JourneyStep, Relation } from "@/model/types";
+import { kindViews, type KindViews } from "@/model/kinds";
+import type { Certainty, Criterion, JourneyStep, Relation } from "@/model/types";
 import { useModel } from "@/model/useModel";
 import type { Layer } from "@/model/useSelection";
 
@@ -11,14 +12,21 @@ import type { Layer } from "@/model/useSelection";
  * Semantic zoom. The Map shows one containment `scope` (a group node) with its children nested,
  * plus whatever those children (or their descendants, lifted to the child) link to: other System
  * nodes as `outside` and Externals as `external`. Containment is nesting, never an edge.
+ *
+ * Bands (`docs/design/ontology.md` §3): when the System's templates declare `view.layers`, only kinds
+ * in a layer are drawn. The scope's children are then its nearest drawn descendants (undrawn
+ * containers are looked through), grouped into one band per layer in template order. With no
+ * layers every kind is drawn and children band by containment depth.
  */
 export type MapRole = "scope" | "child" | "outside" | "external";
 
 export interface MapNode {
   id: string;
-  kind: AnyKind;
+  kind: string;
   name: string;
   role: MapRole;
+  /** The band (template layer id, or `depth-<n>`) a `child` is drawn in. */
+  band?: string;
   /** The scope id for `child` nodes (React Flow parent). */
   parentId?: string;
   /** Containment children of this node (a child with children can be opened). */
@@ -48,9 +56,16 @@ export interface MapFilterState {
   showExternals: boolean;
   /** Keep only nodes whose subtree is the subject of a readiness finding. */
   findingsOnly: boolean;
+  /** Template layers (bands) hidden. */
+  hiddenLayers: string[];
 }
 
-export const DEFAULT_FILTERS: MapFilterState = { hiddenKinds: [], hiddenLinks: [], showExternals: true, findingsOnly: false };
+export const DEFAULT_FILTERS: MapFilterState = { hiddenKinds: [], hiddenLinks: [], showExternals: true, findingsOnly: false, hiddenLayers: [] };
+
+export interface MapBand {
+  id: string;
+  label: string;
+}
 
 export interface MapGraph {
   scope: string;
@@ -58,6 +73,10 @@ export interface MapGraph {
   edges: MapEdge[];
   /** Every visible node id (the scope included). */
   ids: ReadonlySet<string>;
+  /** Bands of the children, in drawing order; only bands that hold a child. */
+  bands: MapBand[];
+  /** True when the bands are template layers (drawn as labelled frames); false for depth bands. */
+  layered: boolean;
 }
 
 const STROKE: Record<Certainty, EdgeStroke> = {
@@ -134,31 +153,53 @@ export function buildMapGraph(
   scope: string,
   filters: MapFilterState = DEFAULT_FILTERS,
   findingSubjects: ReadonlySet<string> = new Set(),
+  views: KindViews = kindViews(index.model),
 ): MapGraph {
   const scopeEntry = index.byId(scope) ?? index.byId(index.model.system.id)!;
   const scopeId = scopeEntry.id;
   const hiddenKinds = new Set(filters.hiddenKinds);
   const hiddenLinks = new Set(filters.hiddenLinks);
+  const layered = views.layers.length > 0;
+  const layerIds = new Set(views.layers.map((l) => l.id));
+  const bandOf = (id: string, kind: string) => (layered ? views.of(kind).layer! : `depth-${index.path(id).length}`);
+  const drawn = (kind: string) => !layered || layerIds.has(views.of(kind).layer ?? "");
+
+  // The scope's children: its nearest drawn descendants (undrawn containers are looked through).
+  const children: ReturnType<ModelIndex["children"]> = [];
+  const through = (id: string) => {
+    for (const c of index.children(id)) {
+      if (drawn(c.kind)) children.push(c);
+      else through(c.id);
+    }
+  };
+  through(scopeId);
 
   // rep: descendant id -> the visible node that stands for it (a child, or the scope itself)
-  const rep = new Map<string, string>([[scopeId, scopeId]]);
-  const children = index.children(scopeId);
+  const rep = new Map<string, string>(index.descendants(scopeId).map((d) => [d, scopeId]));
   for (const c of children) for (const d of index.descendants(c.id)) rep.set(d, c.id);
 
   const hasFinding = (id: string) => {
     if (!filters.findingsOnly) return true;
     return index.descendants(id).some((d) => findingSubjects.has(d)) || findingSubjects.has(id);
   };
-  const keepKind = (kind: string) => !hiddenKinds.has(kind);
+  const keepKind = (kind: string) => drawn(kind) && !hiddenKinds.has(kind);
+  const hiddenLayers = new Set(filters.hiddenLayers);
 
   const nodes = new Map<string, MapNode>();
   const node = (id: string, role: MapRole): MapNode | undefined => {
     const e = index.byId(id);
     if (!e) return undefined;
-    return { id, kind: e.kind, name: e.name, role, childCount: index.children(id).length, ...(role === "child" && { parentId: scopeId }) };
+    return {
+      id, kind: e.kind, name: e.name, role, childCount: index.children(id).length,
+      ...(role === "child" && { parentId: scopeId, band: bandOf(id, e.kind) }),
+    };
   };
   nodes.set(scopeId, node(scopeId, "scope")!);
-  for (const c of children) if (keepKind(c.kind) && hasFinding(c.id)) nodes.set(c.id, node(c.id, "child")!);
+  for (const c of children) {
+    if (!keepKind(c.kind) || !hasFinding(c.id)) continue;
+    const n = node(c.id, "child")!;
+    if (!hiddenLayers.has(n.band!)) nodes.set(c.id, n);
+  }
 
   interface Acc { source: string; target: string; type: Relation; certainty: Certainty; count: number; labels: Set<string> }
   const acc = new Map<string, Acc>();
@@ -183,7 +224,7 @@ export function buildMapGraph(
       nodes.set(id, node(id, "external")!);
       return true;
     }
-    if (!keepKind(e.kind) || !hasFinding(id)) return false;
+    if (!keepKind(e.kind) || !hasFinding(id) || (layered && hiddenLayers.has(views.of(e.kind).layer!))) return false;
     nodes.set(id, node(id, "outside")!);
     return true;
   };
@@ -223,7 +264,11 @@ export function buildMapGraph(
     count: a.count,
     ...(a.labels.size === 1 && a.count === 1 && { label: [...a.labels][0] }),
   }));
-  return { scope: scopeId, nodes: [...nodes.values()], edges, ids: new Set(nodes.keys()) };
+  const held = new Set([...nodes.values()].map((n) => n.band).filter(Boolean));
+  const bands: MapBand[] = layered
+    ? views.layers.filter((l) => held.has(l.id)).map(({ id, label }) => ({ id, label }))
+    : [...held].map((id) => ({ id: id!, label: `Depth ${id!.slice("depth-".length)}` })).sort((a, b) => a.id.localeCompare(b.id, undefined, { numeric: true }));
+  return { scope: scopeId, nodes: [...nodes.values()], edges, ids: new Set(nodes.keys()), bands, layered };
 }
 
 /** Subjects of the current readiness findings (API readiness, else the bundle's); one source for filter and count. */
@@ -238,26 +283,35 @@ export function useFindingSubjects(): Set<string> {
 export function useMapGraph(scope: string, filters: MapFilterState): MapGraph {
   const { index } = useModel();
   const subjects = useFindingSubjects();
-  return useMemo(() => buildMapGraph(index, scope, filters, subjects), [index, scope, filters, subjects]);
+  return useMemo(() => buildMapGraph(index, scope, filters, subjects, kindViews(index.model)), [index, scope, filters, subjects]);
 }
 
 export const NODE_WIDTH = 216;
 /** Node heights per layer: overlays add a badge row. */
 export const nodeHeight = (layer: Layer) => (layer === "genome" ? 52 : 80);
 export const GROUP_PADDING = "[top=72,left=20,bottom=20,right=20]";
+export const BAND_PADDING = "[top=36,left=12,bottom=12,right=12]";
 
-/** elk request: externals in partition 0 (left), the scope group and outside nodes in partition 1. */
+/** Layout id of the frame that holds a band's children. */
+export const bandFrameId = (band: string) => `__band:${band}`;
+
+/**
+ * elk request: externals in partition 0 (left), the scope group and outside nodes in partition 1. Template bands are
+ * frames inside the scope, chained in template order so elk keeps them in sequence along the flow (left to right).
+ */
 export function mapLayoutRequest(graph: MapGraph, layer: Layer): LayoutRequest {
   const h = nodeHeight(layer);
   const nodes: LayoutRequest["nodes"] = [];
+  const frames = graph.layered ? graph.bands.map((b) => bandFrameId(b.id)) : [];
   const order: MapRole[] = ["external", "scope", "outside", "child"];
   for (const role of order) {
     for (const n of graph.nodes) {
       if (n.role !== role) continue;
       if (role === "scope") {
         nodes.push({ id: n.id, width: NODE_WIDTH, height: h, layoutOptions: { ...partition(1), "elk.padding": GROUP_PADDING } });
+        for (const f of frames) nodes.push({ id: f, width: NODE_WIDTH, height: h, parentId: n.id, layoutOptions: { "elk.padding": BAND_PADDING } });
       } else if (role === "child") {
-        nodes.push({ id: n.id, width: NODE_WIDTH, height: h, parentId: n.parentId! });
+        nodes.push({ id: n.id, width: NODE_WIDTH, height: h, parentId: graph.layered ? bandFrameId(n.band!) : n.parentId! });
       } else {
         nodes.push({ id: n.id, width: NODE_WIDTH, height: role === "external" ? 52 : h, layoutOptions: partition(role === "external" ? 0 : 1) });
       }
@@ -267,9 +321,13 @@ export function mapLayoutRequest(graph: MapGraph, layer: Layer): LayoutRequest {
     layoutOptions: { ...LAYERED_RIGHT, "elk.partitioning.activate": "true", "elk.layered.spacing.nodeNodeBetweenLayers": "112", "elk.spacing.edgeEdge": "20", "elk.layered.spacing.edgeEdgeBetweenLayers": "20", "elk.layered.spacing.edgeNodeBetweenLayers": "24", "elk.padding": "[top=24,left=24,bottom=24,right=24]" },
     nodes,
     // Externals sit left of the boundary: edges into them are laid out reversed so they flow left to right.
-    edges: graph.edges.map((e) =>
-      layoutReversed(graph, e) ? { id: e.id, source: e.target, target: e.source } : { id: e.id, source: e.source, target: e.target },
-    ),
+    edges: [
+      ...graph.edges.map((e) =>
+        layoutReversed(graph, e) ? { id: e.id, source: e.target, target: e.source } : { id: e.id, source: e.source, target: e.target },
+      ),
+      // Band order: unrendered edges between consecutive frames, weighted so cross-links cannot reorder them.
+      ...frames.slice(1).map((f, i) => ({ id: `${frames[i]}>${f}`, source: frames[i]!, target: f, layoutOptions: { "elk.layered.priority.direction": "100" } })),
+    ],
   };
 }
 

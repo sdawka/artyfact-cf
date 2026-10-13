@@ -8,7 +8,6 @@ import type { ModelBundle } from "../../shared/api";
 
 export type Relation = schema.Relation;
 export type Certainty = schema.Certainty;
-export type NodeKind = schema.NodeKind;
 export type Source = schema.Source;
 export type CrossLink = schema.CrossLink;
 export type Field = schema.Field;
@@ -32,11 +31,6 @@ export type ModelEvolution = schema.Evolution;
 export type SystemFile = schema.SystemFile;
 export type KitsFile = schema.KitsFile;
 
-/** Every kind the UI can focus: ontology kinds plus the non-graph objects. */
-export type AnyKind =
-  | NodeKind
-  | "feature" | "commitment" | "criterion" | "hook" | "journey" | "step" | "evolution" | "realization"
-  | "artifact" | "template";
 
 export type ModelJson = Omit<SystemModel, "index" | "templates"> & { templates?: SystemModel["templates"] };
 

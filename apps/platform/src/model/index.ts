@@ -1,5 +1,5 @@
 import type {
-  AnyKind, AssayHook, Certainty, Criterion, Journey, ModelJson, Relation, Requirement, UiBundle,
+  AssayHook, Certainty, Criterion, Journey, ModelJson, Relation, Requirement, UiBundle,
 } from "./types";
 
 export type EntryType =
@@ -10,7 +10,7 @@ export type EntryType =
 export interface IndexEntry<T = unknown> {
   id: string;
   type: EntryType;
-  kind: AnyKind;
+  kind: string;
   name: string;
   item: T;
 }
@@ -75,7 +75,7 @@ export function buildIndex(source: UiBundle | ModelJson): ModelIndex {
 
   const entries: IndexEntry[] = [];
   const byIdMap = new Map<string, IndexEntry>();
-  const add = (id: string, type: EntryType, kind: AnyKind, name: string, item: unknown) => {
+  const add = (id: string, type: EntryType, kind: string, name: string, item: unknown) => {
     const e: IndexEntry = { id, type, kind, name, item };
     if (!byIdMap.has(id)) entries.push(e);
     byIdMap.set(id, e);

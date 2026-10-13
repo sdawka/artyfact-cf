@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { COLOUR_TOKENS } from "@artyfact/ontology";
 
 // Vitest processes imported CSS (and `?raw` yields ''), so read the sources from disk.
 const read = (name: string) => readFileSync(join(import.meta.dirname, name), "utf8");
@@ -38,6 +39,16 @@ describe("theme css", () => {
     expect(whimsy).toMatch(/:root\s*\{[^}]*--font-display:\s*Georgia/);
     expect(whimsy).not.toMatch(/html\[data-typography[^\n]*\{/);
     expect(whimsy).toMatch(/--color-brand-primary:\s*oklch\(0\.79 0\.125 60\)/);
+  });
+
+  it("defines a --kind-<token> colour for every view-hint colour, dark and light", () => {
+    const kinds = read("kinds.css");
+    const [dark, light] = kinds.split(':root[data-theme="light"]') as [string, string];
+    for (const t of COLOUR_TOKENS) {
+      expect(dark, t).toMatch(new RegExp(`--kind-${t}:\\s*oklch\\(`));
+      expect(light, t).toMatch(new RegExp(`--kind-${t}:\\s*oklch\\(`));
+    }
+    expect(index).toContain('@import "./kinds.css"');
   });
 
   it("provides base tokens", () => {
