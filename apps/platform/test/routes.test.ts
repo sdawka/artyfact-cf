@@ -1202,10 +1202,10 @@ describe("routes: import review (B.10)", () => {
 
     const work = await call<WorkResponse>("GET", `/systems/${systemId}/evolutions`);
     const evo = work.json.evolutions.find((e) => e.id === evolution)!;
-    expect(evo.kind).toBe("genome-amendment");
     expect(evo.title).toBe("Import review: remove 2 nodes");
+    expect(evo.affectedNodes).toEqual(expect.arrayContaining(["component.ErrorSummary", "component.AppShell"]));
     const rz = work.json.realizations.find((r) => r.id === realization)!;
-    expect(rz.status).toBe("awaiting-admin");
+    expect([rz.target, rz.status]).toEqual(["genome", "awaiting-admin"]);
     const cands = await call<CandidatesResponse>("GET", `/systems/${systemId}/candidates`);
     const cand = cands.json.candidates.find((c) => c.id === candidate)!;
     expect(cand.changedSubjects).toEqual(expect.arrayContaining(["component.ErrorSummary", "component.AppShell"]));
