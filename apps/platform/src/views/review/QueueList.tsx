@@ -57,7 +57,13 @@ function Row({ row, current }: { row: QueueRow; current: boolean }) {
   const r = row.realization;
   const ready = row.kind === "promotion";
   return (
-    <Link to={to} className={styles.row} data-kind={row.kind} aria-current={current ? "true" : undefined}>
+    <Link
+      to={to}
+      className={styles.row}
+      data-kind={row.kind}
+      data-testid={r ? `queue-${r.id}` : `queue-promotion-${row.evolution}`}
+      aria-current={current ? "true" : undefined}
+    >
       <span className={styles.rowTop}>
         <span className={styles.kind} data-kind={row.kind}>{row.kind}</span>
         {r && <strong className={styles.agent}>{r.agent.id}</strong>}
@@ -70,7 +76,7 @@ function Row({ row, current }: { row: QueueRow; current: boolean }) {
           {selected.includes(row.candidateId) && <span className={styles.selected}>selected for composition</span>}
         </span>
       )}
-      <ConflictChips conflicts={row.conflicts} />
+      <ConflictChips conflicts={row.conflicts} compact />
       <BaseLine behind={row.behind} />
     </Link>
   );

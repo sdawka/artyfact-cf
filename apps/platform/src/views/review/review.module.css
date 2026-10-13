@@ -5,12 +5,14 @@
 
 /* Two panes: the queue is narrow; the detail takes the rest. One column on narrow screens. */
 .panes { display: grid; grid-template-columns: minmax(16rem, 24rem) minmax(0, 1fr); gap: var(--spacing-5); align-items: start; }
+/* On wide screens the queue stays in view (scrolling on its own) while a long review scrolls beside it. */
+@media (min-width: 901px) { .queue { position: sticky; top: var(--spacing-4); max-height: calc(100vh - 6rem); overflow-y: auto; } }
 @media (max-width: 900px) { .panes { grid-template-columns: minmax(0, 1fr); } }
 .detail { display: grid; gap: var(--spacing-3); min-width: 0; }
 .context { margin: 0; color: var(--color-text-secondary); font-weight: var(--font-weight-semibold); }
 
 /* The decision queue: the page's memorable element, a ledger of rows with a left rule on the open one. */
-.queue { display: grid; gap: var(--spacing-4); padding: var(--spacing-3); background: var(--color-surface-secondary); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); }
+.queue { display: grid; align-content: start; gap: var(--spacing-4); padding: var(--spacing-3); background: var(--color-surface-secondary); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); }
 .queueTitle { display: flex; align-items: baseline; gap: var(--spacing-2); margin: 0; font-family: var(--font-ui); font-size: var(--font-size-base); }
 .count { color: var(--color-status-warning); font-size: var(--font-size-sm); font-variant-numeric: tabular-nums; }
 .group { display: grid; gap: var(--spacing-1); }

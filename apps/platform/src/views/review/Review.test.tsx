@@ -73,11 +73,27 @@ describe("Review queue", () => {
     expect(within(rows[0]!).getByText("behind by 1")).toBeTruthy();
   });
 
-  it("shows the typed conflict chips on a row", async () => {
-    const soft: ConflictReport = { kind: "soft-semantic", candidates: ["cand.1", "cand.2"], subjects: [], nodes: ["screen.people"], message: "Both edit people" };
-    renderApp(REVIEW, undefined, queueSeed({ conflicts: [soft] }));
+  it("shows one typed conflict chip per kind on a row, with the number of conflicts", async () => {
+    const soft = (other: string): ConflictReport => ({ kind: "soft-semantic", candidates: ["cand.1", other], subjects: [], nodes: ["screen.people"], message: `Both edit people with ${other}` });
+    const file: ConflictReport = { kind: "file", candidates: ["cand.1", "cand.4"], subjects: [], paths: ["src/app.ts"], message: "Same file" };
+    renderApp(REVIEW, undefined, queueSeed({ conflicts: [soft("cand.2"), soft("cand.3"), file] }));
     const row = within(await queue()).getAllByRole("link").find((l) => l.getAttribute("data-kind") === "candidate")!;
-    expect(within(row).getByRole("list", { name: "Conflicts" }).textContent).toMatch(/≈ soft-semantic/);
+    const chips = within(within(row).getByRole("list", { name: "Conflicts" })).getAllByRole("listitem").map((li) => li.textContent);
+    expect(chips).toEqual(["§ file", "≈ soft-semantic · 2 conflicts"]);
+  });
+
+  it("starts each opened row afresh: a tab picked on one review does not carry to the next", async () => {
+    const other = realization({ id: "realization.2", status: "evaluated", candidate: "cand.2", baseRevision: "sc-1", agent: { id: "agent-beta", role: "implementer" } });
+    renderApp(`${REVIEW}?evolution=${EVO1}&realization=realization.1`, undefined, queueSeed({
+      realizations: [evaluated, other],
+      candidates: [candidate({ baseRevision: "sc-1" }), candidate({ id: "cand.2", realization: "realization.2", baseRevision: "sc-1" })],
+    }));
+    const first = await screen.findByRole("region", { name: "Review realization.1" });
+    fireEvent.click(within(first).getByRole("tab", { name: "Files" }));
+    expect(within(first).getByRole("tab", { name: "Files" }).getAttribute("aria-selected")).toBe("true");
+    fireEvent.click(screen.getByTestId("queue-realization.2"));
+    const second = await screen.findByRole("region", { name: "Review realization.2" });
+    expect(within(second).getByRole("tab", { name: "Semantic delta" }).getAttribute("aria-selected")).toBe("true");
   });
 
   it("preselects ?candidates= for composition and links to its promotion", async () => {

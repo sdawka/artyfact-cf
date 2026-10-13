@@ -42,9 +42,10 @@ export default function ReviewView() {
           <QueueList groups={groups} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} />
           <div className={styles.detail}>
             {promoting ? (
-              <PromotionPanel evolution={evolution!} />
+              <PromotionPanel key={evolution!.id} evolution={evolution!} />
             ) : realization && evolution ? (
-              <Reviewing realization={realization} evolution={evolution} />
+              // Keyed: a decision made on one row never carries over to the next.
+              <Reviewing key={realization.id} realization={realization} evolution={evolution} />
             ) : selected.length ? (
               <Composition ids={selected} />
             ) : (
