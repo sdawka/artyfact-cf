@@ -74,6 +74,8 @@ describe("Shell", () => {
     act(() => within(nav).getByRole("link", { name: "Review" }).click());
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp/review`));
     expect(await screen.findByRole("heading", { level: 1, name: "Review" })).toBeTruthy();
+    // Review lists the whole System's decisions, and inside a Thing it says so.
+    expect(screen.getByText("Review shows decisions for the whole System.")).toBeTruthy();
   });
 
   it("g r opens Review keeping params", async () => {

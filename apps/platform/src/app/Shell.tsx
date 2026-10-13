@@ -19,6 +19,7 @@ const SYSTEM_VIEW_CONTEXT: Partial<Record<ViewName, string>> = {
   theory: "Theory describes purpose and outcomes for the whole System.",
   code: "Code shows saved files for the whole System.",
   work: "Work shows changes for the whole System.",
+  review: "Review shows decisions for the whole System.",
   evaluations: "Evaluations includes evidence from the whole System.",
   changelog: "Changelog includes changes to the whole System.",
   compare: "Compare compares revisions of the whole System.",
