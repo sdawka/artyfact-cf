@@ -1,3 +1,10 @@
+import { LifecycleStore, type ClaimReservation } from './lifecycle-store';
+import type { RealizationPlan, TaskClaimRequest, IntegratedBinding } from '../../shared/lifecycle';
+import type { TaskDefinition } from '@artyfact/model';
+import { acceptedTemplateResolver, OntologyPackagesStore } from '../ontology-packages/store';
+import type { OntologyImportPreviewRequest } from '../../shared/ontology-packages';
+import { OperationsAuditStore } from '../operations/audit-store';
+import type { OperationAuditEntry } from '../../shared/operations';
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
 import type {
@@ -116,6 +123,7 @@ export interface BootstrapInput extends ManifestExtras {
   appRepo: string;
   genomeCommit: string;
   appCommit: string | null;
+  artifactBindings?: Record<string, ArtifactBinding>;
   platform: PlatformRef | null;
   scaffoldFrom?: ScaffoldSource;
   evolutions: EvolutionSeed[];
@@ -293,6 +301,65 @@ export class SystemAuthority extends DurableObject<Env> {
     this.readinessMemo.clear();
     applySchema(this.sql);
   }
+
+  private lifecycle(): LifecycleStore { return new LifecycleStore(this.sql); }
+  realizationPlans(): RealizationPlan[] { return this.lifecycle().list(); }
+  realizationPlan(id: string): RealizationPlan { return this.lifecycle().get(id); }
+  createRealizationPlan(input: {title:string;genomeCommit?:string;expectedHead?:string|null;tasks:TaskDefinition[]}): RealizationPlan {
+    const state=this.state(); if(!state) throw new ConflictError('not-found','System not imported');
+    return this.ctx.storage.transactionSync(()=>this.lifecycle().create(state,input,acceptedTemplateResolver(this.ontologyAcceptedPackages()).digest));
+  }
+  claimLifecycleTask(pid:string,tid:string,input:TaskClaimRequest,resume=false,preparedBase?:{source:ArtifactBinding;selections:string[]}): ClaimReservation { return this.ctx.storage.transactionSync(()=>this.lifecycle().claim(pid,tid,input,resume,preparedBase)); }
+  realizationPlanId(rid:string):string|null {return str(this.one('SELECT task_plan_id FROM realizations WHERE id=?',rid)?.task_plan_id);}
+  lifecycleCredentials(pid:string,tid:string):EndedCredential[] {const p=this.lifecycle().get(pid),t=this.lifecycle().task(p,tid);return t.attempts.map(a=>{const r=this.realizationRow(a.realizationId);return {realizationId:a.realizationId,forkRepo:t.forkRepo,tokenId:str(r?.token_id)};}).filter(c=>!!c.tokenId);}
+  lifecycleCredentialRevoked(rid:string,tokenId:string):void {this.sql.exec('UPDATE realizations SET token_id=NULL WHERE id=? AND token_id=?',rid,tokenId);}
+  realizationBindingId(rid:string):string|null {const row=this.one('SELECT task_binding_id FROM realizations WHERE id=?',rid);return row?.task_binding_id?String(row.task_binding_id):null;}
+  realizationPinnedGenome(rid:string):{repo:string;commit:string}|null {const row=this.one('SELECT pinned_genome,pinned_genome_repo FROM realizations WHERE id=?',rid);return row?.pinned_genome&&row.pinned_genome_repo?{repo:String(row.pinned_genome_repo),commit:String(row.pinned_genome)}:null;}
+  lifecycleFence(pid:string,tid:string,aid:string,generation:number) { return this.lifecycle().fence(pid,tid,aid,generation); }
+  lifecycleActivate(pid:string,tid:string,aid:string,generation:number,input:{tokenId:string;tokenExpires:string;remote:string;secretHash:string}): RealizationPlan { return this.ctx.storage.transactionSync(()=>this.lifecycle().activate(pid,tid,aid,generation,input)); }
+  lifecycleEnd(pid:string,tid:string,aid:string,generation:number): void { this.ctx.storage.transactionSync(()=>this.lifecycle().end(pid,tid,aid,generation)); }
+  lifecycleCheckpoint(pid:string,tid:string,aid:string,generation:number,input:{message:string;commit?:string}) { return this.ctx.storage.transactionSync(()=>{const f=this.lifecycle().fence(pid,tid,aid,generation);const seq=Number(this.one('SELECT COALESCE(MAX(seq),0)+1 AS n FROM checkpoints WHERE realization_id=?',f.attempt.realizationId)!.n);this.sql.exec('INSERT INTO checkpoints (realization_id,seq,message,commit_hash,created_at) VALUES (?,?,?,?,?)',f.attempt.realizationId,seq,input.message,input.commit??null,nowIso());const plan=this.lifecycle().heartbeat(pid,tid,aid,generation);return {plan,task:this.lifecycle().task(plan,tid)};}); }
+  lifecycleCandidate(pid:string,tid:string,aid:string,generation:number,input:Omit<CandidateInput,'realizationId'>) { return this.ctx.storage.transactionSync(()=>{const f=this.lifecycle().fence(pid,tid,aid,generation);const out=this.recordCandidate({...input,realizationId:f.attempt.realizationId});const plan=this.lifecycle().submitted(pid,tid,aid,generation);return {plan,task:this.lifecycle().task(plan,tid),...out};}); }
+  lifecycleSelect(pid:string,tid:string,cid:string):RealizationPlan {return this.ctx.storage.transactionSync(()=>this.lifecycle().select(pid,tid,cid));}
+  lifecycleIntegrate(pid:string,bindings:IntegratedBinding[],selections:string[]):RealizationPlan {return this.ctx.storage.transactionSync(()=>this.lifecycle().integrate(pid,bindings,selections));}
+  lifecycleReserveIntegration(pid:string,artifactId:string,forkRepo:string):RealizationRecord {
+    const p=this.lifecycle().get(pid),base=p.baseManifest.artifacts[artifactId];if(!base)throw new ConflictError('invalid-state','artifact not bound');
+    const id=`realization.integration.${crypto.randomUUID()}`,at=nowIso(),n=Number(this.one('SELECT COALESCE(MAX(n),0)+1 AS n FROM realizations')!.n);this.setKv('realization_seq',String(n));
+    this.sql.exec("INSERT INTO realizations (id,evolution_id,n,target,fork_repo,base_commit,status,created_at,updated_at,base_repo,base_head,role,origin) VALUES (?,'',?,'app',?,?,'working',?,?,?,?,'integrator','cli')",id,n,forkRepo,base.commit,at,at,base.repo,p.baseHead);
+    this.sql.exec('UPDATE realizations SET pinned_genome=?,pinned_genome_repo=?,task_plan_id=? WHERE id=?',p.genome.commit,p.genome.repo,p.id,id);this.sql.exec('UPDATE realizations SET task_binding_id=? WHERE id=?',artifactId,id);
+    return this.realization(id)!;
+  }
+  async lifecyclePromote(pid:string,input:{candidateIds:string[];expectedHead:string|null;rationale:string;gates:Record<string,GateCriterion[]>;by:string}):Promise<{plan:RealizationPlan;commit:SystemCommit;ended:EndedCredential[]}> {
+    const p=this.lifecycle().get(pid),state=this.state()!;
+    if(p.status!=='integrated'||!p.integration.length)throw new ConflictError('invalid-state','integrate every binding before promotion');
+    const ids=p.integration.map(b=>b.candidateId).sort();if(JSON.stringify(ids)!==JSON.stringify([...input.candidateIds].sort()))throw new ConflictError('invalid-state','reviewed integrated candidates changed');
+    if(state.head!==input.expectedHead)throw new StaleBaseRefusal('reviewed System head changed');
+    const prep=await this.prepareCommit({artifactId:'',templateVersions:state.manifest!.templateVersions,hookVersions:state.manifest!.hookVersions},prev=>({ ...prev!, artifacts:{...prev!.artifacts,...Object.fromEntries(p.integration.map(b=>[b.artifactId,{...b.source,realizedGenome:p.genome.commit,realizationPlan:p.id}]))} }));
+    return this.ctx.storage.transactionSync(()=>{
+      const current=this.lifecycle().get(pid);if(this.kv('head')!==prep.head||current.status!=='integrated'||JSON.stringify(current.integration)!==JSON.stringify(p.integration))throw new StaleBaseRefusal('plan or System changed during promotion');
+      for(const b of p.integration){const base=p.baseManifest.artifacts[b.artifactId],now=this.readManifest(prep.head)!.artifacts[b.artifactId];if(base.repo!==now?.repo||base.commit!==now.commit)throw new StaleBaseRefusal(`binding ${b.artifactId} changed; replan required`);}
+      for(const task of p.tasks){const candidate=task.selectedCandidate?this.candidate(task.selectedCandidate):null;if(!candidate||this.latestCandidate(candidate.realization)?.id!==candidate.id)throw new ConflictError('invalid-state','selected task candidate was superseded; integrate the reviewed latest selection');}
+      const cands=p.integration.map(b=>{const c=this.one('SELECT * FROM candidates WHERE id=?',b.candidateId);if(c&&this.latestCandidate(String(c.realization_id))?.id!==c.id)throw new ConflictError('invalid-state','integrated candidate was superseded');if(!c||!['submitted','evaluated','selected'].includes(String(c.state)))throw new ConflictError('invalid-state','integrated candidate unavailable');return {...c,evolution_id:''};});
+      const gate=this.checkGate(cands,input.gates,input.rationale);
+      const commit=this.writeCommit(prep,[],{by:input.by,policy:'realization-plan',rationale:input.rationale,candidates:ids,realizationPlan:pid,realizedGenome:p.genome.commit,acknowledged:gate.advisories.map(a=>a.criterion),evidenceProviders:gate.evidenceProviders});
+      for(const b of p.integration){this.sql.exec("UPDATE candidates SET state='promoted' WHERE id=?",b.candidateId);this.setRealizationStatus(String(this.one('SELECT realization_id FROM candidates WHERE id=?',b.candidateId)!.realization_id),'promoted');}
+      const ended=this.endCredentials(p.tasks.flatMap(t=>t.attempts.map(a=>a.realizationId)));
+      for(const t of p.tasks){t.status='completed';for(const a of t.attempts)a.status='ended';}
+      p.status='promoted';this.lifecycle().save(p);
+      const app=p.integration.find(b=>p.baseManifest.artifacts[b.artifactId]?.repo===state.appSource?.repo);if(app){this.setKv('app_source_repo',app.source.repo);this.setKv('app_source_commit',app.source.commit);}
+      return {plan:p,commit,ended};
+    });
+  }
+  ontologyInitialize(systemId:string,title?:string) {return new OntologyPackagesStore(this.sql).initialize(systemId,title);}
+  ontologyInitial() {return new OntologyPackagesStore(this.sql).initial();}
+  ontologyImports() {return new OntologyPackagesStore(this.sql).list();}
+  ontologyImportPreview(systemId:string,input:OntologyImportPreviewRequest) {return new OntologyPackagesStore(this.sql).preview(systemId,input);}
+  ontologyImportGet(id:string) {return new OntologyPackagesStore(this.sql).get(id);}
+  ontologyImportAccept(id:string,hash:string) {const out=new OntologyPackagesStore(this.sql).accept(id,hash);this.sql.exec('DELETE FROM model_cache');this.readinessMemo.clear();return out;}
+  ontologyAcceptedPackages() {return new OntologyPackagesStore(this.sql).acceptedPackages();}
+  operationsAuditAppend(entry:OperationAuditEntry) {return new OperationsAuditStore(this.sql).append(entry);}
+  operationsAuditList(bindingId:string,limit?:number) {return new OperationsAuditStore(this.sql).list(bindingId,limit);}
+  operationsAuditBegin(entry:OperationAuditEntry) {return new OperationsAuditStore(this.sql).begin(entry);}
 
   // ---------------------------------------------------------------- helpers
 
@@ -479,7 +546,7 @@ export class SystemAuthority extends DurableObject<Env> {
     const app: ArtifactBinding | null = input.appCommit ? { repo: input.appRepo, commit: input.appCommit, ...(scaffoldFrom && { scaffoldFrom }) } : null;
     const prep = unchanged ? null : await this.prepareCommit(input, () => ({
       genomeCommit: input.genomeCommit,
-      artifacts: app ? { [input.artifactId]: app } : {},
+      artifacts: input.artifactBindings ?? (app ? { [input.artifactId]: app } : {}),
       templateVersions: {}, hookVersions: {},
     }));
     this.ctx.storage.transactionSync(() => {
@@ -717,7 +784,8 @@ export class SystemAuthority extends DurableObject<Env> {
     const s = this.state();
     if (!s) throw new ConflictError("not-found", "System not imported");
     return this.ctx.storage.transactionSync(() => {
-      const evo = this.one("SELECT status FROM evolutions WHERE id = ?", input.evolutionId);
+      const evo = this.one("SELECT status,kind FROM evolutions WHERE id = ?", input.evolutionId);
+      if(input.target==='app'&&evo?.kind==='genome-amendment')throw new ConflictError('invalid-state','Genome Evolutions cannot own app work; create a realization plan');
       if (!evo) throw new ConflictError("not-found", `unknown evolution ${input.evolutionId}`);
       if (["promoted", "rejected", "withdrawn"].includes(String(evo.status))) {
         throw new ConflictError("invalid-state", `evolution ${input.evolutionId} is ${evo.status}`);
@@ -785,11 +853,14 @@ export class SystemAuthority extends DurableObject<Env> {
 
   /** SHA-256 (hex) of the realization's secret; null when unknown, not yet active, or revoked. */
   realizationSecretHash(id: string): string | null {
-    return str(this.realizationRow(id)?.secret_hash);
+    const row=this.realizationRow(id);
+    if(row?.task_plan_id){const p=this.lifecycle().get(String(row.task_plan_id)),task=p.tasks.find(t=>t.attempts.some(a=>a.realizationId===id)),attempt=task?.attempts.at(-1);if(!attempt||attempt.realizationId!==id||attempt.status==='ended'||Date.parse(attempt.leaseExpiresAt)<=Date.now())return null;}
+    return str(row?.secret_hash);
   }
 
   /** Append a checkpoint; a repeat of the last (summary, commit) is a no-op. claimed → working. */
   checkpoint(id: string, input: { summary: string; commit?: string }): { realization: Realization; checkpoint: Checkpoint } {
+    if(this.realizationPlanId(id))throw new ConflictError('invalid-state','Task Attempts must use lifecycle checkpoint with fenced generation');
     const r = this.realizationRow(id);
     if (!r) throw new ConflictError("not-found", `unknown realization ${id}`);
     const last = this.one("SELECT * FROM checkpoints WHERE realization_id = ? ORDER BY seq DESC LIMIT 1", id);
@@ -847,7 +918,7 @@ export class SystemAuthority extends DurableObject<Env> {
     if (TERMINAL_REALIZATION.includes(String(r.status) as RealizationStatus)) {
       throw new ConflictError("invalid-state", `realization ${input.realizationId} is ${r.status}`);
     }
-    const id = `candidate.${evolutionShort(String(r.evolution_id))}.r${r.n}.${input.commit.slice(0, 7)}`;
+    const id = `candidate.${r.task_plan_id?"task":evolutionShort(String(r.evolution_id))}.r${r.n}.${input.commit.slice(0, 7)}`;
     this.ctx.storage.transactionSync(() => {
       this.sql.exec(
         "INSERT INTO candidates (id, realization_id, commit_hash, manifest_json, changed_paths, changed_nodes, created_at, state) VALUES (?, ?, ?, ?, ?, ?, ?, 'submitted')",
@@ -1175,6 +1246,8 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   async promote(input: PromoteInput): Promise<PromoteResult> {
+    for(const cid of input.candidateIds){const c=this.candidate(cid);if(c&&this.realizationPlanId(c.realization))return {ok:false,code:'invalid-state',message:'Task candidates must promote through their integrated realization plan'};}
+
     try {
       const prep = await this.preparePromotion(input);
       const out = this.promoteTx(input, prep);
@@ -1431,11 +1504,14 @@ export class SystemAuthority extends DurableObject<Env> {
 
   private summaryExtras(s: HeadState): Omit<SystemSummary, "systemId" | "title" | "head" | "genomeRepo" | "appRepo" | "genomeCommit" | "phase" | "evolutionCounts" | "updatedAt"> {
     const builds = this.buildsSummary(s.appSource?.commit);
-    const inStatus = (xs: string[]) => this.count(`SELECT COUNT(*) AS n FROM realizations WHERE status IN (${xs.map(() => "?").join(",")})`, ...xs);
+    // Implementation Tasks are reviewed in Work; only Evolution-owned rows belong to the legacy Review inbox.
+    const inStatus = (xs: string[], includeTasks = false) => this.count(`SELECT COUNT(*) AS n FROM realizations WHERE ${includeTasks ? "" : "task_plan_id IS NULL AND "}status IN (${xs.map(() => "?").join(",")})`, ...xs);
     const realizationCounts = {
-      evolving: inStatus(["claimed", "working", "evaluating"]),
+      evolving: inStatus(["claimed", "working", "evaluating"], true),
       pending: inStatus(["submitted", "evaluated", "selected"]),
       awaitingAdmin: inStatus(["awaiting-admin"]),
+      // "Waiting for you" (the SPA's Review count uses the same set): open app candidates plus Genome amendments.
+      awaitingReview: inStatus(["submitted", "evaluated", "selected", "awaiting-admin"]),
     };
     const openCandidates = this.count(`SELECT COUNT(*) AS n FROM candidates WHERE state IN ('submitted','evaluated','selected')`);
     const evaluatedOpen = this.count(`SELECT COUNT(*) AS n FROM candidates WHERE state IN ('evaluated','selected')`);
@@ -1475,6 +1551,7 @@ export class SystemAuthority extends DurableObject<Env> {
 
   /** Describe-a-change: a new `actionable` Evolution with the next free `evolution.N` id; emits `evolution.created`. */
   createEvolution(input: Omit<EvolutionSeed, "id" | "state">): Evolution {
+    if(input.kind!=='genome-amendment')throw new ConflictError('invalid-state','New Evolutions change only the Genome; use a realization plan for implementation');
     if (!this.state()) throw new ConflictError("not-found", "System not imported");
     return this.ctx.storage.transactionSync(() => {
       let n = 0;
@@ -1490,6 +1567,7 @@ export class SystemAuthority extends DurableObject<Env> {
     });
   }
 
+  setEvolutionAffectedNodes(eid:string,nodes:string[]):Evolution {const r=this.one('SELECT * FROM evolutions WHERE id=?',eid);if(!r)throw new ConflictError('not-found','unknown Evolution');const e=json<EvolutionSeed>(r.scope_json,{} as EvolutionSeed);e.affectedNodes=nodes;this.sql.exec('UPDATE evolutions SET affected_nodes=?,scope_json=? WHERE id=?',JSON.stringify(nodes),JSON.stringify(e),eid);return this.evolution(eid)!;}
   // ---------------------------------------------------------------- end B5 summary
 
   // ---------------------------------------------------------------- B2 changelog
@@ -1512,6 +1590,7 @@ export class SystemAuthority extends DurableObject<Env> {
   }
   proposal(id: string): StoredProposal | null { return this.proposals().get(id); }
   createProposal(proposal: Omit<Proposal, "id">): Proposal { return this.proposals().create(proposal); }
+  stageProposal(id:string,claimedAt:string,approval:NonNullable<Proposal['stagedApproval']>):boolean{return this.proposals().stage(id,claimedAt,approval);}
   reviseProposal(proposal: Proposal, turns: ProposalTurn[]): ReviseResult { return this.proposals().revise(proposal, turns); }
   /** Starts an accept: open → accepting, only while the head Genome is the one the proposal was computed on. */
   claimProposal(id: string): ClaimResult {

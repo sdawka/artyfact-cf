@@ -23,6 +23,8 @@ export interface TreeOp {
   link?: NodeLink;
   /** `add`: the node's criteria. `update`: upserts by id; `{id, remove: true}` deletes one. */
   criteria?: (NodeCriterion | { id: string; remove: true })[];
+  /** `update` only: the node's `files` globs, relative to the nearest `root`; a list replaces them, `null` removes the key. */
+  files?: string[] | null;
 }
 
 export interface FileChange { path: string; content: string | null }
@@ -174,6 +176,8 @@ export function applyOps(files: GenomeFiles, ops: readonly TreeOp[]): ApplyResul
           for (const [k, v] of Object.entries(next)) if (!same(current[k], v)) item.set(k, doc.createNode(v));
         }
         dropIfEmpty(doc, "criteria");
+        if (op.files === null) doc.delete("files");
+        else if (op.files) { setTop(doc, "files", doc.createNode(op.files)); dropIfEmpty(doc, "files"); }
         check(doc, path);
         touch(op.node!);
         break;

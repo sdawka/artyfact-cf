@@ -1,3 +1,6 @@
+import { env } from 'cloudflare:workers';
+import { lifecyclePaths, type RealizationPlan, type TaskStartResponse, type TaskSubmitResponse } from '../shared/lifecycle';
+import { walkTree } from '../worker/artifacts/genome-source';
 /** Hook selection for Evolutions created through the API (they live only in the DO, not in the Genome). */
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { createSystemOne } from "@artyfact/semantic";
@@ -27,32 +30,17 @@ afterEach(() => { setArtifactsOverride(undefined); resetHooks(); });
 const by = (evs: Evaluation[], criterion: string) => evs.filter((e) => e.criterion === criterion);
 const PEOPLE = { "src/ui/people/index.html": "<main>people</main>" };
 
-describe("hook selection: API-created evolutions", () => {
-  it("evaluates the DO Evolution's acceptance criteria: C.webapp.health not-run without a preview, pass once it answers", async () => {
+describe("hook selection: realization plans and legacy evolutions", () => {
+  it("evaluates pinned task check criteria: C.webapp.health not-run without a preview, pass once it answers", async () => {
     const f = await importFresh();
-    const created = await call<CreateEvolutionResponse>("POST", `/systems/${f.systemId}/evolutions`,
-      { title: "Health", intent: "Answer /health", kind: "implementation", affectedNodes: ["screen.people"], acceptanceCriteria: ["C.webapp.health"] }, ADMIN);
-    expect(created.status, JSON.stringify(created.json)).toBe(201);
-    const evo = created.json.evolution.id;
+    const created=await call<RealizationPlan>('POST',lifecyclePaths.plans(f.systemId).replace(/^\/api/,''),{title:'Health',tasks:[{id:'health',title:'Health',artifactId:'artifact.webapp',steps:['Answer health'],dependsOn:[],readNodes:[],writeNodes:['screen.people'],checks:['C.webapp.health']}]},ADMIN);expect(created.status,JSON.stringify(created.json)).toBe(201);
+    const pid=created.json.id,tid='health',started=await call<TaskStartResponse>('POST',lifecyclePaths.action(f.systemId,pid,tid,'claim').replace(/^\/api/,''),{},ADMIN);expect(started.status).toBe(201);const start=started.json,repo=f.ns.repo(start.task.forkRepo),files=await walkTree(repo,start.task.base.commit);for(const [path,text] of Object.entries(PEOPLE))files.set(path,text);const commit=repo.commit(files,'people');
+    const submit=(previewUrl?:string)=>call<TaskSubmitResponse>('POST',lifecyclePaths.action(f.systemId,pid,tid,'submit').replace(/^\/api/,''),{attemptId:start.attempt.id,generation:start.attempt.generation,commit,...(previewUrl&&{previewUrl})},{authorization:`Bearer ${start.secret}`});
+    const first=await submit();expect(first.status,JSON.stringify(first.json)).toBe(201);
+    expect(first.json.evaluations.some(e=>e.criterion.startsWith('C.evolution-missing'))).toBe(false);
+    expect(by(first.json.evaluations,'C.webapp.health')).toEqual([expect.objectContaining({hook:'hook.webapp.health',execution:'not-run',verdict:'unknown',provenance:expect.objectContaining({selectedBy:'acceptance'})})]);expect(fetched).toEqual([]);
+    buildId=commit;const url='https://peopling-app-r1.acct.workers.dev',again=await submit(url);expect(again.status,JSON.stringify(again.json)).toBe(201);expect(fetched).toEqual([`${url}/health`]);expect(by(again.json.evaluations,'C.webapp.health')).toContainEqual(expect.objectContaining({hook:'hook.webapp.health',execution:'completed',verdict:'pass',targetRef:url}));
 
-    const s = await submitApp(f, PEOPLE, evo);
-    // Re-submitting the same commit without a preview returns the stored evaluations without re-running.
-    const first = (await call<SubmitResponse>("POST", `/systems/${f.systemId}/realizations/${s.rid}/submit`, { commit: s.commit })).json.evaluations;
-    expect(first.some((e) => e.criterion.startsWith("C.evolution-missing"))).toBe(false);
-    const health = by(first, "C.webapp.health");
-    expect(health).toHaveLength(1);
-    expect(health[0]).toMatchObject({ hook: "hook.webapp.health", execution: "not-run", verdict: "unknown", provenance: { selectedBy: "acceptance" } });
-    expect(fetched).toEqual([]);
-
-    // The preview arrives (the CI build's url): the hooks re-run and the health check passes on the commit's build id.
-    buildId = s.commit;
-    const url = `https://peopling-app-r${f.forks}.acct.workers.dev`;
-    const again = await call<SubmitResponse>("POST", `/systems/${f.systemId}/realizations/${s.rid}/submit`, { commit: s.commit, previewUrl: url });
-    expect(again.status, JSON.stringify(again.json)).toBeLessThan(300);
-    expect(fetched).toEqual([`${url}/health`]);
-    const passed = by(again.json.evaluations, "C.webapp.health").find((e) => e.execution === "completed");
-    expect(passed).toMatchObject({ hook: "hook.webapp.health", verdict: "pass", targetRef: url });
-    expect(again.json.evaluations.some((e) => e.criterion.startsWith("C.evolution-missing"))).toBe(false);
   });
 
   it("a Genome-declared Evolution selects exactly what it did before", async () => {

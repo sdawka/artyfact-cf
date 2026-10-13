@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-post-realization-plans-pid-promote
+kind: endpoint
+fields:
+  name: Lifecycle post promote
+  description: "Pinned Realization plan and scoped Task lifecycle."
+  route: POST /api/systems/:id/realization-plans/:pid/promote
+  auth: Admin bearer token (ADMIN_TOKEN).

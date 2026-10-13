@@ -69,6 +69,18 @@ function platformRoutes(): Set<string> {
   const out = new Set<string>();
   for (const f of readdirSync(join(worker, "routes"))) {
     const src = readFileSync(join(worker, "routes", f), "utf8");
+    if (f === "lifecycle.ts") {
+      const constants: Record<string, string> = {};
+      const expand = (text: string) => text.replace(/\$\{(\w+)\}/g, (match, name: string) => constants[name] ?? match);
+      for (const match of src.matchAll(/(?:const\s+|,)(prefix|plan|task)\s*=\s*(['"`])([^'"`]+)\2/g)) constants[match[1]!] = expand(match[3]!);
+      const actions = src.match(/for\s*\(const action of \[([^\]]+)\]/)?.[1].match(/['"](\w+)['"]/g)?.map(action => action.slice(1, -1)) ?? [];
+      for (const match of src.matchAll(/\.(get|post|put|patch|delete)\(\s*(?:([\w]+)|`([^`]+)`)/g)) {
+        const route = match[2] ? constants[match[2]] : expand(match[3]!);
+        if (!route) continue;
+        for (const resolved of route.includes('${action}') ? actions.map(action => route.replace('${action}', action)) : [route]) out.add(`${match[1]!.toUpperCase()} /api${resolved}`);
+      }
+      continue;
+    }
     for (const m of src.matchAll(/\.(get|post|put|patch|delete)\(\s*"([^"]+)"/g)) out.add(`${m[1]!.toUpperCase()} /api${m[2]}`);
     for (const m of src.matchAll(/app\.(get|post|put|patch|delete)\(\s*(?:prefix\b|`\$\{prefix\}([^`]*)`)/g)) {
       out.add(`${m[1]!.toUpperCase()} /api/systems/:id/realizations/:rid${m[2] ?? ""}`);

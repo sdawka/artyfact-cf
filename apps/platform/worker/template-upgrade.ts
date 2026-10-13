@@ -1,3 +1,6 @@
+import { startLifecycleTask, submitLifecycleTask } from './lifecycle-service';
+import { pushCommit } from './git/push';
+import { remoteUrl } from './artifacts/client';
 /**
  * App template upgrades: bring later changes of a Thing template's scaffold into an existing app repo. The plan compares
  * git blob ids of the current scaffold, the app at a ref and the app's `.artyfact/template.json` lock (what the
@@ -8,14 +11,14 @@ import { isSecretFile, neverStaged } from "@artyfact/cli/ignore";
 import { PLATFORM_REPO, isName, platformTemplateDir } from "@artyfact/cli/naming";
 import { parse as parseYaml } from "yaml";
 import type {
-  StartWorkRequest, TemplateLock, TemplateUpgradeFile, TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse,
+  TemplateLock, TemplateUpgradeFile, TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse,
 } from "../shared/api";
 import { artifactsErrorCode, artifactsFor, withRepo, type ArtifactsRepoLike, type TreeEntry } from "./artifacts/client";
 import { listTree } from "./artifacts/genome-source";
 import { resolveRef } from "./compare";
-import { commitEdit, MAX_CHANGES, sniffBinary } from "./editor";
+import { gitTransport, MAX_CHANGES, sniffBinary } from "./editor";
 import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
-import { appThing, createEvolution, genomeAt, startWork, systemStub } from "./service";
+import { appThing, genomeAt, systemStub } from "./service";
 
 export const LOCK_PATH = ".artyfact/template.json";
 export const UPGRADE_AGENT = "human:template-upgrade";
@@ -263,17 +266,15 @@ export async function applyTemplateUpgrade(env: Env, systemId: string, body: Rec
     `Records the template's files in ${LOCK_PATH}.`,
   ].join("\n");
 
-  const { evolution } = await createEvolution(env, systemId, { title: `Upgrade app template to ${short}`, intent, kind: "implementation" });
-  const start: StartWorkRequest = { agentLabel: UPGRADE_AGENT, target: "app", role: "author", origin: "editor" };
-  const started = await startWork(env, systemId, evolution.id, start, platformUrl);
-  let committed;
+  const stub=systemStub(env,systemId),state=await stub.state();if(!state?.manifest)throw notFound('System has no accepted Genome');
+  const binding=Object.entries(state.manifest.artifacts).find(([,b])=>b.repo===plan.app.repo&&b.commit===plan.app.commit);if(!binding)throw conflict('stale-base','app source moved since the template upgrade was reviewed');
+  const [artifactId,source]=binding,g=await genomeAt(env,systemId,state.genomeCommit,state.genomeSource),thing=appThing(g.model);
+  const taskId='template-upgrade',title=`Upgrade app template to ${short}`,checks=g.model.criteria.filter(c=>c.targetKind==='artifact'||c.targetKind==='runtime').map(c=>c.id);
+  const realizationPlan=await stub.createRealizationPlan({title,genomeCommit:state.genomeCommit,expectedHead:state.head,tasks:[{id:taskId,title,artifactId,steps:[intent],dependsOn:[],readNodes:[],writeNodes:thing?[thing.id]:[g.model.system.id],checks,footprint:{repo:source.repo,artifactId,globs:changes.map(c=>c.path),paths:changes.map(c=>c.path),unmatched:[],known:true}}]});
+  const started=await startLifecycleTask(env,systemId,realizationPlan.id,taskId,{agentLabel:UPGRADE_AGENT},platformUrl);
   try {
-    committed = await commitEdit(env, systemId, started.realization.id, {
-      message: `Upgrade app template to ${plan.template}@${short}`, why: intent, changes, expectedHead: plan.app.commit,
-    }, "admin");
-  } catch (e) {
-    if (e instanceof HttpError) e.message = `${e.message} (evolution ${evolution.id}, realization ${started.realization.id} were created)`;
-    throw e;
-  }
-  return { evolution, realization: committed.submitted.realization, candidate: committed.submitted.candidate, plan };
+    const pushed=await withRepo(artifactsFor(env),started.task.forkRepo,r=>pushCommit({repo:r,remote:remoteUrl(env,started.task.forkRepo,started.remote),token:started.token.value,parent:started.task.base.commit,changes,...gitTransport(),author:{name:'template-upgrade',email:'template-upgrade@artyfact.local'},message:`Upgrade app template to ${plan.template}@${short}`}));
+    const submitted=await submitLifecycleTask(env,systemId,realizationPlan.id,taskId,{attemptId:started.attempt.id,generation:started.attempt.generation,commit:pushed.commit});
+    return {realizationPlan:submitted.plan,task:submitted.task,realization:(await stub.realization(started.attempt.realizationId))!.realization,candidate:submitted.candidate,plan};
+  }catch(e){if(e instanceof HttpError)e.message=`${e.message} (realization plan ${realizationPlan.id}, task ${taskId} were created)`;throw e;}
 }

@@ -11,7 +11,7 @@ export function ModelContent({ explorerHtml }: ModelContentProps) {
       <h1>Ontology Driven Development</h1>
       <p>Code repositories and delivery pipelines hold files, versions, builds and deployments. A semantic layer connects that work to its purpose, subjects, relationships and evidence. This page belongs to the model it explains.</p>
       <p>A System holds one or more Things you want to make. You choose their boundaries and connect their subjects within a typed model.</p>
-    <nav className="model-story-jumps" aria-label="On this page"><a href="#benefits">Why a semantic layer</a><a href="#meta-ontology">Artyfact’s meta ontology</a></nav>
+    <nav className="model-story-jumps" aria-label="On this page"><a href="#benefits">Why a semantic layer</a><a href="#lifecycle">From intent to evidence</a><a href="#meta-ontology">Artyfact’s meta ontology</a></nav>
     </section>
     <section className="model-cloudflare" aria-labelledby="model-cloudflare-heading">
       <div><h2 id="model-cloudflare-heading">The model meets Cloudflare.</h2><p>Things and Parts can correspond to one or more artifacts, including compositions. The model connects those artifacts to their purpose.</p></div>
@@ -28,6 +28,18 @@ export function ModelContent({ explorerHtml }: ModelContentProps) {
         <article><details><summary><strong>Share constraints</strong><span>Plan and check against shared expectations.</span></summary><p>Attach criteria to the subjects they assess and reuse modeled rules across work. People and agents can refer to the same expectations when planning and checking changes.</p></details></article>
         <article><details><summary><strong>Trace evidence</strong><span>See what was checked and what is missing.</span></summary><p>Associate checks and observations with the subjects and versions they assess. See what was tested, what was observed and where evidence is still missing.</p></details></article>
       </div>
+    </section>
+
+    <section id="lifecycle" className="section model-lifecycle" aria-labelledby="lifecycle-heading" tabIndex={-1}>
+      <div className="section-heading"><h2 id="lifecycle-heading">From intent to evidence.</h2><p>Start with the model of your System. Agree on its changes, realize the accepted shape, then inspect what runs. Open a step for the details.</p></div>
+      <ol className="model-lifecycle-steps">
+        <li><details><summary><strong>Start a System</strong><span>Bring an ontology, or create one with your agent.</span></summary><p>Import a native ontology package, use a bundled starting point, or ask an agent to translate existing material into a package for review. Your domain can define its own kinds and relationships; optional packs add shared conventions.</p></details></li>
+        <li><details><summary><strong>Connect intention to implementation</strong><span>Map subjects to their artifacts, files and folders.</span></summary><p>The Genome gives subjects names, relationships and criteria. Explicit artifact bindings and source mappings connect those subjects to implementation. An unmapped subject remains visible as missing context.</p></details></li>
+        <li><details><summary><strong>Review an Evolution</strong><span>Agree on the intended change before implementation.</span></summary><p>Ask your agent for a change and follow its link to a reviewable Evolution. Begin with the purpose and affected subjects, then inspect individual nodes and their proposed changes. An Evolution changes the Genome. Accepting it records a new Genome revision.</p></details></li>
+        <li><details><summary><strong>Plan a Realization</strong><span>Give one or more agents scoped Tasks.</span></summary><p>A Realization pins an accepted Genome revision and breaks its implementation into Tasks. Each Task names its subjects, read and write scopes, target artifact, dependencies and steps. Scope analysis identifies work that can proceed independently; uncertain or overlapping work needs coordination. Each Task has its own Git fork, with one active writing attempt.</p></details></li>
+        <li><details><summary><strong>Review the implementation together</strong><span>Integrate selected Task results into one review.</span></summary><p>Agents checkpoint their work and submit exact candidates. Select results, resolve integration conflicts and review the combined implementation against its accepted Genome. Promoting this implementation is a separate approval from accepting the Evolution. Deployment is a separate action.</p></details></li>
+        <li><details><summary><strong>Observe the Phenome</strong><span>Start with deployments, metrics and operational controls.</span></summary><p>The base layer connects deployments, Cloudflare runtime metrics, custom measurements and feature flags. Changing a flag is an operational action. An optional outcomes pack describes events, expected effects and assays in the Genome, so Tasks can implement instrumentation and evidence can be evaluated against those expectations. A deployment or a metric alone does not prove an intended outcome.</p></details></li>
+      </ol>
     </section>
 
     <section id="meta-ontology" className="section model-story-shape" aria-labelledby="meta-ontology-heading" tabIndex={-1}>

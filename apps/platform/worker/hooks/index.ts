@@ -1,3 +1,4 @@
+import type { TemplateStore } from '@artyfact/model';
 /**
  * Hook wiring: the real runner (./run) and queue consumer (./queue). Tests swap them with `setHooks`.
  * `noopHookRunner` is kept for tests and as a building block.
@@ -22,8 +23,8 @@ export const noopHookRunner: HookRunner = {
 export const ackAllQueue: QueueEntry = async (batch) => { batch.ackAll(); };
 
 /** The default runner: System One reads its secrets and the preview policy reads its allowlist, both from the Worker env. */
-export const defaultHookRunner = (env: Env, make: typeof createHookRunner = createHookRunner): HookRunner =>
-  make({ s1Env: env, previewEnv: env });
+export const defaultHookRunner = (env: Env, make: typeof createHookRunner = createHookRunner, templates?:TemplateStore): HookRunner =>
+  make({ s1Env: env, previewEnv: env, ...(templates&&{genome:{templates}}) });
 const realRunner: HookRunnerFactory = (env) => defaultHookRunner(env);
 // Built lazily: service.ts imports this module, so `queueContextFor` is only safe to read at call time.
 const realQueue: QueueEntry = (batch, env) => createQueueHandler(queueContextFor)(batch, env);
@@ -31,7 +32,7 @@ const realQueue: QueueEntry = (batch, env) => createQueueHandler(queueContextFor
 const defaults = { runner: realRunner, queue: realQueue };
 let current = { ...defaults };
 
-export const hookRunner = (env: Env): HookRunner => current.runner(env);
+export const hookRunner = (env: Env, templates?:TemplateStore): HookRunner => current.runner===realRunner ? defaultHookRunner(env,createHookRunner,templates) : current.runner(env);
 export const queueEntry: QueueEntry = (batch, env) => current.queue(batch, env);
 
 /** Tests swap implementations here. */

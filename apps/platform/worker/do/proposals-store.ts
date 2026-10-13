@@ -126,6 +126,10 @@ export class ProposalsStore {
     ).toArray().length > 0;
   }
 
+  stage(id:string,claimedAt:string,approval:NonNullable<Proposal['stagedApproval']>):boolean {
+    return this.sql.exec("UPDATE proposals SET json=json_set(json,'$.stagedApproval',json(?)),updated_at=? WHERE id=? AND status='accepting' AND claimed_at=?",JSON.stringify(approval),nowIso(),id,claimedAt).rowsWritten>0;
+  }
+
   /**
    * A pushed accept: `accepted`, with what it produced, and `error` when something after the push failed (the commit
    * stands, so the proposal must not reopen). Null unless `claimedAt` still holds the row.

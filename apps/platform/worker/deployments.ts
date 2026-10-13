@@ -81,15 +81,17 @@ export const productionWorkerName = (systemId: string) => workerName(systemId, "
 
 interface AppInfo { thingId: string; artifactId: string; commands: CiBuildParams["commands"] }
 
-async function modelAt(env: Env, s: HeadState, genomeCommit: string) {
+async function modelAt(env: Env, s: HeadState, genomeCommit: string, pinnedRepo?: string) {
   let last: unknown;
-  for (const repo of new Set([s.genomeSource, s.genomeRepo])) {
+  for (const repo of new Set([...(pinnedRepo ? [pinnedRepo] : []), s.genomeSource, s.genomeRepo])) {
     try { return (await genomeAt(env, s.systemId, genomeCommit, repo)).model; } catch (e) { last = e; }
   }
   throw last;
 }
 
 async function realizationGenomeCommit(stub: ReturnType<typeof systemStub>, rec: RealizationRecord): Promise<string | undefined> {
+  const pinned = await stub.realizationPinnedGenome(rec.realization.id);
+  if (pinned) return pinned.commit;
   const baseHead = rec.realization.baseRevision;
   if (baseHead) {
     const base = await stub.systemCommit(baseHead);
@@ -98,8 +100,8 @@ async function realizationGenomeCommit(stub: ReturnType<typeof systemStub>, rec:
   return undefined;
 }
 
-async function appBinding(env: Env, s: HeadState, genomeCommit = s.genomeCommit, artifactId?: string): Promise<{ thingId: string; artifactId: string }> {
-  const m = await modelAt(env, s, genomeCommit);
+async function appBinding(env: Env, s: HeadState, genomeCommit = s.genomeCommit, artifactId?: string, pinnedRepo?: string): Promise<{ thingId: string; artifactId: string }> {
+  const m = await modelAt(env, s, genomeCommit, pinnedRepo);
   const matches = m.things.flatMap((thing) => thing.artifacts
     .filter((artifact) => artifactId ? artifact.artifact === artifactId : artifact.type === "worker-fullstack")
     .map((artifact) => ({ thingId: thing.id, artifactId: artifact.artifact })));
@@ -110,12 +112,12 @@ async function appBinding(env: Env, s: HeadState, genomeCommit = s.genomeCommit,
 }
 
 /** The app Thing, its worker-fullstack artifact and the CI commands from its template's `scaffold.yaml`. */
-async function appInfo(env: Env, s: HeadState, genomeCommit = s.genomeCommit): Promise<AppInfo> {
+async function appInfo(env: Env, s: HeadState, genomeCommit = s.genomeCommit, artifactId?: string, pinnedRepo?: string): Promise<AppInfo> {
   const fallback: AppInfo = { thingId: "unknown", artifactId: "artifact.webapp", commands: { install: "npm install", test: "npm test", deploy: "npx wrangler deploy" } };
   try {
-    const m = await modelAt(env, s, genomeCommit);
-    const thing = appThing(m);
-    const artifact = thing?.artifacts.find((a) => a.type === "worker-fullstack");
+    const m = await modelAt(env, s, genomeCommit, pinnedRepo);
+    const thing = artifactId ? m.things.find(t => t.artifacts.some(a => a.artifact === artifactId)) : appThing(m);
+    const artifact = thing?.artifacts.find((a) => artifactId ? a.artifact === artifactId : a.type === "worker-fullstack");
     const text = thing?.templateRef ? templateFile(thing.templateRef, "scaffold.yaml") : undefined;
     const cmds = (text ? (parseYaml(text) as { commands?: Record<string, unknown> })?.commands : undefined) ?? {};
     const pick = (k: string) => (typeof cmds[k] === "string" && (cmds[k] as string).trim() ? (cmds[k] as string).trim() : undefined);
@@ -183,15 +185,17 @@ export async function dispatchPreviewBuild(env: Env, s: HeadState, rec: Realizat
     if (existing) return buildSummary(existing);
     const genomeCommit = await realizationGenomeCommit(stub, rec);
     if (!genomeCommit) throw new Error(`the Genome lineage of ${rid} is unknown`);
-    const app = await appInfo(env, s, genomeCommit);
-    const binding = await appBinding(env, s, genomeCommit);
+    const pinned = await stub.realizationPinnedGenome(rid);
+    const artifactId = await stub.realizationBindingId(rid);
+    const app = await appInfo(env, s, genomeCommit, artifactId ?? undefined, pinned?.repo);
+    const binding = await appBinding(env, s, genomeCommit, artifactId ?? undefined, pinned?.repo);
     const ingest = await mintIngestToken();
     await stub.upsertBuild({
       id: buildId, realization: rid, candidate: candidate.id, commit: candidate.commit, kind: "preview", status: "queued", reporter: "ci",
       sourceRepo: rec.forkRepo, genomeCommit, thingId: binding.thingId, artifactId: binding.artifactId,
     });
     const deployment = await stub.createDeployment({
-      kind: "preview", repo: rec.forkRepo, commit: candidate.commit, realization: rid, buildRow: buildId, by: "ci", ingestTokenHash: ingest.hash,
+      kind: "preview", artifactId: binding.artifactId, repo: rec.forkRepo, commit: candidate.commit, realization: rid, buildRow: buildId, by: "ci", ingestTokenHash: ingest.hash,
     });
     return await startCi(env, ci, {
       buildId, systemId: s.systemId, realizationId: rid, candidateId: candidate.id, namespace: env.ARTIFACTS_NAMESPACE, repo: rec.forkRepo,
@@ -225,27 +229,29 @@ export async function requestProductionDeploy(
   try {
     const ingest = await mintIngestToken();
     const deployment = await stub.createDeployment({
-      kind: "production", repo: app.repo, commit: app.commit, systemCommit: commit.id, ...(realization && { realization }), by: "admin", ingestTokenHash: ingest.hash,
+      kind: "production", artifactId, repo: app.repo, commit: app.commit, systemCommit: commit.id, ...(realization && { realization }), by: "admin", ingestTokenHash: ingest.hash,
     });
     const ci = ciFor(env);
     if (!ci) return deployment;
     const s = await stub.state();
     if (!s) return deployment;
-    const info = await appInfo(env, s);
-    const binding = await appBinding(env, s, commit.composition?.genomeCommit ?? s.genomeCommit, artifactId);
+    const genomeCommit = app.realizedGenome ?? commit.composition?.genomeCommit ?? s.genomeCommit;
+    const info = await appInfo(env, s, genomeCommit, artifactId);
+    const binding = await appBinding(env, s, genomeCommit, artifactId);
+    const scriptName = Object.keys(commit.composition?.artifacts ?? {}).length === 1 ? productionWorkerName(systemId) : workerName(systemId, `-app-${(await sha256Hex(artifactId)).slice(0, 8)}`);
     const buildId = `build.${deployment.id}`;
     await stub.upsertBuild({
       id: buildId, realization: null, candidate: null, commit: app.commit, kind: "production", status: "queued", reporter: "ci",
-      sourceRepo: app.repo, genomeCommit: commit.composition?.genomeCommit ?? s.genomeCommit, thingId: binding.thingId, artifactId: binding.artifactId,
+      sourceRepo: app.repo, genomeCommit, thingId: binding.thingId, artifactId: binding.artifactId,
     });
     await stub.setDeploymentResult(deployment.id, { buildRow: buildId });
     await startCi(env, ci, {
       buildId, systemId, realizationId: null, candidateId: null, namespace: env.ARTIFACTS_NAMESPACE, repo: app.repo, commit: app.commit,
-      kind: "production", workerName: productionWorkerName(systemId), thingId: binding.thingId, artifactId: binding.artifactId,
-      genomeCommit: commit.composition?.genomeCommit ?? s.genomeCommit,
+      kind: "production", workerName: scriptName, thingId: binding.thingId, artifactId: binding.artifactId,
+      genomeCommit,
       vars: {
-        BUILD_ID: app.commit, ARTYFACT_PLATFORM_URL: platformUrl(env), ARTYFACT_SYSTEM_ID: systemId, ARTYFACT_THING_ID: info.thingId,
-        ARTYFACT_ARTIFACT_ID: info.artifactId, ARTYFACT_SYSTEM_COMMIT: commit.id, ARTYFACT_DEPLOYMENT_ID: deployment.id, ARTYFACT_INGEST_TOKEN: ingest.token,
+        BUILD_ID: app.commit, ARTYFACT_PLATFORM_URL: platformUrl(env), ARTYFACT_SYSTEM_ID: systemId, ARTYFACT_THING_ID: binding.thingId,
+        ARTYFACT_ARTIFACT_ID: binding.artifactId, ARTYFACT_SYSTEM_COMMIT: commit.id, ARTYFACT_DEPLOYMENT_ID: deployment.id, ARTYFACT_INGEST_TOKEN: ingest.token,
       },
       commands: info.commands,
       reportUrl: `${platformUrl(env)}/api/systems/${encodeURIComponent(systemId)}/builds`,
@@ -349,8 +355,10 @@ export async function reportBuild(env: Env, systemId: string, rid: string | null
   // app commit. Anything else was never promoted, so it cannot become the System's live deployment.
   let pending: Deployment | null = null;
   if (!deployment && kind === "production" && r.status === "passed") {
-    pending = (await stub.deployments({ kind: "production" })).find((d) => d.status === "pending" && d.commit === r.commit) ?? null;
-    if (!pending && state.appSource?.commit !== r.commit) {
+    const matches = (await stub.deployments({ kind: "production" })).filter(d => d.status === "pending" && d.commit === r.commit && (!prev?.source || d.repo === prev.source.repo) && (!prev?.artifactId || !d.artifactId || d.artifactId === prev.artifactId));
+    if (matches.length > 1) throw conflict("artifact-binding-required", "name the exact production deployment for this build report");
+    pending = matches[0] ?? null;
+    if (!pending && !Object.values(state.manifest?.artifacts ?? {}).some(a => a.commit === r.commit)) {
       throw conflict("not-promoted", `commit ${r.commit.slice(0, 12)} is not the System's app commit and has no pending production deployment`);
     }
   }
@@ -361,17 +369,23 @@ export async function reportBuild(env: Env, systemId: string, rid: string | null
     sourceRepo = rec.forkRepo;
     genomeCommit = await realizationGenomeCommit(stub, rec);
     if (genomeCommit) {
-      try { ({ thingId, artifactId } = await appBinding(env, state, genomeCommit)); } catch { /* legacy report remains unknown unless it claims output */ }
+      try { const pin = await stub.realizationPinnedGenome(rec.realization.id); const bindingId = await stub.realizationBindingId(rec.realization.id); ({ thingId, artifactId } = await appBinding(env, state, genomeCommit, bindingId ?? undefined, pin?.repo)); } catch { /* legacy report remains unknown unless it claims output */ }
     }
   } else if (!rec) {
     const lineageDeployment = deployment ?? pending;
-    sourceRepo = lineageDeployment?.repo ?? (state.appSource?.commit === r.commit ? state.appSource.repo : undefined);
+    sourceRepo = lineageDeployment?.repo;
     let artifactHint: string | undefined;
     if (lineageDeployment?.systemCommit) {
       const sc = await stub.systemCommit(lineageDeployment.systemCommit);
-      genomeCommit = sc?.composition?.genomeCommit;
-      artifactHint = Object.entries(sc?.composition?.artifacts ?? {}).find(([, a]) => a.repo === sourceRepo && a.commit === r.commit)?.[0];
-    } else if (state.appSource?.commit === r.commit) genomeCommit = state.genomeCommit;
+      const matches = Object.entries(sc?.composition?.artifacts ?? {}).filter(([id, a]) => a.repo === sourceRepo && a.commit === r.commit && (!lineageDeployment.artifactId || id === lineageDeployment.artifactId));
+      if (matches.length > 1) throw conflict("artifact-binding-required", "the deployment source matches more than one artifact binding");
+      artifactHint = matches[0]?.[0];
+      genomeCommit = matches[0]?.[1].realizedGenome ?? sc?.composition?.genomeCommit;
+    } else {
+      const matches = Object.entries(state.manifest?.artifacts ?? {}).filter(([id, a]) => a.commit === r.commit && (!sourceRepo || a.repo === sourceRepo) && (!lineageDeployment?.artifactId || id === lineageDeployment.artifactId));
+      if (matches.length > 1) throw conflict("artifact-binding-required", "the reported source matches more than one artifact binding");
+      if (matches[0]) { artifactHint = matches[0][0]; sourceRepo = matches[0][1].repo; genomeCommit = matches[0][1].realizedGenome ?? state.genomeCommit; }
+    }
     if (genomeCommit) {
       try { ({ thingId, artifactId } = await appBinding(env, state, genomeCommit, artifactHint)); } catch { /* legacy report remains unknown unless it claims output */ }
     }
@@ -401,8 +415,8 @@ export async function reportBuild(env: Env, systemId: string, rid: string | null
   if (!deployment && kind === "production" && build.status === "passed") {
     deployment = pending;
     if (!deployment) {
-      if (!state.appSource) throw conflict("no-app-source", "the System has no source artifact to deploy");
-      deployment = await stub.createDeployment({ kind: "production", repo: state.appSource.repo, commit: r.commit, by: reporter, buildRow: id });
+      if (!sourceRepo) throw conflict("no-app-source", "the System has no unambiguous source artifact to deploy");
+      deployment = await stub.createDeployment({ kind: "production", ...(artifactId && { artifactId }), repo: sourceRepo, commit: r.commit, by: reporter, buildRow: id });
     }
   }
   if (deployment) {
@@ -441,7 +455,7 @@ export async function deploymentsView(env: Env, systemId: string): Promise<Deplo
  * here only; the platform keeps its hash.
  */
 export async function createDeployment(env: Env, systemId: string, body: unknown): Promise<DeploymentCreated> {
-  const b = (body ?? {}) as DeploymentRequest & { url?: unknown };
+  const b = (body ?? {}) as DeploymentRequest & { url?: unknown; artifactId?: unknown };
   const stub = systemStub(env, systemId);
   const s = await stub.state();
   if (!s) throw notFound(`system ${systemId} is not imported`);
@@ -453,24 +467,34 @@ export async function createDeployment(env: Env, systemId: string, body: unknown
   if (b.outputId !== undefined && (typeof b.outputId !== "string" || !b.outputId.trim())) throw badRequest("outputId must be a non-empty string");
   const output = b.outputId ? await stub.realizedArtifact(b.outputId) : null;
   if (b.outputId && !output) throw notFound(`unknown realized output ${b.outputId}`);
-  const commit = b.commit ?? output?.source.commit ?? (kind === "production" && !rec ? s.appSource?.commit : undefined);
+  if (b.artifactId !== undefined && (typeof b.artifactId !== "string" || !Object.hasOwn(s.manifest?.artifacts ?? {}, b.artifactId))) throw badRequest("artifactId must identify a bound System artifact");
+  const pinnedBinding = rec ? await stub.realizationBindingId(rec.realization.id) : null;
+  if (pinnedBinding && b.artifactId !== undefined && b.artifactId !== pinnedBinding) throw conflict("artifact-binding-mismatch", "Task attempt belongs to a different artifact binding");
+  const bindingId = pinnedBinding ?? (typeof b.artifactId === "string" ? b.artifactId : output?.artifactId);
+  const bindings = Object.entries(s.manifest?.artifacts ?? {});
+  const byCommit = b.commit ? bindings.filter(([, a]) => a.commit === b.commit) : [];
+  const selected = bindingId ? bindings.find(([id]) => id === bindingId) : bindings.length === 1 ? bindings[0] : byCommit.length === 1 ? byCommit[0] : undefined;
+  if (output && bindingId && output.artifactId !== bindingId) throw conflict("output-artifact-mismatch", "realized output belongs to a different artifact binding");
+  if (!rec && !selected) throw conflict("artifact-binding-required", "select an artifact binding for this deployment");
+  const commit = b.commit ?? output?.source.commit ?? (kind === "production" && !rec ? selected?.[1].commit : undefined);
   if (typeof commit !== "string" || !COMMIT_RE.test(commit)) throw badRequest("commit must be a 40-character hex sha");
   if (b.url !== undefined && !HTTP_URL(b.url)) throw badRequest("url must be an http(s) URL");
   const url = HTTP_URL(b.url) ? b.url : undefined;
-  const repo = rec ? rec.forkRepo : output ? s.appSource?.repo ?? s.appRepo : s.appSource?.commit === commit ? s.appSource.repo : s.appRepo;
+  const repo = rec ? rec.forkRepo : selected![1].repo;
   if (output && (output.source.repo !== repo || output.source.commit !== commit)) throw conflict("output-source-mismatch", "realized output source does not match the deployment repository and commit");
   const build = output ? await stub.build(output.build) : null;
   if (output && (!build || build.status !== "passed" || build.commit !== commit || build.source?.repo !== repo)) throw conflict("output-build-mismatch", "realized output does not have a matching passed build");
   const lineage = output ? { realizedArtifactId: output.id, buildRow: output.build, ...(build?.buildId && { buildId: build.buildId }) } : { buildId: commit };
+  const scopeArtifactId = pinnedBinding ?? selected?.[0] ?? output?.artifactId;
   const ingest = await mintIngestToken();
-  const pending = !output && (await stub.deployments({ kind })).find((d) => d.status === "pending" && d.commit === commit && (!rec || d.realization === rec.realization.id));
+  const pending = !output && (await stub.deployments({ kind })).find((d) => d.status === "pending" && d.repo === repo && d.commit === commit && (!d.artifactId || d.artifactId === scopeArtifactId) && (!rec || d.realization === rec.realization.id));
   let deployment: Deployment | null;
   if (pending) {
     await stub.setDeploymentIngestHash(pending.id, ingest.hash);
     deployment = await stub.setDeploymentResult(pending.id, { status: "live", ...(url && { url }), buildId: commit });
   } else {
     deployment = await stub.createDeployment({
-      kind, status: "live", repo, commit, ...(rec && { realization: rec.realization.id }), ...(url && { url }), ...lineage, by: "admin", ingestTokenHash: ingest.hash,
+      kind, status: "live", ...(scopeArtifactId && { artifactId: scopeArtifactId }), repo, commit, ...(rec && { realization: rec.realization.id }), ...(url && { url }), ...lineage, by: "admin", ingestTokenHash: ingest.hash,
     });
   }
   await refreshRegistry(env, systemId);

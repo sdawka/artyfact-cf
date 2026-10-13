@@ -72,7 +72,7 @@ describe("App template card", () => {
     const posts: { body: unknown; auth: string | null }[] = [];
     stubApi(PLAN, (body, auth) => {
       posts.push({ body, auth });
-      return json(201, { evolution: { id: "evolution.ev-7" }, realization: { id: "realization.12" }, candidate: { id: "candidate.12.r1" }, plan: PLAN });
+      return json(201, { realizationPlan: { id: "plan.upgrade" }, task: { id: "task.upgrade" }, realization: { id: "realization.12" }, candidate: { id: "candidate.12.r1" }, plan: PLAN });
     });
     const { router } = renderApp(OVERVIEW, undefined, apiSeed);
     const card = await screen.findByRole("region", { name: "App template" });
@@ -100,7 +100,8 @@ describe("App template card", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`/s/${SYSTEM}/r/head/work`));
     expect(posts).toEqual([{ body: { include: ["src/index.ts"] }, auth: "Bearer adm_x" }]);
     const params = new URLSearchParams(router.state.location.search);
-    expect([params.get("evolution"), params.get("realization")]).toEqual(["evolution.ev-7", "realization.12"]);
+    expect(params.get("plan")).toBe("plan.upgrade");
+    expect(params.get("evolution")).toBeNull();
   });
 
   it("says plainly when the admin token is refused", async () => {

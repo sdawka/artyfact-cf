@@ -51,3 +51,7 @@ Lead the public `/model` page with Ontology Driven Development and the benefits 
 ## 2026-10-13T12:27:43-04:00 — Self-referential public model
 
 Use the model page itself for its deep ontology example: explaining Artyfact is its purpose, and its explanation component has accuracy, clarity and compelling-visual criteria. Make these real canonical Genome subjects and criteria, with declared expectations distinct from observed success. Explain early how Things and Parts can correspond to single or composite Cloudflare artifacts and realizations without a fixed one-to-one mapping. This supersedes the illustrative scoped-change example.
+
+## 2026-10-13T15:54:28-04:00 — Genome evolution and realization lifecycle
+
+Evolution applies only to Genome changes. Accept the Genome revision first, then realize it through a separate implementation plan containing scoped Tasks and agent attempts, with one integrated implementation review. The local agent harness runs agents; Artyfact owns plans, dependencies, branches, review and evidence. Domain ontologies stay open through native imports or reviewed agent conversion, with the richer events/effects/assays model in optional packs. Base Phenome includes deployments, runtime/custom metrics and Cloudflare feature flags; live flag configuration is operational state. The public explanation must convey this complete journey.

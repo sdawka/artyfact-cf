@@ -169,29 +169,26 @@ describe("POST /api/systems/:id/evolutions", () => {
     const res = await call<CreateEvolutionResponse>("POST", `/systems/${f.systemId}/evolutions`,
       { title: "Birthday reminders", intent: "Remind owners of birthdays", affectedNodes: ["screen.people"], risk: "low" }, ADMIN);
     expect(res.status, JSON.stringify(res.json)).toBe(201);
-    expect(res.json.evolution).toMatchObject({ title: "Birthday reminders", state: "actionable", kind: "implementation", risk: "low", affectedNodes: ["screen.people"] });
+    expect(res.json.evolution).toMatchObject({ title: "Birthday reminders", state: "actionable", kind: "genome-amendment", risk: "low", affectedNodes: ["screen.people"] });
     expect(res.json.evolution.id).toMatch(/^evolution\.\d+$/);
     expect((await sse.next("evolution.created", mark)).evolution.id).toBe(res.json.evolution.id);
     const work = await call<{ evolutions: Evolution[] }>("GET", `/systems/${f.systemId}/work`);
     expect(work.json.evolutions.map((e) => e.id)).toContain(res.json.evolution.id);
-    // Work can start on it.
-    const start = await call<StartWorkResponse>("POST", `/systems/${f.systemId}/evolutions/${res.json.evolution.id}/realizations`, {});
+    // Only Genome work can start on a newly created Evolution.
+    const start = await call<StartWorkResponse>("POST", `/systems/${f.systemId}/evolutions/${res.json.evolution.id}/realizations`, { target: "genome" });
     expect(start.status, JSON.stringify(start.json)).toBe(201);
     await sse.close();
   });
 
-  it("defaults absent acceptance criteria to the System's criteria matching the Evolution's target", async () => {
+  it("defaults new Evolutions to Genome criteria and rejects legacy creation kinds", async () => {
     const f = await importFresh();
-    const create = async (kind: string) => (await call<CreateEvolutionResponse>("POST", `/systems/${f.systemId}/evolutions`, { title: "t", intent: "i", kind }, ADMIN)).json.evolution;
-    const app = await create("implementation");
-    expect(app.acceptanceCriteria).toContain("C.people.list");
-    expect(app.acceptanceCriteria).not.toContain("C.system.promotion");
-    // C.thing.webapp.checks is the webapp template's model criterion (checks@1 on changed nodes).
-    expect((await create("genome-amendment")).acceptanceCriteria).toEqual(["C.system.promotion", "C.thing.webapp.checks"]);
-    // An unknown target (no kind, or mixed) keeps only model criteria: app ones could never pass on a Genome candidate.
-    expect((await create("mixed")).acceptanceCriteria).toEqual(["C.system.promotion", "C.thing.webapp.checks"]);
-    const unknown = await call<CreateEvolutionResponse>("POST", `/systems/${f.systemId}/evolutions`, { title: "t", intent: "i" }, ADMIN);
-    expect(unknown.json.evolution).toMatchObject({ kind: "implementation", acceptanceCriteria: ["C.system.promotion", "C.thing.webapp.checks"] });
+    const create = (kind?: string) => call<CreateEvolutionResponse>("POST", `/systems/${f.systemId}/evolutions`, { title: "t", intent: "i", ...(kind && { kind }) }, ADMIN);
+    for (const kind of ["implementation", "mixed"]) expect((await create(kind)).status).toBe(400);
+    for (const kind of [undefined, "genome-amendment"]) {
+      const res = await create(kind);
+      expect(res.status).toBe(201);
+      expect(res.json.evolution).toMatchObject({ kind: "genome-amendment", acceptanceCriteria: ["C.system.promotion", "C.thing.webapp.checks"] });
+    }
     const explicit = await call<CreateEvolutionResponse>("POST", `/systems/${f.systemId}/evolutions`, { title: "t", intent: "i", acceptanceCriteria: [] }, ADMIN);
     expect(explicit.json.evolution.acceptanceCriteria).toEqual([]);
   });

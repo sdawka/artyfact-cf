@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-get-realization-plans-pid-tasks-tid
+kind: endpoint
+fields:
+  name: Lifecycle get tid
+  description: "Pinned Realization plan and scoped Task lifecycle."
+  route: GET /api/systems/:id/realization-plans/:pid/tasks/:tid
+  auth: Scoped Task secret or admin token.

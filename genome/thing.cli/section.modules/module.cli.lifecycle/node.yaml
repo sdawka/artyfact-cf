@@ -1,0 +1,11 @@
+id: module.cli.lifecycle
+kind: module
+fields:
+  name: Scoped lifecycle commands
+  description: Hands off Tasks to local agents and returns durable ontology, Realization and operations review links.
+  path: src/lifecycle.ts
+files:
+  - src/lifecycle.ts
+  - src/skill.ts
+  - src/validate-genome.ts
+  - skills/**

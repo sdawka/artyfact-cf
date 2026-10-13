@@ -17,7 +17,7 @@ import type { HeadState } from "./do/system-authority";
 import { MAX_TURNS, type ProposalTurn } from "./do/proposals-store";
 import { commitEdit } from "./editor";
 import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
-import { createEvolution, genomeAt, refreshRegistry, registryStub, revokeEnded, startWork, systemStub } from "./service";
+import { accept as approveGenome, createEvolution, genomeAt, refreshRegistry, registryStub, revokeEnded, startWork, systemStub } from "./service";
 import { nowIso } from "./util";
 
 /** The agent label of an intent's Genome realization; its commits are authored as `intent`. */
@@ -246,7 +246,8 @@ export async function createProposal(env: Env, systemId: string, body: Record<st
   const h = await headGenome(env, systemId);
   if (anchor !== undefined && !h.graph.nodes.some((n) => n.id === anchor)) throw badRequest(`unknown node ${anchor}`);
   const turn = await runTurn(env, h, conversation(h, message, anchor, []), "q.1");
-  return systemStub(env, systemId).createProposal({ systemId, message, ...(anchor !== undefined && { anchor }), status: "open", ...turn, createdAt: nowIso() });
+  const {evolution}=await createEvolution(env,systemId,{title:message.split('\n')[0]!.slice(0,200),intent:message,kind:'genome-amendment'});
+  return systemStub(env, systemId).createProposal({ evolutionId:evolution.id,systemId, message, ...(anchor !== undefined && { anchor }), status: "open", ...turn, createdAt: nowIso() });
 }
 
 async function stored(env: Env, systemId: string, pid: string) {
@@ -269,6 +270,7 @@ export async function replyProposal(env: Env, systemId: string, pid: string, bod
   if (s.turns.length >= MAX_TURNS) throw tooManyTurns(pid);
   const question = body.questionId === undefined ? undefined : s.proposal.questions.find((q) => q.id === body.questionId);
   if (body.questionId !== undefined && !question) throw badRequest(`proposal ${pid} has no open question ${body.questionId}`);
+  if(s.proposal.stagedApproval)throw conflict('invalid-state','This proposal already has an exact staged Genome candidate; approve or abandon it before revising');
   const turns = [...s.turns, { ...(question && { question: question.text }), answer }];
   const h = await headGenome(env, systemId);
   const turn = await runTurn(env, h, conversation(h, s.proposal.message, s.proposal.anchor, turns), `q.${turns.length + 1}`);
@@ -317,18 +319,24 @@ export async function acceptProposal(env: Env, systemId: string, pid: string, bo
     throw conflict("invalid-state", `proposal ${pid} is ${claim.status}`);
   }
   let out: IntentAcceptResponse;
+  let pushed=false,staged=!!claim.claimed.stagedApproval;
   try {
-    let ops: ProposedOp[];
-    try {
-      ops = chosenOps(claim.claimed, opIds as string[]);
-    } catch (e) {
-      await stub.releaseProposal(pid, claim.claimedAt, null);
-      throw e;
+    const ops=chosenOps(claim.claimed,opIds as string[]);
+    const previous=claim.claimed.stagedApproval;
+    if(previous){
+      if(JSON.stringify([...previous.opIds].sort())!==JSON.stringify([...(opIds as string[])].sort()))throw conflict('invalid-state','The staged candidate pins the previously reviewed op selection');
+      const [evolution,record,candidate]=await Promise.all([stub.evolution(previous.evolutionId),stub.realization(previous.realizationId),stub.candidate(previous.candidateId)]);
+      if(!evolution||!record||!candidate)throw conflict('invalid-state','staged approval records are unavailable');
+      out={evolution,realization:record.realization,candidate,commit:previous.commit};
+    }else{
+      out=await pushAccepted(env,systemId,claim.claimed,ops,platformUrl);pushed=true;
+      staged=await stub.stageProposal(pid,claim.claimedAt,{evolutionId:out.evolution.id,realizationId:out.realization.id,candidateId:out.candidate.id,commit:out.commit,opIds:opIds as string[]});
+      if(!staged)throw conflict('invalid-state','Genome candidate pushed but approval claim changed; inspect the exact candidate before retrying');
     }
-    out = await pushAccepted(env, systemId, claim.claimed, ops, platformUrl);
-  } catch (e) {
-    await stub.releaseProposal(pid, claim.claimedAt, (e as Error)?.message ?? String(e)).catch((r: unknown) =>
-      console.error(`[intents] releasing proposal ${pid} failed: ${(r as Error)?.message ?? r}`));
+    const approved=await approveGenome(env,systemId,out.evolution.id,{realizationId:out.realization.id,candidateId:out.candidate.id,commit:out.commit,interpretation:claim.claimed.message});
+    out={...out,systemCommit:approved.commit,evolution:(await stub.evolution(out.evolution.id))??out.evolution,realization:approved.realization,candidate:(await stub.candidate(out.candidate.id))??out.candidate};
+  }catch(e){
+    if(!pushed||staged)await stub.releaseProposal(pid,claim.claimedAt,!pushed&&!staged&&e instanceof HttpError&&[400,422].includes(e.status)?null:(e as Error)?.message??String(e));
     throw e;
   }
   // Pushed: the proposal is accepted whatever happens next, so a retry can never push the change twice.
@@ -363,15 +371,18 @@ async function pushAccepted(env: Env, systemId: string, p: Proposal, ops: Propos
   const prefix = await withRepo(artifactsFor(env), state.genomeSource, (r) => genomePrefix(r, base));
 
   const title = p.message.split("\n")[0]!.trim().slice(0, 200);
-  const { evolution } = await createEvolution(env, systemId, { title, intent: p.message, kind: "genome-amendment", affectedNodes: applied.touched },
-    { newNodes: ops.filter((o) => o.op === "add").map((o) => o.node) });
+  const linked=p.evolutionId?await systemStub(env,systemId).evolution(p.evolutionId):null;
+  const evolution=linked?await systemStub(env,systemId).setEvolutionAffectedNodes(linked.id,applied.touched):(await createEvolution(env, systemId, { title, intent: p.message, kind: "genome-amendment", affectedNodes: applied.touched },
+    { newNodes: ops.filter((o) => o.op === "add").map((o) => o.node) })).evolution;
   const stub = systemStub(env, systemId);
+  let startedId:string|undefined;
   try {
     // The fork must start from `base`: the DO refuses the reservation when the head moved after the claim.
     // Added nodes have no origin in the base model, so the packet permits the directories the codec wrote them to.
     const permittedExtra = Object.values(applied.created).map((dir) => `${dir}/**`);
     const start = await startWork(env, systemId, evolution.id, { target: "genome", origin: "editor", agentLabel: INTENT_AGENT }, platformUrl,
       { expectedBase: base, permittedExtra });
+    startedId=start.realization.id;
     const edit = await commitEdit(env, systemId, start.realization.id, {
       message: title, why: p.message,
       changes: applied.changes.map((c) => ({ path: prefix ? `${prefix}/${c.path}` : c.path, content: c.content })),
@@ -383,7 +394,9 @@ async function pushAccepted(env: Env, systemId: string, p: Proposal, ops: Propos
   } catch (e) {
     // Leave nothing a retry would duplicate: the Evolution goes with its realization (token revoked, unregistered).
     try {
-      const ended = await stub.discardEvolution(evolution.id);
+      const records=startedId?[await stub.realization(startedId)]:[];
+      const ended=records.filter(r=>r!==null).map(r=>({realizationId:r!.realization.id,forkRepo:r!.forkRepo,tokenId:r!.tokenId}));
+      for(const item of ended)await stub.rejectRealization(item.realizationId,'Genome proposal push failed');
       await revokeEnded(env, systemId, ended);
       await Promise.all(ended.map((x) => registryStub(env).unregisterRealization(systemId, x.realizationId)));
       await refreshRegistry(env, systemId);

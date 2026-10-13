@@ -69,6 +69,8 @@ export function reviewQueue({ evolutions, realizations, commits, candidates = []
   const add = (row: QueueRow) => groups.set(row.evolution, [...(groups.get(row.evolution) ?? []), row]);
 
   for (const r of realizations) {
+    // Independent Task attempts are reviewed through their Realization plan in Work.
+    if (!r.evolution) continue;
     const amendment = r.status === "awaiting-admin";
     if (!amendment && !OPEN.has(r.status)) continue;
     const candidate = candidateFor(r);

@@ -10,7 +10,7 @@ test('homepage leads to the guide and links the hosted platform', async ({ page 
   await expect(page.locator('a[href="/app"]')).toHaveCount(0);
   await page.getByRole('link', { name: 'Bring your agent', exact: true }).first().click();
   await expect(page).toHaveURL('https://artyfact.test/connect-agent');
-  await expect(page.locator('code').filter({ hasText: 'ARTYFACT_SECRET' }).first()).toBeVisible();
+  await expect(page.locator('code').filter({ hasText: 'artyfact task start' }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 test('model layers work with keyboard and keep illustrative evidence labelled', async ({ page }) => {
@@ -135,5 +135,14 @@ test('model jump links remain usable on a narrow screen with reduced motion', as
   await expect(page.locator('#benefits')).toBeFocused();
   await page.locator('.model-benefits-grid summary').filter({ hasText: 'Reuse context' }).click();
   await expect(page.getByText(/Carry relevant context into each task or agent session/)).toBeVisible();
+  await navigation.getByRole('link', { name: 'From intent to evidence' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page.locator('#lifecycle')).toBeFocused();
+  const evolution = page.locator('#lifecycle summary').filter({ hasText: 'Review an Evolution' });
+  await evolution.focus();
+  await page.keyboard.press('Enter');
+  await expect(page.getByText(/An Evolution changes the Genome/)).toBeVisible();
+  await page.locator('#lifecycle summary').filter({ hasText: 'Review the implementation together' }).click();
+  await expect(page.getByText(/Promoting this implementation is a separate approval/)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

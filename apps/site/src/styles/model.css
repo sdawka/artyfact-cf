@@ -104,3 +104,15 @@
   .model-benefits-grid summary { padding-block: 8px; font-size: .9rem; }
   .model-benefits-grid summary span { margin-top: 3px; font-size: .8rem; }
 }
+
+/* Progressive lifecycle details keep the two approvals visible in one reading path. */
+.model-lifecycle-steps { list-style: none; padding: 0; margin: 0; counter-reset: lifecycle; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 32px; }
+.model-lifecycle-steps > li { counter-increment: lifecycle; border-top: 1px solid var(--color-border); padding-top: 16px; min-width: 0; }
+.model-lifecycle-steps summary { cursor: pointer; padding: 4px 0 12px; }
+.model-lifecycle-steps summary::marker { color: var(--color-brand-primary); }
+.model-lifecycle-steps summary strong { font: 400 1.4rem/1.3 var(--font-display); }
+.model-lifecycle-steps summary strong::before { content: counter(lifecycle, decimal-leading-zero) ' / '; color: var(--color-brand-primary); font: .85rem var(--font-mono, monospace); }
+.model-lifecycle-steps summary span { display: block; margin: 9px 0 0 18px; color: var(--color-text-secondary); font-size: .9rem; }
+.model-lifecycle-steps details > p { font-size: .94rem; margin: 4px 0 12px 18px; max-width: 64ch; }
+#lifecycle { scroll-margin-top: 30px; }
+@media (max-width: 640px) { .model-lifecycle-steps { grid-template-columns: 1fr; gap: 14px; } }

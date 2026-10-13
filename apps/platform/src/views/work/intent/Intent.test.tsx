@@ -65,6 +65,9 @@ describe("Describe a change", () => {
     expect(screen.getByText("confidence 82%")).toBeTruthy();
     expect(screen.getByText("provider real")).toBeTruthy();
     // Per-node diff: the update shows the current description before the proposed one.
+    expect(screen.getByText("Review op.1 delta").parentElement?.hasAttribute("open")).toBe(false);
+    fireEvent.click(screen.getByText("Review op.1 delta"));
+    fireEvent.click(screen.getByText("Review op.2 delta"));
     const fields = screen.getByRole("table", { name: "op.1 fields" });
     expect(within(fields).getByText(/One AddContactDialog only while invoked/)).toBeTruthy();
     expect(within(fields).getByText(/the birthday when known/)).toBeTruthy();

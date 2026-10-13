@@ -1,0 +1,8 @@
+id: module.ontology.outcomes
+kind: module
+fields:
+  name: Optional outcomes vocabulary
+  description: Defines event contracts, expected effects and assay links and validates declared event payloads.
+  path: src/outcomes.ts
+files:
+  - src/outcomes.ts

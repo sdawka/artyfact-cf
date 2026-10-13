@@ -1,3 +1,4 @@
+import { lifecyclePaths, type ImplementationReview, type PlanPromoteResponse } from '../shared/lifecycle';
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { ImportSystemResponse, PromoteResponse, TemplateUpgradePlan, TemplateUpgradeResponse } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
@@ -163,8 +164,9 @@ describe("template upgrade routes", () => {
     const res = await apply(s, { include: ["src/index.ts"] });
     expect(res.status, JSON.stringify(res.json)).toBe(201);
     const short = s.platform[1]!.slice(0, 7);
-    expect(res.json.evolution).toMatchObject({ title: `Upgrade app template to ${short}`, kind: "implementation" });
-    expect(res.json.realization).toMatchObject({ evolution: res.json.evolution.id, agent: { id: UPGRADE_AGENT, role: "author" }, origin: "editor" });
+    expect(res.json.evolution).toBeUndefined();
+    expect(res.json.realizationPlan.title).toBe(`Upgrade app template to ${short}`);
+    expect(res.json.realization).toMatchObject({ evolution: "", agent: { id: UPGRADE_AGENT }, origin: "cli" });
     expect([...res.json.candidate.changedPaths].sort()).toEqual([LOCK_PATH, "src/index.ts", "src/worker/health.ts", "src/worker/old.ts", "src/worker/phenome.ts"]);
     expect(res.json.plan.files).toHaveLength(4);
 
@@ -181,7 +183,7 @@ describe("template upgrade routes", () => {
 
     // The candidate's own plan is up to date already; promote it and the head is too.
     expect((await plan(s, res.json.candidate.id)).json.upToDate).toBe(true);
-    const promoted = await call<PromoteResponse>("POST", `/systems/${s.systemId}/promote`, { candidates: [res.json.candidate.id], expectedHead: await head(s), rationale: "template upgrade" }, ADMIN);
+    const promoted = await promoteUpgrade(s,res.json);
     expect(promoted.status, JSON.stringify(promoted.json)).toBe(200);
     const after = await plan(s);
     expect(after.json).toMatchObject({ upToDate: true, files: [], from: s.platform[1], to: s.platform[1] });
@@ -195,7 +197,7 @@ describe("template upgrade routes", () => {
     const res = await apply(s, {});
     expect(res.status, JSON.stringify(res.json)).toBe(201);
     expect([...res.json.candidate.changedPaths].sort()).toEqual([LOCK_PATH, "src/worker/health.ts", "src/worker/old.ts", "src/worker/phenome.ts"]);
-    const promoted = await call<PromoteResponse>("POST", `/systems/${s.systemId}/promote`, { candidates: [res.json.candidate.id], expectedHead: await head(s), rationale: "upgrade" }, ADMIN);
+    const promoted = await promoteUpgrade(s,res.json);
     expect(promoted.status, JSON.stringify(promoted.json)).toBe(200);
     const after = (await plan(s)).json;
     expect(after.upToDate).toBe(true);
@@ -222,3 +224,10 @@ describe("template upgrade routes", () => {
     expect(p.json.error.code).toBe("platform-unsynced");
   });
 });
+
+async function promoteUpgrade(s:Setup,upgrade:TemplateUpgradeResponse){
+ const pid=upgrade.realizationPlan.id,tid=upgrade.task.id;
+ const selected=await call('POST',lifecyclePaths.action(s.systemId,pid,tid,'select').replace(/^\/api/,''),{candidateId:upgrade.candidate.id},ADMIN);expect(selected.status,JSON.stringify(selected.json)).toBe(200);
+ const integrated=await call<ImplementationReview>('POST',lifecyclePaths.integrate(s.systemId,pid).replace(/^\/api/,''),{},ADMIN);expect(integrated.status,JSON.stringify(integrated.json)).toBe(200);
+ return call<PlanPromoteResponse>('POST',lifecyclePaths.promote(s.systemId,pid).replace(/^\/api/,''),{candidateIds:integrated.json.bindings.map(b=>b.candidateId),expectedHead:integrated.json.expectedHead,rationale:'template upgrade'},ADMIN);
+}

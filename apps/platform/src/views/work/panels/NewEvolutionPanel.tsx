@@ -9,7 +9,7 @@ import { useModel } from "@/model/useModel";
 import { startWorkError } from "./StartWorkPanel";
 import styles from "../work.module.css";
 
-const KINDS = ["implementation", "genome-amendment", "mixed"] as const;
+const KINDS = ["genome-amendment"] as const;
 const RISKS = ["low", "medium", "high"] as const;
 
 /** Admin form to propose a new Evolution; `onCreated` receives it (the caller selects it). */
@@ -23,7 +23,7 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
   const [intent, setIntent] = useState("");
   const [nodeInput, setNodeInput] = useState("");
   const [nodes, setNodes] = useState<string[]>([]);
-  const [kind, setKind] = useState<(typeof KINDS)[number]>("mixed");
+  const [kind, setKind] = useState<(typeof KINDS)[number]>("genome-amendment");
   const [risk, setRisk] = useState<(typeof RISKS)[number]>("medium");
   // null = list untouched: the field is omitted and the server applies the System's defaults for the target.
   const [picked, setPicked] = useState<string[] | null>(null);
@@ -65,6 +65,7 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
   return (
     <section className={styles.panel} aria-labelledby={`${uid}-h`}>
       <h2 id={`${uid}-h`}>New Evolution</h2>
+      <p className={styles.muted}>An Evolution changes the Genome. After acceptance, plan implementation in a separate Realization.</p>
       <form onSubmit={submit} className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`${uid}-t`}>Title</label>

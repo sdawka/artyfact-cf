@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-select
+kind: endpoint
+fields:
+  name: Lifecycle post select
+  description: "Pinned Realization plan and scoped Task lifecycle."
+  route: POST /api/systems/:id/realization-plans/:pid/tasks/:tid/select
+  auth: Admin bearer token (ADMIN_TOKEN).

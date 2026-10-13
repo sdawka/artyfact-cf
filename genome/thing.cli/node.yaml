@@ -9,6 +9,7 @@ links:
   - { rel: artifact, to: artifact.cli }
   - { rel: dependsOn, to: thing.model }
   - { rel: dependsOn, to: thing.ontology }
+  - { rel: dependsOn, to: thing.templates }
   - { rel: exposes, to: command.init }
   - { rel: exposes, to: command.start }
   - { rel: exposes, to: command.checkpoint }

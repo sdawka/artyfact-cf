@@ -38,6 +38,7 @@ export interface BuildUpsert {
 }
 
 export interface DeploymentInput {
+  artifactId?: string;
   id?: string;
   kind: BuildKind;
   status?: DeploymentStatus;
@@ -237,7 +238,7 @@ export class BuildsStore {
     const candidate = opt("build_row") ? str(this.one("SELECT candidate_id FROM builds WHERE id = ?", String(r.build_row))?.candidate_id) : undefined;
     return {
       id: String(r.id), kind: String(r.kind) as BuildKind, status: String(r.status) as DeploymentStatus, repo: String(r.repo), commit: String(r.commit_hash),
-      ...(opt("system_commit") && { systemCommit: opt("system_commit") }), ...(opt("realization_id") && { realization: opt("realization_id") }),
+      ...(opt("artifact_id") && { artifactId: opt("artifact_id") }), ...(opt("system_commit") && { systemCommit: opt("system_commit") }), ...(opt("realization_id") && { realization: opt("realization_id") }),
       ...(candidate && { candidate }), ...(opt("build_row") && { build: opt("build_row") }), ...(opt("url") && { url: opt("url") }),
       ...(opt("build_id") && { buildId: opt("build_id") }), ...(opt("realized_artifact_id") && { output: opt("realized_artifact_id") }),
       by: String(r.by), createdAt: String(r.created_at), updatedAt: String(r.updated_at),
@@ -277,16 +278,17 @@ export class BuildsStore {
       id, input.kind, status, input.repo, input.commit, input.systemCommit ?? null, input.realization ?? null, input.buildRow ?? null,
       input.url ?? null, input.buildId ?? null, input.by, input.ingestTokenHash ?? null, input.realizedArtifactId ?? null, now, now,
     );
+    if(input.artifactId)this.sql.exec("UPDATE deployments SET artifact_id=? WHERE id=?",input.artifactId,id);
     const superseded = status === "live" ? this.supersede(id) : [];
     return { deployment: this.deployment(id)!, superseded };
   }
 
   /** Mark the other live deployments of `id`'s scope (production; or previews of the same realization) superseded. */
   private supersede(id: string): Deployment[] {
-    const d = this.one("SELECT kind, realization_id FROM deployments WHERE id = ?", id);
+    const d = this.one("SELECT kind, realization_id, artifact_id FROM deployments WHERE id = ?", id);
     if (!d) return [];
     const rows = d.kind === "production"
-      ? this.all("SELECT id FROM deployments WHERE kind = 'production' AND status = 'live' AND id != ?", id)
+      ? this.all("SELECT id FROM deployments WHERE kind = 'production' AND status = 'live' AND artifact_id IS ? AND id != ?", d.artifact_id??null,id)
       : this.all("SELECT id FROM deployments WHERE kind = 'preview' AND status = 'live' AND realization_id IS ? AND id != ?", d.realization_id ?? null, id);
     const now = nowIso();
     for (const r of rows) this.sql.exec("UPDATE deployments SET status = 'superseded', updated_at = ? WHERE id = ?", now, r.id);

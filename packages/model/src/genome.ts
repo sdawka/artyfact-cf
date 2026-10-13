@@ -74,7 +74,7 @@ export interface SystemModel {
 }
 
 /** One effective source glob of a node: `declared` when the node's own `files` list it, else a template default. */
-export interface SourceGlob { glob: string; declared: boolean }
+export interface SourceGlob { glob: string; declared: boolean; artifact?: string; repository?: string; bindingId?: string }
 
 /** A journey step's graph id: `<journey id>/<local id>` (`J.contacts/s1`), as rule findings name steps. */
 export const stepKey = (journey: string, step: string) => `${journey}/${step}`;
@@ -336,11 +336,12 @@ const globEscape = (s: string) => s.replace(/[*?[\]{}()!+@,|^$\\]/g, "\\$&");
  */
 function sourceFiles(graph: Graph, templates: TemplateStore, tree: GenomeTree): Record<string, SourceGlob[]> {
   const out: Record<string, SourceGlob[]> = {};
-  const walk = (id: string, owners: { id: string; t: Template }[], root: string) => {
+  const walk = (id: string, owners: { id: string; t: Template }[], root: string, sourceBinding?: { artifact: string; repository: string; bindingId?: string }) => {
     const n = tree.nodes.get(id)!;
     const ref = n.file.template ?? (id === tree.root ? graph.template : undefined);
     const chain = ref ? [{ id, t: templateOf(templates, ref, n.path) }, ...owners] : owners;
     const at = n.file.root !== undefined ? n.file.root.replace(/\/+$/, "") : root;
+    const identity = n.file.sourceBinding ?? sourceBinding;
     const slug = n.dir.slice(n.dir.lastIndexOf("/") + 1);
     const kindFiles = chain.find((o) => o.t.kinds[n.file.kind])?.t.kinds[n.file.kind]?.files ?? [];
     const owner = chain.find((o) => o.id !== id);
@@ -353,8 +354,8 @@ function sourceFiles(graph: Graph, templates: TemplateStore, tree: GenomeTree): 
     const globs = new Map<string, boolean>();
     for (const g of defaults) globs.set(g, false);
     for (const g of own) globs.set(g, true);
-    if (globs.size) out[id] = [...globs].map(([g, declared]) => ({ glob: at ? `${at}/${g}` : g, declared }));
-    for (const c of n.children) walk(c, chain, at);
+    if (globs.size) out[id] = [...globs].map(([g, declared]) => ({ glob: at ? `${at}/${g}` : g, declared, ...identity }));
+    for (const c of n.children) walk(c, chain, at, identity);
   };
   walk(tree.root, [], "");
   return out;

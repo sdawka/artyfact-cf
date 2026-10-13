@@ -104,6 +104,18 @@ describe("POST phenome/events auth", () => {
     expect(r.json).toEqual({ accepted: 1, dropped: [] });
   });
 
+  it("accepts numeric measurements and rejects malformed measurement payloads before storage", async () => {
+    const r = await post([
+      ev({ id: "valid-measurement", kind: "measurement", payload: { name: "contacts.saved", value: 3, unit: "count" } }),
+      ev({ id: "bad-measurement", kind: "measurement", payload: { name: "contacts.saved", value: "3" } }),
+      ev({ id: "forged-measurement", kind: "measurement", payload: { name: "contacts.saved", value: 3, genomeCommit: G1 } }),
+    ]);
+    expect(r.json.accepted).toBe(1);
+    expect(r.json.dropped.map(d => d.index)).toEqual([1, 2]);
+    expect(r.json.dropped.every(d => d.reason.startsWith("invalid-measurement:"))).toBe(true);
+    expect((await get()).json.events).toHaveLength(1);
+  });
+
   it("accepts a deployment ingest token for its own build only", async () => {
     await deployment("dep-1", A2, "dep-token");
     const h = { authorization: "Bearer dep-token" };

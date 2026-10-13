@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-post-realization-plans-pid-integrate
+kind: endpoint
+fields:
+  name: Lifecycle post integrate
+  description: "Pinned Realization plan and scoped Task lifecycle."
+  route: POST /api/systems/:id/realization-plans/:pid/integrate
+  auth: Admin bearer token (ADMIN_TOKEN).

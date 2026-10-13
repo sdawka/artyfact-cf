@@ -1,3 +1,4 @@
+import { acceptedTemplateResolver } from './ontology-packages/store';
 /**
  * Orchestration between Artifacts, the model, hooks and the SystemAuthority DO. Routes and the queue
  * consumer call these; all Artifacts I/O and model work happens here (never inside the DO).
@@ -132,14 +133,15 @@ function cacheParts(genomeCommit: string, parts: Record<string, string>): Record
  * (`repo`), caching files + serialised model + rules readiness in the DO afterwards.
  */
 export async function genomeAt(env: Env, systemId: string, genomeCommit: string, repo: string): Promise<LoadedGenome> {
-  const key = `${systemId}@${genomeCommit}`;
   const stub = systemStub(env, systemId);
+  const resolver=acceptedTemplateResolver(await stub.ontologyAcceptedPackages());
+  const key = `${systemId}@${genomeCommit}@${resolver.digest}`;
   const cached = await stub.getModelCache(genomeCommit, "files");
-  if (cached) return memoGenome(key, () => buildGenome(new Map(Object.entries(JSON.parse(cached) as Record<string, string>)), genomeCommit));
+  if (cached) return memoGenome(key, () => buildGenome(new Map(Object.entries(JSON.parse(cached) as Record<string, string>)), genomeCommit, resolver.templates));
   const files = await withRepo(artifactsFor(env), repo, (r) => readGenomeFiles(r, genomeCommit));
   let g: LoadedGenome;
   try {
-    g = memoGenome(key, () => buildGenome(files, genomeCommit));
+    g = memoGenome(key, () => buildGenome(files, genomeCommit, resolver.templates));
   } catch (e) {
     // A Genome that does not load still caches its files: the hooks read a candidate's files from here and report the
     // load error (degraded review) instead of refusing the run. The next genomeAt rebuilds from them and throws again.
@@ -263,7 +265,8 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   };
   const genomeCommit = await headOf(genomeRepo);
   const files = await withRepo(ns, genomeRepo, (r) => readGenomeFiles(r, genomeCommit));
-  const g = memoGenome(`${systemId}@${genomeCommit}`, () => buildGenome(files, genomeCommit));
+  const resolver=acceptedTemplateResolver(await systemStub(env,systemId).ontologyAcceptedPackages());
+  const g = memoGenome(`${systemId}@${genomeCommit}@${resolver.digest}`, () => buildGenome(files, genomeCommit, resolver.templates));
   if (g.model.system.id !== systemId) {
     throw unprocessable("system-mismatch", `Genome in ${genomeRepo} declares ${g.model.system.id}, not ${systemId}`);
   }
@@ -271,6 +274,17 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   const appArtifacts = g.model.things.flatMap((t) => t.artifacts).filter((a) => a.type === "worker-fullstack").map((a) => a.artifact);
   const appRepo = givenApp ?? systemRepoNames(systemId, appArtifacts).appRepo;
   const appCommit = appArtifacts.length ? await headOf(appRepo) : null;
+  const bindingWarnings:Finding[]=[];
+  const artifactBindings:Record<string,import('../shared/api').ArtifactBinding>={};
+  for(const binding of g.model.things.flatMap(t=>t.artifacts)) {
+    const repo=binding.artifact===appArtifacts[0]?appRepo:binding.repo;
+    if(!repo)continue;
+    if(!isName(repo))throw unprocessable('invalid-binding',`artifact ${binding.artifact} names an invalid source repository`);
+    const commit=binding.artifact===appArtifacts[0]&&repo===appRepo&&appCommit?appCommit:await headOf(repo).catch(e=>{if(e instanceof HttpError&&e.code==='repo-not-found')return null;throw e;});
+    if(!commit){bindingWarnings.push({level:'warning',rule:'binding.unbound',subject:binding.artifact,message:`Source binding ${binding.artifact} is unbound: repository ${repo} has not been imported. Push its source before planning implementation.`,facts:[],derivation:{relation:'binding.unbound',tuple:[binding.artifact],edb:true,children:[]}});continue;}
+    artifactBindings[binding.artifact]={repo,commit,...(binding.artifact===appArtifacts[0]&&scaffoldFrom&&{scaffoldFrom})};
+  }
+
   const stub = systemStub(env, systemId);
   // Pins are checked against the Genome that will be canonical after this import, before the DO applies it: an import
   // of exactly the last-imported commits keeps the current head (after an accepted amendment, not the imported Genome).
@@ -278,9 +292,10 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   const keepsHead = !!base && !!prior && base.genomeRepo === genomeRepo && base.genomeCommit === genomeCommit && base.appRepo === appRepo && base.appCommit === appCommit;
   const canonical = keepsHead && prior.genomeCommit !== genomeCommit ? { commit: prior.genomeCommit, repo: prior.genomeSource } : null;
   const { platform, warnings } = await platformCheck(env, ns, systemId, g.model, canonical, prior?.platform ?? null);
+  warnings.push(...bindingWarnings);
   const booted = await rpc(stub.bootstrap({
     systemId, title: g.model.system.name, phase: g.model.system.phase, genomeRepo, appRepo, genomeCommit, appCommit,
-    evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model), platform, ...(scaffoldFrom && { scaffoldFrom }), force: body.force === true,
+    evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model), artifactBindings, platform, ...(scaffoldFrom && { scaffoldFrom }), force: body.force === true,
   }));
   if ("alreadyImported" in booted) throw conflict("already-imported", booted.alreadyImported);
   await stub.putModelCache(genomeCommit, cacheParts(genomeCommit, {
@@ -487,6 +502,7 @@ async function skipTakenForkNames(env: Env, stub: SystemApi, target: "app" | "ge
 }
 
 async function record(env: Env, systemId: string, rid: string): Promise<RealizationRecord> {
+  if(await systemStub(env,systemId).realizationPlanId(rid))throw conflict('invalid-state','Task Attempts must use the scoped lifecycle endpoints with fenced generation');
   const rec = await systemStub(env, systemId).realization(rid);
   if (!rec) throw notFound(`unknown realization ${rid}`);
   return rec;
@@ -577,7 +593,7 @@ async function computeConflicts(env: Env, systemId: string, candidateId: string)
   const candidate = open.find((c) => c.id === candidateId);
   if (!candidate) return [];
   try {
-    const reports = await hookRunner(env).conflicts({
+    const reports = await hookRunner(env,acceptedTemplateResolver(await stub.ontologyAcceptedPackages()).templates).conflicts({
       // A realization's earlier commits are superseded by its latest submit, never in conflict with it.
       systemId, candidate, genomeCommit: s.genomeCommit, genomeFiles: await canonicalFiles(env, s), openCandidates: open.filter((c) => c.realizationId !== candidate.realizationId),
     });
@@ -640,7 +656,7 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
     // API-created Evolutions exist only in the DO: hook selection falls back to this record when the Genome lacks it.
     ...(evo && { evolution: { id: evo.id, kind: evo.kind, acceptanceCriteria: evo.acceptanceCriteria, affectedNodes: evo.affectedNodes, state: evo.state } }),
   };
-  const runner = hookRunner(env);
+  const runner = hookRunner(env,acceptedTemplateResolver(await stub.ontologyAcceptedPackages()).templates);
   if (rec.target === "genome") {
     const r = await runner.runGenome(ctx);
     const base = await genomeAt(env, s.systemId, rec.baseCommit, rec.forkRepo);
@@ -728,6 +744,10 @@ export async function submit(
   if (typeof commit !== "string" || !COMMIT_RE.test(commit)) throw badRequest("commit must be a 40-character hex sha");
   const previewUrl = typeof body.previewUrl === "string" && /^https?:\/\//.test(body.previewUrl) ? body.previewUrl : undefined;
   const stub = systemStub(env, systemId);
+  if(await stub.realizationPlanId(rid)) {
+    if(source!=='ci')throw conflict('invalid-state','Task Attempts must use scoped lifecycle submit with fenced generation');
+    const {refreshLifecycleCandidate}=await import('./lifecycle-service');return refreshLifecycleCandidate(env,systemId,rid,commit,previewUrl);
+  }
   const s = await headState(env, systemId);
   const rec = await record(env, systemId, rid);
   const ns = artifactsFor(env);
@@ -1097,7 +1117,7 @@ export function queueContextFor(env: Env): QueueContext {
 
 // ------------------------------------------------------------------ B5 describe-a-change
 
-const EVOLUTION_KINDS: schema.Evolution["kind"][] = ["implementation", "genome-amendment", "mixed"];
+const EVOLUTION_KINDS: schema.Evolution["kind"][] = ["genome-amendment"];
 const RISKS: schema.Evolution["risk"][] = ["low", "medium", "high"];
 /**
  * Default acceptance criteria of a new Evolution: the System's criteria whose `targetKind` matches its target. An
@@ -1133,7 +1153,7 @@ export async function createEvolution(
   const intent = typeof body.intent === "string" ? body.intent.trim() : "";
   if (!title || title.length > 200) throw badRequest("title is required (at most 200 characters)");
   if (!intent || intent.length > 4000) throw badRequest("intent is required (at most 4000 characters)");
-  const kind = (body.kind ?? "implementation") as schema.Evolution["kind"];
+  const kind = (body.kind ?? "genome-amendment") as schema.Evolution["kind"];
   if (!EVOLUTION_KINDS.includes(kind)) throw badRequest(`kind must be one of ${EVOLUTION_KINDS.join(", ")}`);
   const risk = (body.risk ?? "medium") as schema.Evolution["risk"];
   if (!RISKS.includes(risk)) throw badRequest(`risk must be one of ${RISKS.join(", ")}`);
@@ -1141,7 +1161,7 @@ export async function createEvolution(
   const s = await headState(env, systemId);
   const m = (await canonicalGenome(env, s)).model;
   const acceptanceCriteria = body.acceptanceCriteria === undefined
-    ? defaultCriteria(m, body.kind === undefined ? undefined : kind)
+    ? defaultCriteria(m, kind)
     : stringList(body.acceptanceCriteria, "acceptanceCriteria");
   const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id] && !opts.newNodes?.includes(id));
   if (unknownNodes.length) throw badRequest(`unknown nodes: ${unknownNodes.join(", ")}`);

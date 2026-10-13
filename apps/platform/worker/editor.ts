@@ -25,6 +25,7 @@ const COMMIT_RE = /^[0-9a-f]{40}$/;
 
 /** Git transport for pushes; tests install a fake receive-pack, a deployment may switch to Basic auth. */
 let transport: { fetch?: typeof fetch; auth?: AuthScheme } = {};
+export const gitTransport = () => ({ ...transport });
 export function setEditorTransport(t: { fetch?: typeof fetch; auth?: AuthScheme } | undefined): void {
   transport = t ?? {};
 }
@@ -177,6 +178,7 @@ const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9._-]+/g, "-").repla
  * this push only (ttl 300 s) and always revoked. `why` is recorded on the candidate as its rationale.
  */
 export async function commitEdit(env: Env, systemId: string, rid: string, body: Record<string, unknown>, by: string): Promise<EditorCommitResponse> {
+  if(await systemStub(env,systemId).realizationPlanId(rid))throw conflict('invalid-state','Task Attempts must use lifecycle endpoints; direct editor writes are not allowed');
   const input = validateCommit(body);
   const stub = systemStub(env, systemId);
   const rec = await stub.realization(rid);

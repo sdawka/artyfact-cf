@@ -42,7 +42,7 @@ describe("useManualCommit", () => {
       ["/api/systems/s/evolutions/evolution.9/realizations", "Bearer adm"],
       ["/api/systems/s/realizations/r9/commit", "Bearer sec"],
     ]);
-    expect(calls[2]!.body).toMatchObject({ origin: "editor", target: "app" });
+    expect(calls[2]!.body).toMatchObject({ origin: "editor", target: "genome" });
     await waitFor(() => expect(spy).toHaveBeenCalledWith({ queryKey: ["builds", "s"] }));
   });
 });
@@ -158,4 +158,10 @@ describe("useSystemEvents", () => {
     expect(keys).toEqual(expect.arrayContaining([["builds", "s"], ["deployments", "s"], ["changelog", "s"], ["systems"]]));
     vi.useRealTimers();
   });
+});
+
+it("refuses browser app commits before creating an Evolution or writer",async()=>{
+ const send=vi.fn(async(_url:string,_init?:RequestInit)=>json(200,{}));vi.stubGlobal("fetch",send);
+ renderApp("/s/s/r/head/p",[{path:"/s/:systemId/r/:rev/p",element:<Probe input={{target:"app",newEvolution:{title:"App implementation",intent:"Edit app"},commit:{message:"Edit",changes:[{path:"src/app.ts",content:"x"}]}}}/>}]);
+ act(()=>screen.getByRole("button",{name:"go"}).click());await waitFor(()=>expect(screen.getByTestId("out").textContent).toContain("Realization Task"));expect(send.mock.calls.every(call=>!(call[1] as RequestInit|undefined)?.method)).toBe(true);
 });

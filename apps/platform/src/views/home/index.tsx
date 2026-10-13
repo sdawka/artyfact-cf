@@ -1,3 +1,4 @@
+import { Link } from "react-router";
 import type { PartSummary, SystemSummary } from "../../../shared/api";
 import { useParts, useSystems } from "@/api/queries";
 import { Card } from "@/components/Card/Card";
@@ -81,6 +82,7 @@ export default function HomeView() {
       <HomeHeader />
       <main id="main" className={styles.main} tabIndex={-1}>
         <h1 className={styles.h1}>Systems</h1>
+        <p><Link className="u-marker" to="/start">Start a System</Link></p>
         <HomeContent systems={data} isLoading={isLoading} isError={isError} onRetry={() => void refetch()} />
         <section className={styles.parts} aria-labelledby="parts-title">
           <h2 id="parts-title" className={styles.h2}>Reusable Parts</h2>

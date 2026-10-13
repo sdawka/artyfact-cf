@@ -1,0 +1,9 @@
+id: module.platform.lifecycle
+kind: module
+fields:
+  name: Realization lifecycle
+  description: Coordinates accepted-Genome plans, scoped Tasks, fenced attempts and combined implementation review.
+  path: worker/lifecycle-service.ts
+files:
+  - worker/lifecycle-service.ts
+  - worker/tasks/**

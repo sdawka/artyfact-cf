@@ -23,11 +23,13 @@ for (const route of routes) test('built page and destinations: ' + route, async 
     for (const element of elements) {
       const value = element.getAttribute(attribute);
       if (value.startsWith('#')) { assert(document.getElementById(value.slice(1)), value); continue; }
-      const path = value.startsWith('https://artyfact.ing/') ? value.slice('https://artyfact.ing'.length) : value;
+      const destination = value.startsWith('https://artyfact.ing/') ? value.slice('https://artyfact.ing'.length) : value;
+      const [path, fragment] = destination.split('#');
       if (!path.startsWith('/')) continue;
       let file = resolve(dist, '.' + path);
       if (routes.includes(path)) file = resolve(file, 'index.html');
       assert((await stat(file)).isFile(), file);
+      if (fragment) assert(new JSDOM(await readFile(file, 'utf8')).window.document.getElementById(fragment), value);
     }
   }
 });
@@ -99,7 +101,7 @@ test('homepage starts with quiet declared shapes and preserves the approved hero
   assert.equal(document.querySelector('h1').textContent.replace(/\s+/g, ' ').trim(), 'Make Meaningful Systems');
   assert.equal(document.querySelector('.cloudflare-line').textContent, '(on Cloudflare)');
   assert(document.title.endsWith('Make Meaningful Systems'));
-  assert(document.body.textContent.includes('Shape a Thing with its Genome. Compose reusable Parts when they help. Keep the work, its functioning and its purpose in the same System.'));
+  assert(document.body.textContent.includes('Bring an ontology or build one with your agent. Connect intention to files and folders, agree on what changes, and coordinate the work around the same System.'));
   const app = document.querySelector('.scene-application');
   assert(app && !app.querySelector('input, button.scene-save'));
   assert.equal(document.querySelector('.scene-save-chart')?.getAttribute('aria-hidden'), 'true');

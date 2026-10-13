@@ -1,0 +1,8 @@
+id: module.model.ontology-package
+kind: module
+fields:
+  name: Native ontology packages
+  description: Validates native package shape, versions, hashes and dependency pins.
+  path: src/ontology-package.ts
+files:
+  - src/ontology-package.ts

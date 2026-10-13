@@ -1,0 +1,7 @@
+id: endpoint.ontology-packages-post-ontology-imports-reviewId-accept
+kind: endpoint
+fields:
+  name: Ontology Packages post accept
+  description: "Reviewed ontology import."
+  route: POST /api/systems/:id/ontology-imports/:reviewId/accept
+  auth: Admin bearer token (ADMIN_TOKEN).

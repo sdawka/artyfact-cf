@@ -128,6 +128,35 @@ describe("applyOps", () => {
     expect(readTree(apply(PEOPLING, r.changes), templates)).toEqual(readTree(PEOPLING, templates));
   });
 
+  it("update.files sets, replaces and removes the key, leaving every other key and comment as it was", () => {
+    const text = (files: Record<string, string>, p: string) => files[p]!;
+    const home = "thing.app/screen.home/node.yaml", app = "thing.app/node.yaml";
+    const run = (node: string, files: string[] | null) => apply(SMALL, applyOps(SMALL, [{ op: "update", node, files }]).changes);
+    const rest = (t: string) => { const { files: _f, ...o } = parseYaml(t); return o; };
+    const set = run("thing.app", ["src/**", "web/*.ts"]);
+    expect(parseYaml(text(set, app)).files).toEqual(["src/**", "web/*.ts"]);
+    expect(rest(text(set, app))).toEqual(rest(text(SMALL, app)));
+    expect(text(set, app)).toContain("# The app Thing.");
+    const swapped = run("screen.home", ["lib/**"]);
+    expect(parseYaml(text(swapped, home)).files).toEqual(["lib/**"]);
+    expect(rest(text(swapped, home))).toEqual(rest(text(SMALL, home)));
+    expect(text(swapped, home)).toContain("# the owner only");
+    expect(text(swapped, home)).toContain("# Kept in sync with the spec.");
+    for (const files of [null, [] as string[]]) {
+      const gone = run("screen.home", files);
+      expect(parseYaml(text(gone, home))).not.toHaveProperty("files");
+      expect(rest(text(gone, home))).toEqual(rest(text(SMALL, home)));
+      expect(text(gone, home)).not.toContain("files:");
+    }
+    expect(applyOps(SMALL, [{ op: "update", node: "screen.home", files: ["src/home/**"] }]).changes).toEqual([]);
+    expect(applyOps(SMALL, [{ op: "update", node: "thing.app", files: null }]).changes).toEqual([]);
+  });
+  it("update.files rejects a glob that is not a repo-relative path", () => {
+    for (const bad of ["/abs/**", "../up/**", ""]) {
+      expect(() => applyOps(SMALL, [{ op: "update", node: "screen.home", files: [bad] }]), bad).toThrow(TreeOpError);
+    }
+  });
+
   it("updates a field in place, keeping comments, key order and flow style", () => {
     const r = applyOps(SMALL, [{ op: "update", node: "thing.app", fields: { description: "The web app.", owner: "me", name: null } }]);
     expect(r.changes).toEqual([{ path: "thing.app/node.yaml", content: [

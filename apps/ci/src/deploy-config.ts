@@ -40,7 +40,7 @@ const REFUSED_FLAG = "global_fetch_private_origin";
 /** Keys copied into both generated configs after validation. */
 const COPIED = [
   "compatibility_date", "compatibility_flags", "vars", "durable_objects", "migrations", "d1_databases", "triggers",
-  "observability", "placement", "limits", "workers_dev", "preview_urls", "keep_vars",
+  "observability", "flagship", "placement", "limits", "workers_dev", "preview_urls", "keep_vars",
 ] as const;
 /** Keys that only affect bundling (bundle config only). */
 const BUNDLE_ONLY = ["define", "minify", "jsx_factory", "jsx_fragment", "tsconfig"] as const;
@@ -155,7 +155,7 @@ export interface DeploySpec {
  * explicit reason because it is the common way to ask Wrangler to run a repo command during deploy.
  */
 export function validateRepoConfig(
-  file: string, text: string, opts: { accountId: string; d1DatabaseIds?: D1Ids },
+  file: string, text: string, opts: { accountId: string; d1DatabaseIds?: D1Ids; flagshipAppIds?: FlagshipAppIds },
 ): DeploySpec {
   if (file.endsWith(".toml")) throw new DeployRefused(`${file}: artyfact CI deploys from wrangler.json or wrangler.jsonc only`);
   let raw: unknown;
@@ -221,11 +221,12 @@ export function validateRepoConfig(
   }
   if (flags.includes(REFUSED_FLAG)) problems.push(`compatibility_flags lists ${REFUSED_FLAG}: artyfact CI forces ${FORCED_FLAG} so the app can reach the platform`);
   const d1 = resolveD1(raw.d1_databases, opts.d1DatabaseIds ?? {}, problems);
+  const flagship = resolveFlagship(raw.flagship, opts.flagshipAppIds ?? {}, problems);
   if (problems.length || !main) throw new DeployRefused(`refusing to deploy ${file}: ${problems.join("; ")}`);
 
   const pick = (keys: readonly string[]) => Object.fromEntries(keys.filter((k) => raw[k] !== undefined).map((k) => [k, raw[k]]));
   const copied = {
-    ...pick(COPIED), ...(d1 && { d1_databases: d1 }),
+    ...pick(COPIED), ...(d1 && { d1_databases: d1 }), ...(flagship && { flagship }),
     compatibility_flags: flags.includes(FORCED_FLAG) ? flags : [...flags, FORCED_FLAG],
   };
   return { file, main, ...(assets && { assets }), copied, bundleOnly: pick(BUNDLE_ONLY) };
@@ -344,4 +345,34 @@ export function deployCommand(spec: DeploySpec, o: { nonce: string; workerName: 
     ...(o.hasSecrets ? [`--secrets-file "$C/secrets.json"`] : []), "--env-file=/dev/null", "--autoconfig=false",
   ].join(" "));
   return lines.join("\n");
+}
+
+/** Server-controlled per-System native Flagship binding app IDs; never accepted from build params. */
+export type FlagshipAppIds = Readonly<Record<string, string>>;
+const FLAGSHIP_APP = /^[a-zA-Z0-9][a-zA-Z0-9._-]{0,127}$/;
+const BINDING_NAME = /^[a-zA-Z_][a-zA-Z0-9_]{0,127}$/;
+export function parseFlagshipAppIds(value: unknown): Record<string, FlagshipAppIds> {
+  let raw = value;
+  if (typeof raw === "string") { try { raw = JSON.parse(raw); } catch { return {}; } }
+  if (!isObj(raw)) return {};
+  const out: Record<string, FlagshipAppIds> = {};
+  for (const [systemId, apps] of Object.entries(raw)) {
+    if (!isObj(apps)) continue;
+    out[systemId] = Object.fromEntries(Object.entries(apps).filter((e): e is [string,string] => BINDING_NAME.test(e[0]) && typeof e[1] === "string" && FLAGSHIP_APP.test(e[1])));
+  }
+  return out;
+}
+export const systemFlagshipAppIds = (all: Readonly<Record<string, FlagshipAppIds>> | undefined, systemId: string): FlagshipAppIds =>
+  all && Object.hasOwn(all, systemId) ? all[systemId]! : {};
+function resolveFlagship(value: unknown, apps: FlagshipAppIds, problems: string[]): unknown[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) { problems.push("Flagship bindings must be a list"); return undefined; }
+  const names = new Set<string>();
+  return value.map(b => {
+    if (!isObj(b) || typeof b.binding !== "string" || !BINDING_NAME.test(b.binding) || typeof b.app_id !== "string" || !FLAGSHIP_APP.test(b.app_id)) { problems.push("each Flagship binding needs a valid binding and app_id"); return b; }
+    if (Object.keys(b).some(k => k !== "binding" && k !== "app_id")) problems.push(`Flagship ${b.binding}: unsupported field`);
+    if (names.has(b.binding)) problems.push(`Flagship ${b.binding}: duplicate binding`); names.add(b.binding);
+    if (!Object.hasOwn(apps, b.binding) || apps[b.binding] !== b.app_id) problems.push(`Flagship ${b.binding}: app_id is not configured for this System in FLAGSHIP_APP_IDS`);
+    return { binding: b.binding, app_id: b.app_id };
+  });
 }

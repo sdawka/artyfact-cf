@@ -353,6 +353,7 @@ export function useManualCommit() {
   const qc = useQueryClient();
   return useMutation<ManualCommitResult, Error, ManualCommitInput>({
     mutationFn: async (input) => {
+      if (input.target === "app" || input.startWork?.target === "app") throw new Error("App implementation uses a Realization Task in your local harness. Create a Realization Task from Work.");
       if (input.realizationId) {
         const result = await api.commitFiles(systemId, input.realizationId, input.commit, input.secret ?? input.adminToken);
         return { evolutionId: input.evolutionId, realizationId: input.realizationId, result };
@@ -360,11 +361,11 @@ export function useManualCommit() {
       let evolutionId = input.evolutionId;
       if (!evolutionId) {
         if (!input.newEvolution) throw new Error("Pick an Evolution or describe a new one.");
-        evolutionId = (await api.createEvolution(systemId, input.newEvolution, input.adminToken)).evolution.id;
+        evolutionId = (await api.createEvolution(systemId, { ...input.newEvolution, kind: "genome-amendment" }, input.adminToken)).evolution.id;
       }
       let started: Awaited<ReturnType<typeof api.startWork>>;
       try {
-        const body: StartWorkRequest = input.startWork ?? { origin: "editor", target: input.target ?? "app", agentLabel: "editor" };
+        const body: StartWorkRequest = input.startWork ?? { origin: "editor", target: input.target ?? "genome", agentLabel: "editor" };
         started = await api.startWork(systemId, evolutionId, body, input.adminToken);
       } catch (cause) {
         throw new ManualCommitError("startWork", { evolutionId }, cause);

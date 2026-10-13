@@ -1,0 +1,7 @@
+id: endpoint.ontology-packages-post-initial
+kind: endpoint
+fields:
+  name: Ontology Packages post initial
+  description: "Reviewed ontology import."
+  route: POST /api/systems/initial
+  auth: Admin bearer token (ADMIN_TOKEN).

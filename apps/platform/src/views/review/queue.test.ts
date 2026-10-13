@@ -74,3 +74,6 @@ describe("reviewQueue", () => {
     expect(g!.rows.at(-1)).toMatchObject({ kind: "promotion", conflicts: [soft] });
   });
 });
+it('keeps independent Task attempts out of the legacy Evolution decision queue',()=>{
+ expect(reviewQueue({evolutions,realizations:[realization({id:'realization.task',evolution:'',status:'evaluated',candidate:'candidate.task'})]})).toEqual([]);
+});

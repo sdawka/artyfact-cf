@@ -6,7 +6,7 @@ import type { WorkflowEvent, WorkflowStep } from "cloudflare:workers";
 import { CIWorkflow, type CiContext, type CiParams, type CloudflareArtifacts, type CiWorkflowPayload } from "@cloudflare/ci";
 import { CiSandbox, type CiBindings } from "@cloudflare/ci/worker";
 import type { CiBuildParams } from "./contract";
-import { parseD1DatabaseIds } from "./deploy-config";
+import { parseD1DatabaseIds, parseFlagshipAppIds } from "./deploy-config";
 import { runPipeline, type CiLike, type DoStep, type FetchLike } from "./pipeline";
 
 export { CiSandbox };
@@ -18,6 +18,8 @@ export interface CiEnv extends CiBindings {
   CI_REPORT_TOKEN: string;
   /** App D1 databases: `systemId` -> `database_name` -> account id (a JSON var; see deploy-config `parseD1DatabaseIds`). */
   D1_DATABASE_IDS?: unknown;
+  /** systemId -> native binding name -> allowed Flagship app ID. */
+  FLAGSHIP_APP_IDS?: unknown;
 }
 
 /** The engine's payload with the platform's params riding along (the engine ignores extra fields). */
@@ -55,7 +57,7 @@ export class ArtyfactCI extends CIWorkflow<CloudflareArtifacts, CiEnv> {
         return blob ? blob.text() : null;
       },
       reportToken: this.env.CI_REPORT_TOKEN, platformUrl: this.env.PLATFORM_URL, workersSubdomain: this.env.WORKERS_SUBDOMAIN,
-      accountId: this.env.CLOUDFLARE_ACCOUNT_ID, d1DatabaseIds: parseD1DatabaseIds(this.env.D1_DATABASE_IDS),
+      accountId: this.env.CLOUDFLARE_ACCOUNT_ID, d1DatabaseIds: parseD1DatabaseIds(this.env.D1_DATABASE_IDS), flagshipAppIds: parseFlagshipAppIds(this.env.FLAGSHIP_APP_IDS),
     });
   }
 }

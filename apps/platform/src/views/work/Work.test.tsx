@@ -21,7 +21,7 @@ describe("Work board", () => {
     expect(within(screen.getByRole("region", { name: /^Actionable/ })).getAllByRole("button")).toHaveLength(1);
     expect(within(screen.getByRole("region", { name: /^Realizing/ })).getByText("none")).toBeTruthy();
     expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent?.replace(/\d+$/, "").trim())).toEqual(
-      ["Proposed", "Genome approved", "Actionable", "Realizing", "Evaluated", "Promoted", "Rejected"],
+      ["Realizations", "Proposed", "Genome approved", "Actionable", "Realizing", "Evaluated", "Promoted", "Rejected"],
     );
   });
 
@@ -35,7 +35,7 @@ describe("Work board", () => {
     expect(one.textContent).not.toMatch(/depends on/);
     const proposed = within(screen.getByRole("region", { name: /Proposed/ })).getAllByRole("button");
     expect(proposed.some((c) => /depends on/.test(c.textContent ?? ""))).toBe(true);
-    expect(proposed.some((c) => /genome-amendment/.test(c.textContent ?? ""))).toBe(true);
+    expect(proposed.some((c) => /Genome Evolution/.test(c.textContent ?? ""))).toBe(true);
   });
 
   it("never shows a not-run rollup as green", async () => {
@@ -72,6 +72,7 @@ describe("StartWorkPanel against the API", () => {
     const auth: (string | null)[] = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
       const u = String(url);
+      if (u.endsWith("/realization-plans")) return json(200, { plans: [] });
       if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
       if (init?.method === "POST" && u.endsWith("/evolutions/evolution.1/realizations")) {
         calls.push(JSON.parse(String(init.body)));
@@ -100,6 +101,7 @@ describe("StartWorkPanel against the API", () => {
     const auth: (string | null)[] = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
       const u = String(url);
+      if (u.endsWith("/realization-plans")) return json(200, { plans: [] });
       if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
       if (init?.method === "POST") {
         auth.push(new Headers(init.headers).get("authorization"));
@@ -126,6 +128,7 @@ describe("StartWorkPanel against the API", () => {
   ])("says plainly when start work is refused with %i", async (status, message) => {
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
       const u = String(url);
+      if (u.endsWith("/realization-plans")) return json(200, { plans: [] });
       if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
       if (init?.method === "POST") return json(status, { error: { code: status === 401 ? "unauthorized" : "forbidden", message: "nope" } });
       return json(200, { evolutions: [], realizations: [] });
@@ -282,6 +285,7 @@ describe("CandidateReview", () => {
         posts.push({ url: path, auth: new Headers(init.headers).get("authorization") });
         return json(200, { realization: realization(), candidate: candidate(), evaluations: [evalFor("C.webapp.health")] });
       }
+      if (path.endsWith("/realization-plans")) return json(200, { plans: [] });
       if (path.includes("/model")) return json(200, { ...fixtureBundle(), source: "api" });
       if (path.includes("/candidates")) return json(200, { evolution: EVO1, candidates: [candidate()], evaluations: [], conflicts: [] });
       if (path.includes("/evaluations")) return json(200, { evaluations: [] });
@@ -319,9 +323,10 @@ const ALL_CRITERIA = fixtureBundle().model.criteria.map((c) => c.id);
 
 describe("New Evolution", () => {
   it("omits acceptanceCriteria untouched, sends the picked ids once touched, and [] when cleared", async () => {
-    const posts: { acceptanceCriteria?: string[] }[] = [];
+    const posts: { acceptanceCriteria?: string[]; kind?: string }[] = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
       const u = String(url);
+      if (u.endsWith("/realization-plans")) return json(200, { plans: [] });
       if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
       if (u.endsWith("/evolutions") && init?.method === "POST") {
         posts.push(JSON.parse(String(init.body)));
@@ -341,6 +346,8 @@ describe("New Evolution", () => {
     create();
     await waitFor(() => expect(posts.length).toBe(1));
     expect("acceptanceCriteria" in posts[0]!).toBe(false);
+    expect(posts[0]!.kind).toBe("genome-amendment");
+    expect(within(panel).queryByRole("option", { name: "mixed" })).toBeNull();
     fireEvent.click(boxes[1]!);
     create();
     await waitFor(() => expect(posts.length).toBe(2));
@@ -369,6 +376,7 @@ describe("New Evolution", () => {
     const posts: { body: unknown; auth: string | null }[] = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
       const u = String(url);
+      if (u.endsWith("/realization-plans")) return json(200, { plans: [] });
       if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
       if (u.endsWith("/evolutions") && init?.method === "POST") {
         posts.push({ body: JSON.parse(String(init.body)), auth: new Headers(init.headers).get("authorization") });
@@ -388,7 +396,7 @@ describe("New Evolution", () => {
     fireEvent.change(within(panel).getByLabelText("Admin token"), { target: { value: "s3cret" } });
     fireEvent.click(within(panel).getByRole("button", { name: "Create Evolution" }));
     await waitFor(() => expect(router.state.location.search).toBe("?evolution=evolution.new"));
-    expect(posts).toEqual([{ body: { title: "Reminder nudges", intent: "Nudge owners", kind: "mixed", risk: "low", affectedNodes: ["screen.people"] }, auth: "Bearer s3cret" }]);
+    expect(posts).toEqual([{ body: { title: "Reminder nudges", intent: "Nudge owners", kind: "genome-amendment", risk: "low", affectedNodes: ["screen.people"] }, auth: "Bearer s3cret" }]);
     const proposed = await screen.findByRole("region", { name: /Proposed/ });
     expect(await within(proposed).findByRole("button", { name: "Reminder nudges" })).toBeTruthy();
     await waitFor(() => expect(screen.queryByRole("region", { name: "New Evolution" })).toBeNull());
@@ -418,4 +426,11 @@ describe("BuildChip", () => {
     rerender(<BuildChip build={{ id: "b", status: "failed", kind: "preview", commit: "abc" }} />);
     expect(screen.getByText("build failed").getAttribute("data-tone")).toBe("fail");
   });
+});
+it('Genome Evolution work cannot target an app implementation',async()=>{
+ const genomeEvolution=fixtureBundle().model.evolutions.find(e=>e.kind==='genome-amendment')!;
+ renderApp(`${WORK}?evolution=${genomeEvolution.id}&panel=start`);
+ const target=await screen.findByLabelText('Target');
+ expect(within(target).queryByRole('option',{name:'app'})).toBeNull();
+ expect(within(target).getByRole('option',{name:'genome'})).toBeTruthy();
 });

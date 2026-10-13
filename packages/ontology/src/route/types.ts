@@ -99,14 +99,18 @@ export type OpCriterion = NodeCriterion | { id: string; remove: true };
 /**
  * A graph edit in canonical terms. An `add` link names the other end with `to` (new -> it) or `from` (it -> new);
  * its `fields` are any other fields the kind declares, and its `criteria` the new node's own. An `update` sets
- * `fields` (`null` deletes one) and upserts or removes `criteria` by id.
+ * `fields` (`null` deletes one), upserts or removes `criteria` by id, and replaces or removes `files`.
  */
 export type Op =
   | {
     op: "add"; kind: string; parent?: string; title: string; description?: string; fields?: Record<string, unknown>;
     criteria?: NodeCriterion[]; links?: { rel: string; to?: string; from?: string }[];
   }
-  | { op: "update"; id: string; fields?: Record<string, unknown>; criteria?: OpCriterion[] }
+  | {
+    op: "update"; id: string; fields?: Record<string, unknown>; criteria?: OpCriterion[];
+    /** The node's `files` globs, relative to the nearest `root`: a list replaces them, `null` removes the key. */
+    files?: string[] | null;
+  }
   | { op: "remove"; id: string }
   | { op: "link" | "unlink"; from: string; rel: string; to: string };
 
