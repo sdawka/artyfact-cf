@@ -1,17 +1,15 @@
 import React from 'react';
-import { SystemExplorer } from './SystemExplorer';
+import { ModelContent } from './ModelContent';
 import { LandingStory } from './LandingStory';
 export type SiteConfig = { platform: string | null; source: string | null };
 export const pages = {
   '/': { title: 'Artyfact — Make Meaningful Systems', description: 'Make meaningful systems on Cloudflare. Give applications their shape, realize them from reusable Parts, and inspect activity with intent and evidence together.' },
-  '/model': { title: 'Understand the model — Artyfact', description: 'Purpose, Genome, Proteome and Phenome are views of the same System, linking Genome-first Things, reusable Parts, source, realized output and evidence.' },
+  '/model': { title: 'Understand the model — Artyfact', description: 'Start with a System and choose its Things. Give each Thing a form, content and criteria; connect intent, agent work and observed evidence.' },
   '/connect-agent': { title: 'Bring your agent — Artyfact', description: 'Use your own local agent with Artyfact task packets, isolated Git workspaces, checkpoints and candidate submissions.' },
 };
 export type PagePath = keyof typeof pages;
 export const notFoundPage = { title: 'Page not found — Artyfact', description: 'This page does not exist. Return to Artyfact or read the agent guide.' };
 function Wordmark() { return <span className="wordmark"><span className="brand-glyph" aria-hidden="true">⟐</span> artyfact</span>; }
-// explorerHtml is trusted markup produced by renderToString(<SystemExplorer />) at build time. Without it, the component renders directly.
-function Explorer({ html }: { html?: string }) { return html === undefined ? <div data-system-explorer=""><SystemExplorer /></div> : <div data-system-explorer="" dangerouslySetInnerHTML={{ __html: html }} />; }
 function Code({ id, children }: { id: string; children: string }) { return <div className="code-block"><pre><code id={id}>{children}</code></pre><div className="code-actions"><button hidden data-copy={id}>Copy code</button><span role="status" aria-live="polite" /></div></div>; }
 function Platform({ config }: { config: SiteConfig }) { return config.platform ? <a className="button u-brackets" href={config.platform}>Open the platform</a> : <p className="availability"><span className="availability-mark" aria-hidden="true" />The hosted handoff is being prepared. The guide is ready.</p>; }
 export function Site({ path, config, explorerHtml, landingHtml }: { path: PagePath | '/404'; config: SiteConfig; explorerHtml?: string; landingHtml?: string }) {
@@ -30,12 +28,7 @@ function NotFound() { return <section className="page-intro"><h1>Page not found.
 function Home({ config, landingHtml }: { config: SiteConfig; landingHtml?: string }) {
   return <>
     <section className="landing-story" id="home-system-story" aria-label="A System through its three views">
-      <div className="hero-copy"><h1>Make Meaningful<br /> Systems</h1><p className="cloudflare-line">(on Cloudflare)</p><p className="lead">Give your agent the whole picture.</p><p>Shape a Thing with its Genome. Compose reusable Parts when they help. Keep the work, its functioning and its purpose in the same System.</p><div className="actions"><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a><a className="text-link" href="/model">Understand the model</a></div><Platform config={config} /></div>
-      <div className="landing-story-scroll-region"><div className="landing-story-visual">{landingHtml === undefined ? <div data-landing-story=""><LandingStory /></div> : <div data-landing-story="" dangerouslySetInnerHTML={{ __html: landingHtml }} />}</div>
-      <article className="story-step" id="genome-shape" data-story-step="genome"><div><p className="story-view-name">Genome · The shape</p><h2>Give the application its shape.</h2><p>This miniature Artyfact explores sample system ideas: a name, a purpose and the shape of an idea generator. Start with the people it serves, what it should do and what must stay true. Screens, routes and private data take a recognizable shape before they need implementation.</p><p className="story-detail">A Thing can begin with its Genome alone. Parts and source are optional.</p></div></article>
-      <article className="story-step" id="proteome-application" data-story-step="proteome"><div><p className="story-view-name">Proteome · The application</p><h2>Make that shape tangible.</h2><p>Outside coding agents realize the declared shape. An illustrative Astro starter and component system contribute to the same application. Its screen, API and storage become solid, while the System keeps track of how they were realized and checked.</p><p className="story-detail">The recipe explicitly replaces the starter Button and adapts callers and configuration. Authored source and each realized output keep separate identities.</p></div></article>
-      <article className="story-step" id="phenome-activity" data-story-step="phenome"><div><p className="story-view-name">Phenome · The activity</p><h2>See what happens when it functions.</h2><p>Events and metrics sit beside the application they describe. Randomize a sample system name and purpose, then see the local idea count grow beside the interface that produced it.</p><p className="story-detail">Activity here is illustrative. The curated ideas are a local demonstration, without AI generation, real requests or saved data. Useful outcomes remain unmeasured; functioning alone does not establish purpose.</p></div></article>
-      </div>
+      {landingHtml === undefined ? <div data-landing-story="" data-platform={config.platform ?? undefined}><LandingStory platform={config.platform} /></div> : <div data-landing-story="" data-platform={config.platform ?? undefined} dangerouslySetInnerHTML={{ __html: landingHtml }} />}
     </section>
     <section className="statement section"><div><h2>Start with a purpose.<br />Keep it in the work.</h2></div><div className="prose"><p>An agent needs to know why a change matters, whose needs it serves, and what must stay true.</p><p>Artyfact gives that context a home: a <a href="/model">System</a>, the context and governance wrapper around one or more Things. A single Thing can be a whole application and begin with its Genome alone.</p><p>Keep in Touch, the separate example on our model page, explores another purpose. The purpose is more wanted contact with people you choose. Private notes, consent and a calm experience follow from that purpose.</p></div></section>
     <section className="section workflow"><div className="section-heading"><h2>A clear handoff.<br />Room for different approaches.</h2><p>Use your own agent and local tools. Artyfact supplies the task, context and isolated workspace.</p></div>
@@ -50,24 +43,7 @@ function Home({ config, landingHtml }: { config: SiteConfig; landingHtml?: strin
     <section className="closing section"><h2>Bring your agent.<br />Bring your intent.</h2><div><p>Start with how the handoff works. Explore the model when you want the deeper picture.</p><a className="button primary u-brackets" href="/connect-agent">Read the agent guide</a></div></section>
   </>;
 }
-function Model({ explorerHtml }: { explorerHtml?: string }) {
-  const glossary = [
-    ['System', 'System is the context and governance wrapper for the work. It can contain one Thing that is the whole application, and its boundary does not have to match a repository.'],
-    ['Purpose & Externals', 'The change you want for people in a surrounding context, and the people, services and conditions your System interacts with.'],
-    ['Thing', 'A Thing is a subject the System defines, such as a whole application, a service or a document. A Thing can begin with its Genome alone, with zero Parts and no source Artifact.'],
-    ['Parts', 'Parts are optional reusable packages that may be partial or complete at any scale. A recipe composes pinned contributions explicitly; upgrades compare saved baselines so custom work is preserved or conflicts are shown.'],
-    ['Source & realized Artifacts', 'Source Artifact is authored code, configuration, assets and manifests, excluding dependencies, caches and generated output. Realized Artifact is one specific build output with its own identity, locator or digest, and its source and Genome lineage. Rebuilding identical source can produce distinct outputs.'],
-    ['Evolution & Realization', 'An Evolution describes intended change. A Realization is a scoped attempt by a contributor or agent. Several Realizations can explore the same Evolution.'],
-    ['Evaluation & System commit', 'An Evaluation records a check against an exact candidate. Promotion records an accepted System revision, its manifest, evidence and decision. A local Git commit alone does not authorize promotion.'],
-  ];
-  return <>
-    <section className="page-intro"><h1>One System.<br />Different ways to see it.</h1><p className="lead">Intent, work and evidence share the same subjects.</p><p className="intro-text">A private contact is an entity in the model, something an agent works on, and a subject whose privacy needs evidence. Moving between views changes the question, not the System.</p></section>
-    <section className="section model-explorer"><Explorer html={explorerHtml} /><div className="prose"><h2>Try the views.</h2><p><strong>Genome</strong> describes intended structure and contracts: purpose, requirements, journeys, policies and criteria. It can exist before any Part or source Artifact.</p><p><strong>Proteome</strong> describes how work is realized and evaluated: roles, task packets, Realizations, hooks and checks.</p><p><strong>Phenome</strong> defines what can be observed and records evidence, feedback and outcomes, with their time and context. Runtime evidence links through the authoritative Thing, source and realized output association.</p><p>Genome, Proteome and Phenome are views over the same System, not successive build stages or nested containers.</p></div></section>
-    <section className="section glossary"><h2>The pieces,<br />in plain language.</h2><dl>{glossary.map(([name, description]) => <div key={name}><dt>{name}</dt><dd>{description}</dd></div>)}</dl></section>
-    <section className="section states"><h2>Three questions.<br />Three separate answers.</h2><div className="state-grid"><article><span className="state-line" /><h3>Is the model ready?</h3><p>Are references, obligations, criteria and hooks sufficiently defined for the declared scope?</p></article><article><span className="state-line" /><h3>Does the implementation conform?</h3><p>What checks ran against this exact version, and what did they establish?</p></article><article><span className="state-line" /><h3>Does it help?</h3><p>What observations show that the intended change is happening for the beneficiaries?</p></article></div><p className="prose note">A passing implementation check does not establish usefulness or causal impact. Outcome claims remain hypotheses until the relevant observations support them.</p></section>
-    <section className="section closing"><h2>Make the model<br />part of the handoff.</h2><div><p>A Task Packet brings the relevant parts into an agent's workspace.</p><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a></div></section>
-  </>;
-}
+function Model({ explorerHtml }: { explorerHtml?: string }) { return <ModelContent explorerHtml={explorerHtml} />; }
 function Guide({ config }: { config: SiteConfig }) {
   const hostedOrigin = config.platform?.startsWith('https://') ? new URL(config.platform).origin : null;
   return <>

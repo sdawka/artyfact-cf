@@ -13,7 +13,7 @@ const entry = manifest['src/client.tsx'];
 // The page shell is static markup. The explorer is rendered with renderToString instead, so its
 // text-node separators match what hydrateRoot expects on the client.
 const explorerHtml = renderToString(<SystemExplorer />);
-const landingHtml = renderToString(<LandingStory />);
+const landingHtml = renderToString(<LandingStory platform={config.platform} />);
 
 function document(meta: { title: string; description: string }, path: PagePath | '/404') {
   const content = renderToStaticMarkup(<Site path={path} config={config} explorerHtml={explorerHtml} landingHtml={landingHtml} />);
@@ -35,7 +35,7 @@ function document(meta: { title: string; description: string }, path: PagePath |
     (entry.css || []).map((css: string) => '<link rel="stylesheet" href="/' + escapeAttr(css) + '">').join('');
   const needs = [(hasExplorer || hasStory) && 'switch views', hasCopy && 'use the copy buttons'].filter(Boolean).join(' or ');
   const noscript = needs
-    ? '<noscript><p class="no-script">' + (hasStory ? 'The example shows its Genome; all three view descriptions are available below. ' : hasExplorer ? 'The example shows its initial model. ' : '') + 'Enable JavaScript to ' + needs + '.</p></noscript>'
+    ? '<noscript><p class="no-script">' + (hasStory ? 'The example shows its Genome; all three view descriptions are available below. ' : hasExplorer ? 'All three example views are readable below. ' : '') + 'Enable JavaScript to ' + needs + '.</p></noscript>'
     : '';
   const script = needs ? '<script type="module" src="/' + escapeAttr(entry.file) + '"></script>' : '';
   return '<!doctype html><html lang="en"><head>' + head + '</head><body>' + content + noscript + script + '</body></html>';
