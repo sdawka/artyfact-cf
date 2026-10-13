@@ -60,13 +60,14 @@ describe("hook selection: API-created evolutions", () => {
     const s = await submitApp(f, PEOPLE);
     const sub = await call<SubmitResponse>("POST", `/systems/${f.systemId}/realizations/${s.rid}/submit`, { commit: s.commit });
     const pairs = sub.json.evaluations.map((e) => `${e.criterion}|${e.hook}|${e.provenance.selectedBy}`);
-    // Recorded against main before the DO fallback existed.
+    // Recorded against main before the DO fallback existed, plus the promotion-gated C.webapp.exists the gate requires.
     expect(pairs).toEqual([
       "C.people.audit|hook.people.audit|subject",
       "C.people.lint|hook.people.lint|subject",
       "C.people.list|hook.people.list|acceptance",
       "C.people.sorted|none|acceptance",
       "C.system.promotion|hook.system.scope|system-gate",
+      "C.webapp.exists|hook.webapp.exists|promotion-gate",
     ]);
   });
 });
