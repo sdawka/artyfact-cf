@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { useTree } from "@/api/queries";
 import { Breadcrumbs } from "@/components/Breadcrumbs/Breadcrumbs";
 import { CopyButton } from "@/components/CopyButton/CopyButton";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
@@ -27,6 +28,9 @@ export function InspectorHeader({ entry }: { entry: IndexEntry }) {
   const path = m.path(entry.id).map((e) => e.id);
   const href = useKeepParams();
   const doc = (entry.item as { source?: { doc?: unknown } } | undefined)?.source?.doc;
+  // `source.doc` is a document id; Code opens paths. Prefer the Genome file that maps to this node.
+  const tree = useTree({ repo: "genome" });
+  const codePath = tree.data?.files.find((f) => f.nodes?.includes(entry.id))?.path ?? (typeof doc === "string" ? doc : "");
   return (
     <header className={styles.header}>
       <div className={styles.titleRow}>
@@ -55,8 +59,8 @@ export function InspectorHeader({ entry }: { entry: IndexEntry }) {
             Open in {VIEW_LABELS[v]}
           </button>
         ))}
-        {typeof doc === "string" && doc && (
-          <Link className={`u-brackets ${styles.openButton}`} to={href("code", { repo: "genome", path: doc })}>
+        {typeof doc === "string" && doc && codePath && (
+          <Link className={`u-brackets ${styles.openButton}`} to={href("code", { repo: "genome", path: codePath })}>
             Open in Code
           </Link>
         )}
