@@ -1,0 +1,9 @@
+id: module.cli.git
+kind: module
+fields:
+  name: Git
+  description: Runs git with tokens passed through the environment, never argv.
+  path: src/git.ts
+files:
+  - src/git.ts
+  - src/ignore.ts

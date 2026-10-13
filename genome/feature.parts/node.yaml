@@ -1,0 +1,5 @@
+id: feature.parts
+kind: feature
+fields:
+  name: Parts
+  summary: Reusable Genome and source parts that are published, composed into Systems and upgraded.

@@ -1,0 +1,7 @@
+id: command.convert-genome
+kind: command
+fields:
+  name: convert-genome
+  usage: artyfact convert-genome <src> <dst> [--templates dir]
+  exitCodes: 0 on success, 1 on any error.
+  description: Writes the node-tree (v2) form of the v1 Genome in <src> into a new directory <dst>. Exits 1 when <dst> exists or <src> does not parse.

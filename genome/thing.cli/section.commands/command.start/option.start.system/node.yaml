@@ -1,0 +1,7 @@
+id: option.start.system
+kind: option
+fields:
+  name: system
+  flag: --system <sid>
+  description: System id, or ARTYFACT_SYSTEM.
+  valueType: string

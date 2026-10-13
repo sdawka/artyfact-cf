@@ -1,0 +1,7 @@
+id: endpoint.packet
+kind: endpoint
+fields:
+  name: Task packet
+  description: "Returns the task packet: intent, acceptance criteria, Genome excerpts, permitted and protected paths, commands and concurrent work."
+  route: GET /api/systems/:id/realizations/:rid/packet
+  auth: The realization's secret or the admin bearer; 401 without a bearer, 403 for any other token.

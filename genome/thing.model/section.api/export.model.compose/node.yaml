@@ -1,0 +1,7 @@
+id: export.model.compose
+kind: export
+fields:
+  name: composeParts
+  signature: "export function composeParts(recipeInput: schema.PartRecipe, resolver: PartResolver, options?: ComposeOptions): schema.SavedComposition"
+  stability: stable
+  description: Composes Parts into a System by recipe; throws PartCompositionError on conflicts.

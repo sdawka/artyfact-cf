@@ -1,0 +1,10 @@
+id: module.platform.deployments
+kind: module
+fields:
+  name: Builds and deployments
+  description: Dispatches CI builds, records build reports and deployments and issues ingest tokens.
+  path: worker/deployments.ts
+links:
+  - { rel: dependsOn, to: module.platform.authority }
+files:
+  - worker/deployments.ts

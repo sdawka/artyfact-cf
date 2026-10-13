@@ -1,0 +1,32 @@
+id: thing.ci
+kind: thing
+template: template.thing.cloudflare-worker-service@1
+root: apps/ci
+fields:
+  name: CI
+  description: "The artyfact-ci Worker: the ArtyfactCI Workflow on @cloudflare/ci builds and deploys app commits in a container sandbox and reports each build back to the platform."
+links:
+  - { rel: artifact, to: artifact.ci }
+  - { rel: exposes, to: endpoint.ci-health }
+  - { rel: calls, to: endpoint.report-build }
+  - { rel: calls, to: endpoint.report-realization-build }
+files:
+  - Dockerfile
+criteria:
+  - id: C.ci.pipeline
+    title: The pipeline runs only allowed commands and never exposes credentials
+    claim: A build runs install, test, build, bundle and deploy from the allowlist; the deploy step holds the only credentials and runs no repo script.
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    hooks:
+      - id: hook.ci.pipeline
+        assay: ci.pipeline
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          command: npm test -w @artyfact/ci

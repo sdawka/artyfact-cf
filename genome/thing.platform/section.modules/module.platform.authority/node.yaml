@@ -1,0 +1,10 @@
+id: module.platform.authority
+kind: module
+fields:
+  name: System authority
+  description: The SystemAuthority Durable Object and its SQLite stores.
+  path: worker/do
+links:
+  - { rel: implements, to: durable-object.system-authority }
+files:
+  - worker/do/**

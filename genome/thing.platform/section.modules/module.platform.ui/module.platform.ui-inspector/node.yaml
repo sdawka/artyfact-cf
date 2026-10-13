@@ -1,0 +1,8 @@
+id: module.platform.ui-inspector
+kind: module
+fields:
+  name: Inspector
+  description: The node drawer with its tabs, rendered from the template's view hints.
+  path: src/inspector
+files:
+  - src/inspector/**

@@ -1,0 +1,10 @@
+id: module.platform.genome-review
+kind: module
+fields:
+  name: Genome review
+  description: "Reviews a Genome amendment: semantic delta, findings and System One signals."
+  path: worker/genome
+links:
+  - { rel: dependsOn, to: module.semantic.judgments }
+files:
+  - worker/genome/**

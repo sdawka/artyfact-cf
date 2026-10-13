@@ -1,0 +1,5 @@
+id: binding.backup-bucket
+kind: binding
+fields:
+  name: BACKUP_BUCKET
+  description: "R2 bucket artyfact-ci-cache: workspace snapshots and the install cache."

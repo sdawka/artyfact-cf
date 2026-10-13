@@ -1,0 +1,7 @@
+id: export.rules.run
+kind: export
+fields:
+  name: run
+  signature: "export function run(facts: FactSet, programs: Program[], opts?: RunOptions): Result"
+  stability: stable
+  description: Evaluates the stratified programs over the facts and returns every derived relation; throws StratificationError on negation through recursion.

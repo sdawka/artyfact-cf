@@ -1,0 +1,5 @@
+id: feature.promotion-gate
+kind: feature
+fields:
+  name: Promotion gate
+  summary: An admin promotes one candidate; the gate checks its evidence and the expected head in one transaction.

@@ -1,0 +1,7 @@
+id: export.effects.surface
+kind: export
+fields:
+  name: SurfaceField
+  signature: "export function SurfaceField(props: SurfaceFieldProps)"
+  stability: stable
+  description: Renders card-local light from a preset.

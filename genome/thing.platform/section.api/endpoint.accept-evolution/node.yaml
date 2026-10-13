@@ -1,0 +1,7 @@
+id: endpoint.accept-evolution
+kind: endpoint
+fields:
+  name: Accept a Genome amendment
+  description: Accepts a Genome amendment with an interpretation; a rules violation answers 409.
+  route: POST /api/systems/:id/evolutions/:eid/accept
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.

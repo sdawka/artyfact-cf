@@ -1,0 +1,9 @@
+id: command.submit
+kind: command
+fields:
+  name: submit
+  usage: artyfact submit [--preview-url u] [--json]
+  exitCodes: 0 on success, 1 on any error.
+  description: Pushes the fork and submits its head as a candidate, printing evaluations and conflicts. Exits 1 when the push or the call fails.
+links:
+  - { rel: calls, to: endpoint.submit }

@@ -1,0 +1,7 @@
+id: option.init.app
+kind: option
+fields:
+  name: app
+  flag: --app <dir>
+  description: App directory, with --genome.
+  valueType: path

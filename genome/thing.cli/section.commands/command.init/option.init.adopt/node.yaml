@@ -1,0 +1,7 @@
+id: option.init.adopt
+kind: option
+fields:
+  name: adopt
+  flag: --adopt
+  description: Adopt repos that already exist.
+  valueType: boolean

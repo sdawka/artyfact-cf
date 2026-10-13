@@ -1,0 +1,10 @@
+id: J.realize/r4
+kind: step
+fields:
+  step: r4
+  actor: external
+  action: Submits the fork head
+  kind: action
+  operation: endpoint.submit
+  next:
+    - to: r5

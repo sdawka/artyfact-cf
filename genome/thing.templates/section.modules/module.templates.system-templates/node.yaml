@@ -1,0 +1,8 @@
+id: module.templates.system-templates
+kind: module
+fields:
+  name: System templates
+  description: dev-platform.cloudflare and social-networking.cloudflare.
+  path: system
+files:
+  - system/**

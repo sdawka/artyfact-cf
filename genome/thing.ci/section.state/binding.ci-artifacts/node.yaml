@@ -1,0 +1,5 @@
+id: binding.ci-artifacts
+kind: binding
+fields:
+  name: ARTIFACTS (ci)
+  description: Read tokens for checkout and the cache fingerprint, same namespace as the platform.

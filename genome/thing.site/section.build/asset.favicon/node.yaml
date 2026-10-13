@@ -1,0 +1,7 @@
+id: asset.favicon
+kind: asset
+fields:
+  name: Favicon
+  path: public/favicon.svg
+  type: image
+  description: Copied unchanged from public/.

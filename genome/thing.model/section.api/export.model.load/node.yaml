@@ -1,0 +1,7 @@
+id: export.model.load
+kind: export
+fields:
+  name: loadSystem
+  signature: "export function loadSystem(files: Map<string, string>, opts?: { revision?: string; templates?: TemplateStore }): SystemModel"
+  stability: stable
+  description: Parses a Genome's files into a SystemModel, or throws ModelParseError listing every issue.

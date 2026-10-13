@@ -1,0 +1,7 @@
+id: option.convert-genome.templates
+kind: option
+fields:
+  name: templates
+  flag: --templates <dir>
+  description: Templates directory; default the checkout's packages/templates.
+  valueType: path

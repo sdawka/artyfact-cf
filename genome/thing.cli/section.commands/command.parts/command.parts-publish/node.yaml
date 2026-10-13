@@ -1,0 +1,8 @@
+id: command.parts-publish
+kind: command
+fields:
+  name: parts publish
+  usage: artyfact parts publish ...
+  description: The parts publish subcommand; without --apply it only prints what it would do.
+links:
+  - { rel: calls, to: endpoint.publish-part }

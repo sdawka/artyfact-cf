@@ -1,0 +1,8 @@
+id: module.ontology.adapters
+kind: module
+fields:
+  name: Adapters
+  description: The artyfact base template and v1 adapter, and the product and world adapters.
+  path: src/adapters
+files:
+  - src/adapters/**

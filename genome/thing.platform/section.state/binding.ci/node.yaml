@@ -1,0 +1,5 @@
+id: binding.ci
+kind: binding
+fields:
+  name: CI
+  description: Cross-script Workflow binding to ArtyfactCI in the artyfact-ci Worker; absent in tests, so builds are optional.

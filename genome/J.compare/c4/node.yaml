@@ -1,0 +1,8 @@
+id: J.compare/c4
+kind: step
+fields:
+  step: c4
+  actor: user
+  action: Opens one file's diff
+  kind: end
+  operation: endpoint.compare-file

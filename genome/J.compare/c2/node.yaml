@@ -1,0 +1,10 @@
+id: J.compare/c2
+kind: step
+fields:
+  step: c2
+  actor: user
+  action: Picks two revisions to compare
+  kind: action
+  operation: endpoint.revisions
+  next:
+    - to: c3

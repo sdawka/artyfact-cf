@@ -1,0 +1,6 @@
+id: commitment.cas-promotion
+kind: commitment
+fields:
+  statement: "Promotion is a compare-and-swap on the System head: a candidate built on an old head is refused with 409 stale-base."
+  features:
+    - feature.promotion-gate

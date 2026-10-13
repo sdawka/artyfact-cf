@@ -1,0 +1,10 @@
+id: J.describe-change/d3
+kind: step
+fields:
+  step: d3
+  actor: user
+  action: Answers the question, if one was asked
+  kind: action
+  operation: endpoint.intents-reply
+  next:
+    - to: d4

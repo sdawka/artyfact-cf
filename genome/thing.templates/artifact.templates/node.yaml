@@ -1,0 +1,7 @@
+id: artifact.templates
+kind: artifact
+fields:
+  type: external
+  repo: artyfact-cf
+  scope:
+    - packages/templates

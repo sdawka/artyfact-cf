@@ -1,0 +1,9 @@
+id: command.build-report
+kind: command
+fields:
+  name: build-report
+  usage: artyfact build-report --status queued|running|passed|failed|error [--url u] [--commit sha] [--logs-url u] [--error msg] [--json]
+  exitCodes: 0 on success, 1 on any error.
+  description: Reports a preview build of this realization when platform CI did not. Exits 1 on a bad status.
+links:
+  - { rel: calls, to: endpoint.report-realization-build }

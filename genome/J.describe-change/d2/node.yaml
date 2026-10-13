@@ -1,0 +1,9 @@
+id: J.describe-change/d2
+kind: step
+fields:
+  step: d2
+  actor: system
+  action: Routes the message to nodes and proposes ops, or asks a question
+  kind: reaction
+  next:
+    - to: d3

@@ -1,0 +1,30 @@
+id: thing.semantic
+kind: thing
+template: template.thing.ts-library@1
+root: packages/semantic
+fields:
+  name: Semantic
+  description: "@artyfact/semantic: the System One client (TypeSafe, OpenRouter or fake), the question builders and the judgments the hooks ask."
+links:
+  - { rel: artifact, to: artifact.semantic }
+  - { rel: exposes, to: export.semantic.create }
+  - { rel: exposes, to: export.semantic.interference }
+  - { rel: exposes, to: export.semantic.verdict }
+criteria:
+  - id: C.semantic.unit
+    title: "@artyfact/semantic tests pass"
+    claim: Provider, policy, question and judgment suites pass with the fake provider.
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    hooks:
+      - id: hook.semantic.unit
+        assay: semantic.unit
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          command: npm test -w @artyfact/semantic

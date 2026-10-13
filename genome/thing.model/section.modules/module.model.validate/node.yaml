@@ -1,0 +1,12 @@
+id: module.model.validate
+kind: module
+fields:
+  name: Validation
+  description: Turns a model into facts and runs the Rule Packs.
+  path: src/facts.ts
+links:
+  - { rel: implements, to: export.model.validate }
+  - { rel: dependsOn, to: module.rules.engine }
+files:
+  - src/facts.ts
+  - src/validate.ts

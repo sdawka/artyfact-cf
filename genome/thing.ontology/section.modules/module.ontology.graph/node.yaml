@@ -1,0 +1,9 @@
+id: module.ontology.graph
+kind: module
+fields:
+  name: Graph
+  description: The instance graph and canonical hashing.
+  path: src/graph
+files:
+  - src/graph/**
+  - src/canon.ts

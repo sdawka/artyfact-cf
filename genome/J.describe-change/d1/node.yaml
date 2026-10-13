@@ -1,0 +1,10 @@
+id: J.describe-change/d1
+kind: step
+fields:
+  step: d1
+  actor: user
+  action: States the change on Work, Home or a node, optionally anchored on that node
+  kind: action
+  operation: endpoint.intents-create
+  next:
+    - to: d2

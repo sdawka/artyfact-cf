@@ -1,0 +1,7 @@
+id: endpoint.template-upgrade
+kind: endpoint
+fields:
+  name: Template upgrade plan
+  description: Plans the upgrade of the app to its Thing template's newest version from the platform repo.
+  route: GET /api/systems/:id/template-upgrade
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

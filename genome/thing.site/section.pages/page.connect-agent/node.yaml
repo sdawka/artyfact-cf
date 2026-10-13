@@ -1,0 +1,7 @@
+id: page.connect-agent
+kind: page
+fields:
+  name: Bring your agent
+  route: /connect-agent
+  rendering: prerendered
+  description: Shows how to connect a local agent with task packets, forks, checkpoints and submissions.

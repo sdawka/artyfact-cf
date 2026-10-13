@@ -1,0 +1,7 @@
+id: option.init.genome
+kind: option
+fields:
+  name: genome
+  flag: --genome <dir>
+  description: Genome directory, with --app.
+  valueType: path

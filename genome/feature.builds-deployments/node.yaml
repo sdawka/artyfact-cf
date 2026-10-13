@@ -1,0 +1,5 @@
+id: feature.builds-deployments
+kind: feature
+fields:
+  name: Builds and deployments
+  summary: Candidates get preview builds through the CI Worker; a promotion asks for a production deployment.

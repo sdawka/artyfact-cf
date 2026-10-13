@@ -1,0 +1,10 @@
+id: module.semantic.provider
+kind: module
+fields:
+  name: Provider
+  description: Calls System One with caching and the wire format.
+  path: src/provider.ts
+links:
+  - { rel: implements, to: export.semantic.create }
+files:
+  - src/provider.ts

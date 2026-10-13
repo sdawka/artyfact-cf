@@ -1,0 +1,7 @@
+id: endpoint.reject
+kind: endpoint
+fields:
+  name: Reject a realization
+  description: Rejects a realization's candidate with a reason.
+  route: POST /api/systems/:id/realizations/:rid/reject
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.

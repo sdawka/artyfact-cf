@@ -1,0 +1,11 @@
+id: module.semantic.types
+kind: module
+fields:
+  name: Types
+  description: Answer, question and model types, and stable hashing.
+  path: src/types.ts
+files:
+  - src/types.ts
+  - src/model-types.ts
+  - src/hash.ts
+  - src/index.ts

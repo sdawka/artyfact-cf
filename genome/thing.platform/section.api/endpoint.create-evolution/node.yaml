@@ -1,0 +1,9 @@
+id: endpoint.create-evolution
+kind: endpoint
+fields:
+  name: Create an Evolution
+  description: Creates an intended change with affected nodes and acceptance criteria; unknown nodes or criteria are 400.
+  route: POST /api/systems/:id/evolutions
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  request: "{title, intent, kind?, risk?, affectedNodes?, acceptanceCriteria?}"
+  response: 201 Evolution

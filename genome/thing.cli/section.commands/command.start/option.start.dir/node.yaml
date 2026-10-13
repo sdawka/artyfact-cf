@@ -1,0 +1,7 @@
+id: option.start.dir
+kind: option
+fields:
+  name: dir
+  flag: --dir <d>
+  description: Workspace directory.
+  valueType: path

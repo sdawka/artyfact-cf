@@ -1,0 +1,5 @@
+id: feature.describe-change
+kind: feature
+fields:
+  name: Describe a change
+  summary: A person states a change in words; the platform routes it to Genome nodes and proposes node updates, or asks a question back.

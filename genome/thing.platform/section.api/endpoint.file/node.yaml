@@ -1,0 +1,7 @@
+id: endpoint.file
+kind: endpoint
+fields:
+  name: Read a file
+  description: Returns one file's text at a ref.
+  route: GET /api/systems/:id/file
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

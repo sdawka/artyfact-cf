@@ -1,0 +1,7 @@
+id: endpoint.ingest-events
+kind: endpoint
+fields:
+  name: Ingest Phenome events
+  description: Accepts a batch of runtime events from a deployed app within the Phenome limits.
+  route: POST /api/systems/:id/phenome/events
+  auth: A deployment ingest token the platform issued; 401 or 403 without it.

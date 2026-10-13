@@ -1,0 +1,10 @@
+id: J.realize/r2
+kind: step
+fields:
+  step: r2
+  actor: external
+  action: Runs artyfact start and reads the task packet
+  kind: action
+  operation: endpoint.packet
+  next:
+    - to: r3

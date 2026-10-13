@@ -1,0 +1,13 @@
+id: module.model.load
+kind: module
+fields:
+  name: Loader
+  description: Reads Genome files against the zod schema into a SystemModel.
+  path: src/load.ts
+links:
+  - { rel: implements, to: export.model.load }
+  - { rel: dependsOn, to: module.rules.parse }
+files:
+  - src/load.ts
+  - src/schema.ts
+  - src/index.ts

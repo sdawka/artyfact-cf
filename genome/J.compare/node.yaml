@@ -1,0 +1,8 @@
+id: J.compare
+kind: journey
+fields:
+  name: Compare revisions
+  actorGoal: See what changed between two revisions and at which layer
+  features:
+    - feature.changelog-compare
+  start: c1

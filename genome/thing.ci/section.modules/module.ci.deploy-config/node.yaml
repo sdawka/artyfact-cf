@@ -1,0 +1,8 @@
+id: module.ci.deploy-config
+kind: module
+fields:
+  name: Deploy config
+  description: Checks the repo's Wrangler config against an allowlist and writes the bundle and deploy configs.
+  path: src/deploy-config.ts
+files:
+  - src/deploy-config.ts

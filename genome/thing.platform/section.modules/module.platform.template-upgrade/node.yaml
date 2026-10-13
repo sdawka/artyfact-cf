@@ -1,0 +1,8 @@
+id: module.platform.template-upgrade
+kind: module
+fields:
+  name: Template upgrade
+  description: Plans and applies upgrades of an app to its Thing template's newer version.
+  path: worker/template-upgrade.ts
+files:
+  - worker/template-upgrade.ts

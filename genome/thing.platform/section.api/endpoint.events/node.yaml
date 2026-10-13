@@ -1,0 +1,7 @@
+id: endpoint.events
+kind: endpoint
+fields:
+  name: Event stream
+  description: Server-sent events of the System's Durable Object, so the UI refreshes without polling.
+  route: GET /api/systems/:id/events
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

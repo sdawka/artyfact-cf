@@ -1,0 +1,10 @@
+id: J.promote/p2
+kind: step
+fields:
+  step: p2
+  actor: user
+  action: Promotes one candidate against the expected head
+  kind: action
+  operation: endpoint.promote
+  next:
+    - to: p3

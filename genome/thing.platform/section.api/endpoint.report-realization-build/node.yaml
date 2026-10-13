@@ -1,0 +1,7 @@
+id: endpoint.report-realization-build
+kind: endpoint
+fields:
+  name: Report a preview build
+  description: Records the status of a realization's preview build.
+  route: POST /api/systems/:id/realizations/:rid/builds
+  auth: The CI report token, the admin bearer or the realization secret; 401 without a bearer, 403 otherwise.

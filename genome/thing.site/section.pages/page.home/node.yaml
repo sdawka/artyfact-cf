@@ -1,0 +1,7 @@
+id: page.home
+kind: page
+fields:
+  name: Home
+  route: /
+  rendering: prerendered
+  description: Introduces Artyfact through one illustrative application shown as Genome, Proteome and Phenome, so a visitor learns what the platform is for.

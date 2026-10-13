@@ -1,0 +1,5 @@
+id: feature.agent-realization
+kind: feature
+fields:
+  name: Agent realization
+  summary: An agent starts work on an Evolution, gets a task packet and a fork with a scoped token, checkpoints and submits a candidate with the CLI.

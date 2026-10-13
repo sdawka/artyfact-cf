@@ -1,0 +1,8 @@
+id: J.promote/p4
+kind: step
+fields:
+  step: p4
+  actor: system
+  action: Writes the System commit and asks for a production deployment
+  kind: end
+  operation: endpoint.create-deployment

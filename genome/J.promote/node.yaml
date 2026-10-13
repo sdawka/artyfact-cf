@@ -1,0 +1,9 @@
+id: J.promote
+kind: journey
+fields:
+  name: Promote a candidate
+  actorGoal: Move the System head to a candidate whose evidence passes
+  features:
+    - feature.promotion-gate
+    - feature.builds-deployments
+  start: p1

@@ -1,0 +1,5 @@
+id: binding.artifacts
+kind: binding
+fields:
+  name: ARTIFACTS
+  description: "Cloudflare Artifacts namespace artyfact: the Genome, app, fork and platform repos (remote even in local dev; replaced in memory by FAKE_ARTIFACTS=1)."

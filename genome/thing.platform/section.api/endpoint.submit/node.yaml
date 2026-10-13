@@ -1,0 +1,9 @@
+id: endpoint.submit
+kind: endpoint
+fields:
+  name: Submit a candidate
+  description: Records the fork head as a candidate, runs the hooks for the affected criteria and reports overlap; idempotent on realization and commit.
+  route: POST /api/systems/:id/realizations/:rid/submit
+  auth: The realization's secret or the admin bearer; 401 without a bearer, 403 for any other token.
+  request: "{commit, previewUrl?}"
+  response: 201 when created, 200 when already submitted

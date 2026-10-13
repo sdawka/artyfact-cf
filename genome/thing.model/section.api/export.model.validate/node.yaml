@@ -1,0 +1,7 @@
+id: export.model.validate
+kind: export
+fields:
+  name: validate
+  signature: "export function validate(m: SystemModel, packs: RulePack[]): Readiness"
+  stability: stable
+  description: Runs the Rule Packs over the model's facts and returns findings with derivations.

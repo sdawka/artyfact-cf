@@ -1,0 +1,10 @@
+id: module.model.parts
+kind: module
+fields:
+  name: Parts
+  description: Part extraction, composition and upgrade.
+  path: src/parts.ts
+links:
+  - { rel: implements, to: export.model.compose }
+files:
+  - src/parts.ts

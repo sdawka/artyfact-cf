@@ -1,0 +1,11 @@
+id: module.cli.parts
+kind: module
+fields:
+  name: Parts
+  description: The parts subcommands over @artyfact/model.
+  path: src/parts.ts
+links:
+  - { rel: implements, to: command.parts }
+  - { rel: dependsOn, to: module.model.parts }
+files:
+  - src/parts.ts

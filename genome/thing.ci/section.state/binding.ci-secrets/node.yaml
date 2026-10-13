@@ -1,0 +1,5 @@
+id: binding.ci-secrets
+kind: binding
+fields:
+  name: Secrets (ci)
+  description: CI_REPORT_TOKEN (shared with the platform), CF_TOKEN injected only into the deploy step, and the R2 keys.

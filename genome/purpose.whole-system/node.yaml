@@ -1,0 +1,11 @@
+id: purpose.whole-system
+kind: purpose
+fields:
+  statement: People and their agents change a software System together while seeing, before anything ships, whether each change agrees with what the System is meant to be.
+  intendedChange: Conflicts between agents are found in the model before promotion instead of after deployment, and every promoted change carries the evidence it was checked against.
+  successCriteria:
+    - A semantic conflict between two candidates that touch different files is reported before either is promoted.
+    - No promoted System commit lacks a passing evaluation for each blocking criterion.
+  nonGoals:
+    - Replacing Git hosting for arbitrary repositories.
+    - Judging code quality with a model in place of tests.

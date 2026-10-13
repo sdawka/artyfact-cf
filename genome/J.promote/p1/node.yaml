@@ -1,0 +1,10 @@
+id: J.promote/p1
+kind: step
+fields:
+  step: p1
+  actor: user
+  action: Reviews candidates, evaluations and conflicts
+  kind: action
+  operation: endpoint.evaluations
+  next:
+    - to: p2

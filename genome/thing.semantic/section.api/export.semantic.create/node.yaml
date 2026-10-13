@@ -1,0 +1,7 @@
+id: export.semantic.create
+kind: export
+fields:
+  name: createSystemOne
+  signature: "export function createSystemOne(env: SystemOneEnv): SystemOne"
+  stability: stable
+  description: "Returns the configured provider: fake when FAKE_S1=1, else TypeSafe or OpenRouter, else one that answers unknown."

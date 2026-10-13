@@ -1,0 +1,7 @@
+id: artifact.platform
+kind: artifact
+fields:
+  type: worker-fullstack
+  repo: artyfact-cf
+  scope:
+    - apps/platform

@@ -1,0 +1,9 @@
+id: module.platform.ui-data
+kind: module
+fields:
+  name: Data client
+  description: API client, queries and the model hooks the views read.
+  path: src/api
+files:
+  - src/api/**
+  - src/model/**

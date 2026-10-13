@@ -1,0 +1,38 @@
+id: thing.ontology
+kind: thing
+template: template.thing.ts-library@1
+root: packages/ontology
+fields:
+  name: Ontology engine
+  description: "@artyfact/ontology: meta@1 templates, the Graph, evaluate and judge, routing and translation of intents, op validation and the Genome v2 tree codec."
+links:
+  - { rel: artifact, to: artifact.ontology }
+  - { rel: dependsOn, to: thing.model }
+  - { rel: dependsOn, to: thing.rules }
+  - { rel: exposes, to: export.ontology.evaluate }
+  - { rel: exposes, to: export.ontology.route }
+  - { rel: exposes, to: export.ontology.validate-ops }
+  - { rel: exposes, to: export.ontology.read-tree }
+  - { rel: exposes, to: export.ontology.apply-ops }
+  - { rel: exposes, to: export.ontology.load-template }
+files:
+  - LICENSE
+  - docs/**
+criteria:
+  - id: C.ontology.unit
+    title: "@artyfact/ontology tests pass"
+    claim: The engine's suites pass, including codec round-trips and the Keep in Touch parity tests.
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    hooks:
+      - id: hook.ontology.unit
+        assay: ontology.unit
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          command: npm test -w @artyfact/ontology

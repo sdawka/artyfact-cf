@@ -1,0 +1,10 @@
+id: J.realize/r3
+kind: step
+fields:
+  step: r3
+  actor: external
+  action: Works and checkpoints
+  kind: action
+  operation: endpoint.checkpoint
+  next:
+    - to: r4

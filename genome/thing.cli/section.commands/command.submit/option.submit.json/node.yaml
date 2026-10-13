@@ -1,0 +1,7 @@
+id: option.submit.json
+kind: option
+fields:
+  name: json
+  flag: --json
+  description: Print the response as JSON.
+  valueType: boolean

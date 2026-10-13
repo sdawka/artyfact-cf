@@ -1,0 +1,8 @@
+id: J.realize
+kind: journey
+fields:
+  name: Realize an Evolution
+  actorGoal: Have an agent implement an Evolution in a private fork and submit a candidate
+  features:
+    - feature.agent-realization
+  start: r1

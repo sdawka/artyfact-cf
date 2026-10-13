@@ -1,0 +1,9 @@
+id: claim.evidence-gate
+kind: claim
+fields:
+  name: Evidence before green
+  mechanism: A promotion gate that blocks on every hard criterion with a bound hook, and treats unknown as blocking, keeps unverified changes off the System head.
+  outcome: Promoted commits do not regress on the criteria their Evolutions named.
+  indicator: Promoted commits later reverted for a failure a gated criterion covered.
+  kind: hypothesis
+  status: unknown
