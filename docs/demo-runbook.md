@@ -14,6 +14,11 @@ The two moments to show on video:
    engine proves a `topology.recipientArray` violation with its derivation, accept is refused, and the admin rejects
    it. Amendment 2 rewords a commitment. The rules pass, the System One signals are shown, and the admin accepts it.
 
+Steps 2 (validate and review), 4b, 10b and 11 cover Tasks and import review, which came after that run. Their
+outputs were taken from the local fake platform (`FAKE_ARTIFACTS=1 FAKE_S1=1`), where the plan, the table and the
+refusals are the real code; ids and counts differ on your run. The git side of `claim` (clone, push) needs real
+Artifacts and is shown from the CLI's tests, not recorded.
+
 **What is deterministic and what is not.** Rule findings, derivations, scope, conflicts by node overlap and the
 promotion gate come from the rules engine and the platform. They are real in this run. System One judgments (change
 class, interference, purpose measures) ran on the **fake provider** (`FAKE_S1=1`) because no `TYPESAFE_API_KEY` was
@@ -82,7 +87,34 @@ npm run dev -w @artyfact/platform          # http://localhost:1337, Artifacts bi
 
 ## 2. `artyfact init`: push and import in one command (about 30 s)
 
-Terminal **ops**:
+**Validate before you push.** `validate-genome` loads the Genome the way the platform will, runs the readiness rules and
+maps the app's files, with no platform and no credentials. Terminal **ops**:
+
+```sh
+artyfact validate-genome examples/peopling-system --app examples/peopling-app
+```
+
+```text
+system.peopling  template.system.social-networking.cloudflare@1  (genome: examples/peopling-system)
+things: thing.webapp (root ., template.thing.cloudflare-worker-webapp@1)
+nodes 241  criteria 23  hooks 25  journeys 10  evolutions 6
+findings: 0 errors, 21 warnings
+  …
+files: 19 of 19 app paths mapped (app: examples/peopling-app)
+  stale     entity.ContactEvent: src/worker/routes/events.ts
+  stale     entity.RelationshipGoal: src/worker/routes/goals.ts
+  stale     operation.contact.log: src/worker/routes/events.ts
+  stale     operation.goal.save: src/worker/routes/goals.ts
+  stale     screen.goal: public/goals/**
+  stale     screen.logContact: public/log/**
+  stale     screen.today: public/today/**
+ok: ready for `npx artyfact init --genome examples/peopling-system --app examples/peopling-app`
+```
+
+Errors stop it (exit 1). The seven `stale` globs are files `evolution.2` will build (step 4b), so they are expected here;
+`--strict` fails on them, and on any file no node maps (`unmapped`, which you bind or list in `.artyfactignore`). For
+an existing repository, `artyfact skill --write` installs the `artyfact-genome` skill so a local agent writes the Genome,
+and this command is how you know it is done.
 
 ```sh
 ./scripts/bootstrap.sh       # = npx artyfact init --genome examples/peopling-system --app examples/peopling-app
@@ -176,6 +208,29 @@ curl -s "$B/model?rev=head" | jq -c '{genomeCommit, nodes: (.model.index.byId | 
 The model has 0 errors. The warnings are 14 unbound hooks and the unpinned auth kit. Open the printed System URL to
 see the same System; Overview, Work, Evaluations and History read the live API.
 
+## 2b. Review the import (about 1 min)
+
+The recorded outputs above predate import review. A new import is now held: until a person agrees the Genome, start
+work, new Evolutions and intents answer 409 `import-unreviewed`, and `init` ends with
+`review: pending — open <platform>/s/system.peopling/r/head/review?panel=import`. (`init --no-review` skips the hold;
+`scripts/bootstrap.sh --no-review` does too, and the integration test uses it.)
+
+In the browser, Home shows "import awaits review" and Review has an Import row. The pane shows the readiness findings
+and unmapped paths, then the tree: Things and their nodes, each with Agree and Reject (no Defer). For the video, reject
+`GD.prompts`, a feature with no file bindings, and agree everything else. Write the interpretation and choose Accept
+import, which is enabled once every node is decided. Over HTTP:
+
+```sh
+curl -s $B/import-review | jq -c '{status, genomeCommit, nodes: (.tree | length), findings: (.findings | length), unmapped: (.unmapped | length)}'
+curl -s -XPOST $B/import-review/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
+  -d '{"interpretation":"Imported as written; prompts are not in scope yet.","rejectedNodes":["GD.prompts"]}' | jq -c '{status, amendment}'
+```
+
+A rejected node becomes a removal. The platform writes it as a Genome amendment awaiting the admin, with the links
+into the removed node unlinked, and it appears in Review. To keep the recorded Genome for the rest of this walk, reject
+that amendment with a reason (or accept no rejections at all); accepting it changes the Genome the later steps assume.
+Accepting an import twice is 409 `invalid-state`, and the work routes open as soon as it is accepted.
+
 ## 3. Event stream (keep it open)
 
 Terminal **sse**:
@@ -211,6 +266,69 @@ field is the canonical start line:
 ```text
 ARTYFACT_TOKEN=<redacted> ARTYFACT_SECRET=<redacted> npx artyfact start realization.1.r3 --system system.peopling --evolution evolution.1 --dir ./realization.1.r3
 ```
+
+## 4b. Plan an Evolution into Tasks and start wave 1
+
+`evolution.2` (goals, contact events, the Today list) is actionable and independent of `evolution.1`, and moves no head
+until you promote, so this runs beside steps 5 to 9. Terminal **ops**. Plan it, then read the plan the way an agent does:
+
+```sh
+curl -s -XPOST $B/evolutions/evolution.2/plan -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{}' \
+  | jq -c '{waves, tasks: [.tasks[] | {id, status, dependsOn}], conflicts: [.conflicts[] | {kind, tasks}]}'
+artyfact tasks --system system.peopling
+```
+
+```text
+{"waves":[["task.2.t1"],["task.2.t2"]],"tasks":[{"id":"task.2.t1","status":"planned","dependsOn":[]},{"id":"task.2.t2","status":"planned","dependsOn":["task.2.t1"]}],"conflicts":[{"kind":"declared","tasks":["task.2.t1","task.2.t2"]}]}
+task       evolution    status   wave  depends-on  nodes                                                                                    footprint
+task.2.t1  evolution.2  planned  1     -           entity.RelationshipGoal,entity.ContactEvent,operation.goal.save,operation.contact.log    src/worker/routes/**,src/worker/routes/events.ts,src/worker/routes/goals.ts,src/worker/routes/contacts.ts
+task.2.t2  evolution.2  planned  2     task.2.t1   screen.goal,screen.logContact,screen.today,component.TodayList,affordance.Today.refresh  public/goals/**,public/log/**,public/today/**,src/ui/**
+conflicts: task.2.t1 <-> task.2.t2 [declared] : task.2.t2 depends on task.2.t1.
+claim: npx artyfact claim task.2.t1 --system system.peopling --agent "claude:task.2.t1" --dir ./work/task.2.t1
+```
+
+Everything here is derived without a model. Each task's footprint is the `files` globs bound to its nodes, matched against
+the app tree. The fake planner (`FAKE_S1=1`) groups by Thing and section; with `OPENROUTER_API_KEY` a model proposes the
+split and the platform checks it, and a failed reply falls back to the same grouping. `tasks` is public. In the browser
+this is Work, Plan on the Evolution: the same waves as columns, a status chip per task, and Re-plan, merge and split
+for the admin. Waves are numbered from 1. Task 2 is its own wave because the Today screen invokes the operations
+task 1 builds, a dependency derived from the Genome's links.
+
+Start wave 1 one of two ways, not both, because each task has one claim. Either (a) Start wave 1 in Plan or by curl,
+which claims every task of the wave as `agent:<task>` and returns one start line per task (tokens and secrets appear
+only here):
+
+```sh
+curl -s -XPOST $B/evolutions/evolution.2/waves/1/start -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{}' \
+  | jq -c '{wave, started: [.started[] | {task, realization: .realization.id, agent: .realization.agent.id}], skipped}'
+```
+
+```text
+{"wave":1,"started":[{"task":"task.2.t1","realization":"realization.2.r1","agent":"agent:task.2.t1"}],"skipped":[]}
+```
+
+and each `cli` start line is run as in step 5; or (b) let the orchestrator claim and drive local agents. Terminal **ops**,
+with the admin token loaded as above; the agent never sees it:
+
+```sh
+artyfact claim task.2.t1 --system system.peopling --agent "claude:task.2.t1" --dir ./work/task.2.t1
+(cd ./work/task.2.t1 && claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit")
+```
+
+```text
+Claimed task.2.t1 as claude:task.2.t1
+Workspace ready in ./work/task.2.t1
+Next: cd ./work/task.2.t1 && read AGENTS.md and TASK_PACKET.md, then npm install; finish with 'npx artyfact submit'.
+```
+
+`claim` does what `start` does for one task: it forks the app repo, clones it, writes `TASK_PACKET.md` and writes the
+packet's `AGENTS.md` verbatim, which names the task's permitted paths and the paths other tasks own. It saves the fork
+token in the clone's `.artyfact.json` (mode 0600, git-excluded, never printed), so `submit` needs nothing in the
+environment, and the agent never holds the admin token. Run one such line per task of a wave in parallel; the tasks of
+a wave share no files. A repeat claim by the same label is `fresh: false` and reuses the directory. If a start or claim
+died after the platform issued credentials, release the task (`POST $B/tasks/task.2.t1/release`, admin) and claim again.
+In Plan the task's chip moves from claimed to realizing at its first checkpoint, to evaluated after `submit`, and to
+promoted after promotion; its realization opens in Review.
 
 ## 5. Two agents work (terminals **A** and **B**)
 
@@ -553,6 +671,67 @@ The model now renders from the accepted fork commit. History marks `sc-2` and `s
 
 When you are done, delete the saved start responses, which hold tokens and secrets: `rm -rf "$RUN"`.
 
+## 10b. The dependent task: refused, then promoted, then claimed
+
+With task 1 submitted (4b), try the task that depends on it:
+
+```sh
+artyfact claim task.2.t2 --system system.peopling --agent "claude:task.2.t2" --dir ./work/task.2.t2
+curl -s -w ' HTTP %{http_code}\n' -XPOST $B/tasks/task.2.t2/claim -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{"agentLabel":"claude:task.2.t2"}'
+```
+
+```text
+artyfact: blocked by task.2.t1 (not yet promoted)
+{"error":{"code":"task-blocked","message":"task task.2.t2 is blocked by task.2.t1 (not yet promoted)","details":{"blockedOn":["task.2.t1"]}}} HTTP 409
+```
+
+Plan shows task 2 as blocked (derived, attention tone, never a pass). Promote task 1's candidate exactly as in step 8,
+with the current head as `expectedHead`; a planned Evolution stays `realizing` until its last task is promoted, so wave
+2 stays open. Then claim again:
+
+```sh
+artyfact claim task.2.t2 --system system.peopling --agent "claude:task.2.t2" --dir ./work/task.2.t2
+```
+
+This time it succeeds. `TASK_PACKET.md` lists `task.2.t1` under Depends on, and task 1's `AGENTS.md` said "After you: task.2.t2 starts when this task is promoted". Tasks of one wave that were
+claimed before the head moved go stale the same way step 8's candidate B did, with one difference: promotion rejects
+only candidates of the same Evolution and the same task, so a sibling task's candidate stays promotable. Rebase it onto
+the new head instead of redoing the work (admin, one call per realization), then promote it:
+
+```sh
+curl -s -XPOST $B/realizations/<sibling-realization>/rebase -H "authorization: Bearer $ADMIN_TOKEN" | jq -c '{commit, submitted}'
+```
+
+It replays the candidate onto the head as one new fork commit and submits it, so every hook runs again. It refuses with
+409 `rebase-conflict` and the paths when the head changed a file the candidate changes, and with `up-to-date` when
+there is nothing to replay. Task-less candidates, like step 8's B, are rejected and redone as before.
+
+## 11. Artyfact on itself (fake)
+
+Artyfact's own Genome (`genome/`, system `system.artyfact`) has an Evolution, "Local agents claim Tasks from the CLI",
+planned the same way. This runs on the fake platform only, with the self seed on its own port, and is labelled fake
+throughout: the Genome and the plan are real, the app repo is this checkout's source served from memory, and the
+planner is the fake one.
+
+```sh
+FAKE_ARTIFACTS=1 FAKE_S1=1 ADMIN_TOKEN=test FAKE_SEED=artyfact npx vite --port 1341 --strictPort    # in apps/platform
+export ARTYFACT_PLATFORM=http://localhost:1341
+curl -s -XPOST localhost:1341/api/systems/system.artyfact/evolutions/evolution.1/plan -H 'authorization: Bearer test' -H 'content-type: application/json' -d '{}' | jq -c .waves
+artyfact tasks --system system.artyfact | cut -c1-120
+```
+
+```text
+[["task.1.t1","task.1.t2"]]
+task       evolution    status   wave  depends-on  nodes                                                                         footprint
+task.1.t1  evolution.1  planned  1     -           command.tasks,command.claim,command.validate-genome,command.skill             packages/cli/bin/**
+task.1.t2  evolution.1  planned  1     -           module.cli.tasks,module.cli.validate-genome,module.cli.skill,module.cli.main  packages/cli/skills/**,packages/cli/src/**,packages/cli/src/ind…
+claim: npx artyfact claim task.1.t1 --system system.artyfact --agent "claude:task.1.t1" --dir ./work/task.1.t1
+```
+
+Both tasks are in wave 1: they have no dependency and no shared file, so two agents can claim them at once, one
+`claim` line each as in 4b. The fake platform has no git remote, so `claim` stops at the clone here; the same commands
+run against a real import of this repository (`artyfact init --genome genome --app .`, then accept the import).
+
 ## Queue path
 
 Artifacts emits `pushed` only from a **repository-level** event subscription (`--source artifacts.repo` with
@@ -623,6 +802,12 @@ submits, the conflict, promotion, the 409 and history. Then it deletes the repos
   There are no Durable Object migrations yet. Old forks in the namespace are skipped by number.
 - **Dev server exits after a branch switch or `npm install`:** restart `npm run dev`. The Durable Object state
   survives restarts.
+- **409 `import-unreviewed`:** the System's import is still pending. Accept it in Review (step 2b), or re-import with
+  `--no-review`.
+- **`claim` says `task-taken`, or credentials were issued once:** Start wave already claimed the task as
+  `agent:<task>`. Use its start line, or release the task (`POST $B/tasks/<task>/release`) and claim it again.
+- **409 `wave-blocked`:** an earlier wave still has a task that is not promoted. Promote it, or start with `"force": true`.
+- **409 `invalid-state` "claim in progress":** another claim for the task is still starting. Retry in a few seconds.
 - **Missed events in the UI:** server-sent events are not replayed. Reload the page, or rely on the UI's polling.
 
 ## Reset
@@ -632,7 +817,7 @@ submits, the conflict, promotion, the 409 and history. Then it deletes the repos
 for r in $(npx wrangler artifacts repos list --namespace artyfact --json | jq -r '.[].name'); do
   npx wrangler artifacts repos delete "$r" --namespace artyfact --force
 done
-rm -rf apps/platform/.wrangler/state /tmp/peopling-a /tmp/peopling-b /tmp/peopling-c1 /tmp/peopling-c2 "$RUN"
+rm -rf apps/platform/.wrangler/state /tmp/peopling-a /tmp/peopling-b /tmp/peopling-c1 /tmp/peopling-c2 ./work "$RUN"
 ```
 
 Then start again at step 1. To start over without deleting anything in the account, stop the dev server and move
