@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import type { Evolution, Realization, StartWorkRequest, StartWorkResponse } from "../../../../shared/api";
+import { useAdminTokenField } from "@/api/adminToken";
 import { useStartWork } from "@/api/queries";
 import { ApiRequestError } from "@/api/client";
 import { useModel } from "@/model/useModel";
@@ -36,8 +37,8 @@ export function normalizeStartWork(res: StartWorkResponse): StartedWork {
 
 /** Plain wording for the two auth refusals; anything else keeps the server's message. */
 export function startWorkError(err: Error): string {
-  if (err instanceof ApiRequestError && err.status === 401) return "Start work needs the admin token (401). Enter it and try again.";
-  if (err instanceof ApiRequestError && err.status === 403) return "The admin token was refused (403). Check it and try again.";
+  if (err instanceof ApiRequestError && err.status === 401) return "Start work needs the admin token (401). Set the admin token in the header and try again.";
+  if (err instanceof ApiRequestError && err.status === 403) return "The admin token was refused (403). Check it in the header and try again.";
   return err.message;
 }
 
@@ -49,8 +50,8 @@ export function StartWorkPanel({ evolution }: { evolution: Evolution }) {
   const [agentLabel, setAgentLabel] = useState("");
   const [target, setTarget] = useState<"app" | "genome">(evolution.kind === "genome-amendment" ? "genome" : "app");
   const [role, setRole] = useState<(typeof ROLES)[number]>("implementer");
-  // Held in component state only: never persisted, cleared once work has started.
-  const [adminToken, setAdminToken] = useState("");
+  // Pre-filled from the header token; a typed value is a one-off.
+  const [adminToken, setAdminToken, resetAdminToken] = useAdminTokenField();
   const [started, setStarted] = useState<StartedWork | null>(null);
 
   const reason = m.bundle.source === "fixture"
@@ -65,7 +66,7 @@ export function StartWorkPanel({ evolution }: { evolution: Evolution }) {
     const body: StartWorkRequest = { target, role, ...(agentLabel.trim() && { agentLabel: agentLabel.trim() }) };
     start.mutate(
       { evolutionId: evolution.id, body, ...(adminToken && { adminToken }) },
-      { onSuccess: (res) => { setAdminToken(""); setStarted(normalizeStartWork(res)); } },
+      { onSuccess: (res) => { resetAdminToken(); setStarted(normalizeStartWork(res)); } },
     );
   };
 

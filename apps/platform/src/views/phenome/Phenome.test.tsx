@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Build, Deployment, PhenomeEvent } from "../../../shared/api";
 import { qk } from "@/api/queries";
@@ -38,6 +38,21 @@ const seed = (s: Seed = {}) => (qc: QueryClient) => {
 };
 
 describe("Deployments page", () => {
+  it("notes that admin actions need the header token, until one is set", async () => {
+    sessionStorage.clear();
+    renderApp(PATH, undefined, seed());
+    expect(await screen.findByText("Admin actions need the admin token: set it in the header.")).toBeTruthy();
+    sessionStorage.setItem("artyfact.adminToken", "adm");
+    try {
+      cleanup();
+      renderApp(PATH, undefined, seed());
+      await screen.findByRole("heading", { level: 1, name: "Deployments" });
+      expect(screen.queryByText(/Admin actions need the admin token/)).toBeNull();
+    } finally {
+      sessionStorage.clear();
+    }
+  });
+
   it("shows the empty state with the literal unknown and nothing green", async () => {
     const { container } = renderApp(PATH, undefined, seed());
     expect(await screen.findByRole("heading", { level: 1, name: "Deployments" })).toBeTruthy();

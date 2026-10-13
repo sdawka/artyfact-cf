@@ -69,3 +69,4 @@
   .main { padding: var(--spacing-6) var(--spacing-4); }
   .grid { grid-template-columns: 1fr; }
 }
+.spacer { flex: 1; }

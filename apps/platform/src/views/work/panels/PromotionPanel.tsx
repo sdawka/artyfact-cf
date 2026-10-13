@@ -2,6 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { Candidate, ConflictReport, Evolution } from "../../../../shared/api";
+import { useAdminTokenField } from "@/api/adminToken";
 import { ApiRequestError, StaleBaseError } from "@/api/client";
 import { useCandidates, useConflicts, useEvolutions, useHistory, usePromote } from "@/api/queries";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
@@ -72,7 +73,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
   const [rationale, setRationale] = useState("");
   const [rationaleEdited, setRationaleEdited] = useState(false);
   const [ack, setAck] = useState(false);
-  const [adminToken, setAdminToken] = useState("");
+  const [adminToken, setAdminToken, resetAdminToken] = useAdminTokenField();
   const panelRef = useRef<HTMLElement>(null);
 
   const candidates: Candidate[] = cand?.candidates ?? [];

@@ -1,6 +1,7 @@
 import { useId, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { CreateEvolutionRequest, Evolution, WorkResponse } from "../../../../shared/api";
+import { useAdminTokenField } from "@/api/adminToken";
 import { qk, useCreateEvolution } from "@/api/queries";
 import { useSystemRoute } from "@/model/useSelection";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
@@ -27,7 +28,7 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
   // null = list untouched: the field is omitted and the server applies the System's defaults for the target.
   const [picked, setPicked] = useState<string[] | null>(null);
   // Component state only: never persisted, cleared on success.
-  const [adminToken, setAdminToken] = useState("");
+  const [adminToken, setAdminToken, resetAdminToken] = useAdminTokenField();
 
   const criteria = m.index.entries.filter((e) => e.kind === "criterion");
 
@@ -51,7 +52,7 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
       { body, ...(adminToken && { adminToken }) },
       {
         onSuccess: (res) => {
-          setAdminToken("");
+          resetAdminToken();
           // Show the card at once; the invalidated board refetch then replaces this entry.
           qc.setQueryData<WorkResponse>(qk.evolutions(systemId), (prev) =>
             prev && !prev.evolutions.some((e) => e.id === res.evolution.id) ? { ...prev, evolutions: [...prev.evolutions, res.evolution] } : prev);

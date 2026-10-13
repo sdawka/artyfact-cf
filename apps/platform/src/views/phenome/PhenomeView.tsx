@@ -1,5 +1,6 @@
 import { Link, useSearchParams } from "react-router";
 import type { Build, Deployment, PhenomeEvent } from "../../../shared/api";
+import { useAdminToken } from "@/api/adminToken";
 import { useBuilds, useDeployments, usePhenomeEvents } from "@/api/queries";
 import { Card } from "@/components/Card/Card";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
@@ -28,10 +29,12 @@ export default function PhenomeView() {
   const list = sortNewest(builds.data ?? []);
   const production = deployments.data?.production ?? null;
   const history = deployments.data?.history ?? [];
+  const { token: adminToken } = useAdminToken();
   const empty = !builds.isLoading && !deployments.isLoading && list.length === 0 && history.length === 0 && !production;
   return (
     <section className={styles.view} aria-labelledby="view-title">
       <h1 id="view-title">Deployments</h1>
+      {!adminToken && <p className={styles.muted} role="note">Admin actions need the admin token: set it in the header.</p>}
       {empty && <p className={styles.muted}>No deployments recorded — <Unknown />.</p>}
       <BuildsCard builds={list} production={production} />
       <DeploymentsCard production={production} history={history} />
