@@ -23,6 +23,8 @@ export interface TreeOp {
   link?: NodeLink;
   /** `add`: the node's criteria. `update`: upserts by id; `{id, remove: true}` deletes one. */
   criteria?: (NodeCriterion | { id: string; remove: true })[];
+  /** `update` only: the node's `files` globs, relative to the nearest `root`; a list replaces them, `null` removes the key. */
+  files?: string[] | null;
 }
 
 export interface FileChange { path: string; content: string | null }
