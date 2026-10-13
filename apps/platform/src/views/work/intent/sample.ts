@@ -44,5 +44,6 @@ export const SAMPLE_PROPOSAL: Proposal = {
     genomeCommit: "unknown",
     fake: true,
   },
+  plan: [],
   createdAt: "2026-10-13T00:00:00.000Z",
 };
