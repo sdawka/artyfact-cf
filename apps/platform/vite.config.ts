@@ -15,6 +15,8 @@ const noSelfSeed = (): Plugin => ({
 });
 
 const config = {
+  // A second dev server in the same checkout (the e2e self-model one) sets its own dep cache so cold starts cannot race.
+  ...(process.env.VITE_CACHE_DIR && { cacheDir: process.env.VITE_CACHE_DIR }),
   // e2e fixture mode previews with in-memory state, so a System imported for the demo (.wrangler/state) never leaks in.
   // FAKE_ARTIFACTS=1 runs the backend on in-memory Artifacts seeded from examples/ (FAKE_SEED=artyfact|both adds the
   // repo-root genome/, Artyfact itself): no remote binding, no persisted state (the fake repos live in the isolate),

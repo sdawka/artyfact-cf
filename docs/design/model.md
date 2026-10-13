@@ -63,3 +63,5 @@ Composition produces ordinary saved Genome and source files plus provenance: pin
 Source Artifact means authored code/config/assets/manifests, excluding dependencies/caches/generated output. Realized Artifact means one specific build output with its own identity, source and Genome lineage, locator/digest, and separate deployment instances. Rebuilding identical source can produce distinct outputs. Historic output identity remains unknown where unavailable. Phenome evidence must resolve through authoritative Thing/source/output association.
 
 See [the delivery roadmap](../grreat/roadmap.md) for implementation status and acceptance.
+
+The self-Genome (`genome/`, `system.artyfact`) has ten Things: platform, ci, site, model, ontology, semantic, rules, templates, cli and effects. Edits start from an intent message: the engine routes and translates it into ops, `validateOps` checks them, and an accepted Proposal becomes a Genome commit through the normal candidate path (`docs/design/ontology.md`).

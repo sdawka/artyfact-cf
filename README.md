@@ -34,11 +34,12 @@ More views: [Map on screen.people, Phenome layer](docs/images/map-screen-people-
 
 - **Home.** Every System as a card with signifiers: evolving, pending realization, awaiting review, not built, deployed or behind, observed.
 - **Describe a change.** Create an Evolution, start work for an agent and get a task packet, or edit files in the browser and commit them to a fork over Git. Either way the result is a candidate with its gates.
+- **Intent edits.** Describe a change in words. The ontology engine routes the message through the Genome tree, proposes node updates, and you accept the ones you want as a candidate.
 - **Code.** Browse the Genome and the app at any revision, edit on head, commit under an Evolution.
 - **Changelog and Compare.** One row per System commit with its semantic delta, files, criteria, builds and deployment. Compare any two revisions at System, Genome or file level.
 - **Builds and deployments.** A new app candidate gets a preview build, so the health assay checks the deployed app. A promotion asks for a production deployment.
 - **Deployments page and the Phenome.** Runtime events from a deployed app, grouped by version and linked to the System commit it runs.
-- **Fake platform.** `FAKE_ARTIFACTS=1` runs the whole backend with no account, and the Playwright `@fake` specs drive the use cases through it.
+- **Fake platform.** `FAKE_ARTIFACTS=1` runs the whole backend with no account, and the Playwright `@fake` specs drive the use cases through it for both Keep in Touch and Artyfact itself.
 
 ## How Cloudflare is used
 
@@ -180,7 +181,7 @@ The full loop against real Artifacts, with two agents, a conflict, a promotion a
 
 ## Artyfact describes itself
 
-The repo-root `genome/` is Artyfact's own Genome (`system.artyfact`, on the dev-platform template): the platform, ci and site Workers, the libraries and the CLI as Things, with their real endpoints, commands, Durable Objects, Workflow and bindings, `dependsOn` links that match the workspace dependencies, and node `files` that cover every source file outside `.artyfactignore`. `packages/templates/test/self-genome.test.ts` checks all of that. To browse it on the fake platform, with no login:
+The repo-root `genome/` is Artyfact's own Genome (`system.artyfact`, on the dev-platform template): ten Things (platform, ci, site, model, ontology, semantic, rules, templates, cli and effects), with their real endpoints, commands, Durable Objects, Workflow and bindings, `dependsOn` links that match the workspace dependencies, and node `files` that cover every source file outside `.artyfactignore`. `packages/templates/test/self-genome.test.ts` checks all of that. To browse it on the fake platform, with no login:
 
 ```sh
 cd apps/platform

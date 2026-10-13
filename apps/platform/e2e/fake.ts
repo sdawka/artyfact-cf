@@ -121,3 +121,21 @@ export async function createEvolution(page: Page, title: string, intent: string,
   await page.getByRole("button", { name: "Create Evolution" }).click();
   await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
 }
+
+/** Every System view renders at `base` (a `/s/<id>/r/head` path) with its heading, no console error and no uncaught exception. */
+export async function sweepViews(page: Page, testInfo: TestInfo, base: string, tag: string): Promise<void> {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(`pageerror: ${e.message}`));
+  page.on("console", (m) => { if (m.type() === "error") errors.push(`console: ${m.text()}`); });
+  const views: [string, string][] = [
+    ["overview", "Overview"], ["map", "Map"], ["journeys", "Journeys"], ["theory", "Theory"], ["code", "Code"],
+    ["work", "Work"], ["evaluations", "Evaluations"], ["changelog", "Changelog"], ["compare", "Compare"], ["phenome", "Deployments"],
+  ];
+  for (const [path, heading] of views) {
+    await page.goto(`${base}/${path}`);
+    await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
+    await expect(page.getByText("fixture data")).toHaveCount(0);
+    await checkPage(page, testInfo, `${tag}-${path}`, isPass, [PACKET_PRE, '[data-op] > [class*="num"]']);
+  }
+  expect(errors).toEqual([]);
+}
