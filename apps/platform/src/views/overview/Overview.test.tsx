@@ -18,6 +18,18 @@ describe("Overview", () => {
     expect(screen.getByText(/Is the Purpose being achieved/)).toBeTruthy();
   });
 
+  it("labels each meter with its layer's question, the same words as the rail", async () => {
+    renderApp("/s/system.keep-in-touch/r/head/overview");
+    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    for (const [meter, question] of [
+      ["Model readiness", "What should it be"], ["Implementation conformance", "What is being made"], ["Outcome progress", "What does it do"],
+    ]) {
+      const region = screen.getByRole("region", { name: meter });
+      expect(within(region).getByText(question!).getAttribute("data-question")).toBe("");
+    }
+    expect(screen.getByText("Reported side by side. No combined score exists.")).toBeTruthy();
+  });
+
   it("leads with a hero: the System name, its Purpose once, a luminous content container and a caption saying what drives it", async () => {
     renderApp("/s/system.keep-in-touch/r/head/overview");
     const hero = await screen.findByRole("region", { name: "Keep in Touch" });
