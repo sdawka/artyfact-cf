@@ -53,9 +53,10 @@ function isLink(path: string): boolean {
 
 const USAGE = `artyfact <command>
 
-  init [--dir project] [--genome dir --app dir] [--from-template template.thing.<id>@<v>] [--platform url] [--namespace ns] [--force] [--adopt] [--genome-only]
+  init [--dir project] [--genome dir --app dir] [--from-template template.thing.<id>@<v>] [--platform url] [--namespace ns] [--force] [--adopt] [--genome-only] [--no-review]
         push <slug>.genome / <slug>.app and platform, then import the System (needs ARTYFACT_ADMIN_TOKEN, else prints the curl line);
-        --genome-only pushes only the Genome and keeps the app repo's head (migrating a deployed System)
+        --genome-only pushes only the Genome and keeps the app repo's head (migrating a deployed System);
+        --no-review imports without the import review (default: the import stays pending until accepted)
   platform-sync [--namespace ns]   push packages/templates to the namespace's platform repo (no-op when unchanged)
 
   start <realizationId> [--dir d] [--platform url] --system sid --evolution eid   (or ARTYFACT_SYSTEM / ARTYFACT_EVOLUTION)
@@ -69,7 +70,12 @@ const USAGE = `artyfact <command>
   parts create|extract|validate|publish|compose|upgrade ...
   evolution create|propose|show --system sid [--file json]
   plan create|list|show|integrate|review|promote --system sid [--file json]
-  task claim|start|resume <plan> <task> --system sid [--dir d]
+  plan draft --system sid [--evolution eid ...] [--node id ...] [--hint text] [--title t] [--create] [--json]
+        draft a Realization plan (persists nothing); --create posts the draft and prints the plan id
+  plan tasks <plan> --system sid [--json]
+        task | status | wave | depends-on | write nodes | footprint, conflicts, and the next claim command
+  task claim|start|resume <plan> <task> --system sid [--dir d] [--agent-label l]
+        keeps the fork write token in <dir>/.artyfact-task.json (0600, git-excluded); submit uses it, never prints it
   task checkpoint "<message>" | submit | status
   task select <plan> <task> --system sid --candidate id
   ontology preview|list|show|accept|bootstrap --system sid [--file json] [--hash exact-hash]

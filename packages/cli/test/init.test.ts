@@ -212,6 +212,19 @@ describe("artyfact init", { timeout: 60_000 }, () => {
     noTokenLeaks(lc.tokens, r.out, r.err, readFileSync(join(dir, ".artyfact", "init.json"), "utf8"));
   });
 
+  it("prints the pending import review URL, and --no-review sends review:false", async () => {
+    const pending = mockPlatform(() => [201, { head: "sc-1-abc", warnings: [], system: { importReview: { status: "pending", genomeCommit: "sc-1-abc", nodes: 3 } } }]);
+    const first = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: pending.fetch, env: { ARTYFACT_ADMIN_TOKEN: "adm-tok" } });
+    expect(first.code, first.err).toBe(0);
+    expect(pending.requests[0]!.body).not.toHaveProperty("review");
+    expect(first.out).toContain("review: pending, open https://platform.test/s/system.peopling/r/head/review?panel=import");
+    const skipped = mockPlatform();
+    const second = await run(["init", "--dir", dir, "--no-review"], { cloud: lc.cloud, fetch: skipped.fetch, env: { ARTYFACT_ADMIN_TOKEN: "adm-tok" } });
+    expect(second.code, second.err).toBe(0);
+    expect(skipped.requests[0]!.body).toMatchObject({ systemId: "system.peopling", review: false, force: false });
+    expect(second.out).not.toContain("review: pending");
+  });
+
   it("is idempotent: a re-run pushes nothing and re-imports with force false", async () => {
     const heads = ["peopling.genome", "peopling.app", "platform"].map((n) => headOf(lc.path("artyfact", n)));
     const p = mockPlatform();
