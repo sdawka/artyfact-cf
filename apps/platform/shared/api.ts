@@ -728,7 +728,7 @@ export interface RevisionsResponse {
 /** `GET /api/systems/:id/files?scope=&ref=`. */
 export interface FilesResponse {
   ref: ResolvedRef;
-  files: { path: string; hash: string; size?: number }[];
+  files: { path: string; hash: string; size?: number; /** Model nodes the path maps to, when the server reports them. */ nodes?: NodeId[] }[];
 }
 /** `GET /api/systems/:id/file?scope=&ref=&path=`. `text` is null for binary files. */
 export interface FileResponse {

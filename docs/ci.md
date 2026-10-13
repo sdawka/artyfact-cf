@@ -68,10 +68,7 @@ Candidates carry `build`, the latest build of their commit.
 
 **App databases.** App repos never carry a real D1 id. They commit the all-zero placeholder `database_id`, and the CI Worker resolves it through its `D1_DATABASE_IDS` var in `apps/ci/wrangler.jsonc`, shaped `{ "<systemId>": { "<database_name>": "<id>" } }`. Only the build's own System is consulted, so an app cannot bind another System's database by name. A real `database_id` in the repo is accepted only when it equals that System's mapped id. Any other D1 entry refuses the deploy. To add an app database, create it in the account, apply the app's migrations, add it under its System in `D1_DATABASE_IDS` and redeploy `artyfact-ci`.
 
-| Resource | Name | ID | Region | Purpose |
-| --- | --- | --- | --- | --- |
-| D1 | `keep-in-touch` | not created yet | `enam` hint | Keep in Touch previews and production |
-
+Container, R2 and preview Worker costs, and the caps on them, are in [costs.md](costs.md), which also lists the app databases.
 
 ## Trust model
 

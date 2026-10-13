@@ -166,9 +166,24 @@ describe("Code page", () => {
     await waitFor(() => expect(calls.filter((c) => c.method === "POST")).toHaveLength(3));
     const posts = calls.filter((c) => c.method === "POST");
     expect(new URL(posts[0]!.url, "http://x").pathname).toBe(`/api/systems/${SYSTEM}/evolutions`);
-    expect(posts[0]!.body).toEqual({ title: "Rename", intent: "Say it plainly" });
+    expect(posts[0]!.body).toEqual({ title: "Rename", intent: "Say it plainly", affectedNodes: [SYSTEM] });
     expect(posts[0]!.auth).toBe("Bearer admin-1");
     expect(new URL(posts[1]!.url, "http://x").pathname).toBe(`/api/systems/${SYSTEM}/evolutions/evolution.new/realizations`);
+  });
+
+  it("sends an empty affectedNodes when the changed files map to no nodes", async () => {
+    const calls = stubApi();
+    renderApp(`${CODE}?path=purpose.yaml`, undefined, apiSeed);
+    await waitFor(() => expect(editorText()).toBe(FILES["purpose.yaml"]));
+    await editCurrent("x: 1\n");
+    fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
+    const sheet = await screen.findByRole("complementary", { name: "Commit" });
+    fillSheet({ evolution: "__new" });
+    fireEvent.change(within(sheet).getByLabelText("Evolution title"), { target: { value: "Rename" } });
+    fireEvent.change(within(sheet).getByLabelText("Evolution intent"), { target: { value: "Say it plainly" } });
+    fireEvent.click(within(sheet).getByRole("button", { name: "Commit" }));
+    await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
+    expect(calls.find((c) => c.method === "POST")!.body).toEqual({ title: "Rename", intent: "Say it plainly", affectedNodes: [] });
   });
 
   it("explains a 401 and retries on the started realization without starting another", async () => {
