@@ -4,7 +4,8 @@ import { describe, expect, it } from "vitest";
 import {
   checkTemplateForm, checkViewHints, evaluate, instantiateNodes, loadTemplate, resolveKindView, type Graph, type Template,
 } from "@artyfact/ontology";
-import { loadMetaTemplate, metaTemplateRefs, metaTemplates, templateRefs, templates } from "../src/index";
+import { loadMetaTemplate, metaTemplateRefs, metaTemplates } from "../src/index";
+import { v1Template, v1TemplateRefs } from "./v1";
 import { compose, GENERIC_THINGS, readGenome, SYSTEM } from "./dev-platform";
 
 const ALL = [SYSTEM, ...GENERIC_THINGS];
@@ -17,8 +18,8 @@ describe("generic templates", () => {
   it("bundles the five meta@1 templates beside the v1 ones", () => {
     const ported = ["template.system.social-networking.cloudflare@1", "template.thing.cloudflare-worker-webapp@1", "template.thing.vue-webapp@1"];
     expect(metaTemplateRefs().sort()).toEqual([...ALL, ...ported].sort());
-    expect(templateRefs().every((r) => !ALL.includes(r))).toBe(true);
-    for (const ref of ALL) expect(templates.get(ref)).toBeUndefined();
+    expect(v1TemplateRefs().every((r) => !ALL.includes(r))).toBe(true);
+    for (const ref of ALL) expect(v1Template(ref)).toBeUndefined();
   });
 
   describe.each(ALL)("%s", (ref) => {

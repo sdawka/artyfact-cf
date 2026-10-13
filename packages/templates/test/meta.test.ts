@@ -5,7 +5,8 @@ import {
 } from "@artyfact/ontology";
 import { edit, referenceFindings, referenceModel, systemFiles, type Files } from "../../ontology/test/artyfact-reference";
 import * as packs from "../../ontology/test/vendor/artyfact/packs";
-import { loadMetaTemplate, metaTemplates, templateRefs, templates } from "../src/index";
+import { loadMetaTemplate, metaTemplates } from "../src/index";
+import { v1Template, v1TemplateRefs } from "./v1";
 import { files as bundled } from "../src/generated/files";
 
 const systemRef = "template.system.social-networking.cloudflare@1";
@@ -34,7 +35,7 @@ const load = (files: Files) => loadArtyfactSystem(files, { templates: artyfactTe
 
 describe("meta@1 templates", () => {
   it("bundles the three templates as meta@1 beside their legacy shape", () => {
-    expect(templateRefs().sort()).toEqual([workerRef, systemRef, vueRef].sort());
+    expect(v1TemplateRefs().sort()).toEqual([workerRef, systemRef, vueRef].sort());
     for (const ref of refs) expect(metaTemplates.get(ref)).toMatchObject({ meta: 1, extends: ARTYFACT_GENOME });
   });
 
@@ -82,7 +83,7 @@ describe("meta@1 templates", () => {
 
   it.each([workerRef, vueRef, systemRef])("%s prefilled nodes, criteria and hooks match its legacy shape", (ref) => {
     const t = loadMetaTemplate(ref);
-    const v1 = templates.get(ref)!;
+    const v1 = v1Template(ref)!;
     const inst = instantiateNodes(t, "thing.x");
     const ontology = inst.filter((n) => !["template", "criterion", "hook"].includes(n.kind));
     expect(ontology.map((n) => n.id)).toEqual(v1.nodes.map((n) => n.id));
