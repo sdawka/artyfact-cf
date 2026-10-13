@@ -15,7 +15,7 @@ describe("Shell", () => {
   it("renders Home at /", async () => {
     const { router } = renderApp("/");
     expect(await screen.findByRole("heading", { level: 1, name: "Systems" })).toBeTruthy();
-    const card = await screen.findByRole("link", { name: /Keep in Touch/ });
+    const card = await screen.findByRole("link", { name: /^Keep in Touch$/ });
     expect(screen.queryByRole("navigation", { name: "Views" })).toBeNull();
     act(() => card.click());
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp`));
