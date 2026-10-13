@@ -2,7 +2,7 @@ import { useId } from "react";
 import { Link } from "react-router";
 import { useKeepParams, useSelection } from "@/model/useSelection";
 import { ConflictChips } from "../work/ConflictChips";
-import type { QueueGroup, QueueRow } from "./queue";
+import { importLabel, type QueueGroup, type QueueRow } from "./queue";
 import styles from "./review.module.css";
 
 interface Props {
@@ -10,12 +10,14 @@ interface Props {
   evolutionId: string | null;
   realizationId: string | null;
   promoting: boolean;
+  /** The import review is open (`?panel=import`). */
+  importing?: boolean;
   /** Board or candidates still loading: an empty queue is not yet "nothing waiting". */
   loading?: boolean;
 }
 
 /** The decision queue: one row per pending decision, grouped by Evolution. A row is a link that opens it on the right. */
-export function QueueList({ groups, evolutionId, realizationId, promoting, loading = false }: Props) {
+export function QueueList({ groups, evolutionId, realizationId, promoting, importing = false, loading = false }: Props) {
   const count = groups.reduce((n, g) => n + g.rows.length, 0);
   return (
     <section className={styles.queue} aria-labelledby="queue-title">
@@ -24,7 +26,7 @@ export function QueueList({ groups, evolutionId, realizationId, promoting, loadi
       </h2>
       {groups.length ? (
         groups.map((g) => (
-          <Group key={g.evolution} group={g} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} />
+          <Group key={g.evolution} group={g} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} importing={importing} />
         ))
       ) : (
         <p className={styles.muted} {...(loading && { role: "status" })}>{loading ? "Loading the queue…" : "Nothing is waiting on you."}</p>
@@ -33,16 +35,18 @@ export function QueueList({ groups, evolutionId, realizationId, promoting, loadi
   );
 }
 
-function Group({ group, evolutionId, realizationId, promoting }: { group: QueueGroup } & Omit<Props, "groups" | "loading">) {
+function Group({ group, evolutionId, realizationId, promoting, importing }: { group: QueueGroup } & Omit<Props, "groups" | "loading">) {
   const id = useId();
   return (
     <section className={styles.group} aria-labelledby={id}>
       <h3 id={id} className={styles.groupTitle}>{group.title}</h3>
       <ul className={styles.rows}>
         {group.rows.map((row) => {
-          const current = row.kind === "promotion"
-            ? promoting && evolutionId === group.evolution
-            : !promoting && !!row.realization && row.realization.id === realizationId;
+          const current = row.kind === "import"
+            ? !!importing
+            : row.kind === "promotion"
+              ? promoting && evolutionId === group.evolution
+              : !promoting && !importing && !!row.realization && row.realization.id === realizationId;
           return <li key={row.key}><Row row={row} title={group.title} current={current} /></li>;
         })}
       </ul>
@@ -53,11 +57,26 @@ function Group({ group, evolutionId, realizationId, promoting }: { group: QueueG
 function Row({ row, title, current }: { row: QueueRow; title: string; current: boolean }) {
   const href = useKeepParams();
   const { candidates: selected } = useSelection();
-  const to = row.kind === "promotion"
-    ? href("review", { evolution: row.evolution, realization: null, panel: "promote" })
-    : href("review", { evolution: row.evolution, realization: row.realization?.id ?? null, panel: null });
+  const to = row.kind === "import"
+    ? href("review", { evolution: null, realization: null, panel: "import" })
+    : row.kind === "promotion"
+      ? href("review", { evolution: row.evolution, realization: null, panel: "promote" })
+      : href("review", { evolution: row.evolution, realization: row.realization?.id ?? null, panel: null });
   const r = row.realization;
   const ready = row.kind === "promotion";
+  if (row.importReview) {
+    return (
+      <Link to={to} className={styles.row} data-kind={row.kind} data-testid="queue-import" aria-current={current ? "true" : undefined}>
+        <span className={styles.rowTop}>
+          <span className={styles.kind} data-kind={row.kind}>{importLabel(row.importReview.nodes)}</span>
+          <span className={styles.muted}>awaits an admin</span>
+        </span>
+        <span className={styles.rowMeta}>
+          Genome <code>{row.importReview.genomeCommit.slice(0, 7)}</code> · new work waits until it is accepted
+        </span>
+      </Link>
+    );
+  }
   return (
     <Link
       to={to}
