@@ -40,7 +40,7 @@ export function protectedPathsFor(target: "app" | "genome"): string[] {
 
 const kindOf = (m: SystemModel) => (id: string) => m.index.byId[id]?.type === "node" ? m.index.byId[id].kind : m.index.byId[id]?.type;
 
-function entryFiles(sm: SourceMapEntry[], affected: string[], tree: string[]): TaskPacket["entryFiles"] {
+export function entryFiles(sm: SourceMapEntry[], affected: string[], tree: string[]): TaskPacket["entryFiles"] {
   const out = new Map<string, Certainty>();
   for (const e of sm.filter((x) => x.nodes.some((n) => affected.includes(n)))) {
     const certainty: Certainty = e.origin === "node" ? "declared" : "assumed";
