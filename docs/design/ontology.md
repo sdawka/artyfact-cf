@@ -54,7 +54,9 @@ Recorded live quality (Perplexity decider, then gpt-6-luna; `packages/ontology/t
 
 Translator op precision is 0.67 to 0.86 and recall 0.64 to 0.67. Most remaining misses are intent labels. The `intent-first` order scores lower (nodes 12/21 and 4/9) and fails the live thresholds; it stays available only for evaluation.
 
-**Evaluate and judge, for the gates (W5).** `evaluate(template, graph)` is synchronous and makes no calls. It returns `Readiness` with `actionable`, `buildable`, findings and derivations. `judge` and `evaluateAndJudge` resolve semantic candidates through the funnel, bounded by `limits`: `maxRounds` 6, `maxCalls` 500, `maxPairsPerSet` 6, `maxSections` 12, `maxCrossPairs` 10, `maxTerms` 5 and `maxExplanations` 10. Per-kind `checks` (checks@1) are one question per judged check, batched per subject. A check with a `pattern` makes no call. Gates run the funnel on changed nodes only (plan, W5).
+**Evaluate and judge, for the gates (W5).** `evaluate(template, graph)` is synchronous and makes no calls. It returns `Readiness` with `actionable`, `buildable`, findings and derivations. `judge` and `evaluateAndJudge` resolve semantic candidates through the funnel, bounded by `limits`: `maxRounds` 6, `maxCalls` 500, `maxPairsPerSet` 6, `maxSections` 12, `maxCrossPairs` 10, `maxTerms` 5 and `maxExplanations` 10. Per-kind `checks` (checks@1) are one question per judged check, batched per subject. A check with a `pattern` makes no call.
+
+The gates (`apps/platform/worker/hooks/engine-gates.ts`) read the Genome as a `Graph` (`readTree`; a v1 Genome through the v1 adapter until W4's projection) and evaluate it against the template it pins: its System template with its Things' templates composed over it. The rules part of every `model-rules` hook is that `evaluate`: `inputs.packs` selects packs by `id@version` or `id` (the ported packs also answer to their v1 names, `readiness@1` for `artyfact.readiness@1`), and an `error` finding fails. A hook whose `packs` names `checks@1` judges the template's checks on the candidate's changed nodes and their parents only: misses and `no` answers at `error` or `warning` fail, unconfident answers are unknown, `info` misses are advisory. text@1 findings never fail a hook; they are reported as `advisory`. The defect funnel (pair, section and term questions) is not run by the gates.
 
 ## 2. Genome v2: the containment tree
 
@@ -281,7 +283,7 @@ Mapping from the engine:
   - The findings that applying the proposal's ops to a copy of the graph introduces (`diffFindings` against the head's readiness). These cover illegal nesting, missing required fields and children, and dangling links. Finding levels map `error` → `error`, `missing` → `missing` and `warning` → `warning`; `review`, `info` and `pass` findings are dropped. `opId` names the op whose node is the finding's subject, and is absent when no single op owns it.
 - **`provenance`**: router `{provider, model, calls}` and translator `{provider, model}`. `genomeCommit` is the head the proposal was computed on; accepting after the head moved is a 409 `stale-base`. `fake` is true when either side was fake, and the UI labels such proposals.
 
-Providers are wired by W5 and W7. System One comes from TypeSafe (`TYPESAFE_API_KEY`) or OpenRouter (`OPENROUTER_API_KEY`, `OPENROUTER_MODEL`). The engine's `providerFromEnv` knows only fake and OpenRouter; W5 adds TypeSafe. The translator comes from `translatorFromEnv`. `FAKE_S1=1` selects the fake router and the fake translator for tests and fixture demos.
+Providers are wired by W5 and W7. System One comes from `providerFromEnv`: `FAKE_S1=1`, then TypeSafe (`TYPESAFE_API_KEY`), then OpenRouter (`OPENROUTER_API_KEY`, `OPENROUTER_MODEL`), else off. `@artyfact/semantic` uses the same client. The translator comes from `translatorFromEnv`. `FAKE_S1=1` selects the fake router and the fake translator for tests and fixture demos.
 
 ## 6. Where the engine and the plan disagree
 
@@ -297,5 +299,5 @@ Providers are wired by W5 and W7. System One comes from TypeSafe (`TYPESAFE_API_
 | Template refs | `template.<kind>.<name>@<v>` | `thing/<name>@<v>` in the example | Engine form |
 | Display names | `titleOf` reads `title` only | Artyfact nodes use `name` | W7: fall back to `name` or the kind's `view.title` (§2) |
 | Fake translator | Links adds with `references` | Templates declare their own relations | Fixtures and e2e must use updates or templates that declare `references`. W7 may make the fake read the vocabulary |
-| System One providers | OpenRouter and fake | TypeSafe as well | W5 |
+| System One providers | TypeSafe, OpenRouter and fake (`providerFromEnv`) | TypeSafe as well | Done (W5) |
 | Old Genomes | v1 adapter included | Plan: `loadGenome` detects v1 or v2 (W4), and old commits stay readable | Superseded by the user: v2 only. v1 commits show the legacy notice (§2a), and the v1 readers are deleted after the migration release. W4 loads v2 only |

@@ -21,6 +21,16 @@ export function withRecipients(files: FileMap = miniGenome()): FileMap {
   return out;
 }
 
+/**
+ * Mini-Genome pinning the social-networking System template. The engine runs the rule packs a template declares (the
+ * topology pack is the System template's), not the v1 `kits.yaml` pins.
+ */
+export function withSystemTemplate(files: FileMap = miniGenome()): FileMap {
+  const out = { ...files, "system.yaml": files["system.yaml"].replace("template: null", "template: template.system.social-networking.cloudflare@1") };
+  if (out["system.yaml"] === files["system.yaml"]) throw new Error("fixture mutation did not apply");
+  return out;
+}
+
 export const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 export const BASE = "fedcba9876543210fedcba9876543210fedcba98";
 

@@ -4,7 +4,7 @@ import { createSystemOne } from "@artyfact/semantic";
 import type { CandidateRef, Evaluation, EvolutionRef, SubmissionContext } from "../../worker/hooks/contract";
 import { createHookRunner, selectHooks } from "../../worker/hooks/run";
 import { loadGenome } from "../../worker/hooks/model-rules";
-import { BASE, COMMIT, miniGenome, withRecipients } from "./fixtures";
+import { BASE, COMMIT, miniGenome, withRecipients, withSystemTemplate } from "./fixtures";
 
 const appCandidate = (over: Partial<CandidateRef> = {}): CandidateRef => ({
   id: "cand.r1", realizationId: "realization.1.r1", evolutionId: "evolution.1", target: "app", commit: COMMIT, baseCommit: BASE,
@@ -111,7 +111,7 @@ describe("runSubmission", () => {
     expect(by(evs, "C.system.structure")[0]).toMatchObject({ execution: "completed", verdict: "pass", targetRef: `genome@${BASE}` });
     expect(by(evs, "C.system.promotion")[0]).toMatchObject({ execution: "completed", verdict: "pass" });
     expect(by(evs, "C.system.readiness")[0]).toMatchObject({ execution: "completed", verdict: "pass" });
-    expect(evs.every((e) => e.startedAt === "2026-10-12T00:00:00.000Z" && e.provenance.engineVersion === "1")).toBe(true);
+    expect(evs.every((e) => e.startedAt === "2026-10-12T00:00:00.000Z" && e.provenance.engineVersion === "2")).toBe(true);
   });
 
   it("records an http transport error as execution error, never pass", async () => {
@@ -189,7 +189,7 @@ describe("runGenome", () => {
 
   it("fails model-rules on a recipients list and attaches review signals", async () => {
     const runner = createHookRunner({ s1: createSystemOne({ FAKE_S1: "1" }), now: fixedNow });
-    const r = await runner.runGenome(ctxFor(genomeCandidate(withRecipients()), { permittedPaths: ["**"] }));
+    const r = await runner.runGenome(ctxFor(genomeCandidate(withRecipients(withSystemTemplate())), { permittedPaths: ["**"] }));
     expect(r.readiness.actionable).toBe(false);
     expect(r.readiness.findings.some((f) => f.rule === "topology.recipientArray")).toBe(true);
     const structure = by(r.evaluations, "C.system.structure")[0];
