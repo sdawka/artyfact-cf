@@ -19,6 +19,14 @@ test.describe("the self-model @fake", () => {
 
   test("the Map bands a Thing by template layer and the Inspector orders fields by the view hints @fake", async ({ page, request }, testInfo) => {
     const { model } = await (await request.get(`/api/systems/${SYS}/model`)).json() as { model: { views: { layers: { id: string }[] } } };
+    // System scope: Things have no Map layer, so the canvas looks through them to the layer bands; the containment tree lists all ten.
+    await page.goto(`${BASE}/map`);
+    const tree = page.getByRole("tree", { name: "Containment" });
+    for (const t of THINGS) await expect(tree.locator(`#map-tree-${t.replace(".", "_")}`)).toHaveAttribute("role", "treeitem");
+    await expect(tree.getByRole("treeitem").filter({ hasText: ", Thing" })).toHaveCount(THINGS.length);
+    await expect(page.locator("[data-map-band]").first()).toBeVisible();
+    expect(await page.locator("[data-map-node]").evaluateAll((els) => els.map((e) => e.getAttribute("data-map-node")!).filter((id) => id.startsWith("thing.")))).toEqual([]);
+
     await page.goto(`${BASE}/map?focus=thing.platform`);
     const bands = page.locator("[data-map-band]");
     await expect(bands.first()).toBeVisible();
