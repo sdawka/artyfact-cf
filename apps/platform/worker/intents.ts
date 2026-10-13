@@ -207,7 +207,7 @@ export function planOf(ops: ProposedOp[], tree: GenomeTree, title?: (id: string)
     const id = ids[i]!;
     let d = drafts.get(id);
     if (!d) {
-      d = { node: { id, kind: kindOf(id), title: titleFor(id), path: ids.slice(0, i), summary: "", opIds: [], children: [] }, ops: [] };
+      d = { node: { id, kind: kindOf(id), title: titleFor(id), path: ids.slice(0, i + 1), summary: "", opIds: [], children: [] }, ops: [] };
       drafts.set(id, d);
     }
     return d;

@@ -566,10 +566,10 @@ describe("proposal plan", () => {
     const s = await importSystem();
     const p = (await create(s, "Change what the Today screen says")).json;
     expect(p.plan).toEqual([{
-      id: "thing.webapp", kind: "thing", title: "Peopling web app", path: [s.systemId], summary: "1 update", opIds: [],
+      id: "thing.webapp", kind: "thing", title: "Peopling web app", path: [s.systemId, "thing.webapp"], summary: "1 update", opIds: [],
       children: [{
-        id: "section.ui", kind: "section", title: expect.any(String), path: [s.systemId, "thing.webapp"], summary: "1 update", opIds: [],
-        children: [{ id: "screen.today", kind: "screen", title: "Today", path: [s.systemId, "thing.webapp", "section.ui"], summary: "1 update", opIds: ["op.1"], children: [] }],
+        id: "section.ui", kind: "section", title: expect.any(String), path: [s.systemId, "thing.webapp", "section.ui"], summary: "1 update", opIds: [],
+        children: [{ id: "screen.today", kind: "screen", title: "Today", path: [s.systemId, "thing.webapp", "section.ui", "screen.today"], summary: "1 update", opIds: ["op.1"], children: [] }],
       }],
     }]);
   });
@@ -581,8 +581,8 @@ describe("proposal plan", () => {
     expect(p.ops.map((o) => o.op)).toEqual(["add", "link"]);
     // No parent: the System root holds it, since it is in no Thing.
     expect(p.plan).toEqual([{
-      id: s.systemId, kind: "system", title: expect.any(String), path: [], summary: "1 add · 1 link", opIds: [],
-      children: [{ id: node, kind: "screen", title: p.ops[0]!.fields!.name, path: [s.systemId], summary: "1 add · 1 link", opIds: ["op.1", "op.2"], children: [] }],
+      id: s.systemId, kind: "system", title: expect.any(String), path: [s.systemId], summary: "1 add · 1 link", opIds: [],
+      children: [{ id: node, kind: "screen", title: p.ops[0]!.fields!.name, path: [s.systemId, node], summary: "1 add · 1 link", opIds: ["op.1", "op.2"], children: [] }],
     }]);
   });
 
@@ -605,7 +605,7 @@ describe("proposal plan", () => {
       { id: "other", opIds: ["op.5"], summary: "1 update", children: [] },
     ]);
     expect(plan[2]).toMatchObject({ kind: "other", title: "Other changes", path: [] });
-    expect(plan[0]!.children[0]!.children[1]!.children[0]).toMatchObject({ kind: "component", title: "New", path: ["system.peopling", "thing.webapp", "section.ui", "screen.people"] });
+    expect(plan[0]!.children[0]!.children[1]!.children[0]).toMatchObject({ kind: "component", title: "New", path: ["system.peopling", "thing.webapp", "section.ui", "screen.people", "component.New"] });
     const all = (n: ProposalPlanNode[]): string[] => n.flatMap((x) => [...x.opIds, ...all(x.children)]);
     expect(all(plan).sort()).toEqual(ops.map((o) => o.id).sort());
   });
