@@ -18,6 +18,8 @@ import { genomeGraph, intentProviders, proposedOps, setIntentProviders } from ".
 import { loadGenome, validate } from "@artyfact/model";
 import { metaTemplates } from "@artyfact/templates";
 import { createEvolution, startWork, systemStub } from "../worker/service";
+import { createHookRunner } from "../worker/hooks/run";
+import { createSystemOne } from "@artyfact/semantic";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 import { fakeReceivePack } from "./helpers/fake-receive-pack";
 import { ADMIN, passing } from "./helpers/flows";
@@ -169,6 +171,22 @@ describe("POST /intents/:pid/accept", () => {
     expect(again.status).toBe(409);
     expect(again.json.error.code).toBe("invalid-state");
     expect((await call<ApiError>("POST", routes.intentReply(s.systemId, p.id), { answer: "x" })).status).toBe(409);
+  });
+
+  it("permits an added node's directory, so the submission hooks pass the System's scope gate", async () => {
+    setHooks({ runner: () => createHookRunner({ s1: createSystemOne({}), fetch: (async () => { throw new Error("no fetch expected"); }) as unknown as typeof fetch, previewEnv: {} }) });
+    const s = await importSystem();
+    const p = (await create(s, "Add a screen for quiet hours #s1:route.intent=add")).json;
+    const node = p.ops[0]!.node!;
+    const r = await accept(s, p, ["op.1", "op.2"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    const rec = await systemStub(env, s.systemId).realization(r.json.realization.id);
+    expect(rec?.packet?.permittedPaths).toContain(`${node}/**`);
+    const evs = await systemStub(env, s.systemId).evaluations(r.json.candidate.id);
+    const gate = evs.filter((e) => e.criterion === "C.system.promotion");
+    expect(gate.length, JSON.stringify(evs.map((e) => [e.criterion, e.hook, e.verdict]))).toBeGreaterThan(0);
+    for (const e of gate) expect(e.verdict, `${e.hook}: ${JSON.stringify(e)}`).not.toBe("fail");
+    expect(gate).toEqual([expect.objectContaining({ hook: "hook.system.promotion", execution: "completed", interpretation: expect.stringContaining("scope-authorized: pass") })]);
   });
 
   it("updates a node in place, keeping the rest of its file", async () => {

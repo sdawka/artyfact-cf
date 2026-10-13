@@ -21,6 +21,8 @@ export interface PacketInput {
   platformUrl: string;
   /** Genome realizations: Genome root inside the repo ("" or "system"). */
   genomePrefix?: string;
+  /** Extra permitted globs (repo paths), e.g. the directories of nodes an accepted intent adds. */
+  permittedExtra?: string[];
 }
 
 /** Blocking criteria among the Evolution's acceptance criteria (hard with a bound hook, regardless of gates; see ../promotion.ts). */
@@ -101,7 +103,7 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
     ? [i.target === "genome" && i.genomePrefix ? `${i.genomePrefix.replace(/\/+$/, "")}/**` : "**"]
     : i.target === "app"
       ? permittedGlobs(sourceMap, affected, (id) => m.index.path(id), kindOf(m))
-      : genomePermitted(m, affected, i.genomePrefix ?? "");
+      : [...new Set([...genomePermitted(m, affected, i.genomePrefix ?? ""), ...(i.permittedExtra ?? [])])];
   const protectedPaths = protectedPathsFor(i.target);
   const required = acceptanceCriteria.filter((c) => c.gate).map((c) => c.id);
   const submitInstructions = [

@@ -338,7 +338,10 @@ async function pushAccepted(env: Env, systemId: string, p: Proposal, ops: Propos
   const stub = systemStub(env, systemId);
   try {
     // The fork must start from `base`: the DO refuses the reservation when the head moved after the claim.
-    const start = await startWork(env, systemId, evolution.id, { target: "genome", origin: "editor", agentLabel: INTENT_AGENT }, platformUrl, { expectedBase: base });
+    // Added nodes have no origin in the base model, so the packet permits the directories the codec wrote them to.
+    const permittedExtra = Object.values(applied.created).map((dir) => `${dir}/**`);
+    const start = await startWork(env, systemId, evolution.id, { target: "genome", origin: "editor", agentLabel: INTENT_AGENT }, platformUrl,
+      { expectedBase: base, permittedExtra });
     const edit = await commitEdit(env, systemId, start.realization.id, {
       message: title, why: p.message,
       changes: applied.changes.map((c) => ({ path: prefix ? `${prefix}/${c.path}` : c.path, content: c.content })),

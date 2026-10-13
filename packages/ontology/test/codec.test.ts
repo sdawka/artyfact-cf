@@ -175,6 +175,7 @@ describe("applyOps", () => {
     expect(r.changes.map((c) => c.path)).toEqual(["ext.mail/node.yaml", "thing.app/screen.Settings-page/node.yaml"]);
     expect(r.changes[0]!.content).toBe("id: ext.mail\nkind: external\nfields:\n  name: Mail\nlinks:\n  - { rel: serves, to: P1 }\n");
     expect(r.touched).toEqual(["screen.Settings-page", "ext.mail"]);
+    expect(r.created).toEqual({ "screen.Settings-page": "thing.app/screen.Settings-page", "ext.mail": "ext.mail" });
     const g = readTree(apply(SMALL, r.changes), none);
     expect(g.nodes.find((n) => n.id === "screen.Settings-page")?.parent).toBe("thing.app");
     expect(g.links).toContainEqual({ from: "screen.Settings-page", rel: "serves", to: "ext.mail", certainty: "declared" });
@@ -185,7 +186,10 @@ describe("applyOps", () => {
 
   it("suffixes a slug that a sibling directory already uses, and never uses evolutions/ at the root", () => {
     const files = { ...SMALL, "thing.app/screen.x/node.yaml": "id: screen.other\nkind: screen\n" };
-    expect(applyOps(files, [{ op: "add", node: "screen.x", kind: "screen", parent: "thing.app" }]).changes[0]!.path).toBe("thing.app/screen.x-2/node.yaml");
+    const suffixed = applyOps(files, [{ op: "add", node: "screen.x", kind: "screen", parent: "thing.app" }]);
+    expect(suffixed.changes[0]!.path).toBe("thing.app/screen.x-2/node.yaml");
+    expect(suffixed.created).toEqual({ "screen.x": "thing.app/screen.x-2" });
+    expect(applyOps(SMALL, [{ op: "add", node: "screen.y", kind: "screen" }, { op: "remove", node: "screen.y" }]).created).toEqual({});
     expect(applyOps(SMALL, [{ op: "add", node: "evolutions", kind: "k" }]).changes[0]!.path).toBe("evolutions-2/node.yaml");
   });
 
@@ -202,7 +206,7 @@ describe("applyOps", () => {
   it("links once and unlinks, dropping an emptied links key", () => {
     const linked = applyOps(SMALL, [{ op: "link", node: "screen.home", link: { rel: "serves", to: "P1", certainty: "assumed" } }]);
     expect(linked.changes[0]!.content).toContain("  - { rel: serves, to: ext.owner } # the owner only\n  - { rel: serves, to: P1, certainty: assumed }\n");
-    expect(applyOps(SMALL, [{ op: "link", node: "screen.home", link: { rel: "serves", to: "ext.owner" } }])).toEqual({ changes: [], touched: [] });
+    expect(applyOps(SMALL, [{ op: "link", node: "screen.home", link: { rel: "serves", to: "ext.owner" } }])).toEqual({ changes: [], touched: [], created: {} });
     const labelled = applyOps(SMALL, [{ op: "link", node: "P1", link: { rel: "references", to: "ext.owner", label: "who it is for", source: { doc: "spec", section: "2" } } }]);
     expect(labelled.changes[0]!.content).toContain("  - { rel: references, to: ext.owner, label: who it is for, source: { doc: spec, section: \"2\" } }\n");
     const unlinked = applyOps(SMALL, [{ op: "unlink", node: "thing.app", link: { rel: "serves", to: "P1" } }]);

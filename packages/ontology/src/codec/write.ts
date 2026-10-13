@@ -32,6 +32,8 @@ export interface ApplyResult {
   changes: FileChange[];
   /** Added, updated and removed node ids (a removed subtree counts every node in it) and the `from` end of each link change. */
   touched: string[];
+  /** The directory each node the ops added was written to (relative to the Genome root; `""` is never one). */
+  created: Record<string, string>;
 }
 
 export class TreeOpError extends Error {
@@ -97,6 +99,7 @@ export function applyOps(files: GenomeFiles, ops: readonly TreeOp[]): ApplyResul
   const dirs = new Map([...tree.nodes.values()].map((n) => [n.id, n.dir]));
   const docs = new Map<string, Document>();
   const touched: string[] = [];
+  const added = new Set<string>();
   const touch = (id: string) => { if (!touched.includes(id)) touched.push(id); };
   const fileOf = (dir: string) => (dir ? `${dir}/${NODE_FILE}` : NODE_FILE);
 
@@ -139,6 +142,7 @@ export function applyOps(files: GenomeFiles, ops: readonly TreeOp[]): ApplyResul
         work.set(path, formatNodeFile(r.data!));
         docs.delete(path);
         dirs.set(id, dir);
+        added.add(id);
         touch(id);
         break;
       }
@@ -221,5 +225,6 @@ export function applyOps(files: GenomeFiles, ops: readonly TreeOp[]): ApplyResul
     if (before !== after) changes.push({ path, content: after ?? null });
   }
   changes.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-  return { changes, touched };
+  const created = Object.fromEntries([...added].filter((id) => dirs.has(id)).map((id) => [id, dirs.get(id)!]));
+  return { changes, touched, created };
 }

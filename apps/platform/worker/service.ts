@@ -368,9 +368,13 @@ async function concurrentWork(env: Env, systemId: string, evolutionId: string, e
   }));
 }
 
-/** `opts.expectedBase`: refuse with 409 `stale-base` unless the realization would fork from this commit. */
+/**
+ * `opts.expectedBase`: refuse with 409 `stale-base` unless the realization would fork from this commit.
+ * `opts.permittedExtra`: Genome-relative globs added to the packet's permitted paths (under the Genome prefix), for
+ * nodes the realization will create and the base model cannot know.
+ */
 export async function startWork(
-  env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string, opts: { expectedBase?: string } = {},
+  env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string, opts: { expectedBase?: string; permittedExtra?: string[] } = {},
 ): Promise<StartWorkResponse> {
   if (body.target !== undefined && body.target !== "app" && body.target !== "genome") throw badRequest("target must be app or genome");
   if (body.origin !== undefined && body.origin !== "cli" && body.origin !== "editor") throw badRequest("origin must be cli or editor");
@@ -403,6 +407,7 @@ export async function startWork(
       workspace: { repo: reserved.baseRepo, fork: reserved.forkRepo, baseCommit: reserved.baseCommit, remote },
       baseTreePaths: tree, commands,
       concurrentWork: await concurrentWork(env, systemId, evolutionId, rid), platformUrl, genomePrefix: prefix,
+      ...(target === "genome" && opts.permittedExtra?.length && { permittedExtra: opts.permittedExtra.map((g) => (prefix ? `${prefix.replace(/\/+$/, "")}/${g}` : g)) }),
     });
     // The realization secret authorizes the agent's platform calls; only its SHA-256 is stored.
     const secret = newRealizationSecret();
