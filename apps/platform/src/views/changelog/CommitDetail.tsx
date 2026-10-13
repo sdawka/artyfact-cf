@@ -9,6 +9,7 @@ import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
 import { useKeepParams, useSystemRoute, viewPath } from "@/model/useSelection";
 import { shortSha } from "@/model/time";
 import { useSemanticDelta } from "@/views/compare/genomeDelta";
+import { LEGACY_NOTICE } from "@/views/compare/legacy";
 import { SemanticDelta } from "@/views/work/panels/amendment/SemanticDelta";
 import styles from "./changelog.module.css";
 
@@ -52,12 +53,19 @@ function Detail({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
   return (
     <>
       <Section title="Genome">
-        {delta ? (
-          <SemanticDelta delta={delta} />
+        {row.legacyFormat ? (
+          // A v1 Genome has no node delta and no model to open; its files below still diff.
+          <p role="note" className={styles.muted}>{LEGACY_NOTICE}</p>
         ) : (
-          <p className={styles.muted}>{entry.genome.loadError ? `Genome comparison unknown: ${entry.genome.loadError}` : "No Genome comparison."}</p>
+          <>
+            {delta ? (
+              <SemanticDelta delta={delta} />
+            ) : (
+              <p className={styles.muted}>{entry.genome.loadError ? `Genome comparison unknown: ${entry.genome.loadError}` : "No Genome comparison."}</p>
+            )}
+            <p><Link to={viewPath(systemId, row.id, "map")} className="u-marker">Open this revision in the Map</Link></p>
+          </>
         )}
-        <p><Link to={viewPath(systemId, row.id, "map")} className="u-marker">Open this revision in the Map</Link></p>
       </Section>
       <Section title="Files">
         <Files entry={entry} row={row} />

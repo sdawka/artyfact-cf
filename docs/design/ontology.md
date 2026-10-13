@@ -146,12 +146,10 @@ The v1 (by-concern) layout is dropped. The rules:
   After the migration has run, the converter's v1 reader, the engine's artyfact v1 adapter (`src/adapters/artyfact`), its parity tests and v1 support in `@artyfact/model` are deleted. Old commits are never rewritten.
 - **Legacy check.** `isLegacyGenome(paths)` (`src/genome/node.ts`) is true when the root has `system.yaml` and no `node.yaml`. It reads a file list only and never parses v1. It is the only v1 knowledge the platform keeps.
 - **Model routes** (`model`, `readiness` and anything else that loads the Genome) at a legacy revision answer 422 `legacy-genome`, with a message that names the fix: "this revision predates the node-tree Genome format; convert it with `artyfact convert-genome` and push it with `artyfact init --adopt --force` (docs/deploy.md)". Model and changelog rows cached before the projection are versioned out (`MODEL_CACHE_VERSION`, `CHANGELOG_CACHE_VERSION`), so a cache never serves a v1-built model.
-- **Changelog.** A System commit whose Genome is legacy is listed with its row metadata (time, author, policy, rationale, Evolutions, candidates) and `legacyFormat: true`. Its `summary` counts files only, with the node counts 0. The entry shows a "Legacy format" notice in place of the node delta, the criteria table and the node links. The changed files and their text diffs still show, because they are plain files.
-- **Compare.** When a side's Genome is legacy, `SystemCompare.genome.legacyFormat` (and `GenomeCompare.legacyFormat`) lists that side and `delta` is null. The app side compares as usual.
-  - Both sides legacy: the notice replaces the Genome panel.
-  - Legacy `from` and v2 `to` (the migration commit): the notice reads "Converted from the legacy format", and the to-side tree is browsable.
-  - File compare (`compare/file`) works on any revision.
-- **Other surfaces.** Map, Inspector, Journeys and the other views only ever load the head, which is v2 after the migration. A link to a legacy revision lands on the Changelog entry.
+- **One notice.** The UI marks a legacy Genome with one string, "Genome v1 format — not comparable" (`views/compare/legacy.ts`).
+- **Changelog.** A System commit whose Genome is legacy is listed with its row metadata (time, author, policy, rationale, Evolutions, candidates) and `legacyFormat: true`. Its `summary` counts files only, with the node counts 0. The row shows the notice, and its expanded entry shows the notice in place of the node delta and the "Open this revision in the Map" link. The changed files and their text diffs still show, because they are plain files.
+- **Compare.** When a side's Genome is legacy, `SystemCompare.genome.legacyFormat` (and `GenomeCompare.legacyFormat`) lists that side and `delta` is null. The notice shows above the Compare tabs, whichever side is legacy. The app side compares as usual, and file compare (`compare/file`) works on any revision.
+- **Other surfaces.** Map, Inspector, Journeys and the other views only ever load the head, which is v2 after the migration. A link to a legacy revision (`/s/<id>/r/<rev>/…`) redirects to its Changelog entry at head (`…/r/head/changelog?commit=<rev>`). A legacy head, before the migration, shows the route error with the 422 message.
 
 ### From the tree to the engine `Graph` (W1 codec, W4 projection)
 
