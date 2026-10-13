@@ -2,6 +2,7 @@ import { useId, useRef, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import type { EditorCommitRequest, FileScope, StartWorkRequest } from "../../../shared/api";
+import { useAdminTokenField } from "@/api/adminToken";
 import { ApiRequestError, FixtureModeError, getFile } from "@/api/client";
 import { ManualCommitError, useEvolutions, useManualCommit, useTree, qk, type ManualCommitProgress } from "@/api/queries";
 import { emitFx } from "@/effects/fx";
@@ -29,8 +30,8 @@ export interface CommitSheetProps {
 export function commitError(err: unknown): string {
   if (err instanceof ManualCommitError) return commitError(err.cause);
   if (err instanceof FixtureModeError) return "Commit needs the platform API.";
-  if (err instanceof ApiRequestError && err.status === 401) return "Commit needs the admin token (401). Enter it and try again.";
-  if (err instanceof ApiRequestError && err.status === 403) return "The admin token was refused (403). Check it and try again.";
+  if (err instanceof ApiRequestError && err.status === 401) return "Commit needs the admin token (401). Set the admin token in the header and try again.";
+  if (err instanceof ApiRequestError && err.status === 403) return "The admin token was refused (403). Check it in the header and try again.";
   if (err instanceof ApiRequestError && err.status === 409) return `The fork moved since the draft was read (409): ${err.message}`;
   return err instanceof Error ? err.message : String(err);
 }
@@ -61,8 +62,8 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
   const [title, setTitle] = useState("");
   const [intent, setIntent] = useState("");
   const [name, setName] = useState(loadName);
-  // Held in component state only: never persisted.
-  const [adminToken, setAdminToken] = useState("");
+  // Pre-filled from the header token; a typed value is a one-off.
+  const [adminToken, setAdminToken, resetAdminToken] = useAdminTokenField();
 
   const open = (evolutions.data?.evolutions ?? []).filter((e) => STARTABLE.has(e.state));
   const resuming = !!resume?.realizationId && !!resume.secret;
@@ -124,7 +125,7 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
       {
         onSuccess: (res) => {
           onResume(null);
-          setAdminToken("");
+          resetAdminToken();
           if (whyText) rememberWhy(systemId, res.realizationId, whyText);
           emitFx({ kind: "submitted", strength: 1.2 }, formRef.current);
           onCommitted();

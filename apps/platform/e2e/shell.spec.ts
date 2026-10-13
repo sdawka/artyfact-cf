@@ -35,6 +35,20 @@ test.describe("shell", () => {
     await expect(page.getByRole("complementary", { name: "Inspector" })).toBeVisible();
   });
 
+  test("admin token control is in the header, labelled and axe clean", async ({ page }, testInfo) => {
+    await open(page, "/overview", "Overview");
+    const button = page.getByRole("button", { name: /Admin token/ });
+    await expect(button).toBeVisible();
+    await button.click();
+    const dialog = page.getByRole("dialog", { name: "Admin token" });
+    await expect(dialog).toBeVisible();
+    await expect(page.getByLabel("Token for admin actions")).toBeFocused();
+    await checkA11yAndShoot(page, testInfo, "admin-token");
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+    await expect(button).toBeFocused();
+  });
+
   test("Escape closes the Inspector", async ({ page }) => {
     await page.goto(`${SYSTEM}/journeys?journey=J.contacts&step=s2&focus=J.contacts%2Fs2`);
     const inspector = page.getByRole("complementary", { name: "Inspector" });

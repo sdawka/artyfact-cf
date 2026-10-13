@@ -5,6 +5,7 @@ import { useEvaluations } from "@/api/queries";
 import { useEffectsPreference } from "@/effects/effectsPreference";
 import { FAKE_PROVIDER_TITLE, isFakeProvider } from "@/model/provider";
 import { useModel } from "@/model/useModel";
+import { AdminTokenControl } from "./AdminTokenControl";
 import { PhaseBadge } from "./PhaseBadge";
 import { FIXTURE_TITLE, StatePill } from "./StatePill";
 import { SystemRevisionSelector } from "./SystemRevisionSelector";
@@ -37,6 +38,7 @@ export function TopBar({ onOpenPalette }: { onOpenPalette(): void }) {
       )}
       {fakeS1 && <StatePill state="fake" title={FAKE_PROVIDER_TITLE}>System One: fake provider</StatePill>}
       <div className={styles.spacer} />
+      <AdminTokenControl />
       <button
         type="button"
         className={`u-brackets ${styles.effects}`}
