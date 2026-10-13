@@ -12,6 +12,8 @@ import {
 import { isBlocking } from "../../shared/verdict";
 import type { TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse } from "../../shared/api";
 import type { IntentAccept, IntentAcceptResponse, IntentDecisionsRequest, IntentReply, IntentRequest, Proposal } from "../../shared/api";
+// plan
+import type { PlanRequest, PlanUpdateRequest, StartWaveRequest, StartWaveResponse, TaskPlan, TasksQuery, TasksResponse } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
 
 /** Any non-2xx response. `body` is the parsed {@link ApiError} when the server sent one. */
@@ -396,6 +398,34 @@ export const decideIntent = (systemId: string, proposalId: string, body: IntentD
   writeOrThrow("Deciding changes", () =>
     request<Proposal>(routes.intentDecisions(systemId, proposalId), { method: "PUT", body: JSON.stringify(body), ...(adminToken && { headers: bearer(adminToken) }) }),
   );
+
+// ---------------------------------------------------------------------------
+// plan: an Evolution's Tasks and waves (backend.md B.9). Edits are whole-list; the server recomputes footprints and waves.
+// ---------------------------------------------------------------------------
+
+/** The Evolution's task plan; 404 `no-plan` before one was made. Not available on fixture data. */
+export async function getPlan(systemId: string, evolutionId: string): Promise<TaskPlan> {
+  if (await isFixtureMode()) throw notInFixture(`The plan of ${evolutionId}`);
+  return request<TaskPlan>(routes.plan(systemId, evolutionId));
+}
+
+/** Admin: plan the Evolution into Tasks (`force` replans one no task has started). */
+export const planEvolution = (systemId: string, evolutionId: string, body: PlanRequest = {}, adminToken?: string) =>
+  writeOrThrow("Planning tasks", () => post<TaskPlan>(routes.plan(systemId, evolutionId), body, bearer(adminToken)));
+
+/** Admin: replace the whole task list (rename, merge, split). */
+export const putPlan = (systemId: string, evolutionId: string, body: PlanUpdateRequest, adminToken?: string) =>
+  writeOrThrow("Editing the plan", () =>
+    request<TaskPlan>(routes.plan(systemId, evolutionId), { method: "PUT", body: JSON.stringify(body), ...(adminToken && { headers: bearer(adminToken) }) }),
+  );
+
+/** Admin: start every planned task of wave `n`; the response carries each task's one-time command. 409 `wave-blocked` unless `force`. */
+export const startWave = (systemId: string, evolutionId: string, n: number, body: StartWaveRequest = {}, adminToken?: string) =>
+  writeOrThrow("Start wave", () => post<StartWaveResponse>(routes.startWave(systemId, evolutionId, n), body, bearer(adminToken)));
+
+/** Tasks across the System's Evolutions. */
+export const listTasks = (systemId: string, q: TasksQuery = {}) =>
+  readOrEmpty<TasksResponse>({ tasks: [], conflicts: [], waves: {} }, () => request(routes.tasks(systemId, q)));
 
 // ---------------------------------------------------------------------------
 // App template upgrades

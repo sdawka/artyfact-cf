@@ -2,6 +2,7 @@ import { createServer, type Server } from "node:http";
 import { expect, type APIRequestContext, type Page } from "@playwright/test";
 import { checkA11yAndShoot, successToneElements } from "./helpers";
 import type { TestInfo } from "@playwright/test";
+import type { StartWaveRequest, StartWaveResponse, TaskPlan } from "../shared/api";
 
 /** Helpers for the specs that run on the fake platform (`ARTYFACT_E2E_FAKE=1`). */
 export const ADMIN_TOKEN = "test";
@@ -178,4 +179,16 @@ export async function apiEvolution(request: APIRequestContext, title: string, ki
   });
   expect(res.ok(), await res.text()).toBe(true);
   return ((await res.json()) as { evolution: { id: string } }).evolution.id;
+}
+
+/** `GET …/evolutions/:eid/plan` through the API: the full task plan (B.9). */
+export async function apiPlan(request: APIRequestContext, evolution: string): Promise<TaskPlan> {
+  return getJson<TaskPlan>(request, `/evolutions/${evolution}/plan`);
+}
+
+/** `POST …/evolutions/:eid/waves/:n/start` (admin) through the API. */
+export async function apiStartWave(request: APIRequestContext, evolution: string, wave: number, body: StartWaveRequest = {}): Promise<StartWaveResponse> {
+  const res = await request.post(`/api/systems/${SYS}/evolutions/${evolution}/waves/${wave}/start`, { headers: auth, data: body });
+  expect(res.ok(), await res.text()).toBe(true);
+  return (await res.json()) as StartWaveResponse;
 }

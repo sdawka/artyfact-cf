@@ -6,6 +6,8 @@ import type {
 } from "../../shared/api";
 import type { TemplateUpgradeRequest } from "../../shared/api";
 import type { IntentAccept, IntentDecisionsRequest, IntentReply, IntentRequest, Proposal } from "../../shared/api";
+// plan
+import type { PlanRequest, PlanUpdateRequest, StartWaveRequest, TaskPlan } from "../../shared/api";
 import { emitFx } from "@/effects/fx";
 import { useSystemRoute } from "@/model/useSelection";
 import * as api from "./client";
@@ -38,6 +40,9 @@ export const qk = {
   phenome: (systemId: string, q: PhenomeEventsQuery = {}) => ["phenome", systemId, q] as const,
   artifacts: (systemId: string) => ["artifacts", systemId] as const,
   intent: (systemId: string, proposalId: string) => ["intent", systemId, proposalId] as const,
+  // plan
+  plan: (systemId: string, evolutionId: string) => ["plan", systemId, evolutionId] as const,
+  tasks: (systemId: string) => ["tasks", systemId] as const,
 };
 
 /** `system` = two System commits (SystemCompare); `genome` = two Genome revisions (GenomeCompare). File level uses `useCompareFile`. */
@@ -456,6 +461,62 @@ export function useDecideIntent() {
 }
 
 // ---------------------------------------------------------------------------
+// plan: an Evolution's Tasks and waves. Writes put the returned plan in the cache; task status arrives by SSE or the 5 s poll.
+// ---------------------------------------------------------------------------
+
+/** The full plan of one Evolution; 404 `no-plan` (an `ApiRequestError`) before one was made. */
+export function usePlan(evolutionId: string | null | undefined, opts: { enabled?: boolean } = {}) {
+  const { systemId } = useSystemRoute();
+  return useQuery({
+    queryKey: qk.plan(systemId, evolutionId ?? ""),
+    queryFn: () => api.getPlan(systemId, evolutionId!),
+    enabled: !!systemId && !!evolutionId && opts.enabled !== false,
+    retry: false,
+    // Poll only a plan that exists; before one is made, `plan.updated` (or the Plan tasks response) fills the cache.
+    refetchInterval: (query) => (query.state.status === "success" ? 5_000 : false),
+  });
+}
+
+/** Admin: `POST …/plan`. */
+export function usePlanEvolution() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ evolutionId, body, adminToken }: { evolutionId: string; body?: PlanRequest; adminToken?: string }) =>
+      api.planEvolution(systemId, evolutionId, body, adminToken),
+    onSuccess: (p: TaskPlan) => {
+      qc.setQueryData(qk.plan(systemId, p.evolutionId), p);
+      invalidate(qc, systemId, "evolutions", "tasks", "systems");
+    },
+  });
+}
+
+/** Admin: `PUT …/plan` with the whole task list. */
+export function useUpdatePlan() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ evolutionId, body, adminToken }: { evolutionId: string; body: PlanUpdateRequest; adminToken?: string }) =>
+      api.putPlan(systemId, evolutionId, body, adminToken),
+    onSuccess: (p: TaskPlan) => {
+      qc.setQueryData(qk.plan(systemId, p.evolutionId), p);
+      invalidate(qc, systemId, "evolutions", "tasks", "systems");
+    },
+  });
+}
+
+/** Admin: start wave `n`; claims every planned task in it. */
+export function useStartWave() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ evolutionId, wave, body, adminToken }: { evolutionId: string; wave: number; body?: StartWaveRequest; adminToken?: string }) =>
+      api.startWave(systemId, evolutionId, wave, body, adminToken),
+    onSettled: () => invalidate(qc, systemId, "plan", "evolutions", "tasks", "systems"),
+  });
+}
+
+// ---------------------------------------------------------------------------
 // App template upgrades
 // ---------------------------------------------------------------------------
 
@@ -489,7 +550,7 @@ function invalidate(qc: QueryClient, systemId: string, ...names: string[]) {
 }
 
 /** Every list a view may have mounted; the polling fallback (no SSE) refreshes these. */
-const LIVE_LISTS = ["evolutions", "candidates", "builds", "deployments", "phenome", "changelog", "revisions", "systems"];
+const LIVE_LISTS = ["evolutions", "candidates", "builds", "deployments", "phenome", "changelog", "revisions", "systems", "plan", "tasks"];
 
 /**
  * Which query prefixes each SSE event invalidates (`systems` is global). Exhaustive: `ping` invalidates nothing; `poll`
@@ -497,8 +558,8 @@ const LIVE_LISTS = ["evolutions", "candidates", "builds", "deployments", "phenom
  */
 export const SSE_INVALIDATIONS: Record<api.SseType | "poll", readonly string[]> = {
   "realization.created": ["evolutions"],
-  "realization.updated": ["evolutions"],
-  checkpoint: ["evolutions"],
+  "realization.updated": ["evolutions", "plan"],
+  checkpoint: ["evolutions", "plan"],
   "evolution.updated": ["evolutions"],
   "evaluation.completed": ["evaluations", "candidates"],
   "candidate.submitted": ["candidates", "conflicts", "evolutions", "revisions", "builds"],
@@ -512,7 +573,7 @@ export const SSE_INVALIDATIONS: Record<api.SseType | "poll", readonly string[]> 
   "system.imported": ["systems"],
   "evolution.created": ["evolutions", "systems"],
   "plan.updated": ["evolutions", "plan", "tasks", "systems"],
-  "task.updated": ["evolutions", "tasks", "systems"],
+  "task.updated": ["evolutions", "plan", "tasks", "systems"],
   "system.import-review": ["importReview", "model", "readiness", "systems"],
   ping: [],
   poll: LIVE_LISTS,
