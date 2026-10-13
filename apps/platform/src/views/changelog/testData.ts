@@ -53,8 +53,8 @@ export const entry: ChangelogEntry = {
     from: older.genomeCommit,
     to: "1111111111111111111111111111111111111111",
     delta: { added: ["screen.reminders"], removed: [], changed: [{ id: "screen.people", fields: ["name"] }], affectedCriteria: [], affectedJourneys: [] },
-    files: { added: [], modified: ["things/webapp/ontology.yaml"], removed: [] },
-    pathNodes: { "things/webapp/ontology.yaml": ["screen.people", "screen.reminders"] },
+    files: { added: [], modified: ["thing.webapp/section.ui/screen.people/node.yaml"], removed: [] },
+    pathNodes: { "thing.webapp/section.ui/screen.people/node.yaml": ["screen.people", "screen.reminders"] },
   },
   app: {
     from: { ref: "sc-1", repo: "kit-app", commit: "0".repeat(40) },
@@ -70,6 +70,6 @@ export const entry: ChangelogEntry = {
   codeLinks: [
     { scope: "app", path: "src/old.ts", repo: "kit-app", commit: "0".repeat(40), nodes: [], status: "removed" },
     { scope: "app", path: "src/screens/People.tsx", repo: "kit-app", commit: APP, nodes: ["screen.people"], status: "added" },
-    { scope: "genome", path: "things/webapp/ontology.yaml", repo: "kit-genome", commit: "1".repeat(40), nodes: ["screen.people", "screen.reminders"], status: "modified" },
+    { scope: "genome", path: "thing.webapp/section.ui/screen.people/node.yaml", repo: "kit-genome", commit: "1".repeat(40), nodes: ["screen.people", "screen.reminders"], status: "modified" },
   ],
 };

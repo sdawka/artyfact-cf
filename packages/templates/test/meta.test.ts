@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  ARTYFACT_GENOME, ARTYFACT_KINDS, artyfactTemplateStore, checkTemplateForm, checkViewHints, evaluate, evaluateAndJudge, fakeSystemOne, instantiateNodes,
+  ARTYFACT_GENOME, ARTYFACT_KINDS, artyfactTemplateStore, checkTemplateForm, composeTemplates, checkViewHints, evaluate, evaluateAndJudge, fakeSystemOne, instantiateNodes,
   loadArtyfactSystem, resolveKindView, type Graph, type Readiness,
 } from "@artyfact/ontology";
 import { edit, referenceFindings, referenceModel, systemFiles, type Files } from "../../ontology/test/artyfact-reference";
 import * as packs from "../../ontology/test/vendor/artyfact/packs";
-import { composeTemplate, loadMetaTemplate, metaTemplates, templateRefs, templates } from "../src/index";
+import { loadMetaTemplate, metaTemplates, templateRefs, templates } from "../src/index";
 import { files as bundled } from "../src/generated/files";
 
 const systemRef = "template.system.social-networking.cloudflare@1";
@@ -28,7 +28,8 @@ const allPacks = [packs.metamodel, packs.readiness, packs.authorization, packs.j
 /** Reference rules the base packs drop on purpose: a Genome-only Thing binds no artifact. */
 const DROPPED = new Set(["thing.noArtifact"]);
 const theirs = (files: Files) => pairs(referenceFindings(referenceModel(files, legacy), allPacks).filter((f) => !DROPPED.has(f.rule)));
-const template = composeTemplate(systemRef, [workerRef]);
+const use = (ref: string, self: string) => ({ template: loadMetaTemplate(ref), self });
+const template = composeTemplates(use(systemRef, "system.keep-in-touch"), [use(workerRef, "thing.webapp")]);
 const load = (files: Files) => loadArtyfactSystem(files, { templates: artyfactTemplateStore(bundledDir) }) as Graph;
 
 describe("meta@1 templates", () => {
@@ -70,9 +71,12 @@ describe("meta@1 templates", () => {
     const ids = (ref: string) => loadMetaTemplate(ref).rules.map((r) => r.id);
     expect(ids(systemRef)).toEqual(["artyfact.facts", "artyfact.metamodel", "artyfact.readiness", "artyfact.theory", "artyfact.topology.private-pairs"]);
     for (const ref of [workerRef, vueRef]) expect(ids(ref)).toEqual(["artyfact.facts", "artyfact.metamodel", "artyfact.authorization", "artyfact.journeys"]);
-    expect(composeTemplate(systemRef, [workerRef, vueRef]).rules.map((r) => r.id).sort()).toEqual([
+    expect(template.rules.map((r) => r.id).sort()).toEqual([
       "artyfact.authorization", "artyfact.facts", "artyfact.journeys", "artyfact.metamodel", "artyfact.readiness", "artyfact.theory", "artyfact.topology.private-pairs",
     ]);
+    // Both webapp templates prefill section.ui (and more) under fixed ids, so one System cannot use both.
+    expect(() => composeTemplates(use(systemRef, "system.keep-in-touch"), [use(workerRef, "thing.webapp"), use(vueRef, "thing.admin")]))
+      .toThrow("thing.webapp and thing.admin both prefill node section.ui, differently");
     expect(loadMetaTemplate(systemRef).questions.map((q) => q.id)).toEqual(["topology.multiRecipient"]);
   });
 
@@ -87,9 +91,12 @@ describe("meta@1 templates", () => {
       expect([m.kind, m.parent, m.fields.name, m.fields.description, !!m.provisional])
         .toEqual([n.kind, n.parent === "$thing" || n.parent === "$system" ? "thing.x" : n.parent, n.name, n.description, !!n.provisional]);
     }
-    expect(inst.filter((n) => n.kind === "criterion").map((n) => n.id)).toEqual(v1.criteria.map((c) => c.id));
-    expect(t.criteria.map((c) => [c.id, c.hooks, c.gates])).toEqual(v1.criteria.map((c) => [c.id, c.hooks, c.gates]));
-    expect(inst.filter((n) => n.kind === "hook").map((n) => n.id)).toEqual(v1.hooks.map((h) => h.id));
+    // Criterion and hook ids hold the instantiating node: `$self` in meta@1, `$thing` in the legacy shape.
+    const atX = (id: string) => id.replace("$thing", "thing.x");
+    const legacyIds = (ids: string[] | undefined) => ids?.map((id) => id.replace("$thing", "$self"));
+    expect(inst.filter((n) => n.kind === "criterion").map((n) => n.id)).toEqual(v1.criteria.map((c) => atX(c.id)));
+    expect(t.criteria.map((c) => [c.id, c.hooks, c.gates])).toEqual(v1.criteria.map((c) => [legacyIds([c.id])![0], legacyIds(c.hooks), c.gates]));
+    expect(inst.filter((n) => n.kind === "hook").map((n) => n.id)).toEqual(v1.hooks.map((h) => atX(h.id)));
   });
 
   it("the worker's source globs sit on its root and prefilled nodes, relative to the Thing root", () => {

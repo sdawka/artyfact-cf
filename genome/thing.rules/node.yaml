@@ -28,3 +28,21 @@ criteria:
           - promotion
         inputs:
           command: npm test -w @artyfact/rules
+  - id: C.thing.rules.checks
+    title: Changed nodes meet their checks
+    claim: Changed nodes meet the checks their kinds declare.
+    severity: soft
+    gates:
+      - submission
+    hooks:
+      - id: hook.thing.rules.checks
+        assay: rules.checks
+        tier: semantic
+        engine: model-rules
+        triggers:
+          - submission
+        inputs:
+          packs: checks@1
+        binding: bound
+        fromTemplate: template.thing.ts-library@1
+    fromTemplate: template.thing.ts-library@1

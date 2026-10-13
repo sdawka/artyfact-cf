@@ -264,8 +264,27 @@ describe("a Genome in the retired v1 layout", () => {
     for (const path of [routes.model(f.systemId), routes.readiness(f.systemId)]) {
       const r = await get<ApiError>(path);
       expect(r.status, JSON.stringify(r.json)).toBe(422);
+      expect(r.json.error).toMatchObject({ code: "legacy-genome", message: "this revision predates the node-tree Genome format" });
+    }
+  });
+
+  it("ignores model, readiness and changelog rows cached before the v2 projection", async () => {
+    const { f, g } = await legacyHead();
+    await get<ChangelogResponse>(routes.changelog(f.systemId));
+    await runInDurableObject(env.SYSTEMS.getByName(f.systemId), async (_i: SystemAuthority, state) => {
+      // What the previous release cached: v1-built parts under their bare names, and changelog rows without legacyFormat.
+      const at = new Date().toISOString();
+      for (const part of ["model", "rules"]) {
+        state.storage.sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES (?, ?, ?, ?)", g.commit, part, JSON.stringify({ findings: [] }), at);
+      }
+      state.storage.sql.exec("UPDATE changelog_cache SET version = 2, row_json = json_remove(row_json, '$.legacyFormat')");
+    });
+    for (const path of [routes.model(f.systemId), routes.readiness(f.systemId)]) {
+      const r = await get<ApiError>(path);
+      expect(r.status, JSON.stringify(r.json)).toBe(422);
       expect(r.json.error.code).toBe("legacy-genome");
     }
+    expect((await get<ChangelogResponse>(routes.changelog(f.systemId))).json.rows[0]).toMatchObject({ genomeCommit: g.commit, legacyFormat: true });
   });
 
   it("marks the changelog row and both compares legacyFormat, with no delta", async () => {

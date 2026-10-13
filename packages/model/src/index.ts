@@ -4,7 +4,7 @@ export { fromGraph, LegacyGenomeError, loadGenome, ModelParseError, stepKey } fr
 export type { LoadOptions, ModelWarning, ParseIssue, SourceGlob, SystemModel, TemplateStore } from "./genome.ts";
 export { index } from "./model-index.ts";
 export type { ModelIndex, IndexEntry, EntryType, LinkRef } from "./model-index.ts";
-export { rulePacksOf, selectPacks, validate } from "./validate.ts";
+export { readinessTemplate, rulePacksOf, selectPacks, unavailablePins, validate } from "./validate.ts";
 export type { Finding, Readiness, RulePack } from "./validate.ts";
 export type { DerivationTree, FactSet, Tuple, Value } from "@artyfact/rules";
 export { diffModels, overlap } from "./diff.ts";

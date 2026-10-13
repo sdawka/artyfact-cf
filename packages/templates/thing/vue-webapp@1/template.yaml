@@ -25,7 +25,7 @@ criteria:
       - outcome
     hooks:
       - hook.webapp.health
-  - id: C.webapp.checks
+  - id: C.$self.checks
     owner: thing
     subject: thing
     severity: soft
@@ -33,7 +33,7 @@ criteria:
     gates:
       - submission
     hooks:
-      - hook.webapp.checks
+      - hook.$self.checks
 rules:
   - id: artyfact.authorization
     version: 1
@@ -129,11 +129,11 @@ nodes:
       criteria:
         - C.webapp.exists
         - C.webapp.health
-        - C.webapp.checks
+        - C.$self.checks
       hooks:
         - hook.webapp.exists
         - hook.webapp.health
-        - hook.webapp.checks
+        - hook.$self.checks
   - id: section.ui
     kind: section
     parent: $self
@@ -249,7 +249,7 @@ nodes:
         to: $self
       - rel: subject
         to: $self
-  - id: C.webapp.checks
+  - id: C.$self.checks
     kind: criterion
     fields:
       version: 1
@@ -263,7 +263,7 @@ nodes:
         - submission
       deferred: false
       hooks:
-        - hook.webapp.checks
+        - hook.$self.checks
       fromTemplate: template.thing.vue-webapp@1
     links:
       - rel: owner
@@ -308,13 +308,13 @@ nodes:
       costTier: free
       binding: defined
       fromTemplate: template.thing.vue-webapp@1
-  - id: hook.webapp.checks
+  - id: hook.$self.checks
     kind: hook
     fields:
       version: 1
       assay: webapp.checks
       criteria:
-        - C.webapp.checks
+        - C.$self.checks
       tier: semantic
       engine: model-rules
       targetKind: model

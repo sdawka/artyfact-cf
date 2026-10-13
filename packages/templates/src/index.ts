@@ -1,7 +1,7 @@
 import { parse as parseYaml } from "yaml";
 import { files } from "./generated/files";
 import { schema } from "@artyfact/model";
-import { ARTYFACT_GENOME, artyfactGenome, composeTemplates, loadTemplate, type Template as MetaTemplate, type TemplateStore as MetaStore } from "@artyfact/ontology";
+import { ARTYFACT_GENOME, artyfactGenome, loadTemplate, type Template as MetaTemplate, type TemplateStore as MetaStore } from "@artyfact/ontology";
 
 const { Template } = schema;
 export type Template = schema.Template;
@@ -82,11 +82,6 @@ export function loadMetaTemplate(ref: string): MetaTemplate {
   const t = loadTemplate(raw, metaTemplates);
   metaCache.set(ref, t);
   return t;
-}
-
-/** The bundled System template composed with the Thing templates it uses (`composeTemplates`, prefilled nodes as declared). */
-export function composeTemplate(system: string, things: string[] = []): MetaTemplate {
-  return composeTemplates({ template: loadMetaTemplate(system) }, things.map((r) => ({ template: loadMetaTemplate(r) })));
 }
 
 /** Raw text of a bundled template file, e.g. `templateFile("template.thing.cloudflare-worker-webapp@1", "scaffold.yaml")`. */

@@ -30,15 +30,24 @@ const dropArtefacts = ({ owningThing: _o, ...f }: Record<string, unknown>) => {
   const { revision, kind, unresolved, ...rest } = f;
   return { ...rest, ...(revision !== 1 && revision !== undefined && { revision }), ...(kind !== "action" && kind !== undefined && { kind }), ...(unresolved === true && { unresolved }) };
 };
+/** A Thing's `requires` link to its own `$self` criterion: the tree's one link the v1 adapter has no counterpart for. */
+const selfRequirement = (g: Graph) => {
+  const kind = new Map(g.nodes.map((n) => [n.id, n.kind]));
+  return (l: Graph["links"][number]) => l.rel === "requires" && kind.get(l.from) === "thing";
+};
+/** A template's per-Thing criterion and hook ids: `$thing` in the legacy shape, `$self` in meta@1. */
+const selfIds = (v: unknown) => (Array.isArray(v) ? v.map((x) => (typeof x === "string" ? x.replace("$thing", "$self") : x)) : v);
 const comparable = (g: Graph) => ({
   nodes: sortBy(g.nodes, (n) => `${n.id} ${n.kind}`).map(({ parent, ...n }) => ({
     ...n,
     ...(parent !== undefined && !PLACED.has(n.kind) && { parent }),
     // A shared hook lists its criteria in tree order rather than v1 file order.
-    fields: dropArtefacts(n.kind === "hook" ? { ...n.fields, criteria: [...(n.fields.criteria as string[])].sort() } : n.fields),
+    fields: dropArtefacts(n.kind === "hook" ? { ...n.fields, criteria: [...(n.fields.criteria as string[])].sort() }
+      : n.kind === "template" ? { ...n.fields, ...("criteria" in n.fields && { criteria: selfIds(n.fields.criteria) }), ...("hooks" in n.fields && { hooks: selfIds(n.fields.hooks) }) }
+      : n.fields),
   })),
   // v1 left the certainty of derived links unset; the tree projects an absent certainty as `declared`.
-  links: sortBy(g.links.map((l) => `${l.from} ${l.rel} ${l.to} ${l.certainty ?? "declared"}`), (x) => x),
+  links: sortBy(g.links.filter((l) => !selfRequirement(g)(l)).map((l) => `${l.from} ${l.rel} ${l.to} ${l.certainty ?? "declared"}`), (x) => x),
 });
 
 describe("convertV1 (Keep in Touch)", () => {
@@ -55,7 +64,8 @@ describe("convertV1 (Keep in Touch)", () => {
   it("projects to the v1 adapter's graph, apart from the intended parents", () => {
     expect(comparable(v2Graph)).toEqual(comparable(v1Graph));
     expect(v2Graph.nodes).toHaveLength(v1Graph.nodes.length);
-    expect(v2Graph.links).toHaveLength(v1Graph.links.length);
+    expect(v2Graph.links.filter(selfRequirement(v2Graph)).map((l) => `${l.from} ${l.to}`)).toEqual(["thing.webapp C.thing.webapp.checks"]);
+    expect(v2Graph.links.filter((l) => !selfRequirement(v2Graph)(l))).toHaveLength(v1Graph.links.length);
   });
 
   it("places purposes, claims, externals, features, commitments, journeys and requirements", () => {

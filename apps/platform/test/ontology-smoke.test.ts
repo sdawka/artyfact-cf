@@ -2,16 +2,19 @@
 /** The ontology engine in workerd: Keep in Touch through the node-tree codec, evaluate, and one routed message (fake providers). */
 import { describe, expect, it } from "vitest";
 import {
-  evaluate, fakeSystemOne, fakeTranslator, readTree, route, routeSlice, routeVocabulary, validateOps,
+  composeTemplates, evaluate, fakeSystemOne, fakeTranslator, readTree, route, routeSlice, routeVocabulary, validateOps,
 } from "@artyfact/ontology";
-import { composeTemplate, metaTemplates } from "@artyfact/templates";
+import { loadMetaTemplate, metaTemplates } from "@artyfact/templates";
 
 const raw = (g: Record<string, string>, root: string) =>
   Object.fromEntries(Object.entries(g).map(([p, t]) => [p.slice(p.indexOf(root) + root.length), t] as const));
 const genome = raw(import.meta.glob("../../../examples/keep-in-touch-system/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch-system/");
 
 describe("@artyfact/ontology in workerd", () => {
-  const template = composeTemplate("template.system.social-networking.cloudflare@1", ["template.thing.cloudflare-worker-webapp@1"]);
+  const template = composeTemplates(
+    { template: loadMetaTemplate("template.system.social-networking.cloudflare@1"), self: "system.keep-in-touch" },
+    [{ template: loadMetaTemplate("template.thing.cloudflare-worker-webapp@1"), self: "thing.webapp" }],
+  );
   const graph = readTree(genome, metaTemplates);
 
   it("loads Keep in Touch and evaluates it", () => {

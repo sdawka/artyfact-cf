@@ -2,7 +2,7 @@ import { z } from "zod";
 
 // File-level shapes of the Genome. Cross-file references are checked by Rule Packs, not here.
 
-const id = (p: string) => z.string().regex(new RegExp(`^${p.replace(".", "\\.")}[\\w.-]+$`));
+const id = (p: string) => z.string().regex(new RegExp(`^${p.replace(".", "\\.")}[\\w.$-]+$`));
 export const Id = {
   system: id("system."),
   thing: id("thing."),

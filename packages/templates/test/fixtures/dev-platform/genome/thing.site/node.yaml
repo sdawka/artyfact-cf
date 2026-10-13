@@ -8,3 +8,22 @@ fields:
 links:
   - {rel: artifact, to: artifact.site}
   - {rel: exposes, to: page.status}
+criteria:
+  - id: C.thing.site.checks
+    title: Changed nodes meet their checks
+    claim: Changed nodes meet the checks their kinds declare.
+    severity: soft
+    gates:
+      - submission
+    hooks:
+      - id: hook.thing.site.checks
+        assay: site.checks
+        tier: semantic
+        engine: model-rules
+        triggers:
+          - submission
+        inputs:
+          packs: checks@1
+        binding: bound
+        fromTemplate: template.thing.static-site@1
+    fromTemplate: template.thing.static-site@1

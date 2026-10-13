@@ -224,7 +224,7 @@ export const artyfactGenome: TemplateInput = {
     stepScreen: rel(["step"], ALL),
     stepOperation: rel(["step"], ALL),
     stepExternal: rel(["step"], ALL),
-    requires: rel(["system"], ["kit"]),
+    requires: rel(["system", "thing"], ["kit", "criterion", "section"]),
     pinned: rel(["system", "thing"], ["kit", "template"]),
     artifact: rel(["thing"], ["artifact"]),
   },

@@ -9,6 +9,7 @@ import {
   type StartWorkRequest, type StartWorkResponse, type SystemCompare, type SystemSummary,
   type PartsResponse,
 } from "../../shared/api";
+import { isBlocking } from "../../shared/verdict";
 import type { TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse } from "../../shared/api";
 import type { IntentAccept, IntentAcceptResponse, IntentReply, IntentRequest, Proposal } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
@@ -148,8 +149,8 @@ async function fixtureSummary(): Promise<SystemSummary> {
     deployState: "none",
     phenome: { events: 0 },
     readiness: {
-      errors: b.readiness.modelReadiness.findings.filter((f) => f.level === "error").length,
-      missing: b.readiness.modelReadiness.findings.filter((f) => f.level === "missing").length,
+      errors: b.readiness.modelReadiness.findings.filter((f) => isBlocking(f) && f.level === "error").length,
+      missing: b.readiness.modelReadiness.findings.filter((f) => isBlocking(f) && f.level === "missing").length,
     },
     signifiers: [],
     // The fixture's computedAt is a placeholder epoch; "" renders as "updated unknown".

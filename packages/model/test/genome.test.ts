@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { artyfactGenome, parseTree } from "@artyfact/ontology";
+import { ARTYFACT_GENOME, artyfactGenome, parseTree } from "@artyfact/ontology";
 import { fromGraph, LegacyGenomeError, loadGenome, ModelParseError } from "../src/index";
 import { edit, load, miniSystemTemplate, miniThingTemplate, pathOf, readTree, store, SYSTEM_TEMPLATE, THING_TEMPLATE } from "./helpers";
 
@@ -20,6 +20,22 @@ describe("loadGenome", () => {
     const e = (() => { try { load(bad); } catch (x) { return x as ModelParseError; } })()!;
     expect(e).toBeInstanceOf(ModelParseError);
     expect(e.file).toBe("node.yaml");
+  });
+
+  it("names both Things and the id when two uses of a fixed-id template clash", () => {
+    const fixed = {
+      id: "template.thing.fixed", version: 1, meta: 1, extends: ARTYFACT_GENOME,
+      nodes: [
+        { id: "template.thing.fixed@1", kind: "template", fields: { kind: "thing", version: "1", name: "Fixed" } },
+        { id: "section.panel", kind: "section", parent: "$self", fields: { name: "Panel" } },
+      ],
+    };
+    const thing = (id: string) => `id: ${id}\nkind: thing\ntemplate: template.thing.fixed@1\nfields:\n  name: ${id}\n`;
+    const two = new Map(files).set("thing.a/node.yaml", thing("thing.a")).set("thing.b/node.yaml", thing("thing.b"));
+    const e = (() => { try { load(two, store(fixed)); } catch (x) { return x as ModelParseError; } })()!;
+    expect(e).toBeInstanceOf(ModelParseError);
+    expect(e.code).toBe("template-composition");
+    expect(e.message).toContain("thing.a and thing.b both prefill node section.panel, differently");
   });
 
   it("maps every node, criterion, hook and change record to the file that declares it", () => {
@@ -71,11 +87,13 @@ describe("node files (design §3)", () => {
   const templates = {
     get: (ref: string) => ref === SYSTEM_TEMPLATE ? { ...miniSystemTemplate, kinds: { screen } }
       : ref === THING_TEMPLATE ? { ...miniThingTemplate, kinds: { screen }, files: ["package.json"], nodes: [...miniThingTemplate.nodes, sectionUi] }
+      : ref === "template.thing.mini-api@1" ? { ...miniThingTemplate, id: "template.thing.mini-api", kinds: { screen }, files: ["package.json"], nodes: [{ id: ref, kind: "template", fields: { kind: "thing", version: "1", name: "Mini api" } }] }
       : store().get(ref),
   };
+  // A template whose prefilled ids are fixed fits one Thing per System, so the second Thing has a template without prefill.
   const tree = new Map(edit(files, "thing.app/node.yaml", "template: template.thing.mini-webapp@1\n", "template: template.thing.mini-webapp@1\nroot: apps/notes/\n"))
     .set("thing.app/section.ui/screen.list/node.yaml", `${files.get("thing.app/section.ui/screen.list/node.yaml")!.trimEnd()}\nfiles: [public/list.html]\n`)
-    .set("thing.api/node.yaml", "id: thing.api\nkind: thing\ntemplate: template.thing.mini-webapp@1\nroot: apps/api\nfields: {name: API}\n")
+    .set("thing.api/node.yaml", "id: thing.api\nkind: thing\ntemplate: template.thing.mini-api@1\nroot: apps/api\nfields: {name: API}\n")
     // A directory name that differs from the id, and an id with glob metacharacters.
     .set("thing.app/section.ui/notes-screen/node.yaml", "id: screen.notes\nkind: screen\nfields: {name: Notes}\n")
     .set("thing.app/section.ui/star/node.yaml", "id: \"screen.*{a,b}\"\nkind: screen\nfields: {name: Star}\n");

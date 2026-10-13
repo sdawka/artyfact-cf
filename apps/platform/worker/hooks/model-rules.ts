@@ -1,11 +1,12 @@
 /**
- * `model-rules` engine (C.system.structure and friends): Genome files → `loadGenome` → `validate` (the pinned template packs).
- * fail on any `error` finding (or an unparsable Genome); unknown if the rules run was incomplete or no pack ran;
+ * `model-rules` engine (C.system.structure and friends): Genome files → `loadGenome` → `validate` (the engine's packs and
+ * the pinned template packs; a pin no template declares is a `rulePack.unavailable` error, as on readiness).
+ * fail on any `error` finding (or an unparsable Genome); unknown if the rules run was incomplete;
  * pass otherwise. Observations carry every finding with its derivation, the readiness summary, errors introduced
  * vs base, and the SemanticDelta vs base.
  */
 import {
-  diffModels, loadGenome as loadModel, ModelParseError, rulePacksOf, selectPacks, validate,
+  diffModels, LegacyGenomeError, loadGenome as loadModel, ModelParseError, rulePacksOf, validate,
   type Finding, type Readiness, type RulePack, type SemanticDelta, type SystemModel, type TemplateStore,
 } from "@artyfact/model";
 import { NODE_FILE, V1_ROOT_FILE } from "@artyfact/ontology/genome";
@@ -15,10 +16,14 @@ import { errored, errorMessage, type Outcome } from "./provenance";
 
 const GENOME_PREFIX = "system/";
 
-/** Genome-relative file map: files under `system/` when the map has `system/node.yaml`, else the map as is. */
+/**
+ * Genome-relative file map: files under `system/` when the map has `system/node.yaml` (or a v1 `system/system.yaml`,
+ * so a legacy Genome is recognised as one, as `genomePrefix` does), else the map as is.
+ */
 export function genomeRoot(files: FileMap): Map<string, string> {
   const entries = Object.entries(files);
-  if (!(NODE_FILE in files) && `${GENOME_PREFIX}${NODE_FILE}` in files) {
+  const atRoot = NODE_FILE in files || V1_ROOT_FILE in files;
+  if (!atRoot && (`${GENOME_PREFIX}${NODE_FILE}` in files || `${GENOME_PREFIX}${V1_ROOT_FILE}` in files)) {
     return new Map(entries.filter(([p]) => p.startsWith(GENOME_PREFIX)).map(([p, t]) => [p.slice(GENOME_PREFIX.length), t]));
   }
   return new Map(entries);
@@ -75,13 +80,6 @@ export interface ModelRulesResult {
   delta?: SemanticDelta;
 }
 
-/** The packs a run uses; a pin no template declares is an error, as an unknown pack always was. */
-function packsOf(model: SystemModel): RulePack[] {
-  const { unavailable } = selectPacks(model);
-  if (unavailable.length) throw new Error(`unknown rule pack ${unavailable.join(", ")}`);
-  return rulePacksOf(model);
-}
-
 export function runRules(model: SystemModel, deps: GenomeDeps = {}): Readiness {
   return (deps.validate ?? validate)(model);
 }
@@ -102,14 +100,25 @@ export function selectableRules(packs: RulePack[], filter: RulesFilter): string[
   return [...out].sort();
 }
 
+/** A Genome in the retired v1 layout is not judged: unknown, with the reason `legacy-genome` (docs/design/ontology.md §2a). */
+export function legacyOutcome(e: LegacyGenomeError): Outcome {
+  return {
+    execution: "completed",
+    verdict: "unknown",
+    observations: [{ kind: "legacy-genome", reason: e.code, message: e.message }],
+    interpretation: `The Genome is in the retired v1 layout (${e.code}); it was not checked.`,
+    limitations: [e.message],
+  };
+}
+
 export function modelRules(input: ModelRulesInput): ModelRulesResult {
   let model: SystemModel;
   try {
     model = loadGenome(input.files, input.revision, input.deps);
   } catch (e) {
-    if (e instanceof ModelParseError || (e as Error).name === "LegacyGenomeError") {
-      const issues = e instanceof ModelParseError ? e.issues : [{ path: [], message: (e as Error).message }];
-      const file = e instanceof ModelParseError ? e.file : V1_ROOT_FILE;
+    if (e instanceof LegacyGenomeError) return { outcome: legacyOutcome(e) };
+    if (e instanceof ModelParseError) {
+      const { issues, file } = e;
       return {
         outcome: {
           execution: "completed",
@@ -126,7 +135,7 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
   let readiness: Readiness;
   let packs: RulePack[];
   try {
-    packs = packsOf(model);
+    packs = rulePacksOf(model);
     readiness = runRules(model, input.deps);
   } catch (e) {
     return { model, outcome: errored(e, { interpretation: "Running the pinned rule packs failed." }) };
@@ -174,10 +183,7 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
 
   let verdict: Outcome["verdict"];
   let interpretation: string;
-  if (model.kits.rulePacks.length === 0) {
-    verdict = "unknown";
-    interpretation = "No rule packs are pinned on the System; nothing was checked.";
-  } else if (errors.length) {
+  if (errors.length) {
     verdict = "fail";
     interpretation = `${errors.length} hard violation(s): ${errors.map(key).join("; ")}.`;
   } else if (selectsNothing || selectsOnlyInfo) {

@@ -209,8 +209,9 @@ export function loadSystem(files: Map<string, string>, opts: { revision?: string
     const tplNodes = tpl
       ? flatten(tpl.nodes as NodeInput[], owner).map((n) => ({ ...n, parent: rebase(n.parent), owningThing: kind === "thing" ? owner : rebase(n.owningThing), fromTemplate: ref! }))
       : [];
-    const tplCriteria = (tpl?.criteria ?? []).map((c) => ({ ...c, ownerId: rebase(c.ownerId), subjectId: rebase(c.subjectId), fromTemplate: ref! }));
-    const tplHooks = (tpl?.hooks ?? []).map((h) => ({ ...h, fromTemplate: ref! }));
+    const own = (v: string) => v.replaceAll(THING_PLACEHOLDER, owner).replaceAll(SYSTEM_PLACEHOLDER, owner);
+    const tplCriteria = (tpl?.criteria ?? []).map((c) => ({ ...c, id: own(c.id), ...(c.hooks && { hooks: c.hooks.map(own) }), ownerId: rebase(c.ownerId), subjectId: rebase(c.subjectId), fromTemplate: ref! }));
+    const tplHooks = (tpl?.hooks ?? []).map((h) => ({ ...h, id: own(h.id), ...(h.criteria && { criteria: h.criteria.map(own) }), fromTemplate: ref! }));
     merge("node", tplNodes, instNodes.get(owner) ?? [], nodes);
     merge("criterion", tplCriteria, instCriteria.get(owner) ?? [], criteria);
     merge("hook", tplHooks, instHooks.get(owner) ?? [], hooks);

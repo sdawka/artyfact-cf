@@ -206,10 +206,14 @@ export function loadArtyfactModel(files: Files, opts: LoadOptions = {}): Artyfac
 export function templateParts(tpl: schema.Template, kind: "system" | "thing", owner: string) {
   const ref = templateRef(tpl);
   const rebase = <T extends string | undefined>(v: T): T => (v === THING_PLACEHOLDER || v === SYSTEM_PLACEHOLDER ? owner : v) as T;
+  // A criterion or hook id may hold the placeholder (`C.$thing.checks`), so each Thing that uses the template gets its own.
+  const own = (v: string) => v.replaceAll(THING_PLACEHOLDER, owner).replaceAll(SYSTEM_PLACEHOLDER, owner);
   return {
     nodes: flatten(tpl.nodes as NodeInput[], owner)
       .map((n) => ({ ...n, parent: rebase(n.parent), owningThing: kind === "thing" ? owner : rebase(n.owningThing), fromTemplate: ref })),
-    criteria: tpl.criteria.map((c) => ({ ...c, ownerId: rebase(c.ownerId), subjectId: rebase(c.subjectId), fromTemplate: ref })),
-    hooks: tpl.hooks.map((h) => ({ ...h, fromTemplate: ref })),
+    criteria: tpl.criteria.map((c) => ({
+      ...c, id: own(c.id), ...(c.hooks && { hooks: c.hooks.map(own) }), ownerId: rebase(c.ownerId), subjectId: rebase(c.subjectId), fromTemplate: ref,
+    })),
+    hooks: tpl.hooks.map((h) => ({ ...h, id: own(h.id), ...(h.criteria && { criteria: h.criteria.map(own) }), fromTemplate: ref })),
   };
 }

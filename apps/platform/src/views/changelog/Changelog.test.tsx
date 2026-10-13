@@ -41,6 +41,13 @@ describe("Changelog", () => {
     expect(within(rows[0]!).getByRole("button", { name: "Copy commit id sc-2" })).toBeTruthy();
   });
 
+  it("notes a commit whose Genome is in the v1 format", async () => {
+    renderApp(URL, undefined, seed([older, { ...newer, legacyFormat: true }]));
+    const rows = rowsOf(await list());
+    expect(rows[0]!.textContent).toContain("Genome v1 format — not comparable");
+    expect(rows[1]!.textContent).not.toContain("Genome v1 format");
+  });
+
   it("expands into the Genome delta with field before/after", async () => {
     renderApp(URL, undefined, seed());
     const genome = await expand(/sc-2/);
@@ -56,8 +63,8 @@ describe("Changelog", () => {
     expect(within(files).getByRole("link", { name: "src/screens/People.tsx" }).getAttribute("href"))
       .toBe(`/s/${SYSTEM}/r/sc-2/code?repo=app&path=src%2Fscreens%2FPeople.tsx`);
     expect(within(files).getByRole("link", { name: "src/old.ts" }).getAttribute("href")).toBe(`/s/${SYSTEM}/r/sc-1/code?repo=app&path=src%2Fold.ts`);
-    expect(within(files).getByRole("link", { name: "things/webapp/ontology.yaml" }).getAttribute("href"))
-      .toBe(`/s/${SYSTEM}/r/sc-2/code?repo=genome&path=things%2Fwebapp%2Fontology.yaml`);
+    expect(within(files).getByRole("link", { name: "thing.webapp/section.ui/screen.people/node.yaml" }).getAttribute("href"))
+      .toBe(`/s/${SYSTEM}/r/sc-2/code?repo=genome&path=thing.webapp%2Fsection.ui%2Fscreen.people%2Fnode.yaml`);
     const criteria = screen.getByRole("region", { name: "Criteria" });
     expect(within(criteria).getByRole("link", { name: "C.webapp.screen.people" }).getAttribute("href"))
       .toBe(`/s/${SYSTEM}/r/head/evaluations?criterion=C.webapp.screen.people`);

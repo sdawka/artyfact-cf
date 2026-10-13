@@ -34,6 +34,8 @@ export const facts = { id: "artyfact.facts", version: "1", source: `
 .decl atemplateKnown(Template: sym)
 .decl atemplateRequires(Template: sym, Section: sym)
 .decl atemplateRequiresCriterion(Template: sym, Criterion: sym)
+.decl athingRequiresCriterion(Thing: sym, Criterion: sym)
+.decl athingRequiresSection(Thing: sym, Section: sym)
 .decl akitRequired(Kit: sym)
 .decl akitPinned(Kit: sym, Version: sym)
 .decl aevolution(Id: sym, State: sym)
@@ -119,8 +121,12 @@ acriterionHook(C,H) :- node(C,"criterion",_), field(C,"hooks",H), node(H,"hook",
 acriterionHook(C,H) :- node(H,"hook",_), field(H,"criteria",C).
 ahook(H,B) :- node(H,"hook",_), field(H,"binding",B).
 atemplateKnown(T) :- node(T,"template",_).
-atemplateRequires(T,S) :- node(T,"template",_), field(T,"sections",S).
-atemplateRequiresCriterion(T,C) :- node(T,"template",_), field(T,"criteria",C).
+% A $self (v1: $thing) section or criterion is per Thing: the projection names it with a requires link from the Thing
+% (athingRequiresSection, athingRequiresCriterion; criterion ids start with C.).
+atemplateRequires(T,S) :- node(T,"template",_), field(T,"sections",S), not matches(S,"[$](self|thing)").
+atemplateRequiresCriterion(T,C) :- node(T,"template",_), field(T,"criteria",C), not matches(C,"[$](self|thing)").
+athingRequiresCriterion(T,C) :- node(T,"thing",_), link(T,"requires",C,_), matches(C,"^C[.]").
+athingRequiresSection(T,S) :- node(T,"thing",_), link(T,"requires",S,_), not matches(S,"^C[.]").
 akitRequired(K) :- node(S,"system",_), link(S,"requires",K,_).
 akitPinned(K,V) :- node(S,"system",_), link(S,"pinned",K,_), node(K,"kit",_), field(K,"version",V).
 aevolution(E,S) :- node(E,"evolution",_), field(E,"state",S).

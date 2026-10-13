@@ -4823,7 +4823,7 @@
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1"
       },
       {
-        "id": "C.webapp.checks",
+        "id": "C.thing.webapp.checks",
         "version": 1,
         "title": "Changed nodes meet their checks",
         "claim": "Changed nodes meet the checks their kinds declare.",
@@ -4841,7 +4841,7 @@
         ],
         "deferred": false,
         "hooks": [
-          "hook.webapp.checks"
+          "hook.thing.webapp.checks"
         ],
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1"
       },
@@ -5413,11 +5413,11 @@
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1"
       },
       {
-        "id": "hook.webapp.checks",
+        "id": "hook.thing.webapp.checks",
         "version": 1,
         "assay": "webapp.checks",
         "criteria": [
-          "C.webapp.checks"
+          "C.thing.webapp.checks"
         ],
         "tier": "semantic",
         "engine": "model-rules",
@@ -7421,8 +7421,8 @@
       "hook.webapp.exists": "thing.webapp/node.yaml",
       "C.webapp.health": "thing.webapp/node.yaml",
       "hook.webapp.health": "thing.webapp/node.yaml",
-      "C.webapp.checks": "thing.webapp/node.yaml",
-      "hook.webapp.checks": "thing.webapp/node.yaml",
+      "C.thing.webapp.checks": "thing.webapp/node.yaml",
+      "hook.thing.webapp.checks": "thing.webapp/node.yaml",
       "section.authorization": "thing.webapp/section.authorization/node.yaml",
       "policy.authentication": "thing.webapp/section.authorization/policy.authentication/node.yaml",
       "policy.ownerOnly": "thing.webapp/section.authorization/policy.ownerOnly/node.yaml",
@@ -7929,7 +7929,7 @@
               "hook.unbound",
               "C.system.autonomy"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -7938,7 +7938,7 @@
                   "C.system.autonomy",
                   "hook.system.autonomy"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -7980,7 +7980,7 @@
                   "hook.system.autonomy",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -8054,7 +8054,7 @@
               "hook.unbound",
               "C.system.purpose"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -8063,7 +8063,7 @@
                   "C.system.purpose",
                   "hook.system.purpose.outcome"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -8105,7 +8105,7 @@
                   "hook.system.purpose.outcome",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -8179,7 +8179,7 @@
               "hook.unbound",
               "C.webapp.connection.consent"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -8188,7 +8188,7 @@
                   "C.webapp.connection.consent",
                   "hook.webapp.connection.consent"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -8230,7 +8230,7 @@
                   "hook.webapp.connection.consent",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -8304,7 +8304,7 @@
               "hook.unbound",
               "C.webapp.contact.save"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -8313,7 +8313,7 @@
                   "C.webapp.contact.save",
                   "hook.webapp.contact.save"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -8355,7 +8355,7 @@
                   "hook.webapp.contact.save",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -8429,7 +8429,7 @@
               "hook.unbound",
               "C.webapp.contact.storage"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -8438,7 +8438,7 @@
                   "C.webapp.contact.storage",
                   "hook.webapp.contact.storage"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -8480,7 +8480,7 @@
                   "hook.webapp.contact.storage",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -8554,7 +8554,7 @@
               "hook.unbound",
               "C.webapp.health"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -8563,7 +8563,7 @@
                   "C.webapp.health",
                   "hook.webapp.health"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -8605,7 +8605,7 @@
                   "hook.webapp.health",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -8679,7 +8679,7 @@
               "hook.unbound",
               "C.webapp.lifecycle.data"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -8688,7 +8688,7 @@
                   "C.webapp.lifecycle.data",
                   "hook.webapp.lifecycle.data"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -8730,7 +8730,7 @@
                   "hook.webapp.lifecycle.data",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -8804,7 +8804,7 @@
               "hook.unbound",
               "C.webapp.outgoing.single"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -8813,7 +8813,7 @@
                   "C.webapp.outgoing.single",
                   "hook.webapp.outgoing.single"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -8855,7 +8855,7 @@
                   "hook.webapp.outgoing.single",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -8929,7 +8929,7 @@
               "hook.unbound",
               "C.webapp.private.owner"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -8938,7 +8938,7 @@
                   "C.webapp.private.owner",
                   "hook.webapp.private.owner"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -8980,7 +8980,7 @@
                   "hook.webapp.private.owner",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -9054,7 +9054,7 @@
               "hook.unbound",
               "C.webapp.prompts.bounded"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -9063,7 +9063,7 @@
                   "C.webapp.prompts.bounded",
                   "hook.webapp.prompts.bounded"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -9105,7 +9105,7 @@
                   "hook.webapp.prompts.bounded",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -9179,7 +9179,7 @@
               "hook.unbound",
               "C.webapp.revocation.current"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -9188,7 +9188,7 @@
                   "C.webapp.revocation.current",
                   "hook.webapp.revocation.current"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -9230,7 +9230,7 @@
                   "hook.webapp.revocation.current",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -9304,7 +9304,7 @@
               "hook.unbound",
               "C.webapp.schedule.correct"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -9313,7 +9313,7 @@
                   "C.webapp.schedule.correct",
                   "hook.webapp.schedule.correct"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -9355,7 +9355,7 @@
                   "hook.webapp.schedule.correct",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -9429,7 +9429,7 @@
               "hook.unbound",
               "C.webapp.screen.exact"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -9438,7 +9438,7 @@
                   "C.webapp.screen.exact",
                   "hook.webapp.screen.exact"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -9480,7 +9480,7 @@
                   "hook.webapp.screen.exact",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -9554,7 +9554,7 @@
               "hook.unbound",
               "C.webapp.screen.people"
             ],
-            "rule": "readiness@1:35",
+            "rule": "readiness@1:37",
             "edb": false,
             "children": [
               {
@@ -9563,7 +9563,7 @@
                   "C.webapp.screen.people",
                   "hook.webapp.screen.people"
                 ],
-                "rule": "facts@1:128",
+                "rule": "facts@1:130",
                 "edb": false,
                 "children": [
                   {
@@ -9605,7 +9605,7 @@
                   "hook.webapp.screen.people",
                   "defined"
                 ],
-                "rule": "facts@1:130",
+                "rule": "facts@1:132",
                 "edb": false,
                 "children": [
                   {
@@ -9662,7 +9662,7 @@
               "kit.unpinned",
               "auth"
             ],
-            "rule": "readiness@1:41",
+            "rule": "readiness@1:45",
             "edb": false,
             "children": [
               {
@@ -9670,7 +9670,7 @@
                 "tuple": [
                   "auth"
                 ],
-                "rule": "facts@1:134",
+                "rule": "facts@1:140",
                 "edb": false,
                 "children": [
                   {

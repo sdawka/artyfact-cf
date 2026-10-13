@@ -4,7 +4,7 @@ version: 1
 meta: 1
 extends: template.meta.artyfact-genome@1
 criteria:
-  - id: C.cli.checks
+  - id: C.$self.checks
     owner: thing
     subject: thing
     severity: soft
@@ -12,7 +12,7 @@ criteria:
     gates:
       - submission
     hooks:
-      - hook.cli.checks
+      - hook.$self.checks
 kinds:
   command:
     description: One command or subcommand the tool runs.
@@ -119,15 +119,15 @@ nodes:
       name: Command-line tool
       description: "A command-line tool: its commands and options, and the modules behind them."
       sections:
-        - section.commands
-        - section.modules
+        - $self.commands
+        - $self.modules
       criteria:
-        - C.cli.checks
+        - C.$self.checks
       hooks:
-        - hook.cli.checks
+        - hook.$self.checks
   - {id: $self.commands, kind: section, parent: $self, fields: {name: Commands, revision: 1, description: "The commands the tool runs and their options.", fromTemplate: template.thing.cli@1}, files: ["bin/**"]}
   - {id: $self.modules, kind: section, parent: $self, fields: {name: Modules, revision: 1, description: "The source modules and what each is responsible for.", fromTemplate: template.thing.cli@1}, files: ["src/**"]}
-  - id: C.cli.checks
+  - id: C.$self.checks
     kind: criterion
     fields:
       version: 1
@@ -141,20 +141,20 @@ nodes:
         - submission
       deferred: false
       hooks:
-        - hook.cli.checks
+        - hook.$self.checks
       fromTemplate: template.thing.cli@1
     links:
       - rel: owner
         to: $self
       - rel: subject
         to: $self
-  - id: hook.cli.checks
+  - id: hook.$self.checks
     kind: hook
     fields:
       version: 1
       assay: cli.checks
       criteria:
-        - C.cli.checks
+        - C.$self.checks
       tier: semantic
       engine: model-rules
       targetKind: model

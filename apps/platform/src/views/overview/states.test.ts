@@ -48,7 +48,7 @@ describe("outcomeMeter", () => {
 describe("blockerAction", () => {
   it("maps rule families to a next action", () => {
     expect(blockerAction("coverage.hook")).toBe("Add a hook for the criterion.");
-    expect(blockerAction("kit.unpinned")).toBe("Pin the kit in kits.yaml.");
+    expect(blockerAction("kit.unpinned")).toBe("Pin the kit under kits in the root node.yaml.");
     expect(blockerAction("no.such.rule")).toMatch(/Explain/);
   });
 });

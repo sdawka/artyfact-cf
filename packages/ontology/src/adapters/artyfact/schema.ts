@@ -2,7 +2,8 @@ import { z } from "zod";
 
 // artyfact Genome file shapes, from artyfact-cf packages/model/src/schema.ts; cross-file references are checked by rule packs.
 
-const id = (p: string) => z.string().regex(new RegExp(`^${p.replace(".", "\\.")}[\\w.-]+$`));
+// `$` admits a template's `$thing` placeholder inside an id (`C.$thing.checks`), which the loader rebases.
+const id = (p: string) => z.string().regex(new RegExp(`^${p.replace(".", "\\.")}[\\w.$-]+$`));
 export const Id = {
   system: id("system."),
   thing: id("thing."),

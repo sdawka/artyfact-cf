@@ -25,11 +25,25 @@ const thingCrit = m.criteria.filter((c) => c.ownerKind === "thing" && !c.fromTem
 const hook = (id: string) => m.hooks.find((h) => h.id === id)!;
 const journeys = m.journeys;
 
+describe("per-Thing template criteria", () => {
+  it("requires the Thing's own C.<thing>.checks, and flags its removal", () => {
+    expect(validate(m).findings.filter((f) => f.rule === "template.criterionMissing")).toEqual([]);
+    const files = readTree(root);
+    const thing = "thing.webapp/node.yaml";
+    const text = files.get(thing)!;
+    const start = text.indexOf("  - id: C.thing.webapp.checks\n");
+    files.set(thing, text.slice(0, start));
+    const r = validate(loadGenome(files, { templates: metaTemplates }));
+    expect(r.findings.filter((f) => f.rule === "template.criterionMissing").map((f) => f.subject)).toEqual(["thing.webapp"]);
+    expect(r.actionable).toBe(false);
+  });
+});
+
 describe("counts", () => {
   it("has the specified criteria, journeys and evolutions", () => {
     expect(sysCrit.map((c) => c.id)).toEqual(["structure", "purpose", "topology", "autonomy", "readiness", "promotion", "concurrency"].map((x) => `C.system.${x}`));
     expect(thingCrit).toHaveLength(13);
-    expect(m.criteria.filter((c) => c.fromTemplate).map((c) => c.id).sort()).toEqual(["C.webapp.checks", "C.webapp.exists", "C.webapp.health"]);
+    expect(m.criteria.filter((c) => c.fromTemplate).map((c) => c.id).sort()).toEqual(["C.thing.webapp.checks", "C.webapp.exists", "C.webapp.health"]);
     expect(journeys).toHaveLength(10);
     expect(m.evolutions).toHaveLength(6);
   });

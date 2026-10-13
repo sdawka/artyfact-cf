@@ -136,7 +136,7 @@ describe("node-attached source map: two Things with different roots", () => {
   const files = new Map(Object.entries(genomeFiles).filter(([p]) => p.endsWith(".yaml")));
   const web = files.get("thing.webapp/node.yaml")!;
   files.set("thing.webapp/node.yaml", web.replace("template: template.thing.cloudflare-worker-webapp@1\n", "template: template.thing.cloudflare-worker-webapp@1\nroot: apps/web\n"));
-  files.set("thing.admin/node.yaml", "id: thing.admin\nkind: thing\ntemplate: template.thing.cloudflare-worker-webapp@1\nroot: apps/admin\nfields: {name: Admin}\n");
+  files.set("thing.admin/node.yaml", "id: thing.admin\nkind: thing\ntemplate: template.thing.cloudflare-worker-service@1\nroot: apps/admin\nfields: {name: Admin}\n");
   files.set("thing.admin/screen.audit/node.yaml", "id: screen.audit\nkind: screen\nfields: {name: Audit}\nfiles: [src/ui/audit/**]\n");
   const two = buildGenome(files, "g2").model;
   const sm = sourceMapFor(two);

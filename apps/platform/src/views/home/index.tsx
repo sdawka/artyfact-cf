@@ -33,7 +33,7 @@ export function HomeContent({ systems, isLoading, isError, onRetry }: HomeConten
     return (
       <EmptyState title="No Systems yet." surface action={<a className="u-marker" href={INIT_DOCS}>Import one with artyfact init</a>}>
         <p>
-          Run <code>npx artyfact init --dir &lt;project&gt;</code> in a project with a <code>system.yaml</code>.
+          Run <code>npx artyfact init --dir &lt;project&gt;</code> in a project with a root <code>node.yaml</code>.
         </p>
       </EmptyState>
     );

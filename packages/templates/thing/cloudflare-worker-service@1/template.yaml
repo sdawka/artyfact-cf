@@ -4,7 +4,7 @@ version: 1
 meta: 1
 extends: template.meta.artyfact-genome@1
 criteria:
-  - id: C.service.checks
+  - id: C.$self.checks
     owner: thing
     subject: thing
     severity: soft
@@ -12,7 +12,7 @@ criteria:
     gates:
       - submission
     hooks:
-      - hook.service.checks
+      - hook.$self.checks
 kinds:
   endpoint:
     description: One HTTP route the Worker serves.
@@ -156,19 +156,19 @@ nodes:
       name: Cloudflare Worker service
       description: "A Cloudflare Worker that serves an API: endpoints, Durable Objects, Workflows, queues and the bindings they use."
       sections:
-        - section.api
-        - section.runtime
-        - section.state
-        - section.modules
+        - $self.api
+        - $self.runtime
+        - $self.state
+        - $self.modules
       criteria:
-        - C.service.checks
+        - C.$self.checks
       hooks:
-        - hook.service.checks
+        - hook.$self.checks
   - {id: $self.api, kind: section, parent: $self, fields: {name: API, revision: 1, description: "The routes the Worker serves and who may call them.", fromTemplate: template.thing.cloudflare-worker-service@1}}
   - {id: $self.runtime, kind: section, parent: $self, fields: {name: Runtime, revision: 1, description: "Durable Objects, Workflows and queues the Worker runs.", fromTemplate: template.thing.cloudflare-worker-service@1}}
   - {id: $self.state, kind: section, parent: $self, fields: {name: State, revision: 1, description: "The bindings that hold the Worker's data and its secrets.", fromTemplate: template.thing.cloudflare-worker-service@1}, files: ["migrations/**"]}
   - {id: $self.modules, kind: section, parent: $self, fields: {name: Modules, revision: 1, description: "The source modules and what each is responsible for.", fromTemplate: template.thing.cloudflare-worker-service@1}, files: ["src/**", "worker/**"]}
-  - id: C.service.checks
+  - id: C.$self.checks
     kind: criterion
     fields:
       version: 1
@@ -182,20 +182,20 @@ nodes:
         - submission
       deferred: false
       hooks:
-        - hook.service.checks
+        - hook.$self.checks
       fromTemplate: template.thing.cloudflare-worker-service@1
     links:
       - rel: owner
         to: $self
       - rel: subject
         to: $self
-  - id: hook.service.checks
+  - id: hook.$self.checks
     kind: hook
     fields:
       version: 1
       assay: service.checks
       criteria:
-        - C.service.checks
+        - C.$self.checks
       tier: semantic
       engine: model-rules
       targetKind: model

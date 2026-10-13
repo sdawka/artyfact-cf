@@ -102,3 +102,21 @@ criteria:
           - promotion
         inputs:
           command: npm run e2e:fake -w @artyfact/platform
+  - id: C.thing.platform.checks
+    title: Changed nodes meet their checks
+    claim: Changed nodes meet the checks their kinds declare.
+    severity: soft
+    gates:
+      - submission
+    hooks:
+      - id: hook.thing.platform.checks
+        assay: platform.checks
+        tier: semantic
+        engine: model-rules
+        triggers:
+          - submission
+        inputs:
+          packs: checks@1
+        binding: bound
+        fromTemplate: template.thing.cloudflare-worker-service@1
+    fromTemplate: template.thing.cloudflare-worker-service@1

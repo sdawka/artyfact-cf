@@ -137,7 +137,8 @@ describe("the dev-platform fixture Genome", () => {
   });
 
   it("loads as a tree: one System root, four Things, every node under its enclosing directory", () => {
-    expect(graph.nodes.filter((n) => n.parent === undefined && n.kind !== "template").map((n) => n.id)).toEqual(["system.toolkit"]);
+    // Templates, criteria and hooks are parentless by design.
+    expect(graph.nodes.filter((n) => n.parent === undefined && !["template", "criterion", "hook"].includes(n.kind)).map((n) => n.id)).toEqual(["system.toolkit"]);
     expect(graph.nodes.filter((n) => n.kind === "thing").length).toBe(4);
     expect(graph.nodes.find((n) => n.id === "endpoint.health")?.parent).toBe("thing.api.api");
     expect(graph.nodes.find((n) => n.id === "option.verbose")?.parent).toBe("command.deploy");
@@ -220,5 +221,16 @@ describe("the dev-platform fixture Genome", () => {
     const r = run(graph).findings.filter((f) => f.rule.startsWith("semantic:check:"));
     expect(r.some((f) => f.rule === "semantic:check:endpoint.authPrincipal" && f.subject === "endpoint.health")).toBe(true);
     expect(r.some((f) => f.rule === "semantic:check:command.documented" && f.subject === "command.deploy")).toBe(true);
+  });
+
+  it("a social-networking System checks a ts-library Thing's own $self sections, not the template's raw list", () => {
+    const social = "template.system.social-networking.cloudflare@1";
+    const t = compose([social, "template.thing.ts-library@1"]);
+    const g: Graph = { ...graph, template: social };
+    const missing = (x: Graph) => evaluate(t, x).findings.filter((f) => f.rule === "template.sectionMissing").map((f) => f.subject);
+    expect(g.links).toContainEqual(expect.objectContaining({ from: "thing.core", rel: "requires", to: "thing.core.modules" }));
+    expect(missing(g)).not.toContain("thing.core");
+    const without: Graph = { ...g, nodes: g.nodes.filter((n) => n.id !== "thing.core.modules" && n.parent !== "thing.core.modules") };
+    expect(missing(without)).toContain("thing.core");
   });
 });

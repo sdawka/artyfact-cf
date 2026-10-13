@@ -54,7 +54,8 @@ are not serialized by the platform.
 (`metamodel`, `completeness`, ... and the template's kind checks) always run and are reported as `engine.<id>@<v>`.
 Template rule packs run when the System pins them in its `kits` field: a pin `{id, version}` selects pack `id` or
 `artyfact.<id>` at that version, and is reported under the pin's name. Packs that derive no finding (facts) always
-run. A pin no template declares yields a `rulePack.unavailable` warning. Derivation rule labels are renamed to the
+run. A pin no template declares is a `rulePack.unavailable` error, so readiness is not actionable (the model-rules
+hook reads the same findings). Derivation rule labels are renamed to the
 reported pack names.
 
 `Finding` keeps its shape (`level`, `rule`, `subject`, `message`, `facts`, `derivation`, `pack`). Findings are sorted

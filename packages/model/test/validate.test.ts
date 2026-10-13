@@ -51,11 +51,19 @@ describe("validate with the real packs", () => {
     expect(r.packs.filter((p) => p.id === "metamodel" || p.id === "engine.metamodel").map((p) => p.id)).toEqual(["engine.metamodel", "metamodel"]);
   });
 
-  it("runs only the pinned template packs, and warns on a pin no template declares", () => {
+  it("runs only the pinned template packs; a pin no template declares is a blocking error", () => {
     const f = edit(files, "node.yaml", /    - id: topology\.private-pairs\n      version: "1"\n/, "    - id: ghost\n      version: \"1\"\n");
     const r = run(f);
     expect(r.packs.map((p) => p.id)).not.toContain("topology.private-pairs");
-    expect(brief(r, "warning")).toContainEqual(["warning", "rulePack.unavailable", "ghost@1"]);
+    expect(brief(r, "error")).toContainEqual(["error", "rulePack.unavailable", "ghost@1"]);
+    expect(r.findings.find((x) => x.rule === "rulePack.unavailable")!.pack).toBe("ghost@1");
+    expect(r.actionable).toBe(false);
+  });
+
+  it("is not actionable when every pin is unavailable", () => {
+    const r = run(edit(files, "node.yaml", /version: "1"/g, 'version: "9"'));
+    expect(r.findings.filter((x) => x.rule === "rulePack.unavailable").length).toBeGreaterThan(1);
+    expect(r.actionable).toBe(false);
   });
 
   it("removing the policy link → authz.ungoverned error with derivation", () => {

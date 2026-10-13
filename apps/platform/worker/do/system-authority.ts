@@ -14,6 +14,7 @@ import { RegistryStore } from "./registry";
 import { PartsStore } from "../parts/store";
 import type { schema } from "@artyfact/model";
 import { applySchema } from "./schema";
+import { isBlocking } from "../../shared/verdict";
 
 /** Name of the DO instance holding the System registry and the realization/fork index. */
 export const REGISTRY = "__registry";
@@ -240,6 +241,19 @@ export function setSseLifetime(ms: number | undefined): void {
 const enc = new TextEncoder();
 
 /** One instance per System: canonical state, realizations, candidates, evaluations and promotion (CAS). */
+/**
+ * Bump when what the model loader derives from a commit changes: `model` and `rules` parts stored under another version
+ * are ignored and rebuilt from the files. `files` are the commit's raw text and are not versioned.
+ * 2: the Genome v2 projection (a v1 commit no longer loads).
+ */
+export const MODEL_CACHE_VERSION = 2;
+const cachePart = (part: string) => (part === "files" ? part : `${part}@${MODEL_CACHE_VERSION}`);
+
+/** Drops `model`/`rules` rows of any other cache version (the unversioned rows included); run with the schema. */
+export function pruneModelCache(sql: SqlStorage): void {
+  sql.exec("DELETE FROM model_cache WHERE part != 'files' AND part NOT LIKE ?", `%@${MODEL_CACHE_VERSION}`);
+}
+
 export class SystemAuthority extends DurableObject<Env> {
   private sql: SqlStorage;
   private clients = new Set<WritableStreamDefaultWriter<Uint8Array>>();
@@ -250,6 +264,7 @@ export class SystemAuthority extends DurableObject<Env> {
     super(ctx, env);
     this.sql = ctx.storage.sql;
     applySchema(this.sql);
+    pruneModelCache(this.sql);
   }
 
   listParts(scope: PartScope): PartSummary[] { return new PartsStore(this.sql).listParts(scope); }
@@ -487,11 +502,11 @@ export class SystemAuthority extends DurableObject<Env> {
 
   // ---------------------------------------------------------------- model cache
 
-  /** Cache JSON parts (`files`, `bundle`, `readiness`) for a Genome commit. Each part is one row (< 2 MB). */
+  /** Cache JSON parts (`files`, `model`, `rules`) for a Genome commit. Each part is one row (< 2 MB). */
   putModelCache(genomeCommit: string, parts: Record<string, string>): void {
     const at = nowIso();
     for (const [part, text] of Object.entries(parts)) {
-      this.sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES (?, ?, ?, ?)", genomeCommit, part, text, at);
+      this.sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES (?, ?, ?, ?)", genomeCommit, cachePart(part), text, at);
     }
   }
 
@@ -554,7 +569,7 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   getModelCache(genomeCommit: string, part: string): string | null {
-    return str(this.one("SELECT json FROM model_cache WHERE genome_commit = ? AND part = ?", genomeCommit, part)?.json);
+    return str(this.one("SELECT json FROM model_cache WHERE genome_commit = ? AND part = ?", genomeCommit, cachePart(part))?.json);
   }
 
   // ---------------------------------------------------------------- evolutions
@@ -1380,8 +1395,9 @@ export class SystemAuthority extends DurableObject<Env> {
     if (hit) return hit;
     const raw = this.getModelCache(genomeCommit, "rules");
     if (!raw) return undefined;
-    const findings = (JSON.parse(raw) as { findings?: { level: string }[] }).findings ?? [];
-    const out = { errors: findings.filter((f) => f.level === "error").length, missing: findings.filter((f) => f.level === "missing").length };
+    // Counted as the readiness report counts blockers: a provisional node's `missing` finding does not block.
+    const blocking = ((JSON.parse(raw) as { findings?: { level: string; rule: string }[] }).findings ?? []).filter(isBlocking);
+    const out = { errors: blocking.filter((f) => f.level === "error").length, missing: blocking.filter((f) => f.level === "missing").length };
     this.readinessMemo.set(genomeCommit, out);
     return out;
   }

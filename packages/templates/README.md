@@ -26,10 +26,12 @@ rule-packs/<id>@<v>.dl               legacy-dialect packs for @artyfact/model's 
 - `nodes` and `criteria`: the prefilled nodes (`$self` is the instantiating node), criteria and hooks. `files` on kinds, prefilled nodes and the template root are the defaults of the node-attached source map (globs are relative to the Thing's `root`; see docs/design/ontology.md §3).
 
 ```ts
-import { loadMetaTemplate, composeTemplate, metaTemplates } from "@artyfact/templates";
+import { composeTemplates } from "@artyfact/ontology";
+import { loadMetaTemplate, metaTemplates } from "@artyfact/templates";
 
 loadMetaTemplate("template.thing.vue-webapp@1");               // merged over its extends chain
-composeTemplate(systemRef, [thingRef]);                       // the System template with its Things' rules, for evaluate()
+composeTemplates({ template: loadMetaTemplate(systemRef), self: systemId },
+  [{ template: loadMetaTemplate(thingRef), self: thingId }]); // the System template with its Things', for evaluate()
 ```
 
 A test keeps `template.yaml` and `template.v1.yaml` in step (prefilled nodes, criteria, hooks, source globs) and checks that Keep in Touch yields artyfact's findings against the composed template.

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { Finding } from "@artyfact/model";
 import { useReadiness } from "@/api/queries";
+import { isBlocking } from "../../../shared/verdict";
 import { Derivation } from "@/components/Derivation/Derivation";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { useModel } from "@/model/useModel";
@@ -76,13 +77,13 @@ function List({ title, empty, findings, prefix }: { title: string; empty: string
   );
 }
 
-/** Readiness findings with why: errors and missing block; warnings are listed apart. */
+/** Readiness findings with why: errors and missing block (not a provisional node's); the rest are listed apart. */
 export function BlockersList() {
   const m = useModel();
   const { data } = useReadiness();
   const findings = (data ?? m.bundle.readiness).modelReadiness.findings;
-  const blocking = findings.filter((f) => f.level === "error" || f.level === "missing");
-  const warnings = findings.filter((f) => f.level === "warning");
+  const blocking = findings.filter(isBlocking);
+  const warnings = findings.filter((f) => f.level === "warning" || (f.level === "missing" && !isBlocking(f)));
   return (
     <section className={styles.card} aria-labelledby="blockers-title">
       <h2 id="blockers-title" className={styles.cardTitle}>Blockers</h2>
