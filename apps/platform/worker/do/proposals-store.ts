@@ -105,6 +105,19 @@ export class ProposalsStore {
   }
 
   /**
+   * Moves an open deferred proposal (one with `deferredFrom`) from base `from` to `to`, once the Worker found its ops
+   * still apply on `to`. One conditional UPDATE: false when the row is not open, not deferred or no longer on `from`.
+   */
+  rebase(id: string, from: string, to: string): boolean {
+    return this.sql.exec(
+      `UPDATE proposals SET json = json_set(json, '$.provenance.genomeCommit', ?), updated_at = ?
+       WHERE id = ? AND status = 'open' AND json_extract(json, '$.deferredFrom') IS NOT NULL
+         AND json_extract(json, '$.provenance.genomeCommit') = ? RETURNING id`,
+      to, nowIso(), id, from,
+    ).toArray().length > 0;
+  }
+
+  /**
    * Moves an `open` proposal to `accepting` when `headGenome` is still the commit it was computed on, and returns the
    * revision it claimed (the accept works on that one). An `accepting` row claimed more than CLAIM_LEASE_MS before `now`
    * is taken over. Synchronous, so within the DO no other accept, reply or head change interleaves.

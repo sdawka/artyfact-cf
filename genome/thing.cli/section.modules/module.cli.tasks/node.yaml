@@ -1,0 +1,11 @@
+id: module.cli.tasks
+kind: module
+fields:
+  name: Tasks and claims
+  description: Lists tasks and claims one for a local agent.
+  path: src/tasks.ts
+links:
+  - { rel: implements, to: command.tasks }
+  - { rel: implements, to: command.claim }
+files:
+  - src/tasks.ts

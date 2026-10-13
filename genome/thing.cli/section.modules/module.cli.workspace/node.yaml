@@ -1,0 +1,11 @@
+id: module.cli.workspace
+kind: module
+fields:
+  name: Workspace materialization
+  description: Clones a fork and writes the packet, AGENTS.md and config; shared by start and claim.
+  path: src/workspace.ts
+links:
+  - { rel: implements, to: command.start }
+  - { rel: implements, to: command.claim }
+files:
+  - src/workspace.ts

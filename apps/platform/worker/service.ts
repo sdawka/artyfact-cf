@@ -1218,14 +1218,15 @@ const EVOLUTION_KINDS: schema.Evolution["kind"][] = ["implementation", "genome-a
 const RISKS: schema.Evolution["risk"][] = ["low", "medium", "high"];
 /**
  * Default acceptance criteria of a new Evolution: the System's criteria whose `targetKind` matches its target. An
- * `implementation` targets the app (`artifact`, `runtime`), a `genome-amendment` the model. Without an explicit kind
- * (the Work form and the editor send none) or for `mixed`, the target is unknown and only `model` criteria apply:
- * an acceptance criterion stays blocking whatever the candidate's target (see gateCriteria), and artifact or runtime
- * criteria could never pass on a Genome candidate.
+ * `implementation` targets the app (`artifact`, `runtime`), a `genome-amendment` the model, and a `mixed` Evolution
+ * (an accepted intent: a Genome change, then app work) both. Without an explicit kind (the Work form and the editor
+ * send none) the target is unknown and only `model` criteria apply: an acceptance criterion stays blocking whatever
+ * the candidate's target (see gateCriteria), and artifact or runtime criteria could never pass on a Genome candidate.
  */
 function defaultCriteria(m: SystemModel, kind: schema.Evolution["kind"] | undefined): string[] {
+  const app = (c: schema.Criterion) => c.targetKind === "artifact" || c.targetKind === "runtime";
   const keep = (c: schema.Criterion) =>
-    kind === "implementation" ? c.targetKind === "artifact" || c.targetKind === "runtime" : c.targetKind === "model";
+    kind === "implementation" ? app(c) : kind === "mixed" ? app(c) || c.targetKind === "model" : c.targetKind === "model";
   return m.criteria.filter(keep).map((c) => c.id);
 }
 

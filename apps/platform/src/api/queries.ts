@@ -5,7 +5,7 @@ import type {
   PhenomeEventsQuery, PromoteRequest, Realization, RejectRequest, StartWorkRequest,
 } from "../../shared/api";
 import type { TemplateUpgradeRequest } from "../../shared/api";
-import type { IntentAccept, IntentReply, IntentRequest, Proposal } from "../../shared/api";
+import type { IntentAccept, IntentDecisionsRequest, IntentReply, IntentRequest, Proposal } from "../../shared/api";
 import { emitFx } from "@/effects/fx";
 import { useSystemRoute } from "@/model/useSelection";
 import * as api from "./client";
@@ -423,6 +423,35 @@ export function useAcceptIntent() {
     mutationFn: ({ proposalId, body, adminToken }: { proposalId: string; body: IntentAccept; adminToken?: string }) =>
       api.acceptIntent(systemId, proposalId, body, adminToken),
     onSettled: () => invalidate(qc, systemId, "intent", "evolutions", "candidates", "builds", "revisions", "systems"),
+  });
+}
+
+/**
+ * Decides agreement-tree nodes. `apply` (the decisions applied locally to the cached proposal) shows at once and is
+ * rolled back when the platform refuses; rapid decisions compose, and the last answer from the platform wins.
+ */
+export function useDecideIntent() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  const mutationKey = ["decideIntent", systemId];
+  return useMutation({
+    mutationKey,
+    mutationFn: ({ proposalId, body, adminToken }: { proposalId: string; body: IntentDecisionsRequest; adminToken?: string; apply?(p: Proposal): Proposal }) =>
+      api.decideIntent(systemId, proposalId, body, adminToken),
+    onMutate: async ({ proposalId, apply }) => {
+      const key = qk.intent(systemId, proposalId);
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<Proposal>(key);
+      if (prev && apply) qc.setQueryData(key, apply(prev));
+      return { prev };
+    },
+    onError: (_err, { proposalId }, ctx) => {
+      if (ctx?.prev) qc.setQueryData(qk.intent(systemId, proposalId), ctx.prev);
+    },
+    // Another decision still in flight answers later with the fuller state.
+    onSuccess: (p: Proposal) => {
+      if (qc.isMutating({ mutationKey }) <= 1) qc.setQueryData(qk.intent(systemId, p.id), p);
+    },
   });
 }
 

@@ -1,4 +1,4 @@
-import type { SystemSummary } from "../../../shared/api";
+import type { Signifier, SystemSummary } from "../../../shared/api";
 import { buildTone, type ChipTone } from "@/components/StatusChip/StatusChip";
 
 /** A SystemSummary from any server version: every iteration-2 field is optional and may be missing. */
@@ -17,7 +17,7 @@ export interface DeployLine {
 }
 
 export interface CardView {
-  /** One sentence: attention > evolving > not built > quiet. */
+  /** One sentence: awaiting review > import pending > tasks await an agent > plan ready > wave running > evolving > not built > quiet. */
   headline: string;
   tone: CardTone;
   /** The card's border state: `tone`, except that deploy trouble on an otherwise quiet System reads as attention. */
@@ -25,6 +25,8 @@ export interface CardView {
   deploy: DeployLine;
   /** The System's head Review, present only when something awaits. */
   reviewHref?: string;
+  /** The System's Work view, present when a plan or its tasks need a person. */
+  workHref?: string;
 }
 
 const base = (systemId: string) => `/s/${encodeURIComponent(systemId)}/r/head`;
@@ -32,6 +34,15 @@ const base = (systemId: string) => `/s/${encodeURIComponent(systemId)}/r/head`;
 function awaiting(s: CardSummary): number | undefined {
   return (s.signifiers ?? []).includes("awaiting-admin") ? (s.realizationCounts?.awaitingAdmin ?? 0) : undefined;
 }
+
+const sig = (s: CardSummary, k: Signifier) => (s.signifiers ?? []).includes(k);
+const importPending = (s: CardSummary) => sig(s, "import-pending") || s.importReview?.status === "pending";
+/** Tasks claimed and waiting on an agent; undefined when the summary does not say so. */
+const awaitingAgent = (s: CardSummary) => (sig(s, "task-awaiting-agent") ? (s.taskCounts?.awaitingAgent ?? 0) : undefined);
+const planReady = (s: CardSummary) => (sig(s, "plan-ready") ? (s.taskCounts?.planReady ?? 0) : undefined);
+
+const tasksText = (n: number) => (n === 0 ? "tasks await an agent" : `${n} ${n === 1 ? "task awaits" : "tasks await"} an agent`);
+const planText = (n: number) => (n > 1 ? `${n} plans are ready` : "a plan is ready");
 
 function deployLine(s: CardSummary): DeployLine {
   let line: DeployLine;
@@ -67,9 +78,9 @@ export function cardSummary(s: CardSummary): CardView {
 }
 
 function headlineOf(s: CardSummary): Omit<CardView, "state"> {
-  const sig = new Set(s.signifiers ?? []);
   const deploy = deployLine(s);
   const n = awaiting(s);
+  const work = `${base(s.systemId)}/work`;
   if (n !== undefined)
     return {
       headline: n === 0 ? "awaiting your review" : `${n} ${n === 1 ? "awaits" : "await"} your review`,
@@ -77,11 +88,17 @@ function headlineOf(s: CardSummary): Omit<CardView, "state"> {
       deploy,
       reviewHref: `${base(s.systemId)}/review`,
     };
-  if (sig.has("evolving")) {
+  if (importPending(s)) return { headline: "import awaits review", tone: "attention", deploy, reviewHref: `${base(s.systemId)}/review` };
+  const a = awaitingAgent(s);
+  if (a !== undefined) return { headline: tasksText(a), tone: "attention", deploy, workHref: work };
+  const p = planReady(s);
+  if (p !== undefined) return { headline: planText(p), tone: "attention", deploy, workHref: work };
+  if (sig(s, "wave-running")) return { headline: "wave running", tone: "evolving", deploy, workHref: work };
+  if (sig(s, "evolving")) {
     const e = s.realizationCounts?.evolving;
     return { headline: e ? `${e} ${e === 1 ? "realization" : "realizations"} evolving` : "evolving", tone: "evolving", deploy };
   }
-  if (sig.has("not-fully-built")) return { headline: "not built", tone: "unbuilt", deploy };
+  if (sig(s, "not-fully-built")) return { headline: "not built", tone: "unbuilt", deploy };
   return { headline: "quiet", tone: "quiet", deploy };
 }
 
@@ -113,6 +130,14 @@ export function needsYou(systems: readonly CardSummary[]): LedgerRow[] {
         key: `${s.systemId}:review`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/review`,
         text: n === 0 ? "candidates await review" : `${n} ${n === 1 ? "candidate awaits" : "candidates await"} review`,
       });
+    if (importPending(s))
+      rows.push({ key: `${s.systemId}:import`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/review`, text: "import awaits review" });
+    const a = awaitingAgent(s);
+    if (a !== undefined)
+      rows.push({ key: `${s.systemId}:agent`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/work`, text: tasksText(a) });
+    const p = planReady(s);
+    if (p !== undefined)
+      rows.push({ key: `${s.systemId}:plan`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/work`, text: planText(p) });
     if (s.deployState === "behind")
       rows.push({ key: `${s.systemId}:behind`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/phenome`, text: "deployed, behind" });
     if (s.deployState === "failed")

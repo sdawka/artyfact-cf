@@ -37,6 +37,11 @@ describe("parseTranslation", () => {
     expect(parseTranslation(JSON.stringify({ ops: [add, update] }))).toEqual({ ops: [add, update] });
     expect(parseTranslation('{"ops":[{"op":"update","id":"a","criteria":[{"claim":"no id"}]}]}')).toHaveProperty("error");
   });
+  it("reads update files, a list or null", () => {
+    const ops = [{ op: "update", id: "a", files: ["src/x/**", "*.ts"] }, { op: "update", id: "b", files: null }];
+    expect(parseTranslation(JSON.stringify({ ops }))).toEqual({ ops });
+    expect(parseTranslation('{"ops":[{"op":"update","id":"a","files":"src"}]}')).toHaveProperty("error");
+  });
   it("rejects prose, empty objects, unknown ops and add links naming both ends", () => {
     expect(parseTranslation("Sure! Here you go")).toEqual({ error: "translator reply is not JSON" });
     expect(parseTranslation("{}")).toHaveProperty("error");
@@ -88,6 +93,11 @@ describe("fake and off translators", () => {
     const add = await t.translate(await input({ "route.intent": "add", "route.space": "hypothesis", "route.kind": "metric", "route.node": "none" }));
     expect(add.ops?.[0]).toMatchObject({ op: "add", kind: "metric" });
     expect((await t.translate(await input({ "route.intent": "answer", "route.space": "problem", "route.kind": "audience", "route.node": "audience-weekend-shore-volunteer", "route.more": "no" }))).answer).toMatch(/audience-weekend/);
+  });
+  it("fake: a #files: directive updates the first target's files", async () => {
+    const t = fakeTranslator();
+    const out = await t.translate(await input(SCREEN, "Bind the picker #files:src/picker/**,lib/*.ts"));
+    expect(out.ops).toEqual([{ op: "update", id: "screen-species-picker", files: ["src/picker/**", "lib/*.ts"] }]);
   });
   it("fake: an add links to the first target only with a relation the vocabulary declares for the two kinds", async () => {
     const base = await input({ "route.intent": "add", "route.space": "solution", "route.kind": "screen", "route.node": "screen-species-picker", "route.more": "no" });
@@ -182,6 +192,14 @@ describe("validateOps", () => {
       "error op.duplicateTitle 0", "warning op.unknownField 0", "error op.duplicateCriterion 1",
       "error op.unknownCriterion 2", "error op.invalidCriterion 2", "error op.emptyUpdate 3",
     ]);
+    expect(check([
+      { op: "update", id: "s2", files: ["src/**"] },
+      { op: "update", id: "s2", files: null },
+      { op: "update", id: "s2", files: [] },
+      { op: "update", id: "s2", files: ["../x", "/abs", "ok/**"] },
+      { op: "update", id: "sys", files: ["src/**"] },
+      { op: "update", id: "sys", files: null },
+    ])).toEqual(["error op.invalidFile 3", "error op.invalidFile 3", "warning op.filesOnTemplateRoot 4"]);
   });
   it("gold ops of both case files carry no errors", () => {
     for (const s of [tp, ws]) {

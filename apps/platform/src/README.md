@@ -185,7 +185,8 @@ starts with `[name, systemId]`, so `invalidateQueries({ queryKey: [name, systemI
   `CandidateReview` or `PromotionPanel` from `views/work/panels`. `model/useReviewCount()` feeds the rail, Overview and Work cards.
 - `views/work/intent/`: "Describe a change" (`?panel=intent`), opened from the Work header, a Home card, the Inspector and Code
   (`&anchor=<nodeId>`); while open it replaces the board ("Back to board" closes it). Message → proposal (`&proposal=`): routed path, provider label, per-op
-  diff with include toggles (dependencies follow), problems, inline replies, "Accept selected" → the candidate on Work.
+  agreement tree (`intent/agreement/`: nodes decided agree / reject / defer, children inherit), per-op diffs, problems,
+  inline replies, "Accept agreed" → the candidate on Work (deferred changes continue in a new proposal).
   Fixture mode disables writes and shows `intent/sample.ts` read-only.
 
 ## Inspector (`inspector/`)
