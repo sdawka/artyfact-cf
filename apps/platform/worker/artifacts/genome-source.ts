@@ -106,9 +106,8 @@ export interface LoadedGenome {
   readiness: Readiness;
 }
 
-/** The 422 a revision in the retired v1 layout answers on model and readiness routes (spec §2a). */
-export const legacyGenome = (revision: string) =>
-  unprocessable("legacy-genome", `the Genome at ${revision.slice(0, 12)} predates the node-tree format; convert it with \`artyfact convert-genome\``);
+/** The 422 a revision in the retired v1 layout answers on model and readiness routes, with the §2a message. */
+export const legacyGenome = (e: LegacyGenomeError) => unprocessable("legacy-genome", e.message);
 
 /** loadGenome + readiness over the System's pinned template packs. Pure: no Artifacts access. */
 export function buildGenome(files: Map<string, string>, revision: string): LoadedGenome {
@@ -116,7 +115,7 @@ export function buildGenome(files: Map<string, string>, revision: string): Loade
   try {
     model = loadGenome(files, { revision, templates: metaTemplates });
   } catch (e) {
-    if (e instanceof LegacyGenomeError) throw legacyGenome(revision);
+    if (e instanceof LegacyGenomeError) throw legacyGenome(e);
     throw e;
   }
   return { files, model, readiness: validate(model) };

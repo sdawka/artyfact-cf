@@ -2,7 +2,7 @@
 /** The real example System and app (examples/) through the import → start → submit path, hooks as no-ops. */
 import { exports } from "cloudflare:workers";
 import { afterEach, describe, expect, it } from "vitest";
-import type { ApiError, ImportSystemResponse, ModelBundle, SerializedModel, StartWorkResponse, SubmitResponse } from "../shared/api";
+import type { ApiError, ImportSystemResponse, ModelBundle, SerializedModel, StartWorkResponse, SubmitResponse, SystemsResponse } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 
@@ -33,6 +33,12 @@ describe("examples/keep-in-touch", () => {
     expect(imp.json.evolutions).toContain("evolution.1");
     const model = await call<ModelBundle>("GET", `/systems/${systemId}/model`);
     expect((model.json.model as SerializedModel).index.byId["screen.people"]?.kind).toBe("screen");
+    // Provisional template nodes are reported as missing but block nowhere: not in the bundle's blockers, not in Home's counts.
+    const readiness = model.json.readiness.modelReadiness;
+    expect(readiness.findings.filter((f) => f.rule === "node.provisional").length).toBeGreaterThan(0);
+    expect(readiness.blockers).toEqual([]);
+    const summary = (await call<SystemsResponse>("GET", "/systems")).json.systems.find((x) => x.systemId === systemId)!;
+    expect(summary.readiness).toEqual({ errors: 0, missing: 0 });
 
     const start = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" }, { authorization: "Bearer test-admin-token" });
     expect(start.status, JSON.stringify(start.json)).toBe(201);

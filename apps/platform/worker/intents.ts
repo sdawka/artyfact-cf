@@ -3,7 +3,7 @@
  * Genome), a reply revises it, and accepting a subset writes those ops to the Genome through an ordinary Genome
  * realization and candidate. Spec: docs/design/ontology.md §4–§6.
  */
-import { LegacyGenomeError, loadGenome, ModelParseError, type SystemModel } from "@artyfact/model";
+import { LegacyGenomeError, loadGenome, ModelParseError, readinessTemplate, type SystemModel } from "@artyfact/model";
 import {
   applyOps, diffFindings, evaluate, GenomeTreeError, mintId, providerFromEnv, route, ROUTE_NEW, ROUTE_NONE, ROUTE_UNCLEAR, routeSlice, routeVocabulary, titleOf, translatorFromEnv,
   TreeOpError, validateOps, type Graph, type Op, type ProviderEnv, type Readiness, type Route, type SystemOne, type Template,
@@ -62,12 +62,14 @@ function projected(files: Map<string, string>): SystemModel {
 }
 
 /**
- * The engine's view of a v2 Genome: the projected graph, the System template with its Things' templates laid over it,
- * and the readiness proposals are compared against.
+ * The engine's view of a v2 Genome, as platform readiness sees it: the projected graph, the System template composed
+ * with its Things' (each instantiated for its Thing) running the packs the System pins, and its readiness, which
+ * proposals are compared against.
  */
 export function genomeGraph(files: Map<string, string>): { graph: Graph; template: Template; readiness: Readiness } {
-  const { graph, template } = projected(files);
-  return { graph, template, readiness: evaluate(template, graph) };
+  const m = projected(files);
+  const template = readinessTemplate(m);
+  return { graph: m.graph, template, readiness: evaluate(template, m.graph) };
 }
 
 const memo = new Map<string, ReturnType<typeof genomeGraph>>();

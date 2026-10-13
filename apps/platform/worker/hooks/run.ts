@@ -28,7 +28,7 @@ import { engineRules, engineRun, genomeGraph, judgeChecks, wantsChecks, type Che
 import { HEALTH_TIMEOUT_MS, httpHealth, previewPolicy, type PreviewEnv } from "./http-health";
 import { manifestExists } from "./manifest-exists";
 import { modelRulesHook } from "./model-checks";
-import { filterFromInputs, loadGenome, modelRules, selectableRules, type GenomeDeps, type ModelRulesResult } from "./model-rules";
+import { filterFromInputs, legacyOutcome, loadGenome, modelRules, selectableRules, type GenomeDeps, type ModelRulesResult } from "./model-rules";
 import { computeConflicts } from "./overlap";
 import { errored, errorMessage, notRun, toEvaluation, type Outcome } from "./provenance";
 import { aggregate, judgePurpose, judgeTopology, reviewGenome, reviewsAsJudged, reviewUnavailable } from "./system-one";
@@ -255,7 +255,8 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
     try {
       r = engineFor(st);
     } catch (e) {
-      if (!(e instanceof ModelParseError || e instanceof LegacyGenomeError)) throw e;
+      if (e instanceof LegacyGenomeError) return legacyOutcome(e);
+      if (!(e instanceof ModelParseError)) throw e;
       return { execution: "completed", verdict: "fail", observations: [{ kind: "parse-error", message: e.message }], interpretation: `The Genome does not load: ${e.message}`, limitations: [] };
     }
     const filter = filterFromInputs(h.inputs);

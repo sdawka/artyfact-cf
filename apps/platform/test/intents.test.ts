@@ -14,7 +14,9 @@ import { walkTree } from "../worker/artifacts/genome-source";
 import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
 import { setEditorTransport } from "../worker/editor";
 import { resetHooks, setHooks } from "../worker/hooks/index";
-import { intentProviders, proposedOps, setIntentProviders } from "../worker/intents";
+import { genomeGraph, intentProviders, proposedOps, setIntentProviders } from "../worker/intents";
+import { loadGenome, validate } from "@artyfact/model";
+import { metaTemplates } from "@artyfact/templates";
 import { createEvolution, startWork, systemStub } from "../worker/service";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 import { fakeReceivePack } from "./helpers/fake-receive-pack";
@@ -296,6 +298,16 @@ describe("intent routes", () => {
   });
   it.each(cases)("%s %s is 404 for a System that is not imported", async (method, path, body) => {
     expect((await call<ApiError>(method, path, body)).status).toBe(404);
+  });
+});
+
+describe("the head Genome intents judge against", () => {
+  it("is platform readiness: the same loader, composed template and pinned packs, so the same findings", () => {
+    const files = new Map(Object.entries(genome));
+    const key = (f: { rule: string; subject?: string; level: string }) => `${f.level} ${f.rule} ${f.subject ?? ""}`;
+    const ours = genomeGraph(files).readiness.findings.map(key).sort();
+    expect(ours).toEqual(validate(loadGenome(files, { templates: metaTemplates })).findings.map(key).sort());
+    expect(ours.length).toBeGreaterThan(0);
   });
 });
 

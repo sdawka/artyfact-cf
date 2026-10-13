@@ -63,7 +63,7 @@ const ACTIONS: [prefix: string, action: string][] = [
   ["coverage.hook", "Add a hook for the criterion."],
   ["coverage.requirement", "Add a requirement or criterion covering the subject."],
   ["hook.unbound", "Bind the hook to an implementation."],
-  ["kit.unpinned", "Pin the kit in kits.yaml."],
+  ["kit.unpinned", "Pin the kit under kits in the root node.yaml."],
   ["authz.", "Add or fix a policy that governs the subject."],
   ["topology.", "Change the model to satisfy the topology rule."],
   ["journey.", "Complete the journey so every step resolves."],

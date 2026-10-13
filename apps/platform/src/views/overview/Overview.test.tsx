@@ -31,6 +31,13 @@ describe("Overview", () => {
     expect(within(hero).getByRole("region", { name: "Model readiness" }).tabIndex).toBe(0);
   });
 
+  it("lists Keep in Touch's provisional nodes apart from its blockers (none)", async () => {
+    renderApp("/s/system.keep-in-touch/r/head/overview");
+    const card = await screen.findByRole("region", { name: "Blockers" });
+    expect(within(card).getByText("No errors or missing items.")).toBeTruthy();
+    expect(within(card).getAllByText(/node\.provisional/).length).toBeGreaterThan(0);
+  });
+
   it("does not paint a zero pass count in the success tone", async () => {
     renderApp("/s/system.keep-in-touch/r/head/overview");
     const conformance = await screen.findByRole("region", { name: "Implementation conformance" });
@@ -43,7 +50,7 @@ describe("Overview", () => {
   it("lists kit.unpinned with an expandable derivation", async () => {
     renderApp("/s/system.keep-in-touch/r/head/overview");
     const row = (await screen.findByText("kit.unpinned")).closest("li")!;
-    expect(within(row).getByText("Pin the kit in kits.yaml.")).toBeTruthy();
+    expect(within(row).getByText("Pin the kit under kits in the root node.yaml.")).toBeTruthy();
     fireEvent.click(within(row).getByRole("button", { name: /Explain/ }));
     await waitFor(() => expect(within(row).getByLabelText(/^Derivation of/)).toBeTruthy());
     expect(within(row).getByText(/kitRequired/)).toBeTruthy();
