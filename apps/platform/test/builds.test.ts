@@ -2,7 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
-  ApiError, BuildReportResponse, BuildsResponse, CandidatesResponse, CiBuildParams, DeploymentCreated, DeploymentsResponse, ImportSystemResponse,
+  ApiError, BuildReportResponse, BuildsResponse, CandidatesResponse, CiBuildParams, DeploymentCreated, DeploymentsResponse, EvaluateCandidateResponse, ImportSystemResponse,
   IngestTokenResponse, PromoteResponse, RealizationResponse, RealizedArtifactsResponse, StartWorkResponse, SubmitResponse, SystemSummary,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
@@ -10,6 +10,7 @@ import { ensurePushSubscription, removePushSubscription, setSubscriptionsOverrid
 import { ALLOWED_COMMANDS, assertAllowedCommands, previewWorkerName, productionWorkerName, setCiOverride, workflowInstanceId, type CiBinding } from "../worker/deployments";
 import type { SystemAuthority } from "../worker/do/system-authority";
 import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../worker/hooks/contract";
+import { httpHealth } from "../worker/hooks/http-health";
 import { noopHookRunner, resetHooks, setHooks } from "../worker/hooks/index";
 import { sha256Hex } from "../worker/util";
 import { appFiles, genomeFiles } from "./fixtures/genome";
@@ -455,6 +456,107 @@ describe("build report routes", () => {
     expect(out.json.candidate).toBeUndefined();
     expect(seen).toHaveLength(1);
     expect((await inDo(ctx.systemId, (i) => i.candidateManifest(a.sub.candidate.id)))!.previewUrl).toBeUndefined();
+  });
+});
+
+describe("candidate re-evaluation", () => {
+  // The preview keeps serving the previous build past every health retry, then switches.
+  let served = "build.previous";
+  const preview = (async () => Response.json({ status: "ok", buildId: served })) as unknown as typeof fetch;
+  const healthRunner: HookRunner = {
+    ...runner,
+    async runSubmission(ctx) {
+      seen.push(ctx);
+      if (!ctx.candidate.previewUrl) return [];
+      const o = await httpHealth({ previewUrl: ctx.candidate.previewUrl, commit: ctx.candidate.commit, expectedBuildId: ctx.candidate.expectedBuildId, fetch: preview, sleep: async () => {} });
+      return [{ ...hookEval(ctx, "C.webapp.health", o.verdict), execution: o.execution, observations: o.observations }];
+    },
+  };
+  beforeEach(() => {
+    served = "build.previous";
+    setHooks({ runner: () => healthRunner });
+  });
+  const evaluatePath = (systemId: string, cid: string) => `/systems/${systemId}/candidates/${encodeURIComponent(cid)}/evaluate`;
+
+  it("re-runs a candidate's hooks with its preview and passed build, replacing the failed health evaluation", async () => {
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const url = `https://${previewWorkerName(ctx.systemId, 1)}.dawka.workers.dev`;
+    const rep = await call<BuildReportResponse>("POST", `/systems/${ctx.systemId}/realizations/${a.rid}/builds`, { status: "passed", commit: a.commit, url, buildId: "build.new" }, CI);
+    expect(rep.json.evaluations).toMatchObject([{ criterion: "C.webapp.health", verdict: "fail", observations: [{ buildId: "build.previous", attempts: 4 }] }]);
+    // Re-submitting the commit does not re-run anything.
+    await call("POST", `/systems/${ctx.systemId}/realizations/${a.rid}/submit`, { commit: a.commit }, { authorization: `Bearer ${a.secret}` });
+    const runs = seen.length;
+
+    served = "build.new";
+    const out = await call<EvaluateCandidateResponse>("POST", evaluatePath(ctx.systemId, a.sub.candidate.id), undefined, ADMIN);
+    expect(out.status, JSON.stringify(out.json)).toBe(200);
+    expect(seen).toHaveLength(runs + 1);
+    expect(seen.at(-1)?.candidate).toMatchObject({ previewUrl: url, expectedBuildId: "build.new" });
+    expect(out.json.candidate).toMatchObject({ id: a.sub.candidate.id, state: "evaluated" });
+    expect(out.json.evaluations).toMatchObject([{ criterion: "C.webapp.health", verdict: "pass", observations: [{ buildId: "build.new", attempts: 1 }] }]);
+    expect(out.json.realization.id).toBe(a.rid);
+  });
+
+  it("is admin only, 404 for an unknown candidate and 409 for a promoted one", async () => {
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const path = evaluatePath(ctx.systemId, a.sub.candidate.id);
+    expect((await call<ApiError>("POST", path)).status).toBe(401);
+    expect((await call<ApiError>("POST", path, undefined, { authorization: `Bearer ${a.secret}` })).status).toBe(403);
+    expect((await call<ApiError>("POST", path, undefined, CI)).status).toBe(403);
+    expect((await call<ApiError>("POST", evaluatePath(ctx.systemId, "candidate.nope"), undefined, ADMIN)).status).toBe(404);
+    const runs = seen.length;
+    await inDo(ctx.systemId, (_i, state) => state.storage.sql.exec("UPDATE candidates SET state = 'promoted' WHERE id = ?", a.sub.candidate.id));
+    const refused = await call<ApiError>("POST", path, undefined, ADMIN);
+    expect(refused.status).toBe(409);
+    expect(refused.json.error.code).toBe("invalid-state");
+    expect(seen).toHaveLength(runs);
+  });
+
+  it("refuses (409) when the candidate is promoted while its hooks re-run, keeping the promotion evidence", async () => {
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const id = a.sub.candidate.id;
+    const promotionEval = { ...hookEval(seen[0], "C.system.promotion"), id: `${id}:promotion` };
+    setHooks({
+      runner: () => ({
+        ...healthRunner,
+        async runSubmission(hctx) {
+          // A promotion lands mid-run: it records its own evaluations and closes the candidate.
+          await inDo(ctx.systemId, (i, state) => {
+            i.recordEvaluations(id, [promotionEval]);
+            state.storage.sql.exec("UPDATE candidates SET state = 'promoted' WHERE id = ?", id);
+          });
+          return [hookEval(hctx, "C.webapp.exists", "fail")];
+        },
+      }),
+    });
+    const out = await call<ApiError>("POST", evaluatePath(ctx.systemId, id), undefined, ADMIN);
+    expect(out.status, JSON.stringify(out.json)).toBe(409);
+    expect(out.json.error.code).toBe("invalid-state");
+    const evals = await inDo(ctx.systemId, (i) => i.evaluations(id));
+    expect(evals.find((e) => e.id === promotionEval.id)).toMatchObject({ criterion: "C.system.promotion", verdict: "pass" });
+    expect(evals.some((e) => e.criterion === "C.webapp.exists" && e.verdict === "fail")).toBe(false);
+    // The claim was released.
+    expect(await inDo(ctx.systemId, (i) => i.claimEvaluation(id))).toBe(true);
+  });
+
+  it("promotion is refused (409) while a re-run holds the candidate's claim", async () => {
+    setHooks({ runner: () => runner });
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const id = a.sub.candidate.id;
+    const promote = () => call<ApiError>("POST", `/systems/${ctx.systemId}/promote`, { candidateIds: [id], expectedHead: ctx.imp.head, rationale: "ok" }, ADMIN);
+    expect(await inDo(ctx.systemId, (i) => i.claimEvaluation(id))).toBe(true);
+    const refused = await promote();
+    expect(refused.status).toBe(409);
+    expect(refused.json.error.code).toBe("evaluation-running");
+    expect((await inDo(ctx.systemId, (i) => i.candidate(id)))?.state).not.toBe("promoted");
+    await inDo(ctx.systemId, (i) => i.releaseEvaluation(id));
+    expect((await promote()).status).toBe(200);
+    // Promotion released its own claim.
+    expect(await inDo(ctx.systemId, (i) => i.claimEvaluation(id))).toBe(true);
   });
 });
 

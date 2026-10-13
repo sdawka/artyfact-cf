@@ -1,6 +1,6 @@
 # CI, builds and deployments
 
-Every app candidate gets a build record. When a preview build passes with a URL, the candidate stores that URL and its hooks run again. That is how `C.webapp.health` checks the deployed app's `/health` against the exact runtime build identity recorded by the passed CI build (legacy reports without that identity retain commit-prefix matching). Promotions ask for a production deployment. The System's deployed version is its latest `live` production deployment.
+Every app candidate gets a build record. When a preview build passes with a URL, the candidate stores that URL and its hooks run again. That is how `C.webapp.health` checks the deployed app's `/health` against the exact runtime build identity recorded by the passed CI build (legacy reports without that identity retain commit-prefix matching). workers.dev keeps serving the previous version for a moment after a deploy, so a healthy response with the wrong build id is retried after 1 s, 2 s and 4 s (within the hook's timeout) before it fails. An admin can re-run a candidate's checks with `POST /api/systems/:id/candidates/:cid/evaluate` (Work → candidate review → Re-run checks). Promotions ask for a production deployment. The System's deployed version is its latest `live` production deployment.
 
 ## Flow
 

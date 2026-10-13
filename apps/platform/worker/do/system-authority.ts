@@ -855,13 +855,20 @@ export class SystemAuthority extends DurableObject<Env> {
 
   /**
    * Upsert evaluations (one row per candidate × criterion × hook), move the candidate to `evaluated`
-   * and its realization to `status` (evaluated, or awaiting-admin for Genome candidates).
+   * and its realization to `status` (evaluated, or awaiting-admin for Genome candidates). `replace` first drops the
+   * candidate's earlier evaluations (an admin re-run); it refuses (`invalid-state`) once the candidate is promoted or
+   * rejected, so a decision that landed while the hooks ran keeps its evidence.
    */
-  recordEvaluations(candidateId: string, evaluations: Evaluation[], status?: RealizationStatus): Evaluation[] {
+  recordEvaluations(candidateId: string, evaluations: Evaluation[], status?: RealizationStatus, replace = false): Evaluation[] {
     const cand = this.one("SELECT * FROM candidates WHERE id = ?", candidateId);
     if (!cand) throw new ConflictError("not-found", `unknown candidate ${candidateId}`);
     const stored: Evaluation[] = [];
     this.ctx.storage.transactionSync(() => {
+      if (replace) {
+        const state = String(this.one("SELECT state FROM candidates WHERE id = ?", candidateId)?.state);
+        if (!OPEN_CANDIDATE.includes(state)) throw new ConflictError("invalid-state", `candidate ${candidateId} is ${state}`);
+        this.sql.exec("DELETE FROM evaluations WHERE candidate_id = ?", candidateId);
+      }
       for (const e of evaluations) {
         const at = e.finishedAt ?? e.startedAt ?? nowIso();
         const hook = e.hook || "none";

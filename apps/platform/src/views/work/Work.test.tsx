@@ -275,6 +275,49 @@ describe("CandidateReview", () => {
     expect(await within(review).findByText(/amendment review/i)).toBeTruthy();
   });
 
+  it("re-run checks is disabled with the standard reason in fixture mode", async () => {
+    renderApp(url, undefined, withCandidate());
+    const review = await screen.findByRole("region", { name: "Review realization.1" });
+    expect((within(review).getByRole("button", { name: "Re-run checks" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(review).getByText("Re-run checks needs the platform API. The UI is showing fixture data.")).toBeTruthy();
+  });
+
+  it("re-run checks posts to the candidate's evaluate route with the header admin token", async () => {
+    const posts: { url: string; auth: string | null }[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (u: string, init?: RequestInit) => {
+      const path = String(u);
+      if (path.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
+      if (init?.method === "POST") {
+        posts.push({ url: path, auth: new Headers(init.headers).get("authorization") });
+        return json(200, { realization: realization(), candidate: candidate(), evaluations: [evalFor("C.webapp.health")] });
+      }
+      if (path.includes("/model")) return json(200, { ...fixtureBundle(), source: "api" });
+      if (path.includes("/candidates")) return json(200, { evolution: EVO1, candidates: [candidate()], evaluations: [], conflicts: [] });
+      if (path.includes("/evaluations")) return json(200, { evaluations: [] });
+      if (path.includes("/evolutions")) return json(200, { evolutions: [], realizations: [realization()] });
+      return json(200, { conflicts: [], commits: [] });
+    }));
+    sessionStorage.setItem("artyfact.adminToken", "adm_header");
+    try {
+      renderApp(url, undefined, seed({ api: true, realizations: [realization()], candidates: [candidate()] }));
+      const review = await screen.findByRole("region", { name: "Review realization.1" });
+      const button = within(review).getByRole("button", { name: "Re-run checks" }) as HTMLButtonElement;
+      expect(button.disabled).toBe(false);
+      fireEvent.click(button);
+      expect((await within(review).findByRole("status")).textContent).toMatch(/Checks re-run: 1 evaluation recorded/);
+      expect(posts).toEqual([{ url: `/api/systems/${encodeURIComponent(SYSTEM)}/candidates/cand.1/evaluate`, auth: "Bearer adm_header" }]);
+    } finally {
+      sessionStorage.clear();
+    }
+  });
+
+  it("re-run checks is disabled for a promoted candidate", async () => {
+    renderApp(url, undefined, seed({ api: true, realizations: [realization()], candidates: [candidate({ state: "promoted" })] }));
+    const review = await screen.findByRole("region", { name: "Review realization.1" });
+    expect((within(review).getByRole("button", { name: "Re-run checks" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(review).getByText(/is promoted; its checks are final/)).toBeTruthy();
+  });
+
   it("says there is nothing to review before a candidate is submitted", async () => {
     renderApp(url, undefined, seed({ realizations: [realization()], candidates: [] }));
     expect(await screen.findByText(/nothing to review/)).toBeTruthy();
