@@ -56,7 +56,7 @@ export function realSubdir(kind: string, root: string, rel: string): string {
 }
 
 /** Directories never pushed or copied, whether or not the source is inside a git checkout. */
-export const EXCLUDE_DIRS = new Set(["node_modules", ".wrangler", ".git", "dist", ".artyfact"]);
+export const EXCLUDE_DIRS = new Set(["node_modules", ".wrangler", ".git", "dist", ".artyfact", ".tsbuild"]);
 export const EXCLUDE_FILES = new Set([".artyfact.json", ".DS_Store"]);
 export { isSecretFile };
 const excluded = (rel: string) => {

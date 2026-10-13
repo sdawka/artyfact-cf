@@ -25,3 +25,6 @@ node_modules
 
 # Local GRREAT sync receipts
 docs/grreat/.sync.json
+
+# Local agent working files (reviews, plans, reports)
+.superpowers/

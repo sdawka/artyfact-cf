@@ -38,15 +38,24 @@ Before deploying, confirm a System One key is set: `cd apps/platform && npx wran
 
 A System whose head Genome is in the retired v1 layout (`system.yaml` at the root) answers 422 `legacy-genome` on every route that loads it, so it cannot be migrated through a realization. Convert it locally and re-import it ([ontology.md §2a](design/ontology.md)). For the prod Keep in Touch System, from the repo root:
 
-1. Clone the v1 head of `keep-in-touch.genome` (not the example on `main`: prod may have promoted Genome amendments since). Pass the read token through the environment, never in argv:
+Set the platform URL and the account id first:
+
+```
+URL=https://artyfact-platform.dawka.workers.dev
+ACCOUNT_ID=<the account id from npx wrangler whoami>
+```
+
+1. Clone the v1 head of `keep-in-touch.genome` (not the example on `main`: prod may have promoted Genome amendments since) and the head of `keep-in-touch.app`, for its own `source-map.yaml`. Pass each read token through the environment, never in argv:
    ```
-   T=$(npx wrangler artifacts repos issue-token keep-in-touch.genome --namespace artyfact --scope read --ttl 600 --json | jq -r .plaintext)
-   GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Bearer $T" \
-     git clone -q https://<account-id>.artifacts.cloudflare.net/git/artyfact/keep-in-touch.genome.git /tmp/kit-v1
+   for repo in keep-in-touch.genome keep-in-touch.app; do
+     T=$(npx wrangler artifacts repos issue-token $repo --namespace artyfact --scope read --ttl 600 --json | jq -r .plaintext)
+     GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Bearer $T" \
+       git clone -q https://$ACCOUNT_ID.artifacts.cloudflare.net/git/artyfact/$repo.git /tmp/$repo
+   done
    ```
-2. Convert it:
+2. Convert it with prod's own source map:
    ```
-   npx artyfact convert-genome /tmp/kit-v1 /tmp/kit-v2 --source-map packages/ontology/test/fixtures/artyfact/keep-in-touch-app.source-map.yaml
+   npx artyfact convert-genome /tmp/keep-in-touch.genome /tmp/kit-v2 --source-map /tmp/keep-in-touch.app/source-map.yaml
    ```
    Review the tree; `node.yaml` at its root must name `system.keep-in-touch`.
 3. Push the Genome only and re-import:
