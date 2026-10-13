@@ -1,7 +1,8 @@
 import { fileURLToPath, URL } from "node:url";
 import { cloudflare } from "@cloudflare/vite-plugin";
 import react from "@vitejs/plugin-react";
-import { defineConfig, type Plugin } from "vite";
+import { defineConfig, type Plugin, type UserConfig } from "vite";
+import { assertNoFakeBuild } from "./scripts/fake-build-guard";
 
 const fake = process.env.FAKE_ARTIFACTS === "1";
 
@@ -13,7 +14,7 @@ const noSelfSeed = (): Plugin => ({
     : undefined),
 });
 
-export default defineConfig({
+const config = {
   // e2e fixture mode previews with in-memory state, so a System imported for the demo (.wrangler/state) never leaks in.
   // FAKE_ARTIFACTS=1 runs the backend on in-memory Artifacts seeded from examples/ (FAKE_SEED=artyfact|both adds the
   // repo-root genome/, Artyfact itself): no remote binding, no persisted state (the fake repos live in the isolate),
@@ -33,4 +34,9 @@ export default defineConfig({
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
+} satisfies UserConfig;
+
+export default defineConfig(({ command }) => {
+  assertNoFakeBuild(command, process.env);
+  return config;
 });
