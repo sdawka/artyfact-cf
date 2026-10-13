@@ -127,6 +127,11 @@ describe("source map", () => {
     expect(nodesForPath(sm, "src/ui/people/list.html").sort()).toEqual(["component.AddContactDialog", "screen.people", "section.ui"]);
     expect(nodesForPath(sm, "README.md")).toEqual(["unmapped:README.md"]);
   });
+  it("matches an escaped {id} default only literally", () => {
+    const sm = sourceMapFor({ files: { "screen.*": [{ glob: "ids/screen.\\*.ts", declared: false }] } });
+    expect(nodesForPath(sm, "ids/screen.*.ts")).toEqual(["screen.*"]);
+    expect(nodesForPath(sm, "ids/screen.people.ts")).toEqual(["unmapped:ids/screen.people.ts"]);
+  });
   it("permits globs for affected nodes and their non-root ancestors", () => {
     const sm = sourceMapFor({ files });
     const path = (id: string) =>

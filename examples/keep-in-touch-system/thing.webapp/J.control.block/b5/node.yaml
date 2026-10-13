@@ -5,7 +5,6 @@ fields:
   actor: counterpart
   action: New invitations and acceptances between the two accounts are refused
   kind: reaction
-  unresolved: false
   requirementRefs:
     - S.webapp.concurrency
   next:

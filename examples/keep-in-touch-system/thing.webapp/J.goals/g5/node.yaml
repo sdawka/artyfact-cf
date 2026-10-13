@@ -5,7 +5,6 @@ fields:
   actor: user
   action: Save or cancel
   kind: branch
-  unresolved: false
   requirementRefs:
     - S.webapp.qualification
   next:

@@ -4,8 +4,6 @@ fields:
   step: s2
   actor: system
   action: "Create invitation: 128-bit credential, only a token hash stored, expires in 24 hours, one acceptance"
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
   next:

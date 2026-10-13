@@ -5,7 +5,6 @@ fields:
   actor: counterpart
   action: See who is inviting; Accept or Decline
   kind: branch
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
   next:

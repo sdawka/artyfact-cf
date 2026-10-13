@@ -65,7 +65,8 @@ describe("node files: app infrastructure", () => {
     expect(JSON.stringify(scope)).not.toContain("unmapped");
   });
 
-  it.each(["src/worker/auth.ts", "source-map.yaml"])("scope-authorized does not pass for an app-Thing candidate changing %s without a node mapping", async (path) => {
+  it("scope-authorized does not pass for an app-Thing candidate changing src/worker/auth.ts without a node mapping", async () => {
+    const path = "src/worker/auth.ts";
     const defaultsOnly = sourceMapFor(loadGenome(withoutNodeFiles(), BASE));
     const candidate: CandidateRef = {
       id: "cand.kit.r1", realizationId: "realization.1.r1", evolutionId: "evolution.1", target: "app", commit: COMMIT, baseCommit: BASE,

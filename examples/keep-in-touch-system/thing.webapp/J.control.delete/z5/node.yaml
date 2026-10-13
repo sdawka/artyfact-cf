@@ -5,7 +5,6 @@ fields:
   actor: system
   action: Owned live data purged within seven days; backup expiry follows the pinned retention policy
   kind: wait
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
   next:

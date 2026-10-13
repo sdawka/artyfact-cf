@@ -323,6 +323,9 @@ function composed(graph: Graph, templates: TemplateStore, tree: GenomeTree): Tem
   }
 }
 
+/** `s` with glob metacharacters backslash-escaped, so an id filled into a kind default matches only itself. */
+const globEscape = (s: string) => s.replace(/[*?[\]{}()!+@,|^$\\]/g, "\\$&");
+
 /**
  * Each tree node's effective globs (design §3): its kind's `files` (from the nearest template that declares the kind,
  * `{id}`/`{slug}` filled in), its prefilled template node's `files`, the template's root `files` for the node that
@@ -339,7 +342,7 @@ function sourceFiles(graph: Graph, templates: TemplateStore, tree: GenomeTree): 
     const kindFiles = chain.find((o) => o.t.kinds[n.file.kind])?.t.kinds[n.file.kind]?.files ?? [];
     const owner = chain.find((o) => o.id !== id);
     const defaults = [
-      ...kindFiles.map((g) => g.replaceAll("{id}", id).replaceAll("{slug}", slug)),
+      ...kindFiles.map((g) => g.replaceAll("{id}", globEscape(id)).replaceAll("{slug}", slug)),
       ...(owner ? instantiateNodes(owner.t, owner.id).find((x) => x.id === id)?.files ?? [] : []),
       ...(ref ? chain[0]!.t.files ?? [] : []),
     ];

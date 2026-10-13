@@ -4,8 +4,6 @@ fields:
   step: s1
   actor: user
   action: Open People
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.screens
   next:

@@ -4,8 +4,6 @@ fields:
   step: g2
   actor: user
   action: Choose Edit goal
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.qualification
   next:

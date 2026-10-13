@@ -1,3 +1,4 @@
+import { parse as parseYaml } from "yaml";
 import { ontologyFields } from "../adapters/artyfact/graph.ts";
 import { loadArtyfactModel, type ArtyfactModel } from "../adapters/artyfact/load.ts";
 import type * as schema from "../adapters/artyfact/schema.ts";
@@ -24,8 +25,12 @@ interface Draft { id: string; kind: string; parent?: string; slug: string; file:
  * hooks are written out with their `fromTemplate`, as the v2 codec expects. Throws `GenomeTreeError` when the v1
  * Genome cannot be placed losslessly: a node whose parent is unknown, a criterion whose owner is not the nearest
  * Thing or System above its subject, a hook no criterion names, an inbound link to something that is not a node.
+ * `opts.sourceMap` is the app repo's v1 `source-map.yaml` text: each entry's glob goes onto the `files` of every node it
+ * names (in entry order); entries for the pseudo-node `genome` are dropped, and naming any other unknown node throws.
  */
-export function convertV1(files: GenomeFiles, templates?: ArtyfactTemplateStore | Record<string, string>): Map<string, string> {
+export function convertV1(
+  files: GenomeFiles, templates?: ArtyfactTemplateStore | Record<string, string>, opts: { sourceMap?: string } = {},
+): Map<string, string> {
   const m = loadArtyfactModel(Object.fromEntries(entriesOf(files)), { templates });
   const issues: TreeIssue[] = [];
   const drafts = new Map<string, Draft>();
@@ -78,8 +83,11 @@ export function convertV1(files: GenomeFiles, templates?: ArtyfactTemplateStore 
   for (const f of m.description?.features ?? []) atRoot(f.id, "feature", { name: f.name, summary: f.summary, deferred: f.deferred, source: f.source });
   for (const c of m.description?.commitments ?? []) atRoot(c.id, "commitment", { statement: c.statement, features: c.features, coupledWith: c.coupledWith, source: c.source });
   for (const n of m.nodes) {
+    // `owningThing` is derived from containment in the tree, and `revision: 1` is the default: v1 projection artefacts.
+    const { owningThing: _owner, ...fields } = ontologyFields(n);
+    if (fields.revision === 1) delete fields.revision;
     add({ id: n.id, kind: n.kind, parent: n.parent ?? s.id, file: {
-      id: n.id, kind: n.kind, fields: ontologyFields(n), ...(n.provisional && { provisional: true }),
+      id: n.id, kind: n.kind, fields, ...(n.provisional && { provisional: true }),
     } }, origin(n.id));
   }
   for (const r of m.requirements) {
@@ -98,7 +106,7 @@ export function convertV1(files: GenomeFiles, templates?: ArtyfactTemplateStore 
       add({ id, kind: "step", parent: j.id, slug: slugOf(st.id), file: {
         id, kind: "step",
         fields: compact({
-          step: st.id, actor: st.actor, action: st.action, state: st.state, kind: st.kind, unresolved: st.unresolved,
+          step: st.id, actor: st.actor, action: st.action, state: st.state, kind: st.kind === "action" ? undefined : st.kind, unresolved: st.unresolved || undefined,
           requirementRefs: st.requirementRefs, next: st.next, ...(st.unresolved && refs),
         }),
       } }, origin(j.id));
@@ -170,6 +178,15 @@ export function convertV1(files: GenomeFiles, templates?: ArtyfactTemplateStore 
     if (!placed.has(h.id)) issues.push({ path: origin(h.id), message: `hook ${h.id} is named by no criterion, so it has nowhere to go` });
     for (const c of h.criteria) if (!m.criteria.some((x) => x.id === c && x.hooks.includes(h.id))) issues.push({ path: origin(h.id), message: `hook ${h.id} lists criterion ${c}, which does not name it` });
   }
+  for (const e of sourceMapEntries(opts.sourceMap, issues)) {
+    for (const id of e.nodes) {
+      if (id === "genome") continue;
+      const d = drafts.get(id);
+      if (!d) { issues.push({ path: SOURCE_MAP, message: `${e.glob} names ${id}, which is not a node` }); continue; }
+      const own = (d.file.files ??= []);
+      if (!own.includes(e.glob)) own.push(e.glob);
+    }
+  }
   if (issues.length) throw new GenomeTreeError(issues);
 
   // Directories: the root is "", every other node a slug under its parent's, unique among its siblings.
@@ -192,6 +209,19 @@ export function convertV1(files: GenomeFiles, templates?: ArtyfactTemplateStore 
   }
   for (const [path, text] of entriesOf(files)) if (/^evolutions\/[^/]+\.ya?ml$/.test(path)) out.push([path, text]);
   return new Map(out.sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+}
+
+const SOURCE_MAP = "source-map.yaml";
+
+/** The v1 source map's `[{glob, nodes}]` entries (also `{mappings: [...]}`); anything else is an issue. */
+function sourceMapEntries(text: string | undefined, issues: TreeIssue[]): { glob: string; nodes: string[] }[] {
+  if (!text?.trim()) return [];
+  let raw: unknown;
+  try { raw = parseYaml(text); } catch (e) { issues.push({ path: SOURCE_MAP, message: (e as Error).message }); return []; }
+  const list = Array.isArray(raw) ? raw : (raw as { mappings?: unknown } | null)?.mappings;
+  const ok = (e: unknown): e is { glob: string; nodes: unknown } => !!e && typeof e === "object" && typeof (e as { glob?: unknown }).glob === "string";
+  if (!Array.isArray(list) || !list.every(ok)) { issues.push({ path: SOURCE_MAP, message: "expected a list of {glob, nodes} entries" }); return []; }
+  return list.map((e) => ({ glob: e.glob, nodes: Array.isArray(e.nodes) ? e.nodes.map(String) : e.nodes == null ? [] : [String(e.nodes)] }));
 }
 
 /** A journey's owner: the one Thing its steps' screens and operations belong to, else the System. */

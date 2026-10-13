@@ -4,8 +4,6 @@ fields:
   step: s6
   actor: counterpart
   action: Sign in; the validated invitation is preserved and not consumed
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.authentication
   next:

@@ -32,13 +32,13 @@
     },
     {
       "path": "J.updates/u1/node.yaml",
-      "hash": "de7632ad3fad78ea4045d3d96bf4c7a7766d31a0",
-      "size": 175
+      "hash": "6fa5e19b014c878d89918024836beff58a7dbeb3",
+      "size": 160
     },
     {
       "path": "J.updates/u2/node.yaml",
-      "hash": "17d71c675a3466235b209d00edc292700e0b69e7",
-      "size": 183
+      "hash": "9183c02a57622d3b97ad9040d197b506d6c45c2e",
+      "size": 168
     },
     {
       "path": "J.updates/u3/node.yaml",
@@ -192,28 +192,28 @@
     },
     {
       "path": "thing.webapp/J.connect/e1/node.yaml",
-      "hash": "373bda4179d07759def494101cc1f738ed9c6fcc",
-      "size": 231
+      "hash": "31be60092485e6bd30cbf0581fd917a8c6c4f59a",
+      "size": 211
     },
     {
       "path": "thing.webapp/J.connect/e2/node.yaml",
-      "hash": "8c5604fd443b158bdb1b170543ef5a2813f190a5",
-      "size": 246
+      "hash": "7c9c2135f800f46f5a0771221fca9997db6df23d",
+      "size": 226
     },
     {
       "path": "thing.webapp/J.connect/e3/node.yaml",
-      "hash": "2172fd636d69dc8c5b10413938c111f1e985e1c5",
-      "size": 178
+      "hash": "f772e64ccfc951d3a334e253fd75b9a827721133",
+      "size": 158
     },
     {
       "path": "thing.webapp/J.connect/f1/node.yaml",
-      "hash": "6fc027ef9483cfc239648faee60b655ec07c6d84",
-      "size": 296
+      "hash": "a3d28d48e66fae8077c47f94c357fd68d76b5192",
+      "size": 276
     },
     {
       "path": "thing.webapp/J.connect/f2/node.yaml",
-      "hash": "a31268582f46501c154cafb0eb1f83d484b51ac2",
-      "size": 296
+      "hash": "23734a6f46d398d8e11e94018834b18853ba8ce5",
+      "size": 276
     },
     {
       "path": "thing.webapp/J.connect/node.yaml",
@@ -222,83 +222,83 @@
     },
     {
       "path": "thing.webapp/J.connect/s1/node.yaml",
-      "hash": "5e0cc3d33e929348d39d2fcd27b8e53a902d86eb",
-      "size": 249
+      "hash": "9ac8fc3fcddac3e0236a4554c737079af765fa54",
+      "size": 214
     },
     {
       "path": "thing.webapp/J.connect/s2/node.yaml",
-      "hash": "a80384e9c9b567b32fd813ddcb8d819674f0ca59",
-      "size": 383
+      "hash": "ef2e0dcbb5ef806fb3870c5007d09915455409e7",
+      "size": 348
     },
     {
       "path": "thing.webapp/J.connect/s3/node.yaml",
-      "hash": "826c72c7759907ba046aef2cda5744746d45ab38",
-      "size": 296
+      "hash": "0716262511c290454965b7b985c6eda3d97dd085",
+      "size": 261
     },
     {
       "path": "thing.webapp/J.connect/s4/node.yaml",
-      "hash": "a33e0678faaf91e73eb7ff77c1e6d93c07f071e8",
-      "size": 338
+      "hash": "35f9a9a6cb1d7e2a7e49c7a19e88e654a61f45aa",
+      "size": 318
     },
     {
       "path": "thing.webapp/J.connect/s5/node.yaml",
-      "hash": "699f1c68a5b7b67282e94e5dde909338edb0a829",
-      "size": 319
+      "hash": "5f0dd0f5371a8df4e99f2ba0e5ae04003eb8adcd",
+      "size": 299
     },
     {
       "path": "thing.webapp/J.connect/s6/node.yaml",
-      "hash": "690cdf26613d6949c514e8c437cfd88c684d2c50",
-      "size": 297
+      "hash": "d73b2bd4fb0dd9f48672e39442615a2132953cdb",
+      "size": 262
     },
     {
       "path": "thing.webapp/J.connect/s7/node.yaml",
-      "hash": "8d1407f70cd664d28e5b83d883862fe600216039",
-      "size": 324
+      "hash": "642ff48344b3f762d5a9a59e2124d80846d42a5c",
+      "size": 304
     },
     {
       "path": "thing.webapp/J.connect/s8/node.yaml",
-      "hash": "e3b113e2438a88d7a88e43ac7d4f1d138aed9a4d",
-      "size": 528
+      "hash": "454c44df395c966f99e050274827a30f1770af2c",
+      "size": 508
     },
     {
       "path": "thing.webapp/J.connect/s9/node.yaml",
-      "hash": "5055596d5edfce5f6c41fb9b61dd275791406e0f",
-      "size": 367
+      "hash": "890022c4d0ed0dbb68e024d3ce2f3e63f19b14c4",
+      "size": 347
     },
     {
       "path": "thing.webapp/J.contact/c1/node.yaml",
-      "hash": "b856409fbb423d8b3f5cbdc6628bd54d5e59e323",
-      "size": 235
+      "hash": "6f01d550320787cd3a5d15607dde92fb89f076d0",
+      "size": 200
     },
     {
       "path": "thing.webapp/J.contact/c2/node.yaml",
-      "hash": "db73f11ce81392ee4edb3d6472e4178f50edb3dd",
-      "size": 368
+      "hash": "5be5fe6d5fb2b25f0682e65fe31b208b7a658318",
+      "size": 333
     },
     {
       "path": "thing.webapp/J.contact/c3/node.yaml",
-      "hash": "b5ea721d64c153207d12fb85cb7b26abc05f1ed4",
-      "size": 315
+      "hash": "39b0c0eaa00894a1e8187ca3bd62410fe689900a",
+      "size": 295
     },
     {
       "path": "thing.webapp/J.contact/c4/node.yaml",
-      "hash": "10c8d38589a44c427bda94f18d46cec0eb0b3a9e",
-      "size": 306
+      "hash": "7330bc2d180c1e62d79c4d44f706f2e6a33d7bd8",
+      "size": 286
     },
     {
       "path": "thing.webapp/J.contact/c5/node.yaml",
-      "hash": "41a994b985d35572c3f2ea4d07191d551c44d7de",
-      "size": 414
+      "hash": "87aa50c80d4b65e440444523b8537cb9a41198e4",
+      "size": 394
     },
     {
       "path": "thing.webapp/J.contact/e1/node.yaml",
-      "hash": "82b4131db303497fcb0d923df7867de8861d70e5",
-      "size": 329
+      "hash": "c31705a14d9793e20500c43ba96228fe6ada142f",
+      "size": 309
     },
     {
       "path": "thing.webapp/J.contact/e2/node.yaml",
-      "hash": "4675252655503896b1eaee6657692327a799c21a",
-      "size": 257
+      "hash": "1f2472abdef13eded9d08ea6fb6dde48089f467a",
+      "size": 237
     },
     {
       "path": "thing.webapp/J.contact/node.yaml",
@@ -307,18 +307,18 @@
     },
     {
       "path": "thing.webapp/J.contacts/e1/node.yaml",
-      "hash": "501fd9dfec70769b910a203ce8c0da28b458774f",
-      "size": 215
+      "hash": "3223ff5b0ec64c201587ddfa18f10cb9f6518c58",
+      "size": 195
     },
     {
       "path": "thing.webapp/J.contacts/e2/node.yaml",
-      "hash": "aec17e642b76bec0e30d89d66ca4bc8044baeb8d",
-      "size": 225
+      "hash": "aba490d5371f6a2ddfd4fb2f0b70bf79c00679cf",
+      "size": 205
     },
     {
       "path": "thing.webapp/J.contacts/f1/node.yaml",
-      "hash": "b21091e89ddfb14fecfb2229e479ec09b8e60e67",
-      "size": 350
+      "hash": "972e440caab791a848a418ab21c741de3bb44e0d",
+      "size": 330
     },
     {
       "path": "thing.webapp/J.contacts/node.yaml",
@@ -327,63 +327,63 @@
     },
     {
       "path": "thing.webapp/J.contacts/s1/node.yaml",
-      "hash": "a29630b58a0542c0d841f10b722006579b1d5532",
-      "size": 232
+      "hash": "7b6a9c0cc26986b9810984002043318e16c60ed6",
+      "size": 197
     },
     {
       "path": "thing.webapp/J.contacts/s2/node.yaml",
-      "hash": "c42e97be31013532925b2b7c6176c1d27164a223",
-      "size": 318
+      "hash": "ef869d02fa6649d57a3fe1294fe72bf67bd6ad9c",
+      "size": 283
     },
     {
       "path": "thing.webapp/J.contacts/s3/node.yaml",
-      "hash": "e6184d331b07bb15c4fcbbe53bbe5c985fc5e200",
-      "size": 280
+      "hash": "c2db97112ac8180a459aad1afb1b2d9a174023a7",
+      "size": 245
     },
     {
       "path": "thing.webapp/J.contacts/s4/node.yaml",
-      "hash": "18b461da8761c9fa042d9cc8095ae83c63665e6e",
-      "size": 399
+      "hash": "dabfd807bd42fe36775eaa9c2e06406cfefd5b77",
+      "size": 379
     },
     {
       "path": "thing.webapp/J.contacts/s5/node.yaml",
-      "hash": "400e066c42e16960047be7d99a3551a1162d318a",
-      "size": 364
+      "hash": "1b38fa0253189369ca680ba0187f4f3c28eed575",
+      "size": 344
     },
     {
       "path": "thing.webapp/J.control.block/b1/node.yaml",
-      "hash": "50d93ae483b19cfd5337e6db39f0adcef456b5d1",
-      "size": 240
+      "hash": "5dd328e3375c496cab733f7d3b8bf368d1d5f620",
+      "size": 205
     },
     {
       "path": "thing.webapp/J.control.block/b2/node.yaml",
-      "hash": "d6cca39cf669ef161cc5e9197a73e73625693c4a",
-      "size": 305
+      "hash": "61a063f2f9bfaaec9dff48860e12f3058b2dc039",
+      "size": 285
     },
     {
       "path": "thing.webapp/J.control.block/b3/node.yaml",
-      "hash": "ed9f894e4234b753d3982df5a312e4bcd67554e4",
-      "size": 410
+      "hash": "088d75d7952404482d70d62aa237c60e2e9b75bc",
+      "size": 375
     },
     {
       "path": "thing.webapp/J.control.block/b4/node.yaml",
-      "hash": "ef35954f03bf326b063598678fcc4670cd64c06a",
-      "size": 295
+      "hash": "1688ca5531979e5363e9d46b22ddf1a7369256a0",
+      "size": 275
     },
     {
       "path": "thing.webapp/J.control.block/b5/node.yaml",
-      "hash": "61386e217a778abef44cccc536f84bb587d3aa00",
-      "size": 320
+      "hash": "6cafabeb61a4d7cbd45e22c322c5d99df76d7d89",
+      "size": 300
     },
     {
       "path": "thing.webapp/J.control.block/e1/node.yaml",
-      "hash": "f4e360d1bab5d795f81b0e834f1937ff662a2b46",
-      "size": 185
+      "hash": "2f962b16d876bd7f61a5dc19e3dc622b6cbf1c44",
+      "size": 165
     },
     {
       "path": "thing.webapp/J.control.block/e2/node.yaml",
-      "hash": "8c0ba788d797cc27d6e92aeb08e33537125be40c",
-      "size": 222
+      "hash": "526e9af4193a00c92e66868f5b17ac3f9f60ceac",
+      "size": 202
     },
     {
       "path": "thing.webapp/J.control.block/node.yaml",
@@ -392,18 +392,18 @@
     },
     {
       "path": "thing.webapp/J.control.delete/e1/node.yaml",
-      "hash": "7e6981c62789b3405020af4e211af78045ecd62b",
-      "size": 182
+      "hash": "c4cdfb4c378bd6ac864b6b5a5929465c0defb56e",
+      "size": 162
     },
     {
       "path": "thing.webapp/J.control.delete/e2/node.yaml",
-      "hash": "57db3da560c4d5a6f148bbbd283a3bdf319cf499",
-      "size": 225
+      "hash": "c47cd26046045eb2a9c3c99ac12d7ded3858321f",
+      "size": 205
     },
     {
       "path": "thing.webapp/J.control.delete/f1/node.yaml",
-      "hash": "8fde505fdea106ebc07d85f0a5d21018aa3b1730",
-      "size": 287
+      "hash": "f092d0c62d890560ff6a0e9a3ff6285c74c280f2",
+      "size": 267
     },
     {
       "path": "thing.webapp/J.control.delete/node.yaml",
@@ -412,58 +412,58 @@
     },
     {
       "path": "thing.webapp/J.control.delete/z1/node.yaml",
-      "hash": "4168969d1ca443d38b59e65456ea606fa4bc2af4",
-      "size": 242
+      "hash": "68ae477241efc4554b5a922587d5906e6b38b31e",
+      "size": 207
     },
     {
       "path": "thing.webapp/J.control.delete/z2/node.yaml",
-      "hash": "5d88cddaaac0547aae47691b7ed27db53e2f906d",
-      "size": 347
+      "hash": "a2b5894b2aa73bb8a8b240f2a4b5aaf5cfddb3d7",
+      "size": 327
     },
     {
       "path": "thing.webapp/J.control.delete/z3/node.yaml",
-      "hash": "73bdf837152ce4fceb9f0958dbd4ecb08a68a828",
-      "size": 341
+      "hash": "1ef01593ab561dfb536c11e624f433680b411770",
+      "size": 321
     },
     {
       "path": "thing.webapp/J.control.delete/z4/node.yaml",
-      "hash": "7f32379a9e64d0fd3a4c0dcc7157a5785a8b4eb3",
-      "size": 325
+      "hash": "2f492dfc00be390f9e56e53b8bbf4479e64d611e",
+      "size": 290
     },
     {
       "path": "thing.webapp/J.control.delete/z5/node.yaml",
-      "hash": "84603eab9b1a5debfd560028d68f1611f67879ca",
-      "size": 271
+      "hash": "c9be5298298eed38b9349dd781d7ca2a7ab1f5e9",
+      "size": 251
     },
     {
       "path": "thing.webapp/J.control.disconnect/d1/node.yaml",
-      "hash": "2b6ac2232846521a8dc15503aaf74e8418fb9617",
-      "size": 271
+      "hash": "ed8d509a48da0f72a7cd627e7df5e625b998885c",
+      "size": 236
     },
     {
       "path": "thing.webapp/J.control.disconnect/d2/node.yaml",
-      "hash": "ef8dc1a03de7aac71aef32998ac8748b69746774",
-      "size": 315
+      "hash": "7145edfd140b46b0ac14bf8fe4bb9043312e6cf8",
+      "size": 295
     },
     {
       "path": "thing.webapp/J.control.disconnect/d3/node.yaml",
-      "hash": "611bab86e82ee7e709f85bf9a8e6ed8bf3f406e9",
-      "size": 399
+      "hash": "8bfc87f6a0d1ca8b61c01ba2b20814fc844ed867",
+      "size": 364
     },
     {
       "path": "thing.webapp/J.control.disconnect/d4/node.yaml",
-      "hash": "6daafb883eafc37414c1885874fbba203be4c0df",
-      "size": 307
+      "hash": "66e3bad0279b0efec7436cd7741543bdbef19dad",
+      "size": 287
     },
     {
       "path": "thing.webapp/J.control.disconnect/e1/node.yaml",
-      "hash": "e0cf8cb14cb29e4c3568bd2f3023199c74ce3368",
-      "size": 265
+      "hash": "6b8e7c5109d2795c80188cf3e47178c34170f64b",
+      "size": 245
     },
     {
       "path": "thing.webapp/J.control.disconnect/e2/node.yaml",
-      "hash": "823e97795cd3fc858d4a676a29a4f9f6fc7dbd1f",
-      "size": 230
+      "hash": "d0e1b0528795296b7ed460a821ee1b117cb53f64",
+      "size": 210
     },
     {
       "path": "thing.webapp/J.control.disconnect/node.yaml",
@@ -472,18 +472,18 @@
     },
     {
       "path": "thing.webapp/J.control.export/e1/node.yaml",
-      "hash": "0ef7895d6b15b317b558b110a0c71f1988e4f256",
-      "size": 292
+      "hash": "4dcfec38308315dd770fe17f575b7f050026f32f",
+      "size": 272
     },
     {
       "path": "thing.webapp/J.control.export/e2/node.yaml",
-      "hash": "7c407051ac38dddf639d88bc37c130b9bd58cada",
-      "size": 226
+      "hash": "1c8a50708bad2ce4361983cf848b7054602c650d",
+      "size": 206
     },
     {
       "path": "thing.webapp/J.control.export/f1/node.yaml",
-      "hash": "6c7ff671259ad656306dd1523bb3119fb0e3317f",
-      "size": 284
+      "hash": "fd2d4ee71a47790d86a2e5d9c895aa147b7fb415",
+      "size": 264
     },
     {
       "path": "thing.webapp/J.control.export/node.yaml",
@@ -492,58 +492,58 @@
     },
     {
       "path": "thing.webapp/J.control.export/x1/node.yaml",
-      "hash": "556aeea8916d1dbdd908463d13a6b274101cce62",
-      "size": 242
+      "hash": "56a63bab73d898f6a3b24dc83736580067a521a1",
+      "size": 207
     },
     {
       "path": "thing.webapp/J.control.export/x2/node.yaml",
-      "hash": "937722d01ced1532d6207dc243a333fd9b8e5f08",
-      "size": 282
+      "hash": "8bb80ddb84d70110410c796782e381b63c52fbdf",
+      "size": 247
     },
     {
       "path": "thing.webapp/J.control.export/x3/node.yaml",
-      "hash": "318043b19fe1c9a4cad33bde059e4f2b02b81776",
-      "size": 341
+      "hash": "9cd13bf1a7367d2484119a809851edfc16e71847",
+      "size": 321
     },
     {
       "path": "thing.webapp/J.control.export/x4/node.yaml",
-      "hash": "69a8c879fd48f460f0b378c6cb2c7f0401ce595f",
-      "size": 345
+      "hash": "c1a4585d6d6e6b066852502a75dda001daaa4f36",
+      "size": 310
     },
     {
       "path": "thing.webapp/J.goals/e1/node.yaml",
-      "hash": "905dd1bc4191eaaf2506d87f4fd52a5d073e19b2",
-      "size": 340
+      "hash": "cf3291a968df17c948a6a3a86066073af1545e45",
+      "size": 320
     },
     {
       "path": "thing.webapp/J.goals/e2/node.yaml",
-      "hash": "8340d94e6b40a16ba2d47db2749612298becd08b",
-      "size": 259
+      "hash": "44a77ac2857ac5b73748d9abeaa96b3320efcffd",
+      "size": 239
     },
     {
       "path": "thing.webapp/J.goals/g1/node.yaml",
-      "hash": "2f159b7c47e6f846871fe083480e6d89472a231e",
-      "size": 231
+      "hash": "73d1c0f4477b2ff67fbae80ddaa745f852c80c96",
+      "size": 196
     },
     {
       "path": "thing.webapp/J.goals/g2/node.yaml",
-      "hash": "bde989299b1e03d1255e7f719bb21d73a6fe38dd",
-      "size": 238
+      "hash": "826285d3a1fcaf451d968cff56c8d59b4faf41fd",
+      "size": 203
     },
     {
       "path": "thing.webapp/J.goals/g3/node.yaml",
-      "hash": "2e326912dbe32ab6bf73ed9e81fc8daa38310fb4",
-      "size": 329
+      "hash": "d0bf216b697419087c224cf2a34ec2562aa99b0e",
+      "size": 294
     },
     {
       "path": "thing.webapp/J.goals/g4/node.yaml",
-      "hash": "cb885fbe3dd78790f7a983cbf848686c8510473a",
-      "size": 344
+      "hash": "77b964b9e71b35c23dc471d17eebe763bcac289b",
+      "size": 324
     },
     {
       "path": "thing.webapp/J.goals/g5/node.yaml",
-      "hash": "6010c12fd9da0086b48c13b768e8d621b0dbc46c",
-      "size": 408
+      "hash": "bd227a6e2f5f3989ca8e9e80ff75d48b2bdfd76a",
+      "size": 388
     },
     {
       "path": "thing.webapp/J.goals/node.yaml",
@@ -1233,8 +1233,8 @@
     "GD.prompts/node.yaml": "id: GD.prompts\nkind: feature\nfields:\n  name: Suggested next actions\n  summary: A finite Today view of at most five due suggestions; opening a channel never completes a goal.\n  deferred: false\n  source:\n    doc: keep-in-touch-world-specification\n    section: \"3\"\n",
     "GD.updates/node.yaml": "id: GD.updates\nkind: feature\nfields:\n  name: Digests and photo suggestions (later)\n  summary: Later digests and photo suggestions; realization deferred while the digest interpretation is unresolved.\n  deferred: true\n  source:\n    doc: keep-in-touch-world-specification\n    section: \"3\"\n",
     "J.updates/node.yaml": "id: J.updates\nkind: journey\nfields:\n  name: Digests and photo suggestions (later)\n  actorGoal: Share and read periodic updates, and approve suggested photos\n  features:\n    - GD.updates\n  start: u1\n  deferred: true\n",
-    "J.updates/u1/node.yaml": "id: J.updates/u1\nkind: step\nfields:\n  step: u1\n  actor: user\n  action: Publish a digest edition to approved subscribers\n  kind: action\n  unresolved: true\n  next:\n    - to: u2\n",
-    "J.updates/u2/node.yaml": "id: J.updates/u2\nkind: step\nfields:\n  step: u2\n  actor: counterpart\n  action: Subscribe, read, or reply privately to the author\n  kind: action\n  unresolved: true\n  next:\n    - to: u3\n",
+    "J.updates/u1/node.yaml": "id: J.updates/u1\nkind: step\nfields:\n  step: u1\n  actor: user\n  action: Publish a digest edition to approved subscribers\n  unresolved: true\n  next:\n    - to: u2\n",
+    "J.updates/u2/node.yaml": "id: J.updates/u2\nkind: step\nfields:\n  step: u2\n  actor: counterpart\n  action: Subscribe, read, or reply privately to the author\n  unresolved: true\n  next:\n    - to: u3\n",
     "J.updates/u3/node.yaml": "id: J.updates/u3\nkind: step\nfields:\n  step: u3\n  actor: user\n  action: Approve a suggested photo, caption and recipient before anything is sent\n  kind: end\n  unresolved: true\n",
     "P1/node.yaml": "id: P1\nkind: purpose\nfields:\n  statement: Help an individual keep in touch with selected people at a personally meaningful frequency and depth, while respecting both people's autonomy.\n  intendedChange: More wanted contact and less effort remembering or initiating it.\n  successCriteria:\n    - More wanted contact happens with the people the owner chose to keep in touch with.\n    - Less effort is needed to remember or initiate contact.\n    - Both people's autonomy is respected; unwanted pressure does not rise.\n  nonGoals:\n    - Time spent in the app (diagnostic measure only)\n    - Message volume (diagnostic measure only)\n    - Notification opens (diagnostic measure only)\n    - Streak penalties, public relationship scores and group discussion (spec §3)\n  constraints:\n    - Private contacts, goals and notes stay owner-only; connecting accounts adds consensual sharing capabilities and does not turn private notes or goals into shared data.\n    - The app can help before any friend installs it.\n  source:\n    doc: keep-in-touch-world-specification\n    section: \"1\"\nlinks:\n  - { rel: beneficiary, to: ext.owner }\n  - { rel: beneficiary, to: ext.contacts }\n",
     "T1/node.yaml": "id: T1\nkind: claim\nfields:\n  name: Remembering\n  purpose: P1\n  mechanism: Private context and a chosen cadence reduce forgetting\n  outcome: Wanted contact happens more reliably\n  indicator: Weekly proportion of active goals satisfied by qualifying contact; denominator excludes paused goals\n  evaluationMethod: Two-week personal baseline where the user chooses, then a four-week pilot; compare descriptive trends and interview participants. A later randomized or staggered comparison with consent and a defined outcome protocol can test T1-T3.\n  limitation: Missing baseline remains unknown; a before-and-after improvement cannot establish causality; no numerical effect target is set. Does not assume more frequent contact always improves a relationship.\n  activities:\n    - GD.contacts\n    - GD.goals\n    - GD.prompts\n  kind: hypothesis\n  status: unknown\n  deferred: false\nlinks:\n  - { rel: beneficiary, to: ext.owner }\n",
@@ -1265,77 +1265,77 @@
     "section.externals/node.yaml": "id: section.externals\nkind: section\nfields:\n  name: Externals\n  description: People, groups, contexts and services outside the System boundary that it serves or depends on.\n  fromTemplate: template.system.social-networking.cloudflare@1\n",
     "section.purpose/node.yaml": "id: section.purpose\nkind: section\nfields:\n  name: Purpose\n  description: Why the System exists, who benefits, and what must change for them.\n  fromTemplate: template.system.social-networking.cloudflare@1\n",
     "section.theory/node.yaml": "id: section.theory\nkind: section\nfields:\n  name: Theory of change\n  description: Claims linking activities to outcomes, each with an indicator and an evaluation method.\n  fromTemplate: template.system.social-networking.cloudflare@1\n",
-    "thing.webapp/J.connect/e1/node.yaml": "id: J.connect/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Connection active; both consents recorded; private goals and notes stay unshared\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n",
-    "thing.webapp/J.connect/e2/node.yaml": "id: J.connect/e2\nkind: step\nfields:\n  step: e2\n  actor: counterpart\n  action: Invitation declined; no pair created\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.invitation }\n",
-    "thing.webapp/J.connect/e3/node.yaml": "id: J.connect/e3\nkind: step\nfields:\n  step: e3\n  actor: counterpart\n  action: No connection created\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.concurrency\n",
-    "thing.webapp/J.connect/f1/node.yaml": "id: J.connect/f1\nkind: step\nfields:\n  step: f1\n  actor: system\n  action: UnavailablePanel shown; no acceptance control\n  kind: failure\n  unresolved: false\n  requirementRefs:\n    - S.webapp.authentication\n  next:\n    - to: e3\n      when: stop\nlinks:\n  - { rel: stepScreen, to: screen.invitation }\n",
-    "thing.webapp/J.connect/f2/node.yaml": "id: J.connect/f2\nkind: step\nfields:\n  step: f2\n  actor: system\n  action: Acceptance refused without revealing why\n  kind: failure\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: e3\n      when: stop\nlinks:\n  - { rel: stepOperation, to: operation.invite.accept }\n",
+    "thing.webapp/J.connect/e1/node.yaml": "id: J.connect/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Connection active; both consents recorded; private goals and notes stay unshared\n  kind: end\n  requirementRefs:\n    - S.webapp.operations\n",
+    "thing.webapp/J.connect/e2/node.yaml": "id: J.connect/e2\nkind: step\nfields:\n  step: e2\n  actor: counterpart\n  action: Invitation declined; no pair created\n  kind: end\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.invitation }\n",
+    "thing.webapp/J.connect/e3/node.yaml": "id: J.connect/e3\nkind: step\nfields:\n  step: e3\n  actor: counterpart\n  action: No connection created\n  kind: end\n  requirementRefs:\n    - S.webapp.concurrency\n",
+    "thing.webapp/J.connect/f1/node.yaml": "id: J.connect/f1\nkind: step\nfields:\n  step: f1\n  actor: system\n  action: UnavailablePanel shown; no acceptance control\n  kind: failure\n  requirementRefs:\n    - S.webapp.authentication\n  next:\n    - to: e3\n      when: stop\nlinks:\n  - { rel: stepScreen, to: screen.invitation }\n",
+    "thing.webapp/J.connect/f2/node.yaml": "id: J.connect/f2\nkind: step\nfields:\n  step: f2\n  actor: system\n  action: Acceptance refused without revealing why\n  kind: failure\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: e3\n      when: stop\nlinks:\n  - { rel: stepOperation, to: operation.invite.accept }\n",
     "thing.webapp/J.connect/node.yaml": "id: J.connect\nkind: journey\nfields:\n  name: Connect with someone through a consented invitation\n  actorGoal: Create a pair connection that both people explicitly consent to\n  features:\n    - GD.connect\n  requirements:\n    - S.webapp.authentication\n    - S.webapp.concurrency\n    - S.webapp.operations\n  start: s1\n  deferred: false\n",
-    "thing.webapp/J.connect/s1/node.yaml": "id: J.connect/s1\nkind: step\nfields:\n  step: s1\n  actor: user\n  action: Open Person and choose Invite\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: s2\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
-    "thing.webapp/J.connect/s2/node.yaml": "id: J.connect/s2\nkind: step\nfields:\n  step: s2\n  actor: system\n  action: \"Create invitation: 128-bit credential, only a token hash stored, expires in 24 hours, one acceptance\"\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: s3\nlinks:\n  - { rel: stepScreen, to: screen.person }\n  - { rel: stepOperation, to: operation.invite.create }\n",
-    "thing.webapp/J.connect/s3/node.yaml": "id: J.connect/s3\nkind: step\nfields:\n  step: s3\n  actor: user\n  action: Share the invitation by QR or connection code through an outside channel\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: s4\nlinks:\n  - { rel: stepExternal, to: ext.channels }\n",
-    "thing.webapp/J.connect/s4/node.yaml": "id: J.connect/s4\nkind: step\nfields:\n  step: s4\n  actor: counterpart\n  action: Open /connect/:token\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.authentication\n  next:\n    - to: s5\n      when: token valid\n    - to: f1\n      when: token invalid, expired or used\nlinks:\n  - { rel: stepScreen, to: screen.invitation }\n",
-    "thing.webapp/J.connect/s5/node.yaml": "id: J.connect/s5\nkind: step\nfields:\n  step: s5\n  actor: system\n  action: Is the invitee signed in?\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.authentication\n  next:\n    - to: s7\n      when: signed in\n    - to: s6\n      when: not signed in\nlinks:\n  - { rel: stepScreen, to: screen.invitation }\n",
-    "thing.webapp/J.connect/s6/node.yaml": "id: J.connect/s6\nkind: step\nfields:\n  step: s6\n  actor: counterpart\n  action: Sign in; the validated invitation is preserved and not consumed\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.authentication\n  next:\n    - to: s7\nlinks:\n  - { rel: stepScreen, to: screen.signin }\n",
-    "thing.webapp/J.connect/s7/node.yaml": "id: J.connect/s7\nkind: step\nfields:\n  step: s7\n  actor: counterpart\n  action: See who is inviting; Accept or Decline\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: s8\n      when: accept\n    - to: e2\n      when: decline\nlinks:\n  - { rel: stepScreen, to: screen.invitation }\n",
-    "thing.webapp/J.connect/s8/node.yaml": "id: J.connect/s8\nkind: step\nfields:\n  step: s8\n  actor: system\n  action: Atomically consume the invite and create or return the unique active pair\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n    - S.webapp.concurrency\n  next:\n    - to: e1\n      when: pair created or returned\n    - to: f2\n      when: invitee is the inviter, or a block exists in either direction\n    - to: s9\n      when: another accept races for the same invite\nlinks:\n  - { rel: stepOperation, to: operation.invite.accept }\n",
-    "thing.webapp/J.connect/s9/node.yaml": "id: J.connect/s9\nkind: step\nfields:\n  step: s9\n  actor: system\n  action: \"Concurrent accept: one redemption wins, no second pair\"\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.concurrency\n  next:\n    - to: e1\n      when: this request won\n    - to: f1\n      when: this request lost\nlinks:\n  - { rel: stepOperation, to: operation.invite.accept }\n",
-    "thing.webapp/J.contact/c1/node.yaml": "id: J.contact/c1\nkind: step\nfields:\n  step: c1\n  actor: user\n  action: Select one person\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.scope\n  next:\n    - to: c2\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
-    "thing.webapp/J.contact/c2/node.yaml": "id: J.contact/c2\nkind: step\nfields:\n  step: c2\n  actor: user\n  action: Open their preferred channel by an explicit gesture, or copy contact details if the channel is unsupported\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.scope\n  next:\n    - to: c3\nlinks:\n  - { rel: stepScreen, to: screen.person }\n  - { rel: stepExternal, to: ext.channels }\n",
-    "thing.webapp/J.contact/c3/node.yaml": "id: J.contact/c3\nkind: step\nfields:\n  step: c3\n  actor: external\n  action: Conversation or meeting happens outside the app; opening the channel completes no goal\n  kind: wait\n  unresolved: false\n  requirementRefs:\n    - S.webapp.qualification\n  next:\n    - to: c4\nlinks:\n  - { rel: stepExternal, to: ext.channels }\n",
-    "thing.webapp/J.contact/c4/node.yaml": "id: J.contact/c4\nkind: step\nfields:\n  step: c4\n  actor: user\n  action: Log what happened?\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.qualification\n  next:\n    - to: c5\n      when: log contact\n    - to: e2\n      when: skip logging\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
-    "thing.webapp/J.contact/c5/node.yaml": "id: J.contact/c5\nkind: step\nfields:\n  step: c5\n  actor: user\n  action: Fill the contact event form and optionally mark Met this goal\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.qualification\n  next:\n    - to: e1\n      when: Met this goal checked\n    - to: e2\n      when: unchecked\nlinks:\n  - { rel: stepScreen, to: screen.logContact }\n  - { rel: stepOperation, to: operation.contact.log }\n",
-    "thing.webapp/J.contact/e1/node.yaml": "id: J.contact/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Event qualifies the goal; due date recomputed from the qualifying event\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.qualification\nlinks:\n  - { rel: stepScreen, to: screen.person }\n  - { rel: stepOperation, to: operation.contact.log }\n",
-    "thing.webapp/J.contact/e2/node.yaml": "id: J.contact/e2\nkind: step\nfields:\n  step: e2\n  actor: system\n  action: No goal completed; event, if logged, does not qualify\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.qualification\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
+    "thing.webapp/J.connect/s1/node.yaml": "id: J.connect/s1\nkind: step\nfields:\n  step: s1\n  actor: user\n  action: Open Person and choose Invite\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: s2\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
+    "thing.webapp/J.connect/s2/node.yaml": "id: J.connect/s2\nkind: step\nfields:\n  step: s2\n  actor: system\n  action: \"Create invitation: 128-bit credential, only a token hash stored, expires in 24 hours, one acceptance\"\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: s3\nlinks:\n  - { rel: stepScreen, to: screen.person }\n  - { rel: stepOperation, to: operation.invite.create }\n",
+    "thing.webapp/J.connect/s3/node.yaml": "id: J.connect/s3\nkind: step\nfields:\n  step: s3\n  actor: user\n  action: Share the invitation by QR or connection code through an outside channel\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: s4\nlinks:\n  - { rel: stepExternal, to: ext.channels }\n",
+    "thing.webapp/J.connect/s4/node.yaml": "id: J.connect/s4\nkind: step\nfields:\n  step: s4\n  actor: counterpart\n  action: Open /connect/:token\n  kind: branch\n  requirementRefs:\n    - S.webapp.authentication\n  next:\n    - to: s5\n      when: token valid\n    - to: f1\n      when: token invalid, expired or used\nlinks:\n  - { rel: stepScreen, to: screen.invitation }\n",
+    "thing.webapp/J.connect/s5/node.yaml": "id: J.connect/s5\nkind: step\nfields:\n  step: s5\n  actor: system\n  action: Is the invitee signed in?\n  kind: branch\n  requirementRefs:\n    - S.webapp.authentication\n  next:\n    - to: s7\n      when: signed in\n    - to: s6\n      when: not signed in\nlinks:\n  - { rel: stepScreen, to: screen.invitation }\n",
+    "thing.webapp/J.connect/s6/node.yaml": "id: J.connect/s6\nkind: step\nfields:\n  step: s6\n  actor: counterpart\n  action: Sign in; the validated invitation is preserved and not consumed\n  requirementRefs:\n    - S.webapp.authentication\n  next:\n    - to: s7\nlinks:\n  - { rel: stepScreen, to: screen.signin }\n",
+    "thing.webapp/J.connect/s7/node.yaml": "id: J.connect/s7\nkind: step\nfields:\n  step: s7\n  actor: counterpart\n  action: See who is inviting; Accept or Decline\n  kind: branch\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: s8\n      when: accept\n    - to: e2\n      when: decline\nlinks:\n  - { rel: stepScreen, to: screen.invitation }\n",
+    "thing.webapp/J.connect/s8/node.yaml": "id: J.connect/s8\nkind: step\nfields:\n  step: s8\n  actor: system\n  action: Atomically consume the invite and create or return the unique active pair\n  kind: branch\n  requirementRefs:\n    - S.webapp.operations\n    - S.webapp.concurrency\n  next:\n    - to: e1\n      when: pair created or returned\n    - to: f2\n      when: invitee is the inviter, or a block exists in either direction\n    - to: s9\n      when: another accept races for the same invite\nlinks:\n  - { rel: stepOperation, to: operation.invite.accept }\n",
+    "thing.webapp/J.connect/s9/node.yaml": "id: J.connect/s9\nkind: step\nfields:\n  step: s9\n  actor: system\n  action: \"Concurrent accept: one redemption wins, no second pair\"\n  kind: branch\n  requirementRefs:\n    - S.webapp.concurrency\n  next:\n    - to: e1\n      when: this request won\n    - to: f1\n      when: this request lost\nlinks:\n  - { rel: stepOperation, to: operation.invite.accept }\n",
+    "thing.webapp/J.contact/c1/node.yaml": "id: J.contact/c1\nkind: step\nfields:\n  step: c1\n  actor: user\n  action: Select one person\n  requirementRefs:\n    - S.webapp.scope\n  next:\n    - to: c2\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
+    "thing.webapp/J.contact/c2/node.yaml": "id: J.contact/c2\nkind: step\nfields:\n  step: c2\n  actor: user\n  action: Open their preferred channel by an explicit gesture, or copy contact details if the channel is unsupported\n  requirementRefs:\n    - S.webapp.scope\n  next:\n    - to: c3\nlinks:\n  - { rel: stepScreen, to: screen.person }\n  - { rel: stepExternal, to: ext.channels }\n",
+    "thing.webapp/J.contact/c3/node.yaml": "id: J.contact/c3\nkind: step\nfields:\n  step: c3\n  actor: external\n  action: Conversation or meeting happens outside the app; opening the channel completes no goal\n  kind: wait\n  requirementRefs:\n    - S.webapp.qualification\n  next:\n    - to: c4\nlinks:\n  - { rel: stepExternal, to: ext.channels }\n",
+    "thing.webapp/J.contact/c4/node.yaml": "id: J.contact/c4\nkind: step\nfields:\n  step: c4\n  actor: user\n  action: Log what happened?\n  kind: branch\n  requirementRefs:\n    - S.webapp.qualification\n  next:\n    - to: c5\n      when: log contact\n    - to: e2\n      when: skip logging\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
+    "thing.webapp/J.contact/c5/node.yaml": "id: J.contact/c5\nkind: step\nfields:\n  step: c5\n  actor: user\n  action: Fill the contact event form and optionally mark Met this goal\n  kind: branch\n  requirementRefs:\n    - S.webapp.qualification\n  next:\n    - to: e1\n      when: Met this goal checked\n    - to: e2\n      when: unchecked\nlinks:\n  - { rel: stepScreen, to: screen.logContact }\n  - { rel: stepOperation, to: operation.contact.log }\n",
+    "thing.webapp/J.contact/e1/node.yaml": "id: J.contact/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Event qualifies the goal; due date recomputed from the qualifying event\n  kind: end\n  requirementRefs:\n    - S.webapp.qualification\nlinks:\n  - { rel: stepScreen, to: screen.person }\n  - { rel: stepOperation, to: operation.contact.log }\n",
+    "thing.webapp/J.contact/e2/node.yaml": "id: J.contact/e2\nkind: step\nfields:\n  step: e2\n  actor: system\n  action: No goal completed; event, if logged, does not qualify\n  kind: end\n  requirementRefs:\n    - S.webapp.qualification\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
     "thing.webapp/J.contact/node.yaml": "id: J.contact\nkind: journey\nfields:\n  name: Reach out to one person\n  actorGoal: Open a channel to one person and record what actually happened\n  features:\n    - GD.prompts\n  requirements:\n    - S.webapp.scope\n    - S.webapp.qualification\n  start: c1\n  deferred: false\n",
-    "thing.webapp/J.contacts/e1/node.yaml": "id: J.contacts/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Contact saved\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.people }\n",
-    "thing.webapp/J.contacts/e2/node.yaml": "id: J.contacts/e2\nkind: step\nfields:\n  step: e2\n  actor: user\n  action: Dialog closed; nothing saved\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.screens\nlinks:\n  - { rel: stepScreen, to: screen.people }\n",
-    "thing.webapp/J.contacts/f1/node.yaml": "id: J.contacts/f1\nkind: step\nfields:\n  step: f1\n  actor: system\n  action: \"Recoverable validation failure: ErrorSummary shown, entered values kept\"\n  state: validation error\n  kind: failure\n  unresolved: false\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: s3\n      when: edit and retry\nlinks:\n  - { rel: stepScreen, to: screen.people }\n",
+    "thing.webapp/J.contacts/e1/node.yaml": "id: J.contacts/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Contact saved\n  kind: end\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.people }\n",
+    "thing.webapp/J.contacts/e2/node.yaml": "id: J.contacts/e2\nkind: step\nfields:\n  step: e2\n  actor: user\n  action: Dialog closed; nothing saved\n  kind: end\n  requirementRefs:\n    - S.webapp.screens\nlinks:\n  - { rel: stepScreen, to: screen.people }\n",
+    "thing.webapp/J.contacts/f1/node.yaml": "id: J.contacts/f1\nkind: step\nfields:\n  step: f1\n  actor: system\n  action: \"Recoverable validation failure: ErrorSummary shown, entered values kept\"\n  state: validation error\n  kind: failure\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: s3\n      when: edit and retry\nlinks:\n  - { rel: stepScreen, to: screen.people }\n",
     "thing.webapp/J.contacts/node.yaml": "id: J.contacts\nkind: journey\nfields:\n  name: Add or edit a private contact\n  actorGoal: Keep a private record of someone I want to stay in touch with\n  features:\n    - GD.contacts\n  requirements:\n    - S.webapp.screens\n    - S.webapp.operations\n  start: s1\n  deferred: false\n",
-    "thing.webapp/J.contacts/s1/node.yaml": "id: J.contacts/s1\nkind: step\nfields:\n  step: s1\n  actor: user\n  action: Open People\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: s2\nlinks:\n  - { rel: stepScreen, to: screen.people }\n",
-    "thing.webapp/J.contacts/s2/node.yaml": "id: J.contacts/s2\nkind: step\nfields:\n  step: s2\n  actor: user\n  action: Choose Add contact (or open an existing row to edit); AddContactDialog opens\n  state: dialog open\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: s3\nlinks:\n  - { rel: stepScreen, to: screen.people }\n",
-    "thing.webapp/J.contacts/s3/node.yaml": "id: J.contacts/s3\nkind: step\nfields:\n  step: s3\n  actor: user\n  action: Enter name and optional channel fields\n  state: dialog open\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: s4\nlinks:\n  - { rel: stepScreen, to: screen.people }\n",
-    "thing.webapp/J.contacts/s4/node.yaml": "id: J.contacts/s4\nkind: step\nfields:\n  step: s4\n  actor: user\n  action: Save or cancel\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: s5\n      when: save, name nonblank\n    - to: f1\n      when: save, name blank\n    - to: e2\n      when: cancel\nlinks:\n  - { rel: stepScreen, to: screen.people }\n  - { rel: stepOperation, to: operation.contact.save }\n",
-    "thing.webapp/J.contacts/s5/node.yaml": "id: J.contacts/s5\nkind: step\nfields:\n  step: s5\n  actor: system\n  action: Owner's record saved; no invitation sent; ContactRow appears in ContactCollection\n  kind: reaction\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: e1\nlinks:\n  - { rel: stepScreen, to: screen.people }\n  - { rel: stepOperation, to: operation.contact.save }\n",
-    "thing.webapp/J.control.block/b1/node.yaml": "id: J.control.block/b1\nkind: step\nfields:\n  step: b1\n  actor: user\n  action: Open Person\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: b2\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
-    "thing.webapp/J.control.block/b2/node.yaml": "id: J.control.block/b2\nkind: step\nfields:\n  step: b2\n  actor: user\n  action: Choose Block and confirm\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: b3\n      when: confirm\n    - to: e2\n      when: cancel\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
-    "thing.webapp/J.control.block/b3/node.yaml": "id: J.control.block/b3\nkind: step\nfields:\n  step: b3\n  actor: system\n  action: Participant authority checked; sharing revoked; pending deliveries cancelled; Block recorded\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n    - S.webapp.concurrency\n  next:\n    - to: b4\nlinks:\n  - { rel: stepScreen, to: screen.person }\n  - { rel: stepOperation, to: operation.connection.revoke }\n",
-    "thing.webapp/J.control.block/b4/node.yaml": "id: J.control.block/b4\nkind: step\nfields:\n  step: b4\n  actor: system\n  action: Blocker's corresponding goal paused and its suggestions suppressed\n  kind: reaction\n  unresolved: false\n  requirementRefs:\n    - S.webapp.prompts\n  next:\n    - to: b5\nlinks:\n  - { rel: stepScreen, to: screen.today }\n",
-    "thing.webapp/J.control.block/b5/node.yaml": "id: J.control.block/b5\nkind: step\nfields:\n  step: b5\n  actor: counterpart\n  action: New invitations and acceptances between the two accounts are refused\n  kind: reaction\n  unresolved: false\n  requirementRefs:\n    - S.webapp.concurrency\n  next:\n    - to: e1\nlinks:\n  - { rel: stepOperation, to: operation.invite.accept }\n",
-    "thing.webapp/J.control.block/e1/node.yaml": "id: J.control.block/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Block in force until removed\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n",
-    "thing.webapp/J.control.block/e2/node.yaml": "id: J.control.block/e2\nkind: step\nfields:\n  step: e2\n  actor: user\n  action: No block recorded\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
+    "thing.webapp/J.contacts/s1/node.yaml": "id: J.contacts/s1\nkind: step\nfields:\n  step: s1\n  actor: user\n  action: Open People\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: s2\nlinks:\n  - { rel: stepScreen, to: screen.people }\n",
+    "thing.webapp/J.contacts/s2/node.yaml": "id: J.contacts/s2\nkind: step\nfields:\n  step: s2\n  actor: user\n  action: Choose Add contact (or open an existing row to edit); AddContactDialog opens\n  state: dialog open\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: s3\nlinks:\n  - { rel: stepScreen, to: screen.people }\n",
+    "thing.webapp/J.contacts/s3/node.yaml": "id: J.contacts/s3\nkind: step\nfields:\n  step: s3\n  actor: user\n  action: Enter name and optional channel fields\n  state: dialog open\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: s4\nlinks:\n  - { rel: stepScreen, to: screen.people }\n",
+    "thing.webapp/J.contacts/s4/node.yaml": "id: J.contacts/s4\nkind: step\nfields:\n  step: s4\n  actor: user\n  action: Save or cancel\n  kind: branch\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: s5\n      when: save, name nonblank\n    - to: f1\n      when: save, name blank\n    - to: e2\n      when: cancel\nlinks:\n  - { rel: stepScreen, to: screen.people }\n  - { rel: stepOperation, to: operation.contact.save }\n",
+    "thing.webapp/J.contacts/s5/node.yaml": "id: J.contacts/s5\nkind: step\nfields:\n  step: s5\n  actor: system\n  action: Owner's record saved; no invitation sent; ContactRow appears in ContactCollection\n  kind: reaction\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: e1\nlinks:\n  - { rel: stepScreen, to: screen.people }\n  - { rel: stepOperation, to: operation.contact.save }\n",
+    "thing.webapp/J.control.block/b1/node.yaml": "id: J.control.block/b1\nkind: step\nfields:\n  step: b1\n  actor: user\n  action: Open Person\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: b2\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
+    "thing.webapp/J.control.block/b2/node.yaml": "id: J.control.block/b2\nkind: step\nfields:\n  step: b2\n  actor: user\n  action: Choose Block and confirm\n  kind: branch\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: b3\n      when: confirm\n    - to: e2\n      when: cancel\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
+    "thing.webapp/J.control.block/b3/node.yaml": "id: J.control.block/b3\nkind: step\nfields:\n  step: b3\n  actor: system\n  action: Participant authority checked; sharing revoked; pending deliveries cancelled; Block recorded\n  requirementRefs:\n    - S.webapp.operations\n    - S.webapp.concurrency\n  next:\n    - to: b4\nlinks:\n  - { rel: stepScreen, to: screen.person }\n  - { rel: stepOperation, to: operation.connection.revoke }\n",
+    "thing.webapp/J.control.block/b4/node.yaml": "id: J.control.block/b4\nkind: step\nfields:\n  step: b4\n  actor: system\n  action: Blocker's corresponding goal paused and its suggestions suppressed\n  kind: reaction\n  requirementRefs:\n    - S.webapp.prompts\n  next:\n    - to: b5\nlinks:\n  - { rel: stepScreen, to: screen.today }\n",
+    "thing.webapp/J.control.block/b5/node.yaml": "id: J.control.block/b5\nkind: step\nfields:\n  step: b5\n  actor: counterpart\n  action: New invitations and acceptances between the two accounts are refused\n  kind: reaction\n  requirementRefs:\n    - S.webapp.concurrency\n  next:\n    - to: e1\nlinks:\n  - { rel: stepOperation, to: operation.invite.accept }\n",
+    "thing.webapp/J.control.block/e1/node.yaml": "id: J.control.block/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Block in force until removed\n  kind: end\n  requirementRefs:\n    - S.webapp.operations\n",
+    "thing.webapp/J.control.block/e2/node.yaml": "id: J.control.block/e2\nkind: step\nfields:\n  step: e2\n  actor: user\n  action: No block recorded\n  kind: end\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
     "thing.webapp/J.control.block/node.yaml": "id: J.control.block\nkind: journey\nfields:\n  name: Block a person\n  actorGoal: Stop all app-mediated contact from one person until I remove the block\n  features:\n    - GD.connect\n  requirements:\n    - S.webapp.operations\n    - S.webapp.prompts\n    - S.webapp.concurrency\n  start: b1\n  deferred: false\n",
-    "thing.webapp/J.control.delete/e1/node.yaml": "id: J.control.delete/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Owner's live data purged\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n",
-    "thing.webapp/J.control.delete/e2/node.yaml": "id: J.control.delete/e2\nkind: step\nfields:\n  step: e2\n  actor: user\n  action: Account unchanged\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
-    "thing.webapp/J.control.delete/f1/node.yaml": "id: J.control.delete/f1\nkind: step\nfields:\n  step: f1\n  actor: system\n  action: Deletion refused; account unchanged\n  kind: failure\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: e2\n      when: stop\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
+    "thing.webapp/J.control.delete/e1/node.yaml": "id: J.control.delete/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Owner's live data purged\n  kind: end\n  requirementRefs:\n    - S.webapp.operations\n",
+    "thing.webapp/J.control.delete/e2/node.yaml": "id: J.control.delete/e2\nkind: step\nfields:\n  step: e2\n  actor: user\n  action: Account unchanged\n  kind: end\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
+    "thing.webapp/J.control.delete/f1/node.yaml": "id: J.control.delete/f1\nkind: step\nfields:\n  step: f1\n  actor: system\n  action: Deletion refused; account unchanged\n  kind: failure\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: e2\n      when: stop\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
     "thing.webapp/J.control.delete/node.yaml": "id: J.control.delete\nkind: journey\nfields:\n  name: Delete my account and data\n  actorGoal: Remove myself and the data I own from the live system\n  features:\n    - GD.contacts\n    - GD.connect\n  requirements:\n    - S.webapp.operations\n    - S.webapp.concurrency\n  start: z1\n  deferred: false\n",
-    "thing.webapp/J.control.delete/z1/node.yaml": "id: J.control.delete/z1\nkind: step\nfields:\n  step: z1\n  actor: user\n  action: Open Settings\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: z2\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
-    "thing.webapp/J.control.delete/z2/node.yaml": "id: J.control.delete/z2\nkind: step\nfields:\n  step: z2\n  actor: user\n  action: Choose Delete in DeletionControls, confirm and reauthenticate\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: z3\n      when: confirmed\n    - to: e2\n      when: cancel\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
-    "thing.webapp/J.control.delete/z3/node.yaml": "id: J.control.delete/z3\nkind: step\nfields:\n  step: z3\n  actor: system\n  action: Owner reauthentication checked\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: z4\n      when: reauthenticated\n    - to: f1\n      when: reauthentication failed\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
-    "thing.webapp/J.control.delete/z4/node.yaml": "id: J.control.delete/z4\nkind: step\nfields:\n  step: z4\n  actor: system\n  action: Access revoked immediately, sessions and jobs cancelled\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n    - S.webapp.concurrency\n  next:\n    - to: z5\nlinks:\n  - { rel: stepOperation, to: operation.data.delete }\n",
-    "thing.webapp/J.control.delete/z5/node.yaml": "id: J.control.delete/z5\nkind: step\nfields:\n  step: z5\n  actor: system\n  action: Owned live data purged within seven days; backup expiry follows the pinned retention policy\n  kind: wait\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: e1\n",
-    "thing.webapp/J.control.disconnect/d1/node.yaml": "id: J.control.disconnect/d1\nkind: step\nfields:\n  step: d1\n  actor: user\n  action: Open Person with an active connection\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: d2\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
-    "thing.webapp/J.control.disconnect/d2/node.yaml": "id: J.control.disconnect/d2\nkind: step\nfields:\n  step: d2\n  actor: user\n  action: Choose Disconnect and confirm\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: d3\n      when: confirm\n    - to: e2\n      when: cancel\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
-    "thing.webapp/J.control.disconnect/d3/node.yaml": "id: J.control.disconnect/d3\nkind: step\nfields:\n  step: d3\n  actor: system\n  action: Participant authority checked; sharing revoked; pending deliveries cancelled\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n    - S.webapp.concurrency\n  next:\n    - to: d4\nlinks:\n  - { rel: stepScreen, to: screen.person }\n  - { rel: stepOperation, to: operation.connection.revoke }\n",
-    "thing.webapp/J.control.disconnect/d4/node.yaml": "id: J.control.disconnect/d4\nkind: step\nfields:\n  step: d4\n  actor: counterpart\n  action: Counterpart's access to shared capabilities ends; revocation checked against current state on every read and send\n  kind: reaction\n  unresolved: false\n  requirementRefs:\n    - S.webapp.concurrency\n  next:\n    - to: e1\n",
-    "thing.webapp/J.control.disconnect/e1/node.yaml": "id: J.control.disconnect/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Pair no longer active; the private ContactRecord remains; delivered external messages are not retracted\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n",
-    "thing.webapp/J.control.disconnect/e2/node.yaml": "id: J.control.disconnect/e2\nkind: step\nfields:\n  step: e2\n  actor: user\n  action: Connection unchanged\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
+    "thing.webapp/J.control.delete/z1/node.yaml": "id: J.control.delete/z1\nkind: step\nfields:\n  step: z1\n  actor: user\n  action: Open Settings\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: z2\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
+    "thing.webapp/J.control.delete/z2/node.yaml": "id: J.control.delete/z2\nkind: step\nfields:\n  step: z2\n  actor: user\n  action: Choose Delete in DeletionControls, confirm and reauthenticate\n  kind: branch\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: z3\n      when: confirmed\n    - to: e2\n      when: cancel\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
+    "thing.webapp/J.control.delete/z3/node.yaml": "id: J.control.delete/z3\nkind: step\nfields:\n  step: z3\n  actor: system\n  action: Owner reauthentication checked\n  kind: branch\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: z4\n      when: reauthenticated\n    - to: f1\n      when: reauthentication failed\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
+    "thing.webapp/J.control.delete/z4/node.yaml": "id: J.control.delete/z4\nkind: step\nfields:\n  step: z4\n  actor: system\n  action: Access revoked immediately, sessions and jobs cancelled\n  requirementRefs:\n    - S.webapp.operations\n    - S.webapp.concurrency\n  next:\n    - to: z5\nlinks:\n  - { rel: stepOperation, to: operation.data.delete }\n",
+    "thing.webapp/J.control.delete/z5/node.yaml": "id: J.control.delete/z5\nkind: step\nfields:\n  step: z5\n  actor: system\n  action: Owned live data purged within seven days; backup expiry follows the pinned retention policy\n  kind: wait\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: e1\n",
+    "thing.webapp/J.control.disconnect/d1/node.yaml": "id: J.control.disconnect/d1\nkind: step\nfields:\n  step: d1\n  actor: user\n  action: Open Person with an active connection\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: d2\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
+    "thing.webapp/J.control.disconnect/d2/node.yaml": "id: J.control.disconnect/d2\nkind: step\nfields:\n  step: d2\n  actor: user\n  action: Choose Disconnect and confirm\n  kind: branch\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: d3\n      when: confirm\n    - to: e2\n      when: cancel\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
+    "thing.webapp/J.control.disconnect/d3/node.yaml": "id: J.control.disconnect/d3\nkind: step\nfields:\n  step: d3\n  actor: system\n  action: Participant authority checked; sharing revoked; pending deliveries cancelled\n  requirementRefs:\n    - S.webapp.operations\n    - S.webapp.concurrency\n  next:\n    - to: d4\nlinks:\n  - { rel: stepScreen, to: screen.person }\n  - { rel: stepOperation, to: operation.connection.revoke }\n",
+    "thing.webapp/J.control.disconnect/d4/node.yaml": "id: J.control.disconnect/d4\nkind: step\nfields:\n  step: d4\n  actor: counterpart\n  action: Counterpart's access to shared capabilities ends; revocation checked against current state on every read and send\n  kind: reaction\n  requirementRefs:\n    - S.webapp.concurrency\n  next:\n    - to: e1\n",
+    "thing.webapp/J.control.disconnect/e1/node.yaml": "id: J.control.disconnect/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Pair no longer active; the private ContactRecord remains; delivered external messages are not retracted\n  kind: end\n  requirementRefs:\n    - S.webapp.operations\n",
+    "thing.webapp/J.control.disconnect/e2/node.yaml": "id: J.control.disconnect/e2\nkind: step\nfields:\n  step: e2\n  actor: user\n  action: Connection unchanged\n  kind: end\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
     "thing.webapp/J.control.disconnect/node.yaml": "id: J.control.disconnect\nkind: journey\nfields:\n  name: Disconnect from a connected person\n  actorGoal: End app-mediated sharing with one person while keeping my private record\n  features:\n    - GD.connect\n  requirements:\n    - S.webapp.operations\n    - S.webapp.concurrency\n  start: d1\n  deferred: false\n",
-    "thing.webapp/J.control.export/e1/node.yaml": "id: J.control.export/e1\nkind: step\nfields:\n  step: e1\n  actor: user\n  action: Receive export excluding other people's data; copies already made cannot be recalled\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
-    "thing.webapp/J.control.export/e2/node.yaml": "id: J.control.export/e2\nkind: step\nfields:\n  step: e2\n  actor: user\n  action: No export produced\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
-    "thing.webapp/J.control.export/f1/node.yaml": "id: J.control.export/f1\nkind: step\nfields:\n  step: f1\n  actor: system\n  action: Export refused; nothing produced\n  kind: failure\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: e2\n      when: stop\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
+    "thing.webapp/J.control.export/e1/node.yaml": "id: J.control.export/e1\nkind: step\nfields:\n  step: e1\n  actor: user\n  action: Receive export excluding other people's data; copies already made cannot be recalled\n  kind: end\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
+    "thing.webapp/J.control.export/e2/node.yaml": "id: J.control.export/e2\nkind: step\nfields:\n  step: e2\n  actor: user\n  action: No export produced\n  kind: end\n  requirementRefs:\n    - S.webapp.operations\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
+    "thing.webapp/J.control.export/f1/node.yaml": "id: J.control.export/f1\nkind: step\nfields:\n  step: f1\n  actor: system\n  action: Export refused; nothing produced\n  kind: failure\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: e2\n      when: stop\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
     "thing.webapp/J.control.export/node.yaml": "id: J.control.export\nkind: journey\nfields:\n  name: Export my data\n  actorGoal: Take a copy of the records I own\n  features:\n    - GD.contacts\n  requirements:\n    - S.webapp.operations\n  start: x1\n  deferred: false\n",
-    "thing.webapp/J.control.export/x1/node.yaml": "id: J.control.export/x1\nkind: step\nfields:\n  step: x1\n  actor: user\n  action: Open Settings\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: x2\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
-    "thing.webapp/J.control.export/x2/node.yaml": "id: J.control.export/x2\nkind: step\nfields:\n  step: x2\n  actor: user\n  action: Choose Export in ExportControls and reauthenticate\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: x3\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
-    "thing.webapp/J.control.export/x3/node.yaml": "id: J.control.export/x3\nkind: step\nfields:\n  step: x3\n  actor: system\n  action: Owner reauthentication checked\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: x4\n      when: reauthenticated\n    - to: f1\n      when: reauthentication failed\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
-    "thing.webapp/J.control.export/x4/node.yaml": "id: J.control.export/x4\nkind: step\nfields:\n  step: x4\n  actor: system\n  action: Export authorized records of the authenticated owner only\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: e1\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n  - { rel: stepOperation, to: operation.data.export }\n",
-    "thing.webapp/J.goals/e1/node.yaml": "id: J.goals/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Goal version incremented, due state recomputed, obsolete jobs cancelled; no ContactEvent created\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.due\nlinks:\n  - { rel: stepScreen, to: screen.person }\n  - { rel: stepOperation, to: operation.goal.save }\n",
-    "thing.webapp/J.goals/e2/node.yaml": "id: J.goals/e2\nkind: step\nfields:\n  step: e2\n  actor: user\n  action: No change saved; no goal shown as no goal, not an inferred target\n  kind: end\n  unresolved: false\n  requirementRefs:\n    - S.webapp.screens\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
-    "thing.webapp/J.goals/g1/node.yaml": "id: J.goals/g1\nkind: step\nfields:\n  step: g1\n  actor: user\n  action: Open a person\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: g2\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
-    "thing.webapp/J.goals/g2/node.yaml": "id: J.goals/g2\nkind: step\nfields:\n  step: g2\n  actor: user\n  action: Choose Edit goal\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.qualification\n  next:\n    - to: g3\nlinks:\n  - { rel: stepScreen, to: screen.goal }\n",
-    "thing.webapp/J.goals/g3/node.yaml": "id: J.goals/g3\nkind: step\nfields:\n  step: g3\n  actor: user\n  action: Set interval (1-3650 days), desired depth (light, meaningful or shared-time), preferred channel and enabled\n  kind: action\n  unresolved: false\n  requirementRefs:\n    - S.webapp.qualification\n  next:\n    - to: g4\nlinks:\n  - { rel: stepScreen, to: screen.goal }\n",
-    "thing.webapp/J.goals/g4/node.yaml": "id: J.goals/g4\nkind: step\nfields:\n  step: g4\n  actor: system\n  action: SchedulePreview shows the due date and which historical events would qualify under the chosen depth\n  kind: reaction\n  unresolved: false\n  requirementRefs:\n    - S.webapp.qualification\n    - S.webapp.due\n  next:\n    - to: g5\nlinks:\n  - { rel: stepScreen, to: screen.goal }\n",
-    "thing.webapp/J.goals/g5/node.yaml": "id: J.goals/g5\nkind: step\nfields:\n  step: g5\n  actor: user\n  action: Save or cancel\n  kind: branch\n  unresolved: false\n  requirementRefs:\n    - S.webapp.qualification\n  next:\n    - to: e1\n      when: save, interval valid\n    - to: g3\n      when: interval invalid, values kept\n    - to: e2\n      when: cancel\nlinks:\n  - { rel: stepScreen, to: screen.goal }\n  - { rel: stepOperation, to: operation.goal.save }\n",
+    "thing.webapp/J.control.export/x1/node.yaml": "id: J.control.export/x1\nkind: step\nfields:\n  step: x1\n  actor: user\n  action: Open Settings\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: x2\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
+    "thing.webapp/J.control.export/x2/node.yaml": "id: J.control.export/x2\nkind: step\nfields:\n  step: x2\n  actor: user\n  action: Choose Export in ExportControls and reauthenticate\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: x3\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
+    "thing.webapp/J.control.export/x3/node.yaml": "id: J.control.export/x3\nkind: step\nfields:\n  step: x3\n  actor: system\n  action: Owner reauthentication checked\n  kind: branch\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: x4\n      when: reauthenticated\n    - to: f1\n      when: reauthentication failed\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n",
+    "thing.webapp/J.control.export/x4/node.yaml": "id: J.control.export/x4\nkind: step\nfields:\n  step: x4\n  actor: system\n  action: Export authorized records of the authenticated owner only\n  requirementRefs:\n    - S.webapp.operations\n  next:\n    - to: e1\nlinks:\n  - { rel: stepScreen, to: screen.settings }\n  - { rel: stepOperation, to: operation.data.export }\n",
+    "thing.webapp/J.goals/e1/node.yaml": "id: J.goals/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Goal version incremented, due state recomputed, obsolete jobs cancelled; no ContactEvent created\n  kind: end\n  requirementRefs:\n    - S.webapp.due\nlinks:\n  - { rel: stepScreen, to: screen.person }\n  - { rel: stepOperation, to: operation.goal.save }\n",
+    "thing.webapp/J.goals/e2/node.yaml": "id: J.goals/e2\nkind: step\nfields:\n  step: e2\n  actor: user\n  action: No change saved; no goal shown as no goal, not an inferred target\n  kind: end\n  requirementRefs:\n    - S.webapp.screens\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
+    "thing.webapp/J.goals/g1/node.yaml": "id: J.goals/g1\nkind: step\nfields:\n  step: g1\n  actor: user\n  action: Open a person\n  requirementRefs:\n    - S.webapp.screens\n  next:\n    - to: g2\nlinks:\n  - { rel: stepScreen, to: screen.person }\n",
+    "thing.webapp/J.goals/g2/node.yaml": "id: J.goals/g2\nkind: step\nfields:\n  step: g2\n  actor: user\n  action: Choose Edit goal\n  requirementRefs:\n    - S.webapp.qualification\n  next:\n    - to: g3\nlinks:\n  - { rel: stepScreen, to: screen.goal }\n",
+    "thing.webapp/J.goals/g3/node.yaml": "id: J.goals/g3\nkind: step\nfields:\n  step: g3\n  actor: user\n  action: Set interval (1-3650 days), desired depth (light, meaningful or shared-time), preferred channel and enabled\n  requirementRefs:\n    - S.webapp.qualification\n  next:\n    - to: g4\nlinks:\n  - { rel: stepScreen, to: screen.goal }\n",
+    "thing.webapp/J.goals/g4/node.yaml": "id: J.goals/g4\nkind: step\nfields:\n  step: g4\n  actor: system\n  action: SchedulePreview shows the due date and which historical events would qualify under the chosen depth\n  kind: reaction\n  requirementRefs:\n    - S.webapp.qualification\n    - S.webapp.due\n  next:\n    - to: g5\nlinks:\n  - { rel: stepScreen, to: screen.goal }\n",
+    "thing.webapp/J.goals/g5/node.yaml": "id: J.goals/g5\nkind: step\nfields:\n  step: g5\n  actor: user\n  action: Save or cancel\n  kind: branch\n  requirementRefs:\n    - S.webapp.qualification\n  next:\n    - to: e1\n      when: save, interval valid\n    - to: g3\n      when: interval invalid, values kept\n    - to: e2\n      when: cancel\nlinks:\n  - { rel: stepScreen, to: screen.goal }\n  - { rel: stepOperation, to: operation.goal.save }\n",
     "thing.webapp/J.goals/node.yaml": "id: J.goals\nkind: journey\nfields:\n  name: Set a cadence and depth\n  actorGoal: Choose how often and how deeply I want to be in touch with one person\n  features:\n    - GD.goals\n  requirements:\n    - S.webapp.qualification\n    - S.webapp.due\n  start: g1\n  deferred: false\n",
     "thing.webapp/J.prompts/e1/node.yaml": "id: J.prompts/e1\nkind: step\nfields:\n  step: e1\n  actor: system\n  action: Qualifying contact resolves the suggestion\n  kind: end\n  requirementRefs:\n    - S.webapp.prompts\nlinks:\n  - { rel: stepScreen, to: screen.today }\n",
     "thing.webapp/J.prompts/e2/node.yaml": "id: J.prompts/e2\nkind: step\nfields:\n  step: e2\n  actor: system\n  action: Resulting due state shown on Today\n  kind: end\n  requirementRefs:\n    - S.webapp.prompts\n    - S.webapp.due\nlinks:\n  - { rel: stepScreen, to: screen.today }\n",

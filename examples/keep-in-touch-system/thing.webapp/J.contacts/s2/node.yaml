@@ -5,8 +5,6 @@ fields:
   actor: user
   action: Choose Add contact (or open an existing row to edit); AddContactDialog opens
   state: dialog open
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.screens
   next:

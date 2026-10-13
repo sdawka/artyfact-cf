@@ -5,7 +5,6 @@ fields:
   actor: system
   action: "Concurrent accept: one redemption wins, no second pair"
   kind: branch
-  unresolved: false
   requirementRefs:
     - S.webapp.concurrency
   next:

@@ -4,8 +4,6 @@ fields:
   step: c1
   actor: user
   action: Select one person
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.scope
   next:

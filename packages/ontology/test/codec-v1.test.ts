@@ -1,5 +1,5 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { parse as parseYaml } from "yaml";
 import { describe, expect, it } from "vitest";
 import { readDir } from "../src/adapters/artyfact/node.ts";
@@ -16,19 +16,26 @@ const FIXTURE = join(__dirname, "../../../examples/keep-in-touch-system");
 const TPL = readDir(join(__dirname, "../../templates"));
 const templates = metaStore(TPL);
 const v1 = readDir(V1);
-const tree = convertV1(v1, TPL);
+// The app repo's v1 source-map.yaml, which the conversion moves onto the nodes' `files`.
+const SOURCE_MAP = readFileSync(join(__dirname, "fixtures/artyfact/keep-in-touch-app.source-map.yaml"), "utf8");
+const tree = convertV1(v1, TPL, { sourceMap: SOURCE_MAP });
 const v1Graph = loadArtyfactSystem(v1, { templates: TPL });
 const v2Graph = readTree(tree, templates);
 
 /** Kinds v1 left parentless that the tree places (design §2, the three intended parent differences). */
 const PLACED = new Set(["purpose", "claim", "external", "feature", "commitment", "journey", "requirement"]);
 const sortBy = <T>(xs: T[], key: (x: T) => string) => [...xs].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
+// The converter leaves out v1 projection artefacts the tree derives or defaults: `owningThing`, `revision: 1`, step defaults.
+const dropArtefacts = ({ owningThing: _o, ...f }: Record<string, unknown>) => {
+  const { revision, kind, unresolved, ...rest } = f;
+  return { ...rest, ...(revision !== 1 && revision !== undefined && { revision }), ...(kind !== "action" && kind !== undefined && { kind }), ...(unresolved === true && { unresolved }) };
+};
 const comparable = (g: Graph) => ({
   nodes: sortBy(g.nodes, (n) => `${n.id} ${n.kind}`).map(({ parent, ...n }) => ({
     ...n,
     ...(parent !== undefined && !PLACED.has(n.kind) && { parent }),
     // A shared hook lists its criteria in tree order rather than v1 file order.
-    fields: n.kind === "hook" ? { ...n.fields, criteria: [...(n.fields.criteria as string[])].sort() } : n.fields,
+    fields: dropArtefacts(n.kind === "hook" ? { ...n.fields, criteria: [...(n.fields.criteria as string[])].sort() } : n.fields),
   })),
   // v1 left the certainty of derived links unset; the tree projects an absent certainty as `declared`.
   links: sortBy(g.links.map((l) => `${l.from} ${l.rel} ${l.to} ${l.certainty ?? "declared"}`), (x) => x),
@@ -36,15 +43,8 @@ const comparable = (g: Graph) => ({
 
 describe("convertV1 (Keep in Touch)", () => {
   it("writes the tree the fixture holds", () => {
-    if (process.env.UPDATE_GENOME_FIXTURE) {
-      for (const p of Object.keys(readDir(FIXTURE))) rmSync(join(FIXTURE, p));
-      for (const [p, text] of tree) { mkdirSync(dirname(join(FIXTURE, p)), { recursive: true }); writeFileSync(join(FIXTURE, p), text); }
-    }
-    // The example differs from the converter's output by hand edits: node `files` (from the app's v1 source-map.yaml)
-    // and the v1 noise fields the committed tree dropped (`owningThing`, `revision: 1`, step defaults).
-    const trim = (t: string) => t.replace(/^files:\n(  - .*\n)+/m, "").replace(/^  (owningThing: thing\.webapp|revision: 1|unresolved: false|kind: action)\n/gm, "");
-    const trimmed = (m: ReadonlyMap<string, string> | Iterable<readonly [string, string]>) => new Map([...m].map(([p, t]) => [p, trim(t)] as const));
-    expect(trimmed(Object.entries(readDir(FIXTURE)))).toEqual(trimmed(tree));
+    // Exact: regenerating the example from the v1 Genome (with its source map) is a no-op.
+    expect(new Map(Object.entries(readDir(FIXTURE)))).toEqual(tree);
     expect(isLegacyGenome(tree.keys())).toBe(false);
   });
 
@@ -106,8 +106,21 @@ describe("convertV1 (Keep in Touch)", () => {
 
   it("is deterministic whatever the input order", () => {
     const reversed = Object.fromEntries(Object.entries(v1).reverse());
-    expect([...convertV1(reversed, TPL)]).toEqual([...tree]);
+    expect([...convertV1(reversed, TPL, { sourceMap: SOURCE_MAP })]).toEqual([...tree]);
     expect(graphHash(readTree(new Map([...tree].reverse()), templates))).toBe(graphHash(v2Graph));
+  });
+
+  it("moves the app's source map onto the nodes it names, dropping the genome pseudo-node", () => {
+    const at = (id: string) => [...tree].find(([p, t]) => p.endsWith("node.yaml") && t.startsWith(`id: ${id}\n`))![1];
+    expect(parseYaml(at("operation.contact.save")).files).toEqual(["src/worker/routes/contacts.ts", "public/people/add-contact-dialog.js"]);
+    expect(parseYaml(at("thing.webapp")).files).toEqual(["src/index.ts"]);
+    expect([...tree.values()].some((t) => t.includes("system/**"))).toBe(false);
+    expect([...convertV1(v1, TPL)].some(([, t]) => /^files:/m.test(t))).toBe(false);
+  });
+
+  it("refuses a source map naming an unknown node or of the wrong shape", () => {
+    expect(() => convertV1(v1, TPL, { sourceMap: "- glob: src/x.ts\n  nodes: [screen.ghost]\n" })).toThrow(/src\/x\.ts names screen\.ghost, which is not a node/);
+    expect(() => convertV1(v1, TPL, { sourceMap: "src/x.ts: screen.people\n" })).toThrow(/expected a list of \{glob, nodes\} entries/);
   });
 
   it("refuses a criterion whose owner is not the nearest Thing or System above its subject", () => {

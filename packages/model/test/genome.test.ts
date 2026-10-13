@@ -75,7 +75,10 @@ describe("node files (design §3)", () => {
   };
   const tree = new Map(edit(files, "thing.app/node.yaml", "template: template.thing.mini-webapp@1\n", "template: template.thing.mini-webapp@1\nroot: apps/notes/\n"))
     .set("thing.app/section.ui/screen.list/node.yaml", `${files.get("thing.app/section.ui/screen.list/node.yaml")!.trimEnd()}\nfiles: [public/list.html]\n`)
-    .set("thing.api/node.yaml", "id: thing.api\nkind: thing\ntemplate: template.thing.mini-webapp@1\nroot: apps/api\nfields: {name: API}\n");
+    .set("thing.api/node.yaml", "id: thing.api\nkind: thing\ntemplate: template.thing.mini-webapp@1\nroot: apps/api\nfields: {name: API}\n")
+    // A directory name that differs from the id, and an id with glob metacharacters.
+    .set("thing.app/section.ui/notes-screen/node.yaml", "id: screen.notes\nkind: screen\nfields: {name: Notes}\n")
+    .set("thing.app/section.ui/star/node.yaml", "id: \"screen.*{a,b}\"\nkind: screen\nfields: {name: Star}\n");
 
   it("unites kind, prefilled-node, template-root and own globs under the nearest root", () => {
     const m = loadGenome(tree, { templates });
@@ -87,6 +90,18 @@ describe("node files (design §3)", () => {
       { glob: "apps/notes/public/list.html", declared: true },
     ]);
     expect(m.files["thing.api"]).toEqual([{ glob: "apps/api/package.json", declared: false }]);
+    expect(m.files["screen.notes"]).toEqual([
+      { glob: "apps/notes/src/notes-screen/**", declared: false },
+      { glob: "apps/notes/ids/screen.notes.ts", declared: false },
+    ]);
+  });
+
+  it("escapes glob metacharacters of an id filled into {id}, so it cannot widen the default", () => {
+    const m = loadGenome(tree, { templates });
+    expect(m.files["screen.*{a,b}"]).toEqual([
+      { glob: "apps/notes/src/star/**", declared: false },
+      { glob: "apps/notes/ids/screen.\\*\\{a\\,b\\}.ts", declared: false },
+    ]);
     expect(m.files["system.mini"]).toBeUndefined();
     expect(m.files["operation.note.save"]).toBeUndefined();
   });

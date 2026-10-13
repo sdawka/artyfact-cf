@@ -5,7 +5,6 @@ fields:
   actor: system
   action: Event qualifies the goal; due date recomputed from the qualifying event
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.qualification
 links:

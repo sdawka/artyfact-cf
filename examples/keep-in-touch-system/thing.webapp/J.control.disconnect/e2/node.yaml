@@ -5,7 +5,6 @@ fields:
   actor: user
   action: Connection unchanged
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
 links:

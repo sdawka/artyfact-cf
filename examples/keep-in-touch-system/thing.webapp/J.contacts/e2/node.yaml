@@ -5,7 +5,6 @@ fields:
   actor: user
   action: Dialog closed; nothing saved
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.screens
 links:

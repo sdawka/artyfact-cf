@@ -5,7 +5,6 @@ fields:
   actor: system
   action: Deletion refused; account unchanged
   kind: failure
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
   next:

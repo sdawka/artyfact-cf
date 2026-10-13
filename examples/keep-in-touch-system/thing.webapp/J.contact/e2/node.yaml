@@ -5,7 +5,6 @@ fields:
   actor: system
   action: No goal completed; event, if logged, does not qualify
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.qualification
 links:
