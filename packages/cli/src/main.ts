@@ -210,6 +210,8 @@ async function submit(args: string[], io: Io): Promise<number> {
   const { values } = parse(args, { "preview-url": { type: "string" }, json: { type: "boolean" } });
   const { cfg, dir } = readConfig(io);
   const token = tokenFor(io, cfg);
+  if (!io.env.ARTYFACT_TOKEN && cfg.tokenExpires && Date.parse(cfg.tokenExpires) < Date.now())
+    io.err(`note: the stored write token expired at ${cfg.tokenExpires}; set ARTYFACT_TOKEN if the push is refused`);
   const client = clientFor(io, cfg);
   const commit = commitIfDirty(dir, "artyfact submit", io.err);
   git(dir, ["push", "--", cfg.remote, "HEAD:main"], token);

@@ -6,7 +6,7 @@ import { CliError, assertId, assertSecret } from "./git.ts";
 import { assertBearerTransport, resolvePlatform } from "./platform-url.ts";
 import type { Io } from "./main.ts";
 import type { ClaimPayload, TaskRow, TasksPayload, WorkspaceConfig } from "./types.ts";
-import { isLink, materializeWorkspace, readPriorConfig } from "./workspace.ts";
+import { assertClaimDir, isLink, materializeWorkspace, readPriorConfig } from "./workspace.ts";
 
 // TODO(contract): mirrors routes.tasks / routes.claimTask in apps/platform/shared/api.ts (not importable from this package).
 const tasksRoute = (sid: string, q: { status?: string; evolution?: string } = {}) => {
@@ -38,7 +38,7 @@ function renderTable(head: string[], body: string[][]): string[] {
 
 const list = (xs: string[] | undefined) => (xs?.length ? xs.join(",") : "-");
 
-const footprintOf = (t: TaskRow) => list(t.footprint?.globs);
+const footprintOf = (t: TaskRow) => list([...new Set([...(t.footprint?.globs ?? []), ...(t.footprint?.paths ?? [])])]);
 
 /** The first planned task nothing blocks: waves run in order, so the lowest wave wins. */
 function firstClaimable(tasks: TaskRow[]): TaskRow | undefined {
@@ -78,6 +78,7 @@ export async function claimCommand(args: string[], io: Io): Promise<number> {
   if (!admin) throw new CliError("claiming a task needs ARTYFACT_ADMIN_TOKEN (the platform admin token); set it for this command");
   const dir = resolve(io.cwd, values.dir ?? tid);
   if (isLink(dir)) throw new CliError(`refusing symlinked directory: ${dir}`);
+  assertClaimDir(dir, tid);
   const platform = await resolvePlatform(values.platform, io.env, io.fetch ?? fetch, io.err);
   assertBearerTransport(platform, "ARTYFACT_ADMIN_TOKEN");
 
@@ -109,7 +110,7 @@ export async function claimCommand(args: string[], io: Io): Promise<number> {
     forkRepo: (packet.workspace?.fork ?? realization.workspace?.fork) as string,
     remote: (packet.workspace?.remote ?? res.remote ?? res.token?.remote) as string,
     packet, token: res.token?.value ?? io.env.ARTYFACT_TOKEN, secret,
-    secrets: [...leaked, io.env.ARTYFACT_TOKEN, io.env.ARTYFACT_ADMIN_TOKEN, secret].filter((x): x is string => !!x),
+    secrets: [...leaked, io.env.ARTYFACT_TOKEN, io.env.ARTYFACT_ADMIN_TOKEN, prior?.token, secret].filter((x): x is string => !!x),
     tokenExpires: res.token?.expiresAt ?? realization.workspace?.tokenExpiresAt ?? prior?.tokenExpires,
     taskId: tid,
     storeToken: res.token?.value ?? (prior?.realizationId === rid ? prior.token : undefined),

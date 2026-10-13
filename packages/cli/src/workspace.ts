@@ -55,6 +55,18 @@ export function isOurClone(dir: string, realizationId: string, remote: string): 
   return true;
 }
 
+/**
+ * Check a claim's target directory before the claim is made (credentials are issued once, so a bad directory found
+ * afterwards loses them): absent, empty, or an earlier workspace of the same task.
+ */
+export function assertClaimDir(dir: string, taskId: string): void {
+  if (!(existsSync(dir) && readdirSync(dir).length > 0)) return;
+  const foreign = () => new CliError(`${dir} exists and is not empty; choose another --dir`);
+  if (readPriorConfig(dir)?.taskId !== taskId) throw foreign();
+  const git = lstatOrNull(join(dir, ".git"));
+  if (!git?.isDirectory()) throw foreign();
+}
+
 export interface MaterializeInput {
   dir: string;
   platform: string;

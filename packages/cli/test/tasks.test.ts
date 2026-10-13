@@ -1,6 +1,6 @@
 import { execFileSync, spawnSync } from "node:child_process";
 import { createServer, type Server } from "node:http";
-import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -195,6 +195,18 @@ describe("artyfact claim", () => {
     const r = await claim([], {}, join(tmp, "taken"));
     expect(r.code).toBe(1);
     expect(r.err).toBe("artyfact: task task.t1 is claimed by codex:7");
+  });
+
+  it("a non-empty foreign --dir fails before any claim request", async () => {
+    const foreign = join(tmp, "foreign");
+    mkdirSync(foreign);
+    writeFileSync(join(foreign, "mine.txt"), "not yours");
+    respond = () => ({ status: 201, body: claimBody(true) });
+    const r = await claim([], {}, foreign);
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("not empty");
+    expect(calls.filter((c) => c.url.endsWith("/claim"))).toHaveLength(0);
+    expect(calls).toHaveLength(0);
   });
 
   it("needs ARTYFACT_ADMIN_TOKEN and says so before calling the platform", async () => {
