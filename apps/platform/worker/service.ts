@@ -385,6 +385,9 @@ async function concurrentWork(env: Env, systemId: string, evolutionId: string, e
     agentLabel: r.agent.id,
     status: r.status,
     changedSubjects: cands.find((c) => c.realization === r.id)?.changedSubjects ?? [],
+    evolution: r.evolution,
+    // Filled from the task footprint by the packet slice (W5).
+    permittedPaths: [] as string[],
   }));
 }
 

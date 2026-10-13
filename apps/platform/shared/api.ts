@@ -28,6 +28,14 @@ export type AssayHook = schema.AssayHook;
 export type Journey = schema.Journey;
 export type EvolutionState = schema.EvolutionState;
 export type CandidateManifest = schema.CandidateManifest;
+export type TaskStatus = schema.TaskStatus;
+export type TaskFootprint = schema.TaskFootprint;
+export type Task = schema.Task;
+export type TaskConflictKind = schema.TaskConflictKind;
+export type TaskConflict = schema.TaskConflict;
+export type TaskPlanProblem = schema.TaskPlanProblem;
+export type TaskPlan = schema.TaskPlan;
+export type ProposalPlanNode = schema.ProposalPlanNode;
 
 // ---------------------------------------------------------------------------
 // Routes (all under /api). The CLI uses the evolution-scoped realization routes.
@@ -116,6 +124,33 @@ export const routes = {
   intentReply: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/reply`,
   /** `POST` {@link IntentAccept} → 201 {@link IntentAcceptResponse}. */
   intentAccept: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/accept`,
+  /** `PUT` {@link IntentDecisionsRequest} (admin) → {@link Proposal}. */
+  intentDecisions: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/decisions`,
+
+  // Tasks, waves and claims (backend.md B.9).
+  /**
+   * `GET` → {@link TaskPlan}; `POST` {@link PlanRequest} (admin) → {@link TaskPlan} (409 `plan-in-progress`, 422 `plan-cycle`);
+   * `PUT` {@link PlanUpdateRequest} (admin) → {@link TaskPlan}. 404 `no-plan` when none was made.
+   */
+  plan: (s: string, e: string) => `${sys(s)}/evolutions/${enc(e)}/plan`,
+  /** `POST` {@link StartWaveRequest} (admin) → {@link StartWaveResponse}; 409 `wave-blocked` unless `force`. */
+  startWave: (s: string, e: string, n: number) => `${sys(s)}/evolutions/${enc(e)}/waves/${n}/start`,
+  /** `GET` → {@link TasksResponse} (public). */
+  tasks: (s: string, q: TasksQuery = {}) => `${sys(s)}/tasks${qs({ ...q })}`,
+  /** `GET` → {@link TaskResponse} (public). */
+  task: (s: string, t: string) => `${sys(s)}/tasks/${enc(t)}`,
+  /** `POST` {@link ClaimTaskRequest} (admin) → 201 {@link ClaimTaskResponse} (200 with `fresh: false` for the same label); 409 `task-taken`, `task-blocked`. */
+  claimTask: (s: string, t: string) => `${sys(s)}/tasks/${enc(t)}/claim`,
+  /** `POST` (admin) → {@link TaskResponse}: the task returns to `planned`. */
+  releaseTask: (s: string, t: string) => `${sys(s)}/tasks/${enc(t)}/release`,
+  /** `POST` (admin) → {@link RebaseResponse}; 409 `rebase-conflict`, `up-to-date`. */
+  rebase: (s: string, r: string) => `${srz(s, r)}/rebase`,
+
+  // Import review (backend.md B.10).
+  /** `GET` → {@link ImportReview}. */
+  importReview: (s: string) => `${sys(s)}/import-review`,
+  /** `POST` {@link ImportReviewAccept} (admin) → {@link ImportReviewAcceptResponse}. */
+  importReviewAccept: (s: string) => `${sys(s)}/import-review/accept`,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -132,6 +167,14 @@ export type Sha256 = string;
 
 export type Certainty = "declared" | "assumed" | "proposed";
 
+/**
+ * Error codes of the task, wave, claim, rebase and import-review routes (backend.md B.9, B.10). `ApiError.code` stays
+ * a plain string; this union names the codes those routes add.
+ */
+export type TaskErrorCode =
+  | "plan-cycle" | "plan-in-progress" | "wave-blocked" | "task-taken" | "task-blocked" | "rebase-conflict" | "up-to-date"
+  | "import-unreviewed" | "no-plan";
+
 /** Error body for every non-2xx response. */
 export interface ApiError {
   error: { code: string; message: string; details?: unknown };
@@ -147,10 +190,13 @@ export interface ApiError {
  * actionable evolutions with no realization; `awaiting-admin` a Genome candidate awaits accept; `built` a promotion
  * bound an app commit; `deployed` production is live on `appCommit`; `behind` live production is older than `appCommit`;
  * `not-fully-built` readiness errors/missing > 0 or not built; `observed` a Phenome event in the last 24 h;
- * `unrealized` phase unrealized and no candidates ever.
+ * `unrealized` phase unrealized and no candidates ever. `plan-ready` a task plan has planned tasks no wave started;
+ * `wave-running` a task is claimed, realizing or evaluated; `task-awaiting-agent` a task is claimed with no checkpoint;
+ * `import-pending` the import review is pending.
  */
 export type Signifier =
-  | "evolving" | "pending-realization" | "awaiting-admin" | "not-fully-built" | "built" | "deployed" | "behind" | "observed" | "unrealized";
+  | "evolving" | "pending-realization" | "awaiting-admin" | "not-fully-built" | "built" | "deployed" | "behind" | "observed" | "unrealized"
+  | "plan-ready" | "wave-running" | "task-awaiting-agent" | "import-pending";
 
 /** Production deployment state relative to `appCommit`. */
 export type DeployState = "none" | "pending" | "live" | "behind" | "failed";
@@ -179,6 +225,10 @@ export interface SystemSummary {
   phenome?: { events: number; lastEmittedAt?: string };
   readiness?: { errors: number; missing: number };
   signifiers?: Signifier[];
+  /** Tasks across Evolutions: `planReady` planned and unblocked, `awaitingAgent` claimed without a checkpoint, `running` realizing or evaluated, `blocked` waiting on a dependency. */
+  taskCounts?: { planReady: number; awaitingAgent: number; running: number; blocked: number };
+  /** The import review of the head Genome; absent when the System was imported without one. */
+  importReview?: { status: "pending" | "accepted"; genomeCommit: string; nodes: number };
 }
 
 /** `GET /api/systems`. */
@@ -248,10 +298,22 @@ export type ReadinessResponse = ReadinessReport & {
 // Evolutions, realizations, candidates, evaluations, commits
 // ---------------------------------------------------------------------------
 
+/** Counts of an Evolution's task plan (the full plan is `GET …/plan`). */
+export interface TaskPlanSummary {
+  /** Number of tasks. */
+  tasks: number;
+  /** Number of waves. */
+  waves: number;
+  byStatus: Partial<Record<TaskStatus, number>>;
+  updatedAt: string;
+}
+
 /** The Genome's Evolution plus runtime state; `state` is the platform's current state. */
 export type Evolution = schema.Evolution & {
   /** Who decided and why (`decision` keeps the model's string form: the rationale). */
   decisionRecord?: { by: string; policy: string; rationale: string; at: string };
+  /** Present once the Evolution has a task plan. */
+  plan?: TaskPlanSummary;
 };
 
 export interface Checkpoint {
@@ -264,7 +326,10 @@ export interface Checkpoint {
 
 export type RealizationStatus = schema.Realization["status"] | "awaiting-admin";
 
-/** The backend always sets `systemId`, `n`, `createdAt` and `updatedAt`; they are optional so UI fixtures can omit them. */
+/**
+ * The backend always sets `systemId`, `n`, `createdAt` and `updatedAt`; they are optional so UI fixtures can omit them.
+ * `task` (from the model) is the Task id when the realization was started for one.
+ */
 export type Realization = Omit<schema.Realization, "status" | "workspace" | "checkpoints"> & {
   systemId?: SystemId;
   /** System-wide ordinal: the fork is `<repo>--r<n>`. */
@@ -385,6 +450,18 @@ export interface CreateEvolutionResponse {
   evolution: Evolution;
 }
 
+/** The Task a packet was built for (packet `## Task`). */
+export interface TaskPacketTask {
+  id: string;
+  title: string;
+  intent: string;
+  nodes: NodeId[];
+  dependsOn: string[];
+  /** Plain-language independence statement: which tasks share no files, which overlap softly and whose files to avoid. */
+  independence: string;
+  wave: number | null;
+}
+
 /** Machine-readable form of the Task Packet; `markdown` is the same content for agents. Never carries a token. */
 export interface TaskPacket {
   systemId: SystemId;
@@ -408,7 +485,13 @@ export interface TaskPacket {
   protectedPaths: string[];
   entryFiles: { path: string; certainty: Certainty }[];
   commands: string[];
-  concurrentWork: { realization: string; agentLabel?: string; status: string; changedSubjects: string[] }[];
+  /** Open realizations across every Evolution, with the task they work on and the paths it may edit. */
+  concurrentWork: {
+    realization: string; agentLabel?: string; status: string; changedSubjects: string[];
+    evolution: NodeId; task?: string; permittedPaths: string[];
+  }[];
+  /** Present when the realization was started for a Task. */
+  task?: TaskPacketTask;
   /** `ARTYFACT_TOKEN=<token> npx artyfact start …` with the literal placeholder `<token>`. */
   startCommand: string;
   submitInstructions: string;
@@ -654,6 +737,11 @@ export interface ImportSystemRequest {
   /** Recorded on the app's artifact binding when the app repo was seeded from a template scaffold. */
   scaffoldFrom?: ScaffoldSource;
   force?: boolean;
+  /**
+   * Default true: a new System commit leaves the import review pending, and evolution work is refused 409
+   * `import-unreviewed` until it is accepted. `false` skips the review (CLI `--no-review`, fake seeds).
+   */
+  review?: boolean;
 }
 export interface ImportSystemResponse {
   system: SystemSummary;
@@ -704,6 +792,9 @@ export type SseEvent =
   | { type: "phenome.ingested"; count: number; deploymentId?: string; commit: CommitHash }
   | { type: "system.updated"; system: SystemSummary }
   | { type: "evolution.created"; evolution: Evolution }
+  | { type: "plan.updated"; evolution: NodeId; plan: TaskPlanSummary }
+  | { type: "task.updated"; task: Task }
+  | { type: "system.import-review"; status: "pending" | "accepted" }
   | { type: "ping" };
 
 export type SseEventType = SseEvent["type"];
@@ -1178,6 +1269,8 @@ export interface ProposedOp {
   fields?: Record<string, unknown>;
   link?: { rel: string; to: NodeId; certainty?: LinkCertainty };
   criteria?: (NodeCriterion | { id: string; remove: true })[];
+  /** `update`: the node's `files` globs (relative to the nearest `root`); a list replaces them, `null` removes them. */
+  files?: string[] | null;
   dependsOn?: string[];
 }
 
@@ -1224,6 +1317,10 @@ export interface Proposal {
   /** The translator's reply when the message only asked for information (no ops). */
   answer?: string;
   provenance: ProposalProvenance;
+  /** The agreement tree: ops grouped under the nodes they touch, rooted at Things; carries the admin's decisions. */
+  plan: ProposalPlanNode[];
+  /** The proposal whose deferred ops this one holds. */
+  deferredFrom?: string;
   createdAt: string;
 }
 
@@ -1247,4 +1344,119 @@ export interface IntentAcceptResponse {
   realization: Realization;
   candidate: Candidate;
   commit: CommitHash;
+  /** The new open proposal holding the ops of `defer` nodes, and those nodes. */
+  deferred?: { proposal: string; nodeIds: NodeId[] };
+}
+
+/**
+ * `PUT /api/systems/:id/intents/:pid/decisions` (admin) → {@link Proposal}. A decision on a parent node clears its
+ * descendants' decisions; `null` clears the node's own.
+ */
+export interface IntentDecisionsRequest {
+  decisions: { nodeId: NodeId; decision: "agree" | "reject" | "defer" | null }[];
+}
+
+// ---------------------------------------------------------------------------
+// Tasks, waves and claims (backend.md B.9)
+// ---------------------------------------------------------------------------
+
+/** `POST …/evolutions/:eid/plan` (admin): plan the Evolution into Tasks. `force` replans a plan no task has started. */
+export interface PlanRequest {
+  hint?: string;
+  force?: boolean;
+}
+
+/** `PUT …/evolutions/:eid/plan` (admin): the whole task list; the server recomputes footprints, conflicts and waves. */
+export interface PlanUpdateRequest {
+  tasks: (Omit<Task, "footprint"> & { footprint?: TaskFootprint })[];
+}
+
+/** `POST …/evolutions/:eid/waves/:n/start` (admin). `agentLabels`: task id → agent label. */
+export interface StartWaveRequest {
+  agentLabels?: Record<string, string>;
+  role?: schema.Realization["agent"]["role"];
+  /** Start although an earlier wave is not promoted. */
+  force?: boolean;
+}
+
+/** Tokens and secrets in `started` appear only here. */
+export interface StartWaveResponse {
+  wave: number;
+  started: (StartWorkResponse & { task: string })[];
+  skipped: { task: string; reason: string }[];
+}
+
+/** Query of `GET /api/systems/:id/tasks`. */
+export interface TasksQuery {
+  status?: TaskStatus;
+  evolution?: NodeId;
+}
+
+/** `GET /api/systems/:id/tasks?status=&evolution=`. `waves`: Evolution id → task ids per wave. */
+export interface TasksResponse {
+  tasks: (Task & { evolutionTitle: string; wave: number | null; blockedOn: string[] })[];
+  conflicts: TaskConflict[];
+  waves: Record<string, string[][]>;
+}
+
+/** `GET /api/systems/:id/tasks/:tid`, also `POST …/release`. */
+export interface TaskResponse {
+  task: Task;
+  conflicts: TaskConflict[];
+}
+
+/** `POST /api/systems/:id/tasks/:tid/claim` (admin). */
+export interface ClaimTaskRequest {
+  agentLabel: string;
+  role?: schema.Realization["agent"]["role"];
+}
+
+/**
+ * 201 on a fresh claim; 200 with `fresh: false` when the same label claims again. `token` and `secret` are null when
+ * `fresh` is false: they are issued once, so the earlier response's credentials stay the ones to use.
+ */
+export type ClaimTaskResponse = Omit<StartWorkResponse, "token" | "secret"> & {
+  token: StartWorkResponse["token"] | null;
+  secret: string | null;
+  task: Task;
+  fresh: boolean;
+};
+
+/**
+ * `POST /api/systems/:id/realizations/:rid/rebase` (admin): a new fork commit whose tree is the head tree plus the
+ * candidate's diff, submitted. 409 `rebase-conflict` (paths in details) or `up-to-date`.
+ */
+export interface RebaseResponse {
+  realization: Realization;
+  commit: CommitHash;
+  submitted: SubmitResponse;
+}
+
+// ---------------------------------------------------------------------------
+// Import review (backend.md B.10)
+// ---------------------------------------------------------------------------
+
+/** `GET /api/systems/:id/import-review`: the imported Genome as an agreement tree (every node added). */
+export interface ImportReview {
+  status: "pending" | "accepted";
+  genomeCommit: string;
+  tree: ProposalPlanNode[];
+  findings: Finding[];
+  /** App paths no node's `files` maps. */
+  unmapped: string[];
+  decidedAt?: string;
+  interpretation?: string;
+  rejectedNodes?: NodeId[];
+}
+
+/** `POST /api/systems/:id/import-review/accept` (admin). Rejected nodes become `remove` ops of an awaiting-admin amendment. */
+export interface ImportReviewAccept {
+  interpretation?: string;
+  rejectedNodes?: NodeId[];
+}
+
+export interface ImportReviewAcceptResponse {
+  review: ImportReview;
+  /** The amendment that removes `rejectedNodes`, when there were any. */
+  amendment?: { evolution: NodeId; realization: string; candidate: string };
 }

@@ -424,7 +424,8 @@ const SSE_TYPE_SET = {
   "realization.created": true, "realization.updated": true, checkpoint: true, "candidate.submitted": true,
   "evaluation.completed": true, "conflict.detected": true, "evolution.updated": true, "system.promoted": true,
   "genome.accepted": true, "system.imported": true, "build.updated": true, "deployment.updated": true,
-  "phenome.ingested": true, "system.updated": true, "evolution.created": true, ping: true,
+  "phenome.ingested": true, "system.updated": true, "evolution.created": true, "plan.updated": true,
+  "task.updated": true, "system.import-review": true, ping: true,
 } satisfies Record<SseType, true>;
 
 /** Named EventSource listeners (the server may also send unnamed `data:` frames, handled by `onmessage`). */

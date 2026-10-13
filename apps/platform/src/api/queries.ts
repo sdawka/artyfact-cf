@@ -482,6 +482,9 @@ export const SSE_INVALIDATIONS: Record<api.SseType | "poll", readonly string[]> 
   "system.updated": ["systems"],
   "system.imported": ["systems"],
   "evolution.created": ["evolutions", "systems"],
+  "plan.updated": ["evolutions", "plan", "tasks", "systems"],
+  "task.updated": ["evolutions", "tasks", "systems"],
+  "system.import-review": ["importReview", "model", "readiness", "systems"],
   ping: [],
   poll: LIVE_LISTS,
 };

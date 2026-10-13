@@ -97,7 +97,7 @@ describe("task packet", () => {
     const b = await buildTaskPacket(input());
     expect(a.hash).toMatch(/^[0-9a-f]{64}$/);
     expect(b.hash).toBe(a.hash);
-    const c = await buildTaskPacket(input({ concurrentWork: [{ realization: "realization.1.r2", status: "working", changedSubjects: [] }] }));
+    const c = await buildTaskPacket(input({ concurrentWork: [{ realization: "realization.1.r2", status: "working", changedSubjects: [], evolution: "evolution.1", permittedPaths: [] }] }));
     expect(c.hash).not.toBe(a.hash);
   });
 

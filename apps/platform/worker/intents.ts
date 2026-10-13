@@ -246,7 +246,7 @@ export async function createProposal(env: Env, systemId: string, body: Record<st
   const h = await headGenome(env, systemId);
   if (anchor !== undefined && !h.graph.nodes.some((n) => n.id === anchor)) throw badRequest(`unknown node ${anchor}`);
   const turn = await runTurn(env, h, conversation(h, message, anchor, []), "q.1");
-  return systemStub(env, systemId).createProposal({ systemId, message, ...(anchor !== undefined && { anchor }), status: "open", ...turn, createdAt: nowIso() });
+  return systemStub(env, systemId).createProposal({ systemId, message, ...(anchor !== undefined && { anchor }), status: "open", ...turn, plan: [], createdAt: nowIso() });
 }
 
 async function stored(env: Env, systemId: string, pid: string) {
