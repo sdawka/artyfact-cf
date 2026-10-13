@@ -1,0 +1,9 @@
+id: endpoint.import-review-accept
+kind: endpoint
+fields:
+  name: "Accept a System's import"
+  description: "Accepts the pending import review with an interpretation; rejected nodes become remove ops of an amendment that awaits an admin."
+  route: POST /api/systems/:id/import-review/accept
+  auth: "Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set."
+  request: ImportReviewAccept
+  response: ImportReviewAcceptResponse

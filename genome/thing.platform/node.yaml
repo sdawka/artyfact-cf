@@ -35,6 +35,8 @@ links:
   - { rel: exposes, to: endpoint.plan-update }
   - { rel: exposes, to: endpoint.plan-create }
   - { rel: exposes, to: endpoint.plan-get }
+  - { rel: exposes, to: endpoint.import-review }
+  - { rel: exposes, to: endpoint.import-review-accept }
 files:
   - e2e/**
   - playwright.config.ts

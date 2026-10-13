@@ -165,9 +165,9 @@ describe("references resolve in the loaded model", () => {
   });
   it("evolutions: order, links, nodes and criteria", () => {
     const ev = m.evolutions;
-    expect(ev.map((e) => e.state)).toEqual(["actionable", "proposed", "proposed", "proposed", "proposed", "proposed"]);
+    expect(ev.map((e) => e.state)).toEqual(["actionable", "actionable", "proposed", "proposed", "proposed", "proposed"]);
     expect(ev.map((e) => e.kind)).toEqual(["implementation", "implementation", "implementation", "implementation", "genome-amendment", "genome-amendment"]);
-    expect(ev.map((e) => e.dependsOn)).toEqual([[], ["evolution.1"], ["evolution.2"], ["evolution.3"], [], []]);
+    expect(ev.map((e) => e.dependsOn)).toEqual([[], [], ["evolution.2"], ["evolution.3"], [], []]);
     expect(ev[0]!.acceptanceCriteria).toEqual(["exists", "health", "private.owner", "screen.exact", "contact.save", "screen.people", "contact.storage"].map((x) => `C.webapp.${x}`));
     for (const e of ev) {
       for (const n of e.affectedNodes) expect(known(n), `${e.id} node ${n}`).toBe(true);

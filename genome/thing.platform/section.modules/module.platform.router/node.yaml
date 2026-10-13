@@ -75,6 +75,8 @@ links:
   - { rel: implements, to: endpoint.plan-update }
   - { rel: implements, to: endpoint.plan-create }
   - { rel: implements, to: endpoint.plan-get }
+  - { rel: implements, to: endpoint.import-review }
+  - { rel: implements, to: endpoint.import-review-accept }
 files:
   - worker/index.ts
   - worker/routes/**
