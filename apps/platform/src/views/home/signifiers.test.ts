@@ -9,7 +9,8 @@ const build = (status: BuildStatus) => ({ id: "b", status, kind: "preview" as co
 
 describe("cardSummary headline", () => {
   it("is quiet for a summary from a server without iteration-2 fields", () => {
-    expect(cardSummary(base)).toMatchObject({ headline: "quiet", tone: "quiet", reviewHref: undefined });
+    expect(cardSummary(base)).toMatchObject({ headline: "quiet", tone: "quiet" });
+    expect(cardSummary(base).reviewHref).toBeUndefined();
     expect(cardSummary(base).deploy).toMatchObject({ label: "not deployed, unknown", tone: "neutral" });
   });
 
