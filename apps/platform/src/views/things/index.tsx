@@ -49,12 +49,6 @@ export default function ThingWorkspace() {
           {otherThings.map((candidate) => <Link key={candidate.id} to={`/s/${encodeURIComponent(systemId)}/r/${encodeURIComponent(rev)}/things/${encodeURIComponent(candidate.id)}`}>{candidate.name}</Link>)}
         </nav>
       )}
-      <nav className={styles.switcher} aria-label="Thing views">
-        <Link className="u-marker" to={href("map", { focus: thing.id })}>Map</Link>
-        <Link className="u-marker" to={href("code")}>Code</Link>
-        <Link className="u-marker" to={href("work")}>Work</Link>
-        <Link className="u-marker" to={href("phenome")}>Deployments</Link>
-      </nav>
       <div className={styles.grid}>
         <Card title="Genome and composition" headingLevel={2}>
           <KeyValue data={{ id: thing.id, template: thing.templateRef, parts, composition: thing.composition }} />

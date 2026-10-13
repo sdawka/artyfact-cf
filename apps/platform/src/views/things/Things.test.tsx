@@ -16,9 +16,11 @@ describe("Thing workspace", () => {
       qc.setQueryData(qk.model(SID, "head"), bundle);
     });
     expect(await screen.findByRole("heading", { level: 1, name: "Keep in Touch web app" })).toBeTruthy();
-    const nav = screen.getByRole("navigation", { name: "Thing views" });
-    expect(within(nav).getByRole("link", { name: "Map" }).getAttribute("href")).toBe(`${THING}/map?focus=thing.webapp`);
-    await act(() => within(nav).getByRole("link", { name: "Deployments" }).click());
+    // The rail serves the Thing scope; the page carries no second "Thing views" nav.
+    expect(screen.queryByRole("navigation", { name: "Thing views" })).toBeNull();
+    const rail = screen.getByRole("navigation", { name: "Views", exact: true });
+    expect(within(rail).getByRole("link", { name: "Map" }).getAttribute("href")).toContain(`${THING}/map`);
+    await act(() => within(rail).getByRole("link", { name: "Deployments" }).click());
     expect(await screen.findByRole("heading", { name: "Deployments", level: 1 })).toBeTruthy();
     expect(router.state.location.pathname).toBe(`${THING}/phenome`);
     expect(screen.getByRole("link", { name: "System overview" }).getAttribute("href")).toBe(`${BASE}/overview`);
