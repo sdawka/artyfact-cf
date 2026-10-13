@@ -6,7 +6,7 @@ for(const width of [1440,360])test(`native import review and keyboard flow at ${
  await page.addInitScript(()=>sessionStorage.setItem('artyfact.adminToken','test-admin'));
  const accepted:string[]=[];
  await page.route('**/api/**',async route=>{const path=new URL(route.request().url()).pathname;const method=route.request().method();let body:unknown={};
-  if(path.endsWith('/systems'))body=[];
+  if(path.endsWith('/systems'))body={systems:[]};
   else if(path.endsWith('/parts'))body={parts:[]};
   else if(path.endsWith('/initial'))body={systemId:'system.custom',status:'import-pending'};
   else if(path.includes('/ontology-imports')){if(method==='POST'&&path.endsWith('/accept'))accepted.push(route.request().postDataJSON().hash);body={id:'import.one',systemId:'system.custom',status:path.endsWith('/accept')?'accepted':'review',pin:{id:'custom',version:'1',hash:'exact-hash'},issues:[],templateRefs:['template.domain@1'],package:{format:'artyfact.ontology-package@1'}};}

@@ -40,7 +40,10 @@ export async function successToneElements(page: Page): Promise<string[]> {
       const cs = getComputedStyle(el);
       const tagged = el.matches('[data-tone="pass"], [data-verdict="pass"]');
       const painted = ([cs.color, cs.backgroundColor, cs.borderTopColor, cs.fill].includes(pass) || cs.backgroundColor === passBg) && el.textContent?.trim() !== "";
-      if (tagged || painted) hits.push(`${el.tagName.toLowerCase()}.${el.className}: ${el.textContent?.slice(0, 40)}`);
+      if (tagged || painted) {
+        const evidence = el.textContent?.trim() || el.getAttribute("title") || "";
+        hits.push(`${el.tagName.toLowerCase()}.${el.className}: ${evidence.slice(0, 40)}`);
+      }
     }
     return hits;
   });
