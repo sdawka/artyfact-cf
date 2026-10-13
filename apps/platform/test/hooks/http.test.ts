@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { httpHealth, previewPolicy, validatePreviewUrl } from "../../worker/hooks/http-health";
 
 const commit = "0123456789abcdef0123456789abcdef01234567";
@@ -16,21 +16,21 @@ describe("http engine: verdicts", () => {
     expect(o).toMatchObject({ execution: "completed", verdict: "pass" });
     expect(seen[0].url).toBe(`${PREVIEW}/health`);
     expect(seen[0].init?.redirect).toBe("manual");
-    expect(o.observations).toEqual([{ url: `${PREVIEW}/health`, status: 200, ok: true, buildId: commit.slice(0, 7) }]);
+    expect(o.observations).toEqual([{ url: `${PREVIEW}/health`, status: 200, ok: true, buildId: commit.slice(0, 7), attempts: 1 }]);
   });
 
   it("requires the exact authoritative build id when supplied, even for the same source", async () => {
     const expectedBuildId = "build.preview.123";
     expect((await httpHealth({ previewUrl: PREVIEW, commit, expectedBuildId, fetch: fakeFetch(200, { status: "ok", buildId: expectedBuildId }) })).verdict).toBe("pass");
     for (const buildId of ["build.preview.124", commit, "build.preview.123-extra", "BUILD.PREVIEW.123"]) {
-      expect((await httpHealth({ previewUrl: PREVIEW, commit, expectedBuildId, fetch: fakeFetch(200, { status: "ok", buildId }) })).verdict).toBe("fail");
+      expect((await httpHealth({ previewUrl: PREVIEW, commit, expectedBuildId, retryDelaysMs: [], fetch: fakeFetch(200, { status: "ok", buildId }) })).verdict).toBe("fail");
     }
   });
 
   it("fails on a wrong buildId, recording only status/ok/buildId", async () => {
-    const o = await httpHealth({ previewUrl: PREVIEW, commit, fetch: fakeFetch(200, { status: "ok", buildId: "deadbeef", secret: "x" }) });
+    const o = await httpHealth({ previewUrl: PREVIEW, commit, retryDelaysMs: [], fetch: fakeFetch(200, { status: "ok", buildId: "deadbeef", secret: "x" }) });
     expect(o).toMatchObject({ execution: "completed", verdict: "fail" });
-    expect(o.observations).toEqual([{ url: `${PREVIEW}/health`, status: 200, ok: true, buildId: "deadbeef", error: "buildId does not match the commit" }]);
+    expect(o.observations).toEqual([{ url: `${PREVIEW}/health`, status: 200, ok: true, buildId: "deadbeef", error: "buildId does not match the commit", attempts: 1 }]);
   });
 
   it("fails on non-200 and on status other than ok", async () => {
@@ -41,7 +41,7 @@ describe("http engine: verdicts", () => {
   it("is unknown on a 3xx, not followed, recording only url and status", async () => {
     const o = await httpHealth({ previewUrl: PREVIEW, commit, fetch: fakeFetch(302, "redirect body", [], { location: "http://169.254.169.254/" }) });
     expect(o).toMatchObject({ execution: "completed", verdict: "unknown", interpretation: "redirect (HTTP 302) not followed" });
-    expect(o.observations).toEqual([{ url: `${PREVIEW}/health`, status: 302 }]);
+    expect(o.observations).toEqual([{ url: `${PREVIEW}/health`, status: 302, attempts: 1 }]);
   });
 
   it("states what a pass proves", async () => {
@@ -62,7 +62,7 @@ describe("http engine: verdicts", () => {
   });
 
   it("clips a long buildId to 64 chars", async () => {
-    const o = await httpHealth({ previewUrl: PREVIEW, commit, fetch: fakeFetch(200, { status: "ok", buildId: "a".repeat(500) }) });
+    const o = await httpHealth({ previewUrl: PREVIEW, commit, retryDelaysMs: [], fetch: fakeFetch(200, { status: "ok", buildId: "a".repeat(500) }) });
     expect(((o.observations[0] as { buildId: string }).buildId).length).toBeLessThanOrEqual(64);
   });
 
@@ -71,7 +71,7 @@ describe("http engine: verdicts", () => {
   });
 
   it("never matches when the commit is shorter than 7 chars", async () => {
-    const o = await httpHealth({ previewUrl: PREVIEW, commit: "", fetch: fakeFetch(200, { status: "ok", buildId: "anything-long" }) });
+    const o = await httpHealth({ previewUrl: PREVIEW, commit: "", retryDelaysMs: [], fetch: fakeFetch(200, { status: "ok", buildId: "anything-long" }) });
     expect(o.verdict).toBe("fail");
   });
 
@@ -85,6 +85,56 @@ describe("http engine: verdicts", () => {
     const t = await httpHealth({ previewUrl: PREVIEW, commit, fetch: hang, timeoutMs: 20 });
     expect(t).toMatchObject({ execution: "error", verdict: "unknown" });
     expect(JSON.stringify(t.observations)).toContain("timed out");
+  });
+});
+
+describe("http engine: buildId mismatch retries", () => {
+  const expectedBuildId = "build.realization.8.r6.69a82a8.ci";
+  const PREVIOUS = "build.realization.8.r6.3931a97.ci";
+  /** Serves `ids` in order (the last one repeats), recording each request. */
+  const serving = (ids: string[], seen: string[] = [], status = 200, health = "ok") =>
+    (async (input: RequestInfo | URL) => {
+      seen.push(String(input));
+      return Response.json({ status: health, buildId: ids[Math.min(seen.length - 1, ids.length - 1)] }, { status });
+    }) as typeof fetch;
+  const waits: number[] = [];
+  const sleep = async (ms: number) => { waits.push(ms); };
+  beforeEach(() => { waits.length = 0; });
+
+  it("passes once the preview switches to the expected build, recording the attempts", async () => {
+    const seen: string[] = [];
+    const o = await httpHealth({ previewUrl: PREVIEW, commit, expectedBuildId, sleep, fetch: serving([PREVIOUS, expectedBuildId], seen) });
+    expect(o).toMatchObject({ execution: "completed", verdict: "pass" });
+    expect(o.observations).toEqual([{ url: `${PREVIEW}/health`, status: 200, ok: true, buildId: expectedBuildId, attempts: 2 }]);
+    expect(seen).toHaveLength(2);
+    expect(waits).toEqual([1000]);
+  });
+
+  it("fails with the same message after every retry still serves another build", async () => {
+    const o = await httpHealth({ previewUrl: PREVIEW, commit, expectedBuildId, sleep, fetch: serving([PREVIOUS]) });
+    expect(o).toMatchObject({ execution: "completed", verdict: "fail", interpretation: "buildId does not match the expected build" });
+    expect(o.observations).toEqual([{ url: `${PREVIEW}/health`, status: 200, ok: true, buildId: PREVIOUS, error: "buildId does not match the expected build", attempts: 4 }]);
+    expect(waits).toEqual([1000, 2000, 4000]);
+  });
+
+  it("honours custom delays and drops retries that would exceed the budget", async () => {
+    const custom = await httpHealth({ previewUrl: PREVIEW, commit, expectedBuildId, sleep, retryDelaysMs: [5, 5], fetch: serving([PREVIOUS]) });
+    expect((custom.observations[0] as { attempts: number }).attempts).toBe(3);
+    waits.length = 0;
+    // 2 s per attempt: 2 + 1 + 2 = 5 s fits a 6 s budget, a further 2 + 2 s does not.
+    const tight = await httpHealth({ previewUrl: PREVIEW, commit, expectedBuildId, sleep, budgetMs: 6000, fetch: serving([PREVIOUS]) });
+    expect((tight.observations[0] as { attempts: number }).attempts).toBe(2);
+    expect(waits).toEqual([1000]);
+  });
+
+  it("does not retry an unhealthy response or a transport error", async () => {
+    const seen: string[] = [];
+    expect((await httpHealth({ previewUrl: PREVIEW, commit, expectedBuildId, sleep, fetch: serving([PREVIOUS], seen, 500) })).verdict).toBe("fail");
+    expect((await httpHealth({ previewUrl: PREVIEW, commit, expectedBuildId, sleep, fetch: serving([PREVIOUS], seen, 200, "degraded") })).verdict).toBe("fail");
+    expect(seen).toHaveLength(2);
+    const boom = (async () => { throw new TypeError("network down"); }) as unknown as typeof fetch;
+    expect(await httpHealth({ previewUrl: PREVIEW, commit, expectedBuildId, sleep, fetch: boom })).toMatchObject({ execution: "error", verdict: "unknown" });
+    expect(waits).toEqual([]);
   });
 });
 

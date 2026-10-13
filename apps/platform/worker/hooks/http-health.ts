@@ -9,6 +9,10 @@
  * (the agent gave a bad URL). Redirects are not followed (3xx → unknown). The body is never echoed: only
  * `{status, ok, buildId}` and short error messages are recorded. Transport failures and timeouts are
  * `execution: error`, never a verdict.
+ *
+ * A healthy response with the wrong `buildId` is retried after `retryDelaysMs` (default 1 s, 2 s, 4 s): workers.dev
+ * keeps serving the previous version for a moment after a deploy. Retries stop where they would exceed `budgetMs`
+ * (the hook's timeout). A mismatch after the last attempt is still `fail`; the observation records `attempts`.
  */
 import { notRun, type Outcome } from "./provenance";
 
@@ -72,9 +76,15 @@ export interface HealthInput {
   timeoutMs?: number;
   fetch?: typeof fetch;
   policy?: PreviewPolicy;
+  /** Waits before each retry of a buildId mismatch. */
+  retryDelaysMs?: readonly number[];
+  /** Total time the hook may take; retries that could exceed it are dropped. */
+  budgetMs?: number;
+  sleep?: (ms: number) => Promise<void>;
 }
 
 export const HEALTH_TIMEOUT_MS = 2000;
+export const HEALTH_RETRY_DELAYS_MS = [1000, 2000, 4000] as const;
 const MIN_PREFIX = 7;
 const MAX_FIELD = 64;
 const MAX_BODY_BYTES = 16 * 1024;
@@ -132,6 +142,29 @@ export async function httpHealth(input: HealthInput): Promise<Outcome> {
   const url = `${target.origin}${target.pathname}`;
 
   const timeoutMs = input.timeoutMs ?? HEALTH_TIMEOUT_MS;
+  const sleep = input.sleep ?? ((ms: number) => new Promise<void>((r) => setTimeout(r, ms)));
+  // Worst case per attempt is the request timeout; keep every retry (with its wait) inside the budget.
+  const delays: number[] = [];
+  let worst = timeoutMs;
+  for (const d of input.retryDelaysMs ?? HEALTH_RETRY_DELAYS_MS) {
+    if (input.budgetMs !== undefined && worst + d + timeoutMs > input.budgetMs) break;
+    worst += d + timeoutMs;
+    delays.push(d);
+  }
+  let attempts = 1;
+  let probe = await probeHealth(input, url, timeoutMs);
+  while (probe.retryable && attempts <= delays.length) {
+    await sleep(delays[attempts - 1]);
+    attempts++;
+    probe = await probeHealth(input, url, timeoutMs);
+  }
+  const o = probe.outcome;
+  const [first, ...rest] = o.observations;
+  return first && typeof first === "object" ? { ...o, observations: [{ ...first, attempts }, ...rest] } : o;
+}
+
+/** One GET of the health endpoint. `retryable`: a healthy response whose only problem is the buildId. */
+async function probeHealth(input: HealthInput, url: string, timeoutMs: number): Promise<{ outcome: Outcome; retryable: boolean }> {
   const doFetch = input.fetch ?? globalThis.fetch.bind(globalThis);
   const ctl = new AbortController();
   const timer = setTimeout(() => ctl.abort(), timeoutMs);
@@ -149,7 +182,7 @@ export async function httpHealth(input: HealthInput): Promise<Outcome> {
   } catch (e) {
     const timedOut = ctl.signal.aborted;
     const msg = clip(timedOut ? `GET timed out after ${timeoutMs} ms` : e instanceof Error ? `${e.name}: ${e.message}` : String(e));
-    return { execution: "error", verdict: "unknown", observations: [{ url, error: msg }], interpretation: msg, limitations: [], provenance };
+    return { outcome: { execution: "error", verdict: "unknown", observations: [{ url, error: msg }], interpretation: msg, limitations: [], provenance }, retryable: false };
   } finally {
     clearTimeout(timer);
   }
@@ -168,22 +201,26 @@ export async function httpHealth(input: HealthInput): Promise<Outcome> {
 
   // The redirect target was never examined: not evidence either way. `fail` is reserved for an unusable URL.
   if (res.status >= 300 && res.status < 400) {
-    return { execution: "completed", verdict: "unknown", observations: [{ url, status: res.status }], interpretation: `redirect (HTTP ${res.status}) not followed`, limitations: ["Redirects are not followed."], provenance };
+    return { outcome: { execution: "completed", verdict: "unknown", observations: [{ url, status: res.status }], interpretation: `redirect (HTTP ${res.status}) not followed`, limitations: ["Redirects are not followed."], provenance }, retryable: false };
   }
-  if (text === null) return done("fail", { status: res.status }, `body larger than ${MAX_BODY_BYTES} bytes`);
+  if (text === null) return { outcome: done("fail", { status: res.status }, `body larger than ${MAX_BODY_BYTES} bytes`), retryable: false };
   let body: unknown;
   try {
     body = JSON.parse(text);
   } catch {
-    return done("fail", { status: res.status }, "health endpoint did not return JSON");
+    return { outcome: done("fail", { status: res.status }, "health endpoint did not return JSON"), retryable: false };
   }
   const b = (body && typeof body === "object" ? body : {}) as { status?: unknown; buildId?: unknown };
   const statusOk = b.status === "ok";
   const problems: string[] = [];
   if (res.status !== 200) problems.push(`HTTP ${res.status}`);
   if (!statusOk) problems.push("status is not ok");
+  const healthy = !problems.length;
   if (input.expectedBuildId !== undefined) {
     if (!input.expectedBuildId || b.buildId !== input.expectedBuildId) problems.push("buildId does not match the expected build");
   } else if (!buildIdMatches(b.buildId, input.commit)) problems.push("buildId does not match the commit");
-  return done(problems.length ? "fail" : "pass", { status: res.status, ok: statusOk, buildId: b.buildId }, problems.length ? problems.join("; ") : undefined);
+  return {
+    outcome: done(problems.length ? "fail" : "pass", { status: res.status, ok: statusOk, buildId: b.buildId }, problems.length ? problems.join("; ") : undefined),
+    retryable: healthy && problems.length > 0,
+  };
 }
