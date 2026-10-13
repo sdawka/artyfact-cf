@@ -38,6 +38,8 @@ describe("Review queue", () => {
     expect(rows[1]!.textContent).toMatch(/candidate.*agent-alpha.*implementer.*cand\.1.*base = head/);
     expect(rows[0]!.textContent).toMatch(/amendment.*agent-genome/);
     expect(rows[2]!.textContent).toMatch(/promotion.*ready to promote/);
+    // Promotion rows carry their Evolution in the accessible name, so two are never named alike.
+    expect(within(group).getByRole("link", { name: new RegExp(`promotion.*${TITLE} \\(${EVO1}\\)`) })).toBe(rows[2]);
     expect(screen.getByText("Select a decision from the queue.")).toBeTruthy();
   });
 

@@ -43,14 +43,14 @@ function Group({ group, evolutionId, realizationId, promoting }: { group: QueueG
           const current = row.kind === "promotion"
             ? promoting && evolutionId === group.evolution
             : !promoting && !!row.realization && row.realization.id === realizationId;
-          return <li key={row.key}><Row row={row} current={current} /></li>;
+          return <li key={row.key}><Row row={row} title={group.title} current={current} /></li>;
         })}
       </ul>
     </section>
   );
 }
 
-function Row({ row, current }: { row: QueueRow; current: boolean }) {
+function Row({ row, title, current }: { row: QueueRow; title: string; current: boolean }) {
   const href = useKeepParams();
   const { candidates: selected } = useSelection();
   const to = row.kind === "promotion"
@@ -71,6 +71,7 @@ function Row({ row, current }: { row: QueueRow; current: boolean }) {
         {r && <strong className={styles.agent}>{r.agent.id}</strong>}
         {r && <span className={styles.muted}>{r.agent.role}</span>}
         {ready && <span className={styles.muted}>ready to promote</span>}
+        {ready && <span className="sr-only">{title} ({row.evolution})</span>}
       </span>
       {row.candidateId && (
         <span className={styles.rowMeta}>

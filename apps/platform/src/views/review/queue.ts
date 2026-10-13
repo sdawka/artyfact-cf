@@ -44,9 +44,10 @@ const OPEN = new Set(["submitted", "evaluated", "selected"]);
 /** Open and far enough along to promote. */
 const PROMOTABLE = new Set(["evaluated", "selected"]);
 
-/** Commits from `base` to `head` along parents: 0 when equal, null when `base` is not an ancestor of `head`, undefined when no base is known. */
+/** Commits from `base` to `head` along parents: 0 when equal, null when `base` is not an ancestor of `head`, undefined when no base or no history is known. */
 export function behindBy(base: string | null | undefined, head: string | null, commits: readonly SystemCommit[] | undefined): number | null | undefined {
-  if (base === undefined) return undefined;
+  // Without a base, or before the history has loaded, nothing is known (not "behind").
+  if (base === undefined || commits === undefined) return undefined;
   if ((base || null) === head) return 0;
   const byId = new Map((commits ?? []).map((c) => [c.id, c] as const));
   let n = 0;

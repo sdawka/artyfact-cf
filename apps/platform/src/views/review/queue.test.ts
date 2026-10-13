@@ -17,6 +17,7 @@ describe("behindBy", () => {
     expect(behindBy("sc-x", "sc-3", [c1, c2, c3])).toBeNull();
     expect(behindBy(undefined, "sc-3", [c1, c2, c3])).toBeUndefined();
     expect(behindBy(null, null, [])).toBe(0);
+    expect(behindBy("sc-1", null, undefined)).toBeUndefined();
   });
 });
 
@@ -54,6 +55,12 @@ describe("reviewQueue", () => {
     // The loaded candidate's base wins over the realization's.
     expect(g!.rows).toHaveLength(1);
     expect(g!.rows[0]).toMatchObject({ kind: "stale", behind: 1, candidateId: "cand.1" });
+  });
+
+  it("waits for the history before calling a candidate stale: no flash, the promotion row stays", () => {
+    const [g] = reviewQueue({ evolutions, commits: undefined, realizations: [realization({ status: "evaluated", candidate: "cand.1", baseRevision: "sc-1" })] });
+    expect(g!.rows.map((r) => r.kind)).toEqual(["candidate", "promotion"]);
+    expect(g!.rows[0]!.behind).toBeUndefined();
   });
 
   it("drops a realization whose loaded candidate is already promoted or rejected", () => {

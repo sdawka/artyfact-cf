@@ -203,7 +203,7 @@ describe("Work hands decisions to Review", () => {
 
   it("links Promote to the Review desk and keeps no promotion panel on Work", async () => {
     renderApp(`${WORK}?evolution=${EVO1}&candidates=cand.1`, undefined, seed({ realizations: [waiting] }));
-    const link = await screen.findByRole("link", { name: "Promote" });
+    const link = await screen.findByRole("link", { name: "Promote in Review" });
     expect(link.getAttribute("href")).toBe(`${REVIEW}?candidates=cand.1&evolution=${EVO1}&panel=promote`);
     expect(screen.queryByRole("button", { name: "Promote" })).toBeNull();
     expect(screen.queryByRole("heading", { name: /^Promote / })).toBeNull();

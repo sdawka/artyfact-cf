@@ -25,7 +25,8 @@ export interface ReviewQueue {
 export function useReviewQueue(): ReviewQueue {
   const { systemId } = useSystemRoute();
   const board = useEvolutions();
-  const { data: commits } = useHistory();
+  const history = useHistory();
+  const commits = history.data;
   const { data: conflicts } = useConflicts();
   const realizations = board.data?.realizations;
   const evolutionIds = useMemo(
@@ -41,8 +42,8 @@ export function useReviewQueue(): ReviewQueue {
     const candidates = loaded.flatMap((d) => d?.candidates ?? []);
     const all = [...(conflicts ?? []), ...loaded.flatMap((d) => d?.conflicts ?? [])];
     const groups = reviewQueue({ evolutions: board.data?.evolutions ?? [], realizations: realizations ?? [], commits, candidates, conflicts: all });
-    return { groups, count: groups.reduce((n, g) => n + g.rows.length, 0), candidates, conflicts: all, isLoading: board.isLoading };
+    return { groups, count: groups.reduce((n, g) => n + g.rows.length, 0), candidates, conflicts: all, isLoading: board.isLoading || history.isLoading };
     // `loaded` is a fresh array each render; `stamp` changes when any of it does.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board.data, board.isLoading, realizations, commits, conflicts, stamp]);
+  }, [board.data, board.isLoading, history.isLoading, realizations, commits, conflicts, stamp]);
 }
