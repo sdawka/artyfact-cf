@@ -2,13 +2,13 @@
 
 Authoritative spec for iteration 3. The engine lives in `packages/ontology` (`@artyfact/ontology`), copied from bropilot `packages/ontology-engine` at `cb1599c` (MIT) and owned here from now on. Its own design notes are `packages/ontology/docs/ontology-engine-library.md` and the template author's guide `packages/ontology/docs/writing-an-ontology.md`. This file fixes what the rest of the platform builds on: the Genome tree on disk, the template extensions artyfact adds to `meta@1`, how engine ops become file changes, and the intent wire flow.
 
-Contract code: `packages/ontology/src/genome/` (zod schemas and types for `node.yaml`, view hints, format detection) and `apps/platform/shared/api.ts` (intent wire types and routes). Where this text and those files disagree, the code is a bug to fix here first.
+Contract code: `packages/ontology/src/genome/` (zod schemas and types for `node.yaml`, view hints, the legacy check) and `apps/platform/shared/api.ts` (intent wire types and routes). Where this text and those files disagree, the code is a bug to fix here first.
 
 ## 1. The engine package
 
 | Entry | Contents |
 |---|---|
-| `@artyfact/ontology` | `meta@1` templates (`loadTemplate`, `checkTemplateForm`, `extends`), the `Graph`, `evaluate`/`diff`, the judge and funnel, routing (`route`, `routeSlice`, `routeVocabulary`), translators, `validateOps`, the artyfact v1 adapter (`loadArtyfactSystem`), the Genome v2 contract (`src/genome/`) |
+| `@artyfact/ontology` | `meta@1` templates (`loadTemplate`, `checkTemplateForm`, `extends`), the `Graph`, `evaluate`/`diff`, the judge and funnel, routing (`route`, `routeSlice`, `routeVocabulary`), translators, `validateOps`, the artyfact v1 adapter (`loadArtyfactSystem`, transitional: see §2a), the Genome v2 contract (`src/genome/`) |
 | `@artyfact/ontology/artyfact/node` | `readDir` for Node (the only file-system import) |
 | `@artyfact/ontology/product`, `/world` | bropilot's product-spec, spaces and world-core adapters, kept for their tests and as worked examples |
 
@@ -79,7 +79,7 @@ Rules:
 - **The directory name is a slug, not the identity.** The `id` in `node.yaml` is authoritative and globally unique. A slug matches `[A-Za-z0-9_][A-Za-z0-9._-]*`, is at most 120 characters, and only has to be unique among its siblings. A writer names a new directory `slugOf(id)`: the id itself when that is a valid slug, otherwise the id with every other run of characters replaced by `-`. A journey step's directory may use the step's local id (`s1`). Renaming a directory does not change the node.
 - **Reserved names.** `evolutions/` at the root holds `<id>.yaml` change records. They never hold a `node.yaml`, and they are not part of the tree. Directories without a `node.yaml`, dot-files and `README.md` files are ignored. A `node.yaml` whose parent directory has none is an error.
 - **Legal nesting** is the template's business. A node's parent kind must be in its kind's `parents`; `metamodel@1` reports the violations. The codec does not refuse an illegal tree; evaluation reports it.
-- **Format detection** (`detectGenomeFormat(paths)`) reads the root: `node.yaml` means v2, `system.yaml` means v1. Both at once, or neither, is an error. Old commits stay readable through the v1 adapter, and nothing rewrites history.
+- **v2 only.** The platform loader reads the tree layout and nothing else: a Genome without a root `node.yaml` does not load. There is no long-lived format detection; the one exception is the legacy check in §2a.
 
 ### `node.yaml`
 
@@ -125,6 +125,20 @@ The plan's draft wrote `severity: gate | hard | soft` and `target: model | code 
 
 **System criteria** are the `criteria` of the root `node.yaml`. **Journeys** are nodes of kind `journey` under the System or the Thing that owns them. Each step is a child node of kind `step`. Its fields are the v1 step fields, with `order` giving the sequence, and its targets are links (`stepScreen`, `stepOperation`, `stepExternal`, `stepNext`), as in the engine's artyfact base template. Only things that span many nodes become nodes of their own; everything else is a field of the node it describes.
 
+### 2a. The retired v1 layout
+
+The v1 (by-concern) layout is dropped. The rules:
+
+- **One-time migration.** The v1 reader exists only inside the converter (W1, `packages/ontology/src/codec/v1.ts`) and one transitional platform release. That release converts the prod Keep in Touch Genome to v2 through an ordinary Genome realization commit and promotion. After it ships, the converter's v1 reader, the engine's artyfact v1 adapter (`src/adapters/artyfact`), its parity tests and v1 support in `@artyfact/model` are deleted. Old commits are never rewritten.
+- **Legacy check.** `isLegacyGenome(paths)` (`src/genome/node.ts`) is true when the root has `system.yaml` and no `node.yaml`. It reads a file list only and never parses v1. It is the only v1 knowledge the platform keeps.
+- **Model routes** (`model`, `readiness` and anything else that loads the Genome) at a legacy revision answer 422 `legacy-genome`, with the message "this revision predates the node-tree Genome format".
+- **Changelog.** A System commit whose Genome is legacy is listed with its row metadata (time, author, policy, rationale, Evolutions, candidates) and `legacyFormat: true`. Its `summary` counts files only, with the node counts 0. The entry shows a "Legacy format" notice in place of the node delta, the criteria table and the node links. The changed files and their text diffs still show, because they are plain files.
+- **Compare.** When a side's Genome is legacy, `SystemCompare.genome.legacyFormat` (and `GenomeCompare.legacyFormat`) lists that side and `delta` is null. The app side compares as usual.
+  - Both sides legacy: the notice replaces the Genome panel.
+  - Legacy `from` and v2 `to` (the migration commit): the notice reads "Converted from the legacy format", and the to-side tree is browsable.
+  - File compare (`compare/file`) works on any revision.
+- **Other surfaces.** Map, Inspector, Journeys and the other views only ever load the head, which is v2 after the migration. A link to a legacy revision lands on the Changelog entry.
+
 ### From the tree to the engine `Graph` (W1 codec, W4 projection)
 
 | Tree | `Graph` |
@@ -137,7 +151,7 @@ The plan's draft wrote `severity: gate | hard | soft` and `target: model | code 
 | `files` | Not in the graph; the node-attached source map reads them (W6) |
 | `evolutions/*.yaml` | `evolution` nodes with no parent, plus `acceptance` and `affects` links, as in v1 |
 
-Parity is the test. For Keep in Touch, the v1 adapter's graph and the v2 projection must give the same findings. The one intended difference is the `parent` of top-level items, which v1 left parentless and v2 nests under the System. So the templates (W2) list `system` in the `parents` of `purpose`, `claim`, `external`, `feature`, `commitment` and `journey`.
+The migration's acceptance test is parity. For Keep in Touch, the v1 adapter's graph and the converted tree's projection must give the same findings. The test is deleted with the v1 reader. The one intended difference is the `parent` of top-level items, which v1 left parentless and v2 nests under the System. So the templates (W2) list `system` in the `parents` of `purpose`, `claim`, `external`, `feature`, `commitment` and `journey`.
 
 ### v1 → v2 conversion (W1)
 
@@ -155,7 +169,7 @@ Parity is the test. For Keep in Touch, the v1 adapter's graph and the v2 project
 
 Field names are kept as they are in v1. Nodes go on using `name` where v1 did, and view hints default the display name to `title`, then `name`. The engine's routing reads only `title` (`titleOf`), so on Keep in Touch it shows ids. W7 adds a `name` fallback, or the kind's `view.title`, to `titleOf`.
 
-The engine's v1 adapter predates Parts, Composition and the Phenome. The converter reads v1 through `@artyfact/model`, which knows them, and emits the tree from that.
+The engine's v1 adapter predates Parts, Composition and the Phenome. The converter reads v1 through `@artyfact/model`, which knows them, and emits the tree from that. Both readers go when the migration release has run (§2a).
 
 ## 3. Templates (meta@1 plus artyfact's extensions)
 
@@ -260,3 +274,4 @@ Providers are wired by W5 and W7. System One comes from TypeSafe (`TYPESAFE_API_
 | Display names | `titleOf` reads `title` only | Artyfact nodes use `name` | W7: fall back to `name` or the kind's `view.title` (§2) |
 | Fake translator | Links adds with `references` | Templates declare their own relations | Fixtures and e2e must use updates or templates that declare `references`. W7 may make the fake read the vocabulary |
 | System One providers | OpenRouter and fake | TypeSafe as well | W5 |
+| Old Genomes | v1 adapter included | Plan: `loadGenome` detects v1 or v2 (W4), and old commits stay readable | Superseded by the user: v2 only. v1 commits show the legacy notice (§2a), and the v1 readers are deleted after the migration release. W4 loads v2 only |

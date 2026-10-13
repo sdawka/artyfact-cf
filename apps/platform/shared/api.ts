@@ -784,7 +784,11 @@ export interface SystemCompare {
    * Genome commits on each side, their semantic delta and the Genome repo's changed files (`pathNodes`: the delta's
    * nodes declared in each path). Null delta and files with `loadError` when a side does not load.
    */
-  genome: { from: CommitHash | null; to: CommitHash; delta: ModelDelta | null; files: ChangedFiles | null; pathNodes: Record<string, NodeId[]>; loadError?: string };
+  genome: {
+    from: CommitHash | null; to: CommitHash; delta: ModelDelta | null; files: ChangedFiles | null; pathNodes: Record<string, NodeId[]>; loadError?: string;
+    /** Sides whose Genome is in the retired v1 layout: never loaded, so `delta` is null; the UI shows the legacy notice. */
+    legacyFormat?: ("from" | "to")[];
+  };
   /** The app binding's change; null when neither side binds an app. */
   app: { from: ResolvedRef | null; to: ResolvedRef; files: ChangedFiles; pathNodes: Record<string, NodeId[]> } | null;
   manifest: { templateVersions: string[]; hookVersions: string[]; platformChanged: boolean };
@@ -797,6 +801,8 @@ export interface GenomeCompare {
   to: ResolvedRef;
   delta: ModelDelta | null;
   loadError?: string;
+  /** As in {@link SystemCompare}: sides in the retired v1 layout, with `delta` null. */
+  legacyFormat?: ("from" | "to")[];
   files: ChangedFiles;
 }
 
@@ -826,6 +832,8 @@ export interface ChangelogRow {
   evolutions: { id: NodeId; title: string }[];
   candidates: { id: string; realization: string; commit: CommitHash; repo: string; agent: string }[];
   genomeCommit: CommitHash;
+  /** The Genome at this commit is in the retired v1 layout; `summary` counts files only and the UI shows the legacy notice. */
+  legacyFormat?: true;
   summary: { nodesAdded: number; nodesChanged: number; nodesRemoved: number; filesChanged: number; criteriaAffected: number };
   manifestHash: Sha256 | null;
   platform: PlatformRef | null;

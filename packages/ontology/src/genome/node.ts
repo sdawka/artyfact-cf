@@ -8,31 +8,26 @@ import { z } from "zod";
 
 /** The file that defines a node; at the Genome root it defines the System and marks the tree layout. */
 export const NODE_FILE = "node.yaml";
-/** Root file of the v1 (by-concern) layout. */
+/** Root file of the retired v1 (by-concern) layout; the platform only recognises it to show a legacy notice. */
 export const V1_ROOT_FILE = "system.yaml";
 /** Flat change records; never a node directory. */
 export const EVOLUTIONS_DIR = "evolutions";
-
-export const GENOME_FORMATS = ["v1", "v2"] as const;
-export type GenomeFormat = (typeof GENOME_FORMATS)[number];
 
 const name = z.string().min(1);
 const norm = (p: string) => p.replace(/\\/g, "/").replace(/^\.?\//, "");
 
 /**
- * The layout of a Genome from its root files: `node.yaml` is v2, `system.yaml` is v1. Both at once, or neither, is
- * an error (a half-converted or foreign tree), so a caller never guesses.
+ * Whether a Genome tree is in the retired v1 layout: `system.yaml` at the root and no `node.yaml`. The platform reads
+ * v2 only; a legacy commit is shown as a notice, never loaded. A tree with neither root file is simply not a Genome.
  */
-export function detectGenomeFormat(paths: Iterable<string>): GenomeFormat {
-  let v1 = false, v2 = false;
+export function isLegacyGenome(paths: Iterable<string>): boolean {
+  let v1 = false;
   for (const p of paths) {
     const n = norm(p);
-    if (n === NODE_FILE) v2 = true;
-    else if (n === V1_ROOT_FILE) v1 = true;
+    if (n === NODE_FILE) return false;
+    if (n === V1_ROOT_FILE) v1 = true;
   }
-  if (v1 && v2) throw new Error(`genome has both ${NODE_FILE} and ${V1_ROOT_FILE} at its root`);
-  if (!v1 && !v2) throw new Error(`genome has neither ${NODE_FILE} nor ${V1_ROOT_FILE} at its root`);
-  return v2 ? "v2" : "v1";
+  return v1;
 }
 
 /** A node directory name: letters, digits, `.`, `_` and `-`, not starting with `.` or `-`. */

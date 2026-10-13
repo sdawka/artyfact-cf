@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml } from "yaml";
 import {
-  checkTemplateForm, checkViewHints, detectGenomeFormat, isNodeSlug, loadTemplate, memoryStore, NodeFileSchema, parseNodeFile, resolveKindView, slugOf,
+  checkTemplateForm, checkViewHints, isLegacyGenome, isNodeSlug, loadTemplate, memoryStore, NodeFileSchema, parseNodeFile, resolveKindView, slugOf,
   type TemplateInput,
 } from "../src/index.ts";
 
@@ -48,11 +48,11 @@ describe("genome v2 node.yaml", () => {
     expect(NodeFileSchema.safeParse(raw).success).toBe(false);
   });
 
-  it("detects the layout from the root file", () => {
-    expect(detectGenomeFormat(["node.yaml", "thing.webapp/node.yaml", "evolutions/evolution.1.yaml"])).toBe("v2");
-    expect(detectGenomeFormat(["./system.yaml", "things/webapp/thing.yaml"])).toBe("v1");
-    expect(() => detectGenomeFormat(["node.yaml", "system.yaml"])).toThrow(/both/);
-    expect(() => detectGenomeFormat(["thing.webapp/node.yaml"])).toThrow(/neither/);
+  it("recognises a legacy v1 tree by its root file only", () => {
+    expect(isLegacyGenome(["./system.yaml", "things/webapp/thing.yaml"])).toBe(true);
+    expect(isLegacyGenome(["node.yaml", "thing.webapp/node.yaml", "evolutions/evolution.1.yaml"])).toBe(false);
+    expect(isLegacyGenome(["node.yaml", "system.yaml"])).toBe(false);
+    expect(isLegacyGenome(["things/webapp/system.yaml"])).toBe(false);
   });
 
   it("slugs ids into directory names", () => {

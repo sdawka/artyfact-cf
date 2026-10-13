@@ -11,7 +11,7 @@ TypeScript ESM. The runtime dependencies are `zod` and `yaml`. Hashing is synchr
 | Module | Contents |
 |---|---|
 | `@artyfact/rules` | The Datalog engine, imported from `packages/rules` (the bropilot copy was that package moved verbatim and is deleted here). |
-| `src/genome/` | Genome v2 contract: `node.yaml` schema (`NodeFileSchema`, inline criteria and hooks), format detection, directory slugs, and template view hints (`KindViewSchema`, `TemplateViewSchema`, `resolveKindView`, `checkViewHints`). |
+| `src/genome/` | Genome v2 contract: `node.yaml` schema (`NodeFileSchema`, inline criteria and hooks), the legacy v1 check, directory slugs, and template view hints (`KindViewSchema`, `TemplateViewSchema`, `resolveKindView`, `checkViewHints`). |
 | `src/meta/` | `meta@1` zod schemas, cardinality grammar (`1`, `0..1`, `1..*`, `0..5`), `loadTemplate` with `extends` resolved through a `TemplateStore`, `templateHash`, `instantiateNodes` for `$self`, and `checkTemplateForm`. |
 | `src/graph/` | The canonical JSON graph (`template`, `nodes`, `links`, `declarations`, `evidence`), `parseGraph` and `graphHash`. |
 | `src/evaluate/` | `toFacts`, the engine-owned packs `metamodel@1`, `completeness@1`, `consistency@1`, `text@1` and `meta@1`, `evaluate` returning `Readiness`, `diff` and `diffFindings`. |

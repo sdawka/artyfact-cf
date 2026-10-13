@@ -1,8 +1,8 @@
 export {
-  CERTAINTIES, CRITERION_SEVERITIES, CRITERION_TARGETS, detectGenomeFormat, EVOLUTIONS_DIR, FILE_PLACEHOLDERS, GATES, GENOME_FORMATS,
-  HOOK_ENGINES, HOOK_TIERS, isNodeSlug, NODE_FILE, NODE_SLUG, NodeCriterionSchema, NodeFileSchema, NodeHookSchema, NodeLinkSchema,
+  CERTAINTIES, CRITERION_SEVERITIES, CRITERION_TARGETS, EVOLUTIONS_DIR, FILE_PLACEHOLDERS, GATES,
+  HOOK_ENGINES, HOOK_TIERS, isLegacyGenome, isNodeSlug, NODE_FILE, NODE_SLUG, NodeCriterionSchema, NodeFileSchema, NodeHookSchema, NodeLinkSchema,
   parseNodeFile, RepoPathSchema, RESERVED_ROOT_DIRS, slugOf, TemplateRefSchema, V1_ROOT_FILE,
-  type CriterionSeverity, type CriterionTarget, type Gate, type GenomeFormat, type LinkCertainty, type NodeCriterion, type NodeFile,
+  type CriterionSeverity, type CriterionTarget, type Gate, type LinkCertainty, type NodeCriterion, type NodeFile,
   type NodeHook, type NodeLink,
 } from "./node.ts";
 export {
