@@ -2,16 +2,17 @@
  * Orchestration between Artifacts, the model, hooks and the SystemAuthority DO. Routes and the queue
  * consumer call these; all Artifacts I/O and model work happens here (never inside the DO).
  */
-import { diffModels, schema, type Readiness, type SystemModel } from "@artyfact/model";
-import { templateFile } from "@artyfact/templates";
+import { diffModels, loadGenome, schema, validate, type Readiness, type SystemModel } from "@artyfact/model";
+import { applyOps, parseTree, type NodeCriterion, type TreeOp } from "@artyfact/ontology";
+import { metaTemplates, templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, DeleteSystemResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, DeleteSystemResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportReview, ImportReviewAccept, ImportReviewAcceptResponse, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, ProposalPlanNode, ProposedOp,
   ReadinessResponse, RealizationResponse, SystemSummary, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SubmitSource, SyncResponse,
   ClaimTaskResponse, StartWaveRequest, StartWaveResponse, Task, TaskPacket, TaskPlan, TaskResponse, TasksQuery, TasksResponse, TaskStatus,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
-import { sha256Hex } from "./util";
+import { nowIso, sha256Hex } from "./util";
 import { isName, systemRepoNames } from "@artyfact/cli/naming";
 import { readPlatform, unreadableWarning, unsyncedWarning } from "./artifacts/platform";
 import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
@@ -29,6 +30,7 @@ import { taskFootprint } from "./tasks/footprint";
 import { ensurePushSubscription, removePushSubscription } from "./artifacts/subscriptions";
 import { dispatchPreviewBuild, requestProductionDeploy } from "./deployments";
 import { gateCriteria, hooksOf, type GateCriterion } from "./promotion";
+import { acceptProposal } from "./intents";
 
 const TOKEN_TTL_S = 21_600;
 const COMMIT_RE = /^[0-9a-f]{40}$/;
@@ -236,7 +238,7 @@ async function platformCheck(
 }
 
 /** `genomeRepo`/`appRepo` are optional: omitted ones default to `<slug>.genome` / `<slug>.app`. */
-export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown }): Promise<ImportSystemResponse> {
+export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown; review?: unknown }): Promise<ImportSystemResponse> {
   const { systemId } = body;
   if (typeof systemId !== "string" || !systemId) throw badRequest("systemId is a required string");
   if (systemId === REGISTRY) throw badRequest("reserved system id");
@@ -290,10 +292,235 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     model: JSON.stringify(serializeModel(g.model)),
     rules: JSON.stringify(g.readiness),
   }));
+  // B.10: a new System commit is a new import to review (unless `review: false`), computed once and stored in the DO.
+  if (body.review === false) {
+    if ((await stub.importReview())?.status === "pending") await stub.setImportReview(null);
+  } else if (booted.head && booted.head !== prior?.head) {
+    await stub.setImportReview(await buildImportReview(env, await headState(env, systemId), g, { status: "pending", genomeCommit }));
+  }
   // Re-read the summary now that the rules readiness is cached (B5: readiness counts and signifiers).
   const system = (await systemStub(env, systemId).summary()) ?? booted;
   await registryStub(env).registerSystem(system);
   return { system, head: system.head!, genomeRepo, appRepo, genomeCommit, appCommit, evolutions: g.model.evolutions.map((e) => e.id), platform, warnings };
+}
+
+// ------------------------------------------------------------------ import review (backend.md B.10)
+
+/** The imported Genome as an agreement tree: roots are the System's children (its Things), every node added. */
+function importTree(m: SystemModel): ProposalPlanNode[] {
+  const node = (id: string): ProposalPlanNode => {
+    const e = m.index.byId[id];
+    const description = (e?.item as { description?: unknown } | undefined)?.description;
+    return {
+      id, kind: e?.kind ?? "node", title: e?.name ?? id, path: m.index.path(id),
+      summary: typeof description === "string" ? description.trim() : "", opIds: [], children: (m.index.children[id] ?? []).map(node),
+    };
+  };
+  return (m.index.children[m.system.id] ?? []).map(node);
+}
+
+/** Every node of an agreement tree with its ancestors (nearest last), in tree order. */
+function treeNodes(tree: ProposalPlanNode[]): Map<string, string[]> {
+  const out = new Map<string, string[]>();
+  const walk = (ns: ProposalPlanNode[], ancestors: string[]) => {
+    for (const n of ns) {
+      out.set(n.id, ancestors);
+      walk(n.children ?? [], [...ancestors, n.id]);
+    }
+  };
+  walk(tree, []);
+  return out;
+}
+
+/**
+ * The review of a loaded Genome: its tree, the readiness findings the model routes compute, and the app head's paths no
+ * node's `files` maps (`.artyfact/**` excluded). Computed once per import and stored in the DO.
+ */
+async function buildImportReview(env: Env, s: HeadState, g: LoadedGenome, review: Pick<ImportReview, "status" | "genomeCommit">): Promise<ImportReview> {
+  const findings = withPlatform(s, readinessReport(g.model, g.readiness, [])).findings;
+  const sm = sourceMapFor(g.model);
+  const unmapped = s.appSource
+    ? [...(await withRepo(artifactsFor(env), s.appSource.repo, (r) => listTree(r, s.appSource!.commit))).keys()]
+      .filter((p) => !p.startsWith(".artyfact/") && nodesForPath(sm, p).every((n) => n.startsWith("unmapped:"))).sort()
+    : [];
+  return { ...review, tree: importTree(g.model), findings, unmapped };
+}
+
+/** 409 `import-unreviewed` while the System's import review is pending: the guard of creating work. */
+export async function assertImportReviewed(env: Env, systemId: string): Promise<void> {
+  const review = await systemStub(env, systemId).importReview();
+  if (review?.status !== "pending") return;
+  throw conflict("import-unreviewed", `the import of ${systemId} is not reviewed yet; accept it at /s/${encodeURIComponent(systemId)}/r/head/review?panel=import first`,
+    { genomeCommit: review.genomeCommit });
+}
+
+/** `GET /api/systems/:id/import-review`: 404 when the System was imported without a review. */
+export async function importReview(env: Env, systemId: string): Promise<ImportReview> {
+  await headState(env, systemId);
+  const review = await systemStub(env, systemId).importReview();
+  if (!review) throw notFound(`system ${systemId} has no import review`);
+  return review;
+}
+
+/** Evolution records are history: they keep naming the nodes they affected after those are removed. */
+const HISTORY_RELS = new Set(["affects", "acceptance"]);
+/** Field id lists a removed id is dropped from (a Thing's sections, a journey's or step's references). */
+const ID_LIST_FIELDS = ["sections", "purposeRefs", "features", "requirements", "requirementRefs"] as const;
+
+/**
+ * The ops that remove the `roots` subtrees from `files` without leaving a reference to anything removed (the nodes,
+ * their criteria and inline hooks): an `unlink` per `links` entry of a surviving node (every kind, `refines` and step
+ * links included), an `update` dropping removed ids from a surviving criterion's `refines`/`satisfies`/`sourceRefs`/
+ * `hooks`, from a step's `next` and from the id lists in {@link ID_LIST_FIELDS}, then a `remove` per root. The ops are
+ * applied and the result loaded and validated here; a reference no op can drop (a journey starting at a removed step,
+ * a template requirement, a Genome that no longer loads, a hard readiness violation the base did not have) is a 422
+ * naming the node that holds it and the rejected node.
+ */
+export function rejectionOps(base: { files: Map<string, string>; readiness: Readiness }, roots: string[]): ProposedOp[] {
+  const { files } = base;
+  const tree = parseTree(files);
+  const dirs = roots.map((r) => {
+    const n = tree.nodes.get(r);
+    if (!n) throw badRequest(`not a node of the imported Genome: ${r}`);
+    return n.dir;
+  });
+  const under = (n: { dir: string }) => dirs.some((d) => n.dir === d || n.dir.startsWith(`${d}/`));
+  // Which rejected root a removed id goes with, for the 422 message.
+  const rootOf = new Map<string, string>();
+  for (const n of tree.nodes.values()) {
+    if (!under(n)) continue;
+    const root = roots.find((r) => { const d = tree.nodes.get(r)!.dir; return n.dir === d || n.dir.startsWith(`${d}/`); })!;
+    rootOf.set(n.id, root);
+    for (const c of n.file.criteria ?? []) {
+      rootOf.set(c.id, root);
+      for (const h of c.hooks ?? []) if (typeof h !== "string") rootOf.set(h.id, root);
+    }
+  }
+  const removed = (id: unknown) => typeof id === "string" && rootOf.has(id);
+  const blocked: string[] = [];
+  const block = (holder: string, to: string, how: string) => blocked.push(`${holder} ${how} ${to} (under rejected ${rootOf.get(to)})`);
+
+  const ops: ProposedOp[] = [];
+  const op = (o: Omit<ProposedOp, "id">) => ops.push({ id: `op.${ops.length + 1}`, ...o } as ProposedOp);
+  for (const n of tree.nodes.values()) {
+    if (under(n)) continue;
+    const f = n.file;
+    for (const l of f.links ?? []) if (removed(l.to)) op({ op: "unlink", node: n.id, link: { rel: l.rel, to: l.to } });
+    const fields: Record<string, unknown> = {};
+    if (f.kind === "step" && n.parent !== undefined && Array.isArray(f.fields?.next)) {
+      const next = f.fields.next as unknown[];
+      const kept = next.filter((x) => !(isRecord(x) && removed(`${n.parent}/${String(x.to)}`)));
+      if (kept.length !== next.length) fields.next = kept.length ? kept : null;
+    }
+    for (const key of ID_LIST_FIELDS) {
+      const list = f.fields?.[key];
+      if (!Array.isArray(list)) continue;
+      const kept = list.filter((x) => !removed(x));
+      if (kept.length !== list.length) fields[key] = kept;
+    }
+    if (f.kind === "journey" && typeof f.fields?.start === "string" && removed(`${n.id}/${f.fields.start}`)) block(n.id, `${n.id}/${f.fields.start}`, "starts at");
+    const criteria: NodeCriterion[] = [];
+    for (const c of f.criteria ?? []) {
+      const fixed: Record<string, unknown> = { ...c };
+      let changed = false;
+      for (const key of ["refines", "satisfies", "sourceRefs", "hooks"] as const) {
+        const list = c[key] as unknown[] | undefined;
+        if (!list) continue;
+        const kept = list.filter((x) => !removed(typeof x === "string" ? x : undefined));
+        if (kept.length === list.length) continue;
+        changed = true;
+        if (kept.length) fixed[key] = kept;
+        else delete fixed[key];
+      }
+      if (changed) criteria.push(fixed as NodeCriterion);
+    }
+    if (Object.keys(fields).length || criteria.length) {
+      op({ op: "update", node: n.id, ...(Object.keys(fields).length && { fields }), ...(criteria.length && { criteria }) });
+    }
+  }
+  for (const node of roots) op({ op: "remove", node });
+
+  // The amended Genome must load and hold no structural link to a removed id (template `requires`, derived links).
+  let model: SystemModel;
+  try {
+    const { changes } = applyOps(files, ops as TreeOp[]);
+    const after = new Map(files);
+    for (const c of changes) {
+      if (c.content === null) after.delete(c.path);
+      else after.set(c.path, c.content);
+    }
+    model = loadGenome(after, { templates: metaTemplates });
+  } catch (e) {
+    throw unprocessable("rejected-node-referenced", `removing ${roots.join(", ")} breaks the Genome: ${(e as Error)?.message ?? e}`);
+  }
+  for (const l of model.graph.links) {
+    if (!rootOf.has(l.from) && removed(l.to) && !HISTORY_RELS.has(l.rel)) block(l.from, l.to, `still references (${l.rel})`);
+  }
+  // A hard violation the amendment introduces (a template-required section now missing) blocks it too.
+  // Evolution records are history (HISTORY_RELS): one naming a removed node is not a structural violation.
+  const history = new Set(tree.evolutions.map((e) => e.evolution.id));
+  const hard = (r: Readiness) => new Set(r.findings.filter((x) => x.level === "error" && !history.has(x.subject ?? "")).map((x) => `${x.rule} ${x.subject ?? ""}`));
+  const before = hard(base.readiness);
+  for (const v of hard(validate(model))) if (!before.has(v)) blocked.push(`${v.replace(" ", " on ").trim()} after removing ${roots.join(", ")}`);
+  if (blocked.length) {
+    throw unprocessable("rejected-node-referenced", `cannot reject without a dangling reference: ${[...new Set(blocked)].join("; ")}`);
+  }
+  return ops;
+}
+
+const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
+
+/**
+ * `POST /api/systems/:id/import-review/accept` (admin): the review flips pending → accepted by a DO compare-and-set
+ * (a concurrent second accept is 409 `invalid-state`), recording the interpretation and the rejected nodes. Rejected
+ * nodes (a node under another rejected node is covered by the ancestor's removal) become `remove` ops, preceded by the
+ * ops that drop every reference a surviving node holds to a removed one ({@link rejectionOps}), pushed through the
+ * intents accept path as an ordinary awaiting-admin Genome amendment. A failure before the amendment is pushed returns
+ * the review to pending.
+ */
+export async function acceptImportReview(env: Env, systemId: string, body: Partial<ImportReviewAccept>, platformUrl: string): Promise<ImportReviewAcceptResponse> {
+  const { interpretation, rejectedNodes } = body;
+  if (interpretation !== undefined && (typeof interpretation !== "string" || interpretation.length > 4000)) throw badRequest("interpretation must be a string of at most 4000 characters");
+  if (rejectedNodes !== undefined && (!Array.isArray(rejectedNodes) || rejectedNodes.some((n) => typeof n !== "string"))) throw badRequest("rejectedNodes must be an array of node ids");
+  const s = await headState(env, systemId);
+  const stub = systemStub(env, systemId);
+  const review = await stub.importReview();
+  if (!review) throw notFound(`system ${systemId} has no import review`);
+  if (review.status !== "pending") throw conflict("invalid-state", `the import review of ${systemId} is already accepted`);
+  const reviewable = treeNodes(review.tree);
+  const rejected = [...new Set(rejectedNodes ?? [])];
+  const unknown = rejected.filter((n) => !reviewable.has(n));
+  if (unknown.length) throw badRequest(`not nodes of the imported Genome: ${unknown.join(", ")}`);
+  const roots = rejected.filter((n) => !reviewable.get(n)!.some((a) => rejected.includes(a)));
+  if (roots.length && s.genomeCommit !== review.genomeCommit) {
+    throw conflict("stale-base", "the Genome moved since the import; rejected nodes cannot be removed from the reviewed commit");
+  }
+  // Built and validated before the review flips: a rejection that would leave a dangling reference is a 422 and the
+  // review stays pending.
+  const ops = roots.length ? rejectionOps(await genomeAt(env, systemId, review.genomeCommit, s.genomeSource), roots) : [];
+  const accepted: ImportReview = {
+    ...review, status: "accepted", decidedAt: nowIso(),
+    ...(interpretation?.trim() && { interpretation: interpretation.trim() }), ...(rejected.length && { rejectedNodes: rejected }),
+  };
+  if (!(await stub.casImportReview("pending", accepted))) throw conflict("invalid-state", `the import review of ${systemId} was accepted or re-opened meanwhile`);
+  let amendment: ImportReviewAcceptResponse["amendment"];
+  try {
+    if (ops.length) {
+      const proposal = await stub.createProposal({
+        systemId, message: `Import review: remove ${roots.length} node${roots.length === 1 ? "" : "s"}`, status: "open", route: [], ops, questions: [], problems: [], plan: [],
+        provenance: { router: { provider: "platform", model: "import-review", calls: 0 }, translator: { provider: "platform", model: "import-review" }, genomeCommit: s.genomeCommit, fake: false },
+        createdAt: nowIso(),
+      });
+      const out = await acceptProposal(env, systemId, proposal.id, { opIds: ops.map((o) => o.id) }, platformUrl);
+      amendment = { evolution: out.evolution.id, realization: out.realization.id, candidate: out.candidate.id };
+    }
+  } catch (e) {
+    await stub.casImportReview("accepted", review).catch((r: unknown) => console.error(`[import-review] restoring pending for ${systemId} failed: ${(r as Error)?.message ?? r}`));
+    await refreshRegistry(env, systemId).catch(() => {});
+    throw e;
+  }
+  await refreshRegistry(env, systemId);
+  return { review: accepted, ...(amendment && { amendment }) };
 }
 
 // ------------------------------------------------------------------ model + readiness
@@ -1263,7 +1490,8 @@ export async function createEvolution(
   const acceptanceCriteria = body.acceptanceCriteria === undefined
     ? defaultCriteria(m, body.kind === undefined ? undefined : kind)
     : stringList(body.acceptanceCriteria, "acceptanceCriteria");
-  const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id] && !opts.newNodes?.includes(id));
+  // `origin` also knows the tree nodes the index does not (journey steps, `J.add/s1`), which an amendment may touch.
+  const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id] && !m.origin[id] && !opts.newNodes?.includes(id));
   if (unknownNodes.length) throw badRequest(`unknown nodes: ${unknownNodes.join(", ")}`);
   const criteria = new Set(m.criteria.map((c) => c.id));
   const unknownCriteria = acceptanceCriteria.filter((id) => !criteria.has(id));

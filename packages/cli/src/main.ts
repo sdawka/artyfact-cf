@@ -24,9 +24,10 @@ export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> 
 
 const USAGE = `artyfact <command>
 
-  init [--dir project] [--genome dir --app dir] [--from-template template.thing.<id>@<v>] [--platform url] [--namespace ns] [--force] [--adopt] [--genome-only]
+  init [--dir project] [--genome dir --app dir] [--from-template template.thing.<id>@<v>] [--platform url] [--namespace ns] [--force] [--adopt] [--genome-only] [--no-review]
         push <slug>.genome / <slug>.app and platform, then import the System (needs ARTYFACT_ADMIN_TOKEN, else prints the curl line);
-        --genome-only pushes only the Genome and keeps the app repo's head (migrating a deployed System)
+        --genome-only pushes only the Genome and keeps the app repo's head (migrating a deployed System);
+        --no-review skips the import review that otherwise gates Evolution work until it is accepted
   platform-sync [--namespace ns]   push packages/templates to the namespace's platform repo (no-op when unchanged)
 
   start <realizationId> [--dir d] [--platform url] --system sid --evolution eid   (or ARTYFACT_SYSTEM / ARTYFACT_EVOLUTION)

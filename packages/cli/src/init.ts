@@ -337,7 +337,7 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const values = parse(args, {
     dir: { type: "string" }, genome: { type: "string" }, app: { type: "string" }, platform: { type: "string" },
     namespace: { type: "string" }, "from-template": { type: "string" }, force: { type: "boolean" }, adopt: { type: "boolean" },
-    "genome-only": { type: "boolean" },
+    "genome-only": { type: "boolean" }, "no-review": { type: "boolean" },
   });
   // --genome-only pushes the Genome and re-imports; the app repo is never read from disk, pushed or seeded (the platform
   // keeps its head and recorded scaffold source). For migrating a deployed System's Genome (docs/deploy.md).
@@ -384,7 +384,7 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const platformUrl = await resolvePlatform(values.platform as string | undefined, io.env, io.fetch ?? fetch, io.err, sendsBearer ? undefined : DEFAULT_URL);
 
   const cloud = connect(io, ns);
-  return withAccountScrubbed(cloud, () => initWith(io, { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force: values.force === true, adopt: values.adopt === true, genomeOnly }));
+  return withAccountScrubbed(cloud, () => initWith(io, { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force: values.force === true, adopt: values.adopt === true, genomeOnly, noReview: values["no-review"] === true }));
 }
 
 /** CLI errors name the account by its prefix only (git and wrangler failures can echo remote URLs holding the id). */
@@ -401,10 +401,12 @@ async function withAccountScrubbed<T>(cloud: Cloud, fn: () => Promise<T>): Promi
 interface InitPlan {
   project: string; genomeDir: string; appDir: string; hasApp: boolean; appNeeded: boolean; fromTemplate: string | undefined; ns: string; systemId: string;
   names: ReturnType<typeof systemRepoNames>; cloud: Cloud; platformUrl: string; force: boolean; adopt: boolean; genomeOnly: boolean;
+  /** `--no-review`: import with `review: false`, so no import review is left pending. */
+  noReview: boolean;
 }
 
 async function initWith(io: InitIo, plan: InitPlan): Promise<number> {
-  const { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force, adopt, genomeOnly } = plan;
+  const { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force, adopt, genomeOnly, noReview } = plan;
   const stateFile = stateFileFor(io, project);
   const state = readState(stateFile);
   const key = `${cloud.remote(ns, "").replace(/\.git$/, "")}`;
@@ -435,7 +437,7 @@ async function initWith(io: InitIo, plan: InitPlan): Promise<number> {
       io.out(`${names.appRepo}: no local app; using its head ${head.slice(0, 12)}`);
     }
 
-    return await importIntoPlatform(io, platformUrl, { systemId, genomeRepo: names.genomeRepo, ...(appNeeded && { appRepo: names.appRepo }), ...(scaffoldFrom && { scaffoldFrom }) }, force);
+    return await importIntoPlatform(io, platformUrl, { systemId, genomeRepo: names.genomeRepo, ...(appNeeded && { appRepo: names.appRepo }), ...(scaffoldFrom && { scaffoldFrom }), ...(noReview && { review: false }) }, force);
   } finally {
     writeState(stateFile, state);
   }
@@ -522,7 +524,10 @@ async function importIntoPlatform(io: InitIo, base: string, body: Record<string,
     throw new CliError(`cannot reach the platform at ${base}: ${(e as Error).message}`);
   }
   const text = await res.text();
-  let json: { head?: string; warnings?: { rule: string; subject?: string; message: string }[]; error?: { code?: string; message?: string } } = {};
+  let json: {
+    head?: string; warnings?: { rule: string; subject?: string; message: string }[]; error?: { code?: string; message?: string };
+    system?: { importReview?: { status?: string } };
+  } = {};
   try { json = JSON.parse(text); } catch { /* not JSON */ }
   if (res.status === 409 && json.error?.code === "already-imported") {
     throw new CliError(`${json.error.message ?? "already imported from other commits"}\nRe-run with --force to re-point ${body.systemId} at these commits.`);
@@ -530,6 +535,9 @@ async function importIntoPlatform(io: InitIo, base: string, body: Record<string,
   if (!res.ok) throw new CliError(`import failed: ${res.status} ${json.error ? `${json.error.code}: ${json.error.message}` : text.slice(0, 200)}`);
   io.out(`imported ${body.systemId} at ${json.head}`);
   for (const w of json.warnings ?? []) io.out(`  warning ${w.rule}${w.subject ? ` (${w.subject})` : ""}: ${w.message}`);
-  io.out(`System: ${base}/s/${encodeURIComponent(String(body.systemId))}/r/head/overview`);
+  const sys = `${base}/s/${encodeURIComponent(String(body.systemId))}`;
+  io.out(`System: ${sys}/r/head/overview`);
+  // The import waits for its review before any Evolution work can start (backend.md B.10).
+  if (json.system?.importReview?.status === "pending") io.out(`review: pending — open ${sys}/r/head/review?panel=import`);
   return 0;
 }

@@ -94,7 +94,7 @@ async function boot(env: Env): Promise<FakeArtifacts> {
   setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
   for (const { systemId } of systems) {
     const { genomeRepo, appRepo } = systemRepoNames(systemId);
-    if (!(await registryStub(env).hasSystem(systemId))) await importSystem(env, { systemId, genomeRepo, appRepo });
+    if (!(await registryStub(env).hasSystem(systemId))) await importSystem(env, { systemId, genomeRepo, appRepo, review: false });
   }
   return ns;
 }
