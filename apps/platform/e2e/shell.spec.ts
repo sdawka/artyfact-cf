@@ -1,11 +1,11 @@
 import { expect, test } from "@playwright/test";
-import { checkA11yAndShoot, open, SYSTEM } from "./helpers";
+import { checkA11yAndShoot, open, SYSTEM, systemCard } from "./helpers";
 
 test.describe("shell", () => {
   test("a single-Thing System card opens its Thing workspace with an explicit System overview", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Systems" })).toBeVisible();
-    await page.getByRole("link", { name: /Keep in Touch/ }).click();
+    await systemCard(page, /Keep in Touch/).click();
     await expect(page).toHaveURL(new RegExp(`${SYSTEM}/things/thing.webapp$`));
     await expect(page.getByRole("heading", { level: 1, name: "Keep in Touch web app" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Thing workspace breadcrumb" })).toBeVisible();
@@ -58,12 +58,13 @@ test.describe("shell", () => {
     await expect(page).not.toHaveURL(/focus=/);
   });
 
-  test("side nav reaches every view and keeps the layer param", async ({ page }) => {
+  test("side nav reaches every view on the rail and keeps the layer param", async ({ page }) => {
     await page.goto(`${SYSTEM}/overview?layer=phenome`);
     const nav = page.getByRole("navigation", { name: "Views" });
+    await expect(nav.getByRole("link", { name: "Compare" })).toHaveCount(0);
     const views = [
-      ["Map", "map"], ["Journeys", "journeys"], ["Theory", "theory"], ["Code", "code"], ["Work", "work"],
-      ["Evaluations", "evaluations"], ["Changelog", "changelog"], ["Compare", "compare"], ["Deployments", "phenome"], ["Overview", "overview"],
+      ["Map", "map"], ["Journeys", "journeys"], ["Theory", "theory"], ["Code", "code"], ["Work", "work"], ["Review", "review"],
+      ["Evaluations", "evaluations"], ["Changelog", "changelog"], ["Deployments", "phenome"], ["Overview", "overview"],
     ] as const;
     for (const [name, url] of views) {
       await nav.getByRole("link", { name, exact: true }).click();
@@ -72,16 +73,40 @@ test.describe("shell", () => {
     }
   });
 
-  test("narrow screens collapse the rail to glyphs and hide group heads visually", async ({ page }, testInfo) => {
+  test("Compare stays reachable with g x though it is off the rail", async ({ page }) => {
+    await open(page, "/overview", "Overview");
+    await page.keyboard.press("g");
+    await page.keyboard.press("x");
+    await expect(page).toHaveURL(new RegExp(`${SYSTEM}/compare`));
+    await expect(page.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
+  });
+
+  test("old Promote links on Work open Review with their params", async ({ page }) => {
+    await page.goto(`${SYSTEM}/work?panel=promote&evolution=e1`);
+    await expect(page).toHaveURL(new RegExp(`${SYSTEM}/review\\?panel=promote&evolution=e1$`));
+    await expect(page.getByRole("heading", { level: 1, name: "Review" })).toBeVisible();
+  });
+
+  test("the rail heads each layer with its name and question", async ({ page }) => {
+    await page.goto(`${SYSTEM}/overview`);
+    const nav = page.getByRole("navigation", { name: "Views" });
+    for (const [layer, question] of [["Genome", "What should it be"], ["Proteome", "What is being made"], ["Phenome", "What does it do"]]) {
+      await expect(nav.getByRole("group", { name: layer })).toHaveAccessibleDescription(question!);
+      await expect(nav.getByText(question!, { exact: true })).toBeVisible();
+    }
+  });
+
+  test("narrow screens collapse the rail to glyphs and keep the three layer heads", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${SYSTEM}/overview`);
     const nav = page.getByRole("navigation", { name: "Views" });
     await expect(nav.getByRole("group")).toHaveCount(3);
     for (const name of ["Genome", "Proteome", "Phenome"]) {
-      const head = nav.getByText(name, { exact: true });
-      await expect(head).toBeAttached();
-      expect((await head.boundingBox())!.width).toBeLessThanOrEqual(1);
+      await expect(nav.getByText(name, { exact: true })).toBeVisible();
+      expect((await nav.getByText(name, { exact: true }).boundingBox())!.width).toBeGreaterThan(1);
     }
+    const question = nav.getByText("What is being made", { exact: true });
+    expect((await question.boundingBox())!.width).toBeLessThanOrEqual(1);
     const label = nav.getByText("Deployments", { exact: true });
     expect((await label.boundingBox())!.width).toBeLessThanOrEqual(1);
     expect((await nav.boundingBox())!.width).toBeLessThan(80);

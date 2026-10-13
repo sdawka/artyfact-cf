@@ -1,0 +1,7 @@
+id: component.shell.inspector.what
+kind: component
+fields:
+  name: What
+  description: "What the node is: kind, fields and where it sits in the tree."
+  states:
+    - loaded

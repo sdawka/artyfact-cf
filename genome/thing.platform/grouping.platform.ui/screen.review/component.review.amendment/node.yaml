@@ -1,0 +1,9 @@
+id: component.review.amendment
+kind: component
+fields:
+  name: Amendment
+  description: A Genome amendment awaiting an admin, with its interpretation and the rules it touches.
+  states:
+    - loading
+    - loaded
+    - error

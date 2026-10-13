@@ -1,0 +1,8 @@
+id: component.part.signifiers
+kind: component
+fields:
+  name: Part page signifiers
+  description: Part name, version and what it contains.
+  states:
+    - version (subtle)
+    - public (subtle)

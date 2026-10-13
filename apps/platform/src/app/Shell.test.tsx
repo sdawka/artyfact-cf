@@ -15,7 +15,7 @@ describe("Shell", () => {
   it("renders Home at /", async () => {
     const { router } = renderApp("/");
     expect(await screen.findByRole("heading", { level: 1, name: "Systems" })).toBeTruthy();
-    const card = await screen.findByRole("link", { name: /Keep in Touch/ });
+    const card = await screen.findByRole("link", { name: /^Keep in Touch$/ });
     expect(screen.queryByRole("navigation", { name: "Views" })).toBeNull();
     act(() => card.click());
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp`));
@@ -27,7 +27,7 @@ describe("Shell", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp`));
   });
 
-  it("renders Overview plus three groups (4, 4, 1) whose links keep focus, layer and candidates", async () => {
+  it("renders Overview plus three layer groups (4, 4, 1) whose links keep focus, layer and candidates", async () => {
     renderApp(`${BASE}/overview?layer=phenome&focus=screen.people&candidates=c1&journey=J.contacts`);
     const nav = await screen.findByRole("navigation", { name: "Views" });
     const groups = within(nav).getAllByRole("group");
@@ -36,7 +36,7 @@ describe("Shell", () => {
     ]);
     const links = within(nav).getAllByRole("link");
     expect(links.map((l) => l.textContent)).toEqual([
-      "◎Overview", "▦Map", "⇢Journeys", "△Theory", "{}Code", "⎇Work", "✓Evaluations", "↺Changelog", "⇄Compare", "◍Deployments", "▧Private Parts",
+      "◎Overview", "▦Map", "⇢Journeys", "△Theory", "{}Code", "⎇Work", "◧Review", "✓Evaluations", "↺Changelog", "◍Deployments", "▧Private Parts",
     ]);
     expect(within(groups[2]!).getByRole("link", { name: /Deployments/ }).getAttribute("href")).toContain(`${BASE}/phenome`);
     expect(within(nav).getByRole("link", { name: "Private Parts" }).getAttribute("href")).toBe(`${BASE}/parts`);
@@ -48,6 +48,65 @@ describe("Shell", () => {
       expect(qs.get("journey")).toBeNull();
     }
     expect(within(nav).getByRole("link", { name: /Overview/ }).getAttribute("aria-current")).toBe("page");
+  });
+
+  it("each layer group carries its question as a quiet subline, separate from the group label", async () => {
+    renderApp(`${BASE}/overview`);
+    const nav = await screen.findByRole("navigation", { name: "Views" });
+    const groups = within(nav).getAllByRole("group");
+    const read = (attr: string) => groups.map((g) => document.getElementById(g.getAttribute(attr)!)?.textContent);
+    expect(read("aria-labelledby")).toEqual(["Genome", "Proteome", "Phenome"]);
+    expect(read("aria-describedby")).toEqual(["What should it be", "What is being made", "What does it do"]);
+    expect(within(nav).queryByRole("link", { name: /Compare/ })).toBeNull();
+    expect(within(nav).queryByRole("link", { name: /Thing workspace/ })).toBeNull();
+  });
+
+  it("hides the Review count at zero", async () => {
+    renderApp(`${BASE}/overview`);
+    const nav = await screen.findByRole("navigation", { name: "Views" });
+    expect(within(nav).getByRole("link", { name: "Review" }).textContent).toBe("◧Review");
+  });
+
+  it("keeps the rail inside a Thing workspace and resolves Review there", async () => {
+    const { router } = renderApp(`${BASE}/things/thing.webapp/work`);
+    const nav = await screen.findByRole("navigation", { name: "Views" });
+    expect(within(nav).queryByRole("link", { name: /Thing workspace/ })).toBeNull();
+    act(() => within(nav).getByRole("link", { name: "Review" }).click());
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp/review`));
+    expect(await screen.findByRole("heading", { level: 1, name: "Review" })).toBeTruthy();
+  });
+
+  it("g r opens Review keeping params", async () => {
+    const { router } = renderApp(`${BASE}/overview?focus=screen.people`);
+    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    key("g");
+    key("r");
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/review`));
+    expect(await screen.findByRole("heading", { level: 1, name: "Review" })).toBeTruthy();
+    expect(search(router).get("focus")).toBe("screen.people");
+    expect(screen.getByText("Nothing is waiting on you.")).toBeTruthy();
+  });
+
+  it("/work?panel=promote redirects to /review keeping the other params and the hash", async () => {
+    const { router } = renderApp(`${BASE}/work?panel=promote&evolution=e1#gates`);
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/review`));
+    expect(search(router).get("panel")).toBe("promote");
+    expect(search(router).get("evolution")).toBe("e1");
+    expect(router.state.location.hash).toBe("#gates");
+  });
+
+  it("/things/:thingId/work?panel=promote redirects to that Thing's Review keeping the other params", async () => {
+    const { router } = renderApp(`${BASE}/things/thing.webapp/work?panel=promote&evolution=e1&focus=screen.people`);
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp/review`));
+    expect(search(router).get("panel")).toBe("promote");
+    expect(search(router).get("evolution")).toBe("e1");
+    expect(search(router).get("focus")).toBe("screen.people");
+  });
+
+  it("/work with another panel stays on Work", async () => {
+    const { router } = renderApp(`${BASE}/work?panel=intent`);
+    expect(await screen.findByRole("heading", { level: 1, name: "Work" })).toBeTruthy();
+    expect(router.state.location.pathname).toBe(`${BASE}/work`);
   });
 
   it("wordmark links to /", async () => {
@@ -79,8 +138,8 @@ describe("Shell", () => {
     expect(search(router).get("evolution")).toBe("evolution.2");
   });
 
-  it("routes Code, Compare and Deployments to views with their h1", async () => {
-    for (const [view, name] of [["code", "Code"], ["compare", "Compare"], ["phenome", "Deployments"]] as const) {
+  it("routes Code, Review, Compare and Deployments to views with their h1", async () => {
+    for (const [view, name] of [["code", "Code"], ["review", "Review"], ["compare", "Compare"], ["phenome", "Deployments"]] as const) {
       renderApp(`${BASE}/${view}`);
       expect(await screen.findByRole("heading", { level: 1, name })).toBeTruthy();
       cleanup();

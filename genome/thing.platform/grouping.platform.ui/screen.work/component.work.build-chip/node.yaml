@@ -1,0 +1,12 @@
+id: component.work.build-chip
+kind: component
+fields:
+  name: Build chip
+  description: The build of a candidate with its preview link. Only pass is green; a missing verdict reads literally unknown, never a blank or a tick.
+  states:
+    - ✓ build passed (success)
+    - × build failed (danger)
+    - "! build error (danger)"
+    - … build running (subtle)
+    - · build queued (subtle)
+    - unknown (subtle)

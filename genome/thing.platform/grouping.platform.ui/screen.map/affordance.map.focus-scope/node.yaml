@@ -1,0 +1,12 @@
+id: affordance.map.focus-scope
+kind: affordance
+fields:
+  name: Focus
+  description: Click a node to focus it, double-click to scope the Map to it, Backspace to go up.
+  actor: user
+  trigger: click, double-click or Backspace
+  preconditions:
+    - A node is drawn
+  effects:
+    - The Map re-centres and the URL records the focus
+  failure: []

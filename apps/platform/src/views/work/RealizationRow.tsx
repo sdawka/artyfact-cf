@@ -1,6 +1,8 @@
 import { memo } from "react";
+import { Link } from "react-router";
 import type { Candidate, ConflictReport, Realization } from "../../../shared/api";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
+import { useKeepParams } from "@/model/useSelection";
 import { BuildChip } from "./BuildChip";
 import { ConflictChips } from "./ConflictChips";
 import { relTime, shortSha } from "./lib";
@@ -18,6 +20,7 @@ interface Props {
 
 /** One agent's attempt at an Evolution. Memoised so a refetch with equal data leaves the DOM untouched. */
 export const RealizationRow = memo(function RealizationRow({ realization: r, candidate, conflicts, now, reviewing, onReview }: Props) {
+  const href = useKeepParams();
   const last = r.checkpoints.at(-1);
   const subjects = (candidate?.changedSubjects ?? []).filter((s) => !s.startsWith("unmapped:"));
   return (
@@ -45,6 +48,9 @@ export const RealizationRow = memo(function RealizationRow({ realization: r, can
         <button type="button" className={`u-brackets ${styles.btn}`} aria-pressed={reviewing} onClick={() => onReview(r.id)}>
           {reviewing ? "Reviewing" : "Review"} <span className="sr-only">{r.id}</span>
         </button>
+        <Link className={`u-brackets ${styles.reviewLink}`} to={href("review", { evolution: r.evolution, realization: r.id, panel: null })}>
+          Open in Review <span className="sr-only">{r.id}</span>
+        </Link>
       </div>
     </li>
   );

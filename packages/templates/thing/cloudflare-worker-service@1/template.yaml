@@ -143,6 +143,10 @@ relations:
     description: The module is the code that realises the target.
     from: [module]
     to: [endpoint, durable-object, workflow, queue]
+  invokes:
+    description: The affordance runs the endpoint it calls. Redeclared so that an endpoint can be the target of an affordance.
+    from: [affordance]
+    to: [endpoint]
   stepOperation:
     description: The journey step runs the target. Redeclared so that an endpoint can be a step's operation, beside the artyfact operation kind.
     from: [step]

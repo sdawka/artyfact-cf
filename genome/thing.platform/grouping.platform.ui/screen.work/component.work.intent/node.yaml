@@ -1,0 +1,12 @@
+id: component.work.intent
+kind: component
+fields:
+  name: Describe a change
+  description: The panel that takes a change in words, proposes node updates or asks a question, and lets the person accept the ops to keep. It replaces the board while open.
+  states:
+    - idle
+    - routing
+    - question
+    - proposal
+    - accepted
+    - error

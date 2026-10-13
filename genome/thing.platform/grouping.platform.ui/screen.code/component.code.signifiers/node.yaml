@@ -1,0 +1,9 @@
+id: component.code.signifiers
+kind: component
+fields:
+  name: File signifiers
+  description: Mapped nodes per file and whether a file is unmapped.
+  states:
+    - mapped to N nodes (subtle)
+    - unmapped (attention)
+    - edited, uncommitted (attention)

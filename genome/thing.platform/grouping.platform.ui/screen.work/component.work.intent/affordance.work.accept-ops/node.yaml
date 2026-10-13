@@ -1,0 +1,17 @@
+id: affordance.work.accept-ops
+kind: affordance
+fields:
+  name: Accept
+  description: Accepts the ops to keep and commits the node updates.
+  actor: user
+  trigger: click
+  preconditions:
+    - A proposal is shown
+    - An admin token is set
+  effects:
+    - A candidate and an Evolution open and are linked
+  failure:
+    - "409: the stale message is shown"
+links:
+  - rel: invokes
+    to: endpoint.intents-accept

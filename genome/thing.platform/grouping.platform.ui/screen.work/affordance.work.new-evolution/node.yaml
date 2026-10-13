@@ -1,0 +1,16 @@
+id: affordance.work.new-evolution
+kind: affordance
+fields:
+  name: + Evolution
+  description: A secondary text button that opens a form to create an Evolution.
+  actor: user
+  trigger: click
+  preconditions:
+    - An admin token is set
+  effects:
+    - The new Evolution appears on the board
+  failure:
+    - "400: unknown nodes or criteria are named"
+links:
+  - rel: invokes
+    to: endpoint.create-evolution

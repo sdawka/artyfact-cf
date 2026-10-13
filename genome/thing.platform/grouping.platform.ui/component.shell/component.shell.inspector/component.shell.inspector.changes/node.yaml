@@ -1,0 +1,9 @@
+id: component.shell.inspector.changes
+kind: component
+fields:
+  name: Changes
+  description: Evolutions and candidates that touch the node; a candidate holding it reads in N candidates · overlap.
+  states:
+    - loaded
+    - "empty: no changes"
+    - in N candidates · overlap (attention)

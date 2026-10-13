@@ -1,0 +1,15 @@
+id: affordance.shell.change-this
+kind: affordance
+fields:
+  name: Describe a change
+  description: Starts a change anchored on the node.
+  actor: user
+  trigger: click
+  preconditions:
+    - A node is focused
+  effects:
+    - Work opens with the change panel anchored on the node
+  failure: []
+links:
+  - rel: references
+    to: screen.work

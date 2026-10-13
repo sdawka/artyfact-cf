@@ -1,0 +1,10 @@
+id: component.review.semantic-delta
+kind: component
+fields:
+  name: Semantic delta
+  description: The node-level change a candidate makes to the Genome.
+  states:
+    - loading
+    - loaded
+    - "empty: no node changes"
+    - error

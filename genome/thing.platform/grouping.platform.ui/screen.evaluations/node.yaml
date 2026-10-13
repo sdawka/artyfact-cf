@@ -1,0 +1,11 @@
+id: screen.evaluations
+kind: screen
+fields:
+  name: Evaluations
+  description: Gate verdicts for each criterion and candidate. Actionable targets wear corner brackets and the page has one primary button; selecting a row opens the criterion in the Inspector.
+  route: /s/:systemId/r/:rev/evaluations
+  states:
+    - loading
+    - loaded
+    - empty
+    - error

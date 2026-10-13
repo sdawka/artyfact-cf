@@ -1,0 +1,15 @@
+id: affordance.work.open-in-review
+kind: affordance
+fields:
+  name: Open in Review
+  description: A link on a realization row that opens its candidate in Review.
+  actor: user
+  trigger: click
+  preconditions:
+    - The realization has a candidate
+  effects:
+    - Review opens on that candidate
+  failure: []
+links:
+  - rel: references
+    to: screen.review

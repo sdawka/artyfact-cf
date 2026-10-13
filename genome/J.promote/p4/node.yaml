@@ -7,3 +7,4 @@ fields:
   kind: end
 links:
   - { rel: stepOperation, to: endpoint.create-deployment }
+  - { rel: stepScreen, to: screen.phenome }

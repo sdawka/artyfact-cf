@@ -1,0 +1,12 @@
+id: screen.thing
+kind: screen
+fields:
+  name: Thing workspace
+  description: One Thing of the System with its four cards and the same views scoped to it. Actionable targets wear corner brackets and the page has one primary button; the Thing switcher and System overview link navigate immediately, and the side rail resolves to this Thing's views.
+  route: /s/:systemId/r/:rev/things/:thingId
+  states:
+    - loading
+    - loaded
+    - empty
+    - error
+    - unknown Thing

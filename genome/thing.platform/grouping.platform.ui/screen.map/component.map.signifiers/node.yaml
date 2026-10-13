@@ -1,0 +1,12 @@
+id: component.map.signifiers
+kind: component
+fields:
+  name: Map signifiers
+  description: Overlay choice, the candidate halo with its overlap count, edge certainty, Phenome counters and the findings badge.
+  states:
+    - "Overlay: Genome, Proteome, Phenome (subtle)"
+    - overlap · N (attention)
+    - declared edge (solid, subtle)
+    - assumed or proposed edge (dashed, subtle)
+    - findings badge (attention)
+    - Phenome counters (subtle)

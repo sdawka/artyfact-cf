@@ -1,0 +1,14 @@
+id: affordance.theory.open-claim
+kind: affordance
+fields:
+  name: Open claim
+  description: Selecting a claim focuses it and opens the Inspector.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - The Inspector opens on the claim
+  failure: []
+links:
+  - rel: references
+    to: component.shell.inspector

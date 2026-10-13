@@ -1,0 +1,17 @@
+id: affordance.review.reject-with-reason
+kind: affordance
+fields:
+  name: Reject with reason
+  description: Rejects the candidate with a written reason (admin token).
+  actor: user
+  trigger: click
+  preconditions:
+    - A reason is written
+    - An admin token is set
+  effects:
+    - The candidate leaves the queue and the reason is recorded
+  failure:
+    - "401 or 403: the message says to set the admin token"
+links:
+  - rel: invokes
+    to: endpoint.reject

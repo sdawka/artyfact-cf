@@ -9,3 +9,4 @@ fields:
     - to: r2
 links:
   - { rel: stepOperation, to: endpoint.start-work }
+  - { rel: stepScreen, to: screen.work }

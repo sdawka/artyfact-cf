@@ -1,0 +1,15 @@
+id: screen.home
+kind: screen
+fields:
+  name: Home
+  description: "Triage across all Systems: a Needs you ledger on top, then one quiet card per System with its Phase, one headline sentence and one deploy line. Actionable targets wear corner brackets and the page has one primary button; opening a System, Review or Describe a change navigates at once, and a failed API load shows the error with Retry API."
+  route: /
+  states:
+    - loading
+    - loaded
+    - empty
+    - error
+    - fake provider
+links:
+  - rel: serves
+    to: feature.home-dashboard
