@@ -1,6 +1,6 @@
 # @artyfact/cli
 
-`artyfact init|platform-sync|start|checkpoint|submit|build-report|status|compose|parts`. Platform URL from `--platform`, else
+`artyfact init|platform-sync|validate-genome|skill|start|tasks|claim|checkpoint|submit|build-report|status|compose|parts`. Platform URL from `--platform`, else
 `ARTYFACT_PLATFORM`, else the older `ARTYFACT_URL`. An explicit URL is used as given and never probed. Empty variables
 count as unset, and an empty `--platform` is a usage error. Without one, the CLI asks http://localhost:1337 to 1346
 (Vite takes the next free port when 1337 is busy) and uses the first whose `/api/health` identifies as artyfact. If
@@ -24,7 +24,9 @@ missing. When creating reports that the namespace exists, init confirms it with 
 prints one page without a next cursor, so a namespace beyond the first page is refused rather than assumed. It writes `platform` only when that repo is missing or empty; an existing one is left alone, and
 `platform-sync` is the update path. It then pushes the Genome and the app, and calls `POST /api/systems/import` with
 `Authorization: Bearer $ARTYFACT_ADMIN_TOKEN`, over https or plain http to localhost / 127.0.0.1 only. Without that
-variable it prints the `curl` line instead and exits 0, even when no platform is running. A 409 `already-imported` asks for `--force`. A re-run pushes
+variable it prints the `curl` line instead and exits 0, even when no platform is running. A 409 `already-imported` asks for `--force`.
+A new import is left in review: `init` prints `review: pending` and the Review URL, and nothing can start until a person agrees
+the Genome node by node there (`--no-review` skips it, for a Genome you wrote yourself; `docs/design/backend.md` B.10). A re-run pushes
 nothing and re-imports as a no-op. Error text names the account by its first 8 characters only. The System id must be lower-case
 (`system.peopling`), so every id maps to its own repos.
 
@@ -58,6 +60,19 @@ pushes only when the content changed.
 A Genome with no `worker-fullstack` artifact imports without an app repo. `init` does not invent source or send an
 `appRepo` for that System.
 
+## Bring in a System: `validate-genome` and `skill`
+
+```sh
+npx artyfact skill --write                       # install the artyfact-genome skill (and an AGENTS.md pointer) into this repo
+npx artyfact validate-genome ./genome --app .    # load the tree like the platform, report findings, unmapped files, stale globs
+```
+
+`skill` prints the skill, or with `--write` installs it: `--agent claude` (the default when `.claude/` exists) writes
+`.claude/skills/artyfact-genome/` and an `AGENTS.md` pointer, `generic` puts the whole skill in `AGENTS.md`; symlinked targets are refused. A local agent follows it to write `./genome` for existing code. `validate-genome` takes a Genome directory
+(`--app dir` maps the app's tracked files, minus `.artyfactignore`; `--json`; `--strict` also fails on unmapped files and
+stale globs). Errors exit 1. When it ends in `ok:`, run `init`, then agree or reject the nodes in the platform's Review
+(Import). The rules are in `docs/design/ontology.md` §3.
+
 ## Parts
 
 ```sh
@@ -84,8 +99,8 @@ rejected. Review and accept the generated Genome before realizing the app; these
 
 The fork write token is read only from the `ARTYFACT_TOKEN` environment variable (there is no `--token` flag, since
 argv is visible to other processes). It is handed to git through `GIT_CONFIG_*` environment variables for the
-duration of one command, and is never written to `.artyfact.json`, `TASK_PACKET.md`, `AGENTS.md` or git config.
-Set it again for each `start` and `submit`.
+duration of one command, and is never written to `TASK_PACKET.md`, `AGENTS.md` or git config. `start` keeps it out of
+`.artyfact.json` too, so set it again for each `start` and `submit`. The one exception is `claim` (below).
 
 Every platform call carries the realization secret as `Authorization: Bearer <secret>`, so the platform URL must be
 https, or plain http to localhost / 127.0.0.1. Start work returns it once,
@@ -138,12 +153,25 @@ only. `status` prints `task:`. One claim is one clone of its own fork, so no wor
 - Claiming again with the same label returns no new credentials (`fresh: false`); the CLI reuses the directory and the
   secret already saved there. Without that directory it stops and says so.
 
-Orchestrating a wave from a shell or Claude Code: start the wave on the Work view (or with the curl it shows), then per
-task:
+### Orchestrating agents
+
+The loop for one task is claim, run the agent in the claimed directory, submit:
 
 ```sh
+export ARTYFACT_ADMIN_TOKEN=…                    # the orchestrator's; agents never need it
+npx artyfact tasks --system <sid>                # pick tasks of the lowest unfinished wave
 npx artyfact claim <task> --system <sid> --agent "claude:<task>" --dir ./work/<task>
 (cd ./work/<task> && claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit")
 ```
 
-`submit` needs no `ARTYFACT_TOKEN` in a claimed workspace; set it to override the stored token.
+Run one such loop per task of a wave, in parallel; the plan guarantees the tasks of one wave share no files. `submit` needs
+no `ARTYFACT_TOKEN` in a claimed workspace, so the agent holds only that task's fork token (at rest in `.artyfact.json`, as
+above). Do not mix this with Start wave on the Work view: Start wave claims every task of the wave itself, as
+`agent:<task>`, and returns the start lines in its response, so `claim` then answers `task-taken` (or, for the same label,
+reports that credentials were issued once). Use one or the other per task. Release a claimed task with
+`POST /api/systems/<sid>/tasks/<task>/release` (admin) and claim it again.
+
+A task of a later wave is refused until its dependencies are promoted (`blocked by …`). After the first task is promoted,
+rebase its siblings with `POST /api/systems/<sid>/realizations/<rid>/rebase` (admin; `docs/design/backend.md` B.5), then
+promote them and claim the next wave. The step-by-step run is in `docs/demo-runbook.md` (steps 4b, 7b); the agent-side
+instructions are in `skills/artyfact-genome/SKILL.md`; routes and lifecycle are in `docs/design/backend.md` B.9.

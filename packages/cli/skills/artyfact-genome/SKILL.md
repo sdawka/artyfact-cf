@@ -102,18 +102,20 @@ npx artyfact validate-genome ./genome --app .
 npx artyfact init --genome ./genome --app .
 ```
 
-Then tell the person to open Review, then Import on the platform and agree node by node. Nothing is evolved until they accept.
+A new import waits in review. Tell the person to open Review on the platform, choose the Import row, agree or reject each node (a rejected node is removed through an amendment they then accept), write their interpretation and accept. Nothing is evolved, planned or started until they do.
 
 ## 6. Realize (after the person plans an Evolution)
 
-Once an Evolution is planned the platform lists Tasks. Claim one and work in an isolated directory:
+Once an Evolution is planned into Tasks, the platform groups them into waves: the tasks of one wave share no files, so they can run in parallel, and a task of a later wave waits for the earlier ones to be promoted. Claim your task and work in an isolated directory:
 
 ```
 npx artyfact tasks --system <id>
-npx artyfact claim <task-id> --system <id> --agent <label> --dir ./work/<task-id>
+ARTYFACT_ADMIN_TOKEN=… npx artyfact claim <task-id> --system <id> --agent <label> --dir ./work/<task-id>
 ```
 
-Read `AGENTS.md` and `TASK_PACKET.md` in the work directory. Edit only inside the permitted paths. Save progress with `npx artyfact checkpoint "<what, why, what is left>"`, then hand in with `npx artyfact submit`. The platform verifies; your logs are advisory. The `tasks`, `claim`, `checkpoint` and `submit` commands come from the artyfact CLI release you have installed; run `npx artyfact` to see which exist.
+`claim` needs `ARTYFACT_ADMIN_TOKEN` in the environment of whoever runs it; if you do not have it, ask the person to claim the task and work in the directory they give you. If `claim` says `blocked by …` or `claimed by …`, stop and tell the person; do not work around it. Read `AGENTS.md` and `TASK_PACKET.md` in the work directory. Edit only inside the permitted paths, and leave the paths other tasks own alone. Save progress with `npx artyfact checkpoint "<what, why, what is left>"`, then hand in with `npx artyfact submit`. The platform verifies; your logs are advisory.
+
+`claim` saves this task's fork token in `.artyfact.json` (owner-only, git-excluded) so `submit` works without it in the environment. Never print, commit or copy that file or the token.
 
 ## Checklist before stopping
 
