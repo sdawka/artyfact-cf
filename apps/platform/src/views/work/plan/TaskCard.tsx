@@ -32,7 +32,7 @@ export const TaskCard = memo(function TaskCard({ task: t, plan, open, onOpen, se
         {onSelect && (
           <input type="checkbox" checked={selected} onChange={(e) => onSelect(t.id, e.target.checked)} aria-label={`Select ${t.title}`} disabled={t.status !== "planned"} />
         )}
-        <button id={titleId} type="button" className={styles.taskTitle} aria-expanded={open} onClick={() => onOpen(t.id)}>{t.title}</button>
+        <button id={titleId} type="button" className={styles.taskTitle} aria-pressed={open} onClick={() => onOpen(t.id)}>{t.title}</button>
         <TaskStatus status={status} {...(waits.length > 0 && { title: `Waits on ${waits.join(", ")}` })} />
       </div>
       <span className={workStyles.chips}>
@@ -46,6 +46,7 @@ export const TaskCard = memo(function TaskCard({ task: t, plan, open, onOpen, se
           {t.dependsOn.map((d) => <span key={d} className={workStyles.tag}>{title(d)}</span>)}
         </span>
       )}
+      {status === "blocked" && <span className={workStyles.attention}>waits on {waits.join(", ")}</span>}
       <ConflictChips conflicts={conflictReports(plan.conflicts, t.id, title)} />
       {t.status === "claimed" && (
         <span className={workStyles.attention}>awaits an agent{t.claim ? ` · claimed by ${t.claim.agentLabel}` : ""}</span>

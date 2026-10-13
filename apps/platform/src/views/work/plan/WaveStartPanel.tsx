@@ -1,4 +1,4 @@
-import { useId, useMemo } from "react";
+import { useId, useMemo, useState } from "react";
 import type { StartWaveResponse, TaskPlan } from "../../../../shared/api";
 import { CopyText, PacketViewer } from "../panels/PacketViewer";
 import { normalizeStartWork } from "../panels/StartWorkPanel";
@@ -13,12 +13,22 @@ import styles from "./plan.module.css";
 export function WaveStartPanel({ result, plan, onClose }: { result: StartWaveResponse; plan: Pick<TaskPlan, "tasks">; onClose(): void }) {
   const uid = useId();
   const started = useMemo(() => result.started.map((s) => ({ task: s.task, ...normalizeStartWork(s) })), [result]);
-  const all = started.map((s) => s.cli).filter((c): c is string => !!c).join("\n");
+  // Copy-once holds for "Copy all" too: a command hidden in its own viewer is never copied again from here.
+  const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
+  const all = started.filter((s) => !hidden.has(s.task)).map((s) => s.cli).filter((c): c is string => !!c).join("\n");
+  const anyCli = started.some((s) => !!s.cli);
   return (
     <section className={workStyles.panel} aria-labelledby={`${uid}-h`}>
       <div className={workStyles.rhead}>
         <h3 id={`${uid}-h`}>Wave {result.wave} started · {started.length} {started.length === 1 ? "task" : "tasks"}</h3>
-        {all && <CopyText value={all} label="Copy all commands" />}
+        {all ? (
+          <CopyText value={all} label="Copy all commands" />
+        ) : anyCli ? (
+          <>
+            <button type="button" className={`u-brackets ${workStyles.btn}`} disabled aria-describedby={`${uid}-none`}>Copy all commands</button>
+            <span id={`${uid}-none`} className={workStyles.reason}>Every command is hidden; none is shown again.</span>
+          </>
+        ) : null}
         <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={onClose}>Close</button>
       </div>
       <p className={workStyles.warn} role="note">Each command carries its task's write token and secret. They are shown once; copy them before you close this.</p>
@@ -30,7 +40,7 @@ export function WaveStartPanel({ result, plan, onClose }: { result: StartWaveRes
       {started.map((s) => (
         <section key={s.task} className={styles.started} aria-label={`Task ${titleOf(plan, s.task)}`}>
           <h4>{titleOf(plan, s.task)} <span className={workStyles.muted}>· <code>{s.realization.id}</code> as {s.realization.agent.id}</span></h4>
-          <PacketViewer markdown={s.markdown} cli={s.cli} expiresAt={s.expiresAt} remote={s.remote} />
+          <PacketViewer markdown={s.markdown} cli={s.cli} expiresAt={s.expiresAt} remote={s.remote} onHide={() => setHidden((h) => new Set(h).add(s.task))} />
         </section>
       ))}
     </section>

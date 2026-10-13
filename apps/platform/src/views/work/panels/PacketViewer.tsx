@@ -32,10 +32,12 @@ export interface PacketViewerProps {
   /** `realization.workspace.tokenExpiresAt`. */
   expiresAt?: string | undefined;
   remote?: string | undefined;
+  /** Called once the user hides the command ("I have copied it, hide"), so a parent stops offering it too. */
+  onHide?: (() => void) | undefined;
 }
 
 /** Task Packet (rendered markdown, copyable), the one-time CLI line and the token-expiry countdown. */
-export function PacketViewer({ markdown, cli, expiresAt, remote }: PacketViewerProps) {
+export function PacketViewer({ markdown, cli, expiresAt, remote, onHide }: PacketViewerProps) {
   const now = useNow(1000);
   const [hidden, setHidden] = useState(false);
   const showCli = !!cli && !hidden;
@@ -54,7 +56,7 @@ export function PacketViewer({ markdown, cli, expiresAt, remote }: PacketViewerP
               <pre className={styles.cliLine}><code>{cli}</code></pre>
               <div className={styles.actions}>
                 <CopyText value={cli} label="Copy command" />
-                <button type="button" className={`u-brackets ${styles.btn}`} onClick={() => setHidden(true)}>I have copied it, hide</button>
+                <button type="button" className={`u-brackets ${styles.btn}`} onClick={() => { setHidden(true); onHide?.(); }}>I have copied it, hide</button>
               </div>
             </>
           ) : (

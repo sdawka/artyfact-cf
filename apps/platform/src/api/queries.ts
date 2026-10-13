@@ -472,7 +472,8 @@ export function usePlan(evolutionId: string | null | undefined, opts: { enabled?
     queryFn: () => api.getPlan(systemId, evolutionId!),
     enabled: !!systemId && !!evolutionId && opts.enabled !== false,
     retry: false,
-    refetchInterval: 5_000,
+    // Poll only a plan that exists; before one is made, `plan.updated` (or the Plan tasks response) fills the cache.
+    refetchInterval: (query) => (query.state.status === "success" ? 5_000 : false),
   });
 }
 

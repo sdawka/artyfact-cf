@@ -29,7 +29,8 @@ export function PlanPanel({ evolution: e }: { evolution: Evolution }) {
   const adminToken = token || undefined;
   const q = usePlan(e.id, { enabled: !fixture });
   const plan = fixture ? (e.id === SAMPLE_PLAN.evolutionId ? SAMPLE_PLAN : undefined) : q.data;
-  const noPlan = fixture ? !plan : q.error instanceof ApiRequestError && q.error.status === 404;
+  // Only the plan route's own `no-plan` means "not planned yet"; any other 404 (unknown Evolution, missing route) is an error.
+  const noPlan = fixture ? !plan : q.error instanceof ApiRequestError && q.error.status === 404 && q.error.code === "no-plan";
 
   const [taskId, setTask] = useParam("task");
   const [, setRealization] = useParam("realization");

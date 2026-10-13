@@ -192,8 +192,14 @@ describe("Plan panel", () => {
     fireEvent.click(within(first).getByRole("button", { name: "I have copied it, hide" }));
     expect(screen.queryByText(cli("task.1"))).toBeNull();
     expect(screen.getByText(cli("task.2"))).toBeTruthy();
+    // Copy-once: the hidden command is not offered again through Copy all.
     await act(async () => fireEvent.click(screen.getByRole("button", { name: "Copy all commands" })));
-    expect(writes).toEqual([`${cli("task.1")}\n${cli("task.2")}`]);
+    expect(writes).toEqual([cli("task.2")]);
+    const second = screen.getByRole("region", { name: "Task People screen" });
+    fireEvent.click(within(second).getByRole("button", { name: "I have copied it, hide" }));
+    const copyAll = screen.getByRole("button", { name: "Copy all commands" });
+    expect(copyAll.hasAttribute("disabled")).toBe(true);
+    expect(document.getElementById(copyAll.getAttribute("aria-describedby")!)?.textContent).toBe("Every command is hidden; none is shown again.");
     noGreen();
   });
 
@@ -202,6 +208,24 @@ describe("Plan panel", () => {
     renderApp(`${WORK}?evolution=${EVO1}&panel=plan`, undefined, seed({ api: true }));
     fireEvent.click(await screen.findByRole("button", { name: "Start wave 1" }));
     expect((await screen.findByRole("alert")).textContent).toBe("Wave 1 is blocked. An earlier wave must be promoted first.");
+  });
+
+  it("a 404 other than no-plan is an error, not the empty state", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      const u = String(url);
+      if (u.endsWith("/api/systems")) return systems();
+      if (u === PLAN_URL) return json(404, { error: { code: "not-found", message: "No evolution.1 here." } });
+      return json(200, { evolutions: [], realizations: [] });
+    }));
+    renderApp(`${WORK}?evolution=${EVO1}&panel=plan`, undefined, seed({ api: true }));
+    expect((await screen.findByRole("alert")).textContent).toBe("No evolution.1 here.");
+    expect(screen.queryByText("No plan yet.")).toBeNull();
+  });
+
+  it("a blocked card says what it waits on in text", async () => {
+    stubPlanApi(SAMPLE_PLAN);
+    renderApp(`${WORK}?evolution=${EVO1}&panel=plan`, undefined, seed({ api: true }));
+    expect((await screen.findByTestId("task-task.4")).textContent).toContain("waits on Contact storage");
   });
 
   it("on fixture data: the sample plan shows read-only with the standard reason", async () => {

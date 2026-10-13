@@ -47,7 +47,7 @@ export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evo
         </div>
         <div className={styles.actions}>
           <button type="button" className={`u-brackets ${styles.btn}`} aria-pressed={panel === "plan"} onClick={() => setPanel(panel === "plan" ? null : "plan", { task: null })}>Plan</button>
-          <button type="button" className={`u-brackets ${styles.btn}`} aria-pressed={panel === "start"} onClick={() => setPanel(panel === "start" ? null : "start")}>Start work</button>
+          <button type="button" className={`u-brackets ${styles.btn}`} aria-pressed={panel === "start"} onClick={() => setPanel(panel === "start" ? null : "start", { task: null })}>Start work</button>
           <Link className={`u-brackets ${styles.reviewLink}`} to={href("review", { evolution: e.id, realization: null, panel: "promote" })}>Promote in Review</Link>
         </div>
       </header>
