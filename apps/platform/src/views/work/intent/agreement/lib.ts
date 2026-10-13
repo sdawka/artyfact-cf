@@ -7,6 +7,7 @@ import { withDependencies } from "../lib";
 export type Decision = NonNullable<ProposalPlanNode["decision"]>;
 /** What a node's subtree adds up to: one decision for all its ops, `mixed`, or `undecided`. */
 export type Rollup = Decision | "mixed" | "undecided";
+export const ROLLUP_WORD: Record<Rollup, string> = { agree: "agreed", reject: "rejected", defer: "deferred", mixed: "mixed", undecided: "undecided" };
 export type ChangeCounts = Partial<Record<ProposedOpKind, number>>;
 
 export interface NodeRollup {

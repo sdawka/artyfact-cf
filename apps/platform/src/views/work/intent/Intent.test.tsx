@@ -1,12 +1,14 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { IntentAcceptResponse, Proposal } from "../../../../shared/api";
+import type { IntentAcceptResponse, IntentDecisionsRequest, Proposal } from "../../../../shared/api";
 import { ADMIN_TOKEN_KEY } from "@/api/adminToken";
 import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
+import { buildIndex } from "@/model/index";
 import { renderApp } from "@/testing/render";
 import { candidate, realization, SYSTEM } from "../testData";
+import { cascade, planFromOps } from "./agreement";
 import { withDependencies, withDependents } from "./lib";
 import { SAMPLE_PROPOSAL } from "./sample";
 
@@ -45,6 +47,30 @@ const api = (qc: QueryClient) => {
   qc.setQueryData(qk.evolutions(SYSTEM), { evolutions: [], realizations: [] });
 };
 
+const ACCEPTED: IntentAcceptResponse = {
+  evolution: { ...fixtureBundle().model.evolutions[0]!, id: "evolution.9", title: "Show birthdays" },
+  realization: realization({ id: "real.9", evolution: "evolution.9" }),
+  candidate: candidate({ id: "cand.9" }),
+  commit: "c0ffee",
+};
+
+/** A platform that stores decisions: PUT …/decisions cascades them onto the proposal it answers with. */
+function decidingApi(start: Proposal, accept: IntentAcceptResponse = ACCEPTED) {
+  let current = start;
+  return stubApi((c) => {
+    if (c.url.endsWith("/accept")) return json(201, accept);
+    if (c.url.endsWith("/decisions")) {
+      for (const d of (c.body as IntentDecisionsRequest).decisions) current = { ...current, plan: cascade(current.plan, d.nodeId, d.decision) };
+      return json(200, current);
+    }
+    return json(c.method === "GET" ? 200 : 201, current);
+  });
+}
+
+const acceptBtn = () => screen.getByRole("button", { name: "Accept agreed" }) as HTMLButtonElement;
+const treeitem = (name: RegExp) => screen.getByRole("treeitem", { name });
+const decisions = (calls: Call[]) => calls.filter((c) => c.url.endsWith("/decisions")).map((c) => (c.body as IntentDecisionsRequest).decisions);
+
 async function describe_(text: string) {
   fireEvent.change(await screen.findByLabelText("What should change?"), { target: { value: text } });
   fireEvent.click(screen.getByRole("button", { name: "Propose changes" }));
@@ -73,34 +99,134 @@ describe("Describe a change", () => {
     expect(within(screen.getByRole("list", { name: "Problems with op.3" })).getByText(/does not declare/)).toBeTruthy();
     // One primary action: the Work header button steps back while the panel is open.
     expect(document.querySelectorAll("main button[class*='primary']")).toHaveLength(1);
-    expect(screen.getByRole("button", { name: "Accept selected" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Accept agreed" })).toBeTruthy();
+    // The agreement tree: Thing → section → screen → … → the added component, no checkboxes.
+    expect(screen.getByRole("tree", { name: "Proposed changes" })).toBeTruthy();
+    expect(treeitem(/^Peopling web app/).getAttribute("aria-level")).toBe("1");
+    expect(treeitem(/^Birthday field/).getAttribute("aria-level")).toBe("5");
+    expect(screen.queryByRole("checkbox")).toBeNull();
   });
 
-  it("toggling an op off excludes it (and its dependents) from the accept body, then opens the candidate", async () => {
-    const accepted: IntentAcceptResponse = {
-      evolution: { ...fixtureBundle().model.evolutions[0]!, id: "evolution.9" },
-      realization: realization({ id: "real.9", evolution: "evolution.9" }),
-      candidate: candidate({ id: "cand.9" }),
-      commit: "c0ffee",
-    };
-    const calls = stubApi((c) => (c.url.endsWith("/accept") ? json(201, accepted) : json(201, PROPOSAL)));
+  it("a Thing-level Agree PUTs one decision, every node inherits it, and Accept agreed sends the agreed ops", async () => {
+    sessionStorage.setItem(ADMIN_TOKEN_KEY, "tok");
+    const calls = decidingApi(PROPOSAL);
     const { router } = renderApp(`${WORK}?panel=intent`, undefined, api);
     await describe_("Show birthdays");
-    const op2 = await screen.findByRole("checkbox", { name: /op\.2/ });
-    const op3 = screen.getByRole("checkbox", { name: /op\.3/ });
-    fireEvent.click(op2);
-    expect((op3 as HTMLInputElement).checked).toBe(false);
-    // Checking the link again brings back the add it depends on.
-    fireEvent.click(op3);
-    expect((op2 as HTMLInputElement).checked).toBe(true);
-    fireEvent.click(screen.getByRole("checkbox", { name: /op\.1/ }));
-    expect(screen.getByText("2 of 3 selected. Unchecked changes are rejected.")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Accept selected" }));
-    await waitFor(() => expect(calls.find((c) => c.url.endsWith("/accept"))?.body).toEqual({ opIds: ["op.2", "op.3"] }));
+    await screen.findByRole("tree", { name: "Proposed changes" });
+    expect(acceptBtn().disabled).toBe(true);
+    expect(screen.getByText("Decide every change first: 3 undecided.")).toBeTruthy();
+    expect(screen.getByText("0 of 3 changes agreed · 3 undecided")).toBeTruthy();
+    // The Thing row counts its subtree.
+    expect(within(treeitem(/^Peopling web app/)).getAllByText("1 add · 1 update · 1 link").length).toBeGreaterThan(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Agree Peopling web app" }));
+    // Optimistic: enabled as soon as the decision is made.
+    await waitFor(() => expect(acceptBtn().disabled).toBe(false));
+    await waitFor(() => expect(decisions(calls)).toEqual([[{ nodeId: "thing.webapp", decision: "agree" }]]));
+    expect(calls.find((c) => c.url.endsWith("/decisions"))).toMatchObject({ method: "PUT", auth: "Bearer tok" });
+    expect(screen.getByText("3 of 3 changes agreed")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Agree Birthday field" }).getAttribute("aria-pressed")).toBe("true");
+    expect(treeitem(/^Birthday field/).dataset.decision).toBe("agree");
+
+    fireEvent.click(acceptBtn());
+    await waitFor(() => expect(calls.find((c) => c.url.endsWith("/accept"))?.body).toEqual({ opIds: ["op.1", "op.2", "op.3"] }));
     await waitFor(() => {
       const p = new URLSearchParams(router.state.location.search);
       expect([p.get("evolution"), p.get("realization"), p.get("panel"), p.get("proposal")]).toEqual(["evolution.9", "real.9", null, null]);
     });
+  });
+
+  it("rejecting a child node blocks the node whose op needs it, shows mixed on the parent, and leaves it out of accept", async () => {
+    const ops = [...PROPOSAL.ops, { id: "op.4", op: "link" as const, node: "screen.people", link: { rel: "contains", to: "component.BirthdayField" }, dependsOn: ["op.2"] }];
+    const withLink: Proposal = { ...PROPOSAL, ops, plan: planFromOps(ops, buildIndex(fixtureBundle())) };
+    const calls = decidingApi(withLink);
+    renderApp(`${WORK}?panel=intent`, undefined, api);
+    await describe_("Show birthdays");
+    fireEvent.click(await screen.findByRole("button", { name: "Agree Peopling web app" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reject Birthday field" }));
+    await waitFor(() => expect(decisions(calls)).toHaveLength(2));
+    const people = treeitem(/^People,/);
+    expect(people.getAttribute("aria-label")).toContain("needs Birthday field");
+    expect(within(people).getAllByText("needs Birthday field").length).toBeGreaterThan(0);
+    expect(treeitem(/^Peopling web app/).dataset.decision).toBe("mixed");
+    expect(screen.getByText("2 of 4 changes agreed · 2 rejected · 1 blocked by what they need")).toBeTruthy();
+    fireEvent.click(acceptBtn());
+    await waitFor(() => expect(calls.find((c) => c.url.endsWith("/accept"))?.body).toEqual({ opIds: ["op.1"] }));
+  });
+
+  it("a refused decision rolls back", async () => {
+    const calls = stubApi((c) => (c.url.endsWith("/decisions") ? json(409, { error: { code: "invalid-state", message: "not open" } }) : json(201, PROPOSAL)));
+    renderApp(`${WORK}?panel=intent`, undefined, api);
+    await describe_("Show birthdays");
+    fireEvent.click(await screen.findByRole("button", { name: "Agree Peopling web app" }));
+    await waitFor(() => expect(decisions(calls)).toHaveLength(1));
+    await waitFor(() => expect(acceptBtn().disabled).toBe(true));
+    expect(decisions(calls)).toHaveLength(1);
+    expect(screen.getByRole("alert").textContent).toMatch(/not open/);
+  });
+
+  it("an accept that defers changes keeps the panel open with the status and continues with the deferred proposal", async () => {
+    const calls = decidingApi(PROPOSAL, { ...ACCEPTED, deferred: { proposal: "proposal.2", nodeIds: ["component.BirthdayField"] } });
+    const { router } = renderApp(`${WORK}?panel=intent`, undefined, api);
+    await describe_("Show birthdays");
+    fireEvent.click(await screen.findByRole("button", { name: "Agree Peopling web app" }));
+    fireEvent.click(screen.getByRole("button", { name: "Defer Birthday field" }));
+    expect(await screen.findByText("1 of 3 changes agreed · 2 deferred")).toBeTruthy();
+    expect(within(treeitem(/^Birthday field/)).getAllByText("deferred").length).toBeGreaterThan(0);
+    fireEvent.click(acceptBtn());
+    await waitFor(() => expect(calls.find((c) => c.url.endsWith("/accept"))?.body).toEqual({ opIds: ["op.1"] }));
+    expect(await screen.findByText("Accepted 1 change into Show birthdays. 2 deferred changes wait in this proposal.")).toBeTruthy();
+    expect(new URLSearchParams(router.state.location.search).get("panel")).toBe("intent");
+    fireEvent.click(screen.getByRole("button", { name: "Continue with deferred" }));
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get("proposal")).toBe("proposal.2"));
+    expect(screen.queryByText(/deferred changes wait/)).toBeNull();
+  });
+
+  it("keyboard: arrows move between rows, a / r / d decide, Backspace clears", async () => {
+    const calls = decidingApi(PROPOSAL);
+    renderApp(`${WORK}?panel=intent`, undefined, api);
+    await describe_("Show birthdays");
+    await screen.findByRole("tree", { name: "Proposed changes" });
+    expect(screen.getByText(/open and close/)).toBeTruthy();
+    const thing = treeitem(/^Peopling web app/);
+    expect(thing.tabIndex).toBe(0);
+    act(() => thing.focus());
+    fireEvent.keyDown(thing, { key: "a" });
+    fireEvent.keyDown(thing, { key: "ArrowDown" });
+    const section = treeitem(/^UI,/);
+    expect(document.activeElement).toBe(section);
+    expect(section.tabIndex).toBe(0);
+    fireEvent.keyDown(section, { key: "r" });
+    fireEvent.keyDown(section, { key: "d" });
+    fireEvent.keyDown(section, { key: "Backspace" });
+    fireEvent.keyDown(section, { key: "End" });
+    expect(document.activeElement).toBe(treeitem(/^Birthday field/));
+    fireEvent.keyDown(document.activeElement!, { key: "Home" });
+    expect(document.activeElement).toBe(thing);
+    // ← on an open node closes it; → opens it again.
+    fireEvent.keyDown(thing, { key: "ArrowLeft" });
+    expect(thing.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.keyDown(thing, { key: "ArrowRight" });
+    expect(thing.getAttribute("aria-expanded")).toBe("true");
+    await waitFor(() => expect(decisions(calls)).toEqual([
+      [{ nodeId: "thing.webapp", decision: "agree" }],
+      [{ nodeId: "section.ui", decision: "reject" }],
+      [{ nodeId: "section.ui", decision: "defer" }],
+      [{ nodeId: "section.ui", decision: null }],
+    ]));
+    // Never green: no decision or chip asks for the success tone.
+    expect(document.querySelector('[data-tone="pass"]')).toBeNull();
+  });
+
+  it("a proposal without a stored plan gets one from the model and keeps decisions locally", async () => {
+    const calls = stubApi((c) => (c.url.endsWith("/accept") ? json(201, ACCEPTED) : json(201, { ...PROPOSAL, plan: [] })));
+    renderApp(`${WORK}?panel=intent`, undefined, api);
+    await describe_("Show birthdays");
+    fireEvent.click(await screen.findByRole("button", { name: "Agree Peopling web app" }));
+    expect(acceptBtn().disabled).toBe(false);
+    expect(decisions(calls)).toEqual([]);
+    fireEvent.click(acceptBtn());
+    await waitFor(() => expect(calls.find((c) => c.url.endsWith("/accept"))?.body).toEqual({ opIds: ["op.1", "op.2", "op.3"] }));
   });
 
   it("answers a question inline and shows the revised proposal", async () => {
@@ -109,7 +235,7 @@ describe("Describe a change", () => {
     renderApp(`${WORK}?panel=intent`, undefined, api);
     await describe_("Birthdays");
     const box = await screen.findByLabelText("Which screen should show birthdays?");
-    expect(screen.queryByRole("button", { name: "Accept selected" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Accept agreed" })).toBeNull();
     fireEvent.change(box, { target: { value: "People" } });
     fireEvent.click(screen.getByRole("button", { name: "Reply" }));
     expect(await screen.findByRole("heading", { name: "Proposed changes" })).toBeTruthy();
@@ -150,9 +276,17 @@ describe("Describe a change", () => {
     expect(await screen.findByText("Sample proposal (fixture data, read-only)")).toBeTruthy();
     expect((screen.getByRole("button", { name: "Propose changes" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getAllByText("Describing a change needs the platform API. The UI is showing fixture data.").length).toBeGreaterThan(0);
-    expect((screen.getByRole("button", { name: "Accept selected" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(acceptBtn().disabled).toBe(true);
     expect((screen.getByRole("button", { name: "Reply" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText("provider fake")).toBeTruthy();
+    // Read-only tree: every decision is disabled, but the rows stay navigable.
+    for (const b of within(screen.getByRole("tree")).getAllByRole("button")) expect((b as HTMLButtonElement).disabled).toBe(true);
+    const thing = treeitem(/^Peopling web app/);
+    act(() => thing.focus());
+    fireEvent.keyDown(thing, { key: "a" });
+    expect(thing.dataset.decision).toBe("undecided");
+    fireEvent.keyDown(thing, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(treeitem(/^UI,/));
   });
 
   it("the Work header opens and closes the panel", async () => {
