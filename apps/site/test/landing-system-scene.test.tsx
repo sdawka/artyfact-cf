@@ -109,14 +109,23 @@ it('keeps the completed demo control focused without promising an unavailable re
   expect(document.activeElement).toBe(control);
 });
 
-it('reserves an inaccessible history slot before activity and retains it when ideas arrive', () => {
+it('hides empty history and retains observed ideas across view changes', () => {
   const { container, rerender } = render(<LandingSystemSupport view="genome" selectedSubject="app" demo={demo()} />);
   const history = container.querySelector('.scene-recent-ideas');
   expect(history).not.toBeNull();
-  expect(history?.getAttribute('aria-hidden')).toBe('true');
+  expect((history as HTMLElement).hidden).toBe(true);
   expect(screen.queryByRole('list', { name: 'Recent ideas' })).toBeNull();
   rerender(<LandingSystemSupport view="phenome" selectedSubject="app" demo={demo(1)} />);
   expect(container.querySelector('.scene-recent-ideas')).toBe(history);
-  expect(history?.getAttribute('aria-hidden')).toBe('false');
+  expect((history as HTMLElement).hidden).toBe(false);
   expect(screen.getByRole('list', { name: 'Recent ideas' }).children.length).toBe(1);
+  rerender(<LandingSystemSupport view="genome" selectedSubject="app" demo={demo(1)} />);
+  expect(screen.getByRole('list', { name: 'Recent ideas' }).children.length).toBe(1);
+});
+
+it('connects the scene exit to purpose and the current illustrative idea', () => {
+  const { container } = render(<LandingSystemSupport view="phenome" selectedSubject="app" demo={demo(1)} />);
+  expect(screen.getByRole('heading', { name: /Start with a purpose/ })).toBeTruthy();
+  expect(container.querySelector('.scene-current-idea')?.textContent).toContain('Illustrative idea');
+  expect(container.querySelector('.scene-current-idea')?.textContent).toContain('Small Signals');
 });

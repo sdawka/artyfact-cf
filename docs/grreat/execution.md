@@ -11,6 +11,7 @@
 - Landing-site work from main (`feat/landing-agent-story`, based on released main `1bb21321`, PRs #44/#45): a purpose-only miniature Artyfact opens into its declared shape, outside-agent realization and local idea activity through reversible native scrolling; the public homepage only. Its last recorded full `npm run ci` passed in 129.4s (1341 root tests, 3 skips; site 41 unit, 11 static and 40 browser checks); see [[journals/2026-10-12-foundation]].
 - Also merged from main (#48, [[journals/2026-10-13-model-page]]): the public `/model` page now explains the System/Thing composition from the domain. Its last full `npm run ci -- --ultra-compact` passed in 123.8s (1349 root tests, 3 skips; 49 site units, 11 static and 42 browser checks).
 - Also merged from main (#52, [[journals/2026-10-13-model-page]]): settled public story chapters for the homepage and model page, site-only. Its final scoped site gate passed in 61.0s (55 units, 11 static and 45 browser checks).
+- Homepage visual recovery: frame-free composition and whole-object transitions replace sliced reveals; the existing purpose, workflow and closing form a clearer conclusion. Fresh forward/reverse visual review is clear; full CI passed in 195.8s (2361 root tests, 9 skips; 56 site units, 11 static, 45 browser checks). Corrective PR, hosted checks and site release remain next; see [[journals/2026-10-13-model-page]].
 - Deferred: Remote GRREAT sync stays pending; the earlier `GOAL_HIERARCHY_CONFLICT` checkpoint is preserved and no remote record was overwritten.
 - Last updated: 2026-10-13.
 

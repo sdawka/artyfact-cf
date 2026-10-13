@@ -69,13 +69,16 @@ export function LandingSystemScene({ view, selectedSubject, demo = emptyDemo }: 
 export function LandingSystemSupport({ view, selectedSubject, onSelectSubject, demo = emptyDemo }: LandingSystemSceneProps) {
   const detail = landingSubjects[selectedSubject];
   const selectProps = (subject: LandingSubject) => ({ type: 'button' as const, 'aria-pressed': selectedSubject === subject, onClick: () => onSelectSubject?.(subject) });
-  const hasIdeas = view === 'phenome' && demo.count > 0;
+  const hasIdeas = demo.count > 0;
   const recent = Array.from({ length: Math.min(3, Math.max(0, demo.count)) }, (_, index) => ideaFor(demo.count - index));
   return <div className="landing-system-scene scene-support" data-support-view={view}>
+    <section className="scene-conclusion"><div><h2>Start with a purpose.<br />Keep it in the work.</h2><div className="scene-current-idea"><small>Illustrative idea</small><strong>{ideaFor(demo.count).name}</strong><p>{ideaFor(demo.count).purpose}</p></div></div><div className="prose"><p>An agent needs to know why a change matters, whose needs it serves, and what must stay true.</p><p>Artyfact gives that context a home: a <a href="/model">System</a>, the context and governance wrapper around one or more Things. A single Thing can be a whole application and begin with its Genome alone.</p><p>Keep in Touch, the separate example on our model page, explores another purpose. The purpose is more wanted contact with people you choose. Private notes, consent and a calm experience follow from that purpose.</p></div></section>
+    <div className="scene-support-inspection">
     <div className="scene-feedback-slot">{view === 'phenome' && demo.showToast && <p className="scene-demo-toast" role="status" aria-live="polite">Great energy!</p>}</div>
     <div className="scene-composition-rail" aria-label="Composed Parts"><span>Parts</span><button {...selectProps('starter')} aria-label="Part: Astro starter">Astro starter</button><span aria-hidden="true">+</span><button {...selectProps('components')} aria-label="Part: Component system">Component system</button><span className="scene-composition-target">compose this app</span></div>
     <div className="scene-inspection-controls"><button {...selectProps('app')} aria-label="Inspect Artyfact application">Application</button><button {...selectProps('runtime')} aria-label="Inspect API and storage">API + storage</button></div>
     <section className="scene-selected-detail" aria-label="Selected subject"><h3>{detail.title}</h3><p>{detail.summary[view]}</p><details key={selectedSubject}><summary>Composition + provenance</summary><p>{detail.detail}</p><p>Parts compose the application. Application calls API; API persists ideas.</p><p>Outcome evidence: unmeasured.</p></details></section>
-    <section className="scene-recent-ideas" aria-hidden={!hasIdeas}>{hasIdeas && <><h3>Recent ideas</h3><ul aria-label="Recent ideas">{recent.map((idea, index) => <li key={demo.count - index}><strong>{idea.name}</strong><span>{idea.purpose}</span></li>)}</ul></>}</section>
+    <section className="scene-recent-ideas" hidden={!hasIdeas}>{hasIdeas && <><h3>Recent ideas</h3><ul aria-label="Recent ideas">{recent.map((idea, index) => <li key={demo.count - index}><strong>{idea.name}</strong><span>{idea.purpose}</span></li>)}</ul></>}</section>
+    </div>
   </div>;
 }
