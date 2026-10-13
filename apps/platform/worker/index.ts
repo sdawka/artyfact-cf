@@ -17,8 +17,8 @@ import { intents } from "./routes/intents";
 import { phenome } from "./routes/phenome";
 import { realizations } from "./routes/realizations";
 import { systems } from "./routes/systems";
-import { parts } from "./routes/parts";
 import { tasks } from "./routes/tasks";
+import { parts } from "./routes/parts";
 import { templateUpgrade } from "./routes/template-upgrade";
 
 const app = new Hono<AppEnv>();
