@@ -129,7 +129,7 @@ export async function sweepViews(page: Page, testInfo: TestInfo, base: string, t
   page.on("console", (m) => { if (m.type() === "error") errors.push(`console: ${m.text()}`); });
   const views: [string, string][] = [
     ["overview", "Overview"], ["map", "Map"], ["journeys", "Journeys"], ["theory", "Theory"], ["code", "Code"],
-    ["work", "Work"], ["evaluations", "Evaluations"], ["changelog", "Changelog"], ["compare", "Compare"], ["phenome", "Deployments"],
+    ["work", "Work"], ["review", "Review"], ["evaluations", "Evaluations"], ["changelog", "Changelog"], ["compare", "Compare"], ["phenome", "Deployments"],
   ];
   for (const [path, heading] of views) {
     await page.goto(`${base}/${path}`);
