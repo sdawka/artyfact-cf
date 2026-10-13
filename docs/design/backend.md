@@ -66,6 +66,18 @@ The executed, step-by-step version with real output is `docs/demo-runbook.md`. D
 ## B.8 Tests
 DO (vitest-pool-workers, `runInDurableObject`): CAS stale head; block on unknown; duplicate submit; event dedupe; sibling rejection. Hooks pure tests. source-map glob tests. `walkTree/diffTrees` against mocked `ArtifactsRepo`. CLI: temp bare repo + `node:http` mock server. Manual integration smoke documented. The fake platform (`FAKE_ARTIFACTS=1`) backs the `@fake` Playwright specs; `apps/platform/e2e/iteration2.live.spec.ts` covers the real Git push.
 
+## B.9 Tasks, waves and claims
+Routes (`shared/api.ts` `routes`): `plan(s,e)` GET → `TaskPlan`, POST `PlanRequest` / PUT `PlanUpdateRequest` (admin) → `TaskPlan`; `startWave(s,e,n)` POST `StartWaveRequest` → `StartWaveResponse`; `tasks(s,{status,evolution})` GET → `TasksResponse` (public); `task(s,t)` GET → `TaskResponse`; `claimTask(s,t)` POST `ClaimTaskRequest` → `ClaimTaskResponse`; `releaseTask(s,t)` POST; `rebase(s,r)` POST → `RebaseResponse`; `intentDecisions(s,p)` PUT `IntentDecisionsRequest` → `Proposal`.
+Types: `Task`, `TaskStatus`, `TaskFootprint`, `TaskConflict`, `TaskPlan` (model, A.2), `TaskPlanSummary` on `Evolution.plan`, `TaskPacket.task`, `Realization.task`, `SystemSummary.taskCounts`, signifiers `plan-ready | wave-running | task-awaiting-agent`, SSE `plan.updated`, `task.updated`.
+Errors: `plan-cycle`, `plan-in-progress`, `no-plan`, `wave-blocked`, `task-taken`, `task-blocked`, `rebase-conflict`, `up-to-date`.
+DO tables: `task_plans`, `tasks` (+ `tasks_by_evolution`); columns `realizations.task_id`, `proposals.plan_json | decisions_json | deferred_from`.
+(behaviour: see slices W4/W5/W7)
+
+## B.10 Import review
+Routes: `importReview(s)` GET → `ImportReview`; `importReviewAccept(s)` POST `ImportReviewAccept` (admin) → `ImportReviewAcceptResponse`. `ImportSystemRequest.review` (default true) leaves a new import pending.
+Types: `ImportReview` (tree of `ProposalPlanNode`, readiness `findings`, `unmapped` paths), `SystemSummary.importReview`, signifier `import-pending`, SSE `system.import-review`.
+While pending, `POST /evolutions`, `/realizations` and `/intents` are 409 `import-unreviewed`. State lives in DO kv `import_review_status`, `import_review_json`.
+(behaviour: see slice W9)
 
 ## Parts registry and realization lineage (accepted contract)
 
