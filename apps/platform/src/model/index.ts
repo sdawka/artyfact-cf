@@ -109,11 +109,11 @@ export function buildIndex(source: UiBundle | ModelJson): ModelIndex {
   for (const t of things) contain(model.system.id, t.id);
   for (const n of nodes) if (n.parent) contain(n.parent, n.id);
   // Purposes, claims, features, commitments and journeys are Genome tree nodes too: under their server-given `parent`,
-  // else under the System (v1 files).
+  // else (none, or one not in the model) under the System.
   const rooted: { id: string; parent?: string }[] = [
     ...(model.purposes ?? []), ...claims, ...(model.description?.features ?? []), ...(model.description?.commitments ?? []), ...journeys,
   ];
-  for (const { id, parent } of rooted) contain(parent ?? model.system.id, id);
+  for (const { id, parent } of rooted) contain(parent && byIdMap.has(parent) ? parent : model.system.id, id);
   for (const j of journeys) for (const s of j.steps) contain(j.id, stepId(j.id, s.id));
 
   const linksOut = new Map<string, LinkRef[]>();

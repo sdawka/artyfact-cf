@@ -28,7 +28,10 @@ const BRANCHES = [
   // an array literal holding a kind, across lines: ["k", ...], new Set([\n "k" ])
   new RegExp(`\\[[^\\[\\]]*${q}[^\\[\\]]*\\]`, "g"),
 ];
-/** An object key that is a kind (`screen:`, `"screen":`); a table needs two of them in one `{ }`. */
+/**
+ * An object key that is a kind (`screen:`, `"screen":`); a table needs two of them in one `{ }`. A single-key table
+ * (`{ screen: 1 }`) is not caught: accepted, since one key is indistinguishable from an ordinary object literal.
+ */
 const KEY = new RegExp(`(?:^|[{,])\\s*["']?(${k})["']?\\s*:`, "gm");
 
 /** Hits in `src` (whole-file, so multi-line literals count), as `line: text`. */

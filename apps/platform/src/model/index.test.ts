@@ -83,6 +83,13 @@ describe("buildIndex on the Keep in Touch fixture", () => {
     expect(ix.parent("J.connect")?.id).toBe("thing.webapp");
   });
 
+  it("puts a node whose parent is missing from the model under the System", () => {
+    const journeys = bundle.model.journeys.map((j) => (j.id === "J.connect" ? { ...j, parent: "thing.gone" } : j));
+    const ix2 = buildIndex({ ...bundle.model, journeys });
+    expect(ix2.parent("J.connect")?.id).toBe(bundle.model.system.id);
+    expect(ix2.children(bundle.model.system.id).map((e) => e.id)).toContain("J.connect");
+  });
+
   it("takes containment from the server's parent, not the declaring file's path", () => {
     const model = { ...bundle.model, origin: { ...bundle.model.origin, "J.connect": "elsewhere/J.connect/node.yaml" } };
     expect(buildIndex(model).parent("J.connect")?.id).toBe("thing.webapp");

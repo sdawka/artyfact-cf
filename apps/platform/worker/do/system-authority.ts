@@ -245,8 +245,9 @@ const enc = new TextEncoder();
  * Bump when what the model loader derives from a commit changes: `model` and `rules` parts stored under another version
  * are ignored and rebuilt from the files. `files` are the commit's raw text and are not versioned.
  * 2: the Genome v2 projection (a v1 commit no longer loads).
+ * 3: the serialized model carries `views` and intent nodes their containment `parent`.
  */
-export const MODEL_CACHE_VERSION = 2;
+export const MODEL_CACHE_VERSION = 3;
 const cachePart = (part: string) => (part === "files" ? part : `${part}@${MODEL_CACHE_VERSION}`);
 
 /** Drops `model`/`rules` rows of any other cache version (the unversioned rows included); run with the schema. */

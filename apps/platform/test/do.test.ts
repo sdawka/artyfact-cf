@@ -543,6 +543,17 @@ describe("schema", () => {
     });
   });
 
+  it("never serves a model cached by the version-2 loader (no `views`, no intent `parent`)", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority, state) => {
+      const { MODEL_CACHE_VERSION } = await import("../worker/do/system-authority");
+      expect(MODEL_CACHE_VERSION).toBe(3);
+      state.storage.sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES ('c2', 'model@2', '{}', 'x')");
+      expect(i.getModelCache("c2", "model")).toBeNull();
+      i.putModelCache("c2", { model: '{"views":{}}' });
+      expect(i.getModelCache("c2", "model")).toBe('{"views":{}}');
+    });
+  });
+
   it("creates the iteration-2 tables (builds, deployments, phenome_events, changelog_cache)", async () => {
     await runInDurableObject(stub(), async (_i: SystemAuthority, state) => {
       const sql = state.storage.sql;
