@@ -128,7 +128,7 @@ export function opMatches(gold: GoldOp, produced: Op): boolean {
   switch (gold.op) {
     case "update": {
       const p = produced as Extract<Op, { op: "update" }>;
-      return p.id === gold.id && tokenOverlap(text(gold.fields), text(p.fields)) >= 0.5;
+      return p.id === gold.id && tokenOverlap(text(gold.fields ?? {}), text(p.fields ?? {})) >= 0.5;
     }
     case "remove": return (produced as Extract<Op, { op: "remove" }>).id === gold.id;
     case "add": {

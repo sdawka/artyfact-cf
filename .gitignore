@@ -7,6 +7,8 @@ dist
 .artyfact.json
 coverage
 *.log
+# Genome node directories may end in .log (operation.contact.log).
+!examples/**/*.log
 .DS_Store
 *.tsbuildinfo
 .artyfact/

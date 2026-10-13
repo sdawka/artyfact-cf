@@ -200,6 +200,24 @@ criteria:
         timeoutMs: 2000
         fromTemplate: template.thing.cloudflare-worker-webapp@1
     fromTemplate: template.thing.cloudflare-worker-webapp@1
+  - id: C.webapp.checks
+    title: Changed nodes meet their checks
+    claim: Changed nodes meet the checks their kinds declare.
+    severity: soft
+    gates:
+      - submission
+    hooks:
+      - id: hook.webapp.checks
+        assay: webapp.checks
+        tier: semantic
+        engine: model-rules
+        triggers:
+          - submission
+        inputs:
+          packs: checks@1
+        binding: bound
+        fromTemplate: template.thing.cloudflare-worker-webapp@1
+    fromTemplate: template.thing.cloudflare-worker-webapp@1
 `,
   "thing.webapp/section.authorization/node.yaml": `
 id: section.authorization

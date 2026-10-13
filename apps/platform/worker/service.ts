@@ -358,7 +358,10 @@ async function concurrentWork(env: Env, systemId: string, evolutionId: string, e
   }));
 }
 
-export async function startWork(env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string): Promise<StartWorkResponse> {
+/** `opts.expectedBase`: refuse with 409 `stale-base` unless the realization would fork from this commit. */
+export async function startWork(
+  env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string, opts: { expectedBase?: string } = {},
+): Promise<StartWorkResponse> {
   if (body.target !== undefined && body.target !== "app" && body.target !== "genome") throw badRequest("target must be app or genome");
   if (body.origin !== undefined && body.origin !== "cli" && body.origin !== "editor") throw badRequest("origin must be cli or editor");
   const stub = systemStub(env, systemId);
@@ -370,7 +373,7 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
   const target = body.target ?? (evolution.kind === "genome-amendment" ? "genome" : "app");
 
   await skipTakenForkNames(env, stub, target);
-  const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin }));
+  const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin, ...(opts.expectedBase && { expectedBase: opts.expectedBase }) }));
   const rid = reserved.realization.id;
   let tokenId: string | undefined;
   try {
@@ -900,7 +903,7 @@ function gateRefusal(out: { code: string; blocking: GateItem[]; advisories: Gate
  * After promotion or acceptance: revoke the fork write tokens of the realizations it ended (secrets are already nulled)
  * and remove their push subscriptions.
  */
-async function revokeEnded(env: Env, systemId: string, ended: EndedCredential[]): Promise<void> {
+export async function revokeEnded(env: Env, systemId: string, ended: EndedCredential[]): Promise<void> {
   await Promise.all([
     ...ended.filter((x) => x.tokenId && x.forkRepo).map((x) =>
       withRepo(artifactsFor(env), x.forkRepo, (r) => r.revokeToken(x.tokenId!)).catch((e: unknown) =>
@@ -1085,9 +1088,12 @@ function stringList(v: unknown, field: string): string[] {
  * work on. Affected nodes and acceptance criteria must exist in the canonical Genome (an unknown criterion would
  * block promotion forever). Without `affectedNodes` the scope is empty, which means unconstrained (the Task Packet
  * permits every path except the protected ones). Without `acceptanceCriteria` it defaults to the System's criteria
- * whose `targetKind` matches the Evolution's target (see defaultCriteria).
+ * whose `targetKind` matches the Evolution's target (see defaultCriteria). `newNodes` are affected nodes the change
+ * itself adds (an accepted intent), exempt from the existence check.
  */
-export async function createEvolution(env: Env, systemId: string, body: Record<string, unknown>): Promise<CreateEvolutionResponse> {
+export async function createEvolution(
+  env: Env, systemId: string, body: Record<string, unknown>, opts: { newNodes?: string[] } = {},
+): Promise<CreateEvolutionResponse> {
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const intent = typeof body.intent === "string" ? body.intent.trim() : "";
   if (!title || title.length > 200) throw badRequest("title is required (at most 200 characters)");
@@ -1102,7 +1108,7 @@ export async function createEvolution(env: Env, systemId: string, body: Record<s
   const acceptanceCriteria = body.acceptanceCriteria === undefined
     ? defaultCriteria(m, body.kind === undefined ? undefined : kind)
     : stringList(body.acceptanceCriteria, "acceptanceCriteria");
-  const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id]);
+  const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id] && !opts.newNodes?.includes(id));
   if (unknownNodes.length) throw badRequest(`unknown nodes: ${unknownNodes.join(", ")}`);
   const criteria = new Set(m.criteria.map((c) => c.id));
   const unknownCriteria = acceptanceCriteria.filter((id) => !criteria.has(id));

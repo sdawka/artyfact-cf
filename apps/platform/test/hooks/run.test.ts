@@ -111,7 +111,7 @@ describe("runSubmission", () => {
     expect(by(evs, "C.system.structure")[0]).toMatchObject({ execution: "completed", verdict: "pass", targetRef: `genome@${BASE}` });
     expect(by(evs, "C.system.promotion")[0]).toMatchObject({ execution: "completed", verdict: "pass" });
     expect(by(evs, "C.system.readiness")[0]).toMatchObject({ execution: "completed", verdict: "pass" });
-    expect(evs.every((e) => e.startedAt === "2026-10-12T00:00:00.000Z" && e.provenance.engineVersion === "1")).toBe(true);
+    expect(evs.every((e) => e.startedAt === "2026-10-12T00:00:00.000Z" && e.provenance.engineVersion === "2")).toBe(true);
   });
 
   it("records an http transport error as execution error, never pass", async () => {

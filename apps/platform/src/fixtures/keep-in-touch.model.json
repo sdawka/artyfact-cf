@@ -4823,6 +4823,29 @@
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1"
       },
       {
+        "id": "C.webapp.checks",
+        "version": 1,
+        "title": "Changed nodes meet their checks",
+        "claim": "Changed nodes meet the checks their kinds declare.",
+        "ownerKind": "thing",
+        "ownerId": "thing.webapp",
+        "subjectKind": "thing",
+        "subjectId": "thing.webapp",
+        "targetKind": "model",
+        "sourceRefs": [],
+        "refines": [],
+        "satisfies": [],
+        "severity": "soft",
+        "gates": [
+          "submission"
+        ],
+        "deferred": false,
+        "hooks": [
+          "hook.webapp.checks"
+        ],
+        "fromTemplate": "template.thing.cloudflare-worker-webapp@1"
+      },
+      {
         "id": "C.webapp.private.owner",
         "version": 1,
         "title": "Owner-only access",
@@ -5387,6 +5410,27 @@
         "timeoutMs": 2000,
         "costTier": "free",
         "binding": "defined",
+        "fromTemplate": "template.thing.cloudflare-worker-webapp@1"
+      },
+      {
+        "id": "hook.webapp.checks",
+        "version": 1,
+        "assay": "webapp.checks",
+        "criteria": [
+          "C.webapp.checks"
+        ],
+        "tier": "semantic",
+        "engine": "model-rules",
+        "targetKind": "model",
+        "triggers": [
+          "submission"
+        ],
+        "inputs": {
+          "packs": "checks@1"
+        },
+        "timeoutMs": 60000,
+        "costTier": "free",
+        "binding": "bound",
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1"
       },
       {
@@ -7377,6 +7421,8 @@
       "hook.webapp.exists": "thing.webapp/node.yaml",
       "C.webapp.health": "thing.webapp/node.yaml",
       "hook.webapp.health": "thing.webapp/node.yaml",
+      "C.webapp.checks": "thing.webapp/node.yaml",
+      "hook.webapp.checks": "thing.webapp/node.yaml",
       "section.authorization": "thing.webapp/section.authorization/node.yaml",
       "policy.authentication": "thing.webapp/section.authorization/policy.authentication/node.yaml",
       "policy.ownerOnly": "thing.webapp/section.authorization/policy.ownerOnly/node.yaml",
@@ -10092,7 +10138,7 @@
       "fail": 0,
       "unknown": 0,
       "stale": 0,
-      "notRun": 20
+      "notRun": 21
     },
     "outcomeProgress": {
       "observed": 0,

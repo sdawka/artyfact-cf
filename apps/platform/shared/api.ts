@@ -1230,8 +1230,3 @@ export interface IntentAcceptResponse {
   candidate: Candidate;
   commit: CommitHash;
 }
-
-/** 501 from a route that is declared but not built yet (the iteration-3 intent stubs). */
-export interface NotImplementedResponse extends ApiError {
-  error: { code: "not-implemented"; message: string };
-}

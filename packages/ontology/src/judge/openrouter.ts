@@ -1,5 +1,5 @@
 import { failWith, limiter, lruCache, openRouterHeaders, postJson, redactor, withRetries } from "./http.ts";
-import { cacheKeyFor, fakeSystemOne, offSystemOne, S1Error, wireQuestions } from "./provider.ts";
+import { cacheKeyFor, fakeSystemOne, offSystemOne, S1Error, stripDirectives, typeSafeProvider, wireQuestions } from "./provider.ts";
 import type { Answer, AskOptions, S1Questions, S1Reply, SystemOne } from "./types.ts";
 
 /** OpenRouter Decisions API ("System One" decision models). */
@@ -75,7 +75,7 @@ export function openRouterProvider(o: OpenRouterOptions): SystemOne {
     postJson<DecisionsBody, Omit<S1Reply, "ms">>({
       url, fetch: o.fetch, timeoutMs, label: "OpenRouter", redact,
       headers: openRouterHeaders(key, o.title),
-      body: { model, state, questions: wireQuestions(questions) },
+      body: { model, state: stripDirectives(state), questions: wireQuestions(questions) },
     }, ({ res, body }) => {
       if (!res.ok || body?.error) {
         const status = res.ok ? Number(body?.error?.code) || 502 : res.status;
@@ -111,14 +111,20 @@ export function openRouterProvider(o: OpenRouterOptions): SystemOne {
 
 export interface ProviderEnv {
   FAKE_S1?: string;
+  TYPESAFE_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
   OPENROUTER_MODEL?: string;
   fetch?: typeof fetch;
 }
 
-/** artyfact's precedence: `FAKE_S1=1` wins, then `OPENROUTER_API_KEY` (model from `OPENROUTER_MODEL`), else off. */
+/**
+ * artyfact's precedence: `FAKE_S1=1` wins, then `TYPESAFE_API_KEY`, then `OPENROUTER_API_KEY` (model from
+ * `OPENROUTER_MODEL`), else off.
+ */
 export function providerFromEnv(env: ProviderEnv): SystemOne {
   if (env.FAKE_S1 === "1") return fakeSystemOne();
+  const typeSafeKey = env.TYPESAFE_API_KEY?.trim();
+  if (typeSafeKey) return typeSafeProvider({ apiKey: typeSafeKey, fetch: env.fetch });
   const apiKey = env.OPENROUTER_API_KEY?.trim();
   if (apiKey) return openRouterProvider({ apiKey, model: env.OPENROUTER_MODEL?.trim() || undefined, fetch: env.fetch });
   return offSystemOne();

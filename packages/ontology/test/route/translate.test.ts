@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAULT_TRANSLATE_MODEL, fakeTranslator, offTranslator, openRouterTranslator, parseTranslation, route, routeSlice, scriptedSystemOne,
-  translatorFromEnv, validateOps, type Op, type TranslateInput,
+  titleOf, translatorFromEnv, validateOps, type Graph, type Op, type RouteVocabularySource, type TranslateInput,
 } from "../../src/index.ts";
 import { assistant, tidepool } from "./setup.ts";
 
@@ -30,6 +30,12 @@ describe("parseTranslation", () => {
     expect(parseTranslation('{"ops":[{"op":"remove","id":"a"}]}')).toEqual({ ops: [{ op: "remove", id: "a" }] });
     expect(parseTranslation('```json\n{"question":"Which one?"}\n```')).toEqual({ question: "Which one?" });
     expect(parseTranslation('{"answer":"Volunteers."}')).toEqual({ answer: "Volunteers." });
+  });
+  it("reads add fields and criteria, and update criteria without fields", () => {
+    const add = { op: "add", kind: "screen", title: "T", fields: { route: "/t" }, criteria: [{ id: "C.t", claim: "T shows." }] };
+    const update = { op: "update", id: "a", criteria: [{ id: "C.t", remove: true }] };
+    expect(parseTranslation(JSON.stringify({ ops: [add, update] }))).toEqual({ ops: [add, update] });
+    expect(parseTranslation('{"ops":[{"op":"update","id":"a","criteria":[{"claim":"no id"}]}]}')).toHaveProperty("error");
   });
   it("rejects prose, empty objects, unknown ops and add links naming both ends", () => {
     expect(parseTranslation("Sure! Here you go")).toEqual({ error: "translator reply is not JSON" });
@@ -83,6 +89,16 @@ describe("fake and off translators", () => {
     expect(add.ops?.[0]).toMatchObject({ op: "add", kind: "metric" });
     expect((await t.translate(await input({ "route.intent": "answer", "route.space": "problem", "route.kind": "audience", "route.node": "audience-weekend-shore-volunteer", "route.more": "no" }))).answer).toMatch(/audience-weekend/);
   });
+  it("fake: an add links to the first target only with a relation the vocabulary declares for the two kinds", async () => {
+    const base = await input({ "route.intent": "add", "route.space": "solution", "route.kind": "screen", "route.node": "screen-species-picker", "route.more": "no" });
+    expect(base.route.target).toMatchObject({ kind: "screen", nodes: ["screen-species-picker"] });
+    const vocabulary = (relations: Record<string, { from: string[]; to: string[] }>) => ({ kinds: ["screen"], relations });
+    const add = async (relations: Record<string, { from: string[]; to: string[] }>) =>
+      (await fakeTranslator().translate({ ...base, vocabulary: vocabulary(relations) })).ops?.[0];
+    expect(await add({ navigatesTo: { from: ["screen"], to: ["screen"] } })).toMatchObject({ links: [{ rel: "navigatesTo", to: "screen-species-picker" }] });
+    expect(await add({ shows: { from: ["module"], to: ["screen"] } })).not.toHaveProperty("links");
+    expect(await add({})).not.toHaveProperty("links");
+  });
   it("off translates nothing", async () => {
     expect(await offTranslator().translate(await input(SCREEN))).toEqual({ model: "off", provider: "off" });
   });
@@ -92,6 +108,17 @@ describe("fake and off translators", () => {
     expect(translatorFromEnv({ OPENROUTER_API_KEY: " k " })).toMatchObject({ mode: "http", model: DEFAULT_TRANSLATE_MODEL });
     expect(translatorFromEnv({ OPENROUTER_API_KEY: "k", OPENROUTER_TRANSLATE_MODEL: "x/y" }).model).toBe("x/y");
     expect(translatorFromEnv({}).mode).toBe("off");
+  });
+});
+
+describe("titleOf", () => {
+  it("falls back from title to name, then the kind's view.title field, then the id", () => {
+    const t: RouteVocabularySource = { kinds: { step: { view: { title: "label" } } }, relations: {} };
+    const n = (fields: Record<string, unknown>) => ({ id: "J/s1", kind: "step", fields });
+    expect(titleOf(n({ title: "T", name: "N", label: "L" }), t)).toBe("T");
+    expect(titleOf(n({ name: "N", label: "L" }), t)).toBe("N");
+    expect(titleOf(n({ label: "L" }), t)).toBe("L");
+    expect(titleOf(n({ label: "L" }))).toBe("J/s1");
   });
 });
 
@@ -126,6 +153,35 @@ describe("validateOps", () => {
       { op: "unlink", from: "module-verification-service", rel: "exposes", to: "screen-site-map" },
       { op: "link", from: "module-field-capture-app", rel: "exposes", to: "screen-site-map" },
     ])).toEqual(["warning op.unknownField 0", "warning op.missingLink 1", "warning op.duplicateLink 2"]);
+  });
+  it("checks add fields and criteria, update criteria, and an update with nothing to change", () => {
+    const g: Graph = {
+      template: "t", declarations: [], evidence: [],
+      nodes: [
+        { id: "sys", kind: "system", fields: {} },
+        { id: "s1", kind: "screen", parent: "sys", fields: { name: "People" } },
+        { id: "s2", kind: "screen", parent: "sys", fields: {} },
+        { id: "C.s1", kind: "criterion", fields: {} },
+      ],
+      links: [{ from: "C.s1", rel: "subject", to: "s1" }],
+    };
+    const t: RouteVocabularySource = { kinds: { system: {}, screen: { fields: [{ name: "name" }, { name: "route" }] }, criterion: {} }, relations: {} };
+    const check = (ops: Op[]) => validateOps(ops, t, g).map((p) => `${p.level} ${p.rule} ${p.op}`);
+    const claim = "It holds.";
+    expect(check([
+      { op: "add", kind: "screen", title: "Today", fields: { route: "/today" }, criteria: [{ id: "C.today", claim }] },
+      { op: "update", id: "s1", criteria: [{ id: "C.s1", claim }, { id: "C.s1.more", claim, severity: "soft" }] },
+      { op: "update", id: "s1", criteria: [{ id: "C.s1", remove: true }] },
+    ])).toEqual([]);
+    expect(check([
+      { op: "add", kind: "screen", title: "people", fields: { colour: "red" } },
+      { op: "add", kind: "screen", title: "X", criteria: [{ id: "C.s1", claim }] },
+      { op: "update", id: "s2", criteria: [{ id: "C.s1", remove: true }, { id: "bad", claim }] },
+      { op: "update", id: "s2", fields: {} },
+    ])).toEqual([
+      "error op.duplicateTitle 0", "warning op.unknownField 0", "error op.duplicateCriterion 1",
+      "error op.unknownCriterion 2", "error op.invalidCriterion 2", "error op.emptyUpdate 3",
+    ]);
   });
   it("gold ops of both case files carry no errors", () => {
     for (const s of [tp, ws]) {

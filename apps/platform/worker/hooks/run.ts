@@ -14,14 +14,17 @@
  *   promotion panel shows it grey instead of missing.
  *
  * Engines: manifest → manifest-exists.ts; diff (inputs.mode scope|overlap, else inferred from id/assay) →
- * diff-scope.ts / overlap.ts; model-rules → model-rules.ts (inputs.packs filter, inputs.requires criteria,
- * inputs.check list, see `promotionChecks`); system-one / llm (inputs.judgment reviewDelta|topology|
+ * diff-scope.ts / overlap.ts; model-rules → engine-gates.ts for the rules part (inputs.packs / inputs.rulePrefix
+ * filter; a checks@1 pack judges the template's checks on the changed nodes) and model-checks.ts (inputs.requires
+ * criteria, inputs.check list); system-one / llm (inputs.judgment reviewDelta|topology|
  * purposeMeasures|interference) → system-one.ts; http → http-health.ts. Any throw → `execution: error`.
  */
-import { type Readiness, type SystemModel, type schema } from "@artyfact/model";
+import { LegacyGenomeError, ModelParseError, type Readiness, type SystemModel, type schema } from "@artyfact/model";
+import type { Graph } from "@artyfact/ontology";
 import { createSystemOne, type SystemOne, type SystemOneEnv } from "@artyfact/semantic";
 import type { CandidateRef, ConflictContext, EvolutionRef, ConflictReport, DeltaReview, Evaluation, GenomeContext, GenomeResult, HookRunner, SubmissionContext } from "./contract";
 import { diffScope } from "./diff-scope";
+import { engineRules, engineRun, genomeGraph, judgeChecks, wantsChecks, type ChecksOptions, type EngineRun } from "./engine-gates";
 import { HEALTH_TIMEOUT_MS, httpHealth, previewPolicy, type PreviewEnv } from "./http-health";
 import { manifestExists } from "./manifest-exists";
 import { modelRulesHook } from "./model-checks";
@@ -132,6 +135,8 @@ interface RunState {
   ctx: SubmissionContext;
   base: SystemModel;
   rules?: ModelRulesResult;
+  /** The engine run over the judged Genome, or why it could not be made. */
+  engine?: { run: EngineRun } | { error: unknown };
   reviews?: DeltaReview[];
   conflicts?: Promise<ConflictReport[]>;
 }
@@ -213,6 +218,66 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
     return r;
   };
 
+  /** The judged Genome on the engine: the candidate's for a Genome target, the canonical one for an app target. */
+  const engineFor = (st: RunState): EngineRun => {
+    if (!st.engine) {
+      const c = st.ctx.candidate;
+      try {
+        if (c.target === "genome" && !c.genomeFiles) throw new Error(`Genome candidate ${c.id} has no genomeFiles`);
+        st.engine = { run: engineRun(c.target === "genome" ? c.genomeFiles! : st.ctx.genomeFiles) };
+      } catch (error) {
+        st.engine = { error };
+      }
+    }
+    if ("error" in st.engine) throw st.engine.error;
+    return st.engine.run;
+  };
+
+  /**
+   * A Genome candidate's changed ids are the base-to-candidate delta; changed paths with no ids mean the delta did not
+   * load (or no node changed), so the checks cannot vouch for the change. Its base graph places removed nodes.
+   */
+  function checksOptions(st: RunState): ChecksOptions {
+    const c = st.ctx.candidate;
+    if (c.target !== "genome") return {};
+    let base: Graph | undefined;
+    try {
+      base = genomeGraph(st.ctx.genomeFiles);
+    } catch {
+      base = undefined; // Removed ids then stay unresolved, which keeps the verdict unknown.
+    }
+    const incomplete = c.changedPaths.length > 0 && c.changedNodes.length === 0;
+    return { ...(base && { base }), ...(incomplete && { incompleteChange: `The Genome candidate changes ${c.changedPaths.length} path(s) but names no changed node; its delta may not have loaded.` }) };
+  }
+
+  async function engineHook(st: RunState, h: schema.AssayHook): Promise<Outcome> {
+    let r: EngineRun;
+    try {
+      r = engineFor(st);
+    } catch (e) {
+      if (!(e instanceof ModelParseError || e instanceof LegacyGenomeError)) throw e;
+      return { execution: "completed", verdict: "fail", observations: [{ kind: "parse-error", message: e.message }], interpretation: `The Genome does not load: ${e.message}`, limitations: [] };
+    }
+    const filter = filterFromInputs(h.inputs);
+    const parts: Outcome[] = [];
+    if (wantsChecks(filter)) {
+      parts.push(await judgeChecks(r, st.ctx.candidate.changedNodes, s1, checksOptions(st)));
+      const rest = filter!.packs!.filter((w) => !wantsChecks({ packs: [w] }));
+      if (rest.length || filter!.rulePrefix) parts.push(engineRules(r, { ...filter, packs: rest.length ? rest : undefined }));
+    } else {
+      parts.push(engineRules(r, filter));
+    }
+    const o = parts.length === 1 ? parts[0] : {
+      execution: "completed" as const,
+      verdict: parts.some((p) => p.verdict === "fail") ? "fail" as const : parts.every((p) => p.verdict === "pass") ? "pass" as const : "unknown" as const,
+      observations: parts.flatMap((p) => p.observations),
+      interpretation: parts.map((p) => p.interpretation).join(" "),
+      limitations: parts.flatMap((p) => p.limitations),
+      provenance: Object.assign({}, ...parts.map((p) => p.provenance)),
+    };
+    return st.ctx.candidate.target === "genome" ? o : withLimitation(o, "App candidate: the Genome is unchanged, so rules ran on the canonical Genome at base.");
+  }
+
   const conflictsFor = (st: RunState) => (st.conflicts ??= computeConflicts(st.ctx, st.base, { s1, genome: deps.genome }));
 
   async function reviewsFor(st: RunState): Promise<DeltaReview[]> {
@@ -239,7 +304,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
         return inferred ? withLimitation(o, `inputs.mode is not set; ran as ${mode} (inferred from the hook id/assay).`) : o;
       }
       case "model-rules":
-        return modelRulesHook({ ctx: st.ctx, base: st.base, rules: (x) => rulesFor(st, x) }, h);
+        return modelRulesHook({ ctx: st.ctx, base: st.base, rules: (x) => rulesFor(st, x), engine: (x) => engineHook(st, x) }, h);
       case "system-one":
       case "llm": {
         const { judgment, inferred } = llmJudgment(h, c);
