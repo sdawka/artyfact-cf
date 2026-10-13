@@ -28,7 +28,7 @@ function fixtureInput(): VitalsInput {
 }
 
 describe("systemVitals (peopling fixture)", () => {
-  it("reads as pending apricot: warnings only, nothing run, one actionable Evolution", () => {
+  it("reads as pending apricot: warnings only, nothing run, two actionable Evolutions", () => {
     const input = fixtureInput();
     const v = systemVitals(input);
     expect(v.health).toBe("pending");
@@ -41,11 +41,11 @@ describe("systemVitals (peopling fixture)", () => {
     expect(v.surface.level).toBeCloseTo(0.2 + 0.7 * v.measures.readiness, 2);
     expect(v.surface.agitation).toBe(0.25);
     expect(v.surface.alerts).toBe(0.25);
-    // evolution.1 is actionable; the five proposed ones are not active.
-    expect(v.surface.channels).toBe(1);
+    // evolution.1 and evolution.2 are actionable; the four proposed ones are not active.
+    expect(v.surface.channels).toBe(2);
     // Fixture timestamps are absent, so no recent activity.
     expect(v.surface.activity).toBe(0.15);
-    expect(v.ambient).toEqual({ color: "oklch(0.79 0.125 60)", intensity: round(0.25 + 0.35 * 0.5 * 0.25) });
+    expect(v.ambient).toEqual({ color: "oklch(0.79 0.125 60)", intensity: round(0.25 + 0.35 * 0.5 * (2 / 4)) });
   });
 
   it("turns verdant when every counted criterion passes", () => {
@@ -88,7 +88,8 @@ describe("systemVitals (peopling fixture)", () => {
       { evolution: "evolution.1", status: "submitted" },
       { evolution: "evolution.2", status: "promoted" },
     ];
-    expect(systemVitals({ ...input, realizations }).surface.channels).toBe(2);
+    // Two live realizations of evolution.1, plus evolution.2 (actionable, its only realization promoted).
+    expect(systemVitals({ ...input, realizations }).surface.channels).toBe(3);
     const many = Array.from({ length: 12 }, (_, i) => ({ evolution: `evolution.${i}`, status: "working" }));
     expect(systemVitals({ ...input, realizations: many }).surface.channels).toBe(8);
   });

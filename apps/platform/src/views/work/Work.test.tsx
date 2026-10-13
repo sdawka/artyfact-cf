@@ -17,8 +17,8 @@ describe("Work board", () => {
   it("groups the six fixture evolutions by state", async () => {
     renderApp(WORK);
     const proposed = await screen.findByRole("region", { name: /Proposed/ });
-    expect(within(proposed).getAllByRole("button")).toHaveLength(5);
-    expect(within(screen.getByRole("region", { name: /^Actionable/ })).getAllByRole("button")).toHaveLength(1);
+    expect(within(proposed).getAllByRole("button")).toHaveLength(4);
+    expect(within(screen.getByRole("region", { name: /^Actionable/ })).getAllByRole("button")).toHaveLength(2);
     expect(within(screen.getByRole("region", { name: /^Realizing/ })).getByText("none")).toBeTruthy();
     expect(screen.getAllByRole("heading", { level: 2 }).map((h) => h.textContent?.replace(/\d+$/, "").trim())).toEqual(
       ["Proposed", "Genome approved", "Actionable", "Realizing", "Evaluated", "Promoted", "Rejected"],
