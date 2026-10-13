@@ -56,12 +56,6 @@
   font-size: var(--font-size-sm);
 }
 .partDescription { margin: var(--spacing-3) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
-.chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--spacing-2);
-  margin: var(--spacing-3) 0;
-}
 .footer {
   justify-content: space-between;
   margin-top: var(--spacing-3);
@@ -74,5 +68,33 @@
 }
 .spacer { flex: 1; }
 .cardItem { display: grid; grid-template-rows: 1fr auto; gap: var(--spacing-2); min-width: 0; margin: 0; padding: 0; list-style: none; }
+.cardActions { display: flex; flex-wrap: wrap; gap: var(--spacing-3); }
 .cardAction { justify-self: start; font-size: var(--font-size-sm); color: var(--color-text-secondary); }
 .cardAction:hover { color: var(--color-text-primary); }
+.headline { margin: var(--spacing-3) 0 var(--spacing-1); font-size: var(--font-size-base); color: var(--color-text-primary); }
+.headline[data-tone="attention"] { color: var(--color-brand-primary); }
+.headline[data-tone="quiet"] { color: var(--color-text-subtle); }
+.deploy { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.deploy [data-tone="attention"] { color: var(--color-brand-primary); }
+.deploy [data-tone="fail"] { color: var(--verdict-fail); }
+.deploy [data-tone="pass"] { color: var(--verdict-pass); }
+.ledger { margin: 0 0 var(--spacing-8); }
+.ledgerList { display: grid; gap: var(--spacing-2); margin: 0; padding: 0; list-style: none; }
+.ledgerRow { margin: 0; font-size: var(--font-size-sm); }
+.ledgerText { color: var(--color-brand-primary); }
+.ledgerRow[data-tone="fail"] .ledgerText { color: var(--verdict-fail); }
+.ledgerEmpty { margin: 0; color: var(--color-text-subtle); font-size: var(--font-size-sm); }
+.search {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-1) var(--spacing-3);
+  color: var(--color-text-secondary);
+  background: var(--color-surface-primary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-md);
+  font: inherit;
+  font-size: var(--font-size-sm);
+  cursor: pointer;
+}
+.kbd { color: var(--color-text-subtle); font-size: var(--font-size-xs); }

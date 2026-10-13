@@ -36,7 +36,7 @@ const awaiting: CardSummary = {
 const stubSystems = (systems: CardSummary[]) =>
   vi.stubGlobal("fetch", vi.fn(async (url: string) => (String(url) === "/api/systems" ? json(200, { systems }) : json(404, {}))));
 
-const card = (name: RegExp) => screen.getByRole("link", { name }).closest("li")!;
+const card = (name: RegExp) => within(screen.getByRole("list", { name: "Systems" })).getByRole("link", { name }).closest("li")!;
 
 describe("Home", () => {
   it("never displays System-private Parts in the public catalog", () => {
@@ -62,28 +62,58 @@ describe("Home", () => {
     expect(screen.queryByText("fixture data")).toBeNull();
   });
 
-  it("gives two Systems distinct states and chips", async () => {
+  it("gives two Systems a headline, a deploy line and a sort by attention", async () => {
     stubSystems([evolving, awaiting]);
     renderApp("/");
     await screen.findByRole("link", { name: /Alpha/ });
-    // Each card link is named by the System title only; chips and footer are content, not part of the name.
-    expect(screen.getAllByRole("link").map((l) => l.getAttribute("aria-labelledby") && document.getElementById(l.getAttribute("aria-labelledby")!)?.textContent).filter(Boolean)).toEqual(["Alpha", "Beta"]);
-    expect(screen.getByRole("link", { name: "Alpha" })).toBeTruthy();
+    // Each card link is named by the System title only; the body is content, not part of the name.
+    const names = within(screen.getByRole("list", { name: "Systems" })).getAllByRole("link").map((l) => l.getAttribute("aria-labelledby") && document.getElementById(l.getAttribute("aria-labelledby")!)?.textContent).filter(Boolean);
+    expect(names).toEqual(["Beta", "Alpha"]); // attention first
     const a = card(/Alpha/);
     const b = card(/Beta/);
     expect(a.querySelector("a")!.getAttribute("data-state")).toBe("evolving");
     expect(b.querySelector("a")!.getAttribute("data-state")).toBe("attention");
-    // Beside the card link, not inside it: describe a change on that System's Work.
     expect(within(a).getByRole("link", { name: "Describe a change" }).getAttribute("href")).toBe(`/s/${encodeURIComponent(evolving.systemId)}/r/head/work?panel=intent`);
+    expect(within(a).queryByRole("link", { name: "Review" })).toBeNull();
+    expect(within(b).getByRole("link", { name: "Review" }).getAttribute("href")).toBe("/s/system.b/r/head/review");
     expect(within(a).getByText("1 realization evolving")).toBeTruthy();
-    expect(within(a).getByText("2 pending realizations")).toBeTruthy();
-    expect(within(a).getByText("not built")).toBeTruthy();
-    expect(within(a).getByText("build running")).toBeTruthy();
-    expect(within(b).getByText("1 awaiting review")).toBeTruthy();
-    expect(within(b).getByText("deployed")).toBeTruthy();
+    expect(within(a).queryByText("2 pending realizations")).toBeNull();
+    expect(within(b).getByText("1 awaits your review")).toBeTruthy();
+    expect(within(b).getByText(/deployed/).getAttribute("data-tone")).toBe("pass");
     expect(within(b).getByText("build passed").getAttribute("data-tone")).toBe("pass");
+    expect(within(a).getByText("build running").getAttribute("data-tone")).toBe("neutral");
     expect(within(a).getByText("updated 5 min ago")).toBeTruthy();
     expect(within(a).getByText("Phase: realizing")).toBeTruthy();
+    expect(within(b).queryByText("observed")).toBeNull();
+  });
+
+  it("lists what waits on a person in the Needs you ledger", async () => {
+    stubSystems([evolving, awaiting, { ...base, systemId: "system.c", title: "Gamma", deployState: "failed" }, { ...base, systemId: "system.d", title: "Delta", deployState: "behind" }]);
+    renderApp("/");
+    const ledger = await screen.findByRole("region", { name: "Needs you" });
+    const rows = within(ledger).getAllByRole("listitem").map((li) => [li.textContent, li.querySelector("a")!.getAttribute("href")]);
+    expect(rows).toEqual([
+      ["Beta · 1 candidate awaits review", "/s/system.b/r/head/review"],
+      ["Gamma · deploy failed", "/s/system.c/r/head/phenome"],
+      ["Delta · deployed, behind", "/s/system.d/r/head/phenome"],
+    ]);
+  });
+
+  it("says nothing is waiting when no System needs a decision", async () => {
+    stubSystems([evolving]);
+    renderApp("/");
+    expect(await screen.findByText("Nothing is waiting on you.")).toBeTruthy();
+  });
+
+  it("opens a Home-scoped palette over Systems and Parts from Go to…", async () => {
+    stubSystems([evolving, awaiting]);
+    const { router } = renderApp("/");
+    await screen.findByRole("link", { name: /Alpha/ });
+    act(() => screen.getByRole("button", { name: /Go to…/ }).click());
+    const option = await screen.findByRole("option", { name: /Alpha/ });
+    expect(screen.getByRole("option", { name: /Beta/ })).toBeTruthy();
+    act(() => option.click());
+    await waitFor(() => expect(router.state.location.pathname).toBe("/s/system.a"));
   });
 
   it("says unknown for a null deployment and never uses the success tone without a passed build", async () => {
@@ -93,6 +123,7 @@ describe("Home", () => {
     expect(within(card(/Alpha/)).getByText("not deployed, unknown")).toBeTruthy();
     const c = card(/Gamma/);
     expect(within(c).getByText("not deployed, unknown")).toBeTruthy();
+    expect(within(c).getByText("quiet")).toBeTruthy();
     expect(within(c).getByText("unknown")).toBeTruthy();
     expect(within(c).getByText("updated unknown")).toBeTruthy();
     expect(container.querySelector('[data-tone="pass"]')).toBeNull();
