@@ -9,7 +9,7 @@ import { useWorkData } from "./data";
 import { useParam } from "./lib";
 import styles from "./work.module.css";
 
-/** Evolution board plus the detail pane for `?evolution=`; `?panel=new|intent` opens a form above the board. */
+/** Evolution board plus the detail pane for `?evolution=`; `?panel=new` opens a form above the board; `?panel=intent` replaces the board and detail. */
 export default function WorkView() {
   const { evolutions, realizations } = useWorkData();
   useEvaluationFx(useModel().evaluations);
@@ -38,7 +38,7 @@ export default function WorkView() {
           </button>
           <button
             type="button"
-            className={`u-brackets ${styles.btn}`}
+            className={styles.textBtn}
             aria-pressed={creating}
             onClick={() => (creating ? setPanel(null) : setPanel("new", { evolution: null, realization: null, anchor: null, proposal: null }))}
           >
@@ -56,7 +56,7 @@ export default function WorkView() {
           onAccepted={(res) => setEvolutionId(res.evolution.id, { realization: res.realization.id, panel: null, anchor: null, proposal: null })}
         />
       )}
-      {evolutions.length === 0 ? (
+      {describing ? null : evolutions.length === 0 ? (
         <EmptyState surface title="No Evolutions yet — nothing is waiting to be built." />
       ) : (
         <EvolutionBoard
@@ -65,7 +65,7 @@ export default function WorkView() {
           onSelect={(id) => setEvolutionId(id === evolutionId ? null : id, { panel: null, realization: null })}
         />
       )}
-      {selected ? (
+      {describing ? null : selected ? (
         <EvolutionDetail evolution={selected} realizations={realizations} />
       ) : evolutions.length > 0 ? (
         <p className={styles.muted}>Select an Evolution to see its realizations, start work or promote.</p>

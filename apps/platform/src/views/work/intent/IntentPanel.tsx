@@ -49,19 +49,20 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
           {proposalId && !fixture && (
             <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => setProposalId(null)}>Start over</button>
           )}
-          <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={onClose}>Close</button>
+          <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={onClose}>Back to board</button>
         </span>
       </div>
 
+      {anchor && (
+        <p className={workStyles.inlineRow}>
+          <span className={workStyles.muted}>Starting from</span>
+          <NodeChip id={anchor} size="sm" showId interactive={false} />
+          <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => setAnchor(null)}>Clear anchor</button>
+        </p>
+      )}
+
       {(!proposalId || fixture) && (
         <form onSubmit={submit} className={workStyles.form}>
-          {anchor && (
-            <p className={workStyles.inlineRow}>
-              <span className={workStyles.muted}>Starting from</span>
-              <NodeChip id={anchor} size="sm" showId interactive={false} />
-              <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => setAnchor(null)}>Clear anchor</button>
-            </p>
-          )}
           <div className={workStyles.field}>
             <label htmlFor={`${uid}-m`}>What should change?</label>
             <textarea id={`${uid}-m`} rows={3} value={message} onChange={(e) => setMessage(e.target.value)} disabled={fixture} />

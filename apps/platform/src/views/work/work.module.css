@@ -123,3 +123,15 @@
 }
 .panel p, .detail p, .cli p { margin: 0; }
 .panel h4 { margin-top: var(--spacing-1); }
+.textBtn {
+  padding: var(--spacing-1) var(--spacing-2);
+  color: var(--color-text-secondary);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.textBtn:hover, .textBtn[aria-pressed="true"] { color: var(--color-brand-primary); }
+.textBtn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
