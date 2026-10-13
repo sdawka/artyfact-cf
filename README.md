@@ -216,6 +216,7 @@ The platform stamps `seq`, `receivedAt` and the realization. The Deployments pag
 | `packages/semantic` | System One client, question catalog, policy |
 | `packages/cli` | The `artyfact` command for agents |
 | `apps/platform` | The Worker, the Durable Object and the SPA |
+| `genome` | Artyfact's own Genome (node tree) |
 | `examples/keep-in-touch-system` | The worked example Genome |
 | `examples/keep-in-touch-app` | The example app that agents change |
 | `docs/design` | Design notes for each part |
