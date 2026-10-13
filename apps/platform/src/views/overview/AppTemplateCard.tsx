@@ -107,7 +107,7 @@ export function TemplateUpgradePanel({ plan }: { plan: TemplateUpgradePlan }) {
       {
         onSuccess: (res) => {
           resetAdminToken();
-          void navigate(href("work", { evolution: res.evolution.id, realization: res.realization.id }));
+          void navigate(href("work", res.realizationPlan ? { plan: res.realizationPlan.id, evolution: null, realization: null } : { evolution: res.evolution?.id ?? null, realization: res.realization.id }));
         },
       },
     );
@@ -117,8 +117,7 @@ export function TemplateUpgradePanel({ plan }: { plan: TemplateUpgradePlan }) {
     <section className={workStyles.panel} aria-labelledby={`${uid}-h`}>
       <h3 id={`${uid}-h`}>Upgrade to {plan.template} at {short(plan.to)}</h3>
       <p className={styles.muted}>
-        The upgrade is one commit on a new Evolution: it runs the usual gates and CI preview and is promoted like any other
-        change. README and secret files are never touched.
+        The upgrade implements the accepted Genome in a Realization Task. Review its candidate, integrate it, and promote the reviewed implementation. README and secret files are never touched.
       </p>
       {GROUPS.map(({ action, title }) => {
         const files = plan.files.filter((f) => f.action === action);

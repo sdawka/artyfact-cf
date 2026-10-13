@@ -5,11 +5,13 @@ export const AGENTS_START = "<!-- artyfact:start -->";
 export const AGENTS_END = "<!-- artyfact:end -->";
 
 /** Insert or replace the artyfact block in an existing (tracked) AGENTS.md; idempotent. */
-export function mergeAgentsBlock(existing: string, block: string): string {
-  const wrapped = `${AGENTS_START}\n${block.trim()}\n${AGENTS_END}\n`;
-  const a = existing.indexOf(AGENTS_START);
-  const b = existing.indexOf(AGENTS_END);
-  if (a !== -1 && b > a) return existing.slice(0, a) + wrapped + existing.slice(b + AGENTS_END.length).replace(/^\n/, "");
+export function mergeAgentsBlock(existing: string, block: string, name = "artyfact"): string {
+  const start = `<!-- ${name}:start -->`;
+  const end = `<!-- ${name}:end -->`;
+  const wrapped = `${start}\n${block.trim()}\n${end}\n`;
+  const a = existing.indexOf(start);
+  const b = existing.indexOf(end);
+  if (a !== -1 && b > a) return existing.slice(0, a) + wrapped + existing.slice(b + end.length).replace(/^\n/, "");
   return `${existing}${existing === "" || existing.endsWith("\n") ? "" : "\n"}${existing ? "\n" : ""}${wrapped}`;
 }
 

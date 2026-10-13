@@ -6,7 +6,7 @@
 import { ALLOWED_COMMANDS, type BuildReport, type BuildStatus, type BuildStep, type CiBuildParams } from "./contract";
 import {
   bundleCommand, bundleConfig, CONFIG_ENV, CONFIG_FILES, deployCommand, deployConfig, DeployRefused, SECRET_VARS, SECRETS_ENV,
-  systemD1Ids, validateRepoConfig, type D1Ids, type DeploySpec,
+  systemD1Ids, systemFlagshipAppIds, validateRepoConfig, type FlagshipAppIds, type D1Ids, type DeploySpec,
 } from "./deploy-config";
 
 export { shQuote } from "./deploy-config";
@@ -210,6 +210,7 @@ export interface PipelineInput {
   accountId: string;
   /** `systemId` -> (`database_name` -> account D1 id); the build's System picks its own entry. */
   d1DatabaseIds?: Readonly<Record<string, D1Ids>>;
+  flagshipAppIds?: Readonly<Record<string, FlagshipAppIds>>;
   workflowName?: string;
 }
 
@@ -293,7 +294,7 @@ export async function runPipeline(input: PipelineInput): Promise<BuildReport> {
   try {
     const config = await step("read wrangler config", () => readRepoConfig(input.readFile));
     if (!config) throw new DeployRefused(`no ${CONFIG_FILES.join(" / ")} at ${p.commit.slice(0, 7)}`);
-    const spec = validateRepoConfig(config.file, config.text, { accountId: input.accountId, d1DatabaseIds: systemD1Ids(input.d1DatabaseIds, p.systemId) });
+    const spec = validateRepoConfig(config.file, config.text, { accountId: input.accountId, d1DatabaseIds: systemD1Ids(input.d1DatabaseIds, p.systemId), flagshipAppIds: systemFlagshipAppIds(input.flagshipAppIds, p.systemId) });
     steps.push({ name: "config", status: "passed" });
     const nonce = await step("bundle nonce", async () => randomNonce());
     const plan = planSteps(p, { accountId: input.accountId, spec, nonce });

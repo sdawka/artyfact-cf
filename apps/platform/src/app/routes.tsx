@@ -103,6 +103,7 @@ function RouteError() {
 export function createRoutes(queryClient: QueryClient): RouteObject[] {
   return [
     { path: "/", lazy: async () => ({ Component: (await import("@/views/home")).default }), errorElement: <RouteError /> },
+    { path: "/start", lazy: async () => ({ Component: (await import("@/views/start")).default }), errorElement: <RouteError /> },
     { path: "/parts/:partId/:version", lazy: async () => ({ Component: (await import("@/views/parts")).default }), errorElement: <RouteError /> },
     { path: "/style", element: <StylePage /> },
     { path: "/s/:systemId", loader: ({ params }) => systemEntry(queryClient, params.systemId!, DEFAULT_REV) },

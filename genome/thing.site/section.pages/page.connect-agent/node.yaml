@@ -4,4 +4,4 @@ fields:
   name: Bring your agent
   route: /connect-agent
   rendering: prerendered
-  description: Shows how to connect a local agent with task packets, forks, checkpoints and submissions.
+  description: Explains ontology review, Genome-only Evolution approval, scoped local-agent Tasks and combined implementation review.

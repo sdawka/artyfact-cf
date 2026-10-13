@@ -150,6 +150,8 @@ export const NodeFileSchema = z.strictObject({
   template: TemplateRefSchema.optional(),
   /** Repo-relative prefix for the `files` of this node and every node below it (a Thing's app root). */
   root: RepoPathSchema.optional(),
+  /** Explicit source identity inherited by descendants; paths alone do not prove independence. */
+  sourceBinding: z.strictObject({ artifact: name, repository: name, bindingId: name.optional() }).optional(),
   fields: z.record(z.string(), z.unknown()).optional(),
   links: z.array(NodeLinkSchema).optional(),
   /** Source globs that realise this node, relative to the nearest `root` above (or the repo root). */

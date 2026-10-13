@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-review-file
+kind: endpoint
+fields:
+  name: Review integrated implementation file
+  description: Compares the exact original and integrated sources for an explicit artifact binding.
+  route: GET /api/systems/:id/realization-plans/:pid/review/files
+  auth: Admin bearer token (ADMIN_TOKEN).

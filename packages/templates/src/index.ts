@@ -1,6 +1,6 @@
 import { parse as parseYaml } from "yaml";
-import { files } from "./generated/files";
-import { ARTYFACT_GENOME, artyfactGenome, loadTemplate, type Template as MetaTemplate, type TemplateStore as MetaStore } from "@artyfact/ontology";
+import { files } from "./generated/files.ts";
+import { ARTYFACT_GENOME, artyfactGenome, OUTCOMES_TEMPLATE, outcomesTemplate, loadTemplate, type Template as MetaTemplate, type TemplateStore as MetaStore } from "@artyfact/ontology";
 
 // "template.thing.cloudflare-worker-webapp@1" -> "thing/cloudflare-worker-webapp@1"
 function templateDir(ref: string): string | undefined {
@@ -17,6 +17,7 @@ export type { MetaTemplate };
 export const metaTemplates: MetaStore = {
   get(ref) {
     if (ref === ARTYFACT_GENOME) return artyfactGenome;
+    if (ref === OUTCOMES_TEMPLATE) return outcomesTemplate;
     const dir = templateDir(ref);
     const text = dir ? files[`${dir}/template.yaml`] : undefined;
     return text === undefined ? undefined : parseYaml(text);
@@ -58,3 +59,6 @@ export function metaTemplateSource(ref: string): Record<string, unknown> | undef
   const text = dir ? files[`${dir}/template.yaml`] : undefined;
   return text !== undefined && isMeta(text) ? (parseYaml(text) as Record<string, unknown>) : undefined;
 }
+
+/** Optional domain packs can be selected explicitly; none are part of the base Genome. */
+export const ontologyPacks = [{ id: "outcomes", name: "Events, expected effects and assays", ref: OUTCOMES_TEMPLATE, source: outcomesTemplate }] as const;

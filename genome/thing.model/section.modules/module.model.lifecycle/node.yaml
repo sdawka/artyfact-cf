@@ -1,0 +1,8 @@
+id: module.model.lifecycle
+kind: module
+fields:
+  name: Task scope analysis
+  description: Computes conservative source and ontology interference and dependency waves.
+  path: src/lifecycle.ts
+files:
+  - src/lifecycle.ts

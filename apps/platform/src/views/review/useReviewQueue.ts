@@ -30,7 +30,7 @@ export function useReviewQueue(): ReviewQueue {
   const { data: conflicts } = useConflicts();
   const realizations = board.data?.realizations;
   const evolutionIds = useMemo(
-    () => [...new Set((realizations ?? []).filter((r) => WAITING.has(r.status)).map((r) => r.evolution))].sort(),
+    () => [...new Set((realizations ?? []).filter((r) => !!r.evolution && WAITING.has(r.status)).map((r) => r.evolution))].sort(),
     [realizations],
   );
   const results = useQueries({

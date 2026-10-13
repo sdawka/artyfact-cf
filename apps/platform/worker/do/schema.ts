@@ -56,11 +56,16 @@ CREATE TABLE IF NOT EXISTS proposals (id TEXT PRIMARY KEY, status TEXT NOT NULL,
  * so each is added on construction when `pragma_table_info` lacks it.
  */
 export const ADDED_COLUMNS: [table: string, column: string, type: string][] = [
+  ["realizations", "pinned_genome", "TEXT"],
+  ["realizations", "pinned_genome_repo", "TEXT"],
+  ["realizations", "task_plan_id", "TEXT"],
+  ["realizations", "task_binding_id", "TEXT"],
   ["builds", "source_repo", "TEXT"],
   ["builds", "genome_commit", "TEXT"],
   ["builds", "thing_id", "TEXT"],
   ["builds", "artifact_id", "TEXT"],
   ["deployments", "realized_artifact_id", "TEXT"],
+  ["deployments", "artifact_id", "TEXT"],
   ["phenome_events", "realized_artifact_id", "TEXT"],
   ["phenome_events", "genome_commit", "TEXT"],
   ["realizations", "base_repo", "TEXT"],

@@ -10,6 +10,7 @@ test.describe("describe a change", () => {
     await expect(panel.getByRole("button", { name: "Propose changes" })).toBeDisabled();
     await expect(panel.getByRole("heading", { name: "Routed path" })).toBeVisible();
     await expect(panel.getByText("provider fake")).toBeVisible();
+    await panel.getByText("Review op.1 delta").click();
     await expect(panel.getByRole("table", { name: "op.1 fields" })).toBeVisible();
     await expect(panel.getByRole("checkbox", { name: /op\.3/ })).toBeChecked();
     await expect(panel.getByRole("button", { name: "Accept selected" })).toBeDisabled();

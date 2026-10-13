@@ -1,8 +1,8 @@
 import { expect, test } from "@playwright/test";
-import { ADMIN_TOKEN, auth, BASE, checkPage, getJson, PACKET_PRE, startPreview, SYS, typeInEditor } from "./fake";
+import { ADMIN_TOKEN, apiCommit, auth, BASE, checkPage, getJson, PACKET_PRE, startPreview, SYS, typeInEditor } from "./fake";
 
 test.describe("describe a change @fake", () => {
-  test("Evolution, work packet, editor commit, unknown build, reported preview, health assay @fake", async ({ page, request }, testInfo) => {
+  test("Genome work, local Task handoff, historical candidate preview and health assay @fake", async ({ page, request }, testInfo) => {
     const title = "Remind me of birthdays";
     // 1. Work: describe the change.
     await page.goto(`${BASE}/work`);
@@ -28,21 +28,21 @@ test.describe("describe a change @fake", () => {
     await expect(page.getByText("Start command")).toBeVisible();
     await checkPage(page, testInfo, "packet", undefined, [PACKET_PRE]);
 
-    // 3. Code: an editor commit on the app. It goes to "Private contact foundation": the new Evolution has no acceptance
-    // criteria (the form cannot set them), and C.webapp.health only runs for an Evolution that lists it.
+    // 3. App drafts stay local; implementation hands off to an isolated Realization Task.
     await page.goto(`${BASE}/code?repo=app&path=README.md`);
     await expect(page.getByRole("heading", { level: 1, name: "Code" })).toBeVisible();
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await typeInEditor(page, "\n\nBirthdays are shown next to each contact.\n");
     await page.getByRole("link", { name: "Commit…" }).click();
-    await page.getByLabel("Message").fill("Show birthdays");
-    await page.getByRole("textbox", { name: "Why" }).fill("Reminders keep friendships warm.");
-    const evolution = page.getByLabel("Evolution", { exact: true });
-    await evolution.selectOption(await evolution.locator("option", { hasText: "Private contact foundation" }).getAttribute("value") ?? "");
-    await page.getByLabel("Your name").fill("E2E");
-    await page.getByLabel("Admin token").fill(ADMIN_TOKEN);
-    await checkPage(page, testInfo, "commit-sheet");
-    await page.getByRole("button", { name: "Commit", exact: true }).click();
+    await expect(page.getByRole("button", { name: "Commit", exact: true })).toBeDisabled();
+    await expect(page.getByRole("link", { name: "Create a Realization Task" })).toBeVisible();
+    await expect.poll(() => page.evaluate(() => localStorage.getItem("artyfact.draft.system.peopling.app.head"))).toContain("Birthdays are shown next to each contact.");
+    await checkPage(page, testInfo, "local-task-handoff");
+
+    // Keep the historical build/health regression meaningful using the already-seeded legacy Evolution.
+    // New app implementation goes through Tasks; this request exercises the supported historical API only.
+    const legacy = await apiCommit(request, "evolution.1", "app", "legacy:e2e", [{ path: "README.md", content: `Historical preview smoke ${Date.now()}\n` }]);
+    await page.goto(`${BASE}/work?evolution=evolution.1&realization=${encodeURIComponent(legacy.realization)}`);
 
     // 4. Work: the candidate row with its gates, build "unknown".
     await expect(page).toHaveURL(/\/work\?.*realization=/);

@@ -1,3 +1,4 @@
+import { lifecyclePaths, type CreateRealizationPlanRequest, type TaskStartResponse, type RealizationPlan } from "../shared/lifecycle";
 import { expect, test } from "@playwright/test";
 import { ADMIN_TOKEN, auth, BASE, checkPage, SYS } from "./fake";
 
@@ -8,7 +9,8 @@ test.describe("describe a change by intent @fake", () => {
     await page.goto(`${BASE}/work`);
     await expect(page.getByRole("heading", { level: 1, name: "Work" })).toBeVisible();
     await page.getByRole("button", { name: "Describe a change", exact: true }).click();
-    await page.getByLabel("What should change?").fill("Change what the People screen says");
+    const message = `Change what the People screen says ${Date.now().toString(36)}`;
+    await page.getByLabel("What should change?").fill(message);
     await checkPage(page, testInfo, "intent-form");
     await page.getByRole("button", { name: "Propose changes" }).click();
 
@@ -34,26 +36,40 @@ test.describe("describe a change by intent @fake", () => {
     await expect(page.getByRole("region", { name: `Review ${rid}` })).toBeVisible();
     const row = page.getByTestId(`realization-${rid}`);
     await expect(row).toBeVisible();
-    await expect(page.getByRole("heading", { level: 2, name: "Change what the People screen says" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: message })).toBeVisible();
     // The candidate's gates: the Evaluations tab lists the criteria with their verdicts (fake provider, so nothing is green without a pass).
     const review = page.getByRole("region", { name: `Review ${rid}` });
     await review.getByRole("tab", { name: "Evaluations" }).click();
     await expect(review.getByRole("row", { name: /Changed nodes meet their checks/ })).toContainText("pass");
     await expect(review.getByRole("row", { name: /People screen/ }).first()).toContainText("not-run");
     // The Evolution's own panel names the touched node.
-    await expect(page.getByRole("heading", { level: 2, name: "Change what the People screen says" }).locator("..").getByText("People").first()).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: message }).locator("..").getByText("People").first()).toBeVisible();
     await checkPage(page, testInfo, "intent-accepted", undefined, ['[class*="markdown"] > pre']);
 
-    // The Evolution lists the touched node, and an app realization of it is scoped by that node's `files`.
+    // Genome approval cannot start implementation. A separate plan pins that accepted revision and scopes the local Task.
     const evoId = new URL(page.url()).searchParams.get("evolution")!;
     const work = await (await request.get(`/api/systems/${SYS}/work`)).json() as { evolutions: { id: string; affectedNodes: string[]; kind: string }[] };
     const evo = work.evolutions.find((e) => e.id === evoId)!;
     expect(evo.kind).toBe("genome-amendment");
     expect(evo.affectedNodes).toEqual(["screen.people"]);
-    const started = await request.post(`/api/systems/${SYS}/evolutions/${evoId}/realizations`, { headers: auth, data: { target: "app", origin: "editor", agentLabel: "human:e2e", role: "implementer" } });
+    const forbidden = await request.post(`/api/systems/${SYS}/evolutions/${evoId}/realizations`, { headers: auth, data: { target: "app", origin: "editor", agentLabel: "human:e2e", role: "implementer" } });
+    expect(forbidden.status()).toBe(409);
+    const before = await (await request.get(`/api/systems/${SYS}`)).json() as { genomeCommit: string };
+    const definition: CreateRealizationPlanRequest = { title: `Implement ${message}`, tasks: [{ id: "task.people", title: "Implement People copy", artifactId: "artifact.webapp", steps: ["Update the People screen copy"], dependsOn: [], readNodes: ["screen.people"], writeNodes: ["screen.people"], checks: ["C.webapp.health"] }] };
+    const created = await request.post(lifecyclePaths.plans(SYS), { headers: auth, data: definition });
+    expect(created.ok(), await created.text()).toBe(true);
+    const plan = await created.json() as RealizationPlan;
+    expect(plan.genome.commit).toBe(before.genomeCommit);
+    const started = await request.post(lifecyclePaths.action(SYS, plan.id, "task.people", "start"), { headers: auth, data: { agentLabel: "local:e2e" } });
     expect(started.ok(), await started.text()).toBe(true);
-    const { packet } = await started.json() as { packet: { permittedPaths: string[] } };
-    expect(packet.permittedPaths).toContain("public/people/**");
+    const { packet } = await started.json() as TaskStartResponse;
+    expect(packet.permittedGlobs).toContain("public/people/**");
+    expect(packet.genome.commit).toBe(plan.genome.commit);
+    await page.goto(`${BASE}/work?plan=${encodeURIComponent(plan.id)}`);
+    await expect(page.getByRole("heading", { name: definition.title })).toBeVisible();
+    await page.getByText("Scope, steps, checks and Task Attempts", { exact: true }).click();
+    await expect(page.getByText("local:e2e", { exact: false })).toBeVisible();
+
   });
 
   test("an unconfident route asks a question and a reply revises the proposal @fake", async ({ page, request }, testInfo) => {

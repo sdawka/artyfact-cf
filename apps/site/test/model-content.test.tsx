@@ -3,6 +3,19 @@ import { afterEach, expect, it } from 'vitest';
 import { cleanup, render, screen, within } from '@testing-library/react';
 import { ModelContent } from '../src/ModelContent';
 afterEach(cleanup);
+it('makes the lifecycle discoverable and keeps its two approval boundaries distinct', () => {
+  const { container } = render(<ModelContent />);
+  const link = within(screen.getByRole('navigation', { name: 'On this page' })).getByRole('link', { name: 'From intent to evidence' });
+  const lifecycle = container.querySelector(link.getAttribute('href')!)!;
+  expect(lifecycle).toBeTruthy();
+  const steps = [...lifecycle.querySelectorAll('ol > li')];
+  expect(steps).toHaveLength(6);
+  expect(steps[2].textContent).toContain('An Evolution changes the Genome');
+  expect(steps[3].textContent).toContain('accepted Genome revision');
+  expect(steps[4].textContent).toContain('combined implementation');
+  expect(steps[5].textContent).toContain('optional outcomes pack');
+  for (const step of steps) expect(step.querySelector('details > summary')).toBeTruthy();
+});
 it('explains this actual page through its canonical subjects and criteria', () => {
   const { container } = render(<ModelContent />);
   expect(screen.getByRole('heading', { level: 1, name: /Ontology Driven Development/ })).toBeTruthy();

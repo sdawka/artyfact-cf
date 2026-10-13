@@ -10,6 +10,9 @@ import { WORKSPACE_IGNORES } from "./ignore.ts";
 import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
 import { partsCommand } from "./parts.ts";
 import { convertGenomeCommand } from "./convert-genome.ts";
+import { lifecycleCommand } from "./lifecycle.ts";
+import { skillCommand } from "./skill.ts";
+import { validateGenomeCommand } from "./validate-genome.ts";
 
 export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> {
   out: (s: string) => void;
@@ -21,7 +24,7 @@ export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> 
 const CONFIG = ".artyfact.json";
 
 /** Write a file without ever following a symlink at the target (O_NOFOLLOW) and refuse symlinked paths. */
-function safeWrite(path: string, data: string, mode = 0o644, append = false): void {
+export function safeWrite(path: string, data: string, mode = 0o644, append = false): void {
   if (existsSync(path) || isLink(path)) {
     if (lstatSync(path).isSymbolicLink()) throw new CliError(`refusing to write through symlink: ${path}`);
   }
@@ -64,6 +67,15 @@ const USAGE = `artyfact <command>
   status [--json]
   compose <rid> <rid> ...
   parts create|extract|validate|publish|compose|upgrade ...
+  evolution create|propose|show --system sid [--file json]
+  plan create|list|show|integrate|review|promote --system sid [--file json]
+  task claim|start|resume <plan> <task> --system sid [--dir d]
+  task checkpoint "<message>" | submit | status
+  task select <plan> <task> --system sid --candidate id
+  ontology preview|list|show|accept|bootstrap --system sid [--file json] [--hash exact-hash]
+  operations bindings|metrics|measurements|flags|audit|flag-create|flag-update|flag-disable --system sid [--binding id]
+  skill [--dir project] [--write] [--agent claude|generic]
+  validate-genome <genomeDir> [--app dir] [--templates dir] [--json] [--strict]
   convert-genome <src> <dst> [--templates dir] [--source-map file]
         write the node-tree (v2) form of the v1 Genome in <src> into a new directory <dst>
         (templates default to the checkout's packages/templates)
@@ -83,6 +95,7 @@ export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
   try {
     const [cmd, ...rest] = argv;
     switch (cmd) {
+      case "evolution": case "plan": case "task": case "ontology": case "operations": return await lifecycleCommand(cmd, rest, full);
       case "init": return await initCommand(rest, full);
       case "platform-sync": return await platformSyncCommand(rest, full);
       case "start": return await start(rest, full);
@@ -93,6 +106,8 @@ export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
       case "compose": return compose(rest, full);
       case "parts": return await partsCommand(rest, full);
       case "convert-genome": return convertGenomeCommand(rest, full);
+      case "skill": return skillCommand(rest, full);
+      case "validate-genome": return validateGenomeCommand(rest, full);
       case undefined: case "help": case "--help": full.out(USAGE); return cmd ? 0 : 1;
       default: throw new CliError(`unknown command '${cmd}'\n${USAGE}`);
     }

@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-post-realization-plans
+kind: endpoint
+fields:
+  name: Lifecycle post realization-plans
+  description: "Pinned Realization plan and scoped Task lifecycle."
+  route: POST /api/systems/:id/realization-plans
+  auth: Admin bearer token (ADMIN_TOKEN).

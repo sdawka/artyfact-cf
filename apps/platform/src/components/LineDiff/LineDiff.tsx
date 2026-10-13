@@ -32,7 +32,7 @@ export function LineDiff({ from, to, label, context = 3 }: LineDiffProps) {
   const [open, setOpen] = useState<ReadonlySet<number>>(new Set());
   if (!diff.blocks.length) return <p className={styles.muted}>Both sides are empty.</p>;
   return (
-    <div className={styles.wrap}>
+    <div className={styles.wrap} tabIndex={0} role="region" aria-label={`${label} file changes`}>
       <p className={styles.stats}>
         <span>+{diff.added}</span> <span>−{diff.removed}</span> lines
       </p>

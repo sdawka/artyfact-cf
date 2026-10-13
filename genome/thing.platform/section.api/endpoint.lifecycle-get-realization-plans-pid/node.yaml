@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-get-realization-plans-pid
+kind: endpoint
+fields:
+  name: Lifecycle get pid
+  description: "Pinned Realization plan and scoped Task lifecycle."
+  route: GET /api/systems/:id/realization-plans/:pid
+  auth: Admin bearer token (ADMIN_TOKEN).

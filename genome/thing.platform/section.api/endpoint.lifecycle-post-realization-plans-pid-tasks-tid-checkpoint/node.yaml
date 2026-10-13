@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-checkpoint
+kind: endpoint
+fields:
+  name: Lifecycle post checkpoint
+  description: "Pinned Realization plan and scoped Task lifecycle."
+  route: POST /api/systems/:id/realization-plans/:pid/tasks/:tid/checkpoint
+  auth: Scoped Task secret or admin token.

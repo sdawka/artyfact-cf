@@ -406,6 +406,17 @@ describe("runPipeline", () => {
     expect(other.ran).toEqual([]);
   });
 
+  it("threads Flagship app allowlists from server configuration for only the build System", async () => {
+    const config = JSON.stringify({ main: "src/index.ts", compatibility_date: "2026-10-13", flagship: [{ binding: "FLAGS", app_id: "app-demo" }] });
+    const allowed = harness({ files: { "wrangler.json": config } });
+    await runPipeline({ ...allowed.input, params: params(), flagshipAppIds: { "system.peopling": { FLAGS: "app-demo" } } });
+    const deployed = JSON.parse(allowed.ran.find(s => s.name === "deploy")!.env![CONFIG_ENV]!);
+    expect(deployed.flagship).toEqual([{ binding: "FLAGS", app_id: "app-demo" }]);
+    const other = harness({ files: { "wrangler.json": config } });
+    await expect(runPipeline({ ...other.input, params: params(), flagshipAppIds: { "system.other": { FLAGS: "app-demo" } } })).rejects.toThrow(/not configured for this System/);
+    expect(other.ran).toEqual([]);
+  });
+
   it("a commit without a Wrangler config fails at the config step", async () => {
     const h = harness({ files: {} });
     await expect(runPipeline({ ...h.input, params: params() })).rejects.toThrow(/no wrangler.json/);

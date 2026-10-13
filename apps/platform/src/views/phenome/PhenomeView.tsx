@@ -1,3 +1,4 @@
+import { Operations } from "./Operations";
 import { Link, useParams, useSearchParams } from "react-router";
 import type { Build, Deployment, PhenomeEvent } from "../../../shared/api";
 import { useAdminToken } from "@/api/adminToken";
@@ -43,6 +44,7 @@ export default function PhenomeView() {
       <h1 id="view-title">Deployments</h1>
       {!adminToken && <p className={styles.muted} role="note">Admin actions need the admin token: set it in the header.</p>}
       {empty && <p className={styles.muted}>No deployments recorded — <Unknown />.</p>}
+      <Operations />
       <BuildsCard builds={list} production={production} />
       <DeploymentsCard production={production} history={history} />
       <EventsCard events={runtimeEvents} versions={versions} buildFilter={buildFilter} deployment={deployment} />

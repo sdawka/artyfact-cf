@@ -19,8 +19,14 @@ import { realizations } from "./routes/realizations";
 import { systems } from "./routes/systems";
 import { parts } from "./routes/parts";
 import { templateUpgrade } from "./routes/template-upgrade";
+import { operations } from "./routes/operations";
+import { lifecycle } from "./routes/lifecycle";
+import { ontologyPackages } from "./routes/ontology-packages";
 
 const app = new Hono<AppEnv>();
+// Import destinations are reviewable before a System has an accepted Genome and registry entry.
+// These routes enforce admin authorization themselves, including every read.
+app.route("/api", ontologyPackages);
 
 app.get("/api/health", (c) =>
   c.json<HealthResponse>({ status: "ok", service: "artyfact-platform", time: new Date().toISOString() }),
@@ -47,6 +53,8 @@ app.route("/api", builds);
 app.route("/api", phenome);
 app.route("/api", templateUpgrade);
 app.route("/api", intents);
+app.route("/api", lifecycle);
+app.route("/api", operations);
 
 const ARTIFACTS_STATUS: Record<string, 404 | 409 | 422 | 503> = {
   NOT_FOUND: 404, ALREADY_EXISTS: 409, FORK_IN_PROGRESS: 409, INVALID_INPUT: 422, INVALID_REPO_NAME: 422, UPSTREAM_UNAVAILABLE: 503,

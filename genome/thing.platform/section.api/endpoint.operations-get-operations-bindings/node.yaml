@@ -1,0 +1,7 @@
+id: endpoint.operations-get-operations-bindings
+kind: endpoint
+fields:
+  name: Operations get bindings
+  description: "Configured binding operations independent of Genome changes."
+  route: GET /api/systems/:id/operations/bindings
+  auth: Admin bearer token (ADMIN_TOKEN).

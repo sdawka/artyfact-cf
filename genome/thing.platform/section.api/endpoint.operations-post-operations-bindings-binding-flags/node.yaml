@@ -1,0 +1,7 @@
+id: endpoint.operations-post-operations-bindings-binding-flags
+kind: endpoint
+fields:
+  name: Operations post flags
+  description: "Configured binding operations independent of Genome changes."
+  route: POST /api/systems/:id/operations/bindings/:binding/flags
+  auth: Admin bearer token (ADMIN_TOKEN).

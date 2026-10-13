@@ -1,8 +1,23 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "composite": true, "noEmit": false, "emitDeclarationOnly": true, "outDir": "dist", "rootDir": ".",
-    "allowImportingTsExtensions": true, "erasableSyntaxOnly": true, "types": ["node"], "lib": ["ES2023"]
+    "composite": true,
+    "noEmit": false,
+    "emitDeclarationOnly": true,
+    "outDir": "dist",
+    "rootDir": "../..",
+    "allowImportingTsExtensions": true,
+    "erasableSyntaxOnly": true,
+    "types": [
+      "node"
+    ],
+    "lib": [
+      "ES2023"
+    ]
   },
-  "include": ["src", "test"]
+  "include": [
+    "src",
+    "test",
+    "../../apps/platform/shared/*.ts"
+  ]
 }

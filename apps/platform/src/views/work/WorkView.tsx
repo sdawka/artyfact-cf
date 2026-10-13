@@ -2,6 +2,7 @@ import { useRef } from "react";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { useEvaluationFx } from "@/effects/fx";
 import { useModel } from "@/model/useModel";
+import { Plans } from "./Plans";
 import { EvolutionBoard } from "./EvolutionBoard";
 import { EvolutionDetail } from "./EvolutionDetail";
 import { IntentPanel } from "./intent/IntentPanel";
@@ -54,6 +55,7 @@ export default function WorkView() {
           </button>
         </span>
       </div>
+      <Plans />
       {creating && (
         <NewEvolutionPanel onCreated={(e) => setEvolutionId(e.id, { panel: null })} onCancel={() => setPanel(null)} />
       )}
@@ -68,7 +70,7 @@ export default function WorkView() {
         />
       )}
       {describing ? null : evolutions.length === 0 ? (
-        <EmptyState surface title="No Evolutions yet — nothing is waiting to be built." />
+        <EmptyState surface title="No Genome Evolutions yet. Describe a change to propose one." />
       ) : (
         <EvolutionBoard
           evolutions={evolutions}

@@ -69,7 +69,8 @@ test.describe("the self-model @fake", () => {
   test("an intent about the platform lands under thing.platform; Compare shows the change at that depth @fake", async ({ page, request }, testInfo) => {
     await page.addInitScript(([k, v]) => sessionStorage.setItem(k, v), ["artyfact.adminToken", ADMIN_TOKEN]);
     await page.goto(`${BASE}/work?panel=intent`);
-    await page.getByLabel("What should change?").fill("add rate limiting to the intents endpoint");
+    const message = `add rate limiting to the intents endpoint ${Date.now().toString(36)}`;
+    await page.getByLabel("What should change?").fill(message);
     await page.getByRole("button", { name: "Propose changes" }).click();
     await expect(page.getByText("provider fake")).toBeVisible();
     await expect(page.getByText("1 of 1 selected")).toBeVisible();
@@ -77,7 +78,7 @@ test.describe("the self-model @fake", () => {
     // Every proposed op's node belongs to the platform Thing.
     const proposalId = new URL(page.url()).searchParams.get("proposal")!;
     const proposal = await (await request.get(`/api/systems/${SYS}/intents/${proposalId}`, { headers: { Authorization: `Bearer ${ADMIN_TOKEN}` } })).json() as { ops: { node: string }[] };
-    const model = await (await request.get(`/api/systems/${SYS}/model`)).json() as { model: { nodes: { id: string; owningThing?: string }[] } };
+    const model = await (await request.get(`/api/systems/${SYS}/model`)).json() as { genomeCommit: string; model: { nodes: { id: string; owningThing?: string }[] } };
     expect(proposal.ops.length).toBeGreaterThan(0);
     for (const op of proposal.ops) expect(model.model.nodes.find((n) => n.id === op.node)?.owningThing).toBe("thing.platform");
     await checkPage(page, testInfo, "self-proposal");
@@ -87,10 +88,10 @@ test.describe("the self-model @fake", () => {
     const rid = new URL(page.url()).searchParams.get("realization")!;
     await expect(page.getByRole("region", { name: `Review ${rid}` })).toBeVisible();
 
-    // Intents accept as a candidate, not a head commit: Compare head with the candidate. Files depth names the node's file under the platform Thing.
+    // Acceptance commits the exact Genome delta. Compare the snapshot captured before acceptance with that candidate.
     const { candidates } = await (await request.get(`/api/systems/${SYS}/candidates`)).json() as { candidates: { id: string; realization: string }[] };
     const candidate = candidates.find((c) => c.realization === rid)!;
-    await page.goto(`${BASE}/compare?from=head&to=${encodeURIComponent(candidate.id)}`);
+    await page.goto(`${BASE}/compare?from=${encodeURIComponent(model.genomeCommit)}&to=${encodeURIComponent(candidate.id)}`);
     await expect(page.getByRole("heading", { level: 1, name: "Compare" })).toBeVisible();
     await page.getByRole("tab", { name: "Genome" }).click();
     await expect(page.getByText(proposal.ops[0]!.node).first()).toBeVisible();

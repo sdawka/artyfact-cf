@@ -55,7 +55,7 @@ export function Meter({ title, question, headline, segments, caption, asOf, empt
       {total > 0 ? (
         <div className={styles.bar} aria-hidden="true">
           {nonZero.map((s) => (
-            <span key={s.key} className={styles.seg} data-tone={s.tone} style={{ flexGrow: s.count }} />
+            <span key={s.key} className={styles.seg} data-tone={s.tone} title={`${s.label}: ${s.count}`} style={{ flexGrow: s.count }} />
           ))}
         </div>
       ) : (

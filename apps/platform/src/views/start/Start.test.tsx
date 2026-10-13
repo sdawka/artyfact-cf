@@ -1,0 +1,30 @@
+import { fireEvent, screen, waitFor } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
+import { renderApp } from '@/testing/render';
+import { ADMIN_TOKEN_KEY } from '@/api/adminToken';
+afterEach(()=>{sessionStorage.clear();vi.unstubAllGlobals();});
+it('creates an initial System, previews, and accepts the exact reviewed native package',async()=>{
+ sessionStorage.setItem(ADMIN_TOKEN_KEY,'admin');const calls:{url:string;body:unknown}[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{const u=String(url);calls.push({url:u,body:init?.body?JSON.parse(String(init.body)):null});
+ if(u.endsWith('/initial'))return Response.json({systemId:'system.custom',status:'import-pending'});
+ if(u.includes('/ontology-imports'))return Response.json({id:'import.one',systemId:'system.custom',status:u.endsWith('/accept')?'accepted':'review',templateRefs:['template.domain@1'],issues:[],package:{},pin:{id:'custom',version:'1',hash:'exact-hash'}});
+ if(u.endsWith('/systems'))return Response.json({systems:[{systemId:'system.custom',title:'Custom'}]});if(u.endsWith('/parts'))return Response.json({parts:[]});return Response.json({});}));
+ renderApp('/start');
+ fireEvent.change(await screen.findByLabelText('System ID'),{target:{value:'system.custom'}});
+ fireEvent.click(screen.getByRole('button',{name:'Create System'}));
+ fireEvent.change(await screen.findByLabelText('Native ontology package'),{target:{value:'{"format":"artyfact.ontology-package@1"}'}});
+ fireEvent.click(screen.getByText('Add reviewed Genome files'));fireEvent.change(screen.getByLabelText('Genome files (optional JSON)'),{target:{value:JSON.stringify({'node.yaml':'id: system.custom\nkind: system\n'})}});
+ fireEvent.click(screen.getByRole('button',{name:'Preview import'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Accept reviewed import'}));
+ await waitFor(()=>expect(calls.find(c=>c.url.endsWith('/accept'))?.body).toEqual({hash:'exact-hash'}));
+ expect(await screen.findByText('Build with your agent')).toBeTruthy();expect(calls.find(c=>c.url.endsWith('/preview'))?.body).toMatchObject({genomeFiles:{'node.yaml':'id: system.custom\nkind: system\n'}});
+ fireEvent.click(screen.getByRole('button',{name:'Check local bootstrap completion'}));expect(await screen.findByRole('link',{name:'Open System work'})).toBeTruthy();
+});
+it('offers a valid native starter with explicit optional outcomes vocabulary',async()=>{
+ const {inspectOntologyPackage}=await import('@artyfact/model');const {metaTemplates}=await import('@artyfact/templates');
+ sessionStorage.setItem(ADMIN_TOKEN_KEY,'admin');vi.stubGlobal('fetch',vi.fn(async(url:string)=>Response.json(String(url).endsWith('/systems')?{systems:[]}:String(url).endsWith('/parts')?{parts:[]}:{systemId:'system.custom',status:'import-pending'})));
+ renderApp('/start');fireEvent.change(await screen.findByLabelText('System ID'),{target:{value:'system.custom'}});fireEvent.click(screen.getByRole('button',{name:'Create System'}));
+ fireEvent.click(await screen.findByRole('button',{name:'Use starter package'}));const source=screen.getByLabelText('Native ontology package') as HTMLTextAreaElement;const native=JSON.parse(source.value);
+ expect(inspectOntologyPackage(native,{bundled:metaTemplates,accepted:[]}).issues).toEqual([]);expect(native.templates['template.system.custom@1'].extends).toBe('template.meta.artyfact-genome@1');
+ fireEvent.click(screen.getByRole('checkbox',{name:'Include events, expected effects and assays in the starter'}));fireEvent.click(screen.getByRole('button',{name:'Use starter package'}));expect(inspectOntologyPackage(JSON.parse(source.value),{bundled:metaTemplates,accepted:[]}).issues).toEqual([]);expect(JSON.parse(source.value).templates['template.system.custom@1'].extends).toBe('template.meta.outcomes@1');
+});

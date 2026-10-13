@@ -14,7 +14,10 @@ test.describe("Review: the decision queue @fake", () => {
     // An app candidate on the current head, and two Genome amendments awaiting an admin. Names are unique per run, so a
     // reused local server takes the test again.
     const run = Date.now().toString(36);
-    const appEvo = await apiEvolution(request, "Review desk probe", "implementation", ["screen.people"]);
+    const legacyWork = await (await request.get(`/api/systems/${SYS}/work`)).json() as { evolutions: { id: string; kind: string; title: string }[] };
+    const legacy = legacyWork.evolutions.find(e => e.id === "evolution.1" && e.kind === "implementation")!;
+    expect(legacy).toBeDefined();
+    const appEvo = legacy.id;
     const app = await apiCommit(request, appEvo, "app", "agent-review", [{ path: `public/people/review-${run}.txt`, content: `probe ${run}\n` }]);
     const keepEvo = await apiEvolution(request, "Review keeps a binding", "genome-amendment", ["section.runtime"]);
     const keep = await apiCommit(request, keepEvo, "genome", "agent-keep", [binding(`binding.keep${run}`)]);
@@ -48,7 +51,7 @@ test.describe("Review: the decision queue @fake", () => {
     // The promotion desk: gates summary and the reasons Promote is disabled (the fake leaves required gates unknown).
     await queue.getByTestId(`queue-promotion-${appEvo}`).click();
     await expect(page).toHaveURL(new RegExp(`/review\\?evolution=${appEvo}&panel=promote$`));
-    await expect(page.getByRole("heading", { name: "Promote Review desk probe" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: `Promote ${legacy.title}` })).toBeVisible();
     // The selection lives in `?candidates=`, so the box follows the URL a moment after the click.
     const pick = page.getByRole("checkbox", { name: new RegExp(app.candidate) });
     await pick.click();

@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-submit
+kind: endpoint
+fields:
+  name: Lifecycle post submit
+  description: "Pinned Realization plan and scoped Task lifecycle."
+  route: POST /api/systems/:id/realization-plans/:pid/tasks/:tid/submit
+  auth: Scoped Task secret or admin token.

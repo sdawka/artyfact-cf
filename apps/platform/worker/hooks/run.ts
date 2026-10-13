@@ -220,7 +220,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
       const c = st.ctx.candidate;
       try {
         if (c.target === "genome" && !c.genomeFiles) throw new Error(`Genome candidate ${c.id} has no genomeFiles`);
-        st.engine = { run: engineRun(c.target === "genome" ? c.genomeFiles! : st.ctx.genomeFiles) };
+        st.engine = { run: engineRun(c.target === "genome" ? c.genomeFiles! : st.ctx.genomeFiles,deps.genome) };
       } catch (error) {
         st.engine = { error };
       }
@@ -238,7 +238,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
     if (c.target !== "genome") return {};
     let base: Graph | undefined;
     try {
-      base = genomeGraph(st.ctx.genomeFiles);
+      base = genomeGraph(st.ctx.genomeFiles,deps.genome);
     } catch {
       base = undefined; // Removed ids then stay unresolved, which keeps the verdict unknown.
     }

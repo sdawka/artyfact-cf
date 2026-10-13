@@ -13,7 +13,7 @@ import {
 } from "@artyfact/ontology";
 import { readinessTemplate, unavailablePins } from "@artyfact/model";
 import type { FileMap } from "./contract";
-import { loadGenome, packMatches, selectableRules, type RulesFilter } from "./model-rules";
+import { loadGenome, packMatches, selectableRules, type RulesFilter, type GenomeDeps } from "./model-rules";
 import type { Outcome } from "./provenance";
 
 const TEXT_PACK = "text@1";
@@ -28,13 +28,13 @@ export interface EngineRun {
 }
 
 /** The Genome as an engine graph. Throws `LegacyGenomeError` (v1) or `ModelParseError`. */
-export function genomeGraph(files: FileMap): Graph {
-  return loadGenome(files, "").graph;
+export function genomeGraph(files: FileMap,deps:GenomeDeps={}): Graph {
+  return loadGenome(files, "",deps).graph;
 }
 
 /** Evaluates the Genome against its template. The graph is evaluated as an instance of that (possibly composed) template. */
-export function engineRun(files: FileMap): EngineRun {
-  const m = loadGenome(files, "");
+export function engineRun(files: FileMap,deps:GenomeDeps={}): EngineRun {
+  const m = loadGenome(files, "",deps);
   // The packs readiness runs (the System's pins), so the gates and readiness agree on which packs exist.
   const template = readinessTemplate(m);
   const judged = { ...m.graph, template: template.ref };

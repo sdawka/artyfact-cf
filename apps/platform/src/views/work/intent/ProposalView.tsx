@@ -86,6 +86,7 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
         <span className={workStyles.muted}>Genome <code>{shortSha(genomeCommit)}</code></span>
         {proposal.anchor && <span className={workStyles.muted}>from <NodeChip id={proposal.anchor} size="sm" interactive={false} /></span>}
       </div>
+      <p className={workStyles.muted}>Review this Genome Evolution. Accepting selected changes commits only the reviewed Genome delta; implementation uses a separate Realization.</p>
       <blockquote className={styles.message}>{proposal.message}</blockquote>
 
       <section aria-labelledby={`${uid}-route`} className={styles.block}>

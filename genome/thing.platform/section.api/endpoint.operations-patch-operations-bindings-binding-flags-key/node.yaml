@@ -1,0 +1,7 @@
+id: endpoint.operations-patch-operations-bindings-binding-flags-key
+kind: endpoint
+fields:
+  name: Operations patch key
+  description: "Configured binding operations independent of Genome changes."
+  route: PATCH /api/systems/:id/operations/bindings/:binding/flags/:key
+  auth: Admin bearer token (ADMIN_TOKEN).

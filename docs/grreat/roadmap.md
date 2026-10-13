@@ -63,3 +63,7 @@ The accepted public-page direction now starts with six semantic-layer benefits, 
 ## Self-referential model page
 
 Use the public model page itself as the canonical worked example, with an explanation purpose, nested page/component/affordance and accuracy, clarity and visual criteria. Explain single/composite Cloudflare mappings near the top. Preserve accessible static content, parallel views and truthful evidence boundaries; validate canonical Genome and desktop/mobile renders before one PR. Human comprehension remains unmeasured.
+
+## Genome lifecycle implementation
+
+The current approved follow-up is [the lifecycle specification](../design/lifecycle.md). Deliver shared lifecycle authority, ontology import and optional outcomes, metrics/Flagship, platform and CLI journey, then public-story integration. Lifecycle contracts own the integration boundary; ontology and operations can proceed independently. Completion is the specification's acceptance scenarios with independent review, full local/hosted CI and separately reported live evidence.

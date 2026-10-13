@@ -93,8 +93,10 @@ export function OpDiff({ op, included, onToggle, problems, disabled }: {
           {op.link.certainty && <span className={styles.muted}> ({op.link.certainty})</span>}
         </p>
       )}
+      <details><summary>Review {op.id} delta</summary>
       {fieldRows.length > 0 && <DiffTable label={`${op.id} fields`} rows={fieldRows} />}
       {criterionRows.length > 0 && <DiffTable label={`${op.id} criteria`} rows={criterionRows} />}
+      </details>
       {op.dependsOn?.length ? <p className={styles.muted}>Needs {op.dependsOn.join(", ")}</p> : null}
       <ProblemList problems={problems} label={`Problems with ${op.id}`} />
     </li>

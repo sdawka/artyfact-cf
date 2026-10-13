@@ -21,3 +21,7 @@ PREVIEW_HOST_ALLOWLIST=
 CI_REPORT_TOKEN=
 CF_API_TOKEN=
 EVENTS_QUEUE_ID=
+# Optional runtime metrics / Flagship controls. Only configured System/artifact bindings are accessible.
+# See docs/design/lifecycle.md for the operations boundary; leave empty to show unavailable state.
+OPERATIONS_BINDINGS=
+OPERATIONS_API_TOKEN=

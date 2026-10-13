@@ -2,7 +2,7 @@ id: endpoint.intents-create
 kind: endpoint
 fields:
   name: Describe a change
-  description: Routes a message to Genome nodes and returns a Proposal of node updates or questions.
+  description: Routes a message to Genome nodes and records a linked Genome Evolution and reviewable Proposal.
   route: POST /api/systems/:id/intents
   auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
   request: IntentRequest {message, anchor?}

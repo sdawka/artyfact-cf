@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-start
+kind: endpoint
+fields:
+  name: Lifecycle post start
+  description: "Pinned Realization plan and scoped Task lifecycle."
+  route: POST /api/systems/:id/realization-plans/:pid/tasks/:tid/start
+  auth: Admin bearer token (ADMIN_TOKEN).

@@ -1,6 +1,7 @@
 # @artyfact/cli
 
-`artyfact init|platform-sync|start|checkpoint|submit|build-report|status|compose|parts`. Platform URL from `--platform`, else
+`artyfact init|platform-sync|evolution|plan|task|ontology|operations|skill|validate-genome`
+plus compatible historical `start|checkpoint|submit|build-report|status|compose|parts` commands. Platform URL from `--platform`, else
 `ARTYFACT_PLATFORM`, else the older `ARTYFACT_URL`. An explicit URL is used as given and never probed. Empty variables
 count as unset, and an empty `--platform` is a usage error. Without one, the CLI asks http://localhost:1337 to 1346
 (Vite takes the next free port when 1337 is busy) and uses the first whose `/api/health` identifies as artyfact. If
@@ -47,9 +48,8 @@ blob id of every file the scaffold shipped. The platform's template upgrade (Ove
 `GET`/`POST /api/systems/:id/template-upgrade`) compares the current scaffold in `platform` with the app and this lock.
 Files the app left alone are updated, added or removed. Files the app edited, or every differing file when there is no
 lock, are conflicts that only change when the admin includes them. READMEs and secret files are never touched, and a
-file the template has not changed since the lock is left to the app. The upgrade is one commit on a new Evolution
-("Upgrade app template to <commit>"), so it runs the gates and CI preview and is promoted like any other change; it
-rewrites the lock. Run `platform-sync` after changing a scaffold so existing apps see it. A whole-repo (fork) scaffold
+file the template has not changed since the lock is left to the app. The upgrade creates a Task candidate in a Realization pinned to the accepted Genome. It runs the gates and CI
+preview; select, integrate and review its implementation before promotion. It rewrites the lock. Run `platform-sync` after changing a scaffold so existing apps see it. A whole-repo (fork) scaffold
 gets no lock.
 
 `platform-sync` lays out `packages/templates` as the `platform` repo, copying each scaffold's `bundle` directory. It
@@ -80,7 +80,7 @@ is explicitly combined with `--apply`; execution is local, bounded, and its work
 generated app. Dependencies, caches, build output, local secrets, unsafe symlinks, and binary files are excluded or
 rejected. Review and accept the generated Genome before realizing the app; these commands never deploy.
 
-## Agent commands
+## Historical agent commands
 
 The fork write token is read only from the `ARTYFACT_TOKEN` environment variable (there is no `--token` flag, since
 argv is visible to other processes). It is handed to git through `GIT_CONFIG_*` environment variables for the
@@ -114,3 +114,71 @@ to `POST /api/systems/:id/realizations/:rid/builds` with the realization secret,
 `passed` report with `--url` stores the preview on the candidate and re-runs the hooks, so the health check runs
 against it; the command prints the resulting evaluations. Statuses are `queued`, `running`, `passed`, `failed` and
 `error`; URLs must be http(s).
+
+## Genome lifecycle and local agents
+
+Administrative commands require `ARTYFACT_ADMIN_TOKEN`. Pass `--platform <url>` or set
+`ARTYFACT_PLATFORM`; credentials are sent only over HTTPS or local HTTP.
+
+```sh
+artyfact ontology preview --system system.example --file native-package.json
+artyfact ontology show import.id --system system.example
+artyfact ontology accept import.id --system system.example --hash <reviewed-hash>
+artyfact ontology bootstrap import.id --system system.example --dir ./project
+artyfact evolution propose --system system.example --file intent.json
+artyfact evolution create --system system.example --file evolution.json
+artyfact plan create --system system.example --file plan.json
+artyfact plan show plan.id --system system.example
+artyfact task start plan.id task.id --system system.example --dir ./task --json
+```
+
+Preview accepts a native package JSON directly or `{package, genomeFiles}`; `genomeFiles` maps
+relative native node paths to their exact text, supporting required custom root fields and initial content.
+
+Bootstrap materializes the exact accepted Genome files in a new directory and runs `init`;
+it uses the existing Cloudflare authentication and provisioning flow. `intent.json` contains
+`message` and optional `anchor`. New Evolutions are always Genome amendments.
+
+`plan.json` contains `title`, optional current accepted `genomeCommit`, and `tasks`; each Task declares
+`id`, `title`, `artifactId`, `steps`, `dependsOn`, `readNodes`, `writeNodes`, and `checks`.
+The platform resolves repository scope and dependency waves before granting a writing attempt.
+
+`task claim`, `task start`, and `task resume` have the same arguments. Explicit `--json`
+hands off `{workspace, attemptId, generation, token, secret, reviewUrl}` once. Set
+`ARTYFACT_TOKEN` from `token` in the Task process environment before pushing; it is never
+saved to disk. The scoped attempt secret is saved in a Git-excluded 0600 configuration.
+Resume preserves the fork and local work while rotating credentials and fencing the old attempt.
+
+Inside the Task fork:
+
+```sh
+artyfact task status
+artyfact task checkpoint "What changed and what remains"
+artyfact task submit
+```
+
+The agent returns the durable review URL. After reviewing each submitted candidate:
+
+```sh
+artyfact task select plan.id task.id --system system.example --candidate candidate.id
+artyfact plan integrate plan.id --system system.example
+artyfact plan review plan.id --system system.example
+artyfact plan promote plan.id --system system.example --file reviewed-promotion.json
+```
+
+Promotion JSON contains the reviewed `expectedHead` (string or null), `rationale`, and exact
+`candidateIds`. Promotion implements the pinned Genome without advancing the accepted Genome.
+`plan list` and `ontology list` list durable records; `evolution show <proposalId>` inspects a proposal.
+
+Runtime observations and Flagship controls use `operations bindings`, then
+`operations metrics|measurements|flags|audit --system <id> --binding <id>`.
+Reads accept `--from`/`--to` ISO timestamps, measurement `--before` sequence numbers, flag `--cursor`,
+and audit `--limit`; responses preserve pagination and availability states.
+`operations flag-create --file flag.json` takes `{flag, reason}`;
+`operations flag-update --key <key> --file update.json` takes `{expectedVersion, patch, reason}`.
+`operations flag-disable --key <key> --expected-version <version> --reason <reason>` preserves
+fallback behavior. All operation commands also require `--system` and, except `bindings`, `--binding`.
+
+Install local Genome and coordinator guidance with `artyfact skill --write --agent generic`
+(or `--agent claude`), and validate locally with `artyfact validate-genome ./genome --app .`.
+The older `start`, `checkpoint`, and `submit` commands remain available for historical workflows.

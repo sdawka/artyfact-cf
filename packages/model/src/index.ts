@@ -20,3 +20,5 @@ export type {
   PartCombination, PartOutputMapping, CompositionProvenance, SavedComposition, ExtractionRequest,
   ExtractionResult, UpgradeRequest, UpgradeConflict, UpgradeResult,
 } from "./schema.ts";
+export * from './lifecycle.ts';
+export * from './ontology-package.ts';

@@ -58,7 +58,7 @@ export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evo
         ))}
       </ul>
 
-      <h3>Realizations</h3>
+      <h3>{e.kind === "genome-amendment" ? "Genome amendment attempts" : "Legacy realizations"}</h3>
       {mine.length ? (
         <ul className={styles.rlist}>
           {mine.map((r) => {

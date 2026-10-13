@@ -1,0 +1,7 @@
+id: endpoint.operations-get-operations-bindings-binding-metrics
+kind: endpoint
+fields:
+  name: Operations get metrics
+  description: "Configured binding operations independent of Genome changes."
+  route: GET /api/systems/:id/operations/bindings/:binding/metrics
+  auth: Admin bearer token (ADMIN_TOKEN).

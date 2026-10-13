@@ -63,7 +63,7 @@ main, .site-header, .site-footer { width: min(1240px, calc(100% - 96px)); margin
 .prose a { color: var(--color-brand-primary); }
 .section-heading { display: grid; grid-template-columns: 1fr 1fr; gap: 100px; align-items: start; margin-bottom: 25px; }
 .section-heading > p { max-width: 42ch; padding-top: 8px; }
-.workflow-list { list-style: none; padding: 0; margin: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 32px; }
+.workflow-list { list-style: none; padding: 0; margin: 0 0 28px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; }
 .workflow-list li { border-top: 1px solid var(--color-border-subtle); padding-top: 22px; }
 .step-number { display: block; font: 400 2.2rem/1 var(--font-display); color: var(--color-brand-primary); margin-bottom: 25px; }
 .workflow-list p, .principle-list p { font-size: .94rem; }
@@ -269,7 +269,7 @@ html, body { overflow-x: clip; }
 .workflow-connector { position: absolute; left: 52px; top: 32px; width: calc(100% - 28px); height: 22px; fill: none; stroke: var(--color-brand-primary); stroke-width: 1.5; opacity: .7; }
 .workflow-connector path { stroke-dasharray: 150; stroke-dashoffset: 150; transition: stroke-dashoffset 480ms ease-out; }
 .workflow-list li[data-revealed='true'] .workflow-connector path { stroke-dashoffset: 0; }
-.workflow-list li:last-child .workflow-connector { display: none; }
+.workflow-list li:nth-child(3n) .workflow-connector { display: none; }
 .workflow-list li .step-number { transition: color 240ms ease, text-shadow 240ms ease; color: var(--color-text-secondary); }
 .workflow-list li[data-revealed='true'] .step-number { color: var(--color-brand-primary); text-shadow: 0 0 28px var(--glow-accent); }
 .handoff-path { display: block; width: 160px; height: 32px; margin: 0 0 24px; fill: none; stroke: var(--color-brand-primary); stroke-width: 2; }
@@ -278,6 +278,6 @@ html, body { overflow-x: clip; }
 @media (max-width: 950px) {
   .landing-story-controller[data-stage-pinned='true'] .landing-sticky-stage::before { content: ''; position: absolute; inset: -20px -20px -48px; z-index: -1; background: linear-gradient(to bottom, transparent, var(--color-background) 20px, var(--color-background) calc(100% - 24px), transparent); pointer-events: none; }
 }
-@media (max-width: 780px) { .workflow-connector { width: calc(100% - 36px); } .workflow-list li:nth-child(2) .workflow-connector { display: none; } }
-@media (max-width: 380px) { .workflow-connector { left: auto; right: 8px; top: 45px; width: 70px; transform: rotate(90deg); transform-origin: center; } .workflow-list li:nth-child(2) .workflow-connector { display: block; } }
+@media (max-width: 780px) { .workflow-connector { width: calc(100% - 36px); } .workflow-list li:nth-child(3n) .workflow-connector { display: block; } .workflow-list li:nth-child(2n) .workflow-connector { display: none; } }
+@media (max-width: 380px) { .workflow-connector { left: auto; right: 8px; top: 45px; width: 70px; transform: rotate(90deg); transform-origin: center; } .workflow-list li:nth-child(2n) .workflow-connector { display: block; } .workflow-list li:last-child .workflow-connector { display: none; } }
 @media (prefers-reduced-motion: reduce) { .workflow-connector path, .handoff-path path { transition: none; stroke-dashoffset: 0; } .workflow-list li .step-number { transition: none; } }

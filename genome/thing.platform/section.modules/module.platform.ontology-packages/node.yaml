@@ -1,0 +1,8 @@
+id: module.platform.ontology-packages
+kind: module
+fields:
+  name: Ontology package review
+  description: Validates private immutable ontology imports and resolves accepted template pins.
+  path: worker/ontology-packages
+files:
+  - worker/ontology-packages/**

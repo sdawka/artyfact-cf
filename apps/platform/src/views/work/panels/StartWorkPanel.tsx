@@ -63,7 +63,7 @@ export function StartWorkPanel({ evolution }: { evolution: Evolution }) {
   const submit = (ev: React.FormEvent) => {
     ev.preventDefault();
     if (reason) return;
-    const body: StartWorkRequest = { target, role, ...(agentLabel.trim() && { agentLabel: agentLabel.trim() }) };
+    const body: StartWorkRequest = { target: evolution.kind === "genome-amendment" ? "genome" : target, role, ...(agentLabel.trim() && { agentLabel: agentLabel.trim() }) };
     start.mutate(
       { evolutionId: evolution.id, body, ...(adminToken && { adminToken }) },
       { onSuccess: (res) => { resetAdminToken(); setStarted(normalizeStartWork(res)); } },
@@ -82,7 +82,7 @@ export function StartWorkPanel({ evolution }: { evolution: Evolution }) {
           <div className={styles.field}>
             <label htmlFor={`${uid}-t`}>Target</label>
             <select id={`${uid}-t`} value={target} onChange={(e) => setTarget(e.target.value as "app" | "genome")}>
-              <option value="app">app</option>
+              {evolution.kind !== "genome-amendment" && <option value="app">app</option>}
               <option value="genome">genome</option>
             </select>
           </div>

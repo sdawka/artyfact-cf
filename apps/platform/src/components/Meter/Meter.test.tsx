@@ -21,6 +21,7 @@ describe("Meter", () => {
     expect(screen.getByText("Not a promise.")).toBeTruthy();
     expect(screen.getByText("not run").nextSibling?.textContent).toBe("2");
     expect(screen.getByText("fail").nextSibling?.textContent).toBe("0");
+    expect(screen.getByRole("region", { name: "T" }).querySelector('span[data-tone="pass"]')?.getAttribute("title")).toBe("pass: 1");
   });
   it("shows the question under the title when given", () => {
     render(<Meter title="T" question="What should it be" headline="unknown" caption="c" segments={[]} />);

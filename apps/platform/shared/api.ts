@@ -319,6 +319,9 @@ export interface ArtifactBinding {
   commit: CommitHash;
   /** Where the app's first code came from when it was seeded from a template scaffold (`artyfact init --from-template`). */
   scaffoldFrom?: ScaffoldSource;
+  /** Accepted Genome actually implemented by this binding, independent of the current Genome. */
+  realizedGenome?: CommitHash;
+  realizationPlan?: string;
 }
 
 /** A scaffold source in the namespace: a whole repo (forked) or a subtree of one (copied). */
@@ -972,6 +975,7 @@ export interface Deployment {
   status: DeploymentStatus;
   repo: string;
   commit: CommitHash;
+  artifactId?: string;
   systemCommit?: string;
   realization?: string;
   candidate?: string;
@@ -992,6 +996,8 @@ export interface DeploymentsResponse {
 }
 /** `POST /api/systems/:id/deployments` (admin). Defaults: production of the head's app commit. */
 export interface DeploymentRequest {
+  /** Required to disambiguate a production deployment when the System has multiple source bindings. */
+  artifactId?: string;
   /** Reuse an existing realized output; its stored source must match the deployment scope. */
   outputId?: string;
   kind?: BuildKind;
@@ -1136,7 +1142,10 @@ export interface TemplateUpgradeRequest {
 
 /** 201: an ordinary app candidate (gates, CI preview) on a new Evolution. */
 export interface TemplateUpgradeResponse {
-  evolution: Evolution;
+  /** Present only in historical responses. New upgrades are accepted-Genome implementation tasks. */
+  evolution?: Evolution;
+  realizationPlan: import('./lifecycle').RealizationPlan;
+  task: import('./lifecycle').Task;
   realization: Realization;
   candidate: Candidate;
   plan: TemplateUpgradePlan;
@@ -1216,6 +1225,9 @@ export interface ProposalProvenance {
 
 /** `GET /api/systems/:id/intents/:pid`; also the body of the create and reply responses. */
 export interface Proposal {
+  /** Durable Genome Evolution linked before human approval; absent on legacy proposals. */
+  evolutionId?: string;
+  stagedApproval?: {evolutionId:string;realizationId:string;candidateId:string;commit:string;opIds:string[]};
   id: string;
   systemId: SystemId;
   message: string;
@@ -1247,8 +1259,11 @@ export interface IntentAccept {
  * candidate the gates evaluate; the Evolution's `affectedNodes` are the touched nodes.
  */
 export interface IntentAcceptResponse {
+  systemCommit?: SystemCommit;
   evolution: Evolution;
   realization: Realization;
   candidate: Candidate;
   commit: CommitHash;
 }
+
+export type { RealizationPlan, Task, TaskAttempt, CreateRealizationPlanRequest, TaskStartResponse, TaskSubmitResponse, ImplementationReview, PlanPromoteRequest, PlanPromoteResponse } from './lifecycle';

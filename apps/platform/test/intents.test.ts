@@ -18,6 +18,7 @@ import { resetHooks, setHooks } from "../worker/hooks/index";
 import { genomeGraph, intentProviders, MAX_TURNS, proposedOps, setIntentProviders } from "../worker/intents";
 import { loadGenome, validate } from "@artyfact/model";
 import { metaTemplates } from "@artyfact/templates";
+import { createRealizationPlan as createPlan, startLifecycleTask } from '../worker/lifecycle-service';
 import { createEvolution, startWork, systemStub } from "../worker/service";
 import { createHookRunner } from "../worker/hooks/run";
 import { createSystemOne } from "@artyfact/semantic";
@@ -57,7 +58,7 @@ async function importSystem(): Promise<Sys> {
 const create = (s: Sys, message: string, anchor?: string) => call<Proposal>("POST", routes.intents(s.systemId), { message, ...(anchor && { anchor }) });
 
 beforeEach(() => {
-  setHooks({ runner: () => passing });
+  setHooks({ runner: () => ({...passing,async runGenome(ctx){const out=await passing.runGenome(ctx);const exemplar=out.evaluations[0]!;return {...out,evaluations:[...out.evaluations,...(ctx.evolution?.acceptanceCriteria??[]).filter(c=>!out.evaluations.some(e=>e.criterion===c)).map(c=>({...exemplar,id:`${ctx.candidate.id}:${c}`,criterion:c,hook:`hook:${c}`,verdict:'pass' as const,execution:'completed' as const,targetRef:ctx.candidate.commit}))]};}}) });
   setIntentProviders({ s1: fakeSystemOne(), translator: fakeTranslator() });
 });
 afterEach(() => { setArtifactsOverride(undefined); setEditorTransport(undefined); resetHooks(); setIntentProviders(undefined); });
@@ -81,6 +82,8 @@ describe("POST /intents", () => {
       genomeCommit: s.genomeCommit, fake: true,
     });
     expect((await call<Proposal>("GET", routes.intent(s.systemId, p.id))).json).toEqual(p);
+    expect(p.evolutionId).toBeTruthy();
+    expect(await systemStub(env,s.systemId).evolution(p.evolutionId!)).toMatchObject({kind:'genome-amendment'});
   });
 
   it("mints the id of an added node, splits its links into dependent ops and reports the findings it introduces", async () => {
@@ -193,6 +196,8 @@ describe("POST /intents/:pid/accept", () => {
     const r = await accept(s, p, ["op.1", "op.2"]);
     expect(r.status, JSON.stringify(r.json)).toBe(201);
     const { evolution, realization, candidate, commit } = r.json;
+    expect((await systemStub(env,s.systemId).state())!.genomeCommit).toBe(commit);
+    expect(r.json.systemCommit?.genomeCommit).toBe(commit);
     expect(evolution).toMatchObject({
       title: p.message, intent: p.message, kind: "genome-amendment", affectedNodes: [node], realizations: [realization.id],
       acceptanceCriteria: expect.arrayContaining(["C.system.structure"]),
@@ -219,10 +224,12 @@ describe("POST /intents/:pid/accept", () => {
     const p = (await create(s, "Add a screen for quiet hours #s1:route.intent=add")).json;
     const node = p.ops[0]!.node!;
     const r = await accept(s, p, ["op.1", "op.2"]);
-    expect(r.status, JSON.stringify(r.json)).toBe(201);
-    const rec = await systemStub(env, s.systemId).realization(r.json.realization.id);
+    expect(r.status,JSON.stringify(r.json)).toBe(409);
+    const staged=(await systemStub(env,s.systemId).proposal(p.id))!.proposal.stagedApproval!;
+    expect(staged).toBeTruthy();
+    const rec = await systemStub(env, s.systemId).realization(staged.realizationId);
     expect(rec?.packet?.permittedPaths).toContain(`${node}/**`);
-    const evs = await systemStub(env, s.systemId).evaluations(r.json.candidate.id);
+    const evs = await systemStub(env, s.systemId).evaluations(staged.candidateId);
     const gate = evs.filter((e) => e.criterion === "C.system.promotion");
     expect(gate.length, JSON.stringify(evs.map((e) => [e.criterion, e.hook, e.verdict]))).toBeGreaterThan(0);
     for (const e of gate) expect(e.verdict, `${e.hook}: ${JSON.stringify(e)}`).not.toBe("fail");
@@ -251,16 +258,12 @@ describe("POST /intents/:pid/accept", () => {
     expect(r.json.candidate.changedSubjects).toEqual(["screen.today"]);
   });
 
-  it("scopes an app realization of the accepted Evolution to the touched nodes' files", async () => {
-    const s = await importSystem();
-    const p = (await create(s, "Change what the People screen says")).json;
-    const r = await accept(s, p, ["op.1"]);
-    expect(r.status, JSON.stringify(r.json)).toBe(201);
-    expect(r.json.evolution.affectedNodes).toEqual(["screen.people"]);
-    const started = await startWork(env, s.systemId, r.json.evolution.id, { target: "app", origin: "editor", agentLabel: "human:sam", role: "implementer" }, "http://x");
-    // screen.people's own files, plus its section's template default (section.ui is below the Thing).
-    expect(started.packet.permittedPaths.sort()).toEqual(["public/people/**", "src/ui/**"]);
-    expect(started.packet.entryFiles).toContainEqual({ path: "public/people/index.html", certainty: "declared" });
+  it("plans implementation of the accepted Genome with touched nodes source scope",async()=>{
+    const s=await importSystem(),p=(await create(s,'Change what the People screen says')).json,r=await accept(s,p,['op.1']);expect(r.status,JSON.stringify(r.json)).toBe(201);
+    const plan=await createPlan(env,s.systemId,{title:'Implement People',tasks:[{id:'people',title:'People',artifactId:'artifact.webapp',steps:['Implement'],dependsOn:[],readNodes:[],writeNodes:['screen.people'],checks:[]}]});
+    const started=await startLifecycleTask(env,s.systemId,plan.id,'people',{},'http://x');
+    expect(started.packet.permittedGlobs.sort()).toEqual(['public/people/**','public/people/add-contact-dialog.js','src/ui/**']);
+    expect(started.plan.genome.commit).toBe(r.json.commit);
   });
 
   it("lets only one of two concurrent accepts push", async () => {
@@ -283,15 +286,15 @@ describe("POST /intents/:pid/accept", () => {
     expect(stored).toMatchObject({ proposal: { status: "open" }, accepting: false, acceptError: expect.any(String) });
     // The failed attempt leaves no Evolution and no realization behind.
     const work = await systemStub(env, s.systemId).work();
-    expect(work.evolutions.filter((e) => e.title === p.message)).toEqual([]);
-    expect(work.realizations.filter((r) => r.agent.id === "human:intent")).toEqual([]);
+    expect(work.evolutions.filter((e) => e.title === p.message)).toHaveLength(1);
+    expect(work.realizations.filter((r) => r.agent.id === "human:intent")).toEqual([expect.objectContaining({status:"rejected"})]);
 
     setEditorTransport({ fetch: fakeReceivePack(s.ns).fetch });
     expect((await accept(s, p, ["op.1"])).status).toBe(201);
     expect((await systemStub(env, s.systemId).proposal(p.id))?.proposal.status).toBe("accepted");
     const after = await systemStub(env, s.systemId).work();
-    expect(after.evolutions.filter((e) => e.title === p.message).map((e) => e.state)).toEqual(["evaluated"]);
-    expect(after.realizations.filter((r) => r.agent.id === "human:intent")).toHaveLength(1);
+    expect(after.evolutions.filter((e) => e.title === p.message).map((e) => e.state)).toEqual(["promoted"]);
+    expect(after.realizations.filter((r) => r.agent.id === "human:intent")).toHaveLength(2);
   });
 
   /** Runs `around` in place of the DO method `name` (on the prototype, which RPC dispatches through) until `restore()`. */

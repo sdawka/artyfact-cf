@@ -3,6 +3,25 @@
 
 ## Now
 
+- Implemented the [approved lifecycle](../design/lifecycle.md) on `feat/genome-lifecycle`, integrated current `main`, and preserved the original checkout and user changes.
+- Verified: full pre-push CI passed in 186.5s: 2,515 repository unit tests; 51 fixture and 13 fake-platform browser tests; 55 site units, 11 static-build checks and 51 site browser checks. Independent review findings are resolved.
+- Next action: inspect hosted CI and review the integration PR. Merge and deployment remain separate actions.
+- External state: GRREAT protocol validates (7 records). Direct-RPC sync attempted; missing credentials leaves it pending. No live Flagship or deployment verification performed.
+- Evidence: [[journals/2026-10-13-lifecycle]]. Last updated: 2026-10-13.
+
+## Work history
+
+- [[journals/2026-10-12-adoption]]: accepted direction and refreshed baseline.
+- [[journals/2026-10-12-foundation]]: foundation integration and validation.
+- [[journals/2026-10-13-iteration-3]]: ontology engine core, Genome v2, intents; PR #47.
+- [[journals/2026-10-13-model-page]]: public model page follow-up and validation.
+- [[journals/2026-10-13-model-page]]: settled public story chapters (#52).
+- [[journals/2026-10-13-design-pass]]: PR #47 merged; design pass decisions D1–D8 and slice PRs.
+
+- [[journals/2026-10-13-ontology-driven-development]]: semantic-layer benefits and platform meta ontology explanation, site-only.
+
+## Prior recorded release context
+
 - Current follow-up: the self-referential public model page and canonical explanation subjects are implemented on `feat/model-self-reference`, based on released `5c39a76`. Initial head `83a9cfc` passed full CI in the credential-free matching checkout (193.4s); integration with the released ODD introduction and benefits is now being revalidated; see [[journals/2026-10-13-model-page]]. Hosted CI, merge and deployment are separate next steps.
 
 - Public-site release complete: Ontology Driven Development benefits and Artyfact’s meta ontology are live at https://artyfact.ing/model. PR [#57](https://github.com/sdawka/artyfact-cf/pull/57) merged on green hosted CI at `1b79e93`; the site deployed and desktop/mobile/no-JS live checks pass. Evidence: [[journals/2026-10-13-ontology-driven-development]]. The platform release work below remains separate; remote GRREAT sync stays pending.
@@ -17,14 +36,3 @@
 - Homepage visual recovery: frame-free composition and whole-object transitions replace sliced reveals; the existing purpose, workflow and closing form a clearer conclusion. Fresh forward/reverse visual review is clear; full CI passed in 195.8s (2361 root tests, 9 skips; 56 site units, 11 static, 45 browser checks). Corrective PR, hosted checks and site release remain next; see [[journals/2026-10-13-model-page]].
 - Deferred: Remote GRREAT sync stays pending; the earlier `GOAL_HIERARCHY_CONFLICT` checkpoint is preserved and no remote record was overwritten.
 - Last updated: 2026-10-13.
-
-## Work history
-
-- [[journals/2026-10-12-adoption]]: accepted direction and refreshed baseline.
-- [[journals/2026-10-12-foundation]]: foundation integration and validation.
-- [[journals/2026-10-13-iteration-3]]: ontology engine core, Genome v2, intents; PR #47.
-- [[journals/2026-10-13-model-page]]: public model page follow-up and validation.
-- [[journals/2026-10-13-model-page]]: settled public story chapters (#52).
-- [[journals/2026-10-13-design-pass]]: PR #47 merged; design pass decisions D1–D8 and slice PRs.
-
-- [[journals/2026-10-13-ontology-driven-development]]: semantic-layer benefits and platform meta ontology explanation, site-only.

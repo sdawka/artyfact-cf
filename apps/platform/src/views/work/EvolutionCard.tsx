@@ -38,7 +38,7 @@ export function EvolutionCard({ evolution: e, selected, onSelect, awaiting = 0, 
     >
       <span className={styles.cardTop}>
         <span id={titleId} className={styles.cardTitle}>{e.title}</span>
-        <span className={styles.kind} data-kind={e.kind}>{e.kind}</span>
+        <span className={styles.kind} data-kind={e.kind}>{e.kind === "genome-amendment" ? "Genome Evolution" : `legacy ${e.kind}`}</span>
       </span>
       <span className={styles.intent}>{e.intent}</span>
       <span className={styles.chips}>

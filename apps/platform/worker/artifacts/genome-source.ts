@@ -1,4 +1,4 @@
-import { LegacyGenomeError, loadGenome, validate, type Readiness, type SystemModel } from "@artyfact/model";
+import { LegacyGenomeError, loadGenome, validate, type Readiness, type SystemModel, type TemplateStore } from "@artyfact/model";
 import { NODE_FILE, V1_ROOT_FILE } from "@artyfact/ontology/genome";
 import { metaTemplates } from "@artyfact/templates";
 import { unprocessable } from "../errors";
@@ -110,10 +110,10 @@ export interface LoadedGenome {
 export const legacyGenome = (e: LegacyGenomeError) => unprocessable("legacy-genome", e.message);
 
 /** loadGenome + readiness over the System's pinned template packs. Pure: no Artifacts access. */
-export function buildGenome(files: Map<string, string>, revision: string): LoadedGenome {
+export function buildGenome(files: Map<string, string>, revision: string, templates: TemplateStore = metaTemplates): LoadedGenome {
   let model: SystemModel;
   try {
-    model = loadGenome(files, { revision, templates: metaTemplates });
+    model = loadGenome(files, { revision, templates });
   } catch (e) {
     if (e instanceof LegacyGenomeError) throw legacyGenome(e);
     throw e;
@@ -137,12 +137,23 @@ export function memoGenome(key: string, make: () => LoadedGenome): LoadedGenome 
 /** Drop every memoised Genome (tests use it to force a reload from Artifacts). */
 export function clearGenomeMemo(): void {
   memo.clear();
+  scopedMemo = new WeakMap<TemplateStore, Map<string, LoadedGenome>>();
 }
 
-/** Read the Genome at `commit` from Artifacts and build it (memoised per commit). */
-export async function loadGenomeAt(repo: ArtifactsRepoLike, commit: string): Promise<LoadedGenome> {
-  const hit = memo.get(commit);
-  if (hit) return hit;
-  const files = await readGenomeFiles(repo, commit);
-  return memoGenome(commit, () => buildGenome(files, commit));
+/** Read a Genome with an explicitly scoped resolver. Only bundled loads share the legacy memo. */
+let scopedMemo = new WeakMap<TemplateStore, Map<string, LoadedGenome>>();
+export async function loadGenomeAt(repo: ArtifactsRepoLike, commit: string, templates: TemplateStore = metaTemplates): Promise<LoadedGenome> {
+  if (templates === metaTemplates) {
+    const hit = memo.get(commit);
+    if (hit) return hit;
+    const files = await readGenomeFiles(repo, commit);
+    return memoGenome(commit, () => buildGenome(files, commit));
+  }
+  const cache = scopedMemo.get(templates) ?? new Map<string, LoadedGenome>();
+  scopedMemo.set(templates, cache);
+  const hit = cache.get(commit); if (hit) return hit;
+  const loaded = buildGenome(await readGenomeFiles(repo, commit), commit, templates);
+  cache.set(commit, loaded);
+  if (cache.size > MEMO_MAX) cache.delete(cache.keys().next().value!);
+  return loaded;
 }

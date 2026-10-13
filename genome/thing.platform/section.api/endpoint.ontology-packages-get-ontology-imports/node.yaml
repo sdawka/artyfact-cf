@@ -1,0 +1,7 @@
+id: endpoint.ontology-packages-get-ontology-imports
+kind: endpoint
+fields:
+  name: Ontology Packages get ontology-imports
+  description: "Reviewed ontology import."
+  route: GET /api/systems/:id/ontology-imports
+  auth: Admin bearer token (ADMIN_TOKEN).

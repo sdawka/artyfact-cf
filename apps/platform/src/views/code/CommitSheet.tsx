@@ -1,6 +1,6 @@
 import { useId, useRef, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "react-router";
+import { Link, useNavigate } from "react-router";
 import type { EditorCommitRequest, FileScope, StartWorkRequest } from "../../../shared/api";
 import { useAdminTokenField } from "@/api/adminToken";
 import { ApiRequestError, FixtureModeError, getFile } from "@/api/client";
@@ -69,6 +69,7 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
   const resuming = !!resume?.realizationId && !!resume.secret;
 
   const reasons: string[] = [];
+  if (repo === "app") reasons.push("App implementation uses a Realization Task in your local harness.");
   if (fixture) reasons.push("Commit needs the platform API.");
   if (!changes.length) reasons.push("There are no pending changes.");
   if (!message.trim()) reasons.push("Write a commit message.");
@@ -147,6 +148,7 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
       <p className={styles.muted}>
         The commit goes to a new editor realization's fork and becomes a candidate on Work. Realize it there with Promote or Accept.
       </p>
+      {repo === "app" && <p><Link className="u-marker" to={href("work", { panel: "plan", evolution: null, realization: null })}>Create a Realization Task</Link>. Your app draft stays here until you discard it.</p>}
       <form ref={formRef} onSubmit={submit} className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`${uid}-m`}>Message</label>

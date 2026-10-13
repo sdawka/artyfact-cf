@@ -1,0 +1,8 @@
+id: module.platform.operations
+kind: module
+fields:
+  name: Runtime operations
+  description: Reads configured runtime metrics and custom measurements and audits reviewed Flagship changes.
+  path: worker/operations
+files:
+  - worker/operations/**

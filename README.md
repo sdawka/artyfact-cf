@@ -8,7 +8,7 @@ A collaboration platform whose main object is the whole System, not a repository
 
 A file-centred platform can tell you that two agents changed different files. It cannot tell you that their changes disagree about what the product is. artyfact keeps a typed model of the System next to the code. The model is the Genome. It holds the purpose, the screens, the entities, the policies, the journeys and the criteria that say when each part counts as done.
 
-Agents work in a loop. The platform hands an agent a task packet cut from the Genome and a private fork of the repository with a scoped token. The agent pushes. The platform maps the changed files back to Genome nodes, runs the hooks bound to the affected criteria, and compares the new candidate with every other candidate in flight. A person reviews the result and promotes one candidate. Promotion is a compare-and-swap on the System head, so a candidate built on an old head is refused with a 409. Nothing is green without evidence. A verdict is `pass`, `fail`, `unknown`, `stale` or `waived`, and only `pass` is ever drawn in the success colour.
+Start a System with an imported ontology or one authored by your agent. Map its subjects to implementation artifacts, files and folders. Ask for a change, review its Evolution from the purpose down to individual nodes, and accept a new Genome revision. Then create a separate Realization with scoped Tasks for one or more local agents. Select their candidates, review the combined implementation, and promote it with exact evidence and a compare-and-swap on the reviewed System head. Deployment and operational flags are separate actions. A verdict is `pass`, `fail`, `unknown`, `stale` or `waived`; only `pass` is drawn in the success colour.
 
 ## See it in 90 seconds
 
@@ -33,19 +33,20 @@ More views: [Map on screen.people, Phenome layer](docs/images/map-screen-people-
 ## Features
 
 - **Home.** Every System as a card with signifiers: evolving, pending realization, awaiting review, not built, deployed or behind, observed.
-- **Describe a change.** Create an Evolution, start work for an agent and get a task packet, or edit files in the browser and commit them to a fork over Git. Either way the result is a candidate with its gates.
-- **Intent edits.** Describe a change in words. The ontology engine routes the message through the Genome tree, proposes node updates, and you accept the ones you want as a candidate.
-- **Code.** Browse the Genome and the app at any revision, edit on head, commit under an Evolution.
+- **Start a System.** Review native ontology packages or agent conversions, then bootstrap the accepted Genome through the local CLI. Domain vocabulary is open; reusable Parts and outcomes conventions are optional.
+- **Realizations and Tasks.** Pin an accepted Genome, inspect read/write interference and dependencies, run scoped attempts in isolated forks, and review one integrated implementation.
+- **Intent edits.** Describe a change in words. The ontology engine proposes node updates linked to a durable Evolution. Accepting the reviewed proposal changes only the Genome.
+- **Code.** Browse Genome and implementation revisions. Genome changes use Evolutions; new implementation work uses Realization Tasks. Legacy editor and agent histories remain readable.
 - **Changelog and Compare.** One row per System commit with its semantic delta, files, criteria, builds and deployment. Compare any two revisions at System, Genome or file level.
-- **Builds and deployments.** A new app candidate gets a preview build, so the health assay checks the deployed app. A promotion asks for a production deployment.
-- **Deployments page and the Phenome.** Runtime events from a deployed app, grouped by version and linked to the System commit it runs.
+- **Builds and deployments.** Record preview and production builds with source/output lineage. A Realization promotion records its implementation manifest; deployment is a separate action. Historical promotion flows retain their existing deployment behavior.
+- **Phenome.** Deployments, configured Cloudflare runtime metrics, custom measurements and audited Flagship controls. An optional outcomes pack adds versioned event contracts, expected effects and assay links.
 - **Fake platform.** `FAKE_ARTIFACTS=1` runs the whole backend with no account, and the Playwright `@fake` specs drive the use cases through it for both Peopling and Artyfact itself.
 
 ## How Cloudflare is used
 
 One Worker serves everything. Static Assets serve the React single-page app. A Hono app handles `/api/*`, and the Worker also exports the queue handler and the Durable Object class.
 
-**Artifacts.** The Genome and the app live in Artifacts repositories in one namespace, next to a shared `platform` repository of templates and Rule Packs. The Worker reads them through the `ARTIFACTS` binding: it reads commits and trees, walks them, and loads the Genome at an exact commit. No Git library runs in the Worker. Starting a realization forks the app repository (or the Genome repository for an amendment), waits for the fork to be ready, and issues a write token that expires after six hours. The token and a per-realization secret are returned once, in the response to the start-work call. Agents clone and push with ordinary Git over HTTPS.
+**Artifacts.** The Genome and the app live in Artifacts repositories in one namespace, next to a shared `platform` repository of templates and Rule Packs. The Worker reads them through the `ARTIFACTS` binding: it reads commits and trees, walks them, and loads the Genome at an exact commit. No Git library runs in the Worker. Starting a Task forks its explicit artifact binding and returns a short-lived write token and attempt secret. Resuming fences the previous attempt and replaces its credentials while preserving its fork. Older agent-level Realizations and Genome amendments keep their existing API. Agents clone and push with ordinary Git over HTTPS.
 
 **Submission and push events on Queues.** The primary path is the CLI `submit` command, which pushes to the fork and then calls the API with the commit. The Worker also has a Queue consumer for Artifacts push events (`cf.artifacts.repo.pushed`). It resolves the fork to its realization and submits the new head. Artifacts emits push events only for a repository-level subscription, and this version does not create one per fork automatically, so the consumer is wired and tested but is a deployed-only convenience. Both paths are idempotent on realization and commit, and a redelivered event does nothing.
 
@@ -101,13 +102,15 @@ Without a System One provider (`TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`), set 
 
 A System has a Purpose, a set of Externals (the people, devices and services outside it), one or more Things and a Theory of how the System should produce its outcome. The Genome is the intended model: a General Description, then nested ontologies for the System and each Thing, refined into requirements and criteria. The Proteome is the layer of agents and execution arrangements that realize the Genome. The Phenome is the layer of measurements and evidence. The three are views over the same nodes, so selecting `screen.people` keeps its identity when you switch layers.
 
-Change goes through Evolutions, Realizations and Evaluations. An Evolution is an intended change with affected nodes and acceptance criteria. A Realization is one agent's attempt at it, in a fork, ending in a candidate manifest. A Criterion belongs to an owner and is attached to a subject. An Assay hook binds a criterion to something that can check it. An Evaluation records the question, the method, the observations, the verdict and the limits. Promotion records the selected candidates and the rationale in a System commit. A realization cannot promote a Genome amendment by itself. A Genome amendment needs an admin decision.
+An Evolution changes only the Genome. Its acceptance and implementation approval are distinct decisions. A Realization pins an accepted Genome revision and contains Tasks, each with scope, dependencies, steps and agent attempts. Task candidates integrate by artifact binding into one reviewed implementation manifest. Promotion preserves the current accepted Genome and records the Genome actually realized by each changed binding. Criteria and their assay hooks supply evaluations with explicit methods, verdicts and limitations. The optional outcomes pack extends the base Phenome with expected effects and versioned event contracts.
 
 ## The agent loop
 
-An agent (or its operator) starts work on an Evolution. The platform forks, issues a token and returns a task packet: intent, acceptance criteria, Genome excerpts for the affected nodes, commitments, permitted and protected paths, entry files, commands and the list of concurrent work. The CLI clones the fork, writes the packet and an `AGENTS.md` block, and the agent works, checkpointing as it goes. On submit the platform records a candidate, runs the hooks for the affected criteria, and reports overlap with the other candidates. A person selects a candidate and promotes it, or rejects it.
+Your local coordinator creates the plan, inspects dependency waves and starts eligible Tasks. `artyfact task start` clones a Task fork and writes its packet and `AGENTS.md` block. Agents checkpoint and submit exact candidates. The coordinator selects results and runs `artyfact plan integrate`, then reviews the whole implementation before promotion. The platform checks scopes, dependencies, active writers and exact evidence. See the [agent guide](apps/site/src/pages.tsx), [CLI commands](packages/cli/README.md) and [lifecycle contract](docs/design/lifecycle.md).
 
-## The two moments
+## Earlier demonstration scenarios
+
+These recorded scenarios use the preserved legacy Evolution-owned agent workflow. New implementation plans follow the separate lifecycle above.
 
 **Two agents, different files, one conflict.** Agent A edits the add-contact dialog's save handler. Agent B edits the contacts routes. No file is shared. Through the source map (the `files` globs on Genome nodes) both files reach the node `operation.contact.save`, and the platform reports a soft-semantic conflict between the candidates. The overlap is derived from the Genome and the source map, so it does not depend on a model. System One is also asked whether the changes interfere. With the fake provider it answers "low", and the video says so. The reviewer sees the conflict on the Work board and the Map before promotion. Promoting A and then trying B returns 409 `stale-base`, and promoting B on the current head is refused because it was built on the old one.
 
@@ -190,7 +193,7 @@ FAKE_ARTIFACTS=1 FAKE_SEED=artyfact npx vite --port 1337   # FAKE_SEED=both impo
 
 ## Phenome event header
 
-A deployed app reports what it observes with `POST /api/systems/:id/phenome/events` and `{"events": [...]}` (up to 100 per request, 8 KB each). The bearer is the deployment's ingest token, a realization secret for a preview, or the admin token. Every event carries this header; `payload` is free-form JSON.
+A deployed app reports what it observes with `POST /api/systems/:id/phenome/events` and `{"events": [...]}` (up to 100 per request, 8 KB each). The bearer is the deployment's ingest token, a realization secret for a preview, or the admin token. Every event carries this header. Most event payloads are free-form JSON; `measurement` and `outcome.event` use the contracts below.
 
 | Field | Meaning |
 |---|---|
@@ -203,9 +206,13 @@ A deployed app reports what it observes with `POST /api/systems/:id/phenome/even
 | `kind` | Dotted event kind such as `journey.step` or `criterion.observed` |
 | `subject`, `criterion` | A Genome node and a criterion the event is about (optional) |
 | `id` | Emitter-chosen id; a repeated id is dropped (optional) |
-| `payload` | Any JSON |
+| `payload` | Kind-specific JSON |
 
 The platform stamps `seq`, `receivedAt` and the realization. The Deployments page groups events by `buildId`, else `commit`. The schema is `PhenomeEventHeader` in `packages/model/src/phenome.ts`.
+
+A `measurement` payload is `{name, value, unit?}` with a finite numeric value. Its lineage comes from authenticated deployment, build and Task records, never from payload claims. `outcome.event` carries `{contractId, version, payload}` and is validated against the event contract in the emitting implementation’s Genome. Event validity alone does not establish an expected effect. Retention is capped at 5,000 events per System.
+
+Runtime operations require server configuration. `OPERATIONS_BINDINGS` maps System IDs to artifact binding IDs and `{accountId, scriptName, environment, flagshipAppId?, metricsRetentionDays?}`. `OPERATIONS_API_TOKEN` stays server-side. With either missing, the UI reports unavailable data. Workers analytics aggregates span versions and carry no inferred output lineage. Flag updates require the reviewed version fingerprint and record an operational audit; changes made outside Artyfact may race the provider write because the API has no documented conditional-write guarantee. For deployment, the CI Worker’s `FLAGSHIP_APP_IDS` allowlist maps System IDs to allowed binding names/app IDs. Provision these resources separately; tests use fake providers.
 
 ## Repository layout
 

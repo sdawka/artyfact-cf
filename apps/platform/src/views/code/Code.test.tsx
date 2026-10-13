@@ -171,7 +171,7 @@ describe("Code page", () => {
     await waitFor(() => expect(calls.filter((c) => c.method === "POST")).toHaveLength(3));
     const posts = calls.filter((c) => c.method === "POST");
     expect(new URL(posts[0]!.url, "http://x").pathname).toBe(`/api/systems/${SYSTEM}/evolutions`);
-    expect(posts[0]!.body).toEqual({ title: "Rename", intent: "Say it plainly", affectedNodes: [SYSTEM] });
+    expect(posts[0]!.body).toEqual({ title: "Rename", intent: "Say it plainly", kind: "genome-amendment", affectedNodes: [SYSTEM] });
     expect(posts[0]!.auth).toBe("Bearer admin-1");
     expect(new URL(posts[1]!.url, "http://x").pathname).toBe(`/api/systems/${SYSTEM}/evolutions/evolution.new/realizations`);
   });
@@ -188,7 +188,7 @@ describe("Code page", () => {
     fireEvent.change(within(sheet).getByLabelText("Evolution intent"), { target: { value: "Say it plainly" } });
     fireEvent.click(within(sheet).getByRole("button", { name: "Commit" }));
     await waitFor(() => expect(calls.some((c) => c.method === "POST")).toBe(true));
-    expect(calls.find((c) => c.method === "POST")!.body).toEqual({ title: "Rename", intent: "Say it plainly", affectedNodes: [] });
+    expect(calls.find((c) => c.method === "POST")!.body).toEqual({ title: "Rename", intent: "Say it plainly", kind: "genome-amendment", affectedNodes: [] });
   });
 
   it("explains a 401 and retries on the started realization without starting another", async () => {
@@ -282,4 +282,9 @@ describe("Code page in fixture mode", () => {
     renderApp(`${CODE}?repo=app`);
     expect(await screen.findByText("The fixture has no app repo.")).toBeTruthy();
   });
+});
+
+it("keeps an app draft local and directs implementation to a Realization Task",async()=>{
+ const calls=stubApi();renderApp(`${CODE}?repo=app&path=system.yaml`,undefined,apiSeed);await waitFor(()=>expect(editorText()).toBe(FILES["system.yaml"]));await editCurrent("local app draft\n");fireEvent.click(screen.getByRole("link",{name:"Commit…"}));const sheet=await screen.findByRole("complementary",{name:"Commit"});
+ expect((within(sheet).getByRole("button",{name:"Commit"}) as HTMLButtonElement).disabled).toBe(true);expect(within(sheet).getByRole("link",{name:"Create a Realization Task"}).getAttribute("href")).toContain("panel=plan");expect(calls.some(c=>c.method==='POST')).toBe(false);expect(localStorage.getItem(`artyfact.draft.${SYSTEM}.app.head`)).toContain('local app draft');
 });
