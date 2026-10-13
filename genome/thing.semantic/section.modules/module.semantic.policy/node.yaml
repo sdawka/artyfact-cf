@@ -1,0 +1,10 @@
+id: module.semantic.policy
+kind: module
+fields:
+  name: Policy
+  description: Confidence bands and verdicts.
+  path: src/policy.ts
+links:
+  - { rel: implements, to: export.semantic.verdict }
+files:
+  - src/policy.ts

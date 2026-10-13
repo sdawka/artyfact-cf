@@ -1,0 +1,6 @@
+id: command.parts-compose
+kind: command
+fields:
+  name: parts compose
+  usage: artyfact parts compose ...
+  description: The parts compose subcommand; without --apply it only prints what it would do.

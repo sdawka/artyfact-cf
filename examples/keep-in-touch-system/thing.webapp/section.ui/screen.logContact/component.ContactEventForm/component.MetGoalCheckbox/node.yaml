@@ -1,0 +1,10 @@
+id: component.MetGoalCheckbox
+kind: component
+fields:
+  name: MetGoalCheckbox
+  description: Met this goal defaults unchecked and is disabled when no current goal exists
+  cardinality: exactly one
+  states:
+    - unchecked
+    - checked
+    - disabled

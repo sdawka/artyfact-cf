@@ -1,0 +1,6 @@
+id: section.purpose
+kind: section
+fields:
+  name: Purpose
+  description: Why the System exists, who benefits, and what must change for them.
+  fromTemplate: template.system.social-networking.cloudflare@1

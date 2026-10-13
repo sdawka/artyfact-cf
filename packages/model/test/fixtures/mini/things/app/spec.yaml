@@ -1,7 +1,0 @@
-requirements:
-  - id: S.app.notes
-    thing: thing.app
-    title: Notes
-    text: The owner must be able to save and list notes.
-    refines: [GD.notes]
-    subjects: [screen.list, screen.edit]

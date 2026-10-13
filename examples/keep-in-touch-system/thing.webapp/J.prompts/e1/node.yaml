@@ -1,0 +1,11 @@
+id: J.prompts/e1
+kind: step
+fields:
+  step: e1
+  actor: system
+  action: Qualifying contact resolves the suggestion
+  kind: end
+  requirementRefs:
+    - S.webapp.prompts
+links:
+  - { rel: stepScreen, to: screen.today }

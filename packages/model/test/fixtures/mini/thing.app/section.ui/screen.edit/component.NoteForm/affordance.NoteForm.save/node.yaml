@@ -1,0 +1,27 @@
+id: affordance.NoteForm.save
+kind: affordance
+fields:
+  name: Save
+  owningThing: thing.app
+  revision: 1
+  actor: owner
+  effects:
+    - Persists the note for its owner
+links:
+  - { rel: invokes, to: operation.note.save }
+criteria:
+  - id: C.app.notes.save
+    title: Saving a note persists it
+    claim: Save writes a Note owned by the actor
+    target: artifact
+    gates:
+      - submission
+    sourceRefs:
+      - S.app.notes
+    hooks:
+      - id: hook.app.notes.save
+        assay: Save round-trip test
+        tier: execution
+        engine: vitest
+        triggers:
+          - submission

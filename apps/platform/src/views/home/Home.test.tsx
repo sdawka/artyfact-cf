@@ -73,6 +73,8 @@ describe("Home", () => {
     const b = card(/Beta/);
     expect(a.querySelector("a")!.getAttribute("data-state")).toBe("evolving");
     expect(b.querySelector("a")!.getAttribute("data-state")).toBe("attention");
+    // Beside the card link, not inside it: describe a change on that System's Work.
+    expect(within(a).getByRole("link", { name: "Describe a change" }).getAttribute("href")).toBe(`/s/${encodeURIComponent(evolving.systemId)}/r/head/work?panel=intent`);
     expect(within(a).getByText("1 realization evolving")).toBeTruthy();
     expect(within(a).getByText("2 pending realizations")).toBeTruthy();
     expect(within(a).getByText("not built")).toBeTruthy();

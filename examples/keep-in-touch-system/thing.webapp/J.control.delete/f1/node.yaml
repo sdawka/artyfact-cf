@@ -1,0 +1,14 @@
+id: J.control.delete/f1
+kind: step
+fields:
+  step: f1
+  actor: system
+  action: Deletion refused; account unchanged
+  kind: failure
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: e2
+      when: stop
+links:
+  - { rel: stepScreen, to: screen.settings }

@@ -1,0 +1,22 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#required-property",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "d0dbb1cfbd49f971582c8cff8e1fab30209d8fe7f827a7fa848bbcec194463dd",
+  "templateHash": "d83d9b9ed1e42e0dab483d8abca1f06a54f63893593907dfed92297480fe95b4",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.shape-required-properties",
+      "severity": "blocker",
+      "message": "object block-french-tuesday is missing properties: priority",
+      "objectIds": [
+        "block-french-tuesday"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "shape:shape:calendarBlock@1"
+      }
+    }
+  ]
+}

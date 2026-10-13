@@ -1,0 +1,18 @@
+id: affordance.SignInContinue.continue
+kind: affordance
+fields:
+  name: Continue
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+  actor: ext.owner
+  trigger: Owner activates Continue
+  preconditions:
+    - Not signed in
+  effects:
+    - Starts sign-in with the pinned identity provider
+    - Login continuation preserves a validated invitation without consuming it
+  failure:
+    - Provider unavailable shows the shared ErrorSummary
+links:
+  - { rel: references, to: ext.providers }

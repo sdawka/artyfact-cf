@@ -88,7 +88,7 @@ Terminal **ops**:
 ./scripts/bootstrap.sh       # = npx artyfact init --genome examples/keep-in-touch-system --app examples/keep-in-touch-app
 ```
 
-`init` reads `system.yaml` and derives every name from the System id: slug `keep-in-touch`, repos
+`init` reads the root `node.yaml` and derives every name from the System id: slug `keep-in-touch`, repos
 `keep-in-touch.genome` and `keep-in-touch.app`, forks `<repo>--r<N>`. It checks that `npx wrangler whoami` and
 `cf auth whoami` show the same account and prints only its prefix. It creates the namespace and repos when missing,
 creates `platform` (templates and rule packs) when it is missing or empty, pushes both projects with short-lived write tokens, and calls
@@ -322,7 +322,7 @@ curl -s $B/conflicts | jq -c '.conflicts[] | {kind, candidates, nodes, paths, me
 ```
 
 **Narration.** The conflict is deterministic. A's save handler maps to `affordance.AddContactDialog.save` and
-`operation.contact.save` through the app's `source-map.yaml`; B's routes file maps to the same operation,
+`operation.contact.save` through those nodes' `files` in the Genome; B's routes file maps to the same operation,
 `policy.ownerOnly` and `entity.ContactRecord`. `paths` is empty because no file is shared. `interferes: 0.05` is
 System One's answer to "do these changes interfere?", and 0.05 means "no". That number is from the fake provider,
 whose canned answer is always the benign one, so say on video that the overlap is the platform's finding and the
@@ -378,8 +378,9 @@ B with the current head (`"expectedHead":"sc-2-88b3ec84"`) is refused as well, b
 
 ## 9. Moment 2, amendment 1: a rules violation, refused and rejected
 
-evolution.5 is a Genome amendment; its scope covers `things/webapp/ontology.yaml`, `description.yaml` (it lists
-`commitment.no-engagement-mechanics`) and `evolutions/**`. Terminal **ops** starts the work:
+evolution.5 is a Genome amendment; its scope is the directories of the nodes it affects: `thing.webapp/section.domain/**`
+(with `entity.DigestEdition` and `entity.Subscription` under it), `commitment.no-engagement-mechanics/**`, and
+`evolutions/**`. Terminal **ops** starts the work:
 
 ```sh
 curl -s -XPOST $B/evolutions/evolution.5/realizations -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
@@ -396,11 +397,11 @@ cd /tmp/kit-c1
 ```
 
 ```text
-{"realization":"realization.5.r5","target":"genome","fork":"keep-in-touch.genome--r5","permittedPaths":["things/webapp/ontology.yaml","description.yaml","evolutions/**"]}
+{"realization":"realization.5.r5","target":"genome","fork":"keep-in-touch.genome--r5","permittedPaths":["thing.webapp/section.domain/entity.DigestEdition/**","thing.webapp/section.domain/entity.Subscription/**","thing.webapp/section.domain/**","commitment.no-engagement-mechanics/**","evolutions/**"]}
 ```
 
-In `things/webapp/ontology.yaml`, firm up `entity.MessageDraft`: remove `provisional: true` and add
-`- { name: recipients, type: "list<ref:entity.Account>" }`. (The private-pairs rule skips provisional entities, so
+In `thing.webapp/section.domain/entity.MessageDraft/node.yaml`, firm up `entity.MessageDraft`: remove
+`provisional: true` and add `- { name: recipients, type: "list<ref:entity.Account>" }` under `fields.fields`. (The private-pairs rule skips provisional entities, so
 the field alone raises nothing.)
 
 ```sh
@@ -489,7 +490,7 @@ artyfact start realization.5.r6 --system system.keep-in-touch --evolution evolut
 cd /tmp/kit-c2
 ```
 
-In `description.yaml`, reword `commitment.no-engagement-mechanics` to "The core contract has no streak penalties, no
+In `commitment.no-engagement-mechanics/node.yaml`, reword the commitment's `statement` to "The core contract has no streak penalties, no
 public relationship scores and no group discussion; missing a goal is never punished."
 
 ```sh

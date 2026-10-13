@@ -1,0 +1,7 @@
+id: export.ontology.read-tree
+kind: export
+fields:
+  name: readTree
+  signature: "export function readTree(files: GenomeFiles, templates: TreeTemplates): Graph"
+  stability: stable
+  description: Reads a Genome v2 tree into a Graph; throws GenomeTreeError listing every bad file.

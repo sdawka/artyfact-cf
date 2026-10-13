@@ -1,0 +1,5 @@
+id: component.RouteOutlet
+kind: component
+fields:
+  name: RouteOutlet
+  fromTemplate: template.thing.cloudflare-worker-webapp@1

@@ -6,3 +6,4 @@ export type { DerivationTree } from "./explain.ts";
 export { explain } from "./explain.ts";
 export { parse } from "./parse.ts";
 export { stratify } from "./stratify.ts";
+export { sha256Hex } from "./sha256.ts";

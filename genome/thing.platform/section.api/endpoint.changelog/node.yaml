@@ -1,0 +1,7 @@
+id: endpoint.changelog
+kind: endpoint
+fields:
+  name: Changelog
+  description: One row per System commit with its semantic delta, files, criteria, builds and deployment; legacy-format commits carry a notice.
+  route: GET /api/systems/:id/changelog
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

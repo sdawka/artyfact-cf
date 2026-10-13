@@ -1,0 +1,1332 @@
+{
+  "meta": {
+    "app": "Spafax Prism",
+    "version": 3,
+    "extractedAt": "2026-06-21",
+    "sourceOfTruth": "Product-owner transcript (authoritative for business structure + detail). Code used to characterize how far the implementation currently aligns with that truth.",
+    "legend": {
+      "source": "code | transcript | code+transcript \u2014 where the node's truth comes from",
+      "codeAlignment": "full | partial | none | broken | roadmap \u2014 how well the current code reflects the PO truth"
+    },
+    "changeFromV1": [
+      "Renamed product Spafax Platform -> Spafax Prism (confirmed by prism-logo assets + AirlineCode.PRISM).",
+      "Renamed IQ -> Nexus (formerly IQ); code data layer already uses nexus_basic Redshift table.",
+      "Added content supply chain: Studio -> Distributor -> Content Version (cultural edits, subtitles).",
+      "Added planning cycle / timeline (PO-flagged documentation gap; code has timeline_board cycles).",
+      "Added delivery: 3-month encode lead time, integrators (Panasonic, Talus), cloud platform (Astrova).",
+      "Added business pillars omitted in v1: Media Sales, Creative Studio, Deal Tracking, Editorial Themes, Documents, GUI Emulator, Monthly Highlights.",
+      "Added behaviours: cultural editing, content-mix limits, holdover-vs-new, client presentation mode.",
+      "Added roadmap: recommendations engine, cross-flight viewing continuity, sub-monthly dynamic refresh, media-sales buildout.",
+      "Flagged: global trending (Flix Patrol) is BROKEN per PO action item.",
+      "v3: restored verified code-truth nodes dropped in v2 (APIs, repos, tests, modules airlines/all_content/consolidated_approval/imdb/slates/websockets, hooks & modals components)."
+    ]
+  },
+  "nodes": [
+    {
+      "id": "name-prism",
+      "kind": "name",
+      "title": "Spafax Prism",
+      "description": "IFE content planning & management platform, branded 'Prism'. (v1 called this 'Spafax Platform' generically.)",
+      "source": "code+transcript",
+      "codeAlignment": "full",
+      "sourceRefs": [
+        {
+          "excerpt": "assets/react/components/common/Logo.tsx (prism-logo); apps/integrations/buzz/constants.py AirlineCode.PRISM"
+        }
+      ]
+    },
+    {
+      "id": "purpose-ife-planning",
+      "kind": "purpose",
+      "title": "Plan, approve, deliver & monetize IFE content",
+      "description": "End-to-end: source licensed content, plan onboard cycles, approve with accountability, deliver to aircraft, and add ancillary revenue (ads) and creative/branding services.",
+      "source": "transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "capability-planning-boards",
+      "kind": "capability",
+      "title": "Planning boards & cycles",
+      "description": "Plan onboard content per cycle with filtering and real-time stats (new vs holdover, distributor share).",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "capability-content-catalog",
+      "kind": "capability",
+      "title": "Content catalog & discovery",
+      "description": "Browse/filter catalog; Content Universe for fast IMDb-powered discovery.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "capability-nexus",
+      "kind": "capability",
+      "title": "Nexus analytics (formerly IQ)",
+      "description": "Viewer-behavior analytics: full views, drop-off points, demographic preferences. Renamed IQ -> Nexus.",
+      "source": "code+transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "capability-approvals",
+      "kind": "capability",
+      "title": "Approval workflows & accountability",
+      "description": "Per-airline approval flows (hands-off to full client engagement) with retained approval timestamps for dispute prevention on multi-million-dollar licensing.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "capability-deal-tracking",
+      "kind": "capability",
+      "title": "Studio deal tracking",
+      "description": "Track studio pricing, title counts, annual commitments (fixed new releases + classics per studio) and multi-round negotiations for leverage.",
+      "source": "code+transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "capability-themes",
+      "kind": "capability",
+      "title": "Editorial themes",
+      "description": "Per-airline storytelling frameworks (e.g. Women's History Month, Taste of Spain), mostly classics, aligned to cultural/seasonal events.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "capability-emulator",
+      "kind": "capability",
+      "title": "GUI emulator (onboard preview)",
+      "description": "Previews exactly what passengers see per device (Flight Edge, iPads); surfaces layout flaws Excel/PPT cannot. Key differentiator.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "capability-creative-studio",
+      "kind": "capability",
+      "title": "Creative Studio",
+      "description": "Produces safety videos, publications, city guides, trailers for client branding; separate team, integrated into Prism for review.",
+      "source": "code+transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "capability-media-sales",
+      "kind": "capability",
+      "title": "Media Sales (advertising)",
+      "description": "Forced/skippable ads and Wi-Fi roadblock ads. Underdeveloped; planned buildout.",
+      "source": "code+transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "capability-transparency",
+      "kind": "capability",
+      "title": "Transparency & documentation",
+      "description": "Real-time content-mix dashboards, spend visibility, and centralized docs (contracts, editorial/call notes) to build client trust and support audits.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "persona-airline-client",
+      "kind": "persona",
+      "title": "Airline Client (external)",
+      "description": "Airline reps who select/approve content; vary from hands-off to fully engaged, and from Excel-export legacy users to full-Prism adopters.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "persona-spafax-staff",
+      "kind": "persona",
+      "title": "Spafax Staff / Content Provider (internal)",
+      "description": "Spafax employees who curate content, manage deals/cycles, and present to clients; see full data incl. license costs.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "screen-onboard",
+      "kind": "screen",
+      "title": "OnBoard (planning board)",
+      "description": "Plan/approve onboard content; mirrors exactly what passengers see in-flight; new vs holdover, distributor share stats, exports.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "screen-all-content",
+      "kind": "screen",
+      "title": "All Content",
+      "description": "Catalog browser with filtering and bulk ops.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "screen-content-universe",
+      "kind": "screen",
+      "title": "Content Universe",
+      "description": "Advanced IMDb-powered search: filter by language, genre, rating, recency; favorites; direct add to cycle.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "screen-nexus",
+      "kind": "screen",
+      "title": "Nexus (analytics)",
+      "description": "Viewer-behavior dashboard (formerly 'IQ').",
+      "source": "code+transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "screen-emulator",
+      "kind": "screen",
+      "title": "GUI Emulator",
+      "description": "Device-accurate onboard layout preview.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "screen-deal-tracker",
+      "kind": "screen",
+      "title": "Deal Tracker",
+      "description": "Studio negotiation/commitment tracking view.",
+      "source": "code+transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "screen-favorites",
+      "kind": "screen",
+      "title": "Favorites",
+      "description": "Saved titles for planning.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "flow-content-lifecycle",
+      "kind": "flow",
+      "title": "Content lifecycle (supply -> onboard)",
+      "description": "Studio licenses to Distributor (rights per country/channel) -> Distributor provides versions (theatrical, airline edit, region cut, subtitles; cultural edits e.g. ME LGBT removal) -> 3-month encode lead time -> delivered to integrator (Panasonic/Talus) or cloud (Astrova) -> appears onboard per hardware platform.",
+      "source": "transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "flow-group-approval",
+      "kind": "flow",
+      "title": "Recommend/approve flow",
+      "description": "Avails (grey->purple recommend) -> Recommendations (grey->green approve; shortlist auto-appears) -> Booked. Group airline can act for all members; member only for itself. Approval timestamps retained.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "constraint-three-month-leadtime",
+      "kind": "constraint",
+      "title": "3-month encode/delivery lead time",
+      "description": "Planning cycles set 3 months ahead for technical encoding and delivery to integrators.",
+      "source": "transcript",
+      "codeAlignment": "none"
+    },
+    {
+      "id": "constraint-monthly-cycle",
+      "kind": "constraint",
+      "title": "Monthly cycle planning (current limit)",
+      "description": "Content currently refreshed on monthly cycles; sub-monthly dynamic refresh is sought (cloud-enabled) but not yet possible.",
+      "source": "transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "constraint-licensing-cost",
+      "kind": "constraint",
+      "title": "High licensing cost & accountability",
+      "description": "Multi-million-dollar contracts; approval records/timestamps are essential to manage cost and prevent disputes.",
+      "source": "transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "constraint-multitenancy",
+      "kind": "constraint",
+      "title": "Per-airline isolation & customization",
+      "description": "Each airline gets isolated data and heavy per-airline customization (versions, themes, rules, workflows).",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "constraint-azure-auth",
+      "kind": "constraint",
+      "title": "Azure AD B2C auth",
+      "description": "External login via Microsoft Azure AD B2C.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "constraint-legacy-excel",
+      "kind": "constraint",
+      "title": "Support legacy (Excel) & modern users",
+      "description": "Some clients resist new tech and prefer Excel exports; Prism must offer both modern tools and legacy exports.",
+      "source": "transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "entity-studio",
+      "kind": "entity",
+      "title": "Studio",
+      "description": "Content producer (e.g. Warner Bros, Disney) that licenses to distributors.",
+      "source": "transcript",
+      "codeAlignment": "none"
+    },
+    {
+      "id": "entity-distributor",
+      "kind": "entity",
+      "title": "Distributor / ContentPartner",
+      "description": "Licenses from studios, manages rights per country & channel, supplies multiple tailored versions to airlines. Code: single ContentPartner model (no explicit studio split).",
+      "source": "code+transcript",
+      "codeAlignment": "partial",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/content_partner/models.py:ContentPartner; apps/core/all_content/models.py:AirlineDistributorAlias"
+        }
+      ]
+    },
+    {
+      "id": "entity-content-version",
+      "kind": "entity",
+      "title": "Content Version",
+      "description": "A tailored cut of a program: theatrical, airline edit, region-specific cut, with multi-language subtitles and cultural edits per airline.",
+      "source": "code+transcript",
+      "codeAlignment": "partial",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/all_content/models.py: version, subtitles fields; ProcessedProgram per-airline versions"
+        }
+      ]
+    },
+    {
+      "id": "entity-program",
+      "kind": "entity",
+      "title": "Program",
+      "description": "A piece of IFE content; has versions, rights, IMDb enrichment, Nexus score.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "entity-system-platform",
+      "kind": "entity",
+      "title": "Hardware Platform (System)",
+      "description": "Onboard delivery target (e.g. Flight Edge, iPads). Titles are mapped to specific platforms. Code: System model.",
+      "source": "code+transcript",
+      "codeAlignment": "full",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/all_content/models.py:System"
+        }
+      ]
+    },
+    {
+      "id": "entity-planning-cycle",
+      "kind": "entity",
+      "title": "Planning Cycle / Timeline",
+      "description": "The time-boxed planning unit (currently monthly). PO-flagged as a missing documented concept; code models it via timeline_board cycles.",
+      "source": "code+transcript",
+      "codeAlignment": "partial",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/boards/timeline_board/utils.py (cycle/timeline)"
+        }
+      ]
+    },
+    {
+      "id": "entity-board",
+      "kind": "entity",
+      "title": "Board",
+      "description": "Planning workspace for a cycle/fleet; contains Sections and Rows.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "entity-section",
+      "kind": "entity",
+      "title": "Section",
+      "description": "Grouping of rows within a board.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "entity-row",
+      "kind": "entity",
+      "title": "Row",
+      "description": "A program placement (title selection) within a board/section; new or holdover.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "entity-onboardrow",
+      "kind": "entity",
+      "title": "OnboardRow (extends Row)",
+      "description": "Planning-board row with per-airline indicators for group view.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "entity-approval",
+      "kind": "entity",
+      "title": "Approval",
+      "description": "Approval record with retained timestamps for accountability; backend model named `Approval`.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "entity-deal",
+      "kind": "entity",
+      "title": "Studio Deal",
+      "description": "Negotiation record: pricing, title counts, annual commitments, multi-round proposals (manually logged).",
+      "source": "code+transcript",
+      "codeAlignment": "partial",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/api/entertainment/deal_tracker/; budget_tracker/"
+        }
+      ]
+    },
+    {
+      "id": "entity-theme",
+      "kind": "entity",
+      "title": "Editorial Theme",
+      "description": "Per-airline curated theme, mostly classics, tied to seasonal/cultural events.",
+      "source": "code+transcript",
+      "codeAlignment": "full",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/api/entertainment/themes/; apps/core/monthly_highlight/"
+        }
+      ]
+    },
+    {
+      "id": "entity-ad",
+      "kind": "entity",
+      "title": "Ad (Media Sales)",
+      "description": "Advertising inventory: forced, skippable, Wi-Fi roadblock. Code: Ad/Category/SalesSummary.",
+      "source": "code+transcript",
+      "codeAlignment": "partial",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/media_sales/models.py:Ad, Category, SalesSummary"
+        }
+      ]
+    },
+    {
+      "id": "entity-creative-asset",
+      "kind": "entity",
+      "title": "Creative Asset",
+      "description": "Creative Studio outputs: safety videos, publications, city guides, promotional trailers.",
+      "source": "code+transcript",
+      "codeAlignment": "partial",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/creative_studio/models.py:Publication, PromotionalTrailer"
+        }
+      ]
+    },
+    {
+      "id": "entity-document",
+      "kind": "entity",
+      "title": "Document",
+      "description": "Centralized contracts, editorial notes, call notes. Code: Document/DocumentType.",
+      "source": "code+transcript",
+      "codeAlignment": "full",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/statement/models.py:Document, DocumentType; apps/api/entertainment/documents/"
+        }
+      ]
+    },
+    {
+      "id": "entity-imdb-title",
+      "kind": "entity",
+      "title": "IMDB Title/Name/Genre",
+      "description": "IMDb enrichment in dedicated DB; powers Content Universe search.",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "entity-user",
+      "kind": "entity",
+      "title": "User / UserType",
+      "description": "External users (approvals/selection) vs internal users (full data, incl. costs).",
+      "source": "code+transcript",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "module-boards",
+      "kind": "module",
+      "title": "boards (+ timeline_board)",
+      "description": "Boards, rows, sections, onboard + timeline/cycle logic.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "module-content-partner",
+      "kind": "module",
+      "title": "content_partner",
+      "description": "Distributor/partner data.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "module-media-sales",
+      "kind": "module",
+      "title": "media_sales",
+      "description": "Ad inventory & sales summaries.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "module-creative-studio",
+      "kind": "module",
+      "title": "creative_studio",
+      "description": "Publications & promotional trailers.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "module-statement",
+      "kind": "module",
+      "title": "statement (documents)",
+      "description": "Documents & statement pages.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "module-monthly-highlight",
+      "kind": "module",
+      "title": "monthly_highlight",
+      "description": "Monthly highlights / themed promotion.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "module-emulator",
+      "kind": "module",
+      "title": "emulator",
+      "description": "GUI screens, tiles, image choices for onboard preview.",
+      "source": "code",
+      "codeAlignment": "full",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/emulator/models.py:GuiScreen, GuiScreenTile, SubTile"
+        }
+      ]
+    },
+    {
+      "id": "module-nexus",
+      "kind": "module",
+      "title": "iq (Nexus)",
+      "description": "Analytics; reads Redshift nexus_basic. Module/UI still named 'iq'.",
+      "source": "code+transcript",
+      "codeAlignment": "partial",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/iq/tasks.py REDSHIFT_TABLE='client_dashboard.nexus_basic'"
+        }
+      ]
+    },
+    {
+      "id": "module-trending",
+      "kind": "module",
+      "title": "trending",
+      "description": "Global trending via Flix Patrol.",
+      "source": "code",
+      "codeAlignment": "broken",
+      "sourceRefs": [
+        {
+          "excerpt": "PO action item: global trending (Flix Patrol) is broken"
+        }
+      ]
+    },
+    {
+      "id": "behaviour-cultural-edit",
+      "kind": "behaviour",
+      "title": "Cultural editing per region",
+      "description": "Versions edited for cultural sensitivities (e.g. remove LGBT scenes for Middle Eastern airlines) + per-airline subtitle/language edits.",
+      "source": "transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "behaviour-content-mix-limit",
+      "kind": "behaviour",
+      "title": "Content-mix limits",
+      "description": "Airlines cap content types/distributor share (e.g. max 10% Warner Bros) to control cost; dashboards show share in real time.",
+      "source": "transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "behaviour-holdover-new",
+      "kind": "behaviour",
+      "title": "Holdover vs new rotation",
+      "description": "Track new vs holdover titles to balance freshness and reduce passenger content fatigue.",
+      "source": "code+transcript",
+      "codeAlignment": "partial"
+    },
+    {
+      "id": "behaviour-group-dedup",
+      "kind": "behaviour",
+      "title": "Group board row dedup",
+      "description": "Group view merges + dedups rows across member boards (by metadata.program_id, fallback name); per-airline approval caches.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "component-presentation-mode",
+      "kind": "component",
+      "title": "Client Presentation Mode",
+      "description": "Masks license costs / confidential columns for client-facing pitches; admins see full data. Code: ClientPresentationModeProvider.",
+      "source": "code+transcript",
+      "codeAlignment": "full",
+      "sourceRefs": [
+        {
+          "excerpt": "assets/react/providers/ClientPresentationModeProvider.tsx"
+        }
+      ]
+    },
+    {
+      "id": "component-providers",
+      "kind": "component",
+      "title": "Context Providers (16)",
+      "description": "React Context providers incl. Airline, Approvals, ClientPresentationMode, Selection, Modals, WebSocket.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "state-react-query",
+      "kind": "state",
+      "title": "React Query + Context",
+      "description": "Server state via React Query v5; global state via Context (not Zustand).",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "external-studios",
+      "kind": "external",
+      "title": "Studios (Warner Bros, Disney, ...)",
+      "description": "Upstream content producers/licensors.",
+      "source": "transcript",
+      "codeAlignment": "none"
+    },
+    {
+      "id": "external-panasonic",
+      "kind": "external",
+      "title": "Panasonic (integrator)",
+      "description": "IFE integrator that loads content onto aircraft.",
+      "source": "transcript",
+      "codeAlignment": "none"
+    },
+    {
+      "id": "external-talus",
+      "kind": "external",
+      "title": "Talus / Thales (integrator)",
+      "description": "IFE integrator.",
+      "source": "transcript",
+      "codeAlignment": "none"
+    },
+    {
+      "id": "external-astrova",
+      "kind": "external",
+      "title": "Astrova (cloud delivery)",
+      "description": "Cloud platform enabling larger libraries & customization (vs physical load).",
+      "source": "transcript",
+      "codeAlignment": "none"
+    },
+    {
+      "id": "external-buzz",
+      "kind": "external",
+      "title": "Buzz CMS",
+      "description": "Master content catalog/metadata source.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "external-flixpatrol",
+      "kind": "external",
+      "title": "Flix Patrol",
+      "description": "Streaming trending charts. NOTE: global trending integration is currently broken.",
+      "source": "code+transcript",
+      "codeAlignment": "broken"
+    },
+    {
+      "id": "external-imdb",
+      "kind": "external",
+      "title": "IMDB",
+      "description": "Metadata/ratings enrichment for Content Universe.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "external-azure",
+      "kind": "external",
+      "title": "Azure AD B2C",
+      "description": "Identity provider.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "external-redshift",
+      "kind": "external",
+      "title": "Redshift (nexus)",
+      "description": "Analytics warehouse; nexus_basic table feeds Nexus.",
+      "source": "code",
+      "codeAlignment": "full"
+    },
+    {
+      "id": "req-recommendations-engine",
+      "kind": "requirement",
+      "title": "[Roadmap] Recommendations engine",
+      "description": "Tailor content by route, duration, and passenger demographics. Planned, not built.",
+      "source": "transcript",
+      "codeAlignment": "roadmap"
+    },
+    {
+      "id": "req-viewing-continuity",
+      "kind": "requirement",
+      "title": "[Roadmap] Cross-flight viewing continuity",
+      "description": "Link loyalty numbers to continue playback across flights. Legal/privacy challenges acknowledged.",
+      "source": "transcript",
+      "codeAlignment": "roadmap"
+    },
+    {
+      "id": "req-dynamic-refresh",
+      "kind": "requirement",
+      "title": "[Roadmap] Sub-monthly dynamic refresh",
+      "description": "Refresh content faster than monthly via cloud delivery.",
+      "source": "transcript",
+      "codeAlignment": "roadmap"
+    },
+    {
+      "id": "req-media-sales-buildout",
+      "kind": "requirement",
+      "title": "[Roadmap] Media-sales buildout",
+      "description": "Build ad inventory & sales capabilities; roadblock ads on Wi-Fi pages.",
+      "source": "transcript",
+      "codeAlignment": "roadmap"
+    },
+    {
+      "id": "api-entertainment",
+      "kind": "api",
+      "title": "/api/entertainment/*",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "Largest API surface: cards + sub-routers planning, all-content, timeline, trending, deal-tracker, budget-tracker, themes, top-performers, documents, consolidated-approvals, monthly-highlights, priority-placements, trailers, rights-summary.",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/api/entertainment/urls.py"
+        }
+      ]
+    },
+    {
+      "id": "api-other",
+      "kind": "api",
+      "title": "/api/{notifications,cache-stamp,imdb,iq}/",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "Top-level API modules besides entertainment.",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/api/urls.py"
+        }
+      ]
+    },
+    {
+      "id": "repo-frontend",
+      "kind": "repository",
+      "title": "React SPA (webpack)",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "React 19 + TypeScript built with webpack + babel (not Vite). Source under assets/react/.",
+      "sourceRefs": [
+        {
+          "excerpt": "assets/react/; package.json"
+        }
+      ]
+    },
+    {
+      "id": "repo-backend",
+      "kind": "repository",
+      "title": "Django backend",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "Django 4.2.17 + DRF 3.14 + Channels + Celery 5.5; apps under apps/core, apps/api, apps/integrations, apps/websockets.",
+      "sourceRefs": [
+        {
+          "excerpt": "requirements.txt; apps/"
+        }
+      ]
+    },
+    {
+      "id": "tests-suite",
+      "kind": "tests",
+      "title": "Tests",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "36 Python (Django) test files + Playwright (@playwright/test) for frontend/e2e.",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/**/tests.py; package.json @playwright/test"
+        }
+      ]
+    },
+    {
+      "id": "module-airlines",
+      "kind": "module",
+      "title": "airlines",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "Airline config + multi-tenancy middleware.",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/airlines/"
+        }
+      ]
+    },
+    {
+      "id": "module-all-content",
+      "kind": "module",
+      "title": "all_content",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "Program catalog & metadata (Program, ProgramMetadata, AllContentBoard).",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/all_content/"
+        }
+      ]
+    },
+    {
+      "id": "module-consolidated-approval",
+      "kind": "module",
+      "title": "consolidated_approval",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "Approval workflow models/views (Approval, ApprovalQuestion, ApprovalComment).",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/consolidated_approval/"
+        }
+      ]
+    },
+    {
+      "id": "module-imdb",
+      "kind": "module",
+      "title": "imdb",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "IMDB sync & enrichment; dedicated IMDB DB.",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/imdb/"
+        }
+      ]
+    },
+    {
+      "id": "module-slates",
+      "kind": "module",
+      "title": "slates",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "Slate generation (views/utils/constants; no models.py \u2014 SlatesManager service).",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/slates/utils.py:SlatesManager"
+        }
+      ]
+    },
+    {
+      "id": "module-websockets",
+      "kind": "module",
+      "title": "websockets",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "Django Channels consumers & notification tasks for live updates.",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/websockets/consumers.py"
+        }
+      ]
+    },
+    {
+      "id": "component-hooks",
+      "kind": "component",
+      "title": "Custom hooks (53)",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "Shared data-fetching / state / UI hooks (React Query v5).",
+      "sourceRefs": [
+        {
+          "excerpt": "assets/react/hooks/ (53 files)"
+        }
+      ]
+    },
+    {
+      "id": "component-modals",
+      "kind": "component",
+      "title": "Modals system",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "Centralized modal state via ModalsProvider (20+ modal types).",
+      "sourceRefs": [
+        {
+          "excerpt": "assets/react/providers/ModalsProvider.tsx"
+        }
+      ]
+    },
+    {
+      "id": "entity-airline",
+      "kind": "entity",
+      "title": "Airline",
+      "source": "code",
+      "codeAlignment": "full",
+      "description": "Tenant org (e.g. Lufthansa Group, Swiss). Supports group membership (is_member_of_group_airline); has contact emails & section rules. Root of multi-tenancy.",
+      "sourceRefs": [
+        {
+          "excerpt": "apps/core/airlines/models.py:Airline"
+        }
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "srcId": "name-prism",
+      "dstId": "purpose-ife-planning",
+      "type": "has"
+    },
+    {
+      "srcId": "purpose-ife-planning",
+      "dstId": "capability-planning-boards",
+      "type": "has"
+    },
+    {
+      "srcId": "purpose-ife-planning",
+      "dstId": "capability-content-catalog",
+      "type": "has"
+    },
+    {
+      "srcId": "purpose-ife-planning",
+      "dstId": "capability-nexus",
+      "type": "has"
+    },
+    {
+      "srcId": "purpose-ife-planning",
+      "dstId": "capability-approvals",
+      "type": "has"
+    },
+    {
+      "srcId": "purpose-ife-planning",
+      "dstId": "capability-deal-tracking",
+      "type": "has"
+    },
+    {
+      "srcId": "purpose-ife-planning",
+      "dstId": "capability-themes",
+      "type": "has"
+    },
+    {
+      "srcId": "purpose-ife-planning",
+      "dstId": "capability-emulator",
+      "type": "has"
+    },
+    {
+      "srcId": "purpose-ife-planning",
+      "dstId": "capability-creative-studio",
+      "type": "has"
+    },
+    {
+      "srcId": "purpose-ife-planning",
+      "dstId": "capability-media-sales",
+      "type": "has"
+    },
+    {
+      "srcId": "purpose-ife-planning",
+      "dstId": "capability-transparency",
+      "type": "has"
+    },
+    {
+      "srcId": "external-studios",
+      "dstId": "entity-distributor",
+      "type": "triggers",
+      "label": "licenses to"
+    },
+    {
+      "srcId": "entity-distributor",
+      "dstId": "entity-content-version",
+      "type": "has",
+      "label": "supplies versions"
+    },
+    {
+      "srcId": "entity-content-version",
+      "dstId": "entity-program",
+      "type": "references",
+      "label": "version of"
+    },
+    {
+      "srcId": "behaviour-cultural-edit",
+      "dstId": "entity-content-version",
+      "type": "triggers",
+      "label": "edits"
+    },
+    {
+      "srcId": "flow-content-lifecycle",
+      "dstId": "external-studios",
+      "type": "references"
+    },
+    {
+      "srcId": "flow-content-lifecycle",
+      "dstId": "external-panasonic",
+      "type": "references"
+    },
+    {
+      "srcId": "flow-content-lifecycle",
+      "dstId": "external-talus",
+      "type": "references"
+    },
+    {
+      "srcId": "flow-content-lifecycle",
+      "dstId": "external-astrova",
+      "type": "references"
+    },
+    {
+      "srcId": "flow-content-lifecycle",
+      "dstId": "constraint-three-month-leadtime",
+      "type": "depends_on"
+    },
+    {
+      "srcId": "entity-program",
+      "dstId": "entity-system-platform",
+      "type": "references",
+      "label": "mapped to platform"
+    },
+    {
+      "srcId": "entity-program",
+      "dstId": "entity-imdb-title",
+      "type": "references"
+    },
+    {
+      "srcId": "entity-planning-cycle",
+      "dstId": "entity-board",
+      "type": "contains"
+    },
+    {
+      "srcId": "entity-board",
+      "dstId": "entity-section",
+      "type": "contains"
+    },
+    {
+      "srcId": "entity-section",
+      "dstId": "entity-row",
+      "type": "contains"
+    },
+    {
+      "srcId": "entity-onboardrow",
+      "dstId": "entity-row",
+      "type": "extends"
+    },
+    {
+      "srcId": "entity-row",
+      "dstId": "entity-program",
+      "type": "references"
+    },
+    {
+      "srcId": "entity-approval",
+      "dstId": "entity-row",
+      "type": "references"
+    },
+    {
+      "srcId": "behaviour-holdover-new",
+      "dstId": "entity-row",
+      "type": "references"
+    },
+    {
+      "srcId": "behaviour-content-mix-limit",
+      "dstId": "entity-distributor",
+      "type": "references",
+      "label": "caps share"
+    },
+    {
+      "srcId": "screen-onboard",
+      "dstId": "flow-group-approval",
+      "type": "contains"
+    },
+    {
+      "srcId": "screen-onboard",
+      "dstId": "component-presentation-mode",
+      "type": "uses"
+    },
+    {
+      "srcId": "screen-onboard",
+      "dstId": "behaviour-holdover-new",
+      "type": "uses"
+    },
+    {
+      "srcId": "screen-onboard",
+      "dstId": "entity-system-platform",
+      "type": "references"
+    },
+    {
+      "srcId": "screen-content-universe",
+      "dstId": "entity-imdb-title",
+      "type": "uses"
+    },
+    {
+      "srcId": "screen-nexus",
+      "dstId": "capability-nexus",
+      "type": "implements"
+    },
+    {
+      "srcId": "screen-emulator",
+      "dstId": "capability-emulator",
+      "type": "implements"
+    },
+    {
+      "srcId": "screen-deal-tracker",
+      "dstId": "entity-deal",
+      "type": "references"
+    },
+    {
+      "srcId": "persona-airline-client",
+      "dstId": "flow-group-approval",
+      "type": "triggers"
+    },
+    {
+      "srcId": "persona-spafax-staff",
+      "dstId": "component-presentation-mode",
+      "type": "triggers",
+      "label": "pitches with"
+    },
+    {
+      "srcId": "module-boards",
+      "dstId": "entity-board",
+      "type": "contains"
+    },
+    {
+      "srcId": "module-boards",
+      "dstId": "entity-planning-cycle",
+      "type": "contains"
+    },
+    {
+      "srcId": "module-boards",
+      "dstId": "behaviour-group-dedup",
+      "type": "contains"
+    },
+    {
+      "srcId": "module-content-partner",
+      "dstId": "entity-distributor",
+      "type": "contains"
+    },
+    {
+      "srcId": "module-media-sales",
+      "dstId": "entity-ad",
+      "type": "contains"
+    },
+    {
+      "srcId": "module-creative-studio",
+      "dstId": "entity-creative-asset",
+      "type": "contains"
+    },
+    {
+      "srcId": "module-statement",
+      "dstId": "entity-document",
+      "type": "contains"
+    },
+    {
+      "srcId": "module-monthly-highlight",
+      "dstId": "entity-theme",
+      "type": "contains"
+    },
+    {
+      "srcId": "module-emulator",
+      "dstId": "capability-emulator",
+      "type": "implements"
+    },
+    {
+      "srcId": "module-nexus",
+      "dstId": "capability-nexus",
+      "type": "implements"
+    },
+    {
+      "srcId": "module-nexus",
+      "dstId": "external-redshift",
+      "type": "uses"
+    },
+    {
+      "srcId": "module-trending",
+      "dstId": "external-flixpatrol",
+      "type": "uses",
+      "label": "BROKEN"
+    },
+    {
+      "srcId": "behaviour-group-dedup",
+      "dstId": "capability-planning-boards",
+      "type": "implements"
+    },
+    {
+      "srcId": "entity-user",
+      "dstId": "external-azure",
+      "type": "uses"
+    },
+    {
+      "srcId": "req-recommendations-engine",
+      "dstId": "capability-nexus",
+      "type": "depends_on"
+    },
+    {
+      "srcId": "req-viewing-continuity",
+      "dstId": "req-recommendations-engine",
+      "type": "references"
+    },
+    {
+      "srcId": "req-dynamic-refresh",
+      "dstId": "constraint-monthly-cycle",
+      "type": "references",
+      "label": "supersedes"
+    },
+    {
+      "srcId": "req-media-sales-buildout",
+      "dstId": "capability-media-sales",
+      "type": "implements"
+    },
+    {
+      "srcId": "repo-frontend",
+      "dstId": "repo-backend",
+      "type": "uses"
+    },
+    {
+      "srcId": "repo-frontend",
+      "dstId": "component-providers",
+      "type": "contains"
+    },
+    {
+      "srcId": "repo-frontend",
+      "dstId": "component-hooks",
+      "type": "contains"
+    },
+    {
+      "srcId": "repo-frontend",
+      "dstId": "component-modals",
+      "type": "contains"
+    },
+    {
+      "srcId": "repo-backend",
+      "dstId": "module-boards",
+      "type": "contains"
+    },
+    {
+      "srcId": "repo-backend",
+      "dstId": "module-airlines",
+      "type": "contains"
+    },
+    {
+      "srcId": "repo-backend",
+      "dstId": "module-all-content",
+      "type": "contains"
+    },
+    {
+      "srcId": "repo-backend",
+      "dstId": "module-consolidated-approval",
+      "type": "contains"
+    },
+    {
+      "srcId": "repo-backend",
+      "dstId": "module-imdb",
+      "type": "contains"
+    },
+    {
+      "srcId": "repo-backend",
+      "dstId": "module-slates",
+      "type": "contains"
+    },
+    {
+      "srcId": "repo-backend",
+      "dstId": "module-websockets",
+      "type": "contains"
+    },
+    {
+      "srcId": "api-entertainment",
+      "dstId": "module-boards",
+      "type": "uses"
+    },
+    {
+      "srcId": "api-entertainment",
+      "dstId": "module-consolidated-approval",
+      "type": "uses"
+    },
+    {
+      "srcId": "api-entertainment",
+      "dstId": "module-all-content",
+      "type": "uses"
+    },
+    {
+      "srcId": "api-other",
+      "dstId": "module-nexus",
+      "type": "uses"
+    },
+    {
+      "srcId": "api-other",
+      "dstId": "module-imdb",
+      "type": "uses"
+    },
+    {
+      "srcId": "module-all-content",
+      "dstId": "entity-program",
+      "type": "contains"
+    },
+    {
+      "srcId": "module-consolidated-approval",
+      "dstId": "entity-approval",
+      "type": "contains"
+    },
+    {
+      "srcId": "module-imdb",
+      "dstId": "entity-imdb-title",
+      "type": "contains"
+    },
+    {
+      "srcId": "module-airlines",
+      "dstId": "constraint-multitenancy",
+      "type": "implements"
+    },
+    {
+      "srcId": "component-providers",
+      "dstId": "component-hooks",
+      "type": "uses"
+    },
+    {
+      "srcId": "screen-onboard",
+      "dstId": "component-modals",
+      "type": "uses"
+    },
+    {
+      "srcId": "tests-suite",
+      "dstId": "repo-backend",
+      "type": "references"
+    },
+    {
+      "srcId": "tests-suite",
+      "dstId": "repo-frontend",
+      "type": "references"
+    },
+    {
+      "srcId": "module-airlines",
+      "dstId": "entity-airline",
+      "type": "contains"
+    },
+    {
+      "srcId": "entity-board",
+      "dstId": "entity-airline",
+      "type": "depends_on"
+    },
+    {
+      "srcId": "entity-planning-cycle",
+      "dstId": "entity-airline",
+      "type": "references"
+    },
+    {
+      "srcId": "entity-user",
+      "dstId": "entity-airline",
+      "type": "references"
+    },
+    {
+      "srcId": "constraint-multitenancy",
+      "dstId": "entity-airline",
+      "type": "references"
+    }
+  ]
+}

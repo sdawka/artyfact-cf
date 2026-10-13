@@ -1,0 +1,7 @@
+id: endpoint.changelog-entry
+kind: endpoint
+fields:
+  name: Changelog entry
+  description: Returns one System commit's full Changelog entry.
+  route: GET /api/systems/:id/changelog/:commitId
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

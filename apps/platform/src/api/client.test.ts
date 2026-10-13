@@ -153,8 +153,8 @@ describe("iteration-2 reads and writes", () => {
   it("in fixture mode serves Genome files, head-only revisions and empty lists, and refuses writes", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("Failed to fetch"))));
     const tree = await listFiles("system.keep-in-touch", { repo: "genome" });
-    expect(tree.files.map((f) => f.path)).toContain("system.yaml");
-    const file = await getFile("system.keep-in-touch", { repo: "genome", path: "system.yaml" });
+    expect(tree.files.map((f) => f.path)).toContain("node.yaml");
+    const file = await getFile("system.keep-in-touch", { repo: "genome", path: "node.yaml" });
     expect(file.text).toContain("system.keep-in-touch");
     expect((await listFiles("system.keep-in-touch", { repo: "app" })).files).toEqual([]);
     expect((await getRevisions("system.keep-in-touch")).revisions).toEqual([{ id: "head", kind: "head", label: "head" }]);
@@ -172,6 +172,8 @@ describe("iteration-2 reads and writes", () => {
     vi.stubGlobal("fetch", vi.fn(async () => json(503, {})));
     const [s] = await getSystems();
     expect(s).toMatchObject({ built: false, latestBuild: null, deployState: "none", signifiers: [], deployment: { production: null, previews: 0 } });
+    // Keep in Touch's provisional nodes are missing findings that do not block.
+    expect(s!.readiness).toEqual({ errors: 0, missing: 0 });
   });
 
   it("listens for the new SSE types", () => {

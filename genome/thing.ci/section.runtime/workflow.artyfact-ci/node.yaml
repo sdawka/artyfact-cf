@@ -1,0 +1,14 @@
+id: workflow.artyfact-ci
+kind: workflow
+fields:
+  name: ArtyfactCI
+  trigger: The platform creates an instance through its CI binding with CiBuildParams; there is no push trigger.
+  steps:
+    - read wrangler config
+    - install
+    - test
+    - build
+    - bundle
+    - deploy
+    - report
+  description: Builds and deploys one app commit; a step that fails after its retries ends the run and reports the build as failed or error to the platform.

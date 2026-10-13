@@ -1,0 +1,31 @@
+id: thing.api
+kind: thing
+template: template.thing.cloudflare-worker-service@1
+root: apps/api
+fields:
+  name: Jobs API
+  description: The Worker that accepts jobs and runs them to completion.
+links:
+  - {rel: artifact, to: artifact.api}
+  - {rel: dependsOn, to: thing.core}
+  - {rel: exposes, to: endpoint.health}
+  - {rel: exposes, to: endpoint.submit}
+criteria:
+  - id: C.thing.api.checks
+    title: Changed nodes meet their checks
+    claim: Changed nodes meet the checks their kinds declare.
+    severity: soft
+    gates:
+      - submission
+    hooks:
+      - id: hook.thing.api.checks
+        assay: service.checks
+        tier: semantic
+        engine: model-rules
+        triggers:
+          - submission
+        inputs:
+          packs: checks@1
+        binding: bound
+        fromTemplate: template.thing.cloudflare-worker-service@1
+    fromTemplate: template.thing.cloudflare-worker-service@1

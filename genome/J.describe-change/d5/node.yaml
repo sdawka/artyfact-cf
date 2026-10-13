@@ -1,0 +1,7 @@
+id: J.describe-change/d5
+kind: step
+fields:
+  step: d5
+  actor: system
+  action: Commits the node updates and opens a candidate with its gates and an Evolution
+  kind: end

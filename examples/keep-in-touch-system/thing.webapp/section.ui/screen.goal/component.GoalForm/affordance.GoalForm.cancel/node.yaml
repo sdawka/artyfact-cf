@@ -1,0 +1,8 @@
+id: affordance.GoalForm.cancel
+kind: affordance
+fields:
+  name: Cancel
+  actor: ext.owner
+  trigger: Owner activates Cancel
+  effects:
+    - Returns to /people/:id without saving

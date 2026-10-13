@@ -1,0 +1,4993 @@
+{
+  "model": "perplexity/pplx-decider-v1.1-27b",
+  "startedAt": "2026-10-12T22:06:55.637Z",
+  "finishedAt": "2026-10-12T22:07:26.294Z",
+  "thresholds": {
+    "confident": 0.9,
+    "review": 0.5
+  },
+  "ask": {
+    "timeoutMs": 60000,
+    "retries": 2,
+    "backoffMs": 2000
+  },
+  "calls": 261,
+  "verdicts": {
+    "artyfact": {
+      "calls": 233,
+      "judgments": {
+        "confident": 163,
+        "review": 70,
+        "unknown": 0
+      },
+      "planted": [
+        {
+          "id": "vague.error-handling",
+          "rule": "text.vague",
+          "subject": "operation.contact.log",
+          "expected": "warning",
+          "ok": false,
+          "found": {
+            "rule": "semantic:text.vague",
+            "subject": "operation.contact.log",
+            "level": "review",
+            "status": "review",
+            "answer": "no",
+            "confidence": 0.5173179942929025
+          }
+        },
+        {
+          "id": "vague.fast-enough",
+          "rule": "text.vague",
+          "subject": "operation.data.export",
+          "expected": "warning",
+          "ok": true,
+          "found": {
+            "rule": "semantic:text.vague",
+            "subject": "operation.data.export",
+            "level": "warning",
+            "status": "confident",
+            "answer": "yes",
+            "confidence": 0.9271908183084618
+          }
+        },
+        {
+          "id": "unmeasurable.richer-relationships",
+          "rule": "text.unmeasurable",
+          "subject": "T2",
+          "expected": "warning",
+          "ok": true,
+          "found": {
+            "rule": "semantic:text.unmeasurable",
+            "subject": "T2",
+            "level": "warning",
+            "status": "confident",
+            "answer": "no",
+            "confidence": 0.9698498993387961
+          }
+        },
+        {
+          "id": "unfalsifiable.reasonable-storage",
+          "rule": "criterion.unfalsifiable",
+          "subject": "C.webapp.contact.storage",
+          "expected": "warning",
+          "ok": true,
+          "found": {
+            "rule": "semantic:criterion.unfalsifiable",
+            "subject": "C.webapp.contact.storage",
+            "level": "warning",
+            "status": "confident",
+            "answer": "yes",
+            "confidence": 0.9963886344736864
+          }
+        },
+        {
+          "id": "contradiction.owner-only-vs-shared-goal",
+          "rule": "pair.contradiction",
+          "subject": "operation.goal.save|policy.ownerOnly",
+          "expected": "error",
+          "ok": false,
+          "found": {
+            "rule": "semantic:pair.contradiction",
+            "subject": "operation.goal.save|policy.ownerOnly",
+            "level": "review",
+            "status": "review",
+            "answer": "no",
+            "confidence": 0.7071881244260425
+          }
+        },
+        {
+          "id": "contradiction.five-vs-all",
+          "rule": "pair.contradiction",
+          "subject": "component.SuggestionCollection|component.TodayControls",
+          "expected": "error",
+          "ok": true,
+          "found": {
+            "rule": "semantic:pair.contradiction",
+            "subject": "component.SuggestionCollection|component.TodayControls",
+            "level": "error",
+            "status": "confident",
+            "answer": "yes",
+            "confidence": 0.9833380850547154
+          }
+        }
+      ],
+      "controls": [
+        {
+          "id": "control.bounded-prompts",
+          "subject": "C.webapp.prompts.bounded",
+          "ok": true,
+          "flagged": []
+        }
+      ]
+    },
+    "product": {
+      "calls": 18,
+      "judgments": {
+        "confident": 16,
+        "review": 2,
+        "unknown": 0
+      },
+      "planted": [
+        {
+          "id": "vague.volunteers-will-love-it",
+          "rule": "text.vague",
+          "subject": "feature-photo-id-suggestions",
+          "expected": "warning",
+          "ok": true,
+          "found": {
+            "rule": "semantic:text.vague",
+            "subject": "feature-photo-id-suggestions",
+            "level": "warning",
+            "status": "confident",
+            "answer": "yes",
+            "confidence": 0.9961148295575691
+          }
+        },
+        {
+          "id": "vague.make-it-better",
+          "rule": "text.vague",
+          "subject": "capability-volunteer-engagement",
+          "expected": "warning",
+          "ok": true,
+          "found": {
+            "rule": "semantic:text.vague",
+            "subject": "capability-volunteer-engagement",
+            "level": "warning",
+            "status": "confident",
+            "answer": "yes",
+            "confidence": 0.9980338959596076
+          }
+        },
+        {
+          "id": "unmeasurable.belonging",
+          "rule": "text.unmeasurable",
+          "subject": "outcome-volunteers-come-back-for-the-next-good",
+          "expected": "warning",
+          "ok": true,
+          "found": {
+            "rule": "semantic:text.unmeasurable",
+            "subject": "outcome-volunteers-come-back-for-the-next-good",
+            "level": "warning",
+            "status": "confident",
+            "answer": "no",
+            "confidence": 0.9275267403876303
+          }
+        },
+        {
+          "id": "contradiction.offline-purpose-vs-online-rule",
+          "rule": "pair.contradiction",
+          "subject": "purpose-turn-volunteer-shore-walks-into-survey|rule-every-observation-carries-a-gps-fix",
+          "expected": "error",
+          "ok": true,
+          "found": {
+            "rule": "semantic:pair.contradiction",
+            "subject": "purpose-turn-volunteer-shore-walks-into-survey|rule-every-observation-carries-a-gps-fix",
+            "level": "error",
+            "status": "confident",
+            "answer": "yes",
+            "confidence": 0.9995785359234012
+          }
+        },
+        {
+          "id": "contradiction.offline-summary-vs-online-rule",
+          "rule": "pair.contradiction",
+          "subject": "rule-every-observation-carries-a-gps-fix|summary-an-offline-first-field-app-for-timed",
+          "expected": "error",
+          "ok": true,
+          "found": {
+            "rule": "semantic:pair.contradiction",
+            "subject": "rule-every-observation-carries-a-gps-fix|summary-an-offline-first-field-app-for-timed",
+            "level": "error",
+            "status": "confident",
+            "answer": "yes",
+            "confidence": 0.9980565815755267
+          }
+        }
+      ],
+      "controls": [
+        {
+          "id": "control.percent-cover",
+          "subject": "term-percent-cover",
+          "ok": true,
+          "flagged": []
+        },
+        {
+          "id": "control.single-verdict",
+          "subject": "rule-a-record-has-exactly-one-final-verdict",
+          "ok": true,
+          "flagged": []
+        }
+      ]
+    },
+    "world": {
+      "calls": 10,
+      "judgments": {
+        "confident": 10,
+        "review": 0,
+        "unknown": 0
+      },
+      "planted": [
+        {
+          "id": "vague.listening-when-time",
+          "rule": "text.vague",
+          "subject": "task-french-listening",
+          "expected": "warning",
+          "ok": true,
+          "found": {
+            "rule": "semantic:text.vague",
+            "subject": "task-french-listening",
+            "level": "warning",
+            "status": "confident",
+            "answer": "yes",
+            "confidence": 0.9714684060756964
+          }
+        },
+        {
+          "id": "unmeasurable.happier-weeks",
+          "rule": "text.unmeasurable",
+          "subject": "outcome-1",
+          "expected": "warning",
+          "ok": true,
+          "found": {
+            "rule": "semantic:text.unmeasurable",
+            "subject": "outcome-1",
+            "level": "warning",
+            "status": "confident",
+            "answer": "no",
+            "confidence": 0.9352657826195611
+          }
+        },
+        {
+          "id": "contradiction.routine-only-vs-any-event",
+          "rule": "pair.contradiction",
+          "subject": "auth-routine|operation-plan",
+          "expected": "error",
+          "ok": true,
+          "found": {
+            "rule": "semantic:pair.contradiction",
+            "subject": "auth-routine|operation-plan",
+            "level": "error",
+            "status": "confident",
+            "answer": "yes",
+            "confidence": 0.9990857148307175
+          }
+        }
+      ],
+      "controls": [
+        {
+          "id": "control.weekly-evaluation",
+          "subject": "evaluation-1",
+          "ok": true,
+          "flagged": []
+        },
+        {
+          "id": "control.routine-criterion",
+          "subject": "criterion-1",
+          "ok": true,
+          "flagged": []
+        }
+      ]
+    }
+  },
+  "answers": [
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.system.concurrency",
+      "text": "Concurrent candidates touching the same subjects, journeys or criteria are reported as file, soft-semantic or hard-semantic conflicts before any of them is promoted",
+      "answer": {
+        "type": "noul",
+        "noul": 0.014654287297013532
+      },
+      "probabilities": {
+        "yes": 0.014654287297013532,
+        "no": 0.9853457127029864
+      },
+      "confidence": 0.9853457127029864,
+      "latencyMs": 444,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 310
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.system.autonomy",
+      "text": "Require owner-only goals and notes, explicit consent, revocation and notification bounds across enabled scope. A coverage hook must resolve these obligations to C.webapp.private.owner, C.webapp.connection.consent, C.webapp.revocation.current and C.webapp.prompts.bounded",
+      "answer": {
+        "type": "noul",
+        "noul": 0.05739826355585971
+      },
+      "probabilities": {
+        "yes": 0.05739826355585971,
+        "no": 0.9426017364441402
+      },
+      "confidence": 0.9426017364441402,
+      "latencyMs": 456,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 355
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.system.promotion",
+      "text": "Require the expected current base, authorized Evolution scope, exact final Artifact manifest and fresh required System and Thing evidence. A stale base or evidence for a different candidate blocks promotion; composed candidates require new evidence",
+      "answer": {
+        "type": "noul",
+        "noul": 0.012068042514038984
+      },
+      "probabilities": {
+        "yes": 0.012068042514038984,
+        "no": 0.987931957485961
+      },
+      "confidence": 0.987931957485961,
+      "latencyMs": 485,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 326
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.system.purpose",
+      "text": "Require T1–T5 to link activities, intended outcomes, measures and limitations to P1. Model validation rejects missing measures or engagement substituted for wanted contact; pilot outcome hooks record support, challenge or unknown separately from conformance",
+      "answer": {
+        "type": "noul",
+        "noul": 0.027264267918342515
+      },
+      "probabilities": {
+        "yes": 0.027264267918342515,
+        "no": 0.9727357320816575
+      },
+      "confidence": 0.9727357320816575,
+      "latencyMs": 485,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 337
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.system.readiness",
+      "text": "Require every enabled specification requirement to resolve to a protected criterion and executable hook, with Kits and versions pinned. Excluded later modules do not block the core; an enabled module with missing contracts or hooks does",
+      "answer": {
+        "type": "noul",
+        "noul": 0.013025047648426756
+      },
+      "probabilities": {
+        "yes": 0.013025047648426756,
+        "no": 0.9869749523515733
+      },
+      "confidence": 0.9869749523515733,
+      "latencyMs": 356,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 328
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.system.structure",
+      "text": "Require exactly one app Thing, thing.webapp, with a specification and artifact.webapp binding; require Purpose, Externals, Theory and ontology references. Reject dangling references or domain types incorrectly declared as independently realized Things",
+      "answer": {
+        "type": "noul",
+        "noul": 0.00414639410637252
+      },
+      "probabilities": {
+        "yes": 0.00414639410637252,
+        "no": 0.9958536058936275
+      },
+      "confidence": 0.9958536058936275,
+      "latencyMs": 355,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 332
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.connection.consent",
+      "text": "Invite fixture covers acceptance, expiry, replay, self-connection, block and simultaneous redemption",
+      "answer": {
+        "type": "noul",
+        "noul": 0.04197253230605193
+      },
+      "probabilities": {
+        "yes": 0.04197253230605193,
+        "no": 0.9580274676939481
+      },
+      "confidence": 0.9580274676939481,
+      "latencyMs": 317,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 281
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.contact.save",
+      "text": "Validates nonblank name, preserves input on failure and saves only an owned record; refines S.webapp.operations coverage",
+      "answer": {
+        "type": "noul",
+        "noul": 0.011899708179477263
+      },
+      "probabilities": {
+        "yes": 0.011899708179477263,
+        "no": 0.9881002918205227
+      },
+      "confidence": 0.9881002918205227,
+      "latencyMs": 303,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 294
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.digest.private",
+      "text": "Later digest specification; subscriber permissions, future-only editions, no shared replies and blocked or unsubscribed access. Applicable only after the module is enabled",
+      "answer": {
+        "type": "noul",
+        "noul": 0.47517673205385325
+      },
+      "probabilities": {
+        "yes": 0.47517673205385325,
+        "no": 0.5248232679461468
+      },
+      "confidence": 0.5248232679461468,
+      "latencyMs": 301,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 307
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.contact.storage",
+      "text": "Contact storage behaves the way a reasonable person would expect it to",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9963886344736864
+      },
+      "probabilities": {
+        "yes": 0.9963886344736864,
+        "no": 0.0036113655263135813
+      },
+      "confidence": 0.9963886344736864,
+      "latencyMs": 326,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 270
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.system.topology",
+      "text": "Require two-endpoint pairs, one target per outgoing direct action, private incoming aggregation and disabled group scope. Model validation rejects recipient arrays or an enabled digest without an accepted publication contract; C.webapp.outgoing.single supplies implementation evidence",
+      "answer": {
+        "type": "noul",
+        "noul": 0.008087160306758805
+      },
+      "probabilities": {
+        "yes": 0.008087160306758805,
+        "no": 0.9919128396932412
+      },
+      "confidence": 0.9919128396932412,
+      "latencyMs": 848,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 336
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.exists",
+      "text": "The app has the files a deployable Worker needs.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.10560559079092827
+      },
+      "probabilities": {
+        "yes": 0.10560559079092827,
+        "no": 0.8943944092090718
+      },
+      "confidence": 0.8943944092090718,
+      "latencyMs": 231,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 267
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.health",
+      "text": "The running app answers its health endpoint.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.007975612391733873
+      },
+      "probabilities": {
+        "yes": 0.007975612391733873,
+        "no": 0.9920243876082662
+      },
+      "confidence": 0.9920243876082662,
+      "latencyMs": 243,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 262
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.lifecycle.data",
+      "text": "Owner export excludes others' data. Account deletion revokes sessions and jobs and meets live-data purge and retention contracts",
+      "answer": {
+        "type": "noul",
+        "noul": 0.008056168391510375
+      },
+      "probabilities": {
+        "yes": 0.008056168391510375,
+        "no": 0.9919438316084896
+      },
+      "confidence": 0.9919438316084896,
+      "latencyMs": 238,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 290
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.photo.approved",
+      "text": "Later photo specification; no upload or send before explicit file and recipient approval. Declined permission must leave the manual app usable. Applicable only after the module is enabled",
+      "answer": {
+        "type": "noul",
+        "noul": 0.029377670034165616
+      },
+      "probabilities": {
+        "yes": 0.029377670034165616,
+        "no": 0.9706223299658344
+      },
+      "confidence": 0.9706223299658344,
+      "latencyMs": 255,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 316
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.prompts.bounded",
+      "text": "Six due goals yield exactly five ordered cards. Duplicate jobs must not duplicate prompts or owner reminders",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0021791278004905236
+      },
+      "probabilities": {
+        "yes": 0.0021791278004905236,
+        "no": 0.9978208721995094
+      },
+      "confidence": 0.9978208721995094,
+      "latencyMs": 225,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 285
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.private.owner",
+      "text": "API fixture proves one user cannot read or mutate another's contacts, notes, goals or logs. Include guessed IDs and export",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0041924241367366395
+      },
+      "probabilities": {
+        "yes": 0.0041924241367366395,
+        "no": 0.9958075758632634
+      },
+      "confidence": 0.9958075758632634,
+      "latencyMs": 257,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 295
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.outgoing.single",
+      "text": "Direct-action schema accepts exactly one target and rejects recipient arrays and group endpoints. Publication requires a separately accepted contract",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0040304722321383366
+      },
+      "probabilities": {
+        "yes": 0.0040304722321383366,
+        "no": 0.9959695277678616
+      },
+      "confidence": 0.9959695277678616,
+      "latencyMs": 318,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 290
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.screen.exact",
+      "text": "Protected browser fixture checks loaded, empty, loading, error and validation compositions, login continuation and keyboard actions",
+      "answer": {
+        "type": "noul",
+        "noul": 0.053429420963985154
+      },
+      "probabilities": {
+        "yes": 0.053429420963985154,
+        "no": 0.9465705790360148
+      },
+      "confidence": 0.9465705790360148,
+      "latencyMs": 244,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 287
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.schedule.correct",
+      "text": "Fixed-clock fixtures cover zero logs, qualification, interval and depth changes, time zones, DST, snooze, pause and deleted events",
+      "answer": {
+        "type": "noul",
+        "noul": 0.03157669011431124
+      },
+      "probabilities": {
+        "yes": 0.03157669011431124,
+        "no": 0.9684233098856888
+      },
+      "confidence": 0.9684233098856888,
+      "latencyMs": 352,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 298
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.revocation.current",
+      "text": "Revoke access after a job is queued, then retry dispatch and access. No new authorized sharing may follow revocation",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0018716737030884292
+      },
+      "probabilities": {
+        "yes": 0.0018716737030884292,
+        "no": 0.9981283262969116
+      },
+      "confidence": 0.9981283262969116,
+      "latencyMs": 362,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 294
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.AddContact|component.AddContactDialog",
+      "text": "component.AddContactDialog",
+      "answer": {
+        "type": "noul",
+        "noul": 0.01568343787345025
+      },
+      "probabilities": {
+        "yes": 0.01568343787345025,
+        "no": 0.9843165621265497
+      },
+      "confidence": 0.9843165621265497,
+      "latencyMs": 241,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 545
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.AppShell|component.ErrorSummary",
+      "text": "component.ErrorSummary",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0009450532201915497
+      },
+      "probabilities": {
+        "yes": 0.0009450532201915497,
+        "no": 0.9990549467798084
+      },
+      "confidence": 0.9990549467798084,
+      "latencyMs": 241,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 457
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.AddContactChannelFields|component.AddContactNameField",
+      "text": "component.AddContactNameField",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0013617579730813164
+      },
+      "probabilities": {
+        "yes": 0.0013617579730813164,
+        "no": 0.9986382420269186
+      },
+      "confidence": 0.9986382420269186,
+      "latencyMs": 426,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 599
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.AppShell|component.StatePanel",
+      "text": "component.StatePanel",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0019259019149985518
+      },
+      "probabilities": {
+        "yes": 0.0019259019149985518,
+        "no": 0.9980740980850015
+      },
+      "confidence": 0.9980740980850015,
+      "latencyMs": 324,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 457
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.ConnectionPanel|component.GoalPanel",
+      "text": "component.GoalPanel",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0010184858240124745
+      },
+      "probabilities": {
+        "yes": 0.0010184858240124745,
+        "no": 0.9989815141759876
+      },
+      "confidence": 0.9989815141759876,
+      "latencyMs": 238,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 543
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.ConnectionPanel|component.PersonActionBar",
+      "text": "component.PersonActionBar",
+      "answer": {
+        "type": "noul",
+        "noul": 0.013025088235332967
+      },
+      "probabilities": {
+        "yes": 0.013025088235332967,
+        "no": 0.986974911764667
+      },
+      "confidence": 0.986974911764667,
+      "latencyMs": 270,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 537
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.ConnectionPanel|component.PrivateNotes",
+      "text": "component.PrivateNotes",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0008584512178662412
+      },
+      "probabilities": {
+        "yes": 0.0008584512178662412,
+        "no": 0.9991415487821338
+      },
+      "confidence": 0.9991415487821338,
+      "latencyMs": 237,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 542
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.EmptyState|component.SuggestionCard",
+      "text": "component.SuggestionCard",
+      "answer": {
+        "type": "noul",
+        "noul": 0.05054540219068531
+      },
+      "probabilities": {
+        "yes": 0.05054540219068531,
+        "no": 0.9494545978093147
+      },
+      "confidence": 0.9494545978093147,
+      "latencyMs": 240,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 604
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.EventDateTimeField|component.EventNoteField",
+      "text": "component.EventNoteField",
+      "answer": {
+        "type": "noul",
+        "noul": 0.000584847295973717
+      },
+      "probabilities": {
+        "yes": 0.000584847295973717,
+        "no": 0.9994151527040263
+      },
+      "confidence": 0.9994151527040263,
+      "latencyMs": 246,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 575
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.ErrorSummary|component.StatePanel",
+      "text": "component.StatePanel",
+      "answer": {
+        "type": "noul",
+        "noul": 0.002834540225365912
+      },
+      "probabilities": {
+        "yes": 0.002834540225365912,
+        "no": 0.9971654597746341
+      },
+      "confidence": 0.9971654597746341,
+      "latencyMs": 344,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 453
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.EventDateTimeField|component.MetGoalCheckbox",
+      "text": "component.MetGoalCheckbox",
+      "answer": {
+        "type": "noul",
+        "noul": 0.00044633081371205617
+      },
+      "probabilities": {
+        "yes": 0.00044633081371205617,
+        "no": 0.999553669186288
+      },
+      "confidence": 0.999553669186288,
+      "latencyMs": 313,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 588
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.EventNoteField|component.MetGoalCheckbox",
+      "text": "component.MetGoalCheckbox",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0007424169083346235
+      },
+      "probabilities": {
+        "yes": 0.0007424169083346235,
+        "no": 0.9992575830916653
+      },
+      "confidence": 0.9992575830916653,
+      "latencyMs": 299,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 580
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.GoalDepthField|component.GoalIntervalField",
+      "text": "component.GoalIntervalField",
+      "answer": {
+        "type": "noul",
+        "noul": 0.000360889529500798
+      },
+      "probabilities": {
+        "yes": 0.000360889529500798,
+        "no": 0.9996391104704992
+      },
+      "confidence": 0.9996391104704992,
+      "latencyMs": 233,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 598
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.GoalForm|component.SchedulePreview",
+      "text": "component.SchedulePreview",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0028730242359883604
+      },
+      "probabilities": {
+        "yes": 0.0028730242359883604,
+        "no": 0.9971269757640117
+      },
+      "confidence": 0.9971269757640117,
+      "latencyMs": 241,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 548
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.GoalPanel|component.PrivateNotes",
+      "text": "component.PrivateNotes",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0004092735733058524
+      },
+      "probabilities": {
+        "yes": 0.0004092735733058524,
+        "no": 0.9995907264266941
+      },
+      "confidence": 0.9995907264266941,
+      "latencyMs": 241,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 547
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.GoalPanel|component.PersonActionBar",
+      "text": "component.PersonActionBar",
+      "answer": {
+        "type": "noul",
+        "noul": 0.005369264353029361
+      },
+      "probabilities": {
+        "yes": 0.005369264353029361,
+        "no": 0.9946307356469707
+      },
+      "confidence": 0.9946307356469707,
+      "latencyMs": 296,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 542
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.InvitePreview|component.UnavailablePanel",
+      "text": "component.UnavailablePanel",
+      "answer": {
+        "type": "noul",
+        "noul": 0.10424850478178967
+      },
+      "probabilities": {
+        "yes": 0.10424850478178967,
+        "no": 0.8957514952182103
+      },
+      "confidence": 0.8957514952182103,
+      "latencyMs": 321,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 533
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.PersonActionBar|component.PrivateNotes",
+      "text": "component.PrivateNotes",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0014235526215883153
+      },
+      "probabilities": {
+        "yes": 0.0014235526215883153,
+        "no": 0.9985764473784117
+      },
+      "confidence": 0.9985764473784117,
+      "latencyMs": 237,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 542
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.PrivacyLink|component.SignInForm",
+      "text": "component.SignInForm",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0021037791773137597
+      },
+      "probabilities": {
+        "yes": 0.0021037791773137597,
+        "no": 0.9978962208226863
+      },
+      "confidence": 0.9978962208226863,
+      "latencyMs": 236,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 503
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "component.SuggestionCollection|component.TodayControls",
+      "text": "component.TodayControls",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9833380850547154
+      },
+      "probabilities": {
+        "yes": 0.9833380850547154,
+        "no": 0.016661914945284573
+      },
+      "confidence": 0.9833380850547154,
+      "latencyMs": 401,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 557
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "entity.Account|policy.ownerOnly",
+      "text": "policy.ownerOnly",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0018313532321271974
+      },
+      "probabilities": {
+        "yes": 0.0018313532321271974,
+        "no": 0.9981686467678728
+      },
+      "confidence": 0.9981686467678728,
+      "latencyMs": 254,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 525
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "entity.Block|policy.revocation",
+      "text": "policy.revocation",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0041938776305705805
+      },
+      "probabilities": {
+        "yes": 0.0041938776305705805,
+        "no": 0.9958061223694294
+      },
+      "confidence": 0.9958061223694294,
+      "latencyMs": 239,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 516
+    },
+    {
+      "fixture": "artyfact",
+      "question": "criterion.unfalsifiable",
+      "subject": "C.webapp.screen.people",
+      "text": "Refines C.webapp.screen.exact for loaded, empty, loading, error and dialog states",
+      "answer": {
+        "type": "noul",
+        "noul": 0.2851948112456406
+      },
+      "probabilities": {
+        "yes": 0.2851948112456406,
+        "no": 0.7148051887543594
+      },
+      "confidence": 0.7148051887543594,
+      "latencyMs": 2525,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 284
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "entity.ContactEvent|policy.ownerOnly",
+      "text": "policy.ownerOnly",
+      "answer": {
+        "type": "noul",
+        "noul": 0.002258905178470539
+      },
+      "probabilities": {
+        "yes": 0.002258905178470539,
+        "no": 0.9977410948215295
+      },
+      "confidence": 0.9977410948215295,
+      "latencyMs": 239,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 531
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "entity.Connection|policy.pairConsent",
+      "text": "policy.pairConsent",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0032070361264803105
+      },
+      "probabilities": {
+        "yes": 0.0032070361264803105,
+        "no": 0.9967929638735197
+      },
+      "confidence": 0.9967929638735197,
+      "latencyMs": 268,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 527
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "entity.ConnectionInvite|policy.pairConsent",
+      "text": "policy.pairConsent",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0016155500414986729
+      },
+      "probabilities": {
+        "yes": 0.0016155500414986729,
+        "no": 0.9983844499585013
+      },
+      "confidence": 0.9983844499585013,
+      "latencyMs": 314,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 528
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "entity.ContactRecord|policy.ownerOnly",
+      "text": "policy.ownerOnly",
+      "answer": {
+        "type": "noul",
+        "noul": 0.000933212734230959
+      },
+      "probabilities": {
+        "yes": 0.000933212734230959,
+        "no": 0.999066787265769
+      },
+      "confidence": 0.999066787265769,
+      "latencyMs": 294,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 554
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "entity.NotificationJob|policy.ownerOnly",
+      "text": "policy.ownerOnly",
+      "answer": {
+        "type": "noul",
+        "noul": 0.004639849506968022
+      },
+      "probabilities": {
+        "yes": 0.004639849506968022,
+        "no": 0.995360150493032
+      },
+      "confidence": 0.995360150493032,
+      "latencyMs": 265,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 528
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "entity.RelationshipGoal|policy.ownerOnly",
+      "text": "policy.ownerOnly",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0002644913327598006
+      },
+      "probabilities": {
+        "yes": 0.0002644913327598006,
+        "no": 0.9997355086672401
+      },
+      "confidence": 0.9997355086672401,
+      "latencyMs": 256,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 535
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "entity.Suggestion|policy.ownerOnly",
+      "text": "policy.ownerOnly",
+      "answer": {
+        "type": "noul",
+        "noul": 0.005002446027136873
+      },
+      "probabilities": {
+        "yes": 0.005002446027136873,
+        "no": 0.9949975539728632
+      },
+      "confidence": 0.9949975539728632,
+      "latencyMs": 249,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 530
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.connection.revoke|policy.revocation",
+      "text": "policy.revocation",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0038177638939983047
+      },
+      "probabilities": {
+        "yes": 0.0038177638939983047,
+        "no": 0.9961822361060017
+      },
+      "confidence": 0.9961822361060017,
+      "latencyMs": 233,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 528
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.contact.log|policy.authentication",
+      "text": "policy.authentication",
+      "answer": {
+        "type": "noul",
+        "noul": 0.002580589378280807
+      },
+      "probabilities": {
+        "yes": 0.002580589378280807,
+        "no": 0.9974194106217192
+      },
+      "confidence": 0.9974194106217192,
+      "latencyMs": 245,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 531
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.contact.log|policy.ownerOnly",
+      "text": "policy.ownerOnly",
+      "answer": {
+        "type": "noul",
+        "noul": 0.010668382914530924
+      },
+      "probabilities": {
+        "yes": 0.010668382914530924,
+        "no": 0.9893316170854691
+      },
+      "confidence": 0.9893316170854691,
+      "latencyMs": 276,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 536
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.connection.revoke|policy.authentication",
+      "text": "policy.authentication",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0039936243354585545
+      },
+      "probabilities": {
+        "yes": 0.0039936243354585545,
+        "no": 0.9960063756645414
+      },
+      "confidence": 0.9960063756645414,
+      "latencyMs": 351,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 528
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.contact.save|policy.authentication",
+      "text": "policy.authentication",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0030114301611033913
+      },
+      "probabilities": {
+        "yes": 0.0030114301611033913,
+        "no": 0.9969885698388966
+      },
+      "confidence": 0.9969885698388966,
+      "latencyMs": 290,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 526
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.contact.save|policy.ownerOnly",
+      "text": "policy.ownerOnly",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0009254582165254833
+      },
+      "probabilities": {
+        "yes": 0.0009254582165254833,
+        "no": 0.9990745417834745
+      },
+      "confidence": 0.9990745417834745,
+      "latencyMs": 280,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 531
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.data.delete|policy.authentication",
+      "text": "policy.authentication",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0029717330887613544
+      },
+      "probabilities": {
+        "yes": 0.0029717330887613544,
+        "no": 0.9970282669112387
+      },
+      "confidence": 0.9970282669112387,
+      "latencyMs": 248,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 536
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.data.delete|policy.ownerOnly",
+      "text": "policy.ownerOnly",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0020442178269221983
+      },
+      "probabilities": {
+        "yes": 0.0020442178269221983,
+        "no": 0.9979557821730778
+      },
+      "confidence": 0.9979557821730778,
+      "latencyMs": 241,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 541
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.data.export|policy.ownerOnly",
+      "text": "policy.ownerOnly",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0018182383938599158
+      },
+      "probabilities": {
+        "yes": 0.0018182383938599158,
+        "no": 0.9981817616061401
+      },
+      "confidence": 0.9981817616061401,
+      "latencyMs": 226,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 530
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.data.export|policy.authentication",
+      "text": "policy.authentication",
+      "answer": {
+        "type": "noul",
+        "noul": 0.002255821550885942
+      },
+      "probabilities": {
+        "yes": 0.002255821550885942,
+        "no": 0.997744178449114
+      },
+      "confidence": 0.997744178449114,
+      "latencyMs": 229,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 525
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.goal.save|policy.ownerOnly",
+      "text": "policy.ownerOnly",
+      "answer": {
+        "type": "noul",
+        "noul": 0.29281187557395755
+      },
+      "probabilities": {
+        "yes": 0.29281187557395755,
+        "no": 0.7071881244260425
+      },
+      "confidence": 0.7071881244260425,
+      "latencyMs": 239,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 543
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.goal.save|policy.authentication",
+      "text": "policy.authentication",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0018022737497991547
+      },
+      "probabilities": {
+        "yes": 0.0018022737497991547,
+        "no": 0.9981977262502009
+      },
+      "confidence": 0.9981977262502009,
+      "latencyMs": 285,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 538
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.invite.accept|policy.authentication",
+      "text": "policy.authentication",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0015602441139377537
+      },
+      "probabilities": {
+        "yes": 0.0015602441139377537,
+        "no": 0.9984397558860623
+      },
+      "confidence": 0.9984397558860623,
+      "latencyMs": 296,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 533
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.invite.accept|policy.pairConsent",
+      "text": "policy.pairConsent",
+      "answer": {
+        "type": "noul",
+        "noul": 0.001440509127113361
+      },
+      "probabilities": {
+        "yes": 0.001440509127113361,
+        "no": 0.9985594908728866
+      },
+      "confidence": 0.9985594908728866,
+      "latencyMs": 296,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 537
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.invite.create|policy.authentication",
+      "text": "policy.authentication",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0037648906806893073
+      },
+      "probabilities": {
+        "yes": 0.0037648906806893073,
+        "no": 0.9962351093193107
+      },
+      "confidence": 0.9962351093193107,
+      "latencyMs": 290,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 537
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "policy.authentication|screen.invitation",
+      "text": "screen.invitation",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0014982362963696727
+      },
+      "probabilities": {
+        "yes": 0.0014982362963696727,
+        "no": 0.9985017637036303
+      },
+      "confidence": 0.9985017637036303,
+      "latencyMs": 228,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 536
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "operation.invite.create|policy.pairConsent",
+      "text": "policy.pairConsent",
+      "answer": {
+        "type": "noul",
+        "noul": 0.004061379960564916
+      },
+      "probabilities": {
+        "yes": 0.004061379960564916,
+        "no": 0.9959386200394351
+      },
+      "confidence": 0.9959386200394351,
+      "latencyMs": 427,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 541
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "policy.authentication|screen.signin",
+      "text": "screen.signin",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0020537963546645487
+      },
+      "probabilities": {
+        "yes": 0.0020537963546645487,
+        "no": 0.9979462036453355
+      },
+      "confidence": 0.9979462036453355,
+      "latencyMs": 264,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 521
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "policy.ownerOnly|screen.goal",
+      "text": "screen.goal",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0016129765263490732
+      },
+      "probabilities": {
+        "yes": 0.0016129765263490732,
+        "no": 0.9983870234736509
+      },
+      "confidence": 0.9983870234736509,
+      "latencyMs": 224,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 547
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "policy.ownerOnly|screen.logContact",
+      "text": "screen.logContact",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0019767239268323905
+      },
+      "probabilities": {
+        "yes": 0.0019767239268323905,
+        "no": 0.9980232760731677
+      },
+      "confidence": 0.9980232760731677,
+      "latencyMs": 297,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 553
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "policy.ownerOnly|screen.people",
+      "text": "screen.people",
+      "answer": {
+        "type": "noul",
+        "noul": 0.014594658441332595
+      },
+      "probabilities": {
+        "yes": 0.014594658441332595,
+        "no": 0.9854053415586674
+      },
+      "confidence": 0.9854053415586674,
+      "latencyMs": 297,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 554
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "policy.ownerOnly|screen.person",
+      "text": "screen.person",
+      "answer": {
+        "type": "noul",
+        "noul": 0.008065584387729346
+      },
+      "probabilities": {
+        "yes": 0.008065584387729346,
+        "no": 0.9919344156122707
+      },
+      "confidence": 0.9919344156122707,
+      "latencyMs": 262,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 552
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "policy.ownerOnly|screen.settings",
+      "text": "screen.settings",
+      "answer": {
+        "type": "noul",
+        "noul": 0.001635409211287328
+      },
+      "probabilities": {
+        "yes": 0.001635409211287328,
+        "no": 0.9983645907887126
+      },
+      "confidence": 0.9983645907887126,
+      "latencyMs": 230,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 532
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "policy.ownerOnly|screen.today",
+      "text": "screen.today",
+      "answer": {
+        "type": "noul",
+        "noul": 0.003194087649570457
+      },
+      "probabilities": {
+        "yes": 0.003194087649570457,
+        "no": 0.9968059123504296
+      },
+      "confidence": 0.9968059123504296,
+      "latencyMs": 233,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 550
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.system.concurrency",
+      "text": "Concurrent candidates touching the same subjects, journeys or criteria are reported as file, soft-semantic or hard-semantic conflicts before any of them is promoted",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9698594640134243
+      },
+      "probabilities": {
+        "yes": 0.9698594640134243,
+        "no": 0.030140535986575734
+      },
+      "confidence": 0.9698594640134243,
+      "latencyMs": 231,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 315
+    },
+    {
+      "fixture": "artyfact",
+      "question": "pair.contradiction",
+      "subject": "policy.pairConsent|screen.invitation",
+      "text": "screen.invitation",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0024378023538370315
+      },
+      "probabilities": {
+        "yes": 0.0024378023538370315,
+        "no": 0.9975621976461629
+      },
+      "confidence": 0.9975621976461629,
+      "latencyMs": 259,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 538
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.system.autonomy",
+      "text": "Require owner-only goals and notes, explicit consent, revocation and notification bounds across enabled scope. A coverage hook must resolve these obligations to C.webapp.private.owner, C.webapp.connection.consent, C.webapp.revocation.current and C.webapp.prompts.bounded",
+      "answer": {
+        "type": "noul",
+        "noul": 0.8836475619274052
+      },
+      "probabilities": {
+        "yes": 0.8836475619274052,
+        "no": 0.11635243807259477
+      },
+      "confidence": 0.8836475619274052,
+      "latencyMs": 293,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 360
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.system.promotion",
+      "text": "Require the expected current base, authorized Evolution scope, exact final Artifact manifest and fresh required System and Thing evidence. A stale base or evidence for a different candidate blocks promotion; composed candidates require new evidence",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9578906967956928
+      },
+      "probabilities": {
+        "yes": 0.9578906967956928,
+        "no": 0.04210930320430717
+      },
+      "confidence": 0.9578906967956928,
+      "latencyMs": 291,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 331
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.system.readiness",
+      "text": "Require every enabled specification requirement to resolve to a protected criterion and executable hook, with Kits and versions pinned. Excluded later modules do not block the core; an enabled module with missing contracts or hooks does",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9730333247263562
+      },
+      "probabilities": {
+        "yes": 0.9730333247263562,
+        "no": 0.026966675273643825
+      },
+      "confidence": 0.9730333247263562,
+      "latencyMs": 264,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 333
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.system.structure",
+      "text": "Require exactly one app Thing, thing.webapp, with a specification and artifact.webapp binding; require Purpose, Externals, Theory and ontology references. Reject dangling references or domain types incorrectly declared as independently realized Things",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9821700112402091
+      },
+      "probabilities": {
+        "yes": 0.9821700112402091,
+        "no": 0.017829988759790916
+      },
+      "confidence": 0.9821700112402091,
+      "latencyMs": 252,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 337
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.system.purpose",
+      "text": "Require T1–T5 to link activities, intended outcomes, measures and limitations to P1. Model validation rejects missing measures or engagement substituted for wanted contact; pilot outcome hooks record support, challenge or unknown separately from conformance",
+      "answer": {
+        "type": "noul",
+        "noul": 0.8824015497852129
+      },
+      "probabilities": {
+        "yes": 0.8824015497852129,
+        "no": 0.1175984502147871
+      },
+      "confidence": 0.8824015497852129,
+      "latencyMs": 366,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 342
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.system.topology",
+      "text": "Require two-endpoint pairs, one target per outgoing direct action, private incoming aggregation and disabled group scope. Model validation rejects recipient arrays or an enabled digest without an accepted publication contract; C.webapp.outgoing.single supplies implementation evidence",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9665560921178061
+      },
+      "probabilities": {
+        "yes": 0.9665560921178061,
+        "no": 0.03344390788219387
+      },
+      "confidence": 0.9665560921178061,
+      "latencyMs": 246,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 341
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.connection.consent",
+      "text": "Invite fixture covers acceptance, expiry, replay, self-connection, block and simultaneous redemption",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9665700843222169
+      },
+      "probabilities": {
+        "yes": 0.9665700843222169,
+        "no": 0.033429915677783084
+      },
+      "confidence": 0.9665700843222169,
+      "latencyMs": 249,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 286
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.contact.save",
+      "text": "Validates nonblank name, preserves input on failure and saves only an owned record; refines S.webapp.operations coverage",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9478277972763
+      },
+      "probabilities": {
+        "yes": 0.9478277972763,
+        "no": 0.052172202723700045
+      },
+      "confidence": 0.9478277972763,
+      "latencyMs": 235,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 299
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.contact.storage",
+      "text": "Contact storage behaves the way a reasonable person would expect it to",
+      "answer": {
+        "type": "noul",
+        "noul": 0.11474938212014582
+      },
+      "probabilities": {
+        "yes": 0.11474938212014582,
+        "no": 0.8852506178798542
+      },
+      "confidence": 0.8852506178798542,
+      "latencyMs": 231,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 275
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.health",
+      "text": "The running app answers its health endpoint.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9934244730264662
+      },
+      "probabilities": {
+        "yes": 0.9934244730264662,
+        "no": 0.006575526973533807
+      },
+      "confidence": 0.9934244730264662,
+      "latencyMs": 268,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 267
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.exists",
+      "text": "The app has the files a deployable Worker needs.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9523645589463551
+      },
+      "probabilities": {
+        "yes": 0.9523645589463551,
+        "no": 0.04763544105364492
+      },
+      "confidence": 0.9523645589463551,
+      "latencyMs": 276,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 272
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.lifecycle.data",
+      "text": "Owner export excludes others' data. Account deletion revokes sessions and jobs and meets live-data purge and retention contracts",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9830902587869244
+      },
+      "probabilities": {
+        "yes": 0.9830902587869244,
+        "no": 0.016909741213075646
+      },
+      "confidence": 0.9830902587869244,
+      "latencyMs": 238,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 295
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.digest.private",
+      "text": "Later digest specification; subscriber permissions, future-only editions, no shared replies and blocked or unsubscribed access. Applicable only after the module is enabled",
+      "answer": {
+        "type": "noul",
+        "noul": 0.7859694899471064
+      },
+      "probabilities": {
+        "yes": 0.7859694899471064,
+        "no": 0.21403051005289364
+      },
+      "confidence": 0.7859694899471064,
+      "latencyMs": 300,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 312
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.photo.approved",
+      "text": "Later photo specification; no upload or send before explicit file and recipient approval. Declined permission must leave the manual app usable. Applicable only after the module is enabled",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9619564255448239
+      },
+      "probabilities": {
+        "yes": 0.9619564255448239,
+        "no": 0.03804357445517614
+      },
+      "confidence": 0.9619564255448239,
+      "latencyMs": 227,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 321
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.private.owner",
+      "text": "API fixture proves one user cannot read or mutate another's contacts, notes, goals or logs. Include guessed IDs and export",
+      "answer": {
+        "type": "noul",
+        "noul": 0.980555465010944
+      },
+      "probabilities": {
+        "yes": 0.980555465010944,
+        "no": 0.01944453498905596
+      },
+      "confidence": 0.980555465010944,
+      "latencyMs": 234,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 300
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.prompts.bounded",
+      "text": "Six due goals yield exactly five ordered cards. Duplicate jobs must not duplicate prompts or owner reminders",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9867782864773731
+      },
+      "probabilities": {
+        "yes": 0.9867782864773731,
+        "no": 0.01322171352262691
+      },
+      "confidence": 0.9867782864773731,
+      "latencyMs": 234,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 290
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.outgoing.single",
+      "text": "Direct-action schema accepts exactly one target and rejects recipient arrays and group endpoints. Publication requires a separately accepted contract",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9752318523383456
+      },
+      "probabilities": {
+        "yes": 0.9752318523383456,
+        "no": 0.02476814766165436
+      },
+      "confidence": 0.9752318523383456,
+      "latencyMs": 262,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 295
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.revocation.current",
+      "text": "Revoke access after a job is queued, then retry dispatch and access. No new authorized sharing may follow revocation",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9849750067422295
+      },
+      "probabilities": {
+        "yes": 0.9849750067422295,
+        "no": 0.015024993257770514
+      },
+      "confidence": 0.9849750067422295,
+      "latencyMs": 294,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 299
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.schedule.correct",
+      "text": "Fixed-clock fixtures cover zero logs, qualification, interval and depth changes, time zones, DST, snooze, pause and deleted events",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9538557030177237
+      },
+      "probabilities": {
+        "yes": 0.9538557030177237,
+        "no": 0.04614429698227629
+      },
+      "confidence": 0.9538557030177237,
+      "latencyMs": 270,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 303
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.screen.people",
+      "text": "Refines C.webapp.screen.exact for loaded, empty, loading, error and dialog states",
+      "answer": {
+        "type": "noul",
+        "noul": 0.663513532807754
+      },
+      "probabilities": {
+        "yes": 0.663513532807754,
+        "no": 0.33648646719224595
+      },
+      "confidence": 0.663513532807754,
+      "latencyMs": 261,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 289
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "C.webapp.screen.exact",
+      "text": "Protected browser fixture checks loaded, empty, loading, error and validation compositions, login continuation and keyboard actions",
+      "answer": {
+        "type": "noul",
+        "noul": 0.948874110637739
+      },
+      "probabilities": {
+        "yes": 0.948874110637739,
+        "no": 0.051125889362261034
+      },
+      "confidence": 0.948874110637739,
+      "latencyMs": 300,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 292
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "T3",
+      "text": "Contact feels more worthwhile",
+      "answer": {
+        "type": "noul",
+        "noul": 0.027532680825300342
+      },
+      "probabilities": {
+        "yes": 0.027532680825300342,
+        "no": 0.9724673191746996
+      },
+      "confidence": 0.9724673191746996,
+      "latencyMs": 228,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 255
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "T2",
+      "text": "Relationships become richer in ways that matter to each person",
+      "answer": {
+        "type": "noul",
+        "noul": 0.03015010066120391
+      },
+      "probabilities": {
+        "yes": 0.03015010066120391,
+        "no": 0.9698498993387961
+      },
+      "confidence": 0.9698498993387961,
+      "latencyMs": 250,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 269
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "T1",
+      "text": "Wanted contact happens more reliably",
+      "answer": {
+        "type": "noul",
+        "noul": 0.40309844454535526
+      },
+      "probabilities": {
+        "yes": 0.40309844454535526,
+        "no": 0.5969015554546447
+      },
+      "confidence": 0.5969015554546447,
+      "latencyMs": 307,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 259
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "T4",
+      "text": "Less unwanted pressure",
+      "answer": {
+        "type": "noul",
+        "noul": 0.11576796763013976
+      },
+      "probabilities": {
+        "yes": 0.11576796763013976,
+        "no": 0.8842320323698603
+      },
+      "confidence": 0.8842320323698603,
+      "latencyMs": 278,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 253
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.unmeasurable",
+      "subject": "T5",
+      "text": "Readers have context that supports a personal follow-up",
+      "answer": {
+        "type": "noul",
+        "noul": 0.42526487998620655
+      },
+      "probabilities": {
+        "yes": 0.42526487998620655,
+        "no": 0.5747351200137935
+      },
+      "confidence": 0.5747351200137935,
+      "latencyMs": 297,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 267
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.system.autonomy",
+      "text": "Require owner-only goals and notes, explicit consent, revocation and notification bounds across enabled scope. A coverage hook must resolve these obligations to C.webapp.private.owner, C.webapp.connection.consent, C.webapp.revocation.current and C.webapp.prompts.bounded",
+      "answer": {
+        "type": "noul",
+        "noul": 0.25282914096768044
+      },
+      "probabilities": {
+        "yes": 0.25282914096768044,
+        "no": 0.7471708590323196
+      },
+      "confidence": 0.7471708590323196,
+      "latencyMs": 276,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 387
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.system.concurrency",
+      "text": "Concurrent candidates touching the same subjects, journeys or criteria are reported as file, soft-semantic or hard-semantic conflicts before any of them is promoted",
+      "answer": {
+        "type": "noul",
+        "noul": 0.24967050328708962
+      },
+      "probabilities": {
+        "yes": 0.24967050328708962,
+        "no": 0.7503294967129104
+      },
+      "confidence": 0.7503294967129104,
+      "latencyMs": 235,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 342
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.system.promotion",
+      "text": "Require the expected current base, authorized Evolution scope, exact final Artifact manifest and fresh required System and Thing evidence. A stale base or evidence for a different candidate blocks promotion; composed candidates require new evidence",
+      "answer": {
+        "type": "noul",
+        "noul": 0.16581934839166046
+      },
+      "probabilities": {
+        "yes": 0.16581934839166046,
+        "no": 0.8341806516083395
+      },
+      "confidence": 0.8341806516083395,
+      "latencyMs": 245,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 358
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.system.readiness",
+      "text": "Require every enabled specification requirement to resolve to a protected criterion and executable hook, with Kits and versions pinned. Excluded later modules do not block the core; an enabled module with missing contracts or hooks does",
+      "answer": {
+        "type": "noul",
+        "noul": 0.07827190166716143
+      },
+      "probabilities": {
+        "yes": 0.07827190166716143,
+        "no": 0.9217280983328385
+      },
+      "confidence": 0.9217280983328385,
+      "latencyMs": 255,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 360
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.system.topology",
+      "text": "Require two-endpoint pairs, one target per outgoing direct action, private incoming aggregation and disabled group scope. Model validation rejects recipient arrays or an enabled digest without an accepted publication contract; C.webapp.outgoing.single supplies implementation evidence",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0626414975365487
+      },
+      "probabilities": {
+        "yes": 0.0626414975365487,
+        "no": 0.9373585024634513
+      },
+      "confidence": 0.9373585024634513,
+      "latencyMs": 235,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 368
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.system.structure",
+      "text": "Require exactly one app Thing, thing.webapp, with a specification and artifact.webapp binding; require Purpose, Externals, Theory and ontology references. Reject dangling references or domain types incorrectly declared as independently realized Things",
+      "answer": {
+        "type": "noul",
+        "noul": 0.04304308564643308
+      },
+      "probabilities": {
+        "yes": 0.04304308564643308,
+        "no": 0.9569569143535669
+      },
+      "confidence": 0.9569569143535669,
+      "latencyMs": 275,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 364
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.system.purpose",
+      "text": "Require T1–T5 to link activities, intended outcomes, measures and limitations to P1. Model validation rejects missing measures or engagement substituted for wanted contact; pilot outcome hooks record support, challenge or unknown separately from conformance",
+      "answer": {
+        "type": "noul",
+        "noul": 0.2591615168580204
+      },
+      "probabilities": {
+        "yes": 0.2591615168580204,
+        "no": 0.7408384831419796
+      },
+      "confidence": 0.7408384831419796,
+      "latencyMs": 523,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 369
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.connection.consent",
+      "text": "Invite fixture covers acceptance, expiry, replay, self-connection, block and simultaneous redemption",
+      "answer": {
+        "type": "noul",
+        "noul": 0.13756731677133957
+      },
+      "probabilities": {
+        "yes": 0.13756731677133957,
+        "no": 0.8624326832286604
+      },
+      "confidence": 0.8624326832286604,
+      "latencyMs": 268,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 313
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.contact.storage",
+      "text": "Contact storage behaves the way a reasonable person would expect it to",
+      "answer": {
+        "type": "noul",
+        "noul": 0.987609332809468
+      },
+      "probabilities": {
+        "yes": 0.987609332809468,
+        "no": 0.012390667190531945
+      },
+      "confidence": 0.987609332809468,
+      "latencyMs": 240,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 302
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.contact.save",
+      "text": "Validates nonblank name, preserves input on failure and saves only an owned record; refines S.webapp.operations coverage",
+      "answer": {
+        "type": "noul",
+        "noul": 0.06949257630403506
+      },
+      "probabilities": {
+        "yes": 0.06949257630403506,
+        "no": 0.930507423695965
+      },
+      "confidence": 0.930507423695965,
+      "latencyMs": 268,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 326
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.exists",
+      "text": "The app has the files a deployable Worker needs.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.34712245751684584
+      },
+      "probabilities": {
+        "yes": 0.34712245751684584,
+        "no": 0.6528775424831541
+      },
+      "confidence": 0.6528775424831541,
+      "latencyMs": 238,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 299
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.health",
+      "text": "The running app answers its health endpoint.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.05725520518204662
+      },
+      "probabilities": {
+        "yes": 0.05725520518204662,
+        "no": 0.9427447948179534
+      },
+      "confidence": 0.9427447948179534,
+      "latencyMs": 233,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 294
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.lifecycle.data",
+      "text": "Owner export excludes others' data. Account deletion revokes sessions and jobs and meets live-data purge and retention contracts",
+      "answer": {
+        "type": "noul",
+        "noul": 0.18492427577649664
+      },
+      "probabilities": {
+        "yes": 0.18492427577649664,
+        "no": 0.8150757242235034
+      },
+      "confidence": 0.8150757242235034,
+      "latencyMs": 269,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 322
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.digest.private",
+      "text": "Later digest specification; subscriber permissions, future-only editions, no shared replies and blocked or unsubscribed access. Applicable only after the module is enabled",
+      "answer": {
+        "type": "noul",
+        "noul": 0.6929953270698928
+      },
+      "probabilities": {
+        "yes": 0.6929953270698928,
+        "no": 0.30700467293010725
+      },
+      "confidence": 0.6929953270698928,
+      "latencyMs": 366,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 339
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.outgoing.single",
+      "text": "Direct-action schema accepts exactly one target and rejects recipient arrays and group endpoints. Publication requires a separately accepted contract",
+      "answer": {
+        "type": "noul",
+        "noul": 0.06441777407927822
+      },
+      "probabilities": {
+        "yes": 0.06441777407927822,
+        "no": 0.9355822259207218
+      },
+      "confidence": 0.9355822259207218,
+      "latencyMs": 287,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 322
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.private.owner",
+      "text": "API fixture proves one user cannot read or mutate another's contacts, notes, goals or logs. Include guessed IDs and export",
+      "answer": {
+        "type": "noul",
+        "noul": 0.05420693990670045
+      },
+      "probabilities": {
+        "yes": 0.05420693990670045,
+        "no": 0.9457930600932996
+      },
+      "confidence": 0.9457930600932996,
+      "latencyMs": 249,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 327
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.photo.approved",
+      "text": "Later photo specification; no upload or send before explicit file and recipient approval. Declined permission must leave the manual app usable. Applicable only after the module is enabled",
+      "answer": {
+        "type": "noul",
+        "noul": 0.12606148382741175
+      },
+      "probabilities": {
+        "yes": 0.12606148382741175,
+        "no": 0.8739385161725882
+      },
+      "confidence": 0.8739385161725882,
+      "latencyMs": 287,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 348
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.prompts.bounded",
+      "text": "Six due goals yield exactly five ordered cards. Duplicate jobs must not duplicate prompts or owner reminders",
+      "answer": {
+        "type": "noul",
+        "noul": 0.1668177156467913
+      },
+      "probabilities": {
+        "yes": 0.1668177156467913,
+        "no": 0.8331822843532087
+      },
+      "confidence": 0.8331822843532087,
+      "latencyMs": 240,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 317
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.screen.exact",
+      "text": "Protected browser fixture checks loaded, empty, loading, error and validation compositions, login continuation and keyboard actions",
+      "answer": {
+        "type": "noul",
+        "noul": 0.20394849872746043
+      },
+      "probabilities": {
+        "yes": 0.20394849872746043,
+        "no": 0.7960515012725395
+      },
+      "confidence": 0.7960515012725395,
+      "latencyMs": 228,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 319
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.revocation.current",
+      "text": "Revoke access after a job is queued, then retry dispatch and access. No new authorized sharing may follow revocation",
+      "answer": {
+        "type": "noul",
+        "noul": 0.1452347765033151
+      },
+      "probabilities": {
+        "yes": 0.1452347765033151,
+        "no": 0.8547652234966849
+      },
+      "confidence": 0.8547652234966849,
+      "latencyMs": 308,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 326
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.screen.people",
+      "text": "Refines C.webapp.screen.exact for loaded, empty, loading, error and dialog states",
+      "answer": {
+        "type": "noul",
+        "noul": 0.5708250777005349
+      },
+      "probabilities": {
+        "yes": 0.5708250777005349,
+        "no": 0.4291749222994651
+      },
+      "confidence": 0.5708250777005349,
+      "latencyMs": 255,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 316
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "C.webapp.schedule.correct",
+      "text": "Fixed-clock fixtures cover zero logs, qualification, interval and depth changes, time zones, DST, snooze, pause and deleted events",
+      "answer": {
+        "type": "noul",
+        "noul": 0.08425411396451146
+      },
+      "probabilities": {
+        "yes": 0.08425411396451146,
+        "no": 0.9157458860354886
+      },
+      "confidence": 0.9157458860354886,
+      "latencyMs": 338,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 330
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "GD.connect",
+      "text": "Invitation-based pairs formed by two explicit consents; either party can disconnect or block.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.06193524165984758
+      },
+      "probabilities": {
+        "yes": 0.06193524165984758,
+        "no": 0.9380647583401525
+      },
+      "confidence": 0.9380647583401525,
+      "latencyMs": 293,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 311
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "GD.contacts",
+      "text": "Keep a private contact record before any friend installs the app; optional channel and context.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.5496703619300859
+      },
+      "probabilities": {
+        "yes": 0.5496703619300859,
+        "no": 0.4503296380699141
+      },
+      "confidence": 0.5496703619300859,
+      "latencyMs": 233,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 307
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "GD.goals",
+      "text": "An owner-only goal with an interval and a desired depth",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9039554590134513
+      },
+      "probabilities": {
+        "yes": 0.9039554590134513,
+        "no": 0.09604454098654869
+      },
+      "confidence": 0.9039554590134513,
+      "latencyMs": 262,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 299
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "GD.prompts",
+      "text": "A finite Today view of at most five due suggestions; opening a channel never completes a goal.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0591270074247895
+      },
+      "probabilities": {
+        "yes": 0.0591270074247895,
+        "no": 0.9408729925752105
+      },
+      "confidence": 0.9408729925752105,
+      "latencyMs": 343,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 314
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "GD.updates",
+      "text": "Later digests and photo suggestions; realization deferred while the digest interpretation is unresolved.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.966150722704374
+      },
+      "probabilities": {
+        "yes": 0.966150722704374,
+        "no": 0.033849277295626035
+      },
+      "confidence": 0.966150722704374,
+      "latencyMs": 2336,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 311
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "P1",
+      "text": "Help an individual keep in touch with selected people at a personally meaningful frequency and depth, while respecting both people's autonomy.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9586206184004459
+      },
+      "probabilities": {
+        "yes": 0.9586206184004459,
+        "no": 0.04137938159955412
+      },
+      "confidence": 0.9586206184004459,
+      "latencyMs": 2352,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 314
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "S.webapp.due",
+      "text": "the app must use local calendar dates in the owner's IANA time zone. The anchor must be the latest qualifying event date, or the goal creation date when none exists. dueDate must equal anchor plus intervalDays. A goal must become due when today's date reaches dueDate, unless paused or snoozed until a later date. Revising a goal must not create a ContactEvent. Date and time-zone fixtures must cover daylight-saving changes.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.02123297696224848
+      },
+      "probabilities": {
+        "yes": 0.02123297696224848,
+        "no": 0.9787670230377515
+      },
+      "confidence": 0.9787670230377515,
+      "latencyMs": 2383,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 459
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "S.webapp.operations",
+      "text": "all mutations must authorize the authenticated owner or explicit connected capability at the server, validate inputs and support an idempotency key. Creation must return an immutable ID and version. Reads and writes to another owner's private records must return a non-revealing denial. Concurrent stale-version edits must return conflict without overwriting current data. Each operation row below defines required preconditions and effects.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.06509439256461858
+      },
+      "probabilities": {
+        "yes": 0.06509439256461858,
+        "no": 0.9349056074353814
+      },
+      "confidence": 0.9349056074353814,
+      "latencyMs": 2401,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 429
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "S.webapp.prompts",
+      "text": "Today must return at most five suggestions, ordered by effective due date then stable goal ID. There must be at most one open suggestion per goal version and due cycle. Logging qualifying contact must resolve its suggestion. Snoozing must update its effective due date; pausing must suppress prompts. Blocking a linked counterpart must pause the blocker's corresponding goal and suppress its suggestions. In-app reminders are required. Optional external reminders, when enabled, must be limited to one owner notification per local day containing a link without contact details. Reminder delivery must recheck preferences and cancellations.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.019451318403271838
+      },
+      "probabilities": {
+        "yes": 0.019451318403271838,
+        "no": 0.9805486815967281
+      },
+      "confidence": 0.9805486815967281,
+      "latencyMs": 243,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 503
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "S.webapp.qualification",
+      "text": "an enabled goal must have intervalDays from 1 through 3650 and desiredDepth in light, meaningful or shared-time. These are the owner's labels, not a global quality ranking. A ContactEvent must qualify only when the owner explicitly marks that it met this goal. The app must record the goal ID and desiredDepth at confirmation and count only qualifications matching the current desiredDepth. Changing depth may change which historical events qualify; SchedulePreview must show that effect before saving. Editing or deleting an event must recompute the schedule.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.007525988289193159
+      },
+      "probabilities": {
+        "yes": 0.007525988289193159,
+        "no": 0.9924740117108068
+      },
+      "confidence": 0.9924740117108068,
+      "latencyMs": 307,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 493
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "S.webapp.scope",
+      "text": "the app must provide private contacts, goals, contact logging, invitation-based pair connections, in-app due prompts and settings. Direct in-app messaging, subscriptions, digests, media automation and groups must remain disabled in the core scope. Opening an external channel must require a user gesture; unsupported channels must offer copyable contact details.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.11402250026676256
+      },
+      "probabilities": {
+        "yes": 0.11402250026676256,
+        "no": 0.8859774997332375
+      },
+      "confidence": 0.8859774997332375,
+      "latencyMs": 282,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 406
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "S.webapp.screens",
+      "text": "authenticated screens must share one AppShell containing exactly TopBar, PrimaryNav and RouteOutlet. PrimaryNav must contain Today, People and Settings. Counts below specify required RouteOutlet composition, excluding the shell. All private screens must show one StatePanel for loading or fatal error in place of loaded content. Forms must keep entered values after recoverable validation or network errors and render one ErrorSummary when needed.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.03033329524331849
+      },
+      "probabilities": {
+        "yes": 0.03033329524331849,
+        "no": 0.9696667047566815
+      },
+      "confidence": 0.9696667047566815,
+      "latencyMs": 240,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 434
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "T1",
+      "text": "Wanted contact happens more reliably",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9319929529640911
+      },
+      "probabilities": {
+        "yes": 0.9319929529640911,
+        "no": 0.06800704703590887
+      },
+      "confidence": 0.9319929529640911,
+      "latencyMs": 223,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 286
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "T2",
+      "text": "Relationships become richer in ways that matter to each person",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9937313723956462
+      },
+      "probabilities": {
+        "yes": 0.9937313723956462,
+        "no": 0.00626862760435376
+      },
+      "confidence": 0.9937313723956462,
+      "latencyMs": 449,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 296
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "T3",
+      "text": "Contact feels more worthwhile",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9822945330959975
+      },
+      "probabilities": {
+        "yes": 0.9822945330959975,
+        "no": 0.017705466904002543
+      },
+      "confidence": 0.9822945330959975,
+      "latencyMs": 301,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 282
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "T4",
+      "text": "Less unwanted pressure",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9732862544364286
+      },
+      "probabilities": {
+        "yes": 0.9732862544364286,
+        "no": 0.026713745563571423
+      },
+      "confidence": 0.9732862544364286,
+      "latencyMs": 227,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 280
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "T5",
+      "text": "Readers have context that supports a personal follow-up",
+      "answer": {
+        "type": "noul",
+        "noul": 0.8925906817314126
+      },
+      "probabilities": {
+        "yes": 0.8925906817314126,
+        "no": 0.10740931826858735
+      },
+      "confidence": 0.8925906817314126,
+      "latencyMs": 235,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 294
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "binding.d1",
+      "text": "Template placeholder, superseded by binding.contactsStore",
+      "answer": {
+        "type": "noul",
+        "noul": 0.08336863117178772
+      },
+      "probabilities": {
+        "yes": 0.08336863117178772,
+        "no": 0.9166313688282123
+      },
+      "confidence": 0.9166313688282123,
+      "latencyMs": 290,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 452
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "S.webapp.authentication",
+      "text": "sensitive token routes must not leak tokens through analytics or referrers. Login continuation must preserve a validated invitation without consuming it. A pinned authentication Kit must specify the identity provider and its callback routes before realization.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0632834207939586
+      },
+      "probabilities": {
+        "yes": 0.0632834207939586,
+        "no": 0.9367165792060415
+      },
+      "confidence": 0.9367165792060415,
+      "latencyMs": 6514,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 359
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "binding.scheduler",
+      "text": "Cron Triggers for periodic work.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.5474170559968276
+      },
+      "probabilities": {
+        "yes": 0.5474170559968276,
+        "no": 0.45258294400317245
+      },
+      "confidence": 0.5474170559968276,
+      "latencyMs": 371,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 442
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "S.webapp.concurrency",
+      "text": "invite redemption must survive two concurrent accept requests without two pairs or two redemptions. Read and send authorization must check revocation against current authoritative state. Already delivered external messages or copied data remain outside our ability to retract.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.030621093695791985
+      },
+      "probabilities": {
+        "yes": 0.030621093695791985,
+        "no": 0.969378906304208
+      },
+      "confidence": 0.969378906304208,
+      "latencyMs": 6731,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 367
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "commitment.finite-incoming",
+      "text": "A finite incoming view - Today returns at most five suggestions; many independent senders appear in one owner's finite inbox.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.38047319401057306
+      },
+      "probabilities": {
+        "yes": 0.38047319401057306,
+        "no": 0.619526805989427
+      },
+      "confidence": 0.619526805989427,
+      "latencyMs": 374,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 319
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "commitment.no-engagement-mechanics",
+      "text": "No streak penalties, public relationship scores or group discussion belong in the core contract.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.05563228463034738
+      },
+      "probabilities": {
+        "yes": 0.05563228463034738,
+        "no": 0.9443677153696526
+      },
+      "confidence": 0.9443677153696526,
+      "latencyMs": 249,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 306
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "commitment.one-to-one",
+      "text": "One-to-one actions - exactly one recipient per draft, send request or private reply; no recipient list, bulk send or group thread.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.01571683041244878
+      },
+      "probabilities": {
+        "yes": 0.01571683041244878,
+        "no": 0.9842831695875512
+      },
+      "confidence": 0.9842831695875512,
+      "latencyMs": 303,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 324
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "commitment.owner-cadence",
+      "text": "Owner-defined cadence and depth - goals are owner-only; depth labels are the owner's, not a global quality ranking.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.5315693914160179
+      },
+      "probabilities": {
+        "yes": 0.5315693914160179,
+        "no": 0.4684306085839821
+      },
+      "confidence": 0.5315693914160179,
+      "latencyMs": 230,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 321
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "commitment.personal-initiation",
+      "text": "Personal control over initiating contact - opening a channel needs a user gesture and never completes a goal; no autonomous send.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.19257642302651048
+      },
+      "probabilities": {
+        "yes": 0.19257642302651048,
+        "no": 0.8074235769734895
+      },
+      "confidence": 0.8074235769734895,
+      "latencyMs": 234,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 317
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.AddContact",
+      "text": "AddContact control",
+      "answer": {
+        "type": "noul",
+        "noul": 0.7130656978810465
+      },
+      "probabilities": {
+        "yes": 0.7130656978810465,
+        "no": 0.28693430211895354
+      },
+      "confidence": 0.7130656978810465,
+      "latencyMs": 225,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 518
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.AddContactChannelFields",
+      "text": "Optional channel fields",
+      "answer": {
+        "type": "noul",
+        "noul": 0.7963929985616794
+      },
+      "probabilities": {
+        "yes": 0.7963929985616794,
+        "no": 0.20360700143832056
+      },
+      "confidence": 0.7963929985616794,
+      "latencyMs": 292,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 579
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.AddContactDialog",
+      "text": "One AddContactDialog only while invoked, with name, optional channel fields, Save and Cancel",
+      "answer": {
+        "type": "noul",
+        "noul": 0.03784308573158315
+      },
+      "probabilities": {
+        "yes": 0.03784308573158315,
+        "no": 0.9621569142684169
+      },
+      "confidence": 0.9621569142684169,
+      "latencyMs": 274,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 550
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.AppShell",
+      "text": "Frame holding the top bar, primary navigation and route outlet.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.09678379547663948
+      },
+      "probabilities": {
+        "yes": 0.09678379547663948,
+        "no": 0.9032162045233605
+      },
+      "confidence": 0.9032162045233605,
+      "latencyMs": 257,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 453
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.ConnectionPanel",
+      "text": "Connection status determines Invite, Disconnect or Block availability",
+      "answer": {
+        "type": "noul",
+        "noul": 0.4201209091228354
+      },
+      "probabilities": {
+        "yes": 0.4201209091228354,
+        "no": 0.5798790908771646
+      },
+      "confidence": 0.5798790908771646,
+      "latencyMs": 265,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 528
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "binding.worker",
+      "text": "Cloudflare Worker serving the API and the built UI through Workers Static Assets.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.03374641016358978
+      },
+      "probabilities": {
+        "yes": 0.03374641016358978,
+        "no": 0.9662535898364102
+      },
+      "confidence": 0.9662535898364102,
+      "latencyMs": 2552,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 457
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.AddContactNameField",
+      "text": "Name field; nonblank name is required",
+      "answer": {
+        "type": "noul",
+        "noul": 0.011508192925437939
+      },
+      "probabilities": {
+        "yes": 0.011508192925437939,
+        "no": 0.9884918070745621
+      },
+      "confidence": 0.9884918070745621,
+      "latencyMs": 2403,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 589
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.EmptyState",
+      "text": "One EmptyState inside the collection",
+      "answer": {
+        "type": "noul",
+        "noul": 0.12837470297283227
+      },
+      "probabilities": {
+        "yes": 0.12837470297283227,
+        "no": 0.8716252970271677
+      },
+      "confidence": 0.8716252970271677,
+      "latencyMs": 2625,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 578
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.EventDateTimeField",
+      "text": "Date and time; a nonfuture event time is required",
+      "answer": {
+        "type": "noul",
+        "noul": 0.026489743732047773
+      },
+      "probabilities": {
+        "yes": 0.026489743732047773,
+        "no": 0.9735102562679522
+      },
+      "confidence": 0.9735102562679522,
+      "latencyMs": 292,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 570
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.EventNoteField",
+      "text": "Optional private note",
+      "answer": {
+        "type": "noul",
+        "noul": 0.1466237674258289
+      },
+      "probabilities": {
+        "yes": 0.1466237674258289,
+        "no": 0.8533762325741712
+      },
+      "confidence": 0.8533762325741712,
+      "latencyMs": 233,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 554
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "binding.contactsStore",
+      "text": "runtime.contactsStore as the intended D1 binding for accounts, owned contacts, goals, events, consent and jobs; foreign keys, unique pair keys and conditional writes enforce structure",
+      "answer": {
+        "type": "noul",
+        "noul": 0.11386565707482439
+      },
+      "probabilities": {
+        "yes": 0.11386565707482439,
+        "no": 0.8861343429251756
+      },
+      "confidence": 0.8861343429251756,
+      "latencyMs": 6590,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 498
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.GoalDepthField",
+      "text": "desiredDepth in light, meaningful or shared-time",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0438033284687666
+      },
+      "probabilities": {
+        "yes": 0.0438033284687666,
+        "no": 0.9561966715312334
+      },
+      "confidence": 0.9561966715312334,
+      "latencyMs": 295,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 581
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.GoalForm",
+      "text": "Form contains interval, depth, preferred channel and enabled controls, plus Save and Cancel",
+      "answer": {
+        "type": "noul",
+        "noul": 0.13390277395891256
+      },
+      "probabilities": {
+        "yes": 0.13390277395891256,
+        "no": 0.8660972260410874
+      },
+      "confidence": 0.8660972260410874,
+      "latencyMs": 228,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 538
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.GoalIntervalField",
+      "text": "intervalDays from 1 through 3650",
+      "answer": {
+        "type": "noul",
+        "noul": 0.008689539741309217
+      },
+      "probabilities": {
+        "yes": 0.008689539741309217,
+        "no": 0.9913104602586907
+      },
+      "confidence": 0.9913104602586907,
+      "latencyMs": 269,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 585
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.ErrorSummary",
+      "text": "Shared summary of form and request errors.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.44757111396496413
+      },
+      "probabilities": {
+        "yes": 0.44757111396496413,
+        "no": 0.5524288860350359
+      },
+      "confidence": 0.5524288860350359,
+      "latencyMs": 2619,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 445
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.GoalPanel",
+      "text": "No saved goal displays as no goal, not as an inferred target",
+      "answer": {
+        "type": "noul",
+        "noul": 0.06887212124733903
+      },
+      "probabilities": {
+        "yes": 0.06887212124733903,
+        "no": 0.931127878752661
+      },
+      "confidence": 0.931127878752661,
+      "latencyMs": 296,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 537
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.HistoryRow",
+      "text": "History has one row per event",
+      "answer": {
+        "type": "noul",
+        "noul": 0.03796902205351514
+      },
+      "probabilities": {
+        "yes": 0.03796902205351514,
+        "no": 0.9620309779464848
+      },
+      "confidence": 0.9620309779464848,
+      "latencyMs": 256,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 556
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.InvitePreview",
+      "text": "The recipient sees who is inviting them",
+      "answer": {
+        "type": "noul",
+        "noul": 0.18609838111198293
+      },
+      "probabilities": {
+        "yes": 0.18609838111198293,
+        "no": 0.813901618888017
+      },
+      "confidence": 0.813901618888017,
+      "latencyMs": 339,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 513
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.PersonActionBar",
+      "text": "Actions are Edit goal, Log contact and Open channel",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0750499250115569
+      },
+      "probabilities": {
+        "yes": 0.0750499250115569,
+        "no": 0.9249500749884431
+      },
+      "confidence": 0.9249500749884431,
+      "latencyMs": 221,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 529
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.MetGoalCheckbox",
+      "text": "Met this goal defaults unchecked and is disabled when no current goal exists",
+      "answer": {
+        "type": "noul",
+        "noul": 0.00499878755053698
+      },
+      "probabilities": {
+        "yes": 0.00499878755053698,
+        "no": 0.995001212449463
+      },
+      "confidence": 0.995001212449463,
+      "latencyMs": 234,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 576
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.PrimaryNav",
+      "text": "Primary navigation containing Today, People and Settings",
+      "answer": {
+        "type": "noul",
+        "noul": 0.04686899556788812
+      },
+      "probabilities": {
+        "yes": 0.04686899556788812,
+        "no": 0.9531310044321119
+      },
+      "confidence": 0.9531310044321119,
+      "latencyMs": 402,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 495
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.PrivacyLink",
+      "text": "One privacy link",
+      "answer": {
+        "type": "noul",
+        "noul": 0.49131862155946193
+      },
+      "probabilities": {
+        "yes": 0.49131862155946193,
+        "no": 0.5086813784405381
+      },
+      "confidence": 0.5086813784405381,
+      "latencyMs": 300,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 491
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.PrivateNotes",
+      "text": "Owner-only notes; linking a ContactRecord to an Account never reveals them",
+      "answer": {
+        "type": "noul",
+        "noul": 0.03352168151788008
+      },
+      "probabilities": {
+        "yes": 0.03352168151788008,
+        "no": 0.96647831848212
+      },
+      "confidence": 0.96647831848212,
+      "latencyMs": 290,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 538
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.SchedulePreview",
+      "text": "SchedulePreview must show that effect before saving. Changing depth may change which historical events qualify",
+      "answer": {
+        "type": "noul",
+        "noul": 0.4692986492109848
+      },
+      "probabilities": {
+        "yes": 0.4692986492109848,
+        "no": 0.5307013507890153
+      },
+      "confidence": 0.5307013507890153,
+      "latencyMs": 226,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 539
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.SignInForm",
+      "text": "One SignInForm",
+      "answer": {
+        "type": "noul",
+        "noul": 0.39562752843483107
+      },
+      "probabilities": {
+        "yes": 0.39562752843483107,
+        "no": 0.6043724715651689
+      },
+      "confidence": 0.6043724715651689,
+      "latencyMs": 239,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 490
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.SignInContinue",
+      "text": "One Continue control",
+      "answer": {
+        "type": "noul",
+        "noul": 0.4221037589142345
+      },
+      "probabilities": {
+        "yes": 0.4221037589142345,
+        "no": 0.5778962410857655
+      },
+      "confidence": 0.5778962410857655,
+      "latencyMs": 259,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 532
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.StatePanel",
+      "text": "Shared loading, empty and unavailable states.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.4572169478585145
+      },
+      "probabilities": {
+        "yes": 0.4572169478585145,
+        "no": 0.5427830521414855
+      },
+      "confidence": 0.5427830521414855,
+      "latencyMs": 301,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 445
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.SuggestionCard",
+      "text": "Each card has one person label, reason, Open person, Log contact and Snooze controls",
+      "answer": {
+        "type": "noul",
+        "noul": 0.03371032442637769
+      },
+      "probabilities": {
+        "yes": 0.03371032442637769,
+        "no": 0.9662896755736223
+      },
+      "confidence": 0.9662896755736223,
+      "latencyMs": 287,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 604
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.SuggestionCollection",
+      "text": "Today must return at most five suggestions, ordered by effective due date then stable goal ID",
+      "answer": {
+        "type": "noul",
+        "noul": 0.022218089322478225
+      },
+      "probabilities": {
+        "yes": 0.022218089322478225,
+        "no": 0.9777819106775217
+      },
+      "confidence": 0.9777819106775217,
+      "latencyMs": 288,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 544
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.TodayControls",
+      "text": "A Show everything toggle that lists every due suggestion on Today at once, with no cap on how many appear",
+      "answer": {
+        "type": "noul",
+        "noul": 0.021486713055233905
+      },
+      "probabilities": {
+        "yes": 0.021486713055233905,
+        "no": 0.9785132869447661
+      },
+      "confidence": 0.9785132869447661,
+      "latencyMs": 230,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 550
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.UnavailablePanel",
+      "text": "Invalid, expired or used invitations show one UnavailablePanel and no acceptance control",
+      "answer": {
+        "type": "noul",
+        "noul": 0.016224300024505596
+      },
+      "probabilities": {
+        "yes": 0.016224300024505596,
+        "no": 0.9837756999754944
+      },
+      "confidence": 0.9837756999754944,
+      "latencyMs": 231,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 529
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.Account",
+      "text": "ID, identity-provider subject, display name, time zone and notification preferences; one authenticated owner",
+      "answer": {
+        "type": "noul",
+        "noul": 0.10144766247788654
+      },
+      "probabilities": {
+        "yes": 0.10144766247788654,
+        "no": 0.8985523375221135
+      },
+      "confidence": 0.8985523375221135,
+      "latencyMs": 312,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 463
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.Connection",
+      "text": "ID, two distinct account IDs in canonical order, acceptance provenance and state; at most one active pair",
+      "answer": {
+        "type": "noul",
+        "noul": 0.17789857826773564
+      },
+      "probabilities": {
+        "yes": 0.17789857826773564,
+        "no": 0.8221014217322644
+      },
+      "confidence": 0.8221014217322644,
+      "latencyMs": 291,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 469
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.Block",
+      "text": "Blocker and blocked account IDs; overrides connection, sharing and subscription permissions",
+      "answer": {
+        "type": "noul",
+        "noul": 0.11976922429970945
+      },
+      "probabilities": {
+        "yes": 0.11976922429970945,
+        "no": 0.8802307757002905
+      },
+      "confidence": 0.8802307757002905,
+      "latencyMs": 294,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 455
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.ConnectionInvite",
+      "text": "ID, inviter, token hash, expiry and state; optional recipient binding; never contains login credentials",
+      "answer": {
+        "type": "noul",
+        "noul": 0.08278543059851812
+      },
+      "probabilities": {
+        "yes": 0.08278543059851812,
+        "no": 0.9172145694014819
+      },
+      "confidence": 0.9172145694014819,
+      "latencyMs": 276,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 469
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.ContactRecord",
+      "text": "ID, ownerAccountId, display name, optional channels and linkedAccountId; belongs to one owner. A ContactRecord is a person's private representation of another person. Linking it to an Account does not transfer ownership or reveal notes",
+      "answer": {
+        "type": "noul",
+        "noul": 0.036858605831380724
+      },
+      "probabilities": {
+        "yes": 0.036858605831380724,
+        "no": 0.9631413941686193
+      },
+      "confidence": 0.9631413941686193,
+      "latencyMs": 234,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 519
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.ContactEvent",
+      "text": "ID, owner, ContactRecord, time, channel, self-reported depth and optional private note; one contact target",
+      "answer": {
+        "type": "noul",
+        "noul": 0.21423400370746062
+      },
+      "probabilities": {
+        "yes": 0.21423400370746062,
+        "no": 0.7857659962925394
+      },
+      "confidence": 0.7857659962925394,
+      "latencyMs": 304,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 473
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.DigestEdition",
+      "text": "ID, author, content version, publication time and access policy; no shared discussion thread",
+      "answer": {
+        "type": "noul",
+        "noul": 0.13460919933599558
+      },
+      "probabilities": {
+        "yes": 0.13460919933599558,
+        "no": 0.8653908006640044
+      },
+      "confidence": 0.8653908006640044,
+      "latencyMs": 252,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 470
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "component.ContactRow",
+      "text": "One ContactRow per result; each row has a name and Open control",
+      "answer": {
+        "type": "noul",
+        "noul": 0.020313117411761786
+      },
+      "probabilities": {
+        "yes": 0.020313117411761786,
+        "no": 0.9796868825882382
+      },
+      "confidence": 0.9796868825882382,
+      "latencyMs": 6814,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 573
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.MediaAsset",
+      "text": "ID, owner, private object key, permission provenance, retention and per-resource access grants",
+      "answer": {
+        "type": "noul",
+        "noul": 0.49936103855583464
+      },
+      "probabilities": {
+        "yes": 0.49936103855583464,
+        "no": 0.5006389614441653
+      },
+      "confidence": 0.5006389614441653,
+      "latencyMs": 306,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 471
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.MessageDraft",
+      "text": "ID, author, exactly one recipient, body, approved attachments and state; no autonomous send",
+      "answer": {
+        "type": "noul",
+        "noul": 0.08880146419254481
+      },
+      "probabilities": {
+        "yes": 0.08880146419254481,
+        "no": 0.9111985358074552
+      },
+      "confidence": 0.9111985358074552,
+      "latencyMs": 240,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 471
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.NotificationJob",
+      "text": "ID, owner, suggestion and preference version, scheduled time, delivery state and deduplication key",
+      "answer": {
+        "type": "noul",
+        "noul": 0.20081055862061845
+      },
+      "probabilities": {
+        "yes": 0.20081055862061845,
+        "no": 0.7991894413793815
+      },
+      "confidence": 0.7991894413793815,
+      "latencyMs": 262,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 467
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.Subscription",
+      "text": "Subscriber, author, approval, start time and state; directed and independently revocable",
+      "answer": {
+        "type": "noul",
+        "noul": 0.3740615977999955
+      },
+      "probabilities": {
+        "yes": 0.3740615977999955,
+        "no": 0.6259384022000045
+      },
+      "confidence": 0.6259384022000045,
+      "latencyMs": 241,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 468
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.Suggestion",
+      "text": "ID, goal version, reason, due date, target ContactRecord and state; does not itself contact anybody",
+      "answer": {
+        "type": "noul",
+        "noul": 0.09002516524782786
+      },
+      "probabilities": {
+        "yes": 0.09002516524782786,
+        "no": 0.9099748347521721
+      },
+      "confidence": 0.9099748347521721,
+      "latencyMs": 242,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 471
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "entity.RelationshipGoal",
+      "text": "ID, owner, ContactRecord, intervalDays, desiredDepth, channel, anchorDate, pause and snooze; owner-only",
+      "answer": {
+        "type": "noul",
+        "noul": 0.38325034808783237
+      },
+      "probabilities": {
+        "yes": 0.38325034808783237,
+        "no": 0.6167496519121676
+      },
+      "confidence": 0.6167496519121676,
+      "latencyMs": 283,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 480
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "evolution.1",
+      "text": "Establish owner-only contacts, app identity and health; existence, health, owner isolation and screen Assays",
+      "answer": {
+        "type": "noul",
+        "noul": 0.7899699389671271
+      },
+      "probabilities": {
+        "yes": 0.7899699389671271,
+        "no": 0.21003006103287292
+      },
+      "confidence": 0.7899699389671271,
+      "latencyMs": 253,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 318
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "evolution.4",
+      "text": "Add optional reminder transport, export and deletion; cancellation, deduplication and retention fixtures",
+      "answer": {
+        "type": "noul",
+        "noul": 0.6195209472846279
+      },
+      "probabilities": {
+        "yes": 0.6195209472846279,
+        "no": 0.3804790527153721
+      },
+      "confidence": 0.6195209472846279,
+      "latencyMs": 279,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 313
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "evolution.5",
+      "text": "Resolve publication topology, audience and subscription contract first; verify no group interaction emerges. Reword the no-engagement-mechanics commitment so a reader-driven digest cannot be read as group discussion.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.8463641693781503
+      },
+      "probabilities": {
+        "yes": 0.8463641693781503,
+        "no": 0.1536358306218497
+      },
+      "confidence": 0.8463641693781503,
+      "latencyMs": 246,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 357
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "evolution.3",
+      "text": "Add invite state machine, unique pairs, disconnect and block; concurrent redemption and revocation fixtures",
+      "answer": {
+        "type": "noul",
+        "noul": 0.2565293912837981
+      },
+      "probabilities": {
+        "yes": 0.2565293912837981,
+        "no": 0.743470608716202
+      },
+      "confidence": 0.743470608716202,
+      "latencyMs": 316,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 315
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "evolution.2",
+      "text": "Add goal contracts, event qualification and Today prompts; fixed-clock and bounded-card fixtures",
+      "answer": {
+        "type": "noul",
+        "noul": 0.8553089827701303
+      },
+      "probabilities": {
+        "yes": 0.8553089827701303,
+        "no": 0.14469101722986966
+      },
+      "confidence": 0.8553089827701303,
+      "latencyMs": 358,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 311
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "operation.contact.log",
+      "text": "Owned contact, nonfuture event time. Saves the event, updates the affected goals, and handles any errors properly along the way",
+      "answer": {
+        "type": "noul",
+        "noul": 0.48268200570709746
+      },
+      "probabilities": {
+        "yes": 0.48268200570709746,
+        "no": 0.5173179942929025
+      },
+      "confidence": 0.5173179942929025,
+      "latencyMs": 229,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 481
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "operation.connection.revoke",
+      "text": "Participant authority. Revoke affected app sharing and cancel pending deliveries; a block prevents new app-mediated contact until removed",
+      "answer": {
+        "type": "noul",
+        "noul": 0.09489225844974424
+      },
+      "probabilities": {
+        "yes": 0.09489225844974424,
+        "no": 0.9051077415502558
+      },
+      "confidence": 0.9051077415502558,
+      "latencyMs": 256,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 475
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "evolution.6",
+      "text": "Specify device capability, local or provider processing and approval contract first; verify no unapproved sharing",
+      "answer": {
+        "type": "noul",
+        "noul": 0.6970777376600444
+      },
+      "probabilities": {
+        "yes": 0.6970777376600444,
+        "no": 0.30292226233995556
+      },
+      "confidence": 0.6970777376600444,
+      "latencyMs": 297,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 315
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "operation.contact.save",
+      "text": "Owner session; nonblank name. Save only that owner's record; editing does not send invitations",
+      "answer": {
+        "type": "noul",
+        "noul": 0.019254219057229748
+      },
+      "probabilities": {
+        "yes": 0.019254219057229748,
+        "no": 0.9807457809427702
+      },
+      "confidence": 0.9807457809427702,
+      "latencyMs": 431,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 470
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "operation.goal.save",
+      "text": "Owned contact and valid interval. Increment goal version, recompute due state, cancel obsolete jobs and share the saved goal so that all of the owner's contacts can see it",
+      "answer": {
+        "type": "noul",
+        "noul": 0.13288323229288243
+      },
+      "probabilities": {
+        "yes": 0.13288323229288243,
+        "no": 0.8671167677071175
+      },
+      "confidence": 0.8671167677071175,
+      "latencyMs": 300,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 497
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "operation.data.export",
+      "text": "Owner reauthentication, then hand the owner their records; the download has to be fast enough that nobody minds waiting",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9271908183084618
+      },
+      "probabilities": {
+        "yes": 0.9271908183084618,
+        "no": 0.07280918169153816
+      },
+      "confidence": 0.9271908183084618,
+      "latencyMs": 353,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 472
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "operation.data.delete",
+      "text": "Owner reauthentication. Deletion revokes access immediately, cancels jobs and purges owned live data within seven days. Backup expiry follows a pinned retention policy disclosed separately",
+      "answer": {
+        "type": "noul",
+        "noul": 0.05116397499394557
+      },
+      "probabilities": {
+        "yes": 0.05116397499394557,
+        "no": 0.9488360250060545
+      },
+      "confidence": 0.9488360250060545,
+      "latencyMs": 390,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 494
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "operation.invite.accept",
+      "text": "Signed-in distinct invitee, valid unused credential, no block in either direction. Atomically consume invite and create or return the unique active pair",
+      "answer": {
+        "type": "noul",
+        "noul": 0.045917783013007744
+      },
+      "probabilities": {
+        "yes": 0.045917783013007744,
+        "no": 0.9540822169869922
+      },
+      "confidence": 0.9540822169869922,
+      "latencyMs": 241,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 486
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "operation.invite.create",
+      "text": "Authenticated inviter. Generate at least 128 bits of randomness, store only a token hash, expire after 24 hours and allow one successful acceptance",
+      "answer": {
+        "type": "noul",
+        "noul": 0.010763405002610056
+      },
+      "probabilities": {
+        "yes": 0.010763405002610056,
+        "no": 0.9892365949973899
+      },
+      "confidence": 0.9892365949973899,
+      "latencyMs": 415,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 494
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "policy.authentication",
+      "text": "Who counts as a signed-in user. Provisional until an auth kit is pinned.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9390265728617683
+      },
+      "probabilities": {
+        "yes": 0.9390265728617683,
+        "no": 0.06097342713823173
+      },
+      "confidence": 0.9390265728617683,
+      "latencyMs": 391,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 470
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "policy.ownerOnly",
+      "text": "Owner-only access to private contacts, goals, notes and logs; another owner's records return a non-revealing denial",
+      "answer": {
+        "type": "noul",
+        "noul": 0.037347212671933694
+      },
+      "probabilities": {
+        "yes": 0.037347212671933694,
+        "no": 0.9626527873280664
+      },
+      "confidence": 0.9626527873280664,
+      "latencyMs": 378,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 481
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "policy.pairConsent",
+      "text": "Explicit pair consent - creating the invitation and accepting it provide the two consents; an active pair is created once",
+      "answer": {
+        "type": "noul",
+        "noul": 0.06214213079923899
+      },
+      "probabilities": {
+        "yes": 0.06214213079923899,
+        "no": 0.937857869200761
+      },
+      "confidence": 0.937857869200761,
+      "latencyMs": 362,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 477
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "screen.goal",
+      "text": "Exactly PageHeading, GoalForm and SchedulePreview. Form contains interval, depth, preferred channel and enabled controls, plus Save and Cancel. No saved goal displays as no goal, not as an inferred target",
+      "answer": {
+        "type": "noul",
+        "noul": 0.060153100165903944
+      },
+      "probabilities": {
+        "yes": 0.060153100165903944,
+        "no": 0.9398468998340961
+      },
+      "confidence": 0.9398468998340961,
+      "latencyMs": 280,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 508
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "policy.revocation",
+      "text": "Read and send authorization must check revocation against current authoritative state; a block overrides connection and sharing",
+      "answer": {
+        "type": "noul",
+        "noul": 0.059086535756882094
+      },
+      "probabilities": {
+        "yes": 0.059086535756882094,
+        "no": 0.940913464243118
+      },
+      "confidence": 0.940913464243118,
+      "latencyMs": 301,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 471
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "screen.invitation",
+      "text": "Exactly InvitePreview and ConsentPanel after validation; Accept and Decline controls. Invalid, expired or used invitations show one UnavailablePanel and no acceptance control",
+      "answer": {
+        "type": "noul",
+        "noul": 0.008973091405184826
+      },
+      "probabilities": {
+        "yes": 0.008973091405184826,
+        "no": 0.9910269085948151
+      },
+      "confidence": 0.9910269085948151,
+      "latencyMs": 308,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 490
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "screen.logContact",
+      "text": "Exactly PersonSummary and ContactEventForm. Form contains date and time, channel, depth, Met this goal checkbox, optional note, Save and Cancel. Met this goal defaults unchecked and is disabled when no current goal exists",
+      "answer": {
+        "type": "noul",
+        "noul": 0.011182046670984377
+      },
+      "probabilities": {
+        "yes": 0.011182046670984377,
+        "no": 0.9888179533290157
+      },
+      "confidence": 0.9888179533290157,
+      "latencyMs": 294,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 516
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "screen.people",
+      "text": "Exactly PageHeading, SearchInput, AddContact control and ContactCollection. One ContactRow per result; each row has a name and Open control. One AddContactDialog only while invoked, with name, optional channel fields, Save and Cancel",
+      "answer": {
+        "type": "noul",
+        "noul": 0.020568093286396086
+      },
+      "probabilities": {
+        "yes": 0.020568093286396086,
+        "no": 0.9794319067136039
+      },
+      "confidence": 0.9794319067136039,
+      "latencyMs": 318,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 522
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "screen.person",
+      "text": "Exactly PersonSummary, GoalPanel, ContactHistory, PrivateNotes, ConnectionPanel and ActionBar. History has one row per event. Actions are Edit goal, Log contact and Open channel; connection status determines Invite, Disconnect or Block availability",
+      "answer": {
+        "type": "noul",
+        "noul": 0.08395190275936588
+      },
+      "probabilities": {
+        "yes": 0.08395190275936588,
+        "no": 0.9160480972406341
+      },
+      "confidence": 0.9160480972406341,
+      "latencyMs": 300,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 518
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "screen.settings",
+      "text": "Exactly ProfilePreferences, NotificationPreferences, ExportControls and DeletionControls. Export and deletion act only on the authenticated owner's data",
+      "answer": {
+        "type": "noul",
+        "noul": 0.01968890120446697
+      },
+      "probabilities": {
+        "yes": 0.01968890120446697,
+        "no": 0.980311098795533
+      },
+      "confidence": 0.980311098795533,
+      "latencyMs": 319,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 478
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "screen.signin",
+      "text": "One SignInForm with one Continue control and one privacy link; no private content",
+      "answer": {
+        "type": "noul",
+        "noul": 0.08223335087576646
+      },
+      "probabilities": {
+        "yes": 0.08223335087576646,
+        "no": 0.9177666491242336
+      },
+      "confidence": 0.9177666491242336,
+      "latencyMs": 454,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 460
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "section.authorization",
+      "text": "Policies governing who may read or change what.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.952258580474135
+      },
+      "probabilities": {
+        "yes": 0.952258580474135,
+        "no": 0.04774141952586497
+      },
+      "confidence": 0.952258580474135,
+      "latencyMs": 242,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 405
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "screen.today",
+      "text": "Exactly PageHeading, TodayControls and SuggestionCollection; 0–5 cards, or one EmptyState inside the collection. Each card has one person label, reason, Open person, Log contact and Snooze controls",
+      "answer": {
+        "type": "noul",
+        "noul": 0.006714014259880052
+      },
+      "probabilities": {
+        "yes": 0.006714014259880052,
+        "no": 0.99328598574012
+      },
+      "confidence": 0.99328598574012,
+      "latencyMs": 448,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 514
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "section.description",
+      "text": "Narrative, features, commitments, alternatives and open questions.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9463538933814102
+      },
+      "probabilities": {
+        "yes": 0.9463538933814102,
+        "no": 0.05364610661858982
+      },
+      "confidence": 0.9463538933814102,
+      "latencyMs": 420,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 331
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "section.domain",
+      "text": "Entities, operations and invariants.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9580672154101912
+      },
+      "probabilities": {
+        "yes": 0.9580672154101912,
+        "no": 0.04193278458980876
+      },
+      "confidence": 0.9580672154101912,
+      "latencyMs": 226,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 399
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "section.externals",
+      "text": "People, groups, contexts and services outside the System boundary that it serves or depends on.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.6568650973959366
+      },
+      "probabilities": {
+        "yes": 0.6568650973959366,
+        "no": 0.34313490260406343
+      },
+      "confidence": 0.6568650973959366,
+      "latencyMs": 255,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 345
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "section.theory",
+      "text": "Claims linking activities to outcomes, each with an indicator and an evaluation method.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.7268266560062904
+      },
+      "probabilities": {
+        "yes": 0.7268266560062904,
+        "no": 0.2731733439937096
+      },
+      "confidence": 0.7268266560062904,
+      "latencyMs": 241,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 340
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "section.runtime",
+      "text": "Bindings and deployment surface.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.90678015729968
+      },
+      "probabilities": {
+        "yes": 0.90678015729968,
+        "no": 0.09321984270032002
+      },
+      "confidence": 0.90678015729968,
+      "latencyMs": 262,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 395
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "section.purpose",
+      "text": "Why the System exists, who benefits, and what must change for them.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9010701673062594
+      },
+      "probabilities": {
+        "yes": 0.9010701673062594,
+        "no": 0.09892983269374056
+      },
+      "confidence": 0.9010701673062594,
+      "latencyMs": 290,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 338
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "section.ui",
+      "text": "Screens, shared components and affordances.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.8996618425995714
+      },
+      "probabilities": {
+        "yes": 0.8996618425995714,
+        "no": 0.10033815740042862
+      },
+      "confidence": 0.8996618425995714,
+      "latencyMs": 305,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 401
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "template.system.social-networking.cloudflare@1",
+      "text": "Genome skeleton for a social-networking System deployed on Cloudflare Workers. Systems using the private-relationships profile must treat relationships as private to the pair that forms them: no feed, no public graph, no group broadcast. The topology.private-pairs rule pack enforces this.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.1859303010404429
+      },
+      "probabilities": {
+        "yes": 0.1859303010404429,
+        "no": 0.814069698959557
+      },
+      "confidence": 0.814069698959557,
+      "latencyMs": 279,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 394
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "thing.webapp",
+      "text": "The app definition within the System Genome: one full-stack Worker application containing UI, API, scheduler code, configuration and migrations. Domain types are runtime records inside this Thing, not separate Things.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.10246508825564006
+      },
+      "probabilities": {
+        "yes": 0.10246508825564006,
+        "no": 0.89753491174436
+      },
+      "confidence": 0.89753491174436,
+      "latencyMs": 251,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 388
+    },
+    {
+      "fixture": "artyfact",
+      "question": "text.vague",
+      "subject": "template.thing.cloudflare-worker-webapp@1",
+      "text": "A full-stack web app served by one Cloudflare Worker with static assets, D1 storage and cron scheduling.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.5223818354319224
+      },
+      "probabilities": {
+        "yes": 0.5223818354319224,
+        "no": 0.4776181645680776
+      },
+      "confidence": 0.5223818354319224,
+      "latencyMs": 306,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 327
+    },
+    {
+      "fixture": "product",
+      "question": "pair.contradiction",
+      "subject": "purpose-turn-volunteer-shore-walks-into-survey|rule-every-observation-carries-a-gps-fix",
+      "text": "rule-every-observation-carries-a-gps-fix",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9995785359234012
+      },
+      "probabilities": {
+        "yes": 0.9995785359234012,
+        "no": 0.0004214640765988209
+      },
+      "confidence": 0.9995785359234012,
+      "latencyMs": 278,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 411
+    },
+    {
+      "fixture": "product",
+      "question": "criterion.unfalsifiable",
+      "subject": "rule-every-observation-carries-a-gps-fix",
+      "text": "Each observation is validated against the server the moment it is entered, so the logger refuses to save anything unless the phone has a live connection.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.019815123214557695
+      },
+      "probabilities": {
+        "yes": 0.019815123214557695,
+        "no": 0.9801848767854423
+      },
+      "confidence": 0.9801848767854423,
+      "latencyMs": 432,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 341
+    },
+    {
+      "fixture": "product",
+      "question": "pair.contradiction",
+      "subject": "purpose-turn-volunteer-shore-walks-into-survey|rule-a-record-has-exactly-one-final-verdict",
+      "text": "rule-a-record-has-exactly-one-final-verdict",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0067107470628319415
+      },
+      "probabilities": {
+        "yes": 0.0067107470628319415,
+        "no": 0.9932892529371681
+      },
+      "confidence": 0.9932892529371681,
+      "latencyMs": 434,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 399
+    },
+    {
+      "fixture": "product",
+      "question": "criterion.unfalsifiable",
+      "subject": "rule-a-record-has-exactly-one-final-verdict",
+      "text": "A record holds at most one final verdict; a second verdict on the same record is rejected and the first one is kept.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.002141229490252416
+      },
+      "probabilities": {
+        "yes": 0.002141229490252416,
+        "no": 0.9978587705097476
+      },
+      "confidence": 0.9978587705097476,
+      "latencyMs": 435,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 327
+    },
+    {
+      "fixture": "product",
+      "question": "pair.contradiction",
+      "subject": "rule-a-record-has-exactly-one-final-verdict|rule-every-observation-carries-a-gps-fix",
+      "text": "rule-every-observation-carries-a-gps-fix",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0010895296411782987
+      },
+      "probabilities": {
+        "yes": 0.0010895296411782987,
+        "no": 0.9989104703588217
+      },
+      "confidence": 0.9989104703588217,
+      "latencyMs": 226,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 397
+    },
+    {
+      "fixture": "product",
+      "question": "pair.contradiction",
+      "subject": "rule-a-record-has-exactly-one-final-verdict|summary-an-offline-first-field-app-for-timed",
+      "text": "summary-an-offline-first-field-app-for-timed",
+      "answer": {
+        "type": "noul",
+        "noul": 0.005407433926956553
+      },
+      "probabilities": {
+        "yes": 0.005407433926956553,
+        "no": 0.9945925660730435
+      },
+      "confidence": 0.9945925660730435,
+      "latencyMs": 243,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 409
+    },
+    {
+      "fixture": "product",
+      "question": "pair.contradiction",
+      "subject": "rule-every-observation-carries-a-gps-fix|summary-an-offline-first-field-app-for-timed",
+      "text": "summary-an-offline-first-field-app-for-timed",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9980565815755267
+      },
+      "probabilities": {
+        "yes": 0.9980565815755267,
+        "no": 0.00194341842447332
+      },
+      "confidence": 0.9980565815755267,
+      "latencyMs": 306,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 420
+    },
+    {
+      "fixture": "product",
+      "question": "pair.contradiction",
+      "subject": "purpose-turn-volunteer-shore-walks-into-survey|summary-an-offline-first-field-app-for-timed",
+      "text": "summary-an-offline-first-field-app-for-timed",
+      "answer": {
+        "type": "noul",
+        "noul": 0.004621747587570163
+      },
+      "probabilities": {
+        "yes": 0.004621747587570163,
+        "no": 0.9953782524124298
+      },
+      "confidence": 0.9953782524124298,
+      "latencyMs": 496,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 423
+    },
+    {
+      "fixture": "product",
+      "question": "text.unmeasurable",
+      "subject": "outcome-volunteers-come-back-for-the-next-good",
+      "text": "Volunteers develop a deeper sense of belonging to the shoreline.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.07247325961236976
+      },
+      "probabilities": {
+        "yes": 0.07247325961236976,
+        "no": 0.9275267403876303
+      },
+      "confidence": 0.9275267403876303,
+      "latencyMs": 299,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 309
+    },
+    {
+      "fixture": "product",
+      "question": "text.vague",
+      "subject": "capability-volunteer-engagement",
+      "text": "Make the whole volunteering experience better.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9980338959596076
+      },
+      "probabilities": {
+        "yes": 0.9980338959596076,
+        "no": 0.0019661040403924357
+      },
+      "confidence": 0.9980338959596076,
+      "latencyMs": 281,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 315
+    },
+    {
+      "fixture": "product",
+      "question": "text.vague",
+      "subject": "outcome-volunteers-come-back-for-the-next-good",
+      "text": "Volunteers develop a deeper sense of belonging to the shoreline.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9704978003371005
+      },
+      "probabilities": {
+        "yes": 0.9704978003371005,
+        "no": 0.029502199662899464
+      },
+      "confidence": 0.9704978003371005,
+      "latencyMs": 266,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 336
+    },
+    {
+      "fixture": "product",
+      "question": "text.vague",
+      "subject": "feature-photo-id-suggestions",
+      "text": "Volunteers are going to love it.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9961148295575691
+      },
+      "probabilities": {
+        "yes": 0.9961148295575691,
+        "no": 0.003885170442430863
+      },
+      "confidence": 0.9961148295575691,
+      "latencyMs": 315,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 316
+    },
+    {
+      "fixture": "product",
+      "question": "text.vague",
+      "subject": "rule-a-record-has-exactly-one-final-verdict",
+      "text": "A record holds at most one final verdict; a second verdict on the same record is rejected and the first one is kept.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.005107223181814553
+      },
+      "probabilities": {
+        "yes": 0.005107223181814553,
+        "no": 0.9948927768181854
+      },
+      "confidence": 0.9948927768181854,
+      "latencyMs": 256,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 359
+    },
+    {
+      "fixture": "product",
+      "question": "text.vague",
+      "subject": "purpose-turn-volunteer-shore-walks-into-survey",
+      "text": "Volunteers must be able to log a complete survey on a beach with no signal at all; records sync whenever the phone next finds a connection.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0637110088296819
+      },
+      "probabilities": {
+        "yes": 0.0637110088296819,
+        "no": 0.936288991170318
+      },
+      "confidence": 0.936288991170318,
+      "latencyMs": 334,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 377
+    },
+    {
+      "fixture": "product",
+      "question": "text.vague",
+      "subject": "summary-an-offline-first-field-app-for-timed",
+      "text": "Tidepool guides volunteers through a timed transect at low tide, captures species counts and photos without signal, and routes every record to a biologist before it joins the open dataset.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.1780901589185376
+      },
+      "probabilities": {
+        "yes": 0.1780901589185376,
+        "no": 0.8219098410814624
+      },
+      "confidence": 0.8219098410814624,
+      "latencyMs": 251,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 394
+    },
+    {
+      "fixture": "product",
+      "question": "text.vague",
+      "subject": "rule-every-observation-carries-a-gps-fix",
+      "text": "Each observation is validated against the server the moment it is entered, so the logger refuses to save anything unless the phone has a live connection.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.0928769866013001
+      },
+      "probabilities": {
+        "yes": 0.0928769866013001,
+        "no": 0.9071230133986999
+      },
+      "confidence": 0.9071230133986999,
+      "latencyMs": 278,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 373
+    },
+    {
+      "fixture": "product",
+      "question": "text.vague",
+      "subject": "term-percent-cover",
+      "text": "Share of a quadrat's area occupied by one species, estimated in 5% steps.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.03952514551561664
+      },
+      "probabilities": {
+        "yes": 0.03952514551561664,
+        "no": 0.9604748544843834
+      },
+      "confidence": 0.9604748544843834,
+      "latencyMs": 280,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 335
+    },
+    {
+      "fixture": "product",
+      "question": "text.vague",
+      "subject": "term-verified-record",
+      "text": "An observation a biologist has accepted with a final species ID.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.1474110580612384
+      },
+      "probabilities": {
+        "yes": 0.1474110580612384,
+        "no": 0.8525889419387616
+      },
+      "confidence": 0.8525889419387616,
+      "latencyMs": 234,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 322
+    },
+    {
+      "fixture": "world",
+      "question": "pair.contradiction",
+      "subject": "auth-routine|operation-plan",
+      "text": "operation-plan",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9990857148307175
+      },
+      "probabilities": {
+        "yes": 0.9990857148307175,
+        "no": 0.0009142851692824916
+      },
+      "confidence": 0.9990857148307175,
+      "latencyMs": 238,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 437
+    },
+    {
+      "fixture": "world",
+      "question": "text.unmeasurable",
+      "subject": "criterion-1",
+      "text": "Every calendar change the assistant makes touches only a block it created and tagged routine; any other change is rejected and logged.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9914175502774079
+      },
+      "probabilities": {
+        "yes": 0.9914175502774079,
+        "no": 0.008582449722592145
+      },
+      "confidence": 0.9914175502774079,
+      "latencyMs": 239,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 405
+    },
+    {
+      "fixture": "world",
+      "question": "text.unmeasurable",
+      "subject": "outcome-1",
+      "text": "The user ends up happier with how their weeks go.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.06473421738043898
+      },
+      "probabilities": {
+        "yes": 0.06473421738043898,
+        "no": 0.9352657826195611
+      },
+      "confidence": 0.9352657826195611,
+      "latencyMs": 250,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 305
+    },
+    {
+      "fixture": "world",
+      "question": "criterion.unfalsifiable",
+      "subject": "criterion-1",
+      "text": "Every calendar change the assistant makes touches only a block it created and tagged routine; any other change is rejected and logged.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.004515434271989131
+      },
+      "probabilities": {
+        "yes": 0.004515434271989131,
+        "no": 0.9954845657280109
+      },
+      "confidence": 0.9954845657280109,
+      "latencyMs": 383,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 400
+    },
+    {
+      "fixture": "world",
+      "question": "text.vague",
+      "subject": "auth-routine",
+      "text": "The assistant may only change calendar blocks it created itself, and only blocks marked as routine.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.016698077532445985
+      },
+      "probabilities": {
+        "yes": 0.016698077532445985,
+        "no": 0.983301922467554
+      },
+      "confidence": 0.983301922467554,
+      "latencyMs": 242,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 484
+    },
+    {
+      "fixture": "world",
+      "question": "text.vague",
+      "subject": "criterion-1",
+      "text": "Every calendar change the assistant makes touches only a block it created and tagged routine; any other change is rejected and logged.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.025973058356334063
+      },
+      "probabilities": {
+        "yes": 0.025973058356334063,
+        "no": 0.974026941643666
+      },
+      "confidence": 0.974026941643666,
+      "latencyMs": 241,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 432
+    },
+    {
+      "fixture": "world",
+      "question": "text.vague",
+      "subject": "evaluation-1",
+      "text": "Every Sunday, compare the number of planned calendar blocks marked done that week with the number scheduled, and record both counts.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.012152437442390718
+      },
+      "probabilities": {
+        "yes": 0.012152437442390718,
+        "no": 0.9878475625576093
+      },
+      "confidence": 0.9878475625576093,
+      "latencyMs": 341,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 411
+    },
+    {
+      "fixture": "world",
+      "question": "text.vague",
+      "subject": "operation-plan",
+      "text": "Moves or reschedules any event on the user's calendar, including meetings other people organised, without asking first.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.05360607662631786
+      },
+      "probabilities": {
+        "yes": 0.05360607662631786,
+        "no": 0.9463939233736821
+      },
+      "confidence": 0.9463939233736821,
+      "latencyMs": 260,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 429
+    },
+    {
+      "fixture": "world",
+      "question": "text.vague",
+      "subject": "outcome-1",
+      "text": "The user ends up happier with how their weeks go.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9871927325339666
+      },
+      "probabilities": {
+        "yes": 0.9871927325339666,
+        "no": 0.012807267466033445
+      },
+      "confidence": 0.9871927325339666,
+      "latencyMs": 249,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 332
+    },
+    {
+      "fixture": "world",
+      "question": "text.vague",
+      "subject": "task-french-listening",
+      "text": "Do some listening practice whenever there is time.",
+      "answer": {
+        "type": "noul",
+        "noul": 0.9714684060756964
+      },
+      "probabilities": {
+        "yes": 0.9714684060756964,
+        "no": 0.0285315939243036
+      },
+      "confidence": 0.9714684060756964,
+      "latencyMs": 329,
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "inputTokens": 367
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+id: endpoint.realization
+kind: endpoint
+fields:
+  name: Realization
+  description: Returns one realization with its workspace, checkpoints and status. The same routes are also mounted under /api/systems/:id/evolutions/:eid/realizations/:rid (the CLI's prefix) and /api/realizations/:rid.
+  route: GET /api/systems/:id/realizations/:rid
+  auth: The realization's secret or the admin bearer; 401 without a bearer, 403 for any other token.

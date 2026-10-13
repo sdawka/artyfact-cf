@@ -1,8 +1,9 @@
 import { z } from "zod";
 
-// File-level shapes of the Genome. Cross-file references are checked by Rule Packs, not here.
+// The shapes `SystemModel` projects the Genome's node tree into (see genome.ts), and the platform's own records.
 
-const id = (p: string) => z.string().regex(new RegExp(`^${p.replace(".", "\\.")}[\\w.-]+$`));
+// `$` admits a template's `$thing` placeholder inside an id (`C.$thing.checks`), rebased per Thing.
+const id = (p: string) => z.string().regex(new RegExp(`^${p.replace(".", "\\.")}[\\w.$-]+$`));
 export const Id = {
   system: id("system."),
   thing: id("thing."),
@@ -31,10 +32,8 @@ export type Source = z.infer<typeof Source>;
 export const Certainty = z.enum(["declared", "assumed", "hypothesis", "proposed", "observed", "derived"]);
 export type Certainty = z.infer<typeof Certainty>;
 
-export const Relation = z.enum([
-  "contains", "serves", "invokes", "governs", "reads", "writes", "storedIn", "refines", "realizes",
-  "dependsOn", "satisfies", "measures", "affects", "inherits", "triggers", "references",
-]);
+/** A link's relation: any relation the System's templates declare. */
+export const Relation = z.string().min(1);
 export type Relation = z.infer<typeof Relation>;
 
 export const CrossLink = z.object({
@@ -47,11 +46,15 @@ export const CrossLink = z.object({
 });
 export type CrossLink = z.infer<typeof CrossLink>;
 
-export const NodeKind = z.enum([
-  "system", "thing", "section", "screen", "component", "affordance", "route", "entity", "field", "operation",
-  "policy", "binding", "grouping", "external", "purpose", "claim", "requirement",
-]);
+/** A node's kind: any kind the System's templates declare (the engine checks it). */
+export const NodeKind = z.string().min(1);
 export type NodeKind = z.infer<typeof NodeKind>;
+
+/** The kinds of the artyfact base template that the projection gives a shape of their own (not ontology nodes). */
+export const KNOWN_KINDS = [
+  "system", "thing", "purpose", "external", "claim", "feature", "commitment", "requirement", "criterion", "hook",
+  "journey", "step", "evolution", "template", "kit", "artifact",
+] as const;
 
 export const Field = z.object({ name: str, type: str, optional: z.boolean().default(false) });
 export type Field = z.infer<typeof Field>;
@@ -85,10 +88,11 @@ export const OntologyNode = z.object({
 });
 export type OntologyNode = z.infer<typeof OntologyNode>;
 
-/** File form of an ontology node: may nest `children` (flattened by the loader, which sets `parent`). */
+/** A template's prefilled node in the v1 template shape: may nest `children`. */
 export type OntologyNodeInput = z.input<typeof OntologyNode> & { children?: OntologyNodeInput[] };
 export const OntologyNodeInput: z.ZodType<z.infer<typeof OntologyNode> & { children?: unknown[] }, OntologyNodeInput> =
   OntologyNode.extend({ children: z.lazy(() => z.array(OntologyNodeInput)).optional() });
+
 
 export const ExternalKind = z.enum(["person", "group", "context", "service", "device", "event", "organization", "resource"]);
 export const Externals = z.object({
@@ -106,6 +110,8 @@ export type Externals = z.infer<typeof Externals>;
 
 export const Purpose = z.object({
   id: z.string().regex(/^P\d+$/),
+  /** The containment parent in the Genome tree (the System, or the node whose directory holds this one). */
+  parent: AnyId.optional(),
   statement: str,
   beneficiaries: z.array(Id.ext),
   intendedChange: str,
@@ -118,6 +124,8 @@ export type Purpose = z.infer<typeof Purpose>;
 
 export const TheoryClaim = z.object({
   id: Id.claim,
+  /** The containment parent in the Genome tree (the System, or the node whose directory holds this one). */
+  parent: AnyId.optional(),
   name: str,
   purpose: str,
   mechanism: str,
@@ -135,6 +143,8 @@ export type TheoryClaim = z.infer<typeof TheoryClaim>;
 
 export const GDFeature = z.object({
   id: Id.gd,
+  /** The containment parent in the Genome tree (the System, or the node whose directory holds this one). */
+  parent: AnyId.optional(),
   name: str,
   summary: str,
   deferred: z.boolean().default(false),
@@ -144,6 +154,8 @@ export type GDFeature = z.infer<typeof GDFeature>;
 
 export const Commitment = z.object({
   id: AnyId,
+  /** The containment parent in the Genome tree (the System, or the node whose directory holds this one). */
+  parent: AnyId.optional(),
   statement: str,
   features: z.array(Id.gd),
   coupledWith: strs,
@@ -447,6 +459,8 @@ export type JourneyStep = z.infer<typeof JourneyStep>;
 
 export const Journey = z.object({
   id: Id.journey,
+  /** The containment parent in the Genome tree (the System, or the node whose directory holds this one). */
+  parent: AnyId.optional(),
   name: str,
   actorGoal: str,
   features: z.array(Id.gd),
@@ -601,7 +615,6 @@ export const Template = z.object({
   criteria: z.array(Criterion).default([]),
   hooks: z.array(AssayHook).default([]),
   scaffold: z.object({ repo: str.optional(), path: str.optional() }).optional(),
-  sourceMapDefaults: z.array(z.object({ glob: str, nodes: z.array(str) })).optional(),
   requires: strs,
 });
 export type Template = z.infer<typeof Template>;
@@ -612,10 +625,3 @@ export type Pin = z.infer<typeof Pin>;
 export const KitsFile = z.object({ kits: z.array(Pin).default([]), rulePacks: z.array(Pin).default([]), required: strs });
 export type KitsFile = z.infer<typeof KitsFile>;
 
-// File containers. A list file may be a bare array or `{<key>: [...]}`.
-export const OntologyFile = z.object({ nodes: z.array(OntologyNodeInput).default([]) });
-export const ExternalsFile = z.object({ externals: z.array(Externals).default([]) });
-export const TheoryFile = z.object({ claims: z.array(TheoryClaim).default([]) });
-export const SpecFile = z.object({ requirements: z.array(Requirement).default([]) });
-export const CriteriaFile = z.object({ criteria: z.array(Criterion).default([]), hooks: z.array(AssayHook).default([]) });
-export const PurposeFile = z.object({ purposes: z.array(Purpose).default([]) });

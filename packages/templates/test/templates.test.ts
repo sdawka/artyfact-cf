@@ -1,7 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { parseSource } from "./engine";
 import { render } from "../scripts/bundle";
-import { pack, packsFor, rulePacks, templateFile, templateRefs, templates } from "../src/index";
+import { templateFile } from "../src/index";
+import { pack, rulePacks, v1Template, v1TemplateRefs } from "./v1";
 import { files } from "../src/generated/files";
 
 const SECTIONS = ["section.ui", "section.domain", "section.authorization", "section.runtime"];
@@ -9,25 +10,24 @@ const thingRef = "template.thing.cloudflare-worker-webapp@1";
 const vueRef = "template.thing.vue-webapp@1";
 const systemRef = "template.system.social-networking.cloudflare@1";
 
-describe("templates", () => {
+describe("templates (legacy v1 shape, read by the converter)", () => {
   it("bundles three templates", () => {
-    expect(templateRefs().sort()).toEqual([thingRef, systemRef, vueRef].sort());
+    expect(v1TemplateRefs().sort()).toEqual([thingRef, systemRef, vueRef].sort());
   });
 
   it.each([thingRef, vueRef, systemRef])("%s parses with the Template schema", (ref) => {
-    const t = templates.get(ref);
+    const t = v1Template(ref);
     expect(t).toBeDefined();
     expect(`${t!.id}@${t!.version}`).toBe(ref);
   });
 
-  it("returns undefined for unknown refs and caches known ones", () => {
-    expect(templates.get("template.thing.nope@1")).toBeUndefined();
-    expect(templates.get("garbage")).toBeUndefined();
-    expect(templates.get(thingRef)).toBe(templates.get(thingRef));
+  it("returns undefined for unknown refs", () => {
+    expect(v1Template("template.thing.nope@1")).toBeUndefined();
+    expect(v1Template("garbage")).toBeUndefined();
   });
 
   it("system template has its four sections and requires thing templates", () => {
-    const t = templates.get(systemRef)!;
+    const t = v1Template(systemRef)!;
     expect(t.kind).toBe("system");
     expect(t.sections).toEqual(["section.purpose", "section.externals", "section.theory", "section.description"]);
     expect(t.requires).toEqual(["template.thing.*"]);
@@ -36,7 +36,7 @@ describe("templates", () => {
   });
 
   describe.each([thingRef, vueRef])("%s", (ref) => {
-    const t = () => templates.get(ref)!;
+    const t = () => v1Template(ref)!;
     it("declares the four section nodes with the $thing placeholder", () => {
       expect(t().sections).toEqual(SECTIONS);
       for (const id of SECTIONS) {
@@ -57,12 +57,12 @@ describe("templates", () => {
     it("provides worker and d1 bindings and base criteria", () => {
       const ids = t().nodes.map((n) => n.id);
       expect(ids).toEqual(expect.arrayContaining(["binding.worker", "binding.d1"]));
-      expect(t().criteria.map((c) => c.id)).toEqual(["C.webapp.exists", "C.webapp.health"]);
+      expect(t().criteria.map((c) => c.id)).toEqual(["C.webapp.exists", "C.webapp.health", "C.$thing.checks"]);
     });
   });
 
   it("worker template carries the shared UI, scheduler and provisional authentication nodes", () => {
-    const t = templates.get(thingRef)!;
+    const t = v1Template(thingRef)!;
     const ids = t.nodes.map((n) => n.id);
     expect(ids).toEqual(expect.arrayContaining([
       "binding.scheduler", "component.AppShell", "component.TopBar", "component.PrimaryNav",
@@ -71,8 +71,8 @@ describe("templates", () => {
     expect(t.nodes.find((n) => n.id === "policy.authentication")?.provisional).toBe(true);
   });
 
-  it("worker template hooks, source map and scaffold match the brief", () => {
-    const t = templates.get(thingRef)!;
+  it("worker template hooks and scaffold match the brief", () => {
+    const t = v1Template(thingRef)!;
     const exists = t.hooks.find((h) => h.id === "hook.webapp.exists")!;
     expect(exists).toMatchObject({ engine: "manifest", tier: "basic", binding: "bound", criteria: ["C.webapp.exists"] });
     expect(exists.inputs.requiredFiles).toBe("wrangler.jsonc,src/index.ts,package.json");
@@ -80,29 +80,15 @@ describe("templates", () => {
     expect(health).toMatchObject({ engine: "http", tier: "execution", binding: "defined", timeoutMs: 2000 });
     expect(health.inputs.path).toBe("/health");
     expect(t.criteria.find((c) => c.id === "C.webapp.exists")!.hooks).toEqual(["hook.webapp.exists"]);
-    expect(t.sourceMapDefaults).toEqual([
-      { glob: "src/worker/health.ts", nodes: ["$thing"] },
-      { glob: "migrations/**", nodes: ["binding.d1"] },
-      { glob: "src/ui/**", nodes: ["section.ui"] },
-      { glob: "src/worker/routes/**", nodes: ["section.domain"] },
-      { glob: "system/**", nodes: ["genome"] },
-      { glob: "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.test.jsonc,.gitignore,.dev.vars.example,README.md}", nodes: ["$thing"] },
-      { glob: "src/index.ts", nodes: ["$thing"] },
-      { glob: "src/worker/env.ts", nodes: ["$thing"] },
-      { glob: "src/worker/phenome.ts", nodes: ["$thing"] },
-      { glob: "test/**", nodes: ["$thing"] },
-      { glob: "public/*", nodes: ["$thing"] },
-      { glob: ".artyfact/**", nodes: ["$thing"] },
-    ]);
     expect(t.scaffold).toEqual({ repo: "platform", path: "templates/thing/cloudflare-worker-webapp@1/scaffold" });
     expect(templateFile(thingRef, "scaffold.yaml")).toMatch(/commands:\n {2}install:/);
   });
 
   it("vue template names Vue in its UI defaults and keeps the same criterion ids", () => {
-    const t = templates.get(vueRef)!;
+    const t = v1Template(vueRef)!;
     expect(t.nodes.map((n) => n.id)).toEqual(expect.arrayContaining(["component.App", "component.Router"]));
     expect(t.nodes.find((n) => n.id === "component.Router")?.description).toMatch(/vue/i);
-    expect(t.criteria.map((c) => c.id)).toEqual(templates.get(thingRef)!.criteria.map((c) => c.id));
+    expect(t.criteria.map((c) => c.id)).toEqual(v1Template(thingRef)!.criteria.map((c) => c.id));
   });
 });
 
@@ -126,21 +112,10 @@ describe("rule packs", () => {
     }
   });
 
-  it("packsFor returns only the requested packs", () => {
-    expect(packsFor([{ id: "readiness", version: "1" }]).map((p) => `${p.id}@${p.version}`)).toEqual(["readiness@1"]);
-    expect(pack("metamodel").version).toBe("1");
+  it("pack() finds a bundled pack and throws on an unknown one", () => {
+    expect(pack("metamodel")).toMatchObject({ id: "metamodel", version: "1" });
+    expect(() => pack("nope")).toThrow(/unknown rule pack nope/);
   });
-
-  it("pack() resolves the highest version, comparing numerically", () => {
-    expect(pack("readiness").version).toBe("1");
-  });
-
-  it("packsFor and pack throw on unknown packs", () => {
-    expect(() => packsFor([{ id: "nope", version: "1" }])).toThrow(/unknown rule pack nope@1/);
-    expect(() => packsFor([{ id: "readiness", version: "9" }])).toThrow();
-    expect(() => pack("nope")).toThrow();
-  });
-
 });
 
 describe("generated bundle", () => {
@@ -158,11 +133,18 @@ describe("generated bundle", () => {
       "rule-packs/readiness@1.dl",
       "rule-packs/theory@1.dl",
       "rule-packs/topology.private-pairs@1.dl",
+      "system/dev-platform.cloudflare@1/template.yaml",
+      "system/social-networking.cloudflare@1/template.v1.yaml",
       "system/social-networking.cloudflare@1/template.yaml",
+      "thing/cli@1/template.yaml",
+      "thing/cloudflare-worker-service@1/template.yaml",
       "thing/cloudflare-worker-webapp@1/criteria.yaml",
       "thing/cloudflare-worker-webapp@1/scaffold.yaml",
-      "thing/cloudflare-worker-webapp@1/source-map.defaults.yaml",
+      "thing/cloudflare-worker-webapp@1/template.v1.yaml",
       "thing/cloudflare-worker-webapp@1/template.yaml",
+      "thing/static-site@1/template.yaml",
+      "thing/ts-library@1/template.yaml",
+      "thing/vue-webapp@1/template.v1.yaml",
       "thing/vue-webapp@1/template.yaml",
     ]);
   });

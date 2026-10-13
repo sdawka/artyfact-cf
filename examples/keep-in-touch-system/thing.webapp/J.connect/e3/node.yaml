@@ -1,0 +1,9 @@
+id: J.connect/e3
+kind: step
+fields:
+  step: e3
+  actor: counterpart
+  action: No connection created
+  kind: end
+  requirementRefs:
+    - S.webapp.concurrency

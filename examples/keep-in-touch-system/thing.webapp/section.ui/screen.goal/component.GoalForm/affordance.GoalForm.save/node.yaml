@@ -1,0 +1,17 @@
+id: affordance.GoalForm.save
+kind: affordance
+fields:
+  name: Save
+  actor: ext.owner
+  trigger: Owner activates Save
+  preconditions:
+    - Owned contact
+    - Valid interval
+  effects:
+    - Invokes operation.goal.save
+    - Increment goal version, recompute due state and cancel obsolete jobs
+  failure:
+    - Validation failure keeps entered values and renders one ErrorSummary
+    - Stale version returns conflict
+links:
+  - { rel: invokes, to: operation.goal.save }

@@ -1,0 +1,7 @@
+id: artifact.api
+kind: artifact
+fields:
+  type: worker-fullstack
+  repo: toolkit
+  scope:
+    - apps/api

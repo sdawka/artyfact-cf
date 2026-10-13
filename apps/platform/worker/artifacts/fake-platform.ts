@@ -1,8 +1,9 @@
 /// <reference types="vite/client" />
 /**
  * `FAKE_ARTIFACTS=1` boot mode: the whole backend without a Cloudflare account. On the first request the Worker
- * swaps Artifacts for an in-memory namespace seeded from `examples/` (Keep in Touch) and `packages/templates` (the
- * `platform` repo, so template upgrades and provenance work), imports that System, and pushes
+ * swaps Artifacts for an in-memory namespace seeded from `examples/` (Keep in Touch), the repo-root `genome/`
+ * (Artyfact itself) or both, as `FAKE_SEED` says, and `packages/templates` (the `platform` repo, so template upgrades
+ * and provenance work), imports those Systems, and pushes
  * editor commits through a fake git receive-pack. State lives in the isolate, so a restart starts over (the Vite
  * config turns off state persistence in this mode to keep the Durable Objects in step).
  */
@@ -43,7 +44,24 @@ export function examplePlatform(app: Record<string, string> = exampleApp): Recor
   return out;
 }
 
-export const exampleSystemId = /^id:\s*(\S+)/m.exec(exampleGenome["system.yaml"] ?? "")?.[1] ?? "system.keep-in-touch";
+export const exampleSystemId = /^id:\s*(\S+)/m.exec(exampleGenome["node.yaml"] ?? "")?.[1] ?? "system.keep-in-touch";
+
+export type FakeSeed = "keep-in-touch" | "artyfact" | "both";
+
+/** `FAKE_SEED`: which Systems the fake platform imports; anything else is the default, Keep in Touch. */
+export const fakeSeed = (v: string | undefined): FakeSeed => (v === "artyfact" || v === "both" ? v : "keep-in-touch");
+
+interface SeedSystem { systemId: string; genome: Record<string, string>; app: Record<string, string>; title: string }
+
+async function seedSystems(seed: FakeSeed): Promise<SeedSystem[]> {
+  const out: SeedSystem[] = [];
+  if (seed !== "artyfact") out.push({ systemId: exampleSystemId, genome: exampleGenome, app: exampleApp, title: "Keep in Touch" });
+  if (seed !== "keep-in-touch") {
+    const a = await import("./fake-seed-artyfact");
+    out.push({ systemId: a.artyfactSystemId, genome: a.artyfactGenome, app: a.artyfactApp, title: "Artyfact" });
+  }
+  return out;
+}
 
 let booted: Promise<FakeArtifacts> | undefined;
 
@@ -65,12 +83,18 @@ export function resetFakePlatform(): void {
 
 async function boot(env: Env): Promise<FakeArtifacts> {
   const ns = new FakeArtifacts();
-  const { genomeRepo, appRepo } = systemRepoNames(exampleSystemId);
-  ns.create(genomeRepo).commit(exampleGenome, "Keep in Touch Genome");
-  ns.create(appRepo).commit(exampleApp, "Keep in Touch app");
+  const systems = await seedSystems(fakeSeed(env.FAKE_SEED));
+  for (const s of systems) {
+    const { genomeRepo, appRepo } = systemRepoNames(s.systemId);
+    ns.create(genomeRepo).commit(s.genome, `${s.title} Genome`);
+    ns.create(appRepo).commit(s.app, `${s.title} app`);
+  }
   ns.create(PLATFORM_REPO).commit(examplePlatform(), "platform-sync");
   setArtifactsOverride(ns);
   setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
-  if (!(await registryStub(env).hasSystem(exampleSystemId))) await importSystem(env, { systemId: exampleSystemId, genomeRepo, appRepo });
+  for (const { systemId } of systems) {
+    const { genomeRepo, appRepo } = systemRepoNames(systemId);
+    if (!(await registryStub(env).hasSystem(systemId))) await importSystem(env, { systemId, genomeRepo, appRepo });
+  }
   return ns;
 }

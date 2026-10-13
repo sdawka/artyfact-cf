@@ -1,0 +1,6 @@
+id: component.GoalForm
+kind: component
+fields:
+  name: GoalForm
+  description: Form contains interval, depth, preferred channel and enabled controls, plus Save and Cancel
+  cardinality: exactly one

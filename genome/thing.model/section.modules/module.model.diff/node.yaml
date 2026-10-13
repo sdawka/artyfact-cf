@@ -1,0 +1,10 @@
+id: module.model.diff
+kind: module
+fields:
+  name: Diff
+  description: Semantic delta and overlap between models.
+  path: src/diff.ts
+links:
+  - { rel: implements, to: export.model.diff }
+files:
+  - src/diff.ts

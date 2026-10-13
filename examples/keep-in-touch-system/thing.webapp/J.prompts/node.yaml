@@ -1,0 +1,12 @@
+id: J.prompts
+kind: journey
+fields:
+  name: Work through today's suggestions
+  actorGoal: See a short, finite set of next actions and respond on my terms
+  features:
+    - GD.prompts
+  requirements:
+    - S.webapp.prompts
+    - S.webapp.due
+  start: p1
+  deferred: false

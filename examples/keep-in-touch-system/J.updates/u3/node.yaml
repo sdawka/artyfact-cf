@@ -1,0 +1,8 @@
+id: J.updates/u3
+kind: step
+fields:
+  step: u3
+  actor: user
+  action: Approve a suggested photo, caption and recipient before anything is sent
+  kind: end
+  unresolved: true

@@ -1,0 +1,8 @@
+id: module.platform.ui-views
+kind: module
+fields:
+  name: Views
+  description: "One view per area: home, map, work, code, changelog, compare, journeys, theory, phenome and the rest."
+  path: src/views
+files:
+  - src/views/**

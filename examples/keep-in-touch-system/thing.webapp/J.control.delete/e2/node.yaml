@@ -1,0 +1,11 @@
+id: J.control.delete/e2
+kind: step
+fields:
+  step: e2
+  actor: user
+  action: Account unchanged
+  kind: end
+  requirementRefs:
+    - S.webapp.operations
+links:
+  - { rel: stepScreen, to: screen.settings }

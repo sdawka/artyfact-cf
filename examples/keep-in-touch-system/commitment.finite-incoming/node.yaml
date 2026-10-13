@@ -1,0 +1,14 @@
+id: commitment.finite-incoming
+kind: commitment
+fields:
+  statement: A finite incoming view - Today returns at most five suggestions; many independent senders appear in one owner's finite inbox.
+  features:
+    - GD.prompts
+    - GD.connect
+  coupledWith:
+    - commitment.one-to-one
+    - commitment.owner-cadence
+    - commitment.personal-initiation
+  source:
+    doc: keep-in-touch-world-specification
+    section: "3"

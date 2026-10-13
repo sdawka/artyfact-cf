@@ -1,0 +1,5 @@
+id: component.GoalEnabledToggle
+kind: component
+fields:
+  name: EnabledToggle
+  cardinality: exactly one

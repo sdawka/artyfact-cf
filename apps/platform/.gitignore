@@ -1,5 +1,5 @@
 .dev.vars
 .wrangler
-dist
+/dist
 e2e-artifacts
-dist-fixture
+/dist-fixture

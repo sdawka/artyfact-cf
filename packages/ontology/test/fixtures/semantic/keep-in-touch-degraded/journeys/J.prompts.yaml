@@ -1,0 +1,104 @@
+id: J.prompts
+name: Work through today's suggestions
+actorGoal: See a short, finite set of next actions and respond on my terms
+features:
+- GD.prompts
+requirements:
+- S.webapp.prompts
+- S.webapp.due
+start: p1
+steps:
+- id: p1
+  actor: user
+  action: Inspect Today
+  kind: action
+  screen: screen.today
+  next:
+  - to: p2
+  requirementRefs:
+  - S.webapp.prompts
+- id: p2
+  actor: system
+  action: At most five suggestions ordered by effective due date then goal ID, or one EmptyState
+  kind: reaction
+  screen: screen.today
+  next:
+  - to: p3
+  requirementRefs:
+  - S.webapp.prompts
+- id: p3
+  actor: user
+  action: Choose an action on a card
+  kind: branch
+  screen: screen.today
+  next:
+  - to: p4
+    when: Log contact
+  - to: p5
+    when: Snooze
+  - to: p6
+    when: pause goal
+  - to: p7
+    when: revise goal
+  requirementRefs:
+  - S.webapp.prompts
+- id: p4
+  actor: user
+  action: Log contact for that person
+  kind: action
+  screen: screen.logContact
+  operation: operation.contact.log
+  next:
+  - to: e1
+  requirementRefs:
+  - S.webapp.prompts
+  - S.webapp.due
+- id: p5
+  actor: user
+  action: Snooze the suggestion; its effective due date moves
+  kind: action
+  screen: screen.today
+  operation: operation.goal.save
+  next:
+  - to: e2
+  requirementRefs:
+  - S.webapp.prompts
+  - S.webapp.due
+- id: p6
+  actor: user
+  action: Pause the goal; its prompts are suppressed and pending jobs cancelled
+  kind: action
+  screen: screen.goal
+  operation: operation.goal.save
+  next:
+  - to: e2
+  requirementRefs:
+  - S.webapp.prompts
+  - S.webapp.due
+- id: p7
+  actor: user
+  action: Revise the goal; due state recomputed and obsolete jobs cancelled, no ContactEvent created
+  kind: action
+  screen: screen.goal
+  operation: operation.goal.save
+  next:
+  - to: e2
+  requirementRefs:
+  - S.webapp.due
+- id: e1
+  actor: system
+  action: Qualifying contact resolves the suggestion
+  kind: end
+  screen: screen.today
+  next: []
+  requirementRefs:
+  - S.webapp.prompts
+- id: e2
+  actor: system
+  action: Resulting due state shown on Today
+  kind: end
+  screen: screen.today
+  next: []
+  requirementRefs:
+  - S.webapp.prompts
+  - S.webapp.due

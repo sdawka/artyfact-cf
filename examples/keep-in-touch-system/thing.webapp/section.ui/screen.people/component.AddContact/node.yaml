@@ -1,0 +1,6 @@
+id: component.AddContact
+kind: component
+fields:
+  name: AddContact
+  description: AddContact control
+  cardinality: exactly one

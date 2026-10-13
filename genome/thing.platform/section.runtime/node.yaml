@@ -1,0 +1,5 @@
+id: thing.platform.runtime
+kind: section
+fields:
+  name: Runtime
+  description: Durable Objects, Workflows and queues the Worker runs.

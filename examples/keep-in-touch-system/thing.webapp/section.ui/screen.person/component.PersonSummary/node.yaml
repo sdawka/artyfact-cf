@@ -1,0 +1,7 @@
+id: component.PersonSummary
+kind: component
+fields:
+  name: PersonSummary
+  cardinality: exactly one
+links:
+  - { rel: reads, to: entity.ContactRecord }

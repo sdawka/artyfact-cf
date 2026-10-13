@@ -1,0 +1,8 @@
+id: module.templates.thing-templates
+kind: module
+fields:
+  name: Thing templates
+  description: Worker service, worker webapp, Vue webapp, TypeScript library, CLI and static site.
+  path: thing
+files:
+  - thing/**

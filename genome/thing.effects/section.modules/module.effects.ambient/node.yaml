@@ -1,0 +1,12 @@
+id: module.effects.ambient
+kind: module
+fields:
+  name: Ambient field
+  description: The WebGL ambient background and its engine.
+  path: src/AmbientField.tsx
+links:
+  - { rel: implements, to: export.effects.ambient }
+files:
+  - src/AmbientField.tsx
+  - src/ambient/**
+  - src/useEngine.ts

@@ -1,0 +1,7 @@
+id: endpoint.builds
+kind: endpoint
+fields:
+  name: Builds
+  description: Lists builds, filtered by commit, kind or realization.
+  route: GET /api/systems/:id/builds
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

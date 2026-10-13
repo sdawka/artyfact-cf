@@ -1,0 +1,8 @@
+id: module.parser
+kind: module
+fields:
+  name: Parser
+  description: Reads the job file format and reports errors with line numbers.
+  path: src/parser
+links:
+  - {rel: implements, to: export.parse-job}

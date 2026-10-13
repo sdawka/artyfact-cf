@@ -35,10 +35,11 @@ Not done on purpose: platform-hosted agents, a reasoning-model evaluator beyond 
 ## Features
 - Home with a card per System and signifiers for evolving, pending, awaiting review, not built, deployed and observed.
 - Describe a change in the browser or hand it to an agent: Evolution, task packet, in-browser editor with a real Git push to a fork.
+- Intent edits: a message is routed through the Genome tree by the ontology engine and becomes ops to review and accept. Artyfact describes itself with ten Things in the same format.
 - Changelog and Compare across System, Genome and file level.
 - Preview builds and production deployments through a CI Worker, with a health assay on the deployed preview.
 - Deployments page with runtime events from the running app, tied to the System commit.
-- A fake platform (`FAKE_ARTIFACTS=1`) and Playwright specs that drive the five use cases through the UI.
+- A fake platform (`FAKE_ARTIFACTS=1`) and Playwright specs that drive the use cases through the UI for Keep in Touch and for Artyfact's own Genome.
 
 ## How Workers and Artifacts are used
 - Workers: one Worker with Static Assets for the SPA, a Hono API, a Queue consumer and the `SystemAuthority` Durable Object with SQLite.

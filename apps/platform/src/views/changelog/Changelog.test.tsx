@@ -41,6 +41,36 @@ describe("Changelog", () => {
     expect(within(rows[0]!).getByRole("button", { name: "Copy commit id sc-2" })).toBeTruthy();
   });
 
+  it("notes a commit whose Genome is in the v1 format", async () => {
+    renderApp(URL, undefined, seed([older, { ...newer, legacyFormat: true }]));
+    const rows = rowsOf(await list());
+    expect(rows[0]!.textContent).toContain("Genome v1 format — not comparable");
+    expect(rows[1]!.textContent).not.toContain("Genome v1 format");
+  });
+
+  it("expands a v1 commit into the legacy notice, with no node delta and no Map link", async () => {
+    renderApp(URL, undefined, seed([older, { ...newer, legacyFormat: true }]));
+    const genome = await expand(/sc-2/);
+    expect(within(genome).getByRole("note").textContent).toBe("Genome v1 format — not comparable");
+    expect(within(genome).queryByText("Added")).toBeNull();
+    expect(within(genome).queryByRole("link", { name: "Open this revision in the Map" })).toBeNull();
+    expect(within(screen.getByRole("region", { name: "Files" })).getByRole("link", { name: "src/screens/People.tsx" })).toBeTruthy();
+  });
+
+  it("sends a link to a v1 revision to its Changelog entry instead of the error page", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const url = String(input);
+      if (url === "/api/systems") return Response.json([]);
+      if (url.includes("/model?rev=sc-2")) return Response.json({ error: { code: "legacy-genome", message: "this revision predates the node-tree Genome format" } }, { status: 422 });
+      return Response.json({ error: { code: "not-found", message: url } }, { status: 404 });
+    }));
+    const { router } = renderApp(`/s/${SYSTEM}/r/sc-2/map`, undefined, seed([older, { ...newer, legacyFormat: true }]));
+    await waitFor(() => expect(`${router.state.location.pathname}${router.state.location.search}`).toBe(`/s/${SYSTEM}/r/head/changelog?commit=sc-2`));
+    const genome = await screen.findByRole("region", { name: "Genome" });
+    expect(within(genome).getByRole("note").textContent).toBe("Genome v1 format — not comparable");
+    expect(screen.queryByText("This System could not be loaded.")).toBeNull();
+  });
+
   it("expands into the Genome delta with field before/after", async () => {
     renderApp(URL, undefined, seed());
     const genome = await expand(/sc-2/);
@@ -56,8 +86,8 @@ describe("Changelog", () => {
     expect(within(files).getByRole("link", { name: "src/screens/People.tsx" }).getAttribute("href"))
       .toBe(`/s/${SYSTEM}/r/sc-2/code?repo=app&path=src%2Fscreens%2FPeople.tsx`);
     expect(within(files).getByRole("link", { name: "src/old.ts" }).getAttribute("href")).toBe(`/s/${SYSTEM}/r/sc-1/code?repo=app&path=src%2Fold.ts`);
-    expect(within(files).getByRole("link", { name: "things/webapp/ontology.yaml" }).getAttribute("href"))
-      .toBe(`/s/${SYSTEM}/r/sc-2/code?repo=genome&path=things%2Fwebapp%2Fontology.yaml`);
+    expect(within(files).getByRole("link", { name: "thing.webapp/section.ui/screen.people/node.yaml" }).getAttribute("href"))
+      .toBe(`/s/${SYSTEM}/r/sc-2/code?repo=genome&path=thing.webapp%2Fsection.ui%2Fscreen.people%2Fnode.yaml`);
     const criteria = screen.getByRole("region", { name: "Criteria" });
     expect(within(criteria).getByRole("link", { name: "C.webapp.screen.people" }).getAttribute("href"))
       .toBe(`/s/${SYSTEM}/r/head/evaluations?criterion=C.webapp.screen.people`);

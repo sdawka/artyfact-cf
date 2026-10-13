@@ -1,0 +1,22 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#thing-unpinned",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "505c18b81e75f0534d6ac365d95c15665d2e95723260b48ec9b5ddd05d339540",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.thing-references-pinned",
+      "severity": "blocker",
+      "message": "Thing thing-planning must pin both a revision and Template reference",
+      "objectIds": [
+        "thing-planning"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:thing-planning"
+      }
+    }
+  ]
+}

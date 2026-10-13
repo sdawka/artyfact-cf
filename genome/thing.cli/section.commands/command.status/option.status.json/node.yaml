@@ -1,0 +1,7 @@
+id: option.status.json
+kind: option
+fields:
+  name: json
+  flag: --json
+  description: Print JSON.
+  valueType: boolean

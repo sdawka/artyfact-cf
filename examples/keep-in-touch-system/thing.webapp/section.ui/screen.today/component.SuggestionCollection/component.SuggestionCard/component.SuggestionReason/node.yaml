@@ -1,0 +1,5 @@
+id: component.SuggestionReason
+kind: component
+fields:
+  name: Reason
+  cardinality: exactly one per card

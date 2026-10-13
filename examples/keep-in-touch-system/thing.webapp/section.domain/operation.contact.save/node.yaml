@@ -1,0 +1,22 @@
+id: operation.contact.save
+kind: operation
+fields:
+  name: Create or edit private contact
+  description: Owner session; nonblank name. Save only that owner's record; editing does not send invitations
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+  preconditions:
+    - Owner session
+    - Nonblank name
+  effects:
+    - Save only that owner's record; editing does not send invitations
+    - Creation must return an immutable ID and version
+  failure:
+    - Reads and writes to another owner's private records return a non-revealing denial
+    - Concurrent stale-version edits return conflict without overwriting current data
+links:
+  - { rel: writes, to: entity.ContactRecord }
+files:
+  - src/worker/routes/contacts.ts
+  - public/people/add-contact-dialog.js

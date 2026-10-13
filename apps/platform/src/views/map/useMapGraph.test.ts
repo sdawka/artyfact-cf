@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { fixtureBundle } from "@/api/fixtures";
 import { buildIndex } from "@/model/index";
-import { buildMapGraph, certaintyStroke, DEFAULT_FILTERS, findingSubjectIds, mapLayoutRequest, mapLocationFor, mapScopeFor } from "./useMapGraph";
+import { resolveKindView } from "@artyfact/ontology";
+import { kindViews, type KindViews } from "@/model/kinds";
+import { modelKinds } from "./MapView";
+import { bandFrameId, buildMapGraph, certaintyStroke, DEFAULT_FILTERS, findingSubjectIds, mapLayoutRequest, mapLocationFor, mapScopeFor } from "./useMapGraph";
 
 const index = buildIndex(fixtureBundle());
 const ids = (g: ReturnType<typeof buildMapGraph>, role?: string) =>
   g.nodes.filter((n) => !role || n.role === role).map((n) => n.id).sort();
+/** Views of a template chain that declares no Map layers: every kind is drawn, bands by depth. */
+const unlayered: KindViews = { of: (k) => resolveKindView({ kinds: {} }, k), declares: () => true, layers: [] };
 
 describe("buildMapGraph", () => {
   it("for screen.people: children + linked ops/entities/policies + touching externals", () => {
@@ -32,11 +37,21 @@ describe("buildMapGraph", () => {
     expect(g.edges.some((e) => (e.type as string) === "contains")).toBe(false);
   });
 
-  it("System scope shows things/sections and externals touched by any descendant", () => {
+  it("System scope looks through undrawn containers to the drawn kinds, banded by template layer", () => {
     const g = buildMapGraph(index, "system.keep-in-touch");
-    expect(ids(g, "child")).toContain("thing.webapp");
+    const children = ids(g, "child");
+    expect(children).toContain("screen.people");
+    expect(children).toContain("entity.ContactRecord");
+    expect(children).not.toContain("thing.webapp");
+    expect(children.some((id) => id.startsWith("section."))).toBe(false);
     expect(ids(g, "outside")).toEqual([]);
     expect(ids(g, "external")).toEqual(["ext.channels", "ext.owner", "ext.providers"]);
+    expect(g.edges.some((e) => e.source === "screen.people" && e.target === "ext.owner")).toBe(true);
+  });
+
+  it("System scope without template layers shows its direct children (things, sections)", () => {
+    const g = buildMapGraph(index, "system.keep-in-touch", DEFAULT_FILTERS, new Set(), unlayered);
+    expect(ids(g, "child")).toContain("thing.webapp");
     expect(g.edges.find((e) => e.source === "thing.webapp" && e.target === "ext.owner")?.count).toBeGreaterThan(1);
   });
 
@@ -88,7 +103,9 @@ describe("buildMapGraph edge cases", () => {
   it("keeps direction-in links whose normalised source is a thing", () => {
     const m = structuredClone(fixtureBundle().model);
     m.nodes.find((n) => n.id === "component.SearchInput")!.links.push({ rel: "dependsOn", to: "thing.webapp", direction: "in", certainty: "assumed" });
-    const g = buildMapGraph(buildIndex(m), "screen.people");
+    // With template layers a thing is in no layer, so it is not drawn.
+    expect(buildMapGraph(buildIndex(m), "screen.people").ids.has("thing.webapp")).toBe(false);
+    const g = buildMapGraph(buildIndex(m), "screen.people", DEFAULT_FILTERS, new Set(), unlayered);
     expect(g.nodes.find((n) => n.id === "thing.webapp")?.role).toBe("outside");
     expect(g.edges.find((e) => e.source === "thing.webapp" && e.target === "component.SearchInput")).toMatchObject({ type: "dependsOn", stroke: "dashed" });
   });
@@ -130,7 +147,8 @@ describe("mapLayoutRequest", () => {
     const g = buildMapGraph(index, "screen.people");
     const req = mapLayoutRequest(g, "genome");
     const n = (id: string) => req.nodes.find((x) => x.id === id)!;
-    expect(n("component.SearchInput").parentId).toBe("screen.people");
+    expect(n("component.SearchInput").parentId).toBe(bandFrameId("experience"));
+    expect(n(bandFrameId("experience")).parentId).toBe("screen.people");
     expect(n("ext.owner").layoutOptions?.["elk.partitioning.partition"]).toBe("0");
     expect(n("screen.people").layoutOptions?.["elk.partitioning.partition"]).toBe("1");
     expect(n("entity.ContactRecord").layoutOptions?.["elk.partitioning.partition"]).toBe("1");
@@ -138,5 +156,48 @@ describe("mapLayoutRequest", () => {
     const serves = req.edges.find((e) => e.id === "screen.people>serves>ext.owner")!;
     expect([serves.source, serves.target]).toEqual(["ext.owner", "screen.people"]);
     expect(mapLayoutRequest(g, "phenome").nodes.find((x) => x.id === "component.SearchInput")!.height).toBeGreaterThan(n("component.SearchInput").height);
+  });
+});
+
+describe("Map bands", () => {
+  it("bands children by template layer, in template order, and hides hidden layers", () => {
+    const g = buildMapGraph(index, "system.keep-in-touch");
+    expect(g.layered).toBe(true);
+    expect(g.bands.map((b) => b.id)).toEqual(["intent", "journeys", "experience", "domain", "rules", "runtime"]);
+    expect(g.bands[2]!.label).toBe("Experience");
+    expect(g.nodes.find((n) => n.id === "T1")?.band).toBe("intent");
+    expect(g.nodes.find((n) => n.id === "J.connect")?.band).toBe("journeys");
+    expect(g.nodes.find((n) => n.id === "screen.people")?.band).toBe("experience");
+    expect(g.nodes.find((n) => n.id === "entity.ContactRecord")?.band).toBe("domain");
+    const noDomain = buildMapGraph(index, "system.keep-in-touch", { ...DEFAULT_FILTERS, hiddenLayers: ["domain"] });
+    expect(noDomain.bands.map((b) => b.id)).toEqual(["intent", "journeys", "experience", "rules", "runtime"]);
+    expect(ids(noDomain)).not.toContain("entity.ContactRecord");
+  });
+
+  it("chains band frames in layer order inside the scope", () => {
+    const req = mapLayoutRequest(buildMapGraph(index, "system.keep-in-touch"), "genome");
+    const frames = req.nodes.filter((n) => n.id.startsWith(bandFrameId(""))).map((n) => n.id);
+    expect(frames).toEqual(["intent", "journeys", "experience", "domain", "rules", "runtime"].map(bandFrameId));
+    for (const f of frames) expect(req.nodes.find((n) => n.id === f)!.parentId).toBe("system.keep-in-touch");
+    const chain = req.edges.filter((e) => e.source.startsWith(bandFrameId(""))).map((e) => [e.source, e.target]);
+    expect(chain).toEqual(frames.slice(1).map((f, i) => [frames[i], f]));
+  });
+
+  it("without template layers bands by containment depth and draws no frames", () => {
+    const g = buildMapGraph(index, "screen.people", DEFAULT_FILTERS, new Set(), unlayered);
+    expect(g.layered).toBe(false);
+    expect(g.bands).toEqual([{ id: "depth-5", label: "Depth 5" }]);
+    const req = mapLayoutRequest(g, "genome");
+    expect(req.nodes.some((n) => n.id.startsWith(bandFrameId("")))).toBe(false);
+    expect(req.nodes.find((n) => n.id === "component.SearchInput")!.parentId).toBe("screen.people");
+  });
+});
+
+describe("Map Kinds filter", () => {
+  it("lists every drawn kind in the containment tree, intent and journey kinds included", () => {
+    const { kinds } = modelKinds(index, kindViews(index.model));
+    for (const k of ["purpose", "claim", "journey", "step", "screen", "entity"]) expect(kinds).toContain(k);
+    for (const k of ["thing", "section", "criterion"]) expect(kinds).not.toContain(k);
+    expect(modelKinds(index, unlayered).kinds).toContain("thing");
   });
 });

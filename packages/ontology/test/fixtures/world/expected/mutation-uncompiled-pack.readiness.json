@@ -1,0 +1,20 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#uncompiled-pack",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "1bb352f18daaa901467352416d250364e930ceaff9a98b32166ff88f7d78732a",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.compiled-rule-packs",
+      "severity": "blocker",
+      "message": "Rule Pack experimental@2 is not compiled into bropilot-readiness@1",
+      "objectIds": [],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "evaluator:bropilot-readiness@1"
+      }
+    }
+  ]
+}

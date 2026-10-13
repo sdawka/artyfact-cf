@@ -1,0 +1,6 @@
+id: commitment.evidence-before-green
+kind: commitment
+fields:
+  statement: Only a pass verdict is drawn as success; unknown, stale and waived never are, and unknown blocks promotion.
+  features:
+    - feature.promotion-gate

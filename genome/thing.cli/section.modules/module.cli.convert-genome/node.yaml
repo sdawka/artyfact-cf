@@ -1,0 +1,11 @@
+id: module.cli.convert-genome
+kind: module
+fields:
+  name: Convert Genome
+  description: Converts a v1 Genome to the node tree.
+  path: src/convert-genome.ts
+links:
+  - { rel: implements, to: command.convert-genome }
+  - { rel: dependsOn, to: module.ontology.codec }
+files:
+  - src/convert-genome.ts

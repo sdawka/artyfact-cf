@@ -1,0 +1,5 @@
+id: component.ExportControls
+kind: component
+fields:
+  name: ExportControls
+  cardinality: exactly one

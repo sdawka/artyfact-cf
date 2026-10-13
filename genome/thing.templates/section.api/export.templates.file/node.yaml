@@ -1,0 +1,7 @@
+id: export.templates.file
+kind: export
+fields:
+  name: templateFile
+  signature: "export function templateFile(ref: string, name: string): string | undefined"
+  stability: stable
+  description: Returns the raw text of a bundled template file, such as a Thing template's scaffold.yaml.

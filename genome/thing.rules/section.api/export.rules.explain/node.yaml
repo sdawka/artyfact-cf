@@ -1,0 +1,7 @@
+id: export.rules.explain
+kind: export
+fields:
+  name: explain
+  signature: "export function explain(result: Result, relation: string, tuple: Tuple, depth?: number): DerivationTree"
+  stability: stable
+  description: Returns the derivation tree of one derived tuple.

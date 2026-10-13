@@ -1,0 +1,8 @@
+id: durable-object.system-authority
+kind: durable-object
+fields:
+  name: SystemAuthority
+  className: SystemAuthority
+  key: One instance per System id (SYSTEMS.getByName(systemId)); the __registry instance holds the System registry and the realization-to-fork index.
+  storage: "SQLite: head, System commits, Evolutions, realizations, candidates, evaluations, builds, deployments, Phenome events, Parts and seen push events."
+  description: Serialises every write to one System, so promotion reads the head, checks the gate and moves the head in one transaction.

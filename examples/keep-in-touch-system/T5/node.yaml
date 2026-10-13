@@ -1,0 +1,18 @@
+id: T5
+kind: claim
+fields:
+  name: Updates later
+  purpose: P1
+  mechanism: Consented digest reading provides context for a personal follow-up
+  outcome: Readers have context that supports a personal follow-up
+  indicator: Reader usefulness and subsequent voluntary contact
+  evaluationMethod: Deferred until the digest interpretation is accepted and the module is enabled.
+  limitation: Passive reading never counts as personal contact by default.
+  activities:
+    - GD.updates
+  kind: hypothesis
+  status: unknown
+  deferred: true
+links:
+  - { rel: beneficiary, to: ext.owner }
+  - { rel: beneficiary, to: ext.contacts }

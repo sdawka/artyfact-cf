@@ -8,27 +8,22 @@ async function open(id: string) {
 }
 
 describe("Inspector kind bodies", () => {
-  it("EntityBody renders the fields table, storedIn and governed-by chips", async () => {
+  it("a node body renders a list of records (an entity's fields) as a table", async () => {
     const i = await open("entity.Account");
     expect(await within(i).findByRole("columnheader", { name: "Type" })).toBeTruthy();
     expect(within(i).getByText("identitySubject")).toBeTruthy();
-    expect(within(i).getByText("Stored in")).toBeTruthy();
-    expect(within(i).getByTitle("Binding: binding.contactsStore")).toBeTruthy();
-    expect(within(i).getByTitle("Policy: policy.ownerOnly")).toBeTruthy();
   });
 
-  it("OperationBody lists actor, effects and who invokes it", async () => {
+  it("a node body lists the hint fields (an operation's preconditions and effects)", async () => {
     const i = await open("operation.contact.save");
-    expect(await within(i).findByText("Invoked by")).toBeTruthy();
+    expect(await within(i).findByText("Preconditions")).toBeTruthy();
     expect(within(i).getByText("Effects")).toBeTruthy();
-    expect(within(i).getByTitle("Affordance: affordance.AddContactDialog.save")).toBeTruthy();
   });
 
-  it("PolicyBody shows the mode and what it governs", async () => {
+  it("a node body shows scalar fields (a policy's mode)", async () => {
     const i = await open("policy.ownerOnly");
     expect(await within(i).findByText("Mode")).toBeTruthy();
     expect(within(i).getByText("owner-only")).toBeTruthy();
-    expect(within(i).getByText("Governs")).toBeTruthy();
   });
 
   it("CriterionBody shows hooks with engine, tier and binding", async () => {
@@ -49,9 +44,9 @@ describe("Inspector kind bodies", () => {
     expect(within(i).getByTitle("Purpose: P1")).toBeTruthy();
   });
 
-  it("SectionBody rolls up conformance without green when nothing ran", async () => {
+  it("a container's node body rolls up conformance without green when nothing ran", async () => {
     const i = await open("section.domain");
-    expect(await within(i).findByText("Conformance in this section")).toBeTruthy();
+    expect(await within(i).findByText("Conformance inside")).toBeTruthy();
     expect(within(i).getByText(/0 pass/)).toBeTruthy();
   });
 

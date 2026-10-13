@@ -1,0 +1,19 @@
+id: screen.logContact
+kind: screen
+fields:
+  name: Log contact
+  description: Exactly PersonSummary and ContactEventForm. Form contains date and time, channel, depth, Met this goal checkbox, optional note, Save and Cancel. Met this goal defaults unchecked and is disabled when no current goal exists
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+  route: /people/:id/log
+  states:
+    - loaded
+    - loading
+    - error
+    - validation-error
+    - no-goal
+  roles:
+    - owner
+links:
+  - { rel: serves, to: ext.owner }

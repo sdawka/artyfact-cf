@@ -1,0 +1,10 @@
+- glob: src/worker/health.ts
+  nodes: ["$thing"]
+- glob: migrations/**
+  nodes: [binding.d1]
+- glob: src/ui/**
+  nodes: [section.ui]
+- glob: src/worker/routes/**
+  nodes: [section.domain]
+- glob: system/**
+  nodes: [genome]

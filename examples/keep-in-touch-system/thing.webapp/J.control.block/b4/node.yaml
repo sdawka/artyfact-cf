@@ -1,0 +1,13 @@
+id: J.control.block/b4
+kind: step
+fields:
+  step: b4
+  actor: system
+  action: Blocker's corresponding goal paused and its suggestions suppressed
+  kind: reaction
+  requirementRefs:
+    - S.webapp.prompts
+  next:
+    - to: b5
+links:
+  - { rel: stepScreen, to: screen.today }

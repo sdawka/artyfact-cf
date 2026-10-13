@@ -1,0 +1,12 @@
+id: J.goals/e1
+kind: step
+fields:
+  step: e1
+  actor: system
+  action: Goal version incremented, due state recomputed, obsolete jobs cancelled; no ContactEvent created
+  kind: end
+  requirementRefs:
+    - S.webapp.due
+links:
+  - { rel: stepScreen, to: screen.person }
+  - { rel: stepOperation, to: operation.goal.save }

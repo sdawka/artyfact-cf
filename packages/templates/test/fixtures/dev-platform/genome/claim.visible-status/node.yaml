@@ -1,0 +1,7 @@
+id: claim.visible-status
+kind: claim
+fields:
+  name: Visible status
+  mechanism: Publishing job health on a public page lets operators notice stuck jobs before users do.
+  outcome: Stuck jobs are noticed within minutes.
+  indicator: Median minutes from a job getting stuck to the first operator action.

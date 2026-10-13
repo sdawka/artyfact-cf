@@ -1,10 +1,24 @@
 import type { Readiness, SystemModel } from "@artyfact/model";
-import type { Evaluation, ReadinessReport, SerializedIndex, SerializedModel } from "../shared/api";
-import { foldVerdict, offTriggerHookIds } from "../shared/verdict";
+import { resolveKindView, type ResolvedKindView } from "@artyfact/ontology";
+import type { Evaluation, ModelViews, ReadinessReport, SerializedIndex, SerializedModel } from "../shared/api";
+import { foldVerdict, isBlocking, offTriggerHookIds } from "../shared/verdict";
 
-/** SystemModel → JSON-safe form: index functions materialised, `byId` without duplicated items. */
+/**
+ * The composed template's view hints, resolved once per kind it declares: exactly what the System's templates compose
+ * to (System layer order, a nearer declaration replacing the whole kind), so the SPA never merges templates.
+ */
+export function modelViews(template: SystemModel["template"]): ModelViews {
+  const kinds: Record<string, ResolvedKindView> = {};
+  for (const kind of Object.keys(template.kinds)) kinds[kind] = resolveKindView(template, kind);
+  return { kinds, layers: template.view?.layers ?? [] };
+}
+
+/**
+ * SystemModel → JSON-safe form: index functions materialised, `byId` without duplicated items. The engine graph and
+ * the composed template stay in the Worker; the template's view hints travel as `views`.
+ */
 export function serializeModel(m: SystemModel): SerializedModel {
-  const { index, ...rest } = m;
+  const { index, graph: _graph, template, ...rest } = m;
   const byId: SerializedIndex["byId"] = {};
   const paths: SerializedIndex["paths"] = {};
   const layers: SerializedIndex["layers"] = {};
@@ -14,11 +28,10 @@ export function serializeModel(m: SystemModel): SerializedModel {
     const l = index.layer(id);
     if (l) layers[id] = l;
   }
-  const { path: _p, layer: _l, byId: _b, ...plain } = index;
-  return JSON.parse(JSON.stringify({ ...rest, index: { ...plain, byId, paths, layers } })) as SerializedModel;
+  const { path: _p, layer: _l, depthOf: _d, layerOf: _lo, byId: _b, ...plain } = index;
+  return JSON.parse(JSON.stringify({ ...rest, views: modelViews(template), index: { ...plain, byId, paths, layers } })) as SerializedModel;
 }
 
-const BLOCKING = new Set(["error", "missing"]);
 
 /**
  * Rules-engine readiness (+ evaluations at this revision) → the three never-summed readiness states. Each criterion's
@@ -46,7 +59,7 @@ export function readinessReport(m: Pick<SystemModel, "criteria"> & { hooks?: Sys
   }
   return {
     ...r,
-    modelReadiness: { findings, blockers: findings.filter((f) => BLOCKING.has(f.level)) },
+    modelReadiness: { findings, blockers: findings.filter(isBlocking) },
     implementationConformance: conf,
     outcomeProgress: { observed, unknown: unknownOutcome },
     computedAt: now.toISOString(),

@@ -1,21 +1,21 @@
 # @artyfact/semantic
 
-Thin client, question catalogue, threshold policy and provenance for TypeSafe System One (Jev). The model proposes; deterministic policy decides. Uses `fetch` and WebCrypto only, so it runs in Node and Cloudflare Workers. Keys are server-side only.
+Question catalogue, threshold policy and judgments for System One. The client is the engine's (`@artyfact/ontology`): one `SystemOne` type, one LRU cache, one provenance shape. The model proposes; deterministic policy decides. Keys are server-side only.
 
 ## Modes
 
-`createSystemOne(env)` picks a mode in this order:
+`createSystemOne(env)` is the engine's `providerFromEnv` and picks a provider in this order:
 
-| Mode | When | Endpoint / model |
+| Provider | When | Endpoint / model |
 | --- | --- | --- |
-| `fake` | `FAKE_S1=1` | canned answers, no network |
-| `typesafe` | `TYPESAFE_API_KEY` | `https://api.typesafe.ai/v1/systemone`, `jev-latest` |
-| `openrouter` | `OPENROUTER_API_KEY` | `https://openrouter.ai/api/v1/systemone`, `jev-1.13` |
-| `off` | none of the above | every judgment is `unknown`, `provenance.provider = 'off'` |
+| fake | `FAKE_S1=1` | canned answers, no network |
+| TypeSafe | `TYPESAFE_API_KEY` | `https://api.typesafe.ai/v1/systemone`, `jev-latest` |
+| OpenRouter | `OPENROUTER_API_KEY` | the Decisions API, `OPENROUTER_MODEL` or `perplexity/pplx-decider-v1.1-27b` |
+| off | none of the above | every judgment is `unknown`, `provenance.provider = 'off'` |
 
-`env` also accepts `fetch` for injection in tests. `ask(state, questions, {timeoutMs = 2500, retries = 1, backoffMs = 200, cacheKey})` retries once on timeout, 429 and 529; other failures throw `S1Error`. Successful live replies are cached in memory (200 entries, LRU) under `cacheKeyFor(state, questions, model)`, which a Worker can reuse to persist replies. The `judgments.*` functions never throw: failures become `verdict: 'unknown'`, `level: 'info'`, `provenance.provider: 'error'`.
+`env` also accepts `fetch` for injection in tests. Timeouts, 429 and 529 (OpenRouter: 5xx) are retried; other failures throw `S1Error`. Replies are cached in memory (200 entries, LRU) under `cacheKeyFor(state, questions, model)`. The `judgments.*` functions never throw: failures become `verdict: 'unknown'`, `level: 'info'`, `provenance.provider: 'error'`.
 
-Fake directives, matched anywhere in `JSON(state)`: `#s1low` (low confidence), `#s1no` (noul 0.05, choice `none` or the last option, score 0), `#s1pick:<key>` (choice key), `#s1harm` (every noul a confident yes). Without directives, every question gets the `benign` answer its catalogue entry declares (`yes`/`no` for noul, an option key for choice, a level index for score), so a benign Genome passes. The fake reads nothing else, and `benign` is stripped before a question goes to System One. Fake answers are canned: they ignore the evidence, and every evaluation built on them carries `provenance.provider: "fake"`.
+Fake directives, matched anywhere in `JSON(state)`: `#s1low` (low confidence), `#s1no` (noul 0.05, choice `none` or the last option, score 0), `#s1pick:<key>` (choice key), `#s1harm` (every noul a confident yes), plus the engine's per-question `#s1:<id>=<answer>`. Without directives, every question gets the `benign` answer its catalogue entry declares, so a benign Genome passes. `benign` is stripped before a question goes on the wire. Fake answers ignore the evidence, and every evaluation built on them carries `provenance.provider: "fake"`.
 
 ## Thresholds
 
@@ -28,7 +28,7 @@ Never green under threshold: nothing in the 0.1 to 0.9 band, and nothing from an
 
 ## Judgments
 
-`reviewDelta`, `topology`, `purposeMeasures`, `interference`, `classifyStatements` (see `docs/design/semantic.md`, Appendix E). Each result carries `provenance: {provider, model, questionHash, stateHash, ms, usage}`.
+`reviewDelta`, `topology`, `purposeMeasures`, `interference`, `classifyStatements` (see `docs/design/semantic.md`, Appendix E). Each result carries the engine's `Provenance`: `{provider, model, questionHash, stateHash, thresholds, ms, usage, error?}`.
 
 ## Adding a question
 
@@ -41,4 +41,4 @@ Never green under threshold: nothing in the 0.1 to 0.9 band, and nothing from an
 
 ## Tests
 
-`npm test -w @artyfact/semantic`. `test/live.smoke.test.ts` runs only when `TYPESAFE_API_KEY` is set.
+`npm test -w @artyfact/semantic`. `test/live.smoke.test.ts` runs only when `ONTOLOGY_LIVE=1` and `TYPESAFE_API_KEY` are both set.

@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { createSystemOne } from '../src';
 
-const key = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env?.TYPESAFE_API_KEY;
+const env = (globalThis as { process?: { env?: Record<string, string | undefined> } }).process?.env;
+// Opt-in only, so `npm test` never calls a paid API just because a key is in the environment.
+const key = env?.ONTOLOGY_LIVE === '1' ? env.TYPESAFE_API_KEY : undefined;
 
 describe.skipIf(!key)('live System One', () => {
   it('answers one noul with a probability', async () => {

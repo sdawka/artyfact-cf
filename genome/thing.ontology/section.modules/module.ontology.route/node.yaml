@@ -1,0 +1,11 @@
+id: module.ontology.route
+kind: module
+fields:
+  name: Routing
+  description: Route, translate and validate ops for intents.
+  path: src/route
+links:
+  - { rel: implements, to: export.ontology.route }
+  - { rel: implements, to: export.ontology.validate-ops }
+files:
+  - src/route/**

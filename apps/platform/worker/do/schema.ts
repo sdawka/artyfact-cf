@@ -47,6 +47,8 @@ CREATE TABLE IF NOT EXISTS realized_artifacts (id TEXT PRIMARY KEY, thing_id TEX
   CHECK(locator IS NOT NULL OR digest IS NOT NULL));
 CREATE INDEX IF NOT EXISTS realized_by_source ON realized_artifacts(source_repo, source_commit);
 CREATE TABLE IF NOT EXISTS changelog_cache (commit_id TEXT PRIMARY KEY, row_json TEXT NOT NULL, entry_json TEXT, created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS proposals (id TEXT PRIMARY KEY, status TEXT NOT NULL, json TEXT NOT NULL, turns_json TEXT NOT NULL,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, accept_error TEXT, accepted_json TEXT, claimed_at TEXT);
 `;
 
 /**
@@ -70,6 +72,7 @@ export const ADDED_COLUMNS: [table: string, column: string, type: string][] = [
   ["realizations", "subscription_id", "TEXT"],
   ["realizations", "origin", "TEXT"],
   ["changelog_cache", "version", "INTEGER"],
+  ["proposals", "claimed_at", "TEXT"],
 ];
 
 export function applySchema(sql: SqlStorage): void {

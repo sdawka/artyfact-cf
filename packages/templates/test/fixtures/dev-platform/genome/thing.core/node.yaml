@@ -1,0 +1,29 @@
+id: thing.core
+kind: thing
+template: template.thing.ts-library@1
+root: packages/core
+fields:
+  name: Core library
+  description: The parsing library the API and the CLI share.
+links:
+  - {rel: artifact, to: artifact.core}
+  - {rel: exposes, to: export.parse-job}
+criteria:
+  - id: C.thing.core.checks
+    title: Changed nodes meet their checks
+    claim: Changed nodes meet the checks their kinds declare.
+    severity: soft
+    gates:
+      - submission
+    hooks:
+      - id: hook.thing.core.checks
+        assay: library.checks
+        tier: semantic
+        engine: model-rules
+        triggers:
+          - submission
+        inputs:
+          packs: checks@1
+        binding: bound
+        fromTemplate: template.thing.ts-library@1
+    fromTemplate: template.thing.ts-library@1

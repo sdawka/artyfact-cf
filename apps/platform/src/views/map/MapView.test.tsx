@@ -167,7 +167,7 @@ describe("HierarchyTree", () => {
     fireEvent.keyDown(tree, { key: "ArrowRight" });
     expect(active().getAttribute("aria-expanded")).toBe("true");
     fireEvent.keyDown(tree, { key: "ArrowRight" });
-    expect(active().textContent).toContain("PageHeading");
+    expect(active().textContent).toContain("AddContact");
     fireEvent.keyDown(tree, { key: "ArrowDown" });
     const second = active().textContent;
     fireEvent.keyDown(tree, { key: "ArrowUp" });

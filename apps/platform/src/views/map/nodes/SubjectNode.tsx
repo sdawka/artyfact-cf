@@ -1,5 +1,6 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
-import { kindInfo } from "@/model/kinds";
+import { kindColour, titleOf, useKindView } from "@/model/kinds";
+import { useModel } from "@/model/useModel";
 import { CandidateHalo } from "../overlays/CandidateHalo";
 import { LayerBadges, useRealizationCount } from "./NodeOverlays";
 import styles from "./nodes.module.css";
@@ -8,7 +9,9 @@ import type { SubjectFlowNode } from "./types";
 /** A System node: a child of the scope or an outside node it links to. */
 export function SubjectNode({ data, selected }: NodeProps<SubjectFlowNode>) {
   const { node, layer, candidates, dim, onOpen } = data;
-  const info = kindInfo(node.kind);
+  const info = useKindView(node.kind);
+  const entry = useModel().byId(node.id);
+  const name = entry ? titleOf(entry, info) : node.name;
   const realizations = useRealizationCount(node.id, layer);
   return (
     <div
@@ -22,8 +25,8 @@ export function SubjectNode({ data, selected }: NodeProps<SubjectFlowNode>) {
     >
       <Handle type="target" position={Position.Left} className={styles.handle} isConnectable={false} />
       <div className={styles.title}>
-        <span className={styles.glyph} aria-hidden="true">{info.glyph}</span>
-        <span className={styles.name}>{node.name}</span>
+        <span className={styles.glyph} style={kindColour(info)} aria-hidden="true">{info.glyph}</span>
+        <span className={styles.name}>{name}</span>
       </div>
       <div className={styles.meta}>
         <span className={styles.kind}>{node.role === "outside" ? `${info.label} · outside` : info.label}</span>

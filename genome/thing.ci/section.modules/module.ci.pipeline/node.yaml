@@ -1,0 +1,9 @@
+id: module.ci.pipeline
+kind: module
+fields:
+  name: Pipeline
+  description: Plans the runner steps, runs them and reports each build to the platform.
+  path: src/pipeline.ts
+files:
+  - src/pipeline.ts
+  - src/contract.ts

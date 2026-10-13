@@ -530,6 +530,38 @@ describe("schema", () => {
     });
   });
 
+  it("drops model cache rows of other versions and keeps the files and current ones", async () => {
+    await runInDurableObject(stub(), async (_i: SystemAuthority, state) => {
+      const sql = state.storage.sql;
+      const { MODEL_CACHE_VERSION, pruneModelCache } = await import("../worker/do/system-authority");
+      for (const part of ["model", "rules", "files", "model@1", `model@${MODEL_CACHE_VERSION}`, `rules@${MODEL_CACHE_VERSION}`]) {
+        sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES ('c1', ?, '{}', 'x')", part);
+      }
+      const parts = () => sql.exec("SELECT part FROM model_cache WHERE genome_commit = 'c1' ORDER BY part").toArray().map((r) => r.part);
+      const flag = () => sql.exec("SELECT v FROM head WHERE k = 'model_cache_pruned'").toArray()[0]?.v;
+      // As left by an earlier version's prune.
+      sql.exec("INSERT OR REPLACE INTO head (k, v) VALUES ('model_cache_pruned', ?)", String(MODEL_CACHE_VERSION - 1));
+      pruneModelCache(sql);
+      expect(parts()).toEqual(["files", `model@${MODEL_CACHE_VERSION}`, `rules@${MODEL_CACHE_VERSION}`]);
+      expect(flag()).toBe(String(MODEL_CACHE_VERSION));
+      // Pruned for this version already: a later start does not rescan.
+      sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES ('c1', 'model@1', '{}', 'x')");
+      pruneModelCache(sql);
+      expect(parts()).toEqual(["files", "model@1", `model@${MODEL_CACHE_VERSION}`, `rules@${MODEL_CACHE_VERSION}`]);
+    });
+  });
+
+  it("never serves a model cached by the version-2 loader (no `views`, no intent `parent`)", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority, state) => {
+      const { MODEL_CACHE_VERSION } = await import("../worker/do/system-authority");
+      expect(MODEL_CACHE_VERSION).toBe(3);
+      state.storage.sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES ('c2', 'model@2', '{}', 'x')");
+      expect(i.getModelCache("c2", "model")).toBeNull();
+      i.putModelCache("c2", { model: '{"views":{}}' });
+      expect(i.getModelCache("c2", "model")).toBe('{"views":{}}');
+    });
+  });
+
   it("creates the iteration-2 tables (builds, deployments, phenome_events, changelog_cache)", async () => {
     await runInDurableObject(stub(), async (_i: SystemAuthority, state) => {
       const sql = state.storage.sql;

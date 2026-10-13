@@ -1,0 +1,7 @@
+id: commitment.labelled-fake
+kind: commitment
+fields:
+  statement: Judgments and proposals from a fake provider are labelled as such wherever they are shown.
+  features:
+    - feature.describe-change
+    - feature.promotion-gate

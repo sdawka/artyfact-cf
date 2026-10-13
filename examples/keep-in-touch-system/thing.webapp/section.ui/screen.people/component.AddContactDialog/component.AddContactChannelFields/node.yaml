@@ -1,0 +1,6 @@
+id: component.AddContactChannelFields
+kind: component
+fields:
+  name: ChannelFields
+  description: Optional channel fields
+  cardinality: optional

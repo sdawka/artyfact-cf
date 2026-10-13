@@ -1,0 +1,14 @@
+id: J.control.block/b3
+kind: step
+fields:
+  step: b3
+  actor: system
+  action: Participant authority checked; sharing revoked; pending deliveries cancelled; Block recorded
+  requirementRefs:
+    - S.webapp.operations
+    - S.webapp.concurrency
+  next:
+    - to: b4
+links:
+  - { rel: stepScreen, to: screen.person }
+  - { rel: stepOperation, to: operation.connection.revoke }

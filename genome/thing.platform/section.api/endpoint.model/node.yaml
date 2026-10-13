@@ -1,0 +1,9 @@
+id: endpoint.model
+kind: endpoint
+fields:
+  name: Model bundle
+  description: Returns the loaded Genome at the head or at ?rev, with its index, for the Map, Inspector and Journeys.
+  route: GET /api/systems/:id/model
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.
+  request: ?rev=<commit>
+  response: ModelBundle; 422 invalid-genome when the Genome does not parse

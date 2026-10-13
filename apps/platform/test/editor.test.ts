@@ -8,7 +8,7 @@ import { FakeArtifacts } from "./helpers/fake-artifacts";
 import { resetHooks, setHooks } from "../worker/hooks/index";
 import { handleBatch, PUSHED } from "../worker/hooks/queue";
 import { queueContextFor, systemStub } from "../worker/service";
-import { appFiles, genomeFiles } from "./fixtures/genome";
+import { appFiles, genomeFiles, genomeFor } from "./fixtures/genome";
 import { fakeReceivePack, type FakeReceivePack } from "./helpers/fake-receive-pack";
 import { ADMIN, importFresh, passing, promoteApp, type Flow } from "./helpers/flows";
 
@@ -43,7 +43,7 @@ async function importNested(): Promise<Flow> {
   const ns = new FakeArtifacts();
   const tag = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
   const systemId = `system.nest${tag}`, genomeRepo = `nest-genome-${tag}`, appRepo = `nest-app-${tag}`;
-  const files = { ...genomeFiles, "system.yaml": genomeFiles["system.yaml"].replace("system.kit", systemId), "criteria.yaml": genomeFiles["criteria.yaml"].replaceAll("system.kit", systemId) };
+  const files = { ...genomeFor(systemId), };
   ns.create(genomeRepo).commit(Object.fromEntries(Object.entries(files).map(([p, t]) => [`system/${p}`, t])), "genome");
   ns.create(appRepo).commit(appFiles, "scaffold");
   setArtifactsOverride(ns);
@@ -67,29 +67,32 @@ describe("editor reads", () => {
     expect(list.json.files.every((x) => /^[0-9a-f]{40}$/.test(x.hash))).toBe(true);
     const g = await call<FilesResponse>("GET", `/systems/${f.systemId}/files?scope=genome&ref=head`);
     expect(g.json.ref.repo).toBe(f.genomeRepo);
-    expect(g.json.files.map((x) => x.path)).toContain("system.yaml");
+    expect(g.json.files.map((x) => x.path)).toContain("node.yaml");
 
     const file = await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=app&path=${encodeURIComponent(PEOPLE)}`);
     expect(file.status, JSON.stringify(file.json)).toBe(200);
     expect(file.json).toMatchObject({ path: PEOPLE, text: appFiles[PEOPLE], size: appFiles[PEOPLE].length, binary: false, truncated: false });
     expect(file.json.nodes).toContain("screen.people");
-    const sys = await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&path=system.yaml`);
+    const sys = await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&path=node.yaml`);
     expect(sys.json.text).toContain(f.systemId);
-    expect(sys.json.nodes).toEqual([f.systemId]);
+    expect(sys.json.nodes).toEqual([f.systemId, "C.system.promotion", "hook.system.scope"].sort());
   });
 
   it("carries the node ids each Genome file declares, in listings and reads", async () => {
     const f = await flow();
     const g = (await call<FilesResponse>("GET", `/systems/${f.systemId}/files?scope=genome&ref=head`)).json;
     const nodesOf = (path: string) => g.files.find((x) => x.path === path)?.nodes;
-    expect(nodesOf("system.yaml")).toEqual([f.systemId]);
-    expect(nodesOf("things/webapp/ontology.yaml")).toEqual(expect.arrayContaining(["screen.people", "entity.ContactRecord", "operation.contact.save", "policy.ownerOnly"]));
-    expect(nodesOf("things/webapp/ontology.yaml")).not.toContain(f.systemId);
-    expect(nodesOf("README.md")).toEqual([]);
+    // A node.yaml declares its node and the criteria and hooks inline in it; any other file belongs to the node whose
+    // directory contains it.
+    expect(nodesOf("node.yaml")).toEqual([f.systemId, "C.system.promotion", "hook.system.scope"].sort());
+    expect(nodesOf("thing.webapp/section.domain/entity.ContactRecord/node.yaml")).toEqual(["entity.ContactRecord"]);
+    expect(nodesOf("thing.webapp/section.ui/screen.people/node.yaml")).toEqual(expect.arrayContaining(["screen.people", "C.people.list", "hook.people.list"]));
+    expect(nodesOf("README.md")).toEqual([f.systemId]);
+    expect(nodesOf("evolutions/evolution.1.yaml")).toEqual(["evolution.1"]);
     expect(g.files.every((x) => Array.isArray(x.nodes))).toBe(true);
-    const onto = (await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&path=things/webapp/ontology.yaml`)).json;
-    expect(onto.nodes).toEqual(nodesOf("things/webapp/ontology.yaml"));
-    // The app scope keeps its source-map nodes and listing shape.
+    const onto = (await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&path=thing.webapp/section.domain/entity.ContactRecord/node.yaml`)).json;
+    expect(onto.nodes).toEqual(nodesOf("thing.webapp/section.domain/entity.ContactRecord/node.yaml"));
+    // The app scope keeps its listing shape (a file read maps nodes through the Genome's node files).
     const app = (await call<FilesResponse>("GET", `/systems/${f.systemId}/files?scope=app`)).json;
     expect(app.files.some((x) => "nodes" in x)).toBe(false);
   });
@@ -97,23 +100,24 @@ describe("editor reads", () => {
   it("matches Genome nodes under a system/ prefix", async () => {
     const f = await importNested();
     const g = (await call<FilesResponse>("GET", `/systems/${f.systemId}/files?scope=genome&ref=head`)).json;
-    expect(g.files.find((x) => x.path === "system/system.yaml")?.nodes).toEqual([f.systemId]);
-    expect(g.files.find((x) => x.path === "system/things/webapp/ontology.yaml")?.nodes).toContain("screen.people");
-    const sys = (await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&path=system/system.yaml`)).json;
-    expect(sys.nodes).toEqual([f.systemId]);
+    expect(g.files.find((x) => x.path === "system/node.yaml")?.nodes).toContain(f.systemId);
+    expect(g.files.find((x) => x.path === "system/thing.webapp/section.domain/entity.ContactRecord/node.yaml")?.nodes).toEqual(["entity.ContactRecord"]);
+    expect(g.files.find((x) => x.path === "system/README.md")?.nodes).toEqual([f.systemId]);
+    const sys = (await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&path=system/node.yaml`)).json;
+    expect(sys.nodes).toContain(f.systemId);
   });
 
   it("still lists and reads a Genome that does not load, without nodes", async () => {
     const f = await flow();
     const h = await startHuman(f, "evolution.2");
-    const bad = await call<EditorCommitResponse>("POST", commitPath(f, h.rid), { message: "break", changes: [{ path: "system.yaml", content: "id: [unclosed\n  : :" }] }, h.auth);
+    const bad = await call<EditorCommitResponse>("POST", commitPath(f, h.rid), { message: "break", changes: [{ path: "node.yaml", content: "id: [unclosed\n  : :" }] }, h.auth);
     expect(bad.status, JSON.stringify(bad.json)).toBe(201);
     const g = await call<FilesResponse>("GET", `/systems/${f.systemId}/files?scope=genome&ref=${h.rid}`);
     expect(g.status, JSON.stringify(g.json)).toBe(200);
     expect(g.json.ref.commit).toBe(bad.json.commit);
-    expect(g.json.files.map((x) => x.path)).toContain("system.yaml");
+    expect(g.json.files.map((x) => x.path)).toContain("node.yaml");
     expect(g.json.files.some((x) => "nodes" in x)).toBe(false);
-    const sys = await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&ref=${h.rid}&path=system.yaml`);
+    const sys = await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&ref=${h.rid}&path=node.yaml`);
     expect(sys.status).toBe(200);
     expect(sys.json.nodes).toBeUndefined();
   });
@@ -320,7 +324,7 @@ describe("editor commit", () => {
     const f = await flow();
     const h = await startHuman(f);
     const post = (body: unknown) => call<ApiError>("POST", commitPath(f, h.rid), body, h.auth);
-    const prot = await post({ message: "m", changes: [{ path: "system/system.yaml", content: "x" }] });
+    const prot = await post({ message: "m", changes: [{ path: "system/node.yaml", content: "x" }] });
     expect(prot.status).toBe(422);
     expect(prot.json.error.code).toBe("protected-path");
     expect((await post({ message: "m", changes: [{ path: "assays/a.yaml", content: "x" }] })).json.error.code).toBe("protected-path");
@@ -378,7 +382,7 @@ describe("editor commit", () => {
     const f = await flow();
     const h = await startHuman(f, "evolution.2");
     expect(h.start.realization.target).toBe("genome");
-    const path = "things/webapp/ontology.yaml";
+    const path = "thing.webapp/section.domain/entity.ContactRecord/node.yaml";
     const cur = (await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&ref=${h.rid}&path=${path}`)).json;
     expect(cur.ref).toMatchObject({ repo: h.fork, commit: h.start.realization.workspace.baseCommit });
     const res = await call<EditorCommitResponse>("POST", commitPath(f, h.rid), {
@@ -398,10 +402,10 @@ describe("editor commit", () => {
     resetHooks(); // the real hook runner: it needs the candidate's files even when they do not load
     const f = await flow();
     const h = await startHuman(f, "evolution.2");
-    const ontology = "things/webapp/ontology.yaml";
+    const ontology = "thing.webapp/section.domain/entity.ContactRecord/node.yaml";
     const original = async (path: string) => (await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&ref=head&path=${path}`)).json.text!;
     const cases = [
-      { path: "system.yaml", content: "id: [unclosed\n  : :" }, // YAML parse error
+      { path: "node.yaml", content: "id: [unclosed\n  : :" }, // YAML parse error
       { path: ontology, content: "nodes: 5" }, // schema error
     ];
     for (const change of cases) {
@@ -431,11 +435,11 @@ describe("editor commit", () => {
     const f = await importNested();
     const h = await startHuman(f, "evolution.2");
     expect(h.start.realization.target).toBe("genome");
-    const outside = await call<ApiError>("POST", commitPath(f, h.rid), { message: "m", changes: [{ path: "things/webapp/ontology.yaml", content: "x" }] }, h.auth);
+    const outside = await call<ApiError>("POST", commitPath(f, h.rid), { message: "m", changes: [{ path: "thing.webapp/section.domain/entity.ContactRecord/node.yaml", content: "x" }] }, h.auth);
     expect(outside.status).toBe(422);
     expect(outside.json.error.code).toBe("outside-genome");
     expect((await call<ApiError>("POST", commitPath(f, h.rid), { message: "m", changes: [{ path: "README.md", content: "x" }] }, h.auth)).json.error.code).toBe("outside-genome");
-    const path = "system/things/webapp/ontology.yaml";
+    const path = "system/thing.webapp/section.domain/entity.ContactRecord/node.yaml";
     const cur = (await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&ref=${h.rid}&path=${path}`)).json;
     const res = await call<EditorCommitResponse>("POST", commitPath(f, h.rid), {
       message: "Rename", changes: [{ path, content: cur.text!.replace("name: Contact record", "name: Contact record v2") }],

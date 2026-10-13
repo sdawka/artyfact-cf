@@ -1,0 +1,6 @@
+id: component.GoalIntervalField
+kind: component
+fields:
+  name: IntervalField
+  description: intervalDays from 1 through 3650
+  cardinality: exactly one

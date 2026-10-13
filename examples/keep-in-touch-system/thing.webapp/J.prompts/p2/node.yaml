@@ -1,0 +1,13 @@
+id: J.prompts/p2
+kind: step
+fields:
+  step: p2
+  actor: system
+  action: At most five suggestions ordered by effective due date then goal ID, or one EmptyState
+  kind: reaction
+  requirementRefs:
+    - S.webapp.prompts
+  next:
+    - to: p3
+links:
+  - { rel: stepScreen, to: screen.today }

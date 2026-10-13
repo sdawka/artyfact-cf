@@ -1,0 +1,5 @@
+id: component.EventDepthSelect
+kind: component
+fields:
+  name: DepthSelect
+  cardinality: exactly one

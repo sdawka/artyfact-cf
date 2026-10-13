@@ -1,0 +1,10 @@
+id: entity.Account
+kind: entity
+fields:
+  name: Account
+  owningThing: thing.webapp
+  revision: 1
+  fields:
+    - name: email
+      type: text
+      optional: false

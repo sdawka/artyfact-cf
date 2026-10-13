@@ -11,7 +11,7 @@ import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
 import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../worker/hooks/contract";
 import { defaultHookRunner, hookRunner, noopHookRunner, queueEntry, resetHooks, setHooks } from "../worker/hooks/index";
 import { PUSHED } from "../worker/hooks/queue";
-import { appFiles, genomeFiles } from "./fixtures/genome";
+import { appFiles, genomeFiles, genomeFor } from "./fixtures/genome";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 
 const ADMIN = { authorization: "Bearer test-admin-token" };
@@ -95,10 +95,10 @@ const passing: HookRunner = {
 beforeEach(() => { seen.length = 0; setHooks({ runner: () => passing }); });
 afterEach(() => { setArtifactsOverride(undefined); resetHooks(); });
 
-/** System ids are global DO names; give each test a unique one by rewriting system.yaml. */
+/** System ids are global DO names; give each test a unique one by rewriting the root node.yaml. */
 function uniqueSystem(ns: FakeArtifacts, genomeRepo: string): string {
   const id = `system.kit${seq}`;
-  const files = { ...genomeFiles, "system.yaml": genomeFiles["system.yaml"].replace("system.kit", id), "criteria.yaml": genomeFiles["criteria.yaml"].replaceAll("system.kit", id) };
+  const files = { ...genomeFor(id), };
   ns.repo(genomeRepo).commit(files, "rename");
   return id;
 }
@@ -116,7 +116,7 @@ describe("routes: import names and platform provenance", () => {
   function slugNamed(ns = new FakeArtifacts()) {
     const slug = `kitslug${++seq}`, systemId = `system.${slug}`;
     ns.create(`${slug}.genome`).commit({
-      ...genomeFiles, "system.yaml": genomeFiles["system.yaml"].replace("system.kit", systemId), "criteria.yaml": genomeFiles["criteria.yaml"].replaceAll("system.kit", systemId),
+      ...genomeFor(systemId),
     }, "genome");
     ns.create(`${slug}.app`).commit(appFiles, "scaffold");
     setArtifactsOverride(ns);
@@ -190,13 +190,13 @@ describe("routes: import names and platform provenance", () => {
     expect(res.json.warnings).toEqual([]);
     // Accept a Genome amendment that also pins readiness@1, which platform lacks.
     const files = {
-      ...genomeFiles, "system.yaml": genomeFiles["system.yaml"].replace("system.kit", systemId), "criteria.yaml": genomeFiles["criteria.yaml"].replaceAll("system.kit", systemId),
-      "kits.yaml": genomeFiles["kits.yaml"].replace('  - { id: metamodel, version: "1" }', '  - { id: metamodel, version: "1" }\n  - { id: readiness, version: "1" }'),
+      ...genomeFor(systemId),
+      "node.yaml": genomeFor(systemId)["node.yaml"]!.replace('    - id: metamodel\n      version: "1"\n', '    - id: metamodel\n      version: "1"\n    - id: readiness\n      version: "1"\n'),
     };
     await runInDurableObject(env.SYSTEMS.getByName(systemId), async (i: SystemAuthority) => {
       const r = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
       const commit = ns.create(r.forkRepo).commit(files, "amend");
-      const { candidate } = i.recordCandidate({ realizationId: r.realization.id, commit, manifest: {}, changedPaths: ["kits.yaml"], changedNodes: [] });
+      const { candidate } = i.recordCandidate({ realizationId: r.realization.id, commit, manifest: {}, changedPaths: ["node.yaml"], changedNodes: [] });
       const at = new Date().toISOString();
       const pass = (criterion: string): Evaluation => ({
         id: "", candidate: candidate.id, criterion, hook: `hook.${criterion}`, verdict: "pass", execution: "completed", observations: [], verifier: "test",
@@ -252,7 +252,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(modelOf(model.json).index.paths["screen.people"]).toEqual([systemId, "thing.webapp", "section.ui", "screen.people"]);
     expect(model.json.readiness.modelReadiness).toBeDefined();
     const rd = await call<ReadinessResponse>("GET", `/systems/${systemId}/readiness?rev=${imp.head}`);
-    expect(rd.json.packs.map((p) => p.id)).toEqual(["metamodel"]);
+    expect(rd.json.packs.map((p) => p.id).filter((id) => !id.startsWith("engine."))).toEqual(["facts", "metamodel"]);
     // Full rules Readiness on the wire, served from the DO cache written at import (no Artifacts reads).
     for (const r of [model.json.readiness, rd.json]) {
       expect(r).toMatchObject({ snapshotHash: expect.any(String), incomplete: expect.any(Boolean), actionable: expect.any(Boolean) });
@@ -310,10 +310,10 @@ describe("routes: import → model → start → submit → promote", () => {
     // Only the manifest hook's required files are read for sizes; other blobs are "not measured" (-1).
     expect(seen[0].tree).toContainEqual({ path: "wrangler.jsonc", size: 2 });
     expect(seen[0].tree).toContainEqual({ path: "src/ui/people/list.ts", size: -1 });
-    // Reads: the three required files plus source-map.yaml (for pathNodes); never the other blobs.
-    expect(fork.calls.filter((c) => c.startsWith("readBlob:"))).toHaveLength(4);
+    // Reads: the three required files only (pathNodes come from the Genome's node files); never the other blobs.
+    expect(fork.calls.filter((c) => c.startsWith("readBlob:"))).toHaveLength(3);
     expect(seen[0].candidate.pathNodes!["src/ui/people/list.ts"].sort()).toEqual(["component.AddContactDialog", "screen.people", "section.ui"]);
-    expect(seen[0].genomeFiles["system.yaml"]).toContain(systemId);
+    expect(seen[0].genomeFiles["node.yaml"]).toContain(systemId);
     expect(seen[0].permittedPaths.sort()).toEqual(["src/ui/**", "src/ui/people/**"]);
     expect(seen[0].promotionFacts).toBeUndefined();
 
@@ -627,7 +627,7 @@ describe("routes: import → model → start → submit → promote", () => {
     const fork = ns.repo(`${genomeRepo}--r1`);
     const files = new Map<string, string>();
     for (const p of Object.keys(genomeFiles)) files.set(p, (await (await fork.readFile({ ref: imp.genomeCommit, path: p }))!.text()));
-    files.set("things/webapp/ontology.yaml", "entities: [unclosed");
+    files.set("thing.webapp/section.domain/entity.ContactRecord/node.yaml", "entities: [unclosed");
     const commit = fork.commit(files, "broken");
     const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${start.json.realization.id}/submit`, { commit });
     expect(sub.status, JSON.stringify(sub.json)).toBe(201);
@@ -643,11 +643,11 @@ describe("routes: import → model → start → submit → promote", () => {
     const start = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.2/realizations`, { agentLabel: "c" });
     expect(start.status, JSON.stringify(start.json)).toBe(201);
     expect(start.json.realization.target).toBe("genome");
-    expect(start.json.packet.permittedPaths).toEqual(["things/webapp/ontology.yaml", "evolutions/**"]);
+    expect(start.json.packet.permittedPaths).toEqual(["thing.webapp/section.domain/entity.ContactRecord/**", "evolutions/**"]);
     const fork = ns.repo(`${genomeRepo}--r1`);
     const base = new Map<string, string>();
     for (const p of Object.keys(genomeFiles)) base.set(p, (await (await fork.readFile({ ref: imp.genomeCommit, path: p }))!.text()));
-    base.set("things/webapp/ontology.yaml", base.get("things/webapp/ontology.yaml")!.replace("name: Contact record", "name: Contact record v2"));
+    base.set("thing.webapp/section.domain/entity.ContactRecord/node.yaml", base.get("thing.webapp/section.domain/entity.ContactRecord/node.yaml")!.replace("name: Contact record", "name: Contact record v2"));
     const commit = fork.commit(base, "rename entity");
     const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${start.json.realization.id}/submit`, { commit });
     expect(sub.status, JSON.stringify(sub.json)).toBe(201);
@@ -658,7 +658,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(rv.json.candidate).toBe(sub.json.candidate.id);
     expect(rv.json.delta.changes.map((c) => c.id)).toEqual(["entity.ContactRecord"]);
     expect(rv.json.loadError).toBeUndefined();
-    expect(rv.json.readinessBase.packs.map((p) => p.id)).toEqual(["metamodel"]);
+    expect(rv.json.readinessBase.packs.map((p) => p.id).filter((id) => !id.startsWith("engine."))).toEqual(["facts", "metamodel"]);
     expect(rv.json.readinessCandidate).not.toBeNull();
     expect(rv.json.review.map((r) => r.id)).toEqual(["entity.ContactRecord"]);
     expect(rv.json.signals).toHaveLength(1);
@@ -685,7 +685,7 @@ describe("routes: import → model → start → submit → promote", () => {
     const fork = ns.repo(`${genomeRepo}--r1`);
     const files = new Map<string, string>();
     for (const p of Object.keys(genomeFiles)) files.set(p, (await (await fork.readFile({ ref: imp.genomeCommit, path: p }))!.text()));
-    files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", "name: Contact v4"));
+    files.set("thing.webapp/section.domain/entity.ContactRecord/node.yaml", files.get("thing.webapp/section.domain/entity.ContactRecord/node.yaml")!.replace("name: Contact record", "name: Contact v4"));
     const commit = fork.commit(files, "rename");
     const sub = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${start.realization.id}/submit`, { commit });
     const res = await call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.2/accept`, { realizationId: start.realization.id, candidateId: sub.json.candidate.id, commit, interpretation: "fine" }, ADMIN);
@@ -703,7 +703,7 @@ describe("routes: import → model → start → submit → promote", () => {
     const fork = ns.repo(`${genomeRepo}--r1`);
     const files = new Map<string, string>();
     for (const p of Object.keys(genomeFiles)) files.set(p, (await (await fork.readFile({ ref: imp.genomeCommit, path: p }))!.text()));
-    files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", "name: Contact v3"));
+    files.set("thing.webapp/section.domain/entity.ContactRecord/node.yaml", files.get("thing.webapp/section.domain/entity.ContactRecord/node.yaml")!.replace("name: Contact record", "name: Contact v3"));
     const commit = fork.commit(files, "rename");
     await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${rid}/submit`, { commit });
     const path = `/systems/${systemId}/evolutions/evolution.2/realizations/${rid}/reject`;
@@ -879,7 +879,7 @@ describe("routes: final review fixes", () => {
     for (const p of Object.keys(genomeFiles)) base.set(p, (await (await fork.readFile({ ref: s.imp.genomeCommit, path: p }))!.text()));
     const amend = (name: string) => {
       const files = new Map(base);
-      files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", `name: ${name}`));
+      files.set("thing.webapp/section.domain/entity.ContactRecord/node.yaml", files.get("thing.webapp/section.domain/entity.ContactRecord/node.yaml")!.replace("name: Contact record", `name: ${name}`));
       return fork.commit(files, name);
     };
     const submitGenome = (commit: string) => call<SubmitResponse>("POST", `/systems/${s.systemId}/realizations/${start.realization.id}/submit`, { commit });
@@ -1011,7 +1011,7 @@ describe("routes: final review fixes", () => {
     const fork = ns.repo(`${genomeRepo}--r2`);
     const files = new Map<string, string>();
     for (const path of Object.keys(genomeFiles)) files.set(path, (await (await fork.readFile({ ref: imp.genomeCommit, path }))!.text()));
-    files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", "name: Contact v8"));
+    files.set("thing.webapp/section.domain/entity.ContactRecord/node.yaml", files.get("thing.webapp/section.domain/entity.ContactRecord/node.yaml")!.replace("name: Contact record", "name: Contact v8"));
     const gc = fork.commit(files, "rename");
     const gs = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${g.realization.id}/submit`, { commit: gc });
     const acc = await call<{ commit: { id: string; parent: string } }>("POST", `/systems/${systemId}/evolutions/evolution.2/accept`,
@@ -1053,7 +1053,7 @@ describe("routes: candidates carry the server's gate set (I3)", () => {
     const fork = ns.repo(`${genomeRepo}--r2`);
     const files = new Map<string, string>();
     for (const p of Object.keys(genomeFiles)) files.set(p, (await (await fork.readFile({ ref: imp.genomeCommit, path: p }))!.text()));
-    files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", "name: Contact v9"));
+    files.set("thing.webapp/section.domain/entity.ContactRecord/node.yaml", files.get("thing.webapp/section.domain/entity.ContactRecord/node.yaml")!.replace("name: Contact record", "name: Contact v9"));
     const gs = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${g.realization.id}/submit`, { commit: fork.commit(files, "rename") });
     const genome = await call<CandidatesResponse>("GET", `/systems/${systemId}/evolutions/evolution.2/candidates`);
     expect(genome.json.gates![gs.json.candidate.id]!.filter((x) => x.blocking).map((x) => x.id)).toEqual(["C.system.promotion"]);

@@ -1,0 +1,22 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#thing-capabilities",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "1d9b018c447c9f29a83c6a30a752bac276adb7a42f13bc1c5d53b606885e7f24",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.thing-template-capabilities",
+      "severity": "blocker",
+      "message": "Thing thing-progress capabilities do not match Thing Template managed-store@1",
+      "objectIds": [
+        "thing-progress"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:thing-progress"
+      }
+    }
+  ]
+}

@@ -63,7 +63,7 @@ const ACTIONS: [prefix: string, action: string][] = [
   ["coverage.hook", "Add a hook for the criterion."],
   ["coverage.requirement", "Add a requirement or criterion covering the subject."],
   ["hook.unbound", "Bind the hook to an implementation."],
-  ["kit.unpinned", "Pin the kit in kits.yaml."],
+  ["kit.unpinned", "Pin the kit under kits in the root node.yaml."],
   ["authz.", "Add or fix a policy that governs the subject."],
   ["topology.", "Change the model to satisfy the topology rule."],
   ["journey.", "Complete the journey so every step resolves."],
@@ -76,8 +76,6 @@ const ACTIONS: [prefix: string, action: string][] = [
   ["tree.", "Fix the containment tree."],
   ["purpose.", "Fix the Purpose beneficiaries."],
   ["owner.", "Fix the owner reference."],
-  ["screen.", "Add the missing component to the screen."],
-  ["affordance.", "Complete the affordance."],
 ];
 
 /** Next-action text for a rule family; falls back to pointing at the derivation. */

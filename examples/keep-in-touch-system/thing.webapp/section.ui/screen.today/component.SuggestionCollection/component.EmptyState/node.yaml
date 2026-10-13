@@ -1,0 +1,6 @@
+id: component.EmptyState
+kind: component
+fields:
+  name: EmptyState
+  description: One EmptyState inside the collection
+  cardinality: 1 only when there are no suggestions, inside the collection

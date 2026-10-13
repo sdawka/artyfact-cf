@@ -1,0 +1,14 @@
+id: J.control.export/f1
+kind: step
+fields:
+  step: f1
+  actor: system
+  action: Export refused; nothing produced
+  kind: failure
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: e2
+      when: stop
+links:
+  - { rel: stepScreen, to: screen.settings }

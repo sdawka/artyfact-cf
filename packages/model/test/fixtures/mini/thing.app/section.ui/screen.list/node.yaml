@@ -1,0 +1,7 @@
+id: screen.list
+kind: screen
+fields:
+  name: Notes
+  owningThing: thing.app
+  revision: 1
+  route: /notes

@@ -13,6 +13,7 @@ import { evaluations } from "./routes/evaluations";
 import { events } from "./routes/events";
 import { evolutions } from "./routes/evolutions";
 import { history } from "./routes/history";
+import { intents } from "./routes/intents";
 import { phenome } from "./routes/phenome";
 import { realizations } from "./routes/realizations";
 import { systems } from "./routes/systems";
@@ -45,6 +46,7 @@ app.route("/api", changelog);
 app.route("/api", builds);
 app.route("/api", phenome);
 app.route("/api", templateUpgrade);
+app.route("/api", intents);
 
 const ARTIFACTS_STATUS: Record<string, 404 | 409 | 422 | 503> = {
   NOT_FOUND: 404, ALREADY_EXISTS: 409, FORK_IN_PROGRESS: 409, INVALID_INPUT: 422, INVALID_REPO_NAME: 422, UPSTREAM_UNAVAILABLE: 503,
@@ -63,7 +65,8 @@ app.onError((err, c) => {
   if (err instanceof ArtifactsUnavailableError) return c.json<ApiError>({ error: { code: "artifacts-unavailable", message: err.message } }, 503);
   const code = artifactsErrorCode(err);
   if (code && ARTIFACTS_STATUS[code]) return c.json<ApiError>({ error: { code: `artifacts-${code.toLowerCase().replaceAll("_", "-")}`, message: err.message } }, ARTIFACTS_STATUS[code]);
-  if ((err as Error).name === "ModelParseError") return c.json<ApiError>({ error: { code: "invalid-genome", message: err.message } }, 422);
+  if ((err as Error).name === "ModelParseError") return c.json<ApiError>({ error: { code: (err as Error & { code?: string }).code ?? "invalid-genome", message: err.message } }, 422);
+  if ((err as Error).name === "LegacyGenomeError") return c.json<ApiError>({ error: { code: "legacy-genome", message: err.message } }, 422);
   // Never log request bodies or headers (tokens); the message is enough to debug.
   console.error(`unhandled ${c.req.method} ${new URL(c.req.url).pathname}: ${(err as Error).message}`);
   return c.json<ApiError>({ error: { code: "internal", message: "internal error" } }, 500);

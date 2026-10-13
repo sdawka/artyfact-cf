@@ -1,0 +1,6 @@
+id: component.ErrorSummary
+kind: component
+fields:
+  name: ErrorSummary
+  description: Shared summary of form and request errors.
+  fromTemplate: template.thing.cloudflare-worker-webapp@1

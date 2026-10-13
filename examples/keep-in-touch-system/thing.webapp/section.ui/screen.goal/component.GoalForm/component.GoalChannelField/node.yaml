@@ -1,0 +1,5 @@
+id: component.GoalChannelField
+kind: component
+fields:
+  name: PreferredChannelField
+  cardinality: exactly one

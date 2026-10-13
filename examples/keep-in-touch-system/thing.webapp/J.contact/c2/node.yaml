@@ -1,0 +1,13 @@
+id: J.contact/c2
+kind: step
+fields:
+  step: c2
+  actor: user
+  action: Open their preferred channel by an explicit gesture, or copy contact details if the channel is unsupported
+  requirementRefs:
+    - S.webapp.scope
+  next:
+    - to: c3
+links:
+  - { rel: stepScreen, to: screen.person }
+  - { rel: stepExternal, to: ext.channels }

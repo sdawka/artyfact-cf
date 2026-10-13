@@ -1,0 +1,7 @@
+id: component.ContactHistory
+kind: component
+fields:
+  name: ContactHistory
+  cardinality: exactly one
+links:
+  - { rel: reads, to: entity.ContactEvent }

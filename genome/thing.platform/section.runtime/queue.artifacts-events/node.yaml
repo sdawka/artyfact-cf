@@ -1,0 +1,7 @@
+id: queue.artifacts-events
+kind: queue
+fields:
+  name: artyfact-artifacts-events
+  message: cf.artifacts.repo.pushed events for fork repos.
+  retry: Up to 3 retries per batch of 10; a redelivered event is a no-op because submit is idempotent on realization and commit.
+  description: Carries Artifacts push events to the Worker's queue consumer, which resolves the fork to its realization and submits the new head.

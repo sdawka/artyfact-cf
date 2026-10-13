@@ -1,0 +1,5 @@
+id: feature.phenome
+kind: feature
+fields:
+  name: Phenome
+  summary: Runtime events from a deployed app, grouped by version and linked to the System commit it runs.

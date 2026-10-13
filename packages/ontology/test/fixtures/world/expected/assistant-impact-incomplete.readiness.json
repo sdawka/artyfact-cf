@@ -1,0 +1,8 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-impact-incomplete.json",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "c38ab80264fa2da373a619b0adc5ea35988d79b60ee749eedf29b154c4a06a79",
+  "templateHash": "f34bf89868e3c5fb3c8f738bae4fb728b06301cf943ff7420737b19a178494d7",
+  "status": "ready",
+  "findings": []
+}

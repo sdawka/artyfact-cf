@@ -6,6 +6,10 @@ artyfact is licensed under Apache-2.0. This file records components that are not
 
 Used by the Map and Journeys views for graph layout (`apps/platform`, dependency `elkjs`). elkjs is offered under `EPL-2.0 OR GPL-3.0-or-later`. This project uses it under EPL-2.0. EPL-2.0 is a file-level copyleft licence and allows use from Apache-2.0 code as long as elkjs is not modified. artyfact does not modify it. The built SPA bundles the unmodified library, so the source stays available from the upstream project (https://github.com/kieler/elkjs) and the EPL-2.0 text is in `licenses/elkjs-LICENSE.md`. If a copy of elkjs is ever patched here, those patched files must be published under EPL-2.0.
 
+## Ontology engine
+
+`packages/ontology` is a copy of bropilot's `packages/ontology-engine` at commit `cb1599c`, released under MIT by the Bropilot contributors. The copy and artyfact's changes to it stay under MIT; the licence text is `packages/ontology/LICENSE`, which every copy of those files must keep.
+
 ## Orb effect
 
 The `Orb` in `packages/effects/src/orb/` is a clean-room implementation written from a behavioural spec without reference to any third-party source, and is original Apache-2.0 code like the rest of `packages/effects`.

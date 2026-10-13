@@ -1,0 +1,13 @@
+id: J.notes/s2
+kind: step
+fields:
+  step: s2
+  actor: user
+  action: Has something to write?
+  kind: branch
+  unresolved: false
+  next:
+    - to: s3
+      when: yes
+    - to: e1
+      when: no

@@ -3,15 +3,21 @@
 
 ## Now
 
-- Goal: [[goals]]. Milestone: coherent public homepage and model storytelling.
-- Working revision: `feat/settled-page-stories`, based on released main `098e7d8`; site-only presentation and interactions, without backend changes.
-- Current result: finite reversible homepage chapters, bounded sticky narrative with separate support, and one illustrative scoped-change thread through the domain-first model page. Independent source and desktop/mobile review is clear.
-- Next action: Publish one PR, require exact-head review and all hosted checks green, then release and independently verify the exact merged site.
-- Latest verification: 1355 root tests (3 skips), 42 fixture and 5 fake-platform browser checks passed. The final scoped site gate passed in 61.0s: 55 units, 11 static checks and 45 browser checks (5 viewport skips), all typechecks/builds. Independent review verified finite reversals, focus, no-JS/reduced motion and zero support overlap at four viewports. GRREAT: 7 valid records. See [[journals/2026-10-13-model-page]].
-- Deferred: Remote GRREAT sync remains deferred by the user; the existing `GOAL_HIERARCHY_CONFLICT` checkpoint and separate Artyfact/Bropilot records are preserved.
+- Goal: [[goals]]. Milestone: iteration 3, the ontology-engine core, delivered as PR #47 in [[roadmap]] context.
+- Working revision: branch `iteration-3` (98 commits), PR #47; local `npm run ci` green. Hosted CI is tracked on the PR.
+- Current result: the ontology engine lives in `packages/ontology` as the core. Genomes use a v2 containment tree; v1 survives only through `artyfact convert-genome --source-map` and a legacy notice. Intents, generic UI and templates, and the repo-root self-Genome shipped; see [[journals/2026-10-13-iteration-3]].
+- Next action: merge PR #47 once all CI checks are green, deploy the platform, migrate the production Keep in Touch Genome with `artyfact init --genome-only --adopt --force` per `docs/deploy.md`, then verify live.
+- Latest verification: local CI green on the PR head; no hosted or production verification yet.
+- Landing-site work from main (`feat/landing-agent-story`, based on released main `1bb21321`, PRs #44/#45): a purpose-only miniature Artyfact opens into its declared shape, outside-agent realization and local idea activity through reversible native scrolling; the public homepage only. Its last recorded full `npm run ci` passed in 129.4s (1341 root tests, 3 skips; site 41 unit, 11 static and 40 browser checks); see [[journals/2026-10-12-foundation]].
+- Also merged from main (#48, [[journals/2026-10-13-model-page]]): the public `/model` page now explains the System/Thing composition from the domain. Its last full `npm run ci -- --ultra-compact` passed in 123.8s (1349 root tests, 3 skips; 49 site units, 11 static and 42 browser checks).
+- Also merged from main (#52, [[journals/2026-10-13-model-page]]): settled public story chapters for the homepage and model page, site-only. Its final scoped site gate passed in 61.0s (55 units, 11 static and 45 browser checks).
+- Deferred: Remote GRREAT sync stays pending; the earlier `GOAL_HIERARCHY_CONFLICT` checkpoint is preserved and no remote record was overwritten.
+- Last updated: 2026-10-13.
 
 ## Work history
 
 - [[journals/2026-10-12-adoption]]: accepted direction and refreshed baseline.
 - [[journals/2026-10-12-foundation]]: foundation integration and validation.
+- [[journals/2026-10-13-iteration-3]]: ontology engine core, Genome v2, intents; PR #47.
 - [[journals/2026-10-13-model-page]]: public model page follow-up and validation.
+- [[journals/2026-10-13-model-page]]: settled public story chapters (#52).

@@ -1,0 +1,41 @@
+id: screen.today
+kind: screen
+fields:
+  name: Today
+  description: Exactly PageHeading, TodayControls and SuggestionCollection; 0–5 cards, or one EmptyState inside the collection. Each card has one person label, reason, Open person, Log contact and Snooze controls
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+  route: /today
+  states:
+    - loaded
+    - loading
+    - empty
+    - error
+  roles:
+    - owner
+links:
+  - { rel: serves, to: ext.owner }
+criteria:
+  - id: C.webapp.prompts.bounded
+    title: Bounded prompts
+    claim: Six due goals yield exactly five ordered cards. Duplicate jobs must not duplicate prompts or owner reminders
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    satisfies:
+      - C.system.autonomy
+    sourceRefs:
+      - S.webapp.prompts
+    hooks:
+      - id: hook.webapp.prompts.bounded
+        assay: webapp.prompts.bounded
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          fixture: six due goals yield five ordered cards
+        costTier: cheap

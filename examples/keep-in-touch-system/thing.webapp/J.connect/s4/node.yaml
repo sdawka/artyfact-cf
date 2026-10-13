@@ -1,0 +1,16 @@
+id: J.connect/s4
+kind: step
+fields:
+  step: s4
+  actor: counterpart
+  action: Open /connect/:token
+  kind: branch
+  requirementRefs:
+    - S.webapp.authentication
+  next:
+    - to: s5
+      when: token valid
+    - to: f1
+      when: token invalid, expired or used
+links:
+  - { rel: stepScreen, to: screen.invitation }

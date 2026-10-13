@@ -1,0 +1,6 @@
+id: component.AppShell
+kind: component
+fields:
+  name: AppShell
+  description: Frame holding the top bar, primary navigation and route outlet.
+  fromTemplate: template.thing.cloudflare-worker-webapp@1

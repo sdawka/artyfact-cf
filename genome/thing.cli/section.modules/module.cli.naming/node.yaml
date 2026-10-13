@@ -1,0 +1,8 @@
+id: module.cli.naming
+kind: module
+fields:
+  name: Naming
+  description: Artifacts repo names shared with the Worker.
+  path: src/naming.ts
+files:
+  - src/naming.ts

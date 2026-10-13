@@ -1,0 +1,42 @@
+id: entity.ContactEvent
+kind: entity
+fields:
+  name: ContactEvent
+  description: ID, owner, ContactRecord, time, channel, self-reported depth and optional private note; one contact target
+  source:
+    doc: keep-in-touch-world-specification
+    section: "5"
+  fields:
+    - name: id
+      type: string
+      optional: false
+    - name: ownerAccountId
+      type: ref:entity.Account
+      optional: false
+    - name: contactRecordId
+      type: ref:entity.ContactRecord
+      optional: false
+    - name: occurredAt
+      type: timestamp
+      optional: false
+    - name: channel
+      type: string
+      optional: false
+    - name: selfReportedDepth
+      type: enum light|meaningful|shared-time
+      optional: false
+    - name: privateNote
+      type: string
+      optional: true
+    - name: qualifiedGoalId
+      type: ref:entity.RelationshipGoal
+      optional: true
+    - name: qualifiedDepth
+      type: enum light|meaningful|shared-time
+      optional: true
+  invariants:
+    - One contact target
+    - Qualifies only when the owner explicitly marks that it met this goal
+    - Records the goal ID and desiredDepth at confirmation
+links:
+  - { rel: storedIn, to: binding.contactsStore }

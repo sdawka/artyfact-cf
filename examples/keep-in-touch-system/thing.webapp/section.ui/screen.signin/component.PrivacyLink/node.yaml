@@ -1,0 +1,6 @@
+id: component.PrivacyLink
+kind: component
+fields:
+  name: PrivacyLink
+  description: One privacy link
+  cardinality: exactly one

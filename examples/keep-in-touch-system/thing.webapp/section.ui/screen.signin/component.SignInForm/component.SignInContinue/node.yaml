@@ -1,0 +1,6 @@
+id: component.SignInContinue
+kind: component
+fields:
+  name: Continue
+  description: One Continue control
+  cardinality: exactly one

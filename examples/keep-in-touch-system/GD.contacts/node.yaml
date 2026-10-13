@@ -1,0 +1,9 @@
+id: GD.contacts
+kind: feature
+fields:
+  name: Private contacts
+  summary: Keep a private contact record before any friend installs the app; optional channel and context.
+  deferred: false
+  source:
+    doc: keep-in-touch-world-specification
+    section: "3"

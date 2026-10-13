@@ -1,0 +1,4 @@
+id: purpose.reliable-jobs
+kind: purpose
+fields:
+  statement: Operators submit a job once and see it finish, instead of resubmitting after silent failures.

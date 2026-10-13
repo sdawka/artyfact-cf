@@ -1,0 +1,6 @@
+id: commitment.one-to-one
+kind: commitment
+fields:
+  statement: Every outgoing action addresses exactly one person
+  features:
+    - GD.contacts

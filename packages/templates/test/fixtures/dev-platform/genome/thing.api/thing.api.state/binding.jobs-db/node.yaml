@@ -1,0 +1,5 @@
+id: binding.jobs-db
+kind: binding
+fields:
+  name: Jobs database
+  description: D1 database that stores submitted jobs and their results.

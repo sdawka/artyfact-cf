@@ -1,0 +1,16 @@
+id: J.control.block/b2
+kind: step
+fields:
+  step: b2
+  actor: user
+  action: Choose Block and confirm
+  kind: branch
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: b3
+      when: confirm
+    - to: e2
+      when: cancel
+links:
+  - { rel: stepScreen, to: screen.person }

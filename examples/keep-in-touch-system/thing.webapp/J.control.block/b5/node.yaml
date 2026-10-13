@@ -1,0 +1,13 @@
+id: J.control.block/b5
+kind: step
+fields:
+  step: b5
+  actor: counterpart
+  action: New invitations and acceptances between the two accounts are refused
+  kind: reaction
+  requirementRefs:
+    - S.webapp.concurrency
+  next:
+    - to: e1
+links:
+  - { rel: stepOperation, to: operation.invite.accept }

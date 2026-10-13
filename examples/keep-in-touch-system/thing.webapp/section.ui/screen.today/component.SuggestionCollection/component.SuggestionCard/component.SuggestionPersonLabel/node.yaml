@@ -1,0 +1,5 @@
+id: component.SuggestionPersonLabel
+kind: component
+fields:
+  name: PersonLabel
+  cardinality: exactly one per card

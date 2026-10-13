@@ -1,0 +1,11 @@
+id: J.control.delete/z5
+kind: step
+fields:
+  step: z5
+  actor: system
+  action: Owned live data purged within seven days; backup expiry follows the pinned retention policy
+  kind: wait
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: e1

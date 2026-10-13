@@ -1,0 +1,20 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#second-incompatibility",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "1acd15d12e3bd449d9ef4baffb476c99eae7f5040e4687f70199f7becf6b383f",
+  "templateHash": "8fc73854fbe952267b5f76a9c3048c34802aa402b03c8a4a7970ad137923dc64",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "assistant.review-compatible",
+      "severity": "blocker",
+      "message": "constraints routine-auto and weekly-review are incompatible",
+      "objectIds": [],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "template:assistant-world@1"
+      }
+    }
+  ]
+}

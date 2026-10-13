@@ -1,0 +1,18 @@
+id: T3
+kind: claim
+fields:
+  name: Meaning
+  purpose: P1
+  mechanism: User-defined depth prompts help contact feel worthwhile
+  outcome: Contact feels more worthwhile
+  indicator: Optional short reflection on meaningfulness
+  evaluationMethod: Optional reflection collected during the four-week pilot against the two-week baseline; later randomized or staggered comparison with consent.
+  limitation: Avoid treating a model's rating as relationship truth; missing baseline remains unknown.
+  activities:
+    - GD.goals
+    - GD.prompts
+  kind: hypothesis
+  status: unknown
+  deferred: false
+links:
+  - { rel: beneficiary, to: ext.owner }

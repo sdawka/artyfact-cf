@@ -1,0 +1,22 @@
+id: S.webapp.operations
+kind: requirement
+fields:
+  thing: thing.webapp
+  title: Operations
+  text: all mutations must authorize the authenticated owner or explicit connected capability at the server, validate inputs and support an idempotency key. Creation must return an immutable ID and version. Reads and writes to another owner's private records must return a non-revealing denial. Concurrent stale-version edits must return conflict without overwriting current data. Each operation row below defines required preconditions and effects.
+  enabled: true
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+links:
+  - { rel: subject, to: operation.contact.save }
+  - { rel: subject, to: operation.goal.save }
+  - { rel: subject, to: operation.contact.log }
+  - { rel: subject, to: operation.invite.create }
+  - { rel: subject, to: operation.invite.accept }
+  - { rel: subject, to: operation.connection.revoke }
+  - { rel: subject, to: operation.data.export }
+  - { rel: subject, to: operation.data.delete }
+  - { rel: refines, to: GD.contacts }
+  - { rel: refines, to: GD.goals }
+  - { rel: refines, to: GD.connect }

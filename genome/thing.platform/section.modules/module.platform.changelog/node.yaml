@@ -1,0 +1,11 @@
+id: module.platform.changelog
+kind: module
+fields:
+  name: Changelog and compare
+  description: Builds Changelog entries and compares two revisions at System, Genome and file level.
+  path: worker/changelog.ts
+links:
+  - { rel: dependsOn, to: module.model.diff }
+files:
+  - worker/changelog.ts
+  - worker/compare.ts

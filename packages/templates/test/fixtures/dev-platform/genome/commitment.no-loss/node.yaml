@@ -1,0 +1,4 @@
+id: commitment.no-loss
+kind: commitment
+fields:
+  statement: A job that was accepted is either finished or reported as failed, never dropped.

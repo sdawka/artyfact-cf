@@ -43,6 +43,7 @@
 .paneActions { display: flex; flex-wrap: wrap; gap: var(--spacing-2); margin-left: auto; }
 .kind { color: var(--color-text-secondary); font-size: var(--font-size-xs); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); padding: 0 var(--spacing-1); }
 .chips { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-2); margin: 0; padding: 0; list-style: none; }
+.nodeItem { display: inline-flex; align-items: center; gap: var(--spacing-1); font-size: var(--font-size-sm); }
 
 /* Pending */
 .pendingList { display: grid; gap: var(--spacing-1); margin: 0; padding: 0; list-style: none; font-size: var(--font-size-sm); }

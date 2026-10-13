@@ -1,0 +1,14 @@
+id: J.prompts/p4
+kind: step
+fields:
+  step: p4
+  actor: user
+  action: Log contact for that person
+  requirementRefs:
+    - S.webapp.prompts
+    - S.webapp.due
+  next:
+    - to: e1
+links:
+  - { rel: stepScreen, to: screen.logContact }
+  - { rel: stepOperation, to: operation.contact.log }

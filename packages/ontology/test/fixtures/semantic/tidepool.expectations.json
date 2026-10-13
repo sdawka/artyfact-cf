@@ -1,0 +1,155 @@
+{
+  "fixture": "tidepool-degraded.graph.json",
+  "vocabulary": "product-spec",
+  "calls": 42,
+  "planted": [
+    {
+      "id": "specificity.volunteers-will-love-it",
+      "rule": "node.tangibility",
+      "subjects": [
+        "feature-photo-id-suggestions"
+      ],
+      "level": "warning",
+      "defect": "specificity",
+      "note": "Feature description: volunteers are going to love it."
+    },
+    {
+      "id": "specificity.make-it-better",
+      "rule": "node.tangibility",
+      "subjects": [
+        "capability-volunteer-engagement"
+      ],
+      "level": "warning",
+      "defect": "specificity",
+      "note": "Capability description: make the whole volunteering experience better."
+    },
+    {
+      "id": "unmeasurable.belonging",
+      "rule": "text.unmeasurable",
+      "subjects": [
+        "outcome-volunteers-come-back-for-the-next-good"
+      ],
+      "level": "warning",
+      "defect": "testability.unmeasurable",
+      "note": "Outcome description: a deeper sense of belonging to the shoreline."
+    },
+    {
+      "id": "cross-section.offline-vs-online-rule",
+      "rule": "pair.relation",
+      "subjects": [
+        "purpose-turn-volunteer-shore-walks-into-survey",
+        "rule-every-observation-carries-a-gps-fix"
+      ],
+      "alternatives": [
+        [
+          "rule-every-observation-carries-a-gps-fix",
+          "summary-an-offline-first-field-app-for-timed"
+        ]
+      ],
+      "level": "error",
+      "defect": "consistency.contradiction",
+      "entry": {
+        "rule": "sections.allHold",
+        "subject": "$spec"
+      },
+      "note": "The rule refuses to save without a live connection; the purpose and the offline-first summary both require logging with no signal. Reached through sections.allHold, sections.section, sections.other and pair.relation, which examine one pair per root, so either pairing counts."
+    },
+    {
+      "id": "kind.logger-as-outcome",
+      "rule": "node.kind",
+      "subjects": [
+        "feature-offline-transect-logger"
+      ],
+      "level": "warning",
+      "defect": "instance.otherKind",
+      "note": "Planted: the offline logger feature's description is an outcome (fewer surveys abandoned when signal drops), not functionality."
+    },
+    {
+      "id": "purpose.merchandise-shop",
+      "rule": "node.purpose",
+      "subjects": [
+        "feature-branded-merchandise-shop"
+      ],
+      "level": "warning",
+      "defect": "coherence.purposeDrift",
+      "note": "Planted node: an in-app shop for branded T-shirts and mugs, unrelated to turning shore walks into publishable survey data."
+    },
+    {
+      "id": "term-drift.verified",
+      "rule": "term.usage",
+      "subjects": [
+        "$spec"
+      ],
+      "level": "warning",
+      "defect": "coherence.termDrift",
+      "note": "Planted: expert verification now calls a record \"verified\" once its GPS fix is on site, while the term Verified record means a biologist accepted it."
+    },
+    {
+      "id": "check.givenWhenThen.verify-week",
+      "rule": "check:usecase.givenWhenThen",
+      "subjects": [
+        "usecase-verify-a-week-of-volunteer-records-in"
+      ],
+      "level": "warning",
+      "defect": "testability",
+      "check": {
+        "id": "givenWhenThen",
+        "deterministic": true
+      },
+      "note": "Planted: the verification use case is prose, not Given / When / Then; the pattern check reports it without a provider call."
+    },
+    {
+      "id": "check.signifiers.verification-queue",
+      "rule": "check:screen.signifiers",
+      "subjects": [
+        "screen-verification-queue"
+      ],
+      "level": "warning",
+      "defect": "specificity.underspecified",
+      "check": {
+        "id": "signifiers"
+      },
+      "note": "Planted: the queue is a clean, modern screen to get through records quickly, with no control, signifier or feedback named."
+    },
+    {
+      "id": "check.userAndTrigger.photo-id",
+      "rule": "check:feature.userAndTrigger",
+      "subjects": [
+        "feature-photo-id-suggestions"
+      ],
+      "level": "warning",
+      "defect": "specificity.underspecified",
+      "check": {
+        "id": "userAndTrigger"
+      },
+      "note": "Planted with the tangibility plant on the same node: volunteers are going to love it names no trigger. Only the check's own finding counts for this item."
+    }
+  ],
+  "controls": [
+    {
+      "id": "control.percent-cover",
+      "subject": "term-percent-cover",
+      "note": "Existing term: share of a quadrat's area occupied by one species, in 5% steps."
+    },
+    {
+      "id": "control.single-verdict",
+      "subject": "rule-a-record-has-exactly-one-final-verdict",
+      "note": "At most one final verdict; a second is rejected."
+    },
+    {
+      "id": "control.check.givenWhenThen-log-survey",
+      "subject": "usecase-log-a-transect-survey-during-one-low",
+      "note": "Given a volunteer at the first quadrat with no signal, when they log each quadrat, then it is saved and synced later."
+    },
+    {
+      "id": "control.check.signifiers-transect-logger",
+      "subject": "screen-transect-logger",
+      "note": "Names the Add species button, steppers, haptic and Saved feedback, and when Next quadrat turns green."
+    },
+    {
+      "id": "control.check.userAndTrigger-reminders",
+      "subject": "feature-low-tide-reminders",
+      "note": "Each volunteer gets a push notification the evening before a low tide below 0.5 m at their saved site."
+    }
+  ]
+}

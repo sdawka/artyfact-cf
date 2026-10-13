@@ -1,0 +1,12 @@
+id: J.goals
+kind: journey
+fields:
+  name: Set a cadence and depth
+  actorGoal: Choose how often and how deeply I want to be in touch with one person
+  features:
+    - GD.goals
+  requirements:
+    - S.webapp.qualification
+    - S.webapp.due
+  start: g1
+  deferred: false

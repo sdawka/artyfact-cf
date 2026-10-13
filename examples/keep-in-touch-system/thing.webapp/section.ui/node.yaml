@@ -1,0 +1,29 @@
+id: section.ui
+kind: section
+fields:
+  name: UI
+  description: Screens, shared components and affordances.
+  fromTemplate: template.thing.cloudflare-worker-webapp@1
+criteria:
+  - id: C.webapp.screen.exact
+    title: Screen composition
+    claim: Protected browser fixture checks loaded, empty, loading, error and validation compositions, login continuation and keyboard actions
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    sourceRefs:
+      - S.webapp.screens
+      - S.webapp.authentication
+    hooks:
+      - id: hook.webapp.screen.exact
+        assay: webapp.screen.exact
+        tier: execution
+        engine: browser
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          fixture: protected browser fixture over all screens
+        timeoutMs: 120000
+        costTier: expensive

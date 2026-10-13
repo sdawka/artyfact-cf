@@ -1,0 +1,7 @@
+id: endpoint.candidates
+kind: endpoint
+fields:
+  name: Candidates
+  description: Lists the System's open and closed candidates.
+  route: GET /api/systems/:id/candidates
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

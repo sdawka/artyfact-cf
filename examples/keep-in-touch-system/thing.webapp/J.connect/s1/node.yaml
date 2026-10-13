@@ -1,0 +1,12 @@
+id: J.connect/s1
+kind: step
+fields:
+  step: s1
+  actor: user
+  action: Open Person and choose Invite
+  requirementRefs:
+    - S.webapp.screens
+  next:
+    - to: s2
+links:
+  - { rel: stepScreen, to: screen.person }

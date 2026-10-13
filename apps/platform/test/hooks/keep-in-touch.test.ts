@@ -4,6 +4,7 @@ import { createSystemOne } from "@artyfact/semantic";
 import type { CandidateRef, Evaluation, SubmissionContext } from "../../worker/hooks/contract";
 import { loadGenome, modelRules } from "../../worker/hooks/model-rules";
 import { createHookRunner, selectHooks } from "../../worker/hooks/run";
+import { engineRules, engineRun } from "../../worker/hooks/engine-gates";
 import { BASE, COMMIT, keepInTouch, keepInTouchMany } from "./fixtures";
 
 const relations = (t: DerivationTree, out: string[] = []): string[] => {
@@ -11,6 +12,9 @@ const relations = (t: DerivationTree, out: string[] = []): string[] => {
   for (const c of t.children) relations(c, out);
   return out;
 };
+
+const SAVE = "thing.webapp/section.domain/operation.contact.save/node.yaml";
+const EFFECT = "    - Save only that owner's record; editing does not send invitations\n";
 
 describe("model-rules on the real Keep in Touch Genome", () => {
   const base = loadGenome(keepInTouch(), BASE);
@@ -25,23 +29,44 @@ describe("model-rules on the real Keep in Touch Genome", () => {
     expect(r.outcome).toMatchObject({ execution: "completed", verdict: "fail" });
     const f = r.outcome.observations.find((o) => (o as { rule?: string }).rule === "topology.recipientArray") as { subject: string; derivation: DerivationTree };
     expect(f.subject).toBe("operation.contact.save");
-    expect(relations(f.derivation)).toEqual(expect.arrayContaining(["outgoingDirect", "accountRefField", "cardinality"]));
+    expect(relations(f.derivation)).toEqual(expect.arrayContaining(["outgoingDirect", "accountRefField", "acardinality"]));
   });
 
-  it("the topology hook (inputs.packs with a version) sees it; the structure hook does not; an unpinned pack is unknown", () => {
-    expect(modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["topology.private-pairs@1"] } }).outcome.verdict).toBe("fail");
-    expect(modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["metamodel@1"] } }).outcome.verdict).toBe("pass");
-    expect(modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["topology.private-pairs@2"] } }).outcome.verdict).toBe("unknown");
+  it("the engine rules path fails the topology pack on it and passes the base Genome", () => {
+    const r = engineRun(keepInTouchMany());
+    const o = engineRules(r, { packs: ["topology.private-pairs@1"] });
+    expect(o).toMatchObject({ execution: "completed", verdict: "fail" });
+    expect(o.observations).toContainEqual(expect.objectContaining({ rule: "topology.recipientArray", subject: "operation.contact.save", pack: "artyfact.topology.private-pairs@1" }));
+    expect(engineRules(r, { packs: ["metamodel@1"] }).verdict).toBe("pass");
+    expect(engineRules(engineRun(keepInTouch()), { packs: ["topology.private-pairs@1"] }).verdict).toBe("pass");
+  });
+
+  it("the engine rules path runs only the packs the System pins, as readiness does", () => {
+    const files = keepInTouchMany();
+    // The last pin under rulePacks (the kits list pins a kit of the same name first).
+    files["node.yaml"] = files["node.yaml"].replace('    - id: topology.private-pairs\n      version: "1"\n  required:', "  required:");
+    const r = engineRun(files);
+    expect(r.template.rules.map((p) => p.id)).not.toContain("artyfact.topology.private-pairs");
+    expect(r.readiness.findings.some((f) => f.rule === "topology.recipientArray")).toBe(false);
+  });
+
+  it("the topology hook (inputs.packs with a version) sees it; the structure hook does not; an unrun pack version is unknown", () => {
+    const r = engineRun(keepInTouchMany());
+    expect(engineRules(r, { packs: ["topology.private-pairs@1"] }).verdict).toBe("fail");
+    expect(engineRules(r, { packs: ["artyfact.topology.private-pairs"] }).verdict).toBe("fail");
+    expect(engineRules(r, { packs: ["metamodel@1"] }).verdict).toBe("pass");
+    const v2 = engineRules(r, { packs: ["topology.private-pairs@2"] });
+    expect(v2.verdict).toBe("unknown");
+    expect(v2.observations).toContainEqual(expect.objectContaining({ kind: "packs-not-run", packs: ["topology.private-pairs@2"] }));
   });
 
   it("a rule filter that selects no rule is unknown, naming the filter, even when the Genome violates", () => {
-    const typo = modelRules({ files: keepInTouchMany(), revision: "m", filter: { rulePrefix: "topolgy." } });
-    expect(typo.outcome.verdict).toBe("unknown");
-    expect(typo.outcome.observations).toContainEqual(expect.objectContaining({ kind: "filter-selects-no-rules", filter: { rulePrefix: "topolgy." } }));
-    const ok = modelRules({ files: keepInTouchMany(), revision: "m", filter: { rulePrefix: "topology." } });
-    expect(ok.outcome.verdict).toBe("fail");
-    const wrongPack = modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["metamodel@1"], rulePrefix: "topology." } });
-    expect(wrongPack.outcome.verdict).toBe("unknown");
+    const r = engineRun(keepInTouchMany());
+    const typo = engineRules(r, { rulePrefix: "topolgy." });
+    expect(typo.verdict).toBe("unknown");
+    expect(typo.interpretation).toBe('The hook\'s rule filter {"rulePrefix":"topolgy."} selects no rule in the template\'s packs; nothing was checked.');
+    expect(engineRules(r, { rulePrefix: "topology." }).verdict).toBe("fail");
+    expect(engineRules(r, { packs: ["metamodel@1"], rulePrefix: "topology." }).verdict).toBe("unknown");
   });
 });
 
@@ -101,6 +126,18 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
     expect(purpose.provenance.provider).toBe("fake");
   });
 
+  it("fails the rules gates when a pin names a pack version no template declares, as readiness does", async () => {
+    const files = keepInTouch();
+    // The topology pin under rulePacks (the kits list pins a kit of the same name first) moves to a version nothing declares.
+    files["node.yaml"] = files["node.yaml"].replace('    - id: topology.private-pairs\n      version: "1"\n  required:', '    - id: topology.private-pairs\n      version: "9"\n  required:');
+    const runner = createHookRunner({ s1: createSystemOne({}), now: () => new Date(0) });
+    const evs = await runner.runSubmission(ctx({ genomeFiles: files }));
+    for (const c of ["C.system.structure", "C.system.topology", "C.system.readiness"]) {
+      expect(by(evs, c).verdict, c).not.toBe("pass");
+    }
+    expect(by(evs, "C.system.structure").observations).toContainEqual(expect.objectContaining({ rule: "rulePack.unavailable", subject: "topology.private-pairs@9", level: "error" }));
+  });
+
   it("C.system.promotion passes when the DO supplies the promotion facts, and fails on a stale base", async () => {
     const runner = createHookRunner({ s1: createSystemOne({}), now: () => new Date(0) });
     const ok = by(await runner.runSubmission(ctx({ promotionFacts: { currentBaseCommit: BASE, manifestExact: true, evidenceFresh: true } })), "C.system.promotion");
@@ -112,8 +149,9 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
 
   it("C.system.autonomy fails when a required criterion is missing", async () => {
     const files = keepInTouch();
-    files["things/webapp/criteria.yaml"] = files["things/webapp/criteria.yaml"].replace(/hooks: \[hook\.webapp\.prompts\.bounded\]/, "hooks: [hook.webapp.prompts.bounded]\n    deferred: true");
-    expect(files["things/webapp/criteria.yaml"]).toContain("deferred: true");
+    const today = "thing.webapp/section.ui/screen.today/node.yaml";
+    files[today] = files[today].replace("  - id: C.webapp.prompts.bounded\n", "  - id: C.webapp.prompts.bounded\n    deferred: true\n");
+    expect(files[today]).toContain("deferred: true");
     const runner = createHookRunner({ s1: createSystemOne({}), now: () => new Date(0) });
     const e = by(await runner.runSubmission(ctx({ genomeFiles: files })), "C.system.autonomy");
     expect(e.verdict).toBe("fail");
@@ -130,10 +168,9 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
 
   it("topology semantic judges multi-recipient candidates of the canonical Genome when there are some", async () => {
     const files = keepInTouch();
-    const before = files["things/webapp/ontology.yaml"];
-    files["things/webapp/ontology.yaml"] = before.replace(
-      "    effects: [Save only that owner's record; editing does not send invitations,", "    effects: [\"Save only that owner's record and notify the recipient #s1harm\",");
-    expect(files["things/webapp/ontology.yaml"]).not.toBe(before);
+    const before = files[SAVE];
+    files[SAVE] = before.replace(EFFECT, "    - \"Save only that owner's record and notify the recipient #s1harm\"\n");
+    expect(files[SAVE]).not.toBe(before);
     const runner = createHookRunner({ s1: createSystemOne({ FAKE_S1: "1" }), now: () => new Date(0) });
     const e = (await runner.runSubmission(ctx({ genomeFiles: files }))).find((x) => x.hook === "hook.system.topology.semantic")!;
     // #s1harm makes the fake confirm "sends to several people" (noul 0.95) → topology unacceptable → fail.
@@ -149,8 +186,7 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
 
   it("topology semantic with candidates flagged and the provider off is unknown", async () => {
     const files = keepInTouch();
-    files["things/webapp/ontology.yaml"] = files["things/webapp/ontology.yaml"].replace(
-      "    effects: [Save only that owner's record; editing does not send invitations,", "    effects: [Save only that owner's record and notify the recipient,");
+    files[SAVE] = files[SAVE].replace(EFFECT, "    - Save only that owner's record and notify the recipient\n");
     const runner = createHookRunner({ s1: createSystemOne({}), now: () => new Date(0) });
     const e = (await runner.runSubmission(ctx({ genomeFiles: files }))).find((x) => x.hook === "hook.system.topology.semantic")!;
     expect(e).toMatchObject({ execution: "completed", verdict: "unknown" });
@@ -160,7 +196,7 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
   it("topology semantic is unknown when the rules run errored (no vacuous pass without evidence)", async () => {
     const runner = createHookRunner({
       s1: createSystemOne({ FAKE_S1: "1" }), now: () => new Date(0),
-      genome: { packsFor: () => { throw new Error("pack store unavailable"); } },
+      genome: { validate: () => { throw new Error("pack store unavailable"); } },
     });
     const e = (await runner.runSubmission(ctx())).find((x) => x.hook === "hook.system.topology.semantic")!;
     expect(e).toMatchObject({ execution: "completed", verdict: "unknown" });

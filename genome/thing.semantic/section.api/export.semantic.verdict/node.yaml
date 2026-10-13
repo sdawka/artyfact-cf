@@ -1,0 +1,7 @@
+id: export.semantic.verdict
+kind: export
+fields:
+  name: verdict
+  signature: "export function verdict(p: number | null | undefined, o?: { passAt?: number; failAt?: number }): Verdict"
+  stability: stable
+  description: Maps a probability to pass, fail or unknown; low confidence never passes.

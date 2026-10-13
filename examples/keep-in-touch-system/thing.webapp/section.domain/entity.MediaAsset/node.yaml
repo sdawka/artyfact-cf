@@ -1,0 +1,28 @@
+id: entity.MediaAsset
+kind: entity
+fields:
+  name: MediaAsset
+  description: ID, owner, private object key, permission provenance, retention and per-resource access grants
+  source:
+    doc: keep-in-touch-world-specification
+    section: "5"
+  fields:
+    - name: id
+      type: string
+      optional: false
+    - name: ownerAccountId
+      type: ref:entity.Account
+      optional: false
+    - name: privateObjectKey
+      type: string
+      optional: false
+    - name: permissionProvenance
+      type: json
+      optional: false
+    - name: retention
+      type: json
+      optional: false
+  invariants:
+    - Private bucket only
+    - No permanent public media URL
+provisional: true

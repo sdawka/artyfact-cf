@@ -1,0 +1,13 @@
+id: J.control.block
+kind: journey
+fields:
+  name: Block a person
+  actorGoal: Stop all app-mediated contact from one person until I remove the block
+  features:
+    - GD.connect
+  requirements:
+    - S.webapp.operations
+    - S.webapp.prompts
+    - S.webapp.concurrency
+  start: b1
+  deferred: false

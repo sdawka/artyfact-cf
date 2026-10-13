@@ -1,0 +1,48 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#second-world",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "780202615293636a37a149ab00d8daf0bf2bf399125958d6ee492b66c193c236",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "assistant.purpose-requires-beneficiary",
+      "severity": "blocker",
+      "message": "world-2 requires a hasBeneficiary relation to beneficiary",
+      "objectIds": [
+        "world-2"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "template:assistant-world@1"
+      }
+    },
+    {
+      "ruleId": "assistant.purpose-requires-outcome",
+      "severity": "blocker",
+      "message": "world-2 requires a hasOutcome relation to outcome",
+      "objectIds": [
+        "world-2"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "template:assistant-world@1"
+      }
+    },
+    {
+      "ruleId": "core.world-root",
+      "severity": "blocker",
+      "message": "a snapshot requires exactly one root World object matching worldId",
+      "objectIds": [
+        "assistant-world"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "derived",
+        "reference": "compiled-rule:core.world-root"
+      }
+    }
+  ]
+}

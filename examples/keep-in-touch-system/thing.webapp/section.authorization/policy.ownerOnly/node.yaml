@@ -1,0 +1,53 @@
+id: policy.ownerOnly
+kind: policy
+fields:
+  name: Owner-only access
+  description: Owner-only access to private contacts, goals, notes and logs; another owner's records return a non-revealing denial
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+  mode: owner-only
+links:
+  - { rel: governs, to: screen.today }
+  - { rel: governs, to: screen.people }
+  - { rel: governs, to: screen.person }
+  - { rel: governs, to: screen.goal }
+  - { rel: governs, to: screen.logContact }
+  - { rel: governs, to: screen.settings }
+  - { rel: governs, to: entity.Account }
+  - { rel: governs, to: entity.ContactRecord }
+  - { rel: governs, to: entity.RelationshipGoal }
+  - { rel: governs, to: entity.ContactEvent }
+  - { rel: governs, to: entity.Suggestion }
+  - { rel: governs, to: entity.NotificationJob }
+  - { rel: governs, to: operation.contact.save }
+  - { rel: governs, to: operation.goal.save }
+  - { rel: governs, to: operation.contact.log }
+  - { rel: governs, to: operation.data.export }
+  - { rel: governs, to: operation.data.delete }
+files:
+  - src/worker/auth.ts
+  - src/worker/routes/contacts.ts
+criteria:
+  - id: C.webapp.private.owner
+    title: Owner-only access
+    claim: API fixture proves one user cannot read or mutate another's contacts, notes, goals or logs. Include guessed IDs and export
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    satisfies:
+      - C.system.autonomy
+    sourceRefs:
+      - S.webapp.operations
+    hooks:
+      - id: hook.webapp.private.owner
+        assay: webapp.private.owner
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          fixture: two-account API fixture incl. guessed ids and export
+        costTier: cheap

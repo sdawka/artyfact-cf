@@ -1,0 +1,12 @@
+id: affordance.SuggestionCard.logContact
+kind: affordance
+fields:
+  name: Log contact
+  actor: ext.owner
+  trigger: Owner activates Log contact on a card
+  preconditions:
+    - Owned contact
+  effects:
+    - Navigates to /people/:id/log
+  failure:
+    - Contact not found shows a non-revealing denial

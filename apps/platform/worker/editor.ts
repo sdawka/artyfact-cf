@@ -2,11 +2,10 @@
  * The in-browser editor's backend: list and read files at any ref, and turn a manual edit into a candidate on the
  * realization's fork through the same path agents use (push → checkpoint → submit → gates and CI dispatch).
  */
-import type { schema } from "@artyfact/model";
 import type { EditorCommitRequest, EditorCommitResponse, FileResponse, FileScope, FilesResponse } from "../shared/api";
 import { artifactsFor, remoteUrl, withRepo, type ArtifactsRepoLike, type TreeEntry } from "./artifacts/client";
 import { genomePrefix, listTree } from "./artifacts/genome-source";
-import { globMatch, loadSourceMap, nodesForPath } from "./artifacts/source-map";
+import { globMatch, nodesForPath, sourceMapFor } from "./artifacts/source-map";
 import { declaredNodes, resolveRef, type ResolvedRef } from "./compare";
 import { TERMINAL_REALIZATION, type HeadState } from "./do/system-authority";
 import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
@@ -99,13 +98,6 @@ export function sniffBinary(bytes: Uint8Array): boolean {
   }
 }
 
-/** The app Thing's template source-map defaults and id, as the submit path computes them. */
-function appSourceDefaults(m: Awaited<ReturnType<typeof genomeAt>>["model"]): { thingId?: string; defaults?: { glob: string; nodes: string[] }[] } {
-  const thing = m.things.find((t) => t.artifacts.some((a) => a.type === "worker-fullstack")) ?? m.things[0];
-  const template: schema.Template | undefined = thing?.templateRef ? m.templates.find((t) => `${t.id}@${t.version}` === thing.templateRef) : undefined;
-  return { thingId: thing?.id, defaults: template?.sourceMapDefaults };
-}
-
 export async function readFileAt(env: Env, systemId: string, scope: FileScope, ref: string, path: string): Promise<FileResponse> {
   if (!validPath(path)) throw badRequest("path must be a repo-relative file path");
   const s = await headState(env, systemId);
@@ -122,9 +114,7 @@ export async function readFileAt(env: Env, systemId: string, scope: FileScope, r
     let nodes: string[] | undefined;
     if (scope === "app") {
       const g = await genomeAt(env, systemId, s.genomeCommit, s.genomeSource);
-      const { thingId, defaults } = appSourceDefaults(g.model);
-      const sm = await repo.readFile({ ref: resolved.commit, path: "source-map.yaml" });
-      nodes = nodesForPath(loadSourceMap(defaults, thingId, sm ? await sm.text() : undefined), path).filter((n) => !n.startsWith("unmapped:"));
+      nodes = nodesForPath(sourceMapFor(g.model), path).filter((n) => !n.startsWith("unmapped:"));
     }
     return { hash: e.hash, size, text, binary, truncated: size > READ_CAP_BYTES, ...(nodes && { nodes }) };
   });

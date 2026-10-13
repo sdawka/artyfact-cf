@@ -1,0 +1,13 @@
+id: J.contact/c3
+kind: step
+fields:
+  step: c3
+  actor: external
+  action: Conversation or meeting happens outside the app; opening the channel completes no goal
+  kind: wait
+  requirementRefs:
+    - S.webapp.qualification
+  next:
+    - to: c4
+links:
+  - { rel: stepExternal, to: ext.channels }

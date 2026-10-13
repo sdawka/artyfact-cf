@@ -11,7 +11,7 @@ describe('reviewDelta', () => {
     const [r] = await reviewDelta(fake, model, delta('#s1harm'), commitments);
     expect(r).toMatchObject({ id: 'ch0', level: 'error', verdict: 'fail' });
     expect(r!.contradicts).toEqual({ C1: 0.95, C2: 0.95 });
-    expect(r!.provenance).toMatchObject({ provider: 'fake', model: 'jev-fake' });
+    expect(r!.provenance).toMatchObject({ provider: 'fake', model: 'fake' });
   });
   it('0.55 band -> warning, never pass', async () => {
     const [r] = await reviewDelta(fake, model, delta('#s1low'), commitments);

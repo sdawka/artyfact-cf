@@ -1,0 +1,7 @@
+id: endpoint.intents-get
+kind: endpoint
+fields:
+  name: Read a proposal
+  description: Returns a stored Proposal.
+  route: GET /api/systems/:id/intents/:pid
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.

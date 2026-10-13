@@ -1,0 +1,5 @@
+id: component.EventChannelSelect
+kind: component
+fields:
+  name: ChannelSelect
+  cardinality: exactly one

@@ -1,0 +1,12 @@
+id: J.connect/s3
+kind: step
+fields:
+  step: s3
+  actor: user
+  action: Share the invitation by QR or connection code through an outside channel
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: s4
+links:
+  - { rel: stepExternal, to: ext.channels }

@@ -1,0 +1,11 @@
+id: J.control.disconnect/e2
+kind: step
+fields:
+  step: e2
+  actor: user
+  action: Connection unchanged
+  kind: end
+  requirementRefs:
+    - S.webapp.operations
+links:
+  - { rel: stepScreen, to: screen.person }

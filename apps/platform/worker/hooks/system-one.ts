@@ -7,6 +7,7 @@
  * Provider off or failing → every judgment `unknown` with provenance.provider `off`/`error`; the judgments never throw.
  */
 import type { SemanticDelta, SystemModel, Tuple } from "@artyfact/model";
+import { DEFAULT_THRESHOLDS } from "@artyfact/ontology";
 import {
   band,
   purposeMeasures,
@@ -104,7 +105,7 @@ export async function judgeTopology(s1: SystemOne, m: SystemModel, derived: Reco
 
 /** A review entry that says the review itself could not run, so the admin queue is never silently empty. */
 export function reviewUnavailable(subject: string, message: string): DeltaReview {
-  const provenance: Provenance = { provider: "error", model: "none", questionHash: "", stateHash: "", ms: 0, usage: { input_tokens: 0, output_tokens: 0 }, error: { name: "ReviewUnavailable", message } };
+  const provenance: Provenance = { provider: "error", model: "none", questionHash: "", stateHash: "", thresholds: DEFAULT_THRESHOLDS, ms: 0, usage: { input_tokens: 0, output_tokens: 0 }, error: { name: "ReviewUnavailable", message } };
   return {
     subject,
     judgment: "reviewDelta",

@@ -1,0 +1,6 @@
+id: section.authorization
+kind: section
+fields:
+  name: Authorization
+  description: Policies governing who may read or change what.
+  fromTemplate: template.thing.cloudflare-worker-webapp@1

@@ -1,0 +1,11 @@
+id: J.contact/e2
+kind: step
+fields:
+  step: e2
+  actor: system
+  action: No goal completed; event, if logged, does not qualify
+  kind: end
+  requirementRefs:
+    - S.webapp.qualification
+links:
+  - { rel: stepScreen, to: screen.person }

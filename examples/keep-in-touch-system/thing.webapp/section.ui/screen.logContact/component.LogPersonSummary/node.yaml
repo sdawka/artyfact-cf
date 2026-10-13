@@ -1,0 +1,5 @@
+id: component.LogPersonSummary
+kind: component
+fields:
+  name: PersonSummary
+  cardinality: exactly one

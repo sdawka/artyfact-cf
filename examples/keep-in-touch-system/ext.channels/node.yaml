@@ -1,0 +1,10 @@
+id: ext.channels
+kind: external
+fields:
+  name: Channels
+  kind: service
+  modeled: Calls, meetings, SMS, email and other messaging apps
+  external: The app cannot infer their delivery or meaning merely by opening them
+  source:
+    doc: keep-in-touch-world-specification
+    section: "2"

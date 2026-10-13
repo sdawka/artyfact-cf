@@ -93,6 +93,11 @@ describe("Compare", () => {
     expect(screen.getByLabelText("name after")).toBeTruthy();
   });
 
+  it("notes in the header when a side's Genome is in the v1 format", async () => {
+    renderApp(URL, undefined, seed({ system: { ...system, genome: { ...system.genome, delta: null, legacyFormat: ["from"] } } }));
+    expect(await screen.findByRole("note")).toHaveProperty("textContent", "Genome v1 format — not comparable");
+  });
+
   it("says when the two revisions are identical", async () => {
     renderApp(URL, undefined, seed({ system: { ...system, identical: true } }));
     expect(await screen.findByText("The two revisions are identical.")).toBeTruthy();

@@ -1,0 +1,6 @@
+id: component.PersonActionBar
+kind: component
+fields:
+  name: ActionBar
+  description: Actions are Edit goal, Log contact and Open channel
+  cardinality: exactly one

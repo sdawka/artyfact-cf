@@ -47,11 +47,11 @@ Also mention. Re-submitting the same commit returns the same candidate (`created
 
 ## Moment 2: a rule violation, then a deliberate choice (steps 9 and 10)
 
-Amendment one. Agent C edits `entity.MessageDraft` in `things/webapp/ontology.yaml` and adds a recipients list. On submit, `C.system.topology` is `fail`. In the review, show the delta, the finding `topology.recipientArray` with its derivation of two facts, and System One's row. Then show accept refused with 409 `blocked`, and the admin rejecting with a reason. Show that agent C's next `artyfact status` gets 403, because reject revokes its secret.
+Amendment one. Agent C edits `entity.MessageDraft` in `thing.webapp/section.domain/entity.MessageDraft/node.yaml` and adds a recipients list. On submit, `C.system.topology` is `fail`. In the review, show the delta, the finding `topology.recipientArray` with its derivation of two facts, and System One's row. Then show accept refused with 409 `blocked`, and the admin rejecting with a reason. Show that agent C's next `artyfact status` gets 403, because reject revokes its secret.
 
 Say. The violation is the rules engine's finding, with a proof. System One is the fake provider, so it calls this change a deliberate choice. That is wrong, and it does not matter, because the gate does not rely on it. With a real key the same step uses the real model. The admin rejects it with a written reason.
 
-Amendment two. Agent D rewords `commitment.no-engagement-mechanics` in `description.yaml`. No rule fires. The review shows the signals, labelled fake, with the calm "deliberate choice, no rule violated" line. The admin accepts with an interpretation. Show the new Genome commit, 0 errors in the model, and History with the evidence provider `fake` on the commit.
+Amendment two. Agent D rewords `commitment.no-engagement-mechanics` in `commitment.no-engagement-mechanics/node.yaml`. No rule fires. The review shows the signals, labelled fake, with the calm "deliberate choice, no rule violated" line. The admin accepts with an interpretation. Show the new Genome commit, 0 errors in the model, and History with the evidence provider `fake` on the commit.
 
 Say. A new wording can look like a violation when it is a decision. The platform shows its evidence, says how sure the model is and leaves the call to a person, who records why.
 

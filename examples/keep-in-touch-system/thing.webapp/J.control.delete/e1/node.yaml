@@ -1,0 +1,9 @@
+id: J.control.delete/e1
+kind: step
+fields:
+  step: e1
+  actor: system
+  action: Owner's live data purged
+  kind: end
+  requirementRefs:
+    - S.webapp.operations

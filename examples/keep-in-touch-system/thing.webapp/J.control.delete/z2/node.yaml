@@ -1,0 +1,16 @@
+id: J.control.delete/z2
+kind: step
+fields:
+  step: z2
+  actor: user
+  action: Choose Delete in DeletionControls, confirm and reauthenticate
+  kind: branch
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: z3
+      when: confirmed
+    - to: e2
+      when: cancel
+links:
+  - { rel: stepScreen, to: screen.settings }

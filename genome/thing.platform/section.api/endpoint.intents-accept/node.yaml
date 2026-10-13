@@ -1,0 +1,9 @@
+id: endpoint.intents-accept
+kind: endpoint
+fields:
+  name: Accept a proposal
+  description: Applies the accepted ops to the Genome tree, commits them and opens a candidate with an Evolution.
+  route: POST /api/systems/:id/intents/:pid/accept
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  request: IntentAccept {opIds}
+  response: 201 IntentAcceptResponse; 409 stale-base when the head moved

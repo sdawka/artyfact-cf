@@ -6,7 +6,7 @@ import { setEditorTransport } from "../worker/editor";
 import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../worker/hooks/contract";
 import { resetHooks, setHooks } from "../worker/hooks/index";
 import { appOwned, LOCK_PATH, planFiles, UPGRADE_AGENT } from "../worker/template-upgrade";
-import { genomeFiles } from "./fixtures/genome";
+import { genomeFiles, genomeFor } from "./fixtures/genome";
 import { FakeArtifacts, gitBlobHash } from "./helpers/fake-artifacts";
 import { fakeReceivePack } from "./helpers/fake-receive-pack";
 import { ADMIN, call, passing } from "./helpers/flows";
@@ -27,7 +27,6 @@ const V1: Record<string, string> = {
   "src/worker/old.ts": "old",
   "src/worker/routes/contacts.ts": "routes",
   "src/ui/people/index.html": "<main></main>",
-  "source-map.yaml": "- glob: src/ui/people/**\n  nodes: [screen.people]\n",
   "README.md": "template readme",
   ".dev.vars": "SECRET=1",
 };
@@ -49,7 +48,7 @@ async function setup(app: Record<string, string>, versions: Record<string, strin
   const tag = `${++seq}${Math.random().toString(36).slice(2, 6)}`;
   const systemId = `system.tu${tag}`, genomeRepo = `tu-genome-${tag}`, appRepo = `tu-app-${tag}`;
   ns.create(genomeRepo).commit({
-    ...genomeFiles, "system.yaml": genomeFiles["system.yaml"].replace("system.kit", systemId), "criteria.yaml": genomeFiles["criteria.yaml"].replaceAll("system.kit", systemId),
+    ...genomeFor(systemId),
   }, "genome");
   const platform: string[] = [];
   if (!opts.noPlatform) {

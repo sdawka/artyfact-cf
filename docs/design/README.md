@@ -8,4 +8,5 @@ artyfact is a System-centred collaboration platform on Cloudflare Workers and Ar
 - [rules.md](rules.md): Datalog engine and Rule Packs
 - [semantic.md](semantic.md): System One question catalog and policy
 - [facts.md](facts.md): the fact schema shared by the model and the rule packs
+- [ontology.md](ontology.md): the ontology engine, the Genome v2 node tree, template view hints and the intent API (iteration 3)
 - [../architecture.md](../architecture.md): how a change moves through the Worker, Artifacts and the Durable Object

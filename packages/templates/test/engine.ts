@@ -1,6 +1,6 @@
 // Runs rule packs against a fact set with the real @artyfact/rules engine.
 import { factSet, parse, run, type Tuple } from "@artyfact/rules";
-import { pack } from "../src/index";
+import { pack } from "./v1";
 
 export type { Tuple };
 export type Facts = Record<string, Tuple[]>;

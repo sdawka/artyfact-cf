@@ -1,0 +1,11 @@
+id: J.control.disconnect/d4
+kind: step
+fields:
+  step: d4
+  actor: counterpart
+  action: Counterpart's access to shared capabilities ends; revocation checked against current state on every read and send
+  kind: reaction
+  requirementRefs:
+    - S.webapp.concurrency
+  next:
+    - to: e1

@@ -1,5 +1,0 @@
-narrative: A tiny private notes app.
-features:
-  - { id: GD.notes, name: Notes, summary: Write and list notes }
-commitments:
-  - { id: commitment.private, statement: Notes are private to the owner, features: [GD.notes] }

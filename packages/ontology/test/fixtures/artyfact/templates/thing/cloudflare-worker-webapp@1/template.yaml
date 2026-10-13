@@ -1,0 +1,98 @@
+id: template.thing.cloudflare-worker-webapp
+kind: thing
+version: "1"
+name: Cloudflare Worker web app
+description: A full-stack web app served by one Cloudflare Worker with static assets, D1 storage and cron scheduling.
+sections:
+  - section.ui
+  - section.domain
+  - section.authorization
+  - section.runtime
+nodes:
+  - id: section.ui
+    kind: section
+    name: UI
+    parent: "$thing"
+    owningThing: "$thing"
+    description: Screens, shared components and affordances.
+  - id: section.domain
+    kind: section
+    name: Domain
+    parent: "$thing"
+    owningThing: "$thing"
+    description: Entities, operations and invariants.
+  - id: section.authorization
+    kind: section
+    name: Authorization
+    parent: "$thing"
+    owningThing: "$thing"
+    description: Policies governing who may read or change what.
+  - id: section.runtime
+    kind: section
+    name: Runtime
+    parent: "$thing"
+    owningThing: "$thing"
+    description: Bindings and deployment surface.
+
+  - id: binding.worker
+    kind: binding
+    name: Worker with static assets
+    parent: section.runtime
+    owningThing: "$thing"
+    description: Cloudflare Worker serving the API and the built UI through Workers Static Assets.
+  - id: binding.d1
+    kind: binding
+    name: D1 database
+    parent: section.runtime
+    owningThing: "$thing"
+    description: Placeholder relational store. Instances rename or replace it via override (for example binding.contactsStore).
+    provisional: true
+  - id: binding.scheduler
+    kind: binding
+    name: Cron scheduler
+    parent: section.runtime
+    owningThing: "$thing"
+    description: Cron Triggers for periodic work.
+
+  - id: component.AppShell
+    kind: component
+    name: AppShell
+    parent: section.ui
+    owningThing: "$thing"
+    description: Frame holding the top bar, primary navigation and route outlet.
+  - id: component.TopBar
+    kind: component
+    name: TopBar
+    parent: component.AppShell
+    owningThing: "$thing"
+  - id: component.PrimaryNav
+    kind: component
+    name: PrimaryNav
+    parent: component.AppShell
+    owningThing: "$thing"
+  - id: component.RouteOutlet
+    kind: component
+    name: RouteOutlet
+    parent: component.AppShell
+    owningThing: "$thing"
+  - id: component.StatePanel
+    kind: component
+    name: StatePanel
+    parent: section.ui
+    owningThing: "$thing"
+    description: Shared loading, empty and unavailable states.
+    states: [loading, empty, unavailable]
+  - id: component.ErrorSummary
+    kind: component
+    name: ErrorSummary
+    parent: section.ui
+    owningThing: "$thing"
+    description: Shared summary of form and request errors.
+
+  - id: policy.authentication
+    kind: policy
+    name: Authentication
+    parent: section.authorization
+    owningThing: "$thing"
+    description: Who counts as a signed-in user. Provisional until an auth kit is pinned.
+    provisional: true

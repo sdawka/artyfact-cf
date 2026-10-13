@@ -57,7 +57,12 @@ function footprint(c: CandidateRef, base: SystemModel, deps: OverlapDeps): Footp
       const e = model.index.byId[id] ?? base.index.byId[id];
       return e?.type === "criterion" ? [(e.item as { subjectId: string }).subjectId] : [];
     });
-    return { c, nodes: uniq([...ids, ...subjects, ...mapped]), delta, model };
+    // So does a new link: the node it now references (a criterion's subject is its declaring node, so a reference is a link).
+    const linked = ids.flatMap((id) => {
+      const had = new Set((base.index.linksOut[id] ?? []).map((l) => `${l.rel} ${l.to}`));
+      return (model.index.linksOut[id] ?? []).filter((l) => !had.has(`${l.rel} ${l.to}`)).map((l) => l.to);
+    });
+    return { c, nodes: uniq([...ids, ...subjects, ...linked, ...mapped]), delta, model };
   } catch (e) {
     return fromNodes(`model delta unavailable for ${c.id}: ${errorMessage(e)}`);
   }

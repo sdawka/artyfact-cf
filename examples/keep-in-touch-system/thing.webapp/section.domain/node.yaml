@@ -1,0 +1,69 @@
+id: section.domain
+kind: section
+fields:
+  name: Domain
+  description: Entities, operations and invariants.
+  fromTemplate: template.thing.cloudflare-worker-webapp@1
+criteria:
+  - id: C.webapp.outgoing.single
+    title: Single outgoing target
+    claim: Direct-action schema accepts exactly one target and rejects recipient arrays and group endpoints. Publication requires a separately accepted contract
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    satisfies:
+      - C.system.topology
+    sourceRefs:
+      - S.webapp.scope
+    hooks:
+      - id: hook.webapp.outgoing.single
+        assay: webapp.outgoing.single
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          fixture: direct-action schema accepts one target, rejects arrays and groups
+        costTier: cheap
+  - id: C.webapp.digest.private
+    title: Private digests (later)
+    claim: Later digest specification; subscriber permissions, future-only editions, no shared replies and blocked or unsubscribed access. Applicable only after the module is enabled
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    applicableWhen: module enabled
+    deferred: true
+    hooks:
+      - id: hook.webapp.digest.private
+        assay: webapp.digest.private
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          fixture: subscriber permissions, future-only editions, no shared replies
+        costTier: cheap
+  - id: C.webapp.photo.approved
+    title: Photo approval (later)
+    claim: Later photo specification; no upload or send before explicit file and recipient approval. Declined permission must leave the manual app usable. Applicable only after the module is enabled
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    applicableWhen: module enabled
+    deferred: true
+    hooks:
+      - id: hook.webapp.photo.approved
+        assay: webapp.photo.approved
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          fixture: no upload or send before explicit file and recipient approval
+        costTier: cheap

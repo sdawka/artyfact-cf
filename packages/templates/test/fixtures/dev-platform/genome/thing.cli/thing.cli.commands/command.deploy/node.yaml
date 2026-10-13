@@ -1,0 +1,8 @@
+id: command.deploy
+kind: command
+fields:
+  name: deploy
+  description: Deploys the API Worker and exits non-zero when the deployment fails its health check.
+  usage: jobs deploy <environment>
+links:
+  - {rel: calls, to: endpoint.health}

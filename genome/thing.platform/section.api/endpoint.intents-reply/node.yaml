@@ -1,0 +1,9 @@
+id: endpoint.intents-reply
+kind: endpoint
+fields:
+  name: Reply to a proposal
+  description: Answers a proposal's question; the platform routes and translates again.
+  route: POST /api/systems/:id/intents/:pid/reply
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  request: IntentReply {answer, questionId?}
+  response: Proposal

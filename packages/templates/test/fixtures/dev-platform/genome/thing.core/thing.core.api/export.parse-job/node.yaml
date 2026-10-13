@@ -1,0 +1,7 @@
+id: export.parse-job
+kind: export
+fields:
+  name: parseJob
+  description: Parses a job file and returns the job, or throws a ParseError that names the offending line.
+  signature: "export function parseJob(text: string): Job"
+  stability: stable

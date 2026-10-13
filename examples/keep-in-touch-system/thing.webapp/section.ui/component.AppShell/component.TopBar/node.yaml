@@ -1,0 +1,5 @@
+id: component.TopBar
+kind: component
+fields:
+  name: TopBar
+  fromTemplate: template.thing.cloudflare-worker-webapp@1

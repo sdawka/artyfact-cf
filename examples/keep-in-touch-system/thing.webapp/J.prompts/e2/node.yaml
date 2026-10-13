@@ -1,0 +1,12 @@
+id: J.prompts/e2
+kind: step
+fields:
+  step: e2
+  actor: system
+  action: Resulting due state shown on Today
+  kind: end
+  requirementRefs:
+    - S.webapp.prompts
+    - S.webapp.due
+links:
+  - { rel: stepScreen, to: screen.today }

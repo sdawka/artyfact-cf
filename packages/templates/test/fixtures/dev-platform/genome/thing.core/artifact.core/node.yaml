@@ -1,0 +1,7 @@
+id: artifact.core
+kind: artifact
+fields:
+  type: external
+  repo: toolkit
+  scope:
+    - packages/core

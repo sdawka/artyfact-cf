@@ -17,7 +17,7 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 | Secret `ADMIN_TOKEN` | | `wrangler secret put` |
 | CI Worker `artyfact-ci` (Workflow, Sandbox container, R2 `artyfact-ci-cache`) and secret `CI_REPORT_TOKEN` | optional | [`apps/ci/README.md`](../apps/ci/README.md), see [`ci.md`](ci.md) |
 
-There is no D1 or R2. `FAKE_S1=1` is a plain var because no System One key is set; the UI labels those judgments as fake.
+There is no D1 or R2. System One needs a secret, `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY` (`wrangler secret put`); without one every System One judgment is `unknown` and System One-gated hard criteria keep promotion closed. `FAKE_S1` is not a deployed var: it belongs in `.dev.vars` and test configs only.
 
 ## First deploy
 
@@ -31,6 +31,39 @@ There is no D1 or R2. `FAKE_S1=1` is a plain var because no System One key is se
 ## Redeploy
 
 `npm run deploy` (builds the platform, then `wrangler deploy`). Secrets and the Queue persist.
+
+Before deploying, confirm a System One key is set: `cd apps/platform && npx wrangler secret list` must list `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`. `wrangler deploy` replaces `vars`, and no fake is deployed, so without a key System One is off: hard System One gates stay `unknown` and intents only ask questions.
+
+## Migrate a v1 Genome
+
+A System whose head Genome is in the retired v1 layout (`system.yaml` at the root) answers 422 `legacy-genome` on every route that loads it, so it cannot be migrated through a realization. Convert it locally and re-import it ([ontology.md §2a](design/ontology.md)). For the prod Keep in Touch System, from the repo root:
+
+Set the platform URL and the account id first:
+
+```
+URL=https://artyfact-platform.dawka.workers.dev
+ACCOUNT_ID=<the account id from npx wrangler whoami>
+```
+
+1. Clone the v1 head of `keep-in-touch.genome` (not the example on `main`: prod may have promoted Genome amendments since) and the head of `keep-in-touch.app`, for its own `source-map.yaml`. Pass each read token through the environment, never in argv:
+   ```
+   for repo in keep-in-touch.genome keep-in-touch.app; do
+     T=$(npx wrangler artifacts repos issue-token $repo --namespace artyfact --scope read --ttl 600 --json | jq -r .plaintext)
+     GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Bearer $T" \
+       git clone -q https://$ACCOUNT_ID.artifacts.cloudflare.net/git/artyfact/$repo.git /tmp/$repo
+   done
+   ```
+2. Convert it with prod's own source map:
+   ```
+   npx artyfact convert-genome /tmp/keep-in-touch.genome /tmp/kit-v2 --source-map /tmp/keep-in-touch.app/source-map.yaml
+   ```
+   Review the tree; `node.yaml` at its root must name `system.keep-in-touch`.
+3. Push the Genome only and re-import:
+   ```
+   ARTYFACT_ADMIN_TOKEN=... npx artyfact init --dir /tmp/kit-migrate --genome /tmp/kit-v2 --platform $URL --genome-only --adopt --force
+   ```
+   `--genome-only` never reads, pushes or seeds an app: `keep-in-touch.app` keeps its head, and the platform keeps its recorded scaffold source. `--adopt` commits the converted tree on top of the v1 head of the same Genome repo (a fast-forward), and `--force` re-points the System at that commit.
+4. Verify: `curl -s -o /dev/null -w '%{http_code}\n' $URL/api/systems/system.keep-in-touch/model` prints `200`.
 
 ## Rollback
 

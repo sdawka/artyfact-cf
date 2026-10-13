@@ -1,0 +1,7 @@
+id: endpoint.compare-genome
+kind: endpoint
+fields:
+  name: Compare Genomes
+  description: Compares two Genome revisions node by node.
+  route: GET /api/systems/:id/compare/genome
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

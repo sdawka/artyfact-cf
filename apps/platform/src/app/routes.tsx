@@ -1,5 +1,6 @@
 import type { QueryClient } from "@tanstack/react-query";
 import { isRouteErrorResponse, Link, Navigate, redirect, useLocation, useParams, useRouteError, type RouteObject } from "react-router";
+import { ApiRequestError } from "@/api/client";
 import { modelQuery, useModelBundle } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { LoadingState } from "@/components/LoadingState/LoadingState";
@@ -56,8 +57,17 @@ async function systemEntry(queryClient: QueryClient, systemId: string, rev: stri
     : redirect(viewPath(systemId, rev, "overview"));
 }
 
+/**
+ * A revision whose Genome is in the retired v1 layout has no model to show (422 `legacy-genome`): its link lands on
+ * its Changelog entry at head, which carries the legacy notice (docs/design/ontology.md §2a). A legacy head itself
+ * (before the migration) shows the error, whose message names the converter.
+ */
 function RouteError() {
   const err = useRouteError();
+  const { systemId, rev } = useParams();
+  if (systemId && rev && rev !== DEFAULT_REV && err instanceof ApiRequestError && err.code === "legacy-genome") {
+    return <Navigate replace to={{ pathname: viewPath(systemId, DEFAULT_REV, "changelog"), search: `?${new URLSearchParams({ commit: rev })}` }} />;
+  }
   const message = isRouteErrorResponse(err) ? `${err.status} ${err.statusText}` : err instanceof Error ? err.message : "unknown error";
   return (
     <main className={styles.errorPage}>

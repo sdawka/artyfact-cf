@@ -1,11 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
 import type {
-  ArtifactBinding, PartScope, PartRecord, PartSummary, RealizedArtifact, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
+  ArtifactBinding, PartScope, PartRecord, PartSummary, RealizedArtifact, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Proposal, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
+import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalTurn, type ReviseResult, type StoredProposal } from "./proposals-store";
 import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentInput } from "./builds-store";
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
 import { ChangelogStore, type CachedChangelog } from "./changelog-store";
@@ -13,6 +14,7 @@ import { RegistryStore } from "./registry";
 import { PartsStore } from "../parts/store";
 import type { schema } from "@artyfact/model";
 import { applySchema } from "./schema";
+import { isBlocking } from "../../shared/verdict";
 
 /** Name of the DO instance holding the System registry and the realization/fork index. */
 export const REGISTRY = "__registry";
@@ -69,6 +71,14 @@ export class ConflictError extends Error {
   constructor(readonly code: "not-found" | "invalid-state", readonly detail: string) {
     super(`[${code}] ${detail}`);
     this.name = "ConflictError";
+  }
+}
+
+/** `reserveRealization` refused an `expectedBase` the canonical commit no longer is; maps to a 409 `stale-base`. */
+export class StaleBaseRefusal extends Error {
+  constructor(readonly detail: string) {
+    super(`[stale-base] ${detail}`);
+    this.name = "StaleBaseRefusal";
   }
 }
 
@@ -137,6 +147,8 @@ export interface ReserveInput {
   role?: Realization["agent"]["role"];
   /** B5: who drives the realization (stored in `realizations.origin`). */
   origin?: RealizationOrigin;
+  /** Refuse with `[stale-base]` unless the base (the canonical Genome or app commit) is this commit. */
+  expectedBase?: string;
 }
 
 export interface ReservedRealization {
@@ -229,6 +241,28 @@ export function setSseLifetime(ms: number | undefined): void {
 const enc = new TextEncoder();
 
 /** One instance per System: canonical state, realizations, candidates, evaluations and promotion (CAS). */
+/**
+ * Bump when what the model loader derives from a commit changes: `model` and `rules` parts stored under another version
+ * are ignored and rebuilt from the files. `files` are the commit's raw text and are not versioned.
+ * 2: the Genome v2 projection (a v1 commit no longer loads).
+ * 3: the serialized model carries `views` and intent nodes their containment `parent`.
+ */
+export const MODEL_CACHE_VERSION = 3;
+const cachePart = (part: string) => (part === "files" ? part : `${part}@${MODEL_CACHE_VERSION}`);
+
+const PRUNED_KEY = "model_cache_pruned";
+
+/**
+ * Drops `model`/`rules` rows of any other cache version (the unversioned rows included); run with the schema. Once per
+ * version: the `head` kv row `model_cache_pruned` holds the version last pruned for, so a DO start does not rescan.
+ */
+export function pruneModelCache(sql: SqlStorage): void {
+  const done = sql.exec("SELECT v FROM head WHERE k = ?", PRUNED_KEY).toArray()[0]?.v;
+  if (done === String(MODEL_CACHE_VERSION)) return;
+  sql.exec("DELETE FROM model_cache WHERE part != 'files' AND part NOT LIKE ?", `%@${MODEL_CACHE_VERSION}`);
+  sql.exec("INSERT INTO head (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v", PRUNED_KEY, String(MODEL_CACHE_VERSION));
+}
+
 export class SystemAuthority extends DurableObject<Env> {
   private sql: SqlStorage;
   private clients = new Set<WritableStreamDefaultWriter<Uint8Array>>();
@@ -239,6 +273,7 @@ export class SystemAuthority extends DurableObject<Env> {
     super(ctx, env);
     this.sql = ctx.storage.sql;
     applySchema(this.sql);
+    pruneModelCache(this.sql);
   }
 
   listParts(scope: PartScope): PartSummary[] { return new PartsStore(this.sql).listParts(scope); }
@@ -476,11 +511,11 @@ export class SystemAuthority extends DurableObject<Env> {
 
   // ---------------------------------------------------------------- model cache
 
-  /** Cache JSON parts (`files`, `bundle`, `readiness`) for a Genome commit. Each part is one row (< 2 MB). */
+  /** Cache JSON parts (`files`, `model`, `rules`) for a Genome commit. Each part is one row (< 2 MB). */
   putModelCache(genomeCommit: string, parts: Record<string, string>): void {
     const at = nowIso();
     for (const [part, text] of Object.entries(parts)) {
-      this.sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES (?, ?, ?, ?)", genomeCommit, part, text, at);
+      this.sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES (?, ?, ?, ?)", genomeCommit, cachePart(part), text, at);
     }
   }
 
@@ -543,7 +578,7 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   getModelCache(genomeCommit: string, part: string): string | null {
-    return str(this.one("SELECT json FROM model_cache WHERE genome_commit = ? AND part = ?", genomeCommit, part)?.json);
+    return str(this.one("SELECT json FROM model_cache WHERE genome_commit = ? AND part = ?", genomeCommit, cachePart(part))?.json);
   }
 
   // ---------------------------------------------------------------- evolutions
@@ -674,12 +709,15 @@ export class SystemAuthority extends DurableObject<Env> {
         throw new ConflictError("invalid-state", `evolution ${input.evolutionId} is ${evo.status}`);
       }
       if (input.target === "app" && !s.appSource) throw new ConflictError("invalid-state", "This Thing has no source artifact yet; accept a Genome binding and import its source before application work");
+      const baseRepo = input.target === "genome" ? s.genomeSource : s.appSource!.repo;
+      const baseCommit = input.target === "genome" ? s.genomeCommit : s.appSource!.commit;
+      if (input.expectedBase !== undefined && input.expectedBase !== baseCommit) {
+        throw new StaleBaseRefusal(`the ${input.target === "genome" ? "Genome" : "app"} moved from ${input.expectedBase.slice(0, 12)} to ${baseCommit.slice(0, 12)}`);
+      }
       const n = Number(this.kv("realization_seq") ?? 0) + 1;
       this.setKv("realization_seq", String(n));
       const id = `realization.${evolutionShort(input.evolutionId)}.r${n}`;
       const namingRepo = input.target === "genome" ? s.genomeRepo : s.appRepo;
-      const baseRepo = input.target === "genome" ? s.genomeSource : s.appSource!.repo;
-      const baseCommit = input.target === "genome" ? s.genomeCommit : s.appSource!.commit;
       const forkRepo = forkName(namingRepo, n);
       const at = nowIso();
       this.sql.exec(
@@ -1366,8 +1404,9 @@ export class SystemAuthority extends DurableObject<Env> {
     if (hit) return hit;
     const raw = this.getModelCache(genomeCommit, "rules");
     if (!raw) return undefined;
-    const findings = (JSON.parse(raw) as { findings?: { level: string }[] }).findings ?? [];
-    const out = { errors: findings.filter((f) => f.level === "error").length, missing: findings.filter((f) => f.level === "missing").length };
+    // Counted as the readiness report counts blockers: a provisional node's `missing` finding does not block.
+    const blocking = ((JSON.parse(raw) as { findings?: { level: string; rule: string }[] }).findings ?? []).filter(isBlocking);
+    const out = { errors: blocking.filter((f) => f.level === "error").length, missing: blocking.filter((f) => f.level === "missing").length };
     this.readinessMemo.set(genomeCommit, out);
     return out;
   }
@@ -1450,6 +1489,54 @@ export class SystemAuthority extends DurableObject<Env> {
   putChangelog(commitId: string, row: string, entry: string | null): void { this.changelog().put(commitId, row, entry); }
 
   // ---------------------------------------------------------------- end B2 changelog
+
+  // ---------------------------------------------------------------- W7 intent proposals
+
+  private proposalsStore: ProposalsStore | undefined;
+  private proposals(): ProposalsStore {
+    return (this.proposalsStore ??= new ProposalsStore(this.sql));
+  }
+  proposal(id: string): StoredProposal | null { return this.proposals().get(id); }
+  createProposal(proposal: Omit<Proposal, "id">): Proposal { return this.proposals().create(proposal); }
+  reviseProposal(proposal: Proposal, turns: ProposalTurn[]): ReviseResult { return this.proposals().revise(proposal, turns); }
+  /** Starts an accept: open → accepting, only while the head Genome is the one the proposal was computed on. */
+  claimProposal(id: string): ClaimResult {
+    const s = this.state();
+    if (!s) throw new ConflictError("not-found", "System not imported");
+    return this.proposals().claim(id, s.genomeCommit);
+  }
+  releaseProposal(id: string, claimedAt: string, error: string | null): boolean { return this.proposals().release(id, claimedAt, error); }
+  finishProposal(id: string, claimedAt: string, ids: AcceptedIds, error?: string): Proposal | null { return this.proposals().finish(id, claimedAt, ids, error); }
+
+  /**
+   * Undo an accept that failed after creating its Evolution: delete the Evolution with its realizations and what they
+   * recorded (checkpoints, candidates, evaluations), so a retry leaves exactly one. Realization numbers stay used, so
+   * fork names never repeat. Returns the realizations' credentials for the Worker to revoke and unregister. Refuses
+   * (`invalid-state`, nothing deleted) once any of it was promoted or a System commit names the Evolution.
+   */
+  discardEvolution(id: string): EndedCredential[] {
+    return this.ctx.storage.transactionSync(() => {
+      const rows = this.all("SELECT id, fork_repo, token_id, status FROM realizations WHERE evolution_id = ?", id);
+      const promoted = rows.some((r) => String(r.status) === "promoted")
+        || rows.some((r) => this.one("SELECT 1 FROM candidates WHERE realization_id = ? AND state = 'promoted'", String(r.id)))
+        || this.all("SELECT evolution_ids FROM system_commits").some((c) => (JSON.parse(String(c.evolution_ids)) as string[]).includes(id));
+      if (promoted) throw new ConflictError("invalid-state", `evolution ${id} is part of the System's history and cannot be discarded`);
+      for (const r of rows) {
+        const rid = String(r.id);
+        for (const c of this.all("SELECT id FROM candidates WHERE realization_id = ?", rid)) {
+          for (const t of ["evaluations", "candidate_reviews", "conflict_runs", "evaluation_claims"]) this.sql.exec(`DELETE FROM ${t} WHERE candidate_id = ?`, String(c.id));
+        }
+        this.sql.exec("DELETE FROM builds WHERE realization_id = ? OR candidate_id IN (SELECT id FROM candidates WHERE realization_id = ?)", rid, rid);
+        this.sql.exec("DELETE FROM candidates WHERE realization_id = ?", rid);
+        this.sql.exec("DELETE FROM checkpoints WHERE realization_id = ?", rid);
+        this.sql.exec("DELETE FROM realizations WHERE id = ?", rid);
+      }
+      this.sql.exec("DELETE FROM evolutions WHERE id = ?", id);
+      return rows.map((r) => ({ realizationId: String(r.id), forkRepo: String(r.fork_repo), tokenId: str(r.token_id) ?? null }));
+    });
+  }
+
+  // ---------------------------------------------------------------- end W7 intent proposals
 
   // ---------------------------------------------------------------- registry (instance `__registry` only)
 

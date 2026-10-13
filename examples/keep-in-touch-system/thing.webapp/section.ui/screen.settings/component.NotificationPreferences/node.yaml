@@ -1,0 +1,7 @@
+id: component.NotificationPreferences
+kind: component
+fields:
+  name: NotificationPreferences
+  cardinality: exactly one
+links:
+  - { rel: reads, to: entity.Account }

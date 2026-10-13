@@ -1,6 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { TemplateUpgradePlan } from "../../../shared/api";
+import type { TemplateUpgradeNoScaffold, TemplateUpgradePlan } from "../../../shared/api";
 import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
@@ -23,7 +23,7 @@ const PLAN: TemplateUpgradePlan = {
 const json = (status: number, body: unknown) => new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
 const apiSeed = (qc: import("@tanstack/react-query").QueryClient) => qc.setQueryData(qk.model(SYSTEM, "head"), { ...fixtureBundle(), source: "api" as const });
 
-function stubApi(plan: TemplateUpgradePlan, onPost?: (body: unknown, auth: string | null) => Response) {
+function stubApi(plan: TemplateUpgradePlan | TemplateUpgradeNoScaffold, onPost?: (body: unknown, auth: string | null) => Response) {
   vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
     const u = String(url);
     if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
@@ -46,6 +46,18 @@ describe("App template card", () => {
     expect(button.disabled).toBe(true);
     expect(within(card).getByText("Template upgrades need the platform API. The UI is showing fixture data.")).toBeTruthy();
     expect(button.getAttribute("aria-describedby")).toBeTruthy();
+  });
+
+  it("renders no card, and no console error, when the template ships no scaffold", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    stubApi({ status: "no-scaffold", template: "thing/ts-library@1" });
+    renderApp(OVERVIEW, undefined, apiSeed);
+    const fetched = () => (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.some(([u]) => String(u).includes("/template-upgrade"));
+    await waitFor(() => expect(fetched()).toBe(true));
+    await screen.findByRole("heading", { name: "Overview" }).catch(() => undefined);
+    await waitFor(() => expect(screen.queryByRole("region", { name: "App template" })).toBeNull());
+    expect(error).not.toHaveBeenCalled();
+    error.mockRestore();
   });
 
   it("says up to date and keeps the button disabled", async () => {

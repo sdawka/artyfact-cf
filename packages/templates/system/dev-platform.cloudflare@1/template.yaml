@@ -1,0 +1,76 @@
+# A software system built from Things on Cloudflare: a purpose, a description and a theory of change, no social externals.
+id: template.system.dev-platform.cloudflare
+version: 1
+meta: 1
+extends: template.meta.artyfact-genome@1
+relations:
+  calls:
+    description: The source invokes the target at run time.
+    from: [thing]
+    to: [thing]
+  deploys:
+    description: The source ships the target to its runtime.
+    from: [thing]
+    to: [thing]
+nodes:
+  - id: template.system.dev-platform.cloudflare@1
+    kind: template
+    fields:
+      kind: system
+      version: "1"
+      name: Dev platform on Cloudflare
+      description: A software system built from Things on Cloudflare, with a purpose, a description and a theory of change.
+      sections:
+        - section.purpose
+        - section.theory
+        - section.description
+  - {id: $self.purpose, kind: section, parent: $self, fields: {name: Purpose, revision: 1, description: "Why the system exists, who benefits and what must change for them.", fromTemplate: template.system.dev-platform.cloudflare@1}}
+  - {id: $self.theory, kind: section, parent: $self, fields: {name: Theory of change, revision: 1, description: "Claims linking what the system does to its outcomes, each with an indicator.", fromTemplate: template.system.dev-platform.cloudflare@1}}
+  - {id: $self.description, kind: section, parent: $self, fields: {name: Description, revision: 1, description: "The features, commitments, alternatives and open questions.", fromTemplate: template.system.dev-platform.cloudflare@1}}
+rootChecks:
+  - id: thingsOwned
+    text: The system's description says what each of its Things is for, so a reader can tell why the system is split this way.
+    when: {kind: system}
+    defect: specificity.underspecified
+rules:
+  - id: topology.services
+    version: 1
+    source: |
+      % topology.services@1 - how the Things of a dev platform fit together.
+      % A Thing reaches its template through a pinned link; a module's Thing is the nearest Thing above it.
+      .decl node(Id: sym, Kind: sym, Parent: sym)
+      .decl parent(Child: sym, Parent: sym)
+      .decl link(From: sym, Rel: sym, To: sym, Certainty: sym)
+      .decl under(Node: sym, Ancestor: sym)
+      .decl owner(Node: sym, Thing: sym)
+      .decl workerThing(Thing: sym)
+      .decl libraryThing(Thing: sym)
+      .decl inWorker(Endpoint: sym)
+      .decl thingDep(From: sym, To: sym)
+      .decl thingPath(From: sym, To: sym)
+      .decl depended(Thing: sym)
+      .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+      .decl warning(Rule: sym, Subject: sym) .output
+
+      .message "topology.endpointOutsideWorker" "Endpoint {1} is not under a Thing built from the Cloudflare Worker service template."
+      .message "topology.thingCycle" "Thing {1} depends on itself through a cycle of dependsOn links."
+      .message "topology.unusedLibrary" "Library {1} is not depended on by any other Thing."
+
+      under(N,A) :- parent(N,A).
+      under(N,A) :- parent(N,M), under(M,A).
+      owner(T,T) :- node(T,"thing",_).
+      owner(N,T) :- under(N,T), node(T,"thing",_).
+      workerThing(T) :- link(T,"pinned","template.thing.cloudflare-worker-service@1",_).
+      libraryThing(T) :- link(T,"pinned","template.thing.ts-library@1",_).
+
+      inWorker(E) :- node(E,"endpoint",_), owner(E,T), workerThing(T).
+      violation("topology.endpointOutsideWorker",E,"hard") :- node(E,"endpoint",_), not inWorker(E).
+
+      % Module-level dependencies count against their Things; links inside one Thing do not.
+      thingDep(A,B) :- link(X,"dependsOn",Y,_), owner(X,A), owner(Y,B), A != B.
+      thingPath(A,B) :- thingDep(A,B).
+      thingPath(A,C) :- thingPath(A,B), thingDep(B,C).
+      violation("topology.thingCycle",A,"hard") :- thingPath(A,A).
+
+      depended(T) :- thingDep(_,T).
+      warning("topology.unusedLibrary",T) :- libraryThing(T), not depended(T).

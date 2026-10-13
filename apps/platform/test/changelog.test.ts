@@ -10,8 +10,9 @@ import { clearGenomeMemo } from "../worker/artifacts/genome-source";
 import type { SystemAuthority } from "../worker/do/system-authority";
 import { resetHooks, setHooks } from "../worker/hooks/index";
 import { FILE_COMPARE_MAX_BYTES, compareFile } from "../worker/compare";
-import { appFiles, genomeFiles } from "./fixtures/genome";
-import { call as apiCall, genomeAmendment, importFresh, passing, promoteApp, renameContactAndScreen, type Flow } from "./helpers/flows";
+import { appFiles, genomeFiles, genomeFor } from "./fixtures/genome";
+import { LegacyGenomeError } from "@artyfact/model";
+import { ADMIN, call as apiCall, genomeAmendment, importFresh, passing, promoteApp, renameContactAndScreen, type Flow } from "./helpers/flows";
 
 beforeEach(() => setHooks({ runner: () => passing }));
 afterEach(() => { setArtifactsOverride(undefined); resetHooks(); });
@@ -56,8 +57,8 @@ describe("GET …/changelog", () => {
     });
     expect(acc).toMatchObject({
       policy: "admin-accept", genomeCommit: g.commit, candidates: [{ id: g.candidate, repo: g.forkRepo }],
-      // The Genome amendment's one changed file counts.
-      summary: { nodesAdded: 0, nodesChanged: 2, nodesRemoved: 0, filesChanged: 1 },
+      // The Genome amendment's two changed node files count.
+      summary: { nodesAdded: 0, nodesChanged: 2, nodesRemoved: 0, filesChanged: 2 },
     });
     expect(acc!.summary.criteriaAffected).toBeGreaterThanOrEqual(2);
     // The app's files and the Genome repo's (its fixture files plus the flow's extra Evolutions).
@@ -106,12 +107,12 @@ describe("GET …/changelog/:commitId", () => {
     const e = await get<ChangelogEntry>(routes.changelogEntry(f.systemId, g.systemCommit!.id));
     expect(e.json.row.kind).toBe("acceptance");
     expect(e.json.genome.delta!.changed.map((c) => [c.id, c.fields])).toEqual([["entity.ContactRecord", ["name"]], ["screen.people", ["name"]]]);
-    // The app is unchanged; the Genome file that declares the changed nodes links to the accepted fork.
-    expect(e.json.genome.files).toEqual({ added: [], modified: ["things/webapp/ontology.yaml"], removed: [] });
-    expect(e.json.codeLinks).toEqual([{
-      scope: "genome", path: "things/webapp/ontology.yaml", repo: g.forkRepo, commit: g.commit, status: "modified",
-      nodes: ["entity.ContactRecord", "screen.people"],
-    }]);
+    // The app is unchanged; the Genome files that declare the changed nodes link to the accepted fork.
+    expect(e.json.genome.files).toEqual({ added: [], modified: ["thing.webapp/section.domain/entity.ContactRecord/node.yaml", "thing.webapp/section.ui/screen.people/node.yaml"], removed: [] });
+    expect(e.json.codeLinks).toEqual([
+      { scope: "genome", path: "thing.webapp/section.domain/entity.ContactRecord/node.yaml", repo: g.forkRepo, commit: g.commit, status: "modified", nodes: ["entity.ContactRecord"] },
+      { scope: "genome", path: "thing.webapp/section.ui/screen.people/node.yaml", repo: g.forkRepo, commit: g.commit, status: "modified", nodes: ["screen.people"] },
+    ]);
     expect(e.json.criteria.map((c) => c.id)).toEqual(expect.arrayContaining(["C.people.list", "C.people.sorted"]));
     // Evidence from the earlier app promotion still counts before and after.
     expect(e.json.criteria.find((c) => c.id === "C.people.list")).toMatchObject({ before: "pass", after: "pass" });
@@ -190,9 +191,9 @@ describe("changelog cache soundness", () => {
       state.storage.sql.exec("UPDATE changelog_cache SET row_json = ?, entry_json = ?, version = NULL WHERE commit_id = ?", JSON.stringify(row), JSON.stringify(entry), g.systemCommit!.id);
     });
     const rows = (await get<ChangelogResponse>(routes.changelog(f.systemId))).json.rows;
-    expect(rows[0]!.summary.filesChanged).toBe(1);
+    expect(rows[0]!.summary.filesChanged).toBe(2);
     const e = await get<ChangelogEntry>(routes.changelogEntry(f.systemId, g.systemCommit!.id));
-    expect(e.json.codeLinks.map((l) => [l.scope, l.path])).toEqual([["genome", "things/webapp/ontology.yaml"]]);
+    expect(e.json.codeLinks.map((l) => [l.scope, l.path])).toEqual([["genome", "thing.webapp/section.domain/entity.ContactRecord/node.yaml"], ["genome", "thing.webapp/section.ui/screen.people/node.yaml"]]);
   });
 
   it("folds criteria on every read, so evaluations recorded after the commit show", async () => {
@@ -238,6 +239,85 @@ describe("changelog cache soundness", () => {
   });
 });
 
+const LEGACY_MESSAGE = "this revision predates the node-tree Genome format; convert it with `artyfact convert-genome` and push it with `artyfact init --genome-only --adopt --force` (docs/deploy.md)";
+
+describe("a Genome in the retired v1 layout", () => {
+  /** import (sc-1) → a Genome acceptance whose tree is in the v1 layout (sc-2), accepted in the DO without loading it. */
+  async function legacyHead() {
+    const f = await importFresh();
+    const g = await genomeAmendment(f, (files) => {
+      files.clear();
+      files.set("system.yaml", `id: ${f.systemId}\nname: Old\n`).set("kits.yaml", "kits: []\n");
+    }, { accept: false });
+    await runInDurableObject(env.SYSTEMS.getByName(f.systemId), async (i: SystemAuthority) => {
+      const at = new Date().toISOString();
+      i.recordEvaluations(g.candidate, [{
+        id: "", candidate: g.candidate, criterion: "C.legacy", hook: "hook.legacy", verdict: "pass", execution: "completed", observations: [], verifier: "test",
+        ownerId: "system", subjectId: f.systemId, targetRef: g.candidate, startedAt: at, finishedAt: at, limitations: [], provenance: {},
+      }], "awaiting-admin");
+      const gates = [{ id: "C.legacy", severity: "hard" as const, blocking: true }];
+      const out = await i.accept({ realizationId: g.rid, candidateId: g.candidate, commit: g.commit, rationale: "legacy", by: "admin", evolutions: [], gates, artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+      expect(out, JSON.stringify(out)).toMatchObject({ ok: true });
+    });
+    return { f, g };
+  }
+
+  it("answers 422 legacy-genome on the model and readiness routes", async () => {
+    const { f } = await legacyHead();
+    for (const path of [routes.model(f.systemId), routes.readiness(f.systemId)]) {
+      const r = await get<ApiError>(path);
+      expect(r.status, JSON.stringify(r.json)).toBe(422);
+      expect(r.json.error).toMatchObject({ code: "legacy-genome", message: LEGACY_MESSAGE });
+    }
+  });
+
+  it("names the converter in its error, and a forced re-import of a converted tree on the same repo restores the head", async () => {
+    expect(new LegacyGenomeError().message).toBe(LEGACY_MESSAGE);
+    const { f } = await legacyHead();
+    // What `artyfact init --genome-only --adopt --force` does with the converted tree: a new commit on the Genome repo, then a forced import.
+    const v2 = f.ns.repo(f.genomeRepo).commit(genomeFor(f.systemId), "Convert the Genome to the node tree");
+    const plain = await apiCall<ApiError>("POST", "/systems/import", { systemId: f.systemId, genomeRepo: f.genomeRepo, appRepo: f.appRepo }, ADMIN);
+    expect(plain.status).toBe(409);
+    expect(plain.json.error.code).toBe("already-imported");
+    const forced = await apiCall<{ genomeCommit: string }>("POST", "/systems/import", { systemId: f.systemId, genomeRepo: f.genomeRepo, appRepo: f.appRepo, force: true }, ADMIN);
+    expect(forced.status, JSON.stringify(forced.json)).toBe(201);
+    expect(forced.json.genomeCommit).toBe(v2);
+    for (const path of [routes.model(f.systemId), routes.readiness(f.systemId)]) expect((await get<unknown>(path)).status).toBe(200);
+  });
+
+  it("ignores model, readiness and changelog rows cached before the v2 projection", async () => {
+    const { f, g } = await legacyHead();
+    await get<ChangelogResponse>(routes.changelog(f.systemId));
+    await runInDurableObject(env.SYSTEMS.getByName(f.systemId), async (_i: SystemAuthority, state) => {
+      // What the previous release cached: v1-built parts under their bare names, and changelog rows without legacyFormat.
+      const at = new Date().toISOString();
+      for (const part of ["model", "rules"]) {
+        state.storage.sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES (?, ?, ?, ?)", g.commit, part, JSON.stringify({ findings: [] }), at);
+      }
+      state.storage.sql.exec("UPDATE changelog_cache SET version = 2, row_json = json_remove(row_json, '$.legacyFormat')");
+    });
+    for (const path of [routes.model(f.systemId), routes.readiness(f.systemId)]) {
+      const r = await get<ApiError>(path);
+      expect(r.status, JSON.stringify(r.json)).toBe(422);
+      expect(r.json.error.code).toBe("legacy-genome");
+    }
+    expect((await get<ChangelogResponse>(routes.changelog(f.systemId))).json.rows[0]).toMatchObject({ genomeCommit: g.commit, legacyFormat: true });
+  });
+
+  it("marks the changelog row and both compares legacyFormat, with no delta", async () => {
+    const { f, g } = await legacyHead();
+    const rows = (await get<ChangelogResponse>(routes.changelog(f.systemId))).json.rows;
+    expect(rows[0]).toMatchObject({ genomeCommit: g.commit, legacyFormat: true, summary: { nodesAdded: 0, nodesChanged: 0, nodesRemoved: 0 } });
+    expect(rows[0]!.loadError).toBeUndefined();
+    expect(rows.at(-1)!.legacyFormat).toBeUndefined();
+    const sys = await get<SystemCompare>(routes.compareSystem(f.systemId, "sc-1", "head"));
+    expect(sys.json.genome).toMatchObject({ delta: null, legacyFormat: ["to"] });
+    expect(sys.json.genome.loadError).toBeUndefined();
+    const gen = await get<GenomeCompare>(routes.compareGenome(f.systemId, "head", "sc-1"));
+    expect(gen.json).toMatchObject({ delta: null, legacyFormat: ["from"] });
+  });
+});
+
 describe("file compare truncation", () => {
   it("cuts on a UTF-8 boundary, never leaving a replacement character", async () => {
     const f = await importFresh();
@@ -264,7 +344,7 @@ describe("compare and revisions routes", () => {
     expect(whole.json.app!.files.added).toEqual(["src/ui/people/list.ts"]);
 
     const gen = await get<GenomeCompare>(routes.compareGenome(f.systemId, "sc-2", "head"));
-    expect(gen.json).toMatchObject({ from: { commit: f.imp.genomeCommit }, to: { commit: g.commit, repo: g.forkRepo }, files: { modified: ["things/webapp/ontology.yaml"] } });
+    expect(gen.json).toMatchObject({ from: { commit: f.imp.genomeCommit }, to: { commit: g.commit, repo: g.forkRepo }, files: { modified: ["thing.webapp/section.domain/entity.ContactRecord/node.yaml", "thing.webapp/section.ui/screen.people/node.yaml"] } });
 
     const file = await get<FileCompare>(routes.compareFile(f.systemId, "app", "sc-1", p.candidate, "src/ui/people/list.ts"));
     expect(file.json).toMatchObject({ path: "src/ui/people/list.ts", from: { hash: null }, to: { text: "list", candidate: p.candidate }, truncated: false, binary: false });

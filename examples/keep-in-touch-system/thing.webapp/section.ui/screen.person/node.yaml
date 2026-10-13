@@ -1,0 +1,17 @@
+id: screen.person
+kind: screen
+fields:
+  name: Person
+  description: Exactly PersonSummary, GoalPanel, ContactHistory, PrivateNotes, ConnectionPanel and ActionBar. History has one row per event. Actions are Edit goal, Log contact and Open channel; connection status determines Invite, Disconnect or Block availability
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+  route: /people/:id
+  states:
+    - loaded
+    - loading
+    - error
+  roles:
+    - owner
+links:
+  - { rel: serves, to: ext.owner }

@@ -1,0 +1,10 @@
+id: affordance.PersonActionBar.editGoal
+kind: affordance
+fields:
+  name: Edit goal
+  actor: ext.owner
+  trigger: Owner activates Edit goal
+  preconditions:
+    - Owned contact
+  effects:
+    - Navigates to /people/:id/goal

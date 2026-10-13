@@ -1,0 +1,7 @@
+id: export.ontology.load-template
+kind: export
+fields:
+  name: loadTemplate
+  signature: "export function loadTemplate(raw: unknown, store?: TemplateStore): Template"
+  stability: stable
+  description: Parses a meta@1 template and merges its extends chain.

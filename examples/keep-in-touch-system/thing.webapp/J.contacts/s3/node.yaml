@@ -1,0 +1,13 @@
+id: J.contacts/s3
+kind: step
+fields:
+  step: s3
+  actor: user
+  action: Enter name and optional channel fields
+  state: dialog open
+  requirementRefs:
+    - S.webapp.screens
+  next:
+    - to: s4
+links:
+  - { rel: stepScreen, to: screen.people }

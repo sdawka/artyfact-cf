@@ -1,0 +1,8 @@
+id: module.semantic.questions
+kind: module
+fields:
+  name: Questions
+  description: Builds the state and questions for each judgment.
+  path: src/questions.ts
+files:
+  - src/questions.ts

@@ -14,4 +14,8 @@
 | Public definitions and usable guidance | `/model` now explains System/Thing choice, form/content, optional Parts, Rule Packs and three parallel views; 49 site units, 11 static and 42 browser checks pass, with a 320px no-JS check | Independent final review and public release pending; capability gaps are recorded in [[roadmap]] |
 | Regression and release | Full `npm run ci -- --ultra-compact` passed in 123.8s: 1349 root units, 3 skips, 46 platform browser checks; all typechecks/builds pass | Hosted CI, exact merged site deployment and live verification pending; remote GRREAT sync deferred |
 
-Earlier foundation evidence is recorded in [[journals/2026-10-12-foundation]]; this page revision is recorded in [[journals/2026-10-13-model-page]]. Local validity and tests do not establish hosted behavior.
+Evidence and resolved review findings are recorded in [[journals/2026-10-12-foundation]]. The live browser scenario was updated for the accepted navigation behavior but was not executed. Local validity and tests do not establish hosted behavior.
+
+Iteration 3 limits, 2026-10-13 (see [[journals/2026-10-13-iteration-3]]): one webapp Thing per System because its ids are fixed and prefilled; Map bands run left to right only; a lapsed-lease takeover can double-push, which is accepted. Production behavior of the v2 migration is unverified until the deploy step.
+
+Public `/model` page revision from main: [[journals/2026-10-13-model-page]]. Its capability gaps are recorded in [[roadmap]].

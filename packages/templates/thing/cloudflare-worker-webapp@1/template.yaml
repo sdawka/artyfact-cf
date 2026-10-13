@@ -1,98 +1,405 @@
+# meta@1 template (docs/design/ontology.md section 3). Source globs: `files` is what the Thing itself realises, the prefilled
+# nodes carry the rest, all relative to the Thing's root. `system/**` (the Genome mirror) maps to no node: app candidates may
+# not change it (a protected path). template.v1.yaml and criteria.yaml are legacy, kept until W4.
 id: template.thing.cloudflare-worker-webapp
-kind: thing
-version: "1"
-name: Cloudflare Worker web app
-description: A full-stack web app served by one Cloudflare Worker with static assets, D1 storage and cron scheduling.
-sections:
-  - section.ui
-  - section.domain
-  - section.authorization
-  - section.runtime
+version: 1
+meta: 1
+extends: template.meta.artyfact-genome@1
+criteria:
+  - id: C.webapp.exists
+    owner: thing
+    subject: thing
+    severity: hard
+    description: The app has the files a deployable Worker needs.
+    gates:
+      - candidate
+      - promotion
+    hooks:
+      - hook.webapp.exists
+  - id: C.webapp.health
+    owner: thing
+    subject: thing
+    severity: hard
+    description: The running app answers its health endpoint.
+    gates:
+      - deployment
+      - outcome
+    hooks:
+      - hook.webapp.health
+  - id: C.$self.checks
+    owner: thing
+    subject: thing
+    severity: soft
+    description: Changed nodes meet the checks their kinds declare.
+    gates:
+      - submission
+    hooks:
+      - hook.$self.checks
+rules:
+  - id: artyfact.authorization
+    version: 1
+    source: |
+      % artyfact.authorization@1 - every state-changing operation is governed by a policy, directly or by inheritance.
+
+      .decl link(From: sym, Rel: sym, To: sym, Certainty: sym)
+      .decl anode(Id: sym, Kind: sym, Thing: sym)
+      .decl aparent(Child: sym, Parent: sym)
+      .decl apolicyMode(Policy: sym, Mode: sym)
+      .decl ancestor(X: sym, A: sym)
+      .decl governedDirect(X: sym, Policy: sym)
+      .decl governedBy(X: sym, Policy: sym)
+      .decl mutating(Op: sym)
+      .decl privateEntity(E: sym)
+      .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+
+      .message "authz.ungoverned" "Operation {1} writes data but no authorization policy governs it (directly, via its affordances, or inherited)."
+      .message "authz.policyConflict" "{1} is directly governed by policies with different modes."
+      .message "authz.privateReadUngoverned" "Operation {1} reads an owner-only entity but no authorization policy governs it."
+
+      ancestor(X,A) :- aparent(X,A).
+      ancestor(X,A) :- aparent(X,Y), ancestor(Y,A).
+      governedDirect(X,P) :- link(P,"governs",X,_), anode(P,"policy",_).
+      governedBy(X,P) :- governedDirect(X,P).
+      governedBy(X,P) :- ancestor(X,A), governedDirect(A,P).
+      governedBy(Op,P) :- link(Aff,"invokes",Op,_), governedBy(Aff,P).
+      governedBy(X,P) :- link(X,"inherits",Y,_), governedBy(Y,P).
+      mutating(Op) :- anode(Op,"operation",_), link(Op,"writes",_,_).
+      privateEntity(E) :- governedBy(E,P), apolicyMode(P,"owner-only").
+
+      violation("authz.ungoverned",Op,"hard") :- mutating(Op), not governedBy(Op,_).
+      violation("authz.policyConflict",X,"hard") :- governedDirect(X,P1), governedDirect(X,P2), apolicyMode(P1,M1), apolicyMode(P2,M2), M1 != M2.
+      violation("authz.privateReadUngoverned",Op,"hard") :- link(Op,"reads",E,_), anode(Op,"operation",_), privateEntity(E), not governedBy(Op,_).
+  - id: artyfact.journeys
+    version: 1
+    source: |
+      % artyfact.journeys@1 - screen and affordance completeness (R7), journey well-formedness and coverage (R8).
+
+      .decl provisional(Id: sym)
+      .decl anode(Id: sym, Kind: sym, Thing: sym)
+      .decl aparent(Child: sym, Parent: sym)
+      .decl aknown(Id: sym)
+      .decl ahasActor(Id: sym)
+      .decl ahasEffects(Id: sym)
+      .decl ajourney(Id: sym, Start: sym)
+      .decl ajourneyDeferred(Id: sym)
+      .decl astep(Journey: sym, Step: sym)
+      .decl astepEnd(Journey: sym, Step: sym)
+      .decl astepUnresolved(Journey: sym, Step: sym)
+      .decl astepNextDangling(Journey: sym)
+      .decl astepScreen(Screen: sym)
+      .decl astepOperation(Operation: sym)
+      .decl astepRef(Journey: sym, Step: sym, Id: sym)
+      .decl hasChild(Node: sym)
+      .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+      .decl missing(Rule: sym, Subject: sym) .output
+      .decl warning(Rule: sym, Subject: sym) .output
+
+      .message "journey.startMissing" "Journey {1} starts at a step that does not exist."
+      .message "journey.nextDangling" "Journey {1} has a step whose next step does not exist."
+      .message "journey.stepRefMissing" "Journey {1} has a step referring to an id that does not exist."
+      .message "journey.noEnd" "Journey {1} has no end step."
+      .message "journey.screenUncovered" "Screen {1} appears in no journey."
+      .message "journey.operationUncovered" "Operation {1} is invoked by no journey step."
+      .message "screen.noComponents" "Screen {1} enumerates no components."
+      .message "affordance.incomplete" "Affordance {1} lacks an actor or effects."
+
+      hasChild(P) :- aparent(_,P).
+
+      violation("journey.startMissing",J,"hard") :- ajourney(J,S), not astep(J,S).
+      violation("journey.nextDangling",J,"hard") :- astepNextDangling(J).
+      violation("journey.stepRefMissing",J,"hard") :- astepRef(J,S,Id), not astepUnresolved(J,S), not aknown(Id).
+      missing("journey.noEnd",J) :- ajourney(J,_), not ajourneyDeferred(J), not astepEnd(J,_).
+      warning("journey.screenUncovered",S) :- anode(S,"screen",_), not provisional(S), not astepScreen(S).
+      warning("journey.operationUncovered",O) :- anode(O,"operation",_), not provisional(O), not astepOperation(O).
+      missing("screen.noComponents",S) :- anode(S,"screen",_), not provisional(S), not hasChild(S).
+      missing("affordance.incomplete",A) :- anode(A,"affordance",_), not provisional(A), not ahasActor(A).
+      missing("affordance.incomplete",A) :- anode(A,"affordance",_), not provisional(A), not ahasEffects(A).
+files:
+  - src/worker/health.ts
+  - "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.test.jsonc,.gitignore,.dev.vars.example,README.md}"
+  - src/index.ts
+  - src/worker/env.ts
+  - src/worker/phenome.ts
+  - test/**
+  - public/*
+  - .artyfact/**
 nodes:
+  - id: template.thing.cloudflare-worker-webapp@1
+    kind: template
+    fields:
+      kind: thing
+      version: "1"
+      name: Cloudflare Worker web app
+      description: A full-stack web app served by one Cloudflare Worker with static assets, D1 storage and cron scheduling.
+      sections:
+        - section.ui
+        - section.domain
+        - section.authorization
+        - section.runtime
+      criteria:
+        - C.webapp.exists
+        - C.webapp.health
+        - C.$self.checks
+      hooks:
+        - hook.webapp.exists
+        - hook.webapp.health
+        - hook.$self.checks
+      scaffold:
+        repo: platform
+        path: templates/thing/cloudflare-worker-webapp@1/scaffold
   - id: section.ui
     kind: section
-    name: UI
-    parent: "$thing"
-    owningThing: "$thing"
-    description: Screens, shared components and affordances.
+    parent: $self
+    fields:
+      name: UI
+      owningThing: $self
+      revision: 1
+      description: Screens, shared components and affordances.
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
+    files:
+      - src/ui/**
   - id: section.domain
     kind: section
-    name: Domain
-    parent: "$thing"
-    owningThing: "$thing"
-    description: Entities, operations and invariants.
+    parent: $self
+    fields:
+      name: Domain
+      owningThing: $self
+      revision: 1
+      description: Entities, operations and invariants.
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
+    files:
+      - src/worker/routes/**
   - id: section.authorization
     kind: section
-    name: Authorization
-    parent: "$thing"
-    owningThing: "$thing"
-    description: Policies governing who may read or change what.
+    parent: $self
+    fields:
+      name: Authorization
+      owningThing: $self
+      revision: 1
+      description: Policies governing who may read or change what.
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
   - id: section.runtime
     kind: section
-    name: Runtime
-    parent: "$thing"
-    owningThing: "$thing"
-    description: Bindings and deployment surface.
-
+    parent: $self
+    fields:
+      name: Runtime
+      owningThing: $self
+      revision: 1
+      description: Bindings and deployment surface.
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
   - id: binding.worker
     kind: binding
-    name: Worker with static assets
     parent: section.runtime
-    owningThing: "$thing"
-    description: Cloudflare Worker serving the API and the built UI through Workers Static Assets.
+    fields:
+      name: Worker with static assets
+      owningThing: $self
+      revision: 1
+      description: Cloudflare Worker serving the API and the built UI through Workers Static Assets.
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
   - id: binding.d1
     kind: binding
-    name: D1 database
     parent: section.runtime
-    owningThing: "$thing"
-    description: Placeholder relational store. Instances rename or replace it via override (for example binding.contactsStore).
+    fields:
+      name: D1 database
+      owningThing: $self
+      revision: 1
+      description: Placeholder relational store. Instances rename or replace it via override (for example binding.contactsStore).
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
     provisional: true
+    files:
+      - migrations/**
   - id: binding.scheduler
     kind: binding
-    name: Cron scheduler
     parent: section.runtime
-    owningThing: "$thing"
-    description: Cron Triggers for periodic work.
-
+    fields:
+      name: Cron scheduler
+      owningThing: $self
+      revision: 1
+      description: Cron Triggers for periodic work.
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
   - id: component.AppShell
     kind: component
-    name: AppShell
     parent: section.ui
-    owningThing: "$thing"
-    description: Frame holding the top bar, primary navigation and route outlet.
+    fields:
+      name: AppShell
+      owningThing: $self
+      revision: 1
+      description: Frame holding the top bar, primary navigation and route outlet.
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
   - id: component.TopBar
     kind: component
-    name: TopBar
     parent: component.AppShell
-    owningThing: "$thing"
+    fields:
+      name: TopBar
+      owningThing: $self
+      revision: 1
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
   - id: component.PrimaryNav
     kind: component
-    name: PrimaryNav
     parent: component.AppShell
-    owningThing: "$thing"
+    fields:
+      name: PrimaryNav
+      owningThing: $self
+      revision: 1
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
   - id: component.RouteOutlet
     kind: component
-    name: RouteOutlet
     parent: component.AppShell
-    owningThing: "$thing"
+    fields:
+      name: RouteOutlet
+      owningThing: $self
+      revision: 1
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
   - id: component.StatePanel
     kind: component
-    name: StatePanel
     parent: section.ui
-    owningThing: "$thing"
-    description: Shared loading, empty and unavailable states.
-    states: [loading, empty, unavailable]
+    fields:
+      name: StatePanel
+      owningThing: $self
+      revision: 1
+      description: Shared loading, empty and unavailable states.
+      states:
+        - loading
+        - empty
+        - unavailable
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
   - id: component.ErrorSummary
     kind: component
-    name: ErrorSummary
     parent: section.ui
-    owningThing: "$thing"
-    description: Shared summary of form and request errors.
-
+    fields:
+      name: ErrorSummary
+      owningThing: $self
+      revision: 1
+      description: Shared summary of form and request errors.
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
   - id: policy.authentication
     kind: policy
-    name: Authentication
     parent: section.authorization
-    owningThing: "$thing"
-    description: Who counts as a signed-in user. Provisional until an auth kit is pinned.
+    fields:
+      name: Authentication
+      owningThing: $self
+      revision: 1
+      description: Who counts as a signed-in user. Provisional until an auth kit is pinned.
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
     provisional: true
+  - id: C.webapp.exists
+    kind: criterion
+    fields:
+      version: 1
+      title: Web app exists
+      claim: The app has the files a deployable Worker needs.
+      ownerKind: thing
+      subjectKind: thing
+      targetKind: artifact
+      severity: hard
+      gates:
+        - candidate
+        - promotion
+      deferred: false
+      hooks:
+        - hook.webapp.exists
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
+    links:
+      - rel: owner
+        to: $self
+      - rel: subject
+        to: $self
+  - id: C.webapp.health
+    kind: criterion
+    fields:
+      version: 1
+      title: Web app is healthy
+      claim: The running app answers its health endpoint.
+      ownerKind: thing
+      subjectKind: thing
+      targetKind: runtime
+      severity: hard
+      gates:
+        - deployment
+        - outcome
+      deferred: false
+      hooks:
+        - hook.webapp.health
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
+    links:
+      - rel: owner
+        to: $self
+      - rel: subject
+        to: $self
+  - id: C.$self.checks
+    kind: criterion
+    fields:
+      version: 1
+      title: Changed nodes meet their checks
+      claim: Changed nodes meet the checks their kinds declare.
+      ownerKind: thing
+      subjectKind: thing
+      targetKind: model
+      severity: soft
+      gates:
+        - submission
+      deferred: false
+      hooks:
+        - hook.$self.checks
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
+    links:
+      - rel: owner
+        to: $self
+      - rel: subject
+        to: $self
+  - id: hook.webapp.exists
+    kind: hook
+    fields:
+      version: 1
+      assay: webapp.requiredFiles
+      criteria:
+        - C.webapp.exists
+      tier: basic
+      engine: manifest
+      targetKind: artifact
+      triggers:
+        - candidate
+        - promotion
+      inputs:
+        requiredFiles: wrangler.jsonc,src/index.ts,package.json
+      timeoutMs: 60000
+      costTier: free
+      binding: bound
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
+  - id: hook.webapp.health
+    kind: hook
+    fields:
+      version: 1
+      assay: webapp.health
+      criteria:
+        - C.webapp.health
+      tier: execution
+      engine: http
+      targetKind: runtime
+      triggers:
+        - deployment
+        - outcome
+      inputs:
+        path: /health
+      timeoutMs: 2000
+      costTier: free
+      binding: defined
+      fromTemplate: template.thing.cloudflare-worker-webapp@1
+  - id: hook.$self.checks
+    kind: hook
+    fields:
+      version: 1
+      assay: webapp.checks
+      criteria:
+        - C.$self.checks
+      tier: semantic
+      engine: model-rules
+      targetKind: model
+      triggers:
+        - submission
+      inputs:
+        packs: checks@1
+      timeoutMs: 60000
+      costTier: free
+      binding: bound
+      fromTemplate: template.thing.cloudflare-worker-webapp@1

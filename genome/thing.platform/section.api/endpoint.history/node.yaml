@@ -1,0 +1,7 @@
+id: endpoint.history
+kind: endpoint
+fields:
+  name: History
+  description: Lists the System commits in order.
+  route: GET /api/systems/:id/history
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

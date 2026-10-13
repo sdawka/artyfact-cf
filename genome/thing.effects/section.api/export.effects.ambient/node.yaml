@@ -1,0 +1,7 @@
+id: export.effects.ambient
+kind: export
+fields:
+  name: AmbientField
+  signature: "export function AmbientField(props: AmbientFieldProps)"
+  stability: stable
+  description: Renders the WebGL page background, or the CSS fallback without a usable GPU or with reduced motion.

@@ -1,0 +1,20 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#thing-template-duplicate",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "2b549b1d6a203e720bfebe684cf908e0c1b4c6f94f14b7b4151b055cf5a606b5",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.thing-template-definitions-unique",
+      "severity": "blocker",
+      "message": "Thing Template ID/version pairs must be unique",
+      "objectIds": [],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "revision:assistant-valid"
+      }
+    }
+  ]
+}

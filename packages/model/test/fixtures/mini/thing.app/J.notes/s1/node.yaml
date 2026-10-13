@@ -1,0 +1,12 @@
+id: J.notes/s1
+kind: step
+fields:
+  step: s1
+  actor: user
+  action: Open notes
+  kind: action
+  unresolved: false
+  next:
+    - to: s2
+links:
+  - { rel: stepScreen, to: screen.list }

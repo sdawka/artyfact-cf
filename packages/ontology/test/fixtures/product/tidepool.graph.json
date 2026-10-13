@@ -1,0 +1,1552 @@
+{
+  "nodes": [
+    {
+      "id": "name-tidepool",
+      "kind": "name",
+      "title": "Tidepool",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "purpose-turn-volunteer-shore-walks-into-survey",
+      "kind": "purpose",
+      "title": "Turn volunteer shore walks into survey data marine biologists can publish on",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "summary-an-offline-first-field-app-for-timed",
+      "kind": "summary",
+      "title": "An offline-first field app for timed intertidal transects, with photo ID help and expert verification",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      },
+      "description": "Tidepool guides volunteers through a timed transect at low tide, captures species counts and photos without signal, and routes every record to a biologist before it joins the open dataset."
+    },
+    {
+      "id": "audience-weekend-shore-volunteer",
+      "kind": "audience",
+      "title": "Weekend shore volunteer",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "audience-marine-biologist-running-a-monitoring",
+      "kind": "audience",
+      "title": "Marine biologist running a monitoring site",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "context-rocky-intertidal-sites-with-no-mobile",
+      "kind": "context",
+      "title": "Rocky intertidal sites with no mobile signal and a two-hour low-tide window",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "usecase-log-a-transect-survey-during-one-low",
+      "kind": "usecase",
+      "title": "Log a transect survey during one low tide",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "usecase-verify-a-week-of-volunteer-records-in",
+      "kind": "usecase",
+      "title": "Verify a week of volunteer records in one sitting",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "problem-field-data-is-lost-when-phones-have-no",
+      "kind": "problem",
+      "title": "Field data is lost when phones have no signal",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "problem-species-are-misidentified-so-records",
+      "kind": "problem",
+      "title": "Species are misidentified so records cannot be trusted",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "outcome-volunteer-records-are-accepted-into-the",
+      "kind": "outcome",
+      "title": "Volunteer records are accepted into the dataset",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "outcome-volunteers-come-back-for-the-next-good",
+      "kind": "outcome",
+      "title": "Volunteers come back for the next good tide",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "goal-two-thirds-of-records-verified-within-7",
+      "kind": "goal",
+      "title": "Two-thirds of records verified within 7 days",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "hypothesis-offline-first-capture-halves-abandoned",
+      "kind": "hypothesis",
+      "title": "Offline-first capture halves abandoned surveys",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "hypothesis-photo-id-suggestions-lift-verification",
+      "kind": "hypothesis",
+      "title": "Photo ID suggestions lift verification acceptance above 80%",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "hypothesis-low-tide-reminders-double-repeat-visits",
+      "kind": "hypothesis",
+      "title": "Low-tide reminders double repeat visits",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "assumption-volunteers-will-photograph-every-quadrat",
+      "kind": "assumption",
+      "title": "Volunteers will photograph every quadrat",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "assumption-public-tide-tables-are-accurate-to-15",
+      "kind": "assumption",
+      "title": "Public tide tables are accurate to 15 minutes per site",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "metric-record-acceptance-rate",
+      "kind": "metric",
+      "title": "Record acceptance rate",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "metric-volunteers-returning-within-30-days",
+      "kind": "metric",
+      "title": "Volunteers returning within 30 days",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "capability-field-capture",
+      "kind": "capability",
+      "title": "Field capture",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "capability-expert-verification",
+      "kind": "capability",
+      "title": "Expert verification",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "capability-volunteer-engagement",
+      "kind": "capability",
+      "title": "Volunteer engagement",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "feature-offline-transect-logger",
+      "kind": "feature",
+      "title": "Offline transect logger",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "feature-photo-id-suggestions",
+      "kind": "feature",
+      "title": "Photo ID suggestions",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "feature-low-tide-reminders",
+      "kind": "feature",
+      "title": "Low-tide reminders",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "flow-walk-a-transect-and-log-each-quadrat",
+      "kind": "flow",
+      "title": "Walk a transect and log each quadrat",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "flow-sync-records-once-back-in-signal",
+      "kind": "flow",
+      "title": "Sync records once back in signal",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "flow-review-and-verify-a-record",
+      "kind": "flow",
+      "title": "Review and verify a record",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "flow-get-a-reminder-before-the-next-good-tide",
+      "kind": "flow",
+      "title": "Get a reminder before the next good tide",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "screen-transect-logger",
+      "kind": "screen",
+      "title": "Transect logger",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "screen-species-picker",
+      "kind": "screen",
+      "title": "Species picker",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "screen-verification-queue",
+      "kind": "screen",
+      "title": "Verification queue",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "screen-site-map",
+      "kind": "screen",
+      "title": "Site map",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "agent-id-suggestion-agent",
+      "kind": "agent",
+      "title": "ID suggestion agent",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "agent-tide-watch-agent",
+      "kind": "agent",
+      "title": "Tide watch agent",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "term-percent-cover",
+      "kind": "term",
+      "title": "Percent cover",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      },
+      "description": "Share of a quadrat's area occupied by one species, estimated in 5% steps."
+    },
+    {
+      "id": "term-verified-record",
+      "kind": "term",
+      "title": "Verified record",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      },
+      "description": "An observation a biologist has accepted with a final species ID."
+    },
+    {
+      "id": "system-tidepool-platform",
+      "kind": "system",
+      "title": "Tidepool platform",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "external-inaturalist-taxonomy-api",
+      "kind": "external",
+      "title": "iNaturalist taxonomy API",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "module-field-capture-app",
+      "kind": "module",
+      "title": "Field capture app",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "module-sync-service",
+      "kind": "module",
+      "title": "Sync service",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "module-verification-service",
+      "kind": "module",
+      "title": "Verification service",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "infra-edge-functions-and-photo-storage",
+      "kind": "infra",
+      "title": "Edge functions and photo storage",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "interface-records-sync-api",
+      "kind": "interface",
+      "title": "Records sync API",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "interface-taxonomy-lookup",
+      "kind": "interface",
+      "title": "Taxonomy lookup",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "interface-verification-api",
+      "kind": "interface",
+      "title": "Verification API",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "thing-observation",
+      "kind": "thing",
+      "title": "Observation",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "thing-quadrat",
+      "kind": "thing",
+      "title": "Quadrat",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "thing-survey-site",
+      "kind": "thing",
+      "title": "Survey site",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "thing-field-photo",
+      "kind": "thing",
+      "title": "Field photo",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "rule-every-observation-carries-a-gps-fix",
+      "kind": "rule",
+      "title": "Every observation carries a GPS fix within 20 m of its site",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "rule-surveys-start-no-earlier-than-90-minutes",
+      "kind": "rule",
+      "title": "Surveys start no earlier than 90 minutes before low tide",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "rule-a-record-has-exactly-one-final-verdict",
+      "kind": "rule",
+      "title": "A record has exactly one final verdict",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "event-survey-synced",
+      "kind": "event",
+      "title": "Survey synced",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "event-record-verified",
+      "kind": "event",
+      "title": "Record verified",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "protocol-conflict-free-merge-of-offline-edits",
+      "kind": "protocol",
+      "title": "Conflict-free merge of offline edits",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "ai-function-suggest-species-from-a-field-photo",
+      "kind": "ai-function",
+      "title": "Suggest species from a field photo",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "test-observation-logged-40-m-off-site-is",
+      "kind": "test",
+      "title": "Observation logged 40 m off-site is flagged",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "test-photo-uploaded-after-reconnect-keeps-its",
+      "kind": "test",
+      "title": "Photo uploaded after reconnect keeps its GPS fix",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "test-second-verdict-on-a-record-is-rejected",
+      "kind": "test",
+      "title": "Second verdict on a record is rejected",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "repository-tidepool-repo",
+      "kind": "repository",
+      "title": "tidepool repo",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "codebase-field-app-react-native",
+      "kind": "codebase",
+      "title": "field app (React Native)",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "practice-weekly-offline-drill-in-airplane-mode",
+      "kind": "practice",
+      "title": "Weekly offline drill in airplane mode",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "test-result-off-site-flag-pass-build-88",
+      "kind": "test-result",
+      "title": "Off-site flag: pass (build 88)",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "test-result-reconnect-keeps-gps-fail-build-89",
+      "kind": "test-result",
+      "title": "Reconnect keeps GPS: fail (build 89)",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "test-result-single-verdict-pass-build-88",
+      "kind": "test-result",
+      "title": "Single verdict: pass (build 88)",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "epic-offline-photo-sync",
+      "kind": "epic",
+      "title": "Offline photo sync",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "task-queue-photos-for-background-upload",
+      "kind": "task",
+      "title": "Queue photos for background upload",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "task-resume-interrupted-photo-uploads",
+      "kind": "task",
+      "title": "Resume interrupted photo uploads",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "metric-reading-acceptance-rate-64-in-august",
+      "kind": "metric-reading",
+      "title": "Acceptance rate: 64% in August",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "metric-reading-30-day-return-38-in-august",
+      "kind": "metric-reading",
+      "title": "30-day return: 38% in August",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "usage-event-survey-abandoned-mid-transect",
+      "kind": "usage-event",
+      "title": "Survey abandoned mid-transect",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "feedback-biologist-blurry-photos-slow-down",
+      "kind": "feedback",
+      "title": "Biologist: blurry photos slow down verification",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "evidence-spring-pilot-abandoned-surveys-fell-from",
+      "kind": "evidence",
+      "title": "Spring pilot: abandoned surveys fell from 31% to 12% offline",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "evidence-verifiers-accepted-86-of-photo-suggested",
+      "kind": "evidence",
+      "title": "Verifiers accepted 86% of photo-suggested IDs",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "evidence-reminder-cohort-returned-no-more-often",
+      "kind": "evidence",
+      "title": "Reminder cohort returned no more often than control",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "evidence-suggestions-were-wrong-on-40-of-juvenile",
+      "kind": "evidence",
+      "title": "Suggestions were wrong on 40% of juvenile crabs",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "src": "purpose-turn-volunteer-shore-walks-into-survey",
+      "dst": "outcome-volunteer-records-are-accepted-into-the",
+      "type": "motivates",
+      "status": "committed"
+    },
+    {
+      "id": "e2",
+      "src": "purpose-turn-volunteer-shore-walks-into-survey",
+      "dst": "outcome-volunteers-come-back-for-the-next-good",
+      "type": "motivates",
+      "status": "committed"
+    },
+    {
+      "id": "e3",
+      "src": "problem-species-are-misidentified-so-records",
+      "dst": "outcome-volunteer-records-are-accepted-into-the",
+      "type": "motivates",
+      "status": "committed"
+    },
+    {
+      "id": "e4",
+      "src": "hypothesis-offline-first-capture-halves-abandoned",
+      "dst": "outcome-volunteer-records-are-accepted-into-the",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e5",
+      "src": "hypothesis-offline-first-capture-halves-abandoned",
+      "dst": "metric-record-acceptance-rate",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e6",
+      "src": "hypothesis-photo-id-suggestions-lift-verification",
+      "dst": "outcome-volunteer-records-are-accepted-into-the",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e7",
+      "src": "hypothesis-photo-id-suggestions-lift-verification",
+      "dst": "metric-record-acceptance-rate",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e8",
+      "src": "hypothesis-low-tide-reminders-double-repeat-visits",
+      "dst": "outcome-volunteers-come-back-for-the-next-good",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e9",
+      "src": "hypothesis-low-tide-reminders-double-repeat-visits",
+      "dst": "metric-volunteers-returning-within-30-days",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e10",
+      "src": "metric-record-acceptance-rate",
+      "dst": "outcome-volunteer-records-are-accepted-into-the",
+      "type": "monitors",
+      "status": "committed"
+    },
+    {
+      "id": "e11",
+      "src": "metric-volunteers-returning-within-30-days",
+      "dst": "outcome-volunteers-come-back-for-the-next-good",
+      "type": "monitors",
+      "status": "committed"
+    },
+    {
+      "id": "e12",
+      "src": "assumption-volunteers-will-photograph-every-quadrat",
+      "dst": "hypothesis-photo-id-suggestions-lift-verification",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e13",
+      "src": "assumption-volunteers-will-photograph-every-quadrat",
+      "dst": "hypothesis-offline-first-capture-halves-abandoned",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e14",
+      "src": "assumption-public-tide-tables-are-accurate-to-15",
+      "dst": "hypothesis-low-tide-reminders-double-repeat-visits",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e15",
+      "src": "evidence-spring-pilot-abandoned-surveys-fell-from",
+      "dst": "hypothesis-offline-first-capture-halves-abandoned",
+      "type": "supports",
+      "status": "committed"
+    },
+    {
+      "id": "e16",
+      "src": "evidence-verifiers-accepted-86-of-photo-suggested",
+      "dst": "hypothesis-photo-id-suggestions-lift-verification",
+      "type": "supports",
+      "status": "committed"
+    },
+    {
+      "id": "e17",
+      "src": "evidence-reminder-cohort-returned-no-more-often",
+      "dst": "hypothesis-low-tide-reminders-double-repeat-visits",
+      "type": "refutes",
+      "status": "committed"
+    },
+    {
+      "id": "e18",
+      "src": "evidence-suggestions-were-wrong-on-40-of-juvenile",
+      "dst": "hypothesis-photo-id-suggestions-lift-verification",
+      "type": "refutes",
+      "status": "committed"
+    },
+    {
+      "id": "e19",
+      "src": "metric-reading-acceptance-rate-64-in-august",
+      "dst": "metric-record-acceptance-rate",
+      "type": "measures",
+      "status": "committed"
+    },
+    {
+      "id": "e20",
+      "src": "metric-reading-30-day-return-38-in-august",
+      "dst": "metric-volunteers-returning-within-30-days",
+      "type": "measures",
+      "status": "committed"
+    },
+    {
+      "id": "e21",
+      "src": "goal-two-thirds-of-records-verified-within-7",
+      "dst": "metric-record-acceptance-rate",
+      "type": "combines",
+      "status": "committed"
+    },
+    {
+      "id": "e22",
+      "src": "goal-two-thirds-of-records-verified-within-7",
+      "dst": "metric-volunteers-returning-within-30-days",
+      "type": "combines",
+      "status": "committed"
+    },
+    {
+      "id": "e23",
+      "src": "capability-field-capture",
+      "dst": "hypothesis-offline-first-capture-halves-abandoned",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e24",
+      "src": "capability-expert-verification",
+      "dst": "hypothesis-photo-id-suggestions-lift-verification",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e25",
+      "src": "audience-weekend-shore-volunteer",
+      "dst": "usecase-log-a-transect-survey-during-one-low",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e26",
+      "src": "audience-weekend-shore-volunteer",
+      "dst": "problem-field-data-is-lost-when-phones-have-no",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e27",
+      "src": "audience-weekend-shore-volunteer",
+      "dst": "context-rocky-intertidal-sites-with-no-mobile",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e28",
+      "src": "audience-marine-biologist-running-a-monitoring",
+      "dst": "usecase-verify-a-week-of-volunteer-records-in",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e29",
+      "src": "audience-marine-biologist-running-a-monitoring",
+      "dst": "problem-species-are-misidentified-so-records",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e30",
+      "src": "capability-field-capture",
+      "dst": "usecase-log-a-transect-survey-during-one-low",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e31",
+      "src": "capability-field-capture",
+      "dst": "problem-field-data-is-lost-when-phones-have-no",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e32",
+      "src": "capability-volunteer-engagement",
+      "dst": "usecase-log-a-transect-survey-during-one-low",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e33",
+      "src": "capability-expert-verification",
+      "dst": "usecase-verify-a-week-of-volunteer-records-in",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e34",
+      "src": "capability-expert-verification",
+      "dst": "problem-species-are-misidentified-so-records",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e35",
+      "src": "feature-offline-transect-logger",
+      "dst": "usecase-log-a-transect-survey-during-one-low",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e36",
+      "src": "feature-offline-transect-logger",
+      "dst": "problem-field-data-is-lost-when-phones-have-no",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e37",
+      "src": "feature-photo-id-suggestions",
+      "dst": "problem-species-are-misidentified-so-records",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e38",
+      "src": "feature-low-tide-reminders",
+      "dst": "usecase-log-a-transect-survey-during-one-low",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e39",
+      "src": "flow-walk-a-transect-and-log-each-quadrat",
+      "dst": "capability-field-capture",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e40",
+      "src": "flow-sync-records-once-back-in-signal",
+      "dst": "capability-field-capture",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e41",
+      "src": "flow-review-and-verify-a-record",
+      "dst": "capability-expert-verification",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e42",
+      "src": "flow-get-a-reminder-before-the-next-good-tide",
+      "dst": "capability-volunteer-engagement",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e43",
+      "src": "screen-verification-queue",
+      "dst": "capability-expert-verification",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e44",
+      "src": "screen-site-map",
+      "dst": "capability-volunteer-engagement",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e45",
+      "src": "feature-offline-transect-logger",
+      "dst": "flow-walk-a-transect-and-log-each-quadrat",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e46",
+      "src": "feature-offline-transect-logger",
+      "dst": "flow-sync-records-once-back-in-signal",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e47",
+      "src": "feature-photo-id-suggestions",
+      "dst": "flow-review-and-verify-a-record",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e48",
+      "src": "feature-low-tide-reminders",
+      "dst": "flow-get-a-reminder-before-the-next-good-tide",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e49",
+      "src": "flow-walk-a-transect-and-log-each-quadrat",
+      "dst": "screen-transect-logger",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e50",
+      "src": "flow-walk-a-transect-and-log-each-quadrat",
+      "dst": "screen-species-picker",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e51",
+      "src": "flow-sync-records-once-back-in-signal",
+      "dst": "screen-transect-logger",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e52",
+      "src": "flow-review-and-verify-a-record",
+      "dst": "screen-verification-queue",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e53",
+      "src": "screen-transect-logger",
+      "dst": "interface-records-sync-api",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e54",
+      "src": "screen-species-picker",
+      "dst": "interface-taxonomy-lookup",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e55",
+      "src": "screen-verification-queue",
+      "dst": "interface-verification-api",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e56",
+      "src": "screen-verification-queue",
+      "dst": "thing-field-photo",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e57",
+      "src": "screen-site-map",
+      "dst": "thing-survey-site",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e58",
+      "src": "interface-records-sync-api",
+      "dst": "thing-observation",
+      "type": "carries",
+      "status": "committed"
+    },
+    {
+      "id": "e59",
+      "src": "interface-records-sync-api",
+      "dst": "thing-quadrat",
+      "type": "carries",
+      "status": "committed"
+    },
+    {
+      "id": "e60",
+      "src": "interface-records-sync-api",
+      "dst": "thing-field-photo",
+      "type": "carries",
+      "status": "committed"
+    },
+    {
+      "id": "e61",
+      "src": "interface-verification-api",
+      "dst": "thing-observation",
+      "type": "carries",
+      "status": "committed"
+    },
+    {
+      "id": "e62",
+      "src": "interface-taxonomy-lookup",
+      "dst": "external-inaturalist-taxonomy-api",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e63",
+      "src": "interface-records-sync-api",
+      "dst": "event-survey-synced",
+      "type": "emits",
+      "status": "committed"
+    },
+    {
+      "id": "e64",
+      "src": "interface-verification-api",
+      "dst": "event-record-verified",
+      "type": "emits",
+      "status": "committed"
+    },
+    {
+      "id": "e65",
+      "src": "system-tidepool-platform",
+      "dst": "module-field-capture-app",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e66",
+      "src": "system-tidepool-platform",
+      "dst": "module-sync-service",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e67",
+      "src": "system-tidepool-platform",
+      "dst": "module-verification-service",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e68",
+      "src": "system-tidepool-platform",
+      "dst": "protocol-conflict-free-merge-of-offline-edits",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e69",
+      "src": "module-field-capture-app",
+      "dst": "screen-transect-logger",
+      "type": "exposes",
+      "status": "committed"
+    },
+    {
+      "id": "e70",
+      "src": "module-field-capture-app",
+      "dst": "screen-species-picker",
+      "type": "exposes",
+      "status": "committed"
+    },
+    {
+      "id": "e71",
+      "src": "module-field-capture-app",
+      "dst": "screen-site-map",
+      "type": "exposes",
+      "status": "committed"
+    },
+    {
+      "id": "e72",
+      "src": "module-verification-service",
+      "dst": "interface-verification-api",
+      "type": "exposes",
+      "status": "committed"
+    },
+    {
+      "id": "e73",
+      "src": "module-verification-service",
+      "dst": "screen-verification-queue",
+      "type": "exposes",
+      "status": "committed"
+    },
+    {
+      "id": "e74",
+      "src": "module-verification-service",
+      "dst": "ai-function-suggest-species-from-a-field-photo",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e75",
+      "src": "module-verification-service",
+      "dst": "event-record-verified",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e76",
+      "src": "module-sync-service",
+      "dst": "event-survey-synced",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e77",
+      "src": "event-survey-synced",
+      "dst": "module-verification-service",
+      "type": "triggers",
+      "status": "committed"
+    },
+    {
+      "id": "e78",
+      "src": "ai-function-suggest-species-from-a-field-photo",
+      "dst": "thing-field-photo",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e79",
+      "src": "ai-function-suggest-species-from-a-field-photo",
+      "dst": "external-inaturalist-taxonomy-api",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e80",
+      "src": "rule-every-observation-carries-a-gps-fix",
+      "dst": "thing-observation",
+      "type": "governs",
+      "status": "committed"
+    },
+    {
+      "id": "e81",
+      "src": "rule-surveys-start-no-earlier-than-90-minutes",
+      "dst": "thing-survey-site",
+      "type": "governs",
+      "status": "committed"
+    },
+    {
+      "id": "e82",
+      "src": "rule-a-record-has-exactly-one-final-verdict",
+      "dst": "thing-observation",
+      "type": "governs",
+      "status": "committed"
+    },
+    {
+      "id": "e83",
+      "src": "test-observation-logged-40-m-off-site-is",
+      "dst": "rule-every-observation-carries-a-gps-fix",
+      "type": "verifies",
+      "status": "committed"
+    },
+    {
+      "id": "e84",
+      "src": "test-photo-uploaded-after-reconnect-keeps-its",
+      "dst": "rule-every-observation-carries-a-gps-fix",
+      "type": "verifies",
+      "status": "committed"
+    },
+    {
+      "id": "e85",
+      "src": "test-second-verdict-on-a-record-is-rejected",
+      "dst": "rule-a-record-has-exactly-one-final-verdict",
+      "type": "verifies",
+      "status": "committed"
+    },
+    {
+      "id": "e86",
+      "src": "epic-offline-photo-sync",
+      "dst": "task-queue-photos-for-background-upload",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e87",
+      "src": "epic-offline-photo-sync",
+      "dst": "task-resume-interrupted-photo-uploads",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e88",
+      "src": "task-queue-photos-for-background-upload",
+      "dst": "test-photo-uploaded-after-reconnect-keeps-its",
+      "type": "targets",
+      "status": "committed"
+    },
+    {
+      "id": "e89",
+      "src": "task-resume-interrupted-photo-uploads",
+      "dst": "test-photo-uploaded-after-reconnect-keeps-its",
+      "type": "targets",
+      "status": "committed"
+    },
+    {
+      "id": "e90",
+      "src": "test-result-off-site-flag-pass-build-88",
+      "dst": "test-observation-logged-40-m-off-site-is",
+      "type": "reports",
+      "status": "committed"
+    },
+    {
+      "id": "e91",
+      "src": "test-result-reconnect-keeps-gps-fail-build-89",
+      "dst": "test-photo-uploaded-after-reconnect-keeps-its",
+      "type": "reports",
+      "status": "committed"
+    },
+    {
+      "id": "e92",
+      "src": "test-result-single-verdict-pass-build-88",
+      "dst": "test-second-verdict-on-a-record-is-rejected",
+      "type": "reports",
+      "status": "committed"
+    },
+    {
+      "id": "e93",
+      "src": "capability-expert-verification",
+      "dst": "agent-id-suggestion-agent",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e94",
+      "src": "capability-volunteer-engagement",
+      "dst": "agent-tide-watch-agent",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e95",
+      "src": "agent-id-suggestion-agent",
+      "dst": "feature-photo-id-suggestions",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e96",
+      "src": "agent-tide-watch-agent",
+      "dst": "feature-low-tide-reminders",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e97",
+      "src": "repository-tidepool-repo",
+      "dst": "codebase-field-app-react-native",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e98",
+      "src": "codebase-field-app-react-native",
+      "dst": "module-field-capture-app",
+      "type": "realises",
+      "status": "committed"
+    },
+    {
+      "id": "e99",
+      "src": "codebase-field-app-react-native",
+      "dst": "module-sync-service",
+      "type": "realises",
+      "status": "committed"
+    },
+    {
+      "id": "e100",
+      "src": "codebase-field-app-react-native",
+      "dst": "module-verification-service",
+      "type": "realises",
+      "status": "committed"
+    },
+    {
+      "id": "e101",
+      "src": "infra-edge-functions-and-photo-storage",
+      "dst": "module-sync-service",
+      "type": "hosts",
+      "status": "committed"
+    },
+    {
+      "id": "e102",
+      "src": "infra-edge-functions-and-photo-storage",
+      "dst": "module-verification-service",
+      "type": "hosts",
+      "status": "committed"
+    },
+    {
+      "id": "e103",
+      "src": "practice-weekly-offline-drill-in-airplane-mode",
+      "dst": "protocol-conflict-free-merge-of-offline-edits",
+      "type": "realises",
+      "status": "committed"
+    },
+    {
+      "id": "e104",
+      "src": "practice-weekly-offline-drill-in-airplane-mode",
+      "dst": "codebase-field-app-react-native",
+      "type": "governs",
+      "status": "committed"
+    },
+    {
+      "id": "e105",
+      "src": "protocol-conflict-free-merge-of-offline-edits",
+      "dst": "interface-records-sync-api",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e106",
+      "src": "term-percent-cover",
+      "dst": "thing-observation",
+      "type": "defines",
+      "status": "committed"
+    },
+    {
+      "id": "e107",
+      "src": "term-verified-record",
+      "dst": "event-record-verified",
+      "type": "defines",
+      "status": "committed"
+    },
+    {
+      "id": "e108",
+      "src": "usage-event-survey-abandoned-mid-transect",
+      "dst": "flow-walk-a-transect-and-log-each-quadrat",
+      "type": "measures",
+      "status": "committed"
+    },
+    {
+      "id": "e109",
+      "src": "feedback-biologist-blurry-photos-slow-down",
+      "dst": "screen-verification-queue",
+      "type": "measures",
+      "status": "committed"
+    }
+  ]
+}

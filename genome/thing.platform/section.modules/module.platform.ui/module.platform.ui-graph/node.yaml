@@ -1,0 +1,8 @@
+id: module.platform.ui-graph
+kind: module
+fields:
+  name: Graph layout
+  description: ELK layout of the Map in a web worker.
+  path: src/graph
+files:
+  - src/graph/**

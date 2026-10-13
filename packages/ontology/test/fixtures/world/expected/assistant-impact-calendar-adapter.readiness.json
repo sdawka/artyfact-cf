@@ -1,0 +1,8 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-impact-calendar-adapter.json",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "742cf6a799895eb12f7b34969bf993d73e61f91fc179eb854092b6817cf3bf6d",
+  "templateHash": "f34bf89868e3c5fb3c8f738bae4fb728b06301cf943ff7420737b19a178494d7",
+  "status": "ready",
+  "findings": []
+}

@@ -1,0 +1,1250 @@
+{
+ "SPACES": [
+  {
+   "id": "basics",
+   "label": "Basics",
+   "layer": "representation",
+   "order": 0,
+   "hue": "#d9a441",
+   "blurb": "Name and purpose. The one-liner."
+  },
+  {
+   "id": "problem",
+   "label": "Problem",
+   "layer": "representation",
+   "order": 1,
+   "hue": "#9b7bea",
+   "blurb": "Who, in what context, with what problems, wanting what outcomes."
+  },
+  {
+   "id": "hypothesis",
+   "label": "Bets",
+   "layer": "representation",
+   "order": 2,
+   "hue": "#e0699a",
+   "blurb": "The bets we are making and what we assume; how we will know. Not necessarily scientific hypotheses."
+  },
+  {
+   "id": "solution",
+   "label": "Solution",
+   "layer": "representation",
+   "order": 3,
+   "hue": "#3fa9e0",
+   "blurb": "Capabilities, features (one per would-be department), agents, journeys, domain, architecture, screens."
+  },
+  {
+   "id": "current",
+   "label": "Current state",
+   "layer": "reality",
+   "order": 5,
+   "hue": "#8a8f98",
+   "blurb": "Code and references into the repository, infrastructure, practices and protocols, and the current test results."
+  },
+  {
+   "id": "planned",
+   "label": "Planned changes",
+   "layer": "reality",
+   "order": 6,
+   "hue": "#6f7f99",
+   "blurb": "Epics and the super-targeted coding-agent tasks under them, each naming the tests it must turn green."
+  },
+  {
+   "id": "effects",
+   "label": "Effects",
+   "layer": "reality",
+   "order": 7,
+   "hue": "#5b8c7a",
+   "blurb": "Metric readings, usage events, user feedback, evidence: what confirms or denies the bets."
+  }
+ ],
+ "KINDS": [
+  {
+   "id": "name",
+   "label": "Name",
+   "plural": "Name",
+   "space": "basics",
+   "icon": "🏷️",
+   "singular": true,
+   "fields": [],
+   "needs": [],
+   "blurb": "What the system is called."
+  },
+  {
+   "id": "purpose",
+   "label": "Purpose",
+   "plural": "Purpose",
+   "space": "basics",
+   "icon": "🎯",
+   "singular": true,
+   "fields": [],
+   "needs": [],
+   "blurb": "Why it exists; the real-world effect and value it is for."
+  },
+  {
+   "id": "summary",
+   "label": "Summary",
+   "plural": "Summary",
+   "space": "basics",
+   "icon": "📝",
+   "singular": true,
+   "fields": [],
+   "needs": [],
+   "blurb": "A paragraph for picking this project out of a list."
+  },
+  {
+   "id": "audience",
+   "label": "Audience",
+   "plural": "Audience",
+   "space": "problem",
+   "icon": "👤",
+   "level": 1,
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "A type of person or agent the system is for."
+  },
+  {
+   "id": "context",
+   "label": "Context",
+   "plural": "Contexts",
+   "space": "problem",
+   "icon": "🌍",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "The situation an audience is in when the problem shows up."
+  },
+  {
+   "id": "usecase",
+   "label": "Use case",
+   "plural": "Use cases",
+   "space": "problem",
+   "icon": "🎬",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "Something an audience is trying to get done."
+  },
+  {
+   "id": "problem",
+   "label": "Problem",
+   "plural": "Problems",
+   "space": "problem",
+   "icon": "🧨",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "What stands in their way today."
+  },
+  {
+   "id": "outcome",
+   "label": "Outcome",
+   "plural": "Outcomes",
+   "space": "problem",
+   "icon": "🌟",
+   "singular": false,
+   "fields": [
+    {
+     "key": "metric",
+     "label": "Success metric"
+    },
+    {
+     "key": "for",
+     "label": "For",
+     "options": [
+      "audience",
+      "business"
+     ]
+    }
+   ],
+   "needs": [],
+   "blurb": "The change we want for the audience. Should be measurable."
+  },
+  {
+   "id": "hypothesis",
+   "label": "Bet",
+   "plural": "Bets",
+   "space": "hypothesis",
+   "icon": "🎲",
+   "singular": false,
+   "fields": [
+    {
+     "key": "verdict",
+     "label": "Verdict",
+     "options": [
+      "open",
+      "supported",
+      "refuted"
+     ]
+    }
+   ],
+   "needs": [
+    {
+     "edge": "references",
+     "dir": "out",
+     "min": 1,
+     "ask": "How would you know \"{title}\" holds? Name one metric.",
+     "produces": "metric"
+    }
+   ],
+   "blurb": "A bet linking what we build to an outcome; some are specific and testable, some are just bets."
+  },
+  {
+   "id": "assumption",
+   "label": "Assumption",
+   "plural": "Assumptions",
+   "space": "hypothesis",
+   "icon": "💭",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "Taken as true until reality says otherwise."
+  },
+  {
+   "id": "goal",
+   "label": "Goal",
+   "plural": "Strategic goals",
+   "space": "problem",
+   "icon": "🏁",
+   "singular": false,
+   "fields": [
+    {
+     "key": "for",
+     "label": "For",
+     "options": [
+      "audience",
+      "business"
+     ]
+    }
+   ],
+   "needs": [],
+   "blurb": "An outcome we want, stated as a compound of metrics; for the audience or for ourselves as the business."
+  },
+  {
+   "id": "metric",
+   "label": "Metric",
+   "plural": "Metrics",
+   "space": "hypothesis",
+   "icon": "📏",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "How an outcome or hypothesis will be measured."
+  },
+  {
+   "id": "capability",
+   "label": "Capability",
+   "plural": "Capabilities",
+   "space": "solution",
+   "icon": "⚡",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "A high-level thing the system can do."
+  },
+  {
+   "id": "feature",
+   "label": "Feature",
+   "plural": "Features",
+   "space": "solution",
+   "icon": "🎁",
+   "singular": false,
+   "fields": [
+    {
+     "key": "stages",
+     "label": "Lifecycle stages"
+    }
+   ],
+   "needs": [],
+   "blurb": "A value grouping, described by journeys and flows. What a startup would have a department for becomes a feature here."
+  },
+  {
+   "id": "flow",
+   "label": "Flow",
+   "plural": "Journeys & flows",
+   "space": "solution",
+   "icon": "🧭",
+   "singular": false,
+   "fields": [
+    {
+     "key": "group",
+     "label": "Group"
+    },
+    {
+     "key": "scope",
+     "label": "Scope",
+     "options": [
+      "core",
+      "stub",
+      "later"
+     ]
+    },
+    {
+     "key": "steps",
+     "label": "Steps (one per line)"
+    }
+   ],
+   "needs": [],
+   "blurb": "A happy path through the system; touches architecture via uses edges. Corresponds across Overview and the architecture diagrams — selecting one dims everything else, everywhere."
+  },
+  {
+   "id": "term",
+   "label": "Term",
+   "plural": "Vocabulary",
+   "space": "solution",
+   "icon": "📖",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "A fixed word of the domain."
+  },
+  {
+   "id": "system",
+   "label": "System",
+   "plural": "Systems",
+   "space": "solution",
+   "icon": "🫧",
+   "level": 1,
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "The system itself as one bubble, or a meaningfully separate part of it (web vs mobile)."
+  },
+  {
+   "id": "external",
+   "label": "External system",
+   "plural": "External systems",
+   "space": "solution",
+   "icon": "🛰️",
+   "level": 1,
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "Another system ours talks to."
+  },
+  {
+   "id": "module",
+   "label": "Module",
+   "plural": "Modules",
+   "space": "solution",
+   "icon": "📦",
+   "level": 2,
+   "singular": false,
+   "fields": [],
+   "needs": [
+    {
+     "edge": "exposes",
+     "dir": "out",
+     "min": 1,
+     "ask": "What does \"{title}\" expose to the rest of the system? Name its interface.",
+     "produces": "interface"
+    }
+   ],
+   "blurb": "A business domain / bounded context. Always exposes an interface."
+  },
+  {
+   "id": "infra",
+   "label": "Infra",
+   "plural": "Infra",
+   "space": "solution",
+   "icon": "🧱",
+   "level": 2,
+   "singular": false,
+   "fields": [
+    {
+     "key": "role",
+     "label": "Role",
+     "options": [
+      "client",
+      "server",
+      "store",
+      "cache",
+      "queue"
+     ]
+    }
+   ],
+   "needs": [],
+   "blurb": "A deployable: dedicated infrastructure (cache, durable object, client, server, store, queue). Shown inside its module (contains) and, at the deployment level, by its role."
+  },
+  {
+   "id": "thing",
+   "label": "Thing",
+   "plural": "Things",
+   "space": "solution",
+   "icon": "🔷",
+   "level": 3,
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "An entity in domain language; a noun."
+  },
+  {
+   "id": "rule",
+   "label": "Rule",
+   "plural": "Rules",
+   "space": "solution",
+   "icon": "⚖️",
+   "level": 3,
+   "singular": false,
+   "fields": [
+    {
+     "key": "tests",
+     "label": "Tests (pos/neg)"
+    }
+   ],
+   "needs": [
+    {
+     "edge": "verifies",
+     "dir": "in",
+     "min": 1,
+     "ask": "How would we know \"{title}\" holds? One test per line, naming the condition.",
+     "produces": "test"
+    }
+   ],
+   "blurb": "Logic about one or more things, from hasMany to expectations. Should be tested both ways."
+  },
+  {
+   "id": "interface",
+   "label": "Interface",
+   "plural": "Interfaces",
+   "space": "solution",
+   "icon": "🔌",
+   "level": 3,
+   "singular": false,
+   "fields": [
+    {
+     "key": "style",
+     "label": "Style",
+     "options": [
+      "rpc",
+      "rest",
+      "ui",
+      "events"
+     ]
+    },
+    {
+     "key": "in",
+     "label": "In (payload entering)"
+    },
+    {
+     "key": "out",
+     "label": "Out (payload leaving)"
+    }
+   ],
+   "needs": [],
+   "blurb": "The API a module exposes; REST, RPC, UI or events. Molecules — payloads — enter as `in` and leave as `out`, through a `carries` edge to the things they are or derive from."
+  },
+  {
+   "id": "event",
+   "label": "Event",
+   "plural": "Events",
+   "space": "solution",
+   "icon": "⚡",
+   "level": 3,
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "Something notable that happened; a past-tense fact in the vocabulary."
+  },
+  {
+   "id": "protocol",
+   "label": "Protocol",
+   "plural": "Protocols",
+   "space": "solution",
+   "icon": "🛡️",
+   "level": 3,
+   "singular": false,
+   "fields": [
+    {
+     "key": "cadence",
+     "label": "Cadence"
+    }
+   ],
+   "needs": [
+    {
+     "edge": "realises",
+     "dir": "in",
+     "min": 1,
+     "ask": "What practice realises \"{title}\" today, or is this a planned change?",
+     "produces": "practice"
+    }
+   ],
+   "blurb": "How we want to enact the representation: PR gates, regular security audits, changelogs as blog posts. Reality's practices realise them. The product automation zone."
+  },
+  {
+   "id": "test",
+   "label": "Test",
+   "plural": "Tests",
+   "space": "solution",
+   "icon": "🧪",
+   "level": 3,
+   "singular": false,
+   "fields": [
+    {
+     "key": "ladder",
+     "label": "Ladder",
+     "options": [
+      "exists",
+      "surface",
+      "simulation"
+     ]
+    },
+    {
+     "key": "resultSource",
+     "label": "Result source",
+     "options": [
+      "code",
+      "metric",
+      "manual"
+     ]
+    },
+    {
+     "key": "condition",
+     "label": "Condition (one line of the rule it verifies)"
+    }
+   ],
+   "needs": [
+    {
+     "edge": "verifies",
+     "dir": "out",
+     "min": 1,
+     "ask": "Which rule does \"{title}\" verify?",
+     "produces": "rule"
+    }
+   ],
+   "blurb": "The bridge to reality: one per condition in a rule. Ladder: module exists (health check) → API surface → deterministic simulation. One kind of test; `resultSource` varies."
+  },
+  {
+   "id": "screen",
+   "label": "Screen",
+   "plural": "Screens",
+   "space": "solution",
+   "icon": "🖼️",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "A user interface; composed of layouts and components."
+  },
+  {
+   "id": "design-system",
+   "label": "Design system",
+   "plural": "Design system",
+   "space": "solution",
+   "icon": "🎨",
+   "singular": true,
+   "fields": [],
+   "needs": [],
+   "blurb": "Guides product and marketing material, including tone."
+  },
+  {
+   "id": "agent",
+   "label": "Agent",
+   "plural": "Agents",
+   "space": "solution",
+   "icon": "🤖",
+   "singular": false,
+   "fields": [
+    {
+     "key": "status",
+     "label": "Status",
+     "options": [
+      "core",
+      "stub"
+     ]
+    }
+   ],
+   "needs": [],
+   "blurb": "Executes actions for one or more features; a sub-item of the orchestration capability."
+  },
+  {
+   "id": "ai-function",
+   "label": "AI function",
+   "plural": "AI functions",
+   "space": "solution",
+   "icon": "🧠",
+   "level": 3,
+   "singular": false,
+   "fields": [
+    {
+     "key": "version",
+     "label": "Version"
+    },
+    {
+     "key": "runtime",
+     "label": "Runtime",
+     "options": [
+      "stub",
+      "flue",
+      "system1"
+     ]
+    }
+   ],
+   "needs": [],
+   "blurb": "A named place the AI acts: its own prompt, declared context needs, output shape, a deterministic stub, and a feedback mechanism to measure efficacy."
+  },
+  {
+   "id": "repository",
+   "label": "Repository",
+   "plural": "Repositories",
+   "space": "current",
+   "icon": "📂",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "Where the actual code lives; the thing codeRefs point into."
+  },
+  {
+   "id": "codebase",
+   "label": "Code",
+   "plural": "Code",
+   "space": "current",
+   "icon": "💾",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "A reference into the repository: a module, file or block as it actually exists."
+  },
+  {
+   "id": "infrastructure",
+   "label": "Infrastructure",
+   "plural": "Infrastructure",
+   "space": "current",
+   "icon": "🏗️",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "What is actually provisioned and running."
+  },
+  {
+   "id": "practice",
+   "label": "Practice",
+   "plural": "Practices & protocols",
+   "space": "current",
+   "icon": "📋",
+   "singular": false,
+   "fields": [
+    {
+     "key": "form",
+     "label": "Form",
+     "options": [
+      "protocol",
+      "process flow",
+      "CI"
+     ]
+    }
+   ],
+   "needs": [],
+   "blurb": "Best practices and protocols in force: process flows, CI, conventions."
+  },
+  {
+   "id": "asset",
+   "label": "Asset",
+   "plural": "Assets",
+   "space": "current",
+   "icon": "🗃️",
+   "singular": false,
+   "fields": [
+    {
+     "key": "form",
+     "label": "Form"
+    }
+   ],
+   "needs": [],
+   "blurb": "A non-code artefact in force: landing page, pitch deck, price list, contract template, onboarding guide."
+  },
+  {
+   "id": "test-result",
+   "label": "Test result",
+   "plural": "Test results",
+   "space": "current",
+   "icon": "✅",
+   "singular": false,
+   "fields": [
+    {
+     "key": "status",
+     "label": "Status",
+     "options": [
+      "pass",
+      "fail",
+      "missing"
+     ]
+    },
+    {
+     "key": "value",
+     "label": "Value"
+    },
+    {
+     "key": "threshold",
+     "label": "Threshold"
+    },
+    {
+     "key": "confidence",
+     "label": "Confidence"
+    }
+   ],
+   "needs": [],
+   "blurb": "Whether a test is fulfilled in reality right now. Business-level tests report a metric value against a threshold; code tests report pass/fail."
+  },
+  {
+   "id": "epic",
+   "label": "Epic",
+   "plural": "Epics",
+   "space": "planned",
+   "icon": "🗂️",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "A planned change, Jira-epic sized; exists only because some tests are not fulfilled."
+  },
+  {
+   "id": "task",
+   "label": "Task",
+   "plural": "Tasks",
+   "space": "planned",
+   "icon": "🎯",
+   "singular": false,
+   "fields": [
+    {
+     "key": "status",
+     "label": "Status",
+     "options": [
+      "queued",
+      "running",
+      "blocked",
+      "done",
+      "verified"
+     ]
+    }
+   ],
+   "needs": [
+    {
+     "edge": "targets",
+     "dir": "out",
+     "min": 1,
+     "ask": "Which test(s) must \"{title}\" turn green?",
+     "produces": "test"
+    }
+   ],
+   "blurb": "A super-targeted coding-agent task: names the tests it must turn green. Moves done → verified only once its suite is green and the reviewer agent's verdict says serves-intent; overfits or unclear sends it back to blocked."
+  },
+  {
+   "id": "metric-reading",
+   "label": "Metric reading",
+   "plural": "Metric readings",
+   "space": "effects",
+   "icon": "📈",
+   "singular": false,
+   "fields": [
+    {
+     "key": "value",
+     "label": "Value"
+    },
+    {
+     "key": "at",
+     "label": "When"
+    }
+   ],
+   "needs": [],
+   "blurb": "A value of a metric at a time; business metrics as much as product ones."
+  },
+  {
+   "id": "usage-event",
+   "label": "Usage event",
+   "plural": "Usage events",
+   "space": "effects",
+   "icon": "👣",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "Something a user or customer did: a click, a signup, a lead captured, a deal closed, an invoice paid."
+  },
+  {
+   "id": "feedback",
+   "label": "Feedback",
+   "plural": "User feedback",
+   "space": "effects",
+   "icon": "💬",
+   "singular": false,
+   "fields": [],
+   "needs": [],
+   "blurb": "What users and customers said, in their words."
+  },
+  {
+   "id": "evidence",
+   "label": "Evidence",
+   "plural": "Evidence",
+   "space": "effects",
+   "icon": "🧾",
+   "singular": false,
+   "fields": [
+    {
+     "key": "verdict",
+     "label": "Verdict",
+     "options": [
+      "supports",
+      "refutes",
+      "mixed"
+     ]
+    }
+   ],
+   "needs": [],
+   "blurb": "An observation from reality tied to a bet or metric."
+  }
+ ],
+ "EDGE_TYPES": [
+  {
+   "id": "motivates",
+   "label": "motivates",
+   "category": "intentional",
+   "from": [
+    "problem",
+    "purpose"
+   ],
+   "to": [
+    "outcome"
+   ],
+   "hint": "Is the reason the target exists (purpose → outcome, problem → outcome)."
+  },
+  {
+   "id": "serves",
+   "label": "serves",
+   "category": "intentional",
+   "from": [
+    "capability",
+    "feature"
+   ],
+   "to": [
+    "audience",
+    "goal",
+    "outcome"
+   ],
+   "hint": "Delivers value to an audience."
+  },
+  {
+   "id": "satisfies",
+   "label": "satisfies",
+   "category": "intentional",
+   "from": [
+    "capability",
+    "feature"
+   ],
+   "to": [
+    "problem",
+    "usecase"
+   ],
+   "hint": "Meets a problem-space statement."
+  },
+  {
+   "id": "has",
+   "label": "has",
+   "category": "structural",
+   "from": [
+    "audience",
+    "capability",
+    "feature",
+    "problem",
+    "usecase"
+   ],
+   "to": [
+    "agent",
+    "context",
+    "flow",
+    "problem",
+    "usecase"
+   ],
+   "hint": "Conceptual possession (audience has problem, use case has problem)."
+  },
+  {
+   "id": "implements",
+   "label": "implements",
+   "category": "structural",
+   "from": [
+    "agent",
+    "flow",
+    "screen"
+   ],
+   "to": [
+    "capability",
+    "feature",
+    "task"
+   ],
+   "hint": "Realises a solution-space spec."
+  },
+  {
+   "id": "contains",
+   "label": "contains",
+   "category": "structural",
+   "from": [
+    "codebase",
+    "epic",
+    "module",
+    "repository",
+    "system"
+   ],
+   "to": [
+    "ai-function",
+    "asset",
+    "codebase",
+    "event",
+    "infra",
+    "module",
+    "protocol",
+    "rule",
+    "task",
+    "test",
+    "thing"
+   ],
+   "hint": "Composition (screen contains component)."
+  },
+  {
+   "id": "exposes",
+   "label": "exposes",
+   "category": "structural",
+   "from": [
+    "module"
+   ],
+   "to": [
+    "interface",
+    "screen"
+   ],
+   "hint": "Module exposes an interface."
+  },
+  {
+   "id": "emits",
+   "label": "emits",
+   "category": "behavioural",
+   "from": [
+    "interface"
+   ],
+   "to": [
+    "event"
+   ],
+   "hint": "Produces an event (interface or rule emits event)."
+  },
+  {
+   "id": "combines",
+   "label": "combines",
+   "category": "structural",
+   "from": [
+    "goal"
+   ],
+   "to": [
+    "metric"
+   ],
+   "hint": "Goal combines metrics."
+  },
+  {
+   "id": "measures",
+   "label": "measures",
+   "category": "verification",
+   "from": [
+    "feedback",
+    "metric-reading",
+    "usage-event"
+   ],
+   "to": [
+    "flow",
+    "metric",
+    "screen"
+   ],
+   "hint": "Metric reading measures a metric; usage events and feedback measure an outcome or feature."
+  },
+  {
+   "id": "targets",
+   "label": "targets",
+   "category": "orchestration",
+   "from": [
+    "epic",
+    "task"
+   ],
+   "to": [
+    "test"
+   ],
+   "hint": "Task or epic targets the tests it must turn green."
+  },
+  {
+   "id": "reports",
+   "label": "reports",
+   "category": "verification",
+   "from": [
+    "test-result"
+   ],
+   "to": [
+    "test"
+   ],
+   "hint": "Test result reports on a test (reality → representation)."
+  },
+  {
+   "id": "realises",
+   "label": "realises",
+   "category": "structural",
+   "from": [
+    "codebase",
+    "infrastructure",
+    "practice"
+   ],
+   "to": [
+    "infra",
+    "module",
+    "protocol",
+    "system"
+   ],
+   "hint": "Actual code realises a solution-space module or item (current state → solution)."
+  },
+  {
+   "id": "governs",
+   "label": "governs",
+   "category": "behavioural",
+   "from": [
+    "practice",
+    "rule"
+   ],
+   "to": [
+    "codebase",
+    "thing"
+   ],
+   "hint": "Rule governs a thing (or several: relationship rules)."
+  },
+  {
+   "id": "defines",
+   "label": "defines",
+   "category": "dependency",
+   "from": [
+    "term"
+   ],
+   "to": [
+    "event",
+    "module",
+    "thing"
+   ],
+   "hint": "Glossary term defines a node."
+  },
+  {
+   "id": "uses",
+   "label": "uses",
+   "category": "dependency",
+   "from": [
+    "ai-function",
+    "audience",
+    "codebase",
+    "external",
+    "flow",
+    "infra",
+    "interface",
+    "module",
+    "protocol",
+    "screen",
+    "system"
+   ],
+   "to": [
+    "external",
+    "infra",
+    "infrastructure",
+    "interface",
+    "module",
+    "screen",
+    "system",
+    "thing"
+   ],
+   "hint": "Runtime dependency."
+  },
+  {
+   "id": "references",
+   "label": "references",
+   "category": "dependency",
+   "from": [
+    "assumption",
+    "capability",
+    "event",
+    "flow",
+    "goal",
+    "hypothesis",
+    "screen"
+   ],
+   "to": [
+    "capability",
+    "flow",
+    "hypothesis",
+    "metric",
+    "outcome",
+    "problem",
+    "test",
+    "thing"
+   ],
+   "hint": "Weak link of last resort."
+  },
+  {
+   "id": "triggers",
+   "label": "triggers",
+   "category": "behavioural",
+   "from": [
+    "event",
+    "module"
+   ],
+   "to": [
+    "event",
+    "module"
+   ],
+   "hint": "Causal succession."
+  },
+  {
+   "id": "verifies",
+   "label": "verifies",
+   "category": "verification",
+   "from": [
+    "test"
+   ],
+   "to": [
+    "rule"
+   ],
+   "hint": "Test verifies a rule (one per condition)."
+  },
+  {
+   "id": "monitors",
+   "label": "monitors",
+   "category": "verification",
+   "from": [
+    "metric"
+   ],
+   "to": [
+    "outcome"
+   ],
+   "hint": "Metric watches an outcome."
+  },
+  {
+   "id": "supports",
+   "label": "supports",
+   "category": "verification",
+   "from": [
+    "evidence"
+   ],
+   "to": [
+    "hypothesis"
+   ],
+   "hint": "Evidence supports a hypothesis. STUB."
+  },
+  {
+   "id": "refutes",
+   "label": "refutes",
+   "category": "verification",
+   "from": [
+    "evidence"
+   ],
+   "to": [
+    "hypothesis"
+   ],
+   "hint": "Evidence refutes a hypothesis. STUB."
+  },
+  {
+   "id": "carries",
+   "label": "carries",
+   "category": "structural",
+   "from": [
+    "interface"
+   ],
+   "to": [
+    "thing"
+   ],
+   "hint": "Interface carries a payload that is or derives from this thing (\"molecules\" entering/leaving through the interface's in/out)."
+  },
+  {
+   "id": "hosts",
+   "label": "hosts",
+   "category": "structural",
+   "from": [
+    "infra"
+   ],
+   "to": [
+    "module"
+   ],
+   "hint": "Deployable (infra) hosts a module, at the deployment level. Additional to `contains` (module → infra), which the Modules grid still reads — do not repurpose that one."
+  }
+ ],
+ "RELATIONS": [
+  {
+   "src": "audience",
+   "edge": "has",
+   "dst": "context",
+   "many": true,
+   "at": "dst"
+  },
+  {
+   "src": "audience",
+   "edge": "has",
+   "dst": "usecase",
+   "many": true,
+   "at": "dst"
+  },
+  {
+   "src": "audience",
+   "edge": "has",
+   "dst": "problem",
+   "many": true,
+   "at": "dst"
+  },
+  {
+   "src": "usecase",
+   "edge": "has",
+   "dst": "problem",
+   "many": true,
+   "at": "dst"
+  },
+  {
+   "src": "problem",
+   "edge": "motivates",
+   "dst": "outcome",
+   "many": true,
+   "at": "dst"
+  },
+  {
+   "src": "hypothesis",
+   "edge": "references",
+   "dst": "outcome",
+   "at": "src"
+  },
+  {
+   "src": "metric",
+   "edge": "monitors",
+   "dst": "outcome",
+   "at": "src"
+  },
+  {
+   "src": "hypothesis",
+   "edge": "references",
+   "dst": "metric",
+   "many": true,
+   "at": "both",
+   "need": "How would you know \"{title}\" holds? Name one metric."
+  },
+  {
+   "src": "assumption",
+   "edge": "references",
+   "dst": "hypothesis",
+   "at": "src"
+  },
+  {
+   "src": "capability",
+   "edge": "satisfies",
+   "dst": "problem",
+   "many": true,
+   "at": "src"
+  },
+  {
+   "src": "capability",
+   "edge": "satisfies",
+   "dst": "usecase",
+   "many": true,
+   "at": "src"
+  }
+ ],
+ "LIFECYCLE_STAGES": [
+  "awareness",
+  "acquisition",
+  "onboarding",
+  "use",
+  "support",
+  "retention",
+  "advocacy",
+  "end-of-life"
+ ]
+}

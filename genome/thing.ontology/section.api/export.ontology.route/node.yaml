@@ -1,0 +1,7 @@
+id: export.ontology.route
+kind: export
+fields:
+  name: route
+  signature: "export async function route(g: Graph, template: RouteVocabularySource, message: string, s1: SystemOne, opts?: RouteOptions): Promise<Route>"
+  stability: stable
+  description: Routes a message to its target nodes and intent with bounded System One calls.

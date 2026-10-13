@@ -1,0 +1,6 @@
+id: component.HistoryRow
+kind: component
+fields:
+  name: HistoryRow
+  description: History has one row per event
+  cardinality: 1 per event

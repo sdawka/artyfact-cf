@@ -1,0 +1,7 @@
+id: artifact.ci
+kind: artifact
+fields:
+  type: external
+  repo: artyfact-cf
+  scope:
+    - apps/ci

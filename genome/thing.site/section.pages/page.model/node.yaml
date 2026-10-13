@@ -1,0 +1,7 @@
+id: page.model
+kind: page
+fields:
+  name: The model
+  route: /model
+  rendering: prerendered
+  description: Explains Purpose, Genome, Proteome and Phenome with a hydrated example, so a visitor understands the model.

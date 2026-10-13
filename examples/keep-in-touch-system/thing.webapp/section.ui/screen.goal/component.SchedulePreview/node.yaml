@@ -1,0 +1,9 @@
+id: component.SchedulePreview
+kind: component
+fields:
+  name: SchedulePreview
+  description: SchedulePreview must show that effect before saving. Changing depth may change which historical events qualify
+  cardinality: exactly one
+links:
+  - { rel: reads, to: entity.RelationshipGoal }
+  - { rel: reads, to: entity.ContactEvent }

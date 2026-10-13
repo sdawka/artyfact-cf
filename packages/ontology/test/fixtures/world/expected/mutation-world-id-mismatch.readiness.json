@@ -1,0 +1,22 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#world-id-mismatch",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "b1b0f173a44a90207d1122505f7140f116cb9b2476e7af09ce4c5b8c41a2671b",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.world-root",
+      "severity": "blocker",
+      "message": "a snapshot requires exactly one root World object matching worldId",
+      "objectIds": [
+        "other-world"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "derived",
+        "reference": "compiled-rule:core.world-root"
+      }
+    }
+  ]
+}

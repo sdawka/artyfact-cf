@@ -1,7 +1,8 @@
+import { NODE_FILE } from "@artyfact/ontology/genome";
 import type { schema, SystemModel } from "@artyfact/model";
 import { stringify as toYaml } from "yaml";
 import type { Certainty, TaskPacket } from "../../shared/api";
-import { globMatch, permittedGlobs, type SourceMapEntry } from "../artifacts/source-map";
+import { globMatch, permittedGlobs, sourceMapFor, type SourceMapEntry } from "../artifacts/source-map";
 import { isBlocking } from "../promotion";
 import { canonicalJson, sha256Hex } from "../util";
 
@@ -12,7 +13,6 @@ export interface PacketInput {
   model: SystemModel;
   evolution: schema.Evolution;
   workspace: TaskPacket["workspace"];
-  sourceMap: SourceMapEntry[];
   /** Blob paths in the fork's base tree (for entry files). */
   baseTreePaths: string[];
   commands: string[];
@@ -21,6 +21,8 @@ export interface PacketInput {
   platformUrl: string;
   /** Genome realizations: Genome root inside the repo ("" or "system"). */
   genomePrefix?: string;
+  /** Extra permitted globs (repo paths), e.g. the directories of nodes an accepted intent adds. */
+  permittedExtra?: string[];
 }
 
 /** Blocking criteria among the Evolution's acceptance criteria (hard with a bound hook, regardless of gates; see ../promotion.ts). */
@@ -41,7 +43,7 @@ const kindOf = (m: SystemModel) => (id: string) => m.index.byId[id]?.type === "n
 function entryFiles(sm: SourceMapEntry[], affected: string[], tree: string[]): TaskPacket["entryFiles"] {
   const out = new Map<string, Certainty>();
   for (const e of sm.filter((x) => x.nodes.some((n) => affected.includes(n)))) {
-    const certainty: Certainty = e.origin === "repo" ? "declared" : "assumed";
+    const certainty: Certainty = e.origin === "node" ? "declared" : "assumed";
     const hits = tree.filter((p) => globMatch(e.glob, p));
     if (!hits.length && !out.has(e.glob)) out.set(e.glob, "proposed");
     for (const p of hits) if (out.get(p) !== "declared") out.set(p, certainty);
@@ -52,15 +54,13 @@ function entryFiles(sm: SourceMapEntry[], affected: string[], tree: string[]): T
 function genomePermitted(m: SystemModel, affected: string[], prefix: string): string[] {
   const pre = prefix ? `${prefix.replace(/\/+$/, "")}/` : "";
   const files = new Set<string>();
+  // Every object is declared in a node directory's `node.yaml` (or a change record). An affected node's directory is
+  // permitted whole: its file and any node added under it.
   for (const id of affected) {
     const origin = m.origin[id];
-    // Template-provided objects have a template ref as origin: overriding means editing the owning Thing's ontology.
-    if (origin && !origin.startsWith("template.")) files.add(pre + origin);
-    else {
-      const thing = m.index.path(id).find((p) => m.index.byId[p]?.type === "thing");
-      const dir = thing && Object.entries(m.origin).find(([k]) => k === thing)?.[1]?.replace(/thing\.yaml$/, "");
-      if (dir) files.add(`${pre}${dir}ontology.yaml`);
-    }
+    if (!origin) continue;
+    if (origin === NODE_FILE) files.add(`${pre}${NODE_FILE}`);
+    else files.add(pre + (origin.endsWith(`/${NODE_FILE}`) ? `${origin.slice(0, -NODE_FILE.length)}**` : origin));
   }
   return [...files, `${pre}evolutions/**`];
 }
@@ -96,12 +96,14 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
   const related = allCommitments.filter((c) => c.features.some((f) => features.has(f)));
   const commitments = (related.length ? related : allCommitments).map((c) => c.statement);
 
+  // App scope comes from the affected nodes' `files` (and their ancestors' below the Thing).
+  const sourceMap = i.target === "app" ? sourceMapFor(m) : [];
   // An empty scope is unconstrained: everything is permitted, and the protected paths are still refused first.
   const permittedPaths = !affected.length
     ? [i.target === "genome" && i.genomePrefix ? `${i.genomePrefix.replace(/\/+$/, "")}/**` : "**"]
     : i.target === "app"
-      ? permittedGlobs(i.sourceMap, affected, (id) => m.index.path(id), kindOf(m))
-      : genomePermitted(m, affected, i.genomePrefix ?? "");
+      ? permittedGlobs(sourceMap, affected, (id) => m.index.path(id), kindOf(m))
+      : [...new Set([...genomePermitted(m, affected, i.genomePrefix ?? ""), ...(i.permittedExtra ?? [])])];
   const protectedPaths = protectedPathsFor(i.target);
   const required = acceptanceCriteria.filter((c) => c.gate).map((c) => c.id);
   const submitInstructions = [
@@ -125,7 +127,7 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
     commitments,
     permittedPaths,
     protectedPaths,
-    entryFiles: i.target === "app" ? entryFiles(i.sourceMap, affected, i.baseTreePaths) : [],
+    entryFiles: i.target === "app" ? entryFiles(sourceMap, affected, i.baseTreePaths) : [],
     commands: i.commands,
     concurrentWork: i.concurrentWork,
     startCommand: startCommand(i.systemId, i.evolution.id, i.realizationId),

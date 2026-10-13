@@ -1,0 +1,5 @@
+id: component.DeletionControls
+kind: component
+fields:
+  name: DeletionControls
+  cardinality: exactly one

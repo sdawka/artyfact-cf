@@ -1,0 +1,5 @@
+id: component.TodayControls
+kind: component
+fields:
+  name: TodayControls
+  cardinality: exactly one

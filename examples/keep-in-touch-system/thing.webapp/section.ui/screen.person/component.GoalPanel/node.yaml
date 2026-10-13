@@ -1,0 +1,8 @@
+id: component.GoalPanel
+kind: component
+fields:
+  name: GoalPanel
+  description: No saved goal displays as no goal, not as an inferred target
+  cardinality: exactly one
+links:
+  - { rel: reads, to: entity.RelationshipGoal }

@@ -1,0 +1,8 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "1d776e6ad96942c36e9c37231c65dfcd8892d9b0b97f7638892d5dbcb4540b88",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "ready",
+  "findings": []
+}

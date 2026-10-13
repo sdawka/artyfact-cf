@@ -1,7 +1,7 @@
 import type { Edge, Node } from "@xyflow/react";
 import type { ElkPoint } from "@/graph/elk";
 import type { Layer } from "@/model/useSelection";
-import type { MapEdge, MapNode } from "../useMapGraph";
+import type { MapBand, MapEdge, MapNode } from "../useMapGraph";
 
 export interface MapNodeData extends Record<string, unknown> {
   node: MapNode;
@@ -18,6 +18,10 @@ export interface MapNodeData extends Record<string, unknown> {
 
 export interface BoundaryData extends Record<string, unknown> {
   height: number;
+}
+
+export interface BandData extends Record<string, unknown> {
+  band: MapBand;
 }
 
 export interface CrossLinkData extends Record<string, unknown> {
@@ -37,5 +41,6 @@ export type SubjectFlowNode = Node<MapNodeData, "subject">;
 export type ExternalFlowNode = Node<MapNodeData, "external">;
 export type GroupFlowNode = Node<MapNodeData, "scope">;
 export type BoundaryFlowNode = Node<BoundaryData, "boundary">;
-export type MapFlowNode = SubjectFlowNode | ExternalFlowNode | GroupFlowNode | BoundaryFlowNode;
+export type BandFlowNode = Node<BandData, "band">;
+export type MapFlowNode = SubjectFlowNode | ExternalFlowNode | GroupFlowNode | BoundaryFlowNode | BandFlowNode;
 export type CrossLinkFlowEdge = Edge<CrossLinkData, "crossLink">;

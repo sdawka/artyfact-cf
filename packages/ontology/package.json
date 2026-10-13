@@ -1,0 +1,29 @@
+{
+  "name": "@artyfact/ontology",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "sideEffects": false,
+  "main": "src/index.ts",
+  "exports": {
+    ".": "./src/index.ts",
+    "./genome": "./src/genome/index.ts",
+    "./codec/v1": "./src/codec/v1.ts",
+    "./artyfact": "./src/adapters/artyfact/index.ts",
+    "./artyfact/node": "./src/adapters/artyfact/node.ts",
+    "./product": "./src/adapters/product/index.ts",
+    "./world": "./src/adapters/world/index.ts"
+  },
+  "dependencies": {
+    "@artyfact/rules": "*",
+    "yaml": "^2.9.1",
+    "zod": "^4.6.6"
+  },
+  "scripts": {
+    "test": "vitest run",
+    "test:live": "ONTOLOGY_LIVE=1 vitest run test/semantic/live.test.ts",
+    "test:route:live": "ONTOLOGY_LIVE=1 vitest run test/route/live.test.ts",
+    "typecheck": "tsc -b"
+  }
+}

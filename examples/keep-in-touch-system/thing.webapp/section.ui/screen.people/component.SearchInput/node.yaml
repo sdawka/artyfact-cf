@@ -1,0 +1,5 @@
+id: component.SearchInput
+kind: component
+fields:
+  name: SearchInput
+  cardinality: exactly one

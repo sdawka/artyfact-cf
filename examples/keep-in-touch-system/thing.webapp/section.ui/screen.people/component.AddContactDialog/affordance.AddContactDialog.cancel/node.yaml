@@ -1,0 +1,8 @@
+id: affordance.AddContactDialog.cancel
+kind: affordance
+fields:
+  name: Cancel
+  actor: ext.owner
+  trigger: Owner activates Cancel in the dialog
+  effects:
+    - Closes the dialog and discards the draft; nothing is saved

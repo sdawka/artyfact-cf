@@ -1,0 +1,12 @@
+id: affordance.SuggestionCard.openPerson
+kind: affordance
+fields:
+  name: Open person
+  actor: ext.owner
+  trigger: Owner activates Open person on a card
+  preconditions:
+    - Owned contact
+  effects:
+    - Navigates to /people/:id for the suggestion's target ContactRecord
+  failure:
+    - Contact not found shows a non-revealing denial

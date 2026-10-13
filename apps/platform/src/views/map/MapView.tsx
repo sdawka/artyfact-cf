@@ -16,7 +16,7 @@ import { isTyping } from "@/app/Shell";
 import { LayerSwitch } from "@/app/LayerSwitch";
 import { useEvolutions } from "@/api/queries";
 import { announceSelect, flowNodeElement } from "@/effects/ambientEvents";
-import { kindInfo } from "@/model/kinds";
+import { useKindViews, type KindViews } from "@/model/kinds";
 import type { ModelIndex } from "@/model/index";
 import type { Rollup } from "@/model/status";
 import { useModel } from "@/model/useModel";
@@ -24,6 +24,7 @@ import { useSelection, type Layer } from "@/model/useSelection";
 import { CrossLinkEdge, labelAnchor } from "./edges/CrossLinkEdge";
 import { HierarchyTree } from "./HierarchyTree";
 import { MapFilters } from "./MapFilters";
+import { BandNode } from "./nodes/BandNode";
 import { BoundaryNode } from "./nodes/BoundaryNode";
 import { ExternalNode } from "./nodes/ExternalNode";
 import { GroupNode } from "./nodes/GroupNode";
@@ -32,6 +33,7 @@ import type { CrossLinkFlowEdge, MapFlowNode, MapNodeData } from "./nodes/types"
 import { candidateHalos, phenomeCounters, realizationCount } from "./overlays/overlayData";
 import { useCandidateTouches } from "./overlays/useCandidateTouches";
 import {
+  bandFrameId,
   DEFAULT_FILTERS,
   layoutReversed,
   mapLayoutRequest,
@@ -44,7 +46,7 @@ import {
 } from "./useMapGraph";
 import styles from "./MapView.module.css";
 
-const NODE_TYPES = { subject: SubjectNode, external: ExternalNode, scope: GroupNode, boundary: BoundaryNode };
+const NODE_TYPES = { subject: SubjectNode, external: ExternalNode, scope: GroupNode, boundary: BoundaryNode, band: BandNode };
 const EDGE_TYPES = { crossLink: CrossLinkEdge };
 const BOUNDARY_ID = "__boundary";
 const FIT = { padding: 0.12, maxZoom: 1.1 };
@@ -63,6 +65,7 @@ function flowNodes(
     onOpen: MapNodeData["onOpen"];
     /** Overlay state for the node's accessible name (counters, realizations, candidates). */
     describe: (id: string) => string;
+    views: KindViews;
   },
 ): MapFlowNode[] {
   const out: MapFlowNode[] = [];
@@ -100,7 +103,7 @@ function flowNodes(
         status: extra.status.get(n.id),
         onOpen: extra.onOpen,
       };
-      const info = kindInfo(n.kind);
+      const info = extra.views.of(n.kind);
       const base = {
         id: n.id,
         position: { x: box.x, y: box.y },
@@ -120,9 +123,35 @@ function flowNodes(
           .filter(Boolean)
           .join(", "),
       };
-      if (role === "scope") out.push({ ...base, type: "scope", zIndex: 0 });
+      if (role === "scope") {
+        out.push({ ...base, type: "scope", zIndex: 0 });
+        if (graph.layered) {
+          for (const b of graph.bands) {
+            const fb = layout.nodes[bandFrameId(b.id)];
+            if (!fb) continue;
+            out.push({
+              id: bandFrameId(b.id),
+              type: "band",
+              parentId: n.id,
+              extent: "parent",
+              position: { x: fb.x, y: fb.y },
+              style: { width: fb.width, height: fb.height },
+              width: fb.width,
+              height: fb.height,
+              data: { band: b },
+              selectable: false,
+              focusable: false,
+              draggable: false,
+              zIndex: 0,
+            });
+          }
+        }
+      }
       else if (role === "external") out.push({ ...base, type: "external" });
-      else out.push({ ...base, type: "subject", ...(n.parentId && { parentId: n.parentId, extent: "parent" as const }) });
+      else {
+        const parentId = n.parentId && graph.layered && n.band ? bandFrameId(n.band) : n.parentId;
+        out.push({ ...base, type: "subject", ...(parentId && { parentId, extent: "parent" as const }) });
+      }
     }
   }
   return out;
@@ -176,11 +205,17 @@ function FitNewGraph({ width, height, container }: { width: number; height: numb
   return null;
 }
 
-function modelKinds(index: ModelIndex) {
+/** Kinds the Map can draw (anything in the System's containment tree; with template layers, only kinds in a layer) and the relations present. */
+export function modelKinds(index: ModelIndex, views: KindViews) {
   const kinds = new Set<string>();
   const links = new Set<string>();
+  const layers = new Set(views.layers.map((l) => l.id));
+  const root = index.model.system.id;
+  for (const id of index.descendants(root)) {
+    const kind = index.byId(id)?.kind;
+    if (id !== root && kind && (!layers.size || layers.has(views.of(kind).layer ?? ""))) kinds.add(kind);
+  }
   for (const e of index.entries) {
-    if (e.type === "thing" || e.type === "node") kinds.add(e.kind);
     for (const l of index.crossLinks(e.id, "out")) if ((l.rel as string) !== "contains") links.add(l.rel);
   }
   return { kinds: [...kinds].sort(), links: [...links].sort() };
@@ -208,6 +243,7 @@ function CertaintyLegend() {
 
 export function MapView() {
   const { index, path, parent, rollup } = useModel();
+  const views = useKindViews();
   const { focusId, setFocus, layer, candidates } = useSelection();
   const { thingId } = useParams();
   const root = thingId ?? index.model.system.id;
@@ -293,8 +329,8 @@ export function MapView() {
 
   const status = useMemo(() => new Map(graph.nodes.map((n) => [n.id, nodeStatus(rollup(n.id))])), [graph, rollup]);
   const nodes = useMemo(
-    () => (layout ? flowNodes(graph, layout, request, { layer, focusId, halos, lit, status, onOpen: openScope, describe }) : []),
-    [graph, layout, request, layer, focusId, halos, lit, status, openScope, describe],
+    () => (layout ? flowNodes(graph, layout, request, { layer, focusId, halos, lit, status, onOpen: openScope, describe, views }) : []),
+    [graph, layout, request, layer, focusId, halos, lit, status, openScope, describe, views],
   );
 
   useEffect(() => {
@@ -351,20 +387,20 @@ export function MapView() {
     [graph, layout, hovered, lit, labelled, focusId],
   );
 
-  const { kinds, links } = useMemo(() => modelKinds(index), [index]);
+  const { kinds, links } = useMemo(() => modelKinds(index, views), [index, views]);
   const findingCount = useFindingSubjects().size;
 
   const onNodeClick: NodeMouseHandler<MapFlowNode> = (_, n) => {
-    if (n.type !== "boundary" && n.id !== focusId) setFocus(n.id);
+    if (n.type !== "boundary" && n.type !== "band" && n.id !== focusId) setFocus(n.id);
   };
   const onNodeDoubleClick: NodeMouseHandler<MapFlowNode> = (_, n) => {
-    if (n.type !== "boundary") openScope(n.id);
+    if (n.type !== "boundary" && n.type !== "band") openScope(n.id);
   };
   const nodeIdOf = (t: EventTarget) => (t instanceof HTMLElement && t.classList.contains("react-flow__node") ? (t.dataset.id ?? null) : null);
   // Keyboard: Enter on a focused node focuses it (Inspector); the node's own "inside ›" button opens it.
   const onCanvasKeyDown = (e: KeyboardEvent<HTMLDivElement>) => {
     const id = nodeIdOf(e.target);
-    if (e.key === "Enter" && id && id !== BOUNDARY_ID) {
+    if (e.key === "Enter" && id && id !== BOUNDARY_ID && !id.startsWith(bandFrameId(""))) {
       e.preventDefault();
       setFocus(id);
     }
@@ -439,7 +475,7 @@ export function MapView() {
                 zoomOnDoubleClick={false}
                 onNodeClick={onNodeClick}
                 onNodeDoubleClick={onNodeDoubleClick}
-                onNodeMouseEnter={(_, n) => n.type !== "boundary" && setHovered(n.id)}
+                onNodeMouseEnter={(_, n) => n.type !== "boundary" && n.type !== "band" && setHovered(n.id)}
                 onNodeMouseLeave={() => setHovered(null)}
                 proOptions={{ hideAttribution: true }}
               >

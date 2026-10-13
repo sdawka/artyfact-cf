@@ -1,0 +1,28 @@
+id: affordance.AddContactDialog.save
+kind: affordance
+fields:
+  name: Save
+  owningThing: thing.webapp
+  revision: 1
+  actor: owner
+  effects:
+    - Saves the contact for its owner
+links:
+  - { rel: invokes, to: operation.contact.save }
+criteria:
+  - id: C.webapp.contact.save
+    title: Saving a contact persists it
+    claim: Save writes a ContactRecord owned by the actor.
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    sourceRefs:
+      - S.webapp.contacts
+    hooks:
+      - id: hook.webapp.contact.save
+        assay: Save round-trip test
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate

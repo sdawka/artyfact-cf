@@ -1,0 +1,6 @@
+id: component.AddContactNameField
+kind: component
+fields:
+  name: NameField
+  description: Name field; nonblank name is required
+  cardinality: exactly one

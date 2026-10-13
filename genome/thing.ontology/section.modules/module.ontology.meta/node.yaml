@@ -1,0 +1,10 @@
+id: module.ontology.meta
+kind: module
+fields:
+  name: Templates
+  description: meta@1 schema, template loading and form checks.
+  path: src/meta
+links:
+  - { rel: implements, to: export.ontology.load-template }
+files:
+  - src/meta/**

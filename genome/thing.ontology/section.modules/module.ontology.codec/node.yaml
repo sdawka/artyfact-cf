@@ -1,0 +1,11 @@
+id: module.ontology.codec
+kind: module
+fields:
+  name: Tree codec
+  description: Reads, writes and converts the Genome v2 tree.
+  path: src/codec
+links:
+  - { rel: implements, to: export.ontology.read-tree }
+  - { rel: implements, to: export.ontology.apply-ops }
+files:
+  - src/codec/**

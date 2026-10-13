@@ -1,0 +1,8 @@
+id: J.describe-change
+kind: journey
+fields:
+  name: Describe a change
+  actorGoal: Turn a change stated in words into reviewed node updates and a candidate
+  features:
+    - feature.describe-change
+  start: d1

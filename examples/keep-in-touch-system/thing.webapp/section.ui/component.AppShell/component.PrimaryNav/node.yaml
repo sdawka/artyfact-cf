@@ -1,0 +1,9 @@
+id: component.PrimaryNav
+kind: component
+fields:
+  name: PrimaryNav
+  description: Primary navigation containing Today, People and Settings
+links:
+  - { rel: references, to: screen.today }
+  - { rel: references, to: screen.people }
+  - { rel: references, to: screen.settings }

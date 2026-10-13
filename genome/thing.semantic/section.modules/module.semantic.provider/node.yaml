@@ -1,0 +1,11 @@
+id: module.semantic.provider
+kind: module
+fields:
+  name: Provider
+  description: Picks the engine's System One provider from the environment.
+  path: src/provider.ts
+links:
+  - { rel: implements, to: export.semantic.create }
+  - { rel: dependsOn, to: module.ontology.judge }
+files:
+  - src/provider.ts

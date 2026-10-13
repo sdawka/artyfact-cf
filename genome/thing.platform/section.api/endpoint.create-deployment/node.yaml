@@ -1,0 +1,7 @@
+id: endpoint.create-deployment
+kind: endpoint
+fields:
+  name: Create a deployment
+  description: Asks the CI Worker to deploy a promoted commit to production.
+  route: POST /api/systems/:id/deployments
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.

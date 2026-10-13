@@ -33,7 +33,7 @@
   color: var(--color-text-subtle);
   text-align: center;
 }
-.glyph { flex: none; color: var(--color-text-subtle); }
+.glyph { flex: none; color: var(--kind, var(--color-text-subtle)); }
 .name {
   min-width: 0;
   overflow: hidden;

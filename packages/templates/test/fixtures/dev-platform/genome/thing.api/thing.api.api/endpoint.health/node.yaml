@@ -1,0 +1,7 @@
+id: endpoint.health
+kind: endpoint
+fields:
+  name: Health
+  description: Reports whether the Worker and its job store respond.
+  route: GET /health
+  auth: Anonymous; callers without a token still receive the same body.

@@ -1,0 +1,5 @@
+id: thing.model.api
+kind: section
+fields:
+  name: API
+  description: The names the package exports and how callers use them.

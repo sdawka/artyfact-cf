@@ -1,0 +1,11 @@
+id: J.goals/e2
+kind: step
+fields:
+  step: e2
+  actor: user
+  action: No change saved; no goal shown as no goal, not an inferred target
+  kind: end
+  requirementRefs:
+    - S.webapp.screens
+links:
+  - { rel: stepScreen, to: screen.person }

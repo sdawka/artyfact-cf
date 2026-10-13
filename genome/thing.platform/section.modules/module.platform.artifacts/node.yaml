@@ -1,0 +1,11 @@
+id: module.platform.artifacts
+kind: module
+fields:
+  name: Artifacts access
+  description: Reads commits and trees through the ARTIFACTS binding, loads the Genome at a commit, maps files to nodes and fakes the namespace for FAKE_ARTIFACTS=1.
+  path: worker/artifacts
+links:
+  - { rel: dependsOn, to: module.platform.git }
+  - { rel: dependsOn, to: module.cli.naming }
+files:
+  - worker/artifacts/**

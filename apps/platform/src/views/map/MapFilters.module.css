@@ -38,7 +38,7 @@
 .check input { accent-color: var(--color-brand-primary); margin: 0; }
 .check input:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .count { color: var(--color-text-subtle); }
-.glyph { width: 1em; color: var(--color-text-subtle); text-align: center; }
+.glyph { width: 1em; color: var(--kind, var(--color-text-subtle)); text-align: center; }
 .group summary {
   color: var(--color-text-secondary);
   cursor: pointer;

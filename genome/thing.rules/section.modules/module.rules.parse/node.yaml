@@ -1,0 +1,10 @@
+id: module.rules.parse
+kind: module
+fields:
+  name: Parser
+  description: Turns Datalog text into declarations, rules and messages.
+  path: src/parse.ts
+links:
+  - { rel: implements, to: export.rules.parse }
+files:
+  - src/parse.ts

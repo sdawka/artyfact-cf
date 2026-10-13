@@ -1,0 +1,16 @@
+id: J.control.delete/z3
+kind: step
+fields:
+  step: z3
+  actor: system
+  action: Owner reauthentication checked
+  kind: branch
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: z4
+      when: reauthenticated
+    - to: f1
+      when: reauthentication failed
+links:
+  - { rel: stepScreen, to: screen.settings }

@@ -1,0 +1,140 @@
+# A static site built ahead of time and served as files: its pages and the assets they use.
+id: template.thing.static-site
+version: 1
+meta: 1
+extends: template.meta.artyfact-genome@1
+criteria:
+  - id: C.$self.checks
+    owner: thing
+    subject: thing
+    severity: soft
+    description: Changed nodes meet the checks their kinds declare.
+    gates:
+      - submission
+    hooks:
+      - hook.$self.checks
+kinds:
+  page:
+    description: One page of the site, served at one route.
+    parents: [section]
+    fields:
+      - {name: name, type: string, required: true}
+      - {name: description, type: string, required: true}
+      - {name: route, type: string, required: true}
+      - {name: rendering, type: string, enum: [static, prerendered, client]}
+    completeness: {fields: [name, description, route]}
+    criteria:
+      noun: page
+      instanceOf: A page is one document the site serves at one route.
+      grounded: It names its route, what a visitor sees and what it links to.
+      testable: A testable page names the content that must be present and what would fail it.
+    checks:
+      - id: routeShape
+        text: Its route is an absolute path that starts with a slash and has no query or fragment.
+        field: route
+        pattern: "^/[^?#\\s]*$"
+        level: error
+      - id: visitorPurpose
+        text: States what a visitor comes to the page to do or learn.
+        defect: specificity.underspecified
+    view: {label: Page, plural: Pages, glyph: "Pg", colour: pink, layer: experience, title: name, fields: [name, route, rendering, description]}
+  asset:
+    description: A file the build copies or generates for the site to serve.
+    parents: [section, page]
+    fields:
+      - {name: name, type: string, required: true}
+      - {name: description, type: string, required: true}
+      - {name: path, type: string, required: true}
+      - {name: type, type: string, enum: [image, font, style, script, data, other]}
+    completeness: {fields: [name, description, path]}
+    criteria:
+      noun: asset
+      instanceOf: An asset is a file the build copies or generates for the site to serve.
+      grounded: It names its path and where it comes from.
+    checks:
+      - id: pathShape
+        text: Its path is repo-relative or relative to the output directory, with no leading slash.
+        field: path
+        pattern: "^(?![/.])(?!.*\\.\\.)\\S+$"
+        level: warning
+      - id: provenance
+        text: States whether the build copies the asset or generates it, and from what.
+        defect: specificity.underspecified
+    view: {label: Asset, plural: Assets, glyph: "As", colour: amber, layer: runtime, title: name, fields: [name, path, type, description]}
+relations:
+  exposes:
+    description: The Thing offers the target as part of its public surface.
+    from: [thing]
+    to: [page]
+  calls:
+    description: The source invokes the target at run time.
+    from: [thing, page]
+    to: [thing, page]
+  deploys:
+    description: The source ships the target to its runtime.
+    from: [thing]
+    to: [thing]
+  stepScreen:
+    description: The journey step shows the target. Redeclared so that a page can be a step's screen, beside the artyfact screen kind.
+    from: [step]
+    to: [screen, page]
+nodes:
+  - id: template.thing.static-site@1
+    kind: template
+    fields:
+      kind: thing
+      version: "1"
+      name: Static site
+      description: "A static site built ahead of time and served as files: its pages and the assets they use."
+      sections:
+        - $self.pages
+        - $self.build
+      criteria:
+        - C.$self.checks
+      hooks:
+        - hook.$self.checks
+  - {id: $self.pages, kind: section, parent: $self, fields: {name: Pages, revision: 1, description: "The routes the site serves and what each shows.", fromTemplate: template.thing.static-site@1}, files: ["src/pages/**"]}
+  - {id: $self.build, kind: section, parent: $self, fields: {name: Build, revision: 1, description: "The files the build copies or generates, and how.", fromTemplate: template.thing.static-site@1}, files: ["public/**", "scripts/**"]}
+  - id: C.$self.checks
+    kind: criterion
+    fields:
+      version: 1
+      title: Changed nodes meet their checks
+      claim: Changed nodes meet the checks their kinds declare.
+      ownerKind: thing
+      subjectKind: thing
+      targetKind: model
+      severity: soft
+      gates:
+        - submission
+      deferred: false
+      hooks:
+        - hook.$self.checks
+      fromTemplate: template.thing.static-site@1
+    links:
+      - rel: owner
+        to: $self
+      - rel: subject
+        to: $self
+  - id: hook.$self.checks
+    kind: hook
+    fields:
+      version: 1
+      assay: site.checks
+      criteria:
+        - C.$self.checks
+      tier: semantic
+      engine: model-rules
+      targetKind: model
+      triggers:
+        - submission
+      inputs:
+        packs: checks@1
+      timeoutMs: 60000
+      costTier: free
+      binding: bound
+      fromTemplate: template.thing.static-site@1
+files:
+  - "{package.json,package-lock.json,tsconfig.json,vite.config.*,astro.config.*,wrangler.jsonc,.gitignore,README.md}"
+  - "src/**"
+  - "test/**"

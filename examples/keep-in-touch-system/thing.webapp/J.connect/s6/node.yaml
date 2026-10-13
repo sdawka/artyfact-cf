@@ -1,0 +1,12 @@
+id: J.connect/s6
+kind: step
+fields:
+  step: s6
+  actor: counterpart
+  action: Sign in; the validated invitation is preserved and not consumed
+  requirementRefs:
+    - S.webapp.authentication
+  next:
+    - to: s7
+links:
+  - { rel: stepScreen, to: screen.signin }

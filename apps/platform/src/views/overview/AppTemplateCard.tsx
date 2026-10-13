@@ -40,36 +40,39 @@ export function AppTemplateCard() {
   const uid = useId();
   const m = useModel();
   const fixture = m.bundle.source === "fixture";
-  const plan = useTemplateUpgrade({ enabled: !fixture });
+  const query = useTemplateUpgrade({ enabled: !fixture });
   const [open, setOpen] = useState(false);
+  // A template with no scaffold has nothing to upgrade from: no card.
+  if (query.data && "status" in query.data) return null;
+  const data = query.data;
 
   const reason = fixture
     ? FIXTURE_REASON
-    : plan.isError
-      ? `The plan could not be read: ${plan.error.message}`
-      : plan.data?.upToDate
+    : query.isError
+      ? `The plan could not be read: ${query.error.message}`
+      : data?.upToDate
         ? "The app already matches the template."
         : null;
 
   return (
     <section className={styles.card} aria-labelledby={`${uid}-h`}>
       <h2 id={`${uid}-h`} className={styles.cardTitle}>App template</h2>
-      {fixture || plan.isError ? (
+      {fixture || query.isError ? (
         <p className={styles.plainText}><span className={styles.unknown}>unknown</span></p>
-      ) : plan.isLoading || !plan.data ? (
+      ) : query.isLoading || !data ? (
         <p role="status" className={styles.muted}>Checking the app template…</p>
       ) : (
         <p className={styles.plainText}>
-          {status(plan.data)}
-          {plan.data.from && plan.data.from !== plan.data.to ? ` (scaffolded at ${short(plan.data.from)})` : ""}
-          {!plan.data.locked ? ". The app repo has no template lock, so edited files show as conflicts." : "."}
+          {status(data)}
+          {data.from && data.from !== data.to ? ` (scaffolded at ${short(data.from)})` : ""}
+          {!data.locked ? ". The app repo has no template lock, so edited files show as conflicts." : "."}
         </p>
       )}
       <div className={workStyles.actions}>
         <button
           type="button"
           className={`u-brackets ${workStyles.primary}`}
-          disabled={!!reason || !plan.data}
+          disabled={!!reason || !data}
           aria-expanded={open}
           aria-describedby={reason ? `${uid}-why` : undefined}
           onClick={() => setOpen((o) => !o)}
@@ -78,7 +81,7 @@ export function AppTemplateCard() {
         </button>
         {reason && <span id={`${uid}-why`} className={workStyles.reason}>{reason}</span>}
       </div>
-      {open && plan.data && !plan.data.upToDate && <TemplateUpgradePanel plan={plan.data} />}
+      {open && data && !data.upToDate && <TemplateUpgradePanel plan={data} />}
     </section>
   );
 }

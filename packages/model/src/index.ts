@@ -1,13 +1,13 @@
 export * as schema from "./schema.ts";
-export { loadSystem, ModelParseError, templateRef, THING_PLACEHOLDER, SYSTEM_PLACEHOLDER } from "./load.ts";
-export type { SystemModel, TemplateStore, ParseIssue, ModelWarning } from "./load.ts";
+export { KNOWN_KINDS } from "./schema.ts";
+export { fromGraph, LegacyGenomeError, loadGenome, ModelParseError, stepKey } from "./genome.ts";
+export type { LoadOptions, ModelWarning, ParseIssue, SourceGlob, SystemModel, TemplateStore } from "./genome.ts";
 export { index } from "./model-index.ts";
 export type { ModelIndex, IndexEntry, EntryType, LinkRef } from "./model-index.ts";
-export { toFacts, RELATIONS, stepKey } from "./facts.ts";
-export type { RelationName } from "./facts.ts";
-export { validate } from "./validate.ts";
+export { readinessTemplate, rulePacksOf, selectPacks, unavailablePins, validate } from "./validate.ts";
 export type { Finding, Readiness, RulePack } from "./validate.ts";
 export type { DerivationTree, FactSet, Tuple, Value } from "@artyfact/rules";
+export { sha256Hex } from "@artyfact/rules";
 export { diffModels, overlap } from "./diff.ts";
 export type { SemanticDelta } from "./diff.ts";
 export { toMermaid } from "./mermaid.ts";

@@ -16,24 +16,30 @@ const env = (over: Partial<SubmissionContext> = {}) => {
     candidate: { id: "c", realizationId: "r", evolutionId: "evolution.1", target: "app", commit: COMMIT, baseCommit: BASE, changedPaths: ["src/a.ts"], changedNodes: ["screen.people"] },
     ...over,
   };
-  return { ctx, base: loadGenome(miniGenome(), BASE), rules: () => modelRules({ files: miniGenome(), revision: BASE }) };
+  return { ctx, base: loadGenome(miniGenome(), BASE), rules: () => modelRules({ files: miniGenome(), revision: BASE }), engine: () => Promise.reject(new Error("unused")) };
 };
 
 describe("model-rules checks", () => {
-  it("only errored parts → execution error", () => {
-    const o = modelRulesHook(env(), hook({ check: "bogus" }));
+  it("only errored parts → execution error", async () => {
+    const o = await modelRulesHook(env(), hook({ check: "bogus" }));
     expect(o).toMatchObject({ execution: "error", verdict: "unknown" });
   });
 
-  it("mixed errored and completed parts → completed, unknown, with a limitation naming the errored part", () => {
-    const o = modelRulesHook(env(), hook({ check: "scope-authorized,bogus" }));
+  it("mixed errored and completed parts → completed, unknown, with a limitation naming the errored part", async () => {
+    const o = await modelRulesHook(env(), hook({ check: "scope-authorized,bogus" }));
     expect(o).toMatchObject({ execution: "completed", verdict: "unknown" });
     expect(o.limitations.join(" ")).toContain("bogus errored");
     expect(o.interpretation).toContain('bogus: unknown (Unknown check "bogus")');
   });
 
-  it("only not-run parts → not-run", () => {
-    const o = modelRulesHook(env(), hook({ check: "manifest-exact,evidence-fresh" }));
+  it("an engine run that fails is unknown with the error in limitations, never pass", async () => {
+    const o = await modelRulesHook({ ...env(), engine: () => Promise.reject(new Error("unknown template template.system.gone@1")) }, hook({ packs: "metamodel@1" }));
+    expect(o).toMatchObject({ execution: "error", verdict: "unknown" });
+    expect(o.limitations.join(" ")).toContain("unknown template template.system.gone@1");
+  });
+
+  it("only not-run parts → not-run", async () => {
+    const o = await modelRulesHook(env(), hook({ check: "manifest-exact,evidence-fresh" }));
     expect(o).toMatchObject({ execution: "not-run", verdict: "unknown" });
   });
 });

@@ -1,0 +1,25 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#split-endpoint-entries",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "f61c40ce0942151c19e33d8c55096642a69ef893b5cc2202a02aad03dfb64180",
+  "templateHash": "a58bdf35142b40c2066060663860f6ec2482b913aeecaf4d13102b2a8511c2f8",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.relation-endpoints-legal",
+      "severity": "blocker",
+      "message": "relation dependsOn cannot connect outcome to store",
+      "objectIds": [
+        "outcome-1",
+        "progress-1"
+      ],
+      "factIds": [
+        "rel-outcome-store"
+      ],
+      "source": {
+        "kind": "declared",
+        "reference": "mutation"
+      }
+    }
+  ]
+}

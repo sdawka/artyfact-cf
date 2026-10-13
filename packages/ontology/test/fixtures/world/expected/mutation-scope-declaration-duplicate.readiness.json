@@ -1,0 +1,23 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#scope-declaration-duplicate",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "d7de1ab0b373ab7670eb9be0cc12a28cd45f4d573924b7fcaa58ec75bdf1b30c",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.completeness-declarations-unique",
+      "severity": "blocker",
+      "message": "scope purpose-links has duplicate completeness declarations",
+      "objectIds": [],
+      "factIds": [
+        "fixture:scope:purpose-links",
+        "fixture:scope:purpose-links"
+      ],
+      "source": {
+        "kind": "declared",
+        "reference": "revision:assistant-valid"
+      }
+    }
+  ]
+}

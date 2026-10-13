@@ -1,0 +1,5 @@
+id: component.ContactEventForm
+kind: component
+fields:
+  name: ContactEventForm
+  cardinality: exactly one

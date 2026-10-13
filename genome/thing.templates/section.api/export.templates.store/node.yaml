@@ -1,0 +1,7 @@
+id: export.templates.store
+kind: export
+fields:
+  name: metaTemplates
+  signature: "export const metaTemplates: TemplateStore"
+  stability: stable
+  description: The meta@1 template sources by ref, plus the engine's base template they extend; the store the model loader and the gates read.

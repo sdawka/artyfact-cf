@@ -1,0 +1,6 @@
+id: section.externals
+kind: section
+fields:
+  name: Externals
+  description: People, groups, contexts and services outside the System boundary that it serves or depends on.
+  fromTemplate: template.system.social-networking.cloudflare@1

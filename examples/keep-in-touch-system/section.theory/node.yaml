@@ -1,0 +1,6 @@
+id: section.theory
+kind: section
+fields:
+  name: Theory of change
+  description: Claims linking activities to outcomes, each with an indicator and an evaluation method.
+  fromTemplate: template.system.social-networking.cloudflare@1

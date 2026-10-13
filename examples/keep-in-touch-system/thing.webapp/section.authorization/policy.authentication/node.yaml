@@ -1,0 +1,18 @@
+id: policy.authentication
+kind: policy
+fields:
+  name: Authentication
+  description: Who counts as a signed-in user. Provisional until an auth kit is pinned.
+  fromTemplate: template.thing.cloudflare-worker-webapp@1
+links:
+  - { rel: governs, to: screen.signin }
+  - { rel: governs, to: screen.invitation }
+  - { rel: governs, to: operation.contact.save }
+  - { rel: governs, to: operation.goal.save }
+  - { rel: governs, to: operation.contact.log }
+  - { rel: governs, to: operation.invite.create }
+  - { rel: governs, to: operation.invite.accept }
+  - { rel: governs, to: operation.connection.revoke }
+  - { rel: governs, to: operation.data.export }
+  - { rel: governs, to: operation.data.delete }
+provisional: true

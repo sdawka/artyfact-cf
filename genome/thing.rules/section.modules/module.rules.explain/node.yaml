@@ -1,0 +1,10 @@
+id: module.rules.explain
+kind: module
+fields:
+  name: Explain
+  description: Builds derivation trees for findings.
+  path: src/explain.ts
+links:
+  - { rel: implements, to: export.rules.explain }
+files:
+  - src/explain.ts

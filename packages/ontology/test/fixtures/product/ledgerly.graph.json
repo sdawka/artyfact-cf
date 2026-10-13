@@ -1,0 +1,1640 @@
+{
+  "nodes": [
+    {
+      "id": "name-ledgerly",
+      "kind": "name",
+      "title": "Ledgerly",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "purpose-freelancers-get-paid-on-time-and-always",
+      "kind": "purpose",
+      "title": "Freelancers get paid on time and always know what cash is coming",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      },
+      "description": "Cash is the oxygen of a one-person business; Ledgerly exists so a freelancer never has to guess whether next month is covered."
+    },
+    {
+      "id": "summary-invoicing-polite-payment-chasing-and-a",
+      "kind": "summary",
+      "title": "Invoicing, polite payment chasing and a 60-day cash forecast for freelancers and their accountants",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      },
+      "description": "Ledgerly turns delivered work into a sent invoice in under a minute, chases payment on the freelancer's behalf, projects the next 60 days of cash, and hands the accountant a clean quarter."
+    },
+    {
+      "id": "audience-independent-freelancer",
+      "kind": "audience",
+      "title": "Independent freelancer",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      },
+      "description": "Designers, developers and writers billing their own clients."
+    },
+    {
+      "id": "audience-freelancers-accountant",
+      "kind": "audience",
+      "title": "Freelancer's accountant",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      },
+      "description": "Prepares quarterly VAT and the annual return for several freelancers."
+    },
+    {
+      "id": "context-solo-practices-billing-3-15-clients",
+      "kind": "context",
+      "title": "Solo practices billing 3-15 clients, often in two currencies",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "usecase-send-an-invoice-the-day-work-is",
+      "kind": "usecase",
+      "title": "Send an invoice the day work is delivered",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "usecase-hand-a-clean-quarter-of-books-to-the",
+      "kind": "usecase",
+      "title": "Hand a clean quarter of books to the accountant",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "problem-clients-pay-late-and-chasing-them-feels",
+      "kind": "problem",
+      "title": "Clients pay late and chasing them feels awkward",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "problem-no-idea-whether-next-months-rent-is",
+      "kind": "problem",
+      "title": "No idea whether next month's rent is covered",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "problem-matching-bank-deposits-to-invoices-by",
+      "kind": "problem",
+      "title": "Matching bank deposits to invoices by hand at tax time",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "outcome-invoices-are-paid-within-terms",
+      "kind": "outcome",
+      "title": "Invoices are paid within terms",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "outcome-freelancers-plan-spending-with",
+      "kind": "outcome",
+      "title": "Freelancers plan spending with confidence",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "goal-median-days-to-paid-under-14-by-end-of",
+      "kind": "goal",
+      "title": "Median days-to-paid under 14 by end of Q2",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "hypothesis-polite-automatic-reminders-shorten-days",
+      "kind": "hypothesis",
+      "title": "Polite automatic reminders shorten days-to-paid more than manual chasing",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "hypothesis-a-60-day-forecast-reduces-end-of-month",
+      "kind": "hypothesis",
+      "title": "A 60-day forecast reduces end-of-month cash anxiety",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "hypothesis-a-one-click-pay-link-doubles-same-week",
+      "kind": "hypothesis",
+      "title": "A one-click pay link doubles same-week payments",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "assumption-clients-open-invoice-emails-within-two",
+      "kind": "assumption",
+      "title": "Clients open invoice emails within two days",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "assumption-freelancers-will-connect-a-bank-feed",
+      "kind": "assumption",
+      "title": "Freelancers will connect a bank feed during onboarding",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "metric-median-days-to-paid",
+      "kind": "metric",
+      "title": "Median days to paid",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "metric-forecast-error-at-30-days",
+      "kind": "metric",
+      "title": "Forecast error at 30 days",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "capability-invoicing",
+      "kind": "capability",
+      "title": "Invoicing",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "capability-collections",
+      "kind": "capability",
+      "title": "Collections",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "capability-cash-flow-forecasting",
+      "kind": "capability",
+      "title": "Cash-flow forecasting",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "feature-invoice-builder-with-saved-line-items",
+      "kind": "feature",
+      "title": "Invoice builder with saved line items",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "feature-automatic-payment-reminders",
+      "kind": "feature",
+      "title": "Automatic payment reminders",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "feature-60-day-cash-forecast",
+      "kind": "feature",
+      "title": "60-day cash forecast",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "flow-create-and-send-an-invoice",
+      "kind": "flow",
+      "title": "Create and send an invoice",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "flow-client-pays-from-the-email-link",
+      "kind": "flow",
+      "title": "Client pays from the email link",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "flow-review-the-weekly-cash-forecast",
+      "kind": "flow",
+      "title": "Review the weekly cash forecast",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "flow-export-the-quarter-for-the-accountant",
+      "kind": "flow",
+      "title": "Export the quarter for the accountant",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "screen-invoice-editor",
+      "kind": "screen",
+      "title": "Invoice editor",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "screen-client-payment-page",
+      "kind": "screen",
+      "title": "Client payment page",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "screen-cash-dashboard",
+      "kind": "screen",
+      "title": "Cash dashboard",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "screen-invoice-list",
+      "kind": "screen",
+      "title": "Invoice list",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "agent-collections-agent",
+      "kind": "agent",
+      "title": "Collections agent",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      },
+      "description": "Decides when and how firmly to nudge each overdue client."
+    },
+    {
+      "id": "agent-forecast-agent",
+      "kind": "agent",
+      "title": "Forecast agent",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      },
+      "description": "Rebuilds the 60-day projection whenever an invoice or expense changes."
+    },
+    {
+      "id": "term-net-terms",
+      "kind": "term",
+      "title": "Net terms",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      },
+      "description": "Days a client has to pay after the invoice date, e.g. Net 30."
+    },
+    {
+      "id": "term-cash-runway",
+      "kind": "term",
+      "title": "Cash runway",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      },
+      "description": "How many weeks current cash plus expected receipts cover known expenses."
+    },
+    {
+      "id": "system-ledgerly-platform",
+      "kind": "system",
+      "title": "Ledgerly platform",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "external-stripe",
+      "kind": "external",
+      "title": "Stripe",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "module-invoicing-service",
+      "kind": "module",
+      "title": "Invoicing service",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "module-payments-service",
+      "kind": "module",
+      "title": "Payments service",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "module-forecast-engine",
+      "kind": "module",
+      "title": "Forecast engine",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "module-reminder-mailer",
+      "kind": "module",
+      "title": "Reminder mailer",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "infra-managed-postgres-and-job-queue",
+      "kind": "infra",
+      "title": "Managed Postgres and job queue",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "interface-invoices-api",
+      "kind": "interface",
+      "title": "Invoices API",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "interface-stripe-webhook-endpoint",
+      "kind": "interface",
+      "title": "Stripe webhook endpoint",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "interface-forecast-api",
+      "kind": "interface",
+      "title": "Forecast API",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "thing-invoice",
+      "kind": "thing",
+      "title": "Invoice",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "thing-client",
+      "kind": "thing",
+      "title": "Client",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "thing-payment",
+      "kind": "thing",
+      "title": "Payment",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "thing-cash-forecast",
+      "kind": "thing",
+      "title": "Cash forecast",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "rule-invoice-numbers-are-sequential-with-no",
+      "kind": "rule",
+      "title": "Invoice numbers are sequential with no gaps",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "rule-a-payment-never-exceeds-the-open-balance",
+      "kind": "rule",
+      "title": "A payment never exceeds the open balance",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "rule-tax-rate-is-frozen-once-an-invoice-is",
+      "kind": "rule",
+      "title": "Tax rate is frozen once an invoice is sent",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "event-invoice-sent",
+      "kind": "event",
+      "title": "Invoice sent",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "event-payment-received",
+      "kind": "event",
+      "title": "Payment received",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "protocol-idempotent-webhook-handling",
+      "kind": "protocol",
+      "title": "Idempotent webhook handling",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "ai-function-match-a-bank-deposit-to-an-open-invoice",
+      "kind": "ai-function",
+      "title": "Match a bank deposit to an open invoice",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "test-concurrent-sends-keep-invoice-numbers",
+      "kind": "test",
+      "title": "Concurrent sends keep invoice numbers sequential",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "test-overpayment-is-rejected-with-a-refund",
+      "kind": "test",
+      "title": "Overpayment is rejected with a refund prompt",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "test-partial-payment-leaves-the-invoice-open",
+      "kind": "test",
+      "title": "Partial payment leaves the invoice open",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "repository-ledgerly-monorepo",
+      "kind": "repository",
+      "title": "ledgerly monorepo",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "codebase-api-service-typescript",
+      "kind": "codebase",
+      "title": "api service (TypeScript)",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "practice-replay-last-weeks-webhooks-before-every",
+      "kind": "practice",
+      "title": "Replay last week's webhooks before every deploy",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "test-result-concurrent-sends-pass-run-412",
+      "kind": "test-result",
+      "title": "Concurrent sends: pass (run 412)",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "test-result-overpayment-rejected-pass-run-412",
+      "kind": "test-result",
+      "title": "Overpayment rejected: pass (run 412)",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "test-result-partial-payment-stays-open-fail-run-413",
+      "kind": "test-result",
+      "title": "Partial payment stays open: fail (run 413)",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "epic-bank-feed-reconciliation",
+      "kind": "epic",
+      "title": "Bank-feed reconciliation",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "task-import-bank-transactions-nightly",
+      "kind": "task",
+      "title": "Import bank transactions nightly",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "task-auto-match-deposits-to-open-invoices",
+      "kind": "task",
+      "title": "Auto-match deposits to open invoices",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "metric-reading-median-days-to-paid-19-in-september",
+      "kind": "metric-reading",
+      "title": "Median days to paid: 19 in September",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "metric-reading-forecast-error-at-30-days-11-in",
+      "kind": "metric-reading",
+      "title": "Forecast error at 30 days: 11% in September",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "usage-event-client-opened-pay-link-from-reminder",
+      "kind": "usage-event",
+      "title": "Client opened pay link from reminder",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "feedback-accountant-quarterly-export-is-missing",
+      "kind": "feedback",
+      "title": "Accountant: quarterly export is missing the VAT column",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "evidence-pilot-cohort-paid-6-days-faster-with",
+      "kind": "evidence",
+      "title": "Pilot cohort paid 6 days faster with reminders on",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "evidence-pay-link-invoices-41-paid-same-week-vs",
+      "kind": "evidence",
+      "title": "Pay-link invoices: 41% paid same week vs 22% without",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "evidence-interviews-freelancers-ignore-forecasts",
+      "kind": "evidence",
+      "title": "Interviews: freelancers ignore forecasts beyond 30 days",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    },
+    {
+      "id": "evidence-only-1-in-5-trial-users-connected-a-bank",
+      "kind": "evidence",
+      "title": "Only 1 in 5 trial users connected a bank feed",
+      "status": "committed",
+      "source": {
+        "kind": "inferred",
+        "note": "uip seed"
+      }
+    }
+  ],
+  "edges": [
+    {
+      "id": "e1",
+      "src": "purpose-freelancers-get-paid-on-time-and-always",
+      "dst": "outcome-invoices-are-paid-within-terms",
+      "type": "motivates",
+      "status": "committed"
+    },
+    {
+      "id": "e2",
+      "src": "purpose-freelancers-get-paid-on-time-and-always",
+      "dst": "outcome-freelancers-plan-spending-with",
+      "type": "motivates",
+      "status": "committed"
+    },
+    {
+      "id": "e3",
+      "src": "problem-clients-pay-late-and-chasing-them-feels",
+      "dst": "outcome-invoices-are-paid-within-terms",
+      "type": "motivates",
+      "status": "committed"
+    },
+    {
+      "id": "e4",
+      "src": "hypothesis-polite-automatic-reminders-shorten-days",
+      "dst": "outcome-invoices-are-paid-within-terms",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e5",
+      "src": "hypothesis-polite-automatic-reminders-shorten-days",
+      "dst": "metric-median-days-to-paid",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e6",
+      "src": "hypothesis-a-one-click-pay-link-doubles-same-week",
+      "dst": "outcome-invoices-are-paid-within-terms",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e7",
+      "src": "hypothesis-a-one-click-pay-link-doubles-same-week",
+      "dst": "metric-median-days-to-paid",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e8",
+      "src": "hypothesis-a-60-day-forecast-reduces-end-of-month",
+      "dst": "outcome-freelancers-plan-spending-with",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e9",
+      "src": "hypothesis-a-60-day-forecast-reduces-end-of-month",
+      "dst": "metric-forecast-error-at-30-days",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e10",
+      "src": "metric-median-days-to-paid",
+      "dst": "outcome-invoices-are-paid-within-terms",
+      "type": "monitors",
+      "status": "committed"
+    },
+    {
+      "id": "e11",
+      "src": "metric-forecast-error-at-30-days",
+      "dst": "outcome-freelancers-plan-spending-with",
+      "type": "monitors",
+      "status": "committed"
+    },
+    {
+      "id": "e12",
+      "src": "assumption-clients-open-invoice-emails-within-two",
+      "dst": "hypothesis-polite-automatic-reminders-shorten-days",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e13",
+      "src": "assumption-clients-open-invoice-emails-within-two",
+      "dst": "hypothesis-a-one-click-pay-link-doubles-same-week",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e14",
+      "src": "assumption-freelancers-will-connect-a-bank-feed",
+      "dst": "hypothesis-a-60-day-forecast-reduces-end-of-month",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e15",
+      "src": "evidence-pilot-cohort-paid-6-days-faster-with",
+      "dst": "hypothesis-polite-automatic-reminders-shorten-days",
+      "type": "supports",
+      "status": "committed"
+    },
+    {
+      "id": "e16",
+      "src": "evidence-pay-link-invoices-41-paid-same-week-vs",
+      "dst": "hypothesis-a-one-click-pay-link-doubles-same-week",
+      "type": "supports",
+      "status": "committed"
+    },
+    {
+      "id": "e17",
+      "src": "evidence-interviews-freelancers-ignore-forecasts",
+      "dst": "hypothesis-a-60-day-forecast-reduces-end-of-month",
+      "type": "refutes",
+      "status": "committed"
+    },
+    {
+      "id": "e18",
+      "src": "evidence-only-1-in-5-trial-users-connected-a-bank",
+      "dst": "hypothesis-a-60-day-forecast-reduces-end-of-month",
+      "type": "refutes",
+      "status": "committed"
+    },
+    {
+      "id": "e19",
+      "src": "metric-reading-median-days-to-paid-19-in-september",
+      "dst": "metric-median-days-to-paid",
+      "type": "measures",
+      "status": "committed"
+    },
+    {
+      "id": "e20",
+      "src": "metric-reading-forecast-error-at-30-days-11-in",
+      "dst": "metric-forecast-error-at-30-days",
+      "type": "measures",
+      "status": "committed"
+    },
+    {
+      "id": "e21",
+      "src": "goal-median-days-to-paid-under-14-by-end-of",
+      "dst": "metric-median-days-to-paid",
+      "type": "combines",
+      "status": "committed"
+    },
+    {
+      "id": "e22",
+      "src": "goal-median-days-to-paid-under-14-by-end-of",
+      "dst": "metric-forecast-error-at-30-days",
+      "type": "combines",
+      "status": "committed"
+    },
+    {
+      "id": "e23",
+      "src": "capability-collections",
+      "dst": "hypothesis-polite-automatic-reminders-shorten-days",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e24",
+      "src": "capability-cash-flow-forecasting",
+      "dst": "hypothesis-a-60-day-forecast-reduces-end-of-month",
+      "type": "references",
+      "status": "committed"
+    },
+    {
+      "id": "e25",
+      "src": "audience-independent-freelancer",
+      "dst": "usecase-send-an-invoice-the-day-work-is",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e26",
+      "src": "audience-independent-freelancer",
+      "dst": "problem-clients-pay-late-and-chasing-them-feels",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e27",
+      "src": "audience-independent-freelancer",
+      "dst": "problem-no-idea-whether-next-months-rent-is",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e28",
+      "src": "audience-independent-freelancer",
+      "dst": "context-solo-practices-billing-3-15-clients",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e29",
+      "src": "audience-freelancers-accountant",
+      "dst": "usecase-hand-a-clean-quarter-of-books-to-the",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e30",
+      "src": "audience-freelancers-accountant",
+      "dst": "problem-matching-bank-deposits-to-invoices-by",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e31",
+      "src": "capability-invoicing",
+      "dst": "usecase-send-an-invoice-the-day-work-is",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e32",
+      "src": "capability-invoicing",
+      "dst": "usecase-hand-a-clean-quarter-of-books-to-the",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e33",
+      "src": "feature-invoice-builder-with-saved-line-items",
+      "dst": "usecase-send-an-invoice-the-day-work-is",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e34",
+      "src": "capability-collections",
+      "dst": "problem-clients-pay-late-and-chasing-them-feels",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e35",
+      "src": "capability-collections",
+      "dst": "problem-matching-bank-deposits-to-invoices-by",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e36",
+      "src": "feature-automatic-payment-reminders",
+      "dst": "problem-clients-pay-late-and-chasing-them-feels",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e37",
+      "src": "capability-cash-flow-forecasting",
+      "dst": "problem-no-idea-whether-next-months-rent-is",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e38",
+      "src": "feature-60-day-cash-forecast",
+      "dst": "problem-no-idea-whether-next-months-rent-is",
+      "type": "satisfies",
+      "status": "committed"
+    },
+    {
+      "id": "e39",
+      "src": "capability-invoicing",
+      "dst": "audience-independent-freelancer",
+      "type": "serves",
+      "status": "committed"
+    },
+    {
+      "id": "e40",
+      "src": "capability-invoicing",
+      "dst": "audience-freelancers-accountant",
+      "type": "serves",
+      "status": "committed"
+    },
+    {
+      "id": "e41",
+      "src": "flow-create-and-send-an-invoice",
+      "dst": "capability-invoicing",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e42",
+      "src": "flow-export-the-quarter-for-the-accountant",
+      "dst": "capability-invoicing",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e43",
+      "src": "flow-client-pays-from-the-email-link",
+      "dst": "capability-collections",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e44",
+      "src": "flow-review-the-weekly-cash-forecast",
+      "dst": "capability-cash-flow-forecasting",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e45",
+      "src": "screen-cash-dashboard",
+      "dst": "capability-cash-flow-forecasting",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e46",
+      "src": "screen-invoice-list",
+      "dst": "capability-invoicing",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e47",
+      "src": "feature-invoice-builder-with-saved-line-items",
+      "dst": "flow-create-and-send-an-invoice",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e48",
+      "src": "feature-automatic-payment-reminders",
+      "dst": "flow-client-pays-from-the-email-link",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e49",
+      "src": "feature-60-day-cash-forecast",
+      "dst": "flow-review-the-weekly-cash-forecast",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e50",
+      "src": "flow-create-and-send-an-invoice",
+      "dst": "screen-invoice-editor",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e51",
+      "src": "flow-create-and-send-an-invoice",
+      "dst": "screen-invoice-list",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e52",
+      "src": "flow-client-pays-from-the-email-link",
+      "dst": "screen-client-payment-page",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e53",
+      "src": "flow-review-the-weekly-cash-forecast",
+      "dst": "screen-cash-dashboard",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e54",
+      "src": "screen-invoice-editor",
+      "dst": "interface-invoices-api",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e55",
+      "src": "screen-invoice-editor",
+      "dst": "thing-client",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e56",
+      "src": "screen-invoice-list",
+      "dst": "interface-invoices-api",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e57",
+      "src": "screen-client-payment-page",
+      "dst": "interface-invoices-api",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e58",
+      "src": "screen-client-payment-page",
+      "dst": "external-stripe",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e59",
+      "src": "screen-cash-dashboard",
+      "dst": "interface-forecast-api",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e60",
+      "src": "interface-invoices-api",
+      "dst": "thing-invoice",
+      "type": "carries",
+      "status": "committed"
+    },
+    {
+      "id": "e61",
+      "src": "interface-invoices-api",
+      "dst": "thing-client",
+      "type": "carries",
+      "status": "committed"
+    },
+    {
+      "id": "e62",
+      "src": "interface-stripe-webhook-endpoint",
+      "dst": "thing-payment",
+      "type": "carries",
+      "status": "committed"
+    },
+    {
+      "id": "e63",
+      "src": "interface-forecast-api",
+      "dst": "thing-cash-forecast",
+      "type": "carries",
+      "status": "committed"
+    },
+    {
+      "id": "e64",
+      "src": "interface-invoices-api",
+      "dst": "event-invoice-sent",
+      "type": "emits",
+      "status": "committed"
+    },
+    {
+      "id": "e65",
+      "src": "interface-stripe-webhook-endpoint",
+      "dst": "event-payment-received",
+      "type": "emits",
+      "status": "committed"
+    },
+    {
+      "id": "e66",
+      "src": "system-ledgerly-platform",
+      "dst": "module-invoicing-service",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e67",
+      "src": "system-ledgerly-platform",
+      "dst": "module-payments-service",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e68",
+      "src": "system-ledgerly-platform",
+      "dst": "module-forecast-engine",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e69",
+      "src": "system-ledgerly-platform",
+      "dst": "module-reminder-mailer",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e70",
+      "src": "system-ledgerly-platform",
+      "dst": "protocol-idempotent-webhook-handling",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e71",
+      "src": "module-invoicing-service",
+      "dst": "interface-invoices-api",
+      "type": "exposes",
+      "status": "committed"
+    },
+    {
+      "id": "e72",
+      "src": "module-invoicing-service",
+      "dst": "screen-invoice-editor",
+      "type": "exposes",
+      "status": "committed"
+    },
+    {
+      "id": "e73",
+      "src": "module-invoicing-service",
+      "dst": "screen-invoice-list",
+      "type": "exposes",
+      "status": "committed"
+    },
+    {
+      "id": "e74",
+      "src": "module-payments-service",
+      "dst": "interface-stripe-webhook-endpoint",
+      "type": "exposes",
+      "status": "committed"
+    },
+    {
+      "id": "e75",
+      "src": "module-payments-service",
+      "dst": "screen-client-payment-page",
+      "type": "exposes",
+      "status": "committed"
+    },
+    {
+      "id": "e76",
+      "src": "module-forecast-engine",
+      "dst": "interface-forecast-api",
+      "type": "exposes",
+      "status": "committed"
+    },
+    {
+      "id": "e77",
+      "src": "module-forecast-engine",
+      "dst": "screen-cash-dashboard",
+      "type": "exposes",
+      "status": "committed"
+    },
+    {
+      "id": "e78",
+      "src": "module-invoicing-service",
+      "dst": "event-invoice-sent",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e79",
+      "src": "module-payments-service",
+      "dst": "event-payment-received",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e80",
+      "src": "module-payments-service",
+      "dst": "ai-function-match-a-bank-deposit-to-an-open-invoice",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e81",
+      "src": "module-payments-service",
+      "dst": "rule-a-payment-never-exceeds-the-open-balance",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e82",
+      "src": "module-invoicing-service",
+      "dst": "module-reminder-mailer",
+      "type": "triggers",
+      "status": "committed"
+    },
+    {
+      "id": "e83",
+      "src": "event-invoice-sent",
+      "dst": "module-reminder-mailer",
+      "type": "triggers",
+      "status": "committed"
+    },
+    {
+      "id": "e84",
+      "src": "module-payments-service",
+      "dst": "external-stripe",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e85",
+      "src": "ai-function-match-a-bank-deposit-to-an-open-invoice",
+      "dst": "thing-payment",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e86",
+      "src": "ai-function-match-a-bank-deposit-to-an-open-invoice",
+      "dst": "thing-invoice",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e87",
+      "src": "rule-invoice-numbers-are-sequential-with-no",
+      "dst": "thing-invoice",
+      "type": "governs",
+      "status": "committed"
+    },
+    {
+      "id": "e88",
+      "src": "rule-tax-rate-is-frozen-once-an-invoice-is",
+      "dst": "thing-invoice",
+      "type": "governs",
+      "status": "committed"
+    },
+    {
+      "id": "e89",
+      "src": "rule-a-payment-never-exceeds-the-open-balance",
+      "dst": "thing-payment",
+      "type": "governs",
+      "status": "committed"
+    },
+    {
+      "id": "e90",
+      "src": "test-concurrent-sends-keep-invoice-numbers",
+      "dst": "rule-invoice-numbers-are-sequential-with-no",
+      "type": "verifies",
+      "status": "committed"
+    },
+    {
+      "id": "e91",
+      "src": "test-overpayment-is-rejected-with-a-refund",
+      "dst": "rule-a-payment-never-exceeds-the-open-balance",
+      "type": "verifies",
+      "status": "committed"
+    },
+    {
+      "id": "e92",
+      "src": "test-partial-payment-leaves-the-invoice-open",
+      "dst": "rule-a-payment-never-exceeds-the-open-balance",
+      "type": "verifies",
+      "status": "committed"
+    },
+    {
+      "id": "e93",
+      "src": "epic-bank-feed-reconciliation",
+      "dst": "task-import-bank-transactions-nightly",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e94",
+      "src": "epic-bank-feed-reconciliation",
+      "dst": "task-auto-match-deposits-to-open-invoices",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e95",
+      "src": "task-import-bank-transactions-nightly",
+      "dst": "test-partial-payment-leaves-the-invoice-open",
+      "type": "targets",
+      "status": "committed"
+    },
+    {
+      "id": "e96",
+      "src": "task-auto-match-deposits-to-open-invoices",
+      "dst": "test-overpayment-is-rejected-with-a-refund",
+      "type": "targets",
+      "status": "committed"
+    },
+    {
+      "id": "e97",
+      "src": "task-auto-match-deposits-to-open-invoices",
+      "dst": "test-partial-payment-leaves-the-invoice-open",
+      "type": "targets",
+      "status": "committed"
+    },
+    {
+      "id": "e98",
+      "src": "test-result-concurrent-sends-pass-run-412",
+      "dst": "test-concurrent-sends-keep-invoice-numbers",
+      "type": "reports",
+      "status": "committed"
+    },
+    {
+      "id": "e99",
+      "src": "test-result-overpayment-rejected-pass-run-412",
+      "dst": "test-overpayment-is-rejected-with-a-refund",
+      "type": "reports",
+      "status": "committed"
+    },
+    {
+      "id": "e100",
+      "src": "test-result-partial-payment-stays-open-fail-run-413",
+      "dst": "test-partial-payment-leaves-the-invoice-open",
+      "type": "reports",
+      "status": "committed"
+    },
+    {
+      "id": "e101",
+      "src": "capability-collections",
+      "dst": "agent-collections-agent",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e102",
+      "src": "capability-cash-flow-forecasting",
+      "dst": "agent-forecast-agent",
+      "type": "has",
+      "status": "committed"
+    },
+    {
+      "id": "e103",
+      "src": "agent-collections-agent",
+      "dst": "feature-automatic-payment-reminders",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e104",
+      "src": "agent-forecast-agent",
+      "dst": "feature-60-day-cash-forecast",
+      "type": "implements",
+      "status": "committed"
+    },
+    {
+      "id": "e105",
+      "src": "repository-ledgerly-monorepo",
+      "dst": "codebase-api-service-typescript",
+      "type": "contains",
+      "status": "committed"
+    },
+    {
+      "id": "e106",
+      "src": "codebase-api-service-typescript",
+      "dst": "module-invoicing-service",
+      "type": "realises",
+      "status": "committed"
+    },
+    {
+      "id": "e107",
+      "src": "codebase-api-service-typescript",
+      "dst": "module-payments-service",
+      "type": "realises",
+      "status": "committed"
+    },
+    {
+      "id": "e108",
+      "src": "codebase-api-service-typescript",
+      "dst": "module-forecast-engine",
+      "type": "realises",
+      "status": "committed"
+    },
+    {
+      "id": "e109",
+      "src": "codebase-api-service-typescript",
+      "dst": "module-reminder-mailer",
+      "type": "realises",
+      "status": "committed"
+    },
+    {
+      "id": "e110",
+      "src": "infra-managed-postgres-and-job-queue",
+      "dst": "module-invoicing-service",
+      "type": "hosts",
+      "status": "committed"
+    },
+    {
+      "id": "e111",
+      "src": "infra-managed-postgres-and-job-queue",
+      "dst": "module-payments-service",
+      "type": "hosts",
+      "status": "committed"
+    },
+    {
+      "id": "e112",
+      "src": "practice-replay-last-weeks-webhooks-before-every",
+      "dst": "protocol-idempotent-webhook-handling",
+      "type": "realises",
+      "status": "committed"
+    },
+    {
+      "id": "e113",
+      "src": "practice-replay-last-weeks-webhooks-before-every",
+      "dst": "codebase-api-service-typescript",
+      "type": "governs",
+      "status": "committed"
+    },
+    {
+      "id": "e114",
+      "src": "protocol-idempotent-webhook-handling",
+      "dst": "interface-stripe-webhook-endpoint",
+      "type": "uses",
+      "status": "committed"
+    },
+    {
+      "id": "e115",
+      "src": "term-net-terms",
+      "dst": "thing-invoice",
+      "type": "defines",
+      "status": "committed"
+    },
+    {
+      "id": "e116",
+      "src": "term-cash-runway",
+      "dst": "thing-cash-forecast",
+      "type": "defines",
+      "status": "committed"
+    },
+    {
+      "id": "e117",
+      "src": "usage-event-client-opened-pay-link-from-reminder",
+      "dst": "flow-client-pays-from-the-email-link",
+      "type": "measures",
+      "status": "committed"
+    },
+    {
+      "id": "e118",
+      "src": "feedback-accountant-quarterly-export-is-missing",
+      "dst": "flow-export-the-quarter-for-the-accountant",
+      "type": "measures",
+      "status": "committed"
+    }
+  ]
+}

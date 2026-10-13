@@ -1,0 +1,22 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#world-unpinned",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "efed1da2ad5d45eba25989c0e51555344f1199c1ae0b097d65537c97a5ddf734",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.world-references-pinned",
+      "severity": "blocker",
+      "message": "World revision and Template ID/version must be pinned",
+      "objectIds": [
+        "assistant-world"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "world:assistant-world"
+      }
+    }
+  ]
+}

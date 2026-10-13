@@ -1,0 +1,5 @@
+id: component.ContactRowName
+kind: component
+fields:
+  name: Name
+  cardinality: exactly one per row

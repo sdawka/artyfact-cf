@@ -1,0 +1,16 @@
+id: J.control.disconnect/d2
+kind: step
+fields:
+  step: d2
+  actor: user
+  action: Choose Disconnect and confirm
+  kind: branch
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: d3
+      when: confirm
+    - to: e2
+      when: cancel
+links:
+  - { rel: stepScreen, to: screen.person }

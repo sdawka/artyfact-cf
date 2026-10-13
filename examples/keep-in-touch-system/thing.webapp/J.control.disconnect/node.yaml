@@ -1,0 +1,12 @@
+id: J.control.disconnect
+kind: journey
+fields:
+  name: Disconnect from a connected person
+  actorGoal: End app-mediated sharing with one person while keeping my private record
+  features:
+    - GD.connect
+  requirements:
+    - S.webapp.operations
+    - S.webapp.concurrency
+  start: d1
+  deferred: false

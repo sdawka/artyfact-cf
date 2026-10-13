@@ -1,0 +1,19 @@
+id: J.connect/s8
+kind: step
+fields:
+  step: s8
+  actor: system
+  action: Atomically consume the invite and create or return the unique active pair
+  kind: branch
+  requirementRefs:
+    - S.webapp.operations
+    - S.webapp.concurrency
+  next:
+    - to: e1
+      when: pair created or returned
+    - to: f2
+      when: invitee is the inviter, or a block exists in either direction
+    - to: s9
+      when: another accept races for the same invite
+links:
+  - { rel: stepOperation, to: operation.invite.accept }

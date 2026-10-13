@@ -1,0 +1,14 @@
+id: J.connect/f2
+kind: step
+fields:
+  step: f2
+  actor: system
+  action: Acceptance refused without revealing why
+  kind: failure
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: e3
+      when: stop
+links:
+  - { rel: stepOperation, to: operation.invite.accept }

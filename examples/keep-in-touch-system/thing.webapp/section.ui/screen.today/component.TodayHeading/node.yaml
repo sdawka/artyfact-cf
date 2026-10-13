@@ -1,0 +1,5 @@
+id: component.TodayHeading
+kind: component
+fields:
+  name: PageHeading
+  cardinality: exactly one

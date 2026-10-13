@@ -1,0 +1,22 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#unsatisfiable-requirement",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "ee116fff1e8b364ad58fa6c7976f22c88d36e5f488c50e26154b50ee95127b96",
+  "templateHash": "145a7c8c218b29be58a7d5241773d1f18d1d37b726c2bb6d115a97bc20d51230",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "assistant.goal-requires-outcome",
+      "severity": "blocker",
+      "message": "goal-french requires a hasOutcome relation to outcome",
+      "objectIds": [
+        "goal-french"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "template:assistant-world@1"
+      }
+    }
+  ]
+}

@@ -1,0 +1,7 @@
+id: component.ContactCollection
+kind: component
+fields:
+  name: ContactCollection
+  cardinality: exactly one
+links:
+  - { rel: reads, to: entity.ContactRecord }

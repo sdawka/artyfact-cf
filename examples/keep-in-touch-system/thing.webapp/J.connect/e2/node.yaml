@@ -1,0 +1,11 @@
+id: J.connect/e2
+kind: step
+fields:
+  step: e2
+  actor: counterpart
+  action: Invitation declined; no pair created
+  kind: end
+  requirementRefs:
+    - S.webapp.operations
+links:
+  - { rel: stepScreen, to: screen.invitation }

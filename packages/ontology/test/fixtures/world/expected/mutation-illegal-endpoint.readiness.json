@@ -1,0 +1,25 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#illegal-endpoint",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "3247c5ecfc4b907ddc23e8259d00f26fdad3c782582f3268bcd51a5ed692edee",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.relation-endpoints-legal",
+      "severity": "blocker",
+      "message": "relation dependsOn cannot connect service to outcome",
+      "objectIds": [
+        "planning-1",
+        "outcome-1"
+      ],
+      "factIds": [
+        "rel-plan-progress"
+      ],
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:rel-plan-progress"
+      }
+    }
+  ]
+}

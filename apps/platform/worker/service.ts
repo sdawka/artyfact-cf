@@ -16,7 +16,7 @@ import { readPlatform, unreadableWarning, unsyncedWarning } from "./artifacts/pl
 import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
 import { buildGenome, byteLength, GENOME_MAX_BYTES, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
-import { loadSourceMap, nodesForPath, type SourceMapEntry } from "./artifacts/source-map";
+import { nodesForPath, sourceMapFor } from "./artifacts/source-map";
 import { REGISTRY, TERMINAL_REALIZATION, type EndedCredential, type SystemAuthority, type EvolutionSeed, type HeadState, type ManifestExtras, type RealizationRecord } from "./do/system-authority";
 import { badRequest, conflict, fromRpc, HttpError, notFound, unprocessable } from "./errors";
 import type { CandidateRef, FileMap, QueueContext, SubmissionContext } from "./hooks/contract";
@@ -153,26 +153,36 @@ function manifestExtras(m: SystemModel): ManifestExtras {
   };
 }
 
-/** The Thing realized by the app repo and its template (for source-map defaults + scaffold commands). */
-function appThing(m: SystemModel): { thing?: schema.ResolvedThing; template?: schema.Template } {
-  const thing = m.things.find((t) => t.artifacts.some((a) => a.type === "worker-fullstack")) ?? m.things[0];
-  const template = thing?.templateRef ? m.templates.find((t) => `${t.id}@${t.version}` === thing.templateRef) : undefined;
-  return { thing, template };
+/**
+ * The Thing whose worker-fullstack artifact the app repo builds (else the first Thing): its template gives the scaffold
+ * commands, CI commands and template upgrades. The source map does not use it; it covers every node (`sourceMapFor`).
+ */
+export function appThing(m: SystemModel): schema.ResolvedThing | undefined {
+  return m.things.find((t) => t.artifacts.some((a) => a.type === "worker-fullstack")) ?? m.things[0];
 }
 
-function scaffoldCommands(m: SystemModel, target: "app" | "genome"): string[] {
+/**
+ * The Thing an app packet works in: the one Thing at or above every affected node (nodes outside every Thing do not
+ * count), else `appThing`. A scope spanning two Things is refused (422 `scope-spans-things`): one packet, one Thing.
+ */
+export function packetThing(m: SystemModel, affected: string[]): schema.ResolvedThing | undefined {
+  const owners = new Set(affected.flatMap((id) => {
+    const thing = m.index.path(id).reverse().find((x) => m.index.byId[x]?.type === "thing");
+    return thing ? [thing] : [];
+  }));
+  if (owners.size > 1) throw unprocessable("scope-spans-things", `the affected nodes belong to several Things (${[...owners].sort().join(", ")}); split the Evolution per Thing`);
+  const [only] = owners;
+  return only ? m.things.find((t) => t.id === only) : appThing(m);
+}
+
+/** The packet's commands: the scaffold commands of the Thing it works in (`packetThing`). */
+function scaffoldCommands(m: SystemModel, target: "app" | "genome", affected: string[]): string[] {
   if (target === "genome") return ["npm install", "npm test"];
-  const ref = appThing(m).thing?.templateRef;
+  const ref = packetThing(m, affected)?.templateRef;
   const text = ref ? templateFile(ref, "scaffold.yaml") : undefined;
   const cmds = (text ? (parseYaml(text) as { commands?: Record<string, string> })?.commands : undefined) ?? {};
   const list = Object.values(cmds).filter((c): c is string => typeof c === "string");
   return list.length ? list : ["npm install", "npm run dev", "npm test"];
-}
-
-async function sourceMapFor(m: SystemModel, repo: ArtifactsRepoLike, commit: string): Promise<SourceMapEntry[]> {
-  const { thing, template } = appThing(m);
-  const blob = await repo.readFile({ ref: commit, path: "source-map.yaml" });
-  return loadSourceMap(template?.sourceMapDefaults, thing?.id, blob ? await blob.text() : undefined);
 }
 
 // ------------------------------------------------------------------ import
@@ -307,7 +317,7 @@ async function evaluationsFor(env: Env, systemId: string, candidateIds: string[]
 
 /**
  * Serialised model + full rules Readiness at a Genome commit, straight from the DO cache when present (no
- * loadSystem/validate on a cold isolate); on a miss, built once and written through.
+ * loadGenome/validate on a cold isolate); on a miss, built once and written through.
  */
 async function genomeView(env: Env, systemId: string, genomeCommit: string, repo: string): Promise<{ model: SerializedModel; readiness: Readiness }> {
   const stub = systemStub(env, systemId);
@@ -358,7 +368,14 @@ async function concurrentWork(env: Env, systemId: string, evolutionId: string, e
   }));
 }
 
-export async function startWork(env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string): Promise<StartWorkResponse> {
+/**
+ * `opts.expectedBase`: refuse with 409 `stale-base` unless the realization would fork from this commit.
+ * `opts.permittedExtra`: Genome-relative globs added to the packet's permitted paths (under the Genome prefix), for
+ * nodes the realization will create and the base model cannot know.
+ */
+export async function startWork(
+  env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string, opts: { expectedBase?: string; permittedExtra?: string[] } = {},
+): Promise<StartWorkResponse> {
   if (body.target !== undefined && body.target !== "app" && body.target !== "genome") throw badRequest("target must be app or genome");
   if (body.origin !== undefined && body.origin !== "cli" && body.origin !== "editor") throw badRequest("origin must be cli or editor");
   const stub = systemStub(env, systemId);
@@ -368,9 +385,10 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
   const g = await canonicalGenome(env, s);
   const evolution = modelEvolution(g.model, evoDto);
   const target = body.target ?? (evolution.kind === "genome-amendment" ? "genome" : "app");
+  const commands = scaffoldCommands(g.model, target, evolution.affectedNodes);
 
   await skipTakenForkNames(env, stub, target);
-  const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin }));
+  const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin, ...(opts.expectedBase && { expectedBase: opts.expectedBase }) }));
   const rid = reserved.realization.id;
   let tokenId: string | undefined;
   try {
@@ -380,16 +398,16 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
     const token = await withRepo(ns, reserved.forkRepo, (r) => r.createToken("write", TOKEN_TTL_S));
     tokenId = token.id;
     const remote = remoteUrl(env, reserved.forkRepo, forked.remote);
-    const { sourceMap, tree, prefix } = await withRepo(ns, reserved.baseRepo, async (r) => ({
-      sourceMap: target === "app" ? await sourceMapFor(g.model, r, reserved.baseCommit) : [],
+    const { tree, prefix } = await withRepo(ns, reserved.baseRepo, async (r) => ({
       tree: target === "app" ? [...(await listTree(r, reserved.baseCommit)).keys()] : [],
       prefix: target === "genome" ? await genomePrefix(r, reserved.baseCommit) : "",
     }));
     const packet = await buildTaskPacket({
       systemId, realizationId: rid, target, model: g.model, evolution,
       workspace: { repo: reserved.baseRepo, fork: reserved.forkRepo, baseCommit: reserved.baseCommit, remote },
-      sourceMap, baseTreePaths: tree, commands: scaffoldCommands(g.model, target),
+      baseTreePaths: tree, commands,
       concurrentWork: await concurrentWork(env, systemId, evolutionId, rid), platformUrl, genomePrefix: prefix,
+      ...(target === "genome" && opts.permittedExtra?.length && { permittedExtra: opts.permittedExtra.map((g) => (prefix ? `${prefix.replace(/\/+$/, "")}/${g}` : g)) }),
     });
     // The realization secret authorizes the agent's platform calls; only its SHA-256 is stored.
     const secret = newRealizationSecret();
@@ -702,7 +720,7 @@ export async function submit(
       const input = { realizationId: rid, evolutionId: rec.evolutionId, target: rec.target, repo: rec.forkRepo, baseRepo: rec.baseRepo, baseCommit: rec.baseCommit, commit, ...(previewUrl && { previewUrl }) };
       if (rec.target === "app") {
         const base = await canonicalGenome(env, s);
-        const sm = await sourceMapFor(base.model, repo, rec.baseCommit);
+        const sm = sourceMapFor(base.model);
         const m = await buildCandidateManifest(repo, input, sm);
         return { ...m, pathNodes: Object.fromEntries(m.changedPaths.map((p) => [p, nodesForPath(sm, p).filter((n) => !n.startsWith("unmapped:"))])) };
       }
@@ -900,7 +918,7 @@ function gateRefusal(out: { code: string; blocking: GateItem[]; advisories: Gate
  * After promotion or acceptance: revoke the fork write tokens of the realizations it ended (secrets are already nulled)
  * and remove their push subscriptions.
  */
-async function revokeEnded(env: Env, systemId: string, ended: EndedCredential[]): Promise<void> {
+export async function revokeEnded(env: Env, systemId: string, ended: EndedCredential[]): Promise<void> {
   await Promise.all([
     ...ended.filter((x) => x.tokenId && x.forkRepo).map((x) =>
       withRepo(artifactsFor(env), x.forkRepo, (r) => r.revokeToken(x.tokenId!)).catch((e: unknown) =>
@@ -1085,9 +1103,12 @@ function stringList(v: unknown, field: string): string[] {
  * work on. Affected nodes and acceptance criteria must exist in the canonical Genome (an unknown criterion would
  * block promotion forever). Without `affectedNodes` the scope is empty, which means unconstrained (the Task Packet
  * permits every path except the protected ones). Without `acceptanceCriteria` it defaults to the System's criteria
- * whose `targetKind` matches the Evolution's target (see defaultCriteria).
+ * whose `targetKind` matches the Evolution's target (see defaultCriteria). `newNodes` are affected nodes the change
+ * itself adds (an accepted intent), exempt from the existence check.
  */
-export async function createEvolution(env: Env, systemId: string, body: Record<string, unknown>): Promise<CreateEvolutionResponse> {
+export async function createEvolution(
+  env: Env, systemId: string, body: Record<string, unknown>, opts: { newNodes?: string[] } = {},
+): Promise<CreateEvolutionResponse> {
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const intent = typeof body.intent === "string" ? body.intent.trim() : "";
   if (!title || title.length > 200) throw badRequest("title is required (at most 200 characters)");
@@ -1102,7 +1123,7 @@ export async function createEvolution(env: Env, systemId: string, body: Record<s
   const acceptanceCriteria = body.acceptanceCriteria === undefined
     ? defaultCriteria(m, body.kind === undefined ? undefined : kind)
     : stringList(body.acceptanceCriteria, "acceptanceCriteria");
-  const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id]);
+  const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id] && !opts.newNodes?.includes(id));
   if (unknownNodes.length) throw badRequest(`unknown nodes: ${unknownNodes.join(", ")}`);
   const criteria = new Set(m.criteria.map((c) => c.id));
   const unknownCriteria = acceptanceCriteria.filter((id) => !criteria.has(id));

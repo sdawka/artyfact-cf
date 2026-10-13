@@ -1,0 +1,6 @@
+id: component.EventNoteField
+kind: component
+fields:
+  name: NoteField
+  description: Optional private note
+  cardinality: optional

@@ -1,0 +1,8 @@
+id: affordance.ConsentPanel.decline
+kind: affordance
+fields:
+  name: Decline
+  actor: ext.owner
+  trigger: Signed-in invitee activates Decline
+  effects:
+    - Leaves the invitation unaccepted; no pair is created
