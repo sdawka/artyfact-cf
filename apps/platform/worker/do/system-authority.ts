@@ -1,11 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
 import type {
-  ArtifactBinding, PartScope, PartRecord, PartSummary, RealizedArtifact, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
+  ArtifactBinding, PartScope, PartRecord, PartSummary, RealizedArtifact, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Proposal, ProposalStatus, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
+import { ProposalsStore, type ProposalTurn, type StoredProposal } from "./proposals-store";
 import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentInput } from "./builds-store";
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
 import { ChangelogStore, type CachedChangelog } from "./changelog-store";
@@ -1450,6 +1451,19 @@ export class SystemAuthority extends DurableObject<Env> {
   putChangelog(commitId: string, row: string, entry: string | null): void { this.changelog().put(commitId, row, entry); }
 
   // ---------------------------------------------------------------- end B2 changelog
+
+  // ---------------------------------------------------------------- W7 intent proposals
+
+  private proposalsStore: ProposalsStore | undefined;
+  private proposals(): ProposalsStore {
+    return (this.proposalsStore ??= new ProposalsStore(this.sql));
+  }
+  proposal(id: string): StoredProposal | null { return this.proposals().get(id); }
+  createProposal(proposal: Omit<Proposal, "id">): Proposal { return this.proposals().create(proposal); }
+  reviseProposal(proposal: Proposal, turns: ProposalTurn[]): Proposal | null { return this.proposals().revise(proposal, turns); }
+  closeProposal(id: string, status: Exclude<ProposalStatus, "open">): Proposal | null { return this.proposals().close(id, status); }
+
+  // ---------------------------------------------------------------- end W7 intent proposals
 
   // ---------------------------------------------------------------- registry (instance `__registry` only)
 

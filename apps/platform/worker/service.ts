@@ -1085,9 +1085,12 @@ function stringList(v: unknown, field: string): string[] {
  * work on. Affected nodes and acceptance criteria must exist in the canonical Genome (an unknown criterion would
  * block promotion forever). Without `affectedNodes` the scope is empty, which means unconstrained (the Task Packet
  * permits every path except the protected ones). Without `acceptanceCriteria` it defaults to the System's criteria
- * whose `targetKind` matches the Evolution's target (see defaultCriteria).
+ * whose `targetKind` matches the Evolution's target (see defaultCriteria). `newNodes` are affected nodes the change
+ * itself adds (an accepted intent), exempt from the existence check.
  */
-export async function createEvolution(env: Env, systemId: string, body: Record<string, unknown>): Promise<CreateEvolutionResponse> {
+export async function createEvolution(
+  env: Env, systemId: string, body: Record<string, unknown>, opts: { newNodes?: string[] } = {},
+): Promise<CreateEvolutionResponse> {
   const title = typeof body.title === "string" ? body.title.trim() : "";
   const intent = typeof body.intent === "string" ? body.intent.trim() : "";
   if (!title || title.length > 200) throw badRequest("title is required (at most 200 characters)");
@@ -1102,7 +1105,7 @@ export async function createEvolution(env: Env, systemId: string, body: Record<s
   const acceptanceCriteria = body.acceptanceCriteria === undefined
     ? defaultCriteria(m, body.kind === undefined ? undefined : kind)
     : stringList(body.acceptanceCriteria, "acceptanceCriteria");
-  const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id]);
+  const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id] && !opts.newNodes?.includes(id));
   if (unknownNodes.length) throw badRequest(`unknown nodes: ${unknownNodes.join(", ")}`);
   const criteria = new Set(m.criteria.map((c) => c.id));
   const unknownCriteria = acceptanceCriteria.filter((id) => !criteria.has(id));

@@ -11,7 +11,6 @@ export const badRequest = (message: string, details?: unknown) => new HttpError(
 export const notFound = (message: string) => new HttpError(404, "not-found", message);
 export const conflict = (code: string, message: string, details?: unknown) => new HttpError(409, code, message, details);
 export const unprocessable = (code: string, message: string, details?: unknown) => new HttpError(422, code, message, details);
-export const notImplemented = (message: string) => new HttpError(501, "not-implemented", message);
 
 /** Map an error thrown across DO RPC (`[code] message`, see ConflictError) to an HttpError. */
 export function fromRpc(e: unknown): HttpError | undefined {

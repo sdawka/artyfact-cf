@@ -28,17 +28,17 @@ The intent pipeline is three engine calls. Each is bounded, and none sees the wh
 
    A `Route` holds `path[]`: per step the level, question id and text, offered choices, answer, confidence, distribution and status. It also holds `target {space, kind, nodes[≤3], new?, related[≤5]}`, `intent`, `status`, `calls` and `provenance` (provider, model, usage, thresholds, errors, truncated).
 2. **`routeSlice(graph, route)` and `routeVocabulary(template, route, slice)`** build what the translator sees: the targets (else the related nodes), their parent chains and nodes one link away, at most 40 nodes, text cut to 300 characters, `source.*` fields dropped. The vocabulary holds only the kinds in view and the relations touching them.
-3. **`translator.translate({message, route, slice, vocabulary})`** returns exactly one of `ops[]`, a `question` or an `answer`. `openRouterTranslator` uses `openai/gpt-6-luna` by default, temperature 0, 800 output tokens, a 30 s timeout and 2 retries, and an LRU cache. It never throws; failures come back as `provider: "error"`. `fakeTranslator` asks a question when the route is not confident. Otherwise it updates the first target's `description`, or adds a node of the route's kind (linked with `references`, which a template may not declare). `translatorFromEnv` order: `TRANSLATE=0` → off, `FAKE_S1=1` → fake, `OPENROUTER_API_KEY` → OpenRouter (`OPENROUTER_TRANSLATE_MODEL`), else off.
+3. **`translator.translate({message, route, slice, vocabulary})`** returns exactly one of `ops[]`, a `question` or an `answer`. `openRouterTranslator` uses `openai/gpt-6-luna` by default, temperature 0, 800 output tokens, a 30 s timeout and 2 retries, and an LRU cache. It never throws; failures come back as `provider: "error"`. `fakeTranslator` asks a question when the route is not confident. Otherwise it updates the first target's `description`, or adds a node of the route's kind, linked to the first target with the first vocabulary relation whose ends fit the two kinds (none when no relation fits). `translatorFromEnv` order: `TRANSLATE=0` → off, `FAKE_S1=1` → fake, `OPENROUTER_API_KEY` → OpenRouter (`OPENROUTER_TRANSLATE_MODEL`), else off.
 4. **`validateOps(ops, template, graph)`** runs deterministic checks and makes no calls. It returns `OpProblem {level, rule, op (index), subjects, message}`:
-   - Errors: `op.unknownNode`, `op.unknownKind`, `op.unknownRelation`, `op.relationEndpoint` (endpoint kinds), and `op.duplicateTitle` (an `add` repeating a same-kind title).
-   - Warnings: `op.unknownField` (an `update` field the kind does not declare; `title` and `description` are always allowed), `op.missingLink` and `op.duplicateLink`.
+   - Errors: `op.unknownNode`, `op.unknownKind`, `op.unknownRelation`, `op.relationEndpoint` (endpoint kinds), `op.duplicateTitle` (an `add` repeating a same-kind title), `op.invalidCriterion` (not a `node.yaml` criterion), `op.duplicateCriterion` (an upsert of an id another node declares), `op.unknownCriterion` (a removal of a criterion the node does not declare) and `op.emptyUpdate`.
+   - Warnings: `op.unknownField` (an `add` or `update` field the kind does not declare; `title` and `description` are always allowed), `op.missingLink` and `op.duplicateLink`.
    - It does **not** check `parents` legality, completeness, or links left dangling by a `remove`.
 
 Engine op shapes (`src/route/types.ts`):
 
 ```ts
-{ op: "add"; kind; parent?; title; description?; links?: { rel; to? | from? }[] }   // no id: the platform mints one
-{ op: "update"; id; fields: Record<string, unknown> }
+{ op: "add"; kind; parent?; title; description?; fields?; criteria?: NodeCriterion[]; links?: { rel; to? | from? }[] }   // no id: the platform mints one
+{ op: "update"; id; fields?: Record<string, unknown>; criteria?: (NodeCriterion | { id; remove: true })[] }
 { op: "remove"; id }
 { op: "link" | "unlink"; from; rel; to }
 ```
@@ -188,7 +188,7 @@ The test is deleted with the v1 reader.
 | `journeys/J.*.yaml` | A journey node under the owning Thing (the System when its steps span Things), with fields `name`, `actorGoal`, `features`, `requirements`, `start`, `deferred` and `segments`. One child `step` node per step, with id `<journey>/<step>`, its directory the step id, and `next` kept as the sequence |
 | `evolutions/*.yaml` | Unchanged |
 
-Field names are kept as they are in v1. Nodes go on using `name` where v1 did, and view hints default the display name to `title`, then `name`. The engine's routing reads only `title` (`titleOf`), so on Keep in Touch it shows ids. W7 adds a `name` fallback, or the kind's `view.title`, to `titleOf`.
+Field names are kept as they are in v1. Nodes go on using `name` where v1 did, and view hints default the display name to `title`, then `name`. The engine's routing names nodes with `titleOf`: `title`, then `name`, then the field the kind's `view.title` names, then the id.
 
 The engine's v1 adapter predates Parts, Composition and the Phenome. The converter reads v1 through `@artyfact/model`, which knows them, and emits the tree from that. Both readers go when the migration release has run (§2a).
 
@@ -265,7 +265,20 @@ POST /api/systems/:id/intents/:pid/accept {opIds}            (admin) → 201 {ev
 GET  /api/systems/:id/intents/:pid                           (admin) → Proposal
 ```
 
-Wire types are in `apps/platform/shared/api.ts`: `IntentRequest`, `Proposal`, `ProposalRouteStep`, `ProposedOp`, `ProposalQuestion`, `ProposalProblem`, `ProposalProvenance`, `IntentReply`, `IntentAccept`, `IntentAcceptResponse` and `NotImplementedResponse`. The route builders are `routes.intents`, `intent`, `intentReply` and `intentAccept`. Today all four routes are admin-only stubs that answer 501 `not-implemented` (`worker/routes/intents.ts`). W7 replaces them.
+Wire types are in `apps/platform/shared/api.ts`: `IntentRequest`, `Proposal`, `ProposalRouteStep`, `ProposedOp`, `ProposalQuestion`, `ProposalProblem`, `ProposalProvenance`, `IntentReply`, `IntentAccept` and `IntentAcceptResponse`. The route builders are `routes.intents`, `intent`, `intentReply` and `intentAccept`. The four routes are admin only (`worker/routes/intents.ts`, logic in `worker/intents.ts`).
+
+How the platform runs them:
+
+- **Head.** The head Genome's files go through the tree codec (`parseTree`, `projectTree`). The template is the root's `template` (else the engine base) with the Things' templates laid over it. A legacy head is a 422 `legacy-genome`.
+- **One turn.** `route` (engine default budget, 8 System One calls) runs on the conversation: the message, the anchor's title and id when given, then every question and answer so far. A route with status `unknown` is not translated, and the router asks. Otherwise the translator runs once. A translator error is an `error` problem; an off translator is a `warning` problem.
+- **Replies.** A reply appends `{question, answer}` to the conversation and runs a new turn on the current head. The proposal keeps its id and stays `open`, and its ops, questions, problems and provenance are replaced.
+- **Adds.** An `add`'s title goes into the kind's name field: its `view.title`, else `title`, else `name` when the kind declares only that.
+- **Storage.** Proposals live in the System DO's `proposals` table (`worker/do/proposals-store.ts`): the wire `Proposal` plus the conversation. Ids are `proposal.<n>`; questions are `q.<turn>`.
+- **Accept.** Each chosen op needs its `dependsOn` (else 422 `missing-dependency`), and the head must still be `genomeCommit` (else 409 `stale-base` with `details.currentHead`). The ops go through `applyOps` (failure: 422 `invalid-ops`; nothing changed: 422 `no-change`). Then, in order:
+  - a `genome-amendment` Evolution: the title is the message's first line, the intent the message, `affectedNodes` the touched nodes (added ones included) and the default criteria;
+  - `startWork` with target `genome`, origin `editor` and agent `human:intent`;
+  - `commitEdit` of the file changes (message: the title, why: the message), which pushes, checkpoints and submits the candidate;
+  - the proposal becomes `accepted`, and a second accept or reply is a 409 `invalid-state`.
 
 Mapping from the engine:
 
@@ -287,7 +300,7 @@ Providers are wired by W5 and W7. System One comes from TypeSafe (`TYPESAFE_API_
 
 | Topic | Engine today | Plan | Resolution and owner |
 |---|---|---|---|
-| Criteria in ops | `Op` has no criteria; `add` carries only `title` and `description` | Ops carry criteria and fields | `ProposedOp` carries both now. W7 extends the engine `Op` and the translator prompt (`add.fields`, `criteria` upserts) and keeps `validateOps` in step |
+| Criteria in ops | `Op` carries `add.fields`, `add.criteria` and `update.criteria` (upserts and removals); the translator prompt names them; `validateOps` checks them | Ops carry criteria and fields | Done (W7) |
 | Node ids on `add` | None | Ops name nodes | The platform mints ids (§4); `ProposedOp.node` carries them |
 | Legality of a proposal | `validateOps` checks ids, kinds and relation endpoints only | Valid tree after accept | W7 runs `evaluate` on the applied copy and reports new findings as `problems` |
 | Reparent | No op | Containment is the tree | Not in this contract: remove plus add (§4) |
@@ -295,7 +308,7 @@ Providers are wired by W5 and W7. System One comes from TypeSafe (`TYPESAFE_API_
 | "Kind-wide criteria" | `kinds.<k>.criteria` is question wording; checklists are `checks` | Template criteria per kind | §3: kind-wide means `checks`; acceptance criteria with hooks are per node |
 | Criteria enums | `hard`, `soft`, `advisory` | `gate`, `hard`, `soft`; `model`, `code`, `observation` | Keep the v1 enumerations plus `gates[]` (§2) |
 | Template refs | `template.<kind>.<name>@<v>` | `thing/<name>@<v>` in the example | Engine form |
-| Display names | `titleOf` reads `title` only | Artyfact nodes use `name` | W7: fall back to `name` or the kind's `view.title` (§2) |
-| Fake translator | Links adds with `references` | Templates declare their own relations | Fixtures and e2e must use updates or templates that declare `references`. W7 may make the fake read the vocabulary |
+| Display names | `titleOf` reads `title`, then `name`, then the kind's `view.title` field | Artyfact nodes use `name` | Done (W7) |
+| Fake translator | Links an add only with a relation the vocabulary declares for the two kinds | Templates declare their own relations | Done (W7) |
 | System One providers | OpenRouter and fake | TypeSafe as well | W5 |
 | Old Genomes | v1 adapter included | Plan: `loadGenome` detects v1 or v2 (W4), and old commits stay readable | Superseded by the user: v2 only. v1 commits show the legacy notice (§2a), and the v1 readers are deleted after the migration release. W4 loads v2 only |
