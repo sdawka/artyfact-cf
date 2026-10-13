@@ -25,6 +25,12 @@ export type TaskClaimResult =
   | { claimed: Task; fresh: boolean }
   | { refused: "not-found" | "taken" | "blocked" | "invalid-state"; by?: string; blockedOn?: string[] };
 
+/** See {@link TasksStore.claimForStart}. */
+export type ClaimForStart =
+  | { fresh: Task; takeover: string | null }
+  | { existing: Task }
+  | { refused: "not-found" | "in-progress" | "taken" | "blocked" | "invalid-state"; by?: string; blockedOn?: string[] };
+
 /** Per-Evolution plan counts (the wire `TaskPlanSummary`). */
 export interface PlanCounts { tasks: number; waves: number; byStatus: Partial<Record<TaskStatus, number>>; updatedAt: string }
 
@@ -164,6 +170,60 @@ export class TasksStore {
     if (live) return { refused: "taken", by: String(r.claimed_by) };
     if (["planned", "claimed"].includes(String(r.status))) return { refused: "blocked", blockedOn: this.blockedOn(id) };
     return { refused: "invalid-state" };
+  }
+
+  /**
+   * The claim decision of a start (`SystemAuthority.claimAndReserve`), to run inside the caller's transaction:
+   * - `fresh`: the task is now claimed by `agentLabel` with no realization; `takeover` names the live realization of a
+   *   lapsed claim that the caller must abandon.
+   * - `existing`: `agentLabel` already holds the task with an activated realization (its lease renewed if it lapsed).
+   * - `refused`: `in-progress` while a claim's realization is reserved but not yet activated (any label, until its
+   *   lease lapses), `taken`, `blocked`, `invalid-state`, `not-found`.
+   */
+  claimForStart(id: string, agentLabel: string, now: number = Date.now(), leaseMs: number = TASK_LEASE_MS): ClaimForStart {
+    const at = new Date(now).toISOString();
+    const expires = new Date(now + leaseMs).toISOString();
+    const r = this.row(id);
+    if (!r) return { refused: "not-found" };
+    const status = String(r.status);
+    const rid = r.realization_id == null ? null : String(r.realization_id);
+    const real = rid ? this.all("SELECT status, packet_json FROM realizations WHERE id = ?", rid)[0] : undefined;
+    const liveReal = !!real && !["promoted", "rejected", "abandoned"].includes(String(real.status));
+    const activated = liveReal && real!.packet_json != null;
+    const mine = String(r.claimed_by ?? "") === agentLabel;
+    if (status === "planned") {
+      const [won] = this.all(
+        `UPDATE tasks SET status = 'claimed', claimed_by = ?, claimed_at = ?, claim_expires = ?, realization_id = NULL, updated_at = ?
+         WHERE id = ? AND status = 'planned' AND ${DEPS_MET} RETURNING *`, agentLabel, at, expires, at, id,
+      );
+      return won ? { fresh: this.dto(won), takeover: null } : { refused: "blocked", blockedOn: this.blockedOn(id) };
+    }
+    if (status === "claimed") {
+      const live = String(r.claim_expires) >= at;
+      if (live) {
+        if (!activated) return { refused: "in-progress", by: String(r.claimed_by) };
+        return mine ? { existing: this.dto(r) } : { refused: "taken", by: String(r.claimed_by) };
+      }
+      if (mine && activated) {
+        const [renewed] = this.all("UPDATE tasks SET claim_expires = ?, updated_at = ? WHERE id = ? RETURNING *", expires, at, id);
+        return { existing: this.dto(renewed) };
+      }
+      const [won] = this.all(
+        `UPDATE tasks SET claimed_by = ?, claimed_at = ?, claim_expires = ?, realization_id = NULL, updated_at = ? WHERE id = ? AND status = 'claimed' RETURNING *`,
+        agentLabel, at, expires, at, id,
+      );
+      return { fresh: this.dto(won), takeover: liveReal ? rid : null };
+    }
+    if (["realizing", "evaluated"].includes(status) && mine && activated) return { existing: this.dto(r) };
+    return { refused: "invalid-state" };
+  }
+
+  /** Renews the lease of the task bound to `realizationId` while it is live (checkpoint and submit call this). */
+  renewLease(realizationId: string, now: number = Date.now(), leaseMs: number = TASK_LEASE_MS): void {
+    this.sql.exec(
+      `UPDATE tasks SET claim_expires = ?, updated_at = ? WHERE realization_id = ? AND claimed_by IS NOT NULL AND status IN ('claimed', 'realizing', 'evaluated')`,
+      new Date(now + leaseMs).toISOString(), new Date(now).toISOString(), realizationId,
+    );
   }
 
   /** Records the realization a claim started; the task stays `claimed` (`invalid-state` unless it is). */
