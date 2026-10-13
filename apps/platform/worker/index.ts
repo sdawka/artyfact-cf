@@ -82,7 +82,11 @@ export { app };
 export default {
   async fetch(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
     // FAKE_ARTIFACTS=1: in-memory Artifacts seeded with examples/ (local demos and e2e; never set when deployed).
-    if (env.FAKE_ARTIFACTS === "1") await (await import("./artifacts/fake-platform")).ensureFakePlatform(env);
+    if (env.FAKE_ARTIFACTS === "1") {
+      const fake = await import("./artifacts/fake-platform");
+      await fake.ensureFakePlatform(env);
+      if (new URL(request.url).pathname.startsWith(fake.FAKE_GIT_PREFIX)) return fake.fakeGitFetch(request);
+    }
     return app.fetch(request, env, ctx);
   },
   /** Artifacts push events (`cf.artifacts.repo.pushed`): delegated to the hooks slice's consumer. */
