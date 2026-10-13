@@ -23,11 +23,20 @@ export async function checkPage(page: Page, testInfo: TestInfo, name: string, al
 }
 
 /** Insert text at the end of the CodeMirror document that is currently shown. insertText skips the editor's auto-indent, which would shift YAML. */
-export async function typeInEditor(page: Page, text: string) {
-  const content = page.locator(".cm-content").first();
-  await content.click();
-  await page.keyboard.press("ControlOrMeta+End");
-  await page.keyboard.insertText(text);
+export async function typeInEditor(page: Page, text: string, path?: string) {
+  // The pane swaps its editor when the file changes (and on a slow runner the previous file's editor is still mounted
+  // right after "Add" or "Edit"), so wait for the file's own pane and check the text landed, typing again only if it did not.
+  const pane = page.locator('section[aria-labelledby="file-pane-path"]');
+  if (path) await expect(pane.locator("#file-pane-path")).toHaveText(path);
+  const content = pane.locator(".cm-content");
+  const probe = text.split("\n").map((l) => l.trim()).find(Boolean) ?? text;
+  await expect(async () => {
+    if ((await content.textContent())?.includes(probe)) return;
+    await content.click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.insertText(text);
+    await expect(content).toContainText(probe, { timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
 }
 
 /** A tiny HTTP app answering /health like a deployed preview, for the health assay (the platform allows localhost in fake mode). */
@@ -70,7 +79,7 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   await page.getByRole("button", { name: "New file…" }).click();
   await page.getByLabel("New file path").fill(`thing.webapp/section.runtime/${node}/node.yaml`);
   await page.getByRole("button", { name: "Add", exact: true }).click();
-  await typeInEditor(page, `id: ${node}\nkind: binding\nfields:\n  name: ${title}\n  description: ${title} for the e2e run\n`);
+  await typeInEditor(page, `id: ${node}\nkind: binding\nfields:\n  name: ${title}\n  description: ${title} for the e2e run\n`, `thing.webapp/section.runtime/${node}/node.yaml`);
   await checkPage(page, testInfo, `code-${node}`);
   await page.getByRole("link", { name: "Commit…" }).click();
   await page.getByLabel("Message").fill(`Add ${node}`);
@@ -131,6 +140,8 @@ export async function sweepViews(page: Page, testInfo: TestInfo, base: string, t
     ["overview", "Overview"], ["map", "Map"], ["journeys", "Journeys"], ["theory", "Theory"], ["code", "Code"],
     ["work", "Work"], ["review", "Review"], ["evaluations", "Evaluations"], ["changelog", "Changelog"], ["compare", "Compare"], ["phenome", "Deployments"],
   ];
+  // Each view loads, renders and runs axe plus a screenshot; give the sweep a budget per view instead of one test's 30 s.
+  testInfo.setTimeout(views.length * 8_000);
   for (const [path, heading] of views) {
     await page.goto(`${base}/${path}`);
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
