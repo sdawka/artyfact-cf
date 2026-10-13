@@ -4,7 +4,7 @@ import { Markdown } from "../Markdown";
 import styles from "../work.module.css";
 
 /** Copy button whose accessible name does not repeat the (possibly secret, possibly huge) value. */
-function CopyText({ value, label }: { value: string; label: string }) {
+export function CopyText({ value, label }: { value: string; label: string }) {
   const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
   useEffect(() => {
     if (state === "idle") return;
