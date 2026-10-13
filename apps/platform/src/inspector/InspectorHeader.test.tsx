@@ -7,8 +7,8 @@ const SYSTEM = "system.keep-in-touch";
 const ref = { ref: "head", repo: "genome", commit: "a".repeat(40) };
 const DOC = "keep-in-touch-world-specification";
 
-function openInCode(files: { path: string; hash: string; nodes?: string[] }[]) {
-  renderApp(`/s/${SYSTEM}/r/head/overview?focus=GD.contacts`, undefined, (qc) => qc.setQueryData(qk.tree(SYSTEM, "genome", "head"), { ref, files }));
+function openInCode(files: { path: string; hash: string; nodes?: string[] }[], focus = "GD.contacts") {
+  renderApp(`/s/${SYSTEM}/r/head/overview?focus=${focus}`, undefined, (qc) => qc.setQueryData(qk.tree(SYSTEM, "genome", "head"), { ref, files }));
   return screen.findByRole("complementary", { name: "Inspector" }).then((inspector) => within(inspector));
 }
 
@@ -25,5 +25,12 @@ describe("Inspector header: Open in Code", () => {
     const inspector = await openInCode([{ path: "purpose.yaml", hash: "h", nodes: ["other"] }]);
     const href = (await inspector.findByRole("link", { name: "Open in Code" })).getAttribute("href")!;
     expect(new URLSearchParams(href.split("?")[1]).get("path")).toBe(DOC);
+  });
+
+  it("links the declaring node.yaml of a node with no source document", async () => {
+    const path = "thing.webapp/section.runtime/node.yaml";
+    const inspector = await openInCode([{ path, hash: "h", nodes: ["section.runtime"] }], "section.runtime");
+    const href = (await inspector.findByRole("link", { name: "Open in Code" })).getAttribute("href")!;
+    expect(new URLSearchParams(href.split("?")[1]).get("path")).toBe(path);
   });
 });

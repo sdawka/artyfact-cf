@@ -2,7 +2,7 @@ import { exports } from "cloudflare:workers";
 import { afterEach, describe, expect, it } from "vitest";
 import type { ApiError, ImportSystemResponse, PartResponse, PartsResponse, StartWorkResponse } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
-import { appFiles, genomeFiles } from "./fixtures/genome";
+import { appFiles, genomeFiles, genomeFor } from "./fixtures/genome";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 
 const ADMIN = { authorization: "Bearer test-admin-token" };
@@ -25,9 +25,7 @@ async function imported() {
   const genomeRepo = `parts-genome-${suffix}`, appRepo = `parts-app-${suffix}`;
   const artifacts = new FakeArtifacts();
   artifacts.create(genomeRepo).commit({
-    ...genomeFiles,
-    "system.yaml": genomeFiles["system.yaml"].replace("system.kit", systemId),
-    "criteria.yaml": genomeFiles["criteria.yaml"].replaceAll("system.kit", systemId),
+    ...genomeFor(systemId),
   }, "genome");
   artifacts.create(appRepo).commit(appFiles, "app");
   setArtifactsOverride(artifacts);

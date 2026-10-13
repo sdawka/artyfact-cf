@@ -1,0 +1,8 @@
+id: operation.contact.save
+kind: operation
+fields:
+  name: Save contact
+  owningThing: thing.webapp
+  revision: 1
+links:
+  - { rel: writes, to: entity.ContactRecord }

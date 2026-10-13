@@ -1,5 +1,6 @@
-import { loadSystem, validate, type Readiness, type SystemModel } from "@artyfact/model";
-import { packsFor, templates } from "@artyfact/templates";
+import { LegacyGenomeError, loadGenome, validate, type Readiness, type SystemModel } from "@artyfact/model";
+import { NODE_FILE, V1_ROOT_FILE } from "@artyfact/ontology/genome";
+import { metaTemplates } from "@artyfact/templates";
 import { unprocessable } from "../errors";
 import type { ArtifactsRepoLike, TreeEntry } from "./client";
 
@@ -69,10 +70,10 @@ export async function walkTree(
 
 const isYaml = (p: string) => /\.ya?ml$/.test(p);
 
-/** Where the Genome lives in a repo: root (`system.yaml`) or `system/`. */
+/** Where the Genome lives in a repo: root (`node.yaml`, or a legacy `system.yaml`) or `system/`. */
 export async function genomePrefix(repo: ArtifactsRepoLike, commit: string): Promise<string> {
   const entries = (await repo.readTree(await rootTree(repo, commit))) ?? [];
-  if (entries.some((e) => e.name === "system.yaml" && e.type !== "tree")) return "";
+  if (entries.some((e) => (e.name === NODE_FILE || e.name === V1_ROOT_FILE) && e.type !== "tree")) return "";
   if (entries.some((e) => e.name === "system" && e.type === "tree")) return "system";
   return "";
 }
@@ -105,11 +106,20 @@ export interface LoadedGenome {
   readiness: Readiness;
 }
 
-/** loadSystem + validate over the System's pinned rule packs. Pure: no Artifacts access. */
+/** The 422 a revision in the retired v1 layout answers on model and readiness routes (spec §2a). */
+export const legacyGenome = (revision: string) =>
+  unprocessable("legacy-genome", `the Genome at ${revision.slice(0, 12)} predates the node-tree format; convert it with \`artyfact convert-genome\``);
+
+/** loadGenome + readiness over the System's pinned template packs. Pure: no Artifacts access. */
 export function buildGenome(files: Map<string, string>, revision: string): LoadedGenome {
-  const model = loadSystem(files, { revision, templates });
-  const readiness = validate(model, packsFor(model.kits.rulePacks));
-  return { files, model, readiness };
+  let model: SystemModel;
+  try {
+    model = loadGenome(files, { revision, templates: metaTemplates });
+  } catch (e) {
+    if (e instanceof LegacyGenomeError) throw legacyGenome(revision);
+    throw e;
+  }
+  return { files, model, readiness: validate(model) };
 }
 
 // Per-isolate memo: genomes are immutable per commit.

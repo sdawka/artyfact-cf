@@ -1,0 +1,8 @@
+id: binding.worker
+kind: binding
+fields:
+  name: Worker with static assets
+  owningThing: thing.webapp
+  revision: 1
+  description: Cloudflare Worker serving the API and the built UI through Workers Static Assets.
+  fromTemplate: template.thing.cloudflare-worker-webapp@1

@@ -1,0 +1,13 @@
+id: entity.ContactRecord
+kind: entity
+fields:
+  name: Contact record
+  owningThing: thing.webapp
+  revision: 1
+  fields:
+    - name: owner
+      type: ref:entity.Account
+      optional: false
+    - name: name
+      type: text
+      optional: false

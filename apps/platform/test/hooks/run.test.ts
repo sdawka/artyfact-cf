@@ -141,7 +141,7 @@ describe("runSubmission", () => {
   });
 
   it("fails scope with 'Genome amendment required' when an app candidate edits system/**", async () => {
-    const c = appCandidate({ changedPaths: ["system/things/webapp/ontology.yaml"], changedNodes: ["genome"] });
+    const c = appCandidate({ changedPaths: ["system/thing.webapp/node.yaml"], changedNodes: ["genome"] });
     const e = by(await runner.runSubmission(ctxFor(c)), "C.system.promotion")[0];
     expect(e.verdict).toBe("fail");
     expect(e.interpretation).toContain("Genome amendment required");
@@ -155,7 +155,7 @@ describe("runSubmission", () => {
   });
 
   it("an unloadable open candidate makes the overlap evaluation unknown, never pass", async () => {
-    const broken = appCandidate({ id: "cand.g9", target: "genome", changedPaths: ["system.yaml"], changedNodes: [], genomeFiles: { ...miniGenome(), "system.yaml": "id: 1\n" } });
+    const broken = appCandidate({ id: "cand.g9", target: "genome", changedPaths: ["node.yaml"], changedNodes: [], genomeFiles: { ...miniGenome(), "node.yaml": "id: 1\n" } });
     const e = by(await runner.runSubmission(ctxFor(appCandidate(), { openCandidates: [broken] })), "C.system.readiness")[0];
     expect(e).toMatchObject({ execution: "completed", verdict: "unknown" });
     expect(e.limitations.join(" ")).toMatch(/could not be fully determined/);
@@ -170,7 +170,7 @@ describe("runSubmission", () => {
 
   it("flags an inferred diff mode in limitations", async () => {
     const files = miniGenome();
-    files["criteria.yaml"] = files["criteria.yaml"].replace("    inputs: { mode: overlap }\n", "");
+    files["node.yaml"] = files["node.yaml"].replace("        inputs:\n          mode: overlap\n", "");
     const e = by(await runner.runSubmission(ctxFor(appCandidate(), { genomeFiles: files })), "C.system.readiness")[0];
     expect(e.limitations.join(" ")).toMatch(/inputs\.mode is not set; ran as overlap/);
   });
@@ -183,9 +183,15 @@ describe("runSubmission", () => {
   });
 });
 
+const DUE_LIST = "thing.webapp/section.ui/screen.home/component.DueList/node.yaml";
+const describeDueList = (files: Record<string, string>, description: string) =>
+  files[DUE_LIST].replace("  name: Due list\n", `  name: Due list\n  description: ${JSON.stringify(description)}\n`);
+/** The root `node.yaml` with more System criteria (its `criteria` list is the file's last key). */
+const withSystemCriteria = (files: Record<string, string>, lines: string[]) => `${files["node.yaml"]}${lines.join("\n")}\n`;
+
 describe("runGenome", () => {
   const genomeCandidate = (files: Record<string, string>, over: Partial<CandidateRef> = {}): CandidateRef =>
-    appCandidate({ id: "cand.g1", target: "genome", changedPaths: ["things/webapp/ontology.yaml"], changedNodes: [], genomeFiles: files, ...over });
+    appCandidate({ id: "cand.g1", target: "genome", changedPaths: [DUE_LIST], changedNodes: [], genomeFiles: files, ...over });
 
   it("fails model-rules on a recipients list and attaches review signals", async () => {
     const runner = createHookRunner({ s1: createSystemOne({ FAKE_S1: "1" }), now: fixedNow });
@@ -199,7 +205,7 @@ describe("runGenome", () => {
 
   it("#s1pick:hard-rule-violation → reviewDelta level error", async () => {
     const files = miniGenome();
-    files["things/webapp/ontology.yaml"] = files["things/webapp/ontology.yaml"].replace("name: Due list }", "name: Due list, description: \"Sends to everyone #s1pick:hard-rule-violation\" }");
+    files[DUE_LIST] = describeDueList(files, "Sends to everyone #s1pick:hard-rule-violation");
     const runner = createHookRunner({ s1: createSystemOne({ FAKE_S1: "1" }), now: fixedNow });
     const r = await runner.runGenome(ctxFor(genomeCandidate(files), { permittedPaths: ["**"] }));
     const rev = r.review.find((x) => x.subject === "component.DueList");
@@ -209,7 +215,7 @@ describe("runGenome", () => {
 
   it("provider off → review unknown with provenance off, never a throw", async () => {
     const files = miniGenome();
-    files["things/webapp/ontology.yaml"] = files["things/webapp/ontology.yaml"].replace("name: Due list }", "name: Due list, description: changed }");
+    files[DUE_LIST] = describeDueList(files, "changed");
     const runner = createHookRunner({ s1: createSystemOne({}), now: fixedNow });
     const r = await runner.runGenome(ctxFor(genomeCandidate(files), { permittedPaths: ["**"] }));
     expect(r.review.length).toBeGreaterThan(0);
@@ -221,7 +227,7 @@ describe("runGenome", () => {
 
   it("a Genome candidate that does not parse yields a failing structure evaluation and a non-actionable readiness", async () => {
     const runner = createHookRunner({ s1: createSystemOne({}), now: fixedNow });
-    const r = await runner.runGenome(ctxFor(genomeCandidate({ ...miniGenome(), "system.yaml": "id: 1\n" }), { permittedPaths: ["**"] }));
+    const r = await runner.runGenome(ctxFor(genomeCandidate({ ...miniGenome(), "node.yaml": "id: 1\n" }), { permittedPaths: ["**"] }));
     expect(r.readiness.actionable).toBe(false);
     expect(r.readiness.findings[0]).toMatchObject({ level: "error", rule: "genome.parse" });
     expect(by(r.evaluations, "C.system.structure")[0]).toMatchObject({ execution: "completed", verdict: "fail" });
@@ -238,19 +244,14 @@ describe("runGenome", () => {
 
   it("vacuous judgments: topology with zero candidates passes; zero claims, an unpinned topology pack or an unparsable candidate is unknown", async () => {
     const files = miniGenome();
-    files["criteria.yaml"] = files["criteria.yaml"].replace("hooks:\n", [
-      "  - id: C.system.topology", "    title: Topology", "    claim: One recipient per send.", "    ownerKind: system", "    ownerId: system.mini-kit",
-      "    subjectKind: system", "    subjectId: system.mini-kit", "    targetKind: model", "    gates: [submission]", "    hooks: [hook.system.topology.semantic]",
-      "  - id: C.system.purpose", "    title: Purpose", "    claim: Measures are sound.", "    ownerKind: system", "    ownerId: system.mini-kit",
-      "    subjectKind: system", "    subjectId: system.mini-kit", "    targetKind: model", "    gates: [submission]", "    hooks: [hook.system.purpose.model]",
-      "hooks:",
-      "  - id: hook.system.topology.semantic", "    assay: t", "    criteria: [C.system.topology]", "    tier: semantic", "    engine: system-one",
-      "    targetKind: model", "    triggers: [submission]", "    inputs: { judgment: topology }",
-      "  - id: hook.system.purpose.model", "    assay: p", "    criteria: [C.system.purpose]", "    tier: semantic", "    engine: system-one",
-      "    targetKind: model", "    triggers: [submission]", "    inputs: { judgment: purposeMeasures }",
-      "",
-    ].join("\n"));
-    const noClaims: Record<string, string> = { ...files, "theory.yaml": "claims: []\n" };
+    files["node.yaml"] = withSystemCriteria(files, [
+      "  - id: C.system.topology", "    title: Topology", "    claim: One recipient per send.", "    gates: [submission]", "    hooks:",
+      "      - { id: hook.system.topology.semantic, assay: t, tier: semantic, engine: system-one, triggers: [submission], inputs: { judgment: topology } }",
+      "  - id: C.system.purpose", "    title: Purpose", "    claim: Measures are sound.", "    gates: [submission]", "    hooks:",
+      "      - { id: hook.system.purpose.model, assay: p, tier: semantic, engine: system-one, triggers: [submission], inputs: { judgment: purposeMeasures } }",
+    ]);
+    const noClaims: Record<string, string> = { ...files };
+    delete noClaims["T1/node.yaml"];
     const runner = createHookRunner({ s1: createSystemOne({}), now: fixedNow });
     const r = await runner.runGenome(ctxFor(genomeCandidate(noClaims), { genomeFiles: files, permittedPaths: ["**"] }));
     expect(by(r.evaluations, "C.system.topology")[0]).toMatchObject({ execution: "completed", verdict: "pass", observations: [expect.objectContaining({ semanticCandidates: 0 })] });
@@ -258,25 +259,22 @@ describe("runGenome", () => {
     expect(by(r.evaluations, "C.system.purpose")[0]).toMatchObject({ execution: "completed", verdict: "unknown", observations: [{ note: "no non-deferred claims" }] });
 
     // Topology pack not pinned: zero candidates is no evidence.
-    const noTopo = { ...noClaims, "kits.yaml": noClaims["kits.yaml"].replace('  - { id: topology.private-pairs, version: "1" }\n', "") };
-    expect(noTopo["kits.yaml"]).not.toContain("topology");
+    const noTopo = { ...noClaims, "node.yaml": noClaims["node.yaml"].replace('    - id: topology.private-pairs\n      version: "1"\n', "") };
+    expect(noTopo["node.yaml"]).not.toContain("topology.private-pairs");
     const r2 = await runner.runGenome(ctxFor(genomeCandidate(noTopo), { genomeFiles: files, permittedPaths: ["**"] }));
     expect(by(r2.evaluations, "C.system.topology")[0]).toMatchObject({ verdict: "unknown", observations: [{ note: "pack not run: topology.private-pairs" }] });
 
-    const broken = await runner.runGenome(ctxFor(genomeCandidate({ ...files, "system.yaml": "id: 1\n" }), { genomeFiles: files, permittedPaths: ["**"] }));
+    const broken = await runner.runGenome(ctxFor(genomeCandidate({ ...files, "node.yaml": "id: 1\n" }), { genomeFiles: files, permittedPaths: ["**"] }));
     expect(by(broken.evaluations, "C.system.topology")[0]).toMatchObject({ verdict: "unknown" });
     expect(by(broken.evaluations, "C.system.purpose")[0]).toMatchObject({ verdict: "unknown" });
   });
 
   it("reviewDelta on a Genome candidate with an empty delta passes vacuously", async () => {
     const files = miniGenome();
-    files["criteria.yaml"] = files["criteria.yaml"].replace("hooks:\n", [
-      "  - id: C.system.review", "    title: Review", "    claim: Amendments are reviewed.", "    ownerKind: system", "    ownerId: system.mini-kit",
-      "    subjectKind: system", "    subjectId: system.mini-kit", "    targetKind: model", "    gates: [submission]", "    hooks: [hook.system.review]",
-      "hooks:",
-      "  - id: hook.system.review", "    assay: r", "    criteria: [C.system.review]", "    tier: semantic", "    engine: system-one",
-      "    targetKind: model", "    triggers: [submission]", "    inputs: { judgment: reviewDelta }", "",
-    ].join("\n"));
+    files["node.yaml"] = withSystemCriteria(files, [
+      "  - id: C.system.review", "    title: Review", "    claim: Amendments are reviewed.", "    gates: [submission]", "    hooks:",
+      "      - { id: hook.system.review, assay: r, tier: semantic, engine: system-one, triggers: [submission], inputs: { judgment: reviewDelta } }",
+    ]);
     const runner = createHookRunner({ s1: createSystemOne({}), now: fixedNow });
     const r = await runner.runGenome(ctxFor(genomeCandidate(files), { genomeFiles: files, permittedPaths: ["**"] }));
     const e = by(r.evaluations, "C.system.review")[0];
@@ -286,30 +284,21 @@ describe("runGenome", () => {
 
   it("an llm hook folds the review into one evaluation via policy", async () => {
     const files = miniGenome();
-    files["criteria.yaml"] = files["criteria.yaml"].replace("hooks:\n", [
+    files["node.yaml"] = withSystemCriteria(files, [
       "  - id: C.system.review",
       "    title: Amendments are reviewed",
       "    claim: System One finds no contradiction with commitments.",
-      "    ownerKind: system",
-      "    ownerId: system.mini-kit",
-      "    subjectKind: system",
-      "    subjectId: system.mini-kit",
-      "    targetKind: model",
       "    gates: [submission]",
-      "    hooks: [hook.system.review]",
-      "hooks:",
-      "  - id: hook.system.review",
-      "    assay: System One delta review",
-      "    criteria: [C.system.review]",
-      "    tier: semantic",
-      "    engine: llm",
-      "    targetKind: model",
-      "    triggers: [submission]",
-      "    inputs: { judgment: reviewDelta }",
-      "",
-    ].join("\n"));
+      "    hooks:",
+      "      - id: hook.system.review",
+      "        assay: System One delta review",
+      "        tier: semantic",
+      "        engine: llm",
+      "        triggers: [submission]",
+      "        inputs: { judgment: reviewDelta }",
+    ]);
     const cand = { ...files };
-    cand["things/webapp/ontology.yaml"] = cand["things/webapp/ontology.yaml"].replace("name: Due list }", "name: Due list, description: \"#s1pick:hard-rule-violation\" }");
+    cand[DUE_LIST] = describeDueList(cand, "#s1pick:hard-rule-violation");
     const runner = createHookRunner({ s1: createSystemOne({ FAKE_S1: "1" }), now: fixedNow });
     const r = await runner.runGenome(ctxFor(genomeCandidate(cand), { genomeFiles: files, permittedPaths: ["**"] }));
     const e = by(r.evaluations, "C.system.review")[0];

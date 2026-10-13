@@ -1,0 +1,6 @@
+id: component.DueList
+kind: component
+fields:
+  name: Due list
+  owningThing: thing.webapp
+  revision: 1

@@ -30,7 +30,7 @@ export function InspectorHeader({ entry }: { entry: IndexEntry }) {
   const path = m.path(entry.id).map((e) => e.id);
   const href = useKeepParams();
   const doc = (entry.item as { source?: { doc?: unknown } } | undefined)?.source?.doc;
-  // `source.doc` is a document id; Code opens paths. Prefer the Genome file that maps to this node.
+  // Code opens the Genome file that declares this node; else `source.doc`, a document id the Code view resolves.
   const tree = useTree({ repo: "genome" });
   const codePath = tree.data?.files.find((f) => f.nodes?.includes(entry.id))?.path ?? (typeof doc === "string" ? doc : "");
   return (
@@ -66,7 +66,7 @@ export function InspectorHeader({ entry }: { entry: IndexEntry }) {
             Change this…
           </Link>
         )}
-        {typeof doc === "string" && doc && codePath && (
+        {codePath && (
           <Link className={`u-brackets ${styles.openButton}`} to={href("code", { repo: "genome", path: codePath })}>
             Open in Code
           </Link>

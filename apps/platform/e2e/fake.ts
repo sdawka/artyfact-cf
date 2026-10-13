@@ -53,24 +53,24 @@ export async function getJson<T>(request: APIRequestContext, path: string): Prom
 }
 
 /**
- * The edit-and-realize loop through the UI: Inspector "Open in Code" on `screen.people`, add a node to the Thing's
- * ontology, commit it under a new Evolution, then Accept the amendment on Work. Returns the realization id.
+ * The edit-and-realize loop through the UI: Inspector "Open in Code" on `section.runtime`, add a node under it as a new
+ * node directory, commit it under a new Evolution, then Accept the amendment on Work. Returns the realization id.
  */
 export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: string, title: string): Promise<string> {
-  // The editor's "New evolution…" cannot list affected nodes, and a Genome candidate may only touch the files of the
-  // Evolution's affected nodes, so the Evolution comes from Work with screen.people (defined in the Thing's ontology).
+  // The editor's "New evolution…" cannot list affected nodes, and a Genome candidate may only touch the directories of
+  // the Evolution's affected nodes, so the Evolution comes from Work with section.runtime (where bindings live).
   // A Genome amendment: its default acceptance criteria are the model ones (app criteria would block the accept).
-  await createEvolution(page, title, `Add ${title} to the runtime.`, ["screen.people"], ADMIN_TOKEN, BASE, "genome-amendment");
-  await page.goto(`${BASE}/map?focus=screen.people`);
+  await createEvolution(page, title, `Add ${title} to the runtime.`, ["section.runtime"], ADMIN_TOKEN, BASE, "genome-amendment");
+  await page.goto(`${BASE}/map?focus=section.runtime`);
   await page.getByRole("button", { name: "Open in Code" }).or(page.getByRole("link", { name: "Open in Code" })).first().click();
   await expect(page).toHaveURL(/\/code\?.*repo=genome/);
   await expect(page.getByRole("heading", { level: 1, name: "Code" })).toBeVisible();
-  // The Inspector links the node's source document id, which is not a file; pick the Thing's ontology in the tree.
-  await page.getByLabel("Filter files").fill("webapp/ontology");
-  await page.getByRole("link", { name: "ontology.yaml" }).click();
-  await expect(page).toHaveURL(/path=things%2Fwebapp%2Fontology\.yaml/);
-  await page.getByRole("button", { name: "Edit", exact: true }).click();
-  await typeInEditor(page, `  - { id: ${node}, kind: binding, name: ${title}, parent: section.runtime, description: ${title} for the e2e run }\n`);
+  // The Inspector opens the section's own node.yaml; the new binding is a new node directory under it.
+  await expect(page).toHaveURL(/path=thing\.webapp%2Fsection\.runtime%2Fnode\.yaml/);
+  await page.getByRole("button", { name: "New file…" }).click();
+  await page.getByLabel("New file path").fill(`thing.webapp/section.runtime/${node}/node.yaml`);
+  await page.getByRole("button", { name: "Add", exact: true }).click();
+  await typeInEditor(page, `id: ${node}\nkind: binding\nfields:\n  name: ${title}\n  description: ${title} for the e2e run\n`);
   await checkPage(page, testInfo, `code-${node}`);
   await page.getByRole("link", { name: "Commit…" }).click();
   await page.getByLabel("Message").fill(`Add ${node}`);

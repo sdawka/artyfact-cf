@@ -12,6 +12,9 @@ const relations = (t: DerivationTree, out: string[] = []): string[] => {
   return out;
 };
 
+const SAVE = "thing.webapp/section.domain/operation.contact.save/node.yaml";
+const EFFECT = "    - Save only that owner's record; editing does not send invitations\n";
+
 describe("model-rules on the real Keep in Touch Genome", () => {
   const base = loadGenome(keepInTouch(), BASE);
 
@@ -25,7 +28,7 @@ describe("model-rules on the real Keep in Touch Genome", () => {
     expect(r.outcome).toMatchObject({ execution: "completed", verdict: "fail" });
     const f = r.outcome.observations.find((o) => (o as { rule?: string }).rule === "topology.recipientArray") as { subject: string; derivation: DerivationTree };
     expect(f.subject).toBe("operation.contact.save");
-    expect(relations(f.derivation)).toEqual(expect.arrayContaining(["outgoingDirect", "accountRefField", "cardinality"]));
+    expect(relations(f.derivation)).toEqual(expect.arrayContaining(["outgoingDirect", "accountRefField", "acardinality"]));
   });
 
   it("the topology hook (inputs.packs with a version) sees it; the structure hook does not; an unpinned pack is unknown", () => {
@@ -112,8 +115,9 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
 
   it("C.system.autonomy fails when a required criterion is missing", async () => {
     const files = keepInTouch();
-    files["things/webapp/criteria.yaml"] = files["things/webapp/criteria.yaml"].replace(/hooks: \[hook\.webapp\.prompts\.bounded\]/, "hooks: [hook.webapp.prompts.bounded]\n    deferred: true");
-    expect(files["things/webapp/criteria.yaml"]).toContain("deferred: true");
+    const today = "thing.webapp/section.ui/screen.today/node.yaml";
+    files[today] = files[today].replace("  - id: C.webapp.prompts.bounded\n", "  - id: C.webapp.prompts.bounded\n    deferred: true\n");
+    expect(files[today]).toContain("deferred: true");
     const runner = createHookRunner({ s1: createSystemOne({}), now: () => new Date(0) });
     const e = by(await runner.runSubmission(ctx({ genomeFiles: files })), "C.system.autonomy");
     expect(e.verdict).toBe("fail");
@@ -130,10 +134,9 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
 
   it("topology semantic judges multi-recipient candidates of the canonical Genome when there are some", async () => {
     const files = keepInTouch();
-    const before = files["things/webapp/ontology.yaml"];
-    files["things/webapp/ontology.yaml"] = before.replace(
-      "    effects: [Save only that owner's record; editing does not send invitations,", "    effects: [\"Save only that owner's record and notify the recipient #s1harm\",");
-    expect(files["things/webapp/ontology.yaml"]).not.toBe(before);
+    const before = files[SAVE];
+    files[SAVE] = before.replace(EFFECT, "    - \"Save only that owner's record and notify the recipient #s1harm\"\n");
+    expect(files[SAVE]).not.toBe(before);
     const runner = createHookRunner({ s1: createSystemOne({ FAKE_S1: "1" }), now: () => new Date(0) });
     const e = (await runner.runSubmission(ctx({ genomeFiles: files }))).find((x) => x.hook === "hook.system.topology.semantic")!;
     // #s1harm makes the fake confirm "sends to several people" (noul 0.95) → topology unacceptable → fail.
@@ -149,8 +152,7 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
 
   it("topology semantic with candidates flagged and the provider off is unknown", async () => {
     const files = keepInTouch();
-    files["things/webapp/ontology.yaml"] = files["things/webapp/ontology.yaml"].replace(
-      "    effects: [Save only that owner's record; editing does not send invitations,", "    effects: [Save only that owner's record and notify the recipient,");
+    files[SAVE] = files[SAVE].replace(EFFECT, "    - Save only that owner's record and notify the recipient\n");
     const runner = createHookRunner({ s1: createSystemOne({}), now: () => new Date(0) });
     const e = (await runner.runSubmission(ctx({ genomeFiles: files }))).find((x) => x.hook === "hook.system.topology.semantic")!;
     expect(e).toMatchObject({ execution: "completed", verdict: "unknown" });
@@ -160,7 +162,7 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
   it("topology semantic is unknown when the rules run errored (no vacuous pass without evidence)", async () => {
     const runner = createHookRunner({
       s1: createSystemOne({ FAKE_S1: "1" }), now: () => new Date(0),
-      genome: { packsFor: () => { throw new Error("pack store unavailable"); } },
+      genome: { validate: () => { throw new Error("pack store unavailable"); } },
     });
     const e = (await runner.runSubmission(ctx())).find((x) => x.hook === "hook.system.topology.semantic")!;
     expect(e).toMatchObject({ execution: "completed", verdict: "unknown" });

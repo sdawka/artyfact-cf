@@ -1,10 +1,13 @@
 import type { Readiness, SystemModel } from "@artyfact/model";
 import type { Evaluation, ReadinessReport, SerializedIndex, SerializedModel } from "../shared/api";
-import { foldVerdict, offTriggerHookIds } from "../shared/verdict";
+import { foldVerdict, isBlocking, offTriggerHookIds } from "../shared/verdict";
 
-/** SystemModel → JSON-safe form: index functions materialised, `byId` without duplicated items. */
+/**
+ * SystemModel → JSON-safe form: index functions materialised, `byId` without duplicated items. The engine graph and
+ * the composed template stay in the Worker: the projection already carries what the SPA reads.
+ */
 export function serializeModel(m: SystemModel): SerializedModel {
-  const { index, ...rest } = m;
+  const { index, graph: _graph, template: _template, ...rest } = m;
   const byId: SerializedIndex["byId"] = {};
   const paths: SerializedIndex["paths"] = {};
   const layers: SerializedIndex["layers"] = {};
@@ -14,11 +17,10 @@ export function serializeModel(m: SystemModel): SerializedModel {
     const l = index.layer(id);
     if (l) layers[id] = l;
   }
-  const { path: _p, layer: _l, byId: _b, ...plain } = index;
+  const { path: _p, layer: _l, depthOf: _d, layerOf: _lo, byId: _b, ...plain } = index;
   return JSON.parse(JSON.stringify({ ...rest, index: { ...plain, byId, paths, layers } })) as SerializedModel;
 }
 
-const BLOCKING = new Set(["error", "missing"]);
 
 /**
  * Rules-engine readiness (+ evaluations at this revision) → the three never-summed readiness states. Each criterion's
@@ -46,7 +48,7 @@ export function readinessReport(m: Pick<SystemModel, "criteria"> & { hooks?: Sys
   }
   return {
     ...r,
-    modelReadiness: { findings, blockers: findings.filter((f) => BLOCKING.has(f.level)) },
+    modelReadiness: { findings, blockers: findings.filter(isBlocking) },
     implementationConformance: conf,
     outcomeProgress: { observed, unknown: unknownOutcome },
     computedAt: now.toISOString(),

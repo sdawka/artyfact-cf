@@ -26,7 +26,7 @@ describe("examples/keep-in-touch", () => {
     ns.create("ex-system").commit(genome);
     ns.create("ex-app").commit(app);
     setArtifactsOverride(ns);
-    const systemId = /^id:\s*(\S+)/m.exec(genome["system.yaml"])![1];
+    const systemId = /^id:\s*(\S+)/m.exec(genome["node.yaml"])![1];
 
     const imp = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo: "ex-system", appRepo: "ex-app" }, { authorization: "Bearer test-admin-token" });
     expect(imp.status, JSON.stringify(imp.json)).toBe(201);

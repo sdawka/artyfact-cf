@@ -307,7 +307,7 @@ async function evaluationsFor(env: Env, systemId: string, candidateIds: string[]
 
 /**
  * Serialised model + full rules Readiness at a Genome commit, straight from the DO cache when present (no
- * loadSystem/validate on a cold isolate); on a miss, built once and written through.
+ * loadGenome/validate on a cold isolate); on a miss, built once and written through.
  */
 async function genomeView(env: Env, systemId: string, genomeCommit: string, repo: string): Promise<{ model: SerializedModel; readiness: Readiness }> {
   const stub = systemStub(env, systemId);
