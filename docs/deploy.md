@@ -32,6 +32,28 @@ There is no D1 or R2. System One needs a secret, `TYPESAFE_API_KEY` or `OPENROUT
 
 `npm run deploy` (builds the platform, then `wrangler deploy`). Secrets and the Queue persist.
 
+Before deploying, confirm a System One key is set: `cd apps/platform && npx wrangler secret list` must list `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`. `wrangler deploy` replaces `vars`, and no fake is deployed, so without a key System One is off: hard System One gates stay `unknown` and intents only ask questions.
+
+## Migrate a v1 Genome
+
+A System whose head Genome is in the retired v1 layout (`system.yaml` at the root) answers 422 `legacy-genome` on every route that loads it, so it cannot be migrated through a realization. Convert it locally and re-import it ([ontology.md §2a](design/ontology.md)). For the prod Keep in Touch System, from the repo root:
+
+1. Check out the v1 head of `keep-in-touch.genome` (not the example on `main`: prod may have promoted Genome amendments since), and the head of `keep-in-touch.app` for its `source-map.yaml`. Pass each read token through the environment, never in argv:
+   ```
+   R=https://<account-id>.artifacts.cloudflare.net/git/artyfact
+   for repo in keep-in-touch.genome keep-in-touch.app; do
+     T=$(npx wrangler artifacts repos issue-token $repo --namespace artyfact --scope read --ttl 600 --json | jq -r .plaintext)
+     GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Bearer $T" git clone -q $R/$repo.git /tmp/$repo
+   done
+   ```
+2. Convert: `npx artyfact convert-genome /tmp/keep-in-touch.genome /tmp/kit-v2 --source-map /tmp/keep-in-touch.app/source-map.yaml`. Review the tree; `node.yaml` at its root must name `system.keep-in-touch`.
+3. Push and re-import, keeping the app repo's head (the scratch project has no `app/`):
+   ```
+   ARTYFACT_ADMIN_TOKEN=... npx artyfact init --dir /tmp/kit-migrate --genome /tmp/kit-v2 --platform $URL --adopt --force
+   ```
+   `--adopt` commits the converted tree on top of the v1 head of the same repo (a fast-forward), and `--force` re-points the System at that commit.
+4. Check: `curl -s $URL/api/systems/system.keep-in-touch/model` returns 200, and the Changelog lists the earlier commits with the legacy notice.
+
 ## Rollback
 
 ```

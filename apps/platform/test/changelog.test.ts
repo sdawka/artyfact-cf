@@ -10,8 +10,9 @@ import { clearGenomeMemo } from "../worker/artifacts/genome-source";
 import type { SystemAuthority } from "../worker/do/system-authority";
 import { resetHooks, setHooks } from "../worker/hooks/index";
 import { FILE_COMPARE_MAX_BYTES, compareFile } from "../worker/compare";
-import { appFiles, genomeFiles } from "./fixtures/genome";
-import { call as apiCall, genomeAmendment, importFresh, passing, promoteApp, renameContactAndScreen, type Flow } from "./helpers/flows";
+import { appFiles, genomeFiles, genomeFor } from "./fixtures/genome";
+import { LegacyGenomeError } from "@artyfact/model";
+import { ADMIN, call as apiCall, genomeAmendment, importFresh, passing, promoteApp, renameContactAndScreen, type Flow } from "./helpers/flows";
 
 beforeEach(() => setHooks({ runner: () => passing }));
 afterEach(() => { setArtifactsOverride(undefined); resetHooks(); });
@@ -238,6 +239,8 @@ describe("changelog cache soundness", () => {
   });
 });
 
+const LEGACY_MESSAGE = "this revision predates the node-tree Genome format; convert it with `artyfact convert-genome` and push it with `artyfact init --adopt --force` (docs/deploy.md)";
+
 describe("a Genome in the retired v1 layout", () => {
   /** import (sc-1) → a Genome acceptance whose tree is in the v1 layout (sc-2), accepted in the DO without loading it. */
   async function legacyHead() {
@@ -264,8 +267,22 @@ describe("a Genome in the retired v1 layout", () => {
     for (const path of [routes.model(f.systemId), routes.readiness(f.systemId)]) {
       const r = await get<ApiError>(path);
       expect(r.status, JSON.stringify(r.json)).toBe(422);
-      expect(r.json.error).toMatchObject({ code: "legacy-genome", message: "this revision predates the node-tree Genome format" });
+      expect(r.json.error).toMatchObject({ code: "legacy-genome", message: LEGACY_MESSAGE });
     }
+  });
+
+  it("names the converter in its error, and a forced re-import of a converted tree on the same repo restores the head", async () => {
+    expect(new LegacyGenomeError().message).toBe(LEGACY_MESSAGE);
+    const { f } = await legacyHead();
+    // What `artyfact init --adopt --force` does with the converted tree: a new commit on the Genome repo, then a forced import.
+    const v2 = f.ns.repo(f.genomeRepo).commit(genomeFor(f.systemId), "Convert the Genome to the node tree");
+    const plain = await apiCall<ApiError>("POST", "/systems/import", { systemId: f.systemId, genomeRepo: f.genomeRepo, appRepo: f.appRepo }, ADMIN);
+    expect(plain.status).toBe(409);
+    expect(plain.json.error.code).toBe("already-imported");
+    const forced = await apiCall<{ genomeCommit: string }>("POST", "/systems/import", { systemId: f.systemId, genomeRepo: f.genomeRepo, appRepo: f.appRepo, force: true }, ADMIN);
+    expect(forced.status, JSON.stringify(forced.json)).toBe(201);
+    expect(forced.json.genomeCommit).toBe(v2);
+    for (const path of [routes.model(f.systemId), routes.readiness(f.systemId)]) expect((await get<unknown>(path)).status).toBe(200);
   });
 
   it("ignores model, readiness and changelog rows cached before the v2 projection", async () => {

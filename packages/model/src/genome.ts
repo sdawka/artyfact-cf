@@ -35,7 +35,7 @@ export class ModelParseError extends Error {
 export class LegacyGenomeError extends Error {
   readonly code = "legacy-genome";
   constructor() {
-    super("this revision predates the node-tree Genome format");
+    super("this revision predates the node-tree Genome format; convert it with `artyfact convert-genome` and push it with `artyfact init --adopt --force` (docs/deploy.md)");
     this.name = "LegacyGenomeError";
   }
 }
