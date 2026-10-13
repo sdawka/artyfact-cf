@@ -132,17 +132,40 @@ export function engineRules(r: EngineRun, filter?: RulesFilter): Outcome {
 /** Whether a hook's filter selects checks@1, so its checks are judged on changed nodes. */
 export const wantsChecks = (filter?: RulesFilter): boolean => !!filter?.packs?.some((w) => packMatches(w, { id: CHECKS, version: "1" }));
 
-/** Changed nodes and their parents, the only subjects whose checks a gate judges. */
-export function checkScope(g: Graph, changed: string[]): Set<string> {
+export interface CheckScope {
+  /** Changed nodes still in the graph and their parents, plus the nearest surviving ancestor of each removed node. */
+  nodes: Set<string>;
+  /** Changed ids found only in the base graph. */
+  removed: string[];
+  /** Changed ids in neither graph (`unmapped:<path>` and the like). */
+  unmapped: string[];
+}
+
+/**
+ * The only subjects whose checks a gate judges: changed nodes and their parents. A removed node (in `base`, not in the
+ * candidate graph) has no checks left, but its siblings may now fail a children or pair check, so its nearest surviving
+ * ancestor joins the scope.
+ */
+export function checkScope(g: Graph, changed: string[], base?: Graph): CheckScope {
   const parent = new Map(g.nodes.map((n) => [n.id, n.parent]));
-  const scope = new Set<string>();
+  const baseParent = new Map((base?.nodes ?? []).map((n) => [n.id, n.parent]));
+  const out: CheckScope = { nodes: new Set(), removed: [], unmapped: [] };
   for (const id of changed) {
-    if (!parent.has(id)) continue;
-    scope.add(id);
-    const p = parent.get(id);
-    if (p !== undefined) scope.add(p);
+    if (parent.has(id)) {
+      out.nodes.add(id);
+      const p = parent.get(id);
+      if (p !== undefined) out.nodes.add(p);
+      continue;
+    }
+    if (!baseParent.has(id)) { out.unmapped.push(id); continue; }
+    out.removed.push(id);
+    const seen = new Set<string>();
+    for (let a = baseParent.get(id); a !== undefined && !seen.has(a); a = baseParent.get(a)) {
+      seen.add(a);
+      if (parent.has(a)) { out.nodes.add(a); break; }
+    }
   }
-  return scope;
+  return out;
 }
 
 /** A pair subject (`a|b`) is in scope when either side is. */
@@ -169,15 +192,23 @@ const nodeState = (s1: SystemOne): SystemOne => ({ ...s1, ask: (state, questions
  * checks@1 on the changed nodes and their parents: deterministic misses and judged check questions at `error` or
  * `warning` fail; an unjudged or unconfident check (provider off, failed or timed out included) is unknown; `info`
  * misses and text@1 findings are advisory. Nodes outside the scope are never asked about. A changed id the graph does
- * not hold makes the verdict unknown at best: its checks cannot be found, so nothing vouches for it.
+ * not hold (and did not hold at base either), or a change set flagged incomplete, makes the verdict unknown at best:
+ * nothing vouches for the nodes it misses.
  */
-export async function judgeChecks(r: EngineRun, changed: string[], s1: SystemOne): Promise<Outcome> {
+export interface ChecksOptions {
+  /** The base graph, to place removed nodes. */
+  base?: Graph;
+  /** Why the changed ids cannot be trusted to be complete (e.g. a Genome candidate whose delta did not load). */
+  incompleteChange?: string;
+}
+
+export async function judgeChecks(r: EngineRun, changed: string[], s1: SystemOne, o: ChecksOptions = {}): Promise<Outcome> {
   const provenance = provenanceOf(r);
   if (!packsOf(r.template).some((p) => p.id === CHECKS)) {
     return { execution: "completed", verdict: "unknown", observations: [], interpretation: `The template ${r.template.ref} declares no checks.`, limitations: ["No checks to run."], provenance };
   }
-  const scope = checkScope(r.graph, changed);
-  const unmapped = changed.filter((id) => !scope.has(id));
+  const { nodes: scope, removed, unmapped } = checkScope(r.graph, changed, o.base);
+  const unsure = [...(o.incompleteChange ? [o.incompleteChange] : []), ...(unmapped.length ? [`Changed node(s) not in the graph: ${unmapped.join(", ")}.`] : [])];
   const scoped = r.readiness.findings.filter((f) => inScope(scope, f));
   const candidates = scoped.filter((f) => isChecks(f) && f.rule.startsWith("semantic:"));
   const misses = scoped.filter((f) => isChecks(f) && !f.rule.startsWith("semantic:"));
@@ -191,24 +222,24 @@ export async function judgeChecks(r: EngineRun, changed: string[], s1: SystemOne
   const providers = [...new Set(judged.map((f) => f.provenance?.provider).filter((p): p is string => !!p))];
   const models = [...new Set(judged.map((f) => f.provenance?.model).filter((m): m is string => !!m))];
 
-  const verdict: Outcome["verdict"] = failing.length ? "fail" : open.length || unmapped.length ? "unknown" : "pass";
+  const verdict: Outcome["verdict"] = failing.length ? "fail" : open.length || unsure.length ? "unknown" : "pass";
   const interpretation = failing.length ? `${failing.length} check(s) not met on changed nodes: ${failing.map(key).join("; ")}.`
     : open.length ? `${open.length} check(s) on changed nodes could not be judged confidently.`
-      : unmapped.length ? `Changed node(s) ${unmapped.join(", ")} are not in the Genome graph; their checks cannot be run.`
+      : unsure.length ? `The changed nodes are not fully known, so their checks cannot all be run: ${unsure.join(" ")}`
       : checks.length ? `All ${checks.length} check(s) on ${scope.size} changed node(s) and their parents are met.`
         : `No checks apply to the ${scope.size} changed node(s) and their parents.`;
   return {
     execution: "completed",
     verdict,
     observations: [
-      { kind: "checks-scope", nodes: [...scope].sort(), ...(unmapped.length && { notInGraph: unmapped }) },
+      { kind: "checks-scope", nodes: [...scope].sort(), ...(removed.length && { removed }), ...(unmapped.length && { notInGraph: unmapped }) },
       ...checks.filter((f) => f.level !== "info").map(observe),
       ...advisory([...checks.filter((f) => f.level === "info"), ...text]),
     ],
     interpretation,
     limitations: [
-      ...(unmapped.length ? [`Changed node(s) not in the graph: ${unmapped.join(", ")}.`] : []),
-      ...(checks.length || unmapped.length ? [] : ["vacuous: no checks apply to the changed nodes; nothing was judged"]),
+      ...unsure,
+      ...(checks.length || unsure.length ? [] : ["vacuous: no checks apply to the changed nodes; nothing was judged"]),
       ...(providers.some((p) => p === "off" || p === "error") ? ["System One was off or failed for some checks; those are unknown."] : []),
     ],
     provenance: { ...provenance, ...(run && { provider: providers.join(",") || "none", model: models.join(",") || "none", calls: run.judgments.calls }) },

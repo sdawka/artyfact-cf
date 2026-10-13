@@ -4,6 +4,7 @@ import { createSystemOne } from "@artyfact/semantic";
 import type { CandidateRef, Evaluation, SubmissionContext } from "../../worker/hooks/contract";
 import { loadGenome, modelRules } from "../../worker/hooks/model-rules";
 import { createHookRunner, selectHooks } from "../../worker/hooks/run";
+import { engineRules, engineRun } from "../../worker/hooks/engine-gates";
 import { BASE, COMMIT, keepInTouch, keepInTouchMany } from "./fixtures";
 
 const relations = (t: DerivationTree, out: string[] = []): string[] => {
@@ -26,6 +27,15 @@ describe("model-rules on the real Keep in Touch Genome", () => {
     const f = r.outcome.observations.find((o) => (o as { rule?: string }).rule === "topology.recipientArray") as { subject: string; derivation: DerivationTree };
     expect(f.subject).toBe("operation.contact.save");
     expect(relations(f.derivation)).toEqual(expect.arrayContaining(["outgoingDirect", "accountRefField", "cardinality"]));
+  });
+
+  it("the engine rules path fails the topology pack on it and passes the base Genome", () => {
+    const r = engineRun(keepInTouchMany());
+    const o = engineRules(r, { packs: ["topology.private-pairs@1"] });
+    expect(o).toMatchObject({ execution: "completed", verdict: "fail" });
+    expect(o.observations).toContainEqual(expect.objectContaining({ rule: "topology.recipientArray", subject: "operation.contact.save", pack: "artyfact.topology.private-pairs@1" }));
+    expect(engineRules(r, { packs: ["metamodel@1"] }).verdict).toBe("pass");
+    expect(engineRules(engineRun(keepInTouch()), { packs: ["topology.private-pairs@1"] }).verdict).toBe("pass");
   });
 
   it("the topology hook (inputs.packs with a version) sees it; the structure hook does not; an unpinned pack is unknown", () => {

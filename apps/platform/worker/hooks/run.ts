@@ -20,11 +20,11 @@
  * purposeMeasures|interference) → system-one.ts; http → http-health.ts. Any throw → `execution: error`.
  */
 import { type Readiness, type SystemModel, type schema } from "@artyfact/model";
-import { ArtyfactParseError, GenomeTreeError } from "@artyfact/ontology";
+import { ArtyfactParseError, GenomeTreeError, type Graph } from "@artyfact/ontology";
 import { createSystemOne, type SystemOne, type SystemOneEnv } from "@artyfact/semantic";
 import type { CandidateRef, ConflictContext, EvolutionRef, ConflictReport, DeltaReview, Evaluation, GenomeContext, GenomeResult, HookRunner, SubmissionContext } from "./contract";
 import { diffScope } from "./diff-scope";
-import { engineRules, engineRun, judgeChecks, wantsChecks, type EngineRun } from "./engine-gates";
+import { engineRules, engineRun, genomeGraph, judgeChecks, wantsChecks, type ChecksOptions, type EngineRun } from "./engine-gates";
 import { HEALTH_TIMEOUT_MS, httpHealth, previewPolicy, type PreviewEnv } from "./http-health";
 import { manifestExists } from "./manifest-exists";
 import { modelRulesHook } from "./model-checks";
@@ -233,6 +233,23 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
     return st.engine.run;
   };
 
+  /**
+   * A Genome candidate's changed ids are the base-to-candidate delta; changed paths with no ids mean the delta did not
+   * load (or no node changed), so the checks cannot vouch for the change. Its base graph places removed nodes.
+   */
+  function checksOptions(st: RunState): ChecksOptions {
+    const c = st.ctx.candidate;
+    if (c.target !== "genome") return {};
+    let base: Graph | undefined;
+    try {
+      base = genomeGraph(st.ctx.genomeFiles);
+    } catch {
+      base = undefined; // Removed ids then stay unresolved, which keeps the verdict unknown.
+    }
+    const incomplete = c.changedPaths.length > 0 && c.changedNodes.length === 0;
+    return { ...(base && { base }), ...(incomplete && { incompleteChange: `The Genome candidate changes ${c.changedPaths.length} path(s) but names no changed node; its delta may not have loaded.` }) };
+  }
+
   async function engineHook(st: RunState, h: schema.AssayHook): Promise<Outcome> {
     let r: EngineRun;
     try {
@@ -244,7 +261,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
     const filter = filterFromInputs(h.inputs);
     const parts: Outcome[] = [];
     if (wantsChecks(filter)) {
-      parts.push(await judgeChecks(r, st.ctx.candidate.changedNodes, s1));
+      parts.push(await judgeChecks(r, st.ctx.candidate.changedNodes, s1, checksOptions(st)));
       const rest = filter!.packs!.filter((w) => !wantsChecks({ packs: [w] }));
       if (rest.length || filter!.rulePrefix) parts.push(engineRules(r, { ...filter, packs: rest.length ? rest : undefined }));
     } else {

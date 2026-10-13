@@ -73,6 +73,25 @@ describe("judgeChecks", () => {
     }
   });
 
+  it("is unknown, never a vacuous pass, when the change set is flagged incomplete", async () => {
+    const o = await judgeChecks(engineRun(tree()), [], fakeSystemOne(), { incompleteChange: "The delta did not load." });
+    expect(o.verdict).toBe("unknown");
+    expect(o.limitations).toContain("The delta did not load.");
+  });
+
+  it("places a removed node by its base parent instead of leaving it unmapped", async () => {
+    const base = tree();
+    const cand = { ...base };
+    delete cand["section.ui/screen.people/node.yaml"];
+    const baseGraph = engineRun(base).graph;
+    const placed = await judgeChecks(engineRun(cand), ["screen.people"], fakeSystemOne(), { base: baseGraph });
+    expect(placed.observations[0]).toEqual({ kind: "checks-scope", nodes: ["section.ui"], removed: ["screen.people"] });
+    expect(placed.verdict).toBe("pass");
+    expect(placed.limitations.join(" ")).not.toContain("not in the graph");
+    const lost = await judgeChecks(engineRun(cand), ["screen.people"], fakeSystemOne());
+    expect(lost.verdict).toBe("unknown");
+  });
+
   it("is unknown when the provider fails", async () => {
     const failing = (async () => new Response("down", { status: 500 })) as unknown as typeof fetch;
     const o = await judgeChecks(engineRun(tree()), ["screen.home"], typeSafeProvider({ apiKey: "k", fetch: failing }));
@@ -107,7 +126,7 @@ describe("judgeChecks", () => {
 
 describe("model-rules hook with packs checks@1", () => {
   const checksCriterion = [
-    "  - id: C.webapp.checks",
+    "  - id: C.webapp.checks.test",
     "    title: Changed screens meet their checks",
     "    claim: Every changed node meets the checks its kind declares.",
     "    ownerKind: thing",
@@ -116,12 +135,12 @@ describe("model-rules hook with packs checks@1", () => {
     "    subjectId: screen.people",
     "    targetKind: model",
     "    gates: [submission]",
-    "    hooks: [hook.webapp.checks]",
+    "    hooks: [hook.webapp.checks.test]",
   ].join("\n");
   const checksHook = [
-    "  - id: hook.webapp.checks",
+    "  - id: hook.webapp.checks.test",
     "    assay: Template checks on changed nodes",
-    "    criteria: [C.webapp.checks]",
+    "    criteria: [C.webapp.checks.test]",
     "    tier: semantic",
     "    engine: model-rules",
     "    targetKind: model",
@@ -150,12 +169,27 @@ describe("model-rules hook with packs checks@1", () => {
   const ctx = (genomeFiles: FileMap): SubmissionContext => ({
     systemId: "system.mini-kit", candidate, genomeCommit: BASE, genomeFiles, tree: [], permittedPaths: ["src/**"], protectedPaths: [], openCandidates: [],
   });
-  const checksOf = (evs: Evaluation[]) => evs.find((e) => e.criterion === "C.webapp.checks")!;
+  const checksOf = (evs: Evaluation[]) => evs.find((e) => e.criterion === "C.webapp.checks.test")!;
+
+  it("a Genome candidate that changes paths but names no node is unknown; naming the node judges it", async () => {
+    const runner = createHookRunner({ s1: fakeSystemOne() });
+    const files = genome("Shows people; the add button opens a dialog.");
+    const genomeCtx = (changedNodes: string[]): SubmissionContext => ({
+      ...ctx(files),
+      candidate: { ...candidate, evolutionId: "evolution.api", target: "genome", changedPaths: ["things/webapp/ontology.yaml"], changedNodes, pathNodes: undefined, genomeFiles: files },
+      // An API-created amendment whose acceptance names the checks criterion, so it is selected whatever changed.
+      evolution: { id: "evolution.api", kind: "genome-amendment", acceptanceCriteria: ["C.webapp.checks.test"], affectedNodes: [], state: "realizing" },
+    });
+    const lost = checksOf(await runner.runSubmission(genomeCtx([])));
+    expect(lost).toMatchObject({ execution: "completed", verdict: "unknown" });
+    expect(lost.limitations.join(" ")).toContain("names no changed node");
+    expect(checksOf(await runner.runSubmission(genomeCtx(["screen.people"])))).toMatchObject({ verdict: "pass" });
+  });
 
   it("passes on the fake and fails on #s1no, with System One provenance", async () => {
     const runner = createHookRunner({ s1: fakeSystemOne() });
     const pass = checksOf(await runner.runSubmission(ctx(genome("Shows people; the add button opens a dialog."))));
-    expect(pass).toMatchObject({ hook: "hook.webapp.checks", execution: "completed", verdict: "pass" });
+    expect(pass).toMatchObject({ hook: "hook.webapp.checks.test", execution: "completed", verdict: "pass" });
     expect(pass.provenance).toMatchObject({ provider: "fake", model: "fake" });
     const fail = checksOf(await runner.runSubmission(ctx(genome("Shows people. #s1no"))));
     expect(fail).toMatchObject({ execution: "completed", verdict: "fail" });
