@@ -3,9 +3,9 @@
 
 ## Now
 
-- Active milestone: implement the [approved lifecycle](../design/lifecycle.md) on `feat/genome-lifecycle`, preserving the original checkout and user changes.
-- Verified so far: site units/static checks and focused desktop/mobile navigation; custom package bootstrap/import; typed measurement and outcomes ingestion; multi-binding atomic promotion, disjoint/overlapping Genome changes and stale-candidate regression. Integrated full CI and hosted checks remain pending.
-- Next action: finish independent review corrections, integrate current `origin/main`, run full CI, push one integration PR and inspect hosted checks.
+- Implemented the [approved lifecycle](../design/lifecycle.md) on `feat/genome-lifecycle`, integrated current `main`, and preserved the original checkout and user changes.
+- Verified: full pre-push CI passed in 186.5s: 2,515 repository unit tests; 51 fixture and 13 fake-platform browser tests; 55 site units, 11 static-build checks and 51 site browser checks. Independent review findings are resolved.
+- Next action: inspect hosted CI and review the integration PR. Merge and deployment remain separate actions.
 - External state: GRREAT protocol validates (7 records). Direct-RPC sync attempted; missing credentials leaves it pending. No live Flagship or deployment verification performed.
 - Evidence: [[journals/2026-10-13-lifecycle]]. Last updated: 2026-10-13.
 
