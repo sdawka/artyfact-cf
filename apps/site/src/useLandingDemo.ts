@@ -2,18 +2,21 @@ import { useCallback, useEffect, useRef, useState, type RefObject } from 'react'
 import type { LandingDemo, LandingView } from './landingSystemData';
 
 type Environment = { onScreen: boolean; visible: boolean; reduced: boolean; keyboard: boolean };
-type TimerName = 'auto' | 'press' | 'celebration' | 'toast';
+type TimerName = 'auto' | 'approach' | 'press' | 'celebration' | 'toast';
 
 /** One page-local demonstration; view changes never reset its progress or earned celebration. */
-export function useLandingDemo(scene: RefObject<HTMLDivElement | null>, view: LandingView): LandingDemo {
+export function useLandingDemo(scene: RefObject<HTMLDivElement | null>, view: LandingView, settled = true): LandingDemo {
   const [count, setCount] = useState(0);
   const [manual, setManual] = useState(false);
+  const [paused, setPaused] = useState(false);
+  const [approaching, setApproaching] = useState(false);
+  const resumeFocus = useRef(false);
   const [pressing, setPressing] = useState(false);
   const [celebrating, setCelebrating] = useState(false);
   const [showToast, setShowToast] = useState(false);
   const [environment, setEnvironment] = useState<Environment>({ onScreen: false, visible: false, reduced: false, keyboard: false });
-  const latest = useRef({ view, environment });
-  latest.current = { view, environment };
+  const latest = useRef({ view, environment, settled });
+  latest.current = { view, environment, settled };
   const progress = useRef(0), manualStarted = useRef(false), celebrated = useRef(false), automaticPress = useRef(false);
   const timers = useRef<Partial<Record<TimerName, number>>>({});
   const clear = useCallback((name: TimerName) => { window.clearTimeout(timers.current[name]); delete timers.current[name]; }, []);
@@ -24,10 +27,10 @@ export function useLandingDemo(scene: RefObject<HTMLDivElement | null>, view: La
     let alive = true;
     const media = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
     const update = (patch: Partial<Environment>) => { if (alive) setEnvironment(previous => ({ ...previous, ...patch })); };
-    const focus = (event?: FocusEvent) => { const target = event?.type === 'focusout' ? event.relatedTarget : document.activeElement; update({ keyboard: target instanceof Element && root.contains(target) && target.matches(':focus-visible') }); };
+    const focus = (event?: FocusEvent) => { const target = event?.type === 'focusout' ? event.relatedTarget : document.activeElement; if (!(target instanceof Element && target.hasAttribute('data-demo-resume'))) resumeFocus.current = false; update({ keyboard: target instanceof Element && root.contains(target) && target.matches(':focus-visible') }); };
     const visibility = () => update({ visible: document.visibilityState !== 'hidden' });
     const preference = () => update({ reduced: !!media?.matches });
-    const target = root.querySelector('.scene-system') ?? root;
+    const target = root.querySelector('.scene-application') ?? root;
     const measure = () => { const rect = target.getBoundingClientRect(); update({ onScreen: rect.height > 0 && rect.top < innerHeight && rect.bottom > 0 }); };
     const observer = typeof IntersectionObserver === 'undefined' ? null : new IntersectionObserver(entries => update({ onScreen: entries.some(entry => entry.isIntersecting) }));
     observer?.observe(target);
@@ -45,8 +48,8 @@ export function useLandingDemo(scene: RefObject<HTMLDivElement | null>, view: La
 
   const recordSave = useCallback((byVisitor: boolean) => {
     const current = latest.current;
-    if (current.view !== 'phenome') return;
-    if (byVisitor) { manualStarted.current = true; setManual(true); clear('auto'); }
+    if (current.view !== 'phenome' || !current.settled) return;
+    if (byVisitor) { manualStarted.current = true; setManual(true); clear('auto'); clear('approach'); setApproaching(false); }
     const next = ++progress.current;
     setCount(next);
     const motion = current.environment.onScreen && current.environment.visible && !current.environment.reduced;
@@ -60,21 +63,24 @@ export function useLandingDemo(scene: RefObject<HTMLDivElement | null>, view: La
     }
   }, [clear]);
   const onSave = useCallback(() => recordSave(true), [recordSave]);
-  const eligible = view === 'phenome' && environment.onScreen && environment.visible && !environment.reduced && !environment.keyboard && !manual && count < 6;
+  const onPause = useCallback(() => { resumeFocus.current = false; setPaused(true); clear('auto'); clear('approach'); clear('press'); automaticPress.current = false; setApproaching(false); setPressing(false); }, [clear]);
+  const onResume = useCallback(() => { resumeFocus.current = true; setPaused(false); setEnvironment(previous => ({ ...previous })); }, []);
+  const eligible = view === 'phenome' && settled && environment.onScreen && environment.visible && !environment.reduced && (!environment.keyboard || resumeFocus.current) && !manual && !paused && count < 6;
   const eligibility = useRef(eligible); eligibility.current = eligible;
   useEffect(() => {
     if (!eligible) return;
-    timers.current.auto = window.setTimeout(() => { if (eligibility.current && !manualStarted.current) recordSave(false); }, 600);
-    return () => clear('auto');
+    timers.current.approach = window.setTimeout(() => { if (eligibility.current) setApproaching(true); }, 800);
+    timers.current.auto = window.setTimeout(() => { setApproaching(false); if (eligibility.current && !manualStarted.current) recordSave(false); }, 1200);
+    return () => { clear('auto'); clear('approach'); setApproaching(false); };
   }, [eligible, count, clear, recordSave]);
   useEffect(() => {
-    if (view === 'phenome' && environment.reduced && !manualStarted.current && progress.current < 6) { progress.current = 6; setCount(6); }
-    if (view !== 'phenome' || !environment.onScreen || !environment.visible || environment.reduced) {
+    if (view === 'phenome' && settled && environment.reduced && !manualStarted.current && progress.current < 6) { progress.current = 6; setCount(6); }
+    if (view !== 'phenome' || !settled || !environment.onScreen || !environment.visible || environment.reduced) {
       clear('press'); clear('celebration'); automaticPress.current = false; setPressing(false); setCelebrating(false);
     }
-    if (view !== 'phenome' || !environment.onScreen || !environment.visible) { clear('toast'); setShowToast(false); }
-  }, [view, environment.onScreen, environment.visible, environment.reduced, clear]);
-  useEffect(() => () => { for (const name of ['auto', 'press', 'celebration', 'toast'] as const) clear(name); }, [clear]);
+    if (view !== 'phenome' || !settled || !environment.onScreen || !environment.visible) { clear('toast'); setShowToast(false); }
+  }, [view, settled, environment.onScreen, environment.visible, environment.reduced, clear]);
+  useEffect(() => () => { for (const name of ['auto', 'approach', 'press', 'celebration', 'toast'] as const) clear(name); }, [clear]);
 
-  return { count, pressing, showPointer: !manual && !environment.keyboard && !environment.reduced && environment.onScreen && environment.visible && view === 'phenome' && (eligible || pressing && automaticPress.current), celebrating, showToast, onSave };
+  return { count, paused: paused || environment.keyboard && !resumeFocus.current, completed: manual || count >= 6, onPause, onResume, pressing, showPointer: !manual && (!environment.keyboard || resumeFocus.current) && !environment.reduced && environment.onScreen && environment.visible && view === 'phenome' && settled && (approaching && eligible || pressing && automaticPress.current), celebrating, showToast, onSave };
 }

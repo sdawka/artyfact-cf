@@ -8,14 +8,14 @@ let reduced = false, hidden = false, keyboard = false;
 let intersection: IntersectionObserverCallback;
 const mediaListeners = new Set<() => void>();
 const disconnect = vi.fn();
-function Harness({ view = 'genome' }: { view?: LandingView }) {
+function Harness({ view = 'genome', settled = true }: { view?: LandingView; settled?: boolean }) {
   const scene = useRef<HTMLDivElement>(null);
-  const demo = useLandingDemo(scene, view);
-  return <><div ref={scene}><button onClick={demo.onSave}>Save example</button><span data-testid="count">{demo.count}</span>
+  const demo = useLandingDemo(scene, view, settled);
+  return <><div ref={scene}><button onClick={demo.onSave}>Save example</button><button onClick={demo.onPause}>Pause demo</button><button data-demo-resume onClick={demo.onResume}>Resume demo</button><span data-testid="count">{demo.count}</span>
     <span data-testid="motion" data-press={String(demo.pressing)} data-pointer={String(demo.showPointer)} data-confetti={String(demo.celebrating)} />
     {demo.showToast && <p role="status">Great energy!</p>}</div><button>Outside story</button></>;
 }
-const tick = (ms = 600) => act(() => vi.advanceTimersByTime(ms));
+const tick = (ms = 1200) => act(() => vi.advanceTimersByTime(ms));
 const count = () => Number(screen.getByTestId('count').textContent);
 const motion = (name: string) => screen.getByTestId('motion').getAttribute('data-' + name);
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Save example' }));
@@ -34,8 +34,8 @@ afterEach(() => { cleanup(); mediaListeners.clear(); vi.restoreAllMocks(); vi.un
 it('begins only in Phenome and stops after six illustrative presses', () => {
   const harness = render(<Harness />); tick(4000); expect(count()).toBe(0);
   harness.rerender(<Harness view="phenome" />);
-  expect(motion('pointer')).toBe('true');
-  for (let i = 1; i <= 6; i++) { tick(); expect(count()).toBe(i); }
+  tick(800); expect(motion('pointer')).toBe('true'); tick(400); expect(count()).toBe(1);
+  for (let i = 2; i <= 6; i++) { tick(); expect(count()).toBe(i); }
   tick(7000); expect(count()).toBe(6); expect(motion('pointer')).toBe('false'); expect(motion('press')).toBe('false');
   expect(screen.queryByRole('status')).toBe(null);
 });
@@ -91,4 +91,22 @@ it('responds to a runtime reduced-motion preference without restarting the compl
   reduced = true; act(() => { for (const listener of mediaListeners) listener(); });
   expect(count()).toBe(6); expect(motion('pointer')).toBe('false'); expect(motion('press')).toBe('false');
   reduced = false; act(() => { for (const listener of mediaListeners) listener(); }); tick(4000); expect(count()).toBe(6);
+});
+
+it('waits for the scrubbed Phenome entrance to settle before generating', () => {
+  const h = render(<Harness view="phenome" settled={false} />); tick(5000); expect(count()).toBe(0);
+  h.rerender(<Harness view="phenome" settled />); tick(); expect(count()).toBe(1);
+});
+it('allows explicit keyboard Resume while preserving pause and manual takeover', () => {
+  render(<Harness view="phenome" />); tick();
+  fireEvent.click(screen.getByRole('button', { name: 'Pause demo' })); tick(5000); expect(count()).toBe(1);
+  keyboard = true; act(() => screen.getByRole('button', { name: 'Resume demo' }).focus());
+  fireEvent.click(screen.getByRole('button', { name: 'Resume demo' })); tick(); expect(count()).toBe(2);
+  act(() => screen.getByRole('button', { name: 'Save example' }).focus()); tick(5000); expect(count()).toBe(2);
+  save(); tick(5000); expect(count()).toBe(3);
+});
+it('Pause immediately cancels an active scripted press and its cursor', () => {
+  render(<Harness view="phenome" />); tick(); expect(motion('press')).toBe('true');
+  fireEvent.click(screen.getByRole('button', { name: 'Pause demo' }));
+  expect(motion('press')).toBe('false'); expect(motion('pointer')).toBe('false'); tick(5000); expect(count()).toBe(1);
 });
