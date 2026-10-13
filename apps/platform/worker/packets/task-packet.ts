@@ -1,7 +1,7 @@
 import { NODE_FILE } from "@artyfact/ontology/genome";
 import type { schema, SystemModel } from "@artyfact/model";
 import { stringify as toYaml } from "yaml";
-import type { Certainty, TaskPacket } from "../../shared/api";
+import type { Certainty, Task, TaskConflict, TaskPacket, TaskPacketTask, TaskPlan } from "../../shared/api";
 import { globMatch, permittedGlobs, sourceMapFor, type SourceMapEntry } from "../artifacts/source-map";
 import { isBlocking } from "../promotion";
 import { canonicalJson, sha256Hex } from "../util";
@@ -23,6 +23,22 @@ export interface PacketInput {
   genomePrefix?: string;
   /** Extra permitted globs (repo paths), e.g. the directories of nodes an accepted intent adds. */
   permittedExtra?: string[];
+  /**
+   * The Task this realization works on: its nodes and criteria replace the Evolution's in the packet (scope, criteria,
+   * excerpts, journeys), and the packet gains a `## Task` section.
+   */
+  task?: PacketTask;
+}
+
+/** A Task as the packet needs it: the wire `TaskPacketTask`, its criteria and what the AGENTS.md block names. */
+export interface PacketTask extends TaskPacketTask {
+  acceptanceCriteria: string[];
+  /** Other tasks' globs the agent must leave alone (its own permitted globs removed). */
+  doNotTouch: { task: string; globs: string[] }[];
+  /** Tasks running beside this one, as `t2 (src/x/**)` lines. */
+  concurrent: string[];
+  /** Tasks that depend on this one. */
+  after: string[];
 }
 
 /** Blocking criteria among the Evolution's acceptance criteria (hard with a bound hook, regardless of gates; see ../promotion.ts). */
@@ -72,9 +88,9 @@ function stepText(s: schema.Journey["steps"][number]): string {
 
 export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
   const m = i.model;
-  const affected = i.evolution.affectedNodes;
+  const affected = i.task ? i.task.nodes : i.evolution.affectedNodes;
   const critById = new Map(m.criteria.map((c) => [c.id, c] as const));
-  const acceptanceCriteria = i.evolution.acceptanceCriteria.map((id) => {
+  const acceptanceCriteria = (i.task ? i.task.acceptanceCriteria : i.evolution.acceptanceCriteria).map((id) => {
     const c = critById.get(id);
     return c
       ? { id, title: c.title, text: c.claim, gate: isBlocking(m, c), severity: c.severity, subject: c.subjectId, hooks: m.index.hooksByCriterion[id] ?? c.hooks }
@@ -130,14 +146,59 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
     entryFiles: i.target === "app" ? entryFiles(sourceMap, affected, i.baseTreePaths) : [],
     commands: i.commands,
     concurrentWork: i.concurrentWork,
+    ...(i.task && { task: wireTask(i.task) }),
     startCommand: startCommand(i.systemId, i.evolution.id, i.realizationId),
     submitInstructions,
   };
   const hash = await sha256Hex(canonicalJson(body));
   const packet: TaskPacket = { ...body, hash, markdown: "", agentsMd: "" };
   packet.markdown = renderMarkdown(packet);
-  packet.agentsMd = renderAgentsMd(packet);
+  packet.agentsMd = renderAgentsMd(packet, i.task);
   return packet;
+}
+
+function wireTask(t: PacketTask): TaskPacketTask {
+  return { id: t.id, title: t.title, intent: t.intent, nodes: t.nodes, dependsOn: t.dependsOn, independence: t.independence, wave: t.wave };
+}
+
+/** Index of the wave holding `taskId`, or null when the plan does not place it. */
+export function waveOf(plan: Pick<TaskPlan, "waves">, taskId: string): number | null {
+  const n = plan.waves.findIndex((w) => w.includes(taskId));
+  return n < 0 ? null : n;
+}
+
+const NEEDS = "If you need a file another task owns, checkpoint `needs:<path>` and stop.";
+
+/**
+ * The packet's plain-language independence statement for `task`, from the plan's conflicts: which tasks share no
+ * files (at the plan's app commit), which overlap softly (and whose files to avoid), which conflict on files or by
+ * declaration. `ownGlobs` are the task's permitted globs (left out of the files it is told to avoid).
+ */
+export function independenceStatement(task: Pick<Task, "id">, plan: Pick<TaskPlan, "tasks" | "conflicts" | "appCommit" | "waves">, ownGlobs: string[] = []): string {
+  const others = plan.tasks.filter((t) => t.id !== task.id);
+  const mine = plan.conflicts.filter((c) => c.tasks.includes(task.id));
+  const other = (c: TaskConflict) => (c.tasks[0] === task.id ? c.tasks[1] : c.tasks[0]);
+  const withConflict = new Set(mine.map(other));
+  const free = others.filter((t) => !withConflict.has(t.id)).map((t) => t.id);
+  const at = plan.appCommit ? ` at ${plan.appCommit.slice(0, 12)}` : "";
+  const globsOf = (id: string) => (plan.tasks.find((t) => t.id === id)?.footprint.globs ?? []).filter((g) => !ownGlobs.includes(g));
+  const parts: string[] = [];
+  if (free.length) parts.push(`Independent of ${free.join(", ")}: no shared files${at}.`);
+  for (const c of mine) {
+    const o = other(c);
+    if (c.kind === "soft-semantic") {
+      const globs = globsOf(o);
+      parts.push(`Shares ${c.subjects.join(", ")} with ${o} (soft overlap${globs.length ? `, do not edit its files ${globs.join(", ")}` : ""}).`);
+    } else if (c.kind === "file") {
+      const w = waveOf(plan, o);
+      parts.push(`Shares files ${c.subjects.join(", ")} with ${o}${w === null ? "" : ` (wave ${w})`}; never both at once.`);
+    } else {
+      parts.push(`${c.message.replace(/\.$/, "")} (declared).`);
+    }
+  }
+  if (!others.length) parts.push("The only task of its plan.");
+  parts.push(NEEDS);
+  return parts.join(" ");
 }
 
 /** CLI start line. The packet carries `<token>` and `<secret>` placeholders; only the StartWork response fills them in. */
@@ -164,6 +225,7 @@ export function renderMarkdown(p: TaskPacket): string {
     "## Intent",
     p.intent,
     "",
+    ...(p.task ? taskSection(p.task) : []),
     "## Acceptance criteria",
     bullets(p.acceptanceCriteria.map((c) => `\`${c.id}\`${c.gate ? " (required)" : ""}: ${c.title}. ${c.text}`)),
     "",
@@ -190,7 +252,7 @@ export function renderMarkdown(p: TaskPacket): string {
     bullets(p.commands.map((c) => `\`${c}\``)),
     "",
     "## Concurrent work",
-    bullets(p.concurrentWork.map((w) => `\`${w.realization}\`${w.agentLabel ? ` (${w.agentLabel})` : ""}: ${w.status}${w.changedSubjects.length ? `, touching ${w.changedSubjects.join(", ")}` : ""}`)),
+    bullets(p.concurrentWork.map((w) => `\`${w.realization}\`${w.agentLabel ? ` (${w.agentLabel})` : ""}: ${w.status} on ${w.evolution}${w.task ? ` task ${w.task}` : ""}${w.changedSubjects.length ? `, touching ${w.changedSubjects.join(", ")}` : ""}${w.permittedPaths.length ? `; may edit ${w.permittedPaths.map((g) => `\`${g}\``).join(", ")}` : ""}`)),
     "",
     "## Submit",
     p.submitInstructions,
@@ -198,19 +260,48 @@ export function renderMarkdown(p: TaskPacket): string {
   ].join("\n");
 }
 
+function taskSection(t: TaskPacketTask): string[] {
+  return [
+    "## Task",
+    `\`${t.id}\`: ${t.title}${t.wave === null ? "" : ` (wave ${t.wave})`}`,
+    "",
+    t.intent,
+    "",
+    `Nodes: ${t.nodes.map((n) => `\`${n}\``).join(", ") || "_none_"}`,
+    `Depends on: ${t.dependsOn.map((d) => `\`${d}\``).join(", ") || "_none_"}`,
+    "",
+    "### Independence",
+    t.independence,
+    "",
+  ];
+}
+
 /** "Report a preview": CI builds each submit; the agent reports one only when CI did not. */
 function reportPreview(platformUrl: string, systemId: string, rid: string): string {
   return `Report a preview: platform CI builds and deploys each submitted commit and reports the preview itself. If no build appears for your submit, deploy one and run \`npx artyfact build-report --status passed --url <preview-url>\` (POST ${platformUrl}/api/systems/${systemId}/realizations/${rid}/builds {"status": "passed", "commit": "<sha>", "url": "<preview-url>"}).`;
 }
 
-export function renderAgentsMd(p: TaskPacket): string {
+/** `task`: the packet's Task with what its first lines name (other tasks' globs, concurrent tasks, dependents). */
+export function renderAgentsMd(p: TaskPacket, task?: Pick<PacketTask, "doNotTouch" | "concurrent" | "after">): string {
   const ids = p.acceptanceCriteria.filter((c) => c.gate).map((c) => c.id);
   const cmds = p.commands.length ? p.commands.join("; ") : "npm install; npm run dev; npm test";
+  const t = p.task;
+  const head = t
+    ? [
+      `You are realizing task ${t.id} (${t.title}) of ${p.evolutionId} for ${p.systemId}. Read TASK_PACKET.md fully.`,
+      `Permitted edits: ${p.permittedPaths.join(", ") || "(none)"}.`,
+      `Do not touch: ${[...(task?.doNotTouch ?? []).filter((d) => d.globs.length).map((d) => `${d.globs.join(", ")} (${d.task})`), p.protectedPaths.join(", ")].join("; ")}.`,
+      `Concurrent tasks: ${task?.concurrent.length ? task.concurrent.join("; ") : "none"}.`,
+      `After you: ${task?.after.length ? `${task.after.join(", ")} start when this task is promoted` : "no task waits on this one"}.`,
+    ]
+    : [
+      `You are realizing ${p.evolutionId} for ${p.systemId}. Read TASK_PACKET.md fully.`,
+      `Permitted edits: ${p.permittedPaths.join(", ") || "(none)"}.`,
+      p.target === "app" ? "Never edit system/** or assays/** in an app realization." : `Never edit ${p.protectedPaths.join(", ")}.`,
+    ];
   return [
     "<!-- artyfact:start -->",
-    `You are realizing ${p.evolutionId} for ${p.systemId}. Read TASK_PACKET.md fully.`,
-    `Permitted edits: ${p.permittedPaths.join(", ") || "(none)"}.`,
-    p.target === "app" ? "Never edit system/** or assays/** in an app realization." : `Never edit ${p.protectedPaths.join(", ")}.`,
+    ...head,
     `Commands: ${cmds}.`,
     'Checkpoint often: `npx artyfact checkpoint "<what/why/left>"`.',
     `When acceptance criteria ${ids.join(", ") || "(see TASK_PACKET.md)"} are met and tests pass: \`npx artyfact submit\`.`,
