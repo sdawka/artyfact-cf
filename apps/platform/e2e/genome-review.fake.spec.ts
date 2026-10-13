@@ -41,9 +41,7 @@ test.describe("Review: agreement trees @fake", () => {
     await expect(page.getByText(/Accepted\. New Genome commit/)).toBeVisible();
   });
 
-  // TODO: drop the fixme once W9 (import-review routes, `ImportSystemRequest.review`) is merged on this branch. It passes
-  // against w9-import-review merged on top of this branch.
-  test.fixme("import review: Home row, Review 'Import' row, reject a file-less node, accept with an interpretation @fake @import", async ({ page, request }, testInfo) => {
+  test("import review: Home row, Review 'Import' row, reject a file-less node, accept with an interpretation @fake @import", async ({ page, request }, testInfo) => {
     test.setTimeout(120_000);
     // A forced re-import of unchanged repos keeps the head (no new System commit, so no review): delete the System and
     // import it again from its repos, which leaves the review pending.

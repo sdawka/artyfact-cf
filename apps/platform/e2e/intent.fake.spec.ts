@@ -63,7 +63,7 @@ test.describe("describe a change by intent @fake", () => {
     const evoId = new URL(page.url()).searchParams.get("evolution")!;
     const work = await (await request.get(`/api/systems/${SYS}/work`)).json() as { evolutions: { id: string; affectedNodes: string[]; kind: string }[] };
     const evo = work.evolutions.find((e) => e.id === evoId)!;
-    expect(evo.kind).toBe("genome-amendment");
+    expect(evo.kind).toBe("mixed");
     expect(evo.affectedNodes).toEqual(["screen.people"]);
     const started = await request.post(`/api/systems/${SYS}/evolutions/${evoId}/realizations`, { headers: auth, data: { target: "app", origin: "editor", agentLabel: "human:e2e", role: "implementer" } });
     expect(started.ok(), await started.text()).toBe(true);
