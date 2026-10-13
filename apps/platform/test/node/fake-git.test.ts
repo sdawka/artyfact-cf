@@ -4,8 +4,9 @@
  * against the fake platform. Runs in Node (git is present locally and on CI runners).
  */
 import { execFile } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { createServer, type Server } from "node:http";
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import { promisify } from "node:util";
@@ -24,6 +25,9 @@ let work: string;
 let token: string;
 let url: string;
 let transport: ReturnType<typeof fakeReceivePack>;
+const platformCalls: { path: string; body: Record<string, unknown> }[] = [];
+const CLI = fileURLToPath(new URL("../../../../packages/cli/bin/artyfact.js", import.meta.url));
+const SECRET = "ab".repeat(32);
 
 function gitEnv(header = true): NodeJS.ProcessEnv {
   const env: Record<string, string> = {
@@ -52,6 +56,17 @@ beforeAll(async () => {
     const headers = new Headers();
     for (const [k, v] of Object.entries(req.headers)) if (typeof v === "string") headers.set(k, v);
     const body = chunks.length ? Buffer.concat(chunks) : undefined;
+    if (req.url?.startsWith("/api/systems/")) {
+      // Just enough of the lifecycle task routes for the CLI: claim hands out the seeded fork, submit records the commit.
+      const path = req.url, input = body ? JSON.parse(body.toString()) : {};
+      platformCalls.push({ path, body: input });
+      const out = path.endsWith("/claim") || path.endsWith("/start")
+        ? { attempt: { id: "attempt.1", generation: 1 }, secret: SECRET, token: { value: token, expiresAt: "2099-01-01T00:00:00Z", remote: ns.remoteOf("app") }, remote: ns.remoteOf("app"), packet: { markdown: "# Task\n" }, reviewUrl: `${url}/review` }
+        : { ok: true };
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(out));
+      return;
+    }
     const r = await transport.fetch(`http://localhost${req.url}`, { method: req.method, headers, ...(body && { body }) });
     res.writeHead(r.status, Object.fromEntries(r.headers));
     res.end(Buffer.from(await r.arrayBuffer()));
@@ -104,5 +119,28 @@ describe("fake git server against git", { timeout: 60_000 }, () => {
     expect(await git(b, ["rev-parse", "origin/main"])).toBe(repo.head);
     await git(b, ["merge", "-q", "--ff-only", "origin/main"]);
     expect(readFileSync(join(b, "src/x.ts"), "utf8")).toBe("export const x = 2;\n");
+  });
+
+  it("lets the CLI claim a task over the fake remote and submit by pushing to it", async () => {
+    const repo = ns.repo("app");
+    const dir = join(work, "claimed");
+    // The CLI blocks on git, so it runs in its own process while this one serves.
+    const env = {
+      ...gitEnv(false), ARTYFACT_ADMIN_TOKEN: "admin", ARTYFACT_ALLOW_REMOTE_HOST: "fake.artifacts.local",
+    } as Record<string, string>;
+    const cli = (args: string[], extra: Record<string, string> = {}, cwd = work) => run("node", [CLI, ...args], { cwd, env: { ...env, ...extra }, encoding: "utf8", timeout: 30_000 });
+    const claimed = await cli(["task", "claim", "plan.one", "t1", "--system", "system.one", "--dir", dir, "--platform", url]);
+    expect(claimed.stdout).toContain("Task workspace ready");
+    expect(readFileSync(join(dir, "src/x.ts"), "utf8").length).toBeGreaterThan(0);
+    expect(existsSync(join(dir, "TASK_PACKET.md"))).toBe(true);
+    expect(await git(dir, ["rev-parse", "HEAD"])).toBe(repo.head);
+
+    writeFileSync(join(dir, "src/claimed.ts"), "export const claimed = true;\n");
+    const before = transport.pushes.length;
+    await cli(["task", "submit"], { ARTYFACT_TOKEN: token }, dir).catch((e) => { throw new Error(String(e.stderr ?? e)); });
+    const pushed = await git(dir, ["rev-parse", "HEAD"]);
+    expect(transport.pushes.length).toBe(before + 1);
+    expect(repo.head).toBe(pushed);
+    expect(platformCalls.at(-1)).toMatchObject({ path: expect.stringContaining("/tasks/t1/submit"), body: { commit: pushed, attemptId: "attempt.1" } });
   });
 });
