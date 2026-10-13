@@ -88,7 +88,7 @@ Terminal **ops**:
 ./scripts/bootstrap.sh       # = npx artyfact init --genome examples/keep-in-touch-system --app examples/keep-in-touch-app
 ```
 
-`init` reads `system.yaml` and derives every name from the System id: slug `keep-in-touch`, repos
+`init` reads the root `node.yaml` and derives every name from the System id: slug `keep-in-touch`, repos
 `keep-in-touch.genome` and `keep-in-touch.app`, forks `<repo>--r<N>`. It checks that `npx wrangler whoami` and
 `cf auth whoami` show the same account and prints only its prefix. It creates the namespace and repos when missing,
 creates `platform` (templates and rule packs) when it is missing or empty, pushes both projects with short-lived write tokens, and calls

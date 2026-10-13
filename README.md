@@ -144,7 +144,7 @@ npm run dev:amendment -w @artyfact/platform
 
 Admin routes (import, start work, accept, reject, promote) need `ADMIN_TOKEN`. Read routes are unauthenticated. The preview health probe reaches only `*.workers.dev`, `*.pages.dev`, hosts in `PREVIEW_HOST_ALLOWLIST`, or localhost when `ALLOW_LOCAL_PREVIEW=1`.
 
-**Importing a project.** `npx artyfact init --dir <project>` takes a cloned project from its `system.yaml` to an imported System in one command. For the example, `scripts/bootstrap.sh` is a wrapper that runs `init` on `examples/`.
+**Importing a project.** `npx artyfact init --dir <project>` takes a cloned project from its Genome (`genome/node.yaml`) to an imported System in one command. For the example, `scripts/bootstrap.sh` is a wrapper that runs `init` on `examples/`.
 
 - **Names.** One Artifacts namespace per deployment (`artyfact` by default). The repository names come from the System id: `system.keep-in-touch` gives `keep-in-touch.genome` and `keep-in-touch.app`. Forks are `<repo>--r<N>`. The id must be lower-case, so two ids never share repositories.
 - **The `platform` repository.** It holds the Thing and System templates and the Rule Packs. `init` creates it when it is missing or empty, and `npx artyfact platform-sync` is the way to update it. The import records its commit on the System head and on every System commit. Evaluation still uses the packages bundled into the Worker. `platform` is provenance only.

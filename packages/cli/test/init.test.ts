@@ -307,6 +307,21 @@ describe("artyfact init", { timeout: 60_000 }, () => {
     expect(r.code, r.err).toBe(0);
     // Inside the checkout the repo's own ignore rules apply: no build output in the Genome.
     expect(filesAt(cloud.path("artyfact", "keep-in-touch.genome")).some((f) => f.startsWith("dist/"))).toBe(false);
+    expect(filesAt(cloud.path("artyfact", "keep-in-touch.genome"))).toContain("node.yaml");
+  });
+
+  it("imports the repo's own Genome from <dir>/genome (a Genome-only System)", async () => {
+    const cloud = localCloud(join(tmp, "cloud-self"));
+    const dir = join(tmp, "self");
+    cpSync(join(ROOT, "genome"), join(dir, "genome"), { recursive: true });
+    const p = mockPlatform();
+    const r = await run(["init", "--dir", dir], { cloud: cloud.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    expect(r.code, r.err).toBe(0);
+    expect(r.out).toContain("system.artyfact -> artyfact.genome (namespace artyfact)");
+    expect(p.requests[0]!.body).toEqual({ systemId: "system.artyfact", genomeRepo: "artyfact.genome", force: false });
+    expect(filesAt(cloud.path("artyfact", "artyfact.genome"))).toEqual(expect.arrayContaining(["node.yaml", "thing.cli/node.yaml"]));
+    expect(filesAt(cloud.path("artyfact", "platform"))).toContain("templates/thing/cloudflare-worker-webapp@1/template.yaml");
+    expect(existsSync(cloud.path("artyfact", "artyfact.app"))).toBe(false);
   });
 
   it("imports a Genome-only System without creating or naming an app repo", async () => {

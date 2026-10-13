@@ -8,7 +8,7 @@ import { isSecretFile, neverStaged } from "@artyfact/cli/ignore";
 import { PLATFORM_REPO, isName, platformTemplateDir } from "@artyfact/cli/naming";
 import { parse as parseYaml } from "yaml";
 import type {
-  StartWorkRequest, TemplateLock, TemplateUpgradeFile, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse,
+  StartWorkRequest, TemplateLock, TemplateUpgradeFile, TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse,
 } from "../shared/api";
 import { artifactsErrorCode, artifactsFor, withRepo, type ArtifactsRepoLike, type TreeEntry } from "./artifacts/client";
 import { listTree } from "./artifacts/genome-source";
@@ -133,16 +133,19 @@ async function templateOf(env: Env, systemId: string, lock: TemplateLock | null)
 }
 
 /** The scaffold `scaffold.yaml` names, read from `platform`'s head (and the scaffold repo's head, when it is another repo). */
-async function readScaffold(env: Env, template: string): Promise<Scaffold> {
+async function readScaffold(env: Env, template: string): Promise<Scaffold | TemplateUpgradeNoScaffold> {
   const ns = artifactsFor(env);
   const yamlPath = `templates/${template}/scaffold.yaml`;
   const plat = await withRepo(ns, PLATFORM_REPO, async (r) => {
     const [head] = await r.log({ limit: 1 });
     if (!head) return null;
     const blob = await r.readFile({ ref: head.hash, path: yamlPath }).catch((e: unknown) => (missing(e) ? null : Promise.reject(e)));
-    return { head: head.hash, text: blob ? await blob.text() : null };
+    const hasTemplate = !blob && !!(await r.readFile({ ref: head.hash, path: `templates/${template}/template.yaml` }).catch((e: unknown) => (missing(e) ? null : Promise.reject(e))));
+    return { head: head.hash, text: blob ? await blob.text() : null, hasTemplate };
   }).catch((e: unknown) => (missing(e) ? null : Promise.reject(e)));
   if (!plat) throw unprocessable("platform-unsynced", `no '${PLATFORM_REPO}' repo (or it is empty); run 'npx artyfact platform-sync'`);
+  // A Thing template that ships no scaffold (a library or service template) has nothing to upgrade from.
+  if (plat.text === null && plat.hasTemplate) return { status: "no-scaffold", template };
   if (plat.text === null) {
     throw unprocessable("template-not-in-platform", `${PLATFORM_REPO}@${plat.head.slice(0, 7)} has no ${yamlPath}; run 'npx artyfact platform-sync'`);
   }
@@ -173,8 +176,9 @@ async function readScaffold(env: Env, template: string): Promise<Scaffold> {
 // ------------------------------------------------------------------ plan
 
 interface Planned { plan: TemplateUpgradePlan; scaffold: Scaffold }
+const isNoScaffold = (s: object): s is TemplateUpgradeNoScaffold => "status" in s;
 
-async function computePlan(env: Env, systemId: string, ref: string): Promise<Planned> {
+async function computePlan(env: Env, systemId: string, ref: string): Promise<Planned | TemplateUpgradeNoScaffold> {
   const s = await systemStub(env, systemId).state();
   if (!s) throw notFound(`system ${systemId} is not imported`);
   const app = await resolveRef(env, s, "app", ref);
@@ -183,6 +187,7 @@ async function computePlan(env: Env, systemId: string, ref: string): Promise<Pla
     return { listing: await listTree(r, app.commit), lock: parseLock(blob ? await blob.text() : null) };
   });
   const scaffold = await readScaffold(env, await templateOf(env, systemId, lock));
+  if (isNoScaffold(scaffold)) return scaffold;
   const tmpl = new Map([...scaffold.files].map(([p, e]) => [p, e.hash] as const));
   const files = planFiles(tmpl, new Map([...listing].map(([p, e]) => [p, e.hash] as const)), lock);
   const upToDate = files.length === 0 && !!lock && lock.template === scaffold.template && sameFiles(lock.files, tmpl);
@@ -192,8 +197,9 @@ async function computePlan(env: Env, systemId: string, ref: string): Promise<Pla
   };
 }
 
-export async function templateUpgradePlan(env: Env, systemId: string, ref = "head"): Promise<TemplateUpgradePlan> {
-  return (await computePlan(env, systemId, ref)).plan;
+export async function templateUpgradePlan(env: Env, systemId: string, ref = "head"): Promise<TemplateUpgradePlan | TemplateUpgradeNoScaffold> {
+  const planned = await computePlan(env, systemId, ref);
+  return isNoScaffold(planned) ? planned : planned.plan;
 }
 
 // ------------------------------------------------------------------ apply
@@ -226,7 +232,9 @@ async function templateTexts(env: Env, sc: Scaffold, paths: string[]): Promise<M
  */
 export async function applyTemplateUpgrade(env: Env, systemId: string, body: Record<string, unknown>, platformUrl: string): Promise<TemplateUpgradeResponse> {
   const include = includeList(body);
-  const { plan, scaffold } = await computePlan(env, systemId, "head");
+  const planned = await computePlan(env, systemId, "head");
+  if (isNoScaffold(planned)) throw unprocessable("no-scaffold", `${planned.template} ships no scaffold, so there is nothing to upgrade from`);
+  const { plan, scaffold } = planned;
   if (plan.upToDate) throw conflict("up-to-date", `the app already matches ${plan.template} at ${plan.to.slice(0, 12)}`);
   const conflicts = new Set(plan.files.filter((f) => f.action === "conflict").map((f) => f.path));
   const unknown = include.filter((p) => !conflicts.has(p));

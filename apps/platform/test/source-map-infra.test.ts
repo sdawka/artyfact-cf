@@ -2,7 +2,9 @@
 /** Node `files` (template defaults plus Keep in Touch's own) must cover app infrastructure so template upgrades are promotable. */
 import { describe, expect, it } from "vitest";
 import { createSystemOne } from "@artyfact/semantic";
+import { buildGenome } from "../worker/artifacts/genome-source";
 import { nodesForPath, sourceMapFor } from "../worker/artifacts/source-map";
+import { buildTaskPacket } from "../worker/packets/task-packet";
 import type { CandidateRef, SubmissionContext } from "../worker/hooks/contract";
 import { loadGenome } from "../worker/hooks/model-rules";
 import { createHookRunner } from "../worker/hooks/run";
@@ -77,5 +79,19 @@ describe("node files: app infrastructure", () => {
     const runner = createHookRunner({ s1: createSystemOne({ FAKE_S1: "1" }), now: () => new Date(0) });
     const promo = (await runner.runSubmission(ctx)).find((e) => e.criterion === "C.system.promotion")!;
     expect(promo.observations).toContainEqual(expect.objectContaining({ check: "scope-authorized", verdict: "unknown" }));
+  });
+});
+
+describe("task packet from the committed example", () => {
+  it("permits the affected nodes' files", async () => {
+    const { model } = buildGenome(new Map(Object.entries(keepInTouch()).filter(([p]) => p.endsWith(".yaml"))), BASE);
+    const evolution = { ...model.evolutions[0]!, affectedNodes: ["operation.contact.save"] };
+    const p = await buildTaskPacket({
+      systemId: "system.keep-in-touch", realizationId: "realization.1.r1", target: "app", model, evolution,
+      workspace: { repo: "keep-in-touch.app", fork: "keep-in-touch.app--r1", baseCommit: "a".repeat(40), remote: "https://acc.artifacts.cloudflare.net/git/artyfact/keep-in-touch.app--r1.git" },
+      baseTreePaths: scaffold, commands: ["npm test"], concurrentWork: [], platformUrl: "http://localhost:1337",
+    });
+    expect(p.permittedPaths).toContain("src/worker/routes/contacts.ts");
+    expect(p.permittedPaths).not.toContain("**");
   });
 });

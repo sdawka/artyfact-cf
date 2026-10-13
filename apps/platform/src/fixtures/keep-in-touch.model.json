@@ -491,12 +491,12 @@
     "nodes": [
       {
         "name": "Description",
-        "revision": 1,
         "description": "Narrative, features, commitments, alternatives and open questions.",
         "fromTemplate": "template.system.social-networking.cloudflare@1",
         "id": "section.description",
         "kind": "section",
         "parent": "system.keep-in-touch",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -510,12 +510,12 @@
       },
       {
         "name": "Externals",
-        "revision": 1,
         "description": "People, groups, contexts and services outside the System boundary that it serves or depends on.",
         "fromTemplate": "template.system.social-networking.cloudflare@1",
         "id": "section.externals",
         "kind": "section",
         "parent": "system.keep-in-touch",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -529,12 +529,12 @@
       },
       {
         "name": "Purpose",
-        "revision": 1,
         "description": "Why the System exists, who benefits, and what must change for them.",
         "fromTemplate": "template.system.social-networking.cloudflare@1",
         "id": "section.purpose",
         "kind": "section",
         "parent": "system.keep-in-touch",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -548,12 +548,12 @@
       },
       {
         "name": "Theory of change",
-        "revision": 1,
         "description": "Claims linking activities to outcomes, each with an indicator and an evaluation method.",
         "fromTemplate": "template.system.social-networking.cloudflare@1",
         "id": "section.theory",
         "kind": "section",
         "parent": "system.keep-in-touch",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -567,13 +567,13 @@
       },
       {
         "name": "UI",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Screens, shared components and affordances.",
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1",
         "id": "section.ui",
         "kind": "section",
         "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -587,13 +587,13 @@
       },
       {
         "name": "Authentication",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Who counts as a signed-in user. Provisional until an auth kit is pinned.",
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1",
         "id": "policy.authentication",
         "kind": "policy",
         "parent": "section.authorization",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -668,8 +668,6 @@
       },
       {
         "name": "Owner-only access",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Owner-only access to private contacts, goals, notes and logs; another owner's records return a non-revealing denial",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -679,6 +677,8 @@
         "id": "policy.ownerOnly",
         "kind": "policy",
         "parent": "section.authorization",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -795,8 +795,6 @@
       },
       {
         "name": "Pair consent",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Explicit pair consent - creating the invitation and accepting it provide the two consents; an active pair is created once",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -806,6 +804,8 @@
         "id": "policy.pairConsent",
         "kind": "policy",
         "parent": "section.authorization",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -850,8 +850,6 @@
       },
       {
         "name": "Current revocation",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Read and send authorization must check revocation against current authoritative state; a block overrides connection and sharing",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -861,6 +859,8 @@
         "id": "policy.revocation",
         "kind": "policy",
         "parent": "section.authorization",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -887,8 +887,6 @@
       },
       {
         "name": "Account",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "ID, identity-provider subject, display name, time zone and notification preferences; one authenticated owner",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -927,6 +925,8 @@
         "id": "entity.Account",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -945,8 +945,6 @@
       },
       {
         "name": "Block",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Blocker and blocked account IDs; overrides connection, sharing and subscription permissions",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -971,6 +969,8 @@
         "id": "entity.Block",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -989,8 +989,6 @@
       },
       {
         "name": "Connection",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "ID, two distinct account IDs in canonical order, acceptance provenance and state; at most one active pair",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1031,6 +1029,8 @@
         "id": "entity.Connection",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -1049,8 +1049,6 @@
       },
       {
         "name": "ConnectionInvite",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "ID, inviter, token hash, expiry and state; optional recipient binding; never contains login credentials",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1096,6 +1094,8 @@
         "id": "entity.ConnectionInvite",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -1114,8 +1114,6 @@
       },
       {
         "name": "ContactEvent",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "ID, owner, ContactRecord, time, channel, self-reported depth and optional private note; one contact target",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1176,6 +1174,8 @@
         "id": "entity.ContactEvent",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -1194,8 +1194,6 @@
       },
       {
         "name": "ContactRecord",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "ID, ownerAccountId, display name, optional channels and linkedAccountId; belongs to one owner. A ContactRecord is a person's private representation of another person. Linking it to an Account does not transfer ownership or reveal notes",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1242,6 +1240,8 @@
         "id": "entity.ContactRecord",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -1260,8 +1260,6 @@
       },
       {
         "name": "DigestEdition",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "ID, author, content version, publication time and access policy; no shared discussion thread",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1301,6 +1299,8 @@
         "id": "entity.DigestEdition",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -1312,8 +1312,6 @@
       },
       {
         "name": "MediaAsset",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "ID, owner, private object key, permission provenance, retention and per-resource access grants",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1353,6 +1351,8 @@
         "id": "entity.MediaAsset",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -1364,8 +1364,6 @@
       },
       {
         "name": "MessageDraft",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "ID, author, exactly one recipient, body, approved attachments and state; no autonomous send",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1410,6 +1408,8 @@
         "id": "entity.MessageDraft",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -1421,8 +1421,6 @@
       },
       {
         "name": "NotificationJob",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "ID, owner, suggestion and preference version, scheduled time, delivery state and deduplication key",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1473,6 +1471,8 @@
         "id": "entity.NotificationJob",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -1498,8 +1498,6 @@
       },
       {
         "name": "RelationshipGoal",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "ID, owner, ContactRecord, intervalDays, desiredDepth, channel, anchorDate, pause and snooze; owner-only",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1565,6 +1563,8 @@
         "id": "entity.RelationshipGoal",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -1583,8 +1583,6 @@
       },
       {
         "name": "Subscription",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Subscriber, author, approval, start time and state; directed and independently revocable",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1624,6 +1622,8 @@
         "id": "entity.Subscription",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -1635,8 +1635,6 @@
       },
       {
         "name": "Suggestion",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "ID, goal version, reason, due date, target ContactRecord and state; does not itself contact anybody",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1686,6 +1684,8 @@
         "id": "entity.Suggestion",
         "kind": "entity",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -1704,13 +1704,13 @@
       },
       {
         "name": "Domain",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Entities, operations and invariants.",
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1",
         "id": "section.domain",
         "kind": "section",
         "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -1724,8 +1724,6 @@
       },
       {
         "name": "Disconnect or block",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Participant authority. Revoke affected app sharing and cancel pending deliveries; a block prevents new app-mediated contact until removed",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1747,6 +1745,8 @@
         "id": "operation.connection.revoke",
         "kind": "operation",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -1788,8 +1788,6 @@
       },
       {
         "name": "Log or revise contact",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Owned contact, nonfuture event time. Persist event; recompute affected goals without sending anything",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1811,6 +1809,8 @@
         "id": "operation.contact.log",
         "kind": "operation",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -1840,8 +1840,6 @@
       },
       {
         "name": "Create or edit private contact",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Owner session; nonblank name. Save only that owner's record; editing does not send invitations",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1862,6 +1860,8 @@
         "id": "operation.contact.save",
         "kind": "operation",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -1879,8 +1879,6 @@
       },
       {
         "name": "Delete",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Owner reauthentication. Deletion revokes access immediately, cancels jobs and purges owned live data within seven days. Backup expiry follows a pinned retention policy disclosed separately",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1901,6 +1899,8 @@
         "id": "operation.data.delete",
         "kind": "operation",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -1930,8 +1930,6 @@
       },
       {
         "name": "Export",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Owner reauthentication. Export authorized records",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -1950,6 +1948,8 @@
         "id": "operation.data.export",
         "kind": "operation",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -1979,8 +1979,6 @@
       },
       {
         "name": "Save goal",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Owned contact and valid interval. Increment goal version, recompute due state and cancel obsolete jobs",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -2003,6 +2001,8 @@
         "id": "operation.goal.save",
         "kind": "operation",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -2038,8 +2038,6 @@
       },
       {
         "name": "Accept invite",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Signed-in distinct invitee, valid unused credential, no block in either direction. Atomically consume invite and create or return the unique active pair",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -2062,6 +2060,8 @@
         "id": "operation.invite.accept",
         "kind": "operation",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -2091,8 +2091,6 @@
       },
       {
         "name": "Create invite",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Authenticated inviter. Generate at least 128 bits of randomness, store only a token hash, expire after 24 hours and allow one successful acceptance",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -2114,6 +2112,8 @@
         "id": "operation.invite.create",
         "kind": "operation",
         "parent": "section.domain",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -2131,8 +2131,6 @@
       },
       {
         "name": "contactsStore (D1)",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "runtime.contactsStore as the intended D1 binding for accounts, owned contacts, goals, events, consent and jobs; foreign keys, unique pair keys and conditional writes enforce structure",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -2141,6 +2139,8 @@
         "id": "binding.contactsStore",
         "kind": "binding",
         "parent": "section.runtime",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -2162,12 +2162,12 @@
       },
       {
         "name": "D1 database",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Template placeholder, superseded by binding.contactsStore",
         "id": "binding.d1",
         "kind": "binding",
         "parent": "section.runtime",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2181,13 +2181,13 @@
       },
       {
         "name": "Cron scheduler",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Cron Triggers for periodic work.",
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1",
         "id": "binding.scheduler",
         "kind": "binding",
         "parent": "section.runtime",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2201,13 +2201,13 @@
       },
       {
         "name": "Worker with static assets",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Cloudflare Worker serving the API and the built UI through Workers Static Assets.",
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1",
         "id": "binding.worker",
         "kind": "binding",
         "parent": "section.runtime",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2221,13 +2221,13 @@
       },
       {
         "name": "Authorization",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Policies governing who may read or change what.",
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1",
         "id": "section.authorization",
         "kind": "section",
         "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2241,12 +2241,12 @@
       },
       {
         "name": "PrimaryNav",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Primary navigation containing Today, People and Settings",
         "id": "component.PrimaryNav",
         "kind": "component",
         "parent": "component.AppShell",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -2279,12 +2279,12 @@
       },
       {
         "name": "RouteOutlet",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1",
         "id": "component.RouteOutlet",
         "kind": "component",
         "parent": "component.AppShell",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2298,12 +2298,12 @@
       },
       {
         "name": "TopBar",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1",
         "id": "component.TopBar",
         "kind": "component",
         "parent": "component.AppShell",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2317,13 +2317,13 @@
       },
       {
         "name": "AppShell",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Frame holding the top bar, primary navigation and route outlet.",
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1",
         "id": "component.AppShell",
         "kind": "component",
         "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2337,13 +2337,13 @@
       },
       {
         "name": "ErrorSummary",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Shared summary of form and request errors.",
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1",
         "id": "component.ErrorSummary",
         "kind": "component",
         "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2357,8 +2357,6 @@
       },
       {
         "name": "StatePanel",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Shared loading, empty and unavailable states.",
         "states": [
           "loading",
@@ -2369,6 +2367,8 @@
         "id": "component.StatePanel",
         "kind": "component",
         "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "roles": [],
@@ -2381,13 +2381,13 @@
       },
       {
         "name": "Runtime",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Bindings and deployment surface.",
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1",
         "id": "section.runtime",
         "kind": "section",
         "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2401,8 +2401,6 @@
       },
       {
         "name": "Cancel",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates Cancel",
         "effects": [
@@ -2411,6 +2409,8 @@
         "id": "affordance.GoalForm.cancel",
         "kind": "affordance",
         "parent": "component.GoalForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2423,8 +2423,6 @@
       },
       {
         "name": "Save",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates Save",
         "preconditions": [
@@ -2442,6 +2440,8 @@
         "id": "affordance.GoalForm.save",
         "kind": "affordance",
         "parent": "component.GoalForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -2459,12 +2459,12 @@
       },
       {
         "name": "PreferredChannelField",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.GoalChannelField",
         "kind": "component",
         "parent": "component.GoalForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2478,13 +2478,13 @@
       },
       {
         "name": "DepthField",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "desiredDepth in light, meaningful or shared-time",
         "cardinality": "exactly one",
         "id": "component.GoalDepthField",
         "kind": "component",
         "parent": "component.GoalForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2498,12 +2498,12 @@
       },
       {
         "name": "EnabledToggle",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.GoalEnabledToggle",
         "kind": "component",
         "parent": "component.GoalForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2517,13 +2517,13 @@
       },
       {
         "name": "IntervalField",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "intervalDays from 1 through 3650",
         "cardinality": "exactly one",
         "id": "component.GoalIntervalField",
         "kind": "component",
         "parent": "component.GoalForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2537,13 +2537,13 @@
       },
       {
         "name": "GoalForm",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Form contains interval, depth, preferred channel and enabled controls, plus Save and Cancel",
         "cardinality": "exactly one",
         "id": "component.GoalForm",
         "kind": "component",
         "parent": "screen.goal",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2557,12 +2557,12 @@
       },
       {
         "name": "PageHeading",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.GoalHeading",
         "kind": "component",
         "parent": "screen.goal",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2576,13 +2576,13 @@
       },
       {
         "name": "SchedulePreview",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "SchedulePreview must show that effect before saving. Changing depth may change which historical events qualify",
         "cardinality": "exactly one",
         "id": "component.SchedulePreview",
         "kind": "component",
         "parent": "screen.goal",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -2609,8 +2609,6 @@
       },
       {
         "name": "Goal",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Exactly PageHeading, GoalForm and SchedulePreview. Form contains interval, depth, preferred channel and enabled controls, plus Save and Cancel. No saved goal displays as no goal, not as an inferred target",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -2630,6 +2628,8 @@
         "id": "screen.goal",
         "kind": "screen",
         "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -2648,8 +2648,6 @@
       },
       {
         "name": "Accept",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Signed-in invitee activates Accept",
         "preconditions": [
@@ -2668,6 +2666,8 @@
         "id": "affordance.ConsentPanel.accept",
         "kind": "affordance",
         "parent": "component.ConsentPanel",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -2685,8 +2685,6 @@
       },
       {
         "name": "Decline",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Signed-in invitee activates Decline",
         "effects": [
@@ -2695,6 +2693,8 @@
         "id": "affordance.ConsentPanel.decline",
         "kind": "affordance",
         "parent": "component.ConsentPanel",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2707,12 +2707,12 @@
       },
       {
         "name": "ConsentPanel",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one after validation",
         "id": "component.ConsentPanel",
         "kind": "component",
         "parent": "screen.invitation",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2726,13 +2726,13 @@
       },
       {
         "name": "InvitePreview",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "The recipient sees who is inviting them",
         "cardinality": "exactly one after validation",
         "id": "component.InvitePreview",
         "kind": "component",
         "parent": "screen.invitation",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -2753,13 +2753,13 @@
       },
       {
         "name": "UnavailablePanel",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Invalid, expired or used invitations show one UnavailablePanel and no acceptance control",
         "cardinality": "1 only for invalid, expired or used invitations",
         "id": "component.UnavailablePanel",
         "kind": "component",
         "parent": "screen.invitation",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2773,8 +2773,6 @@
       },
       {
         "name": "Invitation",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Exactly InvitePreview and ConsentPanel after validation; Accept and Decline controls. Invalid, expired or used invitations show one UnavailablePanel and no acceptance control",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -2795,6 +2793,8 @@
         "id": "screen.invitation",
         "kind": "screen",
         "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -2813,8 +2813,6 @@
       },
       {
         "name": "Cancel",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates Cancel",
         "effects": [
@@ -2823,6 +2821,8 @@
         "id": "affordance.ContactEventForm.cancel",
         "kind": "affordance",
         "parent": "component.ContactEventForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2835,8 +2835,6 @@
       },
       {
         "name": "Save",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates Save",
         "preconditions": [
@@ -2854,6 +2852,8 @@
         "id": "affordance.ContactEventForm.save",
         "kind": "affordance",
         "parent": "component.ContactEventForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -2871,12 +2871,12 @@
       },
       {
         "name": "ChannelSelect",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.EventChannelSelect",
         "kind": "component",
         "parent": "component.ContactEventForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2890,13 +2890,13 @@
       },
       {
         "name": "DateTimeField",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Date and time; a nonfuture event time is required",
         "cardinality": "exactly one",
         "id": "component.EventDateTimeField",
         "kind": "component",
         "parent": "component.ContactEventForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2910,12 +2910,12 @@
       },
       {
         "name": "DepthSelect",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.EventDepthSelect",
         "kind": "component",
         "parent": "component.ContactEventForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2929,13 +2929,13 @@
       },
       {
         "name": "NoteField",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Optional private note",
         "cardinality": "optional",
         "id": "component.EventNoteField",
         "kind": "component",
         "parent": "component.ContactEventForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2949,8 +2949,6 @@
       },
       {
         "name": "MetGoalCheckbox",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Met this goal defaults unchecked and is disabled when no current goal exists",
         "cardinality": "exactly one",
         "states": [
@@ -2961,6 +2959,8 @@
         "id": "component.MetGoalCheckbox",
         "kind": "component",
         "parent": "component.ContactEventForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "roles": [],
@@ -2973,12 +2973,12 @@
       },
       {
         "name": "ContactEventForm",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.ContactEventForm",
         "kind": "component",
         "parent": "screen.logContact",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -2992,12 +2992,12 @@
       },
       {
         "name": "PersonSummary",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.LogPersonSummary",
         "kind": "component",
         "parent": "screen.logContact",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3011,8 +3011,6 @@
       },
       {
         "name": "Log contact",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Exactly PersonSummary and ContactEventForm. Form contains date and time, channel, depth, Met this goal checkbox, optional note, Save and Cancel. Met this goal defaults unchecked and is disabled when no current goal exists",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -3032,6 +3030,8 @@
         "id": "screen.logContact",
         "kind": "screen",
         "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3050,8 +3050,6 @@
       },
       {
         "name": "Add contact",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates AddContact",
         "effects": [
@@ -3060,6 +3058,8 @@
         "id": "affordance.AddContact.open",
         "kind": "affordance",
         "parent": "component.AddContact",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3072,13 +3072,13 @@
       },
       {
         "name": "AddContact",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "AddContact control",
         "cardinality": "exactly one",
         "id": "component.AddContact",
         "kind": "component",
         "parent": "screen.people",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3092,8 +3092,6 @@
       },
       {
         "name": "Cancel",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates Cancel in the dialog",
         "effects": [
@@ -3102,6 +3100,8 @@
         "id": "affordance.AddContactDialog.cancel",
         "kind": "affordance",
         "parent": "component.AddContactDialog",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3114,8 +3114,6 @@
       },
       {
         "name": "Save",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "source": {
           "doc": "keep-in-touch-world-specification",
           "section": "6"
@@ -3137,6 +3135,8 @@
         "id": "affordance.AddContactDialog.save",
         "kind": "affordance",
         "parent": "component.AddContactDialog",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3154,13 +3154,13 @@
       },
       {
         "name": "ChannelFields",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Optional channel fields",
         "cardinality": "optional",
         "id": "component.AddContactChannelFields",
         "kind": "component",
         "parent": "component.AddContactDialog",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3174,13 +3174,13 @@
       },
       {
         "name": "NameField",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Name field; nonblank name is required",
         "cardinality": "exactly one",
         "id": "component.AddContactNameField",
         "kind": "component",
         "parent": "component.AddContactDialog",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3194,8 +3194,6 @@
       },
       {
         "name": "AddContactDialog",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "One AddContactDialog only while invoked, with name, optional channel fields, Save and Cancel",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -3211,6 +3209,8 @@
         "id": "component.AddContactDialog",
         "kind": "component",
         "parent": "screen.people",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "roles": [],
@@ -3223,8 +3223,6 @@
       },
       {
         "name": "Open",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates the row Open control",
         "preconditions": [
@@ -3239,6 +3237,8 @@
         "id": "affordance.ContactRow.open",
         "kind": "affordance",
         "parent": "component.ContactRow",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3249,12 +3249,12 @@
       },
       {
         "name": "Name",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one per row",
         "id": "component.ContactRowName",
         "kind": "component",
         "parent": "component.ContactRow",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3268,13 +3268,13 @@
       },
       {
         "name": "ContactRow",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "One ContactRow per result; each row has a name and Open control",
         "cardinality": "1 per result",
         "id": "component.ContactRow",
         "kind": "component",
         "parent": "component.ContactCollection",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3295,12 +3295,12 @@
       },
       {
         "name": "ContactCollection",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.ContactCollection",
         "kind": "component",
         "parent": "screen.people",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3321,12 +3321,12 @@
       },
       {
         "name": "PageHeading",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.PeopleHeading",
         "kind": "component",
         "parent": "screen.people",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3340,12 +3340,12 @@
       },
       {
         "name": "SearchInput",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.SearchInput",
         "kind": "component",
         "parent": "screen.people",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3359,8 +3359,6 @@
       },
       {
         "name": "People",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Exactly PageHeading, SearchInput, AddContact control and ContactCollection. One ContactRow per result; each row has a name and Open control. One AddContactDialog only while invoked, with name, optional channel fields, Save and Cancel",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -3379,6 +3377,8 @@
         "id": "screen.people",
         "kind": "screen",
         "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3397,8 +3397,6 @@
       },
       {
         "name": "Block",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner confirms Block",
         "preconditions": [
@@ -3414,6 +3412,8 @@
         "id": "affordance.ConnectionPanel.block",
         "kind": "affordance",
         "parent": "component.ConnectionPanel",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3431,8 +3431,6 @@
       },
       {
         "name": "Disconnect",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner confirms Disconnect",
         "preconditions": [
@@ -3447,6 +3445,8 @@
         "id": "affordance.ConnectionPanel.disconnect",
         "kind": "affordance",
         "parent": "component.ConnectionPanel",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3464,8 +3464,6 @@
       },
       {
         "name": "Invite",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates Invite",
         "preconditions": [
@@ -3481,6 +3479,8 @@
         "id": "affordance.ConnectionPanel.invite",
         "kind": "affordance",
         "parent": "component.ConnectionPanel",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3498,13 +3498,13 @@
       },
       {
         "name": "ConnectionPanel",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Connection status determines Invite, Disconnect or Block availability",
         "cardinality": "exactly one",
         "id": "component.ConnectionPanel",
         "kind": "component",
         "parent": "screen.person",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3525,13 +3525,13 @@
       },
       {
         "name": "HistoryRow",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "History has one row per event",
         "cardinality": "1 per event",
         "id": "component.HistoryRow",
         "kind": "component",
         "parent": "component.ContactHistory",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3545,12 +3545,12 @@
       },
       {
         "name": "ContactHistory",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.ContactHistory",
         "kind": "component",
         "parent": "screen.person",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3571,13 +3571,13 @@
       },
       {
         "name": "GoalPanel",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "No saved goal displays as no goal, not as an inferred target",
         "cardinality": "exactly one",
         "id": "component.GoalPanel",
         "kind": "component",
         "parent": "screen.person",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3598,8 +3598,6 @@
       },
       {
         "name": "Edit goal",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates Edit goal",
         "preconditions": [
@@ -3611,6 +3609,8 @@
         "id": "affordance.PersonActionBar.editGoal",
         "kind": "affordance",
         "parent": "component.PersonActionBar",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3622,8 +3622,6 @@
       },
       {
         "name": "Log contact",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates Log contact",
         "preconditions": [
@@ -3635,6 +3633,8 @@
         "id": "affordance.PersonActionBar.logContact",
         "kind": "affordance",
         "parent": "component.PersonActionBar",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3646,8 +3646,6 @@
       },
       {
         "name": "Open channel",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "source": {
           "doc": "keep-in-touch-world-specification",
           "section": "6"
@@ -3668,6 +3666,8 @@
         "id": "affordance.PersonActionBar.openChannel",
         "kind": "affordance",
         "parent": "component.PersonActionBar",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3686,13 +3686,13 @@
       },
       {
         "name": "ActionBar",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Actions are Edit goal, Log contact and Open channel",
         "cardinality": "exactly one",
         "id": "component.PersonActionBar",
         "kind": "component",
         "parent": "screen.person",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3706,12 +3706,12 @@
       },
       {
         "name": "PersonSummary",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.PersonSummary",
         "kind": "component",
         "parent": "screen.person",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3732,13 +3732,13 @@
       },
       {
         "name": "PrivateNotes",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Owner-only notes; linking a ContactRecord to an Account never reveals them",
         "cardinality": "exactly one",
         "id": "component.PrivateNotes",
         "kind": "component",
         "parent": "screen.person",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3759,8 +3759,6 @@
       },
       {
         "name": "Person",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Exactly PersonSummary, GoalPanel, ContactHistory, PrivateNotes, ConnectionPanel and ActionBar. History has one row per event. Actions are Edit goal, Log contact and Open channel; connection status determines Invite, Disconnect or Block availability",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -3778,6 +3776,8 @@
         "id": "screen.person",
         "kind": "screen",
         "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3796,8 +3796,6 @@
       },
       {
         "name": "Delete account",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner reauthenticates and confirms deletion",
         "preconditions": [
@@ -3813,6 +3811,8 @@
         "id": "affordance.DeletionControls.delete",
         "kind": "affordance",
         "parent": "component.DeletionControls",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3830,12 +3830,12 @@
       },
       {
         "name": "DeletionControls",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.DeletionControls",
         "kind": "component",
         "parent": "screen.settings",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3849,8 +3849,6 @@
       },
       {
         "name": "Export",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner reauthenticates and activates Export",
         "preconditions": [
@@ -3865,6 +3863,8 @@
         "id": "affordance.ExportControls.export",
         "kind": "affordance",
         "parent": "component.ExportControls",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3882,12 +3882,12 @@
       },
       {
         "name": "ExportControls",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.ExportControls",
         "kind": "component",
         "parent": "screen.settings",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -3901,12 +3901,12 @@
       },
       {
         "name": "NotificationPreferences",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.NotificationPreferences",
         "kind": "component",
         "parent": "screen.settings",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3927,12 +3927,12 @@
       },
       {
         "name": "ProfilePreferences",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.ProfilePreferences",
         "kind": "component",
         "parent": "screen.settings",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3953,8 +3953,6 @@
       },
       {
         "name": "Settings",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Exactly ProfilePreferences, NotificationPreferences, ExportControls and DeletionControls. Export and deletion act only on the authenticated owner's data",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -3972,6 +3970,8 @@
         "id": "screen.settings",
         "kind": "screen",
         "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -3990,13 +3990,13 @@
       },
       {
         "name": "PrivacyLink",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "One privacy link",
         "cardinality": "exactly one",
         "id": "component.PrivacyLink",
         "kind": "component",
         "parent": "screen.signin",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -4010,8 +4010,6 @@
       },
       {
         "name": "Continue",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "source": {
           "doc": "keep-in-touch-world-specification",
           "section": "6"
@@ -4031,6 +4029,8 @@
         "id": "affordance.SignInContinue.continue",
         "kind": "affordance",
         "parent": "component.SignInContinue",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -4048,13 +4048,13 @@
       },
       {
         "name": "Continue",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "One Continue control",
         "cardinality": "exactly one",
         "id": "component.SignInContinue",
         "kind": "component",
         "parent": "component.SignInForm",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -4068,8 +4068,6 @@
       },
       {
         "name": "SignInForm",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "One SignInForm",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -4079,6 +4077,8 @@
         "id": "component.SignInForm",
         "kind": "component",
         "parent": "screen.signin",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -4092,8 +4092,6 @@
       },
       {
         "name": "Sign in",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "One SignInForm with one Continue control and one privacy link; no private content",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -4111,6 +4109,8 @@
         "id": "screen.signin",
         "kind": "screen",
         "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -4136,13 +4136,13 @@
       },
       {
         "name": "EmptyState",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "One EmptyState inside the collection",
         "cardinality": "1 only when there are no suggestions, inside the collection",
         "id": "component.EmptyState",
         "kind": "component",
         "parent": "component.SuggestionCollection",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -4156,8 +4156,6 @@
       },
       {
         "name": "Log contact",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates Log contact on a card",
         "preconditions": [
@@ -4172,6 +4170,8 @@
         "id": "affordance.SuggestionCard.logContact",
         "kind": "affordance",
         "parent": "component.SuggestionCard",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -4182,8 +4182,6 @@
       },
       {
         "name": "Open person",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates Open person on a card",
         "preconditions": [
@@ -4198,6 +4196,8 @@
         "id": "affordance.SuggestionCard.openPerson",
         "kind": "affordance",
         "parent": "component.SuggestionCard",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -4208,8 +4208,6 @@
       },
       {
         "name": "Snooze",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "actor": "ext.owner",
         "trigger": "Owner activates Snooze on a card",
         "preconditions": [
@@ -4225,6 +4223,8 @@
         "id": "affordance.SuggestionCard.snooze",
         "kind": "affordance",
         "parent": "component.SuggestionCard",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -4254,12 +4254,12 @@
       },
       {
         "name": "PersonLabel",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one per card",
         "id": "component.SuggestionPersonLabel",
         "kind": "component",
         "parent": "component.SuggestionCard",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -4273,12 +4273,12 @@
       },
       {
         "name": "Reason",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one per card",
         "id": "component.SuggestionReason",
         "kind": "component",
         "parent": "component.SuggestionCard",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -4292,13 +4292,13 @@
       },
       {
         "name": "SuggestionCard",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Each card has one person label, reason, Open person, Log contact and Snooze controls",
         "cardinality": "0..5, one per open suggestion",
         "id": "component.SuggestionCard",
         "kind": "component",
         "parent": "component.SuggestionCollection",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -4319,13 +4319,13 @@
       },
       {
         "name": "SuggestionCollection",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Today must return at most five suggestions, ordered by effective due date then stable goal ID",
         "cardinality": "exactly one",
         "id": "component.SuggestionCollection",
         "kind": "component",
         "parent": "screen.today",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -4346,12 +4346,12 @@
       },
       {
         "name": "TodayControls",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.TodayControls",
         "kind": "component",
         "parent": "screen.today",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -4365,12 +4365,12 @@
       },
       {
         "name": "PageHeading",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "cardinality": "exactly one",
         "id": "component.TodayHeading",
         "kind": "component",
         "parent": "screen.today",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [],
         "states": [],
@@ -4384,8 +4384,6 @@
       },
       {
         "name": "Today",
-        "owningThing": "thing.webapp",
-        "revision": 1,
         "description": "Exactly PageHeading, TodayControls and SuggestionCollection; 0–5 cards, or one EmptyState inside the collection. Each card has one person label, reason, Open person, Log contact and Snooze controls",
         "source": {
           "doc": "keep-in-touch-world-specification",
@@ -4404,6 +4402,8 @@
         "id": "screen.today",
         "kind": "screen",
         "parent": "section.ui",
+        "owningThing": "thing.webapp",
+        "revision": 1,
         "refines": [],
         "links": [
           {
@@ -7579,7 +7579,111 @@
       "evolution.5": "evolutions/evolution.5.yaml",
       "evolution.6": "evolutions/evolution.6.yaml"
     },
-    "warnings": []
+    "warnings": [],
+    "files": {
+      "thing.webapp": [
+        {
+          "glob": "src/worker/health.ts",
+          "declared": false
+        },
+        {
+          "glob": "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.test.jsonc,.gitignore,.dev.vars.example,README.md}",
+          "declared": false
+        },
+        {
+          "glob": "src/index.ts",
+          "declared": true
+        },
+        {
+          "glob": "src/worker/env.ts",
+          "declared": false
+        },
+        {
+          "glob": "src/worker/phenome.ts",
+          "declared": false
+        },
+        {
+          "glob": "test/**",
+          "declared": false
+        },
+        {
+          "glob": "public/*",
+          "declared": false
+        },
+        {
+          "glob": ".artyfact/**",
+          "declared": false
+        }
+      ],
+      "policy.ownerOnly": [
+        {
+          "glob": "src/worker/auth.ts",
+          "declared": true
+        },
+        {
+          "glob": "src/worker/routes/contacts.ts",
+          "declared": true
+        }
+      ],
+      "section.domain": [
+        {
+          "glob": "src/worker/routes/**",
+          "declared": false
+        }
+      ],
+      "entity.ContactRecord": [
+        {
+          "glob": "src/worker/routes/contacts.ts",
+          "declared": true
+        }
+      ],
+      "operation.contact.save": [
+        {
+          "glob": "src/worker/routes/contacts.ts",
+          "declared": true
+        },
+        {
+          "glob": "public/people/add-contact-dialog.js",
+          "declared": true
+        }
+      ],
+      "binding.contactsStore": [
+        {
+          "glob": "migrations/**",
+          "declared": true
+        }
+      ],
+      "binding.d1": [
+        {
+          "glob": "migrations/**",
+          "declared": false
+        }
+      ],
+      "section.ui": [
+        {
+          "glob": "src/ui/**",
+          "declared": false
+        }
+      ],
+      "screen.people": [
+        {
+          "glob": "public/people/**",
+          "declared": true
+        }
+      ],
+      "component.AddContactDialog": [
+        {
+          "glob": "public/people/**",
+          "declared": true
+        }
+      ],
+      "affordance.AddContactDialog.save": [
+        {
+          "glob": "public/people/add-contact-dialog.js",
+          "declared": true
+        }
+      ]
+    }
   },
   "readiness": {
     "modelReadiness": {

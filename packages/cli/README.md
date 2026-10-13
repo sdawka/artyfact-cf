@@ -11,13 +11,13 @@ http://localhost:1337.
 ## `init` and `platform-sync`
 
 ```sh
-npx artyfact init --dir <project>                    # <project>/system (Genome) and <project>/app
+npx artyfact init --dir <project>                    # <project>/genome (Genome; <project>/system also works) and <project>/app
 npx artyfact init --genome <dir> --app <dir>         # examples layout; scripts/bootstrap.sh does this for Keep in Touch
 npx artyfact init --dir <project> --from-template template.thing.cloudflare-worker-webapp@1   # no app yet
 npx artyfact platform-sync [--namespace ns]
 ```
 
-`init` reads `system.yaml`, derives the repo names (`src/naming.ts`, shared with the Worker), checks that
+`init` reads the System id from the Genome's root `node.yaml`, pushes the node tree as `<slug>.genome`, derives the repo names (`src/naming.ts`, shared with the Worker), checks that
 `npx wrangler whoami` and `cf auth whoami` agree on the account (set `CLOUDFLARE_ACCOUNT_ID` when several are
 visible), and creates the namespace (`--namespace`, else `ARTIFACTS_NAMESPACE`, else `artyfact`) and repos when
 missing. When creating reports that the namespace exists, init confirms it with `cf artifacts namespaces list`, which
