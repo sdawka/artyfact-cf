@@ -8,7 +8,10 @@
   "compatibility_flags": ["nodejs_compat"],
   // Read tokens for checkout and the cache fingerprint come from this binding (same namespace as the platform).
   "artifacts": [{ "binding": "ARTIFACTS", "namespace": "artyfact" }],
-  "containers": [{ "class_name": "CiSandbox", "image": "./Dockerfile", "max_instances": 5, "instance_type": "standard-4" }],
+  // max_instances caps concurrent runner containers, so it caps container spend (docs/costs.md). Each build uses one
+  // runner at a time; raise it only if queued builds become a problem. Kept at standard-4 (4 vCPU, 12 GiB):
+  // @cloudflare/ci documents no minimum size and no build has been timed on standard-2 yet.
+  "containers": [{ "class_name": "CiSandbox", "image": "./Dockerfile", "max_instances": 2, "instance_type": "standard-4" }],
   "durable_objects": { "bindings": [{ "name": "SANDBOX", "class_name": "CiSandbox" }] },
   "exports": { "CiSandbox": { "type": "durable-object", "storage": "sqlite" } },
   "workflows": [{ "name": "artyfact-ci", "binding": "CI_WORKFLOW", "class_name": "ArtyfactCI" }],
