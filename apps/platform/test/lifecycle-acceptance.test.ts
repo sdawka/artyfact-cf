@@ -109,3 +109,26 @@ it('refuses a selected candidate superseded before integration', async () => {
   const result = await call<{ error: { code: string } }>('POST', `${root(f, p.id)}/integrate`, {}, ADMIN);
   expect(result.status).toBe(409); expect(result.json.error.code).toBe('stale-candidate');
 });
+
+it('promotes an integrated plan under the real hook runner, which evaluates Thing-owned promotion gates', async () => {
+  resetHooks(); // the real runner, not the stub: only selectHooks decides which criteria get evidence
+  const systemId = `system.real${crypto.randomUUID().slice(0, 8)}`, ns = new FakeArtifacts(), genomeRepo = `g-${systemId}`, appRepo = `a-${systemId}`;
+  const files = genomeFor(systemId), screen = 'thing.webapp/section.ui/screen.people/node.yaml';
+  // The platform cannot run vitest hooks, so keep the one promotion-gated vitest criterion out of the gate.
+  files[screen] = files[screen].replace('    gates:\n      - promotion\n    hooks:\n      - id: hook.people.audit', '    gates:\n      - submission\n    hooks:\n      - id: hook.people.audit');
+  expect(files[screen]).not.toBe(genomeFor(systemId)[screen]);
+  ns.create(genomeRepo).commit(files, 'Genome'); ns.create(appRepo).commit(appFiles, 'App');
+  setArtifactsOverride(ns);
+  const imported = await call<ImportSystemResponse>('POST', '/systems/import', { systemId, genomeRepo, appRepo }, ADMIN);
+  expect(imported.status, JSON.stringify(imported.json)).toBe(201);
+  const f: Flow = { ns, systemId, genomeRepo, appRepo, imp: imported.json, forks: 0 };
+  // The task lists no checks, so C.webapp.exists (Thing-owned, promotion-gated, hard) is gated but never listed.
+  const p = await planFor(f, [{ ...task(), checks: [] }]);
+  await submitAndSelect(f, p, 'ui');
+  const review = await integrate(f, p);
+  expect(review.blockers).toEqual([]);
+  expect(review.evaluations.find(e => e.criterion === 'C.webapp.exists')).toMatchObject({ execution: 'completed', verdict: 'pass' });
+  const promoted = await call('POST', `${root(f, p.id)}/promote`, { expectedHead: review.expectedHead, candidateIds: review.bindings.map(b => b.candidateId), rationale: 'Real runner evidence' }, ADMIN);
+  expect(promoted.status, JSON.stringify(promoted.json)).toBe(200);
+  expect((await systemStub(env, systemId).state())!.manifest!.artifacts['artifact.webapp']).toMatchObject({ realizationPlan: p.id });
+});
