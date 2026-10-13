@@ -213,13 +213,16 @@ export function validateReply(i: PlanInput, reply: PlanReplyTask[]): { drafts: T
   const { known, problems } = unknownNodes(i);
   const affected = new Set(known);
   const used = new Set<string>();
-  const crits = new Set(m.criteria.map((c) => c.id));
+  // Reply criteria must be the Evolution's (and in the Genome): the reply is untrusted and may only add, never remove.
+  const genomeCrits = new Set(m.criteria.map((c) => c.id));
+  const crits = new Set(i.evolution.acceptanceCriteria.filter((c) => genomeCrits.has(c)));
   // Each reply task becomes zero or more drafts (split per Thing); `pieces[k]` are the draft indexes of reply task k.
   const drafts: (TaskDraft & { deps: string[] })[] = [];
   const pieces: number[][] = [];
   const titleIndex = new Map<string, number>();
   reply.forEach((t, k) => {
     if (!titleIndex.has(t.title)) titleIndex.set(t.title, k);
+    else problems.push({ severity: "warning", message: `two tasks are titled "${t.title}"; dependencies on it mean the first` });
     const nodes: string[] = [];
     for (const n of t.nodes) {
       if (!m.index.byId[n]) { problems.push({ severity: "error", message: `task "${t.title}": unknown node ${n} dropped` }); continue; }
@@ -230,7 +233,7 @@ export function validateReply(i: PlanInput, reply: PlanReplyTask[]): { drafts: T
     nodes.forEach((n) => used.add(n));
     const criteria = t.acceptanceCriteria.filter((c) => {
       if (crits.has(c)) return true;
-      problems.push({ severity: "warning", message: `task "${t.title}": unknown criterion ${c} dropped` });
+      problems.push({ severity: "warning", message: `task "${t.title}": criterion ${c} is not one of ${i.evolution.id}'s; dropped` });
       return false;
     });
     if (!nodes.length) {
@@ -256,7 +259,8 @@ export function validateReply(i: PlanInput, reply: PlanReplyTask[]): { drafts: T
         nodes: ns,
         dependsOn: [],
         deps: t.dependsOn,
-        acceptanceCriteria: own.length ? own : criteriaFor(m, i.evolution.acceptanceCriteria, ns),
+        // The task's own criteria always stand; the reply can only add Evolution criteria to them.
+        acceptanceCriteria: uniq([...criteriaFor(m, i.evolution.acceptanceCriteria, ns), ...own]),
         origin: "llm",
       });
     }
@@ -272,6 +276,7 @@ export function validateReply(i: PlanInput, reply: PlanReplyTask[]): { drafts: T
   // Titles → draft indexes (every piece of a split task).
   const deps: number[][] = drafts.map((d, j) => uniq(d.deps.flatMap((title) => {
     const k = titleIndex.get(title);
+    if (k !== undefined && pieces[k].includes(j)) return []; // a task naming itself (or a split task its own pieces)
     if (k === undefined) { problems.push({ severity: "warning", message: `task "${d.title}" depends on unknown task "${title}"; dropped` }); return []; }
     return pieces[k].filter((x) => x !== j);
   })));
@@ -418,19 +423,21 @@ export function revisePlan(i: PlanInput, existing: TaskPlan, body: unknown): Tas
   const invalid = (msg: string) => unprocessable("invalid-plan", msg);
   const ids = new Set<string>();
   const used = new Map<string, string>();
-  const crits = new Set(m.criteria.map((c) => c.id));
+  const evoCrits = new Set(i.evolution.acceptanceCriteria);
+  const affected = new Set(i.evolution.affectedNodes);
   for (const t of list) {
     if (t.evolutionId !== i.evolution.id) throw invalid(`task ${t.id} belongs to ${t.evolutionId}, not ${i.evolution.id}`);
     if (ids.has(t.id)) throw invalid(`task ${t.id} appears twice`);
     ids.add(t.id);
     for (const n of t.nodes) {
       if (!m.index.byId[n]) throw invalid(`task ${t.id}: unknown node ${n}`);
+      if (affected.size && !affected.has(n)) throw invalid(`task ${t.id}: node ${n} is not affected by ${i.evolution.id}`);
       if (used.has(n)) throw invalid(`node ${n} is in both ${used.get(n)} and ${t.id}`);
       used.set(n, t.id);
     }
     const things = uniq(t.nodes.map((n) => nodeThing(m, n)));
     if (things.length > 1) throw invalid(`task ${t.id} spans ${things.map((x) => x ?? "the System").join(", ")}; a task belongs to one Thing`);
-    for (const c of t.acceptanceCriteria) if (!crits.has(c)) throw invalid(`task ${t.id}: unknown criterion ${c}`);
+    for (const c of t.acceptanceCriteria) if (!evoCrits.has(c)) throw invalid(`task ${t.id}: criterion ${c} is not one of ${i.evolution.id}'s`);
   }
   for (const t of list) for (const d of t.dependsOn) if (!ids.has(d)) throw invalid(`task ${t.id} depends on ${d}, which is not in the plan`);
   const before = new Map(existing.tasks.map((t) => [t.id, t]));
@@ -469,6 +476,16 @@ async function rpc<T>(p: Promise<T> | T): Promise<T> {
     return await p;
   } catch (e) {
     throw fromRpc(e) ?? e;
+  }
+}
+
+/** `putPlan` through RPC; its `invalid-state` (a task was claimed meanwhile) is `plan-in-progress`. */
+async function store(stub: ReturnType<typeof systemStub>, plan: TaskPlan): Promise<TaskPlan> {
+  try {
+    return await rpc(stub.putPlan(plan));
+  } catch (e) {
+    if (e instanceof HttpError && e.code === "invalid-state") throw conflict("plan-in-progress", e.message);
+    throw e;
   }
 }
 
@@ -521,7 +538,7 @@ export async function makePlan(env: Env, systemId: string, evolutionId: string, 
     if (!req.force) throw conflict("plan-in-progress", `${evolutionId} already has a plan; pass force to replan`);
   }
   const plan = await buildPlan(input, plannerFromEnv(env as unknown as PlannerEnv)).catch(planCycle);
-  return rpc(stub.putPlan(plan));
+  return store(stub, plan);
 }
 
 /** `PUT …/plan {tasks}`: a whole-list edit; refused 409 `plan-in-progress` while any task is past `planned`. */
@@ -533,5 +550,5 @@ export async function updatePlan(env: Env, systemId: string, evolutionId: string
   if (s.length) throw conflict("plan-in-progress", `tasks past planned cannot be edited: ${s.map((t) => `${t.id} is ${t.status}`).join(", ")}`, { tasks: s.map((t) => t.id) });
   let plan: TaskPlan;
   try { plan = revisePlan(input, existing, body); } catch (e) { plan = planCycle(e); }
-  return rpc(stub.putPlan(plan));
+  return store(stub, plan);
 }

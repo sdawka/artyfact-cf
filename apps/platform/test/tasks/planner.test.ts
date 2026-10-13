@@ -143,6 +143,34 @@ describe("validateReply", () => {
     expect(p.waves).toEqual([["task.2.t1"], ["task.2.t2"]]);
   });
 
+  it("keeps a criterion on the task it is about when the reply moves it elsewhere", () => {
+    const { drafts } = validateReply(input(e2), [
+      t("A", domain, { acceptanceCriteria: ["C.webapp.schedule.correct", "C.webapp.prompts.bounded"] }),
+      t("B", ui, { acceptanceCriteria: [] }),
+    ]);
+    // prompts.bounded is about screen.today (task B): the reply may add it to A, never take it from B.
+    expect(drafts[1].acceptanceCriteria).toContain("C.webapp.prompts.bounded");
+    expect(drafts[0].acceptanceCriteria).toContain("C.webapp.schedule.correct");
+  });
+
+  it("restores a criterion the reply omits, and drops criteria outside the Evolution", () => {
+    const { drafts, problems } = validateReply(input(e2), [
+      t("A", domain, { acceptanceCriteria: ["C.webapp.contact.save"] }),
+      t("B", ui, { acceptanceCriteria: ["C.webapp.prompts.bounded"] }),
+    ]);
+    expect(drafts[0].acceptanceCriteria).toEqual(["C.webapp.schedule.correct"]);
+    expect(drafts[1].acceptanceCriteria).toEqual(["C.webapp.prompts.bounded"]);
+    expect(problems).toContainEqual({ severity: "warning", message: expect.stringContaining("C.webapp.contact.save is not one of evolution.2's") });
+  });
+
+  it("ignores a task naming itself, even when it is split, and warns on duplicate titles", () => {
+    const e = custom(["entity.DigestEdition", "commitment.no-engagement-mechanics"]);
+    const { drafts } = validateReply(input(e), [t("Both", e.affectedNodes, { dependsOn: ["Both"] })]);
+    expect(drafts.map((d) => d.dependsOn)).toEqual([[], []]);
+    const dup = validateReply(input(e2), [t("A", domain), t("A", ui)]);
+    expect(dup.problems).toContainEqual({ severity: "warning", message: expect.stringContaining('two tasks are titled "A"') });
+  });
+
   it("throws plan-cycle on a dependency cycle", () => {
     expect(() => validateReply(input(e2), [t("A", domain, { dependsOn: ["B"] }), t("B", ui, { dependsOn: ["A"] })])).toThrow(PlanError);
   });
@@ -235,6 +263,8 @@ describe("revisePlan", () => {
     expect(bad([a, { ...b, dependsOn: ["task.2.t9"] }])).toMatchObject({ status: 422, code: "invalid-plan" });
     expect(bad([{ ...a, nodes: ["commitment.no-engagement-mechanics", ...a.nodes] }, b])).toMatchObject({ status: 422, code: "invalid-plan" });
     expect(bad([{ title: "x" }])).toMatchObject({ status: 400 });
+    expect(bad([{ ...a, nodes: [...a.nodes, "entity.Connection"] }, b])).toMatchObject({ status: 422, code: "invalid-plan" });
+    expect(bad([{ ...a, acceptanceCriteria: ["C.webapp.contact.save"] }, b])).toMatchObject({ status: 422, code: "invalid-plan" });
     expect(() => revisePlan(input(evo("evolution.2")), p, { tasks: [{ ...a, dependsOn: [b.id] }, { ...b, dependsOn: [a.id] }] })).toThrow(PlanError);
   });
 });

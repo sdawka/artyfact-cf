@@ -81,6 +81,24 @@ describe("plan routes", () => {
     expect(r.json.waves.length).toBeGreaterThanOrEqual(2);
   });
 
+  it("POST is 422 plan-cycle when the planner's reply has a dependency cycle", async () => {
+    setPlannerOverride({
+      mode: "http", model: "m",
+      plan: async (ctx) => ({
+        provider: "test", model: "m",
+        tasks: [
+          { title: "A", intent: "", nodes: [ctx.nodes[0].id], dependsOn: ["B"], acceptanceCriteria: [] },
+          { title: "B", intent: "", nodes: ctx.nodes.slice(1).map((x) => x.id), dependsOn: ["A"], acceptanceCriteria: [] },
+        ],
+      }),
+    });
+    const s = await importSystem();
+    const r = await call<ApiError>("POST", plan(s), {});
+    expect(r.status).toBe(422);
+    expect(r.json.error.code).toBe("plan-cycle");
+    expect((await call<ApiError>("GET", plan(s))).json.error.code).toBe("no-plan");
+  });
+
   it("refuses non-admins, Evolutions not ready to plan, and replans only with force", async () => {
     const s = await importSystem();
     expect((await call<ApiError>("POST", plan(s), {}, {})).status).toBe(401);
