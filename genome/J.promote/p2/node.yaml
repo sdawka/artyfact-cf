@@ -5,6 +5,7 @@ fields:
   actor: user
   action: Promotes one candidate against the expected head
   kind: action
-  operation: endpoint.promote
   next:
     - to: p3
+links:
+  - { rel: stepOperation, to: endpoint.promote }

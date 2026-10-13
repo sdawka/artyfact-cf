@@ -5,6 +5,7 @@ fields:
   actor: user
   action: Opens the Changelog
   kind: action
-  operation: endpoint.changelog
   next:
     - to: c2
+links:
+  - { rel: stepOperation, to: endpoint.changelog }

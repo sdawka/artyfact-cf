@@ -127,6 +127,13 @@ describe("the Artyfact self-Genome", () => {
     for (const c of graph.nodes.filter((n) => n.kind === "command" && n.parent === "thing.cli.commands")) expect(main, c.id).toContain(`case "${c.fields.name}"`);
   });
 
+  it("links journey steps to the endpoints and commands they run", () => {
+    const ops = graph.links.filter((l) => l.rel === "stepOperation");
+    const kinds = new Set(ops.map((l) => graph.nodes.find((n) => n.id === l.to)?.kind));
+    expect([...kinds].sort()).toEqual(["command", "endpoint"]);
+    for (const j of ["J.describe-change", "J.realize", "J.promote", "J.compare"]) expect(ops.some((l) => l.from.startsWith(`${j}/`)), j).toBe(true);
+  });
+
   it("maps every non-ignored source file under apps/ and packages/ to at least one node", () => {
     const ignored = ignoreFilter(readFileSync(join(repo, ".artyfactignore"), "utf8"));
     const files = execFileSync("git", ["ls-files", "apps", "packages"], { cwd: repo, encoding: "utf8" }).split("\n").filter((f) => f && !ignored(f));

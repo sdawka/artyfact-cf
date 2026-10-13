@@ -5,6 +5,8 @@ fields:
   actor: system
   action: Shows the System compare and the Genome delta by node
   kind: reaction
-  operation: endpoint.compare-system
   next:
     - to: c4
+links:
+  - { rel: stepOperation, to: endpoint.compare-system }
+  - { rel: stepOperation, to: endpoint.compare-genome }

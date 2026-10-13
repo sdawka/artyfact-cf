@@ -5,6 +5,7 @@ fields:
   actor: user
   action: Accepts the ops to keep
   kind: action
-  operation: endpoint.intents-accept
   next:
     - to: d5
+links:
+  - { rel: stepOperation, to: endpoint.intents-accept }

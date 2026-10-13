@@ -5,6 +5,8 @@ fields:
   actor: external
   action: Submits the fork head
   kind: action
-  operation: endpoint.submit
   next:
     - to: r5
+links:
+  - { rel: stepOperation, to: command.submit }
+  - { rel: stepOperation, to: endpoint.submit }

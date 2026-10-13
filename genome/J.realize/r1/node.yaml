@@ -5,6 +5,7 @@ fields:
   actor: user
   action: Starts work on an actionable Evolution
   kind: action
-  operation: endpoint.start-work
   next:
     - to: r2
+links:
+  - { rel: stepOperation, to: endpoint.start-work }

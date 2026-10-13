@@ -5,4 +5,5 @@ fields:
   actor: system
   action: Writes the System commit and asks for a production deployment
   kind: end
-  operation: endpoint.create-deployment
+links:
+  - { rel: stepOperation, to: endpoint.create-deployment }

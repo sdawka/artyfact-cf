@@ -5,6 +5,8 @@ fields:
   actor: external
   action: Works and checkpoints
   kind: action
-  operation: endpoint.checkpoint
   next:
     - to: r4
+links:
+  - { rel: stepOperation, to: command.checkpoint }
+  - { rel: stepOperation, to: endpoint.checkpoint }

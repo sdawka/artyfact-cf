@@ -5,6 +5,7 @@ fields:
   actor: user
   action: States the change on Work, Home or a node, optionally anchored on that node
   kind: action
-  operation: endpoint.intents-create
   next:
     - to: d2
+links:
+  - { rel: stepOperation, to: endpoint.intents-create }

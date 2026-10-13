@@ -5,6 +5,7 @@ fields:
   actor: user
   action: Answers the question, if one was asked
   kind: action
-  operation: endpoint.intents-reply
   next:
     - to: d4
+links:
+  - { rel: stepOperation, to: endpoint.intents-reply }

@@ -5,4 +5,5 @@ fields:
   actor: user
   action: Opens one file's diff
   kind: end
-  operation: endpoint.compare-file
+links:
+  - { rel: stepOperation, to: endpoint.compare-file }

@@ -133,6 +133,10 @@ relations:
     description: The module is the code that realises the target.
     from: [module]
     to: [endpoint, durable-object, workflow, queue]
+  stepOperation:
+    description: The journey step runs the target. Redeclared so that an endpoint can be a step's operation, beside the artyfact operation kind.
+    from: [step]
+    to: [operation, endpoint, workflow]
 nodes:
   - id: template.thing.cloudflare-worker-service@1
     kind: template

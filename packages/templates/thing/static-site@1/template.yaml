@@ -64,6 +64,10 @@ relations:
     description: The source ships the target to its runtime.
     from: [thing]
     to: [thing]
+  stepScreen:
+    description: The journey step shows the target. Redeclared so that a page can be a step's screen, beside the artyfact screen kind.
+    from: [step]
+    to: [screen, page]
 nodes:
   - id: template.thing.static-site@1
     kind: template

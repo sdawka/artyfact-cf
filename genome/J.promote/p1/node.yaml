@@ -5,6 +5,8 @@ fields:
   actor: user
   action: Reviews candidates, evaluations and conflicts
   kind: action
-  operation: endpoint.evaluations
   next:
     - to: p2
+links:
+  - { rel: stepOperation, to: endpoint.evaluations }
+  - { rel: stepOperation, to: endpoint.conflicts }

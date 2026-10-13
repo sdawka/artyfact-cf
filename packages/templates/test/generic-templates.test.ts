@@ -98,6 +98,12 @@ describe("generic templates", () => {
     expect(shape("template.thing.static-site@1")).toEqual({ kinds: ["asset", "page"], sections: ["$self.build", "$self.pages"] });
   });
 
+  it("lets journey steps target the generic kinds: endpoints and commands as operations, pages as screens", () => {
+    expect(load("template.thing.cloudflare-worker-service@1").relations.stepOperation!.to).toEqual(expect.arrayContaining(["operation", "endpoint"]));
+    expect(load("template.thing.cli@1").relations.stepOperation!.to).toEqual(expect.arrayContaining(["operation", "command"]));
+    expect(load("template.thing.static-site@1").relations.stepScreen!.to).toEqual(expect.arrayContaining(["screen", "page"]));
+  });
+
   it("the System template has purpose, theory and description sections and no externals section", () => {
     const t = load(SYSTEM);
     expect(t.nodes.filter((n) => n.kind === "section").map((n) => n.id).sort()).toEqual(["$self.description", "$self.purpose", "$self.theory"]);
