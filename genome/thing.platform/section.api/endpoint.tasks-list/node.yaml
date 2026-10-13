@@ -1,0 +1,8 @@
+id: endpoint.tasks-list
+kind: endpoint
+fields:
+  name: "List Tasks"
+  description: "Lists the System's Tasks with status, wave, dependencies and footprint; filters by status and Evolution."
+  route: GET /api/systems/:id/tasks
+  auth: "Public read."
+  response: TasksResponse

@@ -9,11 +9,11 @@
 - glob: public/people/index.html
   nodes: [affordance.AddContactDialog.save]
 - glob: src/worker/routes/goals.ts
-  nodes: [entity.RelationshipGoal, operation.goal.save]
+  nodes: [section.goals, entity.RelationshipGoal, operation.goal.save]
 - glob: public/goals/**
   nodes: [screen.goal]
 - glob: src/worker/routes/events.ts
-  nodes: [entity.ContactEvent, operation.contact.log]
+  nodes: [section.events, entity.ContactEvent, operation.contact.log]
 - glob: public/log/**
   nodes: [screen.logContact]
 - glob: public/today/**

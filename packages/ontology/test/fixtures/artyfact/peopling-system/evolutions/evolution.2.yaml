@@ -4,9 +4,8 @@ intent: Add goal contracts, event qualification and Today prompts; fixed-clock a
 state: actionable
 kind: implementation
 affectedNodes:
-- entity.RelationshipGoal
-- entity.ContactEvent
 - operation.goal.save
+- entity.ContactEvent
 - operation.contact.log
 - screen.goal
 - screen.logContact

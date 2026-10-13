@@ -68,7 +68,7 @@ describe("artyfact validate-genome", () => {
     const j = JSON.parse((await run(["validate-genome", GENOME, "--app", APP, "--json"])).out);
     expect(j.system).toBe("system.peopling");
     expect(j.findings.filter((f: { level: string }) => f.level === "error")).toEqual([]);
-    expect(j.counts).toMatchObject({ nodes: 241, evolutions: 6 });
+    expect(j.counts).toMatchObject({ nodes: 243, evolutions: 6 });
     expect(j.ok).toBe(true);
     expect(j.unmapped).toEqual([]);
     // The Genome binds the files its planned evolution.2 will add; the app does not ship them yet.
@@ -80,6 +80,8 @@ describe("artyfact validate-genome", () => {
       { node: "screen.goal", glob: "public/goals/**" },
       { node: "screen.logContact", glob: "public/log/**" },
       { node: "screen.today", glob: "public/today/**" },
+      { node: "section.events", glob: "src/worker/routes/events.ts" },
+      { node: "section.goals", glob: "src/worker/routes/goals.ts" },
     ]);
   });
 

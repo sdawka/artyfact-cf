@@ -1,0 +1,8 @@
+id: endpoint.realization-rebase
+kind: endpoint
+fields:
+  name: "Rebase a candidate"
+  description: "Submits a new fork commit made of the head tree plus the candidate's diff; 409 rebase-conflict lists the paths."
+  route: POST /api/systems/:id/realizations/:rid/rebase
+  auth: "Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set."
+  response: RebaseResponse

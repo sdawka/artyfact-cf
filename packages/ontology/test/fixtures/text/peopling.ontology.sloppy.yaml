@@ -633,6 +633,16 @@ nodes:
             links:
               - {rel: invokes, to: operation.data.delete}
 
+  - id: section.goals
+    kind: section
+    name: Goals
+    parent: thing.webapp
+    description: The goal entity and its save operation
+  - id: section.events
+    kind: section
+    name: Contact events
+    parent: thing.webapp
+    description: Logged contact events and how they qualify against goals
   # ---------------------------------------------------------------- Domain: entities (spec §5 table)
   # "These are domain types and runtime records inside thing.webapp. They are not separate Things."
   - id: entity.Account
@@ -728,7 +738,7 @@ nodes:
   - id: entity.RelationshipGoal
     kind: entity
     name: RelationshipGoal
-    parent: section.domain
+    parent: section.goals
     description: ID, owner, ContactRecord, intervalDays, desiredDepth, channel, anchorDate, pause and snooze; owner-only
     source: {doc: peopling-world-specification, section: "5"}
     fields:
@@ -752,7 +762,7 @@ nodes:
   - id: entity.ContactEvent
     kind: entity
     name: ContactEvent
-    parent: section.domain
+    parent: section.events
     description: ID, owner, ContactRecord, time, channel, self-reported depth and optional private note; one contact target
     source: {doc: peopling-world-specification, section: "5"}
     fields:
@@ -890,7 +900,7 @@ nodes:
   - id: operation.goal.save
     kind: operation
     name: Save goal
-    parent: section.domain
+    parent: section.goals
     description: "Saves."
     preconditions: [Owned contact, Valid interval]
     effects: [Increment goal version, Recompute due state, Cancel obsolete jobs, Revising a goal must not create a ContactEvent]
@@ -906,7 +916,7 @@ nodes:
   - id: operation.contact.log
     kind: operation
     name: Log or revise contact
-    parent: section.domain
+    parent: section.events
     description: Owned contact, nonfuture event time. Persist event; recompute affected goals without sending anything
     preconditions: [Owned contact, Nonfuture event time]
     effects: [Persist event, Recompute affected goals without sending anything, Logging qualifying contact resolves its suggestion]

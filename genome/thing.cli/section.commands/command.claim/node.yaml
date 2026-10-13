@@ -5,3 +5,5 @@ fields:
   usage: artyfact claim <taskId> --agent <label> [--system sid] [--dir d] [--role r] [--platform url]
   exitCodes: 0 on success, 1 on any error, a blocked task (blocked by t1, t2) or a task claimed by another agent.
   description: Claims a task for a local agent with ARTYFACT_ADMIN_TOKEN, clones its fork, writes the packet's AGENTS.md verbatim and records the task in .artyfact.json. The same label claiming again reuses the directory.
+files:
+  - src/main.ts

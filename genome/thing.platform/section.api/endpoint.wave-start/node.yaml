@@ -1,0 +1,9 @@
+id: endpoint.wave-start
+kind: endpoint
+fields:
+  name: "Start a wave"
+  description: "Claims every task of a wave for the admin's agents and returns each packet and CLI line."
+  route: POST /api/systems/:id/evolutions/:eid/waves/:n/start
+  auth: "Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set."
+  request: StartWaveRequest
+  response: StartWaveResponse

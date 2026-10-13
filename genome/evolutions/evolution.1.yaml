@@ -4,14 +4,14 @@ intent: Let a local agent list the planned Tasks and claim one from the command 
 state: actionable
 kind: implementation
 affectedNodes:
+- module.cli.main
+- module.cli.tasks
+- module.cli.validate-genome
+- module.cli.skill
 - command.tasks
 - command.claim
 - command.validate-genome
 - command.skill
-- module.cli.tasks
-- module.cli.validate-genome
-- module.cli.skill
-- module.cli.main
 acceptanceCriteria:
 - C.cli.unit
 - C.artyfact.typecheck

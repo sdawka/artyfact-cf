@@ -1,0 +1,8 @@
+id: endpoint.tasks-get
+kind: endpoint
+fields:
+  name: "Read a Task"
+  description: "Returns one Task with its realization and candidate state."
+  route: GET /api/systems/:id/tasks/:tid
+  auth: "Public read."
+  response: TaskResponse

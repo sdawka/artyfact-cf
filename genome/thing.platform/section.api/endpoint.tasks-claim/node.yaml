@@ -1,0 +1,9 @@
+id: endpoint.tasks-claim
+kind: endpoint
+fields:
+  name: "Claim a Task"
+  description: "Forks the app repo for a local agent and mints its token and secret; refused while a dependency is unpromoted or another agent holds the task."
+  route: POST /api/systems/:id/tasks/:tid/claim
+  auth: "Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set."
+  request: ClaimTaskRequest
+  response: ClaimTaskResponse
