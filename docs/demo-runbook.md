@@ -269,52 +269,44 @@ field is the canonical start line:
 ARTYFACT_TOKEN=<redacted> ARTYFACT_SECRET=<redacted> npx artyfact start realization.1.r3 --system system.peopling --evolution evolution.1 --dir ./realization.1.r3
 ```
 
-## 4b. Plan an Evolution into Tasks and start wave 1
+## 4b. Plan an Evolution into Tasks and claim wave 1
 
 `evolution.2` (goals, contact events, the Today list) is actionable and independent of `evolution.1`, and moves no head
-until you promote, so this runs beside steps 5 to 9. Terminal **ops**. Plan it, then read the plan the way an agent does:
+until you promote, so this runs beside steps 5 to 9. Terminal **ops**, with the admin token loaded as above. Plan it, then
+read the plan the way an agent does:
 
 ```sh
 curl -s -XPOST $B/evolutions/evolution.2/plan -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{}' \
-  | jq -c '{waves, tasks: [.tasks[] | {id, status, dependsOn}], conflicts: [.conflicts[] | {kind, tasks}]}'
+  | jq -c '{waves, tasks: [.tasks[] | {id, status, dependsOn}]}'
 artyfact tasks --system system.peopling
 ```
 
 ```text
-{"waves":[["task.2.t1"],["task.2.t2"]],"tasks":[{"id":"task.2.t1","status":"planned","dependsOn":[]},{"id":"task.2.t2","status":"planned","dependsOn":["task.2.t1"]}],"conflicts":[{"kind":"declared","tasks":["task.2.t1","task.2.t2"]}]}
-task       evolution    status   wave  depends-on  nodes                                                                                    footprint
-task.2.t1  evolution.2  planned  1     -           entity.RelationshipGoal,entity.ContactEvent,operation.goal.save,operation.contact.log    src/worker/routes/**,src/worker/routes/events.ts,src/worker/routes/goals.ts,src/worker/routes/contacts.ts
-task.2.t2  evolution.2  planned  2     task.2.t1   screen.goal,screen.logContact,screen.today,component.TodayList,affordance.Today.refresh  public/goals/**,public/log/**,public/today/**,src/ui/**
-conflicts: task.2.t1 <-> task.2.t2 [declared] : task.2.t2 depends on task.2.t1.
+{"waves":[["task.2.t1","task.2.t2"],["task.2.t3"]],"tasks":[{"id":"task.2.t1","status":"planned","dependsOn":[]},{"id":"task.2.t2","status":"planned","dependsOn":[]},{"id":"task.2.t3","status":"planned","dependsOn":["task.2.t1","task.2.t2"]}]}
+task       evolution    status   wave  depends-on           nodes                                                                                    footprint
+task.2.t1  evolution.2  planned  1     -                    operation.goal.save                                                                      src/worker/routes/goals.ts
+task.2.t2  evolution.2  planned  1     -                    entity.ContactEvent,operation.contact.log                                                src/worker/routes/events.ts
+task.2.t3  evolution.2  planned  2     task.2.t1,task.2.t2  screen.goal,screen.logContact,screen.today,component.TodayList,affordance.Today.refresh  public/goals/**,public/log/**,public/today/**,src/ui/**
+conflicts: task.2.t1 <-> task.2.t3 [declared] : task.2.t3 depends on task.2.t1.
+conflicts: task.2.t2 <-> task.2.t3 [declared] : task.2.t3 depends on task.2.t2.
 claim: npx artyfact claim task.2.t1 --system system.peopling --agent "claude:task.2.t1" --dir ./work/task.2.t1
 ```
 
 Everything here is derived without a model. Each task's footprint is the `files` globs bound to its nodes, matched against
-the app tree. The fake planner (`FAKE_S1=1`) groups by Thing and section; with `OPENROUTER_API_KEY` a model proposes the
-split and the platform checks it, and a failed reply falls back to the same grouping. `tasks` is public. In the browser
-this is Work, Plan on the Evolution: the same waves as columns, a status chip per task, and Re-plan, merge and split
-for the admin. Waves are numbered from 1. Task 2 is its own wave because the Today screen invokes the operations
-task 1 builds, a dependency derived from the Genome's links.
+the app tree: tasks 1 and 2 touch different route files, so they share a wave. The Today screen invokes the operations
+the first two build, a dependency derived from the Genome's links, so task 3 waits in wave 2. The fake planner
+(`FAKE_S1=1`) groups by Thing and section; with `OPENROUTER_API_KEY` a model proposes the split and the platform checks
+it, and a failed reply falls back to the same grouping. `tasks` is public. In the browser this is Work, Plan on the
+Evolution: the same waves as columns with a status chip per task. Waves are numbered from 1.
 
-Start wave 1 one of two ways, not both, because each task has one claim. Either (a) Start wave 1 in Plan or by curl,
-which claims every task of the wave as `agent:<task>` and returns one start line per task (tokens and secrets appear
-only here):
-
-```sh
-curl -s -XPOST $B/evolutions/evolution.2/waves/1/start -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{}' \
-  | jq -c '{wave, started: [.started[] | {task, realization: .realization.id, agent: .realization.agent.id}], skipped}'
-```
-
-```text
-{"wave":1,"started":[{"task":"task.2.t1","realization":"realization.2.r1","agent":"agent:task.2.t1"}],"skipped":[]}
-```
-
-and each `cli` start line is run as in step 5; or (b) let the orchestrator claim and drive local agents. Terminal **ops**,
-with the admin token loaded as above; the agent never sees it:
+Two agents take wave 1 from the CLI. The orchestrator in terminal **ops** claims; the agent never sees the admin token:
 
 ```sh
 artyfact claim task.2.t1 --system system.peopling --agent "claude:task.2.t1" --dir ./work/task.2.t1
-(cd ./work/task.2.t1 && claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit")
+artyfact claim task.2.t2 --system system.peopling --agent "claude:task.2.t2" --dir ./work/task.2.t2
+(cd ./work/task.2.t1 && claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit") &
+(cd ./work/task.2.t2 && claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit") &
+wait
 ```
 
 ```text
@@ -326,11 +318,14 @@ Next: cd ./work/task.2.t1 && read AGENTS.md and TASK_PACKET.md, then npm install
 `claim` does what `start` does for one task: it forks the app repo, clones it, writes `TASK_PACKET.md` and writes the
 packet's `AGENTS.md` verbatim, which names the task's permitted paths and the paths other tasks own. It saves the fork
 token in the clone's `.artyfact.json` (mode 0600, git-excluded, never printed), so `submit` needs nothing in the
-environment, and the agent never holds the admin token. Run one such line per task of a wave in parallel; the tasks of
-a wave share no files. A repeat claim by the same label is `fresh: false` and reuses the directory. If a start or claim
-died after the platform issued credentials, release the task (`POST $B/tasks/task.2.t1/release`, admin) and claim again.
-In Plan the task's chip moves from claimed to realizing at its first checkpoint, to evaluated after `submit`, and to
-promoted after promotion; its realization opens in Review.
+environment. A repeat claim by the same label is `fresh: false` and reuses the directory. If a claim died after the
+platform issued credentials, release the task (`POST $B/tasks/task.2.t1/release`, admin) and claim it again. In Plan a
+task's chip moves from claimed to realizing at its first checkpoint, to evaluated after `submit`, and to promoted after
+promotion; its realization opens in Review.
+
+**Start wave instead.** Plan's "Start wave 1" (or `POST $B/evolutions/evolution.2/waves/1/start`) claims every task of
+the wave as `agent:<task>` and returns one start line per task, with tokens and secrets shown once; run each line as in
+step 5. Use it or `artyfact claim` for a task, not both: after Start wave, `claim` answers `task-taken`.
 
 ## 5. Two agents work (terminals **A** and **B**)
 
@@ -673,40 +668,34 @@ The model now renders from the accepted fork commit. History marks `sc-2` and `s
 
 When you are done, delete the saved start responses, which hold tokens and secrets: `rm -rf "$RUN"`.
 
-## 10b. The dependent task: refused, then promoted, then claimed
+## 10b. The dependent task: refused, promoted, rebased, claimed
 
-With task 1 submitted (4b), try the task that depends on it:
+Both wave-1 tasks have submitted (4b). Try the Today task, which depends on them:
 
 ```sh
-artyfact claim task.2.t2 --system system.peopling --agent "claude:task.2.t2" --dir ./work/task.2.t2
-curl -s -w ' HTTP %{http_code}\n' -XPOST $B/tasks/task.2.t2/claim -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{"agentLabel":"claude:task.2.t2"}'
+artyfact claim task.2.t3 --system system.peopling --agent "claude:task.2.t3" --dir ./work/task.2.t3
 ```
 
 ```text
-artyfact: blocked by task.2.t1 (not yet promoted)
-{"error":{"code":"task-blocked","message":"task task.2.t2 is blocked by task.2.t1 (not yet promoted)","details":{"blockedOn":["task.2.t1"]}}} HTTP 409
+artyfact: blocked by task.2.t1, task.2.t2 (not yet promoted)
 ```
 
-Plan shows task 2 as blocked (derived, attention tone, never a pass). Promote task 1's candidate exactly as in step 8,
-with the current head as `expectedHead`; a planned Evolution stays `realizing` until its last task is promoted, so wave
-2 stays open. Then claim again:
+Over HTTP the same refusal is `409 task-blocked` with `details.blockedOn`. Plan shows task 3 as blocked (derived,
+attention tone, never a pass). Promote task 1's candidate exactly as in step 8, with the current head as
+`expectedHead`. A planned Evolution stays `realizing` until its last task is promoted, so wave 2 stays open. Task 2's
+candidate is now stale, but promotion rejects only candidates of the same Evolution and the same task, so it is still
+promotable after a rebase (admin, one call per realization):
 
 ```sh
-artyfact claim task.2.t2 --system system.peopling --agent "claude:task.2.t2" --dir ./work/task.2.t2
+curl -s -XPOST $B/realizations/<task-2-realization>/rebase -H "authorization: Bearer $ADMIN_TOKEN" | jq -c '{commit, submitted}'
 ```
 
-This time it succeeds. `TASK_PACKET.md` lists `task.2.t1` under Depends on, and task 1's `AGENTS.md` said "After you: task.2.t2 starts when this task is promoted". Tasks of one wave that were
-claimed before the head moved go stale the same way step 8's candidate B did, with one difference: promotion rejects
-only candidates of the same Evolution and the same task, so a sibling task's candidate stays promotable. Rebase it onto
-the new head instead of redoing the work (admin, one call per realization), then promote it:
-
-```sh
-curl -s -XPOST $B/realizations/<sibling-realization>/rebase -H "authorization: Bearer $ADMIN_TOKEN" | jq -c '{commit, submitted}'
-```
-
-It replays the candidate onto the head as one new fork commit and submits it, so every hook runs again. It refuses with
-409 `rebase-conflict` and the paths when the head changed a file the candidate changes, and with `up-to-date` when
-there is nothing to replay. Task-less candidates, like step 8's B, are rejected and redone as before.
+The platform replays the candidate onto the head as one new fork commit and submits it, so every hook runs again. It
+refuses with 409 `rebase-conflict` and the paths when the head changed a file the candidate changes, and with
+`up-to-date` when there is nothing to replay. Promote the rebased candidate (`expectedHead` is the new head), then claim
+task 3 again. This time it succeeds: `TASK_PACKET.md` lists both tasks under Depends on, and each earlier task's
+`AGENTS.md` said "After you: task.2.t3 starts when this task is promoted". Task-less candidates, like step 8's B, are
+rejected on promotion and redone.
 
 ## 11. Artyfact on itself (fake)
 
@@ -719,20 +708,22 @@ planner is the fake one.
 FAKE_ARTIFACTS=1 FAKE_S1=1 ADMIN_TOKEN=test FAKE_SEED=artyfact npx vite --port 1341 --strictPort    # in apps/platform
 export ARTYFACT_PLATFORM=http://localhost:1341
 curl -s -XPOST localhost:1341/api/systems/system.artyfact/evolutions/evolution.1/plan -H 'authorization: Bearer test' -H 'content-type: application/json' -d '{}' | jq -c .waves
-artyfact tasks --system system.artyfact | cut -c1-120
+artyfact tasks --system system.artyfact | cut -c1-170
 ```
 
 ```text
-[["task.1.t1","task.1.t2"]]
+[["task.1.t1"],["task.1.t2"]]
 task       evolution    status   wave  depends-on  nodes                                                                         footprint
-task.1.t1  evolution.1  planned  1     -           command.tasks,command.claim,command.validate-genome,command.skill             packages/cli/bin/**
-task.1.t2  evolution.1  planned  1     -           module.cli.tasks,module.cli.validate-genome,module.cli.skill,module.cli.main  packages/cli/skills/**,packages/cli/src/**,packages/cli/src/ind…
+task.1.t1  evolution.1  planned  1     -           module.cli.main,module.cli.tasks,module.cli.validate-genome,module.cli.skill  packages/cli/skills/**,packages/cli/src/**,packages/cli/src/index.ts,packages/cli/src/main.ts,packages/cli/src/mo…
+task.1.t2  evolution.1  planned  2     -           command.tasks,command.claim,command.validate-genome,command.skill             packages/cli/bin/**,packages/cli/src/main.ts
+conflicts: task.1.t1 <-> task.1.t2 [file] packages/cli/src/main.ts: Both tasks change packages/cli/src/main.ts.
 claim: npx artyfact claim task.1.t1 --system system.artyfact --agent "claude:task.1.t1" --dir ./work/task.1.t1
 ```
 
-Both tasks are in wave 1: they have no dependency and no shared file, so two agents can claim them at once, one
-`claim` line each as in 4b. The fake platform has no git remote, so `claim` stops at the clone here; the same commands
-run against a real import of this repository (`artyfact init --genome genome --app .`, then accept the import).
+The tasks have no dependency, but both change `packages/cli/src/main.ts`, so the planner puts them in separate waves
+instead of letting two agents collide: a `file` conflict is derived from the bindings, with no model. The fake platform
+has no git remote, so `claim` stops at the clone here; the same commands run against a real import of this repository
+(`artyfact init --genome genome --app .`, then accept the import).
 
 ## Queue path
 

@@ -56,13 +56,14 @@ artyfact claim task.2.t1 --system system.peopling --agent "claude:task.2.t1" --d
 
 | task | wave | depends on | nodes |
 |---|---|---|---|
-| `task.2.t1` | 1 | none | goal and contact-event entities and operations |
-| `task.2.t2` | 2 | `task.2.t1` | goal, log and Today screens, the Today list |
+| `task.2.t1` | 1 | none | goal save operation |
+| `task.2.t2` | 1 | none | contact-event entity and log operation |
+| `task.2.t3` | 2 | `task.2.t1`, `task.2.t2` | goal, log and Today screens, the Today list |
 
 The orchestrator holds the admin token and claims; the agent holds only its task's fork token. `claim` saves that token in the
 clone's `.artyfact.json` (owner-only, git-excluded, never printed) so `submit` works without it in the environment. That is a
 write token at rest on the agent's machine, scoped to one fork and six hours, the same exposure the realization secret already
-has. Claiming `task.2.t2` before `task.2.t1` is promoted is refused with `blocked by task.2.t1`.
+has. Claiming `task.2.t3` before the first two are promoted is refused with `blocked by task.2.t1, task.2.t2`.
 
 ## How Workers and Artifacts are used
 - Workers: one Worker with Static Assets for the SPA, a Hono API, a Queue consumer and the `SystemAuthority` Durable Object with SQLite, which also holds plans, task claims and the import review.

@@ -19,7 +19,7 @@ An Evolution can now be planned into Tasks, and local agents claim them one at a
 - `claim` stores the fork write token in `.artyfact.json` (0600, git-excluded). The orchestrator never sees it, so the claim, run, submit loop needs it at rest. Same exposure as the realization secret.
 - A planned Evolution stays `realizing` until its last task is promoted. Genome candidates are gated by model criteria only. A deferred proposal is re-applied against the head when it is accepted. Import-review accept is a compare-and-swap, so a double click makes one amendment.
 - **Start wave and `claim` are alternatives.** Start wave claims each task as `agent:<task>` and returns the credentials once, so a later `claim` is refused. The docs say to use one or the other; the plan's "Start wave, then claim" does not work.
-- **The demo's shape changed.** The plan expected Peopling `evolution.2` as three tasks in waves `[[t1,t2],[t3]]`. The built planner gives two tasks, `[[t1],[t2]]`, because the Today screen invokes what the first task builds. The self-Genome Evolution is one wave of two tasks with no `main.ts` conflict. The two-agents-in-one-wave beat therefore uses the self-Genome plan, and the dependent-task beat uses Peopling.
+- **Demo shapes** (checked on the merged data): Peopling `evolution.2` plans to three tasks, waves `[[t1,t2],[t3]]`; the self-Genome Evolution plans to two waves with a `file` conflict on `packages/cli/src/main.ts`. An earlier build of the data gave `[[t1],[t2]]` and one wave; the data fix restored the intended shapes.
 
 ## Deferred
 
