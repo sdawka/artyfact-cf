@@ -6,7 +6,7 @@ import type {
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { walkTree } from "../worker/artifacts/genome-source";
-import { artyfactSystemId } from "../worker/artifacts/fake-seed-artyfact";
+import { artyfactApp, artyfactSystemId } from "../worker/artifacts/fake-seed-artyfact";
 import { ensureFakePlatform, exampleSystemId, fakeSeed, resetFakePlatform } from "../worker/artifacts/fake-platform";
 import { resetHooks, setHooks } from "../worker/hooks/index";
 import { resetPhenomeThrottle } from "../worker/phenome";
@@ -267,6 +267,12 @@ describe("FAKE_ARTIFACTS=1 boot", () => {
       delete e.FAKE_SEED;
       resetFakePlatform();
     }
+  });
+
+  it("seeds the self app at repo-relative paths, apps/ci and apps/platform included", () => {
+    const paths = Object.keys(artyfactApp);
+    expect(paths.filter((p) => !/^(package\.json|(apps|packages)\/[^/]+\/[^/].*)$/.test(p) || p.includes("//"))).toEqual([]);
+    expect(paths).toEqual(expect.arrayContaining(["package.json", "apps/ci/package.json", "apps/platform/worker/index.ts", "packages/cli/src/main.ts"]));
   });
 
   it("reads FAKE_SEED, defaulting to Peopling", () => {
