@@ -2,7 +2,7 @@ id: affordance.parts.open-part
 kind: affordance
 fields:
   name: Open part
-  description: Opens one Part's version. Calls GET /api/systems/:id/parts/:partId/:version.
+  description: Opens one Part's version.
   actor: user
   trigger: click
   preconditions: []
@@ -10,3 +10,6 @@ fields:
     - The Part's page opens
   failure:
     - "404: the Part is not found"
+links:
+  - rel: invokes
+    to: endpoint.system-part

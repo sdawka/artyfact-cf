@@ -2,7 +2,7 @@ id: affordance.work.copy-command
 kind: affordance
 fields:
   name: Copy command
-  description: Copies the artyfact start command for the agent. Calls GET /api/systems/:id/realizations/:rid/packet.
+  description: Copies the artyfact start command for the agent.
   actor: user
   trigger: click
   preconditions:
@@ -11,3 +11,6 @@ fields:
     - The command is on the clipboard and the button reads Copied
   failure:
     - "Clipboard blocked: the command stays selected for manual copy"
+links:
+  - rel: invokes
+    to: endpoint.packet

@@ -2,7 +2,7 @@ id: affordance.work.new-evolution
 kind: affordance
 fields:
   name: + Evolution
-  description: A secondary text button that opens a form to create an Evolution. Calls POST /api/systems/:id/evolutions.
+  description: A secondary text button that opens a form to create an Evolution.
   actor: user
   trigger: click
   preconditions:
@@ -11,3 +11,6 @@ fields:
     - The new Evolution appears on the board
   failure:
     - "400: unknown nodes or criteria are named"
+links:
+  - rel: invokes
+    to: endpoint.create-evolution

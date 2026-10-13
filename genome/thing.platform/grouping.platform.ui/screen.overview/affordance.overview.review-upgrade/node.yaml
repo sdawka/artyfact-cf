@@ -2,7 +2,7 @@ id: affordance.overview.review-upgrade
 kind: affordance
 fields:
   name: Review upgrade
-  description: Reads the pending template upgrade and offers to apply it. Calls GET /api/systems/:id/template-upgrade.
+  description: Reads the pending template upgrade and offers to apply it.
   actor: user
   trigger: click
   preconditions:
@@ -11,3 +11,6 @@ fields:
     - The upgrade diff is shown for review
   failure:
     - A rules violation or stale head is reported inline
+links:
+  - rel: invokes
+    to: endpoint.template-upgrade

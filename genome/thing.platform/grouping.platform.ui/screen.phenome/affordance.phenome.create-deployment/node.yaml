@@ -2,7 +2,7 @@ id: affordance.phenome.create-deployment
 kind: affordance
 fields:
   name: Create deployment
-  description: Asks for a deployment of the head (admin token). Calls POST /api/systems/:id/deployments.
+  description: Asks for a deployment of the head (admin token).
   actor: user
   trigger: click
   preconditions:
@@ -13,3 +13,6 @@ fields:
   failure:
     - "403: the admin token is wrong"
     - "Deploy failed: the row is danger with the build error"
+links:
+  - rel: invokes
+    to: endpoint.create-deployment

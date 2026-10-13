@@ -2,7 +2,7 @@ id: affordance.work.reply-intent
 kind: affordance
 fields:
   name: Reply
-  description: Answers the question the platform asked back. Calls POST /api/systems/:id/intents/:pid/reply.
+  description: Answers the question the platform asked back.
   actor: user
   trigger: click
   preconditions:
@@ -11,3 +11,6 @@ fields:
     - The proposal updates
   failure:
     - "Error: the answer is kept"
+links:
+  - rel: invokes
+    to: endpoint.intents-reply

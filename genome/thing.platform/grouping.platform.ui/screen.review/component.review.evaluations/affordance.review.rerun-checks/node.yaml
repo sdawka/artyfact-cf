@@ -2,7 +2,7 @@ id: affordance.review.rerun-checks
 kind: affordance
 fields:
   name: Re-run checks
-  description: Runs the hooks for the candidate again (admin token). Calls POST /api/systems/:id/candidates/:cid/evaluate.
+  description: Runs the hooks for the candidate again (admin token).
   actor: user
   trigger: click
   preconditions:
@@ -13,3 +13,6 @@ fields:
   failure:
     - "401: set the admin token and try again"
     - "Fixture data: Re-run checks needs the platform API"
+links:
+  - rel: invokes
+    to: endpoint.evaluate

@@ -2,7 +2,7 @@ id: affordance.review.accept-with-interpretation
 kind: affordance
 fields:
   name: Accept with interpretation
-  description: Accepts the amendment with the reader's interpretation (admin token). Calls POST /api/systems/:id/evolutions/:eid/accept.
+  description: Accepts the amendment with the reader's interpretation (admin token).
   actor: user
   trigger: click
   preconditions:
@@ -12,3 +12,6 @@ fields:
     - The amendment leaves the queue and the decision is recorded
   failure:
     - "409: a rules violation is named and nothing changes"
+links:
+  - rel: invokes
+    to: endpoint.accept-evolution

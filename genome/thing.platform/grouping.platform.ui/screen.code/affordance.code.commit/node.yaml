@@ -2,7 +2,7 @@ id: affordance.code.commit
 kind: affordance
 fields:
   name: Commit…
-  description: Commits the edit to the realization's fork. Calls POST /api/systems/:id/realizations/:rid/commit.
+  description: Commits the edit to the realization's fork.
   actor: user
   trigger: click
   preconditions:
@@ -12,3 +12,6 @@ fields:
     - A commit is made and the pane shows the new head
   failure:
     - "409: the stale message is shown and the edit is kept"
+links:
+  - rel: invokes
+    to: endpoint.editor-commit

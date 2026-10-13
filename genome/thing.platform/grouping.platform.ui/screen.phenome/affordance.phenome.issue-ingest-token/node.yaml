@@ -2,7 +2,7 @@ id: affordance.phenome.issue-ingest-token
 kind: affordance
 fields:
   name: Issue ingest token
-  description: Issues a token the deployed app uses to report Phenome events (admin token). Calls POST /api/systems/:id/deployments/:did/ingest-token.
+  description: Issues a token the deployed app uses to report Phenome events (admin token).
   actor: user
   trigger: click
   preconditions:
@@ -12,3 +12,6 @@ fields:
     - The token is shown once
   failure:
     - "403: the admin token is wrong"
+links:
+  - rel: invokes
+    to: endpoint.ingest-token

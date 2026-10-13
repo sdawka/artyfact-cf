@@ -2,7 +2,7 @@ id: affordance.shell.switch-revision
 kind: affordance
 fields:
   name: Switch revision
-  description: The selector moves the workspace to another System or revision. Calls GET /api/systems/:id/revisions.
+  description: The selector moves the workspace to another System or revision.
   actor: user
   trigger: click
   preconditions:
@@ -11,3 +11,6 @@ fields:
     - Every view reloads on the chosen revision
   failure:
     - "Unknown revision: the route error page"
+links:
+  - rel: invokes
+    to: endpoint.revisions

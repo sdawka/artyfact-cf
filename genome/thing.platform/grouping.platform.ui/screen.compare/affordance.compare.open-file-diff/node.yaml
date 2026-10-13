@@ -2,7 +2,7 @@ id: affordance.compare.open-file-diff
 kind: affordance
 fields:
   name: Open file diff
-  description: Opens one file's diff. Calls GET /api/systems/:id/compare/file.
+  description: Opens one file's diff.
   actor: user
   trigger: click
   preconditions:
@@ -11,3 +11,6 @@ fields:
     - The diff opens beside the list
   failure:
     - "Binary or large file: a notice replaces the diff"
+links:
+  - rel: invokes
+    to: endpoint.compare-file

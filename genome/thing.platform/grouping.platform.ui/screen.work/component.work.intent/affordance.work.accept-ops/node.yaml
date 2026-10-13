@@ -2,7 +2,7 @@ id: affordance.work.accept-ops
 kind: affordance
 fields:
   name: Accept
-  description: Accepts the ops to keep and commits the node updates. Calls POST /api/systems/:id/intents/:pid/accept.
+  description: Accepts the ops to keep and commits the node updates.
   actor: user
   trigger: click
   preconditions:
@@ -12,3 +12,6 @@ fields:
     - A candidate and an Evolution open and are linked
   failure:
     - "409: the stale message is shown"
+links:
+  - rel: invokes
+    to: endpoint.intents-accept
