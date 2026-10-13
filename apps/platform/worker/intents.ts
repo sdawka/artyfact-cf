@@ -49,7 +49,7 @@ export function intentProviders(env: Env): IntentProviders {
 
 // ------------------------------------------------------------------ head Genome
 
-interface HeadGenome { state: HeadState; files: Map<string, string>; graph: Graph; template: Template; readiness: Readiness }
+interface HeadGenome { state: HeadState; files: Map<string, string>; graph: Graph; template: Template; readiness: Readiness; tree: GenomeTree }
 
 /** The head as the model projects it (`loadGenome`); a v1 or unreadable Genome is 422. */
 function projected(files: Map<string, string>): SystemModel {
@@ -73,7 +73,7 @@ export function genomeGraph(files: Map<string, string>): { graph: Graph; templat
   return { graph: m.graph, template, readiness: evaluate(template, m.graph) };
 }
 
-const memo = new Map<string, ReturnType<typeof genomeGraph>>();
+const memo = new Map<string, ReturnType<typeof genomeGraph> & { tree: GenomeTree }>();
 const MEMO_MAX = 8;
 
 async function headGenome(env: Env, systemId: string): Promise<HeadGenome> {
@@ -83,7 +83,7 @@ async function headGenome(env: Env, systemId: string): Promise<HeadGenome> {
   const key = `${systemId}@${state.genomeCommit}`;
   let g = memo.get(key);
   if (!g) {
-    g = genomeGraph(files);
+    g = { ...genomeGraph(files), tree: parseTree(files) };
     memo.set(key, g);
     if (memo.size > MEMO_MAX) memo.delete(memo.keys().next().value!);
   }
@@ -394,7 +394,7 @@ async function runTurn(env: Env, h: HeadGenome, text: string, questionId: string
   const engine = t?.ops ?? [];
   const { ops, first } = proposedOps(engine, h.graph, h.template);
   const problems = problemsOf(h, engine, ops, first);
-  const plan = planOf(ops, parseTree(h.files), titles(h, ops));
+  const plan = planOf(ops, h.tree, titles(h, ops));
   if (t?.provider === "error") problems.push({ severity: "error", message: `The translator failed: ${t.error ?? "unknown error"}` });
   else if (t?.provider === "off") problems.push({ severity: "warning", message: "No translator is configured, so no changes were proposed." });
   const questions: ProposalQuestion[] = t?.question ? [{ id: questionId, text: t.question }]
@@ -502,10 +502,24 @@ export async function replyProposal(env: Env, systemId: string, pid: string, bod
   const turn = await runTurn(env, h, conversation(h, s.proposal.message, s.proposal.anchor, turns), `q.${turns.length + 1}`);
   const { answer: _previous, ...rest } = s.proposal;
   const r = await systemStub(env, systemId).reviseProposal({ ...rest, ...turn }, turns);
-  if ("revised" in r) return onWire(r.revised, await decisionsOf(env, systemId, pid));
+  if ("revised" in r) return onWire(r.revised, await prunedDecisions(env, systemId, r.revised));
   if (r.refused === "too-many-turns") throw tooManyTurns(pid);
   if (r.refused === "changed") throw conflict("invalid-state", `another reply to proposal ${pid} landed first; read it and reply again`);
   throw conflict("invalid-state", `proposal ${pid} is no longer open`);
+}
+
+/**
+ * The decisions of a revised proposal, kept only on nodes its rebuilt plan still has: a decision on a node the reply
+ * dropped would otherwise switch on strict accepts (chosenByPlan) for ops nobody decided.
+ */
+async function prunedDecisions(env: Env, systemId: string, p: Proposal): Promise<PlanDecisions> {
+  const decisions = await decisionsOf(env, systemId, p.id);
+  const ids = new Set([...walkPlan(onWire(p).plan)].map((x) => x.node.id));
+  const kept = Object.fromEntries(Object.entries(decisions).filter(([id]) => ids.has(id))) as PlanDecisions;
+  if (Object.keys(kept).length === Object.keys(decisions).length) return decisions;
+  // Best effort: when the write loses to a decisions PUT or an accept, that one's state stands.
+  await planStore(env, systemId).setProposalPlan(p.id, onWire(p).plan, kept, p.deferredFrom);
+  return kept;
 }
 
 const tooManyTurns = (pid: string) =>
@@ -558,10 +572,13 @@ async function deferProposal(env: Env, systemId: string, p: Proposal, d: Deferre
   });
   const known = new Map([...walkPlan(onWire(p).plan)].map((x) => [x.node.id, x.node.title] as const));
   const { id: _id, answer: _answer, deferredFrom: _from, ...base } = p;
-  return systemStub(env, systemId).createProposal({
+  const created = await systemStub(env, systemId).createProposal({
     ...base, status: "open", ops, questions: [], problems: p.problems.filter((x) => x.opId !== undefined && keep.has(x.opId)),
     plan: planOf(ops, tree, (id) => known.get(id)), deferredFrom: p.id, createdAt: nowIso(),
   });
+  // The plan columns too, so `deferred_from` is set from the start, not only after the first decisions PUT.
+  if (planStoreReady()) await planStore(env, systemId).setProposalPlan(created.id, created.plan, {}, p.id);
+  return created;
 }
 
 /**

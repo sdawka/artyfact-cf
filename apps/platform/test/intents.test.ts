@@ -545,12 +545,13 @@ function standInPlanStore(): void {
   type Self = { sql: SqlStorage };
   Object.assign(SystemAuthority.prototype, {
     proposalPlan(this: Self, pid: string) {
-      const [r] = this.sql.exec("SELECT plan_json, decisions_json FROM proposals WHERE id = ?", pid).toArray();
-      return r ? { plan: JSON.parse(String(r.plan_json ?? "[]")), decisions: JSON.parse(String(r.decisions_json ?? "{}")) } : null;
+      const [r] = this.sql.exec("SELECT plan_json, decisions_json, deferred_from FROM proposals WHERE id = ?", pid).toArray();
+      return r ? { plan: JSON.parse(String(r.plan_json ?? "[]")), decisions: JSON.parse(String(r.decisions_json ?? "{}")),
+        ...(r.deferred_from != null && { deferredFrom: String(r.deferred_from) }) } : null;
     },
-    setProposalPlan(this: Self, pid: string, plan: ProposalPlanNode[], decisions: PlanDecisions) {
-      return this.sql.exec("UPDATE proposals SET plan_json = ?, decisions_json = ? WHERE id = ? AND status = 'open' RETURNING id",
-        JSON.stringify(plan), JSON.stringify(decisions), pid).toArray().length > 0;
+    setProposalPlan(this: Self, pid: string, plan: ProposalPlanNode[], decisions: PlanDecisions, deferredFrom?: string) {
+      return this.sql.exec("UPDATE proposals SET plan_json = ?, decisions_json = ?, deferred_from = ? WHERE id = ? AND status = 'open' RETURNING id",
+        JSON.stringify(plan), JSON.stringify(decisions), deferredFrom ?? null, pid).toArray().length > 0;
     },
   });
 }
@@ -684,6 +685,17 @@ describe("PUT /intents/:pid/decisions", () => {
     expect(r.json.plan[0]!.decision).toBeUndefined();
   });
 
+  it("keeps decisions on a reply only for nodes the rebuilt plan still has", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const stub = systemStub(env, s.systemId) as unknown as { setProposalPlan(...a: unknown[]): Promise<boolean>; proposalPlan(pid: string): Promise<{ decisions: PlanDecisions }> };
+    expect(await stub.setProposalPlan(p.id, p.plan, { "thing.webapp": "agree", "screen.gone": "agree" })).toBe(true);
+    const r = await call<Proposal>("POST", routes.intentReply(s.systemId, p.id), { answer: "Yes, the Today screen" });
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json.plan[0]).toMatchObject({ id: "thing.webapp", decision: "agree" });
+    expect((await stub.proposalPlan(p.id)).decisions).toEqual({ "thing.webapp": "agree" });
+  });
+
   it("is 404 for a node the plan lacks, 400 for a malformed body, 409 once the proposal is not open", async () => {
     const s = await importSystem();
     const p = (await create(s, "Change what the Today screen says")).json;
@@ -741,6 +753,8 @@ describe("POST /intents/:pid/accept with decisions", () => {
     expect(strip(next.plan)).toEqual([{ id: "thing.webapp", opIds: [], summary: "1 update", children: [{ id: "section.ui", opIds: [], summary: "1 update",
       children: [{ id: "screen.people", opIds: ["op.2"], summary: "1 update", children: [] }] }] }]);
     expect(next.plan[0]!.decision).toBeUndefined();
+    const columns = await (systemStub(env, s.systemId) as unknown as { proposalPlan(pid: string): Promise<{ deferredFrom?: string }> }).proposalPlan(next.id);
+    expect(columns.deferredFrom).toBe(both.id);
     expect((await call<Proposal>("GET", routes.intent(s.systemId, both.id))).json.status).toBe("accepted");
   });
 
