@@ -1,0 +1,9 @@
+id: endpoint.apply-template-upgrade
+kind: endpoint
+fields:
+  name: Apply a template upgrade
+  description: Applies the planned adds, updates, removes and the included conflicts, and writes the new lock, as one editor commit on a new Evolution's realization; 409 up-to-date when nothing is behind.
+  route: POST /api/systems/:id/template-upgrade
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  request: "{include?}"
+  response: 201 TemplateUpgradeResponse

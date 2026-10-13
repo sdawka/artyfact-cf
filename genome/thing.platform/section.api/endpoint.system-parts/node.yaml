@@ -1,0 +1,7 @@
+id: endpoint.system-parts
+kind: endpoint
+fields:
+  name: System Parts
+  description: "Lists the Parts visible to one System: its own and the shared ones."
+  route: GET /api/systems/:id/parts
+  auth: The realization's secret or the admin bearer; 401 without a bearer, 403 for any other token.

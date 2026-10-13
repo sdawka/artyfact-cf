@@ -58,6 +58,26 @@ function effectiveGlobs(tree: GenomeTree): Map<string, string[]> {
   return out;
 }
 
+/**
+ * `METHOD /api/path` for every route the platform Worker registers: the Hono `.get/.post/...` calls in
+ * `worker/routes/*.ts` (mounted under /api), and `/api/health` in `worker/index.ts`. The realization routes are mounted
+ * under three prefixes (`routes/realizations.ts`); the Genome models them once, under `/api/systems/:id/realizations/:rid`.
+ */
+function platformRoutes(): Set<string> {
+  const worker = join(repo, "apps/platform/worker");
+  const out = new Set<string>();
+  for (const f of readdirSync(join(worker, "routes"))) {
+    const src = readFileSync(join(worker, "routes", f), "utf8");
+    for (const m of src.matchAll(/\.(get|post|put|patch|delete)\(\s*"([^"]+)"/g)) out.add(`${m[1]!.toUpperCase()} /api${m[2]}`);
+    for (const m of src.matchAll(/app\.(get|post|put|patch|delete)\(\s*(?:prefix\b|`\$\{prefix\}([^`]*)`)/g)) {
+      out.add(`${m[1]!.toUpperCase()} /api/systems/:id/realizations/:rid${m[2] ?? ""}`);
+    }
+  }
+  // Route handlers in index.ts; the `knownSystem` middleware registrations there are not routes.
+  for (const m of readFileSync(join(worker, "index.ts"), "utf8").matchAll(/app\.(get|post)\("([^"]+)",\s*\(/g)) out.add(`${m[1]!.toUpperCase()} ${m[2]}`);
+  return out;
+}
+
 describe("the Artyfact self-Genome", () => {
   const tree = parseTree(genomeFiles(genomeDir));
   const graph = projectTree(tree, metaTemplates);
@@ -110,21 +130,19 @@ describe("the Artyfact self-Genome", () => {
     expect(readiness.actionable).toBe(true);
   });
 
-  it("names the platform's Durable Object, the CI Workflow and real routes and commands", () => {
+  it("names the platform's Durable Object, the CI Workflow and the CLI's real commands", () => {
     const field = (id: string, f: string) => graph.nodes.find((n) => n.id === id)?.fields[f];
     expect(field("durable-object.system-authority", "className")).toBe("SystemAuthority");
     expect(field("workflow.artyfact-ci", "name")).toBe("ArtyfactCI");
-    const index = readFileSync(join(repo, "apps/platform/worker/index.ts"), "utf8");
-    expect(index).toContain("SystemAuthority");
-    const routes = graph.nodes.filter((n) => n.kind === "endpoint" && graph.nodes.find((p) => p.id === n.parent)?.parent === "thing.platform");
-    const routeSrc = readdirSync(join(repo, "apps/platform/worker/routes")).map((f) => readFileSync(join(repo, "apps/platform/worker/routes", f), "utf8")).join("\n") + index;
-    for (const e of routes) {
-      const path = String(e.fields.route).split(" ")[1]!.replace(/^\/api/, "");
-      const tail = path.split("/").filter((s) => s && !s.startsWith(":")).at(-1)!;
-      expect(routeSrc, e.id).toContain(tail);
-    }
+    expect(readFileSync(join(repo, "apps/platform/worker/index.ts"), "utf8")).toContain("SystemAuthority");
     const main = readFileSync(join(repo, "packages/cli/src/main.ts"), "utf8");
     for (const c of graph.nodes.filter((n) => n.kind === "command" && n.parent === "thing.cli.commands")) expect(main, c.id).toContain(`case "${c.fields.name}"`);
+  });
+
+  it("has one platform endpoint per route the Worker registers, and none it does not", () => {
+    const endpoints = graph.nodes.filter((n) => n.kind === "endpoint" && n.parent === "thing.platform.api").map((n) => String(n.fields.route));
+    expect(endpoints.length).toBe(new Set(endpoints).size);
+    expect(endpoints.sort()).toEqual([...platformRoutes()].sort());
   });
 
   it("links journey steps to the endpoints and commands they run", () => {

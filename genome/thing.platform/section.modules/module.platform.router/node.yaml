@@ -46,6 +46,21 @@ links:
   - { rel: implements, to: endpoint.parts }
   - { rel: implements, to: endpoint.publish-part }
   - { rel: implements, to: endpoint.template-upgrade }
+  - { rel: implements, to: endpoint.evolutions }
+  - { rel: implements, to: endpoint.evolution }
+  - { rel: implements, to: endpoint.evolution-realizations }
+  - { rel: implements, to: endpoint.evolution-candidates }
+  - { rel: implements, to: endpoint.realizations }
+  - { rel: implements, to: endpoint.realization }
+  - { rel: implements, to: endpoint.sync }
+  - { rel: implements, to: endpoint.realization-builds }
+  - { rel: implements, to: endpoint.artifacts }
+  - { rel: implements, to: endpoint.ingest-token }
+  - { rel: implements, to: endpoint.part }
+  - { rel: implements, to: endpoint.system-parts }
+  - { rel: implements, to: endpoint.system-part }
+  - { rel: implements, to: endpoint.publish-system-part }
+  - { rel: implements, to: endpoint.apply-template-upgrade }
   - { rel: implements, to: endpoint.intents-create }
   - { rel: implements, to: endpoint.intents-get }
   - { rel: implements, to: endpoint.intents-reply }

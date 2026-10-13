@@ -1,0 +1,7 @@
+id: endpoint.evolution
+kind: endpoint
+fields:
+  name: Evolution
+  description: Returns one Evolution; an unknown id is 404 not-found.
+  route: GET /api/systems/:id/evolutions/:eid
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.
