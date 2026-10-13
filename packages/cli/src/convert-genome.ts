@@ -1,0 +1,48 @@
+import { existsSync, lstatSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { dirname, join, resolve } from "node:path";
+import { parseArgs } from "node:util";
+import { fileURLToPath } from "node:url";
+import { readDir } from "@artyfact/ontology/artyfact/node";
+import { convertV1 } from "@artyfact/ontology/codec/v1";
+import { isLegacyGenome } from "@artyfact/ontology/genome";
+import { CliError } from "./git.ts";
+import type { Io } from "./main.ts";
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+/**
+ * `artyfact convert-genome <src> <dst> [--templates dir]`: writes the v2 node tree for the v1 Genome in `src` into
+ * `dst`, which must not exist or be empty. Only the Genome's YAML is read; `src` is never changed. Templates come from
+ * `--templates`, else the checkout's `packages/templates`.
+ */
+export function convertGenomeCommand(argv: string[], io: Pick<Io, "cwd" | "out" | "root">): number {
+  let parsed;
+  try {
+    parsed = parseArgs({ args: argv, options: { templates: { type: "string" } }, allowPositionals: true });
+  } catch (e) {
+    throw new CliError((e as Error).message);
+  }
+  const args = parsed.positionals;
+  if (args.length !== 2) throw new CliError("usage: artyfact convert-genome <src> <dst> [--templates dir]");
+  const tplDir = parsed.values.templates ? resolve(io.cwd, parsed.values.templates) : join(io.root ?? resolve(here, "../../.."), "packages", "templates");
+  if (!existsSync(tplDir)) throw new CliError(`templates directory ${tplDir} not found; pass --templates`);
+  const src = resolve(io.cwd, args[0]!), dst = resolve(io.cwd, args[1]!);
+  if (!existsSync(src) || !lstatSync(src).isDirectory()) throw new CliError(`${args[0]} is not a directory`);
+  const files = readDir(src);
+  if (!isLegacyGenome(Object.keys(files))) throw new CliError(`${args[0]} is not a v1 Genome (no system.yaml, or it already has a root node.yaml)`);
+  if (existsSync(dst) && (!lstatSync(dst).isDirectory() || readdirSync(dst).length)) throw new CliError(`${args[1]} exists and is not an empty directory`);
+  let tree: Map<string, string>;
+  try {
+    tree = convertV1(files, readDir(tplDir));
+  } catch (e) {
+    throw new CliError(`cannot convert ${args[0]}: ${(e as Error).message}`);
+  }
+  for (const [path, text] of tree) {
+    const file = join(dst, path);
+    mkdirSync(dirname(file), { recursive: true });
+    writeFileSync(file, text, { flag: "wx" });
+  }
+  const nodes = [...tree.keys()].filter((p) => p === "node.yaml" || p.endsWith("/node.yaml")).length;
+  io.out(`converted ${args[0]} into ${args[1]}: ${nodes} nodes, ${tree.size - nodes} change records`);
+  return 0;
+}

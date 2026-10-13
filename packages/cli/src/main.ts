@@ -9,6 +9,7 @@ import { CliError, assertId, assertRemote, assertSecret, assertToken, commitIfDi
 import { WORKSPACE_IGNORES } from "./ignore.ts";
 import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
 import { partsCommand } from "./parts.ts";
+import { convertGenomeCommand } from "./convert-genome.ts";
 
 export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> {
   out: (s: string) => void;
@@ -62,6 +63,9 @@ const USAGE = `artyfact <command>
   status [--json]
   compose <rid> <rid> ...
   parts create|extract|validate|publish|compose|upgrade ...
+  convert-genome <src> <dst> [--templates dir]
+        write the node-tree (v2) form of the v1 Genome in <src> into a new directory <dst>
+        (templates default to the checkout's packages/templates)
 
   --platform defaults to ARTYFACT_PLATFORM, else ARTYFACT_URL, else the first of ${DEFAULT_URL} and the next nine
   ports whose /api/health identifies as artyfact; with none, the command stops (credentials never go elsewhere).
@@ -87,6 +91,7 @@ export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
       case "status": return await status(rest, full);
       case "compose": return compose(rest, full);
       case "parts": return await partsCommand(rest, full);
+      case "convert-genome": return convertGenomeCommand(rest, full);
       case undefined: case "help": case "--help": full.out(USAGE); return cmd ? 0 : 1;
       default: throw new CliError(`unknown command '${cmd}'\n${USAGE}`);
     }
