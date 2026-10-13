@@ -1,5 +1,5 @@
 import { parse as parseYaml } from "yaml";
-import { files } from "./generated/files";
+import { files } from "./generated/files.ts";
 import { ARTYFACT_GENOME, artyfactGenome, loadTemplate, type Template as MetaTemplate, type TemplateStore as MetaStore } from "@artyfact/ontology";
 
 // "template.thing.cloudflare-worker-webapp@1" -> "thing/cloudflare-worker-webapp@1"

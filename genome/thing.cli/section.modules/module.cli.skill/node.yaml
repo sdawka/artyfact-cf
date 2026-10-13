@@ -1,0 +1,11 @@
+id: module.cli.skill
+kind: module
+fields:
+  name: Genome skill
+  description: Ships and installs the artyfact-genome skill for local coding agents.
+  path: src/skill.ts
+links:
+  - { rel: implements, to: command.skill }
+files:
+  - src/skill.ts
+  - skills/**

@@ -1,0 +1,7 @@
+id: command.skill
+kind: command
+fields:
+  name: skill
+  usage: artyfact skill [--dir project] [--write] [--agent claude|generic]
+  exitCodes: 0 on success, 1 on any error or a symlinked target.
+  description: Prints the artyfact-genome skill that guides a local coding agent in writing a Genome, or with --write installs it into a project and adds a block to its AGENTS.md.

@@ -9,11 +9,14 @@ links:
   - { rel: artifact, to: artifact.cli }
   - { rel: dependsOn, to: thing.model }
   - { rel: dependsOn, to: thing.ontology }
+  - { rel: dependsOn, to: thing.templates }
   - { rel: exposes, to: command.init }
   - { rel: exposes, to: command.start }
   - { rel: exposes, to: command.checkpoint }
   - { rel: exposes, to: command.submit }
   - { rel: exposes, to: command.convert-genome }
+  - { rel: exposes, to: command.validate-genome }
+  - { rel: exposes, to: command.skill }
 criteria:
   - id: C.cli.unit
     title: "@artyfact/cli tests pass"

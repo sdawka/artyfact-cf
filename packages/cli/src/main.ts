@@ -10,6 +10,8 @@ import { WORKSPACE_IGNORES } from "./ignore.ts";
 import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
 import { partsCommand } from "./parts.ts";
 import { convertGenomeCommand } from "./convert-genome.ts";
+import { validateGenomeCommand } from "./validate-genome.ts";
+import { skillCommand } from "./skill.ts";
 
 export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> {
   out: (s: string) => void;
@@ -21,7 +23,7 @@ export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> 
 const CONFIG = ".artyfact.json";
 
 /** Write a file without ever following a symlink at the target (O_NOFOLLOW) and refuse symlinked paths. */
-function safeWrite(path: string, data: string, mode = 0o644, append = false): void {
+export function safeWrite(path: string, data: string, mode = 0o644, append = false): void {
   if (existsSync(path) || isLink(path)) {
     if (lstatSync(path).isSymbolicLink()) throw new CliError(`refusing to write through symlink: ${path}`);
   }
@@ -68,6 +70,11 @@ const USAGE = `artyfact <command>
         write the node-tree (v2) form of the v1 Genome in <src> into a new directory <dst>
         (templates default to the checkout's packages/templates)
 
+  validate-genome <genomeDir> [--app dir] [--json] [--strict]
+        load a Genome tree as the platform would, run readiness rules, and report app files no node maps
+  skill [--dir project] [--write] [--agent claude|generic]
+        print the artyfact-genome skill, or install it into a project for a local coding agent
+
   --platform defaults to ARTYFACT_PLATFORM, else ARTYFACT_URL, else the first of ${DEFAULT_URL} and the next nine
   ports whose /api/health identifies as artyfact; with none, the command stops (credentials never go elsewhere).
 `;
@@ -93,6 +100,8 @@ export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
       case "compose": return compose(rest, full);
       case "parts": return await partsCommand(rest, full);
       case "convert-genome": return convertGenomeCommand(rest, full);
+      case "validate-genome": return validateGenomeCommand(rest, full);
+      case "skill": return skillCommand(rest, full);
       case undefined: case "help": case "--help": full.out(USAGE); return cmd ? 0 : 1;
       default: throw new CliError(`unknown command '${cmd}'\n${USAGE}`);
     }
