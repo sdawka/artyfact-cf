@@ -2,8 +2,9 @@
  * Orchestration between Artifacts, the model, hooks and the SystemAuthority DO. Routes and the queue
  * consumer call these; all Artifacts I/O and model work happens here (never inside the DO).
  */
-import { diffModels, type Readiness, type schema, type SystemModel } from "@artyfact/model";
-import { templateFile } from "@artyfact/templates";
+import { diffModels, loadGenome, type Readiness, type schema, type SystemModel } from "@artyfact/model";
+import { applyOps, parseTree, type NodeCriterion, type TreeOp } from "@artyfact/ontology";
+import { metaTemplates, templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
   Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, DeleteSystemResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportReview, ImportReviewAccept, ImportReviewAcceptResponse, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, ProposalPlanNode, ProposedOp,
@@ -359,12 +360,105 @@ export async function importReview(env: Env, systemId: string): Promise<ImportRe
   return review;
 }
 
+/** Evolution records are history: they keep naming the nodes they affected after those are removed. */
+const HISTORY_RELS = new Set(["affects", "acceptance"]);
+
+/**
+ * The ops that remove the `roots` subtrees from `files` without leaving a reference to anything removed (the nodes,
+ * their criteria and inline hooks): an `unlink` per `links` entry of a surviving node (every kind, `refines` and step
+ * links included), an `update` dropping removed ids from a surviving criterion's `refines`/`satisfies`/`sourceRefs`/
+ * `hooks` and from a step's `next`, then a `remove` per root. The ops are applied and the result loaded here; a
+ * reference no op can drop (a journey starting at a removed step, a template requirement, a Genome that no longer
+ * loads) is a 422 naming the node that holds it and the rejected node.
+ */
+export function rejectionOps(files: Map<string, string>, roots: string[]): ProposedOp[] {
+  const tree = parseTree(files);
+  const dirs = roots.map((r) => {
+    const n = tree.nodes.get(r);
+    if (!n) throw badRequest(`not a node of the imported Genome: ${r}`);
+    return n.dir;
+  });
+  const under = (n: { dir: string }) => dirs.some((d) => n.dir === d || n.dir.startsWith(`${d}/`));
+  // Which rejected root a removed id goes with, for the 422 message.
+  const rootOf = new Map<string, string>();
+  for (const n of tree.nodes.values()) {
+    if (!under(n)) continue;
+    const root = roots.find((r) => { const d = tree.nodes.get(r)!.dir; return n.dir === d || n.dir.startsWith(`${d}/`); })!;
+    rootOf.set(n.id, root);
+    for (const c of n.file.criteria ?? []) {
+      rootOf.set(c.id, root);
+      for (const h of c.hooks ?? []) if (typeof h !== "string") rootOf.set(h.id, root);
+    }
+  }
+  const removed = (id: unknown) => typeof id === "string" && rootOf.has(id);
+  const blocked: string[] = [];
+  const block = (holder: string, to: string, how: string) => blocked.push(`${holder} ${how} ${to} (under rejected ${rootOf.get(to)})`);
+
+  const ops: ProposedOp[] = [];
+  const op = (o: Omit<ProposedOp, "id">) => ops.push({ id: `op.${ops.length + 1}`, ...o } as ProposedOp);
+  for (const n of tree.nodes.values()) {
+    if (under(n)) continue;
+    const f = n.file;
+    for (const l of f.links ?? []) if (removed(l.to)) op({ op: "unlink", node: n.id, link: { rel: l.rel, to: l.to } });
+    const fields: Record<string, unknown> = {};
+    if (f.kind === "step" && n.parent !== undefined && Array.isArray(f.fields?.next)) {
+      const next = f.fields.next as unknown[];
+      const kept = next.filter((x) => !(isRecord(x) && removed(`${n.parent}/${String(x.to)}`)));
+      if (kept.length !== next.length) fields.next = kept.length ? kept : null;
+    }
+    if (f.kind === "journey" && typeof f.fields?.start === "string" && removed(`${n.id}/${f.fields.start}`)) block(n.id, `${n.id}/${f.fields.start}`, "starts at");
+    const criteria: NodeCriterion[] = [];
+    for (const c of f.criteria ?? []) {
+      const fixed: Record<string, unknown> = { ...c };
+      let changed = false;
+      for (const key of ["refines", "satisfies", "sourceRefs", "hooks"] as const) {
+        const list = c[key] as unknown[] | undefined;
+        if (!list) continue;
+        const kept = list.filter((x) => !removed(typeof x === "string" ? x : undefined));
+        if (kept.length === list.length) continue;
+        changed = true;
+        if (kept.length) fixed[key] = kept;
+        else delete fixed[key];
+      }
+      if (changed) criteria.push(fixed as NodeCriterion);
+    }
+    if (Object.keys(fields).length || criteria.length) {
+      op({ op: "update", node: n.id, ...(Object.keys(fields).length && { fields }), ...(criteria.length && { criteria }) });
+    }
+  }
+  for (const node of roots) op({ op: "remove", node });
+
+  // The amended Genome must load and hold no structural link to a removed id (template `requires`, derived links).
+  let model: SystemModel;
+  try {
+    const { changes } = applyOps(files, ops as TreeOp[]);
+    const after = new Map(files);
+    for (const c of changes) {
+      if (c.content === null) after.delete(c.path);
+      else after.set(c.path, c.content);
+    }
+    model = loadGenome(after, { templates: metaTemplates });
+  } catch (e) {
+    throw unprocessable("rejected-node-referenced", `removing ${roots.join(", ")} breaks the Genome: ${(e as Error)?.message ?? e}`);
+  }
+  for (const l of model.graph.links) {
+    if (!rootOf.has(l.from) && removed(l.to) && !HISTORY_RELS.has(l.rel)) block(l.from, l.to, `still references (${l.rel})`);
+  }
+  if (blocked.length) {
+    throw unprocessable("rejected-node-referenced", `cannot reject without a dangling reference: ${[...new Set(blocked)].join("; ")}`);
+  }
+  return ops;
+}
+
+const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === "object" && x !== null && !Array.isArray(x);
+
 /**
  * `POST /api/systems/:id/import-review/accept` (admin): the review flips pending → accepted by a DO compare-and-set
  * (a concurrent second accept is 409 `invalid-state`), recording the interpretation and the rejected nodes. Rejected
- * nodes (a node under another rejected node is covered by the ancestor's removal) become `remove` ops, preceded by an
- * `unlink` op for every link a surviving node holds to a removed one, pushed through the intents accept path as an
- * ordinary awaiting-admin Genome amendment. A failure before the amendment is pushed returns the review to pending.
+ * nodes (a node under another rejected node is covered by the ancestor's removal) become `remove` ops, preceded by the
+ * ops that drop every reference a surviving node holds to a removed one ({@link rejectionOps}), pushed through the
+ * intents accept path as an ordinary awaiting-admin Genome amendment. A failure before the amendment is pushed returns
+ * the review to pending.
  */
 export async function acceptImportReview(env: Env, systemId: string, body: Partial<ImportReviewAccept>, platformUrl: string): Promise<ImportReviewAcceptResponse> {
   const { interpretation, rejectedNodes } = body;
@@ -383,22 +477,14 @@ export async function acceptImportReview(env: Env, systemId: string, body: Parti
   if (roots.length && s.genomeCommit !== review.genomeCommit) {
     throw conflict("stale-base", "the Genome moved since the import; rejected nodes cannot be removed from the reviewed commit");
   }
-  const ops: ProposedOp[] = [];
-  if (roots.length) {
-    // Every node of a removed subtree, and the links surviving nodes (externals included) hold to any of them.
-    const removed = new Set([...reviewable].filter(([id, ancestors]) => roots.includes(id) || ancestors.some((a) => roots.includes(a))).map(([id]) => id));
-    const g = await genomeAt(env, systemId, review.genomeCommit, s.genomeSource);
-    for (const owner of [...g.model.nodes, ...g.model.externals]) {
-      if (removed.has(owner.id)) continue;
-      for (const l of owner.links) if (removed.has(l.to)) ops.push({ id: `op.${ops.length + 1}`, op: "unlink", node: owner.id, link: { rel: l.rel, to: l.to } });
-    }
-    for (const node of roots) ops.push({ id: `op.${ops.length + 1}`, op: "remove", node });
-  }
+  // Built and validated before the review flips: a rejection that would leave a dangling reference is a 422 and the
+  // review stays pending.
+  const ops = roots.length ? rejectionOps((await genomeAt(env, systemId, review.genomeCommit, s.genomeSource)).files, roots) : [];
   const accepted: ImportReview = {
     ...review, status: "accepted", decidedAt: nowIso(),
     ...(interpretation?.trim() && { interpretation: interpretation.trim() }), ...(rejected.length && { rejectedNodes: rejected }),
   };
-  if (!(await stub.casImportReview("pending", accepted))) throw conflict("invalid-state", `the import review of ${systemId} is already accepted`);
+  if (!(await stub.casImportReview("pending", accepted))) throw conflict("invalid-state", `the import review of ${systemId} was accepted or re-opened meanwhile`);
   let amendment: ImportReviewAcceptResponse["amendment"];
   try {
     if (ops.length) {
@@ -1272,7 +1358,8 @@ export async function createEvolution(
   const acceptanceCriteria = body.acceptanceCriteria === undefined
     ? defaultCriteria(m, body.kind === undefined ? undefined : kind)
     : stringList(body.acceptanceCriteria, "acceptanceCriteria");
-  const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id] && !opts.newNodes?.includes(id));
+  // `origin` also knows the tree nodes the index does not (journey steps, `J.add/s1`), which an amendment may touch.
+  const unknownNodes = affectedNodes.filter((id) => !m.index.byId[id] && !m.origin[id] && !opts.newNodes?.includes(id));
   if (unknownNodes.length) throw badRequest(`unknown nodes: ${unknownNodes.join(", ")}`);
   const criteria = new Set(m.criteria.map((c) => c.id));
   const unknownCriteria = acceptanceCriteria.filter((id) => !criteria.has(id));
