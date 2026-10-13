@@ -30,6 +30,7 @@ export const evolutions = new Hono<AppEnv>()
     c.json({ realizations: await systemStub(c.env, c.req.param("id")).realizations(c.req.param("eid")) }))
   // Claims and starts every task of a wave (admin: tokens and secrets appear once, in `started`).
   .post("/systems/:id/evolutions/:eid/waves/:n/start", requireAdmin, async (c) => {
+    await assertImportReviewed(c.env, c.req.param("id"));
     const n = c.req.param("n");
     return c.json(await startWave(c.env, c.req.param("id"), c.req.param("eid"), /^-?\d+$/.test(n) ? Number(n) : NaN, (await body(c)) as Partial<StartWaveRequest>, origin(c)));
   })

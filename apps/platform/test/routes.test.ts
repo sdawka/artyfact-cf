@@ -1128,6 +1128,10 @@ describe("routes: import review (B.10)", () => {
     call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" }, ADMIN),
     call<ApiError>("POST", `/systems/${systemId}/intents`, { message: "add a screen" }, ADMIN),
     call<ApiError>("POST", `/systems/${systemId}/template-upgrade`, { ref: "head" }, ADMIN),
+    call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.1/plan`, {}, ADMIN),
+    call<ApiError>("PUT", `/systems/${systemId}/evolutions/evolution.1/plan`, { tasks: [] }, ADMIN),
+    call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.1/waves/1/start`, {}, ADMIN),
+    call<ApiError>("POST", `/systems/${systemId}/tasks/task.1.t1/claim`, { agentLabel: "a" }, ADMIN),
   ]);
 
   it("a first import is pending by default: summary, signifier, tree rooted at the Things, unmapped app paths, and the 409 guard", async () => {
@@ -1171,6 +1175,8 @@ describe("routes: import review (B.10)", () => {
     expect((await call<ApiError>("GET", `/systems/${systemId}/import-review`)).status).toBe(404);
     const start = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" }, ADMIN);
     expect(start.status, JSON.stringify(start.json)).toBe(201);
+    // Plan, wave start and claim answer on their own terms, never with the import guard.
+    for (const r of await guarded(systemId)) expect(r.json.error?.code, JSON.stringify(r.json)).not.toBe("import-unreviewed");
     expect((await call<ApiError>("GET", `/systems/nope/import-review`)).status).toBe(404);
   });
 
@@ -1323,7 +1329,7 @@ describe("routes: import review (B.10)", () => {
     expect(forced.status, JSON.stringify(forced.json)).toBe(201);
     expect(forced.json.genomeCommit).not.toBe(imp.genomeCommit);
     expect(forced.json.system.importReview).toEqual({ status: "pending", genomeCommit: forced.json.genomeCommit, nodes: expect.any(Number) });
-    expect((await guarded(systemId)).map((r) => r.status)).toEqual([409, 409, 409, 409]);
+    expect((await guarded(systemId)).map((r) => r.status)).toEqual([409, 409, 409, 409, 409, 409, 409, 409]);
     // review: false on a re-import clears the pending review.
     const cleared = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo, review: false }, ADMIN);
     expect(cleared.status, JSON.stringify(cleared.json)).toBe(201);
