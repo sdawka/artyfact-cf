@@ -1,0 +1,42 @@
+id: system.mini
+kind: system
+template: template.system.mini@1
+fields:
+  name: Mini Notes
+  profile: private-notes
+  phase: unrealized
+  kits:
+    - id: privacy
+      version: 1.0.0
+  rulePacks:
+    - id: metamodel
+      version: "1"
+    - id: readiness
+      version: "1"
+    - id: authorization
+      version: "1"
+    - id: theory
+      version: "1"
+    - id: journeys
+      version: "1"
+    - id: topology.private-pairs
+      version: "1"
+  required:
+    - privacy
+    - auth
+  narrative: A tiny private notes app.
+criteria:
+  - id: C.system.structure
+    title: Structure is consistent
+    claim: Every reference resolves
+    gates:
+      - submission
+      - promotion
+    hooks:
+      - id: hook.system.structure
+        assay: Run metamodel rules
+        tier: basic
+        engine: model-rules
+        triggers:
+          - submission
+        binding: bound

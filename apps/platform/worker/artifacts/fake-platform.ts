@@ -44,7 +44,7 @@ export function examplePlatform(app: Record<string, string> = exampleApp): Recor
   return out;
 }
 
-export const exampleSystemId = /^id:\s*(\S+)/m.exec(exampleGenome["system.yaml"] ?? "")?.[1] ?? "system.keep-in-touch";
+export const exampleSystemId = /^id:\s*(\S+)/m.exec(exampleGenome["node.yaml"] ?? "")?.[1] ?? "system.keep-in-touch";
 
 export type FakeSeed = "keep-in-touch" | "artyfact" | "both";
 

@@ -10,8 +10,9 @@ import { templateDir, GenomeTreeError, graphHash, isLegacyGenome, loadArtyfactSy
 const metaStore = (files: Record<string, string>) => ({
   get: (ref: string) => { const t = files[`${templateDir(ref)}/template.yaml`]; return t === undefined ? undefined : parseYaml(t); },
 });
-const V1 = join(__dirname, "../../../examples/keep-in-touch-system");
-const FIXTURE = join(__dirname, "fixtures/genome-v2/keep-in-touch");
+// The v1 Keep in Touch Genome as it was before the migration; the converted tree is the example itself.
+const V1 = join(__dirname, "fixtures/artyfact/keep-in-touch-system");
+const FIXTURE = join(__dirname, "../../../examples/keep-in-touch-system");
 const TPL = readDir(join(__dirname, "../../templates"));
 const templates = metaStore(TPL);
 const v1 = readDir(V1);
@@ -36,7 +37,7 @@ const comparable = (g: Graph) => ({
 describe("convertV1 (Keep in Touch)", () => {
   it("writes the tree the fixture holds", () => {
     if (process.env.UPDATE_GENOME_FIXTURE) {
-      rmSync(FIXTURE, { recursive: true, force: true });
+      for (const p of Object.keys(readDir(FIXTURE))) rmSync(join(FIXTURE, p));
       for (const [p, text] of tree) { mkdirSync(dirname(join(FIXTURE, p)), { recursive: true }); writeFileSync(join(FIXTURE, p), text); }
     }
     expect(new Map(Object.entries(readDir(FIXTURE)))).toEqual(tree);

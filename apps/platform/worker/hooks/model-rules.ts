@@ -1,34 +1,39 @@
 /**
- * `model-rules` engine (C.system.structure and friends): Genome files → `loadSystem` → `validate(packsFor(kits))`.
+ * `model-rules` engine (C.system.structure and friends): Genome files → `loadGenome` → `validate` (the pinned template packs).
  * fail on any `error` finding (or an unparsable Genome); unknown if the rules run was incomplete or no pack ran;
  * pass otherwise. Observations carry every finding with its derivation, the readiness summary, errors introduced
  * vs base, and the SemanticDelta vs base.
  */
-import { diffModels, loadSystem, ModelParseError, validate, type Finding, type Readiness, type SemanticDelta, type SystemModel, type TemplateStore } from "@artyfact/model";
-import { packsFor as bundledPacksFor, templates as bundledTemplates, type RulePack } from "@artyfact/templates";
+import {
+  diffModels, loadGenome as loadModel, ModelParseError, rulePacksOf, selectPacks, validate,
+  type Finding, type Readiness, type RulePack, type SemanticDelta, type SystemModel, type TemplateStore,
+} from "@artyfact/model";
+import { NODE_FILE, V1_ROOT_FILE } from "@artyfact/ontology/genome";
+import { metaTemplates } from "@artyfact/templates";
 import type { FileMap } from "./contract";
 import { errored, errorMessage, type Outcome } from "./provenance";
 
 const GENOME_PREFIX = "system/";
 
-/** Genome-relative file map: files under `system/` when the map has `system/system.yaml`, else the map as is. */
+/** Genome-relative file map: files under `system/` when the map has `system/node.yaml`, else the map as is. */
 export function genomeRoot(files: FileMap): Map<string, string> {
   const entries = Object.entries(files);
-  if (!("system.yaml" in files) && `${GENOME_PREFIX}system.yaml` in files) {
+  if (!(NODE_FILE in files) && `${GENOME_PREFIX}${NODE_FILE}` in files) {
     return new Map(entries.filter(([p]) => p.startsWith(GENOME_PREFIX)).map(([p, t]) => [p.slice(GENOME_PREFIX.length), t]));
   }
   return new Map(entries);
 }
 
 export interface GenomeDeps {
+  /** meta@1 template sources by ref; the bundled templates by default. */
   templates?: TemplateStore;
-  packsFor?: (pins: { id: string; version: string }[]) => RulePack[];
+  /** Readiness of a loaded model; `validate` by default (tests replace it to make the rules run fail). */
+  validate?: (model: SystemModel) => Readiness;
 }
 
-/** Throws ModelParseError on an invalid Genome. */
+/** Throws ModelParseError on an invalid Genome, LegacyGenomeError on a v1 one. */
 export function loadGenome(files: FileMap, revision: string, deps: GenomeDeps = {}): SystemModel {
-  // The templates package keeps a structural copy of the Template schema; it is the same shape at runtime.
-  return loadSystem(genomeRoot(files), { revision, templates: deps.templates ?? (bundledTemplates as unknown as TemplateStore) });
+  return loadModel(genomeRoot(files), { revision, templates: deps.templates ?? metaTemplates });
 }
 
 export interface RulesFilter {
@@ -70,10 +75,15 @@ export interface ModelRulesResult {
   delta?: SemanticDelta;
 }
 
-const packsOf = (model: SystemModel, deps: GenomeDeps = {}): RulePack[] => (deps.packsFor ?? bundledPacksFor)(model.kits.rulePacks);
+/** The packs a run uses; a pin no template declares is an error, as an unknown pack always was. */
+function packsOf(model: SystemModel): RulePack[] {
+  const { unavailable } = selectPacks(model);
+  if (unavailable.length) throw new Error(`unknown rule pack ${unavailable.join(", ")}`);
+  return rulePacksOf(model);
+}
 
 export function runRules(model: SystemModel, deps: GenomeDeps = {}): Readiness {
-  return validate(model, packsOf(model, deps));
+  return (deps.validate ?? validate)(model);
 }
 
 const RULE_HEAD = /^\s*(violation|missing|warning|semanticCandidate)\("([^"]+)"/gm;
@@ -97,13 +107,15 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
   try {
     model = loadGenome(input.files, input.revision, input.deps);
   } catch (e) {
-    if (e instanceof ModelParseError) {
+    if (e instanceof ModelParseError || (e as Error).name === "LegacyGenomeError") {
+      const issues = e instanceof ModelParseError ? e.issues : [{ path: [], message: (e as Error).message }];
+      const file = e instanceof ModelParseError ? e.file : V1_ROOT_FILE;
       return {
         outcome: {
           execution: "completed",
           verdict: "fail",
-          observations: [{ kind: "parse-error", file: e.file, issues: e.issues.map((i) => ({ path: i.path.map(String), message: i.message })) }],
-          interpretation: `The Genome does not load: ${e.message}`,
+          observations: [{ kind: "parse-error", file, issues: issues.map((i) => ({ path: i.path.map(String), message: i.message })) }],
+          interpretation: `The Genome does not load: ${(e as Error).message}`,
           limitations: [],
         },
       };
@@ -114,8 +126,8 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
   let readiness: Readiness;
   let packs: RulePack[];
   try {
-    packs = packsOf(model, input.deps);
-    readiness = validate(model, packs);
+    packs = packsOf(model);
+    readiness = runRules(model, input.deps);
   } catch (e) {
     return { model, outcome: errored(e, { interpretation: "Running the pinned rule packs failed." }) };
   }
@@ -162,9 +174,9 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
 
   let verdict: Outcome["verdict"];
   let interpretation: string;
-  if (readiness.packs.length === 0) {
+  if (model.kits.rulePacks.length === 0) {
     verdict = "unknown";
-    interpretation = "No rule packs are pinned in kits.yaml; nothing was checked.";
+    interpretation = "No rule packs are pinned on the System; nothing was checked.";
   } else if (errors.length) {
     verdict = "fail";
     interpretation = `${errors.length} hard violation(s): ${errors.map(key).join("; ")}.`;
@@ -175,7 +187,7 @@ export function modelRules(input: ModelRulesInput): ModelRulesResult {
       : `The hook's rule filter ${JSON.stringify(input.filter)} selects only info-level rules, which cannot fail.`;
   } else if (notPinned.length) {
     verdict = "unknown";
-    interpretation = `The hook asks for pack(s) ${notPinned.join(", ")}, which kits.yaml does not pin; they did not run.`;
+    interpretation = `The hook asks for pack(s) ${notPinned.join(", ")}, which the System does not pin; they did not run.`;
   } else if (readiness.incomplete) {
     verdict = "unknown";
     interpretation = "The rules run hit its iteration cap; results are incomplete.";

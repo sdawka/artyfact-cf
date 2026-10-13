@@ -3,6 +3,16 @@ id: template.thing.static-site
 version: 1
 meta: 1
 extends: template.meta.artyfact-genome@1
+criteria:
+  - id: C.site.checks
+    owner: thing
+    subject: thing
+    severity: soft
+    description: Changed nodes meet the checks their kinds declare.
+    gates:
+      - submission
+    hooks:
+      - hook.site.checks
 kinds:
   page:
     description: One page of the site, served at one route.
@@ -79,8 +89,51 @@ nodes:
       sections:
         - section.pages
         - section.build
+      criteria:
+        - C.site.checks
+      hooks:
+        - hook.site.checks
   - {id: $self.pages, kind: section, parent: $self, fields: {name: Pages, revision: 1, description: "The routes the site serves and what each shows.", fromTemplate: template.thing.static-site@1}, files: ["src/pages/**"]}
   - {id: $self.build, kind: section, parent: $self, fields: {name: Build, revision: 1, description: "The files the build copies or generates, and how.", fromTemplate: template.thing.static-site@1}, files: ["public/**", "scripts/**"]}
+  - id: C.site.checks
+    kind: criterion
+    fields:
+      version: 1
+      title: Changed nodes meet their checks
+      claim: Changed nodes meet the checks their kinds declare.
+      ownerKind: thing
+      subjectKind: thing
+      targetKind: model
+      severity: soft
+      gates:
+        - submission
+      deferred: false
+      hooks:
+        - hook.site.checks
+      fromTemplate: template.thing.static-site@1
+    links:
+      - rel: owner
+        to: $self
+      - rel: subject
+        to: $self
+  - id: hook.site.checks
+    kind: hook
+    fields:
+      version: 1
+      assay: site.checks
+      criteria:
+        - C.site.checks
+      tier: semantic
+      engine: model-rules
+      targetKind: model
+      triggers:
+        - submission
+      inputs:
+        packs: checks@1
+      timeoutMs: 60000
+      costTier: free
+      binding: bound
+      fromTemplate: template.thing.static-site@1
 files:
   - "{package.json,package-lock.json,tsconfig.json,vite.config.*,astro.config.*,wrangler.jsonc,.gitignore,README.md}"
   - "src/**"

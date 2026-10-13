@@ -1,0 +1,8 @@
+id: section.runtime
+kind: section
+fields:
+  name: Runtime
+  owningThing: thing.webapp
+  revision: 1
+  description: Bindings and deployment surface.
+  fromTemplate: template.thing.cloudflare-worker-webapp@1

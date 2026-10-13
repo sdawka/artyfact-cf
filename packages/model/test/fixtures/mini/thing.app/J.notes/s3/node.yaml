@@ -1,0 +1,15 @@
+id: J.notes/s3
+kind: step
+fields:
+  step: s3
+  actor: user
+  action: Save note
+  kind: action
+  unresolved: false
+  requirementRefs:
+    - S.app.notes
+  next:
+    - to: e1
+links:
+  - { rel: stepScreen, to: screen.edit }
+  - { rel: stepOperation, to: operation.note.save }

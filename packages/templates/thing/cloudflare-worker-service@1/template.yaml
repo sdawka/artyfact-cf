@@ -3,6 +3,16 @@ id: template.thing.cloudflare-worker-service
 version: 1
 meta: 1
 extends: template.meta.artyfact-genome@1
+criteria:
+  - id: C.service.checks
+    owner: thing
+    subject: thing
+    severity: soft
+    description: Changed nodes meet the checks their kinds declare.
+    gates:
+      - submission
+    hooks:
+      - hook.service.checks
 kinds:
   endpoint:
     description: One HTTP route the Worker serves.
@@ -150,10 +160,53 @@ nodes:
         - section.runtime
         - section.state
         - section.modules
+      criteria:
+        - C.service.checks
+      hooks:
+        - hook.service.checks
   - {id: $self.api, kind: section, parent: $self, fields: {name: API, revision: 1, description: "The routes the Worker serves and who may call them.", fromTemplate: template.thing.cloudflare-worker-service@1}}
   - {id: $self.runtime, kind: section, parent: $self, fields: {name: Runtime, revision: 1, description: "Durable Objects, Workflows and queues the Worker runs.", fromTemplate: template.thing.cloudflare-worker-service@1}}
   - {id: $self.state, kind: section, parent: $self, fields: {name: State, revision: 1, description: "The bindings that hold the Worker's data and its secrets.", fromTemplate: template.thing.cloudflare-worker-service@1}, files: ["migrations/**"]}
   - {id: $self.modules, kind: section, parent: $self, fields: {name: Modules, revision: 1, description: "The source modules and what each is responsible for.", fromTemplate: template.thing.cloudflare-worker-service@1}, files: ["src/**", "worker/**"]}
+  - id: C.service.checks
+    kind: criterion
+    fields:
+      version: 1
+      title: Changed nodes meet their checks
+      claim: Changed nodes meet the checks their kinds declare.
+      ownerKind: thing
+      subjectKind: thing
+      targetKind: model
+      severity: soft
+      gates:
+        - submission
+      deferred: false
+      hooks:
+        - hook.service.checks
+      fromTemplate: template.thing.cloudflare-worker-service@1
+    links:
+      - rel: owner
+        to: $self
+      - rel: subject
+        to: $self
+  - id: hook.service.checks
+    kind: hook
+    fields:
+      version: 1
+      assay: service.checks
+      criteria:
+        - C.service.checks
+      tier: semantic
+      engine: model-rules
+      targetKind: model
+      triggers:
+        - submission
+      inputs:
+        packs: checks@1
+      timeoutMs: 60000
+      costTier: free
+      binding: bound
+      fromTemplate: template.thing.cloudflare-worker-service@1
 files:
   - "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.json,wrangler.toml,.gitignore,README.md}"
   - "test/**"

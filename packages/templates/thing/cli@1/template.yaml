@@ -3,6 +3,16 @@ id: template.thing.cli
 version: 1
 meta: 1
 extends: template.meta.artyfact-genome@1
+criteria:
+  - id: C.cli.checks
+    owner: thing
+    subject: thing
+    severity: soft
+    description: Changed nodes meet the checks their kinds declare.
+    gates:
+      - submission
+    hooks:
+      - hook.cli.checks
 kinds:
   command:
     description: One command or subcommand the tool runs.
@@ -111,8 +121,51 @@ nodes:
       sections:
         - section.commands
         - section.modules
+      criteria:
+        - C.cli.checks
+      hooks:
+        - hook.cli.checks
   - {id: $self.commands, kind: section, parent: $self, fields: {name: Commands, revision: 1, description: "The commands the tool runs and their options.", fromTemplate: template.thing.cli@1}, files: ["bin/**"]}
   - {id: $self.modules, kind: section, parent: $self, fields: {name: Modules, revision: 1, description: "The source modules and what each is responsible for.", fromTemplate: template.thing.cli@1}, files: ["src/**"]}
+  - id: C.cli.checks
+    kind: criterion
+    fields:
+      version: 1
+      title: Changed nodes meet their checks
+      claim: Changed nodes meet the checks their kinds declare.
+      ownerKind: thing
+      subjectKind: thing
+      targetKind: model
+      severity: soft
+      gates:
+        - submission
+      deferred: false
+      hooks:
+        - hook.cli.checks
+      fromTemplate: template.thing.cli@1
+    links:
+      - rel: owner
+        to: $self
+      - rel: subject
+        to: $self
+  - id: hook.cli.checks
+    kind: hook
+    fields:
+      version: 1
+      assay: cli.checks
+      criteria:
+        - C.cli.checks
+      tier: semantic
+      engine: model-rules
+      targetKind: model
+      triggers:
+        - submission
+      inputs:
+        packs: checks@1
+      timeoutMs: 60000
+      costTier: free
+      binding: bound
+      fromTemplate: template.thing.cli@1
 files:
   - "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,.gitignore,README.md}"
   - "test/**"

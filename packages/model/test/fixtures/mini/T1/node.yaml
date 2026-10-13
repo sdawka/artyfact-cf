@@ -1,0 +1,17 @@
+id: T1
+kind: claim
+fields:
+  name: Findability
+  purpose: P1
+  mechanism: Notes are listed newest first
+  outcome: Owner finds notes quickly
+  indicator: Median time to open a note
+  evaluationMethod: Session timing
+  limitation: Lab conditions only
+  activities:
+    - screen.list
+  kind: hypothesis
+  status: unknown
+  deferred: false
+links:
+  - { rel: beneficiary, to: ext.owner }

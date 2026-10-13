@@ -1,0 +1,6 @@
+id: component.PageHeading
+kind: component
+fields:
+  name: Page heading
+  owningThing: thing.webapp
+  revision: 1

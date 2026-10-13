@@ -201,7 +201,7 @@ describe("artyfact init", { timeout: 60_000 }, () => {
       url: "https://platform.test/api/systems/import", auth: "Bearer adm-tok",
       body: { systemId: "system.keep-in-touch", genomeRepo: "keep-in-touch.genome", appRepo: "keep-in-touch.app", force: false },
     }]);
-    expect(filesAt(lc.path("artyfact", "keep-in-touch.genome"))).toContain("system.yaml");
+    expect(filesAt(lc.path("artyfact", "keep-in-touch.genome"))).toContain("node.yaml");
     expect(filesAt(lc.path("artyfact", "keep-in-touch.app"))).toContain("wrangler.jsonc");
     expect(filesAt(lc.path("artyfact", "keep-in-touch.app")).some((f) => f.includes("node_modules"))).toBe(false);
     const platform = filesAt(lc.path("artyfact", "platform"));
@@ -312,10 +312,8 @@ describe("artyfact init", { timeout: 60_000 }, () => {
   it("imports a Genome-only System without creating or naming an app repo", async () => {
     const cloud = localCloud(join(tmp, "cloud-genome-only"));
     const dir = project("genome-only", false);
-    for (const thing of readdirSync(join(dir, "system/things"))) {
-      const file = join(dir, "system/things", thing, "thing.yaml");
-      writeFileSync(file, readFileSync(file, "utf8").replace(/artifacts:\n(?:\s+-[^\n]*\n(?:\s+[^\n]*\n)*)?/g, "artifacts: []\n"));
-    }
+    const file = join(dir, "system/thing.webapp/node.yaml");
+    writeFileSync(file, readFileSync(file, "utf8").replace(/^  artifacts:\n(?:    [^\n]*\n)*/m, ""));
     const p = mockPlatform();
     const r = await run(["init", "--dir", dir], { cloud: cloud.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
     expect(r.code, r.err).toBe(0);
@@ -359,7 +357,7 @@ describe("artyfact init --from-template", { timeout: 60_000 }, () => {
   it("seeds <slug>.app from the platform scaffold subtree and records scaffoldFrom", async () => {
     const lc = localCloud(join(tmp, "cloud-tpl"));
     const dir = project("tpl-proj", false);
-    writeFileSync(join(dir, "system", "system.yaml"), readFileSync(join(dir, "system", "system.yaml"), "utf8").replace("id: system.keep-in-touch", "id: system.fresh_app"));
+    writeFileSync(join(dir, "system", "node.yaml"), readFileSync(join(dir, "system", "node.yaml"), "utf8").replace("id: system.keep-in-touch", "id: system.fresh_app"));
     const p = mockPlatform();
     const r = await run(["init", "--dir", dir, "--from-template", "template.thing.cloudflare-worker-webapp@1"], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
     expect(r.code, r.err).toBe(0);
@@ -424,7 +422,7 @@ describe("artyfact init --from-template", { timeout: 60_000 }, () => {
     const both = await run(["init", "--dir", dir, "--from-template", "template.thing.cloudflare-worker-webapp@1"], { cloud: lc.cloud });
     expect([both.code, both.err]).toEqual([1, expect.stringContaining("exists")]);
     const none = await run(["init", "--dir", join(tmp, "nowhere")], { cloud: lc.cloud });
-    expect([none.code, none.err]).toEqual([1, expect.stringContaining("no system.yaml")]);
+    expect([none.code, none.err]).toEqual([1, expect.stringContaining("no node.yaml")]);
     const noApp = await run(["init", "--dir", project("bad-noapp", false)], { cloud: lc.cloud });
     expect([noApp.code, noApp.err]).toEqual([1, expect.stringContaining("keep-in-touch.app has no commits; pass --app <dir>, or --from-template")]);
   });
@@ -432,7 +430,7 @@ describe("artyfact init --from-template", { timeout: 60_000 }, () => {
 
 describe("security", { timeout: 60_000 }, () => {
   const setId = (dir: string, id: string) =>
-    writeFileSync(join(dir, "system", "system.yaml"), readFileSync(join(dir, "system", "system.yaml"), "utf8").replace("id: system.keep-in-touch", `id: ${id}`));
+    writeFileSync(join(dir, "system", "node.yaml"), readFileSync(join(dir, "system", "node.yaml"), "utf8").replace("id: system.keep-in-touch", `id: ${id}`));
 
   it("skips a symlink to /etc inside the project and pushes nothing outside it", async () => {
     const lc = localCloud(join(tmp, "cloud-sec-link"));

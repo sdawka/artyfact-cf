@@ -22,7 +22,8 @@ const slug = (s: string) => s.replace(/[^A-Za-z0-9.-]+/g, "-");
 if (!KEY) console.info("live routing eval skipped: set ONTOLOGY_LIVE=1 and OPENROUTER_API_KEY to run it");
 
 describe.skipIf(!KEY)("live routing eval", () => {
-  const s1 = providerFromEnv(process.env);
+  // Measures the OpenRouter decider: a TypeSafe key in the environment must not take its place.
+  const s1 = providerFromEnv({ ...process.env, TYPESAFE_API_KEY: undefined });
   const translator = translatorFromEnv(process.env);
   const translators: [string, Translator | undefined][] = [["route only", undefined], ...(translator.mode === "http" ? [["route + translate", translator] as [string, Translator]] : [])];
   const orders = (process.env.ROUTE_ORDER?.split(",").map((o) => o.trim()).filter(Boolean) ?? ["shortlist-first", "intent-first", "intent-last"]) as RouteOrder[];

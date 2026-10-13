@@ -1,0 +1,7 @@
+id: component.PrimaryNav
+kind: component
+fields:
+  name: PrimaryNav
+  owningThing: thing.webapp
+  revision: 1
+  fromTemplate: template.thing.cloudflare-worker-webapp@1

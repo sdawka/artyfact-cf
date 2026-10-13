@@ -105,7 +105,7 @@ describe("task packet", () => {
   it("genome targets permit the affected nodes' Genome files", async () => {
     const evo2 = genome.model.evolutions.find((e) => e.id === "evolution.2")!;
     const p = await buildTaskPacket(input({ target: "genome", evolution: evo2, workspace: { ...input().workspace, repo: "kit-system", fork: "kit-system--r2" } }));
-    expect(p.permittedPaths).toEqual(["things/webapp/ontology.yaml", "evolutions/**"]);
+    expect(p.permittedPaths).toEqual(["thing.webapp/section.domain/entity.ContactRecord/**", "evolutions/**"]);
     expect(p.protectedPaths).toEqual(["assays/**"]);
   });
 });
@@ -125,7 +125,7 @@ describe("gate criteria", () => {
 
   it("a hard acceptance criterion whose only hook is binding: defined is in the pool but not blocking", () => {
     const files = Object.entries(genomeFiles).filter(([p]) => p.endsWith(".yaml")).map(([p, t]) =>
-      [p, p === "things/webapp/criteria.yaml" ? t.replace(/(id: hook\.people\.lint[\s\S]*?binding: )bound/, "$1defined") : t] as [string, string]);
+      [p, p === "thing.webapp/section.ui/screen.people/node.yaml" ? t.replace(/(id: hook\.people\.lint[\s\S]*?binding: )bound/, "$1defined") : t] as [string, string]);
     const g = buildGenome(new Map(files), "g2");
     const ref = { id: "candidate.x", realizationId: "realization.1.r1", evolutionId: "evolution.1", target: "app" as const, commit: "c", baseCommit: "b", changedPaths: [], changedNodes: [] };
     const gates = gateCriteria(g.model, { acceptanceCriteria: ["C.people.lint"] }, ref);

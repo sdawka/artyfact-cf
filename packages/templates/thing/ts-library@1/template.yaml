@@ -3,6 +3,16 @@ id: template.thing.ts-library
 version: 1
 meta: 1
 extends: template.meta.artyfact-genome@1
+criteria:
+  - id: C.library.checks
+    owner: thing
+    subject: thing
+    severity: soft
+    description: Changed nodes meet the checks their kinds declare.
+    gates:
+      - submission
+    hooks:
+      - hook.library.checks
 kinds:
   export:
     description: One name the package makes public.
@@ -83,8 +93,51 @@ nodes:
       sections:
         - section.api
         - section.modules
+      criteria:
+        - C.library.checks
+      hooks:
+        - hook.library.checks
   - {id: $self.api, kind: section, parent: $self, fields: {name: API, revision: 1, description: "The names the package exports and how callers use them.", fromTemplate: template.thing.ts-library@1}}
   - {id: $self.modules, kind: section, parent: $self, fields: {name: Modules, revision: 1, description: "The source modules and what each is responsible for.", fromTemplate: template.thing.ts-library@1}, files: ["src/**"]}
+  - id: C.library.checks
+    kind: criterion
+    fields:
+      version: 1
+      title: Changed nodes meet their checks
+      claim: Changed nodes meet the checks their kinds declare.
+      ownerKind: thing
+      subjectKind: thing
+      targetKind: model
+      severity: soft
+      gates:
+        - submission
+      deferred: false
+      hooks:
+        - hook.library.checks
+      fromTemplate: template.thing.ts-library@1
+    links:
+      - rel: owner
+        to: $self
+      - rel: subject
+        to: $self
+  - id: hook.library.checks
+    kind: hook
+    fields:
+      version: 1
+      assay: library.checks
+      criteria:
+        - C.library.checks
+      tier: semantic
+      engine: model-rules
+      targetKind: model
+      triggers:
+        - submission
+      inputs:
+        packs: checks@1
+      timeoutMs: 60000
+      costTier: free
+      binding: bound
+      fromTemplate: template.thing.ts-library@1
 files:
   - "{package.json,package-lock.json,tsconfig.json,tsconfig.build.json,vitest.config.ts,.gitignore,README.md}"
   - "test/**"

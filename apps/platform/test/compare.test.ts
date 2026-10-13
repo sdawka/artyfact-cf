@@ -153,9 +153,9 @@ describe("compareSystem", () => {
     expect(cmp.genome.delta!.changed).toEqual([{ id: "entity.ContactRecord", fields: ["name"] }, { id: "screen.people", fields: ["name"] }]);
     expect(cmp.genome.delta!.affectedCriteria).toEqual(expect.arrayContaining(["C.people.list", "C.people.sorted"]));
     expect(cmp.genome.delta!.affectedCriteria).not.toContain("C.system.promotion");
-    // The Genome repo's changed file, with the changed nodes it declares.
-    expect(cmp.genome.files).toEqual({ added: [], modified: ["things/webapp/ontology.yaml"], removed: [] });
-    expect(cmp.genome.pathNodes).toEqual({ "things/webapp/ontology.yaml": ["entity.ContactRecord", "screen.people"] });
+    // The Genome repo's changed files, each with the changed node it declares.
+    expect(cmp.genome.files).toEqual({ added: [], modified: ["thing.webapp/section.domain/entity.ContactRecord/node.yaml", "thing.webapp/section.ui/screen.people/node.yaml"], removed: [] });
+    expect(cmp.genome.pathNodes).toEqual({ "thing.webapp/section.domain/entity.ContactRecord/node.yaml": ["entity.ContactRecord"], "thing.webapp/section.ui/screen.people/node.yaml": ["screen.people"] });
     expect(cmp.app!.files).toEqual({ added: [], modified: [], removed: [] });
     expect(cmp.app!.from!.commit).toBe(cmp.app!.to.commit);
   });
@@ -191,7 +191,7 @@ describe("compareGenome", () => {
     expect(cmp.from).toMatchObject({ repo: f.genomeRepo, commit: f.imp.genomeCommit });
     expect(cmp.to).toMatchObject({ repo: g.forkRepo, commit: g.commit });
     expect(cmp.delta!.changed).toEqual([{ id: "entity.ContactRecord", fields: ["name"] }]);
-    expect(cmp.files).toEqual({ added: [], modified: ["things/webapp/ontology.yaml"], removed: [] });
+    expect(cmp.files).toEqual({ added: [], modified: ["thing.webapp/section.domain/entity.ContactRecord/node.yaml"], removed: [] });
     // An open Genome candidate against its base (from omitted).
     const f2 = await importFresh();
     const open = await genomeAmendment(f2, renameContact("Contact v4"), { accept: false });

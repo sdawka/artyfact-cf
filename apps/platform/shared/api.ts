@@ -201,7 +201,7 @@ export interface ReadinessSummary {
 export type ReadinessReport = Readiness & ReadinessSummary;
 
 /** `SystemModel.index` without functions: `byId` without the duplicated `item`, `path()` materialised. */
-export interface SerializedIndex extends Omit<ModelIndex, "byId" | "path" | "layer"> {
+export interface SerializedIndex extends Omit<ModelIndex, "byId" | "path" | "layer" | "depthOf" | "layerOf"> {
   byId: Record<NodeId, { id: NodeId; type: string; kind: string; name: string }>;
   /** Containment path from the System root, for every indexed id. */
   paths: Record<NodeId, NodeId[]>;
@@ -210,7 +210,7 @@ export interface SerializedIndex extends Omit<ModelIndex, "byId" | "path" | "lay
 }
 
 /** `@artyfact/model`'s `SystemModel` as JSON (see `serializeModel` in the Worker). */
-export type SerializedModel = Omit<SystemModel, "index"> & { index: SerializedIndex };
+export type SerializedModel = Omit<SystemModel, "index" | "graph" | "template"> & { index: SerializedIndex };
 
 /** `GET /api/systems/:id/model?rev=`. */
 export interface ModelBundle {
@@ -1229,9 +1229,4 @@ export interface IntentAcceptResponse {
   realization: Realization;
   candidate: Candidate;
   commit: CommitHash;
-}
-
-/** 501 from a route that is declared but not built yet (the iteration-3 intent stubs). */
-export interface NotImplementedResponse extends ApiError {
-  error: { code: "not-implemented"; message: string };
 }

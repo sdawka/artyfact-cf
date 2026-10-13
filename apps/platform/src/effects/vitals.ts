@@ -9,13 +9,14 @@ import { WHIMSY, type SurfacePresetName } from "@artyfact/effects";
 import { useEvolutions, useHistory, useReadiness } from "@/api/queries";
 import type { UiVerdict } from "@/model/status";
 import { useModel } from "@/model/useModel";
+import { isBlocking } from "../../shared/verdict";
 
 /** Overall health, in priority order: `failing` (a fail verdict), `blocked` (error/missing findings), `passing` (every counted criterion passes), else `pending`. */
 export type SystemHealth = "failing" | "blocked" | "passing" | "pending";
 
 export interface VitalsInput {
   /** Readiness findings (any level). `incomplete` means the rules engine could not finish. */
-  readiness: { findings: readonly Pick<Finding, "level" | "subject">[]; incomplete?: boolean };
+  readiness: { findings: readonly Pick<Finding, "level" | "rule" | "subject">[]; incomplete?: boolean };
   /** Number of indexed model objects, to turn finding counts into a ratio. */
   entryCount: number;
   /** Scoped verdicts of the non-deferred Thing criteria (as the conformance meter counts them). */
@@ -64,7 +65,7 @@ function recency(times: Iterable<string | undefined>, now: number): number {
 
 export function systemVitals(input: VitalsInput): SystemVitals {
   const { findings } = input.readiness;
-  const blocking = findings.filter((f) => f.level === "error" || f.level === "missing");
+  const blocking = findings.filter(isBlocking);
   const warnings = findings.filter((f) => f.level === "warning");
   const subjects = (fs: typeof findings) => new Set(fs.map((f, i) => f.subject ?? `#${i}`)).size;
   // Readiness ratio: share of model objects without findings; blocking subjects count fully, warning subjects a quarter. Unknown (incomplete) reads as 0.5.

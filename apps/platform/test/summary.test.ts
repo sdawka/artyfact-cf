@@ -185,11 +185,12 @@ describe("POST /api/systems/:id/evolutions", () => {
     const app = await create("implementation");
     expect(app.acceptanceCriteria).toContain("C.people.list");
     expect(app.acceptanceCriteria).not.toContain("C.system.promotion");
-    expect((await create("genome-amendment")).acceptanceCriteria).toEqual(["C.system.promotion"]);
+    // C.webapp.checks is the webapp template's model criterion (checks@1 on changed nodes).
+    expect((await create("genome-amendment")).acceptanceCriteria).toEqual(["C.system.promotion", "C.webapp.checks"]);
     // An unknown target (no kind, or mixed) keeps only model criteria: app ones could never pass on a Genome candidate.
-    expect((await create("mixed")).acceptanceCriteria).toEqual(["C.system.promotion"]);
+    expect((await create("mixed")).acceptanceCriteria).toEqual(["C.system.promotion", "C.webapp.checks"]);
     const unknown = await call<CreateEvolutionResponse>("POST", `/systems/${f.systemId}/evolutions`, { title: "t", intent: "i" }, ADMIN);
-    expect(unknown.json.evolution).toMatchObject({ kind: "implementation", acceptanceCriteria: ["C.system.promotion"] });
+    expect(unknown.json.evolution).toMatchObject({ kind: "implementation", acceptanceCriteria: ["C.system.promotion", "C.webapp.checks"] });
     const explicit = await call<CreateEvolutionResponse>("POST", `/systems/${f.systemId}/evolutions`, { title: "t", intent: "i", acceptanceCriteria: [] }, ADMIN);
     expect(explicit.json.evolution.acceptanceCriteria).toEqual([]);
   });

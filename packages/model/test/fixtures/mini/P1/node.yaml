@@ -1,0 +1,11 @@
+id: P1
+kind: purpose
+fields:
+  statement: Help an owner keep private notes they can find again.
+  intendedChange: The owner relies on the app instead of scattered scraps.
+  successCriteria:
+    - Owner can find a note within ten seconds
+  nonGoals:
+    - time-in-app
+links:
+  - { rel: beneficiary, to: ext.owner }

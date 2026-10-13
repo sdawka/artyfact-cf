@@ -1,7 +1,7 @@
 import { parse as parseYaml } from "yaml";
 import { files } from "./generated/files";
 import { schema } from "@artyfact/model";
-import { ARTYFACT_GENOME, artyfactGenome, loadTemplate, type Template as MetaTemplate, type TemplateStore as MetaStore } from "@artyfact/ontology";
+import { ARTYFACT_GENOME, artyfactGenome, composeTemplates, loadTemplate, type Template as MetaTemplate, type TemplateStore as MetaStore } from "@artyfact/ontology";
 
 const { Template } = schema;
 export type Template = schema.Template;
@@ -86,22 +86,9 @@ export function loadMetaTemplate(ref: string): MetaTemplate {
   return t;
 }
 
-/**
- * The template a System is evaluated against: its System template with the rules, questions and criteria of the Thing
- * templates it uses laid over it (the engine takes one template; W4 replaces this with per-node resolution).
- */
+/** The bundled System template composed with the Thing templates it uses (`composeTemplates`, prefilled nodes as declared). */
 export function composeTemplate(system: string, things: string[] = []): MetaTemplate {
-  const parts = things.map((r) => loadMetaTemplate(r));
-  const ref = [system, ...things].join("+");
-  return loadTemplate({
-    id: `template.composed.${ref}`,
-    version: 1,
-    meta: 1,
-    extends: system,
-    rules: parts.flatMap((t) => t.rules),
-    questions: parts.flatMap((t) => t.questions),
-    criteria: parts.flatMap((t) => t.criteria),
-  }, metaTemplates);
+  return composeTemplates({ template: loadMetaTemplate(system) }, things.map((r) => ({ template: loadMetaTemplate(r) })));
 }
 
 /** Raw text of a bundled template file, e.g. `templateFile("template.thing.cloudflare-worker-webapp@1", "scaffold.yaml")`. */

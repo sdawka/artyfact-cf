@@ -1,19 +1,20 @@
 import { describe, expect, it } from "vitest";
-import { diffModels, loadSystem, overlap } from "../src/index";
-import { edit, readTree, store } from "./helpers";
+import { diffModels, overlap } from "../src/index";
+import { edit, load, pathOf, readTree } from "./helpers";
 
 const files = readTree();
-const load = (f: Map<string, string>) => loadSystem(f, { templates: store() });
 const base = load(files);
+const SAVE = pathOf(files, "affordance.NoteForm.save");
+const at = (id: string) => pathOf(files, id);
 
 describe("diffModels", () => {
   it("reports nothing for identical models (ignoring revision)", () => {
-    const f = edit(files, "things/app/ontology.yaml", "kind: policy\n    name: Owner only", "kind: policy\n    revision: 7\n    name: Owner only");
+    const f = edit(files, at("policy.ownerOnly"), "revision: 1", "revision: 7");
     expect(diffModels(base, load(f))).toEqual({ added: [], removed: [], changed: [], affectedCriteria: [], affectedJourneys: [] });
   });
 
   it("reports changed fields, affected criteria and journeys", () => {
-    const f = edit(files, "things/app/ontology.yaml", "actor: owner", "actor: admin");
+    const f = edit(files, SAVE, "actor: owner", "actor: admin");
     const d = diffModels(base, load(f));
     expect(d.changed).toEqual([{ id: "affordance.NoteForm.save", fields: ["actor"] }]);
     expect(d.affectedCriteria).toEqual(["C.app.notes.save"]);
@@ -21,8 +22,10 @@ describe("diffModels", () => {
   });
 
   it("tracks added/removed and journeys via journeysByNode", () => {
-    let f = edit(files, "things/app/ontology.yaml", "name: Edit note", "name: Edit a note");
-    f = edit(f, "things/app/ontology.yaml", "  - { id: entity.Owner, kind: entity, name: Owner, parent: section.domain }\n", "  - { id: entity.Tag, kind: entity, name: Tag, parent: section.domain }\n");
+    const f = edit(files, at("screen.edit"), "name: Edit note", "name: Edit a note");
+    const owner = at("entity.Owner");
+    f.delete(owner);
+    f.set(owner.replace("entity.Owner", "entity.Tag"), "id: entity.Tag\nkind: entity\nfields:\n  name: Tag\n");
     const d = diffModels(base, load(f));
     expect(d.added).toEqual(["entity.Tag"]);
     expect(d.removed).toEqual(["entity.Owner"]);
@@ -31,16 +34,16 @@ describe("diffModels", () => {
   });
 
   it("flags criteria whose subject is added", () => {
-    const a = edit(files, "things/app/criteria.yaml", "subjectId: affordance.NoteForm.save", "subjectId: affordance.NoteForm.delete");
-    const b = edit(a, "things/app/ontology.yaml", "                links:\n                  - { rel: invokes, to: operation.note.save }\n",
-      "                links:\n                  - { rel: invokes, to: operation.note.save }\n              - { id: affordance.NoteForm.delete, kind: affordance, name: Delete }\n");
-    const d = diffModels(load(a), load(b));
+    const crit = files.get(SAVE)!.match(/criteria:[\s\S]*$/)![0];
+    const f = new Map(files).set(SAVE, files.get(SAVE)!.replace(crit, ""))
+      .set(SAVE.replace("affordance.NoteForm.save", "affordance.NoteForm.delete"), `id: affordance.NoteForm.delete\nkind: affordance\nfields:\n  name: Delete\n${crit}`);
+    const d = diffModels(base, load(f));
     expect(d.added).toEqual(["affordance.NoteForm.delete"]);
     expect(d.affectedCriteria).toEqual(["C.app.notes.save"]);
   });
 
   it("flags criteria whose sourceRefs change", () => {
-    const f = edit(files, "things/app/criteria.yaml", "sourceRefs: [S.app.notes]", "sourceRefs: []");
+    const f = edit(files, SAVE, "    sourceRefs:\n      - S.app.notes\n", "");
     const d = diffModels(base, load(f));
     expect(d.changed).toEqual([{ id: "C.app.notes.save", fields: ["sourceRefs"] }]);
     expect(d.affectedCriteria).toEqual(["C.app.notes.save"]);
@@ -49,16 +52,16 @@ describe("diffModels", () => {
 
 describe("overlap", () => {
   it("finds shared nodes and criteria both deltas touch", () => {
-    const a = diffModels(base, load(edit(files, "things/app/ontology.yaml", "actor: owner", "actor: admin")));
-    const b = diffModels(base, load(edit(files, "things/app/ontology.yaml", "Persists the note for its owner", "Persists the note")));
+    const a = diffModels(base, load(edit(files, SAVE, "actor: owner", "actor: admin")));
+    const b = diffModels(base, load(edit(files, SAVE, "Persists the note for its owner", "Persists the note")));
     const o = overlap(a, b, base);
     expect(o.shared).toEqual(["affordance.NoteForm.save"]);
     expect(o.viaCriteria).toEqual(["C.app.notes.save"]);
   });
 
   it("finds journey and criterion overlap without shared nodes", () => {
-    const a = diffModels(base, load(edit(files, "things/app/ontology.yaml", "name: Edit note", "name: Edit a note")));
-    const b = diffModels(base, load(edit(files, "things/app/ontology.yaml", "route: /notes\n", "route: /n\n")));
+    const a = diffModels(base, load(edit(files, at("screen.edit"), "name: Edit note", "name: Edit a note")));
+    const b = diffModels(base, load(edit(files, at("screen.list"), "route: /notes\n", "route: /n\n")));
     const o = overlap(a, b, base);
     expect(o.shared).toEqual([]);
     expect(o.viaJourneys).toEqual(["J.notes"]);
@@ -66,8 +69,8 @@ describe("overlap", () => {
   });
 
   it("is empty for disjoint deltas", () => {
-    const a = diffModels(base, load(edit(files, "externals.yaml", "name: Mail provider", "name: Mailer")));
-    const b = diffModels(base, load(edit(files, "things/app/ontology.yaml", "name: Owner only", "name: Owners only")));
+    const a = diffModels(base, load(edit(files, at("ext.mail"), "name: Mail provider", "name: Mailer")));
+    const b = diffModels(base, load(edit(files, at("policy.ownerOnly"), "name: Owner only", "name: Owners only")));
     expect(overlap(a, b, base)).toEqual({ shared: [], viaCriteria: [], viaJourneys: [] });
   });
 });

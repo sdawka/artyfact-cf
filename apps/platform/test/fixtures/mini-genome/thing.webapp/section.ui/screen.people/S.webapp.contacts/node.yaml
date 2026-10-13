@@ -1,0 +1,11 @@
+id: S.webapp.contacts
+kind: requirement
+fields:
+  thing: thing.webapp
+  title: Contacts
+  text: The owner must be able to save and list their contacts, and nobody else may see them.
+  enabled: true
+links:
+  - { rel: subject, to: screen.people }
+  - { rel: subject, to: screen.home }
+  - { rel: refines, to: GD.contacts }

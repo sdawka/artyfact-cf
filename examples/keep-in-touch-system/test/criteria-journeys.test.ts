@@ -2,8 +2,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { loadSystem, validate, type TemplateStore } from "@artyfact/model";
-import { packsFor, templates } from "@artyfact/templates";
+import { loadGenome, validate } from "@artyfact/model";
+import { metaTemplates } from "@artyfact/templates";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 function readTree(dir: string, out = new Map<string, string>()) {
@@ -15,15 +15,13 @@ function readTree(dir: string, out = new Map<string, string>()) {
   }
   return out;
 }
-// @artyfact/templates and @artyfact/model declare structurally different Template types; runtime shapes agree.
-const m = loadSystem(readTree(root), { templates: templates as unknown as TemplateStore });
+const m = loadGenome(readTree(root), { templates: metaTemplates });
 
 const byId = m.index.byId;
 const known = (id: string) => id in byId;
 const kindOf = (id: string) => byId[id]?.kind;
-const own = (c: { id: string }) => m.origin[c.id] === "criteria.yaml" || m.origin[c.id] === "things/webapp/criteria.yaml";
 const sysCrit = m.criteria.filter((c) => c.ownerKind === "system");
-const thingCrit = m.criteria.filter((c) => c.ownerKind === "thing" && own(c));
+const thingCrit = m.criteria.filter((c) => c.ownerKind === "thing" && !c.fromTemplate);
 const hook = (id: string) => m.hooks.find((h) => h.id === id)!;
 const journeys = m.journeys;
 
@@ -31,7 +29,7 @@ describe("counts", () => {
   it("has the specified criteria, journeys and evolutions", () => {
     expect(sysCrit.map((c) => c.id)).toEqual(["structure", "purpose", "topology", "autonomy", "readiness", "promotion", "concurrency"].map((x) => `C.system.${x}`));
     expect(thingCrit).toHaveLength(13);
-    expect(m.criteria.filter((c) => c.fromTemplate).map((c) => c.id).sort()).toEqual(["C.webapp.exists", "C.webapp.health"]);
+    expect(m.criteria.filter((c) => c.fromTemplate).map((c) => c.id).sort()).toEqual(["C.webapp.checks", "C.webapp.exists", "C.webapp.health"]);
     expect(journeys).toHaveLength(10);
     expect(m.evolutions).toHaveLength(6);
   });
@@ -166,16 +164,19 @@ describe("references resolve in the loaded model", () => {
 });
 
 describe("validate", () => {
-  const r = validate(m, packsFor(m.kits.rulePacks));
+  const r = validate(m);
   it("has no errors", () => {
     expect(r.findings.filter((f) => f.level === "error").map((f) => [f.rule, f.subject])).toEqual([]);
   });
   it("has exactly the expected warnings and gaps", () => {
-    const rest = r.findings.filter((f) => !(f.level === "warning" && f.rule === "hook.unbound"));
+    const rest = r.findings.filter((f) => (f.level === "error" || f.level === "warning") && f.rule !== "hook.unbound");
     // hook.unbound: every hook with binding "defined" is a planned assay with no implementation yet.
     const unbound = r.findings.filter((f) => f.rule === "hook.unbound").map((f) => f.subject).sort();
     expect(unbound).toEqual(m.criteria.filter((c) => !c.deferred).filter((c) => c.hooks.some((h) => hook(h).binding === "defined")).map((c) => c.id).sort());
     // kit.unpinned auth: the authentication Kit is required but intentionally unpinned until a provider is chosen (spec section 9).
     expect(rest.map((f) => [f.level, f.rule, f.subject])).toEqual([["warning", "kit.unpinned", "auth"]]);
+    // The engine's completeness pack marks the provisional nodes as open gaps.
+    const provisional = m.nodes.filter((n) => n.provisional).map((n) => n.id).sort();
+    expect(r.findings.filter((f) => f.level === "missing").map((f) => [f.rule, f.subject]).sort()).toEqual(provisional.map((id) => ["node.provisional", id]));
   });
 });

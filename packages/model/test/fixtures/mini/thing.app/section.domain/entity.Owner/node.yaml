@@ -1,0 +1,6 @@
+id: entity.Owner
+kind: entity
+fields:
+  name: Owner
+  owningThing: thing.app
+  revision: 1

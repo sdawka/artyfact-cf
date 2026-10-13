@@ -24,9 +24,9 @@ test.describe("compare @fake", () => {
     await expect(page.getByText(node).first()).toBeVisible();
     await checkPage(page, testInfo, "compare-genome");
 
-    // Files level: the Thing's ontology, with an added line in its diff.
+    // Files level: the new node's node.yaml, with an added line in its diff.
     await page.getByRole("tab", { name: "Files" }).click();
-    await page.getByRole("link", { name: "things/webapp/ontology.yaml" }).click();
+    await page.getByRole("link", { name: `thing.webapp/section.runtime/${node}/node.yaml` }).click();
     await expect(page.locator('[data-op="add"]').first()).toBeVisible();
     // The line-number gutter of the diff has low contrast on added lines (axe color-contrast); reported to the Compare slice.
     await checkPage(page, testInfo, "compare-files", isPass, ["[data-op] > [class*=\"num\"]"]);

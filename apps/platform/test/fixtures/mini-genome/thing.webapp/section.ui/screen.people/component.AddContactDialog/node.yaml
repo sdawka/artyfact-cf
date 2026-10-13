@@ -1,0 +1,10 @@
+id: component.AddContactDialog
+kind: component
+fields:
+  name: Add contact dialog
+  owningThing: thing.webapp
+  revision: 1
+  fields:
+    - name: name
+      type: text
+      optional: false

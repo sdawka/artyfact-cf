@@ -72,7 +72,7 @@ export function judged(top: ChangeClass, p: number, over: Partial<DeltaReview> =
     touchesConsent: 0.03,
     level: top === "hard-rule-violation" && p >= 0.9 ? "error" : "info",
     verdict: "unknown",
-    provenance: { provider: "typesafe", model: "jev-1", questionHash: "q", stateHash: "s", ms: 420, usage: { input_tokens: 0, output_tokens: 0 } },
+    provenance: { provider: "typesafe", model: "jev-1", questionHash: "q", stateHash: "s", thresholds: { confident: 0.9, review: 0.5 }, ms: 420, usage: { input_tokens: 0, output_tokens: 0 } },
     ...over,
   };
 }

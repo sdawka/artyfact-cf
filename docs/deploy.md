@@ -17,7 +17,7 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 | Secret `ADMIN_TOKEN` | | `wrangler secret put` |
 | CI Worker `artyfact-ci` (Workflow, Sandbox container, R2 `artyfact-ci-cache`) and secret `CI_REPORT_TOKEN` | optional | [`apps/ci/README.md`](../apps/ci/README.md), see [`ci.md`](ci.md) |
 
-There is no D1 or R2. `FAKE_S1=1` is a plain var because no System One key is set; the UI labels those judgments as fake.
+There is no D1 or R2. System One needs a secret, `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY` (`wrangler secret put`); without one every System One judgment is `unknown` and System One-gated hard criteria keep promotion closed. `FAKE_S1` is not a deployed var: it belongs in `.dev.vars` and test configs only.
 
 ## First deploy
 

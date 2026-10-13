@@ -10,7 +10,7 @@ import {
 
 /** The parts of a template routing reads: kind descriptions and relation endpoints. */
 export interface RouteVocabularySource {
-  kinds: Record<string, { description?: string; fields?: { name: string }[] }>;
+  kinds: Record<string, { description?: string; fields?: { name: string }[]; view?: { title?: string } }>;
   relations: Record<string, { from: string[]; to: string[] }>;
 }
 
@@ -18,8 +18,14 @@ export const ROUTE_DEFAULTS = { maxChoices: 12, maxNodes: 3, maxCalls: 8, exampl
 
 const str = (v: unknown): string => (typeof v === "string" ? v : "");
 const clip = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1)}…` : s);
-/** A node's display title: `title`, else the world snapshot's `ws.title`, else its id. */
-export const titleOf = (n: GraphNode): string => str(n.fields.title) || str(n.fields["ws.title"]) || n.id;
+/**
+ * A node's display title: `title`, else the world snapshot's `ws.title`, else `name` (artyfact nodes), else the field
+ * its kind's `view.title` names, else its id.
+ */
+export const titleOf = (n: GraphNode, template?: RouteVocabularySource): string => {
+  const viewField = template?.kinds[n.kind]?.view?.title;
+  return str(n.fields.title) || str(n.fields["ws.title"]) || str(n.fields.name) || (viewField ? str(n.fields[viewField]) : "") || n.id;
+};
 const descOf = (n: GraphNode): string => str(n.fields.description);
 
 const stem = (w: string) => (w.length > 3 && w.endsWith("s") && !w.endsWith("ss") ? w.slice(0, -1) : w);
@@ -31,8 +37,8 @@ export const kindTokens = (kind: string, label = ""): Set<string> =>
   routeTokens(`${kind.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/[-_.]/g, " ")} ${label.split(":")[0] ?? ""}`);
 
 /** Term overlap of a node with the message: two per shared title word, one per word only its description shares. */
-export function overlapScore(message: Set<string>, n: GraphNode): number {
-  const t = routeTokens(titleOf(n)), d = routeTokens(descOf(n));
+export function overlapScore(message: Set<string>, n: GraphNode, title = titleOf(n)): number {
+  const t = routeTokens(title), d = routeTokens(descOf(n));
   let s = 0;
   for (const w of message) s += t.has(w) ? 2 : d.has(w) ? 1 : 0;
   return s;
@@ -49,6 +55,8 @@ export interface RouteView {
   spaces: RouteSpace[];
   /** Every routable node except the root. */
   nodes: string[];
+  /** A node's display title ({@link titleOf} with the template's view hints). */
+  title: (n: GraphNode) => string;
 }
 
 function rootOf(g: Graph, children: Map<string, string[]>): string {
@@ -68,7 +76,8 @@ function rootOf(g: Graph, children: Map<string, string[]>): string {
 }
 
 /** Spaces from `opts.spaces` (kind map) when given, else the root's sections plus the root itself. */
-export function routeView(g: Graph, opts: RouteOptions = {}): RouteView {
+export function routeView(g: Graph, opts: RouteOptions = {}, template?: RouteVocabularySource): RouteView {
+  const title = (n: GraphNode) => titleOf(n, template);
   const byId = new Map<string, GraphNode>(), order = new Map<string, number>(), children = new Map<string, string[]>();
   g.nodes.forEach((n, i) => {
     if (byId.has(n.id)) return;
@@ -97,19 +106,19 @@ export function routeView(g: Graph, opts: RouteOptions = {}): RouteView {
       key, label: opts.spaceLabels?.[key] ?? key, kinds: opts.spaces![key] ?? [],
       nodes: nodes.filter((id) => (spaceOf.get(byId.get(id)!.kind) ?? "other") === key),
     })).filter((s) => s.key !== "other" || s.nodes.length);
-    return { root, mode: "map", byId, order, spaces, nodes };
+    return { root, mode: "map", byId, order, spaces, nodes, title };
   }
-  const label = (id: string) => { const n = byId.get(id)!; return `${titleOf(n)} (${n.kind})`; };
+  const label = (id: string) => { const n = byId.get(id)!; return `${title(n)} (${n.kind})`; };
   const sections = (children.get(root) ?? []).slice().sort((a, b) => order.get(a)! - order.get(b)!);
   const spaces: RouteSpace[] = sections.map((s) => ({ key: s, label: label(s), kinds: [], nodes: subtree(s) }));
   spaces.push({ key: root, label: `Top level of ${label(root)}: the whole and its direct parts`, kinds: [], nodes: [root, ...sections] });
-  return { root, mode: "tree", byId, order, spaces, nodes };
+  return { root, mode: "tree", byId, order, spaces, nodes, title };
 }
 
 /** `ids` ordered by term overlap with the message, ties in graph order. */
 export function rankNodes(view: RouteView, message: string | Set<string>, ids: string[]): string[] {
   const m = typeof message === "string" ? routeTokens(message) : message;
-  const score = new Map(ids.map((id) => [id, overlapScore(m, view.byId.get(id)!)]));
+  const score = new Map(ids.map((id) => [id, overlapScore(m, view.byId.get(id)!, view.title(view.byId.get(id)!))]));
   return [...ids].sort((a, b) => score.get(b)! - score.get(a)! || view.order.get(a)! - view.order.get(b)!);
 }
 
@@ -128,8 +137,8 @@ const RANK: Record<JudgmentStatus, number> = { confident: 2, review: 1, unknown:
 const worse = (a: JudgmentStatus, b: JudgmentStatus): JudgmentStatus => (RANK[a] <= RANK[b] ? a : b);
 
 /** Option criteria for the candidate nodes of the node levels. */
-const nodeCriterion = (n: GraphNode, withKind: boolean) =>
-  `${withKind ? `${n.kind}: ` : ""}${titleOf(n)}${descOf(n) ? `: ${clip(descOf(n), 120)}` : ""}`;
+const nodeCriterion = (n: GraphNode, withKind: boolean, title = titleOf(n)) =>
+  `${withKind ? `${n.kind}: ` : ""}${title}${descOf(n) ? `: ${clip(descOf(n), 120)}` : ""}`;
 
 /** Intent criteria for `intent-last`, worded around the items the navigation put in view. */
 const intentInView = (picked: boolean, kind?: string): Record<string, string> => {
@@ -165,7 +174,7 @@ const intentInView = (picked: boolean, kind?: string): Record<string, string> =>
  * (nodes for update, remove, link and answer; a kind for add) and to `unknown` for an `unclear` intent.
  */
 export async function route(g: Graph, template: RouteVocabularySource, message: string, s1: SystemOne, opts: RouteOptions = {}): Promise<Route> {
-  const view = routeView(g, opts);
+  const view = routeView(g, opts, template);
   const t = thresholdsOf(opts.thresholds);
   const order = opts.order ?? "shortlist-first";
   const intentLast = order !== "intent-first";
@@ -176,7 +185,7 @@ export async function route(g: Graph, template: RouteVocabularySource, message: 
   const nExamples = opts.examples ?? ROUTE_DEFAULTS.examples;
   const words = routeTokens(message);
   const node = (id: string) => view.byId.get(id)!;
-  const examples = (ids: string[]) => rankNodes(view, words, ids).slice(0, nExamples).map((id) => clip(titleOf(node(id)), 60));
+  const examples = (ids: string[]) => rankNodes(view, words, ids).slice(0, nExamples).map((id) => clip(view.title(node(id)), 60));
   const withExamples = (label: string, ids: string[]) => { const ex = examples(ids); return ex.length ? `${label}. e.g. ${ex.join("; ")}` : label; };
   const kindLabel = (k: string) => opts.kindLabels?.[k] ?? template.kinds[k]?.description ?? k;
 
@@ -205,7 +214,7 @@ export async function route(g: Graph, template: RouteVocabularySource, message: 
     const choices = wire.type === "choice" ? Object.keys(wire.criteria) : ["yes", "no"];
     const so_far = {
       intent, space: space === undefined ? undefined : view.spaces.find((s) => s.key === space)?.label, kind, ...(isNew && { new: true }),
-      picked: picked.map((p) => ({ kind: node(p).kind, title: titleOf(node(p)), ...(descOf(node(p)) ? { description: clip(descOf(node(p)), 300) } : {}) })),
+      picked: picked.map((p) => ({ kind: node(p).kind, title: view.title(node(p)), ...(descOf(node(p)) ? { description: clip(descOf(node(p)), 300) } : {}) })),
     };
     const state = { task: "route", message, level, so_far };
     calls++;
@@ -246,7 +255,7 @@ export async function route(g: Graph, template: RouteVocabularySource, message: 
   const spaceOfNode = (id: string) => (view.spaces.find((s) => s.key !== view.root && s.nodes.includes(id)) ?? view.spaces.find((s) => s.nodes.includes(id)))?.key;
   const spaceOfKind = (k: string) => (view.mode === "map" ? view.spaces.find((s) => s.kinds.includes(k))?.key : undefined);
   const ofKind = (k: string, pool: string[] = sectionOf()?.nodes ?? view.nodes) => pool.filter((id) => node(id).kind === k);
-  const offered = (pool: string[], withKind: boolean) => pool.slice(0, maxChoices).map((id): [string, string] => [id, nodeCriterion(node(id), withKind)]);
+  const offered = (pool: string[], withKind: boolean) => pool.slice(0, maxChoices).map((id): [string, string] => [id, nodeCriterion(node(id), withKind, view.title(node(id)))]);
   const shortlistFirst = order === "shortlist-first";
   /** shortlist-first: a `new` answer below confident; the anchor question then decides whether the target is new. */
   let lowNew = false;
@@ -260,7 +269,7 @@ export async function route(g: Graph, template: RouteVocabularySource, message: 
       const label = kindTokens(k, kindLabel(k));
       let sc = 0;
       for (const w of words) if (label.has(w)) sc += 2;
-      return [k, sc + Math.max(0, ...members(k).map((id) => overlapScore(words, node(id))))];
+      return [k, sc + Math.max(0, ...members(k).map((id) => overlapScore(words, node(id), view.title(node(id)))))];
     }));
     const pref = (k: string) => { const i = prefer.indexOf(k); return i < 0 ? prefer.length : i; };
     return [...pool].sort((x, y) => score.get(y)! - score.get(x)! || pref(x) - pref(y) || members(y).length - members(x).length || (x < y ? -1 : 1));
@@ -282,9 +291,9 @@ export async function route(g: Graph, template: RouteVocabularySource, message: 
       const rest = pool.filter((id) => !picked.includes(id));
       if (!rest.length) break;
       if (calls + 2 > maxCalls - reserve()) { truncated = true; break; }
-      const listed = rest.slice(0, maxChoices).map((id) => titleOf(node(id))).join("; ");
+      const listed = rest.slice(0, maxChoices).map((id) => view.title(node(id))).join("; ");
       const more = await ask("more", "route.more",
-        `Besides ${picked.map((p) => `"${titleOf(node(p))}"`).join(", ")}, does state.message also concern another of these items?`,
+        `Besides ${picked.map((p) => `"${view.title(node(p))}"`).join(", ")}, does state.message also concern another of these items?`,
         [], [["yes", `Yes: it also concerns one of: ${listed}`], ["no", "No: those already picked are all it concerns"]], "no");
       if (!usable(more) || more.answer !== "yes") break;
       const next = await ask("nodes", "route.nodes", "Which other item does state.message also concern?", offered(rest, withKind), [[ROUTE_NONE, "None of these"]], ROUTE_NONE);
@@ -300,7 +309,7 @@ export async function route(g: Graph, template: RouteVocabularySource, message: 
   async function shortlist(): Promise<boolean> {
     const scored = view.nodes.map((id) => {
       const n = node(id);
-      let sc = overlapScore(words, n);
+      let sc = overlapScore(words, n, view.title(n));
       const k = kindTokens(n.kind, kindLabel(n.kind));
       for (const w of words) if (k.has(w)) sc += 1;
       return [id, sc] as const;
@@ -394,7 +403,7 @@ export async function route(g: Graph, template: RouteVocabularySource, message: 
         .filter(([, n]) => n > 0).sort((x, y) => y[1] - x[1] || (local.indexOf(x[0]) + 1 || 999) - (local.indexOf(y[0]) + 1 || 999)).map(([k]) => k);
       const ks = [...named, ...local.filter((k) => !named.includes(k))];
       const kStep = await ask("kind", "route.kind",
-        `state.message adds a new item near "${titleOf(node(picked[0]!))}". What kind of item is the new one?`,
+        `state.message adds a new item near "${view.title(node(picked[0]!))}". What kind of item is the new one?`,
         ks.map((k) => [k, withExamples(kindLabel(k), ofKind(k, view.nodes))]), [[ROUTE_NONE, "None of these kinds"]], ks[0] ?? ROUTE_NONE);
       kind = proceed(kStep) && kStep.answer !== ROUTE_NONE ? kStep.answer : undefined;
       if (kind !== undefined) space = spaceOfKind(kind) ?? space;
@@ -422,7 +431,7 @@ export async function route(g: Graph, template: RouteVocabularySource, message: 
   const sp = sectionOf();
   const scope = sp ? (kind && sp.nodes.some((id) => node(id).kind === kind) ? sp.nodes.filter((id) => node(id).kind === kind) : sp.nodes) : view.nodes;
   const ranked = rankNodes(view, words, scope);
-  const related = picked.length ? [] : (sp ? ranked : ranked.filter((id) => overlapScore(words, node(id)) > 0)).slice(0, 5);
+  const related = picked.length ? [] : (sp ? ranked : ranked.filter((id) => overlapScore(words, node(id), view.title(node(id))) > 0)).slice(0, 5);
 
   return {
     message,

@@ -66,6 +66,7 @@ app.onError((err, c) => {
   const code = artifactsErrorCode(err);
   if (code && ARTIFACTS_STATUS[code]) return c.json<ApiError>({ error: { code: `artifacts-${code.toLowerCase().replaceAll("_", "-")}`, message: err.message } }, ARTIFACTS_STATUS[code]);
   if ((err as Error).name === "ModelParseError") return c.json<ApiError>({ error: { code: "invalid-genome", message: err.message } }, 422);
+  if ((err as Error).name === "LegacyGenomeError") return c.json<ApiError>({ error: { code: "legacy-genome", message: err.message } }, 422);
   // Never log request bodies or headers (tokens); the message is enough to debug.
   console.error(`unhandled ${c.req.method} ${new URL(c.req.url).pathname}: ${(err as Error).message}`);
   return c.json<ApiError>({ error: { code: "internal", message: "internal error" } }, 500);

@@ -153,8 +153,8 @@ describe("iteration-2 reads and writes", () => {
   it("in fixture mode serves Genome files, head-only revisions and empty lists, and refuses writes", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("Failed to fetch"))));
     const tree = await listFiles("system.keep-in-touch", { repo: "genome" });
-    expect(tree.files.map((f) => f.path)).toContain("system.yaml");
-    const file = await getFile("system.keep-in-touch", { repo: "genome", path: "system.yaml" });
+    expect(tree.files.map((f) => f.path)).toContain("node.yaml");
+    const file = await getFile("system.keep-in-touch", { repo: "genome", path: "node.yaml" });
     expect(file.text).toContain("system.keep-in-touch");
     expect((await listFiles("system.keep-in-touch", { repo: "app" })).files).toEqual([]);
     expect((await getRevisions("system.keep-in-touch")).revisions).toEqual([{ id: "head", kind: "head", label: "head" }]);

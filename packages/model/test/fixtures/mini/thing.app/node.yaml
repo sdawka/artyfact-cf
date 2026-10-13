@@ -1,0 +1,31 @@
+id: thing.app
+kind: thing
+template: template.thing.mini-webapp@1
+fields:
+  name: Notes app
+  description: The notes web app
+  sections:
+    - section.ui
+    - section.domain
+  artifacts:
+    - artifact: artifact.app
+      type: worker-fullstack
+      repo: mini-app
+      scope: []
+criteria:
+  - id: C.app.exists
+    title: Artifact exists
+    claim: The artifact has the required files
+    target: artifact
+    gates:
+      - submission
+    hooks:
+      - id: hook.app.exists
+        assay: Required files present
+        tier: basic
+        engine: manifest
+        triggers:
+          - submission
+        binding: bound
+        fromTemplate: template.thing.mini-webapp@1
+    fromTemplate: template.thing.mini-webapp@1

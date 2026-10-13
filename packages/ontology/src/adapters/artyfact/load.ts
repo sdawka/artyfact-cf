@@ -33,6 +33,8 @@ export interface ArtyfactModel {
   hooks: schema.AssayHook[];
   journeys: schema.Journey[];
   evolutions: schema.Evolution[];
+  /** id → file path it was declared in, or the template ref it came from. */
+  origin: Record<string, string>;
   warnings: ModelWarning[];
 }
 
@@ -197,7 +199,7 @@ export function loadArtyfactModel(files: Files, opts: LoadOptions = {}): Artyfac
     return { ...thing, sections: thing.sections ?? tpl?.sections ?? [] };
   });
 
-  return { system, purposes, externals, claims, description, kits, things: resolvedThings, templates, nodes, requirements, criteria, hooks, journeys, evolutions, warnings };
+  return { system, purposes, externals, claims, description, kits, things: resolvedThings, templates, nodes, requirements, criteria, hooks, journeys, evolutions, origin, warnings };
 }
 
 /** A template's nodes, criteria and hooks for `owner`: stamped `fromTemplate`, placeholders rebased. */

@@ -3,8 +3,12 @@
 interface Secrets {
   /** Bearer token required for admin routes (import, promote, accept, reject). */
   ADMIN_TOKEN: string;
+  /** System One providers, in this order: FAKE_S1=1 (local and tests only), TypeSafe, OpenRouter; none is off. */
+  FAKE_S1?: string;
   TYPESAFE_API_KEY?: string;
   OPENROUTER_API_KEY?: string;
+  /** OpenRouter decision model; default perplexity/pplx-decider-v1.1-27b. */
+  OPENROUTER_MODEL?: string;
   /** "1" lets the health hook fetch http://localhost / 127.0.0.1 previews. `.dev.vars` only, never deployed. */
   ALLOW_LOCAL_PREVIEW?: string;
   /** Bearer the artyfact-ci Workflow sends with build reports. */

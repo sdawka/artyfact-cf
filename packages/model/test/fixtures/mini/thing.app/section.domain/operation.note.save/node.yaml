@@ -1,0 +1,8 @@
+id: operation.note.save
+kind: operation
+fields:
+  name: Save note
+  owningThing: thing.app
+  revision: 1
+links:
+  - { rel: writes, to: entity.Note }

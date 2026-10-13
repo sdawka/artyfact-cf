@@ -48,6 +48,8 @@ export interface Provenance {
   questionHash: string;
   thresholds: Thresholds;
   usage?: Usage;
+  /** Wall time of the provider call. */
+  ms?: number;
   error?: { name: string; message: string; code?: string; status?: number };
   /** Funnel round (1 for stage-1 entry questions) and stage name of the ask that settled the finding. */
   round?: number;

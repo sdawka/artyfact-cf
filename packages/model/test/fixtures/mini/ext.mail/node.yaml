@@ -1,0 +1,7 @@
+id: ext.mail
+kind: external
+fields:
+  name: Mail provider
+  kind: service
+  modeled: Outbound address
+  external: Delivery

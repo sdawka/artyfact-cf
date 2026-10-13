@@ -1,0 +1,6 @@
+id: GD.contacts
+kind: feature
+fields:
+  name: Contacts
+  summary: Keep a private list of contacts
+  deferred: false

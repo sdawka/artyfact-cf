@@ -3,9 +3,10 @@ import { constants, closeSync, lstatSync, mkdirSync, mkdtempSync, openSync, read
 import { dirname, isAbsolute, join, resolve, sep } from "node:path";
 import { parseArgs } from "node:util";
 import {
-  composeParts, extractPart, loadSystem, partDigest, schema, upgradeComposition,
+  composeParts, extractPart, partDigest, schema, upgradeComposition,
   type PartPackage, type PartPayload, type PartRecipe, type PartRef, type SavedComposition,
 } from "@artyfact/model";
+import { NODE_FILE, parseTree } from "@artyfact/ontology";
 import { CliError } from "./git.ts";
 import { isSecretFile } from "./ignore.ts";
 import { assertBearerTransport, resolvePlatform } from "./platform-url.ts";
@@ -238,10 +239,10 @@ function validateComposition(composition: SavedComposition): void {
       throw new CliError(`command ${command.id} has an unsafe cwd`);
     }
   }
-  // Partial model Parts are valid. Once composition supplies a System root, it is a complete Genome candidate and must
-  // pass the same parser/index checks used by the platform before any generated destination is touched.
-  if (Object.hasOwn(composition.model, "system.yaml")) {
-    try { loadSystem(new Map(Object.entries(composition.model)) as Map<string, string>); }
+  // Partial model Parts are valid. Once composition supplies a System root (`node.yaml`), it is a complete Genome
+  // candidate and must pass the tree parser the platform loads it with before any generated destination is touched.
+  if (Object.hasOwn(composition.model, NODE_FILE)) {
+    try { parseTree(composition.model); }
     catch (error) { throw new CliError(`generated Genome is invalid: ${(error as Error).message}`); }
   }
 }

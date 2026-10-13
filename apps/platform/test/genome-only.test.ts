@@ -4,7 +4,7 @@ import type { ImportSystemResponse, ModelBundle } from '../shared/api';
 import { setArtifactsOverride } from '../worker/artifacts/client';
 import { clearGenomeMemo } from '../worker/artifacts/genome-source';
 import { systemStub } from '../worker/service';
-import { genomeFiles } from './fixtures/genome';
+import { genomeFiles, genomeFor } from './fixtures/genome';
 import { FakeArtifacts } from './helpers/fake-artifacts';
 import { ADMIN, call } from './helpers/flows';
 
@@ -12,10 +12,8 @@ afterEach(() => { setArtifactsOverride(undefined); clearGenomeMemo(); });
 it('imports and opens a Genome-only Thing without creating a source artifact or app repository', async () => {
   const id = `system.genomeonly${crypto.randomUUID().replaceAll('-', '')}`;
   const repo = `genome-${id.slice(7)}`;
-  const files = { ...genomeFiles,
-    'system.yaml': genomeFiles['system.yaml'].replaceAll('system.kit', id),
-    'criteria.yaml': genomeFiles['criteria.yaml'].replaceAll('system.kit', id),
-    'things/webapp/thing.yaml': 'id: thing.webapp\nname: App idea\ntemplateRef: null\ndescription: Genome first\nartifacts: []\n',
+  const files = { ...genomeFor(id),
+    'thing.webapp/node.yaml': 'id: thing.webapp\nkind: thing\nfields:\n  name: App idea\n  description: Genome first\n',
   };
   const ns = new FakeArtifacts();
   ns.create(repo).commit(files, 'Genome only'); setArtifactsOverride(ns);

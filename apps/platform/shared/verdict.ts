@@ -44,3 +44,10 @@ export function foldVerdict(rows: readonly Evaluation[], offTrigger: ReadonlySet
   if (!counted.length) return "not-run";
   return RANK[Math.min(...counted.map((e) => RANK.indexOf(rowVerdict(e))))]!;
 }
+
+/**
+ * Whether a readiness finding blocks: an `error`, or a `missing` gap other than a provisional node. Marking a node
+ * provisional declares an open question; the engine's completeness pack reports it as `node.provisional`, shown but
+ * never blocking (as before the engine).
+ */
+export const isBlocking = (f: { level: string; rule: string }) => f.level === "error" || (f.level === "missing" && f.rule !== "node.provisional");

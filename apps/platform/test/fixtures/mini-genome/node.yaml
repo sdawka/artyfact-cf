@@ -1,0 +1,75 @@
+id: system.mini-kit
+kind: system
+template: template.system.social-networking.cloudflare@1
+fields:
+  name: Mini Keep in Touch
+  profile: private-relationships
+  phase: unrealized
+  kits:
+    - id: privacy
+      version: 1.0.0
+  rulePacks:
+    - id: metamodel
+      version: "1"
+    - id: readiness
+      version: "1"
+    - id: authorization
+      version: "1"
+    - id: theory
+      version: "1"
+    - id: journeys
+      version: "1"
+    - id: topology.private-pairs
+      version: "1"
+  required:
+    - privacy
+  narrative: A private contact list that reminds an owner whom to reach out to.
+criteria:
+  - id: C.system.structure
+    title: Structure is consistent
+    claim: The Genome loads and no pinned rule reports a hard violation.
+    gates:
+      - submission
+      - promotion
+    hooks:
+      - id: hook.system.structure
+        assay: Run the pinned rule packs
+        tier: basic
+        engine: model-rules
+        triggers:
+          - submission
+        binding: bound
+  - id: C.system.promotion
+    title: Changes stay in scope
+    claim: A candidate changes only the paths its Task Packet permits.
+    target: artifact
+    gates:
+      - submission
+      - promotion
+    hooks:
+      - id: hook.system.scope
+        assay: Changed paths within permitted globs
+        tier: basic
+        engine: diff
+        triggers:
+          - submission
+        inputs:
+          mode: scope
+        binding: bound
+  - id: C.system.readiness
+    title: Concurrent work is known
+    claim: Overlap with other open candidates is reported before promotion.
+    target: artifact
+    gates:
+      - submission
+      - promotion
+    hooks:
+      - id: hook.system.overlap
+        assay: Overlap with concurrent candidates
+        tier: basic
+        engine: diff
+        triggers:
+          - submission
+        inputs:
+          mode: overlap
+        binding: bound

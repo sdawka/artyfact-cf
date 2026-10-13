@@ -25,7 +25,9 @@ const ONTOLOGY = "things/webapp/ontology.yaml";
 const pairs = (fs: { rule: string; subject?: string }[]) => [...new Set(fs.map((f) => `${f.rule} ${f.subject ?? ""}`))].sort();
 const ours = (r: Readiness) => pairs(r.findings.filter((f) => f.pack?.startsWith("artyfact.")));
 const allPacks = [packs.metamodel, packs.readiness, packs.authorization, packs.journeys, packs.theory, packs.topologyPrivatePairs];
-const theirs = (files: Files) => pairs(referenceFindings(referenceModel(files, legacy), allPacks));
+/** Reference rules the base packs drop on purpose: a Genome-only Thing binds no artifact. */
+const DROPPED = new Set(["thing.noArtifact"]);
+const theirs = (files: Files) => pairs(referenceFindings(referenceModel(files, legacy), allPacks).filter((f) => !DROPPED.has(f.rule)));
 const template = composeTemplate(systemRef, [workerRef]);
 const load = (files: Files) => loadArtyfactSystem(files, { templates: artyfactTemplateStore(bundledDir) }) as Graph;
 
@@ -114,7 +116,7 @@ const mutations: [name: string, rules: string[], mutate: (f: Files) => Files][] 
     d.criteria.push({ id: "C.webapp.ghost", title: "Ghost", claim: "x", ownerKind: "thing", ownerId: "thing.ghost", subjectKind: "screen", subjectId: "screen.ghost", targetKind: "artifact", gates: ["candidate"] });
   })],
   ["system criterion owned by a thing", ["criterion.ownerMissing"], (f) => edit(f, "criteria.yaml", (d) => { d.criteria[0].ownerId = "thing.webapp"; })],
-  ["thing without artifacts", ["thing.noArtifact"], (f) => edit(f, "things/webapp/thing.yaml", (d) => { d.artifacts = []; })],
+  ["Genome-only thing without artifacts", [], (f) => edit(f, "things/webapp/thing.yaml", (d) => { d.artifacts = []; })],
   ["thing sections diverge from its template", ["thing.sectionMissing", "template.sectionMissing"], (f) => edit(f, "things/webapp/thing.yaml", (d) => { d.sections = ["section.ui", "section.ghost"]; })],
   ["uncovered requirement", ["coverage.requirement"], (f) => edit(f, "things/webapp/spec.yaml", (d) => { d.requirements.push({ id: "S.webapp.extra", thing: "thing.webapp", title: "Extra", text: "x" }); })],
   ["template criterion moved to the system", ["template.criterionMissing"], (f) => edit(f, "things/webapp/criteria.yaml", (d) => {

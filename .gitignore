@@ -8,7 +8,7 @@ dist
 coverage
 *.log
 # Genome node directories may end in .log (operation.contact.log).
-!packages/ontology/test/fixtures/genome-v2/**/*.log
+!examples/**/*.log
 .DS_Store
 *.tsbuildinfo
 .artyfact/
