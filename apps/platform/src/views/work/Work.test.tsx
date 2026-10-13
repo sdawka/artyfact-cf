@@ -197,6 +197,36 @@ describe("RealizationRow", () => {
   });
 });
 
+describe("Work hands decisions to Review", () => {
+  const REVIEW = `/s/${SYSTEM}/r/head/review`;
+  const waiting = realization({ status: "evaluated", candidate: "cand.1" });
+
+  it("links Promote to the Review desk and keeps no promotion panel on Work", async () => {
+    renderApp(`${WORK}?evolution=${EVO1}&candidates=cand.1`, undefined, seed({ realizations: [waiting] }));
+    const link = await screen.findByRole("link", { name: "Promote" });
+    expect(link.getAttribute("href")).toBe(`${REVIEW}?candidates=cand.1&evolution=${EVO1}&panel=promote`);
+    expect(screen.queryByRole("button", { name: "Promote" })).toBeNull();
+    expect(screen.queryByRole("heading", { name: /^Promote / })).toBeNull();
+  });
+
+  it("keeps the inline review on a realization row and adds Open in Review", async () => {
+    renderApp(`${WORK}?evolution=${EVO1}`, undefined, seed({ realizations: [waiting] }));
+    const row = await screen.findByTestId("realization-realization.1");
+    expect(within(row).getByRole("button", { name: /Review realization\.1/ })).toBeTruthy();
+    expect(within(row).getByRole("link", { name: /Open in Review realization\.1/ }).getAttribute("href")).toBe(`${REVIEW}?evolution=${EVO1}&realization=realization.1`);
+  });
+
+  it("marks a card whose candidate conflicts and that awaits review", async () => {
+    const soft: ConflictReport = { kind: "soft-semantic", candidates: ["cand.1", "cand.2"], subjects: [], nodes: ["screen.people"], message: "overlap" };
+    renderApp(WORK, undefined, seed({ realizations: [waiting], conflicts: [soft] }));
+    const card = await screen.findByRole("button", { name: "Private contact foundation" });
+    await waitFor(() => expect(card.textContent).toMatch(/≈ overlap/));
+    expect(card.textContent).toMatch(/1 awaits review/);
+    const other = screen.getByRole("button", { name: fixtureBundle().model.evolutions[1]!.title });
+    expect(other.textContent).not.toMatch(/overlap|awaits review/);
+  });
+});
+
 describe("CandidateReview", () => {
   const url = `${WORK}?evolution=${EVO1}&realization=realization.1`;
   const withCandidate = (extra = {}) => seed({ realizations: [realization()], candidates: [candidate(extra)] });
