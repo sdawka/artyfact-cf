@@ -56,7 +56,7 @@ it('reviews and promotes two artifact bindings atomically with exact candidates'
   files['thing.webapp/node.yaml'] = stringify(thing);
   ns.create(genomeRepo).commit(files, 'Genome'); ns.create(appRepo).commit(appFiles, 'Primary'); ns.create(secondRepo).commit(appFiles, 'Secondary');
   setArtifactsOverride(ns);
-  const imported = await call<ImportSystemResponse>('POST', '/systems/import', { systemId, genomeRepo, appRepo }, ADMIN);
+  const imported = await call<ImportSystemResponse>('POST', '/systems/import', { systemId, genomeRepo, appRepo, review: false }, ADMIN);
   expect(imported.status, JSON.stringify(imported.json)).toBe(201);
   const f: Flow = { ns, systemId, genomeRepo, appRepo, imp: imported.json, forks: 0 };
   const p = await planFor(f, [task('first'), task('second', 'artifact.secondary')]);
@@ -119,7 +119,7 @@ it('promotes an integrated plan under the real hook runner, which evaluates Thin
   expect(files[screen]).not.toBe(genomeFor(systemId)[screen]);
   ns.create(genomeRepo).commit(files, 'Genome'); ns.create(appRepo).commit(appFiles, 'App');
   setArtifactsOverride(ns);
-  const imported = await call<ImportSystemResponse>('POST', '/systems/import', { systemId, genomeRepo, appRepo }, ADMIN);
+  const imported = await call<ImportSystemResponse>('POST', '/systems/import', { systemId, genomeRepo, appRepo, review: false }, ADMIN);
   expect(imported.status, JSON.stringify(imported.json)).toBe(201);
   const f: Flow = { ns, systemId, genomeRepo, appRepo, imp: imported.json, forks: 0 };
   // The task lists no checks, so C.webapp.exists (Thing-owned, promotion-gated, hard) is gated but never listed.

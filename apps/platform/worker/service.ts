@@ -28,6 +28,7 @@ import { buildTaskPacket, protectedPathsFor } from "./packets/task-packet";
 import { ensurePushSubscription, removePushSubscription } from "./artifacts/subscriptions";
 import { dispatchPreviewBuild, requestProductionDeploy } from "./deployments";
 import { gateCriteria, hooksOf, type GateCriterion } from "./promotion";
+import { recordImportReview } from "./import-review";
 
 const TOKEN_TTL_S = 21_600;
 const COMMIT_RE = /^[0-9a-f]{40}$/;
@@ -236,7 +237,7 @@ async function platformCheck(
 }
 
 /** `genomeRepo`/`appRepo` are optional: omitted ones default to `<slug>.genome` / `<slug>.app`. */
-export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown }): Promise<ImportSystemResponse> {
+export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown; review?: unknown }): Promise<ImportSystemResponse> {
   const { systemId } = body;
   if (typeof systemId !== "string" || !systemId) throw badRequest("systemId is a required string");
   if (systemId === REGISTRY) throw badRequest("reserved system id");
@@ -303,6 +304,8 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     model: JSON.stringify(serializeModel(g.model)),
     rules: JSON.stringify(g.readiness),
   }));
+  // B.10: a new System commit is a new import to review unless `review: false` (worker/import-review.ts).
+  await recordImportReview(env, systemId, { review: body.review, head: booted.head, priorHead: prior?.head, genome: g, genomeCommit });
   // Re-read the summary now that the rules readiness is cached (B5: readiness counts and signifiers).
   const system = (await systemStub(env, systemId).summary()) ?? booted;
   await registryStub(env).registerSystem(system);
@@ -365,7 +368,7 @@ async function genomeView(env: Env, systemId: string, genomeCommit: string, repo
 }
 
 /** `platform.unsynced` is a readiness warning (never a blocker) while the System has no recorded `platform` commit. */
-function withPlatform<R extends { findings: Finding[]; modelReadiness: { findings: Finding[]; blockers: Finding[] } }>(s: HeadState, r: R): R {
+export function withPlatform<R extends { findings: Finding[]; modelReadiness: { findings: Finding[]; blockers: Finding[] } }>(s: HeadState, r: R): R {
   if (s.platform) return r;
   const w = unsyncedWarning(s.systemId);
   return { ...r, findings: [...r.findings, w], modelReadiness: { ...r.modelReadiness, findings: [...r.modelReadiness.findings, w] } };

@@ -70,7 +70,7 @@ export async function importFresh(ns = new FakeArtifacts()): Promise<Flow> {
   }, "genome");
   ns.create(appRepo).commit(appFiles, "scaffold");
   setArtifactsOverride(ns);
-  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo }, ADMIN);
+  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo, review: false }, ADMIN);
   expect(res.status, JSON.stringify(res.json)).toBe(201);
   return { ns, systemId, genomeRepo, appRepo, imp: res.json, forks: 0 };
 }

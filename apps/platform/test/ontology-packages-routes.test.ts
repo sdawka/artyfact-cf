@@ -31,7 +31,7 @@ it("keeps private import reviews authorized and bootstraps a pending review dest
   const artifacts = new FakeArtifacts();
   artifacts.create("native-route.genome").commit(accepted.genomeFiles!, "reviewed initial Genome");
   setArtifactsOverride(artifacts);
-  const imported = await call("POST", "/systems/import", { systemId, genomeRepo: "native-route.genome" });
+  const imported = await call("POST", "/systems/import", { systemId, genomeRepo: "native-route.genome", review: false });
   expect(imported.status, await imported.clone().text()).toBe(201);
   const model = await call("GET", `/systems/${systemId}/model`);
   expect(model.status, await model.clone().text()).toBe(200);
