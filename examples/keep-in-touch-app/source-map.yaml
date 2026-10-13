@@ -1,5 +1,7 @@
 - glob: src/index.ts
   nodes: [thing.webapp]
+- glob: src/worker/auth.ts
+  nodes: [policy.ownerOnly]
 - glob: src/worker/routes/contacts.ts
   nodes: [operation.contact.save, policy.ownerOnly, entity.ContactRecord]
 - glob: public/people/**

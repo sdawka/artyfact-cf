@@ -10,11 +10,14 @@
   nodes: [genome]
 # App infrastructure: dependencies, Worker config, runtime env, the Phenome helper, tests, static assets. These are
 # realized by the app Thing itself; without them every template upgrade is unmapped and cannot be promoted.
-- glob: "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.test.jsonc,source-map.yaml,.gitignore,.dev.vars.example,README.md}"
+- glob: "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.test.jsonc,.gitignore,.dev.vars.example,README.md}"
   nodes: ["$thing"]
 - glob: src/index.ts
   nodes: ["$thing"]
-- glob: src/worker/*.ts
+# src/worker/auth.ts is policy code and source-map.yaml decides scope: both stay unmapped here; apps must map auth.ts to their policy node.
+- glob: src/worker/env.ts
+  nodes: ["$thing"]
+- glob: src/worker/phenome.ts
   nodes: ["$thing"]
 - glob: test/**
   nodes: ["$thing"]

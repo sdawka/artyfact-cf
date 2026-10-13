@@ -24,7 +24,7 @@ const mapped = (p: string) => nodesForPath(sm, p).filter((n) => !n.startsWith("u
 
 const INFRA = [
   "package.json", "package-lock.json", "tsconfig.json", "vitest.config.ts", "wrangler.jsonc", "wrangler.test.jsonc", ".gitignore",
-  ".dev.vars.example", "src/index.ts", "src/worker/env.ts", "src/worker/phenome.ts", "test/phenome.test.ts", "public/index.html", "README.md", "source-map.yaml",
+  ".dev.vars.example", "src/index.ts", "src/worker/env.ts", "src/worker/phenome.ts", "test/phenome.test.ts", "public/index.html", "README.md",
   ".artyfact/template.json",
 ];
 
@@ -42,8 +42,10 @@ describe("template source-map defaults: app infrastructure", () => {
 
   it("maps every file the scaffold ships", () => {
     expect(scaffold.length).toBeGreaterThan(10);
+    // source-map.yaml decides scope authorization, so it is intentionally unmapped: changing it blocks promotion until a human authorizes it.
     const unmapped = scaffold.filter((p) => mapped(p).length === 0);
-    expect(unmapped).toEqual([]);
+    expect(unmapped).toEqual(["source-map.yaml"]);
+    expect(mapped("src/worker/auth.ts")).toEqual(["policy.ownerOnly"]);
   });
 
   it("hook.system.promotion scope-authorized passes for an empty-scope upgrade touching only infrastructure", async () => {
@@ -65,5 +67,21 @@ describe("template source-map defaults: app infrastructure", () => {
     const scope = (promo.observations as { check?: string; observations?: unknown[] }[]).find((o) => o.check === "scope-authorized");
     expect(JSON.stringify(scope)).toContain("platformWritten");
     expect(JSON.stringify(scope)).not.toContain("unmapped");
+  });
+
+  it.each(["src/worker/auth.ts", "source-map.yaml"])("scope-authorized does not pass for an app-Thing candidate changing %s without an app mapping", async (path) => {
+    const defaultsOnly = loadSourceMap(parseSourceMap(defaultsText), THING, undefined);
+    const candidate: CandidateRef = {
+      id: "cand.kit.r1", realizationId: "realization.1.r1", evolutionId: "evolution.1", target: "app", commit: COMMIT, baseCommit: BASE,
+      changedPaths: ["package.json", path], changedNodes: [THING],
+      pathNodes: Object.fromEntries(["package.json", path].map((p) => [p, nodesForPath(defaultsOnly, p)])),
+    };
+    const ctx: SubmissionContext = {
+      systemId: "system.keep-in-touch", candidate, genomeCommit: BASE, genomeFiles: keepInTouch(),
+      tree: [{ path, size: 1 }], permittedPaths: ["**"], protectedPaths: ["system/**", "assays/**"], openCandidates: [],
+    };
+    const runner = createHookRunner({ s1: createSystemOne({ FAKE_S1: "1" }), now: () => new Date(0) });
+    const promo = (await runner.runSubmission(ctx)).find((e) => e.criterion === "C.system.promotion")!;
+    expect(promo.observations).toContainEqual(expect.objectContaining({ check: "scope-authorized", verdict: "unknown" }));
   });
 });
