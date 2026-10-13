@@ -12,12 +12,29 @@ packsFor([{ id: "readiness", version: "1" }]);              // [{ id, version, s
 ## Layout
 
 ```
-system/<name>@<v>/template.yaml
-thing/<name>@<v>/template.yaml      + optional criteria.yaml, source-map.defaults.yaml, scaffold.yaml
-rule-packs/<id>@<v>.dl
+system/<name>@<v>/template.yaml      meta@1 (the engine's format); extends template.meta.artyfact-genome@1
+system/<name>@<v>/template.v1.yaml   the same template in the legacy artyfact shape (deleted with the v1 readers in W4)
+thing/<name>@<v>/template.yaml       + template.v1.yaml, and optional criteria.yaml, source-map.defaults.yaml, scaffold.yaml
+rule-packs/<id>@<v>.dl               legacy-dialect packs for @artyfact/model's validate (deleted in W4)
 ```
 
-`templates.get` folds the sibling files into the `Template`: `criteria.yaml` (`criteria:` + `hooks:`), `source-map.defaults.yaml` (list of `{glob, nodes}`) and the `repo`/`path` of `scaffold.yaml`. Raw files are available through `templateFile(ref, name)`.
+## meta@1 templates
+
+`template.yaml` is a `meta@1` template (`docs/design/ontology.md` section 3). Kinds, relations, legal `parents` and the per-kind view hints (label, plural, glyph, colour token, Map layer, Inspector field order) are inherited from the base `template.meta.artyfact-genome@1` in `@artyfact/ontology`, which the UI renders from. Each template adds what is its own:
+
+- `rules`: the domain packs. The System template owns `readiness`, `theory` and `topology.private-pairs` (with its `topology.multiRecipient` question); the Thing templates own `authorization` and `journeys`. The generic `facts` and `metamodel` packs stay in the base.
+- `nodes` and `criteria`: the prefilled nodes (`$self` is the instantiating node), criteria and hooks. `files` on the worker's root and prefilled nodes replace `source-map.defaults.yaml` for the Genome v2 source map (globs are relative to the Thing's `root`).
+
+```ts
+import { loadMetaTemplate, composeTemplate, metaTemplates } from "@artyfact/templates";
+
+loadMetaTemplate("template.thing.vue-webapp@1");               // merged over its extends chain
+composeTemplate(systemRef, [thingRef]);                       // the System template with its Things' rules, for evaluate()
+```
+
+A test keeps `template.yaml` and `template.v1.yaml` in step (prefilled nodes, criteria, hooks, source globs) and checks that Keep in Touch yields artyfact's findings against the composed template.
+
+`templates.get` still returns the legacy `Template` from `template.v1.yaml`, folding the sibling files in: `criteria.yaml` (`criteria:` + `hooks:`), `source-map.defaults.yaml` (list of `{glob, nodes}`) and the `repo`/`path` of `scaffold.yaml`. Raw files are available through `templateFile(ref, name)`.
 
 ## The `$thing` placeholder
 
@@ -25,7 +42,7 @@ Template nodes and criteria use `"$thing"` for `parent`, `owningThing`, `ownerId
 
 ## Adding a template or pack
 
-1. Create `thing/<name>@<v>/template.yaml` (or `system/...`, or `rule-packs/<id>@<v>.dl`).
+1. Create `thing/<name>@<v>/template.yaml` (or `system/...`) as meta@1, with a `template.v1.yaml` until W4 (or `rule-packs/<id>@<v>.dl`).
 2. Run `npm run build -w @artyfact/templates` to regenerate `src/generated/files.ts` (also runs on `prepare` and `pretest`) and commit the result.
 3. Add or extend a test: templates must parse with `Template`; every rule in a pack needs a `.message` and a valid/invalid case in `test/fixtures/`.
 

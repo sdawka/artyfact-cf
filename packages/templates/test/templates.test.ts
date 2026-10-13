@@ -158,11 +158,14 @@ describe("generated bundle", () => {
       "rule-packs/readiness@1.dl",
       "rule-packs/theory@1.dl",
       "rule-packs/topology.private-pairs@1.dl",
+      "system/social-networking.cloudflare@1/template.v1.yaml",
       "system/social-networking.cloudflare@1/template.yaml",
       "thing/cloudflare-worker-webapp@1/criteria.yaml",
       "thing/cloudflare-worker-webapp@1/scaffold.yaml",
       "thing/cloudflare-worker-webapp@1/source-map.defaults.yaml",
+      "thing/cloudflare-worker-webapp@1/template.v1.yaml",
       "thing/cloudflare-worker-webapp@1/template.yaml",
+      "thing/vue-webapp@1/template.v1.yaml",
       "thing/vue-webapp@1/template.yaml",
     ]);
   });

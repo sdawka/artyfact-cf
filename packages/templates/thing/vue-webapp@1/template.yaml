@@ -1,0 +1,278 @@
+# meta@1 template (docs/design/ontology.md section 3). Same section contract and rules as cloudflare-worker-webapp; v1 gave it no
+# source-map defaults, so it declares no `files`. template.v1.yaml is the legacy shape, kept until W4.
+id: template.thing.vue-webapp
+version: 1
+meta: 1
+extends: template.meta.artyfact-genome@1
+criteria:
+  - id: C.webapp.exists
+    owner: thing
+    subject: thing
+    severity: hard
+    description: The app has the files a deployable Worker needs.
+    gates:
+      - candidate
+      - promotion
+    hooks:
+      - hook.webapp.exists
+  - id: C.webapp.health
+    owner: thing
+    subject: thing
+    severity: hard
+    description: The running app answers its health endpoint.
+    gates:
+      - deployment
+      - outcome
+    hooks:
+      - hook.webapp.health
+rules:
+  - id: artyfact.authorization
+    version: 1
+    source: |
+      % artyfact.authorization@1 - every state-changing operation is governed by a policy, directly or by inheritance.
+
+      .decl link(From: sym, Rel: sym, To: sym, Certainty: sym)
+      .decl anode(Id: sym, Kind: sym, Thing: sym)
+      .decl aparent(Child: sym, Parent: sym)
+      .decl apolicyMode(Policy: sym, Mode: sym)
+      .decl ancestor(X: sym, A: sym)
+      .decl governedDirect(X: sym, Policy: sym)
+      .decl governedBy(X: sym, Policy: sym)
+      .decl mutating(Op: sym)
+      .decl privateEntity(E: sym)
+      .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+
+      .message "authz.ungoverned" "Operation {1} writes data but no authorization policy governs it (directly, via its affordances, or inherited)."
+      .message "authz.policyConflict" "{1} is directly governed by policies with different modes."
+      .message "authz.privateReadUngoverned" "Operation {1} reads an owner-only entity but no authorization policy governs it."
+
+      ancestor(X,A) :- aparent(X,A).
+      ancestor(X,A) :- aparent(X,Y), ancestor(Y,A).
+      governedDirect(X,P) :- link(P,"governs",X,_), anode(P,"policy",_).
+      governedBy(X,P) :- governedDirect(X,P).
+      governedBy(X,P) :- ancestor(X,A), governedDirect(A,P).
+      governedBy(Op,P) :- link(Aff,"invokes",Op,_), governedBy(Aff,P).
+      governedBy(X,P) :- link(X,"inherits",Y,_), governedBy(Y,P).
+      mutating(Op) :- anode(Op,"operation",_), link(Op,"writes",_,_).
+      privateEntity(E) :- governedBy(E,P), apolicyMode(P,"owner-only").
+
+      violation("authz.ungoverned",Op,"hard") :- mutating(Op), not governedBy(Op,_).
+      violation("authz.policyConflict",X,"hard") :- governedDirect(X,P1), governedDirect(X,P2), apolicyMode(P1,M1), apolicyMode(P2,M2), M1 != M2.
+      violation("authz.privateReadUngoverned",Op,"hard") :- link(Op,"reads",E,_), anode(Op,"operation",_), privateEntity(E), not governedBy(Op,_).
+  - id: artyfact.journeys
+    version: 1
+    source: |
+      % artyfact.journeys@1 - screen and affordance completeness (R7), journey well-formedness and coverage (R8).
+
+      .decl provisional(Id: sym)
+      .decl anode(Id: sym, Kind: sym, Thing: sym)
+      .decl aparent(Child: sym, Parent: sym)
+      .decl aknown(Id: sym)
+      .decl ahasActor(Id: sym)
+      .decl ahasEffects(Id: sym)
+      .decl ajourney(Id: sym, Start: sym)
+      .decl ajourneyDeferred(Id: sym)
+      .decl astep(Journey: sym, Step: sym)
+      .decl astepEnd(Journey: sym, Step: sym)
+      .decl astepUnresolved(Journey: sym, Step: sym)
+      .decl astepNextDangling(Journey: sym)
+      .decl astepScreen(Screen: sym)
+      .decl astepOperation(Operation: sym)
+      .decl astepRef(Journey: sym, Step: sym, Id: sym)
+      .decl hasChild(Node: sym)
+      .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+      .decl missing(Rule: sym, Subject: sym) .output
+      .decl warning(Rule: sym, Subject: sym) .output
+
+      .message "journey.startMissing" "Journey {1} starts at a step that does not exist."
+      .message "journey.nextDangling" "Journey {1} has a step whose next step does not exist."
+      .message "journey.stepRefMissing" "Journey {1} has a step referring to an id that does not exist."
+      .message "journey.noEnd" "Journey {1} has no end step."
+      .message "journey.screenUncovered" "Screen {1} appears in no journey."
+      .message "journey.operationUncovered" "Operation {1} is invoked by no journey step."
+      .message "screen.noComponents" "Screen {1} enumerates no components."
+      .message "affordance.incomplete" "Affordance {1} lacks an actor or effects."
+
+      hasChild(P) :- aparent(_,P).
+
+      violation("journey.startMissing",J,"hard") :- ajourney(J,S), not astep(J,S).
+      violation("journey.nextDangling",J,"hard") :- astepNextDangling(J).
+      violation("journey.stepRefMissing",J,"hard") :- astepRef(J,S,Id), not astepUnresolved(J,S), not aknown(Id).
+      missing("journey.noEnd",J) :- ajourney(J,_), not ajourneyDeferred(J), not astepEnd(J,_).
+      warning("journey.screenUncovered",S) :- anode(S,"screen",_), not provisional(S), not astepScreen(S).
+      warning("journey.operationUncovered",O) :- anode(O,"operation",_), not provisional(O), not astepOperation(O).
+      missing("screen.noComponents",S) :- anode(S,"screen",_), not provisional(S), not hasChild(S).
+      missing("affordance.incomplete",A) :- anode(A,"affordance",_), not provisional(A), not ahasActor(A).
+      missing("affordance.incomplete",A) :- anode(A,"affordance",_), not provisional(A), not ahasEffects(A).
+nodes:
+  - id: template.thing.vue-webapp@1
+    kind: template
+    fields:
+      kind: thing
+      version: "1"
+      name: Vue web app
+      description: Vue single-page app served by a Cloudflare Worker. Same section contract as cloudflare-worker-webapp; proves a Thing can swap its UI stack.
+      sections:
+        - section.ui
+        - section.domain
+        - section.authorization
+        - section.runtime
+      criteria:
+        - C.webapp.exists
+        - C.webapp.health
+      hooks:
+        - hook.webapp.exists
+        - hook.webapp.health
+  - id: section.ui
+    kind: section
+    parent: $self
+    fields:
+      name: UI
+      owningThing: $self
+      revision: 1
+      description: Vue screens, shared components and affordances.
+      fromTemplate: template.thing.vue-webapp@1
+  - id: section.domain
+    kind: section
+    parent: $self
+    fields:
+      name: Domain
+      owningThing: $self
+      revision: 1
+      description: Entities, operations and invariants.
+      fromTemplate: template.thing.vue-webapp@1
+  - id: section.authorization
+    kind: section
+    parent: $self
+    fields:
+      name: Authorization
+      owningThing: $self
+      revision: 1
+      description: Policies governing who may read or change what.
+      fromTemplate: template.thing.vue-webapp@1
+  - id: section.runtime
+    kind: section
+    parent: $self
+    fields:
+      name: Runtime
+      owningThing: $self
+      revision: 1
+      description: Bindings and deployment surface.
+      fromTemplate: template.thing.vue-webapp@1
+  - id: binding.worker
+    kind: binding
+    parent: section.runtime
+    fields:
+      name: Worker with static assets
+      owningThing: $self
+      revision: 1
+      fromTemplate: template.thing.vue-webapp@1
+  - id: binding.d1
+    kind: binding
+    parent: section.runtime
+    fields:
+      name: D1 database
+      owningThing: $self
+      revision: 1
+      fromTemplate: template.thing.vue-webapp@1
+    provisional: true
+  - id: component.App
+    kind: component
+    parent: section.ui
+    fields:
+      name: App
+      owningThing: $self
+      revision: 1
+      description: Vue root component; mounts the router view.
+      fromTemplate: template.thing.vue-webapp@1
+  - id: component.Router
+    kind: component
+    parent: component.App
+    fields:
+      name: Router
+      owningThing: $self
+      revision: 1
+      description: vue-router instance mapping routes to screens.
+      fromTemplate: template.thing.vue-webapp@1
+  - id: C.webapp.exists
+    kind: criterion
+    fields:
+      version: 1
+      title: Web app exists
+      claim: The app has the files a deployable Worker needs.
+      ownerKind: thing
+      subjectKind: thing
+      targetKind: artifact
+      severity: hard
+      gates:
+        - candidate
+        - promotion
+      deferred: false
+      hooks:
+        - hook.webapp.exists
+      fromTemplate: template.thing.vue-webapp@1
+    links:
+      - rel: owner
+        to: $self
+      - rel: subject
+        to: $self
+  - id: C.webapp.health
+    kind: criterion
+    fields:
+      version: 1
+      title: Web app is healthy
+      claim: The running app answers its health endpoint.
+      ownerKind: thing
+      subjectKind: thing
+      targetKind: runtime
+      severity: hard
+      gates:
+        - deployment
+        - outcome
+      deferred: false
+      hooks:
+        - hook.webapp.health
+      fromTemplate: template.thing.vue-webapp@1
+    links:
+      - rel: owner
+        to: $self
+      - rel: subject
+        to: $self
+  - id: hook.webapp.exists
+    kind: hook
+    fields:
+      version: 1
+      assay: webapp.requiredFiles
+      criteria:
+        - C.webapp.exists
+      tier: basic
+      engine: manifest
+      targetKind: artifact
+      triggers:
+        - candidate
+        - promotion
+      inputs:
+        requiredFiles: wrangler.jsonc,src/index.ts,package.json
+      timeoutMs: 60000
+      costTier: free
+      binding: bound
+      fromTemplate: template.thing.vue-webapp@1
+  - id: hook.webapp.health
+    kind: hook
+    fields:
+      version: 1
+      assay: webapp.health
+      criteria:
+        - C.webapp.health
+      tier: execution
+      engine: http
+      targetKind: runtime
+      triggers:
+        - deployment
+        - outcome
+      inputs:
+        path: /health
+      timeoutMs: 2000
+      costTier: free
+      binding: defined
+      fromTemplate: template.thing.vue-webapp@1
