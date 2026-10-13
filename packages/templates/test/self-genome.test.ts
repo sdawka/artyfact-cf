@@ -5,9 +5,10 @@ import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import picomatch from "picomatch";
 import { describe, expect, it } from "vitest";
-import { evaluate, instantiateNodes, loadTemplate, parseTree, projectTree, type GenomeTree, type TreeNode } from "@artyfact/ontology";
+import { instantiateNodes, parseTree, type GenomeTree, type TreeNode } from "@artyfact/ontology";
+import { loadGenome, validate } from "@artyfact/model";
 import { loadMetaTemplate, metaTemplates } from "../src/index";
-import { compose, GENERIC_THINGS, SYSTEM } from "./dev-platform";
+import { SYSTEM } from "./dev-platform";
 
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
 const genomeDir = join(repo, "genome");
@@ -79,10 +80,11 @@ function platformRoutes(): Set<string> {
 }
 
 describe("the Artyfact self-Genome", () => {
-  const tree = parseTree(genomeFiles(genomeDir));
-  const graph = projectTree(tree, metaTemplates);
-  const template = loadTemplate(compose([SYSTEM, ...GENERIC_THINGS]));
-  const readiness = evaluate(template, { ...graph, template: template.ref });
+  const files = genomeFiles(genomeDir);
+  const model = loadGenome(files, { templates: metaTemplates });
+  const { graph } = model;
+  const tree = parseTree(files);
+  const readiness = validate(model);
   const things = graph.nodes.filter((n) => n.kind === "thing");
 
   it("is system.artyfact on the dev-platform template, with one Thing per app and package", () => {
@@ -122,10 +124,12 @@ describe("the Artyfact self-Genome", () => {
     }
   });
 
-  it("evaluates with no hard findings under its pinned packs, and topology.services passes", () => {
-    const hard = readiness.findings.filter((f) => f.level === "error" || f.level === "missing");
-    expect(hard.map((f) => [f.rule, f.subject, f.message])).toEqual([]);
-    expect(readiness.findings.filter((f) => f.rule.startsWith("topology.")).map((f) => [f.rule, f.subject])).toEqual([]);
+  it("loads through loadGenome with no findings under its pinned packs, and topology.services runs and passes", () => {
+    expect(model.kits.rulePacks).toEqual([{ id: "topology.services", version: "1" }]);
+    expect(model.things).toHaveLength(10);
+    // Only semantic check candidates (info) remain; they need System One.
+    expect(readiness.findings.filter((f) => f.level !== "info").map((f) => [f.rule, f.subject, f.message])).toEqual([]);
+    expect(readiness.findings.filter((f) => f.level === "info").every((f) => f.rule.startsWith("semantic:"))).toBe(true);
     expect(readiness.packs.map((p) => p.id)).toContain("topology.services");
     expect(readiness.actionable).toBe(true);
   });
@@ -159,5 +163,19 @@ describe("the Artyfact self-Genome", () => {
     const matchers = [...effectiveGlobs(tree).values()].flat().map((g) => picomatch(g, { dot: true }));
     const unmapped = files.filter((f) => !matchers.some((m) => m(f)));
     expect(unmapped).toEqual([]);
+  });
+
+  it("names only files that exist in each node's own files", () => {
+    const tracked = execFileSync("git", ["ls-files"], { cwd: repo, encoding: "utf8" }).split("\n").filter(Boolean);
+    const stale: string[] = [];
+    for (const n of tree.nodes.values()) {
+      let root: string | undefined;
+      for (let x: TreeNode | undefined = n; x && root === undefined; x = x.parent === undefined ? undefined : tree.nodes.get(x.parent)) root = x.file.root;
+      for (const g of n.file.files ?? []) {
+        const m = picomatch(root ? `${root}/${g}` : g, { dot: true });
+        if (!tracked.some((f) => m(f))) stale.push(`${n.id}: ${g}`);
+      }
+    }
+    expect(stale).toEqual([]);
   });
 });

@@ -4,9 +4,10 @@ template: template.thing.ts-library@1
 root: packages/semantic
 fields:
   name: Semantic
-  description: "@artyfact/semantic: the System One client (TypeSafe, OpenRouter or fake), the question builders and the judgments the hooks ask."
+  description: "@artyfact/semantic: the question builders, policy and judgments the hooks ask System One, on the ontology engine's System One client."
 links:
   - { rel: artifact, to: artifact.semantic }
+  - { rel: dependsOn, to: thing.ontology }
   - { rel: exposes, to: export.semantic.create }
   - { rel: exposes, to: export.semantic.interference }
   - { rel: exposes, to: export.semantic.verdict }

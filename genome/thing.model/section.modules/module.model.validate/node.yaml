@@ -1,12 +1,11 @@
 id: module.model.validate
 kind: module
 fields:
-  name: Validation
-  description: Turns a model into facts and runs the Rule Packs.
-  path: src/facts.ts
+  name: Readiness
+  description: Selects the pinned template packs and runs the engine's evaluate over the model's graph.
+  path: src/validate.ts
 links:
   - { rel: implements, to: export.model.validate }
-  - { rel: dependsOn, to: module.rules.engine }
+  - { rel: dependsOn, to: module.ontology.evaluate }
 files:
-  - src/facts.ts
   - src/validate.ts

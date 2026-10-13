@@ -4,9 +4,10 @@ template: template.thing.ts-library@1
 root: packages/model
 fields:
   name: Model
-  description: "@artyfact/model: loads a Genome into a SystemModel and ModelIndex, validates it with Rule Packs, diffs two models and composes Parts."
+  description: "@artyfact/model: loads a v2 Genome through the ontology engine into a SystemModel and ModelIndex, evaluates its readiness, diffs two models and composes Parts."
 links:
   - { rel: artifact, to: artifact.model }
+  - { rel: dependsOn, to: thing.ontology }
   - { rel: dependsOn, to: thing.rules }
   - { rel: exposes, to: export.model.load }
   - { rel: exposes, to: export.model.validate }

@@ -7,6 +7,5 @@ fields:
 links:
   - { rel: implements, to: export.ontology.read-tree }
   - { rel: implements, to: export.ontology.apply-ops }
-  - { rel: dependsOn, to: module.model.load }
 files:
   - src/codec/**

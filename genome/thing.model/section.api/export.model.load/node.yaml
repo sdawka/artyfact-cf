@@ -1,7 +1,7 @@
 id: export.model.load
 kind: export
 fields:
-  name: loadSystem
-  signature: "export function loadSystem(files: Map<string, string>, opts?: { revision?: string; templates?: TemplateStore }): SystemModel"
+  name: loadGenome
+  signature: "export function loadGenome(files: GenomeFiles, opts: LoadOptions): SystemModel"
   stability: stable
-  description: Parses a Genome's files into a SystemModel, or throws ModelParseError listing every issue.
+  description: Reads a v2 Genome tree into a SystemModel under its composed templates; throws LegacyGenomeError for a v1 layout and ModelParseError listing every bad file.

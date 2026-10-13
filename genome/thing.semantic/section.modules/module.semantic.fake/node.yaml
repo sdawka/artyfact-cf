@@ -1,8 +1,0 @@
-id: module.semantic.fake
-kind: module
-fields:
-  name: Fake provider
-  description: Deterministic answers for tests and demos.
-  path: src/fake.ts
-files:
-  - src/fake.ts

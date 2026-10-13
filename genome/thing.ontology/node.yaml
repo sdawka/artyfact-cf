@@ -7,7 +7,6 @@ fields:
   description: "@artyfact/ontology: meta@1 templates, the Graph, evaluate and judge, routing and translation of intents, op validation and the Genome v2 tree codec."
 links:
   - { rel: artifact, to: artifact.ontology }
-  - { rel: dependsOn, to: thing.model }
   - { rel: dependsOn, to: thing.rules }
   - { rel: exposes, to: export.ontology.evaluate }
   - { rel: exposes, to: export.ontology.route }

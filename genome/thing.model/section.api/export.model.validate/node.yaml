@@ -2,6 +2,6 @@ id: export.model.validate
 kind: export
 fields:
   name: validate
-  signature: "export function validate(m: SystemModel, packs: RulePack[]): Readiness"
+  signature: "export function validate(m: SystemModel): Readiness"
   stability: stable
-  description: Runs the Rule Packs over the model's facts and returns findings with derivations.
+  description: Evaluates the Genome graph under its composed template with the engine packs and the template packs the System pins, and returns findings with derivations.
