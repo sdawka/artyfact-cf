@@ -129,7 +129,9 @@ per task pair that overlaps, and the first planned, unblocked task's claim line.
 bearer (a wave-scoped claim token is deferred; the same https or localhost rule as the other bearer calls applies).
 It then does what `start` does: clones the task's fork, writes `TASK_PACKET.md`, writes the packet's `agentsMd`
 verbatim as `AGENTS.md`, and saves `.artyfact.json` with `taskId`. The fork write token comes from the claim response and
-never reaches disk; `status` prints `task:`. One claim is one clone of its own fork, so no worktrees are needed.
+is saved only in `.artyfact.json` (mode 0600, git-excluded, beside the realization secret), never printed and scrubbed
+from the packet files; `submit` uses it when `ARTYFACT_TOKEN` is unset. `start` still keeps its token in the environment
+only. `status` prints `task:`. One claim is one clone of its own fork, so no worktrees are needed.
 
 - A blocked task exits 1 with `blocked by t1, t2 (not yet promoted)`; a task claimed by someone else exits 1 with
   `task <id> is claimed by <label>`.
@@ -144,5 +146,4 @@ npx artyfact claim <task> --system <sid> --agent "claude:<task>" --dir ./work/<t
 (cd ./work/<task> && claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit")
 ```
 
-`submit` still reads the fork write token from `ARTYFACT_TOKEN`. `claim` neither prints nor stores it, so the
-shell that runs the agent must supply one.
+`submit` needs no `ARTYFACT_TOKEN` in a claimed workspace; set it to override the stored token.

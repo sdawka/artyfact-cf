@@ -71,6 +71,8 @@ export interface MaterializeInput {
   secrets: string[];
   tokenExpires?: string;
   taskId?: string;
+  /** Save `token` in `.artyfact.json` (`claim` does; `start` does not). */
+  storeToken?: string;
 }
 
 /**
@@ -94,6 +96,7 @@ export function materializeWorkspace(io: { cwd: string; env: Record<string, stri
     forkRepo: assertId("fork repo", input.forkRepo), remote,
     tokenExpires: input.tokenExpires, packetHash: packet.hash, secret: input.secret,
     ...(input.taskId && { taskId: input.taskId }),
+    ...(input.storeToken && { token: input.storeToken }),
   };
   // Per-realization files stay out of the fork: exclude them unless the repo already tracks them.
   if (isTracked(dir, "TASK_PACKET.md")) throw new CliError("TASK_PACKET.md is tracked in this repo; refusing to overwrite it");

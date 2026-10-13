@@ -112,6 +112,7 @@ export async function claimCommand(args: string[], io: Io): Promise<number> {
     secrets: [...leaked, io.env.ARTYFACT_TOKEN, io.env.ARTYFACT_ADMIN_TOKEN, secret].filter((x): x is string => !!x),
     tokenExpires: res.token?.expiresAt ?? realization.workspace?.tokenExpiresAt ?? prior?.tokenExpires,
     taskId: tid,
+    storeToken: res.token?.value ?? (prior?.realizationId === rid ? prior.token : undefined),
   });
 
   io.out(`${res.fresh ? "Claimed" : "Already claimed"} ${tid} as ${agentLabel}`);
@@ -123,13 +124,13 @@ export async function claimCommand(args: string[], io: Io): Promise<number> {
 /** Turn the claim route's 409s into the one-line messages the loop prints. */
 function claimError(e: unknown, tid: string): unknown {
   if (!(e instanceof PlatformError) || e.status !== 409) return e;
-  const d = (e.details ?? {}) as { blockedOn?: unknown; agentLabel?: unknown; claim?: { agentLabel?: unknown } };
+  const d = (e.details ?? {}) as { blockedOn?: unknown; by?: unknown };
   if (e.code === "task-blocked") {
     const on = Array.isArray(d.blockedOn) ? d.blockedOn.filter((x): x is string => typeof x === "string") : [];
     return new CliError(on.length ? `blocked by ${on.join(", ")} (not yet promoted)` : `blocked: ${e.detail ?? "a dependency is not yet promoted"}`);
   }
   if (e.code === "task-taken") {
-    const who = [d.agentLabel, d.claim?.agentLabel].find((x): x is string => typeof x === "string");
+    const who = typeof d.by === "string" ? d.by : undefined;
     return new CliError(who ? `task ${tid} is claimed by ${who}` : `task ${tid} is claimed${e.detail ? `: ${e.detail}` : ""}`);
   }
   return e;

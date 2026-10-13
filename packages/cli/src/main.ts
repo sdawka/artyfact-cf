@@ -126,9 +126,9 @@ function secretFor(io: Io, cfg?: WorkspaceConfig): string {
 /** A client that authenticates as this realization. */
 const clientFor = (io: Io, cfg: WorkspaceConfig) => new PlatformClient(cfg.platform, secretFor(io, cfg));
 
-function tokenFor(io: Io): string {
-  const t = io.env.ARTYFACT_TOKEN;
-  if (!t) throw new CliError("no write token; set ARTYFACT_TOKEN for this command (it is never stored on disk)");
+function tokenFor(io: Io, cfg?: WorkspaceConfig): string {
+  const t = io.env.ARTYFACT_TOKEN || cfg?.token;
+  if (!t) throw new CliError("no write token; set ARTYFACT_TOKEN for this command (only `claim` stores one on disk)");
   return assertToken(t);
 }
 
@@ -209,7 +209,7 @@ function printEvals(io: Io, evaluations: EvaluationRow[], conflicts: ConflictRow
 async function submit(args: string[], io: Io): Promise<number> {
   const { values } = parse(args, { "preview-url": { type: "string" }, json: { type: "boolean" } });
   const { cfg, dir } = readConfig(io);
-  const token = tokenFor(io);
+  const token = tokenFor(io, cfg);
   const client = clientFor(io, cfg);
   const commit = commitIfDirty(dir, "artyfact submit", io.err);
   git(dir, ["push", "--", cfg.remote, "HEAD:main"], token);

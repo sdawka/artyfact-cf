@@ -1,4 +1,4 @@
-import { execFileSync } from "node:child_process";
+import { execFileSync, spawnSync } from "node:child_process";
 import { createServer, type Server } from "node:http";
 import { existsSync, mkdtempSync, readFileSync, statSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
@@ -141,7 +141,21 @@ describe("artyfact claim", () => {
       expect(r.out + r.err).not.toContain(secret);
       for (const f of ["TASK_PACKET.md", "AGENTS.md"]) expect(readFileSync(join(dir, f), "utf8")).not.toContain(secret);
     }
-    expect(readFileSync(join(dir, ".artyfact.json"), "utf8")).not.toContain(TOKEN);
+    expect(statSync(join(dir, ".artyfact.json")).mode & 0o777).toBe(0o600);
+  });
+
+  it("submit after claim pushes with the stored token and leaks it nowhere else", async () => {
+    expect(JSON.parse(readFileSync(join(dir, ".artyfact.json"), "utf8")).token).toBe(TOKEN);
+    writeFileSync(join(dir, "done.txt"), "done");
+    respond = () => ({ status: 200, body: { evaluations: [], conflicts: [] } });
+    const r = await run(["submit"], dir, { ARTYFACT_SECRET: "", ARTYFACT_TOKEN: "" });
+    expect(r.code).toBe(0);
+    expect(calls.at(-1)!.url).toBe("/api/systems/system.peopling/evolutions/evolution.people/realizations/r-2/submit");
+    expect(sh(join(tmp, "fork.git"), "log", "-1", "--format=%s", "main")).toBe("artyfact submit");
+    expect(r.out + r.err).not.toContain(TOKEN);
+    const files = execFileSync("grep", ["-rl", "--exclude-dir=.git", TOKEN, dir], { encoding: "utf8" }).trim().split("\n");
+    expect(files).toEqual([join(dir, ".artyfact.json")]);
+    expect(spawnSync("grep", ["-rl", TOKEN, join(dir, ".git")], { encoding: "utf8" }).stdout.trim()).toBe("");
   });
 
   it("status prints the task", async () => {
@@ -177,7 +191,7 @@ describe("artyfact claim", () => {
   });
 
   it("409 task-taken names the holder", async () => {
-    respond = () => ({ status: 409, body: { error: { code: "task-taken", message: "taken", details: { agentLabel: "codex:7" } } } });
+    respond = () => ({ status: 409, body: { error: { code: "task-taken", message: "taken", details: { by: "codex:7" } } } });
     const r = await claim([], {}, join(tmp, "taken"));
     expect(r.code).toBe(1);
     expect(r.err).toBe("artyfact: task task.t1 is claimed by codex:7");

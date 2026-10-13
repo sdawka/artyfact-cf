@@ -53,6 +53,8 @@ export interface WorkspaceConfig {
   secret?: string;
   /** The Task this workspace was claimed for (`artyfact claim`). */
   taskId?: string;
+  /** Fork write token saved by `claim` only (mode 0600, git-excluded); `start` never stores it. `ARTYFACT_TOKEN` overrides it. */
+  token?: string;
 }
 
 // TODO(contract): mirror of Task, TasksResponse and ClaimTaskResponse in apps/platform/shared/api.ts. The CLI
