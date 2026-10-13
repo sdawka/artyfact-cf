@@ -18,7 +18,7 @@ describe("Thing workspace", () => {
     expect(await screen.findByRole("heading", { level: 1, name: "Keep in Touch web app" })).toBeTruthy();
     // The rail serves the Thing scope; the page carries no second "Thing views" nav.
     expect(screen.queryByRole("navigation", { name: "Thing views" })).toBeNull();
-    const rail = screen.getByRole("navigation", { name: "Views", exact: true });
+    const rail = screen.getByRole("navigation", { name: "Views" });
     expect(within(rail).getByRole("link", { name: "Map" }).getAttribute("href")).toContain(`${THING}/map`);
     await act(() => within(rail).getByRole("link", { name: "Deployments" }).click());
     expect(await screen.findByRole("heading", { name: "Deployments", level: 1 })).toBeTruthy();
