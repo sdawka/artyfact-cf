@@ -54,7 +54,7 @@
   outline: 2px solid var(--color-focus-ring);
   outline-offset: -2px;
 }
-.glyph { color: var(--color-text-secondary); }
+.glyph { color: var(--kind, var(--color-text-secondary)); }
 .name {
   overflow: hidden;
   text-overflow: ellipsis;

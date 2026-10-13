@@ -20,7 +20,7 @@
 .md { font-size: var(--font-size-base); }
 .glyph {
   flex: none;
-  color: var(--color-text-subtle);
+  color: var(--kind, var(--color-text-subtle));
 }
 .name {
   overflow: hidden;

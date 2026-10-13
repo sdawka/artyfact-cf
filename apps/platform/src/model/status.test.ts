@@ -94,3 +94,15 @@ describe("rollup", () => {
     expect(rollup(ix, "thing.webapp", evals, only())).toEqual({ ...emptyRollup(), notRun: n });
   });
 });
+
+describe("rollup over the Genome tree", () => {
+  it("counts every criterion in the containment subtree, including those on claims under the System", () => {
+    const m = structuredClone(fixtureBundle().model);
+    const base = rollup(buildIndex(m), "system.keep-in-touch", [], only()).notRun;
+    m.criteria.push({ ...m.criteria.find((c) => !c.deferred)!, id: "C.system.claim-T1", subjectId: "T1", ownerId: "system.keep-in-touch" });
+    const ix2 = buildIndex(m);
+    expect(ix2.parent("T1")?.id).toBe("system.keep-in-touch");
+    expect(rollup(ix2, "system.keep-in-touch", [], only()).notRun).toBe(base + 1);
+    expect(rollup(ix2, "thing.webapp", [], only())).toEqual(rollup(buildIndex(fixtureBundle().model), "thing.webapp", [], only()));
+  });
+});

@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import type { Readiness } from "@artyfact/model";
 import type { Evaluation } from "../shared/api";
-import { readinessReport } from "../worker/model-bundle";
+import { modelViews, readinessReport } from "../worker/model-bundle";
 
 const ev = (hook: string, verdict: Evaluation["verdict"], execution: Evaluation["execution"] = "completed", at = "2026-10-01T00:00:00Z"): Evaluation => ({
   id: hook, candidate: "cand.1", criterion: "C.system.topology", hook, ownerId: "system", subjectId: "system", targetRef: "genome@x",
@@ -22,5 +22,23 @@ describe("readinessReport folds rows per criterion like the gate", () => {
     expect(readinessReport({ criteria }, rules, pending).implementationConformance).toMatchObject({ pass: 0, notRun: 1 });
     const hooks = [{ id: "hook.deploy", triggers: ["deployment"] }] as never;
     expect(readinessReport({ criteria, hooks }, rules, pending).implementationConformance).toMatchObject({ pass: 1 });
+  });
+});
+
+describe("modelViews serialises the composed template's hints", () => {
+  it("resolves every declared kind with defaults and keeps the layer order", () => {
+    const layers = [{ id: "runtime", label: "Runtime" }, { id: "intent", label: "Intent" }];
+    const template = {
+      kinds: {
+        endpoint: { fields: [{ name: "auth" }, { name: "route" }], view: { glyph: "⇄", colour: "teal", layer: "runtime", fields: ["route"] } },
+        gizmo: {},
+      },
+      view: { layers },
+    } as never;
+    const v = modelViews(template);
+    expect(v.layers).toEqual(layers);
+    expect(Object.keys(v.kinds)).toEqual(["endpoint", "gizmo"]);
+    expect(v.kinds.endpoint).toMatchObject({ label: "Endpoint", glyph: "⇄", colour: "teal", layer: "runtime", fields: ["route", "auth"] });
+    expect(v.kinds.gizmo).toMatchObject({ label: "Gizmo", glyph: "•", colour: "neutral", fields: [] });
   });
 });

@@ -1,6 +1,6 @@
 import { createElement, useSyncExternalStore, type ComponentType } from "react";
 import type { IndexEntry } from "@/model/index";
-import type { AnyKind } from "@/model/types";
+import { NodeBody } from "../NodeBody";
 import { GenericBody } from "./GenericBody";
 
 /** Props every Inspector "What" body receives. */
@@ -18,7 +18,7 @@ const emit = () => {
 };
 
 /** Registers the What-tab body for a kind (last registration wins). Returns an unregister function. */
-export function registerBody(kind: AnyKind | (string & {}), component: BodyComponent): () => void {
+export function registerBody(kind: string, component: BodyComponent): () => void {
   registry.set(kind, component);
   emit();
   return () => {
@@ -29,20 +29,22 @@ export function registerBody(kind: AnyKind | (string & {}), component: BodyCompo
   };
 }
 
-export const getBody = (kind: string): BodyComponent => registry.get(kind) ?? GenericBody;
+/** The registered body for `entry.kind`; else `NodeBody` (view-hint fields) for Genome nodes, `GenericBody` otherwise. */
+export const getBody = (entry: Pick<IndexEntry, "kind" | "type">): BodyComponent =>
+  registry.get(entry.kind) ?? (entry.type === "node" ? NodeBody : GenericBody);
 
 const subscribe = (l: () => void) => {
   listeners.add(l);
   return () => listeners.delete(l);
 };
 
-/** The registered body for `kind`, re-rendering when registrations change (lazy views register late). */
-export function useBody(kind: string): BodyComponent {
+/** The body for `entry`, re-rendering when registrations change (lazy views register late). */
+export function useBody(entry: Pick<IndexEntry, "kind" | "type">): BodyComponent {
   useSyncExternalStore(subscribe, () => version, () => version);
-  return getBody(kind);
+  return getBody(entry);
 }
 
-/** Renders the registered body for `entry.kind`, or GenericBody. */
+/** Renders the body for `entry` (see `getBody`). */
 export function BodyFor({ entry }: BodyProps) {
-  return createElement(useBody(entry.kind), { entry });
+  return createElement(useBody(entry), { entry });
 }

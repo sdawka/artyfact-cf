@@ -48,7 +48,7 @@ describe("buildIndex on the Keep in Touch fixture", () => {
     expect(path.slice(0, 3)).toEqual(["system.keep-in-touch", "thing.webapp", "section.ui"]);
     expect(path.slice(-3)).toEqual(["screen.people", "component.AddContactDialog", "affordance.AddContactDialog.save"]);
     for (let i = 3; i < path.length; i++) expect(nodeParent(path[i]!)).toBe(path[i - 1]);
-    expect(ids(ix.path("T1"))).toEqual(["T1"]);
+    expect(ids(ix.path("T1"))).toEqual(["system.keep-in-touch", "T1"]); // claims, purposes, features, commitments, journeys sit under the System
     expect(ix.path("nope")).toEqual([]);
   });
 
@@ -78,7 +78,21 @@ describe("buildIndex on the Keep in Touch fixture", () => {
     const d = ix.descendants("component.AddContactDialog");
     expect(d[0]).toBe("component.AddContactDialog");
     expect(d).toContain("affordance.AddContactDialog.save");
-    expect(ids(ix.siblings("section.domain"))).toEqual(["section.ui", "section.domain", "section.authorization", "section.runtime"]);
+    // The webapp Thing holds its journeys beside its sections (their `parent` in the Genome tree).
+    expect(ids(ix.siblings("section.domain")).filter((id) => !id.startsWith("J."))).toEqual(["section.ui", "section.domain", "section.authorization", "section.runtime"]);
+    expect(ix.parent("J.connect")?.id).toBe("thing.webapp");
+  });
+
+  it("puts a node whose parent is missing from the model under the System", () => {
+    const journeys = bundle.model.journeys.map((j) => (j.id === "J.connect" ? { ...j, parent: "thing.gone" } : j));
+    const ix2 = buildIndex({ ...bundle.model, journeys });
+    expect(ix2.parent("J.connect")?.id).toBe(bundle.model.system.id);
+    expect(ix2.children(bundle.model.system.id).map((e) => e.id)).toContain("J.connect");
+  });
+
+  it("takes containment from the server's parent, not the declaring file's path", () => {
+    const model = { ...bundle.model, origin: { ...bundle.model.origin, "J.connect": "elsewhere/J.connect/node.yaml" } };
+    expect(buildIndex(model).parent("J.connect")?.id).toBe("thing.webapp");
   });
 
   it("tolerates missing lists in an opaque bundle", () => {

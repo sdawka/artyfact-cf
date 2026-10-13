@@ -1,4 +1,8 @@
-import type { AnyKind } from "./types";
+import type { CSSProperties } from "react";
+import type { MapLayer, ResolvedKindView } from "@artyfact/ontology";
+import type { EntryType, IndexEntry } from "./index";
+import type { ModelJson } from "./types";
+import { useModelOptional } from "./useModel";
 
 export const VIEWS = [
   "overview", "map", "journeys", "theory", "code", "work", "evaluations", "changelog", "compare", "phenome",
@@ -52,50 +56,9 @@ export const GO_KEYS: Record<string, ViewName> = {
   l: "changelog", h: "changelog", x: "compare", d: "phenome",
 };
 
-export interface KindInfo {
-  /** One character shown before the name; never the only signal (always paired with the label or name). */
-  glyph: string;
-  label: string;
-}
-
-export const KINDS: Record<AnyKind, KindInfo> = {
-  system: { glyph: "◎", label: "System" },
-  thing: { glyph: "◉", label: "Thing" },
-  section: { glyph: "▤", label: "Section" },
-  screen: { glyph: "▭", label: "Screen" },
-  component: { glyph: "▫", label: "Component" },
-  affordance: { glyph: "▸", label: "Affordance" },
-  route: { glyph: "/", label: "Route" },
-  entity: { glyph: "▦", label: "Entity" },
-  field: { glyph: "·", label: "Field" },
-  operation: { glyph: "ƒ", label: "Operation" },
-  policy: { glyph: "§", label: "Policy" },
-  binding: { glyph: "⌁", label: "Binding" },
-  grouping: { glyph: "⬚", label: "Grouping" },
-  external: { glyph: "◌", label: "External" },
-  purpose: { glyph: "◇", label: "Purpose" },
-  claim: { glyph: "△", label: "Claim" },
-  requirement: { glyph: "≡", label: "Requirement" },
-  feature: { glyph: "◆", label: "Feature" },
-  commitment: { glyph: "⊕", label: "Commitment" },
-  criterion: { glyph: "✓", label: "Criterion" },
-  hook: { glyph: "⚲", label: "Hook" },
-  journey: { glyph: "⇢", label: "Journey" },
-  step: { glyph: "→", label: "Step" },
-  evolution: { glyph: "↗", label: "Evolution" },
-  realization: { glyph: "⎇", label: "Realization" },
-  artifact: { glyph: "▣", label: "Artifact" },
-  template: { glyph: "⧉", label: "Template" },
-};
-
-const UNKNOWN: KindInfo = { glyph: "?", label: "Unknown" };
-
-export const kindInfo = (kind: string | undefined): KindInfo =>
-  (kind !== undefined && (KINDS as Record<string, KindInfo>)[kind]) || UNKNOWN;
-
-/** The view that best shows an object of this kind (CommandPalette, "Open in" defaults). */
-export function bestViewFor(kind: string | undefined): ViewName {
-  switch (kind) {
+/** The view that best shows an object of this type (CommandPalette, "Open in" defaults). */
+export function bestViewFor(type: EntryType | undefined): ViewName {
+  switch (type) {
     case "system":
       return "overview";
     case "journey":
@@ -108,7 +71,6 @@ export function bestViewFor(kind: string | undefined): ViewName {
     case "commitment":
       return "theory";
     case "evolution":
-    case "realization":
       return "work";
     case "criterion":
     case "hook":
@@ -117,3 +79,80 @@ export function bestViewFor(kind: string | undefined): ViewName {
       return "map";
   }
 }
+
+/** The kind a view needs the template to declare; views without one always show. */
+export const VIEW_KINDS: Partial<Record<ViewName, string>> = { journeys: "journey", theory: "claim" };
+
+export type { MapLayer, ResolvedKindView as KindView };
+
+/**
+ * How the UI shows every kind of one System, from its composed template's view hints (`docs/design/ontology.md` §3),
+ * which the server resolves and ships as the model's `views` map. This module is the one place the SPA reads hints.
+ */
+export interface KindViews {
+  /** Hints for `kind`, defaults filled in (a kind the template does not declare gets defaults only). */
+  of(kind: string): ResolvedKindView;
+  /** True when the System's composed template declares `kind` (always, for a model without `views`). */
+  declares(kind: string): boolean;
+  /** Map bands in template layer order, drawn left to right; empty when the template declares none. */
+  layers: MapLayer[];
+}
+
+const sentence = (kind: string) => {
+  const words = kind.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/[-_.]+/g, " ").trim().toLowerCase();
+  return words ? words[0]!.toUpperCase() + words.slice(1) : kind;
+};
+
+/** The engine's defaults for a kind with no hints (`resolveKindView` on an undeclared kind). */
+const bare = (kind: string): ResolvedKindView => {
+  const label = sentence(kind);
+  return { kind, label, plural: `${label}s`, glyph: "•", colour: "neutral", fields: [], summary: "description" };
+};
+
+/** A model without a `views` map (an older bundle): defaults for every kind, all declared, no layers. */
+const BARE: KindViews = { of: bare, declares: () => true, layers: [] };
+
+const byModel = new WeakMap<ModelJson, KindViews>();
+
+/** The kind views the model carries, memoised per model; bare defaults for no model or a missing map. */
+export function kindViews(model: ModelJson | undefined): KindViews {
+  const map = model?.views;
+  if (!model || !map) return BARE;
+  const hit = byModel.get(model);
+  if (hit) return hit;
+  const views: KindViews = { of: (kind) => map.kinds[kind] ?? bare(kind), declares: (kind) => kind in map.kinds, layers: map.layers };
+  byModel.set(model, views);
+  return views;
+}
+
+/** The current System's kind views (the base template's outside a System). */
+export function useKindViews(): KindViews {
+  return kindViews(useModelOptional()?.index.model);
+}
+
+/** Resolved view hints for one kind of the current System. */
+export function useKindView(kind: string): ResolvedKindView {
+  return useKindViews().of(kind);
+}
+
+/** The value of `field` on a model object: its own property, else from a v2 node's `fields` map. */
+export function fieldValue(item: unknown, field: string): unknown {
+  if (!item || typeof item !== "object") return undefined;
+  const o = item as Record<string, unknown>;
+  if (field in o) return o[field];
+  const f = o.fields;
+  return f && typeof f === "object" && !Array.isArray(f) ? (f as Record<string, unknown>)[field] : undefined;
+}
+
+const text = (v: unknown) => (typeof v === "string" && v.trim() ? v : undefined);
+
+/** The name to show for an entry: its kind's `title` field, else the indexed name, else the id. */
+export const titleOf = (entry: Pick<IndexEntry, "id" | "name" | "item">, view: ResolvedKindView): string =>
+  (view.title && text(fieldValue(entry.item, view.title))) || entry.name || entry.id;
+
+/** The line shown under the name: the kind's `summary` field, when it holds text. */
+export const summaryOf = (entry: Pick<IndexEntry, "item">, view: ResolvedKindView): string | undefined =>
+  text(fieldValue(entry.item, view.summary));
+
+/** Inline style that sets `--kind` to the kind's themed colour token (`theme/tokens.css`). */
+export const kindColour = (view: ResolvedKindView) => ({ "--kind": `var(--kind-${view.colour})` }) as CSSProperties;

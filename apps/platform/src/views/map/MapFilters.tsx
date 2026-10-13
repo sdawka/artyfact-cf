@@ -1,6 +1,6 @@
 import { useId } from "react";
-import { kindInfo } from "@/model/kinds";
-import type { MapFilterState } from "./useMapGraph";
+import { kindColour, useKindViews } from "@/model/kinds";
+import { DEFAULT_FILTERS, type MapFilterState } from "./useMapGraph";
 import styles from "./MapFilters.module.css";
 
 export interface MapFiltersProps {
@@ -16,18 +16,21 @@ export interface MapFiltersProps {
 
 const toggle = (list: string[], item: string, hide: boolean) => (hide ? [...list, item] : list.filter((x) => x !== item));
 
-/** Kinds, link types, Externals and findings-only filters for the Map. */
+/** Template layers (the Map bands), kinds, link types, Externals and findings-only filters for the Map. */
 export function MapFilters({ value, onChange, kinds, linkTypes, findingCount }: MapFiltersProps) {
   const id = useId();
+  const views = useKindViews();
   const hiddenKinds = value.hiddenKinds.filter((k) => kinds.includes(k)).length;
   const hiddenLinks = value.hiddenLinks.filter((k) => linkTypes.includes(k)).length;
-  const changed = hiddenKinds + hiddenLinks > 0 || !value.showExternals || value.findingsOnly;
+  const layers = views.layers;
+  const hiddenLayers = value.hiddenLayers.filter((l) => layers.some((x) => x.id === l)).length;
+  const changed = hiddenKinds + hiddenLinks + hiddenLayers > 0 || !value.showExternals || value.findingsOnly;
   return (
     <section className={styles.filters} aria-labelledby={`${id}-h`}>
       <div className={styles.head}>
         <h2 id={`${id}-h`} className={styles.title}>Filters</h2>
         {changed && (
-          <button type="button" className={`u-brackets ${styles.reset}`} onClick={() => onChange({ hiddenKinds: [], hiddenLinks: [], showExternals: true, findingsOnly: false })}>
+          <button type="button" className={`u-brackets ${styles.reset}`} onClick={() => onChange(DEFAULT_FILTERS)}>
             Reset
           </button>
         )}
@@ -40,6 +43,26 @@ export function MapFilters({ value, onChange, kinds, linkTypes, findingCount }: 
         <input type="checkbox" checked={value.findingsOnly} onChange={(e) => onChange({ ...value, findingsOnly: e.target.checked })} />
         Findings only <span className={styles.count}>{findingCount}</span>
       </label>
+      {layers.length > 0 && (
+        <details className={styles.group} open>
+          <summary>
+            Layers{hiddenLayers > 0 && <span className={styles.count}> · {hiddenLayers} hidden</span>}
+          </summary>
+          <fieldset className={styles.list}>
+            <legend className="sr-only">Layers shown</legend>
+            {layers.map((l) => (
+              <label key={l.id} className={styles.check} title={l.description}>
+                <input
+                  type="checkbox"
+                  checked={!value.hiddenLayers.includes(l.id)}
+                  onChange={(e) => onChange({ ...value, hiddenLayers: toggle(value.hiddenLayers, l.id, !e.target.checked) })}
+                />
+                {l.label}
+              </label>
+            ))}
+          </fieldset>
+        </details>
+      )}
       <details className={styles.group}>
         <summary>
           Kinds{hiddenKinds > 0 && <span className={styles.count}> · {hiddenKinds} hidden</span>}
@@ -53,8 +76,8 @@ export function MapFilters({ value, onChange, kinds, linkTypes, findingCount }: 
                 checked={!value.hiddenKinds.includes(k)}
                 onChange={(e) => onChange({ ...value, hiddenKinds: toggle(value.hiddenKinds, k, !e.target.checked) })}
               />
-              <span aria-hidden="true" className={styles.glyph}>{kindInfo(k).glyph}</span>
-              {kindInfo(k).label}
+              <span aria-hidden="true" className={styles.glyph} style={kindColour(views.of(k))}>{views.of(k).glyph}</span>
+              {views.of(k).label}
             </label>
           ))}
         </fieldset>

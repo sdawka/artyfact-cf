@@ -1,6 +1,6 @@
 import { Command } from "cmdk";
 import { useEffectsPreference } from "@/effects/effectsPreference";
-import { bestViewFor, kindInfo } from "@/model/kinds";
+import { bestViewFor, kindColour, titleOf, useKindViews } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
 import { useSelection } from "@/model/useSelection";
 import styles from "./CommandPalette.module.css";
@@ -9,6 +9,7 @@ import styles from "./CommandPalette.module.css";
 export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenChange(open: boolean): void }) {
   const { index } = useModel();
   const { setFocus } = useSelection();
+  const views = useKindViews();
   const effects = useEffectsPreference();
   return (
     <Command.Dialog
@@ -23,20 +24,21 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
       <Command.List className={styles.list}>
         <Command.Empty className={styles.empty}>No matches.</Command.Empty>
         {index.entries.map((e) => {
-          const info = kindInfo(e.kind);
+          const info = views.of(e.kind);
+          const name = titleOf(e, info);
           return (
             <Command.Item
               key={e.id}
               value={e.id}
-              keywords={[e.name, info.label]}
+              keywords={[name, info.label]}
               className={styles.item}
               onSelect={() => {
                 onOpenChange(false);
-                setFocus(e.id, { view: bestViewFor(e.kind) });
+                setFocus(e.id, { view: bestViewFor(e.type) });
               }}
             >
-              <span className={styles.glyph} aria-hidden="true">{info.glyph}</span>
-              <span className={styles.name}>{e.name}</span>
+              <span className={styles.glyph} style={kindColour(info)} aria-hidden="true">{info.glyph}</span>
+              <span className={styles.name}>{name}</span>
               <code className={styles.id}>{e.id}</code>
             </Command.Item>
           );

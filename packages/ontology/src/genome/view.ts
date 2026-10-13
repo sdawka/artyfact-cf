@@ -34,7 +34,7 @@ export const KindViewSchema = z.strictObject({
 export const MapLayerSchema = z.strictObject({ id: name, label: z.string().min(1), description: z.string().optional() });
 
 /**
- * Template-wide view hints. `layers` are the Map's bands, top to bottom. When the template (chain) declares layers, a
+ * Template-wide view hints. `layers` are the Map's bands, left to right. When the template (chain) declares layers, a
  * kind is drawn on the Map only if its `view.layer` names one; with no layers, the Map bands nodes by containment depth
  * and draws every kind.
  */

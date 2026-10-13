@@ -45,6 +45,10 @@ Glow, gradients and haze are allowed, through the effect tokens (`effects.css`: 
 - Inputs/textareas: border goes 2px on hover/focus, accent on focus; no external brackets.
 - Focus is always a full 2px outline (`--focus-ring`). Keep it visible.
 
+## Kind colours (kinds.css)
+`--kind-<token>` for the twelve view-hint colours (`neutral` … `teal`), dark on `:root`, light under
+`:root[data-theme="light"]`. Glyphs only (`kindColour(view)` sets `--kind`), always beside a label or name.
+
 ## Verdicts
 `data-verdict` on `.u-verdict`: pass -> success, fail -> danger, unknown / not-run / stale -> `--color-text-subtle`
 (stale has a dashed border). Always pair colour with a glyph and the word. Only `pass` may use the success colour.

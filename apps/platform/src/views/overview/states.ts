@@ -76,8 +76,6 @@ const ACTIONS: [prefix: string, action: string][] = [
   ["tree.", "Fix the containment tree."],
   ["purpose.", "Fix the Purpose beneficiaries."],
   ["owner.", "Fix the owner reference."],
-  ["screen.", "Add the missing component to the screen."],
-  ["affordance.", "Complete the affordance."],
 ];
 
 /** Next-action text for a rule family; falls back to pointing at the derivation. */

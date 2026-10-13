@@ -1,5 +1,5 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { kindInfo } from "@/model/kinds";
+import { kindColour, useKindViews } from "@/model/kinds";
 import type { ModelIndex } from "@/model/index";
 import { useModel } from "@/model/useModel";
 import styles from "./HierarchyTree.module.css";
@@ -50,6 +50,7 @@ export interface HierarchyTreeProps {
  */
 export function HierarchyTree({ scope, focusId, onSelect }: HierarchyTreeProps) {
   const { index, path } = useModel();
+  const views = useKindViews();
   const root = index.model.system.id;
   const [expanded, setExpanded] = useState<Set<string>>(() => new Set([root, ...path(focusId ?? scope).slice(0, -1).map((e) => e.id), scope]));
   const rows = useMemo(() => flatten(index, root, expanded), [index, root, expanded]);
@@ -152,7 +153,7 @@ export function HierarchyTree({ scope, focusId, onSelect }: HierarchyTreeProps) 
     >
       <div className={styles.spacer} style={{ height: rows.length * ROW_HEIGHT }}>
         {rows.slice(start, end).map((r, i) => {
-          const info = kindInfo(r.kind);
+          const info = views.of(r.kind);
           const open = expanded.has(r.id);
           return (
             <div
@@ -185,7 +186,7 @@ export function HierarchyTree({ scope, focusId, onSelect }: HierarchyTreeProps) 
               >
                 {r.hasChildren ? (open ? "▾" : "▸") : ""}
               </span>
-              <span className={styles.glyph} aria-hidden="true">{info.glyph}</span>
+              <span className={styles.glyph} style={kindColour(info)} aria-hidden="true">{info.glyph}</span>
               <span className={styles.name}>{r.name}</span>
               <span className="sr-only">, {info.label}</span>
             </div>

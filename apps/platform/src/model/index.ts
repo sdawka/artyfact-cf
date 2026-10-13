@@ -1,16 +1,19 @@
 import type {
-  AnyKind, AssayHook, Certainty, Criterion, Journey, ModelJson, Relation, Requirement, UiBundle,
+  AssayHook, Certainty, Criterion, Journey, ModelJson, Relation, Requirement, UiBundle,
 } from "./types";
 
-export type EntryType =
-  | "system" | "thing" | "node" | "external" | "purpose" | "claim" | "feature" | "commitment"
-  | "requirement" | "criterion" | "hook" | "journey" | "step" | "evolution";
+/** The model's own object shapes. Every other template kind is a plain `node`, shown through its view hints. */
+export const ENTRY_TYPES = [
+  "system", "thing", "node", "external", "purpose", "claim", "feature", "commitment",
+  "requirement", "criterion", "hook", "journey", "step", "evolution",
+] as const;
+export type EntryType = (typeof ENTRY_TYPES)[number];
 
 /** One focusable object. `item` is the raw model object (OntologyNode, Criterion, Journey, ...). */
 export interface IndexEntry<T = unknown> {
   id: string;
   type: EntryType;
-  kind: AnyKind;
+  kind: string;
   name: string;
   item: T;
 }
@@ -75,7 +78,7 @@ export function buildIndex(source: UiBundle | ModelJson): ModelIndex {
 
   const entries: IndexEntry[] = [];
   const byIdMap = new Map<string, IndexEntry>();
-  const add = (id: string, type: EntryType, kind: AnyKind, name: string, item: unknown) => {
+  const add = (id: string, type: EntryType, kind: string, name: string, item: unknown) => {
     const e: IndexEntry = { id, type, kind, name, item };
     if (!byIdMap.has(id)) entries.push(e);
     byIdMap.set(id, e);
@@ -105,6 +108,12 @@ export function buildIndex(source: UiBundle | ModelJson): ModelIndex {
   };
   for (const t of things) contain(model.system.id, t.id);
   for (const n of nodes) if (n.parent) contain(n.parent, n.id);
+  // Purposes, claims, features, commitments and journeys are Genome tree nodes too: under their server-given `parent`,
+  // else (none, or one not in the model) under the System.
+  const rooted: { id: string; parent?: string }[] = [
+    ...(model.purposes ?? []), ...claims, ...(model.description?.features ?? []), ...(model.description?.commitments ?? []), ...journeys,
+  ];
+  for (const { id, parent } of rooted) contain(parent && byIdMap.has(parent) ? parent : model.system.id, id);
   for (const j of journeys) for (const s of j.steps) contain(j.id, stepId(j.id, s.id));
 
   const linksOut = new Map<string, LinkRef[]>();

@@ -152,7 +152,7 @@ export const ARTYFACT_PARENTS: Record<string, string[]> = {
   step: ["journey"],
 };
 
-/** Map bands, top to bottom. Containers (system, thing, section, grouping) and the bookkeeping kinds are in no layer. */
+/** Map bands, left to right. Containers (system, thing, section, grouping) and the bookkeeping kinds are in no layer. */
 export const ARTYFACT_VIEW: TemplateView = {
   layers: [
     { id: "intent", label: "Intent", description: "Why the System exists: purposes, claims, externals, features and commitments." },
