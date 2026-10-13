@@ -4,4 +4,7 @@ fields:
   name: The model
   route: /model
   rendering: prerendered
-  description: Explains Purpose, Genome, Proteome and Phenome with a hydrated example, so a visitor understands the model.
+  description: Explains Artyfact through this page itself, from the System and public site Thing to the ontology explanation component, its criteria and the evidence needed to assess them.
+files:
+  - src/ModelContent.tsx
+  - src/pages.tsx

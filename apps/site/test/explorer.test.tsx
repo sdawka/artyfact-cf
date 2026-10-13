@@ -10,26 +10,26 @@ it('includes all three complete views in static HTML before hydration', () => {
   staticPage.innerHTML = html;
   expect(staticPage.querySelector('.layer-tabs')?.hasAttribute('hidden')).toBe(true);
   expect([...staticPage.querySelectorAll('.example-detail')].every(panel => !panel.hasAttribute('hidden'))).toBe(true);
-  for (const text of ['What needs to be clear?', 'Your agents can be the Proteome.', 'Input received', 'Intent confirmed', 'Change mapped', 'Evaluation completed']) {
+  for (const text of ['What should this explanation achieve?', 'Your agents can be the Proteome.', 'Page read', 'Views explored', 'Reader feedback', 'Understanding reviewed']) {
     expect(html).toContain(text);
   }
-  expect(html).toContain('Proposed acceptance test');
-  expect(html).toContain('example-scope-01');
+  expect(html).toContain('Acceptance check');
+  expect(html).toContain('example-model-01');
 });
 it('keeps one illustrative feature in all three parallel views', () => {
   render(<SystemExplorer />);
-  expect(screen.getByText('Illustrative target')).toBeTruthy();
-  expect(screen.getByText(/Make changes easy to scope and specify/)).toBeTruthy();
-  expect(screen.getByText(/requested behavior, affected subjects and acceptance criteria/)).toBeTruthy();
+  expect(screen.getByText('Declared in the Genome')).toBeTruthy();
+  expect(screen.getByText(/Explain Artyfact clearly/)).toBeTruthy();
+  expect(screen.getByText(/canonical Genome names this page/)).toBeTruthy();
   fireEvent.click(screen.getByRole('tab', { name: /Proteome/ }));
   expect(screen.getByRole('heading', { name: /Your agents can be the Proteome/ })).toBeTruthy();
-  expect(screen.getByText(/Given a requested change, when a reviewer opens it/)).toBeTruthy();
+  expect(screen.getByText(/Given this model page/)).toBeTruthy();
   fireEvent.click(screen.getByRole('tab', { name: /Phenome/ }));
-  for (const label of ['Input received', 'Intent confirmed', 'Change mapped', 'Evaluation completed']) expect(screen.getByText(label)).toBeTruthy();
+  for (const label of ['Page read', 'Views explored', 'Reader feedback', 'Understanding reviewed']) expect(screen.getByText(label)).toBeTruthy();
   expect(screen.getByText(/not live Artyfact telemetry/)).toBeTruthy();
-  expect(screen.getByText('example-scope-01')).toBeTruthy();
+  expect(screen.getByText('example-model-01')).toBeTruthy();
   expect(screen.queryByText('Passed')).toBe(null);
-  expect(screen.getByText(/Make changes easy to scope and specify/)).toBeTruthy();
+  expect(screen.getByText(/Explain Artyfact clearly/)).toBeTruthy();
   const panels = screen.getAllByRole('tabpanel', { hidden: true });
   expect(panels).toHaveLength(3);
   expect(panels.map(panel => panel.hasAttribute('hidden'))).toEqual([true, true, false]);

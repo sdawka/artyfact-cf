@@ -1,0 +1,15 @@
+id: affordance.model.inspect-views
+kind: affordance
+fields:
+  name: Inspect parallel views
+  description: Visible view controls let a visitor inspect the same Artyfact page example through complementary representations; the active control and displayed view provide feedback.
+  owningThing: thing.site
+  actor: visitor
+  trigger: Select a view control.
+  effects:
+    - Show the selected representation of this page's example.
+    - Keep the underlying System, Thing, subjects and criteria consistent across views.
+  failure:
+    - Without JavaScript the prerendered explanation remains readable.
+files:
+  - src/SystemExplorer.tsx

@@ -1,0 +1,10 @@
+id: purpose.explain-artyfact
+kind: purpose
+fields:
+  statement: Visitors understand what Artyfact is and how its typed model connects a System's purpose, Things, subjects and criteria to implementation and evidence.
+  intendedChange: A visitor can use this model page to explain the difference between a Thing, its nested subjects, reusable Parts, versioned source and realized outputs.
+  successCriteria:
+    - A visitor can locate this page and its explanation component inside the Artyfact System.
+    - A visitor can distinguish declared criteria, automated checks and pending human review.
+  constraints:
+    - The explanation describes the current canonical Genome without claiming unobserved results.

@@ -3,6 +3,8 @@
 
 ## Now
 
+- Current follow-up: the self-referential public model page and canonical explanation subjects are implemented on `feat/model-self-reference`, based on released `5c39a76`. Full CI passes in the credential-free matching checkout (193.4s); independent code and rendered visual review are clear; see [[journals/2026-10-13-model-page]]. Hosted CI, merge and deployment are separate next steps.
+
 - Goal: [[goals]]. Milestone: iteration 3 is on `main`; the frontend-design pass over the platform rail, Home and the workspace is in flight ([[journals/2026-10-13-design-pass]]).
 - Working revision: `main` at `49d5922` (PR #47 merged 2026-10-13 on green hosted CI). Slice branches `d-rail` (#53), `d-review` (#54), `d-intent-thing` (#51), `d-home` (#50) and `d-self-genome` (#49) are open draft PRs into `main`; `d-docs-review` holds the docs and the GRREAT record.
 - Current result: the ontology engine is the core (`packages/ontology`), Genomes are a v2 containment tree, intents and the generic UI shipped, and the repo-root self-Genome drives `FAKE_SEED=artyfact`; see [[journals/2026-10-13-iteration-3]]. The design decisions D1–D8 are recorded in the design-pass journal.

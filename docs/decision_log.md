@@ -43,3 +43,7 @@ Explain Artyfact from the domain outward: a System is the outer context with one
 Native scroll selects homepage chapters; short reversible animations settle fully even when scrolling stops. Preserve readable still intervals, spatial hysteresis, direct controls and local demo state. Focus locks the accepted chapter and settles its artwork immediately. Keep supporting inspection and provenance outside the bounded sticky narrative so content never overlaps it. This supersedes continuously scrubbing every illustration property.
 
 Use one clearly illustrative Artyfact scoped-change request to connect the model page's domain, chosen Thing boundaries, nested subjects, reusable content, three parallel views and evidence questions. Keep proposed behavior and observations distinct from implemented APIs and live outcome evidence.
+
+## 2026-10-13T12:27:43-04:00 — Self-referential public model
+
+Use the model page itself for its deep ontology example: explaining Artyfact is its purpose, and its explanation component has accuracy, clarity and compelling-visual criteria. Make these real canonical Genome subjects and criteria, with declared expectations distinct from observed success. Explain early how Things and Parts can correspond to single or composite Cloudflare artifacts and realizations without a fixed one-to-one mapping. This supersedes the illustrative scoped-change example.

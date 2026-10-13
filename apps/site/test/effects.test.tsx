@@ -13,7 +13,7 @@ it('reports layer choices without changing its markup', () => {
   expect(onSelect).toHaveBeenLastCalledWith({ layer: 0, subject: 0 });
   fireEvent.click(screen.getAllByRole('tab', { name: /Phenome/ })[0]);
   expect(onSelect).toHaveBeenLastCalledWith({ layer: 2, subject: 0 });
-  expect(screen.getAllByText(/Make changes easy to scope and specify/)).toHaveLength(2);
+  expect(screen.getAllByText(/Explain Artyfact clearly/)).toHaveLength(2);
 });
 
 it('mounts ambient atmosphere without bringing back the literal hero orb', async () => {
