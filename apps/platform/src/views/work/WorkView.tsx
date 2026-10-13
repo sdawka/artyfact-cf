@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { useEvaluationFx } from "@/effects/fx";
 import { useModel } from "@/model/useModel";
@@ -18,21 +19,28 @@ export default function WorkView() {
   const [panel, setPanel] = useParam("panel");
   const creating = panel === "new";
   const describing = panel === "intent";
-  const closePanel = () => setPanel(null, { anchor: null, proposal: null });
+  const describeBtn = useRef<HTMLButtonElement>(null);
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  // Closing hands focus back to the header action that opened the panel, so it never falls to the body.
+  const closePanel = () => {
+    setPanel(null, { anchor: null, proposal: null });
+    describeBtn.current?.focus();
+  };
   // A deep link to a realization opens its Evolution even without ?evolution=.
   const effectiveId = evolutionId ?? realizations.find((r) => r.id === realizationId)?.evolution ?? null;
   const selected = evolutions.find((e) => e.id === effectiveId);
   return (
     <section aria-labelledby="view-title" className={styles.view}>
       <div className={styles.detailHead}>
-        <h1 id="view-title">Work</h1>
+        <h1 id="view-title" ref={titleRef} tabIndex={-1}>Work</h1>
         <span className={styles.inlineRow}>
           <button
+            ref={describeBtn}
             type="button"
             // The page's one primary action while nothing else (a panel, a selected Evolution) offers one.
             className={`u-brackets ${panel || selected ? styles.btn : styles.primary}`}
             aria-pressed={describing}
-            onClick={() => (describing ? closePanel() : setPanel("intent", { evolution: null, realization: null }))}
+            onClick={() => (describing ? closePanel() : setPanel("intent"))}
           >
             Describe a change
           </button>
@@ -53,7 +61,10 @@ export default function WorkView() {
         <IntentPanel
           onClose={closePanel}
           // The accepted ops are a Genome realization with a candidate: open it on the board.
-          onAccepted={(res) => setEvolutionId(res.evolution.id, { realization: res.realization.id, panel: null, anchor: null, proposal: null })}
+          onAccepted={(res) => {
+            setEvolutionId(res.evolution.id, { realization: res.realization.id, panel: null, anchor: null, proposal: null });
+            titleRef.current?.focus();
+          }}
         />
       )}
       {describing ? null : evolutions.length === 0 ? (
