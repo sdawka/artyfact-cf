@@ -1,0 +1,15 @@
+id: screen.review
+kind: screen
+fields:
+  name: Review
+  description: "The operator's inbox and promotion desk: every candidate and amendment waiting for a decision, with its gates, conflicts and base. Actionable targets wear corner brackets and the page has one primary button; Promote, Re-run checks, Accept with interpretation and Reject with reason each show their result inline, and an empty queue reads Nothing is waiting on you."
+  route: /s/:systemId/r/:rev/review
+  states:
+    - loading
+    - loaded
+    - empty
+    - error
+    - fake provider
+links:
+  - rel: serves
+    to: feature.promotion-gate

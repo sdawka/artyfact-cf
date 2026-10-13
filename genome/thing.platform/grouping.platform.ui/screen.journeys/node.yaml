@@ -1,0 +1,11 @@
+id: screen.journeys
+kind: screen
+fields:
+  name: Journeys
+  description: Step-by-step journeys of the System; a step links to the screen or operation it uses. Actionable targets wear corner brackets and the page has one primary button; choosing a journey or step focuses it and a step's screen link opens that screen.
+  route: /s/:systemId/r/:rev/journeys
+  states:
+    - loading
+    - loaded
+    - empty
+    - error

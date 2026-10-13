@@ -1,0 +1,14 @@
+id: J.triage/h1
+kind: step
+fields:
+  step: h1
+  actor: user
+  action: Opens Home
+  kind: action
+  next:
+    - to: h2
+links:
+  - rel: stepOperation
+    to: endpoint.systems
+  - rel: stepScreen
+    to: screen.home

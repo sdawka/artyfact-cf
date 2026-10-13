@@ -1,0 +1,11 @@
+id: component.evaluations.signifiers
+kind: component
+fields:
+  name: Verdict signifiers
+  description: Each verdict as glyph plus word. Only pass is green; a missing verdict reads literally unknown, never a blank or a tick.
+  states:
+    - ✓ pass (success)
+    - × fail (danger)
+    - unknown (subtle)
+    - not run (subtle)
+    - stale (subtle, dashed)

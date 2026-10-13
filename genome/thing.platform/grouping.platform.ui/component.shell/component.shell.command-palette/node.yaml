@@ -1,0 +1,9 @@
+id: component.shell.command-palette
+kind: component
+fields:
+  name: Command palette
+  description: Search for views and nodes and jump to them.
+  states:
+    - closed
+    - open
+    - "empty: no match"

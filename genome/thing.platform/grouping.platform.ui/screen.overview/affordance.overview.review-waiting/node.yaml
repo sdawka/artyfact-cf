@@ -1,0 +1,15 @@
+id: affordance.overview.review-waiting
+kind: affordance
+fields:
+  name: Review n waiting
+  description: A line that links to Review when candidates or amendments are waiting.
+  actor: user
+  trigger: click
+  preconditions:
+    - At least one item awaits review
+  effects:
+    - Review opens on the queue
+  failure: []
+links:
+  - rel: references
+    to: screen.review

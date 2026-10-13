@@ -1,0 +1,14 @@
+id: affordance.part.open-home
+kind: affordance
+fields:
+  name: Home
+  description: Returns to Home.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - Home opens
+  failure: []
+links:
+  - rel: references
+    to: screen.home

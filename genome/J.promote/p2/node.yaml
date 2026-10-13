@@ -9,3 +9,4 @@ fields:
     - to: p3
 links:
   - { rel: stepOperation, to: endpoint.promote }
+  - { rel: stepScreen, to: screen.review }

@@ -1,0 +1,18 @@
+id: screen.work
+kind: screen
+fields:
+  name: Work
+  description: Evolutions on a board with their realizations, the task packet and start-work. Actionable targets wear corner brackets and the page has one primary button, and Start work is the one primary action on an Evolution; acting shows the new realization or an inline error, and Describe a change replaces the board with its panel until Back to board.
+  route: /s/:systemId/r/:rev/work
+  states:
+    - loading
+    - loaded
+    - empty
+    - error
+    - describe-a-change panel open
+    - fake provider
+links:
+  - rel: serves
+    to: feature.agent-realization
+  - rel: serves
+    to: feature.describe-change

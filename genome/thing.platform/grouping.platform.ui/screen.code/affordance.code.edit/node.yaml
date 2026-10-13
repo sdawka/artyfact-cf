@@ -1,0 +1,14 @@
+id: affordance.code.edit
+kind: affordance
+fields:
+  name: Edit
+  description: Makes the file pane editable on a realization fork.
+  actor: user
+  trigger: click
+  preconditions:
+    - A file is open
+    - An admin token is set
+  effects:
+    - The pane becomes an editor
+  failure:
+    - "403: the pane stays read-only with the reason"

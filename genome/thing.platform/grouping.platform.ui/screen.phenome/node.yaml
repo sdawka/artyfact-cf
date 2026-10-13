@@ -1,0 +1,17 @@
+id: screen.phenome
+kind: screen
+fields:
+  name: Deployments
+  description: Deployments of the System with their build and the runtime events they report. Actionable targets wear corner brackets and the page has one primary button; Create deployment shows the new row and its status, and a failed deploy reads deploy failed in the danger tone.
+  route: /s/:systemId/r/:rev/phenome
+  states:
+    - loading
+    - loaded
+    - empty
+    - error
+    - fake provider
+links:
+  - rel: serves
+    to: feature.builds-deployments
+  - rel: serves
+    to: feature.phenome

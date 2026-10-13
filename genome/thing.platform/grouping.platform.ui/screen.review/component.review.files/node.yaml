@@ -1,0 +1,10 @@
+id: component.review.files
+kind: component
+fields:
+  name: Files
+  description: The changed files with their diffs.
+  states:
+    - loading
+    - loaded
+    - "empty: no changed files"
+    - error

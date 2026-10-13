@@ -1,0 +1,14 @@
+id: component.work.signifiers
+kind: component
+fields:
+  name: Realization signifiers
+  description: "Per realization: agent, role and status, the fork sha with the last checkpoint (or literally unknown), a token countdown that turns attention under 30 minutes, and scope chips. Only pass is green; a missing verdict reads literally unknown, never a blank or a tick."
+  states:
+    - running (subtle)
+    - submitted (attention)
+    - promoted (subtle)
+    - rejected (danger)
+    - fork sha + checkpoint (subtle)
+    - checkpoint unknown (subtle)
+    - token under 30 min (attention)
+    - token expired (danger)

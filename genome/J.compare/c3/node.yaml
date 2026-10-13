@@ -10,3 +10,4 @@ fields:
 links:
   - { rel: stepOperation, to: endpoint.compare-system }
   - { rel: stepOperation, to: endpoint.compare-genome }
+  - { rel: stepScreen, to: screen.compare }

@@ -1,0 +1,13 @@
+id: component.shell.side-nav
+kind: component
+fields:
+  name: Side navigation
+  description: "The rail: Overview on top, then Genome, Proteome and Phenome heads, each with its question as a subline (what should it be, what is being made, what does it do), then Private Parts. Review carries a count that is hidden at zero."
+  states:
+    - Overview
+    - "Genome: Map, Journeys, Theory, Code"
+    - "Proteome: Work, Review, Evaluations, Changelog"
+    - "Phenome: Deployments"
+    - Private Parts
+    - Review count (attention)
+    - collapsed on narrow screens

@@ -1,0 +1,19 @@
+id: affordance.review.promote
+kind: affordance
+fields:
+  name: Promote
+  description: The primary button. Promotes one candidate against the expected head in one transaction (admin token).
+  actor: user
+  trigger: click
+  preconditions:
+    - Every gate is pass
+    - The base is the head
+    - An admin token is set
+  effects:
+    - A System commit is written and the row leaves the queue
+  failure:
+    - "409 stale base: the stale message plus the agent's `artyfact rebase` line"
+    - "403: the admin token is wrong"
+links:
+  - rel: invokes
+    to: endpoint.promote

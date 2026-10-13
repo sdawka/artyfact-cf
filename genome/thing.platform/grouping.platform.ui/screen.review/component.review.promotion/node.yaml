@@ -1,0 +1,10 @@
+id: component.review.promotion
+kind: component
+fields:
+  name: Promotion
+  description: "The promotion panel: manifest hash, base against head, the gates table and the reasons Promote is disabled."
+  states:
+    - loading
+    - loaded
+    - error
+    - 409 stale base

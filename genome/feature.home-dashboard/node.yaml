@@ -1,0 +1,5 @@
+id: feature.home-dashboard
+kind: feature
+fields:
+  name: Home dashboard
+  summary: "Triage across Systems: a Needs you ledger of pending decisions above one quiet card per System."

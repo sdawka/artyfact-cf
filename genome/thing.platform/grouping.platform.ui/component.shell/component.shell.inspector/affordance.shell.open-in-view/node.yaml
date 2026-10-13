@@ -1,0 +1,12 @@
+id: affordance.shell.open-in-view
+kind: affordance
+fields:
+  name: Open in Map, Journeys or Theory
+  description: Opens the node in the view that best shows it.
+  actor: user
+  trigger: click
+  preconditions:
+    - A node is focused
+  effects:
+    - The view opens focused on the node
+  failure: []

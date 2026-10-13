@@ -1,0 +1,10 @@
+id: component.shell.inspector.evidence
+kind: component
+fields:
+  name: Evidence
+  description: The evidence verdict for the node and the evaluations behind it.
+  states:
+    - loaded
+    - unknown (subtle)
+    - pass (success)
+    - fail (danger)
