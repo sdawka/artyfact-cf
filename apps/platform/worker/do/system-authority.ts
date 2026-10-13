@@ -121,6 +121,20 @@ export interface BootstrapInput extends ManifestExtras {
   evolutions: EvolutionSeed[];
   /** Re-point an existing System at different repos/commits (admin). Without it that is `[already-imported]`. */
   force?: boolean;
+  /** Default true: a new System commit leaves the import review pending. `false` clears any review instead. */
+  review?: boolean;
+  /** Containment nodes of the imported Genome, recorded on a pending review. */
+  reviewNodes?: number;
+}
+
+/** The import review recorded in the `head` kv (`import_review_status`, `import_review_json`). */
+export interface ImportReviewState {
+  status: "pending" | "accepted";
+  genomeCommit: string;
+  nodes: number;
+  decidedAt?: string;
+  interpretation?: string;
+  rejectedNodes?: string[];
 }
 
 export interface HeadState {
@@ -501,6 +515,9 @@ export class SystemAuthority extends DurableObject<Env> {
           by: "platform", policy: "import",
           rationale: `import ${input.genomeRepo}@${input.genomeCommit.slice(0, 7)} + ${input.appRepo}@${input.appCommit?.slice(0, 7) ?? "no source yet"}`,
         });
+        // A new System commit is a new thing to review; `review: false` (fake seeds, --no-review) leaves none.
+        this.writeImportReview(input.review === false ? null
+          : { status: "pending", genomeCommit: input.genomeCommit, nodes: input.reviewNodes ?? 0 });
       }
       this.seedEvolutions(input.evolutions, input.genomeCommit);
     });
@@ -1459,11 +1476,34 @@ export class SystemAuthority extends DurableObject<Env> {
     if (builds.deployState === "behind") signifiers.push("behind");
     if (observed) signifiers.push("observed");
     if (s.phase === "unrealized" && everCandidates === 0) signifiers.push("unrealized");
+    const review = this.importReview();
+    if (review?.status === "pending") signifiers.push("import-pending");
 
     return {
       ...(s.appSource?.commit && { appCommit: s.appSource.commit }),
       built, realizationCounts, openCandidates, ...builds, phenome, ...(readiness && { readiness }), signifiers,
+      ...(review && { importReview: { status: review.status, genomeCommit: review.genomeCommit, nodes: review.nodes } }),
     };
+  }
+
+  // ---------------------------------------------------------------- W9 import review
+
+  /** TODO(W3): W3 owns the final `importReview()`/`setImportReview()`; this is the minimal kv adapter W9 builds on. */
+  importReview(): ImportReviewState | null {
+    return json<ImportReviewState | null>(this.kv("import_review_json"), null);
+  }
+
+  private writeImportReview(r: ImportReviewState | null): void {
+    this.setKv("import_review_status", r?.status ?? null);
+    this.setKv("import_review_json", r ? JSON.stringify(r) : null);
+  }
+
+  /** Records the review (null clears it), then announces `system.import-review` and the new summary. */
+  setImportReview(raw: string | null): void {
+    const r = raw === null ? null : (JSON.parse(raw) as ImportReviewState);
+    this.writeImportReview(r);
+    if (r) this.emit({ type: "system.import-review", status: r.status });
+    this.publishSummary();
   }
 
   /** The current summary, announced as `system.updated` (the Worker then copies it into the registry). */
