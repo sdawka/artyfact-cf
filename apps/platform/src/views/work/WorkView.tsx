@@ -79,7 +79,7 @@ export default function WorkView() {
       {describing ? null : selected ? (
         <EvolutionDetail evolution={selected} realizations={realizations} />
       ) : evolutions.length > 0 ? (
-        <p className={styles.muted}>Select an Evolution to see its realizations, start work or promote.</p>
+        <p className={styles.muted}>Select an Evolution to see its realizations or start work. Promotion is on Review.</p>
       ) : null}
     </section>
   );
