@@ -179,7 +179,7 @@ starts with `[name, systemId]`, so `invalidateQueries({ queryKey: [name, systemI
   `ModelDelta` with both sides' models for `SemanticDelta`.
 - `views/compare`: two `RevisionPicker`s + Swap, levels System / Genome / Files (`?from=&to=&level=&repo=&path=`).
 - `views/work/panels/NewEvolutionPanel.tsx`: admin form behind "+ Evolution" (Work and Changelog).
-- `views/work/intent/`: "Describe a change" (`?panel=intent`), opened from the Work header, a Home card and "Change this…"
+- `views/work/intent/`: "Describe a change" (`?panel=intent`), opened from the Work header, a Home card and "Describe a change"
   in the Inspector and Code (`&anchor=<nodeId>`). Message → proposal (`&proposal=`): routed path, provider label, per-op
   diff with include toggles (dependencies follow), problems, inline replies, "Accept selected" → the candidate on Work.
   Fixture mode disables writes and shows `intent/sample.ts` read-only.

@@ -130,3 +130,15 @@
 .overlapChip { padding: 0 var(--spacing-2); color: var(--color-status-warning); font-size: var(--font-size-xs); border: 1px solid var(--color-status-warning); border-radius: var(--border-radius-sm); }
 .reviewLink { padding: var(--spacing-1) var(--spacing-3); color: var(--color-text-primary); background: var(--color-surface-secondary); border: 1px solid var(--color-border); text-decoration: none; }
 .reviewLink:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.textBtn {
+  padding: var(--spacing-1) var(--spacing-2);
+  color: var(--color-text-secondary);
+  background: none;
+  border: 0;
+  font: inherit;
+  font-size: var(--font-size-sm);
+  text-decoration: underline;
+  cursor: pointer;
+}
+.textBtn:hover, .textBtn[aria-pressed="true"] { color: var(--color-brand-primary); }
+.textBtn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }

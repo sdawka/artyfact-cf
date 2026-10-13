@@ -111,7 +111,7 @@ export function InspectorHeader({ entry }: { entry: IndexEntry }) {
         )}
         {CHANGEABLE.has(entry.type) && (
           <Link className={`u-brackets ${styles.openButton}`} to={href("work", { panel: "intent", anchor: entry.id })}>
-            Change this…
+            Describe a change
           </Link>
         )}
         {codePath && (

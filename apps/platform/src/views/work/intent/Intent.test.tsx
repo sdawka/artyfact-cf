@@ -135,9 +135,9 @@ describe("Describe a change", () => {
     expect(new URLSearchParams(router.state.location.search).get("anchor")).toBe("screen.people");
   });
 
-  it("the Inspector's Change this… opens the panel anchored on the node", async () => {
+  it("the Inspector's Describe a change opens the panel anchored on the node", async () => {
     const { router } = renderApp(`/s/${SYSTEM}/r/head/map?focus=screen.people`);
-    const link = await screen.findByRole("link", { name: "Change this…" });
+    const link = await screen.findByRole("link", { name: "Describe a change" });
     act(() => link.click());
     await waitFor(() => expect(router.state.location.pathname).toBe(WORK));
     const p = new URLSearchParams(router.state.location.search);
@@ -160,8 +160,18 @@ describe("Describe a change", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Describe a change" }));
     await waitFor(() => expect(router.state.location.search).toContain("panel=intent"));
     expect(await screen.findByRole("heading", { level: 2, name: "Describe a change" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to board" }));
     await waitFor(() => expect(router.state.location.search).not.toContain("panel="));
+  });
+
+  it("replaces the board and detail while open and keeps the board after Back to board", async () => {
+    const { router } = renderApp(`${WORK}?panel=intent&anchor=screen.people`);
+    expect(await screen.findByRole("heading", { level: 2, name: "Describe a change" })).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Evolution board" })).toBeNull();
+    expect(screen.queryByText(/Select an Evolution to see/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back to board" }));
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+    expect(await screen.findByText(/Select an Evolution to see|No Evolutions yet/)).toBeTruthy();
   });
 });
 
