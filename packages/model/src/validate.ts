@@ -1,7 +1,7 @@
 import { checksPack, CORE_PACKS, evaluate, packName, templateHash, type Template } from "@artyfact/ontology";
 import type { DerivationTree, Tuple } from "@artyfact/rules";
 import type { SystemModel } from "./genome.ts";
-import { sha256 } from "./sha256.ts";
+import { sha256Hex } from "@artyfact/rules";
 
 export interface RulePack { id: string; version: string; source: string }
 
@@ -109,7 +109,7 @@ export function validate(m: SystemModel): Readiness {
     LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level) || a.rule.localeCompare(b.rule) || (a.subject ?? "").localeCompare(b.subject ?? ""));
   return {
     snapshotHash: r.snapshotHash,
-    packs: rulePacksOf(m).map((p) => ({ id: p.id, version: p.version, hash: sha256(p.source) })),
+    packs: rulePacksOf(m).map((p) => ({ id: p.id, version: p.version, hash: sha256Hex(p.source) })),
     findings,
     derived: r.derived ?? {},
     incomplete: r.incomplete,

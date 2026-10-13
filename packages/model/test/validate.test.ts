@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { packName } from "@artyfact/ontology";
 import { rulePacksOf, validate } from "../src/index";
-import { sha256 } from "../src/sha256";
+import { sha256Hex } from "../src/index";
 import { edit, load, readTree } from "./helpers";
 
 // validate() against the real template packs (packages/templates), selected by the root's pinned rulePacks.
@@ -35,7 +35,7 @@ describe("validate with the real packs", () => {
     const packs = rulePacksOf(m);
     expect(r.packs.map((p) => `${p.id}@${p.version}`)).toEqual(packs.map((p) => `${p.id}@${p.version}`));
     expect(r.packs.map((p) => p.id)).toEqual(expect.arrayContaining(["metamodel", "readiness", "authorization", "theory", "journeys", "topology.private-pairs"]));
-    expect(r.packs[0].hash).toBe(sha256(packs[0].source));
+    expect(r.packs[0].hash).toBe(sha256Hex(packs[0].source));
     expect(r.snapshotHash).toMatch(/^[0-9a-f]{64}$/);
     expect(r.findings.find((f) => f.rule === "kit.unpinned")!.message).toContain("auth");
   });

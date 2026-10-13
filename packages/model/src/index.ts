@@ -7,6 +7,7 @@ export type { ModelIndex, IndexEntry, EntryType, LinkRef } from "./model-index.t
 export { readinessTemplate, rulePacksOf, selectPacks, unavailablePins, validate } from "./validate.ts";
 export type { Finding, Readiness, RulePack } from "./validate.ts";
 export type { DerivationTree, FactSet, Tuple, Value } from "@artyfact/rules";
+export { sha256Hex } from "@artyfact/rules";
 export { diffModels, overlap } from "./diff.ts";
 export type { SemanticDelta } from "./diff.ts";
 export { toMermaid } from "./mermaid.ts";

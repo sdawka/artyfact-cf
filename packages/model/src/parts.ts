@@ -1,5 +1,5 @@
 import * as schema from "./schema.ts";
-import { sha256 } from "./sha256.ts";
+import { sha256Hex } from "@artyfact/rules";
 
 export interface PartResolver {
   get(ref: schema.PartRef): schema.PartPackage | undefined;
@@ -277,5 +277,5 @@ function canonical(value: unknown): string {
 /** Digest of immutable package content. Publication state and the digest field itself are excluded. */
 export function partDigest(partInput: schema.PartPackage): string {
   const { digest: _digest, published: _published, ...content } = schema.PartPackage.parse(partInput);
-  return `sha256:${sha256(canonical(content))}`;
+  return `sha256:${sha256Hex(canonical(content))}`;
 }
