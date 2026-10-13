@@ -1,3 +1,4 @@
+import type { NodeCriterion } from "../genome/node.ts";
 import type { GraphLink } from "../graph/graph.ts";
 import type { SliceNode } from "../judge/slice.ts";
 import type { AskOptions, JudgmentStatus, Thresholds, Usage } from "../judge/types.ts";
@@ -92,10 +93,20 @@ export interface RouteOptions {
   ask?: AskOptions;
 }
 
-/** A graph edit in canonical terms. An `add` link names the other end with `to` (new -> it) or `from` (it -> new). */
+/** A criterion upsert (by id) or removal carried by an op; the Genome v2 `node.yaml` criterion shape. */
+export type OpCriterion = NodeCriterion | { id: string; remove: true };
+
+/**
+ * A graph edit in canonical terms. An `add` link names the other end with `to` (new -> it) or `from` (it -> new);
+ * its `fields` are any other fields the kind declares, and its `criteria` the new node's own. An `update` sets
+ * `fields` (`null` deletes one) and upserts or removes `criteria` by id.
+ */
 export type Op =
-  | { op: "add"; kind: string; parent?: string; title: string; description?: string; links?: { rel: string; to?: string; from?: string }[] }
-  | { op: "update"; id: string; fields: Record<string, unknown> }
+  | {
+    op: "add"; kind: string; parent?: string; title: string; description?: string; fields?: Record<string, unknown>;
+    criteria?: NodeCriterion[]; links?: { rel: string; to?: string; from?: string }[];
+  }
+  | { op: "update"; id: string; fields?: Record<string, unknown>; criteria?: OpCriterion[] }
   | { op: "remove"; id: string }
   | { op: "link" | "unlink"; from: string; rel: string; to: string };
 
