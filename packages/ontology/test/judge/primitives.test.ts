@@ -128,6 +128,12 @@ describe("fake per-question directives", () => {
     expect(a["node.tangibility"]).toMatchObject({ score: 1, confidence: 0.95 });
   });
 
+  it("answers a choice with the first key of a list that it offers", () => {
+    expect(fakeAnswers({ t: "#s1:which:instance=absent,compound,none" }, qs)["which:instance"]).toMatchObject({ choice: "compound" });
+    expect(fakeAnswers({ t: "#s1:which:instance=absent,other. Then text" }, qs)["which:instance"]).toMatchObject({ choice: "none" });
+    expect(fakeAnswers({ t: "#s1:set.allHold=no,yes" }, qs)["set.allHold"]).toEqual({ type: "noul", noul: 0.05 });
+  });
+
   it("does not match a question id by prefix and keeps global directives", () => {
     const a = fakeAnswers({ t: "#s1low:node.kindX #s1:set.allHoldX=no" }, qs);
     expect(a["node.kind"]).toEqual({ type: "noul", noul: 0.95 });

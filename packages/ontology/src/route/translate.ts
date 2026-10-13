@@ -158,7 +158,8 @@ export function openRouterTranslator(o: OpenRouterTranslatorOptions): Translator
 
 /**
  * A canned, gold-free translator: a question when the route is not confident or the intent is `question`/`unclear`,
- * an answer for `answer`, else an `update` of the first target, else an `add` of the route's kind, else a question.
+ * an answer for `answer`, else an `update` of each target (a `#files:` directive binds the first target's files), else
+ * an `add` of the route's kind, else a question.
  * The `add` links to the first target with the first vocabulary relation whose ends fit the two kinds, if any.
  */
 export const fakeTranslator = (): Translator => ({
@@ -175,7 +176,7 @@ export const fakeTranslator = (): Translator => ({
     if (r.intent === "answer") return { ...base, answer: `[fake] See ${[...r.target.nodes, ...r.target.related].join(", ") || "the specification"}.` };
     const first = r.target.nodes[0];
     if (first && dir) return { ...base, ops: [{ op: "update", id: first, files: dir[1]!.split(",").filter(Boolean) }] };
-    if (first && r.intent !== "add") return { ...base, ops: [{ op: "update", id: first, fields: { description: `[fake] ${text}` } }] };
+    if (first && r.intent !== "add") return { ...base, ops: r.target.nodes.map((id) => ({ op: "update" as const, id, fields: { description: `[fake] ${text}` } })) };
     if (r.target.kind) {
       const kind = r.target.kind;
       const other = first === undefined ? undefined : slice.nodes.find((n) => n.id === first)?.kind;

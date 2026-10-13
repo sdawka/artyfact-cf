@@ -9,17 +9,19 @@ const END = "(?![\\w.:|-])";
 //   #s1no             noul 0.05; choice -> 'none' or the last option; score 0
 //   #s1pick:<key>     choice -> that key when the question offers it
 //   #s1harm           every noul answers a confident "yes"
-//   #s1:<qid>=<key>   question <qid> only: a choice key, yes/no for a yes-no question, an integer level for a score
+//   #s1:<qid>=<key>   question <qid> only: a choice key, yes/no for a yes-no question, an integer level for a score;
+//                     `<a>,<b>,…` answers a choice with the first key it offers (a router's repeated follow-ups)
 //   #s1low:<qid>      question <qid> only: low confidence
 // Per-question directives win over global ones. Otherwise each question gets its declared benign answer,
 // confidently; without one, "yes" / the first option / the top level.
 export function fakeAnswer(q: S1Question, flatState: string, id?: string): Answer {
-  const own = id === undefined ? undefined : new RegExp(`#s1:${escape(id)}=([\\w.:-]+?)${END}`).exec(flatState)?.[1];
+  const owns = id === undefined ? undefined : new RegExp(`#s1:${escape(id)}=([\\w.:,-]+?)(?![\\w.:,|-])`).exec(flatState)?.[1]?.split(",");
   const ownLow = id !== undefined && new RegExp(`#s1low:${escape(id)}${END}`).test(flatState);
   const low = ownLow || /#s1low(?!:)/.test(flatState);
   const no = flatState.includes("#s1no");
   const wanted = /#s1pick:([\w-]+)/.exec(flatState)?.[1];
   const conf = low ? 0.3 : 0.95;
+  const own = q.type === "choice" ? owns?.find((k) => k in q.criteria) ?? owns?.[0] : owns?.[0];
   if (q.type === "noul") {
     if (own === "yes" || own === "no") return { type: "noul", noul: own === "yes" ? (low ? 0.55 : 0.95) : (low ? 0.45 : 0.05) };
     return { type: "noul", noul: low ? 0.55 : no ? 0.05 : flatState.includes("#s1harm") || q.benign !== "no" ? 0.95 : 0.05 };
