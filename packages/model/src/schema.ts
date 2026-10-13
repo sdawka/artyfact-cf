@@ -15,6 +15,7 @@ export const Id = {
   journey: id("J."),
   evolution: id("evolution."),
   realization: id("realization."),
+  task: id("task."),
   artifact: id("artifact."),
   part: id("part."),
   recipe: id("recipe."),
@@ -496,6 +497,113 @@ export const Evolution = z.object({
 });
 export type Evolution = z.infer<typeof Evolution>;
 
+// Tasks: an Evolution's plan, split into Tasks local agents claim. DO-only (never in the Genome's `evolutions/*.yaml`).
+
+/**
+ * `claimed`: forked, no checkpoint yet (awaits an agent); the first checkpoint moves it to `realizing`. `blocked` is not
+ * a status: it is derived from `dependsOn` tasks that are not `promoted`. Done = `promoted`.
+ */
+export const TaskStatus = z.enum(["planned", "claimed", "realizing", "evaluated", "promoted", "rejected", "abandoned"]);
+export type TaskStatus = z.infer<typeof TaskStatus>;
+
+/**
+ * The files a Task may edit: `globs` from the nodes' `files` (via `permittedGlobs`), `paths` those globs match in the app
+ * tree at `appCommit`, `unmatched` the globs that match nothing yet (files the task may create).
+ */
+export const TaskFootprint = z.object({
+  globs: z.array(str),
+  paths: z.array(str),
+  unmatched: z.array(str),
+  entryFiles: z.array(z.object({ path: str, certainty: Certainty })),
+  appCommit: str.optional(),
+});
+export type TaskFootprint = z.infer<typeof TaskFootprint>;
+
+export const Task = z.object({
+  id: Id.task,
+  evolutionId: Id.evolution,
+  title: str,
+  intent: str,
+  /** The one Thing the task's nodes belong to; null when they belong to the System itself. */
+  thing: Id.thing.nullable(),
+  nodes: z.array(AnyId).min(1),
+  footprint: TaskFootprint,
+  acceptanceCriteria: z.array(Id.crit),
+  dependsOn: z.array(Id.task),
+  status: TaskStatus,
+  realizationId: Id.realization.optional(),
+  /** Set while claimed; the lease lapses at `expiresAt`. */
+  claim: z.object({ agentLabel: str, at: str, expiresAt: str }).optional(),
+  origin: z.enum(["llm", "fallback", "user"]),
+});
+export type Task = z.infer<typeof Task>;
+
+/** Strongest first: `declared` (dependsOn) > `file` > `soft-semantic`; `hard-semantic` is post-submit only. */
+export const TaskConflictKind = z.enum(["declared", "file", "soft-semantic", "hard-semantic"]);
+export type TaskConflictKind = z.infer<typeof TaskConflictKind>;
+
+export const TaskConflict = z.object({
+  kind: TaskConflictKind,
+  tasks: z.tuple([Id.task, Id.task]),
+  /** Paths, globs or node ids that collide. */
+  subjects: z.array(str),
+  message: str,
+  semantic: z.unknown().optional(),
+});
+export type TaskConflict = z.infer<typeof TaskConflict>;
+
+export const TaskPlanProblem = z.object({
+  task: Id.task.optional(),
+  severity: z.enum(["error", "missing", "warning"]),
+  message: str,
+});
+export type TaskPlanProblem = z.infer<typeof TaskPlanProblem>;
+
+export const TaskPlan = z.object({
+  version: z.literal(1),
+  evolutionId: Id.evolution,
+  genomeCommit: str,
+  appCommit: str.nullable(),
+  tasks: z.array(Task),
+  conflicts: z.array(TaskConflict),
+  /** Task ids per wave, in order; tasks of one wave are file-disjoint. */
+  waves: z.array(z.array(Id.task)),
+  problems: z.array(TaskPlanProblem),
+  provenance: z.object({
+    planner: z.object({ provider: str, model: str }),
+    fake: z.boolean(),
+    hint: str.optional(),
+  }),
+  createdAt: str,
+  updatedAt: str,
+});
+export type TaskPlan = z.infer<typeof TaskPlan>;
+
+/**
+ * One node of a proposal (or import review) agreement tree: `opIds` are the ops this node owns (every op in exactly
+ * one node), `path` its containment path from the System root, `decision` the admin's call on it.
+ */
+export interface ProposalPlanNode {
+  id: string;
+  kind: string;
+  title: string;
+  path: string[];
+  summary: string;
+  opIds: string[];
+  children: ProposalPlanNode[];
+  decision?: "agree" | "reject" | "defer";
+}
+export const ProposalPlanNode: z.ZodType<ProposalPlanNode> = z.object({
+  id: AnyId,
+  kind: str,
+  title: str,
+  path: z.array(str),
+  summary: str,
+  opIds: z.array(str),
+  children: z.lazy(() => z.array(ProposalPlanNode)),
+  decision: z.enum(["agree", "reject", "defer"]).optional(),
+});
+
 export const Workspace = z.object({ repo: str, fork: str, baseCommit: str, tokenExpiresAt: str.optional() });
 export const AgentRole = z.enum(["implementer", "assay-author", "verifier", "reviewer", "repairer", "author"]);
 
@@ -508,6 +616,8 @@ export const Realization = z.object({
   status: z.enum(["claimed", "working", "submitted", "evaluating", "evaluated", "selected", "promoted", "rejected", "abandoned"]),
   checkpoints: z.array(z.object({ at: str, summary: str, commit: str.optional() })).default([]),
   candidate: str.optional(),
+  /** The Task this realization works on, when it was started for one. */
+  task: str.optional(),
 });
 export type Realization = z.infer<typeof Realization>;
 
