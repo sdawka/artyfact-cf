@@ -6,7 +6,8 @@
   "main": "src/index.ts",
   "exports": {
     ".": "./src/index.ts",
-    "./naming": "./src/naming.ts"
+    "./naming": "./src/naming.ts",
+    "./ignore": "./src/ignore.ts"
   },
   "bin": {
     "artyfact": "bin/artyfact.js"

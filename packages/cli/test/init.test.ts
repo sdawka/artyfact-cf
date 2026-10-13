@@ -354,8 +354,19 @@ describe("artyfact init --from-template", { timeout: 60_000 }, () => {
       systemId: "system.fresh_app", genomeRepo: "fresh_app.genome", appRepo: "fresh_app.app", force: false,
       scaffoldFrom: { repo: "platform", commit: platformHead, path },
     });
-    expect(filesAt(lc.path("artyfact", "fresh_app.app"))).toEqual(filesAt(lc.path("artyfact", "platform")).filter((f) => f.startsWith(`${path}/`)).map((f) => f.slice(path.length + 1)));
+    const scaffoldFiles = filesAt(lc.path("artyfact", "platform")).filter((f) => f.startsWith(`${path}/`)).map((f) => f.slice(path.length + 1));
+    expect(filesAt(lc.path("artyfact", "fresh_app.app"))).toEqual([...scaffoldFiles, ".artyfact/template.json"].sort());
     expect(filesAt(lc.path("artyfact", "fresh_app.app"))).toContain(".gitignore");
+    // The template lock: the template, the platform commit and the blob id of every scaffolded file, as git has them.
+    const app = lc.path("artyfact", "fresh_app.app");
+    const lock = JSON.parse(sh(tmp, "--git-dir", app, "show", "main:.artyfact/template.json")) as { template: string; scaffoldCommit: string; files: Record<string, string> };
+    expect(lock.template).toBe("thing/cloudflare-worker-webapp@1");
+    expect(lock.scaffoldCommit).toBe(platformHead);
+    expect(Object.keys(lock.files)).toEqual(scaffoldFiles);
+    for (const f of scaffoldFiles) {
+      expect(lock.files[f], f).toBe(sh(tmp, "--git-dir", app, "rev-parse", `main:${f}`));
+      expect(lock.files[f], f).toBe(sh(tmp, "--git-dir", lc.path("artyfact", "platform"), "rev-parse", `main:${path}/${f}`));
+    }
     const again = await run(["init", "--dir", dir, "--from-template", "template.thing.cloudflare-worker-webapp@1"], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
     expect(again.out).toContain("fresh_app.app: already has history");
     expect(p.requests[1]!.body).not.toHaveProperty("scaffoldFrom");
