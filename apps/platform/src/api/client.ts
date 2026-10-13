@@ -12,6 +12,7 @@ import {
 import { isBlocking } from "../../shared/verdict";
 import type { TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse } from "../../shared/api";
 import type { IntentAccept, IntentAcceptResponse, IntentDecisionsRequest, IntentReply, IntentRequest, Proposal } from "../../shared/api";
+import type { ImportReview, ImportReviewAccept, ImportReviewAcceptResponse } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
 
 /** Any non-2xx response. `body` is the parsed {@link ApiError} when the server sent one. */
@@ -396,6 +397,20 @@ export const decideIntent = (systemId: string, proposalId: string, body: IntentD
   writeOrThrow("Deciding changes", () =>
     request<Proposal>(routes.intentDecisions(systemId, proposalId), { method: "PUT", body: JSON.stringify(body), ...(adminToken && { headers: bearer(adminToken) }) }),
   );
+
+// ---------------------------------------------------------------------------
+// review: the import review of an imported System (agreement tree over the head Genome)
+// ---------------------------------------------------------------------------
+
+/** The pending or accepted import review; 404 when the System was imported without one. Not available on fixture data. */
+export async function getImportReview(systemId: string): Promise<ImportReview> {
+  if (await isFixtureMode()) throw notInFixture("The import review");
+  return request<ImportReview>(routes.importReview(systemId));
+}
+
+/** Admin: accept the import; `rejectedNodes` become `remove` ops of an awaiting-admin amendment. */
+export const acceptImportReview = (systemId: string, body: ImportReviewAccept, adminToken?: string) =>
+  writeOrThrow("Accept import", () => post<ImportReviewAcceptResponse>(routes.importReviewAccept(systemId), body, bearer(adminToken)));
 
 // ---------------------------------------------------------------------------
 // App template upgrades
