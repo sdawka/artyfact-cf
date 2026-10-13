@@ -111,7 +111,7 @@ files: 19 of 19 app paths mapped (app: examples/peopling-app)
 ok: ready for `npx artyfact init --genome examples/peopling-system --app examples/peopling-app`
 ```
 
-Errors stop it (exit 1). The seven `stale` globs are files `evolution.2` will build (step 4b), so they are expected here;
+Errors stop it (exit 1). The 21 warnings include six provisional nodes that the platform's readiness summary in step 2 leaves out. The seven `stale` globs are files `evolution.2` will build (step 4b), so they are expected here;
 `--strict` fails on them, and on any file no node maps (`unmapped`, which you bind or list in `.artyfactignore`). For
 an existing repository, `artyfact skill --write` installs the `artyfact-genome` skill so a local agent writes the Genome,
 and this command is how you know it is done.
