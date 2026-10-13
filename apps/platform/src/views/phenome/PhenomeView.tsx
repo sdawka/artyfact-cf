@@ -1,7 +1,7 @@
-import { Link, useSearchParams } from "react-router";
+import { Link, useParams, useSearchParams } from "react-router";
 import type { Build, Deployment, PhenomeEvent } from "../../../shared/api";
 import { useAdminToken } from "@/api/adminToken";
-import { useBuilds, useDeployments, usePhenomeEvents } from "@/api/queries";
+import { useBuilds, useDeployments, usePhenomeEvents, useRealizedArtifacts } from "@/api/queries";
 import { Card } from "@/components/Card/Card";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { buildTone, StatusChip } from "@/components/StatusChip/StatusChip";
@@ -13,7 +13,7 @@ import styles from "./phenome.module.css";
 
 const EXAMPLE = `curl -X POST "$PLATFORM/api/systems/$SYSTEM/phenome/events" \\
   -H "Authorization: Bearer $INGEST_TOKEN" -H "content-type: application/json" \\
-  -d '{"events":[{"systemId":"…","thingId":"…","artifactId":"…","buildId":"<commit>","commit":"<commit>","emittedAt":"<ISO time>","kind":"journey.step","payload":{}}]}'`;
+  -d '{"events":[{"systemId":"…","thingId":"…","artifactId":"…","buildId":"<runtime build id>","commit":"<source commit>","emittedAt":"<ISO time>","kind":"journey.step","payload":{}}]}'`;
 
 const Unknown = () => <span className={styles.unknown}>unknown</span>;
 const When = ({ iso }: { iso?: string | null }) => (iso ? <time dateTime={iso}>{stamp(iso)}</time> : <Unknown />);
@@ -21,14 +21,21 @@ const When = ({ iso }: { iso?: string | null }) => (iso ? <time dateTime={iso}>{
 /** Builds, deployments, runtime events and observation criteria of the System's running app. */
 export default function PhenomeView() {
   const [params] = useSearchParams();
+  const { thingId } = useParams();
   const deployment = params.get("deployment") ?? undefined;
   const buildFilter = params.get("build") ?? undefined;
   const builds = useBuilds();
   const deployments = useDeployments();
   const events = usePhenomeEvents(deployment ? { deployment } : {});
-  const list = sortNewest(builds.data ?? []);
-  const production = deployments.data?.production ?? null;
-  const history = deployments.data?.history ?? [];
+  const artifacts = useRealizedArtifacts();
+  const list = sortNewest((builds.data ?? []).filter((build) => !thingId || (build.thingId ?? build.output?.thingId) === thingId));
+  const outputIds = new Set((artifacts.data ?? []).filter((output) => output.thingId === thingId).map((output) => output.id));
+  const belongs = (item: Deployment) => !thingId || (item.output !== undefined && outputIds.has(item.output)) || list.some((build) => build.id === item.build);
+  const currentProduction = deployments.data?.production ?? null;
+  const production = currentProduction && belongs(currentProduction) ? currentProduction : null;
+  const history = (deployments.data?.history ?? []).filter(belongs);
+  const runtimeEvents = (events.data?.events ?? []).filter((event) => !thingId || event.thingId === thingId);
+  const versions = (events.data?.versions ?? []).map((version) => thingId ? { ...version, count: runtimeEvents.filter((event) => (event.outputId || event.buildId || event.commit) === version.key).length } : version);
   const { token: adminToken } = useAdminToken();
   const empty = !builds.isLoading && !deployments.isLoading && list.length === 0 && history.length === 0 && !production;
   return (
@@ -38,7 +45,7 @@ export default function PhenomeView() {
       {empty && <p className={styles.muted}>No deployments recorded — <Unknown />.</p>}
       <BuildsCard builds={list} production={production} />
       <DeploymentsCard production={production} history={history} />
-      <EventsCard events={events.data?.events ?? []} versions={events.data?.versions ?? []} buildFilter={buildFilter} deployment={deployment} />
+      <EventsCard events={runtimeEvents} versions={versions} buildFilter={buildFilter} deployment={deployment} />
       <CriteriaCard />
     </section>
   );
@@ -57,6 +64,8 @@ function BuildsCard({ builds, production }: { builds: Build[]; production: Deplo
                 <StatusChip status={b.status} tone={buildTone(b.status)} glyph={BUILD_GLYPH[b.status]} />
                 <span>{b.kind}</span>
                 <code>{short(b.commit)}</code>
+                <span>Output {b.output ? <code>{b.output.id}</code> : "unknown"}</span>
+                {b.output && <span className={styles.muted}>Source {b.output.source.repo}@{short(b.output.source.commit)} · Genome {short(b.output.genomeCommit)}</span>}
                 {b.candidate && <code>{b.candidate}</code>}
                 {b.realization && <Link className="u-marker" to={href("work", { realization: b.realization })}>{b.realization}</Link>}
                 {b.url && <a className="u-marker" href={b.url} target="_blank" rel="noopener noreferrer">Preview</a>}
@@ -90,6 +99,7 @@ function DeploymentsCard({ production, history }: { production: Deployment | nul
             <li key={d.id} className={styles.row}>
               <StatusChip status={d.status} label={d.status} tone="neutral" />
               <span>{d.kind}</span>
+              <span>Output {d.output ? <code>{d.output}</code> : "unknown"}</span>
               <code>{short(d.commit)}</code>
               {d.url ? <a className="u-marker" href={d.url} target="_blank" rel="noopener noreferrer">{d.url}</a> : <Unknown />}
               <span className={styles.muted}>buildId <code>{d.buildId ? short(d.buildId) : "unknown"}</code></span>
@@ -105,13 +115,13 @@ function DeploymentsCard({ production, history }: { production: Deployment | nul
 
 function EventsCard({ events, versions, buildFilter, deployment }: {
   events: PhenomeEvent[];
-  versions: { key: string; buildId: string; commit: string; deployment: string | null; systemCommit: string | null; count: number }[];
+  versions: { output?: string | null; genomeCommit?: string | null; key: string; buildId: string; commit: string; deployment: string | null; systemCommit: string | null; count: number }[];
   buildFilter: string | undefined;
   deployment: string | undefined;
 }) {
   const shown = buildFilter ? events.filter((e) => e.buildId === buildFilter) : events;
-  const keyOf = (e: PhenomeEvent) => e.buildId || e.commit;
-  const keys = (versions.length ? versions.map((v) => v.key) : [...new Set(shown.map(keyOf))]).filter((k) => !buildFilter || k === buildFilter);
+  const keyOf = (e: PhenomeEvent) => e.outputId || e.buildId || e.commit;
+  const keys = [...new Set(shown.map(keyOf))];
   return (
     <Card title="Runtime events" headingLevel={2}>
       {deployment && <p className={styles.muted}>Deployment <code>{deployment}</code></p>}
@@ -127,7 +137,7 @@ function EventsCard({ events, versions, buildFilter, deployment }: {
         return (
           <details key={k} className={styles.group}>
             <summary>
-              <code>{short(k)}</code> · {v?.count ?? group.length} events{v?.systemCommit ? ` · ${v.systemCommit}` : ""}
+              <code>{short(k)}</code> · {v?.count ?? group.length} events · Output {v?.output || group[0]?.outputId ? <code>{v?.output || group[0]?.outputId}</code> : "unknown"} · Genome {v?.genomeCommit || group[0]?.genomeCommit ? short(v?.genomeCommit || group[0]?.genomeCommit || "") : "unknown"}{v?.systemCommit ? ` · ${v.systemCommit}` : ""}
             </summary>
             <ul className={styles.list}>{group.map((e) => <EventRow key={e.seq} e={e} />)}</ul>
           </details>
@@ -154,10 +164,11 @@ function EventRow({ e }: { e: PhenomeEvent }) {
 }
 
 function CriteriaCard() {
+  const { thingId } = useParams();
   const m = useModel();
   const crits = m.bundle.model.criteria.filter((c) => c.targetKind === "observation");
   return (
-    <Card title="Outcome criteria" headingLevel={2}>
+    <Card title={thingId ? "System outcome criteria" : "Outcome criteria"} headingLevel={2}>
       {crits.length === 0 ? <p className={styles.muted}>No observation criteria — <Unknown />.</p> : (
         <ul className={styles.list}>
           {crits.map((c) => {

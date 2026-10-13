@@ -1,23 +1,23 @@
-import { resolve } from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { checkA11yAndShoot, open, SYSTEM } from "./helpers";
 
 /** Viewport screenshot into e2e-artifacts/ (git-ignored), for review. */
 const shoot = (page: Page, testInfo: TestInfo, name: string) =>
-  page.screenshot({ path: resolve(testInfo.project.outputDir, "..", `${name}.png`) });
+  page.screenshot({ path: testInfo.outputPath(`${name}.png`) });
 
 test.describe("platform hero moments", () => {
-  test("overview hero: data-driven orb, encoding caption, focusable meters, pulse on artyfact:fx", async ({ page }, testInfo) => {
+  test("overview hero: data-driven content surface, encoding caption, focusable meters, pulse on artyfact:fx", async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await open(page, "/overview", "Overview");
     const hero = page.getByRole("region", { name: "Keep in Touch" });
     await expect(hero.getByRole("heading", { level: 2, name: "Keep in Touch" })).toBeVisible();
-    await expect(hero.getByText(/Fill: readiness \d+%/)).toBeVisible();
-    const orb = hero.locator('[data-effect="orb"]');
-    await expect(orb).toHaveAttribute("data-effect-mode", /^(gl|fallback)$/);
+    await expect(hero.getByText(/Readiness: \d+%/)).toBeVisible();
+    const surface = hero.locator('[data-effect="surface"]');
+    await expect(surface).toHaveAttribute("data-effect-mode", /^(css|static)$/);
+    await expect(page.locator('[data-effect="orb"]')).toHaveCount(0);
 
-    // The orb box is sized before the canvas arrives: no layout shift.
+    // Content geometry is independent of the light controller: no layout shift.
     const before = await hero.boundingBox();
     await page.waitForTimeout(500);
     expect(await hero.boundingBox()).toEqual(before);
@@ -25,6 +25,10 @@ test.describe("platform hero moments", () => {
     const readiness = hero.getByRole("region", { name: "Model readiness" });
     await readiness.focus();
     await expect(readiness).toBeFocused();
+    const spark = hero.locator('[data-surface-spark]');
+    const sparkBox = await spark.boundingBox();
+    const surfaceBox = await surface.boundingBox();
+    expect(sparkBox && surfaceBox && sparkBox.y < surfaceBox.y + surfaceBox.height).toBe(true);
     await checkA11yAndShoot(page, testInfo, "overview-hero");
     await page.waitForTimeout(2400); // let the intro finish
     await shoot(page, testInfo, "overview-hero");
@@ -38,7 +42,7 @@ test.describe("platform hero moments", () => {
     expect(errors).toEqual([]);
   });
 
-  test("model loader is an orb with a text status @fixture", async ({ page }, testInfo) => {
+  test("model loader is a glowing content frame with a text status @fixture", async ({ page }, testInfo) => {
     // Hold the API (fixture mode falls back after it answers) so the loader stays up.
     let release!: () => void;
     const held = new Promise<void>((r) => (release = r));
@@ -49,7 +53,7 @@ test.describe("platform hero moments", () => {
     await page.goto(`${SYSTEM}/overview`);
     const status = page.getByRole("status").filter({ hasText: "Loading model…" });
     await expect(status).toBeVisible();
-    await expect(status.locator('[aria-hidden="true"] [data-effect="orb"]')).toHaveCount(1);
+    await expect(status.locator('[data-effect="surface"]')).toHaveCount(1);
     await page.waitForTimeout(1200);
     await shoot(page, testInfo, "model-loader");
     release();

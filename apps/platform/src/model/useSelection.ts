@@ -26,6 +26,9 @@ export function useSystemRoute(): { systemId: string; rev: string; view: ViewNam
 export const viewPath = (systemId: string, rev: string, view: ViewName) =>
   `/s/${encodeURIComponent(systemId)}/r/${encodeURIComponent(rev)}/${view}`;
 
+export const thingPath = (systemId: string, rev: string, thingId: string) =>
+  `/s/${encodeURIComponent(systemId)}/r/${encodeURIComponent(rev)}/things/${encodeURIComponent(thingId)}`;
+
 /**
  * Returns `href(target, extra?)`: a link to a view (or any path) that keeps `focus`, `layer`
  * and `candidates`. `extra` adds params; a `null` value removes one.
@@ -33,6 +36,7 @@ export const viewPath = (systemId: string, rev: string, view: ViewName) =>
 export function useKeepParams() {
   const [params] = useSearchParams();
   const { systemId, rev } = useSystemRoute();
+  const { thingId } = useParams();
   return useCallback(
     (target: ViewName | string, extra: Record<string, string | null> = {}) => {
       const next = new URLSearchParams();
@@ -40,15 +44,16 @@ export function useKeepParams() {
         const v = params.get(k);
         if (v !== null) next.set(k, v);
       }
+      if (thingId && target === "map" && !next.has("focus")) next.set("focus", thingId);
       for (const [k, v] of Object.entries(extra)) {
         if (v === null) next.delete(k);
         else next.set(k, v);
       }
-      const path = isView(target) ? viewPath(systemId, rev, target) : target;
+      const path = isView(target) ? (thingId ? `${thingPath(systemId, rev, thingId)}/${target}` : viewPath(systemId, rev, target)) : target;
       const qs = next.toString();
       return qs ? `${path}?${qs}` : path;
     },
-    [params, systemId, rev],
+    [params, systemId, rev, thingId],
   );
 }
 

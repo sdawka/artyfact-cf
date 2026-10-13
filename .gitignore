@@ -10,3 +10,6 @@ coverage
 .DS_Store
 *.tsbuildinfo
 .artyfact/
+
+# Local GRREAT sync receipts
+docs/grreat/.sync.json

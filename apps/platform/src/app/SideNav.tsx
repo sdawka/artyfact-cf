@@ -1,6 +1,6 @@
-import { NavLink } from "react-router";
+import { NavLink, useParams } from "react-router";
 import { VIEW_GLYPHS, VIEW_GROUPS, VIEW_LABELS, type ViewName } from "@/model/kinds";
-import { useKeepParams } from "@/model/useSelection";
+import { thingPath, useKeepParams, useSystemRoute } from "@/model/useSelection";
 import styles from "./SideNav.module.css";
 
 /** Every view in rail order (Overview, then Genome, Proteome, Phenome). */
@@ -22,8 +22,11 @@ function NavItem({ view, href }: { view: ViewName; href: string }) {
 /** Overview, then one labelled group per layer. Every link keeps the global params. */
 export function SideNav() {
   const href = useKeepParams();
+  const { systemId, rev } = useSystemRoute();
+  const { thingId } = useParams();
   return (
     <nav className={`shell-nav ${styles.nav}`} aria-label="Views">
+      {thingId && <NavLink className={styles.link} to={thingPath(systemId, rev, thingId)} title="Thing workspace" end><span className={styles.glyph} aria-hidden="true">◉</span><span className={styles.label}>Thing workspace</span></NavLink>}
       {VIEW_GROUPS.map((g) =>
         g.label === null ? (
           <ul key="top" className={styles.list}>
@@ -38,6 +41,7 @@ export function SideNav() {
           </div>
         ),
       )}
+      <NavLink className={styles.link} to={`/s/${encodeURIComponent(systemId)}/r/${encodeURIComponent(rev)}/parts`} title="Private Parts"><span className={styles.glyph} aria-hidden="true">▧</span><span className={styles.label}>Private Parts</span></NavLink>
     </nav>
   );
 }

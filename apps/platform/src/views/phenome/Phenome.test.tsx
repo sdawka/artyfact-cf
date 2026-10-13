@@ -30,10 +30,11 @@ const seed = (s: Seed = {}) => (qc: QueryClient) => {
   qc.setQueryData(qk.builds(SYSTEM, {}), { builds: s.builds ?? [] });
   qc.setQueryData(qk.deployments(SYSTEM), { production: s.production ?? null, history: s.history ?? [] });
   const events = s.events ?? [];
-  const keys = [...new Set(events.map((e) => e.buildId))];
+  const keyOf = (e: PhenomeEvent) => e.outputId || e.buildId || e.commit;
+  const keys = [...new Set(events.map(keyOf))];
   qc.setQueryData(qk.phenome(SYSTEM, s.query ?? {}), {
     events,
-    versions: keys.map((key) => ({ key, buildId: key, commit: key, deployment: null, systemCommit: null, count: events.filter((e) => e.buildId === key).length })),
+    versions: keys.map((key) => { const first = events.find((e) => keyOf(e) === key)!; return { key, output: first.outputId ?? null, genomeCommit: first.genomeCommit ?? null, buildId: first.buildId, commit: first.commit, deployment: null, systemCommit: null, count: events.filter((e) => keyOf(e) === key).length }; }),
   });
 };
 
@@ -51,6 +52,35 @@ describe("Deployments page", () => {
     } finally {
       sessionStorage.clear();
     }
+  });
+
+  it("keeps other Things' builds and events outside a scoped Thing workspace", async () => {
+    renderApp(`/s/${SYSTEM}/r/head/things/thing.webapp/phenome`, undefined, seed({
+      builds: [build({ thingId: "thing.webapp", candidate: "cand.selected" }), build({ id: "build.other", thingId: "thing.other", candidate: "cand.other" })],
+      events: [event(2, COMMIT, { kind: "selected.event" }), event(1, OTHER, { thingId: "thing.other", kind: "other.event" })],
+    }));
+    expect(await screen.findByText("cand.selected")).toBeTruthy();
+    expect(screen.queryByText("cand.other")).toBeNull();
+    expect(screen.getByText("selected.event")).toBeTruthy();
+    expect(screen.queryByText("other.event")).toBeNull();
+  });
+
+  it("separates events for distinct outputs built from the same source", async () => {
+    renderApp(PATH, undefined, seed({ events: [event(2, COMMIT, { outputId: "output.two" }), event(1, COMMIT, { outputId: "output.one" })] }));
+    const groups = await screen.findAllByText(/events/, { selector: "summary" });
+    expect(groups).toHaveLength(2);
+    expect(groups.map((group) => group.textContent)).toEqual([expect.stringContaining("output.two"), expect.stringContaining("output.one")]);
+  });
+
+  it("distinguishes realized output identity from source and keeps legacy identity unknown", async () => {
+    renderApp(PATH, undefined, seed({
+      builds: [build({ output: { id: "output.known", thingId: "thing.webapp", artifactId: "artifact.webapp", source: { repo: "app", commit: COMMIT }, genomeCommit: OTHER, build: "build.1", createdAt: T } }), build({ id: "build.legacy" })],
+      production: deployment({ output: "output.known" }),
+      events: [event(1, COMMIT, { outputId: "output.known", genomeCommit: OTHER })],
+    }));
+    expect(await screen.findAllByText("output.known")).toHaveLength(3);
+    expect(screen.getByText("Output unknown")).toBeTruthy();
+    expect(screen.getByText(/Source app@aaaaaaa/)).toBeTruthy();
   });
 
   it("shows the empty state with the literal unknown and nothing green", async () => {

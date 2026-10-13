@@ -8,8 +8,8 @@ One run does this:
 2. Reads the app's `wrangler.json` / `wrangler.jsonc` at the commit (from the Worker, not the sandbox) and checks it against an allowlist. A refused config fails the build at the `config` step with the reason.
 3. Runs `install` (cached on `package.json` + `package-lock.json`), `test` and `build` in Sandbox containers. The commands come from the platform's allowlist.
 4. `bundle`: the image's pinned Wrangler bundles the repo with `deploy --dry-run --outdir`, with no credentials.
-5. `deploy`: the same Wrangler uploads that bundle (`no_bundle`) under `--name <workerName>`, with `--var BUILD_ID:<commit>` and the non-secret `ARTYFACT_*` ids. `ARTYFACT_INGEST_TOKEN` goes up as a Worker secret through `--secrets-file`.
-6. Reports `passed` with `https://<workerName>.<WORKERS_SUBDOMAIN>.workers.dev`, or `failed` / `error` with the failing step.
+5. `deploy`: the same Wrangler uploads that bundle (`no_bundle`) under `--name <workerName>`, with a unique platform `BUILD_ID`, source/Genome/Thing lineage vars, and no repository command. `ARTYFACT_INGEST_TOKEN` goes up as a Worker secret through `--secrets-file`.
+6. Reports `passed` with the preview URL and, only when pinned Wrangler prints an exact Worker Version ID, its immutable version locator; otherwise output identity remains unknown.
 
 Each report is a durable Workflow step. Reports carry `Authorization: Bearer <CI_REPORT_TOKEN>` and go only to URLs under `PLATFORM_URL`.
 

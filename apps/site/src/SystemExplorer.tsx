@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import type { SystemSelection } from './systemState';
 
 export const subjects = [
-  { name: 'Save a contact', kind: 'Operation', intent: 'Only the owner can read a private contact.', work: 'Two isolated realizations', workDetail: 'A dialog change and an API change can touch the same permission, even when they edit different files.', observation: 'Permission checks need evidence for the exact candidate.' },
-  { name: 'A private relationship', kind: 'Entity', intent: 'Private notes belong to their author.', work: 'A contract to preserve', workDetail: 'The storage mapping and owner-only policy travel with the task, not just the file paths.', observation: 'A passing storage check would not prove that every access path is private.' },
-  { name: 'Wanted contact', kind: 'Purpose', intent: 'More wanted contact, less effort remembering.', work: 'Work with a reason', workDetail: 'Contact features serve this purpose. More notifications or time in the app are not substitutes for it.', observation: 'Outcomes need observations from people, with a time and context.' },
+  { name: 'Keep in Touch app', kind: 'Thing', intent: 'A Thing can begin with its Genome alone: purpose, structure and contracts, before Parts or source exist.', work: 'Two isolated realizations', workDetail: 'A System is the context and governance wrapper, even when this one Thing is the whole application.', observation: 'Runtime evidence resolves through the authoritative Thing, source and realized-output association.' },
+  { name: 'A private relationship', kind: 'Entity', intent: 'Private notes belong to their author.', work: 'A contract to preserve', workDetail: 'Optional Parts can contribute a partial or complete capability at any scale. Composition and upgrades are explicit and save provenance.', observation: 'A passing storage check would not prove that every access path is private.' },
+  { name: 'Wanted contact', kind: 'Purpose', intent: 'More wanted contact, less effort remembering.', work: 'Work with a reason', workDetail: 'Source and realized output stay distinct, so a build can be linked to the source and Genome it came from.', observation: 'Outcomes need observations from people, with a time and context.' },
 ];
 export const layers = [
   { name: 'Genome', meaning: 'The intent', description: 'What should hold true.' },

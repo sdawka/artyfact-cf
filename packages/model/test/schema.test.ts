@@ -30,6 +30,15 @@ describe("schema", () => {
     roundTrip(schema.Template, parseYaml(miniTemplateYaml));
   });
 
+  it("records command-created output without fabricating a package source path", () => {
+    const raw = { kind: "file", path: "src/generated.ts", contribution: "ui", disposition: "adapted",
+      command: { id: "adapt", contribution: "ui", action: "created" } };
+    expect(roundTrip(schema.PartOutputMapping, raw)).toEqual(raw);
+    expect(schema.PartOutputMapping.safeParse({ ...raw, command: undefined }).success).toBe(false);
+    expect(schema.PartOutputMapping.safeParse({ ...raw, command: { ...raw.command, id: "bad id" } }).success).toBe(false);
+    expect(schema.PartOutputMapping.safeParse({ ...raw, sourcePath: "src/old.ts", command: { ...raw.command, action: "changed" } }).success).toBe(true);
+  });
+
   it("applies documented defaults", () => {
     const n = schema.OntologyNode.parse({ id: "screen.x", kind: "screen", name: "X" });
     expect(n).toMatchObject({ revision: 1, refines: [], links: [], states: [], fields: [], provisional: false });
@@ -59,6 +68,13 @@ describe("schema", () => {
       engine: "system-one", targetKind: "model", triggers: ["submission"],
     });
     expect(h.engine).toBe("system-one");
+  });
+
+  it("loads Genome-only Things while preserving legacy template ids", () => {
+    expect(schema.Thing.parse({ id: "thing.idea", name: "Idea", description: "Genome only" })).toEqual({
+      id: "thing.idea", name: "Idea", description: "Genome only", templateRef: null, artifacts: [], parts: [], purposeRefs: [],
+    });
+    expect(schema.Thing.parse(y("things/app/thing.yaml")).templateRef).toBe("template.thing.mini-webapp@1");
   });
 
   it("rejects unknown enum values", () => {

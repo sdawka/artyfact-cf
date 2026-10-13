@@ -1,5 +1,5 @@
 /**
- * AmbientField engine: a full-bleed haze pool and sparse drifting motes in the Orb's dust/haze style. Built to stay
+ * AmbientField engine: a full-bleed haze pool and sparse drifting motes. Built to stay
  * cheap on integrated GPUs: DPR capped at 1 (and a pixel budget), at most 3000 points, no offscreen passes, 30 fps while
  * only drifting, and no frames at all while hidden, offscreen, paused or motionless.
  */

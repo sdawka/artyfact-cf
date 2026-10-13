@@ -1,6 +1,8 @@
 export interface Env {
   DB: D1Database;
   BUILD_ID?: string;
+  ARTYFACT_SOURCE_COMMIT?: string;
+  ARTYFACT_GENOME_COMMIT?: string;
   /** Phenome reporting (set by CI as --var). Without ARTYFACT_PLATFORM_URL no events are sent. */
   ARTYFACT_PLATFORM_URL?: string;
   ARTYFACT_SYSTEM_ID?: string;

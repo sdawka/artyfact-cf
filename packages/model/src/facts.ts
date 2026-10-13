@@ -1,6 +1,6 @@
 import { factSet, type FactSet, type Tuple } from "@artyfact/rules";
-import type { SystemModel } from "./load";
-import { templateRef } from "./load";
+import type { SystemModel } from "./load.ts";
+import { templateRef } from "./load.ts";
 
 /**
  * Every EDB relation toFacts() may emit — exactly docs/design/facts.md (the rule packs' `.decl` blocks).

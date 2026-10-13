@@ -1,7 +1,7 @@
 import { explain, parse, render, run, type DerivationTree, type Tuple } from "@artyfact/rules";
-import { toFacts } from "./facts";
-import type { SystemModel } from "./load";
-import { sha256 } from "./sha256";
+import { toFacts } from "./facts.ts";
+import type { SystemModel } from "./load.ts";
+import { sha256 } from "./sha256.ts";
 
 export interface RulePack { id: string; version: string; source: string }
 

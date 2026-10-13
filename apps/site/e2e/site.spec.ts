@@ -4,7 +4,7 @@ import { serveDist } from './serve';
 test.beforeEach(({ page }) => serveDist(page));
 test('homepage leads to the guide and links the hosted platform', async ({ page }) => {
   await page.goto('https://artyfact.test/');
-  await expect(page.getByRole('heading', { name: /Author systems together/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Make Meaningful Systems at Scale/ })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Open the platform' })).toHaveAttribute('href', 'https://artyfact-platform.dawka.workers.dev');
   await expect(page.locator('a[href="/app"]')).toHaveCount(0);
   await page.getByRole('link', { name: 'Bring your agent', exact: true }).first().click();
@@ -36,49 +36,53 @@ test('public content is useful without JavaScript', async ({ page }) => {
   await page.route('**/*.js', route => route.abort());
   await page.goto('https://artyfact.test/model');
   await expect(page.getByRole('heading', { name: /One System/ })).toBeVisible();
-  await expect(page.getByText('Only the owner can read a private contact.')).toBeVisible();
+  await expect(page.locator('.detail-title').filter({ hasText: /A Thing can begin with its Genome alone/ })).toBeVisible();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://artyfact.ing/model');
 });
-const orb = '[data-hero-orb] [data-effect="orb"]';
-// Headless Chromium may or may not offer WebGL2; either the live canvas or the CSS fallback is a mounted effect.
-const mounted = (page: Page) => expect(page.locator(orb)).toHaveAttribute('data-effect-mode', /^(gl|fallback)$/, { timeout: 15000 });
+const scene = '[data-system-view]';
+const mounted = (page: Page) => expect(page.locator('[data-ambient] [data-effect="ambient"]')).toHaveAttribute('data-effect-mode', /^(gl|fallback)$/, { timeout: 15000 });
 function watchErrors(page: Page) {
   const errors: string[] = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   return errors;
 }
-test('hero orb mounts after hydration and answers the example System', async ({ page }) => {
+test('System illustration stays usable through all views and explicit composition', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('https://artyfact.test/');
-  await expect(page.getByText(/drawn from this System's state/)).toBeVisible();
   await mounted(page);
-  await expect(page.locator('[data-ambient] [data-effect="ambient"]')).toHaveCount(1);
-  const slot = page.locator('[data-hero-orb]');
-  await expect(slot).toHaveAttribute('data-orb-facet', 'genome');
+  await expect(page.locator('[data-hero-orb]')).toHaveCount(0);
+  await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'genome');
   await page.getByRole('tab', { name: /Phenome/ }).click();
-  await expect(slot).toHaveAttribute('data-orb-facet', 'phenome');
+  await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'phenome');
+  await expect(page.getByText('Sample activity', { exact: true })).toBeVisible();
+  await expect(page.getByText('Outcome evidence: unmeasured', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Part: Component system' }).click();
+  await page.getByText('Composition + provenance', { exact: true }).click();
+  await expect(page.locator('.scene-selected-detail')).toContainText('caller adapter');
   await page.getByRole('tab', { name: /Genome/ }).click();
-  await page.getByRole('button', { name: /Wanted contact/ }).click();
-  await expect(slot).toHaveAttribute('data-orb-facet', 'purpose');
-  // The explorer stays usable above the orb.
-  await expect(page.getByRole('tabpanel')).toContainText('More wanted contact');
+  await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'genome');
   expect(errors).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
-test('effects respect reduced motion', async ({ page }) => {
+test('effects and the scene respect reduced motion and ordinary flow', async ({ page }) => {
   const errors = watchErrors(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('https://artyfact.test/');
   await mounted(page);
   await page.getByRole('tab', { name: /Proteome/ }).click();
-  await expect(page.locator('[data-hero-orb]')).toHaveAttribute('data-orb-facet', 'proteome');
+  await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'proteome');
+  await expect(page.locator(scene)).toHaveAttribute('data-sticky', 'false');
+  expect(await page.evaluate(() => getComputedStyle(document.querySelector('.scene-application')!).transitionDuration)).toMatch(/^(0s|1e-05s|0.00001s)$/);
   expect(await page.evaluate(() => getComputedStyle(document.querySelector('.workflow-list li')!, '::before').animationName)).toBe('none');
   expect(errors).toEqual([]);
 });
 for (const path of ['/', '/model', '/connect-agent']) test('no axe violations with effects mounted: ' + path, async ({ page }) => {
   await page.goto('https://artyfact.test' + path);
   await expect(page.locator('[data-ambient] [data-effect="ambient"]')).toHaveAttribute('data-effect-mode', /^(gl|fallback)$/, { timeout: 15000 });
-  const { violations } = await new AxeBuilder({ page }).analyze();
-  expect(violations.map(v => v.id + ': ' + v.nodes.map(n => n.target.join(' ')).join(', '))).toEqual([]);
+  for (const view of path === '/' ? ['Genome', 'Proteome', 'Phenome'] : [null]) {
+    if (view) await page.getByRole('tab', { name: new RegExp(view) }).click();
+    const { violations } = await new AxeBuilder({ page }).analyze();
+    expect(violations.map(v => v.id + ': ' + v.nodes.map(n => n.target.join(' ')).join(', '))).toEqual([]);
+  }
 });

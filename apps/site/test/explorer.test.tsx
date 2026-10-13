@@ -3,15 +3,15 @@ import { afterEach, expect, it } from 'vitest';
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { SystemExplorer } from '../src/SystemExplorer';
 afterEach(cleanup);
-it('keeps the same subject while moving between intent, work and evidence', () => {
+it('keeps a Genome-first Thing while moving between intent, work and evidence', () => {
   render(<SystemExplorer />);
-  expect(screen.getByText('Only the owner can read a private contact.')).toBeTruthy();
+  expect(screen.getByText(/A Thing can begin with its Genome alone/)).toBeTruthy();
   fireEvent.click(screen.getByRole('tab', { name: /Proteome/ }));
   expect(screen.getByText('Two isolated realizations')).toBeTruthy();
   fireEvent.click(screen.getByRole('tab', { name: /Phenome/ }));
-  expect(screen.getByText('Unknown')).toBeTruthy();
+  expect(screen.getByText(/Runtime evidence resolves through the authoritative Thing/)).toBeTruthy();
   expect(screen.queryByText('Passed')).toBe(null);
-  expect(screen.getByRole('button', { name: /Save a contact/ }).getAttribute('aria-pressed')).toBe('true');
+  expect(screen.getByRole('button', { name: /Keep in Touch app/ }).getAttribute('aria-pressed')).toBe('true');
 });
 it('supports keyboard navigation and choosing another subject', () => {
   render(<SystemExplorer />);

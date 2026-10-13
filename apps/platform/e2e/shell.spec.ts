@@ -2,10 +2,14 @@ import { expect, test } from "@playwright/test";
 import { checkA11yAndShoot, open, SYSTEM } from "./helpers";
 
 test.describe("shell", () => {
-  test("root is Home and a System card opens its overview", async ({ page }) => {
+  test("a single-Thing System card opens its Thing workspace with an explicit System overview", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Systems" })).toBeVisible();
     await page.getByRole("link", { name: /Keep in Touch/ }).click();
+    await expect(page).toHaveURL(new RegExp(`${SYSTEM}/things/thing.webapp$`));
+    await expect(page.getByRole("heading", { level: 1, name: "Keep in Touch web app" })).toBeVisible();
+    await expect(page.getByRole("navigation", { name: "Thing workspace breadcrumb" })).toBeVisible();
+    await page.getByRole("link", { name: "System overview", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${SYSTEM}/overview$`));
     await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
     await page.getByRole("link", { name: "artyfact" }).click();

@@ -1,4 +1,4 @@
-import type { Journey, JourneyStep } from "./schema";
+import type { Journey, JourneyStep } from "./schema.ts";
 
 const RESERVED = new Set(["end", "graph", "subgraph", "flowchart", "style", "class", "click", "direction"]);
 const nodeId = (id: string) => {

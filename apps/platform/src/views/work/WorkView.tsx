@@ -36,7 +36,7 @@ export default function WorkView() {
         <NewEvolutionPanel onCreated={(e) => setEvolutionId(e.id, { panel: null })} onCancel={() => setPanel(null)} />
       )}
       {evolutions.length === 0 ? (
-        <EmptyState orb title="No Evolutions yet — nothing is waiting to be built." />
+        <EmptyState surface title="No Evolutions yet — nothing is waiting to be built." />
       ) : (
         <EvolutionBoard
           evolutions={evolutions}

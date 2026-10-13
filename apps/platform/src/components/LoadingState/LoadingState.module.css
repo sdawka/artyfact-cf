@@ -1,0 +1,8 @@
+.loader { display: grid; justify-items: center; align-content: center; min-height: 40vh; padding: var(--spacing-6); min-width: 0; }
+.frame { position: relative; isolation: isolate; overflow: hidden; width: min(100%, 440px); padding: var(--spacing-6); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-lg); background: var(--color-surface-primary); }
+.content { position: relative; z-index: 1; min-width: 0; }
+.skeleton { display: grid; gap: var(--spacing-2); margin-bottom: var(--spacing-4); }
+.skeleton span { height: 9px; border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); width: 78%; }
+.skeleton span:nth-child(2) { width: 58%; }
+.skeleton span:nth-child(3) { width: 68%; }
+.label { margin: 0; color: var(--color-text-primary); overflow-wrap: anywhere; }

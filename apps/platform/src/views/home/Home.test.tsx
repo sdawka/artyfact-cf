@@ -1,8 +1,8 @@
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router";
 import { describe, expect, it, vi } from "vitest";
 import { renderApp } from "@/testing/render";
-import { HomeContent } from "./index";
+import { HomeContent, PartsContent } from "./index";
 import type { CardSummary } from "./signifiers";
 
 const json = (status: number, body: unknown) =>
@@ -39,13 +39,19 @@ const stubSystems = (systems: CardSummary[]) =>
 const card = (name: RegExp) => screen.getByRole("link", { name }).closest("li")!;
 
 describe("Home", () => {
+  it("never displays System-private Parts in the public catalog", () => {
+    renderApp("/", [{ path: "/", element: <PartsContent parts={[{ partId: "part.private", version: "1.0.0", name: "Private package", scope: { kind: "system", systemId: "system.a" }, digest: "sha256:private", publishedAt: "", dependencies: [] }]} isLoading={false} isError={false} /> }]);
+    expect(screen.queryByRole("link", { name: "Private package" })).toBeNull();
+    expect(screen.getByText("No reusable Parts published yet.")).toBeTruthy();
+  });
+
   it("shows the fixture System in fixture mode and opens its Overview", async () => {
     const { router } = renderApp("/");
     const link = await screen.findByRole("link", { name: /Keep in Touch/ });
     expect(screen.getByText("fixture data")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry API" })).toBeTruthy();
     act(() => link.click());
-    await waitFor(() => expect(router.state.location.pathname).toBe("/s/system.keep-in-touch/r/head/overview"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/s/system.keep-in-touch/r/head/things/thing.webapp"));
   });
 
   it("shows the empty state with an init link when the API has no Systems", async () => {
@@ -96,5 +102,13 @@ describe("Home", () => {
     expect(screen.getByText("Could not reach the platform API.")).toBeTruthy();
     act(() => screen.getByRole("button", { name: "Try again" }).click());
     expect(onRetry).toHaveBeenCalled();
+  });
+
+  it("keeps reusable Parts separate from Systems and explains an empty catalog", () => {
+    render(<MemoryRouter><PartsContent parts={[]} isLoading={false} isError={false} /></MemoryRouter>);
+    expect(screen.getByText("No reusable Parts published yet.")).toBeTruthy();
+    cleanup();
+    render(<MemoryRouter><PartsContent parts={[{ partId: "part.ui.buttons", version: "2.1.0", name: "Button system", scope: { kind: "shared" }, digest: "sha256:test", publishedAt: "2026-10-12T00:00:00Z", dependencies: [] }]} isLoading={false} isError={false} /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: "Button system" }).getAttribute("href")).toBe("/parts/part.ui.buttons/2.1.0");
   });
 });

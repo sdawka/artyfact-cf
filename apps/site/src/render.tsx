@@ -3,6 +3,7 @@ import { renderToStaticMarkup, renderToString } from 'react-dom/server';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { Site, pages, notFoundPage, type PagePath } from './pages';
 import { SystemExplorer } from './SystemExplorer';
+import { LandingStory } from './LandingStory';
 import { resolveSiteConfig } from './config';
 const origin = 'https://artyfact.ing';
 const config = resolveSiteConfig(process.env);
@@ -12,12 +13,14 @@ const entry = manifest['src/client.tsx'];
 // The page shell is static markup. The explorer is rendered with renderToString instead, so its
 // text-node separators match what hydrateRoot expects on the client.
 const explorerHtml = renderToString(<SystemExplorer />);
+const landingHtml = renderToString(<LandingStory />);
 
 function document(meta: { title: string; description: string }, path: PagePath | '/404') {
-  const content = renderToStaticMarkup(<Site path={path} config={config} explorerHtml={explorerHtml} />);
+  const content = renderToStaticMarkup(<Site path={path} config={config} explorerHtml={explorerHtml} landingHtml={landingHtml} />);
   const title = escapeAttr(meta.title), description = escapeAttr(meta.description);
   const indexed = path !== '/404';
   const hasExplorer = content.includes('data-system-explorer');
+  const hasStory = content.includes('data-landing-story');
   const hasCopy = content.includes('data-copy');
   const head = '<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta name="theme-color" content="#19151f">' +
     '<title>' + title + '</title><meta name="description" content="' + description + '">' +
@@ -27,12 +30,12 @@ function document(meta: { title: string; description: string }, path: PagePath |
     '<link rel="icon" href="/favicon.svg" type="image/svg+xml">' +
     '<meta property="og:title" content="' + title + '"><meta property="og:description" content="' + description + '">' +
     '<meta property="og:type" content="website">' + (indexed ? '<meta property="og:url" content="' + escapeAttr(origin + path) + '">' : '') +
-    '<meta property="og:image" content="' + origin + '/social.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Artyfact. Author systems together.">' +
+    '<meta property="og:image" content="' + origin + '/social.png"><meta property="og:image:width" content="1200"><meta property="og:image:height" content="630"><meta property="og:image:alt" content="Artyfact. Make Meaningful Systems at Scale.">' +
     '<meta name="twitter:card" content="summary_large_image">' +
     (entry.css || []).map((css: string) => '<link rel="stylesheet" href="/' + escapeAttr(css) + '">').join('');
-  const needs = [hasExplorer && 'switch layers', hasCopy && 'use the copy buttons'].filter(Boolean).join(' or ');
+  const needs = [(hasExplorer || hasStory) && 'switch views', hasCopy && 'use the copy buttons'].filter(Boolean).join(' or ');
   const noscript = needs
-    ? '<noscript><p class="no-script">' + (hasExplorer ? 'The example shows its initial model. ' : '') + 'Enable JavaScript to ' + needs + '.</p></noscript>'
+    ? '<noscript><p class="no-script">' + (hasStory ? 'The example shows its Genome; all three view descriptions are available below. ' : hasExplorer ? 'The example shows its initial model. ' : '') + 'Enable JavaScript to ' + needs + '.</p></noscript>'
     : '';
   const script = needs ? '<script type="module" src="/' + escapeAttr(entry.file) + '"></script>' : '';
   return '<!doctype html><html lang="en"><head>' + head + '</head><body>' + content + noscript + script + '</body></html>';

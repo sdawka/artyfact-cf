@@ -19,10 +19,13 @@ test.describe("iteration 2 on a live deployment", () => {
   const title = `Live check ${Date.now()}`;
   let realization = "";
 
-  test("Home lists the System and opens its overview @live", async ({ page }, testInfo) => {
+  test("Home opens the Thing workspace and offers the System overview @live", async ({ page }, testInfo) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Systems" })).toBeVisible();
     await page.getByRole("link", { name: /Keep in Touch/ }).first().click();
+    await expect(page).toHaveURL(/\/s\/system\.keep-in-touch\/r\/head\/things\/thing\.webapp$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Keep in Touch web app" })).toBeVisible();
+    await page.getByRole("link", { name: "System overview", exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
     await checkPage(page, testInfo, "live-overview");
   });
