@@ -1,0 +1,19 @@
+id: evolution.1
+title: Local agents claim Tasks from the CLI
+intent: Let a local agent list the planned Tasks and claim one from the command line, and let an author validate a Genome and install the Genome skill before import
+state: actionable
+kind: implementation
+affectedNodes:
+- module.cli.main
+- module.cli.tasks
+- module.cli.validate-genome
+- module.cli.skill
+- command.tasks
+- command.claim
+- command.validate-genome
+- command.skill
+acceptanceCriteria:
+- C.cli.unit
+- C.artyfact.typecheck
+- C.artyfact.self-genome
+risk: medium

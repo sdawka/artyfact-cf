@@ -5,3 +5,5 @@ fields:
   usage: artyfact validate-genome <genomeDir> [--app dir] [--templates dir] [--json] [--strict]
   exitCodes: 0 when the Genome loads with no error findings (and, with --strict, no unmapped or stale paths); 1 otherwise.
   description: Loads a Genome tree as the platform's import does, runs the readiness rules, and with --app lists app paths no node maps and declared files globs that match nothing.
+files:
+  - src/main.ts

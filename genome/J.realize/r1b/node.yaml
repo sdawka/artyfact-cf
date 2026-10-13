@@ -1,0 +1,12 @@
+id: J.realize/r1b
+kind: step
+fields:
+  step: r1b
+  actor: external
+  action: Claims a Task and reads its packet
+  kind: action
+  next:
+    - to: r3
+links:
+  - { rel: stepOperation, to: command.claim }
+  - { rel: stepOperation, to: endpoint.packet }

@@ -1,0 +1,8 @@
+id: endpoint.tasks-release
+kind: endpoint
+fields:
+  name: "Release a Task"
+  description: "Abandons a claimed Task that has no checkpoint so another agent can claim it."
+  route: POST /api/systems/:id/tasks/:tid/release
+  auth: "Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set."
+  response: TaskResponse

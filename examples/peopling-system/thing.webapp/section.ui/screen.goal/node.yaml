@@ -17,3 +17,5 @@ fields:
     - owner
 links:
   - { rel: serves, to: ext.owner }
+files:
+  - public/goals/**

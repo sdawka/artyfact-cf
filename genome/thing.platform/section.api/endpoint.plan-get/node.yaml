@@ -1,0 +1,8 @@
+id: endpoint.plan-get
+kind: endpoint
+fields:
+  name: "Read an Evolution's plan"
+  description: "Returns the stored task plan: tasks, footprints, conflicts and waves."
+  route: GET /api/systems/:id/evolutions/:eid/plan
+  auth: "Public read."
+  response: TaskPlan

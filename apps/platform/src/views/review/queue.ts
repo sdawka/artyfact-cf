@@ -1,4 +1,4 @@
-import type { Candidate, ConflictReport, Evolution, Realization, SystemCommit } from "../../../shared/api";
+import type { Candidate, ConflictReport, Evolution, Realization, SystemCommit, SystemSummary } from "../../../shared/api";
 import { conflictsOf, mergeConflicts } from "../work/lib";
 import { headOf } from "../work/gates";
 
@@ -7,9 +7,13 @@ import { headOf } from "../work/gates";
  * - `candidate`: a submitted or evaluated candidate to review (accept into a composition or leave);
  * - `stale`: the same, but built on a System head that has since moved (promotion would be a 409);
  * - `amendment`: a Genome amendment awaiting an admin's accept or reject;
- * - `promotion`: an Evolution with an evaluated candidate on the current head, ready for the promotion desk.
+ * - `promotion`: an Evolution with an evaluated candidate on the current head, ready for the promotion desk;
+ * - `import`: the System's import review is pending (the imported Genome awaits an admin's agreement; work is refused until then).
  */
-export type QueueKind = "candidate" | "stale" | "amendment" | "promotion";
+export type QueueKind = "candidate" | "stale" | "amendment" | "promotion" | "import";
+
+/** The import row's group: not an Evolution, so its `evolution` is empty (the Work board's signals skip it). */
+export const IMPORT_GROUP = "";
 
 export interface QueueRow {
   key: string;
@@ -22,6 +26,8 @@ export interface QueueRow {
   conflicts: ConflictReport[];
   /** Commits the head is ahead of the base: 0 is "base = head", null is "behind head" by an unknown count, undefined is no base known. */
   behind?: number | null;
+  /** `import` rows: the reviewed Genome commit and its node count. */
+  importReview?: { genomeCommit: string; nodes: number };
 }
 
 export interface QueueGroup {
@@ -37,6 +43,8 @@ export interface QueueInput {
   /** Loaded candidates (any Evolution); rows exist without them, they only add detail. */
   candidates?: readonly Candidate[];
   conflicts?: readonly ConflictReport[] | undefined;
+  /** The System's import review (`SystemSummary.importReview`); a pending one is a row of its own, first. */
+  importReview?: SystemSummary["importReview"];
 }
 
 /** Realization statuses that mean "a candidate is open" (the DO's `pending` set). */
@@ -59,8 +67,18 @@ export function behindBy(base: string | null | undefined, head: string | null, c
   return null;
 }
 
-/** Group the pending decisions by Evolution, in board order; within a group amendments, then candidates, then the promotion row. */
-export function reviewQueue({ evolutions, realizations, commits, candidates = [], conflicts }: QueueInput): QueueGroup[] {
+/** Rank within a group: what blocks others first (amendments, an import), then candidates, then the promotion row. */
+const RANK: Record<QueueKind, number> = { import: 0, amendment: 0, stale: 1, candidate: 1, promotion: 2 };
+
+/** "Import · 12 nodes": the import row's label. */
+export const importLabel = (nodes: number) => `Import · ${nodes} node${nodes === 1 ? "" : "s"}`;
+
+/**
+ * Group the pending decisions by Evolution, in board order; within a group amendments, then candidates, then the
+ * promotion row. A pending import review is its own group ("Import") before every Evolution: until it is accepted the
+ * platform refuses new work.
+ */
+export function reviewQueue({ evolutions, realizations, commits, candidates = [], conflicts, importReview }: QueueInput): QueueGroup[] {
   const head = headOf(commits);
   const allConflicts = mergeConflicts(conflicts);
   const candidateFor = (r: Realization) => candidates.find((c) => c.realization === r.id || (r.candidate !== undefined && c.id === r.candidate));
@@ -94,15 +112,18 @@ export function reviewQueue({ evolutions, realizations, commits, candidates = []
     if (ready.length) {
       rows.push({ key: `promotion:${evolution}`, kind: "promotion", evolution, conflicts: mergeConflicts(...ready.map((x) => x.conflicts)) });
     }
-    const rank: Record<QueueKind, number> = { amendment: 0, stale: 1, candidate: 1, promotion: 2 };
-    rows.sort((a, b) => rank[a.kind] - rank[b.kind]);
+    rows.sort((a, b) => RANK[a.kind] - RANK[b.kind]);
   }
 
   const titleOf = (id: string) => evolutions.find((e) => e.id === id)?.title ?? id;
-  return [...groups.entries()]
+  const out = [...groups.entries()]
     .sort(([a], [b]) => (order.get(a) ?? Infinity) - (order.get(b) ?? Infinity) || a.localeCompare(b))
     .map(([evolution, rows]) => ({ evolution, title: titleOf(evolution), rows }));
+  if (importReview?.status !== "pending") return out;
+  const { genomeCommit, nodes } = importReview;
+  const row: QueueRow = { key: `import:${genomeCommit}`, kind: "import", evolution: IMPORT_GROUP, conflicts: [], importReview: { genomeCommit, nodes } };
+  return [{ evolution: IMPORT_GROUP, title: "Import", rows: [row] }, ...out];
 }
 
 /** Rows awaiting a person's review in one Evolution (candidates, stale candidates, amendments; the promotion row is not a review). */
-export const awaitingReview = (group: QueueGroup | undefined) => (group?.rows ?? []).filter((r) => r.kind !== "promotion").length;
+export const awaitingReview = (group: QueueGroup | undefined) => (group?.rows ?? []).filter((r) => r.kind !== "promotion" && r.kind !== "import").length;

@@ -40,3 +40,5 @@ fields:
     - Records the goal ID and desiredDepth at confirmation
 links:
   - { rel: storedIn, to: binding.contactsStore }
+files:
+  - src/worker/routes/events.ts

@@ -16,6 +16,8 @@ fields:
     - owner
 links:
   - { rel: serves, to: ext.owner }
+files:
+  - public/today/**
 criteria:
   - id: C.webapp.prompts.bounded
     title: Bounded prompts

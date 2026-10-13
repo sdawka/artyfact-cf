@@ -4,7 +4,7 @@ import type {
   AcceptRequest, BuildKind, CommitHash, CreateEvolutionRequest, EditorCommitRequest, EditorCommitResponse, FileScope,
   PhenomeEventsQuery, PromoteRequest, Realization, RejectRequest, StartWorkRequest,
 } from "../../shared/api";
-import type { TemplateUpgradeRequest } from "../../shared/api";
+import type { ImportReviewAccept, TemplateUpgradeRequest } from "../../shared/api";
 import type { IntentAccept, IntentDecisionsRequest, IntentReply, IntentRequest, Proposal } from "../../shared/api";
 // plan
 import type { PlanRequest, PlanUpdateRequest, StartWaveRequest, TaskPlan } from "../../shared/api";
@@ -513,6 +513,33 @@ export function useStartWave() {
     mutationFn: ({ evolutionId, wave, body, adminToken }: { evolutionId: string; wave: number; body?: StartWaveRequest; adminToken?: string }) =>
       api.startWave(systemId, evolutionId, wave, body, adminToken),
     onSettled: () => invalidate(qc, systemId, "plan", "evolutions", "tasks", "systems"),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// review: the import review. `["importReview", systemId]`; the `system.import-review` event invalidates it.
+// ---------------------------------------------------------------------------
+
+export const importReviewKey = (systemId: string) => ["importReview", systemId] as const;
+
+export function useImportReview(opts: { enabled?: boolean } = {}) {
+  const { systemId } = useSystemRoute();
+  return useQuery({
+    queryKey: importReviewKey(systemId),
+    queryFn: () => api.getImportReview(systemId),
+    enabled: !!systemId && opts.enabled !== false,
+    retry: false,
+  });
+}
+
+/** Admin: accept the import review (interpretation, rejected nodes). The removal amendment lands on the board. */
+export function useAcceptImportReview() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, adminToken }: { body: ImportReviewAccept; adminToken?: string }) => api.acceptImportReview(systemId, body, adminToken),
+    onSuccess: (r) => qc.setQueryData(importReviewKey(systemId), r.review),
+    onSettled: () => invalidate(qc, systemId, "importReview", "evolutions", "candidates", "systems"),
   });
 }
 

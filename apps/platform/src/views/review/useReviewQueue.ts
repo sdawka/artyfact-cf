@@ -2,7 +2,7 @@ import { useQueries } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { Candidate, ConflictReport } from "../../../shared/api";
 import * as api from "@/api/client";
-import { qk, useConflicts, useEvolutions, useHistory } from "@/api/queries";
+import { qk, useConflicts, useEvolutions, useHistory, useImportReview, useSystems } from "@/api/queries";
 import { useSystemRoute } from "@/model/useSelection";
 import { reviewQueue, type QueueGroup } from "./queue";
 
@@ -19,7 +19,7 @@ export interface ReviewQueue {
 }
 
 /**
- * The Review queue from the board, the history and the candidates of each Evolution with something waiting. It uses
+ * The Review queue from the board, the history, the System's import review and the candidates of each Evolution with something waiting. It uses
  * the same queries (and cache) as Work, so the rail count, the Work cards and the Review page agree.
  */
 export function useReviewQueue(): ReviewQueue {
@@ -28,6 +28,12 @@ export function useReviewQueue(): ReviewQueue {
   const history = useHistory();
   const commits = history.data;
   const { data: conflicts } = useConflicts();
+  // The summary says a review is pending; the review itself (refetched on `system.import-review` and after accept) has
+  // the last word, because the client keeps the first `/api/systems` answer for the session.
+  const summarized = useSystems().data?.find((s) => s.systemId === systemId)?.importReview;
+  const pending = summarized?.status === "pending";
+  const { data: live } = useImportReview({ enabled: pending });
+  const importReview = pending && live?.status === "accepted" ? { ...summarized, status: "accepted" as const } : summarized;
   const realizations = board.data?.realizations;
   const evolutionIds = useMemo(
     () => [...new Set((realizations ?? []).filter((r) => WAITING.has(r.status)).map((r) => r.evolution))].sort(),
@@ -41,9 +47,9 @@ export function useReviewQueue(): ReviewQueue {
   return useMemo(() => {
     const candidates = loaded.flatMap((d) => d?.candidates ?? []);
     const all = [...(conflicts ?? []), ...loaded.flatMap((d) => d?.conflicts ?? [])];
-    const groups = reviewQueue({ evolutions: board.data?.evolutions ?? [], realizations: realizations ?? [], commits, candidates, conflicts: all });
+    const groups = reviewQueue({ evolutions: board.data?.evolutions ?? [], realizations: realizations ?? [], commits, candidates, conflicts: all, importReview });
     return { groups, count: groups.reduce((n, g) => n + g.rows.length, 0), candidates, conflicts: all, isLoading: board.isLoading || history.isLoading };
     // `loaded` is a fresh array each render; `stamp` changes when any of it does.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [board.data, board.isLoading, history.isLoading, realizations, commits, conflicts, stamp]);
+  }, [board.data, board.isLoading, history.isLoading, realizations, commits, conflicts, importReview, stamp]);
 }

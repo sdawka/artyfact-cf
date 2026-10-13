@@ -73,18 +73,40 @@ describe("diffReadiness", () => {
 });
 
 describe("AmendmentReview", () => {
-  it("shows the header and the semantic delta with a field diff", async () => {
+  it("shows the header and the changes as an agreement tree in place of the semantic delta, with the field diff under its node", async () => {
     renderReview(makeReview());
     expect(await screen.findByRole("heading", { name: /Genome amendment/i })).toBeTruthy();
     expect(screen.getByText("awaiting admin")).toBeTruthy();
     expect(screen.getByText(/agent\.drafter/)).toBeTruthy();
     expect(screen.getByText(/a1b2c3d/)).toBeTruthy();
     expect(screen.getByText(/9f8e7d6/)).toBeTruthy();
-    const delta = screen.getByRole("region", { name: /Semantic delta/i });
-    expect(within(delta).getByText(/changed/i)).toBeTruthy();
-    expect(within(delta).getByText("description")).toBeTruthy();
-    expect(within(delta).getByText("Why the System exists.")).toBeTruthy();
-    expect(within(delta).getAllByText(/deliberately has no feed/).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("region", { name: "Semantic delta" })).toBeNull();
+    const changes = screen.getByRole("region", { name: "Changes" });
+    const tree = within(changes).getByRole("tree", { name: "Amendment changes" });
+    const node = within(tree).getAllByRole("treeitem").find((t) => t.getAttribute("data-node-id") === CHANGED)!;
+    expect(node.getAttribute("aria-label")).toMatch(/undecided, 1 update/);
+    // The genome variant: agree or reject, no defer.
+    expect(within(node).queryByRole("button", { name: /^Defer/ })).toBeNull();
+    expect(within(node).getByText("description")).toBeTruthy();
+    expect(within(node).getByText("Why the System exists.")).toBeTruthy();
+    expect(within(node).getAllByText(/deliberately has no feed/).length).toBeGreaterThan(0);
+  });
+
+  it("accepts all or nothing: a rejected node disables accept with the reason, agreeing it again enables it", async () => {
+    renderReview(makeReview());
+    const tree = await screen.findByRole("tree", { name: "Amendment changes" });
+    const accept = () => screen.getByRole("button", { name: "Accept amendment" }) as HTMLButtonElement;
+    expect(accept().disabled).toBe(false);
+    const node = within(tree).getAllByRole("treeitem").find((t) => t.getAttribute("data-node-id") === CHANGED)!;
+    const title = node.getAttribute("aria-label")!.split(",")[0]!;
+    fireEvent.click(within(node).getByRole("button", { name: `Reject ${title}` }));
+    expect(accept().disabled).toBe(true);
+    expect(screen.getByText(/the platform cannot accept part of an amendment; reject it with the reasons or agree all/i).textContent).toContain(`Rejected: ${title}.`);
+    // Rejecting stays available; agreeing the node again lifts the block.
+    expect((screen.getByRole("button", { name: "Reject amendment" }) as HTMLButtonElement).disabled).toBe(false);
+    fireEvent.click(within(node).getByRole("button", { name: `Agree ${title}` }));
+    expect(accept().disabled).toBe(false);
+    expect(screen.queryByText(/cannot accept part of an amendment/i)).toBeNull();
   });
 
   it("flags a hard rule p=0.95 as an error row and disables accept", async () => {
@@ -92,9 +114,9 @@ describe("AmendmentReview", () => {
     await screen.findByRole("region", { name: /System One signals/i });
     const row = within(signals()).getByText(/model flagged; admin decides/i);
     expect(row.closest("[data-tone]")?.getAttribute("data-tone")).toBe("fail");
-    expect((screen.getByRole("button", { name: /^accept/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Accept amendment" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/hard violation/i)).toBeTruthy();
-    expect((screen.getByRole("button", { name: /^reject/i }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Reject amendment" }) as HTMLButtonElement).disabled).toBe(false);
     expect(screen.queryByText(/deliberate choice — no rule violated/i)).toBeNull();
   });
 
@@ -104,7 +126,7 @@ describe("AmendmentReview", () => {
     expect(within(signals()).queryByText(/model flagged/i)).toBeNull();
     const ta = screen.getByRole("textbox", { name: /accepted interpretation/i }) as HTMLTextAreaElement;
     expect(ta.value).toMatch(/deliberately has no feed/);
-    expect((screen.getByRole("button", { name: /^accept/i }) as HTMLButtonElement).disabled).toBe(false);
+    expect((screen.getByRole("button", { name: "Accept amendment" }) as HTMLButtonElement).disabled).toBe(false);
   });
 
   it("does not show the calm line when a hard finding was added", async () => {
@@ -112,7 +134,7 @@ describe("AmendmentReview", () => {
     await screen.findByRole("region", { name: /System One signals/i });
     expect(screen.queryByText(/deliberate choice — no rule violated/i)).toBeNull();
     expect(screen.getByText(/blocks acceptance/i).textContent).toMatch(/rule\.no-engagement-metric/);
-    expect((screen.getByRole("button", { name: /^accept/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Accept amendment" }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("at p=0.7 labels the top class review and nothing in the signals is green", async () => {
@@ -188,11 +210,11 @@ describe("AmendmentReview", () => {
     const user = userEvent.setup();
     const ta = await screen.findByRole("textbox", { name: /accepted interpretation/i });
     await user.clear(ta);
-    await user.click(screen.getByRole("button", { name: /^accept/i }));
+    await user.click(screen.getByRole("button", { name: "Accept amendment" }));
     expect(screen.getByText(/interpretation is required/i)).toBeTruthy();
     expect(fetchMock).not.toHaveBeenCalledWith(expect.stringContaining("/accept"), expect.anything());
     await user.type(ta, "No feed, by design.");
-    await user.click(screen.getByRole("button", { name: /^accept/i }));
+    await user.click(screen.getByRole("button", { name: "Accept amendment" }));
     expect(await screen.findByText(/c0ffee1/)).toBeTruthy();
     const body = JSON.parse(String(fetchMock.mock.calls.find(([u]) => String(u).endsWith("/accept"))![1]!.body));
     expect(body).toEqual({ realizationId: RID, candidateId: "candidate.7", commit: "7".repeat(40), interpretation: "No feed, by design." });
@@ -211,11 +233,11 @@ describe("AmendmentReview", () => {
     vi.stubGlobal("fetch", fetchMock);
     renderReview(makeReview({ review: [judged("hard-rule-violation", 0.95)] }));
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: /^reject/i }));
+    await user.click(await screen.findByRole("button", { name: "Reject amendment" }));
     expect(screen.getByText(/reason is required/i)).toBeTruthy();
     expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith("/reject"))).toBe(false);
     await user.type(screen.getByRole("textbox", { name: /rejection reason/i }), "Uses engagement as a measure.");
-    await user.click(screen.getByRole("button", { name: /^reject/i }));
+    await user.click(screen.getByRole("button", { name: "Reject amendment" }));
     await waitFor(() => expect(screen.getByText(/^rejected$/i)).toBeTruthy());
     const body = JSON.parse(String(fetchMock.mock.calls.find(([u]) => String(u).endsWith("/reject"))![1]!.body));
     expect(body).toEqual({ reason: "Uses engagement as a measure." });
@@ -224,9 +246,9 @@ describe("AmendmentReview", () => {
   it("disables accept and reject with a reason in fixture mode", async () => {
     renderReview(makeReview(), { live: false });
     await screen.findByRole("region", { name: /System One signals/i });
-    expect((screen.getByRole("button", { name: /^accept/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Accept amendment" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getAllByText(/fixture data/i)).toHaveLength(2);
-    expect((screen.getByRole("button", { name: /^reject/i }) as HTMLButtonElement).disabled).toBe(true);
+    expect((screen.getByRole("button", { name: "Reject amendment" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/nothing can be rejected/i)).toBeTruthy();
   });
 });

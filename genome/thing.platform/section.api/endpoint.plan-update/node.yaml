@@ -1,0 +1,9 @@
+id: endpoint.plan-update
+kind: endpoint
+fields:
+  name: "Edit an Evolution's plan"
+  description: "Replaces the task list; the server recomputes footprints, conflicts and waves."
+  route: PUT /api/systems/:id/evolutions/:eid/plan
+  auth: "Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set."
+  request: PlanUpdateRequest
+  response: TaskPlan

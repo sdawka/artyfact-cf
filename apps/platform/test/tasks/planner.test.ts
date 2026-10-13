@@ -21,15 +21,17 @@ const evo = (id: string): PlanEvolution => {
   const e = m.evolutions.find((x) => x.id === id)!;
   return { id: e.id, title: e.title, intent: e.intent, kind: e.kind, affectedNodes: e.affectedNodes, acceptanceCriteria: e.acceptanceCriteria };
 };
+/** Evolution 2 as these tests use it: one domain section (goal) and one UI section. The real evolution.2 spans three sections (below). */
+const evo2: PlanEvolution = { ...evo("evolution.2"), affectedNodes: ["entity.RelationshipGoal", "operation.goal.save", "screen.goal", "screen.logContact", "screen.today"] };
 const input = (e: PlanEvolution, hint?: string): PlanInput => ({ model: m, evolution: e, tree, appCommit: "app1", genomeCommit: "g1", ...(hint && { hint }) });
 const custom = (affectedNodes: string[], acceptanceCriteria: string[] = []): PlanEvolution =>
   ({ id: "evolution.9", title: "Custom", intent: "Do it", affectedNodes, acceptanceCriteria });
 
 describe("fallbackPlan", () => {
   it("groups by Thing, then nearest section", () => {
-    const groups = fallbackGroups(m, evo("evolution.2").affectedNodes, tree);
+    const groups = fallbackGroups(m, evo2.affectedNodes, tree);
     expect(groups).toEqual([
-      ["entity.RelationshipGoal", "entity.ContactEvent", "operation.goal.save", "operation.contact.log"],
+      ["entity.RelationshipGoal", "operation.goal.save"],
       ["screen.goal", "screen.logContact", "screen.today"],
     ]);
     // A System-level node never shares a group with a Thing's nodes.
@@ -39,8 +41,8 @@ describe("fallbackPlan", () => {
   });
 
   it("merges groups of one Thing whose footprints share files (union-find)", () => {
-    // The dialog's affordance (ui) and the operation it invokes (domain) share public/people/add-contact-dialog.js.
-    expect(fallbackGroups(m, ["affordance.AddContactDialog.save", "operation.contact.save"], tree)).toHaveLength(1);
+    // The ownerOnly policy (authorization) and the save operation (domain) share src/worker/routes/contacts.ts.
+    expect(fallbackGroups(m, ["policy.ownerOnly", "operation.contact.save"], tree)).toHaveLength(1);
     const groups = fallbackGroups(m, evo("evolution.1").affectedNodes, tree);
     // policy.ownerOnly (authorization) and entity.ContactRecord (domain) both own src/worker/routes/contacts.ts.
     expect(groups).toContainEqual(["policy.ownerOnly", "entity.ContactRecord"]);
@@ -50,12 +52,12 @@ describe("fallbackPlan", () => {
   });
 
   it("makes a plan with ids, footprints, criteria per group, waves and fallback provenance", () => {
-    const p = fallbackPlan(input(evo("evolution.2")));
+    const p = fallbackPlan(input(evo2));
     expect(p.tasks.map((t) => t.id)).toEqual(["task.2.t1", "task.2.t2"]);
     expect(p.tasks.every((t) => t.origin === "fallback" && t.status === "planned" && t.thing === "thing.webapp")).toBe(true);
     expect(p.tasks[0].acceptanceCriteria).toEqual(["C.webapp.schedule.correct"]);
     expect(p.tasks[1].acceptanceCriteria).toEqual(["C.webapp.prompts.bounded"]);
-    expect(p.tasks[0].footprint.paths).toContain("src/worker/routes/contacts.ts");
+    expect(p.tasks[0].footprint.globs).toContain("src/worker/routes/goals.ts");
     expect(p.tasks[0].footprint.appCommit).toBe("app1");
     expect(p.waves.flat().sort()).toEqual(["task.2.t1", "task.2.t2"]);
     expect(p.provenance).toEqual({ planner: { provider: "fallback", model: "fallback" }, fake: false });
@@ -98,11 +100,25 @@ describe("planContext", () => {
   });
 });
 
+describe("Peopling evolution.2", () => {
+  it("plans into goals, events and Today: goals and events run together, Today after both", () => {
+    const p = fallbackPlan(input(evo("evolution.2")));
+    expect(p.tasks.map((t) => t.nodes)).toEqual([
+      ["operation.goal.save"],
+      ["entity.ContactEvent", "operation.contact.log"],
+      ["screen.goal", "screen.logContact", "screen.today", "component.TodayList", "affordance.Today.refresh"],
+    ]);
+    expect(p.tasks.map((t) => t.dependsOn)).toEqual([[], [], ["task.2.t1", "task.2.t2"]]);
+    expect(p.conflicts.filter((c) => c.kind === "file")).toEqual([]);
+    expect(p.waves).toEqual([["task.2.t1", "task.2.t2"], ["task.2.t3"]]);
+  });
+});
+
 describe("validateReply", () => {
-  const e2 = evo("evolution.2");
+  const e2 = evo2;
   const t = (title: string, nodes: string[], extra: Partial<PlanReplyTask> = {}): PlanReplyTask =>
     ({ title, intent: `do ${title}`, nodes, dependsOn: [], acceptanceCriteria: [], ...extra });
-  const domain = ["entity.RelationshipGoal", "entity.ContactEvent", "operation.goal.save", "operation.contact.log"];
+  const domain = ["entity.RelationshipGoal", "operation.goal.save"];
   const ui = ["screen.goal", "screen.logContact", "screen.today"];
 
   it("drops unknown nodes with an error problem", () => {
@@ -126,9 +142,9 @@ describe("validateReply", () => {
   });
 
   it("removes a duplicate node from the later task", () => {
-    const { drafts, problems } = validateReply(input(e2), [t("A", domain), t("B", ["entity.ContactEvent", ...ui])]);
+    const { drafts, problems } = validateReply(input(e2), [t("A", domain), t("B", ["operation.goal.save", ...ui])]);
     expect(drafts[1].nodes).toEqual(ui);
-    expect(problems).toContainEqual({ severity: "warning", message: expect.stringContaining("entity.ContactEvent is already in an earlier task") });
+    expect(problems).toContainEqual({ severity: "warning", message: expect.stringContaining("operation.goal.save is already in an earlier task") });
   });
 
   it("maps dependsOn titles to task ids and keeps the reply's criteria", () => {
@@ -178,22 +194,22 @@ describe("validateReply", () => {
 
 describe("buildPlan", () => {
   it("falls back when the planner is off or fails", async () => {
-    const off = await buildPlan(input(evo("evolution.2")), offPlanner());
+    const off = await buildPlan(input(evo2), offPlanner());
     expect(off.provenance.planner.provider).toBe("fallback");
     const broken: Planner = { mode: "http", model: "m", plan: async () => ({ provider: "error", model: "m", error: "boom" }) };
-    const p = await buildPlan(input(evo("evolution.2")), broken);
+    const p = await buildPlan(input(evo2), broken);
     expect(p.tasks.every((x) => x.origin === "fallback")).toBe(true);
     expect(p.problems).toContainEqual({ severity: "warning", message: expect.stringContaining("boom") });
   });
 
   it("fake planner: one task per section, #plan:split per node, #plan:dep a chain", async () => {
-    const plain = await buildPlan(input(evo("evolution.2")), fakePlanner());
+    const plain = await buildPlan(input(evo2), fakePlanner());
     expect(plain.tasks).toHaveLength(2);
     expect(plain.provenance).toEqual({ planner: { provider: "fake", model: "fake" }, fake: true });
-    const split = await buildPlan(input(evo("evolution.2"), "#plan:split"), fakePlanner());
-    expect(split.tasks).toHaveLength(7);
+    const split = await buildPlan(input(evo2, "#plan:split"), fakePlanner());
+    expect(split.tasks).toHaveLength(5);
     expect(split.provenance.hint).toBe("#plan:split");
-    const dep = await buildPlan(input(evo("evolution.2"), "#plan:dep"), fakePlanner());
+    const dep = await buildPlan(input(evo2, "#plan:dep"), fakePlanner());
     expect(dep.tasks[1].dependsOn).toContain(dep.tasks[0].id);
     expect(dep.waves).toHaveLength(2);
   });
@@ -212,7 +228,7 @@ describe("plannerFromEnv", () => {
 });
 
 describe("openRouterPlanner", () => {
-  const ctx = planContext(m, evo("evolution.2"));
+  const ctx = planContext(m, evo2);
   const reply = (content: string, status = 200) => async () => new Response(JSON.stringify({ model: "x/y", choices: [{ message: { content } }] }), { status });
 
   it("parses a fenced JSON reply at temperature 0", async () => {
@@ -238,26 +254,26 @@ describe("openRouterPlanner", () => {
 });
 
 describe("revisePlan", () => {
-  const base = () => fallbackPlan(input(evo("evolution.2")));
+  const base = () => fallbackPlan(input(evo2));
 
   it("recomputes footprints and waves for merged tasks; changed tasks become user tasks", () => {
     const p = base();
     const [a, b] = p.tasks;
     const merged = { ...a, nodes: [...a.nodes, ...b.nodes], acceptanceCriteria: [...a.acceptanceCriteria, ...b.acceptanceCriteria], footprint: undefined };
-    const out = revisePlan(input(evo("evolution.2")), p, { tasks: [merged] });
+    const out = revisePlan(input(evo2), p, { tasks: [merged] });
     expect(out.tasks).toHaveLength(1);
     expect(out.tasks[0]).toMatchObject({ id: a.id, origin: "user", status: "planned" });
-    expect(out.tasks[0].footprint.globs).toEqual(expect.arrayContaining(["src/ui/**", "src/worker/routes/**"]));
+    expect(out.tasks[0].footprint.globs).toEqual(expect.arrayContaining(["src/ui/**", "src/worker/routes/goals.ts"]));
     expect(out.waves).toEqual([[a.id]]);
     expect(out.createdAt).toBe(p.createdAt);
   });
 
   it("keeps the origin of unchanged tasks and refuses invalid lists", () => {
     const p = base();
-    const keep = revisePlan(input(evo("evolution.2")), p, { tasks: p.tasks });
+    const keep = revisePlan(input(evo2), p, { tasks: p.tasks });
     expect(keep.tasks.map((t) => t.origin)).toEqual(["fallback", "fallback"]);
     const [a, b] = p.tasks;
-    const bad = (tasks: unknown[]) => { try { revisePlan(input(evo("evolution.2")), p, { tasks }); return null; } catch (e) { return e as { status: number; code: string }; } };
+    const bad = (tasks: unknown[]) => { try { revisePlan(input(evo2), p, { tasks }); return null; } catch (e) { return e as { status: number; code: string }; } };
     expect(bad([{ ...a, nodes: ["no.such"] }, b])).toMatchObject({ status: 422, code: "invalid-plan" });
     expect(bad([a, { ...b, nodes: [...b.nodes, a.nodes[0]] }])).toMatchObject({ status: 422, code: "invalid-plan" });
     expect(bad([a, { ...b, dependsOn: ["task.2.t9"] }])).toMatchObject({ status: 422, code: "invalid-plan" });
@@ -265,6 +281,6 @@ describe("revisePlan", () => {
     expect(bad([{ title: "x" }])).toMatchObject({ status: 400 });
     expect(bad([{ ...a, nodes: [...a.nodes, "entity.Connection"] }, b])).toMatchObject({ status: 422, code: "invalid-plan" });
     expect(bad([{ ...a, acceptanceCriteria: ["C.webapp.contact.save"] }, b])).toMatchObject({ status: 422, code: "invalid-plan" });
-    expect(() => revisePlan(input(evo("evolution.2")), p, { tasks: [{ ...a, dependsOn: [b.id] }, { ...b, dependsOn: [a.id] }] })).toThrow(PlanError);
+    expect(() => revisePlan(input(evo2), p, { tasks: [{ ...a, dependsOn: [b.id] }, { ...b, dependsOn: [a.id] }] })).toThrow(PlanError);
   });
 });
