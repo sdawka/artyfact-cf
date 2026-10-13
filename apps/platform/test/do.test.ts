@@ -9,7 +9,7 @@ let n = 0;
 const stub = () => env.SYSTEMS.getByName(`test-${++n}-${Date.now()}`);
 
 const boot: BootstrapInput = {
-  systemId: "system.kit", title: "Kit", genomeRepo: "kit-system", appRepo: "kit-app", genomeCommit: G1, appCommit: A1,
+  systemId: "system.peopling", title: "Peopling", genomeRepo: "peopling-system", appRepo: "peopling-app", genomeCommit: G1, appCommit: A1,
   artifactId: "artifact.webapp", templateVersions: { "template.thing.cloudflare-worker-webapp": "1" }, hookVersions: {}, platform: null,
   evolutions: [{
     id: "evolution.1", title: "List people", intent: "x", state: "actionable", kind: "implementation", affectedNodes: ["screen.people"],
@@ -52,7 +52,7 @@ describe("SystemAuthority bootstrap", () => {
       expect(again.head).toBe(s.head);
       expect(i.history()).toHaveLength(1);
       expect(i.history()[0].genomeCommit).toBe(G1);
-      expect(i.history()[0].composition).toMatchObject({ genomeCommit: G1, artifacts: { "artifact.webapp": { repo: "kit-app", commit: A1 } } });
+      expect(i.history()[0].composition).toMatchObject({ genomeCommit: G1, artifacts: { "artifact.webapp": { repo: "peopling-app", commit: A1 } } });
     });
   });
 });
@@ -65,13 +65,13 @@ describe("platform provenance", () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
       await i.bootstrap({ ...boot, platform: P1, scaffoldFrom: scaffold });
       expect(i.state()!.platform).toEqual(P1);
-      expect(i.history()[0].composition).toMatchObject({ platform: P1, artifacts: { "artifact.webapp": { repo: "kit-app", commit: A1, scaffoldFrom: scaffold } } });
+      expect(i.history()[0].composition).toMatchObject({ platform: P1, artifacts: { "artifact.webapp": { repo: "peopling-app", commit: A1, scaffoldFrom: scaffold } } });
       const r = i.reserveRealization({ evolutionId: "evolution.1", target: "app" });
       const { candidate } = i.recordCandidate({ realizationId: r.realization.id, commit: A2, manifest: {}, changedPaths: ["src/a.ts"], changedNodes: ["screen.people"] });
       i.recordEvaluations(candidate.id, [ev(candidate.id, "C.people.list", "pass")], "evaluated");
       const out = await i.promote(promoteInput([candidate.id], i.state()!.head));
       expect(out).toMatchObject({ ok: true });
-      expect(i.history()[0].composition).toMatchObject({ platform: P1, artifacts: { "artifact.webapp": { repo: "kit-app--r1", commit: A2, scaffoldFrom: scaffold } } });
+      expect(i.history()[0].composition).toMatchObject({ platform: P1, artifacts: { "artifact.webapp": { repo: "peopling-app--r1", commit: A2, scaffoldFrom: scaffold } } });
     });
   });
 
@@ -79,7 +79,7 @@ describe("platform provenance", () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
       await i.bootstrap({ ...boot, scaffoldFrom: scaffold });
       await i.bootstrap({ ...boot, appCommit: A3, force: true });
-      expect(i.history()[0].composition!.artifacts["artifact.webapp"]).toMatchObject({ repo: "kit-app", commit: A3, scaffoldFrom: scaffold });
+      expect(i.history()[0].composition!.artifacts["artifact.webapp"]).toMatchObject({ repo: "peopling-app", commit: A3, scaffoldFrom: scaffold });
       await i.bootstrap({ ...boot, appRepo: "other-app", appCommit: A2, force: true });
       expect(i.history()[0].composition!.artifacts["artifact.webapp"]).not.toHaveProperty("scaffoldFrom");
     });
@@ -101,7 +101,7 @@ describe("platform provenance", () => {
       const { candidate } = i.recordCandidate({ realizationId: r.realization.id, commit: A2, manifest: {}, changedPaths: ["src/a.ts"], changedNodes: ["screen.people"] });
       i.recordEvaluations(candidate.id, [ev(candidate.id, "C.people.list", "pass")], "evaluated");
       expect(await i.promote(promoteInput([candidate.id], head))).toMatchObject({ ok: true });
-      expect(i.history()[0].composition).toMatchObject({ platform: P1, artifacts: { "artifact.webapp": { repo: "kit-app--r1", commit: A2 } } });
+      expect(i.history()[0].composition).toMatchObject({ platform: P1, artifacts: { "artifact.webapp": { repo: "peopling-app--r1", commit: A2 } } });
     });
   });
 
@@ -144,8 +144,8 @@ describe("realizations", () => {
       await i.bootstrap(boot);
       const a = i.reserveRealization({ evolutionId: "evolution.1", target: "app" });
       const b = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
-      expect([a.realization.id, a.forkRepo, a.baseRepo, a.baseCommit]).toEqual(["realization.1.r1", "kit-app--r1", "kit-app", A1]);
-      expect([b.realization.id, b.forkRepo, b.baseCommit]).toEqual(["realization.1.r2", "kit-system--r2", G1]);
+      expect([a.realization.id, a.forkRepo, a.baseRepo, a.baseCommit]).toEqual(["realization.1.r1", "peopling-app--r1", "peopling-app", A1]);
+      expect([b.realization.id, b.forkRepo, b.baseCommit]).toEqual(["realization.1.r2", "peopling-system--r2", G1]);
       expect(i.evolution("evolution.1")!.state).toBe("realizing");
     });
   });
@@ -221,7 +221,7 @@ describe("promote", () => {
       const required = { [c1.id]: hard("C.people.list", "C.webapp.exists") };
       i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "unknown"), ev(c1.id, "C.webapp.exists", "pass")]);
       const input = promoteInput([c1.id], head, required);
-      expect(() => i.promoteTx(input, { head, manifest: { genomeCommit: G1, artifacts: { "artifact.webapp": { repo: "kit-app--r1", commit: A2 } }, templateVersions: {}, hookVersions: {} }, manifestHash: "0".repeat(64) }))
+      expect(() => i.promoteTx(input, { head, manifest: { genomeCommit: G1, artifacts: { "artifact.webapp": { repo: "peopling-app--r1", commit: A2 } }, templateVersions: {}, hookVersions: {} }, manifestHash: "0".repeat(64) }))
         .toThrow(PromotionBlockedError);
       const r1 = await i.promote(input);
       expect(r1).toEqual({ ok: false, code: "blocked", blocking: [{ candidate: c1.id, criterion: "C.people.list", severity: "hard", verdict: "unknown", execution: "completed" }], advisories: [] });
@@ -288,13 +288,13 @@ describe("promote", () => {
       const out = await i.promote(promoteInput([c1.id], head, { [c1.id]: hard("C.people.list") }));
       if (!out.ok) throw new Error(JSON.stringify(out));
       expect(out.commit.parent).toBe(head);
-      expect(out.commit.composition!.artifacts["artifact.webapp"]).toEqual({ repo: "kit-app--r1", commit: A2 });
-      expect(out.commit.manifest).toEqual([{ artifact: "artifact.webapp", type: "worker-fullstack", repo: "kit-app--r1", commit: A2, scope: [] }]);
+      expect(out.commit.composition!.artifacts["artifact.webapp"]).toEqual({ repo: "peopling-app--r1", commit: A2 });
+      expect(out.commit.manifest).toEqual([{ artifact: "artifact.webapp", type: "worker-fullstack", repo: "peopling-app--r1", commit: A2, scope: [] }]);
       expect(out.commit.genomeCommit).toBe(G1);
       expect(out.commit.manifestHash).toMatch(/^[0-9a-f]{64}$/);
       expect(out.rejected).toEqual([c2.id]);
       expect(i.state()!.head).toBe(out.commit.id);
-      expect(i.state()!.appSource).toEqual({ repo: "kit-app--r1", commit: A2 });
+      expect(i.state()!.appSource).toEqual({ repo: "peopling-app--r1", commit: A2 });
       expect(i.candidate(c1.id)!.state).toBe("promoted");
       expect(i.candidate(c2.id)!.state).toBe("rejected");
       expect(i.realization(r1.realization.id)!.realization.status).toBe("promoted");
@@ -315,7 +315,7 @@ describe("promote", () => {
       expect(await i.promote(promoteInput([c1.id], head))).toMatchObject({ ok: true });
       await i.bootstrap({ ...boot, evolutions: [{ ...boot.evolutions[0], id: "evolution.3" }] });
       const r = i.reserveRealization({ evolutionId: "evolution.3", target: "app" });
-      expect([r.baseRepo, r.baseCommit, r.forkRepo]).toEqual(["kit-app--r1", A2, "kit-app--r3"]);
+      expect([r.baseRepo, r.baseCommit, r.forkRepo]).toEqual(["peopling-app--r1", A2, "peopling-app--r3"]);
     });
   });
 });
@@ -397,7 +397,7 @@ describe("promotion binds exactly the promoted commits", () => {
       const { c1, head } = await twoCandidates(i);
       i.recordEvaluations(c1.id, [ev(c1.id, "C.people.list", "pass")], "evaluated");
       const input = promoteInput([c1.id], head);
-      const other = { head, manifest: { genomeCommit: G1, artifacts: { "artifact.webapp": { repo: "kit-app--r2", commit: A3 } }, templateVersions: {}, hookVersions: {} }, manifestHash: "0".repeat(64) };
+      const other = { head, manifest: { genomeCommit: G1, artifacts: { "artifact.webapp": { repo: "peopling-app--r2", commit: A3 } }, templateVersions: {}, hookVersions: {} }, manifestHash: "0".repeat(64) };
       expect(() => i.promoteTx(input, other)).toThrow(/does not bind/);
       expect(i.state()!.head).toBe(head);
     });
@@ -433,7 +433,7 @@ describe("accept", () => {
       const out = await i.accept({ realizationId: realization.id, candidateId: candidate.id, commit: G2, rationale: "ok", by: "admin", evolutions: boot.evolutions, gates: hard("C.people.list"), artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
       if (!out.ok) throw new Error(JSON.stringify(out));
       expect(out.genomeCommit).toBe(G2);
-      expect(i.state()).toMatchObject({ genomeCommit: G2, genomeSource: "kit-system--r1", head: out.commit.id });
+      expect(i.state()).toMatchObject({ genomeCommit: G2, genomeSource: "peopling-system--r1", head: out.commit.id });
       expect(out.commit.genomeCommit).toBe(G2);
       const again = await i.accept({ realizationId: realization.id, candidateId: candidate.id, commit: G2, rationale: "ok", by: "admin", evolutions: [], artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
       expect(again).toMatchObject({ ok: true, genomeCommit: G2 });

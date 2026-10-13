@@ -5,9 +5,9 @@ import { describe, expect, it } from "vitest";
 import { main } from "../src/main";
 
 const ROOT = join(__dirname, "../../..");
-const SRC = join(ROOT, "packages/ontology/test/fixtures/artyfact/keep-in-touch-system");
-const FIXTURE = join(ROOT, "examples/keep-in-touch-system");
-const SOURCE_MAP = join(ROOT, "packages/ontology/test/fixtures/artyfact/keep-in-touch-app.source-map.yaml");
+const SRC = join(ROOT, "packages/ontology/test/fixtures/artyfact/peopling-system");
+const FIXTURE = join(ROOT, "examples/peopling-system");
+const SOURCE_MAP = join(ROOT, "packages/ontology/test/fixtures/artyfact/peopling-app.source-map.yaml");
 
 const run = async (args: string[], cwd: string) => {
   const out: string[] = [], err: string[] = [];
@@ -21,10 +21,10 @@ const list = (dir: string, base = ""): string[] =>
 describe("artyfact convert-genome", () => {
   it("writes the v2 tree of a v1 Genome into a new directory", async () => {
     const tmp = mkdtempSync(join(tmpdir(), "artyfact-convert-"));
-    const r = await run(["convert-genome", SRC, "kit-v2", "--source-map", SOURCE_MAP], tmp);
+    const r = await run(["convert-genome", SRC, "peopling-v2", "--source-map", SOURCE_MAP], tmp);
     expect(r).toMatchObject({ code: 0, err: "" });
     expect(r.out).toMatch(/239 nodes, 6 change records/);
-    const dst = join(tmp, "kit-v2");
+    const dst = join(tmp, "peopling-v2");
     expect(list(dst)).toEqual(list(FIXTURE));
     for (const p of list(FIXTURE)) expect(readFileSync(join(dst, p), "utf8")).toBe(readFileSync(join(FIXTURE, p), "utf8"));
   });

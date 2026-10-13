@@ -117,7 +117,7 @@ describe("System summary across the lifecycle", () => {
     // production report → live
     const pending = (await call<DeploymentsResponse>("GET", `/systems/${id}/deployments`)).json.history[0];
     const rep1 = await step(() => call<BuildReportResponse>("POST", `/systems/${id}/builds`,
-      { status: "passed", kind: "production", commit: commit1, url: "https://kit-app.dawka.workers.dev", buildId: commit1, deploymentId: pending.id }, CI));
+      { status: "passed", kind: "production", commit: commit1, url: "https://peopling-app.dawka.workers.dev", buildId: commit1, deploymentId: pending.id }, CI));
     expect(rep1.out.status, JSON.stringify(rep1.out.json)).toBe(200);
     expect(rep1.system.deployState).toBe("live");
     expect(rep1.system.signifiers).toContain("deployed");
@@ -144,7 +144,7 @@ describe("System summary across the lifecycle", () => {
     // build report for the second commit → live again
     const pending2 = (await call<DeploymentsResponse>("GET", `/systems/${id}/deployments`)).json.history.find((d) => d.commit === commit2 && d.status === "pending");
     const rep2 = await step(() => call<BuildReportResponse>("POST", `/systems/${id}/builds`,
-      { status: "passed", kind: "production", commit: commit2, url: "https://kit-app.dawka.workers.dev", buildId: commit2, ...(pending2 && { deploymentId: pending2.id }) }, CI));
+      { status: "passed", kind: "production", commit: commit2, url: "https://peopling-app.dawka.workers.dev", buildId: commit2, ...(pending2 && { deploymentId: pending2.id }) }, CI));
     expect(rep2.out.status, JSON.stringify(rep2.out.json)).toBe(200);
     expect(rep2.system.deployState).toBe("live");
     expect(rep2.system.signifiers).toContain("deployed");
@@ -220,11 +220,11 @@ describe("POST /api/systems/:id/evolutions", () => {
 describe("FAKE_ARTIFACTS=1 boot", () => {
   afterAll(() => resetFakePlatform());
 
-  it("serves Keep in Touch from examples/ and takes an editor commit through the fake receive-pack", async () => {
+  it("serves Peopling from examples/ and takes an editor commit through the fake receive-pack", async () => {
     await ensureFakePlatform(env);
     await ensureFakePlatform(env); // idempotent
     const s = await listed(exampleSystemId);
-    expect(s).toMatchObject({ title: "Keep in Touch", genomeRepo: "keep-in-touch.genome", appRepo: "keep-in-touch.app" });
+    expect(s).toMatchObject({ title: "Peopling", genomeRepo: "peopling.genome", appRepo: "peopling.app" });
     expect(s.signifiers).toContain("unrealized");
 
     const work = await call<{ evolutions: Evolution[] }>("GET", `/systems/${exampleSystemId}/work`);
@@ -235,7 +235,7 @@ describe("FAKE_ARTIFACTS=1 boot", () => {
     expect(start.json.realization).toMatchObject({ origin: "editor", agent: { role: "author" } });
     const rid = start.json.realization.id;
     const res = await call<EditorCommitResponse>("POST", `/systems/${exampleSystemId}/realizations/${rid}/commit`,
-      { message: "Edit README", why: "demo", changes: [{ path: "README.md", content: "# Keep in Touch\nedited\n" }] }, ADMIN);
+      { message: "Edit README", why: "demo", changes: [{ path: "README.md", content: "# Peopling\nedited\n" }] }, ADMIN);
     expect(res.status, JSON.stringify(res.json)).toBe(201);
     expect(res.json.commit).toMatch(/^[0-9a-f]{40}$/);
     expect(res.json.submitted.candidate.commit).toBe(res.json.commit);
@@ -266,8 +266,8 @@ describe("FAKE_ARTIFACTS=1 boot", () => {
     }
   });
 
-  it("reads FAKE_SEED, defaulting to Keep in Touch", () => {
-    expect([undefined, "", "keep-in-touch", "nope"].map(fakeSeed)).toEqual(Array(4).fill("keep-in-touch"));
+  it("reads FAKE_SEED, defaulting to Peopling", () => {
+    expect([undefined, "", "peopling", "nope"].map(fakeSeed)).toEqual(Array(4).fill("peopling"));
     expect([fakeSeed("artyfact"), fakeSeed("both")]).toEqual(["artyfact", "both"]);
   });
 

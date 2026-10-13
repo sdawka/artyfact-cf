@@ -4,7 +4,7 @@ import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 
-const base = "/s/system.keep-in-touch/r/head/journeys";
+const base = "/s/system.peopling/r/head/journeys";
 const search = (r: { router: { state: { location: { search: string } } } }) => new URLSearchParams(r.router.state.location.search);
 
 // The view chunk, elk and React Flow load lazily; give them room when the whole suite runs in parallel.
@@ -78,7 +78,7 @@ describe("Journeys view", () => {
         { name: "Accept", steps: ["s4", "s5", "s6", "s7"] },
       ];
       j.steps.find((x) => x.id === "s1")!.unresolved = true;
-      qc.setQueryData(qk.model("system.keep-in-touch", "head"), bundle);
+      qc.setQueryData(qk.model("system.peopling", "head"), bundle);
     };
 
     it("a segment tab filters the visible steps", async () => {

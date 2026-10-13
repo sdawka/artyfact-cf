@@ -20,7 +20,7 @@ files:
 criteria:
   - id: C.ontology.unit
     title: "@artyfact/ontology tests pass"
-    claim: The engine's suites pass, including codec round-trips and the Keep in Touch parity tests.
+    claim: The engine's suites pass, including codec round-trips and the Peopling parity tests.
     target: artifact
     gates:
       - candidate

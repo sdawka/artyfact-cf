@@ -1,9 +1,9 @@
-// Generated from examples/keep-in-touch-system by scripts/build-fixture.ts (npm run build:fixture).
+// Generated from examples/peopling-system by scripts/build-fixture.ts (npm run build:fixture).
 import type { UiBundle } from "@/model/types";
-import raw from "@/fixtures/keep-in-touch.model.json";
+import raw from "@/fixtures/peopling.model.json";
 
 /**
- * A fresh copy of the Keep in Touch bundle, marked `source: 'fixture'`. App code must load this
+ * A fresh copy of the Peopling bundle, marked `source: 'fixture'`. App code must load this
  * module with a dynamic `import()` (client.ts does) so the JSON stays out of the main chunk;
  * tests may import it directly.
  */
@@ -16,6 +16,6 @@ export interface FixtureFiles {
   files: Record<string, string>;
 }
 
-/** The Keep in Touch Genome files (`{ entries, files }`), a separate chunk loaded only when a fixture file route is read. */
+/** The Peopling Genome files (`{ entries, files }`), a separate chunk loaded only when a fixture file route is read. */
 export const fixtureFiles = (): Promise<FixtureFiles> =>
-  import("@/fixtures/keep-in-touch.files.json").then((m) => m.default as FixtureFiles);
+  import("@/fixtures/peopling.files.json").then((m) => m.default as FixtureFiles);

@@ -5,7 +5,7 @@ import { registerTab } from "./tabRegistry";
 
 describe("Inspector tab registry", () => {
   it("lets a slice replace a tab's content", async () => {
-    renderApp("/s/system.keep-in-touch/r/head/overview?focus=screen.people");
+    renderApp("/s/system.peopling/r/head/overview?focus=screen.people");
     const inspector = await screen.findByRole("complementary", { name: "Inspector" });
     act(() => within(inspector).getByRole("tab", { name: "Evidence" }).click());
     expect(within(inspector).queryByText("custom evidence for screen.people")).toBeNull();

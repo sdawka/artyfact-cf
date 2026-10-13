@@ -5,12 +5,12 @@ import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 
-const SYSTEM = "system.keep-in-touch";
+const SYSTEM = "system.peopling";
 const OVERVIEW = `/s/${SYSTEM}/r/head/overview`;
 const TO = "b".repeat(40);
 const PLAN: TemplateUpgradePlan = {
   template: "thing/cloudflare-worker-webapp@1", from: "a".repeat(40), to: TO, upToDate: false, locked: true,
-  app: { repo: "keep-in-touch.app", commit: "c".repeat(40) },
+  app: { repo: "peopling.app", commit: "c".repeat(40) },
   files: [
     { path: "src/worker/phenome.ts", action: "add", reason: "new in the template" },
     { path: "src/worker/env.ts", action: "update", reason: "unchanged by the app since it was scaffolded; the template changed it" },

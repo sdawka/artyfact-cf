@@ -21,11 +21,11 @@ test.describe("views", () => {
   });
 
   test("map: breadcrumbs and grey phenome badges", async ({ page }, testInfo) => {
-    await page.goto("/s/system.keep-in-touch/r/head/map?focus=screen.people&layer=phenome");
+    await page.goto("/s/system.peopling/r/head/map?focus=screen.people&layer=phenome");
     const crumbs = page.getByRole("navigation", { name: "Map scope" });
     await expect(crumbs).toBeVisible();
     const text = (await crumbs.innerText()).replace(/\s+/g, " ");
-    const order = ["Keep in Touch", "Keep in Touch web app", "UI", "People"].map((n) => text.indexOf(n));
+    const order = ["Peopling", "Peopling web app", "UI", "People"].map((n) => text.indexOf(n));
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     await expect(page.getByRole("complementary", { name: "Inspector" })).toBeVisible();
@@ -61,7 +61,7 @@ test.describe("views", () => {
   });
 
   test("journeys: failure edge and step click opens the Inspector", async ({ page }, testInfo) => {
-    await page.goto("/s/system.keep-in-touch/r/head/journeys?journey=J.contacts");
+    await page.goto("/s/system.peopling/r/head/journeys?journey=J.contacts");
     await expect(page.getByRole("heading", { level: 1, name: "Journeys" })).toBeVisible();
     await expect(page.getByRole("button", { name: /^Step f1:.*failure/ })).toBeVisible();
     await expect(page.getByLabel("Edge from s4 to f1")).toBeAttached();

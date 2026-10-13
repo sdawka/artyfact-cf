@@ -39,7 +39,7 @@ More views: [Map on screen.people, Phenome layer](docs/images/map-screen-people-
 - **Changelog and Compare.** One row per System commit with its semantic delta, files, criteria, builds and deployment. Compare any two revisions at System, Genome or file level.
 - **Builds and deployments.** A new app candidate gets a preview build, so the health assay checks the deployed app. A promotion asks for a production deployment.
 - **Deployments page and the Phenome.** Runtime events from a deployed app, grouped by version and linked to the System commit it runs.
-- **Fake platform.** `FAKE_ARTIFACTS=1` runs the whole backend with no account, and the Playwright `@fake` specs drive the use cases through it for both Keep in Touch and Artyfact itself.
+- **Fake platform.** `FAKE_ARTIFACTS=1` runs the whole backend with no account, and the Playwright `@fake` specs drive the use cases through it for both Peopling and Artyfact itself.
 
 ## How Cloudflare is used
 
@@ -117,7 +117,7 @@ The exact commands and output for both are in [docs/demo-runbook.md](docs/demo-r
 
 ## Run it locally
 
-No Cloudflare login is needed to try the interface. In fixture mode the SPA uses a bundled copy of the Keep in Touch System and nothing talks to Cloudflare.
+No Cloudflare login is needed to try the interface. In fixture mode the SPA uses a bundled copy of the Peopling System and nothing talks to Cloudflare.
 
 ```sh
 npm install
@@ -147,7 +147,7 @@ Admin routes (import, start work, accept, reject, promote) need `ADMIN_TOKEN`. R
 
 **Importing a project.** `npx artyfact init --dir <project>` takes a cloned project from its Genome (`genome/node.yaml`) to an imported System in one command. For the example, `scripts/bootstrap.sh` is a wrapper that runs `init` on `examples/`.
 
-- **Names.** One Artifacts namespace per deployment (`artyfact` by default). The repository names come from the System id: `system.keep-in-touch` gives `keep-in-touch.genome` and `keep-in-touch.app`. Forks are `<repo>--r<N>`. The id must be lower-case, so two ids never share repositories.
+- **Names.** One Artifacts namespace per deployment (`artyfact` by default). The repository names come from the System id: `system.peopling` gives `peopling.genome` and `peopling.app`. Forks are `<repo>--r<N>`. The id must be lower-case, so two ids never share repositories.
 - **The `platform` repository.** It holds the Thing and System templates and the Rule Packs. `init` creates it when it is missing or empty, and `npx artyfact platform-sync` is the way to update it. The import records its commit on the System head and on every System commit. Evaluation still uses the packages bundled into the Worker. `platform` is provenance only.
 - **Pushes.** `init` checks that Wrangler and `cf` use the same account and prints only its first eight characters. It never rewrites history: it fast-forwards a repository only from the head it last pushed, and `--adopt` commits on top of history it did not push. Secret files (`.dev.vars`, `.env` and their variants, except `*.example`), `node_modules`, `.wrangler` and `dist` are never pushed, even when tracked.
 - **Import.** It then calls the import API with `ARTYFACT_ADMIN_TOKEN`. Without the token it prints the `curl` line and exits 0. `--from-template template.thing.<id>@<version>` (for example `template.thing.cloudflare-worker-webapp@1`) seeds a new app from a scaffold named in `platform`.
@@ -156,23 +156,23 @@ The CLI finds the platform from `--platform`, then `ARTYFACT_PLATFORM`, then `AR
 
 ```text
 $ ./scripts/bootstrap.sh
-system.keep-in-touch -> keep-in-touch.genome, keep-in-touch.app (namespace artyfact)
+system.peopling -> peopling.genome, peopling.app (namespace artyfact)
 account 1bae12d5… (wrangler and cf agree)
 namespace artyfact: exists
   created repo platform
 platform: created at 6bd3603921dc
-artyfact: keep-in-touch.genome has commits this checkout did not push (head ffb68c7) and its tree differs from …/examples/keep-in-touch-system.
+artyfact: peopling.genome has commits this checkout did not push (head ffb68c7) and its tree differs from …/examples/peopling-system.
 init never builds over unknown history: merge that history into your project first, or re-run with --adopt to commit your project on top of ffb68c7 (a fast-forward).
 
 $ ./scripts/bootstrap.sh --adopt
-system.keep-in-touch -> keep-in-touch.genome, keep-in-touch.app (namespace artyfact)
+system.peopling -> peopling.genome, peopling.app (namespace artyfact)
 account 1bae12d5… (wrangler and cf agree)
 namespace artyfact: exists
 platform: unchanged at 6bd3603921dc
-keep-in-touch.genome: pushed at 18374568e231
-keep-in-touch.app: unchanged at c945510ffdf5
-imported system.keep-in-touch at sc-1-b11cb27a
-System: http://localhost:1337/s/system.keep-in-touch/r/head/overview
+peopling.genome: pushed at 18374568e231
+peopling.app: unchanged at c945510ffdf5
+imported system.peopling at sc-1-b11cb27a
+System: http://localhost:1337/s/system.peopling/r/head/overview
 ```
 
 A re-run pushes nothing and re-imports as a no-op. Flags and details: [packages/cli/README.md](packages/cli/README.md). Step 2 of the runbook has the same transcript and a later run.
@@ -185,7 +185,7 @@ The repo-root `genome/` is Artyfact's own Genome (`system.artyfact`, on the dev-
 
 ```sh
 cd apps/platform
-FAKE_ARTIFACTS=1 FAKE_SEED=artyfact npx vite --port 1337   # FAKE_SEED=both imports Keep in Touch too
+FAKE_ARTIFACTS=1 FAKE_SEED=artyfact npx vite --port 1337   # FAKE_SEED=both imports Peopling too
 ```
 
 ## Phenome event header
@@ -218,8 +218,8 @@ The platform stamps `seq`, `receivedAt` and the realization. The Deployments pag
 | `packages/cli` | The `artyfact` command for agents |
 | `apps/platform` | The Worker, the Durable Object and the SPA |
 | `genome` | Artyfact's own Genome (node tree) |
-| `examples/keep-in-touch-system` | The worked example Genome |
-| `examples/keep-in-touch-app` | The example app that agents change |
+| `examples/peopling-system` | The worked example Genome |
+| `examples/peopling-app` | The example app that agents change |
 | `docs/design` | Design notes for each part |
 | `docs/costs.md` | Cloudflare cost plan, usage checks and guardrails |
 

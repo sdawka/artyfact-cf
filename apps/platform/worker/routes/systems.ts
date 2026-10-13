@@ -1,13 +1,14 @@
 import { Hono } from "hono";
-import type { ImportSystemRequest, SystemsResponse } from "../../shared/api";
+import type { DeleteSystemResponse, ImportSystemRequest, SystemsResponse } from "../../shared/api";
 import { requireAdmin } from "../auth";
 import { notFound } from "../errors";
-import { importSystem, listSystems, modelBundle, readiness, systemStub } from "../service";
+import { deleteSystem, importSystem, listSystems, modelBundle, readiness, systemStub } from "../service";
 import { body, type AppEnv } from "./app";
 
 export const systems = new Hono<AppEnv>()
   .get("/systems", async (c) => c.json<SystemsResponse>({ systems: await listSystems(c.env) }))
   .post("/systems/import", requireAdmin, async (c) => c.json(await importSystem(c.env, (await body(c)) as Partial<ImportSystemRequest>), 201))
+  .delete("/systems/:id", requireAdmin, async (c) => c.json<DeleteSystemResponse>(await deleteSystem(c.env, c.req.param("id"))))
   .get("/systems/:id", async (c) => {
     const s = await systemStub(c.env, c.req.param("id")).summary();
     if (!s) throw notFound(`system ${c.req.param("id")} is not imported`);

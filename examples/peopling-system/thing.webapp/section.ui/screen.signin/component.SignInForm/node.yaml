@@ -1,0 +1,9 @@
+id: component.SignInForm
+kind: component
+fields:
+  name: SignInForm
+  description: One SignInForm
+  source:
+    doc: peopling-world-specification
+    section: "6"
+  cardinality: exactly one

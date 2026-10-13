@@ -1,6 +1,6 @@
 import type { Candidate, Evaluation, Realization, SystemCommit } from "../../../shared/api";
 
-export const SYSTEM = "system.keep-in-touch";
+export const SYSTEM = "system.peopling";
 
 export const evaluation = (o: Partial<Evaluation> = {}): Evaluation => ({
   id: "eval.1",

@@ -2,7 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
-  ApiError, CandidatesResponse, ConflictsResponse, Evaluation, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
+  ApiError, CandidatesResponse, ConflictsResponse, DeleteSystemResponse, Evaluation, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
   SerializedModel, StartWorkResponse, SubmitResponse, SystemsResponse, HistoryResponse, WorkResponse, ReadinessResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
@@ -45,9 +45,9 @@ async function call<T>(method: string, path: string, body?: unknown, headers?: R
 
 /** Each test gets its own System id so DO state never leaks between tests. */
 function setup(ns = new FakeArtifacts()) {
-  const id = `system.kit`;
+  const id = `system.peopling`;
   const suffix = `-${++seq}`;
-  const genomeRepo = `kit-system${suffix}`, appRepo = `kit-app${suffix}`;
+  const genomeRepo = `peopling-system${suffix}`, appRepo = `peopling-app${suffix}`;
   const files = { ...genomeFiles };
   ns.create(genomeRepo).commit(files, "genome");
   ns.create(appRepo).commit(appFiles, "scaffold");
@@ -97,7 +97,7 @@ afterEach(() => { setArtifactsOverride(undefined); resetHooks(); });
 
 /** System ids are global DO names; give each test a unique one by rewriting the root node.yaml. */
 function uniqueSystem(ns: FakeArtifacts, genomeRepo: string): string {
-  const id = `system.kit${seq}`;
+  const id = `system.peopling${seq}`;
   const files = { ...genomeFor(id), };
   ns.repo(genomeRepo).commit(files, "rename");
   return id;
@@ -114,7 +114,7 @@ async function imported(ns?: FakeArtifacts) {
 describe("routes: import names and platform provenance", () => {
   /** A System whose repos carry only the derived names `<slug>.genome` / `<slug>.app`. */
   function slugNamed(ns = new FakeArtifacts()) {
-    const slug = `kitslug${++seq}`, systemId = `system.${slug}`;
+    const slug = `peoplingslug${++seq}`, systemId = `system.${slug}`;
     ns.create(`${slug}.genome`).commit({
       ...genomeFor(systemId),
     }, "genome");
@@ -575,7 +575,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect((await call<ApiError>("GET", `/systems/system.none/model`)).status).toBe(404);
     expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x" })).status).toBe(401);
     expect((await call<ApiError>("POST", `/systems/import`, {}, ADMIN)).status).toBe(400);
-    for (const systemId of ["system.--", "system.a/b", "system.Ünïcode", "system.a..b", "system.Kit"]) {
+    for (const systemId of ["system.--", "system.a/b", "system.Ünïcode", "system.a..b", "system.Peopling"]) {
       const bad = await call<ApiError>("POST", `/systems/import`, { systemId }, ADMIN);
       expect([bad.status, bad.json.error.code], systemId).toEqual([400, "invalid-system-id"]);
     }
@@ -836,7 +836,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(seen).toHaveLength(1);
     expect(seen[0].candidate.previewUrl).toBeUndefined();
 
-    const previewUrl = "https://kit-r1.example.workers.dev";
+    const previewUrl = "https://peopling-r1.example.workers.dev";
     const cli = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${rid}/submit`, { commit, previewUrl });
     expect(cli.status).toBe(200);
     expect(cli.json.created).toBe(false);
@@ -1057,5 +1057,49 @@ describe("routes: candidates carry the server's gate set (I3)", () => {
     const gs = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${g.realization.id}/submit`, { commit: fork.commit(files, "rename") });
     const genome = await call<CandidatesResponse>("GET", `/systems/${systemId}/evolutions/evolution.2/candidates`);
     expect(genome.json.gates![gs.json.candidate.id]!.filter((x) => x.blocking).map((x) => x.id)).toEqual(["C.system.promotion"]);
+  });
+});
+
+describe("routes: admin DELETE /systems/:id", () => {
+  it("removes the System from the registry and wipes its DO; unknown ids are 404", async () => {
+    const { systemId } = await imported();
+    expect((await call<SystemsResponse>("GET", "/systems")).json.systems.map((s) => s.systemId)).toContain(systemId);
+
+    const del = await call<DeleteSystemResponse>("DELETE", `/systems/${systemId}`, undefined, ADMIN);
+    expect(del.status).toBe(200);
+    expect(del.json).toEqual({ systemId, stateCleared: true });
+
+    expect((await call<SystemsResponse>("GET", "/systems")).json.systems.map((s) => s.systemId)).not.toContain(systemId);
+    expect((await call<ApiError>("GET", `/systems/${systemId}`)).status).toBe(404);
+    expect((await call<ApiError>("GET", `/systems/${systemId}/model`)).status).toBe(404);
+    expect(await runInDurableObject(env.SYSTEMS.getByName(systemId), (i: SystemAuthority) => i.state())).toBeNull();
+
+    const again = await call<ApiError>("DELETE", `/systems/${systemId}`, undefined, ADMIN);
+    expect([again.status, again.json.error.code]).toEqual([404, "not-found"]);
+  });
+
+  it("needs the admin bearer: 401 without one, 403 with the wrong one", async () => {
+    const { systemId } = await imported();
+    expect((await call<ApiError>("DELETE", `/systems/${systemId}`, undefined, {})).status).toBe(401);
+    const wrong = await call<ApiError>("DELETE", `/systems/${systemId}`, undefined, { authorization: "Bearer nope" });
+    expect([wrong.status, wrong.json.error.code]).toEqual([403, "forbidden"]);
+    expect((await call<SystemsResponse>("GET", "/systems")).json.systems.map((s) => s.systemId)).toContain(systemId);
+  });
+});
+
+describe("routes: admin DELETE /systems/:id when the wipe fails", () => {
+  it("still drops the registry row and reports stateCleared false", async () => {
+    const { systemId } = await imported();
+    const proto = Object.getPrototypeOf(await runInDurableObject(env.SYSTEMS.getByName(systemId), (i: SystemAuthority) => i)) as Record<string, unknown>;
+    const orig = proto.clearState;
+    proto.clearState = async () => { throw new Error("storage unavailable"); };
+    try {
+      const del = await call<DeleteSystemResponse>("DELETE", `/systems/${systemId}`, undefined, ADMIN);
+      expect([del.status, del.json]).toEqual([200, { systemId, stateCleared: false }]);
+    } finally {
+      proto.clearState = orig;
+    }
+    expect((await call<SystemsResponse>("GET", "/systems")).json.systems.map((s) => s.systemId)).not.toContain(systemId);
+    expect((await call<ApiError>("GET", `/systems/${systemId}`)).status).toBe(404);
   });
 });

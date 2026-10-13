@@ -6,7 +6,7 @@ import { diffModels, type Readiness, type schema, type SystemModel } from "@arty
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, DeleteSystemResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, SystemSummary, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SubmitSource, SyncResponse,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
@@ -90,6 +90,26 @@ export async function listSystems(env: Env): Promise<SystemSummary[]> {
     }));
   }
   return rows.map((s) => fresh.get(s.systemId) ?? s);
+}
+
+/**
+ * Admin `DELETE /api/systems/:id`: wipe the System's DO, then remove it from the registry (so `GET /api/systems` and
+ * every `:id` route stop seeing it, and no later `refreshRegistry` can re-insert a row for a wiped object). The wipe is
+ * best effort: when it fails the row still goes and the DO keeps its stale state, idle, reported as `stateCleared: false`
+ * (retry the DELETE, or re-import with `force`). Artifacts repos, forks and push subscriptions are left alone.
+ */
+export async function deleteSystem(env: Env, systemId: string): Promise<DeleteSystemResponse> {
+  const registry = registryStub(env);
+  if (!(await registry.hasSystem(systemId))) throw notFound(`system ${systemId} is not imported`);
+  let stateCleared = true;
+  try {
+    await systemStub(env, systemId).clearState();
+  } catch (e) {
+    stateCleared = false;
+    console.error(`[systems] clearing the state of ${systemId} failed: ${(e as Error)?.message ?? e}`);
+  }
+  await registry.unregisterSystem(systemId);
+  return { systemId, stateCleared };
 }
 
 // ------------------------------------------------------------------ genomes

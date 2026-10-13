@@ -24,7 +24,7 @@ const appDirs = [
 ];
 
 describe("standalone app tsconfig", () => {
-  it("finds the example app", () => expect(appDirs.some((d) => d.endsWith("keep-in-touch-app"))).toBe(true));
+  it("finds the example app", () => expect(appDirs.some((d) => d.endsWith("peopling-app"))).toBe(true));
   for (const file of appDirs.flatMap(tsconfigs)) {
     it(`${relative(ROOT, file)} does not extend outside its directory`, () => {
       const { extends: ext } = JSON.parse(readFileSync(file, "utf8")) as { extends?: string | string[] };

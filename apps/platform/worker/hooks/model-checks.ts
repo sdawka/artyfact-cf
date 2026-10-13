@@ -1,5 +1,5 @@
 /**
- * model-rules hook parts (C.system.structure, C.system.promotion, C.system.autonomy on the Keep in Touch Genome):
+ * model-rules hook parts (C.system.structure, C.system.promotion, C.system.autonomy on the Peopling Genome):
  * - `inputs.packs` / `inputs.rulePrefix`: the rules part, engine `evaluate` (engine-gates.ts). A `checks@1` pack runs
  *   the template's checks on the changed nodes only.
  * - `inputs.requires`: comma list of criteria that must exist, non-deferred, in the judged model.

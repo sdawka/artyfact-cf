@@ -1,6 +1,6 @@
 # Video script
 
-Target length about 8 minutes, hard limits 5 to 10. Every command comes from [demo-runbook.md](demo-runbook.md); step numbers below refer to it. Timings for each step come from the runbook's recorded run, so the on-screen waits are real. Fixed names: System `system.keep-in-touch`, repos `keep-in-touch.genome` and `keep-in-touch.app`, namespace `artyfact`.
+Target length about 8 minutes, hard limits 5 to 10. Every command comes from [demo-runbook.md](demo-runbook.md); step numbers below refer to it. Timings for each step come from the runbook's recorded run, so the on-screen waits are real. Fixed names: System `system.peopling`, repos `peopling.genome` and `peopling.app`, namespace `artyfact`.
 
 ## Screen layout
 - Browser with the platform UI at 1440 by 900 or larger.

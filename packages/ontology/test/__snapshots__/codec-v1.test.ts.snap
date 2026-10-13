@@ -1,6 +1,6 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
-exports[`convertV1 (Keep in Touch) > lays out the tree (listing snapshot) 1`] = `
+exports[`convertV1 (Peopling) > lays out the tree (listing snapshot) 1`] = `
 "GD.connect/node.yaml
 GD.contacts/node.yaml
 GD.goals/node.yaml

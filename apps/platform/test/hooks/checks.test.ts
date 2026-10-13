@@ -158,7 +158,7 @@ describe("model-rules hook with packs checks@1", () => {
     changedPaths: ["src/ui/people/PeopleScreen.tsx"], changedNodes: ["screen.people"], pathNodes: { "src/ui/people/PeopleScreen.tsx": ["screen.people"] },
   };
   const ctx = (genomeFiles: FileMap): SubmissionContext => ({
-    systemId: "system.mini-kit", candidate, genomeCommit: BASE, genomeFiles, tree: [], permittedPaths: ["src/**"], protectedPaths: [], openCandidates: [],
+    systemId: "system.mini-peopling", candidate, genomeCommit: BASE, genomeFiles, tree: [], permittedPaths: ["src/**"], protectedPaths: [], openCandidates: [],
   });
   const checksOf = (evs: Evaluation[]) => evs.find((e) => e.criterion === "C.webapp.checks.test")!;
 

@@ -9,12 +9,12 @@ Everything artyfact runs on one Cloudflare account on the Workers Paid plan. Pri
 | Platform Worker `artyfact-platform` (SPA assets, API) | `apps/platform/wrangler.jsonc` | Yes |
 | `SystemAuthority` Durable Object namespace (SQLite). One object per System, plus the registry object | `apps/platform/wrangler.jsonc` (`exports`) | Yes (`artyfact-platform_SystemAuthority`) |
 | Queue `artyfact-artifacts-events` (platform consumer, repo `pushed` events) | `apps/platform/wrangler.jsonc` (`queues`); created by hand | Yes. `artyfact-dlq`, `artyfact-events`, `artyfact-jobs` also exist and no config here references them |
-| Artifacts namespace `artyfact`: `<system>.genome`, `<system>.app`, a fork per realization (`<repo>--r<N>`) | `ARTIFACTS_NAMESPACE` var, created by the platform at runtime | Yes, 16 repos (keep-in-touch and kit systems with forks `--r1` to `--r6`). Namespaces `artyfact-test` and `artyfact-shots` also exist |
+| Artifacts namespace `artyfact`: `<system>.genome`, `<system>.app`, a fork per realization (`<repo>--r<N>`) | `ARTIFACTS_NAMESPACE` var, created by the platform at runtime | Yes, 16 repos (peopling and kit systems with forks `--r1` to `--r6`). Namespaces `artyfact-test` and `artyfact-shots` also exist |
 | CI Worker `artyfact-ci` | `apps/ci/wrangler.jsonc` | **No, not deployed** |
 | `CiSandbox` container application (`standard-4`, `max_instances` 2) and its Durable Object namespace | `apps/ci/wrangler.jsonc` (`containers`, `exports`) | **No** |
 | Workflow `artyfact-ci` (`ArtyfactCI`) | `apps/ci/wrangler.jsonc` (`workflows`), bound from the platform by `script_name` | **No** |
 | R2 bucket `artyfact-ci-cache` (install cache and workspace snapshots) | `apps/ci/wrangler.jsonc` (`r2_buckets`); `npx wrangler r2 bucket create` | **No** |
-| D1 `keep-in-touch` (`26e6d5af-8dec-4989-9e16-cfcc3e3d21b0`): app previews and production, one shared database for the test round | Created by hand; mapped to System `system.keep-in-touch` by the CI var `D1_DATABASE_IDS` (see [ci.md](ci.md)) | Yes. An unrelated `artyfact-db` also exists |
+| D1 `peopling` (`26e6d5af-8dec-4989-9e16-cfcc3e3d21b0`): app previews and production, one shared database for the test round | Created by hand; mapped to System `system.peopling` by the CI var `D1_DATABASE_IDS` (see [ci.md](ci.md)) | Yes. An unrelated `artyfact-db` also exists |
 | Preview Workers `<slug>-app-r<N>`, one per realization (redeploys overwrite the same name) | Named in `worker/deployments.ts` (`previewWorkerName`); deployed by CI | **None yet** (the CI Worker is not deployed) |
 | Production app Worker `<slug>-app` | Same, on promotion | None yet |
 | Marketing site Worker `artyfact-site` | `apps/site` | Yes |

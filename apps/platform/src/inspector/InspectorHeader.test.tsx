@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 
-const SYSTEM = "system.keep-in-touch";
+const SYSTEM = "system.peopling";
 const ref = { ref: "head", repo: "genome", commit: "a".repeat(40) };
 
 function openInCode(files: { path: string; hash: string; nodes?: string[] }[], focus = "GD.contacts") {

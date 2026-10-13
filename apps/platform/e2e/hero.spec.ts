@@ -10,8 +10,8 @@ test.describe("platform hero moments", () => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     await open(page, "/overview", "Overview");
-    const hero = page.getByRole("region", { name: "Keep in Touch" });
-    await expect(hero.getByRole("heading", { level: 2, name: "Keep in Touch" })).toBeVisible();
+    const hero = page.getByRole("region", { name: "Peopling" });
+    await expect(hero.getByRole("heading", { level: 2, name: "Peopling" })).toBeVisible();
     await expect(hero.getByText(/Readiness: \d+%/)).toBeVisible();
     const surface = hero.locator('[data-effect="surface"]');
     await expect(surface).toHaveAttribute("data-effect-mode", /^(css|static)$/);

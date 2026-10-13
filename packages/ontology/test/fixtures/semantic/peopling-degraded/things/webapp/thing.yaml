@@ -1,0 +1,11 @@
+# spec §1 Thing, base Artifact and model-kit Artifact
+id: thing.webapp
+name: Peopling web app
+templateRef: template.thing.cloudflare-worker-webapp@1
+description: >-
+  The app definition within the System Genome: one full-stack Worker application containing UI, API,
+  scheduler code, configuration and migrations. Domain types are runtime records inside this Thing, not separate Things.
+artifacts:
+  - { artifact: artifact.webapp, type: worker-fullstack, repo: peopling-webapp }
+  - { artifact: artifact.model-kit, type: model-kit, repo: peopling-model-kit }
+purposeRefs: [P1]

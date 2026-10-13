@@ -7,7 +7,7 @@ import { qk } from "@/api/queries";
 import { buildIndex } from "@/model/index";
 import { renderApp } from "@/testing/render";
 
-const BASE = "/s/system.keep-in-touch/r/head";
+const BASE = "/s/system.peopling/r/head";
 const search = (router: { state: { location: { search: string } } }) => new URLSearchParams(router.state.location.search);
 const key = (k: string, init: KeyboardEventInit = {}) => act(() => void fireEvent.keyDown(window, { key: k, ...init }));
 
@@ -15,15 +15,15 @@ describe("Shell", () => {
   it("renders Home at /", async () => {
     const { router } = renderApp("/");
     expect(await screen.findByRole("heading", { level: 1, name: "Systems" })).toBeTruthy();
-    const card = await screen.findByRole("link", { name: /^Keep in Touch$/ });
+    const card = await screen.findByRole("link", { name: /^Peopling$/ });
     expect(screen.queryByRole("navigation", { name: "Views" })).toBeNull();
     act(() => card.click());
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp`));
-    expect(await screen.findByRole("heading", { level: 1, name: "Keep in Touch web app" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 1, name: "Peopling web app" })).toBeTruthy();
   });
 
   it("redirects /s/:systemId to its sole Thing workspace", async () => {
-    const { router } = renderApp("/s/system.keep-in-touch");
+    const { router } = renderApp("/s/system.peopling");
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp`));
   });
 
@@ -266,7 +266,7 @@ describe("Shell", () => {
     renderApp(`${BASE}/overview?focus=${encodeURIComponent("J.connect/s4")}`, undefined, (qc) => {
       const b = fixtureBundle();
       b.readiness.modelReadiness.findings.push(finding);
-      qc.setQueryData(qk.model("system.keep-in-touch", "head"), b);
+      qc.setQueryData(qk.model("system.peopling", "head"), b);
     });
     const inspector = await screen.findByRole("complementary", { name: "Inspector" });
     expect(within(inspector).getAllByText("J.connect/s4").length).toBeGreaterThan(0);
@@ -285,8 +285,8 @@ describe("Shell", () => {
       evidence: [], decision: { by: "admin", policy: "p", rationale: "r", at: "2026-10-01T00:00:00Z" },
     }];
     const seed = (qc: QueryClient) => {
-      qc.setQueryData(qk.evaluations("system.keep-in-touch"), { evaluations: [evaluation] });
-      qc.setQueryData(qk.history("system.keep-in-touch"), { commits: history });
+      qc.setQueryData(qk.evaluations("system.peopling"), { evaluations: [evaluation] });
+      qc.setQueryData(qk.history("system.peopling"), { commits: history });
     };
     const screenPeopleVerdict = async () => {
       const inspector = await screen.findByRole("complementary", { name: "Inspector" });
@@ -302,7 +302,7 @@ describe("Shell", () => {
     it("shows the fake-provider marker in the TopBar", async () => {
       renderApp(`${BASE}/overview`, undefined, (qc) => {
         seed(qc);
-        qc.setQueryData(qk.evaluations("system.keep-in-touch"), { evaluations: [{ ...evaluation, provenance: { provider: "fake" } }] });
+        qc.setQueryData(qk.evaluations("system.peopling"), { evaluations: [{ ...evaluation, provenance: { provider: "fake" } }] });
       });
       const pill = await screen.findByText("System One: fake provider");
       expect(pill.closest("header")).toBeTruthy();

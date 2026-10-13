@@ -24,20 +24,20 @@ const click = (name: string) => act(() => screen.getByRole("button", { name }).c
 
 describe("useSelection", () => {
   it("keeps the Thing workspace boundary when navigating views", () => {
-    const { router } = renderApp("/s/system.keep-in-touch/r/head/things/thing.webapp/map?layer=phenome", routes);
+    const { router } = renderApp("/s/system.peopling/r/head/things/thing.webapp/map?layer=phenome", routes);
     click("journeys");
-    expect(router.state.location.pathname).toBe("/s/system.keep-in-touch/r/head/things/thing.webapp/journeys");
+    expect(router.state.location.pathname).toBe("/s/system.peopling/r/head/things/thing.webapp/journeys");
     expect(new URLSearchParams(router.state.location.search).get("focus")).toBe("screen.people");
-    expect(screen.getByTestId("href").textContent).toBe("/s/system.keep-in-touch/r/head/things/thing.webapp/changelog?focus=screen.people&layer=phenome");
+    expect(screen.getByTestId("href").textContent).toBe("/s/system.peopling/r/head/things/thing.webapp/changelog?focus=screen.people&layer=phenome");
   });
 
   it("defaults layer to genome and parses candidates", () => {
-    renderApp("/s/system.keep-in-touch/r/head/map?candidates=a,b", routes);
+    renderApp("/s/system.peopling/r/head/map?candidates=a,b", routes);
     expect(sel()).toEqual({ focus: null, layer: "genome", candidates: ["a", "b"] });
   });
 
   it("setFocus keeps the layer and other params", () => {
-    const { router } = renderApp("/s/system.keep-in-touch/r/head/map?layer=phenome&journey=J.contacts", routes);
+    const { router } = renderApp("/s/system.peopling/r/head/map?layer=phenome&journey=J.contacts", routes);
     click("focus");
     expect(sel()).toMatchObject({ focus: "screen.people", layer: "phenome" });
     const qs = new URLSearchParams(router.state.location.search);
@@ -46,11 +46,11 @@ describe("useSelection", () => {
 
   it("switching view keeps focus, layer and candidates but drops view-specific params", () => {
     const { router } = renderApp(
-      "/s/system.keep-in-touch/r/head/map?focus=entity.ContactRecord&layer=proteome&candidates=c1&journey=J.contacts",
+      "/s/system.peopling/r/head/map?focus=entity.ContactRecord&layer=proteome&candidates=c1&journey=J.contacts",
       routes,
     );
     click("journeys");
-    expect(router.state.location.pathname).toBe("/s/system.keep-in-touch/r/head/journeys");
+    expect(router.state.location.pathname).toBe("/s/system.peopling/r/head/journeys");
     const qs = new URLSearchParams(router.state.location.search);
     expect(qs.get("focus")).toBe("screen.people");
     expect(qs.get("layer")).toBe("proteome");
@@ -59,7 +59,7 @@ describe("useSelection", () => {
   });
 
   it("setLayer, setCandidates and clear update the URL", () => {
-    const { router } = renderApp("/s/system.keep-in-touch/r/head/map?focus=screen.people", routes);
+    const { router } = renderApp("/s/system.peopling/r/head/map?focus=screen.people", routes);
     click("layer");
     click("candidates");
     expect(sel()).toEqual({ focus: "screen.people", layer: "phenome", candidates: ["c1", "c2"] });
@@ -69,7 +69,7 @@ describe("useSelection", () => {
   });
 
   it("useKeepParams builds view links that carry the global params", () => {
-    renderApp("/s/system.keep-in-touch/r/r1/map?focus=T1&layer=phenome&journey=J.contacts", routes);
-    expect(screen.getByTestId("href").textContent).toBe("/s/system.keep-in-touch/r/r1/changelog?focus=T1&layer=phenome");
+    renderApp("/s/system.peopling/r/r1/map?focus=T1&layer=phenome&journey=J.contacts", routes);
+    expect(screen.getByTestId("href").textContent).toBe("/s/system.peopling/r/r1/changelog?focus=T1&layer=phenome");
   });
 });

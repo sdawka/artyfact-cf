@@ -1,0 +1,37 @@
+id: entity.NotificationJob
+kind: entity
+fields:
+  name: NotificationJob
+  description: ID, owner, suggestion and preference version, scheduled time, delivery state and deduplication key
+  source:
+    doc: peopling-world-specification
+    section: "5"
+  fields:
+    - name: id
+      type: string
+      optional: false
+    - name: ownerAccountId
+      type: ref:entity.Account
+      optional: false
+    - name: suggestionId
+      type: ref:entity.Suggestion
+      optional: false
+    - name: preferenceVersion
+      type: int
+      optional: false
+    - name: scheduledAt
+      type: timestamp
+      optional: false
+    - name: deliveryState
+      type: enum scheduled|delivered|cancelled|failed
+      optional: false
+    - name: dedupKey
+      type: string
+      optional: false
+  invariants:
+    - Delivery rechecks preferences and cancellations
+    - One owner notification per local day containing a link without contact details
+    - Queue bodies carry minimal IDs, not private relationship notes
+links:
+  - { rel: storedIn, to: binding.contactsStore }
+  - { rel: triggers, to: ext.providers, label: optional external reminder }

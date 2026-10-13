@@ -2,7 +2,7 @@ import type { ReactNode } from "react";
 import styles from "./StatePill.module.css";
 
 /** Tooltip on the "fixture data" pill (TopBar and Home header). */
-export const FIXTURE_TITLE = "The platform API is unreachable; showing the bundled Keep in Touch fixture.";
+export const FIXTURE_TITLE = "The platform API is unreachable; showing the bundled Peopling fixture.";
 
 export type RevisionState = "canonical" | "candidate" | "deployed" | "fixture" | "fake";
 

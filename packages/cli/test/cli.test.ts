@@ -11,7 +11,7 @@ import { assertId, assertRemote, assertSecret, assertToken, commitIfDirty, gitEn
 const sh = (cwd: string, ...a: string[]) => execFileSync("git", a, { cwd, encoding: "utf8" }).trim();
 const tmp = mkdtempSync(join(tmpdir(), "artyfact-cli-"));
 const bare = join(tmp, "fork.git");
-const REMOTE = "https://artifacts.invalid/git/ns/kit-app--r1.git";
+const REMOTE = "https://artifacts.invalid/git/ns/peopling-app--r1.git";
 const REMOTE2 = "https://artifacts.invalid/git/ns/other.git";
 let packetRemote = REMOTE;
 const SECRET = "a1".repeat(32);
@@ -21,10 +21,10 @@ let server: Server;
 let base = "";
 
 const packet = () => ({
-  systemId: "system.keep-in-touch", realizationId: "r-1", evolutionId: "evolution.1", hash: "abc",
+  systemId: "system.peopling", realizationId: "r-1", evolutionId: "evolution.1", hash: "abc",
   markdown: "# Task\nDo it", acceptanceCriteria: [{ id: "crit.a" }, { id: "crit.b" }],
   permittedPaths: ["src/ui/people/**"], protectedPaths: ["system/**"], commands: ["npm install", "npm test"],
-  workspace: { remote: packetRemote, fork: "kit-app--r1" },
+  workspace: { remote: packetRemote, fork: "peopling-app--r1" },
 });
 
 beforeAll(async () => {
@@ -82,7 +82,7 @@ describe("artyfact cli", () => {
   const ws = join(tmp, "ws");
 
   it("start writes packet, AGENTS.md, config and excludes config", async () => {
-    const r = await run(["start", "r-1", "--dir", ws, "--system", "system.keep-in-touch", "--evolution", "evolution.1"]);
+    const r = await run(["start", "r-1", "--dir", ws, "--system", "system.peopling", "--evolution", "evolution.1"]);
     expect(r.code).toBe(0);
     expect(readFileSync(join(ws, "TASK_PACKET.md"), "utf8")).toContain("Do it");
     const agents = readFileSync(join(ws, "AGENTS.md"), "utf8");
@@ -91,7 +91,7 @@ describe("artyfact cli", () => {
     expect(agents).toContain("npm install; npm test");
     expect(agents).toContain("npx artyfact build-report --status passed --url");
     const cfg = JSON.parse(readFileSync(join(ws, ".artyfact.json"), "utf8"));
-    expect(cfg).toMatchObject({ platform: base, systemId: "system.keep-in-touch", realizationId: "r-1", forkRepo: "kit-app--r1", remote: REMOTE, packetHash: "abc" });
+    expect(cfg).toMatchObject({ platform: base, systemId: "system.peopling", realizationId: "r-1", forkRepo: "peopling-app--r1", remote: REMOTE, packetHash: "abc" });
     expect(readFileSync(join(ws, ".git/info/exclude"), "utf8")).toContain(".artyfact.json");
     expect(existsSync(join(ws, "a.txt"))).toBe(true);
     expect(sh(ws, "status", "--porcelain")).toBe("");
@@ -109,7 +109,7 @@ describe("artyfact cli", () => {
     const r = await run(["checkpoint", "added b"], ws, { ARTYFACT_SECRET: "" });
     expect(r.code).toBe(0);
     const c = calls.find((x) => x.url.endsWith("/checkpoints"))!;
-    expect(c.url).toBe("/api/systems/system.keep-in-touch/evolutions/evolution.1/realizations/r-1/checkpoints");
+    expect(c.url).toBe("/api/systems/system.peopling/evolutions/evolution.1/realizations/r-1/checkpoints");
     expect(c.body.message).toBe("added b");
     expect(c.body.commit).toBe(sh(ws, "rev-parse", "HEAD"));
     expect(c.auth).toBe(`Bearer ${SECRET}`);
@@ -130,12 +130,12 @@ describe("artyfact cli", () => {
   });
 
   it("build-report posts a preview build for HEAD with the realization secret and prints evaluations", async () => {
-    const r = await run(["build-report", "--status", "passed", "--url", "https://kit-app-r1.dawka.workers.dev"], ws);
+    const r = await run(["build-report", "--status", "passed", "--url", "https://peopling-app-r1.dawka.workers.dev"], ws);
     expect(r.code).toBe(0);
     const c = calls.at(-1)!;
     expect(c.method).toBe("POST");
-    expect(c.url).toBe("/api/systems/system.keep-in-touch/realizations/r-1/builds");
-    expect(c.body).toEqual({ status: "passed", commit: sh(ws, "rev-parse", "HEAD"), kind: "preview", url: "https://kit-app-r1.dawka.workers.dev" });
+    expect(c.url).toBe("/api/systems/system.peopling/realizations/r-1/builds");
+    expect(c.body).toEqual({ status: "passed", commit: sh(ws, "rev-parse", "HEAD"), kind: "preview", url: "https://peopling-app-r1.dawka.workers.dev" });
     expect(c.auth).toBe(`Bearer ${SECRET}`);
     expect(r.out).toContain("build.r-1.abc1234.agent");
     expect(r.out).toMatch(/crit\.health\s+pass/);
@@ -235,7 +235,7 @@ describe("artyfact cli", () => {
       process.env.PATH = `${shim}:${oldPath}`;
       try {
         const d = join(tmp, "ws-shim");
-        expect((await run(["start", "r-1", "--dir", d, "--system", "system.keep-in-touch", "--evolution", "evolution.1"])).code).toBe(0);
+        expect((await run(["start", "r-1", "--dir", d, "--system", "system.peopling", "--evolution", "evolution.1"])).code).toBe(0);
         writeFileSync(join(d, "z.txt"), "z");
         expect((await run(["submit"], d)).code).toBe(0);
       } finally {
@@ -263,12 +263,12 @@ describe("artyfact cli", () => {
       const orig = packet;
       const leakyServer = createServer((_req, res) => {
         res.setHeader("content-type", "application/json");
-        const p = { ...orig(), markdown: `secret leaked-tok here ${SECRET}`, workspace: { remote: packetRemote, fork: "kit-app--r1", token: "leaked-tok", secret: SECRET } };
+        const p = { ...orig(), markdown: `secret leaked-tok here ${SECRET}`, workspace: { remote: packetRemote, fork: "peopling-app--r1", token: "leaked-tok", secret: SECRET } };
         res.end(JSON.stringify({ packet: p }));
       }).listen(0);
       await new Promise((r) => leakyServer.once("listening", r));
       const url = `http://127.0.0.1:${(leakyServer.address() as any).port}`;
-      const code = await main(["start", "r-1", "--dir", ws2, "--system", "system.keep-in-touch", "--evolution", "evolution.1"], { cwd: tmp, env: { ...process.env, ARTYFACT_URL: url, ARTYFACT_TOKEN: "", ARTYFACT_SECRET: SECRET }, out: () => {}, err: () => {} });
+      const code = await main(["start", "r-1", "--dir", ws2, "--system", "system.peopling", "--evolution", "evolution.1"], { cwd: tmp, env: { ...process.env, ARTYFACT_URL: url, ARTYFACT_TOKEN: "", ARTYFACT_SECRET: SECRET }, out: () => {}, err: () => {} });
       leakyServer.close();
       expect(code).toBe(0);
       for (const f of ["TASK_PACKET.md", "AGENTS.md", ".artyfact.json"]) expect(readFileSync(join(ws2, f), "utf8")).not.toContain("leaked-tok");
@@ -286,7 +286,7 @@ describe("artyfact cli", () => {
       const dir = join(tmp, "evil");
       mkdirSync(dir);
       symlinkSync(victim, join(dir, "TASK_PACKET.md"));
-      const r = await run(["start", "r-1", "--dir", dir, "--system", "system.keep-in-touch", "--evolution", "evolution.1"]);
+      const r = await run(["start", "r-1", "--dir", dir, "--system", "system.peopling", "--evolution", "evolution.1"]);
       expect(r.code).toBe(1);
       expect(readFileSync(victim, "utf8")).toBe("original");
     });
@@ -295,10 +295,10 @@ describe("artyfact cli", () => {
       const victim = join(tmp, "victim2.txt");
       writeFileSync(victim, "original");
       const dir = join(tmp, "ws3");
-      expect((await run(["start", "r-1", "--dir", dir, "--system", "system.keep-in-touch", "--evolution", "evolution.1"])).code).toBe(0);
+      expect((await run(["start", "r-1", "--dir", dir, "--system", "system.peopling", "--evolution", "evolution.1"])).code).toBe(0);
       execFileSync("rm", [join(dir, "AGENTS.md")]);
       symlinkSync(victim, join(dir, "AGENTS.md"));
-      const r = await run(["start", "r-1", "--dir", dir, "--system", "system.keep-in-touch", "--evolution", "evolution.1"]);
+      const r = await run(["start", "r-1", "--dir", dir, "--system", "system.peopling", "--evolution", "evolution.1"]);
       expect(r.code).toBe(1);
       expect(readFileSync(victim, "utf8")).toBe("original");
     });
@@ -307,7 +307,7 @@ describe("artyfact cli", () => {
       expect(() => assertId("id", "--upload-pack=x")).toThrow();
       expect(() => assertId("id", "a/b")).toThrow();
       expect(() => assertId("id", "..")).toThrow();
-      expect(assertId("id", "system.keep-in-touch")).toBe("system.keep-in-touch");
+      expect(assertId("id", "system.peopling")).toBe("system.peopling");
       expect(() => assertRemote("r", "ext::sh -c x", {})).toThrow();
       expect(() => assertRemote("r", "/tmp/repo", {})).toThrow();
       const r = await run(["start", "--", "--upload-pack=x"]);
@@ -334,7 +334,7 @@ describe("artyfact cli", () => {
 
     it("submit pushes to the configured remote, not whatever origin says", async () => {
       const d = join(tmp, "ws-origin");
-      expect((await run(["start", "r-1", "--dir", d, "--system", "system.keep-in-touch", "--evolution", "evolution.1"])).code).toBe(0);
+      expect((await run(["start", "r-1", "--dir", d, "--system", "system.peopling", "--evolution", "evolution.1"])).code).toBe(0);
       sh(d, "remote", "set-url", "origin", "https://evil.invalid/git/ns/x.git");
       writeFileSync(join(d, "o.txt"), "o");
       const r = await run(["submit"], d);
@@ -346,7 +346,7 @@ describe("artyfact cli", () => {
       packetRemote = REMOTE2;
       try {
         const d = join(tmp, "ws-tracked");
-        const args = ["start", "r-1", "--dir", d, "--system", "system.keep-in-touch", "--evolution", "evolution.1"];
+        const args = ["start", "r-1", "--dir", d, "--system", "system.peopling", "--evolution", "evolution.1"];
         expect((await run(args)).code).toBe(0);
         const first = readFileSync(join(d, "AGENTS.md"), "utf8");
         expect(first).toContain("# Mine");
