@@ -5,7 +5,7 @@ import type { TestInfo } from "@playwright/test";
 
 /** Helpers for the specs that run on the fake platform (`ARTYFACT_E2E_FAKE=1`). */
 export const ADMIN_TOKEN = "test";
-export const SYS = "system.keep-in-touch";
+export const SYS = "system.peopling";
 export const BASE = `/s/${SYS}/r/head`;
 export const auth = { Authorization: `Bearer ${ADMIN_TOKEN}` };
 

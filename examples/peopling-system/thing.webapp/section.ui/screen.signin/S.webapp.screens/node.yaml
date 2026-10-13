@@ -1,0 +1,23 @@
+id: S.webapp.screens
+kind: requirement
+fields:
+  thing: thing.webapp
+  title: Screens
+  text: authenticated screens must share one AppShell containing exactly TopBar, PrimaryNav and RouteOutlet. PrimaryNav must contain Today, People and Settings. Counts below specify required RouteOutlet composition, excluding the shell. All private screens must show one StatePanel for loading or fatal error in place of loaded content. Forms must keep entered values after recoverable validation or network errors and render one ErrorSummary when needed.
+  enabled: true
+  source:
+    doc: peopling-world-specification
+    section: "6"
+links:
+  - { rel: subject, to: screen.signin }
+  - { rel: subject, to: screen.today }
+  - { rel: subject, to: screen.people }
+  - { rel: subject, to: screen.person }
+  - { rel: subject, to: screen.goal }
+  - { rel: subject, to: screen.logContact }
+  - { rel: subject, to: screen.invitation }
+  - { rel: subject, to: screen.settings }
+  - { rel: refines, to: GD.contacts }
+  - { rel: refines, to: GD.goals }
+  - { rel: refines, to: GD.connect }
+  - { rel: refines, to: GD.prompts }

@@ -11,10 +11,10 @@ import { loadMetaTemplate, metaTemplates } from "../src/index";
 import { files as bundled } from "../src/generated/files";
 
 const templatesDir = Object.fromEntries(Object.entries(bundled).filter(([p]) => !p.startsWith("rule-packs/")));
-const v1 = readDir(join(__dirname, "../../ontology/test/fixtures/artyfact/keep-in-touch-system"));
+const v1 = readDir(join(__dirname, "../../ontology/test/fixtures/artyfact/peopling-system"));
 const SYSTEM = "template.system.social-networking.cloudflare@1";
 const template = composeTemplates(
-  { template: loadMetaTemplate(SYSTEM), self: "system.keep-in-touch" },
+  { template: loadMetaTemplate(SYSTEM), self: "system.peopling" },
   [{ template: loadMetaTemplate("template.thing.cloudflare-worker-webapp@1"), self: "thing.webapp" }],
 );
 // The v1 adapter names its base template; the tree names the root's, which the composed template keeps.
@@ -25,7 +25,7 @@ const v2Graph = readTree(convertV1(v1, templatesDir), metaTemplates);
 const PLACED = new Set(["purpose", "claim", "external", "feature", "commitment", "journey", "requirement"]);
 const key = (f: Finding) => `${f.rule} ${f.subject ?? ""} ${f.level}`;
 
-describe("Genome v2 findings parity (Keep in Touch)", () => {
+describe("Genome v2 findings parity (Peopling)", () => {
   const before = evaluate(template, v1Graph).findings;
   const after = evaluate(template, v2Graph).findings;
   const afterKeys = new Set(after.map(key)), beforeKeys = new Set(before.map(key));
@@ -48,8 +48,8 @@ describe("Genome v2 findings parity (Keep in Touch)", () => {
 });
 
 // TODO delete with the v1 reader.
-describe("Genome v2 projection parity (Keep in Touch)", () => {
-  const example = new Map(Object.entries(readDir(join(__dirname, "../../../examples/keep-in-touch-system"))).filter(([p]) => /\.ya?ml$/.test(p)));
+describe("Genome v2 projection parity (Peopling)", () => {
+  const example = new Map(Object.entries(readDir(join(__dirname, "../../../examples/peopling-system"))).filter(([p]) => /\.ya?ml$/.test(p)));
   const m = loadGenome(example, { templates: metaTemplates });
   const kind = new Map(m.graph.nodes.map((n) => [n.id, n.kind]));
   /** A Thing's `requires` link to its own `$self` criterion: the one link the v1 adapter has no counterpart for. */

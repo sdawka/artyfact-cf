@@ -42,10 +42,10 @@ export function ModelContent({ explorerHtml }: ModelContentProps) {
     </section>
 
     <section className="section model-story-boundary">
-      <div className="section-heading"><h2>The System is the outer boundary.</h2><p>A Thing can be a whole application or one of several connected pieces. Keep in Touch, the example named on our home page, aims for more wanted contact with consent and a calm experience. Its owner could choose either shape.</p></div>
-      <div className="model-story-choices" aria-label="Two ways to divide Keep in Touch into Things">
-        <article><p className="model-story-label">Keep in Touch System · one Thing</p><strong>Whole contact application</strong><p>Interface, API and data together.</p></article>
-        <article><p className="model-story-label">Keep in Touch System · several Things</p><div className="model-story-choice-pieces"><strong>Frontend</strong><strong>API</strong><strong>Design system</strong></div><p>Separate Things with typed links between them.</p></article>
+      <div className="section-heading"><h2>The System is the outer boundary.</h2><p>A Thing can be a whole application or one of several connected pieces. Peopling, the example named on our home page, aims for more wanted contact with consent and a calm experience. Its owner could choose either shape.</p></div>
+      <div className="model-story-choices" aria-label="Two ways to divide Peopling into Things">
+        <article><p className="model-story-label">Peopling System · one Thing</p><strong>Whole contact application</strong><p>Interface, API and data together.</p></article>
+        <article><p className="model-story-label">Peopling System · several Things</p><div className="model-story-choice-pieces"><strong>Frontend</strong><strong>API</strong><strong>Design system</strong></div><p>Separate Things with typed links between them.</p></article>
       </div>
       <p className="model-story-bridge">For the rest of this example, we choose the <strong>Artyfact System</strong> and one <strong>Platform web app Thing</strong>. The proposed change concerns how that app scopes a request before work starts.</p>
     </section>

@@ -122,7 +122,7 @@ export const routes = {
 // Primitives
 // ---------------------------------------------------------------------------
 
-/** Dotted model id such as `system.keep-in-touch`, `screen.people`, `evolution.1`, `crit.x`. */
+/** Dotted model id such as `system.peopling`, `screen.people`, `evolution.1`, `crit.x`. */
 export type NodeId = string;
 export type SystemId = string;
 /** Git commit hash (full sha) of a Genome or Artifacts repo. */
@@ -184,6 +184,12 @@ export interface SystemSummary {
 /** `GET /api/systems`. */
 export interface SystemsResponse {
   systems: SystemSummary[];
+}
+
+/** `DELETE /api/systems/:id` (admin). `stateCleared` is false when the registry row went but the System DO could not be wiped. */
+export interface DeleteSystemResponse {
+  systemId: string;
+  stateCleared: boolean;
 }
 
 /** The three readiness states the UI shows; they are never summed. */

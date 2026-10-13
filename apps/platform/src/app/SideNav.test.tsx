@@ -6,7 +6,7 @@ vi.mock("@/model/useReviewCount", () => ({ useReviewCount: () => 2 }));
 
 describe("SideNav Review count", () => {
   it("shows the waiting count after Review, named for screen readers", async () => {
-    renderApp("/s/system.keep-in-touch/r/head/overview");
+    renderApp("/s/system.peopling/r/head/overview");
     const nav = await screen.findByRole("navigation", { name: "Views" });
     const review = within(nav).getByRole("link", { name: "Review, 2 waiting" });
     expect(review.textContent).toBe("◧Review2");

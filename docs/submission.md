@@ -39,7 +39,7 @@ Not done on purpose: platform-hosted agents, a reasoning-model evaluator beyond 
 - Changelog and Compare across System, Genome and file level.
 - Preview builds and production deployments through a CI Worker, with a health assay on the deployed preview.
 - Deployments page with runtime events from the running app, tied to the System commit.
-- A fake platform (`FAKE_ARTIFACTS=1`) and Playwright specs that drive the use cases through the UI for Keep in Touch and for Artyfact's own Genome.
+- A fake platform (`FAKE_ARTIFACTS=1`) and Playwright specs that drive the use cases through the UI for Peopling and for Artyfact's own Genome.
 
 ## How Workers and Artifacts are used
 - Workers: one Worker with Static Assets for the SPA, a Hono API, a Queue consumer and the `SystemAuthority` Durable Object with SQLite.

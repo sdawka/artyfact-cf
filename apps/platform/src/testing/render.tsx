@@ -46,7 +46,7 @@ if (typeof Range !== "undefined") {
 
 export function testQueryClient() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false, staleTime: Infinity } } });
-  qc.setQueryData(qk.model("system.keep-in-touch", "head"), fixtureBundle());
+  qc.setQueryData(qk.model("system.peopling", "head"), fixtureBundle());
   return qc;
 }
 

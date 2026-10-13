@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "peopling",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-12",
+  // Lets this Worker fetch the platform over workers.dev (same-zone Worker-to-Worker fetch is blocked otherwise); CI forces it too.
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "assets": { "directory": "public" },
+  "d1_databases": [
+    { "binding": "DB", "database_name": "peopling", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
+  ],
+  // Deployed identity comes from Cloudflare Access: set ACCESS_AUD and ACCESS_TEAM_DOMAIN. For local runs copy .dev.vars.example to .dev.vars.
+  // CI overrides BUILD_ID and the ARTYFACT_* ids with --var; leave ARTYFACT_PLATFORM_URL unset to disable Phenome reporting.
+  "vars": { "BUILD_ID": "dev", "ARTYFACT_SYSTEM_ID": "", "ARTYFACT_THING_ID": "", "ARTYFACT_ARTIFACT_ID": "", "ARTYFACT_DEPLOYMENT_ID": "" }
+}

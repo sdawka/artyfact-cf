@@ -1,0 +1,18 @@
+id: screen.signin
+kind: screen
+fields:
+  name: Sign in
+  description: One SignInForm with one Continue control and one privacy link; no private content
+  source:
+    doc: peopling-world-specification
+    section: "6"
+  route: /signin
+  states:
+    - loaded
+    - loading
+    - error
+  roles:
+    - anonymous
+links:
+  - { rel: serves, to: ext.owner }
+  - { rel: references, to: ext.providers, label: identity provider }

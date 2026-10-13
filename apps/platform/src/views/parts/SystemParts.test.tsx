@@ -2,8 +2,8 @@ import { fireEvent, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderApp } from "@/testing/render";
 
-const PATH = "/s/system.keep-in-touch/r/head/parts";
-const part = { package: { id: "part.private", version: "1.0.0", name: "Private logic", visibility: "system-private", systemId: "system.keep-in-touch", published: true, inputs: [], payload: { model: {}, files: {} }, commands: [{ id: "build", run: "echo must-not-run", purpose: "Compile" }] }, scope: { kind: "system", systemId: "system.keep-in-touch" }, digest: "sha256:private", publishedAt: "2026-10-12T12:00:00Z" };
+const PATH = "/s/system.peopling/r/head/parts";
+const part = { package: { id: "part.private", version: "1.0.0", name: "Private logic", visibility: "system-private", systemId: "system.peopling", published: true, inputs: [], payload: { model: {}, files: {} }, commands: [{ id: "build", run: "echo must-not-run", purpose: "Compile" }] }, scope: { kind: "system", systemId: "system.peopling" }, digest: "sha256:private", publishedAt: "2026-10-12T12:00:00Z" };
 const unlock = async () => {
   fireEvent.change(await screen.findByLabelText("Admin token"), { target: { value: "admin-secret" } });
   fireEvent.click(screen.getByRole("button", { name: "Load private Parts" }));

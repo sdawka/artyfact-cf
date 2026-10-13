@@ -9,7 +9,7 @@ import {
 import { productGraphToGraph, productSpec } from "../src/adapters/product/index.ts";
 import { systemFiles, templateFiles } from "./artyfact-reference.ts";
 import { edbLeaves } from "./fixture.ts";
-import { KIT, TIDEPOOL } from "./fixtures/text/degrade.mjs";
+import { PEOPLING, TIDEPOOL } from "./fixtures/text/degrade.mjs";
 
 const TEXT_RULES = ["text.empty", "text.short", "text.placeholder", "text.sameAsId", "text.sameAsField", "text.pattern"];
 const textish = (f: Finding) => f.rule.startsWith("text.") || f.rule === "field.required";
@@ -206,9 +206,9 @@ describe("sloppy content", () => {
   type K = { fields: { name: string }[] };
   const genomeKinds = artyfactGenome.kinds as Record<string, K>;
 
-  /** Keep in Touch: placeholders by default; every listed kind needs a two-word description; names must not repeat ids. */
+  /** Peopling: placeholders by default; every listed kind needs a two-word description; names must not repeat ids. */
   const kitTemplate = loadTemplate({
-    id: "template.test.text-kit", version: 1, meta: 1, extends: ARTYFACT_GENOME,
+    id: "template.test.text-peopling", version: 1, meta: 1, extends: ARTYFACT_GENOME,
     textDefaults: {},
     kinds: Object.fromEntries(NAMED.map((k) => [k, {
       ...genomeKinds[k],
@@ -218,13 +218,13 @@ describe("sloppy content", () => {
     }])),
   }, memoryStore([artyfactGenome]));
 
-  const kit = (ontology?: string): Readiness => {
+  const peopling = (ontology?: string): Readiness => {
     const files = systemFiles();
     if (ontology !== undefined) files[ONTOLOGY] = ontology;
     const g = loadArtyfactSystem(files, { templates: templateFiles() });
     return evaluate(kitTemplate, { ...g, template: kitTemplate.ref });
   };
-  const sloppyKit = readFileSync(new URL("./fixtures/text/kit.ontology.sloppy.yaml", import.meta.url), "utf8");
+  const sloppyPeopling = readFileSync(new URL("./fixtures/text/peopling.ontology.sloppy.yaml", import.meta.url), "utf8");
 
   /** tidepool: product-spec with defaults on, titles distinct from ids, and a purpose of at least three words. */
   const productKinds = productSpec.kinds as Record<string, K>;
@@ -241,26 +241,26 @@ describe("sloppy content", () => {
     expect(checkTemplateForm(tideTemplate).valid).toBe(true);
   });
 
-  it("the degraded Keep in Touch ontology changes exactly the ten listed nodes", () => {
+  it("the degraded Peopling ontology changes exactly the ten listed nodes", () => {
     const load = (o?: string) => {
       const files = systemFiles();
       if (o !== undefined) files[ONTOLOGY] = o;
       return new Map(loadArtyfactSystem(files, { templates: templateFiles() }).nodes.map((n) => [n.id, n] as [string, GraphNode]));
     };
-    const a = load(), b = load(sloppyKit);
+    const a = load(), b = load(sloppyPeopling);
     expect([...b.keys()].sort()).toEqual([...a.keys()].sort());
     const changed = [...a.keys()].filter((id) => canon(a.get(id)) !== canon(b.get(id))).sort();
-    expect(changed).toEqual(KIT.map(([id]) => id).sort());
+    expect(changed).toEqual(PEOPLING.map(([id]) => id).sort());
   });
 
-  it("real Keep in Touch content gives one text finding: binding.d1, whose description calls it a placeholder", () => {
-    const r = kit();
+  it("real Peopling content gives one text finding: binding.d1, whose description calls it a placeholder", () => {
+    const r = peopling();
     expect(pairs(r)).toEqual(["missing text.placeholder binding.d1"]);
     expect(r.findings.find((f) => f.rule === "text.placeholder")!.facts).toContainEqual(["fieldPlaceholder", "binding.d1", "description", "placeholder"]);
   });
 
-  it("degraded Keep in Touch gives one finding per degraded node, plus the known binding.d1", () => {
-    const r = kit(sloppyKit);
+  it("degraded Peopling gives one finding per degraded node, plus the known binding.d1", () => {
+    const r = peopling(sloppyPeopling);
     expect(pairs(r)).toEqual([
       "missing field.required screen.signin",
       "missing text.empty screen.today",

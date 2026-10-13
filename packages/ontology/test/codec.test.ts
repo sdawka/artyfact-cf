@@ -11,8 +11,8 @@ const metaStore = (files: Record<string, string>) => ({
   get: (ref: string) => { const t = files[`${templateDir(ref)}/template.yaml`]; return t === undefined ? undefined : parseYaml(t); },
 });
 const templates = metaStore(readDir(join(__dirname, "../../templates")));
-const KIT = readDir(join(__dirname, "../../../examples/keep-in-touch-system"));
-const kitTree = parseTree(KIT);
+const PEOPLING = readDir(join(__dirname, "../../../examples/peopling-system"));
+const peoplingTree = parseTree(PEOPLING);
 const apply = (files: Record<string, string>, changes: FileChange[]) => {
   const out = { ...files };
   for (const c of changes) if (c.content === null) delete out[c.path]; else out[c.path] = c.content;
@@ -91,9 +91,9 @@ describe("readTree", () => {
   });
 
   it("is deterministic: the same files in any order give the same graph", () => {
-    const reversed = new Map(Object.entries(KIT).reverse());
-    expect(readTree(reversed, templates)).toEqual(readTree(KIT, templates));
-    expect(graphHash(readTree(reversed, templates))).toBe(graphHash(readTree(KIT, templates)));
+    const reversed = new Map(Object.entries(PEOPLING).reverse());
+    expect(readTree(reversed, templates)).toEqual(readTree(PEOPLING, templates));
+    expect(graphHash(readTree(reversed, templates))).toBe(graphHash(readTree(PEOPLING, templates)));
   });
 
   const issues = (files: Record<string, string>, t = none) => {
@@ -118,14 +118,14 @@ describe("readTree", () => {
 describe("applyOps", () => {
   it("round-trips: re-applying every node's own fields, criteria and links changes no file", () => {
     const ops: TreeOp[] = [];
-    for (const n of kitTree.nodes.values()) {
+    for (const n of peoplingTree.nodes.values()) {
       ops.push({ op: "update", node: n.id, fields: n.file.fields ?? {}, criteria: n.file.criteria ?? [] });
       for (const l of n.file.links ?? []) ops.push({ op: "link", node: n.id, link: l });
     }
-    const r = applyOps(KIT, ops);
+    const r = applyOps(PEOPLING, ops);
     expect(r.changes).toEqual([]);
-    expect(applyOps(KIT, []).changes).toEqual([]);
-    expect(readTree(apply(KIT, r.changes), templates)).toEqual(readTree(KIT, templates));
+    expect(applyOps(PEOPLING, []).changes).toEqual([]);
+    expect(readTree(apply(PEOPLING, r.changes), templates)).toEqual(readTree(PEOPLING, templates));
   });
 
   it("updates a field in place, keeping comments, key order and flow style", () => {
@@ -194,13 +194,13 @@ describe("applyOps", () => {
   });
 
   it("removes a node's whole subtree and nothing else", () => {
-    const r = applyOps(KIT, [{ op: "remove", node: "section.ui" }]);
-    const under = Object.keys(KIT).filter((p) => p.startsWith("thing.webapp/section.ui/"));
+    const r = applyOps(PEOPLING, [{ op: "remove", node: "section.ui" }]);
+    const under = Object.keys(PEOPLING).filter((p) => p.startsWith("thing.webapp/section.ui/"));
     expect(under.length).toBeGreaterThan(10);
     expect(r.changes).toEqual(under.sort().map((path) => ({ path, content: null })));
     expect(r.touched).toContain("section.ui");
     expect(r.touched).toContain("screen.people");
-    expect(() => applyOps(KIT, [{ op: "remove", node: "system.keep-in-touch" }])).toThrow(/cannot remove the root/);
+    expect(() => applyOps(PEOPLING, [{ op: "remove", node: "system.peopling" }])).toThrow(/cannot remove the root/);
   });
 
   it("links once and unlinks, dropping an emptied links key", () => {

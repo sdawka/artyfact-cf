@@ -38,7 +38,7 @@ describe("buildMapGraph", () => {
   });
 
   it("System scope looks through undrawn containers to the drawn kinds, banded by template layer", () => {
-    const g = buildMapGraph(index, "system.keep-in-touch");
+    const g = buildMapGraph(index, "system.peopling");
     const children = ids(g, "child");
     expect(children).toContain("screen.people");
     expect(children).toContain("entity.ContactRecord");
@@ -50,7 +50,7 @@ describe("buildMapGraph", () => {
   });
 
   it("System scope without template layers shows its direct children (things, sections)", () => {
-    const g = buildMapGraph(index, "system.keep-in-touch", DEFAULT_FILTERS, new Set(), unlayered);
+    const g = buildMapGraph(index, "system.peopling", DEFAULT_FILTERS, new Set(), unlayered);
     expect(ids(g, "child")).toContain("thing.webapp");
     expect(g.edges.find((e) => e.source === "thing.webapp" && e.target === "ext.owner")?.count).toBeGreaterThan(1);
   });
@@ -88,8 +88,8 @@ describe("buildMapGraph", () => {
 describe("buildMapGraph edge cases", () => {
   it("falls back to the System for an unknown scope id", () => {
     const g = buildMapGraph(index, "nope.missing");
-    expect(g.scope).toBe("system.keep-in-touch");
-    expect(g.nodes.find((n) => n.role === "scope")?.id).toBe("system.keep-in-touch");
+    expect(g.scope).toBe("system.peopling");
+    expect(g.nodes.find((n) => n.role === "scope")?.id).toBe("system.peopling");
   });
 
   it("ignores links to ids that are not in the model", () => {
@@ -127,8 +127,8 @@ describe("mapScopeFor", () => {
   it("containers scope to themselves, leaves and others to their container or the System", () => {
     expect(mapScopeFor(index, "screen.people")).toBe("screen.people");
     expect(mapScopeFor(index, "component.PeopleHeading")).toBe("screen.people");
-    expect(mapScopeFor(index, "ext.owner")).toBe("system.keep-in-touch");
-    expect(mapScopeFor(index, "nope")).toBe("system.keep-in-touch");
+    expect(mapScopeFor(index, "ext.owner")).toBe("system.peopling");
+    expect(mapScopeFor(index, "nope")).toBe("system.peopling");
     const crit = index.entries.find((e) => e.type === "criterion" && (e.item as { subjectId: string }).subjectId === "screen.people");
     if (crit) expect(mapScopeFor(index, crit.id)).toBe("screen.people");
   });
@@ -161,7 +161,7 @@ describe("mapLayoutRequest", () => {
 
 describe("Map bands", () => {
   it("bands children by template layer, in template order, and hides hidden layers", () => {
-    const g = buildMapGraph(index, "system.keep-in-touch");
+    const g = buildMapGraph(index, "system.peopling");
     expect(g.layered).toBe(true);
     expect(g.bands.map((b) => b.id)).toEqual(["intent", "journeys", "experience", "domain", "rules", "runtime"]);
     expect(g.bands[2]!.label).toBe("Experience");
@@ -169,16 +169,16 @@ describe("Map bands", () => {
     expect(g.nodes.find((n) => n.id === "J.connect")?.band).toBe("journeys");
     expect(g.nodes.find((n) => n.id === "screen.people")?.band).toBe("experience");
     expect(g.nodes.find((n) => n.id === "entity.ContactRecord")?.band).toBe("domain");
-    const noDomain = buildMapGraph(index, "system.keep-in-touch", { ...DEFAULT_FILTERS, hiddenLayers: ["domain"] });
+    const noDomain = buildMapGraph(index, "system.peopling", { ...DEFAULT_FILTERS, hiddenLayers: ["domain"] });
     expect(noDomain.bands.map((b) => b.id)).toEqual(["intent", "journeys", "experience", "rules", "runtime"]);
     expect(ids(noDomain)).not.toContain("entity.ContactRecord");
   });
 
   it("chains band frames in layer order inside the scope", () => {
-    const req = mapLayoutRequest(buildMapGraph(index, "system.keep-in-touch"), "genome");
+    const req = mapLayoutRequest(buildMapGraph(index, "system.peopling"), "genome");
     const frames = req.nodes.filter((n) => n.id.startsWith(bandFrameId(""))).map((n) => n.id);
     expect(frames).toEqual(["intent", "journeys", "experience", "domain", "rules", "runtime"].map(bandFrameId));
-    for (const f of frames) expect(req.nodes.find((n) => n.id === f)!.parentId).toBe("system.keep-in-touch");
+    for (const f of frames) expect(req.nodes.find((n) => n.id === f)!.parentId).toBe("system.peopling");
     const chain = req.edges.filter((e) => e.source.startsWith(bandFrameId(""))).map((e) => [e.source, e.target]);
     expect(chain).toEqual(frames.slice(1).map((f, i) => [frames[i], f]));
   });

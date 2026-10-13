@@ -2,11 +2,11 @@ import type { Proposal } from "../../../../shared/api";
 
 /**
  * Shown read-only in fixture mode so the panel has something to review without the API. Ids are from the
- * Keep in Touch fixture; `component.BirthdayField` is what an `add` would mint.
+ * Peopling fixture; `component.BirthdayField` is what an `add` would mint.
  */
 export const SAMPLE_PROPOSAL: Proposal = {
   id: "proposal.sample",
-  systemId: "system.keep-in-touch",
+  systemId: "system.peopling",
   message: "Let people record a birthday on a contact and show it in the People list.",
   anchor: "screen.people",
   status: "open",

@@ -5,7 +5,7 @@ import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 import { rowLinks } from "./LogicModel";
 
-const url = "/s/system.keep-in-touch/r/head/theory";
+const url = "/s/system.peopling/r/head/theory";
 const banner = "Hypotheses, not a validated causal model";
 
 // The view chunk, elk and React Flow load lazily; give them room when the whole suite runs in parallel.
@@ -47,7 +47,7 @@ describe("Theory view", () => {
     const finding = { ...base, rule: "theory.indicator", level: "missing" as const, subject: "T2", message: "Claim T2 has no baseline for its indicator." };
     const other = { ...base, rule: "hook.unbound", subject: "C.system.autonomy", message: "unrelated finding" };
     renderApp(url, undefined, (qc) =>
-      qc.setQueryData(qk.readiness("system.keep-in-touch", "head"), { ...seeded, modelReadiness: { findings: [other, finding], blockers: [] } }),
+      qc.setQueryData(qk.readiness("system.peopling", "head"), { ...seeded, modelReadiness: { findings: [other, finding], blockers: [] } }),
     );
     const gaps = await screen.findByRole("region", { name: /Theory gaps/ });
     expect(within(gaps).getByText("theory.indicator")).toBeTruthy();

@@ -124,7 +124,7 @@ const post = <T>(path: string, body: unknown, headers?: Record<string, string>) 
 
 let mode: Promise<{ fixture: boolean; systems: SystemSummary[] }> | undefined;
 
-export const FIXTURE_SYSTEM_ID = "system.keep-in-touch";
+export const FIXTURE_SYSTEM_ID = "system.peopling";
 
 /** The fixture JSON is large, so it is a separate chunk loaded only on the fallback path. */
 const fixtureBundle = () => import("./fixtures").then((m) => m.fixtureBundle());
@@ -283,7 +283,7 @@ export async function getCompareFile(systemId: string, q: { repo: FileScope; fro
   return request(paths.compareFile(systemId, q.repo, q.from, q.to, q.path));
 }
 
-/** Files of a repo at a revision. Fixture: the Keep in Touch Genome for `repo: "genome"`, nothing for the app. */
+/** Files of a repo at a revision. Fixture: the Peopling Genome for `repo: "genome"`, nothing for the app. */
 export async function listFiles(systemId: string, { repo, rev }: FileRef): Promise<FilesResponse> {
   if (await isFixtureMode()) {
     const files = repo === "genome" ? (await import("./fixtures").then((m) => m.fixtureFiles())).entries : [];

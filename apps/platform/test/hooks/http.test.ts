@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { httpHealth, previewPolicy, validatePreviewUrl } from "../../worker/hooks/http-health";
 
 const commit = "0123456789abcdef0123456789abcdef01234567";
-const PREVIEW = "https://kit-app-r1.acct.workers.dev";
+const PREVIEW = "https://peopling-app-r1.acct.workers.dev";
 const fakeFetch = (status: number, body: unknown, seen: { url: string; init?: RequestInit }[] = [], headers: Record<string, string> = {}) =>
   (async (input: RequestInfo | URL, init?: RequestInit) => {
     seen.push({ url: String(input), init });
@@ -148,7 +148,7 @@ describe("http engine: previewUrl validation (SSRF)", () => {
   };
 
   it("rejects an invalid URL", () => rejects("not a url", /not a valid URL/));
-  it("rejects http on an allowed host", () => rejects("http://kit.acct.workers.dev", /use https/));
+  it("rejects http on an allowed host", () => rejects("http://peopling.acct.workers.dev", /use https/));
   it("rejects other schemes", () => rejects("file:///etc/passwd", /scheme file/));
   it("rejects hosts off the allowlist", () => rejects("https://evil.example.com", /not on the preview allowlist/));
   it("rejects the bare apex of a wildcard entry and look-alike suffixes", async () => {
@@ -171,15 +171,15 @@ describe("http engine: previewUrl validation (SSRF)", () => {
     await rejects("https://127.0.0.1", /IP address/);
   });
   it("rejects credentials and non-default ports", async () => {
-    await rejects("https://user:pw@kit.acct.workers.dev", /credentials/);
-    await rejects("https://kit.acct.workers.dev:8443", /port 8443/);
+    await rejects("https://user:pw@peopling.acct.workers.dev", /credentials/);
+    await rejects("https://peopling.acct.workers.dev:8443", /port 8443/);
   });
 
   it("accepts *.workers.dev, *.pages.dev, a trailing dot and upper case", () => {
     const p = previewPolicy();
-    expect(validatePreviewUrl("https://kit.acct.workers.dev", p).ok).toBe(true);
-    expect(validatePreviewUrl("https://abc.kit.pages.dev/", p).ok).toBe(true);
-    expect(validatePreviewUrl("https://KIT.acct.Workers.Dev./", p).ok).toBe(true);
+    expect(validatePreviewUrl("https://peopling.acct.workers.dev", p).ok).toBe(true);
+    expect(validatePreviewUrl("https://abc.peopling.pages.dev/", p).ok).toBe(true);
+    expect(validatePreviewUrl("https://PEOPLING.acct.Workers.Dev./", p).ok).toBe(true);
   });
 
   it("ignores empty and malformed allowlist entries", () => {

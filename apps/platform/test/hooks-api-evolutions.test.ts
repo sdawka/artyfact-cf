@@ -46,7 +46,7 @@ describe("hook selection: API-created evolutions", () => {
 
     // The preview arrives (the CI build's url): the hooks re-run and the health check passes on the commit's build id.
     buildId = s.commit;
-    const url = `https://kit-app-r${f.forks}.acct.workers.dev`;
+    const url = `https://peopling-app-r${f.forks}.acct.workers.dev`;
     const again = await call<SubmitResponse>("POST", `/systems/${f.systemId}/realizations/${s.rid}/submit`, { commit: s.commit, previewUrl: url });
     expect(again.status, JSON.stringify(again.json)).toBeLessThan(300);
     expect(fetched).toEqual([`${url}/health`]);

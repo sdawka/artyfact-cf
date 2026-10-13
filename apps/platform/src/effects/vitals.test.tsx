@@ -10,7 +10,7 @@ import { systemVitals, useSystemVitals, type VitalsInput } from "./vitals";
 const NOW = Date.parse("2026-10-12T12:00:00Z");
 const hoursAgo = (h: number) => new Date(NOW - h * 3600_000).toISOString();
 
-/** Vitals input from the keep-in-touch fixture with nothing run yet (the fixture has no evaluations or history). */
+/** Vitals input from the peopling fixture with nothing run yet (the fixture has no evaluations or history). */
 function fixtureInput(): VitalsInput {
   const bundle = fixtureBundle();
   const index = buildIndex(bundle);
@@ -27,7 +27,7 @@ function fixtureInput(): VitalsInput {
   };
 }
 
-describe("systemVitals (keep-in-touch fixture)", () => {
+describe("systemVitals (peopling fixture)", () => {
   it("reads as pending apricot: warnings only, nothing run, one actionable Evolution", () => {
     const input = fixtureInput();
     const v = systemVitals(input);
@@ -127,7 +127,7 @@ function Harness() {
 
 describe("useSystemVitals", () => {
   it("maps the loaded fixture System through useModel()", async () => {
-    renderApp("/s/system.keep-in-touch/r/head/x", [{ path: "/s/:systemId/r/:rev/x", element: <Harness /> }]);
+    renderApp("/s/system.peopling/r/head/x", [{ path: "/s/:systemId/r/:rev/x", element: <Harness /> }]);
     const out = await screen.findByLabelText("vitals");
     expect(JSON.parse(out.textContent!)).toEqual(systemVitals(fixtureInput()).surface);
   });

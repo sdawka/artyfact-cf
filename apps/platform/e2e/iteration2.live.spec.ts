@@ -5,11 +5,11 @@ import { systemCard } from "./helpers";
 /**
  * The describe-a-change loop against a real deployment (live mode: `ARTYFACT_E2E_LIVE=1`, `ARTYFACT_ADMIN_TOKEN` set).
  * It pushes to real Artifacts over Git, so it runs serially and skips without the admin token. Set
- * `ARTYFACT_SYSTEM_ID` for a System other than Keep in Touch, and `ARTYFACT_CI=1` when `apps/ci` is deployed so the
+ * `ARTYFACT_SYSTEM_ID` for a System other than Peopling, and `ARTYFACT_CI=1` when `apps/ci` is deployed so the
  * spec also waits for the preview build to leave "unknown".
  */
 const token = process.env.ARTYFACT_ADMIN_TOKEN ?? "";
-const systemId = process.env.ARTYFACT_SYSTEM_ID ?? "system.keep-in-touch";
+const systemId = process.env.ARTYFACT_SYSTEM_ID ?? "system.peopling";
 const base = `/s/${systemId}/r/head`;
 const withCi = process.env.ARTYFACT_CI === "1";
 
@@ -23,9 +23,9 @@ test.describe("iteration 2 on a live deployment", () => {
   test("Home opens the Thing workspace and offers the System overview @live", async ({ page }, testInfo) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Systems" })).toBeVisible();
-    await systemCard(page, /Keep in Touch/).first().click();
-    await expect(page).toHaveURL(/\/s\/system\.keep-in-touch\/r\/head\/things\/thing\.webapp$/);
-    await expect(page.getByRole("heading", { level: 1, name: "Keep in Touch web app" })).toBeVisible();
+    await systemCard(page, /Peopling/).first().click();
+    await expect(page).toHaveURL(/\/s\/system\.peopling\/r\/head\/things\/thing\.webapp$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Peopling web app" })).toBeVisible();
     await page.getByRole("link", { name: "System overview", exact: true }).click();
     await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
     await checkPage(page, testInfo, "live-overview");

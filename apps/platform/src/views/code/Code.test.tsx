@@ -6,10 +6,10 @@ import { qk } from "@/api/queries";
 import { editorText, typeInEditor } from "@/testing/codemirror";
 import { renderApp } from "@/testing/render";
 
-const SYSTEM = "system.keep-in-touch";
+const SYSTEM = "system.peopling";
 const CODE = `/s/${SYSTEM}/r/head/code`;
 const FILES: Record<string, string> = {
-  "system.yaml": "id: system.keep-in-touch\n",
+  "system.yaml": "id: system.peopling\n",
   "purpose.yaml": "purpose: stay in touch\n",
   "things/webapp/thing.yaml": "id: webapp\n",
 };
@@ -38,7 +38,7 @@ function stubApi(post: (url: string, call: Call) => Response | undefined = () =>
       return json(404, { error: { code: "not-found", message: "no" } });
     }
     const u = new URL(url, "http://x");
-    if (u.pathname === "/api/systems") return json(200, [{ systemId: SYSTEM, title: "Keep in Touch", head: null }]);
+    if (u.pathname === "/api/systems") return json(200, [{ systemId: SYSTEM, title: "Peopling", head: null }]);
     if (u.pathname.endsWith("/files")) return json(200, { ref, files: Object.keys(FILES).map((path) => ({ path, hash: path, size: FILES[path]!.length })) });
     if (u.pathname.endsWith("/file")) {
       const path = u.searchParams.get("path")!;
@@ -269,7 +269,7 @@ describe("Code page in fixture mode", () => {
     // Every node directory has a node.yaml; the root's is the System's.
     const links = await within(nav).findAllByRole("link", { name: /^node\.yaml/ });
     expect(links.some((a) => a.getAttribute("href")!.endsWith("?path=node.yaml"))).toBe(true);
-    await waitFor(() => expect(editorText()).toMatch(/system\.keep-in-touch/));
+    await waitFor(() => expect(editorText()).toMatch(/system\.peopling/));
     await editCurrent("# local\n");
     expect(await screen.findByText("editing · 1 pending")).toBeTruthy();
     fireEvent.click(screen.getByRole("link", { name: "Commit…" }));

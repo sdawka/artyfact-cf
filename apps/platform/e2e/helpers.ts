@@ -1,7 +1,7 @@
 import AxeBuilder from "@axe-core/playwright";
 import { expect, type Page, type TestInfo } from "@playwright/test";
 
-export const SYSTEM = "/s/system.keep-in-touch/r/head";
+export const SYSTEM = "/s/system.peopling/r/head";
 export const live = process.env.ARTYFACT_E2E_LIVE === "1";
 
 /** Wait for the lazy view to render its `<h1>` and the model to load. */

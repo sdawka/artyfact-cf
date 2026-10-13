@@ -8,7 +8,7 @@ interface __BaseEnv_Env {
 	WORKERS_SUBDOMAIN: "dawka";
 	BACKUP_BUCKET_NAME: "artyfact-ci-cache";
 	CLOUDFLARE_ACCOUNT_ID: "1bae12d5089e4c2ee5c0e62c021a117f";
-	D1_DATABASE_IDS: {"system.keep-in-touch":{"keep-in-touch":"26e6d5af-8dec-4989-9e16-cfcc3e3d21b0"}};
+	D1_DATABASE_IDS: {"system.peopling":{"peopling":"26e6d5af-8dec-4989-9e16-cfcc3e3d21b0"}};
 	SANDBOX: DurableObjectNamespace<import("./index").CiSandbox>;
 	CI_WORKFLOW: Workflow<Parameters<import("./index").ArtyfactCI['run']>[0]['payload']>;
 }

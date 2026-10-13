@@ -127,11 +127,11 @@ secret or the admin token; all send `Authorization: Bearer`). Intents (admin, `d
 
 **Fixture fallback:** fixture mode means the API is **unreachable** (network error or non-2xx on `/api/systems`). A
 reachable API with no Systems is a real empty platform: Home shows "No Systems yet." with an init link. In fixture mode
-`getModel` serves `fixtures/keep-in-touch.model.json` with `source: 'fixture'`, `listFiles`/`getFile` serve the Genome
-from `fixtures/keep-in-touch.files.json` (app scope is empty), `getRevisions` returns head only, other list reads return
+`getModel` serves `fixtures/peopling.model.json` with `source: 'fixture'`, `listFiles`/`getFile` serve the Genome
+from `fixtures/peopling.files.json` (app scope is empty), `getRevisions` returns head only, other list reads return
 empty lists, entry/compare reads 404 and writes throw `FixtureModeError`. The TopBar and Home header then show "fixture
 data" and "Retry API" (`resetClientMode()` + refetch); the cause is logged with `console.warn`. The fixture summary
-zero-fills the iteration-2 `SystemSummary` fields. Both fixture files are generated from `examples/keep-in-touch-system`
+zero-fills the iteration-2 `SystemSummary` fields. Both fixture files are generated from `examples/peopling-system`
 by `npm run build:fixture -w @artyfact/platform` (`scripts/build-fixture.ts`).
 
 `queries.ts` (TanStack Query 5). Hooks read `systemId`/`rev` from the route (iteration-2 hooks are disabled outside

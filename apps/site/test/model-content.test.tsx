@@ -11,7 +11,7 @@ it('carries one illustrative change from the System boundary into form and conte
   const text = container.textContent ?? '';
   expect(text.indexOf('Make changes easy to scope and specify')).toBeLessThan(text.indexOf('A Thing has form and content'));
   expect(text).toContain('one or more Things');
-  expect(text).toContain('Keep in Touch System');
+  expect(text).toContain('Peopling System');
   expect(text).toContain('Whole contact application');
   expect(text).toContain('Frontend');
   expect(text).toContain('typed links');

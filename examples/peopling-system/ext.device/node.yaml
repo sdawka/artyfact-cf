@@ -1,0 +1,10 @@
+id: ext.device
+kind: external
+fields:
+  name: Device
+  kind: device
+  modeled: Browser, device notification permissions and selected files; access to a phone gallery is a later capability
+  external: Device capabilities and permissions granted by the owner
+  source:
+    doc: peopling-world-specification
+    section: "2"

@@ -1,0 +1,33 @@
+id: policy.revocation
+kind: policy
+fields:
+  name: Current revocation
+  description: Read and send authorization must check revocation against current authoritative state; a block overrides connection and sharing
+  source:
+    doc: peopling-world-specification
+    section: "6"
+  mode: revocation
+links:
+  - { rel: governs, to: entity.Block }
+  - { rel: governs, to: operation.connection.revoke }
+criteria:
+  - id: C.webapp.revocation.current
+    title: Current revocation
+    claim: Revoke access after a job is queued, then retry dispatch and access. No new authorized sharing may follow revocation
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    sourceRefs:
+      - S.webapp.concurrency
+    hooks:
+      - id: hook.webapp.revocation.current
+        assay: webapp.revocation.current
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          fixture: revoke after queue, retry dispatch and access
+        costTier: cheap

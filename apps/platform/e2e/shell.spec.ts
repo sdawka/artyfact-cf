@@ -5,9 +5,9 @@ test.describe("shell", () => {
   test("a single-Thing System card opens its Thing workspace with an explicit System overview", async ({ page }) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Systems" })).toBeVisible();
-    await systemCard(page, /Keep in Touch/).click();
+    await systemCard(page, /Peopling/).click();
     await expect(page).toHaveURL(new RegExp(`${SYSTEM}/things/thing.webapp$`));
-    await expect(page.getByRole("heading", { level: 1, name: "Keep in Touch web app" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Peopling web app" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "Thing workspace breadcrumb" })).toBeVisible();
     await page.getByRole("link", { name: "System overview", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${SYSTEM}/overview$`));

@@ -1,0 +1,16 @@
+id: component.AddContactDialog
+kind: component
+fields:
+  name: AddContactDialog
+  description: One AddContactDialog only while invoked, with name, optional channel fields, Save and Cancel
+  source:
+    doc: peopling-world-specification
+    section: "6"
+  cardinality: 1 only while invoked
+  states:
+    - closed
+    - open
+    - validation-error
+    - saving
+files:
+  - public/people/**

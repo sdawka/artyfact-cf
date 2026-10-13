@@ -1,0 +1,28 @@
+id: entity.Subscription
+kind: entity
+fields:
+  name: Subscription
+  description: Subscriber, author, approval, start time and state; directed and independently revocable
+  source:
+    doc: peopling-world-specification
+    section: "5"
+  fields:
+    - name: subscriberAccountId
+      type: ref:entity.Account
+      optional: false
+    - name: authorAccountId
+      type: ref:entity.Account
+      optional: false
+    - name: approval
+      type: json
+      optional: false
+    - name: startsAt
+      type: timestamp
+      optional: false
+    - name: state
+      type: string
+      optional: false
+  invariants:
+    - Directed and independently revocable
+    - Subscription does not imply reciprocal subscription
+provisional: true

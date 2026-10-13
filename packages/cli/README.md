@@ -12,7 +12,7 @@ http://localhost:1337.
 
 ```sh
 npx artyfact init --dir <project>                    # <project>/genome (Genome) and <project>/app
-npx artyfact init --genome <dir> --app <dir>         # examples layout; scripts/bootstrap.sh does this for Keep in Touch
+npx artyfact init --genome <dir> --app <dir>         # examples layout; scripts/bootstrap.sh does this for Peopling
 npx artyfact init --dir <project> --from-template template.thing.cloudflare-worker-webapp@1   # no app yet
 npx artyfact platform-sync [--namespace ns]
 ```
@@ -26,7 +26,7 @@ prints one page without a next cursor, so a namespace beyond the first page is r
 `Authorization: Bearer $ARTYFACT_ADMIN_TOKEN`, over https or plain http to localhost / 127.0.0.1 only. Without that
 variable it prints the `curl` line instead and exits 0, even when no platform is running. A 409 `already-imported` asks for `--force`. A re-run pushes
 nothing and re-imports as a no-op. Error text names the account by its first 8 characters only. The System id must be lower-case
-(`system.keep-in-touch`), so every id maps to its own repos.
+(`system.peopling`), so every id maps to its own repos.
 
 Pushes never rewrite history. An empty repo gets a root commit. A repo whose head already has the project's tree is
 left alone. Otherwise init commits on top of the head, but only when that head is the one this checkout last pushed,

@@ -8,8 +8,8 @@ import { FakeArtifacts } from "./helpers/fake-artifacts";
 
 const raw = (g: Record<string, string>, root: string) =>
   Object.fromEntries(Object.entries(g).map(([p, t]) => [p.slice(p.indexOf(root) + root.length), t] as const));
-const genome = raw(import.meta.glob("../../../examples/keep-in-touch-system/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch-system/");
-const app = raw(import.meta.glob(["../../../examples/keep-in-touch-app/**/*", "!**/node_modules/**", "!**/.wrangler/**"], { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch-app/");
+const genome = raw(import.meta.glob("../../../examples/peopling-system/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>, "peopling-system/");
+const app = raw(import.meta.glob(["../../../examples/peopling-app/**/*", "!**/node_modules/**", "!**/.wrangler/**"], { query: "?raw", import: "default", eager: true }) as Record<string, string>, "peopling-app/");
 
 async function call<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = {}) {
   const res = await exports.default.fetch(new Request(`http://example.com/api${path}`, {
@@ -20,7 +20,7 @@ async function call<T>(method: string, path: string, body?: unknown, headers: Re
 
 afterEach(() => setArtifactsOverride(undefined));
 
-describe("examples/keep-in-touch", () => {
+describe("examples/peopling", () => {
   it("imports, packets evolution.1 from the app's source map, and blocks promotion with no-op hooks", async () => {
     const ns = new FakeArtifacts();
     ns.create("ex-system").commit(genome);

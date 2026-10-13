@@ -1,0 +1,163 @@
+# System-owned criteria (spec section 7, "System criteria").
+# sourceRefs on structure, purpose, topology and autonomy are editorial links; the spec table gives none.
+criteria:
+  - id: C.system.structure
+    title: System structure is complete
+    claim: Require exactly one app Thing, thing.webapp, with a specification and artifact.webapp binding; require Purpose, Externals, Theory and ontology references. Reject dangling references or domain types incorrectly declared as independently realized Things
+    ownerKind: system
+    ownerId: system.peopling
+    subjectKind: system
+    subjectId: system.peopling
+    targetKind: model
+    sourceRefs: [P1]
+    gates: [submission, promotion]
+    hooks: [hook.system.structure]
+  - id: C.system.purpose
+    title: Theory supports the Purpose
+    claim: Require T1–T5 to link activities, intended outcomes, measures and limitations to P1. Model validation rejects missing measures or engagement substituted for wanted contact; pilot outcome hooks record support, challenge or unknown separately from conformance
+    ownerKind: system
+    ownerId: system.peopling
+    subjectKind: system
+    subjectId: system.peopling
+    targetKind: model
+    sourceRefs: [P1, T1, T2, T3, T4, T5]
+    gates: [submission, promotion]
+    hooks: [hook.system.purpose.model, hook.system.purpose.outcome]
+  - id: C.system.topology
+    title: Communication topology holds
+    claim: Require two-endpoint pairs, one target per outgoing direct action, private incoming aggregation and disabled group scope. Model validation rejects recipient arrays or an enabled digest without an accepted publication contract; C.webapp.outgoing.single supplies implementation evidence
+    ownerKind: system
+    ownerId: system.peopling
+    subjectKind: system
+    subjectId: system.peopling
+    targetKind: model
+    sourceRefs: [GD.connect]
+    gates: [submission, promotion]
+    hooks: [hook.system.topology, hook.system.topology.semantic]
+  - id: C.system.autonomy
+    title: Autonomy is preserved
+    claim: Require owner-only goals and notes, explicit consent, revocation and notification bounds across enabled scope. A coverage hook must resolve these obligations to C.webapp.private.owner, C.webapp.connection.consent, C.webapp.revocation.current and C.webapp.prompts.bounded
+    ownerKind: system
+    ownerId: system.peopling
+    subjectKind: system
+    subjectId: system.peopling
+    targetKind: model
+    sourceRefs: [P1, T4]
+    gates: [submission, promotion]
+    hooks: [hook.system.autonomy]
+  - id: C.system.readiness
+    title: Specification is ready to realize
+    claim: Require every enabled specification requirement to resolve to a protected criterion and executable hook, with Kits and versions pinned. Excluded later modules do not block the core; an enabled module with missing contracts or hooks does
+    ownerKind: system
+    ownerId: system.peopling
+    subjectKind: system
+    subjectId: system.peopling
+    targetKind: model
+    gates: [submission, promotion]
+    hooks: [hook.system.readiness]
+  - id: C.system.promotion
+    title: Promotion is evidence-backed
+    claim: Require the expected current base, authorized Evolution scope, exact final Artifact manifest and fresh required System and Thing evidence. A stale base or evidence for a different candidate blocks promotion; composed candidates require new evidence
+    ownerKind: system
+    ownerId: system.peopling
+    subjectKind: system
+    subjectId: system.peopling
+    targetKind: model
+    gates: [submission, promotion]
+    hooks: [hook.system.promotion]
+  - id: C.system.concurrency
+    title: Concurrent work is surfaced before promotion
+    claim: Concurrent candidates touching the same subjects, journeys or criteria are reported as file, soft-semantic or hard-semantic conflicts before any of them is promoted
+    ownerKind: system
+    ownerId: system.peopling
+    subjectKind: system
+    subjectId: system.peopling
+    targetKind: model
+    sourceRefs: []
+    severity: soft
+    gates: [submission, candidate, promotion]
+    hooks: [hook.system.overlap]
+hooks:
+  - id: hook.system.structure
+    assay: system.structure
+    criteria: [C.system.structure]
+    tier: basic
+    engine: model-rules
+    targetKind: model
+    triggers: [submission]
+    inputs: { packs: "metamodel@1" }
+    binding: bound
+  - id: hook.system.purpose.model
+    assay: system.purpose.model
+    criteria: [C.system.purpose]
+    tier: semantic
+    engine: system-one
+    targetKind: model
+    triggers: [submission]
+    inputs: { packs: "theory@1" }
+    costTier: cheap
+    binding: bound
+  - id: hook.system.purpose.outcome
+    assay: system.purpose.outcome
+    criteria: [C.system.purpose]
+    tier: semantic
+    engine: llm
+    targetKind: observation
+    triggers: [outcome]
+    inputs: { protocol: "two-week baseline, four-week pilot; no invented numeric target" }
+    costTier: expensive
+    binding: defined
+  - id: hook.system.topology
+    assay: system.topology
+    criteria: [C.system.topology]
+    tier: basic
+    engine: model-rules
+    targetKind: model
+    triggers: [submission, promotion]
+    inputs: { packs: "topology.private-pairs@1" }
+    binding: bound
+  - id: hook.system.topology.semantic
+    assay: system.topology.semantic
+    criteria: [C.system.topology]
+    tier: semantic
+    engine: system-one
+    targetKind: model
+    triggers: [submission]
+    costTier: cheap
+    binding: bound
+  - id: hook.system.autonomy
+    assay: system.autonomy.coverage
+    criteria: [C.system.autonomy]
+    tier: basic
+    engine: model-rules
+    targetKind: model
+    triggers: [submission, promotion]
+    inputs: { packs: "authorization@1", requires: "C.webapp.private.owner,C.webapp.connection.consent,C.webapp.revocation.current,C.webapp.prompts.bounded" }
+    binding: defined
+  - id: hook.system.readiness
+    assay: system.readiness
+    criteria: [C.system.readiness]
+    tier: basic
+    engine: model-rules
+    targetKind: model
+    triggers: [submission, promotion]
+    inputs: { packs: "readiness@1" }
+    binding: bound
+  - id: hook.system.promotion
+    assay: system.promotion
+    criteria: [C.system.promotion]
+    tier: basic
+    engine: model-rules
+    targetKind: model
+    triggers: [submission, promotion]
+    inputs: { check: "base-current,scope-authorized,manifest-exact,evidence-fresh" }
+    binding: bound
+  - id: hook.system.overlap
+    assay: system.overlap
+    criteria: [C.system.concurrency]
+    tier: basic
+    engine: diff
+    targetKind: model
+    triggers: [submission, candidate]
+    inputs: { mode: overlap }
+    binding: bound

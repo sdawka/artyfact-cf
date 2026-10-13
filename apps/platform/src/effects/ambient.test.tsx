@@ -7,7 +7,7 @@ import { nodeStatus } from "@/views/map/MapView";
 import { FX_EVENT, parseAmbientFx } from "./ambientEvents";
 import { EFFECTS_KEY } from "./effectsPreference";
 
-const BASE = "/s/system.keep-in-touch/r/head";
+const BASE = "/s/system.peopling/r/head";
 const fx = (detail: unknown) => act(() => void window.dispatchEvent(new CustomEvent(FX_EVENT, { detail })));
 const ambient = () => document.querySelector<HTMLElement>("[data-shell-ambient]")!;
 

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { renderApp } from "@/testing/render";
 
 async function open(id: string) {
-  renderApp(`/s/system.keep-in-touch/r/head/map?focus=${id}`);
+  renderApp(`/s/system.peopling/r/head/map?focus=${id}`);
   return screen.findByRole("complementary", { name: "Inspector" });
 }
 
@@ -39,7 +39,7 @@ describe("Inspector kind bodies", () => {
   });
 
   it("SystemBody lists phase, things and purposes", async () => {
-    const i = await open("system.keep-in-touch");
+    const i = await open("system.peopling");
     expect(await within(i).findByText("Phase")).toBeTruthy();
     expect(within(i).getByTitle("Purpose: P1")).toBeTruthy();
   });

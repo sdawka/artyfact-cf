@@ -47,11 +47,11 @@ describe("Home", () => {
 
   it("shows the fixture System in fixture mode and opens its Overview", async () => {
     const { router } = renderApp("/");
-    const link = await screen.findByRole("link", { name: /^Keep in Touch$/ });
+    const link = await screen.findByRole("link", { name: /^Peopling$/ });
     expect(screen.getByText("fixture data")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry API" })).toBeTruthy();
     act(() => link.click());
-    await waitFor(() => expect(router.state.location.pathname).toBe("/s/system.keep-in-touch/r/head/things/thing.webapp"));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/s/system.peopling/r/head/things/thing.webapp"));
   });
 
   it("shows the empty state with an init link when the API has no Systems", async () => {

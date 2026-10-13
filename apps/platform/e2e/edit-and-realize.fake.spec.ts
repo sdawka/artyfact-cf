@@ -5,7 +5,7 @@ import { systemCard } from "./helpers";
 test.describe("edit and realize @fake", () => {
   test("Inspector to Code, commit, accept, Changelog and Home show the new head @fake", async ({ page }, testInfo) => {
     await page.goto("/");
-    const before = await systemCard(page, /Keep in Touch/).textContent();
+    const before = await systemCard(page, /Peopling/).textContent();
 
     await editGenomeAndAccept(page, testInfo, "binding.birthdayStore", "Birthday store");
 
@@ -25,7 +25,7 @@ test.describe("edit and realize @fake", () => {
     await checkPage(page, testInfo, "map-at-commit");
 
     await page.goto("/");
-    const card = systemCard(page, /Keep in Touch/);
+    const card = systemCard(page, /Peopling/);
     await expect(card).not.toHaveText(before ?? "");
     await expect(card.getByText(/sc-[2-9]/)).toBeVisible();
     await checkPage(page, testInfo, "home-after");

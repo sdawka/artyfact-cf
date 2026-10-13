@@ -6,7 +6,7 @@ import { FindingBody } from "./FindingBody";
 
 describe("FindingBody", () => {
   it("shows rule id, message, level, subject chip and derivation", async () => {
-    renderApp("/s/system.keep-in-touch/r/head/overview", [
+    renderApp("/s/system.peopling/r/head/overview", [
       { path: "/s/:systemId/r/:rev/overview", element: <FindingBody finding={finding("error", "rule.x", "section.purpose", "Something is off")} /> },
     ]);
     expect((await screen.findAllByText("rule.x")).length).toBeGreaterThan(0);

@@ -32,7 +32,7 @@ test("direct Thing routes retain a full workspace as the System grows and distin
   ];
   await mockApi(page, data);
   await page.goto(THING);
-  await expect(page.getByRole("heading", { level: 1, name: "Keep in Touch web app" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Peopling web app" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Source artifacts" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Realized outputs" })).toBeVisible();
   await expect(page.getByText("workers-version:mock-v2", { exact: true })).toBeVisible();
@@ -71,7 +71,7 @@ test("private Parts remain inside their System and authorize inspection @fixture
   });
   await page.goto("/");
   await expect(page.getByText("Private logic")).toHaveCount(0);
-  await page.getByRole("link", { name: "Keep in Touch", exact: true }).click();
+  await page.getByRole("link", { name: "Peopling", exact: true }).click();
   await page.getByRole("link", { name: "Private Parts", exact: true }).click();
   await expect(page.getByRole("heading", { name: "System-private Parts" })).toBeVisible();
   await page.getByLabel("Admin token").fill("wrong");

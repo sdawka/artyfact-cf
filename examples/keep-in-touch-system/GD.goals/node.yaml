@@ -1,9 +1,0 @@
-id: GD.goals
-kind: feature
-fields:
-  name: Cadence and depth
-  summary: An owner-only goal with an interval and a desired depth
-  deferred: false
-  source:
-    doc: keep-in-touch-world-specification
-    section: "3"

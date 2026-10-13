@@ -1,0 +1,14 @@
+id: commitment.personal-initiation
+kind: commitment
+fields:
+  statement: Personal control over initiating contact - opening a channel needs a user gesture and never completes a goal; no autonomous send.
+  features:
+    - GD.prompts
+    - GD.connect
+  coupledWith:
+    - commitment.one-to-one
+    - commitment.finite-incoming
+    - commitment.owner-cadence
+  source:
+    doc: peopling-world-specification
+    section: "3"

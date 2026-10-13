@@ -1,9 +1,0 @@
-id: GD.connect
-kind: feature
-fields:
-  name: Consented pair connections
-  summary: Invitation-based pairs formed by two explicit consents; either party can disconnect or block.
-  deferred: false
-  source:
-    doc: keep-in-touch-world-specification
-    section: "3"
