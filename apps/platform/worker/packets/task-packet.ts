@@ -293,6 +293,8 @@ export function renderAgentsMd(p: TaskPacket, task?: Pick<PacketTask, "doNotTouc
       `Permitted edits: ${p.permittedPaths.join(", ") || "(none)"}.`,
       `Do not touch: ${[...(task?.doNotTouch ?? []).filter((d) => d.globs.length).map((d) => `${d.globs.join(", ")} (${d.task})`), p.protectedPaths.join(", ")].join("; ")}.`,
       `Concurrent tasks: ${task?.concurrent.length ? task.concurrent.join("; ") : "none"}.`,
+      // A task is claimable only once every task it depends on is promoted, so their changes are in its base.
+      ...(t.dependsOn.length ? [`Builds on: ${t.dependsOn.join(", ")} (promoted; their changes are in your base).`] : []),
       `After you: ${task?.after.length ? `${task.after.join(", ")} ${task.after.length === 1 ? "starts" : "start"} when this task is promoted` : "no task waits on this one"}.`,
     ]
     : [

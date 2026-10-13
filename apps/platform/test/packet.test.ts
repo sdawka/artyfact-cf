@@ -227,6 +227,20 @@ describe("task packet: Task section", () => {
     expect(p.agentsMd).toContain("npx artyfact submit");
   });
 
+  it("names the promoted tasks a dependent task builds on", async () => {
+    const task = plan.tasks[0];
+    const p = await buildTaskPacket(input({
+      task: {
+        id: task.id, title: task.title, intent: task.intent, nodes: task.nodes, dependsOn: ["task.2", "task.3"], wave: 2, acceptanceCriteria: ["C.people.list"],
+        independence: independenceStatement(task, plan, ["src/ui/people/**"]), doNotTouch: [], concurrent: [], after: [],
+      },
+    }));
+    const lines = p.agentsMd.split("\n");
+    expect(lines[4]).toBe("Concurrent tasks: none.");
+    expect(lines[5]).toBe("Builds on: task.2, task.3 (promoted; their changes are in your base).");
+    expect(lines[6]).toBe("After you: no task waits on this one.");
+  });
+
   it("lists concurrent work with its Evolution, task and permitted paths", async () => {
     const p = await buildTaskPacket(input({
       concurrentWork: [{ realization: "realization.2.r3", agentLabel: "claude", status: "working", changedSubjects: [], evolution: "evolution.2", task: "task.9", permittedPaths: ["src/a/**"] }],
