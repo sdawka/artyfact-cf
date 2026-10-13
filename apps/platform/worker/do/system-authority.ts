@@ -3,10 +3,12 @@ import type { GateCriterion } from "../promotion";
 import type {
   ArtifactBinding, PartScope, PartRecord, PartSummary, RealizedArtifact, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Proposal, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
+  ImportReview, ProposalPlanNode, Task, TaskPlan, TaskPlanSummary, TaskStatus,
 } from "../../shared/api";
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
-import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalTurn, type ReviseResult, type StoredProposal } from "./proposals-store";
+import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalDecisions, type ProposalTurn, type StoredProposalPlan, type ReviseResult, type StoredProposal } from "./proposals-store";
+import { TASK_LEASE_MS, TasksStore, type TaskClaimResult, type TaskPatch } from "./tasks-store";
 import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentInput } from "./builds-store";
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
 import { ChangelogStore, type CachedChangelog } from "./changelog-store";
@@ -149,6 +151,8 @@ export interface ReserveInput {
   origin?: RealizationOrigin;
   /** Refuse with `[stale-base]` unless the base (the canonical Genome or app commit) is this commit. */
   expectedBase?: string;
+  /** The Task this realization works on (stored in `realizations.task_id`); it must belong to `evolutionId`. */
+  taskId?: string;
 }
 
 export interface ReservedRealization {
@@ -170,6 +174,8 @@ export interface RealizationRecord {
   evolutionId: string;
   /** Id (never the secret) of the fork's write token, if one was minted. */
   tokenId: string | null;
+  /** The Task the realization works on, when it was started for one. */
+  taskId: string | null;
 }
 
 export interface CandidateInput {
@@ -290,6 +296,7 @@ export class SystemAuthority extends DurableObject<Env> {
     if (this.pinger) { clearInterval(this.pinger); this.pinger = undefined; }
     await this.ctx.storage.deleteAll();
     this.buildsStore = this.changelogStore = this.proposalsStore = this.registryStore = this.phenomeStore = undefined;
+    this.tasksStore = undefined;
     this.readinessMemo.clear();
     applySchema(this.sql);
   }
@@ -610,7 +617,14 @@ export class SystemAuthority extends DurableObject<Env> {
       genomeDelta: seed.genomeDelta ?? [], acceptanceCriteria: seed.acceptanceCriteria ?? [], requiredEvidence: seed.requiredEvidence ?? [],
       dependsOn: seed.dependsOn ?? [], risk: seed.risk ?? "medium", realizations,
       ...(d && { decision: d.rationale, decisionRecord: { by: d.by, policy: d.policy, rationale: d.rationale, at: d.at } }),
+      ...this.planSummary(id),
     };
+  }
+
+  /** `{ plan }` when the Evolution has a task plan, else `{}`. */
+  private planSummary(evolutionId: string): { plan?: TaskPlanSummary } {
+    const plan = this.tasks_().planCounts(evolutionId);
+    return plan ? { plan } : {};
   }
 
   evolutions(): Evolution[] {
@@ -658,6 +672,7 @@ export class SystemAuthority extends DurableObject<Env> {
       checkpoints,
       ...(cand && { candidate: String(cand.id) }),
       ...(r.rejection_reason != null && { rejectionReason: String(r.rejection_reason) }),
+      ...(r.task_id != null && { task: String(r.task_id) }),
       createdAt: String(r.created_at),
       updatedAt: String(r.updated_at),
     };
@@ -687,6 +702,7 @@ export class SystemAuthority extends DurableObject<Env> {
       baseCommit: String(r.base_commit ?? ""),
       evolutionId: String(r.evolution_id),
       tokenId: str(r.token_id),
+      taskId: str(r.task_id),
     };
   }
 
@@ -717,10 +733,19 @@ export class SystemAuthority extends DurableObject<Env> {
     const s = this.state();
     if (!s) throw new ConflictError("not-found", "System not imported");
     return this.ctx.storage.transactionSync(() => {
-      const evo = this.one("SELECT status FROM evolutions WHERE id = ?", input.evolutionId);
+      const evo = this.one("SELECT status, scope_json FROM evolutions WHERE id = ?", input.evolutionId);
       if (!evo) throw new ConflictError("not-found", `unknown evolution ${input.evolutionId}`);
       if (["promoted", "rejected", "withdrawn"].includes(String(evo.status))) {
         throw new ConflictError("invalid-state", `evolution ${input.evolutionId} is ${evo.status}`);
+      }
+      for (const dep of json<EvolutionSeed>(evo.scope_json, {} as EvolutionSeed).dependsOn ?? []) {
+        const d = str(this.one("SELECT status FROM evolutions WHERE id = ?", dep)?.status);
+        if (d !== "promoted") throw new ConflictError("invalid-state", `evolution ${input.evolutionId} depends on ${dep} which is ${d ?? "unknown"}`);
+      }
+      if (input.taskId !== undefined) {
+        const t = this.tasks_().task(input.taskId);
+        if (!t) throw new ConflictError("not-found", `unknown task ${input.taskId}`);
+        if (t.evolutionId !== input.evolutionId) throw new ConflictError("invalid-state", `task ${input.taskId} belongs to ${t.evolutionId}, not ${input.evolutionId}`);
       }
       if (input.target === "app" && !s.appSource) throw new ConflictError("invalid-state", "This Thing has no source artifact yet; accept a Genome binding and import its source before application work");
       const baseRepo = input.target === "genome" ? s.genomeSource : s.appSource!.repo;
@@ -735,10 +760,10 @@ export class SystemAuthority extends DurableObject<Env> {
       const forkRepo = forkName(namingRepo, n);
       const at = nowIso();
       this.sql.exec(
-        `INSERT INTO realizations (id, evolution_id, n, target, fork_repo, base_commit, agent_label, status, created_at, updated_at, base_repo, base_head, role, origin)
-         VALUES (?, ?, ?, ?, ?, ?, ?, 'claimed', ?, ?, ?, ?, ?, ?)`,
+        `INSERT INTO realizations (id, evolution_id, n, target, fork_repo, base_commit, agent_label, status, created_at, updated_at, base_repo, base_head, role, origin, task_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, 'claimed', ?, ?, ?, ?, ?, ?, ?)`,
         id, input.evolutionId, n, input.target, forkRepo, baseCommit, input.agentLabel ?? null, at, at, baseRepo, s.head, input.role ?? "implementer",
-        input.origin ?? "cli",
+        input.origin ?? "cli", input.taskId ?? null,
       );
       if (["proposed", "genome-approved", "actionable"].includes(String(evo.status))) this.setEvolutionStatus(input.evolutionId, "realizing");
       return { realization: this.realizationDto(this.realizationRow(id)!), baseRepo, baseCommit, forkRepo };
@@ -765,7 +790,11 @@ export class SystemAuthority extends DurableObject<Env> {
 
   /** A failed start: `claimed` → `abandoned`. A realization that already ended (e.g. rejected meanwhile) keeps its status. */
   abandonRealization(id: string): void {
-    this.sql.exec("UPDATE realizations SET status = 'abandoned', updated_at = ? WHERE id = ? AND status = 'claimed'", nowIso(), id);
+    const released = this.ctx.storage.transactionSync(() => {
+      const n = this.sql.exec("UPDATE realizations SET status = 'abandoned', updated_at = ? WHERE id = ? AND status = 'claimed'", nowIso(), id).rowsWritten;
+      return n ? this.tasks_().releaseFor(id) : [];
+    });
+    this.emitTasks(released);
   }
 
   /** Admin rejection (e.g. a Genome amendment): realization and its open candidates → rejected, reason kept. */
@@ -773,13 +802,15 @@ export class SystemAuthority extends DurableObject<Env> {
     const r = this.realizationRow(id);
     if (!r) throw new ConflictError("not-found", `unknown realization ${id}`);
     if (["promoted", "accepted"].includes(String(r.status))) throw new ConflictError("invalid-state", `realization ${id} is ${r.status}`);
-    this.ctx.storage.transactionSync(() => {
+    const released = this.ctx.storage.transactionSync(() => {
       // Rejection revokes the realization secret together with the fork's write token.
       this.sql.exec("UPDATE realizations SET status = 'rejected', rejection_reason = ?, secret_hash = NULL, updated_at = ? WHERE id = ?", reason, nowIso(), id);
       this.sql.exec("UPDATE candidates SET state = 'rejected' WHERE realization_id = ? AND state != 'promoted'", id);
+      return this.tasks_().releaseFor(id);
     });
     const dto = this.realizationDto(this.realizationRow(id)!);
     this.emit({ type: "realization.updated", realization: dto });
+    this.emitTasks(released);
     return dto;
   }
 
@@ -801,15 +832,18 @@ export class SystemAuthority extends DurableObject<Env> {
     }
     const seq = Number(last?.seq ?? 0) + 1;
     const at = nowIso();
-    this.ctx.storage.transactionSync(() => {
+    const moved = this.ctx.storage.transactionSync(() => {
       this.sql.exec("INSERT INTO checkpoints (realization_id, seq, message, commit_hash, created_at) VALUES (?, ?, ?, ?, ?)", id, seq, input.summary, input.commit ?? null, at);
       if (r.status === "claimed") this.setRealizationStatus(id, "working");
       else this.sql.exec("UPDATE realizations SET updated_at = ? WHERE id = ?", at, id);
+      // The first checkpoint of a task's realization: the agent is at work.
+      return this.tasks_().advance(id, "realizing", ["claimed"]);
     });
     const checkpoint: Checkpoint = { seq, at, summary: input.summary, ...(input.commit && { commit: input.commit }) };
     const realization = this.realizationDto(this.realizationRow(id)!);
     this.emit({ type: "checkpoint", realization: id, checkpoint });
     this.emit({ type: "realization.updated", realization });
+    this.emitTasks(moved);
     return { realization, checkpoint };
   }
 
@@ -915,6 +949,7 @@ export class SystemAuthority extends DurableObject<Env> {
     const cand = this.one("SELECT * FROM candidates WHERE id = ?", candidateId);
     if (!cand) throw new ConflictError("not-found", `unknown candidate ${candidateId}`);
     const stored: Evaluation[] = [];
+    let moved: string[] = [];
     this.ctx.storage.transactionSync(() => {
       if (replace) {
         const state = String(this.one("SELECT state FROM candidates WHERE id = ?", candidateId)?.state);
@@ -941,8 +976,10 @@ export class SystemAuthority extends DurableObject<Env> {
       if (real && evo && ["realizing", "actionable", "proposed", "genome-approved"].includes(String(evo.status))) {
         this.setEvolutionStatus(String(real.evolution_id), "evaluated");
       }
+      if (real) moved = this.tasks_().advance(String(cand.realization_id), "evaluated", ["claimed", "realizing"]);
     });
     for (const e of stored) this.emit({ type: "evaluation.completed", evaluation: e });
+    this.emitTasks(moved);
     const real = this.realizationRow(String(cand.realization_id));
     if (real) this.emit({ type: "realization.updated", realization: this.realizationDto(real) });
     return stored;
@@ -1039,25 +1076,54 @@ export class SystemAuthority extends DurableObject<Env> {
   /**
    * The gate actually enforced for one candidate, failing closed:
    * - no Worker-computed gate → `gate-unavailable`;
-   * - the Evolution's acceptance criteria (from this DO's record) are always in; any the Worker did not classify block;
+   * - the acceptance criteria (the task's when the realization has one, else the Evolution's, from this DO's record) are
+   *   always in; any the Worker did not classify block;
+   * - a Genome candidate keeps only criteria whose `targetKind` is `model` (per the cached model; unknown ones stay);
+   *   when that drops every acceptance criterion, an empty gate is the gate (the admin's accept decides);
    * - an empty blocking set is only acceptable with ≥1 acceptance criterion, every one evaluated for this candidate.
    */
   private effectiveGates(c: Row, computed: GateCriterion[] | undefined): GateCriterion[] {
     const id = String(c.id);
     if (!computed) throw new GateUnavailableError(`no gate criteria were computed for ${id}`);
-    const acceptance = json<string[]>(this.one("SELECT criteria_json FROM evolutions WHERE id = ?", c.evolution_id)?.criteria_json, []);
-    const gates = new Map(computed.map((g) => [g.id, g] as const));
+    // A task realization is gated by its task's criteria; any other by its Evolution's.
+    const taskCriteria = c.task_id != null ? this.tasks_().criteria(String(c.task_id)) : null;
+    let acceptance = taskCriteria ?? json<string[]>(this.one("SELECT criteria_json FROM evolutions WHERE id = ?", c.evolution_id)?.criteria_json, []);
+    // A Genome candidate answers only to criteria that target the model; artifact, runtime and observation criteria
+    // belong to the app realizations. A criterion whose target is unknown (model not cached) stays (fail closed).
+    let ofTarget = computed;
+    let dropped = false;
+    if (String(c.target) === "genome") {
+      const kinds = this.criterionTargets([str(c.commit_hash), this.kv("genome_commit")]);
+      const applies = (id: string) => (kinds.get(id) ?? "model") === "model";
+      dropped = acceptance.some((a) => !applies(a));
+      acceptance = acceptance.filter(applies);
+      ofTarget = computed.filter((g) => applies(g.id));
+    }
+    const gates = new Map(ofTarget.map((g) => [g.id, g] as const));
     for (const a of acceptance) if (!gates.has(a)) gates.set(a, { id: a, severity: "hard", blocking: true });
-    const deferred = new Set(computed.filter((g) => g.deferred).map((g) => g.id));
+    const deferred = new Set(ofTarget.filter((g) => g.deferred).map((g) => g.id));
     const out = [...gates.values()].filter((g) => !g.deferred);
     if (!out.some((g) => g.blocking)) {
       const live = acceptance.filter((a) => !deferred.has(a));
+      // Every acceptance criterion is known to target the app: nothing of the Genome candidate's is left to evaluate.
+      if (dropped && !live.length) return out;
       if (!live.length) throw new GateUnavailableError(`${id} has no blocking criteria and its Evolution has no (non-deferred) acceptance criteria`);
       // "Evaluated" means a completed run (any verdict): the runner writes a not-run row for every unrunnable acceptance criterion.
       const unevaluated = live.filter((a) => !this.one("SELECT 1 AS x FROM evaluations WHERE candidate_id = ? AND criterion_id = ? AND execution = 'completed'", id, a));
       if (unevaluated.length) throw new GateUnavailableError(`${id} has no blocking criteria and acceptance criteria ${unevaluated.join(", ")} are unevaluated`);
     }
     return out;
+  }
+
+  /** Criterion id → `targetKind` from the first of `genomeCommits` whose serialized model is cached. */
+  private criterionTargets(genomeCommits: (string | null)[]): Map<string, string> {
+    for (const commit of genomeCommits) {
+      const raw = commit ? this.getModelCache(commit, "model") : null;
+      if (!raw) continue;
+      const criteria = (JSON.parse(raw) as { criteria?: { id: string; targetKind?: string }[] }).criteria ?? [];
+      return new Map(criteria.filter((k) => k.targetKind).map((k) => [k.id, k.targetKind!] as const));
+    }
+    return new Map();
   }
 
   private promotionRows(candidateIds: string[]): (Row | undefined)[] {
@@ -1116,13 +1182,13 @@ export class SystemAuthority extends DurableObject<Env> {
    * when a required criterion lacks pass+completed. On success: parented System commit, head moved,
    * candidates promoted, sibling candidates rejected, Evolution promoted.
    */
-  promoteTx(input: PromoteInput, prep: PreparedCommit): { commit: SystemCommit; rejected: string[]; advisories: GateItem[]; ended: EndedCredential[] } {
+  promoteTx(input: PromoteInput, prep: PreparedCommit): { commit: SystemCommit; rejected: string[]; advisories: GateItem[]; ended: EndedCredential[]; tasks: string[] } {
     return this.ctx.storage.transactionSync(() => {
       const head = this.kv("head");
       if (head !== input.expectedHead || head !== prep.head) throw new StaleBaseError(head);
       if (!input.candidateIds.length) throw new ConflictError("invalid-state", "no candidates to promote");
       const rows = input.candidateIds.map((id) => {
-        const c = this.one("SELECT c.*, r.base_head, r.evolution_id, r.target, r.fork_repo FROM candidates c JOIN realizations r ON r.id = c.realization_id WHERE c.id = ?", id);
+        const c = this.one("SELECT c.*, r.base_head, r.evolution_id, r.target, r.fork_repo, r.task_id FROM candidates c JOIN realizations r ON r.id = c.realization_id WHERE c.id = ?", id);
         if (!c) throw new ConflictError("not-found", `unknown candidate ${id}`);
         return c;
       });
@@ -1138,11 +1204,14 @@ export class SystemAuthority extends DurableObject<Env> {
       const ids = rows.map((c) => String(c.id));
       const evolutionIds = [...new Set(rows.map((c) => String(c.evolution_id)))];
       const marks = (xs: unknown[]) => xs.map(() => "?").join(",");
-      const siblings = this.all(
+      // Competitors: open candidates of the same Evolution and the same task (no task matching no task). Candidates of
+      // the Evolution's other tasks complement the promoted ones and stay open.
+      const work = [...new Map(rows.map((c) => [`${c.evolution_id}|${c.task_id ?? ""}`, c] as const)).values()];
+      const siblings = work.flatMap((w) => this.all(
         `SELECT c.id, c.realization_id FROM candidates c JOIN realizations r ON r.id = c.realization_id
-         WHERE r.evolution_id IN (${marks(evolutionIds)}) AND c.id NOT IN (${marks(ids)}) AND c.state IN ('submitted','evaluated','selected')`,
-        ...evolutionIds, ...ids,
-      );
+         WHERE r.evolution_id = ? AND r.task_id IS ? AND c.id NOT IN (${marks(ids)}) AND c.state IN ('submitted','evaluated','selected')`,
+        w.evolution_id, w.task_id ?? null, ...ids,
+      ));
       const rejected = siblings.map((s) => String(s.id));
       const commit = this.writeCommit(prep, evolutionIds, {
         by: input.by, policy: "admin", rationale: input.rationale, candidates: ids, rejected, evidenceProviders,
@@ -1150,10 +1219,16 @@ export class SystemAuthority extends DurableObject<Env> {
       });
       const at = nowIso();
       const ended = new Set<string>();
+      const tasks: string[] = [];
       for (const c of rows) {
         this.sql.exec("UPDATE candidates SET state = 'promoted' WHERE id = ?", c.id);
         this.setRealizationStatus(String(c.realization_id), "promoted");
         ended.add(String(c.realization_id));
+        if (c.task_id != null) {
+          this.tasks_().setTaskStatus(String(c.task_id), "promoted");
+          this.tasks_().setTaskRealization(String(c.task_id), String(c.realization_id));
+          tasks.push(String(c.task_id));
+        }
       }
       this.setKv("genome_commit", prep.manifest.genomeCommit);
       const app = prep.manifest.artifacts[input.artifactId];
@@ -1167,18 +1242,24 @@ export class SystemAuthority extends DurableObject<Env> {
         if (Number(live?.n ?? 0) === 0) {
           this.setRealizationStatus(String(s.realization_id), "rejected");
           ended.add(String(s.realization_id));
+          tasks.push(...this.tasks_().releaseFor(String(s.realization_id)));
         }
       }
-      for (const e of evolutionIds) this.sql.exec("UPDATE evolutions SET status = 'promoted', decided_at = ? WHERE id = ?", at, e);
-      return { commit, rejected, advisories, ended: this.endCredentials([...ended]) };
+      // A planned Evolution is promoted with its last task; until then it stays realizing (more waves to start).
+      for (const e of evolutionIds) {
+        if (this.tasks_().allPromoted(e)) this.sql.exec("UPDATE evolutions SET status = 'promoted', decided_at = ? WHERE id = ?", at, e);
+        else this.setEvolutionStatus(e, "realizing");
+      }
+      return { commit, rejected, advisories, ended: this.endCredentials([...ended]), tasks };
     });
   }
 
   async promote(input: PromoteInput): Promise<PromoteResult> {
     try {
       const prep = await this.preparePromotion(input);
-      const out = this.promoteTx(input, prep);
+      const { tasks, ...out } = this.promoteTx(input, prep);
       this.emit({ type: "system.promoted", commit: out.commit });
+      this.emitTasks(tasks);
       for (const e of out.commit.evolutions) {
         const evo = this.evolution(e);
         if (evo) this.emit({ type: "evolution.updated", evolution: evo });
@@ -1263,7 +1344,7 @@ export class SystemAuthority extends DurableObject<Env> {
         // can never replace a newer genomeCommit that landed after its gate was prepared.
         if (str(this.realizationRow(input.realizationId)?.base_head) !== head) throw new StaleBaseError(head);
         // The same blocking gate as promotion, for the Genome candidate.
-        const gate = this.checkGate([{ ...cand, evolution_id: rec.evolutionId }], { [String(cand.id)]: input.gates }, input.rationale);
+        const gate = this.checkGate([{ ...cand, evolution_id: rec.evolutionId, target: "genome" }], { [String(cand.id)]: input.gates }, input.rationale);
         advisories = gate.advisories;
         const c = this.writeCommit(prep, [rec.evolutionId], {
           by: input.by, policy: "admin-accept", rationale: input.rationale, candidates: [String(cand.id)], evidenceProviders: gate.evidenceProviders,
@@ -1459,10 +1540,18 @@ export class SystemAuthority extends DurableObject<Env> {
     if (builds.deployState === "behind") signifiers.push("behind");
     if (observed) signifiers.push("observed");
     if (s.phase === "unrealized" && everCandidates === 0) signifiers.push("unrealized");
+    const tasks = this.tasks_().counts();
+    if (tasks?.planReady) signifiers.push("plan-ready");
+    if (tasks?.awaitingAgent) signifiers.push("task-awaiting-agent");
+    if (tasks?.realizing) signifiers.push("wave-running");
+    const review = this.importReviewSummary();
+    if (review?.status === "pending") signifiers.push("import-pending");
 
     return {
       ...(s.appSource?.commit && { appCommit: s.appSource.commit }),
       built, realizationCounts, openCandidates, ...builds, phenome, ...(readiness && { readiness }), signifiers,
+      ...(tasks && { taskCounts: { planReady: tasks.planReady, awaitingAgent: tasks.awaitingAgent, running: tasks.running, blocked: tasks.blocked } }),
+      ...(review && { importReview: review }),
     };
   }
 
@@ -1521,6 +1610,12 @@ export class SystemAuthority extends DurableObject<Env> {
   }
   releaseProposal(id: string, claimedAt: string, error: string | null): boolean { return this.proposals().release(id, claimedAt, error); }
   finishProposal(id: string, claimedAt: string, ids: AcceptedIds, error?: string): Proposal | null { return this.proposals().finish(id, claimedAt, ids, error); }
+  /** A proposal's agreement tree, per-node decisions and deferral source (storage only; null: unknown proposal). */
+  proposalPlan(id: string): StoredProposalPlan | null { return this.proposals().plan(id); }
+  /** Stores them while the proposal is `open`; false otherwise (or when unknown). */
+  setProposalPlan(id: string, plan: ProposalPlanNode[], decisions: ProposalDecisions, deferredFrom?: string): boolean {
+    return this.proposals().setPlan(id, plan, decisions, deferredFrom);
+  }
 
   /**
    * Undo an accept that failed after creating its Evolution: delete the Evolution with its realizations and what they
@@ -1551,6 +1646,101 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   // ---------------------------------------------------------------- end W7 intent proposals
+
+  // ---------------------------------------------------------------- tasks (backend.md B.9)
+  // Plans, tasks and claims live in TasksStore; these delegate and announce `plan.updated` / `task.updated`.
+
+  private tasksStore: TasksStore | undefined;
+  private tasks_(): TasksStore {
+    return (this.tasksStore ??= new TasksStore(this.sql, (fn) => this.ctx.storage.transactionSync(fn)));
+  }
+
+  /** `task.updated` for each task id (after its transaction committed). */
+  private emitTasks(ids: string[]): void {
+    for (const id of new Set(ids)) {
+      const task = this.tasks_().task(id);
+      if (task) this.emit({ type: "task.updated", task });
+    }
+  }
+
+  /** Replaces an Evolution's plan (refused `invalid-state` once a task started); emits `plan.updated`. */
+  putPlan(plan: TaskPlan): TaskPlan {
+    if (!this.one("SELECT 1 AS x FROM evolutions WHERE id = ?", plan.evolutionId)) throw new ConflictError("not-found", `unknown evolution ${plan.evolutionId}`);
+    const stored = this.tasks_().putPlan(plan);
+    const summary = this.tasks_().planCounts(plan.evolutionId);
+    if (summary) this.emit({ type: "plan.updated", evolution: plan.evolutionId, plan: summary });
+    return stored;
+  }
+  plan(evolutionId: string): TaskPlan | null { return this.tasks_().plan(evolutionId); }
+  tasks(filter: { evolutionId?: string; status?: TaskStatus[] } = {}): Task[] { return this.tasks_().tasks(filter); }
+  task(id: string): Task | null { return this.tasks_().task(id); }
+  /** Task ids `id` waits on (dependencies not promoted). */
+  taskBlockedOn(id: string): string[] { return this.tasks_().blockedOn(id); }
+  updateTask(id: string, patch: TaskPatch): Task {
+    const task = this.tasks_().updateTask(id, patch);
+    this.emit({ type: "task.updated", task });
+    return task;
+  }
+  /** Claims a task for `agentLabel` (a 30-minute lease by default); emits `task.updated` on a fresh claim. */
+  claimTask(id: string, agentLabel: string, now: number = Date.now(), leaseMs: number = TASK_LEASE_MS): TaskClaimResult {
+    const out = this.tasks_().claimTask(id, agentLabel, now, leaseMs);
+    if ("claimed" in out && out.fresh) this.emit({ type: "task.updated", task: out.claimed });
+    return out;
+  }
+  /** Binds a claimed task to the realization its claim started (also recorded on the realization). */
+  bindTask(id: string, realizationId: string): Task {
+    const r = this.realizationRow(realizationId);
+    if (!r) throw new ConflictError("not-found", `unknown realization ${realizationId}`);
+    if (r.task_id != null && String(r.task_id) !== id) throw new ConflictError("invalid-state", `realization ${realizationId} works on ${r.task_id}`);
+    const task = this.ctx.storage.transactionSync(() => {
+      const t = this.tasks_().bindTask(id, realizationId);
+      if (t.evolutionId !== String(r.evolution_id)) throw new ConflictError("invalid-state", `task ${id} belongs to ${t.evolutionId}, not ${r.evolution_id}`);
+      this.sql.exec("UPDATE realizations SET task_id = ? WHERE id = ?", id, realizationId);
+      return t;
+    });
+    this.emit({ type: "task.updated", task });
+    return task;
+  }
+  releaseTask(id: string): Task {
+    const before = this.tasks_().task(id)?.status;
+    const task = this.tasks_().releaseTask(id);
+    if (before !== task.status) this.emit({ type: "task.updated", task });
+    return task;
+  }
+  setTaskStatus(id: string, status: TaskStatus): void {
+    if (!this.tasks_().task(id)) throw new ConflictError("not-found", `unknown task ${id}`);
+    this.tasks_().setTaskStatus(id, status);
+    this.emitTasks([id]);
+  }
+
+  // ---------------------------------------------------------------- import review (backend.md B.10)
+
+  /** The stored import review (`head` kv `import_review_json`); null when the System was imported without one. */
+  importReview(): ImportReview | null {
+    return json<ImportReview | null>(this.kv("import_review_json"), null);
+  }
+
+  /** Stores (null clears) the import review; emits `system.import-review` and `system.updated`. */
+  setImportReview(review: ImportReview | null): ImportReview | null {
+    this.ctx.storage.transactionSync(() => {
+      this.setKv("import_review_json", review ? JSON.stringify(review) : null);
+      this.setKv("import_review_status", review?.status ?? null);
+    });
+    if (review) this.emit({ type: "system.import-review", status: review.status });
+    this.publishSummary();
+    return review;
+  }
+
+  private importReviewSummary(): SystemSummary["importReview"] | null {
+    const status = this.kv("import_review_status");
+    if (status !== "pending" && status !== "accepted") return null;
+    const review = this.importReview();
+    if (!review) return null;
+    const count = (ns: ProposalPlanNode[]): number => ns.reduce((n, x) => n + 1 + count(x.children ?? []), 0);
+    return { status, genomeCommit: review.genomeCommit, nodes: count(review.tree ?? []) };
+  }
+
+  // ---------------------------------------------------------------- end tasks
 
   // ---------------------------------------------------------------- registry (instance `__registry` only)
 
