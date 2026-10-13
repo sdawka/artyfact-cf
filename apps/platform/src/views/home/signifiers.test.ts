@@ -29,6 +29,12 @@ describe("cardSummary headline", () => {
     expect(cardSummary({ ...base, signifiers: ["awaiting-admin"] }).headline).toBe("awaiting your review");
   });
 
+  it("reads deploy trouble on a quiet System as attention, without changing the headline", () => {
+    expect(cardSummary({ ...base, deployState: "failed" })).toMatchObject({ headline: "quiet", tone: "quiet", state: "attention" });
+    expect(cardSummary({ ...base, deployState: "behind" }).state).toBe("attention");
+    expect(cardSummary({ ...base, deployState: "live" }).state).toBe("quiet");
+  });
+
   it("does not show observed", () => {
     expect(cardSummary({ ...base, signifiers: ["observed"] }).headline).toBe("quiet");
   });
@@ -67,6 +73,8 @@ describe("sortByAttention", () => {
     ];
     expect(sortByAttention(list).map((s) => s.systemId)).toEqual(["attention-old", "evolving-new", "evolving-old", "quiet-new", "quiet-old"]);
     expect(list[0]!.systemId).toBe("quiet-new");
+    const troubled = [sys("quiet-new", [], "2026-10-12T10:00:00Z"), { ...sys("behind-old", [], "2026-09-01T00:00:00Z"), deployState: "behind" as const }];
+    expect(sortByAttention(troubled).map((s) => s.systemId)).toEqual(["behind-old", "quiet-new"]);
   });
 });
 

@@ -36,7 +36,7 @@ const awaiting: CardSummary = {
 const stubSystems = (systems: CardSummary[]) =>
   vi.stubGlobal("fetch", vi.fn(async (url: string) => (String(url) === "/api/systems" ? json(200, { systems }) : json(404, {}))));
 
-const card = (name: RegExp) => within(screen.getByRole("list", { name: "Systems" })).getByRole("link", { name }).closest("li")!;
+const card = (name: RegExp) => within(screen.getByRole("list", { name: "Systems" })).getByRole("link", { name: new RegExp(`^(?:${name.source})$`) }).closest("li")!;
 
 describe("Home", () => {
   it("never displays System-private Parts in the public catalog", () => {
@@ -47,7 +47,7 @@ describe("Home", () => {
 
   it("shows the fixture System in fixture mode and opens its Overview", async () => {
     const { router } = renderApp("/");
-    const link = await screen.findByRole("link", { name: /Keep in Touch/ });
+    const link = await screen.findByRole("link", { name: /^Keep in Touch$/ });
     expect(screen.getByText("fixture data")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry API" })).toBeTruthy();
     act(() => link.click());
@@ -65,7 +65,7 @@ describe("Home", () => {
   it("gives two Systems a headline, a deploy line and a sort by attention", async () => {
     stubSystems([evolving, awaiting]);
     renderApp("/");
-    await screen.findByRole("link", { name: /Alpha/ });
+    await screen.findByRole("link", { name: /^Alpha$/ });
     // Each card link is named by the System title only; the body is content, not part of the name.
     const names = within(screen.getByRole("list", { name: "Systems" })).getAllByRole("link").map((l) => l.getAttribute("aria-labelledby") && document.getElementById(l.getAttribute("aria-labelledby")!)?.textContent).filter(Boolean);
     expect(names).toEqual(["Beta", "Alpha"]); // attention first
@@ -73,9 +73,9 @@ describe("Home", () => {
     const b = card(/Beta/);
     expect(a.querySelector("a")!.getAttribute("data-state")).toBe("evolving");
     expect(b.querySelector("a")!.getAttribute("data-state")).toBe("attention");
-    expect(within(a).getByRole("link", { name: "Describe a change" }).getAttribute("href")).toBe(`/s/${encodeURIComponent(evolving.systemId)}/r/head/work?panel=intent`);
-    expect(within(a).queryByRole("link", { name: "Review" })).toBeNull();
-    expect(within(b).getByRole("link", { name: "Review" }).getAttribute("href")).toBe("/s/system.b/r/head/review");
+    expect(within(a).getByRole("link", { name: "Describe a change to Alpha" }).getAttribute("href")).toBe(`/s/${encodeURIComponent(evolving.systemId)}/r/head/work?panel=intent`);
+    expect(within(a).queryByRole("link", { name: "Review Alpha" })).toBeNull();
+    expect(within(b).getByRole("link", { name: "Review Beta" }).getAttribute("href")).toBe("/s/system.b/r/head/review");
     expect(within(a).getByText("1 realization evolving")).toBeTruthy();
     expect(within(a).queryByText("2 pending realizations")).toBeNull();
     expect(within(b).getByText("1 awaits your review")).toBeTruthy();
@@ -108,7 +108,7 @@ describe("Home", () => {
   it("opens a Home-scoped palette over Systems and Parts from Go to…", async () => {
     stubSystems([evolving, awaiting]);
     const { router } = renderApp("/");
-    await screen.findByRole("link", { name: /Alpha/ });
+    await screen.findByRole("link", { name: /^Alpha$/ });
     act(() => screen.getByRole("button", { name: /Go to…/ }).click());
     const option = await screen.findByRole("option", { name: /Alpha/ });
     expect(screen.getByRole("option", { name: /Beta/ })).toBeTruthy();
@@ -119,7 +119,7 @@ describe("Home", () => {
   it("says unknown for a null deployment and never uses the success tone without a passed build", async () => {
     stubSystems([evolving, { ...base, systemId: "system.c", title: "Gamma", head: null, updatedAt: "" }]);
     const { container } = renderApp("/");
-    await screen.findByRole("link", { name: /Alpha/ });
+    await screen.findByRole("link", { name: /^Alpha$/ });
     expect(within(card(/Alpha/)).getByText("not deployed, unknown")).toBeTruthy();
     const c = card(/Gamma/);
     expect(within(c).getByText("not deployed, unknown")).toBeTruthy();

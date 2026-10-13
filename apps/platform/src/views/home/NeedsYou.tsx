@@ -14,7 +14,7 @@ export function NeedsYou({ systems }: { systems: readonly CardSummary[] }) {
         <ul className={styles.ledgerList}>
           {rows.map((r) => (
             <li key={r.key} className={styles.ledgerRow} data-tone={r.tone}>
-              <Link to={r.href} className="u-marker">{r.title}</Link>
+              <Link to={r.href} className="u-marker" aria-label={`${r.title}, ${r.text}`}>{r.title}</Link>
               <span className={styles.ledgerText}> · {r.text}</span>
             </li>
           ))}

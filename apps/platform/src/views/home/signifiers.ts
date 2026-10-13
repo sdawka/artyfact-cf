@@ -20,6 +20,8 @@ export interface CardView {
   /** One sentence: attention > evolving > not built > quiet. */
   headline: string;
   tone: CardTone;
+  /** The card's border state: `tone`, except that deploy trouble on an otherwise quiet System reads as attention. */
+  state: CardTone;
   deploy: DeployLine;
   /** The System's head Review, present only when something awaits. */
   reviewHref?: string;
@@ -59,6 +61,12 @@ function deployLine(s: CardSummary): DeployLine {
 
 /** What a Home card says, from the server's `signifiers[]` plus counts. Success tone only for a passed build. */
 export function cardSummary(s: CardSummary): CardView {
+  const view = headlineOf(s);
+  const trouble = s.deployState === "behind" || s.deployState === "failed";
+  return { ...view, state: view.tone === "quiet" && trouble ? "attention" : view.tone };
+}
+
+function headlineOf(s: CardSummary): Omit<CardView, "state"> {
   const sig = new Set(s.signifiers ?? []);
   const deploy = deployLine(s);
   const n = awaiting(s);
@@ -81,8 +89,8 @@ const RANK: Record<CardTone, number> = { attention: 0, evolving: 1, unbuilt: 2, 
 
 /** Attention first, then evolving, then the most recently updated. Returns a new array. */
 export function sortByAttention(systems: readonly CardSummary[]): CardSummary[] {
-  const time = (s: CardSummary) => Date.parse(s.updatedAt) || 0;
-  return [...systems].sort((a, b) => RANK[cardSummary(a).tone] - RANK[cardSummary(b).tone] || time(b) - time(a));
+  const keyed = systems.map((s) => ({ s, rank: RANK[cardSummary(s).state], time: Date.parse(s.updatedAt) || 0 }));
+  return keyed.sort((a, b) => a.rank - b.rank || b.time - a.time).map((k) => k.s);
 }
 
 export interface LedgerRow {
