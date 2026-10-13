@@ -39,7 +39,10 @@ test('public content is useful without JavaScript', async ({ page }) => {
   await page.goto('https://artyfact.test/model');
   await expect(page.getByRole('heading', { name: /Start with the domain/ })).toBeVisible();
   await expect(page.getByText(/A Thing can begin with its Genome alone/)).toBeVisible();
-  await expect(page.getByText(/proposed acceptance test and add event instrumentation/)).toBeVisible();
+  await expect(page.locator('.model-view-panels > section')).toHaveCount(3);
+  for(const panel of await page.locator('.model-view-panels > section').all()) await expect(panel).toBeVisible();
+  await expect(page.getByText('Proposed acceptance test',{exact:true})).toBeVisible();
+  await expect(page.getByRole('list',{name:'Proposed event stream'})).toBeVisible();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://artyfact.ing/model');
 });
 const scene = '[data-system-view]';
