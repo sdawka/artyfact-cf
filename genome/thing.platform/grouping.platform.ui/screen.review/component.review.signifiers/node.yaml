@@ -13,6 +13,6 @@ fields:
     - ⊥ hard-semantic conflict (danger)
     - ◇ evidence conflict (attention)
     - gates 4 pass · 1 unknown (attention)
-    - base = head (success)
+    - base = head (subtle)
     - behind by 1 (attention)
     - fake provider (subtle)

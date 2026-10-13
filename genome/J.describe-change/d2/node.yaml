@@ -8,5 +8,4 @@ fields:
   next:
     - to: d3
 links:
-  - rel: stepScreen
-    to: screen.work
+  - { rel: stepScreen, to: screen.work }

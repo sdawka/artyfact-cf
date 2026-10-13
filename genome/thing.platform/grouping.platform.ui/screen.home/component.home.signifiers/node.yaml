@@ -4,6 +4,9 @@ fields:
   name: Card signifiers
   description: The chips on each System card. The headline sentence puts attention first, then evolving, not built, quiet; the deploy line folds the build in. Only pass is green; a missing verdict reads literally unknown, never a blank or a tick.
   states:
+    - System name + id (subtle)
+    - Phase (subtle)
+    - head sha + updated (subtle)
     - n await your review (attention)
     - n realizations evolving (subtle)
     - not built (subtle)

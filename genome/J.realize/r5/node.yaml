@@ -6,5 +6,4 @@ fields:
   action: Runs the hooks for the affected criteria and reports overlap
   kind: end
 links:
-  - rel: stepScreen
-    to: screen.work
+  - { rel: stepScreen, to: screen.work }
