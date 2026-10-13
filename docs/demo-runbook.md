@@ -378,8 +378,9 @@ B with the current head (`"expectedHead":"sc-2-88b3ec84"`) is refused as well, b
 
 ## 9. Moment 2, amendment 1: a rules violation, refused and rejected
 
-evolution.5 is a Genome amendment; its scope covers `things/webapp/ontology.yaml`, `description.yaml` (it lists
-`commitment.no-engagement-mechanics`) and `evolutions/**`. Terminal **ops** starts the work:
+evolution.5 is a Genome amendment; its scope is the directories of the nodes it affects: `thing.webapp/section.domain/**`
+(with `entity.DigestEdition` and `entity.Subscription` under it), `commitment.no-engagement-mechanics/**`, and
+`evolutions/**`. Terminal **ops** starts the work:
 
 ```sh
 curl -s -XPOST $B/evolutions/evolution.5/realizations -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
@@ -396,11 +397,11 @@ cd /tmp/kit-c1
 ```
 
 ```text
-{"realization":"realization.5.r5","target":"genome","fork":"keep-in-touch.genome--r5","permittedPaths":["things/webapp/ontology.yaml","description.yaml","evolutions/**"]}
+{"realization":"realization.5.r5","target":"genome","fork":"keep-in-touch.genome--r5","permittedPaths":["thing.webapp/section.domain/entity.DigestEdition/**","thing.webapp/section.domain/entity.Subscription/**","thing.webapp/section.domain/**","commitment.no-engagement-mechanics/**","evolutions/**"]}
 ```
 
-In `things/webapp/ontology.yaml`, firm up `entity.MessageDraft`: remove `provisional: true` and add
-`- { name: recipients, type: "list<ref:entity.Account>" }`. (The private-pairs rule skips provisional entities, so
+In `thing.webapp/section.domain/entity.MessageDraft/node.yaml`, firm up `entity.MessageDraft`: remove
+`provisional: true` and add `- { name: recipients, type: "list<ref:entity.Account>" }` under `fields.fields`. (The private-pairs rule skips provisional entities, so
 the field alone raises nothing.)
 
 ```sh
@@ -489,7 +490,7 @@ artyfact start realization.5.r6 --system system.keep-in-touch --evolution evolut
 cd /tmp/kit-c2
 ```
 
-In `description.yaml`, reword `commitment.no-engagement-mechanics` to "The core contract has no streak penalties, no
+In `commitment.no-engagement-mechanics/node.yaml`, reword the commitment's `statement` to "The core contract has no streak penalties, no
 public relationship scores and no group discussion; missing a goal is never punished."
 
 ```sh

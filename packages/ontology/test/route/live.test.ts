@@ -5,14 +5,14 @@ import { evalRoute, providerFromEnv, translatorFromEnv, type RouteEvalReport, ty
 import { assistant, ROUTE_FIXTURES, tidepool } from "./setup.ts";
 
 /**
- * Real-provider routing eval. Skipped unless OPENROUTER_API_KEY is set. The decider comes from `providerFromEnv`
+ * Real-provider routing eval. Skipped unless ONTOLOGY_LIVE=1 and OPENROUTER_API_KEY are both set. The decider comes from `providerFromEnv`
  * (`OPENROUTER_MODEL`), the translator from `translatorFromEnv` (`OPENROUTER_TRANSLATE_MODEL`, `TRANSLATE=0` skips
  * the translated run), the orders from `ROUTE_ORDER` (comma-separated `shortlist-first`, `intent-first`,
  * `intent-last`; default all three). Each run writes `test/fixtures/route/results.<model>[.<translate-model>].<order>.json` with the report:
  * every question, answer and distribution on each route path and the translator's raw reply. `expect.soft` keeps
  * low numbers recorded rather than aborting.
  *
- * Run: OPENROUTER_API_KEY=… npm run test:route:live -w @artyfact/ontology
+ * Run: OPENROUTER_API_KEY=… npm run test:route:live -w @artyfact/ontology (the script sets ONTOLOGY_LIVE=1)
  */
 // Opt-in only, so `npm test` never calls a paid API just because a key is in the environment.
 const KEY = process.env.ONTOLOGY_LIVE === "1" ? process.env.OPENROUTER_API_KEY?.trim() : undefined;

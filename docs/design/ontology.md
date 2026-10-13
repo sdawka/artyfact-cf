@@ -12,7 +12,7 @@ Contract code: `packages/ontology/src/genome/` (zod schemas and types for `node.
 | `@artyfact/ontology/artyfact/node` | `readDir` for Node (the only file-system import) |
 | `@artyfact/ontology/product`, `/world` | bropilot's product-spec, spaces and world-core adapters, kept for their tests and as worked examples |
 
-Datalog comes from `@artyfact/rules` (one engine; the bropilot copy is deleted). Everything except `artyfact/node` runs in workerd; `apps/platform/test/ontology-smoke.test.ts` loads Keep in Touch through the v1 adapter, evaluates it and routes a message with the fake providers there. The live suites (`npm run test:live`, `npm run test:route:live` in the package) call OpenRouter only with `ONTOLOGY_LIVE=1` and a key.
+Datalog comes from `@artyfact/rules` (one engine; the bropilot copy is deleted). Everything except `artyfact/node` runs in workerd; `apps/platform/test/ontology-smoke.test.ts` loads Keep in Touch through the node-tree codec (`readTree`), evaluates it and routes a message with the fake providers there. The live suites (`npm run test:live`, `npm run test:route:live` in the package) call OpenRouter only with `ONTOLOGY_LIVE=1` and a key.
 
 ### Route, translate, validate
 
@@ -196,7 +196,7 @@ The test is deleted with the v1 reader.
 
 Field names are kept as they are in v1. Nodes go on using `name` where v1 did, and view hints default the display name to `title`, then `name`. The engine's routing names nodes with `titleOf`: `title`, then `name`, then the field the kind's `view.title` names, then the id.
 
-The engine's v1 adapter predates Parts, Composition and the Phenome. The converter reads v1 through `@artyfact/model`, which knows them, and emits the tree from that. Both readers go when the migration release has run (§2a).
+The engine's v1 adapter predates Parts, Composition and the Phenome. The converter reads v1 through the adapter's loader, which carries a Thing's Parts and Composition through unchecked, and emits the tree from that. Both readers go when the migration release has run (§2a).
 
 ## 3. Templates (meta@1 plus artyfact's extensions)
 

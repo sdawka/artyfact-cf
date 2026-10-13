@@ -8,10 +8,10 @@ import {
 import { defectMatches, defectRelated, FIXTURES, subjectsOf, subjectsOfPlanted, VOCABULARIES, type Planted, type Vocabulary } from "./vocabularies.ts";
 
 /**
- * Real-provider semantic suite on the v2 funnel. Skipped unless OPENROUTER_API_KEY is set. The provider comes from
+ * Real-provider semantic suite on the v2 funnel. Skipped unless ONTOLOGY_LIVE=1 and OPENROUTER_API_KEY are both set. The provider comes from
  * `providerFromEnv` (OPENROUTER_MODEL picks the decision model) and the explainer from `explainerFromEnv`
  * (OPENROUTER_EXPLAIN_MODEL; EXPLAIN=0 turns it off); the key is handed to them only.
- * Run: OPENROUTER_API_KEY=… npm run test:live -w @artyfact/ontology
+ * Run: OPENROUTER_API_KEY=… npm run test:live -w @artyfact/ontology (the script sets ONTOLOGY_LIVE=1)
  */
 // Opt-in only, so `npm test` never calls a paid API just because a key is in the environment.
 const KEY = process.env.ONTOLOGY_LIVE === "1" ? process.env.OPENROUTER_API_KEY?.trim() : undefined;

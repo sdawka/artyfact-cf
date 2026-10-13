@@ -4,7 +4,7 @@ Copied from bropilot `packages/ontology-engine` at commit `cb1599c` (MIT, see `L
 
 A template-independent ontology engine. A template declares kinds, relations, constraints, criteria, rule packs and questions against the versioned meta-schema `meta@1`. The engine checks that the template is well formed, then evaluates an instance graph against it and reports readiness with a derivation for every finding. The design is `docs/ontology-engine-library.md` and the guide for template authors `docs/writing-an-ontology.md` (both in this package); how artyfact stores Genomes as node trees and drives intents is `docs/design/ontology.md` at the repository root.
 
-TypeScript ESM. The runtime dependencies are `zod` and `yaml` (and `@artyfact/model`, read only by the one-time v1 converter). Hashing is synchronous, so the same code runs in Node and Workers. Only `@artyfact/ontology/artyfact/node` touches the file system. The main entry exports the engine and the artyfact adapter; the product and world adapters are `@artyfact/ontology/product` and `@artyfact/ontology/world`.
+TypeScript ESM. The runtime dependencies are `@artyfact/rules` (the Datalog engine), `zod` and `yaml`. Hashing is synchronous, so the same code runs in Node and Workers. Only `@artyfact/ontology/artyfact/node` touches the file system. The main entry exports the engine and the artyfact adapter; the product and world adapters are `@artyfact/ontology/product` and `@artyfact/ontology/world`.
 
 ## What exists
 
