@@ -1,9 +1,10 @@
 import { test, expect, type Page } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
-import { serveDist } from './serve';
+import { serveDist, revealStory } from './serve';
 test.beforeEach(({ page }) => serveDist(page));
 test('homepage leads to the guide and links the hosted platform', async ({ page }) => {
   await page.goto('https://artyfact.test/');
+  await revealStory(page);
   await expect(page.getByRole('heading', { name: /^Make Meaningful Systems$/ })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Open the platform' })).toHaveAttribute('href', 'https://artyfact-platform.dawka.workers.dev');
   await expect(page.locator('a[href="/app"]')).toHaveCount(0);
@@ -50,12 +51,13 @@ function watchErrors(page: Page) {
 test('System illustration stays usable through all views and explicit composition', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('https://artyfact.test/');
+  await revealStory(page);
   await mounted(page);
   await expect(page.locator('[data-hero-orb]')).toHaveCount(0);
   await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'genome');
   await page.getByRole('tab', { name: /Phenome/ }).click();
   await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'phenome');
-  await expect(page.getByRole('img', { name: /^Sample saves:/ })).toBeVisible();
+  await expect(page.getByRole('img', { name: /^Ideas explored:/ })).toBeVisible();
   await page.getByRole('button', { name: 'Part: Component system' }).click();
   await page.getByText('Composition + provenance', { exact: true }).click();
   await expect(page.locator('.scene-selected-detail')).toContainText('caller adapter');
@@ -69,6 +71,7 @@ test('effects and the scene respect reduced motion and ordinary flow', async ({ 
   const errors = watchErrors(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('https://artyfact.test/');
+  await revealStory(page);
   await mounted(page);
   await page.getByRole('tab', { name: /Proteome/ }).click();
   await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'proteome');
@@ -80,6 +83,11 @@ test('effects and the scene respect reduced motion and ordinary flow', async ({ 
 for (const path of ['/', '/model', '/connect-agent']) test('no axe violations with effects mounted: ' + path, async ({ page }) => {
   await page.goto('https://artyfact.test' + path);
   await expect(page.locator('[data-ambient] [data-effect="ambient"]')).toHaveAttribute('data-effect-mode', /^(gl|fallback)$/, { timeout: 15000 });
+  if (path === '/') {
+    const initial = await new AxeBuilder({ page }).analyze();
+    expect(initial.violations.map(v => v.id)).toEqual([]);
+    await revealStory(page);
+  }
   for (const view of path === '/' ? ['Genome', 'Proteome', 'Phenome'] : [null]) {
     if (view) await page.getByRole('tab', { name: new RegExp(view) }).click();
     const { violations } = await new AxeBuilder({ page }).analyze();

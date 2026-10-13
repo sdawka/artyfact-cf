@@ -14,11 +14,11 @@ function Harness() {
   const scene = useRef<HTMLDivElement>(null), controls = useRef<HTMLDivElement>(null);
   const [view, setView] = useState<LandingView>('genome');
   const { pinned, manual, chooseView } = useLandingScroll(scene, controls, setView);
-  return <section id="home-system-story"><div ref={scene} data-test-scene="" data-pinned={String(pinned)}><div ref={controls}>
+  return <section id="home-system-story"><div ref={scene} data-test-scene="" data-pinned={String(pinned)}><div className="landing-sticky-stage"><div ref={controls}>
     {(['genome', 'proteome', 'phenome'] as const).map(item => <button key={item} onClick={() => chooseView(item)}>{item}</button>)}
-  </div><button>Save record</button><output>{view}:{String(manual)}</output></div>
+  </div><button className="scene-save">Save record</button><output>{view}:{String(manual)}</output></div></div>
     {(['genome', 'proteome', 'phenome'] as const).map(item => <article key={item} data-story-step={item} />)}
-    <button>Outside controls</button>
+    <button className="scene-demo-control">Outside controls</button>
   </section>;
 }
 const flush = () => act(() => { vi.runOnlyPendingTimers(); });
@@ -32,7 +32,7 @@ beforeEach(() => {
   vi.stubGlobal('cancelAnimationFrame', (handle: number) => clearTimeout(handle));
   vi.stubGlobal('matchMedia', () => ({ get matches() { return reduced; }, addEventListener: (_: string, fn: () => void) => mediaListeners.add(fn), removeEventListener: (_: string, fn: () => void) => mediaListeners.delete(fn) }));
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-    if (this.hasAttribute('data-test-scene')) return box(24, sceneHeight);
+    if (this.hasAttribute('data-test-scene') || this.classList.contains('landing-sticky-stage')) return box(24, sceneHeight);
     const index = ['genome', 'proteome', 'phenome'].indexOf(this.dataset.storyStep ?? '');
     return box(index >= 0 ? positions[index] : 0);
   });
@@ -40,7 +40,7 @@ beforeEach(() => {
 afterEach(() => { cleanup(); mediaListeners.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
 it('follows narrative panels and keeps manual choice until a different panel', () => {
   render(<Harness />);
-  fireEvent.click(screen.getByRole('button', { name: 'phenome' }));
+  fireEvent.click(screen.getByRole('button', { hidden: true, name: 'phenome' }));
   expect(screen.getByText('phenome:true')).toBeTruthy();
   positions = [200, 700, 1200]; fireEvent.scroll(window); flush();
   expect(screen.getByText('phenome:true')).toBeTruthy();
@@ -50,10 +50,10 @@ it('follows narrative panels and keeps manual choice until a different panel', (
 it('suspends automatic selection while the controls retain keyboard focus', () => {
   render(<Harness />);
   keyboardMode = true;
-  screen.getByRole('button', { name: 'genome' }).focus();
+  screen.getByRole('button', { hidden: true, name: 'genome' }).focus();
   positions = [-400, 200, 700]; fireEvent.scroll(window); flush();
   expect(screen.getByText('genome:false')).toBeTruthy();
-  screen.getByRole('button', { name: 'Outside controls' }).focus(); flush();
+  screen.getByRole('button', { hidden: true, name: 'Outside controls' }).focus(); flush();
   expect(screen.getByText('proteome:false')).toBeTruthy();
 });
 it('uses normal flow for short mobile viewports and reduced motion while keeping controls', () => {
@@ -63,7 +63,7 @@ it('uses normal flow for short mobile viewports and reduced motion while keeping
   expect(container.querySelector('[data-pinned]')?.getAttribute('data-pinned')).toBe('false');
   positions = [-400, 100, 200]; fireEvent.scroll(window); flush();
   expect(screen.getByText('genome:false')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { name: 'phenome' }));
+  fireEvent.click(screen.getByRole('button', { hidden: true, name: 'phenome' }));
   expect(screen.getByText('phenome:true')).toBeTruthy();
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 });
   reduced = true; act(() => { for (const listener of mediaListeners) listener(); }); flush();
@@ -71,6 +71,7 @@ it('uses normal flow for short mobile viewports and reduced motion while keeping
 });
 it('pins only when measured geometry leaves room and releases queued work on unmount', () => {
   Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
+  Object.defineProperty(window, 'innerHeight', { configurable: true, value: 568 });
   const { container, unmount } = render(<Harness />);
   expect(container.querySelector('[data-pinned]')?.getAttribute('data-pinned')).toBe('false');
   sceneHeight = 350; fireEvent.resize(window); flush();
@@ -82,11 +83,57 @@ it('pins only when measured geometry leaves room and releases queued work on unm
 
 it('keeps a keyboard-focused demo control visible while scrolling and resumes after it leaves the story', () => {
   render(<Harness />);
-  fireEvent.click(screen.getByRole('button', { name: 'phenome' }));
+  fireEvent.click(screen.getByRole('button', { hidden: true, name: 'phenome' }));
   positions = [-1000, -500, 200]; fireEvent.scroll(window); flush();
-  keyboardMode = true; act(() => screen.getByRole('button', { name: 'Save record' }).focus());
+  keyboardMode = true; act(() => screen.getByRole('button', { hidden: true, name: 'Save record' }).focus());
   positions = [-400, 200, 700]; fireEvent.scroll(window); flush();
   expect(screen.getByText('phenome:false')).toBeTruthy();
-  act(() => screen.getByRole('button', { name: 'Outside controls' }).focus()); flush();
+  act(() => screen.getByRole('button', { hidden: true, name: 'Outside controls' }).focus()); flush();
   expect(screen.getByText('proteome:false')).toBeTruthy();
+});
+
+it('scrubs progress continuously and reverses without resetting the semantic view', () => {
+  const { container } = render(<Harness />); const root = container.querySelector('[data-test-scene]') as HTMLElement;
+  positions = [-350, 650, 1650]; fireEvent.scroll(window); flush();
+  const half = Number(root.style.getPropertyValue('--realization-progress')); expect(half).toBeGreaterThan(0); expect(half).toBeLessThan(1);
+  positions = [-150, 850, 1850]; fireEvent.scroll(window); flush();
+  expect(Number(root.style.getPropertyValue('--realization-progress'))).toBeLessThan(half);
+  keyboardMode = true; act(() => screen.getByRole('button', { hidden: true, name: 'genome' }).focus());
+  const frozen = root.style.getPropertyValue('--realization-progress'); positions = [-1500,-500,500]; fireEvent.scroll(window); flush();
+  expect(root.style.getPropertyValue('--realization-progress')).toBe(frozen);
+});
+it('settles the same focused view when reduced motion changes at a scrub midpoint', () => {
+  const { container } = render(<Harness />); const root = container.querySelector('[data-test-scene]') as HTMLElement;
+  positions = [-350,650,1650]; fireEvent.scroll(window); flush();
+  keyboardMode = true; act(() => screen.getByRole('button', { hidden: true, name: 'genome' }).focus());
+  reduced = true; act(() => { for (const listener of mediaListeners) listener(); }); flush();
+  expect(root.style.getPropertyValue('--opening-progress')).toBe('1');
+  expect(root.style.getPropertyValue('--realization-progress')).toBe('0');
+});
+
+it.each(['wheel', 'touchmove'])('protects pointer demo focus from assisted scrolling, then rejoins on %s', (gesture) => {
+  render(<Harness />); fireEvent.click(screen.getByRole('button', { hidden:true, name:'phenome' }));
+  act(() => screen.getByRole('button', { name:'Save record' }).focus());
+  positions=[-400,200,700]; fireEvent.scroll(window); flush();
+  expect(screen.getByText('phenome:true')).toBeTruthy();
+  fireEvent(window,new Event(gesture)); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
+});
+it('rejoins after pointer demo focus leaves and preserves the stronger keyboard lock', () => {
+  render(<Harness />); fireEvent.click(screen.getByRole('button', { hidden:true,name:'phenome' }));
+  act(() => screen.getByRole('button', { name:'Save record' }).focus());
+  positions=[-400,200,700]; fireEvent.scroll(window); flush(); expect(screen.getByText('phenome:true')).toBeTruthy();
+  keyboardMode=true; fireEvent.wheel(window); flush(); expect(screen.getByText('phenome:true')).toBeTruthy();
+  act(() => screen.getByRole('button', {name:'Outside controls'}).focus()); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
+});
+
+it('releases pointer protection even when an outside focus target has a demo-like class', () => {
+  render(<Harness />); fireEvent.click(screen.getByRole('button',{hidden:true,name:'phenome'}));
+  act(() => screen.getByRole('button',{name:'Save record'}).focus()); positions=[-400,200,700]; fireEvent.scroll(window); flush();
+  act(() => screen.getByRole('button',{name:'Outside controls'}).focus()); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
+});
+it('does not latch protection for a non-primary pointer without demo focus', () => {
+  render(<Harness />); fireEvent.click(screen.getByRole('button',{hidden:true,name:'phenome'}));
+  act(() => screen.getByRole('button',{name:'Outside controls'}).focus());
+  fireEvent.pointerDown(screen.getByRole('button',{name:'Save record'}),{button:2,isPrimary:false});
+  positions=[-400,200,700]; fireEvent.scroll(window); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
 });

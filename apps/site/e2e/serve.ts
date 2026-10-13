@@ -16,3 +16,9 @@ export async function serveDist(page: Page) {
     } catch { await route.fulfill({ status: 404, body: await readFile(resolve(dist, '404.html')), contentType: 'text/html' }); }
   });
 }
+
+/** Reach the first narrative before operating chrome deliberately hidden in the opening. */
+export async function revealStory(page: Page) {
+  await page.evaluate(() => { const step = document.querySelector('[data-story-step="genome"]'); if (step) window.scrollTo({ top: scrollY + step.getBoundingClientRect().top - innerHeight * .25, behavior: 'instant' }); });
+  await page.getByRole('tab', { name: /Genome/ }).click();
+}
