@@ -338,6 +338,49 @@ describe("artyfact init", { timeout: 60_000 }, () => {
   });
 });
 
+describe("artyfact init --genome-only (migrating a deployed System's Genome)", { timeout: 60_000 }, () => {
+  const lc = localCloud(join(tmp, "cloud-migrate"));
+  const dir = project("proj-migrate");
+
+  it("commits the Genome on top of the repo's head and re-imports, never touching the app repo", async () => {
+    const first = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: mockPlatform().fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    expect(first.code, first.err).toBe(0);
+    const genome = lc.path("artyfact", "keep-in-touch.genome"), app = lc.path("artyfact", "keep-in-touch.app");
+    // Prod moved on: a promotion on the Genome repo this checkout did not push.
+    const other = join(tmp, "migrate-other");
+    sh(tmp, "clone", "-q", genome, other);
+    writeFileSync(join(other, "theirs.txt"), "theirs\n");
+    sh(other, "add", "-A");
+    sh(other, "-c", "user.name=o", "-c", "user.email=o@o", "commit", "-qm", "theirs");
+    sh(other, "push", "-q", "origin", "HEAD:main");
+    const [genomeBefore, appBefore] = [headOf(genome), headOf(app)];
+    // The converted tree, and a local app that differs from the app repo: neither may reach the app repo.
+    writeFileSync(join(dir, "genome", "README.md"), "converted\n");
+    writeFileSync(join(dir, "app", "LOCAL-ONLY.md"), "never pushed\n");
+
+    const p = mockPlatform((b) => (b.force ? [201, { head: "sc-9-x" }] : [409, {}]));
+    const r = await run(["init", "--dir", dir, "--genome-only", "--adopt", "--force"], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    expect(r.code, r.err).toBe(0);
+    expect(r.out).toContain("keep-in-touch.app: left alone (--genome-only)");
+    expect(headOf(app)).toBe(appBefore);
+    expect(filesAt(app)).not.toContain("LOCAL-ONLY.md");
+    expect(sh(tmp, "--git-dir", genome, "rev-parse", "main^")).toBe(genomeBefore);
+    expect(sh(tmp, "--git-dir", genome, "show", "main:README.md")).toBe("converted");
+    expect(p.requests).toEqual([expect.objectContaining({ body: { systemId: "system.keep-in-touch", genomeRepo: "keep-in-touch.genome", appRepo: "keep-in-touch.app", force: true } })]);
+    noTokenLeaks(lc.tokens, r.out, r.err);
+  });
+
+  it("refuses --app or --from-template, and a missing app repo", async () => {
+    const withApp = await run(["init", "--dir", dir, "--genome-only", "--app", join(dir, "app")], { cloud: lc.cloud });
+    expect(withApp.code).toBe(1);
+    expect(withApp.err).toContain("--genome-only never pushes an app");
+    const fresh = localCloud(join(tmp, "cloud-migrate-empty"));
+    const missing = await run(["init", "--dir", dir, "--genome-only"], { cloud: fresh.cloud, fetch: mockPlatform().fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    expect(missing.code).toBe(1);
+    expect(missing.err).toContain("--genome-only needs the existing keep-in-touch.app");
+  });
+});
+
 describe("init and an existing platform repo", { timeout: 60_000 }, () => {
   it("leaves a non-empty platform alone (an older checkout never overwrites it); platform-sync is the update path", async () => {
     const lc = localCloud(join(tmp, "cloud-plat-old"));
@@ -497,7 +540,8 @@ describe("security", { timeout: 60_000 }, () => {
   it("stops with a clear message when the server rejects the push", async () => {
     const lc = localCloud(join(tmp, "cloud-sec-reject"));
     const dir = project("sec-reject");
-    expect((await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: mockPlatform().fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } })).code).toBe(0);
+    const first = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: mockPlatform().fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    expect(first.code, first.err).toBe(0);
     const genome = lc.path("artyfact", "keep-in-touch.genome");
     const before = headOf(genome);
     writeFileSync(join(genome, "hooks", "pre-receive"), "#!/bin/sh\necho 'main moved' >&2\nexit 1\n");

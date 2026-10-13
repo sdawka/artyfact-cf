@@ -337,7 +337,12 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const values = parse(args, {
     dir: { type: "string" }, genome: { type: "string" }, app: { type: "string" }, platform: { type: "string" },
     namespace: { type: "string" }, "from-template": { type: "string" }, force: { type: "boolean" }, adopt: { type: "boolean" },
+    "genome-only": { type: "boolean" },
   });
+  // --genome-only pushes the Genome and re-imports; the app repo is never read from disk, pushed or seeded (the platform
+  // keeps its head and recorded scaffold source). For migrating a deployed System's Genome (docs/deploy.md).
+  const genomeOnly = values["genome-only"] === true;
+  if (genomeOnly && (values.app !== undefined || values["from-template"] !== undefined)) throw new CliError("--genome-only never pushes an app; drop --app/--from-template");
   // Every path is resolved with realpath. Defaults (`<dir>/system`, `<dir>/app`) must stay inside the project; an
   // explicitly given --genome/--app directory is its own root. Nothing outside these roots is read or pushed.
   const dirArg = resolve(io.cwd, (values.dir as string | undefined) ?? ".");
@@ -368,7 +373,7 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const names = systemRepoNames(systemId, appArtifacts);
   assertName("genome repo", names.genomeRepo);
   if (appNeeded) assertName("app repo", names.appRepo);
-  const hasApp = existsSync(join(appDir, "package.json")) || (existsSync(appDir) && readdirSync(appDir).length > 0);
+  const hasApp = !genomeOnly && (existsSync(join(appDir, "package.json")) || (existsSync(appDir) && readdirSync(appDir).length > 0));
   if (hasApp && fromTemplate) throw new CliError(`--from-template seeds a project without an app, but ${appDir} exists`);
   if (!appNeeded && (hasApp || fromTemplate)) throw new CliError("this Genome has no worker-fullstack artifact; remove --app/--from-template or add the artifact binding first");
   io.out(`${systemId} -> ${names.genomeRepo}${appNeeded ? `, ${names.appRepo}` : ""} (namespace ${ns})`);
@@ -379,7 +384,7 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const platformUrl = await resolvePlatform(values.platform as string | undefined, io.env, io.fetch ?? fetch, io.err, sendsBearer ? undefined : DEFAULT_URL);
 
   const cloud = connect(io, ns);
-  return withAccountScrubbed(cloud, () => initWith(io, { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force: values.force === true, adopt: values.adopt === true }));
+  return withAccountScrubbed(cloud, () => initWith(io, { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force: values.force === true, adopt: values.adopt === true, genomeOnly }));
 }
 
 /** CLI errors name the account by its prefix only (git and wrangler failures can echo remote URLs holding the id). */
@@ -395,11 +400,11 @@ async function withAccountScrubbed<T>(cloud: Cloud, fn: () => Promise<T>): Promi
 
 interface InitPlan {
   project: string; genomeDir: string; appDir: string; hasApp: boolean; appNeeded: boolean; fromTemplate: string | undefined; ns: string; systemId: string;
-  names: ReturnType<typeof systemRepoNames>; cloud: Cloud; platformUrl: string; force: boolean; adopt: boolean;
+  names: ReturnType<typeof systemRepoNames>; cloud: Cloud; platformUrl: string; force: boolean; adopt: boolean; genomeOnly: boolean;
 }
 
 async function initWith(io: InitIo, plan: InitPlan): Promise<number> {
-  const { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force, adopt } = plan;
+  const { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force, adopt, genomeOnly } = plan;
   const stateFile = stateFileFor(io, project);
   const state = readState(stateFile);
   const key = `${cloud.remote(ns, "").replace(/\.git$/, "")}`;
@@ -414,6 +419,9 @@ async function initWith(io: InitIo, plan: InitPlan): Promise<number> {
     let scaffoldFrom: { repo: string; commit: string; path?: string } | undefined;
     if (!appNeeded) {
       // Genome-only Systems intentionally have no application repository or synthetic source.
+    } else if (genomeOnly) {
+      if (!cloud.repoExists(ns, names.appRepo)) throw new CliError(`--genome-only needs the existing ${names.appRepo}; it does not exist in ${ns}`);
+      io.out(`${names.appRepo}: left alone (--genome-only)`);
     } else if (hasApp) {
       ensureRepo(io, cloud, ns, names.appRepo);
       const app = pushTree(ctx, names.appRepo, appDir, `Import ${systemId} app`, { adopt });

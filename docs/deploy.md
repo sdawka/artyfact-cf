@@ -38,21 +38,23 @@ Before deploying, confirm a System One key is set: `cd apps/platform && npx wran
 
 A System whose head Genome is in the retired v1 layout (`system.yaml` at the root) answers 422 `legacy-genome` on every route that loads it, so it cannot be migrated through a realization. Convert it locally and re-import it ([ontology.md §2a](design/ontology.md)). For the prod Keep in Touch System, from the repo root:
 
-1. Check out the v1 head of `keep-in-touch.genome` (not the example on `main`: prod may have promoted Genome amendments since), and the head of `keep-in-touch.app` for its `source-map.yaml`. Pass each read token through the environment, never in argv:
+1. Clone the v1 head of `keep-in-touch.genome` (not the example on `main`: prod may have promoted Genome amendments since). Pass the read token through the environment, never in argv:
    ```
-   R=https://<account-id>.artifacts.cloudflare.net/git/artyfact
-   for repo in keep-in-touch.genome keep-in-touch.app; do
-     T=$(npx wrangler artifacts repos issue-token $repo --namespace artyfact --scope read --ttl 600 --json | jq -r .plaintext)
-     GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Bearer $T" git clone -q $R/$repo.git /tmp/$repo
-   done
+   T=$(npx wrangler artifacts repos issue-token keep-in-touch.genome --namespace artyfact --scope read --ttl 600 --json | jq -r .plaintext)
+   GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=http.extraHeader GIT_CONFIG_VALUE_0="Authorization: Bearer $T" \
+     git clone -q https://<account-id>.artifacts.cloudflare.net/git/artyfact/keep-in-touch.genome.git /tmp/kit-v1
    ```
-2. Convert: `npx artyfact convert-genome /tmp/keep-in-touch.genome /tmp/kit-v2 --source-map /tmp/keep-in-touch.app/source-map.yaml`. Review the tree; `node.yaml` at its root must name `system.keep-in-touch`.
-3. Push and re-import, keeping the app repo's head (the scratch project has no `app/`):
+2. Convert it:
    ```
-   ARTYFACT_ADMIN_TOKEN=... npx artyfact init --dir /tmp/kit-migrate --genome /tmp/kit-v2 --platform $URL --adopt --force
+   npx artyfact convert-genome /tmp/kit-v1 /tmp/kit-v2 --source-map packages/ontology/test/fixtures/artyfact/keep-in-touch-app.source-map.yaml
    ```
-   `--adopt` commits the converted tree on top of the v1 head of the same repo (a fast-forward), and `--force` re-points the System at that commit.
-4. Check: `curl -s $URL/api/systems/system.keep-in-touch/model` returns 200, and the Changelog lists the earlier commits with the legacy notice.
+   Review the tree; `node.yaml` at its root must name `system.keep-in-touch`.
+3. Push the Genome only and re-import:
+   ```
+   ARTYFACT_ADMIN_TOKEN=... npx artyfact init --dir /tmp/kit-migrate --genome /tmp/kit-v2 --platform $URL --genome-only --adopt --force
+   ```
+   `--genome-only` never reads, pushes or seeds an app: `keep-in-touch.app` keeps its head, and the platform keeps its recorded scaffold source. `--adopt` commits the converted tree on top of the v1 head of the same Genome repo (a fast-forward), and `--force` re-points the System at that commit.
+4. Verify: `curl -s -o /dev/null -w '%{http_code}\n' $URL/api/systems/system.keep-in-touch/model` prints `200`.
 
 ## Rollback
 

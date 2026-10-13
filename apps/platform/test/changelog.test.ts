@@ -239,7 +239,7 @@ describe("changelog cache soundness", () => {
   });
 });
 
-const LEGACY_MESSAGE = "this revision predates the node-tree Genome format; convert it with `artyfact convert-genome` and push it with `artyfact init --adopt --force` (docs/deploy.md)";
+const LEGACY_MESSAGE = "this revision predates the node-tree Genome format; convert it with `artyfact convert-genome` and push it with `artyfact init --genome-only --adopt --force` (docs/deploy.md)";
 
 describe("a Genome in the retired v1 layout", () => {
   /** import (sc-1) → a Genome acceptance whose tree is in the v1 layout (sc-2), accepted in the DO without loading it. */
@@ -274,7 +274,7 @@ describe("a Genome in the retired v1 layout", () => {
   it("names the converter in its error, and a forced re-import of a converted tree on the same repo restores the head", async () => {
     expect(new LegacyGenomeError().message).toBe(LEGACY_MESSAGE);
     const { f } = await legacyHead();
-    // What `artyfact init --adopt --force` does with the converted tree: a new commit on the Genome repo, then a forced import.
+    // What `artyfact init --genome-only --adopt --force` does with the converted tree: a new commit on the Genome repo, then a forced import.
     const v2 = f.ns.repo(f.genomeRepo).commit(genomeFor(f.systemId), "Convert the Genome to the node tree");
     const plain = await apiCall<ApiError>("POST", "/systems/import", { systemId: f.systemId, genomeRepo: f.genomeRepo, appRepo: f.appRepo }, ADMIN);
     expect(plain.status).toBe(409);
