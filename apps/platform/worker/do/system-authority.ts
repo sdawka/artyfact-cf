@@ -73,6 +73,14 @@ export class ConflictError extends Error {
   }
 }
 
+/** `reserveRealization` refused an `expectedBase` the canonical commit no longer is; maps to a 409 `stale-base`. */
+export class StaleBaseRefusal extends Error {
+  constructor(readonly detail: string) {
+    super(`[stale-base] ${detail}`);
+    this.name = "StaleBaseRefusal";
+  }
+}
+
 /** The model's Evolution as stored (`scope_json`). */
 export interface EvolutionSeed {
   id: string;
@@ -138,6 +146,8 @@ export interface ReserveInput {
   role?: Realization["agent"]["role"];
   /** B5: who drives the realization (stored in `realizations.origin`). */
   origin?: RealizationOrigin;
+  /** Refuse with `[stale-base]` unless the base (the canonical Genome or app commit) is this commit. */
+  expectedBase?: string;
 }
 
 export interface ReservedRealization {
@@ -675,12 +685,15 @@ export class SystemAuthority extends DurableObject<Env> {
         throw new ConflictError("invalid-state", `evolution ${input.evolutionId} is ${evo.status}`);
       }
       if (input.target === "app" && !s.appSource) throw new ConflictError("invalid-state", "This Thing has no source artifact yet; accept a Genome binding and import its source before application work");
+      const baseRepo = input.target === "genome" ? s.genomeSource : s.appSource!.repo;
+      const baseCommit = input.target === "genome" ? s.genomeCommit : s.appSource!.commit;
+      if (input.expectedBase !== undefined && input.expectedBase !== baseCommit) {
+        throw new StaleBaseRefusal(`the ${input.target === "genome" ? "Genome" : "app"} moved from ${input.expectedBase.slice(0, 12)} to ${baseCommit.slice(0, 12)}`);
+      }
       const n = Number(this.kv("realization_seq") ?? 0) + 1;
       this.setKv("realization_seq", String(n));
       const id = `realization.${evolutionShort(input.evolutionId)}.r${n}`;
       const namingRepo = input.target === "genome" ? s.genomeRepo : s.appRepo;
-      const baseRepo = input.target === "genome" ? s.genomeSource : s.appSource!.repo;
-      const baseCommit = input.target === "genome" ? s.genomeCommit : s.appSource!.commit;
       const forkRepo = forkName(namingRepo, n);
       const at = nowIso();
       this.sql.exec(
@@ -1469,6 +1482,31 @@ export class SystemAuthority extends DurableObject<Env> {
   }
   releaseProposal(id: string, error: string): void { this.proposals().release(id, error); }
   finishProposal(id: string, ids: AcceptedIds): Proposal | null { return this.proposals().finish(id, ids); }
+
+  /**
+   * Undo an accept that failed after creating its Evolution: an Evolution no realization started is deleted; otherwise
+   * its live realizations end `abandoned` (secrets nulled, open candidates rejected) and it becomes `withdrawn`.
+   * Returns the ended credentials for the Worker to revoke.
+   */
+  withdrawEvolution(id: string): EndedCredential[] {
+    const ended = this.ctx.storage.transactionSync(() => {
+      const live = this.all("SELECT id, fork_repo, token_id FROM realizations WHERE evolution_id = ? AND status NOT IN ('promoted', 'rejected', 'abandoned', 'accepted')", id);
+      if (!this.one("SELECT 1 FROM realizations WHERE evolution_id = ?", id)) {
+        this.sql.exec("DELETE FROM evolutions WHERE id = ?", id);
+        return [];
+      }
+      for (const r of live) {
+        this.sql.exec("UPDATE realizations SET status = 'abandoned', secret_hash = NULL, updated_at = ? WHERE id = ?", nowIso(), String(r.id));
+        this.sql.exec("UPDATE candidates SET state = 'rejected' WHERE realization_id = ? AND state != 'promoted'", String(r.id));
+      }
+      this.setEvolutionStatus(id, "withdrawn", true);
+      return live.map((r) => ({ realizationId: String(r.id), forkRepo: String(r.fork_repo), tokenId: str(r.token_id) ?? null }));
+    });
+    for (const x of ended) this.emit({ type: "realization.updated", realization: this.realizationDto(this.realizationRow(x.realizationId)!) });
+    const evo = this.evolution(id);
+    if (evo) this.emit({ type: "evolution.updated", evolution: evo });
+    return ended;
+  }
 
   // ---------------------------------------------------------------- end W7 intent proposals
 

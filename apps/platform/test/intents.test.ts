@@ -15,7 +15,7 @@ import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
 import { setEditorTransport } from "../worker/editor";
 import { resetHooks, setHooks } from "../worker/hooks/index";
 import { intentProviders, proposedOps, setIntentProviders } from "../worker/intents";
-import { systemStub } from "../worker/service";
+import { createEvolution, startWork, systemStub } from "../worker/service";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 import { fakeReceivePack } from "./helpers/fake-receive-pack";
 import { ADMIN, passing } from "./helpers/flows";
@@ -206,10 +206,19 @@ describe("POST /intents/:pid/accept", () => {
     expect(failed.status).toBeGreaterThanOrEqual(500);
     const stored = await systemStub(env, s.systemId).proposal(p.id);
     expect(stored).toMatchObject({ proposal: { status: "open" }, accepting: false, acceptError: expect.any(String) });
+    // The failed attempt's Evolution is withdrawn and its realization abandoned with its secret revoked.
+    const work = await systemStub(env, s.systemId).work();
+    const tried = work.evolutions.filter((e) => e.title === p.message);
+    expect(tried.map((e) => e.state)).toEqual(["withdrawn"]);
+    const rz = work.realizations.filter((r) => r.evolution === tried[0]!.id);
+    expect(rz.map((r) => r.status)).toEqual(["abandoned"]);
+    expect(await systemStub(env, s.systemId).realizationSecretHash(rz[0]!.id)).toBeNull();
 
     setEditorTransport({ fetch: fakeReceivePack(s.ns).fetch });
     expect((await accept(s, p, ["op.1"])).status).toBe(201);
     expect((await systemStub(env, s.systemId).proposal(p.id))?.proposal.status).toBe("accepted");
+    const after = (await systemStub(env, s.systemId).work()).evolutions.filter((e) => e.title === p.message);
+    expect(after.map((e) => e.state).sort()).toEqual(["evaluated", "withdrawn"]);
   });
 
   it("is a 409 stale-base once the head Genome moved", async () => {
@@ -218,9 +227,28 @@ describe("POST /intents/:pid/accept", () => {
     await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (_i: SystemAuthority, state) => {
       state.storage.sql.exec("UPDATE head SET v = ? WHERE k = 'genome_commit'", "f".repeat(40));
     });
+    const before = await systemStub(env, s.systemId).work();
     const r = await accept(s, p, ["op.1"]);
     expect(r.status).toBe(409);
     expect(r.json.error).toMatchObject({ code: "stale-base", details: { currentHead: "f".repeat(40) } });
+    expect(await systemStub(env, s.systemId).work()).toEqual(before);
+    expect((await systemStub(env, s.systemId).proposal(p.id))?.proposal.status).toBe("open");
+  });
+
+  it("refuses a fork once the head moved after the claim, and deletes the Evolution no realization started", async () => {
+    const s = await importSystem();
+    const stub = systemStub(env, s.systemId);
+    const { evolution } = await createEvolution(env, s.systemId, { title: "t", intent: "i", kind: "genome-amendment" });
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (i: SystemAuthority) => {
+      const seq = (i as unknown as { kv(k: string): string | null }).kv("realization_seq");
+      expect(() => i.reserveRealization({ evolutionId: evolution.id, target: "genome", expectedBase: "f".repeat(40) })).toThrow(/^\[stale-base\]/);
+      expect((i as unknown as { kv(k: string): string | null }).kv("realization_seq")).toBe(seq);
+      expect(i.realizations(evolution.id)).toEqual([]);
+    });
+    const started = await startWork(env, s.systemId, evolution.id, { target: "genome" }, "http://x", { expectedBase: "f".repeat(40) }).catch((e: unknown) => e);
+    expect(started).toMatchObject({ status: 409, code: "stale-base" });
+    expect(await stub.withdrawEvolution(evolution.id)).toEqual([]);
+    expect(await stub.evolution(evolution.id)).toBeNull();
   });
 });
 

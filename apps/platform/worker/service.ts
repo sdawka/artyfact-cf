@@ -358,7 +358,10 @@ async function concurrentWork(env: Env, systemId: string, evolutionId: string, e
   }));
 }
 
-export async function startWork(env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string): Promise<StartWorkResponse> {
+/** `opts.expectedBase`: refuse with 409 `stale-base` unless the realization would fork from this commit. */
+export async function startWork(
+  env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string, opts: { expectedBase?: string } = {},
+): Promise<StartWorkResponse> {
   if (body.target !== undefined && body.target !== "app" && body.target !== "genome") throw badRequest("target must be app or genome");
   if (body.origin !== undefined && body.origin !== "cli" && body.origin !== "editor") throw badRequest("origin must be cli or editor");
   const stub = systemStub(env, systemId);
@@ -370,7 +373,7 @@ export async function startWork(env: Env, systemId: string, evolutionId: string,
   const target = body.target ?? (evolution.kind === "genome-amendment" ? "genome" : "app");
 
   await skipTakenForkNames(env, stub, target);
-  const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin }));
+  const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin, ...(opts.expectedBase && { expectedBase: opts.expectedBase }) }));
   const rid = reserved.realization.id;
   let tokenId: string | undefined;
   try {
@@ -900,7 +903,7 @@ function gateRefusal(out: { code: string; blocking: GateItem[]; advisories: Gate
  * After promotion or acceptance: revoke the fork write tokens of the realizations it ended (secrets are already nulled)
  * and remove their push subscriptions.
  */
-async function revokeEnded(env: Env, systemId: string, ended: EndedCredential[]): Promise<void> {
+export async function revokeEnded(env: Env, systemId: string, ended: EndedCredential[]): Promise<void> {
   await Promise.all([
     ...ended.filter((x) => x.tokenId && x.forkRepo).map((x) =>
       withRepo(artifactsFor(env), x.forkRepo, (r) => r.revokeToken(x.tokenId!)).catch((e: unknown) =>

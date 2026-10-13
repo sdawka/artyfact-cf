@@ -16,8 +16,8 @@ import { genomePrefix } from "./artifacts/genome-source";
 import type { HeadState } from "./do/system-authority";
 import type { ProposalTurn } from "./do/proposals-store";
 import { commitEdit } from "./editor";
-import { badRequest, conflict, notFound, unprocessable } from "./errors";
-import { createEvolution, genomeAt, startWork, systemStub } from "./service";
+import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
+import { createEvolution, genomeAt, refreshRegistry, revokeEnded, startWork, systemStub } from "./service";
 import { nowIso } from "./util";
 
 /** The agent label of an intent's Genome realization; its commits are authored as `intent`. */
@@ -332,18 +332,30 @@ async function pushAccepted(env: Env, systemId: string, p: Proposal, ops: Propos
   const title = p.message.split("\n")[0]!.trim().slice(0, 200);
   const { evolution } = await createEvolution(env, systemId, { title, intent: p.message, kind: "genome-amendment", affectedNodes: applied.touched },
     { newNodes: ops.filter((o) => o.op === "add").map((o) => o.node) });
-  const start = await startWork(env, systemId, evolution.id, { target: "genome", origin: "editor", agentLabel: INTENT_AGENT }, platformUrl);
-  // The head may have moved between the claim and the fork: the changes were computed on `base`.
-  if (start.realization.workspace.baseCommit !== base) {
-    throw conflict("stale-base", `the Genome moved to ${start.realization.workspace.baseCommit.slice(0, 12)} while accepting; describe the change again`,
-      { currentHead: start.realization.workspace.baseCommit });
+  const stub = systemStub(env, systemId);
+  try {
+    // The fork must start from `base`: the DO refuses the reservation when the head moved after the claim.
+    const start = await startWork(env, systemId, evolution.id, { target: "genome", origin: "editor", agentLabel: INTENT_AGENT }, platformUrl, { expectedBase: base });
+    const edit = await commitEdit(env, systemId, start.realization.id, {
+      message: title, why: p.message,
+      changes: applied.changes.map((c) => ({ path: prefix ? `${prefix}/${c.path}` : c.path, content: c.content })),
+    }, "intent");
+    return {
+      evolution: (await stub.evolution(evolution.id)) ?? evolution, realization: edit.submitted.realization,
+      candidate: edit.submitted.candidate, commit: edit.commit,
+    };
+  } catch (e) {
+    // Leave nothing a retry would duplicate: the Evolution goes (withdrawn if a realization started) with its work.
+    try {
+      await revokeEnded(env, systemId, await stub.withdrawEvolution(evolution.id));
+      await refreshRegistry(env, systemId);
+    } catch (w) {
+      console.error(`[intents] withdrawing ${evolution.id} after a failed accept failed: ${(w as Error)?.message ?? w}`);
+    }
+    if (e instanceof HttpError && e.code === "stale-base") {
+      const head = (await stub.state())?.genomeCommit ?? null;
+      throw conflict("stale-base", `the Genome moved from ${base.slice(0, 12)} while accepting; describe the change again`, { currentHead: head });
+    }
+    throw e;
   }
-  const edit = await commitEdit(env, systemId, start.realization.id, {
-    message: title, why: p.message,
-    changes: applied.changes.map((c) => ({ path: prefix ? `${prefix}/${c.path}` : c.path, content: c.content })),
-  }, "intent");
-  return {
-    evolution: (await systemStub(env, systemId).evolution(evolution.id)) ?? evolution, realization: edit.submitted.realization,
-    candidate: edit.submitted.candidate, commit: edit.commit,
-  };
 }
