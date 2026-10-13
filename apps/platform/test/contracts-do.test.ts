@@ -219,6 +219,17 @@ describe("summary planCounts", () => {
     });
   });
 
+  it("does not count a task whose conflicting task has a live attempt", async () => {
+    await inDo((i) => {
+      const a = task("a"); a.footprint.known = false; // unknown scope conflicts with every task
+      const p = i.createRealizationPlan({ title: "Build", tasks: [a, task("b")] });
+      expect(i.summary()!.planCounts!.awaitingAgent).toBe(2);
+      i.claimLifecycleTask(p.id, "a", {});
+      expect(i.summary()!.planCounts!.awaitingAgent).toBe(0); // a is claimed and live; b would be refused
+      expect(i.summary()!.signifiers).not.toContain("tasks-awaiting-agent");
+    });
+  });
+
   it("ignores promoted plans", () => {
     const now = Date.now();
     const plan = { status: "promoted", tasks: [{ id: "t", status: "pending", dependsOn: [], attempts: [] }] } as never;

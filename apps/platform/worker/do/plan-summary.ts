@@ -5,16 +5,22 @@
 import type { PlanCounts } from "../../shared/api";
 import type { RealizationPlan, Task } from "../../shared/lifecycle";
 
-/** Whether an agent can take `t` now: pending with every dependency selected, or its live attempt's lease lapsed. */
+const live = (t: Task | undefined, now: number): boolean => {
+  const last = t?.attempts.at(-1);
+  return !!last && last.status !== "ended" && Date.parse(last.leaseExpiresAt) > now;
+};
+
+/**
+ * Whether an agent can take `t` now, by the claim rules of lifecycle-store.ts: pending with every dependency selected,
+ * or claimed/working with the lease lapsed; and no task it conflicts with has a live attempt.
+ */
 export function awaitsAgent(plan: RealizationPlan, t: Task, now: number): boolean {
-  if (t.status === "pending") {
-    return t.dependsOn.every((d) => { const dep = plan.tasks.find((x) => x.id === d); return !!dep?.selectedCandidate; });
-  }
-  if (t.status === "claimed" || t.status === "working") {
-    const last = t.attempts.at(-1);
-    return !last || last.status === "ended" || Date.parse(last.leaseExpiresAt) <= now;
-  }
-  return false;
+  const byId = (id: string) => plan.tasks.find((x) => x.id === id);
+  const ready = t.status === "pending"
+    ? t.dependsOn.every((d) => !!byId(d)?.selectedCandidate)
+    : (t.status === "claimed" || t.status === "working") && !live(t, now);
+  if (!ready) return false;
+  return !plan.analysis.conflicts.some((c) => c.tasks.includes(t.id) && live(byId(c.tasks.find((id) => id !== t.id)!), now));
 }
 
 export function planCounts(plans: RealizationPlan[], now: number = Date.now()): PlanCounts {

@@ -60,7 +60,7 @@ export class ProposalPlanStore {
 
   /** Writes only the tree, keeping decisions, while `open` (a reply's rebuilt tree). */
   setTree(id: string, plan: ProposalPlanNode[]): boolean {
-    return this.sql.exec("UPDATE proposals SET plan_json = ? WHERE id = ? AND status = 'open' RETURNING id", JSON.stringify(plan), id)
+    return this.sql.exec("UPDATE proposals SET plan_json = ?, updated_at = ? WHERE id = ? AND status = 'open' RETURNING id", JSON.stringify(plan), nowIso(), id)
       .toArray().length > 0;
   }
 

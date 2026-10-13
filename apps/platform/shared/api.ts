@@ -143,11 +143,10 @@ export type Certainty = "declared" | "assumed" | "proposed";
 /**
  * Error codes the Genome review and planning routes add (`ApiError.code` stays a plain string):
  * `import-unreviewed` (409) work was asked for while the System import review is pending;
- * `rejected-node-referenced` (422) accepting the import review would remove nodes that surviving nodes still reference;
- * `plan-cycle` (422) a task list whose dependencies form a cycle;
- * `invalid-plan` (422) a task list naming unknown nodes, criteria or tasks, or repeating an id.
+ * `rejected-node-referenced` (422) accepting the import review would remove nodes that surviving nodes still reference.
+ * Invalid task lists stay 400 `bad-request` on create; the draft route reports them as `problems`.
  */
-export type ReviewPlanErrorCode = "import-unreviewed" | "rejected-node-referenced" | "plan-cycle" | "invalid-plan";
+export type ReviewPlanErrorCode = "import-unreviewed" | "rejected-node-referenced";
 
 /** Error body for every non-2xx response. */
 export interface ApiError {
@@ -209,9 +208,10 @@ export interface SystemSummary {
 }
 
 /**
- * Realization plan counts on the System summary:
+ * Realization plan counts on the System summary (on `GET /api/systems` only as fresh as the last registry refresh):
  * `open` plans not yet promoted; `awaitingAgent` tasks of open plans an agent can take now (pending with every
- * dependency selected, or claimed/working with the latest attempt's lease lapsed); `submitted` tasks whose candidate
+ * dependency selected, or claimed/working with the latest attempt's lease lapsed, and no conflicting task with a live
+ * attempt); `submitted` tasks whose candidate
  * awaits selection; `integrated` plans integrated and awaiting promotion.
  */
 export interface PlanCounts {
