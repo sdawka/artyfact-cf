@@ -3,11 +3,11 @@
 
 ## Now
 
-- Implemented the [approved lifecycle](../design/lifecycle.md) on `feat/genome-lifecycle`, integrated current `main`, and preserved the original checkout and user changes.
-- Verified: full pre-push CI passed in 186.5s: 2,515 repository unit tests; 51 fixture and 13 fake-platform browser tests; 55 site units, 11 static-build checks and 51 site browser checks. Independent review findings are resolved.
-- Next action: inspect hosted CI and review the integration PR. Merge and deployment remain separate actions.
-- External state: GRREAT protocol validates (7 records). Direct-RPC sync attempted; missing credentials leaves it pending. No live Flagship or deployment verification performed.
-- Evidence: [[journals/2026-10-13-lifecycle]]. Last updated: 2026-10-13.
+- Released the [approved lifecycle](../design/lifecycle.md): PR [#64](https://github.com/sdawka/artyfact-cf/pull/64) merged on green hosted CI at `df6dcdb`; site, platform and CI Worker are deployed. Original checkout and user changes are preserved.
+- Verified: full local CI, independent release review (38 targeted tests), public health and authenticated model/Realization/import/operations APIs for both existing Systems, plus desktop/mobile route and no-JavaScript model smoke checks. Detailed evidence: [[journals/2026-10-13-lifecycle]].
+- Production admin credential was rotated as authorized and the ignored local environment file updated. Live metrics and feature flags await operations bindings and credentials; no live Flagship behavior is claimed.
+- GRREAT protocol validates 7 records. Direct-RPC sync remains pending missing credentials and a separate Artyfact destination; earlier conflict checkpoints are preserved.
+- Last updated: 2026-10-13.
 
 ## Work history
 
