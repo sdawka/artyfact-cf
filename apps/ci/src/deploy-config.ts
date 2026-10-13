@@ -29,6 +29,14 @@ export class DeployRefused extends Error {
   override name = "DeployRefused";
 }
 
+/**
+ * Forced into every generated config: a Worker on the shared workers.dev zone cannot `fetch()` the platform Worker
+ * (error 1042) without it, and the app's Phenome ingest would silently fail.
+ */
+export const FORCED_FLAG = "global_fetch_strictly_public";
+/** The opposite flag; a repo listing it would undo FORCED_FLAG. */
+const REFUSED_FLAG = "global_fetch_private_origin";
+
 /** Keys copied into both generated configs after validation. */
 const COPIED = [
   "compatibility_date", "compatibility_flags", "vars", "durable_objects", "migrations", "d1_databases", "triggers",
@@ -206,11 +214,20 @@ export function validateRepoConfig(
     if (!isObj(raw.vars)) problems.push("vars must be an object");
     for (const k of Object.keys(isObj(raw.vars) ? raw.vars : {})) if (SECRET_VARS.has(k)) problems.push(`vars.${k} is set by the platform`);
   }
+  let flags: unknown[] = [];
+  if (raw.compatibility_flags !== undefined) {
+    if (Array.isArray(raw.compatibility_flags)) flags = raw.compatibility_flags;
+    else problems.push("compatibility_flags must be a list");
+  }
+  if (flags.includes(REFUSED_FLAG)) problems.push(`compatibility_flags lists ${REFUSED_FLAG}: artyfact CI forces ${FORCED_FLAG} so the app can reach the platform`);
   const d1 = resolveD1(raw.d1_databases, opts.d1DatabaseIds ?? {}, problems);
   if (problems.length || !main) throw new DeployRefused(`refusing to deploy ${file}: ${problems.join("; ")}`);
 
   const pick = (keys: readonly string[]) => Object.fromEntries(keys.filter((k) => raw[k] !== undefined).map((k) => [k, raw[k]]));
-  const copied = { ...pick(COPIED), ...(d1 && { d1_databases: d1 }) };
+  const copied = {
+    ...pick(COPIED), ...(d1 && { d1_databases: d1 }),
+    compatibility_flags: flags.includes(FORCED_FLAG) ? flags : [...flags, FORCED_FLAG],
+  };
   return { file, main, ...(assets && { assets }), copied, bundleOnly: pick(BUNDLE_ONLY) };
 }
 

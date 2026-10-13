@@ -118,9 +118,32 @@ describe("validateRepoConfig", () => {
     expect(bundle).not.toHaveProperty("assets");
     expect(deployConfig(s, { ...target, nonce: NONCE })).toEqual({
       name: target.workerName, account_id: ACCOUNT, main: `/workspace/.artyfact-build-${NONCE}/index.js`, no_bundle: true,
-      compatibility_date: "2026-10-12", vars: { GREETING: "hi // not a comment" },
+      compatibility_date: "2026-10-12", compatibility_flags: ["global_fetch_strictly_public"], vars: { GREETING: "hi // not a comment" },
       durable_objects: { bindings: [{ name: "STORE", class_name: "Store" }] }, migrations: [{ tag: "v1", new_sqlite_classes: ["Store"] }],
       assets: { directory: "/workspace/public", binding: "ASSETS" },
+    });
+  });
+
+  describe("compatibility_flags", () => {
+    const withFlags = (flags?: unknown) => JSON.stringify({ main: "src/index.ts", compatibility_date: "2026-10-12", ...(flags !== undefined && { compatibility_flags: flags }) });
+    const target = { workerName: "keep-in-touch-app-r1", accountId: ACCOUNT };
+    const generated = (text: string) => {
+      const s = spec(text);
+      return [bundleConfig(s, target).compatibility_flags, deployConfig(s, { ...target, nonce: NONCE }).compatibility_flags];
+    };
+
+    it("adds global_fetch_strictly_public when the repo sets no flags", () => {
+      expect(generated(withFlags())).toEqual([["global_fetch_strictly_public"], ["global_fetch_strictly_public"]]);
+    });
+    it("merges with the repo's flags, keeping their order", () => {
+      expect(generated(withFlags(["nodejs_compat"]))).toEqual([["nodejs_compat", "global_fetch_strictly_public"], ["nodejs_compat", "global_fetch_strictly_public"]]);
+    });
+    it("does not duplicate a flag the repo already lists", () => {
+      const flags = ["global_fetch_strictly_public", "nodejs_compat"];
+      expect(generated(withFlags(flags))).toEqual([flags, flags]);
+    });
+    it("refuses global_fetch_private_origin", () => {
+      expect(() => spec(withFlags(["global_fetch_private_origin"]))).toThrow(/compatibility_flags lists global_fetch_private_origin/);
     });
   });
 
