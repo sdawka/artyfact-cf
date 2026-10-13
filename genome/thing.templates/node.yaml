@@ -7,11 +7,10 @@ fields:
   description: "@artyfact/templates: the System and Thing templates and Rule Packs, bundled so Workers and the browser read them without a filesystem."
 links:
   - { rel: artifact, to: artifact.templates }
-  - { rel: dependsOn, to: thing.model }
   - { rel: dependsOn, to: thing.ontology }
   - { rel: exposes, to: export.templates.load }
-  - { rel: exposes, to: export.templates.compose }
-  - { rel: exposes, to: export.templates.packs }
+  - { rel: exposes, to: export.templates.file }
+  - { rel: exposes, to: export.templates.store }
 criteria:
   - id: C.templates.unit
     title: "@artyfact/templates tests pass"

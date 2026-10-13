@@ -1,7 +1,0 @@
-id: export.templates.compose
-kind: export
-fields:
-  name: composeTemplate
-  signature: "export function composeTemplate(system: string, things?: string[]): MetaTemplate"
-  stability: stable
-  description: Lays the Thing templates' rules, questions and criteria over a System template.

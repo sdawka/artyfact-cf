@@ -2,8 +2,7 @@ id: module.model.render
 kind: module
 fields:
   name: Rendering
-  description: Mermaid rendering and hashing helpers.
+  description: Mermaid rendering of the model.
   path: src/mermaid.ts
 files:
   - src/mermaid.ts
-  - src/sha256.ts

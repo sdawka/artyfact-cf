@@ -1,7 +1,0 @@
-id: export.templates.packs
-kind: export
-fields:
-  name: packsFor
-  signature: "export function packsFor(kits: { id: string; version: string }[]): RulePack[]"
-  stability: stable
-  description: Returns the Rule Packs for pinned kits.
