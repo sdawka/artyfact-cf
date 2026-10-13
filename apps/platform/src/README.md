@@ -23,7 +23,7 @@ Design source: `docs/design/ui.md` §C. Theme rules: `theme/README.md` (tokens o
 `RouteError` with an "Open Home" link. The `/s/:systemId/r/:rev` loader prefetches the model bundle (`modelQuery`) and does
 not re-run on search-param changes. View params: `code?repo=genome|app&path=&panel=commit`,
 `changelog?commit=&evolution=&panel=new`, `compare?from=&to=&level=system|genome|files&path=`, `evaluations?criterion=`,
-`phenome?deployment=&build=`. The UI says `rev`/`repo`; the client maps them to the API's `ref`/`scope`.
+`phenome?deployment=&build=`, `work?panel=new|intent&anchor=&proposal=`. The UI says `rev`/`repo`; the client maps them to the API's `ref`/`scope`.
 
 Global params, kept by every nav link: `focus` (any indexed id), `layer`
 (`genome|proteome|phenome`, default `genome`), `candidates` (csv). View-specific params (`journey`,
@@ -111,7 +111,8 @@ getCandidates, getEvaluations(systemId, {candidate?}), getConflicts, getHistory,
 {commit?, kind?, realization?}), getDeployments, getPhenomeEvents(systemId, query), getClientMode() → 'api' | 'fixture'`.
 Writes: `startWork, promote` (a 409 rejects with `StaleBaseError { currentHead }`), `acceptAmendment`, `rejectAmendment`,
 `createEvolution(systemId, body, adminToken)`, `commitFiles(systemId, realizationId, body, token)` (token = the realization
-secret or the admin token; all send `Authorization: Bearer`).
+secret or the admin token; all send `Authorization: Bearer`). Intents (admin, `docs/design/ontology.md` §5): `createIntent`,
+`getIntent`, `replyIntent`, `acceptIntent` (a 409 is `StaleBaseError`; a platform without intents answers 501).
 `subscribeEvents(systemId, onEvent)` uses an EventSource (`SSE_TYPES`) and falls back to `{type:'poll'}` every 3 s.
 
 **Fixture fallback:** fixture mode means the API is **unreachable** (network error or non-2xx on `/api/systems`). A
@@ -131,7 +132,7 @@ useRealizationsTouching(nodeId), useRevisions` (→ `RevisionOption[]`), `useCha
 from?, to}), useCompareFile({repo, from?, to, path}), useTree({repo, rev?}), useFile({repo, rev?, path}),
 useBuilds({commit?, kind?, realization?})` (→ `Build[]`), `useDeployments()` (→ `{production, history}`),
 `usePhenomeEvents(query)`. Mutations: `useStartWork, usePromote, useAcceptAmendment, useRejectAmendment,
-useCreateEvolution, useManualCommit` (`{commit, realizationId?+token? | evolutionId? | newEvolution?, adminToken?}`:
+useCreateEvolution, useIntent(proposalId), useCreateIntent, useReplyIntent, useAcceptIntent, useManualCommit` (`{commit, realizationId?+token? | evolutionId? | newEvolution?, adminToken?}`:
 create the Evolution if needed, start an `origin: 'editor'` realization, then `commitFiles` with its secret).
 `useSystemEvents()` is mounted once by the Shell and invalidates per `SSE_INVALIDATIONS`. Keys are in `qk`; every key
 starts with `[name, systemId]`, so `invalidateQueries({ queryKey: [name, systemId] })` reaches every variant.
@@ -170,6 +171,10 @@ starts with `[name, systemId]`, so `invalidateQueries({ queryKey: [name, systemI
   `ModelDelta` with both sides' models for `SemanticDelta`.
 - `views/compare`: two `RevisionPicker`s + Swap, levels System / Genome / Files (`?from=&to=&level=&repo=&path=`).
 - `views/work/panels/NewEvolutionPanel.tsx`: admin form behind "+ Evolution" (Work and Changelog).
+- `views/work/intent/`: "Describe a change" (`?panel=intent`), opened from the Work header, a Home card and "Change this…"
+  in the Inspector and Code (`&anchor=<nodeId>`). Message → proposal (`&proposal=`): routed path, provider label, per-op
+  diff with include toggles (dependencies follow), problems, inline replies, "Accept selected" → the candidate on Work.
+  Fixture mode disables writes and shows `intent/sample.ts` read-only.
 
 ## Inspector (`inspector/`)
 

@@ -1,8 +1,10 @@
 import { lazy, Suspense } from "react";
+import { Link } from "react-router";
 import type { FileScope } from "../../../shared/api";
 import { ApiRequestError } from "@/api/client";
 import { useFile } from "@/api/queries";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
+import { useKeepParams } from "@/model/useSelection";
 import { changeKind, type DraftApi } from "./useDraft";
 import styles from "./code.module.css";
 
@@ -27,6 +29,7 @@ export function FilePane({ repo, path, draft, editBlocked, editing, onEdit, onSt
   const drafted = path ? draft.draft.get(path) : undefined;
   const isNew = drafted?.base === null;
   const q = useFile({ repo, path: path && !isNew ? path : null });
+  const href = useKeepParams();
 
   if (!path) return <section className={styles.pane} aria-label="File"><p className={styles.muted}>Select a file.</p></section>;
 
@@ -61,7 +64,12 @@ export function FilePane({ repo, path, draft, editBlocked, editing, onEdit, onSt
       </div>
       {file?.nodes && file.nodes.length > 0 && (
         <ul className={styles.chips} aria-label="Model nodes in this file">
-          {file.nodes.map((id) => <li key={id}><NodeChip id={id} size="sm" /></li>)}
+          {file.nodes.map((id) => (
+            <li key={id} className={styles.nodeItem}>
+              <NodeChip id={id} size="sm" />
+              <Link className="u-marker" to={href("work", { panel: "intent", anchor: id })}>Change this…<span className="sr-only"> ({id})</span></Link>
+            </li>
+          ))}
         </ul>
       )}
       {editBlocked && <p className={styles.muted}>{editBlocked}</p>}
