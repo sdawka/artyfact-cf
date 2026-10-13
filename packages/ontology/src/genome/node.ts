@@ -57,10 +57,13 @@ export const TemplateRefSchema = z.string().regex(/^template\.[\w.-]+@[\w.-]+$/,
  */
 export const FILE_PLACEHOLDERS = ["{id}", "{slug}"] as const;
 
-/** A repo-relative POSIX path or glob: no leading `/`, no `..` segment, no backslash. */
+/**
+ * A repo-relative POSIX path or glob: no leading `/`, no `.` or `..` segment, no backslash. A `.` segment is refused
+ * rather than normalised: a prefixed glob such as `apps/web/./src/**` would silently never match.
+ */
 export const RepoPathSchema = z.string().min(1).refine(
-  (p) => !p.startsWith("/") && !p.includes("\\") && !p.split("/").includes(".."),
-  "expected a repo-relative path without .. segments",
+  (p) => !p.startsWith("/") && !p.includes("\\") && !p.split("/").some((s) => s === "." || s === ".."),
+  "expected a repo-relative path: no leading /, no . or .. segments, no backslash",
 );
 
 /** How sure the author is of a link; the same values as the v1 model's `Certainty`. */

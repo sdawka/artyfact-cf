@@ -161,9 +161,24 @@ export function appThing(m: SystemModel): schema.ResolvedThing | undefined {
   return m.things.find((t) => t.artifacts.some((a) => a.type === "worker-fullstack")) ?? m.things[0];
 }
 
-function scaffoldCommands(m: SystemModel, target: "app" | "genome"): string[] {
+/**
+ * The Thing an app packet works in: the one Thing at or above every affected node (nodes outside every Thing do not
+ * count), else `appThing`. A scope spanning two Things is refused (422 `scope-spans-things`): one packet, one Thing.
+ */
+export function packetThing(m: SystemModel, affected: string[]): schema.ResolvedThing | undefined {
+  const owners = new Set(affected.flatMap((id) => {
+    const thing = m.index.path(id).reverse().find((x) => m.index.byId[x]?.type === "thing");
+    return thing ? [thing] : [];
+  }));
+  if (owners.size > 1) throw unprocessable("scope-spans-things", `the affected nodes belong to several Things (${[...owners].sort().join(", ")}); split the Evolution per Thing`);
+  const [only] = owners;
+  return only ? m.things.find((t) => t.id === only) : appThing(m);
+}
+
+/** The packet's commands: the scaffold commands of the Thing it works in (`packetThing`). */
+function scaffoldCommands(m: SystemModel, target: "app" | "genome", affected: string[]): string[] {
   if (target === "genome") return ["npm install", "npm test"];
-  const ref = appThing(m)?.templateRef;
+  const ref = packetThing(m, affected)?.templateRef;
   const text = ref ? templateFile(ref, "scaffold.yaml") : undefined;
   const cmds = (text ? (parseYaml(text) as { commands?: Record<string, string> })?.commands : undefined) ?? {};
   const list = Object.values(cmds).filter((c): c is string => typeof c === "string");
@@ -366,6 +381,7 @@ export async function startWork(
   const g = await canonicalGenome(env, s);
   const evolution = modelEvolution(g.model, evoDto);
   const target = body.target ?? (evolution.kind === "genome-amendment" ? "genome" : "app");
+  const commands = scaffoldCommands(g.model, target, evolution.affectedNodes);
 
   await skipTakenForkNames(env, stub, target);
   const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin, ...(opts.expectedBase && { expectedBase: opts.expectedBase }) }));
@@ -385,7 +401,7 @@ export async function startWork(
     const packet = await buildTaskPacket({
       systemId, realizationId: rid, target, model: g.model, evolution,
       workspace: { repo: reserved.baseRepo, fork: reserved.forkRepo, baseCommit: reserved.baseCommit, remote },
-      baseTreePaths: tree, commands: scaffoldCommands(g.model, target),
+      baseTreePaths: tree, commands,
       concurrentWork: await concurrentWork(env, systemId, evolutionId, rid), platformUrl, genomePrefix: prefix,
     });
     // The realization secret authorizes the agent's platform calls; only its SHA-256 is stored.

@@ -7579,7 +7579,111 @@
       "evolution.5": "evolutions/evolution.5.yaml",
       "evolution.6": "evolutions/evolution.6.yaml"
     },
-    "warnings": []
+    "warnings": [],
+    "files": {
+      "thing.webapp": [
+        {
+          "glob": "src/worker/health.ts",
+          "declared": false
+        },
+        {
+          "glob": "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.test.jsonc,.gitignore,.dev.vars.example,README.md}",
+          "declared": false
+        },
+        {
+          "glob": "src/index.ts",
+          "declared": true
+        },
+        {
+          "glob": "src/worker/env.ts",
+          "declared": false
+        },
+        {
+          "glob": "src/worker/phenome.ts",
+          "declared": false
+        },
+        {
+          "glob": "test/**",
+          "declared": false
+        },
+        {
+          "glob": "public/*",
+          "declared": false
+        },
+        {
+          "glob": ".artyfact/**",
+          "declared": false
+        }
+      ],
+      "policy.ownerOnly": [
+        {
+          "glob": "src/worker/auth.ts",
+          "declared": true
+        },
+        {
+          "glob": "src/worker/routes/contacts.ts",
+          "declared": true
+        }
+      ],
+      "section.domain": [
+        {
+          "glob": "src/worker/routes/**",
+          "declared": false
+        }
+      ],
+      "entity.ContactRecord": [
+        {
+          "glob": "src/worker/routes/contacts.ts",
+          "declared": true
+        }
+      ],
+      "operation.contact.save": [
+        {
+          "glob": "src/worker/routes/contacts.ts",
+          "declared": true
+        },
+        {
+          "glob": "public/people/add-contact-dialog.js",
+          "declared": true
+        }
+      ],
+      "binding.contactsStore": [
+        {
+          "glob": "migrations/**",
+          "declared": true
+        }
+      ],
+      "binding.d1": [
+        {
+          "glob": "migrations/**",
+          "declared": false
+        }
+      ],
+      "section.ui": [
+        {
+          "glob": "src/ui/**",
+          "declared": false
+        }
+      ],
+      "screen.people": [
+        {
+          "glob": "public/people/**",
+          "declared": true
+        }
+      ],
+      "component.AddContactDialog": [
+        {
+          "glob": "public/people/**",
+          "declared": true
+        }
+      ],
+      "affordance.AddContactDialog.save": [
+        {
+          "glob": "public/people/add-contact-dialog.js",
+          "declared": true
+        }
+      ]
+    }
   },
   "readiness": {
     "modelReadiness": {

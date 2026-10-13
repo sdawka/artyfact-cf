@@ -4,6 +4,7 @@ import { nodesForPath, sourceMapFor } from "../worker/artifacts/source-map";
 import { diffScope } from "../worker/hooks/diff-scope";
 import { buildTaskPacket, requiredCriteria, type PacketInput } from "../worker/packets/task-packet";
 import { gateCriteria } from "../worker/promotion";
+import { packetThing } from "../worker/service";
 import { appFiles, genomeFiles } from "./fixtures/genome";
 
 const genome = buildGenome(new Map(Object.entries(genomeFiles).filter(([p]) => p.endsWith(".yaml"))), "g1");
@@ -153,5 +154,12 @@ describe("node-attached source map: two Things with different roots", () => {
     expect(p.permittedPaths.sort()).toEqual(["apps/web/src/ui/**", "apps/web/src/ui/people/**"]);
     const q = await buildTaskPacket(input({ model: two, evolution: { ...evolution, affectedNodes: ["screen.audit"] } }));
     expect(q.permittedPaths).toEqual(["apps/admin/src/ui/audit/**"]);
+  });
+
+  it("works in the Thing that owns the affected nodes, and refuses a scope spanning two Things", () => {
+    expect(packetThing(two, ["screen.audit"])?.id).toBe("thing.admin");
+    expect(packetThing(two, ["screen.people", "P1"])?.id).toBe("thing.webapp");
+    expect(packetThing(two, [])?.id).toBe("thing.webapp");
+    expect(() => packetThing(two, ["screen.people", "screen.audit"])).toThrow(/several Things \(thing\.admin, thing\.webapp\)/);
   });
 });
