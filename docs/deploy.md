@@ -65,6 +65,8 @@ ACCOUNT_ID=<the account id from npx wrangler whoami>
    `--genome-only` never reads, pushes or seeds an app: `keep-in-touch.app` keeps its head, and the platform keeps its recorded scaffold source. `--adopt` commits the converted tree on top of the v1 head of the same Genome repo (a fast-forward), and `--force` re-points the System at that commit.
 4. Verify: `curl -s -o /dev/null -w '%{http_code}\n' $URL/api/systems/system.keep-in-touch/model` prints `200`.
 
+Gotchas from the 2026-10-13 run: `issue-token` fails until `npx wrangler login` has been run again for the Artifacts scope, and a 403 from `init` meant the platform's `ADMIN_TOKEN` secret had to be re-set (`npx wrangler secret put ADMIN_TOKEN`) before retrying. A second run after the Genome repo head is already v2 must skip step 2: `convert-genome` refuses a v2 tree, so clone the head and go straight to `init --genome-only --adopt --force`.
+
 ## Rollback
 
 ```

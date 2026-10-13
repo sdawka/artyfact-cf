@@ -3,11 +3,11 @@
 
 ## Now
 
-- Goal: [[goals]]. Milestone: iteration 3 is on `main`; the frontend-design pass over the platform rail, Home and the workspace is in flight ([[journals/2026-10-13-design-pass]]).
-- Working revision: `main` at `49d5922` (PR #47 merged 2026-10-13 on green hosted CI). Slice branches `d-rail` (#53), `d-review` (#54), `d-intent-thing` (#51), `d-home` (#50) and `d-self-genome` (#49) are open draft PRs into `main`; `d-docs-review` holds the docs and the GRREAT record.
-- Current result: the ontology engine is the core (`packages/ontology`), Genomes are a v2 containment tree, intents and the generic UI shipped, and the repo-root self-Genome drives `FAKE_SEED=artyfact`; see [[journals/2026-10-13-iteration-3]]. The design decisions D1–D8 are recorded in the design-pass journal.
-- Next action: merge the slice PRs on green CI (#53 first, the rest build on it), reconcile `docs/design/ui.md` against the merged code, then deploy the platform and migrate the production Keep in Touch Genome with `artyfact init --genome-only --adopt --force` per `docs/deploy.md`, and verify live.
-- Latest verification: hosted `verify` green on #47 at merge; slice PRs report no hosted checks yet. No production verification since the merge.
+- Goal: [[goals]]. Milestone: iteration 3 and the frontend-design pass are on `main` and in production ([[journals/2026-10-13-design-pass]]).
+- Working revision: `main` at `e9b7fa3` (PR #56: the five design slices plus the docs slice's Phase A, after PR #47 at `49d5922`). Production runs Worker version `e763f73b` (deployed 15:48 UTC); the Keep in Touch Genome is v2 at commit `0d02fce56219`, System head `sc-4-c597c0ba`.
+- Current result: ontology engine core, Genome v2, intents, generic UI, self-Genome with UI nodes, the rail with layer heads and questions, the Review view, one "Describe a change" shape, the Home ledger; decisions D1–D8 in the design-pass journal.
+- Next action: merge PR #59 (ui.md and README reconciliation) on green CI, then fix the five reported defects in their owning slices, Home's candidate count first; retake the three demo screenshots on the new Work card and Review.
+- Latest verification: health and the Home, Review and Work routes answer 200 on `e763f73b`; the model route answers 200 after the migration. No browser walk-through of production recorded yet.
 - Earlier from `main`: landing-site agent story (#44/#45, [[journals/2026-10-12-foundation]]), the public `/model` page (#48) and settled story chapters (#52, [[journals/2026-10-13-model-page]]); their last recorded site gates passed.
 - Deferred: Remote GRREAT sync stays pending; the earlier `GOAL_HIERARCHY_CONFLICT` checkpoint is preserved and no remote record was overwritten.
 - Last updated: 2026-10-13.
