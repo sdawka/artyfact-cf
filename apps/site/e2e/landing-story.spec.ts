@@ -4,8 +4,10 @@ test.beforeEach(({ page }) => serveDist(page));
 const scene = '[data-system-view]';
 async function narrative(page: Page, view: string) {
   await page.evaluate(view => {
-    const step = document.querySelector<HTMLElement>('[data-story-step="' + view + '"]')!;
-    window.scrollTo({ top: scrollY + step.getBoundingClientRect().top - innerHeight * .35, behavior: 'instant' });
+    const step = document.querySelector<HTMLElement>('[data-story-step="' + view + '"] [data-story-heading]')!;
+    const stage = document.querySelector('.landing-sticky-stage')!.getBoundingClientRect();
+    const line = innerWidth > 950 ? innerHeight*.5 : 16+stage.height+(innerHeight-16-stage.height)*.5;
+    window.scrollTo({ top: scrollY + step.getBoundingClientRect().top - line + 80, behavior: 'instant' });
   }, view);
 }
 test('native scroll resumes after mouse selection and leaves focus and history alone', async ({ page }, info) => {
@@ -37,7 +39,13 @@ test('keyboard exploration suspends scrolling without stealing focus', async ({ 
   await narrative(page, 'phenome');
   await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'proteome');
   await expect(page.getByRole('tab', { name: /Proteome/ })).toBeFocused();
-  await page.getByRole('link', { name: 'Understand the model', exact: true }).first().focus();
+  const supportControl=page.getByRole('button',{name:'Part: Astro starter',exact:true});
+  await supportControl.focus();
+  await narrative(page,'genome');
+  await expect(page.locator(scene)).toHaveAttribute('data-system-view','proteome');
+  await expect(supportControl).toBeFocused();
+  await narrative(page,'phenome');
+  await page.locator('.site-footer').getByRole('link', { name: 'Understand the model', exact: true }).focus();
   await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'phenome');
   await page.screenshot({ path: info.outputPath('desktop-scroll-phenome.png') });
 });
@@ -158,30 +166,18 @@ test('initial enhanced scene contains only the accepted name and purpose', async
   await expect(page.getByRole('tab')).toHaveCount(0);
   await page.screenshot({ path:info.outputPath('opening.png') });
 });
-test('scrub reverses mid-realization and sticky visual stays with each narrative', async ({ page }, info) => {
+test('chapters finish after scroll stops and reverse to stable endpoints', async ({ page }, info) => {
   await page.setViewportSize(info.project.name === 'desktop' ? { width:1440, height:900 } : { width:320, height:568 });
-  await page.goto('https://artyfact.test/');
-  await expect(page.locator(scene)).toHaveAttribute('data-enhanced','true');
-  const stops = await page.evaluate(() => {
-    const a = document.querySelector('[data-story-step="genome"]')!.getBoundingClientRect().top + scrollY;
-    const b = document.querySelector('[data-story-step="proteome"]')!.getBoundingClientRect().top + scrollY;
-    const stage = document.querySelector('.landing-sticky-stage')!.getBoundingClientRect();
-    const line = innerWidth > 950 ? innerHeight * .5 : 16 + stage.height + (innerHeight - 16 - stage.height) * .5;
-    return { half:(a+b)/2-line, quarter:a+(b-a)*.25-line };
-  });
-  await page.evaluate(y => scrollTo(0,y),stops.half);
-  await expect.poll(async () => Number(await page.locator(scene).evaluate(root => root.style.getPropertyValue('--realization-progress')))).toBeCloseTo(.5,1);
-  const forward = await page.locator('.landing-sticky-stage').boundingBox();
-  await page.evaluate(y => scrollTo(0,y),stops.quarter);
-  await expect.poll(async () => Number(await page.locator(scene).evaluate(root => root.style.getPropertyValue('--realization-progress')))).toBeCloseTo(.25,1);
-  const reverse = await page.locator('.landing-sticky-stage').boundingBox();
-  expect(forward!.y).toBeGreaterThanOrEqual(0); expect(reverse!.y).toBeGreaterThanOrEqual(forward!.y - 1);
-  for (const view of ['genome','proteome','phenome']) {
+  await page.goto('https://artyfact.test/'); await expect(page.locator(scene)).toHaveAttribute('data-enhanced','true');
+  for (const view of ['genome','proteome','phenome','proteome','genome']) {
     await narrative(page,view);
-    const box = await page.locator('.landing-sticky-stage').boundingBox();
+    await expect(page.locator(scene)).toHaveAttribute('data-system-view',view);
+    await expect.poll(async () => Number(await page.locator(scene).evaluate((root,key) => root.style.getPropertyValue(key), '--realization-progress'))).toBe(view==='genome'?0:1);
+    await expect.poll(async () => Number(await page.locator(scene).evaluate(root => root.style.getPropertyValue('--observation-progress')))).toBe(view==='phenome'?1:0);
+    const box=await page.locator('.landing-sticky-stage').boundingBox();
     expect(box!.y).toBeGreaterThanOrEqual(0); expect(box!.y+box!.height).toBeLessThanOrEqual(info.project.name==='desktop'?900:568);
   }
-  await page.screenshot({ path:info.outputPath('scrubbed-phenome.png') });
+  await page.screenshot({path:info.outputPath('settled-genome.png')});
 });
 test('keyboard Resume runs the finite demo without moving focus', async ({ page }) => {
   await page.goto('https://artyfact.test/'); await revealStory(page);
@@ -237,4 +233,48 @@ test('pointer demo activation survives assisted scrolling until deliberate scrol
   await expect(page.locator(scene)).toHaveAttribute('data-system-view','phenome');
   await page.mouse.wheel(0,1);
   await expect(page.locator(scene)).toHaveAttribute('data-system-view','proteome');
+});
+
+
+test('the bounded sticky narrative releases before expanded support in both directions', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'One four-viewport structural matrix');
+  for (const viewport of [{width:1440,height:900},{width:1280,height:600},{width:390,height:844},{width:320,height:568}]) {
+    await page.setViewportSize(viewport); await page.goto('https://artyfact.test/'); await revealStory(page);
+    await page.getByRole('tab',{name:/Phenome/}).click();
+    const randomize=page.getByRole('button',{name:'Randomize',exact:true});
+    for(let i=0;i<3;i++) await randomize.click();
+    await expect(page.getByRole('list',{name:'Recent ideas'})).toBeVisible();
+    await page.getByText('Composition + provenance',{exact:true}).click();
+    const boundary=await page.locator('.scene-support').evaluate(e=>scrollY+e.getBoundingClientRect().top);
+    for(const offset of [viewport.height,viewport.height*.5,80,-80,80,viewport.height*.5,viewport.height]) {
+      await page.evaluate(y=>scrollTo({top:y,behavior:'instant'}),boundary-offset);
+      await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(()=>resolve(null)))));
+      const boxes=await page.evaluate(()=>{
+        const a=document.querySelector('.landing-sticky-stage')!.getBoundingClientRect(),b=document.querySelector('.scene-support')!.getBoundingClientRect();
+        return {bottom:a.bottom,top:b.top,overflow:document.documentElement.scrollWidth>innerWidth};
+      });
+      expect(boxes.bottom).toBeLessThanOrEqual(boxes.top); expect(boxes.overflow).toBe(false);
+    }
+    await page.locator('.scene-support').scrollIntoViewIfNeeded();
+    await expect(page.getByText('Composition + provenance',{exact:true})).toBeVisible();
+    await expect(page.getByRole('list',{name:'Recent ideas'})).toBeVisible();
+    await page.screenshot({path:info.outputPath('support-'+viewport.width+'.png')});
+  }
+});
+
+
+test('reverse chapter transitions never overprint outgoing activity labels', async ({page},info)=>{
+  await page.setViewportSize(info.project.name==='desktop'?{width:1440,height:900}:{width:320,height:568});
+  await page.goto('https://artyfact.test/'); await revealStory(page);
+  await narrative(page,'phenome'); await expect(page.locator(scene)).toHaveAttribute('data-phenome-settled','true');
+  for(const view of ['proteome','genome']) {
+    await narrative(page,view); await expect(page.locator(scene)).toHaveAttribute('data-system-view',view);
+    for(const label of ['.scene-chart-caption','.scene-chart-ticks','.scene-save-chart strong'])
+      expect(await page.locator(label).evaluate(element=>getComputedStyle(element).visibility)).toBe('hidden');
+    await page.waitForTimeout(220);
+    for(const label of ['.scene-chart-caption','.scene-chart-ticks','.scene-save-chart strong'])
+      expect(await page.locator(label).evaluate(element=>getComputedStyle(element).visibility)).toBe('hidden');
+    await expect(page.locator(scene)).toHaveAttribute('data-motion','settled');
+    await narrative(page,'phenome'); await expect(page.locator(scene)).toHaveAttribute('data-phenome-settled','true');
+  }
 });

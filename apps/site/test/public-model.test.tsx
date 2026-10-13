@@ -14,8 +14,8 @@ it('starts with the domain and lets people choose Things and typed connections',
   expect(screen.getByText(/one or more Things you want to make/)).toBeTruthy();
   expect(screen.getByText(/You choose how to divide the System into Things/i)).toBeTruthy();
   expect(screen.getByText(/within a typed model/i)).toBeTruthy();
-  expect(screen.getByText(/one whole application/i)).toBeTruthy();
-  expect(screen.getByText(/frontend, API and design system/i)).toBeTruthy();
+  expect(screen.getByText(/Whole contact application/i)).toBeTruthy();
+  expect(screen.getByText('Frontend')).toBeTruthy();
 });
 
 it('shows form, content and a nested web app ontology without making Parts mandatory', () => {
@@ -40,11 +40,11 @@ it('separates optional implementation Parts from reusable Rule Pack constraints'
 it('labels the proposed Artyfact feature as illustrative across parallel views', () => {
   render(<Site path="/model" config={config} />);
 
-  expect(screen.getByText('Illustrative target')).toBeTruthy();
+  expect(screen.getAllByText('Illustrative target').length).toBeGreaterThan(0);
   expect(screen.getAllByText(/Make changes easy to scope and specify/i).length).toBeGreaterThan(0);
   expect(screen.getAllByText(/proposed acceptance test/i).length).toBeGreaterThan(0);
   expect(screen.getByText(/sample event stream/i)).toBeTruthy();
-  expect(screen.getByText(/not successive build stages/i)).toBeTruthy();
+  expect(screen.getAllByText(/not successive build stages/i).length).toBeGreaterThan(0);
 });
 
 it('distinguishes authored source from realized output and keeps evidence claims bounded', () => {

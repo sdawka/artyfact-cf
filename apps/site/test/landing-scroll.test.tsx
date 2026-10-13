@@ -92,15 +92,23 @@ it('keeps a keyboard-focused demo control visible while scrolling and resumes af
   expect(screen.getByText('proteome:false')).toBeTruthy();
 });
 
-it('scrubs progress continuously and reverses without resetting the semantic view', () => {
+it('finishes a chapter after scrolling stops and holds its endpoint', () => {
   const { container } = render(<Harness />); const root = container.querySelector('[data-test-scene]') as HTMLElement;
-  positions = [-350, 650, 1650]; fireEvent.scroll(window); flush();
-  const half = Number(root.style.getPropertyValue('--realization-progress')); expect(half).toBeGreaterThan(0); expect(half).toBeLessThan(1);
-  positions = [-150, 850, 1850]; fireEvent.scroll(window); flush();
-  expect(Number(root.style.getPropertyValue('--realization-progress'))).toBeLessThan(half);
-  keyboardMode = true; act(() => screen.getByRole('button', { hidden: true, name: 'genome' }).focus());
-  const frozen = root.style.getPropertyValue('--realization-progress'); positions = [-1500,-500,500]; fireEvent.scroll(window); flush();
-  expect(root.style.getPropertyValue('--realization-progress')).toBe(frozen);
+  positions = [-400,200,700]; fireEvent.scroll(window); flush();
+  act(() => vi.advanceTimersByTime(900));
+  expect(screen.getByText('proteome:false')).toBeTruthy();
+  expect(root.style.getPropertyValue('--realization-progress')).toBe('1');
+  positions = [-390,210,710]; fireEvent.scroll(window); flush();
+  expect(root.style.getPropertyValue('--realization-progress')).toBe('1');
+});
+it('uses a backward spatial threshold and retargets rapidly without queued chapters', () => {
+  render(<Harness />); positions = [-400,200,700]; fireEvent.scroll(window); flush();
+  positions = [0,475,975]; fireEvent.scroll(window); flush();
+  expect(screen.getByText('proteome:false')).toBeTruthy();
+  positions = [0,530,1030]; fireEvent.scroll(window); flush();
+  expect(screen.getByText('genome:false')).toBeTruthy();
+  positions = [-1000,-500,200]; fireEvent.scroll(window); flush();
+  expect(screen.getByText('phenome:false')).toBeTruthy();
 });
 it('settles the same focused view when reduced motion changes at a scrub midpoint', () => {
   const { container } = render(<Harness />); const root = container.querySelector('[data-test-scene]') as HTMLElement;
@@ -136,4 +144,14 @@ it('does not latch protection for a non-primary pointer without demo focus', () 
   act(() => screen.getByRole('button',{name:'Outside controls'}).focus());
   fireEvent.pointerDown(screen.getByRole('button',{name:'Save record'}),{button:2,isPrimary:false});
   positions=[-400,200,700]; fireEvent.scroll(window); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
+});
+
+it('cancels a forward destination when reversing before its first visible frame', () => {
+  const { container } = render(<Harness />); const root = container.querySelector('[data-test-scene]') as HTMLElement;
+  fireEvent.click(screen.getByRole('button',{hidden:true,name:'genome'}));
+  positions=[-400,200,700]; fireEvent.scroll(window); flush();
+  positions=[0,600,1100]; fireEvent.scroll(window); flush();
+  act(() => vi.advanceTimersByTime(900));
+  expect(screen.getByText('genome:false')).toBeTruthy();
+  expect(root.style.getPropertyValue('--realization-progress')).toBe('0');
 });

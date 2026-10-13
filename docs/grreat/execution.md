@@ -3,13 +3,12 @@
 
 ## Now
 
-- Goal: [[goals]]. Milestone: the public model page follow-up in [[roadmap]].
-- Working revision: `feat/model-page-domain-first`, based on released main `6cf5a15`; this iteration changes the public `/model` page and its focused tests, with no homepage or backend changes.
-- Current result: the page explains System/Thing composition, form/content, Parts/Rule Packs, nested subjects and three parallel views through a labeled illustrative Artyfact feature. Known capability gaps are recorded in [[roadmap]].
-- Next action: Complete independent visual/copy review, then publish one PR. Merge only with all hosted CI green; deploy and verify the exact merged site revision.
-- Latest verification: Full `npm run ci -- --ultra-compact` passed in 123.8s: 1349 root tests (3 skips), 42 fixture and 4 fake-platform browser checks, 49 site units, 11 static and 42 browser checks (4 viewport skips), all typechecks/builds. A 320px no-JS browser check returned HTTP 200 with all six sections and no horizontal overflow.
+- Goal: [[goals]]. Milestone: coherent public homepage and model storytelling.
+- Working revision: `feat/settled-page-stories`, based on released main `098e7d8`; site-only presentation and interactions, without backend changes.
+- Current result: finite reversible homepage chapters, bounded sticky narrative with separate support, and one illustrative scoped-change thread through the domain-first model page. Independent source and desktop/mobile review is clear.
+- Next action: Publish one PR, require exact-head review and all hosted checks green, then release and independently verify the exact merged site.
+- Latest verification: 1355 root tests (3 skips), 42 fixture and 5 fake-platform browser checks passed. The final scoped site gate passed in 61.0s: 55 units, 11 static checks and 45 browser checks (5 viewport skips), all typechecks/builds. Independent review verified finite reversals, focus, no-JS/reduced motion and zero support overlap at four viewports. GRREAT: 7 valid records. See [[journals/2026-10-13-model-page]].
 - Deferred: Remote GRREAT sync remains deferred by the user; the existing `GOAL_HIERARCHY_CONFLICT` checkpoint and separate Artyfact/Bropilot records are preserved.
-- Last updated: 2026-10-13T09:08:01-04:00.
 
 ## Work history
 
