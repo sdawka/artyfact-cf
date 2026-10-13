@@ -77,10 +77,10 @@ describe("hook selection: the DO's Evolution record (API-created evolutions)", (
   it("selects every criterion that blocks promotion, whatever the task lists, and only model ones for a Genome candidate", () => {
     const blocking = gateCriteria(model, { acceptanceCriteria: ["C.webapp.health"] }, appCandidate()).filter((g) => g.blocking).map((g) => g.id);
     expect(blocking).toContain("C.webapp.exists");
-    const task = selectHooks(model, appCandidate(), "submission", stored({ id: "evolution.1", acceptanceCriteria: ["C.webapp.health"] }));
+    const task = selectHooks(model, appCandidate({ evolutionId: "evolution.api" }), "submission", stored({ acceptanceCriteria: ["C.webapp.health"] }));
     for (const id of blocking) expect(task.map((s) => s.criterion.id), id).toContain(id);
     expect(ids(task)).toContain("C.webapp.exists|promotion-gate");
-    const genome = selectHooks(model, appCandidate({ target: "genome" }), "submission", stored({ id: "evolution.1", acceptanceCriteria: [] }));
+    const genome = selectHooks(model, appCandidate({ target: "genome", evolutionId: "evolution.api" }), "submission", stored({ acceptanceCriteria: [] }));
     expect(genome.map((s) => s.criterion.id)).not.toContain("C.webapp.exists");
   });
 

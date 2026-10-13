@@ -4,7 +4,6 @@
  * against the fake platform. Runs in Node (git is present locally and on CI runners).
  */
 import { execFile } from "node:child_process";
-import { fileURLToPath } from "node:url";
 import { createServer, type Server } from "node:http";
 import { existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import type { AddressInfo } from "node:net";
@@ -26,7 +25,7 @@ let token: string;
 let url: string;
 let transport: ReturnType<typeof fakeReceivePack>;
 const platformCalls: { path: string; body: Record<string, unknown> }[] = [];
-const CLI = fileURLToPath(new URL("../../../../packages/cli/bin/artyfact.js", import.meta.url));
+const CLI = join(import.meta.dirname, "../../../../packages/cli/bin/artyfact.js");
 const SECRET = "ab".repeat(32);
 
 function gitEnv(header = true): NodeJS.ProcessEnv {
@@ -127,8 +126,8 @@ describe("fake git server against git", { timeout: 60_000 }, () => {
     // The CLI blocks on git, so it runs in its own process while this one serves.
     const env = {
       ...gitEnv(false), ARTYFACT_ADMIN_TOKEN: "admin", ARTYFACT_ALLOW_REMOTE_HOST: "fake.artifacts.local",
-    } as Record<string, string>;
-    const cli = (args: string[], extra: Record<string, string> = {}, cwd = work) => run("node", [CLI, ...args], { cwd, env: { ...env, ...extra }, encoding: "utf8", timeout: 30_000 });
+    } as unknown as NodeJS.ProcessEnv;
+    const cli = (args: string[], extra: Record<string, string> = {}, cwd = work) => run("node", [CLI, ...args], { cwd, env: { ...env, ...extra } as NodeJS.ProcessEnv, encoding: "utf8", timeout: 30_000 });
     const claimed = await cli(["task", "claim", "plan.one", "t1", "--system", "system.one", "--dir", dir, "--platform", url]);
     expect(claimed.stdout).toContain("Task workspace ready");
     expect(readFileSync(join(dir, "src/x.ts"), "utf8").length).toBeGreaterThan(0);
