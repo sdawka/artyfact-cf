@@ -31,6 +31,8 @@ test.describe("home with a populated API", () => {
     await expect(kit).toHaveAttribute("data-state", "evolving");
     await expect(notes).toHaveAttribute("data-state", "attention");
     await expect(page.getByText("fixture data")).toHaveCount(0);
+    await expect(page.getByRole("heading", { level: 2, name: "Reusable Parts" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Button system" })).toHaveAttribute("href", "/parts/part.ui.buttons/2.1.0");
     await expect(notes.getByText("not deployed, unknown")).toBeVisible();
     await expect(kit.locator('[data-status="deployed"]')).toHaveText(/deployed/);
     const green = await successToneElements(page);
@@ -38,7 +40,7 @@ test.describe("home with a populated API", () => {
     expect(green.every((h) => h.includes("build passed"))).toBe(true);
     await checkA11yAndShoot(page, testInfo, "home-populated");
     await kit.click();
-    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Keep in Touch web app" })).toBeVisible();
   });
 
   test("mockApi refuses unmocked writes with 405 @fixture", async ({ page }) => {

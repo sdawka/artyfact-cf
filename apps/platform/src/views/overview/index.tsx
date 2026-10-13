@@ -7,7 +7,7 @@ import { PurposeCard } from "./PurposeCard";
 import { SystemHero } from "./SystemHero";
 import styles from "./Overview.module.css";
 
-/** Landing view: the System hero (orb, name, Purpose, three separate states), Purpose detail, active Evolutions, blockers with why, deployment and the app template. */
+/** Landing view: the System hero (card light, name, Purpose, three separate states), Purpose detail, active Evolutions, blockers with why, deployment and the app template. */
 export default function OverviewView() {
   return (
     <div className={styles.view}>

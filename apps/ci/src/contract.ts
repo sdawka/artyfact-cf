@@ -8,6 +8,9 @@ export type BuildKind = "preview" | "production";
 
 /** Parameters the platform passes to the `artyfact-ci` Workflow (`env.CI.create({ id, params })`). */
 export interface CiBuildParams {
+  thingId?: string;
+  artifactId?: string;
+  genomeCommit?: string;
   /** The platform's build row id; every report carries it. */
   buildId: string;
   systemId: string;
@@ -20,7 +23,7 @@ export interface CiBuildParams {
   kind: BuildKind;
   /** `<slug>-app-r<N>` for a preview, `<slug>-app` for production. */
   workerName: string;
-  /** Deployed as `--var KEY:VALUE` (`BUILD_ID` is always the commit), except the credentials in `SECRET_VARS` (`deploy-config.ts`), which become Worker secrets. */
+  /** Deployed as `--var KEY:VALUE` (`BUILD_ID` identifies the build), except the credentials in `SECRET_VARS` (`deploy-config.ts`), which become Worker secrets. */
   vars: Record<string, string>;
   /** Each one of {@link ALLOWED_COMMANDS}; `deploy` only names the step (the pinned image Wrangler always deploys). */
   commands: { install: string; test?: string; build?: string; deploy: string };
@@ -37,6 +40,7 @@ export interface BuildStep {
 }
 
 export interface BuildReport {
+  output?: { locator?: string; digest?: string };
   id?: string;
   status: BuildStatus;
   kind?: BuildKind;

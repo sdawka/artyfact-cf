@@ -36,6 +36,8 @@
 }
 .main:focus { outline: none; }
 .h1 { margin: 0 0 var(--spacing-6); }
+.h2 { margin: 0 0 var(--spacing-4); font-size: var(--font-size-xl); }
+.parts { display: grid; gap: var(--spacing-3); margin-top: var(--spacing-9); }
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));
@@ -53,6 +55,7 @@
   color: var(--color-text-secondary);
   font-size: var(--font-size-sm);
 }
+.partDescription { margin: var(--spacing-3) 0 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .chips {
   display: flex;
   flex-wrap: wrap;

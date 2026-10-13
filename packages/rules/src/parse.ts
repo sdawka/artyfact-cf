@@ -1,8 +1,8 @@
-import { stratify } from "./stratify";
+import { stratify } from "./stratify.ts";
 import {
   RuleParseError, type Atom, type CmpOp, type ColumnType, type Decl, type Literal, type Program, type Rule,
   type Term, type Value,
-} from "./types";
+} from "./types.ts";
 
 type TokKind = "ident" | "var" | "string" | "number" | "directive" | "punct" | "eof";
 interface Tok { kind: TokKind; text: string; value?: Value; line: number; column: number }

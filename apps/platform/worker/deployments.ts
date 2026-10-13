@@ -8,7 +8,7 @@ import { systemRepoNames } from "@artyfact/cli/naming";
 import { parse as parseYaml } from "yaml";
 import type {
   Build, BuildKind, BuildReport, BuildReportResponse, BuildReporter, BuildStatus, BuildStep, BuildSummary, BuildsResponse, CiBuildParams,
-  Deployment, DeploymentCreated, DeploymentRequest, DeploymentsResponse, IngestTokenResponse, SystemCommit,
+  Deployment, DeploymentCreated, DeploymentRequest, DeploymentsResponse, IngestTokenResponse, RealizedArtifactsResponse, SystemCommit,
 } from "../shared/api";
 import { artifactsFor, withRepo } from "./artifacts/client";
 import { newRealizationSecret } from "./auth";
@@ -81,11 +81,39 @@ export const productionWorkerName = (systemId: string) => workerName(systemId, "
 
 interface AppInfo { thingId: string; artifactId: string; commands: CiBuildParams["commands"] }
 
+async function modelAt(env: Env, s: HeadState, genomeCommit: string) {
+  let last: unknown;
+  for (const repo of new Set([s.genomeSource, s.genomeRepo])) {
+    try { return (await genomeAt(env, s.systemId, genomeCommit, repo)).model; } catch (e) { last = e; }
+  }
+  throw last;
+}
+
+async function realizationGenomeCommit(stub: ReturnType<typeof systemStub>, rec: RealizationRecord): Promise<string | undefined> {
+  const baseHead = rec.realization.baseRevision;
+  if (baseHead) {
+    const base = await stub.systemCommit(baseHead);
+    if (base?.composition?.genomeCommit) return base.composition.genomeCommit;
+  }
+  return undefined;
+}
+
+async function appBinding(env: Env, s: HeadState, genomeCommit = s.genomeCommit, artifactId?: string): Promise<{ thingId: string; artifactId: string }> {
+  const m = await modelAt(env, s, genomeCommit);
+  const matches = m.things.flatMap((thing) => thing.artifacts
+    .filter((artifact) => artifactId ? artifact.artifact === artifactId : artifact.type === "worker-fullstack")
+    .map((artifact) => ({ thingId: thing.id, artifactId: artifact.artifact })));
+  if (matches.length === 1) return matches[0];
+  throw new Error(artifactId
+    ? `artifact ${artifactId} must belong to exactly one Thing in the Genome (found ${matches.length})`
+    : `the Genome must identify exactly one worker-fullstack artifact for an unpinned build (found ${matches.length})`);
+}
+
 /** The app Thing, its worker-fullstack artifact and the CI commands from its template's `scaffold.yaml`. */
-async function appInfo(env: Env, s: HeadState): Promise<AppInfo> {
+async function appInfo(env: Env, s: HeadState, genomeCommit = s.genomeCommit): Promise<AppInfo> {
   const fallback: AppInfo = { thingId: "unknown", artifactId: "artifact.webapp", commands: { install: "npm install", test: "npm test", deploy: "npx wrangler deploy" } };
   try {
-    const m = (await genomeAt(env, s.systemId, s.genomeCommit, s.genomeSource)).model;
+    const m = await modelAt(env, s, genomeCommit);
     const thing = m.things.find((t) => t.artifacts.some((a) => a.type === "worker-fullstack")) ?? m.things[0];
     const artifact = thing?.artifacts.find((a) => a.type === "worker-fullstack");
     const text = thing?.templateRef ? templateFile(thing.templateRef, "scaffold.yaml") : undefined;
@@ -153,18 +181,25 @@ export async function dispatchPreviewBuild(env: Env, s: HeadState, rec: Realizat
   try {
     const existing = await stub.build(buildId);
     if (existing) return buildSummary(existing);
-    const app = await appInfo(env, s);
+    const genomeCommit = await realizationGenomeCommit(stub, rec);
+    if (!genomeCommit) throw new Error(`the Genome lineage of ${rid} is unknown`);
+    const app = await appInfo(env, s, genomeCommit);
+    const binding = await appBinding(env, s, genomeCommit);
     const ingest = await mintIngestToken();
-    await stub.upsertBuild({ id: buildId, realization: rid, candidate: candidate.id, commit: candidate.commit, kind: "preview", status: "queued", reporter: "ci" });
+    await stub.upsertBuild({
+      id: buildId, realization: rid, candidate: candidate.id, commit: candidate.commit, kind: "preview", status: "queued", reporter: "ci",
+      sourceRepo: rec.forkRepo, genomeCommit, thingId: binding.thingId, artifactId: binding.artifactId,
+    });
     const deployment = await stub.createDeployment({
       kind: "preview", repo: rec.forkRepo, commit: candidate.commit, realization: rid, buildRow: buildId, by: "ci", ingestTokenHash: ingest.hash,
     });
     return await startCi(env, ci, {
       buildId, systemId: s.systemId, realizationId: rid, candidateId: candidate.id, namespace: env.ARTIFACTS_NAMESPACE, repo: rec.forkRepo,
       commit: candidate.commit, kind: "preview", workerName: previewWorkerName(s.systemId, rec.realization.n ?? Number(/--r(\d+)$/.exec(rec.forkRepo)?.[1] ?? 0)),
+      thingId: binding.thingId, artifactId: binding.artifactId, genomeCommit,
       vars: {
-        BUILD_ID: candidate.commit, ARTYFACT_PLATFORM_URL: platformUrl(env), ARTYFACT_SYSTEM_ID: s.systemId, ARTYFACT_THING_ID: app.thingId,
-        ARTYFACT_ARTIFACT_ID: app.artifactId, ARTYFACT_REALIZATION_ID: rid, ARTYFACT_DEPLOYMENT_ID: deployment.id, ARTYFACT_INGEST_TOKEN: ingest.token,
+        BUILD_ID: candidate.commit, ARTYFACT_PLATFORM_URL: platformUrl(env), ARTYFACT_SYSTEM_ID: s.systemId, ARTYFACT_THING_ID: binding.thingId,
+        ARTYFACT_ARTIFACT_ID: binding.artifactId, ARTYFACT_REALIZATION_ID: rid, ARTYFACT_DEPLOYMENT_ID: deployment.id, ARTYFACT_INGEST_TOKEN: ingest.token,
       },
       commands: app.commands,
       reportUrl: `${platformUrl(env)}/api/systems/${encodeURIComponent(s.systemId)}/realizations/${encodeURIComponent(rid)}/builds`,
@@ -197,12 +232,17 @@ export async function requestProductionDeploy(
     const s = await stub.state();
     if (!s) return deployment;
     const info = await appInfo(env, s);
+    const binding = await appBinding(env, s, commit.composition?.genomeCommit ?? s.genomeCommit, artifactId);
     const buildId = `build.${deployment.id}`;
-    await stub.upsertBuild({ id: buildId, realization: null, candidate: null, commit: app.commit, kind: "production", status: "queued", reporter: "ci" });
+    await stub.upsertBuild({
+      id: buildId, realization: null, candidate: null, commit: app.commit, kind: "production", status: "queued", reporter: "ci",
+      sourceRepo: app.repo, genomeCommit: commit.composition?.genomeCommit ?? s.genomeCommit, thingId: binding.thingId, artifactId: binding.artifactId,
+    });
     await stub.setDeploymentResult(deployment.id, { buildRow: buildId });
     await startCi(env, ci, {
       buildId, systemId, realizationId: null, candidateId: null, namespace: env.ARTIFACTS_NAMESPACE, repo: app.repo, commit: app.commit,
-      kind: "production", workerName: productionWorkerName(systemId),
+      kind: "production", workerName: productionWorkerName(systemId), thingId: binding.thingId, artifactId: binding.artifactId,
+      genomeCommit: commit.composition?.genomeCommit ?? s.genomeCommit,
       vars: {
         BUILD_ID: app.commit, ARTYFACT_PLATFORM_URL: platformUrl(env), ARTYFACT_SYSTEM_ID: systemId, ARTYFACT_THING_ID: info.thingId,
         ARTYFACT_ARTIFACT_ID: info.artifactId, ARTYFACT_SYSTEM_COMMIT: commit.id, ARTYFACT_DEPLOYMENT_ID: deployment.id, ARTYFACT_INGEST_TOKEN: ingest.token,
@@ -245,6 +285,15 @@ export function parseReport(body: unknown): BuildReport {
   if (b.id !== undefined && (typeof b.id !== "string" || !BUILD_ID_RE.test(b.id))) throw badRequest("id must be a build id (letters, digits, . _ : -)");
   for (const k of ["url", "logsUrl"] as const) if (b[k] !== undefined && b[k] !== null && !HTTP_URL(b[k])) throw badRequest(`${k} must be an http(s) URL`);
   if (b.deploymentId !== undefined && typeof b.deploymentId !== "string") throw badRequest("deploymentId must be a string");
+  let output: BuildReport["output"];
+  if (b.output !== undefined) {
+    if (!b.output || typeof b.output !== "object" || Array.isArray(b.output)) throw badRequest("output must be an object");
+    const raw = b.output as Record<string, unknown>;
+    const locator = trim(raw.locator, 2048), digest = trim(raw.digest, 512);
+    if (!locator && !digest) throw badRequest("output needs a locator or digest");
+    if (b.status !== "passed") throw badRequest("output may be reported only for a passed build");
+    output = { ...(locator && { locator }), ...(digest && { digest }) };
+  }
   return {
     status: b.status as BuildStatus, commit: b.commit,
     ...(b.id !== undefined && { id: b.id as string }), ...(b.kind !== undefined && { kind: b.kind as BuildKind }),
@@ -252,7 +301,7 @@ export function parseReport(body: unknown): BuildReport {
     ...(trim(b.buildId, 200) && { buildId: trim(b.buildId, 200) }), ...(trim(b.externalId, 200) && { externalId: trim(b.externalId, 200) }),
     ...(trim(b.deploymentId, 200) && { deploymentId: trim(b.deploymentId, 200) }), ...(parseSteps(b.steps) && { steps: parseSteps(b.steps) }),
     ...(trim(b.error, 4000) && { error: trim(b.error, 4000) }), ...(trim(b.startedAt, 40) && { startedAt: trim(b.startedAt, 40) }),
-    ...(trim(b.finishedAt, 40) && { finishedAt: trim(b.finishedAt, 40) }),
+    ...(trim(b.finishedAt, 40) && { finishedAt: trim(b.finishedAt, 40) }), ...(output && { output }),
   };
 }
 
@@ -267,13 +316,14 @@ async function assertAgentCommit(env: Env, stub: ReturnType<typeof systemStub>, 
 /**
  * Record a build report. Realization reports are previews (an agent may report nothing else); System reports default
  * to production. `passed` + `url` for a realization re-enters `submit(…, {commit, previewUrl}, "ci")`, which stores the
- * preview on the candidate and re-runs the hooks (`C.webapp.health` against `BUILD_ID=<commit>`). A report naming a
+ * preview on the candidate and re-runs the hooks (`C.webapp.health` against the stored runtime build identity). A report naming a
  * deployment sets it `live` (superseding the previous live one) or `failed`.
  */
 export async function reportBuild(env: Env, systemId: string, rid: string | null, body: unknown, reporter: BuildReporter): Promise<BuildReportResponse> {
   const r = parseReport(body);
   const stub = systemStub(env, systemId);
-  if (!(await stub.state())) throw notFound(`system ${systemId} is not imported`);
+  const state = await stub.state();
+  if (!state) throw notFound(`system ${systemId} is not imported`);
   const rec = rid ? await stub.realization(rid) : null;
   if (rid && !rec) throw notFound(`unknown realization ${rid}`);
   const kind: BuildKind = r.kind ?? (rid ? "preview" : "production");
@@ -287,6 +337,9 @@ export async function reportBuild(env: Env, systemId: string, rid: string | null
   if (prev && (prev.realization !== (rid ?? null) || prev.commit !== r.commit)) {
     throw conflict("build-mismatch", `build ${id} belongs to ${prev.realization ?? "the System"} at ${prev.commit.slice(0, 12)}`);
   }
+  if (prev?.output && r.output && (prev.output.locator !== r.output.locator || prev.output.digest !== r.output.digest)) {
+    throw conflict("output-mismatch", `build ${id} already identifies realized output ${prev.output.id}`);
+  }
   if (reporter === "agent" && rec) await assertAgentCommit(env, stub, rec, r.commit);
   let deployment = deploymentId ? await stub.deployment(deploymentId) : null;
   if (deploymentId && (!deployment || (rid && deployment.realization !== rid) || deployment.commit !== r.commit)) {
@@ -297,14 +350,40 @@ export async function reportBuild(env: Env, systemId: string, rid: string | null
   let pending: Deployment | null = null;
   if (!deployment && kind === "production" && r.status === "passed") {
     pending = (await stub.deployments({ kind: "production" })).find((d) => d.status === "pending" && d.commit === r.commit) ?? null;
-    const s = await stub.state();
-    if (!pending && s?.appSource.commit !== r.commit) {
+    if (!pending && state.appSource?.commit !== r.commit) {
       throw conflict("not-promoted", `commit ${r.commit.slice(0, 12)} is not the System's app commit and has no pending production deployment`);
     }
+  }
+  let sourceRepo: string | undefined, genomeCommit: string | undefined, thingId: string | undefined, artifactId: string | undefined;
+  if ((!rec || rec.target === "app") && prev?.source && prev.genomeCommit && prev.thingId && prev.artifactId) {
+    ({ repo: sourceRepo } = prev.source); ({ genomeCommit, thingId, artifactId } = prev);
+  } else if (rec?.target === "app") {
+    sourceRepo = rec.forkRepo;
+    genomeCommit = await realizationGenomeCommit(stub, rec);
+    if (genomeCommit) {
+      try { ({ thingId, artifactId } = await appBinding(env, state, genomeCommit)); } catch { /* legacy report remains unknown unless it claims output */ }
+    }
+  } else if (!rec) {
+    const lineageDeployment = deployment ?? pending;
+    sourceRepo = lineageDeployment?.repo ?? (state.appSource?.commit === r.commit ? state.appSource.repo : undefined);
+    let artifactHint: string | undefined;
+    if (lineageDeployment?.systemCommit) {
+      const sc = await stub.systemCommit(lineageDeployment.systemCommit);
+      genomeCommit = sc?.composition?.genomeCommit;
+      artifactHint = Object.entries(sc?.composition?.artifacts ?? {}).find(([, a]) => a.repo === sourceRepo && a.commit === r.commit)?.[0];
+    } else if (state.appSource?.commit === r.commit) genomeCommit = state.genomeCommit;
+    if (genomeCommit) {
+      try { ({ thingId, artifactId } = await appBinding(env, state, genomeCommit, artifactHint)); } catch { /* legacy report remains unknown unless it claims output */ }
+    }
+  }
+  if (r.output && (!sourceRepo || !genomeCommit || !thingId || !artifactId)) {
+    throw conflict("output-lineage-unknown", "the build output cannot be recorded until its source, Genome, Thing and artifact lineage are authoritative");
   }
   const candidateOf = async () => (rid ? (await stub.candidates({ realizationId: rid })).find((c) => c.commit === r.commit)?.id ?? null : null);
   const upsert = async (candidate: string | null) => (await stub.upsertBuild({
     id, realization: rid, candidate, commit: r.commit, kind, status: r.status, reporter,
+    ...(sourceRepo && { sourceRepo }), ...(genomeCommit && { genomeCommit }), ...(thingId && { thingId }), ...(artifactId && { artifactId }),
+    ...(r.output && { output: r.output }),
     ...(r.url && { url: r.url }), ...(r.buildId && { buildId: r.buildId }), ...(r.logsUrl && { logsUrl: r.logsUrl }), ...(r.externalId && { externalId: r.externalId }),
     ...(r.steps && { steps: r.steps }), ...(r.error && { error: r.error }), ...(r.startedAt && { startedAt: r.startedAt }), ...(r.finishedAt && { finishedAt: r.finishedAt }),
   })).build;
@@ -322,13 +401,16 @@ export async function reportBuild(env: Env, systemId: string, rid: string | null
   if (!deployment && kind === "production" && build.status === "passed") {
     deployment = pending;
     if (!deployment) {
-      const s = await stub.state();
-      deployment = await stub.createDeployment({ kind: "production", repo: s!.appSource.repo, commit: r.commit, by: reporter, buildRow: id });
+      if (!state.appSource) throw conflict("no-app-source", "the System has no source artifact to deploy");
+      deployment = await stub.createDeployment({ kind: "production", repo: state.appSource.repo, commit: r.commit, by: reporter, buildRow: id });
     }
   }
   if (deployment) {
     const status = build.status === "passed" ? "live" : build.status === "failed" || build.status === "error" ? "failed" : undefined;
-    await stub.setDeploymentResult(deployment.id, { ...(status && { status }), buildRow: id, ...(build.url && { url: build.url }), ...(build.buildId && { buildId: build.buildId }) });
+    await stub.setDeploymentResult(deployment.id, {
+      ...(status && { status }), buildRow: id, ...(build.url && { url: build.url }), ...(build.buildId && { buildId: build.buildId }),
+      ...(build.output && { realizedArtifactId: build.output.id }),
+    });
   }
   await refreshRegistry(env, systemId);
   out.build = build;
@@ -341,6 +423,10 @@ export async function buildsView(env: Env, systemId: string, q: { realization?: 
   if (q.commit !== undefined && !COMMIT_RE.test(q.commit)) throw badRequest("commit must be a 40-character hex sha");
   if (q.kind !== undefined && q.kind !== "preview" && q.kind !== "production") throw badRequest("kind must be preview or production");
   return { builds: await systemStub(env, systemId).builds({ ...q, kind: q.kind as BuildKind | undefined }) };
+}
+
+export async function realizedArtifactsView(env: Env, systemId: string): Promise<RealizedArtifactsResponse> {
+  return { artifacts: await systemStub(env, systemId).realizedArtifacts() };
 }
 
 export async function deploymentsView(env: Env, systemId: string): Promise<DeploymentsResponse> {
@@ -364,20 +450,27 @@ export async function createDeployment(env: Env, systemId: string, body: unknown
   const rec = b.realization !== undefined ? await stub.realization(String(b.realization)) : null;
   if (b.realization !== undefined && !rec) throw notFound(`unknown realization ${b.realization}`);
   if (kind === "preview" && !rec) throw badRequest("a preview deployment names its realization");
-  const commit = b.commit ?? (kind === "production" && !rec ? s.appSource.commit : undefined);
+  if (b.outputId !== undefined && (typeof b.outputId !== "string" || !b.outputId.trim())) throw badRequest("outputId must be a non-empty string");
+  const output = b.outputId ? await stub.realizedArtifact(b.outputId) : null;
+  if (b.outputId && !output) throw notFound(`unknown realized output ${b.outputId}`);
+  const commit = b.commit ?? output?.source.commit ?? (kind === "production" && !rec ? s.appSource?.commit : undefined);
   if (typeof commit !== "string" || !COMMIT_RE.test(commit)) throw badRequest("commit must be a 40-character hex sha");
   if (b.url !== undefined && !HTTP_URL(b.url)) throw badRequest("url must be an http(s) URL");
   const url = HTTP_URL(b.url) ? b.url : undefined;
+  const repo = rec ? rec.forkRepo : output ? s.appSource?.repo ?? s.appRepo : s.appSource?.commit === commit ? s.appSource.repo : s.appRepo;
+  if (output && (output.source.repo !== repo || output.source.commit !== commit)) throw conflict("output-source-mismatch", "realized output source does not match the deployment repository and commit");
+  const build = output ? await stub.build(output.build) : null;
+  if (output && (!build || build.status !== "passed" || build.commit !== commit || build.source?.repo !== repo)) throw conflict("output-build-mismatch", "realized output does not have a matching passed build");
+  const lineage = output ? { realizedArtifactId: output.id, buildRow: output.build, ...(build?.buildId && { buildId: build.buildId }) } : { buildId: commit };
   const ingest = await mintIngestToken();
-  const pending = (await stub.deployments({ kind })).find((d) => d.status === "pending" && d.commit === commit && (!rec || d.realization === rec.realization.id));
+  const pending = !output && (await stub.deployments({ kind })).find((d) => d.status === "pending" && d.commit === commit && (!rec || d.realization === rec.realization.id));
   let deployment: Deployment | null;
   if (pending) {
     await stub.setDeploymentIngestHash(pending.id, ingest.hash);
     deployment = await stub.setDeploymentResult(pending.id, { status: "live", ...(url && { url }), buildId: commit });
   } else {
-    const repo = rec ? rec.forkRepo : s.appSource.commit === commit ? s.appSource.repo : s.appRepo;
     deployment = await stub.createDeployment({
-      kind, status: "live", repo, commit, ...(rec && { realization: rec.realization.id }), ...(url && { url }), buildId: commit, by: "admin", ingestTokenHash: ingest.hash,
+      kind, status: "live", repo, commit, ...(rec && { realization: rec.realization.id }), ...(url && { url }), ...lineage, by: "admin", ingestTokenHash: ingest.hash,
     });
   }
   await refreshRegistry(env, systemId);

@@ -74,7 +74,7 @@ describe("resolveRef", () => {
 
     expect(await resolveRef(env, s, "app", p.commit)).toMatchObject({ ref: p.commit, repo: p.forkRepo, commit: p.commit, candidate: p.candidate });
     // The imported app commit is recorded by the root System commit.
-    expect(await resolveRef(env, s, "app", f.imp.appCommit)).toEqual({ ref: f.imp.appCommit, repo: f.appRepo, commit: f.imp.appCommit, systemCommit: root });
+    expect(await resolveRef(env, s, "app", f.imp.appCommit!)).toEqual({ ref: f.imp.appCommit, repo: f.appRepo, commit: f.imp.appCommit, systemCommit: root });
     expect(await resolveRef(env, s, "genome", f.imp.genomeCommit)).toMatchObject({ repo: f.genomeRepo, commit: f.imp.genomeCommit });
 
     // A realization resolves to its fork head, whether or not that commit was submitted.

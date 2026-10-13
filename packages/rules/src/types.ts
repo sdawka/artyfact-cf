@@ -25,16 +25,22 @@ export interface Program {
 export interface Stratum { relations: string[]; rules: Rule[] }
 
 export class RuleParseError extends Error {
-  constructor(public file: string, public line: number, public column: number, detail: string) {
+  file: string;
+  line: number;
+  column: number;
+  constructor(file: string, line: number, column: number, detail: string) {
     super(`${file}:${line}:${column}: ${detail}`);
     this.name = "RuleParseError";
+    this.file = file; this.line = line; this.column = column;
   }
 }
 
 export class StratificationError extends Error {
-  constructor(public cycle: string[], detail: string) {
+  cycle: string[];
+  constructor(cycle: string[], detail: string) {
     super(detail);
     this.name = "StratificationError";
+    this.cycle = cycle;
   }
 }
 

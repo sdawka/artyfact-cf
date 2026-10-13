@@ -1,6 +1,6 @@
-import { sha256Hex } from "./sha256";
-import { mergeDecls, stratify } from "./stratify";
-import { keyOf, type Literal, type Program, type Rule, type Term, type Tuple, type Value } from "./types";
+import { sha256Hex } from "./sha256.ts";
+import { mergeDecls, stratify } from "./stratify.ts";
+import { keyOf, type Literal, type Program, type Rule, type Term, type Tuple, type Value } from "./types.ts";
 
 export interface FactSet { relations: Map<string, Tuple[]>; hash: string }
 export interface RunOptions { maxIterations?: number; all?: boolean }

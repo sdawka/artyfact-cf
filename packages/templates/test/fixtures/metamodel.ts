@@ -29,7 +29,6 @@ export const metamodel: PackFixture = {
     { name: "criterion subject missing", rule: "criterion.subjectMissing", subject: "C.2", facts: add({ known: [["C.2"]], criterion: [["C.2", "thing", "thing.a", "ghost", "hard"]] }) },
     { name: "criterion thing owner missing", rule: "criterion.ownerMissing", subject: "C.3", facts: add({ known: [["C.3"]], criterion: [["C.3", "thing", "thing.ghost", "op.x", "hard"]] }) },
     { name: "criterion system owner missing", rule: "criterion.ownerMissing", subject: "C.4", facts: add({ known: [["C.4"]], criterion: [["C.4", "system", "system.ghost", "op.x", "hard"]] }) },
-    { name: "thing without artifact", rule: "thing.noArtifact", subject: "thing.b", facts: add({ known: [["thing.b"]], thing: [["thing.b", ""]] }) },
     { name: "thing section missing", rule: "thing.sectionMissing", subject: "thing.a", facts: add({ thingSection: [["thing.a", "section.ghost"]] }) },
   ],
 };

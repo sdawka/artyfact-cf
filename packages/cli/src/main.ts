@@ -8,6 +8,7 @@ import { mergeAgentsBlock, renderAgentsMd } from "./agents-md.ts";
 import { CliError, assertId, assertRemote, assertSecret, assertToken, commitIfDirty, git, isTracked } from "./git.ts";
 import { WORKSPACE_IGNORES } from "./ignore.ts";
 import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
+import { partsCommand } from "./parts.ts";
 
 export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> {
   out: (s: string) => void;
@@ -60,6 +61,7 @@ const USAGE = `artyfact <command>
         report a preview build of this realization when platform CI did not (defaults: commit = HEAD)
   status [--json]
   compose <rid> <rid> ...
+  parts create|extract|validate|publish|compose|upgrade ...
 
   --platform defaults to ARTYFACT_PLATFORM, else ARTYFACT_URL, else the first of ${DEFAULT_URL} and the next nine
   ports whose /api/health identifies as artyfact; with none, the command stops (credentials never go elsewhere).
@@ -84,6 +86,7 @@ export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
       case "build-report": return await buildReport(rest, full);
       case "status": return await status(rest, full);
       case "compose": return compose(rest, full);
+      case "parts": return await partsCommand(rest, full);
       case undefined: case "help": case "--help": full.out(USAGE); return cmd ? 0 : 1;
       default: throw new CliError(`unknown command '${cmd}'\n${USAGE}`);
     }

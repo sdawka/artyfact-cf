@@ -240,7 +240,7 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   // With several worker-fullstack artifacts the app repo is named after the bound (first) one.
   const appArtifacts = g.model.things.flatMap((t) => t.artifacts).filter((a) => a.type === "worker-fullstack").map((a) => a.artifact);
   const appRepo = givenApp ?? systemRepoNames(systemId, appArtifacts).appRepo;
-  const appCommit = await headOf(appRepo);
+  const appCommit = appArtifacts.length ? await headOf(appRepo) : null;
   const stub = systemStub(env, systemId);
   // Pins are checked against the Genome that will be canonical after this import, before the DO applies it: an import
   // of exactly the last-imported commits keeps the current head (after an accepted amendment, not the imported Genome).
@@ -511,11 +511,16 @@ async function storedCandidates(env: Env, systemId: string, filter: { open?: boo
 
 /** Stored candidate → the hooks' CandidateRef (Genome candidates carry their file map from the DO cache). */
 async function hookRef(env: Env, systemId: string, c: StoredCandidate): Promise<CandidateRef> {
-  const genomeFiles = c.target === "genome" ? await systemStub(env, systemId).getModelCache(c.commit, "files") : null;
+  const stub = systemStub(env, systemId);
+  const genomeFiles = c.target === "genome" ? await stub.getModelCache(c.commit, "files") : null;
+  const previewBuilds = c.previewUrl ? (await stub.builds({ realization: c.realizationId, commit: c.commit, kind: "preview" }))
+    .filter((b) => b.status === "passed" && b.url === c.previewUrl && b.buildId && (b.candidate === c.id || b.candidate === null)) : [];
+  // A first passed report creates its candidate inside submit; its trusted build is linked just after hooks run.
+  const passedBuild = previewBuilds.find((b) => b.candidate === c.id) ?? previewBuilds.find((b) => b.candidate === null);
   return {
     id: c.id, realizationId: c.realizationId, evolutionId: c.evolutionId, target: c.target, commit: c.commit, baseCommit: c.baseCommit,
     changedPaths: c.changedPaths, changedNodes: c.changedNodes, ...(c.pathNodes && { pathNodes: c.pathNodes }),
-    ...(c.previewUrl && { previewUrl: c.previewUrl }), ...(genomeFiles && { genomeFiles: JSON.parse(genomeFiles) as FileMap }),
+    ...(c.previewUrl && { previewUrl: c.previewUrl }), ...(passedBuild?.buildId && { expectedBuildId: passedBuild.buildId }), ...(genomeFiles && { genomeFiles: JSON.parse(genomeFiles) as FileMap }),
   };
 }
 
@@ -584,7 +589,7 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
       console.error(`[promote] evidence-fresh for ${cand.id} could not be established: ${(e as Error)?.message}`); // fail closed
     }
     promotionFacts = {
-      currentBaseCommit: rec.target === "genome" ? s.genomeCommit : s.appSource.commit,
+      currentBaseCommit: rec.target === "genome" ? s.genomeCommit : s.appSource?.commit ?? "",
       // The composed manifest binds exactly the promoted commits, and this candidate's commit still hashes to what was submitted.
       manifestExact: composed.exact && !!cand.manifestHash && cand.manifestHash === recomputedHash,
       evidenceFresh: fresh,

@@ -6,6 +6,7 @@ import {
   useReactFlow,
   type NodeMouseHandler,
 } from "@xyflow/react";
+import { useParams } from "react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type FocusEvent, type KeyboardEvent } from "react";
 import { Breadcrumbs } from "@/components/Breadcrumbs/Breadcrumbs";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
@@ -208,8 +209,9 @@ function CertaintyLegend() {
 export function MapView() {
   const { index, path, parent, rollup } = useModel();
   const { focusId, setFocus, layer, candidates } = useSelection();
-  const root = index.model.system.id;
-  const [scope, setScope] = useState(() => mapScopeFor(index, focusId));
+  const { thingId } = useParams();
+  const root = thingId ?? index.model.system.id;
+  const [scope, setScope] = useState(() => thingId && (!focusId || focusId === thingId) ? thingId : mapScopeFor(index, focusId));
   const [filters, setFilters] = useState<MapFilterState>(DEFAULT_FILTERS);
   const graph = useMapGraph(scope, filters);
 

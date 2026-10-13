@@ -1,7 +1,7 @@
 /**
  * Colour maths shared by the effects: CSS colour parsing (pure, so oklch() works without a canvas) and OKLab
  * conversions (Björn Ottosson's published OKLab matrices). Every colour here is gamma-encoded sRGB in 0..1, as the
- * shaders expect. The Orb's palette derivation lives in orb/palette.ts.
+ * shaders expect.
  */
 
 export type Rgb = readonly [number, number, number];

@@ -16,6 +16,7 @@ import { history } from "./routes/history";
 import { phenome } from "./routes/phenome";
 import { realizations } from "./routes/realizations";
 import { systems } from "./routes/systems";
+import { parts } from "./routes/parts";
 import { templateUpgrade } from "./routes/template-upgrade";
 
 const app = new Hono<AppEnv>();
@@ -33,6 +34,7 @@ const knownSystem: MiddlewareHandler<AppEnv> = async (c, next) => {
 app.get("/api/systems/:id", knownSystem);
 app.get("/api/systems/:id/*", knownSystem);
 app.route("/api", systems);
+app.route("/api", parts);
 app.route("/api", evolutions);
 app.route("/api", realizations);
 app.route("/api", evaluations);

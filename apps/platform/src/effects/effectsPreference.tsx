@@ -33,7 +33,7 @@ const Ctx = createContext<EffectsPreference>({ enabled: true, setEnabled: () => 
 
 /**
  * The user's Effects switch, persisted in localStorage. Defaults to on, or off under `prefers-reduced-motion`.
- * Wraps `EffectsProvider`, so every Orb and AmbientField below follows it.
+ * Wraps `EffectsProvider`, so every SurfaceField and AmbientField below follows it.
  */
 export function EffectsPreferenceProvider({ children }: { children: ReactNode }) {
   const reduced = useSystemReducedMotion();

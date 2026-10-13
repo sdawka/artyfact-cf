@@ -1,7 +1,7 @@
 import { Hono } from "hono";
-import type { BuildReporter, BuildReportResponse, BuildsResponse, DeploymentCreated, DeploymentsResponse, IngestTokenResponse } from "../../shared/api";
+import type { BuildReporter, BuildReportResponse, BuildsResponse, DeploymentCreated, DeploymentsResponse, IngestTokenResponse, RealizedArtifactsResponse } from "../../shared/api";
 import { isAdminToken, requireAdmin, requireRealizationSecret } from "../auth";
-import { buildsView, createDeployment, deploymentsView, reportBuild, rotateIngestToken } from "../deployments";
+import { buildsView, createDeployment, deploymentsView, realizedArtifactsView, reportBuild, rotateIngestToken } from "../deployments";
 import { HttpError } from "../errors";
 import { systemStub } from "../service";
 import { sha256Hex } from "../util";
@@ -49,6 +49,7 @@ export const builds = new Hono<AppEnv>()
       ...(c.req.query("commit") && { commit: c.req.query("commit") }), ...(c.req.query("kind") && { kind: c.req.query("kind") }),
       ...(c.req.query("realization") && { realization: c.req.query("realization") }),
     })))
+  .get("/systems/:id/artifacts", async (c) => c.json<RealizedArtifactsResponse>(await realizedArtifactsView(c.env, c.req.param("id"))))
   .post("/systems/:id/builds", async (c) => {
     const reporter = await systemReporter(c);
     return c.json<BuildReportResponse>(await reportBuild(c.env, c.req.param("id"), null, await body(c), reporter));

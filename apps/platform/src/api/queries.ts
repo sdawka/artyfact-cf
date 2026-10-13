@@ -12,6 +12,8 @@ import * as api from "./client";
 /** Query keys. Invalidate by prefix, e.g. `["evaluations", systemId]`. */
 export const qk = {
   systems: () => ["systems"] as const,
+  parts: () => ["parts"] as const,
+  part: (partId: string, version: string) => ["part", partId, version] as const,
   clientMode: () => ["clientMode"] as const,
   model: (systemId: string, rev: string) => ["model", systemId, rev] as const,
   readiness: (systemId: string, rev: string) => ["readiness", systemId, rev] as const,
@@ -33,6 +35,7 @@ export const qk = {
   builds: (systemId: string, q: BuildsQuery = {}) => ["builds", systemId, q.realization ?? null, q.commit ?? null, q.kind ?? null] as const,
   deployments: (systemId: string) => ["deployments", systemId] as const,
   phenome: (systemId: string, q: PhenomeEventsQuery = {}) => ["phenome", systemId, q] as const,
+  artifacts: (systemId: string) => ["artifacts", systemId] as const,
 };
 
 /** `system` = two System commits (SystemCompare); `genome` = two Genome revisions (GenomeCompare). File level uses `useCompareFile`. */
@@ -48,6 +51,8 @@ export const modelQuery = (systemId: string, rev: string) =>
   queryOptions({ queryKey: qk.model(systemId, rev), queryFn: () => api.getModel(systemId, rev), staleTime: 30_000 });
 
 export const useSystems = () => useQuery({ queryKey: qk.systems(), queryFn: api.getSystems });
+export const useParts = () => useQuery({ queryKey: qk.parts(), queryFn: api.getParts, select: (r) => r.parts });
+export const usePart = (partId: string, version: string) => useQuery({ queryKey: qk.part(partId, version), queryFn: () => api.getPart(partId, version), enabled: !!partId && !!version });
 
 /** `api` or `fixture` (API unreachable). Invalidate `qk.clientMode()` after `resetClientMode()`. */
 export const useClientMode = () => useQuery({ queryKey: qk.clientMode(), queryFn: api.getClientMode });
@@ -199,6 +204,12 @@ export function useDeployments() {
 export function usePhenomeEvents(q: PhenomeEventsQuery = {}) {
   const { systemId } = useSystemRoute();
   return useQuery({ queryKey: qk.phenome(systemId, q), queryFn: () => api.getPhenomeEvents(systemId, q), enabled: !!systemId });
+}
+
+/** Realized output records, newest first. An empty result is valid for a Genome-only System. */
+export function useRealizedArtifacts() {
+  const { systemId } = useSystemRoute();
+  return useQuery({ queryKey: qk.artifacts(systemId), queryFn: () => api.getRealizedArtifacts(systemId), select: (r) => r.artifacts, enabled: !!systemId });
 }
 
 /** Realizations of evolutions whose `affectedNodes` include `nodeId` (Inspector Changes tab). */

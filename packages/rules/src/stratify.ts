@@ -1,4 +1,4 @@
-import { RuleParseError, StratificationError, type Decl, type Program, type Rule, type Stratum } from "./types";
+import { RuleParseError, StratificationError, type Decl, type Program, type Rule, type Stratum } from "./types.ts";
 
 /** Merge declarations across programs; the same relation must have the same arity and column types everywhere. */
 export function mergeDecls(programs: Program[]): Map<string, Decl> {

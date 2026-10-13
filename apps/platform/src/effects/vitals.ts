@@ -1,11 +1,11 @@
 /**
- * System vitals: a pure mapping from model and runtime data to Orb and AmbientField parameters, so the signature
+ * System vitals: a pure mapping from model and runtime data to SurfaceField and AmbientField parameters, so the signature
  * effects show the System's real state. Each output line says which data drives it. The three meters stay separate in
  * the UI; this is a mood, not a score, and it is never shown as a number.
  */
 import { useMemo } from "react";
 import type { Finding } from "@artyfact/model";
-import { WHIMSY, type OrbPresetName } from "@artyfact/effects";
+import { WHIMSY, type SurfacePresetName } from "@artyfact/effects";
 import { useEvolutions, useHistory, useReadiness } from "@/api/queries";
 import type { UiVerdict } from "@/model/status";
 import { useModel } from "@/model/useModel";
@@ -32,10 +32,10 @@ export interface VitalsInput {
 
 export interface SystemVitals {
   health: SystemHealth;
-  /** Orb preset for the health (passing → verdant, failing or blocked → ember, else apricot). */
-  preset: OrbPresetName;
-  /** Orb params; spread onto `<Orb {...vitals.orb} />`. */
-  orb: { preset: OrbPresetName; fill: number; crackle: number; strands: number; sparks: number; flares: number };
+  /** Surface palette for the health (passing → verdant, failing or blocked → ember, else apricot). */
+  preset: SurfacePresetName;
+  /** Card light params; spread onto `<SurfaceField {...vitals.surface} />`. */
+  surface: { preset: SurfacePresetName; level: number; agitation: number; channels: number; activity: number; alerts: number };
   /** AmbientField params; spread onto `<AmbientField {...vitals.ambient} />`. */
   ambient: { color: string; intensity: number };
   /** The intermediate measures, for tests and tooltips. */
@@ -46,7 +46,7 @@ const ACTIVE_EVOLUTION = new Set(["actionable", "realizing", "evaluated"]);
 const ACTIVE_REALIZATION = new Set(["claimed", "working", "submitted", "evaluating", "evaluated", "selected", "awaiting-admin"]);
 /** Activity half-life for sparks and ambient intensity: an event 6 h old counts half. */
 const HALF_LIFE_MS = 6 * 3600_000;
-const COLOR: Record<OrbPresetName, string> = { apricot: WHIMSY.apricot, verdant: WHIMSY.success, ember: WHIMSY.error, tide: WHIMSY.info, dusk: WHIMSY.dusk };
+const COLOR: Record<SurfacePresetName, string> = { apricot: WHIMSY.apricot, verdant: WHIMSY.success, ember: WHIMSY.error, tide: WHIMSY.info, dusk: WHIMSY.dusk };
 
 const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
 const round = (v: number) => Math.round(v * 1000) / 1000;
@@ -79,7 +79,7 @@ export function systemVitals(input: VitalsInput): SystemVitals {
 
   const health: SystemHealth =
     n("fail") > 0 ? "failing" : blocking.length > 0 ? "blocked" : counted.length > 0 && n("pass") === counted.length ? "passing" : "pending";
-  const preset: OrbPresetName = health === "passing" ? "verdant" : health === "pending" ? "apricot" : "ember";
+  const preset: SurfacePresetName = health === "passing" ? "verdant" : health === "pending" ? "apricot" : "ember";
 
   const live = input.realizations.filter((r) => ACTIVE_REALIZATION.has(r.status));
   const covered = new Set(live.map((r) => r.evolution));
@@ -101,18 +101,18 @@ export function systemVitals(input: VitalsInput): SystemVitals {
   return {
     health,
     preset,
-    orb: {
+    surface: {
       preset,
-      // fill ← readiness ratio, kept in 0.2..0.9 where the haze pool reads well.
-      fill: round(0.2 + 0.7 * readiness),
-      // crackle ← fail + stale share: a calm rim at 0.25, fully agitated at 1.
-      crackle: round(0.25 + 0.75 * troubled),
-      // strands ← active realizations/Evolutions, one strand each, 1..8.
-      strands: Math.min(8, Math.max(1, active)),
-      // sparks ← recent commits, checkpoints and evaluations: 0.15 idle, +0.12 per fresh event, max 1.
-      sparks: round(Math.min(1, 0.15 + 0.12 * recent)),
-      // flares ← open blockers (error/missing findings): 0.25 with none, +0.15 each, max 1.
-      flares: round(Math.min(1, 0.25 + 0.15 * blocking.length)),
+      // level ← readiness ratio, kept in 0.2..0.9 so card depth remains readable.
+      level: round(0.2 + 0.7 * readiness),
+      // agitation ← fail + stale share: calm at 0.25, fully agitated at 1.
+      agitation: round(0.25 + 0.75 * troubled),
+      // channels ← active realizations/Evolutions, one light channel each, 1..8.
+      channels: Math.min(8, Math.max(1, active)),
+      // activity ← recent commits, checkpoints and evaluations: 0.15 idle, +0.12 per fresh event, max 1.
+      activity: round(Math.min(1, 0.15 + 0.12 * recent)),
+      // alerts ← open blockers (error/missing findings): 0.25 with none, +0.15 each, max 1.
+      alerts: round(Math.min(1, 0.25 + 0.15 * blocking.length)),
     },
     ambient: {
       // ambient colour ← the preset's palette colour.

@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import {
-  AmbientField, EffectsProvider, Orb, ORB_PRESET_NAMES, type AmbientFieldHandle, type OrbHandle, type OrbPresetName,
+  AmbientField, EffectsProvider, SurfaceField, SURFACE_PRESET_NAMES, type AmbientFieldHandle, type SurfaceHandle, type SurfacePresetName,
 } from "@artyfact/effects";
 import type { UiVerdict as Verdict } from "@/model/status";
 import styles from "./StylePage.module.css";
@@ -15,7 +15,7 @@ const VERDICTS: { verdict: Verdict; glyph: string }[] = [
 
 const TABS = ["Overview", "Map", "Work"];
 
-const PRESET_USE: Record<OrbPresetName, string> = {
+const PRESET_USE: Record<SurfacePresetName, string> = {
   apricot: "Accent. Default, neutral or in progress.",
   verdant: "Success. Every gate passes.",
   ember: "Error. Failing or blocked.",
@@ -23,17 +23,18 @@ const PRESET_USE: Record<OrbPresetName, string> = {
   dusk: "Background hue. Idle or ambient.",
 };
 
-function OrbTile({ preset }: { preset: OrbPresetName }) {
-  const orb = useRef<OrbHandle>(null);
+function SurfaceTile({ preset }: { preset: SurfacePresetName }) {
+  const surface = useRef<SurfaceHandle>(null);
   return (
-    <figure className={styles.orbTile} data-preset={preset}>
-      <div className={styles.orbBox}>
-        <Orb ref={orb} preset={preset} particleCount={9000} />
+    <figure className={styles.surfaceTile} data-preset={preset}>
+      <div className={styles.surfaceBox}>
+        <SurfaceField ref={surface} preset={preset} level={.65} activity={.3} density={.4} />
+        <div className={styles.surfaceContent}><h3>{preset}</h3><p>{PRESET_USE[preset]}</p></div>
       </div>
       <figcaption>
-        <code>{preset}</code> <span className={styles.muted}>{PRESET_USE[preset]}</span>
+        <span className={styles.muted}>Illustrative System state.</span>
       </figcaption>
-      <button type="button" className={`u-brackets ${styles.smallButton}`} onClick={() => orb.current?.pulse(1)}>
+      <button type="button" className={`u-brackets ${styles.smallButton}`} onClick={() => surface.current?.pulse(1)}>
         Pulse<span className="sr-only"> {preset}</span>
       </button>
     </figure>
@@ -54,8 +55,8 @@ function EffectsSection() {
       <label className={styles.toggle}>
         <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> Effects on
       </label>
-      <div className={styles.orbGrid}>
-        {ORB_PRESET_NAMES.map((p) => <OrbTile key={p} preset={p} />)}
+      <div className={styles.surfaceGrid}>
+        {SURFACE_PRESET_NAMES.map((p) => <SurfaceTile key={p} preset={p} />)}
       </div>
 
       <h3>Ambient field</h3>

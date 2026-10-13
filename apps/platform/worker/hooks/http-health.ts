@@ -1,6 +1,7 @@
 /**
  * `http` engine (C.webapp.health): GET `${previewUrl}${path}` with a 2 s timeout. Pass needs 200, `status === "ok"`
- * and a `buildId` that prefix-matches the candidate commit (either direction, ≥ 7 chars). No URL → not-run.
+ * and the exact runtime `buildId` from the passed authoritative build. Legacy builds without this identity
+ * require a commit prefix match (either direction, ≥ 7 chars). No URL → not-run.
  *
  * `previewUrl` is agent-supplied, so it is validated before any request (SSRF): https only, hostname on the
  * allowlist (`*.workers.dev`, `*.pages.dev`, plus `PREVIEW_HOST_ALLOWLIST`), no IP literals, no credentials, default
@@ -66,6 +67,7 @@ export function validatePreviewUrl(raw: string, policy: PreviewPolicy): PreviewC
 export interface HealthInput {
   previewUrl?: string;
   commit: string;
+  expectedBuildId?: string;
   path?: string;
   timeoutMs?: number;
   fetch?: typeof fetch;
@@ -156,7 +158,7 @@ export async function httpHealth(input: HealthInput): Promise<Outcome> {
     execution: "completed",
     verdict,
     observations: [{ url, status: obs.status, ok: obs.ok, buildId: typeof obs.buildId === "string" ? clip(obs.buildId) : obs.buildId === undefined ? undefined : typeof obs.buildId, ...(problem && { error: clip(problem) }) }],
-    interpretation: problem ? clip(problem) : "Preview is healthy and serves this commit.",
+    interpretation: problem ? clip(problem) : "Preview is healthy and serves the expected build.",
     limitations: [
       "Checks the preview deployment only.",
       "A pass proves only that the allowlisted host served a matching buildId, not who operates that host.",
@@ -180,6 +182,8 @@ export async function httpHealth(input: HealthInput): Promise<Outcome> {
   const problems: string[] = [];
   if (res.status !== 200) problems.push(`HTTP ${res.status}`);
   if (!statusOk) problems.push("status is not ok");
-  if (!buildIdMatches(b.buildId, input.commit)) problems.push("buildId does not match the commit");
+  if (input.expectedBuildId !== undefined) {
+    if (!input.expectedBuildId || b.buildId !== input.expectedBuildId) problems.push("buildId does not match the expected build");
+  } else if (!buildIdMatches(b.buildId, input.commit)) problems.push("buildId does not match the commit");
   return done(problems.length ? "fail" : "pass", { status: res.status, ok: statusOk, buildId: b.buildId }, problems.length ? problems.join("; ") : undefined);
 }

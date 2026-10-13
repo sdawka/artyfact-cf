@@ -1,60 +1,76 @@
-import { cleanup, render, renderHook } from "@testing-library/react";
+import { cleanup, render, renderHook, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import { renderToString } from "react-dom/server";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  AmbientField, EffectsProvider, FALLBACK_CLASS, Orb, useEffectsEnabled, useEffectsSettings, type AmbientFieldHandle, type OrbHandle,
+  AmbientField, EffectsProvider, FALLBACK_CLASS, SurfaceField, useEffectsEnabled, useEffectsSettings, type AmbientFieldHandle, type SurfaceHandle,
 } from "../src/index";
-import { ambientFallbackBackground, orbFallbackBackground } from "../src/Fallback";
+import { ambientFallbackBackground } from "../src/Fallback";
 import { pointerRegistryState, subscribePointer } from "../src/pointer";
 
 afterEach(cleanup);
 
-describe("fallback in jsdom (no WebGL2)", () => {
-  it("renders the Orb as a tinted CSS gradient with the class hook", () => {
-    const { container } = render(<Orb preset="verdant" fallbackClassName="mine" />);
-    const root = container.querySelector('[data-effect="orb"]')!;
-    expect(root.getAttribute("data-effect-mode")).toBe("fallback");
-    const fb = root.querySelector("[data-effect-fallback=orb]") as HTMLElement;
+describe("card-local surface", () => {
+  it("renders the surface as visible rectangular light, without any GPU", () => {
+    expect(SurfaceField).toBeTypeOf("function");
+    const context = vi.spyOn(HTMLCanvasElement.prototype, "getContext");
+    const { container } = render(<EffectsProvider enabled={false}><SurfaceField preset="verdant" density={1} fallbackClassName="mine" /></EffectsProvider>);
+    const root = container.querySelector('[data-effect="surface"]') as HTMLElement;
+    expect(root.dataset.effectMode).toBe("static");
+    expect(root.style.pointerEvents).toBe("none");
+    expect(root.getAttribute("aria-hidden")).toBe("true");
+    const fb = root.querySelector("[data-effect-fallback=surface]") as HTMLElement;
     expect(fb.className).toBe(`${FALLBACK_CLASS} mine`);
-    expect(fb.getAttribute("aria-hidden")).toBe("true");
-    expect(root.querySelector("canvas")).toBeNull();
+    expect(fb.style.background).toContain("linear-gradient");
+    expect(fb.style.background).not.toContain("radial-gradient");
+    expect(root.querySelectorAll("[data-surface-mote]").length).toBeLessThanOrEqual(64);
+    expect(root.querySelector("canvas, circle, ellipse")).toBeNull();
+    expect(context).not.toHaveBeenCalled();
+    context.mockRestore();
   });
 
-  it("tints the fallback gradients with the effect colour (jsdom drops color-mix, so check the strings)", () => {
-    const orb = orbFallbackBackground("oklch(0.5 0.1 200)", 0.7, 0.5);
-    expect(orb).toMatch(/^radial-gradient\(circle closest-side/);
-    expect(orb).toContain("color-mix(in oklch, oklch(0.5 0.1 200) 55%, transparent) 68.95%");
-    expect(ambientFallbackBackground("var(--color-success)", 1)).toContain("var(--color-success) 30%");
+  it("keeps reduced-motion and explicitly paused surfaces still", async () => {
+    const { container, rerender } = render(<EffectsProvider reducedMotion><SurfaceField interactive /></EffectsProvider>);
+    const root = container.querySelector('[data-effect="surface"]') as HTMLElement;
+    await waitFor(() => expect(root.dataset.effectMode).toBe("css"));
+    expect(root.dataset.surfaceRunning).toBe("false");
+    expect(pointerRegistryState().subscribers).toBe(0);
+    rerender(<EffectsProvider reducedMotion={false}><SurfaceField paused interactive /></EffectsProvider>);
+    expect(root.dataset.surfaceRunning).toBe("false");
+    expect(pointerRegistryState().subscribers).toBe(0);
   });
 
-  it("renders the AmbientField fallback without pointer events", () => {
+  it("exposes safe finite handles before enhancement and under reduced motion", () => {
+    const surface = createRef<SurfaceHandle>();
+    const field = createRef<AmbientFieldHandle>();
+    render(<EffectsProvider reducedMotion><SurfaceField ref={surface} /><AmbientField ref={field} /></EffectsProvider>);
+    expect(() => {
+      surface.current!.pulse(1.5, { x: 1, y: 0 });
+      surface.current!.spark({ x: 0, y: 1 });
+      field.current!.pulse(10, 10, 1);
+    }).not.toThrow();
+  });
+
+  it("renders the AmbientField fallback without changing its pointer behavior", () => {
     const { container } = render(<AmbientField position="fixed" intensity={0.8} />);
     const root = container.querySelector('[data-effect="ambient"]') as HTMLElement;
     expect(root.style.position).toBe("fixed");
     expect(root.style.pointerEvents).toBe("none");
     expect(root.querySelector("[data-effect-fallback=ambient]")).not.toBeNull();
-  });
-
-  it("exposes handles that are safe to call without a canvas", () => {
-    const orb = createRef<OrbHandle>();
-    const field = createRef<AmbientFieldHandle>();
-    render(<><Orb ref={orb} /><AmbientField ref={field} /></>);
-    expect(() => {
-      orb.current!.pulse(1.5, Math.PI / 2);
-      orb.current!.spark();
-      field.current!.pulse(10, 10, 1);
-    }).not.toThrow();
+    expect(ambientFallbackBackground("var(--color-success)", 1)).toContain("var(--color-success) 30%");
   });
 });
 
 describe("SSR", () => {
-  it("renders an empty pending container on the server", () => {
-    const html = renderToString(<><Orb preset="ember" /><AmbientField /></>);
-    expect(html).toContain('data-effect="orb"');
-    expect(html).toContain('data-effect-mode="pending"');
+  it("renders visible deterministic surface light before JavaScript runs", () => {
+    const html = renderToString(<SurfaceField preset="ember" density={0.3} />);
+    expect(html).toContain('data-effect="surface"');
+    expect(html).toContain('data-effect-mode="static"');
+    expect(html).toContain('data-effect-fallback="surface"');
+    expect(html).toContain("linear-gradient");
+    expect(html).not.toContain("radial-gradient");
     expect(html).not.toContain("canvas");
-    expect(html).not.toContain("data-effect-fallback");
+    expect(html).toEqual(renderToString(<SurfaceField preset="ember" density={0.3} />));
   });
 });
 

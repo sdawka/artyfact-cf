@@ -1,18 +1,28 @@
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { Outlet, useNavigate } from "react-router";
+import { Link, Outlet, useNavigate, useParams } from "react-router";
 import { useSystemEvents } from "@/api/queries";
 import { EffectsPreferenceProvider, useEffectsPreference } from "@/effects/effectsPreference";
 import { ShellAmbient } from "@/effects/ShellAmbient";
 import { InspectorDrawer } from "@/inspector/InspectorDrawer";
-import { GO_KEYS } from "@/model/kinds";
+import { GO_KEYS, type ViewName } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
-import { useKeepParams, useSelection } from "@/model/useSelection";
+import { thingPath, useKeepParams, useSelection, useSystemRoute, viewPath } from "@/model/useSelection";
 import { CommandPalette } from "./CommandPalette";
 import { SideNav } from "./SideNav";
 import { TopBar } from "./TopBar";
 import styles from "./Shell.module.css";
 
 export { GO_KEYS };
+
+const SYSTEM_VIEW_CONTEXT: Partial<Record<ViewName, string>> = {
+  journeys: "Journeys includes journeys from the whole System.",
+  theory: "Theory describes purpose and outcomes for the whole System.",
+  code: "Code shows saved files for the whole System.",
+  work: "Work shows changes for the whole System.",
+  evaluations: "Evaluations includes evidence from the whole System.",
+  changelog: "Changelog includes changes to the whole System.",
+  compare: "Compare compares revisions of the whole System.",
+};
 
 /** True when a key event comes from a text field (shortcuts should ignore it). Views reuse it. */
 export const isTyping = (t: EventTarget | null) =>
@@ -68,6 +78,10 @@ export function Shell() {
 }
 
 function ShellFrame() {
+  const { thingId } = useParams();
+  const { systemId, rev, view } = useSystemRoute();
+  const { bundle } = useModel();
+  const thing = bundle.model.things.find((entry) => entry.id === thingId);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const openPalette = useCallback(() => setPaletteOpen(true), []);
   useShellShortcuts(openPalette, paletteOpen);
@@ -79,6 +93,12 @@ function ShellFrame() {
       <TopBar onOpenPalette={openPalette} />
       <SideNav />
       <main id="main" className={styles.main} tabIndex={-1}>
+        {thing && view && view !== "overview" && <nav className={styles.breadcrumb} aria-label="Thing workspace breadcrumb">
+          <Link to={viewPath(systemId, rev, "overview")} className="u-marker">{bundle.model.system.name}</Link>
+          <span aria-hidden="true">/</span><Link to={thingPath(systemId, rev, thing.id)} className="u-marker">{thing.name}</Link>
+          <Link to={viewPath(systemId, rev, "overview")} className="u-marker">System overview</Link>
+        </nav>}
+        {thing && view && SYSTEM_VIEW_CONTEXT[view] && <p className={styles.context}>{SYSTEM_VIEW_CONTEXT[view]}</p>}
         <Suspense fallback={<p className={styles.loading}>Loading view…</p>}>
           <Outlet />
         </Suspense>

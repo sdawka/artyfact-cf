@@ -1,6 +1,6 @@
 # @artyfact/cli
 
-`artyfact init|platform-sync|start|checkpoint|submit|build-report|status|compose`. Platform URL from `--platform`, else
+`artyfact init|platform-sync|start|checkpoint|submit|build-report|status|compose|parts`. Platform URL from `--platform`, else
 `ARTYFACT_PLATFORM`, else the older `ARTYFACT_URL`. An explicit URL is used as given and never probed. Empty variables
 count as unset, and an empty `--platform` is a usage error. Without one, the CLI asks http://localhost:1337 to 1346
 (Vite takes the next free port when 1337 is busy) and uses the first whose `/api/health` identifies as artyfact. If
@@ -54,6 +54,31 @@ gets no lock.
 
 `platform-sync` lays out `packages/templates` as the `platform` repo, copying each scaffold's `bundle` directory. It
 pushes only when the content changed.
+
+A Genome with no `worker-fullstack` artifact imports without an app repo. `init` does not invent source or send an
+`appRepo` for that System.
+
+## Parts
+
+```sh
+npx artyfact parts create --id part.example --version 1.0.0 --name Example --source ./part-source --out part.json
+npx artyfact parts validate part.json
+npx artyfact parts publish part.json --apply
+npx artyfact parts compose recipe.json --out ./composed --apply
+npx artyfact parts upgrade recipe-v2.json --from ./composed --apply
+```
+
+`create` reads `part-source/genome/` as model content and `part-source/app/` as source content. `extract` takes an
+`ExtractionRequest` JSON file; `compose` and `upgrade` take a pinned `PartRecipe` JSON file. Every mutating Parts
+command previews by default and writes only with `--apply`. Catalog publication needs `ARTYFACT_ADMIN_TOKEN`.
+System-private reads use `--system` plus that token or `ARTYFACT_SECRET`.
+
+Composition writes a new directory with `genome/`, `app/`, and `.artyfact/composition.json` plus
+`.artyfact/baseline.json`. It refuses an existing output; use `upgrade` for a three-way update. A conflicting upgrade
+writes nothing. Package and recipe commands are displayed in the preview and remain inert unless `--run-commands`
+is explicitly combined with `--apply`; execution is local, bounded, and its working directory must stay inside the
+generated app. Dependencies, caches, build output, local secrets, unsafe symlinks, and binary files are excluded or
+rejected. Review and accept the generated Genome before realizing the app; these commands never deploy.
 
 ## Agent commands
 
