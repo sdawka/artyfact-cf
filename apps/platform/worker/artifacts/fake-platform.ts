@@ -5,7 +5,7 @@
  * (Artyfact itself) or both, as `FAKE_SEED` says, and `packages/templates` (the `platform` repo, so template upgrades
  * and provenance work), imports those Systems, and pushes
  * editor commits through a fake git receive-pack. The same fake git server answers `git clone`, `fetch` and `push`
- * at `/fake-git/<repo>.git` (see {@link FAKE_REMOTE_BASE}), so the CLI's `claim`, `start` and `submit` run against it.
+ * at `/api/fake-git/<repo>.git` (see {@link FAKE_REMOTE_BASE}), so the CLI's `claim`, `start` and `submit` run against it.
  * State lives in the isolate, so a restart starts over (the Vite config turns off state persistence in this mode to
  * keep the Durable Objects in step).
  */
@@ -19,13 +19,13 @@ import { fakeReceivePack, type FakeReceivePack } from "./fake-receive-pack";
 /**
  * The remote every fake repo reports. It has the Artifacts shape the CLI accepts (`https://<host>/git/<ns>/<repo>.git`)
  * on a host that never resolves; git reaches the platform through
- * `url.http://localhost:<port>/fake-git/.insteadOf=https://fake.artifacts.local/git/artyfact/` and the CLI is told to
+ * `url.http://localhost:<port>/api/fake-git/.insteadOf=https://fake.artifacts.local/git/artyfact/` and the CLI is told to
  * trust the host with `ARTYFACT_ALLOW_REMOTE_HOST=fake.artifacts.local` (docs/demo-runbook.md).
  */
 export const FAKE_REMOTE_HOST = "fake.artifacts.local";
 export const FAKE_REMOTE_BASE = `https://${FAKE_REMOTE_HOST}/git/artyfact`;
 /** The path prefix under which the Worker serves the fake repos over Git smart HTTP. */
-export const FAKE_GIT_PREFIX = "/fake-git/";
+export const FAKE_GIT_PREFIX = "/api/fake-git/";
 
 const strip = (files: Record<string, string>, root: string) =>
   Object.fromEntries(Object.entries(files).map(([p, t]) => [p.slice(p.indexOf(root) + root.length), t] as const));
@@ -79,7 +79,7 @@ async function seedSystems(seed: FakeSeed): Promise<SeedSystem[]> {
 let booted: Promise<FakeArtifacts> | undefined;
 let git: FakeReceivePack | undefined;
 
-/** Serve a fake repo over Git smart HTTP (`/fake-git/<repo>.git/...`): clone and fetch need a read token, push a write token. */
+/** Serve a fake repo over Git smart HTTP (`/api/fake-git/<repo>.git/...`): clone and fetch need a read token, push a write token. */
 export async function fakeGitFetch(request: Request): Promise<Response> {
   if (!git) return new Response("fake platform not booted", { status: 503 });
   return git.fetch(request);
