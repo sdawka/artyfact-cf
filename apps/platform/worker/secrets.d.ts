@@ -15,6 +15,8 @@ interface Secrets {
   EVENTS_QUEUE_ID?: string;
   /** "1" runs the backend on in-memory Artifacts seeded from examples/ (see worker/artifacts/fake-platform.ts). Local only. */
   FAKE_ARTIFACTS?: string;
+  /** With FAKE_ARTIFACTS=1: `keep-in-touch` (default), `artyfact` (the repo-root genome/) or `both`. */
+  FAKE_SEED?: string;
   /**
    * Cross-script Workflows binding to artyfact-ci (wrangler.jsonc `workflows`). Typed here as optional because
    * wrangler.test.jsonc omits it; `wrangler types` emits it as required, so drop that generated line after regenerating.
