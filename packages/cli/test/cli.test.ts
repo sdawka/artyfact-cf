@@ -14,6 +14,7 @@ const bare = join(tmp, "fork.git");
 const REMOTE = "https://artifacts.invalid/git/ns/peopling-app--r1.git";
 const REMOTE2 = "https://artifacts.invalid/git/ns/other.git";
 let packetRemote = REMOTE;
+let packetAgentsMd: string | undefined;
 const SECRET = "a1".repeat(32);
 const SECRET2 = "b2".repeat(32);
 const calls: { method: string; url: string; body: any; auth?: string }[] = [];
@@ -25,6 +26,7 @@ const packet = () => ({
   markdown: "# Task\nDo it", acceptanceCriteria: [{ id: "crit.a" }, { id: "crit.b" }],
   permittedPaths: ["src/ui/people/**"], protectedPaths: ["system/**"], commands: ["npm install", "npm test"],
   workspace: { remote: packetRemote, fork: "peopling-app--r1" },
+  ...(packetAgentsMd && { agentsMd: packetAgentsMd }),
 });
 
 beforeAll(async () => {
@@ -101,6 +103,18 @@ describe("artyfact cli", () => {
     expect(statSync(join(ws, ".artyfact.json")).mode & 0o777).toBe(0o600);
     expect(calls.find((x) => x.url.endsWith("/packet"))!.auth).toBe(`Bearer ${SECRET}`);
     expect(r.out).not.toContain(SECRET);
+  });
+
+  it("start prefers the packet's own agentsMd over the local fallback", async () => {
+    packetAgentsMd = "# From the platform\n\nTask t1 notes.\n";
+    try {
+      const dir = join(tmp, "ws-agentsmd");
+      const r = await run(["start", "r-1", "--dir", dir, "--system", "system.peopling", "--evolution", "evolution.1"]);
+      expect(r.code).toBe(0);
+      expect(readFileSync(join(dir, "AGENTS.md"), "utf8")).toBe(packetAgentsMd);
+    } finally {
+      packetAgentsMd = undefined;
+    }
   });
 
   it("checkpoint commits and posts the commit", async () => {

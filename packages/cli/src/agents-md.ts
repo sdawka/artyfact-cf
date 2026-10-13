@@ -15,7 +15,22 @@ export function mergeAgentsBlock(existing: string, block: string, name = "artyfa
   return `${existing}${existing === "" || existing.endsWith("\n") ? "" : "\n"}${existing ? "\n" : ""}${wrapped}`;
 }
 
+/** The platform's own block when the packet carries one; otherwise the local fallback below. */
 export function renderAgentsMd(packet: Packet, system: string): string {
+  return packet.agentsMd?.trim() ? packet.agentsMd : fallbackAgentsMd(packet, system);
+}
+
+function taskLines(packet: Packet): string {
+  const t = packet.task;
+  if (!t) return "";
+  const lines = [`- Task: ${t.id}${t.title ? ` (${t.title})` : ""}${t.wave != null ? `, wave ${t.wave}` : ""}`];
+  if (t.dependsOn?.length) lines.push(`- Depends on: ${t.dependsOn.join(", ")}`);
+  if (t.nodes?.length) lines.push(`- Task nodes: ${t.nodes.join(", ")}`);
+  if (t.independence) lines.push(`- Independence: ${t.independence}`);
+  return `${lines.join("\n")}\n`;
+}
+
+function fallbackAgentsMd(packet: Packet, system: string): string {
   const ids = packet.acceptanceCriteria.map((c) => c.id).join(", ") || "(none)";
   const globs = packet.permittedPaths.join(", ") || "(none)";
   const cmds = packet.commands.length ? packet.commands.join("; ") : "npm install; npm run dev; npm test";
@@ -23,7 +38,7 @@ export function renderAgentsMd(packet: Packet, system: string): string {
 
 You are realizing ${packet.evolutionId ?? "this evolution"} for ${system}. Read TASK_PACKET.md fully.
 
-- Permitted edits: ${globs}
+${taskLines(packet)}- Permitted edits: ${globs}
 - Never edit system/** or assays/** in an app realization.${packet.protectedPaths.length ? ` Protected: ${packet.protectedPaths.join(", ")}` : ""}
 - Commands: ${cmds}
 - Checkpoint often: \`npx artyfact checkpoint "<what/why/left>"\`
