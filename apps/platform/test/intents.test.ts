@@ -262,7 +262,7 @@ describe("POST /intents/:pid/accept", () => {
     const s=await importSystem(),p=(await create(s,'Change what the People screen says')).json,r=await accept(s,p,['op.1']);expect(r.status,JSON.stringify(r.json)).toBe(201);
     const plan=await createPlan(env,s.systemId,{title:'Implement People',tasks:[{id:'people',title:'People',artifactId:'artifact.webapp',steps:['Implement'],dependsOn:[],readNodes:[],writeNodes:['screen.people'],checks:[]}]});
     const started=await startLifecycleTask(env,s.systemId,plan.id,'people',{},'http://x');
-    expect(started.packet.permittedGlobs.sort()).toEqual(['public/people/**','public/people/add-contact-dialog.js','src/ui/**']);
+    expect(started.packet.permittedGlobs.sort()).toEqual(['public/people/**','public/people/index.html','src/ui/**']);
     expect(started.plan.genome.commit).toBe(r.json.commit);
   });
 

@@ -79,7 +79,7 @@ describe("buildIndex on the Peopling fixture", () => {
     expect(d[0]).toBe("component.AddContactDialog");
     expect(d).toContain("affordance.AddContactDialog.save");
     // The webapp Thing holds its journeys beside its sections (their `parent` in the Genome tree).
-    expect(ids(ix.siblings("section.domain")).filter((id) => !id.startsWith("J."))).toEqual(["section.ui", "section.domain", "section.authorization", "section.runtime"]);
+    expect(ids(ix.siblings("section.domain")).filter((id) => !id.startsWith("J."))).toEqual(["section.ui", "section.domain", "section.events", "section.goals", "section.authorization", "section.runtime"]);
     expect(ix.parent("J.connect")?.id).toBe("thing.webapp");
   });
 
