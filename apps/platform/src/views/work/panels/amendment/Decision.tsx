@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import { Link } from "react-router";
+import { useAdminTokenField } from "@/api/adminToken";
 import { useAcceptAmendment, useRejectAmendment } from "@/api/queries";
 import { useModel } from "@/model/useModel";
 import { useKeepParams } from "@/model/useSelection";
@@ -36,8 +37,8 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
   const [interpretation, setInterpretation] = useState(initialInterpretation);
   const [edited, setEdited] = useState(false);
   const [reason, setReason] = useState("");
-  // Held in component state only: never persisted.
-  const [adminToken, setAdminToken] = useState("");
+  // Pre-filled from the header token; a typed value is a one-off.
+  const [adminToken, setAdminToken, resetAdminToken] = useAdminTokenField();
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [rejectError, setRejectError] = useState<string | null>(null);
   const ids = { interp: useId(), reason: useId(), why: useId(), token: useId() };

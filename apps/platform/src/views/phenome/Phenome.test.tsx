@@ -1,5 +1,5 @@
 import type { QueryClient } from "@tanstack/react-query";
-import { screen, within } from "@testing-library/react";
+import { cleanup, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Build, Deployment, PhenomeEvent } from "../../../shared/api";
 import { qk } from "@/api/queries";
@@ -39,6 +39,21 @@ const seed = (s: Seed = {}) => (qc: QueryClient) => {
 };
 
 describe("Deployments page", () => {
+  it("notes that admin actions need the header token, until one is set", async () => {
+    sessionStorage.clear();
+    renderApp(PATH, undefined, seed());
+    expect(await screen.findByText("Admin actions need the admin token: set it in the header.")).toBeTruthy();
+    sessionStorage.setItem("artyfact.adminToken", "adm");
+    try {
+      cleanup();
+      renderApp(PATH, undefined, seed());
+      await screen.findByRole("heading", { level: 1, name: "Deployments" });
+      expect(screen.queryByText(/Admin actions need the admin token/)).toBeNull();
+    } finally {
+      sessionStorage.clear();
+    }
+  });
+
   it("keeps other Things' builds and events outside a scoped Thing workspace", async () => {
     renderApp(`/s/${SYSTEM}/r/head/things/thing.webapp/phenome`, undefined, seed({
       builds: [build({ thingId: "thing.webapp", candidate: "cand.selected" }), build({ id: "build.other", thingId: "thing.other", candidate: "cand.other" })],

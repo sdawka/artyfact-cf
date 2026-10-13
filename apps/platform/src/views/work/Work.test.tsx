@@ -134,6 +134,31 @@ describe("StartWorkPanel against the API", () => {
     expect(screen.getByText(/Neither is shown again/)).toBeTruthy();
   });
 
+  it("pre-fills the token field from the header token and sends it as the bearer", async () => {
+    const cli = "npx artyfact start realization.9";
+    const auth: (string | null)[] = [];
+    vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
+      const u = String(url);
+      if (u.endsWith("/api/systems")) return json(200, [{ systemId: SYSTEM, title: "KiT", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "g", evolutionCounts: {}, updatedAt: "" }]);
+      if (init?.method === "POST") {
+        auth.push(new Headers(init.headers).get("authorization"));
+        return json(201, { realization: realization({ id: "realization.9" }), packet: { json: {}, markdown: "# Task" }, token: "tok_x", remote: "https://git/fork", cli });
+      }
+      return json(200, { evolutions: [], realizations: [] });
+    }));
+    sessionStorage.setItem("artyfact.adminToken", "adm_header");
+    try {
+      renderApp(`${WORK}?evolution=${EVO1}&panel=start`, undefined, seed({ api: true }));
+      const tokenInput = (await screen.findByLabelText("Admin token", { selector: "input" })) as HTMLInputElement;
+      expect(tokenInput.value).toBe("adm_header");
+      fireEvent.click(screen.getAllByRole("button", { name: "Start work" }).find((b) => b.getAttribute("type") === "submit")!);
+      await screen.findAllByText(cli);
+      expect(auth).toEqual(["Bearer adm_header"]);
+    } finally {
+      sessionStorage.clear();
+    }
+  });
+
   it.each([
     [401, /needs the admin token \(401\)/],
     [403, /admin token was refused \(403\)/],

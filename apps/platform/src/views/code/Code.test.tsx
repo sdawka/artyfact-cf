@@ -199,7 +199,7 @@ describe("Code page", () => {
     const sheet = await screen.findByRole("complementary", { name: "Commit" });
     fillSheet();
     fireEvent.click(within(sheet).getByRole("button", { name: "Commit" }));
-    expect((await within(sheet).findByRole("alert")).textContent).toBe("Commit needs the admin token (401). Enter it and try again.");
+    expect((await within(sheet).findByRole("alert")).textContent).toBe("Commit needs the admin token (401). Set the admin token in the header and try again.");
     fireEvent.click(within(sheet).getByRole("button", { name: "Retry commit" }));
     await waitFor(() => expect(router.state.location.pathname).toBe(`/s/${SYSTEM}/r/head/work`));
     const paths = calls.filter((c) => c.method === "POST").map((c) => new URL(c.url, "http://x").pathname);
