@@ -11,7 +11,7 @@ http://localhost:1337.
 ## `init` and `platform-sync`
 
 ```sh
-npx artyfact init --dir <project>                    # <project>/genome (Genome; <project>/system also works) and <project>/app
+npx artyfact init --dir <project>                    # <project>/genome (Genome) and <project>/app
 npx artyfact init --genome <dir> --app <dir>         # examples layout; scripts/bootstrap.sh does this for Keep in Touch
 npx artyfact init --dir <project> --from-template template.thing.cloudflare-worker-webapp@1   # no app yet
 npx artyfact platform-sync [--namespace ns]

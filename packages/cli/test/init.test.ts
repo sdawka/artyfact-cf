@@ -63,7 +63,7 @@ afterAll(() => {
 const skip = (p: string) => !/(^|\/)(node_modules|dist|\.wrangler)(\/|$)/.test(p);
 function project(name: string, withApp = true) {
   const dir = join(tmp, name);
-  cpSync(join(ROOT, "examples/keep-in-touch-system"), join(dir, "system"), { recursive: true, filter: skip });
+  cpSync(join(ROOT, "examples/keep-in-touch-system"), join(dir, "genome"), { recursive: true, filter: skip });
   if (withApp) cpSync(join(ROOT, "examples/keep-in-touch-app"), join(dir, "app"), { recursive: true, filter: skip });
   return dir;
 }
@@ -226,7 +226,7 @@ describe("artyfact init", { timeout: 60_000 }, () => {
   it("fast-forwards its own line, and refuses to build over history it did not push unless --adopt", async () => {
     const genome = lc.path("artyfact", "keep-in-touch.genome");
     const before = headOf(genome);
-    writeFileSync(join(dir, "system", "README.md"), "changed\n");
+    writeFileSync(join(dir, "genome", "README.md"), "changed\n");
     const p = mockPlatform();
     const ok = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
     expect(ok.code, ok.err).toBe(0);
@@ -327,7 +327,7 @@ describe("artyfact init", { timeout: 60_000 }, () => {
   it("imports a Genome-only System without creating or naming an app repo", async () => {
     const cloud = localCloud(join(tmp, "cloud-genome-only"));
     const dir = project("genome-only", false);
-    const file = join(dir, "system/thing.webapp/node.yaml");
+    const file = join(dir, "genome/thing.webapp/node.yaml");
     writeFileSync(file, readFileSync(file, "utf8").replace(/^  artifacts:\n(?:    [^\n]*\n)*/m, ""));
     const p = mockPlatform();
     const r = await run(["init", "--dir", dir], { cloud: cloud.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
@@ -372,7 +372,7 @@ describe("artyfact init --from-template", { timeout: 60_000 }, () => {
   it("seeds <slug>.app from the platform scaffold subtree and records scaffoldFrom", async () => {
     const lc = localCloud(join(tmp, "cloud-tpl"));
     const dir = project("tpl-proj", false);
-    writeFileSync(join(dir, "system", "node.yaml"), readFileSync(join(dir, "system", "node.yaml"), "utf8").replace("id: system.keep-in-touch", "id: system.fresh_app"));
+    writeFileSync(join(dir, "genome", "node.yaml"), readFileSync(join(dir, "genome", "node.yaml"), "utf8").replace("id: system.keep-in-touch", "id: system.fresh_app"));
     const p = mockPlatform();
     const r = await run(["init", "--dir", dir, "--from-template", "template.thing.cloudflare-worker-webapp@1"], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
     expect(r.code, r.err).toBe(0);
@@ -445,12 +445,12 @@ describe("artyfact init --from-template", { timeout: 60_000 }, () => {
 
 describe("security", { timeout: 60_000 }, () => {
   const setId = (dir: string, id: string) =>
-    writeFileSync(join(dir, "system", "node.yaml"), readFileSync(join(dir, "system", "node.yaml"), "utf8").replace("id: system.keep-in-touch", `id: ${id}`));
+    writeFileSync(join(dir, "genome", "node.yaml"), readFileSync(join(dir, "genome", "node.yaml"), "utf8").replace("id: system.keep-in-touch", `id: ${id}`));
 
   it("skips a symlink to /etc inside the project and pushes nothing outside it", async () => {
     const lc = localCloud(join(tmp, "cloud-sec-link"));
     const dir = project("sec-link");
-    symlinkSync("/etc", join(dir, "system", "etc"));
+    symlinkSync("/etc", join(dir, "genome", "etc"));
     symlinkSync("/etc/hosts", join(dir, "app", "hosts"));
     symlinkSync("README.md", join(dir, "app", "readme-link"));
     // Points inside the project, but by absolute path: the text would leak a local path and dangle in a clone.
@@ -502,7 +502,7 @@ describe("security", { timeout: 60_000 }, () => {
     const before = headOf(genome);
     writeFileSync(join(genome, "hooks", "pre-receive"), "#!/bin/sh\necho 'main moved' >&2\nexit 1\n");
     chmodSync(join(genome, "hooks", "pre-receive"), 0o755);
-    writeFileSync(join(dir, "system", "README.md"), "changed\n");
+    writeFileSync(join(dir, "genome", "README.md"), "changed\n");
     const p = mockPlatform();
     const r = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
     expect(r.code).toBe(1);
@@ -565,7 +565,7 @@ describe("security", { timeout: 60_000 }, () => {
     const outside = project("sec-outside");
     const dir = join(tmp, "sec-escape");
     mkdirSync(dir);
-    symlinkSync(join(outside, "system"), join(dir, "system"));
+    symlinkSync(join(outside, "genome"), join(dir, "genome"));
     const r = await run(["init", "--dir", dir], { cloud: lc.cloud });
     expect(r.code).toBe(1);
     expect(r.err).toMatch(/genome dir .* resolves to .*, outside/);
@@ -579,7 +579,7 @@ describe("security", { timeout: 60_000 }, () => {
       const r = await run(["init", "--dir", dir, `--namespace=${ns}`], { cloud: lc.cloud });
       expect([r.code, r.err], ns).toEqual([1, expect.stringContaining("invalid namespace")]);
     }
-    const t = await run(["init", "--dir", join(tmp, "sec-names-tpl"), "--genome", join(dir, "system"), "--from-template=-c"], { cloud: lc.cloud });
+    const t = await run(["init", "--dir", join(tmp, "sec-names-tpl"), "--genome", join(dir, "genome"), "--from-template=-c"], { cloud: lc.cloud });
     expect([t.code, t.err]).toEqual([1, expect.stringContaining("invalid template ref")]);
     for (const id of ["system.a/b", "system..x", "--upload-pack=evil", "-c", "system.Keep-In-Touch"]) {
       setId(dir, id);

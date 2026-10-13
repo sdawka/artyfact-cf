@@ -258,7 +258,7 @@ describe("FAKE_ARTIFACTS=1 boot", () => {
       await ensureFakePlatform(env);
       const p = await call<TemplateUpgradeNoScaffold>("GET", `/systems/${artyfactSystemId}/template-upgrade`);
       expect(p.status, JSON.stringify(p.json)).toBe(200);
-      expect(p.json).toEqual({ status: "no-scaffold", template: expect.stringMatching(/^thing\/[\w.-]+@\d+$/) });
+      expect(p.json).toEqual({ status: "no-scaffold", template: "thing/cloudflare-worker-service@1" });
       expect((await call<ApiError>("POST", `/systems/${artyfactSystemId}/template-upgrade`, {}, ADMIN)).status).toBe(422);
     } finally {
       delete e.FAKE_SEED;

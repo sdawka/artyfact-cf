@@ -320,14 +320,6 @@ function connect(io: InitIo, ns: string): Cloud {
   return cloud;
 }
 
-/** `<project>/genome` (the repo layout), else the older `<project>/system`; a missing one is reported by the caller. */
-function defaultGenomeDir(project: string): string {
-  for (const name of ["genome", "system"]) {
-    if (existsSync(join(project, name))) return realDir("genome dir", join(project, name), project);
-  }
-  return join(project, "genome");
-}
-
 const stateFileFor = (io: InitIo, project: string) => join(project, ".artyfact", "init.json");
 
 export async function platformSyncCommand(args: string[], io: InitIo): Promise<number> {
@@ -357,7 +349,7 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const project = realDir("--dir", dirArg);
   const genomeDir = values.genome !== undefined
     ? realDir("--genome", resolve(io.cwd, values.genome as string))
-    : defaultGenomeDir(project);
+    : (existsSync(join(project, "genome")) ? realDir("genome dir", join(project, "genome"), project) : join(project, "genome"));
   const appGiven = values.app !== undefined;
   const appPath = appGiven ? resolve(io.cwd, values.app as string) : join(project, "app");
   const appDir = existsSync(appPath) ? realDir(appGiven ? "--app" : "app dir", appPath, appGiven ? undefined : project) : appPath;
