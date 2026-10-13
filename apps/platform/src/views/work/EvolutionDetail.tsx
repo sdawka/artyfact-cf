@@ -8,13 +8,14 @@ import { useModel } from "@/model/useModel";
 import { useKeepParams } from "@/model/useSelection";
 import { CandidateReview } from "./panels/CandidateReview";
 import { StartWorkPanel } from "./panels/StartWorkPanel";
+import { PlanPanel } from "./plan/PlanPanel";
 import { RealizationRow } from "./RealizationRow";
 import { conflictsOf, mergeConflicts, useNow, useParam } from "./lib";
 import styles from "./work.module.css";
 
 const NO_CONFLICTS: never[] = [];
 
-/** Right/lower pane for `?evolution=`: criteria, realizations, start work and inline review. Promotion lives on Review. */
+/** Right/lower pane for `?evolution=`: criteria, realizations, the task plan, start work and inline review. Promotion lives on Review. */
 export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evolution; realizations: readonly Realization[] }) {
   const m = useModel();
   const now = useNow(30_000);
@@ -45,6 +46,7 @@ export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evo
           </p>
         </div>
         <div className={styles.actions}>
+          <button type="button" className={`u-brackets ${styles.btn}`} aria-pressed={panel === "plan"} onClick={() => setPanel(panel === "plan" ? null : "plan", { task: null })}>Plan</button>
           <button type="button" className={`u-brackets ${styles.btn}`} aria-pressed={panel === "start"} onClick={() => setPanel(panel === "start" ? null : "start")}>Start work</button>
           <Link className={`u-brackets ${styles.reviewLink}`} to={href("review", { evolution: e.id, realization: null, panel: "promote" })}>Promote in Review</Link>
         </div>
@@ -80,6 +82,7 @@ export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evo
         <p className={styles.muted}>No one is working on this Evolution.</p>
       )}
 
+      {panel === "plan" && <PlanPanel evolution={e} />}
       {panel === "start" && <StartWorkPanel evolution={e} />}
       {reviewing && <CandidateReview realization={reviewing} candidate={candidateOf(reviewing)} evolution={e} />}
     </section>
