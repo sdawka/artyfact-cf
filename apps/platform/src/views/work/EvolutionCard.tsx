@@ -4,6 +4,7 @@ import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
 import { useModel } from "@/model/useModel";
 import { aggregate } from "./lib";
+import { planLine, taskSignals } from "./plan/signals";
 import styles from "./work.module.css";
 
 const MAX_CHIPS = 4;
@@ -27,6 +28,7 @@ export function EvolutionCard({ evolution: e, selected, onSelect, awaiting = 0, 
   const titleId = useId();
   const verdicts = e.acceptanceCriteria.map((c) => m.verdictOf(c));
   const pass = verdicts.filter((v) => v === "pass").length;
+  const plan = planLine(taskSignals(e));
   const extra = e.affectedNodes.length - MAX_CHIPS;
   return (
     <button
@@ -49,6 +51,7 @@ export function EvolutionCard({ evolution: e, selected, onSelect, awaiting = 0, 
         <span>{e.acceptanceCriteria.length} acceptance criteri{e.acceptanceCriteria.length === 1 ? "on" : "a"}</span>
         <VerdictBadge verdict={aggregate(verdicts)} label={`${pass}/${e.acceptanceCriteria.length} pass`} />
       </span>
+      {plan && <span className={styles.attention} data-testid="plan-line">{plan}</span>}
       {(overlap || awaiting > 0) && (
         <span className={styles.criteria}>
           {overlap && <span className={styles.overlapChip}><span aria-hidden="true">≈</span> overlap</span>}
