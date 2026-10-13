@@ -5,7 +5,7 @@ import { setArtifactsOverride } from "../worker/artifacts/client";
 import { listTree } from "../worker/artifacts/genome-source";
 import { setEditorTransport } from "../worker/editor";
 import { encodeBlob, encodeTree, hashObject, parseTree, type GitObject } from "../worker/git/objects";
-import { carry } from "../worker/rebase";
+import { carry, rebasedFrom } from "../worker/rebase";
 import { FakeArtifacts, type FakeRepo } from "./helpers/fake-artifacts";
 import { pushCommit, type FileChange } from "../worker/git/push";
 import type { HookRunner } from "../worker/hooks/contract";
@@ -31,11 +31,11 @@ const planOf = (f: Flow, tasks: Task[]): TaskPlan => ({
   provenance: { planner: { provider: "fake", model: "fake" }, fake: true }, createdAt: "2026-10-13T00:00:00.000Z", updatedAt: "2026-10-13T00:00:00.000Z",
 });
 
-async function setup(): Promise<Flow> {
+async function setup(ids = ["t1", "t2"]): Promise<Flow> {
   const f = await importFresh();
   rp = fakeReceivePack(f.ns);
   setEditorTransport({ fetch: rp.fetch });
-  await systemStub(env, f.systemId).putPlan(planOf(f, [task("t1"), task("t2")]));
+  await systemStub(env, f.systemId).putPlan(planOf(f, ids.map(task)));
   return f;
 }
 
@@ -164,14 +164,14 @@ describe("rebase-on-promote", () => {
     };
     setHooks({ runner: () => conflicting });
     const f = await setup();
-    const { b, ca } = await twoTasks(f);
+    const { b, ca, cb } = await twoTasks(f);
     expect((await promote(f, ca.candidate)).status).toBe(200);
     const r = await rebase(f, b.rid);
     expect(r.status, JSON.stringify(r.json)).toBe(409);
     expect(r.json.error?.code).toBe("rebase-conflict");
     expect((r.json.error?.details as { paths: string[] }).paths).toEqual(["src/shared.ts"]);
     // Nothing was pushed.
-    expect(f.ns.repo(b.fork).head).not.toBe(ca.commit);
+    expect(f.ns.repo(b.fork).head).toBe(cb.commit);
   });
 
   it("refuses with rebase-conflict when the head changed a path the candidate changes", async () => {
@@ -237,6 +237,92 @@ describe("rebase-on-promote", () => {
     const r = await rebase(f, b.rid);
     expect(r.status, JSON.stringify(r.json)).toBe(409);
     expect(r.json.error?.code).toBe("invalid-state");
+  });
+});
+
+const kindAt = async (f: Flow, fork: string, commit: string, path: string) => (await listTree(f.ns.repo(fork), commit)).get(path)?.type;
+
+describe("rebase-on-promote, fix round 1", () => {
+  it("keeps a candidate's exec-bit drop and symlink-to-file change with unchanged content", async () => {
+    const f = await setup(["t0", "t1", "t2"]);
+    // t0 puts an executable and a symlink on the head.
+    const z = await startTask(f, "t0", "agent-z");
+    const cz = await pushAndSubmit(f, z, [
+      { path: "bin/run.sh", content: "#!/bin/sh\necho run\n", type: "exec" },
+      { path: "docs/link", content: "../README.md", type: "symlink" },
+    ]);
+    expect((await promote(f, cz.candidate)).status).toBe(200);
+    expect(await kindAt(f, z.fork, cz.commit, "bin/run.sh")).toBe("exec");
+    expect(await kindAt(f, z.fork, cz.commit, "docs/link")).toBe("symlink");
+
+    const a = await startTask(f, "t1", "agent-a");
+    const b = await startTask(f, "t2", "agent-b");
+    const ca = await pushAndSubmit(f, a, [{ path: "src/task-a.ts", content: "a\n" }]);
+    // Same content, plain blobs: 100755 → 100644 and 120000 → 100644.
+    const cb = await pushAndSubmit(f, b, [
+      { path: "bin/run.sh", content: "#!/bin/sh\necho run\n", type: "blob" },
+      { path: "docs/link", content: "../README.md", type: "blob" },
+    ]);
+    expect(await kindAt(f, b.fork, cb.commit, "bin/run.sh")).toBe("blob");
+    expect((await promote(f, ca.candidate)).status).toBe(200);
+
+    const r = await rebase(f, b.rid);
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(await kindAt(f, b.fork, r.json.commit, "bin/run.sh")).toBe("blob");
+    expect(await kindAt(f, b.fork, r.json.commit, "docs/link")).toBe("blob");
+    expect(r.json.submitted.candidate.changedPaths).toEqual(["bin/run.sh", "docs/link"]);
+    expect(text(await blobAt(f, b.fork, r.json.commit, "src/task-a.ts"))).toBe("a\n");
+  });
+
+  it("retries a stranded second-generation rebase", async () => {
+    const f = await setup(["t1", "t2", "t3", "t4"]);
+    const rs = await Promise.all(["t1", "t2", "t3", "t4"].map((t) => startTask(f, t, `agent-${t}`)));
+    const cs = [];
+    for (const [i, r] of rs.entries()) cs.push(await pushAndSubmit(f, r, [{ path: `src/${i}.ts`, content: `${i}\n` }]));
+    expect((await promote(f, cs[0].candidate)).status).toBe(200);
+    const gen1 = await rebase(f, rs[1].rid);
+    expect(gen1.status, JSON.stringify(gen1.json)).toBe(200);
+    // t3 then moves the head again, and t4 is rebased onto that head, ready to promote.
+    const t3 = await rebase(f, rs[2].rid);
+    expect((await promote(f, t3.json.submitted.candidate.id)).status).toBe(200);
+    const t4 = await rebase(f, rs[3].rid);
+    expect(t4.status, JSON.stringify(t4.json)).toBe(200);
+
+    // While t2's second rebase is being pushed, t4 is promoted: the push lands, the DO move is refused (stale-base).
+    let fired = false;
+    setEditorTransport({
+      fetch: async (input, init) => {
+        const res = await rp.fetch(input, init);
+        if (!fired && init?.method === "POST" && String(input).includes(`/${rs[1].fork}.git/`)) {
+          fired = true;
+          expect((await promote(f, t4.json.submitted.candidate.id)).status).toBe(200);
+        }
+        return res;
+      },
+    });
+    const stranded = await rebase(f, rs[1].rid);
+    expect(stranded.status, JSON.stringify(stranded.json)).toBe(409);
+    expect(stranded.json.error?.code).toBe("stale-base");
+    const fork = f.ns.repo(rs[1].fork);
+    const tip = fork.head!;
+    expect(tip).not.toBe(gen1.json.commit);
+    const msg = (await fork.readCommit(tip))!.message;
+    expect(msg.match(/Artyfact-Rebase-Of:/g)).toHaveLength(1);
+    expect(msg).toContain(`Artyfact-Rebase-Of: ${gen1.json.commit}`);
+
+    setEditorTransport({ fetch: rp.fetch });
+    const retry = await rebase(f, rs[1].rid);
+    expect(retry.status, JSON.stringify(retry.json)).toBe(200);
+    expect((await fork.readCommit(retry.json.commit))!.parents).toEqual([tip]);
+    expect((await promote(f, retry.json.submitted.candidate.id)).status).toBe(200);
+    const files = (await call<FilesResponse>("GET", `/systems/${f.systemId}/files?scope=app`)).json.files.map((x) => x.path);
+    expect(files).toEqual(expect.arrayContaining(["src/0.ts", "src/1.ts", "src/2.ts", "src/3.ts"]));
+  });
+
+  it("takes the last rebase trailer of a message that carries several", () => {
+    const a = "a".repeat(40), b = "b".repeat(40);
+    expect(rebasedFrom(`Rebase\n\nArtyfact-Rebase-Of: ${a}\n\nArtyfact-Rebase-Of: ${b}\n`)).toBe(b);
+    expect(rebasedFrom("no trailer")).toBeNull();
   });
 });
 
