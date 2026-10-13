@@ -65,6 +65,7 @@ links:
   - { rel: implements, to: endpoint.intents-get }
   - { rel: implements, to: endpoint.intents-reply }
   - { rel: implements, to: endpoint.intents-accept }
+  - { rel: implements, to: endpoint.intents-decisions }
 files:
   - worker/index.ts
   - worker/routes/**

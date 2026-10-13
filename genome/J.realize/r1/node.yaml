@@ -7,6 +7,7 @@ fields:
   kind: action
   next:
     - to: r2
+    - to: r1a
 links:
   - { rel: stepOperation, to: endpoint.start-work }
   - { rel: stepScreen, to: screen.work }

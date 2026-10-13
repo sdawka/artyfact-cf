@@ -1,0 +1,12 @@
+id: J.realize/r1a
+kind: step
+fields:
+  step: r1a
+  actor: external
+  action: Lists the planned Tasks and their waves
+  kind: action
+  next:
+    - to: r1b
+links:
+  - { rel: stepOperation, to: command.tasks }
+  - { rel: stepScreen, to: screen.work }
