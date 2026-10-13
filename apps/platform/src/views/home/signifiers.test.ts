@@ -44,9 +44,9 @@ describe("cardSummary deploy line", () => {
     expect(d("none")).toMatchObject({ label: "not deployed, unknown", tone: "neutral" });
   });
 
-  it("folds the build in; only a deployed System with a passed build is success", () => {
+  it("folds the build in; only a passed build is success", () => {
     const line = (deployState: CardSummary["deployState"], status: BuildStatus) => cardSummary({ ...base, deployState, latestBuild: build(status) }).deploy;
-    expect(line("live", "passed")).toMatchObject({ tone: "pass", build: { label: "build passed", tone: "pass" } });
+    expect(line("live", "passed")).toMatchObject({ tone: "neutral", build: { label: "build passed", tone: "pass" } });
     expect(line("live", "running")).toMatchObject({ tone: "neutral", build: { label: "build running", tone: "neutral" } });
     expect(line("live", "failed").build).toMatchObject({ tone: "fail" });
     expect(line("none", "passed").tone).toBe("neutral");

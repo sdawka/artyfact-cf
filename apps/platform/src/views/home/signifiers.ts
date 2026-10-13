@@ -53,8 +53,6 @@ function deployLine(s: CardSummary): DeployLine {
   if (b) {
     const tone = buildTone(b.status);
     line.build = { status: b.status, label: `build ${b.status}`, tone, title: `Latest build ${b.id} of ${b.commit.slice(0, 7)}` };
-    // Success colour belongs to a build that passed, so a deployed System shows it only then.
-    if (line.status === "deployed" && tone === "pass") line.tone = "pass";
   }
   return line;
 }

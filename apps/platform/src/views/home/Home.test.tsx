@@ -79,7 +79,7 @@ describe("Home", () => {
     expect(within(a).getByText("1 realization evolving")).toBeTruthy();
     expect(within(a).queryByText("2 pending realizations")).toBeNull();
     expect(within(b).getByText("1 awaits your review")).toBeTruthy();
-    expect(within(b).getByText(/deployed/).getAttribute("data-tone")).toBe("pass");
+    expect(within(b).getByText(/deployed/).getAttribute("data-tone")).toBe("neutral");
     expect(within(b).getByText("build passed").getAttribute("data-tone")).toBe("pass");
     expect(within(a).getByText("build running").getAttribute("data-tone")).toBe("neutral");
     expect(within(a).getByText("updated 5 min ago")).toBeTruthy();

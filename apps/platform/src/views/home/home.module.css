@@ -98,3 +98,4 @@
   cursor: pointer;
 }
 .kbd { color: var(--color-text-subtle); font-size: var(--font-size-xs); }
+.ledgerRow > a { text-decoration: underline; text-underline-offset: 0.2em; }
