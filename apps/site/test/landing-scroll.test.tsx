@@ -16,7 +16,7 @@ function Harness() {
   const { pinned, manual, chooseView } = useLandingScroll(scene, controls, setView);
   return <section id="home-system-story"><div ref={scene} data-test-scene="" data-pinned={String(pinned)}><div ref={controls}>
     {(['genome', 'proteome', 'phenome'] as const).map(item => <button key={item} onClick={() => chooseView(item)}>{item}</button>)}
-  </div><output>{view}:{String(manual)}</output></div>
+  </div><button>Save record</button><output>{view}:{String(manual)}</output></div>
     {(['genome', 'proteome', 'phenome'] as const).map(item => <article key={item} data-story-step={item} />)}
     <button>Outside controls</button>
   </section>;
@@ -78,4 +78,15 @@ it('pins only when measured geometry leaves room and releases queued work on unm
   fireEvent.scroll(window); unmount();
   expect(vi.getTimerCount()).toBe(0);
   expect(mediaListeners.size).toBe(0);
+});
+
+it('keeps a keyboard-focused demo control visible while scrolling and resumes after it leaves the story', () => {
+  render(<Harness />);
+  fireEvent.click(screen.getByRole('button', { name: 'phenome' }));
+  positions = [-1000, -500, 200]; fireEvent.scroll(window); flush();
+  keyboardMode = true; act(() => screen.getByRole('button', { name: 'Save record' }).focus());
+  positions = [-400, 200, 700]; fireEvent.scroll(window); flush();
+  expect(screen.getByText('phenome:false')).toBeTruthy();
+  act(() => screen.getByRole('button', { name: 'Outside controls' }).focus()); flush();
+  expect(screen.getByText('proteome:false')).toBeTruthy();
 });

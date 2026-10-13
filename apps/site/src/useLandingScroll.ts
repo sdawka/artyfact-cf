@@ -36,7 +36,7 @@ export function useLandingScroll(scene: RefObject<HTMLDivElement | null>, contro
       let next: LandingView = 'genome';
       for (const step of steps) if (step.getBoundingClientRect().top <= line) next = step.dataset.storyStep as LandingView;
       active.current = next;
-      const keyboardFocus = buttons.contains(document.activeElement) && document.activeElement?.matches(':focus-visible');
+      const keyboardFocus = element.contains(document.activeElement) && document.activeElement?.matches(':focus-visible');
       if (!enabled || keyboardFocus || manualAt.current === next) return;
       manualAt.current = null;
       setManual(false);
@@ -45,7 +45,7 @@ export function useLandingScroll(scene: RefObject<HTMLDivElement | null>, contro
     const schedule = () => { if (!frame && alive) frame = requestAnimationFrame(measure); };
     window.addEventListener('scroll', schedule, { passive: true });
     window.addEventListener('resize', schedule);
-    buttons.addEventListener('focusout', schedule);
+    element.addEventListener('focusout', schedule);
     media.addEventListener('change', schedule);
     const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
     resize?.observe(element);
@@ -56,7 +56,7 @@ export function useLandingScroll(scene: RefObject<HTMLDivElement | null>, contro
       resize?.disconnect();
       window.removeEventListener('scroll', schedule);
       window.removeEventListener('resize', schedule);
-      buttons.removeEventListener('focusout', schedule);
+      element.removeEventListener('focusout', schedule);
       media.removeEventListener('change', schedule);
     };
   }, [scene, controls, onView]);

@@ -9,5 +9,5 @@ test('software WebGL keeps CSS fallbacks and a responsive explorer', async ({ pa
   await expect(page.locator('[data-ambient] [data-effect="ambient"]')).toHaveAttribute('data-effect-mode', 'fallback', { timeout: 15000 });
   await page.getByRole('tab', { name: /Phenome/ }).click({ timeout: 3000 });
   await expect(page.locator('[data-system-view]')).toHaveAttribute('data-system-view', 'phenome');
-  await expect(page.getByText('Sample activity', { exact: true })).toBeVisible();
+  await expect(page.getByRole('img', { name: /^Sample saves:/ })).toBeVisible();
 });

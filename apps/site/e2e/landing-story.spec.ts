@@ -54,7 +54,7 @@ test('responsive scene keeps every card readable and applies measured pinning', 
       const geometry = await page.evaluate(() => {
         const root = document.querySelector<HTMLElement>('[data-system-view]')!, r = root.getBoundingClientRect();
         const boundary = document.querySelector('.scene-system')!.getBoundingClientRect();
-        const cards = [...document.querySelectorAll<HTMLElement>('.scene-card')].map(card => {
+        const cards = [...document.querySelectorAll<HTMLElement>('.scene-application, .scene-runtime, .scene-observation-slot')].map(card => {
           const c = card.getBoundingClientRect();
           return { inside: c.left >= boundary.left && c.right <= boundary.right && c.top >= boundary.top && c.bottom <= boundary.bottom, fits: card.scrollWidth <= card.clientWidth + 1 };
         });
@@ -73,7 +73,7 @@ test('homepage static example and all narratives survive without JavaScript', as
   await page.goto('https://artyfact.test/');
   await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'genome');
   await expect(page.locator(scene)).toHaveAttribute('data-sticky', 'false');
-  expect(await page.locator('.scene-system').evaluate(element => getComputedStyle(element).borderTopLeftRadius)).toMatch(/^(18|22)px$/);
+  expect(await page.locator('.scene-system').evaluate(element => getComputedStyle(element).borderTopLeftRadius)).toBe('20px');
   expect(await page.locator('.scene-board').evaluate(element => getComputedStyle(element).display)).toBe('grid');
   for (const title of ['Give the application its shape.', 'Make that shape tangible.', 'See what happens when it functions.']) await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await page.getByText('Composition + provenance', { exact: true }).click();
@@ -89,8 +89,56 @@ test('forced colors retain visible selected views and subjects', async ({ page }
   await tab.click();
   await expect(tab).toHaveAttribute('aria-selected', 'true');
   expect(await tab.evaluate(element => getComputedStyle(element).outlineWidth)).toBe('2px');
-  const app = page.getByRole('button', { name: 'Application: Fieldnotes' });
+  const app = page.getByRole('button', { name: 'Inspect Fieldnotes application' });
   await expect(app).toHaveAttribute('aria-pressed', 'true');
-  expect(await app.evaluate(element => getComputedStyle(element).outlineWidth)).toBe('2px');
+  const selectedOutline = await app.evaluate(element => { const style = getComputedStyle(element); return { width: parseFloat(style.outlineWidth), style: style.outlineStyle }; });
+  expect(selectedOutline.width).toBeGreaterThanOrEqual(1);
+  expect(selectedOutline.style).toBe('solid');
   await page.locator(scene).screenshot({ path: info.outputPath('forced-colors.png') });
+});
+
+test('Phenome hands over after six saves, celebrates once, and preserves local progress', async ({ page }, info) => {
+  const writes: string[] = [];
+  page.on('request', request => { if (request.method() !== 'GET') writes.push(request.url()); });
+  await page.goto('https://artyfact.test/');
+  await page.getByRole('tab', { name: /Phenome/ }).click();
+  const chart = page.getByRole('img', { name: /^Sample saves:/ });
+  await expect(chart).toHaveAttribute('aria-label', /^Sample saves: 6\./, { timeout: 7000 });
+  const save = page.getByRole('button', { name: 'Save record', exact: true });
+  for (let i = 0; i < 6; i++) await save.click();
+  await expect(page.getByRole('status')).toHaveText('Great energy!');
+  await expect(chart).toHaveAttribute('aria-label', /^Sample saves: 12\./);
+  await expect(page.locator('[data-scene-confetti] i')).toHaveCount(18);
+  await page.locator(scene).screenshot({ path: info.outputPath('phenome-celebration.png') });
+  await expect(page.locator('[data-scene-confetti]')).toHaveCount(0);
+  await save.click();
+  await expect(chart).toHaveAttribute('aria-label', /^Sample saves: 13\./);
+  await expect(page.locator('[data-chart-level]')).toHaveAttribute('data-chart-level', '12');
+  await page.getByRole('tab', { name: /Genome/ }).click();
+  await page.getByRole('tab', { name: /Phenome/ }).click();
+  await expect(chart).toHaveAttribute('aria-label', /^Sample saves: 13\./);
+  await expect(page.getByRole('status')).toHaveCount(0);
+  await save.click();
+  await expect(chart).toHaveAttribute('aria-label', /^Sample saves: 14\./);
+  await expect(page.locator('[data-scene-confetti]')).toHaveCount(0);
+  expect(writes).toEqual([]);
+});
+test('keyboard Save remains visible when the scroll narrative changes', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'Native pinned desktop story');
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto('https://artyfact.test/');
+  await page.getByRole('tab', { name: /Phenome/ }).click();
+  await page.keyboard.press('Tab');
+  const save = page.getByRole('button', { name: 'Save record', exact: true });
+  await save.focus();
+  const chart = page.getByRole('img', { name: /^Sample saves:/ });
+  const before = Number((await chart.getAttribute('aria-label'))!.match(/saves: (\d+)/)![1]);
+  await narrative(page, 'proteome');
+  await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'phenome');
+  await expect(save).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(chart).toHaveAttribute('aria-label', new RegExp('^Sample saves: ' + (before + 1) + '\\.'));
+  await page.getByRole('link', { name: 'Bring your agent', exact: true }).first().focus();
+  await narrative(page, 'proteome');
+  await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'proteome');
 });

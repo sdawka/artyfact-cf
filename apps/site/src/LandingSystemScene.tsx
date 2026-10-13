@@ -1,16 +1,24 @@
 import React, { useId } from 'react';
-import { landingConstellationEdges, landingConstellationPoints, landingSubjects } from './landingSystemData';
-import type { LandingSubject, LandingView } from './landingSystemData';
+import { landingSubjects } from './landingSystemData';
+import type { LandingDemo, LandingSubject, LandingView } from './landingSystemData';
 
 export type LandingSystemSceneProps = {
   view: LandingView;
   selectedSubject: LandingSubject;
   onSelectSubject?: (subject: LandingSubject) => void;
+  demo?: LandingDemo;
 };
 
-export function LandingSystemScene({ view, selectedSubject, onSelectSubject }: LandingSystemSceneProps) {
+const emptyDemo: LandingDemo = { count: 0, pressing: false, showPointer: false, celebrating: false, showToast: false, onSave: () => {} };
+const confettiPieces = Array.from({ length: 18 }, (_, index) => index);
+
+export function LandingSystemScene({ view, selectedSubject, onSelectSubject, demo = emptyDemo }: LandingSystemSceneProps) {
   const headingId = useId();
+  const noteId = useId();
   const detail = landingSubjects[selectedSubject];
+  const shape = view === 'genome';
+  const active = view === 'phenome';
+  const chartLevel = Math.min(12, Math.max(0, demo.count));
   const selectProps = (subject: LandingSubject) => ({
     type: 'button' as const,
     'aria-pressed': selectedSubject === subject,
@@ -18,66 +26,51 @@ export function LandingSystemScene({ view, selectedSubject, onSelectSubject }: L
   });
   return <div className="landing-system-scene" data-scene-view={view}>
     <figure className="scene-system" aria-labelledby={headingId}>
-      <svg className="scene-constellation" data-scene-decoration aria-hidden="true" focusable="false" viewBox="0 0 730 400" preserveAspectRatio="none">
-        {landingConstellationEdges.map(({ start, end }, index) => <line key={index} x1={start[0]} y1={start[1]} x2={end[0]} y2={end[1]} />)}
-        {landingConstellationPoints.map(([x, y], index) => <circle key={index} cx={x} cy={y} r={index % 3 === 0 ? 2.4 : 1.5} />)}
-      </svg>
       <figcaption className="scene-system-heading">
         <h2 id={headingId}>One System</h2>
         <span className="scene-example-label">Illustrative application</span>
       </figcaption>
       <div className="scene-board">
-        <div className="scene-parts">
-          <span className="scene-group-label">Composed Parts</span>
-          <button {...selectProps('starter')} className="scene-card scene-starter" aria-label="Part: Astro starter">
-            <span className="scene-part-icon" aria-hidden="true">✦</span>
-            <span className="scene-card-title">Astro starter</span>
-            <span className="scene-version">v1.2.0 pinned</span>
-            <span className="scene-card-note">Routes + server</span>
-          </button>
-          <button {...selectProps('components')} className="scene-card scene-components" aria-label="Part: Component system">
-            <span className="scene-component-glyph" aria-hidden="true"><i /><i /><i /><i /></span>
-            <span className="scene-card-title">Component system</span>
-            <span className="scene-version">v2.4.0 pinned</span>
-            <span className="scene-override">Button override</span>
-          </button>
+        <div className="scene-observation-slot">
+          {active && <div className="scene-save-chart" role="img" aria-label={`Sample saves: ${demo.count}. Bar shown up to 12 saves.`}>
+            <span className="scene-chart-caption">Sample saves</span>
+            <div className="scene-chart-plot">
+              <div className="scene-chart-ticks" aria-hidden="true"><span>12+</span><span>6</span><span>0</span></div>
+              <div className="scene-chart-track" aria-hidden="true"><div className="scene-chart-bar" data-chart-level={chartLevel} style={{ '--chart-fill': chartLevel / 12 } as React.CSSProperties} /></div>
+            </div>
+            <strong>{demo.count} {demo.count === 1 ? 'save' : 'saves'}</strong>
+          </div>}
         </div>
-        <button {...selectProps('app')} className="scene-card scene-application" aria-label="Application: Fieldnotes">
-          <span className="scene-window-bar"><span className="scene-window-dots" aria-hidden="true"><i /><i /><i /></span><span>Application</span><span className="scene-window-mark" aria-hidden="true">↗</span></span>
-          <span className="scene-app-body">
-            <span className="scene-app-title">Fieldnotes</span>
-            <span className="scene-app-subtitle">Capture what you notice.</span>
-            <span className="scene-record"><span className="scene-record-icon" aria-hidden="true" /><span>Morning by the lake<span className="scene-record-meta">A place worth returning to</span></span></span>
-            <span className="scene-save">Save record<span aria-hidden="true">+</span></span>
-            <span className="scene-app-status">{view === 'phenome' ? 'record.saved' : view === 'proteome' ? 'Interface realized' : 'Interface contract'}</span>
-          </span>
-        </button>
-        <button {...selectProps('runtime')} className="scene-card scene-runtime" aria-label="Runtime: API and storage">
-          <span className="scene-group-label">API + storage</span>
-          <span className="scene-api"><span className="scene-runtime-glyph" aria-hidden="true">{'{ }'}</span><span className="scene-card-title">Records API</span><span className="scene-api-route">/api/records</span></span>
-          <span className="scene-runtime-link"><span aria-hidden="true">↓</span> persists</span>
-          <span className="scene-storage"><span className="scene-storage-glyph" aria-hidden="true"><i /><i /><i /></span><span className="scene-card-title">Record storage</span></span>
-          <span className="scene-runtime-status">{view === 'phenome' ? 'GET /api/records 200' : view === 'proteome' ? 'Runtime R1' : 'Storage contract'}</span>
-        </button>
+        <article className="scene-card scene-application" aria-label="Application: Fieldnotes" data-selected={selectedSubject === 'app'}>
+          <div className="scene-card-heading"><span>Application</span><button {...selectProps('app')} className="scene-inspect" aria-label="Inspect Fieldnotes application">Inspect</button></div>
+          <div className="scene-app-body">
+            <div className="scene-app-brand">{shape ? <span className="scene-slot-purpose">Fieldnotes interface</span> : <><h3>Fieldnotes</h3><p>Capture what you notice.</p></>}</div>
+            <div className="scene-form-slot scene-shape-slot">{shape ? <span className="scene-slot-purpose">Capture a note</span> : <><label htmlFor={noteId}>New note</label><input id={noteId} value="Morning by the lake" readOnly tabIndex={-1} /></>}</div>
+            <div className="scene-save-slot scene-shape-slot">{shape ? <span className="scene-slot-purpose">Save a note</span> : active ? <button type="button" className="scene-save" data-pressing={demo.pressing} onClick={demo.onSave}>Save record</button> : <span className="scene-save scene-save-preview">Save record</span>}
+              {active && demo.showPointer && <svg className="scene-demo-pointer" data-demo-pointer aria-hidden="true" focusable="false" viewBox="0 0 26 32"><path d="M3 2 22 20l-10 1-4 9Z" /></svg>}
+            </div>
+            <div className="scene-list-slot scene-shape-slot">{shape ? <span className="scene-slot-purpose">Revisit saved notes</span> : <><span className="scene-list-label">Saved notes</span><ul><li>Morning by the lake</li><li>The long way home</li></ul></>}</div>
+          </div>
+          {active && demo.celebrating && <div className="scene-confetti" data-scene-confetti aria-hidden="true">{confettiPieces.map(index => <i key={index} />)}</div>}
+        </article>
+        <article className="scene-runtime" aria-label="Runtime: API and storage" data-selected={selectedSubject === 'runtime'}>
+          <div className="scene-card-heading"><span>Runtime</span><button {...selectProps('runtime')} className="scene-inspect" aria-label="Inspect API and storage">Inspect</button></div>
+          <div className="scene-api scene-shape-slot"><span className="scene-slot-purpose">Records API</span>{!shape && <code>/api/records</code>}</div>
+          <span className="scene-runtime-link">persists</span>
+          <div className="scene-storage scene-shape-slot"><span className="scene-slot-purpose">Record storage</span>{!shape && <span className="scene-storage-lines" aria-hidden="true"><i /><i /><i /></span>}</div>
+        </article>
       </div>
-      <ul className="scene-relationships" aria-label="System relationships">
-        <li><span className="scene-relationship-line" aria-hidden="true" />Parts compose the application</li>
-        <li><span className="scene-relationship-line" aria-hidden="true" />Application calls API; API persists records</li>
-      </ul>
-      <div className="scene-provenance" aria-label="Distinct source, output and runtime identities">
-        <span>source S1</span><span className="scene-provenance-arrow" aria-label="builds">→</span><span>output B1</span><span className="scene-provenance-arrow" aria-label="runs as">→</span><span>runtime R1</span>
-      </div>
-      <div className="scene-observation-slot">
-        {view === 'phenome' ? <div className="scene-sample-metrics"><strong>Sample activity</strong><span>128 requests</span><span>p95 84 ms</span><span>0% errors</span></div> : <p className="scene-view-note">{view === 'genome' ? 'Declared shape + contracts' : 'Realized source + build'}</p>}
-        <p className="scene-outcome">Outcome evidence: unmeasured</p>
-      </div>
+      <div className="scene-composition-rail" aria-label="Composed Parts"><span>Parts</span><button {...selectProps('starter')} aria-label="Part: Astro starter">Astro starter</button><span aria-hidden="true">+</span><button {...selectProps('components')} aria-label="Part: Component system">Component system</button><span className="scene-composition-target">compose this app</span></div>
+      <div className="scene-feedback-slot">{active && demo.showToast && <p className="scene-demo-toast" role="status" aria-live="polite">Great energy!</p>}</div>
     </figure>
-    <section className="scene-selected-detail" aria-label="Selected subject" aria-live="polite">
+    <section className="scene-selected-detail" aria-label="Selected subject">
       <h3>{detail.title}</h3>
       <p>{detail.summary[view]}</p>
       <details key={selectedSubject}>
         <summary>Composition + provenance</summary>
         <p>{detail.detail}</p>
+        <p className="scene-relationships">Parts compose the application. Application calls API; API persists records.</p>
+        <p className="scene-outcome">Outcome evidence: unmeasured.</p>
       </details>
     </section>
   </div>;

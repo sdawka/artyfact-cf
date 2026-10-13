@@ -93,3 +93,15 @@ test('the initial stylesheet includes the meaningful System scene before hydrati
   const css = await Promise.all([...document.querySelectorAll('link[rel="stylesheet"]')].map(link => readFile(resolve(dist, '.' + link.getAttribute('href')), 'utf8')));
   assert(css.some(text => text.includes('.scene-system') && text.includes('.scene-application')), 'Meaningful scene styles must be in initial CSS, not a lazy hydration chunk');
 });
+
+test('homepage starts with quiet declared shapes and preserves the approved hero copy', async () => {
+  const document = new JSDOM(await readFile(resolve(dist, 'index.html'), 'utf8')).window.document;
+  assert.equal(document.querySelector('h1').textContent.replace(/\s+/g, ' ').trim(), 'Make Meaningful Systems');
+  assert.equal(document.querySelector('.cloudflare-line').textContent, '(on Cloudflare)');
+  assert(document.title.endsWith('Make Meaningful Systems'));
+  assert(document.body.textContent.includes('Shape a Thing with its Genome. Compose reusable Parts when they help. Keep the work, its functioning and its purpose in the same System.'));
+  const app = document.querySelector('.scene-application');
+  assert(app && !app.querySelector('input, .scene-save'));
+  assert(!document.querySelector('.scene-save-chart, [data-demo-pointer], [data-scene-confetti]'));
+  assert(!document.querySelector('button button'), 'Inspection and demo controls must never be nested');
+});
