@@ -56,6 +56,10 @@ Revise `/model` to explain the System boundary, user-chosen Things and typed con
 
 Deferred capability gaps, outside this page revision: creation accepts a System with zero Things despite the one-or-more domain intent; design-system-specific rules and visual compliance are absent; runtime loads bundled Rule Packs rather than user-managed packs; change scope is manual without a separate intent-confirmation or automatic mapping step; external-agent handoff does not launch an agent; the illustrated acceptance test and event producers do not exist; transient workflow SSE is not a persisted Phenome stream. These require their own product and implementation decisions.
 
+## Ontology Driven Development page revision
+
+The accepted public-page direction now starts with six semantic-layer benefits, then explicitly introduces Artyfact’s meta ontology and retains the existing System-first example and explorer. Keep the site style, navigation labels and backend contracts. Done when section links, truthful labels, static/no-JS content, keyboard, reduced-motion, narrow layouts and all site gates pass; deliver one PR.
+
 ## Self-referential model page
 
 Use the public model page itself as the canonical worked example, with an explanation purpose, nested page/component/affordance and accuracy, clarity and visual criteria. Explain single/composite Cloudflare mappings near the top. Preserve accessible static content, parallel views and truthful evidence boundaries; validate canonical Genome and desktop/mobile renders before one PR. Human comprehension remains unmeasured.

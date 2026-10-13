@@ -8,17 +8,30 @@ function Explorer({ html }: { html?: string }) {
 export function ModelContent({ explorerHtml }: ModelContentProps) {
   return <div className="model-story" data-model-story="">
     <section className="model-story-intro">
-      <h1>A model that can explain itself.</h1>
-      <p>Artyfact connects an application’s purpose, intended shape, realization and evidence. This page explains how—and belongs to the model it explains.</p>
+      <h1>Ontology Driven Development</h1>
+      <p>Code repositories and delivery pipelines hold files, versions, builds and deployments. A semantic layer connects that work to its purpose, subjects, relationships and evidence. This page belongs to the model it explains.</p>
       <p>A System holds one or more Things you want to make. You choose their boundaries and connect their subjects within a typed model.</p>
+    <nav className="model-story-jumps" aria-label="On this page"><a href="#benefits">Why a semantic layer</a><a href="#meta-ontology">Artyfact’s meta ontology</a></nav>
     </section>
     <section className="model-cloudflare" aria-labelledby="model-cloudflare-heading">
       <div><h2 id="model-cloudflare-heading">The model meets Cloudflare.</h2><p>Things and Parts can correspond to one or more artifacts, including compositions. The model connects those artifacts to their purpose.</p></div>
       <dl><div><dt>Thing</dt><dd>This site: Worker + static assets. The platform: Worker + assets + Durable Object + Queue. Either can be one Thing.</dd></div><div><dt>Part</dt><dd>Reusable model content, files and pinned dependencies contribute to a Thing’s realization. A Part need not deploy independently.</dd></div></dl>
       <p className="model-cloudflare-note">No fixed one-to-one mapping: a Thing can start without an artifact; a logical subject is not a deployed resource. Source can be versioned through Cloudflare Artifacts, its Git-compatible repository service; source, build output and running resources stay distinct.</p>
     </section>
-    <section className="section model-story-shape">
-      <div className="section-heading"><h2>You are inside the example.</h2><p>This is part of Artyfact’s canonical Genome: the public site contains this page, which contains the explanation you are reading. Each level gives the next one context.</p></div>
+    <section id="benefits" className="section model-story-benefits" aria-labelledby="benefits-heading" tabIndex={-1}>
+      <div className="section-heading"><h2 id="benefits-heading">Why add a semantic layer?</h2><p>Keep meaning alongside code. Explore what the semantic layer makes possible.</p></div>
+      <div className="model-benefits-grid">
+        <article><details><summary><strong>Reuse context</strong><span>Give purpose and definitions a shared home.</span></summary><p>Give purpose, domain definitions and constraints a shared home. Carry relevant context into each task or agent session instead of reconstructing it from source files.</p></details></article>
+        <article><details><summary><strong>Scope implementation precisely</strong><span>Name what changes and where it lives.</span></summary><p>Break a requested change into named subjects, then associate those subjects with their source areas. Tasks can say which screen, operation or policy they affect.</p></details></article>
+        <article><details><summary><strong>Understand dependencies</strong><span>Follow relationships to related work.</span></summary><p>Make relationships explicit across features, interfaces and data. Follow those links to identify related subjects and reason about the impact of a change.</p></details></article>
+        <article><details><summary><strong>Preserve intent</strong><span>Keep the reason connected to the code.</span></summary><p>Keep implementation decisions connected to the requirements and purpose behind them. A change retains its reason as it moves from a request into code and review.</p></details></article>
+        <article><details><summary><strong>Share constraints</strong><span>Plan and check against shared expectations.</span></summary><p>Attach criteria to the subjects they assess and reuse modeled rules across work. People and agents can refer to the same expectations when planning and checking changes.</p></details></article>
+        <article><details><summary><strong>Trace evidence</strong><span>See what was checked and what is missing.</span></summary><p>Associate checks and observations with the subjects and versions they assess. See what was tested, what was observed and where evidence is still missing.</p></details></article>
+      </div>
+    </section>
+
+    <section id="meta-ontology" className="section model-story-shape" aria-labelledby="meta-ontology-heading" tabIndex={-1}>
+      <div className="section-heading"><h2 id="meta-ontology-heading">Artyfact’s meta ontology</h2><p>The meta ontology defines the kinds and relationships used to describe projects. Artyfact’s own canonical Genome fills that vocabulary with this site, this page and the explanation you are reading. You are inside the example.</p></div>
       <div className="model-self-portrait" role="group" aria-label="Artyfact canonical containment from System to explanation component">
         <div className="model-self-system" data-model-subject="system.artyfact"><div className="model-self-caption"><span>System</span><strong>Artyfact</strong></div>
           <div className="model-self-thing" data-model-subject="thing.site"><div className="model-self-caption"><span>Thing</span><strong>Public site</strong></div>

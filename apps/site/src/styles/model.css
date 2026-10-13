@@ -85,3 +85,17 @@
   .model-self-component { padding: 16px; }
   .model-cloudflare dl > div { grid-template-columns: 45px 1fr; gap: 10px; }
 }
+
+.model-story-jumps { display: flex; flex-wrap: wrap; gap: 8px 25px; font-size: .88rem; }
+.model-story-jumps a { display: inline-flex; align-items: center; min-height: 44px; }
+.model-story-benefits, #meta-ontology { scroll-margin-top: 24px; }
+.model-story-benefits { padding-block: 28px; }
+.model-story-benefits .section-heading { margin-bottom: 16px; }
+.model-benefits-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 28px; }
+.model-benefits-grid article { min-width: 0; border-top: 1px solid var(--color-border); }
+.model-benefits-grid summary { cursor: pointer; min-height: 44px; padding-block: 12px; color: var(--color-text-primary); font-size: .95rem; }
+.model-benefits-grid p { font-size: .88rem; line-height: 1.65; }
+@media (max-width: 640px) { .model-benefits-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 15px; } .model-benefits-grid summary { font-size: .85rem; } .model-story-benefits .section-heading { gap: 12px; } }
+
+.model-benefits-grid summary strong { font-weight: 500; }
+.model-benefits-grid summary span { display: block; margin-top: 5px; color: var(--color-text-secondary); font-size: .78rem; line-height: 1.5; }

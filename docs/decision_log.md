@@ -44,6 +44,10 @@ Native scroll selects homepage chapters; short reversible animations settle full
 
 Use one clearly illustrative Artyfact scoped-change request to connect the model page's domain, chosen Thing boundaries, nested subjects, reusable content, three parallel views and evidence questions. Keep proposed behavior and observations distinct from implemented APIs and live outcome evidence.
 
+## 2026-10-13T11:40:45-04:00 — Ontology Driven Development explanation
+
+Lead the public `/model` page with Ontology Driven Development and the benefits of a semantic layer over code storage and delivery: reusable context, precise implementation scope, explicit dependencies, preserved intent, shared constraints and traceable evidence. Follow with Artyfact’s meta ontology, reusing the System-first explanation and clearly illustrative feature. Use a benefits overview within the existing site style; this supersedes starting the page directly with the domain model.
+
 ## 2026-10-13T12:27:43-04:00 — Self-referential public model
 
 Use the model page itself for its deep ontology example: explaining Artyfact is its purpose, and its explanation component has accuracy, clarity and compelling-visual criteria. Make these real canonical Genome subjects and criteria, with declared expectations distinct from observed success. Explain early how Things and Parts can correspond to single or composite Cloudflare artifacts and realizations without a fixed one-to-one mapping. This supersedes the illustrative scoped-change example.

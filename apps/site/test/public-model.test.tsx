@@ -9,7 +9,7 @@ const config = { platform: null, source: null };
 
 it('explains the public page using the real model and three criteria', () => {
   const { container } = render(<Site path="/model" config={config} />);
-  expect(screen.getByRole('heading', { level: 1, name: /A model that can explain itself/ })).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1, name: /Ontology Driven Development/ })).toBeTruthy();
   expect(screen.getByText(/within a typed model/i)).toBeTruthy();
   expect(container.querySelector('[data-model-subject="component.model-explanation"]')).toBeTruthy();
   expect(screen.getByText('Represent Artyfact accurately')).toBeTruthy();
