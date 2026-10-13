@@ -14,10 +14,11 @@ The two moments to show on video:
    engine proves a `topology.recipientArray` violation with its derivation, accept is refused, and the admin rejects
    it. Amendment 2 rewords a commitment. The rules pass, the System One signals are shown, and the admin accepts it.
 
-Steps 2 (validate and review), 4b, 10b and 11 cover Tasks and import review, which came after that run. Their
-outputs were taken from the local fake platform (`FAKE_ARTIFACTS=1 FAKE_S1=1`), where the plan, the table and the
-refusals are the real code; ids and counts differ on your run. The git side of `claim` (clone, push) needs real
-Artifacts and is shown from the CLI's tests, not recorded.
+Steps 2 (validate), 2b, 2c, 4b, 10b and 11 cover import review, intents and Tasks, which came after that run. Each
+output block is labelled in its first line: `# from a run of the CLI on this checkout`, `# from a fake-platform run`
+(the local fake platform of 2026-10-13, set up as in step 1), or no label for the real-Artifacts run of 2026-10-12. On
+the fake platform the plan, the refusals, the git clone and push of `claim` and `submit`, promotion and rebase are the
+real code over in-memory repos; ids, commits and counts differ on your run.
 
 **What is deterministic and what is not.** Rule findings, derivations, scope, conflicts by node overlap and the
 promotion gate come from the rules engine and the platform. They are real in this run. System One judgments (change
@@ -84,6 +85,28 @@ Terminal **P**:
 ```sh
 npm run dev -w @artyfact/platform          # http://localhost:1337, Artifacts binding is remote
 ```
+
+**On the fake platform** (no Cloudflare account; the steps labelled fake-platform run were recorded this way), run the
+Worker with in-memory Artifacts seeded from `examples/` on a free port instead:
+
+```sh
+cd apps/platform && FAKE_ARTIFACTS=1 FAKE_S1=1 ADMIN_TOKEN=$ADMIN_TOKEN npx vite --port 1460 --strictPort
+```
+
+and in every other terminal point the CLI and git at it:
+
+```sh
+export ARTYFACT_PLATFORM=http://localhost:1460 B=localhost:1460/api/systems/system.peopling
+export ARTYFACT_ALLOW_REMOTE_HOST=fake.artifacts.local
+export GIT_CONFIG_COUNT=1 GIT_CONFIG_KEY_0=url.http://localhost:1460/api/fake-git/.insteadOf \
+  GIT_CONFIG_VALUE_0=https://fake.artifacts.local/git/artyfact/
+```
+
+The fake repos report the remote `https://fake.artifacts.local/git/artyfact/<repo>.git`, a host that never resolves.
+The `insteadOf` rule sends git to the Worker, which serves the repos over Git smart HTTP at `/api/fake-git/`, and
+`ARTYFACT_ALLOW_REMOTE_HOST` lets the CLI hand the fork token to that host. State lives in the Worker process, so a
+restart starts over. Use a long random admin token: the CLI masks every secret it knows in the files it writes, so a
+token that is also a word (`test`) would be masked out of `AGENTS.md`.
 
 ## 2. `artyfact init`: push and import in one command (about 30 s)
 
@@ -226,15 +249,89 @@ import, which is enabled once every node is decided. Over HTTP:
 ```sh
 curl -s $B/import-review | jq -c '{status, genomeCommit, nodes: (.tree | length), findings: (.findings | length), unmapped: (.unmapped | length)}'
 curl -s -XPOST $B/import-review/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
-  -d '{"interpretation":"Imported as written; the externals section is not needed yet.","rejectedNodes":["section.externals"]}' | jq -c '{status, amendment}'
+  -d '{"interpretation":"Imported as written; the externals section is not needed yet.","rejectedNodes":["section.externals"]}' | jq -c '{status: .review.status, amendment}'
 ```
 
 Import review opens only for a fresh import: a forced re-import of an unchanged System writes no commit and opens no review, so the demo imports a System that is new to the platform.
+The fake platform imports Peopling without a review at boot, so delete it and import it again with one first:
+
+```sh
+curl -s -XDELETE $B -H "authorization: Bearer $ADMIN_TOKEN"
+curl -s -XPOST ${B%/system.peopling}/import -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
+  -d '{"systemId":"system.peopling","force":true,"review":true}' | jq -c '{head, importReview: .system.importReview}'
+curl -s -w ' HTTP %{http_code}\n' -XPOST $B/evolutions/evolution.2/plan -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{}'
+```
+
+```text
+# from a fake-platform run: re-import with a review, a work route while it is pending, then the two curls above
+{"head":"sc-1-df2eab2a","importReview":{"status":"pending","genomeCommit":"6a5d1aa4b644df9ae4e5a8930bb0b3ecf79f12ba","nodes":125}}
+{"error":{"code":"import-unreviewed","message":"the import of system.peopling is not reviewed yet; accept it at /s/system.peopling/r/head/review?panel=import first","details":{"genomeCommit":"6a5d1aa4b644df9ae4e5a8930bb0b3ecf79f12ba"}}} HTTP 409
+{"status":"pending","genomeCommit":"6a5d1aa4b644df9ae4e5a8930bb0b3ecf79f12ba","nodes":5,"findings":35,"unmapped":0}
+{"status":"accepted","amendment":{"evolution":"evolution.7","realization":"realization.7.r1","candidate":"candidate.7.r1.9e9950b"}}
+```
+
+`nodes` in the review is the number of top-level rows of the tree; the summary's 125 counts every node in it.
 
 A rejected node becomes a removal. The platform writes it as a Genome amendment awaiting the admin, with the links
 into the removed node unlinked, and it appears in Review. To keep the recorded Genome for the rest of this walk, reject
 that amendment with a reason (or accept no rejections at all); accepting it changes the Genome the later steps assume.
 Accepting an import twice is 409 `invalid-state`, and the work routes open as soon as it is accepted.
+
+```sh
+curl -s -XPOST $B/realizations/realization.7.r1/reject -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
+  -d '{"reason":"Keep the recorded Genome for this walk."}' | jq -c '{status: .realization.status, reason: .realization.rejectionReason}'
+```
+
+```text
+# from a fake-platform run
+{"status":"rejected","reason":"Keep the recorded Genome for this walk."}
+```
+
+## 2c. Describe a change by intent (about 1 min)
+
+In the browser: Work, Describe a change, "Make the People, Today and Goal screens say what they are for". The proposal
+is an agreement tree rooted at the Thing. Agree at the Thing, drill down, Reject the Today screen, Defer the Goal
+screen, and choose Accept agreed. Over HTTP (admin), with the fake provider's routing directives in the message so the
+router picks three screens:
+
+```sh
+curl -s -XPOST $B/intents -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
+  -d '{"message":"Make the People, Today and Goal screens say what they are for #s1:route.more=yes #s1:route.nodes=screen.today,screen.people"}' \
+  | jq -c '{id, route: [.route[] | "\(.level)=\(.choice)"], ops: [.ops[] | {id, op, node}]}'
+curl -s -XPUT $B/intents/proposal.2/decisions -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
+  -d '{"decisions":[{"nodeId":"thing.webapp","decision":"agree"},{"nodeId":"screen.today","decision":"reject"},{"nodeId":"screen.goal","decision":"defer"}]}' \
+  | jq -c '[.. | objects | select(.opIds? and (.opIds | length > 0)) | {id, decision}]'
+curl -s -XPOST $B/intents/proposal.2/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{"opIds":["op.3"]}' \
+  | jq -c '{evolution: .evolution.id, kind: .evolution.kind, affectedNodes: .evolution.affectedNodes, realization: .realization.id, status: .realization.status, candidate: .candidate.id, commit, deferred}'
+```
+
+```text
+# from a fake-platform run
+{"id":"proposal.2","route":["shortlist=screen.goal","more=yes","nodes=screen.today","more=yes","nodes=screen.people","intent=update"],"ops":[{"id":"op.1","op":"update","node":"screen.goal"},{"id":"op.2","op":"update","node":"screen.today"},{"id":"op.3","op":"update","node":"screen.people"}]}
+[{"id":"screen.goal","decision":"defer"},{"id":"screen.today","decision":"reject"},{"id":"screen.people","decision":null}]
+{"evolution":"evolution.8","kind":"mixed","affectedNodes":["screen.people"],"realization":"realization.8.r2","status":"awaiting-admin","candidate":"candidate.8.r2.4a62c9e","commit":"4a62c9e29bb87394b6a18a1ee695ed1d6ee12078","deferred":{"proposal":"proposal.3","nodeIds":["screen.goal"]}}
+```
+
+The People screen inherits the Thing's agree (`null` is "no decision of its own"). The accepted op becomes a `mixed`
+Evolution: its Genome change waits for the admin, and its app criteria wait for an app candidate. The deferred Goal op
+moves to a new open proposal. The admin accepts the Genome candidate, naming the commit they reviewed:
+
+```sh
+curl -s -XPOST $B/evolutions/evolution.8/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{
+  "realizationId":"realization.8.r2","candidateId":"candidate.8.r2.4a62c9e","commit":"4a62c9e29bb87394b6a18a1ee695ed1d6ee12078",
+  "interpretation":"The People screen says what it is for; Today is rejected and Goal waits for its own decision."}' | jq -c '{commit: .commit.id, genomeCommit}'
+curl -s $B/evolutions/evolution.8 | jq -c '{id, kind, state}'
+curl -s $B/intents/proposal.3 -H "authorization: Bearer $ADMIN_TOKEN" | jq -c '{id, status, deferredFrom, ops: [.ops[] | {id, op, node}]}'
+```
+
+```text
+# from a fake-platform run
+{"commit":"sc-2-c119d2f4","genomeCommit":"4a62c9e29bb87394b6a18a1ee695ed1d6ee12078"}
+{"id":"evolution.8","kind":"mixed","state":"genome-approved"}
+{"id":"proposal.3","status":"open","deferredFrom":"proposal.2","ops":[{"id":"op.1","op":"update","node":"screen.goal"}]}
+```
+
+The head moved, so take `expectedHead` from `curl -s $B | jq -r .head` wherever a later step needs it.
 
 ## 3. Event stream (keep it open)
 
@@ -316,11 +413,57 @@ wait
 ```
 
 ```text
-# illustrative, from the CLI format (the clone needs real Artifacts); the CLI prints the absolute directory
+# from a fake-platform run, the two claim lines (the CLI prints the absolute directory, shown here as <cwd>)
 Claimed task.2.t1 as claude:task.2.t1
-Workspace ready in /path/to/checkout/work/task.2.t1
-Next: cd /path/to/checkout/work/task.2.t1 && read AGENTS.md and TASK_PACKET.md, then npm install; finish with 'npx artyfact submit'.
+Workspace ready in <cwd>/work/task.2.t1
+Next: cd <cwd>/work/task.2.t1 && read AGENTS.md and TASK_PACKET.md, then npm install; finish with 'npx artyfact submit'.
+Claimed task.2.t2 as claude:task.2.t2
+Workspace ready in <cwd>/work/task.2.t2
+Next: cd <cwd>/work/task.2.t2 && read AGENTS.md and TASK_PACKET.md, then npm install; finish with 'npx artyfact submit'.
 ```
+
+Task 1's `AGENTS.md` starts:
+
+```text
+# from a fake-platform run
+You are realizing task task.2.t1 ([fake] 1. Save goal) of evolution.2 for system.peopling. Read TASK_PACKET.md fully.
+Permitted edits: src/worker/routes/goals.ts.
+Do not touch: src/worker/routes/events.ts (task.2.t2); public/goals/**, public/log/**, public/today/**, src/ui/** (task.2.t3); system/**, assays/**.
+Concurrent tasks: task.2.t2 (src/worker/routes/events.ts; wave 1, planned).
+After you: task.2.t3 starts when this task is promoted.
+```
+
+Without an agent, make each edit by hand (task 1 adds `src/worker/routes/goals.ts`, task 2
+`src/worker/routes/events.ts`) and run the agent's two commands in each directory:
+
+```sh
+env -u ARTYFACT_ADMIN_TOKEN -u ADMIN_TOKEN artyfact checkpoint "first cut of the task.2.t2 route"
+env -u ARTYFACT_ADMIN_TOKEN -u ADMIN_TOKEN artyfact submit
+```
+
+```text
+# from a fake-platform run, in work/task.2.t2 (task 1 printed the same table without the conflict line)
+Checkpoint recorded at 25ebe692d9b1
+Submitted 25ebe692d9b1
+criterion                  verdict  execution
+C.system.autonomy          pass     completed
+C.system.concurrency       unknown  completed
+C.system.promotion         unknown  completed
+C.system.purpose           pass     completed
+C.system.purpose           unknown  not-run
+C.system.readiness         pass     completed
+C.system.structure         pass     completed
+C.system.topology          pass     completed
+C.system.topology          pass     completed
+C.webapp.exists            pass     completed
+C.webapp.outgoing.single   unknown  not-run
+C.webapp.schedule.correct  unknown  not-run
+conflict [soft-semantic] C.webapp.digest.private, C.webapp.outgoing.single, C.webapp.photo.approved, section.domain: Different files, but both touch nodes section.domain and criteria C.webapp.digest.private, C.webapp.outgoing.single, C.webapp.photo.approved.
+```
+
+The push went to each task's own fork; `submit` read the fork token from `.artyfact.json`. The two tasks share no file,
+but the platform finds both touching `section.domain`, so task 2's submit reports a soft overlap. It is advisory
+(`C.system.concurrency` unknown) and blocks neither promotion. `artyfact tasks` now shows both as `evaluated`.
 
 `claim` does what `start` does for one task: it forks the app repo, clones it, writes `TASK_PACKET.md` and writes the
 packet's `AGENTS.md` verbatim, which names the task's permitted paths and the paths other tasks own. It saves the fork
@@ -684,26 +827,84 @@ ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact claim task.2.t3 --system system.peopl
 ```
 
 ```text
-# illustrative, from the CLI format
+# from a fake-platform run
 artyfact: blocked by task.2.t1, task.2.t2 (not yet promoted)
 ```
 
-Over HTTP the same refusal is `409 task-blocked` with `details.blockedOn`. Plan shows task 3 as blocked (derived,
-attention tone, never a pass). Promote task 1's candidate exactly as in step 8, with the current head as
-`expectedHead`. A planned Evolution stays `realizing` until its last task is promoted, so wave 2 stays open. Task 2's
-candidate is now stale, but promotion rejects only candidates of the same Evolution and the same task, so it is still
-promotable after a rebase (admin, one call per realization):
+Over HTTP the same refusal is `409 task-blocked` with `details.blockedOn`:
 
 ```sh
-curl -s -XPOST $B/realizations/<task-2-realization>/rebase -H "authorization: Bearer $ADMIN_TOKEN" | jq -c '{commit, submitted}'
+curl -s -w ' HTTP %{http_code}\n' -XPOST $B/tasks/task.2.t3/claim -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{"agentLabel":"claude:task.2.t3"}'
+```
+
+```text
+# from a fake-platform run
+{"error":{"code":"task-blocked","message":"task task.2.t3 is blocked by task.2.t1, task.2.t2 (not yet promoted)","details":{"blockedOn":["task.2.t1","task.2.t2"]}}} HTTP 409
+```
+
+Plan shows task 3 as blocked (derived, attention tone, never a pass). Promote task 1's candidate exactly as in step 8,
+with the current head as `expectedHead`. Each task's realization and candidate are on `GET $B/tasks/<task>`
+(`.task.realizationId`) and `GET $B/realizations/<rid>` (admin, `.candidate`):
+
+```sh
+curl -s -XPOST $B/promote -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{
+  "candidateIds":["candidate.2.r3.ac42881"],"expectedHead":"sc-2-c119d2f4","rationale":"Goal saving first; the unbound assays run in CI."
+}' | jq -c '{commit: .commit.id, parent: .commit.parent, rejected, acknowledged: .commit.decision.acknowledged}'
+```
+
+```text
+# from a fake-platform run
+{"commit":"sc-3-21e106ae","parent":"sc-2-c119d2f4","rejected":[],"acknowledged":["C.webapp.schedule.correct","C.system.concurrency","C.webapp.private.owner","C.webapp.revocation.current","C.webapp.contact.storage","C.webapp.outgoing.single","C.webapp.lifecycle.data","C.webapp.connection.consent","C.webapp.screen.exact","C.webapp.contact.save","C.webapp.screen.people","C.webapp.prompts.bounded"]}
+```
+
+`rejected` is empty: promotion rejects only open candidates of the same Evolution and the same task, so task 2's
+candidate survives. A planned Evolution stays `realizing` until its last task is promoted, so wave 2 stays open. Task
+2's candidate is now built on an old head and is refused until it is rebased (admin, one call per realization):
+
+```sh
+curl -s -w ' HTTP %{http_code}\n' -XPOST $B/promote -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
+  -d '{"candidateIds":["candidate.2.r4.25ebe69"],"expectedHead":"sc-3-21e106ae","rationale":"Contact events next."}'
+curl -s -XPOST $B/realizations/realization.2.r4/rebase -H "authorization: Bearer $ADMIN_TOKEN" \
+  | jq -c '{commit, created: .submitted.created, candidate: .submitted.candidate.id}'
+```
+
+```text
+# from a fake-platform run
+{"error":{"code":"stale-base","message":"a candidate was built on an earlier System head; rebase it on the current head and resubmit","details":{"currentHead":"sc-3-21e106ae"}}} HTTP 409
+{"commit":"55a8c8325685c4e78de51f34010d249315b0cd09","created":true,"candidate":"candidate.2.r4.55a8c83"}
 ```
 
 The platform replays the candidate onto the head as one new fork commit and submits it, so every hook runs again. It
 refuses with 409 `rebase-conflict` and the paths when the head changed a file the candidate changes, and with
-`up-to-date` when there is nothing to replay. Promote the rebased candidate (`expectedHead` is the new head), then run the same `claim` for
-task 3 again. This time it succeeds: `TASK_PACKET.md` lists both tasks under Depends on, and each earlier task's
-`AGENTS.md` said "After you: task.2.t3 starts when this task is promoted". Task-less candidates, like step 8's B, are
-rejected on promotion and redone.
+`up-to-date` when there is nothing to replay. Promote the rebased candidate (`expectedHead` is still `sc-3-21e106ae`),
+then run the same `claim` for task 3 again:
+
+```text
+# from a fake-platform run: promote, artyfact tasks (cut), claim
+{"commit":"sc-4-70637607","parent":"sc-3-21e106ae","rejected":[]}
+task       evolution    status    wave  depends-on
+task.2.t1  evolution.2  promoted  1     -
+task.2.t2  evolution.2  promoted  1     -
+task.2.t3  evolution.2  planned   2     task.2.t1,task.2.t2
+Claimed task.2.t3 as claude:task.2.t3
+Workspace ready in <cwd>/work/task.2.t3
+Next: cd <cwd>/work/task.2.t3 && read AGENTS.md and TASK_PACKET.md, then npm install; finish with 'npx artyfact submit'.
+```
+
+Its clone holds both promoted route files. `TASK_PACKET.md` lists both tasks under `Depends on`, and `AGENTS.md`
+names them:
+
+```text
+# from a fake-platform run
+You are realizing task task.2.t3 ([fake] 3. Goal, Log contact, Today, TodayList, Refresh) of evolution.2 for system.peopling. Read TASK_PACKET.md fully.
+Permitted edits: src/ui/**, public/goals/**, public/log/**, public/today/**.
+Do not touch: system/**, assays/**.
+Concurrent tasks: none.
+Builds on: task.2.t1, task.2.t2 (promoted; their changes are in your base).
+After you: no task waits on this one.
+```
+
+Task-less candidates, like step 8's B, are rejected on promotion and redone.
 
 ## 11. Artyfact on itself (fake)
 
@@ -730,9 +931,10 @@ claim: npx artyfact claim task.1.t1 --system system.artyfact --agent "claude:tas
 ```
 
 The tasks have no dependency, but both change `packages/cli/src/main.ts`, so the planner puts them in separate waves
-instead of letting two agents collide: a `file` conflict is derived from the bindings, with no model. The fake platform
-has no git remote, so `claim` stops at the clone here; the same commands run against a real import of this repository
-(`artyfact init --genome genome --app .`, then accept the import).
+instead of letting two agents collide: a `file` conflict is derived from the bindings, with no model. With the git
+settings of step 1 (port 1341 in place of 1460), `claim` clones task 1 from this checkout's source served from memory;
+the same commands run against a real import of this repository (`artyfact init --genome genome --app .`, then accept
+the import).
 
 ## Queue path
 
