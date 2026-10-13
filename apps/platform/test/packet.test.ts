@@ -221,7 +221,7 @@ describe("task packet: Task section", () => {
       `Permitted edits: ${p.permittedPaths.join(", ")}.`,
       "Do not touch: src/worker/routes/contacts.ts (task.2); system/**, assays/**.",
       "Concurrent tasks: task.2 (src/worker/routes/contacts.ts).",
-      "After you: task.4 start when this task is promoted.",
+      "After you: task.4 starts when this task is promoted.",
     ]);
     expect(lines[6]).toMatch(/^Commands: /);
     expect(p.agentsMd).toContain("npx artyfact submit");

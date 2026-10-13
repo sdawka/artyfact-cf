@@ -86,7 +86,7 @@ describe("waves", () => {
     expect(b.realization.agent.id).toBe(`agent:${B}`);
     // A goes first: B is a planned sibling; B's packet sees A running, with its globs.
     expect(a.packet.agentsMd).toContain(`${B} (`);
-    expect(a.packet.agentsMd).toContain(`After you: ${C} start when this task is promoted.`);
+    expect(a.packet.agentsMd).toContain(`After you: ${C} starts when this task is promoted.`);
     expect(a.packet.task!.independence).toContain(`Independent of ${B}`);
     expect(b.packet.concurrentWork).toContainEqual(expect.objectContaining({
       realization: a.realization.id, evolution: "evolution.1", task: A, permittedPaths: a.packet.permittedPaths,
