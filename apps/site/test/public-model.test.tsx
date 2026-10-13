@@ -40,8 +40,8 @@ it('documents shipped Parts commands and explicit authoring and review gates', (
 it('introduces meaningful systems with a static scroll story and no literal orb', () => {
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
   const { container } = render(<Site path="/" config={config} />);
-  expect(screen.getByRole('heading', { level: 1, name: /Make Meaningful Systems at Scale/ })).toBeTruthy();
-  expect(screen.getByText('(on cloudflare)')).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1, name: /^Make Meaningful Systems$/ })).toBeTruthy();
+  expect(screen.getByText('(on Cloudflare)')).toBeTruthy();
   expect(container.querySelector('[data-hero-orb]')).toBe(null);
   expect(container.querySelectorAll('[data-story-step]')).toHaveLength(3);
   expect(screen.getByRole('heading', { name: 'Give the application its shape.' })).toBeTruthy();

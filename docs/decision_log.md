@@ -23,3 +23,9 @@ Lead the homepage with “Make Meaningful Systems at Scale” and a smaller “(
 ## 2026-10-12T23:30:29-04:00 — Luminous surfaces throughout the UI
 
 Keep the glow, particles, depth and state palette throughout the product, without literal orb artwork. Place that look within meaningful card, container and status boundaries, including the dashboard, loading and empty states, and style examples.
+
+## 2026-10-13T01:08:21-04:00 — Homepage shape and local activity
+
+Use “Make Meaningful Systems” with “(on Cloudflare)”, superseding the earlier “at Scale” heading; leave the current subtext unchanged. Genome shows empty boxes with short descriptions, Proteome realizes those same boxes as form/control/runtime surfaces, and Phenome makes their functioning observable.
+
+The Phenome illustration gives visitors six automatic sample saves, then lets them continue locally. Manual input stops automation; progress survives view changes, with one bounded confetti celebration and “Great energy!” toast at twelve. Keep the chart capped at twelve with an exact growing count, reduced-motion/static fallbacks, and no replay or real submission. Preserve native scroll/direct selection and keyboard focus inside the whole story.

@@ -3,14 +3,13 @@
 
 ## Now
 
-- Goal: [[goals]]. Milestone: [[roadmap]].
-- Next action: Review draft PR #29 and its final-head hosted checks; no merge or deployment is authorized. Preserve separate Artyfact/Bropilot planning; remote GRREAT sync is deferred by the user.
-- Completion criteria: The eight checks in [[roadmap]] are implemented and locally verified; hosted behavior remains separate.
-- Working revision: `feat/parts-composition`, with current main reconciled without conflicts. The public illustration and global luminous surface migration are integrated; validation covers the working tree after `1c55ecc` and the main merge.
-- Pull request: [#29](https://github.com/sdawka/artyfact-cf/pull/29), draft. Hosted CI is tracked on the PR.
-- Latest verification: Full local `npm run ci` passed in 88.7s: 1274 root unit tests (3 skips), 41 fixture and 5 fake-platform browser checks, plus site typecheck/build, 22 unit, 10 generated-page and 28 browser checks (2 desktop-only cases skipped on mobile). Independent source and actual UI review closed; see [[journals/2026-10-12-foundation]].
-- Deferred: Remote sync remains deferred by the user. The earlier GRREAT versioned sync returned `GOAL_HIERARCHY_CONFLICT` for `goal.north-star`, with zero applied changes. The authenticated workspace already has a different North Star; no remote goal was overwritten or reparented. Artyfact and Bropilot records stay separate; the intended Artyfact destination remains pending.
-- Last updated: 2026-10-12T23:30:29-04:00.
+- Goal: [[goals]]. Milestone: the existing C7 public illustration in [[roadmap]].
+- Working revision: `feat/landing-shape-activity`, based on main `1fa8cf6`. Earlier PRs #29/#40 were merged and released; this iteration changes the public homepage only.
+- Current result: quiet Genome contracts become the same realized Proteome form/runtime; Phenome provides six automatic local saves, manual takeover, preserved progress, and one bounded celebration. The hero reads “Make Meaningful Systems” with “(on Cloudflare)”; subtext remains unchanged.
+- Next action: Review the new draft PR for this branch and its exact-head hosted checks. Merge and deployment remain deferred for this iteration.
+- Latest verification: Full `npm run ci` passed in 107.4s: 1316 root tests (3 skips), 42 fixture + 5 fake-platform browser checks, site 33 unit + 11 static + 31 browser checks (3 desktop-only mobile skips), and all typechecks/builds. Independent source/browser review closed; see [[journals/2026-10-12-foundation]].
+- Deferred: Remote GRREAT sync remains deferred by the user; the existing `GOAL_HIERARCHY_CONFLICT` checkpoint is preserved. Artyfact and Bropilot retain separate records and no remote goal was overwritten or reparented.
+- Last updated: 2026-10-13T01:10:45-04:00.
 
 ## Work history
 

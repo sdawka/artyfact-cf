@@ -4,7 +4,7 @@ import { serveDist } from './serve';
 test.beforeEach(({ page }) => serveDist(page));
 test('homepage leads to the guide and links the hosted platform', async ({ page }) => {
   await page.goto('https://artyfact.test/');
-  await expect(page.getByRole('heading', { name: /Make Meaningful Systems at Scale/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /^Make Meaningful Systems$/ })).toBeVisible();
   await expect(page.getByRole('link', { name: 'Open the platform' })).toHaveAttribute('href', 'https://artyfact-platform.dawka.workers.dev');
   await expect(page.locator('a[href="/app"]')).toHaveCount(0);
   await page.getByRole('link', { name: 'Bring your agent', exact: true }).first().click();
@@ -55,11 +55,11 @@ test('System illustration stays usable through all views and explicit compositio
   await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'genome');
   await page.getByRole('tab', { name: /Phenome/ }).click();
   await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'phenome');
-  await expect(page.getByText('Sample activity', { exact: true })).toBeVisible();
-  await expect(page.getByText('Outcome evidence: unmeasured', { exact: true })).toBeVisible();
+  await expect(page.getByRole('img', { name: /^Sample saves:/ })).toBeVisible();
   await page.getByRole('button', { name: 'Part: Component system' }).click();
   await page.getByText('Composition + provenance', { exact: true }).click();
   await expect(page.locator('.scene-selected-detail')).toContainText('caller adapter');
+  await expect(page.getByText('Outcome evidence: unmeasured.')).toBeVisible();
   await page.getByRole('tab', { name: /Genome/ }).click();
   await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'genome');
   expect(errors).toEqual([]);

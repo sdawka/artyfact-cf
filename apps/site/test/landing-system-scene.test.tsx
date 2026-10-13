@@ -7,66 +7,85 @@ import type { LandingSubject } from '../src/landingSystemData';
 
 afterEach(cleanup);
 
-it('renders the intended application and composition as readable server markup', () => {
-  const markup = renderToStaticMarkup(<LandingSystemScene view="genome" selectedSubject="app" />);
+it('starts with readable empty shape slots in server markup', () => {
   const host = document.createElement('div');
-  host.innerHTML = markup;
-  expect(host.querySelector('[data-scene-view="genome"]')).toBeTruthy();
-  expect(within(host).getByRole('button', { name: /Application: Fieldnotes/ })).toBeTruthy();
-  expect(within(host).getByRole('button', { name: /Part: Astro starter/ })).toBeTruthy();
-  expect(within(host).getByRole('button', { name: /Part: Component system/ })).toBeTruthy();
-  expect(within(host).getByRole('button', { name: /Runtime: API and storage/ })).toBeTruthy();
-  expect(within(host).getByText('Outcome evidence: unmeasured')).toBeTruthy();
-  expect(host.querySelector('[style]')).toBeNull();
+  host.innerHTML = renderToStaticMarkup(<LandingSystemScene view="genome" selectedSubject="app" />);
+  const app = within(host).getByRole('article', { name: 'Application: Fieldnotes' });
+  expect(within(app).getByText('Capture a note')).toBeTruthy();
+  expect(within(app).getByText('Save a note')).toBeTruthy();
+  expect(within(app).getByText('Revisit saved notes')).toBeTruthy();
+  expect(within(app).queryByText('Morning by the lake')).toBeNull();
+  expect(within(app).queryByRole('textbox')).toBeNull();
+  expect(within(app).queryByRole('button', { name: 'Save record' })).toBeNull();
+  expect(within(host).queryByText('record.saved')).toBeNull();
+  expect(within(host).queryByText('Sample saves')).toBeNull();
 });
 
-it('retains the same app and component identities when changing the view', () => {
-  const { container, rerender } = render(<LandingSystemScene view="genome" selectedSubject="app" />);
-  const app = screen.getByRole('button', { name: /Application: Fieldnotes/ });
-  const components = screen.getByRole('button', { name: /Part: Component system/ });
+it('retains anchored application and runtime cards across all views', () => {
+  const { rerender } = render(<LandingSystemScene view="genome" selectedSubject="app" />);
+  const app = screen.getByRole('article', { name: 'Application: Fieldnotes' });
+  const runtime = screen.getByRole('article', { name: 'Runtime: API and storage' });
   rerender(<LandingSystemScene view="proteome" selectedSubject="app" />);
-  expect(screen.getByRole('button', { name: /Application: Fieldnotes/ })).toBe(app);
-  expect(screen.getByRole('button', { name: /Part: Component system/ })).toBe(components);
-  expect(container.querySelector('[data-scene-view="proteome"]')).toBeTruthy();
+  expect(screen.getByRole('article', { name: 'Application: Fieldnotes' })).toBe(app);
+  expect(screen.getByRole('article', { name: 'Runtime: API and storage' })).toBe(runtime);
+  expect(screen.getByRole('textbox', { name: 'New note' }).getAttribute('readonly')).toBe('');
+  expect(screen.queryByRole('button', { name: 'Save record' })).toBeNull();
+  expect(screen.queryByRole('form')).toBeNull();
   rerender(<LandingSystemScene view="phenome" selectedSubject="app" />);
-  expect(screen.getByRole('button', { name: /Application: Fieldnotes/ })).toBe(app);
-  expect(screen.getByText('record.saved')).toBeTruthy();
-  expect(screen.getByText('GET /api/records 200')).toBeTruthy();
-  expect(screen.getByText('Sample activity')).toBeTruthy();
-  expect(screen.getByText('Outcome evidence: unmeasured')).toBeTruthy();
+  expect(screen.getByRole('article', { name: 'Application: Fieldnotes' })).toBe(app);
+  expect(screen.getByRole('button', { name: 'Save record' })).toBeTruthy();
 });
 
-it('selects Parts with native buttons and exposes explicit override and adapter details', () => {
+it('keeps sample Save and inspection separate and reflects exact count beyond chart range', () => {
+  function Example() {
+    const [count, setCount] = useState(12);
+    const [selectedSubject, setSubject] = useState<LandingSubject>('runtime');
+    return <LandingSystemScene view="phenome" selectedSubject={selectedSubject} onSelectSubject={setSubject}
+      demo={{ count, pressing: false, showPointer: false, celebrating: false, showToast: false, onSave: () => setCount(value => value + 1) }} />;
+  }
+  const { container } = render(<Example />);
+  const save = screen.getByRole('button', { name: 'Save record' });
+  fireEvent.click(save);
+  expect(screen.getByRole('img', { name: /Sample saves: 13/ })).toBeTruthy();
+  expect(screen.getByText('13 saves')).toBeTruthy();
+  expect(screen.getByText('12+')).toBeTruthy();
+  expect(screen.getByRole('button', { name: 'Inspect API and storage' }).getAttribute('aria-pressed')).toBe('true');
+  expect(container.querySelector('button button')).toBeNull();
+  expect(container.querySelector('[data-chart-level="12"]')).toBeTruthy();
+  expect(container.querySelector('[role="img"] [aria-live]')).toBeNull();
+});
+
+it('exposes pinned composition and explicit replacement adapters through details', () => {
   function Example() {
     const [selectedSubject, setSubject] = useState<LandingSubject>('app');
     return <LandingSystemScene view="proteome" selectedSubject={selectedSubject} onSelectSubject={setSubject} />;
   }
   render(<Example />);
-  fireEvent.click(screen.getByRole('button', { name: /Part: Component system/ }));
-  expect(screen.getByRole('button', { name: /Part: Component system/ }).getAttribute('aria-pressed')).toBe('true');
-  expect(screen.getByRole('button', { name: /Application: Fieldnotes/ }).getAttribute('aria-pressed')).toBe('false');
+  fireEvent.click(screen.getByRole('button', { name: 'Part: Component system' }));
   const detail = screen.getByRole('region', { name: 'Selected subject' });
   expect(within(detail).getByText(/explicit Button override/)).toBeTruthy();
+  fireEvent.click(within(detail).getByText('Composition + provenance'));
   expect(within(detail).getByText(/caller adapter/)).toBeTruthy();
   expect(within(detail).getByText(/config adapter/)).toBeTruthy();
+  expect(within(detail).getByText(/v2.4.0/)).toBeTruthy();
+  expect(within(detail).getByText(/source S1/)).toBeTruthy();
+  expect(within(detail).getByText(/output B1/)).toBeTruthy();
+  expect(within(detail).getByText(/runtime R1/)).toBeTruthy();
 });
 
-it('labels composition and runtime relationships independently of decorative connections', () => {
-  render(<LandingSystemScene view="proteome" selectedSubject="runtime" />);
-  expect(screen.getByRole('list', { name: 'System relationships' })).toBeTruthy();
-  expect(screen.getByText('Parts compose the application')).toBeTruthy();
-  expect(screen.getByText('Application calls API; API persists records')).toBeTruthy();
-  expect(screen.getByText('source S1')).toBeTruthy();
-  expect(screen.getByText('output B1')).toBeTruthy();
-  expect(screen.getByText('runtime R1')).toBeTruthy();
-});
-
-it('bounds decoration and keeps it hidden from assistive technology', () => {
-  const { container } = render(<LandingSystemScene view="genome" selectedSubject="app" />);
-  const decoration = container.querySelector('[data-scene-decoration]');
-  expect(decoration?.getAttribute('aria-hidden')).toBe('true');
-  expect(decoration?.querySelectorAll('circle').length).toBeGreaterThan(0);
-  expect(decoration?.querySelectorAll('circle').length).toBeLessThanOrEqual(18);
-  expect(decoration?.querySelectorAll('line').length).toBeLessThanOrEqual(18);
+it('renders one bounded decorative celebration and a polite toast', () => {
+  const { container, rerender } = render(<LandingSystemScene view="phenome" selectedSubject="app"
+    demo={{ count: 12, pressing: true, showPointer: true, celebrating: true, showToast: true, onSave: () => {} }} />);
+  expect(screen.getByRole('status').textContent).toBe('Great energy!');
+  expect(screen.getByRole('status').getAttribute('aria-live')).toBe('polite');
+  const confetti = container.querySelector('[data-scene-confetti]');
+  expect(confetti?.getAttribute('aria-hidden')).toBe('true');
+  expect(confetti?.children.length).toBeGreaterThan(0);
+  expect(confetti?.children.length).toBeLessThanOrEqual(24);
+  expect(container.querySelector('[data-demo-pointer]')?.getAttribute('aria-hidden')).toBe('true');
+  rerender(<LandingSystemScene view="genome" selectedSubject="app"
+    demo={{ count: 12, pressing: false, showPointer: false, celebrating: true, showToast: true, onSave: () => {} }} />);
+  expect(screen.queryByRole('status')).toBeNull();
+  expect(container.querySelector('[data-scene-confetti]')).toBeNull();
   expect(container.querySelector('canvas')).toBeNull();
 });
