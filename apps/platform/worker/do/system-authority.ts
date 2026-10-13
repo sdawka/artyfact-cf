@@ -8,7 +8,7 @@ import type {
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
 import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalDecisions, type ProposalTurn, type StoredProposalPlan, type ReviseResult, type StoredProposal } from "./proposals-store";
-import { TASK_LEASE_MS, TasksStore, type TaskClaimResult, type TaskPatch } from "./tasks-store";
+import { TASK_LEASE_MS, TasksStore, type ClaimForStart, type TaskClaimResult, type TaskPatch } from "./tasks-store";
 import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentInput } from "./builds-store";
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
 import { ChangelogStore, type CachedChangelog } from "./changelog-store";
@@ -730,9 +730,14 @@ export class SystemAuthority extends DurableObject<Env> {
    * and record it as `claimed`. The Worker then forks, issues a token and calls {@link activateRealization}.
    */
   reserveRealization(input: ReserveInput): ReservedRealization {
+    return this.ctx.storage.transactionSync(() => this.reserveTx(input));
+  }
+
+  /** {@link reserveRealization} inside the caller's transaction. */
+  private reserveTx(input: ReserveInput): ReservedRealization {
     const s = this.state();
     if (!s) throw new ConflictError("not-found", "System not imported");
-    return this.ctx.storage.transactionSync(() => {
+    {
       const evo = this.one("SELECT status, scope_json FROM evolutions WHERE id = ?", input.evolutionId);
       if (!evo) throw new ConflictError("not-found", `unknown evolution ${input.evolutionId}`);
       if (["promoted", "rejected", "withdrawn"].includes(String(evo.status))) {
@@ -767,7 +772,7 @@ export class SystemAuthority extends DurableObject<Env> {
       );
       if (["proposed", "genome-approved", "actionable"].includes(String(evo.status))) this.setEvolutionStatus(input.evolutionId, "realizing");
       return { realization: this.realizationDto(this.realizationRow(id)!), baseRepo, baseCommit, forkRepo };
-    });
+    }
   }
 
   /**
@@ -836,7 +841,8 @@ export class SystemAuthority extends DurableObject<Env> {
       this.sql.exec("INSERT INTO checkpoints (realization_id, seq, message, commit_hash, created_at) VALUES (?, ?, ?, ?, ?)", id, seq, input.summary, input.commit ?? null, at);
       if (r.status === "claimed") this.setRealizationStatus(id, "working");
       else this.sql.exec("UPDATE realizations SET updated_at = ? WHERE id = ?", at, id);
-      // The first checkpoint of a task's realization: the agent is at work.
+      // The first checkpoint of a task's realization: the agent is at work. Every checkpoint renews the claim's lease.
+      this.tasks_().renewLease(id);
       return this.tasks_().advance(id, "realizing", ["claimed"]);
     });
     const checkpoint: Checkpoint = { seq, at, summary: input.summary, ...(input.commit && { commit: input.commit }) };
@@ -888,6 +894,7 @@ export class SystemAuthority extends DurableObject<Env> {
         id, input.realizationId, input.commit, JSON.stringify(input.manifest), JSON.stringify(input.changedPaths), JSON.stringify(input.changedNodes), nowIso(),
       );
       this.setRealizationStatus(input.realizationId, "evaluating");
+      this.tasks_().renewLease(input.realizationId);
     });
     const candidate = this.candidateDto(this.one("SELECT * FROM candidates WHERE id = ?", id)!);
     const realization = this.realizationDto(this.realizationRow(input.realizationId)!);
@@ -1736,6 +1743,36 @@ export class SystemAuthority extends DurableObject<Env> {
     if ("claimed" in out && out.fresh) this.emit({ type: "task.updated", task: out.claimed });
     return out;
   }
+  /**
+   * Claim `taskId` for `agentLabel` and reserve its realization in one transaction: the task is bound to the reserved
+   * realization at once, and further claims are refused `in-progress` until it is activated. Taking over a lapsed claim
+   * abandons the earlier live realization in the same transaction; its credentials are returned for revocation.
+   * Nothing is written when the claim or the reservation is refused.
+   */
+  claimAndReserve(input: ReserveInput & { taskId: string; agentLabel: string }, now: number = Date.now(), leaseMs: number = TASK_LEASE_MS):
+    | { fresh: true; task: Task; reserved: ReservedRealization; ended: EndedCredential[] }
+    | { fresh: false; task: Task }
+    | Extract<ClaimForStart, { refused: string }> {
+    let abandoned: string | null = null;
+    const out = this.ctx.storage.transactionSync(() => {
+      const c = this.tasks_().claimForStart(input.taskId, input.agentLabel, now, leaseMs);
+      if ("refused" in c) return c;
+      if ("existing" in c) return { fresh: false as const, task: c.existing };
+      let ended: EndedCredential[] = [];
+      if (c.takeover) {
+        this.sql.exec("UPDATE realizations SET status = 'abandoned', updated_at = ? WHERE id = ? AND status NOT IN ('promoted', 'rejected', 'abandoned')", nowIso(), c.takeover);
+        ended = this.endCredentials([c.takeover]);
+        abandoned = c.takeover;
+      }
+      const reserved = this.reserveTx(input);
+      this.sql.exec("UPDATE tasks SET realization_id = ?, updated_at = ? WHERE id = ?", reserved.realization.id, nowIso(), input.taskId);
+      return { fresh: true as const, task: this.tasks_().task(input.taskId)!, reserved, ended };
+    });
+    if (abandoned) this.emit({ type: "realization.updated", realization: this.realizationDto(this.realizationRow(abandoned)!) });
+    if ("fresh" in out && out.fresh) this.emit({ type: "task.updated", task: out.task });
+    return out;
+  }
+
   /** Binds a claimed task to the realization its claim started (also recorded on the realization). */
   bindTask(id: string, realizationId: string): Task {
     const r = this.realizationRow(realizationId);

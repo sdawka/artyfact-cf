@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { buildGenome } from "../worker/artifacts/genome-source";
 import { nodesForPath, sourceMapFor } from "../worker/artifacts/source-map";
 import { diffScope } from "../worker/hooks/diff-scope";
-import { buildTaskPacket, requiredCriteria, type PacketInput } from "../worker/packets/task-packet";
+import type { Task, TaskPlan } from "../shared/api";
+import { buildTaskPacket, independenceStatement, requiredCriteria, waveOf, type PacketInput } from "../worker/packets/task-packet";
 import { gateCriteria } from "../worker/promotion";
 import { packetThing } from "../worker/service";
 import { appFiles, genomeFiles } from "./fixtures/genome";
@@ -161,5 +162,76 @@ describe("node-attached source map: two Things with different roots", () => {
     expect(packetThing(two, ["screen.people", "P1"])?.id).toBe("thing.webapp");
     expect(packetThing(two, [])?.id).toBe("thing.webapp");
     expect(() => packetThing(two, ["screen.people", "screen.audit"])).toThrow(/several Things \(thing\.admin, thing\.webapp\)/);
+  });
+});
+
+describe("task packet: Task section", () => {
+  const fp = (globs: string[]) => ({ globs, paths: [], unmatched: [], entryFiles: [] });
+  const t = (id: string, nodes: string[], globs: string[], extra: Partial<Task> = {}): Task => ({
+    id, evolutionId: "evolution.1", title: `Title ${id}`, intent: `Do ${id}`, thing: "thing.webapp", nodes, footprint: fp(globs),
+    acceptanceCriteria: ["C.people.list"], dependsOn: [], status: "planned", origin: "fallback", ...extra,
+  });
+  const plan: Pick<TaskPlan, "tasks" | "conflicts" | "appCommit" | "waves"> = {
+    appCommit: "b".repeat(40),
+    tasks: [
+      t("task.1", ["screen.people"], ["src/ui/people/**"]),
+      t("task.2", ["operation.contact.save"], ["src/worker/routes/contacts.ts"]),
+      t("task.3", ["component.AddContactDialog"], ["src/ui/dialog/**"]),
+      t("task.4", ["entity.ContactRecord"], ["src/worker/routes/contacts.ts"], { dependsOn: ["task.1"] }),
+    ],
+    conflicts: [
+      { kind: "soft-semantic", tasks: ["task.1", "task.3"], subjects: ["screen.people"], message: "Different files, but both touch nodes screen.people." },
+      { kind: "declared", tasks: ["task.1", "task.4"], subjects: [], message: "task.4 depends on task.1." },
+    ],
+    waves: [["task.1", "task.2", "task.3"], ["task.4"]],
+  };
+
+  it("states independence from the plan's conflicts", () => {
+    const s = independenceStatement({ id: "task.1" }, plan, ["src/ui/people/**"]);
+    expect(s).toContain(`Independent of task.2: no shared files at ${"b".repeat(12)}.`);
+    expect(s).toContain("Shares screen.people with task.3 (soft overlap, do not edit its files src/ui/dialog/**).");
+    expect(s).toContain("task.4 depends on task.1 (declared).");
+    expect(s).toContain("checkpoint `needs:<path>` and stop");
+    expect(waveOf(plan, "task.1")).toBe(1);
+    expect(waveOf(plan, "task.4")).toBe(2);
+    expect(waveOf(plan, "task.9")).toBeNull();
+  });
+
+  it("scopes the packet to the task and renders the Task section and AGENTS.md lines", async () => {
+    const task = plan.tasks[0];
+    const p = await buildTaskPacket(input({
+      task: {
+        id: task.id, title: task.title, intent: task.intent, nodes: task.nodes, dependsOn: [], wave: 1, acceptanceCriteria: ["C.people.list"],
+        independence: independenceStatement(task, plan, ["src/ui/people/**"]),
+        doNotTouch: [{ task: "task.2", globs: ["src/worker/routes/contacts.ts"] }],
+        concurrent: ["task.2 (src/worker/routes/contacts.ts)"], after: ["task.4"],
+      },
+    }));
+    expect(p.acceptanceCriteria.map((c) => c.id)).toEqual(["C.people.list"]);
+    expect(p.task).toMatchObject({ id: "task.1", wave: 1, nodes: ["screen.people"] });
+    expect(p.task).not.toHaveProperty("doNotTouch");
+    const md = p.markdown;
+    expect(md.indexOf("## Task")).toBeGreaterThan(md.indexOf("## Intent"));
+    expect(md.indexOf("## Task")).toBeLessThan(md.indexOf("## Acceptance criteria"));
+    expect(md).toContain("`task.1`: Title task.1 (wave 1)");
+    expect(md).toContain("Independent of task.2");
+    const lines = p.agentsMd.split("\n");
+    expect(lines.slice(1, 6)).toEqual([
+      "You are realizing task task.1 (Title task.1) of evolution.1 for system.peopling. Read TASK_PACKET.md fully.",
+      `Permitted edits: ${p.permittedPaths.join(", ")}.`,
+      "Do not touch: src/worker/routes/contacts.ts (task.2); system/**, assays/**.",
+      "Concurrent tasks: task.2 (src/worker/routes/contacts.ts).",
+      "After you: task.4 start when this task is promoted.",
+    ]);
+    expect(lines[6]).toMatch(/^Commands: /);
+    expect(p.agentsMd).toContain("npx artyfact submit");
+  });
+
+  it("lists concurrent work with its Evolution, task and permitted paths", async () => {
+    const p = await buildTaskPacket(input({
+      concurrentWork: [{ realization: "realization.2.r3", agentLabel: "claude", status: "working", changedSubjects: [], evolution: "evolution.2", task: "task.9", permittedPaths: ["src/a/**"] }],
+    }));
+    expect(p.markdown).toContain("`realization.2.r3` (claude): working on evolution.2 task task.9; may edit `src/a/**`");
+    expect(p.task).toBeUndefined();
   });
 });
