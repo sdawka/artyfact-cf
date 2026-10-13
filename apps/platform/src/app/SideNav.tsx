@@ -1,6 +1,7 @@
 import { NavLink } from "react-router";
 import { useKindViews, VIEW_GLYPHS, VIEW_GROUPS, VIEW_KINDS, VIEW_LABELS, type ViewName } from "@/model/kinds";
 import { useReviewCount } from "@/model/useReviewCount";
+import { useWorkCount } from "@/model/useWorkCount";
 import { useKeepParams, useSystemRoute } from "@/model/useSelection";
 import styles from "./SideNav.module.css";
 
@@ -33,9 +34,10 @@ export function SideNav() {
   const { systemId, rev } = useSystemRoute();
   const views = useKindViews();
   const reviewCount = useReviewCount();
+  const workCount = useWorkCount();
   // A view that needs a kind (Journeys, Theory) shows only when the System's templates declare it.
   const shown = (v: ViewName) => !VIEW_KINDS[v] || views.declares(VIEW_KINDS[v]);
-  const item = (v: ViewName) => <NavItem key={v} view={v} href={href(v)} count={v === "review" ? reviewCount : 0} />;
+  const item = (v: ViewName) => <NavItem key={v} view={v} href={href(v)} count={v === "review" ? reviewCount : v === "work" ? workCount : 0} />;
   return (
     <nav className={`shell-nav ${styles.nav}`} aria-label="Views">
       {VIEW_GROUPS.map((g) =>

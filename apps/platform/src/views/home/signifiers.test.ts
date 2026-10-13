@@ -98,3 +98,42 @@ describe("needsYou", () => {
     expect(needsYou([base, { ...base, deployState: "live" }])).toEqual([]);
   });
 });
+
+describe("task and import signifiers", () => {
+  const sys = (o: Partial<CardSummary>): CardSummary => ({ ...base, systemId: "system.x", title: "X", ...o });
+  const counts = (o: Partial<NonNullable<CardSummary["taskCounts"]>>) => ({ planReady: 0, awaitingAgent: 0, running: 0, blocked: 0, ...o });
+
+  it("headlines each in precedence order", () => {
+    const all = sys({
+      signifiers: ["awaiting-admin", "import-pending", "task-awaiting-agent", "plan-ready", "wave-running", "evolving", "not-fully-built"],
+      realizationCounts: { evolving: 1, pending: 0, awaitingAdmin: 2 }, taskCounts: counts({ awaitingAgent: 2, planReady: 1 }),
+    });
+    expect(cardSummary(all).headline).toBe("2 await your review");
+    const noReview = { ...all, signifiers: all.signifiers!.filter((s) => s !== "awaiting-admin") };
+    expect(cardSummary(noReview)).toMatchObject({ headline: "import awaits review", tone: "attention", reviewHref: "/s/system.x/r/head/review" });
+    const noImport = { ...noReview, signifiers: noReview.signifiers!.filter((s) => s !== "import-pending") };
+    expect(cardSummary(noImport)).toMatchObject({ headline: "2 tasks await an agent", tone: "attention", workHref: "/s/system.x/r/head/work" });
+    const noTasks = { ...noImport, signifiers: noImport.signifiers!.filter((s) => s !== "task-awaiting-agent") };
+    expect(cardSummary(noTasks)).toMatchObject({ headline: "a plan is ready", tone: "attention", workHref: "/s/system.x/r/head/work" });
+    const noPlan = { ...noTasks, signifiers: noTasks.signifiers!.filter((s) => s !== "plan-ready") };
+    expect(cardSummary(noPlan)).toMatchObject({ headline: "wave running", tone: "evolving" });
+    expect(cardSummary({ ...noPlan, signifiers: ["evolving"] }).headline).toBe("1 realization evolving");
+  });
+
+  it("reads a pending importReview without the signifier", () => {
+    expect(cardSummary(sys({ importReview: { status: "pending", genomeCommit: "g", nodes: 3 } })).headline).toBe("import awaits review");
+    expect(cardSummary(sys({ importReview: { status: "accepted", genomeCommit: "g", nodes: 3 } })).headline).toBe("quiet");
+  });
+
+  it("has no work link for a quiet System", () => expect(cardSummary(base).workHref).toBeUndefined());
+
+  it("adds ledger rows linking to review and work", () => {
+    const rows = needsYou([sys({ title: "Peopling", signifiers: ["import-pending", "task-awaiting-agent", "plan-ready"], taskCounts: counts({ awaitingAgent: 2, planReady: 1 }) })]);
+    expect(rows.map((r) => [`${r.title} · ${r.text}`, r.href])).toEqual([
+      ["Peopling · import awaits review", "/s/system.x/r/head/review"],
+      ["Peopling · 2 tasks await an agent", "/s/system.x/r/head/work"],
+      ["Peopling · a plan is ready", "/s/system.x/r/head/work"],
+    ]);
+    expect(rows.every((r) => r.tone === "attention")).toBe(true);
+  });
+});
