@@ -1,8 +1,9 @@
 import { useId, useRef, useState, type FormEvent } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router";
 import type { EditorCommitRequest, FileScope, StartWorkRequest } from "../../../shared/api";
-import { ApiRequestError, FixtureModeError } from "@/api/client";
-import { ManualCommitError, useEvolutions, useManualCommit, type ManualCommitProgress } from "@/api/queries";
+import { ApiRequestError, FixtureModeError, getFile } from "@/api/client";
+import { ManualCommitError, useEvolutions, useManualCommit, useTree, qk, type ManualCommitProgress } from "@/api/queries";
 import { emitFx } from "@/effects/fx";
 import { useKeepParams, useSystemRoute } from "@/model/useSelection";
 import { rememberWhy } from "./why";
@@ -47,7 +48,9 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
   const uid = useId();
   const navigate = useNavigate();
   const href = useKeepParams();
-  const { systemId } = useSystemRoute();
+  const { systemId, rev } = useSystemRoute();
+  const qc = useQueryClient();
+  const tree = useTree({ repo });
   const formRef = useRef<HTMLFormElement>(null);
   const evolutions = useEvolutions();
   const commit = useManualCommit();
@@ -76,9 +79,29 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
   }
   if (!resuming && !adminToken) reasons.push("Enter the admin token.");
 
-  const submit = (e: FormEvent) => {
+  /** The union of model nodes across every changed file: from the listing, else from the file itself. */
+  const changedNodes = async (): Promise<string[]> => {
+    const listed = new Map((tree.data?.files ?? []).map((f) => [f.path, f.nodes]));
+    const perFile = await Promise.all(
+      changes.map(async ({ path }) => {
+        const known = listed.get(path);
+        if (known?.length) return known;
+        try {
+          const f = await qc.fetchQuery({ queryKey: qk.file(systemId, repo, rev, path), queryFn: () => getFile(systemId, { repo, rev, path }) });
+          return f.nodes ?? [];
+        } catch {
+          return []; // a new file has no base to read
+        }
+      }),
+    );
+    return [...new Set(perFile.flat())].sort();
+  };
+
+  const submit = async (e: FormEvent) => {
     e.preventDefault();
     if (reasons.length || commit.isPending) return;
+    // Only a new Evolution needs its scope; the server's Genome check rejects Accept when it is empty.
+    const affectedNodes = !resume?.evolutionId && target === NEW ? await changedNodes() : [];
     try {
       globalThis.localStorage?.setItem(NAME_KEY, name.trim());
     } catch {
@@ -96,7 +119,7 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
         startWork,
         ...(adminToken && { adminToken }),
         ...(resuming && { realizationId: resume.realizationId, secret: resume.secret }),
-        ...(evolutionId ? { evolutionId } : { newEvolution: { title: title.trim(), intent: intent.trim() } }),
+        ...(evolutionId ? { evolutionId } : { newEvolution: { title: title.trim(), intent: intent.trim(), affectedNodes } }),
       },
       {
         onSuccess: (res) => {

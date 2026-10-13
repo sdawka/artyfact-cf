@@ -42,7 +42,7 @@ test.describe("iteration 2 on a live deployment", () => {
 
   test("an editor commit is pushed over Git and becomes a candidate @live", async ({ page }, testInfo) => {
     await page.goto(`${base}/code?repo=app&path=README.md`);
-    await page.getByRole("button", { name: "Edit" }).click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     await typeInEditor(page, `\n\nLive check ${title}.\n`);
     await page.getByRole("link", { name: "Commit…" }).click();
     await page.getByLabel("Message").fill(`Live check ${title}`);

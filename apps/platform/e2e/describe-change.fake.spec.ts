@@ -32,7 +32,7 @@ test.describe("describe a change @fake", () => {
     // criteria (the form cannot set them), and C.webapp.health only runs for an Evolution that lists it.
     await page.goto(`${BASE}/code?repo=app&path=README.md`);
     await expect(page.getByRole("heading", { level: 1, name: "Code" })).toBeVisible();
-    await page.getByRole("button", { name: "Edit" }).click();
+    await page.getByRole("button", { name: "Edit", exact: true }).click();
     await typeInEditor(page, "\n\nBirthdays are shown next to each contact.\n");
     await page.getByRole("link", { name: "Commit…" }).click();
     await page.getByLabel("Message").fill("Show birthdays");

@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { describe, expect, it } from "vitest";
 import type { BuildReport, CiBuildParams } from "../src/contract";
 import {
-  CONFIG_ENV, SECRETS_ENV, WRANGLER, bundleConfig, deployConfig, parseJsonc, validateRepoConfig, type DeploySpec,
+  CONFIG_ENV, DeployRefused, SECRETS_ENV, WRANGLER, bundleConfig, deployConfig, parseD1DatabaseIds, parseJsonc, systemD1Ids, validateRepoConfig, type DeploySpec,
 } from "../src/deploy-config";
 import {
   assertReportUrl, deployedOutput, deployVars, planSteps, report, reportBody, runPipeline, shQuote, validateParams,
@@ -168,17 +168,52 @@ describe("validateRepoConfig", () => {
     expect(() => spec("{ nope")).toThrow(/not valid JSON/);
   });
 
-  it("accepts the keep-in-touch config with its D1 binding as-is", () => {
-    const text = `{
-      "name": "keep-in-touch", "main": "src/index.ts", "compatibility_date": "2026-10-12", "assets": { "directory": "public" },
-      "d1_databases": [
-        { "binding": "DB", "database_name": "keep-in-touch", "database_id": "11111111-2222-3333-4444-555555555555", "migrations_dir": "migrations" }
-      ],
-      // comment
-      "vars": { "BUILD_ID": "dev" }
-    }`;
-    const d1 = [{ binding: "DB", database_name: "keep-in-touch", database_id: "11111111-2222-3333-4444-555555555555", migrations_dir: "migrations" }];
-    expect(deployConfig(spec(text), { workerName: "keep-in-touch-app-r1", accountId: ACCOUNT, nonce: NONCE })).toMatchObject({ d1_databases: d1 });
+  const d1Config = (database_id?: string) => JSON.stringify({
+    main: "src/index.ts", compatibility_date: "2026-10-12",
+    d1_databases: [{ binding: "DB", database_name: "keep-in-touch", ...(database_id !== undefined && { database_id }), migrations_dir: "migrations" }],
+  });
+  const REAL_ID = "11111111-2222-3333-4444-555555555555";
+  const MAPPED_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+  const d1Target = { workerName: "keep-in-touch-app-r1", accountId: ACCOUNT };
+  const withIds = (text: string, ids: Record<string, string>) => validateRepoConfig("wrangler.jsonc", text, { accountId: ACCOUNT, d1DatabaseIds: ids });
+
+  it("substitutes the platform's D1 id for a placeholder or missing database_id", () => {
+    for (const id of ["00000000-0000-0000-0000-000000000000", undefined]) {
+      const s = withIds(d1Config(id), { "keep-in-touch": MAPPED_ID });
+      const d1 = [{ binding: "DB", database_name: "keep-in-touch", database_id: MAPPED_ID, migrations_dir: "migrations" }];
+      expect(deployConfig(s, { ...d1Target, nonce: NONCE })).toMatchObject({ d1_databases: d1 });
+      expect(bundleConfig(s, d1Target)).toMatchObject({ d1_databases: d1 });
+    }
+  });
+
+  it("refuses a placeholder database_id whose database_name has no mapping", () => {
+    expect(() => withIds(d1Config("00000000-0000-0000-0000-000000000000"), { other: MAPPED_ID }))
+      .toThrow(/d1_databases DB: no account database is mapped to database_name "keep-in-touch".*D1_DATABASE_IDS/);
+    expect(() => spec(d1Config(undefined))).toThrow(/no account database is mapped/);
+    expect(() => withIds(d1Config(undefined), {})).toThrow(DeployRefused);
+    expect(() => spec(JSON.stringify({ main: "src/index.ts", d1_databases: { binding: "DB" } }))).toThrow(/d1_databases must be a list/);
+    expect(() => spec(JSON.stringify({ main: "src/index.ts", d1_databases: [{ binding: "DB" }] }))).toThrow(/needs binding and database_name/);
+  });
+
+  it("accepts a real database_id only when it is this System's mapped id", () => {
+    const s = withIds(d1Config(MAPPED_ID), { "keep-in-touch": MAPPED_ID });
+    expect(deployConfig(s, { ...d1Target, nonce: NONCE })).toMatchObject({ d1_databases: [{ database_id: MAPPED_ID }] });
+    expect(() => withIds(d1Config(REAL_ID), { "keep-in-touch": MAPPED_ID })).toThrow(/database_id is not this System's "keep-in-touch" database/);
+    expect(() => spec(d1Config(REAL_ID))).toThrow(/no account database is mapped to database_name "keep-in-touch" for this System/);
+  });
+
+  it("parses D1_DATABASE_IDS per System and picks only the build's System", () => {
+    const raw = { "system.a": { a: MAPPED_ID, b: 3, c: "00000000-0000-0000-0000-000000000000" }, "system.b": { b: REAL_ID }, junk: "x" };
+    const all = parseD1DatabaseIds(raw);
+    expect(all).toEqual({ "system.a": { a: MAPPED_ID }, "system.b": { b: REAL_ID } });
+    expect(parseD1DatabaseIds(JSON.stringify(raw))).toEqual(all);
+    expect(systemD1Ids(all, "system.a")).toEqual({ a: MAPPED_ID });
+    expect(systemD1Ids(all, "system.c")).toEqual({});
+    expect(systemD1Ids(all, "__proto__")).toEqual({});
+    expect(systemD1Ids(undefined, "system.a")).toEqual({});
+    for (const bad of [undefined, null, "not json", "[1]", ["x"], 7]) expect(parseD1DatabaseIds(bad)).toEqual({});
+    // Another System's database cannot be bound by name.
+    expect(() => withIds(d1Config(undefined), systemD1Ids(all, "system.b"))).toThrow(/no account database is mapped/);
   });
 
   it("refuses migrations that transfer another Worker's Durable Object state", () => {
@@ -329,6 +364,23 @@ describe("runPipeline", () => {
     await expect(runPipeline({ ...h.input, params: params() })).rejects.toThrow(/build.command is set/);
     expect(h.ran).toEqual([]);
     expect(h.reports.at(-1)).toMatchObject({ status: "failed", steps: [{ name: "config", status: "failed" }], error: expect.stringContaining("build.command") });
+  });
+
+  it("resolves D1 ids from the build's own System only", async () => {
+    const id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
+    const config = JSON.stringify({
+      main: "src/index.ts", compatibility_date: "2026-10-12",
+      d1_databases: [{ binding: "DB", database_name: "keep-in-touch", database_id: "00000000-0000-0000-0000-000000000000" }],
+    });
+    const ok = harness({ files: { "wrangler.json": config } });
+    await runPipeline({ ...ok.input, params: params(), d1DatabaseIds: { "system.keep-in-touch": { "keep-in-touch": id } } });
+    const deployed = JSON.parse(ok.ran.find((s) => s.name === "deploy")!.env![CONFIG_ENV]!) as { d1_databases: { database_id: string }[] };
+    expect(deployed.d1_databases[0]!.database_id).toBe(id);
+
+    const other = harness({ files: { "wrangler.json": config } });
+    await expect(runPipeline({ ...other.input, params: params(), d1DatabaseIds: { "system.other": { "keep-in-touch": id } } }))
+      .rejects.toThrow(/no account database is mapped to database_name "keep-in-touch" for this System/);
+    expect(other.ran).toEqual([]);
   });
 
   it("a commit without a Wrangler config fails at the config step", async () => {

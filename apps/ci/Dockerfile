@@ -5,6 +5,12 @@ FROM docker.io/cloudflare/sandbox:0.12.1@sha256:ea9b35e61c800eddbc4450fad333e5dd
 # by absolute path through /opt/artyfact/bin/wrangler (absolute node, no PATH lookup), and every runner starts from
 # this image, so nothing an earlier step changed under /opt survives. Bump WRANGLER_VERSION deliberately and update
 # apps/ci/README.md and docs/ci.md with it.
+# The image ships npm 10.9.8, whose resolver crashes ("Cannot read properties of null (reading 'edgesOut')") on app
+# package.json files that pin vitest 5.0.3 (needed while vitest 5.0.4 breaks @cloudflare/vitest-plugin). npm 12 installs
+# them. Bump deliberately, like WRANGLER_VERSION.
+ARG NPM_VERSION=12.2.0
+RUN npm install --global "npm@${NPM_VERSION}" && npm --version
+
 ARG WRANGLER_VERSION=4.149.0
 RUN npm install --global --prefix /opt/wrangler "wrangler@${WRANGLER_VERSION}" \
  && mkdir -p /opt/artyfact/bin \

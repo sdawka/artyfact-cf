@@ -69,7 +69,7 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   await page.getByLabel("Filter files").fill("webapp/ontology");
   await page.getByRole("link", { name: "ontology.yaml" }).click();
   await expect(page).toHaveURL(/path=things%2Fwebapp%2Fontology\.yaml/);
-  await page.getByRole("button", { name: "Edit" }).click();
+  await page.getByRole("button", { name: "Edit", exact: true }).click();
   await typeInEditor(page, `  - { id: ${node}, kind: binding, name: ${title}, parent: section.runtime, description: ${title} for the e2e run }\n`);
   await checkPage(page, testInfo, `code-${node}`);
   await page.getByRole("link", { name: "Commit…" }).click();
