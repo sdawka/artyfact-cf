@@ -20,6 +20,8 @@ export interface AgreementTreeProps {
   label?: string;
 }
 
+const NO_OPS: readonly ProposedOp[] = [];
+const NO_PROBLEMS: readonly ProposalProblem[] = [];
 const KEY_DECISION: Record<string, Decision> = { a: "agree", r: "reject", d: "defer" };
 
 /**
@@ -27,7 +29,7 @@ const KEY_DECISION: Record<string, Decision> = { a: "agree", r: "reject", d: "de
  * overrides). One tab stop with roving focus: ↑↓ move, → opens or enters, ← closes or goes to the parent, Home/End,
  * Enter/Space open and close, a/r/d decide, Backspace clears the node's own decision.
  */
-export function AgreementTree({ plan, ops = [], problems = [], variant = "intent", readOnly = null, onDecide, renderOps, label = "Agreement" }: AgreementTreeProps) {
+export function AgreementTree({ plan, ops = NO_OPS, problems = NO_PROBLEMS, variant = "intent", readOnly = null, onDecide, renderOps, label = "Agreement" }: AgreementTreeProps) {
   const uid = useId();
   const views = useKindViews();
   const sig = useMemo(() => walk(plan).map((n) => n.id).join("\n"), [plan]);
