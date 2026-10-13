@@ -9,6 +9,7 @@ import {
   type StartWorkRequest, type StartWorkResponse, type SystemCompare, type SystemSummary,
   type PartsResponse,
 } from "../../shared/api";
+import type { TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
 
 /** Any non-2xx response. `body` is the parsed {@link ApiError} when the server sent one. */
@@ -350,6 +351,22 @@ export const createEvolution = (systemId: string, body: CreateEvolutionRequest, 
 export const commitFiles = (systemId: string, realizationId: string, body: EditorCommitRequest, token?: string) =>
   writeOrThrow("Commit", () =>
     post<EditorCommitResponse>(paths.editorCommit(systemId, realizationId), body, token ? { authorization: `Bearer ${token}` } : undefined),
+  );
+
+// ---------------------------------------------------------------------------
+// App template upgrades
+// ---------------------------------------------------------------------------
+
+/** What upgrading the app repo to the current template scaffold would change. Not available on fixture data. */
+export async function getTemplateUpgrade(systemId: string, ref = "head"): Promise<TemplateUpgradePlan> {
+  if (await isFixtureMode()) throw notInFixture("The template upgrade plan");
+  return request(routes.templateUpgrade(systemId, ref));
+}
+
+/** Admin only: apply the plan (plus the `include`d conflicts) as a new Evolution's candidate. 409 when up to date. */
+export const applyTemplateUpgrade = (systemId: string, body: TemplateUpgradeRequest, adminToken?: string) =>
+  writeOrThrow("Template upgrade", () =>
+    post<TemplateUpgradeResponse>(routes.templateUpgrade(systemId), body, adminToken ? { authorization: `Bearer ${adminToken}` } : undefined),
   );
 
 // ---------------------------------------------------------------------------

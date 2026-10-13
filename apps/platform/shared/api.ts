@@ -100,6 +100,9 @@ export const routes = {
   deploymentIngestToken: (s: string, d: string) => `${sys(s)}/deployments/${enc(d)}/ingest-token`,
   /** `POST` {@link PhenomeIngestRequest} → {@link PhenomeIngestResponse}; `GET` → {@link PhenomeEventsResponse}. */
   phenomeEvents: (s: string, q: PhenomeEventsQuery = {}) => `${sys(s)}/phenome/events${qs({ ...q })}`,
+
+  /** `GET` → {@link TemplateUpgradePlan}; `POST` {@link TemplateUpgradeRequest} (admin) → {@link TemplateUpgradeResponse}. */
+  templateUpgrade: (s: string, ref?: RefString) => `${sys(s)}/template-upgrade${qs({ ref })}`,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -1030,3 +1033,58 @@ export interface PublishPartRequest { package: schema.PartPackage }
 export interface RealizedArtifact { id: string; thingId: string; artifactId: string; source: { repo: string; commit: CommitHash }; genomeCommit: CommitHash; build: string; locator?: string; digest?: string; createdAt: string }
 export interface RealizedArtifactReport { locator?: string; digest?: string }
 export interface RealizedArtifactsResponse { artifacts: RealizedArtifact[] }
+
+// ---------------------------------------------------------------------------
+// App template upgrades
+// ---------------------------------------------------------------------------
+
+/** `.artyfact/template.json` in an app repo: what the template scaffold shipped, as git blob ids per path. */
+export interface TemplateLock {
+  /** `thing/<name>@<version>`: the template's directory under `templates/` in the `platform` repo. */
+  template: string;
+  /** Commit of the scaffold source (the `platform` repo, or the repo `scaffold.yaml` names) the files came from. */
+  scaffoldCommit: CommitHash;
+  files: Record<string, string>;
+}
+
+/**
+ * What an upgrade does to one path. `add`: new in the template. `update`: untouched since the lock and changed in the
+ * template. `remove`: dropped by the template and untouched since the lock. `conflict`: the app changed it (or there is
+ * no lock to tell) and the template changed it too; applied only when listed in `include` (the template version wins).
+ */
+export type TemplateUpgradeAction = "add" | "update" | "conflict" | "remove";
+
+export interface TemplateUpgradeFile {
+  path: string;
+  action: TemplateUpgradeAction;
+  reason: string;
+}
+
+/** `GET /api/systems/:id/template-upgrade?ref=head`. */
+export interface TemplateUpgradePlan {
+  template: string;
+  /** The lock's `scaffoldCommit`; null when the app repo has no lock. */
+  from: CommitHash | null;
+  /** The current scaffold source commit. */
+  to: CommitHash;
+  /** No file to apply and the lock already records the current template files. */
+  upToDate: boolean;
+  files: TemplateUpgradeFile[];
+  /** The app revision the plan was computed against. */
+  app: { repo: string; commit: CommitHash };
+  /** Whether the app repo has a readable `.artyfact/template.json`. */
+  locked: boolean;
+}
+
+/** `POST /api/systems/:id/template-upgrade` (admin). `include`: conflict paths to overwrite with the template version. */
+export interface TemplateUpgradeRequest {
+  include?: string[];
+}
+
+/** 201: an ordinary app candidate (gates, CI preview) on a new Evolution. */
+export interface TemplateUpgradeResponse {
+  evolution: Evolution;
+  realization: Realization;
+  candidate: Candidate;
+  plan: TemplateUpgradePlan;
+}

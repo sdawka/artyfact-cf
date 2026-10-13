@@ -4,6 +4,7 @@ import type {
   AcceptRequest, BuildKind, CommitHash, CreateEvolutionRequest, EditorCommitRequest, EditorCommitResponse, FileScope,
   PhenomeEventsQuery, PromoteRequest, Realization, RejectRequest, StartWorkRequest,
 } from "../../shared/api";
+import type { TemplateUpgradeRequest } from "../../shared/api";
 import { emitFx } from "@/effects/fx";
 import { useSystemRoute } from "@/model/useSelection";
 import * as api from "./client";
@@ -368,6 +369,34 @@ export function useManualCommit() {
   });
 }
 
+// ---------------------------------------------------------------------------
+// App template upgrades
+// ---------------------------------------------------------------------------
+
+/** `["templateUpgrade", systemId, ref]`; promotions invalidate it (see SSE_INVALIDATIONS). */
+export const templateUpgradeKey = (systemId: string, ref = "head") => ["templateUpgrade", systemId, ref] as const;
+
+/** The plan to bring the app repo up to the current template scaffold (always against head). */
+export function useTemplateUpgrade(opts: { enabled?: boolean } = {}) {
+  const { systemId } = useSystemRoute();
+  return useQuery({
+    queryKey: templateUpgradeKey(systemId),
+    queryFn: () => api.getTemplateUpgrade(systemId),
+    enabled: !!systemId && opts.enabled !== false,
+    retry: false,
+  });
+}
+
+/** Admin: apply the plan as a new candidate. */
+export function useApplyTemplateUpgrade() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, adminToken }: { body: TemplateUpgradeRequest; adminToken?: string }) => api.applyTemplateUpgrade(systemId, body, adminToken),
+    onSettled: () => invalidate(qc, systemId, "evolutions", "candidates", "builds", "revisions", "templateUpgrade", "systems"),
+  });
+}
+
 /** Invalidates `[name, systemId]` for each name (`systems` is global: `["systems"]`). */
 function invalidate(qc: QueryClient, systemId: string, ...names: string[]) {
   for (const k of names) void qc.invalidateQueries({ queryKey: k === "systems" ? [k] : [k, systemId] });
@@ -388,7 +417,7 @@ export const SSE_INVALIDATIONS: Record<api.SseType | "poll", readonly string[]> 
   "evaluation.completed": ["evaluations", "candidates"],
   "candidate.submitted": ["candidates", "conflicts", "evolutions", "revisions", "builds"],
   "conflict.detected": ["candidates", "conflicts", "evolutions"],
-  "system.promoted": ["history", "changelog", "revisions", "model", "readiness", "evolutions", "candidates", "tree", "file", "compare", "systems"],
+  "system.promoted": ["history", "changelog", "revisions", "model", "readiness", "evolutions", "candidates", "tree", "file", "compare", "systems", "templateUpgrade"],
   "genome.accepted": ["model", "readiness", "evolutions", "changelog", "revisions", "tree", "file"],
   "build.updated": ["builds", "candidates", "changelog", "changelogEntry", "systems"],
   "deployment.updated": ["deployments", "changelog", "changelogEntry", "phenome", "systems"],

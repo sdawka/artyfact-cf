@@ -1,4 +1,5 @@
 import { ActiveEvolutionsCard } from "./ActiveEvolutionsCard";
+import { AppTemplateCard } from "./AppTemplateCard";
 import { BlockersList } from "./BlockersList";
 import { DeployCard } from "./DeployCard";
 import { PhaseCard } from "./PhaseCard";
@@ -6,7 +7,7 @@ import { PurposeCard } from "./PurposeCard";
 import { SystemHero } from "./SystemHero";
 import styles from "./Overview.module.css";
 
-/** Landing view: the System hero (card light, name, Purpose, three separate states), Purpose detail, active Evolutions, and blockers with why. */
+/** Landing view: the System hero (card light, name, Purpose, three separate states), Purpose detail, active Evolutions, blockers with why, deployment and the app template. */
 export default function OverviewView() {
   return (
     <div className={styles.view}>
@@ -23,6 +24,7 @@ export default function OverviewView() {
         <PhaseCard />
         <DeployCard />
       </div>
+      <AppTemplateCard />
     </div>
   );
 }

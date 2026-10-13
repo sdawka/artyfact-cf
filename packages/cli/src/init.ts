@@ -88,7 +88,7 @@ function lsRemoteHead(cwd: string, r: Remote): string {
  * A scratch git dir whose index holds exactly the project tree of `src` (a real path): the files {@link projectFiles}
  * allows, symlinks kept as links only when they point inside `src`. Returns the tree hash and the skipped paths.
  */
-function stageTree(work: string, src: string): { tree: string; skipped: string[] } {
+function stageTree(work: string, src: string, lock?: LockSource): { tree: string; skipped: string[] } {
   src = realpathSync(src);
   git(work, ["init", "-q", "-b", "main"]);
   const gd = ["--literal-pathspecs", "--git-dir", join(work, ".git"), "--work-tree", src];
@@ -96,7 +96,32 @@ function stageTree(work: string, src: string): { tree: string; skipped: string[]
   const list = join(work, "files");
   writeFileSync(list, files.join("\0"));
   if (files.length) git(work, [...gd, "add", "-f", "--pathspec-from-file", list, "--pathspec-file-nul"]);
+  if (lock) stageLock(work, lock);
   return { tree: git(work, ["--git-dir", join(work, ".git"), "write-tree"]), skipped };
+}
+
+/** Where a seeded app's files came from: the template and the scaffold source commit. */
+export interface LockSource { template: string; scaffoldCommit: string }
+
+/** The app repo's template lock (`.artyfact/template.json`, read by the platform's template upgrade). */
+export const TEMPLATE_LOCK = ".artyfact/template.json";
+
+/**
+ * Add `.artyfact/template.json` to the scratch index: the template and scaffold commit, and the git blob id of every
+ * regular file staged from the scaffold, so a later upgrade can tell files the app left alone from files it edited.
+ */
+function stageLock(work: string, lock: LockSource): void {
+  const gd = ["--git-dir", join(work, ".git")];
+  const files: Record<string, string> = {};
+  for (const line of git(work, [...gd, "ls-files", "-s", "-z"]).split("\0").filter(Boolean)) {
+    const m = /^(\d+) ([0-9a-f]{40}) \d+\t(.+)$/s.exec(line);
+    if (m && (m[1] === "100644" || m[1] === "100755")) files[m[3]!] = m[2]!;
+  }
+  const sorted = Object.fromEntries(Object.entries(files).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)));
+  const file = join(work, "template.json");
+  writeFileSync(file, `${JSON.stringify({ template: lock.template, scaffoldCommit: lock.scaffoldCommit, files: sorted }, null, 2)}\n`);
+  const blob = git(work, [...gd, "hash-object", "-w", "--", file]);
+  git(work, [...gd, "update-index", "--add", "--cacheinfo", `100644,${blob},${TEMPLATE_LOCK}`]);
 }
 
 interface StateFile { pushed: Record<string, string> }
@@ -124,12 +149,12 @@ export type PushResult = { head: string; action: "pushed" | "unchanged" | "creat
  */
 function pushTree(
   ctx: { io: InitIo; cloud: Cloud; ns: string; state: StateFile; key: string },
-  repo: string, src: string, message: string, opts: { owned?: boolean; adopt?: boolean } = {},
+  repo: string, src: string, message: string, opts: { owned?: boolean; adopt?: boolean; lock?: LockSource } = {},
 ): PushResult {
   const r: Remote = { url: ctx.cloud.remote(ctx.ns, repo), token: ctx.cloud.token(ctx.ns, repo, "write") };
   const work = mkdtempSync(join(tmpdir(), "artyfact-init-"));
   try {
-    const { tree, skipped } = stageTree(work, src);
+    const { tree, skipped } = stageTree(work, src, opts.lock);
     for (const p of skipped) ctx.io.out(`  skipped ${p} (absolute or outside symlink, or a path outside ${src})`);
     const head = lsRemoteHead(work, r);
     const gd = ["--git-dir", join(work, ".git")];
@@ -432,7 +457,8 @@ async function seedFromTemplate(c: Ctx, ref: string, appRepo: string): Promise<{
     try {
       const sub = realSubdir(`${repo}@${source.head.slice(0, 7)} scaffold path`, realpathSync(source.dir), path);
       ensureRepo(c.io, c.cloud, c.ns, appRepo);
-      const res = pushTree(c, appRepo, sub, `Seed from ${ref} (${repo}:${path}@${source.head.slice(0, 7)})`);
+      const lock = { template: dir.slice("templates/".length), scaffoldCommit: source.head };
+      const res = pushTree(c, appRepo, sub, `Seed from ${ref} (${repo}:${path}@${source.head.slice(0, 7)})`, { lock });
       c.io.out(`${appRepo}: seeded from ${repo}:${path}@${source.head.slice(0, 12)} at ${res.head.slice(0, 12)}`);
       return { repo, commit: source.head, path };
     } finally {

@@ -17,6 +17,7 @@ import { phenome } from "./routes/phenome";
 import { realizations } from "./routes/realizations";
 import { systems } from "./routes/systems";
 import { parts } from "./routes/parts";
+import { templateUpgrade } from "./routes/template-upgrade";
 
 const app = new Hono<AppEnv>();
 
@@ -43,6 +44,7 @@ app.route("/api", editor);
 app.route("/api", changelog);
 app.route("/api", builds);
 app.route("/api", phenome);
+app.route("/api", templateUpgrade);
 
 const ARTIFACTS_STATUS: Record<string, 404 | 409 | 422 | 503> = {
   NOT_FOUND: 404, ALREADY_EXISTS: 409, FORK_IN_PROGRESS: 409, INVALID_INPUT: 422, INVALID_REPO_NAME: 422, UPSTREAM_UNAVAILABLE: 503,

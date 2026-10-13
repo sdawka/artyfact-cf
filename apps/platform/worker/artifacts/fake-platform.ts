@@ -1,11 +1,12 @@
 /// <reference types="vite/client" />
 /**
  * `FAKE_ARTIFACTS=1` boot mode: the whole backend without a Cloudflare account. On the first request the Worker
- * swaps Artifacts for an in-memory namespace seeded from `examples/` (Keep in Touch), imports that System, and pushes
+ * swaps Artifacts for an in-memory namespace seeded from `examples/` (Keep in Touch) and `packages/templates` (the
+ * `platform` repo, so template upgrades and provenance work), imports that System, and pushes
  * editor commits through a fake git receive-pack. State lives in the isolate, so a restart starts over (the Vite
  * config turns off state persistence in this mode to keep the Durable Objects in step).
  */
-import { systemRepoNames } from "@artyfact/cli/naming";
+import { PLATFORM_REPO, systemRepoNames } from "@artyfact/cli/naming";
 import { setEditorTransport } from "../editor";
 import { importSystem, registryStub } from "../service";
 import { setArtifactsOverride } from "./client";
@@ -19,6 +20,29 @@ export const exampleGenome = strip(import.meta.glob("../../../../examples/keep-i
   { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch-system/");
 export const exampleApp = strip(import.meta.glob(["../../../../examples/keep-in-touch-app/**/*", "!**/node_modules/**", "!**/.wrangler/**"],
   { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch-app/");
+const templateYaml = strip(import.meta.glob("../../../../packages/templates/{system,thing}/*/*.yaml",
+  { query: "?raw", import: "default", eager: true }) as Record<string, string>, "packages/");
+const rulePacks = strip(import.meta.glob("../../../../packages/templates/rule-packs/*.dl",
+  { query: "?raw", import: "default", eager: true }) as Record<string, string>, "rule-packs/");
+
+/**
+ * The `platform` repo as `artyfact platform-sync` lays it out: template YAML under `templates/{system,thing}/<name>@<v>/`,
+ * rule packs at `templates/rule-packs/<id>@<v>/pack.dl`, and the Keep in Touch app as the scaffold of every Thing template
+ * whose `scaffold.yaml` bundles it.
+ */
+export function examplePlatform(app: Record<string, string> = exampleApp): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [p, text] of Object.entries(templateYaml)) {
+    out[p] = text;
+    if (p.endsWith("/scaffold.yaml") && /^bundle:\s*examples\/keep-in-touch-app\s*$/m.test(text)) {
+      const dir = p.slice(0, -"scaffold.yaml".length);
+      for (const [f, t] of Object.entries(app)) out[`${dir}scaffold/${f}`] = t;
+    }
+  }
+  for (const [f, text] of Object.entries(rulePacks)) out[`templates/rule-packs/${f.slice(0, -3)}/pack.dl`] = text;
+  return out;
+}
+
 export const exampleSystemId = /^id:\s*(\S+)/m.exec(exampleGenome["system.yaml"] ?? "")?.[1] ?? "system.keep-in-touch";
 
 let booted: Promise<FakeArtifacts> | undefined;
@@ -44,6 +68,7 @@ async function boot(env: Env): Promise<FakeArtifacts> {
   const { genomeRepo, appRepo } = systemRepoNames(exampleSystemId);
   ns.create(genomeRepo).commit(exampleGenome, "Keep in Touch Genome");
   ns.create(appRepo).commit(exampleApp, "Keep in Touch app");
+  ns.create(PLATFORM_REPO).commit(examplePlatform(), "platform-sync");
   setArtifactsOverride(ns);
   setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
   if (!(await registryStub(env).hasSystem(exampleSystemId))) await importSystem(env, { systemId: exampleSystemId, genomeRepo, appRepo });
