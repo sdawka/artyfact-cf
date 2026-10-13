@@ -1272,6 +1272,22 @@ describe("routes: import review (B.10)", () => {
     expect((await call<WorkResponse>("GET", `/systems/${systemId}/evolutions`)).json.realizations).toEqual([]);
   });
 
+  it("rejecting section.ui drops it from thing.webapp's sections; the amended Genome has no new hard violation", async () => {
+    const { ns, systemId, genomeRepo } = await pending();
+    const acc = await call<ImportReviewAcceptResponse>("POST", `/systems/${systemId}/import-review/accept`, { rejectedNodes: ["section.ui"] }, ADMIN);
+    expect(acc.status, JSON.stringify(acc.json)).toBe(200);
+    const { realization, candidate } = acc.json.amendment!;
+    const cand = (await call<CandidatesResponse>("GET", `/systems/${systemId}/candidates`)).json.candidates.find((c) => c.id === candidate)!;
+    const text = await (await ns.repo(`${genomeRepo}--r1`).readFile({ ref: cand.commit, path: "thing.webapp/node.yaml" }))!.text();
+    expect(text).toContain("section.domain");
+    expect(text).not.toContain("section.ui");
+    const rv = (await call<GenomeCandidateReview>("GET", `/systems/${systemId}/realizations/${realization}/review`)).json;
+    expect(rv.loadError).toBeUndefined();
+    const hard = (r: typeof rv.readinessBase) => r.findings.filter((f) => f.level === "error").map((f) => `${f.rule} ${f.subject}`);
+    expect(hard(rv.readinessCandidate).filter((f) => !hard(rv.readinessBase).includes(f))).toEqual([]);
+    expect(hard(rv.readinessCandidate).some((f) => f.startsWith("thing.sectionMissing"))).toBe(false);
+  });
+
   it("the accept compare-and-set also matches the genomeCommit, so a re-import that raced it is not overwritten", async () => {
     const { systemId } = await pending();
     const review = (await call<ImportReview>("GET", `/systems/${systemId}/import-review`)).json;

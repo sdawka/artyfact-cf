@@ -2,7 +2,7 @@
  * Orchestration between Artifacts, the model, hooks and the SystemAuthority DO. Routes and the queue
  * consumer call these; all Artifacts I/O and model work happens here (never inside the DO).
  */
-import { diffModels, loadGenome, type Readiness, type schema, type SystemModel } from "@artyfact/model";
+import { diffModels, loadGenome, validate, type Readiness, type schema, type SystemModel } from "@artyfact/model";
 import { applyOps, parseTree, type NodeCriterion, type TreeOp } from "@artyfact/ontology";
 import { metaTemplates, templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
@@ -362,16 +362,20 @@ export async function importReview(env: Env, systemId: string): Promise<ImportRe
 
 /** Evolution records are history: they keep naming the nodes they affected after those are removed. */
 const HISTORY_RELS = new Set(["affects", "acceptance"]);
+/** Field id lists a removed id is dropped from (a Thing's sections, a journey's or step's references). */
+const ID_LIST_FIELDS = ["sections", "purposeRefs", "features", "requirements", "requirementRefs"] as const;
 
 /**
  * The ops that remove the `roots` subtrees from `files` without leaving a reference to anything removed (the nodes,
  * their criteria and inline hooks): an `unlink` per `links` entry of a surviving node (every kind, `refines` and step
  * links included), an `update` dropping removed ids from a surviving criterion's `refines`/`satisfies`/`sourceRefs`/
- * `hooks` and from a step's `next`, then a `remove` per root. The ops are applied and the result loaded here; a
- * reference no op can drop (a journey starting at a removed step, a template requirement, a Genome that no longer
- * loads) is a 422 naming the node that holds it and the rejected node.
+ * `hooks`, from a step's `next` and from the id lists in {@link ID_LIST_FIELDS}, then a `remove` per root. The ops are
+ * applied and the result loaded and validated here; a reference no op can drop (a journey starting at a removed step,
+ * a template requirement, a Genome that no longer loads, a hard readiness violation the base did not have) is a 422
+ * naming the node that holds it and the rejected node.
  */
-export function rejectionOps(files: Map<string, string>, roots: string[]): ProposedOp[] {
+export function rejectionOps(base: { files: Map<string, string>; readiness: Readiness }, roots: string[]): ProposedOp[] {
+  const { files } = base;
   const tree = parseTree(files);
   const dirs = roots.map((r) => {
     const n = tree.nodes.get(r);
@@ -405,6 +409,12 @@ export function rejectionOps(files: Map<string, string>, roots: string[]): Propo
       const next = f.fields.next as unknown[];
       const kept = next.filter((x) => !(isRecord(x) && removed(`${n.parent}/${String(x.to)}`)));
       if (kept.length !== next.length) fields.next = kept.length ? kept : null;
+    }
+    for (const key of ID_LIST_FIELDS) {
+      const list = f.fields?.[key];
+      if (!Array.isArray(list)) continue;
+      const kept = list.filter((x) => !removed(x));
+      if (kept.length !== list.length) fields[key] = kept;
     }
     if (f.kind === "journey" && typeof f.fields?.start === "string" && removed(`${n.id}/${f.fields.start}`)) block(n.id, `${n.id}/${f.fields.start}`, "starts at");
     const criteria: NodeCriterion[] = [];
@@ -444,6 +454,12 @@ export function rejectionOps(files: Map<string, string>, roots: string[]): Propo
   for (const l of model.graph.links) {
     if (!rootOf.has(l.from) && removed(l.to) && !HISTORY_RELS.has(l.rel)) block(l.from, l.to, `still references (${l.rel})`);
   }
+  // A hard violation the amendment introduces (a template-required section now missing) blocks it too.
+  // Evolution records are history (HISTORY_RELS): one naming a removed node is not a structural violation.
+  const history = new Set(tree.evolutions.map((e) => e.evolution.id));
+  const hard = (r: Readiness) => new Set(r.findings.filter((x) => x.level === "error" && !history.has(x.subject ?? "")).map((x) => `${x.rule} ${x.subject ?? ""}`));
+  const before = hard(base.readiness);
+  for (const v of hard(validate(model))) if (!before.has(v)) blocked.push(`${v.replace(" ", " on ").trim()} after removing ${roots.join(", ")}`);
   if (blocked.length) {
     throw unprocessable("rejected-node-referenced", `cannot reject without a dangling reference: ${[...new Set(blocked)].join("; ")}`);
   }
@@ -479,7 +495,7 @@ export async function acceptImportReview(env: Env, systemId: string, body: Parti
   }
   // Built and validated before the review flips: a rejection that would leave a dangling reference is a 422 and the
   // review stays pending.
-  const ops = roots.length ? rejectionOps((await genomeAt(env, systemId, review.genomeCommit, s.genomeSource)).files, roots) : [];
+  const ops = roots.length ? rejectionOps(await genomeAt(env, systemId, review.genomeCommit, s.genomeSource), roots) : [];
   const accepted: ImportReview = {
     ...review, status: "accepted", decidedAt: nowIso(),
     ...(interpretation?.trim() && { interpretation: interpretation.trim() }), ...(rejected.length && { rejectedNodes: rejected }),
