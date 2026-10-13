@@ -2,6 +2,7 @@
 @import './whimsy.css';
 @import './effects.css';
 @import './utilities.css';
+@import './landing-system-scene.css';
 * { box-sizing: border-box; }
 html { background: var(--color-background); scroll-behavior: smooth; }
 body { margin: 0; color: var(--color-text-primary); font: 17px/1.65 var(--font-body); }
@@ -27,8 +28,24 @@ main, .site-header, .site-footer { width: min(1240px, calc(100% - 96px)); margin
 .site-header nav a[aria-current="page"] { color: var(--color-brand-primary); }
 .skip-link { position: absolute; left: 16px; top: 16px; z-index: 10; padding: 10px 20px; background: var(--color-surface-secondary); transform: translateY(-180%); }
 .skip-link:focus { transform: none; }
-.hero { display: grid; grid-template-columns: .9fr 1.1fr; gap: 60px; padding: 100px 0 110px; align-items: center; }
+.landing-story { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); column-gap: clamp(32px, 4.5vw, 70px); padding: 80px 0 85px; align-items: start; }
+.hero-copy { grid-column: 1; padding-bottom: 70px; }
+.hero-copy h1 { font-size: clamp(3rem, 4.6vw, 4.9rem); line-height: 1.06; margin-bottom: 14px; }
 .hero-copy > p:not(.lead) { max-width: 40ch; }
+.cloudflare-line { font-size: 1.05rem; color: var(--color-brand-primary); margin-bottom: 30px; }
+.landing-story-visual, [data-landing-story] { display: contents; }
+.landing-story-controller { grid-column: 2; grid-row: 1 / span 4; min-width: 0; align-self: start; position: relative; z-index: 2; }
+.landing-story-controller[data-sticky="true"] { position: sticky; top: 24px; }
+.landing-view-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 5px; margin-bottom: 12px; background: var(--color-surface-primary); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-lg); }
+.landing-view-controls button { min-height: 54px; border: 0; border-radius: var(--border-radius-md); color: var(--color-text-secondary); background: none; font-size: .88rem; }
+.landing-view-controls small { display: block; color: var(--color-text-secondary); font-size: .7rem; }
+.landing-view-controls button[aria-selected="true"] { background: var(--color-background-active); color: var(--color-brand-primary); }
+.landing-story-instruction { margin: 12px 2px 0; font-size: .75rem; line-height: 1.5; color: var(--color-text-secondary); }
+.story-step { grid-column: 1; min-height: min(68svh, 620px); display: flex; align-items: center; padding: 64px 0; }
+.story-step h2 { font-size: clamp(2rem, 3vw, 3.1rem); }
+.story-step p { max-width: 40ch; }
+.story-view-name { color: var(--color-brand-primary); font-size: .95rem; margin-bottom: 18px; }
+.story-detail { font-size: .88rem; border-left: 1px solid var(--color-border); padding-left: 18px; }
 .lead { font-size: 1.4rem; line-height: 1.45; color: var(--color-text-primary); }
 .actions { display: flex; gap: 28px; align-items: center; flex-wrap: wrap; margin-block: 35px; }
 .button { display: inline-flex; align-items: center; justify-content: center; min-height: 50px; padding: 12px 22px; text-decoration: none; font-size: .95rem; border: 1px solid var(--color-border); border-radius: var(--border-radius-md); color: var(--color-text-primary); }
@@ -113,22 +130,10 @@ pre code { font-size: .8rem; overflow-wrap: normal; }
 .code-actions span { font-size: .78rem; color: var(--color-text-subtle); }
 blockquote { margin: 25px 0; padding-left: 25px; border-left: 2px solid var(--color-brand-primary); color: var(--color-text-primary); }
 .independent { display: grid; grid-template-columns: 1fr 1fr; gap: 70px; }
-/* Effects. The hero orb and the ambient field mount after hydration (src/effects.tsx); until then, and without JS or
-   WebGL2, the CSS haze below stands in. Content stacks above the fixed field. */
-html, body { overflow-x: clip; } /* html stops body's overflow propagating to the viewport, so body clips the orb's bleed */
+/* Ambient atmosphere loads after hydration; static haze remains without JS or a usable GPU. */
+html, body { overflow-x: clip; }
 .ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: var(--gradient-haze); }
 .site-header, main, .site-footer { position: relative; z-index: 1; }
-.hero-example { position: relative; isolation: isolate; }
-.hero-orb { position: absolute; z-index: -1; left: 80%; top: 30%; width: min(135%, 900px); aspect-ratio: 1; translate: -50% -50%; pointer-events: none;
-  mask-image: radial-gradient(circle closest-side, #000 86%, transparent 100%); }
-.hero-orb::before { content: ''; position: absolute; inset: 0; pointer-events: none; transition: opacity var(--motion-duration-ambient) var(--motion-easing-ambient);
-  background: radial-gradient(circle closest-side, transparent 55%, oklch(0.79 0.125 60 / .3) 61%, oklch(0.79 0.125 60 / .08) 66%, transparent 72%),
-    radial-gradient(ellipse 45% 26% at 50% 66%, oklch(0.79 0.125 60 / .16), transparent); }
-.hero-orb:has([data-effect-mode="gl"], [data-effect-mode="fallback"])::before { opacity: 0; }
-.hero .explorer { background: color-mix(in oklch, var(--color-surface-primary) 86%, transparent); backdrop-filter: blur(22px) saturate(1.2); -webkit-backdrop-filter: blur(22px) saturate(1.2);
-  box-shadow: 0 40px 90px -50px oklch(0 0 0 / .7); }
-.orb-caption { position: relative; margin: 16px 2px 0; font-size: .78rem; color: var(--color-text-subtle); display: flex; gap: 10px; align-items: baseline; }
-.orb-caption::before { content: ''; flex-shrink: 0; width: 7px; height: 7px; border-radius: 50%; background: var(--color-brand-primary); box-shadow: 0 0 10px 1px var(--glow-accent); translate: 0 -1px; }
 .button.primary { box-shadow: 0 0 26px -10px var(--glow-accent); transition: box-shadow var(--motion-duration-normal) var(--motion-easing-ease-out), background var(--motion-duration-normal) var(--motion-easing-ease-out); }
 .button.primary:is(:hover, :focus-visible) { box-shadow: var(--shadow-glow-accent), 0 0 40px -6px var(--glow-accent); }
 .button:not(.primary) { transition: box-shadow var(--motion-duration-normal) var(--motion-easing-ease-out); }
@@ -146,8 +151,7 @@ html, body { overflow-x: clip; } /* html stops body's overflow propagating to th
 .no-script { width: min(1240px, calc(100% - 48px)); margin: 20px auto; font-size: .85rem; }
 @media (max-width: 1050px) {
   main, .site-header, .site-footer { width: calc(100% - 64px); }
-  .hero { gap: 30px; padding: 65px 0 80px; }
-  .hero h1 { font-size: 4.1rem; }
+  .landing-story { column-gap: 30px; padding-top: 60px; }
   .statement, .principles, .closing, .glossary, .model-explorer { gap: 40px; }
   .guide-layout { grid-template-columns: 210px minmax(0, 1fr); gap: 35px; }
   .section-heading { gap: 40px; }
@@ -158,12 +162,7 @@ html, body { overflow-x: clip; } /* html stops body's overflow propagating to th
   .wordmark { font-size: 27px; }
   .site-header nav { gap: 20px; }
   .site-header nav a { font-size: .8rem; }
-  .hero, .statement, .principles, .closing, .glossary, .section-heading, .model-explorer, .independent { grid-template-columns: 1fr; gap: 30px; }
-  .hero { padding: 55px 0 65px; }
-  .hero h1 { font-size: clamp(3.4rem, 12vw, 5rem); }
-  .hero-copy > p:not(.lead) { max-width: 55ch; }
-  .hero-example { margin-top: 0; padding-top: min(50vw, 300px); }
-  .hero-orb { left: 50%; top: 0; translate: -50% 0; width: min(120vw, 620px); }
+  .statement, .principles, .closing, .glossary, .section-heading, .model-explorer, .independent { grid-template-columns: 1fr; gap: 30px; }
   .section { padding-block: 55px; }
   .workflow-list, .state-grid { grid-template-columns: repeat(2, 1fr); gap: 30px; }
   .guide-layout { grid-template-columns: 1fr; gap: 20px; }
@@ -190,4 +189,23 @@ html, body { overflow-x: clip; } /* html stops body's overflow propagating to th
 @media (forced-colors: active) {
   .subject[aria-pressed="true"], .layer-tabs button[aria-selected="true"] { outline: 2px solid Highlight; }
   .map-stem, .map-stem::before, .subject::after { border-color: CanvasText; }
+}
+
+@media (max-width: 950px) {
+  .landing-story { grid-template-columns: minmax(0, 1fr); padding: 50px 0 55px; gap: 0; }
+  .hero-copy { padding-bottom: 38px; }
+  .hero-copy h1 { font-size: clamp(3rem, 8.4vw, 5rem); max-width: 15ch; }
+  .hero-copy > p:not(.lead) { max-width: 52ch; }
+  .landing-story-controller { grid-column: 1; grid-row: auto; width: min(650px, 100%); justify-self: center; }
+  .landing-story-controller[data-sticky="true"] { top: 16px; }
+  .story-step { min-height: 0; padding: 42px 0 20px; }
+  .story-step h2 { max-width: 20ch; }
+  .story-step p { max-width: 60ch; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .landing-story-controller[data-sticky="true"] { position: relative; top: auto; }
+}
+
+@media (forced-colors: active) {
+  .landing-view-controls button[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -3px; }
 }

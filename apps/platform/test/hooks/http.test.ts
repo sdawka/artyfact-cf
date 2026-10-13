@@ -19,6 +19,14 @@ describe("http engine: verdicts", () => {
     expect(o.observations).toEqual([{ url: `${PREVIEW}/health`, status: 200, ok: true, buildId: commit.slice(0, 7) }]);
   });
 
+  it("requires the exact authoritative build id when supplied, even for the same source", async () => {
+    const expectedBuildId = "build.preview.123";
+    expect((await httpHealth({ previewUrl: PREVIEW, commit, expectedBuildId, fetch: fakeFetch(200, { status: "ok", buildId: expectedBuildId }) })).verdict).toBe("pass");
+    for (const buildId of ["build.preview.124", commit, "build.preview.123-extra", "BUILD.PREVIEW.123"]) {
+      expect((await httpHealth({ previewUrl: PREVIEW, commit, expectedBuildId, fetch: fakeFetch(200, { status: "ok", buildId }) })).verdict).toBe("fail");
+    }
+  });
+
   it("fails on a wrong buildId, recording only status/ok/buildId", async () => {
     const o = await httpHealth({ previewUrl: PREVIEW, commit, fetch: fakeFetch(200, { status: "ok", buildId: "deadbeef", secret: "x" }) });
     expect(o).toMatchObject({ execution: "completed", verdict: "fail" });

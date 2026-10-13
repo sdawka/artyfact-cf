@@ -83,7 +83,7 @@ export default function ChangelogView() {
           The System commits could not be fetched. This is not the same as having none.
         </EmptyState>
       ) : rows.length === 0 ? (
-        <EmptyState orb="dusk" title="No System commits yet: nothing has been promoted.">
+        <EmptyState surface="dusk" title="No System commits yet: nothing has been promoted.">
           A System commit is created when a System is imported or candidates are promoted with a recorded rationale.
         </EmptyState>
       ) : shown.length === 0 ? (

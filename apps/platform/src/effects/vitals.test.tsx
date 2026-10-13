@@ -33,18 +33,18 @@ describe("systemVitals (keep-in-touch fixture)", () => {
     const v = systemVitals(input);
     expect(v.health).toBe("pending");
     expect(v.preset).toBe("apricot");
-    expect(v.orb.preset).toBe("apricot");
+    expect(v.surface.preset).toBe("apricot");
     // 15 warnings and no blockers: mostly ready, so fill sits high but below full.
     expect(v.measures.blockers).toBe(0);
     expect(v.measures.readiness).toBeGreaterThan(0.8);
     expect(v.measures.readiness).toBeLessThan(1);
-    expect(v.orb.fill).toBeCloseTo(0.2 + 0.7 * v.measures.readiness, 2);
-    expect(v.orb.crackle).toBe(0.25);
-    expect(v.orb.flares).toBe(0.25);
+    expect(v.surface.level).toBeCloseTo(0.2 + 0.7 * v.measures.readiness, 2);
+    expect(v.surface.agitation).toBe(0.25);
+    expect(v.surface.alerts).toBe(0.25);
     // evolution.1 is actionable; the five proposed ones are not active.
-    expect(v.orb.strands).toBe(1);
+    expect(v.surface.channels).toBe(1);
     // Fixture timestamps are absent, so no recent activity.
-    expect(v.orb.sparks).toBe(0.15);
+    expect(v.surface.activity).toBe(0.15);
     expect(v.ambient).toEqual({ color: "oklch(0.79 0.125 60)", intensity: round(0.25 + 0.35 * 0.5 * 0.25) });
   });
 
@@ -52,7 +52,7 @@ describe("systemVitals (keep-in-touch fixture)", () => {
     const input = fixtureInput();
     const v = systemVitals({ ...input, verdicts: [...input.verdicts.map(() => "pass" as const), "waived" as const] });
     expect(v.health).toBe("passing");
-    expect(v.orb.preset).toBe("verdant");
+    expect(v.surface.preset).toBe("verdant");
     expect(v.ambient.color).toBe("oklch(0.723 0.081 166.2)");
   });
 
@@ -63,7 +63,7 @@ describe("systemVitals (keep-in-touch fixture)", () => {
     expect(v.health).toBe("failing");
     expect(v.preset).toBe("ember");
     expect(v.measures.troubled).toBeCloseTo(10 / verdicts.length, 3);
-    expect(v.orb.crackle).toBeCloseTo(0.25 + 0.75 * (10 / verdicts.length), 3);
+    expect(v.surface.agitation).toBeCloseTo(0.25 + 0.75 * (10 / verdicts.length), 3);
   });
 
   it("turns ember on blockers, flares per blocker and lowers fill", () => {
@@ -72,13 +72,13 @@ describe("systemVitals (keep-in-touch fixture)", () => {
     const v = systemVitals({ ...input, readiness: { findings: [...input.readiness.findings, ...blockers] } });
     expect(v.health).toBe("blocked");
     expect(v.preset).toBe("ember");
-    expect(v.orb.flares).toBeCloseTo(0.7, 3);
-    expect(v.orb.fill).toBeLessThan(systemVitals(input).orb.fill);
+    expect(v.surface.alerts).toBeCloseTo(0.7, 3);
+    expect(v.surface.level).toBeLessThan(systemVitals(input).surface.level);
   });
 
   it("reads incomplete readiness as half full", () => {
     const v = systemVitals({ ...fixtureInput(), readiness: { findings: [], incomplete: true } });
-    expect(v.orb.fill).toBeCloseTo(0.55, 3);
+    expect(v.surface.level).toBeCloseTo(0.55, 3);
   });
 
   it("counts live realizations plus uncovered active Evolutions as strands, capped at 8", () => {
@@ -88,9 +88,9 @@ describe("systemVitals (keep-in-touch fixture)", () => {
       { evolution: "evolution.1", status: "submitted" },
       { evolution: "evolution.2", status: "promoted" },
     ];
-    expect(systemVitals({ ...input, realizations }).orb.strands).toBe(2);
+    expect(systemVitals({ ...input, realizations }).surface.channels).toBe(2);
     const many = Array.from({ length: 12 }, (_, i) => ({ evolution: `evolution.${i}`, status: "working" }));
-    expect(systemVitals({ ...input, realizations: many }).orb.strands).toBe(8);
+    expect(systemVitals({ ...input, realizations: many }).surface.channels).toBe(8);
   });
 
   it("sparks and brightens with recent commits, checkpoints and evaluations", () => {
@@ -103,7 +103,7 @@ describe("systemVitals (keep-in-touch fixture)", () => {
     });
     // 1 + 0.5 + 1 + 1 + 0.0039 recent; the epoch-zero commit is ignored.
     expect(busy.measures.recent).toBeCloseTo(3.504, 2);
-    expect(busy.orb.sparks).toBeCloseTo(0.15 + 0.12 * 3.504, 2);
+    expect(busy.surface.activity).toBeCloseTo(0.15 + 0.12 * 3.504, 2);
     expect(busy.ambient.intensity).toBeGreaterThan(systemVitals(input).ambient.intensity);
     expect(busy.ambient.intensity).toBeLessThanOrEqual(0.6);
   });
@@ -113,7 +113,7 @@ const round = (v: number) => Math.round(v * 1000) / 1000;
 
 function Probe() {
   const v = useSystemVitals(NOW);
-  return <output aria-label="vitals">{JSON.stringify(v.orb)}</output>;
+  return <output aria-label="vitals">{JSON.stringify(v.surface)}</output>;
 }
 function Harness() {
   const { data } = useModelBundle();
@@ -129,6 +129,6 @@ describe("useSystemVitals", () => {
   it("maps the loaded fixture System through useModel()", async () => {
     renderApp("/s/system.keep-in-touch/r/head/x", [{ path: "/s/:systemId/r/:rev/x", element: <Harness /> }]);
     const out = await screen.findByLabelText("vitals");
-    expect(JSON.parse(out.textContent!)).toEqual(systemVitals(fixtureInput()).orb);
+    expect(JSON.parse(out.textContent!)).toEqual(systemVitals(fixtureInput()).surface);
   });
 });

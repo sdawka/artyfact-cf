@@ -1,5 +1,5 @@
-import { derivationKey, type Result } from "./engine";
-import type { Tuple } from "./types";
+import { derivationKey, type Result } from "./engine.ts";
+import type { Tuple } from "./types.ts";
 
 export interface DerivationTree {
   relation: string;

@@ -29,20 +29,24 @@
   gap: var(--spacing-2);
   margin-block: var(--spacing-2);
 }
-.orbGrid {
+.surfaceGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(12rem, 1fr));
   gap: var(--spacing-4);
 }
-.orbTile {
+.surfaceTile {
   margin: 0;
   display: grid;
   gap: var(--spacing-2);
   justify-items: start;
 }
-.orbBox {
+.surfaceBox {
   width: 100%;
-  aspect-ratio: 1;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  min-height: 180px;
+  border: 1px solid var(--color-border-subtle);
   background: var(--color-background);
   border-radius: var(--border-radius-lg);
 }
@@ -83,3 +87,7 @@
 .glow[data-glow="accent"] { box-shadow: var(--shadow-glow-accent); }
 .glow[data-glow="success"] { box-shadow: var(--shadow-glow-success); }
 .glow[data-glow="error"] { box-shadow: var(--shadow-glow-error); }
+
+.surfaceContent { position: relative; z-index: 1; padding: var(--spacing-4); }
+.surfaceContent h3 { margin: 0 0 var(--spacing-3); color: var(--color-text-primary); }
+.surfaceContent p { margin: 0; font-size: var(--font-size-sm); color: var(--color-text-secondary); }

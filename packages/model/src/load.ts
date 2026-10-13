@@ -1,16 +1,20 @@
 import { parse as parseYaml } from "yaml";
 import type { z } from "zod";
-import * as schema from "./schema";
-import { index, type ModelIndex } from "./model-index";
+import * as schema from "./schema.ts";
+import { index, type ModelIndex } from "./model-index.ts";
 
 export interface ParseIssue { path: PropertyKey[]; message: string }
 /** A non-fatal problem found while loading, e.g. an unknown key the schema dropped (often a typo). */
 export interface ModelWarning extends ParseIssue { file: string }
 
 export class ModelParseError extends Error {
-  constructor(readonly file: string, readonly issues: ParseIssue[]) {
+  readonly file: string;
+  readonly issues: ParseIssue[];
+  constructor(file: string, issues: ParseIssue[]) {
     super(`${file}: ${issues.map((i) => (i.path.length ? `${i.path.join(".")}: ` : "") + i.message).join("; ")}`);
     this.name = "ModelParseError";
+    this.file = file;
+    this.issues = issues;
   }
 }
 

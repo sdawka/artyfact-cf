@@ -2,23 +2,21 @@
 .header { display: grid; gap: var(--spacing-1); }
 .header h1 { margin: 0; }
 
-/* Hero: the System's orb beside its name and primary Purpose, above the three meters. The orb box has a fixed aspect
-   ratio, so the lazily loaded canvas never shifts the layout. */
+/* Card-local light sits behind the System name and Purpose, without a separate ornament. */
 .hero { display: grid; gap: var(--spacing-6); min-width: 0; }
 .heroTop {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
   display: grid;
-  grid-template-columns: clamp(200px, 26vw, 320px) minmax(0, 1fr);
-  align-items: center;
-  gap: var(--spacing-8);
-  padding: var(--spacing-4) var(--spacing-6);
-  border-radius: var(--border-radius-md);
-  background: var(--gradient-haze);
+  min-width: 0;
+  gap: var(--spacing-6);
+  padding: var(--spacing-8);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-lg);
+  background: var(--color-surface-primary);
 }
-.hero[data-health="passing"] .heroTop { background: var(--gradient-haze-success); }
-.hero[data-health="failing"] .heroTop, .hero[data-health="blocked"] .heroTop { background: var(--gradient-haze-error); }
-.heroOrb { position: relative; width: 100%; aspect-ratio: 1; }
-/* The CSS fallback (effects off, or a software renderer) is a radial gradient; round its box so no square edge shows. */
-.heroOrbFallback { border-radius: 50%; }
+.heroText { position: relative; z-index: 1; }
 .heroText { display: grid; gap: var(--spacing-3); align-content: center; min-width: 0; }
 .systemName {
   margin: 0;
@@ -32,8 +30,7 @@
 .encoding { margin: 0; max-width: 70ch; color: var(--color-text-secondary); font-family: var(--font-code); font-size: var(--font-size-xs); line-height: var(--font-line-height-relaxed); }
 .encodingLead { color: var(--color-text-primary); }
 @media (max-width: 720px) {
-  .heroTop { grid-template-columns: minmax(0, 1fr); justify-items: center; gap: var(--spacing-4); padding: var(--spacing-4); }
-  .heroOrb { width: min(240px, 70vw); }
+  .heroTop { padding: var(--spacing-5); }
 }
 .card, .states {
   display: grid;

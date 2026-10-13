@@ -1,5 +1,5 @@
-import type * as schema from "./schema";
-import type { SystemModel } from "./load";
+import type * as schema from "./schema.ts";
+import type { SystemModel } from "./load.ts";
 
 export type EntryType =
   | "system" | "thing" | "node" | "external" | "purpose" | "claim" | "feature" | "commitment"

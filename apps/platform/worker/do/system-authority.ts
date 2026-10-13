@@ -1,7 +1,7 @@
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
 import type {
-  ArtifactBinding, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
+  ArtifactBinding, PartScope, PartRecord, PartSummary, RealizedArtifact, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
 import { forkName } from "@artyfact/cli/naming";
@@ -10,6 +10,8 @@ import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentI
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
 import { ChangelogStore, type CachedChangelog } from "./changelog-store";
 import { RegistryStore } from "./registry";
+import { PartsStore } from "../parts/store";
+import type { schema } from "@artyfact/model";
 import { applySchema } from "./schema";
 
 /** Name of the DO instance holding the System registry and the realization/fork index. */
@@ -103,7 +105,7 @@ export interface BootstrapInput extends ManifestExtras {
   genomeRepo: string;
   appRepo: string;
   genomeCommit: string;
-  appCommit: string;
+  appCommit: string | null;
   platform: PlatformRef | null;
   scaffoldFrom?: ScaffoldSource;
   evolutions: EvolutionSeed[];
@@ -122,7 +124,7 @@ export interface HeadState {
   /** Repo the canonical Genome currently lives in (an accepted fork after an amendment). */
   genomeSource: string;
   /** Repo + commit of the canonical app (the promoted fork after a promotion). */
-  appSource: { repo: string; commit: string };
+  appSource: { repo: string; commit: string } | null;
   /** `platform` repo commit recorded at import (null when absent or imported before 2.7). */
   platform: PlatformRef | null;
   manifest: SystemManifest | null;
@@ -239,6 +241,10 @@ export class SystemAuthority extends DurableObject<Env> {
     applySchema(this.sql);
   }
 
+  listParts(scope: PartScope): PartSummary[] { return new PartsStore(this.sql).listParts(scope); }
+  getPart(scope: PartScope, partId: string, version: string): PartRecord | null { return new PartsStore(this.sql).getPart(scope, partId, version); }
+  async publishPart(scope: PartScope, pkg: schema.PartPackage): Promise<PartRecord> { return new PartsStore(this.sql).publishPart(scope, pkg); }
+
   // ---------------------------------------------------------------- helpers
 
   private all(q: string, ...args: SqlStorageValue[]): Row[] {
@@ -312,7 +318,7 @@ export class SystemAuthority extends DurableObject<Env> {
       appRepo: this.kv("app_repo")!,
       genomeCommit: this.kv("genome_commit")!,
       genomeSource: this.kv("genome_source") ?? this.kv("genome_repo")!,
-      appSource: { repo: this.kv("app_source_repo") ?? this.kv("app_repo")!, commit: this.kv("app_source_commit")! },
+      appSource: this.kv("app_source_commit") ? { repo: this.kv("app_source_repo") ?? this.kv("app_repo")!, commit: this.kv("app_source_commit")! } : null,
       platform: this.platformRef(),
       manifest: this.readManifest(head),
     };
@@ -381,10 +387,10 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   /** Repos and commits of the last import (null before the first): an import of exactly these keeps the canonical head. */
-  importBase(): { genomeRepo: string; genomeCommit: string; appRepo: string; appCommit: string } | null {
+  importBase(): { genomeRepo: string; genomeCommit: string; appRepo: string; appCommit: string | null } | null {
     const genomeRepo = this.kv("genome_repo");
     if (!genomeRepo) return null;
-    return { genomeRepo, genomeCommit: this.kv("imported_genome_commit")!, appRepo: this.kv("app_repo")!, appCommit: this.kv("imported_app_commit")! };
+    return { genomeRepo, genomeCommit: this.kv("imported_genome_commit")!, appRepo: this.kv("app_repo")!, appCommit: this.kv("imported_app_commit") };
   }
 
   /**
@@ -421,10 +427,10 @@ export class SystemAuthority extends DurableObject<Env> {
     // A re-point of the same app repo without a scaffold source (a re-run of init on a seeded app) keeps the recorded one.
     const prevApp = this.readManifest(this.kv("head"))?.artifacts?.[input.artifactId];
     const scaffoldFrom = input.scaffoldFrom ?? (prevApp && this.kv("app_repo") === input.appRepo ? prevApp.scaffoldFrom : undefined);
-    const app: ArtifactBinding = { repo: input.appRepo, commit: input.appCommit, ...(scaffoldFrom && { scaffoldFrom }) };
+    const app: ArtifactBinding | null = input.appCommit ? { repo: input.appRepo, commit: input.appCommit, ...(scaffoldFrom && { scaffoldFrom }) } : null;
     const prep = unchanged ? null : await this.prepareCommit(input, () => ({
       genomeCommit: input.genomeCommit,
-      artifacts: { [input.artifactId]: app },
+      artifacts: app ? { [input.artifactId]: app } : {},
       templateVersions: {}, hookVersions: {},
     }));
     this.ctx.storage.transactionSync(() => {
@@ -444,7 +450,7 @@ export class SystemAuthority extends DurableObject<Env> {
         this.setKv("platform_json", JSON.stringify(input.platform));
         this.writeCommit(prep, [], {
           by: "platform", policy: "import",
-          rationale: `import ${input.genomeRepo}@${input.genomeCommit.slice(0, 7)} + ${input.appRepo}@${input.appCommit.slice(0, 7)}`,
+          rationale: `import ${input.genomeRepo}@${input.genomeCommit.slice(0, 7)} + ${input.appRepo}@${input.appCommit?.slice(0, 7) ?? "no source yet"}`,
         });
       }
       this.seedEvolutions(input.evolutions, input.genomeCommit);
@@ -667,12 +673,13 @@ export class SystemAuthority extends DurableObject<Env> {
       if (["promoted", "rejected", "withdrawn"].includes(String(evo.status))) {
         throw new ConflictError("invalid-state", `evolution ${input.evolutionId} is ${evo.status}`);
       }
+      if (input.target === "app" && !s.appSource) throw new ConflictError("invalid-state", "This Thing has no source artifact yet; accept a Genome binding and import its source before application work");
       const n = Number(this.kv("realization_seq") ?? 0) + 1;
       this.setKv("realization_seq", String(n));
       const id = `realization.${evolutionShort(input.evolutionId)}.r${n}`;
       const namingRepo = input.target === "genome" ? s.genomeRepo : s.appRepo;
-      const baseRepo = input.target === "genome" ? s.genomeSource : s.appSource.repo;
-      const baseCommit = input.target === "genome" ? s.genomeCommit : s.appSource.commit;
+      const baseRepo = input.target === "genome" ? s.genomeSource : s.appSource!.repo;
+      const baseCommit = input.target === "genome" ? s.genomeCommit : s.appSource!.commit;
       const forkRepo = forkName(namingRepo, n);
       const at = nowIso();
       this.sql.exec(
@@ -1315,11 +1322,14 @@ export class SystemAuthority extends DurableObject<Env> {
     this.emitDeployments([out.deployment, ...out.superseded]);
     return out.deployment;
   }
-  setDeploymentResult(id: string, result: { status?: "live" | "failed"; buildRow?: string; url?: string; buildId?: string }): Deployment | null {
+  setDeploymentResult(id: string, result: { status?: "live" | "failed"; buildRow?: string; url?: string; buildId?: string; realizedArtifactId?: string }): Deployment | null {
     const out = this.builds_().setDeploymentResult(id, result);
     if (out?.changed) this.emitDeployments([out.deployment, ...out.superseded]);
     return out?.deployment ?? null;
   }
+  realizedArtifactForBuild(buildRow: string): RealizedArtifact | null { return this.builds_().realizedArtifactForBuild(buildRow); }
+  realizedArtifact(id: string): RealizedArtifact | null { return this.builds_().realizedArtifact(id); }
+  realizedArtifacts(): RealizedArtifact[] { return this.builds_().realizedArtifacts(); }
   deployment(id: string): Deployment | null { return this.builds_().deployment(id); }
   deployments(filter: { kind?: BuildKind; limit?: number } = {}): Deployment[] { return this.builds_().deployments(filter); }
   liveProduction(): Deployment | null { return this.builds_().liveProduction(); }
@@ -1360,7 +1370,7 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   private summaryExtras(s: HeadState): Omit<SystemSummary, "systemId" | "title" | "head" | "genomeRepo" | "appRepo" | "genomeCommit" | "phase" | "evolutionCounts" | "updatedAt"> {
-    const builds = this.buildsSummary(s.appSource.commit);
+    const builds = this.buildsSummary(s.appSource?.commit);
     const inStatus = (xs: string[]) => this.count(`SELECT COUNT(*) AS n FROM realizations WHERE status IN (${xs.map(() => "?").join(",")})`, ...xs);
     const realizationCounts = {
       evolving: inStatus(["claimed", "working", "evaluating"]),
@@ -1391,7 +1401,7 @@ export class SystemAuthority extends DurableObject<Env> {
     if (s.phase === "unrealized" && everCandidates === 0) signifiers.push("unrealized");
 
     return {
-      ...(s.appSource.commit && { appCommit: s.appSource.commit }),
+      ...(s.appSource?.commit && { appCommit: s.appSource.commit }),
       built, realizationCounts, openCandidates, ...builds, phenome, ...(readiness && { readiness }), signifiers,
     };
   }

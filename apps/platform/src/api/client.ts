@@ -5,8 +5,9 @@ import {
   type CreateEvolutionResponse, type DeploymentsResponse, type EditorCommitRequest, type EditorCommitResponse, type EvaluationsResponse,
   type EvolutionsResponse, type FileCompare, type FileResponse, type FileScope, type FilesResponse, type GenomeCandidateReview,
   type GenomeCompare, type HistoryResponse, type ModelBundle, type PhenomeEventsQuery, type PhenomeEventsResponse, type PromoteRequest,
-  type PromoteResponse, type ReadinessReport, type RejectRequest, type RejectResponse, type RevisionsResponse, type SseEvent,
+  type PartResponse, type PromoteResponse, type ReadinessReport, type RealizedArtifactsResponse, type RejectRequest, type RejectResponse, type RevisionsResponse, type SseEvent,
   type StartWorkRequest, type StartWorkResponse, type SystemCompare, type SystemSummary,
+  type PartsResponse,
 } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
 
@@ -47,6 +48,10 @@ const enc = encodeURIComponent;
 /** Every route the client calls, in one place. All are under `/api`. */
 export const paths = {
   systems: () => `/api/systems`,
+  parts: () => "/api/parts",
+  systemParts: (s: string) => `/api/systems/${enc(s)}/parts`,
+  systemPart: (s: string, partId: string, version: string) => `/api/systems/${enc(s)}/parts/${enc(partId)}/${enc(version)}`,
+  part: (partId: string, version: string) => `/api/parts/${enc(partId)}/${enc(version)}`,
   model: (s: string, rev: string) => `/api/systems/${enc(s)}/model?rev=${enc(rev)}`,
   readiness: (s: string, rev: string) => `/api/systems/${enc(s)}/readiness?rev=${enc(rev)}`,
   evolutions: (s: string) => `/api/systems/${enc(s)}/evolutions`,
@@ -77,6 +82,7 @@ export const paths = {
   realizationBuilds: routes.realizationBuilds,
   deployments: routes.deployments,
   phenomeEvents: routes.phenomeEvents,
+  artifacts: (s: string) => `/api/systems/${enc(s)}/artifacts`,
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -187,6 +193,16 @@ async function writeOrThrow<T>(action: string, run: () => Promise<T>): Promise<T
 export async function getSystems(): Promise<SystemSummary[]> {
   return (await resolveMode()).systems;
 }
+
+/** Shared, immutable Part catalog. System-private packages require an explicit System route and are never requested here. */
+export const getParts = () => readOrEmpty<PartsResponse>({ parts: [] }, () => request<PartsResponse>(paths.parts()));
+export const getPart = (partId: string, version: string) => request<PartResponse>(paths.part(partId, version));
+export const getSystemParts = (systemId: string, token: string) => request<PartsResponse>(paths.systemParts(systemId), { headers: { authorization: `Bearer ${token}` } });
+export const getSystemPart = (systemId: string, partId: string, version: string, token: string) => request<PartResponse>(paths.systemPart(systemId, partId, version), { headers: { authorization: `Bearer ${token}` } });
+
+/** Realized outputs are independent records; an empty list is meaningful for Genome-only Things. */
+export const getRealizedArtifacts = (systemId: string) =>
+  readOrEmpty<RealizedArtifactsResponse>({ artifacts: [] }, () => request<RealizedArtifactsResponse>(paths.artifacts(systemId)));
 
 /** `rev` is `head`/`canonical`, a System commit id or a candidate id. */
 export async function getModel(systemId: string, rev: string): Promise<UiBundle> {

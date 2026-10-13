@@ -41,6 +41,11 @@ CREATE TABLE IF NOT EXISTS phenome_events (seq INTEGER PRIMARY KEY AUTOINCREMENT
   system_commit TEXT, kind TEXT NOT NULL, subject TEXT, emitted_at TEXT NOT NULL, received_at TEXT NOT NULL, payload_json TEXT);
 CREATE INDEX IF NOT EXISTS phenome_by_build ON phenome_events (build_id, seq);
 CREATE INDEX IF NOT EXISTS phenome_by_deployment ON phenome_events (deployment_id, seq);
+CREATE TABLE IF NOT EXISTS realized_artifacts (id TEXT PRIMARY KEY, thing_id TEXT NOT NULL, artifact_id TEXT NOT NULL,
+  source_repo TEXT NOT NULL, source_commit TEXT NOT NULL, genome_commit TEXT NOT NULL,
+  build_row TEXT NOT NULL UNIQUE, locator TEXT, digest TEXT, created_at TEXT NOT NULL,
+  CHECK(locator IS NOT NULL OR digest IS NOT NULL));
+CREATE INDEX IF NOT EXISTS realized_by_source ON realized_artifacts(source_repo, source_commit);
 CREATE TABLE IF NOT EXISTS changelog_cache (commit_id TEXT PRIMARY KEY, row_json TEXT NOT NULL, entry_json TEXT, created_at TEXT NOT NULL);
 `;
 
@@ -49,6 +54,13 @@ CREATE TABLE IF NOT EXISTS changelog_cache (commit_id TEXT PRIMARY KEY, row_json
  * so each is added on construction when `pragma_table_info` lacks it.
  */
 export const ADDED_COLUMNS: [table: string, column: string, type: string][] = [
+  ["builds", "source_repo", "TEXT"],
+  ["builds", "genome_commit", "TEXT"],
+  ["builds", "thing_id", "TEXT"],
+  ["builds", "artifact_id", "TEXT"],
+  ["deployments", "realized_artifact_id", "TEXT"],
+  ["phenome_events", "realized_artifact_id", "TEXT"],
+  ["phenome_events", "genome_commit", "TEXT"],
   ["realizations", "base_repo", "TEXT"],
   ["realizations", "base_head", "TEXT"],
   ["realizations", "role", "TEXT"],

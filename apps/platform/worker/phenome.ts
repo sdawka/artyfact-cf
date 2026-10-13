@@ -8,8 +8,9 @@ import type { PhenomeEventsQuery, PhenomeEventsResponse, PhenomeIngestResponse }
 import { artifactsFor, withRepo } from "./artifacts/client";
 import { bearer, safeEqual } from "./auth";
 import { type PhenomePrincipal, type PhenomeRow } from "./do/phenome-store";
+import type { HeadState } from "./do/system-authority";
 import { badRequest, HttpError, notFound } from "./errors";
-import { refreshRegistry, registryStub, systemStub } from "./service";
+import { genomeAt, refreshRegistry, registryStub, systemStub } from "./service";
 import { canonicalJson, sha256Hex } from "./util";
 
 export type IngestPrincipal = { kind: "admin" } | PhenomePrincipal;
@@ -54,6 +55,99 @@ async function forkHead(env: Env, systemId: string, realizationId: string): Prom
   } catch {
     return null;
   }
+}
+
+interface Association {
+  thingId: string;
+  artifactId: string;
+  sourceRepo: string;
+  sourceCommit: string;
+  genomeCommit: string;
+  outputId: string | null;
+}
+
+async function realizationGenomeCommit(stub: ReturnType<typeof systemStub>, realizationId: string): Promise<string | undefined> {
+  const rec = await stub.realization(realizationId);
+  if (!rec) return undefined;
+  const baseHead = rec.realization.baseRevision;
+  if (baseHead) {
+    const base = await stub.systemCommit(baseHead);
+    if (base?.composition?.genomeCommit) return base.composition.genomeCommit;
+  }
+  return undefined;
+}
+
+async function modelOwner(
+  env: Env, state: HeadState, genomeCommit: string, artifactId?: string,
+): Promise<{ thingId: string; artifactId: string } | null> {
+  for (const repo of new Set([state.genomeSource, state.genomeRepo])) {
+    try {
+      const model = (await genomeAt(env, state.systemId, genomeCommit, repo)).model;
+      const matches = model.things.flatMap((thing) => thing.artifacts
+        .filter((artifact) => artifactId ? artifact.artifact === artifactId : artifact.type === "worker-fullstack")
+        .map((artifact) => ({ thingId: thing.id, artifactId: artifact.artifact })));
+      return matches.length === 1 ? matches[0] : null;
+    } catch { /* try the canonical import repo for historic Genome revisions */ }
+  }
+  return null;
+}
+
+/** Resolve ownership from stored output/build/deployment/System/candidate records, then confirm the Thing in that Genome. */
+async function authoritativeAssociation(env: Env, systemId: string, principal: IngestPrincipal, commit: string): Promise<Association | null> {
+  const stub = systemStub(env, systemId);
+  const state = await stub.state();
+  if (!state) return null;
+  if (principal.kind === "deployment" && principal.association) {
+    const a = principal.association;
+    if (a.source.commit !== commit || a.source.repo !== principal.repo) return null;
+    return {
+      thingId: a.thingId, artifactId: a.artifactId, sourceRepo: a.source.repo, sourceCommit: a.source.commit,
+      genomeCommit: a.genomeCommit, outputId: a.id || null,
+    };
+  }
+
+  let sourceRepo: string | undefined, genomeCommit: string | undefined, artifactId: string | undefined;
+  if (principal.kind === "deployment") {
+    sourceRepo = principal.repo;
+    if (principal.systemCommit) {
+      const sc = await stub.systemCommit(principal.systemCommit);
+      genomeCommit = sc?.composition?.genomeCommit;
+      artifactId = Object.entries(sc?.composition?.artifacts ?? {}).find(([, a]) => a.repo === sourceRepo && a.commit === commit)?.[0];
+    }
+    if (!artifactId && principal.realizationId) {
+      const rec = await stub.realization(principal.realizationId);
+      if (rec?.target === "app" && rec.forkRepo === sourceRepo) genomeCommit = await realizationGenomeCommit(stub, principal.realizationId);
+    }
+    if (!artifactId && state.appSource?.repo === sourceRepo && state.appSource.commit === commit) {
+      genomeCommit = state.genomeCommit;
+      artifactId = Object.entries(state.manifest?.artifacts ?? {}).find(([, a]) => a.repo === sourceRepo && a.commit === commit)?.[0];
+    }
+    if (!genomeCommit) {
+      const candidate = (await stub.candidates()).find((c) => c.commit === commit);
+      const rec = candidate ? await stub.realization(candidate.realization) : null;
+      if (rec?.target === "app" && rec.forkRepo === sourceRepo) genomeCommit = await realizationGenomeCommit(stub, rec.realization.id);
+    }
+  } else if (principal.kind === "realization") {
+    const rec = await stub.realization(principal.id);
+    if (rec?.target === "app") { sourceRepo = rec.forkRepo; genomeCommit = await realizationGenomeCommit(stub, principal.id); }
+  } else {
+    for (const sc of await stub.history()) {
+      const match = Object.entries(sc.composition?.artifacts ?? {}).find(([, a]) => a.commit === commit);
+      if (match) { artifactId = match[0]; sourceRepo = match[1].repo; genomeCommit = sc.composition!.genomeCommit; break; }
+    }
+    if (!sourceRepo) {
+      const candidate = (await stub.candidates()).find((c) => c.commit === commit);
+      const rec = candidate ? await stub.realization(candidate.realization) : null;
+      if (rec?.target === "app") { sourceRepo = rec.forkRepo; genomeCommit = await realizationGenomeCommit(stub, rec.realization.id); }
+    }
+    if (!sourceRepo && state.appSource?.commit === commit) {
+      sourceRepo = state.appSource.repo; genomeCommit = state.genomeCommit;
+      artifactId = Object.entries(state.manifest?.artifacts ?? {}).find(([, a]) => a.repo === sourceRepo && a.commit === commit)?.[0];
+    }
+  }
+  if (!sourceRepo || !genomeCommit) return null;
+  const owner = await modelOwner(env, state, genomeCommit, artifactId);
+  return owner ? { ...owner, sourceRepo, sourceCommit: commit, genomeCommit, outputId: null } : null;
 }
 
 /**
@@ -107,21 +201,46 @@ export async function ingestEvents(env: Env, systemId: string, principal: Ingest
       commit = full;
     }
     let buildId = e.buildId;
-    if (principal.kind !== "admin") {
-      // The build id is the commit (or, for a deployment, the id the platform recorded); anything else would split versions.
+    // A unique stored runtime ID is authoritative. Commit-prefix compatibility is for legacy identities only.
+    const matchesDeploymentBuild = (recorded: string | null | undefined) => {
+      const legacy = !recorded || (/^[0-9a-f]{7,40}$/.test(recorded) && commit.startsWith(recorded));
+      return legacy ? e.buildId.length >= 7 && commit.startsWith(e.buildId) : e.buildId === recorded;
+    };
+    if (principal.kind === "deployment") {
+      if (!matchesDeploymentBuild(principal.buildId)) { drop(index, "build-mismatch"); continue; }
       if (commit.startsWith(e.buildId) && e.buildId.length >= 7) buildId = commit;
-      else if (principal.kind === "deployment" && principal.buildId && e.buildId === principal.buildId) buildId = e.buildId;
+    } else if (principal.kind === "realization") {
+      if (commit.startsWith(e.buildId) && e.buildId.length >= 7) buildId = commit;
       else { drop(index, "build-mismatch"); continue; }
     }
+    let association = await authoritativeAssociation(env, systemId, principal, commit);
+    if (!association) { drop(index, "association-unknown"); continue; }
+    let deploymentId = principal.kind === "deployment" ? principal.id : e.deploymentId ?? null;
+    if (principal.kind !== "deployment" && e.deploymentId) {
+      const claimed = await stub.deployment(e.deploymentId);
+      if (claimed?.commit === commit && claimed.repo === association.sourceRepo && matchesDeploymentBuild(claimed.buildId)) {
+        const output = claimed.output
+          ? await stub.realizedArtifact(claimed.output)
+          : claimed.build ? await stub.realizedArtifactForBuild(claimed.build) : null;
+        if (output) {
+          if (output.source.commit !== commit || output.source.repo !== claimed.repo) { drop(index, "association-unknown"); continue; }
+          association = {
+            thingId: output.thingId, artifactId: output.artifactId, sourceRepo: output.source.repo, sourceCommit: output.source.commit,
+            genomeCommit: output.genomeCommit, outputId: output.id || null,
+          };
+        }
+      } else deploymentId = null;
+    }
+    if (e.thingId !== association.thingId || e.artifactId !== association.artifactId) { drop(index, "artifact-association-mismatch"); continue; }
     staged.push({
       index,
       row: {
         // Namespaced per principal so one cannot suppress another's events by reusing an id.
         eventId: `${principal.kind === "admin" ? "admin" : `${principal.kind}:${principal.id}`}${EVENT_ID_SEP}${e.id ?? (await sha256Hex(canonicalJson({ ...e, systemId })))}`,
-        deploymentId: principal.kind === "deployment" ? principal.id : e.deploymentId ?? null,
-        // thingId and artifactId are recorded as the emitter states them; the model at that commit is not consulted.
-        thingId: e.thingId, artifactId: e.artifactId, buildId, commit,
+        deploymentId,
+        thingId: association.thingId, artifactId: association.artifactId, buildId, commit,
         kind: e.kind, subject: e.subject ?? null, criterion: e.criterion ?? null, emittedAt: e.emittedAt, payload: e.payload,
+        realizedArtifactId: association.outputId, genomeCommit: association.genomeCommit, sourceRepo: association.sourceRepo,
       },
     });
   }
@@ -129,7 +248,7 @@ export async function ingestEvents(env: Env, systemId: string, principal: Ingest
   let accepted = 0;
   if (staged.length) {
     const realizationId = principal.kind === "realization" ? principal.id : principal.kind === "deployment" ? principal.realizationId : null;
-    const inserted = await stub.phenomeIngest(staged.map((s) => s.row), realizationId, principal.kind === "realization");
+    const inserted = await stub.phenomeIngest(staged.map((s) => s.row), realizationId, principal.kind !== "deployment");
     staged.forEach((s, i) => (inserted[i] ? accepted++ : drop(s.index, "duplicate")));
     if (accepted) await refreshRegistryThrottled(env, systemId);
   }

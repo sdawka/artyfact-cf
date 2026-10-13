@@ -51,3 +51,15 @@ system.yaml (template social-networking.cloudflare@1, profile private-relationsh
 ## A.5 Tests
 schema round-trip · load counts (1 thing, 8 screens, 7 externals, 5 claims, 6 + ≥14 criteria, ≥7 journeys, 6 evolutions) · index integrity (linksIn inverse of linksOut; `path("affordance.AddContactDialog.save")`) · validate clean (0 errors; documented missing/warnings) · dangling beneficiary R3 · recipient array R9 · coverage R5/R6 · template conformance R12 (remove section.ui → error; swap to vue-webapp@1 → still valid) · journeys cover screens · diff semantic · overlap soft conflict · mermaid projection.
 
+
+## A.6 Parts and artifact aspects (accepted contract; implementation tracked in GRREAT)
+
+This supersedes A.3 R11's non-empty artifact requirement: a Thing is a Genome-defined subject and may have zero Parts and zero artifacts. A System remains a distinct context/governance wrapper even when its only Thing is a full application.
+
+A Part is an immutable versioned reusable package, partial or complete, containing optional model/files, named inputs/defaults, and pinned nested Parts. Shared Parts cannot depend on System-private Parts. A recipe names each contribution separately, selects/masks/parameterizes content, declares scoped replacements or combinations, and may run explicit authoring commands. Undeclared collisions stop composition. Loading a Genome never executes a recipe or command. Explicit local execution runs nested contributions and their recipes before containing Part adapters, then the outer recipe; repeated contributions retain separate command identity.
+
+Composition produces ordinary saved Genome and source files plus provenance: pinned package/input identities, contribution identity, and retained/adapted/replaced/combined/excluded output mappings. Repeated uses receive distinct identities. Explicit command execution updates changed/deleted mappings and records command-created files with command identity rather than an invented package source path. Extraction copies selected/generalized content from a Thing revision without mutating it; masked content is absent from the package payload. Upgrades are explicit three-way comparisons of prior generated baseline, customized current content, and new output; preserve edits or surface conflicts. Published versions cannot mutate. Legacy templates and IDs remain supported.
+
+Source Artifact means authored code/config/assets/manifests, excluding dependencies/caches/generated output. Realized Artifact means one specific build output with its own identity, source and Genome lineage, locator/digest, and separate deployment instances. Rebuilding identical source can produce distinct outputs. Historic output identity remains unknown where unavailable. Phenome evidence must resolve through authoritative Thing/source/output association.
+
+See [the delivery roadmap](../grreat/roadmap.md) for implementation status and acceptance.

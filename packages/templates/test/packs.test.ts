@@ -10,7 +10,7 @@ import type { PackFixture } from "./fixtures/types";
 
 // Rule ids per docs/design/rules.md D.3 that must fire from the pack's own fixtures.
 const inventory: Record<string, string[]> = {
-  metamodel: ["ref.dangling", "ref.parentMissing", "tree.cycle", "tree.multiParent", "owner.unknown", "criterion.subjectMissing", "criterion.ownerMissing", "thing.noArtifact", "thing.sectionMissing"],
+  metamodel: ["ref.dangling", "ref.parentMissing", "tree.cycle", "tree.multiParent", "owner.unknown", "criterion.subjectMissing", "criterion.ownerMissing", "thing.sectionMissing"],
   readiness: ["coverage.requirement", "coverage.hook", "hook.unbound", "template.sectionMissing", "template.criterionMissing", "template.unknown", "kit.unpinned", "evolution.acceptanceMissing", "evolution.affectsMissing"],
   authorization: ["authz.ungoverned", "authz.policyConflict", "authz.privateReadUngoverned"],
   theory: ["purpose.beneficiary", "purpose.beneficiaryKind", "theory.indicator", "theory.method", "theory.beneficiary", "theory.outcomeUnlinked"],

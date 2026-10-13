@@ -1,6 +1,6 @@
 /**
  * Event moments: views announce a promotion, a submission, a commit or a failing evaluation as an `artyfact:fx` window
- * event, and the signature effects (the Overview orb, the Shell's ambient field) react. Fire-and-forget: nothing
+ * event, and the signature effects (the Overview surface, the Shell's ambient field) react. Fire-and-forget: nothing
  * depends on a listener, and the hooks here never touch business logic.
  */
 import { useEffect, useRef } from "react";

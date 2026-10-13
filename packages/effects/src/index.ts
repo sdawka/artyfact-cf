@@ -1,23 +1,12 @@
-/**
- * @artyfact/effects: WebGL signature effects for artyfact UIs.
- *
- * - `Orb`: a glass sphere with a plasma rim, flares, spark arcs, settled dust and a haze pool.
- * - `AmbientField`: cheap full-bleed haze and motes for page backgrounds.
- * - `EffectsProvider` / `useEffectsEnabled`: a global off switch and reduced-motion handling.
- *
- * SSR-safe: components render an empty container on the server and load the WebGL engine (and ogl) lazily in an effect.
- * Without WebGL2 (jsdom, old browsers), on a software renderer (SwiftShader, llvmpipe) or with effects disabled they
- * render a CSS radial-gradient fallback instead.
- */
-export { Orb, type OrbHandle, type OrbProps } from "./orb/Orb";
+/** Shared decorative effects. SurfaceField is card-local CSS light; AmbientField is a lazy WebGL page background. */
+export { SurfaceField, type SurfaceFieldProps, type SurfaceHandle, type SurfacePoint } from "./surface/SurfaceField";
+export { SURFACE_PRESETS, SURFACE_PRESET_NAMES, resolveSurfaceParams, type SurfacePresetName, type SurfaceParams } from "./surface/presets";
 export { AmbientField, type AmbientFieldHandle, type AmbientFieldProps } from "./AmbientField";
 export {
   EffectsProvider, useEffectsEnabled, useEffectsSettings, useSystemReducedMotion, type EffectsProviderProps, type EffectsSettings,
 } from "./context";
-export { WHIMSY, type OrbMotion, type OrbParams, type OrbParticleShape } from "./presets";
-export { ORB_PRESETS, ORB_PRESET_NAMES, resolveOrbParams, type OrbPresetName } from "./orb/presets";
+export { WHIMSY } from "./presets";
 export { parseColor, parseCssColor, type Rgb } from "./color";
-export { buildPalette, type OrbPalette, type OrbTheme } from "./orb/palette";
 export { FALLBACK_CLASS } from "./Fallback";
 export type { EffectMode } from "./useEngine";
 export { markRectsDirty } from "./pointer";

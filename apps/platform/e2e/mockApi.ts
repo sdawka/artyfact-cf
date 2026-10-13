@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import type { Page, Route } from "@playwright/test";
 import type {
   Build, ChangelogEntry, ChangelogRow, Deployment, DeploymentsResponse, FileCompare, FileResponse, FilesResponse, GenomeCompare, ModelBundle,
-  PhenomeEventsResponse, RevisionOption, SystemCommit, SystemCompare, SystemSummary,
+  PartRecord, PartSummary, PhenomeEventsResponse, RealizedArtifact, RevisionOption, SystemCommit, SystemCompare, SystemSummary,
 } from "../shared/api";
 
 /**
@@ -28,6 +28,10 @@ export interface MockData {
   builds: Build[];
   deployments: DeploymentsResponse;
   phenome: PhenomeEventsResponse;
+  /** Public shared catalog only; System-private Parts are deliberately unavailable to Home. */
+  parts: PartSummary[];
+  partRecords: Record<string, PartRecord>;
+  artifacts: RealizedArtifact[];
   /** Handler for POST/PUT/PATCH/DELETE; return true when it fulfilled the route. */
   writes?: (route: Route, url: URL) => Promise<boolean> | boolean;
 }
@@ -74,8 +78,9 @@ export function defaultMockData(): MockData {
   const sc2 = commit("sc-2", "sc-1", "Add the People screen", minutesAgo(45), {
     evolutions: ["evolution.1"], candidates: ["cand.1"],
   });
-  const build = mockBuild();
-  const deployment = mockDeployment();
+  const output: RealizedArtifact = { id: "output.build.2", thingId: "thing.webapp", artifactId: "artifact.webapp", source: { repo: "keep-in-touch-app", commit: HEAD_APP }, genomeCommit: GENOME, build: "build.2", locator: "workers-version:mock-v2", digest: "sha256:mock-output", createdAt: minutesAgo(40) };
+  const build = mockBuild({ source: output.source, genomeCommit: GENOME, thingId: output.thingId, artifactId: output.artifactId, output });
+  const deployment = mockDeployment({ output: output.id });
   const changelog = [
     row(sc2, {
       evolutions: [{ id: "evolution.1", title: "People screen" }],
@@ -155,8 +160,16 @@ export function defaultMockData(): MockData {
         commit: HEAD_APP, systemCommit: "sc-2", deploymentId: "deploy.2", emittedAt: minutesAgo(3 + i * 7), receivedAt: minutesAgo(3 + i * 7),
         kind: i % 2 ? "screen.viewed" : "contact.logged", subject: i % 2 ? "screen.people" : "operation.logContact", payload: {},
       })),
-      versions: [{ key: HEAD_APP, buildId: HEAD_APP, commit: HEAD_APP, deployment: "deploy.2", systemCommit: "sc-2", count: 37 }],
+      versions: [{ output: null, genomeCommit: null, key: HEAD_APP, buildId: HEAD_APP, commit: HEAD_APP, deployment: "deploy.2", systemCommit: "sc-2", count: 37 }],
     },
+    parts: [{ partId: "part.ui.buttons", version: "2.1.0", name: "Button system", description: "Shared button primitives", scope: { kind: "shared" }, digest: "sha256:part-buttons", publishedAt: minutesAgo(90), dependencies: [] }],
+    partRecords: {
+      "part.ui.buttons@2.1.0": {
+        package: { id: "part.ui.buttons", version: "2.1.0", name: "Button system", description: "Shared button primitives", visibility: "shared", published: true, payload: { model: {}, files: {} }, inputs: [], commands: [], digest: `sha256:${"a".repeat(64)}` },
+        scope: { kind: "shared" }, digest: "sha256:part-buttons", publishedAt: minutesAgo(90),
+      },
+    },
+    artifacts: [output],
   };
 }
 
@@ -181,6 +194,11 @@ export async function mockApi(page: Page, overrides: Partial<MockData> = {}): Pr
     const q = url.searchParams;
     const parts = url.pathname.split("/").slice(2).map(decodeURIComponent); // ["systems", id, ...rest]
     if (parts[0] === "health") return json(route, { status: "ok", service: "artyfact-platform", time: new Date().toISOString() });
+    if (parts[0] === "parts") {
+      if (parts.length === 1) return json(route, { parts: data.parts });
+      const record = data.partRecords[`${parts[1]}@${parts[2]}`];
+      return record ? json(route, { part: record }) : notFound(route, "part");
+    }
     if (parts[0] !== "systems") return notFound(route, url.pathname);
     if (parts.length === 1) return json(route, { systems: data.systems });
     const [, sid, section, ...rest] = parts;
@@ -242,6 +260,8 @@ export async function mockApi(page: Page, overrides: Partial<MockData> = {}): Pr
         return json(route, data.deployments);
       case "phenome":
         return json(route, data.phenome);
+      case "artifacts":
+        return json(route, { artifacts: data.artifacts });
       case "events":
         return route.fulfill({ status: 204, body: "" });
       default:

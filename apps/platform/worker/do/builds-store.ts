@@ -2,7 +2,10 @@
  * Builds and deployments of one System (tables `builds`, `deployments` in schema.ts). Held by the SystemAuthority
  * DO, which exposes thin delegates (the `B3 builds` region) and emits the SSE events.
  */
-import type { Build, BuildKind, BuildReporter, BuildStatus, BuildStep, BuildSummary, DeployState, Deployment, DeploymentStatus } from "../../shared/api";
+import type {
+  Build, BuildKind, BuildReporter, BuildStatus, BuildStep, BuildSummary, DeployState, Deployment, DeploymentStatus,
+  RealizedArtifact, RealizedArtifactReport,
+} from "../../shared/api";
 import { nowIso } from "../util";
 
 type Row = Record<string, SqlStorageValue>;
@@ -27,6 +30,11 @@ export interface BuildUpsert {
   error?: string;
   startedAt?: string;
   finishedAt?: string;
+  sourceRepo?: string;
+  genomeCommit?: string;
+  thingId?: string;
+  artifactId?: string;
+  output?: RealizedArtifactReport;
 }
 
 export interface DeploymentInput {
@@ -40,6 +48,7 @@ export interface DeploymentInput {
   buildRow?: string;
   url?: string;
   buildId?: string;
+  realizedArtifactId?: string;
   by: string;
   ingestTokenHash?: string;
 }
@@ -70,9 +79,14 @@ export class BuildsStore {
   private buildDto(r: Row): Build {
     const opt = (k: string) => str(r[k]);
     const steps = opt("steps_json");
+    const output = this.realizedArtifactForBuild(String(r.id));
+    const sourceRepo = opt("source_repo");
     return {
       id: String(r.id), status: String(r.status) as BuildStatus, kind: String(r.kind) as BuildKind, commit: String(r.commit_hash),
       realization: str(r.realization_id) ?? null, candidate: str(r.candidate_id) ?? null, reporter: String(r.reporter) as BuildReporter,
+      ...(sourceRepo && { source: { repo: sourceRepo, commit: String(r.commit_hash) } }),
+      ...(opt("genome_commit") && { genomeCommit: opt("genome_commit") }), ...(opt("thing_id") && { thingId: opt("thing_id") }),
+      ...(opt("artifact_id") && { artifactId: opt("artifact_id") }), ...(output && { output }),
       ...(opt("url") && { url: opt("url") }), ...(opt("build_id") && { buildId: opt("build_id") }), ...(opt("logs_url") && { logsUrl: opt("logs_url") }),
       ...(opt("external_id") && { externalId: opt("external_id") }), ...(steps && { steps: JSON.parse(steps) as BuildStep[] }),
       ...(opt("error") && { error: opt("error") }), ...(opt("started_at") && { startedAt: opt("started_at") }), ...(opt("finished_at") && { finishedAt: opt("finished_at") }),
@@ -94,6 +108,21 @@ export class BuildsStore {
     const prevRow = this.one("SELECT * FROM builds WHERE id = ?", input.id);
     const prev = prevRow ? this.buildDto(prevRow) : null;
     if (prev && TERMINAL_BUILD.includes(prev.status) && !TERMINAL_BUILD.includes(input.status)) return { build: prev, changed: false };
+    const lineage = [
+      ["source repo", input.sourceRepo, prev?.source?.repo], ["source commit", input.commit, prev?.source?.commit],
+      ["Genome commit", input.genomeCommit, prev?.genomeCommit], ["Thing", input.thingId, prev?.thingId], ["artifact", input.artifactId, prev?.artifactId],
+    ] as const;
+    for (const [name, next, before] of lineage) {
+      if (next !== undefined && before !== undefined && next !== before) throw new Error(`build ${input.id} lineage cannot change its ${name}`);
+    }
+    const priorOutput = prev?.output;
+    if (input.output) {
+      if (!input.output.locator && !input.output.digest) throw new Error("a realized output needs a locator or digest");
+      if (input.status !== "passed") throw new Error("a realized output may be recorded only for a passed build");
+      if (priorOutput && (input.output.locator !== priorOutput.locator || input.output.digest !== priorOutput.digest)) {
+        throw new Error(`realized output ${priorOutput.id} cannot change`);
+      }
+    }
     const now = nowIso();
     const merged = {
       realization_id: input.realization ?? prev?.realization ?? null,
@@ -111,22 +140,64 @@ export class BuildsStore {
       error: input.error ?? (input.status === "failed" || input.status === "error" ? prev?.error ?? null : null),
       started_at: input.startedAt ?? prev?.startedAt ?? null,
       finished_at: input.finishedAt ?? prev?.finishedAt ?? (TERMINAL_BUILD.includes(input.status) ? now : null),
+      source_repo: input.sourceRepo ?? prev?.source?.repo ?? null,
+      genome_commit: input.genomeCommit ?? prev?.genomeCommit ?? null,
+      thing_id: input.thingId ?? prev?.thingId ?? null,
+      artifact_id: input.artifactId ?? prev?.artifactId ?? null,
     };
+    let changed = false;
     if (prev) {
-      if ((Object.keys(merged) as (keyof typeof merged)[]).every((k) => (prevRow![k] ?? null) === merged[k])) return { build: prev, changed: false };
-      this.sql.exec(
-        `UPDATE builds SET realization_id = ?, candidate_id = ?, commit_hash = ?, kind = ?, status = ?, url = ?, build_id = ?, logs_url = ?, reporter = ?,
-         external_id = ?, steps_json = ?, error = ?, started_at = ?, finished_at = ?, updated_at = ? WHERE id = ?`,
-        ...Object.values(merged), now, input.id,
-      );
+      changed = !(Object.keys(merged) as (keyof typeof merged)[]).every((k) => (prevRow![k] ?? null) === merged[k]);
+      if (changed) {
+        this.sql.exec(
+          `UPDATE builds SET realization_id = ?, candidate_id = ?, commit_hash = ?, kind = ?, status = ?, url = ?, build_id = ?, logs_url = ?, reporter = ?,
+           external_id = ?, steps_json = ?, error = ?, started_at = ?, finished_at = ?, source_repo = ?, genome_commit = ?, thing_id = ?, artifact_id = ?, updated_at = ? WHERE id = ?`,
+          ...Object.values(merged), now, input.id,
+        );
+      }
     } else {
       this.sql.exec(
         `INSERT INTO builds (realization_id, candidate_id, commit_hash, kind, status, url, build_id, logs_url, reporter, external_id, steps_json, error,
-         started_at, finished_at, id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+         started_at, finished_at, source_repo, genome_commit, thing_id, artifact_id, id, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         ...Object.values(merged), input.id, now, now,
       );
+      changed = true;
     }
-    return { build: this.build(input.id)!, changed: true };
+    if (input.output && !priorOutput) {
+      const sourceRepo = merged.source_repo, genomeCommit = merged.genome_commit, thingId = merged.thing_id, artifactId = merged.artifact_id;
+      if (!sourceRepo || !genomeCommit || !thingId || !artifactId) throw new Error(`build ${input.id} needs complete lineage before recording an output`);
+      this.sql.exec(
+        `INSERT INTO realized_artifacts (id, thing_id, artifact_id, source_repo, source_commit, genome_commit, build_row, locator, digest, created_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        `output.${input.id}`, thingId, artifactId, sourceRepo, input.commit, genomeCommit, input.id,
+        input.output.locator ?? null, input.output.digest ?? null, now,
+      );
+      changed = true;
+    }
+    return { build: this.build(input.id)!, changed };
+  }
+
+  private realizedArtifactDto(r: Row): RealizedArtifact {
+    return {
+      id: String(r.id), thingId: String(r.thing_id), artifactId: String(r.artifact_id),
+      source: { repo: String(r.source_repo), commit: String(r.source_commit) }, genomeCommit: String(r.genome_commit),
+      build: String(r.build_row), ...(str(r.locator) && { locator: str(r.locator) }), ...(str(r.digest) && { digest: str(r.digest) }),
+      createdAt: String(r.created_at),
+    };
+  }
+
+  realizedArtifactForBuild(buildRow: string): RealizedArtifact | null {
+    const r = this.one("SELECT * FROM realized_artifacts WHERE build_row = ?", buildRow);
+    return r ? this.realizedArtifactDto(r) : null;
+  }
+
+  realizedArtifact(id: string): RealizedArtifact | null {
+    const r = this.one("SELECT * FROM realized_artifacts WHERE id = ?", id);
+    return r ? this.realizedArtifactDto(r) : null;
+  }
+
+  realizedArtifacts(): RealizedArtifact[] {
+    return this.all("SELECT * FROM realized_artifacts ORDER BY created_at DESC, rowid DESC").map((r) => this.realizedArtifactDto(r));
   }
 
   /** Newest first. */
@@ -168,7 +239,8 @@ export class BuildsStore {
       id: String(r.id), kind: String(r.kind) as BuildKind, status: String(r.status) as DeploymentStatus, repo: String(r.repo), commit: String(r.commit_hash),
       ...(opt("system_commit") && { systemCommit: opt("system_commit") }), ...(opt("realization_id") && { realization: opt("realization_id") }),
       ...(candidate && { candidate }), ...(opt("build_row") && { build: opt("build_row") }), ...(opt("url") && { url: opt("url") }),
-      ...(opt("build_id") && { buildId: opt("build_id") }), by: String(r.by), createdAt: String(r.created_at), updatedAt: String(r.updated_at),
+      ...(opt("build_id") && { buildId: opt("build_id") }), ...(opt("realized_artifact_id") && { output: opt("realized_artifact_id") }),
+      by: String(r.by), createdAt: String(r.created_at), updatedAt: String(r.updated_at),
     };
   }
 
@@ -200,10 +272,10 @@ export class BuildsStore {
     const now = nowIso();
     const status = input.status ?? "pending";
     this.sql.exec(
-      `INSERT INTO deployments (id, kind, status, repo, commit_hash, system_commit, realization_id, build_row, url, build_id, by, ingest_token_hash, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO deployments (id, kind, status, repo, commit_hash, system_commit, realization_id, build_row, url, build_id, by, ingest_token_hash, realized_artifact_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       id, input.kind, status, input.repo, input.commit, input.systemCommit ?? null, input.realization ?? null, input.buildRow ?? null,
-      input.url ?? null, input.buildId ?? null, input.by, input.ingestTokenHash ?? null, now, now,
+      input.url ?? null, input.buildId ?? null, input.by, input.ingestTokenHash ?? null, input.realizedArtifactId ?? null, now, now,
     );
     const superseded = status === "live" ? this.supersede(id) : [];
     return { deployment: this.deployment(id)!, superseded };
@@ -225,17 +297,19 @@ export class BuildsStore {
    * Record a build outcome on a deployment: `live` (supersedes the previous live one) or `failed`; anything else only
    * links the build row. A superseded deployment stays superseded. Returns null for an unknown id.
    */
-  setDeploymentResult(id: string, result: { status?: "live" | "failed"; buildRow?: string; url?: string; buildId?: string }): { deployment: Deployment; superseded: Deployment[]; changed: boolean } | null {
+  setDeploymentResult(id: string, result: { status?: "live" | "failed"; buildRow?: string; url?: string; buildId?: string; realizedArtifactId?: string }): { deployment: Deployment; superseded: Deployment[]; changed: boolean } | null {
     const prev = this.one("SELECT * FROM deployments WHERE id = ?", id);
     if (!prev) return null;
     const status = prev.status === "superseded" ? "superseded" : (result.status ?? String(prev.status));
     const next = {
       status, build_row: result.buildRow ?? prev.build_row ?? null, url: result.url ?? prev.url ?? null, build_id: result.buildId ?? prev.build_id ?? null,
+      realized_artifact_id: result.realizedArtifactId ?? prev.realized_artifact_id ?? null,
     };
-    const changed = next.status !== prev.status || next.build_row !== (prev.build_row ?? null) || next.url !== (prev.url ?? null) || next.build_id !== (prev.build_id ?? null);
+    const changed = next.status !== prev.status || next.build_row !== (prev.build_row ?? null) || next.url !== (prev.url ?? null)
+      || next.build_id !== (prev.build_id ?? null) || next.realized_artifact_id !== (prev.realized_artifact_id ?? null);
     if (changed) {
-      this.sql.exec("UPDATE deployments SET status = ?, build_row = ?, url = ?, build_id = ?, updated_at = ? WHERE id = ?",
-        next.status, next.build_row, next.url, next.build_id, nowIso(), id);
+      this.sql.exec("UPDATE deployments SET status = ?, build_row = ?, url = ?, build_id = ?, realized_artifact_id = ?, updated_at = ? WHERE id = ?",
+        next.status, next.build_row, next.url, next.build_id, next.realized_artifact_id, nowIso(), id);
     }
     const superseded = changed && next.status === "live" ? this.supersede(id) : [];
     return { deployment: this.deployment(id)!, superseded, changed };

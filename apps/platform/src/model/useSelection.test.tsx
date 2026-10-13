@@ -18,11 +18,19 @@ function Probe() {
     </div>
   );
 }
-const routes = [{ path: "/s/:systemId/r/:rev/:view", element: <Probe /> }];
+const routes = [{ path: "/s/:systemId/r/:rev/:view", element: <Probe /> }, { path: "/s/:systemId/r/:rev/things/:thingId/:view", element: <Probe /> }];
 const sel = () => JSON.parse(screen.getByTestId("sel").textContent!) as { focus: string | null; layer: string; candidates: string[] };
 const click = (name: string) => act(() => screen.getByRole("button", { name }).click());
 
 describe("useSelection", () => {
+  it("keeps the Thing workspace boundary when navigating views", () => {
+    const { router } = renderApp("/s/system.keep-in-touch/r/head/things/thing.webapp/map?layer=phenome", routes);
+    click("journeys");
+    expect(router.state.location.pathname).toBe("/s/system.keep-in-touch/r/head/things/thing.webapp/journeys");
+    expect(new URLSearchParams(router.state.location.search).get("focus")).toBe("screen.people");
+    expect(screen.getByTestId("href").textContent).toBe("/s/system.keep-in-touch/r/head/things/thing.webapp/changelog?focus=screen.people&layer=phenome");
+  });
+
   it("defaults layer to genome and parses candidates", () => {
     renderApp("/s/system.keep-in-touch/r/head/map?candidates=a,b", routes);
     expect(sel()).toEqual({ focus: null, layer: "genome", candidates: ["a", "b"] });

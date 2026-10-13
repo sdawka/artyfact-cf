@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   ApiRequestError, FixtureModeError, SSE_TYPES, StaleBaseError, commitFiles, createEvolution, getBuilds, getChangelog, getChangelogEntry,
-  getClientMode, getCompareFile, getCompareGenome, getCompareSystem, getDeployments, getEvaluations, getFile, getModel, getPhenomeEvents,
+  getClientMode, getCompareFile, getCompareGenome, getCompareSystem, getDeployments, getEvaluations, getFile, getModel, getPhenomeEvents, getParts, getRealizedArtifacts,
   getRevisions, getSystems, listFiles, promote, resetClientMode, startWork, subscribeEvents,
 } from "./client";
 
@@ -118,6 +118,8 @@ describe("iteration-2 reads and writes", () => {
     await getBuilds("s", { realization: "r1" });
     await getDeployments("s");
     await getPhenomeEvents("s", { deployment: "d1", limit: 50 });
+    await getParts();
+    await getRealizedArtifacts("s");
     expect(calls.slice(1).map((c) => c.url)).toEqual([
       "/api/systems/s/files?scope=app&ref=sc-2",
       "/api/systems/s/file?scope=genome&ref=head&path=things%2Fweb%20app.yaml",
@@ -131,6 +133,8 @@ describe("iteration-2 reads and writes", () => {
       "/api/systems/s/realizations/r1/builds",
       "/api/systems/s/deployments",
       "/api/systems/s/phenome/events?deployment=d1&limit=50",
+      "/api/parts",
+      "/api/systems/s/artifacts",
     ]);
   });
 

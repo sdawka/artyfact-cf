@@ -8,6 +8,7 @@ import { REGISTRY, type BootstrapInput, type SystemAuthority } from "../worker/d
 import { ingestEvents, ingestPrincipal, resetPhenomeThrottle, setPhenomeRefresh } from "../worker/phenome";
 import { sha256Hex } from "../worker/util";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
+import { genomeFiles } from "./fixtures/genome";
 
 const ADMIN = { authorization: "Bearer test-admin-token" };
 const G1 = "1".repeat(40), A1 = "a".repeat(40), A2 = "b".repeat(40), A3 = "c".repeat(40), FORK_HEAD = "d".repeat(40);
@@ -45,15 +46,18 @@ const get = async (qs = "") => {
 let rid = "";
 let secret = "";
 let ns: FakeArtifacts;
+let startingGenomeCommit = "";
 beforeEach(async () => {
   sys = `phen-${++n}-${Date.now()}`;
   resetPhenomeThrottle();
   ns = new FakeArtifacts();
   setArtifactsOverride(ns);
+  const genomeCommit = ns.create(boot.genomeRepo).commit(genomeFiles, "genome");
+  startingGenomeCommit = genomeCommit;
   secret = `secret-${n}`;
   const hash = await sha256Hex(secret);
   await inDo(async (i) => {
-    await i.bootstrap(boot);
+    await i.bootstrap({ ...boot, genomeCommit });
     const r = i.reserveRealization({ evolutionId: "evolution.1", target: "app", agentLabel: "a" });
     rid = r.realization.id;
     i.activateRealization(rid, { tokenId: "t", tokenExpires: new Date(Date.now() + 1e6).toISOString(), remote: "x", packet: { hash: "h" } as never, secretHash: hash });
@@ -68,9 +72,10 @@ async function deployment(id: string, commit: string, token: string, realization
   const hash = await sha256Hex(token);
   await inDo((i) => {
     const t = new Date().toISOString();
+    const repo = commit === A1 ? boot.appRepo : commit === A2 ? i.realization(rid)!.forkRepo : "unknown";
     sqlOf(i).exec(
-      "INSERT INTO deployments (id, kind, status, repo, commit_hash, realization_id, by, ingest_token_hash, created_at, updated_at) VALUES (?, 'production', 'live', 'r', ?, ?, 'admin', ?, ?, ?)",
-      id, commit, realization, hash, t, t,
+      "INSERT INTO deployments (id, kind, status, repo, commit_hash, realization_id, by, ingest_token_hash, created_at, updated_at) VALUES (?, 'production', 'live', ?, ?, ?, 'admin', ?, ?, ?)",
+      id, repo, commit, realization, hash, t, t,
     );
   });
 }
@@ -109,6 +114,76 @@ describe("POST phenome/events auth", () => {
     expect(list.json.events.every((e) => e.deploymentId === "dep-1")).toBe(true);
   });
 
+  it("cannot attach another fork's same-commit deployment or output to realization evidence", async () => {
+    await deployment("other-fork", A2, "other-token");
+    await inDo((i) => {
+      i.upsertBuild({ id: "other-build", realization: null, candidate: null, commit: A2, kind: "preview", status: "passed", reporter: "ci",
+        sourceRepo: "other-fork-repo", genomeCommit: startingGenomeCommit, thingId: "thing.webapp", artifactId: "artifact.webapp",
+        output: { locator: "workers-version:other" } });
+      sqlOf(i).exec("UPDATE deployments SET repo = 'other-fork-repo', build_row = 'other-build', realized_artifact_id = 'output.other-build' WHERE id = 'other-fork'");
+    });
+    const response = await post([ev({ id: "claim", deploymentId: "other-fork" })], { authorization: `Bearer ${secret}` });
+    expect(response.json).toEqual({ accepted: 1, dropped: [] });
+    const [stored] = (await get()).json.events;
+    expect(stored).not.toHaveProperty("deploymentId");
+    expect(stored).not.toHaveProperty("outputId");
+  });
+
+  it("uses a realized output's stored Thing and artifact association instead of emitter claims", async () => {
+    await inDo((i) => {
+      i.upsertBuild({
+        id: "build.realized", realization: rid, candidate: null, commit: A2, kind: "preview", status: "passed", reporter: "ci",
+        sourceRepo: i.realization(rid)!.forkRepo, genomeCommit: i.state()!.genomeCommit, thingId: "thing.webapp", artifactId: "artifact.webapp",
+        output: { locator: "workers-version:v1" },
+      });
+    });
+    await deployment("dep-output", A2, "output-token", rid);
+    await inDo((i) => sqlOf(i).exec(
+      "UPDATE deployments SET repo = ?, build_row = 'build.realized', realized_artifact_id = 'output.build.realized' WHERE id = 'dep-output'",
+      i.realization(rid)!.forkRepo,
+    ));
+    const response = await post([
+      ev({ id: "valid" }),
+      ev({ id: "wrong-thing", thingId: "thing.other" }),
+      ev({ id: "wrong-artifact", artifactId: "artifact.other" }),
+    ], { authorization: "Bearer output-token" });
+    expect(response.json).toEqual({
+      accepted: 1,
+      dropped: [
+        { index: 1, reason: "artifact-association-mismatch" },
+        { index: 2, reason: "artifact-association-mismatch" },
+      ],
+    });
+    const [stored] = (await get()).json.events;
+    expect(stored).toMatchObject({
+      id: "valid", thingId: "thing.webapp", artifactId: "artifact.webapp", outputId: "output.build.realized", genomeCommit: expect.any(String),
+    });
+  });
+
+  it("binds same-source runtime evidence to the exact deployment build identity", async () => {
+    await inDo((i) => {
+      for (const label of ["A", "B"]) {
+        const b = i.upsertBuild({ id: `build.${label}`, realization: rid, candidate: null, commit: A2, kind: "preview", status: "passed", reporter: "ci",
+          sourceRepo: i.realization(rid)!.forkRepo, genomeCommit: startingGenomeCommit, thingId: "thing.webapp", artifactId: "artifact.webapp",
+          buildId: `runtime.${label}`, output: { locator: `workers-version:${label}` } }).build;
+        // Separate scopes keep both tokens active without superseding either deployment.
+        i.createDeployment({ id: `dep.${label}`, kind: "preview", status: "live", repo: b.source!.repo, commit: A2,
+          realization: `${rid}-${label}`, buildRow: b.id, buildId: b.buildId, realizedArtifactId: b.output!.id, by: "ci" });
+      }
+    });
+    await inDo(async (i) => { i.setDeploymentIngestHash("dep.A", await sha256Hex("runtime-token-A")); });
+    const result = await post([
+      ev({ id: "legacy-SHA" }), ev({ id: "exact-runtime", buildId: "runtime.A" }), ev({ id: "other-runtime", buildId: "runtime.B" }),
+    ], { authorization: "Bearer runtime-token-A" });
+    expect(result.json).toEqual({ accepted: 1, dropped: [{ index: 0, reason: "build-mismatch" }, { index: 2, reason: "build-mismatch" }] });
+    expect((await get()).json.events[0]).toMatchObject({ outputId: "output.build.A", deploymentId: "dep.A", buildId: "runtime.A" });
+    const claimed = await post([ev({ id: "source-only", deploymentId: "dep.B" })], { authorization: `Bearer ${secret}` });
+    expect(claimed.json.accepted).toBe(1);
+    const stored = (await get()).json.events.find((event) => event.id === "source-only")!;
+    expect(stored).not.toHaveProperty("outputId");
+    expect(stored).not.toHaveProperty("deploymentId");
+  });
+
   it("a deployment's realization is stamped on its events", async () => {
     await deployment("dep-2", A2, "tok2", rid);
     await post([ev()], { authorization: "Bearer tok2" });
@@ -125,6 +200,13 @@ describe("POST phenome/events auth", () => {
     const ok = await post([ev({ commit: head.hash, buildId: head.hash, id: "forkhead" })], h);
     expect(ok.json.accepted).toBe(1);
     expect((await get(`?realization=${rid}`)).json.events).toHaveLength(2);
+  });
+
+  it("attributes realization evidence to its starting Genome after the canonical Genome advances", async () => {
+    await inDo((_i) => sqlOf(_i).exec("UPDATE head SET v = ? WHERE k = 'genome_commit'", "e".repeat(40)));
+    const r = await post([ev({ id: "historic-genome" })], { authorization: `Bearer ${secret}` });
+    expect(r.json).toEqual({ accepted: 1, dropped: [] });
+    expect((await get()).json.events[0]).toMatchObject({ id: "historic-genome", genomeCommit: startingGenomeCommit });
   });
 
   it("rejects a revoked realization secret", async () => {
@@ -229,12 +311,12 @@ describe("GET phenome/events", () => {
   it("aggregates versions by build, newest first, with counts", async () => {
     await post([
       ev({ id: "v1", deploymentId: "dep-a", commit: A1, buildId: A1 }), ev({ id: "v2", deploymentId: "dep-a", commit: A1, buildId: A1 }),
-      ev({ id: "v3", commit: A3, buildId: A3 }),
+      ev({ id: "v3", commit: A2, buildId: "build-three" }),
     ]);
     const { versions } = (await get("?limit=1")).json;
     expect(versions).toEqual([
-      { key: A3, buildId: A3, commit: A3, deployment: null, systemCommit: null, count: 1 },
-      { key: A1, buildId: A1, commit: A1, deployment: "dep-a", systemCommit: expect.stringMatching(/^sc-1/), count: 2 },
+      { key: "build-three", buildId: "build-three", commit: A2, output: null, genomeCommit: expect.any(String), deployment: null, systemCommit: null, count: 1 },
+      { key: A1, buildId: A1, commit: A1, output: null, genomeCommit: expect.any(String), deployment: null, systemCommit: expect.stringMatching(/^sc-1/), count: 2 },
     ]);
   });
 });
