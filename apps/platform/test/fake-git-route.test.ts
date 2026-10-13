@@ -24,5 +24,5 @@ it("serves fake git under FAKE_ARTIFACTS=1: no token is refused, a read token li
   const res = await get(refs, { headers: { authorization: `Bearer ${token}` } });
   expect(res.status).toBe(200);
   expect(res.headers.get("content-type")).toContain("git-upload-pack");
-  expect(await res.text()).toContain(repo.head!);
+  expect(new TextDecoder().decode(await res.arrayBuffer())).toContain(repo.head!);
 });
