@@ -34,11 +34,12 @@ export const isBlocking = (m: SystemModel, c: schema.Criterion): boolean =>
  * Gate criteria for `candidate` of `evolution`. Throws if the model or selection is unusable; callers must treat a
  * throw as "gate unavailable", never as "no gates". Acceptance ids missing from the Genome come back blocking.
  *
- * For a Genome candidate, promotion-gated criteria with `targetKind: "artifact"` are left out (they gate app candidates;
- * their hooks inspect the app tree). This keys on the criterion's target kind, not on whether its hooks could run
- * on a Genome: it assumes artifact-targeted criteria carry only artifact hooks (manifest, http-health, scope). An
- * artifact criterion with a `model-rules` or `system-one` hook would be dropped from a Genome candidate's gate;
- * no Genome has one today. The Evolution's own acceptance criteria are always kept.
+ * For a Genome candidate, only criteria with `targetKind: "model"` block: `artifact` and `runtime` criteria gate app
+ * candidates (their hooks inspect the app tree or the running app). Promotion-gated ones are left out; the Evolution's
+ * own acceptance criteria stay listed but never block, so a `mixed` Evolution's app criteria wait for its app
+ * candidates. This keys on the criterion's target kind, not on whether its hooks could run on a Genome: an artifact
+ * criterion with a `model-rules` or `system-one` hook would not gate a Genome candidate; no Genome has one today.
+ * Acceptance ids the Genome does not define are always kept, blocking.
  */
 export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "acceptanceCriteria">, candidate?: Pick<CandidateRef, "target">): GateCriterion[] {
   const byId = new Map(m.criteria.map((c) => [c.id, c] as const));
@@ -59,8 +60,12 @@ export function gateCriteria(m: SystemModel, evolution: Pick<schema.Evolution, "
     const off = offTriggerHooks(m, c);
     out.set(id, { id, severity: c.severity ?? "hard", blocking, ...(off.length && { offTriggerHooks: off }) });
   };
-  for (const id of evolution.acceptanceCriteria) add(id, true);
   const genome = candidate?.target === "genome";
-  for (const c of m.criteria) if (c.gates.includes("promotion") && !(genome && c.targetKind === "artifact")) add(c.id, true);
+  const applies = (c: schema.Criterion) => !genome || c.targetKind === "model";
+  for (const id of evolution.acceptanceCriteria) {
+    const c = byId.get(id);
+    add(id, !c || applies(c));
+  }
+  for (const c of m.criteria) if (c.gates.includes("promotion") && applies(c)) add(c.id, true);
   return [...out.values()];
 }

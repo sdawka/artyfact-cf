@@ -22,6 +22,7 @@ import { loadGenome, validate } from "@artyfact/model";
 import { metaTemplates } from "@artyfact/templates";
 import { createEvolution, startWork, systemStub } from "../worker/service";
 import { createHookRunner } from "../worker/hooks/run";
+import { gateCriteria } from "../worker/promotion";
 import { createSystemOne } from "@artyfact/semantic";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 import { fakeReceivePack } from "./helpers/fake-receive-pack";
@@ -744,10 +745,10 @@ describe("POST /intents/:pid/accept with decisions", () => {
   });
 
   it("creates a mixed Evolution with app and model criteria that admin accept makes genome-approved", async () => {
-    // Every criterion the Genome defines passes, so the admin accept is decided by the Evolution's kind alone.
+    // Only the model criteria pass: the app ones do not apply to the Genome candidate (gateCriteria), so they cannot block it.
     const all = (ctx: SubmissionContext) => {
       const at = new Date().toISOString();
-      return loadGenome(new Map(Object.entries(ctx.genomeFiles)), { templates: metaTemplates }).criteria.map((c) => ({
+      return loadGenome(new Map(Object.entries(ctx.genomeFiles)), { templates: metaTemplates }).criteria.filter((c) => c.targetKind === "model").map((c) => ({
         id: `${ctx.candidate.id}:hook:${c.id}`, candidate: ctx.candidate.id, hook: `hook:${c.id}`, criterion: c.id, ownerId: "o", subjectId: "s",
         targetRef: ctx.candidate.commit, execution: "completed" as const, verdict: "pass" as const, verifier: "artyfact-platform",
         startedAt: at, finishedAt: at, observations: [], limitations: [], provenance: {},
@@ -773,5 +774,21 @@ describe("POST /intents/:pid/accept with decisions", () => {
       { realizationId: r.json.realization.id, candidateId: r.json.candidate.id, commit: r.json.commit, interpretation: "ok" });
     expect(acc.status, JSON.stringify(acc.json)).toBe(200);
     expect((await systemStub(env, s.systemId).evolution(r.json.evolution.id))?.state).toBe("genome-approved");
+  });
+
+  it("gates a Genome candidate on model criteria only, an app candidate on its app criteria too", () => {
+    const m = loadGenome(new Map(Object.entries(genome)), { templates: metaTemplates });
+    const kind = (id: string) => m.criteria.find((c) => c.id === id)?.targetKind;
+    const app = m.criteria.filter((c) => c.targetKind === "artifact" || c.targetKind === "runtime").map((c) => c.id);
+    const model = m.criteria.filter((c) => c.targetKind === "model").map((c) => c.id);
+    expect(app.length && model.length).toBeTruthy();
+    const evo = { acceptanceCriteria: [...app, ...model, "C.nope"] };
+    const onGenome = gateCriteria(m, evo, { target: "genome" });
+    expect(onGenome.filter((g) => g.blocking && g.id !== "C.nope").every((g) => kind(g.id) === "model")).toBe(true);
+    expect(onGenome.filter((g) => app.includes(g.id)).every((g) => !g.blocking)).toBe(true);
+    expect(onGenome.find((g) => g.id === "C.nope")).toMatchObject({ blocking: true });
+    const blockingOnApp = gateCriteria(m, evo, { target: "app" }).filter((g) => g.blocking && app.includes(g.id)).map((g) => g.id);
+    expect(blockingOnApp.length).toBeGreaterThan(0);
+    expect(onGenome.filter((g) => blockingOnApp.includes(g.id)).map((g) => g.blocking)).toEqual(blockingOnApp.map(() => false));
   });
 });
