@@ -6,7 +6,7 @@ import { diffModels, type Readiness, type schema, type SystemModel } from "@arty
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, DeleteSystemResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportReview, ImportReviewAccept, ImportReviewAcceptResponse, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, ProposalPlanNode,
+  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, DeleteSystemResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportReview, ImportReviewAccept, ImportReviewAcceptResponse, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, ProposalPlanNode, ProposedOp,
   ReadinessResponse, RealizationResponse, SystemSummary, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SubmitSource, SyncResponse,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
@@ -360,10 +360,11 @@ export async function importReview(env: Env, systemId: string): Promise<ImportRe
 }
 
 /**
- * `POST /api/systems/:id/import-review/accept` (admin): the review becomes `accepted` (recording the interpretation and
- * the rejected nodes), and rejected nodes become `remove` ops pushed through the intents accept path as an ordinary
- * awaiting-admin Genome amendment. A node under another rejected node is covered by the ancestor's removal. A failure
- * before the amendment is pushed returns the review to pending.
+ * `POST /api/systems/:id/import-review/accept` (admin): the review flips pending → accepted by a DO compare-and-set
+ * (a concurrent second accept is 409 `invalid-state`), recording the interpretation and the rejected nodes. Rejected
+ * nodes (a node under another rejected node is covered by the ancestor's removal) become `remove` ops, preceded by an
+ * `unlink` op for every link a surviving node holds to a removed one, pushed through the intents accept path as an
+ * ordinary awaiting-admin Genome amendment. A failure before the amendment is pushed returns the review to pending.
  */
 export async function acceptImportReview(env: Env, systemId: string, body: Partial<ImportReviewAccept>, platformUrl: string): Promise<ImportReviewAcceptResponse> {
   const { interpretation, rejectedNodes } = body;
@@ -382,15 +383,25 @@ export async function acceptImportReview(env: Env, systemId: string, body: Parti
   if (roots.length && s.genomeCommit !== review.genomeCommit) {
     throw conflict("stale-base", "the Genome moved since the import; rejected nodes cannot be removed from the reviewed commit");
   }
+  const ops: ProposedOp[] = [];
+  if (roots.length) {
+    // Every node of a removed subtree, and the links surviving nodes (externals included) hold to any of them.
+    const removed = new Set([...reviewable].filter(([id, ancestors]) => roots.includes(id) || ancestors.some((a) => roots.includes(a))).map(([id]) => id));
+    const g = await genomeAt(env, systemId, review.genomeCommit, s.genomeSource);
+    for (const owner of [...g.model.nodes, ...g.model.externals]) {
+      if (removed.has(owner.id)) continue;
+      for (const l of owner.links) if (removed.has(l.to)) ops.push({ id: `op.${ops.length + 1}`, op: "unlink", node: owner.id, link: { rel: l.rel, to: l.to } });
+    }
+    for (const node of roots) ops.push({ id: `op.${ops.length + 1}`, op: "remove", node });
+  }
   const accepted: ImportReview = {
     ...review, status: "accepted", decidedAt: nowIso(),
     ...(interpretation?.trim() && { interpretation: interpretation.trim() }), ...(rejected.length && { rejectedNodes: rejected }),
   };
-  await stub.setImportReview(accepted);
+  if (!(await stub.casImportReview("pending", accepted))) throw conflict("invalid-state", `the import review of ${systemId} is already accepted`);
   let amendment: ImportReviewAcceptResponse["amendment"];
   try {
-    if (roots.length) {
-      const ops = roots.map((node, i) => ({ id: `op.${i + 1}`, op: "remove" as const, node }));
+    if (ops.length) {
       const proposal = await stub.createProposal({
         systemId, message: `Import review: remove ${roots.length} node${roots.length === 1 ? "" : "s"}`, status: "open", route: [], ops, questions: [], problems: [], plan: [],
         provenance: { router: { provider: "platform", model: "import-review", calls: 0 }, translator: { provider: "platform", model: "import-review" }, genomeCommit: s.genomeCommit, fake: false },
@@ -400,7 +411,7 @@ export async function acceptImportReview(env: Env, systemId: string, body: Parti
       amendment = { evolution: out.evolution.id, realization: out.realization.id, candidate: out.candidate.id };
     }
   } catch (e) {
-    await stub.setImportReview(review).catch((r: unknown) => console.error(`[import-review] restoring pending for ${systemId} failed: ${(r as Error)?.message ?? r}`));
+    await stub.casImportReview("accepted", review).catch((r: unknown) => console.error(`[import-review] restoring pending for ${systemId} failed: ${(r as Error)?.message ?? r}`));
     await refreshRegistry(env, systemId).catch(() => {});
     throw e;
   }

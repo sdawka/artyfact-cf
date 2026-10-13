@@ -1111,6 +1111,9 @@ describe("routes: import review (B.10)", () => {
   async function pending(review?: boolean) {
     const s = setup();
     const systemId = uniqueSystem(s.ns, s.genomeRepo);
+    // A surviving component links to one the review may reject (I2: the amendment must drop that link).
+    const dialog = "thing.webapp/section.ui/screen.people/component.AddContactDialog/node.yaml";
+    s.ns.repo(s.genomeRepo).commit({ ...genomeFor(systemId), [dialog]: `${genomeFor(systemId)[dialog]}links:\n  - { rel: shows, to: component.ErrorSummary }\n` }, "link");
     // Two app paths no node's files map; the platform's own directory never counts.
     s.ns.repo(s.appRepo).commit({ ...appFiles, "docs/notes.md": "notes", "src/legacy/old.ts": "old", ".artyfact/init.json": "{}" }, "extras");
     setEditorTransport({ fetch: fakeReceivePack(s.ns).fetch });
@@ -1124,6 +1127,7 @@ describe("routes: import review (B.10)", () => {
     call<ApiError>("POST", `/systems/${systemId}/evolutions`, { title: "t", intent: "i", kind: "genome-amendment" }, ADMIN),
     call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" }, ADMIN),
     call<ApiError>("POST", `/systems/${systemId}/intents`, { message: "add a screen" }, ADMIN),
+    call<ApiError>("POST", `/systems/${systemId}/template-upgrade`, { ref: "head" }, ADMIN),
   ]);
 
   it("a first import is pending by default: summary, signifier, tree rooted at the Things, unmapped app paths, and the 409 guard", async () => {
@@ -1206,19 +1210,43 @@ describe("routes: import review (B.10)", () => {
     expect(evo.affectedNodes).toEqual(expect.arrayContaining(["component.ErrorSummary", "component.AppShell"]));
     const rz = work.json.realizations.find((r) => r.id === realization)!;
     expect([rz.target, rz.status]).toEqual(["genome", "awaiting-admin"]);
+    expect(evo.affectedNodes).toContain("component.AddContactDialog");
     const cands = await call<CandidatesResponse>("GET", `/systems/${systemId}/candidates`);
     const cand = cands.json.candidates.find((c) => c.id === candidate)!;
     expect(cand.changedSubjects).toEqual(expect.arrayContaining(["component.ErrorSummary", "component.AppShell"]));
-    // The fork no longer holds the rejected nodes (the TopBar directory went with AppShell).
+    // The fork no longer holds the rejected nodes (the TopBar directory went with AppShell), and no surviving node
+    // file references them: the dialog's link to ErrorSummary was unlinked. The candidate Genome still loads.
     const fork = ns.repo(`${genomeRepo}--r1`);
     const paths = [...(await listTree(fork, cand.commit)).keys()];
     expect(paths.some((p) => p.includes("component.ErrorSummary"))).toBe(false);
     expect(paths.some((p) => p.includes("component.AppShell"))).toBe(false);
     expect(paths).toContain("thing.webapp/section.ui/node.yaml");
+    for (const p of paths.filter((x) => x.endsWith("node.yaml"))) {
+      const text = await (await fork.readFile({ ref: cand.commit, path: p }))!.text();
+      expect(text, p).not.toMatch(/component\.(ErrorSummary|AppShell|TopBar)/);
+    }
+    expect(await (await fork.readFile({ ref: cand.commit, path: "thing.webapp/section.ui/screen.people/component.AddContactDialog/node.yaml" }))!.text()).not.toContain("links:");
+    const rv = await call<GenomeCandidateReview>("GET", `/systems/${systemId}/realizations/${realization}/review`);
+    expect(rv.status, JSON.stringify(rv.json)).toBe(200);
+    expect(rv.json.loadError).toBeUndefined();
     // The head Genome is unchanged until the admin accepts the amendment, and work is open now.
     expect((await call<ModelBundle>("GET", `/systems/${systemId}/model`)).json.genomeCommit).toBe(acc.json.review.genomeCommit);
     const start = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" }, ADMIN);
     expect(start.status, JSON.stringify(start.json)).toBe(201);
+  });
+
+  it("two concurrent accepts: one wins, the other is 409 invalid-state, exactly one amendment", async () => {
+    const { systemId } = await pending();
+    const accept = () => call<ImportReviewAcceptResponse & ApiError>("POST", `/systems/${systemId}/import-review/accept`, { rejectedNodes: ["component.ErrorSummary"] }, ADMIN);
+    const results = await Promise.all([accept(), accept()]);
+    expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+    const lost = results.find((r) => r.status === 409)!;
+    expect(lost.json.error.code).toBe("invalid-state");
+    const won = results.find((r) => r.status === 200)!;
+    expect(won.json.amendment).toBeDefined();
+    const work = await call<WorkResponse>("GET", `/systems/${systemId}/evolutions`);
+    expect(work.json.realizations.map((r) => r.id)).toEqual([won.json.amendment!.realization]);
+    expect(work.json.evolutions.filter((e) => e.title.startsWith("Import review"))).toHaveLength(1);
   });
 
   it("a forced re-import at a new Genome commit opens a new pending review; the same commits keep the accepted one", async () => {
@@ -1233,7 +1261,7 @@ describe("routes: import review (B.10)", () => {
     expect(forced.status, JSON.stringify(forced.json)).toBe(201);
     expect(forced.json.genomeCommit).not.toBe(imp.genomeCommit);
     expect(forced.json.system.importReview).toEqual({ status: "pending", genomeCommit: forced.json.genomeCommit, nodes: expect.any(Number) });
-    expect((await guarded(systemId)).map((r) => r.status)).toEqual([409, 409, 409]);
+    expect((await guarded(systemId)).map((r) => r.status)).toEqual([409, 409, 409, 409]);
     // review: false on a re-import clears the pending review.
     const cleared = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo, review: false }, ADMIN);
     expect(cleared.status, JSON.stringify(cleared.json)).toBe(201);
