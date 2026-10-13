@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS realizations (id TEXT PRIMARY KEY, evolution_id TEXT 
   fork_repo TEXT NOT NULL, token_id TEXT, token_expires TEXT, base_commit TEXT, agent_label TEXT, status TEXT NOT NULL,
   packet_json TEXT, packet_hash TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL,
   base_repo TEXT, base_head TEXT, role TEXT, remote TEXT, rejection_reason TEXT, secret_hash TEXT,
-  subscription_id TEXT, origin TEXT);
+  subscription_id TEXT, origin TEXT, task_id TEXT);
 CREATE TABLE IF NOT EXISTS checkpoints (realization_id TEXT NOT NULL, seq INTEGER NOT NULL, message TEXT, commit_hash TEXT,
   created_at TEXT NOT NULL, PRIMARY KEY (realization_id, seq));
 CREATE TABLE IF NOT EXISTS candidates (id TEXT PRIMARY KEY, realization_id TEXT NOT NULL, commit_hash TEXT NOT NULL,
@@ -48,7 +48,14 @@ CREATE TABLE IF NOT EXISTS realized_artifacts (id TEXT PRIMARY KEY, thing_id TEX
 CREATE INDEX IF NOT EXISTS realized_by_source ON realized_artifacts(source_repo, source_commit);
 CREATE TABLE IF NOT EXISTS changelog_cache (commit_id TEXT PRIMARY KEY, row_json TEXT NOT NULL, entry_json TEXT, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS proposals (id TEXT PRIMARY KEY, status TEXT NOT NULL, json TEXT NOT NULL, turns_json TEXT NOT NULL,
-  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, accept_error TEXT, accepted_json TEXT, claimed_at TEXT);
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, accept_error TEXT, accepted_json TEXT, claimed_at TEXT,
+  plan_json TEXT, decisions_json TEXT, deferred_from TEXT);
+CREATE TABLE IF NOT EXISTS task_plans (evolution_id TEXT PRIMARY KEY, json TEXT NOT NULL, genome_commit TEXT NOT NULL,
+  app_commit TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, evolution_id TEXT NOT NULL, status TEXT NOT NULL, json TEXT NOT NULL,
+  criteria_json TEXT, nodes_json TEXT, realization_id TEXT, claimed_by TEXT, claimed_at TEXT, claim_expires TEXT,
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+CREATE INDEX IF NOT EXISTS tasks_by_evolution ON tasks (evolution_id, status);
 `;
 
 /**
@@ -73,6 +80,10 @@ export const ADDED_COLUMNS: [table: string, column: string, type: string][] = [
   ["realizations", "origin", "TEXT"],
   ["changelog_cache", "version", "INTEGER"],
   ["proposals", "claimed_at", "TEXT"],
+  ["realizations", "task_id", "TEXT"],
+  ["proposals", "plan_json", "TEXT"],
+  ["proposals", "decisions_json", "TEXT"],
+  ["proposals", "deferred_from", "TEXT"],
 ];
 
 export function applySchema(sql: SqlStorage): void {
