@@ -87,7 +87,12 @@ DO lifecycle (`worker/do/tasks-store.ts`, `SystemAuthority`):
 Routes: `importReview(s)` GET → `ImportReview`; `importReviewAccept(s)` POST `ImportReviewAccept` (admin) → `ImportReviewAcceptResponse`. `ImportSystemRequest.review` (default true) leaves a new import pending.
 Types: `ImportReview` (tree of `ProposalPlanNode`, readiness `findings`, `unmapped` paths), `SystemSummary.importReview`, signifier `import-pending`, SSE `system.import-review`.
 While pending, `POST /evolutions`, `/realizations` and `/intents` are 409 `import-unreviewed`. State lives in DO kv `import_review_status`, `import_review_json`.
-(behaviour: see slice W9)
+
+Behaviour (`worker/service.ts`):
+- `importSystem` computes the review once, after the DO bootstrap and model cache: `tree` is the head Genome's containment tree below the System (roots are its Things, every node "added", `opIds` empty, `summary` the node's description), `findings` the readiness findings of the model routes, `unmapped` the app head's paths no node's effective `files` glob maps (`.artyfact/**` excluded). It is stored whole with `setImportReview` whenever the bootstrap wrote a new System commit (first import, forced re-point), unless `review: false`, which also clears a pending review on a re-import. A re-import that writes no commit keeps the stored review as it is.
+- `GET` returns the stored review (404 when the System has none). `assertImportReviewed` is the guard the three routes call before creating work; its message names `/s/<id>/r/head/review?panel=import`.
+- Accept (admin) validates `interpretation` (≤ 4000 chars) and `rejectedNodes` (ids of the stored tree, else 400), records `accepted` with `decidedAt`, then turns the rejected nodes with no rejected ancestor into `remove` ops of a platform-authored proposal pushed through the intents accept path (`pushAccepted`): one Evolution `genome-amendment` titled `Import review: remove <n> node(s)` with an awaiting-admin candidate, returned as `amendment`. Rejections after the Genome moved are 409 `stale-base`; a push failure restores the pending review and rethrows. A second accept is 409 `invalid-state`.
+- CLI `init` prints `review: pending — open <platform>/s/<id>/r/head/review?panel=import` when the import response's summary says pending; `--no-review` sends `review: false`. Fake seeds import with `review: false`.
 
 ## Parts registry and realization lineage (accepted contract)
 
