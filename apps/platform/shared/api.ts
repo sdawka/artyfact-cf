@@ -12,6 +12,7 @@
  */
 
 import type { Finding, ModelIndex, PhenomeEventHeader, Readiness, SemanticDelta as ModelDelta, SystemModel, schema } from "@artyfact/model";
+import type { NodeCriterion } from "@artyfact/ontology";
 import type { Commitment, ReviewResult, SemanticDelta } from "@artyfact/semantic";
 
 export type { Finding, PhenomeEventHeader, Readiness } from "@artyfact/model";
@@ -105,6 +106,16 @@ export const routes = {
 
   /** `GET` → {@link TemplateUpgradePlan}; `POST` {@link TemplateUpgradeRequest} (admin) → {@link TemplateUpgradeResponse}. */
   templateUpgrade: (s: string, ref?: RefString) => `${sys(s)}/template-upgrade${qs({ ref })}`,
+
+  // Iteration 3: intents (admin). See docs/design/ontology.md.
+  /** `POST` {@link IntentRequest} → 201 {@link Proposal}. */
+  intents: (s: string) => `${sys(s)}/intents`,
+  /** `GET` → {@link Proposal}. */
+  intent: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}`,
+  /** `POST` {@link IntentReply} → {@link Proposal} (the same proposal, revised). */
+  intentReply: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/reply`,
+  /** `POST` {@link IntentAccept} → 201 {@link IntentAcceptResponse}. */
+  intentAccept: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/accept`,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -1099,4 +1110,116 @@ export interface TemplateUpgradeResponse {
   realization: Realization;
   candidate: Candidate;
   plan: TemplateUpgradePlan;
+}
+
+// ---------------------------------------------------------------------------
+// Iteration 3: intents (describe a change → proposed node updates). Spec: docs/design/ontology.md, "Intents".
+// ---------------------------------------------------------------------------
+
+/** `POST /api/systems/:id/intents` (admin). `anchor`: the node the user started from (Inspector, Code). */
+export interface IntentRequest {
+  message: string;
+  anchor?: NodeId;
+}
+
+/** `open` until accepted (a commit was made) or abandoned; replies keep it `open`. */
+export type ProposalStatus = "open" | "accepted" | "abandoned";
+
+/** One routing step: the level asked (`shortlist`, `intent`, `space`, `kind`, `node`, …), the option chosen, its confidence. */
+export interface ProposalRouteStep {
+  level: string;
+  /** `unclear` when the step got no usable answer. */
+  choice: string;
+  /** 0 when the step got no usable answer. */
+  confidence: number;
+}
+
+export type ProposedOpKind = "add" | "update" | "remove" | "link" | "unlink";
+
+/**
+ * One node update the user accepts or rejects on its own. `node`: the target (for `link`/`unlink` the `from` end;
+ * for `add` the id the platform minted for the new node, so later ops can name it). `add` carries `kind`, `parent`
+ * and the new node's `fields` (and `criteria`); `update` the changed `fields` (`null` removes a field) and criteria
+ * upserted by id or removed. An engine `add` with links becomes the `add` plus one `link` op per link, each listing
+ * the `add` in `dependsOn`; accepting an op without the ops it depends on is a 422.
+ */
+export interface ProposedOp {
+  id: string;
+  op: ProposedOpKind;
+  node: NodeId;
+  kind?: string;
+  parent?: NodeId;
+  fields?: Record<string, unknown>;
+  link?: { rel: string; to: NodeId; certainty?: Certainty };
+  criteria?: (NodeCriterion | { id: string; remove: true })[];
+  dependsOn?: string[];
+}
+
+/** A question back to the user; answer it with {@link IntentReply}. */
+export interface ProposalQuestion {
+  id: string;
+  text: string;
+}
+
+/** A deterministic problem with the proposal (engine `validateOps`, codec): `opId` absent means the whole proposal. */
+export interface ProposalProblem {
+  opId?: string;
+  severity: "error" | "warning";
+  message: string;
+}
+
+/** Who decided: the router's and translator's providers and models, and the Genome commit the proposal was computed on. */
+export interface ProposalProvenance {
+  /** System One for routing: `typesafe`, `openrouter`, `fake` or `off`. */
+  router: { provider: string; model: string; calls: number };
+  /** The translator: `openrouter`, `fake` or `off`. */
+  translator: { provider: string; model: string };
+  /** Head Genome commit at proposal time; accepting against a moved head is a 409 `stale-base`. */
+  genomeCommit: CommitHash;
+  /** True when either side was a fake provider; the UI labels the proposal. */
+  fake: boolean;
+}
+
+/** `GET /api/systems/:id/intents/:pid`; also the body of the create and reply responses. */
+export interface Proposal {
+  id: string;
+  systemId: SystemId;
+  message: string;
+  anchor?: NodeId;
+  status: ProposalStatus;
+  route: ProposalRouteStep[];
+  ops: ProposedOp[];
+  questions: ProposalQuestion[];
+  problems: ProposalProblem[];
+  /** The translator's reply when the message only asked for information (no ops). */
+  answer?: string;
+  provenance: ProposalProvenance;
+  createdAt: string;
+}
+
+/** `POST /api/systems/:id/intents/:pid/reply` (admin). `questionId`: the question answered; absent, a free follow-up. */
+export interface IntentReply {
+  answer: string;
+  questionId?: string;
+}
+
+/** `POST /api/systems/:id/intents/:pid/accept` (admin): the ops to apply; the rest are rejected. */
+export interface IntentAccept {
+  opIds: string[];
+}
+
+/**
+ * 201: the accepted ops written to the Genome through a Genome realization (`origin: editor`), its commit and the
+ * candidate the gates evaluate; the Evolution's `affectedNodes` are the touched nodes.
+ */
+export interface IntentAcceptResponse {
+  evolution: Evolution;
+  realization: Realization;
+  candidate: Candidate;
+  commit: CommitHash;
+}
+
+/** 501 from a route that is declared but not built yet (the iteration-3 intent stubs). */
+export interface NotImplementedResponse extends ApiError {
+  error: { code: "not-implemented"; message: string };
 }

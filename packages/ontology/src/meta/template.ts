@@ -69,19 +69,22 @@ const defectsOf = (chain: TemplateSource[]): { defects?: DefectsConfig } => {
 };
 
 /**
- * The nearest declaration of a kind wins, except `criteria`, which merge key by key over every template in the chain
- * that declares the kind (the nearer one wins per key). A kind no template gives criteria keeps no `criteria` key.
+ * The nearest declaration of a kind wins, except `criteria` and `view`, which merge key by key over every template in
+ * the chain that declares the kind (the nearer one wins per key). A kind no template gives criteria (or a view) keeps
+ * no `criteria` (or `view`) key.
  */
 const kindsOf = (top: TemplateSource[]): Record<string, Kind> => {
   const kinds: Record<string, Kind> = Object.assign({}, ...top.map((s) => s.kinds));
   return Object.fromEntries(Object.entries(kinds).map(([k, kind]) => {
     const all = top.map((s) => s.kinds[k]?.criteria).filter((c) => c !== undefined);
     const checks = top.map((s) => s.kinds[k]?.checks).filter((c) => c !== undefined);
-    const { checks: _own, ...rest } = kind;
+    const views = top.map((s) => s.kinds[k]?.view).filter((v) => v !== undefined);
+    const { checks: _own, view: _view, ...rest } = kind;
     return [k, {
       ...rest,
       ...(all.length && { criteria: Object.assign({}, ...all) }),
       ...(checks.length && { checks: mergeChecks(checks) }),
+      ...(views.length && { view: Object.assign({}, ...views) }),
     }];
   }));
 };
@@ -99,6 +102,12 @@ export const mergeChecks = (lists: Check[][]): Check[] => {
 const rootChecksOf = (top: TemplateSource[]): { rootChecks?: Check[] } => {
   const all = top.map((s) => s.rootChecks).filter((c) => c !== undefined);
   return all.length ? { rootChecks: mergeChecks(all) } : {};
+};
+
+/** `view` and `files` at the template root: the nearest template that declares one wins; absent everywhere, left out. */
+const nearestOf = <K extends "view" | "files">(chain: TemplateSource[], key: K): Partial<Pick<TemplateSource, K>> => {
+  const v = chain.find((s) => s[key] !== undefined)?.[key];
+  return v === undefined ? {} : ({ [key]: v } as Partial<Pick<TemplateSource, K>>);
 };
 
 /** Root criteria merge key by key, the nearest template winning; absent everywhere, the key is left out. */
@@ -128,6 +137,8 @@ function merge(chain: TemplateSource[]): Omit<TemplateSource, "id" | "version" |
     ...defectsOf(chain),
     ...rootCriteriaOf(top),
     ...rootChecksOf(top),
+    ...nearestOf(chain, "view"),
+    ...nearestOf(chain, "files"),
   };
 }
 

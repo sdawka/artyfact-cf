@@ -1,4 +1,6 @@
 import { z } from "zod";
+import { RepoPathSchema } from "../genome/node.ts";
+import { KindViewSchema, TemplateViewSchema } from "../genome/view.ts";
 import { isCardinality } from "./cardinality.ts";
 
 const name = z.string().min(1);
@@ -114,6 +116,13 @@ export const KindSchema = z.strictObject({
   criteria: KindCriteriaSchema.optional(),
   /** The author's checklist for nodes of this kind and for their children. */
   checks: z.array(CheckSchema).optional(),
+  /** UI hints (label, glyph, colour, Map layer, Inspector order); merged key by key over `extends`. */
+  view: KindViewSchema.optional(),
+  /**
+   * Default source globs for every node of this kind, relative to the nearest Thing `root`; `{id}` and `{slug}` stand
+   * for the node's id and directory name. A node's own `files` add to them.
+   */
+  files: z.array(RepoPathSchema).optional(),
 });
 
 export const RelationSchema = z.strictObject({
@@ -231,6 +240,8 @@ export const TemplateNodeSchema = z.strictObject({
   provisional: z.boolean().optional(),
   /** Outgoing links of the prefilled node; `from` is the node itself. */
   links: z.array(z.strictObject({ rel: name, to: name, certainty: name.optional() })).optional(),
+  /** Default source globs of the prefilled node, as on a kind. */
+  files: z.array(RepoPathSchema).optional(),
 });
 
 export const TemplateSourceSchema = z.strictObject({
@@ -255,6 +266,10 @@ export const TemplateSourceSchema = z.strictObject({
   rootCriteria: RootCriteriaSchema.optional(),
   /** Checks applied to the root nodes (nodes without a parent) and their children; rule `check:root.<id>`. */
   rootChecks: z.array(CheckSchema).optional(),
+  /** Template-wide UI hints: the Map layers. The nearest template that declares `view` wins. */
+  view: TemplateViewSchema.optional(),
+  /** Default source globs of the node that instantiates this template (`$self`: a Thing or the System). Nearest wins. */
+  files: z.array(RepoPathSchema).optional(),
 });
 
 export type Field = z.infer<typeof FieldSchema>;

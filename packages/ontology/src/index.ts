@@ -20,3 +20,4 @@ export { compilePattern, isPlaceholder, kindTextConstraints, normaliseText, text
 export * from "./judge/index.ts";
 export * from "./adapters/artyfact/index.ts";
 export * from "./route/index.ts";
+export * from "./genome/index.ts";
