@@ -64,7 +64,7 @@ describe("System summary across the lifecycle", () => {
     const f: Flow = await importFresh();
     const id = f.systemId;
     let s = await listed(id);
-    expect(s).toMatchObject({ built: false, openCandidates: 0, realizationCounts: { evolving: 0, pending: 0, awaitingAdmin: 0 }, deployState: "none", phenome: { events: 0 } });
+    expect(s).toMatchObject({ built: false, openCandidates: 0, realizationCounts: { evolving: 0, pending: 0, awaitingAdmin: 0, awaitingReview: 0 }, deployState: "none", phenome: { events: 0 } });
     expect(s.appCommit).toBe(f.imp.appCommit);
     expect(s.readiness).toEqual({ errors: expect.any(Number), missing: expect.any(Number) });
     expect(s.signifiers).toContain("not-fully-built");
@@ -99,12 +99,15 @@ describe("System summary across the lifecycle", () => {
     expect(sub.out.status, JSON.stringify(sub.out.json)).toBe(201);
     s = await listed(id);
     expect(s.openCandidates).toBe(1);
+    // An app candidate waits for review like an amendment does (the rail's count).
+    expect(s.realizationCounts?.awaitingReview).toBe(1);
     expect(s.signifiers).toContain("pending-realization");
     expect(s.signifiers).not.toContain("unrealized");
 
     // genome submit (not accepted)
     const g = await step(() => genomeAmendment(f, renameContact("Contact card"), { accept: false }));
     expect(g.system.realizationCounts?.awaitingAdmin).toBe(1);
+    expect(g.system.realizationCounts?.awaitingReview).toBe(2);
     expect(g.system.signifiers).toContain("awaiting-admin");
 
     // promote

@@ -142,7 +142,7 @@ async function fixtureSummary(): Promise<SystemSummary> {
     evolutionCounts: {},
     // Iteration-2 fields zero-filled: nothing is built, deployed or observed in the fixture.
     built: false,
-    realizationCounts: { evolving: 0, pending: 0, awaitingAdmin: 0 },
+    realizationCounts: { evolving: 0, pending: 0, awaitingAdmin: 0, awaitingReview: 0 },
     openCandidates: 0,
     latestBuild: null,
     deployment: { production: null, previews: 0 },

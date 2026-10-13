@@ -112,7 +112,7 @@ export function defaultMockData(): MockData {
       {
         systemId: SID, title: "Keep in Touch", head: "sc-2", genomeRepo: "keep-in-touch-genome", appRepo: "keep-in-touch-app",
         genomeCommit: GENOME, phase: "realizing", evolutionCounts: { realizing: 1, promoted: 1 }, updatedAt: minutesAgo(12),
-        appCommit: HEAD_APP, built: true, realizationCounts: { evolving: 1, pending: 0, awaitingAdmin: 0 }, openCandidates: 1,
+        appCommit: HEAD_APP, built: true, realizationCounts: { evolving: 1, pending: 0, awaitingAdmin: 0, awaitingReview: 0 }, openCandidates: 1,
         latestBuild: changelog[0]!.builds[0]!, deployment: { production: deployment, previews: 1 }, deployState: "live",
         phenome: { events: 37, lastEmittedAt: minutesAgo(3) }, readiness: { errors: 0, missing: 0 },
         signifiers: ["evolving", "built", "deployed", "observed"],
@@ -120,7 +120,7 @@ export function defaultMockData(): MockData {
       {
         systemId: "system.field-notes", title: "Field Notes", head: null, genomeRepo: "field-notes-genome", appRepo: "field-notes-app",
         genomeCommit: GENOME, phase: "unrealized", evolutionCounts: { proposed: 1 }, updatedAt: minutesAgo(60 * 5),
-        built: false, realizationCounts: { evolving: 0, pending: 1, awaitingAdmin: 1 }, openCandidates: 0, latestBuild: null,
+        built: false, realizationCounts: { evolving: 0, pending: 0, awaitingAdmin: 1, awaitingReview: 1 }, openCandidates: 0, latestBuild: null,
         deployment: { production: null, previews: 0 }, deployState: "none", phenome: { events: 0 }, readiness: { errors: 2, missing: 3 },
         // A Genome candidate awaits accept, so candidates exist: `unrealized` (no candidates ever) does not apply.
         signifiers: ["pending-realization", "awaiting-admin", "not-fully-built"],
