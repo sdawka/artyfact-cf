@@ -10,10 +10,12 @@ interface Props {
   evolutionId: string | null;
   realizationId: string | null;
   promoting: boolean;
+  /** Board or candidates still loading: an empty queue is not yet "nothing waiting". */
+  loading?: boolean;
 }
 
 /** The decision queue: one row per pending decision, grouped by Evolution. A row is a link that opens it on the right. */
-export function QueueList({ groups, evolutionId, realizationId, promoting }: Props) {
+export function QueueList({ groups, evolutionId, realizationId, promoting, loading = false }: Props) {
   const count = groups.reduce((n, g) => n + g.rows.length, 0);
   return (
     <section className={styles.queue} aria-labelledby="queue-title">
@@ -25,13 +27,13 @@ export function QueueList({ groups, evolutionId, realizationId, promoting }: Pro
           <Group key={g.evolution} group={g} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} />
         ))
       ) : (
-        <p className={styles.muted}>Nothing is waiting on you.</p>
+        <p className={styles.muted} {...(loading && { role: "status" })}>{loading ? "Loading the queue…" : "Nothing is waiting on you."}</p>
       )}
     </section>
   );
 }
 
-function Group({ group, evolutionId, realizationId, promoting }: { group: QueueGroup } & Omit<Props, "groups">) {
+function Group({ group, evolutionId, realizationId, promoting }: { group: QueueGroup } & Omit<Props, "groups" | "loading">) {
   const id = useId();
   return (
     <section className={styles.group} aria-labelledby={id}>

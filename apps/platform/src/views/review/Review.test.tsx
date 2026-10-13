@@ -104,6 +104,39 @@ describe("Review queue", () => {
     expect(within(await queue()).getByText("selected for composition")).toBeTruthy();
   });
 
+  it("says a promotion link names an unknown Evolution instead of claiming nothing waits", async () => {
+    renderApp(`${REVIEW}?panel=promote&evolution=evolution.nope`, undefined, queueSeed());
+    expect(await screen.findByText("No Evolution evolution.nope on this System.")).toBeTruthy();
+    expect(screen.queryByText("Nothing is waiting on you.")).toBeNull();
+  });
+
+  it("says a review link names an unknown realization", async () => {
+    renderApp(`${REVIEW}?realization=realization.nope`, undefined, seed({ realizations: [] }));
+    expect(await screen.findByText("No realization realization.nope on this System.")).toBeTruthy();
+  });
+
+  it("shows loading, not an empty queue, while the board loads", async () => {
+    renderApp(`${REVIEW}?panel=promote&evolution=${EVO1}`, undefined, (qc) => {
+      seed()(qc);
+      qc.removeQueries({ queryKey: qk.evolutions(SYSTEM) });
+      vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    });
+    // The Genome's declared Evolution is known, so the desk opens; an unknown one waits for the board instead of "not found".
+    expect(await screen.findByRole("heading", { name: `Promote ${TITLE}` })).toBeTruthy();
+    expect(screen.queryByText("Nothing is waiting on you.")).toBeNull();
+  });
+
+  it("shows loading for a link to an Evolution the board has not delivered yet", async () => {
+    renderApp(`${REVIEW}?panel=promote&evolution=evolution.later`, undefined, (qc) => {
+      seed()(qc);
+      qc.removeQueries({ queryKey: qk.evolutions(SYSTEM) });
+      vi.stubGlobal("fetch", vi.fn(() => new Promise(() => {})));
+    });
+    expect(await screen.findByText("Loading…")).toBeTruthy();
+    expect(screen.queryByText(/No Evolution/)).toBeNull();
+    expect(screen.queryByText("Nothing is waiting on you.")).toBeNull();
+  });
+
   it("works under a Thing workspace and keeps its links there", async () => {
     renderApp(`${BASE}/things/thing.webapp/review`, undefined, queueSeed());
     const q = await queue();

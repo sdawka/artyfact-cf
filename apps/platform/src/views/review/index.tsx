@@ -17,7 +17,7 @@ import styles from "./review.module.css";
  * `?candidates=a,b` (global) preselects candidates for composition.
  */
 export default function ReviewView() {
-  const { evolutions, realizations } = useWorkData();
+  const { evolutions, realizations, isLoading: boardLoading } = useWorkData();
   const queue = useReviewQueue();
   const { candidates: selected } = useSelection();
   const [panel] = useParam("panel");
@@ -30,22 +30,36 @@ export default function ReviewView() {
   // Titles from the merged board (the API's, else the Genome's declared Evolutions).
   const groups = queue.groups.map((g) => ({ ...g, title: evolutions.find((e) => e.id === g.evolution)?.title ?? g.title }));
   const open = promoting || (!!realization && !!evolution) || selected.length > 0;
+  const loading = boardLoading || queue.isLoading;
+  // A deep link (`?panel=promote&evolution=` or `?realization=`) keeps the panes open while loading or when it names nothing.
+  const linked = panel === "promote" || !!realizationId;
+  const missing = loading
+    ? null
+    : realizationId && !realization
+      ? `No realization ${realizationId} on this System.`
+      : panel === "promote" && !evolution
+        ? (evolutionParam ? `No Evolution ${evolutionParam} on this System.` : "Promotion needs an Evolution: pick one from the queue.")
+        : null;
 
   return (
     <section aria-labelledby="view-title" className={styles.view}>
       <h1 id="view-title">Review</h1>
       <p className={styles.lede}>Candidates, amendments and promotions that need a person.</p>
-      {queue.count === 0 && !open ? (
-        <EmptyState surface title={queue.isLoading ? "Loading the queue…" : "Nothing is waiting on you."} live={queue.isLoading} />
+      {queue.count === 0 && !open && !linked ? (
+        <EmptyState surface title={loading ? "Loading the queue…" : "Nothing is waiting on you."} live={loading} />
       ) : (
         <div className={styles.panes}>
-          <QueueList groups={groups} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} />
+          <QueueList groups={groups} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} loading={loading} />
           <div className={styles.detail}>
             {promoting ? (
               <PromotionPanel key={evolution!.id} evolution={evolution!} />
             ) : realization && evolution ? (
               // Keyed: a decision made on one row never carries over to the next.
               <Reviewing key={realization.id} realization={realization} evolution={evolution} />
+            ) : loading && linked ? (
+              <EmptyState title="Loading…" live />
+            ) : missing ? (
+              <EmptyState title={missing} />
             ) : selected.length ? (
               <Composition ids={selected} />
             ) : (
