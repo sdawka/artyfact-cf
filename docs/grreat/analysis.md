@@ -15,3 +15,5 @@
 | Regression and release | Full `npm run ci` passed: 1258 root units, 3 skips, 43 platform browser checks; all typechecks/builds pass | Draft PR #29 published; hosted CI is tracked on the PR. GRREAT hierarchy/destination unresolved; no deployment performed |
 
 Evidence and resolved review findings are recorded in [[journals/2026-10-12-foundation]]. The live browser scenario was updated for the accepted navigation behavior but was not executed. Local validity and tests do not establish hosted behavior.
+
+Iteration 3 limits, 2026-10-13 (see [[journals/2026-10-13-iteration-3]]): one webapp Thing per System because its ids are fixed and prefilled; Map bands run left to right only; a lapsed-lease takeover can double-push, which is accepted. Production behavior of the v2 migration is unverified until the deploy step.
