@@ -189,6 +189,7 @@ The test is deleted with the v1 reader.
 | `criteria.yaml` (System, Thing) | `criteria` on the subject node's `node.yaml`, with hooks inline |
 | `journeys/J.*.yaml` | A journey node under the owning Thing (the System when its steps span Things), with fields `name`, `actorGoal`, `features`, `requirements`, `start`, `deferred` and `segments`. One child `step` node per step, with id `<journey>/<step>`, its directory the step id, and `next` kept as the sequence |
 | `evolutions/*.yaml` | Unchanged |
+| The app repo's `source-map.yaml` (`convert-genome --source-map`) | Each entry's glob onto the `files` of every node it names, in entry order; the pseudo-node `genome` is dropped and any other unknown node is an error |
 
 Field names are kept as they are in v1. Nodes go on using `name` where v1 did, and view hints default the display name to `title`, then `name`. The engine's routing names nodes with `titleOf`: `title`, then `name`, then the field the kind's `view.title` names, then the id.
 
