@@ -1,11 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
 import type {
-  ArtifactBinding, PartScope, PartRecord, PartSummary, RealizedArtifact, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
+  ArtifactBinding, PartScope, PartRecord, PartSummary, RealizedArtifact, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Proposal, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
+import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalTurn, type StoredProposal } from "./proposals-store";
 import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentInput } from "./builds-store";
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
 import { ChangelogStore, type CachedChangelog } from "./changelog-store";
@@ -69,6 +70,14 @@ export class ConflictError extends Error {
   constructor(readonly code: "not-found" | "invalid-state", readonly detail: string) {
     super(`[${code}] ${detail}`);
     this.name = "ConflictError";
+  }
+}
+
+/** `reserveRealization` refused an `expectedBase` the canonical commit no longer is; maps to a 409 `stale-base`. */
+export class StaleBaseRefusal extends Error {
+  constructor(readonly detail: string) {
+    super(`[stale-base] ${detail}`);
+    this.name = "StaleBaseRefusal";
   }
 }
 
@@ -137,6 +146,8 @@ export interface ReserveInput {
   role?: Realization["agent"]["role"];
   /** B5: who drives the realization (stored in `realizations.origin`). */
   origin?: RealizationOrigin;
+  /** Refuse with `[stale-base]` unless the base (the canonical Genome or app commit) is this commit. */
+  expectedBase?: string;
 }
 
 export interface ReservedRealization {
@@ -674,12 +685,15 @@ export class SystemAuthority extends DurableObject<Env> {
         throw new ConflictError("invalid-state", `evolution ${input.evolutionId} is ${evo.status}`);
       }
       if (input.target === "app" && !s.appSource) throw new ConflictError("invalid-state", "This Thing has no source artifact yet; accept a Genome binding and import its source before application work");
+      const baseRepo = input.target === "genome" ? s.genomeSource : s.appSource!.repo;
+      const baseCommit = input.target === "genome" ? s.genomeCommit : s.appSource!.commit;
+      if (input.expectedBase !== undefined && input.expectedBase !== baseCommit) {
+        throw new StaleBaseRefusal(`the ${input.target === "genome" ? "Genome" : "app"} moved from ${input.expectedBase.slice(0, 12)} to ${baseCommit.slice(0, 12)}`);
+      }
       const n = Number(this.kv("realization_seq") ?? 0) + 1;
       this.setKv("realization_seq", String(n));
       const id = `realization.${evolutionShort(input.evolutionId)}.r${n}`;
       const namingRepo = input.target === "genome" ? s.genomeRepo : s.appRepo;
-      const baseRepo = input.target === "genome" ? s.genomeSource : s.appSource!.repo;
-      const baseCommit = input.target === "genome" ? s.genomeCommit : s.appSource!.commit;
       const forkRepo = forkName(namingRepo, n);
       const at = nowIso();
       this.sql.exec(
@@ -1450,6 +1464,51 @@ export class SystemAuthority extends DurableObject<Env> {
   putChangelog(commitId: string, row: string, entry: string | null): void { this.changelog().put(commitId, row, entry); }
 
   // ---------------------------------------------------------------- end B2 changelog
+
+  // ---------------------------------------------------------------- W7 intent proposals
+
+  private proposalsStore: ProposalsStore | undefined;
+  private proposals(): ProposalsStore {
+    return (this.proposalsStore ??= new ProposalsStore(this.sql));
+  }
+  proposal(id: string): StoredProposal | null { return this.proposals().get(id); }
+  createProposal(proposal: Omit<Proposal, "id">): Proposal { return this.proposals().create(proposal); }
+  reviseProposal(proposal: Proposal, turns: ProposalTurn[]): Proposal | null { return this.proposals().revise(proposal, turns); }
+  /** Starts an accept: open → accepting, only while the head Genome is the one the proposal was computed on. */
+  claimProposal(id: string): ClaimResult {
+    const s = this.state();
+    if (!s) throw new ConflictError("not-found", "System not imported");
+    return this.proposals().claim(id, s.genomeCommit);
+  }
+  releaseProposal(id: string, error: string): void { this.proposals().release(id, error); }
+  finishProposal(id: string, ids: AcceptedIds): Proposal | null { return this.proposals().finish(id, ids); }
+
+  /**
+   * Undo an accept that failed after creating its Evolution: an Evolution no realization started is deleted; otherwise
+   * its live realizations end `abandoned` (secrets nulled, open candidates rejected) and it becomes `withdrawn`.
+   * Returns the ended credentials for the Worker to revoke.
+   */
+  withdrawEvolution(id: string): EndedCredential[] {
+    const ended = this.ctx.storage.transactionSync(() => {
+      const live = this.all("SELECT id, fork_repo, token_id FROM realizations WHERE evolution_id = ? AND status NOT IN ('promoted', 'rejected', 'abandoned', 'accepted')", id);
+      if (!this.one("SELECT 1 FROM realizations WHERE evolution_id = ?", id)) {
+        this.sql.exec("DELETE FROM evolutions WHERE id = ?", id);
+        return [];
+      }
+      for (const r of live) {
+        this.sql.exec("UPDATE realizations SET status = 'abandoned', secret_hash = NULL, updated_at = ? WHERE id = ?", nowIso(), String(r.id));
+        this.sql.exec("UPDATE candidates SET state = 'rejected' WHERE realization_id = ? AND state != 'promoted'", String(r.id));
+      }
+      this.setEvolutionStatus(id, "withdrawn", true);
+      return live.map((r) => ({ realizationId: String(r.id), forkRepo: String(r.fork_repo), tokenId: str(r.token_id) ?? null }));
+    });
+    for (const x of ended) this.emit({ type: "realization.updated", realization: this.realizationDto(this.realizationRow(x.realizationId)!) });
+    const evo = this.evolution(id);
+    if (evo) this.emit({ type: "evolution.updated", evolution: evo });
+    return ended;
+  }
+
+  // ---------------------------------------------------------------- end W7 intent proposals
 
   // ---------------------------------------------------------------- registry (instance `__registry` only)
 

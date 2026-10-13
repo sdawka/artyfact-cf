@@ -17,21 +17,28 @@ export const TRANSLATE_SYSTEM_PROMPT = [
   '{"ops":[...]} to edit the graph; {"question":"..."} when the message is unclear or you are not sure which item it means;',
   '{"answer":"..."} when the user only asks for information. Ask a question instead of guessing when the target is unclear.',
   "Op shapes:",
-  '{"op":"add","kind":K,"parent"?:ID,"title":T,"description"?:D,"links"?:[{"rel":R,"to":ID} or {"rel":R,"from":ID}]}',
-  '{"op":"update","id":ID,"fields":{"title"?:T,"description"?:D,...}}',
+  '{"op":"add","kind":K,"parent"?:ID,"title":T,"description"?:D,"fields"?:{F:V,...},"criteria"?:[C,...],"links"?:[{"rel":R,"to":ID} or {"rel":R,"from":ID}]}',
+  '{"op":"update","id":ID,"fields"?:{"title"?:T,"description"?:D,F:V,...},"criteria"?:[C or {"id":CID,"remove":true},...]}',
   '{"op":"remove","id":ID}',
   '{"op":"link","from":ID,"rel":R,"to":ID} and {"op":"unlink","from":ID,"rel":R,"to":ID}',
+  "fields are the kind's declared fields; a null value in an update deletes the field. A criterion C is what must hold",
+  'for that node: {"id":"C.<name>","claim":TEXT,"severity"?:"hard"|"soft"|"advisory","target"?:"model"|"artifact"|"runtime"|"observation"};',
+  "an update with an existing criterion id replaces it, and {\"id\":CID,\"remove\":true} deletes one the node declares.",
   "Use only node ids from the slice, kinds and relations from the vocabulary, and relation directions as declared.",
   "Make the smallest set of edits that carries out the message; keep titles short; do not add what already exists.",
 ].join("\n");
 
 const id = z.string().min(1);
+const fields = z.record(z.string(), z.unknown());
+// Criteria are checked in full by `validateOps`, so a reply with a malformed criterion still parses and is reported.
+const criterion = z.object({ id }).passthrough();
 const OpSchema = z.discriminatedUnion("op", [
   z.object({
     op: z.literal("add"), kind: id, parent: id.optional(), title: id, description: z.string().optional(),
+    fields: fields.optional(), criteria: z.array(criterion).optional(),
     links: z.array(z.object({ rel: id, to: id.optional(), from: id.optional() }).refine((l) => !!l.to !== !!l.from, "a link names exactly one of to/from")).optional(),
   }),
-  z.object({ op: z.literal("update"), id, fields: z.record(z.string(), z.unknown()) }),
+  z.object({ op: z.literal("update"), id, fields: fields.optional(), criteria: z.array(criterion).optional() }),
   z.object({ op: z.literal("remove"), id }),
   z.object({ op: z.enum(["link", "unlink"]), from: id, rel: id, to: id }),
 ]);
@@ -151,11 +158,12 @@ export function openRouterTranslator(o: OpenRouterTranslatorOptions): Translator
 /**
  * A canned, gold-free translator: a question when the route is not confident or the intent is `question`/`unclear`,
  * an answer for `answer`, else an `update` of the first target, else an `add` of the route's kind, else a question.
+ * The `add` links to the first target with the first vocabulary relation whose ends fit the two kinds, if any.
  */
 export const fakeTranslator = (): Translator => ({
   mode: "fake",
   model: "fake",
-  translate: async ({ message, route: r }) => {
+  translate: async ({ message, route: r, slice, vocabulary }) => {
     const base = { model: "fake", provider: "fake" };
     if (r.status !== "confident" || r.intent === "question" || r.intent === "unclear" || r.intent === undefined) {
       return { ...base, question: `[fake] Which part should change for: ${message}` };
@@ -163,7 +171,15 @@ export const fakeTranslator = (): Translator => ({
     if (r.intent === "answer") return { ...base, answer: `[fake] See ${[...r.target.nodes, ...r.target.related].join(", ") || "the specification"}.` };
     const first = r.target.nodes[0];
     if (first && r.intent !== "add") return { ...base, ops: [{ op: "update", id: first, fields: { description: `[fake] ${message}` } }] };
-    if (r.target.kind) return { ...base, ops: [{ op: "add", kind: r.target.kind, title: `[fake] ${message}`.slice(0, 80), ...(first && { links: [{ rel: "references", to: first }] }) }] };
+    if (r.target.kind) {
+      const kind = r.target.kind;
+      const other = first === undefined ? undefined : slice.nodes.find((n) => n.id === first)?.kind;
+      const rels = Object.entries(vocabulary?.relations ?? {});
+      const out = other === undefined ? undefined : rels.find(([, e]) => e.from.includes(kind) && e.to.includes(other))?.[0];
+      const into = other === undefined || out ? undefined : rels.find(([, e]) => e.from.includes(other) && e.to.includes(kind))?.[0];
+      const links = out ? [{ rel: out, to: first! }] : into ? [{ rel: into, from: first! }] : [];
+      return { ...base, ops: [{ op: "add", kind, title: `[fake] ${message}`.slice(0, 80), ...(links.length && { links }) }] };
+    }
     return { ...base, question: `[fake] Which part should change for: ${message}` };
   },
 });

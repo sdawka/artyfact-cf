@@ -1,6 +1,7 @@
+import { NodeCriterionSchema } from "../genome/node.ts";
 import { linkKey, type Graph, type GraphNode } from "../graph/graph.ts";
 import { titleOf, type RouteVocabularySource } from "./route.ts";
-import type { Op, OpProblem } from "./types.ts";
+import type { Op, OpCriterion, OpProblem } from "./types.ts";
 
 const norm = (s: string) => s.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
 /** Fields every node may carry whatever its kind declares. */
@@ -9,8 +10,10 @@ const ALWAYS = new Set(["title", "description"]);
 /**
  * Deterministic checks of proposed ops against the graph and template. Errors: a node id that does not exist,
  * an undeclared kind or relation, a relation whose endpoint kinds the template does not allow, an `add` whose title
- * repeats an existing node of the same kind. Warnings: an `update` field the kind does not declare, an `unlink` of a
- * link that is not there, a `link` that already is.
+ * repeats an existing node of the same kind, a criterion that does not fit the `node.yaml` criterion schema, an upsert
+ * of a criterion id another node declares, a removal of a criterion the node does not declare, and an `update` with
+ * nothing to change. Warnings: an `add` or `update` field the kind does not declare, an `unlink` of a link that is
+ * not there, a `link` that already is.
  */
 export function validateOps(ops: Op[], template: RouteVocabularySource, g: Graph): OpProblem[] {
   const byId = new Map<string, GraphNode>();
@@ -20,6 +23,28 @@ export function validateOps(ops: Op[], template: RouteVocabularySource, g: Graph
   const err = (op: number, rule: string, subjects: string[], message: string) => out.push({ level: "error", rule, op, subjects, message });
   const warn = (op: number, rule: string, subjects: string[], message: string) => out.push({ level: "warning", rule, op, subjects, message });
   const known = (i: number, id: string) => { if (byId.has(id)) return true; err(i, "op.unknownNode", [id], `${id} is not a node`); return false; };
+  /** Criterion id -> the node declaring it (its `subject` link). */
+  const subjectOf = new Map(g.links.filter((l) => l.rel === "subject" && byId.get(l.from)?.kind === "criterion").map((l) => [l.from, l.to]));
+
+  const fields = (i: number, id: string, kind: string, names: string[]) => {
+    const declared = template.kinds[kind]?.fields?.map((f) => f.name);
+    if (!declared?.length) return;
+    for (const f of names) if (!ALWAYS.has(f) && !declared.includes(f)) warn(i, "op.unknownField", [id], `${kind} does not declare field ${f}`);
+  };
+  /** `node` is the declaring node's id, `undefined` for a node the op adds. */
+  const criteria = (i: number, node: string | undefined, list: OpCriterion[]) => {
+    const subject = node ?? "(new)";
+    for (const c of list) {
+      const owner = subjectOf.get(c.id);
+      if ("remove" in c && c.remove === true) {
+        if (owner !== node || node === undefined) err(i, "op.unknownCriterion", [subject, c.id], `${subject} does not declare criterion ${c.id}`);
+        continue;
+      }
+      const r = NodeCriterionSchema.safeParse(c);
+      if (!r.success) err(i, "op.invalidCriterion", [subject, c.id], `criterion ${c.id}: ${r.error.issues.map((x) => (x.path.length ? `${x.path.join(".")}: ` : "") + x.message).join("; ")}`);
+      if (owner !== undefined && owner !== node) err(i, "op.duplicateCriterion", [subject, c.id], `criterion ${c.id} is already declared on ${owner}`);
+    }
+  };
 
   /** `from` and `to` are kinds; `fromId`/`toId` name the ends for the message. */
   const relation = (i: number, rel: string, from: string, to: string, ends: [string, string]) => {
@@ -34,8 +59,10 @@ export function validateOps(ops: Op[], template: RouteVocabularySource, g: Graph
         const kindOk = op.kind in template.kinds;
         if (!kindOk) err(i, "op.unknownKind", [], `kind ${op.kind} is not declared`);
         if (op.parent !== undefined) known(i, op.parent);
-        const dup = [...byId.values()].find((n) => n.kind === op.kind && norm(titleOf(n)) === norm(op.title));
+        const dup = [...byId.values()].find((n) => n.kind === op.kind && norm(titleOf(n, template)) === norm(op.title));
         if (dup) err(i, "op.duplicateTitle", [dup.id], `${op.kind} "${op.title}" already exists as ${dup.id}`);
+        if (kindOk) fields(i, "(new)", op.kind, Object.keys(op.fields ?? {}));
+        criteria(i, undefined, op.criteria ?? []);
         for (const l of op.links ?? []) {
           const other = l.to ?? l.from;
           if (other === undefined || !known(i, other) || !kindOk) continue;
@@ -47,12 +74,9 @@ export function validateOps(ops: Op[], template: RouteVocabularySource, g: Graph
       }
       case "update": {
         if (!known(i, op.id)) break;
-        const n = byId.get(op.id)!;
-        const declared = template.kinds[n.kind]?.fields?.map((f) => f.name);
-        if (!declared?.length) break;
-        for (const f of Object.keys(op.fields)) {
-          if (!ALWAYS.has(f) && !declared.includes(f)) warn(i, "op.unknownField", [op.id], `${n.kind} does not declare field ${f}`);
-        }
+        if (!Object.keys(op.fields ?? {}).length && !op.criteria?.length) err(i, "op.emptyUpdate", [op.id], `the update of ${op.id} changes nothing`);
+        fields(i, op.id, byId.get(op.id)!.kind, Object.keys(op.fields ?? {}));
+        criteria(i, op.id, op.criteria ?? []);
         break;
       }
       case "remove":
