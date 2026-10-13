@@ -8,6 +8,7 @@ import { parse as parseYaml } from "yaml";
 import type {
   Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, DeleteSystemResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, SystemSummary, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SubmitSource, SyncResponse,
+  ClaimTaskResponse, StartWaveRequest, StartWaveResponse, Task, TaskPacket, TaskPlan, TaskResponse, TasksQuery, TasksResponse, TaskStatus,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
 import { sha256Hex } from "./util";
@@ -23,7 +24,8 @@ import type { CandidateRef, FileMap, QueueContext, SubmissionContext } from "./h
 import { hookRunner } from "./hooks/index";
 import { buildGenomeReview } from "./genome/review";
 import { readinessReport, serializeModel } from "./model-bundle";
-import { buildTaskPacket, protectedPathsFor } from "./packets/task-packet";
+import { buildTaskPacket, independenceStatement, protectedPathsFor, waveOf, type PacketTask } from "./packets/task-packet";
+import { taskFootprint } from "./tasks/footprint";
 import { ensurePushSubscription, removePushSubscription } from "./artifacts/subscriptions";
 import { dispatchPreviewBuild, requestProductionDeploy } from "./deployments";
 import { gateCriteria, hooksOf, type GateCriterion } from "./promotion";
@@ -376,19 +378,51 @@ function modelEvolution(m: SystemModel, dto: Evolution): schema.Evolution {
   return m.evolutions.find((e) => e.id === dto.id) ?? ({ ...dto } as unknown as schema.Evolution);
 }
 
-async function concurrentWork(env: Env, systemId: string, evolutionId: string, exclude: string) {
+/** Every non-terminal realization of the System (all Evolutions) but `exclude`, with its task and the paths its packet permits. */
+async function concurrentWork(env: Env, systemId: string, exclude: string): Promise<TaskPacket["concurrentWork"]> {
   const stub = systemStub(env, systemId);
-  const reals = (await stub.realizations(evolutionId)).filter((r) => r.id !== exclude && !["promoted", "rejected", "abandoned"].includes(r.status));
-  const cands = await stub.candidates({ evolutionId });
-  return reals.map((r) => ({
+  const reals = (await stub.realizations()).filter((r) => r.id !== exclude && !TERMINAL_REALIZATION.includes(r.status as RealizationRecord["realization"]["status"]));
+  const cands = await stub.candidates({});
+  return Promise.all(reals.map(async (r) => ({
     realization: r.id,
     agentLabel: r.agent.id,
     status: r.status,
-    changedSubjects: cands.find((c) => c.realization === r.id)?.changedSubjects ?? [],
+    changedSubjects: cands.filter((c) => c.realization === r.id).at(-1)?.changedSubjects ?? [],
     evolution: r.evolution,
-    // Filled from the task footprint by the packet slice (W5).
-    permittedPaths: [] as string[],
-  }));
+    ...(r.task && { task: r.task }),
+    permittedPaths: (await stub.realization(r.id))?.packet?.permittedPaths ?? [],
+  })));
+}
+
+/** The Evolution as a task realization answers to it: the task's acceptance criteria replace the Evolution's. */
+async function scopedEvolution(stub: SystemApi, evo: Evolution, taskId: string | null | undefined): Promise<Evolution> {
+  if (!taskId) return evo;
+  const t = await stub.task(taskId);
+  return t ? { ...evo, acceptanceCriteria: t.acceptanceCriteria } : evo;
+}
+
+/** What a task packet names beside the task itself: other tasks' globs, the tasks running beside it, its dependents. */
+function packetTask(task: Task, plan: TaskPlan | null, ownGlobs: string[], wave: number | null, concurrent: TaskPacket["concurrentWork"]): PacketTask {
+  const others = (plan?.tasks ?? []).filter((t) => t.id !== task.id);
+  const minusOwn = (globs: string[]) => globs.filter((g) => !ownGlobs.includes(g));
+  const running = concurrent.filter((w) => w.task && w.task !== task.id);
+  const doNotTouch = new Map<string, string[]>();
+  for (const t of others) if (t.status !== "promoted") doNotTouch.set(t.id, minusOwn(t.footprint.globs));
+  for (const w of running) if (!doNotTouch.has(w.task!)) doNotTouch.set(w.task!, minusOwn(w.permittedPaths));
+  const runningIds = new Set(running.map((w) => w.task!));
+  const siblings = wave === null ? [] : (plan?.waves[wave] ?? []).filter((id) => id !== task.id && !runningIds.has(id))
+    .map((id) => others.find((t) => t.id === id)).filter((t): t is Task => !!t && !["promoted", "rejected", "abandoned"].includes(t.status));
+  return {
+    id: task.id, title: task.title, intent: task.intent, nodes: task.nodes, dependsOn: task.dependsOn, wave,
+    acceptanceCriteria: task.acceptanceCriteria,
+    independence: plan ? independenceStatement(task, plan, ownGlobs) : "This task has no plan; no independence was computed.",
+    doNotTouch: [...doNotTouch].map(([t, globs]) => ({ task: t, globs })),
+    concurrent: [
+      ...running.map((w) => `${w.task} of ${w.evolution} (${w.permittedPaths.join(", ") || "unscoped"}; ${w.status}${w.agentLabel ? ` by ${w.agentLabel}` : ""})`),
+      ...siblings.map((t) => `${t.id} (${t.footprint.globs.join(", ") || "unscoped"}; wave ${wave}, ${t.status})`),
+    ],
+    after: others.filter((t) => t.dependsOn.includes(task.id)).map((t) => t.id),
+  };
 }
 
 /**
@@ -396,9 +430,17 @@ async function concurrentWork(env: Env, systemId: string, evolutionId: string, e
  * `opts.permittedExtra`: Genome-relative globs added to the packet's permitted paths (under the Genome prefix), for
  * nodes the realization will create and the base model cannot know.
  */
+/**
+ * A start for a Task (`opts.task`, claimed by the caller): the packet is scoped to the task's nodes and criteria, the
+ * realization records the task and is bound to it once active; a failed start releases the task. The task's globs are
+ * recomputed against the fork's base tree; `planStale` reports a plan made at another app commit (never refused).
+ */
+export type TaskStartResponse = StartWorkResponse & { planStale?: { plannedAt: string | null; startedAt: string } };
+
 export async function startWork(
-  env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string, opts: { expectedBase?: string; permittedExtra?: string[] } = {},
-): Promise<StartWorkResponse> {
+  env: Env, systemId: string, evolutionId: string, body: StartWorkRequest, platformUrl: string,
+  opts: { expectedBase?: string; permittedExtra?: string[]; task?: string; wave?: number | null } = {},
+): Promise<TaskStartResponse> {
   if (body.target !== undefined && body.target !== "app" && body.target !== "genome") throw badRequest("target must be app or genome");
   if (body.origin !== undefined && body.origin !== "cli" && body.origin !== "editor") throw badRequest("origin must be cli or editor");
   const stub = systemStub(env, systemId);
@@ -408,10 +450,21 @@ export async function startWork(
   const g = await canonicalGenome(env, s);
   const evolution = modelEvolution(g.model, evoDto);
   const target = body.target ?? (evolution.kind === "genome-amendment" ? "genome" : "app");
-  const commands = scaffoldCommands(g.model, target, evolution.affectedNodes);
+  const task = opts.task ? await stub.task(opts.task) : null;
+  if (opts.task && !task) throw notFound(`unknown task ${opts.task}`);
+  const commands = scaffoldCommands(g.model, target, task ? task.nodes : evolution.affectedNodes);
 
-  await skipTakenForkNames(env, stub, target);
-  const reserved = await rpc(stub.reserveRealization({ evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin, ...(opts.expectedBase && { expectedBase: opts.expectedBase }) }));
+  await skipTakenForkNames(env, stub, target).catch(async (e: unknown) => {
+    if (task) await stub.releaseTask(task.id).catch(() => undefined);
+    throw e;
+  });
+  const reserved = await rpc(stub.reserveRealization({
+    evolutionId, target, agentLabel: body.agentLabel, role: body.role, origin: body.origin,
+    ...(opts.expectedBase && { expectedBase: opts.expectedBase }), ...(task && { taskId: task.id }),
+  })).catch(async (e: unknown) => {
+    if (task) await stub.releaseTask(task.id).catch(() => undefined);
+    throw e;
+  });
   const rid = reserved.realization.id;
   let tokenId: string | undefined;
   try {
@@ -425,11 +478,21 @@ export async function startWork(
       tree: target === "app" ? [...(await listTree(r, reserved.baseCommit)).keys()] : [],
       prefix: target === "genome" ? await genomePrefix(r, reserved.baseCommit) : "",
     }));
+    const concurrent = await concurrentWork(env, systemId, rid);
+    let taskInput: PacketTask | undefined;
+    let planStale: TaskStartResponse["planStale"];
+    if (task) {
+      const plan = await stub.plan(evolutionId);
+      const own = taskFootprint({ model: g.model, nodes: task.nodes, tree, appCommit: reserved.baseCommit });
+      const wave = opts.wave !== undefined ? opts.wave : plan ? waveOf(plan, task.id) : null;
+      taskInput = packetTask(task, plan, own.globs, wave, concurrent);
+      if (target === "app" && plan && plan.appCommit !== reserved.baseCommit) planStale = { plannedAt: plan.appCommit, startedAt: reserved.baseCommit };
+    }
     const packet = await buildTaskPacket({
       systemId, realizationId: rid, target, model: g.model, evolution,
       workspace: { repo: reserved.baseRepo, fork: reserved.forkRepo, baseCommit: reserved.baseCommit, remote },
-      baseTreePaths: tree, commands,
-      concurrentWork: await concurrentWork(env, systemId, evolutionId, rid), platformUrl, genomePrefix: prefix,
+      baseTreePaths: tree, commands, ...(taskInput && { task: taskInput }),
+      concurrentWork: concurrent, platformUrl, genomePrefix: prefix,
       ...(target === "genome" && opts.permittedExtra?.length && { permittedExtra: opts.permittedExtra.map((g) => (prefix ? `${prefix.replace(/\/+$/, "")}/${g}` : g)) }),
     });
     // The realization secret authorizes the agent's platform calls; only its SHA-256 is stored.
@@ -443,6 +506,7 @@ export async function startWork(
       throw conflict("invalid-state", `realization ${rid} is ${activated.refused ?? "gone"}; it was not activated and its token was revoked`);
     }
     const realization = activated;
+    if (task) await rpc(stub.bindTask(task.id, rid));
     // B3: the fork's push subscription feeds the queue safety net (best effort; a no-op without CF_API_TOKEN).
     const subscription = await ensurePushSubscription(env, reserved.forkRepo);
     if (subscription) await stub.setRealizationSubscription(rid, subscription);
@@ -451,6 +515,7 @@ export async function startWork(
     return {
       systemId, realization, packet: { ...packet, workspace: { ...packet.workspace, secret } },
       token: { value: token.plaintext, expiresAt: token.expiresAt, remote }, secret, remote, startCommand: cli, cli,
+      ...(planStale && { planStale }),
     };
   } catch (e) {
     // Best-effort cleanup; never let it mask the original error. Never log the token itself. A realization that ended
@@ -461,6 +526,7 @@ export async function startWork(
       registryStub(env).unregisterRealization(systemId, rid),
     ];
     if (tokenId) cleanup.push(withRepo(artifactsFor(env), reserved.forkRepo, (r) => r.revokeToken(tokenId!)));
+    if (task) cleanup.push(stub.releaseTask(task.id));
     for (const r of await Promise.allSettled(cleanup)) {
       if (r.status === "rejected") console.error(`[startWork] cleanup for ${rid} failed: ${(r.reason as Error)?.message ?? r.reason}`);
     }
@@ -606,7 +672,7 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
     canonicalFiles(env, s),
     hookRef(env, s.systemId, cand),
     storedCandidates(env, s.systemId).then((xs) => Promise.all(xs.filter((c) => c.realizationId !== cand.realizationId).map((c) => hookRef(env, s.systemId, c)))),
-    stub.evolution(rec.evolutionId),
+    stub.evolution(rec.evolutionId).then((e) => (e ? scopedEvolution(stub, e, rec.taskId) : null)),
   ]);
   const required = requiredFiles((await canonicalGenome(env, s)).model);
   const { tree, exists, recomputedHash } = await withRepo(artifactsFor(env), rec.forkRepo, async (repo) => {
@@ -846,7 +912,10 @@ async function candidateGates(env: Env, systemId: string, evolutionId: string, c
     const evo = await stub.evolution(evolutionId);
     if (!evo) return { gatesError: `evolution ${evolutionId} is unknown` };
     const gates: Record<string, GateCriterion[]> = {};
-    for (const c of candidates) gates[c.id] = gateCriteria(g.model, evo, { target: (await stub.realization(c.realization))?.target ?? "app" });
+    for (const c of candidates) {
+      const rec = await stub.realization(c.realization);
+      gates[c.id] = gateCriteria(g.model, await scopedEvolution(stub, evo, rec?.taskId), { target: rec?.target ?? "app" });
+    }
     return { gates };
   } catch (e) {
     return { gatesError: `the promotion gate cannot be computed: ${(e as Error)?.message ?? e}` };
@@ -905,8 +974,10 @@ async function prepareGate(
     if (!c) throw notFound(`unknown candidate ${id}`);
     const rec = await record(env, systemId, c.realization);
     const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((x) => x.id === id)!;
-    const evo = await stub.evolution(rec.evolutionId);
-    if (!evo) throw unavailable(`evolution ${rec.evolutionId} is unknown`);
+    const evo0 = await stub.evolution(rec.evolutionId);
+    if (!evo0) throw unavailable(`evolution ${rec.evolutionId} is unknown`);
+    // A task realization is gated on its task's criteria (as the DO's effectiveGates).
+    const evo = await scopedEvolution(stub, evo0, rec.taskId);
     try {
       gates[id] = gateCriteria(g.model, evo, await hookRef(env, systemId, ref));
     } catch (e) {
@@ -1157,4 +1228,162 @@ export async function createEvolution(
   }));
   await refreshRegistry(env, systemId);
   return { evolution };
+}
+
+// ------------------------------------------------------------------ tasks, waves and claims (backend.md B.9)
+
+const TASK_STATUSES: readonly TaskStatus[] = ["planned", "claimed", "realizing", "evaluated", "promoted", "rejected", "abandoned"];
+const LIVE_TASK: readonly TaskStatus[] = ["claimed", "realizing", "evaluated"];
+
+function agentLabelOf(v: unknown, field = "agentLabel"): string {
+  if (typeof v !== "string" || !v.trim() || v.length > 200) throw badRequest(`${field} must be a non-empty string of at most 200 characters`);
+  return v.trim();
+}
+
+function roleOf(v: unknown): StartWorkRequest["role"] {
+  if (v === undefined) return undefined;
+  if (typeof v !== "string" || !v.trim()) throw badRequest("role must be a non-empty string");
+  return v as StartWorkRequest["role"];
+}
+
+/** The Evolution of a task (404 for an unknown task). */
+async function taskOrThrow(stub: SystemApi, taskId: string): Promise<Task> {
+  const t = await stub.task(taskId);
+  if (!t) throw notFound(`unknown task ${taskId}`);
+  return t;
+}
+
+/** `GET /systems/:id/tasks?status&evolution` (public): tasks with their Evolution title, wave and unmet dependencies. */
+export async function listTasks(env: Env, systemId: string, q: TasksQuery): Promise<TasksResponse> {
+  if (q.status !== undefined && !TASK_STATUSES.includes(q.status)) throw badRequest(`status must be one of ${TASK_STATUSES.join(", ")}`);
+  await headState(env, systemId);
+  const stub = systemStub(env, systemId);
+  const tasks = await stub.tasks({ ...(q.evolution && { evolutionId: q.evolution }), ...(q.status && { status: [q.status] }) });
+  const evolutionIds = [...new Set(tasks.map((t) => t.evolutionId))];
+  const titles = new Map((await stub.evolutions()).map((e) => [e.id, e.title] as const));
+  const plans = new Map((await Promise.all(evolutionIds.map((id) => stub.plan(id)))).filter((p): p is TaskPlan => !!p).map((p) => [p.evolutionId, p] as const));
+  const ids = new Set(tasks.map((t) => t.id));
+  return {
+    tasks: await Promise.all(tasks.map(async (t) => {
+      const plan = plans.get(t.evolutionId);
+      return {
+        ...t, evolutionTitle: titles.get(t.evolutionId) ?? t.evolutionId, wave: plan ? waveOf(plan, t.id) : null,
+        blockedOn: ["planned", "claimed"].includes(t.status) ? await stub.taskBlockedOn(t.id) : [],
+      };
+    })),
+    conflicts: [...plans.values()].flatMap((p) => p.conflicts).filter((c) => c.tasks.some((id) => ids.has(id))),
+    waves: Object.fromEntries([...plans].map(([id, p]) => [id, p.waves] as const)),
+  };
+}
+
+/** `GET /systems/:id/tasks/:tid` (public): the task and its plan's conflicts that involve it. */
+export async function taskView(env: Env, systemId: string, taskId: string): Promise<TaskResponse> {
+  const stub = systemStub(env, systemId);
+  const task = await taskOrThrow(stub, taskId);
+  const plan = await stub.plan(task.evolutionId);
+  return { task, conflicts: (plan?.conflicts ?? []).filter((c) => c.tasks.includes(taskId)) };
+}
+
+/** `POST /systems/:id/tasks/:tid/release` (admin): the task returns to `planned` (its realization keeps its status). */
+export async function releaseTask(env: Env, systemId: string, taskId: string): Promise<TaskResponse> {
+  const stub = systemStub(env, systemId);
+  await taskOrThrow(stub, taskId);
+  await rpc(stub.releaseTask(taskId));
+  await refreshRegistry(env, systemId);
+  return taskView(env, systemId, taskId);
+}
+
+/**
+ * `POST /systems/:id/tasks/:tid/claim` (admin): claim the task for `agentLabel` and start its realization (fork,
+ * token, secret, task-scoped packet): 201 `fresh: true`. The same label again while its claim or realization is live:
+ * 200 `fresh: false` with the stored packet and no credentials. 409 `task-taken {by}`, `task-blocked {blockedOn}`,
+ * `invalid-state`.
+ */
+export async function claimTask(
+  env: Env, systemId: string, taskId: string, body: { agentLabel?: unknown; role?: unknown }, platformUrl: string,
+): Promise<{ status: 200 | 201; body: ClaimTaskResponse }> {
+  const agentLabel = agentLabelOf(body.agentLabel);
+  const role = roleOf(body.role);
+  const stub = systemStub(env, systemId);
+  await headState(env, systemId);
+  const before = await taskOrThrow(stub, taskId);
+  const out = await rpc(stub.claimTask(taskId, agentLabel));
+  if ("refused" in out) {
+    // A label whose claim already became a running realization gets that realization back.
+    if (out.refused === "invalid-state" && LIVE_TASK.includes(before.status) && before.claim?.agentLabel === agentLabel && before.realizationId) {
+      return { status: 200, body: await reclaimed(env, systemId, before) };
+    }
+    if (out.refused === "not-found") throw notFound(`unknown task ${taskId}`);
+    if (out.refused === "taken") throw conflict("task-taken", `task ${taskId} is claimed by ${out.by}`, { by: out.by });
+    if (out.refused === "blocked") {
+      throw conflict("task-blocked", `task ${taskId} is blocked by ${(out.blockedOn ?? []).join(", ")} (not yet promoted)`, { blockedOn: out.blockedOn ?? [] });
+    }
+    throw conflict("invalid-state", `task ${taskId} is ${before.status}; only a planned task can be claimed`);
+  }
+  if (!out.fresh && out.claimed.realizationId) return { status: 200, body: await reclaimed(env, systemId, out.claimed) };
+  // A fresh claim, or the same label's claim whose start never completed: start its realization now.
+  const plan = await stub.plan(out.claimed.evolutionId);
+  const started = await startWork(env, systemId, out.claimed.evolutionId, { agentLabel, ...(role && { role }) }, platformUrl,
+    { task: taskId, wave: plan ? waveOf(plan, taskId) : null });
+  return { status: 201, body: { ...started, task: await taskOrThrow(stub, taskId), fresh: true } };
+}
+
+/** A repeat claim: the stored packet, no credentials (they were issued once). */
+async function reclaimed(env: Env, systemId: string, task: Task): Promise<ClaimTaskResponse> {
+  const p = await packet(env, systemId, task.realizationId!);
+  return {
+    systemId, realization: p.realization, packet: p.packet, token: null, secret: null, remote: p.remote,
+    startCommand: p.packet.startCommand, cli: p.packet.startCommand, task, fresh: false,
+  };
+}
+
+/**
+ * `POST /systems/:id/evolutions/:eid/waves/:n/start` (admin): claim and start every task of wave `n` one after the
+ * other (fork numbering is not concurrency-safe). Refused 409 `wave-blocked` while an earlier wave has a task that is
+ * not promoted, unless `force`. A task that cannot be claimed or started is reported in `skipped`, never fatal.
+ */
+export async function startWave(
+  env: Env, systemId: string, evolutionId: string, n: number, body: Partial<StartWaveRequest>, platformUrl: string,
+): Promise<StartWaveResponse & { started: TaskStartResponse[] }> {
+  if (!Number.isInteger(n) || n < 0) throw badRequest("wave must be a non-negative integer");
+  const labels = body.agentLabels ?? {};
+  if (typeof labels !== "object" || Array.isArray(labels)) throw badRequest("agentLabels must map task ids to labels");
+  for (const [k, v] of Object.entries(labels)) agentLabelOf(v, `agentLabels.${k}`);
+  if (body.force !== undefined && typeof body.force !== "boolean") throw badRequest("force must be a boolean");
+  const role = roleOf(body.role);
+  const stub = systemStub(env, systemId);
+  await headState(env, systemId);
+  if (!(await stub.evolution(evolutionId))) throw notFound(`unknown evolution ${evolutionId}`);
+  const plan = await stub.plan(evolutionId);
+  if (!plan) throw new HttpError(404, "no-plan", `evolution ${evolutionId} has no task plan`);
+  const ids = plan.waves[n];
+  if (!ids) throw notFound(`evolution ${evolutionId} has ${plan.waves.length} wave(s); there is no wave ${n}`);
+  const status = new Map(plan.tasks.map((t) => [t.id, t.status] as const));
+  const pending = plan.waves.slice(0, n).flat().filter((id) => status.get(id) !== "promoted");
+  if (pending.length && !body.force) {
+    throw conflict("wave-blocked", `wave ${n} waits on earlier waves: ${pending.join(", ")} not promoted`, { pending });
+  }
+  const out: StartWaveResponse & { started: TaskStartResponse[] } = { wave: n, started: [], skipped: [] };
+  for (const id of ids) {
+    const label = (labels as Record<string, string>)[id]?.trim() || `agent:${id}`;
+    const claim = await rpc(stub.claimTask(id, label));
+    if ("refused" in claim) {
+      const reason = claim.refused === "taken" ? `claimed by ${claim.by}`
+        : claim.refused === "blocked" ? `blocked by ${(claim.blockedOn ?? []).join(", ")} (not yet promoted)`
+          : `task is ${status.get(id) ?? "unknown"}`;
+      out.skipped.push({ task: id, reason });
+      continue;
+    }
+    if (!claim.fresh && claim.claimed.realizationId) {
+      out.skipped.push({ task: id, reason: `already claimed by ${label}; its credentials were issued with that claim` });
+      continue;
+    }
+    try {
+      const started = await startWork(env, systemId, evolutionId, { agentLabel: label, ...(role && { role }) }, platformUrl, { task: id, wave: n });
+      out.started.push({ ...started, task: id });
+    } catch (e) {
+      out.skipped.push({ task: id, reason: `start failed: ${(e as Error)?.message ?? e}` });
+    }
+  }
+  return out;
 }
