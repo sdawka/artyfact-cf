@@ -70,9 +70,11 @@ describe("meta@1 templates", () => {
     const ids = (ref: string) => loadMetaTemplate(ref).rules.map((r) => r.id);
     expect(ids(systemRef)).toEqual(["artyfact.facts", "artyfact.metamodel", "artyfact.readiness", "artyfact.theory", "artyfact.topology.private-pairs"]);
     for (const ref of [workerRef, vueRef]) expect(ids(ref)).toEqual(["artyfact.facts", "artyfact.metamodel", "artyfact.authorization", "artyfact.journeys"]);
-    expect(composeTemplate(systemRef, [workerRef, vueRef]).rules.map((r) => r.id).sort()).toEqual([
+    expect(composeTemplate(systemRef, [workerRef]).rules.map((r) => r.id).sort()).toEqual([
       "artyfact.authorization", "artyfact.facts", "artyfact.journeys", "artyfact.metamodel", "artyfact.readiness", "artyfact.theory", "artyfact.topology.private-pairs",
     ]);
+    // Both webapp templates prefill section.ui (and more) under fixed ids, so one System cannot use both.
+    expect(() => composeTemplate(systemRef, [workerRef, vueRef])).toThrow(/prefilled node section\.ui/);
     expect(loadMetaTemplate(systemRef).questions.map((q) => q.id)).toEqual(["topology.multiRecipient"]);
   });
 
@@ -87,9 +89,12 @@ describe("meta@1 templates", () => {
       expect([m.kind, m.parent, m.fields.name, m.fields.description, !!m.provisional])
         .toEqual([n.kind, n.parent === "$thing" || n.parent === "$system" ? "thing.x" : n.parent, n.name, n.description, !!n.provisional]);
     }
-    expect(inst.filter((n) => n.kind === "criterion").map((n) => n.id)).toEqual(v1.criteria.map((c) => c.id));
-    expect(t.criteria.map((c) => [c.id, c.hooks, c.gates])).toEqual(v1.criteria.map((c) => [c.id, c.hooks, c.gates]));
-    expect(inst.filter((n) => n.kind === "hook").map((n) => n.id)).toEqual(v1.hooks.map((h) => h.id));
+    // Criterion and hook ids hold the instantiating node: `$self` in meta@1, `$thing` in the legacy shape.
+    const atX = (id: string) => id.replace("$thing", "thing.x");
+    const legacyIds = (ids: string[] | undefined) => ids?.map((id) => id.replace("$thing", "$self"));
+    expect(inst.filter((n) => n.kind === "criterion").map((n) => n.id)).toEqual(v1.criteria.map((c) => atX(c.id)));
+    expect(t.criteria.map((c) => [c.id, c.hooks, c.gates])).toEqual(v1.criteria.map((c) => [legacyIds([c.id])![0], legacyIds(c.hooks), c.gates]));
+    expect(inst.filter((n) => n.kind === "hook").map((n) => n.id)).toEqual(v1.hooks.map((h) => atX(h.id)));
   });
 
   it("the worker's source globs carry today's source-map defaults, relative to the Thing root", () => {

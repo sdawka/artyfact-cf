@@ -187,6 +187,8 @@ class Builder {
  * The `template` node for `ref`: the node a meta@1 template declares for itself (`{id: ref, kind: template}` in its
  * `nodes`), else one holding only its kind and version. Undefined when the store does not know `ref`.
  */
+const SELF = "$self";
+
 function templateNode(templates: TreeTemplates, ref: string): GraphNode | undefined {
   const t = templates.get(ref);
   if (!isObj(t)) return undefined;
@@ -223,6 +225,11 @@ export function projectTree(tree: GenomeTree, templates: TreeTemplates): Graph {
     if (!t) issues.push({ path: n.path, message: `unknown template ${ref}` });
     else b.node(t);
     b.link({ from: n.id, rel: "pinned", to: ref });
+    // A criterion the template requires under a `$self` id is this node's own: `requires` names it (C.$self.checks → C.<id>.checks).
+    const required = t?.fields.criteria;
+    for (const c of Array.isArray(required) ? required : []) {
+      if (typeof c === "string" && c.includes(SELF)) b.link({ from: n.id, rel: "requires", to: c.replaceAll(SELF, n.id) });
+    }
   };
 
   // Inline hooks first, so a criterion may name a hook declared further down the tree.

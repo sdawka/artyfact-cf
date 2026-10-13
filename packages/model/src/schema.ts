@@ -2,7 +2,8 @@ import { z } from "zod";
 
 // The shapes `SystemModel` projects the Genome's node tree into (see genome.ts), and the platform's own records.
 
-const id = (p: string) => z.string().regex(new RegExp(`^${p.replace(".", "\\.")}[\\w.-]+$`));
+// `$` admits a template's `$thing` placeholder inside an id (`C.$thing.checks`), rebased per Thing.
+const id = (p: string) => z.string().regex(new RegExp(`^${p.replace(".", "\\.")}[\\w.$-]+$`));
 export const Id = {
   system: id("system."),
   thing: id("thing."),

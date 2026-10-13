@@ -10,3 +10,22 @@ links:
   - {rel: dependsOn, to: thing.core}
   - {rel: deploys, to: thing.api}
   - {rel: exposes, to: command.deploy}
+criteria:
+  - id: C.thing.cli.checks
+    title: Changed nodes meet their checks
+    claim: Changed nodes meet the checks their kinds declare.
+    severity: soft
+    gates:
+      - submission
+    hooks:
+      - id: hook.thing.cli.checks
+        assay: cli.checks
+        tier: semantic
+        engine: model-rules
+        triggers:
+          - submission
+        inputs:
+          packs: checks@1
+        binding: bound
+        fromTemplate: template.thing.cli@1
+    fromTemplate: template.thing.cli@1

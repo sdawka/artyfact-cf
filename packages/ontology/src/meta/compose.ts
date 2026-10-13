@@ -57,7 +57,9 @@ function layersOf(all: Template[]): MapLayer[] | undefined {
  * constraints, rules, criteria, questions and prefilled nodes of every Thing template it uses (design §3). Shared kinds
  * must be declared identically; a kind, constraint, rule pack (same id), criterion or question declared differently
  * by two templates is a `TemplateCompositionError`. Relations of the same name unite their endpoints. Prefilled nodes
- * are instantiated for the node that uses the template. The System's Map layers come first, in its order; Thing
+ * (criteria and hooks included) are instantiated for the node that uses the template; two prefilled nodes with one id
+ * and different content (two templates, or one template used by two Things without `$self` in the id) are a
+ * `TemplateCompositionError`. The System's Map layers come first, in its order; Thing
  * templates may append layers it does not declare. Everything that belongs to the root (root criteria and checks, text
  * defaults, defects, root `files`) is the System's. The result keeps the System template's id and version, so the
  * graph (whose `template` is the root's ref) names it.
@@ -79,7 +81,12 @@ export function composeTemplates(system: TemplateUse, things: TemplateUse[]): Te
   const rules = byId("rule pack", all.map((t) => t.rules));
   const nodes = new Map<string, TemplateNode>();
   for (const u of uses) {
-    for (const n of u.self === undefined ? u.template.nodes : instantiateNodes(u.template, u.self)) if (!nodes.has(n.id)) nodes.set(n.id, n);
+    for (const n of u.self === undefined ? u.template.nodes : instantiateNodes(u.template, u.self)) {
+      const had = nodes.get(n.id);
+      // Without `self` a `$self` id is a pattern, not a node: the first one stands for all.
+      if (had !== undefined && !same(had, n) && !n.id.includes("$self")) throw new TemplateCompositionError(`prefilled node ${n.id} is declared differently by two templates (or two uses of one); template its id with $self`);
+      nodes.set(n.id, n);
+    }
   }
   const layers = layersOf(all);
 

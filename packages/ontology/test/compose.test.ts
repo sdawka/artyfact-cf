@@ -59,4 +59,27 @@ describe("composeTemplates", () => {
     const rel = thing({ relations: { reads: { from: ["entity"], to: ["entity"], acyclic: true } } });
     expect(() => composeTemplates({ template: system() }, [{ template: rel }])).toThrow(/relation reads/);
   });
+
+  it("gives two Things on one template their own prefilled criterion and hook ids", () => {
+    const checks = thing({
+      criteria: [{ id: "C.$self.checks", owner: "thing", subject: "thing", severity: "soft", hooks: ["hook.$self.checks"] }],
+      nodes: [
+        { id: "template.test.thing@1", kind: "template", fields: { kind: "thing", version: "1", criteria: ["C.$self.checks"] } },
+        { id: "C.$self.checks", kind: "criterion", fields: { title: "Checks of $self", hooks: ["hook.$self.checks"] }, links: [{ rel: "owner", to: "$self" }] },
+        { id: "hook.$self.checks", kind: "hook", fields: { criteria: ["C.$self.checks"] } },
+      ],
+    });
+    const t = composeTemplates({ template: system() }, [{ template: checks, self: "thing.a" }, { template: checks, self: "thing.b" }]);
+    expect(t.nodes.map((n) => n.id)).toEqual(["template.test.thing@1", "C.thing.a.checks", "hook.thing.a.checks", "C.thing.b.checks", "hook.thing.b.checks"]);
+    expect(t.nodes.find((n) => n.id === "C.thing.b.checks")).toMatchObject({ fields: { hooks: ["hook.thing.b.checks"] }, links: [{ rel: "owner", to: "thing.b" }] });
+    // The template's own node is shared: its criteria stay patterns for the projection to resolve per Thing.
+    expect(t.nodes[0]!.fields.criteria).toEqual(["C.$self.checks"]);
+  });
+
+  it("rejects a prefilled id that two uses fill differently", () => {
+    const fixed = thing({ nodes: [{ id: "C.fixed", kind: "criterion", fields: { title: "Of $self" }, links: [{ rel: "owner", to: "$self" }] }] });
+    expect(() => composeTemplates({ template: system() }, [{ template: fixed, self: "thing.a" }, { template: fixed, self: "thing.b" }]))
+      .toThrow(/prefilled node C.fixed/);
+    expect(() => composeTemplates({ template: system() }, [{ template: fixed, self: "thing.a" }])).not.toThrow();
+  });
 });

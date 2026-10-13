@@ -140,7 +140,7 @@ The v1 (by-concern) layout is dropped. The rules:
 
 - **One-time migration.** The v1 reader exists only inside the converter (W1, `packages/ontology/src/codec/v1.ts`) and one transitional platform release. That release converts the prod Keep in Touch Genome to v2 through an ordinary Genome realization commit and promotion. After it ships, the converter's v1 reader, the engine's artyfact v1 adapter (`src/adapters/artyfact`), its parity tests and v1 support in `@artyfact/model` are deleted. Old commits are never rewritten.
 - **Legacy check.** `isLegacyGenome(paths)` (`src/genome/node.ts`) is true when the root has `system.yaml` and no `node.yaml`. It reads a file list only and never parses v1. It is the only v1 knowledge the platform keeps.
-- **Model routes** (`model`, `readiness` and anything else that loads the Genome) at a legacy revision answer 422 `legacy-genome`, with the message "this revision predates the node-tree Genome format".
+- **Model routes** (`model`, `readiness` and anything else that loads the Genome) at a legacy revision answer 422 `legacy-genome`, with the message "this revision predates the node-tree Genome format". Model and changelog rows cached before the projection are versioned out (`MODEL_CACHE_VERSION`, `CHANGELOG_CACHE_VERSION`), so a cache never serves a v1-built model.
 - **Changelog.** A System commit whose Genome is legacy is listed with its row metadata (time, author, policy, rationale, Evolutions, candidates) and `legacyFormat: true`. Its `summary` counts files only, with the node counts 0. The entry shows a "Legacy format" notice in place of the node delta, the criteria table and the node links. The changed files and their text diffs still show, because they are plain files.
 - **Compare.** When a side's Genome is legacy, `SystemCompare.genome.legacyFormat` (and `GenomeCompare.legacyFormat`) lists that side and `delta` is null. The app side compares as usual.
   - Both sides legacy: the notice replaces the Genome panel.
@@ -212,6 +212,8 @@ Templates stay `meta@1`. A template is checked by `checkTemplateForm`, extended 
 | Rule packs | `rules[] {id, version, source}` (Datalog) |
 
 So the plan's "kind-wide criteria" means `checks`. Hook-bearing acceptance criteria are per node: declared in `node.yaml` or stamped from the template's `criteria`.
+
+**`$self` in prefilled ids.** A Thing template may be used by several Things in one System, so every prefilled node, criterion and hook that belongs to the instantiating node carries `$self` in its id (`$self.api`, `C.$self.checks`, `hook.$self.checks`). Instantiation replaces `$self` with the node's id in ids, fields and links (`C.thing.api.checks`, whose `hooks` name `hook.thing.api.checks`). The template's own `template` node is shared, so its `criteria` and `hooks` lists keep the pattern; the projection resolves each `$self` criterion per Thing as a `requires` link from the Thing (`thing.api requires C.thing.api.checks`), and `template.criterionMissing` fires when the Thing does not own it. `composeTemplates` rejects two prefilled nodes with one id and different content (`TemplateCompositionError`), so a template that prefills fixed ids (the webapp templates' `section.ui`, `binding.d1`, `C.webapp.exists`) can be used by one Thing per System. The legacy v1 shape writes the placeholder `$thing`.
 
 **`files` defaults** (`KindSchema.files`, `TemplateNodeSchema.files`, `TemplateSourceSchema.files`) are repo-relative globs.
 

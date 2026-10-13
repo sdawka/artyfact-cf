@@ -143,7 +143,8 @@ export function toFacts(m: SystemModel): FactSet {
     emit("templateKnown", tr);
     known(tr);
     for (const s of t.sections) emit("templateRequires", tr, s);
-    for (const c of t.criteria) emit("templateRequiresCriterion", tr, c.id);
+    // A per-Thing criterion (`C.$thing.checks`) is rebased into every Thing that uses the template, so it is not a shared requirement.
+    for (const c of t.criteria) if (!c.id.includes("$thing")) emit("templateRequiresCriterion", tr, c.id);
   }
   for (const k of m.kits.kits) {
     emit("kitPinned", k.id, k.version);

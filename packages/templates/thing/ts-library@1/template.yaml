@@ -4,7 +4,7 @@ version: 1
 meta: 1
 extends: template.meta.artyfact-genome@1
 criteria:
-  - id: C.library.checks
+  - id: C.$self.checks
     owner: thing
     subject: thing
     severity: soft
@@ -12,7 +12,7 @@ criteria:
     gates:
       - submission
     hooks:
-      - hook.library.checks
+      - hook.$self.checks
 kinds:
   export:
     description: One name the package makes public.
@@ -94,12 +94,12 @@ nodes:
         - section.api
         - section.modules
       criteria:
-        - C.library.checks
+        - C.$self.checks
       hooks:
-        - hook.library.checks
+        - hook.$self.checks
   - {id: $self.api, kind: section, parent: $self, fields: {name: API, revision: 1, description: "The names the package exports and how callers use them.", fromTemplate: template.thing.ts-library@1}}
   - {id: $self.modules, kind: section, parent: $self, fields: {name: Modules, revision: 1, description: "The source modules and what each is responsible for.", fromTemplate: template.thing.ts-library@1}, files: ["src/**"]}
-  - id: C.library.checks
+  - id: C.$self.checks
     kind: criterion
     fields:
       version: 1
@@ -113,20 +113,20 @@ nodes:
         - submission
       deferred: false
       hooks:
-        - hook.library.checks
+        - hook.$self.checks
       fromTemplate: template.thing.ts-library@1
     links:
       - rel: owner
         to: $self
       - rel: subject
         to: $self
-  - id: hook.library.checks
+  - id: hook.$self.checks
     kind: hook
     fields:
       version: 1
       assay: library.checks
       criteria:
-        - C.library.checks
+        - C.$self.checks
       tier: semantic
       engine: model-rules
       targetKind: model

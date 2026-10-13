@@ -131,7 +131,8 @@ describe("the dev-platform fixture Genome", () => {
   });
 
   it("loads as a tree: one System root, four Things, every node under its enclosing directory", () => {
-    expect(graph.nodes.filter((n) => n.parent === undefined && n.kind !== "template").map((n) => n.id)).toEqual(["system.toolkit"]);
+    // Templates, criteria and hooks are parentless by design.
+    expect(graph.nodes.filter((n) => n.parent === undefined && !["template", "criterion", "hook"].includes(n.kind)).map((n) => n.id)).toEqual(["system.toolkit"]);
     expect(graph.nodes.filter((n) => n.kind === "thing").length).toBe(4);
     expect(graph.nodes.find((n) => n.id === "endpoint.health")?.parent).toBe("thing.api.api");
     expect(graph.nodes.find((n) => n.id === "option.verbose")?.parent).toBe("command.deploy");
