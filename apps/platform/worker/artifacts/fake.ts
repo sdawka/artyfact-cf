@@ -1,17 +1,7 @@
-/** In-memory Artifacts namespace (tests and the FAKE_ARTIFACTS=1 boot mode) implementing ArtifactsRepoLike with git-like content-addressed objects. */
+/** In-memory Artifacts namespace (tests and the FAKE_ARTIFACTS=1 boot mode) implementing ArtifactsRepoLike with Git objects under their real ids. */
 import { createHash } from "node:crypto";
+import { encodeCommit, encodeTree, rawObject, type GitObject } from "../git/objects";
 import type { ArtifactsNamespaceLike, ArtifactsRepoLike, CommitMeta, TreeEntry } from "./client";
-
-/** Deterministic 40-hex id (not SHA-1, but the same shape). */
-export function fakeHash(text: string): string {
-  let out = "";
-  for (let seed = 0; out.length < 40; seed++) {
-    let h = 0x811c9dc5 ^ seed;
-    for (let i = 0; i < text.length; i++) h = Math.imul(h ^ text.charCodeAt(i), 0x01000193) >>> 0;
-    out += h.toString(16).padStart(8, "0");
-  }
-  return out.slice(0, 40);
-}
 
 /** Git's blob id (SHA-1 of `blob <size>\0<content>`), so seeded blobs and blobs pushed through the fake receive-pack share ids. */
 export function gitBlobHash(text: string): string {
@@ -19,13 +9,29 @@ export function gitBlobHash(text: string): string {
   return createHash("sha1").update(`blob ${body.length}\0`).update(body).digest("hex");
 }
 
-/** `bytes`, when set, is the blob's exact content (binary-safe); `text` is its UTF-8 reading. */
-type Obj = { kind: "blob"; text: string; bytes?: Uint8Array } | { kind: "tree"; entries: TreeEntry[] } | { kind: "commit"; meta: CommitMeta };
+/**
+ * `bytes`, when set, is the blob's exact content (binary-safe); `text` is its UTF-8 reading. `raw`, when set, is a
+ * tree's or commit's exact Git body as it was pushed, so serving it back over git keeps its id.
+ */
+type Obj = { kind: "blob"; text: string; bytes?: Uint8Array } | { kind: "tree"; entries: TreeEntry[]; raw?: Uint8Array } | { kind: "commit"; meta: CommitMeta; raw?: Uint8Array };
+
+/** The Git object a stored object stands for: its pushed body when known, else its canonical encoding. */
+export function gitObjectOf(o: Obj): GitObject {
+  if (o.kind === "blob") return { type: "blob", body: o.bytes ?? new TextEncoder().encode(o.text) };
+  if (o.raw) return { type: o.kind, body: o.raw };
+  if (o.kind === "tree") return encodeTree(o.entries.map((e) => ({ name: e.name, hash: e.hash, mode: e.mode })));
+  const m = o.meta;
+  return encodeCommit({
+    tree: m.treeHash, parents: m.parents, message: m.message,
+    author: { ...m.author, at: m.authoredAt }, committer: { ...m.committer, at: m.committedAt },
+  });
+}
 
 class Store {
   objects = new Map<string, Obj>();
-  put(o: Obj, key: string): string {
-    const h = o.kind === "blob" ? gitBlobHash(o.text) : fakeHash(key);
+  /** Every object gets its real Git id (SHA-1), so the fake repos can be cloned and pushed with git itself. */
+  put(o: Obj): string {
+    const h = o.kind === "blob" ? gitBlobHash(o.text) : createHash("sha1").update(rawObject(gitObjectOf(o))).digest("hex");
     this.objects.set(h, o);
     return h;
   }
@@ -42,11 +48,16 @@ class Store {
       }
     }
     const entries: TreeEntry[] = [];
-    for (const [name, text] of here) entries.push({ name, mode: "100644", type: "blob", hash: this.put({ kind: "blob", text }, `blob:${text}`) });
+    for (const [name, text] of here) entries.push({ name, mode: "100644", type: "blob", hash: this.put({ kind: "blob", text }) });
     for (const [name, sub] of dirs) entries.push({ name, mode: "40000", type: "tree", hash: this.writeTree(sub, `${prefix}${name}/`) });
-    entries.sort((a, b) => (a.name < b.name ? -1 : 1));
-    return this.put({ kind: "tree", entries }, `tree:${JSON.stringify(entries)}`);
+    return this.put({ kind: "tree", entries: encodeOrder(entries) });
   }
+}
+
+/** Git's tree order (a tree's name compares as `name/`). */
+function encodeOrder(entries: TreeEntry[]): TreeEntry[] {
+  const key = (e: TreeEntry) => (e.type === "tree" ? `${e.name}/` : e.name);
+  return [...entries].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
 }
 
 export class FakeRepo implements ArtifactsRepoLike {
@@ -65,7 +76,7 @@ export class FakeRepo implements ArtifactsRepoLike {
       author: { name: "t", email: "t@example.com" }, committer: { name: "t", email: "t@example.com" },
       parents: this.head ? [this.head] : [], authoredAt: n, committedAt: n,
     };
-    meta.hash = this.store.put({ kind: "commit", meta }, `commit:${treeHash}:${meta.parents.join(",")}:${message}:${n}`);
+    meta.hash = this.store.put({ kind: "commit", meta });
     this.head = meta.hash;
     return meta.hash;
   }
@@ -78,7 +89,7 @@ export class FakeRepo implements ArtifactsRepoLike {
   async info() {
     this.calls.push("info");
     const status = this.readyAfter > 0 ? (this.readyAfter--, "forking") : "ready";
-    return { id: this.name, name: this.name, defaultBranch: "main", remote: `https://fake/${this.name}.git`, source: this.source, readOnly: false, lastPushAt: null, status };
+    return { id: this.name, name: this.name, defaultBranch: "main", remote: this.ns.remoteOf(this.name), source: this.source, readOnly: false, lastPushAt: null, status };
   }
   async createToken(scope: "write" | "read" = "write", ttl?: number) {
     const id = `tok-${this.name}-${this.tokens.length + 1}`;
@@ -97,7 +108,7 @@ export class FakeRepo implements ArtifactsRepoLike {
     f.head = this.head;
     f.readyAfter = this.ns.forkDelayPolls;
     this.ns.repos.set(name, f);
-    return { id: name, name, defaultBranch: "main", remote: `https://fake/${name}.git`, token: "unused" };
+    return { id: name, name, defaultBranch: "main", remote: this.ns.remoteOf(name), token: "unused" };
   }
   async log(opts: { ref?: string; limit?: number } = {}) {
     const out: CommitMeta[] = [];
@@ -148,6 +159,11 @@ export class FakeArtifacts implements ArtifactsNamespaceLike {
   store = new Store();
   clock = 1_700_000_000;
   forkDelayPolls = 0;
+  /** The git remote of each repo is `<remoteBase>/<name>.git` (the FAKE_ARTIFACTS boot sets one the CLI accepts). */
+  remoteBase = "https://fake";
+  remoteOf(name: string): string {
+    return `${this.remoteBase}/${name}.git`;
+  }
   create(name: string): FakeRepo {
     const r = new FakeRepo(this, name, this.store);
     this.repos.set(name, r);
