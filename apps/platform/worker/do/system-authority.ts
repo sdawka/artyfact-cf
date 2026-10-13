@@ -1,12 +1,12 @@
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
 import type {
-  ArtifactBinding, PartScope, PartRecord, PartSummary, RealizedArtifact, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Proposal, ProposalStatus, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
+  ArtifactBinding, PartScope, PartRecord, PartSummary, RealizedArtifact, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Proposal, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
 } from "../../shared/api";
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
-import { ProposalsStore, type ProposalTurn, type StoredProposal } from "./proposals-store";
+import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalTurn, type StoredProposal } from "./proposals-store";
 import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentInput } from "./builds-store";
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
 import { ChangelogStore, type CachedChangelog } from "./changelog-store";
@@ -1461,7 +1461,14 @@ export class SystemAuthority extends DurableObject<Env> {
   proposal(id: string): StoredProposal | null { return this.proposals().get(id); }
   createProposal(proposal: Omit<Proposal, "id">): Proposal { return this.proposals().create(proposal); }
   reviseProposal(proposal: Proposal, turns: ProposalTurn[]): Proposal | null { return this.proposals().revise(proposal, turns); }
-  closeProposal(id: string, status: Exclude<ProposalStatus, "open">): Proposal | null { return this.proposals().close(id, status); }
+  /** Starts an accept: open → accepting, only while the head Genome is the one the proposal was computed on. */
+  claimProposal(id: string): ClaimResult {
+    const s = this.state();
+    if (!s) throw new ConflictError("not-found", "System not imported");
+    return this.proposals().claim(id, s.genomeCommit);
+  }
+  releaseProposal(id: string, error: string): void { this.proposals().release(id, error); }
+  finishProposal(id: string, ids: AcceptedIds): Proposal | null { return this.proposals().finish(id, ids); }
 
   // ---------------------------------------------------------------- end W7 intent proposals
 

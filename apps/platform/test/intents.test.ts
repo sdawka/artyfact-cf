@@ -15,6 +15,7 @@ import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
 import { setEditorTransport } from "../worker/editor";
 import { resetHooks, setHooks } from "../worker/hooks/index";
 import { intentProviders, proposedOps, setIntentProviders } from "../worker/intents";
+import { systemStub } from "../worker/service";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 import { fakeReceivePack } from "./helpers/fake-receive-pack";
 import { ADMIN, passing } from "./helpers/flows";
@@ -186,6 +187,30 @@ describe("POST /intents/:pid/accept", () => {
   // submit derives a Genome candidate's changedNodes from the model diff, and today's loader reads the v1 half of this
   // fixture, so the candidate shows no changed subjects yet. W4's v2 loader makes them the touched nodes.
   it.todo("records the touched nodes as the candidate's changed subjects (needs the v2 model loader, W4)");
+
+  it("lets only one of two concurrent accepts push", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const both = await Promise.all([accept(s, p, ["op.1"]), accept(s, p, ["op.1"])]);
+    expect(both.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect(both.find((r) => r.status === 409)!.json.error.code).toBe("invalid-state");
+    expect((await systemStub(env, s.systemId).work()).evolutions.filter((e) => e.kind === "genome-amendment" && e.title === p.message)).toHaveLength(1);
+    expect((await call<Proposal>("GET", routes.intent(s.systemId, p.id))).json.status).toBe("accepted");
+  });
+
+  it("returns the proposal to open with the error recorded when the push fails", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    setEditorTransport({ fetch: (async () => new Response("down", { status: 503 })) as unknown as typeof fetch });
+    const failed = await accept(s, p, ["op.1"]);
+    expect(failed.status).toBeGreaterThanOrEqual(500);
+    const stored = await systemStub(env, s.systemId).proposal(p.id);
+    expect(stored).toMatchObject({ proposal: { status: "open" }, accepting: false, acceptError: expect.any(String) });
+
+    setEditorTransport({ fetch: fakeReceivePack(s.ns).fetch });
+    expect((await accept(s, p, ["op.1"])).status).toBe(201);
+    expect((await systemStub(env, s.systemId).proposal(p.id))?.proposal.status).toBe("accepted");
+  });
 
   it("is a 409 stale-base once the head Genome moved", async () => {
     const s = await importSystem();

@@ -2,8 +2,11 @@
  * Intent proposals of one System (table `proposals` in schema.ts), held by the SystemAuthority DO. A row is the wire
  * `Proposal` plus the conversation that produced it (the message, then each question asked and the user's answer),
  * which a reply re-routes and re-translates. Spec: docs/design/ontology.md §5.
+ *
+ * The row's `status` is the wire status plus `accepting`, held while an accept pushes (the wire proposal stays `open`
+ * then). Only one accept can hold it; a failed accept releases it with its error recorded.
  */
-import type { Proposal, ProposalStatus } from "../../shared/api";
+import type { Proposal } from "../../shared/api";
 import { nowIso } from "../util";
 
 type Row = Record<string, SqlStorageValue>;
@@ -11,7 +14,17 @@ type Row = Record<string, SqlStorageValue>;
 /** One reply: the question it answered (absent for a free follow-up) and the answer. */
 export interface ProposalTurn { question?: string; answer: string }
 
-export interface StoredProposal { proposal: Proposal; turns: ProposalTurn[] }
+export interface StoredProposal { proposal: Proposal; turns: ProposalTurn[]; accepting: boolean; acceptError?: string }
+
+/** What an accept produced, recorded on the proposal. */
+export interface AcceptedIds { evolution: string; realization: string; candidate: string; commit: string }
+
+/** `claim`: the proposal, now `accepting`; else why not. */
+export type ClaimResult =
+  | { claimed: Proposal }
+  | { refused: "not-found" }
+  | { refused: "invalid-state"; status: string }
+  | { refused: "stale-base"; currentHead: string };
 
 export class ProposalsStore {
   constructor(private readonly sql: SqlStorage) {}
@@ -22,7 +35,11 @@ export class ProposalsStore {
 
   get(id: string): StoredProposal | null {
     const r = this.row(id);
-    return r ? { proposal: JSON.parse(String(r.json)) as Proposal, turns: JSON.parse(String(r.turns_json)) as ProposalTurn[] } : null;
+    if (!r) return null;
+    return {
+      proposal: JSON.parse(String(r.json)) as Proposal, turns: JSON.parse(String(r.turns_json)) as ProposalTurn[],
+      accepting: String(r.status) === "accepting", ...(r.accept_error != null && { acceptError: String(r.accept_error) }),
+    };
   }
 
   /** Stores a new proposal under the next free `proposal.N` id. */
@@ -48,12 +65,32 @@ export class ProposalsStore {
     return proposal;
   }
 
-  /** Moves an `open` proposal to `status`; null when it is gone or no longer open (a concurrent accept won). */
-  close(id: string, status: Exclude<ProposalStatus, "open">): Proposal | null {
+  /**
+   * Moves an `open` proposal to `accepting` when `headGenome` is still the commit it was computed on. Synchronous, so
+   * within the DO no other accept, reply or head change interleaves.
+   */
+  claim(id: string, headGenome: string): ClaimResult {
+    const r = this.row(id);
+    if (!r) return { refused: "not-found" };
+    if (String(r.status) !== "open") return { refused: "invalid-state", status: String(r.status) };
+    const proposal = JSON.parse(String(r.json)) as Proposal;
+    if (proposal.provenance.genomeCommit !== headGenome) return { refused: "stale-base", currentHead: headGenome };
+    this.sql.exec("UPDATE proposals SET status = 'accepting', accept_error = NULL, updated_at = ? WHERE id = ?", nowIso(), id);
+    return { claimed: proposal };
+  }
+
+  /** A failed accept: back to `open`, with `error` kept for the admin. */
+  release(id: string, error: string): void {
+    this.sql.exec("UPDATE proposals SET status = 'open', accept_error = ?, updated_at = ? WHERE id = ? AND status = 'accepting'", error, nowIso(), id);
+  }
+
+  /** A successful accept: `accepted`, with what it produced. Null unless the proposal was `accepting`. */
+  finish(id: string, ids: AcceptedIds): Proposal | null {
     const stored = this.get(id);
-    if (!stored || stored.proposal.status !== "open") return null;
-    const proposal = { ...stored.proposal, status };
-    this.sql.exec("UPDATE proposals SET status = ?, json = ?, updated_at = ? WHERE id = ?", status, JSON.stringify(proposal), nowIso(), id);
+    if (!stored?.accepting) return null;
+    const proposal: Proposal = { ...stored.proposal, status: "accepted" };
+    this.sql.exec("UPDATE proposals SET status = 'accepted', json = ?, accepted_json = ?, updated_at = ? WHERE id = ?",
+      JSON.stringify(proposal), JSON.stringify(ids), nowIso(), id);
     return proposal;
   }
 }

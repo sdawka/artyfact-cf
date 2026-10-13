@@ -274,11 +274,11 @@ How the platform runs them:
 - **Replies.** A reply appends `{question, answer}` to the conversation and runs a new turn on the current head. The proposal keeps its id and stays `open`, and its ops, questions, problems and provenance are replaced.
 - **Adds.** An `add`'s title goes into the kind's name field: its `view.title`, else `title`, else `name` when the kind declares only that.
 - **Storage.** Proposals live in the System DO's `proposals` table (`worker/do/proposals-store.ts`): the wire `Proposal` plus the conversation. Ids are `proposal.<n>`; questions are `q.<turn>`.
-- **Accept.** Each chosen op needs its `dependsOn` (else 422 `missing-dependency`), and the head must still be `genomeCommit` (else 409 `stale-base` with `details.currentHead`). The ops go through `applyOps` (failure: 422 `invalid-ops`; nothing changed: 422 `no-change`). Then, in order:
+- **Accept.** Each chosen op needs its `dependsOn` (else 422 `missing-dependency`). The DO then moves the proposal from open to accepting in one step, and only while the head is still `genomeCommit`. Otherwise the accept is a 409: `invalid-state` when the proposal is not open (for example, another accept holds it), `stale-base` with `details.currentHead` when the head moved. A head that moves before the fork is also `stale-base`. Any failure after the claim returns the proposal to open with the error recorded (an Evolution or realization already made stays). The ops go through `applyOps` (failure: 422 `invalid-ops`; nothing changed: 422 `no-change`). Then, in order:
   - a `genome-amendment` Evolution: the title is the message's first line, the intent the message, `affectedNodes` the touched nodes (added ones included) and the default criteria;
   - `startWork` with target `genome`, origin `editor` and agent `human:intent`;
   - `commitEdit` of the file changes (message: the title, why: the message), which pushes, checkpoints and submits the candidate;
-  - the proposal becomes `accepted`, and a second accept or reply is a 409 `invalid-state`.
+  - the proposal becomes `accepted` with the Evolution, realization, candidate and commit recorded, and a second accept or reply is a 409 `invalid-state`.
 
 Mapping from the engine:
 

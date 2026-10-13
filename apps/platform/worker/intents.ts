@@ -260,7 +260,7 @@ export async function replyProposal(env: Env, systemId: string, pid: string, bod
   const answer = text(body.answer, "answer");
   if (body.questionId !== undefined && typeof body.questionId !== "string") throw badRequest("questionId must be a string");
   const s = await stored(env, systemId, pid);
-  if (s.proposal.status !== "open") throw conflict("invalid-state", `proposal ${pid} is ${s.proposal.status}`);
+  if (s.proposal.status !== "open" || s.accepting) throw conflict("invalid-state", `proposal ${pid} is ${s.accepting ? "being accepted" : s.proposal.status}`);
   const question = body.questionId === undefined ? undefined : s.proposal.questions.find((q) => q.id === body.questionId);
   if (body.questionId !== undefined && !question) throw badRequest(`proposal ${pid} has no open question ${body.questionId}`);
   const turns = [...s.turns, { ...(question && { question: question.text }), answer }];
@@ -273,16 +273,17 @@ export async function replyProposal(env: Env, systemId: string, pid: string, bod
 }
 
 /**
- * `POST …/accept`: the chosen ops (each with the ops it depends on, else 422) on the head the proposal was computed on
- * (else 409 `stale-base`) become a `genome-amendment` Evolution whose affected nodes are the touched nodes, a Genome
- * realization (origin `editor`) and one commit pushed to its fork and submitted as a candidate.
+ * `POST …/accept`: the chosen ops (each with the ops it depends on, else 422) become a `genome-amendment` Evolution
+ * whose affected nodes are the touched nodes, a Genome realization (origin `editor`) and one commit pushed to its fork
+ * and submitted as a candidate. The DO first moves the proposal open → accepting while the head is still the
+ * proposal's `genomeCommit` (409 `invalid-state` / `stale-base` otherwise), so concurrent accepts cannot both push; a
+ * failure after that returns it to open with the error recorded.
  */
 export async function acceptProposal(env: Env, systemId: string, pid: string, body: Record<string, unknown>, platformUrl: string): Promise<IntentAcceptResponse> {
   const opIds = body.opIds;
   if (!Array.isArray(opIds) || !opIds.length || opIds.some((x) => typeof x !== "string")) throw badRequest("opIds must be a non-empty array of op ids");
-  const s = await stored(env, systemId, pid);
-  const p = s.proposal;
-  if (p.status !== "open") throw conflict("invalid-state", `proposal ${pid} is ${p.status}`);
+  const stub = systemStub(env, systemId);
+  const p = (await stored(env, systemId, pid)).proposal;
   const chosen = new Set(opIds as string[]);
   const unknown = [...chosen].filter((id) => !p.ops.some((o) => o.id === id));
   if (unknown.length) throw badRequest(`proposal ${pid} has no ops ${unknown.join(", ")}`);
@@ -290,13 +291,33 @@ export async function acceptProposal(env: Env, systemId: string, pid: string, bo
   const missing = ops.flatMap((o) => (o.dependsOn ?? []).filter((d) => !chosen.has(d)).map((d) => `${o.id} needs ${d}`));
   if (missing.length) throw unprocessable("missing-dependency", `accept the ops these depend on too: ${missing.join("; ")}`, { missing });
 
+  const claim = await stub.claimProposal(pid);
+  if ("refused" in claim) {
+    if (claim.refused === "not-found") throw notFound(`unknown proposal ${pid}`);
+    if (claim.refused === "stale-base") {
+      throw conflict("stale-base", `the Genome moved from ${p.provenance.genomeCommit.slice(0, 12)} to ${claim.currentHead.slice(0, 12)}; describe the change again`,
+        { currentHead: claim.currentHead });
+    }
+    throw conflict("invalid-state", `proposal ${pid} is ${claim.status}`);
+  }
+  try {
+    const out = await pushAccepted(env, systemId, claim.claimed, ops, platformUrl);
+    const ids = { evolution: out.evolution.id, realization: out.realization.id, candidate: out.candidate.id, commit: out.commit };
+    if (!(await stub.finishProposal(pid, ids))) console.error(`[intents] proposal ${pid} was not accepting when ${out.commit} was committed for it`);
+    return out;
+  } catch (e) {
+    await stub.releaseProposal(pid, (e as Error)?.message ?? String(e)).catch((r: unknown) =>
+      console.error(`[intents] releasing proposal ${pid} failed: ${(r as Error)?.message ?? r}`));
+    throw e;
+  }
+}
+
+/** The accept's work once the proposal is claimed: apply, Evolution, Genome realization, commit and candidate. */
+async function pushAccepted(env: Env, systemId: string, p: Proposal, ops: ProposedOp[], platformUrl: string): Promise<IntentAcceptResponse> {
+  const base = p.provenance.genomeCommit;
   const state = await systemStub(env, systemId).state();
   if (!state) throw notFound(`system ${systemId} is not imported`);
-  if (state.genomeCommit !== p.provenance.genomeCommit) {
-    throw conflict("stale-base", `the Genome moved from ${p.provenance.genomeCommit.slice(0, 12)} to ${state.genomeCommit.slice(0, 12)}; describe the change again`,
-      { currentHead: state.genomeCommit });
-  }
-  const { files } = await genomeAt(env, systemId, state.genomeCommit, state.genomeSource);
+  const { files } = await genomeAt(env, systemId, base, state.genomeSource);
   let applied;
   try {
     applied = applyOps(files, ops as TreeOp[]);
@@ -306,20 +327,23 @@ export async function acceptProposal(env: Env, systemId: string, pid: string, bo
     throw e;
   }
   if (!applied.changes.length) throw unprocessable("no-change", "the chosen ops change nothing");
-  const prefix = await withRepo(artifactsFor(env), state.genomeSource, (r) => genomePrefix(r, state.genomeCommit));
+  const prefix = await withRepo(artifactsFor(env), state.genomeSource, (r) => genomePrefix(r, base));
 
   const title = p.message.split("\n")[0]!.trim().slice(0, 200);
   const { evolution } = await createEvolution(env, systemId, { title, intent: p.message, kind: "genome-amendment", affectedNodes: applied.touched },
     { newNodes: ops.filter((o) => o.op === "add").map((o) => o.node) });
   const start = await startWork(env, systemId, evolution.id, { target: "genome", origin: "editor", agentLabel: INTENT_AGENT }, platformUrl);
+  // The head may have moved between the claim and the fork: the changes were computed on `base`.
+  if (start.realization.workspace.baseCommit !== base) {
+    throw conflict("stale-base", `the Genome moved to ${start.realization.workspace.baseCommit.slice(0, 12)} while accepting; describe the change again`,
+      { currentHead: start.realization.workspace.baseCommit });
+  }
   const edit = await commitEdit(env, systemId, start.realization.id, {
     message: title, why: p.message,
     changes: applied.changes.map((c) => ({ path: prefix ? `${prefix}/${c.path}` : c.path, content: c.content })),
   }, "intent");
-  const stub = systemStub(env, systemId);
-  if (!(await stub.closeProposal(pid, "accepted"))) console.error(`[intents] proposal ${pid} was closed while ${edit.commit} was committed for it`);
   return {
-    evolution: (await stub.evolution(evolution.id)) ?? evolution, realization: edit.submitted.realization,
+    evolution: (await systemStub(env, systemId).evolution(evolution.id)) ?? evolution, realization: edit.submitted.realization,
     candidate: edit.submitted.candidate, commit: edit.commit,
   };
 }
