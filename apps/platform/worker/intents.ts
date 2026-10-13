@@ -56,7 +56,7 @@ function projected(files: Map<string, string>): SystemModel {
     return loadGenome(files, { templates: metaTemplates });
   } catch (e) {
     if (e instanceof LegacyGenomeError) throw unprocessable("legacy-genome", e.message);
-    if (e instanceof ModelParseError) throw unprocessable("invalid-genome", e.message);
+    if (e instanceof ModelParseError) throw unprocessable(e.code, e.message);
     throw e;
   }
 }

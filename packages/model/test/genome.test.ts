@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseTree } from "@artyfact/ontology";
+import { ARTYFACT_GENOME, parseTree } from "@artyfact/ontology";
 import { fromGraph, LegacyGenomeError, loadGenome, ModelParseError } from "../src/index";
 import { edit, load, pathOf, readTree, store, SYSTEM_TEMPLATE, THING_TEMPLATE } from "./helpers";
 
@@ -20,6 +20,22 @@ describe("loadGenome", () => {
     const e = (() => { try { load(bad); } catch (x) { return x as ModelParseError; } })()!;
     expect(e).toBeInstanceOf(ModelParseError);
     expect(e.file).toBe("node.yaml");
+  });
+
+  it("names both Things and the id when two uses of a fixed-id template clash", () => {
+    const fixed = {
+      id: "template.thing.fixed", version: 1, meta: 1, extends: ARTYFACT_GENOME,
+      nodes: [
+        { id: "template.thing.fixed@1", kind: "template", fields: { kind: "thing", version: "1", name: "Fixed" } },
+        { id: "section.panel", kind: "section", parent: "$self", fields: { name: "Panel" } },
+      ],
+    };
+    const thing = (id: string) => `id: ${id}\nkind: thing\ntemplate: template.thing.fixed@1\nfields:\n  name: ${id}\n`;
+    const two = new Map(files).set("thing.a/node.yaml", thing("thing.a")).set("thing.b/node.yaml", thing("thing.b"));
+    const e = (() => { try { load(two, store(fixed)); } catch (x) { return x as ModelParseError; } })()!;
+    expect(e).toBeInstanceOf(ModelParseError);
+    expect(e.code).toBe("template-composition");
+    expect(e.message).toContain("thing.a and thing.b both prefill node section.panel, differently");
   });
 
   it("maps every node, criterion, hook and change record to the file that declares it", () => {

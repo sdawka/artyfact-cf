@@ -83,8 +83,8 @@ nodes:
       name: Static site
       description: "A static site built ahead of time and served as files: its pages and the assets they use."
       sections:
-        - section.pages
-        - section.build
+        - $self.pages
+        - $self.build
       criteria:
         - C.$self.checks
       hooks:

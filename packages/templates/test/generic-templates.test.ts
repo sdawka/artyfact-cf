@@ -216,4 +216,15 @@ describe("the dev-platform fixture Genome", () => {
     expect(r.some((f) => f.rule === "semantic:check:endpoint.authPrincipal" && f.subject === "endpoint.health")).toBe(true);
     expect(r.some((f) => f.rule === "semantic:check:command.documented" && f.subject === "command.deploy")).toBe(true);
   });
+
+  it("a social-networking System checks a ts-library Thing's own $self sections, not the template's raw list", () => {
+    const social = "template.system.social-networking.cloudflare@1";
+    const t = compose([social, "template.thing.ts-library@1"]);
+    const g: Graph = { ...graph, template: social };
+    const missing = (x: Graph) => evaluate(t, x).findings.filter((f) => f.rule === "template.sectionMissing").map((f) => f.subject);
+    expect(g.links).toContainEqual(expect.objectContaining({ from: "thing.core", rel: "requires", to: "thing.core.modules" }));
+    expect(missing(g)).not.toContain("thing.core");
+    const without: Graph = { ...g, nodes: g.nodes.filter((n) => n.id !== "thing.core.modules" && n.parent !== "thing.core.modules") };
+    expect(missing(without)).toContain("thing.core");
+  });
 });

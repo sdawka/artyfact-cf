@@ -91,8 +91,8 @@ nodes:
       name: TypeScript library
       description: "A TypeScript package other Things import: its public exports and the modules behind them."
       sections:
-        - section.api
-        - section.modules
+        - $self.api
+        - $self.modules
       criteria:
         - C.$self.checks
       hooks:

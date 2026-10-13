@@ -225,10 +225,12 @@ export function projectTree(tree: GenomeTree, templates: TreeTemplates): Graph {
     if (!t) issues.push({ path: n.path, message: `unknown template ${ref}` });
     else b.node(t);
     b.link({ from: n.id, rel: "pinned", to: ref });
-    // A criterion the template requires under a `$self` id is this node's own: `requires` names it (C.$self.checks → C.<id>.checks).
-    const required = t?.fields.criteria;
-    for (const c of Array.isArray(required) ? required : []) {
-      if (typeof c === "string" && c.includes(SELF)) b.link({ from: n.id, rel: "requires", to: c.replaceAll(SELF, n.id) });
+    // A section or criterion the template requires under a `$self` id is this node's own: `requires` names it
+    // ($self.api → <id>.api, C.$self.checks → C.<id>.checks).
+    for (const list of [t?.fields.sections, t?.fields.criteria]) {
+      for (const x of Array.isArray(list) ? list : []) {
+        if (typeof x === "string" && x.includes(SELF)) b.link({ from: n.id, rel: "requires", to: x.replaceAll(SELF, n.id) });
+      }
     }
   };
 

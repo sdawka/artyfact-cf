@@ -11,7 +11,7 @@ import {
   checkQuestions, CORE_PACKS, checksPack, evaluate, judge, QuestionSchema,
   type Finding, type Graph, type Readiness, type SystemOne, type Template,
 } from "@artyfact/ontology";
-import { readinessTemplate } from "@artyfact/model";
+import { readinessTemplate, unavailablePins } from "@artyfact/model";
 import type { FileMap } from "./contract";
 import { loadGenome, selectableRules, type RulesFilter } from "./model-rules";
 import type { Outcome } from "./provenance";
@@ -23,6 +23,8 @@ export interface EngineRun {
   graph: Graph;
   template: Template;
   readiness: Readiness;
+  /** `rulePack.unavailable` errors for pins no template declares, as readiness reports them (`unavailablePins`). */
+  unavailable: Finding[];
 }
 
 /** The Genome as an engine graph. Throws `LegacyGenomeError` (v1) or `ModelParseError`. */
@@ -36,7 +38,7 @@ export function engineRun(files: FileMap): EngineRun {
   // The packs readiness runs (the System's pins), so the gates and readiness agree on which packs exist.
   const template = readinessTemplate(m);
   const judged = { ...m.graph, template: template.ref };
-  return { graph: judged, template, readiness: evaluate(template, judged) };
+  return { graph: judged, template, readiness: evaluate(template, judged), unavailable: unavailablePins(m) as Finding[] };
 }
 
 const packName = (p: { id: string; version: string }) => `${p.id}@${p.version}`;
@@ -63,7 +65,8 @@ function provenanceOf(r: EngineRun): Record<string, unknown> {
 }
 
 /**
- * The rules part of a `model-rules` hook: fail on any `error` finding of the selected packs (text@1 excepted), unknown
+ * The rules part of a `model-rules` hook: fail on any `error` finding of the selected packs (text@1 excepted) or an
+ * unavailable pin, unknown
  * when the run is incomplete, a wanted pack did not run, or a rule prefix selects nothing; pass otherwise.
  */
 export function engineRules(r: EngineRun, filter?: RulesFilter): Outcome {
@@ -72,7 +75,9 @@ export function engineRules(r: EngineRun, filter?: RulesFilter): Outcome {
   const selected = wanted.length ? packs.filter((p) => wanted.some((w) => packMatches(w, p))) : packs;
   const notRun = wanted.filter((w) => !packs.some((p) => packMatches(w, p)));
   const names = new Set(selected.map(packName));
-  const findings = r.readiness.findings.filter((f) => f.pack !== undefined && names.has(f.pack) && (!filter?.rulePrefix || f.rule.startsWith(filter.rulePrefix)));
+  // A pin no template declares fails every rules hook, whatever packs it selects: the System's rules did not all run.
+  const byPrefix = (f: Finding) => !filter?.rulePrefix || f.rule.startsWith(filter.rulePrefix);
+  const findings = [...r.unavailable.filter(byPrefix), ...r.readiness.findings.filter((f) => f.pack !== undefined && names.has(f.pack) && byPrefix(f))];
   const errors = findings.filter((f) => f.level === "error" && !isText(f));
   const selectsNothing = filter?.rulePrefix !== undefined && selectableRules(selected, { rulePrefix: filter.rulePrefix }).length === 0;
 

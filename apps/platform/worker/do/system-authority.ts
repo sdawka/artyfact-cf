@@ -249,6 +249,11 @@ const enc = new TextEncoder();
 export const MODEL_CACHE_VERSION = 2;
 const cachePart = (part: string) => (part === "files" ? part : `${part}@${MODEL_CACHE_VERSION}`);
 
+/** Drops `model`/`rules` rows of any other cache version (the unversioned rows included); run with the schema. */
+export function pruneModelCache(sql: SqlStorage): void {
+  sql.exec("DELETE FROM model_cache WHERE part != 'files' AND part NOT LIKE ?", `%@${MODEL_CACHE_VERSION}`);
+}
+
 export class SystemAuthority extends DurableObject<Env> {
   private sql: SqlStorage;
   private clients = new Set<WritableStreamDefaultWriter<Uint8Array>>();
@@ -259,6 +264,7 @@ export class SystemAuthority extends DurableObject<Env> {
     super(ctx, env);
     this.sql = ctx.storage.sql;
     applySchema(this.sql);
+    pruneModelCache(this.sql);
   }
 
   listParts(scope: PartScope): PartSummary[] { return new PartsStore(this.sql).listParts(scope); }

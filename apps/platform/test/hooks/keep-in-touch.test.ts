@@ -123,6 +123,18 @@ describe("hook selection and runSubmission on the real evolution.1", () => {
     expect(purpose.provenance.provider).toBe("fake");
   });
 
+  it("fails the rules gates when a pin names a pack version no template declares, as readiness does", async () => {
+    const files = keepInTouch();
+    // The topology pin under rulePacks (the kits list pins a kit of the same name first) moves to a version nothing declares.
+    files["node.yaml"] = files["node.yaml"].replace('    - id: topology.private-pairs\n      version: "1"\n  required:', '    - id: topology.private-pairs\n      version: "9"\n  required:');
+    const runner = createHookRunner({ s1: createSystemOne({}), now: () => new Date(0) });
+    const evs = await runner.runSubmission(ctx({ genomeFiles: files }));
+    for (const c of ["C.system.structure", "C.system.topology", "C.system.readiness"]) {
+      expect(by(evs, c).verdict, c).not.toBe("pass");
+    }
+    expect(by(evs, "C.system.structure").observations).toContainEqual(expect.objectContaining({ rule: "rulePack.unavailable", subject: "topology.private-pairs@9", level: "error" }));
+  });
+
   it("C.system.promotion passes when the DO supplies the promotion facts, and fails on a stale base", async () => {
     const runner = createHookRunner({ s1: createSystemOne({}), now: () => new Date(0) });
     const ok = by(await runner.runSubmission(ctx({ promotionFacts: { currentBaseCommit: BASE, manifestExact: true, evidenceFresh: true } })), "C.system.promotion");

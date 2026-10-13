@@ -20,11 +20,14 @@ export interface ModelWarning extends ParseIssue { file: string }
 export class ModelParseError extends Error {
   readonly file: string;
   readonly issues: ParseIssue[];
-  constructor(file: string, issues: ParseIssue[]) {
+  /** The API error code: `template-composition` when the pinned templates do not compose, else `invalid-genome`. */
+  readonly code: "invalid-genome" | "template-composition";
+  constructor(file: string, issues: ParseIssue[], code: ModelParseError["code"] = "invalid-genome") {
     super(`${file}: ${issues.map((i) => (i.path.length ? `${i.path.join(".")}: ` : "") + i.message).join("; ")}`);
     this.name = "ModelParseError";
     this.file = file;
     this.issues = issues;
+    this.code = code;
   }
 }
 
@@ -313,7 +316,7 @@ function composed(graph: Graph, templates: TemplateStore, tree: GenomeTree): Tem
   try {
     return composeTemplates({ template: templateOf(templates, graph.template, rootPath), self: tree.root }, uses);
   } catch (e) {
-    if (e instanceof TemplateCompositionError) throw new ModelParseError(rootPath, [{ path: ["template"], message: e.message }]);
+    if (e instanceof TemplateCompositionError) throw new ModelParseError(rootPath, [{ path: ["template"], message: e.message }], "template-composition");
     throw e;
   }
 }

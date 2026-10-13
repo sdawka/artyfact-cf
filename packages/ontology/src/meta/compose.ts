@@ -80,12 +80,17 @@ export function composeTemplates(system: TemplateUse, things: TemplateUse[]): Te
     byId<{ id: string }>(`constraint ${key}`, all.map((t) => t.constraints[key])) as Constraints[K];
   const rules = byId("rule pack", all.map((t) => t.rules));
   const nodes = new Map<string, TemplateNode>();
+  const owner = new Map<string, string>();
   for (const u of uses) {
+    const by = u.self ?? u.template.ref;
     for (const n of u.self === undefined ? u.template.nodes : instantiateNodes(u.template, u.self)) {
       const had = nodes.get(n.id);
       // Without `self` a `$self` id is a pattern, not a node: the first one stands for all.
-      if (had !== undefined && !same(had, n) && !n.id.includes("$self")) throw new TemplateCompositionError(`prefilled node ${n.id} is declared differently by two templates (or two uses of one); template its id with $self`);
+      if (had !== undefined && !same(had, n) && !n.id.includes("$self")) {
+        throw new TemplateCompositionError(`${owner.get(n.id)} and ${by} both prefill node ${n.id}, differently; a template whose prefilled ids are fixed fits one Thing per System (template the id with $self)`);
+      }
       nodes.set(n.id, n);
+      owner.set(n.id, by);
     }
   }
   const layers = layersOf(all);

@@ -22,6 +22,7 @@ rules:
       .decl atemplateRequires(Template: sym, Section: sym)
       .decl atemplateRequiresCriterion(Template: sym, Criterion: sym)
       .decl athingRequiresCriterion(Thing: sym, Criterion: sym)
+      .decl athingRequiresSection(Thing: sym, Section: sym)
       .decl akitRequired(Kit: sym)
       .decl akitPinned(Kit: sym, Version: sym)
       .decl aevolution(Id: sym, State: sym)
@@ -48,6 +49,7 @@ rules:
       violation("template.sectionMissing",T,"hard") :- athing(T,Tpl), atemplateKnown(Tpl), atemplateRequires(Tpl,S), not athingSection(T,S).
       violation("template.criterionMissing",T,"hard") :- athing(T,Tpl), atemplateKnown(Tpl), atemplateRequiresCriterion(Tpl,C), not acriterion(C,_,T,_,_).
       violation("template.criterionMissing",T,"hard") :- athingRequiresCriterion(T,C), not acriterion(C,_,T,_,_).
+      violation("template.sectionMissing",T,"hard") :- athingRequiresSection(T,S), not athingSection(T,S).
       violation("template.unknown",T,"hard") :- athing(T,Tpl), Tpl != "", not atemplateKnown(Tpl).
 
       warning("kit.unpinned",K) :- akitRequired(K), not akitPinned(K,_).

@@ -1,11 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
-  ARTYFACT_GENOME, ARTYFACT_KINDS, artyfactTemplateStore, checkTemplateForm, checkViewHints, evaluate, evaluateAndJudge, fakeSystemOne, instantiateNodes,
+  ARTYFACT_GENOME, ARTYFACT_KINDS, artyfactTemplateStore, checkTemplateForm, composeTemplates, checkViewHints, evaluate, evaluateAndJudge, fakeSystemOne, instantiateNodes,
   loadArtyfactSystem, resolveKindView, type Graph, type Readiness,
 } from "@artyfact/ontology";
 import { edit, referenceFindings, referenceModel, systemFiles, type Files } from "../../ontology/test/artyfact-reference";
 import * as packs from "../../ontology/test/vendor/artyfact/packs";
-import { composeTemplate, loadMetaTemplate, metaTemplates, templateRefs, templates } from "../src/index";
+import { loadMetaTemplate, metaTemplates, templateRefs, templates } from "../src/index";
 import { files as bundled } from "../src/generated/files";
 
 const systemRef = "template.system.social-networking.cloudflare@1";
@@ -28,7 +28,8 @@ const allPacks = [packs.metamodel, packs.readiness, packs.authorization, packs.j
 /** Reference rules the base packs drop on purpose: a Genome-only Thing binds no artifact. */
 const DROPPED = new Set(["thing.noArtifact"]);
 const theirs = (files: Files) => pairs(referenceFindings(referenceModel(files, legacy), allPacks).filter((f) => !DROPPED.has(f.rule)));
-const template = composeTemplate(systemRef, [workerRef]);
+const use = (ref: string, self: string) => ({ template: loadMetaTemplate(ref), self });
+const template = composeTemplates(use(systemRef, "system.keep-in-touch"), [use(workerRef, "thing.webapp")]);
 const load = (files: Files) => loadArtyfactSystem(files, { templates: artyfactTemplateStore(bundledDir) }) as Graph;
 
 describe("meta@1 templates", () => {
@@ -70,11 +71,12 @@ describe("meta@1 templates", () => {
     const ids = (ref: string) => loadMetaTemplate(ref).rules.map((r) => r.id);
     expect(ids(systemRef)).toEqual(["artyfact.facts", "artyfact.metamodel", "artyfact.readiness", "artyfact.theory", "artyfact.topology.private-pairs"]);
     for (const ref of [workerRef, vueRef]) expect(ids(ref)).toEqual(["artyfact.facts", "artyfact.metamodel", "artyfact.authorization", "artyfact.journeys"]);
-    expect(composeTemplate(systemRef, [workerRef]).rules.map((r) => r.id).sort()).toEqual([
+    expect(template.rules.map((r) => r.id).sort()).toEqual([
       "artyfact.authorization", "artyfact.facts", "artyfact.journeys", "artyfact.metamodel", "artyfact.readiness", "artyfact.theory", "artyfact.topology.private-pairs",
     ]);
     // Both webapp templates prefill section.ui (and more) under fixed ids, so one System cannot use both.
-    expect(() => composeTemplate(systemRef, [workerRef, vueRef])).toThrow(/prefilled node section\.ui/);
+    expect(() => composeTemplates(use(systemRef, "system.keep-in-touch"), [use(workerRef, "thing.webapp"), use(vueRef, "thing.admin")]))
+      .toThrow("thing.webapp and thing.admin both prefill node section.ui, differently");
     expect(loadMetaTemplate(systemRef).questions.map((q) => q.id)).toEqual(["topology.multiRecipient"]);
   });
 

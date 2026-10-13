@@ -115,8 +115,8 @@ nodes:
       name: Command-line tool
       description: "A command-line tool: its commands and options, and the modules behind them."
       sections:
-        - section.commands
-        - section.modules
+        - $self.commands
+        - $self.modules
       criteria:
         - C.$self.checks
       hooks:

@@ -6,14 +6,17 @@ import { artyfactTemplateStore, evaluate, loadArtyfactSystem, readTree, type Fin
 import { readDir } from "@artyfact/ontology/artyfact/node";
 import { convertV1 } from "@artyfact/ontology/codec/v1";
 import { loadGenome } from "@artyfact/model";
-import { canon } from "@artyfact/ontology";
-import { composeTemplate, metaTemplates } from "../src/index";
+import { canon, composeTemplates } from "@artyfact/ontology";
+import { loadMetaTemplate, metaTemplates } from "../src/index";
 import { files as bundled } from "../src/generated/files";
 
 const templatesDir = Object.fromEntries(Object.entries(bundled).filter(([p]) => !p.startsWith("rule-packs/")));
 const v1 = readDir(join(__dirname, "../../ontology/test/fixtures/artyfact/keep-in-touch-system"));
 const SYSTEM = "template.system.social-networking.cloudflare@1";
-const template = composeTemplate(SYSTEM, ["template.thing.cloudflare-worker-webapp@1"]);
+const template = composeTemplates(
+  { template: loadMetaTemplate(SYSTEM), self: "system.keep-in-touch" },
+  [{ template: loadMetaTemplate("template.thing.cloudflare-worker-webapp@1"), self: "thing.webapp" }],
+);
 // The v1 adapter names its base template; the tree names the root's, which the composed template keeps.
 const v1Graph = { ...loadArtyfactSystem(v1, { templates: artyfactTemplateStore(templatesDir) }), template: SYSTEM };
 const v2Graph = readTree(convertV1(v1, templatesDir), metaTemplates);

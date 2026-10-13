@@ -79,7 +79,7 @@ describe("composeTemplates", () => {
   it("rejects a prefilled id that two uses fill differently", () => {
     const fixed = thing({ nodes: [{ id: "C.fixed", kind: "criterion", fields: { title: "Of $self" }, links: [{ rel: "owner", to: "$self" }] }] });
     expect(() => composeTemplates({ template: system() }, [{ template: fixed, self: "thing.a" }, { template: fixed, self: "thing.b" }]))
-      .toThrow(/prefilled node C.fixed/);
+      .toThrow("thing.a and thing.b both prefill node C.fixed, differently");
     expect(() => composeTemplates({ template: system() }, [{ template: fixed, self: "thing.a" }])).not.toThrow();
   });
 });

@@ -152,10 +152,10 @@ nodes:
       name: Cloudflare Worker service
       description: "A Cloudflare Worker that serves an API: endpoints, Durable Objects, Workflows, queues and the bindings they use."
       sections:
-        - section.api
-        - section.runtime
-        - section.state
-        - section.modules
+        - $self.api
+        - $self.runtime
+        - $self.state
+        - $self.modules
       criteria:
         - C.$self.checks
       hooks:

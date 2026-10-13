@@ -65,6 +65,11 @@ export function rulePacksOf(m: Pick<SystemModel, "template" | "kits">): RulePack
   ];
 }
 
+/** One `rulePack.unavailable` error per pin no template declares: readiness and the gates both report them. */
+export function unavailablePins(m: Pick<SystemModel, "template" | "kits" | "system">): Finding[] {
+  return selectPacks(m).unavailable.map((pin) => unavailableFinding(pin, m.system.id));
+}
+
 const unavailableFinding = (pin: string, system: string): Finding => ({
   level: "error", rule: "rulePack.unavailable", subject: pin, pack: pin,
   message: `${system} pins rule pack ${pin}, which none of its templates declares; it did not run.`,
@@ -91,7 +96,7 @@ export function readinessTemplate(m: Pick<SystemModel, "template" | "kits">): Te
 
 /** Readiness: the engine's `evaluate` of the Genome graph under its composed template, running the selected packs. */
 export function validate(m: SystemModel): Readiness {
-  const { labels, unavailable } = selectPacks(m);
+  const { labels } = selectPacks(m);
   for (const p of enginePacks(m.template)) labels.set(packName(p), `${ENGINE}${packName(p)}`);
   const r = evaluate(readinessTemplate(m), m.graph, { derived: true });
   const findings: Finding[] = [
@@ -99,7 +104,7 @@ export function validate(m: SystemModel): Readiness {
       level: f.level as Finding["level"], rule: f.rule, ...(f.subject !== undefined && { subject: f.subject }), message: f.message,
       facts: f.facts, derivation: relabel(f.derivation, labels), ...(f.pack !== undefined && { pack: labels.get(f.pack) ?? f.pack }),
     })),
-    ...unavailable.map((pin) => unavailableFinding(pin, m.system.id)),
+    ...unavailablePins(m),
   ].sort((a, b) =>
     LEVEL_ORDER.indexOf(a.level) - LEVEL_ORDER.indexOf(b.level) || a.rule.localeCompare(b.rule) || (a.subject ?? "").localeCompare(b.subject ?? ""));
   return {

@@ -530,6 +530,19 @@ describe("schema", () => {
     });
   });
 
+  it("drops model cache rows of other versions and keeps the files and current ones", async () => {
+    await runInDurableObject(stub(), async (_i: SystemAuthority, state) => {
+      const sql = state.storage.sql;
+      const { MODEL_CACHE_VERSION, pruneModelCache } = await import("../worker/do/system-authority");
+      for (const part of ["model", "rules", "files", "model@1", `model@${MODEL_CACHE_VERSION}`, `rules@${MODEL_CACHE_VERSION}`]) {
+        sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES ('c1', ?, '{}', 'x')", part);
+      }
+      pruneModelCache(sql);
+      const parts = sql.exec("SELECT part FROM model_cache WHERE genome_commit = 'c1' ORDER BY part").toArray().map((r) => r.part);
+      expect(parts).toEqual(["files", `model@${MODEL_CACHE_VERSION}`, `rules@${MODEL_CACHE_VERSION}`]);
+    });
+  });
+
   it("creates the iteration-2 tables (builds, deployments, phenome_events, changelog_cache)", async () => {
     await runInDurableObject(stub(), async (_i: SystemAuthority, state) => {
       const sql = state.storage.sql;
