@@ -30,7 +30,7 @@ function gitEnv(header = true): NodeJS.ProcessEnv {
     ...clean, GIT_TERMINAL_PROMPT: "0", GIT_AUTHOR_NAME: "t", GIT_AUTHOR_EMAIL: "t@example.com", GIT_COMMITTER_NAME: "t", GIT_COMMITTER_EMAIL: "t@example.com",
     GIT_CONFIG_NOSYSTEM: "1", GIT_CONFIG_GLOBAL: "/dev/null",
     GIT_CONFIG_COUNT: header ? "2" : "1",
-    GIT_CONFIG_KEY_0: `url.${url}/fake-git/.insteadOf`, GIT_CONFIG_VALUE_0: `${BASE}/`,
+    GIT_CONFIG_KEY_0: `url.${url}/api/fake-git/.insteadOf`, GIT_CONFIG_VALUE_0: `${BASE}/`,
   };
   if (header) Object.assign(env, { GIT_CONFIG_KEY_1: "http.extraHeader", GIT_CONFIG_VALUE_1: `Authorization: Bearer ${token}` });
   return env as unknown as NodeJS.ProcessEnv;
