@@ -1,5 +1,6 @@
+import type { KindView, TemplateView } from "../../genome/view.ts";
 import type { Check, KindCriteria, TemplateInput } from "../../meta/schema.ts";
-import { authorization, facts, journeys, metamodel, readiness, theory, topologyPrivatePairs } from "./packs.ts";
+import { facts, metamodel } from "./packs.ts";
 import * as schema from "./schema.ts";
 
 type FieldType = "string" | "number" | "boolean" | "ref" | "list" | "object";
@@ -139,6 +140,63 @@ export const ARTYFACT_CHECKS: Record<string, Check[]> = {
   ],
 };
 
+/**
+ * Legal containment where the Genome tree needs it stated. The System holds purposes, claims, externals, features and
+ * commitments; journeys sit under the System or the Thing that owns them; a requirement sits under the first node it
+ * constrains, so any kind it may constrain is a legal parent. Other kinds are unconstrained, as in v1.
+ */
+export const ARTYFACT_PARENTS: Record<string, string[]> = {
+  purpose: ["system"], claim: ["system"], external: ["system"], feature: ["system"], commitment: ["system"],
+  journey: ["system", "thing"],
+  requirement: [...NODE_KINDS.filter((k) => k !== "requirement"), "feature", "commitment", "journey", "step"],
+  step: ["journey"],
+};
+
+/** Map bands, top to bottom. Containers (system, thing, section, grouping) and the bookkeeping kinds are in no layer. */
+export const ARTYFACT_VIEW: TemplateView = {
+  layers: [
+    { id: "intent", label: "Intent", description: "Why the System exists: purposes, claims, externals, features and commitments." },
+    { id: "journeys", label: "Journeys", description: "What people do, step by step." },
+    { id: "experience", label: "Experience", description: "Screens, components and affordances people meet." },
+    { id: "domain", label: "Domain", description: "Entities, their fields and the operations on them." },
+    { id: "rules", label: "Rules", description: "Policies and requirements that constrain the rest." },
+    { id: "runtime", label: "Runtime", description: "Bindings and the deployment surface." },
+  ],
+};
+
+const kv = (glyph: string, colour: KindView["colour"], extra: Omit<KindView, "glyph" | "colour"> = {}): KindView => ({ glyph, colour, ...extra });
+
+/** How the UI shows each kind (`kinds.<k>.view`). Glyphs and labels are the ones the platform's kind table used. */
+export const ARTYFACT_KIND_VIEWS: Record<string, KindView> = {
+  system: kv("◎", "teal", { label: "System", fields: ["name", "profile", "phase", "narrative", "purposes", "rulePacks", "alternatives", "openQuestions"], title: "name", summary: "narrative" }),
+  thing: kv("◉", "blue", { label: "Thing", fields: ["name", "description", "purposeRefs", "sections"], title: "name" }),
+  section: kv("▤", "slate", { label: "Section", fields: ["name", "description", "owningThing"], title: "name" }),
+  screen: kv("▭", "indigo", { label: "Screen", layer: "experience", fields: ["name", "description", "route", "states", "owningThing"], title: "name" }),
+  component: kv("▫", "indigo", { label: "Component", layer: "experience", fields: ["name", "description", "states", "owningThing"], title: "name" }),
+  affordance: kv("▸", "violet", { label: "Affordance", layer: "experience", fields: ["name", "description", "actor", "trigger", "preconditions", "effects", "failure", "owningThing"], title: "name" }),
+  route: kv("/", "violet", { label: "Route", layer: "experience", fields: ["name", "description", "route", "owningThing"], title: "name" }),
+  entity: kv("▦", "amber", { label: "Entity", plural: "Entities", layer: "domain", fields: ["name", "description", "fields", "invariants", "owningThing"], title: "name" }),
+  field: kv("·", "amber", { label: "Field", layer: "domain", fields: ["name", "description", "cardinality", "owningThing"], title: "name" }),
+  operation: kv("ƒ", "orange", { label: "Operation", layer: "domain", fields: ["name", "description", "actor", "preconditions", "effects", "failure", "owningThing"], title: "name" }),
+  policy: kv("§", "red", { label: "Policy", plural: "Policies", layer: "rules", fields: ["name", "description", "mode", "roles", "invariants", "owningThing"], title: "name" }),
+  binding: kv("⌁", "lime", { label: "Binding", layer: "runtime", fields: ["name", "description", "owningThing"], title: "name" }),
+  grouping: kv("⬚", "slate", { label: "Grouping", fields: ["name", "description", "owningThing"], title: "name" }),
+  external: kv("◌", "pink", { label: "External", layer: "intent", fields: ["name", "kind", "modeled", "external"], title: "name", summary: "modeled" }),
+  purpose: kv("◇", "green", { label: "Purpose", layer: "intent", fields: ["statement", "intendedChange", "successCriteria", "nonGoals", "constraints"], title: "statement", summary: "intendedChange" }),
+  claim: kv("△", "green", { label: "Claim", layer: "intent", fields: ["name", "mechanism", "outcome", "indicator", "evaluationMethod", "limitation", "activities", "kind", "status", "deferred", "purpose"], title: "name", summary: "mechanism" }),
+  requirement: kv("≡", "red", { label: "Requirement", layer: "rules", fields: ["title", "text", "thing", "enabled"], title: "title", summary: "text" }),
+  feature: kv("◆", "teal", { label: "Feature", layer: "intent", fields: ["name", "summary", "deferred"], title: "name", summary: "summary" }),
+  commitment: kv("⊕", "teal", { label: "Commitment", layer: "intent", fields: ["statement", "features", "coupledWith"], title: "statement" }),
+  criterion: kv("✓", "lime", { label: "Criterion", plural: "Criteria", fields: ["title", "claim", "severity", "ownerKind", "subjectKind", "targetKind", "gates", "hooks", "deferred", "applicableWhen", "satisfies"], title: "title", summary: "claim" }),
+  hook: kv("⚲", "lime", { label: "Hook", fields: ["assay", "tier", "engine", "targetKind", "triggers", "binding", "criteria", "inputs", "timeoutMs", "costTier", "verdictMapping"], title: "assay" }),
+  journey: kv("⇢", "blue", { label: "Journey", layer: "journeys", fields: ["name", "actorGoal", "start", "features", "requirements", "segments", "deferred"], title: "name", summary: "actorGoal" }),
+  step: kv("→", "blue", { label: "Step", layer: "journeys", fields: ["step", "actor", "action", "state", "kind", "screen", "operation", "external", "next", "requirementRefs", "unresolved"], title: "step", summary: "action" }),
+  evolution: kv("↗", "neutral", { label: "Evolution", fields: ["title", "intent", "state", "kind", "risk", "baseRevision", "affectedClaims", "genomeDelta", "requiredEvidence", "dependsOn", "realizations", "decision"], title: "title", summary: "intent" }),
+  artifact: kv("▣", "neutral", { label: "Artifact", fields: ["type", "repo", "commit", "scope"], title: "type" }),
+  template: kv("⧉", "neutral", { label: "Template", fields: ["name", "kind", "version", "description", "sections", "criteria", "hooks", "requires"], title: "name" }),
+  kit: kv("⬡", "neutral", { label: "Kit", fields: ["version"] }),
+};
+
 const ALL = ARTYFACT_KINDS;
 const rel = (from: string[], to: string[], extra: object = {}) => ({ from, to, ...extra });
 
@@ -149,10 +207,11 @@ export const artyfactGenome: TemplateInput = {
   meta: 1,
   kinds: Object.fromEntries(ALL.map((k) => [k, {
     fields: fieldsOf(k),
-    ...(k === "step" && { parents: ["journey"] }),
+    ...(ARTYFACT_PARENTS[k] && { parents: ARTYFACT_PARENTS[k] }),
     ...(k === "criterion" && { completeness: { relations: [{ rel: "owner", cardinality: "1" }, { rel: "subject", cardinality: "1" }] } }),
     ...(ARTYFACT_CRITERIA[k] && { criteria: ARTYFACT_CRITERIA[k] }),
     ...(ARTYFACT_CHECKS[k] && { checks: ARTYFACT_CHECKS[k] }),
+    ...(ARTYFACT_KIND_VIEWS[k] && { view: ARTYFACT_KIND_VIEWS[k] }),
   }])),
   relations: {
     ...Object.fromEntries(schema.Relation.options.map((r) => [r, rel(ALL, ALL, { description: "artyfact cross-link; `refines` and `affects` also carry the node fields of the same name." })])),
@@ -169,11 +228,7 @@ export const artyfactGenome: TemplateInput = {
     pinned: rel(["system", "thing"], ["kit", "template"]),
     artifact: rel(["thing"], ["artifact"]),
   },
-  questions: [{
-    id: "topology.multiRecipient", answer: "yes-no", benign: "no",
-    text: "Does this effect deliver one action to more than one person at once?",
-    slice: { hops: 1, rels: ["writes", "invokes"], fields: ["name", "effects", "fields", "cardinality"] },
-    policy: [{ answer: "no", level: "pass" }, { answer: "yes", level: "error" }],
-  }],
-  rules: [facts, metamodel, readiness, authorization, journeys, theory, topologyPrivatePairs],
+  view: ARTYFACT_VIEW,
+  // Domain packs (readiness, theory, journeys, authorization, topology) are owned by the templates that need them.
+  rules: [facts, metamodel],
 };

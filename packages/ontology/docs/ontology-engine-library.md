@@ -145,7 +145,7 @@ Recommended home: `packages/ontology-engine` in this repository, published to np
 
 ## Implementation notes (milestone 2, 2026-10-12)
 
-`src/judge/` and `src/adapters/artyfact/` are built. All six artyfact rule packs are ported as template packs on `template.meta.artyfact-genome@1`, and the Keep in Touch example reproduces artyfact's findings rule for rule.
+`src/judge/` and `src/adapters/artyfact/` are built. The six artyfact rule packs are ported: `facts` and `metamodel` stay on `template.meta.artyfact-genome@1`, the domain packs live in the `packages/templates` templates, and the Keep in Touch example reproduces artyfact's findings rule for rule against them.
 
 - A question matches a candidate when the question id equals the candidate's rule id. The slice is structured (`parents`, `hops`, `direction`, `rels`, `kinds`, `fields`), so it is hashable and `meta@1` can reject slices naming unknown kinds or relations.
 - Levels `review` and `pass` exist and come only from judgment. A confident answer the policy does not map stays `unknown`. Provenance records provider, state hash, question hash and thresholds, never timing.
