@@ -1,0 +1,19 @@
+id: affordance.PersonActionBar.openChannel
+kind: affordance
+fields:
+  name: Open channel
+  source:
+    doc: peopling-world-specification
+    section: "6"
+  actor: ext.owner
+  trigger: A user gesture on Open channel
+  preconditions:
+    - Contact has a recorded channel or copyable contact details
+  effects:
+    - Opening an external channel must require a user gesture
+    - Opening a channel does not automatically mark contact as completed
+    - Unsupported channels must offer copyable contact details
+  failure:
+    - Unsupported channel offers copyable contact details instead
+links:
+  - { rel: references, to: ext.channels, label: opens the preferred channel }

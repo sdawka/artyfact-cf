@@ -3,7 +3,7 @@ import type { QueueContext } from "../../worker/hooks/contract";
 import { createQueueHandler, handleBatch, type QueueMessageLike } from "../../worker/hooks/queue";
 
 const AFTER = "def789aa012def789aa012def789aa012def7aaa";
-const pushed = (repoName = "kit-app--r1", after = AFTER) => ({
+const pushed = (repoName = "peopling-app--r1", after = AFTER) => ({
   type: "cf.artifacts.repo.pushed",
   source: { type: "artifacts.repo", namespace: "artyfact", repoName },
   payload: { ref: "refs/heads/main", before: "abc", after, commits: [], totalCommitsCount: 1, commitsTruncated: false },
@@ -15,7 +15,7 @@ function msg(body: unknown, attempts = 1, id = crypto.randomUUID()) {
   return m as QueueMessageLike & { ack: ReturnType<typeof vi.fn>; retry: ReturnType<typeof vi.fn> };
 }
 
-function fakeCtx(forks: Record<string, string> = { "kit-app--r1": "realization.1.r1" }) {
+function fakeCtx(forks: Record<string, string> = { "peopling-app--r1": "realization.1.r1" }) {
   const seen = new Set<string>();
   const submit = vi.fn(async () => ({ ok: true }));
   const ctx: QueueContext = {
@@ -75,7 +75,7 @@ describe("queue consumer", () => {
 
   it("ignores branch deletions", async () => {
     const { ctx, submit } = fakeCtx();
-    const res = await handleBatch([msg(pushed("kit-app--r1", "0".repeat(40)))], ctx);
+    const res = await handleBatch([msg(pushed("peopling-app--r1", "0".repeat(40)))], ctx);
     expect(submit).not.toHaveBeenCalled();
     expect(res[0].action).toBe("ignored");
   });

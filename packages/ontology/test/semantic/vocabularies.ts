@@ -114,8 +114,8 @@ const settingsOf = (name: keyof typeof SETTINGS, version: Version): SemanticProb
 
 export function artyfactVocabulary(version: Version = "2"): Vocabulary {
   const template = loadTemplate(withSemanticProbes(artyfactGenome, settingsOf("artyfact", version)));
-  const graph = loadArtyfactSystem(readDir(join(FIXTURES, "keep-in-touch-degraded")), { templates: templateFiles() }) as Graph;
-  return { name: "artyfact", template, graph, expectations: json("keep-in-touch.expectations.json") };
+  const graph = loadArtyfactSystem(readDir(join(FIXTURES, "peopling-degraded")), { templates: templateFiles() }) as Graph;
+  return { name: "artyfact", template, graph, expectations: json("peopling.expectations.json") };
 }
 
 export function productVocabulary(version: Version = "2"): Vocabulary {

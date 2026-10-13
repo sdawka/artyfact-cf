@@ -6,8 +6,8 @@ import { qk } from "@/api/queries";
 import * as elk from "@/graph/elk";
 import { renderApp } from "@/testing/render";
 
-const MAP = "/s/system.keep-in-touch/r/head/map";
-const SYS = "system.keep-in-touch";
+const MAP = "/s/system.peopling/r/head/map";
+const SYS = "system.peopling";
 const nodeEl = (id: string) => document.querySelector(`[data-map-node="${id}"]`);
 const flowNode = (id: string) => document.querySelector<HTMLElement>(`.react-flow__node[data-id="${id}"]`);
 const crumbs = () => within(screen.getByRole("navigation", { name: "Map scope" })).getAllByRole("listitem");
@@ -24,8 +24,8 @@ describe("Map view", () => {
     const { router } = renderApp(`${MAP}?focus=screen.people&layer=phenome`);
     const crumbs = await screen.findByRole("navigation", { name: "Map scope" });
     expect(within(crumbs).getAllByRole("listitem").map((li) => li.textContent?.replace(/^\//, "").replace(/, \w+$/, ""))).toEqual([
-      "Keep in Touch",
-      "Keep in Touch web app",
+      "Peopling",
+      "Peopling web app",
       "UI",
       "People",
     ].map((s) => expect.stringContaining(s)) as unknown as string[]);

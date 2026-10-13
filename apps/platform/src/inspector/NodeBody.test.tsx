@@ -5,7 +5,7 @@ import { fieldValue, kindViews } from "@/model/kinds";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 
-const at = (id: string) => `/s/system.keep-in-touch/r/head/overview?focus=${id}`;
+const at = (id: string) => `/s/system.peopling/r/head/overview?focus=${id}`;
 const humanize = (k: string) => k.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
 describe("NodeBody", () => {
@@ -29,7 +29,7 @@ describe("NodeBody", () => {
     const bundle = structuredClone(fixtureBundle());
     const node = bundle.model.nodes.find((n) => n.id === "policy.ownerOnly")! as unknown as Record<string, unknown>;
     node.reviewNote = "Checked by the owner";
-    renderApp(at("policy.ownerOnly"), undefined, (qc) => qc.setQueryData(qk.model("system.keep-in-touch", "head"), bundle));
+    renderApp(at("policy.ownerOnly"), undefined, (qc) => qc.setQueryData(qk.model("system.peopling", "head"), bundle));
     const box = await screen.findByRole("complementary", { name: "Inspector" });
     const terms = within(box.querySelector<HTMLElement>("[data-node-fields]")!).getAllByRole("term").map((t) => t.textContent);
     expect(terms.at(-1)).toBe("Review note");
@@ -42,7 +42,7 @@ describe("NodeBody", () => {
     const node = bundle.model.nodes.find((n) => n.id === "policy.ownerOnly")! as unknown as Record<string, unknown>;
     node.kind = "gizmo";
     node.sprocket = "left-handed";
-    renderApp(at("policy.ownerOnly"), undefined, (qc) => qc.setQueryData(qk.model("system.keep-in-touch", "head"), bundle));
+    renderApp(at("policy.ownerOnly"), undefined, (qc) => qc.setQueryData(qk.model("system.peopling", "head"), bundle));
     const box = await screen.findByRole("complementary", { name: "Inspector" });
     expect(await within(box).findByText("left-handed")).toBeTruthy();
     expect(within(box).getByText("Sprocket")).toBeTruthy();

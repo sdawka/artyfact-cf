@@ -44,7 +44,7 @@ test.describe("runtime events @fake", () => {
     await checkPage(page, testInfo, "deployments-filtered", isPass, [EVENT_SUMMARY]);
 
     await page.goto("/");
-    await expect(systemCard(page, /Keep in Touch/)).toBeVisible();
+    await expect(systemCard(page, /Peopling/)).toBeVisible();
     await checkPage(page, testInfo, "home-observed");
   });
 });

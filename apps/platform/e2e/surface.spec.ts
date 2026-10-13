@@ -20,8 +20,8 @@ test('surface content and geometry remain readable at narrow widths', async ({ p
   for (const [width, height] of [[1440, 900], [390, 844], [320, 568]]) {
     await page.setViewportSize({ width, height });
     await open(page, '/overview', 'Overview');
-    const hero = page.getByRole('region', { name: 'Keep in Touch' });
-    await expect(hero.getByRole('heading', { name: 'Keep in Touch' })).toBeVisible();
+    const hero = page.getByRole('region', { name: 'Peopling' });
+    await expect(hero.getByRole('heading', { name: 'Peopling' })).toBeVisible();
     const fits = await hero.evaluate(element => {
       const text = element.querySelector('h2')!;
       const frame = element.querySelector('[data-effect="surface"]')!.getBoundingClientRect();
@@ -50,14 +50,14 @@ test('reduced motion and forced colors preserve meaningful content', async ({ pa
   await page.setViewportSize({ width: 390, height: 844 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await open(page, '/overview', 'Overview');
-  const hero = page.getByRole('region', { name: 'Keep in Touch' });
+  const hero = page.getByRole('region', { name: 'Peopling' });
   const surface = hero.locator('[data-effect="surface"]');
   await expect(surface).toHaveAttribute('data-effect-mode', 'static');
   expect(await surface.evaluate(element => element.getAnimations({ subtree: true }).filter(animation => animation.playState === 'running').length)).toBe(0);
   await checkA11yAndShoot(page, info, 'surface-reduced');
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'no-preference' });
   await expect(surface).toHaveCSS('display', 'none');
-  await expect(hero.getByRole('heading', { name: 'Keep in Touch' })).toBeVisible();
+  await expect(hero.getByRole('heading', { name: 'Peopling' })).toBeVisible();
   await expect(hero.getByText(/Help an individual keep in touch/)).toBeVisible();
   const colors = await hero.evaluate(element => {
     const probe = document.createElement('span'); probe.style.color = 'CanvasText'; document.body.append(probe);

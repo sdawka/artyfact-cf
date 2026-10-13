@@ -3,7 +3,7 @@
 # `bundle` is the checkout directory `artyfact platform-sync` copies into platform:<path>.
 repo: platform
 path: templates/thing/cloudflare-worker-webapp@1/scaffold
-bundle: examples/keep-in-touch-app
+bundle: examples/peopling-app
 commands:
   install: npm install
   dev: npm run dev

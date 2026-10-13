@@ -12,7 +12,7 @@ const appCandidate = (over: Partial<CandidateRef> = {}): CandidateRef => ({
 });
 
 const ctxFor = (candidate: CandidateRef, over: Partial<SubmissionContext> = {}): SubmissionContext => ({
-  systemId: "system.mini-kit", candidate, genomeCommit: BASE, genomeFiles: miniGenome(),
+  systemId: "system.mini-peopling", candidate, genomeCommit: BASE, genomeFiles: miniGenome(),
   tree: [{ path: "wrangler.jsonc", size: 10 }, { path: "src/index.ts", size: 10 }, { path: "package.json", size: 10 }],
   permittedPaths: ["src/**"], protectedPaths: ["system/**", "assays/**"], openCandidates: [], ...over,
 });
@@ -115,7 +115,7 @@ describe("runSubmission", () => {
   });
 
   it("records an http transport error as execution error, never pass", async () => {
-    const evs = await runner.runSubmission(ctxFor(appCandidate({ previewUrl: "https://kit-app-r1.acct.workers.dev" })));
+    const evs = await runner.runSubmission(ctxFor(appCandidate({ previewUrl: "https://peopling-app-r1.acct.workers.dev" })));
     const h = by(evs, "C.webapp.health")[0];
     expect(h).toMatchObject({ execution: "error", verdict: "unknown" });
     expect(JSON.stringify(h.observations)).toContain("no network in tests");

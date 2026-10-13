@@ -16,7 +16,7 @@ links:
 criteria:
   - id: C.model.unit
     title: "@artyfact/model tests pass"
-    claim: Loading, validation, diff, Parts and conformance suites pass on Keep in Touch.
+    claim: Loading, validation, diff, Parts and conformance suites pass on Peopling.
     target: artifact
     gates:
       - candidate

@@ -24,16 +24,16 @@ export function withRecipients(files: FileMap = miniGenome()): FileMap {
 export const COMMIT = "0123456789abcdef0123456789abcdef01234567";
 export const BASE = "fedcba9876543210fedcba9876543210fedcba98";
 
-const kitRaw = import.meta.glob("../../../../examples/keep-in-touch-system/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
-const KIT_PREFIX = "../../../../examples/keep-in-touch-system/";
+const kitRaw = import.meta.glob("../../../../examples/peopling-system/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>;
+const KIT_PREFIX = "../../../../examples/peopling-system/";
 
-/** Fresh copy of the real Keep in Touch Genome file map. */
-export function keepInTouch(): FileMap {
+/** Fresh copy of the real Peopling Genome file map. */
+export function peopling(): FileMap {
   return Object.fromEntries(Object.entries(kitRaw).map(([k, v]) => [k.slice(KIT_PREFIX.length), v]));
 }
 
-/** Keep in Touch with `cardinality: many` on operation.contact.save (writes ContactRecord, which has an Account ref). */
-export function keepInTouchMany(files: FileMap = keepInTouch()): FileMap {
+/** Peopling with `cardinality: many` on operation.contact.save (writes ContactRecord, which has an Account ref). */
+export function peoplingMany(files: FileMap = peopling()): FileMap {
   const path = "thing.webapp/section.domain/operation.contact.save/node.yaml";
   const out = { ...files };
   out[path] = files[path].replace("  name: Create or edit private contact\n", "  name: Create or edit private contact\n  cardinality: many\n");

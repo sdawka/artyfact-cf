@@ -4,7 +4,7 @@ import { qk } from "@/api/queries";
 import { fixtureBundle } from "@/api/fixtures";
 import { renderApp } from "@/testing/render";
 
-const SID = "system.keep-in-touch";
+const SID = "system.peopling";
 const BASE = `/s/${SID}/r/head`;
 const THING = `${BASE}/things/thing.webapp`;
 
@@ -15,7 +15,7 @@ describe("Thing workspace", () => {
       bundle.model.things.push({ ...bundle.model.things[0]!, id: "thing.notes", name: "Notes", description: "Genome-only", templateRef: null, sections: [], artifacts: [], parts: [] });
       qc.setQueryData(qk.model(SID, "head"), bundle);
     });
-    expect(await screen.findByRole("heading", { level: 1, name: "Keep in Touch web app" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { level: 1, name: "Peopling web app" })).toBeTruthy();
     // The rail serves the Thing scope; the page carries no second "Thing views" nav.
     expect(screen.queryByRole("navigation", { name: "Thing views" })).toBeNull();
     const rail = screen.getByRole("navigation", { name: "Views" });

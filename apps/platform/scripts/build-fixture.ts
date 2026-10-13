@@ -1,6 +1,6 @@
-// Regenerates src/fixtures/keep-in-touch.model.json from examples/keep-in-touch-system:
+// Regenerates src/fixtures/peopling.model.json from examples/peopling-system:
 // loadGenome + the bundled meta@1 templates, readiness from validate(model) (the System's pinned template packs).
-// Also writes src/fixtures/keep-in-touch.files.json ({ entries, files }) from the same tree, so the Code view
+// Also writes src/fixtures/peopling.files.json ({ entries, files }) from the same tree, so the Code view
 // can browse the Genome in fixture mode. `hash` is the git blob id of the content.
 // Run: npm run build:fixture -w @artyfact/platform
 import { createHash } from "node:crypto";
@@ -11,9 +11,9 @@ import { runnerImport } from "vite";
 import { isBlocking } from "../shared/verdict.ts";
 
 const repo = fileURLToPath(new URL("../../..", import.meta.url));
-const example = join(repo, "examples/keep-in-touch-system");
-const out = fileURLToPath(new URL("../src/fixtures/keep-in-touch.model.json", import.meta.url));
-const filesOut = fileURLToPath(new URL("../src/fixtures/keep-in-touch.files.json", import.meta.url));
+const example = join(repo, "examples/peopling-system");
+const out = fileURLToPath(new URL("../src/fixtures/peopling.model.json", import.meta.url));
+const filesOut = fileURLToPath(new URL("../src/fixtures/peopling.files.json", import.meta.url));
 if (!existsSync(join(example, "node.yaml"))) {
   console.error(`build-fixture: ${relative(repo, example)}/node.yaml not found; the example Genome is required.`);
   process.exit(1);

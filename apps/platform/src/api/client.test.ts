@@ -14,12 +14,12 @@ afterEach(() => vi.unstubAllGlobals());
 describe("api client fixture fallback", () => {
   it("serves the fixture bundle when /api/systems fails", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json(404, { error: { code: "not-found", message: "no" } })));
-    const b = await getModel("system.keep-in-touch", "head");
+    const b = await getModel("system.peopling", "head");
     expect(b.source).toBe("fixture");
-    expect(b.model.system.id).toBe("system.keep-in-touch");
-    expect((await getSystems())[0]?.systemId).toBe("system.keep-in-touch");
-    expect(await getEvaluations("system.keep-in-touch")).toEqual({ evaluations: [] });
-    await expect(startWork("system.keep-in-touch", "evolution.1")).rejects.toBeInstanceOf(FixtureModeError);
+    expect(b.model.system.id).toBe("system.peopling");
+    expect((await getSystems())[0]?.systemId).toBe("system.peopling");
+    expect(await getEvaluations("system.peopling")).toEqual({ evaluations: [] });
+    await expect(startWork("system.peopling", "evolution.1")).rejects.toBeInstanceOf(FixtureModeError);
   });
 
   it("treats an empty /api/systems as a real, empty platform (not fixture mode)", async () => {
@@ -152,27 +152,27 @@ describe("iteration-2 reads and writes", () => {
 
   it("in fixture mode serves Genome files, head-only revisions and empty lists, and refuses writes", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("Failed to fetch"))));
-    const tree = await listFiles("system.keep-in-touch", { repo: "genome" });
+    const tree = await listFiles("system.peopling", { repo: "genome" });
     expect(tree.files.map((f) => f.path)).toContain("node.yaml");
-    const file = await getFile("system.keep-in-touch", { repo: "genome", path: "node.yaml" });
-    expect(file.text).toContain("system.keep-in-touch");
-    expect((await listFiles("system.keep-in-touch", { repo: "app" })).files).toEqual([]);
-    expect((await getRevisions("system.keep-in-touch")).revisions).toEqual([{ id: "head", kind: "head", label: "head" }]);
-    expect(await getChangelog("system.keep-in-touch")).toEqual({ rows: [] });
-    expect(await getBuilds("system.keep-in-touch")).toEqual({ builds: [] });
-    expect(await getDeployments("system.keep-in-touch")).toEqual({ production: null, history: [] });
-    expect(await getPhenomeEvents("system.keep-in-touch")).toEqual({ events: [], versions: [] });
-    await expect(getChangelogEntry("system.keep-in-touch", "sc-1")).rejects.toBeInstanceOf(ApiRequestError);
-    await expect(getFile("system.keep-in-touch", { repo: "app", path: "src/index.ts" })).rejects.toBeInstanceOf(ApiRequestError);
-    await expect(createEvolution("system.keep-in-touch", { title: "T", intent: "I" })).rejects.toBeInstanceOf(FixtureModeError);
-    await expect(commitFiles("system.keep-in-touch", "r", { message: "m", changes: [] })).rejects.toBeInstanceOf(FixtureModeError);
+    const file = await getFile("system.peopling", { repo: "genome", path: "node.yaml" });
+    expect(file.text).toContain("system.peopling");
+    expect((await listFiles("system.peopling", { repo: "app" })).files).toEqual([]);
+    expect((await getRevisions("system.peopling")).revisions).toEqual([{ id: "head", kind: "head", label: "head" }]);
+    expect(await getChangelog("system.peopling")).toEqual({ rows: [] });
+    expect(await getBuilds("system.peopling")).toEqual({ builds: [] });
+    expect(await getDeployments("system.peopling")).toEqual({ production: null, history: [] });
+    expect(await getPhenomeEvents("system.peopling")).toEqual({ events: [], versions: [] });
+    await expect(getChangelogEntry("system.peopling", "sc-1")).rejects.toBeInstanceOf(ApiRequestError);
+    await expect(getFile("system.peopling", { repo: "app", path: "src/index.ts" })).rejects.toBeInstanceOf(ApiRequestError);
+    await expect(createEvolution("system.peopling", { title: "T", intent: "I" })).rejects.toBeInstanceOf(FixtureModeError);
+    await expect(commitFiles("system.peopling", "r", { message: "m", changes: [] })).rejects.toBeInstanceOf(FixtureModeError);
   });
 
   it("zero-fills the fixture summary's iteration-2 fields", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => json(503, {})));
     const [s] = await getSystems();
     expect(s).toMatchObject({ built: false, latestBuild: null, deployState: "none", signifiers: [], deployment: { production: null, previews: 0 } });
-    // Keep in Touch's provisional nodes are missing findings that do not block.
+    // Peopling's provisional nodes are missing findings that do not block.
     expect(s!.readiness).toEqual({ errors: 0, missing: 0 });
   });
 

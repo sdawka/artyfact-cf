@@ -4,8 +4,8 @@ node_modules
 /dist/
 /apps/*/dist/
 /packages/*/dist/
-/examples/keep-in-touch-app/dist/
-/examples/keep-in-touch-system/.tsbuild/
+/examples/peopling-app/dist/
+/examples/peopling-system/.tsbuild/
 /coverage/
 /apps/*/coverage/
 /packages/*/coverage/

@@ -178,7 +178,7 @@ describe("AmendmentReview", () => {
   it("requires an interpretation to accept and sends it with the reviewed candidate and commit, then shows the new commit and a map link", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/api/systems")) return Response.json([{ systemId: SYSTEM_ID, title: "Keep in Touch", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "x", evolutionCounts: {}, updatedAt: "now" }]);
+      if (url.endsWith("/api/systems")) return Response.json([{ systemId: SYSTEM_ID, title: "Peopling", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "x", evolutionCounts: {}, updatedAt: "now" }]);
       if (url.endsWith(`/evolutions/${EID}/accept`) && init?.method === "POST") return Response.json({ genomeCommit: "c0ffee1234567", realization });
       return new Response("{}", { status: 404 });
     });
@@ -204,7 +204,7 @@ describe("AmendmentReview", () => {
   it("requires a reason to reject, then posts it and shows the rejected state", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/api/systems")) return Response.json([{ systemId: SYSTEM_ID, title: "Keep in Touch", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "x", evolutionCounts: {}, updatedAt: "now" }]);
+      if (url.endsWith("/api/systems")) return Response.json([{ systemId: SYSTEM_ID, title: "Peopling", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "x", evolutionCounts: {}, updatedAt: "now" }]);
       if (url.endsWith(`/realizations/${RID}/reject`) && init?.method === "POST") return Response.json({ realization });
       return new Response("{}", { status: 404 });
     });

@@ -3,28 +3,28 @@ import { appRepoName, forkName, genomeRepoName, itestPrefix, PLATFORM_REPO, slug
 
 describe("naming", () => {
   it("derives the slug from the system id", () => {
-    expect(slug("system.keep-in-touch")).toBe("keep-in-touch");
-    expect(slug("system.keep_in.touch")).toBe("keep_in.touch");
-    for (const bad of ["system.a b/c!", "system.-.x", "system.a/b", "system.Ünïcode", "system.a..b", "system._x", "system.Kit", "system.Keep_In.Touch"]) expect(() => slug(bad), bad).toThrow(/slug/);
+    expect(slug("system.peopling")).toBe("peopling");
+    expect(slug("system.peo_pling.x")).toBe("peo_pling.x");
+    for (const bad of ["system.a b/c!", "system.-.x", "system.a/b", "system.Ünïcode", "system.a..b", "system._x", "system.Peopling", "system.Peo_Pling.X"]) expect(() => slug(bad), bad).toThrow(/slug/);
     expect(slug("plain")).toBe("plain");
     expect(() => slug("system.")).toThrow(/slug/);
     expect(() => slug("system.--")).toThrow(/slug/);
   });
 
   it("names genome, app, forks, platform and itest repos", () => {
-    expect(genomeRepoName("keep-in-touch")).toBe("keep-in-touch.genome");
-    expect(appRepoName("keep-in-touch")).toBe("keep-in-touch.app");
-    expect(appRepoName("keep-in-touch", "artifact.webapp")).toBe("keep-in-touch.app");
-    expect(appRepoName("keep-in-touch", "artifact.admin", true)).toBe("keep-in-touch.admin");
-    expect(forkName("keep-in-touch.app", 3)).toBe("keep-in-touch.app--r3");
-    expect(forkName("keep-in-touch.genome", 4)).toBe("keep-in-touch.genome--r4");
+    expect(genomeRepoName("peopling")).toBe("peopling.genome");
+    expect(appRepoName("peopling")).toBe("peopling.app");
+    expect(appRepoName("peopling", "artifact.webapp")).toBe("peopling.app");
+    expect(appRepoName("peopling", "artifact.admin", true)).toBe("peopling.admin");
+    expect(forkName("peopling.app", 3)).toBe("peopling.app--r3");
+    expect(forkName("peopling.genome", 4)).toBe("peopling.genome--r4");
     expect(PLATFORM_REPO).toBe("platform");
-    expect(itestPrefix("keep-in-touch", "ab12")).toBe("itest-keep-in-touch-ab12");
+    expect(itestPrefix("peopling", "ab12")).toBe("itest-peopling-ab12");
   });
 
   it("names a System's repos from its artifacts", () => {
-    expect(systemRepoNames("system.keep-in-touch", ["artifact.webapp"])).toEqual({
-      slug: "keep-in-touch", genomeRepo: "keep-in-touch.genome", appRepo: "keep-in-touch.app",
+    expect(systemRepoNames("system.peopling", ["artifact.webapp"])).toEqual({
+      slug: "peopling", genomeRepo: "peopling.genome", appRepo: "peopling.app",
     });
     expect(systemRepoNames("system.shop", ["artifact.storefront", "artifact.admin"]).appRepo).toBe("shop.storefront");
   });

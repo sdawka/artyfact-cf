@@ -12,7 +12,7 @@ Contract code: `packages/ontology/src/genome/` (zod schemas and types for `node.
 | `@artyfact/ontology/artyfact/node` | `readDir` for Node (the only file-system import) |
 | `@artyfact/ontology/product`, `/world` | bropilot's product-spec, spaces and world-core adapters, kept for their tests and as worked examples |
 
-Datalog comes from `@artyfact/rules` (one engine; the bropilot copy is deleted). Everything except `artyfact/node` runs in workerd; `apps/platform/test/ontology-smoke.test.ts` loads Keep in Touch through the node-tree codec (`readTree`), evaluates it and routes a message with the fake providers there. The live suites (`npm run test:live`, `npm run test:route:live` in the package) call OpenRouter only with `ONTOLOGY_LIVE=1` and a key.
+Datalog comes from `@artyfact/rules` (one engine; the bropilot copy is deleted). Everything except `artyfact/node` runs in workerd; `apps/platform/test/ontology-smoke.test.ts` loads Peopling through the node-tree codec (`readTree`), evaluates it and routes a message with the fake providers there. The live suites (`npm run test:live`, `npm run test:route:live` in the package) call OpenRouter only with `ONTOLOGY_LIVE=1` and a key.
 
 ### Route, translate, validate
 
@@ -138,7 +138,7 @@ Only things that span many nodes become nodes of their own; everything else is a
 
 The v1 (by-concern) layout is dropped. The rules:
 
-- **One-time migration.** The v1 reader exists only inside the converter (W1, `packages/ontology/src/codec/v1.ts`) and one transitional platform release. A System whose head is v1 cannot evolve on the platform: start work, the hooks and intents all load the head and answer 422 `legacy-genome`. So the prod Keep in Touch Genome is migrated outside the platform, in three steps (commands in `docs/deploy.md`):
+- **One-time migration.** The v1 reader exists only inside the converter (W1, `packages/ontology/src/codec/v1.ts`) and one transitional platform release. A System whose head is v1 cannot evolve on the platform: start work, the hooks and intents all load the head and answer 422 `legacy-genome`. So the prod Peopling Genome is migrated outside the platform, in three steps (commands in `docs/deploy.md`):
   1. `artyfact convert-genome <v1 checkout> <v2 dir> --source-map <app source-map.yaml>` writes the node tree locally.
   2. `artyfact init --genome <v2 dir> --genome-only --adopt --force` pushes only the Genome, as a new commit on top of the v1 head of the same repo (`--adopt`), and re-imports the System at that commit (`--force`). The app repo is never pushed and keeps its head.
   3. The import makes the converted commit the head. The v1 commits stay in the repo's history and in the Changelog as legacy entries.
@@ -166,7 +166,7 @@ The v1 (by-concern) layout is dropped. The rules:
 
 The projection also emits the nodes the v1 adapter derives from fields, so they compare equal: `kit` nodes with `pinned` and `requires` links from the root's `kits` and `required`; `artifact` nodes with `artifact` links from a Thing's `artifacts`; `template` nodes with `pinned` links from `template`.
 
-The migration's acceptance test is parity. For Keep in Touch, the v1 adapter's graph and the converted tree's projection must be the same nodes, fields and links with the same findings, except for these three intended `parent` differences, all of which v1 left parentless:
+The migration's acceptance test is parity. For Peopling, the v1 adapter's graph and the converted tree's projection must be the same nodes, fields and links with the same findings, except for these three intended `parent` differences, all of which v1 left parentless:
 
 1. `purpose`, `claim`, `external`, `feature` and `commitment` nodes have the System as parent.
 2. `journey` nodes have the System or their owning Thing as parent.
@@ -321,4 +321,4 @@ Providers are wired by W5 and W7. System One comes from `providerFromEnv`: `FAKE
 | Fake translator | Links an add only with a relation the vocabulary declares for the two kinds | Templates declare their own relations | Done (W7) |
 | System One providers | TypeSafe, OpenRouter and fake (`providerFromEnv`) | TypeSafe as well | Done (W5) |
 | Old Genomes | v1 adapter included | Plan: `loadGenome` detects v1 or v2 (W4), and old commits stay readable | Superseded by the user: v2 only. v1 commits show the legacy notice (§2a), and the v1 readers are deleted after the migration release. W4 loads v2 only |
-| Several web app Things | The webapp templates prefill fixed ids (`section.ui`, `binding.d1`, `C.webapp.exists`) | A System may hold any Things | Parked: one webapp Thing per System. A second one fails composition with 422 `template-composition` naming both Things and the id; moving those ids to `$self` renames Keep in Touch nodes |
+| Several web app Things | The webapp templates prefill fixed ids (`section.ui`, `binding.d1`, `C.webapp.exists`) | A System may hold any Things | Parked: one webapp Thing per System. A second one fails composition with 422 `template-composition` naming both Things and the id; moving those ids to `$self` renames Peopling nodes |

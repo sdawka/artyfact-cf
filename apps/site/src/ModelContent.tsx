@@ -10,20 +10,42 @@ function Explorer({ html }: { html?: string }) {
     : <div data-system-explorer="" dangerouslySetInnerHTML={{ __html: html }} />;
 }
 
-/** A domain-first explanation that follows one proposed change through the same model. */
+/** The semantic-layer benefits, then the platform vocabulary illustrated by one proposed change. */
 export function ModelContent({ explorerHtml }: ModelContentProps) {
   return <div className="model-story" data-model-story="">
     <section className="model-story-intro">
-      <h1>Start with the domain.</h1>
-      <p>Artyfact treats your project as a System: its purpose, the people and services around it, and one or more Things you want to make. You choose how to divide the System into Things and connect their subjects within a typed model.</p>
+      <h1>Ontology Driven Development</h1>
+      <p>Code repositories and delivery pipelines give files, versions, builds and deployments a home. Ontology Driven Development adds a semantic layer that describes what the work means: its purpose, named subjects, relationships, implementation areas and evidence.</p>
+      <p>An ontology makes those concepts and connections explicit, giving people and agents a shared model to work with.</p>
+      <nav className="model-story-jumps" aria-label="On this page">
+        <a href="#benefits">Why a semantic layer</a>
+        <a href="#meta-ontology">Artyfact’s meta ontology</a>
+      </nav>
+    </section>
+
+    <section id="benefits" className="section model-story-benefits" aria-labelledby="benefits-heading" tabIndex={-1}>
+      <div className="section-heading"><h2 id="benefits-heading">Why add a semantic layer?</h2><p>Keep the meaning of the work alongside the code. Named subjects and explicit relationships give context, tasks and evidence a place to connect.</p></div>
+      <div className="model-benefits-grid">
+        <article><h3>Reuse context</h3><p>Give purpose, domain definitions and constraints a shared home. Carry relevant context into each task or agent session instead of reconstructing it from source files.</p></article>
+        <article><h3>Scope implementation precisely</h3><p>Break a requested change into named subjects, then associate those subjects with their source areas. Tasks can say which screen, operation or policy they affect.</p></article>
+        <article><h3>Understand dependencies</h3><p>Make relationships explicit across features, interfaces and data. Follow those links to identify related subjects and reason about the impact of a change.</p></article>
+        <article><h3>Preserve intent</h3><p>Keep implementation decisions connected to the requirements and purpose behind them. A change retains its reason as it moves from a request into code and review.</p></article>
+        <article><h3>Share constraints</h3><p>Attach criteria to the subjects they assess and reuse modeled rules across work. People and agents can refer to the same expectations when planning and checking changes.</p></article>
+        <article><h3>Trace evidence</h3><p>Associate checks and observations with the subjects and versions they assess. See what was tested, what was observed and where evidence is still missing.</p></article>
+      </div>
+    </section>
+
+    <section id="meta-ontology" className="section model-meta-intro" aria-labelledby="meta-ontology-heading" tabIndex={-1}>
+      <div className="section-heading"><h2 id="meta-ontology-heading">Artyfact’s meta ontology</h2><p>The meta ontology defines the kinds of subjects and relationships the platform uses to describe projects. A project’s own ontology fills that vocabulary with its particular purpose, Things and connections. Artyfact itself can be described with the same model.</p></div>
+      <p className="model-meta-description">Artyfact treats your project as a System: its purpose, the people and services around it, and one or more Things you want to make. You choose how to divide the System into Things and connect their subjects within a typed model.</p>
       <p className="model-story-thread"><span>Illustrative target</span><strong>Make changes easy to scope and specify.</strong> We will follow one proposed change to Artyfact itself, from its place in the System to the evidence that could tell us whether it helped.</p>
     </section>
 
     <section className="section model-story-boundary">
-      <div className="section-heading"><h2>The System is the outer boundary.</h2><p>A Thing can be a whole application or one of several connected pieces. Keep in Touch, the example named on our home page, aims for more wanted contact with consent and a calm experience. Its owner could choose either shape.</p></div>
-      <div className="model-story-choices" aria-label="Two ways to divide Keep in Touch into Things">
-        <article><p className="model-story-label">Keep in Touch System · one Thing</p><strong>Whole contact application</strong><p>Interface, API and data together.</p></article>
-        <article><p className="model-story-label">Keep in Touch System · several Things</p><div className="model-story-choice-pieces"><strong>Frontend</strong><strong>API</strong><strong>Design system</strong></div><p>Separate Things with typed links between them.</p></article>
+      <div className="section-heading"><h2>The System is the outer boundary.</h2><p>A Thing can be a whole application or one of several connected pieces. Peopling, the example named on our home page, aims for more wanted contact with consent and a calm experience. Its owner could choose either shape.</p></div>
+      <div className="model-story-choices" aria-label="Two ways to divide Peopling into Things">
+        <article><p className="model-story-label">Peopling System · one Thing</p><strong>Whole contact application</strong><p>Interface, API and data together.</p></article>
+        <article><p className="model-story-label">Peopling System · several Things</p><div className="model-story-choice-pieces"><strong>Frontend</strong><strong>API</strong><strong>Design system</strong></div><p>Separate Things with typed links between them.</p></article>
       </div>
       <p className="model-story-bridge">For the rest of this example, we choose the <strong>Artyfact System</strong> and one <strong>Platform web app Thing</strong>. The proposed change concerns how that app scopes a request before work starts.</p>
     </section>

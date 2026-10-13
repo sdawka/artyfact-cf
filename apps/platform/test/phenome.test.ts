@@ -13,7 +13,7 @@ import { genomeFiles } from "./fixtures/genome";
 const ADMIN = { authorization: "Bearer test-admin-token" };
 const G1 = "1".repeat(40), A1 = "a".repeat(40), A2 = "b".repeat(40), A3 = "c".repeat(40), FORK_HEAD = "d".repeat(40);
 const boot: BootstrapInput = {
-  systemId: "system.kit", title: "Kit", genomeRepo: "kit-system", appRepo: "kit-app", genomeCommit: G1, appCommit: A1,
+  systemId: "system.peopling", title: "Peopling", genomeRepo: "peopling-system", appRepo: "peopling-app", genomeCommit: G1, appCommit: A1,
   artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {}, platform: null,
   evolutions: [{
     id: "evolution.1", title: "List people", intent: "x", state: "actionable", kind: "implementation", affectedNodes: ["screen.people"],

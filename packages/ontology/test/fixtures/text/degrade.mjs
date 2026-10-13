@@ -5,7 +5,7 @@ import { parseDocument, Scalar } from "yaml";
 
 const here = (p) => new URL(p, import.meta.url);
 
-export const KIT = [
+export const PEOPLING = [
   ["screen.signin", "description", ""],
   ["screen.today", "description", "   "],
   ["entity.Account", "description", "TBD"],
@@ -49,7 +49,7 @@ function degradeYaml(src, edits) {
   };
   walk(doc.get("nodes"));
   if (left.size) throw new Error(`not found: ${[...left.keys()]}`);
-  return "# Degraded copy of keep-in-touch-system/things/webapp/ontology.yaml; regenerate with degrade.mjs.\n" + doc.toString({ lineWidth: 0, flowCollectionPadding: false });
+  return "# Degraded copy of peopling-system/things/webapp/ontology.yaml; regenerate with degrade.mjs.\n" + doc.toString({ lineWidth: 0, flowCollectionPadding: false });
 }
 
 function degradeJson(json, edits) {
@@ -62,8 +62,8 @@ function degradeJson(json, edits) {
 }
 
 if (import.meta.url === `file://${process.argv[1]}`) {
-  writeFileSync(here("./kit.ontology.sloppy.yaml"),
-    degradeYaml(readFileSync(here("../artyfact/keep-in-touch-system/things/webapp/ontology.yaml"), "utf8"), KIT));
+  writeFileSync(here("./peopling.ontology.sloppy.yaml"),
+    degradeYaml(readFileSync(here("../artyfact/peopling-system/things/webapp/ontology.yaml"), "utf8"), PEOPLING));
   writeFileSync(here("./tidepool.sloppy.graph.json"),
     degradeJson(JSON.parse(readFileSync(here("../product/tidepool.graph.json"), "utf8")), TIDEPOOL));
 }

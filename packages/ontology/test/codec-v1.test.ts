@@ -10,14 +10,14 @@ import { templateDir, GenomeTreeError, graphHash, isLegacyGenome, loadArtyfactSy
 const metaStore = (files: Record<string, string>) => ({
   get: (ref: string) => { const t = files[`${templateDir(ref)}/template.yaml`]; return t === undefined ? undefined : parseYaml(t); },
 });
-// The v1 Keep in Touch Genome as it was before the migration; the converted tree is the example itself.
-const V1 = join(__dirname, "fixtures/artyfact/keep-in-touch-system");
-const FIXTURE = join(__dirname, "../../../examples/keep-in-touch-system");
+// The v1 Peopling Genome as it was before the migration; the converted tree is the example itself.
+const V1 = join(__dirname, "fixtures/artyfact/peopling-system");
+const FIXTURE = join(__dirname, "../../../examples/peopling-system");
 const TPL = readDir(join(__dirname, "../../templates"));
 const templates = metaStore(TPL);
 const v1 = readDir(V1);
 // The app repo's v1 source-map.yaml, which the conversion moves onto the nodes' `files`.
-const SOURCE_MAP = readFileSync(join(__dirname, "fixtures/artyfact/keep-in-touch-app.source-map.yaml"), "utf8");
+const SOURCE_MAP = readFileSync(join(__dirname, "fixtures/artyfact/peopling-app.source-map.yaml"), "utf8");
 const tree = convertV1(v1, TPL, { sourceMap: SOURCE_MAP });
 const v1Graph = loadArtyfactSystem(v1, { templates: TPL });
 const v2Graph = readTree(tree, templates);
@@ -50,7 +50,7 @@ const comparable = (g: Graph) => ({
   links: sortBy(g.links.filter((l) => !selfRequirement(g)(l)).map((l) => `${l.from} ${l.rel} ${l.to} ${l.certainty ?? "declared"}`), (x) => x),
 });
 
-describe("convertV1 (Keep in Touch)", () => {
+describe("convertV1 (Peopling)", () => {
   it("writes the tree the fixture holds", () => {
     // Exact: regenerating the example from the v1 Genome (with its source map) is a no-op.
     expect(new Map(Object.entries(readDir(FIXTURE)))).toEqual(tree);
@@ -72,10 +72,10 @@ describe("convertV1 (Keep in Touch)", () => {
     const parent = new Map(v2Graph.nodes.map((n) => [n.id, n.parent]));
     const kinds = new Map(v1Graph.nodes.map((n) => [n.id, n.kind]));
     for (const n of v1Graph.nodes.filter((x) => ["purpose", "claim", "external", "feature", "commitment"].includes(x.kind))) {
-      expect(parent.get(n.id), n.id).toBe("system.keep-in-touch");
+      expect(parent.get(n.id), n.id).toBe("system.peopling");
     }
     expect(parent.get("J.contacts")).toBe("thing.webapp");
-    expect(parent.get("J.updates")).toBe("system.keep-in-touch");
+    expect(parent.get("J.updates")).toBe("system.peopling");
     expect(parent.get("S.webapp.scope")).toBe("thing.webapp");
     expect(parent.get("S.webapp.screens")).toBe("screen.signin");
     for (const n of v1Graph.nodes.filter((x) => x.kind === "requirement")) {
@@ -134,7 +134,7 @@ describe("convertV1 (Keep in Touch)", () => {
   });
 
   it("refuses a criterion whose owner is not the nearest Thing or System above its subject", () => {
-    const bad = { ...v1, "criteria.yaml": v1["criteria.yaml"]!.replace("ownerId: system.keep-in-touch", "ownerId: thing.webapp") };
+    const bad = { ...v1, "criteria.yaml": v1["criteria.yaml"]!.replace("ownerId: system.peopling", "ownerId: thing.webapp") };
     expect(() => convertV1(bad, TPL)).toThrow(GenomeTreeError);
     expect(() => convertV1(bad, TPL)).toThrow(/is owned by thing\.webapp/);
   });

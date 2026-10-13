@@ -2,7 +2,7 @@ id: module.platform.fixtures
 kind: module
 fields:
   name: Fixtures
-  description: The bundled Keep in Touch fixture for fixture mode and the script that rebuilds it.
+  description: The bundled Peopling fixture for fixture mode and the script that rebuilds it.
   path: src/fixtures
 files:
   - src/fixtures/**

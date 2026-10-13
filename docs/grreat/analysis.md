@@ -19,3 +19,5 @@ Evidence and resolved review findings are recorded in [[journals/2026-10-12-foun
 Iteration 3 limits, 2026-10-13 (see [[journals/2026-10-13-iteration-3]]): one webapp Thing per System because its ids are fixed and prefilled; Map bands run left to right only; a lapsed-lease takeover can double-push, which is accepted. Production behavior of the v2 migration is unverified until the deploy step.
 
 Public `/model` page revision from main: [[journals/2026-10-13-model-page]]. Its capability gaps are recorded in [[roadmap]].
+
+Ontology Driven Development page acceptance: [[journals/2026-10-13-ontology-driven-development]]. Benefits precede the explicit meta ontology; existing model distinctions and illustrative labels remain. Full local and hosted CI passed; PR #57 merged at 1b79e93, and the public site is deployed at 100% with live desktop/mobile/no-JS, keyboard, layout and route checks passing. The platform release remains separate; remote sync stays pending.

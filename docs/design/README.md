@@ -2,7 +2,7 @@
 
 artyfact is a System-centred collaboration platform on Cloudflare Workers and Artifacts: a typed model of a System (the Genome), views over it, and a multi-agent loop that realizes changes and promotes them by compare-and-swap.
 
-- [model.md](model.md): metamodel, schemas, loader, validation, Keep in Touch encoding
+- [model.md](model.md): metamodel, schemas, loader, validation, Peopling encoding
 - [backend.md](backend.md): Worker, Durable Object, Artifacts usage, agent protocol, hooks
 - [ui.md](ui.md): views, routes, components, theme
 - [rules.md](rules.md): Datalog engine and Rule Packs

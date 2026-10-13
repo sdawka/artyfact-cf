@@ -120,16 +120,16 @@ describe("builds store (DO)", () => {
     await inDo(`system.outputs${++seq}`, (i) => {
       const lineage = {
         realization: null, candidate: null, commit: C1, kind: "production" as const, status: "passed" as const, reporter: "ci" as const,
-        sourceRepo: "kit-app", genomeCommit: C2, thingId: "thing.webapp", artifactId: "artifact.webapp",
+        sourceRepo: "peopling-app", genomeCommit: C2, thingId: "thing.webapp", artifactId: "artifact.webapp",
       };
       const first = i.upsertBuild({ id: "build.one", ...lineage, output: { locator: "workers-version:v1", digest: "sha256:one" } }).build;
       const second = i.upsertBuild({ id: "build.two", ...lineage, output: { locator: "workers-version:v2", digest: "sha256:two" } }).build;
 
       expect(first.output).toMatchObject({
         id: "output.build.one", build: "build.one", thingId: "thing.webapp", artifactId: "artifact.webapp",
-        source: { repo: "kit-app", commit: C1 }, genomeCommit: C2, locator: "workers-version:v1", digest: "sha256:one",
+        source: { repo: "peopling-app", commit: C1 }, genomeCommit: C2, locator: "workers-version:v1", digest: "sha256:one",
       });
-      expect(second.output).toMatchObject({ id: "output.build.two", build: "build.two", source: { repo: "kit-app", commit: C1 } });
+      expect(second.output).toMatchObject({ id: "output.build.two", build: "build.two", source: { repo: "peopling-app", commit: C1 } });
       expect(i.realizedArtifacts().map((x) => x.id).sort()).toEqual(["output.build.one", "output.build.two"]);
       expect(i.realizedArtifactForBuild("build.one")).toEqual(first.output);
       expect(i.realizedArtifact("output.build.two")).toEqual(second.output);
@@ -140,7 +140,7 @@ describe("builds store (DO)", () => {
     await inDo(`system.output-replay${++seq}`, (i) => {
       const base = {
         id: "build.same", realization: null, candidate: null, commit: C1, kind: "production" as const, status: "passed" as const, reporter: "ci" as const,
-        sourceRepo: "kit-app", genomeCommit: C2, thingId: "thing.webapp", artifactId: "artifact.webapp",
+        sourceRepo: "peopling-app", genomeCommit: C2, thingId: "thing.webapp", artifactId: "artifact.webapp",
       };
       expect(i.upsertBuild(base).build.output).toBeUndefined();
       expect(i.realizedArtifacts()).toEqual([]);
@@ -729,7 +729,7 @@ describe("CI dispatch", () => {
 
   it("names: instance ids drop characters Workflows refuse; worker names are lower-case dashes", () => {
     expect(workflowInstanceId("build.realization.1.r2.abcdef0.ci")).toMatch(/^build-realization-1-r2-abcdef0-ci-[0-9a-f]{8}$/);
-    expect(previewWorkerName("system.keep-in-touch", 3)).toBe("keep-in-touch-app-r3");
+    expect(previewWorkerName("system.peopling", 3)).toBe("peopling-app-r3");
     expect(productionWorkerName("system.my_app.v2")).toBe("my-app-v2-app");
   });
 });
@@ -739,22 +739,22 @@ describe("push subscriptions", () => {
 
   it("creates a repo-level pushed subscription to the events queue, and is a no-op without a token", async () => {
     setSubscriptionsOverride({ fetch: fakeApi, config: cfg });
-    expect(await ensurePushSubscription(env, "kit.app--r1")).toBe("sub-1");
+    expect(await ensurePushSubscription(env, "peopling.app--r1")).toBe("sub-1");
     expect(apiCalls[0]).toEqual({
       url: "https://api.cloudflare.com/client/v4/accounts/acc-1/event_subscriptions/subscriptions", method: "POST", auth: "Bearer cf-token",
-      body: subscriptionBody("artyfact", "kit.app--r1", "queue-1"),
+      body: subscriptionBody("artyfact", "peopling.app--r1", "queue-1"),
     });
-    expect(apiCalls[0].body).toMatchObject({ source: { type: "artifacts.repo", namespace: "artyfact", repo_name: "kit.app--r1" }, events: ["pushed"], destination: { type: "queues.queue", queue_id: "queue-1" } });
+    expect(apiCalls[0].body).toMatchObject({ source: { type: "artifacts.repo", namespace: "artyfact", repo_name: "peopling.app--r1" }, events: ["pushed"], destination: { type: "queues.queue", queue_id: "queue-1" } });
     expect(await removePushSubscription(env, "sub-1")).toBe(true);
     expect(apiCalls[1]).toMatchObject({ method: "DELETE", url: "https://api.cloudflare.com/client/v4/accounts/acc-1/event_subscriptions/subscriptions/sub-1" });
 
     setSubscriptionsOverride({ fetch: fakeApi });
-    expect(await ensurePushSubscription(env, "kit.app--r1")).toBeNull();
+    expect(await ensurePushSubscription(env, "peopling.app--r1")).toBeNull();
     expect(await removePushSubscription(env, "sub-1")).toBe(false);
     expect(apiCalls).toHaveLength(2);
 
     setSubscriptionsOverride({ fetch: async () => Response.json({ success: false, errors: [{ message: "nope" }] }, { status: 400 }), config: cfg });
-    expect(await ensurePushSubscription(env, "kit.app--r1")).toBeNull();
+    expect(await ensurePushSubscription(env, "peopling.app--r1")).toBeNull();
   });
 
   it("start work stores the fork's subscription; reject and promotion remove theirs", async () => {

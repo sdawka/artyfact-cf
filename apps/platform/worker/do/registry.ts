@@ -45,6 +45,12 @@ export class RegistryStore {
     return !!this.one("SELECT 1 AS x FROM registry_systems WHERE system_id = ?", systemId);
   }
 
+  /** Drop the System row and every realization index entry it owns; a no-op for unknown ids. */
+  unregisterSystem(systemId: string): void {
+    this.sql.exec("DELETE FROM registry_forks WHERE system_id = ?", systemId);
+    this.sql.exec("DELETE FROM registry_systems WHERE system_id = ?", systemId);
+  }
+
   listSystems(): SystemSummary[] {
     return (this.sql.exec("SELECT summary_json FROM registry_systems ORDER BY system_id").toArray() as Row[])
       .map((r) => JSON.parse(String(r.summary_json)) as SystemSummary);

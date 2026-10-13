@@ -67,7 +67,7 @@ describe("StartWorkPanel", () => {
 
 describe("StartWorkPanel against the API", () => {
   it("submits, then shows the packet and the command once", async () => {
-    const cli = "ARTYFACT_TOKEN=tok_x ARTYFACT_SECRET=sec_x npx artyfact start realization.9 --system system.keep-in-touch --evolution evolution.1 --dir ./realization.9";
+    const cli = "ARTYFACT_TOKEN=tok_x ARTYFACT_SECRET=sec_x npx artyfact start realization.9 --system system.peopling --evolution evolution.1 --dir ./realization.9";
     const calls: unknown[] = [];
     const auth: (string | null)[] = [];
     vi.stubGlobal("fetch", vi.fn(async (url: string, init?: RequestInit) => {
@@ -146,7 +146,7 @@ describe("PacketViewer without a command", () => {
 });
 
 describe("PacketViewer", () => {
-  const CLI = "ARTYFACT_TOKEN=tok_secret npx artyfact start realization.1 --system system.keep-in-touch --evolution evolution.1 --dir ./realization.1";
+  const CLI = "ARTYFACT_TOKEN=tok_secret npx artyfact start realization.1 --system system.peopling --evolution evolution.1 --dir ./realization.1";
 
   it("shows the command once with a countdown from the clock and a not-shown-again warning", () => {
     vi.useFakeTimers();

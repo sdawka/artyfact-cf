@@ -9,7 +9,7 @@ const ix = buildIndex(bundle);
 const ids = (xs: { id: string }[]) => xs.map((x) => x.id);
 const nodeParent = (id: string) => bundle.model.nodes.find((n) => n.id === id)?.parent;
 
-describe("buildIndex on the Keep in Touch fixture", () => {
+describe("buildIndex on the Peopling fixture", () => {
   it("indexes every object across kinds", () => {
     expect(ix.entries.length).toBeGreaterThan(bundle.model.nodes.length);
     expect(ix.byId("screen.people")).toMatchObject({ type: "node", kind: "screen" });
@@ -26,7 +26,7 @@ describe("buildIndex on the Keep in Touch fixture", () => {
     expect(kids).toEqual(bundle.model.nodes.filter((n) => n.parent === "screen.people").map((n) => n.id));
     expect(kids).toContain("component.AddContactDialog");
     for (const k of kids) expect(ix.parent(k)?.id).toBe("screen.people");
-    expect(ids(ix.children("system.keep-in-touch"))).toContain("thing.webapp");
+    expect(ids(ix.children("system.peopling"))).toContain("thing.webapp");
     expect(ix.children("nope")).toEqual([]);
   });
 
@@ -45,10 +45,10 @@ describe("buildIndex on the Keep in Touch fixture", () => {
 
   it("computes the containment path from the System root", () => {
     const path = ids(ix.path("affordance.AddContactDialog.save"));
-    expect(path.slice(0, 3)).toEqual(["system.keep-in-touch", "thing.webapp", "section.ui"]);
+    expect(path.slice(0, 3)).toEqual(["system.peopling", "thing.webapp", "section.ui"]);
     expect(path.slice(-3)).toEqual(["screen.people", "component.AddContactDialog", "affordance.AddContactDialog.save"]);
     for (let i = 3; i < path.length; i++) expect(nodeParent(path[i]!)).toBe(path[i - 1]);
-    expect(ids(ix.path("T1"))).toEqual(["system.keep-in-touch", "T1"]); // claims, purposes, features, commitments, journeys sit under the System
+    expect(ids(ix.path("T1"))).toEqual(["system.peopling", "T1"]); // claims, purposes, features, commitments, journeys sit under the System
     expect(ix.path("nope")).toEqual([]);
   });
 

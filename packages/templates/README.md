@@ -27,7 +27,7 @@ composeTemplates({ template: loadMetaTemplate(systemRef), self: systemId },
   [{ template: loadMetaTemplate(thingRef), self: thingId }]); // the System template with its Things', for evaluate()
 ```
 
-A test keeps `template.yaml` and `template.v1.yaml` in step (prefilled nodes, criteria, hooks, source globs) and checks that Keep in Touch yields artyfact's findings against the composed template. The v1 files are read only by the converter and by the tests (`test/v1.ts`); they go with the v1 readers once the migration has run (docs/design/ontology.md §2a).
+A test keeps `template.yaml` and `template.v1.yaml` in step (prefilled nodes, criteria, hooks, source globs) and checks that Peopling yields artyfact's findings against the composed template. The v1 files are read only by the converter and by the tests (`test/v1.ts`); they go with the v1 readers once the migration has run (docs/design/ontology.md §2a).
 
 ## The `$thing` placeholder
 

@@ -1,6 +1,6 @@
 # SPA contracts (apps/platform/src)
 
-What the view slices (Map, Journeys + Theory, Code, Work/Evaluations/Changelog/Compare, Deployments, Overview, Home) code against.
+What the view slices (Map, Journeys + Theory, Code, Work/Review/Evaluations/Changelog/Compare, Deployments, Overview, Home) code against.
 Design source: `docs/design/ui.md` §C. Theme rules: `theme/README.md` (tokens only, CSS Modules,
 `.u-brackets` / `.u-segments`, only `pass` is green).
 
@@ -17,13 +17,15 @@ Design source: `docs/design/ui.md` §C. Theme rules: `theme/README.md` (tokens o
 ## Routes and params
 
 `/` is **Home** (`views/home`, outside the System shell: own header, `h1 Systems`, one card per System).
-`/s/:systemId/r/:rev/{overview|map|journeys|theory|code|work|evaluations|changelog|compare|phenome}`;
-`phenome` is labelled "Deployments". `/s/:id` and `/s/:id/r/:rev` redirect to the head / that revision's overview;
-`…/history` redirects to `…/changelog` keeping its search params; `/style` is the style sheet; anything else shows
+`/s/:systemId/r/:rev/{overview|map|journeys|theory|code|work|review|evaluations|changelog|compare|phenome}`, each also under
+`…/things/:thingId/`; `phenome` is labelled "Deployments". `/s/:id` and `/s/:id/r/:rev` open the sole Thing's workspace when the System
+has one Thing, else the overview; `…/history` redirects to `…/changelog` and `…/work?panel=promote` to `…/review`, both keeping
+every search param and the hash; `/style` is the style sheet; anything else shows
 `RouteError` with an "Open Home" link. The `/s/:systemId/r/:rev` loader prefetches the model bundle (`modelQuery`) and does
 not re-run on search-param changes. View params: `code?repo=genome|app&path=&panel=commit`,
 `changelog?commit=&evolution=&panel=new`, `compare?from=&to=&level=system|genome|files&path=`, `evaluations?criterion=`,
-`phenome?deployment=&build=`, `work?panel=new|intent&anchor=&proposal=`. The UI says `rev`/`repo`; the client maps them to the API's `ref`/`scope`.
+`phenome?deployment=&build=`, `work?panel=new|intent|start&anchor=&proposal=&evolution=&realization=`,
+`review?evolution=&realization=` (a candidate review) or `review?panel=promote&evolution=` (the promotion desk). The UI says `rev`/`repo`; the client maps them to the API's `ref`/`scope`.
 
 Global params, kept by every nav link: `focus` (any indexed id), `layer`
 (`genome|proteome|phenome`, default `genome`), `candidates` (csv). View-specific params (`journey`,
@@ -125,11 +127,11 @@ secret or the admin token; all send `Authorization: Bearer`). Intents (admin, `d
 
 **Fixture fallback:** fixture mode means the API is **unreachable** (network error or non-2xx on `/api/systems`). A
 reachable API with no Systems is a real empty platform: Home shows "No Systems yet." with an init link. In fixture mode
-`getModel` serves `fixtures/keep-in-touch.model.json` with `source: 'fixture'`, `listFiles`/`getFile` serve the Genome
-from `fixtures/keep-in-touch.files.json` (app scope is empty), `getRevisions` returns head only, other list reads return
+`getModel` serves `fixtures/peopling.model.json` with `source: 'fixture'`, `listFiles`/`getFile` serve the Genome
+from `fixtures/peopling.files.json` (app scope is empty), `getRevisions` returns head only, other list reads return
 empty lists, entry/compare reads 404 and writes throw `FixtureModeError`. The TopBar and Home header then show "fixture
 data" and "Retry API" (`resetClientMode()` + refetch); the cause is logged with `console.warn`. The fixture summary
-zero-fills the iteration-2 `SystemSummary` fields. Both fixture files are generated from `examples/keep-in-touch-system`
+zero-fills the iteration-2 `SystemSummary` fields. Both fixture files are generated from `examples/peopling-system`
 by `npm run build:fixture -w @artyfact/platform` (`scripts/build-fixture.ts`).
 
 `queries.ts` (TanStack Query 5). Hooks read `systemId`/`rev` from the route (iteration-2 hooks are disabled outside
@@ -179,8 +181,10 @@ starts with `[name, systemId]`, so `invalidateQueries({ queryKey: [name, systemI
   `ModelDelta` with both sides' models for `SemanticDelta`.
 - `views/compare`: two `RevisionPicker`s + Swap, levels System / Genome / Files (`?from=&to=&level=&repo=&path=`).
 - `views/work/panels/NewEvolutionPanel.tsx`: admin form behind "+ Evolution" (Work and Changelog).
-- `views/work/intent/`: "Describe a change" (`?panel=intent`), opened from the Work header, a Home card, the Inspector and Code (`&anchor=<nodeId>`)
-  in the Inspector and Code (`&anchor=<nodeId>`). Message → proposal (`&proposal=`): routed path, provider label, per-op
+- `views/review/`: the decision queue (`queue.ts` `reviewQueue()`, pure; `useReviewQueue()` over the Work queries) beside
+  `CandidateReview` or `PromotionPanel` from `views/work/panels`. `model/useReviewCount()` feeds the rail, Overview and Work cards.
+- `views/work/intent/`: "Describe a change" (`?panel=intent`), opened from the Work header, a Home card, the Inspector and Code
+  (`&anchor=<nodeId>`); while open it replaces the board ("Back to board" closes it). Message → proposal (`&proposal=`): routed path, provider label, per-op
   diff with include toggles (dependencies follow), problems, inline replies, "Accept selected" → the candidate on Work.
   Fixture mode disables writes and shows `intent/sample.ts` read-only.
 

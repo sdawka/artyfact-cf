@@ -14,7 +14,7 @@ import type {
  */
 export interface MockData {
   systems: SystemSummary[];
-  /** Model bundle per System id; defaults to the Keep in Touch fixture for `system.keep-in-touch`. */
+  /** Model bundle per System id; defaults to the Peopling fixture for `system.peopling`. */
   bundles: Record<string, ModelBundle>;
   revisions: RevisionOption[];
   commits: SystemCommit[];
@@ -36,7 +36,7 @@ export interface MockData {
   writes?: (route: Route, url: URL) => Promise<boolean> | boolean;
 }
 
-export const SID = "system.keep-in-touch";
+export const SID = "system.peopling";
 const HEAD_APP = "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678";
 const OLD_APP = "0f9e8d7c6b5a49382716051f2e3d4c5b6a798011";
 const GENOME = "9e8d7c6b5a4938271605f4e3d2c1b0a998877665";
@@ -45,7 +45,7 @@ const minutesAgo = (m: number) => new Date(Date.now() - m * 60_000).toISOString(
 const fixture = (name: string) => JSON.parse(readFileSync(new URL(`../src/fixtures/${name}`, import.meta.url), "utf8")) as unknown;
 
 export const mockBuild = (o: Partial<Build> = {}): Build => ({
-  id: "build.2", status: "passed", kind: "production", commit: HEAD_APP, url: "https://keep-in-touch.example.workers.dev",
+  id: "build.2", status: "passed", kind: "production", commit: HEAD_APP, url: "https://peopling.example.workers.dev",
   buildId: HEAD_APP, realization: null, candidate: null, reporter: "ci", steps: [
     { name: "install", status: "passed", durationMs: 8_200 }, { name: "test", status: "passed", durationMs: 14_900 },
     { name: "build", status: "passed", durationMs: 6_100 }, { name: "deploy", status: "passed", durationMs: 4_300 },
@@ -53,8 +53,8 @@ export const mockBuild = (o: Partial<Build> = {}): Build => ({
 });
 
 export const mockDeployment = (o: Partial<Deployment> = {}): Deployment => ({
-  id: "deploy.2", kind: "production", status: "live", repo: "keep-in-touch-app", commit: HEAD_APP, systemCommit: "sc-2",
-  build: "build.2", url: "https://keep-in-touch.example.workers.dev", buildId: HEAD_APP, by: "admin",
+  id: "deploy.2", kind: "production", status: "live", repo: "peopling-app", commit: HEAD_APP, systemCommit: "sc-2",
+  build: "build.2", url: "https://peopling.example.workers.dev", buildId: HEAD_APP, by: "admin",
   createdAt: minutesAgo(40), updatedAt: minutesAgo(40), ...o,
 });
 
@@ -72,19 +72,19 @@ const row = (c: SystemCommit, o: Partial<ChangelogRow> = {}): ChangelogRow => ({
 
 /** Two Systems with different states, a two-commit changelog, a passed production build, a live deployment and events. */
 export function defaultMockData(): MockData {
-  const bundle = fixture("keep-in-touch.model.json") as ModelBundle;
-  const genomeFiles = (fixture("keep-in-touch.files.json") as { files: Record<string, string> }).files;
+  const bundle = fixture("peopling.model.json") as ModelBundle;
+  const genomeFiles = (fixture("peopling.files.json") as { files: Record<string, string> }).files;
   const sc1 = commit("sc-1", null, "Initial import", minutesAgo(60 * 26), { manifest: [] });
   const sc2 = commit("sc-2", "sc-1", "Add the People screen", minutesAgo(45), {
     evolutions: ["evolution.1"], candidates: ["cand.1"],
   });
-  const output: RealizedArtifact = { id: "output.build.2", thingId: "thing.webapp", artifactId: "artifact.webapp", source: { repo: "keep-in-touch-app", commit: HEAD_APP }, genomeCommit: GENOME, build: "build.2", locator: "workers-version:mock-v2", digest: "sha256:mock-output", createdAt: minutesAgo(40) };
+  const output: RealizedArtifact = { id: "output.build.2", thingId: "thing.webapp", artifactId: "artifact.webapp", source: { repo: "peopling-app", commit: HEAD_APP }, genomeCommit: GENOME, build: "build.2", locator: "workers-version:mock-v2", digest: "sha256:mock-output", createdAt: minutesAgo(40) };
   const build = mockBuild({ source: output.source, genomeCommit: GENOME, thingId: output.thingId, artifactId: output.artifactId, output });
   const deployment = mockDeployment({ output: output.id });
   const changelog = [
     row(sc2, {
       evolutions: [{ id: "evolution.1", title: "People screen" }],
-      candidates: [{ id: "cand.1", realization: "realization.1", commit: HEAD_APP, repo: "keep-in-touch-app", agent: "agent-alpha" }],
+      candidates: [{ id: "cand.1", realization: "realization.1", commit: HEAD_APP, repo: "peopling-app", agent: "agent-alpha" }],
       summary: { nodesAdded: 2, nodesChanged: 1, nodesRemoved: 0, filesChanged: 4, criteriaAffected: 3 },
       builds: [{ id: build.id, status: build.status, kind: build.kind, commit: build.commit, url: build.url, buildId: build.buildId, finishedAt: build.finishedAt }],
       deployment,
@@ -99,8 +99,8 @@ export function defaultMockData(): MockData {
     from: sc1, to: sc2,
     genome: { from: GENOME, to: GENOME, delta: null, files: { added: [], modified: [], removed: [] }, pathNodes: {} },
     app: {
-      from: { ref: "sc-1", repo: "keep-in-touch-app", commit: OLD_APP, systemCommit: "sc-1" },
-      to: { ref: "sc-2", repo: "keep-in-touch-app", commit: HEAD_APP, systemCommit: "sc-2" },
+      from: { ref: "sc-1", repo: "peopling-app", commit: OLD_APP, systemCommit: "sc-1" },
+      to: { ref: "sc-2", repo: "peopling-app", commit: HEAD_APP, systemCommit: "sc-2" },
       files: { added: ["src/screens/People.tsx"], modified: ["src/index.ts"], removed: [] },
       pathNodes: { "src/screens/People.tsx": ["screen.people"] },
     },
@@ -110,7 +110,7 @@ export function defaultMockData(): MockData {
   return {
     systems: [
       {
-        systemId: SID, title: "Keep in Touch", head: "sc-2", genomeRepo: "keep-in-touch-genome", appRepo: "keep-in-touch-app",
+        systemId: SID, title: "Peopling", head: "sc-2", genomeRepo: "peopling-genome", appRepo: "peopling-app",
         genomeCommit: GENOME, phase: "realizing", evolutionCounts: { realizing: 1, promoted: 1 }, updatedAt: minutesAgo(12),
         appCommit: HEAD_APP, built: true, realizationCounts: { evolving: 1, pending: 0, awaitingAdmin: 0, awaitingReview: 0 }, openCandidates: 1,
         latestBuild: changelog[0]!.builds[0]!, deployment: { production: deployment, previews: 1 }, deployState: "live",
@@ -140,14 +140,14 @@ export function defaultMockData(): MockData {
         ...compareSystem, row: changelog[0]!, decision: sc2.decision,
         criteria: [{ id: "C.webapp.screen.people", before: "not-run", after: "pass", evaluation: "eval.1" }],
         codeLinks: [
-          { scope: "app", path: "src/screens/People.tsx", repo: "keep-in-touch-app", commit: HEAD_APP, nodes: ["screen.people"], status: "added" },
-          { scope: "app", path: "src/index.ts", repo: "keep-in-touch-app", commit: HEAD_APP, nodes: [], status: "modified" },
+          { scope: "app", path: "src/screens/People.tsx", repo: "peopling-app", commit: HEAD_APP, nodes: ["screen.people"], status: "added" },
+          { scope: "app", path: "src/index.ts", repo: "peopling-app", commit: HEAD_APP, nodes: [], status: "modified" },
         ],
       },
     },
     compareSystem,
     compareGenome: {
-      from: { ref: "sc-1", repo: "keep-in-touch-genome", commit: GENOME }, to: { ref: "sc-2", repo: "keep-in-touch-genome", commit: GENOME },
+      from: { ref: "sc-1", repo: "peopling-genome", commit: GENOME }, to: { ref: "sc-2", repo: "peopling-genome", commit: GENOME },
       delta: null, files: { added: [], modified: [], removed: [] },
     },
     files: { app: appFiles, genome: genomeFiles },

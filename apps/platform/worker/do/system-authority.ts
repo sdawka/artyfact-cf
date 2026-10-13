@@ -280,6 +280,20 @@ export class SystemAuthority extends DurableObject<Env> {
   getPart(scope: PartScope, partId: string, version: string): PartRecord | null { return new PartsStore(this.sql).getPart(scope, partId, version); }
   async publishPart(scope: PartScope, pkg: schema.PartPackage): Promise<PartRecord> { return new PartsStore(this.sql).publishPart(scope, pkg); }
 
+  /**
+   * Admin `DELETE /api/systems/:id`: wipe this instance's storage so it reads as never imported (`state()` is null).
+   * The schema is re-applied and the cached stores dropped, so the same object keeps working on an empty database;
+   * open SSE streams are closed. The DO id itself cannot be deleted, so the instance stays addressable but idle.
+   */
+  async clearState(): Promise<void> {
+    for (const w of [...this.clients]) this.drop(w);
+    if (this.pinger) { clearInterval(this.pinger); this.pinger = undefined; }
+    await this.ctx.storage.deleteAll();
+    this.buildsStore = this.changelogStore = this.proposalsStore = this.registryStore = this.phenomeStore = undefined;
+    this.readinessMemo.clear();
+    applySchema(this.sql);
+  }
+
   // ---------------------------------------------------------------- helpers
 
   private all(q: string, ...args: SqlStorageValue[]): Row[] {
@@ -1554,6 +1568,7 @@ export class SystemAuthority extends DurableObject<Env> {
   listSystems(): SystemSummary[] { return this.registry().listSystems(); }
   /** Whether `systemId` was imported (reads of other ids are refused before their DO is touched). */
   hasSystem(systemId: string): boolean { return this.registry().hasSystem(systemId); }
+  unregisterSystem(systemId: string): void { this.registry().unregisterSystem(systemId); }
   registerRealization(realizationId: string, systemId: string, evolutionId: string, forkRepo: string): void {
     this.registry().registerRealization(realizationId, systemId, evolutionId, forkRepo);
   }

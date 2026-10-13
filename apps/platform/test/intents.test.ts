@@ -1,6 +1,6 @@
 /// <reference types="vite/client" />
 /**
- * Intents end to end on Keep in Touch (fake System One and translator): create → question → reply → accept, with the
+ * Intents end to end on Peopling (fake System One and translator): create → question → reply → accept, with the
  * accepted ops committed to a Genome realization's fork and submitted as a candidate. The Genome repo holds the example's
  * v2 node tree, which the model loader (import, start work, submit) and the tree codec both read.
  */
@@ -27,8 +27,8 @@ import { ADMIN, passing } from "./helpers/flows";
 
 const raw = (g: Record<string, string>, root: string) =>
   Object.fromEntries(Object.entries(g).map(([p, t]) => [p.slice(p.indexOf(root) + root.length), t] as const));
-const genome = raw(import.meta.glob("../../../examples/keep-in-touch-system/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch-system/");
-const app = raw(import.meta.glob(["../../../examples/keep-in-touch-app/**/*", "!**/node_modules/**", "!**/.wrangler/**"], { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch-app/");
+const genome = raw(import.meta.glob("../../../examples/peopling-system/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>, "peopling-system/");
+const app = raw(import.meta.glob(["../../../examples/peopling-app/**/*", "!**/node_modules/**", "!**/.wrangler/**"], { query: "?raw", import: "default", eager: true }) as Record<string, string>, "peopling-app/");
 
 async function call<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = ADMIN) {
   const res = await exports.default.fetch(new Request(`http://example.com${path}`, {
@@ -44,7 +44,7 @@ async function importSystem(): Promise<Sys> {
   const ns = new FakeArtifacts();
   const tag = `${++n}${Math.random().toString(36).slice(2, 6)}`;
   const systemId = `system.intent${tag}`;
-  const files = Object.fromEntries(Object.entries(genome).map(([p, t]) => [p, t.replaceAll("system.keep-in-touch", systemId)]));
+  const files = Object.fromEntries(Object.entries(genome).map(([p, t]) => [p, t.replaceAll("system.peopling", systemId)]));
   ns.create(`intent-genome-${tag}`).commit(files, "genome");
   ns.create(`intent-app-${tag}`).commit(app, "app");
   setArtifactsOverride(ns);

@@ -1,0 +1,47 @@
+id: affordance.AddContactDialog.save
+kind: affordance
+fields:
+  name: Save
+  source:
+    doc: peopling-world-specification
+    section: "6"
+  actor: ext.owner
+  trigger: Owner activates Save in the dialog
+  preconditions:
+    - Owner session
+    - Nonblank name
+  effects:
+    - Save invokes operation.contact.save
+    - Save only that owner's record; editing does not send invitations
+  failure:
+    - Validation failure keeps entered values and renders one ErrorSummary
+    - Network error keeps entered values and renders one ErrorSummary
+links:
+  - { rel: invokes, to: operation.contact.save }
+files:
+  - public/people/add-contact-dialog.js
+criteria:
+  - id: C.webapp.contact.save
+    title: Contact save
+    claim: Validates nonblank name, preserves input on failure and saves only an owned record; refines S.webapp.operations coverage
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    refines:
+      - C.webapp.screen.exact
+      - C.webapp.private.owner
+    sourceRefs:
+      - S.webapp.operations
+    hooks:
+      - id: hook.webapp.contact.save
+        assay: webapp.contact.save
+        tier: execution
+        engine: browser
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          fixture: blank name rejected, input preserved on failure, owned record saved
+        timeoutMs: 120000
+        costTier: expensive

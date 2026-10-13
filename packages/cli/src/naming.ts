@@ -11,8 +11,8 @@ export const NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]*$/;
 export const isName = (v: unknown): v is string => typeof v === "string" && NAME_RE.test(v) && !v.includes("..");
 
 /**
- * `system.keep-in-touch` -> `keep-in-touch`: the id without `system.`, used verbatim. The id must already be lower-case
- * and a valid name, so the mapping is one-to-one and two ids never share repos (`system.Kit`, `system.a/b`,
+ * `system.peopling` -> `peopling`: the id without `system.`, used verbatim. The id must already be lower-case
+ * and a valid name, so the mapping is one-to-one and two ids never share repos (`system.Peopling`, `system.a/b`,
  * `system.Ünïcode` are refused rather than folded onto another id's repos).
  */
 export function slug(systemId: string): string {
