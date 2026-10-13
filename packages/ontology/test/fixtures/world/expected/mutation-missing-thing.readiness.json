@@ -1,0 +1,22 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#missing-thing",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "8006519f98b396c3a6638db144b203c187284ac8bdca3ec234ed1674aa73524c",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.references-resolve",
+      "severity": "blocker",
+      "message": "object task-french-listening references missing Thing thing-ghost",
+      "objectIds": [
+        "task-french-listening"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:task-french-listening"
+      }
+    }
+  ]
+}

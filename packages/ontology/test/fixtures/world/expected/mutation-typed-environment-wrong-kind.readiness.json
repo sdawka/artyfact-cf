@@ -1,0 +1,22 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#typed-environment-wrong-kind",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "066dd91bbb25b99fe1ed39a6d1c0992b3c3ab0e8f684963bf4950669196bf8ed",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.typed-references",
+      "severity": "blocker",
+      "message": "Environment model requires environment, but user is beneficiary",
+      "objectIds": [
+        "user"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "revision:assistant-valid"
+      }
+    }
+  ]
+}

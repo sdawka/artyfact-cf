@@ -1,0 +1,53 @@
+# spec §3 General Description
+narrative: >-
+  The main experience is a purposeful contacts app. People are the organizing unit. Each relationship has an
+  owner-only intention such as “check in every two weeks” or “make room for a proper conversation monthly.”
+  A calm Today view suggests a finite set of next actions. A user can act, log contact, snooze, pause or revise
+  the goal. There are no streak penalties or public relationship scores.
+features:
+  - { id: GD.contacts, name: Private contacts, summary: Keep a private contact record before any friend installs the app; optional channel and context., source: { doc: keep-in-touch-world-specification, section: "3" } }
+  - { id: GD.goals, name: Cadence and depth, summary: An owner-only goal with an interval and a desired depth, with a schedule preview., source: { doc: keep-in-touch-world-specification, section: "3" } }
+  - { id: GD.connect, name: Consented pair connections, summary: Invitation-based pairs formed by two explicit consents; either party can disconnect or block., source: { doc: keep-in-touch-world-specification, section: "3" } }
+  - { id: GD.prompts, name: Suggested next actions, summary: A finite Today view of at most five due suggestions; opening a channel never completes a goal., source: { doc: keep-in-touch-world-specification, section: "3" } }
+  - { id: GD.updates, name: Digests and photo suggestions (later), summary: Later digests and photo suggestions; realization deferred while the digest interpretation is unresolved., deferred: true, source: { doc: keep-in-touch-world-specification, section: "3" } }
+commitments:
+  - id: commitment.one-to-one
+    statement: One-to-one actions - exactly one recipient per draft, send request or private reply; no recipient list, bulk send or group thread.
+    features: [GD.connect, GD.prompts]
+    coupledWith: [commitment.finite-incoming, commitment.owner-cadence, commitment.personal-initiation]
+    source: { doc: keep-in-touch-world-specification, section: "3" }
+  - id: commitment.finite-incoming
+    statement: A finite incoming view - Today returns at most five suggestions; many independent senders appear in one owner's finite inbox.
+    features: [GD.prompts, GD.connect]
+    coupledWith: [commitment.one-to-one, commitment.owner-cadence, commitment.personal-initiation]
+    source: { doc: keep-in-touch-world-specification, section: "3" }
+  - id: commitment.owner-cadence
+    statement: Owner-defined cadence and depth - goals are owner-only; depth labels are the owner's, not a global quality ranking.
+    features: [GD.goals, GD.contacts]
+    coupledWith: [commitment.one-to-one, commitment.finite-incoming, commitment.personal-initiation]
+    source: { doc: keep-in-touch-world-specification, section: "3" }
+  - id: commitment.personal-initiation
+    statement: Personal control over initiating contact - opening a channel needs a user gesture and never completes a goal; no autonomous send.
+    features: [GD.prompts, GD.connect]
+    coupledWith: [commitment.one-to-one, commitment.finite-incoming, commitment.owner-cadence]
+    source: { doc: keep-in-touch-world-specification, section: "3" }
+  - id: commitment.no-engagement-mechanics
+    statement: No streak penalties, public relationship scores or group discussion belong in the core contract.
+    features: [GD.contacts, GD.goals, GD.connect, GD.prompts]
+    coupledWith: [commitment.one-to-one, commitment.finite-incoming, commitment.owner-cadence, commitment.personal-initiation]
+    source: { doc: keep-in-touch-world-specification, section: "3" }
+alternatives:
+  - >-
+    Reader-driven digest publication (proposed interpretation): an author publishes an owned edition and approved
+    subscribers independently read it; replies remain one-to-one and readers cannot see or address one another.
+  - >-
+    Retain only individually addressed updates, if “no one-to-many outgoing” prohibits all shared digest visibility.
+  - Shared intentions - two people agree on a joint contact rhythm as a new consented object that never exposes either private goal.
+openQuestions:
+  - >-
+    Digest interpretation: this still distributes one author's information to many people. If “no one-to-many
+    outgoing” prohibits all such visibility, shared digests conflict with it. Digest realization stays blocked
+    until that interpretation is accepted.
+  - Photo suggestions need a device capability adapter, local or provider processing and an approval contract before any upload or send.
+  - Groups need their own Purpose, membership and topology contract and an accepted Evolution; disabled in this System.
+  - Live messaging may need Durable Objects only if a later messaging Evolution requires coordinated live state.

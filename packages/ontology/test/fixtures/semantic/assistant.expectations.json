@@ -1,0 +1,63 @@
+{
+  "fixture": "assistant-degraded.json",
+  "vocabulary": "world",
+  "calls": 30,
+  "planted": [
+    {
+      "id": "specificity.listening-when-time",
+      "rule": "node.tangibility",
+      "subjects": [
+        "task-french-listening"
+      ],
+      "level": "warning",
+      "defect": "specificity",
+      "note": "Task: do some listening practice whenever there is time."
+    },
+    {
+      "id": "unmeasurable.happier-weeks",
+      "rule": "text.unmeasurable",
+      "subjects": [
+        "outcome-1"
+      ],
+      "level": "warning",
+      "defect": "testability.unmeasurable",
+      "note": "Outcome: the user ends up happier with how their weeks go."
+    },
+    {
+      "id": "contradiction.routine-only-vs-any-event",
+      "rule": "pair.relation",
+      "subjects": [
+        "auth-routine",
+        "operation-plan"
+      ],
+      "level": "error",
+      "defect": [
+        "consistency.contradiction",
+        "consistency.scopeClash"
+      ],
+      "note": "Authorization allows only assistant-created routine blocks; the operation it authorizes moves any event without asking. A permission narrower than the operation reads as a scope clash or a contradiction."
+    },
+    {
+      "id": "kind.conversation-as-outcome",
+      "rule": "node.kind",
+      "subjects": [
+        "task-french-conversation"
+      ],
+      "level": "warning",
+      "defect": "instance.otherKind",
+      "note": "Planted node: a task under goal-french whose description is an outcome (the user feels at ease chatting in French by year end), not work to do."
+    }
+  ],
+  "controls": [
+    {
+      "id": "control.weekly-evaluation",
+      "subject": "evaluation-1",
+      "note": "Weekly count of completed against scheduled blocks. Not a glossary kind, so v2 asks it nothing; kept as a guard."
+    },
+    {
+      "id": "control.routine-criterion",
+      "subject": "criterion-1",
+      "note": "Every change touches only an assistant-created routine block; anything else is rejected and logged."
+    }
+  ]
+}

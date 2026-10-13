@@ -1,0 +1,831 @@
+{
+  "worldId": "assistant-world",
+  "title": "Personal assistant World",
+  "revisionId": "assistant-unknown",
+  "template": {
+    "id": "assistant-world",
+    "version": "1",
+    "objectShapes": [
+      {
+        "id": "shape:world@1",
+        "kind": "world",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:beneficiary@1",
+        "kind": "beneficiary",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:environment@1",
+        "kind": "environment",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:outcome@1",
+        "kind": "outcome",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:indicator@1",
+        "kind": "indicator",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:evaluationPlan@1",
+        "kind": "evaluationPlan",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:interface@1",
+        "kind": "interface",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:service@1",
+        "kind": "service",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:adapter@1",
+        "kind": "adapter",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:store@1",
+        "kind": "store",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:operation@1",
+        "kind": "operation",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:authorizationRule@1",
+        "kind": "authorizationRule",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:acceptanceCriterion@1",
+        "kind": "acceptanceCriterion",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:assay@1",
+        "kind": "assay",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:thing@1",
+        "kind": "thing",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:subsystem@1",
+        "kind": "subsystem",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:goal@1",
+        "kind": "goal",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:task@1",
+        "kind": "task",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:calendarBlock@1",
+        "kind": "calendarBlock",
+        "requiredProperties": []
+      },
+      {
+        "id": "shape:schedulingConflict@1",
+        "kind": "schedulingConflict",
+        "requiredProperties": []
+      }
+    ],
+    "allowedRelationEndpoints": [
+      {
+        "relationKind": "hasBeneficiary",
+        "fromKinds": [
+          "world"
+        ],
+        "toKinds": [
+          "beneficiary"
+        ]
+      },
+      {
+        "relationKind": "hasOutcome",
+        "fromKinds": [
+          "world"
+        ],
+        "toKinds": [
+          "outcome"
+        ]
+      },
+      {
+        "relationKind": "measuredBy",
+        "fromKinds": [
+          "outcome"
+        ],
+        "toKinds": [
+          "indicator"
+        ]
+      },
+      {
+        "relationKind": "evaluatedBy",
+        "fromKinds": [
+          "outcome"
+        ],
+        "toKinds": [
+          "evaluationPlan"
+        ]
+      },
+      {
+        "relationKind": "authorizedBy",
+        "fromKinds": [
+          "operation"
+        ],
+        "toKinds": [
+          "authorizationRule"
+        ]
+      },
+      {
+        "relationKind": "verifiedBy",
+        "fromKinds": [
+          "acceptanceCriterion"
+        ],
+        "toKinds": [
+          "assay"
+        ]
+      },
+      {
+        "relationKind": "dependsOn",
+        "fromKinds": [
+          "service",
+          "adapter",
+          "store"
+        ],
+        "toKinds": [
+          "service",
+          "adapter",
+          "store"
+        ]
+      }
+    ],
+    "requiredRelations": [
+      {
+        "ruleId": "assistant.purpose-requires-beneficiary",
+        "subjectKind": "world",
+        "relationKind": "hasBeneficiary",
+        "objectKind": "beneficiary",
+        "scopeId": "purpose-links"
+      },
+      {
+        "ruleId": "assistant.purpose-requires-outcome",
+        "subjectKind": "world",
+        "relationKind": "hasOutcome",
+        "objectKind": "outcome",
+        "scopeId": "purpose-links"
+      },
+      {
+        "ruleId": "assistant.outcome-requires-indicator",
+        "subjectKind": "outcome",
+        "relationKind": "measuredBy",
+        "objectKind": "indicator",
+        "scopeId": "outcome-links"
+      },
+      {
+        "ruleId": "assistant.outcome-requires-evaluation",
+        "subjectKind": "outcome",
+        "relationKind": "evaluatedBy",
+        "objectKind": "evaluationPlan",
+        "scopeId": "outcome-links"
+      },
+      {
+        "ruleId": "assistant.operation-requires-authorization",
+        "subjectKind": "operation",
+        "relationKind": "authorizedBy",
+        "objectKind": "authorizationRule",
+        "scopeId": "authorization-links"
+      },
+      {
+        "ruleId": "assistant.criterion-requires-assay",
+        "subjectKind": "acceptanceCriterion",
+        "relationKind": "verifiedBy",
+        "objectKind": "assay",
+        "scopeId": "assay-links"
+      }
+    ],
+    "forbiddenCycles": [
+      {
+        "ruleId": "assistant.no-dependency-cycles",
+        "relationKinds": [
+          "dependsOn"
+        ]
+      }
+    ],
+    "incompatibleConstraints": [
+      {
+        "ruleId": "assistant.constraints-compatible",
+        "left": "routine-auto",
+        "right": "manual-only"
+      }
+    ],
+    "requiredRulePacks": [
+      {
+        "id": "core-foundation",
+        "version": "1"
+      },
+      {
+        "id": "assistant-foundation",
+        "version": "1"
+      }
+    ]
+  },
+  "purpose": {
+    "statement": "Improve the user's life by organizing goals, tasks, calendar blocks and progress review.",
+    "beneficiaryIds": [
+      "user"
+    ],
+    "outcomeIds": [
+      "outcome-1"
+    ]
+  },
+  "environment": {
+    "id": "assistant-environment",
+    "title": "Disconnected personal assistant environment model"
+  },
+  "phase": "foundation",
+  "stateKind": "desired",
+  "things": [
+    {
+      "id": "thing-interface",
+      "kind": "interface",
+      "title": "Assistant interface",
+      "revisionId": "interface@1",
+      "templateRef": {
+        "id": "managed-interface",
+        "version": "1"
+      },
+      "capabilities": {
+        "external": false,
+        "forkable": true,
+        "observable": true,
+        "reversible": true
+      },
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:thing-interface"
+      }
+    },
+    {
+      "id": "thing-planning",
+      "kind": "service",
+      "title": "Planning service",
+      "revisionId": "planning@1",
+      "templateRef": {
+        "id": "managed-service",
+        "version": "1"
+      },
+      "capabilities": {
+        "external": false,
+        "forkable": true,
+        "observable": true,
+        "reversible": true
+      },
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:thing-planning"
+      }
+    },
+    {
+      "id": "thing-calendar",
+      "kind": "externalCalendar",
+      "title": "External calendar",
+      "revisionId": "calendar-model@1",
+      "templateRef": {
+        "id": "external-calendar",
+        "version": "1"
+      },
+      "capabilities": {
+        "external": true,
+        "forkable": false,
+        "observable": true,
+        "reversible": true
+      },
+      "externalReference": {
+        "system": "calendar-provider-unselected",
+        "connectionStatus": "disconnected"
+      },
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:thing-calendar"
+      }
+    },
+    {
+      "id": "thing-progress",
+      "kind": "store",
+      "title": "Progress and context store",
+      "revisionId": "progress@1",
+      "templateRef": {
+        "id": "managed-store",
+        "version": "1"
+      },
+      "capabilities": {
+        "external": false,
+        "forkable": true,
+        "observable": true,
+        "reversible": true
+      },
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:thing-progress"
+      }
+    }
+  ],
+  "thingTemplates": [
+    {
+      "id": "managed-interface",
+      "version": "1",
+      "title": "Managed interface",
+      "compatibleWorldTemplates": [
+        {
+          "id": "assistant-world",
+          "version": "1"
+        }
+      ],
+      "inheritsWorldContext": true,
+      "capabilities": {
+        "external": false,
+        "forkable": true,
+        "observable": true,
+        "reversible": true
+      }
+    },
+    {
+      "id": "managed-service",
+      "version": "1",
+      "title": "Managed service",
+      "compatibleWorldTemplates": [
+        {
+          "id": "assistant-world",
+          "version": "1"
+        }
+      ],
+      "inheritsWorldContext": true,
+      "capabilities": {
+        "external": false,
+        "forkable": true,
+        "observable": true,
+        "reversible": true
+      }
+    },
+    {
+      "id": "external-calendar",
+      "version": "1",
+      "title": "External calendar model",
+      "compatibleWorldTemplates": [
+        {
+          "id": "assistant-world",
+          "version": "1"
+        }
+      ],
+      "inheritsWorldContext": true,
+      "capabilities": {
+        "external": true,
+        "forkable": false,
+        "observable": true,
+        "reversible": true
+      }
+    },
+    {
+      "id": "managed-store",
+      "version": "1",
+      "title": "Managed store",
+      "compatibleWorldTemplates": [
+        {
+          "id": "assistant-world",
+          "version": "1"
+        }
+      ],
+      "inheritsWorldContext": true,
+      "capabilities": {
+        "external": false,
+        "forkable": true,
+        "observable": true,
+        "reversible": true
+      }
+    }
+  ],
+  "objects": [
+    {
+      "id": "assistant-world",
+      "kind": "world",
+      "title": "Personal assistant",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:assistant-world"
+      }
+    },
+    {
+      "id": "assistant-environment",
+      "kind": "environment",
+      "title": "Disconnected assistant environment model",
+      "parentId": "assistant-world",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:assistant-environment"
+      }
+    },
+    {
+      "id": "user",
+      "kind": "beneficiary",
+      "title": "User",
+      "parentId": "assistant-world",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:user"
+      }
+    },
+    {
+      "id": "outcome-1",
+      "kind": "outcome",
+      "title": "Goals reliably become reviewed calendar work",
+      "parentId": "assistant-world",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:outcome-1"
+      }
+    },
+    {
+      "id": "indicator-1",
+      "kind": "indicator",
+      "title": "Planned work completion trend",
+      "parentId": "outcome-1",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:indicator-1"
+      }
+    },
+    {
+      "id": "evaluation-1",
+      "kind": "evaluationPlan",
+      "title": "Review progress against planned work",
+      "parentId": "outcome-1",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:evaluation-1"
+      }
+    },
+    {
+      "id": "node-thing-interface",
+      "kind": "thing",
+      "title": "Assistant interface",
+      "thingId": "thing-interface",
+      "parentId": "assistant-world",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:node-thing-interface"
+      }
+    },
+    {
+      "id": "node-thing-planning",
+      "kind": "thing",
+      "title": "Planning service",
+      "thingId": "thing-planning",
+      "parentId": "assistant-world",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:node-thing-planning"
+      }
+    },
+    {
+      "id": "node-thing-calendar",
+      "kind": "thing",
+      "title": "External calendar",
+      "thingId": "thing-calendar",
+      "parentId": "assistant-world",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:node-thing-calendar"
+      }
+    },
+    {
+      "id": "node-thing-progress",
+      "kind": "thing",
+      "title": "Progress and context store",
+      "thingId": "thing-progress",
+      "parentId": "assistant-world",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:node-thing-progress"
+      }
+    },
+    {
+      "id": "interface-1",
+      "kind": "interface",
+      "title": "Assistant interface",
+      "thingId": "thing-interface",
+      "parentId": "node-thing-interface",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:interface-1"
+      }
+    },
+    {
+      "id": "planning-1",
+      "kind": "service",
+      "title": "Planning service",
+      "thingId": "thing-planning",
+      "parentId": "node-thing-planning",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:planning-1"
+      }
+    },
+    {
+      "id": "calendar-1",
+      "kind": "adapter",
+      "title": "Disconnected calendar adapter model",
+      "thingId": "thing-calendar",
+      "parentId": "node-thing-calendar",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:calendar-1"
+      }
+    },
+    {
+      "id": "progress-1",
+      "kind": "store",
+      "title": "Progress store",
+      "thingId": "thing-progress",
+      "parentId": "node-thing-progress",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:progress-1"
+      }
+    },
+    {
+      "id": "subsystem-planning",
+      "kind": "subsystem",
+      "title": "Goal-to-calendar planning",
+      "thingId": "thing-planning",
+      "parentId": "node-thing-planning",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:subsystem-planning"
+      }
+    },
+    {
+      "id": "operation-plan",
+      "kind": "operation",
+      "title": "Plan assistant-owned calendar block",
+      "thingId": "thing-planning",
+      "parentId": "subsystem-planning",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:operation-plan"
+      }
+    },
+    {
+      "id": "auth-routine",
+      "kind": "authorizationRule",
+      "title": "Routine assistant-owned blocks only",
+      "thingId": "thing-planning",
+      "parentId": "operation-plan",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:auth-routine"
+      }
+    },
+    {
+      "id": "criterion-1",
+      "kind": "acceptanceCriterion",
+      "title": "Calendar changes respect routine policy",
+      "thingId": "thing-calendar",
+      "parentId": "calendar-1",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:criterion-1"
+      }
+    },
+    {
+      "id": "assay-1",
+      "kind": "assay",
+      "title": "Routine calendar policy assay",
+      "thingId": "thing-calendar",
+      "parentId": "criterion-1",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:assay-1"
+      }
+    },
+    {
+      "id": "goal-french",
+      "kind": "goal",
+      "title": "Build a sustainable French practice",
+      "parentId": "assistant-world",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:goal-french"
+      }
+    },
+    {
+      "id": "task-french-listening",
+      "kind": "task",
+      "title": "Complete a focused French listening session",
+      "parentId": "goal-french",
+      "properties": {},
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:task-french-listening"
+      }
+    },
+    {
+      "id": "block-french-tuesday",
+      "kind": "calendarBlock",
+      "title": "French listening session — Tuesday",
+      "thingId": "thing-calendar",
+      "parentId": "task-french-listening",
+      "properties": {
+        "connectionStatus": "disconnected",
+        "durationMinutes": "30",
+        "ownership": "assistant"
+      },
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:block-french-tuesday"
+      }
+    }
+  ],
+  "relations": [
+    {
+      "id": "rel-beneficiary",
+      "kind": "hasBeneficiary",
+      "fromId": "assistant-world",
+      "toId": "user",
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:rel-beneficiary"
+      }
+    },
+    {
+      "id": "rel-outcome",
+      "kind": "hasOutcome",
+      "fromId": "assistant-world",
+      "toId": "outcome-1",
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:rel-outcome"
+      }
+    },
+    {
+      "id": "rel-indicator",
+      "kind": "measuredBy",
+      "fromId": "outcome-1",
+      "toId": "indicator-1",
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:rel-indicator"
+      }
+    },
+    {
+      "id": "rel-auth",
+      "kind": "authorizedBy",
+      "fromId": "operation-plan",
+      "toId": "auth-routine",
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:rel-auth"
+      }
+    },
+    {
+      "id": "rel-assay",
+      "kind": "verifiedBy",
+      "fromId": "criterion-1",
+      "toId": "assay-1",
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:rel-assay"
+      }
+    },
+    {
+      "id": "rel-plan-calendar",
+      "kind": "dependsOn",
+      "fromId": "planning-1",
+      "toId": "calendar-1",
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:rel-plan-calendar"
+      }
+    },
+    {
+      "id": "rel-plan-progress",
+      "kind": "dependsOn",
+      "fromId": "planning-1",
+      "toId": "progress-1",
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:rel-plan-progress"
+      }
+    }
+  ],
+  "completeness": [
+    {
+      "scopeId": "purpose-links",
+      "status": "complete",
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:scope:purpose-links"
+      }
+    },
+    {
+      "scopeId": "outcome-links",
+      "status": "incomplete",
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:scope:outcome-links"
+      }
+    },
+    {
+      "scopeId": "authorization-links",
+      "status": "complete",
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:scope:authorization-links"
+      }
+    },
+    {
+      "scopeId": "assay-links",
+      "status": "complete",
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:scope:assay-links"
+      }
+    }
+  ],
+  "theory": {
+    "claims": [
+      {
+        "id": "claim-1",
+        "title": "Connecting goals to reviewed calendar work supports follow-through",
+        "outcomeId": "outcome-1",
+        "indicatorIds": [
+          "indicator-1"
+        ],
+        "evaluationIds": [
+          "evaluation-1"
+        ],
+        "source": {
+          "kind": "hypothesis",
+          "reference": "fixture:claim-1"
+        }
+      }
+    ]
+  },
+  "moves": [
+    {
+      "id": "move-1",
+      "title": "Establish the assistant foundation",
+      "baseRevisionId": "assistant-valid",
+      "status": "planned"
+    }
+  ],
+  "rulePacks": [
+    {
+      "id": "core-foundation",
+      "version": "1"
+    },
+    {
+      "id": "assistant-foundation",
+      "version": "1"
+    }
+  ],
+  "activeConstraints": [
+    "routine-auto"
+  ]
+}

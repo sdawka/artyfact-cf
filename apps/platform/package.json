@@ -23,6 +23,7 @@
     "@artyfact/cli": "*",
     "@artyfact/effects": "*",
     "@artyfact/model": "*",
+    "@artyfact/ontology": "*",
     "@artyfact/rules": "*",
     "@artyfact/semantic": "*",
     "@artyfact/templates": "*",

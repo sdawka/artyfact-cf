@@ -1,0 +1,31 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#pack-version-unpinned",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "7fed690795b0132c5e0953ff62cc426ecc4904914d5627ce404b83a07c187d35",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.compiled-rule-packs",
+      "severity": "blocker",
+      "message": "Rule Pack assistant-impact@ is not compiled into bropilot-readiness@1",
+      "objectIds": [],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "evaluator:bropilot-readiness@1"
+      }
+    },
+    {
+      "ruleId": "core.rule-packs-pinned",
+      "severity": "blocker",
+      "message": "Rule Pack IDs must be unique and each version must be pinned",
+      "objectIds": [],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "revision:assistant-valid"
+      }
+    }
+  ]
+}

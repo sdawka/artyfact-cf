@@ -1,0 +1,8 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-impact-metric-definition.json",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "214a2b0504510e81c5b16c2fa06de2c6454ab1d2893f82d897462cdbe744571e",
+  "templateHash": "f34bf89868e3c5fb3c8f738bae4fb728b06301cf943ff7420737b19a178494d7",
+  "status": "ready",
+  "findings": []
+}

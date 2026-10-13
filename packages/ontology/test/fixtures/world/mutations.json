@@ -1,0 +1,48 @@
+[
+  { "name": "unknown-shape", "ops": [{ "op": "set", "path": ["objects", { "id": "goal-french" }, "kind"], "value": "mystery" }] },
+  { "name": "unknown-shape-with-thing", "ops": [{ "op": "set", "path": ["objects", { "id": "block-french-tuesday" }, "kind"], "value": "mystery" }] },
+  { "name": "required-property", "ops": [{ "op": "push", "path": ["template", "objectShapes", { "kind": "calendarBlock" }, "requiredProperties"], "value": "priority" }] },
+  { "name": "empty-required-property", "ops": [
+    { "op": "push", "path": ["template", "objectShapes", { "kind": "calendarBlock" }, "requiredProperties"], "value": "note" },
+    { "op": "set", "path": ["objects", { "id": "block-french-tuesday" }, "properties", "note"], "value": "" }
+  ] },
+  { "name": "missing-parent", "ops": [{ "op": "set", "path": ["objects", { "id": "task-french-listening" }, "parentId"], "value": "ghost" }] },
+  { "name": "parent-cycle", "ops": [{ "op": "set", "path": ["objects", { "id": "goal-french" }, "parentId"], "value": "task-french-listening" }] },
+  { "name": "missing-thing", "ops": [{ "op": "set", "path": ["objects", { "id": "task-french-listening" }, "thingId"], "value": "thing-ghost" }] },
+  { "name": "dangling-relation-target", "ops": [{ "op": "set", "path": ["relations", { "id": "rel-plan-progress" }, "toId"], "value": "ghost" }] },
+  { "name": "dangling-relation-source", "ops": [{ "op": "set", "path": ["relations", { "id": "rel-plan-progress" }, "fromId"], "value": "ghost-src" }] },
+  { "name": "illegal-endpoint", "ops": [{ "op": "set", "path": ["relations", { "id": "rel-plan-progress" }, "toId"], "value": "outcome-1" }] },
+  { "name": "unknown-relation-kind", "ops": [{ "op": "push", "path": ["relations"], "value": { "id": "rel-mentions", "kind": "mentions", "fromId": "goal-french", "toId": "task-french-listening", "source": { "kind": "declared", "reference": "mutation" } } }] },
+  { "name": "split-endpoint-entries", "ops": [
+    { "op": "push", "path": ["template", "allowedRelationEndpoints"], "value": { "relationKind": "dependsOn", "fromKinds": ["outcome"], "toKinds": ["indicator"] } },
+    { "op": "push", "path": ["relations"], "value": { "id": "rel-outcome-store", "kind": "dependsOn", "fromId": "outcome-1", "toId": "progress-1", "source": { "kind": "declared", "reference": "mutation" } } }
+  ] },
+  { "name": "required-relation-wrong-target", "ops": [{ "op": "set", "path": ["relations", { "id": "rel-indicator" }, "toId"], "value": "evaluation-1" }] },
+  { "name": "typed-beneficiary-wrong-kind", "ops": [{ "op": "set", "path": ["purpose", "beneficiaryIds"], "value": ["goal-french"] }] },
+  { "name": "typed-outcome-wrong-kind", "ops": [{ "op": "set", "path": ["purpose", "outcomeIds"], "value": ["indicator-1"] }] },
+  { "name": "typed-environment-wrong-kind", "ops": [{ "op": "set", "path": ["environment", "id"], "value": "user" }] },
+  { "name": "typed-indicator-missing", "ops": [{ "op": "set", "path": ["theory", "claims", { "id": "claim-1" }, "indicatorIds"], "value": ["indicator-ghost"] }] },
+  { "name": "thing-unpinned", "ops": [{ "op": "set", "path": ["things", { "id": "thing-planning" }, "revisionId"], "value": "" }] },
+  { "name": "thing-template-missing", "ops": [{ "op": "set", "path": ["things", { "id": "thing-planning" }, "templateRef", "version"], "value": "9" }] },
+  { "name": "thing-template-incompatible", "ops": [{ "op": "set", "path": ["thingTemplates", { "id": "managed-store" }, "compatibleWorldTemplates"], "value": [] }] },
+  { "name": "thing-template-no-context", "ops": [{ "op": "set", "path": ["thingTemplates", { "id": "managed-interface" }, "inheritsWorldContext"], "value": false }] },
+  { "name": "thing-capabilities", "ops": [{ "op": "set", "path": ["things", { "id": "thing-progress" }, "capabilities", "external"], "value": true }] },
+  { "name": "thing-template-duplicate", "ops": [{ "op": "dup", "path": ["thingTemplates", { "id": "managed-store" }] }] },
+  { "name": "world-unpinned", "ops": [{ "op": "set", "path": ["revisionId"], "value": "" }] },
+  { "name": "world-id-mismatch", "ops": [{ "op": "set", "path": ["worldId"], "value": "other-world" }] },
+  { "name": "second-world", "ops": [{ "op": "push", "path": ["objects"], "value": { "id": "world-2", "kind": "world", "title": "Second world", "properties": {}, "source": { "kind": "declared", "reference": "mutation" } } }] },
+  { "name": "required-pack-unpinned", "ops": [{ "op": "remove", "path": ["rulePacks", { "id": "assistant-foundation" }] }] },
+  { "name": "uncompiled-pack", "ops": [{ "op": "push", "path": ["rulePacks"], "value": { "id": "experimental", "version": "2" } }] },
+  { "name": "pack-version-unpinned", "ops": [{ "op": "push", "path": ["rulePacks"], "value": { "id": "assistant-impact", "version": "" } }] },
+  { "name": "pack-id-duplicate", "ops": [{ "op": "push", "path": ["rulePacks"], "value": { "id": "core-foundation", "version": "2" } }] },
+  { "name": "object-id-duplicate", "ops": [{ "op": "dup", "path": ["objects", { "id": "goal-french" }] }] },
+  { "name": "relation-id-duplicate", "ops": [{ "op": "dup", "path": ["relations", { "id": "rel-plan-progress" }] }] },
+  { "name": "shape-kind-duplicate", "ops": [{ "op": "push", "path": ["template", "objectShapes"], "value": { "id": "shape:goal@2", "kind": "goal", "requiredProperties": [] } }] },
+  { "name": "scope-declaration-duplicate", "ops": [{ "op": "dup", "path": ["completeness", { "scopeId": "purpose-links" }] }] },
+  { "name": "scope-declared-incomplete", "ops": [{ "op": "set", "path": ["completeness", { "scopeId": "outcome-links" }, "status"], "value": "incomplete" }] },
+  { "name": "second-incompatibility", "ops": [
+    { "op": "push", "path": ["template", "incompatibleConstraints"], "value": { "ruleId": "assistant.review-compatible", "left": "routine-auto", "right": "weekly-review" } },
+    { "op": "push", "path": ["activeConstraints"], "value": "weekly-review" }
+  ] },
+  { "name": "unsatisfiable-requirement", "ops": [{ "op": "push", "path": ["template", "requiredRelations"], "value": { "ruleId": "assistant.goal-requires-outcome", "subjectKind": "goal", "relationKind": "hasOutcome", "objectKind": "outcome", "scopeId": "purpose-links" } }] }
+]

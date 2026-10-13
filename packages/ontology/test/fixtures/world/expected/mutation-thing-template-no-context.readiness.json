@@ -1,0 +1,22 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#thing-template-no-context",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "bd52bf0bc4045c323af7a76753eb0014a260e67669647f03da076d941f99b5a9",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.thing-template-inherits-context",
+      "severity": "blocker",
+      "message": "Thing Template managed-interface@1 must inherit pinned World context",
+      "objectIds": [
+        "thing-interface"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "thing-template:managed-interface@1"
+      }
+    }
+  ]
+}

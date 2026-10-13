@@ -1,0 +1,33 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-unknown.json",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "9aa8a8725bc498d823b047ac33d058bffe49cb9e09c670817b57fa9e5caf8793",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "unknown",
+  "findings": [
+    {
+      "ruleId": "assistant.outcome-requires-evaluation",
+      "severity": "unknown",
+      "message": "outcome-1 may require a evaluatedBy relation; scope outcome-links is incomplete",
+      "objectIds": [
+        "outcome-1"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "template:assistant-world@1"
+      }
+    },
+    {
+      "ruleId": "core.mandatory-scope-incomplete",
+      "severity": "unknown",
+      "message": "mandatory relation scope outcome-links is not declared complete",
+      "objectIds": [],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "template:assistant-world@1"
+      }
+    }
+  ]
+}

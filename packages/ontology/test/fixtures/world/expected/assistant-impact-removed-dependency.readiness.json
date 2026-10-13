@@ -1,0 +1,8 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-impact-removed-dependency.json",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "73bac5e408914c68646c9e77e81b1846dd907ea6f0ea77e41ac75d3ff7f8bd5c",
+  "templateHash": "f34bf89868e3c5fb3c8f738bae4fb728b06301cf943ff7420737b19a178494d7",
+  "status": "ready",
+  "findings": []
+}

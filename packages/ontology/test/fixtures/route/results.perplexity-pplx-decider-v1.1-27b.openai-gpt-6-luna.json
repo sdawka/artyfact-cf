@@ -1,0 +1,5289 @@
+{
+  "model": "perplexity/pplx-decider-v1.1-27b",
+  "translateModel": "openai/gpt-6-luna",
+  "at": "2026-10-13T05:40:31.936Z",
+  "reports": [
+    {
+      "fixture": "product/tidepool.graph.json",
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "translateModel": "openai/gpt-6-luna",
+      "cases": [
+        {
+          "id": "t01",
+          "difficulty": "easy",
+          "message": "The GPS rule should be 10 metres, not 20.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "got": "update",
+              "hit": true
+            },
+            "space": {
+              "gold": "solution",
+              "got": "solution",
+              "hit": true
+            },
+            "kind": {
+              "gold": "rule",
+              "got": "rule",
+              "hit": true
+            },
+            "nodes": {
+              "gold": [
+                "rule-every-observation-carries-a-gps-fix"
+              ],
+              "got": [
+                "rule-every-observation-carries-a-gps-fix"
+              ],
+              "hit": true
+            }
+          },
+          "routed": true,
+          "status": "confident",
+          "calls": 5,
+          "route": {
+            "message": "The GPS rule should be 10 metres, not 20.",
+            "intent": "update",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "update",
+                "confidence": 0.9923474934649268,
+                "probabilities": {
+                  "add": 0.0005450983759880116,
+                  "update": 0.9934407086842231,
+                  "remove": 0.0005390191369439778,
+                  "link": 0.0008410135053210808,
+                  "question": 0.00402022547527293,
+                  "answer": 0.00017173764324015373,
+                  "unclear": 0.00044219717901072976
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message concern?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "solution",
+                "confidence": 0.9971492473040838,
+                "probabilities": {
+                  "basics": 0.00006743216177258398,
+                  "problem": 0.00012077895389036751,
+                  "hypothesis": 0.00014379176719107629,
+                  "solution": 0.9975055913910733,
+                  "current": 0.0012084532184112311,
+                  "planned": 0.0001704930156757953,
+                  "effects": 0.00005452611077176881,
+                  "none": 0.0007289333812139367
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "Which kind of item in Solution: capabilities, features, flows, screens, agents, AI functions, domain things, rules, tests, modules, interfaces, events, vocabulary and architecture does state.message concern?",
+                "choices": [
+                  "capability",
+                  "feature",
+                  "flow",
+                  "screen",
+                  "agent",
+                  "term",
+                  "system",
+                  "external",
+                  "module",
+                  "infra",
+                  "interface",
+                  "thing",
+                  "rule",
+                  "event",
+                  "protocol",
+                  "ai-function",
+                  "test",
+                  "none"
+                ],
+                "answer": "rule",
+                "confidence": 0.9968425351564756,
+                "probabilities": {
+                  "capability": 0.00006890374998457253,
+                  "feature": 0.00015048541802007074,
+                  "flow": 0.00010700955017000395,
+                  "screen": 0.0000535453816704172,
+                  "agent": 0.00008931897645324236,
+                  "term": 0.000028609519244588187,
+                  "system": 0.000045687458926208536,
+                  "external": 0.00002598547184091695,
+                  "module": 0.00011647024526733101,
+                  "infra": 0.000014614138265650454,
+                  "interface": 0.00003972413418323905,
+                  "thing": 0.00018932483332059923,
+                  "rule": 0.9970179498700047,
+                  "event": 0.000033426200913937215,
+                  "protocol": 0.00003891792413274545,
+                  "ai-function": 0.00004369834091727337,
+                  "test": 0.0018294619124262592,
+                  "none": 0.00010686687425839122
+                },
+                "status": "confident"
+              },
+              {
+                "level": "node",
+                "id": "route.node",
+                "question": "Which existing rule does state.message concern?",
+                "choices": [
+                  "rule-every-observation-carries-a-gps-fix",
+                  "rule-surveys-start-no-earlier-than-90-minutes",
+                  "rule-a-record-has-exactly-one-final-verdict",
+                  "none",
+                  "new"
+                ],
+                "answer": "rule-every-observation-carries-a-gps-fix",
+                "confidence": 0.9986444622200841,
+                "probabilities": {
+                  "rule-every-observation-carries-a-gps-fix": 0.9989155697760673,
+                  "rule-surveys-start-no-earlier-than-90-minutes": 0.000027543956580269257,
+                  "rule-a-record-has-exactly-one-final-verdict": 0.000035251975967251905,
+                  "none": 0.000701180272264234,
+                  "new": 0.00032045401912103675
+                },
+                "status": "confident"
+              },
+              {
+                "level": "more",
+                "id": "route.more",
+                "question": "Besides \"Every observation carries a GPS fix within 20 m of its site\", does state.message also concern another of these items?",
+                "choices": [
+                  "yes",
+                  "no"
+                ],
+                "answer": "no",
+                "confidence": 0.9998140370301017,
+                "probabilities": {
+                  "yes": 0.00018596296989829877,
+                  "no": 0.9998140370301017
+                },
+                "status": "confident"
+              }
+            ],
+            "target": {
+              "space": "solution",
+              "kind": "rule",
+              "nodes": [
+                "rule-every-observation-carries-a-gps-fix"
+              ],
+              "related": []
+            },
+            "status": "confident",
+            "calls": 5,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 1842,
+                "output_tokens": 5
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 999,
+                "output_tokens": 66
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"rule-every-observation-carries-a-gps-fix\",\"fields\":{\"title\":\"Every observation carries a GPS fix within 10 m of its site\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "rule-every-observation-carries-a-gps-fix",
+                  "fields": {
+                    "title": "Every observation carries a GPS fix within 10 m of its site"
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t02",
+          "difficulty": "easy",
+          "message": "Rename the species picker to 'Species chooser'.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "got": "update",
+              "hit": true
+            },
+            "space": {
+              "gold": "solution",
+              "got": "solution",
+              "hit": true
+            },
+            "kind": {
+              "gold": "screen",
+              "got": "screen",
+              "hit": true
+            },
+            "nodes": {
+              "gold": [
+                "screen-species-picker"
+              ],
+              "got": [
+                "screen-species-picker"
+              ],
+              "hit": true
+            }
+          },
+          "routed": true,
+          "status": "confident",
+          "calls": 5,
+          "route": {
+            "message": "Rename the species picker to 'Species chooser'.",
+            "intent": "update",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "update",
+                "confidence": 0.9947907720338027,
+                "probabilities": {
+                  "add": 0.0009440508829606584,
+                  "update": 0.9955349474575453,
+                  "remove": 0.0003818288349571371,
+                  "link": 0.000598759316103211,
+                  "question": 0.002159233870289252,
+                  "answer": 0.00007886779527330182,
+                  "unclear": 0.0003023118428712125
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message concern?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "solution",
+                "confidence": 0.9928213515682903,
+                "probabilities": {
+                  "basics": 0.0010522795126256836,
+                  "problem": 0.0005363637111332998,
+                  "hypothesis": 0.00018218677456280472,
+                  "solution": 0.993718682622254,
+                  "current": 0.0007225889226496649,
+                  "planned": 0.00261389467283724,
+                  "effects": 0.000034095041480645,
+                  "none": 0.0011399087424563393
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "Which kind of item in Solution: capabilities, features, flows, screens, agents, AI functions, domain things, rules, tests, modules, interfaces, events, vocabulary and architecture does state.message concern?",
+                "choices": [
+                  "capability",
+                  "feature",
+                  "flow",
+                  "screen",
+                  "agent",
+                  "term",
+                  "system",
+                  "external",
+                  "module",
+                  "infra",
+                  "interface",
+                  "thing",
+                  "rule",
+                  "event",
+                  "protocol",
+                  "ai-function",
+                  "test",
+                  "none"
+                ],
+                "answer": "screen",
+                "confidence": 0.9933869910069717,
+                "probabilities": {
+                  "capability": 0.0005387911677651468,
+                  "feature": 0.0012024481458203155,
+                  "flow": 0.000551904459053507,
+                  "screen": 0.9937543803954733,
+                  "agent": 0.00034387168036709116,
+                  "term": 0.0001698647558752152,
+                  "system": 0.00005963200440507014,
+                  "external": 0.0000450914391399992,
+                  "module": 0.001802404971061312,
+                  "infra": 0.00001865742541761147,
+                  "interface": 0.0003041329306012093,
+                  "thing": 0.00015005602031759329,
+                  "rule": 0.00005164052870033742,
+                  "event": 0.000025347492186498924,
+                  "protocol": 0.00002981593105894198,
+                  "ai-function": 0.0007298887488106756,
+                  "test": 0.00003838872062732651,
+                  "none": 0.0001836831833190351
+                },
+                "status": "confident"
+              },
+              {
+                "level": "node",
+                "id": "route.node",
+                "question": "Which existing screen does state.message concern?",
+                "choices": [
+                  "screen-species-picker",
+                  "screen-transect-logger",
+                  "screen-verification-queue",
+                  "screen-site-map",
+                  "none",
+                  "new"
+                ],
+                "answer": "screen-species-picker",
+                "confidence": 0.9992514832664583,
+                "probabilities": {
+                  "screen-species-picker": 0.999376236055382,
+                  "screen-transect-logger": 0.00005699582858301174,
+                  "screen-verification-queue": 0.000040058687238552966,
+                  "screen-site-map": 0.000013576340585413915,
+                  "none": 0.0004421247612493387,
+                  "new": 0.00007100832696141242
+                },
+                "status": "confident"
+              },
+              {
+                "level": "more",
+                "id": "route.more",
+                "question": "Besides \"Species picker\", does state.message also concern another of these items?",
+                "choices": [
+                  "yes",
+                  "no"
+                ],
+                "answer": "no",
+                "confidence": 0.9994987666858574,
+                "probabilities": {
+                  "yes": 0.000501233314142625,
+                  "no": 0.9994987666858574
+                },
+                "status": "confident"
+              }
+            ],
+            "target": {
+              "space": "solution",
+              "kind": "screen",
+              "nodes": [
+                "screen-species-picker"
+              ],
+              "related": []
+            },
+            "status": "confident",
+            "calls": 5,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 1724,
+                "output_tokens": 5
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1019,
+                "output_tokens": 38
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"screen-species-picker\",\"fields\":{\"title\":\"Species chooser\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "screen-species-picker",
+                  "fields": {
+                    "title": "Species chooser"
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t03",
+          "difficulty": "medium",
+          "message": "Drop the low-tide reminders feature; the pilot showed it doesn't work.",
+          "levels": {
+            "intent": {
+              "gold": "remove",
+              "got": "remove",
+              "hit": true
+            },
+            "space": {
+              "gold": "solution",
+              "got": "solution",
+              "hit": true
+            },
+            "kind": {
+              "gold": "feature",
+              "got": "feature",
+              "hit": true
+            },
+            "nodes": {
+              "gold": [
+                "feature-low-tide-reminders"
+              ],
+              "got": [
+                "feature-low-tide-reminders"
+              ],
+              "hit": true
+            }
+          },
+          "routed": true,
+          "status": "confident",
+          "calls": 5,
+          "route": {
+            "message": "Drop the low-tide reminders feature; the pilot showed it doesn't work.",
+            "intent": "remove",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "remove",
+                "confidence": 0.9990831589077172,
+                "probabilities": {
+                  "add": 0.00009943145964113394,
+                  "update": 0.00040663571355189365,
+                  "remove": 0.9992141362066148,
+                  "link": 0.000043117491116872926,
+                  "question": 0.0001430824726297696,
+                  "answer": 0.00001799718303898338,
+                  "unclear": 0.00007559947340652433
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message concern?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "solution",
+                "confidence": 0.9391239990101564,
+                "probabilities": {
+                  "basics": 0.0001853383404218978,
+                  "problem": 0.000282540928008983,
+                  "hypothesis": 0.045249165322805776,
+                  "solution": 0.9467334991338868,
+                  "current": 0.0007257773964292414,
+                  "planned": 0.0005834700234195378,
+                  "effects": 0.0044919366784350635,
+                  "none": 0.0017482721765926814
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "Which kind of item in Solution: capabilities, features, flows, screens, agents, AI functions, domain things, rules, tests, modules, interfaces, events, vocabulary and architecture does state.message concern?",
+                "choices": [
+                  "capability",
+                  "feature",
+                  "flow",
+                  "screen",
+                  "agent",
+                  "term",
+                  "system",
+                  "external",
+                  "module",
+                  "infra",
+                  "interface",
+                  "thing",
+                  "rule",
+                  "event",
+                  "protocol",
+                  "ai-function",
+                  "test",
+                  "none"
+                ],
+                "answer": "feature",
+                "confidence": 0.9968608287214575,
+                "probabilities": {
+                  "capability": 0.0012315847269772783,
+                  "feature": 0.997035227125821,
+                  "flow": 0.0009094318407043595,
+                  "screen": 0.00003392887218893922,
+                  "agent": 0.00033298675141295287,
+                  "term": 0.00002382029728966341,
+                  "system": 0.000019352471724452418,
+                  "external": 0.000015387740923295536,
+                  "module": 0.00013928757760819775,
+                  "infra": 0.0000096624820992185,
+                  "interface": 0.00001803117740133862,
+                  "thing": 0.000023569268389000495,
+                  "rule": 0.000027835711716613738,
+                  "event": 0.00001547002213230867,
+                  "protocol": 0.00000930214233702779,
+                  "ai-function": 0.000022060406224638104,
+                  "test": 0.000011758067771287785,
+                  "none": 0.0001213033172786773
+                },
+                "status": "confident"
+              },
+              {
+                "level": "node",
+                "id": "route.node",
+                "question": "Which existing feature does state.message concern?",
+                "choices": [
+                  "feature-low-tide-reminders",
+                  "feature-offline-transect-logger",
+                  "feature-photo-id-suggestions",
+                  "none",
+                  "new"
+                ],
+                "answer": "feature-low-tide-reminders",
+                "confidence": 0.9996796246611885,
+                "probabilities": {
+                  "feature-low-tide-reminders": 0.9997436997289509,
+                  "feature-offline-transect-logger": 0.00001671491083510622,
+                  "feature-photo-id-suggestions": 0.000028865879215772282,
+                  "none": 0.00012977554992083185,
+                  "new": 0.00008094393107737396
+                },
+                "status": "confident"
+              },
+              {
+                "level": "more",
+                "id": "route.more",
+                "question": "Besides \"Low-tide reminders\", does state.message also concern another of these items?",
+                "choices": [
+                  "yes",
+                  "no"
+                ],
+                "answer": "no",
+                "confidence": 0.999913913181595,
+                "probabilities": {
+                  "yes": 0.00008608681840509149,
+                  "no": 0.999913913181595
+                },
+                "status": "confident"
+              }
+            ],
+            "target": {
+              "space": "solution",
+              "kind": "feature",
+              "nodes": [
+                "feature-low-tide-reminders"
+              ],
+              "related": []
+            },
+            "status": "confident",
+            "calls": 5,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 1776,
+                "output_tokens": 5
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 947,
+                "output_tokens": 52
+              },
+              "raw": "{\"ops\":[{\"op\":\"remove\",\"id\":\"feature-low-tide-reminders\"}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "remove",
+                  "id": "feature-low-tide-reminders"
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t04",
+          "difficulty": "medium",
+          "message": "We also need to support school groups doing shore surveys with a teacher.",
+          "levels": {
+            "intent": {
+              "gold": "add",
+              "got": "add",
+              "hit": true
+            },
+            "space": {
+              "gold": "problem",
+              "got": "problem",
+              "hit": true
+            },
+            "kind": {
+              "gold": "audience",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [],
+              "got": [],
+              "hit": true
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 3,
+          "route": {
+            "message": "We also need to support school groups doing shore surveys with a teacher.",
+            "intent": "add",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.9504464812649188,
+                "probabilities": {
+                  "add": 0.9575255553699304,
+                  "update": 0.016911237228512545,
+                  "remove": 0.0008175302919985074,
+                  "link": 0.019068982999027463,
+                  "question": 0.0037359706365897687,
+                  "answer": 0.000471641021030441,
+                  "unclear": 0.0014690824529108967
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message add to?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "problem",
+                "confidence": 0.985662158921105,
+                "probabilities": {
+                  "basics": 0.000953529781735522,
+                  "problem": 0.9874543890559668,
+                  "hypothesis": 0.000971016903467591,
+                  "solution": 0.00796357966965293,
+                  "current": 0.00023139383639068863,
+                  "planned": 0.00023917341664748983,
+                  "effects": 0.00012994298336193482,
+                  "none": 0.002056974352776741
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "What kind of item does state.message want to add to Problem: who it is for, in what context, with what problems, wanting what outcomes and goals?",
+                "choices": [
+                  "audience",
+                  "context",
+                  "usecase",
+                  "problem",
+                  "outcome",
+                  "goal",
+                  "none"
+                ],
+                "answer": "audience",
+                "confidence": 0.8515699968663591,
+                "probabilities": {
+                  "audience": 0.872774283028308,
+                  "context": 0.012495524620051804,
+                  "usecase": 0.10815187415913996,
+                  "problem": 0.0006761622723030654,
+                  "outcome": 0.0013955466989155926,
+                  "goal": 0.00024073834104846106,
+                  "none": 0.004265870880233248
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "space": "problem",
+              "nodes": [],
+              "related": [
+                "audience-weekend-shore-volunteer",
+                "usecase-log-a-transect-survey-during-one-low",
+                "audience-marine-biologist-running-a-monitoring",
+                "context-rocky-intertidal-sites-with-no-mobile",
+                "usecase-verify-a-week-of-volunteer-records-in"
+              ]
+            },
+            "status": "review",
+            "calls": 3,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 1067,
+                "output_tokens": 3
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1542,
+                "output_tokens": 72
+              },
+              "raw": "{\"ops\":[{\"op\":\"add\",\"kind\":\"audience\",\"parent\":\"$spec\",\"title\":\"School groups with a teacher\"}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "add",
+                  "kind": "audience",
+                  "parent": "$spec",
+                  "title": "School groups with a teacher"
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t05",
+          "difficulty": "easy",
+          "message": "Verification should happen within 3 days, not 7.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "got": "update",
+              "hit": true
+            },
+            "space": {
+              "gold": "problem",
+              "hit": false
+            },
+            "kind": {
+              "gold": "goal",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "goal-two-thirds-of-records-verified-within-7"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 2,
+          "route": {
+            "message": "Verification should happen within 3 days, not 7.",
+            "intent": "update",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "update",
+                "confidence": 0.9904682665094695,
+                "probabilities": {
+                  "add": 0.0007234103593436716,
+                  "update": 0.9918299427224025,
+                  "remove": 0.00026180442622351246,
+                  "link": 0.0005238196225306298,
+                  "question": 0.006290318209942277,
+                  "answer": 0.00011063296899080435,
+                  "unclear": 0.00026007169056659757
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message concern?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "problem",
+                "confidence": 0.6100017948907585,
+                "probabilities": {
+                  "basics": 0.001077076913196573,
+                  "problem": 0.6587515705294137,
+                  "hypothesis": 0.1675265795209818,
+                  "solution": 0.1593808031048284,
+                  "current": 0.001739065980443782,
+                  "planned": 0.001416924166970934,
+                  "effects": 0.0031263210415840314,
+                  "none": 0.0069816587425805595
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "goal-two-thirds-of-records-verified-within-7",
+                "metric-volunteers-returning-within-30-days",
+                "summary-an-offline-first-field-app-for-timed",
+                "hypothesis-photo-id-suggestions-lift-verification",
+                "capability-expert-verification"
+              ]
+            },
+            "status": "review",
+            "calls": 2,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 686,
+                "output_tokens": 2
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 2102,
+                "output_tokens": 78
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"goal-two-thirds-of-records-verified-within-7\",\"fields\":{\"title\":\"Two-thirds of records verified within 3 days\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "goal-two-thirds-of-records-verified-within-7",
+                  "fields": {
+                    "title": "Two-thirds of records verified within 3 days"
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t06",
+          "difficulty": "easy",
+          "message": "The August acceptance number was actually 71%, not 64%.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "got": "update",
+              "hit": true
+            },
+            "space": {
+              "gold": "effects",
+              "got": "effects",
+              "hit": true
+            },
+            "kind": {
+              "gold": "metric-reading",
+              "got": "metric-reading",
+              "hit": true
+            },
+            "nodes": {
+              "gold": [
+                "metric-reading-acceptance-rate-64-in-august"
+              ],
+              "got": [
+                "metric-reading-acceptance-rate-64-in-august"
+              ],
+              "hit": true
+            }
+          },
+          "routed": true,
+          "status": "confident",
+          "calls": 5,
+          "route": {
+            "message": "The August acceptance number was actually 71%, not 64%.",
+            "intent": "update",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "update",
+                "confidence": 0.9929494032114862,
+                "probabilities": {
+                  "add": 0.0007085587029678274,
+                  "update": 0.993956631324131,
+                  "remove": 0.00024358704446994078,
+                  "link": 0.0002795697122739861,
+                  "question": 0.0033005119736049665,
+                  "answer": 0.0007382094228511818,
+                  "unclear": 0.0007729318197012162
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message concern?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "effects",
+                "confidence": 0.9972151732432638,
+                "probabilities": {
+                  "basics": 0.000030760020308646675,
+                  "problem": 0.000033838185462882557,
+                  "hypothesis": 0.0017368510474875581,
+                  "solution": 0.0001749305940224219,
+                  "current": 0.0001250691316964569,
+                  "planned": 0.000025257394901249673,
+                  "effects": 0.9975632765878558,
+                  "none": 0.00031001703826481135
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "Which kind of item in Effects: metric readings, usage events, user feedback and evidence from reality does state.message concern?",
+                "choices": [
+                  "metric-reading",
+                  "usage-event",
+                  "feedback",
+                  "evidence",
+                  "none"
+                ],
+                "answer": "metric-reading",
+                "confidence": 0.9988313733609161,
+                "probabilities": {
+                  "metric-reading": 0.9990650986887329,
+                  "usage-event": 0.00005845783530936893,
+                  "feedback": 0.000038652200959024014,
+                  "evidence": 0.0005984937567371722,
+                  "none": 0.000239297518261664
+                },
+                "status": "confident"
+              },
+              {
+                "level": "node",
+                "id": "route.node",
+                "question": "Which existing metric-reading does state.message concern?",
+                "choices": [
+                  "metric-reading-acceptance-rate-64-in-august",
+                  "metric-reading-30-day-return-38-in-august",
+                  "none",
+                  "new"
+                ],
+                "answer": "metric-reading-acceptance-rate-64-in-august",
+                "confidence": 0.9993342131658798,
+                "probabilities": {
+                  "metric-reading-acceptance-rate-64-in-august": 0.9995006598744098,
+                  "metric-reading-30-day-return-38-in-august": 0.000019526370888815112,
+                  "none": 0.00026988428257676317,
+                  "new": 0.00020992947212450692
+                },
+                "status": "confident"
+              },
+              {
+                "level": "more",
+                "id": "route.more",
+                "question": "Besides \"Acceptance rate: 64% in August\", does state.message also concern another of these items?",
+                "choices": [
+                  "yes",
+                  "no"
+                ],
+                "answer": "no",
+                "confidence": 0.9989408497962652,
+                "probabilities": {
+                  "yes": 0.0010591502037348556,
+                  "no": 0.9989408497962652
+                },
+                "status": "confident"
+              }
+            ],
+            "target": {
+              "space": "effects",
+              "kind": "metric-reading",
+              "nodes": [
+                "metric-reading-acceptance-rate-64-in-august"
+              ],
+              "related": []
+            },
+            "status": "confident",
+            "calls": 5,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 1427,
+                "output_tokens": 5
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 718,
+                "output_tokens": 66
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"metric-reading-acceptance-rate-64-in-august\",\"fields\":{\"title\":\"Acceptance rate: 71% in August\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "metric-reading-acceptance-rate-64-in-august",
+                  "fields": {
+                    "title": "Acceptance rate: 71% in August"
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t07",
+          "difficulty": "medium",
+          "message": "Add a test that a survey started two hours before low tide is rejected.",
+          "levels": {
+            "intent": {
+              "gold": "add",
+              "got": "add",
+              "hit": true
+            },
+            "space": {
+              "gold": "solution",
+              "got": "solution",
+              "hit": true
+            },
+            "kind": {
+              "gold": "test",
+              "got": "test",
+              "hit": true
+            },
+            "nodes": {
+              "gold": [
+                "rule-surveys-start-no-earlier-than-90-minutes"
+              ],
+              "got": [
+                "rule-surveys-start-no-earlier-than-90-minutes"
+              ],
+              "hit": true
+            }
+          },
+          "routed": true,
+          "status": "confident",
+          "calls": 5,
+          "route": {
+            "message": "Add a test that a survey started two hours before low tide is rejected.",
+            "intent": "add",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.9962623731867354,
+                "probabilities": {
+                  "add": 0.9967963198743447,
+                  "update": 0.0018112385995787588,
+                  "remove": 0.00016726746058739128,
+                  "link": 0.00021840790855425142,
+                  "question": 0.0005895138444045855,
+                  "answer": 0.000075783700618948,
+                  "unclear": 0.0003414686119114031
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message add to?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "solution",
+                "confidence": 0.9834463380086084,
+                "probabilities": {
+                  "basics": 0.000072342826065869,
+                  "problem": 0.00015889375164420465,
+                  "hypothesis": 0.0001259866906289641,
+                  "solution": 0.9855155457575323,
+                  "current": 0.011219844604922551,
+                  "planned": 0.0012785066305154467,
+                  "effects": 0.00009503899771696728,
+                  "none": 0.0015338407409735675
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "What kind of item does state.message want to add to Solution: capabilities, features, flows, screens, agents, AI functions, domain things, rules, tests, modules, interfaces, events, vocabulary and architecture?",
+                "choices": [
+                  "capability",
+                  "feature",
+                  "flow",
+                  "screen",
+                  "agent",
+                  "term",
+                  "system",
+                  "external",
+                  "module",
+                  "infra",
+                  "interface",
+                  "thing",
+                  "rule",
+                  "event",
+                  "protocol",
+                  "ai-function",
+                  "test",
+                  "design-system",
+                  "none"
+                ],
+                "answer": "test",
+                "confidence": 0.9987464142747438,
+                "probabilities": {
+                  "capability": 0.000035567625807019765,
+                  "feature": 0.00015664508527864703,
+                  "flow": 0.00005497066098138222,
+                  "screen": 0.000019898727945969323,
+                  "agent": 0.0000432511141990684,
+                  "term": 0.000011249946066329283,
+                  "system": 0.000014861418971268981,
+                  "external": 0.000009053501701412436,
+                  "module": 0.00004938509088567568,
+                  "infra": 0.000008937134562793943,
+                  "interface": 0.000020906735833959983,
+                  "thing": 0.000029584930107917067,
+                  "rule": 0.0006464232847045744,
+                  "event": 0.000012132035521032022,
+                  "protocol": 0.000023808483013022306,
+                  "ai-function": 0.000015541501615115035,
+                  "test": 0.9988123924708099,
+                  "design-system": 0.000005573654065958421,
+                  "none": 0.000029816597929100526
+                },
+                "status": "confident"
+              },
+              {
+                "level": "node",
+                "id": "route.node",
+                "question": "state.message adds a new test. Which existing item should the new test connect to?",
+                "choices": [
+                  "rule-surveys-start-no-earlier-than-90-minutes",
+                  "flow-get-a-reminder-before-the-next-good-tide",
+                  "agent-tide-watch-agent",
+                  "thing-survey-site",
+                  "event-survey-synced",
+                  "test-second-verdict-on-a-record-is-rejected",
+                  "capability-field-capture",
+                  "capability-expert-verification",
+                  "capability-volunteer-engagement",
+                  "feature-offline-transect-logger",
+                  "feature-photo-id-suggestions",
+                  "feature-low-tide-reminders",
+                  "none"
+                ],
+                "answer": "rule-surveys-start-no-earlier-than-90-minutes",
+                "confidence": 0.991435373897922,
+                "probabilities": {
+                  "rule-surveys-start-no-earlier-than-90-minutes": 0.9920941912903897,
+                  "flow-get-a-reminder-before-the-next-good-tide": 0.00006757087625389287,
+                  "agent-tide-watch-agent": 0.0006000869496742306,
+                  "thing-survey-site": 0.00003298642112170665,
+                  "event-survey-synced": 0.00007747674536779489,
+                  "test-second-verdict-on-a-record-is-rejected": 0.00004232354483097508,
+                  "capability-field-capture": 0.0014778822862549423,
+                  "capability-expert-verification": 0.00007485443944791061,
+                  "capability-volunteer-engagement": 0.00038324484365585116,
+                  "feature-offline-transect-logger": 0.0014547672743979627,
+                  "feature-photo-id-suggestions": 0.000015090334596725575,
+                  "feature-low-tide-reminders": 0.002798284185725046,
+                  "none": 0.0008812408082835788
+                },
+                "status": "confident"
+              },
+              {
+                "level": "more",
+                "id": "route.more",
+                "question": "Besides \"Surveys start no earlier than 90 minutes before low tide\", does state.message also concern another of these items?",
+                "choices": [
+                  "yes",
+                  "no"
+                ],
+                "answer": "no",
+                "confidence": 0.9940728043385935,
+                "probabilities": {
+                  "yes": 0.0059271956614065716,
+                  "no": 0.9940728043385935
+                },
+                "status": "confident"
+              }
+            ],
+            "target": {
+              "space": "solution",
+              "kind": "test",
+              "nodes": [
+                "rule-surveys-start-no-earlier-than-90-minutes"
+              ],
+              "related": []
+            },
+            "status": "confident",
+            "calls": 5,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 2008,
+                "output_tokens": 5
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 849,
+                "output_tokens": 155
+              },
+              "raw": "{\"ops\":[{\"op\":\"add\",\"kind\":\"test\",\"parent\":\"$spec\",\"title\":\"Reject surveys started two hours before low tide\",\"links\":[{\"rel\":\"verifies\",\"to\":\"rule-surveys-start-no-earlier-than-90-minutes\"}]}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "add",
+                  "kind": "test",
+                  "parent": "$spec",
+                  "title": "Reject surveys started two hours before low tide",
+                  "links": [
+                    {
+                      "rel": "verifies",
+                      "to": "rule-surveys-start-no-earlier-than-90-minutes"
+                    }
+                  ]
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t08",
+          "difficulty": "hard",
+          "message": "The reconnect GPS test is failing in build 89; make the photo queue task cover resuming after an app restart too.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "hit": false
+            },
+            "space": {
+              "gold": "planned",
+              "hit": false
+            },
+            "kind": {
+              "gold": "task",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "task-resume-interrupted-photo-uploads"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "The reconnect GPS test is failing in build 89; make the photo queue task cover resuming after an app restart too.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "update",
+                "confidence": 0.8109668256614245,
+                "probabilities": {
+                  "add": 0.12151235112271289,
+                  "update": 0.8379715648526496,
+                  "remove": 0.0009195170761732769,
+                  "link": 0.03479173338577278,
+                  "question": 0.002870378270906687,
+                  "answer": 0.0006171420741980036,
+                  "unclear": 0.0013173132175868948
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "test-photo-uploaded-after-reconnect-keeps-its",
+                "test-result-reconnect-keeps-gps-fail-build-89",
+                "summary-an-offline-first-field-app-for-timed",
+                "task-queue-photos-for-background-upload",
+                "hypothesis-photo-id-suggestions-lift-verification"
+              ]
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 238,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1845,
+                "output_tokens": 300
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"task-queue-photos-for-background-upload\",\"fields\":{\"title\":\"Queue photos for upload and resume after app restart\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "task-queue-photos-for-background-upload",
+                  "fields": {
+                    "title": "Queue photos for upload and resume after app restart"
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 0,
+            "precision": 0,
+            "recall": 0,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t09",
+          "difficulty": "medium",
+          "message": "Volunteers should be able to log a survey without ever taking a photo.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "hit": false
+            },
+            "space": {
+              "gold": "hypothesis",
+              "hit": false
+            },
+            "kind": {
+              "gold": "assumption",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "assumption-volunteers-will-photograph-every-quadrat"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "Volunteers should be able to log a survey without ever taking a photo.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.5210176725948351,
+                "probabilities": {
+                  "add": 0.5894437193670016,
+                  "update": 0.24500721117428717,
+                  "remove": 0.05906318141384062,
+                  "link": 0.04832734654649435,
+                  "question": 0.041893891551951404,
+                  "answer": 0.0032713665032224667,
+                  "unclear": 0.012993283443202261
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "purpose-turn-volunteer-shore-walks-into-survey",
+                "summary-an-offline-first-field-app-for-timed",
+                "usecase-log-a-transect-survey-during-one-low",
+                "audience-weekend-shore-volunteer",
+                "usecase-verify-a-week-of-volunteer-records-in"
+              ]
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 227,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1752,
+                "output_tokens": 395
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"summary-an-offline-first-field-app-for-timed\",\"fields\":{\"description\":\"Tidepool guides volunteers through a timed transect at low tide, captures species counts and optional photos without signal, and routes every record to a biologist before it joins the open dataset.\"}},{\"op\":\"update\",\"id\":\"usecase-log-a-transect-survey-during-one-low\",\"fields\":{\"description\":\"Volunteers can complete and log a transect survey without taking any photos.\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "summary-an-offline-first-field-app-for-timed",
+                  "fields": {
+                    "description": "Tidepool guides volunteers through a timed transect at low tide, captures species counts and optional photos without signal, and routes every record to a biologist before it joins the open dataset."
+                  }
+                },
+                {
+                  "op": "update",
+                  "id": "usecase-log-a-transect-survey-during-one-low",
+                  "fields": {
+                    "description": "Volunteers can complete and log a transect survey without taking any photos."
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 2,
+            "matched": 0,
+            "precision": 0,
+            "recall": 0,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t10",
+          "difficulty": "hard",
+          "message": "Make it offline.",
+          "levels": {
+            "intent": {
+              "gold": "question",
+              "hit": false
+            },
+            "space": {
+              "gold": "solution",
+              "hit": null
+            },
+            "kind": {
+              "gold": null,
+              "hit": null
+            },
+            "nodes": {
+              "gold": [
+                "feature-offline-transect-logger",
+                "flow-sync-records-once-back-in-signal",
+                "summary-an-offline-first-field-app-for-timed"
+              ],
+              "got": [],
+              "hit": null
+            }
+          },
+          "routed": false,
+          "status": "unknown",
+          "calls": 1,
+          "route": {
+            "message": "Make it offline.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "question",
+                "confidence": 0.30162916063510475,
+                "probabilities": {
+                  "add": 0.09246558496450179,
+                  "update": 0.3771629773022014,
+                  "remove": 0.08979241849671976,
+                  "link": 0.007987664303087836,
+                  "question": 0.4013964234015184,
+                  "answer": 0.0013658129543660102,
+                  "unclear": 0.029829118577604764
+                },
+                "status": "unknown"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "feature-offline-transect-logger",
+                "protocol-conflict-free-merge-of-offline-edits",
+                "practice-weekly-offline-drill-in-airplane-mode",
+                "epic-offline-photo-sync",
+                "evidence-spring-pilot-abandoned-surveys-fell-from"
+              ]
+            },
+            "status": "unknown",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 216,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1820,
+                "output_tokens": 71
+              },
+              "raw": "{\"question\":\"Which item should be made offline: the transect logger, photo sync, or another part of the specification?\"}",
+              "provider": "openrouter",
+              "question": "Which item should be made offline: the transect logger, photo sync, or another part of the specification?"
+            },
+            "goldOps": 0,
+            "producedOps": 0,
+            "matched": 0,
+            "precision": null,
+            "recall": null,
+            "question": true,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t11",
+          "difficulty": "medium",
+          "message": "The species suggestion agent should also use the photo's GPS fix to narrow candidates.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "hit": false
+            },
+            "space": {
+              "gold": "solution",
+              "hit": false
+            },
+            "kind": {
+              "gold": "ai-function",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "ai-function-suggest-species-from-a-field-photo",
+                "agent-id-suggestion-agent"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "The species suggestion agent should also use the photo's GPS fix to narrow candidates.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.5377801205087026,
+                "probabilities": {
+                  "add": 0.6038115318646022,
+                  "update": 0.35254865312451583,
+                  "remove": 0.0011581939228764299,
+                  "link": 0.037811894015596474,
+                  "question": 0.002939563715211274,
+                  "answer": 0.0005556799598110656,
+                  "unclear": 0.0011744833973866807
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "agent-id-suggestion-agent",
+                "rule-every-observation-carries-a-gps-fix",
+                "test-photo-uploaded-after-reconnect-keeps-its",
+                "problem-species-are-misidentified-so-records",
+                "hypothesis-photo-id-suggestions-lift-verification"
+              ]
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 228,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 2206,
+                "output_tokens": 143
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"agent-id-suggestion-agent\",\"fields\":{\"description\":\"Uses the photo's GPS fix to narrow species candidates.\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "agent-id-suggestion-agent",
+                  "fields": {
+                    "description": "Uses the photo's GPS fix to narrow species candidates."
+                  }
+                }
+              ]
+            },
+            "goldOps": 2,
+            "producedOps": 1,
+            "matched": 0,
+            "precision": 0,
+            "recall": 0,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t12",
+          "difficulty": "easy",
+          "message": "Add a metric for how many photos each survey has.",
+          "levels": {
+            "intent": {
+              "gold": "add",
+              "got": "add",
+              "hit": true
+            },
+            "space": {
+              "gold": "hypothesis",
+              "got": "hypothesis",
+              "hit": true
+            },
+            "kind": {
+              "gold": "metric",
+              "got": "metric",
+              "hit": true
+            },
+            "nodes": {
+              "gold": [],
+              "got": [],
+              "hit": true
+            }
+          },
+          "routed": true,
+          "status": "unknown",
+          "calls": 4,
+          "route": {
+            "message": "Add a metric for how many photos each survey has.",
+            "intent": "add",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.9912857123046326,
+                "probabilities": {
+                  "add": 0.9925306105468279,
+                  "update": 0.0026107941153397833,
+                  "remove": 0.00024281111286922233,
+                  "link": 0.0015681931468918883,
+                  "question": 0.0025972992822586092,
+                  "answer": 0.0001638723419263919,
+                  "unclear": 0.0002864194538859693
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message add to?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "hypothesis",
+                "confidence": 0.9442180597954796,
+                "probabilities": {
+                  "basics": 0.00022171438732187534,
+                  "problem": 0.0004243345858906344,
+                  "hypothesis": 0.9511908023210446,
+                  "solution": 0.008424680348330575,
+                  "current": 0.0005948282429631533,
+                  "planned": 0.0028134874859181156,
+                  "effects": 0.016570735179298367,
+                  "none": 0.01975941744923267
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "What kind of item does state.message want to add to Bets: the bets (hypotheses) we make, what we assume, and the metrics that tell us?",
+                "choices": [
+                  "hypothesis",
+                  "assumption",
+                  "metric",
+                  "none"
+                ],
+                "answer": "metric",
+                "confidence": 0.9991025627098838,
+                "probabilities": {
+                  "hypothesis": 0.00024854934419894,
+                  "assumption": 0.00016799848382569084,
+                  "metric": 0.9993269220324129,
+                  "none": 0.00025653013956245137
+                },
+                "status": "confident"
+              },
+              {
+                "level": "node",
+                "id": "route.node",
+                "question": "state.message adds a new metric. Which existing item should the new metric connect to?",
+                "choices": [
+                  "hypothesis-offline-first-capture-halves-abandoned",
+                  "hypothesis-photo-id-suggestions-lift-verification",
+                  "hypothesis-low-tide-reminders-double-repeat-visits",
+                  "assumption-volunteers-will-photograph-every-quadrat",
+                  "assumption-public-tide-tables-are-accurate-to-15",
+                  "metric-record-acceptance-rate",
+                  "metric-volunteers-returning-within-30-days",
+                  "none"
+                ],
+                "answer": "none",
+                "confidence": 0.25405743500825795,
+                "probabilities": {
+                  "hypothesis-offline-first-capture-halves-abandoned": 0.24930647593835503,
+                  "hypothesis-photo-id-suggestions-lift-verification": 0.12692908386293245,
+                  "hypothesis-low-tide-reminders-double-repeat-visits": 0.017428789914080454,
+                  "assumption-volunteers-will-photograph-every-quadrat": 0.24888908635565016,
+                  "assumption-public-tide-tables-are-accurate-to-15": 0.0009828834673835504,
+                  "metric-record-acceptance-rate": 0.0068599936477925965,
+                  "metric-volunteers-returning-within-30-days": 0.002303431181580029,
+                  "none": 0.3473002556322257
+                },
+                "status": "unknown"
+              }
+            ],
+            "target": {
+              "space": "hypothesis",
+              "kind": "metric",
+              "nodes": [],
+              "related": [
+                "metric-record-acceptance-rate",
+                "metric-volunteers-returning-within-30-days"
+              ]
+            },
+            "status": "unknown",
+            "calls": 4,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 1288,
+                "output_tokens": 4
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1353,
+                "output_tokens": 92
+              },
+              "raw": "{\"ops\":[{\"op\":\"add\",\"kind\":\"metric\",\"parent\":\"$spec\",\"title\":\"Photos per survey\"}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "add",
+                  "kind": "metric",
+                  "parent": "$spec",
+                  "title": "Photos per survey"
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t13",
+          "difficulty": "hard",
+          "message": "The verification queue is too slow for biologists; blurry photos should be flagged before they reach the queue.",
+          "levels": {
+            "intent": {
+              "gold": "add",
+              "hit": false
+            },
+            "space": {
+              "gold": "solution",
+              "hit": false
+            },
+            "kind": {
+              "gold": "rule",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "screen-verification-queue",
+                "feedback-biologist-blurry-photos-slow-down",
+                "thing-field-photo"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "The verification queue is too slow for biologists; blurry photos should be flagged before they reach the queue.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.6801932781118639,
+                "probabilities": {
+                  "add": 0.725879952667312,
+                  "update": 0.07553857842183784,
+                  "remove": 0.008388821807209053,
+                  "link": 0.1670299284650519,
+                  "question": 0.013880512774788578,
+                  "answer": 0.0017601189874433254,
+                  "unclear": 0.00752208687635735
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "feedback-biologist-blurry-photos-slow-down",
+                "summary-an-offline-first-field-app-for-timed",
+                "hypothesis-photo-id-suggestions-lift-verification",
+                "screen-verification-queue",
+                "task-queue-photos-for-background-upload"
+              ]
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 233,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 2082,
+                "output_tokens": 533
+              },
+              "raw": "{\"ops\":[{\"op\":\"add\",\"kind\":\"task\",\"parent\":\"$spec\",\"title\":\"Flag blurry photos before verification\",\"links\":[{\"rel\":\"implements\",\"from\":\"screen-verification-queue\"}]}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "add",
+                  "kind": "task",
+                  "parent": "$spec",
+                  "title": "Flag blurry photos before verification",
+                  "links": [
+                    {
+                      "rel": "implements",
+                      "from": "screen-verification-queue"
+                    }
+                  ]
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 0,
+            "precision": 0,
+            "recall": 0,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t14",
+          "difficulty": "easy",
+          "message": "Tide tables are only accurate to 30 minutes at the northern sites.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "hit": false
+            },
+            "space": {
+              "gold": "hypothesis",
+              "hit": false
+            },
+            "kind": {
+              "gold": "assumption",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "assumption-public-tide-tables-are-accurate-to-15"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "Tide tables are only accurate to 30 minutes at the northern sites.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.5145277149845732,
+                "probabilities": {
+                  "add": 0.5838808985582056,
+                  "update": 0.250239730379344,
+                  "remove": 0.0055714154874275945,
+                  "link": 0.005388585636329807,
+                  "question": 0.03796793707068157,
+                  "answer": 0.07133960837751864,
+                  "unclear": 0.04561182449049265
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "assumption-public-tide-tables-are-accurate-to-15",
+                "rule-surveys-start-no-earlier-than-90-minutes",
+                "audience-marine-biologist-running-a-monitoring",
+                "context-rocky-intertidal-sites-with-no-mobile",
+                "usecase-log-a-transect-survey-during-one-low"
+              ]
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 228,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1751,
+                "output_tokens": 111
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"assumption-public-tide-tables-are-accurate-to-15\",\"fields\":{\"title\":\"Public tide tables are accurate to 30 minutes at northern sites\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "assumption-public-tide-tables-are-accurate-to-15",
+                  "fields": {
+                    "title": "Public tide tables are accurate to 30 minutes at northern sites"
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t15",
+          "difficulty": "easy",
+          "message": "We're switching the taxonomy source from iNaturalist to WoRMS.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "hit": false
+            },
+            "space": {
+              "gold": "solution",
+              "hit": false
+            },
+            "kind": {
+              "gold": "external",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "external-inaturalist-taxonomy-api"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "We're switching the taxonomy source from iNaturalist to WoRMS.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "update",
+                "confidence": 0.6779647271983398,
+                "probabilities": {
+                  "add": 0.008632813280911145,
+                  "update": 0.7239697661700055,
+                  "remove": 0.006758657206958246,
+                  "link": 0.2522432780075759,
+                  "question": 0.005937966641617184,
+                  "answer": 0.0006090749713726077,
+                  "unclear": 0.0018484437215592687
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "external-inaturalist-taxonomy-api",
+                "interface-taxonomy-lookup"
+              ]
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 227,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 848,
+                "output_tokens": 92
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"external-inaturalist-taxonomy-api\",\"fields\":{\"title\":\"WoRMS taxonomy API\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "external-inaturalist-taxonomy-api",
+                  "fields": {
+                    "title": "WoRMS taxonomy API"
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t16",
+          "difficulty": "easy",
+          "message": "Who is this for?",
+          "levels": {
+            "intent": {
+              "gold": "answer",
+              "hit": false
+            },
+            "space": {
+              "gold": "problem",
+              "hit": false
+            },
+            "kind": {
+              "gold": "audience",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "audience-weekend-shore-volunteer",
+                "audience-marine-biologist-running-a-monitoring"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "Who is this for?",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "answer",
+                "confidence": 0.6030197618171255,
+                "probabilities": {
+                  "add": 0.00993569568745712,
+                  "update": 0.013624007240128577,
+                  "remove": 0.0013259070154238368,
+                  "link": 0.008677836322569332,
+                  "question": 0.3009368312616605,
+                  "answer": 0.6597312244146789,
+                  "unclear": 0.0057684980580816544
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": []
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 217,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 364,
+                "output_tokens": 78
+              },
+              "raw": "{\"question\":\"What are you referring to by “this”? \"}",
+              "provider": "openrouter",
+              "question": "What are you referring to by “this”? "
+            },
+            "goldOps": 0,
+            "producedOps": 0,
+            "matched": 0,
+            "precision": null,
+            "recall": null,
+            "question": null,
+            "answer": false,
+            "problems": []
+          }
+        },
+        {
+          "id": "t17",
+          "difficulty": "easy",
+          "message": "Percent cover should be estimated in 10% steps, 5% is too fine for volunteers.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "got": "update",
+              "hit": true
+            },
+            "space": {
+              "gold": "solution",
+              "got": "solution",
+              "hit": true
+            },
+            "kind": {
+              "gold": "term",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "term-percent-cover"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 3,
+          "route": {
+            "message": "Percent cover should be estimated in 10% steps, 5% is too fine for volunteers.",
+            "intent": "update",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "update",
+                "confidence": 0.9709980593678098,
+                "probabilities": {
+                  "add": 0.005530057296091018,
+                  "update": 0.9751411937438371,
+                  "remove": 0.0013887952233834998,
+                  "link": 0.0007365896177122322,
+                  "question": 0.014844928812980296,
+                  "answer": 0.0003620212120459116,
+                  "unclear": 0.001996414093950047
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message concern?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "solution",
+                "confidence": 0.9700463023590455,
+                "probabilities": {
+                  "basics": 0.00027437802132213886,
+                  "problem": 0.00168930780960599,
+                  "hypothesis": 0.010956015250334114,
+                  "solution": 0.9737905145641649,
+                  "current": 0.0005843661866249356,
+                  "planned": 0.000724934352086945,
+                  "effects": 0.007083901936595016,
+                  "none": 0.004896581879266149
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "Which kind of item in Solution: capabilities, features, flows, screens, agents, AI functions, domain things, rules, tests, modules, interfaces, events, vocabulary and architecture does state.message concern?",
+                "choices": [
+                  "capability",
+                  "feature",
+                  "flow",
+                  "screen",
+                  "agent",
+                  "term",
+                  "system",
+                  "external",
+                  "module",
+                  "infra",
+                  "interface",
+                  "thing",
+                  "rule",
+                  "event",
+                  "protocol",
+                  "ai-function",
+                  "test",
+                  "none"
+                ],
+                "answer": "rule",
+                "confidence": 0.7697328454921006,
+                "probabilities": {
+                  "capability": 0.0004763775779800977,
+                  "feature": 0.0021108758429269473,
+                  "flow": 0.007253898060917795,
+                  "screen": 0.01812970497585606,
+                  "agent": 0.0005633456700721877,
+                  "term": 0.15791800608663542,
+                  "system": 0.0003946161416497268,
+                  "external": 0.00018022857520720806,
+                  "module": 0.0007937457351488143,
+                  "infra": 0.00014244464954795224,
+                  "interface": 0.00018224647975033273,
+                  "thing": 0.006409765158885202,
+                  "rule": 0.782525465186984,
+                  "event": 0.00022177586117810881,
+                  "protocol": 0.00041828418307389594,
+                  "ai-function": 0.000324477962620518,
+                  "test": 0.02031220833410152,
+                  "none": 0.0016425335174646328
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "space": "solution",
+              "nodes": [],
+              "related": [
+                "term-percent-cover",
+                "capability-volunteer-engagement",
+                "capability-field-capture",
+                "capability-expert-verification",
+                "feature-offline-transect-logger"
+              ]
+            },
+            "status": "review",
+            "calls": 3,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 1379,
+                "output_tokens": 3
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 2168,
+                "output_tokens": 77
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"term-percent-cover\",\"fields\":{\"description\":\"Share of a quadrat's area occupied by one species, estimated in 10% steps.\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "term-percent-cover",
+                  "fields": {
+                    "description": "Share of a quadrat's area occupied by one species, estimated in 10% steps."
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t18",
+          "difficulty": "medium",
+          "message": "A record can get a second verdict if the first verifier flags it as uncertain.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "hit": false
+            },
+            "space": {
+              "gold": "solution",
+              "hit": false
+            },
+            "kind": {
+              "gold": "rule",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "rule-a-record-has-exactly-one-final-verdict"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "A record can get a second verdict if the first verifier flags it as uncertain.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.8884744890459603,
+                "probabilities": {
+                  "add": 0.9044067048965374,
+                  "update": 0.04606093406777428,
+                  "remove": 0.0027583660205711294,
+                  "link": 0.016446070235671552,
+                  "question": 0.016203640525186185,
+                  "answer": 0.007707544625389488,
+                  "unclear": 0.006416739628869778
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "test-second-verdict-on-a-record-is-rejected",
+                "rule-a-record-has-exactly-one-final-verdict",
+                "usecase-verify-a-week-of-volunteer-records-in",
+                "problem-species-are-misidentified-so-records",
+                "outcome-volunteer-records-are-accepted-into-the"
+              ]
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 228,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1923,
+                "output_tokens": 263
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"rule-a-record-has-exactly-one-final-verdict\",\"fields\":{\"title\":\"A record may get a second verdict if the first verifier flags it as uncertain\"}},{\"op\":\"update\",\"id\":\"test-second-verdict-on-a-record-is-rejected\",\"fields\":{\"title\":\"Second verdict is allowed when the first verifier flags a record as uncertain\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "rule-a-record-has-exactly-one-final-verdict",
+                  "fields": {
+                    "title": "A record may get a second verdict if the first verifier flags it as uncertain"
+                  }
+                },
+                {
+                  "op": "update",
+                  "id": "test-second-verdict-on-a-record-is-rejected",
+                  "fields": {
+                    "title": "Second verdict is allowed when the first verifier flags a record as uncertain"
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 2,
+            "matched": 0,
+            "precision": 0,
+            "recall": 0,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t19",
+          "difficulty": "medium",
+          "message": "Move the site map into the verification service, the biologists use it more than volunteers do.",
+          "levels": {
+            "intent": {
+              "gold": "link",
+              "got": "link",
+              "hit": true
+            },
+            "space": {
+              "gold": "solution",
+              "got": "solution",
+              "hit": true
+            },
+            "kind": {
+              "gold": "screen",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "screen-site-map",
+                "module-field-capture-app",
+                "module-verification-service"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 3,
+          "route": {
+            "message": "Move the site map into the verification service, the biologists use it more than volunteers do.",
+            "intent": "link",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "link",
+                "confidence": 0.9953392227995969,
+                "probabilities": {
+                  "add": 0.0008227808114218051,
+                  "update": 0.001542515484056282,
+                  "remove": 0.00039125773449013044,
+                  "link": 0.9960050481139402,
+                  "question": 0.0008436825002878416,
+                  "answer": 0.00012638002508041723,
+                  "unclear": 0.0002683353307234053
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message concern?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "solution",
+                "confidence": 0.9679323785251489,
+                "probabilities": {
+                  "basics": 0.0002854144413088074,
+                  "problem": 0.002386550504821104,
+                  "hypothesis": 0.002698485945981542,
+                  "solution": 0.9719408312095053,
+                  "current": 0.0011907918856632227,
+                  "planned": 0.010915369256726452,
+                  "effects": 0.005605787355566604,
+                  "none": 0.004976769400427053
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "Which kind of item in Solution: capabilities, features, flows, screens, agents, AI functions, domain things, rules, tests, modules, interfaces, events, vocabulary and architecture does state.message concern?",
+                "choices": [
+                  "capability",
+                  "feature",
+                  "flow",
+                  "screen",
+                  "agent",
+                  "term",
+                  "system",
+                  "external",
+                  "module",
+                  "infra",
+                  "interface",
+                  "thing",
+                  "rule",
+                  "event",
+                  "protocol",
+                  "ai-function",
+                  "test",
+                  "none"
+                ],
+                "answer": "screen",
+                "confidence": 0.816804204120946,
+                "probabilities": {
+                  "capability": 0.002700164172823337,
+                  "feature": 0.0029939757310358827,
+                  "flow": 0.0007980665339756009,
+                  "screen": 0.826981748336449,
+                  "agent": 0.0003090154903028675,
+                  "term": 0.00024124724534715426,
+                  "system": 0.0007133207303100493,
+                  "external": 0.00012218239064326682,
+                  "module": 0.16020431492890305,
+                  "infra": 0.00015544573779834918,
+                  "interface": 0.00037717556500310105,
+                  "thing": 0.00048292629848314543,
+                  "rule": 0.000368512449011043,
+                  "event": 0.00012460244134111778,
+                  "protocol": 0.00032140372613805707,
+                  "ai-function": 0.00013532047085733785,
+                  "test": 0.00010450973159575136,
+                  "none": 0.0028660680199819708
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "space": "solution",
+              "nodes": [],
+              "related": [
+                "screen-site-map",
+                "module-verification-service",
+                "capability-expert-verification",
+                "capability-volunteer-engagement",
+                "screen-verification-queue"
+              ]
+            },
+            "status": "review",
+            "calls": 3,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 1384,
+                "output_tokens": 3
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 2321,
+                "output_tokens": 255
+              },
+              "raw": "{\"ops\":[{\"op\":\"unlink\",\"from\":\"module-field-capture-app\",\"rel\":\"exposes\",\"to\":\"screen-site-map\"},{\"op\":\"link\",\"from\":\"module-verification-service\",\"rel\":\"exposes\",\"to\":\"screen-site-map\"},{\"op\":\"unlink\",\"from\":\"screen-site-map\",\"rel\":\"implements\",\"to\":\"capability-volunteer-engagement\"},{\"op\":\"link\",\"from\":\"screen-site-map\",\"rel\":\"implements\",\"to\":\"capability-expert-verification\"}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "unlink",
+                  "from": "module-field-capture-app",
+                  "rel": "exposes",
+                  "to": "screen-site-map"
+                },
+                {
+                  "op": "link",
+                  "from": "module-verification-service",
+                  "rel": "exposes",
+                  "to": "screen-site-map"
+                },
+                {
+                  "op": "unlink",
+                  "from": "screen-site-map",
+                  "rel": "implements",
+                  "to": "capability-volunteer-engagement"
+                },
+                {
+                  "op": "link",
+                  "from": "screen-site-map",
+                  "rel": "implements",
+                  "to": "capability-expert-verification"
+                }
+              ]
+            },
+            "goldOps": 2,
+            "producedOps": 4,
+            "matched": 2,
+            "precision": 0.5,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t20",
+          "difficulty": "medium",
+          "message": "The reminder cohort data was wrong; reminders did lift returns by 20%.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "got": "update",
+              "hit": true
+            },
+            "space": {
+              "gold": "effects",
+              "hit": false
+            },
+            "kind": {
+              "gold": "evidence",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "evidence-reminder-cohort-returned-no-more-often"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 2,
+          "route": {
+            "message": "The reminder cohort data was wrong; reminders did lift returns by 20%.",
+            "intent": "update",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "update",
+                "confidence": 0.9410685206952063,
+                "probabilities": {
+                  "add": 0.01293462108695984,
+                  "update": 0.949487303453034,
+                  "remove": 0.002392693979812828,
+                  "link": 0.0033892165309758267,
+                  "question": 0.01603408773328084,
+                  "answer": 0.006587257930237326,
+                  "unclear": 0.009174819285699347
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message concern?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "effects",
+                "confidence": 0.6858033065785897,
+                "probabilities": {
+                  "basics": 0.00011606358515246453,
+                  "problem": 0.00015335274473372458,
+                  "hypothesis": 0.05172209173087377,
+                  "solution": 0.0006811239506084465,
+                  "current": 0.000379553679238095,
+                  "planned": 0.00014808024057910908,
+                  "effects": 0.7250778932562659,
+                  "none": 0.22172184081254842
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "evidence-reminder-cohort-returned-no-more-often",
+                "purpose-turn-volunteer-shore-walks-into-survey",
+                "problem-field-data-is-lost-when-phones-have-no",
+                "hypothesis-photo-id-suggestions-lift-verification",
+                "hypothesis-low-tide-reminders-double-repeat-visits"
+              ]
+            },
+            "status": "review",
+            "calls": 2,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 709,
+                "output_tokens": 2
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 2038,
+                "output_tokens": 229
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"evidence-reminder-cohort-returned-no-more-often\",\"fields\":{\"title\":\"Reminder cohort lifted returns by 20%\"}},{\"op\":\"unlink\",\"from\":\"evidence-reminder-cohort-returned-no-more-often\",\"rel\":\"refutes\",\"to\":\"hypothesis-low-tide-reminders-double-repeat-visits\"},{\"op\":\"link\",\"from\":\"evidence-reminder-cohort-returned-no-more-often\",\"rel\":\"supports\",\"to\":\"hypothesis-low-tide-reminders-double-repeat-visits\"}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "evidence-reminder-cohort-returned-no-more-often",
+                  "fields": {
+                    "title": "Reminder cohort lifted returns by 20%"
+                  }
+                },
+                {
+                  "op": "unlink",
+                  "from": "evidence-reminder-cohort-returned-no-more-often",
+                  "rel": "refutes",
+                  "to": "hypothesis-low-tide-reminders-double-repeat-visits"
+                },
+                {
+                  "op": "link",
+                  "from": "evidence-reminder-cohort-returned-no-more-often",
+                  "rel": "supports",
+                  "to": "hypothesis-low-tide-reminders-double-repeat-visits"
+                }
+              ]
+            },
+            "goldOps": 3,
+            "producedOps": 3,
+            "matched": 2,
+            "precision": 0.6666666666666666,
+            "recall": 0.6666666666666666,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t21",
+          "difficulty": "hard",
+          "message": "Can we make it faster?",
+          "levels": {
+            "intent": {
+              "gold": "question",
+              "hit": false
+            },
+            "space": {
+              "gold": null,
+              "hit": null
+            },
+            "kind": {
+              "gold": null,
+              "hit": null
+            },
+            "nodes": {
+              "gold": [],
+              "got": [],
+              "hit": null
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "Can we make it faster?",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "question",
+                "confidence": 0.7503158974271772,
+                "probabilities": {
+                  "add": 0.0070687889549170555,
+                  "update": 0.14459586838018307,
+                  "remove": 0.001053737228300984,
+                  "link": 0.0017976013255688549,
+                  "question": 0.7859850549375804,
+                  "answer": 0.05061740074039332,
+                  "unclear": 0.008881548433056167
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": []
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 218,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 365,
+                "output_tokens": 58
+              },
+              "raw": "{\"question\":\"What would you like to make faster? Please specify the item or part of the specification.\"}",
+              "provider": "openrouter",
+              "question": "What would you like to make faster? Please specify the item or part of the specification."
+            },
+            "goldOps": 0,
+            "producedOps": 0,
+            "matched": 0,
+            "precision": null,
+            "recall": null,
+            "question": true,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t22",
+          "difficulty": "medium",
+          "message": "Add an event when a survey is abandoned mid-transect so we can count it.",
+          "levels": {
+            "intent": {
+              "gold": "add",
+              "got": "add",
+              "hit": true
+            },
+            "space": {
+              "gold": "solution",
+              "hit": false
+            },
+            "kind": {
+              "gold": "event",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "usage-event-survey-abandoned-mid-transect",
+                "flow-walk-a-transect-and-log-each-quadrat"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "unknown",
+          "calls": 2,
+          "route": {
+            "message": "Add an event when a survey is abandoned mid-transect so we can count it.",
+            "intent": "add",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.9906288871837542,
+                "probabilities": {
+                  "add": 0.991967617586075,
+                  "update": 0.002699322273765122,
+                  "remove": 0.00025419030149569327,
+                  "link": 0.0015739347536581807,
+                  "question": 0.002778664722023098,
+                  "answer": 0.00009494295053353394,
+                  "unclear": 0.0006313274124493518
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message add to?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "effects",
+                "confidence": 0.4628834057438838,
+                "probabilities": {
+                  "basics": 0.00017504002147543493,
+                  "problem": 0.0002397611556431434,
+                  "hypothesis": 0.0006150753136776469,
+                  "solution": 0.46765220171551564,
+                  "current": 0.00020833333303467655,
+                  "planned": 0.0002769829914454477,
+                  "effects": 0.5300229800258983,
+                  "none": 0.0008096254433095926
+                },
+                "status": "unknown"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "usage-event-survey-abandoned-mid-transect",
+                "hypothesis-offline-first-capture-halves-abandoned",
+                "evidence-spring-pilot-abandoned-surveys-fell-from",
+                "purpose-turn-volunteer-shore-walks-into-survey",
+                "usecase-log-a-transect-survey-during-one-low"
+              ]
+            },
+            "status": "unknown",
+            "calls": 2,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 713,
+                "output_tokens": 2
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1878,
+                "output_tokens": 223
+              },
+              "raw": "{\"ops\":[]}",
+              "provider": "openrouter",
+              "ops": []
+            },
+            "goldOps": 1,
+            "producedOps": 0,
+            "matched": 0,
+            "precision": null,
+            "recall": 0,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "t23",
+          "difficulty": "medium",
+          "message": "The sync service should run on our own servers, not edge functions.",
+          "levels": {
+            "intent": {
+              "gold": "link",
+              "got": "update",
+              "hit": false
+            },
+            "space": {
+              "gold": "solution",
+              "got": "solution",
+              "hit": true
+            },
+            "kind": {
+              "gold": "infra",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "infra-edge-functions-and-photo-storage",
+                "module-sync-service"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 3,
+          "route": {
+            "message": "The sync service should run on our own servers, not edge functions.",
+            "intent": "update",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "update",
+                "confidence": 0.9046002645813846,
+                "probabilities": {
+                  "add": 0.02561070249061855,
+                  "update": 0.9182287982126154,
+                  "remove": 0.018731932942765973,
+                  "link": 0.021971104640618404,
+                  "question": 0.012091165723499423,
+                  "answer": 0.0011082358453528862,
+                  "unclear": 0.002258060144529199
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message concern?",
+                "choices": [
+                  "basics",
+                  "problem",
+                  "hypothesis",
+                  "solution",
+                  "current",
+                  "planned",
+                  "effects",
+                  "none"
+                ],
+                "answer": "solution",
+                "confidence": 0.9707922259010336,
+                "probabilities": {
+                  "basics": 0.0002324885354868477,
+                  "problem": 0.00029302351095837305,
+                  "hypothesis": 0.0013503237549721272,
+                  "solution": 0.9744431976634045,
+                  "current": 0.010230374290842054,
+                  "planned": 0.011289034481751361,
+                  "effects": 0.00011255198388119308,
+                  "none": 0.0020490057787036766
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "Which kind of item in Solution: capabilities, features, flows, screens, agents, AI functions, domain things, rules, tests, modules, interfaces, events, vocabulary and architecture does state.message concern?",
+                "choices": [
+                  "capability",
+                  "feature",
+                  "flow",
+                  "screen",
+                  "agent",
+                  "term",
+                  "system",
+                  "external",
+                  "module",
+                  "infra",
+                  "interface",
+                  "thing",
+                  "rule",
+                  "event",
+                  "protocol",
+                  "ai-function",
+                  "test",
+                  "none"
+                ],
+                "answer": "infra",
+                "confidence": 0.6164469017237691,
+                "probabilities": {
+                  "capability": 0.0005141520434348959,
+                  "feature": 0.0006342866264055505,
+                  "flow": 0.001212463058524344,
+                  "screen": 0.00029495534415820184,
+                  "agent": 0.000771353859806093,
+                  "term": 0.00026438415889614336,
+                  "system": 0.0045923390312125065,
+                  "external": 0.0008400825224731403,
+                  "module": 0.3319772914350999,
+                  "infra": 0.6377554071835597,
+                  "interface": 0.0004433421764152674,
+                  "thing": 0.00038697767155187606,
+                  "rule": 0.005420875276875351,
+                  "event": 0.00024394589504246427,
+                  "protocol": 0.0012706843060896911,
+                  "ai-function": 0.0002212067018456035,
+                  "test": 0.0002926281675257173,
+                  "none": 0.0128636245410837
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "space": "solution",
+              "nodes": [],
+              "related": [
+                "module-sync-service",
+                "infra-edge-functions-and-photo-storage",
+                "flow-sync-records-once-back-in-signal",
+                "module-verification-service",
+                "interface-records-sync-api"
+              ]
+            },
+            "status": "review",
+            "calls": 3,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 1373,
+                "output_tokens": 3
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1964,
+                "output_tokens": 306
+              },
+              "raw": "{\"ops\":[{\"op\":\"add\",\"kind\":\"infra\",\"parent\":\"$spec\",\"title\":\"Our own servers\"},{\"op\":\"unlink\",\"from\":\"infra-edge-functions-and-photo-storage\",\"rel\":\"hosts\",\"to\":\"module-sync-service\"},{\"op\":\"link\",\"from\":\"Our own servers\",\"rel\":\"hosts\",\"to\":\"module-sync-service\"}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "add",
+                  "kind": "infra",
+                  "parent": "$spec",
+                  "title": "Our own servers"
+                },
+                {
+                  "op": "unlink",
+                  "from": "infra-edge-functions-and-photo-storage",
+                  "rel": "hosts",
+                  "to": "module-sync-service"
+                },
+                {
+                  "op": "link",
+                  "from": "Our own servers",
+                  "rel": "hosts",
+                  "to": "module-sync-service"
+                }
+              ]
+            },
+            "goldOps": 2,
+            "producedOps": 3,
+            "matched": 1,
+            "precision": 0.3333333333333333,
+            "recall": 0.5,
+            "question": null,
+            "answer": null,
+            "problems": [
+              {
+                "level": "error",
+                "rule": "op.unknownNode",
+                "op": 2,
+                "subjects": [
+                  "Our own servers"
+                ],
+                "message": "Our own servers is not a node"
+              }
+            ]
+          }
+        },
+        {
+          "id": "t24",
+          "difficulty": "hard",
+          "message": "Actually the biologist told me the photo suggestions were wrong on 40% of juvenile crabs, so maybe we hide suggestions for juveniles.",
+          "levels": {
+            "intent": {
+              "gold": "question",
+              "hit": false
+            },
+            "space": {
+              "gold": "solution",
+              "hit": null
+            },
+            "kind": {
+              "gold": "feature",
+              "hit": null
+            },
+            "nodes": {
+              "gold": [
+                "feature-photo-id-suggestions",
+                "evidence-suggestions-were-wrong-on-40-of-juvenile",
+                "ai-function-suggest-species-from-a-field-photo"
+              ],
+              "got": [],
+              "hit": null
+            }
+          },
+          "routed": false,
+          "status": "unknown",
+          "calls": 1,
+          "route": {
+            "message": "Actually the biologist told me the photo suggestions were wrong on 40% of juvenile crabs, so maybe we hide suggestions for juveniles.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "update",
+                "confidence": 0.39478019330442937,
+                "probabilities": {
+                  "add": 0.07575899689393274,
+                  "update": 0.4812401656895109,
+                  "remove": 0.3944276434303574,
+                  "link": 0.018477545556537783,
+                  "question": 0.018736673390969485,
+                  "answer": 0.0018442836698970631,
+                  "unclear": 0.009514691368794664
+                },
+                "status": "unknown"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "evidence-suggestions-were-wrong-on-40-of-juvenile",
+                "hypothesis-photo-id-suggestions-lift-verification",
+                "feature-photo-id-suggestions",
+                "feedback-biologist-blurry-photos-slow-down",
+                "summary-an-offline-first-field-app-for-timed"
+              ]
+            },
+            "status": "unknown",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 241,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1722,
+                "output_tokens": 247
+              },
+              "raw": "{\"question\":\"The graph already records that suggestions were wrong on 40% of juvenile crabs. Do you want to change the Photo ID suggestions feature so it hides suggestions for juveniles?\"}",
+              "provider": "openrouter",
+              "question": "The graph already records that suggestions were wrong on 40% of juvenile crabs. Do you want to change the Photo ID suggestions feature so it hides suggestions for juveniles?"
+            },
+            "goldOps": 0,
+            "producedOps": 0,
+            "matched": 0,
+            "precision": null,
+            "recall": null,
+            "question": true,
+            "answer": null,
+            "problems": []
+          }
+        }
+      ],
+      "totals": {
+        "cases": 24,
+        "byLevel": {
+          "intent": {
+            "hit": 12,
+            "total": 24,
+            "rate": 0.5
+          },
+          "space": {
+            "hit": 10,
+            "total": 21,
+            "rate": 0.47619047619047616
+          },
+          "kind": {
+            "hit": 6,
+            "total": 21,
+            "rate": 0.2857142857142857
+          },
+          "nodes": {
+            "hit": 7,
+            "total": 21,
+            "rate": 0.3333333333333333
+          }
+        },
+        "byDifficulty": {
+          "easy": {
+            "hit": 4,
+            "total": 9,
+            "rate": 0.4444444444444444
+          },
+          "hard": {
+            "hit": 0,
+            "total": 5,
+            "rate": 0
+          },
+          "medium": {
+            "hit": 2,
+            "total": 10,
+            "rate": 0.2
+          }
+        },
+        "routed": {
+          "hit": 6,
+          "total": 24,
+          "rate": 0.25
+        },
+        "status": {
+          "confident": 5,
+          "review": 15,
+          "unknown": 4
+        },
+        "meanCalls": 2.4166666666666665,
+        "translation": {
+          "precision": 0.5714285714285714,
+          "recall": 0.64,
+          "question": {
+            "hit": 3,
+            "total": 3,
+            "rate": 1
+          },
+          "answer": {
+            "hit": 0,
+            "total": 1,
+            "rate": 0
+          },
+          "errors": 0,
+          "problems": {
+            "errors": 1,
+            "warnings": 0
+          }
+        }
+      }
+    },
+    {
+      "fixture": "contracts/assistant-valid.json",
+      "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+      "translateModel": "openai/gpt-6-luna",
+      "cases": [
+        {
+          "id": "w01",
+          "difficulty": "medium",
+          "message": "The assistant may also move blocks the user created, as long as it asks first.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "hit": false
+            },
+            "space": {
+              "gold": "node-thing-planning",
+              "hit": false
+            },
+            "kind": {
+              "gold": "authorizationRule",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "auth-routine"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "The assistant may also move blocks the user created, as long as it asks first.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.7882478393984849,
+                "probabilities": {
+                  "add": 0.8184981480558442,
+                  "update": 0.1446571519146581,
+                  "remove": 0.004058769734159952,
+                  "link": 0.02182341120409553,
+                  "question": 0.005727293720874948,
+                  "answer": 0.0011422341387016806,
+                  "unclear": 0.004092991231665389
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "assistant-environment",
+                "user",
+                "node-thing-interface",
+                "interface-1",
+                "operation-plan"
+              ]
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 229,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1226,
+                "output_tokens": 323
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"auth-routine\",\"fields\":{\"title\":\"Assistant- or user-created blocks with consent\",\"description\":\"The assistant may move routine assistant-owned blocks. It may also move blocks created by the user, but must ask first.\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "auth-routine",
+                  "fields": {
+                    "title": "Assistant- or user-created blocks with consent",
+                    "description": "The assistant may move routine assistant-owned blocks. It may also move blocks created by the user, but must ask first."
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "w02",
+          "difficulty": "easy",
+          "message": "Make the French listening session 45 minutes.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "got": "update",
+              "hit": true
+            },
+            "space": {
+              "gold": "goal-french",
+              "got": "goal-french",
+              "hit": true
+            },
+            "kind": {
+              "gold": "calendarBlock",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "block-french-tuesday"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "unknown",
+          "calls": 3,
+          "route": {
+            "message": "Make the French listening session 45 minutes.",
+            "intent": "update",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "update",
+                "confidence": 0.990108454313998,
+                "probabilities": {
+                  "add": 0.003958892955968551,
+                  "update": 0.9915215322691412,
+                  "remove": 0.0002519734555464693,
+                  "link": 0.0005408113355762972,
+                  "question": 0.0032904240994588896,
+                  "answer": 0.00009134145502800885,
+                  "unclear": 0.0003450244292806446
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message concern?",
+                "choices": [
+                  "assistant-environment",
+                  "user",
+                  "outcome-1",
+                  "node-thing-interface",
+                  "node-thing-planning",
+                  "node-thing-calendar",
+                  "node-thing-progress",
+                  "goal-french",
+                  "assistant-world",
+                  "none"
+                ],
+                "answer": "goal-french",
+                "confidence": 0.9623669155645609,
+                "probabilities": {
+                  "assistant-environment": 0.0001521280179230079,
+                  "user": 0.00040854970622279386,
+                  "outcome-1": 0.0009411364650296063,
+                  "node-thing-interface": 0.0003313620228793701,
+                  "node-thing-planning": 0.003512588702191243,
+                  "node-thing-calendar": 0.021896514351730487,
+                  "node-thing-progress": 0.00019671664060139728,
+                  "goal-french": 0.9661302240081048,
+                  "assistant-world": 0.004973277879739847,
+                  "none": 0.0014575022055774475
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "Which kind of item in Build a sustainable French practice (goal) does state.message concern?",
+                "choices": [
+                  "goal",
+                  "task",
+                  "calendarBlock",
+                  "none"
+                ],
+                "answer": "task",
+                "confidence": 0.3700368927917448,
+                "probabilities": {
+                  "goal": 0.0008113611690599519,
+                  "task": 0.5275276695938086,
+                  "calendarBlock": 0.4555264254007903,
+                  "none": 0.016134543836341036
+                },
+                "status": "unknown"
+              }
+            ],
+            "target": {
+              "space": "goal-french",
+              "nodes": [],
+              "related": [
+                "task-french-listening",
+                "block-french-tuesday",
+                "goal-french"
+              ]
+            },
+            "status": "unknown",
+            "calls": 3,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 790,
+                "output_tokens": 3
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 800,
+                "output_tokens": 68
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"block-french-tuesday\",\"fields\":{\"durationMinutes\":\"45\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "block-french-tuesday",
+                  "fields": {
+                    "durationMinutes": "45"
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": [
+              {
+                "level": "warning",
+                "rule": "op.unknownField",
+                "op": 0,
+                "subjects": [
+                  "block-french-tuesday"
+                ],
+                "message": "calendarBlock does not declare field durationMinutes"
+              }
+            ]
+          }
+        },
+        {
+          "id": "w03",
+          "difficulty": "medium",
+          "message": "I also want to track how often I actually show up to the planned blocks.",
+          "levels": {
+            "intent": {
+              "gold": "add",
+              "got": "add",
+              "hit": true
+            },
+            "space": {
+              "gold": "outcome-1",
+              "got": "outcome-1",
+              "hit": true
+            },
+            "kind": {
+              "gold": "indicator",
+              "got": "indicator",
+              "hit": true
+            },
+            "nodes": {
+              "gold": [
+                "outcome-1",
+                "indicator-1"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 4,
+          "route": {
+            "message": "I also want to track how often I actually show up to the planned blocks.",
+            "intent": "add",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.9696972933676831,
+                "probabilities": {
+                  "add": 0.9740262514580141,
+                  "update": 0.008761126964055638,
+                  "remove": 0.0005590885663028556,
+                  "link": 0.001751891161530421,
+                  "question": 0.011140844598271549,
+                  "answer": 0.0014297591711659007,
+                  "unclear": 0.002331038080659684
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message add to?",
+                "choices": [
+                  "assistant-environment",
+                  "user",
+                  "outcome-1",
+                  "node-thing-interface",
+                  "node-thing-planning",
+                  "node-thing-calendar",
+                  "node-thing-progress",
+                  "goal-french",
+                  "assistant-world",
+                  "none"
+                ],
+                "answer": "outcome-1",
+                "confidence": 0.9418787581605393,
+                "probabilities": {
+                  "assistant-environment": 0.00044740284054803293,
+                  "user": 0.0005579260458211838,
+                  "outcome-1": 0.9476908823444854,
+                  "node-thing-interface": 0.001526043756400992,
+                  "node-thing-planning": 0.011918318589220451,
+                  "node-thing-calendar": 0.0006780754323995155,
+                  "node-thing-progress": 0.032247785233492574,
+                  "goal-french": 0.0007835161673216451,
+                  "assistant-world": 0.0015381446802751,
+                  "none": 0.002611904910035215
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "What kind of item does state.message want to add to Goals reliably become reviewed calendar work (outcome)?",
+                "choices": [
+                  "outcome",
+                  "indicator",
+                  "evaluationPlan",
+                  "none"
+                ],
+                "answer": "indicator",
+                "confidence": 0.9856862332458394,
+                "probabilities": {
+                  "outcome": 0.0011653579583583912,
+                  "indicator": 0.9892646749343795,
+                  "evaluationPlan": 0.005953159026520768,
+                  "none": 0.003616808080741293
+                },
+                "status": "confident"
+              },
+              {
+                "level": "node",
+                "id": "route.node",
+                "question": "state.message adds a new indicator. Which existing item should the new indicator connect to?",
+                "choices": [
+                  "indicator-1",
+                  "evaluation-1",
+                  "outcome-1",
+                  "none"
+                ],
+                "answer": "outcome-1",
+                "confidence": 0.7900310368535051,
+                "probabilities": {
+                  "indicator-1": 0.04444053321306476,
+                  "evaluation-1": 0.06567039513479817,
+                  "outcome-1": 0.8425232776401288,
+                  "none": 0.04736579401200829
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "space": "outcome-1",
+              "kind": "indicator",
+              "nodes": [],
+              "related": [
+                "indicator-1"
+              ]
+            },
+            "status": "review",
+            "calls": 4,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 1012,
+                "output_tokens": 4
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 750,
+                "output_tokens": 129
+              },
+              "raw": "{\"ops\":[{\"op\":\"add\",\"kind\":\"indicator\",\"parent\":\"outcome-1\",\"title\":\"Planned block attendance rate\",\"description\":\"How often I show up to planned calendar blocks.\"}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "add",
+                  "kind": "indicator",
+                  "parent": "outcome-1",
+                  "title": "Planned block attendance rate",
+                  "description": "How often I show up to planned calendar blocks."
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "w04",
+          "difficulty": "easy",
+          "message": "Add a goal to run a 10k in the spring.",
+          "levels": {
+            "intent": {
+              "gold": "add",
+              "got": "add",
+              "hit": true
+            },
+            "space": {
+              "gold": "assistant-world",
+              "hit": false
+            },
+            "kind": {
+              "gold": "goal",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [],
+              "got": [],
+              "hit": true
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 2,
+          "route": {
+            "message": "Add a goal to run a 10k in the spring.",
+            "intent": "add",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.9857404027850033,
+                "probabilities": {
+                  "add": 0.9877774881014315,
+                  "update": 0.002477995701184194,
+                  "remove": 0.0003916416086072486,
+                  "link": 0.001981767052149787,
+                  "question": 0.0036203954959695126,
+                  "answer": 0.0005368873464913567,
+                  "unclear": 0.0032138246941661873
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message add to?",
+                "choices": [
+                  "assistant-environment",
+                  "user",
+                  "outcome-1",
+                  "node-thing-interface",
+                  "node-thing-planning",
+                  "node-thing-calendar",
+                  "node-thing-progress",
+                  "goal-french",
+                  "assistant-world",
+                  "none"
+                ],
+                "answer": "node-thing-planning",
+                "confidence": 0.5329479734280519,
+                "probabilities": {
+                  "assistant-environment": 0.007301713800112118,
+                  "user": 0.027418781951644478,
+                  "outcome-1": 0.09727089737415216,
+                  "node-thing-interface": 0.0300420730399232,
+                  "node-thing-planning": 0.5796531760852467,
+                  "node-thing-calendar": 0.011855921062299567,
+                  "node-thing-progress": 0.04659050591187074,
+                  "goal-french": 0.0019239957423287217,
+                  "assistant-world": 0.1371323576956484,
+                  "none": 0.06081057733677393
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "outcome-1"
+              ]
+            },
+            "status": "review",
+            "calls": 2,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 609,
+                "output_tokens": 2
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 849,
+                "output_tokens": 399
+              },
+              "raw": "{\"ops\":[{\"op\":\"add\",\"kind\":\"outcome\",\"parent\":\"assistant-world\",\"title\":\"Run a 10k in the spring\",\"links\":[{\"rel\":\"hasOutcome\",\"from\":\"assistant-world\"}]}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "add",
+                  "kind": "outcome",
+                  "parent": "assistant-world",
+                  "title": "Run a 10k in the spring",
+                  "links": [
+                    {
+                      "rel": "hasOutcome",
+                      "from": "assistant-world"
+                    }
+                  ]
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 0,
+            "precision": 0,
+            "recall": 0,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "w05",
+          "difficulty": "medium",
+          "message": "Connect the calendar for real; stop using the disconnected model.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "hit": false
+            },
+            "space": {
+              "gold": "node-thing-calendar",
+              "hit": false
+            },
+            "kind": {
+              "gold": "adapter",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "calendar-1",
+                "block-french-tuesday"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "Connect the calendar for real; stop using the disconnected model.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "link",
+                "confidence": 0.8774996852524207,
+                "probabilities": {
+                  "add": 0.00838373221474726,
+                  "update": 0.012904907371428522,
+                  "remove": 0.03968518030793274,
+                  "link": 0.8949997302163607,
+                  "question": 0.03645108089298554,
+                  "answer": 0.0008959839680118114,
+                  "unclear": 0.006679385028533552
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "calendar-1",
+                "assistant-environment",
+                "outcome-1",
+                "node-thing-calendar",
+                "operation-plan"
+              ]
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 224,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1601,
+                "output_tokens": 217
+              },
+              "raw": "{\"question\":\"Which calendar provider should be connected (for example, Google Calendar or Outlook)? The calendar model currently has no provider selected.\"}",
+              "provider": "openrouter",
+              "question": "Which calendar provider should be connected (for example, Google Calendar or Outlook)? The calendar model currently has no provider selected."
+            },
+            "goldOps": 2,
+            "producedOps": 0,
+            "matched": 0,
+            "precision": null,
+            "recall": 0,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "w06",
+          "difficulty": "easy",
+          "message": "Drop the French goal, I'm not doing it this year.",
+          "levels": {
+            "intent": {
+              "gold": "remove",
+              "got": "remove",
+              "hit": true
+            },
+            "space": {
+              "gold": "goal-french",
+              "got": "goal-french",
+              "hit": true
+            },
+            "kind": {
+              "gold": "goal",
+              "got": "goal",
+              "hit": true
+            },
+            "nodes": {
+              "gold": [
+                "goal-french"
+              ],
+              "got": [
+                "goal-french"
+              ],
+              "hit": true
+            }
+          },
+          "routed": true,
+          "status": "confident",
+          "calls": 4,
+          "route": {
+            "message": "Drop the French goal, I'm not doing it this year.",
+            "intent": "remove",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "remove",
+                "confidence": 0.9943493250532858,
+                "probabilities": {
+                  "add": 0.0003402537452471903,
+                  "update": 0.0015224412370315348,
+                  "remove": 0.9951565643313879,
+                  "link": 0.0003121278043948794,
+                  "question": 0.0019938541676438647,
+                  "answer": 0.00013975482952343824,
+                  "unclear": 0.0005350038847712094
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message concern?",
+                "choices": [
+                  "assistant-environment",
+                  "user",
+                  "outcome-1",
+                  "node-thing-interface",
+                  "node-thing-planning",
+                  "node-thing-calendar",
+                  "node-thing-progress",
+                  "goal-french",
+                  "assistant-world",
+                  "none"
+                ],
+                "answer": "goal-french",
+                "confidence": 0.9673742739842726,
+                "probabilities": {
+                  "assistant-environment": 0.00013775392014568307,
+                  "user": 0.000599903347248463,
+                  "outcome-1": 0.0008776746996967213,
+                  "node-thing-interface": 0.0006299873098875297,
+                  "node-thing-planning": 0.002353777500382414,
+                  "node-thing-calendar": 0.00012467207821981942,
+                  "node-thing-progress": 0.0004992505366055676,
+                  "goal-french": 0.9706368465858453,
+                  "assistant-world": 0.023214966234844765,
+                  "none": 0.0009251677871240189
+                },
+                "status": "confident"
+              },
+              {
+                "level": "kind",
+                "id": "route.kind",
+                "question": "Which kind of item in Build a sustainable French practice (goal) does state.message concern?",
+                "choices": [
+                  "goal",
+                  "task",
+                  "calendarBlock",
+                  "none"
+                ],
+                "answer": "goal",
+                "confidence": 0.9925524077897586,
+                "probabilities": {
+                  "goal": 0.9944143058423189,
+                  "task": 0.0007884837851751675,
+                  "calendarBlock": 0.00021443269756012064,
+                  "none": 0.004582777674945857
+                },
+                "status": "confident"
+              },
+              {
+                "level": "node",
+                "id": "route.node",
+                "question": "Which existing goal does state.message concern?",
+                "choices": [
+                  "goal-french",
+                  "none",
+                  "new"
+                ],
+                "answer": "goal-french",
+                "confidence": 0.9974538974799654,
+                "probabilities": {
+                  "goal-french": 0.998302598319977,
+                  "none": 0.0013828564616402714,
+                  "new": 0.0003145452183827558
+                },
+                "status": "confident"
+              }
+            ],
+            "target": {
+              "space": "goal-french",
+              "kind": "goal",
+              "nodes": [
+                "goal-french"
+              ],
+              "related": []
+            },
+            "status": "confident",
+            "calls": 4,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 974,
+                "output_tokens": 4
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 563,
+                "output_tokens": 31
+              },
+              "raw": "{\"ops\":[{\"op\":\"remove\",\"id\":\"goal-french\"}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "remove",
+                  "id": "goal-french"
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "w07",
+          "difficulty": "easy",
+          "message": "Review progress weekly on Sunday evenings.",
+          "levels": {
+            "intent": {
+              "gold": "update",
+              "hit": false
+            },
+            "space": {
+              "gold": "outcome-1",
+              "hit": false
+            },
+            "kind": {
+              "gold": "evaluationPlan",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "evaluation-1"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "Review progress weekly on Sunday evenings.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "add",
+                "confidence": 0.6248913323424513,
+                "probabilities": {
+                  "add": 0.6784782848649582,
+                  "update": 0.13899150580372252,
+                  "remove": 0.006401283927783961,
+                  "link": 0.02020736444681449,
+                  "question": 0.07822016303123486,
+                  "answer": 0.03624427189811936,
+                  "unclear": 0.04145712602736649
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "evaluation-1",
+                "node-thing-progress",
+                "progress-1"
+              ]
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 219,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 992,
+                "output_tokens": 178
+              },
+              "raw": "{\"ops\":[{\"op\":\"update\",\"id\":\"evaluation-1\",\"fields\":{\"description\":\"Review progress weekly on Sunday evenings.\"}}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "update",
+                  "id": "evaluation-1",
+                  "fields": {
+                    "description": "Review progress weekly on Sunday evenings."
+                  }
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "w08",
+          "difficulty": "hard",
+          "message": "Make it smarter.",
+          "levels": {
+            "intent": {
+              "gold": "question",
+              "hit": false
+            },
+            "space": {
+              "gold": null,
+              "hit": null
+            },
+            "kind": {
+              "gold": null,
+              "hit": null
+            },
+            "nodes": {
+              "gold": [],
+              "got": [],
+              "hit": null
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "Make it smarter.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "question",
+                "confidence": 0.7601983399415724,
+                "probabilities": {
+                  "add": 0.07809600399456354,
+                  "update": 0.06697536372038311,
+                  "remove": 0.0011702519376104196,
+                  "link": 0.001768401643930654,
+                  "question": 0.7944557199499191,
+                  "answer": 0.0019766269666574086,
+                  "unclear": 0.055557631786935596
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": []
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 216,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 362,
+                "output_tokens": 49
+              },
+              "raw": "{\"question\":\"What should I make smarter? Please specify the item and what you want improved.\"}",
+              "provider": "openrouter",
+              "question": "What should I make smarter? Please specify the item and what you want improved."
+            },
+            "goldOps": 0,
+            "producedOps": 0,
+            "matched": 0,
+            "precision": null,
+            "recall": null,
+            "question": true,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "w09",
+          "difficulty": "medium",
+          "message": "The planning service should not depend on the progress store; it should work from the calendar alone.",
+          "levels": {
+            "intent": {
+              "gold": "link",
+              "hit": false
+            },
+            "space": {
+              "gold": "node-thing-planning",
+              "hit": false
+            },
+            "kind": {
+              "gold": "service",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "planning-1",
+                "progress-1"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 1,
+          "route": {
+            "message": "The planning service should not depend on the progress store; it should work from the calendar alone.",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "link",
+                "confidence": 0.788608510405869,
+                "probabilities": {
+                  "add": 0.004373119105155232,
+                  "update": 0.032820954767674326,
+                  "remove": 0.14044539145416537,
+                  "link": 0.8188072946336021,
+                  "question": 0.0016299020356296088,
+                  "answer": 0.0005430797294504956,
+                  "unclear": 0.0013802582743230375
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "outcome-1",
+                "evaluation-1",
+                "node-thing-planning",
+                "node-thing-progress",
+                "planning-1"
+              ]
+            },
+            "status": "review",
+            "calls": 1,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 231,
+                "output_tokens": 1
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1421,
+                "output_tokens": 70
+              },
+              "raw": "{\"ops\":[{\"op\":\"unlink\",\"from\":\"planning-1\",\"rel\":\"dependsOn\",\"to\":\"progress-1\"}]}",
+              "provider": "openrouter",
+              "ops": [
+                {
+                  "op": "unlink",
+                  "from": "planning-1",
+                  "rel": "dependsOn",
+                  "to": "progress-1"
+                }
+              ]
+            },
+            "goldOps": 1,
+            "producedOps": 1,
+            "matched": 1,
+            "precision": 1,
+            "recall": 1,
+            "question": null,
+            "answer": null,
+            "problems": []
+          }
+        },
+        {
+          "id": "w10",
+          "difficulty": "medium",
+          "message": "What does the assistant check before touching my calendar?",
+          "levels": {
+            "intent": {
+              "gold": "answer",
+              "got": "answer",
+              "hit": true
+            },
+            "space": {
+              "gold": "node-thing-calendar",
+              "hit": false
+            },
+            "kind": {
+              "gold": "acceptanceCriterion",
+              "hit": false
+            },
+            "nodes": {
+              "gold": [
+                "criterion-1",
+                "assay-1",
+                "auth-routine"
+              ],
+              "got": [],
+              "hit": false
+            }
+          },
+          "routed": false,
+          "status": "review",
+          "calls": 2,
+          "route": {
+            "message": "What does the assistant check before touching my calendar?",
+            "intent": "answer",
+            "path": [
+              {
+                "level": "intent",
+                "id": "route.intent",
+                "question": "A user sent state.message about a product or system specification. What do they want done to the specification?",
+                "choices": [
+                  "add",
+                  "update",
+                  "remove",
+                  "link",
+                  "question",
+                  "answer",
+                  "unclear"
+                ],
+                "answer": "answer",
+                "confidence": 0.9865988463810095,
+                "probabilities": {
+                  "add": 0.002218125503577499,
+                  "update": 0.002541090924002983,
+                  "remove": 0.00031188568470570004,
+                  "link": 0.0006234175205350417,
+                  "question": 0.005465585270137631,
+                  "answer": 0.9885132968980083,
+                  "unclear": 0.00032659819903289725
+                },
+                "status": "confident"
+              },
+              {
+                "level": "space",
+                "id": "route.space",
+                "question": "Which area of the specification does state.message concern?",
+                "choices": [
+                  "assistant-environment",
+                  "user",
+                  "outcome-1",
+                  "node-thing-interface",
+                  "node-thing-planning",
+                  "node-thing-calendar",
+                  "node-thing-progress",
+                  "goal-french",
+                  "assistant-world",
+                  "none"
+                ],
+                "answer": "node-thing-calendar",
+                "confidence": 0.7707518177056862,
+                "probabilities": {
+                  "assistant-environment": 0.007253048422085831,
+                  "user": 0.009121137836780074,
+                  "outcome-1": 0.060265916319823004,
+                  "node-thing-interface": 0.030601602012196107,
+                  "node-thing-planning": 0.05415727117493754,
+                  "node-thing-calendar": 0.7936766359351176,
+                  "node-thing-progress": 0.009974292799956114,
+                  "goal-french": 0.0005159193774137589,
+                  "assistant-world": 0.02957588868076382,
+                  "none": 0.004858287440926218
+                },
+                "status": "review"
+              }
+            ],
+            "target": {
+              "nodes": [],
+              "related": [
+                "assistant-environment",
+                "outcome-1",
+                "node-thing-interface",
+                "node-thing-calendar",
+                "interface-1"
+              ]
+            },
+            "status": "review",
+            "calls": 2,
+            "provenance": {
+              "provider": "openrouter",
+              "model": "perplexity/pplx-decider-v1.1-27b-20261006",
+              "usage": {
+                "input_tokens": 601,
+                "output_tokens": 2
+              },
+              "thresholds": {
+                "confident": 0.9,
+                "review": 0.5
+              }
+            }
+          },
+          "translation": {
+            "output": {
+              "model": "openai/gpt-6-luna",
+              "usage": {
+                "input_tokens": 1354,
+                "output_tokens": 73
+              },
+              "raw": "{\"answer\":\"The specification does not say what the assistant checks before accessing your calendar. It only says the external calendar is currently disconnected.\"}",
+              "provider": "openrouter",
+              "answer": "The specification does not say what the assistant checks before accessing your calendar. It only says the external calendar is currently disconnected."
+            },
+            "goldOps": 0,
+            "producedOps": 0,
+            "matched": 0,
+            "precision": null,
+            "recall": null,
+            "question": null,
+            "answer": true,
+            "problems": []
+          }
+        }
+      ],
+      "totals": {
+        "cases": 10,
+        "byLevel": {
+          "intent": {
+            "hit": 5,
+            "total": 10,
+            "rate": 0.5
+          },
+          "space": {
+            "hit": 3,
+            "total": 9,
+            "rate": 0.3333333333333333
+          },
+          "kind": {
+            "hit": 2,
+            "total": 9,
+            "rate": 0.2222222222222222
+          },
+          "nodes": {
+            "hit": 2,
+            "total": 9,
+            "rate": 0.2222222222222222
+          }
+        },
+        "byDifficulty": {
+          "easy": {
+            "hit": 1,
+            "total": 4,
+            "rate": 0.25
+          },
+          "hard": {
+            "hit": 0,
+            "total": 1,
+            "rate": 0
+          },
+          "medium": {
+            "hit": 0,
+            "total": 5,
+            "rate": 0
+          }
+        },
+        "routed": {
+          "hit": 1,
+          "total": 10,
+          "rate": 0.1
+        },
+        "status": {
+          "confident": 1,
+          "review": 8,
+          "unknown": 1
+        },
+        "meanCalls": 2,
+        "translation": {
+          "precision": 0.8571428571428571,
+          "recall": 0.6666666666666666,
+          "question": {
+            "hit": 1,
+            "total": 1,
+            "rate": 1
+          },
+          "answer": {
+            "hit": 1,
+            "total": 1,
+            "rate": 1
+          },
+          "errors": 0,
+          "problems": {
+            "errors": 0,
+            "warnings": 1
+          }
+        }
+      }
+    }
+  ]
+}

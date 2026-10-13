@@ -1,0 +1,24 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#dangling-relation-target",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "397a48992f206f9a5083d8a79814d00d5108a451c5611023294aae7271a945e3",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.references-resolve",
+      "severity": "blocker",
+      "message": "relation rel-plan-progress has missing target ghost",
+      "objectIds": [
+        "ghost"
+      ],
+      "factIds": [
+        "rel-plan-progress"
+      ],
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:rel-plan-progress"
+      }
+    }
+  ]
+}

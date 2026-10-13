@@ -1,0 +1,22 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#thing-template-incompatible",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "6beeeef99e5c43103c01587c49795b054b9b0da6f29f187347d11e88dfe44e72",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.thing-template-compatible",
+      "severity": "blocker",
+      "message": "Thing Template managed-store@1 is incompatible with World Template assistant-world@1",
+      "objectIds": [
+        "thing-progress"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "thing-template:managed-store@1"
+      }
+    }
+  ]
+}

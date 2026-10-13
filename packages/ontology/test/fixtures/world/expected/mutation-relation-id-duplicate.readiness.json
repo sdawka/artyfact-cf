@@ -1,0 +1,20 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#relation-id-duplicate",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "df4258d346bf9ca0ebfe17add162602d338c2b115570ca207a6f3474db500b3c",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.ids-unique",
+      "severity": "blocker",
+      "message": "relation IDs must be unique",
+      "objectIds": [],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "revision:assistant-valid"
+      }
+    }
+  ]
+}

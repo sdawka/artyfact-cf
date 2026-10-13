@@ -1,0 +1,20 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#shape-kind-duplicate",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "8705f2b748f3fa11ed4a0a2dd8ff5685049712f83f2c5101eb9126adc5618fe9",
+  "templateHash": "120a0a6fb4e45a26f86d3bca3195b684b28211ac9e74cf86a3bb69f88b3c8c35",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.shape-ids-unique",
+      "severity": "blocker",
+      "message": "shape IDs and runtime kinds must be unique",
+      "objectIds": [],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "template:assistant-world@1"
+      }
+    }
+  ]
+}

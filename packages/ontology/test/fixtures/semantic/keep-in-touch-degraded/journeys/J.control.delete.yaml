@@ -1,0 +1,87 @@
+id: J.control.delete
+name: Delete my account and data
+actorGoal: Remove myself and the data I own from the live system
+features:
+- GD.contacts
+- GD.connect
+requirements:
+- S.webapp.operations
+- S.webapp.concurrency
+start: z1
+steps:
+- id: z1
+  actor: user
+  action: Open Settings
+  kind: action
+  screen: screen.settings
+  next:
+  - to: z2
+  requirementRefs:
+  - S.webapp.screens
+- id: z2
+  actor: user
+  action: Choose Delete in DeletionControls, confirm and reauthenticate
+  kind: branch
+  screen: screen.settings
+  next:
+  - to: z3
+    when: confirmed
+  - to: e2
+    when: cancel
+  requirementRefs:
+  - S.webapp.operations
+- id: z3
+  actor: system
+  action: Owner reauthentication checked
+  kind: branch
+  screen: screen.settings
+  next:
+  - to: z4
+    when: reauthenticated
+  - to: f1
+    when: reauthentication failed
+  requirementRefs:
+  - S.webapp.operations
+- id: z4
+  actor: system
+  action: Access revoked immediately, sessions and jobs cancelled
+  kind: action
+  operation: operation.data.delete
+  next:
+  - to: z5
+  requirementRefs:
+  - S.webapp.operations
+  - S.webapp.concurrency
+- id: z5
+  actor: system
+  action: Owned live data purged within seven days; backup expiry follows the pinned retention policy
+  kind: wait
+  next:
+  - to: e1
+  requirementRefs:
+  - S.webapp.operations
+- id: f1
+  actor: system
+  action: Deletion refused; account unchanged
+  kind: failure
+  screen: screen.settings
+  next:
+  - to: e2
+    when: stop
+  requirementRefs:
+  - S.webapp.operations
+- id: e1
+  actor: system
+  action: Owner's live data purged
+  kind: end
+  next: []
+  requirementRefs:
+  - S.webapp.operations
+- id: e2
+  actor: user
+  action: Account unchanged
+  kind: end
+  screen: screen.settings
+  next: []
+  requirementRefs:
+  - S.webapp.operations

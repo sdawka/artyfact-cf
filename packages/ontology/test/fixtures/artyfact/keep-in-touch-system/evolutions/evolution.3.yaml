@@ -1,0 +1,24 @@
+id: evolution.3
+title: Consented pair connections
+intent: Add invite state machine, unique pairs, disconnect and block; concurrent redemption and revocation
+  fixtures
+state: proposed
+kind: implementation
+affectedNodes:
+- entity.ConnectionInvite
+- entity.Connection
+- entity.Block
+- operation.invite.create
+- operation.invite.accept
+- operation.connection.revoke
+- policy.pairConsent
+- policy.revocation
+- screen.invitation
+- section.domain
+acceptanceCriteria:
+- C.webapp.connection.consent
+- C.webapp.outgoing.single
+- C.webapp.revocation.current
+dependsOn:
+- evolution.2
+risk: high

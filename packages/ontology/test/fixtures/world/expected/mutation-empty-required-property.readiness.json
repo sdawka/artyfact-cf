@@ -1,0 +1,8 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#empty-required-property",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "3d43a19351829d24dcf4273b7f747afc0e0eca485488a21db0dae83f3b06c223",
+  "templateHash": "624a9a1a9b85717eaa9d9ff5cc976fa2bfae85ad273b095b000ea918410dec88",
+  "status": "ready",
+  "findings": []
+}

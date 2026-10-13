@@ -1,0 +1,38 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#required-relation-wrong-target",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "346fe2cc519ce3f8b32e77e544f88d5d98343311cadb5f7670fbcabd26fd7fdf",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "assistant.outcome-requires-indicator",
+      "severity": "blocker",
+      "message": "outcome-1 requires a measuredBy relation to indicator",
+      "objectIds": [
+        "outcome-1"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "template:assistant-world@1"
+      }
+    },
+    {
+      "ruleId": "core.relation-endpoints-legal",
+      "severity": "blocker",
+      "message": "relation measuredBy cannot connect outcome to evaluationPlan",
+      "objectIds": [
+        "outcome-1",
+        "evaluation-1"
+      ],
+      "factIds": [
+        "rel-indicator"
+      ],
+      "source": {
+        "kind": "declared",
+        "reference": "fixture:rel-indicator"
+      }
+    }
+  ]
+}

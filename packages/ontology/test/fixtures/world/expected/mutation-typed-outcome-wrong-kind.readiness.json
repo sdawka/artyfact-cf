@@ -1,0 +1,22 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-valid.json + mutations.json#typed-outcome-wrong-kind",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "c4177d43064a2aa88959612dd4848ae24c4767c7086d43352adfc15b423f5053",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "core.typed-references",
+      "severity": "blocker",
+      "message": "Purpose outcome requires outcome, but indicator-1 is indicator",
+      "objectIds": [
+        "indicator-1"
+      ],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "revision:assistant-valid"
+      }
+    }
+  ]
+}

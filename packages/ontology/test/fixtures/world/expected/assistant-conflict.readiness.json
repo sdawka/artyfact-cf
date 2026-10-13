@@ -1,0 +1,52 @@
+{
+  "fixture": "packages/contracts/fixtures/assistant-conflict.json",
+  "evaluatorVersion": "bropilot-readiness@1",
+  "snapshotHash": "4ef2f17a57d1ce16d93764b9b3acd978b6138c27edfae5ee7d740d984d424317",
+  "templateHash": "dc603010600c4cbb68d026780d08a47ab0d13c0ffb6822ede80b463eaf772a1e",
+  "status": "blocked",
+  "findings": [
+    {
+      "ruleId": "assistant.constraints-compatible",
+      "severity": "blocker",
+      "message": "constraints routine-auto and manual-only are incompatible",
+      "objectIds": [],
+      "factIds": [],
+      "source": {
+        "kind": "declared",
+        "reference": "template:assistant-world@1"
+      }
+    },
+    {
+      "ruleId": "assistant.no-dependency-cycles",
+      "severity": "blocker",
+      "message": "forbidden dependency cycle includes calendar-1",
+      "objectIds": [
+        "calendar-1"
+      ],
+      "factIds": [
+        "rel-calendar-plan",
+        "rel-plan-calendar"
+      ],
+      "source": {
+        "kind": "derived",
+        "reference": "compiled-rule:assistant.no-dependency-cycles"
+      }
+    },
+    {
+      "ruleId": "assistant.no-dependency-cycles",
+      "severity": "blocker",
+      "message": "forbidden dependency cycle includes planning-1",
+      "objectIds": [
+        "planning-1"
+      ],
+      "factIds": [
+        "rel-plan-calendar",
+        "rel-calendar-plan"
+      ],
+      "source": {
+        "kind": "derived",
+        "reference": "compiled-rule:assistant.no-dependency-cycles"
+      }
+    }
+  ]
+}
