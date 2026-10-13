@@ -65,3 +65,7 @@ Source Artifact means authored code/config/assets/manifests, excluding dependenc
 See [the delivery roadmap](../grreat/roadmap.md) for implementation status and acceptance.
 
 The self-Genome (`genome/`, `system.artyfact`) has ten Things: platform, ci, site, model, ontology, semantic, rules, templates, cli and effects. Edits start from an intent message: the engine routes and translates it into ops, `validateOps` checks them, and an accepted Proposal becomes a Genome commit through the normal candidate path (`docs/design/ontology.md`).
+
+## A.7 UI nodes in the self-Genome
+
+The platform describes its own UI under `genome/thing.platform/grouping.platform.ui/`. A grouping is an undrawn kind, so its screens land in the Thing's Experience band. There is one `screen.<view>` per routed view, with `route` and page `states`. Tabs, panels and signifier chip strips are `component.<screen>.<code-id>` under their screen, with the chip vocabulary as `states` ("glyph word (tone)"). Each action is an `affordance.<screen>.<verb-object>` with `actor`, `trigger`, `preconditions`, `effects` and `failure`; the endpoint it calls is named in its description, because `invokes` cannot target an endpoint in the current Thing template. The shell is a `component.shell` tree. Ids are code identities and never change on a rename; `name` and `route` do. Journey steps link to their screen with `stepScreen`, and a screen links to its feature with `serves`.

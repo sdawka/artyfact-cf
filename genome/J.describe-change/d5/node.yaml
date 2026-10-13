@@ -3,5 +3,9 @@ kind: step
 fields:
   step: d5
   actor: system
-  action: Commits the node updates and opens a candidate with its gates and an Evolution
+  action: Commits the node updates and opens a candidate with its gates and an
+    Evolution
   kind: end
+links:
+  - rel: stepScreen
+    to: screen.work

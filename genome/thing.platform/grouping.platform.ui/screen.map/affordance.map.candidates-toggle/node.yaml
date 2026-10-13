@@ -1,0 +1,12 @@
+id: affordance.map.candidates-toggle
+kind: affordance
+fields:
+  name: Candidates
+  description: Shows or hides candidate overlays and halos.
+  actor: user
+  trigger: click
+  preconditions:
+    - Candidates exist
+  effects:
+    - Candidate halos appear or go away
+  failure: []

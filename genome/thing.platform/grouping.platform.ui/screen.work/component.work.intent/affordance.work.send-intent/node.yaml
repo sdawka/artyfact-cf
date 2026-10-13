@@ -1,0 +1,13 @@
+id: affordance.work.send-intent
+kind: affordance
+fields:
+  name: Send
+  description: Sends the change text, optionally anchored on a node. Calls POST /api/systems/:id/intents.
+  actor: user
+  trigger: click
+  preconditions:
+    - The text is not empty
+  effects:
+    - A proposal or a question appears
+  failure:
+    - "Error: the message is shown and the text is kept"

@@ -9,3 +9,4 @@ fields:
     - to: c3
 links:
   - { rel: stepOperation, to: endpoint.revisions }
+  - { rel: stepScreen, to: screen.compare }

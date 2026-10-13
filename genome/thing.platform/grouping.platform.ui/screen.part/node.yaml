@@ -1,0 +1,15 @@
+id: screen.part
+kind: screen
+fields:
+  name: Part
+  description: "A public Part's page: its description, Genome nodes and source files. Actionable targets wear corner brackets and the page has one primary button; a page without a System in its URL reads the Part only, and a missing Part shows a not-found state with a link home."
+  route: /parts/:partId/:version
+  states:
+    - loading
+    - loaded
+    - empty
+    - error
+    - not found
+links:
+  - rel: serves
+    to: feature.parts

@@ -1,0 +1,12 @@
+id: component.work.candidate-review
+kind: component
+fields:
+  name: Candidate review
+  description: The same review tabs as Review, opened inline on a realization.
+  states:
+    - loading
+    - loaded
+    - error
+links:
+  - rel: references
+    to: component.review.queue

@@ -1,0 +1,9 @@
+id: component.work.packet
+kind: component
+fields:
+  name: Task packet
+  description: "The packet an agent reads: affected nodes, permitted paths, acceptance criteria and the start command."
+  states:
+    - loading
+    - loaded
+    - error

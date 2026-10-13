@@ -1,0 +1,10 @@
+id: component.journeys.signifiers
+kind: component
+fields:
+  name: Step signifiers
+  description: Each step shows its actor and whether it is an action or a reaction; unresolved steps are marked.
+  states:
+    - user action (subtle)
+    - system reaction (subtle)
+    - external (subtle)
+    - unresolved (attention)

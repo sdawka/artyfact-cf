@@ -1,0 +1,12 @@
+id: affordance.thing.switch-thing
+kind: affordance
+fields:
+  name: Switch Thing
+  description: The Thing switcher moves to another Thing.
+  actor: user
+  trigger: click
+  preconditions:
+    - The System has more than one Thing
+  effects:
+    - The workspace reloads on the chosen Thing
+  failure: []

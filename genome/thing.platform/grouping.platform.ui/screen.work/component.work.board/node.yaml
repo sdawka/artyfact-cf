@@ -1,0 +1,10 @@
+id: component.work.board
+kind: component
+fields:
+  name: Board
+  description: Evolutions in columns by state, with their realizations beneath.
+  states:
+    - loaded
+    - "empty: no Evolutions yet"
+    - ≈ overlap (attention)
+    - 1 awaits review (attention)

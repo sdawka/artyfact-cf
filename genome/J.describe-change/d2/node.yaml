@@ -7,3 +7,6 @@ fields:
   kind: reaction
   next:
     - to: d3
+links:
+  - rel: stepScreen
+    to: screen.work

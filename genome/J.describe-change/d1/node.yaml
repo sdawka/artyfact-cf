@@ -9,3 +9,4 @@ fields:
     - to: d2
 links:
   - { rel: stepOperation, to: endpoint.intents-create }
+  - { rel: stepScreen, to: screen.work }

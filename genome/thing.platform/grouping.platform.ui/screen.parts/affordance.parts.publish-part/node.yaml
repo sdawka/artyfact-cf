@@ -1,0 +1,14 @@
+id: affordance.parts.publish-part
+kind: affordance
+fields:
+  name: Publish part
+  description: Publishes a Part from this System (admin token). Calls POST /api/systems/:id/parts.
+  actor: user
+  trigger: click
+  preconditions:
+    - An admin token is set
+  effects:
+    - The Part appears with its version
+  failure:
+    - "403: the admin token is wrong"
+    - "409: the version exists"

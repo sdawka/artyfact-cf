@@ -1,0 +1,12 @@
+id: affordance.shell.go-key
+kind: affordance
+fields:
+  name: Go keys
+  description: g plus a letter opens a view; g r opens Review.
+  actor: user
+  trigger: keyboard
+  preconditions:
+    - Focus is not in a text field
+  effects:
+    - The view opens and its rail entry is current
+  failure: []

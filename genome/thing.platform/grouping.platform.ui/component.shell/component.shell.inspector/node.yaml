@@ -1,0 +1,9 @@
+id: component.shell.inspector
+kind: component
+fields:
+  name: Inspector
+  description: The side panel for the focused node, with six tabs. Brackets [ and ] switch tabs, Esc closes it.
+  states:
+    - closed
+    - loaded
+    - no node focused

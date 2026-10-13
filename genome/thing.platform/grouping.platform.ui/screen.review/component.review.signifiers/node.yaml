@@ -1,0 +1,18 @@
+id: component.review.signifiers
+kind: component
+fields:
+  name: Review signifiers
+  description: "Per row: kind word, conflict chips, a gates summary and whether the base is the head. Only pass is green; a missing verdict reads literally unknown, never a blank or a tick."
+  states:
+    - candidate (attention)
+    - amendment (attention)
+    - promotion (attention)
+    - stale (subtle)
+    - § file conflict (attention)
+    - ≈ soft-semantic conflict (attention)
+    - ⊥ hard-semantic conflict (danger)
+    - ◇ evidence conflict (attention)
+    - gates 4 pass · 1 unknown (attention)
+    - base = head (success)
+    - behind by 1 (attention)
+    - fake provider (subtle)

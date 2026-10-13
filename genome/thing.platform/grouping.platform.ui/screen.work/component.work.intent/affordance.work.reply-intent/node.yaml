@@ -1,0 +1,13 @@
+id: affordance.work.reply-intent
+kind: affordance
+fields:
+  name: Reply
+  description: Answers the question the platform asked back. Calls POST /api/systems/:id/intents/:pid/reply.
+  actor: user
+  trigger: click
+  preconditions:
+    - A question is open
+  effects:
+    - The proposal updates
+  failure:
+    - "Error: the answer is kept"

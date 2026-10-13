@@ -1,0 +1,5 @@
+id: grouping.platform.ui
+kind: grouping
+fields:
+  name: Single-page app
+  description: "The React single-page app: every routed screen, the shell around them (top bar, side navigation, command palette, Inspector) and the signifiers and actions people meet on each."

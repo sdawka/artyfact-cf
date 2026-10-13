@@ -1,0 +1,10 @@
+id: component.theory.signifiers
+kind: component
+fields:
+  name: Claim signifiers
+  description: Each claim carries its kind, status and evidence verdict.
+  states:
+    - supported (success)
+    - unknown (subtle)
+    - contradicted (danger)
+    - deferred (subtle)

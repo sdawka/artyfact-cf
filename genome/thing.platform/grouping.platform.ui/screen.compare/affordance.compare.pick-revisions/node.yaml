@@ -1,0 +1,12 @@
+id: affordance.compare.pick-revisions
+kind: affordance
+fields:
+  name: Pick revisions
+  description: Two selectors choose the base and the target revision. Calls GET /api/systems/:id/revisions and GET /api/systems/:id/compare/system and GET /api/systems/:id/compare/genome.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - The compare and the delta reload
+  failure:
+    - "Unknown revision: the error names it"

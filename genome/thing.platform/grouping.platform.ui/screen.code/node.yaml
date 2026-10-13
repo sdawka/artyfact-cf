@@ -1,0 +1,13 @@
+id: screen.code
+kind: screen
+fields:
+  name: Code
+  description: A file tree and file pane for the revision's source, with each file mapped to its nodes. Actionable targets wear corner brackets and the page has one primary button; Describe a change opens the change panel, Edit and Commit… show their result in a banner.
+  route: /s/:systemId/r/:rev/code
+  states:
+    - loading
+    - loaded
+    - empty
+    - error
+    - file loading
+    - no file selected

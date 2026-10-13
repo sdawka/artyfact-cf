@@ -1,0 +1,8 @@
+id: component.shell.inspector.why
+kind: component
+fields:
+  name: Why
+  description: "Why the node exists: the purposes and claims it serves."
+  states:
+    - loaded
+    - "empty: no purpose linked"

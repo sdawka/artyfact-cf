@@ -1,0 +1,15 @@
+id: screen.changelog
+kind: screen
+fields:
+  name: Changelog
+  description: Every System commit with its time, author, policy, Evolutions and a node-delta summary. Actionable targets wear corner brackets and the page has one primary button; expanding a row loads its entry, and Compare with parent opens Compare.
+  route: /s/:systemId/r/:rev/changelog
+  states:
+    - loading
+    - loaded
+    - empty
+    - error
+    - legacy format notice
+links:
+  - rel: serves
+    to: feature.changelog-compare

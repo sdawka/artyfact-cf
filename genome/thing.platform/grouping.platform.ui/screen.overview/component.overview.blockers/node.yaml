@@ -1,0 +1,8 @@
+id: component.overview.blockers
+kind: component
+fields:
+  name: Blockers
+  description: What blocks progress, each with its rule and the next action.
+  states:
+    - loaded
+    - "empty: no blockers"

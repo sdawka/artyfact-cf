@@ -1,0 +1,12 @@
+id: affordance.shell.set-admin-token
+kind: affordance
+fields:
+  name: Admin token
+  description: A field that holds the admin token for this browser; admin actions use it.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - Admin actions unlock and the field shows it is set
+  failure:
+    - "Wrong token: admin actions answer 403"

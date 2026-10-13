@@ -1,0 +1,15 @@
+id: affordance.changelog.compare-with-parent
+kind: affordance
+fields:
+  name: Compare with parent
+  description: Opens Compare between the commit and its parent.
+  actor: user
+  trigger: click
+  preconditions:
+    - The commit has a parent
+  effects:
+    - Compare opens with both revisions chosen
+  failure: []
+links:
+  - rel: references
+    to: screen.compare

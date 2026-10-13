@@ -1,0 +1,12 @@
+id: screen.map
+kind: screen
+fields:
+  name: Map
+  description: The System as a layered graph; focus a node to scope the view. Actionable targets wear corner brackets and the page has one primary button; focusing, filtering and toggling candidates re-draw the Map at once, and the overlap chip opens Review.
+  route: /s/:systemId/r/:rev/map
+  states:
+    - loading
+    - loaded
+    - empty
+    - error
+    - empty filter

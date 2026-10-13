@@ -1,0 +1,17 @@
+id: component.phenome.signifiers
+kind: component
+fields:
+  name: Deploy signifiers
+  description: "Per deployment: status, build and the System commit it runs. Only pass is green; a missing verdict reads literally unknown, never a blank or a tick."
+  states:
+    - ● deployed (success)
+    - deploying (subtle)
+    - × deploy failed (danger)
+    - behind head (attention)
+    - not deployed, unknown (subtle)
+    - ✓ build passed (success)
+    - × build failed (danger)
+    - "! build error (danger)"
+    - … build running (subtle)
+    - · build queued (subtle)
+    - unknown (subtle)

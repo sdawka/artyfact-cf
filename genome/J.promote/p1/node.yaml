@@ -10,3 +10,4 @@ fields:
 links:
   - { rel: stepOperation, to: endpoint.evaluations }
   - { rel: stepOperation, to: endpoint.conflicts }
+  - { rel: stepScreen, to: screen.review }

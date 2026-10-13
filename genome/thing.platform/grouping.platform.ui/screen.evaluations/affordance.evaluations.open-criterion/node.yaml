@@ -1,0 +1,14 @@
+id: affordance.evaluations.open-criterion
+kind: affordance
+fields:
+  name: Open criterion
+  description: Selecting an evaluation row opens its criterion.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - The Inspector opens on the criterion
+  failure: []
+links:
+  - rel: references
+    to: component.shell.inspector
