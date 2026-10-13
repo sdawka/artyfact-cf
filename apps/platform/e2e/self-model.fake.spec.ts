@@ -9,7 +9,7 @@ const BASE = `/s/${SYS}/r/head`;
 async function expectTenThings(page: Page) {
   const tree = page.getByRole("tree", { name: "Containment" });
   for (const t of THINGS) await expect(tree.locator(`#map-tree-${t.replace(".", "_")}`)).toHaveAttribute("role", "treeitem");
-  await expect(tree.getByRole("treeitem").filter({ hasText: ", Thing" })).toHaveCount(THINGS.length);
+  await expect(tree.getByRole("treeitem", { name: /, Thing$/ })).toHaveCount(THINGS.length);
 }
 
 const THINGS = ["ci", "cli", "effects", "model", "ontology", "platform", "rules", "semantic", "site", "templates"].map((t) => `thing.${t}`);

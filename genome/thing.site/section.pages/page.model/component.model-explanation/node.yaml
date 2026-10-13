@@ -1,0 +1,40 @@
+id: component.model-explanation
+kind: component
+fields:
+  name: Ontology explanation
+  description: The explanatory content and parallel model views on /model show this page's own place in Artyfact and connect its purpose, structure, implementation and criteria. The explanation is readable before JavaScript loads; interactive views progressively enhance it.
+  owningThing: thing.site
+links:
+  - { rel: serves, to: purpose.explain-artyfact }
+files:
+  - src/ModelContent.tsx
+  - src/SystemExplorer.tsx
+  - src/styles/model.css
+criteria:
+  - id: C.site.model.accurate-representation
+    title: Accurate representation
+    claim: The rendered example uses the canonical identities and containment of this page and its explanation component, distinguishes Things and Parts from Cloudflare Artifacts source and realized outputs, and labels review expectations without claiming passing evaluations.
+    target: artifact
+    gates: [candidate, promotion]
+    hooks:
+      - id: hook.site.model.accurate-representation
+        assay: site.model.accurate-representation
+        tier: execution
+        engine: vitest
+        triggers: [candidate, promotion]
+        inputs:
+          command: npm test -w @artyfact/site -- test/model-content.test.tsx test/public-model.test.tsx
+  - id: C.site.model.clear-communication
+    title: Clear communication
+    claim: A visitor can explain Artyfact and trace this page from System through Thing to component, distinguishing declared criteria, automated checks and human review. Visitor comprehension review remains pending; structural tests alone do not establish it.
+    target: observation
+    severity: soft
+    gates: [outcome]
+    deferred: true
+  - id: C.site.model.compelling-visual-presentation
+    title: Compelling visual presentation
+    claim: The visual hierarchy and parallel views invite exploration while keeping the explanation readable and usable at desktop and mobile widths. Human visual review remains pending; layout checks alone do not establish that the presentation is compelling.
+    target: observation
+    severity: soft
+    gates: [outcome]
+    deferred: true

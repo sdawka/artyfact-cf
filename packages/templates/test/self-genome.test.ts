@@ -143,6 +143,29 @@ describe("the Artyfact self-Genome", () => {
     for (const c of graph.nodes.filter((n) => n.kind === "command" && n.parent === "thing.cli.commands")) expect(main, c.id).toContain(`case "${c.fields.name}"`);
   });
 
+  it("models the model page itself and keeps human review distinct from executable accuracy checks", () => {
+    expect(tree.nodes.get("page.model")?.parent).toBe("thing.site.pages");
+    expect(tree.nodes.get("component.model-explanation")?.parent).toBe("page.model");
+    expect(tree.nodes.get("affordance.model.inspect-views")?.parent).toBe("component.model-explanation");
+    expect(tree.nodes.get("purpose.explain-artyfact")?.parent).toBe("system.artyfact");
+    expect(graph.links).toContainEqual(expect.objectContaining({ from: "component.model-explanation", rel: "serves", to: "purpose.explain-artyfact" }));
+    const criteria = tree.nodes.get("component.model-explanation")!.file.criteria!;
+    expect(criteria.map((c) => c.id)).toEqual([
+      "C.site.model.accurate-representation", "C.site.model.clear-communication", "C.site.model.compelling-visual-presentation",
+    ]);
+    for (const c of criteria) {
+      expect(graph.links).toContainEqual(expect.objectContaining({ from: c.id, rel: "owner", to: "thing.site" }));
+      expect(graph.links).toContainEqual(expect.objectContaining({ from: c.id, rel: "subject", to: "component.model-explanation" }));
+    }
+    expect(criteria[0]).toMatchObject({ target: "artifact", gates: ["candidate", "promotion"] });
+    expect(criteria[0]!.hooks?.[0]).toMatchObject({ engine: "vitest", inputs: { command: "npm test -w @artyfact/site -- test/model-content.test.tsx test/public-model.test.tsx" } });
+    for (const c of criteria.slice(1)) {
+      expect(c).toMatchObject({ target: "observation", deferred: true, gates: ["outcome"] });
+      expect(c.hooks).toBeUndefined();
+      expect(c.claim).toContain("review remains pending");
+    }
+  });
+
   it("has one platform endpoint per route the Worker registers, and none it does not", () => {
     const endpoints = graph.nodes.filter((n) => n.kind === "endpoint" && n.parent === "thing.platform.api").map((n) => String(n.fields.route));
     expect(endpoints.length).toBe(new Set(endpoints).size);

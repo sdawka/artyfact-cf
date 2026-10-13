@@ -20,25 +20,9 @@ test('model layers work with keyboard and keep illustrative evidence labelled', 
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('tab', { name: /Proteome/ })).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('tabpanel')).toContainText('Input received');
+  await expect(page.getByRole('tabpanel')).toContainText('Page read');
   await expect(page.getByRole('tabpanel')).toContainText('not live Artyfact telemetry');
   expect(errors).toEqual([]);
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-});
-test('model jump links remain usable on a narrow screen with reduced motion', async ({ page }) => {
-  await page.setViewportSize({ width: 320, height: 568 });
-  await page.emulateMedia({ reducedMotion: 'reduce' });
-  await page.goto('https://artyfact.test/model');
-  const navigation = page.getByRole('navigation', { name: 'On this page' });
-  await navigation.getByRole('link', { name: 'Artyfact’s meta ontology' }).focus();
-  await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/#meta-ontology$/);
-  await expect(page.locator('#meta-ontology')).toBeFocused();
-  await expect(page.getByRole('heading', { name: 'Artyfact’s meta ontology', exact: true })).toBeInViewport();
-  await navigation.getByRole('link', { name: 'Why a semantic layer' }).focus();
-  await page.keyboard.press('Enter');
-  await expect(page).toHaveURL(/#benefits$/);
-  await expect(page.locator('#benefits')).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 test('code copying reports success or a useful fallback', async ({ page }) => {
@@ -53,16 +37,12 @@ test('code copying reports success or a useful fallback', async ({ page }) => {
 test('public content is useful without JavaScript', async ({ page }) => {
   await page.route('**/*.js', route => route.abort());
   await page.goto('https://artyfact.test/model');
-  await expect(page.getByRole('heading', { name: /^Ontology Driven Development$/ })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Why add a semantic layer?', exact: true })).toBeVisible();
-  await expect(page.getByRole('heading', { name: 'Artyfact’s meta ontology', exact: true })).toBeVisible();
-  await page.getByRole('navigation', { name: 'On this page' }).getByRole('link', { name: 'Artyfact’s meta ontology' }).click();
-  await expect(page).toHaveURL(/#meta-ontology$/);
+  await expect(page.getByRole('heading', { name: /Ontology Driven Development/ })).toBeVisible();
   await expect(page.getByText(/A Thing can begin with its Genome alone/)).toBeVisible();
   await expect(page.locator('.model-view-panels > section')).toHaveCount(3);
   for(const panel of await page.locator('.model-view-panels > section').all()) await expect(panel).toBeVisible();
-  await expect(page.getByText('Proposed acceptance test',{exact:true})).toBeVisible();
-  await expect(page.getByRole('list',{name:'Proposed event stream'})).toBeVisible();
+  await expect(page.getByText('Acceptance check',{exact:true})).toBeVisible();
+  await expect(page.getByRole('list',{name:'Illustrative reader observations'})).toBeVisible();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://artyfact.ing/model');
 });
 const scene = '[data-system-view]';
@@ -118,4 +98,42 @@ for (const path of ['/', '/model', '/connect-agent']) test('no axe violations wi
     const { violations } = await new AxeBuilder({ page }).analyze();
     expect(violations.map(v => v.id + ': ' + v.nodes.map(n => n.target.join(' ')).join(', '))).toEqual([]);
   }
+});
+
+test('self-model nesting is readable at 320px without JavaScript', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.route('**/*.js', route => route.abort());
+  await page.goto('https://artyfact.test/model');
+  await expect(page.locator('[data-model-subject="component.model-explanation"]')).toContainText('Communicate clearly');
+  await expect(page.locator('[data-model-subject="affordance.model.inspect-views"]')).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  for (const panel of await page.locator('.model-view-panels > section').all()) await expect(panel).toBeVisible();
+});
+test('self-model anchor and view controls work with reduced motion', async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('https://artyfact.test/model');
+  await page.locator('[data-model-subject="affordance.model.inspect-views"]').click();
+  await expect(page).toHaveURL(/#model-parallel-views$/);
+  await page.getByRole('tab', { name: /Genome/ }).focus();
+  await page.keyboard.press('End');
+  await expect(page.getByRole('tabpanel')).toContainText('Reader feedback remains unmeasured');
+});
+
+test('model jump links remain usable on a narrow screen with reduced motion', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 568 });
+  await page.emulateMedia({ reducedMotion: 'reduce' });
+  await page.goto('https://artyfact.test/model');
+  const navigation = page.getByRole('navigation', { name: 'On this page' });
+  await navigation.getByRole('link', { name: 'Artyfact’s meta ontology' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#meta-ontology$/);
+  await expect(page.locator('#meta-ontology')).toBeFocused();
+  await expect(page.getByRole('heading', { name: 'Artyfact’s meta ontology', exact: true })).toBeInViewport();
+  await navigation.getByRole('link', { name: 'Why a semantic layer' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#benefits$/);
+  await expect(page.locator('#benefits')).toBeFocused();
+  await page.locator('.model-benefits-grid summary').filter({ hasText: 'Reuse context' }).click();
+  await expect(page.getByText(/Carry relevant context into each task or agent session/)).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

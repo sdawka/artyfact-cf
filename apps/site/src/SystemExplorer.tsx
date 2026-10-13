@@ -7,23 +7,23 @@ const layers = [
   { name: 'Phenome', meaning: 'What is observed' },
 ] as const;
 
-/** One proposed Artyfact feature, viewed from three angles. The example claims no live work or evidence. */
+/** The canonical model-page component, viewed from three angles without inventing runtime evidence. */
 export function SystemExplorer({ onSelect }: { onSelect?: (selection: SystemSelection) => void }) {
   const [layer, setLayer] = useState(0);
   const [enhanced, setEnhanced] = useState(false);
   useEffect(() => { setEnhanced(true); }, []);
   useEffect(() => { onSelect?.({ layer, subject: 0 }); }, [layer, onSelect]);
 
-  return <section className="explorer model-feature-explorer" data-enhanced={enhanced} aria-label="Illustrative Artyfact feature through three views">
+  return <section className="explorer model-feature-explorer" data-enhanced={enhanced} aria-label="Ontology explanation through three views">
     <header className="explorer-heading">
-      <div><p className="example-label">Illustrative target</p><h3>Make changes easy to scope and specify</h3></div>
+      <div><p className="example-label">Declared in the Genome</p><h3>Explain Artyfact clearly</h3></div>
       <span className="example-system">Artyfact System</span>
     </header>
     <div className="feature-subject">
-      <span>Same feature in every view</span>
-      <strong>Clarify a requested change before work starts</strong>
+      <span>Same component in every view</span>
+      <strong>Ontology explanation on this model page</strong>
     </div>
-    <div className="layer-tabs" role={enhanced ? 'tablist' : undefined} aria-label="Parallel views of the illustrative feature" hidden={!enhanced}>
+    <div className="layer-tabs" role={enhanced ? 'tablist' : undefined} aria-label="Parallel views of the explanation component" hidden={!enhanced}>
       {layers.map((item, index) => <button key={item.name} role={enhanced ? 'tab' : undefined} id={'model-layer-' + index} aria-controls={'model-layer-panel-' + index}
         aria-selected={enhanced ? layer === index : undefined} tabIndex={layer === index ? 0 : -1}
         onClick={() => setLayer(index)}
@@ -35,37 +35,37 @@ export function SystemExplorer({ onSelect }: { onSelect?: (selection: SystemSele
     <div className="model-view-panels">
       <section id="model-layer-panel-0" className="example-detail" role={enhanced ? 'tabpanel' : undefined} aria-labelledby={enhanced ? 'model-layer-0' : undefined} tabIndex={enhanced ? 0 : undefined} hidden={enhanced && layer !== 0}>
         <p className="model-story-view-name" hidden={enhanced}>Genome · What should hold true</p>
-        <h4>What needs to be clear?</h4>
-        <p>The proposed Genome names the requested behavior, affected subjects and acceptance criteria before an agent begins.</p>
+        <h4>What should this explanation achieve?</h4>
+        <p>The canonical Genome names this page, its explanation component, its purpose and three criteria.</p>
         <div className="feature-facts">
-          <p><span>Requested behavior</span><strong>Make the scope of a change inspectable.</strong></p>
-          <p><span>Affected subjects</span><strong>Evolution, scope editor, affected-node map.</strong></p>
-          <p><span>Criterion</span><strong>A reviewer can see the intended change and its affected subjects before work starts.</strong></p>
+          <p><span>Purpose</span><strong>Explain Artyfact and how its model works.</strong></p>
+          <p><span>Subject</span><strong>component.model-explanation inside page.model.</strong></p>
+          <p><span>Criterion</span><strong>Represent Artyfact accurately, communicate clearly and make the visual compelling.</strong></p>
         </div>
-        <p className="evidence-note">A declared criterion is a target, not evidence that the feature exists.</p>
+        <p className="evidence-note">These criteria are declared expectations. Clarity and visual quality still need human review.</p>
       </section>
       <section id="model-layer-panel-1" className="example-detail" role={enhanced ? 'tabpanel' : undefined} aria-labelledby={enhanced ? 'model-layer-1' : undefined} tabIndex={enhanced ? 0 : undefined} hidden={enhanced && layer !== 1}>
         <p className="model-story-view-name" hidden={enhanced}>Proteome · How it is realized</p>
         <h4>Your agents can be the Proteome.</h4>
-        <p>An agent could receive the scoped intent, implement the interface and mapping, then submit a candidate for review.</p>
-        <p className="feature-test"><span>Proposed acceptance test</span>Given a requested change, when a reviewer opens it before work starts, then its intended behavior and affected subjects are visible.</p>
+        <p>Agents can work on the words, illustration and controls, then check that version and submit it for review.</p>
+        <p className="feature-test"><span>Acceptance check</span>Given this model page, its named subjects and criteria agree with the canonical Genome; all three views remain readable without JavaScript.</p>
         <div className="feature-facts">
-          <p><span>Work</span><strong>Implement the scope editor and mapping.</strong></p>
-          <p><span>Check</span><strong>Run the proposed acceptance test against the candidate.</strong></p>
-          <p><span>Instrumentation</span><strong>Emit events that could connect input, intent and mapping.</strong></p>
+          <p><span>Work</span><strong>Write, render and refine this explanation.</strong></p>
+          <p><span>Check</span><strong>Run content, accessibility and responsive checks.</strong></p>
+          <p><span>Review</span><strong>Ask readers whether the words and visual help.</strong></p>
         </div>
-        <p className="evidence-note">This is an illustrative target. It does not show an agent running or a passing test.</p>
+        <p className="evidence-note">This describes the work and checks, not an agent running or a passing result.</p>
       </section>
       <section id="model-layer-panel-2" className="example-detail" role={enhanced ? 'tabpanel' : undefined} aria-labelledby={enhanced ? 'model-layer-2' : undefined} tabIndex={enhanced ? 0 : undefined} hidden={enhanced && layer !== 2}>
         <p className="model-story-view-name" hidden={enhanced}>Phenome · What is observed</p>
-        <h4>What could the System observe?</h4>
-        <p>This sample event stream shows the observations the feature would need to relate. Every event below shares the illustrative change reference <code>example-scope-01</code>. It is a proposed stream, not live Artyfact telemetry.</p>
-        <ol className="feature-events" aria-label="Proposed event stream">
-          <li>Input received</li><li>Intent confirmed</li><li>Change mapped</li><li>Evaluation completed</li>
+        <h4>What do readers actually understand?</h4>
+        <p>A future observation could connect a reader’s visit, exploration and feedback to this component and page version. The sequence below is illustrative, not live Artyfact telemetry. Example reference: <code>example-model-01</code>.</p>
+        <ol className="feature-events" aria-label="Illustrative reader observations">
+          <li>Page read</li><li>Views explored</li><li>Reader feedback</li><li>Understanding reviewed</li>
         </ol>
-        <p className="evidence-note">Correlated events and a completed check would still not prove that scoping feels easy to people.</p>
+        <p className="evidence-note">Visits and clicks alone cannot establish clarity or visual quality. Reader feedback remains unmeasured here.</p>
       </section>
     </div>
-    <p className="explorer-caption">Genome, Proteome and Phenome are parallel views of this feature, not successive build stages.</p>
+    <p className="explorer-caption">Genome, Proteome and Phenome are parallel views of this component, not successive build stages.</p>
   </section>;
 }
