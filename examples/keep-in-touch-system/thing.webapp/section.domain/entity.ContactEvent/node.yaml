@@ -2,8 +2,6 @@ id: entity.ContactEvent
 kind: entity
 fields:
   name: ContactEvent
-  owningThing: thing.webapp
-  revision: 1
   description: ID, owner, ContactRecord, time, channel, self-reported depth and optional private note; one contact target
   source:
     doc: keep-in-touch-world-specification

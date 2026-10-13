@@ -2,8 +2,6 @@ id: entity.NotificationJob
 kind: entity
 fields:
   name: NotificationJob
-  owningThing: thing.webapp
-  revision: 1
   description: ID, owner, suggestion and preference version, scheduled time, delivery state and deduplication key
   source:
     doc: keep-in-touch-world-specification

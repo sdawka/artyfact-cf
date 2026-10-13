@@ -2,8 +2,6 @@ id: operation.connection.revoke
 kind: operation
 fields:
   name: Disconnect or block
-  owningThing: thing.webapp
-  revision: 1
   description: Participant authority. Revoke affected app sharing and cancel pending deliveries; a block prevents new app-mediated contact until removed
   source:
     doc: keep-in-touch-world-specification

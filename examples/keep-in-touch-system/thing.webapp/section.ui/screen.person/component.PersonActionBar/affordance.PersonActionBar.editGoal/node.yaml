@@ -2,8 +2,6 @@ id: affordance.PersonActionBar.editGoal
 kind: affordance
 fields:
   name: Edit goal
-  owningThing: thing.webapp
-  revision: 1
   actor: ext.owner
   trigger: Owner activates Edit goal
   preconditions:

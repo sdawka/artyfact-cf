@@ -2,8 +2,6 @@ id: affordance.AddContactDialog.save
 kind: affordance
 fields:
   name: Save
-  owningThing: thing.webapp
-  revision: 1
   source:
     doc: keep-in-touch-world-specification
     section: "6"

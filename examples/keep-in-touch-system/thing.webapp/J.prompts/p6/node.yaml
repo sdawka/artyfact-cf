@@ -4,8 +4,6 @@ fields:
   step: p6
   actor: user
   action: Pause the goal; its prompts are suppressed and pending jobs cancelled
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.prompts
     - S.webapp.due

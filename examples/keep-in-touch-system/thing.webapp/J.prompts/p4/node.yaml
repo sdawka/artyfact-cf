@@ -4,8 +4,6 @@ fields:
   step: p4
   actor: user
   action: Log contact for that person
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.prompts
     - S.webapp.due

@@ -2,8 +2,6 @@ id: affordance.ConnectionPanel.invite
 kind: affordance
 fields:
   name: Invite
-  owningThing: thing.webapp
-  revision: 1
   actor: ext.owner
   trigger: Owner activates Invite
   preconditions:

@@ -2,8 +2,6 @@ id: component.StatePanel
 kind: component
 fields:
   name: StatePanel
-  owningThing: thing.webapp
-  revision: 1
   description: Shared loading, empty and unavailable states.
   states:
     - loading

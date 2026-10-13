@@ -2,8 +2,6 @@ id: operation.invite.create
 kind: operation
 fields:
   name: Create invite
-  owningThing: thing.webapp
-  revision: 1
   description: Authenticated inviter. Generate at least 128 bits of randomness, store only a token hash, expire after 24 hours and allow one successful acceptance
   source:
     doc: keep-in-touch-world-specification

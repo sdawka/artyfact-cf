@@ -2,8 +2,6 @@ id: component.PrivateNotes
 kind: component
 fields:
   name: PrivateNotes
-  owningThing: thing.webapp
-  revision: 1
   description: Owner-only notes; linking a ContactRecord to an Account never reveals them
   cardinality: exactly one
 links:

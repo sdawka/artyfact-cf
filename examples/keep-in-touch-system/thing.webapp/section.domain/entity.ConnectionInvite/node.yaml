@@ -2,8 +2,6 @@ id: entity.ConnectionInvite
 kind: entity
 fields:
   name: ConnectionInvite
-  owningThing: thing.webapp
-  revision: 1
   description: ID, inviter, token hash, expiry and state; optional recipient binding; never contains login credentials
   source:
     doc: keep-in-touch-world-specification

@@ -2,8 +2,6 @@ id: entity.DigestEdition
 kind: entity
 fields:
   name: DigestEdition
-  owningThing: thing.webapp
-  revision: 1
   description: ID, author, content version, publication time and access policy; no shared discussion thread
   source:
     doc: keep-in-touch-world-specification

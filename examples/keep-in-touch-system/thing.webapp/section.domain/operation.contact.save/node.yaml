@@ -2,8 +2,6 @@ id: operation.contact.save
 kind: operation
 fields:
   name: Create or edit private contact
-  owningThing: thing.webapp
-  revision: 1
   description: Owner session; nonblank name. Save only that owner's record; editing does not send invitations
   source:
     doc: keep-in-touch-world-specification

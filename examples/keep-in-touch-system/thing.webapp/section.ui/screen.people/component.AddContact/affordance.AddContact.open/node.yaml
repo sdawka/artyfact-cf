@@ -2,8 +2,6 @@ id: affordance.AddContact.open
 kind: affordance
 fields:
   name: Add contact
-  owningThing: thing.webapp
-  revision: 1
   actor: ext.owner
   trigger: Owner activates AddContact
   effects:

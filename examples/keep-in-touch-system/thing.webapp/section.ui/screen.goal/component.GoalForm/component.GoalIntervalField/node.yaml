@@ -2,7 +2,5 @@ id: component.GoalIntervalField
 kind: component
 fields:
   name: IntervalField
-  owningThing: thing.webapp
-  revision: 1
   description: intervalDays from 1 through 3650
   cardinality: exactly one

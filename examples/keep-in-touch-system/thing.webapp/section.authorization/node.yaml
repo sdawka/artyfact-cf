@@ -2,7 +2,5 @@ id: section.authorization
 kind: section
 fields:
   name: Authorization
-  owningThing: thing.webapp
-  revision: 1
   description: Policies governing who may read or change what.
   fromTemplate: template.thing.cloudflare-worker-webapp@1

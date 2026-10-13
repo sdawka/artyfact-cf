@@ -2,8 +2,6 @@ id: policy.ownerOnly
 kind: policy
 fields:
   name: Owner-only access
-  owningThing: thing.webapp
-  revision: 1
   description: Owner-only access to private contacts, goals, notes and logs; another owner's records return a non-revealing denial
   source:
     doc: keep-in-touch-world-specification

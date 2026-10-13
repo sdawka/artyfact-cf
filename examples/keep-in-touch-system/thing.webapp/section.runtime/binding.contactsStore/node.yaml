@@ -2,8 +2,6 @@ id: binding.contactsStore
 kind: binding
 fields:
   name: contactsStore (D1)
-  owningThing: thing.webapp
-  revision: 1
   description: runtime.contactsStore as the intended D1 binding for accounts, owned contacts, goals, events, consent and jobs; foreign keys, unique pair keys and conditional writes enforce structure
   source:
     doc: keep-in-touch-world-specification

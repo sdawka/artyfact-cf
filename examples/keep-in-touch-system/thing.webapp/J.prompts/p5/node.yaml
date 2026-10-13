@@ -4,8 +4,6 @@ fields:
   step: p5
   actor: user
   action: Snooze the suggestion; its effective due date moves
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.prompts
     - S.webapp.due

@@ -2,7 +2,5 @@ id: component.AddContactNameField
 kind: component
 fields:
   name: NameField
-  owningThing: thing.webapp
-  revision: 1
   description: Name field; nonblank name is required
   cardinality: exactly one

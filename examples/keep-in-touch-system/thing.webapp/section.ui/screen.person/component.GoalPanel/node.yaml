@@ -2,8 +2,6 @@ id: component.GoalPanel
 kind: component
 fields:
   name: GoalPanel
-  owningThing: thing.webapp
-  revision: 1
   description: No saved goal displays as no goal, not as an inferred target
   cardinality: exactly one
 links:

@@ -2,8 +2,6 @@ id: affordance.DeletionControls.delete
 kind: affordance
 fields:
   name: Delete account
-  owningThing: thing.webapp
-  revision: 1
   actor: ext.owner
   trigger: Owner reauthenticates and confirms deletion
   preconditions:

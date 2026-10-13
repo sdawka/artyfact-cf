@@ -2,8 +2,6 @@ id: component.MetGoalCheckbox
 kind: component
 fields:
   name: MetGoalCheckbox
-  owningThing: thing.webapp
-  revision: 1
   description: Met this goal defaults unchecked and is disabled when no current goal exists
   cardinality: exactly one
   states:

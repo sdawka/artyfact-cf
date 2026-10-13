@@ -2,8 +2,6 @@ id: policy.pairConsent
 kind: policy
 fields:
   name: Pair consent
-  owningThing: thing.webapp
-  revision: 1
   description: Explicit pair consent - creating the invitation and accepting it provide the two consents; an active pair is created once
   source:
     doc: keep-in-touch-world-specification

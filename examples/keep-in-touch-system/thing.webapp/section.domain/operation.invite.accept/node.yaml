@@ -2,8 +2,6 @@ id: operation.invite.accept
 kind: operation
 fields:
   name: Accept invite
-  owningThing: thing.webapp
-  revision: 1
   description: Signed-in distinct invitee, valid unused credential, no block in either direction. Atomically consume invite and create or return the unique active pair
   source:
     doc: keep-in-touch-world-specification

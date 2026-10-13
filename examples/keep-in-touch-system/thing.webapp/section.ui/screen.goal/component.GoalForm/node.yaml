@@ -2,7 +2,5 @@ id: component.GoalForm
 kind: component
 fields:
   name: GoalForm
-  owningThing: thing.webapp
-  revision: 1
   description: Form contains interval, depth, preferred channel and enabled controls, plus Save and Cancel
   cardinality: exactly one

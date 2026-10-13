@@ -2,8 +2,6 @@ id: entity.Suggestion
 kind: entity
 fields:
   name: Suggestion
-  owningThing: thing.webapp
-  revision: 1
   description: ID, goal version, reason, due date, target ContactRecord and state; does not itself contact anybody
   source:
     doc: keep-in-touch-world-specification

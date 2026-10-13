@@ -2,8 +2,6 @@ id: affordance.ConsentPanel.accept
 kind: affordance
 fields:
   name: Accept
-  owningThing: thing.webapp
-  revision: 1
   actor: ext.owner
   trigger: Signed-in invitee activates Accept
   preconditions:

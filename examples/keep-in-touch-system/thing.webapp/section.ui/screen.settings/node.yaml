@@ -2,8 +2,6 @@ id: screen.settings
 kind: screen
 fields:
   name: Settings
-  owningThing: thing.webapp
-  revision: 1
   description: Exactly ProfilePreferences, NotificationPreferences, ExportControls and DeletionControls. Export and deletion act only on the authenticated owner's data
   source:
     doc: keep-in-touch-world-specification

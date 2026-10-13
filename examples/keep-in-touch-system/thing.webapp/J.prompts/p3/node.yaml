@@ -5,7 +5,6 @@ fields:
   actor: user
   action: Choose an action on a card
   kind: branch
-  unresolved: false
   requirementRefs:
     - S.webapp.prompts
   next:

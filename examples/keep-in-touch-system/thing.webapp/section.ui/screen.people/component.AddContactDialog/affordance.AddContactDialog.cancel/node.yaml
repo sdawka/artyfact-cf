@@ -2,8 +2,6 @@ id: affordance.AddContactDialog.cancel
 kind: affordance
 fields:
   name: Cancel
-  owningThing: thing.webapp
-  revision: 1
   actor: ext.owner
   trigger: Owner activates Cancel in the dialog
   effects:

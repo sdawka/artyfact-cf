@@ -5,7 +5,6 @@ fields:
   actor: system
   action: At most five suggestions ordered by effective due date then goal ID, or one EmptyState
   kind: reaction
-  unresolved: false
   requirementRefs:
     - S.webapp.prompts
   next:
