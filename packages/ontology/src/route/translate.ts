@@ -18,12 +18,13 @@ export const TRANSLATE_SYSTEM_PROMPT = [
   '{"answer":"..."} when the user only asks for information. Ask a question instead of guessing when the target is unclear.',
   "Op shapes:",
   '{"op":"add","kind":K,"parent"?:ID,"title":T,"description"?:D,"fields"?:{F:V,...},"criteria"?:[C,...],"links"?:[{"rel":R,"to":ID} or {"rel":R,"from":ID}]}',
-  '{"op":"update","id":ID,"fields"?:{"title"?:T,"description"?:D,F:V,...},"criteria"?:[C or {"id":CID,"remove":true},...]}',
+  '{"op":"update","id":ID,"fields"?:{"title"?:T,"description"?:D,F:V,...},"criteria"?:[C or {"id":CID,"remove":true},...],"files"?:[GLOB,...] or null}',
   '{"op":"remove","id":ID}',
   '{"op":"link","from":ID,"rel":R,"to":ID} and {"op":"unlink","from":ID,"rel":R,"to":ID}',
   "fields are the kind's declared fields; a null value in an update deletes the field. A criterion C is what must hold",
   'for that node: {"id":"C.<name>","claim":TEXT,"severity"?:"hard"|"soft"|"advisory","target"?:"model"|"artifact"|"runtime"|"observation"};',
   "an update with an existing criterion id replaces it, and {\"id\":CID,\"remove\":true} deletes one the node declares.",
+  "files are repo-relative globs (relative to the Thing's root) naming the source files that realise the node; set them when the user binds a node to code or folders.",
   "Use only node ids from the slice, kinds and relations from the vocabulary, and relation directions as declared.",
   "Make the smallest set of edits that carries out the message; keep titles short; do not add what already exists.",
 ].join("\n");
@@ -38,7 +39,7 @@ const OpSchema = z.discriminatedUnion("op", [
     fields: fields.optional(), criteria: z.array(criterion).optional(),
     links: z.array(z.object({ rel: id, to: id.optional(), from: id.optional() }).refine((l) => !!l.to !== !!l.from, "a link names exactly one of to/from")).optional(),
   }),
-  z.object({ op: z.literal("update"), id, fields: fields.optional(), criteria: z.array(criterion).optional() }),
+  z.object({ op: z.literal("update"), id, fields: fields.optional(), criteria: z.array(criterion).optional(), files: z.array(z.string()).nullable().optional() }),
   z.object({ op: z.literal("remove"), id }),
   z.object({ op: z.enum(["link", "unlink"]), from: id, rel: id, to: id }),
 ]);
@@ -170,6 +171,8 @@ export const fakeTranslator = (): Translator => ({
     }
     if (r.intent === "answer") return { ...base, answer: `[fake] See ${[...r.target.nodes, ...r.target.related].join(", ") || "the specification"}.` };
     const first = r.target.nodes[0];
+    const dir = /#files:(\S+)/.exec(message);
+    if (first && dir) return { ...base, ops: [{ op: "update", id: first, files: dir[1]!.split(",").filter(Boolean) }] };
     if (first && r.intent !== "add") return { ...base, ops: [{ op: "update", id: first, fields: { description: `[fake] ${message}` } }] };
     if (r.target.kind) {
       const kind = r.target.kind;
