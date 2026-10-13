@@ -6,7 +6,7 @@ import { diffModels, type Readiness, type schema, type SystemModel } from "@arty
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, SystemSummary, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SubmitSource, SyncResponse,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
@@ -644,10 +644,10 @@ async function treeWithSizes(stub: SystemApi, repo: ArtifactsRepoLike, listing: 
 
 type Run = Awaited<ReturnType<typeof evaluate>>;
 
-async function recordRun(env: Env, systemId: string, candidateId: string, run: Run): Promise<void> {
+async function recordRun(env: Env, systemId: string, candidateId: string, run: Run, replace = false): Promise<void> {
   const stub = systemStub(env, systemId);
   if (run.review) await stub.putReview(candidateId, JSON.stringify(run.review));
-  await stub.recordEvaluations(candidateId, run.evaluations, run.status);
+  await stub.recordEvaluations(candidateId, run.evaluations, run.status, replace);
 }
 
 /**
@@ -755,6 +755,31 @@ export async function submit(
     created, realization: fresh.realization, candidate,
     evaluations: await stub.evaluations(existing.id), conflicts: conflictReports,
   };
+}
+
+/**
+ * Admin re-run of an open candidate's submission hooks with its current preview URL and passed build (the path a
+ * submit or a preview URL arrival takes). The new evaluations replace the old ones. 409 for promoted or rejected
+ * candidates and while another run of the same candidate holds the claim.
+ */
+export async function reevaluate(env: Env, systemId: string, candidateId: string): Promise<EvaluateCandidateResponse> {
+  const stub = systemStub(env, systemId);
+  const s = await headState(env, systemId);
+  const cand = await stub.candidate(candidateId);
+  if (!cand) throw notFound(`unknown candidate ${candidateId}`);
+  if (cand.state === "promoted" || cand.state === "rejected") throw conflict("invalid-state", `candidate ${candidateId} is ${cand.state}`);
+  const rec = await record(env, systemId, cand.realization);
+  if (!(await stub.claimEvaluation(candidateId))) throw conflict("evaluation-running", `candidate ${candidateId} is being evaluated; try again shortly`);
+  try {
+    const ref = (await storedCandidates(env, systemId, { evolutionId: rec.evolutionId })).find((c) => c.id === candidateId);
+    if (!ref) throw conflict("invalid-state", `candidate ${candidateId} is no longer open`);
+    await recordRun(env, systemId, candidateId, await evaluate(env, s, rec, ref, "submission"), true);
+  } finally {
+    await stub.releaseEvaluation(candidateId);
+  }
+  await refreshRegistry(env, systemId);
+  const [candidate] = await withBuilds(stub, [(await stub.candidate(candidateId))!]);
+  return { realization: (await record(env, systemId, cand.realization)).realization, candidate, evaluations: await stub.evaluations(candidateId) };
 }
 
 /** Re-read the fork head; submit it if it is new and not the base commit. */

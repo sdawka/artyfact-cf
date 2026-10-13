@@ -249,6 +249,16 @@ export function usePromote() {
   });
 }
 
+/** Admin: re-run a candidate's checks (e.g. after its preview caught up with the passed build). */
+export function useEvaluateCandidate() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ candidateId, adminToken }: { candidateId: string; adminToken?: string }) => api.evaluateCandidate(systemId, candidateId, adminToken),
+    onSettled: () => invalidate(qc, systemId, "evolutions", "candidates", "evaluations", "systems"),
+  });
+}
+
 export function useAcceptAmendment() {
   const { systemId } = useSystemRoute();
   const qc = useQueryClient();

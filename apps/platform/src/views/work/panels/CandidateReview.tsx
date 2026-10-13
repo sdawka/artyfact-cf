@@ -1,5 +1,8 @@
-import { lazy, Suspense, useMemo, useState } from "react";
+import { lazy, Suspense, useId, useMemo, useState } from "react";
 import type { Candidate, Evolution, Realization } from "../../../../shared/api";
+import { useAdminToken } from "@/api/adminToken";
+import { ApiRequestError } from "@/api/client";
+import { useEvaluateCandidate } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { Tabs } from "@/components/Tabs/Tabs";
@@ -55,6 +58,7 @@ export function CandidateReview({ realization, candidate, evolution }: Props) {
       <p className={styles.rmeta}>
         Candidate <code>{candidate.id}</code> · {candidate.state} · base <code>{candidate.baseRevision}</code> · <BuildChip build={candidate.build} />
       </p>
+      <RerunChecks candidate={candidate} />
       <Tabs<Tab> tabs={tabs} value={tab} onChange={setTab} label="Candidate review sections">
         {tab === "delta" && <SemanticDelta candidate={candidate} />}
         {tab === "files" && <Files candidate={candidate} />}
@@ -65,6 +69,42 @@ export function CandidateReview({ realization, candidate, evolution }: Props) {
           </Suspense>}
       </Tabs>
     </section>
+  );
+}
+
+function rerunError(err: Error): string {
+  if (err instanceof ApiRequestError && err.status === 401) return "Re-run checks needs the admin token (401). Set it in the header and try again.";
+  if (err instanceof ApiRequestError && err.status === 403) return "The admin token was refused (403). Check it in the header and try again.";
+  return err.message;
+}
+
+/** Admin: re-run the candidate's submission hooks against its current preview (e.g. after a deploy race). */
+function RerunChecks({ candidate }: { candidate: Candidate }) {
+  const uid = useId();
+  const m = useModel();
+  const { token } = useAdminToken();
+  const rerun = useEvaluateCandidate();
+  const reason = m.bundle.source === "fixture"
+    ? "Re-run checks needs the platform API. The UI is showing fixture data."
+    : candidate.state === "promoted" || candidate.state === "rejected"
+      ? `${candidate.id} is ${candidate.state}; its checks are final.`
+      : null;
+  const ran = rerun.isSuccess && rerun.variables?.candidateId === candidate.id ? rerun.data : null;
+  return (
+    <div className={styles.actions}>
+      <button
+        type="button"
+        className={`u-brackets ${styles.btn}`}
+        disabled={!!reason || rerun.isPending}
+        aria-describedby={reason ? `${uid}-why` : undefined}
+        onClick={() => rerun.mutate({ candidateId: candidate.id, ...(token && { adminToken: token }) })}
+      >
+        {rerun.isPending ? "Re-running checks…" : "Re-run checks"}
+      </button>
+      {reason && <span id={`${uid}-why`} className={styles.muted}>{reason}</span>}
+      {ran && <span role="status" className={styles.muted}>Checks re-run: {ran.evaluations.length} evaluation{ran.evaluations.length === 1 ? "" : "s"} recorded.</span>}
+      {rerun.isError && <span role="alert" className={styles.error}>{rerunError(rerun.error)}</span>}
+    </div>
   );
 }
 

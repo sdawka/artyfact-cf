@@ -67,6 +67,8 @@ export const routes = {
   evaluations: (s: string, candidate?: string) => `${sys(s)}/evaluations${candidate ? `?candidate=${enc(candidate)}` : ""}`,
   conflicts: (s: string) => `${sys(s)}/conflicts`,
   promote: (s: string) => `${sys(s)}/promote`,
+  /** `POST` (admin) → {@link EvaluateCandidateResponse}: re-run an open candidate's submission hooks. */
+  evaluateCandidate: (s: string, c: string) => `${sys(s)}/candidates/${enc(c)}/evaluate`,
   history: (s: string) => `${sys(s)}/history`,
   events: (s: string) => `${sys(s)}/events`,
 
@@ -460,6 +462,16 @@ export interface SubmitResponse {
   candidate: Candidate;
   evaluations: Evaluation[];
   conflicts: ConflictReport[];
+}
+
+/**
+ * `POST /api/systems/:id/candidates/:cid/evaluate` (admin): re-runs the candidate's submission hooks with its current
+ * preview URL and passed build; the evaluations replace the earlier ones. 409 for promoted or rejected candidates.
+ */
+export interface EvaluateCandidateResponse {
+  realization: Realization;
+  candidate: Candidate;
+  evaluations: Evaluation[];
 }
 
 /** `POST …/realizations/:rid/sync`: `submitted` is null when the fork head is already a candidate. */

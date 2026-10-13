@@ -2,7 +2,7 @@ import {
   routes,
   type AcceptRequest, type AcceptResponse, type ApiError, type BuildKind, type BuildsResponse, type CandidatesResponse,
   type ChangelogEntry, type ChangelogResponse, type CommitHash, type ConflictReport, type CreateEvolutionRequest,
-  type CreateEvolutionResponse, type DeploymentsResponse, type EditorCommitRequest, type EditorCommitResponse, type EvaluationsResponse,
+  type CreateEvolutionResponse, type DeploymentsResponse, type EditorCommitRequest, type EditorCommitResponse, type EvaluateCandidateResponse, type EvaluationsResponse,
   type EvolutionsResponse, type FileCompare, type FileResponse, type FileScope, type FilesResponse, type GenomeCandidateReview,
   type GenomeCompare, type HistoryResponse, type ModelBundle, type PhenomeEventsQuery, type PhenomeEventsResponse, type PromoteRequest,
   type PartResponse, type PromoteResponse, type ReadinessReport, type RealizedArtifactsResponse, type RejectRequest, type RejectResponse, type RevisionsResponse, type SseEvent,
@@ -63,6 +63,7 @@ export const paths = {
   history: (s: string) => `/api/systems/${enc(s)}/history`,
   startWork: (s: string, e: string) => `/api/systems/${enc(s)}/evolutions/${enc(e)}/realizations`,
   promote: (s: string) => `/api/systems/${enc(s)}/promote`,
+  evaluateCandidate: routes.evaluateCandidate,
   amendmentReview: (s: string, e: string, r: string) =>
     `/api/systems/${enc(s)}/evolutions/${enc(e)}/realizations/${enc(r)}/review`,
   reject: (s: string, r: string) => `/api/systems/${enc(s)}/realizations/${enc(r)}/reject`,
@@ -326,6 +327,12 @@ export const startWork = (systemId: string, evolutionId: string, body: StartWork
 export const promote = (systemId: string, body: PromoteRequest, adminToken?: string) =>
   writeOrThrow("Promote", () =>
     post<PromoteResponse>(paths.promote(systemId), body, adminToken ? { authorization: `Bearer ${adminToken}` } : undefined),
+  );
+
+/** Admin only: re-run an open candidate's checks against its current preview; the new evaluations replace the old. */
+export const evaluateCandidate = (systemId: string, candidateId: string, adminToken?: string) =>
+  writeOrThrow("Re-run checks", () =>
+    post<EvaluateCandidateResponse>(paths.evaluateCandidate(systemId, candidateId), {}, adminToken ? { authorization: `Bearer ${adminToken}` } : undefined),
   );
 
 export const acceptAmendment = (systemId: string, evolutionId: string, body: AcceptRequest, adminToken?: string) =>
