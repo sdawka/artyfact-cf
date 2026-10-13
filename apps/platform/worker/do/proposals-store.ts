@@ -26,6 +26,9 @@ export interface StoredProposal {
   plan?: ProposalPlanNode[]; decisions?: ProposalDecisions; deferredFrom?: string;
 }
 
+/** What `plan_json`, `decisions_json` and `deferred_from` hold. */
+export interface StoredProposalPlan { plan: ProposalPlanNode[]; decisions: ProposalDecisions; deferredFrom?: string }
+
 /** Node id → the admin's decision on it (`decisions_json`). */
 export type ProposalDecisions = Record<string, NonNullable<ProposalPlanNode["decision"]>>;
 
@@ -151,30 +154,22 @@ export class ProposalsStore {
 
   // Plan columns: storage only; the planning logic lives in the Worker.
 
-  /** Stores the agreement tree (null clears it). False for an unknown proposal. */
-  setPlan(id: string, plan: ProposalPlanNode[] | null): boolean {
-    return this.set(id, "plan_json", plan == null ? null : JSON.stringify(plan));
-  }
-  plan(id: string): ProposalPlanNode[] | null { return this.read(id, "plan_json"); }
-
-  /** Stores the per-node decisions (null clears them). False for an unknown proposal. */
-  setDecisions(id: string, decisions: ProposalDecisions | null): boolean {
-    return this.set(id, "decisions_json", decisions == null ? null : JSON.stringify(decisions));
-  }
-  decisions(id: string): ProposalDecisions | null { return this.read(id, "decisions_json"); }
-
-  /** Records the proposal this one was deferred from (null clears it). False for an unknown proposal. */
-  setDeferredFrom(id: string, from: string | null): boolean { return this.set(id, "deferred_from", from); }
-  deferredFrom(id: string): string | null {
-    const v = (this.sql.exec("SELECT deferred_from FROM proposals WHERE id = ?", id).toArray() as Row[])[0]?.deferred_from;
-    return v == null ? null : String(v);
+  /** The agreement tree, the admin's per-node decisions and the deferral source; null for an unknown proposal. */
+  plan(id: string): StoredProposalPlan | null {
+    const r = this.row(id);
+    if (!r) return null;
+    return {
+      plan: r.plan_json == null ? [] : (JSON.parse(String(r.plan_json)) as ProposalPlanNode[]),
+      decisions: r.decisions_json == null ? {} : (JSON.parse(String(r.decisions_json)) as ProposalDecisions),
+      ...(r.deferred_from != null && { deferredFrom: String(r.deferred_from) }),
+    };
   }
 
-  private set(id: string, column: "plan_json" | "decisions_json" | "deferred_from", value: string | null): boolean {
-    return this.sql.exec(`UPDATE proposals SET ${column} = ?, updated_at = ? WHERE id = ? RETURNING id`, value, nowIso(), id).toArray().length > 0;
-  }
-  private read<T>(id: string, column: "plan_json" | "decisions_json"): T | null {
-    const v = (this.sql.exec(`SELECT ${column} AS v FROM proposals WHERE id = ?`, id).toArray() as Row[])[0]?.v;
-    return v == null ? null : (JSON.parse(String(v)) as T);
+  /** Stores tree, decisions and deferral source in one conditional UPDATE: only while the proposal is `open` (else false). */
+  setPlan(id: string, plan: ProposalPlanNode[], decisions: ProposalDecisions, deferredFrom?: string): boolean {
+    return this.sql.exec(
+      "UPDATE proposals SET plan_json = ?, decisions_json = ?, deferred_from = ?, updated_at = ? WHERE id = ? AND status = 'open' RETURNING id",
+      JSON.stringify(plan), JSON.stringify(decisions), deferredFrom ?? null, nowIso(), id,
+    ).toArray().length > 0;
   }
 }

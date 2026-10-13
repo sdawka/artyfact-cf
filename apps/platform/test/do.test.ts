@@ -872,20 +872,43 @@ describe("tasks store", () => {
     });
   });
 
-  it("proposal plan, decisions and deferral columns round trip", async () => {
+  it("proposal plan, decisions and deferral source: stored together, only while open", async () => {
     await runInDurableObject(stub(), async (i: SystemAuthority) => {
       await i.bootstrap(boot);
-      const p = i.createProposal({ status: "open", plan: [] } as never);
-      expect(i.proposalPlan(p.id)).toBeNull();
+      const p = i.createProposal({ status: "open", plan: [], provenance: { genomeCommit: G1 } } as never);
+      expect(i.proposalPlan(p.id)).toEqual({ plan: [], decisions: {} });
+      expect(i.proposalPlan("proposal.404")).toBeNull();
       const node = { id: "screen.people", kind: "screen", title: "People", path: [], summary: "s", opIds: ["op.1"], children: [] };
-      expect(i.setProposalPlan(p.id, [node])).toBe(true);
-      expect(i.setProposalDecisions(p.id, { "screen.people": "defer" })).toBe(true);
-      expect(i.setProposalDeferredFrom(p.id, "proposal.0")).toBe(true);
-      expect(i.setProposalPlan("proposal.404", [])).toBe(false);
-      expect(i.proposalPlan(p.id)).toEqual([node]);
-      expect(i.proposalDecisions(p.id)).toEqual({ "screen.people": "defer" });
-      expect(i.proposalDeferredFrom(p.id)).toBe("proposal.0");
-      expect(i.proposal(p.id)).toMatchObject({ plan: [node], decisions: { "screen.people": "defer" }, deferredFrom: "proposal.0" });
+      expect(i.setProposalPlan(p.id, [node], { "screen.people": "defer" }, "proposal.0")).toBe(true);
+      expect(i.proposalPlan(p.id)).toEqual({ plan: [node], decisions: { "screen.people": "defer" }, deferredFrom: "proposal.0" });
+      expect(i.setProposalPlan(p.id, [node], {})).toBe(true);
+      expect(i.proposalPlan(p.id)).toEqual({ plan: [node], decisions: {} });
+      expect(i.setProposalPlan("proposal.404", [], {})).toBe(false);
+      // Not open (accepting): refused, nothing written.
+      expect(i.claimProposal(p.id)).toHaveProperty("claimed");
+      expect(i.setProposalPlan(p.id, [], { "screen.people": "agree" })).toBe(false);
+      expect(i.proposalPlan(p.id)).toEqual({ plan: [node], decisions: {} });
     });
+  });
+
+  it("a Genome candidate is gated by model-target criteria only", async () => {
+    const model = JSON.stringify({ criteria: [
+      { id: "C.people.list", targetKind: "artifact" }, { id: "C.people.health", targetKind: "runtime" }, { id: "C.genome.valid", targetKind: "model" },
+    ] });
+    const accept = async (acceptance: string[], evaluated: string[], gates: GateCriterion[] = []) => runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap({ ...boot, evolutions: [{ ...boot.evolutions[0], acceptanceCriteria: acceptance }] });
+      i.putModelCache(G1, { model });
+      const g = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
+      const c = i.recordCandidate({ realizationId: g.realization.id, commit: "2".repeat(40), manifest: {}, changedPaths: ["x.yaml"], changedNodes: [] }).candidate;
+      i.recordEvaluations(c.id, evaluated.map((k) => ev(c.id, k, "pass")), "awaiting-admin");
+      return i.accept({ realizationId: g.realization.id, candidateId: c.id, commit: c.commit, rationale: "ok", by: "admin", evolutions: [], gates, artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+    });
+    // Artifact and runtime criteria (acceptance or Worker-computed) do not block a Genome candidate.
+    expect(await accept(["C.people.list", "C.people.health"], [], hard("C.people.list", "C.people.health"))).toMatchObject({ ok: true });
+    // A model criterion still does, and passes once evaluated.
+    expect(await accept(["C.people.list", "C.genome.valid"], [])).toMatchObject({ ok: false, code: "blocked", blocking: [{ criterion: "C.genome.valid" }] });
+    expect(await accept(["C.people.list", "C.genome.valid"], ["C.genome.valid"], hard("C.genome.valid"))).toMatchObject({ ok: true });
+    // A criterion the cached model does not know stays in (fail closed).
+    expect(await accept(["C.unknown"], [])).toMatchObject({ ok: false, code: "blocked", blocking: [{ criterion: "C.unknown" }] });
   });
 });

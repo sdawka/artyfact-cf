@@ -7,7 +7,7 @@ import type {
 } from "../../shared/api";
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
-import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalDecisions, type ProposalTurn, type ReviseResult, type StoredProposal } from "./proposals-store";
+import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalDecisions, type ProposalTurn, type StoredProposalPlan, type ReviseResult, type StoredProposal } from "./proposals-store";
 import { TASK_LEASE_MS, TasksStore, type TaskClaimResult, type TaskPatch } from "./tasks-store";
 import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentInput } from "./builds-store";
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
@@ -1076,7 +1076,10 @@ export class SystemAuthority extends DurableObject<Env> {
   /**
    * The gate actually enforced for one candidate, failing closed:
    * - no Worker-computed gate → `gate-unavailable`;
-   * - the Evolution's acceptance criteria (from this DO's record) are always in; any the Worker did not classify block;
+   * - the acceptance criteria (the task's when the realization has one, else the Evolution's, from this DO's record) are
+   *   always in; any the Worker did not classify block;
+   * - a Genome candidate keeps only criteria whose `targetKind` is `model` (per the cached model; unknown ones stay);
+   *   when that drops every acceptance criterion, an empty gate is the gate (the admin's accept decides);
    * - an empty blocking set is only acceptable with ≥1 acceptance criterion, every one evaluated for this candidate.
    */
   private effectiveGates(c: Row, computed: GateCriterion[] | undefined): GateCriterion[] {
@@ -1084,19 +1087,43 @@ export class SystemAuthority extends DurableObject<Env> {
     if (!computed) throw new GateUnavailableError(`no gate criteria were computed for ${id}`);
     // A task realization is gated by its task's criteria; any other by its Evolution's.
     const taskCriteria = c.task_id != null ? this.tasks_().criteria(String(c.task_id)) : null;
-    const acceptance = taskCriteria ?? json<string[]>(this.one("SELECT criteria_json FROM evolutions WHERE id = ?", c.evolution_id)?.criteria_json, []);
-    const gates = new Map(computed.map((g) => [g.id, g] as const));
+    let acceptance = taskCriteria ?? json<string[]>(this.one("SELECT criteria_json FROM evolutions WHERE id = ?", c.evolution_id)?.criteria_json, []);
+    // A Genome candidate answers only to criteria that target the model; artifact, runtime and observation criteria
+    // belong to the app realizations. A criterion whose target is unknown (model not cached) stays (fail closed).
+    let ofTarget = computed;
+    let dropped = false;
+    if (String(c.target) === "genome") {
+      const kinds = this.criterionTargets([str(c.commit_hash), this.kv("genome_commit")]);
+      const applies = (id: string) => (kinds.get(id) ?? "model") === "model";
+      dropped = acceptance.some((a) => !applies(a));
+      acceptance = acceptance.filter(applies);
+      ofTarget = computed.filter((g) => applies(g.id));
+    }
+    const gates = new Map(ofTarget.map((g) => [g.id, g] as const));
     for (const a of acceptance) if (!gates.has(a)) gates.set(a, { id: a, severity: "hard", blocking: true });
-    const deferred = new Set(computed.filter((g) => g.deferred).map((g) => g.id));
+    const deferred = new Set(ofTarget.filter((g) => g.deferred).map((g) => g.id));
     const out = [...gates.values()].filter((g) => !g.deferred);
     if (!out.some((g) => g.blocking)) {
       const live = acceptance.filter((a) => !deferred.has(a));
+      // Every acceptance criterion is known to target the app: nothing of the Genome candidate's is left to evaluate.
+      if (dropped && !live.length) return out;
       if (!live.length) throw new GateUnavailableError(`${id} has no blocking criteria and its Evolution has no (non-deferred) acceptance criteria`);
       // "Evaluated" means a completed run (any verdict): the runner writes a not-run row for every unrunnable acceptance criterion.
       const unevaluated = live.filter((a) => !this.one("SELECT 1 AS x FROM evaluations WHERE candidate_id = ? AND criterion_id = ? AND execution = 'completed'", id, a));
       if (unevaluated.length) throw new GateUnavailableError(`${id} has no blocking criteria and acceptance criteria ${unevaluated.join(", ")} are unevaluated`);
     }
     return out;
+  }
+
+  /** Criterion id → `targetKind` from the first of `genomeCommits` whose serialized model is cached. */
+  private criterionTargets(genomeCommits: (string | null)[]): Map<string, string> {
+    for (const commit of genomeCommits) {
+      const raw = commit ? this.getModelCache(commit, "model") : null;
+      if (!raw) continue;
+      const criteria = (JSON.parse(raw) as { criteria?: { id: string; targetKind?: string }[] }).criteria ?? [];
+      return new Map(criteria.filter((k) => k.targetKind).map((k) => [k.id, k.targetKind!] as const));
+    }
+    return new Map();
   }
 
   private promotionRows(candidateIds: string[]): (Row | undefined)[] {
@@ -1317,7 +1344,7 @@ export class SystemAuthority extends DurableObject<Env> {
         // can never replace a newer genomeCommit that landed after its gate was prepared.
         if (str(this.realizationRow(input.realizationId)?.base_head) !== head) throw new StaleBaseError(head);
         // The same blocking gate as promotion, for the Genome candidate.
-        const gate = this.checkGate([{ ...cand, evolution_id: rec.evolutionId }], { [String(cand.id)]: input.gates }, input.rationale);
+        const gate = this.checkGate([{ ...cand, evolution_id: rec.evolutionId, target: "genome" }], { [String(cand.id)]: input.gates }, input.rationale);
         advisories = gate.advisories;
         const c = this.writeCommit(prep, [rec.evolutionId], {
           by: input.by, policy: "admin-accept", rationale: input.rationale, candidates: [String(cand.id)], evidenceProviders: gate.evidenceProviders,
@@ -1583,13 +1610,12 @@ export class SystemAuthority extends DurableObject<Env> {
   }
   releaseProposal(id: string, claimedAt: string, error: string | null): boolean { return this.proposals().release(id, claimedAt, error); }
   finishProposal(id: string, claimedAt: string, ids: AcceptedIds, error?: string): Proposal | null { return this.proposals().finish(id, claimedAt, ids, error); }
-  /** Storage of a proposal's agreement tree, per-node decisions and deferral source (the Worker plans; false: unknown proposal). */
-  setProposalPlan(id: string, plan: ProposalPlanNode[] | null): boolean { return this.proposals().setPlan(id, plan); }
-  proposalPlan(id: string): ProposalPlanNode[] | null { return this.proposals().plan(id); }
-  setProposalDecisions(id: string, decisions: ProposalDecisions | null): boolean { return this.proposals().setDecisions(id, decisions); }
-  proposalDecisions(id: string): ProposalDecisions | null { return this.proposals().decisions(id); }
-  setProposalDeferredFrom(id: string, from: string | null): boolean { return this.proposals().setDeferredFrom(id, from); }
-  proposalDeferredFrom(id: string): string | null { return this.proposals().deferredFrom(id); }
+  /** A proposal's agreement tree, per-node decisions and deferral source (storage only; null: unknown proposal). */
+  proposalPlan(id: string): StoredProposalPlan | null { return this.proposals().plan(id); }
+  /** Stores them while the proposal is `open`; false otherwise (or when unknown). */
+  setProposalPlan(id: string, plan: ProposalPlanNode[], decisions: ProposalDecisions, deferredFrom?: string): boolean {
+    return this.proposals().setPlan(id, plan, decisions, deferredFrom);
+  }
 
   /**
    * Undo an accept that failed after creating its Evolution: delete the Evolution with its realizations and what they
