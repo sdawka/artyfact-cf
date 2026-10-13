@@ -646,8 +646,10 @@ type Run = Awaited<ReturnType<typeof evaluate>>;
 
 async function recordRun(env: Env, systemId: string, candidateId: string, run: Run, replace = false): Promise<void> {
   const stub = systemStub(env, systemId);
-  if (run.review) await stub.putReview(candidateId, JSON.stringify(run.review));
-  await stub.recordEvaluations(candidateId, run.evaluations, run.status, replace);
+  // A replacing run stores its review only once the DO accepted the evaluations (the candidate is still open).
+  if (run.review && !replace) await stub.putReview(candidateId, JSON.stringify(run.review));
+  await rpc(stub.recordEvaluations(candidateId, run.evaluations, run.status, replace));
+  if (run.review && replace) await stub.putReview(candidateId, JSON.stringify(run.review));
 }
 
 /**
@@ -871,9 +873,15 @@ async function prepareGate(
     }
     // Revalidate on the exact commit before the CAS: hooks re-run with promotionFacts (base-current, manifest-exact, evidence-fresh).
     if (["submitted", "evaluated", "selected"].includes(c.state) && s.head === expectedHead) {
-      await computeConflicts(env, systemId, id);
-      const { evaluations } = await evaluate(env, s, rec, ref, "promotion", ids);
-      if (evaluations.length) await stub.recordEvaluations(id, evaluations);
+      // Never overlap an admin re-run of the same candidate: one would overwrite the other's evidence.
+      if (!(await stub.claimEvaluation(id))) throw conflict("evaluation-running", `candidate ${id} is being re-evaluated; promote once its checks finish`);
+      try {
+        await computeConflicts(env, systemId, id);
+        const { evaluations } = await evaluate(env, s, rec, ref, "promotion", ids);
+        if (evaluations.length) await stub.recordEvaluations(id, evaluations);
+      } finally {
+        await stub.releaseEvaluation(id);
+      }
     }
   }
   return { g, gates };

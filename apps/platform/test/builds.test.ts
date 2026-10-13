@@ -513,6 +513,51 @@ describe("candidate re-evaluation", () => {
     expect(refused.json.error.code).toBe("invalid-state");
     expect(seen).toHaveLength(runs);
   });
+
+  it("refuses (409) when the candidate is promoted while its hooks re-run, keeping the promotion evidence", async () => {
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const id = a.sub.candidate.id;
+    const promotionEval = { ...hookEval(seen[0], "C.system.promotion"), id: `${id}:promotion` };
+    setHooks({
+      runner: () => ({
+        ...healthRunner,
+        async runSubmission(hctx) {
+          // A promotion lands mid-run: it records its own evaluations and closes the candidate.
+          await inDo(ctx.systemId, (i, state) => {
+            i.recordEvaluations(id, [promotionEval]);
+            state.storage.sql.exec("UPDATE candidates SET state = 'promoted' WHERE id = ?", id);
+          });
+          return [hookEval(hctx, "C.webapp.exists", "fail")];
+        },
+      }),
+    });
+    const out = await call<ApiError>("POST", evaluatePath(ctx.systemId, id), undefined, ADMIN);
+    expect(out.status, JSON.stringify(out.json)).toBe(409);
+    expect(out.json.error.code).toBe("invalid-state");
+    const evals = await inDo(ctx.systemId, (i) => i.evaluations(id));
+    expect(evals.find((e) => e.id === promotionEval.id)).toMatchObject({ criterion: "C.system.promotion", verdict: "pass" });
+    expect(evals.some((e) => e.criterion === "C.webapp.exists" && e.verdict === "fail")).toBe(false);
+    // The claim was released.
+    expect(await inDo(ctx.systemId, (i) => i.claimEvaluation(id))).toBe(true);
+  });
+
+  it("promotion is refused (409) while a re-run holds the candidate's claim", async () => {
+    setHooks({ runner: () => runner });
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const id = a.sub.candidate.id;
+    const promote = () => call<ApiError>("POST", `/systems/${ctx.systemId}/promote`, { candidateIds: [id], expectedHead: ctx.imp.head, rationale: "ok" }, ADMIN);
+    expect(await inDo(ctx.systemId, (i) => i.claimEvaluation(id))).toBe(true);
+    const refused = await promote();
+    expect(refused.status).toBe(409);
+    expect(refused.json.error.code).toBe("evaluation-running");
+    expect((await inDo(ctx.systemId, (i) => i.candidate(id)))?.state).not.toBe("promoted");
+    await inDo(ctx.systemId, (i) => i.releaseEvaluation(id));
+    expect((await promote()).status).toBe(200);
+    // Promotion released its own claim.
+    expect(await inDo(ctx.systemId, (i) => i.claimEvaluation(id))).toBe(true);
+  });
 });
 
 describe("CI dispatch", () => {
