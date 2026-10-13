@@ -54,7 +54,7 @@ export default defineConfig({
       ? [{
           command: `npx vite --port ${port + 1} --strictPort`,
           url: selfURL,
-          env: { FAKE_ARTIFACTS: "1", ADMIN_TOKEN: "test", FAKE_SEED: "artyfact" },
+          env: { FAKE_ARTIFACTS: "1", ADMIN_TOKEN: "test", FAKE_SEED: "artyfact", VITE_CACHE_DIR: "node_modules/.vite-self" },
           reuseExistingServer: !process.env.CI,
           timeout: 60_000,
         }]

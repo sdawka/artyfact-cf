@@ -1,9 +1,16 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { ADMIN_TOKEN, checkPage, sweepViews } from "./fake";
 
 /** Artyfact describing itself: the platform here is seeded with the repo-root `genome/` (`FAKE_SEED=artyfact`). */
 const SYS = "system.artyfact";
 const BASE = `/s/${SYS}/r/head`;
+/** The System Map's containment tree lists every Thing (they have no Map layer, so the canvas draws their descendants instead). */
+async function expectTenThings(page: Page) {
+  const tree = page.getByRole("tree", { name: "Containment" });
+  for (const t of THINGS) await expect(tree.locator(`#map-tree-${t.replace(".", "_")}`)).toHaveAttribute("role", "treeitem");
+  await expect(tree.getByRole("treeitem").filter({ hasText: ", Thing" })).toHaveCount(THINGS.length);
+}
+
 const THINGS = ["ci", "cli", "effects", "model", "ontology", "platform", "rules", "semantic", "site", "templates"].map((t) => `thing.${t}`);
 
 test.describe("the self-model @fake", () => {
@@ -13,6 +20,11 @@ test.describe("the self-model @fake", () => {
     await expect(page.getByRole("link", { name: /Artyfact/ }).first()).toBeVisible();
     await expect(page.getByText("fixture data")).toHaveCount(0);
     await checkPage(page, testInfo, "self-home");
+    // Home shows no Thing list; the card opens the System, whose Map tree lists all ten.
+    await page.getByRole("link", { name: /Artyfact/ }).first().click();
+    await expect(page).toHaveURL(/\/s\/system\.artyfact/);
+    await page.goto(`${BASE}/map`);
+    await expectTenThings(page);
     const model = await (await request.get(`/api/systems/${SYS}/model`)).json() as { model: { system: { things: string[] } } };
     expect(model.model.system.things).toEqual(THINGS);
   });
@@ -21,9 +33,7 @@ test.describe("the self-model @fake", () => {
     const { model } = await (await request.get(`/api/systems/${SYS}/model`)).json() as { model: { views: { layers: { id: string }[] } } };
     // System scope: Things have no Map layer, so the canvas looks through them to the layer bands; the containment tree lists all ten.
     await page.goto(`${BASE}/map`);
-    const tree = page.getByRole("tree", { name: "Containment" });
-    for (const t of THINGS) await expect(tree.locator(`#map-tree-${t.replace(".", "_")}`)).toHaveAttribute("role", "treeitem");
-    await expect(tree.getByRole("treeitem").filter({ hasText: ", Thing" })).toHaveCount(THINGS.length);
+    await expectTenThings(page);
     await expect(page.locator("[data-map-band]").first()).toBeVisible();
     expect(await page.locator("[data-map-node]").evaluateAll((els) => els.map((e) => e.getAttribute("data-map-node")!).filter((id) => id.startsWith("thing.")))).toEqual([]);
 
@@ -46,10 +56,7 @@ test.describe("the self-model @fake", () => {
     await page.goto(`${BASE}/map?focus=endpoint.apply-template-upgrade`);
     const inspector = page.getByRole("complementary", { name: "Inspector" });
     await expect(inspector.getByText("Route", { exact: true })).toBeVisible();
-    const text = await inspector.innerText();
-    const at = ["Route", "Auth", "Request", "Response"].map((l) => text.lastIndexOf(`\n${l}\n`));
-    expect(at.every((i) => i >= 0)).toBe(true);
-    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    await expect(inspector.locator("dt, [data-field-label]").filter({ hasText: /^(Route|Auth|Request|Response)$/ })).toHaveText(["Route", "Auth", "Request", "Response"]);
     await expect(inspector.getByText("POST /api/systems/:id/template-upgrade")).toBeVisible();
     await checkPage(page, testInfo, "self-inspector-hints");
   });
@@ -58,7 +65,7 @@ test.describe("the self-model @fake", () => {
     await sweepViews(page, testInfo, BASE, "self");
   });
 
-  test("an intent about the intents endpoint proposes ops under the platform Thing; Compare shows the change at that depth @fake", async ({ page, request }, testInfo) => {
+  test("an intent about the platform lands under thing.platform; Compare shows the change at that depth @fake", async ({ page, request }, testInfo) => {
     await page.addInitScript(([k, v]) => sessionStorage.setItem(k, v), ["artyfact.adminToken", ADMIN_TOKEN]);
     await page.goto(`${BASE}/work?panel=intent`);
     await page.getByLabel("What should change?").fill("add rate limiting to the intents endpoint");
