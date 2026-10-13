@@ -36,7 +36,7 @@ async function importSystem(): Promise<Sys> {
   ns.create(`tasks-genome-${tag}`).commit(files, "genome");
   ns.create(`tasks-app-${tag}`).commit(app, "app");
   setArtifactsOverride(ns);
-  const imp = await call<ImportSystemResponse>("POST", "/api/systems/import", { systemId, genomeRepo: `tasks-genome-${tag}`, appRepo: `tasks-app-${tag}` });
+  const imp = await call<ImportSystemResponse>("POST", "/api/systems/import", { systemId, genomeRepo: `tasks-genome-${tag}`, appRepo: `tasks-app-${tag}`, review: false });
   expect(imp.status, JSON.stringify(imp.json)).toBe(201);
   return { ns, systemId };
 }
