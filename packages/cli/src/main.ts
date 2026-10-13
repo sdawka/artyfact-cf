@@ -1,53 +1,25 @@
-import { closeSync, constants, existsSync, fchmodSync, lstatSync, openSync, readFileSync, readdirSync, writeSync, mkdirSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { PlatformClient, rzPath } from "./api.ts";
 import { initCommand, platformSyncCommand, type InitIo } from "./init.ts";
 import { DEFAULT_URL, resolvePlatform } from "./platform-url.ts";
-import { mergeAgentsBlock, renderAgentsMd } from "./agents-md.ts";
-import { CliError, assertId, assertRemote, assertSecret, assertToken, commitIfDirty, git, isTracked } from "./git.ts";
-import { WORKSPACE_IGNORES } from "./ignore.ts";
+import { CliError, assertId, assertRemote, assertSecret, assertToken, commitIfDirty, git } from "./git.ts";
 import type { ConflictRow, EvaluationRow, PacketPayload, WorkspaceConfig } from "./types.ts";
 import { partsCommand } from "./parts.ts";
 import { convertGenomeCommand } from "./convert-genome.ts";
 import { validateGenomeCommand } from "./validate-genome.ts";
 import { skillCommand } from "./skill.ts";
+import { tasksCommand, claimCommand } from "./tasks.ts";
+import { CONFIG, isLink, materializeWorkspace, readPriorConfig, safeWrite } from "./workspace.ts";
+
+export { safeWrite };
 
 export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> {
   out: (s: string) => void;
   err: (s: string) => void;
   cwd: string;
   env: Record<string, string | undefined>;
-}
-
-const CONFIG = ".artyfact.json";
-
-/** Write a file without ever following a symlink at the target (O_NOFOLLOW) and refuse symlinked paths. */
-export function safeWrite(path: string, data: string, mode = 0o644, append = false): void {
-  if (existsSync(path) || isLink(path)) {
-    if (lstatSync(path).isSymbolicLink()) throw new CliError(`refusing to write through symlink: ${path}`);
-  }
-  const flags = constants.O_WRONLY | constants.O_CREAT | constants.O_NOFOLLOW | (append ? constants.O_APPEND : constants.O_TRUNC);
-  let fd: number;
-  try {
-    fd = openSync(path, flags, mode);
-  } catch (e) {
-    throw new CliError(`cannot write ${path}: ${(e as Error).message}`);
-  }
-  try {
-    writeSync(fd, data);
-    if (!append) fchmodSync(fd, mode);
-  } finally {
-    closeSync(fd);
-  }
-}
-
-function lstatOrNull(path: string) {
-  try { return lstatSync(path); } catch { return null; }
-}
-
-function isLink(path: string): boolean {
-  try { return lstatSync(path).isSymbolicLink(); } catch { return false; }
 }
 
 const USAGE = `artyfact <command>
@@ -64,6 +36,10 @@ const USAGE = `artyfact <command>
   build-report --status queued|running|passed|failed|error [--url u] [--commit sha] [--logs-url u] [--error msg] [--json]
         report a preview build of this realization when platform CI did not (defaults: commit = HEAD)
   status [--json]
+  tasks --system sid [--evolution eid] [--json] [--platform url]
+        list the System's tasks (status, wave, dependencies, footprint), their conflicts and the first claim line (public)
+  claim <taskId> --agent <label> [--system sid] [--dir d] [--role r] [--platform url]
+        claim a task for a local agent and open its workspace (needs ARTYFACT_ADMIN_TOKEN); the same label re-claiming reuses the directory
   compose <rid> <rid> ...
   parts create|extract|validate|publish|compose|upgrade ...
   convert-genome <src> <dst> [--templates dir] [--source-map file]
@@ -102,6 +78,8 @@ export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
       case "convert-genome": return convertGenomeCommand(rest, full);
       case "validate-genome": return validateGenomeCommand(rest, full);
       case "skill": return skillCommand(rest, full);
+      case "tasks": return await tasksCommand(rest, full);
+      case "claim": return await claimCommand(rest, full);
       case undefined: case "help": case "--help": full.out(USAGE); return cmd ? 0 : 1;
       default: throw new CliError(`unknown command '${cmd}'\n${USAGE}`);
     }
@@ -168,10 +146,7 @@ async function start(args: string[], io: Io): Promise<number> {
   const evoId = assertId("evolution id", evoArg);
   const dir = resolve(io.cwd, values.dir ?? rid);
   if (isLink(dir)) throw new CliError(`refusing symlinked directory: ${dir}`);
-  const priorCfg = (() => {
-    const f = join(dir, CONFIG);
-    try { return isLink(f) ? undefined : (JSON.parse(readFileSync(f, "utf8")) as WorkspaceConfig); } catch { return undefined; }
-  })();
+  const priorCfg = readPriorConfig(dir) as WorkspaceConfig | undefined;
   const secret = secretFor(io, priorCfg?.realizationId === rid ? priorCfg : undefined);
   const platform = await resolvePlatform(values.platform, io.env, io.fetch ?? fetch, io.err);
   const client = new PlatformClient(platform, secret);
@@ -192,47 +167,11 @@ async function start(args: string[], io: Io): Promise<number> {
   if (!token) throw new CliError("no write token; set ARTYFACT_TOKEN for this command (shown once when work is started)");
   assertToken(token);
   const secrets = [...leaked, io.env.ARTYFACT_TOKEN, secret].filter((x): x is string => !!x);
-  const scrub = (text: string) => secrets.reduce((t, k) => t.replaceAll(k, "***"), text);
 
-  // A non-empty target is only acceptable if it is the clone we made for this realization.
-  const reuse = existsSync(dir) && readdirSync(dir).length > 0;
-  if (reuse) {
-    const cfgPath = join(dir, CONFIG);
-    let prior: Partial<WorkspaceConfig> = {};
-    try { if (!isLink(cfgPath)) prior = JSON.parse(readFileSync(cfgPath, "utf8")); } catch { /* not ours */ }
-    const foreign = () => new CliError(`${dir} exists and is not empty; choose another --dir`);
-    if (prior.realizationId !== realizationId) throw foreign();
-    // .git and .git/info must be real directories and origin must be the validated remote.
-    for (const sub of [".git", join(".git", "info")]) {
-      const st = lstatOrNull(join(dir, sub));
-      if (sub === ".git" ? !st?.isDirectory() : st && !st.isDirectory()) throw foreign();
-    }
-    if (git(dir, ["config", "--get", "remote.origin.url"]) !== remote) throw foreign();
-  } else {
-    mkdirSync(dir, { recursive: true });
-    git(io.cwd, ["clone", "--", remote, dir], token);
-  }
-
-  const cfg: WorkspaceConfig = {
-    platform, systemId, evolutionId: evoId, realizationId, forkRepo, remote,
+  materializeWorkspace(io, {
+    dir, platform, systemId, evolutionId: evoId, realizationId, forkRepo, remote, packet, token, secret, secrets,
     tokenExpires: payload.realization?.workspace?.tokenExpiresAt ?? payload.token?.expiresAt,
-    packetHash: packet.hash, secret,
-  };
-  // Per-realization files stay out of the fork: exclude them unless the repo already tracks them.
-  if (isTracked(dir, "TASK_PACKET.md")) throw new CliError("TASK_PACKET.md is tracked in this repo; refusing to overwrite it");
-  const agentsTracked = isTracked(dir, "AGENTS.md");
-  const exclude = join(dir, ".git", "info", "exclude");
-  mkdirSync(join(dir, ".git", "info"), { recursive: true });
-  const existing = existsSync(exclude) ? readFileSync(exclude, "utf8") : "";
-  const have = new Set(existing.split("\n"));
-  // Dependencies, Wrangler state, build output and local secrets stay out of the fork too (the scaffold's .gitignore says the same).
-  const want = [CONFIG, "TASK_PACKET.md", ...(agentsTracked ? [] : ["AGENTS.md"]), ...WORKSPACE_IGNORES].filter((l) => !have.has(l));
-  if (want.length) safeWrite(exclude, `${existing && !existing.endsWith("\n") ? "\n" : ""}${want.join("\n")}\n`, 0o644, true);
-  safeWrite(join(dir, "TASK_PACKET.md"), scrub(packet.markdown ?? JSON.stringify(packet, null, 2)));
-  const block = scrub(renderAgentsMd(packet, systemId));
-  const agentsPath = join(dir, "AGENTS.md");
-  safeWrite(agentsPath, agentsTracked ? mergeAgentsBlock(readFileSync(agentsPath, "utf8"), block) : block);
-  safeWrite(join(dir, CONFIG), `${JSON.stringify(cfg, null, 2)}\n`, 0o600);
+  });
 
   io.out(`Workspace ready in ${dir}`);
   io.out(`Next: cd ${dir} && read TASK_PACKET.md, then npm install && npm run dev`);
@@ -329,6 +268,7 @@ async function status(args: string[], io: Io): Promise<number> {
   };
   if (values.json) { io.out(JSON.stringify(out, null, 2)); return 0; }
   io.out(`${out.realizationId}: ${out.status}`);
+  if (cfg.taskId) io.out(`task: ${cfg.taskId}`);
   if (out.tokenExpires) io.out(`token expires: ${out.tokenExpires}`);
   printEvals(io, out.evaluations, out.conflicts);
   return 0;
