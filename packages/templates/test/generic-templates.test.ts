@@ -80,8 +80,13 @@ describe("generic templates", () => {
       expect(total).toBeGreaterThanOrEqual(3);
     });
 
-    it("has criteria wording for each of its own kinds", () => {
-      for (const k of Object.keys((metaTemplates.get(ref) as { kinds?: object }).kinds ?? {})) expect(t().kinds[k]!.criteria, k).toBeDefined();
+    it("has criteria wording for each of its own kinds: its noun, what an instance is, and what grounds it", () => {
+      for (const k of Object.keys((metaTemplates.get(ref) as { kinds?: object }).kinds ?? {})) {
+        const c = t().kinds[k]!.criteria!;
+        expect(c.noun?.toLowerCase(), k).toBe(k.replaceAll("-", " "));
+        expect(c.instanceOf, k).toMatch(new RegExp(`^An? ${c.noun} \\S.+\\.$`));
+        expect(c.grounded, k).toMatch(/^\S.*\.$/);
+      }
     });
   });
 

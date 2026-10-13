@@ -43,7 +43,10 @@ describe("a System whose templates have other kinds than the webapp's", () => {
 
   it("renders Overview", async () => {
     await renderClean(at("overview"));
-    expect(screen.getAllByText(/Toolkit/).length).toBeGreaterThan(0);
+    const hero = screen.getByRole("region", { name: "Toolkit" });
+    expect(within(hero).getByRole("heading", { level: 2, name: "Toolkit" }).id).toBe("hero-title");
+    expect(within(hero).getByText("purpose.reliable-jobs").parentElement!.textContent)
+      .toBe("purpose.reliable-jobs Operators submit a job once and see it finish, instead of resubmitting after silent failures.");
   });
 
   it("renders the Map in template bands with the templates' labels and glyphs", async () => {
