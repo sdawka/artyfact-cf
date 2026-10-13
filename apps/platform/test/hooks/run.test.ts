@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { schema } from "@artyfact/model";
 import { createSystemOne } from "@artyfact/semantic";
-import type { CandidateRef, Evaluation, SubmissionContext } from "../../worker/hooks/contract";
+import type { CandidateRef, Evaluation, EvolutionRef, SubmissionContext } from "../../worker/hooks/contract";
 import { createHookRunner, selectHooks } from "../../worker/hooks/run";
 import { loadGenome } from "../../worker/hooks/model-rules";
 import { BASE, COMMIT, miniGenome, withRecipients } from "./fixtures";
@@ -52,6 +52,45 @@ describe("hook selection", () => {
     expect(at("submission").run).toBe(false);
     expect(at("promotion")).toMatchObject({ run: true });
     expect(at("promotion").skip).toBeUndefined();
+  });
+});
+
+describe("hook selection: the DO's Evolution record (API-created evolutions)", () => {
+  const model = loadGenome(miniGenome(), BASE);
+  const stored = (over: Partial<EvolutionRef> = {}): EvolutionRef => ({
+    id: "evolution.api", kind: "implementation", acceptanceCriteria: ["C.webapp.health"], affectedNodes: ["screen.people"], state: "actionable", ...over,
+  });
+  const ids = (sel: ReturnType<typeof selectHooks>) => sel.map((s) => `${s.criterion.id}|${s.reason}`);
+
+  it("falls back to the stored Evolution when the Genome does not declare it", () => {
+    const sel = selectHooks(model, appCandidate({ evolutionId: "evolution.api", changedNodes: [] }), "submission", stored());
+    expect(ids(sel)).toEqual(["C.webapp.health|acceptance", "C.system.structure|system-gate", "C.system.promotion|system-gate", "C.system.readiness|system-gate"]);
+    expect(sel.every((s) => s.notes.length === 0)).toBe(true);
+  });
+
+  it("prefers the Genome's Evolution over the stored record with the same id", () => {
+    const genome = selectHooks(model, appCandidate());
+    expect(selectHooks(model, appCandidate(), "submission", stored({ id: "evolution.1", acceptanceCriteria: [] }))).toEqual(genome);
+  });
+
+  it("ignores a stored record for another Evolution, and an id known nowhere stays C.evolution-missing", () => {
+    for (const s of [undefined, stored({ id: "evolution.other" })]) {
+      const sel = selectHooks(model, appCandidate({ evolutionId: "evolution.api", changedNodes: [] }), "submission", s);
+      expect(sel[0]).toMatchObject({ criterion: { id: "C.evolution-missing.evolution.api" }, hook: null, run: false, reason: "acceptance" });
+      expect(ids(sel)).not.toContain("C.webapp.health|acceptance");
+    }
+  });
+
+  it("an acceptance id the Genome lacks is a phantom `none` evaluation, never a throw", async () => {
+    const runner = createHookRunner({ s1: createSystemOne({}), now: fixedNow, fetch: (async () => { throw new Error("no network in tests"); }) as unknown as typeof fetch });
+    const candidate = appCandidate({ evolutionId: "evolution.api", changedNodes: [] });
+    const evs = await runner.runSubmission(ctxFor(candidate, { evolution: stored({ acceptanceCriteria: ["C.gone", "C.webapp.health"] }) }));
+    expect(by(evs, "C.gone")[0]).toMatchObject({ hook: "none", execution: "not-run", verdict: "unknown" });
+    expect(by(evs, "C.gone")[0].limitations.join(" ")).toMatch(/C\.gone is not defined in the Genome/);
+    expect(by(evs, "C.webapp.health")[0]).toMatchObject({ hook: "hook.webapp.health", execution: "not-run", verdict: "unknown" });
+    expect(evs.some((e) => e.criterion.startsWith("C.evolution-missing"))).toBe(false);
+    const missing = await runner.runSubmission(ctxFor(candidate));
+    expect(by(missing, "C.evolution-missing.evolution.api")[0]).toMatchObject({ hook: "none", execution: "not-run", verdict: "unknown" });
   });
 });
 

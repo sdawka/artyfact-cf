@@ -556,10 +556,11 @@ export async function conflicts(env: Env, systemId: string): Promise<ConflictsRe
 /** `promoting` is the full candidate set of the promotion (its composed manifest must bind exactly their commits). */
 async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: StoredCandidate, trigger: "submission" | "promotion", promoting: string[] = [cand.id]) {
   const stub = systemStub(env, s.systemId);
-  const [genomeFiles, candidate, others] = await Promise.all([
+  const [genomeFiles, candidate, others, evo] = await Promise.all([
     canonicalFiles(env, s),
     hookRef(env, s.systemId, cand),
     storedCandidates(env, s.systemId).then((xs) => Promise.all(xs.filter((c) => c.realizationId !== cand.realizationId).map((c) => hookRef(env, s.systemId, c)))),
+    stub.evolution(rec.evolutionId),
   ]);
   const required = requiredFiles((await canonicalGenome(env, s)).model);
   const { tree, exists, recomputedHash } = await withRepo(artifactsFor(env), rec.forkRepo, async (repo) => {
@@ -575,7 +576,6 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
   if (trigger === "promotion") {
     const submittedAt = (await stub.candidate(cand.id))?.submittedAt ?? "";
     const g = await canonicalGenome(env, s);
-    const evo = await stub.evolution(rec.evolutionId);
     const composed = await stub.composedManifestExact(promoting, manifestExtras(g.model).artifactId);
     let fresh = false;
     try {
@@ -594,6 +594,8 @@ async function evaluate(env: Env, s: HeadState, rec: RealizationRecord, cand: St
     systemId: s.systemId, candidate, genomeCommit: s.genomeCommit, genomeFiles, tree,
     permittedPaths: rec.packet?.permittedPaths ?? [], protectedPaths: rec.packet?.protectedPaths ?? protectedPathsFor(rec.target),
     openCandidates: others, ...(promotionFacts && { promotionFacts }), trigger,
+    // API-created Evolutions exist only in the DO: hook selection falls back to this record when the Genome lacks it.
+    ...(evo && { evolution: { id: evo.id, kind: evo.kind, acceptanceCriteria: evo.acceptanceCriteria, affectedNodes: evo.affectedNodes, state: evo.state } }),
   };
   const runner = hookRunner(env);
   if (rec.target === "genome") {
