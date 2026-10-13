@@ -6,13 +6,13 @@ fields:
   actor: user
   trigger: click
   preconditions:
-    - Every gate is pass
+    - Every required gate is pass and completed (advisories need a rationale)
     - The base is the head
     - An admin token is set
   effects:
     - A System commit is written and the row leaves the queue
   failure:
-    - "409 stale base: the stale message plus the agent's `artyfact rebase` line"
+    - "409 stale base: the stale message plus the agent's recovery line: rebase the fork on the new head and run `artyfact submit` again"
     - "403: the admin token is wrong"
 links:
   - rel: invokes

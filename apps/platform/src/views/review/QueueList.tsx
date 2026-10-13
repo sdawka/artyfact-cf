@@ -2,7 +2,7 @@ import { useId } from "react";
 import { Link } from "react-router";
 import { useKeepParams, useSelection } from "@/model/useSelection";
 import { ConflictChips } from "../work/ConflictChips";
-import type { QueueGroup, QueueRow } from "./queue";
+import { waitingCount, type QueueGroup, type QueueRow } from "./queue";
 import styles from "./review.module.css";
 
 interface Props {
@@ -16,7 +16,7 @@ interface Props {
 
 /** The decision queue: one row per pending decision, grouped by Evolution. A row is a link that opens it on the right. */
 export function QueueList({ groups, evolutionId, realizationId, promoting, loading = false }: Props) {
-  const count = groups.reduce((n, g) => n + g.rows.length, 0);
+  const count = waitingCount(groups);
   return (
     <section className={styles.queue} aria-labelledby="queue-title">
       <h2 id="queue-title" className={styles.queueTitle}>

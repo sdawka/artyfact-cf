@@ -48,7 +48,7 @@ test.describe("home with a populated API", () => {
     await page.goto("/");
     const ledger = page.getByRole("region", { name: "Needs you" });
     await expect(ledger.getByRole("link", { name: "Field Notes" })).toHaveAttribute("href", "/s/system.field-notes/r/head/review");
-    await expect(ledger).toContainText("Field Notes · 1 candidate awaits review");
+    await expect(ledger).toContainText("Field Notes · 1 awaits your review");
     await expect(ledger.getByRole("link", { name: "Peopling" })).toHaveCount(0);
     await expect(systemCard(page, /Field Notes/)).toBeVisible();
     await page.getByRole("button", { name: /Go to…/ }).click();

@@ -106,5 +106,15 @@ export function reviewQueue({ evolutions, realizations, commits, candidates = []
     .map(([evolution, rows]) => ({ evolution, title: titleOf(evolution), rows }));
 }
 
-/** Rows awaiting a person's review in one Evolution (candidates, stale candidates, amendments; the promotion row is not a review). */
-export const awaitingReview = (group: QueueGroup | undefined) => (group?.rows ?? []).filter((r) => r.kind !== "promotion").length;
+/**
+ * "Waiting for you", defined once: one decision per open realization, an app candidate submitted, evaluated or selected
+ * (stale or not) or a Genome amendment awaiting an admin. A promotable candidate is one item: its Evolution's promotion
+ * row is where it is decided, not a second thing waiting. The worker counts the same set as `awaitingReview`.
+ */
+export const isWaiting = (row: QueueRow) => row.kind !== "promotion";
+
+/** Rows waiting for a person in one Evolution. */
+export const awaitingReview = (group: QueueGroup | undefined) => (group?.rows ?? []).filter(isWaiting).length;
+
+/** Rows waiting for a person across the queue: the rail count, the Overview line and the queue heading. */
+export const waitingCount = (groups: readonly QueueGroup[]) => groups.reduce((n, g) => n + awaitingReview(g), 0);

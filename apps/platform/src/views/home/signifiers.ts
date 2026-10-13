@@ -29,9 +29,17 @@ export interface CardView {
 
 const base = (systemId: string) => `/s/${encodeURIComponent(systemId)}/r/head`;
 
+/**
+ * Decisions waiting in the System's Review, the rail's number: `awaitingReview` (open app candidates plus Genome
+ * amendments). An older server only reports amendments (`awaiting-admin`). Undefined when nothing waits.
+ */
 function awaiting(s: CardSummary): number | undefined {
+  const n = s.realizationCounts?.awaitingReview;
+  if (n !== undefined) return n > 0 ? n : undefined;
   return (s.signifiers ?? []).includes("awaiting-admin") ? (s.realizationCounts?.awaitingAdmin ?? 0) : undefined;
 }
+
+const awaitText = (n: number) => (n === 0 ? "awaiting your review" : `${n} ${n === 1 ? "awaits" : "await"} your review`);
 
 function deployLine(s: CardSummary): DeployLine {
   let line: DeployLine;
@@ -72,7 +80,7 @@ function headlineOf(s: CardSummary): Omit<CardView, "state"> {
   const n = awaiting(s);
   if (n !== undefined)
     return {
-      headline: n === 0 ? "awaiting your review" : `${n} ${n === 1 ? "awaits" : "await"} your review`,
+      headline: awaitText(n),
       tone: "attention",
       deploy,
       reviewHref: `${base(s.systemId)}/review`,
@@ -102,7 +110,7 @@ export interface LedgerRow {
   tone: "attention" | "fail";
 }
 
-/** One row per pending decision across Systems, in the order given: candidates to review, then deploy trouble. */
+/** One row per System with something pending, in the order given: decisions to review, then deploy trouble. */
 export function needsYou(systems: readonly CardSummary[]): LedgerRow[] {
   const rows: LedgerRow[] = [];
   for (const s of systems) {
@@ -111,7 +119,7 @@ export function needsYou(systems: readonly CardSummary[]): LedgerRow[] {
     if (n !== undefined)
       rows.push({
         key: `${s.systemId}:review`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/review`,
-        text: n === 0 ? "candidates await review" : `${n} ${n === 1 ? "candidate awaits" : "candidates await"} review`,
+        text: awaitText(n),
       });
     if (s.deployState === "behind")
       rows.push({ key: `${s.systemId}:behind`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/phenome`, text: "deployed, behind" });

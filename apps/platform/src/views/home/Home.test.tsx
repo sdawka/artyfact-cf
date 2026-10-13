@@ -14,8 +14,8 @@ const base: CardSummary = {
 };
 const evolving: CardSummary = {
   ...base,
-  signifiers: ["evolving", "pending-realization", "not-fully-built"],
-  realizationCounts: { evolving: 1, pending: 2, awaitingAdmin: 0 },
+  signifiers: ["evolving", "not-fully-built"],
+  realizationCounts: { evolving: 1, pending: 0, awaitingAdmin: 0, awaitingReview: 0 },
   latestBuild: { id: "b1", status: "running", kind: "production", commit: "c".repeat(40) },
   deployment: { production: null, previews: 0 },
   deployState: "none",
@@ -24,7 +24,7 @@ const awaiting: CardSummary = {
   ...base,
   systemId: "system.b", title: "Beta",
   signifiers: ["evolving", "awaiting-admin", "built", "deployed"],
-  realizationCounts: { evolving: 1, pending: 0, awaitingAdmin: 1 },
+  realizationCounts: { evolving: 1, pending: 0, awaitingAdmin: 1, awaitingReview: 1 },
   latestBuild: { id: "b2", status: "passed", kind: "production", commit: "d".repeat(40) },
   deployment: {
     production: { id: "d1", kind: "production", status: "live", repo: "app", commit: "d".repeat(40), by: "admin", createdAt: "", updatedAt: "" },
@@ -93,10 +93,23 @@ describe("Home", () => {
     const ledger = await screen.findByRole("region", { name: "Needs you" });
     const rows = within(ledger).getAllByRole("listitem").map((li) => [li.textContent, li.querySelector("a")!.getAttribute("href")]);
     expect(rows).toEqual([
-      ["Beta · 1 candidate awaits review", "/s/system.b/r/head/review"],
+      ["Beta · 1 awaits your review", "/s/system.b/r/head/review"],
       ["Gamma · deploy failed", "/s/system.c/r/head/phenome"],
       ["Delta · deployed, behind", "/s/system.d/r/head/phenome"],
     ]);
+  });
+
+  it("counts app candidates the way the Review rail does, not as evolving", async () => {
+    // Two submitted app candidates and nothing for an admin: the server's awaitingReview is the rail's number.
+    const apps: CardSummary = { ...evolving, systemId: "system.apps", title: "Apps", signifiers: ["evolving", "pending-realization"], realizationCounts: { evolving: 1, pending: 2, awaitingAdmin: 0, awaitingReview: 2 } };
+    stubSystems([apps]);
+    renderApp("/");
+    const ledger = await screen.findByRole("region", { name: "Needs you" });
+    expect(within(ledger).getByRole("listitem").textContent).toBe("Apps · 2 await your review");
+    const a = card(/Apps/);
+    expect(within(a).getByText("2 await your review")).toBeTruthy();
+    expect(a.querySelector("a")!.getAttribute("data-state")).toBe("attention");
+    expect(within(a).getByRole("link", { name: "Review Apps" })).toBeTruthy();
   });
 
   it("says nothing is waiting when no System needs a decision", async () => {

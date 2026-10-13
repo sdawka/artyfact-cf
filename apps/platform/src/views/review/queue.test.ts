@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fixtureBundle } from "@/api/fixtures";
 import { candidate, commit, realization } from "../work/testData";
-import { awaitingReview, behindBy, reviewQueue } from "./queue";
+import { awaitingReview, behindBy, reviewQueue, waitingCount } from "./queue";
 
 const evolutions = fixtureBundle().model.evolutions;
 const E1 = evolutions[0]!.id;
@@ -43,6 +43,8 @@ describe("reviewQueue", () => {
     // A submitted (not yet evaluated) candidate is not promotable yet.
     expect(groups[1]!.rows.map((r) => r.kind)).toEqual(["candidate"]);
     expect(awaitingReview(groups[0])).toBe(2);
+    // One decision per open realization: the promotion row is where E1's candidate is decided, not a fourth item.
+    expect(waitingCount(groups)).toBe(3);
   });
 
   it("marks a candidate whose base is behind head as stale with the distance, and leaves it out of promotion", () => {

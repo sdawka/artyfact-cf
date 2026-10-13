@@ -4,13 +4,13 @@ import type { Candidate, ConflictReport } from "../../../shared/api";
 import * as api from "@/api/client";
 import { qk, useConflicts, useEvolutions, useHistory } from "@/api/queries";
 import { useSystemRoute } from "@/model/useSelection";
-import { reviewQueue, type QueueGroup } from "./queue";
+import { reviewQueue, waitingCount, type QueueGroup } from "./queue";
 
 const WAITING = new Set(["submitted", "evaluated", "selected", "awaiting-admin"]);
 
 export interface ReviewQueue {
   groups: QueueGroup[];
-  /** Every row, in queue order. */
+  /** Decisions waiting for a person ({@link waitingCount}): promotion rows are not counted twice. */
   count: number;
   /** Candidates loaded for the Evolutions with something waiting (subjects, base, state). */
   candidates: Candidate[];
@@ -42,7 +42,7 @@ export function useReviewQueue(): ReviewQueue {
     const candidates = loaded.flatMap((d) => d?.candidates ?? []);
     const all = [...(conflicts ?? []), ...loaded.flatMap((d) => d?.conflicts ?? [])];
     const groups = reviewQueue({ evolutions: board.data?.evolutions ?? [], realizations: realizations ?? [], commits, candidates, conflicts: all });
-    return { groups, count: groups.reduce((n, g) => n + g.rows.length, 0), candidates, conflicts: all, isLoading: board.isLoading || history.isLoading };
+    return { groups, count: waitingCount(groups), candidates, conflicts: all, isLoading: board.isLoading || history.isLoading };
     // `loaded` is a fresh array each render; `stamp` changes when any of it does.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [board.data, board.isLoading, history.isLoading, realizations, commits, conflicts, stamp]);
