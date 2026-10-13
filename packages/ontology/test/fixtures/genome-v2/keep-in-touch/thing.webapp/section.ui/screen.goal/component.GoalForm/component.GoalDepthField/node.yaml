@@ -1,0 +1,8 @@
+id: component.GoalDepthField
+kind: component
+fields:
+  name: DepthField
+  owningThing: thing.webapp
+  revision: 1
+  description: desiredDepth in light, meaningful or shared-time
+  cardinality: exactly one

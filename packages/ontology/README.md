@@ -4,13 +4,14 @@ Copied from bropilot `packages/ontology-engine` at commit `cb1599c` (MIT, see `L
 
 A template-independent ontology engine. A template declares kinds, relations, constraints, criteria, rule packs and questions against the versioned meta-schema `meta@1`. The engine checks that the template is well formed, then evaluates an instance graph against it and reports readiness with a derivation for every finding. The design is `docs/ontology-engine-library.md` and the guide for template authors `docs/writing-an-ontology.md` (both in this package); how artyfact stores Genomes as node trees and drives intents is `docs/design/ontology.md` at the repository root.
 
-TypeScript ESM. The runtime dependencies are `zod` and `yaml`. Hashing is synchronous, so the same code runs in Node and Workers. Only `@artyfact/ontology/artyfact/node` touches the file system. The main entry exports the engine and the artyfact adapter; the product and world adapters are `@artyfact/ontology/product` and `@artyfact/ontology/world`.
+TypeScript ESM. The runtime dependencies are `zod` and `yaml` (and `@artyfact/model`, read only by the one-time v1 converter). Hashing is synchronous, so the same code runs in Node and Workers. Only `@artyfact/ontology/artyfact/node` touches the file system. The main entry exports the engine and the artyfact adapter; the product and world adapters are `@artyfact/ontology/product` and `@artyfact/ontology/world`.
 
 ## What exists
 
 | Module | Contents |
 |---|---|
 | `@artyfact/rules` | The Datalog engine, imported from `packages/rules` (the bropilot copy was that package moved verbatim and is deleted here). |
+| `src/codec/` | The Genome v2 tree codec: `parseTree` and `readTree` (node tree -> `Graph`), `applyOps` (ops -> file changes through the `yaml` Document API), `mintId`, `formatNodeFile`. `@artyfact/ontology/codec/v1` is `convertV1`, the one-time v1 -> v2 converter behind `artyfact convert-genome`; its Keep in Touch output is `test/fixtures/genome-v2/keep-in-touch` (regenerate with `UPDATE_GENOME_FIXTURE=1`). |
 | `src/genome/` | Genome v2 contract: `node.yaml` schema (`NodeFileSchema`, inline criteria and hooks), the legacy v1 check, directory slugs, and template view hints (`KindViewSchema`, `TemplateViewSchema`, `resolveKindView`, `checkViewHints`). |
 | `src/meta/` | `meta@1` zod schemas, cardinality grammar (`1`, `0..1`, `1..*`, `0..5`), `loadTemplate` with `extends` resolved through a `TemplateStore`, `templateHash`, `instantiateNodes` for `$self`, and `checkTemplateForm`. |
 | `src/graph/` | The canonical JSON graph (`template`, `nodes`, `links`, `declarations`, `evidence`), `parseGraph` and `graphHash`. |

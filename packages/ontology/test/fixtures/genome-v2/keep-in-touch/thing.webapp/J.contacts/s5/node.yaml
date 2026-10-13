@@ -1,0 +1,15 @@
+id: J.contacts/s5
+kind: step
+fields:
+  step: s5
+  actor: system
+  action: Owner's record saved; no invitation sent; ContactRow appears in ContactCollection
+  kind: reaction
+  unresolved: false
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: e1
+links:
+  - { rel: stepScreen, to: screen.people }
+  - { rel: stepOperation, to: operation.contact.save }

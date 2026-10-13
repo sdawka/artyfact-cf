@@ -1,0 +1,19 @@
+id: affordance.SuggestionCard.snooze
+kind: affordance
+fields:
+  name: Snooze
+  owningThing: thing.webapp
+  revision: 1
+  actor: ext.owner
+  trigger: Owner activates Snooze on a card
+  preconditions:
+    - Open suggestion for an enabled goal
+  effects:
+    - Snoozing must update its effective due date
+    - Cancels obsolete notification jobs for the snoozed suggestion
+  failure:
+    - Stale version returns conflict without overwriting current data
+links:
+  - { rel: writes, to: entity.Suggestion }
+  - { rel: writes, to: entity.RelationshipGoal }
+  - { rel: invokes, to: operation.goal.save }

@@ -1,0 +1,15 @@
+id: J.control.delete/z4
+kind: step
+fields:
+  step: z4
+  actor: system
+  action: Access revoked immediately, sessions and jobs cancelled
+  kind: action
+  unresolved: false
+  requirementRefs:
+    - S.webapp.operations
+    - S.webapp.concurrency
+  next:
+    - to: z5
+links:
+  - { rel: stepOperation, to: operation.data.delete }

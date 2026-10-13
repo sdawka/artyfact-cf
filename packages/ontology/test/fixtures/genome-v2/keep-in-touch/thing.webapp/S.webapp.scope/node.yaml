@@ -1,0 +1,17 @@
+id: S.webapp.scope
+kind: requirement
+fields:
+  thing: thing.webapp
+  title: Core scope
+  text: the app must provide private contacts, goals, contact logging, invitation-based pair connections, in-app due prompts and settings. Direct in-app messaging, subscriptions, digests, media automation and groups must remain disabled in the core scope. Opening an external channel must require a user gesture; unsupported channels must offer copyable contact details.
+  enabled: true
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+links:
+  - { rel: subject, to: thing.webapp }
+  - { rel: subject, to: affordance.PersonActionBar.openChannel }
+  - { rel: refines, to: GD.contacts }
+  - { rel: refines, to: GD.goals }
+  - { rel: refines, to: GD.connect }
+  - { rel: refines, to: GD.prompts }

@@ -1,0 +1,17 @@
+id: commitment.no-engagement-mechanics
+kind: commitment
+fields:
+  statement: No streak penalties, public relationship scores or group discussion belong in the core contract.
+  features:
+    - GD.contacts
+    - GD.goals
+    - GD.connect
+    - GD.prompts
+  coupledWith:
+    - commitment.one-to-one
+    - commitment.finite-incoming
+    - commitment.owner-cadence
+    - commitment.personal-initiation
+  source:
+    doc: keep-in-touch-world-specification
+    section: "3"

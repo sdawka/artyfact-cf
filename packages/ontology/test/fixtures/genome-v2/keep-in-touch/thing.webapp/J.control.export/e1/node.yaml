@@ -1,0 +1,12 @@
+id: J.control.export/e1
+kind: step
+fields:
+  step: e1
+  actor: user
+  action: Receive export excluding other people's data; copies already made cannot be recalled
+  kind: end
+  unresolved: false
+  requirementRefs:
+    - S.webapp.operations
+links:
+  - { rel: stepScreen, to: screen.settings }

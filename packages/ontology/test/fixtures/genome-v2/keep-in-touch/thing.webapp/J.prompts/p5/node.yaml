@@ -1,0 +1,16 @@
+id: J.prompts/p5
+kind: step
+fields:
+  step: p5
+  actor: user
+  action: Snooze the suggestion; its effective due date moves
+  kind: action
+  unresolved: false
+  requirementRefs:
+    - S.webapp.prompts
+    - S.webapp.due
+  next:
+    - to: e2
+links:
+  - { rel: stepScreen, to: screen.today }
+  - { rel: stepOperation, to: operation.goal.save }

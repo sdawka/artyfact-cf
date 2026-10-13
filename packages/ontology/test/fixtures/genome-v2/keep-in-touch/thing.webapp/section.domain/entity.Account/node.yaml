@@ -1,0 +1,30 @@
+id: entity.Account
+kind: entity
+fields:
+  name: Account
+  owningThing: thing.webapp
+  revision: 1
+  description: ID, identity-provider subject, display name, time zone and notification preferences; one authenticated owner
+  source:
+    doc: keep-in-touch-world-specification
+    section: "5"
+  fields:
+    - name: id
+      type: string
+      optional: false
+    - name: identitySubject
+      type: string
+      optional: false
+    - name: displayName
+      type: string
+      optional: false
+    - name: timeZone
+      type: iana-time-zone
+      optional: false
+    - name: notificationPreferences
+      type: json
+      optional: false
+  invariants:
+    - One authenticated owner
+links:
+  - { rel: storedIn, to: binding.contactsStore }

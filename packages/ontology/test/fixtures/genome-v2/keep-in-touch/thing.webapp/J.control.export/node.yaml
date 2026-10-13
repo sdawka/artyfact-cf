@@ -1,0 +1,11 @@
+id: J.control.export
+kind: journey
+fields:
+  name: Export my data
+  actorGoal: Take a copy of the records I own
+  features:
+    - GD.contacts
+  requirements:
+    - S.webapp.operations
+  start: x1
+  deferred: false

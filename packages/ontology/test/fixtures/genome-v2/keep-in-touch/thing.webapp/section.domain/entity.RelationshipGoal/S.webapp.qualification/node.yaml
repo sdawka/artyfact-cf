@@ -1,0 +1,17 @@
+id: S.webapp.qualification
+kind: requirement
+fields:
+  thing: thing.webapp
+  title: Goal qualification
+  text: an enabled goal must have intervalDays from 1 through 3650 and desiredDepth in light, meaningful or shared-time. These are the owner's labels, not a global quality ranking. A ContactEvent must qualify only when the owner explicitly marks that it met this goal. The app must record the goal ID and desiredDepth at confirmation and count only qualifications matching the current desiredDepth. Changing depth may change which historical events qualify; SchedulePreview must show that effect before saving. Editing or deleting an event must recompute the schedule.
+  enabled: true
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+links:
+  - { rel: subject, to: entity.RelationshipGoal }
+  - { rel: subject, to: entity.ContactEvent }
+  - { rel: subject, to: component.SchedulePreview }
+  - { rel: subject, to: operation.contact.log }
+  - { rel: refines, to: GD.goals }
+  - { rel: refines, to: GD.prompts }

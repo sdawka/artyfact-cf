@@ -1,0 +1,17 @@
+id: J.connect/s9
+kind: step
+fields:
+  step: s9
+  actor: system
+  action: "Concurrent accept: one redemption wins, no second pair"
+  kind: branch
+  unresolved: false
+  requirementRefs:
+    - S.webapp.concurrency
+  next:
+    - to: e1
+      when: this request won
+    - to: f1
+      when: this request lost
+links:
+  - { rel: stepOperation, to: operation.invite.accept }

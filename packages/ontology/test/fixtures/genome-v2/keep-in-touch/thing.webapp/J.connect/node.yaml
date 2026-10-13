@@ -1,0 +1,13 @@
+id: J.connect
+kind: journey
+fields:
+  name: Connect with someone through a consented invitation
+  actorGoal: Create a pair connection that both people explicitly consent to
+  features:
+    - GD.connect
+  requirements:
+    - S.webapp.authentication
+    - S.webapp.concurrency
+    - S.webapp.operations
+  start: s1
+  deferred: false

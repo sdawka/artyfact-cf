@@ -1,0 +1,17 @@
+id: affordance.ConnectionPanel.invite
+kind: affordance
+fields:
+  name: Invite
+  owningThing: thing.webapp
+  revision: 1
+  actor: ext.owner
+  trigger: Owner activates Invite
+  preconditions:
+    - Contact is not connected
+    - No block in either direction
+  effects:
+    - Invokes operation.invite.create and shows the invitation QR or connection code
+  failure:
+    - Not available when already connected or blocked
+links:
+  - { rel: invokes, to: operation.invite.create }

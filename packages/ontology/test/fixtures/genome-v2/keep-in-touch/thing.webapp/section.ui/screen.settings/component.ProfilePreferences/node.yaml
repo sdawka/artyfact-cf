@@ -1,0 +1,9 @@
+id: component.ProfilePreferences
+kind: component
+fields:
+  name: ProfilePreferences
+  owningThing: thing.webapp
+  revision: 1
+  cardinality: exactly one
+links:
+  - { rel: reads, to: entity.Account }

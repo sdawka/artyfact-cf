@@ -1,0 +1,7 @@
+id: component.SearchInput
+kind: component
+fields:
+  name: SearchInput
+  owningThing: thing.webapp
+  revision: 1
+  cardinality: exactly one

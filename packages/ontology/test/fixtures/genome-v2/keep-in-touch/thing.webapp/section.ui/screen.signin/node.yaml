@@ -1,0 +1,20 @@
+id: screen.signin
+kind: screen
+fields:
+  name: Sign in
+  owningThing: thing.webapp
+  revision: 1
+  description: One SignInForm with one Continue control and one privacy link; no private content
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+  route: /signin
+  states:
+    - loaded
+    - loading
+    - error
+  roles:
+    - anonymous
+links:
+  - { rel: serves, to: ext.owner }
+  - { rel: references, to: ext.providers }

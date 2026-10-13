@@ -1,0 +1,10 @@
+id: J.updates/u1
+kind: step
+fields:
+  step: u1
+  actor: user
+  action: Publish a digest edition to approved subscribers
+  kind: action
+  unresolved: true
+  next:
+    - to: u2

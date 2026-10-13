@@ -1,0 +1,32 @@
+id: entity.Connection
+kind: entity
+fields:
+  name: Connection
+  owningThing: thing.webapp
+  revision: 1
+  description: ID, two distinct account IDs in canonical order, acceptance provenance and state; at most one active pair
+  source:
+    doc: keep-in-touch-world-specification
+    section: "5"
+  fields:
+    - name: id
+      type: string
+      optional: false
+    - name: firstAccountId
+      type: ref:entity.Account
+      optional: false
+    - name: secondAccountId
+      type: ref:entity.Account
+      optional: false
+    - name: acceptanceProvenance
+      type: json
+      optional: false
+    - name: state
+      type: enum active|disconnected|blocked
+      optional: false
+  invariants:
+    - Exactly two distinct accounts in a connected pair; a user may have many independent pairs
+    - Account IDs in canonical order
+    - At most one active pair
+links:
+  - { rel: storedIn, to: binding.contactsStore }

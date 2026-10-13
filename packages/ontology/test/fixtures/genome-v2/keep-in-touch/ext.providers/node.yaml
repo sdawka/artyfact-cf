@@ -1,0 +1,10 @@
+id: ext.providers
+kind: external
+fields:
+  name: Providers
+  kind: service
+  modeled: Identity, notification and optional model providers, including their limits and failures
+  external: Provider availability, limits and failures
+  source:
+    doc: keep-in-touch-world-specification
+    section: "2"

@@ -1,0 +1,9 @@
+id: J.updates
+kind: journey
+fields:
+  name: Digests and photo suggestions (later)
+  actorGoal: Share and read periodic updates, and approve suggested photos
+  features:
+    - GD.updates
+  start: u1
+  deferred: true

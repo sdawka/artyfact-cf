@@ -1,0 +1,7 @@
+id: component.TopBar
+kind: component
+fields:
+  name: TopBar
+  owningThing: thing.webapp
+  revision: 1
+  fromTemplate: template.thing.cloudflare-worker-webapp@1

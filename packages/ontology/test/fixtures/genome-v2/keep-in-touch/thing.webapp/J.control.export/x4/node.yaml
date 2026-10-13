@@ -1,0 +1,15 @@
+id: J.control.export/x4
+kind: step
+fields:
+  step: x4
+  actor: system
+  action: Export authorized records of the authenticated owner only
+  kind: action
+  unresolved: false
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: e1
+links:
+  - { rel: stepScreen, to: screen.settings }
+  - { rel: stepOperation, to: operation.data.export }

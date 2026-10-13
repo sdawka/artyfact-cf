@@ -1,0 +1,22 @@
+id: entity.Block
+kind: entity
+fields:
+  name: Block
+  owningThing: thing.webapp
+  revision: 1
+  description: Blocker and blocked account IDs; overrides connection, sharing and subscription permissions
+  source:
+    doc: keep-in-touch-world-specification
+    section: "5"
+  fields:
+    - name: blockerAccountId
+      type: ref:entity.Account
+      optional: false
+    - name: blockedAccountId
+      type: ref:entity.Account
+      optional: false
+  invariants:
+    - Overrides connection
+    - sharing and subscription permissions
+links:
+  - { rel: storedIn, to: binding.contactsStore }

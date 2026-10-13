@@ -1,0 +1,17 @@
+id: J.connect/s7
+kind: step
+fields:
+  step: s7
+  actor: counterpart
+  action: See who is inviting; Accept or Decline
+  kind: branch
+  unresolved: false
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: s8
+      when: accept
+    - to: e2
+      when: decline
+links:
+  - { rel: stepScreen, to: screen.invitation }

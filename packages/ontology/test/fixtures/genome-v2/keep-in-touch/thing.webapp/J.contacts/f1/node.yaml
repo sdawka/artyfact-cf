@@ -1,0 +1,16 @@
+id: J.contacts/f1
+kind: step
+fields:
+  step: f1
+  actor: system
+  action: "Recoverable validation failure: ErrorSummary shown, entered values kept"
+  state: validation error
+  kind: failure
+  unresolved: false
+  requirementRefs:
+    - S.webapp.screens
+  next:
+    - to: s3
+      when: edit and retry
+links:
+  - { rel: stepScreen, to: screen.people }

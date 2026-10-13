@@ -1,0 +1,12 @@
+id: affordance.PersonActionBar.logContact
+kind: affordance
+fields:
+  name: Log contact
+  owningThing: thing.webapp
+  revision: 1
+  actor: ext.owner
+  trigger: Owner activates Log contact
+  preconditions:
+    - Owned contact
+  effects:
+    - Navigates to /people/:id/log

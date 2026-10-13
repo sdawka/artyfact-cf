@@ -1,0 +1,10 @@
+id: J.control.block/e1
+kind: step
+fields:
+  step: e1
+  actor: system
+  action: Block in force until removed
+  kind: end
+  unresolved: false
+  requirementRefs:
+    - S.webapp.operations

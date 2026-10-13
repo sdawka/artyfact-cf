@@ -1,0 +1,7 @@
+id: component.LogPersonSummary
+kind: component
+fields:
+  name: PersonSummary
+  owningThing: thing.webapp
+  revision: 1
+  cardinality: exactly one

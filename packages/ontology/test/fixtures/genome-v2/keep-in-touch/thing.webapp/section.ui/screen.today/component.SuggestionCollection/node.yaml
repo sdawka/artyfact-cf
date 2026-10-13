@@ -1,0 +1,10 @@
+id: component.SuggestionCollection
+kind: component
+fields:
+  name: SuggestionCollection
+  owningThing: thing.webapp
+  revision: 1
+  description: Today must return at most five suggestions, ordered by effective due date then stable goal ID
+  cardinality: exactly one
+links:
+  - { rel: reads, to: entity.Suggestion }

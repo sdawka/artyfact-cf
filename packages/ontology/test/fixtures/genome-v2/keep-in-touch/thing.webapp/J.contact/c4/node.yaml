@@ -1,0 +1,17 @@
+id: J.contact/c4
+kind: step
+fields:
+  step: c4
+  actor: user
+  action: Log what happened?
+  kind: branch
+  unresolved: false
+  requirementRefs:
+    - S.webapp.qualification
+  next:
+    - to: c5
+      when: log contact
+    - to: e2
+      when: skip logging
+links:
+  - { rel: stepScreen, to: screen.person }

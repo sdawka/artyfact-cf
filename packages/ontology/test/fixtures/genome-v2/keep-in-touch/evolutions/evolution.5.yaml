@@ -1,0 +1,18 @@
+id: evolution.5
+title: Private digests (later)
+intent: Resolve publication topology, audience and subscription contract first; verify no group interaction
+  emerges. Reword the no-engagement-mechanics commitment so a reader-driven digest cannot be read as group discussion.
+state: proposed
+kind: genome-amendment
+affectedNodes:
+- entity.DigestEdition
+- entity.Subscription
+- section.domain
+- commitment.no-engagement-mechanics
+genomeDelta:
+- op: change
+  path: description.yaml#commitment.no-engagement-mechanics
+  summary: Restate the commitment so it rules out group discussion explicitly and says a missed goal is never punished.
+acceptanceCriteria:
+- C.webapp.digest.private
+risk: high

@@ -1,0 +1,10 @@
+id: component.ContactRow
+kind: component
+fields:
+  name: ContactRow
+  owningThing: thing.webapp
+  revision: 1
+  description: One ContactRow per result; each row has a name and Open control
+  cardinality: 1 per result
+links:
+  - { rel: reads, to: entity.ContactRecord }

@@ -1,0 +1,8 @@
+id: component.EmptyState
+kind: component
+fields:
+  name: EmptyState
+  owningThing: thing.webapp
+  revision: 1
+  description: One EmptyState inside the collection
+  cardinality: 1 only when there are no suggestions, inside the collection

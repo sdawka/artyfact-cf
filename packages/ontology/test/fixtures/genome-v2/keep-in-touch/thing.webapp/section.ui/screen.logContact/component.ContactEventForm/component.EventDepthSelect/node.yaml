@@ -1,0 +1,7 @@
+id: component.EventDepthSelect
+kind: component
+fields:
+  name: DepthSelect
+  owningThing: thing.webapp
+  revision: 1
+  cardinality: exactly one

@@ -1,0 +1,17 @@
+id: T2
+kind: claim
+fields:
+  name: Initiating
+  purpose: P1
+  mechanism: One concrete next action lowers initiation effort
+  outcome: Initiating contact takes less effort
+  indicator: User-rated effort before and after use
+  evaluationMethod: Two-week personal baseline, then a four-week pilot; compare descriptive trends and interview participants.
+  limitation: A channel opened is not proof that contact occurred; before-and-after change cannot establish causality.
+  activities:
+    - GD.prompts
+  kind: hypothesis
+  status: unknown
+  deferred: false
+links:
+  - { rel: beneficiary, to: ext.owner }

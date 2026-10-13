@@ -1,0 +1,14 @@
+id: J.goals/g3
+kind: step
+fields:
+  step: g3
+  actor: user
+  action: Set interval (1-3650 days), desired depth (light, meaningful or shared-time), preferred channel and enabled
+  kind: action
+  unresolved: false
+  requirementRefs:
+    - S.webapp.qualification
+  next:
+    - to: g4
+links:
+  - { rel: stepScreen, to: screen.goal }

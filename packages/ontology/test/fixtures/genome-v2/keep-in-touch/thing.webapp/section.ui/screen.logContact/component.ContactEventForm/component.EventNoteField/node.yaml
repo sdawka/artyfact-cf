@@ -1,0 +1,8 @@
+id: component.EventNoteField
+kind: component
+fields:
+  name: NoteField
+  owningThing: thing.webapp
+  revision: 1
+  description: Optional private note
+  cardinality: optional

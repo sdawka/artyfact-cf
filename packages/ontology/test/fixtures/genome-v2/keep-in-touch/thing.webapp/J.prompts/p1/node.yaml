@@ -1,0 +1,14 @@
+id: J.prompts/p1
+kind: step
+fields:
+  step: p1
+  actor: user
+  action: Inspect Today
+  kind: action
+  unresolved: false
+  requirementRefs:
+    - S.webapp.prompts
+  next:
+    - to: p2
+links:
+  - { rel: stepScreen, to: screen.today }
