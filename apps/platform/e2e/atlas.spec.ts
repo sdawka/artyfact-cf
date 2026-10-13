@@ -158,6 +158,11 @@ test("selection, Details, connection visibility and overlays preserve tile geome
 });
 
 test("keyboard and reduced motion provide explicit Enter, Up and Details paths @fixture", async ({ page }, testInfo) => {
+  const waitForFrameFocus = async (id: string) => {
+    // The entering tile may retain focus before the promised frame-focus callback runs.
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    await expect(page.locator(`.react-flow__node[data-id="${id}"]`)).toBeFocused();
+  };
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(`${SYSTEM}/map?scope=environment`);
   const system = page.locator(`.react-flow__node[data-id="${SID}"]`);
@@ -167,13 +172,15 @@ test("keyboard and reduced motion provide explicit Enter, Up and Details paths @
   await expect(inspector(page)).toHaveCount(0);
   await page.keyboard.press("Enter");
   await scope(page, SID);
-  await expect(page.locator(`.react-flow__node[data-id="${SID}"]`)).toBeFocused();
+  await waitForFrameFocus(SID);
   const thing = page.locator('.react-flow__node[data-id="thing.webapp"]');
   await thing.focus();
   await page.keyboard.press("Enter");
   await scope(page, "thing.webapp");
-  await expect(page.locator('.react-flow__node[data-id="thing.webapp"]')).toBeFocused();
-  await page.locator('.react-flow__node[data-id="section.ui"]').focus();
+  await waitForFrameFocus("thing.webapp");
+  const section = page.locator('.react-flow__node[data-id="section.ui"]');
+  await section.focus();
+  await expect(section).toBeFocused();
   await page.keyboard.press("d");
   await expect(inspector(page)).toBeVisible();
   await expect(inspector(page).getByRole("button", { name: "Copy id section.ui", exact: true })).toBeVisible();

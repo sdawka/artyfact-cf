@@ -3,11 +3,11 @@
 
 ## Now
 
-- Current milestone: System atlas is implemented and locally verified on `feat/system-atlas`: environment-first entry, real containment mosaic, quiet selection and explicit Details, with Map ahead of Overview.
-- Latest evidence reported by the primary: all independent review findings addressed; source review passed; exact camera replay diagnostic and browser regression passed. Full `npm run ci` exited 0, all 10 steps passed in 204.8s. Detailed totals: [[journals/2026-10-13-system-atlas]].
-- Next action: push one PR and verify all hosted CI checks before merge. No atlas deployment is claimed.
+- Current milestone: System atlas is implemented and locally verified on `feat/system-atlas` at implementation `f580724`: environment-first entry, real containment mosaic, quiet selection and explicit Details, with Map ahead of Overview.
+- Latest evidence reported by the primary: all independent review findings addressed; source review passed; exact camera replay diagnostic and browser regression passed. Full `npm run ci` exited 0, all 10 steps passed in 204.8s; normal pre-push passed in 157.6s with all 69 fixture browser cases passing first try. Detailed totals: [[journals/2026-10-13-system-atlas]].
+- Next action: review [PR #66](https://github.com/sdawka/artyfact-cf/pull/66); hosted CI status is authoritative on the PR and all checks must be green before merge. No atlas deployment is claimed.
 - Blockers: direct-RPC sync remains pending missing credentials and a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
-- Last updated: 2026-10-13T19:35:34-04:00.
+- Last updated: 2026-10-13T19:39:27-04:00.
 
 ## Work history
 
