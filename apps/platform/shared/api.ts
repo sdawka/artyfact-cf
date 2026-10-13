@@ -171,7 +171,11 @@ export interface SystemSummary {
   /** App commit bound at the head. */
   appCommit?: CommitHash;
   built?: boolean;
-  realizationCounts?: { evolving: number; pending: number; awaitingAdmin: number };
+  /**
+   * `pending`: open candidates (submitted, evaluated, selected); `awaitingAdmin`: Genome amendments; `awaitingReview`:
+   * both, one per realization, the number the Review rail shows (absent from older servers).
+   */
+  realizationCounts?: { evolving: number; pending: number; awaitingAdmin: number; awaitingReview?: number };
   openCandidates?: number;
   latestBuild?: BuildSummary | null;
   deployment?: { production: Deployment | null; previews: number };

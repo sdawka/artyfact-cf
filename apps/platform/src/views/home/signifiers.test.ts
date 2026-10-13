@@ -87,11 +87,20 @@ describe("needsYou", () => {
       { ...base, systemId: "d", title: "Delta", signifiers: ["awaiting-admin"], realizationCounts: { evolving: 0, pending: 0, awaitingAdmin: 1 } },
     ]);
     expect(rows.map((r) => [r.title, r.text, r.href])).toEqual([
-      ["Alpha", "2 candidates await review", "/s/a/r/head/review"],
+      ["Alpha", "2 await your review", "/s/a/r/head/review"],
       ["Alpha", "deployed, behind", "/s/a/r/head/phenome"],
       ["Beta", "deploy failed", "/s/b/r/head/phenome"],
-      ["Delta", "1 candidate awaits review", "/s/d/r/head/review"],
+      ["Delta", "1 awaits your review", "/s/d/r/head/review"],
     ]);
+  });
+
+  it("uses the server's awaitingReview (app candidates and amendments) over the amendment-only count", () => {
+    const rows = needsYou([
+      { ...base, systemId: "a", title: "Alpha", signifiers: ["evolving"], realizationCounts: { evolving: 1, pending: 2, awaitingAdmin: 1, awaitingReview: 3 } },
+      { ...base, systemId: "b", title: "Beta", signifiers: ["evolving"], realizationCounts: { evolving: 1, pending: 0, awaitingAdmin: 0, awaitingReview: 0 } },
+    ]);
+    expect(rows.map((r) => [r.title, r.text])).toEqual([["Alpha", "3 await your review"]]);
+    expect(cardSummary({ ...base, signifiers: ["evolving"], realizationCounts: { evolving: 1, pending: 1, awaitingAdmin: 0, awaitingReview: 1 } }).headline).toBe("1 awaits your review");
   });
 
   it("is empty when nothing is waiting", () => {

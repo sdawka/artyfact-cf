@@ -31,7 +31,7 @@ describe("Review queue", () => {
   it("lists one row per decision grouped by Evolution: amendment, candidate, promotion", async () => {
     renderApp(REVIEW, undefined, queueSeed());
     const q = await queue();
-    expect(within(q).getByRole("heading", { name: /Waiting on you\s*3/ })).toBeTruthy();
+    expect(within(q).getByRole("heading", { name: /Waiting on you\s*2/ })).toBeTruthy();
     const group = within(q).getByRole("region", { name: TITLE });
     const rows = within(group).getAllByRole("link");
     expect(rows.map((r) => r.getAttribute("data-kind"))).toEqual(["amendment", "candidate", "promotion"]);
@@ -148,8 +148,9 @@ describe("Review queue", () => {
 
   it("feeds the rail count from the same queue", async () => {
     renderApp(`${BASE}/overview`, undefined, queueSeed());
-    expect(await screen.findByRole("link", { name: "Review, 3 waiting" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "3 waiting for review" }).getAttribute("href")).toBe(REVIEW);
+    // An amendment and an evaluated candidate: 2 waiting, the promotion row is not counted again.
+    expect(await screen.findByRole("link", { name: "Review, 2 waiting" })).toBeTruthy();
+    expect(screen.getByRole("link", { name: "2 waiting for review" }).getAttribute("href")).toBe(REVIEW);
   });
 });
 

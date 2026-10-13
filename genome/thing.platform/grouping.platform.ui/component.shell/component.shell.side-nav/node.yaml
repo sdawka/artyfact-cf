@@ -2,7 +2,7 @@ id: component.shell.side-nav
 kind: component
 fields:
   name: Side navigation
-  description: "The rail: Overview on top, then Genome, Proteome and Phenome heads, each with its question as a subline (what should it be, what is being made, what does it do), then Private Parts. Review carries a count that is hidden at zero."
+  description: "The rail: Overview on top, then Genome, Proteome and Phenome heads, each with its question as a subline (what should it be, what is being made, what does it do), then Private Parts. Review carries the count of decisions waiting, one per open candidate or amendment (a promotable candidate counts once), hidden at zero."
   states:
     - Overview
     - "Genome: Map, Journeys, Theory, Code"

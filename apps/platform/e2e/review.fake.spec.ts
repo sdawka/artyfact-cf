@@ -31,8 +31,9 @@ test.describe("Review: the decision queue @fake", () => {
     await expect(appRow).toContainText("base = head");
     await expect(queue.getByTestId(`queue-${keep.realization}`)).toHaveAttribute("data-kind", "amendment");
     await expect(queue.getByTestId(`queue-promotion-${appEvo}`)).toHaveAttribute("data-kind", "promotion");
-    // The rail count is the queue's length.
-    const count = await queue.locator('[data-testid^="queue-"]').count();
+    // The rail count is the rows waiting for a person: promotion rows are where a candidate is decided, not extra items.
+    const count = await queue.locator('[data-testid^="queue-"]:not([data-kind="promotion"])').count();
+    await expect(queue.getByRole("heading", { name: new RegExp(`Waiting on you\\s*${count}$`) })).toBeVisible();
     await expect(page.getByRole("link", { name: `Review, ${count} waiting` })).toBeVisible();
     await checkPage(page, testInfo, "review-queue");
 

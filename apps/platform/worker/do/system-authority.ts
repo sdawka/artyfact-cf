@@ -1436,6 +1436,8 @@ export class SystemAuthority extends DurableObject<Env> {
       evolving: inStatus(["claimed", "working", "evaluating"]),
       pending: inStatus(["submitted", "evaluated", "selected"]),
       awaitingAdmin: inStatus(["awaiting-admin"]),
+      // "Waiting for you" (the SPA's Review count uses the same set): open app candidates plus Genome amendments.
+      awaitingReview: inStatus(["submitted", "evaluated", "selected", "awaiting-admin"]),
     };
     const openCandidates = this.count(`SELECT COUNT(*) AS n FROM candidates WHERE state IN ('submitted','evaluated','selected')`);
     const evaluatedOpen = this.count(`SELECT COUNT(*) AS n FROM candidates WHERE state IN ('evaluated','selected')`);
