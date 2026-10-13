@@ -21,7 +21,8 @@
     "WORKERS_SUBDOMAIN": "dawka",
     "BACKUP_BUCKET_NAME": "artyfact-ci-cache",
     "CLOUDFLARE_ACCOUNT_ID": "1bae12d5089e4c2ee5c0e62c021a117f",
-    // App D1 databases by database_name. App repos commit an all-zero database_id; the deploy config gets this id.
+    // App D1 databases: { "<systemId>": { "<database_name>": "<id>" } }. App repos commit an all-zero database_id;
+    // the deploy config gets the id their System maps for that name.
     // keep-in-touch: add its id here once the database is created (until then its deploys are refused).
     "D1_DATABASE_IDS": {}
   },

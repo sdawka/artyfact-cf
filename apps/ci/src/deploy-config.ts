@@ -75,11 +75,15 @@ const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === 
 /** The all-zero id app repos commit in place of a real D1 database id (or any all-zero UUID-shaped string). */
 const PLACEHOLDER_D1_ID = /^[0-]*$/;
 
+/** `database_name` -> account D1 database id, for one System. */
+export type D1Ids = Readonly<Record<string, string>>;
+
 /**
- * The platform's `D1_DATABASE_IDS` var: `database_name` -> account D1 database id. Accepts the object Wrangler
- * passes for a JSON var or a JSON string; anything else (or a non-string id) is ignored rather than trusted.
+ * The platform's `D1_DATABASE_IDS` var: `systemId` -> (`database_name` -> account D1 database id). Keyed by System so
+ * an app can bind only its own System's databases. Accepts the object Wrangler passes for a JSON var or a JSON
+ * string; anything malformed (or a non-string or placeholder id) is dropped rather than trusted.
  */
-export function parseD1DatabaseIds(v: unknown): Record<string, string> {
+export function parseD1DatabaseIds(v: unknown): Record<string, D1Ids> {
   let obj: unknown = v;
   if (typeof v === "string") {
     try {
@@ -89,8 +93,17 @@ export function parseD1DatabaseIds(v: unknown): Record<string, string> {
     }
   }
   if (!isObj(obj)) return {};
-  return Object.fromEntries(Object.entries(obj).filter((e): e is [string, string] => typeof e[1] === "string" && !PLACEHOLDER_D1_ID.test(e[1])));
+  const out: Record<string, D1Ids> = {};
+  for (const [system, dbs] of Object.entries(obj)) {
+    if (!isObj(dbs)) continue;
+    out[system] = Object.fromEntries(Object.entries(dbs).filter((e): e is [string, string] => typeof e[1] === "string" && !PLACEHOLDER_D1_ID.test(e[1])));
+  }
+  return out;
 }
+
+/** One System's databases from the parsed var (empty when the System has none). */
+export const systemD1Ids = (all: Readonly<Record<string, D1Ids>> | undefined, systemId: string): D1Ids =>
+  all && Object.hasOwn(all, systemId) ? all[systemId]! : {};
 
 /** A repo-relative path that stays inside the repo (no absolute paths, no `..` escapes, no NUL). */
 function insideRepo(path: unknown): string | null {
@@ -134,7 +147,7 @@ export interface DeploySpec {
  * explicit reason because it is the common way to ask Wrangler to run a repo command during deploy.
  */
 export function validateRepoConfig(
-  file: string, text: string, opts: { accountId: string; d1DatabaseIds?: Readonly<Record<string, string>> },
+  file: string, text: string, opts: { accountId: string; d1DatabaseIds?: D1Ids },
 ): DeploySpec {
   if (file.endsWith(".toml")) throw new DeployRefused(`${file}: artyfact CI deploys from wrangler.json or wrangler.jsonc only`);
   let raw: unknown;
@@ -203,9 +216,10 @@ export function validateRepoConfig(
 
 /**
  * App repos commit a placeholder `database_id`; the platform maps `database_name` to the account's id through its
- * `D1_DATABASE_IDS` var. A real id is kept as-is. A placeholder or missing id with no mapping is a problem.
+ * `D1_DATABASE_IDS` var, scoped to the build's System. A real id in the repo is accepted only when it is the id that
+ * System maps for that name, so a repo cannot bind another System's database or an arbitrary account database.
  */
-function resolveD1(value: unknown, ids: Readonly<Record<string, string>>, problems: string[]): unknown[] | undefined {
+function resolveD1(value: unknown, ids: D1Ids, problems: string[]): unknown[] | undefined {
   if (value === undefined) return undefined;
   if (!Array.isArray(value)) {
     problems.push("d1_databases must be a list");
@@ -220,10 +234,14 @@ function resolveD1(value: unknown, ids: Readonly<Record<string, string>>, proble
       problems.push(`d1_databases ${db.binding}: database_id must be a string`);
       return db;
     }
-    if (typeof db.database_id === "string" && !PLACEHOLDER_D1_ID.test(db.database_id)) return db;
     const id = Object.hasOwn(ids, db.database_name) ? ids[db.database_name] : undefined;
     if (!id) {
-      problems.push(`d1_databases ${db.binding}: no account database is mapped to database_name "${db.database_name}" (ask the platform owner to add it to D1_DATABASE_IDS)`);
+      problems.push(`d1_databases ${db.binding}: no account database is mapped to database_name "${db.database_name}" for this System (ask the platform owner to add it to D1_DATABASE_IDS)`);
+      return db;
+    }
+    const real = typeof db.database_id === "string" && !PLACEHOLDER_D1_ID.test(db.database_id);
+    if (real && db.database_id !== id) {
+      problems.push(`d1_databases ${db.binding}: database_id is not this System's "${db.database_name}" database (commit the all-zero placeholder instead)`);
       return db;
     }
     return { ...db, database_id: id };

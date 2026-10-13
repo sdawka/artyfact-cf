@@ -16,7 +16,7 @@ export interface CiEnv extends CiBindings {
   WORKERS_SUBDOMAIN: string;
   /** Bearer for build reports; the platform holds the same value. */
   CI_REPORT_TOKEN: string;
-  /** App D1 databases: `database_name` -> account id (a JSON var; see deploy-config `parseD1DatabaseIds`). */
+  /** App D1 databases: `systemId` -> `database_name` -> account id (a JSON var; see deploy-config `parseD1DatabaseIds`). */
   D1_DATABASE_IDS?: unknown;
 }
 
