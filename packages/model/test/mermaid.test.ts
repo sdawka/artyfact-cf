@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { loadSystem, schema, toMermaid } from "../src/index";
-import { readTree, store } from "./helpers";
+import { schema, toMermaid } from "../src/index";
+import { load } from "./helpers";
 
 describe("toMermaid", () => {
-  const j = loadSystem(readTree(), { templates: store() }).journeys[0];
+  const j = load().journeys[0];
 
   it("renders a left-to-right flowchart with step ids and branch labels", () => {
     const out = toMermaid(j);

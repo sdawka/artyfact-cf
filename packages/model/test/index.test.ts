@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { index, loadSystem } from "../src/index";
-import { readTree, store } from "./helpers";
+import { index } from "../src/index";
+import { load } from "./helpers";
 
 describe("index", () => {
-  const m = loadSystem(readTree(), { templates: store() });
+  const m = load();
   const ix = m.index;
 
   it("indexes every identified object by id", () => {
@@ -14,13 +14,14 @@ describe("index", () => {
     expect(ix.byId["ext.owner"]).toMatchObject({ type: "external", kind: "external" });
   });
 
+  // Siblings follow the node tree's directory order; v2 has no order field.
   it("builds containment children from system down", () => {
     expect(ix.children["system.mini"]).toEqual(["thing.app"]);
-    expect(ix.children["thing.app"]).toEqual(["section.ui", "section.domain"]);
-    expect(ix.children["section.ui"]).toEqual(["component.AppShell", "screen.list", "screen.edit"]);
+    expect(ix.children["thing.app"]).toEqual(["section.domain", "section.ui"]);
+    expect(ix.children["section.ui"]).toEqual(["component.AppShell", "screen.edit", "screen.list"]);
   });
 
-  it("makes linksIn the exact inverse of linksOut", () => {
+  it("makes linksIn the exact inverse of linksOut, keeping link labels", () => {
     const out = Object.values(ix.linksOut).flat();
     const inn = Object.values(ix.linksIn).flat();
     expect(inn).toHaveLength(out.length);
@@ -28,13 +29,6 @@ describe("index", () => {
     for (const l of inn) expect(ix.linksOut[l.from]).toContainEqual(l);
     expect(ix.linksIn["operation.note.save"].map((l) => l.from).sort()).toEqual(["affordance.NoteForm.save", "policy.ownerOnly"]);
     expect(ix.linksOut["ext.owner"]).toEqual([{ from: "ext.owner", rel: "invokes", to: "affordance.NoteForm.save", certainty: "declared", label: "saves" }]);
-  });
-
-  it("normalises direction: in-links", () => {
-    const f = readTree();
-    f.set("things/app/ontology.yaml", f.get("things/app/ontology.yaml")!.replace("- { rel: reads, to: entity.Note }", "- { rel: reads, to: entity.Note }\n      - { rel: triggers, to: screen.list, direction: in }"));
-    const r = loadSystem(f, { templates: store() });
-    expect(r.index.linksOut["screen.list"]).toContainEqual({ from: "screen.list", rel: "triggers", to: "operation.note.list", certainty: "declared" });
   });
 
   it("indexes criteria, hooks, journeys and requirements", () => {
@@ -58,9 +52,18 @@ describe("index", () => {
     expect(ix.layer("thing.app")).toBeUndefined();
   });
 
+  it("answers depthOf() from graph containment and layerOf() from the composed template's view", () => {
+    expect(ix.depthOf("system.mini")).toBe(0);
+    expect(ix.depthOf("thing.app")).toBe(1);
+    expect(ix.depthOf("affordance.NoteForm.save")).toBe(5);
+    expect(ix.depthOf("nope")).toBeUndefined();
+    expect(ix.layerOf("screen.list")).toBe("experience");
+    expect(ix.layerOf("nope")).toBeUndefined();
+  });
+
   it("is rebuildable from a JSON round-trip of the model", () => {
-    const { index: _drop, ...rest } = m;
-    const plain = JSON.parse(JSON.stringify(rest));
+    const { index: _drop, graph, template, ...rest } = m;
+    const plain = { ...JSON.parse(JSON.stringify(rest)), graph, template };
     const ix2 = index(plain);
     expect(ix2.children).toEqual(ix.children);
     expect(ix2.path("screen.list")).toEqual(ix.path("screen.list"));

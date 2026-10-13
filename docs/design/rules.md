@@ -24,7 +24,7 @@ Implementation: indexed joins (first-arg hash index built per relation per strat
 ## D.3 Packs (initial inventory, each with valid/invalid mini-model tests)
 | pack | rules (ids) |
 |---|---|
-| metamodel@1 | ref.dangling, ref.parentMissing, tree.cycle, tree.multiParent, owner.unknown, criterion.subjectMissing, criterion.ownerMissing, thing.noArtifact, thing.sectionMissing |
+| metamodel@1 | ref.dangling, ref.parentMissing, tree.cycle, tree.multiParent, owner.unknown, criterion.subjectMissing, criterion.ownerMissing, thing.sectionMissing (a Thing may bind no artifact: Genome-only) |
 | readiness@1 | coverage.requirement, coverage.hook, hook.unbound, template.sectionMissing, template.criterionMissing, template.unknown, kit.unpinned, evolution.acceptanceMissing, evolution.affectsMissing |
 | authorization@1 | ancestor, governedBy (containment + invokes + interface inheritance), mutating, authz.ungoverned, authz.policyConflict, authz.privateReadUngoverned (reads of owner-only entities) |
 | theory@1 | purpose.beneficiary, purpose.beneficiaryKind, theory.indicator, theory.method, theory.beneficiary, theory.outcomeUnlinked (claim not referenced by any criterion/requirement) |

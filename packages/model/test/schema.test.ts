@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { parse as parseYaml, stringify } from "yaml";
 import { schema } from "../src/index";
-import { miniTemplateYaml, readTree } from "./helpers";
+import { load } from "./helpers";
 
 const roundTrip = <T>(s: { parse: (v: unknown) => T }, raw: unknown) => {
   const once = s.parse(raw);
@@ -10,24 +10,24 @@ const roundTrip = <T>(s: { parse: (v: unknown) => T }, raw: unknown) => {
 };
 
 describe("schema", () => {
-  const files = readTree();
-  const y = (p: string) => parseYaml(files.get(p)!);
+  const m = load();
 
-  it("round-trips every fixture file through parse → stringify → parse", () => {
-    roundTrip(schema.SystemFile, y("system.yaml"));
-    roundTrip(schema.Purpose, y("purpose.yaml"));
-    roundTrip(schema.ExternalsFile, y("externals.yaml"));
-    roundTrip(schema.TheoryFile, y("theory.yaml"));
-    roundTrip(schema.Description, y("description.yaml"));
-    roundTrip(schema.KitsFile, y("kits.yaml"));
-    roundTrip(schema.CriteriaFile, y("criteria.yaml"));
-    roundTrip(schema.Thing, y("things/app/thing.yaml"));
-    roundTrip(schema.OntologyFile, y("things/app/ontology.yaml"));
-    roundTrip(schema.SpecFile, y("things/app/spec.yaml"));
-    roundTrip(schema.CriteriaFile, y("things/app/criteria.yaml"));
-    roundTrip(schema.Journey, y("journeys/J.notes.yaml"));
-    roundTrip(schema.Evolution, y("evolutions/evolution.1.yaml"));
-    roundTrip(schema.Template, parseYaml(miniTemplateYaml));
+  it("round-trips every projected object through parse → stringify → parse", () => {
+    const { things, purposes, ...system } = m.system;
+    roundTrip(schema.SystemFile, { ...system, things, purposes });
+    for (const p of m.purposes) roundTrip(schema.Purpose, p);
+    for (const e of m.externals) roundTrip(schema.Externals, e);
+    for (const c of m.claims) roundTrip(schema.TheoryClaim, c);
+    roundTrip(schema.Description, m.description!);
+    roundTrip(schema.KitsFile, m.kits);
+    for (const c of m.criteria) roundTrip(schema.Criterion, c);
+    for (const h of m.hooks) roundTrip(schema.AssayHook, h);
+    for (const t of m.things) roundTrip(schema.Thing, t);
+    for (const n of m.nodes) roundTrip(schema.OntologyNode, n);
+    for (const r of m.requirements) roundTrip(schema.Requirement, r);
+    for (const j of m.journeys) roundTrip(schema.Journey, j);
+    for (const e of m.evolutions) roundTrip(schema.Evolution, e);
+    for (const t of m.templates) roundTrip(schema.Template, t);
   });
 
   it("records command-created output without fabricating a package source path", () => {
@@ -74,11 +74,12 @@ describe("schema", () => {
     expect(schema.Thing.parse({ id: "thing.idea", name: "Idea", description: "Genome only" })).toEqual({
       id: "thing.idea", name: "Idea", description: "Genome only", templateRef: null, artifacts: [], parts: [], purposeRefs: [],
     });
-    expect(schema.Thing.parse(y("things/app/thing.yaml")).templateRef).toBe("template.thing.mini-webapp@1");
+    expect(m.things[0]!.templateRef).toBe("template.thing.mini-webapp@1");
   });
 
   it("rejects unknown enum values", () => {
-    expect(schema.CrossLink.safeParse({ rel: "likes", to: "x" }).success).toBe(false);
+    expect(schema.CrossLink.safeParse({ rel: "reads", to: "x", certainty: "rumoured" }).success).toBe(false);
+    expect(schema.Criterion.shape.targetKind.safeParse("vibes").success).toBe(false);
   });
 
   it("accepts a realization whose agent role is author (the editor's manual commits)", () => {

@@ -1,0 +1,15 @@
+id: entity.Note
+kind: entity
+fields:
+  name: Note
+  owningThing: thing.app
+  revision: 1
+  fields:
+    - name: owner
+      type: ref:entity.Owner
+      optional: false
+    - name: body
+      type: text
+      optional: false
+  invariants:
+    - body is non-empty

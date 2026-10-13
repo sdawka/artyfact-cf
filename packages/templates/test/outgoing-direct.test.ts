@@ -1,64 +1,60 @@
 import { describe, expect, it } from "vitest";
-import { loadSystem, schema, toFacts } from "@artyfact/model";
-import { explain, parse, run, type DerivationTree } from "@artyfact/rules";
-import { pack } from "../src/index";
+import { loadGenome, validate } from "@artyfact/model";
+import type { DerivationTree } from "@artyfact/rules";
+import { metaTemplates } from "../src/index";
 
-// A bare Thing template keeps the fixture minimal; the nodes under test live in the instance ontology.
-const bare = schema.Template.parse({ id: "template.thing.bare", kind: "thing", version: "1", name: "Bare" });
-const templates = { get: (ref: string) => (ref === "template.thing.bare@1" ? bare : undefined) };
-
-// Real pipeline: YAML file map -> loadSystem -> toFacts -> topology pack on the @artyfact/rules engine.
-function model(cardinality: "one" | "many") {
+// Real pipeline: node tree -> loadGenome -> readiness with the System template's topology pack, pinned alone.
+function model(cardinality: "one" | "many", affordance = "one") {
   return new Map<string, string>([
-    ["system.yaml", "id: system.mini\nname: Mini\ntemplate: null\nthings: [thing.app]\nphase: unrealized\npurposes: []\n"],
-    ["things/app/thing.yaml", "id: thing.app\nname: App\ntemplateRef: template.thing.bare@1\ndescription: App\nartifacts: []\nsections: [section.domain]\n"],
-    ["things/app/ontology.yaml", `nodes:
-  - { id: section.domain, kind: section, name: Domain }
-  - id: entity.Message
-    kind: entity
-    name: Message
-    parent: section.domain
-    fields:
-      - { name: to, type: ref:entity.Account }
-      - { name: body, type: text }
-  - { id: entity.Account, kind: entity, name: Account, parent: section.domain }
-  - id: operation.message.send
-    kind: operation
-    name: Send message
-    parent: section.domain
-    cardinality: ${cardinality}
-    links:
-      - { rel: writes, to: entity.Message }
-  - id: affordance.send
-    kind: affordance
-    name: Send
-    parent: section.domain
-    links:
-      - { rel: invokes, to: operation.message.send }
+    ["node.yaml", `id: system.mini
+kind: system
+template: template.system.social-networking.cloudflare@1
+fields: {name: Mini, rulePacks: [{id: topology.private-pairs, version: "1"}]}
 `],
+    ["thing.app/node.yaml", "id: thing.app\nkind: thing\ntemplate: template.thing.cloudflare-worker-webapp@1\nfields: {name: App, description: App}\n"],
+    ["thing.app/section.domain/node.yaml", "id: section.domain\nkind: section\nfields: {name: Domain}\n"],
+    ["thing.app/section.domain/entity.Message/node.yaml", `id: entity.Message
+kind: entity
+fields:
+  name: Message
+  fields:
+    - { name: to, type: ref:entity.Account }
+    - { name: body, type: text }
+`],
+    ["thing.app/section.domain/entity.Account/node.yaml", "id: entity.Account\nkind: entity\nfields: {name: Account}\n"],
+    ["thing.app/section.domain/operation.message.send/node.yaml", `id: operation.message.send
+kind: operation
+fields: {name: Send message, cardinality: ${cardinality}}
+links: [{rel: writes, to: entity.Message}]
+`],
+    ["thing.app/section.domain/affordance.send/node.yaml", `id: affordance.send\nkind: affordance\nfields: {name: Send, cardinality: ${affordance}}\nlinks: [{rel: invokes, to: operation.message.send}]\n`],
   ]);
 }
 
-function check(cardinality: "one" | "many") {
-  const facts = toFacts(loadSystem(model(cardinality), { templates }));
-  const result = run(facts, [parse(pack("topology.private-pairs").source, "topology")], { all: true });
-  const violations = (result.relations.get("violation") ?? []).filter((t) => t[0] === "topology.recipientArray");
-  const outgoing = (result.relations.get("outgoingDirect") ?? []).map((t) => String(t[0])).sort();
-  return { result, violations, outgoing };
+function check(cardinality: "one" | "many", affordance: "one" | "many" = "one") {
+  const r = validate(loadGenome(model(cardinality, affordance), { templates: metaTemplates }));
+  const violations = (r.derived.violation ?? []).filter((t) => t[0] === "topology.recipientArray");
+  return { r, violations };
 }
 
 const relations = (t: DerivationTree): string[] => [t.relation, ...t.children.flatMap(relations)];
+const nodes = (t: DerivationTree): DerivationTree[] => [t, ...t.children.flatMap(nodes)];
 
 describe("outgoingDirect", () => {
+  // Readiness exposes output relations only, so outgoingDirect is read from the derivations of the findings it feeds.
   it("is derived for the writing operation and the affordance that invokes it", () => {
-    expect(check("one").outgoing).toEqual(["affordance.send", "operation.message.send"]);
+    const outgoing = check("many", "many").r.findings
+      .filter((x) => x.rule === "topology.recipientArray")
+      .flatMap((f) => nodes(f.derivation).filter((n) => n.relation === "outgoingDirect").map((n) => String(n.tuple[0])));
+    expect([...new Set(outgoing)].sort()).toEqual(["affordance.send", "operation.message.send"]);
   });
 
   it("cardinality many fires topology.recipientArray through outgoingDirect", () => {
-    const { result, violations } = check("many");
+    const { r, violations } = check("many");
     expect(violations).toEqual([["topology.recipientArray", "operation.message.send", "hard"]]);
-    const tree = explain(result, "violation", violations[0]);
-    expect(relations(tree)).toEqual(expect.arrayContaining(["outgoingDirect", "link", "accountRefField", "entityField", "cardinality"]));
+    const f = r.findings.find((x) => x.rule === "topology.recipientArray")!;
+    expect(f.pack).toBe("topology.private-pairs@1");
+    expect(relations(f.derivation)).toEqual(expect.arrayContaining(["outgoingDirect", "link", "field"]));
   });
 
   it("cardinality one raises no violation", () => {

@@ -1,4 +1,4 @@
-import type { SystemModel } from "./load.ts";
+import type { SystemModel } from "./genome.ts";
 
 export interface SemanticDelta {
   added: string[];

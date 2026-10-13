@@ -2,7 +2,7 @@ import { graphHash, parseGraph, type Graph } from "../graph/graph.ts";
 import { cachedForm, packName, TemplateFormError, type TemplateForm } from "../meta/form.ts";
 import type { Template } from "../meta/template.ts";
 import { sha256Hex } from "@artyfact/rules";
-import { parse, run, type Result } from "@artyfact/rules";
+import { parse, run, type Result, type Tuple } from "@artyfact/rules";
 import { checksPack } from "./checks.ts";
 import { edbProgram } from "./edb.ts";
 import { toFacts } from "./facts.ts";
@@ -11,7 +11,12 @@ import { completeness, consistency, metamodel, text } from "./packs/index.ts";
 
 export const CORE_PACKS = [metamodel, completeness, consistency, text];
 
-export interface EvaluateOptions { maxIterations?: number; form?: TemplateForm }
+export interface EvaluateOptions {
+  maxIterations?: number;
+  form?: TemplateForm;
+  /** Also return every relation the runs derived (`Readiness.derived`). */
+  derived?: boolean;
+}
 
 export interface Readiness {
   snapshotHash: string;
@@ -30,8 +35,23 @@ export interface Readiness {
   };
   /** True when a run hit `maxIterations`; its findings are a lower bound. */
   incomplete: boolean;
+  /** Relation -> tuples over every run, sorted by relation; only with `EvaluateOptions.derived`. */
+  derived?: Record<string, Tuple[]>;
   buildable: boolean;
   actionable: boolean;
+}
+
+/** Every relation of the runs, sorted by name; a tuple several runs hold (the shared input facts) appears once. */
+function derivedOf(results: Result[]): Record<string, Tuple[]> {
+  const out = new Map<string, Map<string, Tuple>>();
+  for (const r of results) {
+    for (const [rel, tuples] of r.relations) {
+      const m = out.get(rel) ?? new Map<string, Tuple>();
+      for (const t of tuples) m.set(JSON.stringify(t), t);
+      out.set(rel, m);
+    }
+  }
+  return Object.fromEntries([...out].sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([rel, m]) => [rel, [...m.values()]]));
 }
 
 const pairKey = (t: readonly unknown[]) => JSON.stringify([t[0], t[1]]);
@@ -72,6 +92,7 @@ export function evaluate(template: Template, input: Graph | unknown, opts: Evalu
     consistency: { violations: rows("violation").length },
     judgments: { confident: 0, review: 0, unknown: 0, calls: 0, rounds: 0, gated: 0, budget: "ok", explained: 0 },
     incomplete,
+    ...(opts.derived && { derived: derivedOf(runs.map((r) => r.result)) }),
     ...verdicts(findings, incomplete),
   };
 }

@@ -1,0 +1,11 @@
+id: policy.ownerOnly
+kind: policy
+fields:
+  name: Owner only
+  owningThing: thing.app
+  revision: 1
+  mode: owner-only
+links:
+  - { rel: governs, to: operation.note.save }
+  - { rel: governs, to: operation.note.list }
+  - { rel: governs, to: entity.Note }

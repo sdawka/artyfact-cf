@@ -1,0 +1,6 @@
+id: section.ui
+kind: section
+fields:
+  name: Notes UI
+  owningThing: thing.app
+  revision: 1

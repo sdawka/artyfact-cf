@@ -1,0 +1,7 @@
+id: component.AppShell
+kind: component
+fields:
+  name: App shell
+  owningThing: thing.app
+  revision: 1
+  fromTemplate: template.thing.mini-webapp@1

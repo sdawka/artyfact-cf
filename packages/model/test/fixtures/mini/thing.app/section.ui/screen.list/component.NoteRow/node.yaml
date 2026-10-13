@@ -1,0 +1,7 @@
+id: component.NoteRow
+kind: component
+fields:
+  name: Note row
+  owningThing: thing.app
+  revision: 1
+  cardinality: 1 per note

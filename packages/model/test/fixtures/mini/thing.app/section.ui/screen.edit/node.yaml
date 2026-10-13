@@ -1,0 +1,7 @@
+id: screen.edit
+kind: screen
+fields:
+  name: Edit note
+  owningThing: thing.app
+  revision: 1
+  route: /notes/:id
