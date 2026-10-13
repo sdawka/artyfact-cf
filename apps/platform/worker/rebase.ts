@@ -33,10 +33,15 @@ async function rpc<T>(p: Promise<T> | T): Promise<T> {
   }
 }
 
-/** The candidate commit a rebase commit's message names, if any. */
+const TRAILER_RE = new RegExp(`^${REBASE_TRAILER}: ([0-9a-f]{40})$`, "gm");
+
+/** The candidate commit a rebase commit's message names (its last trailer), if any. */
 export function rebasedFrom(message: string): string | null {
-  return new RegExp(`^${REBASE_TRAILER}: ([0-9a-f]{40})$`, "m").exec(message)?.[1] ?? null;
+  return [...message.matchAll(TRAILER_RE)].at(-1)?.[1] ?? null;
 }
+
+/** A commit message without rebase trailers, for embedding in the next rebase's message. */
+const withoutTrailers = (message: string) => message.replace(TRAILER_RE, "").replace(/\n{3,}/g, "\n\n").trim();
 
 async function treeOf(repo: ArtifactsRepoLike, commit: string): Promise<string> {
   const meta = await repo.readCommit(commit);
@@ -107,7 +112,8 @@ export async function rebase(env: Env, systemId: string, rid: string): Promise<R
   if (!cand) throw conflict("invalid-state", `realization ${rid} has no open candidate; submit before rebasing`);
   const s = await stub.state();
   if (!s) throw notFound(`system ${systemId} is not imported`);
-  if (!s.head || !s.appSource || rec.realization.baseRevision === s.head) {
+  if (!s.head || !s.appSource) throw conflict("invalid-state", `system ${systemId} has no promoted app to rebase onto`);
+  if (rec.realization.baseRevision === s.head) {
     throw conflict("up-to-date", `${cand.id} is already built on the System head ${s.head?.slice(0, 12) ?? "(none)"}`);
   }
   const head = { systemCommit: s.head, repo: s.appSource.repo, commit: s.appSource.commit };
@@ -136,8 +142,9 @@ export async function rebase(env: Env, systemId: string, rid: string): Promise<R
     const changes: FileChange[] = [];
     for (const p of [...diff.added, ...diff.modified]) {
       const e = await entryAt(fork, candTree, p);
-      if (!e) throw new HttpError(502, "missing-path", `${p} is not a file at ${cand.commit}`);
-      changes.push({ path: p, content: await blobBytes(fork, e.hash, p), ...((e.type === "exec" || e.type === "symlink") && { type: e.type }) });
+      if (!e) throw conflict("rebase-conflict", `${p} is not a regular file, executable or symlink at ${cand.commit.slice(0, 12)} (a submodule?); rebase by hand`, { paths: [p] });
+      // Always the candidate's kind: dropping the exec bit or replacing a symlink is part of its diff.
+      changes.push({ path: p, content: await blobBytes(fork, e.hash, p), type: e.type as "blob" | "exec" | "symlink" });
     }
     // A path the head no longer has: only a platform-written file can get here (any other was an overlap above).
     for (const p of diff.removed) if (await entryAt(headRepo, headTree, p)) changes.push({ path: p, content: null });
@@ -145,7 +152,7 @@ export async function rebase(env: Env, systemId: string, rid: string): Promise<R
     const include: GitObject[] = [];
     await carry(headRepo, fork, headTree, await treeOf(fork, tip.hash), include);
     const meta = (await fork.readCommit(cand.commit))!;
-    const message = `Rebase ${cand.commit.slice(0, 12)} onto ${head.systemCommit}\n\n${meta.message.trim()}\n\n${REBASE_TRAILER}: ${cand.commit}\n`;
+    const message = `Rebase ${cand.commit.slice(0, 12)} onto ${head.systemCommit}\n\n${withoutTrailers(meta.message)}\n\n${REBASE_TRAILER}: ${cand.commit}\n`;
     const transport = editorTransport();
     const token = await fork.createToken("write", REBASE_TOKEN_TTL_S);
     try {
