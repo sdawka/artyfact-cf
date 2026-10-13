@@ -41,4 +41,4 @@ Never green under threshold: nothing in the 0.1 to 0.9 band, and nothing from an
 
 ## Tests
 
-`npm test -w @artyfact/semantic`. `test/live.smoke.test.ts` runs only when `TYPESAFE_API_KEY` is set.
+`npm test -w @artyfact/semantic`. `test/live.smoke.test.ts` runs only when `ONTOLOGY_LIVE=1` and `TYPESAFE_API_KEY` are both set.

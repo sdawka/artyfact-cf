@@ -67,16 +67,17 @@ genome/
     section.ui/
       node.yaml
       screen.people/node.yaml      # depth = directory depth; the parent is the enclosing directory's node
+    S.webapp.screens/node.yaml     # a requirement, under the first node it constrains
     J.contacts/                    # a journey owned by the Thing
       node.yaml
-      s1/node.yaml                 # its steps, in order of `fields.order`
+      s1/node.yaml                 # a step: id J.contacts/s1, sequence from its `next`
   evolutions/evolution.1.yaml      # change records stay flat, same schema as v1
 ```
 
 Rules:
 
 - **One node per directory.** The `node.yaml` in a directory defines that node. The node of the enclosing directory is its parent. The root `node.yaml` is the System. Every other node sits below it.
-- **The directory name is a slug, not the identity.** The `id` in `node.yaml` is authoritative and globally unique. A slug matches `[A-Za-z0-9_][A-Za-z0-9._-]*`, is at most 120 characters, and only has to be unique among its siblings. A writer names a new directory `slugOf(id)`: the id itself when that is a valid slug, otherwise the id with every other run of characters replaced by `-`. A journey step's directory may use the step's local id (`s1`). Renaming a directory does not change the node.
+- **The directory name is a slug, not the identity.** The `id` in `node.yaml` is authoritative and globally unique. A slug matches `[A-Za-z0-9_][A-Za-z0-9._-]*`, is at most 120 characters, and only has to be unique among its siblings. A writer names a new directory `slugOf(id)`: the id itself when that is a valid slug, otherwise the id with every other run of characters replaced by `-`. A journey step's directory is the step's local id (`s1`). Renaming a directory does not change the node.
 - **Reserved names.** `evolutions/` at the root holds `<id>.yaml` change records. They never hold a `node.yaml`, and they are not part of the tree. Directories without a `node.yaml`, dot-files and `README.md` files are ignored. A `node.yaml` whose parent directory has none is an error.
 - **Legal nesting** is the template's business. A node's parent kind must be in its kind's `parents`; `metamodel@1` reports the violations. The codec does not refuse an illegal tree; evaluation reports it.
 - **v2 only.** The platform loader reads the tree layout and nothing else: a Genome without a root `node.yaml` does not load. There is no long-lived format detection; the one exception is the legacy check in §2a.
@@ -123,7 +124,13 @@ Ids stay globally unique and start with `C.`, so evaluations, the Changelog and 
 
 The plan's draft wrote `severity: gate | hard | soft` and `target: model | code | observation`. The contract keeps the v1 enumerations instead (`severity` plus a separate `gates` list; `artifact` and `runtime` as targets), so the v1 conversion is lossless.
 
-**System criteria** are the `criteria` of the root `node.yaml`. **Journeys** are nodes of kind `journey` under the System or the Thing that owns them. Each step is a child node of kind `step`. Its fields are the v1 step fields, with `order` giving the sequence, and its targets are links (`stepScreen`, `stepOperation`, `stepExternal`, `stepNext`), as in the engine's artyfact base template. Only things that span many nodes become nodes of their own; everything else is a field of the node it describes.
+**System criteria** are the `criteria` of the root `node.yaml`.
+
+**Journeys** are nodes of kind `journey` under the System or the Thing that owns them. Each step is a child node of kind `step`. Its id is `<journey id>/<local id>` (`J.contacts/s1`), the same id the engine graph uses today, and its directory is the local id. The sequence comes from each step's `next` (`[{to, when?}]`, local ids, projected as `stepNext` links), starting at the journey's `start`; there is no `order` field. A step's other fields are the v1 step fields. Its targets are links (`stepScreen`, `stepOperation`, `stepExternal`), as in the engine's artyfact base template.
+
+**Requirements** stay nodes of kind `requirement`, with their ids unchanged (`S.…`), so journey `requirements`/`requirementRefs` and criterion `sourceRefs` keep resolving. A requirement sits under the first node it constrains (its first v1 subject); one with no subjects sits under the Thing named in its `thing` field. Every subject, the parent included, stays a `subject` link: `subject` is the base template's "constrains" relation, and keeping it keeps the graph unchanged. `refines` links to features are kept too.
+
+Only things that span many nodes become nodes of their own; everything else is a field of the node it describes.
 
 ### 2a. The retired v1 layout
 
@@ -151,20 +158,33 @@ The v1 (by-concern) layout is dropped. The rules:
 | `files` | Not in the graph; the node-attached source map reads them (W6) |
 | `evolutions/*.yaml` | `evolution` nodes with no parent, plus `acceptance` and `affects` links, as in v1 |
 
-The migration's acceptance test is parity. For Keep in Touch, the v1 adapter's graph and the converted tree's projection must give the same findings. The test is deleted with the v1 reader. The one intended difference is the `parent` of top-level items, which v1 left parentless and v2 nests under the System. So the templates (W2) list `system` in the `parents` of `purpose`, `claim`, `external`, `feature`, `commitment` and `journey`.
+The projection also emits the nodes the v1 adapter derives from fields, so they compare equal: `kit` nodes with `pinned` and `requires` links from the root's `kits` and `required`; `artifact` nodes with `artifact` links from a Thing's `artifacts`; `template` nodes with `pinned` links from `template`.
+
+The migration's acceptance test is parity. For Keep in Touch, the v1 adapter's graph and the converted tree's projection must be the same nodes, fields and links with the same findings, except for these three intended `parent` differences, all of which v1 left parentless:
+
+1. `purpose`, `claim`, `external`, `feature` and `commitment` nodes have the System as parent.
+2. `journey` nodes have the System or their owning Thing as parent.
+3. `requirement` nodes have their first subject as parent, or their `thing` when they have no subject.
+
+So the templates (W2) declare `parents`:
+- `[system]` for `purpose`, `claim`, `external`, `feature` and `commitment`;
+- `[system, thing]` for `journey`;
+- every kind a requirement may constrain for `requirement`.
+
+The test is deleted with the v1 reader.
 
 ### v1 → v2 conversion (W1)
 
 | v1 | v2 |
 |---|---|
 | `system.yaml` | Root `node.yaml`: `template` from `template`; `name`, `profile`, `phase`, `kits`, `rulePacks` and `required` as fields. `things` and `purposes` are implied by the tree |
-| `purpose.yaml`, `externals.yaml`, `theory.yaml` | One node per purpose, external and claim under the root; `beneficiaries` become links |
+| `purpose.yaml`, `externals.yaml`, `theory.yaml` | One node per purpose, external and claim under the root; `beneficiaries` become `beneficiary` links; cross links on externals stay links |
 | `description.yaml` | `narrative`, `alternatives` and `openQuestions` as root fields; one node per feature and per commitment under the root |
-| `things/<t>/thing.yaml` | `<thing id>/node.yaml` with `template`, and `name`, `description`, `artifacts` and `sections` as fields; `purposeRefs` become `serves` links |
+| `things/<t>/thing.yaml` | `<thing id>/node.yaml` with `template`, and `name`, `description`, `purposeRefs`, `artifacts` and `sections` as fields |
 | `things/<t>/ontology.yaml` | Nested directories following `parent` (and `children`); cross links become `links` (`direction: in` is written on the other end) |
-| `things/<t>/spec.yaml` requirements | A criterion or fields of the node it constrains, decided per requirement; `refines` is kept as a link |
+| `things/<t>/spec.yaml` requirements | `requirement` nodes (ids unchanged) under their first subject; `thing`, `title`, `text`, `enabled` and `source` as fields; `subject` links to every subject; `refines` links |
 | `criteria.yaml` (System, Thing) | `criteria` on the subject node's `node.yaml`, with hooks inline |
-| `journeys/J.*.yaml` | Journey and step nodes under the owning Thing (the System when steps span Things) |
+| `journeys/J.*.yaml` | A journey node under the owning Thing (the System when its steps span Things), with fields `name`, `actorGoal`, `features`, `requirements`, `start`, `deferred` and `segments`. One child `step` node per step, with id `<journey>/<step>`, its directory the step id, and `next` kept as the sequence |
 | `evolutions/*.yaml` | Unchanged |
 
 Field names are kept as they are in v1. Nodes go on using `name` where v1 did, and view hints default the display name to `title`, then `name`. The engine's routing reads only `title` (`titleOf`), so on Keep in Touch it shows ids. W7 adds a `name` fallback, or the kind's `view.title`, to `titleOf`.
@@ -254,7 +274,9 @@ Mapping from the engine:
   - Accepting an op without the ops it depends on is a 422.
 - **`questions`**: the translator's `question` (one per turn), plus the router's when the route status is `unknown` and no translation ran.
 - **`answer`**: the translator's `answer`, when the message only asked for information.
-- **`problems`**: `OpProblem` mapped to `{opId, severity: level, message}`. W7 adds the findings that applying the ops to a copy of the graph introduces (`diffFindings`), which covers illegal nesting and dangling links.
+- **`problems`** come from two sources and map to `{opId?, severity, message}`, with `severity` one of `error`, `missing` or `warning`:
+  - `validateOps` problems: `level` `error` → `error`, `warning` → `warning`; `opId` is the id of the op at the problem's index.
+  - The findings that applying the proposal's ops to a copy of the graph introduces (`diffFindings` against the head's readiness). These cover illegal nesting, missing required fields and children, and dangling links. Finding levels map `error` → `error`, `missing` → `missing` and `warning` → `warning`; `review`, `info` and `pass` findings are dropped. `opId` names the op whose node is the finding's subject, and is absent when no single op owns it.
 - **`provenance`**: router `{provider, model, calls}` and translator `{provider, model}`. `genomeCommit` is the head the proposal was computed on; accepting after the head moved is a 409 `stale-base`. `fake` is true when either side was fake, and the UI labels such proposals.
 
 Providers are wired by W5 and W7. System One comes from TypeSafe (`TYPESAFE_API_KEY`) or OpenRouter (`OPENROUTER_API_KEY`, `OPENROUTER_MODEL`). The engine's `providerFromEnv` knows only fake and OpenRouter; W5 adds TypeSafe. The translator comes from `translatorFromEnv`. `FAKE_S1=1` selects the fake router and the fake translator for tests and fixture demos.

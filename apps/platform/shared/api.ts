@@ -12,7 +12,7 @@
  */
 
 import type { Finding, ModelIndex, PhenomeEventHeader, Readiness, SemanticDelta as ModelDelta, SystemModel, schema } from "@artyfact/model";
-import type { NodeCriterion } from "@artyfact/ontology";
+import type { LinkCertainty, NodeCriterion } from "@artyfact/ontology";
 import type { Commitment, ReviewResult, SemanticDelta } from "@artyfact/semantic";
 
 export type { Finding, PhenomeEventHeader, Readiness } from "@artyfact/model";
@@ -1158,7 +1158,7 @@ export interface ProposedOp {
   kind?: string;
   parent?: NodeId;
   fields?: Record<string, unknown>;
-  link?: { rel: string; to: NodeId; certainty?: Certainty };
+  link?: { rel: string; to: NodeId; certainty?: LinkCertainty };
   criteria?: (NodeCriterion | { id: string; remove: true })[];
   dependsOn?: string[];
 }
@@ -1169,10 +1169,14 @@ export interface ProposalQuestion {
   text: string;
 }
 
-/** A deterministic problem with the proposal (engine `validateOps`, codec): `opId` absent means the whole proposal. */
+/**
+ * A deterministic problem with the proposal (engine `validateOps`, codec, or a finding the ops introduce):
+ * `opId` absent means the whole proposal. Finding levels map error → error, missing → missing, warning → warning;
+ * `review`, `info` and `pass` findings are not problems.
+ */
 export interface ProposalProblem {
   opId?: string;
-  severity: "error" | "warning";
+  severity: "error" | "missing" | "warning";
   message: string;
 }
 
