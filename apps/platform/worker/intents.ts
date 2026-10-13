@@ -313,8 +313,9 @@ export function opsByDecision(plan: ProposalPlanNode[], decisions: PlanDecisions
  * accept takes any op ids, as before plans.
  */
 interface PlanStore {
-  proposalPlan(pid: string): Promise<{ plan: ProposalPlanNode[]; decisions: PlanDecisions } | null>;
-  setProposalPlan(pid: string, plan: ProposalPlanNode[], decisions: PlanDecisions): Promise<boolean>;
+  proposalPlan(pid: string): Promise<{ plan: ProposalPlanNode[]; decisions: PlanDecisions; deferredFrom?: string } | null>;
+  /** Written only while the proposal is open. */
+  setProposalPlan(pid: string, plan: ProposalPlanNode[], decisions: PlanDecisions, deferredFrom?: string): Promise<boolean>;
 }
 export function planStoreReady(): boolean {
   const proto = SystemAuthority.prototype as unknown as Partial<PlanStore>;
@@ -480,7 +481,7 @@ export async function decideProposal(env: Env, systemId: string, pid: string, bo
   if (!planStoreReady()) throw new HttpError(501, "not-implemented", "this platform cannot store plan decisions yet");
   const plan = onWire(s.proposal).plan;
   const decisions = applyDecisions(plan, await decisionsOf(env, systemId, pid), changes as IntentDecisionsRequest["decisions"]);
-  if (!(await planStore(env, systemId).setProposalPlan(pid, plan, decisions))) {
+  if (!(await planStore(env, systemId).setProposalPlan(pid, plan, decisions, s.proposal.deferredFrom))) {
     throw conflict("invalid-state", `proposal ${pid} is no longer open`);
   }
   return onWire(s.proposal, decisions);
