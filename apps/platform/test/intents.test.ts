@@ -744,8 +744,8 @@ describe("POST /intents/:pid/accept with decisions", () => {
     expect((await call<Proposal>("GET", routes.intent(s.systemId, both.id))).json.status).toBe("accepted");
   });
 
-  it("creates a mixed Evolution with app and model criteria that admin accept makes genome-approved", async () => {
-    // Only the model criteria pass: the app ones do not apply to the Genome candidate (gateCriteria), so they cannot block it.
+  // Only the model criteria pass: the app ones do not apply to the Genome candidate (gateCriteria), so they cannot block it.
+  const passModelCriteria = () => {
     const all = (ctx: SubmissionContext) => {
       const at = new Date().toISOString();
       return loadGenome(new Map(Object.entries(ctx.genomeFiles)), { templates: metaTemplates }).criteria.filter((c) => c.targetKind === "model").map((c) => ({
@@ -760,6 +760,12 @@ describe("POST /intents/:pid/accept with decisions", () => {
       async conflicts() { return []; },
     };
     setHooks({ runner: () => runner });
+  };
+  const adminAccept = (s: Sys, r: IntentAcceptResponse) => call<ApiError>("POST", `/api/systems/${s.systemId}/evolutions/${r.evolution.id}/accept`,
+    { realizationId: r.realization.id, candidateId: r.candidate.id, commit: r.commit, interpretation: "ok" });
+
+  it("creates a mixed Evolution with app and model criteria that admin accept makes genome-approved", async () => {
+    passModelCriteria();
     const s = await importSystem();
     const p = (await create(s, "Change what the Today screen says")).json;
     await decide(s, p, [{ nodeId: "thing.webapp", decision: "agree" }]);
@@ -770,10 +776,42 @@ describe("POST /intents/:pid/accept with decisions", () => {
     const kinds = new Set(r.json.evolution.acceptanceCriteria.map((id) => m.criteria.find((c) => c.id === id)?.targetKind));
     expect(kinds.has("model")).toBe(true);
     expect(kinds.has("artifact") || kinds.has("runtime")).toBe(true);
-    const acc = await call<ApiError>("POST", `/api/systems/${s.systemId}/evolutions/${r.json.evolution.id}/accept`,
-      { realizationId: r.json.realization.id, candidateId: r.json.candidate.id, commit: r.json.commit, interpretation: "ok" });
+    const acc = await adminAccept(s, r.json);
     expect(acc.status, JSON.stringify(acc.json)).toBe(200);
     expect((await systemStub(env, s.systemId).evolution(r.json.evolution.id))?.state).toBe("genome-approved");
+  });
+
+  it("re-applies a deferred proposal's ops on the head once its sibling's Genome candidate is accepted", async () => {
+    passModelCriteria();
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const ops: ProposedOp[] = [first.ops[0]!, { id: "op.2", op: "update", node: "screen.people", fields: { description: "[fake] calmer" } }];
+    const store = (o: Omit<Proposal, "id">) => runInDurableObject(env.SYSTEMS.getByName(s.systemId),
+      async (_i: SystemAuthority, state): Promise<Proposal> => new ProposalsStore(state.storage.sql).create(o));
+    const { id: _id, ...rest } = first;
+    const both = await store({ ...rest, ops, plan: planOf(ops, parseTree(new Map(Object.entries(genome).map(([k, v]) => [k, v.replaceAll("system.peopling", s.systemId)])))) });
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "defer" }]);
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.evolution.kind).toBe("mixed");
+    expect((await adminAccept(s, r.json)).status).toBe(200);
+    const head = (await systemStub(env, s.systemId).state())!.genomeCommit;
+    expect(head).not.toBe(both.provenance.genomeCommit);
+
+    const deferred = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
+    const d = await accept(s, deferred, ["op.2"]);
+    expect(d.status, JSON.stringify(d.json)).toBe(201);
+    expect(d.json.evolution.id).not.toBe(r.json.evolution.id);
+    expect(d.json.evolution.affectedNodes).toEqual(["screen.people"]);
+    const after = (await call<Proposal>("GET", routes.intent(s.systemId, deferred.id))).json;
+    expect(after).toMatchObject({ status: "accepted", provenance: { genomeCommit: head } });
+
+    // Deferred ops that no longer apply on the head stay a 409 stale-base, and the proposal stays open on its base.
+    const gone = await store({ ...rest, ops: [{ id: "op.1", op: "update", node: "screen.gone", fields: { description: "x" } }], plan: [], deferredFrom: both.id });
+    const g = await accept(s, gone, ["op.1"]);
+    expect(g.status, JSON.stringify(g.json)).toBe(409);
+    expect(g.json.error).toMatchObject({ code: "stale-base", details: { currentHead: head } });
+    expect((await systemStub(env, s.systemId).proposal(gone.id))?.proposal).toMatchObject({ status: "open", provenance: { genomeCommit: both.provenance.genomeCommit } });
   });
 
   it("gates a Genome candidate on model criteria only, an app candidate on its app criteria too", () => {

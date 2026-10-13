@@ -565,10 +565,38 @@ async function deferProposal(env: Env, systemId: string, p: Proposal, d: Deferre
 }
 
 /**
+ * A deferred proposal keeps the base of the proposal it came from, and that head moves once the sibling's Genome
+ * candidate is accepted. Before the claim, an open deferred proposal behind the head is re-validated: its chosen ops
+ * (with their dependencies) are applied to the head Genome, and when they still apply its base moves to the head, so
+ * the claim and the push work on the head. When they no longer apply (an unknown node, a conflicting state) the accept
+ * is a 409 `stale-base`. Any other proposal, or one already on the head, is left for the claim to judge.
+ */
+async function rebaseDeferred(env: Env, systemId: string, pid: string, opIds: string[]): Promise<void> {
+  const s = await systemStub(env, systemId).proposal(pid);
+  if (!s || s.accepting || s.proposal.status !== "open" || !s.proposal.deferredFrom) return;
+  const base = s.proposal.provenance.genomeCommit;
+  const h = await headGenome(env, systemId);
+  const head = h.state.genomeCommit;
+  if (base === head) return;
+  const ops = chosenOps(s.proposal, opIds);
+  try {
+    applyOps(h.files, ops as TreeOp[]);
+  } catch (e) {
+    if (!(e instanceof TreeOpError) && !(e instanceof GenomeTreeError)) throw e;
+    const why = e instanceof TreeOpError ? `${ops[e.op]?.id ?? "an op"} ${e.message.replace(/^op \d+: /, "")}` : e.message;
+    throw conflict("stale-base", `the Genome moved to ${head.slice(0, 12)} since these ops were deferred and they no longer apply (${why}); describe the change again`,
+      { currentHead: head });
+  }
+  // False when another accept or a head move got there first: the claim then says why.
+  await systemStub(env, systemId).rebaseProposal(pid, base, head);
+}
+
+/**
  * `POST …/accept`: the chosen ops (each with the ops it depends on, else 422) become a `genome-amendment` Evolution
  * whose affected nodes are the touched nodes, a Genome realization (origin `editor`) and one commit pushed to its fork
  * and submitted as a candidate. The DO first moves the proposal open → accepting while the head is still the
  * proposal's `genomeCommit` (409 `invalid-state` / `stale-base` otherwise), so concurrent accepts cannot both push.
+ * A deferred proposal behind the head is first moved onto it when its ops still apply there (rebaseDeferred).
  * The op ids are checked against the revision the claim returned, never an earlier read, since a reply re-mints them,
  * and against its plan decisions (chosenByPlan); the deferred ops move to a new open proposal once the commit is pushed.
  * A failure before the push returns the proposal to open with the error recorded; once the commit is pushed it is
@@ -577,6 +605,7 @@ async function deferProposal(env: Env, systemId: string, p: Proposal, d: Deferre
 export async function acceptProposal(env: Env, systemId: string, pid: string, body: Record<string, unknown>, platformUrl: string): Promise<IntentAcceptResponse> {
   const opIds = body.opIds;
   if (!Array.isArray(opIds) || !opIds.length || opIds.some((x) => typeof x !== "string")) throw badRequest("opIds must be a non-empty array of op ids");
+  await rebaseDeferred(env, systemId, pid, opIds as string[]);
   const stub = systemStub(env, systemId);
   const claim = await stub.claimProposal(pid);
   if ("refused" in claim) {
