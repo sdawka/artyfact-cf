@@ -1,6 +1,9 @@
 export * from "./types.ts";
 export { fakeAnswer, fakeAnswers } from "./fake.ts";
-export { cacheKeyFor, fakeSystemOne, httpSystemOne, offSystemOne, S1Error, wireQuestions, type HttpOptions, type S1ErrorCode } from "./provider.ts";
+export {
+  cacheKeyFor, DEFAULT_TYPESAFE_MODEL, fakeSystemOne, httpSystemOne, offSystemOne, S1Error, TYPESAFE_URL, typeSafeProvider, wireQuestions,
+  type HttpOptions, type S1ErrorCode, type TypeSafeOptions,
+} from "./provider.ts";
 export {
   answerKey, band, combine, decide, DEFAULT_THRESHOLDS, harmOf, readAnswer, scoreConfidence, thresholdsOf,
   type Combined, type Decision, type Reading,
