@@ -3,6 +3,8 @@
   "name": "keep-in-touch",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-12",
+  // Lets this Worker fetch the platform over workers.dev (same-zone Worker-to-Worker fetch is blocked otherwise); CI forces it too.
+  "compatibility_flags": ["global_fetch_strictly_public"],
   "assets": { "directory": "public" },
   "d1_databases": [
     { "binding": "DB", "database_name": "keep-in-touch", "database_id": "00000000-0000-0000-0000-000000000000", "migrations_dir": "migrations" }
