@@ -1,0 +1,7 @@
+id: endpoint.work
+kind: endpoint
+fields:
+  name: Work board
+  description: Returns Evolutions grouped by state with their realizations and candidates.
+  route: GET /api/systems/:id/work
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

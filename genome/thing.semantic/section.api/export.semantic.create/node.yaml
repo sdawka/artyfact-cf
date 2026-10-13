@@ -1,0 +1,7 @@
+id: export.semantic.create
+kind: export
+fields:
+  name: createSystemOne
+  signature: "export const createSystemOne = (env: SystemOneEnv): SystemOne"
+  stability: stable
+  description: "Returns the engine's provider for the environment: fake when FAKE_S1=1, else TypeSafe or OpenRouter by key, else one that answers unknown."

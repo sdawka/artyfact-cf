@@ -1,0 +1,10 @@
+id: module.platform.phenome
+kind: module
+fields:
+  name: Phenome ingest
+  description: Validates and stores runtime events from deployed apps.
+  path: worker/phenome.ts
+links:
+  - { rel: dependsOn, to: module.model.phenome }
+files:
+  - worker/phenome.ts

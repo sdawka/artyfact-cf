@@ -1,0 +1,8 @@
+id: endpoint.health
+kind: endpoint
+fields:
+  name: Health
+  description: Reports that the platform Worker is up; the CLI probes it to find a local platform.
+  route: GET /api/health
+  auth: Anonymous.
+  response: "{status: ok, service: artyfact-platform, time}"

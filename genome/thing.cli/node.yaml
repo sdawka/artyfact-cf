@@ -1,0 +1,34 @@
+id: thing.cli
+kind: thing
+template: template.thing.cli@1
+root: packages/cli
+fields:
+  name: artyfact CLI
+  description: "The artyfact command-line tool: sets up a System's repos, starts and submits realizations for agents, manages Parts and converts Genomes."
+links:
+  - { rel: artifact, to: artifact.cli }
+  - { rel: dependsOn, to: thing.model }
+  - { rel: dependsOn, to: thing.ontology }
+  - { rel: exposes, to: command.init }
+  - { rel: exposes, to: command.start }
+  - { rel: exposes, to: command.checkpoint }
+  - { rel: exposes, to: command.submit }
+  - { rel: exposes, to: command.convert-genome }
+criteria:
+  - id: C.cli.unit
+    title: "@artyfact/cli tests pass"
+    claim: Init, naming, platform discovery, Parts and convert-genome suites pass against local bare repos.
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    hooks:
+      - id: hook.cli.unit
+        assay: cli.unit
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          command: npm test -w @artyfact/cli

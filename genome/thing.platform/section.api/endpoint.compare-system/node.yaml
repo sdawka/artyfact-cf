@@ -1,0 +1,8 @@
+id: endpoint.compare-system
+kind: endpoint
+fields:
+  name: Compare Systems
+  description: "Compares two revisions at System level: Genome delta, app files, criteria and builds."
+  route: GET /api/systems/:id/compare/system
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.
+  request: ?from=<rev>&to=<rev>

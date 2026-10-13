@@ -1,0 +1,14 @@
+id: module.templates.catalogue
+kind: module
+fields:
+  name: Catalogue
+  description: Bundles template and pack files and serves them by ref.
+  path: src
+links:
+  - { rel: implements, to: export.templates.load }
+  - { rel: implements, to: export.templates.compose }
+  - { rel: implements, to: export.templates.packs }
+  - { rel: dependsOn, to: module.ontology.meta }
+files:
+  - src/**
+  - scripts/**

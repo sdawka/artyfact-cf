@@ -1,0 +1,7 @@
+id: export.semantic.interference
+kind: export
+fields:
+  name: interference
+  signature: "export async function interference(s1: SystemOne, a: EvolutionSummary, b: EvolutionSummary, shared: unknown): Promise<InterferenceResult>"
+  stability: stable
+  description: Asks whether two Evolutions' changes interfere.

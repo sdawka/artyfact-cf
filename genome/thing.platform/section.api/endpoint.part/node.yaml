@@ -1,0 +1,7 @@
+id: endpoint.part
+kind: endpoint
+fields:
+  name: Part
+  description: Returns one shared Part version; 404 when it is not in the shared catalogue.
+  route: GET /api/parts/:partId/:version
+  auth: Anonymous read.

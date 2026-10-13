@@ -1,0 +1,6 @@
+id: command.parts-validate
+kind: command
+fields:
+  name: parts validate
+  usage: artyfact parts validate ...
+  description: The parts validate subcommand; without --apply it only prints what it would do.

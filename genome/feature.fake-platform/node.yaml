@@ -1,0 +1,5 @@
+id: feature.fake-platform
+kind: feature
+fields:
+  name: Fake platform
+  summary: FAKE_ARTIFACTS=1 runs the whole backend with in-memory Artifacts and no Cloudflare account.

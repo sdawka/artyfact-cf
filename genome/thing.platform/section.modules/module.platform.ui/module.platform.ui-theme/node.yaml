@@ -1,0 +1,9 @@
+id: module.platform.ui-theme
+kind: module
+fields:
+  name: Theme and effects
+  description: Design tokens, the Whimsy theme and the ambient effects wiring.
+  path: src/theme
+files:
+  - src/theme/**
+  - src/effects/**

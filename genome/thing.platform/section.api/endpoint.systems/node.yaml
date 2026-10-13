@@ -1,0 +1,8 @@
+id: endpoint.systems
+kind: endpoint
+fields:
+  name: List Systems
+  description: Lists every imported System as a card summary with its signifiers.
+  route: GET /api/systems
+  auth: Anonymous read.
+  response: SystemsResponse

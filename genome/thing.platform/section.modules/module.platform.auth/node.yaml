@@ -1,0 +1,10 @@
+id: module.platform.auth
+kind: module
+fields:
+  name: Auth
+  description: Checks admin bearers and realization secrets in constant time.
+  path: worker/auth.ts
+links:
+  - { rel: dependsOn, to: module.platform.authority }
+files:
+  - worker/auth.ts

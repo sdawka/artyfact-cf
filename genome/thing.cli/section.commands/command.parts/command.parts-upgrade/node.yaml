@@ -1,0 +1,6 @@
+id: command.parts-upgrade
+kind: command
+fields:
+  name: parts upgrade
+  usage: artyfact parts upgrade ...
+  description: The parts upgrade subcommand; without --apply it only prints what it would do.

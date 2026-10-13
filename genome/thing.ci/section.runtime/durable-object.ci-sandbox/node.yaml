@@ -1,0 +1,10 @@
+id: durable-object.ci-sandbox
+kind: durable-object
+fields:
+  name: CiSandbox
+  className: CiSandbox
+  key: One container runner per build step, at most 2 instances (standard-4).
+  storage: SQLite for the sandbox's own bookkeeping; the workspace lives in the container.
+  description: The @cloudflare/ci container sandbox the pipeline runs install, test, build, bundle and deploy in.
+files:
+  - Dockerfile

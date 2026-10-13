@@ -1,0 +1,7 @@
+id: command.platform-sync
+kind: command
+fields:
+  name: platform-sync
+  usage: artyfact platform-sync [--namespace ns]
+  exitCodes: 0 on success, 1 on any error.
+  description: Pushes packages/templates to the namespace's platform repo; a no-op when unchanged. Exits 1 on failure.

@@ -1,0 +1,16 @@
+id: module.platform.service
+kind: module
+fields:
+  name: System service
+  description: Imports Systems, starts work, submits and syncs realizations and builds task packets over the Durable Object and Artifacts.
+  path: worker/service.ts
+links:
+  - { rel: dependsOn, to: module.platform.authority }
+  - { rel: dependsOn, to: module.platform.artifacts }
+  - { rel: dependsOn, to: module.model.load }
+  - { rel: implements, to: endpoint.import }
+  - { rel: implements, to: endpoint.start-work }
+files:
+  - worker/service.ts
+  - worker/util.ts
+  - worker/model-bundle.ts

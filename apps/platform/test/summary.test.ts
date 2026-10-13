@@ -6,7 +6,7 @@ import type {
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { walkTree } from "../worker/artifacts/genome-source";
-import { ensureFakePlatform, exampleSystemId, resetFakePlatform } from "../worker/artifacts/fake-platform";
+import { ensureFakePlatform, exampleSystemId, fakeSeed, resetFakePlatform } from "../worker/artifacts/fake-platform";
 import { resetHooks, setHooks } from "../worker/hooks/index";
 import { resetPhenomeThrottle } from "../worker/phenome";
 import { ADMIN, call, genomeAmendment, importFresh, passing, renameContact, type Flow } from "./helpers/flows";
@@ -247,6 +247,11 @@ describe("FAKE_ARTIFACTS=1 boot", () => {
     const p = await call<TemplateUpgradePlan>("GET", `/systems/${exampleSystemId}/template-upgrade`);
     expect(p.status, JSON.stringify(p.json)).toBe(200);
     expect(p.json).toMatchObject({ template: "thing/cloudflare-worker-webapp@1", from: null, locked: false, upToDate: false, files: [] });
+  });
+
+  it("reads FAKE_SEED, defaulting to Keep in Touch", () => {
+    expect([undefined, "", "keep-in-touch", "nope"].map(fakeSeed)).toEqual(Array(4).fill("keep-in-touch"));
+    expect([fakeSeed("artyfact"), fakeSeed("both")]).toEqual(["artyfact", "both"]);
   });
 
   it("rejects an unknown origin on start work", async () => {

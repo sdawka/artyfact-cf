@@ -1,0 +1,10 @@
+id: module.effects.surface
+kind: module
+fields:
+  name: Surface field
+  description: Card-local surface light.
+  path: src/surface
+links:
+  - { rel: implements, to: export.effects.surface }
+files:
+  - src/surface/**

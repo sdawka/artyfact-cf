@@ -178,6 +178,15 @@ A re-run pushes nothing and re-imports as a no-op. Flags and details: [packages/
 
 The full loop against real Artifacts, with two agents, a conflict, a promotion and two Genome amendments, is in [docs/demo-runbook.md](docs/demo-runbook.md). It needs a Cloudflare login and an `ADMIN_TOKEN`. Hosted deployment: [docs/deploy.md](docs/deploy.md).
 
+## Artyfact describes itself
+
+The repo-root `genome/` is Artyfact's own Genome (`system.artyfact`, on the dev-platform template): the platform, ci and site Workers, the libraries and the CLI as Things, with their real endpoints, commands, Durable Objects, Workflow and bindings, `dependsOn` links that match the workspace dependencies, and node `files` that cover every source file outside `.artyfactignore`. `packages/templates/test/self-genome.test.ts` checks all of that. To browse it on the fake platform, with no login:
+
+```sh
+cd apps/platform
+FAKE_ARTIFACTS=1 FAKE_SEED=artyfact npx vite --port 1337   # FAKE_SEED=both imports Keep in Touch too
+```
+
 ## Phenome event header
 
 A deployed app reports what it observes with `POST /api/systems/:id/phenome/events` and `{"events": [...]}` (up to 100 per request, 8 KB each). The bearer is the deployment's ingest token, a realization secret for a preview, or the admin token. Every event carries this header; `payload` is free-form JSON.
@@ -207,6 +216,7 @@ The platform stamps `seq`, `receivedAt` and the realization. The Deployments pag
 | `packages/semantic` | System One client, question catalog, policy |
 | `packages/cli` | The `artyfact` command for agents |
 | `apps/platform` | The Worker, the Durable Object and the SPA |
+| `genome` | Artyfact's own Genome (node tree) |
 | `examples/keep-in-touch-system` | The worked example Genome |
 | `examples/keep-in-touch-app` | The example app that agents change |
 | `docs/design` | Design notes for each part |

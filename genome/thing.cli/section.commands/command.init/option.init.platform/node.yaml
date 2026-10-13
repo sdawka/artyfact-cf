@@ -1,0 +1,7 @@
+id: option.init.platform
+kind: option
+fields:
+  name: platform
+  flag: --platform <url>
+  description: Platform URL; defaults to a local platform that identifies itself.
+  valueType: string

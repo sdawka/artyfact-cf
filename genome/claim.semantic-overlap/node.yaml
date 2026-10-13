@@ -1,0 +1,10 @@
+id: claim.semantic-overlap
+kind: claim
+fields:
+  name: Semantic overlap
+  mechanism: Mapping each candidate's changed files back to Genome nodes lets the platform report two candidates that touch the same node, even when they share no file.
+  outcome: Reviewers see conflicting work on the Work board and the Map before promotion.
+  indicator: Share of promotion-time conflicts that were reported as overlap before the first of the two candidates was promoted.
+  evaluationMethod: Count overlap reports per promoted pair in the Changelog.
+  kind: hypothesis
+  status: unknown

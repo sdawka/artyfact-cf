@@ -1,0 +1,7 @@
+id: endpoint.evolution-candidates
+kind: endpoint
+fields:
+  name: Evolution candidates
+  description: Lists one Evolution's candidates with their builds.
+  route: GET /api/systems/:id/evolutions/:eid/candidates
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

@@ -1,0 +1,7 @@
+id: endpoint.system-part
+kind: endpoint
+fields:
+  name: System Part
+  description: Returns one Part version visible to the System; 404 when it is not in that scope.
+  route: GET /api/systems/:id/parts/:partId/:version
+  auth: The realization's secret or the admin bearer; 401 without a bearer, 403 for any other token.

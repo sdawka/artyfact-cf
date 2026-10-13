@@ -1,0 +1,8 @@
+id: module.rules.stratify
+kind: module
+fields:
+  name: Stratifier
+  description: Orders rules into strata so negation is safe.
+  path: src/stratify.ts
+files:
+  - src/stratify.ts

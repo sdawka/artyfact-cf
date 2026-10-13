@@ -1,0 +1,11 @@
+id: J.compare/c1
+kind: step
+fields:
+  step: c1
+  actor: user
+  action: Opens the Changelog
+  kind: action
+  next:
+    - to: c2
+links:
+  - { rel: stepOperation, to: endpoint.changelog }

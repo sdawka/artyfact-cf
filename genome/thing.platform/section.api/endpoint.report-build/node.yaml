@@ -1,0 +1,7 @@
+id: endpoint.report-build
+kind: endpoint
+fields:
+  name: Report a production build
+  description: Records the status of a production build the CI Worker ran.
+  route: POST /api/systems/:id/builds
+  auth: The CI report token or the admin bearer; 401 without a bearer, 403 otherwise.

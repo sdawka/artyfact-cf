@@ -1,0 +1,13 @@
+id: module.platform.hooks
+kind: module
+fields:
+  name: Hook runner
+  description: Runs the assay hooks of affected criteria (manifest, diff, model rules, System One, http health) and consumes Artifacts push events.
+  path: worker/hooks
+links:
+  - { rel: dependsOn, to: module.model.validate }
+  - { rel: dependsOn, to: module.semantic.judgments }
+  - { rel: dependsOn, to: module.templates.catalogue }
+  - { rel: implements, to: queue.artifacts-events }
+files:
+  - worker/hooks/**

@@ -1,0 +1,7 @@
+id: asset.social
+kind: asset
+fields:
+  name: Social card
+  path: public/social.png
+  type: image
+  description: Copied unchanged from public/ for link previews.

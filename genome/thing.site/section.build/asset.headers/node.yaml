@@ -1,0 +1,7 @@
+id: asset.headers
+kind: asset
+fields:
+  name: Headers
+  path: public/_headers
+  type: other
+  description: Copied unchanged; sets the content security policy and caching headers.

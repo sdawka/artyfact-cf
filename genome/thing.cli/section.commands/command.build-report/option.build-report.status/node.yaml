@@ -1,0 +1,7 @@
+id: option.build-report.status
+kind: option
+fields:
+  name: status
+  flag: --status <s>
+  description: Build status.
+  valueType: choice

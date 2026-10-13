@@ -1,0 +1,6 @@
+id: command.parts-extract
+kind: command
+fields:
+  name: parts extract
+  usage: artyfact parts extract ...
+  description: The parts extract subcommand; without --apply it only prints what it would do.

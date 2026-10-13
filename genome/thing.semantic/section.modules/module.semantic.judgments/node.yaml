@@ -1,0 +1,11 @@
+id: module.semantic.judgments
+kind: module
+fields:
+  name: Judgments
+  description: Review, topology, purpose, interference and classification judgments.
+  path: src/judgments.ts
+links:
+  - { rel: implements, to: export.semantic.interference }
+  - { rel: dependsOn, to: module.semantic.questions }
+files:
+  - src/judgments.ts

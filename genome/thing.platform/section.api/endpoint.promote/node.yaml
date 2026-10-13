@@ -1,0 +1,9 @@
+id: endpoint.promote
+kind: endpoint
+fields:
+  name: Promote
+  description: "Promotes selected candidates in one transaction: checks the expected head and the gate, writes a System commit and moves the head."
+  route: POST /api/systems/:id/promote
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  request: "{expectedHead, candidates, rationale}"
+  response: SystemCommit; 409 stale-base when the head moved, 409 gate when a blocking criterion is not pass

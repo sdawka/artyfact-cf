@@ -1,0 +1,7 @@
+id: endpoint.deployments
+kind: endpoint
+fields:
+  name: Deployments
+  description: Lists deployments and the System commit each runs.
+  route: GET /api/systems/:id/deployments
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

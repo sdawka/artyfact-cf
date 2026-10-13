@@ -1,0 +1,9 @@
+id: J.promote/p3
+kind: step
+fields:
+  step: p3
+  actor: system
+  action: Refuses a stale head or a blocking criterion with 409
+  kind: branch
+  next:
+    - to: p4

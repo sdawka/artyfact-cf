@@ -1,0 +1,7 @@
+id: option.init.from-template
+kind: option
+fields:
+  name: from-template
+  flag: --from-template <ref>
+  description: Scaffold the app from a Thing template.
+  valueType: string

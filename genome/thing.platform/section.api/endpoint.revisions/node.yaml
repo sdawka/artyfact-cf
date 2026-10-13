@@ -1,0 +1,7 @@
+id: endpoint.revisions
+kind: endpoint
+fields:
+  name: Revisions
+  description: Lists the System revisions a compare can pick from.
+  route: GET /api/systems/:id/revisions
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

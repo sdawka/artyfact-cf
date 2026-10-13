@@ -1,0 +1,7 @@
+id: command.compose
+kind: command
+fields:
+  name: compose
+  usage: artyfact compose <rid> <rid> ...
+  exitCodes: 0 on success, 1 on any error.
+  description: Prints the manual merge steps for composing realizations; not automated yet. Exits 1 with fewer than two ids.

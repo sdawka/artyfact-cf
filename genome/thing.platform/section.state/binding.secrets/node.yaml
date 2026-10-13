@@ -1,0 +1,5 @@
+id: binding.secrets
+kind: binding
+fields:
+  name: Secrets
+  description: ADMIN_TOKEN, CI_REPORT_TOKEN and the System One keys (TYPESAFE_API_KEY or OPENROUTER_API_KEY), set as Worker secrets and never logged.

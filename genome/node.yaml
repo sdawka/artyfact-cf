@@ -1,0 +1,68 @@
+id: system.artyfact
+kind: system
+template: template.system.dev-platform.cloudflare@1
+fields:
+  name: Artyfact
+  description: A collaboration platform whose main object is the whole System, not a repository. The platform Thing is the Worker that serves the API and the single-page app; the ci Thing is the Worker that builds and deploys app commits; the site Thing is the public static site. The model, ontology, rules, semantic and templates libraries hold the Genome model, the ontology engine, the Datalog engine, the System One client and the templates; effects holds the shared decorative WebGL effects; the cli Thing is the command-line tool agents and operators run.
+  narrative: Artyfact keeps a typed model of the System, the Genome, next to its code. An agent gets a task packet cut from the Genome and a private fork; it pushes, the platform maps the changed files back to Genome nodes, runs the hooks bound to the affected criteria and compares the candidate with every other candidate in flight. A person promotes one candidate with a compare-and-swap on the System head. Nothing is green without evidence.
+  phase: realized
+  rulePacks:
+    - id: topology.services
+      version: "1"
+  alternatives:
+    - A file-centred platform that reports changed files only; it cannot tell that two agents disagree about what the product is.
+  openQuestions:
+    - Whether routing deep node trees needs a per-depth level in addition to the shortlist (measured on this Genome).
+criteria:
+  - id: C.artyfact.typecheck
+    title: Every workspace typechecks
+    claim: The root typecheck builds every package and app with no type errors; a candidate that fails it is not promoted.
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    hooks:
+      - id: hook.artyfact.typecheck
+        assay: artyfact.typecheck
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          command: npm run typecheck
+  - id: C.artyfact.unit
+    title: Unit suites pass
+    claim: Every workspace's vitest suite passes from the root; one failing test fails the candidate.
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    hooks:
+      - id: hook.artyfact.unit
+        assay: artyfact.unit
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          command: npm test
+  - id: C.artyfact.self-genome
+    title: The self-Genome maps every source file
+    claim: This Genome loads under its pinned templates with no hard findings, and every non-ignored file under apps/ and packages/ maps to at least one node.
+    target: artifact
+    gates:
+      - submission
+      - candidate
+      - promotion
+    hooks:
+      - id: hook.artyfact.self-genome
+        assay: artyfact.self-genome
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          command: npm test -w @artyfact/templates -- test/self-genome.test.ts

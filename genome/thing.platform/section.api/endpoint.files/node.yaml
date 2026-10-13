@@ -1,0 +1,7 @@
+id: endpoint.files
+kind: endpoint
+fields:
+  name: List files
+  description: Lists the Genome or app files at a ref for the Code view.
+  route: GET /api/systems/:id/files
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

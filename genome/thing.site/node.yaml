@@ -1,0 +1,35 @@
+id: thing.site
+kind: thing
+template: template.thing.static-site@1
+root: apps/site
+fields:
+  name: Public site
+  description: The artyfact-site Worker serving the prerendered public pages at artyfact.ing, with one hydrated example island and the shared ambient effect.
+links:
+  - { rel: artifact, to: artifact.site }
+  - { rel: dependsOn, to: thing.effects }
+  - { rel: exposes, to: page.home }
+  - { rel: exposes, to: page.model }
+  - { rel: exposes, to: page.connect-agent }
+files:
+  - e2e/**
+  - playwright.config.ts
+  - vitest.config.ts
+criteria:
+  - id: C.site.build
+    title: The build prerenders every page
+    claim: The build writes an index.html per page, a 404 page and a sitemap, and the pages work without JavaScript.
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    hooks:
+      - id: hook.site.build
+        assay: site.build
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          command: npm run test -w @artyfact/site

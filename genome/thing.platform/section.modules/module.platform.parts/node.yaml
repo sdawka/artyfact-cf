@@ -1,0 +1,10 @@
+id: module.platform.parts
+kind: module
+fields:
+  name: Parts
+  description: Publishes, lists and composes Parts for Systems.
+  path: worker/parts
+links:
+  - { rel: dependsOn, to: module.model.parts }
+files:
+  - worker/parts/**

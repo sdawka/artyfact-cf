@@ -1,0 +1,5 @@
+id: binding.systems
+kind: binding
+fields:
+  name: SYSTEMS
+  description: Durable Object namespace of SystemAuthority.

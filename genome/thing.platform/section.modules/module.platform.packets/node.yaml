@@ -1,0 +1,8 @@
+id: module.platform.packets
+kind: module
+fields:
+  name: Task packets
+  description: Renders a realization's task packet from the Genome nodes it affects.
+  path: worker/packets
+files:
+  - worker/packets/**

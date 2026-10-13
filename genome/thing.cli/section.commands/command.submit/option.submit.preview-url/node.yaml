@@ -1,0 +1,7 @@
+id: option.submit.preview-url
+kind: option
+fields:
+  name: preview-url
+  flag: --preview-url <u>
+  description: A preview deployment the health hook may check.
+  valueType: string

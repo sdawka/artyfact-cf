@@ -1,0 +1,7 @@
+id: command.parts
+kind: command
+fields:
+  name: parts
+  usage: artyfact parts create|extract|validate|publish|compose|upgrade ...
+  exitCodes: 0 on success, 1 on any error.
+  description: Creates, validates, publishes, composes and upgrades Parts; writes only with --apply. Exits 1 on an invalid Part.

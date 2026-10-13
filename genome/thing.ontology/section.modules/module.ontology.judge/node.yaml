@@ -1,0 +1,8 @@
+id: module.ontology.judge
+kind: module
+fields:
+  name: Judge
+  description: System One providers, the defect funnel and probes.
+  path: src/judge
+files:
+  - src/judge/**

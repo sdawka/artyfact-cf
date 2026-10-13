@@ -1,0 +1,5 @@
+id: thing.ci.modules
+kind: section
+fields:
+  name: Modules
+  description: The source modules and what each is responsible for.

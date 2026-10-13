@@ -1,0 +1,7 @@
+id: endpoint.realizations
+kind: endpoint
+fields:
+  name: List realizations
+  description: Lists every realization of the System.
+  route: GET /api/systems/:id/realizations
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

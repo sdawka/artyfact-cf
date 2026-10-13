@@ -1,0 +1,7 @@
+id: asset.styles
+kind: asset
+fields:
+  name: Styles
+  path: src/styles
+  type: style
+  description: The site's CSS, a snapshot of the platform's Whimsy tokens; bundled by Vite.

@@ -1,0 +1,7 @@
+id: endpoint.publish-system-part
+kind: endpoint
+fields:
+  name: Publish a System Part
+  description: Publishes a Part that only this System can use; an unknown System is 404.
+  route: POST /api/systems/:id/parts
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.

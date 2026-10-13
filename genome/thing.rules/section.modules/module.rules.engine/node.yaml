@@ -1,0 +1,12 @@
+id: module.rules.engine
+kind: module
+fields:
+  name: Engine
+  description: Semi-naive bottom-up evaluation with derivation tracking.
+  path: src/engine.ts
+links:
+  - { rel: implements, to: export.rules.run }
+  - { rel: dependsOn, to: module.rules.stratify }
+files:
+  - src/engine.ts
+  - src/types.ts
