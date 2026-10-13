@@ -2,7 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
   ApiError, BuildReportResponse, ChangelogResponse, CheckpointResponse, CreateEvolutionResponse, DeploymentsResponse, EditorCommitResponse, Evolution, PhenomeIngestResponse,
-  PromoteResponse, SseEnvelope, StartWorkResponse, SystemSummary, SystemsResponse,
+  PromoteResponse, SseEnvelope, StartWorkResponse, SystemSummary, SystemsResponse, TemplateUpgradePlan,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { walkTree } from "../worker/artifacts/genome-source";
@@ -238,6 +238,14 @@ describe("FAKE_ARTIFACTS=1 boot", () => {
     expect(res.json.commit).toMatch(/^[0-9a-f]{40}$/);
     expect(res.json.submitted.candidate.commit).toBe(res.json.commit);
     expect((await listed(exampleSystemId)).openCandidates).toBe(1);
+  });
+
+  it("seeds the platform repo, so the example app gets a template upgrade plan (no lock yet, nothing behind)", async () => {
+    resetFakePlatform(); // the suite's afterEach uninstalled the namespace; boot again (same deterministic repos)
+    await ensureFakePlatform(env);
+    const p = await call<TemplateUpgradePlan>("GET", `/systems/${exampleSystemId}/template-upgrade`);
+    expect(p.status, JSON.stringify(p.json)).toBe(200);
+    expect(p.json).toMatchObject({ template: "thing/cloudflare-worker-webapp@1", from: null, locked: false, upToDate: false, files: [] });
   });
 
   it("rejects an unknown origin on start work", async () => {

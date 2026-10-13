@@ -1,4 +1,5 @@
 /** In-memory Artifacts namespace (tests and the FAKE_ARTIFACTS=1 boot mode) implementing ArtifactsRepoLike with git-like content-addressed objects. */
+import { createHash } from "node:crypto";
 import type { ArtifactsNamespaceLike, ArtifactsRepoLike, CommitMeta, TreeEntry } from "./client";
 
 /** Deterministic 40-hex id (not SHA-1, but the same shape). */
@@ -12,13 +13,19 @@ export function fakeHash(text: string): string {
   return out.slice(0, 40);
 }
 
+/** Git's blob id (SHA-1 of `blob <size>\0<content>`), so seeded blobs and blobs pushed through the fake receive-pack share ids. */
+export function gitBlobHash(text: string): string {
+  const body = new TextEncoder().encode(text);
+  return createHash("sha1").update(`blob ${body.length}\0`).update(body).digest("hex");
+}
+
 /** `bytes`, when set, is the blob's exact content (binary-safe); `text` is its UTF-8 reading. */
 type Obj = { kind: "blob"; text: string; bytes?: Uint8Array } | { kind: "tree"; entries: TreeEntry[] } | { kind: "commit"; meta: CommitMeta };
 
 class Store {
   objects = new Map<string, Obj>();
   put(o: Obj, key: string): string {
-    const h = fakeHash(key);
+    const h = o.kind === "blob" ? gitBlobHash(o.text) : fakeHash(key);
     this.objects.set(h, o);
     return h;
   }
