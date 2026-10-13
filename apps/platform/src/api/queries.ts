@@ -5,6 +5,7 @@ import type {
   PhenomeEventsQuery, PromoteRequest, Realization, RejectRequest, StartWorkRequest,
 } from "../../shared/api";
 import type { TemplateUpgradeRequest } from "../../shared/api";
+import type { IntentAccept, IntentReply, IntentRequest, Proposal } from "../../shared/api";
 import { emitFx } from "@/effects/fx";
 import { useSystemRoute } from "@/model/useSelection";
 import * as api from "./client";
@@ -36,6 +37,7 @@ export const qk = {
   deployments: (systemId: string) => ["deployments", systemId] as const,
   phenome: (systemId: string, q: PhenomeEventsQuery = {}) => ["phenome", systemId, q] as const,
   artifacts: (systemId: string) => ["artifacts", systemId] as const,
+  intent: (systemId: string, proposalId: string) => ["intent", systemId, proposalId] as const,
 };
 
 /** `system` = two System commits (SystemCompare); `genome` = two Genome revisions (GenomeCompare). File level uses `useCompareFile`. */
@@ -376,6 +378,51 @@ export function useManualCommit() {
       }
     },
     onSettled: () => invalidate(qc, systemId, "evolutions", "candidates", "builds", "revisions", "tree", "file", "systems"),
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Intents (admin). Create and reply put the returned proposal in the cache, so `useIntent` reads it without a fetch.
+// ---------------------------------------------------------------------------
+
+/** One proposal; disabled until `proposalId` is set. */
+export function useIntent(proposalId: string | null | undefined, adminToken?: string) {
+  const { systemId } = useSystemRoute();
+  return useQuery({
+    queryKey: qk.intent(systemId, proposalId ?? ""),
+    queryFn: () => api.getIntent(systemId, proposalId!, adminToken),
+    enabled: !!systemId && !!proposalId,
+    retry: false,
+  });
+}
+
+export function useCreateIntent() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, adminToken }: { body: IntentRequest; adminToken?: string }) => api.createIntent(systemId, body, adminToken),
+    onSuccess: (p: Proposal) => qc.setQueryData(qk.intent(systemId, p.id), p),
+  });
+}
+
+export function useReplyIntent() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ proposalId, body, adminToken }: { proposalId: string; body: IntentReply; adminToken?: string }) =>
+      api.replyIntent(systemId, proposalId, body, adminToken),
+    onSuccess: (p: Proposal) => qc.setQueryData(qk.intent(systemId, p.id), p),
+  });
+}
+
+/** Accepting writes a Genome realization and its candidate: the board, candidates and builds change. */
+export function useAcceptIntent() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ proposalId, body, adminToken }: { proposalId: string; body: IntentAccept; adminToken?: string }) =>
+      api.acceptIntent(systemId, proposalId, body, adminToken),
+    onSettled: () => invalidate(qc, systemId, "intent", "evolutions", "candidates", "builds", "revisions", "systems"),
   });
 }
 
