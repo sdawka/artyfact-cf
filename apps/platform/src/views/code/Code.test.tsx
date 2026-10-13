@@ -95,7 +95,7 @@ describe("Code page", () => {
     expect(() => typeInEditor(document.body, "x")).toThrow(/read-only/);
     // Each mapped node can start a described change anchored on it.
     const nodes = screen.getByRole("list", { name: "Model nodes in this file" });
-    expect(within(nodes).getByRole("link", { name: /^Change this…/ }).getAttribute("href")).toBe(
+    expect(within(nodes).getByRole("link", { name: /^Describe a change/ }).getAttribute("href")).toBe(
       `/s/${SYSTEM}/r/head/work?panel=intent&anchor=${SYSTEM}`,
     );
   });
