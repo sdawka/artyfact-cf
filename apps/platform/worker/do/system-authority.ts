@@ -250,9 +250,17 @@ const enc = new TextEncoder();
 export const MODEL_CACHE_VERSION = 3;
 const cachePart = (part: string) => (part === "files" ? part : `${part}@${MODEL_CACHE_VERSION}`);
 
-/** Drops `model`/`rules` rows of any other cache version (the unversioned rows included); run with the schema. */
+const PRUNED_KEY = "model_cache_pruned";
+
+/**
+ * Drops `model`/`rules` rows of any other cache version (the unversioned rows included); run with the schema. Once per
+ * version: the `head` kv row `model_cache_pruned` holds the version last pruned for, so a DO start does not rescan.
+ */
 export function pruneModelCache(sql: SqlStorage): void {
+  const done = sql.exec("SELECT v FROM head WHERE k = ?", PRUNED_KEY).toArray()[0]?.v;
+  if (done === String(MODEL_CACHE_VERSION)) return;
   sql.exec("DELETE FROM model_cache WHERE part != 'files' AND part NOT LIKE ?", `%@${MODEL_CACHE_VERSION}`);
+  sql.exec("INSERT INTO head (k, v) VALUES (?, ?) ON CONFLICT(k) DO UPDATE SET v = excluded.v", PRUNED_KEY, String(MODEL_CACHE_VERSION));
 }
 
 export class SystemAuthority extends DurableObject<Env> {

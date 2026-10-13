@@ -537,9 +537,17 @@ describe("schema", () => {
       for (const part of ["model", "rules", "files", "model@1", `model@${MODEL_CACHE_VERSION}`, `rules@${MODEL_CACHE_VERSION}`]) {
         sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES ('c1', ?, '{}', 'x')", part);
       }
+      const parts = () => sql.exec("SELECT part FROM model_cache WHERE genome_commit = 'c1' ORDER BY part").toArray().map((r) => r.part);
+      const flag = () => sql.exec("SELECT v FROM head WHERE k = 'model_cache_pruned'").toArray()[0]?.v;
+      // As left by an earlier version's prune.
+      sql.exec("INSERT OR REPLACE INTO head (k, v) VALUES ('model_cache_pruned', ?)", String(MODEL_CACHE_VERSION - 1));
       pruneModelCache(sql);
-      const parts = sql.exec("SELECT part FROM model_cache WHERE genome_commit = 'c1' ORDER BY part").toArray().map((r) => r.part);
-      expect(parts).toEqual(["files", `model@${MODEL_CACHE_VERSION}`, `rules@${MODEL_CACHE_VERSION}`]);
+      expect(parts()).toEqual(["files", `model@${MODEL_CACHE_VERSION}`, `rules@${MODEL_CACHE_VERSION}`]);
+      expect(flag()).toBe(String(MODEL_CACHE_VERSION));
+      // Pruned for this version already: a later start does not rescan.
+      sql.exec("INSERT OR REPLACE INTO model_cache (genome_commit, part, json, created_at) VALUES ('c1', 'model@1', '{}', 'x')");
+      pruneModelCache(sql);
+      expect(parts()).toEqual(["files", "model@1", `model@${MODEL_CACHE_VERSION}`, `rules@${MODEL_CACHE_VERSION}`]);
     });
   });
 
