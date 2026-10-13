@@ -5,7 +5,7 @@ import {
   checkTemplateForm, checkViewHints, evaluate, instantiateNodes, loadTemplate, resolveKindView, type Graph, type Template,
 } from "@artyfact/ontology";
 import { loadMetaTemplate, metaTemplateRefs, metaTemplates, templateRefs, templates } from "../src/index";
-import { COMPOSED, compose, GENERIC_THINGS, readGenome, SYSTEM } from "./dev-platform";
+import { compose, GENERIC_THINGS, readGenome, SYSTEM } from "./dev-platform";
 
 const ALL = [SYSTEM, ...GENERIC_THINGS];
 const load = (ref: string) => loadMetaTemplate(ref);
@@ -112,13 +112,13 @@ describe("generic templates", () => {
   });
 
   it("keeps module identical across the templates that declare it", () => {
-    // compose() throws when two templates declare one kind differently.
+    // composeTemplates throws when two templates declare one kind differently.
     expect(() => compose(ALL)).not.toThrow();
   });
 });
 
 describe("the dev-platform fixture Genome", () => {
-  const composed = () => loadTemplate(compose(ALL));
+  const composed = () => compose(ALL);
   const { graph, nodes } = readGenome(genomeDir);
   const run = (g: Graph) => evaluate(composed(), g);
   const rule = (g: Graph, id: string) => run(g).findings.filter((f) => f.rule === id);
@@ -126,11 +126,13 @@ describe("the dev-platform fixture Genome", () => {
   it("composes into a form-valid template", () => {
     const form = checkTemplateForm(composed());
     expect(form.findings).toEqual([]);
-    expect(composed().ref).toBe(COMPOSED);
+    expect(composed().ref).toBe(SYSTEM);
+    expect(graph.template).toBe(SYSTEM);
   });
 
   it("loads as a tree: one System root, four Things, every node under its enclosing directory", () => {
-    expect(graph.nodes.filter((n) => n.parent === undefined && n.kind !== "template").map((n) => n.id)).toEqual(["system.toolkit"]);
+    // Templates, criteria and hooks are parentless by design.
+    expect(graph.nodes.filter((n) => n.parent === undefined && !["template", "criterion", "hook"].includes(n.kind)).map((n) => n.id)).toEqual(["system.toolkit"]);
     expect(graph.nodes.filter((n) => n.kind === "thing").length).toBe(4);
     expect(graph.nodes.find((n) => n.id === "endpoint.health")?.parent).toBe("thing.api.api");
     expect(graph.nodes.find((n) => n.id === "option.verbose")?.parent).toBe("command.deploy");
@@ -213,5 +215,16 @@ describe("the dev-platform fixture Genome", () => {
     const r = run(graph).findings.filter((f) => f.rule.startsWith("semantic:check:"));
     expect(r.some((f) => f.rule === "semantic:check:endpoint.authPrincipal" && f.subject === "endpoint.health")).toBe(true);
     expect(r.some((f) => f.rule === "semantic:check:command.documented" && f.subject === "command.deploy")).toBe(true);
+  });
+
+  it("a social-networking System checks a ts-library Thing's own $self sections, not the template's raw list", () => {
+    const social = "template.system.social-networking.cloudflare@1";
+    const t = compose([social, "template.thing.ts-library@1"]);
+    const g: Graph = { ...graph, template: social };
+    const missing = (x: Graph) => evaluate(t, x).findings.filter((f) => f.rule === "template.sectionMissing").map((f) => f.subject);
+    expect(g.links).toContainEqual(expect.objectContaining({ from: "thing.core", rel: "requires", to: "thing.core.modules" }));
+    expect(missing(g)).not.toContain("thing.core");
+    const without: Graph = { ...g, nodes: g.nodes.filter((n) => n.id !== "thing.core.modules" && n.parent !== "thing.core.modules") };
+    expect(missing(without)).toContain("thing.core");
   });
 });

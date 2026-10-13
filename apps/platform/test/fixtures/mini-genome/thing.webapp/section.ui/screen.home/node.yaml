@@ -1,0 +1,7 @@
+id: screen.home
+kind: screen
+fields:
+  name: Home
+  owningThing: thing.webapp
+  revision: 1
+  route: /

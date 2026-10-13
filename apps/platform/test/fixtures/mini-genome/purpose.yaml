@@ -1,7 +1,0 @@
-id: P1
-statement: Help an owner keep in touch with the people who matter to them.
-beneficiaries: [ext.owner]
-intendedChange: The owner reaches out to contacts at the cadence they chose.
-successCriteria:
-  - Owner contacts each person within their chosen cadence
-nonGoals: [time-in-app]

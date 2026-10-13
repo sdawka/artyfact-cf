@@ -1,21 +1,19 @@
 # Keep in Touch System
 
-Worked example System `system.keep-in-touch`, encoded as the YAML Genome that `@artyfact/model` `loadSystem()` loads.
+Worked example System `system.keep-in-touch`, encoded as the Genome v2 node tree that `@artyfact/model` `loadGenome()` loads.
 Source: `docs/source/keep-in-touch-world-specification.docx`. Phase: unrealized.
 
-| File | Spec section |
-| --- | --- |
-| `system.yaml` | 1 System identity |
-| `purpose.yaml` | 1 Purpose P1 |
-| `externals.yaml` | 2 Externals and boundary |
-| `description.yaml` | 3 General Description (narrative, GD.*, commitments, digest question) |
-| `theory.yaml` | 4 Theory T1-T5 and the evaluation protocol |
-| `kits.yaml` | 7 Kits and Rule Packs (auth Kit required but unpinned on purpose) |
-| `things/webapp/thing.yaml` | 1 Thing and Artifacts, template `cloudflare-worker-webapp@1` |
-| `things/webapp/spec.yaml` | 6 `S.webapp.*` requirements |
-| `things/webapp/ontology.yaml` | 5 entities, 6 screen and operation tables, policies, bindings |
+One directory per node, each with its `node.yaml`; a node's children are its subdirectories.
 
-Criteria, journeys and evolutions (sections 7 and 9) live in sibling files owned by a separate slice.
+| Path | Spec section |
+| --- | --- |
+| `node.yaml` | 1 System identity, 7 Kits and Rule Packs (auth Kit required but unpinned on purpose) |
+| `P1/`, `section.purpose/` | 1 Purpose P1 |
+| `ext.*/`, `section.externals/` | 2 Externals and boundary |
+| `GD.*/`, `commitment.*/`, `section.description/` | 3 General Description (narrative, GD.*, commitments, digest question) |
+| `T1/`-`T5/`, `section.theory/` | 4 Theory T1-T5 and the evaluation protocol |
+| `thing.webapp/` | 1 Thing and Artifacts (template `cloudflare-worker-webapp@1`), 6 `S.webapp.*` requirements, its sections and nodes |
+| `J.updates/`, `thing.webapp/J.*/`, `evolutions/*.yaml` | 9 Journeys and Evolutions; criteria are declared on the nodes they assess |
 
 The unpinned authentication Kit is an intended readiness finding. The template's provisional `binding.d1`
 stays as shipped; `binding.contactsStore` is the Thing's intended D1 binding.

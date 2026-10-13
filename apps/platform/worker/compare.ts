@@ -4,6 +4,7 @@
  */
 import type { SystemModel } from "@artyfact/model";
 import { diffModels } from "@artyfact/model";
+import { NODE_FILE } from "@artyfact/ontology/genome";
 import type {
   ChangedFiles, FileCompare, FileScope, ModelDelta, FileSide, GenomeCompare, ResolvedRef, RevisionOption, RevisionsResponse, SystemCommit, SystemCompare,
 } from "../shared/api";
@@ -222,16 +223,31 @@ function addedOnly(m: SystemModel): ModelDelta {
 
 const loadErr = (e: unknown) => (e as Error)?.message ?? String(e);
 
-interface GenomeSides { delta: ModelDelta | null; loadError?: string; toModel?: SystemModel; fromModel?: SystemModel }
+interface GenomeSides {
+  delta: ModelDelta | null; loadError?: string; toModel?: SystemModel; fromModel?: SystemModel;
+  /** Sides in the retired v1 layout: never loaded, so there is no delta. */
+  legacyFormat?: ("from" | "to")[];
+}
+
+/** A revision in the retired v1 layout (the 422 `legacy-genome` that `buildGenome` throws). */
+export const isLegacyGenome = (e: unknown) => e instanceof HttpError && e.code === "legacy-genome";
 
 /** Semantic delta between two Genome sides; null when they are the same commit or a side does not load. */
 async function genomeDelta(env: Env, systemId: string, from: ResolvedRef | null, to: ResolvedRef): Promise<GenomeSides> {
+  const legacy: ("from" | "to")[] = [];
+  const modelAt = (ref: ResolvedRef, side: "from" | "to") => genomeAt(env, systemId, ref.commit, ref.repo).then((g) => g.model, (e: unknown) => {
+    if (!isLegacyGenome(e)) throw e;
+    legacy.push(side);
+    return undefined;
+  });
   try {
-    const b = await genomeAt(env, systemId, to.commit, to.repo);
-    if (!from) return { delta: addedOnly(b.model), toModel: b.model };
-    if (from.commit === to.commit) return { delta: null, toModel: b.model };
-    const a = await genomeAt(env, systemId, from.commit, from.repo);
-    return { delta: diffModels(a.model, b.model), toModel: b.model, fromModel: a.model };
+    const b = await modelAt(to, "to");
+    const a = from && from.commit !== to.commit ? await modelAt(from, "from") : undefined;
+    if (from && from.commit === to.commit && legacy.length) legacy.unshift("from");
+    if (legacy.length) return { delta: null, legacyFormat: legacy, ...(b && { toModel: b }), ...(a && { fromModel: a }) };
+    if (!from) return { delta: addedOnly(b!), toModel: b };
+    if (!a) return { delta: null, toModel: b };
+    return { delta: diffModels(a, b!), toModel: b, fromModel: a };
   } catch (e) {
     return { delta: null, loadError: loadErr(e) };
   }
@@ -251,10 +267,18 @@ export function genomePathNodes(g: GenomeSides, paths: string[]): Record<string,
   return Object.fromEntries(paths.map((p) => [p, sorted(declared.filter(([, file]) => declaredAt(p, file)).map(([id]) => id))]));
 }
 
-/** Whether repo path `path` is the Genome file `file`: model origins are relative to the Genome's root, which may sit under a repo prefix. */
-const declaredAt = (path: string, file: string | undefined) => !!file && (path === file || path.endsWith(`/${file}`));
+const GENOME_DIR = "system/";
+/** A repo path relative to the Genome's root: the Genome sits at the repo root or under `system/` (see `genomePrefix`). */
+const genomeRelative = (path: string) => (path.startsWith(GENOME_DIR) ? path.slice(GENOME_DIR.length) : path);
 
-/** Per repo path, the ids model `m` declares in it (by the same match as {@link genomePathNodes}). */
+/** Whether repo path `path` is the Genome file `file` (model origins are relative to the Genome's root). */
+const declaredAt = (path: string, file: string | undefined) => !!file && (path === file || genomeRelative(path) === file);
+
+/**
+ * Per repo path, the ids model `m` declares in it (by the same match as {@link genomePathNodes}): a `node.yaml`
+ * declares its node and the criteria and hooks inline in it. Any other file belongs to the node whose directory
+ * contains it (the Genome is a node tree).
+ */
 export function declaredNodes(m: SystemModel, paths: string[]): Record<string, string[]> {
   const byFile = new Map<string, string[]>();
   for (const [id, file] of Object.entries(m.origin)) {
@@ -263,9 +287,21 @@ export function declaredNodes(m: SystemModel, paths: string[]): Record<string, s
     if (ids) ids.push(id);
     else byFile.set(file, [id]);
   }
-  // `path` and each of its suffixes after a `/`: the files `declaredAt` would match.
-  const suffixes = (p: string) => [p, ...[...p.matchAll(/\//g)].map((x) => p.slice(x.index + 1))];
-  return Object.fromEntries(paths.map((p) => [p, sorted(suffixes(p).flatMap((f) => byFile.get(f) ?? []))]));
+  const declared = (p: string) => sorted([...(byFile.get(p) ?? []), ...(byFile.get(genomeRelative(p)) ?? [])]);
+  // A node directory's own node (criteria and hooks declared inline share its file).
+  const ownNode = (file: string) => declared(file).filter((id) => m.index.byId[id]!.type !== "criterion" && m.index.byId[id]!.type !== "hook");
+  const enclosing = (p: string): string[] => {
+    const parts = p.split("/").slice(0, -1);
+    for (let n = parts.length; n >= 0; n--) {
+      const hit = ownNode([...parts.slice(0, n), NODE_FILE].join("/"));
+      if (hit.length) return hit;
+    }
+    return [];
+  };
+  return Object.fromEntries(paths.map((p) => {
+    const own = declared(p);
+    return [p, own.length ? own : enclosing(p)];
+  }));
 }
 
 /** Changed files between two repo sides (`from` null = everything added). Same commit: nothing changed, nothing read. */
@@ -327,7 +363,7 @@ export async function compareSystem(env: Env, head: HeadState, from: SystemSide 
     genome: {
       from: from?.genome.commit ?? null, to: to.genome.commit, delta: genome.delta, files: gFiles,
       pathNodes: gFiles ? genomePathNodes(genome, [...gFiles.added, ...gFiles.modified, ...gFiles.removed]) : {},
-      ...(gLoadError && { loadError: gLoadError }),
+      ...(gLoadError && { loadError: gLoadError }), ...(genome.legacyFormat && { legacyFormat: genome.legacyFormat }),
     },
     app, manifest, identical,
   };
@@ -351,7 +387,7 @@ export async function compareGenome(env: Env, systemId: string, fromRef: string 
   const to = await resolveRef(env, head, "genome", toRef);
   const from = fromRef ? await resolveRef(env, head, "genome", fromRef) : (await defaultFrom(env, head, await sideAt(env, head, toRef)))?.genome ?? null;
   const [g, files] = await Promise.all([genomeDelta(env, systemId, from, to), changedFiles(env, from, to)]);
-  return { from, to, delta: g.delta, ...(g.loadError && { loadError: g.loadError }), files };
+  return { from, to, delta: g.delta, ...(g.loadError && { loadError: g.loadError }), ...(g.legacyFormat && { legacyFormat: g.legacyFormat }), files };
 }
 
 // ------------------------------------------------------------------ file compare

@@ -3,13 +3,13 @@
  * Genome), a reply revises it, and accepting a subset writes those ops to the Genome through an ordinary Genome
  * realization and candidate. Spec: docs/design/ontology.md §4–§6.
  */
+import { LegacyGenomeError, loadGenome, ModelParseError, readinessTemplate, type SystemModel } from "@artyfact/model";
 import {
-  applyOps, BASE_TEMPLATE, diffFindings, evaluate, GenomeTreeError, isLegacyGenome, mintId, parseTree, projectTree,
-  providerFromEnv, readTree, route, ROUTE_NEW, ROUTE_NONE, ROUTE_UNCLEAR, routeSlice, routeVocabulary, titleOf, translatorFromEnv,
+  applyOps, diffFindings, evaluate, GenomeTreeError, mintId, providerFromEnv, route, ROUTE_NEW, ROUTE_NONE, ROUTE_UNCLEAR, routeSlice, routeVocabulary, titleOf, translatorFromEnv,
   TreeOpError, validateOps, type Graph, type Op, type ProviderEnv, type Readiness, type Route, type SystemOne, type Template,
   type Translation, type Translator, type TranslatorEnv, type TreeOp,
 } from "@artyfact/ontology";
-import { composeTemplate, metaTemplates } from "@artyfact/templates";
+import { metaTemplates } from "@artyfact/templates";
 import type { IntentAcceptResponse, Proposal, ProposalProblem, ProposalQuestion, ProposedOp } from "../shared/api";
 import { artifactsFor, withRepo } from "./artifacts/client";
 import { genomePrefix } from "./artifacts/genome-source";
@@ -50,24 +50,26 @@ export function intentProviders(env: Env): IntentProviders {
 
 interface HeadGenome { state: HeadState; files: Map<string, string>; graph: Graph; template: Template; readiness: Readiness }
 
-/**
- * The engine's view of a v2 Genome: the graph, the System template with its Things' templates laid over it, and the
- * readiness proposals are compared against.
- */
-export function genomeGraph(files: Map<string, string>): { graph: Graph; template: Template; readiness: Readiness } {
-  if (isLegacyGenome(files.keys())) throw unprocessable("legacy-genome", "this revision predates the node-tree Genome format");
-  let tree;
+/** The head as the model projects it (`loadGenome`); a v1 or unreadable Genome is 422. */
+function projected(files: Map<string, string>): SystemModel {
   try {
-    tree = parseTree(files);
+    return loadGenome(files, { templates: metaTemplates });
   } catch (e) {
-    if (e instanceof GenomeTreeError) throw unprocessable("invalid-genome", e.message);
+    if (e instanceof LegacyGenomeError) throw unprocessable("legacy-genome", e.message);
+    if (e instanceof ModelParseError) throw unprocessable(e.code, e.message);
     throw e;
   }
-  const nodes = [...tree.nodes.values()];
-  const things = [...new Set(nodes.flatMap((n) => (n.file.kind === "thing" && n.file.template ? [n.file.template] : [])))];
-  const template = composeTemplate(tree.nodes.get(tree.root)!.file.template ?? BASE_TEMPLATE, things);
-  const graph = projectTree(tree, metaTemplates);
-  return { graph, template, readiness: evaluate(template, graph) };
+}
+
+/**
+ * The engine's view of a v2 Genome, as platform readiness sees it: the projected graph, the System template composed
+ * with its Things' (each instantiated for its Thing) running the packs the System pins, and its readiness, which
+ * proposals are compared against.
+ */
+export function genomeGraph(files: Map<string, string>): { graph: Graph; template: Template; readiness: Readiness } {
+  const m = projected(files);
+  const template = readinessTemplate(m);
+  return { graph: m.graph, template, readiness: evaluate(template, m.graph) };
 }
 
 const memo = new Map<string, ReturnType<typeof genomeGraph>>();
@@ -163,10 +165,10 @@ function problemsOf(h: HeadGenome, engine: Op[], ops: ProposedOp[], first: strin
   let after: Readiness;
   try {
     const { changes } = applyOps(h.files, ops as TreeOp[]);
-    after = evaluate(h.template, readTree(withChanges(h.files, changes), metaTemplates));
+    after = evaluate(h.template, loadGenome(withChanges(h.files, changes), { templates: metaTemplates }).graph);
   } catch (e) {
     if (e instanceof TreeOpError) return [...problems, { opId: ops[e.op]?.id, severity: "error", message: e.message }];
-    if (e instanceof GenomeTreeError) return [...problems, { severity: "error", message: e.message }];
+    if (e instanceof ModelParseError) return [...problems, { severity: "error", message: e.message }];
     throw e;
   }
   for (const f of diffFindings(h.readiness, after).appeared) {

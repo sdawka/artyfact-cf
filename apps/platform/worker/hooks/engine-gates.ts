@@ -1,23 +1,21 @@
 /**
  * Gates on the ontology engine (docs/design/ontology.md §1, "Evaluate and judge, for the gates"):
- * - the Genome as an engine `Graph` (a v2 tree through `readTree`; a v1 Genome through the transitional v1 adapter),
- *   evaluated against the template it pins;
+ * - the Genome as an engine `Graph` (the model's v2 projection, `loadGenome`), evaluated against the template it pins
+ *   (the System's composed with its Things'); a v1 Genome does not load (`LegacyGenomeError`);
  * - `engineRules`: the rules part of every `model-rules` hook (`inputs.packs` / `inputs.rulePrefix` select findings);
  * - checks@1 (`inputs.packs` naming `checks`): deterministic checks and System One check questions on the changed nodes
  *   and their parents only.
  * text@1 findings never fail a hook: they are reported as `advisory`.
  */
 import {
-  ARTYFACT_GENOME, checkQuestions, CORE_PACKS, checksPack, evaluate, judge, loadArtyfactSystem, QuestionSchema, readTree,
-  type ArtyfactTemplateStore, type Finding, type Graph, type Readiness, type SystemOne, type Template,
+  checkQuestions, CORE_PACKS, checksPack, evaluate, judge, QuestionSchema,
+  type Finding, type Graph, type Readiness, type SystemOne, type Template,
 } from "@artyfact/ontology";
-import { composeTemplate, loadMetaTemplate, metaTemplates, templates as v1Templates } from "@artyfact/templates";
+import { readinessTemplate, unavailablePins } from "@artyfact/model";
 import type { FileMap } from "./contract";
-import { selectableRules, type RulesFilter } from "./model-rules";
+import { loadGenome, selectableRules, type RulesFilter } from "./model-rules";
 import type { Outcome } from "./provenance";
 
-const NODE_FILE = "node.yaml";
-const PREFIX = "system/";
 const TEXT_PACK = "text@1";
 const CHECKS = "checks";
 
@@ -25,38 +23,22 @@ export interface EngineRun {
   graph: Graph;
   template: Template;
   readiness: Readiness;
+  /** `rulePack.unavailable` errors for pins no template declares, as readiness reports them (`unavailablePins`). */
+  unavailable: Finding[];
 }
 
-/** Genome-relative files: a Genome stored under `system/` (v1 `system.yaml` or v2 root `node.yaml`) loses the prefix. */
-function genomeFiles(files: FileMap): Record<string, string> {
-  if (NODE_FILE in files || "system.yaml" in files) return files;
-  if (!(`${PREFIX}${NODE_FILE}` in files) && !(`${PREFIX}system.yaml` in files)) return files;
-  return Object.fromEntries(Object.entries(files).filter(([p]) => p.startsWith(PREFIX)).map(([p, t]) => [p.slice(PREFIX.length), t]));
-}
-
-/** The Genome as an engine graph. W4's projection replaces the v1 branch. */
+/** The Genome as an engine graph. Throws `LegacyGenomeError` (v1) or `ModelParseError`. */
 export function genomeGraph(files: FileMap): Graph {
-  const g = genomeFiles(files);
-  if (NODE_FILE in g) return readTree(g, metaTemplates);
-  // The bundled v1 store is the adapter's template shape (both are the v1 schema).
-  return loadArtyfactSystem(g, { templates: v1Templates as unknown as ArtyfactTemplateStore });
-}
-
-/** The template the graph pins: its System template (else the graph's own) with the Thing templates it uses laid over it. */
-export function templateOf(g: Graph): Template {
-  const kind = new Map(g.nodes.map((n) => [n.id, n.kind]));
-  const pinned = (k: string) => [...new Set(g.links.filter((l) => l.rel === "pinned" && kind.get(l.from) === k && l.to.startsWith("template.")).map((l) => l.to))].sort();
-  const system = pinned("system")[0] ?? g.template;
-  const things = pinned("thing");
-  return things.length ? composeTemplate(system, things) : loadMetaTemplate(system);
+  return loadGenome(files, "").graph;
 }
 
 /** Evaluates the Genome against its template. The graph is evaluated as an instance of that (possibly composed) template. */
 export function engineRun(files: FileMap): EngineRun {
-  const graph = genomeGraph(files);
-  const template = templateOf(graph);
-  const judged = { ...graph, template: template.ref };
-  return { graph: judged, template, readiness: evaluate(template, judged) };
+  const m = loadGenome(files, "");
+  // The packs readiness runs (the System's pins), so the gates and readiness agree on which packs exist.
+  const template = readinessTemplate(m);
+  const judged = { ...m.graph, template: template.ref };
+  return { graph: judged, template, readiness: evaluate(template, judged), unavailable: unavailablePins(m) as Finding[] };
 }
 
 const packName = (p: { id: string; version: string }) => `${p.id}@${p.version}`;
@@ -83,7 +65,8 @@ function provenanceOf(r: EngineRun): Record<string, unknown> {
 }
 
 /**
- * The rules part of a `model-rules` hook: fail on any `error` finding of the selected packs (text@1 excepted), unknown
+ * The rules part of a `model-rules` hook: fail on any `error` finding of the selected packs (text@1 excepted) or an
+ * unavailable pin, unknown
  * when the run is incomplete, a wanted pack did not run, or a rule prefix selects nothing; pass otherwise.
  */
 export function engineRules(r: EngineRun, filter?: RulesFilter): Outcome {
@@ -92,7 +75,9 @@ export function engineRules(r: EngineRun, filter?: RulesFilter): Outcome {
   const selected = wanted.length ? packs.filter((p) => wanted.some((w) => packMatches(w, p))) : packs;
   const notRun = wanted.filter((w) => !packs.some((p) => packMatches(w, p)));
   const names = new Set(selected.map(packName));
-  const findings = r.readiness.findings.filter((f) => f.pack !== undefined && names.has(f.pack) && (!filter?.rulePrefix || f.rule.startsWith(filter.rulePrefix)));
+  // A pin no template declares fails every rules hook, whatever packs it selects: the System's rules did not all run.
+  const byPrefix = (f: Finding) => !filter?.rulePrefix || f.rule.startsWith(filter.rulePrefix);
+  const findings = [...r.unavailable.filter(byPrefix), ...r.readiness.findings.filter((f) => f.pack !== undefined && names.has(f.pack) && byPrefix(f))];
   const errors = findings.filter((f) => f.level === "error" && !isText(f));
   const selectsNothing = filter?.rulePrefix !== undefined && selectableRules(selected, { rulePrefix: filter.rulePrefix }).length === 0;
 

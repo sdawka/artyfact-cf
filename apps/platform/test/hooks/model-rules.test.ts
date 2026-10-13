@@ -39,28 +39,40 @@ describe("model-rules engine", () => {
   });
 
   it("fails (not errors) when the Genome does not parse, listing the issues", () => {
-    const files = { ...miniGenome(), "system.yaml": "id: 42\n" };
+    const files = { ...miniGenome(), "node.yaml": "id: 42\n" };
     const r = modelRules({ files, revision: "c3" });
     expect(r.outcome).toMatchObject({ execution: "completed", verdict: "fail" });
-    expect(JSON.stringify(r.outcome.observations)).toContain("system.yaml");
+    expect(JSON.stringify(r.outcome.observations)).toContain("node.yaml");
   });
 
-  it("records an error when a pinned pack does not exist", () => {
-    const files = { ...miniGenome(), "kits.yaml": "kits: []\nrulePacks:\n  - { id: nope, version: \"9\" }\nrequired: []\n" };
+  it("fails when every pinned pack is unavailable, as readiness does", () => {
+    const files = { ...miniGenome(), "node.yaml": miniGenome()["node.yaml"].replace(/  rulePacks:\n(    .*\n)*/, "  rulePacks:\n    - { id: nope, version: \"9\" }\n") };
     const r = modelRules({ files, revision: "c4" });
-    expect(r.outcome).toMatchObject({ execution: "error", verdict: "unknown" });
-    expect(JSON.stringify(r.outcome.observations)).toContain("unknown rule pack nope@9");
+    expect(r.outcome).toMatchObject({ execution: "completed", verdict: "fail" });
+    expect(r.readiness?.actionable).toBe(false);
+    expect(r.outcome.interpretation).toContain("rulePack.unavailable nope@9");
+    // A hook that filters on the missing pack still sees its error.
+    expect(modelRules({ files, revision: "c4", filter: { packs: ["nope@9"] } }).outcome.verdict).toBe("fail");
   });
 
-  it("is unknown when no packs are pinned (nothing checked is not a pass)", () => {
-    const files = { ...miniGenome(), "kits.yaml": "kits: []\nrulePacks: []\nrequired: []\n" };
-    expect(modelRules({ files, revision: "c5" }).outcome.verdict).toBe("unknown");
+  it("runs the engine's own packs when no pack is pinned", () => {
+    const files = { ...miniGenome(), "node.yaml": miniGenome()["node.yaml"].replace(/  rulePacks:\n(    .*\n)*/, "") };
+    const r = modelRules({ files, revision: "c5" });
+    expect(r.packs?.map((p) => p.id).filter((id) => id.startsWith("engine."))).toContain("engine.metamodel");
+    expect(r.outcome.verdict).toBe("pass");
+  });
+
+  it("reports a v1 Genome under system/ as legacy (unknown), not as a parse error", () => {
+    const files = { "system/system.yaml": "id: system.old\nname: Old\n", "system/kits.yaml": "kits: []\n", "src/index.ts": "export {}" };
+    expect([...genomeRoot(files).keys()]).toEqual(["system.yaml", "kits.yaml"]);
+    const r = modelRules({ files, revision: "c7" });
+    expect(r.outcome).toMatchObject({ execution: "completed", verdict: "unknown", observations: [{ kind: "legacy-genome", reason: "legacy-genome" }] });
   });
 
   it("accepts a system/ prefixed file map", () => {
     const prefixed = Object.fromEntries(Object.entries(miniGenome()).map(([k, v]) => [`system/${k}`, v]));
     prefixed["src/index.ts"] = "export {}";
-    expect([...genomeRoot(prefixed).keys()]).toContain("system.yaml");
+    expect([...genomeRoot(prefixed).keys()]).toContain("node.yaml");
     expect([...genomeRoot(prefixed).keys()]).not.toContain("src/index.ts");
     expect(modelRules({ files: prefixed, revision: "c6" }).outcome.verdict).toBe("pass");
   });

@@ -1,0 +1,11 @@
+id: J.contacts
+kind: journey
+fields:
+  name: Add a contact
+  actorGoal: Owner records someone to keep in touch with
+  features:
+    - GD.contacts
+  requirements:
+    - S.webapp.contacts
+  start: s1
+  deferred: false

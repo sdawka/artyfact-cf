@@ -33,6 +33,8 @@ export interface ArtyfactModel {
   hooks: schema.AssayHook[];
   journeys: schema.Journey[];
   evolutions: schema.Evolution[];
+  /** id → file path it was declared in, or the template ref it came from. */
+  origin: Record<string, string>;
   warnings: ModelWarning[];
 }
 
@@ -197,17 +199,21 @@ export function loadArtyfactModel(files: Files, opts: LoadOptions = {}): Artyfac
     return { ...thing, sections: thing.sections ?? tpl?.sections ?? [] };
   });
 
-  return { system, purposes, externals, claims, description, kits, things: resolvedThings, templates, nodes, requirements, criteria, hooks, journeys, evolutions, warnings };
+  return { system, purposes, externals, claims, description, kits, things: resolvedThings, templates, nodes, requirements, criteria, hooks, journeys, evolutions, origin, warnings };
 }
 
 /** A template's nodes, criteria and hooks for `owner`: stamped `fromTemplate`, placeholders rebased. */
 export function templateParts(tpl: schema.Template, kind: "system" | "thing", owner: string) {
   const ref = templateRef(tpl);
   const rebase = <T extends string | undefined>(v: T): T => (v === THING_PLACEHOLDER || v === SYSTEM_PLACEHOLDER ? owner : v) as T;
+  // A criterion or hook id may hold the placeholder (`C.$thing.checks`), so each Thing that uses the template gets its own.
+  const own = (v: string) => v.replaceAll(THING_PLACEHOLDER, owner).replaceAll(SYSTEM_PLACEHOLDER, owner);
   return {
     nodes: flatten(tpl.nodes as NodeInput[], owner)
       .map((n) => ({ ...n, parent: rebase(n.parent), owningThing: kind === "thing" ? owner : rebase(n.owningThing), fromTemplate: ref })),
-    criteria: tpl.criteria.map((c) => ({ ...c, ownerId: rebase(c.ownerId), subjectId: rebase(c.subjectId), fromTemplate: ref })),
-    hooks: tpl.hooks.map((h) => ({ ...h, fromTemplate: ref })),
+    criteria: tpl.criteria.map((c) => ({
+      ...c, id: own(c.id), ...(c.hooks && { hooks: c.hooks.map(own) }), ownerId: rebase(c.ownerId), subjectId: rebase(c.subjectId), fromTemplate: ref,
+    })),
+    hooks: tpl.hooks.map((h) => ({ ...h, id: own(h.id), ...(h.criteria && { criteria: h.criteria.map(own) }), fromTemplate: ref })),
   };
 }

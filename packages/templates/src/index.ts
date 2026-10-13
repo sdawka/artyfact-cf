@@ -86,24 +86,6 @@ export function loadMetaTemplate(ref: string): MetaTemplate {
   return t;
 }
 
-/**
- * The template a System is evaluated against: its System template with the rules, questions and criteria of the Thing
- * templates it uses laid over it (the engine takes one template; W4 replaces this with per-node resolution).
- */
-export function composeTemplate(system: string, things: string[] = []): MetaTemplate {
-  const parts = things.map((r) => loadMetaTemplate(r));
-  const ref = [system, ...things].join("+");
-  return loadTemplate({
-    id: `template.composed.${ref}`,
-    version: 1,
-    meta: 1,
-    extends: system,
-    rules: parts.flatMap((t) => t.rules),
-    questions: parts.flatMap((t) => t.questions),
-    criteria: parts.flatMap((t) => t.criteria),
-  }, metaTemplates);
-}
-
 /** Raw text of a bundled template file, e.g. `templateFile("template.thing.cloudflare-worker-webapp@1", "scaffold.yaml")`. */
 export function templateFile(ref: string, name: string): string | undefined {
   const dir = templateDir(ref);

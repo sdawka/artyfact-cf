@@ -1,0 +1,7 @@
+id: section.domain
+kind: section
+fields:
+  name: Domain
+  owningThing: thing.app
+  revision: 1
+  fromTemplate: template.thing.mini-webapp@1

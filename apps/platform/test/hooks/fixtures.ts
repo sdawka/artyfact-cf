@@ -11,23 +11,13 @@ export function miniGenome(): FileMap {
 
 /** Mini-Genome with `entity.ContactRecord` gaining a `recipients` list of accounts (topology.recipientArray). */
 export function withRecipients(files: FileMap = miniGenome()): FileMap {
-  const path = "things/webapp/ontology.yaml";
+  const path = "thing.webapp/section.domain/entity.ContactRecord/node.yaml";
   const out = { ...files };
   out[path] = files[path].replace(
-    "      - { name: name, type: text }\n  - id: operation.contact.save",
-    "      - { name: name, type: text }\n      - { name: recipients, type: list<ref:entity.Account> }\n  - id: operation.contact.save",
+    "    - name: name\n      type: text\n      optional: false\n",
+    "    - name: name\n      type: text\n      optional: false\n    - name: recipients\n      type: list<ref:entity.Account>\n",
   );
   if (out[path] === files[path]) throw new Error("fixture mutation did not apply");
-  return out;
-}
-
-/**
- * Mini-Genome pinning the social-networking System template. The engine runs the rule packs a template declares (the
- * topology pack is the System template's), not the v1 `kits.yaml` pins.
- */
-export function withSystemTemplate(files: FileMap = miniGenome()): FileMap {
-  const out = { ...files, "system.yaml": files["system.yaml"].replace("template: null", "template: template.system.social-networking.cloudflare@1") };
-  if (out["system.yaml"] === files["system.yaml"]) throw new Error("fixture mutation did not apply");
   return out;
 }
 
@@ -44,9 +34,9 @@ export function keepInTouch(): FileMap {
 
 /** Keep in Touch with `cardinality: many` on operation.contact.save (writes ContactRecord, which has an Account ref). */
 export function keepInTouchMany(files: FileMap = keepInTouch()): FileMap {
-  const path = "things/webapp/ontology.yaml";
+  const path = "thing.webapp/section.domain/operation.contact.save/node.yaml";
   const out = { ...files };
-  out[path] = files[path].replace("  - id: operation.contact.save\n    kind: operation\n", "  - id: operation.contact.save\n    kind: operation\n    cardinality: many\n");
+  out[path] = files[path].replace("  name: Create or edit private contact\n", "  name: Create or edit private contact\n  cardinality: many\n");
   if (out[path] === files[path]) throw new Error("fixture mutation did not apply");
   return out;
 }

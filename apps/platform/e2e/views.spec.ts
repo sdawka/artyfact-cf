@@ -96,9 +96,8 @@ test.describe("views", () => {
   });
 
   test("code: read-only tree and editor, a local edit, and Commit disabled with its reason @fixture", async ({ page }, testInfo) => {
-    await open(page, "/code", "Code");
-    const files = page.getByRole("navigation", { name: "Files" });
-    await files.getByRole("link", { name: /^system\.yaml/ }).click();
+    // The System's own node.yaml, at the Genome's root (every node directory has one).
+    await open(page, "/code?path=node.yaml", "Code");
     const content = page.locator(".cm-content");
     await expect(content).toHaveAttribute("aria-readonly", "true");
     await expect(page.getByText("read-only · canonical")).toBeVisible();

@@ -5,7 +5,7 @@
  */
 import type { BuildSummary, ChangedFiles, ChangelogEntry, ChangelogResponse, ChangelogRow, Deployment, Evaluation, FileScope, ResolvedRef, SystemCommit, SystemCompare, Verdict } from "../shared/api";
 import { foldVerdict, offTriggerHookIds } from "../shared/verdict";
-import { compareSystem, commitKind, findSystemCommit, headStateOf, sideOfCommit, type SystemSide } from "./compare";
+import { compareSystem, commitKind, findSystemCommit, headStateOf, isLegacyGenome, sideOfCommit, type SystemSide } from "./compare";
 import { buildSummary } from "./do/builds-store";
 import type { HeadState } from "./do/system-authority";
 import { badRequest, notFound } from "./errors";
@@ -78,6 +78,7 @@ function rowOf(c: SystemCommit, cmp: SystemCompare, titles: Titles, candidates: 
   const count = (f: ChangedFiles | null | undefined) => (f ? f.added.length + f.modified.length + f.removed.length : 0);
   return {
     ...baseRow(c, titles, candidates),
+    ...(cmp.genome.legacyFormat?.includes("to") && { legacyFormat: true as const }),
     summary: {
       nodesAdded: d?.added.length ?? 0, nodesChanged: d?.changed.length ?? 0, nodesRemoved: d?.removed.length ?? 0,
       filesChanged: count(cmp.app?.files) + count(cmp.genome.files),
@@ -143,8 +144,9 @@ async function computeEntry(env: Env, head: HeadState, c: SystemCommit, titles: 
   let hooksLoaded = true;
   const [{ candidates, degraded }, hooks] = await Promise.all([
     candidatesOf(stub, c),
-    genomeAt(env, head.systemId, c.genomeCommit, to.genome.repo).then((g) => g.model.hooks, () => {
-      hooksLoaded = false; // folded with no off-trigger hooks (the stricter fold) until a read can load them
+    genomeAt(env, head.systemId, c.genomeCommit, to.genome.repo).then((g) => g.model.hooks, (e: unknown) => {
+      // A v1 Genome never loads, and never will: it has no hooks to fold. Anything else is retried on a later read.
+      if (!isLegacyGenome(e)) hooksLoaded = false; // folded with no off-trigger hooks (the stricter fold) until a read can load them
       return [];
     }),
   ]);

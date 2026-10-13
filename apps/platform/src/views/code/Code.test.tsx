@@ -264,9 +264,11 @@ describe("Code page", () => {
 
 describe("Code page in fixture mode", () => {
   it("browses the fixture Genome, edits locally, and disables Commit with its reason", async () => {
-    renderApp(`${CODE}?path=system.yaml`);
+    renderApp(`${CODE}?path=node.yaml`);
     const nav = await screen.findByRole("navigation", { name: "Files" });
-    expect(await within(nav).findByRole("link", { name: /^system\.yaml/ })).toBeTruthy();
+    // Every node directory has a node.yaml; the root's is the System's.
+    const links = await within(nav).findAllByRole("link", { name: /^node\.yaml/ });
+    expect(links.some((a) => a.getAttribute("href")!.endsWith("?path=node.yaml"))).toBe(true);
     await waitFor(() => expect(editorText()).toMatch(/system\.keep-in-touch/));
     await editCurrent("# local\n");
     expect(await screen.findByText("editing · 1 pending")).toBeTruthy();

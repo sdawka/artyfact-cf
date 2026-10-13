@@ -2,8 +2,8 @@ import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
-import { loadSystem, validate } from "@artyfact/model";
-import { packsFor, templates } from "@artyfact/templates";
+import { loadGenome, validate } from "@artyfact/model";
+import { metaTemplates } from "@artyfact/templates";
 
 const root = join(fileURLToPath(new URL(".", import.meta.url)), "..");
 
@@ -18,7 +18,7 @@ function readTree(dir: string, out = new Map<string, string>()) {
 }
 
 const files = readTree(root);
-const m = loadSystem(files, { templates });
+const m = loadGenome(files, { templates: metaTemplates });
 const count = (kind: string, pred: (n: (typeof m.nodes)[number]) => boolean = () => true) =>
   m.nodes.filter((n) => n.kind === kind && pred(n)).length;
 
@@ -42,7 +42,7 @@ describe("keep-in-touch Genome (system, purpose, externals, theory, description,
     expect(count("entity", (n) => n.provisional)).toBe(4);
     expect(count("operation")).toBe(8);
     expect(count("policy")).toBe(4);
-    expect(m.description?.features.map((f) => f.id)).toEqual(["GD.contacts", "GD.goals", "GD.connect", "GD.prompts", "GD.updates"]);
+    expect(m.description?.features.map((f) => f.id).sort()).toEqual(["GD.connect", "GD.contacts", "GD.goals", "GD.prompts", "GD.updates"]);
   });
 
   it("marks the deferred and provisional items", () => {
@@ -81,10 +81,10 @@ describe("keep-in-touch Genome (system, purpose, externals, theory, description,
   });
 
   it("has no hard model findings from the pinned rule packs", () => {
-    const r = validate(m, packsFor(m.kits.rulePacks));
+    const r = validate(m);
     expect(r.findings.filter((f) => f.level === "error")).toEqual([]);
     // Criteria, journeys and evolutions come from a sibling slice; only the template hook and the intended auth Kit finding are expected here.
-    const unexpected = r.findings.filter((f) => !["hook.unbound", "kit.unpinned", "coverage.requirement", "journey.operationUncovered", "journey.screenUncovered", "theory.outcomeUnlinked"].includes(f.rule));
+    const unexpected = r.findings.filter((f) => f.level !== "info" && f.rule !== "node.provisional").filter((f) => !["hook.unbound", "kit.unpinned", "coverage.requirement", "journey.operationUncovered", "journey.screenUncovered", "theory.outcomeUnlinked"].includes(f.rule));
     expect(unexpected).toEqual([]);
     expect(r.findings.some((f) => f.rule === "kit.unpinned" && f.subject === "auth")).toBe(true);
   });

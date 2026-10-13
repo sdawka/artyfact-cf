@@ -1,8 +1,0 @@
-# spec §1 System identity and Purpose
-id: system.keep-in-touch
-name: Keep in Touch
-template: template.system.social-networking.cloudflare@1
-profile: profile.private-relationships
-things: [thing.webapp]
-phase: unrealized
-purposes: [P1]

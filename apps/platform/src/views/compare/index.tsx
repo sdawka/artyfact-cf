@@ -7,6 +7,7 @@ import type { RevisionOption } from "@/model/revisions";
 import { ComparePicker } from "./ComparePicker";
 import { FilesLevel } from "./FilesLevel";
 import { GenomeLevel } from "./GenomeLevel";
+import { LEGACY_NOTICE } from "./legacy";
 import { SystemLevel } from "./SystemLevel";
 import { defaultPair } from "./pair";
 import styles from "./compare.module.css";
@@ -46,6 +47,7 @@ export default function CompareView() {
     }, { replace: true });
 
   const fixture = mode.data === "fixture";
+  const legacy = !!(system.data?.genome.legacyFormat?.length || genome.data?.legacyFormat?.length);
   const current = level === "genome" ? genome : system;
   const identical = level === "system"
     ? system.data?.identical
@@ -57,6 +59,7 @@ export default function CompareView() {
     <section aria-labelledby="view-title" className={styles.view}>
       <h1 id="view-title">Compare</h1>
       <ComparePicker from={from} to={to} options={options} onChange={(p) => update({ from: p.from, to: p.to, path: null, repo: null })} />
+      {legacy && <p role="note" className={styles.muted}>{LEGACY_NOTICE}</p>}
       <Tabs tabs={LEVELS} value={level} onChange={(l) => update({ level: l === "system" ? null : l })} label="Compare level">
         {fixture ? (
           <EmptyState title="Compare needs the platform API.">

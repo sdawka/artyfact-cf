@@ -1,0 +1,24 @@
+id: screen.people
+kind: screen
+fields:
+  name: People
+  owningThing: thing.webapp
+  revision: 1
+  route: /people
+criteria:
+  - id: C.webapp.screen.people
+    title: People screen matches the Genome
+    claim: The People screen shows the heading and the add-contact dialog.
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    sourceRefs:
+      - S.webapp.contacts
+    hooks:
+      - id: hook.webapp.screen.people
+        assay: People screen render test
+        tier: execution
+        engine: browser
+        triggers:
+          - candidate

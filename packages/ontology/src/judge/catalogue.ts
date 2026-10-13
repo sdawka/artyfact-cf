@@ -541,10 +541,10 @@ export function checkQuestions(t: Pick<TemplateInput, "kinds" | "rootChecks">, o
       const benign = String(c.benign ?? choices[0]);
       return {
         id, answer: "choice", text: `${stem}${na}`, choices: [...choices, ...(c.na ? [NOT_APPLICABLE] : [])],
-        criteria: <Record<string, string>>{
+        criteria: {
           ...(answer === "choice" ? {} : { yes: `It satisfies the criterion: ${cap(criterion, 200)}.`, no: `It does not satisfy the criterion: ${cap(criterion, 200)}.` }),
           ...naCriterion,
-        },
+        } as Record<string, string>,
         slice, benign, defect,
         policy: [...choices.map((x) => (x === benign ? { answer: x, level: "pass" } : harmful(x))), ...naPolicy],
       };

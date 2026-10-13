@@ -4,5 +4,5 @@
     "composite": true, "lib": ["ES2022", "DOM"], "types": ["node"], "noEmit": false, "emitDeclarationOnly": true, "outDir": "dist", "rootDir": "."
   },
   "include": ["src", "test"],
-  "references": [{ "path": "../rules" }, { "path": "../model" }]
+  "references": [{ "path": "../rules" }]
 }

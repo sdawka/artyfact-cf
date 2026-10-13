@@ -1,0 +1,6 @@
+id: component.Header
+kind: component
+fields:
+  name: Header
+  owningThing: thing.app
+  revision: 1

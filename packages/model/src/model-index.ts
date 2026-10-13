@@ -1,5 +1,6 @@
+import { resolveKindView } from "@artyfact/ontology";
+import type { SystemModel } from "./genome.ts";
 import type * as schema from "./schema.ts";
-import type { SystemModel } from "./load.ts";
 
 export type EntryType =
   | "system" | "thing" | "node" | "external" | "purpose" | "claim" | "feature" | "commitment"
@@ -33,6 +34,10 @@ export interface ModelIndex {
   path(id: string): string[];
   /** The nearest `section` node at or above `id`, if any. */
   layer(id: string): string | undefined;
+  /** Directory depth of a Genome tree node: 0 for the System, 1 for its children, ...; undefined off the tree. */
+  depthOf(id: string): number | undefined;
+  /** The Map layer the node's kind is drawn in (`view.layer` of the template), if the template gives it one. */
+  layerOf(id: string): string | undefined;
 }
 
 type IndexInput = Omit<SystemModel, "index">;
@@ -59,11 +64,12 @@ export function index(m: IndexInput): ModelIndex {
   for (const j of m.journeys) add(j.id, "journey", "journey", j.name, j);
   for (const e of m.evolutions) add(e.id, "evolution", "evolution", e.title, e);
 
+  const graphParent = new Map(m.graph.nodes.filter((n) => n.parent !== undefined).map((n) => [n.id, n.parent!]));
   const parentOf: Record<string, string> = {};
-  for (const t of m.things) parentOf[t.id] = m.system.id;
+  for (const t of m.things) parentOf[t.id] = graphParent.get(t.id) ?? m.system.id;
   for (const n of m.nodes) if (n.parent) parentOf[n.id] = n.parent;
   const children: Record<string, string[]> = {};
-  for (const t of m.things) push(children, m.system.id, t.id);
+  for (const t of m.things) push(children, parentOf[t.id]!, t.id);
   for (const n of m.nodes) if (n.parent) push(children, n.parent, n.id);
 
   const linksOut: Record<string, LinkRef[]> = {};
@@ -111,5 +117,22 @@ export function index(m: IndexInput): ModelIndex {
   };
   const layer = (id: string) => path(id).reverse().find((x) => byId[x]?.type === "node" && byId[x].kind === "section");
 
-  return { byId, children, linksOut, linksIn, criteriaBySubject, criteriaByOwner, hooksByCriterion, journeysByNode, requirementsByNode, path, layer };
+  const treeParent = graphParent;
+  const kindOf = new Map(m.graph.nodes.map((n) => [n.id, n.kind]));
+  const onTree = new Set([m.system.id, ...treeParent.keys()]);
+  const depthOf = (id: string): number | undefined => {
+    if (!onTree.has(id)) return undefined;
+    let d = 0;
+    for (let p = treeParent.get(id); p !== undefined && d <= treeParent.size; p = treeParent.get(p)) d++;
+    return d;
+  };
+  const layerOf = (id: string): string | undefined => {
+    const kind = kindOf.get(id);
+    return kind === undefined ? undefined : resolveKindView(m.template, kind).layer;
+  };
+
+  return {
+    byId, children, linksOut, linksIn, criteriaBySubject, criteriaByOwner, hooksByCriterion, journeysByNode, requirementsByNode,
+    path, layer, depthOf, layerOf,
+  };
 }

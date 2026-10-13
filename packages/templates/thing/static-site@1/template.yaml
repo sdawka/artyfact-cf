@@ -4,7 +4,7 @@ version: 1
 meta: 1
 extends: template.meta.artyfact-genome@1
 criteria:
-  - id: C.site.checks
+  - id: C.$self.checks
     owner: thing
     subject: thing
     severity: soft
@@ -12,7 +12,7 @@ criteria:
     gates:
       - submission
     hooks:
-      - hook.site.checks
+      - hook.$self.checks
 kinds:
   page:
     description: One page of the site, served at one route.
@@ -83,15 +83,15 @@ nodes:
       name: Static site
       description: "A static site built ahead of time and served as files: its pages and the assets they use."
       sections:
-        - section.pages
-        - section.build
+        - $self.pages
+        - $self.build
       criteria:
-        - C.site.checks
+        - C.$self.checks
       hooks:
-        - hook.site.checks
+        - hook.$self.checks
   - {id: $self.pages, kind: section, parent: $self, fields: {name: Pages, revision: 1, description: "The routes the site serves and what each shows.", fromTemplate: template.thing.static-site@1}, files: ["src/pages/**"]}
   - {id: $self.build, kind: section, parent: $self, fields: {name: Build, revision: 1, description: "The files the build copies or generates, and how.", fromTemplate: template.thing.static-site@1}, files: ["public/**", "scripts/**"]}
-  - id: C.site.checks
+  - id: C.$self.checks
     kind: criterion
     fields:
       version: 1
@@ -105,20 +105,20 @@ nodes:
         - submission
       deferred: false
       hooks:
-        - hook.site.checks
+        - hook.$self.checks
       fromTemplate: template.thing.static-site@1
     links:
       - rel: owner
         to: $self
       - rel: subject
         to: $self
-  - id: hook.site.checks
+  - id: hook.$self.checks
     kind: hook
     fields:
       version: 1
       assay: site.checks
       criteria:
-        - C.site.checks
+        - C.$self.checks
       tier: semantic
       engine: model-rules
       targetKind: model

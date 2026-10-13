@@ -1,0 +1,11 @@
+id: J.notes
+kind: journey
+fields:
+  name: Write a note
+  actorGoal: Owner records a thought
+  features:
+    - GD.notes
+  requirements:
+    - S.app.notes
+  start: s1
+  deferred: false

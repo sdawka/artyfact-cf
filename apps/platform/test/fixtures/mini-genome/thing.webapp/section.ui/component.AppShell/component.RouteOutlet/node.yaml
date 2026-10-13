@@ -1,0 +1,7 @@
+id: component.RouteOutlet
+kind: component
+fields:
+  name: RouteOutlet
+  owningThing: thing.webapp
+  revision: 1
+  fromTemplate: template.thing.cloudflare-worker-webapp@1

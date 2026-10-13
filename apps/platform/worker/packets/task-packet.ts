@@ -1,3 +1,4 @@
+import { NODE_FILE } from "@artyfact/ontology/genome";
 import type { schema, SystemModel } from "@artyfact/model";
 import { stringify as toYaml } from "yaml";
 import type { Certainty, TaskPacket } from "../../shared/api";
@@ -52,15 +53,13 @@ function entryFiles(sm: SourceMapEntry[], affected: string[], tree: string[]): T
 function genomePermitted(m: SystemModel, affected: string[], prefix: string): string[] {
   const pre = prefix ? `${prefix.replace(/\/+$/, "")}/` : "";
   const files = new Set<string>();
+  // Every object is declared in a node directory's `node.yaml` (or a change record). An affected node's directory is
+  // permitted whole: its file and any node added under it.
   for (const id of affected) {
     const origin = m.origin[id];
-    // Template-provided objects have a template ref as origin: overriding means editing the owning Thing's ontology.
-    if (origin && !origin.startsWith("template.")) files.add(pre + origin);
-    else {
-      const thing = m.index.path(id).find((p) => m.index.byId[p]?.type === "thing");
-      const dir = thing && Object.entries(m.origin).find(([k]) => k === thing)?.[1]?.replace(/thing\.yaml$/, "");
-      if (dir) files.add(`${pre}${dir}ontology.yaml`);
-    }
+    if (!origin) continue;
+    if (origin === NODE_FILE) files.add(`${pre}${NODE_FILE}`);
+    else files.add(pre + (origin.endsWith(`/${NODE_FILE}`) ? `${origin.slice(0, -NODE_FILE.length)}**` : origin));
   }
   return [...files, `${pre}evolutions/**`];
 }

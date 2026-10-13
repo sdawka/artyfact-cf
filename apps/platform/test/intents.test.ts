@@ -1,8 +1,8 @@
 /// <reference types="vite/client" />
 /**
  * Intents end to end on Keep in Touch (fake System One and translator): create → question → reply → accept, with the
- * accepted ops committed to a Genome realization's fork and submitted as a candidate. The Genome repo holds the v1
- * example beside its v2 conversion, so today's model loader (import, start work, submit) and the tree codec both read it.
+ * accepted ops committed to a Genome realization's fork and submitted as a candidate. The Genome repo holds the example's
+ * v2 node tree, which the model loader (import, start work, submit) and the tree codec both read.
  */
 import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
@@ -14,7 +14,9 @@ import { walkTree } from "../worker/artifacts/genome-source";
 import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
 import { setEditorTransport } from "../worker/editor";
 import { resetHooks, setHooks } from "../worker/hooks/index";
-import { intentProviders, proposedOps, setIntentProviders } from "../worker/intents";
+import { genomeGraph, intentProviders, proposedOps, setIntentProviders } from "../worker/intents";
+import { loadGenome, validate } from "@artyfact/model";
+import { metaTemplates } from "@artyfact/templates";
 import { createEvolution, startWork, systemStub } from "../worker/service";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 import { fakeReceivePack } from "./helpers/fake-receive-pack";
@@ -22,8 +24,7 @@ import { ADMIN, passing } from "./helpers/flows";
 
 const raw = (g: Record<string, string>, root: string) =>
   Object.fromEntries(Object.entries(g).map(([p, t]) => [p.slice(p.indexOf(root) + root.length), t] as const));
-const v1 = raw(import.meta.glob("../../../examples/keep-in-touch-system/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch-system/");
-const v2 = raw(import.meta.glob("../../../packages/ontology/test/fixtures/genome-v2/keep-in-touch/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch/");
+const genome = raw(import.meta.glob("../../../examples/keep-in-touch-system/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch-system/");
 const app = raw(import.meta.glob(["../../../examples/keep-in-touch-app/**/*", "!**/node_modules/**", "!**/.wrangler/**"], { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch-app/");
 
 async function call<T>(method: string, path: string, body?: unknown, headers: Record<string, string> = ADMIN) {
@@ -40,7 +41,7 @@ async function importSystem(): Promise<Sys> {
   const ns = new FakeArtifacts();
   const tag = `${++n}${Math.random().toString(36).slice(2, 6)}`;
   const systemId = `system.intent${tag}`;
-  const files = Object.fromEntries(Object.entries({ ...v1, ...v2 }).map(([p, t]) => [p, t.replaceAll("system.keep-in-touch", systemId)]));
+  const files = Object.fromEntries(Object.entries(genome).map(([p, t]) => [p, t.replaceAll("system.keep-in-touch", systemId)]));
   ns.create(`intent-genome-${tag}`).commit(files, "genome");
   ns.create(`intent-app-${tag}`).commit(app, "app");
   setArtifactsOverride(ns);
@@ -184,9 +185,13 @@ describe("POST /intents/:pid/accept", () => {
     expect(after.split("\n").filter((l) => !l.includes("description:"))).toEqual(before.split("\n").filter((l) => !l.includes("description:")));
   });
 
-  // submit derives a Genome candidate's changedNodes from the model diff, and today's loader reads the v1 half of this
-  // fixture, so the candidate shows no changed subjects yet. W4's v2 loader makes them the touched nodes.
-  it.todo("records the touched nodes as the candidate's changed subjects (needs the v2 model loader, W4)");
+  it("records the touched nodes as the candidate's changed subjects", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const r = await accept(s, p, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.candidate.changedSubjects).toEqual(["screen.today"]);
+  });
 
   it("lets only one of two concurrent accepts push", async () => {
     const s = await importSystem();
@@ -293,6 +298,16 @@ describe("intent routes", () => {
   });
   it.each(cases)("%s %s is 404 for a System that is not imported", async (method, path, body) => {
     expect((await call<ApiError>(method, path, body)).status).toBe(404);
+  });
+});
+
+describe("the head Genome intents judge against", () => {
+  it("is platform readiness: the same loader, composed template and pinned packs, so the same findings", () => {
+    const files = new Map(Object.entries(genome));
+    const key = (f: { rule: string; subject?: string; level: string }) => `${f.level} ${f.rule} ${f.subject ?? ""}`;
+    const ours = genomeGraph(files).readiness.findings.map(key).sort();
+    expect(ours).toEqual(validate(loadGenome(files, { templates: metaTemplates })).findings.map(key).sort());
+    expect(ours.length).toBeGreaterThan(0);
   });
 });
 

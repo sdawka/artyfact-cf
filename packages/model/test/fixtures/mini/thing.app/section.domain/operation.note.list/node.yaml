@@ -1,0 +1,8 @@
+id: operation.note.list
+kind: operation
+fields:
+  name: List notes
+  owningThing: thing.app
+  revision: 1
+links:
+  - { rel: reads, to: entity.Note }

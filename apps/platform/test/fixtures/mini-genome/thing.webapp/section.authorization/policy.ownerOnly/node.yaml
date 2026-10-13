@@ -1,0 +1,28 @@
+id: policy.ownerOnly
+kind: policy
+fields:
+  name: Owner only
+  owningThing: thing.webapp
+  revision: 1
+  mode: owner-only
+links:
+  - { rel: governs, to: operation.contact.save }
+  - { rel: governs, to: operation.contact.list }
+  - { rel: governs, to: entity.ContactRecord }
+criteria:
+  - id: C.webapp.private.owner
+    title: Contacts are private to their owner
+    claim: Only the owner can read or write their contact records.
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    sourceRefs:
+      - S.webapp.contacts
+    hooks:
+      - id: hook.webapp.private.owner
+        assay: Cross-owner access test
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate

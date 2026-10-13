@@ -125,40 +125,31 @@ describe("judgeChecks", () => {
 });
 
 describe("model-rules hook with packs checks@1", () => {
+  /** A criterion on `screen.people` (its declaring node is its subject) whose hook runs checks@1. */
   const checksCriterion = [
     "  - id: C.webapp.checks.test",
     "    title: Changed screens meet their checks",
     "    claim: Every changed node meets the checks its kind declares.",
-    "    ownerKind: thing",
-    "    ownerId: thing.webapp",
-    "    subjectKind: screen",
-    "    subjectId: screen.people",
-    "    targetKind: model",
+    "    target: model",
     "    gates: [submission]",
-    "    hooks: [hook.webapp.checks.test]",
+    "    hooks:",
+    "      - id: hook.webapp.checks.test",
+    "        assay: Template checks on changed nodes",
+    "        tier: semantic",
+    "        engine: model-rules",
+    "        triggers: [submission]",
+    '        inputs: { packs: "checks@1" }',
+    "        binding: bound",
   ].join("\n");
-  const checksHook = [
-    "  - id: hook.webapp.checks.test",
-    "    assay: Template checks on changed nodes",
-    "    criteria: [C.webapp.checks.test]",
-    "    tier: semantic",
-    "    engine: model-rules",
-    "    targetKind: model",
-    "    triggers: [submission]",
-    '    inputs: { packs: "checks@1" }',
-    "    binding: bound",
-  ].join("\n");
+  const PEOPLE = "thing.webapp/section.ui/screen.people/node.yaml";
 
   function genome(description: string): FileMap {
     const files = miniGenome();
-    const criteria = "things/webapp/criteria.yaml";
-    const ontology = "things/webapp/ontology.yaml";
     const out = {
       ...files,
-      [criteria]: files[criteria].replace("criteria:\n", `criteria:\n${checksCriterion}\n`).replace("hooks:\n", `hooks:\n${checksHook}\n`),
-      [ontology]: files[ontology].replace("  - id: screen.people\n    kind: screen\n", `  - id: screen.people\n    kind: screen\n    description: "${description}"\n`),
+      [PEOPLE]: files[PEOPLE].replace("  name: People\n", `  name: People\n  description: "${description}"\n`).replace("criteria:\n", `criteria:\n${checksCriterion}\n`),
     };
-    if (out[criteria] === files[criteria] || out[ontology] === files[ontology]) throw new Error("fixture mutation did not apply");
+    if (out[PEOPLE] === files[PEOPLE]) throw new Error("fixture mutation did not apply");
     return out;
   }
 
@@ -176,7 +167,7 @@ describe("model-rules hook with packs checks@1", () => {
     const files = genome("Shows people; the add button opens a dialog.");
     const genomeCtx = (changedNodes: string[]): SubmissionContext => ({
       ...ctx(files),
-      candidate: { ...candidate, evolutionId: "evolution.api", target: "genome", changedPaths: ["things/webapp/ontology.yaml"], changedNodes, pathNodes: undefined, genomeFiles: files },
+      candidate: { ...candidate, evolutionId: "evolution.api", target: "genome", changedPaths: [PEOPLE], changedNodes, pathNodes: undefined, genomeFiles: files },
       // An API-created amendment whose acceptance names the checks criterion, so it is selected whatever changed.
       evolution: { id: "evolution.api", kind: "genome-amendment", acceptanceCriteria: ["C.webapp.checks.test"], affectedNodes: [], state: "realizing" },
     });

@@ -1,0 +1,10 @@
+id: component.NoteForm
+kind: component
+fields:
+  name: Note form
+  owningThing: thing.app
+  revision: 1
+  fields:
+    - name: body
+      type: text
+      optional: false

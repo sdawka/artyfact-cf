@@ -57,7 +57,7 @@ describe("templates", () => {
     it("provides worker and d1 bindings and base criteria", () => {
       const ids = t().nodes.map((n) => n.id);
       expect(ids).toEqual(expect.arrayContaining(["binding.worker", "binding.d1"]));
-      expect(t().criteria.map((c) => c.id)).toEqual(["C.webapp.exists", "C.webapp.health", "C.webapp.checks"]);
+      expect(t().criteria.map((c) => c.id)).toEqual(["C.webapp.exists", "C.webapp.health", "C.$thing.checks"]);
     });
   });
 

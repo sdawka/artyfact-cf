@@ -1,0 +1,6 @@
+id: commitment.private
+kind: commitment
+fields:
+  statement: Notes are private to the owner
+  features:
+    - GD.notes

@@ -59,66 +59,46 @@ describe("overlap / conflicts", () => {
     expect(r[0].semantic?.provenance.provider).toBe("fake");
   });
 
-  it("reports hard-semantic when composing two valid Genome candidates yields a hard violation on a shared node", async () => {
-    // A removes component.DueList (valid alone). B adds a criterion on component.DueList (valid alone).
-    // Composed, the criterion's subject no longer exists: criterion.subjectMissing.
-    const aFiles = { ...miniGenome() };
-    aFiles["things/webapp/ontology.yaml"] = aFiles["things/webapp/ontology.yaml"].replace(
-      "    children:\n      - { id: component.DueList, kind: component, name: Due list }\n", "\n");
-    const bFiles = { ...miniGenome() };
-    bFiles["things/webapp/criteria.yaml"] = bFiles["things/webapp/criteria.yaml"].replace("hooks:\n  - id: hook.webapp.screen.people", [
-      "  - id: C.webapp.duelist",
-      "    title: Due list shows due contacts",
-      "    claim: The due list shows exactly the contacts that are due.",
-      "    ownerKind: thing",
-      "    ownerId: thing.webapp",
-      "    subjectKind: component",
-      "    subjectId: component.DueList",
-      "    targetKind: artifact",
-      "    gates: [candidate]",
-      "hooks:",
-      "  - id: hook.webapp.screen.people",
-    ].join("\n"));
-    expect(aFiles["things/webapp/ontology.yaml"]).not.toContain("component.DueList");
-    expect(bFiles["things/webapp/criteria.yaml"]).toContain("C.webapp.duelist");
-    const a = cand("cand.a", ["things/webapp/ontology.yaml"], [], { target: "genome", genomeFiles: aFiles });
-    const b = cand("cand.b", ["things/webapp/criteria.yaml"], [], { target: "genome", genomeFiles: bFiles });
-    const r = await computeConflicts(ctx(a, [b]), base);
-    expect(r).toHaveLength(1);
-    expect(r[0].kind).toBe("hard-semantic");
-    expect(r[0].nodes).toContain("component.DueList");
-    expect(r[0].message).toContain("criterion.subjectMissing");
-  });
-
-  it("notes, rather than hides, an open Genome candidate that does not load", async () => {
-    const a = cand("cand.a", ["things/webapp/ontology.yaml"], [], { target: "genome", genomeFiles: withRecipients() });
-    const b = cand("cand.b", ["things/webapp/ontology.yaml"], [], { target: "genome", genomeFiles: { ...miniGenome(), "system.yaml": "id: 1" } });
-    const r = await computeConflicts(ctx(a, [b]), base);
-    expect(r[0]).toMatchObject({ kind: "file", paths: ["things/webapp/ontology.yaml"] });
-    expect(r[0].message).toMatch(/model delta unavailable for cand\.b/);
-  });
-
-  const dupCriterion = [
-    "  - id: C.dup",
-    "    title: Duplicate",
-    "    claim: Declared twice once composed.",
-    "    ownerKind: system",
-    "    ownerId: system.mini-kit",
-    "    subjectKind: screen",
-    "    subjectId: screen.people",
-    "    targetKind: model",
-    "    gates: [candidate]",
-  ].join("\n");
-  const withDupIn = (files: Record<string, string>, path: string) => {
+  const ACCOUNT = "thing.webapp/section.domain/entity.Account/node.yaml";
+  const LIST = "thing.webapp/section.domain/operation.contact.list/node.yaml";
+  // A removes entity.Account (valid alone). B makes operation.contact.list read it (valid alone).
+  // Composed, B's link points at nothing: a dangling reference.
+  const removeAccount = (files: Record<string, string>) => {
     const out = { ...files };
-    out[path] = out[path].replace(/\nhooks:\n/, `\n${dupCriterion}\nhooks:\n`);
-    if (out[path] === files[path]) throw new Error("mutation did not apply");
+    delete out[ACCOUNT];
+    return out;
+  };
+  const readAccount = (files: Record<string, string>) => {
+    const out = { ...files, [LIST]: files[LIST].replace("  - { rel: reads, to: entity.ContactRecord }\n", "  - { rel: reads, to: entity.ContactRecord }\n  - { rel: reads, to: entity.Account }\n") };
+    if (out[LIST] === files[LIST]) throw new Error("mutation did not apply");
     return out;
   };
 
+  it("reports hard-semantic when composing two valid Genome candidates yields a hard violation on a shared node", async () => {
+    const a = cand("cand.a", [ACCOUNT], [], { target: "genome", genomeFiles: removeAccount(miniGenome()) });
+    const b = cand("cand.b", [LIST], [], { target: "genome", genomeFiles: readAccount(miniGenome()) });
+    const r = await computeConflicts(ctx(a, [b]), base);
+    expect(r).toHaveLength(1);
+    expect(r[0].kind).toBe("hard-semantic");
+    expect(r[0].nodes).toContain("operation.contact.list");
+    expect(r[0].message).toContain("ref.dangling");
+  });
+
+  it("notes, rather than hides, an open Genome candidate that does not load", async () => {
+    const a = cand("cand.a", [ACCOUNT], [], { target: "genome", genomeFiles: withRecipients() });
+    const b = cand("cand.b", [ACCOUNT], [], { target: "genome", genomeFiles: { ...miniGenome(), "node.yaml": "id: 1" } });
+    const r = await computeConflicts(ctx(a, [b]), base);
+    expect(r[0]).toMatchObject({ kind: "file", paths: [ACCOUNT] });
+    expect(r[0].message).toMatch(/model delta unavailable for cand\.b/);
+  });
+
+  // The same criterion id declared on two nodes: each candidate loads, the composed tree does not.
+  const dupCriterion = "criteria:\n  - id: C.dup\n    title: Duplicate\n    claim: Declared twice once composed.\n";
+  const withDupIn = (files: Record<string, string>, path: string) => ({ ...files, [path]: `${files[path]}${dupCriterion}` });
+
   it("a composed Genome that does not parse is hard-semantic (genome.parse)", async () => {
-    const a = cand("cand.a", ["things/webapp/criteria.yaml"], [], { target: "genome", genomeFiles: withDupIn(miniGenome(), "things/webapp/criteria.yaml") });
-    const b = cand("cand.b", ["criteria.yaml"], [], { target: "genome", genomeFiles: withDupIn(miniGenome(), "criteria.yaml") });
+    const a = cand("cand.a", [ACCOUNT], [], { target: "genome", genomeFiles: withDupIn(miniGenome(), ACCOUNT) });
+    const b = cand("cand.b", [LIST], [], { target: "genome", genomeFiles: withDupIn(miniGenome(), LIST) });
     const r = await computeConflicts(ctx(a, [b]), base);
     expect(r).toHaveLength(1);
     expect(r[0].kind).toBe("hard-semantic");
@@ -128,7 +108,7 @@ describe("overlap / conflicts", () => {
 
   it("an unloadable open candidate with no shared paths or nodes still yields a soft-semantic report", async () => {
     const a = cand("cand.a", ["src/ui/people.tsx"], ["screen.people"]);
-    const b = cand("cand.b", ["system.yaml"], [], { target: "genome", genomeFiles: { ...miniGenome(), "system.yaml": "id: 1\n" } });
+    const b = cand("cand.b", ["node.yaml"], [], { target: "genome", genomeFiles: { ...miniGenome(), "node.yaml": "id: 1\n" } });
     const r = await computeConflicts(ctx(a, [b]), base);
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({ kind: "soft-semantic", nodes: [], candidates: ["cand.a", "cand.b"] });
@@ -138,26 +118,17 @@ describe("overlap / conflicts", () => {
 
   it("composes system/-prefixed file maps and changed paths in the same key space", async () => {
     const prefix = (f: Record<string, string>) => Object.fromEntries(Object.entries(f).map(([k, v]) => [`system/${k}`, v]));
-    const aFiles = { ...miniGenome() };
-    aFiles["things/webapp/ontology.yaml"] = aFiles["things/webapp/ontology.yaml"].replace(
-      "    children:\n      - { id: component.DueList, kind: component, name: Due list }\n", "\n");
-    const bFiles = { ...miniGenome() };
-    bFiles["things/webapp/criteria.yaml"] = bFiles["things/webapp/criteria.yaml"].replace("hooks:\n  - id: hook.webapp.screen.people", [
-      "  - id: C.webapp.duelist", "    title: Due list", "    claim: Shows due contacts.", "    ownerKind: thing", "    ownerId: thing.webapp",
-      "    subjectKind: component", "    subjectId: component.DueList", "    targetKind: artifact", "    gates: [candidate]",
-      "hooks:", "  - id: hook.webapp.screen.people",
-    ].join("\n"));
-    const a = cand("cand.a", ["system/things/webapp/ontology.yaml"], [], { target: "genome", genomeFiles: prefix(aFiles) });
-    const b = cand("cand.b", ["system/things/webapp/criteria.yaml"], [], { target: "genome", genomeFiles: prefix(bFiles) });
+    const a = cand("cand.a", [`system/${ACCOUNT}`], [], { target: "genome", genomeFiles: prefix(removeAccount(miniGenome())) });
+    const b = cand("cand.b", [`system/${LIST}`], [], { target: "genome", genomeFiles: prefix(readAccount(miniGenome())) });
     const r = await computeConflicts({ ...ctx(a, [b]), genomeFiles: prefix(miniGenome()) }, base);
     expect(r).toHaveLength(1);
     expect(r[0].kind).toBe("hard-semantic");
-    expect(r[0].message).toContain("criterion.subjectMissing");
+    expect(r[0].message).toContain("ref.dangling");
   });
 
   it("an open Genome candidate without genomeFiles is reported, not dropped", async () => {
     const a = cand("cand.a", ["src/ui/people.tsx"], ["screen.people"]);
-    const b = cand("cand.b", ["things/webapp/ontology.yaml"], [], { target: "genome" });
+    const b = cand("cand.b", [LIST], [], { target: "genome" });
     const r = await computeConflicts(ctx(a, [b]), base);
     expect(r).toHaveLength(1);
     expect(r[0]).toMatchObject({ kind: "soft-semantic", nodes: [] });

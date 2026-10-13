@@ -1,0 +1,11 @@
+id: S.app.notes
+kind: requirement
+fields:
+  thing: thing.app
+  title: Notes
+  text: The owner must be able to save and list notes.
+  enabled: true
+links:
+  - { rel: subject, to: screen.list }
+  - { rel: subject, to: screen.edit }
+  - { rel: refines, to: GD.notes }

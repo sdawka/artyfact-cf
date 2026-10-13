@@ -1,0 +1,8 @@
+id: binding.scheduler
+kind: binding
+fields:
+  name: Cron scheduler
+  owningThing: thing.webapp
+  revision: 1
+  description: Cron Triggers for periodic work.
+  fromTemplate: template.thing.cloudflare-worker-webapp@1

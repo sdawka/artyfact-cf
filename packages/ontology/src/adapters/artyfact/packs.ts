@@ -13,6 +13,7 @@ export const facts = { id: "artyfact.facts", version: "1", source: `
 .decl known(Id: sym)
 .decl crossRel(Rel: sym)
 .decl ontologyNode(Id: sym)
+.decl ownKind(Kind: sym)
 .decl hasOwner(Id: sym)
 .decl pinsTemplate(Thing: sym)
 .decl anode(Id: sym, Kind: sym, Thing: sym)
@@ -24,6 +25,7 @@ export const facts = { id: "artyfact.facts", version: "1", source: `
 .decl acriterion(Id: sym, OwnerKind: sym, OwnerId: sym, SubjectId: sym, Severity: sym)
 .decl athingArtifact(Thing: sym, Artifact: sym)
 .decl athingSection(Thing: sym, Section: sym)
+.decl athingListsSections(Thing: sym)
 .decl arequirementEnabled(Id: sym)
 .decl acriterionDeferred(Id: sym)
 .decl acriterionSourceRef(Criterion: sym, Ref: sym)
@@ -32,6 +34,8 @@ export const facts = { id: "artyfact.facts", version: "1", source: `
 .decl atemplateKnown(Template: sym)
 .decl atemplateRequires(Template: sym, Section: sym)
 .decl atemplateRequiresCriterion(Template: sym, Criterion: sym)
+.decl athingRequiresCriterion(Thing: sym, Criterion: sym)
+.decl athingRequiresSection(Thing: sym, Section: sym)
 .decl akitRequired(Kit: sym)
 .decl akitPinned(Kit: sym, Version: sym)
 .decl aevolution(Id: sym, State: sym)
@@ -70,19 +74,25 @@ stepRefRel("stepScreen").
 stepRefRel("stepOperation").
 stepRefRel("stepExternal").
 
-ontologyNode(N) :- node(N,K,P), P != "", K != "thing", K != "step".
+% Kinds with a shape of their own; every other kind is an ontology node. Where they sit in the tree does not matter:
+% v1 left most of them parentless, the v2 tree places them under the System, a Thing or the node they constrain.
+ownKind("system"). ownKind("thing"). ownKind("step"). ownKind("external"). ownKind("purpose"). ownKind("claim").
+ownKind("feature"). ownKind("commitment"). ownKind("requirement"). ownKind("journey"). ownKind("criterion").
+ownKind("hook"). ownKind("evolution"). ownKind("template"). ownKind("kit"). ownKind("artifact").
+ontologyNode(N) :- node(N,K,_), not ownKind(K).
 hasOwner(N) :- field(N,"owningThing",_).
 pinsTemplate(T) :- node(T,"thing",_), link(T,"pinned",_,_).
 
-anode(S,"system","") :- node(S,"system","").
+anode(S,"system","") :- node(S,"system",_).
 anode(T,"thing",T) :- node(T,"thing",_).
-anode(E,"external","") :- node(E,"external","").
+anode(E,"external","") :- node(E,"external",_).
 anode(N,K,T) :- ontologyNode(N), node(N,K,_), field(N,"owningThing",T).
 anode(N,K,"") :- ontologyNode(N), node(N,K,_), not hasOwner(N).
-asystem(S) :- node(S,"system","").
+asystem(S) :- node(S,"system",_).
 athing(T,Tpl) :- node(T,"thing",_), link(T,"pinned",Tpl,_).
 athing(T,"") :- node(T,"thing",_), not pinsTemplate(T).
-aparent(C,P) :- parent(C,P), node(C,K,_), K != "step".
+aparent(C,P) :- parent(C,P), ontologyNode(C).
+aparent(T,P) :- parent(T,P), node(T,"thing",_).
 
 aknown(X) :- node(X,K,_), K != "artifact", K != "kit".
 aknown(K) :- link(_,"pinned",K,_), node(K,"kit",_).
@@ -101,17 +111,24 @@ aref(F,"external",T) :- link(F,"stepExternal",T,_).
 acriterion(C,OK,O,S,Sev) :- node(C,"criterion",_), field(C,"ownerKind",OK), link(C,"owner",O,_), link(C,"subject",S,_), field(C,"severity",Sev).
 athingArtifact(T,A) :- node(T,"thing",_), link(T,"artifact",A,_).
 athingSection(T,S) :- node(T,"thing",_), field(T,"sections",S).
-arequirementEnabled(R) :- node(R,"requirement",""), field(R,"enabled","true").
+% A Thing that lists no sections has the section nodes under it (v1 filled the list from its template).
+athingListsSections(T) :- node(T,"thing",_), field(T,"sections",_).
+athingSection(T,S) :- node(T,"thing",_), not athingListsSections(T), parent(S,T), node(S,"section",_).
+arequirementEnabled(R) :- node(R,"requirement",_), field(R,"enabled","true").
 acriterionDeferred(C) :- node(C,"criterion",_), field(C,"deferred","true").
 acriterionSourceRef(C,R) :- node(C,"criterion",_), link(C,"sourceRef",R,_).
 acriterionHook(C,H) :- node(C,"criterion",_), field(C,"hooks",H), node(H,"hook",_).
 acriterionHook(C,H) :- node(H,"hook",_), field(H,"criteria",C).
 ahook(H,B) :- node(H,"hook",_), field(H,"binding",B).
 atemplateKnown(T) :- node(T,"template",_).
-atemplateRequires(T,S) :- node(T,"template",_), field(T,"sections",S).
-atemplateRequiresCriterion(T,C) :- node(T,"template",_), field(T,"criteria",C).
-akitRequired(K) :- node(S,"system",""), link(S,"requires",K,_).
-akitPinned(K,V) :- node(S,"system",""), link(S,"pinned",K,_), node(K,"kit",_), field(K,"version",V).
+% A $self (v1: $thing) section or criterion is per Thing: the projection names it with a requires link from the Thing
+% (athingRequiresSection, athingRequiresCriterion; criterion ids start with C.).
+atemplateRequires(T,S) :- node(T,"template",_), field(T,"sections",S), not matches(S,"[$](self|thing)").
+atemplateRequiresCriterion(T,C) :- node(T,"template",_), field(T,"criteria",C), not matches(C,"[$](self|thing)").
+athingRequiresCriterion(T,C) :- node(T,"thing",_), link(T,"requires",C,_), matches(C,"^C[.]").
+athingRequiresSection(T,S) :- node(T,"thing",_), link(T,"requires",S,_), not matches(S,"^C[.]").
+akitRequired(K) :- node(S,"system",_), link(S,"requires",K,_).
+akitPinned(K,V) :- node(S,"system",_), link(S,"pinned",K,_), node(K,"kit",_), field(K,"version",V).
 aevolution(E,S) :- node(E,"evolution",_), field(E,"state",S).
 aevolutionAcceptance(E,C) :- node(E,"evolution",_), link(E,"acceptance",C,_).
 aevolutionAffects(E,N) :- node(E,"evolution",_), link(E,"affects",N,_).
@@ -123,15 +140,15 @@ aentityField(E,F) :- ontologyNode(E), node(E,"entity",_), field(E,"fields",F).
 acardinality(N,V) :- ontologyNode(N), field(N,"cardinality",V).
 ahasActor(A) :- ontologyNode(A), node(A,"affordance",_), field(A,"actor",_).
 ahasEffects(A) :- ontologyNode(A), node(A,"affordance",_), field(A,"effects",_).
-aext(E,K) :- node(E,"external",""), field(E,"kind",K).
-apurpose(P) :- node(P,"purpose","").
+aext(E,K) :- node(E,"external",_), field(E,"kind",K).
+apurpose(P) :- node(P,"purpose",_).
 apurposeBeneficiary(P,E) :- apurpose(P), link(P,"beneficiary",E,_).
-aclaim(C) :- node(C,"claim","").
+aclaim(C) :- node(C,"claim",_).
 aclaimDeferred(C) :- aclaim(C), field(C,"deferred","true").
 aclaimIndicator(C) :- aclaim(C), field(C,"indicator",V), matches(V,"[^ \\t\\n]").
 aclaimMethod(C) :- aclaim(C), field(C,"evaluationMethod",V), matches(V,"[^ \\t\\n]").
 aclaimBeneficiary(C,E) :- aclaim(C), link(C,"beneficiary",E,_).
-arequirementSubject(R,N) :- node(R,"requirement",""), link(R,"subject",N,_).
+arequirementSubject(R,N) :- node(R,"requirement",_), link(R,"subject",N,_).
 ajourney(J,S) :- node(J,"journey",_), field(J,"start",S).
 ajourneyDeferred(J) :- node(J,"journey",_), field(J,"deferred","true").
 astepOf(K,J,S) :- node(K,"step",J), field(K,"step",S).
@@ -157,7 +174,6 @@ export const metamodel = { id: "artyfact.metamodel", version: "1", source: `
 .decl asystem(Id: sym)
 .decl athing(Id: sym, Template: sym)
 .decl acriterion(Id: sym, OwnerKind: sym, OwnerId: sym, SubjectId: sym, Severity: sym)
-.decl athingArtifact(Thing: sym, Artifact: sym)
 .decl athingSection(Thing: sym, Section: sym)
 .decl areaches(X: sym, Y: sym)
 .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
@@ -169,7 +185,6 @@ export const metamodel = { id: "artyfact.metamodel", version: "1", source: `
 .message "owner.unknown" "Node {1} is owned by a Thing or System that does not exist."
 .message "criterion.subjectMissing" "Criterion {1} has a subject that does not exist."
 .message "criterion.ownerMissing" "Criterion {1} is owned by a System or Thing that does not exist."
-.message "thing.noArtifact" "Thing {1} binds no artifact."
 .message "thing.sectionMissing" "Thing {1} lists a section that does not exist."
 
 areaches(X,Y) :- aparent(X,Y).
@@ -183,6 +198,5 @@ violation("owner.unknown",N,"hard") :- anode(N,_,T), T != "", not athing(T,_), n
 violation("criterion.subjectMissing",C,"hard") :- acriterion(C,_,_,S,_), not aknown(S).
 violation("criterion.ownerMissing",C,"hard") :- acriterion(C,"thing",O,_,_), not athing(O,_).
 violation("criterion.ownerMissing",C,"hard") :- acriterion(C,"system",O,_,_), not asystem(O).
-violation("thing.noArtifact",T,"hard") :- athing(T,_), not athingArtifact(T,_).
 violation("thing.sectionMissing",T,"hard") :- athingSection(T,S), not aknown(S).
 ` };

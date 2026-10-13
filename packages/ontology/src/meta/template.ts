@@ -179,5 +179,10 @@ const subst = (v: unknown, self: string): unknown =>
     : v && typeof v === "object" ? Object.fromEntries(Object.entries(v).map(([k, x]) => [k, subst(x, self)]))
     : v;
 
-/** The template's prefilled nodes with `$self` replaced by `self`. */
-export const instantiateNodes = (t: Template, self: string): TemplateNode[] => t.nodes.map((n) => subst(n, self) as TemplateNode);
+/**
+ * The template's prefilled nodes with `$self` replaced by `self`, in ids, fields and links. The template's own `template`
+ * node is shared by every node that uses it, so it keeps `$self` (its `criteria` and `hooks` lists are patterns the
+ * projection resolves per Thing).
+ */
+export const instantiateNodes = (t: Template, self: string): TemplateNode[] =>
+  t.nodes.map((n) => (n.kind === "template" ? n : subst(n, self) as TemplateNode));

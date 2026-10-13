@@ -11,7 +11,7 @@ const metaStore = (files: Record<string, string>) => ({
   get: (ref: string) => { const t = files[`${templateDir(ref)}/template.yaml`]; return t === undefined ? undefined : parseYaml(t); },
 });
 const templates = metaStore(readDir(join(__dirname, "../../templates")));
-const KIT = readDir(join(__dirname, "fixtures/genome-v2/keep-in-touch"));
+const KIT = readDir(join(__dirname, "../../../examples/keep-in-touch-system"));
 const kitTree = parseTree(KIT);
 const apply = (files: Record<string, string>, changes: FileChange[]) => {
   const out = { ...files };

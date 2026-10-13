@@ -13,7 +13,7 @@ import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from
 import { httpHealth } from "../worker/hooks/http-health";
 import { noopHookRunner, resetHooks, setHooks } from "../worker/hooks/index";
 import { sha256Hex } from "../worker/util";
-import { appFiles, genomeFiles } from "./fixtures/genome";
+import { appFiles, genomeFiles, genomeFor } from "./fixtures/genome";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 
 const ADMIN = { authorization: "Bearer test-admin-token" };
@@ -85,7 +85,7 @@ async function imported() {
   const systemId = `system.bkit${n}`;
   const genomeRepo = `bkit-system-${n}`, appRepo = `bkit-app-${n}`;
   ns.create(genomeRepo).commit({
-    ...genomeFiles, "system.yaml": genomeFiles["system.yaml"].replace("system.kit", systemId), "criteria.yaml": genomeFiles["criteria.yaml"].replaceAll("system.kit", systemId),
+    ...genomeFor(systemId),
   }, "genome");
   ns.create(appRepo).commit(appFiles, "scaffold");
   setArtifactsOverride(ns);
@@ -631,7 +631,7 @@ describe("CI dispatch", () => {
     const w = await started(ctx, "evolution.2");
     const files = new Map<string, string>();
     for (const p of Object.keys(genomeFiles)) files.set(p, (await (await w.fork.readFile({ ref: ctx.imp.genomeCommit, path: p }))!.text()));
-    files.set("things/webapp/ontology.yaml", files.get("things/webapp/ontology.yaml")!.replace("name: Contact record", "name: Contact record v2"));
+    files.set("thing.webapp/section.domain/entity.ContactRecord/node.yaml", files.get("thing.webapp/section.domain/entity.ContactRecord/node.yaml")!.replace("name: Contact record", "name: Contact record v2"));
     const commit = w.fork.commit(files, "amend");
     const sub = await call<SubmitResponse>("POST", `/systems/${ctx.systemId}/realizations/${w.rid}/submit`, { commit }, { authorization: `Bearer ${w.secret}` });
     expect(sub.status, JSON.stringify(sub.json)).toBe(201);

@@ -6,7 +6,7 @@ import { setArtifactsOverride } from "../../worker/artifacts/client";
 import { walkTree } from "../../worker/artifacts/genome-source";
 import type { Evaluation as HookEvaluation, HookRunner, SubmissionContext } from "../../worker/hooks/contract";
 import { noopHookRunner } from "../../worker/hooks/index";
-import { appFiles, genomeFiles } from "../fixtures/genome";
+import { appFiles, genomeFiles, genomeFor } from "../fixtures/genome";
 import { FakeArtifacts } from "./fake-artifacts";
 
 export const ADMIN = { authorization: "Bearer test-admin-token" };
@@ -66,7 +66,7 @@ export async function importFresh(ns = new FakeArtifacts()): Promise<Flow> {
   const systemId = `system.cmp${n}${Math.random().toString(36).slice(2, 6)}`;
   const genomeRepo = `cmp-genome-${systemId.slice(10)}`, appRepo = `cmp-app-${systemId.slice(10)}`;
   ns.create(genomeRepo).commit({
-    ...genomeFiles, ...extraEvolutions, "system.yaml": genomeFiles["system.yaml"].replace("system.kit", systemId), "criteria.yaml": genomeFiles["criteria.yaml"].replaceAll("system.kit", systemId),
+    ...genomeFor(systemId), ...extraEvolutions,
   }, "genome");
   ns.create(appRepo).commit(appFiles, "scaffold");
   setArtifactsOverride(ns);
@@ -123,11 +123,12 @@ export async function genomeAmendment(f: Flow, edit: (files: Map<string, string>
   return out;
 }
 
-const ONTOLOGY = "things/webapp/ontology.yaml";
+const CONTACT = "thing.webapp/section.domain/entity.ContactRecord/node.yaml";
+const PEOPLE = "thing.webapp/section.ui/screen.people/node.yaml";
 export const renameContact = (name: string) => (files: Map<string, string>) =>
-  files.set(ONTOLOGY, files.get(ONTOLOGY)!.replace("name: Contact record", `name: ${name}`));
+  files.set(CONTACT, files.get(CONTACT)!.replace("name: Contact record", `name: ${name}`));
 /** Renames the People screen too, which the C.people.* criteria have as subject. */
 export const renameContactAndScreen = (name: string) => (files: Map<string, string>) => {
   renameContact(name)(files);
-  files.set(ONTOLOGY, files.get(ONTOLOGY)!.replace("name: People\n", "name: People v2\n"));
+  files.set(PEOPLE, files.get(PEOPLE)!.replace("name: People\n", "name: People v2\n"));
 };

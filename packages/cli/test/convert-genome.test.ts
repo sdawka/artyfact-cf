@@ -5,8 +5,8 @@ import { describe, expect, it } from "vitest";
 import { main } from "../src/main";
 
 const ROOT = join(__dirname, "../../..");
-const SRC = join(ROOT, "examples/keep-in-touch-system");
-const FIXTURE = join(ROOT, "packages/ontology/test/fixtures/genome-v2/keep-in-touch");
+const SRC = join(ROOT, "packages/ontology/test/fixtures/artyfact/keep-in-touch-system");
+const FIXTURE = join(ROOT, "examples/keep-in-touch-system");
 
 const run = async (args: string[], cwd: string) => {
   const out: string[] = [], err: string[] = [];
@@ -14,7 +14,8 @@ const run = async (args: string[], cwd: string) => {
   return { code, out: out.join("\n"), err: err.join("\n") };
 };
 const list = (dir: string, base = ""): string[] =>
-  readdirSync(join(dir, base), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? list(dir, join(base, e.name)) : [join(base, e.name)])).sort();
+  readdirSync(join(dir, base), { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? list(dir, join(base, e.name)) : [join(base, e.name)]))
+    .filter((p) => /\.ya?ml$/.test(p)).sort();
 
 describe("artyfact convert-genome", () => {
   it("writes the v2 tree of a v1 Genome into a new directory", async () => {

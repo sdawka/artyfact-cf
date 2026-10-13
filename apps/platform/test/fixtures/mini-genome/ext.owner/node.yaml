@@ -1,0 +1,7 @@
+id: ext.owner
+kind: external
+fields:
+  name: Owner
+  kind: person
+  modeled: Account and contact list
+  external: Their relationships

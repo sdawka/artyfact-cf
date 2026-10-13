@@ -19,8 +19,8 @@
  * criteria, inputs.check list); system-one / llm (inputs.judgment reviewDelta|topology|
  * purposeMeasures|interference) → system-one.ts; http → http-health.ts. Any throw → `execution: error`.
  */
-import { type Readiness, type SystemModel, type schema } from "@artyfact/model";
-import { ArtyfactParseError, GenomeTreeError, type Graph } from "@artyfact/ontology";
+import { LegacyGenomeError, ModelParseError, type Readiness, type SystemModel, type schema } from "@artyfact/model";
+import type { Graph } from "@artyfact/ontology";
 import { createSystemOne, type SystemOne, type SystemOneEnv } from "@artyfact/semantic";
 import type { CandidateRef, ConflictContext, EvolutionRef, ConflictReport, DeltaReview, Evaluation, GenomeContext, GenomeResult, HookRunner, SubmissionContext } from "./contract";
 import { diffScope } from "./diff-scope";
@@ -28,7 +28,7 @@ import { engineRules, engineRun, genomeGraph, judgeChecks, wantsChecks, type Che
 import { HEALTH_TIMEOUT_MS, httpHealth, previewPolicy, type PreviewEnv } from "./http-health";
 import { manifestExists } from "./manifest-exists";
 import { modelRulesHook } from "./model-checks";
-import { filterFromInputs, loadGenome, modelRules, selectableRules, type GenomeDeps, type ModelRulesResult } from "./model-rules";
+import { filterFromInputs, legacyOutcome, loadGenome, modelRules, selectableRules, type GenomeDeps, type ModelRulesResult } from "./model-rules";
 import { computeConflicts } from "./overlap";
 import { errored, errorMessage, notRun, toEvaluation, type Outcome } from "./provenance";
 import { aggregate, judgePurpose, judgeTopology, reviewGenome, reviewsAsJudged, reviewUnavailable } from "./system-one";
@@ -255,7 +255,8 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
     try {
       r = engineFor(st);
     } catch (e) {
-      if (!(e instanceof GenomeTreeError || e instanceof ArtyfactParseError)) throw e;
+      if (e instanceof LegacyGenomeError) return legacyOutcome(e);
+      if (!(e instanceof ModelParseError)) throw e;
       return { execution: "completed", verdict: "fail", observations: [{ kind: "parse-error", message: e.message }], interpretation: `The Genome does not load: ${e.message}`, limitations: [] };
     }
     const filter = filterFromInputs(h.inputs);

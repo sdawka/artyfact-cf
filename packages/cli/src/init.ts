@@ -1,5 +1,5 @@
 /**
- * `artyfact init` and `artyfact platform-sync` (slice 2.7): take a project from `system.yaml` to an imported System.
+ * `artyfact init` and `artyfact platform-sync` (slice 2.7): take a project from its Genome (root `node.yaml`) to an imported System.
  * Write tokens reach git only through `GIT_CONFIG_*` (see `gitEnv`); they are never printed or put on an argv.
  */
 import { createHash } from "node:crypto";
@@ -8,6 +8,7 @@ import { tmpdir } from "node:os";
 import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { EVOLUTIONS_DIR, NODE_FILE, V1_ROOT_FILE } from "@artyfact/ontology/genome";
 import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
 import { CliError, git } from "./git.ts";
 import { assertName, assertSystemId, assertTemplateRef, copyFiles, isInside, projectFiles, realDir, realSubdir } from "./safety.ts";
@@ -43,21 +44,29 @@ function parse(args: string[], options: Record<string, { type: "string" | "boole
 
 // ------------------------------------------------------------------ project reading
 
-/** `id:` of a system.yaml (top-level scalar; the CLI carries no YAML dependency). */
+/** `id:` of the root node.yaml (top-level scalar; the CLI carries no YAML dependency). */
 export function systemIdOf(yaml: string): string {
   const m = /^id:\s*["']?([^\s"'#]+)["']?\s*(#.*)?$/m.exec(yaml);
-  if (!m) throw new CliError("system.yaml has no top-level `id:`");
+  if (!m) throw new CliError(`${NODE_FILE} has no top-level \`id:\``);
   return m[1]!;
 }
 
-/** worker-fullstack artifact ids declared in `things/**\/thing.yaml`, in file order. */
+/** Every `node.yaml` under `dir` whose node is a Thing, in path order (dot-directories and evolutions skipped). */
+function thingFiles(root: string, dir = root): string[] {
+  return readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1)).flatMap((e) => {
+    if (e.name.startsWith(".") || (dir === root && e.name === EVOLUTIONS_DIR)) return [];
+    const p = join(dir, e.name);
+    if (e.isDirectory()) return thingFiles(root, p);
+    return e.name === NODE_FILE && /^kind:\s*["']?thing["']?\s*$/m.test(readFileSync(p, "utf8")) ? [p] : [];
+  });
+}
+
+/** worker-fullstack artifact ids declared in the Things' `node.yaml` (`fields.artifacts`), in path order. */
 export function appArtifactIds(genomeDir: string): string[] {
-  const dir = join(genomeDir, "things");
-  if (!existsSync(dir)) return [];
+  if (!existsSync(genomeDir)) return [];
   const ids: string[] = [];
-  for (const thing of readdirSync(dir).sort()) {
-    const f = join(dir, thing, "thing.yaml");
-    if (!existsSync(f) || !isInside(realpathSync(genomeDir), realpathSync(f))) continue;
+  for (const f of thingFiles(genomeDir)) {
+    if (!isInside(realpathSync(genomeDir), realpathSync(f))) continue;
     const text = readFileSync(f, "utf8");
     for (const m of text.matchAll(/artifact:\s*["']?(artifact\.[A-Za-z0-9._-]+)["']?([^\n]*\n?(?:[ \t]+[^\n]*\n?){0,4})/g)) {
       if (/type:\s*["']?worker-fullstack/.test(m[0])) ids.push(m[1]!);
@@ -159,7 +168,8 @@ function pushTree(
     const head = lsRemoteHead(work, r);
     const gd = ["--git-dir", join(work, ".git")];
     if (head) {
-      git(work, [...gd, "fetch", "-q", "--depth=1", "--", r.url, "refs/heads/main"], r.token);
+      // No detached auto-maintenance: it would still be writing into the scratch repo when it is removed.
+      git(work, ["-c", "maintenance.auto=false", "-c", "gc.auto=0", ...gd, "fetch", "-q", "--depth=1", "--", r.url, "refs/heads/main"], r.token);
       const remoteTree = git(work, [...gd, "rev-parse", "FETCH_HEAD^{tree}"]);
       if (remoteTree === tree) {
         ctx.state.pushed[ctx.key + repo] = head;
@@ -251,7 +261,7 @@ export function buildPlatformTree(root: string, out: string): { bundleHash: stri
   writeFileSync(join(out, "README.md"), `# platform
 
 Templates and rule packs of this artyfact deployment, written by \`npx artyfact platform-sync\`.
-Systems in this namespace pin them in \`kits.yaml\` / \`system.yaml\`; the platform records this repo's commit as provenance
+Systems in this namespace pin them in their root \`node.yaml\`; the platform records this repo's commit as provenance
 on every System commit. Evaluation still runs the copies bundled into the platform Worker.
 
 - \`templates/system/<name>@<v>/\`, \`templates/thing/<name>@<v>/\` (a Thing's \`scaffold/\` seeds new app repos)
@@ -333,7 +343,7 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const dirArg = resolve(io.cwd, (values.dir as string | undefined) ?? ".");
   if (!existsSync(dirArg)) {
     // With --genome the project dir only holds init's state; otherwise there is nothing to read.
-    if (values.genome === undefined) throw new CliError(`no system.yaml in ${join(dirArg, "system")}; pass --dir <project> (with system/) or --genome <dir>`);
+    if (values.genome === undefined) throw new CliError(`no ${NODE_FILE} in ${join(dirArg, "system")}; pass --dir <project> (with system/) or --genome <dir>`);
     mkdirSync(dirArg, { recursive: true });
   }
   const project = realDir("--dir", dirArg);
@@ -346,10 +356,13 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const fromTemplate = values["from-template"] === undefined ? undefined : assertTemplateRef(values["from-template"]);
   const ns = namespaceOf(values, io);
 
-  const systemYaml = join(genomeDir, "system.yaml");
-  if (!existsSync(systemYaml)) throw new CliError(`no system.yaml in ${genomeDir}; pass --dir <project> (with system/) or --genome <dir>`);
-  if (!isInside(genomeDir, realpathSync(systemYaml))) throw new CliError(`system.yaml in ${genomeDir} resolves outside it`);
-  const systemId = assertSystemId(systemIdOf(readFileSync(systemYaml, "utf8")));
+  const rootFile = join(genomeDir, NODE_FILE);
+  if (!existsSync(rootFile)) {
+    if (existsSync(join(genomeDir, V1_ROOT_FILE))) throw new CliError(`${genomeDir} is a v1 Genome; convert it first with artyfact convert-genome`);
+    throw new CliError(`no ${NODE_FILE} in ${genomeDir}; pass --dir <project> (with system/) or --genome <dir>`);
+  }
+  if (!isInside(genomeDir, realpathSync(rootFile))) throw new CliError(`${NODE_FILE} in ${genomeDir} resolves outside it`);
+  const systemId = assertSystemId(systemIdOf(readFileSync(rootFile, "utf8")));
   const appArtifacts = appArtifactIds(genomeDir);
   const appNeeded = appArtifacts.length > 0;
   const names = systemRepoNames(systemId, appArtifacts);

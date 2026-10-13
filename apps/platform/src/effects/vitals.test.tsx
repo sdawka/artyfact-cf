@@ -68,7 +68,7 @@ describe("systemVitals (keep-in-touch fixture)", () => {
 
   it("turns ember on blockers, flares per blocker and lowers fill", () => {
     const input = fixtureInput();
-    const blockers = ["a", "b", "c"].map((subject) => ({ level: "error" as const, subject }));
+    const blockers = ["a", "b", "c"].map((subject) => ({ level: "error" as const, rule: "x.blocked", subject }));
     const v = systemVitals({ ...input, readiness: { findings: [...input.readiness.findings, ...blockers] } });
     expect(v.health).toBe("blocked");
     expect(v.preset).toBe("ember");

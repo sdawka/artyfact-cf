@@ -1,0 +1,9 @@
+id: policy.authentication
+kind: policy
+fields:
+  name: Authentication
+  owningThing: thing.webapp
+  revision: 1
+  description: Who counts as a signed-in user. Provisional until an auth kit is pinned.
+  fromTemplate: template.thing.cloudflare-worker-webapp@1
+provisional: true

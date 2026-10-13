@@ -47,8 +47,8 @@ export interface CandidateRef {
   /** Runtime identity from a passed stored build for this candidate, commit, and preview URL. */
   expectedBuildId?: string;
   /**
-   * `target: "genome"` only: the full Genome file map at `commit`. Paths are Genome-relative (`system.yaml`,
-   * `things/webapp/ontology.yaml`); a `system/` prefix is accepted and stripped.
+   * `target: "genome"` only: the full Genome file map at `commit`. Paths are Genome-relative (`node.yaml`,
+   * `thing.webapp/section.ui/node.yaml`); a `system/` prefix is accepted and stripped.
    */
   genomeFiles?: FileMap;
 }

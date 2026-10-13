@@ -2,7 +2,8 @@ import { z } from "zod";
 
 // artyfact Genome file shapes, from artyfact-cf packages/model/src/schema.ts; cross-file references are checked by rule packs.
 
-const id = (p: string) => z.string().regex(new RegExp(`^${p.replace(".", "\\.")}[\\w.-]+$`));
+// `$` admits a template's `$thing` placeholder inside an id (`C.$thing.checks`), which the loader rebases.
+const id = (p: string) => z.string().regex(new RegExp(`^${p.replace(".", "\\.")}[\\w.$-]+$`));
 export const Id = {
   system: id("system."),
   thing: id("thing."),
@@ -183,9 +184,12 @@ export type ArtifactBinding = z.infer<typeof ArtifactBinding>;
 export const Thing = z.object({
   id: Id.thing,
   name: str,
-  templateRef: str.nullable(),
+  templateRef: str.nullable().default(null),
   description: str,
-  artifacts: z.array(ArtifactBinding),
+  artifacts: z.array(ArtifactBinding).default([]),
+  /** Parts and saved Composition metadata, carried through unchecked for the v1 converter. */
+  parts: z.array(z.unknown()).default([]),
+  composition: z.unknown().optional(),
   /** Defaults to the template's `sections` when omitted (filled in by the loader). */
   sections: z.array(AnyId).optional(),
   purposeRefs: strs,

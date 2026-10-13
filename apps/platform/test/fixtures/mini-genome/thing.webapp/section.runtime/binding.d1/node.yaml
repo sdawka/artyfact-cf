@@ -1,0 +1,9 @@
+id: binding.d1
+kind: binding
+fields:
+  name: D1 database
+  owningThing: thing.webapp
+  revision: 1
+  description: Placeholder relational store. Instances rename or replace it via override (for example binding.contactsStore).
+  fromTemplate: template.thing.cloudflare-worker-webapp@1
+provisional: true

@@ -5,6 +5,7 @@ import { StatusChip, buildTone } from "@/components/StatusChip/StatusChip";
 import { FAKE_PROVIDER_TITLE } from "@/model/provider";
 import { shortRev } from "@/model/revisions";
 import { relTime } from "@/model/time";
+import { LEGACY_NOTICE } from "@/views/compare/legacy";
 import { CommitDetail } from "./CommitDetail";
 import { summaryLine } from "./summary";
 import styles from "./changelog.module.css";
@@ -45,6 +46,7 @@ export function CommitRow({ row, expanded, current, now, onToggle }: Props) {
           </span>
           <span className={styles.line}>
             <span className={styles.summary}>{row.loadError ? "summary unknown" : summaryLine(row.summary)}</span>
+            {row.legacyFormat && <span className={styles.muted}>{LEGACY_NOTICE}</span>}
             {row.fakeProvider && <StatePill state="fake" title={FAKE_PROVIDER_TITLE}>System One: fake provider</StatePill>}
             {row.rationalePending && <StatusChip status="pending" label="rationale pending" tone="attention" />}
             {build && <StatusChip status={build.status} label={`${build.kind} build ${build.status}`} tone={buildTone(build.status)} />}

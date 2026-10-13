@@ -1,0 +1,6 @@
+id: GD.notes
+kind: feature
+fields:
+  name: Notes
+  summary: Write and list notes
+  deferred: false
