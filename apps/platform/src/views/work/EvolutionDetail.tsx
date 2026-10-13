@@ -1,11 +1,12 @@
 import { useCallback, useMemo } from "react";
+import { Link } from "react-router";
 import type { Evolution, Realization } from "../../../shared/api";
 import { useCandidates, useConflicts } from "@/api/queries";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
 import { useModel } from "@/model/useModel";
+import { useKeepParams } from "@/model/useSelection";
 import { CandidateReview } from "./panels/CandidateReview";
-import { PromotionPanel } from "./panels/PromotionPanel";
 import { StartWorkPanel } from "./panels/StartWorkPanel";
 import { RealizationRow } from "./RealizationRow";
 import { conflictsOf, mergeConflicts, useNow, useParam } from "./lib";
@@ -13,10 +14,11 @@ import styles from "./work.module.css";
 
 const NO_CONFLICTS: never[] = [];
 
-/** Right/lower pane for `?evolution=`: criteria, realizations, and the start / review / promote panels. */
+/** Right/lower pane for `?evolution=`: criteria, realizations, start work and inline review. Promotion lives on Review. */
 export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evolution; realizations: readonly Realization[] }) {
   const m = useModel();
   const now = useNow(30_000);
+  const href = useKeepParams();
   const [panel, setPanel] = useParam("panel");
   const [reviewId, setReview] = useParam("realization");
   const { data: cand } = useCandidates(e.id);
@@ -44,7 +46,7 @@ export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evo
         </div>
         <div className={styles.actions}>
           <button type="button" className={`u-brackets ${styles.btn}`} aria-pressed={panel === "start"} onClick={() => setPanel(panel === "start" ? null : "start")}>Start work</button>
-          <button type="button" className={`u-brackets ${styles.btn}`} aria-pressed={panel === "promote"} onClick={() => setPanel(panel === "promote" ? null : "promote")}>Promote</button>
+          <Link className={`u-brackets ${styles.reviewLink}`} to={href("review", { evolution: e.id, realization: null, panel: "promote" })}>Promote in Review</Link>
         </div>
       </header>
       <p className={styles.intentFull}>{e.intent}</p>
@@ -80,7 +82,6 @@ export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evo
 
       {panel === "start" && <StartWorkPanel evolution={e} />}
       {reviewing && <CandidateReview realization={reviewing} candidate={candidateOf(reviewing)} evolution={e} />}
-      {panel === "promote" && <PromotionPanel evolution={e} />}
     </section>
   );
 }

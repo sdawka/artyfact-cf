@@ -2,6 +2,7 @@ import { Link } from "react-router";
 import { useEvolutions } from "@/api/queries";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { useModel } from "@/model/useModel";
+import { useReviewCount } from "@/model/useReviewCount";
 import { useKeepParams } from "@/model/useSelection";
 import type { Evolution } from "../../../shared/api";
 import styles from "./Overview.module.css";
@@ -9,11 +10,12 @@ import styles from "./Overview.module.css";
 const ORDER = ["actionable", "realizing", "evaluated", "genome-approved", "proposed", "promoted", "rejected", "withdrawn"];
 const ACTIVE_LIMIT = 3;
 
-/** Evolutions grouped by state, each with scope chips and a link to the Work board. */
+/** Evolutions grouped by state, each with scope chips and a link to the Work board; a line to Review when decisions wait. */
 export function ActiveEvolutionsCard() {
   const m = useModel();
   const href = useKeepParams();
   const { data } = useEvolutions();
+  const waiting = useReviewCount();
   // The live board wins; before the API has any, the Genome's own Evolutions show their declared state.
   const live = data?.evolutions ?? [];
   const evolutions: Evolution[] = live.length ? live : (m.index.model.evolutions ?? []);
@@ -22,6 +24,11 @@ export function ActiveEvolutionsCard() {
   return (
     <section className={styles.card} aria-labelledby="evolutions-title">
       <h2 id="evolutions-title" className={styles.cardTitle}>Evolutions</h2>
+      {waiting > 0 && (
+        <p className={styles.waiting}>
+          <Link className="u-marker" to={href("review")}>{waiting} waiting for review</Link>
+        </p>
+      )}
       {!groups.length ? (
         <p className={styles.muted}>No Evolutions.</p>
       ) : (

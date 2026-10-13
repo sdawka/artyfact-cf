@@ -1,2 +1,51 @@
 .view { display: grid; gap: var(--spacing-4); max-width: 90rem; }
 .lede { max-width: 70ch; margin: 0; color: var(--color-text-secondary); }
+.muted { color: var(--color-text-subtle); }
+.plain { display: grid; gap: var(--spacing-1); margin: 0; padding: 0; list-style: none; }
+
+/* Two panes: the queue is narrow; the detail takes the rest. One column on narrow screens. */
+.panes { display: grid; grid-template-columns: minmax(16rem, 24rem) minmax(0, 1fr); gap: var(--spacing-5); align-items: start; }
+/* On wide screens the queue stays in view (scrolling on its own) while a long review scrolls beside it. */
+@media (min-width: 901px) { .queue { position: sticky; top: var(--spacing-4); max-height: calc(100vh - 6rem); overflow-y: auto; } }
+@media (max-width: 900px) { .panes { grid-template-columns: minmax(0, 1fr); } }
+.detail { display: grid; gap: var(--spacing-3); min-width: 0; }
+.context { margin: 0; color: var(--color-text-secondary); font-weight: var(--font-weight-semibold); }
+
+/* The decision queue: the page's memorable element, a ledger of rows with a left rule on the open one. */
+.queue { display: grid; align-content: start; gap: var(--spacing-4); padding: var(--spacing-3); background: var(--color-surface-secondary); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); }
+.queueTitle { display: flex; align-items: baseline; gap: var(--spacing-2); margin: 0; font-family: var(--font-ui); font-size: var(--font-size-base); }
+.count { color: var(--color-status-warning); font-size: var(--font-size-sm); font-variant-numeric: tabular-nums; }
+.group { display: grid; gap: var(--spacing-1); }
+.groupTitle { margin: 0; font-family: var(--font-ui); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); color: var(--color-text-secondary); }
+.rows { display: grid; margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--color-border-subtle); }
+.row {
+  display: grid;
+  gap: var(--spacing-1);
+  padding: var(--spacing-2) var(--spacing-2) var(--spacing-2) var(--spacing-3);
+  color: var(--color-text-primary);
+  text-decoration: none;
+  border-bottom: 1px solid var(--color-border-subtle);
+  border-left: 2px solid transparent;
+}
+.row:hover { background: var(--color-surface-primary); }
+.row[aria-current="true"] { border-left-color: var(--color-brand-primary); background: var(--color-surface-primary); }
+.row:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.rowTop { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-2); }
+.rowMeta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-2); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.rowMeta code { font-family: var(--font-code); overflow-wrap: anywhere; }
+.agent { font-weight: var(--font-weight-semibold); }
+.kind { padding: 0 var(--spacing-1); font-size: var(--font-size-xs); color: var(--color-text-secondary); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); }
+.kind[data-kind="stale"], .kind[data-kind="amendment"] { color: var(--color-status-warning); border-color: var(--color-status-warning); }
+.kind[data-kind="stale"] { border-style: dashed; }
+.behind { font-size: var(--font-size-sm); color: var(--color-status-warning); }
+.selected { font-size: var(--font-size-xs); color: var(--color-brand-primary); }
+
+.panel { display: grid; gap: var(--spacing-3); padding: var(--spacing-4); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); }
+.panelTitle { margin: 0; font-family: var(--font-ui); font-size: var(--font-size-base); }
+.panel code { font-family: var(--font-code); }
+.action { justify-self: start; padding: var(--spacing-1) var(--spacing-3); color: var(--color-text-primary); background: var(--color-surface-secondary); border: 1px solid var(--color-border); text-decoration: none; }
+.action:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+
+@media (forced-colors: active) {
+  .row[aria-current="true"] { border-left-color: Highlight; }
+}

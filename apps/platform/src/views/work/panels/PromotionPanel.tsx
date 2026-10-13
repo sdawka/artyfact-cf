@@ -9,7 +9,7 @@ import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
 import { useModel } from "@/model/useModel";
 import { useKeepParams, useSelection, useSystemRoute } from "@/model/useSelection";
-import { describeConflict, gateCoverage, headOf, splitConflicts, type GateRow } from "../gates";
+import { describeConflict, gateCoverage, gatesSummary, headOf, splitConflicts, type GateRow } from "../gates";
 import type { UiVerdict } from "@/model/status";
 import { mergeConflicts, shortSha } from "../lib";
 import { describeIssue } from "../gates";
@@ -184,7 +184,10 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
 
       <h4>Required gates</h4>
       {ids.length ? (
-        <GateTable rows={required} label="Required gate coverage" />
+        <>
+          <GatesSummaryLine rows={required} />
+          <GateTable rows={required} label="Required gate coverage" />
+        </>
       ) : (
         <p className={styles.muted}>Select a candidate to see gate coverage. Without one every gate is not-run.</p>
       )}
@@ -223,6 +226,10 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
       {stale && (
         <div role="alert" className={styles.error}>
           <p>The head moved to <code>{shortSha(stale.currentHead)}</code>; re-evaluate before promoting.</p>
+          <p>
+            A candidate built on an earlier head is refused until its agent rebases the fork on{" "}
+            <code>{shortSha(stale.currentHead)}</code> and submits again: <code>artyfact submit</code>.
+          </p>
           <button type="button" className={`u-brackets ${styles.btn}`} onClick={refresh}>Refresh</button>
         </div>
       )}
@@ -257,6 +264,12 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
       <p className={styles.muted}>Compare-and-swap on head <code>{head ?? "none"}</code>: the server refuses if it has moved.</p>
     </section>
   );
+}
+
+/** "4 pass · 1 unknown": the success tone only when every required gate passes. */
+function GatesSummaryLine({ rows }: { rows: GateRow[] }) {
+  const { text, allPass } = gatesSummary(rows);
+  return <p className={styles.rmeta} data-tone={allPass ? "pass" : undefined} data-testid="gates-summary">{allPass ? "✓ " : ""}{text}</p>;
 }
 
 function GateTable({ rows, label }: { rows: GateRow[]; label: string }) {

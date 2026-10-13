@@ -139,3 +139,32 @@ export async function sweepViews(page: Page, testInfo: TestInfo, base: string, t
   }
   expect(errors).toEqual([]);
 }
+
+/**
+ * Editor work through the API: start a realization of `evolution` (editor origin) and commit `changes` with its secret.
+ * Returns the realization id and its candidate id.
+ */
+export async function apiCommit(
+  request: APIRequestContext, evolution: string, target: "app" | "genome", agentLabel: string, changes: { path: string; content: string }[],
+): Promise<{ realization: string; candidate: string }> {
+  const started = await request.post(`/api/systems/${SYS}/evolutions/${evolution}/realizations`, { headers: auth, data: { origin: "editor", target, agentLabel } });
+  expect(started.ok(), await started.text()).toBe(true);
+  const { realization, secret } = await started.json() as { realization: { id: string }; secret: string };
+  const res = await request.post(`/api/systems/${SYS}/realizations/${realization.id}/commit`, {
+    headers: { Authorization: `Bearer ${secret}` },
+    data: { message: `e2e ${agentLabel}`, why: "e2e", changes },
+  });
+  expect(res.ok(), await res.text()).toBe(true);
+  const { submitted } = await res.json() as { submitted: { candidate: { id: string } } };
+  return { realization: realization.id, candidate: submitted.candidate.id };
+}
+
+/** `POST …/evolutions` through the API (no acceptance criteria). Returns the new Evolution's id. */
+export async function apiEvolution(request: APIRequestContext, title: string, kind: string, affectedNodes: string[]): Promise<string> {
+  const res = await request.post(`/api/systems/${SYS}/evolutions`, {
+    headers: auth,
+    data: { title, intent: `${title}.`, kind, risk: "low", affectedNodes, acceptanceCriteria: [] },
+  });
+  expect(res.ok(), await res.text()).toBe(true);
+  return ((await res.json()) as { evolution: { id: string } }).evolution.id;
+}
