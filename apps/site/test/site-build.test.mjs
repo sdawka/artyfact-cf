@@ -101,7 +101,11 @@ test('homepage starts with quiet declared shapes and preserves the approved hero
   assert(document.title.endsWith('Make Meaningful Systems'));
   assert(document.body.textContent.includes('Shape a Thing with its Genome. Compose reusable Parts when they help. Keep the work, its functioning and its purpose in the same System.'));
   const app = document.querySelector('.scene-application');
-  assert(app && !app.querySelector('input, .scene-save'));
-  assert(!document.querySelector('.scene-save-chart, [data-demo-pointer], [data-scene-confetti]'));
+  assert(app && !app.querySelector('input, button.scene-save'));
+  assert.equal(document.querySelector('.scene-save-chart')?.getAttribute('aria-hidden'), 'true');
+  assert(!document.querySelector('[data-demo-pointer], [data-scene-confetti]'));
+  assert.equal(document.querySelector('.scene-realized-app')?.getAttribute('aria-hidden'), 'true');
+  assert(document.body.textContent.includes('Turn ideas into meaningful systems.'));
+  assert(document.querySelector('.scene-name-slot')?.textContent.includes('System name'));
   assert(!document.querySelector('button button'), 'Inspection and demo controls must never be nested');
 });

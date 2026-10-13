@@ -1,5 +1,5 @@
 import React, { useId } from 'react';
-import { landingSubjects } from './landingSystemData';
+import { landingIdeas, landingSubjects } from './landingSystemData';
 import type { LandingDemo, LandingSubject, LandingView } from './landingSystemData';
 
 export type LandingSystemSceneProps = {
@@ -8,70 +8,74 @@ export type LandingSystemSceneProps = {
   onSelectSubject?: (subject: LandingSubject) => void;
   demo?: LandingDemo;
 };
-
-const emptyDemo: LandingDemo = { count: 0, pressing: false, showPointer: false, celebrating: false, showToast: false, onSave: () => {} };
+const emptyDemo: LandingDemo = { count: 0, pressing: false, showPointer: false, celebrating: false, showToast: false, paused: false, completed: false, onSave: () => {}, onPause: () => {}, onResume: () => {} };
 const confettiPieces = Array.from({ length: 18 }, (_, index) => index);
+const ideaFor = (count: number) => landingIdeas[Math.max(0, Math.floor(count)) % landingIdeas.length];
 
-export function LandingSystemScene({ view, selectedSubject, onSelectSubject, demo = emptyDemo }: LandingSystemSceneProps) {
+/** Visual-only frame. Story places support content in ordinary document flow. */
+export function LandingSystemScene({ view, selectedSubject, demo = emptyDemo }: LandingSystemSceneProps) {
   const headingId = useId();
-  const noteId = useId();
-  const detail = landingSubjects[selectedSubject];
   const shape = view === 'genome';
   const active = view === 'phenome';
+  const idea = ideaFor(demo.count);
   const chartLevel = Math.min(12, Math.max(0, demo.count));
-  const selectProps = (subject: LandingSubject) => ({
-    type: 'button' as const,
-    'aria-pressed': selectedSubject === subject,
-    onClick: () => onSelectSubject?.(subject),
-  });
-  return <div className="landing-system-scene" data-scene-view={view}>
-    <figure className="scene-system" aria-labelledby={headingId}>
-      <figcaption className="scene-system-heading">
-        <h2 id={headingId}>One System</h2>
-        <span className="scene-example-label">Illustrative application</span>
-      </figcaption>
-      <div className="scene-board">
-        <div className="scene-observation-slot">
-          {active && <div className="scene-save-chart" role="img" aria-label={`Sample saves: ${demo.count}. Bar shown up to 12 saves.`}>
-            <span className="scene-chart-caption">Sample saves</span>
-            <div className="scene-chart-plot">
-              <div className="scene-chart-ticks" aria-hidden="true"><span>12+</span><span>6</span><span>0</span></div>
-              <div className="scene-chart-track" aria-hidden="true"><div className="scene-chart-bar" data-chart-level={chartLevel} style={{ '--chart-fill': chartLevel / 12 } as React.CSSProperties} /></div>
-            </div>
-            <strong>{demo.count} {demo.count === 1 ? 'save' : 'saves'}</strong>
-          </div>}
+  return <div className="landing-system-scene scene-visual" data-scene-view={view}>
+        <div className="scene-external-lane">
+          <div className="scene-coding-agent" role="img" aria-label="Coding agents realize the declared application" aria-hidden={view !== 'proteome'}>
+            <span className="scene-agent-label">Coding agents</span>
+            <svg className="scene-computer" aria-hidden="true" focusable="false" viewBox="0 0 100 76"><rect x="13" y="3" width="74" height="50" rx="4" /><path className="scene-code-lines" d="m30 20-8 7 8 7m40-14 8 7-8 7m-14-17-8 22" /><path d="M13 57h74l10 12H3z" /><path d="M38 64h24" /></svg>
+            <svg className="scene-realization-arrow" aria-hidden="true" focusable="false" viewBox="0 0 100 20"><path pathLength="100" d="M2 10h92m-9-7 9 7-9 7" /></svg>
+          </div>
+          <div className="scene-save-chart" role="img" aria-label={`Ideas explored: ${demo.count}. Bar shown up to 12 ideas.`} aria-hidden={!active}>
+            <span className="scene-chart-caption">Ideas explored</span>
+            <div className="scene-chart-plot"><div className="scene-chart-ticks" aria-hidden="true"><span>12+</span><span>6</span><span>0</span></div><div className="scene-chart-track" aria-hidden="true"><div className="scene-chart-bar" data-chart-level={chartLevel} /></div></div>
+            <strong>{demo.count} {demo.count === 1 ? 'idea' : 'ideas'}</strong>
+          </div>
         </div>
-        <article className="scene-card scene-application" aria-label="Application: Fieldnotes" data-selected={selectedSubject === 'app'}>
-          <div className="scene-card-heading"><span>Application</span><button {...selectProps('app')} className="scene-inspect" aria-label="Inspect Fieldnotes application">Inspect</button></div>
-          <div className="scene-app-body">
-            <div className="scene-app-brand">{shape ? <span className="scene-slot-purpose">Fieldnotes interface</span> : <><h3>Fieldnotes</h3><p>Capture what you notice.</p></>}</div>
-            <div className="scene-form-slot scene-shape-slot">{shape ? <span className="scene-slot-purpose">Capture a note</span> : <><label htmlFor={noteId}>New note</label><input id={noteId} value="Morning by the lake" readOnly tabIndex={-1} /></>}</div>
-            <div className="scene-save-slot scene-shape-slot">{shape ? <span className="scene-slot-purpose">Save a note</span> : active ? <button type="button" className="scene-save" data-pressing={demo.pressing} onClick={demo.onSave}>Save record</button> : <span className="scene-save scene-save-preview">Save record</span>}
-              {active && demo.showPointer && <svg className="scene-demo-pointer" data-demo-pointer aria-hidden="true" focusable="false" viewBox="0 0 26 32"><path d="M3 2 22 20l-10 1-4 9Z" /></svg>}
+    <figure className="scene-system" aria-labelledby={headingId}>
+      <div className="scene-opening" aria-hidden="true"><strong>Artyfact</strong><p>Turn ideas into meaningful systems.</p></div>
+      <figcaption className="scene-system-heading"><h2 id={headingId}>Artyfact</h2><span className="scene-example-label">Illustrative example</span></figcaption>
+      <div className="scene-board">
+        <article className="scene-card scene-application" aria-label="Application: Artyfact" data-selected={selectedSubject === 'app'}>
+          <div className="scene-app-heading" aria-hidden={!shape}>Application</div>
+          <div className="scene-app-body scene-app-shape" aria-hidden={!shape}>
+            <div className="scene-name-slot scene-shape-slot"><span>System name</span></div>
+            <div className="scene-purpose-slot scene-shape-slot"><span>Purpose</span></div>
+            <div className="scene-action-slot scene-shape-slot"><span>Explore another idea</span></div>
+          </div>
+          <div className="scene-realized-app" aria-hidden={shape}>
+            <div className="scene-app-heading"><span>Application</span>{active && <button type="button" className="scene-demo-control" data-demo-resume={demo.paused || demo.completed ? '' : undefined} aria-disabled={demo.completed || undefined} onClick={demo.completed ? undefined : demo.paused ? demo.onResume : demo.onPause}>{demo.completed ? 'Auto demo complete' : demo.paused ? 'Resume demo' : 'Pause demo'}</button>}</div>
+            <div className="scene-app-body">
+              <div className="scene-name-slot scene-shape-slot"><span className="scene-output-label">System name</span><span className="scene-output-name" aria-label="Current System name">{idea.name}</span></div>
+              <div className="scene-purpose-slot scene-shape-slot"><span className="scene-output-label">Purpose</span><span className="scene-output-purpose" aria-label="Current Purpose">{idea.purpose}</span></div>
+              <div className="scene-action-slot">{active ? <button type="button" className="scene-save" data-pressing={demo.pressing} onClick={demo.onSave}>Randomize</button> : <span className="scene-save scene-save-preview">Randomize</span>}
+                {active && demo.showPointer && <svg className="scene-demo-pointer" data-demo-pointer aria-hidden="true" focusable="false" viewBox="0 0 26 32"><path d="M3 2 22 20l-10 1-4 9Z" /></svg>}
+                {active && demo.pressing && <span className="scene-button-pulse" aria-hidden="true" />}
+              </div>
             </div>
-            <div className="scene-list-slot scene-shape-slot">{shape ? <span className="scene-slot-purpose">Revisit saved notes</span> : <><span className="scene-list-label">Saved notes</span><ul><li>Morning by the lake</li><li>The long way home</li></ul></>}</div>
           </div>
           {active && demo.celebrating && <div className="scene-confetti" data-scene-confetti aria-hidden="true">{confettiPieces.map(index => <i key={index} />)}</div>}
         </article>
         <article className="scene-runtime" aria-label="Runtime: API and storage" data-selected={selectedSubject === 'runtime'}>
-          <div className="scene-card-heading"><span>Runtime</span><button {...selectProps('runtime')} className="scene-inspect" aria-label="Inspect API and storage">Inspect</button></div>
-          <div className="scene-api scene-shape-slot"><span className="scene-slot-purpose">Records API</span>{!shape && <code>/api/records</code>}</div>
-          <span className="scene-runtime-link">persists</span>
-          <div className="scene-storage scene-shape-slot"><span className="scene-slot-purpose">Record storage</span>{!shape && <span className="scene-storage-lines" aria-hidden="true"><i /><i /><i /></span>}</div>
+          <div className="scene-runtime-shape" aria-hidden={!shape}><div className="scene-api scene-shape-slot"><span>Ideas API</span></div><span className="scene-runtime-link" aria-hidden="true">→</span><div className="scene-storage scene-shape-slot"><span>Idea storage</span></div></div>
+          <div className="scene-runtime-realized" aria-hidden={shape}><div className="scene-api scene-shape-slot"><span>Ideas API</span><code>/api/ideas</code></div><span className="scene-runtime-link">→</span><div className="scene-storage scene-shape-slot"><span>Idea storage</span><span className="scene-storage-lines"><i /><i /><i /></span></div></div>
         </article>
       </div>
-      <div className="scene-composition-rail" aria-label="Composed Parts"><span>Parts</span><button {...selectProps('starter')} aria-label="Part: Astro starter">Astro starter</button><span aria-hidden="true">+</span><button {...selectProps('components')} aria-label="Part: Component system">Component system</button><span className="scene-composition-target">compose this app</span></div>
-      <div className="scene-feedback-slot">{active && demo.showToast && <p className="scene-demo-toast" role="status" aria-live="polite">Great energy!</p>}</div>
     </figure>
-    <section className="scene-selected-detail" aria-label="Selected subject">
-      <h3>{detail.title}</h3>
-      <p>{detail.summary[view]}</p>
-      <details key={selectedSubject}>
-        <summary>Composition + provenance</summary>
-        <p>{detail.detail}</p>
-        <p className="scene-relationships">Parts compose the application. Application calls API; API persists records.</p>
-        <p className="scene-outcome">Outcome evidence: unmeasured.</p>
-      </details>
-    </section>
+  </div>;
+}
+
+/** Composition, history and inspection stay outside the sticky visual. */
+export function LandingSystemSupport({ view, selectedSubject, onSelectSubject, demo = emptyDemo }: LandingSystemSceneProps) {
+  const detail = landingSubjects[selectedSubject];
+  const selectProps = (subject: LandingSubject) => ({ type: 'button' as const, 'aria-pressed': selectedSubject === subject, onClick: () => onSelectSubject?.(subject) });
+  const hasIdeas = view === 'phenome' && demo.count > 0;
+  const recent = Array.from({ length: Math.min(3, Math.max(0, demo.count)) }, (_, index) => ideaFor(demo.count - index));
+  return <div className="landing-system-scene scene-support" data-support-view={view}>
+    <div className="scene-feedback-slot">{view === 'phenome' && demo.showToast && <p className="scene-demo-toast" role="status" aria-live="polite">Great energy!</p>}</div>
+    <div className="scene-composition-rail" aria-label="Composed Parts"><span>Parts</span><button {...selectProps('starter')} aria-label="Part: Astro starter">Astro starter</button><span aria-hidden="true">+</span><button {...selectProps('components')} aria-label="Part: Component system">Component system</button><span className="scene-composition-target">compose this app</span></div>
+    <div className="scene-inspection-controls"><button {...selectProps('app')} aria-label="Inspect Artyfact application">Application</button><button {...selectProps('runtime')} aria-label="Inspect API and storage">API + storage</button></div>
+    <section className="scene-selected-detail" aria-label="Selected subject"><h3>{detail.title}</h3><p>{detail.summary[view]}</p><details key={selectedSubject}><summary>Composition + provenance</summary><p>{detail.detail}</p><p>Parts compose the application. Application calls API; API persists ideas.</p><p>Outcome evidence: unmeasured.</p></details></section>
+    <section className="scene-recent-ideas" aria-hidden={!hasIdeas}>{hasIdeas && <><h3>Recent ideas</h3><ul aria-label="Recent ideas">{recent.map((idea, index) => <li key={demo.count - index}><strong>{idea.name}</strong><span>{idea.purpose}</span></li>)}</ul></>}</section>
   </div>;
 }
