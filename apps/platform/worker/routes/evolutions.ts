@@ -26,7 +26,7 @@ export const evolutions = new Hono<AppEnv>()
   // Claims and starts every task of a wave (admin: tokens and secrets appear once, in `started`).
   .post("/systems/:id/evolutions/:eid/waves/:n/start", requireAdmin, async (c) => {
     const n = c.req.param("n");
-    return c.json(await startWave(c.env, c.req.param("id"), c.req.param("eid"), /^\d+$/.test(n) ? Number(n) : NaN, (await body(c)) as Partial<StartWaveRequest>, origin(c)));
+    return c.json(await startWave(c.env, c.req.param("id"), c.req.param("eid"), /^-?\d+$/.test(n) ? Number(n) : NaN, (await body(c)) as Partial<StartWaveRequest>, origin(c)));
   })
   .get("/systems/:id/evolutions/:eid/candidates", async (c) => c.json(await candidatesView(c.env, c.req.param("id"), c.req.param("eid"))))
   .post("/systems/:id/evolutions/:eid/accept", requireAdmin, async (c) =>

@@ -192,7 +192,8 @@ describe("task packet: Task section", () => {
     expect(s).toContain("Shares screen.people with task.3 (soft overlap, do not edit its files src/ui/dialog/**).");
     expect(s).toContain("task.4 depends on task.1 (declared).");
     expect(s).toContain("checkpoint `needs:<path>` and stop");
-    expect(waveOf(plan, "task.4")).toBe(1);
+    expect(waveOf(plan, "task.1")).toBe(1);
+    expect(waveOf(plan, "task.4")).toBe(2);
     expect(waveOf(plan, "task.9")).toBeNull();
   });
 
@@ -200,19 +201,19 @@ describe("task packet: Task section", () => {
     const task = plan.tasks[0];
     const p = await buildTaskPacket(input({
       task: {
-        id: task.id, title: task.title, intent: task.intent, nodes: task.nodes, dependsOn: [], wave: 0, acceptanceCriteria: ["C.people.list"],
+        id: task.id, title: task.title, intent: task.intent, nodes: task.nodes, dependsOn: [], wave: 1, acceptanceCriteria: ["C.people.list"],
         independence: independenceStatement(task, plan, ["src/ui/people/**"]),
         doNotTouch: [{ task: "task.2", globs: ["src/worker/routes/contacts.ts"] }],
         concurrent: ["task.2 (src/worker/routes/contacts.ts)"], after: ["task.4"],
       },
     }));
     expect(p.acceptanceCriteria.map((c) => c.id)).toEqual(["C.people.list"]);
-    expect(p.task).toMatchObject({ id: "task.1", wave: 0, nodes: ["screen.people"] });
+    expect(p.task).toMatchObject({ id: "task.1", wave: 1, nodes: ["screen.people"] });
     expect(p.task).not.toHaveProperty("doNotTouch");
     const md = p.markdown;
     expect(md.indexOf("## Task")).toBeGreaterThan(md.indexOf("## Intent"));
     expect(md.indexOf("## Task")).toBeLessThan(md.indexOf("## Acceptance criteria"));
-    expect(md).toContain("`task.1`: Title task.1 (wave 0)");
+    expect(md).toContain("`task.1`: Title task.1 (wave 1)");
     expect(md).toContain("Independent of task.2");
     const lines = p.agentsMd.split("\n");
     expect(lines.slice(1, 6)).toEqual([

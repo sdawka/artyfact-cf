@@ -161,10 +161,10 @@ function wireTask(t: PacketTask): TaskPacketTask {
   return { id: t.id, title: t.title, intent: t.intent, nodes: t.nodes, dependsOn: t.dependsOn, independence: t.independence, wave: t.wave };
 }
 
-/** Index of the wave holding `taskId`, or null when the plan does not place it. */
+/** The 1-based wave holding `taskId` (`plan.waves[i]` is wave i + 1), or null when the plan does not place it. */
 export function waveOf(plan: Pick<TaskPlan, "waves">, taskId: string): number | null {
-  const n = plan.waves.findIndex((w) => w.includes(taskId));
-  return n < 0 ? null : n;
+  const i = plan.waves.findIndex((w) => w.includes(taskId));
+  return i < 0 ? null : i + 1;
 }
 
 const NEEDS = "If you need a file another task owns, checkpoint `needs:<path>` and stop.";

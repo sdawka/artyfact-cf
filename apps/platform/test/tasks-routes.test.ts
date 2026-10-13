@@ -62,21 +62,21 @@ async function submitClaimed(f: Flow, c: ClaimTaskResponse, files: Record<string
 }
 
 describe("waves", () => {
-  it("starts wave 0 with task-scoped packets, lists tasks, and refuses wave 1 until wave 0 is promoted", async () => {
+  it("starts wave 1 with task-scoped packets, lists tasks, and refuses wave 2 until wave 1 is promoted", async () => {
     const f = await importFresh();
     const plan = await planned(f);
     expect(plan.waves).toEqual([[A, B], [C]]);
 
-    const res = await call<StartWaveResponse>("POST", `${sys(f)}/evolutions/evolution.1/waves/0/start`, { agentLabels: { [A]: "claude:a" } }, ADMIN);
+    const res = await call<StartWaveResponse>("POST", `${sys(f)}/evolutions/evolution.1/waves/1/start`, { agentLabels: { [A]: "claude:a" } }, ADMIN);
     expect(res.status, JSON.stringify(res.json)).toBe(200);
-    expect(res.json.wave).toBe(0);
+    expect(res.json.wave).toBe(1);
     expect(res.json.skipped).toEqual([]);
     expect(res.json.started.map((s) => s.task)).toEqual([A, B]);
     const [a, b] = res.json.started;
     for (const [s, id] of [[a, A], [b, B]] as const) {
       const footprint = plan.tasks.find((t) => t.id === id)!.footprint;
       expect(s.packet.permittedPaths.sort()).toEqual([...footprint.globs].sort());
-      expect(s.packet.task).toMatchObject({ id, wave: 0 });
+      expect(s.packet.task).toMatchObject({ id, wave: 1 });
       expect(s.packet.markdown).toContain("## Task");
       expect(s.packet.agentsMd.split("\n")[1]).toBe(`You are realizing task ${id} (Do ${id}) of evolution.1 for ${f.systemId}. Read TASK_PACKET.md fully.`);
       expect(s.token.value).toBeTruthy();
@@ -94,45 +94,46 @@ describe("waves", () => {
     expect(b.packet.agentsMd).toContain(`Concurrent tasks: ${A} of evolution.1`);
 
     const claimed = await call<TasksResponse>("GET", `${sys(f)}/tasks?status=claimed`);
-    expect(claimed.json.tasks.map((t) => [t.id, t.status, t.wave, t.realizationId])).toEqual([[A, "claimed", 0, a.realization.id], [B, "claimed", 0, b.realization.id]]);
+    expect(claimed.json.tasks.map((t) => [t.id, t.status, t.wave, t.realizationId])).toEqual([[A, "claimed", 1, a.realization.id], [B, "claimed", 1, b.realization.id]]);
     const open = await call<TasksResponse>("GET", `${sys(f)}/tasks?status=planned`);
-    expect(open.json.tasks).toEqual([expect.objectContaining({ id: C, evolutionTitle: "List people", wave: 1, blockedOn: [A] })]);
+    expect(open.json.tasks).toEqual([expect.objectContaining({ id: C, evolutionTitle: "List people", wave: 2, blockedOn: [A] })]);
     expect(open.json.waves).toEqual({ "evolution.1": [[A, B], [C]] });
     expect(open.json.conflicts.every((c) => c.tasks.includes(C))).toBe(true);
     expect((await call<ApiError>("GET", `${sys(f)}/tasks?status=done`)).status).toBe(400);
 
-    const blocked = await call<ApiError>("POST", `${sys(f)}/evolutions/evolution.1/waves/1/start`, {}, ADMIN);
+    const blocked = await call<ApiError>("POST", `${sys(f)}/evolutions/evolution.1/waves/2/start`, {}, ADMIN);
     expect(blocked.status).toBe(409);
     expect(blocked.json.error).toMatchObject({ code: "wave-blocked", details: { pending: [A, B] } });
     // Forced, C still waits on its dependency: skipped, not started.
-    const forced = await call<StartWaveResponse>("POST", `${sys(f)}/evolutions/evolution.1/waves/1/start`, { force: true }, ADMIN);
+    const forced = await call<StartWaveResponse>("POST", `${sys(f)}/evolutions/evolution.1/waves/2/start`, { force: true }, ADMIN);
     expect(forced.status).toBe(200);
-    expect(forced.json).toEqual({ wave: 1, started: [], skipped: [{ task: C, reason: `blocked by ${A} (not yet promoted)` }] });
+    expect(forced.json).toEqual({ wave: 2, started: [], skipped: [{ task: C, reason: `blocked by ${A} (not yet promoted)` }] });
 
-    // Once wave 0 is promoted, wave 1 starts.
+    // Once wave 1 is promoted, wave 2 starts.
     await inDo(f.systemId, (i) => { i.setTaskStatus(A, "promoted"); i.setTaskStatus(B, "promoted"); });
-    const next = await call<StartWaveResponse>("POST", `${sys(f)}/evolutions/evolution.1/waves/1/start`, {}, ADMIN);
+    const next = await call<StartWaveResponse>("POST", `${sys(f)}/evolutions/evolution.1/waves/2/start`, {}, ADMIN);
     expect(next.status, JSON.stringify(next.json)).toBe(200);
     expect(next.json.started.map((s) => s.task)).toEqual([C]);
     expect(next.json.started[0].packet.agentsMd).toContain("After you: no task waits on this one.");
 
-    expect((await call<ApiError>("POST", `${sys(f)}/evolutions/evolution.1/waves/2/start`, {}, ADMIN)).status).toBe(404);
-    expect((await call<ApiError>("POST", `${sys(f)}/evolutions/evolution.1/waves/0/start`, {})).status).toBe(401);
+    expect((await call<ApiError>("POST", `${sys(f)}/evolutions/evolution.1/waves/3/start`, {}, ADMIN)).status).toBe(404);
+    expect((await call<ApiError>("POST", `${sys(f)}/evolutions/evolution.1/waves/0/start`, {}, ADMIN)).status).toBe(404);
+    expect((await call<ApiError>("POST", `${sys(f)}/evolutions/evolution.1/waves/1/start`, {})).status).toBe(401);
   });
 
-  it("starts a wave-1 task with force when only files (not dependencies) put it there", async () => {
+  it("starts a wave-2 task with force when only files (not dependencies) put it there", async () => {
     const f = await importFresh();
     const plan = await planned(f, { [C]: { dependsOn: [] } });
-    // Greedy colouring in id order: C (task.record) takes wave 0, B shares its file and moves to wave 1.
+    // Greedy colouring in id order: C (task.record) takes wave 1, B shares its file and moves to wave 2.
     expect(plan.waves).toEqual([[A, C], [B]]);
-    expect((await call<ApiError>("POST", `${sys(f)}/evolutions/evolution.1/waves/1/start`, {}, ADMIN)).json.error.code).toBe("wave-blocked");
-    const forced = await call<StartWaveResponse>("POST", `${sys(f)}/evolutions/evolution.1/waves/1/start`, { force: true }, ADMIN);
+    expect((await call<ApiError>("POST", `${sys(f)}/evolutions/evolution.1/waves/2/start`, {}, ADMIN)).json.error.code).toBe("wave-blocked");
+    const forced = await call<StartWaveResponse>("POST", `${sys(f)}/evolutions/evolution.1/waves/2/start`, { force: true }, ADMIN);
     expect(forced.json.started.map((s) => s.task)).toEqual([B]);
   });
 
   it("answers 404 no-plan for an Evolution without a plan", async () => {
     const f = await importFresh();
-    const res = await call<ApiError>("POST", `${sys(f)}/evolutions/evolution.1/waves/0/start`, {}, ADMIN);
+    const res = await call<ApiError>("POST", `${sys(f)}/evolutions/evolution.1/waves/1/start`, {}, ADMIN);
     expect(res.status).toBe(404);
     expect(res.json.error.code).toBe("no-plan");
   });

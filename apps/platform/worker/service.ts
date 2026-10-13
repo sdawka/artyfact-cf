@@ -410,7 +410,7 @@ function packetTask(task: Task, plan: TaskPlan | null, ownGlobs: string[], wave:
   for (const t of others) if (t.status !== "promoted") doNotTouch.set(t.id, minusOwn(t.footprint.globs));
   for (const w of running) if (!doNotTouch.has(w.task!)) doNotTouch.set(w.task!, minusOwn(w.permittedPaths));
   const runningIds = new Set(running.map((w) => w.task!));
-  const siblings = wave === null ? [] : (plan?.waves[wave] ?? []).filter((id) => id !== task.id && !runningIds.has(id))
+  const siblings = wave === null ? [] : (plan?.waves[wave - 1] ?? []).filter((id) => id !== task.id && !runningIds.has(id))
     .map((id) => others.find((t) => t.id === id)).filter((t): t is Task => !!t && !["promoted", "rejected", "abandoned"].includes(t.status));
   return {
     id: task.id, title: task.title, intent: task.intent, nodes: task.nodes, dependsOn: task.dependsOn, wave,
@@ -1338,14 +1338,14 @@ async function reclaimed(env: Env, systemId: string, task: Task): Promise<ClaimT
 }
 
 /**
- * `POST /systems/:id/evolutions/:eid/waves/:n/start` (admin): claim and start every task of wave `n` one after the
+ * `POST /systems/:id/evolutions/:eid/waves/:n/start` (admin): claim and start every task of wave `n` (1-based) one after the
  * other (fork numbering is not concurrency-safe). Refused 409 `wave-blocked` while an earlier wave has a task that is
  * not promoted, unless `force`. A task that cannot be claimed or started is reported in `skipped`, never fatal.
  */
 export async function startWave(
   env: Env, systemId: string, evolutionId: string, n: number, body: Partial<StartWaveRequest>, platformUrl: string,
 ): Promise<StartWaveResponse & { started: TaskStartResponse[] }> {
-  if (!Number.isInteger(n) || n < 0) throw badRequest("wave must be a non-negative integer");
+  if (!Number.isInteger(n)) throw badRequest("wave must be an integer");
   const labels = body.agentLabels ?? {};
   if (typeof labels !== "object" || Array.isArray(labels)) throw badRequest("agentLabels must map task ids to labels");
   for (const [k, v] of Object.entries(labels)) agentLabelOf(v, `agentLabels.${k}`);
@@ -1356,10 +1356,11 @@ export async function startWave(
   if (!(await stub.evolution(evolutionId))) throw notFound(`unknown evolution ${evolutionId}`);
   const plan = await stub.plan(evolutionId);
   if (!plan) throw new HttpError(404, "no-plan", `evolution ${evolutionId} has no task plan`);
-  const ids = plan.waves[n];
-  if (!ids) throw notFound(`evolution ${evolutionId} has ${plan.waves.length} wave(s); there is no wave ${n}`);
+  // Waves are 1-based on the API: wave n is `plan.waves[n - 1]`.
+  const ids = n >= 1 ? plan.waves[n - 1] : undefined;
+  if (!ids) throw notFound(`evolution ${evolutionId} has waves 1 to ${plan.waves.length}; there is no wave ${n}`);
   const status = new Map(plan.tasks.map((t) => [t.id, t.status] as const));
-  const pending = plan.waves.slice(0, n).flat().filter((id) => status.get(id) !== "promoted");
+  const pending = plan.waves.slice(0, n - 1).flat().filter((id) => status.get(id) !== "promoted");
   if (pending.length && !body.force) {
     throw conflict("wave-blocked", `wave ${n} waits on earlier waves: ${pending.join(", ")} not promoted`, { pending });
   }
