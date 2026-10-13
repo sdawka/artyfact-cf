@@ -210,6 +210,7 @@ The platform stamps `seq`, `receivedAt` and the realization. The Deployments pag
 | `examples/keep-in-touch-system` | The worked example Genome |
 | `examples/keep-in-touch-app` | The example app that agents change |
 | `docs/design` | Design notes for each part |
+| `docs/costs.md` | Cloudflare cost plan, usage checks and guardrails |
 
 ## Not done on purpose
 
