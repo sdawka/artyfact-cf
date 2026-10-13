@@ -4,6 +4,7 @@ import { createSystemOne } from "@artyfact/semantic";
 import type { CandidateRef, Evaluation, EvolutionRef, SubmissionContext } from "../../worker/hooks/contract";
 import { createHookRunner, selectHooks } from "../../worker/hooks/run";
 import { loadGenome } from "../../worker/hooks/model-rules";
+import { gateCriteria } from "../../worker/promotion";
 import { BASE, COMMIT, miniGenome, withRecipients } from "./fixtures";
 
 const appCandidate = (over: Partial<CandidateRef> = {}): CandidateRef => ({
@@ -64,13 +65,23 @@ describe("hook selection: the DO's Evolution record (API-created evolutions)", (
 
   it("falls back to the stored Evolution when the Genome does not declare it", () => {
     const sel = selectHooks(model, appCandidate({ evolutionId: "evolution.api", changedNodes: [] }), "submission", stored());
-    expect(ids(sel)).toEqual(["C.webapp.health|acceptance", "C.system.structure|system-gate", "C.system.promotion|system-gate", "C.system.readiness|system-gate"]);
+    expect(ids(sel)).toEqual(["C.webapp.health|acceptance", "C.system.structure|system-gate", "C.system.promotion|system-gate", "C.system.readiness|system-gate", "C.webapp.exists|promotion-gate"]);
     expect(sel.every((s) => s.notes.length === 0)).toBe(true);
   });
 
   it("prefers the Genome's Evolution over the stored record with the same id", () => {
     const genome = selectHooks(model, appCandidate());
     expect(selectHooks(model, appCandidate(), "submission", stored({ id: "evolution.1", acceptanceCriteria: [] }))).toEqual(genome);
+  });
+
+  it("selects every criterion that blocks promotion, whatever the task lists, and only model ones for a Genome candidate", () => {
+    const blocking = gateCriteria(model, { acceptanceCriteria: ["C.webapp.health"] }, appCandidate()).filter((g) => g.blocking).map((g) => g.id);
+    expect(blocking).toContain("C.webapp.exists");
+    const task = selectHooks(model, appCandidate(), "submission", stored({ id: "evolution.1", acceptanceCriteria: ["C.webapp.health"] }));
+    for (const id of blocking) expect(task.map((s) => s.criterion.id), id).toContain(id);
+    expect(ids(task)).toContain("C.webapp.exists|promotion-gate");
+    const genome = selectHooks(model, appCandidate({ target: "genome" }), "submission", stored({ id: "evolution.1", acceptanceCriteria: [] }));
+    expect(genome.map((s) => s.criterion.id)).not.toContain("C.webapp.exists");
   });
 
   it("ignores a stored record for another Evolution, and an id known nowhere stays C.evolution-missing", () => {
