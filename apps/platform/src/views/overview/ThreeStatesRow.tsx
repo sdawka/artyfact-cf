@@ -1,10 +1,11 @@
 import { useReadiness } from "@/api/queries";
 import { Meter } from "@/components/Meter/Meter";
+import { LAYER_QUESTIONS } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
 import { conformanceMeter, outcomeMeter, readinessMeter, relativeTime, shortRev } from "./states";
 import styles from "./Overview.module.css";
 
-/** Three separate meters, each on its own scale. They are never summed or averaged. */
+/** Three separate meters, each on its own scale and under its layer's question. They are never summed or averaged. */
 export function ThreeStatesRow({ onMeter }: { onMeter?: (el: HTMLElement) => void } = {}) {
   const m = useModel();
   const { data } = useReadiness();
@@ -30,6 +31,7 @@ export function ThreeStatesRow({ onMeter }: { onMeter?: (el: HTMLElement) => voi
       <div className={styles.meters}>
         <Meter
           title="Model readiness"
+          question={LAYER_QUESTIONS.genome}
           headline={readiness.headline}
           segments={readiness.segments}
           caption="Is the Genome complete and consistent? It does not say the app works or that the Purpose is served."
@@ -38,6 +40,7 @@ export function ThreeStatesRow({ onMeter }: { onMeter?: (el: HTMLElement) => voi
         />
         <Meter
           title="Implementation conformance"
+          question={LAYER_QUESTIONS.proteome}
           headline={conformance.headline}
           segments={conformance.segments}
           caption="Do realizations satisfy Thing criteria? It does not say the Genome is ready or that users benefit."
@@ -50,6 +53,7 @@ export function ThreeStatesRow({ onMeter }: { onMeter?: (el: HTMLElement) => voi
         />
         <Meter
           title="Outcome progress"
+          question={LAYER_QUESTIONS.phenome}
           headline={outcome.headline}
           segments={outcome.segments}
           caption="Is the Purpose being achieved for people? Only observations of Theory claims move it, not tests or readiness."

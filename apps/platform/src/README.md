@@ -100,7 +100,7 @@ bare defaults only for a model without the map.
 `titleOf` / `summaryOf(entry, view)` read the hinted fields (`fieldValue` also reads a v2 node's `fields` map); `kindColour(view)`
 sets `--kind` for glyphs. No code in `src/` branches on a kind name (`no-kind-switch.test.ts`); kinds are plain strings.
 Also `bestViewFor(entryType)`, `VIEW_KINDS` (Journeys needs `journey`, Theory `claim`; SideNav hides a view whose kind no
-template declares), `VIEWS`, `VIEW_LABELS`, `VIEW_GLYPHS`, `VIEW_GROUPS` (Overview, then Genome · Proteome · Phenome), `GO_KEYS`.
+template declares), `VIEWS`, `VIEW_LABELS`, `VIEW_GLYPHS`, `VIEW_GROUPS` (Overview, then Genome · Proteome · Phenome, each with its `question`), `LAYER_QUESTIONS`, `GO_KEYS`.
 `time.ts`: `relTime(iso, now)`, `shortSha(hash)`, `useNow(ms)` (literal "unknown" for missing values).
 `revisions.ts`: `RevisionOption`, `shortRev(ref)`, `revisionGroups(options, value?)`.
 
@@ -213,16 +213,18 @@ Other unregistered objects use `GenericBody`, a key/value dump. Never register a
 
 ## Shell
 
-SideNav: Overview, then three `role="group"` sections with a sentence-case heading: Genome (Map, Journeys, Theory, Code),
-Proteome (Work, Evaluations, Changelog, Compare), Phenome (Deployments). Each link keeps the global params; at 640 px and
-below labels and group headings become screen-reader only. The wordmark links to Home.
+SideNav: Overview, then three `role="group"` sections headed by the layer name (`aria-labelledby`) with its question as a
+quiet subline (`aria-describedby`, `LAYER_QUESTIONS`): Genome (Map, Journeys, Theory, Code), Proteome (Work, Review,
+Evaluations, Changelog), Phenome (Deployments), then Private Parts. Review shows `useReviewCount()` when above zero. Compare
+is off the rail (`g x`, Changelog's "Compare with parent"). Each link keeps the global params; at 640 px and below labels
+and questions become screen-reader only while the layer heads stay visible. The wordmark links to Home.
 Map bands: with template `view.layers`, a scope's children are its nearest descendants whose kind is in a layer (undrawn
 containers are looked through), drawn in one labelled band frame per layer in template order along the flow; the rail's
 Filters list the layers. Without layers, every kind is drawn and children band by containment depth (no frames). The Layer switch lives in the Map
 header (visual label "Overlay", `aria-label="Layer"`); `?layer=` stays global.
 
 ⌘K / Ctrl+K opens the palette. Esc clears focus. `[` / `]` move to the previous / next sibling.
-`g` then `o m j t c w e l x d` goes to Overview, Map, Journeys, Theory, Code, Work, Evaluations, Changelog, Compare,
+`g` then `o m j t c w r e l x d` goes to Overview, Map, Journeys, Theory, Code, Work, Review, Evaluations, Changelog, Compare,
 Deployments (`h`, the old History key, opens the Changelog). Shortcuts are ignored while typing in inputs
 (`isTyping(target)`, exported from `app/Shell.tsx` for views' own shortcuts, e.g. the Map's Backspace).
 

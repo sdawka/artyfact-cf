@@ -22,6 +22,10 @@ describe("Meter", () => {
     expect(screen.getByText("not run").nextSibling?.textContent).toBe("2");
     expect(screen.getByText("fail").nextSibling?.textContent).toBe("0");
   });
+  it("shows the question under the title when given", () => {
+    render(<Meter title="T" question="What should it be" headline="unknown" caption="c" segments={[]} />);
+    expect(screen.getByText("What should it be").previousElementSibling?.textContent).toBe("T");
+  });
   it("shows the empty text instead of a legend when nothing is counted", () => {
     render(<Meter title="T" headline="unknown" caption="c" segments={[{ key: "a", label: "a", count: 0, tone: "subtle" }]} emptyText="nothing yet" />);
     expect(screen.getByText("nothing yet")).toBeTruthy();

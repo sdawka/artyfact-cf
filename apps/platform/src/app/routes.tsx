@@ -21,6 +21,7 @@ export const viewModules: Record<ViewName, () => Promise<ViewModule>> = {
   theory: () => import("@/views/theory"),
   code: () => import("@/views/code"),
   work: () => import("@/views/work"),
+  review: () => import("@/views/review"),
   evaluations: () => import("@/views/evaluations"),
   changelog: () => import("@/views/changelog"),
   compare: () => import("@/views/compare"),
@@ -35,6 +36,23 @@ function HistoryRedirect() {
   const { systemId, rev } = useParams();
   const { search, hash } = useLocation();
   return <Navigate replace to={{ pathname: viewPath(systemId!, rev!, "changelog"), search, hash }} />;
+}
+
+/**
+ * Promotion moved from Work to Review: `…/work?panel=promote` opens `…/review` with every param and the hash kept,
+ * at System and Thing depth alike. Any other Work URL renders Work.
+ */
+function WorkOrPromoteRedirect({ Work }: { Work: React.ComponentType }) {
+  const { search, hash } = useLocation();
+  if (new URLSearchParams(search).get("panel") !== "promote") return <Work />;
+  return <Navigate replace relative="path" to={{ pathname: "../review", search, hash }} />;
+}
+
+/** A view's lazy route Component (`overview` under a Thing is the Thing workspace page). */
+async function viewComponent(view: ViewName, inThing: boolean): Promise<React.ComponentType> {
+  if (inThing && view === "overview") return (await import("@/views/things")).default;
+  const View = (await viewModules[view]()).default;
+  return view === "work" ? () => <WorkOrPromoteRedirect Work={View} /> : View;
 }
 
 function SystemLayout() {
@@ -106,11 +124,11 @@ export function createRoutes(queryClient: QueryClient): RouteObject[] {
         { path: "parts", lazy: async () => ({ Component: (await import("@/views/parts/SystemParts")).default }) },
         { path: "things/:thingId", lazy: async () => ({ Component: (await import("@/views/things/ThingBoundary")).default }), children: [
           { index: true, lazy: async () => ({ Component: (await import("@/views/things")).default }) },
-          ...VIEWS.map((view) => ({ path: view, lazy: async () => ({ Component: view === "overview" ? (await import("@/views/things")).default : (await viewModules[view]()).default }) })),
+          ...VIEWS.map((view) => ({ path: view, lazy: async () => ({ Component: await viewComponent(view, true) }) })),
         ] },
         ...VIEWS.map((view) => ({
           path: view,
-          lazy: async () => ({ Component: (await viewModules[view]()).default }),
+          lazy: async () => ({ Component: await viewComponent(view, false) }),
         })),
       ],
     },
