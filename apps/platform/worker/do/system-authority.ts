@@ -1497,8 +1497,8 @@ export class SystemAuthority extends DurableObject<Env> {
     if (!s) throw new ConflictError("not-found", "System not imported");
     return this.proposals().claim(id, s.genomeCommit);
   }
-  releaseProposal(id: string, error: string): void { this.proposals().release(id, error); }
-  finishProposal(id: string, ids: AcceptedIds): Proposal | null { return this.proposals().finish(id, ids); }
+  releaseProposal(id: string, error: string | null): void { this.proposals().release(id, error); }
+  finishProposal(id: string, ids: AcceptedIds, error?: string): Proposal | null { return this.proposals().finish(id, ids, error); }
 
   /**
    * Undo an accept that failed after creating its Evolution: delete the Evolution with its realizations and what they

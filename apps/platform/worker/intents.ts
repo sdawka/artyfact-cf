@@ -23,6 +23,8 @@ import { nowIso } from "./util";
 /** The agent label of an intent's Genome realization; its commits are authored as `intent`. */
 export const INTENT_AGENT = "human:intent";
 const MAX_MESSAGE = 4000;
+/** Replies a proposal takes; beyond this the conversation is too long to route and translate again. */
+export const MAX_TURNS = 10;
 
 // ------------------------------------------------------------------ providers
 
@@ -264,6 +266,9 @@ export async function replyProposal(env: Env, systemId: string, pid: string, bod
   if (body.questionId !== undefined && typeof body.questionId !== "string") throw badRequest("questionId must be a string");
   const s = await stored(env, systemId, pid);
   if (s.proposal.status !== "open" || s.accepting) throw conflict("invalid-state", `proposal ${pid} is ${s.accepting ? "being accepted" : s.proposal.status}`);
+  if (s.turns.length >= MAX_TURNS) {
+    throw unprocessable("too-many-turns", `proposal ${pid} already has ${MAX_TURNS} replies; describe the change again as a new intent`);
+  }
   const question = body.questionId === undefined ? undefined : s.proposal.questions.find((q) => q.id === body.questionId);
   if (body.questionId !== undefined && !question) throw badRequest(`proposal ${pid} has no open question ${body.questionId}`);
   const turns = [...s.turns, { ...(question && { question: question.text }), answer }];
@@ -275,44 +280,66 @@ export async function replyProposal(env: Env, systemId: string, pid: string, bod
   return revised;
 }
 
+/** The chosen ops of `p`, in proposal order: 400 for an id it lacks, 422 `missing-dependency` for an op without its `dependsOn`. */
+function chosenOps(p: Proposal, opIds: string[]): ProposedOp[] {
+  const chosen = new Set(opIds);
+  const unknown = [...chosen].filter((id) => !p.ops.some((o) => o.id === id));
+  if (unknown.length) throw badRequest(`proposal ${p.id} has no ops ${unknown.join(", ")}`);
+  const ops = p.ops.filter((o) => chosen.has(o.id));
+  const missing = ops.flatMap((o) => (o.dependsOn ?? []).filter((d) => !chosen.has(d)).map((d) => `${o.id} needs ${d}`));
+  if (missing.length) throw unprocessable("missing-dependency", `accept the ops these depend on too: ${missing.join("; ")}`, { missing });
+  return ops;
+}
+
 /**
  * `POST …/accept`: the chosen ops (each with the ops it depends on, else 422) become a `genome-amendment` Evolution
  * whose affected nodes are the touched nodes, a Genome realization (origin `editor`) and one commit pushed to its fork
  * and submitted as a candidate. The DO first moves the proposal open → accepting while the head is still the
- * proposal's `genomeCommit` (409 `invalid-state` / `stale-base` otherwise), so concurrent accepts cannot both push; a
- * failure after that returns it to open with the error recorded.
+ * proposal's `genomeCommit` (409 `invalid-state` / `stale-base` otherwise), so concurrent accepts cannot both push.
+ * The op ids are checked against the revision the claim returned, never an earlier read, since a reply re-mints them.
+ * A failure before the push returns the proposal to open with the error recorded; once the commit is pushed it is
+ * never reopened.
  */
 export async function acceptProposal(env: Env, systemId: string, pid: string, body: Record<string, unknown>, platformUrl: string): Promise<IntentAcceptResponse> {
   const opIds = body.opIds;
   if (!Array.isArray(opIds) || !opIds.length || opIds.some((x) => typeof x !== "string")) throw badRequest("opIds must be a non-empty array of op ids");
   const stub = systemStub(env, systemId);
-  const p = (await stored(env, systemId, pid)).proposal;
-  const chosen = new Set(opIds as string[]);
-  const unknown = [...chosen].filter((id) => !p.ops.some((o) => o.id === id));
-  if (unknown.length) throw badRequest(`proposal ${pid} has no ops ${unknown.join(", ")}`);
-  const ops = p.ops.filter((o) => chosen.has(o.id));
-  const missing = ops.flatMap((o) => (o.dependsOn ?? []).filter((d) => !chosen.has(d)).map((d) => `${o.id} needs ${d}`));
-  if (missing.length) throw unprocessable("missing-dependency", `accept the ops these depend on too: ${missing.join("; ")}`, { missing });
-
   const claim = await stub.claimProposal(pid);
   if ("refused" in claim) {
     if (claim.refused === "not-found") throw notFound(`unknown proposal ${pid}`);
     if (claim.refused === "stale-base") {
-      throw conflict("stale-base", `the Genome moved from ${p.provenance.genomeCommit.slice(0, 12)} to ${claim.currentHead.slice(0, 12)}; describe the change again`,
+      throw conflict("stale-base", `the Genome moved to ${claim.currentHead.slice(0, 12)} since this proposal was made; describe the change again`,
         { currentHead: claim.currentHead });
     }
     throw conflict("invalid-state", `proposal ${pid} is ${claim.status}`);
   }
+  let out: IntentAcceptResponse;
   try {
-    const out = await pushAccepted(env, systemId, claim.claimed, ops, platformUrl);
-    const ids = { evolution: out.evolution.id, realization: out.realization.id, candidate: out.candidate.id, commit: out.commit };
-    if (!(await stub.finishProposal(pid, ids))) console.error(`[intents] proposal ${pid} was not accepting when ${out.commit} was committed for it`);
-    return out;
+    let ops: ProposedOp[];
+    try {
+      ops = chosenOps(claim.claimed, opIds as string[]);
+    } catch (e) {
+      await stub.releaseProposal(pid, null);
+      throw e;
+    }
+    out = await pushAccepted(env, systemId, claim.claimed, ops, platformUrl);
   } catch (e) {
     await stub.releaseProposal(pid, (e as Error)?.message ?? String(e)).catch((r: unknown) =>
       console.error(`[intents] releasing proposal ${pid} failed: ${(r as Error)?.message ?? r}`));
     throw e;
   }
+  // Pushed: the proposal is accepted whatever happens next, so a retry can never push the change twice.
+  const ids = { evolution: out.evolution.id, realization: out.realization.id, candidate: out.candidate.id, commit: out.commit };
+  try {
+    if (!(await stub.finishProposal(pid, ids))) console.error(`[intents] proposal ${pid} was not accepting when ${out.commit} was committed for it`);
+  } catch (e) {
+    const error = `recording the accept failed after ${out.commit} was pushed: ${(e as Error)?.message ?? e}`;
+    console.error(`[intents] ${pid}: ${error}`);
+    // Left `accepting` (a 409 to any retry) if this fails too.
+    await stub.finishProposal(pid, ids, error).catch((r: unknown) =>
+      console.error(`[intents] proposal ${pid} stays accepting: ${(r as Error)?.message ?? r}`));
+  }
+  return out;
 }
 
 /** The accept's work once the proposal is claimed: apply, Evolution, Genome realization, commit and candidate. */

@@ -12,9 +12,10 @@ import { routes, type ApiError, type ImportSystemResponse, type IntentAcceptResp
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { walkTree } from "../worker/artifacts/genome-source";
 import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
+import { CLAIM_LEASE_MS, ProposalsStore } from "../worker/do/proposals-store";
 import { setEditorTransport } from "../worker/editor";
 import { resetHooks, setHooks } from "../worker/hooks/index";
-import { genomeGraph, intentProviders, proposedOps, setIntentProviders } from "../worker/intents";
+import { genomeGraph, intentProviders, MAX_TURNS, proposedOps, setIntentProviders } from "../worker/intents";
 import { loadGenome, validate } from "@artyfact/model";
 import { metaTemplates } from "@artyfact/templates";
 import { createEvolution, startWork, systemStub } from "../worker/service";
@@ -139,6 +140,22 @@ describe("POST /intents/:pid/reply", () => {
   });
 });
 
+describe("POST /intents/:pid/reply, turn cap", () => {
+  it(`refuses a reply beyond ${MAX_TURNS} turns with a 422`, async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const turns = (k: number) => JSON.stringify(Array.from({ length: k }, (_, i) => ({ answer: `a${i}` })));
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (_i: SystemAuthority, st) => {
+      st.storage.sql.exec("UPDATE proposals SET turns_json = ? WHERE id = ?", turns(MAX_TURNS - 1), p.id);
+    });
+    expect((await call<Proposal>("POST", routes.intentReply(s.systemId, p.id), { answer: "the last one" })).status).toBe(200);
+    expect((await systemStub(env, s.systemId).proposal(p.id))?.turns).toHaveLength(MAX_TURNS);
+    const r = await call<ApiError>("POST", routes.intentReply(s.systemId, p.id), { answer: "one more" });
+    expect(r.status).toBe(422);
+    expect(r.json.error).toMatchObject({ code: "too-many-turns", message: `proposal ${p.id} already has ${MAX_TURNS} replies; describe the change again as a new intent` });
+  });
+});
+
 describe("POST /intents/:pid/accept", () => {
   it("commits the chosen ops to a Genome realization and submits the candidate on a new Evolution", async () => {
     const s = await importSystem();
@@ -252,6 +269,91 @@ describe("POST /intents/:pid/accept", () => {
     const after = await systemStub(env, s.systemId).work();
     expect(after.evolutions.filter((e) => e.title === p.message).map((e) => e.state)).toEqual(["evaluated"]);
     expect(after.realizations.filter((r) => r.agent.id === "human:intent")).toHaveLength(1);
+  });
+
+  /** Runs `around` in place of the DO method `name` (on the prototype, which RPC dispatches through) until `restore()`. */
+  async function patchDo(s: Sys, name: "claimProposal" | "finishProposal", around: (orig: (...a: unknown[]) => unknown, self: SystemAuthority, ...a: unknown[]) => unknown) {
+    let restore = () => {};
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (i: SystemAuthority) => {
+      const proto = Object.getPrototypeOf(i) as Record<string, unknown>;
+      const orig = proto[name] as (...a: unknown[]) => unknown;
+      proto[name] = function (this: SystemAuthority, ...a: unknown[]) { return around((...b) => orig.apply(this, b), this, ...a); };
+      restore = () => { proto[name] = orig; };
+    });
+    return () => restore();
+  }
+
+  it("applies the ops of the revision it claimed when a reply lands between the read and the claim", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    expect(p.ops).toEqual([expect.objectContaining({ id: "op.1", node: "screen.today" })]);
+    // A reply revises the proposal just before the claim: op.1 now updates screen.people, and op.2 no longer exists.
+    const revised: Proposal = { ...p, ops: [{ id: "op.1", op: "update", node: "screen.people", fields: { description: "Revised by the reply" } }] };
+    const restore = await patchDo(s, "claimProposal", (orig, self, ...a) => {
+      (self as unknown as { reviseProposal(p: Proposal, t: unknown[]): unknown }).reviseProposal(revised, [{ answer: "the People screen" }]);
+      return orig(...a);
+    });
+    try {
+      const gone = await accept(s, p, ["op.2"]);
+      expect(gone.status).toBe(400);
+      expect(await systemStub(env, s.systemId).proposal(p.id)).toMatchObject({ proposal: { status: "open" }, accepting: false });
+      expect((await systemStub(env, s.systemId).proposal(p.id))?.acceptError).toBeUndefined();
+
+      const r = await accept(s, p, ["op.1"]);
+      expect(r.status, JSON.stringify(r.json)).toBe(201);
+      expect(r.json.evolution.affectedNodes).toEqual(["screen.people"]);
+      const path = r.json.candidate.changedPaths[0]!;
+      expect(path).toMatch(/(^|\/)screen\.people\/node\.yaml$/);
+      expect((await filesAt(s, r.json.realization.workspace.fork, r.json.commit)).get(path)).toContain("description: Revised by the reply");
+      expect((await systemStub(env, s.systemId).proposal(p.id))?.proposal).toMatchObject({ status: "accepted", ops: revised.ops });
+    } finally {
+      restore();
+    }
+  });
+
+  it("marks the proposal accepted with the error when recording fails after the push, so a retry cannot push twice", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    let calls = 0;
+    const restore = await patchDo(s, "finishProposal", (orig, _self, ...a) => {
+      if (++calls === 1) throw new Error("DO hiccup");
+      return orig(...a);
+    });
+    try {
+      const r = await accept(s, p, ["op.1"]);
+      expect(r.status, JSON.stringify(r.json)).toBe(201);
+      expect(calls).toBe(2);
+      expect(await systemStub(env, s.systemId).proposal(p.id)).toMatchObject({
+        proposal: { status: "accepted" }, accepting: false, acceptError: expect.stringContaining(`after ${r.json.commit} was pushed: `),
+      });
+      const again = await accept(s, p, ["op.1"]);
+      expect(again.status).toBe(409);
+      expect(again.json.error.code).toBe("invalid-state");
+      expect((await systemStub(env, s.systemId).work()).evolutions.filter((e) => e.title === p.message)).toHaveLength(1);
+    } finally {
+      restore();
+    }
+  });
+
+  it("lets a new accept take over a claim older than the lease, never a fresh one", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (_i: SystemAuthority, st) => {
+      const store = new ProposalsStore(st.storage.sql);
+      const t0 = Date.parse("2026-10-13T10:00:00Z");
+      expect(store.claim(p.id, s.genomeCommit, t0)).toMatchObject({ claimed: { id: p.id } });
+      expect(store.claim(p.id, s.genomeCommit, t0 + CLAIM_LEASE_MS)).toEqual({ refused: "invalid-state", status: "accepting" });
+      // Lapsed but the head moved: the claim is released, and the accept is stale.
+      expect(store.claim(p.id, "f".repeat(40), t0 + CLAIM_LEASE_MS + 1)).toEqual({ refused: "stale-base", currentHead: "f".repeat(40) });
+      expect(store.get(p.id)).toMatchObject({ accepting: false, acceptError: expect.stringContaining("stopped") });
+      expect(store.claim(p.id, s.genomeCommit, t0)).toMatchObject({ claimed: { id: p.id } });
+      expect(store.claim(p.id, s.genomeCommit, t0 + CLAIM_LEASE_MS + 1)).toMatchObject({ claimed: { id: p.id } });
+      // Back-date the claim as if its isolate died long ago.
+      st.storage.sql.exec("UPDATE proposals SET claimed_at = ? WHERE id = ?", new Date(Date.now() - CLAIM_LEASE_MS - 1000).toISOString(), p.id);
+    });
+    const r = await accept(s, p, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect((await systemStub(env, s.systemId).proposal(p.id))?.proposal.status).toBe("accepted");
   });
 
   it("never discards an Evolution that is part of the System's history", async () => {
