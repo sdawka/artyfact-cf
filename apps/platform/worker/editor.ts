@@ -7,7 +7,7 @@ import type { EditorCommitRequest, EditorCommitResponse, FileResponse, FileScope
 import { artifactsFor, remoteUrl, withRepo, type ArtifactsRepoLike, type TreeEntry } from "./artifacts/client";
 import { genomePrefix, listTree } from "./artifacts/genome-source";
 import { globMatch, loadSourceMap, nodesForPath } from "./artifacts/source-map";
-import { resolveRef } from "./compare";
+import { declaredNodes, resolveRef, type ResolvedRef } from "./compare";
 import { TERMINAL_REALIZATION, type HeadState } from "./do/system-authority";
 import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
 import { pathProblem, pushCommit, PushRejected, type AuthScheme, type FileChange } from "./git/push";
@@ -53,7 +53,17 @@ export async function listFiles(env: Env, systemId: string, scope: FileScope, re
   const resolved = await resolveRef(env, await headState(env, systemId), scope, ref);
   const listing = await withRepo(artifactsFor(env), resolved.repo, (r) => listTree(r, resolved.commit));
   const files = [...listing].map(([path, e]) => ({ path, hash: e.hash })).sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
-  return { ref: resolved, files };
+  const nodes = scope === "genome" ? await genomeNodes(env, systemId, resolved, files.map((f) => f.path)) : undefined;
+  return { ref: resolved, files: nodes ? files.map((f) => ({ ...f, nodes: nodes[f.path] ?? [] })) : files };
+}
+
+/** Per Genome path, the node ids the Genome at `ref` declares in it; undefined when that Genome does not load. */
+async function genomeNodes(env: Env, systemId: string, ref: ResolvedRef, paths: string[]): Promise<Record<string, string[]> | undefined> {
+  try {
+    return declaredNodes((await genomeAt(env, systemId, ref.commit, ref.repo)).model, paths);
+  } catch {
+    return undefined; // degraded: the files still list, without nodes
+  }
 }
 
 /** The tree entry at `path` under `commit`, walking one tree per segment; null when absent or a directory. */
@@ -118,7 +128,8 @@ export async function readFileAt(env: Env, systemId: string, scope: FileScope, r
     }
     return { hash: e.hash, size, text, binary, truncated: size > READ_CAP_BYTES, ...(nodes && { nodes }) };
   });
-  return { ref: resolved, path, ...out };
+  const nodes = scope === "genome" ? (await genomeNodes(env, systemId, resolved, [path]))?.[path] : undefined;
+  return { ref: resolved, path, ...out, ...(nodes && { nodes }) };
 }
 
 // ------------------------------------------------------------------ commit

@@ -728,7 +728,8 @@ export interface RevisionsResponse {
 /** `GET /api/systems/:id/files?scope=&ref=`. */
 export interface FilesResponse {
   ref: ResolvedRef;
-  files: { path: string; hash: string; size?: number }[];
+  /** Genome scope: `nodes` are the ids the loaded model declares in each path (absent when the Genome does not load). */
+  files: { path: string; hash: string; size?: number; nodes?: NodeId[] }[];
 }
 /** `GET /api/systems/:id/file?scope=&ref=&path=`. `text` is null for binary files. */
 export interface FileResponse {
@@ -739,7 +740,7 @@ export interface FileResponse {
   size: number;
   truncated: boolean;
   binary: boolean;
-  /** Model nodes the path maps to (source map). */
+  /** Model nodes the path maps to: the source map (app) or the ids the loaded model declares in it (Genome; absent when it does not load). */
   nodes?: NodeId[];
 }
 
