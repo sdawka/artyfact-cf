@@ -32,7 +32,15 @@ Evaluations: filterable table → expand Question/Method/Raw observations/Interp
 Changelog: one dense row per System commit (id, time, who and policy, Evolutions, rationale, node/file/criteria summary, build and deployment chips, fake-provider label). A row expands to the semantic delta, changed app files (each links to Code at that commit), criteria before/after, builds and the deployment, and "Compare with parent". Genome-only commits change nodes and no app file.
 
 ## C.7a Home
-`/` is outside the System layout: its own header (wordmark, fixture pill and Retry), `h1 Systems` and one card per System from `GET /api/systems`. A card shows phase and the server's signifier chips (evolving, pending realization, awaiting review, not built, deployed or behind, observed, unrealized), the latest build and the deploy state; success colour only for a passed build. An empty API shows an empty state with the `artyfact init` hint; an unreachable API falls back to the bundled fixture.
+`/` is outside the System layout: its own header (wordmark, fixture pill and Retry, admin token, "Go to… ⌘K"), `h1 Systems`, a "Needs you" ledger and one card per System from `GET /api/systems`. Everything is computed client-side from that response.
+
+**Needs you.** One row per pending decision across all Systems, each a link: "<System> · N candidates await review" to that System's head Review, "<System> · deployed, behind" and "<System> · deploy failed" to its Deployments. Row text is attention-toned (danger for a failed deploy). With nothing pending the section is one quiet line, "Nothing is waiting on you." It is plain text, so reduced motion and effects off read identically.
+
+**Card.** System name, id and Phase; one headline sentence by precedence attention > evolving > not built > quiet ("3 await your review", "2 realizations evolving", "not built", "quiet"); one deploy line with the latest build folded in ("deployed · build passed", "deployed, behind", "× deploy failed", "deploying", "not deployed, unknown"); head sha and updated time. Success colour appears only when the build passed. Beside the card, "Describe a change" and, when something awaits, "Review". `observed` is not shown on the card.
+
+**Order.** Cards sort by attention, then evolving, then most recently updated. `cardSummary()` in `views/home/signifiers.ts` produces the headline, tone, deploy line and review link; `needsYou()` produces the ledger rows.
+
+**Go to… ⌘K.** Opens a Home-scoped palette over Systems and shared Parts (Home has no System model, so it does not reuse the System palette's index). An empty API shows an empty state with the `artyfact init` hint; an unreachable API falls back to the bundled fixture.
 
 ## C.7b Code
 Genome and App tabs, a revision picker, a file tree and a CodeMirror pane. Editing is on head only. Edits are a local draft; Commit… opens a sheet (message, why, Evolution or a new one, name, admin token). The commit starts an editor realization and goes to the fork over Git, then lands on Work as a candidate. A Genome commit becomes `awaiting-admin`. The Inspector's "Open in Code" links the node's source document.

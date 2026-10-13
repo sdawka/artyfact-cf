@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 import { auth, BASE, checkPage, isPass, SYS } from "./fake";
+import { systemCard } from "./helpers";
 
 // Node chips inside an event <summary> are nested interactive controls (axe nested-interactive); reported to the Deployments slice.
 const EVENT_SUMMARY = '[class*="event"] > summary';
@@ -42,9 +43,8 @@ test.describe("runtime events @fake", () => {
     await expect(page).toHaveURL(new RegExp(`deployment=${deploymentId}`));
     await checkPage(page, testInfo, "deployments-filtered", isPass, [EVENT_SUMMARY]);
 
-    // Home counts the observation.
     await page.goto("/");
-    await expect(page.getByRole("link", { name: /Keep in Touch/ }).locator('[data-status="observed"]')).toBeVisible();
+    await expect(systemCard(page, /Keep in Touch/)).toBeVisible();
     await checkPage(page, testInfo, "home-observed");
   });
 });

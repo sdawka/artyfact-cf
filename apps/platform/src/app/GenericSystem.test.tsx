@@ -38,7 +38,7 @@ describe("a System whose templates have other kinds than the webapp's", () => {
         ? new Response(JSON.stringify({ systems: [{ systemId: SYS, title: "Toolkit", head: "sc-1", genomeRepo: "g", appRepo: "a", genomeCommit: "0".repeat(40), phase: "unrealized", evolutionCounts: {}, updatedAt: new Date().toISOString() }] }), { status: 200, headers: { "content-type": "application/json" } })
         : new Response("{}", { status: 404 })));
     renderApp("/");
-    expect(await screen.findByRole("link", { name: /Toolkit/ })).toBeTruthy();
+    expect(await screen.findByRole("link", { name: /^Toolkit$/ })).toBeTruthy();
   });
 
   it("renders Overview", async () => {

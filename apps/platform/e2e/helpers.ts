@@ -45,3 +45,6 @@ export async function successToneElements(page: Page): Promise<string[]> {
     return hits;
   });
 }
+
+/** A System card link on Home; scoped to the Systems list because the Needs you ledger can repeat a System name. */
+export const systemCard = (page: Page, name: RegExp) => page.getByRole("list", { name: "Systems" }).getByRole("link", { name: new RegExp(`^(?:${name.source})$`) });
