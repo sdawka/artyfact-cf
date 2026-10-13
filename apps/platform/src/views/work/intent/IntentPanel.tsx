@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import type { IntentAcceptResponse } from "../../../../shared/api";
 import { useAdminToken } from "@/api/adminToken";
 import { useCreateIntent, useIntent } from "@/api/queries";
@@ -27,6 +27,9 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
   const create = useCreateIntent();
   const proposal = useIntent(fixture ? null : proposalId, token || undefined);
   const [message, setMessage] = useState("");
+  const heading = useRef<HTMLHeadingElement>(null);
+  // Opening the panel (also from a deep link) moves focus to its heading.
+  useEffect(() => heading.current?.focus(), []);
 
   const reason = fixture ? FIXTURE_REASON : !message.trim() ? "Describe the change first." : null;
 
@@ -44,24 +47,25 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
   return (
     <section className={workStyles.panel} aria-labelledby={`${uid}-h`}>
       <div className={workStyles.detailHead}>
-        <h2 id={`${uid}-h`}>Describe a change</h2>
+        <h2 id={`${uid}-h`} ref={heading} tabIndex={-1}>Describe a change</h2>
         <span className={workStyles.inlineRow}>
           {proposalId && !fixture && (
             <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => setProposalId(null)}>Start over</button>
           )}
-          <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={onClose}>Close</button>
+          <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={onClose}>Back to board</button>
         </span>
       </div>
 
+      {anchor && (
+        <p className={workStyles.inlineRow}>
+          <span className={workStyles.muted}>Starting from</span>
+          <NodeChip id={anchor} size="sm" showId interactive={false} />
+          <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => setAnchor(null)}>Clear anchor</button>
+        </p>
+      )}
+
       {(!proposalId || fixture) && (
         <form onSubmit={submit} className={workStyles.form}>
-          {anchor && (
-            <p className={workStyles.inlineRow}>
-              <span className={workStyles.muted}>Starting from</span>
-              <NodeChip id={anchor} size="sm" showId interactive={false} />
-              <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => setAnchor(null)}>Clear anchor</button>
-            </p>
-          )}
           <div className={workStyles.field}>
             <label htmlFor={`${uid}-m`}>What should change?</label>
             <textarea id={`${uid}-m`} rows={3} value={message} onChange={(e) => setMessage(e.target.value)} disabled={fixture} />

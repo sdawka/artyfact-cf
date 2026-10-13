@@ -1,0 +1,10 @@
+id: component.work.start-work
+kind: component
+fields:
+  name: Start work
+  description: Chooses an agent role and opens a realization for an Evolution.
+  states:
+    - idle
+    - starting
+    - started
+    - error

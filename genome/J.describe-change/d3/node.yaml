@@ -9,3 +9,4 @@ fields:
     - to: d4
 links:
   - { rel: stepOperation, to: endpoint.intents-reply }
+  - { rel: stepScreen, to: screen.work }

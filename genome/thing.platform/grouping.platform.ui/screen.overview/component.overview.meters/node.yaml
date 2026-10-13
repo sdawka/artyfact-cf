@@ -1,0 +1,8 @@
+id: component.overview.meters
+kind: component
+fields:
+  name: Three meters
+  description: The Genome, Proteome and Phenome meters, each with its question as a sublabel (what should it be, what is being made, what does it do). They are never summed.
+  states:
+    - loaded
+    - unknown (subtle)

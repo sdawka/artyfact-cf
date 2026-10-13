@@ -5,7 +5,9 @@ import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { LoadingState } from "@/components/LoadingState/LoadingState";
 import { useNow } from "@/model/time";
 import { HomeHeader } from "./HomeHeader";
+import { NeedsYou } from "./NeedsYou";
 import { SystemCard } from "./SystemCard";
+import { sortByAttention } from "./signifiers";
 import styles from "./home.module.css";
 
 /** README section on importing a project with `artyfact init`. */
@@ -38,9 +40,12 @@ export function HomeContent({ systems, isLoading, isError, onRetry }: HomeConten
       </EmptyState>
     );
   return (
-    <ul className={styles.grid} aria-label="Systems">
-      {systems.map((s) => <SystemCard key={s.systemId} system={s} now={now} />)}
-    </ul>
+    <>
+      <NeedsYou systems={systems} />
+      <ul className={styles.grid} aria-label="Systems">
+        {sortByAttention(systems).map((s) => <SystemCard key={s.systemId} system={s} now={now} />)}
+      </ul>
+    </>
   );
 }
 

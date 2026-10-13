@@ -8,8 +8,21 @@ import styles from "./work.module.css";
 
 const MAX_CHIPS = 4;
 
-/** Board card: intent, kind, affected nodes, acceptance rollup and dependencies. Selecting sets `?evolution=`. */
-export function EvolutionCard({ evolution: e, selected, onSelect }: { evolution: Evolution; selected: boolean; onSelect(id: string): void }) {
+interface Props {
+  evolution: Evolution;
+  selected: boolean;
+  onSelect(id: string): void;
+  /** Candidates or amendments of this Evolution waiting in Review. */
+  awaiting?: number;
+  /** Any of its candidates is in a conflict. */
+  overlap?: boolean;
+}
+
+/**
+ * Board card: intent, kind, affected nodes, acceptance rollup, dependencies, and the attention line (overlap, awaiting
+ * review). Selecting sets `?evolution=`.
+ */
+export function EvolutionCard({ evolution: e, selected, onSelect, awaiting = 0, overlap = false }: Props) {
   const m = useModel();
   const titleId = useId();
   const verdicts = e.acceptanceCriteria.map((c) => m.verdictOf(c));
@@ -36,6 +49,12 @@ export function EvolutionCard({ evolution: e, selected, onSelect }: { evolution:
         <span>{e.acceptanceCriteria.length} acceptance criteri{e.acceptanceCriteria.length === 1 ? "on" : "a"}</span>
         <VerdictBadge verdict={aggregate(verdicts)} label={`${pass}/${e.acceptanceCriteria.length} pass`} />
       </span>
+      {(overlap || awaiting > 0) && (
+        <span className={styles.criteria}>
+          {overlap && <span className={styles.overlapChip}><span aria-hidden="true">≈</span> overlap</span>}
+          {awaiting > 0 && <span className={styles.attention}>{awaiting} await{awaiting === 1 ? "s" : ""} review</span>}
+        </span>
+      )}
       {e.dependsOn.length > 0 && (
         <span className={styles.chips}>
           <span className={styles.muted}>depends on</span>

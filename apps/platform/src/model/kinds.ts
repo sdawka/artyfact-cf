@@ -5,7 +5,7 @@ import type { ModelJson } from "./types";
 import { useModelOptional } from "./useModel";
 
 export const VIEWS = [
-  "overview", "map", "journeys", "theory", "code", "work", "evaluations", "changelog", "compare", "phenome",
+  "overview", "map", "journeys", "theory", "code", "work", "review", "evaluations", "changelog", "compare", "phenome",
 ] as const;
 export type ViewName = (typeof VIEWS)[number];
 
@@ -16,6 +16,7 @@ export const VIEW_LABELS: Record<ViewName, string> = {
   theory: "Theory",
   code: "Code",
   work: "Work",
+  review: "Review",
   evaluations: "Evaluations",
   changelog: "Changelog",
   compare: "Compare",
@@ -30,29 +31,42 @@ export const VIEW_GLYPHS: Record<ViewName, string> = {
   theory: "△",
   code: "{}",
   work: "⎇",
+  review: "◧",
   evaluations: "✓",
   changelog: "↺",
   compare: "⇄",
   phenome: "◍",
 };
 
+/** The question each layer answers; the rail's group sublines and the Overview meters share these words. */
+export const LAYER_QUESTIONS = {
+  genome: "What should it be",
+  proteome: "What is being made",
+  phenome: "What does it do",
+} as const;
+
 export interface ViewGroup {
-  /** Sentence-case group heading; `null` for the ungrouped Overview link. */
+  /** The layer name heading the group (the group's accessible label); `null` for the ungrouped Overview link. */
   label: string | null;
+  /** The question this layer answers, shown in sentence case under the label (the group's description). */
+  question?: string;
   views: ViewName[];
 }
 
-/** SideNav order: Overview, then the Genome, Proteome and Phenome groups. */
+/**
+ * SideNav order: Overview, then the Genome, Proteome and Phenome groups. Compare is not on the rail; it opens from a
+ * Changelog row ("Compare with parent") and `g x`.
+ */
 export const VIEW_GROUPS: ViewGroup[] = [
   { label: null, views: ["overview"] },
-  { label: "Genome", views: ["map", "journeys", "theory", "code"] },
-  { label: "Proteome", views: ["work", "evaluations", "changelog", "compare"] },
-  { label: "Phenome", views: ["phenome"] },
+  { label: "Genome", question: LAYER_QUESTIONS.genome, views: ["map", "journeys", "theory", "code"] },
+  { label: "Proteome", question: LAYER_QUESTIONS.proteome, views: ["work", "review", "evaluations", "changelog"] },
+  { label: "Phenome", question: LAYER_QUESTIONS.phenome, views: ["phenome"] },
 ];
 
 /** `g` + key go-to shortcuts. `h` is the legacy History key and opens the Changelog. */
 export const GO_KEYS: Record<string, ViewName> = {
-  o: "overview", m: "map", j: "journeys", t: "theory", c: "code", w: "work", e: "evaluations",
+  o: "overview", m: "map", j: "journeys", t: "theory", c: "code", w: "work", r: "review", e: "evaluations",
   l: "changelog", h: "changelog", x: "compare", d: "phenome",
 };
 

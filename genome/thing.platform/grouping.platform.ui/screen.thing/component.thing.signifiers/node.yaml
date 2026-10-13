@@ -1,0 +1,8 @@
+id: component.thing.signifiers
+kind: component
+fields:
+  name: Thing signifiers
+  description: The Thing's name, id and the four cards' states.
+  states:
+    - loaded
+    - unknown Thing (danger)

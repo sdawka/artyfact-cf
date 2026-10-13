@@ -1,0 +1,13 @@
+id: affordance.shell.copy-id
+kind: affordance
+fields:
+  name: Copy id
+  description: Copies the node id.
+  actor: user
+  trigger: click
+  preconditions:
+    - A node is focused
+  effects:
+    - The id is on the clipboard and the button reads Copied
+  failure:
+    - "Clipboard blocked: the id stays selected"

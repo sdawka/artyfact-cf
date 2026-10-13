@@ -1,0 +1,17 @@
+id: affordance.review.accept-with-interpretation
+kind: affordance
+fields:
+  name: Accept with interpretation
+  description: Accepts the amendment with the reader's interpretation (admin token).
+  actor: user
+  trigger: click
+  preconditions:
+    - The amendment is awaiting-admin
+    - An admin token is set
+  effects:
+    - The amendment leaves the queue and the decision is recorded
+  failure:
+    - "409: a rules violation is named and nothing changes"
+links:
+  - rel: invokes
+    to: endpoint.accept-evolution

@@ -1,0 +1,15 @@
+id: screen.parts
+kind: screen
+fields:
+  name: Private Parts
+  description: Reusable Parts this System has published or composed, with their versions. Actionable targets wear corner brackets and the page has one primary button; Publish part shows the new version in the list, and a failed publish keeps the form with the message.
+  route: /s/:systemId/r/:rev/parts
+  states:
+    - loading
+    - loaded
+    - empty
+    - error
+    - "empty: no Parts"
+links:
+  - rel: serves
+    to: feature.parts

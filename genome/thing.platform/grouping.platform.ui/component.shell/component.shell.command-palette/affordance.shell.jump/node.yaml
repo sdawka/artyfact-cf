@@ -1,0 +1,12 @@
+id: affordance.shell.jump
+kind: affordance
+fields:
+  name: Jump
+  description: Choosing a result opens the best view for it.
+  actor: user
+  trigger: Enter or click
+  preconditions:
+    - The palette is open
+  effects:
+    - The view opens focused on the result and the palette closes
+  failure: []

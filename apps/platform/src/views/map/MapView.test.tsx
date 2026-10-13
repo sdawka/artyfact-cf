@@ -145,6 +145,10 @@ describe("Candidate overlay", () => {
     renderApp(`${MAP}?focus=screen.people&candidates=cand.a,cand.b`, undefined, seed);
     await ready("component.AddContactDialog");
     await waitFor(() => expect(within(nodeEl("component.AddContactDialog") as HTMLElement).getByText("overlap · 2")).toBeTruthy());
+    // The chip is a way into Review with both candidates preselected for composition.
+    const chip = within(nodeEl("component.AddContactDialog") as HTMLElement).getByRole("link", { name: "overlap · 2" });
+    expect(new URLSearchParams(chip.getAttribute("href")!.split("?")[1]).get("candidates")).toBe("cand.a,cand.b");
+    expect(chip.getAttribute("href")).toContain("/review?");
     expect(flowNode("component.AddContactDialog")!.getAttribute("aria-label")).toContain("touched by cand.a and cand.b (overlap)");
     const record = nodeEl("entity.ContactRecord") as HTMLElement;
     expect(within(record).queryByText(/overlap/)).toBeNull();

@@ -39,7 +39,7 @@ test("direct Thing routes retain a full workspace as the System grows and distin
   await expect(page.getByText("workers-version:mock-v3", { exact: true })).toBeVisible();
   await expect(page.getByText("javascript:alert(1)", { exact: true })).toBeVisible();
   await expect(page.locator('a[href^="javascript:"]')).toHaveCount(0);
-  await page.getByRole("navigation", { name: "Thing views" }).getByRole("link", { name: "Code" }).click();
+  await page.getByRole("navigation", { name: "Views", exact: true }).getByRole("link", { name: "Code" }).click();
   await expect(page).toHaveURL(new RegExp(`${THING}/code$`));
   await expect(page.getByRole("tab", { name: "Genome" })).toBeVisible();
   await expect(page.getByText("Code shows saved files for the whole System.")).toBeVisible();

@@ -7,3 +7,5 @@ fields:
   kind: branch
   next:
     - to: p4
+links:
+  - { rel: stepScreen, to: screen.review }

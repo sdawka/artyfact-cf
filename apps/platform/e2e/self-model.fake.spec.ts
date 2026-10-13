@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { ADMIN_TOKEN, checkPage, sweepViews } from "./fake";
+import { systemCard } from "./helpers";
 
 /** Artyfact describing itself: the platform here is seeded with the repo-root `genome/` (`FAKE_SEED=artyfact`). */
 const SYS = "system.artyfact";
@@ -17,11 +18,11 @@ test.describe("the self-model @fake", () => {
   test("Home shows Artyfact with its ten Things @fake", async ({ page, request }, testInfo) => {
     await page.goto("/");
     await expect(page.getByRole("heading", { level: 1, name: "Systems" })).toBeVisible();
-    await expect(page.getByRole("link", { name: /Artyfact/ }).first()).toBeVisible();
+    await expect(systemCard(page, /Artyfact/)).toBeVisible();
     await expect(page.getByText("fixture data")).toHaveCount(0);
     await checkPage(page, testInfo, "self-home");
     // Home shows no Thing list; the card opens the System, whose Map tree lists all ten.
-    await page.getByRole("link", { name: /Artyfact/ }).first().click();
+    await systemCard(page, /Artyfact/).click();
     await expect(page).toHaveURL(/\/s\/system\.artyfact/);
     await page.goto(`${BASE}/map`);
     await expectTenThings(page);

@@ -23,11 +23,20 @@ export async function checkPage(page: Page, testInfo: TestInfo, name: string, al
 }
 
 /** Insert text at the end of the CodeMirror document that is currently shown. insertText skips the editor's auto-indent, which would shift YAML. */
-export async function typeInEditor(page: Page, text: string) {
-  const content = page.locator(".cm-content").first();
-  await content.click();
-  await page.keyboard.press("ControlOrMeta+End");
-  await page.keyboard.insertText(text);
+export async function typeInEditor(page: Page, text: string, path?: string) {
+  // The pane swaps its editor when the file changes (and on a slow runner the previous file's editor is still mounted
+  // right after "Add" or "Edit"), so wait for the file's own pane and check the text landed, typing again only if it did not.
+  const pane = page.locator('section[aria-labelledby="file-pane-path"]');
+  if (path) await expect(pane.locator("#file-pane-path")).toHaveText(path);
+  const content = pane.locator(".cm-content");
+  const probe = text.split("\n").map((l) => l.trim()).find(Boolean) ?? text;
+  await expect(async () => {
+    if ((await content.textContent())?.includes(probe)) return;
+    await content.click();
+    await page.keyboard.press("ControlOrMeta+End");
+    await page.keyboard.insertText(text);
+    await expect(content).toContainText(probe, { timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
 }
 
 /** A tiny HTTP app answering /health like a deployed preview, for the health assay (the platform allows localhost in fake mode). */
@@ -70,7 +79,7 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   await page.getByRole("button", { name: "New file…" }).click();
   await page.getByLabel("New file path").fill(`thing.webapp/section.runtime/${node}/node.yaml`);
   await page.getByRole("button", { name: "Add", exact: true }).click();
-  await typeInEditor(page, `id: ${node}\nkind: binding\nfields:\n  name: ${title}\n  description: ${title} for the e2e run\n`);
+  await typeInEditor(page, `id: ${node}\nkind: binding\nfields:\n  name: ${title}\n  description: ${title} for the e2e run\n`, `thing.webapp/section.runtime/${node}/node.yaml`);
   await checkPage(page, testInfo, `code-${node}`);
   await page.getByRole("link", { name: "Commit…" }).click();
   await page.getByLabel("Message").fill(`Add ${node}`);
@@ -129,8 +138,10 @@ export async function sweepViews(page: Page, testInfo: TestInfo, base: string, t
   page.on("console", (m) => { if (m.type() === "error") errors.push(`console: ${m.text()}`); });
   const views: [string, string][] = [
     ["overview", "Overview"], ["map", "Map"], ["journeys", "Journeys"], ["theory", "Theory"], ["code", "Code"],
-    ["work", "Work"], ["evaluations", "Evaluations"], ["changelog", "Changelog"], ["compare", "Compare"], ["phenome", "Deployments"],
+    ["work", "Work"], ["review", "Review"], ["evaluations", "Evaluations"], ["changelog", "Changelog"], ["compare", "Compare"], ["phenome", "Deployments"],
   ];
+  // Each view loads, renders and runs axe plus a screenshot; give the sweep a budget per view instead of one test's 30 s.
+  testInfo.setTimeout(views.length * 8_000);
   for (const [path, heading] of views) {
     await page.goto(`${base}/${path}`);
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
@@ -138,4 +149,33 @@ export async function sweepViews(page: Page, testInfo: TestInfo, base: string, t
     await checkPage(page, testInfo, `${tag}-${path}`, isPass, [PACKET_PRE, '[data-op] > [class*="num"]']);
   }
   expect(errors).toEqual([]);
+}
+
+/**
+ * Editor work through the API: start a realization of `evolution` (editor origin) and commit `changes` with its secret.
+ * Returns the realization id and its candidate id.
+ */
+export async function apiCommit(
+  request: APIRequestContext, evolution: string, target: "app" | "genome", agentLabel: string, changes: { path: string; content: string }[],
+): Promise<{ realization: string; candidate: string }> {
+  const started = await request.post(`/api/systems/${SYS}/evolutions/${evolution}/realizations`, { headers: auth, data: { origin: "editor", target, agentLabel } });
+  expect(started.ok(), await started.text()).toBe(true);
+  const { realization, secret } = await started.json() as { realization: { id: string }; secret: string };
+  const res = await request.post(`/api/systems/${SYS}/realizations/${realization.id}/commit`, {
+    headers: { Authorization: `Bearer ${secret}` },
+    data: { message: `e2e ${agentLabel}`, why: "e2e", changes },
+  });
+  expect(res.ok(), await res.text()).toBe(true);
+  const { submitted } = await res.json() as { submitted: { candidate: { id: string } } };
+  return { realization: realization.id, candidate: submitted.candidate.id };
+}
+
+/** `POST …/evolutions` through the API (no acceptance criteria). Returns the new Evolution's id. */
+export async function apiEvolution(request: APIRequestContext, title: string, kind: string, affectedNodes: string[]): Promise<string> {
+  const res = await request.post(`/api/systems/${SYS}/evolutions`, {
+    headers: auth,
+    data: { title, intent: `${title}.`, kind, risk: "low", affectedNodes, acceptanceCriteria: [] },
+  });
+  expect(res.ok(), await res.text()).toBe(true);
+  return ((await res.json()) as { evolution: { id: string } }).evolution.id;
 }

@@ -1,0 +1,8 @@
+id: component.shell.inspector.dependencies
+kind: component
+fields:
+  name: Dependencies
+  description: What the node uses and what uses it.
+  states:
+    - loaded
+    - "empty: no links"

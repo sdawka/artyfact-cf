@@ -12,6 +12,8 @@ export interface MeterSegment {
 export interface MeterProps {
   /** What is measured, e.g. "Model readiness". */
   title: string;
+  /** The question this meter answers (the layer's question on the rail), shown quietly under the title. */
+  question?: string;
   /** The one-word reading, or the literal "unknown". Never a combined score. */
   headline: string;
   /** Own scale: segment widths are relative to the sum of these counts only. */
@@ -32,7 +34,7 @@ const GLYPH: Record<MeterTone, string> = { pass: "✓", fail: "×", warn: "!", s
 const legendTone = (s: MeterSegment): MeterTone => (s.tone === "pass" && s.count === 0 ? "subtle" : s.tone);
 
 /** Segmented count bar with a legend. Colour is never the only signal: each segment is listed with a glyph, word and count. */
-export function Meter({ title, headline, segments, caption, asOf, emptyText = "nothing counted", onActivate }: MeterProps) {
+export function Meter({ title, question, headline, segments, caption, asOf, emptyText = "nothing counted", onActivate }: MeterProps) {
   const total = segments.reduce((n, s) => n + s.count, 0);
   const nonZero = segments.filter((s) => s.count > 0);
   return (
@@ -45,7 +47,10 @@ export function Meter({ title, headline, segments, caption, asOf, emptyText = "n
         onFocus: (e: React.FocusEvent<HTMLElement>) => onActivate(e.currentTarget),
       })}
     >
-      <h3 className={styles.title}>{title}</h3>
+      <div className={styles.head}>
+        <h3 className={styles.title}>{title}</h3>
+        {question && <p className={styles.question} data-question="">{question}</p>}
+      </div>
       <p className={styles.headline} data-unknown={headline === "unknown" || undefined}>{headline}</p>
       {total > 0 ? (
         <div className={styles.bar} aria-hidden="true">

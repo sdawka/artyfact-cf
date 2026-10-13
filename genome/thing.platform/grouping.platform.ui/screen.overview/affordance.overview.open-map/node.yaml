@@ -1,0 +1,14 @@
+id: affordance.overview.open-map
+kind: affordance
+fields:
+  name: Open Map
+  description: Opens the Map for this revision.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - The Map opens
+  failure: []
+links:
+  - rel: references
+    to: screen.map

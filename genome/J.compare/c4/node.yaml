@@ -7,3 +7,4 @@ fields:
   kind: end
 links:
   - { rel: stepOperation, to: endpoint.compare-file }
+  - { rel: stepScreen, to: screen.compare }

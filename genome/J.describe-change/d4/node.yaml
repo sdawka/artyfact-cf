@@ -9,3 +9,4 @@ fields:
     - to: d5
 links:
   - { rel: stepOperation, to: endpoint.intents-accept }
+  - { rel: stepScreen, to: screen.work }

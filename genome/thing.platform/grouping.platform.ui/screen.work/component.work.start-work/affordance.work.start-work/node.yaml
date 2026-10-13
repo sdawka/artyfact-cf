@@ -1,0 +1,18 @@
+id: affordance.work.start-work
+kind: affordance
+fields:
+  name: Start work
+  description: The primary button. Opens a realization on the Evolution and issues the agent its command.
+  actor: user
+  trigger: click
+  preconditions:
+    - The Evolution is actionable
+    - An admin token is set
+  effects:
+    - A realization row appears with its Copy command line
+  failure:
+    - "401 or 403: the message says to set the admin token"
+    - "409: the Evolution is not actionable"
+links:
+  - rel: invokes
+    to: endpoint.start-work

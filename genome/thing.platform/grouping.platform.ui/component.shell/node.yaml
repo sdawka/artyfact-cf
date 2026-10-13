@@ -1,0 +1,8 @@
+id: component.shell
+kind: component
+fields:
+  name: Shell
+  description: "The frame around every System screen: top bar, side navigation, command palette and the Inspector."
+  states:
+    - loading
+    - loaded

@@ -122,3 +122,12 @@ export function describeIssue(x: unknown): string {
   }
   return JSON.stringify(x);
 }
+
+const SUMMARY_ORDER: UiVerdict[] = ["pass", "fail", "stale", "unknown", "not-run", "waived"];
+
+/** "4 pass · 1 unknown" over gate rows; `allPass` (the only case the success tone may show) needs at least one row. */
+export function gatesSummary(rows: readonly GateRow[]): { text: string; allPass: boolean } {
+  if (!rows.length) return { text: "no gates", allPass: false };
+  const counts = SUMMARY_ORDER.map((v) => [v, rows.filter((r) => r.verdict === v).length] as const).filter(([, n]) => n > 0);
+  return { text: counts.map(([v, n]) => `${n} ${v}`).join(" · "), allPass: rows.every((r) => r.verdict === "pass") };
+}

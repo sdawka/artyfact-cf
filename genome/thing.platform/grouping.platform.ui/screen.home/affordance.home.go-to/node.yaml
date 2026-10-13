@@ -1,0 +1,14 @@
+id: affordance.home.go-to
+kind: affordance
+fields:
+  name: Go to… ⌘K
+  description: A header button that opens the command palette.
+  actor: user
+  trigger: click or ⌘K
+  preconditions: []
+  effects:
+    - The palette opens with the search field focused
+  failure: []
+links:
+  - rel: references
+    to: component.shell.command-palette

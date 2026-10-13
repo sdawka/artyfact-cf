@@ -1,0 +1,8 @@
+id: J.triage
+kind: journey
+fields:
+  name: Triage across Systems
+  actorGoal: Find what needs a decision across all Systems and act on it
+  features:
+    - feature.home-dashboard
+  start: h1

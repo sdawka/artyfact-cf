@@ -1,0 +1,9 @@
+id: component.compare.signifiers
+kind: component
+fields:
+  name: Delta signifiers
+  description: "Per node and file: added, changed or removed, and the layer it belongs to."
+  states:
+    - + added (subtle)
+    - ~ changed (attention)
+    - − removed (danger)
