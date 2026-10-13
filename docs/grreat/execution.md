@@ -3,6 +3,8 @@
 
 ## Now
 
+- Active public-site follow-up: Ontology Driven Development redesign implemented and locally verified on `feat/ontology-driven-development`; site gates and independent review are complete. Next: shared pre-push gate and one PR. Evidence: [[journals/2026-10-13-ontology-driven-development]]. The platform release work below remains separate.
+
 - Goal: [[goals]]. Milestone: iteration 3, the ontology-engine core, delivered as PR #47 in [[roadmap]] context.
 - Working revision: branch `iteration-3` (98 commits), PR #47; local `npm run ci` green. Hosted CI is tracked on the PR.
 - Current result: the ontology engine lives in `packages/ontology` as the core. Genomes use a v2 containment tree; v1 survives only through `artyfact convert-genome --source-map` and a legacy notice. Intents, generic UI and templates, and the repo-root self-Genome shipped; see [[journals/2026-10-13-iteration-3]].
@@ -21,3 +23,5 @@
 - [[journals/2026-10-13-iteration-3]]: ontology engine core, Genome v2, intents; PR #47.
 - [[journals/2026-10-13-model-page]]: public model page follow-up and validation.
 - [[journals/2026-10-13-model-page]]: settled public story chapters (#52).
+
+- [[journals/2026-10-13-ontology-driven-development]]: semantic-layer benefits and platform meta ontology explanation, site-only.

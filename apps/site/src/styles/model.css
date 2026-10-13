@@ -1,6 +1,17 @@
-.model-story-intro { max-width: 860px; padding: 42px 0 45px; }
-.model-story-intro h1 { font-size: clamp(2.5rem, 4vw, 4rem); margin-bottom: 17px; }
+.model-story-intro { max-width: 1040px; padding: 60px 0 52px; }
+.model-story-intro h1 { max-width: 17ch; font-size: clamp(2.5rem, 4.8vw, 4.6rem); line-height: 1.08; text-wrap: balance; margin-bottom: 24px; }
 .model-story-intro > p { max-width: 72ch; font-size: 1.08rem; line-height: 1.6; }
+.model-story-jumps { display: flex; flex-wrap: wrap; gap: 6px 30px; margin-top: 24px; font-size: .94rem; }
+.model-story-jumps a { display: inline-flex; align-items: center; min-height: 44px; color: var(--color-brand-primary); }
+.model-story-benefits, .model-meta-intro { scroll-margin-top: 24px; }
+.model-benefits-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 30px clamp(30px, 6vw, 100px); }
+.model-benefits-grid article { min-width: 0; border-top: 1px solid var(--color-border-subtle); padding-top: 22px; }
+.model-benefits-grid h3 { font: 400 1.65rem/1.25 var(--font-display); margin-bottom: 12px; }
+.model-benefits-grid p { max-width: 55ch; margin-bottom: 0; font-size: .96rem; }
+.model-meta-intro .section-heading { margin-bottom: 20px; }
+.model-meta-intro .section-heading > p { max-width: 52ch; }
+.model-meta-description { max-width: 75ch; font-size: 1rem; }
+.model-meta-intro { padding-bottom: 45px; }
 .model-story-thread { display: grid; gap: 4px; border-left: 2px solid var(--color-brand-primary); padding: 7px 0 7px 20px; margin: 28px 0 0; color: var(--color-text-secondary); }
 .model-story-thread span, .model-story-label, .model-story-path span, .model-story-view-name { color: var(--color-brand-primary); font-size: .78rem; }
 .model-story-thread strong { color: var(--color-text-primary); font-size: 1.06rem; font-weight: 500; }
@@ -52,7 +63,7 @@
   .model-story-intro { padding-block: 30px 35px; }
   .model-story-intro > p { font-size: 1rem; }
   .model-story-thread { margin-top: 20px; }
-  .model-story-choices, .model-story-pair, .model-story-questions { grid-template-columns: 1fr; gap: 18px; }
+  .model-benefits-grid, .model-story-choices, .model-story-pair, .model-story-questions { grid-template-columns: 1fr; gap: 18px; }
   .model-story-choices article { padding: 17px 19px; }
   .model-story-choices article > strong { margin-top: 10px; }
   .model-story-choice-pieces { margin-top: 9px; }

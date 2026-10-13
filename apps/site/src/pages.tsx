@@ -4,7 +4,7 @@ import { LandingStory } from './LandingStory';
 export type SiteConfig = { platform: string | null; source: string | null };
 export const pages = {
   '/': { title: 'Artyfact — Make Meaningful Systems', description: 'Make meaningful systems on Cloudflare. Give applications their shape, realize them from reusable Parts, and inspect activity with intent and evidence together.' },
-  '/model': { title: 'Understand the model — Artyfact', description: 'Start with a System and choose its Things. Give each Thing a form, content and criteria; connect intent, agent work and observed evidence.' },
+  '/model': { title: 'Ontology Driven Development — Artyfact', description: 'Add a semantic layer to code storage and delivery: reuse context, scope implementation, preserve intent and trace evidence. Explore Artyfact’s meta ontology.' },
   '/connect-agent': { title: 'Bring your agent — Artyfact', description: 'Use your own local agent with Artyfact task packets, isolated Git workspaces, checkpoints and candidate submissions.' },
 };
 export type PagePath = keyof typeof pages;
