@@ -2,7 +2,7 @@ import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
-  ApiError, CandidatesResponse, ConflictsResponse, Evaluation, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
+  ApiError, CandidatesResponse, ConflictsResponse, DeleteSystemResponse, Evaluation, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, RealizationResponse,
   SerializedModel, StartWorkResponse, SubmitResponse, SystemsResponse, HistoryResponse, WorkResponse, ReadinessResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
@@ -114,7 +114,7 @@ async function imported(ns?: FakeArtifacts) {
 describe("routes: import names and platform provenance", () => {
   /** A System whose repos carry only the derived names `<slug>.genome` / `<slug>.app`. */
   function slugNamed(ns = new FakeArtifacts()) {
-    const slug = `kitslug${++seq}`, systemId = `system.${slug}`;
+    const slug = `peoplingslug${++seq}`, systemId = `system.${slug}`;
     ns.create(`${slug}.genome`).commit({
       ...genomeFor(systemId),
     }, "genome");
@@ -1057,5 +1057,32 @@ describe("routes: candidates carry the server's gate set (I3)", () => {
     const gs = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${g.realization.id}/submit`, { commit: fork.commit(files, "rename") });
     const genome = await call<CandidatesResponse>("GET", `/systems/${systemId}/evolutions/evolution.2/candidates`);
     expect(genome.json.gates![gs.json.candidate.id]!.filter((x) => x.blocking).map((x) => x.id)).toEqual(["C.system.promotion"]);
+  });
+});
+
+describe("routes: admin DELETE /systems/:id", () => {
+  it("removes the System from the registry and wipes its DO; unknown ids are 404", async () => {
+    const { systemId } = await imported();
+    expect((await call<SystemsResponse>("GET", "/systems")).json.systems.map((s) => s.systemId)).toContain(systemId);
+
+    const del = await call<DeleteSystemResponse>("DELETE", `/systems/${systemId}`, undefined, ADMIN);
+    expect(del.status).toBe(200);
+    expect(del.json).toEqual({ systemId, stateCleared: true });
+
+    expect((await call<SystemsResponse>("GET", "/systems")).json.systems.map((s) => s.systemId)).not.toContain(systemId);
+    expect((await call<ApiError>("GET", `/systems/${systemId}`)).status).toBe(404);
+    expect((await call<ApiError>("GET", `/systems/${systemId}/model`)).status).toBe(404);
+    expect(await runInDurableObject(env.SYSTEMS.getByName(systemId), (i: SystemAuthority) => i.state())).toBeNull();
+
+    const again = await call<ApiError>("DELETE", `/systems/${systemId}`, undefined, ADMIN);
+    expect([again.status, again.json.error.code]).toEqual([404, "not-found"]);
+  });
+
+  it("needs the admin bearer: 401 without one, 403 with the wrong one", async () => {
+    const { systemId } = await imported();
+    expect((await call<ApiError>("DELETE", `/systems/${systemId}`, undefined, {})).status).toBe(401);
+    const wrong = await call<ApiError>("DELETE", `/systems/${systemId}`, undefined, { authorization: "Bearer nope" });
+    expect([wrong.status, wrong.json.error.code]).toEqual([403, "forbidden"]);
+    expect((await call<SystemsResponse>("GET", "/systems")).json.systems.map((s) => s.systemId)).toContain(systemId);
   });
 });

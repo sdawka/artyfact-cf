@@ -186,6 +186,12 @@ export interface SystemsResponse {
   systems: SystemSummary[];
 }
 
+/** `DELETE /api/systems/:id` (admin). `stateCleared` is false when the registry row went but the System DO could not be wiped. */
+export interface DeleteSystemResponse {
+  systemId: string;
+  stateCleared: boolean;
+}
+
 /** The three readiness states the UI shows; they are never summed. */
 export interface ReadinessSummary {
   modelReadiness: { findings: Finding[]; blockers: Finding[] };

@@ -6,7 +6,7 @@ import { diffModels, type Readiness, type schema, type SystemModel } from "@arty
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, DeleteSystemResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
   ReadinessResponse, RealizationResponse, SystemSummary, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SubmitSource, SyncResponse,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
@@ -90,6 +90,25 @@ export async function listSystems(env: Env): Promise<SystemSummary[]> {
     }));
   }
   return rows.map((s) => fresh.get(s.systemId) ?? s);
+}
+
+/**
+ * Admin `DELETE /api/systems/:id`: remove the System from the registry (so `GET /api/systems` and every `:id` route stop
+ * seeing it), then wipe its DO. The wipe is best effort: a failure leaves the row gone and the DO idle, and is reported
+ * as `stateCleared: false`. Artifacts repos and push subscriptions are left alone.
+ */
+export async function deleteSystem(env: Env, systemId: string): Promise<DeleteSystemResponse> {
+  const registry = registryStub(env);
+  if (!(await registry.hasSystem(systemId))) throw notFound(`system ${systemId} is not imported`);
+  await registry.unregisterSystem(systemId);
+  let stateCleared = true;
+  try {
+    await systemStub(env, systemId).clearState();
+  } catch (e) {
+    stateCleared = false;
+    console.error(`[systems] clearing the state of ${systemId} failed: ${(e as Error)?.message ?? e}`);
+  }
+  return { systemId, stateCleared };
 }
 
 // ------------------------------------------------------------------ genomes

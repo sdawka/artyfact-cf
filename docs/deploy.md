@@ -67,6 +67,14 @@ ACCOUNT_ID=<the account id from npx wrangler whoami>
 
 Gotchas from the 2026-10-13 run: `issue-token` fails until `npx wrangler login` has been run again for the Artifacts scope, and a 403 from `init` meant the platform's `ADMIN_TOKEN` secret had to be re-set (`npx wrangler secret put ADMIN_TOKEN`) before retrying. A second run after the Genome repo head is already v2 must skip step 2: `convert-genome` refuses a v2 tree, so clone the head and go straight to `init --genome-only --adopt --force`.
 
+## Remove a System
+
+After re-importing under a new id (the Keep in Touch to Peopling rename, for instance), the old System still sits in the registry. `DELETE /api/systems/:id` is admin only: it drops the registry row (so `GET /api/systems` and every `/api/systems/:id` route stop seeing it) and wipes the System's Durable Object; `stateCleared: false` in the response means the row went but the wipe failed, which leaves the object idle and harmless. Artifacts repos, forks and their push subscriptions are not touched, so remove or keep those by hand.
+
+```
+curl -s -X DELETE /api/systems/system.keep-in-touch -H "authorization: Bearer "
+```
+
 ## Rollback
 
 ```
