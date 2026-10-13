@@ -1,7 +1,7 @@
 // Judgments: run questions through System One and apply deterministic policy.
 // The model proposes; this file (with policy.ts) decides. Failures never throw: they map to
 // `unknown` / `info` with provenance.provider 'off' | 'error'.
-import { hashOf } from './hash';
+import { DEFAULT_THRESHOLDS, hashOf } from '@artyfact/ontology';
 import type { Commitment, EvolutionSummary, OntologyNode, SemanticChange, SemanticDelta, SemanticModel, TheoryClaim } from './model-types';
 import { PRIVATE_PAIRS_PROFILE } from './model-types';
 import { S1Error } from './provider';
@@ -28,11 +28,13 @@ export type ScoreJudgment = { score: number; probabilities: Record<string, numbe
 type Run = { reply: S1Reply | null; provenance: Provenance };
 
 async function run(s1: SystemOne, state: unknown, questions: Questions): Promise<Run> {
-  const [stateHash, questionHash] = await Promise.all([hashOf(state), hashOf(questions)]);
+  const stateHash = hashOf(state);
+  const questionHash = hashOf(questions);
+  const thresholds = DEFAULT_THRESHOLDS;
   const t0Ask = Date.now();
   try {
     const reply = await s1.ask(state, questions);
-    return { reply, provenance: { provider: reply.provider, model: reply.model, questionHash, stateHash, ms: reply.ms, usage: reply.usage } };
+    return { reply, provenance: { provider: reply.provider, model: reply.model, questionHash, stateHash, thresholds, ms: reply.ms, usage: reply.usage } };
   } catch (e) {
     const error = e instanceof S1Error ? { name: e.name, code: e.code, status: e.status, message: e.message } : { name: (e as Error)?.name ?? 'Error', message: String((e as Error)?.message ?? e) };
     return {
@@ -42,6 +44,7 @@ async function run(s1: SystemOne, state: unknown, questions: Questions): Promise
         model: s1.model,
         questionHash,
         stateHash,
+        thresholds,
         ms: Date.now() - t0Ask,
         usage: { input_tokens: 0, output_tokens: 0 },
         error,

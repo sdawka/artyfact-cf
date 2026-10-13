@@ -1,16 +1,14 @@
 import { Hono } from "hono";
 import { requireAdmin } from "../auth";
-import { notImplemented } from "../errors";
-import type { AppEnv } from "./app";
+import { acceptProposal, createProposal, getProposal, replyProposal } from "../intents";
+import { body, origin, type AppEnv } from "./app";
 
-// Iteration-3 intent routes (W0 stubs): declared with their wire types in shared/api.ts, answering 501 until W7
-// builds them. Admin only, like creating an Evolution: a proposal is the first step of a Genome change.
-const stub = (what: string) => () => {
-  throw notImplemented(`${what} is not implemented yet`);
-};
-
+// Intents (docs/design/ontology.md §5). Admin only, like creating an Evolution: a proposal is the first step of a
+// Genome change.
 export const intents = new Hono<AppEnv>()
-  .post("/systems/:id/intents", requireAdmin, stub("describing a change"))
-  .get("/systems/:id/intents/:pid", requireAdmin, stub("reading a proposal"))
-  .post("/systems/:id/intents/:pid/reply", requireAdmin, stub("replying to a proposal"))
-  .post("/systems/:id/intents/:pid/accept", requireAdmin, stub("accepting a proposal"));
+  .post("/systems/:id/intents", requireAdmin, async (c) => c.json(await createProposal(c.env, c.req.param("id"), await body(c)), 201))
+  .get("/systems/:id/intents/:pid", requireAdmin, async (c) => c.json(await getProposal(c.env, c.req.param("id"), c.req.param("pid"))))
+  .post("/systems/:id/intents/:pid/reply", requireAdmin, async (c) =>
+    c.json(await replyProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c))))
+  .post("/systems/:id/intents/:pid/accept", requireAdmin, async (c) =>
+    c.json(await acceptProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c), origin(c)), 201));

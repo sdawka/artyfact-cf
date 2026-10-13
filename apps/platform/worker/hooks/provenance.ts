@@ -7,7 +7,7 @@ import type { Evaluation } from "./contract";
 
 export const VERIFIER = "artyfact-platform";
 /** Bumped when engine semantics change; recorded in every Evaluation's provenance. */
-export const ENGINE_VERSION = "1";
+export const ENGINE_VERSION = "2";
 
 export interface Outcome {
   execution: schema.Execution;

@@ -1,6 +1,7 @@
 /**
- * model-rules hook extras (C.system.promotion, C.system.autonomy on the Keep in Touch Genome):
- * - `inputs.packs` / `inputs.rulePrefix`: the rules part (model-rules.ts).
+ * model-rules hook parts (C.system.structure, C.system.promotion, C.system.autonomy on the Keep in Touch Genome):
+ * - `inputs.packs` / `inputs.rulePrefix`: the rules part, engine `evaluate` (engine-gates.ts). A `checks@1` pack runs
+ *   the template's checks on the changed nodes only.
  * - `inputs.requires`: comma list of criteria that must exist, non-deferred, in the judged model.
  * - `inputs.check`: scope-authorized (diff-scope.ts), base-current, manifest-exact, evidence-fresh (the last three
  *   from `ctx.promotionFacts`; not-run when absent).
@@ -10,13 +11,15 @@ import type { SystemModel, schema } from "@artyfact/model";
 import type { SubmissionContext } from "./contract";
 import { diffScope } from "./diff-scope";
 import type { ModelRulesResult } from "./model-rules";
-import { errored as erroredOutcome, notRun, type Outcome } from "./provenance";
+import { errored as erroredOutcome, errorMessage, notRun, type Outcome } from "./provenance";
 
 export interface ModelCheckEnv {
   ctx: SubmissionContext;
   base: SystemModel;
   /** model-rules result for the candidate (Genome target) or the canonical Genome (app target), filtered by `h`. */
   rules(h: schema.AssayHook | null): ModelRulesResult;
+  /** The rules part on the engine for the same Genome, filtered by `h` (checks@1 judged on changed nodes). */
+  engine(h: schema.AssayHook): Promise<Outcome>;
 }
 
 /** Criteria named in `inputs.requires` must exist in the judged model and not be deferred. */
@@ -55,10 +58,18 @@ export function promotionCheck(env: ModelCheckEnv, check: string): Outcome {
   }
 }
 
-export function modelRulesHook(env: ModelCheckEnv, h: schema.AssayHook): Outcome {
+export async function modelRulesHook(env: ModelCheckEnv, h: schema.AssayHook): Promise<Outcome> {
   const checks = (h.inputs.check ?? "").split(",").map((x) => x.trim()).filter(Boolean);
   const parts: { check: string; o: Outcome }[] = [];
-  if (!checks.length || h.inputs.packs || h.inputs.rulePrefix) parts.push({ check: "rules", o: env.rules(h).outcome });
+  if (!checks.length || h.inputs.packs || h.inputs.rulePrefix) {
+    let o: Outcome;
+    try {
+      o = await env.engine(h);
+    } catch (e) {
+      o = erroredOutcome(e, { interpretation: "The engine rules run failed.", limitations: [`Engine run failed: ${errorMessage(e)}`] });
+    }
+    parts.push({ check: "rules", o });
+  }
   for (const check of checks) {
     let o: Outcome;
     try {

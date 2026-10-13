@@ -201,7 +201,8 @@ function detect(p: Planted, semantic: Finding[], fixture: string, reader: Return
 if (!KEY) console.info("live semantic suite skipped: set ONTOLOGY_LIVE=1 and OPENROUTER_API_KEY to run it");
 
 describe.skipIf(!KEY)("live semantic suite (v2 funnel)", () => {
-  const provider = providerFromEnv(process.env);
+  // Measures the OpenRouter decider: a TypeSafe key in the environment must not take its place.
+  const provider = providerFromEnv({ ...process.env, TYPESAFE_API_KEY: undefined });
   const explainer = explainerFromEnv(process.env);
 
   afterAll(() => {

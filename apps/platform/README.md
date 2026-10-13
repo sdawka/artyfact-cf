@@ -13,16 +13,25 @@ npm run dev -w @artyfact/platform   # http://localhost:1337 (next free port if t
 - The full demo against real Artifacts is `docs/demo-runbook.md`. The opt-in integration test runs that loop in namespace `artyfact-test`: `ARTYFACT_INTEGRATION=1 npx vitest run --project integration` (uses `wrangler.integration.jsonc`).
 - `npm run cf-typegen` regenerates `worker/env.d.ts` after editing `wrangler.jsonc`.
 - The `ARTIFACTS` binding is `remote: true`, so `npm run dev` (real backend) needs `wrangler login` or `CLOUDFLARE_API_TOKEN`. Nothing else does: tests use `wrangler.test.jsonc`, the same config without that binding (keep the two in sync).
-- `FAKE_ARTIFACTS=1 npx vite --port 1339` (in `apps/platform`) runs the whole backend without an account: in-memory Artifacts seeded from `examples/` (Keep in Touch is imported on the first request), editor commits pushed through a fake receive-pack, no persisted state, and admin token `fake-admin-token` unless `ADMIN_TOKEN` is set. Local only (`worker/artifacts/fake-platform.ts`).
+- `FAKE_ARTIFACTS=1 npx vite --port 1339` (in `apps/platform`) runs the whole backend without an account: in-memory Artifacts seeded from `examples/` (Keep in Touch is imported on the first request), editor commits pushed through a fake receive-pack, no persisted state, the fake System One (`FAKE_S1=1`), and admin token `fake-admin-token` unless `ADMIN_TOKEN` is set. Local only (`worker/artifacts/fake-platform.ts`).
 - `npm run preview:fixture` builds and serves the SPA statically (`vite.fixture.config.ts`, no Cloudflare plugin) on http://localhost:1338 with bundled fixture data. `npm run e2e` runs Playwright against it; no Cloudflare credentials needed. `npm run e2e:live` runs the `@live` specs against `wrangler dev` and does need a login.
 - `worker/env.d.ts` is generated; do not hand-edit it (use `cf-typegen`, secrets go in `worker/secrets.d.ts`).
 
 ## Env
-Secrets (`.dev.vars`): `ADMIN_TOKEN`, `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`, `FAKE_S1`, `ALLOW_LOCAL_PREVIEW`. Vars live in `wrangler.jsonc`;
+Secrets (`.dev.vars` locally, `wrangler secret put` deployed): `ADMIN_TOKEN`, `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `ALLOW_LOCAL_PREVIEW` (local only). `FAKE_S1` goes in `.dev.vars` and test configs only, never in deployed vars. Vars live in `wrangler.jsonc`;
 set `ACCOUNT_ID` (from `wrangler whoami`) in `.dev.vars` so fork remotes are `https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/<ns>/<repo>.git`.
 
 ### System One provider
-Without `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`, every System One judgment is `unknown`. Hard criteria judged by System One, such as `C.system.purpose`, then keep the promotion gate closed. This is by design: nothing is green without evidence. For local work set `FAKE_S1=1` in `.dev.vars`. The UI labels judgments from the fake provider.
+One client (`providerFromEnv` in `@artyfact/ontology`) serves the gates and the review questions, chosen in this order:
+
+| Provider | When |
+|---|---|
+| fake | `FAKE_S1=1`. Canned benign answers; the UI labels them |
+| TypeSafe | `TYPESAFE_API_KEY` (`https://api.typesafe.ai/v1/systemone`, `jev-latest`) |
+| OpenRouter | `OPENROUTER_API_KEY` (Decisions API; `OPENROUTER_MODEL`, default `perplexity/pplx-decider-v1.1-27b`) |
+| off | none of the above |
+
+Off, every System One judgment is `unknown`. Hard criteria judged by System One, such as `C.system.purpose`, then keep the promotion gate closed. This is by design: nothing is green without evidence. For local work set `FAKE_S1=1` in `.dev.vars`; tests pin it per test, and `wrangler.integration.jsonc` sets it for the integration suite.
 
 ## API
 All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shared/api.ts`. Admin = `Authorization: Bearer $ADMIN_TOKEN` (401 when missing, 403 when wrong). Secret = `Authorization: Bearer <secret>`, the realization secret returned once by start work (the DO keeps only its SHA-256, reject revokes it); the admin bearer is also accepted, and another realization's secret is 403. The push queue needs neither.

@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import { DEFAULT_OPENROUTER_MODEL, OPENROUTER_DECISIONS_URL } from '@artyfact/ontology';
 import { S1Error, cacheKeyFor, createSystemOne, type Questions } from '../src';
 import { jsonRes, mockFetch, okBody } from './helpers';
 
@@ -18,7 +19,7 @@ describe('request shape', () => {
   it('typesafe: POST /v1/systemone with bearer, jev-latest, all three primitives', async () => {
     const f = mockFetch(() => jsonRes(okBody(answers)));
     const s1 = createSystemOne({ TYPESAFE_API_KEY: 'tk', fetch: f });
-    expect(s1.mode).toBe('typesafe');
+    expect(s1).toMatchObject({ mode: 'http', model: 'jev-latest' });
     const reply = await s1.ask(state, questions);
     expect(f).toHaveBeenCalledTimes(1);
     const [url, init] = f.mock.calls[0]!;
@@ -63,18 +64,18 @@ describe('request shape', () => {
     expect(reply.answers.n).toEqual(answers.n);
   });
 
-  it('openrouter: own base url, model jev-1.13, own key; typesafe key wins when both set', async () => {
+  it('openrouter: the Decisions API with its own key; the typesafe key wins when both set', async () => {
     const f = mockFetch(() => jsonRes(okBody(answers)));
     const s1 = createSystemOne({ OPENROUTER_API_KEY: 'ok', fetch: f });
-    expect(s1.mode).toBe('openrouter');
-    await s1.ask(state, questions);
+    expect(s1).toMatchObject({ mode: 'http', model: DEFAULT_OPENROUTER_MODEL });
+    await expect(s1.ask(state, questions)).resolves.toMatchObject({ provider: 'openrouter' });
     const [url, init] = f.mock.calls[0]!;
-    expect(url).toBe('https://openrouter.ai/api/v1/systemone');
+    expect(url).toBe(OPENROUTER_DECISIONS_URL);
     expect((init!.headers as Record<string, string>).Authorization).toBe('Bearer ok');
-    expect(JSON.parse(init!.body as string).model).toBe('jev-1.13');
-    await s1.ask(state, { b: { type: 'noul', instructions: 'i', criteria: { true: 't', false: 'f' }, benign: 'no' } });
+    await s1.ask({ other: 1 }, { n: { type: 'noul', instructions: 'Is it?', criteria: { true: 'yes', false: 'no' }, benign: 'no' } });
     expect(f.mock.calls[1]![1]!.body as string).not.toContain('benign');
-    expect(createSystemOne({ TYPESAFE_API_KEY: 't', OPENROUTER_API_KEY: 'o', fetch: f }).mode).toBe('typesafe');
+    await createSystemOne({ TYPESAFE_API_KEY: 't', OPENROUTER_API_KEY: 'o', fetch: f }).ask(state, questions);
+    expect(f.mock.calls[2]![0]).toBe('https://api.typesafe.ai/v1/systemone');
   });
 
   it('FAKE_S1=1 wins and never fetches; no keys is off', async () => {

@@ -77,6 +77,17 @@ criteria:
     targetKind: runtime
     gates: [deployment, outcome]
     hooks: [hook.webapp.health]
+  - id: C.webapp.checks
+    title: Changed nodes meet their checks
+    claim: Changed nodes meet the checks their kinds declare.
+    ownerKind: thing
+    ownerId: "$thing"
+    subjectKind: thing
+    subjectId: "$thing"
+    targetKind: model
+    severity: soft
+    gates: [submission]
+    hooks: [hook.webapp.checks]
 hooks:
   - id: hook.webapp.exists
     assay: webapp.requiredFiles
@@ -99,3 +110,13 @@ hooks:
       path: /health
     timeoutMs: 2000
     binding: defined
+  - id: hook.webapp.checks
+    assay: webapp.checks
+    criteria: [C.webapp.checks]
+    tier: semantic
+    engine: model-rules
+    targetKind: model
+    triggers: [submission]
+    inputs:
+      packs: "checks@1"
+    binding: bound
