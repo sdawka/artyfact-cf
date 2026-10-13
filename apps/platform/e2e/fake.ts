@@ -87,9 +87,12 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   await expect(row.locator("[data-status]").filter({ hasText: "awaiting-admin" })).toBeVisible();
   // The commit lands on a deep link to the realization, which opens its review.
   await expect(page.getByRole("region", { name: `Review ${rid}` })).toBeVisible();
-  await page.getByRole("tab", { name: "Amendment" }).click();
+  // The review re-renders when its evaluations arrive, which can reset the selected tab: select Amendment until its form shows.
   const interpretation = page.getByRole("textbox", { name: "Accepted interpretation" });
-  await expect(interpretation).toBeVisible();
+  await expect(async () => {
+    await page.getByRole("tab", { name: "Amendment" }).click();
+    await expect(interpretation).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 15_000 });
   // The amendment's "benign class" confidence row is painted in the pass tone although it is a model judgement, not an assay pass.
   // Reported to the Work slice; tolerated here until it is neutral.
   await checkPage(page, testInfo, `amendment-${node}`, (h) => isPass(h) || /classRow|_num_|deliberate non-standard choice/.test(h));

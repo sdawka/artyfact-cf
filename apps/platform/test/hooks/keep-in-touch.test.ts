@@ -41,6 +41,15 @@ describe("model-rules on the real Keep in Touch Genome", () => {
     expect(engineRules(engineRun(keepInTouch()), { packs: ["topology.private-pairs@1"] }).verdict).toBe("pass");
   });
 
+  it("the engine rules path runs only the packs the System pins, as readiness does", () => {
+    const files = keepInTouchMany();
+    // The last pin under rulePacks (the kits list pins a kit of the same name first).
+    files["node.yaml"] = files["node.yaml"].replace('    - id: topology.private-pairs\n      version: "1"\n  required:', "  required:");
+    const r = engineRun(files);
+    expect(r.template.rules.map((p) => p.id)).not.toContain("artyfact.topology.private-pairs");
+    expect(r.readiness.findings.some((f) => f.rule === "topology.recipientArray")).toBe(false);
+  });
+
   it("the topology hook (inputs.packs with a version) sees it; the structure hook does not; an unpinned pack is unknown", () => {
     expect(modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["topology.private-pairs@1"] } }).outcome.verdict).toBe("fail");
     expect(modelRules({ files: keepInTouchMany(), revision: "m", filter: { packs: ["metamodel@1"] } }).outcome.verdict).toBe("pass");

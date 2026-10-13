@@ -11,6 +11,7 @@ import {
   checkQuestions, CORE_PACKS, checksPack, evaluate, judge, QuestionSchema,
   type Finding, type Graph, type Readiness, type SystemOne, type Template,
 } from "@artyfact/ontology";
+import { readinessTemplate } from "@artyfact/model";
 import type { FileMap } from "./contract";
 import { loadGenome, selectableRules, type RulesFilter } from "./model-rules";
 import type { Outcome } from "./provenance";
@@ -32,7 +33,8 @@ export function genomeGraph(files: FileMap): Graph {
 /** Evaluates the Genome against its template. The graph is evaluated as an instance of that (possibly composed) template. */
 export function engineRun(files: FileMap): EngineRun {
   const m = loadGenome(files, "");
-  const template = m.template;
+  // The packs readiness runs (the System's pins), so the gates and readiness agree on which packs exist.
+  const template = readinessTemplate(m);
   const judged = { ...m.graph, template: template.ref };
   return { graph: judged, template, readiness: evaluate(template, judged) };
 }
