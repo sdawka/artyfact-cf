@@ -1,14 +1,19 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
+import { parse as parseYaml } from "yaml";
 import { describe, expect, it } from "vitest";
 import { readDir } from "../src/adapters/artyfact/node.ts";
 import { convertV1 } from "../src/codec/v1.ts";
-import { artyfactTemplateStore, GenomeTreeError, graphHash, isLegacyGenome, loadArtyfactSystem, readTree, type Graph } from "../src/index.ts";
+import { templateDir, GenomeTreeError, graphHash, isLegacyGenome, loadArtyfactSystem, readTree, type Graph } from "../src/index.ts";
 
+/** The meta@1 `template.yaml` sources, as `@artyfact/templates`' `metaTemplates` serves them. */
+const metaStore = (files: Record<string, string>) => ({
+  get: (ref: string) => { const t = files[`${templateDir(ref)}/template.yaml`]; return t === undefined ? undefined : parseYaml(t); },
+});
 const V1 = join(__dirname, "../../../examples/keep-in-touch-system");
 const FIXTURE = join(__dirname, "fixtures/genome-v2/keep-in-touch");
 const TPL = readDir(join(__dirname, "../../templates"));
-const templates = artyfactTemplateStore(TPL);
+const templates = metaStore(TPL);
 const v1 = readDir(V1);
 const tree = convertV1(v1, TPL);
 const v1Graph = loadArtyfactSystem(v1, { templates: TPL });
@@ -78,6 +83,14 @@ describe("convertV1 (Keep in Touch)", () => {
     expect(tree.get("thing.webapp/section.ui/screen.people/node.yaml")).toContain("id: C.webapp.screen.people");
     const shared = v1Graph.nodes.find((n) => n.kind === "hook" && (n.fields.criteria as string[]).length > 1);
     if (shared) expect([...tree.values()].filter((t) => t.includes(`id: ${shared.id}\n`))).toHaveLength(1);
+  });
+
+  it("keeps the label of every v1 cross link, which the graph does not carry", () => {
+    const v1Labels = Object.entries(v1).filter(([p]) => /ontology\.yaml$|externals\.yaml$/.test(p)).flatMap(([, t]) => [...t.matchAll(/label: ([^,}\n]+)/g)].map((m) => m[1]!.trim()));
+    expect(v1Labels).toHaveLength(4);
+    const v2Labels = [...tree.values()].flatMap((t) => [...t.matchAll(/label: ([^,}\n]+)/g)].map((m) => m[1]!.trim()));
+    expect(v2Labels.sort()).toEqual(v1Labels.sort());
+    expect(tree.get("thing.webapp/section.ui/screen.signin/node.yaml")).toContain("{ rel: references, to: ext.providers, label: identity provider }");
   });
 
   it("names step directories by local id and keeps evolutions verbatim", () => {

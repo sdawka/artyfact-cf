@@ -1,11 +1,16 @@
 import { join } from "node:path";
+import { parse as parseYaml } from "yaml";
 import { describe, expect, it } from "vitest";
 import { readDir } from "../src/adapters/artyfact/node.ts";
 import {
-  applyOps, artyfactTemplateStore, GenomeTreeError, graphHash, mintId, parseTree, readTree, TreeOpError, type FileChange, type TreeOp,
+  applyOps, templateDir, GenomeTreeError, graphHash, mintId, parseTree, readTree, TreeOpError, type FileChange, type TreeOp,
 } from "../src/index.ts";
 
-const templates = artyfactTemplateStore(readDir(join(__dirname, "../../templates")));
+/** The meta@1 `template.yaml` sources, as `@artyfact/templates`' `metaTemplates` serves them. */
+const metaStore = (files: Record<string, string>) => ({
+  get: (ref: string) => { const t = files[`${templateDir(ref)}/template.yaml`]; return t === undefined ? undefined : parseYaml(t); },
+});
+const templates = metaStore(readDir(join(__dirname, "../../templates")));
 const KIT = readDir(join(__dirname, "fixtures/genome-v2/keep-in-touch"));
 const kitTree = parseTree(KIT);
 const apply = (files: Record<string, string>, changes: FileChange[]) => {
@@ -198,6 +203,8 @@ describe("applyOps", () => {
     const linked = applyOps(SMALL, [{ op: "link", node: "screen.home", link: { rel: "serves", to: "P1", certainty: "assumed" } }]);
     expect(linked.changes[0]!.content).toContain("  - { rel: serves, to: ext.owner } # the owner only\n  - { rel: serves, to: P1, certainty: assumed }\n");
     expect(applyOps(SMALL, [{ op: "link", node: "screen.home", link: { rel: "serves", to: "ext.owner" } }])).toEqual({ changes: [], touched: [] });
+    const labelled = applyOps(SMALL, [{ op: "link", node: "P1", link: { rel: "references", to: "ext.owner", label: "who it is for", source: { doc: "spec", section: "2" } } }]);
+    expect(labelled.changes[0]!.content).toContain("  - { rel: references, to: ext.owner, label: who it is for, source: { doc: spec, section: \"2\" } }\n");
     const unlinked = applyOps(SMALL, [{ op: "unlink", node: "thing.app", link: { rel: "serves", to: "P1" } }]);
     expect(unlinked.changes[0]!.content).not.toContain("links");
     expect(unlinked.touched).toEqual(["thing.app"]);

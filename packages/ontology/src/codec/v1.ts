@@ -41,9 +41,13 @@ export function convertV1(files: GenomeFiles, templates?: TemplateStore | Record
     if (!links.some((x) => x.rel === l.rel && x.to === l.to)) links.push(l);
   };
   const cross = (owner: string, l: schema.CrossLink, origin: string) => {
-    const certainty = l.certainty === "declared" ? {} : { certainty: l.certainty };
-    if (l.direction === "in") linkOut(l.to, { rel: l.rel, to: owner, ...certainty }, origin);
-    else linkOut(owner, { rel: l.rel, to: l.to, ...certainty }, origin);
+    const extra = {
+      ...(l.certainty !== "declared" && { certainty: l.certainty }),
+      ...(l.label !== undefined && { label: l.label }),
+      ...(l.source !== undefined && { source: l.source }),
+    };
+    if (l.direction === "in") linkOut(l.to, { rel: l.rel, to: owner, ...extra }, origin);
+    else linkOut(owner, { rel: l.rel, to: l.to, ...extra }, origin);
   };
   const origin = (id: string) => m.origin[id] ?? "system.yaml";
 

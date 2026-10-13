@@ -9,4 +9,4 @@ fields:
     doc: keep-in-touch-world-specification
     section: "8"
 links:
-  - { rel: dependsOn, to: ext.providers }
+  - { rel: dependsOn, to: ext.providers, label: Cloudflare is provider context }

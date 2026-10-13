@@ -18,4 +18,4 @@ fields:
   failure:
     - Unsupported channel offers copyable contact details instead
 links:
-  - { rel: references, to: ext.channels }
+  - { rel: references, to: ext.channels, label: opens the preferred channel }

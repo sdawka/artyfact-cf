@@ -36,4 +36,4 @@ fields:
     - Queue bodies carry minimal IDs, not private relationship notes
 links:
   - { rel: storedIn, to: binding.contactsStore }
-  - { rel: triggers, to: ext.providers }
+  - { rel: triggers, to: ext.providers, label: optional external reminder }

@@ -17,4 +17,4 @@ fields:
     - anonymous
 links:
   - { rel: serves, to: ext.owner }
-  - { rel: references, to: ext.providers }
+  - { rel: references, to: ext.providers, label: identity provider }

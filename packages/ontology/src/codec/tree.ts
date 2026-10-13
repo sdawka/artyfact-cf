@@ -15,20 +15,11 @@ export type GenomeFiles = ReadonlyMap<string, string> | Readonly<Record<string, 
 /** The base template a Genome whose root pins none is evaluated under. */
 export const BASE_TEMPLATE = "template.meta.artyfact-genome@1";
 
-/** What `readTree` needs of a template to emit its `template` node: the artyfact template package shape. */
-export interface TreeTemplateInfo {
-  kind: string;
-  version: string;
-  name: string;
-  description?: string;
-  sections?: string[];
-  criteria?: { id: string }[];
-  hooks?: { id: string }[];
-  requires?: string[];
-  scaffold?: unknown;
-  sourceMapDefaults?: unknown;
-}
-export interface TreeTemplates { get(ref: string): TreeTemplateInfo | undefined }
+/**
+ * The meta@1 template sources by ref (the engine's `TemplateStore`; `@artyfact/templates` exports `metaTemplates`).
+ * `readTree` reads only the `template` node a template declares for itself in `nodes`.
+ */
+export interface TreeTemplates { get(ref: string): unknown }
 
 export interface TreeIssue { path: string; message: string }
 
@@ -192,11 +183,18 @@ class Builder {
   }
 }
 
-const templateFields = (t: TreeTemplateInfo) => compact({
-  kind: t.kind, version: t.version, name: t.name, description: t.description, sections: t.sections,
-  criteria: t.criteria?.map((c) => c.id), hooks: t.hooks?.map((h) => h.id), requires: t.requires,
-  scaffold: t.scaffold, sourceMapDefaults: t.sourceMapDefaults,
-});
+/**
+ * The `template` node for `ref`: the node a meta@1 template declares for itself (`{id: ref, kind: template}` in its
+ * `nodes`), else one holding only its kind and version. Undefined when the store does not know `ref`.
+ */
+function templateNode(templates: TreeTemplates, ref: string): GraphNode | undefined {
+  const t = templates.get(ref);
+  if (!isObj(t)) return undefined;
+  const own = Array.isArray(t.nodes) ? t.nodes.find((n) => isObj(n) && n.id === ref && n.kind === "template") : undefined;
+  const kind = /^template\.([\w-]+)\./.exec(ref)?.[1];
+  const fields = isObj(own) && isObj(own.fields) ? own.fields : compact({ kind, version: t.version === undefined ? undefined : String(t.version) });
+  return { id: ref, kind: "template", fields };
+}
 
 /**
  * Projects a v2 Genome onto the engine `Graph`. Criteria become parentless `criterion` nodes with `owner` and
@@ -221,9 +219,9 @@ export function projectTree(tree: GenomeTree, templates: TreeTemplates): Graph {
     return n;
   };
   const pinTemplate = (n: TreeNode, ref: string) => {
-    const t = templates.get(ref);
+    const t = templateNode(templates, ref);
     if (!t) issues.push({ path: n.path, message: `unknown template ${ref}` });
-    else b.node({ id: ref, kind: "template", fields: templateFields(t) });
+    else b.node(t);
     b.link({ from: n.id, rel: "pinned", to: ref });
   };
 
@@ -266,6 +264,7 @@ export function projectTree(tree: GenomeTree, templates: TreeTemplates): Graph {
     }
     b.node({ id: n.id, kind: f.kind, ...(n.parent !== undefined && { parent: n.parent }), fields, ...(f.provisional && { provisional: true }) });
     if (f.template !== undefined) pinTemplate(n, f.template);
+    // A link's `label` and `source` stay in node.yaml: the engine graph link has no slot for them.
     for (const l of f.links ?? []) b.link({ from: n.id, rel: l.rel, to: l.to, certainty: l.certainty ?? "declared" });
     if (f.kind === "step" && Array.isArray(fields.next) && n.parent !== undefined) {
       for (const s of fields.next) if (isObj(s) && typeof s.to === "string") b.link({ from: n.id, rel: "stepNext", to: `${n.parent}/${s.to}` });

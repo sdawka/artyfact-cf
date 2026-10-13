@@ -191,7 +191,7 @@ export function applyOps(files: GenomeFiles, ops: readonly TreeOp[]): ApplyResul
         const matches = (x: unknown) => isMap(x) && x.get("rel") === rel && x.get("to") === to;
         if (op.op === "link") {
           if (isSeq(seq) && seq.items.some(matches)) break;
-          const item = doc.createNode({ rel, to, ...(op.link!.certainty !== undefined && { certainty: op.link!.certainty }) }) as YAMLMap;
+          const item = doc.createNode(Object.fromEntries(Object.entries(op.link!).filter(([, v]) => v !== undefined))) as YAMLMap;
           item.flow = isSeq(seq) && seq.items.length ? (seq.items[seq.items.length - 1] as YAMLMap).flow ?? false : true;
           if (isSeq(seq)) seq.items.push(item);
           else { const fresh = new YAMLSeq(); fresh.items.push(item); setTop(doc, "links", fresh); }
