@@ -50,8 +50,8 @@ Not done on purpose: platform-hosted agents, a reasoning-model evaluator beyond 
 
 ```sh
 artyfact tasks --system system.peopling
-artyfact claim task.2.t1 --system system.peopling --agent "claude:task.2.t1" --dir ./work/task.2.t1
-(cd ./work/task.2.t1 && claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit")
+ARTYFACT_ADMIN_TOKEN=… artyfact claim task.2.t1 --system system.peopling --agent "claude:task.2.t1" --dir ./work/task.2.t1
+(cd ./work/task.2.t1 && env -u ARTYFACT_ADMIN_TOKEN claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit")
 ```
 
 | task | wave | depends on | nodes |

@@ -158,13 +158,12 @@ only. `status` prints `task:`. One claim is one clone of its own fork, so no wor
 The loop for one task is claim, run the agent in the claimed directory, submit:
 
 ```sh
-export ARTYFACT_ADMIN_TOKEN=…                    # the orchestrator's; agents never need it
 npx artyfact tasks --system <sid>                # pick tasks of the lowest unfinished wave
-npx artyfact claim <task> --system <sid> --agent "claude:<task>" --dir ./work/<task>
-(cd ./work/<task> && claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit")
+ARTYFACT_ADMIN_TOKEN=… npx artyfact claim <task> --system <sid> --agent "claude:<task>" --dir ./work/<task>
+(cd ./work/<task> && env -u ARTYFACT_ADMIN_TOKEN claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit")
 ```
 
-Run one such loop per task of a wave, in parallel; the plan guarantees the tasks of one wave share no files. `submit` needs
+Pass the admin token inline on `claim` only, and start the agent without it, so the agent never inherits it. Run one such loop per task of a wave, in parallel; the plan guarantees the tasks of one wave share no files. `submit` needs
 no `ARTYFACT_TOKEN` in a claimed workspace, so the agent holds only that task's fork token (at rest in `.artyfact.json`, as
 above). Do not mix this with Start wave on the Work view: Start wave claims every task of the wave itself, as
 `agent:<task>`, and returns the start lines in its response, so `claim` then answers `task-taken` (or, for the same label,

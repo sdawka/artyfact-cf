@@ -15,7 +15,7 @@ Target length about 9.5 minutes, hard limits 5 to 10. If a take runs long, short
 - [ ] Bootstrap and import (`init`) are done before recording, unless you want them on camera (steps 1 and 2, about 10 s and 30 s).
 - [ ] The `export` block from step 0 is run in every terminal: ops, sse, A, B, C.
 - [ ] Start tokens last six hours. Start work close to recording.
-- [ ] For the Tasks beats, `ARTYFACT_ADMIN_TOKEN` is loaded in terminal ops only, and a local agent (`claude`, or any harness that takes a prompt) is installed. The Artyfact-on-itself beat needs a second fake platform with the self seed (runbook step 11); label it fake on screen.
+- [ ] For the Tasks beats, `ARTYFACT_ADMIN_TOKEN` is passed inline on `claim` in terminal ops only, and agents are launched with it removed (`env -u`), and a local agent (`claude`, or any harness that takes a prompt) is installed. The Artyfact-on-itself beat needs a second fake platform with the self seed (runbook step 11); label it fake on screen.
 - [ ] Decide on the preview for agent A. With it, health passes. Without it, health stays `unknown` and the narration says why (step 5, optional preview).
 - [ ] Do not expect real System One. Every judgment is canned and labelled fake.
 - [ ] After recording, `rm -rf "$RUN"` to delete saved tokens.

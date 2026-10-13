@@ -95,9 +95,10 @@ artyfact validate-genome examples/peopling-system --app examples/peopling-app
 ```
 
 ```text
+# from a run of the CLI on this checkout
 system.peopling  template.system.social-networking.cloudflare@1  (genome: examples/peopling-system)
 things: thing.webapp (root ., template.thing.cloudflare-worker-webapp@1)
-nodes 241  criteria 23  hooks 25  journeys 10  evolutions 6
+nodes 243  criteria 23  hooks 25  journeys 10  evolutions 6
 findings: 0 errors, 21 warnings
   …
 files: 19 of 19 app paths mapped (app: examples/peopling-app)
@@ -108,10 +109,12 @@ files: 19 of 19 app paths mapped (app: examples/peopling-app)
   stale     screen.goal: public/goals/**
   stale     screen.logContact: public/log/**
   stale     screen.today: public/today/**
+  stale     section.events: src/worker/routes/events.ts
+  stale     section.goals: src/worker/routes/goals.ts
 ok: ready for `npx artyfact init --genome examples/peopling-system --app examples/peopling-app`
 ```
 
-Errors stop it (exit 1). The 21 warnings include six provisional nodes that the platform's readiness summary in step 2 leaves out. The seven `stale` globs are files `evolution.2` will build (step 4b), so they are expected here;
+Errors stop it (exit 1). The 21 warnings include six provisional nodes that the platform's readiness summary in step 2 leaves out. The nine `stale` entries are globs for files `evolution.2` will build (step 4b), so they are expected here;
 `--strict` fails on them, and on any file no node maps (`unmapped`, which you bind or list in `.artyfactignore`). For
 an existing repository, `artyfact skill --write` installs the `artyfact-genome` skill so a local agent writes the Genome,
 and this command is how you know it is done.
@@ -282,6 +285,7 @@ artyfact tasks --system system.peopling
 ```
 
 ```text
+# from a fake-platform run (FAKE_ARTIFACTS=1 FAKE_S1=1)
 {"waves":[["task.2.t1","task.2.t2"],["task.2.t3"]],"tasks":[{"id":"task.2.t1","status":"planned","dependsOn":[]},{"id":"task.2.t2","status":"planned","dependsOn":[]},{"id":"task.2.t3","status":"planned","dependsOn":["task.2.t1","task.2.t2"]}]}
 task       evolution    status   wave  depends-on           nodes                                                                                    footprint
 task.2.t1  evolution.2  planned  1     -                    operation.goal.save                                                                      src/worker/routes/goals.ts
@@ -299,20 +303,23 @@ the first two build, a dependency derived from the Genome's links, so task 3 wai
 it, and a failed reply falls back to the same grouping. `tasks` is public. In the browser this is Work, Plan on the
 Evolution: the same waves as columns with a status chip per task. Waves are numbered from 1.
 
-Two agents take wave 1 from the CLI. The orchestrator in terminal **ops** claims; the agent never sees the admin token:
+Two agents take wave 1 from the CLI. The orchestrator in terminal **ops** claims, passing the admin token inline on that one command. It launches each agent with the admin token removed from its environment, so the agent holds only its task's fork token:
 
 ```sh
-artyfact claim task.2.t1 --system system.peopling --agent "claude:task.2.t1" --dir ./work/task.2.t1
-artyfact claim task.2.t2 --system system.peopling --agent "claude:task.2.t2" --dir ./work/task.2.t2
-(cd ./work/task.2.t1 && claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit") &
-(cd ./work/task.2.t2 && claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit") &
+for t in task.2.t1 task.2.t2; do
+  ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact claim $t --system system.peopling --agent "claude:$t" --dir ./work/$t
+done
+for t in task.2.t1 task.2.t2; do
+  (cd ./work/$t && env -u ARTYFACT_ADMIN_TOKEN -u ADMIN_TOKEN claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit") &
+done
 wait
 ```
 
 ```text
+# illustrative, from the CLI format (the clone needs real Artifacts); the CLI prints the absolute directory
 Claimed task.2.t1 as claude:task.2.t1
-Workspace ready in ./work/task.2.t1
-Next: cd ./work/task.2.t1 && read AGENTS.md and TASK_PACKET.md, then npm install; finish with 'npx artyfact submit'.
+Workspace ready in /path/to/checkout/work/task.2.t1
+Next: cd /path/to/checkout/work/task.2.t1 && read AGENTS.md and TASK_PACKET.md, then npm install; finish with 'npx artyfact submit'.
 ```
 
 `claim` does what `start` does for one task: it forks the app repo, clones it, writes `TASK_PACKET.md` and writes the
@@ -673,10 +680,11 @@ When you are done, delete the saved start responses, which hold tokens and secre
 Both wave-1 tasks have submitted (4b). Try the Today task, which depends on them:
 
 ```sh
-artyfact claim task.2.t3 --system system.peopling --agent "claude:task.2.t3" --dir ./work/task.2.t3
+ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact claim task.2.t3 --system system.peopling --agent "claude:task.2.t3" --dir ./work/task.2.t3
 ```
 
 ```text
+# illustrative, from the CLI format
 artyfact: blocked by task.2.t1, task.2.t2 (not yet promoted)
 ```
 
@@ -692,7 +700,7 @@ curl -s -XPOST $B/realizations/<task-2-realization>/rebase -H "authorization: Be
 
 The platform replays the candidate onto the head as one new fork commit and submits it, so every hook runs again. It
 refuses with 409 `rebase-conflict` and the paths when the head changed a file the candidate changes, and with
-`up-to-date` when there is nothing to replay. Promote the rebased candidate (`expectedHead` is the new head), then claim
+`up-to-date` when there is nothing to replay. Promote the rebased candidate (`expectedHead` is the new head), then run the same `claim` for
 task 3 again. This time it succeeds: `TASK_PACKET.md` lists both tasks under Depends on, and each earlier task's
 `AGENTS.md` said "After you: task.2.t3 starts when this task is promoted". Task-less candidates, like step 8's B, are
 rejected on promotion and redone.
@@ -712,6 +720,7 @@ artyfact tasks --system system.artyfact | cut -c1-170
 ```
 
 ```text
+# from a fake-platform run (FAKE_SEED=artyfact)
 [["task.1.t1"],["task.1.t2"]]
 task       evolution    status   wave  depends-on  nodes                                                                         footprint
 task.1.t1  evolution.1  planned  1     -           module.cli.main,module.cli.tasks,module.cli.validate-genome,module.cli.skill  packages/cli/skills/**,packages/cli/src/**,packages/cli/src/index.ts,packages/cli/src/main.ts,packages/cli/src/mo…
