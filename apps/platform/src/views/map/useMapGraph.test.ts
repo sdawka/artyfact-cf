@@ -162,22 +162,24 @@ describe("Map bands", () => {
   it("bands children by template layer, in template order, and hides hidden layers", () => {
     const g = buildMapGraph(index, "system.keep-in-touch");
     expect(g.layered).toBe(true);
-    expect(g.bands.map((b) => b.id)).toEqual(["experience", "domain", "rules", "runtime"]);
-    expect(g.bands[0]!.label).toBe("Experience");
+    expect(g.bands.map((b) => b.id)).toEqual(["intent", "journeys", "experience", "domain", "rules", "runtime"]);
+    expect(g.bands[2]!.label).toBe("Experience");
+    expect(g.nodes.find((n) => n.id === "T1")?.band).toBe("intent");
+    expect(g.nodes.find((n) => n.id === "J.connect")?.band).toBe("journeys");
     expect(g.nodes.find((n) => n.id === "screen.people")?.band).toBe("experience");
     expect(g.nodes.find((n) => n.id === "entity.ContactRecord")?.band).toBe("domain");
     const noDomain = buildMapGraph(index, "system.keep-in-touch", { ...DEFAULT_FILTERS, hiddenLayers: ["domain"] });
-    expect(noDomain.bands.map((b) => b.id)).toEqual(["experience", "rules", "runtime"]);
+    expect(noDomain.bands.map((b) => b.id)).toEqual(["intent", "journeys", "experience", "rules", "runtime"]);
     expect(ids(noDomain)).not.toContain("entity.ContactRecord");
   });
 
   it("chains band frames in layer order inside the scope", () => {
     const req = mapLayoutRequest(buildMapGraph(index, "system.keep-in-touch"), "genome");
     const frames = req.nodes.filter((n) => n.id.startsWith(bandFrameId(""))).map((n) => n.id);
-    expect(frames).toEqual(["experience", "domain", "rules", "runtime"].map(bandFrameId));
+    expect(frames).toEqual(["intent", "journeys", "experience", "domain", "rules", "runtime"].map(bandFrameId));
     for (const f of frames) expect(req.nodes.find((n) => n.id === f)!.parentId).toBe("system.keep-in-touch");
     const chain = req.edges.filter((e) => e.source.startsWith(bandFrameId(""))).map((e) => [e.source, e.target]);
-    expect(chain).toEqual([[frames[0], frames[1]], [frames[1], frames[2]], [frames[2], frames[3]]]);
+    expect(chain).toEqual(frames.slice(1).map((f, i) => [frames[i], f]));
   });
 
   it("without template layers bands by containment depth and draws no frames", () => {

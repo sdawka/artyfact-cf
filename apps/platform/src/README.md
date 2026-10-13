@@ -58,7 +58,8 @@ work. Use `<h1>` for the view title.
 | `verdictOf(criterionId)` | `UiVerdict` within `scope` |
 | `rollup(id)` | `Rollup` `{ pass, fail, unknown, stale, notRun, waived }` over non-deferred criteria in the subtree, within `scope` |
 
-Containment: System → things → nodes by `parent`; journeys → steps. **Steps are indexed as
+Containment: System → things → nodes by `parent`; journeys → steps. Purposes, claims, features, commitments and journeys
+sit under the node whose directory holds them (v2 `origin`), else under the System. **Steps are indexed as
 `<journeyId>/<stepId>`**, e.g. `J.connect/s4` (`stepId(j, s)` in `model/index.ts`, same as the model
 package's `stepKey`). Use that form in `?focus=` and anywhere a step is named; rule findings about
 steps use it too, so they open in the Inspector.

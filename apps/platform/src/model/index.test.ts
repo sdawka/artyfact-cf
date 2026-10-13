@@ -48,7 +48,7 @@ describe("buildIndex on the Keep in Touch fixture", () => {
     expect(path.slice(0, 3)).toEqual(["system.keep-in-touch", "thing.webapp", "section.ui"]);
     expect(path.slice(-3)).toEqual(["screen.people", "component.AddContactDialog", "affordance.AddContactDialog.save"]);
     for (let i = 3; i < path.length; i++) expect(nodeParent(path[i]!)).toBe(path[i - 1]);
-    expect(ids(ix.path("T1"))).toEqual(["T1"]);
+    expect(ids(ix.path("T1"))).toEqual(["system.keep-in-touch", "T1"]); // claims, purposes, features, commitments, journeys sit under the System
     expect(ix.path("nope")).toEqual([]);
   });
 

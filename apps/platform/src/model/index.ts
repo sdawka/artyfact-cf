@@ -105,6 +105,18 @@ export function buildIndex(source: UiBundle | ModelJson): ModelIndex {
   };
   for (const t of things) contain(model.system.id, t.id);
   for (const n of nodes) if (n.parent) contain(n.parent, n.id);
+  // Purposes, claims, features, commitments and journeys are Genome tree nodes too: under the node whose directory
+  // holds their `node.yaml` (v2 `origin`), else under the System (v1 files).
+  const origin = (model as { origin?: Record<string, string> }).origin ?? {};
+  const holder = (id: string) => {
+    const dirs = (origin[id] ?? "").split("/").slice(0, -2);
+    for (let i = dirs.length - 1; i >= 0; i--) if (byIdMap.has(dirs[i]!)) return dirs[i]!;
+    return model.system.id;
+  };
+  const rooted = [
+    ...(model.purposes ?? []), ...claims, ...(model.description?.features ?? []), ...(model.description?.commitments ?? []), ...journeys,
+  ];
+  for (const { id } of rooted) contain(holder(id), id);
   for (const j of journeys) for (const s of j.steps) contain(j.id, stepId(j.id, s.id));
 
   const linksOut = new Map<string, LinkRef[]>();

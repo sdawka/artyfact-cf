@@ -101,6 +101,11 @@ export function mapScopeFor(index: ModelIndex, id: string | null | undefined): s
     case "system":
     case "thing":
     case "node":
+    case "purpose":
+    case "claim":
+    case "feature":
+    case "commitment":
+    case "journey":
       return index.children(e.id).length ? e.id : (index.parent(e.id)?.id ?? root);
     case "criterion":
       return mapScopeFor(index, (e.item as Criterion).subjectId);
@@ -114,9 +119,9 @@ export function mapScopeFor(index: ModelIndex, id: string | null | undefined): s
 }
 
 /**
- * Where `id` sits on the Map: itself for the System, things, nodes and Externals; a criterion's
- * subject; a step's screen. `null` for objects with no place on the Map (requirements, journeys,
- * purposes, claims, hooks, ...), whose focus must not move the Map.
+ * Where `id` sits on the Map: itself for the System, things, nodes, Externals and the Genome tree's
+ * intent and journey nodes; a criterion's subject; a step's screen. `null` for objects with no
+ * place on the Map (requirements, hooks, evolutions, ...), whose focus must not move the Map.
  */
 export function mapLocationFor(index: ModelIndex, id: string | null | undefined): string | null {
   const e = id ? index.byId(id) : undefined;
@@ -126,6 +131,11 @@ export function mapLocationFor(index: ModelIndex, id: string | null | undefined)
     case "thing":
     case "node":
     case "external":
+    case "purpose":
+    case "claim":
+    case "feature":
+    case "commitment":
+    case "journey":
       return e.id;
     case "criterion":
       return mapLocationFor(index, (e.item as Criterion).subjectId);

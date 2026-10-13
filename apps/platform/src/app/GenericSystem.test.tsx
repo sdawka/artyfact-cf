@@ -56,6 +56,13 @@ describe("a System whose templates have other kinds than the webapp's", () => {
     expect(within(node).getByText("DO")).toBeTruthy();
     expect(within(node).getByText("Durable Object")).toBeTruthy();
     expect(document.querySelector('[data-map-node="thing.api"]')).toBeNull(); // a Thing is in no layer
+    // Root children the template puts in a Map layer are drawn too (intent band), and the tree names them by hint.
+    expect(bands).toContain("intent");
+    expect(document.querySelector('[data-map-node="purpose.reliable-jobs"]')).not.toBeNull();
+    const tree = screen.getByRole("tree", { name: "Containment" });
+    expect(within(tree).getAllByText(", Thing").length).toBe(4);
+    expect(within(tree).getAllByText(", Purpose").length).toBe(1);
+    expect(within(tree).queryAllByText(/Unknown/)).toEqual([]);
   });
 
   it("renders Work", async () => {

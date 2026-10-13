@@ -98,11 +98,12 @@ export interface KindViews {
   layers: MapLayer[];
 }
 
-/** Template refs a model pins: the System's, then each Thing's (v1 `templateRef`, v2 `template`), then node pins. */
+/** Template refs a model pins: the System's, each Thing's (v1 `templateRef`, v2 `template`), node pins, then `templates`. */
 export function templateRefs(model: ModelJson): string[] {
   const refs: unknown[] = [model.system.template];
   for (const t of model.things ?? []) refs.push((t as { templateRef?: unknown; template?: unknown }).templateRef ?? (t as { template?: unknown }).template);
   for (const n of model.nodes ?? []) refs.push((n as { template?: unknown }).template);
+  for (const t of model.templates ?? []) refs.push(`${t.id}@${t.version}`);
   return [...new Set(refs.filter((r): r is string => typeof r === "string" && r.length > 0))];
 }
 
