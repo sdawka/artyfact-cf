@@ -93,6 +93,11 @@ describe("Code page", () => {
     expect(document.querySelector(".cm-content")!.getAttribute("aria-readonly")).toBe("true");
     expect(screen.getByText("read-only · canonical")).toBeTruthy();
     expect(() => typeInEditor(document.body, "x")).toThrow(/read-only/);
+    // Each mapped node can start a described change anchored on it.
+    const nodes = screen.getByRole("list", { name: "Model nodes in this file" });
+    expect(within(nodes).getByRole("link", { name: /^Change this…/ }).getAttribute("href")).toBe(
+      `/s/${SYSTEM}/r/head/work?panel=intent&anchor=${SYSTEM}`,
+    );
   });
 
   it("puts an edit in the draft: pending 1 and a ● on the file", async () => {

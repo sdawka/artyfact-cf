@@ -12,20 +12,55 @@ packsFor([{ id: "readiness", version: "1" }]);              // [{ id, version, s
 ## Layout
 
 ```
-system/<name>@<v>/template.yaml
-thing/<name>@<v>/template.yaml      + optional criteria.yaml, source-map.defaults.yaml, scaffold.yaml
-rule-packs/<id>@<v>.dl
+system/<name>@<v>/template.yaml      meta@1 (the engine's format); extends template.meta.artyfact-genome@1
+system/<name>@<v>/template.v1.yaml   the same template in the legacy artyfact shape (deleted with the v1 readers in W4)
+thing/<name>@<v>/template.yaml       + template.v1.yaml, and optional criteria.yaml, source-map.defaults.yaml, scaffold.yaml
+rule-packs/<id>@<v>.dl               legacy-dialect packs for @artyfact/model's validate (deleted in W4)
 ```
 
-`templates.get` folds the sibling files into the `Template`: `criteria.yaml` (`criteria:` + `hooks:`), `source-map.defaults.yaml` (list of `{glob, nodes}`) and the `repo`/`path` of `scaffold.yaml`. Raw files are available through `templateFile(ref, name)`.
+## meta@1 templates
+
+`template.yaml` is a `meta@1` template (`docs/design/ontology.md` section 3). Kinds, relations, legal `parents` and the per-kind view hints (label, plural, glyph, colour token, Map layer, Inspector field order) are inherited from the base `template.meta.artyfact-genome@1` in `@artyfact/ontology`, which the UI renders from. Each template adds what is its own:
+
+- `rules`: the domain packs. The System template owns `readiness`, `theory` and `topology.private-pairs` (with its `topology.multiRecipient` question); the Thing templates own `authorization` and `journeys`. The generic `facts` and `metamodel` packs stay in the base.
+- `nodes` and `criteria`: the prefilled nodes (`$self` is the instantiating node), criteria and hooks. `files` on the worker's root and prefilled nodes replace `source-map.defaults.yaml` for the Genome v2 source map (globs are relative to the Thing's `root`).
+
+```ts
+import { loadMetaTemplate, composeTemplate, metaTemplates } from "@artyfact/templates";
+
+loadMetaTemplate("template.thing.vue-webapp@1");               // merged over its extends chain
+composeTemplate(systemRef, [thingRef]);                       // the System template with its Things' rules, for evaluate()
+```
+
+A test keeps `template.yaml` and `template.v1.yaml` in step (prefilled nodes, criteria, hooks, source globs) and checks that Keep in Touch yields artyfact's findings against the composed template.
+
+`templates.get` still returns the legacy `Template` from `template.v1.yaml`, folding the sibling files in: `criteria.yaml` (`criteria:` + `hooks:`), `source-map.defaults.yaml` (list of `{glob, nodes}`) and the `repo`/`path` of `scaffold.yaml`. Raw files are available through `templateFile(ref, name)`.
 
 ## The `$thing` placeholder
 
 Template nodes and criteria use `"$thing"` for `parent`, `owningThing`, `ownerId` and `subjectId` where they mean "the Thing that instantiates this template". The model loader rebases it to the Thing id. System templates use `"$system"` the same way.
 
+## meta@1 templates
+
+Templates with `meta: 1` are in the ontology engine's form (`loadTemplate`, `checkTemplateForm` from `@artyfact/ontology`) and are invisible to the v1 `templates.get` and `templateRefs`. List them with `metaTemplateRefs()` and read the parsed source with `metaTemplateSource(ref)`.
+
+Generic software-system templates:
+
+| Template | Kinds | Sections |
+|---|---|---|
+| `system/dev-platform.cloudflare@1` | system, thing, section, purpose, claim, feature, commitment, template; carries pack `topology.services@1` | purpose, theory, description |
+| `thing/cloudflare-worker-service@1` | endpoint, durable-object, workflow, queue, binding, module | api, runtime, state, modules |
+| `thing/ts-library@1` | export, module | api, modules |
+| `thing/cli@1` | command, option, module | commands, modules |
+| `thing/static-site@1` | page, asset | pages, build |
+
+Relations: `dependsOn`, `exposes`, `calls`, `deploys`, `implements`. Each Thing template declares only the kinds it owns plus `system`, `thing`, `section` (and `module` where it has one), declared identically everywhere. Evaluating a Genome that mixes templates needs their union (kinds and relation endpoints), as `compose` in `test/dev-platform.ts` does.
+
+`topology.services@1` reads the Thing's `pinned` link to its template: an `endpoint` must sit under a Thing pinned to `cloudflare-worker-service@1` (`topology.endpointOutsideWorker`, hard); `dependsOn` links, lifted from modules to their Things, must not cycle (`topology.thingCycle`, hard); a `ts-library` Thing no other Thing depends on is a `topology.unusedLibrary` warning.
+
 ## Adding a template or pack
 
-1. Create `thing/<name>@<v>/template.yaml` (or `system/...`, or `rule-packs/<id>@<v>.dl`).
+1. Create `thing/<name>@<v>/template.yaml` (or `system/...`) as meta@1, with a `template.v1.yaml` until W4 (or `rule-packs/<id>@<v>.dl`).
 2. Run `npm run build -w @artyfact/templates` to regenerate `src/generated/files.ts` (also runs on `prepare` and `pretest`) and commit the result.
 3. Add or extend a test: templates must parse with `Template`; every rule in a pack needs a `.message` and a valid/invalid case in `test/fixtures/`.
 

@@ -10,6 +10,7 @@ import {
   type PartsResponse,
 } from "../../shared/api";
 import type { TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse } from "../../shared/api";
+import type { IntentAccept, IntentAcceptResponse, IntentReply, IntentRequest, Proposal } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
 
 /** Any non-2xx response. `body` is the parsed {@link ApiError} when the server sent one. */
@@ -85,6 +86,11 @@ export const paths = {
   deployments: routes.deployments,
   phenomeEvents: routes.phenomeEvents,
   artifacts: (s: string) => `/api/systems/${enc(s)}/artifacts`,
+  // Iteration 3: intents (admin).
+  intents: routes.intents,
+  intent: routes.intent,
+  intentReply: routes.intentReply,
+  intentAccept: routes.intentAccept,
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -359,6 +365,30 @@ export const commitFiles = (systemId: string, realizationId: string, body: Edito
   writeOrThrow("Commit", () =>
     post<EditorCommitResponse>(paths.editorCommit(systemId, realizationId), body, token ? { authorization: `Bearer ${token}` } : undefined),
   );
+
+// ---------------------------------------------------------------------------
+// Intents (admin): describe a change, review the proposed node updates, accept some of them
+// ---------------------------------------------------------------------------
+
+const bearer = (token?: string) => (token ? { authorization: `Bearer ${token}` } : undefined);
+
+/** Routes and translates `message` into a {@link Proposal}. A platform without intents answers 501 `not-implemented`. */
+export const createIntent = (systemId: string, body: IntentRequest, adminToken?: string) =>
+  writeOrThrow("Describing a change", () => post<Proposal>(paths.intents(systemId), body, bearer(adminToken)));
+
+export async function getIntent(systemId: string, proposalId: string, adminToken?: string): Promise<Proposal> {
+  if (await isFixtureMode()) throw notInFixture(`Proposal ${proposalId}`);
+  const headers = bearer(adminToken);
+  return request<Proposal>(paths.intent(systemId, proposalId), headers && { headers });
+}
+
+/** Answers a question (or follows up without `questionId`); returns the same proposal, revised. */
+export const replyIntent = (systemId: string, proposalId: string, body: IntentReply, adminToken?: string) =>
+  writeOrThrow("Replying to a proposal", () => post<Proposal>(paths.intentReply(systemId, proposalId), body, bearer(adminToken)));
+
+/** Applies `opIds` (the rest are rejected). 409 {@link StaleBaseError} when the Genome moved; 422 when an op lacks one it depends on. */
+export const acceptIntent = (systemId: string, proposalId: string, body: IntentAccept, adminToken?: string) =>
+  writeOrThrow("Accepting a proposal", () => post<IntentAcceptResponse>(paths.intentAccept(systemId, proposalId), body, bearer(adminToken)));
 
 // ---------------------------------------------------------------------------
 // App template upgrades

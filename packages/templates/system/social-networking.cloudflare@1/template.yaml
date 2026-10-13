@@ -1,37 +1,198 @@
+# meta@1 template (docs/design/ontology.md section 3). The System layer's domain rules live here; kinds, relations, parents and
+# view hints come from template.meta.artyfact-genome@1. template.v1.yaml is the legacy shape, kept until W4.
 id: template.system.social-networking.cloudflare
-kind: system
-version: "1"
-name: Social networking on Cloudflare
-description: >-
-  Genome skeleton for a social-networking System deployed on Cloudflare Workers.
-  Systems using the private-relationships profile must treat relationships as
-  private to the pair that forms them: no feed, no public graph, no group
-  broadcast. The topology.private-pairs rule pack enforces this.
-sections:
-  - section.purpose
-  - section.externals
-  - section.theory
-  - section.description
-requires:
-  - template.thing.*
+version: 1
+meta: 1
+extends: template.meta.artyfact-genome@1
+rules:
+  - id: artyfact.readiness
+    version: 1
+    source: |
+      % artyfact.readiness@1 - artyfact readiness@1 (R5, R6, R12, evolutions, kits) over artyfact.facts@1; rule ids unchanged.
+
+      .decl athing(Id: sym, Template: sym)
+      .decl athingSection(Thing: sym, Section: sym)
+      .decl arequirementEnabled(Id: sym)
+      .decl acriterion(Id: sym, OwnerKind: sym, OwnerId: sym, SubjectId: sym, Severity: sym)
+      .decl acriterionDeferred(Id: sym)
+      .decl acriterionSourceRef(Criterion: sym, Ref: sym)
+      .decl acriterionHook(Criterion: sym, Hook: sym)
+      .decl ahook(Id: sym, Binding: sym)
+      .decl atemplateKnown(Template: sym)
+      .decl atemplateRequires(Template: sym, Section: sym)
+      .decl atemplateRequiresCriterion(Template: sym, Criterion: sym)
+      .decl akitRequired(Kit: sym)
+      .decl akitPinned(Kit: sym, Version: sym)
+      .decl aevolution(Id: sym, State: sym)
+      .decl aevolutionAcceptance(Evolution: sym, Criterion: sym)
+      .decl aevolutionAffects(Evolution: sym, Node: sym)
+      .decl missing(Rule: sym, Subject: sym) .output
+      .decl warning(Rule: sym, Subject: sym) .output
+      .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+
+      .message "coverage.requirement" "Requirement {1} is enabled but no criterion lists it in sourceRefs."
+      .message "coverage.hook" "Criterion {1} is not deferred but has no assay hook."
+      .message "hook.unbound" "Criterion {1} has a hook whose implementation is missing."
+      .message "template.sectionMissing" "Thing {1} lacks a section its template requires."
+      .message "template.criterionMissing" "Thing {1} lacks a criterion its template requires."
+      .message "template.unknown" "Thing {1} references a template that is not known."
+      .message "kit.unpinned" "Kit {1} is required but not pinned."
+      .message "evolution.acceptanceMissing" "Evolution {1} has no acceptance criteria."
+      .message "evolution.affectsMissing" "Evolution {1} affects no nodes."
+
+      missing("coverage.requirement",R) :- arequirementEnabled(R), not acriterionSourceRef(_,R).
+      missing("coverage.hook",C) :- acriterion(C,_,_,_,_), not acriterionDeferred(C), not acriterionHook(C,_).
+      warning("hook.unbound",C) :- acriterionHook(C,H), ahook(H,B), B != "bound", not acriterionDeferred(C).
+
+      violation("template.sectionMissing",T,"hard") :- athing(T,Tpl), atemplateKnown(Tpl), atemplateRequires(Tpl,S), not athingSection(T,S).
+      violation("template.criterionMissing",T,"hard") :- athing(T,Tpl), atemplateKnown(Tpl), atemplateRequiresCriterion(Tpl,C), not acriterion(C,_,T,_,_).
+      violation("template.unknown",T,"hard") :- athing(T,Tpl), Tpl != "", not atemplateKnown(Tpl).
+
+      warning("kit.unpinned",K) :- akitRequired(K), not akitPinned(K,_).
+
+      missing("evolution.acceptanceMissing",E) :- aevolution(E,S), S != "rejected", S != "withdrawn", S != "promoted", not aevolutionAcceptance(E,_).
+      missing("evolution.affectsMissing",E) :- aevolution(E,S), S != "rejected", S != "withdrawn", S != "promoted", not aevolutionAffects(E,_).
+  - id: artyfact.theory
+    version: 1
+    source: |
+      % artyfact.theory@1 - Purpose and Theory of Change completeness (R3, R4).
+
+      .decl acriterion(Id: sym, OwnerKind: sym, OwnerId: sym, SubjectId: sym, Severity: sym)
+      .decl acriterionSourceRef(Criterion: sym, Ref: sym)
+      .decl arequirementSubject(Requirement: sym, Node: sym)
+      .decl apurpose(Id: sym)
+      .decl apurposeBeneficiary(Purpose: sym, Ext: sym)
+      .decl aext(Id: sym, Kind: sym)
+      .decl aclaim(Id: sym)
+      .decl aclaimDeferred(Id: sym)
+      .decl aclaimIndicator(Id: sym)
+      .decl aclaimMethod(Id: sym)
+      .decl aclaimBeneficiary(Claim: sym, Ext: sym)
+      .decl claimLinked(Claim: sym)
+      .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+      .decl missing(Rule: sym, Subject: sym) .output
+      .decl warning(Rule: sym, Subject: sym) .output
+
+      .message "purpose.beneficiary" "Purpose {1} names no beneficiaries."
+      .message "purpose.beneficiaryKind" "Purpose {1} has a beneficiary that is not a person or group external (or does not exist)."
+      .message "theory.indicator" "Claim {1} has no indicator."
+      .message "theory.method" "Claim {1} has no evaluation method."
+      .message "theory.beneficiary" "Claim {1} names no beneficiaries."
+      .message "theory.outcomeUnlinked" "Claim {1} is not referenced by any criterion or requirement."
+
+      claimLinked(C) :- acriterionSourceRef(_,C).
+      claimLinked(C) :- acriterion(_,_,_,C,_).
+      claimLinked(C) :- arequirementSubject(_,C).
+
+      violation("purpose.beneficiary",P,"hard") :- apurpose(P), not apurposeBeneficiary(P,_).
+      violation("purpose.beneficiaryKind",P,"hard") :- apurposeBeneficiary(P,E), not aext(E,"person"), not aext(E,"group").
+      missing("theory.indicator",C) :- aclaim(C), not aclaimDeferred(C), not aclaimIndicator(C).
+      missing("theory.method",C) :- aclaim(C), not aclaimDeferred(C), not aclaimMethod(C).
+      missing("theory.beneficiary",C) :- aclaim(C), not aclaimDeferred(C), not aclaimBeneficiary(C,_).
+      warning("theory.outcomeUnlinked",C) :- aclaim(C), not aclaimDeferred(C), not claimLinked(C).
+  - id: artyfact.topology.private-pairs
+    version: 1
+    source: |
+      % artyfact.topology.private-pairs@1 - private-relationships profile: relationships are one-to-one, never broadcast (R9).
+      % artyfact lowercases effect text and names; the patterns here match case-insensitively instead.
+      % aentityField(E, F) is one canonical JSON field object; its type key sorts last.
+
+      .decl link(From: sym, Rel: sym, To: sym, Certainty: sym)
+      .decl provisional(Id: sym)
+      .decl anode(Id: sym, Kind: sym, Thing: sym)
+      .decl aeffectText(Node: sym, Text: sym)
+      .decl anodeName(Id: sym, Name: sym)
+      .decl aentityField(Entity: sym, Field: sym)
+      .decl acardinality(Node: sym, Value: sym)
+      .decl connection(Entity: sym)
+      .decl accountRefField(Entity: sym, Field: sym)
+      .decl outgoingDirect(Node: sym)
+      .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+      .decl semanticCandidate(Rule: sym, Subject: sym, Text: sym) .output
+
+      .message "topology.recipientArray" "{1} sends to a list of recipients, which the private-pairs topology forbids."
+      .message "topology.groupEnabled" "{1} introduces a group construct; relationships must stay between exactly two accounts."
+      .message "topology.pairCardinality" "Connection {1} must declare exactly two account references."
+      .message "topology.multiRecipient" "{1} may address several recipients; ask whether it breaks one-to-one delivery."
+
+      violation("topology.recipientArray",N,"hard") :- aeffectText(N,T), matches(T,"[rR][eE][cC][iI][pP][iI][eE][nN][tT]\\[\\]").
+      violation("topology.recipientArray",N,"hard") :- aeffectText(N,T), matches(T,"[rR][eE][cC][iI][pP][iI][eE][nN][tT][sS]\\[\\]").
+      violation("topology.recipientArray",N,"hard") :- aeffectText(N,T), matches(T,"[rR][eE][cC][iI][pP][iI][eE][nN][tT] [lL][iI][sS][tT]").
+      violation("topology.recipientArray",N,"hard") :- aeffectText(N,T), matches(T,"[bB][uU][lL][kK]").
+      violation("topology.recipientArray",N,"hard") :- outgoingDirect(N), acardinality(N,"many").
+      violation("topology.recipientArray",E,"hard") :- anode(E,"entity",_), not provisional(E), aentityField(E,F), matches(F,",.type.:..*list<ref:entity[.]Account").
+      violation("topology.groupEnabled",N,"hard") :- anode(N,K,_), K != "external", anodeName(N,Nm), matches(Nm,"^([gG][rR][oO][uU][pP]|[cC][iI][rR][cC][lL][eE]|[cC][oO][mM][mM][uU][nN][iI][tT][yY]|[cC][hH][aA][nN][nN][eE][lL])( |$)").
+      connection(E) :- anode(E,"entity",_), anodeName(E,Nm), matches(Nm,"^[cC][oO][nN][nN][eE][cC][tT][iI][oO][nN]$").
+      accountRefField(E,F) :- aentityField(E,F), matches(F,",.type.:.ref:entity[.]Account").
+      outgoingDirect(Op) :- anode(Op,"operation",_), link(Op,"writes",E,_), accountRefField(E,_).
+      outgoingDirect(A) :- anode(A,"affordance",_), link(A,"invokes",Op,_), outgoingDirect(Op).
+      violation("topology.pairCardinality",E,"hard") :- connection(E), not accountRefField(E,_).
+      violation("topology.pairCardinality",E,"hard") :- connection(E), N = count : accountRefField(E,_), N != 2.
+      semanticCandidate("topology.multiRecipient",N,T) :- aeffectText(N,T), matches(T,"[rR][eE][cC][iI][pP][iI][eE][nN][tT]").
+questions:
+  - id: topology.multiRecipient
+    answer: yes-no
+    benign: no
+    text: Does this effect deliver one action to more than one person at once?
+    slice:
+      hops: 1
+      rels:
+        - writes
+        - invokes
+      fields:
+        - name
+        - effects
+        - fields
+        - cardinality
+    policy:
+      - answer: no
+        level: pass
+      - answer: yes
+        level: error
 nodes:
+  - id: template.system.social-networking.cloudflare@1
+    kind: template
+    fields:
+      kind: system
+      version: "1"
+      name: Social networking on Cloudflare
+      description: "Genome skeleton for a social-networking System deployed on Cloudflare Workers. Systems using the private-relationships profile must treat relationships as private to the pair that forms them: no feed, no public graph, no group broadcast. The topology.private-pairs rule pack enforces this."
+      sections:
+        - section.purpose
+        - section.externals
+        - section.theory
+        - section.description
+      requires:
+        - template.thing.*
   - id: section.purpose
     kind: section
-    name: Purpose
-    parent: "$system"
-    description: Why the System exists, who benefits, and what must change for them.
+    parent: $self
+    fields:
+      name: Purpose
+      revision: 1
+      description: Why the System exists, who benefits, and what must change for them.
+      fromTemplate: template.system.social-networking.cloudflare@1
   - id: section.externals
     kind: section
-    name: Externals
-    parent: "$system"
-    description: People, groups, contexts and services outside the System boundary that it serves or depends on.
+    parent: $self
+    fields:
+      name: Externals
+      revision: 1
+      description: People, groups, contexts and services outside the System boundary that it serves or depends on.
+      fromTemplate: template.system.social-networking.cloudflare@1
   - id: section.theory
     kind: section
-    name: Theory of change
-    parent: "$system"
-    description: Claims linking activities to outcomes, each with an indicator and an evaluation method.
+    parent: $self
+    fields:
+      name: Theory of change
+      revision: 1
+      description: Claims linking activities to outcomes, each with an indicator and an evaluation method.
+      fromTemplate: template.system.social-networking.cloudflare@1
   - id: section.description
     kind: section
-    name: Description
-    parent: "$system"
-    description: Narrative, features, commitments, alternatives and open questions.
+    parent: $self
+    fields:
+      name: Description
+      revision: 1
+      description: Narrative, features, commitments, alternatives and open questions.
+      fromTemplate: template.system.social-networking.cloudflare@1

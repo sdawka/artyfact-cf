@@ -13,11 +13,12 @@ export function templateDir(ref: string): string | undefined {
 
 const norm = (p: string) => p.replace(/\\/g, "/").replace(/^\.?\//, "");
 
-/** Reads one artyfact template from a templates directory map, folding in `criteria.yaml`, `source-map.defaults.yaml` and `scaffold.yaml`. */
+/** Reads one artyfact template from a templates directory map (`template.v1.yaml`, else `template.yaml`), folding in `criteria.yaml`, `source-map.defaults.yaml` and `scaffold.yaml`. */
 export function readArtyfactTemplate(ref: string, files: Files): schema.Template | undefined {
   const dir = templateDir(ref);
   const byPath = new Map(Object.entries(files).map(([p, t]) => [norm(p), t]));
-  const text = dir && byPath.get(`${dir}/template.yaml`);
+  // `template.v1.yaml` is the artyfact shape of a template whose `template.yaml` has moved to meta@1 (packages/templates).
+  const text = dir && (byPath.get(`${dir}/template.v1.yaml`) ?? byPath.get(`${dir}/template.yaml`));
   if (text === undefined || !dir) return undefined;
   const read = (name: string) => { const t = byPath.get(`${dir}/${name}`); return t === undefined ? undefined : parseYaml(t); };
   const raw = (parseYaml(text) ?? {}) as Record<string, unknown>;

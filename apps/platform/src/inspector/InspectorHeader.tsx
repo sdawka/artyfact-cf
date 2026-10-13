@@ -10,6 +10,8 @@ import { useKeepParams, useSelection, useSystemRoute } from "@/model/useSelectio
 import styles from "./Inspector.module.css";
 
 const THEORY = new Set(["purpose", "claim", "external", "feature", "commitment"]);
+/** Genome nodes a described change can start from (Work `?panel=intent&anchor=`). */
+const CHANGEABLE = new Set(["system", "thing", "node", "external"]);
 
 /** Which "Open in" views make sense for an object. */
 export function openInViews(entry: IndexEntry, m: ReturnType<typeof useModel>): ViewName[] {
@@ -59,6 +61,11 @@ export function InspectorHeader({ entry }: { entry: IndexEntry }) {
             Open in {VIEW_LABELS[v]}
           </button>
         ))}
+        {CHANGEABLE.has(entry.type) && (
+          <Link className={`u-brackets ${styles.openButton}`} to={href("work", { panel: "intent", anchor: entry.id })}>
+            Change this…
+          </Link>
+        )}
         {typeof doc === "string" && doc && codePath && (
           <Link className={`u-brackets ${styles.openButton}`} to={href("code", { repo: "genome", path: codePath })}>
             Open in Code

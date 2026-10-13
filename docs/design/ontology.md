@@ -232,6 +232,7 @@ So the plan's "kind-wide criteria" means `checks`. Hook-bearing acceptance crite
 
 - Template `view.layers: [{id, label, description?}]` are the Map bands, top to bottom. When the template chain declares layers, a kind is drawn on the Map only if its `view.layer` names one. With no layers, the Map bands nodes by containment depth and draws every kind.
 - `kinds.<k>.view` merges key by key over `extends`, so a child template can recolour a kind without restating it. Template `view` comes from the nearest template that declares one.
+- **Where hints and `parents` are declared.** Declaring a kind in a child template replaces the whole kind (`fields`, `parents`, `completeness`, `checks` as a unit; only `criteria`, `checks` and `view` merge key by key), so a child cannot add a view hint or a parent to an inherited kind without restating it. The shared artyfact kinds therefore carry their `parents`, `view` and the Map `view.layers` in the engine base template (`template.meta.artyfact-genome@1`), and the ported System and Thing templates inherit them. They own `rules`, `nodes`, `criteria` and `files`. `view.layers` is nearest-wins, so a System mixing Thing templates needs W4's composition, where the System template's layer order wins.
 - `resolveKindView(template, kind)` fills the defaults. `checkViewHints(template)` reports duplicate layers, undeclared layers and field names the kind does not declare.
 - Absent hints leave the template hash unchanged.
 

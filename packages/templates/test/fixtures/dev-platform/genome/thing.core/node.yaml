@@ -1,0 +1,9 @@
+id: thing.core
+kind: thing
+template: template.thing.ts-library@1
+root: packages/core
+fields:
+  title: Core library
+  description: The parsing library the API and the CLI share.
+links:
+  - {rel: exposes, to: export.parse-job}

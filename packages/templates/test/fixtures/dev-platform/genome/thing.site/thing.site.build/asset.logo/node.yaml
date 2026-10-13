@@ -1,0 +1,7 @@
+id: asset.logo
+kind: asset
+fields:
+  title: Logo
+  description: The logo the build copies unchanged from the public directory.
+  path: public/logo.svg
+  type: image

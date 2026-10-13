@@ -1,0 +1,9 @@
+id: page.status
+kind: page
+fields:
+  title: Status
+  description: Shows whether the API is healthy, so an operator can see an outage at a glance.
+  route: /
+  rendering: client
+links:
+  - {rel: calls, to: endpoint.health}
