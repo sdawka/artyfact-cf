@@ -22,3 +22,5 @@ links:
   - { rel: writes, to: entity.RelationshipGoal }
   - { rel: writes, to: entity.Suggestion }
   - { rel: writes, to: entity.NotificationJob }
+files:
+  - src/worker/routes/goals.ts

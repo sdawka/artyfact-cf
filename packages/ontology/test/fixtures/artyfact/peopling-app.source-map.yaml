@@ -6,9 +6,18 @@
   nodes: [operation.contact.save, policy.ownerOnly, entity.ContactRecord]
 - glob: public/people/**
   nodes: [screen.people, component.AddContactDialog]
-# The dialog's Save handler invokes operation.contact.save (affordance.AddContactDialog.save in the Genome).
-- glob: public/people/add-contact-dialog.js
-  nodes: [affordance.AddContactDialog.save, operation.contact.save]
+- glob: public/people/index.html
+  nodes: [affordance.AddContactDialog.save]
+- glob: src/worker/routes/goals.ts
+  nodes: [entity.RelationshipGoal, operation.goal.save]
+- glob: public/goals/**
+  nodes: [screen.goal]
+- glob: src/worker/routes/events.ts
+  nodes: [entity.ContactEvent, operation.contact.log]
+- glob: public/log/**
+  nodes: [screen.logContact]
+- glob: public/today/**
+  nodes: [screen.today]
 - glob: migrations/**
   nodes: [binding.contactsStore]
 - glob: system/**

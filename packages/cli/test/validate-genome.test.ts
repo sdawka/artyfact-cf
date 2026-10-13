@@ -68,13 +68,18 @@ describe("artyfact validate-genome", () => {
     const j = JSON.parse((await run(["validate-genome", GENOME, "--app", APP, "--json"])).out);
     expect(j.system).toBe("system.peopling");
     expect(j.findings.filter((f: { level: string }) => f.level === "error")).toEqual([]);
-    expect(j.counts).toMatchObject({ nodes: 239, evolutions: 6 });
+    expect(j.counts).toMatchObject({ nodes: 241, evolutions: 6 });
     expect(j.ok).toBe(true);
-    // The example's Genome names a dialog script the app does not ship.
     expect(j.unmapped).toEqual([]);
+    // The Genome binds the files its planned evolution.2 will add; the app does not ship them yet.
     expect(j.stale).toEqual([
-      { node: "affordance.AddContactDialog.save", glob: "public/people/add-contact-dialog.js" },
-      { node: "operation.contact.save", glob: "public/people/add-contact-dialog.js" },
+      { node: "entity.ContactEvent", glob: "src/worker/routes/events.ts" },
+      { node: "entity.RelationshipGoal", glob: "src/worker/routes/goals.ts" },
+      { node: "operation.contact.log", glob: "src/worker/routes/events.ts" },
+      { node: "operation.goal.save", glob: "src/worker/routes/goals.ts" },
+      { node: "screen.goal", glob: "public/goals/**" },
+      { node: "screen.logContact", glob: "public/log/**" },
+      { node: "screen.today", glob: "public/today/**" },
     ]);
   });
 

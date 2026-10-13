@@ -1,7 +1,7 @@
 id: evolution.2
 title: Goals and contact memory
 intent: Add goal contracts, event qualification and Today prompts; fixed-clock and bounded-card fixtures
-state: proposed
+state: actionable
 kind: implementation
 affectedNodes:
 - entity.RelationshipGoal
@@ -11,9 +11,9 @@ affectedNodes:
 - screen.goal
 - screen.logContact
 - screen.today
+- component.TodayList
+- affordance.Today.refresh
 acceptanceCriteria:
 - C.webapp.schedule.correct
 - C.webapp.prompts.bounded
-dependsOn:
-- evolution.1
 risk: medium

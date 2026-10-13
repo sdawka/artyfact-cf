@@ -75,6 +75,24 @@ nodes:
         kind: component
         name: TodayControls
         cardinality: exactly one
+      - id: component.TodayList
+        kind: component
+        name: TodayList
+        cardinality: exactly one
+        children:
+          - id: affordance.Today.refresh
+            kind: affordance
+            name: Refresh
+            actor: ext.owner
+            trigger: Owner opens or refreshes Today
+            preconditions: [Owner session]
+            effects:
+              - Reads current goals and logged contact events to rebuild at most five prompts
+              - Sends nothing
+            failure: [Network error keeps the previous cards and renders one ErrorSummary]
+            links:
+              - { rel: invokes, to: operation.goal.save }
+              - { rel: invokes, to: operation.contact.log }
       - id: component.SuggestionCollection
         kind: component
         name: SuggestionCollection

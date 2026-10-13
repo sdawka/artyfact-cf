@@ -245,5 +245,7 @@ thing.webapp/section.ui/screen.today/component.SuggestionCollection/component.Su
 thing.webapp/section.ui/screen.today/component.SuggestionCollection/node.yaml
 thing.webapp/section.ui/screen.today/component.TodayControls/node.yaml
 thing.webapp/section.ui/screen.today/component.TodayHeading/node.yaml
+thing.webapp/section.ui/screen.today/component.TodayList/affordance.Today.refresh/node.yaml
+thing.webapp/section.ui/screen.today/component.TodayList/node.yaml
 thing.webapp/section.ui/screen.today/node.yaml"
 `;

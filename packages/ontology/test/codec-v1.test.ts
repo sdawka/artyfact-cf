@@ -122,7 +122,7 @@ describe("convertV1 (Peopling)", () => {
 
   it("moves the app's source map onto the nodes it names, dropping the genome pseudo-node", () => {
     const at = (id: string) => [...tree].find(([p, t]) => p.endsWith("node.yaml") && t.startsWith(`id: ${id}\n`))![1];
-    expect(parseYaml(at("operation.contact.save")).files).toEqual(["src/worker/routes/contacts.ts", "public/people/add-contact-dialog.js"]);
+    expect(parseYaml(at("operation.contact.save")).files).toEqual(["src/worker/routes/contacts.ts"]);
     expect(parseYaml(at("thing.webapp")).files).toEqual(["src/index.ts"]);
     expect([...tree.values()].some((t) => t.includes("system/**"))).toBe(false);
     expect([...convertV1(v1, TPL)].some(([, t]) => /^files:/m.test(t))).toBe(false);
