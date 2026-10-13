@@ -1734,13 +1734,14 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   /**
-   * Compare-and-set: stores `review` only while the current status is `expected` (atomic in the DO), so two concurrent
-   * accepts flip pending → accepted once; the loser gets false. Emits like `setImportReview` on success.
+   * Compare-and-set: stores `review` only while the current review has status `expected` and the same `genomeCommit`
+   * (atomic in the DO), so two concurrent accepts flip pending → accepted once and an accept never overwrites the
+   * review a forced re-import opened meanwhile; the loser gets false. Emits like `setImportReview` on success.
    */
   casImportReview(expected: ImportReview["status"], review: ImportReview): boolean {
     let done = false;
     this.ctx.storage.transactionSync(() => {
-      if (this.kv("import_review_status") !== expected) return;
+      if (this.kv("import_review_status") !== expected || this.importReview()?.genomeCommit !== review.genomeCommit) return;
       this.setKv("import_review_json", JSON.stringify(review));
       this.setKv("import_review_status", review.status);
       done = true;
