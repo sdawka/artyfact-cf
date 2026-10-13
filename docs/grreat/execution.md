@@ -3,9 +3,9 @@
 
 ## Now
 
-- Current follow-up: the self-referential public model page and canonical explanation subjects are implemented on `feat/model-self-reference`, based on released `5c39a76`. Full CI passes in the credential-free matching checkout (193.4s); independent code and rendered visual review are clear; see [[journals/2026-10-13-model-page]]. Hosted CI, merge and deployment are separate next steps.
+- Current follow-up: the self-referential public model page and canonical explanation subjects are implemented on `feat/model-self-reference`, based on released `5c39a76`. Initial head `83a9cfc` passed full CI in the credential-free matching checkout (193.4s); integration with the released ODD introduction and benefits is now being revalidated; see [[journals/2026-10-13-model-page]]. Hosted CI, merge and deployment are separate next steps.
 
-- Active public-site follow-up: Ontology Driven Development redesign is ready on PR [#57](https://github.com/sdawka/artyfact-cf/pull/57). Full local CI passed in 202.0s and hosted full CI [passed on the reconciled application code](https://github.com/sdawka/artyfact-cf/actions/runs/38430170321). A subsequent docs-only main update was reconciled; next: green PR check on the final notes revision, merge and public-site deployment. Evidence: [[journals/2026-10-13-ontology-driven-development]]. The platform release work below remains separate.
+- Public-site release complete: Ontology Driven Development benefits and Artyfact’s meta ontology are live at https://artyfact.ing/model. PR [#57](https://github.com/sdawka/artyfact-cf/pull/57) merged on green hosted CI at `1b79e93`; the site deployed and desktop/mobile/no-JS live checks pass. Evidence: [[journals/2026-10-13-ontology-driven-development]]. The platform release work below remains separate; remote GRREAT sync stays pending.
 
 - Goal: [[goals]]. Milestone: iteration 3 and the frontend-design pass are on `main` and in production ([[journals/2026-10-13-design-pass]]).
 - Working revision: `main` at `e9b7fa3` (PR #56: the five design slices plus the docs slice's Phase A, after PR #47 at `49d5922`). Production runs Worker version `e763f73b` (deployed 15:48 UTC); the Keep in Touch Genome is v2 at commit `0d02fce56219`, System head `sc-4-c597c0ba`.

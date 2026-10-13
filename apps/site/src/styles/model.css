@@ -99,3 +99,8 @@
 
 .model-benefits-grid summary strong { font-weight: 500; }
 .model-benefits-grid summary span { display: block; margin-top: 5px; color: var(--color-text-secondary); font-size: .78rem; line-height: 1.5; }
+@media (max-width: 360px) {
+  .model-benefits-grid { grid-template-columns: 1fr; gap: 0; }
+  .model-benefits-grid summary { padding-block: 8px; font-size: .9rem; }
+  .model-benefits-grid summary span { margin-top: 3px; font-size: .8rem; }
+}

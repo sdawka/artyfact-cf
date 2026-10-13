@@ -133,5 +133,7 @@ test('model jump links remain usable on a narrow screen with reduced motion', as
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#benefits$/);
   await expect(page.locator('#benefits')).toBeFocused();
+  await page.locator('.model-benefits-grid summary').filter({ hasText: 'Reuse context' }).click();
+  await expect(page.getByText(/Carry relevant context into each task or agent session/)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
