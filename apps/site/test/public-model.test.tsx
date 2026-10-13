@@ -7,21 +7,51 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const config = { platform: null, source: null };
 
-it('explains a Genome-first Thing and optional reusable Parts without treating views as stages', () => {
+it('starts with the domain and lets people choose Things and typed connections', () => {
   render(<Site path="/model" config={config} />);
 
-  expect(screen.getByText(/System is the context and governance wrapper/i)).toBeTruthy();
-  expect(screen.getAllByText(/A Thing can begin with its Genome alone/i).length).toBeGreaterThan(0);
-  expect(screen.getByText(/Parts are optional reusable packages/i)).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1, name: /Start with the domain/ })).toBeTruthy();
+  expect(screen.getByText(/one or more Things you want to make/)).toBeTruthy();
+  expect(screen.getByText(/You choose how to divide the System into Things/i)).toBeTruthy();
+  expect(screen.getByText(/within a typed model/i)).toBeTruthy();
+  expect(screen.getByText(/one whole application/i)).toBeTruthy();
+  expect(screen.getByText(/frontend, API and design system/i)).toBeTruthy();
+});
+
+it('shows form, content and a nested web app ontology without making Parts mandatory', () => {
+  render(<Site path="/model" config={config} />);
+
+  expect(screen.getByRole('heading', { name: /A Thing has form and content/ })).toBeTruthy();
+  expect(screen.getByText(/form gives you criteria/i)).toBeTruthy();
+  expect(screen.getByText(/a screen contains a component/i)).toBeTruthy();
+  expect(screen.getByText(/Nested subjects are not additional Things or Parts/i)).toBeTruthy();
+  expect(screen.getByText(/A Thing can begin with its Genome alone/i)).toBeTruthy();
+});
+
+it('separates optional implementation Parts from reusable Rule Pack constraints', () => {
+  render(<Site path="/model" config={config} />);
+
+  expect(screen.getByText(/Parts carry reusable implementation/i)).toBeTruthy();
+  expect(screen.getByText(/Rule Packs check shared constraints/i)).toBeTruthy();
+  expect(screen.getByText(/design system can use both/i)).toBeTruthy();
+  expect(screen.getByText(/authorization pack checks modeled policy coverage/i)).toBeTruthy();
+});
+
+it('labels the proposed Artyfact feature as illustrative across parallel views', () => {
+  render(<Site path="/model" config={config} />);
+
+  expect(screen.getByText('Illustrative target')).toBeTruthy();
+  expect(screen.getAllByText(/Make changes easy to scope and specify/i).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/proposed acceptance test/i).length).toBeGreaterThan(0);
+  expect(screen.getByText(/sample event stream/i)).toBeTruthy();
   expect(screen.getByText(/not successive build stages/i)).toBeTruthy();
 });
 
-it('distinguishes authored source from a realized build output and preserves provenance', () => {
+it('distinguishes authored source from realized output and keeps evidence claims bounded', () => {
   render(<Site path="/model" config={config} />);
 
-  expect(screen.getByText(/Source Artifact is authored code, configuration, assets and manifests/i)).toBeTruthy();
-  expect(screen.getByText(/Realized Artifact is one specific build output/i)).toBeTruthy();
-  expect(screen.getByText(/its source and Genome lineage/i)).toBeTruthy();
+  expect(screen.getByText(/Source and each build output keep distinct identities/i)).toBeTruthy();
+  expect(screen.getByText(/A passing check establishes only what that check measured/i)).toBeTruthy();
 });
 
 it('documents shipped Parts commands and explicit authoring and review gates', () => {
