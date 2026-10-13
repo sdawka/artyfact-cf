@@ -66,6 +66,25 @@ it('documents shipped Parts commands and explicit authoring and review gates', (
   expect(screen.getByText(/--apply --run-commands/)).toBeTruthy();
 });
 
+it('documents bringing in a System and claiming Tasks with shipped commands', () => {
+  render(<Site path="/connect-agent" config={config} />);
+
+  expect(screen.getByRole('heading', { name: 'Bring in a System' })).toBeTruthy();
+  const bringIn = screen.getByText(/artyfact skill --write/).textContent!;
+  for (const command of ['artyfact skill --write', 'artyfact validate-genome ./genome --app .', 'artyfact init --genome ./genome --app .']) expect(bringIn).toContain(command);
+  expect(bringIn).not.toContain('\\n');
+  expect(screen.getByText(/waits in Review/i)).toBeTruthy();
+  expect(screen.getByText(/chooses Start wave/i)).toBeTruthy();
+  const claim = screen.getByText(/artyfact claim <task-id>/).textContent!;
+  expect(claim).toContain('artyfact tasks --system');
+  expect(claim).toContain('--agent');
+});
+
+it('says a Task\u2019s file scope derives from the model\u2019s files bindings', () => {
+  render(<Site path="/model" config={config} />);
+
+  expect(screen.getByText(/file scope derives from those bindings/i)).toBeTruthy();
+});
 
 it('introduces meaningful systems with a static scroll story and no literal orb', () => {
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
