@@ -2,7 +2,7 @@
 # Acceptance review
 
 - Reviews: [[goals]], [[roadmap]], and [[execution]].
-- Working conclusion: All eight implementation criteria are locally verified on the integrated `feat/parts-composition` code. Independent Sol review findings are closed. The draft PR is published; hosted behavior remains unverified. The approved landing overhaul also passes local and rendered checks. Remote GRREAT sync is deferred, preserving the earlier goal hierarchy conflict.
+- Working conclusion: All eight implementation criteria are locally verified on the integrated `feat/parts-composition` code. Independent Sol review findings are closed. The draft PR is published; hosted behavior remains unverified. The approved landing and product-wide luminous surfaces also pass local and rendered checks. Remote GRREAT sync is deferred, preserving the earlier goal hierarchy conflict.
 
 | Success criterion | Evidence and tested state | Remaining gap |
 | --- | --- | --- |
@@ -10,7 +10,7 @@
 | Deterministic composition, extraction, upgrade | Model and actual CLI tests cover overlap/adaptation, nested/repeated contributions, masking, successive customization-preserving upgrades, conflicts and safe filesystem preflight | None locally |
 | Immutable scoped catalog | Exact-version, visibility, dependency closure and authorization runtime tests pass | Hosted catalog unverified |
 | Output/deployment/evidence lineage | Repeated-source outputs, output reuse, original Genome, source ownership and exact runtime-ID regressions pass; historic unknown output remains unknown | Real CI Worker deployment unverified |
-| Home and Thing navigation | Systems/Parts, full Thing views, private Parts inspection, stable single-to-multiple links, explicit overview, scoped Phenome and browser checks pass | Hosted UI unverified |
+| Home and Thing navigation | Prior navigation/lineage checks preserved; whole System header, loading/empty-state containers and palette examples verified at desktop/390/320 widths, reduced motion, forced colors and effects disabled, without orb artwork | Hosted UI unverified |
 | Public definitions and usable guidance | Shipped CLI guidance plus the approved System illustration: 22 site unit, 10 static-page and 28 browser checks pass; first-paint/no-JS, view/scroll controls, forced colors and viewport screenshots reviewed | Public deployment pending |
 | Regression and release | Full `npm run ci` passed: 1258 root units, 3 skips, 43 platform browser checks; all typechecks/builds pass | Draft PR #29 published; hosted CI is tracked on the PR. GRREAT hierarchy/destination unresolved; no deployment performed |
 

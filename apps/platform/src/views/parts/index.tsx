@@ -3,7 +3,7 @@ import { usePart } from "@/api/queries";
 import { Card } from "@/components/Card/Card";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { KeyValue } from "@/components/KeyValue/KeyValue";
-import { OrbLoader } from "@/components/OrbLoader/OrbLoader";
+import { LoadingState } from "@/components/LoadingState/LoadingState";
 import { HomeHeader } from "@/views/home/HomeHeader";
 import styles from "./parts.module.css";
 
@@ -11,7 +11,7 @@ import styles from "./parts.module.css";
 export default function PartDetail() {
   const { partId = "", version = "" } = useParams();
   const query = usePart(partId, version);
-  if (query.isLoading) return <div className={styles.page}><HomeHeader /><main className={styles.main}><OrbLoader label="Loading Part…" /></main></div>;
+  if (query.isLoading) return <div className={styles.page}><HomeHeader /><main className={styles.main}><LoadingState label="Loading Part…" /></main></div>;
   if (query.isError || !query.data) return <div className={styles.page}><HomeHeader /><main className={styles.main}><EmptyState title="This Part could not be loaded." action={<Link className="u-marker" to="/">Open Home</Link>} /></main></div>;
   const part = query.data.part;
   const pkg = part.package;

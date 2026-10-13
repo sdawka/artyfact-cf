@@ -44,7 +44,7 @@ Read-only whole-branch correctness/security/regression review. Primary fixes fin
 3. Nested/repeated Parts retain contribution identity; extraction masks actually exclude payload, source is unchanged; upgrade preserves customization or reports conflicts.
 4. Shared and System-private catalogs enforce access and dependency visibility; published versions cannot mutate.
 5. Multiple builds of the same source produce distinct realized outputs; deployments and Phenome evidence have authoritative Thing/source/Genome/output lineage; unknown history remains unknown.
-6. Home shows Systems and Parts. Single-Thing entry and stable direct Thing links work across single-to-multiple transition; overview stays accessible.
+6. Home shows Systems and Parts. Single-Thing entry and stable direct Thing links work across single-to-multiple transition; overview stays accessible. Product-wide luminous containers preserve state, accessibility and motion preferences without literal orbs.
 7. Public pages and real CLI guidance agree; static and accessible pages remain usable. The homepage explains fullstack composition and explicit Button replacement, preserves source/output/runtime identity, and shows parallel views through native scrolling with keyboard, reduced-motion and short-viewport fallbacks.
 8. Existing review gates, command allowlists, invalid-Genome review, criteria scoping, and changelog regressions pass; relevant tests, typecheck, builds, and browser checks pass against the integrated revision.
 

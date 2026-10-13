@@ -6,11 +6,11 @@
 - Goal: [[goals]]. Milestone: [[roadmap]].
 - Next action: Review draft PR #29 and its final-head hosted checks; no merge or deployment is authorized. Preserve separate Artyfact/Bropilot planning; remote GRREAT sync is deferred by the user.
 - Completion criteria: The eight checks in [[roadmap]] are implemented and locally verified; hosted behavior remains separate.
-- Working revision: `feat/parts-composition`, based on `5614e64`; Parts implementation and the approved public System illustration are integrated. Landing validation covers the working tree after `0999278`.
+- Working revision: `feat/parts-composition`, with current main reconciled without conflicts. The public illustration and global luminous surface migration are integrated; validation covers the working tree after `1c55ecc` and the main merge.
 - Pull request: [#29](https://github.com/sdawka/artyfact-cf/pull/29), draft. Hosted CI is tracked on the PR.
-- Latest verification: Full local `npm run ci` passed in 85.9s: 1267 root unit tests (3 skips), 38 fixture and 5 fake-platform browser checks, plus site typecheck/build, 22 unit, 10 generated-page and 28 desktop/mobile browser checks (2 desktop-only cases skipped on mobile). Independent source and rendered review closed; see [[journals/2026-10-12-foundation]].
+- Latest verification: Full local `npm run ci` passed in 88.7s: 1274 root unit tests (3 skips), 41 fixture and 5 fake-platform browser checks, plus site typecheck/build, 22 unit, 10 generated-page and 28 browser checks (2 desktop-only cases skipped on mobile). Independent source and actual UI review closed; see [[journals/2026-10-12-foundation]].
 - Deferred: Remote sync remains deferred by the user. The earlier GRREAT versioned sync returned `GOAL_HIERARCHY_CONFLICT` for `goal.north-star`, with zero applied changes. The authenticated workspace already has a different North Star; no remote goal was overwritten or reparented. Artyfact and Bropilot records stay separate; the intended Artyfact destination remains pending.
-- Last updated: 2026-10-12T21:48:13-04:00.
+- Last updated: 2026-10-12T23:30:29-04:00.
 
 ## Work history
 

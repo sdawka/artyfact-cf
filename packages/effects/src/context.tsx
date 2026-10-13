@@ -14,9 +14,9 @@ const readReducedMotion = () => (typeof window !== "undefined" && window.matchMe
 export const useSystemReducedMotion = (): boolean => useSyncExternalStore(subscribeReducedMotion, readReducedMotion, () => false);
 
 export interface EffectsSettings {
-  /** False renders every effect as its static CSS fallback and creates no WebGL context. */
+  /** False keeps every effect static and creates no WebGL context. */
   enabled: boolean;
-  /** True renders one still WebGL frame per effect: no animation, no pointer response, `pulse()` does nothing. */
+  /** True keeps surfaces still and renders one still AmbientField frame: no animation or pointer response. */
   reducedMotion: boolean;
   /** Run WebGL on a software renderer (SwiftShader, llvmpipe) too. Off by default: there effects use their CSS fallback. */
   allowSoftwareRenderer: boolean;
@@ -65,5 +65,5 @@ export function useEffectsSettings(): EffectsSettings {
   return { enabled: ctx.enabled ?? true, reducedMotion: ctx.reducedMotion ?? system, allowSoftwareRenderer: ctx.allowSoftwareRenderer ?? false };
 }
 
-/** Whether effects render with WebGL at all (false means CSS fallbacks only). */
+/** Whether effects are enabled (false means static CSS only). */
 export const useEffectsEnabled = (): boolean => useEffectsSettings().enabled;

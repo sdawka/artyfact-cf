@@ -2,7 +2,7 @@ import type { QueryClient } from "@tanstack/react-query";
 import { isRouteErrorResponse, Link, Navigate, redirect, useLocation, useParams, useRouteError, type RouteObject } from "react-router";
 import { modelQuery, useModelBundle } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
-import { OrbLoader } from "@/components/OrbLoader/OrbLoader";
+import { LoadingState } from "@/components/LoadingState/LoadingState";
 import { VIEWS, type ViewName } from "@/model/kinds";
 import { ModelProvider } from "@/model/useModel";
 import { DEFAULT_REV, viewPath } from "@/model/useSelection";
@@ -39,7 +39,7 @@ function HistoryRedirect() {
 function SystemLayout() {
   const { data, error } = useModelBundle();
   if (error) throw error;
-  if (!data) return <OrbLoader label="Loading model…" />;
+  if (!data) return <LoadingState label="Loading model…" />;
   return (
     <ModelProvider bundle={data}>
       <Shell />
@@ -89,7 +89,7 @@ export function createRoutes(queryClient: QueryClient): RouteObject[] {
         currentParams.systemId !== nextParams.systemId || currentParams.rev !== nextParams.rev,
       element: <SystemLayout />,
       errorElement: <RouteError />,
-      hydrateFallbackElement: <OrbLoader label="Loading model…" />,
+      hydrateFallbackElement: <LoadingState label="Loading model…" />,
       children: [
         { index: true, loader: ({ params }) => systemEntry(queryClient, params.systemId!, params.rev!) },
         { path: "history", element: <HistoryRedirect /> },

@@ -2,7 +2,7 @@ import type { PartSummary, SystemSummary } from "../../../shared/api";
 import { useParts, useSystems } from "@/api/queries";
 import { Card } from "@/components/Card/Card";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
-import { OrbLoader } from "@/components/OrbLoader/OrbLoader";
+import { LoadingState } from "@/components/LoadingState/LoadingState";
 import { useNow } from "@/model/time";
 import { HomeHeader } from "./HomeHeader";
 import { SystemCard } from "./SystemCard";
@@ -28,10 +28,10 @@ export function HomeContent({ systems, isLoading, isError, onRetry }: HomeConten
         action={onRetry && <button type="button" className={`u-brackets ${styles.retry}`} onClick={onRetry}>Try again</button>}
       />
     );
-  if (isLoading || !systems) return <OrbLoader label="Loading Systems…" />;
+  if (isLoading || !systems) return <LoadingState label="Loading Systems…" />;
   if (systems.length === 0)
     return (
-      <EmptyState title="No Systems yet." orb action={<a className="u-marker" href={INIT_DOCS}>Import one with artyfact init</a>}>
+      <EmptyState title="No Systems yet." surface action={<a className="u-marker" href={INIT_DOCS}>Import one with artyfact init</a>}>
         <p>
           Run <code>npx artyfact init --dir &lt;project&gt;</code> in a project with a <code>system.yaml</code>.
         </p>
@@ -53,7 +53,7 @@ export interface PartsContentProps {
 /** The public catalog only contains shared packages; System-private packages are intentionally absent. */
 export function PartsContent({ parts, isLoading, isError }: PartsContentProps) {
   if (isError) return <EmptyState title="Could not load reusable Parts." />;
-  if (isLoading || !parts) return <OrbLoader label="Loading reusable Parts…" />;
+  if (isLoading || !parts) return <LoadingState label="Loading reusable Parts…" />;
   const sharedParts = parts.filter((part) => part.scope.kind === "shared");
   if (sharedParts.length === 0) return <EmptyState title="No reusable Parts published yet."><p>System-private Parts stay inside their System.</p></EmptyState>;
   return <ul className={styles.grid} aria-label="Reusable Parts">
