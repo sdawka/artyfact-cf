@@ -59,3 +59,19 @@ Deferred capability gaps, outside this page revision: creation accepts a System 
 ## Ontology Driven Development page revision
 
 The accepted public-page direction now starts with six semantic-layer benefits, then explicitly introduces Artyfact’s meta ontology and retains the existing System-first example and explorer. Keep the site style, navigation labels and backend contracts. Done when section links, truthful labels, static/no-JS content, keyboard, reduced-motion, narrow layouts and all site gates pass; deliver one PR.
+
+## Tasks and local agents (2026-10-13)
+
+Plan an Evolution into Tasks, let local agents claim them from the CLI, and bring existing code in through a checked Genome and a reviewed import. One integration PR; the Parts delivery above is unchanged. Contracts: [model A.2](../design/model.md), [backend B.5, B.9, B.10](../design/backend.md), [ontology §3 to §5](../design/ontology.md), [UI C.6 to C.7a](../design/ui.md). Evidence: [[journals/2026-10-14-tasks-local-agents]].
+
+### Completion criteria
+
+1. A planned Evolution yields Tasks and waves derived from the nodes' `files` bindings and links, with no model deciding independence; a model reply is validated and a failed one falls back.
+2. Start wave and `artyfact claim` each give a task its own fork and a packet naming the paths other tasks own; a claim is atomic, a blocked or held task is refused with the cause, and a dependent task opens after its prerequisite is promoted.
+3. After one task is promoted, a sibling's candidate rebases onto the head and promotes; a conflicting path is refused with the paths named.
+4. A proposal is reviewed as a tree (agree, reject, defer); accept takes the agreed ops and defers the rest into a sibling proposal.
+5. `artyfact skill --write` and `validate-genome` let an agent bring in a System; the import is held until a person agrees or rejects each node, and nothing starts before that.
+6. Work Plan, Review Import and the Home and rail signifiers show the same state, with no green unless a check passed.
+7. The runbook, video script, CLI README, skill and public pages list only shipped commands and agree with the code; site, CLI, platform and fake end-to-end suites and typecheck pass on the integrated revision.
+8. Release: one PR, merged only on green hosted CI, deployed by the user, and the production walk recorded. Until then this item stays open.
+

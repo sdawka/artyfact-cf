@@ -3,6 +3,7 @@
 
 ## Now
 
+- Tasks and local agents are built on `tasks-integration` (plan into waves, start wave and claim, rebase on promote, agreement tree with deferral, import review, `validate-genome`, the Plan and Review views); the docs slice records them. Next action: merge the pending slices (import review, Review view, data), run the full root suite and the fake end-to-end projects, open one PR to `main`, merge only on green hosted CI, then have the user deploy, wait out DO version skew, and walk Home, Review, Work and Plan in production. Evidence and the demo-shape correction: [[journals/2026-10-14-tasks-local-agents]]. Unverified: hosted CI, deploy, live Artifacts clone and push for claim and rebase.
 - Public-site release complete: Ontology Driven Development benefits and Artyfact’s meta ontology are live at https://artyfact.ing/model. PR [#57](https://github.com/sdawka/artyfact-cf/pull/57) merged on green hosted CI at `1b79e93`; the site deployed and desktop/mobile/no-JS live checks pass. Evidence: [[journals/2026-10-13-ontology-driven-development]]. The platform release work below remains separate; remote GRREAT sync stays pending.
 
 - Goal: [[goals]]. Milestone: iteration 3 and the frontend-design pass are on `main` and in production ([[journals/2026-10-13-design-pass]]).
@@ -14,7 +15,7 @@
 - Earlier from `main`: landing-site agent story (#44/#45, [[journals/2026-10-12-foundation]]), the public `/model` page (#48) and settled story chapters (#52, [[journals/2026-10-13-model-page]]); their last recorded site gates passed.
 - Homepage visual recovery: frame-free composition and whole-object transitions replace sliced reveals; the existing purpose, workflow and closing form a clearer conclusion. Fresh forward/reverse visual review is clear; full CI passed in 195.8s (2361 root tests, 9 skips; 56 site units, 11 static, 45 browser checks). Corrective PR, hosted checks and site release remain next; see [[journals/2026-10-13-model-page]].
 - Deferred: Remote GRREAT sync stays pending; the earlier `GOAL_HIERARCHY_CONFLICT` checkpoint is preserved and no remote record was overwritten.
-- Last updated: 2026-10-13.
+- Last updated: 2026-10-13 (Tasks and local agents).
 
 ## Work history
 
@@ -26,3 +27,4 @@
 - [[journals/2026-10-13-design-pass]]: PR #47 merged; design pass decisions D1–D8 and slice PRs.
 
 - [[journals/2026-10-13-ontology-driven-development]]: semantic-layer benefits and platform meta ontology explanation, site-only.
+- [[journals/2026-10-14-tasks-local-agents]]: Tasks, claims, rebase, agreement tree, import review; demo-shape corrections.
