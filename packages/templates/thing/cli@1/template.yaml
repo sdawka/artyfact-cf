@@ -110,6 +110,10 @@ relations:
     description: The journey step runs the target. Redeclared so that a command can be a step's operation, beside the artyfact operation kind.
     from: [step]
     to: [operation, command]
+  affects:
+    description: The Evolution changes the target. Redeclared so that a command, option or module can be affected.
+    from: [evolution]
+    to: [command, option, module]
 nodes:
   - id: template.thing.cli@1
     kind: template
