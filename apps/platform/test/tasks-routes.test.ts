@@ -230,3 +230,114 @@ describe("claims", () => {
     expect((await claim(f, C, "claude:c")).status).toBe(201);
   });
 });
+
+describe("claims: atomicity and leases", () => {
+  const lapse = (f: Flow, task: string) => runInDurableObject(env.SYSTEMS.getByName(f.systemId), async (_i: SystemAuthority, state) => {
+    state.storage.sql.exec("UPDATE tasks SET claim_expires = ? WHERE id = ?", new Date(Date.now() - 60_000).toISOString(), task);
+  });
+  const taskOf = async (f: Flow, id: string) => (await call<TaskResponse>("GET", `${sys(f)}/tasks/${id}`)).json.task;
+
+  it("lets exactly one of two concurrent claims start work", async () => {
+    const f = await importFresh();
+    await planned(f);
+    const [x, y] = await Promise.all([claim(f, A, "claude:x"), claim(f, A, "claude:y")]);
+    expect([x.status, y.status].sort()).toEqual([201, 409]);
+    const lost = x.status === 409 ? x : y;
+    expect(["invalid-state", "task-taken"]).toContain(lost.json.error.code);
+    const reals = (await call<{ realizations: { task?: string }[] }>("GET", `${sys(f)}/realizations`)).json.realizations;
+    expect(reals.filter((r) => r.task === A)).toHaveLength(1);
+  });
+
+  it("refuses any claim while a claim's realization is reserved but not yet active", async () => {
+    const f = await importFresh();
+    await planned(f);
+    // Claim and reserve without the fork and activation that follow: the gap a slow start leaves.
+    const out = await inDo(f.systemId, (i) => i.claimAndReserve({ evolutionId: "evolution.1", target: "app", taskId: B, agentLabel: "claude:b" }));
+    expect(out).toMatchObject({ fresh: true });
+    for (const label of ["claude:b", "claude:other"]) {
+      const res = await claim(f, B, label);
+      expect(res.status).toBe(409);
+      expect(res.json.error.code).toBe("invalid-state");
+      expect(res.json.error.message).toContain("claim in progress");
+    }
+    // Once a claim's realization is active, its label gets it back.
+    const a = await claim(f, A, "claude:a");
+    expect(a.status).toBe(201);
+    expect((await claim(f, A, "claude:a")).status).toBe(200);
+  });
+
+  it("renews the lease on checkpoint and on submit", async () => {
+    const f = await importFresh();
+    await planned(f);
+    const c = (await claim(f, A, "claude:a")).json;
+    await lapse(f, A);
+    expect(Date.parse((await taskOf(f, A)).claim!.expiresAt)).toBeLessThan(Date.now());
+    await call("POST", `${sys(f)}/realizations/${c.realization.id}/checkpoints`, { summary: "working" });
+    expect(Date.parse((await taskOf(f, A)).claim!.expiresAt)).toBeGreaterThan(Date.now() + 25 * 60_000);
+    await lapse(f, A);
+    await submitClaimed(f, c, { "src/ui/people/index.html": "<main>v2</main>" });
+    expect(Date.parse((await taskOf(f, A)).claim!.expiresAt)).toBeGreaterThan(Date.now() + 25 * 60_000);
+  });
+
+  it("gives a lapsed claim back to its own label with the stored packet", async () => {
+    const f = await importFresh();
+    await planned(f);
+    const first = (await claim(f, A, "claude:a")).json;
+    await lapse(f, A);
+    const again = await claim(f, A, "claude:a");
+    expect(again.status).toBe(200);
+    expect(again.json).toMatchObject({ fresh: false, token: null, secret: null });
+    expect(again.json.realization.id).toBe(first.realization.id);
+    expect(Date.parse(again.json.task.claim!.expiresAt)).toBeGreaterThan(Date.now() + 25 * 60_000);
+  });
+
+  it("abandons the earlier realization when another label takes over a lapsed claim", async () => {
+    const f = await importFresh();
+    await planned(f);
+    const first = (await claim(f, A, "claude:a")).json;
+    await lapse(f, A);
+    const next = await claim(f, A, "claude:b");
+    expect(next.status, JSON.stringify(next.json)).toBe(201);
+    expect(next.json.realization.id).not.toBe(first.realization.id);
+    expect(next.json.task).toMatchObject({ status: "claimed", realizationId: next.json.realization.id, claim: { agentLabel: "claude:b" } });
+    const old = await inDo(f.systemId, (i) => i.realization(first.realization.id)!);
+    expect(old.realization.status).toBe("abandoned");
+    // Its secret was revoked with it: the earlier agent can no longer submit.
+    const fork = f.ns.repo(first.realization.workspace.fork);
+    const base = await walkTree(fork, first.realization.workspace.baseCommit);
+    const commit = fork.commit({ ...Object.fromEntries(base), "src/ui/people/index.html": "late" }, "late");
+    const late = await call<ApiError>("POST", `${sys(f)}/realizations/${first.realization.id}/submit`, { commit });
+    expect(late.status).toBeGreaterThanOrEqual(400);
+  });
+});
+
+describe("task criteria with the real hook runner", () => {
+  beforeEach(() => {
+    setHooks({ runner: () => createHookRunner({ s1: createSystemOne({}), fetch: (async () => { throw new Error("no preview"); }) as typeof fetch, previewEnv: {} }) });
+  });
+
+  it("evaluates a task criterion outside the Genome Evolution's list", async () => {
+    const f = await importFresh();
+    await planned(f, { [A]: { acceptanceCriteria: ["C.webapp.health"] } });
+    expect(model.evolutions.find((e) => e.id === "evolution.1")!.acceptanceCriteria).not.toContain("C.webapp.health");
+    const c = (await claim(f, A, "claude:a")).json;
+    const sub = await submitClaimed(f, c, { "src/ui/people/index.html": "<main>v2</main>" });
+    const health = sub.evaluations.filter((e) => e.criterion === "C.webapp.health");
+    expect(health).toHaveLength(1);
+    expect(health[0]).toMatchObject({ provenance: { selectedBy: "acceptance" } });
+    // The Evolution's own acceptance criterion is not selected as acceptance for the task.
+    expect(sub.evaluations.filter((e) => e.criterion === "C.people.sorted" && (e.provenance as { selectedBy?: string }).selectedBy === "acceptance")).toEqual([]);
+  });
+
+  it("names the tasks of conflicting candidates", async () => {
+    const f = await importFresh();
+    await planned(f);
+    const a = (await claim(f, A, "claude:a")).json;
+    const b = (await claim(f, B, "claude:b")).json;
+    await submitClaimed(f, a, { "src/ui/people/index.html": "<main>a</main>" });
+    const sub = await submitClaimed(f, b, { "src/ui/people/index.html": "<main>b</main>" });
+    const file = sub.conflicts.find((c) => c.kind === "file");
+    expect(file, JSON.stringify(sub.conflicts)).toBeDefined();
+    expect(file!.tasks).toEqual([A, B].sort());
+  });
+});
