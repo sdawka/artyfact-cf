@@ -2,8 +2,7 @@ import { expect, test } from "@playwright/test";
 import { ADMIN_TOKEN, apiEvolution, apiPlan, auth, BASE, checkPage, PACKET_PRE, SYS } from "./fake";
 
 test.describe("plan an Evolution into Tasks and start a wave @fake", () => {
-  // TODO(integration): the plan (W4) and start-wave (W5) routes are not on this branch yet; flip to `test` once they merge.
-  test.fixme("Plan → Plan tasks → wave columns → Start wave 1 → commands → claimed → checkpoint → realizing @fake", async ({ page, request }, testInfo) => {
+  test("Plan → Plan tasks → wave columns → Start wave 1 → commands → claimed → checkpoint → realizing @fake", async ({ page, request }, testInfo) => {
     testInfo.setTimeout(60_000);
     await page.addInitScript(([k, v]) => sessionStorage.setItem(k, v), ["artyfact.adminToken", ADMIN_TOKEN]);
     // Two Peopling nodes whose files bindings share nothing: migrations/** and public/people/**.
