@@ -26,8 +26,7 @@
     "CLOUDFLARE_ACCOUNT_ID": "1bae12d5089e4c2ee5c0e62c021a117f",
     // App D1 databases: { "<systemId>": { "<database_name>": "<id>" } }. App repos commit an all-zero database_id;
     // the deploy config gets the id their System maps for that name.
-    // keep-in-touch: add its id here once the database is created (until then its deploys are refused).
-    "D1_DATABASE_IDS": {}
+    "D1_DATABASE_IDS": { "system.keep-in-touch": { "keep-in-touch": "26e6d5af-8dec-4989-9e16-cfcc3e3d21b0" } }
   },
   "observability": { "enabled": true, "logs": { "enabled": true } }
 }
