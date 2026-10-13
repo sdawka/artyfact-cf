@@ -16,9 +16,9 @@ function Harness() {
   const { pinned, manual, chooseView } = useLandingScroll(scene, controls, setView);
   return <section id="home-system-story"><div ref={scene} data-test-scene="" data-pinned={String(pinned)}><div className="landing-sticky-stage"><div ref={controls}>
     {(['genome', 'proteome', 'phenome'] as const).map(item => <button key={item} onClick={() => chooseView(item)}>{item}</button>)}
-  </div><button>Save record</button><output>{view}:{String(manual)}</output></div></div>
+  </div><button className="scene-save">Save record</button><output>{view}:{String(manual)}</output></div></div>
     {(['genome', 'proteome', 'phenome'] as const).map(item => <article key={item} data-story-step={item} />)}
-    <button>Outside controls</button>
+    <button className="scene-demo-control">Outside controls</button>
   </section>;
 }
 const flush = () => act(() => { vi.runOnlyPendingTimers(); });
@@ -109,4 +109,31 @@ it('settles the same focused view when reduced motion changes at a scrub midpoin
   reduced = true; act(() => { for (const listener of mediaListeners) listener(); }); flush();
   expect(root.style.getPropertyValue('--opening-progress')).toBe('1');
   expect(root.style.getPropertyValue('--realization-progress')).toBe('0');
+});
+
+it.each(['wheel', 'touchmove'])('protects pointer demo focus from assisted scrolling, then rejoins on %s', (gesture) => {
+  render(<Harness />); fireEvent.click(screen.getByRole('button', { hidden:true, name:'phenome' }));
+  act(() => screen.getByRole('button', { name:'Save record' }).focus());
+  positions=[-400,200,700]; fireEvent.scroll(window); flush();
+  expect(screen.getByText('phenome:true')).toBeTruthy();
+  fireEvent(window,new Event(gesture)); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
+});
+it('rejoins after pointer demo focus leaves and preserves the stronger keyboard lock', () => {
+  render(<Harness />); fireEvent.click(screen.getByRole('button', { hidden:true,name:'phenome' }));
+  act(() => screen.getByRole('button', { name:'Save record' }).focus());
+  positions=[-400,200,700]; fireEvent.scroll(window); flush(); expect(screen.getByText('phenome:true')).toBeTruthy();
+  keyboardMode=true; fireEvent.wheel(window); flush(); expect(screen.getByText('phenome:true')).toBeTruthy();
+  act(() => screen.getByRole('button', {name:'Outside controls'}).focus()); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
+});
+
+it('releases pointer protection even when an outside focus target has a demo-like class', () => {
+  render(<Harness />); fireEvent.click(screen.getByRole('button',{hidden:true,name:'phenome'}));
+  act(() => screen.getByRole('button',{name:'Save record'}).focus()); positions=[-400,200,700]; fireEvent.scroll(window); flush();
+  act(() => screen.getByRole('button',{name:'Outside controls'}).focus()); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
+});
+it('does not latch protection for a non-primary pointer without demo focus', () => {
+  render(<Harness />); fireEvent.click(screen.getByRole('button',{hidden:true,name:'phenome'}));
+  act(() => screen.getByRole('button',{name:'Outside controls'}).focus());
+  fireEvent.pointerDown(screen.getByRole('button',{name:'Save record'}),{button:2,isPrimary:false});
+  positions=[-400,200,700]; fireEvent.scroll(window); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
 });

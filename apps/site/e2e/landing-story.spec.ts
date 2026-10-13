@@ -220,3 +220,16 @@ test('native Phenome arrival completes six ideas while its button remains visibl
   await page.getByRole('tab',{name:/Phenome/}).click();
   await expect(page.getByRole('img',{name:/^Ideas explored:/})).toHaveAttribute('aria-label',/^Ideas explored: 6\./);
 });
+test('pointer demo activation survives assisted scrolling until deliberate scroll intent', async ({ page },info) => {
+  await page.setViewportSize(info.project.name==='desktop'?{width:1440,height:900}:{width:390,height:664});
+  await page.goto('https://artyfact.test/'); await revealStory(page);
+  await page.getByRole('tab',{name:/Phenome/}).click();
+  const randomize=page.getByRole('button',{name:'Randomize',exact:true});
+  await randomize.click(); await expect(randomize).toBeFocused();
+  await narrative(page,'proteome');
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(() => resolve(null)))));
+  await expect(page.locator(scene)).toHaveAttribute('data-system-view','phenome');
+  await randomize.click(); await expect(randomize).toBeFocused();
+  await page.mouse.wheel(0,1);
+  await expect(page.locator(scene)).toHaveAttribute('data-system-view','proteome');
+});

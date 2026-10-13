@@ -37,7 +37,7 @@ export function useLandingScroll(scene: RefObject<HTMLDivElement | null>, contro
     const stage = element.querySelector<HTMLElement>('.landing-sticky-stage') ?? element;
     const steps = [...story.querySelectorAll<HTMLElement>('[data-story-step]')];
     const media = typeof window.matchMedia === 'function' ? window.matchMedia('(prefers-reduced-motion: reduce)') : null;
-    let frame = 0, alive = true;
+    let frame = 0, alive = true, pointerDemoFocus = false;
     element.dataset.enhanced = 'true';
     const measure = () => {
       frame = 0;
@@ -55,7 +55,9 @@ export function useLandingScroll(scene: RefObject<HTMLDivElement | null>, contro
       const keyboardFocus = element.contains(document.activeElement) && document.activeElement?.matches(':focus-visible');
       // Both pixels and semantics freeze, so a focused control remains visible.
       if (media?.matches) { endpoint(selected.current); return; }
-      if (keyboardFocus || manualAt.current === next) return;
+      const pointerFocus = pointerDemoFocus && element.contains(document.activeElement) && document.activeElement?.matches('button.scene-save, button.scene-demo-control');
+      if (!pointerFocus) pointerDemoFocus = false;
+      if (keyboardFocus || pointerFocus || manualAt.current === next) return;
       if (!enabled) { endpoint(selected.current); return; }
       manualAt.current = null; setManual(false);
       selected.current = next; onView(next);
@@ -66,14 +68,24 @@ export function useLandingScroll(scene: RefObject<HTMLDivElement | null>, contro
       if (positions.length === 3) apply(clamp((window.scrollY - openingStart) / Math.max(1, openingEnd - openingStart)), clamp((line - genome) / Math.max(1, proteome - genome)), clamp((line - proteome) / Math.max(1, phenome - proteome)));
     };
     const schedule = () => { if (!frame && alive) frame = requestAnimationFrame(measure); };
+    const demoTarget = (target: EventTarget | null) => target instanceof Element && element.contains(target) && !!target.closest('button.scene-save, button.scene-demo-control');
+    const focus = (event: FocusEvent) => {
+      const target = event.type === 'focusout' ? event.relatedTarget : event.target;
+      pointerDemoFocus = demoTarget(target) && target instanceof Element && !target.matches(':focus-visible');
+      schedule();
+    };
+    const pointer = (event: PointerEvent) => { if (event.isPrimary && event.button === 0 && demoTarget(event.target)) pointerDemoFocus = true; };
+    const scrollIntent = () => { pointerDemoFocus = false; schedule(); };
     window.addEventListener('scroll', schedule, { passive: true }); window.addEventListener('resize', schedule);
-    element.addEventListener('focusout', schedule); media?.addEventListener('change', schedule);
+    window.addEventListener('wheel', scrollIntent, { passive: true }); window.addEventListener('touchmove', scrollIntent, { passive: true });
+    element.addEventListener('focusin', focus); element.addEventListener('focusout', focus); element.addEventListener('pointerdown', pointer); media?.addEventListener('change', schedule);
     const resize = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(schedule);
     resize?.observe(stage); measure();
     return () => {
       alive = false; if (frame) cancelAnimationFrame(frame); resize?.disconnect();
       window.removeEventListener('scroll', schedule); window.removeEventListener('resize', schedule);
-      element.removeEventListener('focusout', schedule); media?.removeEventListener('change', schedule);
+      window.removeEventListener('wheel', scrollIntent); window.removeEventListener('touchmove', scrollIntent);
+      element.removeEventListener('focusin', focus); element.removeEventListener('focusout', focus); element.removeEventListener('pointerdown', pointer); media?.removeEventListener('change', schedule);
     };
   }, [scene, controls, onView, apply, endpoint]);
   return { pinned, manual, settled, chooseView };
