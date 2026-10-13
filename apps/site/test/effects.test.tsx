@@ -5,7 +5,7 @@ import { SystemExplorer } from '../src/SystemExplorer';
 import { currentSelection, publishSelection } from '../src/systemState';
 afterEach(() => { cleanup(); document.body.innerHTML = ''; publishSelection({ layer: 0, subject: 0 }); });
 
-it('reports layer and subject choices without changing its markup', () => {
+it('reports layer choices without changing its markup', () => {
   const onSelect = vi.fn();
   const { container } = render(<SystemExplorer onSelect={onSelect} />);
   const plain = render(<SystemExplorer />).container.innerHTML;
@@ -13,8 +13,7 @@ it('reports layer and subject choices without changing its markup', () => {
   expect(onSelect).toHaveBeenLastCalledWith({ layer: 0, subject: 0 });
   fireEvent.click(screen.getAllByRole('tab', { name: /Phenome/ })[0]);
   expect(onSelect).toHaveBeenLastCalledWith({ layer: 2, subject: 0 });
-  fireEvent.click(screen.getAllByRole('button', { name: /Wanted contact/ })[0]);
-  expect(onSelect).toHaveBeenLastCalledWith({ layer: 2, subject: 2 });
+  expect(screen.getAllByText(/Make changes easy to scope and specify/)).toHaveLength(2);
 });
 
 it('mounts ambient atmosphere without bringing back the literal hero orb', async () => {
