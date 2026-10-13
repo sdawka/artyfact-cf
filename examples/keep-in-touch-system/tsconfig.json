@@ -1,7 +1,7 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "composite": true, "noEmit": false, "emitDeclarationOnly": true, "outDir": "dist", "rootDir": ".",
+    "composite": true, "noEmit": false, "emitDeclarationOnly": true, "outDir": ".tsbuild", "rootDir": ".",
     "types": ["node"]
   },
   "include": ["test"],

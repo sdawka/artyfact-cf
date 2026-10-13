@@ -1,14 +1,24 @@
 node_modules
-dist
+# Build and coverage output only at the repo and package roots, so no Genome node directory named dist or coverage
+# is ever hidden (the example System's own tsc output goes to .tsbuild, which is not a node slug).
+/dist/
+/apps/*/dist/
+/packages/*/dist/
+/examples/keep-in-touch-app/dist/
+/examples/keep-in-touch-system/.tsbuild/
+/coverage/
+/apps/*/coverage/
+/packages/*/coverage/
 .wrangler
 .cloudflare
 .dev.vars
 .env
 .artyfact.json
-coverage
 *.log
 # Genome node directories may end in .log (operation.contact.log).
 !examples/**/*.log
+!genome/**/*.log
+!packages/*/test/fixtures/**/*.log
 .DS_Store
 *.tsbuildinfo
 .artyfact/
