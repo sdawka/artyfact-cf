@@ -169,11 +169,12 @@ export type Certainty = "declared" | "assumed" | "proposed";
 
 /**
  * Error codes of the task, wave, claim, rebase and import-review routes (backend.md B.9, B.10). `ApiError.code` stays
- * a plain string; this union names the codes those routes add.
+ * a plain string; this union names the codes those routes add. `invalid-plan` (422): a `PUT …/plan` task list that
+ * names unknown nodes or criteria, spans Things, repeats a node or task id, or depends on a task outside the list.
  */
 export type TaskErrorCode =
   | "plan-cycle" | "plan-in-progress" | "wave-blocked" | "task-taken" | "task-blocked" | "rebase-conflict" | "up-to-date"
-  | "import-unreviewed" | "no-plan";
+  | "import-unreviewed" | "no-plan" | "invalid-plan";
 
 /** Error body for every non-2xx response. */
 export interface ApiError {
