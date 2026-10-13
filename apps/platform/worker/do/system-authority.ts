@@ -286,12 +286,11 @@ export class SystemAuthority extends DurableObject<Env> {
    * open SSE streams are closed. The DO id itself cannot be deleted, so the instance stays addressable but idle.
    */
   async clearState(): Promise<void> {
-    for (const w of this.clients) { try { await w.close(); } catch { /* already gone */ } }
-    this.clients.clear();
-    for (const t of this.lifetimes.values()) clearTimeout(t);
-    this.lifetimes.clear();
+    for (const w of [...this.clients]) this.drop(w);
+    if (this.pinger) { clearInterval(this.pinger); this.pinger = undefined; }
     await this.ctx.storage.deleteAll();
     this.buildsStore = this.changelogStore = this.proposalsStore = this.registryStore = this.phenomeStore = undefined;
+    this.readinessMemo.clear();
     applySchema(this.sql);
   }
 

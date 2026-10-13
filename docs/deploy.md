@@ -69,10 +69,10 @@ Gotchas from the 2026-10-13 run: `issue-token` fails until `npx wrangler login` 
 
 ## Remove a System
 
-After re-importing under a new id (the Keep in Touch to Peopling rename, for instance), the old System still sits in the registry. `DELETE /api/systems/:id` is admin only: it drops the registry row (so `GET /api/systems` and every `/api/systems/:id` route stop seeing it) and wipes the System's Durable Object; `stateCleared: false` in the response means the row went but the wipe failed, which leaves the object idle and harmless. Artifacts repos, forks and their push subscriptions are not touched, so remove or keep those by hand.
+After re-importing under a new id (the Keep in Touch to Peopling rename, for instance), the old System still sits in the registry. `DELETE /api/systems/:id` is admin only: it drops the registry row (so `GET /api/systems` and every `/api/systems/:id` route stop seeing it) and wipes the System's Durable Object; `stateCleared: false` in the response means the row went but the wipe failed, which leaves the object idle with stale state: retry the DELETE, or re-import with `force`. The registry's fork index is dropped; Artifacts repos, forks and push subscriptions are not, so remove or keep those by hand.
 
 ```
-curl -s -X DELETE /api/systems/system.keep-in-touch -H "authorization: Bearer "
+curl -s -X DELETE $URL/api/systems/system.keep-in-touch -H "authorization: Bearer $ARTYFACT_ADMIN_TOKEN"
 ```
 
 ## Rollback

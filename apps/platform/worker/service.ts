@@ -93,14 +93,14 @@ export async function listSystems(env: Env): Promise<SystemSummary[]> {
 }
 
 /**
- * Admin `DELETE /api/systems/:id`: remove the System from the registry (so `GET /api/systems` and every `:id` route stop
- * seeing it), then wipe its DO. The wipe is best effort: a failure leaves the row gone and the DO idle, and is reported
- * as `stateCleared: false`. Artifacts repos and push subscriptions are left alone.
+ * Admin `DELETE /api/systems/:id`: wipe the System's DO, then remove it from the registry (so `GET /api/systems` and
+ * every `:id` route stop seeing it, and no later `refreshRegistry` can re-insert a row for a wiped object). The wipe is
+ * best effort: when it fails the row still goes and the DO keeps its stale state, idle, reported as `stateCleared: false`
+ * (retry the DELETE, or re-import with `force`). Artifacts repos, forks and push subscriptions are left alone.
  */
 export async function deleteSystem(env: Env, systemId: string): Promise<DeleteSystemResponse> {
   const registry = registryStub(env);
   if (!(await registry.hasSystem(systemId))) throw notFound(`system ${systemId} is not imported`);
-  await registry.unregisterSystem(systemId);
   let stateCleared = true;
   try {
     await systemStub(env, systemId).clearState();
@@ -108,6 +108,7 @@ export async function deleteSystem(env: Env, systemId: string): Promise<DeleteSy
     stateCleared = false;
     console.error(`[systems] clearing the state of ${systemId} failed: ${(e as Error)?.message ?? e}`);
   }
+  await registry.unregisterSystem(systemId);
   return { systemId, stateCleared };
 }
 

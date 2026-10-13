@@ -1086,3 +1086,20 @@ describe("routes: admin DELETE /systems/:id", () => {
     expect((await call<SystemsResponse>("GET", "/systems")).json.systems.map((s) => s.systemId)).toContain(systemId);
   });
 });
+
+describe("routes: admin DELETE /systems/:id when the wipe fails", () => {
+  it("still drops the registry row and reports stateCleared false", async () => {
+    const { systemId } = await imported();
+    const proto = Object.getPrototypeOf(await runInDurableObject(env.SYSTEMS.getByName(systemId), (i: SystemAuthority) => i)) as Record<string, unknown>;
+    const orig = proto.clearState;
+    proto.clearState = async () => { throw new Error("storage unavailable"); };
+    try {
+      const del = await call<DeleteSystemResponse>("DELETE", `/systems/${systemId}`, undefined, ADMIN);
+      expect([del.status, del.json]).toEqual([200, { systemId, stateCleared: false }]);
+    } finally {
+      proto.clearState = orig;
+    }
+    expect((await call<SystemsResponse>("GET", "/systems")).json.systems.map((s) => s.systemId)).not.toContain(systemId);
+    expect((await call<ApiError>("GET", `/systems/${systemId}`)).status).toBe(404);
+  });
+});
