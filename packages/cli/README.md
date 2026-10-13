@@ -114,3 +114,35 @@ to `POST /api/systems/:id/realizations/:rid/builds` with the realization secret,
 `passed` report with `--url` stores the preview on the candidate and re-runs the hooks, so the health check runs
 against it; the command prints the resulting evaluations. Statuses are `queued`, `running`, `passed`, `failed` and
 `error`; URLs must be http(s).
+
+## Tasks and claims
+
+```sh
+npx artyfact tasks --system <sid> [--evolution <eid>] [--json]
+ARTYFACT_ADMIN_TOKEN=… npx artyfact claim <taskId> --system <sid> --agent "claude:<task>" --dir ./work/<task> [--role r]
+```
+
+`tasks` is public. It prints `task | evolution | status | wave | depends-on | nodes | footprint`, one `conflicts:` line
+per task pair that overlaps, and the first planned, unblocked task's claim line. `--json` prints the response as is.
+
+`claim` posts `{ agentLabel, role }` to `POST /api/systems/:id/tasks/:tid/claim` with `ARTYFACT_ADMIN_TOKEN` as the
+bearer (a wave-scoped claim token is deferred; the same https or localhost rule as the other bearer calls applies).
+It then does what `start` does: clones the task's fork, writes `TASK_PACKET.md`, writes the packet's `agentsMd`
+verbatim as `AGENTS.md`, and saves `.artyfact.json` with `taskId`. The fork write token comes from the claim response and
+never reaches disk; `status` prints `task:`. One claim is one clone of its own fork, so no worktrees are needed.
+
+- A blocked task exits 1 with `blocked by t1, t2 (not yet promoted)`; a task claimed by someone else exits 1 with
+  `task <id> is claimed by <label>`.
+- Claiming again with the same label returns no new credentials (`fresh: false`); the CLI reuses the directory and the
+  secret already saved there. Without that directory it stops and says so.
+
+Orchestrating a wave from a shell or Claude Code: start the wave on the Work view (or with the curl it shows), then per
+task:
+
+```sh
+npx artyfact claim <task> --system <sid> --agent "claude:<task>" --dir ./work/<task>
+(cd ./work/<task> && claude -p "Read AGENTS.md and TASK_PACKET.md, implement the task; then npx artyfact submit")
+```
+
+`submit` still reads the fork write token from `ARTYFACT_TOKEN`. `claim` neither prints nor stores it, so the
+shell that runs the agent must supply one.
