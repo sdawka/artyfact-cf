@@ -116,6 +116,14 @@ export const routes = {
   intentReply: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/reply`,
   /** `POST` {@link IntentAccept} → 201 {@link IntentAcceptResponse}. */
   intentAccept: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/accept`,
+  /** `PUT` {@link IntentDecisionsRequest} (admin) → {@link Proposal}; 404 unknown node, 409 `invalid-state` unless open. */
+  intentDecisions: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/decisions`,
+
+  // System import review (backend.md B.10). Distinct from ontology package import review (shared/ontology-packages.ts).
+  /** `GET` → {@link SystemImportReview}; 404 when the System has none. */
+  importReview: (s: string) => `${sys(s)}/import-review`,
+  /** `POST` {@link SystemImportReviewAccept} (admin) → {@link SystemImportReviewAcceptResponse}. */
+  importReviewAccept: (s: string) => `${sys(s)}/import-review/accept`,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -132,6 +140,15 @@ export type Sha256 = string;
 
 export type Certainty = "declared" | "assumed" | "proposed";
 
+/**
+ * Error codes the Genome review and planning routes add (`ApiError.code` stays a plain string):
+ * `import-unreviewed` (409) work was asked for while the System import review is pending;
+ * `rejected-node-referenced` (422) accepting the import review would remove nodes that surviving nodes still reference;
+ * `plan-cycle` (422) a task list whose dependencies form a cycle;
+ * `invalid-plan` (422) a task list naming unknown nodes, criteria or tasks, or repeating an id.
+ */
+export type ReviewPlanErrorCode = "import-unreviewed" | "rejected-node-referenced" | "plan-cycle" | "invalid-plan";
+
 /** Error body for every non-2xx response. */
 export interface ApiError {
   error: { code: string; message: string; details?: unknown };
@@ -147,10 +164,12 @@ export interface ApiError {
  * actionable evolutions with no realization; `awaiting-admin` a Genome candidate awaits accept; `built` a promotion
  * bound an app commit; `deployed` production is live on `appCommit`; `behind` live production is older than `appCommit`;
  * `not-fully-built` readiness errors/missing > 0 or not built; `observed` a Phenome event in the last 24 h;
- * `unrealized` phase unrealized and no candidates ever.
+ * `unrealized` phase unrealized and no candidates ever. `import-pending` the System import review is pending;
+ * `tasks-awaiting-agent` `planCounts.awaitingAgent > 0`; `plan-awaiting-promotion` `planCounts.integrated > 0`.
  */
 export type Signifier =
-  | "evolving" | "pending-realization" | "awaiting-admin" | "not-fully-built" | "built" | "deployed" | "behind" | "observed" | "unrealized";
+  | "evolving" | "pending-realization" | "awaiting-admin" | "not-fully-built" | "built" | "deployed" | "behind" | "observed" | "unrealized"
+  | "import-pending" | "tasks-awaiting-agent" | "plan-awaiting-promotion";
 
 /** Production deployment state relative to `appCommit`. */
 export type DeployState = "none" | "pending" | "live" | "behind" | "failed";
@@ -183,6 +202,23 @@ export interface SystemSummary {
   phenome?: { events: number; lastEmittedAt?: string };
   readiness?: { errors: number; missing: number };
   signifiers?: Signifier[];
+  /** Realization plans (docs/design/lifecycle.md, contract addendum). Absent from older servers. */
+  planCounts?: PlanCounts;
+  /** The System import review; absent when the System was imported without one (`review: false`). */
+  importReview?: { status: SystemImportReviewStatus; genomeCommit: CommitHash; nodes: number };
+}
+
+/**
+ * Realization plan counts on the System summary:
+ * `open` plans not yet promoted; `awaitingAgent` tasks of open plans an agent can take now (pending with every
+ * dependency selected, or claimed/working with the latest attempt's lease lapsed); `submitted` tasks whose candidate
+ * awaits selection; `integrated` plans integrated and awaiting promotion.
+ */
+export interface PlanCounts {
+  open: number;
+  awaitingAgent: number;
+  submitted: number;
+  integrated: number;
 }
 
 /** `GET /api/systems`. */
@@ -661,6 +697,12 @@ export interface ImportSystemRequest {
   /** Recorded on the app's artifact binding when the app repo was seeded from a template scaffold. */
   scaffoldFrom?: ScaffoldSource;
   force?: boolean;
+  /**
+   * Default true: an import that writes a new System commit leaves a {@link SystemImportReview} pending, and work is
+   * refused 409 `import-unreviewed` until it is accepted. `false` skips (and clears a pending) review: CLI
+   * `--no-review`, fake seeds, bootstrap from an accepted ontology package.
+   */
+  review?: boolean;
 }
 export interface ImportSystemResponse {
   system: SystemSummary;
@@ -711,6 +753,8 @@ export type SseEvent =
   | { type: "phenome.ingested"; count: number; deploymentId?: string; commit: CommitHash }
   | { type: "system.updated"; system: SystemSummary }
   | { type: "evolution.created"; evolution: Evolution }
+  /** The System import review was stored, accepted or (`status: null`) cleared. */
+  | { type: "system.import-review"; status: SystemImportReviewStatus | null }
   | { type: "ping" };
 
 export type SseEventType = SseEvent["type"];
@@ -1191,6 +1235,8 @@ export interface ProposedOp {
   fields?: Record<string, unknown>;
   link?: { rel: string; to: NodeId; certainty?: LinkCertainty };
   criteria?: (NodeCriterion | { id: string; remove: true })[];
+  /** `update`: the node's `files` globs (relative to the nearest `root`); a list replaces them, `null` removes them. */
+  files?: string[] | null;
   dependsOn?: string[];
 }
 
@@ -1240,7 +1286,37 @@ export interface Proposal {
   /** The translator's reply when the message only asked for information (no ops). */
   answer?: string;
   provenance: ProposalProvenance;
+  /**
+   * The agreement tree: the ops grouped under the nodes they touch, rooted at Things (or the System root), each node
+   * carrying the admin's explicit decision. `[]` for proposals stored before plans existed.
+   */
+  plan: ProposalPlanNode[];
+  /** The proposal whose deferred ops this one holds. */
+  deferredFrom?: string;
   createdAt: string;
+}
+
+/** An admin's decision on one agreement-tree node; it applies to the node's subtree unless a descendant decides otherwise. */
+export type ProposalDecision = "agree" | "reject" | "defer";
+
+/** Node id → explicit decision, as stored (`decisions_json`). Inheritance is the Worker's (worker/intents.ts). */
+export type ProposalDecisions = Record<NodeId, ProposalDecision>;
+
+/**
+ * One node of an agreement tree ({@link Proposal.plan}, {@link SystemImportReview.tree}). `path` is the ancestor chain
+ * from the System root down to and including this node (the System root's path is `[root]`; the trailing "Other
+ * changes" node, for ops on unknown nodes, has `[]`). `summary` counts the subtree's ops (or, in an import review,
+ * describes the node). `opIds` are the ops on this node itself; intermediate ancestors carry none.
+ */
+export interface ProposalPlanNode {
+  id: NodeId;
+  kind: string;
+  title: string;
+  path: NodeId[];
+  summary: string;
+  opIds: string[];
+  children: ProposalPlanNode[];
+  decision?: ProposalDecision;
 }
 
 /** `POST /api/systems/:id/intents/:pid/reply` (admin). `questionId`: the question answered; absent, a free follow-up. */
@@ -1264,6 +1340,48 @@ export interface IntentAcceptResponse {
   realization: Realization;
   candidate: Candidate;
   commit: CommitHash;
+  /** The new open proposal holding the ops of `defer` nodes, and the topmost deferred nodes that held ops. */
+  deferred?: { proposal: string; nodeIds: NodeId[] };
 }
 
-export type { RealizationPlan, Task, TaskAttempt, CreateRealizationPlanRequest, TaskStartResponse, TaskSubmitResponse, ImplementationReview, PlanPromoteRequest, PlanPromoteResponse } from './lifecycle';
+/**
+ * `PUT /api/systems/:id/intents/:pid/decisions` (admin) → {@link Proposal}. A decision on a node clears its
+ * descendants' explicit decisions; `null` clears the node's own.
+ */
+export interface IntentDecisionsRequest {
+  decisions: { nodeId: NodeId; decision: ProposalDecision | null }[];
+}
+
+// ---------------------------------------------------------------------------
+// System import review (backend.md B.10)
+// ---------------------------------------------------------------------------
+
+export type SystemImportReviewStatus = "pending" | "accepted";
+
+/** `GET /api/systems/:id/import-review`: the imported Genome as an agreement tree (every node added). */
+export interface SystemImportReview {
+  status: SystemImportReviewStatus;
+  /** The Genome commit the review describes (the imported one, not necessarily the current head). */
+  genomeCommit: CommitHash;
+  tree: ProposalPlanNode[];
+  findings: Finding[];
+  /** App paths no node's `files` maps. */
+  unmapped: string[];
+  decidedAt?: string;
+  interpretation?: string;
+  rejectedNodes?: NodeId[];
+}
+
+/** `POST /api/systems/:id/import-review/accept` (admin). Rejected nodes are removed by an accepted Genome amendment. */
+export interface SystemImportReviewAccept {
+  interpretation?: string;
+  rejectedNodes?: NodeId[];
+}
+
+export interface SystemImportReviewAcceptResponse {
+  review: SystemImportReview;
+  /** The accepted amendment that removed `rejectedNodes`, when there were any. */
+  amendment?: { evolution: NodeId; realization: string; candidate: string; systemCommit?: string };
+}
+
+export type { RealizationPlan, Task, TaskAttempt, CreateRealizationPlanRequest, TaskStartResponse, TaskSubmitResponse, ImplementationReview, PlanPromoteRequest, PlanPromoteResponse, DraftRealizationPlanRequest, DraftRealizationPlanResponse, DraftPlanProblem, DraftPlanProvenance, LifecycleTaskPacket } from './lifecycle';
