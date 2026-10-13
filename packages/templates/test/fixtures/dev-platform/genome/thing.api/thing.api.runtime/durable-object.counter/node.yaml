@@ -1,0 +1,6 @@
+id: durable-object.counter
+kind: durable-object
+fields:
+  title: Job counter
+  description: Hands out job numbers one at a time.
+  key: One instance per operator account.

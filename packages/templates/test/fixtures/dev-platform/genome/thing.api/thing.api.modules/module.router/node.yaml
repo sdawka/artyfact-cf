@@ -1,0 +1,10 @@
+id: module.router
+kind: module
+fields:
+  title: Router
+  description: Maps each route to its handler and turns thrown errors into responses.
+  path: src/router
+links:
+  - {rel: implements, to: endpoint.health}
+  - {rel: implements, to: endpoint.submit}
+  - {rel: dependsOn, to: module.parser}

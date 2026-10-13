@@ -1,0 +1,11 @@
+id: thing.api
+kind: thing
+template: template.thing.cloudflare-worker-service@1
+root: apps/api
+fields:
+  title: Jobs API
+  description: The Worker that accepts jobs and runs them to completion.
+links:
+  - {rel: dependsOn, to: thing.core}
+  - {rel: exposes, to: endpoint.health}
+  - {rel: exposes, to: endpoint.submit}
