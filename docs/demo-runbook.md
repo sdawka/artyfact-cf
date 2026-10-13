@@ -217,14 +217,16 @@ work, new Evolutions and intents answer 409 `import-unreviewed`, and `init` ends
 
 In the browser, Home shows "import awaits review" and Review has an Import row. The pane shows the readiness findings
 and unmapped paths, then the tree: Things and their nodes, each with Agree and Reject (no Defer). For the video, reject
-`GD.prompts`, a feature with no file bindings, and agree everything else. Write the interpretation and choose Accept
+`section.externals`, a node with no file bindings, and agree everything else. Write the interpretation and choose Accept
 import, which is enabled once every node is decided. Over HTTP:
 
 ```sh
 curl -s $B/import-review | jq -c '{status, genomeCommit, nodes: (.tree | length), findings: (.findings | length), unmapped: (.unmapped | length)}'
 curl -s -XPOST $B/import-review/accept -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
-  -d '{"interpretation":"Imported as written; prompts are not in scope yet.","rejectedNodes":["GD.prompts"]}' | jq -c '{status, amendment}'
+  -d '{"interpretation":"Imported as written; the externals section is not needed yet.","rejectedNodes":["section.externals"]}' | jq -c '{status, amendment}'
 ```
+
+Import review opens only for a fresh import: a forced re-import of an unchanged System writes no commit and opens no review, so the demo imports a System that is new to the platform.
 
 A rejected node becomes a removal. The platform writes it as a Genome amendment awaiting the admin, with the links
 into the removed node unlinked, and it appears in Review. To keep the recorded Genome for the rest of this walk, reject
