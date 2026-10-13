@@ -1,0 +1,9 @@
+id: endpoint.plan-draft
+kind: endpoint
+fields:
+  name: Draft a realization plan
+  description: "Drafts an editable task list for accepted, not-yet-realized Genome Evolutions or explicit nodes, with footprints, conflicts and waves. Persists nothing; the draft posts unchanged to plan creation."
+  route: POST /api/systems/:id/realization-plans/draft
+  auth: "Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set."
+  request: DraftRealizationPlanRequest
+  response: DraftRealizationPlanResponse
