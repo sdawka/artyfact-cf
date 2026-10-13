@@ -3,6 +3,7 @@
  *
  * Hook selection (base Genome at `ctx.genomeCommit`):
  *   affected criteria = acceptance criteria of the candidate's Evolution        (reason "acceptance")
+ *                       (the Genome's Evolution, else the DO's record `ctx.evolution` for API-created ones)
  *                     ∪ criteria whose subjectId is in candidate.changedNodes    (reason "subject")
  *                     ∪ System-owned criteria with `submission` in gates         (reason "system-gate")
  *   in that order, deduped, deferred criteria dropped. Every hook bound to an affected criterion (hook.criteria ∪
@@ -19,7 +20,7 @@
  */
 import { type Readiness, type SystemModel, type schema } from "@artyfact/model";
 import { createSystemOne, type SystemOne, type SystemOneEnv } from "@artyfact/semantic";
-import type { CandidateRef, ConflictContext, ConflictReport, DeltaReview, Evaluation, GenomeContext, GenomeResult, HookRunner, SubmissionContext } from "./contract";
+import type { CandidateRef, ConflictContext, EvolutionRef, ConflictReport, DeltaReview, Evaluation, GenomeContext, GenomeResult, HookRunner, SubmissionContext } from "./contract";
 import { diffScope } from "./diff-scope";
 import { HEALTH_TIMEOUT_MS, httpHealth, previewPolicy, type PreviewEnv } from "./http-health";
 import { manifestExists } from "./manifest-exists";
@@ -67,11 +68,16 @@ function phantomCriterion(id: string, m: SystemModel): schema.Criterion {
   };
 }
 
-export function selectHooks(m: SystemModel, candidate: CandidateRef, trigger: "submission" | "promotion" = "submission"): Selected[] {
+/**
+ * `stored`: the candidate's Evolution as the DO knows it, used only when the Genome does not declare it (Evolutions
+ * created through the API live only in the DO). Missing from both → the phantom `C.evolution-missing.<id>`.
+ */
+export function selectHooks(m: SystemModel, candidate: CandidateRef, trigger: "submission" | "promotion" = "submission", stored?: EvolutionRef): Selected[] {
   const runsOn = trigger === "promotion" ? PROMOTION_TRIGGERS : SUBMISSION_TRIGGERS;
   const criteria = new Map(m.criteria.map((c) => [c.id, c] as const));
   const hooks = new Map(m.hooks.map((h) => [h.id, h] as const));
-  const evolution = m.evolutions.find((e) => e.id === candidate.evolutionId);
+  const evolution: Pick<EvolutionRef, "acceptanceCriteria"> | undefined =
+    m.evolutions.find((e) => e.id === candidate.evolutionId) ?? (stored?.id === candidate.evolutionId ? stored : undefined);
   const notes = evolution ? [] : [`Evolution ${candidate.evolutionId} is not in the Genome at base; its acceptance criteria are unknown.`];
   const changed = new Set(candidate.changedNodes);
 
@@ -325,7 +331,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
   }
 
   async function evaluate(st: RunState): Promise<Evaluation[]> {
-    const selected = selectHooks(st.base, st.ctx.candidate, st.ctx.trigger);
+    const selected = selectHooks(st.base, st.ctx.candidate, st.ctx.trigger, st.ctx.evolution);
     const cache = new Map<string, Promise<{ o: Outcome; startedAt: string; finishedAt: string }>>();
     const out: Evaluation[] = [];
     for (const s of selected) {

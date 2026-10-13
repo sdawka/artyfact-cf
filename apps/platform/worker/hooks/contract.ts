@@ -75,7 +75,16 @@ export interface SubmissionContext {
    * re-run, hooks triggered on promotion run as well (and system criteria gated on promotion are selected).
    */
   trigger?: "submission" | "promotion";
+  /**
+   * The candidate's Evolution as the SystemAuthority DO stores it. Evolutions created through the API exist only
+   * there, so hook selection falls back to this record when the Genome at `genomeCommit` does not declare
+   * `candidate.evolutionId`. The Genome's own Evolution always wins when present.
+   */
+  evolution?: EvolutionRef;
 }
+
+/** The Evolution fields hook selection reads. */
+export type EvolutionRef = Pick<schema.Evolution, "id" | "kind" | "acceptanceCriteria" | "affectedNodes" | "state">;
 
 export interface PromotionFacts {
   /** Current head commit of the candidate's target repo in the System manifest; `base-current` = equals candidate.baseCommit. */
