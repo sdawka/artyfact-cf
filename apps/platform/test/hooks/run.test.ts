@@ -68,9 +68,12 @@ describe("hook selection: the DO's Evolution record (API-created evolutions)", (
     expect(sel.every((s) => s.notes.length === 0)).toBe(true);
   });
 
-  it("prefers the Genome's Evolution over the stored record with the same id", () => {
-    const genome = selectHooks(model, appCandidate());
-    expect(selectHooks(model, appCandidate(), "submission", stored({ id: "evolution.1", acceptanceCriteria: [] }))).toEqual(genome);
+  it("uses the stored record's criteria over the Genome's Evolution with the same id (a task's criteria)", () => {
+    const genomeEvo = model.evolutions.find((e) => e.id === "evolution.1")!;
+    expect(selectHooks(model, appCandidate(), "submission", stored({ id: "evolution.1", acceptanceCriteria: genomeEvo.acceptanceCriteria }))).toEqual(selectHooks(model, appCandidate()));
+    const task = selectHooks(model, appCandidate(), "submission", stored({ id: "evolution.1", acceptanceCriteria: ["C.webapp.health"] }));
+    expect(ids(task)).toContain("C.webapp.health|acceptance");
+    expect(ids(task)).not.toContain("C.people.list|acceptance");
   });
 
   it("ignores a stored record for another Evolution, and an id known nowhere stays C.evolution-missing", () => {

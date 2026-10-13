@@ -8,8 +8,11 @@ import { buildPack } from "./pack";
 import { concatBytes, encodeBlob, encodeCommit, encodeTree, hashObject, type EntryKind, type GitObject, type TreeItem } from "./objects";
 import { FLUSH, demuxSideband, parsePkts, pkt, pktText } from "./pkt-line";
 
-/** One edit: new file content, or null to delete the file. */
-export interface FileChange { path: string; content: string | Uint8Array | null }
+/**
+ * One edit: new file content, or null to delete the file. `type` sets the entry kind (`exec`, `symlink`); without
+ * it an existing file keeps its kind and a new file is a plain blob.
+ */
+export interface FileChange { path: string; content: string | Uint8Array | null; type?: "blob" | "exec" | "symlink" }
 
 export type PushRejectCode = "stale-head" | "auth" | "rejected" | "unpack" | "protocol" | "no-change" | "missing-path" | "path-conflict" | "invalid-path";
 
@@ -45,7 +48,7 @@ export function pathProblem(path: string): string | null {
   return null;
 }
 
-type Node = { file: string | Uint8Array | null } | { dir: Map<string, Node> };
+type Node = { file: string | Uint8Array | null; type?: FileChange["type"] } | { dir: Map<string, Node> };
 
 function changeTree(changes: FileChange[]): Map<string, Node> {
   const root = new Map<string, Node>();
@@ -59,7 +62,7 @@ function changeTree(changes: FileChange[]): Map<string, Node> {
       const existing = here.get(name);
       if (i === parts.length - 1) {
         if (existing) throw new PushRejected("path-conflict", `path ${c.path} is changed twice, or both as a file and a directory`);
-        here.set(name, { file: c.content });
+        here.set(name, { file: c.content, ...(c.type && { type: c.type }) });
       } else {
         if (existing && "file" in existing) throw new PushRejected("path-conflict", `path ${parts.slice(0, i + 1).join("/")} is changed both as a file and a directory`);
         if (!existing) here.set(name, { dir: new Map() });
@@ -103,7 +106,7 @@ export async function rewriteTree(repo: ArtifactsRepoLike, treeHash: string | nu
         // Writing a file where a directory stands would silently drop everything under it.
         if (cur?.type === "tree") throw new PushRejected("path-conflict", `${path} is a directory; it cannot be written as a file`);
         const hash = await add(encodeBlob(node.file));
-        const type: EntryKind = cur?.type === "exec" || cur?.type === "symlink" ? cur.type : "blob";
+        const type: EntryKind = node.type ?? (cur?.type === "exec" || cur?.type === "symlink" ? cur.type : "blob");
         if (cur && cur.hash === hash && cur.type === type) continue;
         items.set(name, { name, hash, type });
         changed = true;
@@ -149,6 +152,15 @@ export interface PushCommitOptions {
   fetch?: typeof fetch;
   /** Seconds since the epoch for author/committer time. */
   now?: number;
+  /**
+   * Apply `changes` to this tree instead of the parent's (a rebase: the System head's tree, read from the repo that
+   * holds it). The commit is made even when its tree equals the parent's.
+   */
+  base?: { repo: ArtifactsRepoLike; tree: string };
+  /** Extra objects for the pack: what the commit's tree references that the target repo may lack. */
+  include?: GitObject[];
+  /** Called with the new commit id before the pack is sent (e.g. to mark the push event as already handled). */
+  beforeSend?: (commit: string) => Promise<void>;
 }
 
 export interface PushCommitResult { commit: string; parent: string; tree: string; objects: number }
@@ -217,8 +229,8 @@ export async function pushCommit(o: PushCommitOptions): Promise<PushCommitResult
 
   const parentMeta = await o.repo.readCommit(o.parent);
   if (!parentMeta) throw new PushRejected("stale-head", `parent commit ${o.parent} not found`);
-  const rewritten = await rewriteTree(o.repo, parentMeta.treeHash, o.changes);
-  if (!rewritten.changed) throw new PushRejected("no-change", "the changes leave every file as it is");
+  const rewritten = await rewriteTree(o.base?.repo ?? o.repo, o.base?.tree ?? parentMeta.treeHash, o.changes);
+  if (!rewritten.changed && !o.base) throw new PushRejected("no-change", "the changes leave every file as it is");
   const at = o.now ?? Math.floor(Date.now() / 1000);
   const commitObj = encodeCommit({ tree: rewritten.tree, parents: [o.parent], author: { ...o.author, at }, message: o.message });
   const commit = await hashObject(commitObj);
@@ -227,7 +239,10 @@ export async function pushCommit(o: PushCommitOptions): Promise<PushCommitResult
   const current = parseAdvertisement(adv).get(ref) ?? ZERO_ID;
   if (current !== o.parent) throw new PushRejected("stale-head", `${ref} is at ${current.slice(0, 12)}, not ${o.parent.slice(0, 12)}`);
 
-  const pack = await buildPack([...rewritten.objects, commitObj]);
+  await o.beforeSend?.(commit);
+  const objects = new Map<string, GitObject>();
+  for (const x of [...(o.include ?? []), ...rewritten.objects, commitObj]) objects.set(await hashObject(x), x);
+  const pack = await buildPack([...objects.values()]);
   const body = concatBytes([pkt(`${o.parent} ${commit} ${ref}\0report-status\n`), FLUSH, pack]);
   const res = await doFetch(`${base}/git-receive-pack`, {
     method: "POST",
@@ -235,5 +250,5 @@ export async function pushCommit(o: PushCommitOptions): Promise<PushCommitResult
     body,
   });
   checkReport(await expectOk(res, "receive-pack"), ref);
-  return { commit, parent: o.parent, tree: rewritten.tree, objects: rewritten.objects.length + 1 };
+  return { commit, parent: o.parent, tree: rewritten.tree, objects: objects.size };
 }

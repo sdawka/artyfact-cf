@@ -8,7 +8,7 @@ import type {
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
 import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalDecisions, type ProposalTurn, type StoredProposalPlan, type ReviseResult, type StoredProposal } from "./proposals-store";
-import { TASK_LEASE_MS, TasksStore, type TaskClaimResult, type TaskPatch } from "./tasks-store";
+import { TASK_LEASE_MS, TasksStore, type ClaimForStart, type TaskClaimResult, type TaskPatch } from "./tasks-store";
 import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentInput } from "./builds-store";
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
 import { ChangelogStore, type CachedChangelog } from "./changelog-store";
@@ -730,9 +730,14 @@ export class SystemAuthority extends DurableObject<Env> {
    * and record it as `claimed`. The Worker then forks, issues a token and calls {@link activateRealization}.
    */
   reserveRealization(input: ReserveInput): ReservedRealization {
+    return this.ctx.storage.transactionSync(() => this.reserveTx(input));
+  }
+
+  /** {@link reserveRealization} inside the caller's transaction. */
+  private reserveTx(input: ReserveInput): ReservedRealization {
     const s = this.state();
     if (!s) throw new ConflictError("not-found", "System not imported");
-    return this.ctx.storage.transactionSync(() => {
+    {
       const evo = this.one("SELECT status, scope_json FROM evolutions WHERE id = ?", input.evolutionId);
       if (!evo) throw new ConflictError("not-found", `unknown evolution ${input.evolutionId}`);
       if (["promoted", "rejected", "withdrawn"].includes(String(evo.status))) {
@@ -767,7 +772,7 @@ export class SystemAuthority extends DurableObject<Env> {
       );
       if (["proposed", "genome-approved", "actionable"].includes(String(evo.status))) this.setEvolutionStatus(input.evolutionId, "realizing");
       return { realization: this.realizationDto(this.realizationRow(id)!), baseRepo, baseCommit, forkRepo };
-    });
+    }
   }
 
   /**
@@ -836,7 +841,8 @@ export class SystemAuthority extends DurableObject<Env> {
       this.sql.exec("INSERT INTO checkpoints (realization_id, seq, message, commit_hash, created_at) VALUES (?, ?, ?, ?, ?)", id, seq, input.summary, input.commit ?? null, at);
       if (r.status === "claimed") this.setRealizationStatus(id, "working");
       else this.sql.exec("UPDATE realizations SET updated_at = ? WHERE id = ?", at, id);
-      // The first checkpoint of a task's realization: the agent is at work.
+      // The first checkpoint of a task's realization: the agent is at work. Every checkpoint renews the claim's lease.
+      this.tasks_().renewLease(id);
       return this.tasks_().advance(id, "realizing", ["claimed"]);
     });
     const checkpoint: Checkpoint = { seq, at, summary: input.summary, ...(input.commit && { commit: input.commit }) };
@@ -888,12 +894,60 @@ export class SystemAuthority extends DurableObject<Env> {
         id, input.realizationId, input.commit, JSON.stringify(input.manifest), JSON.stringify(input.changedPaths), JSON.stringify(input.changedNodes), nowIso(),
       );
       this.setRealizationStatus(input.realizationId, "evaluating");
+      this.tasks_().renewLease(input.realizationId);
     });
     const candidate = this.candidateDto(this.one("SELECT * FROM candidates WHERE id = ?", id)!);
     const realization = this.realizationDto(this.realizationRow(input.realizationId)!);
     this.emit({ type: "candidate.submitted", candidate });
     this.emit({ type: "realization.updated", realization });
     return { candidate, created: true, realization };
+  }
+
+  /**
+   * Paths of stored `file` conflicts between `candidateId` and a promoted candidate (`storedConflicts` drops these
+   * once the other side is promoted; a rebase must not). Sorted, unique.
+   */
+  rebaseConflictPaths(candidateId: string): string[] {
+    const promoted = new Set(this.all("SELECT id FROM candidates WHERE state = 'promoted'").map((r) => String(r.id)));
+    const paths = new Set<string>();
+    for (const r of this.all("SELECT candidates_json, json FROM conflict_reports")) {
+      const cands = json<string[]>(r.candidates_json, []);
+      if (!cands.includes(candidateId) || !cands.some((c) => c !== candidateId && promoted.has(c))) continue;
+      const report = json<StoredConflict | null>(r.json, null);
+      if (report?.kind !== "file") continue;
+      for (const p of report.paths ?? report.subjects ?? []) paths.add(p);
+    }
+    return [...paths].sort();
+  }
+
+  /**
+   * Move a realization onto the current head after its candidate was rebased (backend.md B.5): `base_commit`,
+   * `base_repo` and `base_head` take the app head, and its open candidates (built on the old base) are rejected so
+   * none of them can be promoted over the new head. `[stale-base]` when the head or the app moved meanwhile;
+   * `invalid-state` for an ended or Genome realization. A task in `evaluated` goes back to `realizing` until the
+   * rebased candidate is evaluated. Emits `realization.updated` and `task.updated` (the submit that follows emits
+   * `candidate.submitted`).
+   */
+  rebaseRealization(id: string, input: { baseCommit: string; baseHead: string; baseRepo: string }): { realization: Realization; superseded: string[] } {
+    const out = this.ctx.storage.transactionSync(() => {
+      const r = this.realizationRow(id);
+      if (!r) throw new ConflictError("not-found", `unknown realization ${id}`);
+      if (TERMINAL_REALIZATION.includes(String(r.status) as RealizationStatus)) throw new ConflictError("invalid-state", `realization ${id} is ${r.status}`);
+      if (r.target !== "app") throw new ConflictError("invalid-state", `realization ${id} is a Genome realization; only app candidates are rebased`);
+      const s = this.state();
+      if (!s?.appSource || s.head !== input.baseHead || s.appSource.commit !== input.baseCommit || s.appSource.repo !== input.baseRepo) {
+        throw new StaleBaseRefusal(`the System head moved to ${s?.head?.slice(0, 12) ?? "nothing"} during the rebase; rebase again`);
+      }
+      const superseded = this.all("SELECT id FROM candidates WHERE realization_id = ? AND state IN ('submitted','evaluated','selected')", id).map((c) => String(c.id));
+      for (const c of superseded) this.sql.exec("UPDATE candidates SET state = 'rejected' WHERE id = ?", c);
+      this.sql.exec("UPDATE realizations SET base_commit = ?, base_repo = ?, base_head = ?, updated_at = ? WHERE id = ?",
+        input.baseCommit, input.baseRepo, input.baseHead, nowIso(), id);
+      return { superseded, tasks: this.tasks_().advance(id, "realizing", ["evaluated"]) };
+    });
+    const realization = this.realizationDto(this.realizationRow(id)!);
+    this.emit({ type: "realization.updated", realization });
+    this.emitTasks(out.tasks);
+    return { realization, superseded: out.superseded };
   }
 
   /**
@@ -1689,6 +1743,36 @@ export class SystemAuthority extends DurableObject<Env> {
     if ("claimed" in out && out.fresh) this.emit({ type: "task.updated", task: out.claimed });
     return out;
   }
+  /**
+   * Claim `taskId` for `agentLabel` and reserve its realization in one transaction: the task is bound to the reserved
+   * realization at once, and further claims are refused `in-progress` until it is activated. Taking over a lapsed claim
+   * abandons the earlier live realization in the same transaction; its credentials are returned for revocation.
+   * Nothing is written when the claim or the reservation is refused.
+   */
+  claimAndReserve(input: ReserveInput & { taskId: string; agentLabel: string }, now: number = Date.now(), leaseMs: number = TASK_LEASE_MS):
+    | { fresh: true; task: Task; reserved: ReservedRealization; ended: EndedCredential[] }
+    | { fresh: false; task: Task }
+    | Extract<ClaimForStart, { refused: string }> {
+    let abandoned: string | null = null;
+    const out = this.ctx.storage.transactionSync(() => {
+      const c = this.tasks_().claimForStart(input.taskId, input.agentLabel, now, leaseMs);
+      if ("refused" in c) return c;
+      if ("existing" in c) return { fresh: false as const, task: c.existing };
+      let ended: EndedCredential[] = [];
+      if (c.takeover) {
+        this.sql.exec("UPDATE realizations SET status = 'abandoned', updated_at = ? WHERE id = ? AND status NOT IN ('promoted', 'rejected', 'abandoned')", nowIso(), c.takeover);
+        ended = this.endCredentials([c.takeover]);
+        abandoned = c.takeover;
+      }
+      const reserved = this.reserveTx(input);
+      this.sql.exec("UPDATE tasks SET realization_id = ?, updated_at = ? WHERE id = ?", reserved.realization.id, nowIso(), input.taskId);
+      return { fresh: true as const, task: this.tasks_().task(input.taskId)!, reserved, ended };
+    });
+    if (abandoned) this.emit({ type: "realization.updated", realization: this.realizationDto(this.realizationRow(abandoned)!) });
+    if ("fresh" in out && out.fresh) this.emit({ type: "task.updated", task: out.task });
+    return out;
+  }
+
   /** Binds a claimed task to the realization its claim started (also recorded on the realization). */
   bindTask(id: string, realizationId: string): Task {
     const r = this.realizationRow(realizationId);

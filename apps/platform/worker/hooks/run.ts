@@ -3,7 +3,8 @@
  *
  * Hook selection (base Genome at `ctx.genomeCommit`):
  *   affected criteria = acceptance criteria of the candidate's Evolution        (reason "acceptance")
- *                       (the Genome's Evolution, else the DO's record `ctx.evolution` for API-created ones)
+ *                       (the caller's `ctx.evolution` when given: the DO's record, with a task's criteria for a
+ *                        task realization; else the Genome's Evolution)
  *                     ∪ criteria whose subjectId is in candidate.changedNodes    (reason "subject")
  *                     ∪ System-owned criteria with `submission` in gates         (reason "system-gate")
  *   in that order, deduped, deferred criteria dropped. Every hook bound to an affected criterion (hook.criteria ∪
@@ -81,8 +82,9 @@ export function selectHooks(m: SystemModel, candidate: CandidateRef, trigger: "s
   const runsOn = trigger === "promotion" ? PROMOTION_TRIGGERS : SUBMISSION_TRIGGERS;
   const criteria = new Map(m.criteria.map((c) => [c.id, c] as const));
   const hooks = new Map(m.hooks.map((h) => [h.id, h] as const));
+  // The caller's Evolution wins: it carries a task realization's criteria (backend.md B.9) and API-created Evolutions.
   const evolution: Pick<EvolutionRef, "acceptanceCriteria"> | undefined =
-    m.evolutions.find((e) => e.id === candidate.evolutionId) ?? (stored?.id === candidate.evolutionId ? stored : undefined);
+    (stored?.id === candidate.evolutionId ? stored : undefined) ?? m.evolutions.find((e) => e.id === candidate.evolutionId);
   const notes = evolution ? [] : [`Evolution ${candidate.evolutionId} is not in the Genome at base; its acceptance criteria are unknown.`];
   const changed = new Set(candidate.changedNodes);
 

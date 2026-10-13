@@ -1,8 +1,8 @@
 import { Hono } from "hono";
-import type { StartWorkRequest, WorkResponse } from "../../shared/api";
+import type { StartWaveRequest, StartWorkRequest, WorkResponse } from "../../shared/api";
 import { requireAdmin } from "../auth";
 import { notFound } from "../errors";
-import { accept, candidatesView, createEvolution, startWork, systemStub } from "../service";
+import { accept, candidatesView, createEvolution, startWave, startWork, systemStub } from "../service";
 import { body, origin, type AppEnv, type Ctx } from "./app";
 
 const work = async (c: Ctx) => c.json<WorkResponse>(await systemStub(c.env, c.req.param("id")!).work());
@@ -23,6 +23,11 @@ export const evolutions = new Hono<AppEnv>()
     c.json(await startWork(c.env, c.req.param("id"), c.req.param("eid"), (await body(c)) as StartWorkRequest, origin(c)), 201))
   .get("/systems/:id/evolutions/:eid/realizations", async (c) =>
     c.json({ realizations: await systemStub(c.env, c.req.param("id")).realizations(c.req.param("eid")) }))
+  // Claims and starts every task of a wave (admin: tokens and secrets appear once, in `started`).
+  .post("/systems/:id/evolutions/:eid/waves/:n/start", requireAdmin, async (c) => {
+    const n = c.req.param("n");
+    return c.json(await startWave(c.env, c.req.param("id"), c.req.param("eid"), /^-?\d+$/.test(n) ? Number(n) : NaN, (await body(c)) as Partial<StartWaveRequest>, origin(c)));
+  })
   .get("/systems/:id/evolutions/:eid/candidates", async (c) => c.json(await candidatesView(c.env, c.req.param("id"), c.req.param("eid"))))
   .post("/systems/:id/evolutions/:eid/accept", requireAdmin, async (c) =>
     c.json(await accept(c.env, c.req.param("id"), c.req.param("eid"), await body(c))));
