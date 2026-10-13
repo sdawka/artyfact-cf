@@ -23,8 +23,18 @@ An Evolution can now be planned into Tasks, and local agents claim them one at a
 
 ## Deferred
 
-Per-task PUT of a plan (all-or-nothing today); release leaves the old realization live; a clone that fails after a claim loses the once-only credentials (release and claim again); the planner is untested against the live model; live Artifacts push for rebase and claim; import-review guards on the plan, start-wave and claim routes (integration item); `refines` links into a rejected import node are not unlinked.
+Per-task PUT of a plan (all-or-nothing today); release leaves the old realization live; a clone that fails after a claim loses the once-only credentials (release and claim again); the planner is untested against the live model; live Artifacts push for rebase and claim; `refines` links into a rejected import node are not unlinked.
 
 ## Evidence and state
 
 At `527f1cf` the platform suite passes (1128 tests, 2 skipped), typecheck is clean and the plan end-to-end spec passes. In this docs slice the site suite passes (59 units, 11 static checks) and the CLI suite passes (117). Import review, the Review view and the Peopling and self-Genome data were built in separate branches and are verified there, not yet together. Hosted CI, the user's deploy, DO version-skew wait and the production walk (Home, Review, Work, Plan) are unverified. Remote GRREAT sync stays pending. Canonical records validate (7 records). The versioned sync preview ran and applied zero commands; it proposes six new records in the existing workspace, so sync stays pending until a separate Artyfact destination exists.
+
+## Integration pass (2026-10-13)
+
+Every slice merged on `tasks-integration`; the integrator added the import-review guard to plan, start-wave and claim, and ran the plan's verification on the merged branch.
+
+- Root `npm test`: 198 files passed, 5 skipped; 2639 tests passed, 12 skipped. Fake end-to-end (`fake-home`, `fake-flows`, `fake-import`, `fake-self`): 16 passed, the import review test included. Fixture end-to-end: 47 passed.
+- Runbook walk on the fake platform: import with a review, plan refused 409 `import-unreviewed`, reject `section.externals` and accept; an intent over three screens with agree at the Thing, one reject and one defer gives a `mixed` Evolution that the admin accepts; `evolution.2` plans as `[[t1,t2],[t3]]`; `artyfact claim` clones t1 and t2, both checkpoint and submit; t3 is refused `task-blocked`; t1 promotes, t2 is `stale-base`, rebases and promotes; t3 claims and its `AGENTS.md` names both promoted tasks. The self seed plans two waves with the `main.ts` file conflict.
+- **Defect found and fixed:** hook selection ran only the Evolution's or task's own criteria plus System-owned gates, while the promotion gate requires every hard promotion-gated criterion with a bound hook. `C.webapp.exists` was never evaluated for tasks or for any Evolution that does not list it, so their promotion was always blocked. Selection now includes every criterion that blocks promotion.
+- **Why promote failed on the fake platform before:** the fake repos had no git remote, so `claim` and `submit` could not clone or push. The Worker now serves its in-memory repos over Git smart HTTP at `/api/fake-git/` with real object ids; the runbook gives the git and CLI settings.
+
