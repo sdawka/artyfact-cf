@@ -1,0 +1,5 @@
+id: thing.cli.modules
+kind: section
+fields:
+  title: Modules
+  description: The source modules and what each is responsible for.

@@ -1,0 +1,197 @@
+# A software system built from Things on Cloudflare: a purpose, a description and a theory of change, no social externals.
+id: template.system.dev-platform.cloudflare
+version: 1
+meta: 1
+kinds:
+  system:
+    description: The software system as a whole.
+    fields:
+      - {name: title, type: string, required: true}
+      - {name: description, type: string, required: true}
+      - {name: narrative, type: string}
+      - {name: alternatives, type: list}
+      - {name: openQuestions, type: list}
+    completeness: {fields: [title, description]}
+    criteria:
+      noun: system
+      instanceOf: A system is a set of Things that together serve one purpose.
+      grounded: It names the purpose it serves and what each of its Things is for.
+    view: {label: System, plural: Systems, glyph: "Sy", colour: indigo, layer: system, fields: [title, description, narrative, alternatives, openQuestions]}
+  thing:
+    description: One deployable or publishable unit of the system, built from one template.
+    parents: [system]
+    fields:
+      - {name: title, type: string, required: true}
+      - {name: description, type: string, required: true}
+      - {name: purposeRefs, type: refs}
+    completeness: {fields: [title, description]}
+    criteria:
+      noun: thing
+      instanceOf: A Thing is one deployable or publishable unit with a single owner and a single build.
+      grounded: It names what it provides to the rest of the system.
+    view: {label: Thing, plural: Things, glyph: "Th", colour: indigo, layer: thing, fields: [title, description, purposeRefs]}
+  section:
+    description: Groups the nodes of one area of a Thing or of the System.
+    parents: [system, thing]
+    fields:
+      - {name: title, type: string, required: true}
+      - {name: description, type: string}
+    criteria:
+      noun: section
+      instanceOf: A section groups the items of one area.
+      tangible: false
+    view: {label: Section, plural: Sections, glyph: "§", colour: slate}
+  template:
+    description: A pinned template a System or Thing instantiates.
+    fields:
+      - {name: kind, type: string, enum: [system, thing]}
+      - {name: version, type: string}
+      - {name: name, type: string}
+      - {name: description, type: string}
+    criteria: {tangible: false}
+    view: {label: Template, plural: Templates, glyph: "Tp", colour: neutral}
+  purpose:
+    description: The change the system exists to make, and for whom.
+    parents: [system, section]
+    fields:
+      - {name: title, type: string, required: true}
+      - {name: statement, type: string, required: true}
+      - {name: intendedChange, type: string}
+      - {name: audience, type: string}
+      - {name: successCriteria, type: list}
+      - {name: nonGoals, type: list}
+    completeness: {fields: [title, statement]}
+    criteria:
+      noun: purpose
+      instanceOf: A purpose states the change the system exists to make, and for whom.
+      grounded: It names the people or systems that benefit and the change they would notice.
+    checks:
+      - id: change
+        text: States a change in the world and who benefits, not a feature or a technology.
+        field: statement
+        defect: specificity.underspecified
+    view: {label: Purpose, plural: Purposes, glyph: "Pu", colour: pink, layer: intent, title: title, summary: statement, fields: [title, statement, intendedChange, audience, successCriteria, nonGoals]}
+  claim:
+    description: A theory-of-change claim linking what the system does to an outcome.
+    parents: [system, section]
+    fields:
+      - {name: title, type: string, required: true}
+      - {name: mechanism, type: string, required: true}
+      - {name: outcome, type: string, required: true}
+      - {name: indicator, type: string, required: true}
+      - {name: evaluationMethod, type: string}
+      - {name: limitation, type: string}
+      - {name: kind, type: string, enum: [hypothesis, invariant]}
+      - {name: status, type: string, enum: [unknown, supported, challenged, inconclusive]}
+    completeness: {fields: [title, mechanism, outcome, indicator]}
+    criteria:
+      noun: claim
+      instanceOf: A claim states a mechanism by which the system produces an outcome and what would show it works.
+      grounded: It names the mechanism, the outcome and an indicator.
+      minScore: 2
+      testable: A testable claim names the indicator that would move and how it is evaluated.
+    checks:
+      - id: indicatorMeasurable
+        text: Its indicator is something that can be measured, with a baseline or a target.
+        field: indicator
+        defect: specificity.underspecified
+    view: {label: Claim, plural: Claims, glyph: "Cl", colour: violet, layer: intent, title: title, summary: mechanism, fields: [title, mechanism, outcome, indicator, evaluationMethod, limitation, kind, status]}
+  feature:
+    description: A capability the system offers.
+    parents: [system, section]
+    fields:
+      - {name: title, type: string, required: true}
+      - {name: description, type: string, required: true}
+      - {name: deferred, type: boolean}
+    completeness: {fields: [title, description]}
+    criteria:
+      noun: feature
+      instanceOf: A feature is one capability a person or another system can use.
+      grounded: It names who uses it and what they can do.
+    view: {label: Feature, plural: Features, glyph: "Fe", colour: green, layer: intent, fields: [title, description, deferred]}
+  commitment:
+    description: A promise the system makes about what it will or will not do.
+    parents: [system, section]
+    fields:
+      - {name: title, type: string, required: true}
+      - {name: statement, type: string, required: true}
+      - {name: features, type: refs}
+    completeness: {fields: [title, statement]}
+    criteria:
+      noun: commitment
+      instanceOf: A commitment is a promise the system makes to the people or systems that rely on it.
+      grounded: It names who is promised what, and when the promise applies.
+    view: {label: Commitment, plural: Commitments, glyph: "Cm", colour: amber, layer: intent, summary: statement, fields: [title, statement, features]}
+relations:
+  dependsOn:
+    description: The source needs the target to build or run; a Thing depends on another Thing, a module on another module.
+    from: [thing]
+    to: [thing]
+  calls:
+    description: The source invokes the target at run time.
+    from: [thing]
+    to: [thing]
+  deploys:
+    description: The source ships the target to its runtime.
+    from: [thing]
+    to: [thing]
+  pinned:
+    description: The template or version the source is pinned to.
+    from: [system, thing]
+    to: [template]
+nodes:
+  - {id: $self.purpose, kind: section, parent: $self, fields: {title: Purpose, description: "Why the system exists, who benefits and what must change for them."}}
+  - {id: $self.theory, kind: section, parent: $self, fields: {title: Theory of change, description: "Claims linking what the system does to its outcomes, each with an indicator."}}
+  - {id: $self.description, kind: section, parent: $self, fields: {title: Description, description: "The features, commitments, alternatives and open questions."}}
+rootChecks:
+  - id: thingsOwned
+    text: The system's description says what each of its Things is for, so a reader can tell why the system is split this way.
+    when: {kind: system}
+    defect: specificity.underspecified
+view:
+  layers:
+    - {id: system, label: System, description: "The system as a whole."}
+    - {id: intent, label: Intent, description: "Purpose, theory of change, features and commitments."}
+    - {id: thing, label: Things, description: "The deployable units."}
+rules:
+  - id: topology.services
+    version: 1
+    source: |
+      % topology.services@1 - how the Things of a dev platform fit together.
+      % A Thing reaches its template through a pinned link; a module's Thing is the nearest Thing above it.
+      .decl node(Id: sym, Kind: sym, Parent: sym)
+      .decl parent(Child: sym, Parent: sym)
+      .decl link(From: sym, Rel: sym, To: sym, Certainty: sym)
+      .decl under(Node: sym, Ancestor: sym)
+      .decl owner(Node: sym, Thing: sym)
+      .decl workerThing(Thing: sym)
+      .decl libraryThing(Thing: sym)
+      .decl inWorker(Endpoint: sym)
+      .decl thingDep(From: sym, To: sym)
+      .decl thingPath(From: sym, To: sym)
+      .decl depended(Thing: sym)
+      .decl violation(Rule: sym, Subject: sym, Severity: sym) .output
+      .decl warning(Rule: sym, Subject: sym) .output
+
+      .message "topology.endpointOutsideWorker" "Endpoint {1} is not under a Thing built from the Cloudflare Worker service template."
+      .message "topology.thingCycle" "Thing {1} depends on itself through a cycle of dependsOn links."
+      .message "topology.unusedLibrary" "Library {1} is not depended on by any other Thing."
+
+      under(N,A) :- parent(N,A).
+      under(N,A) :- parent(N,M), under(M,A).
+      owner(T,T) :- node(T,"thing",_).
+      owner(N,T) :- under(N,T), node(T,"thing",_).
+      workerThing(T) :- link(T,"pinned","template.thing.cloudflare-worker-service@1",_).
+      libraryThing(T) :- link(T,"pinned","template.thing.ts-library@1",_).
+
+      inWorker(E) :- node(E,"endpoint",_), owner(E,T), workerThing(T).
+      violation("topology.endpointOutsideWorker",E,"hard") :- node(E,"endpoint",_), not inWorker(E).
+
+      % Module-level dependencies count against their Things; links inside one Thing do not.
+      thingDep(A,B) :- link(X,"dependsOn",Y,_), owner(X,A), owner(Y,B), A != B.
+      thingPath(A,B) :- thingDep(A,B).
+      thingPath(A,C) :- thingPath(A,B), thingDep(B,C).
+      violation("topology.thingCycle",A,"hard") :- thingPath(A,A).
+
+      depended(T) :- thingDep(_,T).
+      warning("topology.unusedLibrary",T) :- libraryThing(T), not depended(T).

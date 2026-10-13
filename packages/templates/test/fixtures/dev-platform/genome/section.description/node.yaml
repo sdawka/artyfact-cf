@@ -1,0 +1,5 @@
+id: section.description
+kind: section
+fields:
+  title: Description
+  description: The features, commitments, alternatives and open questions.

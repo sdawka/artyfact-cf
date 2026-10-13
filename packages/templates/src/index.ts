@@ -23,10 +23,13 @@ function templateDir(ref: string): string | undefined {
 
 const cache = new Map<string, Template>();
 
+/** meta@1 templates (ontology engine form) carry `meta: 1`; the v1 loader below does not read them. */
+const isMeta = (text: string): boolean => (parseYaml(text) as { meta?: unknown } | null)?.meta === 1;
+
 // Sibling files (criteria.yaml, source-map.defaults.yaml, scaffold.yaml) are folded into the template.
 function load(dir: string): Template | undefined {
   const main = files[`${dir}/template.yaml`];
-  if (main === undefined) return undefined;
+  if (main === undefined || isMeta(main)) return undefined;
   const raw = (parseYaml(main) ?? {}) as Record<string, unknown>;
   const read = (name: string) => (files[`${dir}/${name}`] === undefined ? undefined : parseYaml(files[`${dir}/${name}`]));
   const criteria = read("criteria.yaml") as { criteria?: unknown[]; hooks?: unknown[] } | undefined;
@@ -62,14 +65,31 @@ export function templateFile(ref: string, name: string): string | undefined {
   return dir ? files[`${dir}/${name}`] : undefined;
 }
 
-/** Every bundled template ref, e.g. "template.thing.vue-webapp@1". */
+/** Every bundled v1 template ref, e.g. "template.thing.vue-webapp@1". */
 export function templateRefs(): string[] {
   return Object.keys(files)
-    .filter((f) => f.endsWith("/template.yaml"))
+    .filter((f) => f.endsWith("/template.yaml") && !isMeta(files[f]))
     .map((f) => {
       const [kind, nameVer] = f.split("/");
       return `template.${kind}.${nameVer}`;
     });
+}
+
+/** Every bundled meta@1 template ref, e.g. "template.thing.cli@1". */
+export function metaTemplateRefs(): string[] {
+  return Object.keys(files)
+    .filter((f) => f.endsWith("/template.yaml") && isMeta(files[f]))
+    .map((f) => {
+      const [kind, nameVer] = f.split("/");
+      return `template.${kind}.${nameVer}`;
+    });
+}
+
+/** The parsed meta@1 source of a bundled template, for the engine's `loadTemplate`; undefined for unknown or v1 refs. */
+export function metaTemplateSource(ref: string): Record<string, unknown> | undefined {
+  const dir = templateDir(ref);
+  const text = dir ? files[`${dir}/template.yaml`] : undefined;
+  return text !== undefined && isMeta(text) ? (parseYaml(text) as Record<string, unknown>) : undefined;
 }
 
 export const rulePacks: RulePack[] = Object.keys(files)

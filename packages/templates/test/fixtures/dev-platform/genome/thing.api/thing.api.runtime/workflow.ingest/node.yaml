@@ -1,0 +1,6 @@
+id: workflow.ingest
+kind: workflow
+fields:
+  title: Ingest job
+  description: Validates a submitted job, stores it and notifies the operator when it finishes.
+  trigger: A job is submitted.

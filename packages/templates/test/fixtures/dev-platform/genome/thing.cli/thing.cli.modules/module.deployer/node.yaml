@@ -1,0 +1,8 @@
+id: module.deployer
+kind: module
+fields:
+  title: Deployer
+  description: Runs the deployment steps in order and stops at the first failure.
+  path: src/deployer
+links:
+  - {rel: implements, to: command.deploy}

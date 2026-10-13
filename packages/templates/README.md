@@ -23,6 +23,24 @@ rule-packs/<id>@<v>.dl
 
 Template nodes and criteria use `"$thing"` for `parent`, `owningThing`, `ownerId` and `subjectId` where they mean "the Thing that instantiates this template". The model loader rebases it to the Thing id. System templates use `"$system"` the same way.
 
+## meta@1 templates
+
+Templates with `meta: 1` are in the ontology engine's form (`loadTemplate`, `checkTemplateForm` from `@artyfact/ontology`) and are invisible to the v1 `templates.get` and `templateRefs`. List them with `metaTemplateRefs()` and read the parsed source with `metaTemplateSource(ref)`.
+
+Generic software-system templates:
+
+| Template | Kinds | Sections |
+|---|---|---|
+| `system/dev-platform.cloudflare@1` | system, thing, section, purpose, claim, feature, commitment, template; carries pack `topology.services@1` | purpose, theory, description |
+| `thing/cloudflare-worker-service@1` | endpoint, durable-object, workflow, queue, binding, module | api, runtime, state, modules |
+| `thing/ts-library@1` | export, module | api, modules |
+| `thing/cli@1` | command, option, module | commands, modules |
+| `thing/static-site@1` | page, asset | pages, build |
+
+Relations: `dependsOn`, `exposes`, `calls`, `deploys`, `implements`. Each Thing template declares only the kinds it owns plus `system`, `thing`, `section` (and `module` where it has one), declared identically everywhere. Evaluating a Genome that mixes templates needs their union (kinds and relation endpoints), as `compose` in `test/dev-platform.ts` does.
+
+`topology.services@1` reads the Thing's `pinned` link to its template: an `endpoint` must sit under a Thing pinned to `cloudflare-worker-service@1` (`topology.endpointOutsideWorker`, hard); `dependsOn` links, lifted from modules to their Things, must not cycle (`topology.thingCycle`, hard); a `ts-library` Thing no other Thing depends on is a `topology.unusedLibrary` warning.
+
 ## Adding a template or pack
 
 1. Create `thing/<name>@<v>/template.yaml` (or `system/...`, or `rule-packs/<id>@<v>.dl`).
