@@ -15,3 +15,7 @@ Use `docs/grreat/` for canonical goal-led planning linked to existing design doc
 ## 2026-10-12T20:01:23-04:00 — Artyfact and Bropilot planning boundary
 
 Artyfact is the broader project; Bropilot covers its ontology section. Keep their GRREAT records separate for now. Preserve this project's goals and roadmap in `docs/grreat/` as canonical Markdown; a remote sync conflict must not replace them with Bropilot's hierarchy.
+
+## 2026-10-12T21:40:03-04:00 — Public System illustration
+
+Lead the homepage with “Make Meaningful Systems at Scale” and a smaller “(on cloudflare)”, preserving Bring your agent as the primary action. Use expressive related cards inside a luminous System container: the same recognizable application appears as Genome shape, Proteome solid implementation and Phenome illustrative events/metrics. Show pinned fullstack composition with an explicit component-system replacement of the starter Button, caller/configuration adaptation, and distinct source/output/runtime provenance. Native scrolling changes these parallel views; direct controls override until the next narrative panel, keyboard exploration suspends automatic changes, and short viewports/reduced motion use normal flow. Activity is illustrative, without an interactive miniature app or claims of measured outcomes.

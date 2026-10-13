@@ -1,8 +1,9 @@
 import React from 'react';
 import { SystemExplorer } from './SystemExplorer';
+import { LandingStory } from './LandingStory';
 export type SiteConfig = { platform: string | null; source: string | null };
 export const pages = {
-  '/': { title: 'Artyfact — Author systems together', description: 'Give your agent the purpose, contracts and context of a whole System. Start a Thing with its Genome, add reusable Parts when useful, and review evidence.' },
+  '/': { title: 'Artyfact — Make Meaningful Systems at Scale', description: 'Make meaningful systems on Cloudflare. Give applications their shape, realize them from reusable Parts, and inspect activity with intent and evidence together.' },
   '/model': { title: 'Understand the model — Artyfact', description: 'Purpose, Genome, Proteome and Phenome are views of the same System, linking Genome-first Things, reusable Parts, source, realized output and evidence.' },
   '/connect-agent': { title: 'Bring your agent — Artyfact', description: 'Use your own local agent with Artyfact task packets, isolated Git workspaces, checkpoints and candidate submissions.' },
 };
@@ -13,7 +14,7 @@ function Wordmark() { return <span className="wordmark"><span className="brand-g
 function Explorer({ html }: { html?: string }) { return html === undefined ? <div data-system-explorer=""><SystemExplorer /></div> : <div data-system-explorer="" dangerouslySetInnerHTML={{ __html: html }} />; }
 function Code({ id, children }: { id: string; children: string }) { return <div className="code-block"><pre><code id={id}>{children}</code></pre><div className="code-actions"><button hidden data-copy={id}>Copy code</button><span role="status" aria-live="polite" /></div></div>; }
 function Platform({ config }: { config: SiteConfig }) { return config.platform ? <a className="button u-brackets" href={config.platform}>Open the platform</a> : <p className="availability"><span className="availability-mark" aria-hidden="true" />The hosted handoff is being prepared. The guide is ready.</p>; }
-export function Site({ path, config, explorerHtml }: { path: PagePath | '/404'; config: SiteConfig; explorerHtml?: string }) {
+export function Site({ path, config, explorerHtml, landingHtml }: { path: PagePath | '/404'; config: SiteConfig; explorerHtml?: string; landingHtml?: string }) {
   return <>
     {path !== '/404' && <div className="ambient" data-ambient="" aria-hidden="true" />}
     <a className="skip-link" href="#main">Skip to content</a>
@@ -21,18 +22,21 @@ export function Site({ path, config, explorerHtml }: { path: PagePath | '/404'; 
       <a className="brand" href="/" aria-label="Artyfact home"><Wordmark /></a>
       <nav aria-label="Main navigation"><a href="/model" aria-current={path === '/model' ? 'page' : undefined}>The model</a><a href="/connect-agent" aria-current={path === '/connect-agent' ? 'page' : undefined}>Bring your agent</a>{config.platform && <a href={config.platform}>Platform</a>}</nav>
     </header>
-    <main id="main">{path === '/' ? <Home config={config} explorerHtml={explorerHtml} /> : path === '/model' ? <Model explorerHtml={explorerHtml} /> : path === '/404' ? <NotFound /> : <Guide config={config} />}</main>
+    <main id="main">{path === '/' ? <Home config={config} landingHtml={landingHtml} /> : path === '/model' ? <Model explorerHtml={explorerHtml} /> : path === '/404' ? <NotFound /> : <Guide config={config} />}</main>
     <footer className="site-footer"><div><Wordmark /><p>Intent, work and evidence. Together.</p></div><div className="footer-links"><a href="/model">Understand the model</a><a href="/connect-agent">Agent guide</a>{config.source ? <a href={config.source}>Source · Apache-2.0</a> : <span>Apache-2.0 · Source publication pending</span>}<span>Working prototype</span></div></footer>
   </>;
 }
 function NotFound() { return <section className="page-intro"><h1>Page not found.</h1><p className="lead">That address does not lead anywhere.</p><p><a className="text-link" href="/">Return to Artyfact</a> or <a className="text-link" href="/connect-agent">read the agent guide</a>.</p></section>; }
-function Home({ config, explorerHtml }: { config: SiteConfig; explorerHtml?: string }) {
+function Home({ config, landingHtml }: { config: SiteConfig; landingHtml?: string }) {
   return <>
-    <section className="hero">
-      <div className="hero-copy"><h1>Author systems<br /> together.</h1><p className="lead">Give your agent the whole picture.</p><p>Start a Thing with its Genome, add reusable Parts when they help, give agents scoped work, and review evidence before accepting a change.</p><div className="actions"><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a><a className="text-link" href="/model">Understand the model</a></div><Platform config={config} /></div>
-      <div className="hero-example"><div className="hero-orb" data-hero-orb="" aria-hidden="true" /><Explorer html={explorerHtml} /><p className="orb-caption">The orb behind it is drawn from this System's state. Change a layer or subject and it answers.</p></div>
+    <section className="landing-story" id="home-system-story" aria-label="A System through its three views">
+      <div className="hero-copy"><h1>Make Meaningful<br /> Systems at Scale</h1><p className="cloudflare-line">(on cloudflare)</p><p className="lead">Give your agent the whole picture.</p><p>Shape a Thing with its Genome. Compose reusable Parts when they help. Keep the work, its functioning and its purpose in the same System.</p><div className="actions"><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a><a className="text-link" href="/model">Understand the model</a></div><Platform config={config} /></div>
+      <div className="landing-story-visual">{landingHtml === undefined ? <div data-landing-story=""><LandingStory /></div> : <div data-landing-story="" dangerouslySetInnerHTML={{ __html: landingHtml }} />}</div>
+      <article className="story-step" id="genome-shape" data-story-step="genome"><div><p className="story-view-name">Genome · The shape</p><h2>Give the application its shape.</h2><p>Fieldnotes is an illustrative application for capturing and revisiting observations. Start with the people it serves, what it should do and what must stay true. Screens, routes and private data take a recognizable shape before they need implementation.</p><p className="story-detail">A Thing can begin with its Genome alone. Parts and source are optional.</p></div></article>
+      <article className="story-step" id="proteome-application" data-story-step="proteome"><div><p className="story-view-name">Proteome · The application</p><h2>Make that shape tangible.</h2><p>An Astro starter and a component system contribute to one application. Its screen, API and storage become solid, while the System keeps track of how they were realized and checked.</p><p className="story-detail">The recipe explicitly replaces the starter Button and adapts callers and configuration. Authored source and each realized output keep separate identities.</p></div></article>
+      <article className="story-step" id="phenome-activity" data-story-step="phenome"><div><p className="story-view-name">Phenome · The activity</p><h2>See what happens when it functions.</h2><p>Events and metrics sit beside the application they describe. Trace a saved record, inspect a request and see how the service behaves, with the source and output that produced it.</p><p className="story-detail">Activity here is illustrative. Whether it helps people capture and revisit useful observations remains unmeasured; functioning alone does not establish that purpose.</p></div></article>
     </section>
-    <section className="statement section"><div><h2>Start with a purpose.<br />Keep it in the work.</h2></div><div className="prose"><p>An agent needs to know why a change matters, whose needs it serves, and what must stay true.</p><p>Artyfact gives that context a home: a <a href="/model">System</a>, the context and governance wrapper around one or more Things. A single Thing can be a whole application and begin with its Genome alone.</p><p>Keep in Touch is our first example. The purpose is more wanted contact with people you choose. Private notes, consent and a calm experience follow from that purpose.</p></div></section>
+    <section className="statement section"><div><h2>Start with a purpose.<br />Keep it in the work.</h2></div><div className="prose"><p>An agent needs to know why a change matters, whose needs it serves, and what must stay true.</p><p>Artyfact gives that context a home: a <a href="/model">System</a>, the context and governance wrapper around one or more Things. A single Thing can be a whole application and begin with its Genome alone.</p><p>Keep in Touch, the separate example on our model page, explores another purpose. The purpose is more wanted contact with people you choose. Private notes, consent and a calm experience follow from that purpose.</p></div></section>
     <section className="section workflow"><div className="section-heading"><h2>A clear handoff.<br />Room for different approaches.</h2><p>Use your own agent and local tools. Artyfact supplies the task, context and isolated workspace.</p></div>
       <ol className="workflow-list">
         <li><span className="step-number">1</span><div><h3>Choose an Evolution</h3><p>Name the change you want, the subjects it affects and the criteria it must meet.</p></div></li>

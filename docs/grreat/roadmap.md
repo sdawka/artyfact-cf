@@ -31,7 +31,7 @@ Own `apps/platform/src/**` and browser tests. Show separate Systems and reusable
 
 ### Task 7: C7 — public pages (medium)
 
-Own `apps/site/**`. Update `/`, `/model`, `/connect-agent` and explorer/guide tests for optional Parts, Genome-only Things, source versus realized output, and examples. Keep Bring your agent primary. Preserve static/no-JS content, accessibility, mobile/reduced-motion behavior; do not advertise unimplemented commands. Can start with C1, finalize after C4.
+Own `apps/site/**`. Update `/`, `/model`, `/connect-agent` and explorer/guide tests for optional Parts, Genome-only Things, source versus realized output, and examples. Keep Bring your agent primary. Preserve static/no-JS content, accessibility, mobile/reduced-motion behavior; do not advertise unimplemented commands. Can start with C1, finalize after C4. The approved homepage illustration uses expressive cards in one luminous System container: recognizable Genome shape, solid Proteome application, and clearly illustrative Phenome activity, with scroll/manual view controls and readable static fallbacks.
 
 ### Task 8: C8 — integration review (reviewer)
 
@@ -45,7 +45,7 @@ Read-only whole-branch correctness/security/regression review. Primary fixes fin
 4. Shared and System-private catalogs enforce access and dependency visibility; published versions cannot mutate.
 5. Multiple builds of the same source produce distinct realized outputs; deployments and Phenome evidence have authoritative Thing/source/Genome/output lineage; unknown history remains unknown.
 6. Home shows Systems and Parts. Single-Thing entry and stable direct Thing links work across single-to-multiple transition; overview stays accessible.
-7. Public pages and real CLI guidance agree; static and accessible pages remain usable.
+7. Public pages and real CLI guidance agree; static and accessible pages remain usable. The homepage explains fullstack composition and explicit Button replacement, preserves source/output/runtime identity, and shows parallel views through native scrolling with keyboard, reduced-motion and short-viewport fallbacks.
 8. Existing review gates, command allowlists, invalid-Genome review, criteria scoping, and changelog regressions pass; relevant tests, typecheck, builds, and browser checks pass against the integrated revision.
 
 - First action: [[execution]]. Record exact evidence and remaining gaps in [[analysis]].

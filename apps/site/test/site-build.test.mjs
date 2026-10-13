@@ -78,11 +78,18 @@ test('the guide names the hosted origin and the verified local CLI discovery ord
 test('effects stay off the critical path and out of the static markup', async () => {
   const html = await readFile(resolve(dist, 'index.html'), 'utf8');
   const document = new JSDOM(html).window.document;
-  const slot = document.querySelector('[data-hero-orb]');
-  assert(slot && slot.getAttribute('aria-hidden') === 'true' && slot.children.length === 0);
+  assert(!document.querySelector('[data-hero-orb]'));
+  assert(document.querySelector('[data-landing-story] [data-system-view="genome"]'));
+  assert.equal(document.querySelectorAll('[data-story-step]').length, 3);
   assert(document.querySelector('[data-ambient]')?.children.length === 0);
-  assert(/System's state/.test(document.querySelector('.orb-caption')?.textContent ?? ''));
+  assert(/Three views of the same System/.test(document.querySelector('.landing-story-instruction')?.textContent ?? ''));
   assert(!document.querySelector('canvas'));
   assert.equal(document.querySelectorAll('script').length, 1);
   assert(!/effects-|engine-|modulepreload/.test(html), 'effects must load after hydration, not from the page head');
+});
+
+test('the initial stylesheet includes the meaningful System scene before hydration', async () => {
+  const document = new JSDOM(await readFile(resolve(dist, 'index.html'), 'utf8')).window.document;
+  const css = await Promise.all([...document.querySelectorAll('link[rel="stylesheet"]')].map(link => readFile(resolve(dist, '.' + link.getAttribute('href')), 'utf8')));
+  assert(css.some(text => text.includes('.scene-system') && text.includes('.scene-application')), 'Meaningful scene styles must be in initial CSS, not a lazy hydration chunk');
 });

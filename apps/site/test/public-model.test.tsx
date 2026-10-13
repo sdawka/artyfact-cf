@@ -1,9 +1,9 @@
 import React from 'react';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
 import { Site } from '../src/pages';
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const config = { platform: null, source: null };
 
@@ -34,4 +34,17 @@ it('documents shipped Parts commands and explicit authoring and review gates', (
   expect(screen.getByText(/These authoring commands preview by default/i)).toBeTruthy();
   expect(screen.getByText(/Accept the Genome through review before starting/i)).toBeTruthy();
   expect(screen.getByText(/--apply --run-commands/)).toBeTruthy();
+});
+
+
+it('introduces meaningful systems with a static scroll story and no literal orb', () => {
+  vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
+  const { container } = render(<Site path="/" config={config} />);
+  expect(screen.getByRole('heading', { level: 1, name: /Make Meaningful Systems at Scale/ })).toBeTruthy();
+  expect(screen.getByText('(on cloudflare)')).toBeTruthy();
+  expect(container.querySelector('[data-hero-orb]')).toBe(null);
+  expect(container.querySelectorAll('[data-story-step]')).toHaveLength(3);
+  expect(screen.getByRole('heading', { name: 'Give the application its shape.' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Make that shape tangible.' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'See what happens when it functions.' })).toBeTruthy();
 });
