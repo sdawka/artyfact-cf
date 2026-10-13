@@ -37,3 +37,9 @@ The homepage illustration opens with only “Artyfact” and “Turn ideas into 
 ## 2026-10-13T09:08:01-04:00 — Public model explanation
 
 Explain Artyfact from the domain outward: a System is the outer context with one or more Things, and people choose each Thing's granularity and typed relationships. A Thing has form and content; nested subjects are not additional Things or Parts. Parts contribute optional reusable content or implementation, while Rule Packs express shared constraints. Show Genome, Proteome and Phenome as parallel views of the same clearly illustrative Artyfact feature, with agents as possible Proteome participants and proposed observations distinguished from live evidence. Keep this public explanation ahead of backend changes.
+
+## 2026-10-13T10:48:24-04:00 — Readable chapters and one model story
+
+Native scroll selects homepage chapters; short reversible animations settle fully even when scrolling stops. Preserve readable still intervals, spatial hysteresis, direct controls and local demo state. Focus locks the accepted chapter and settles its artwork immediately. Keep supporting inspection and provenance outside the bounded sticky narrative so content never overlaps it. This supersedes continuously scrubbing every illustration property.
+
+Use one clearly illustrative Artyfact scoped-change request to connect the model page's domain, chosen Thing boundaries, nested subjects, reusable content, three parallel views and evidence questions. Keep proposed behavior and observations distinct from implemented APIs and live outcome evidence.
