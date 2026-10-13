@@ -599,6 +599,8 @@ export interface ConflictReport {
   nodes?: string[];
   /** File paths that collide (newer backend shape). */
   paths?: string[];
+  /** Task ids of the candidates involved, when their realizations work on Tasks (backend.md B.9). */
+  tasks?: string[];
 }
 
 /** One criterion of a candidate's promotion gate, as the Worker computes it and the DO enforces it (worker/promotion.ts). */
