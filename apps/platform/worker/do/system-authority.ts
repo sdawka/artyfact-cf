@@ -897,6 +897,53 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   /**
+   * Paths of stored `file` conflicts between `candidateId` and a promoted candidate (`storedConflicts` drops these
+   * once the other side is promoted; a rebase must not). Sorted, unique.
+   */
+  rebaseConflictPaths(candidateId: string): string[] {
+    const promoted = new Set(this.all("SELECT id FROM candidates WHERE state = 'promoted'").map((r) => String(r.id)));
+    const paths = new Set<string>();
+    for (const r of this.all("SELECT candidates_json, json FROM conflict_reports")) {
+      const cands = json<string[]>(r.candidates_json, []);
+      if (!cands.includes(candidateId) || !cands.some((c) => c !== candidateId && promoted.has(c))) continue;
+      const report = json<StoredConflict | null>(r.json, null);
+      if (report?.kind !== "file") continue;
+      for (const p of report.paths ?? report.subjects ?? []) paths.add(p);
+    }
+    return [...paths].sort();
+  }
+
+  /**
+   * Move a realization onto the current head after its candidate was rebased (backend.md B.5): `base_commit`,
+   * `base_repo` and `base_head` take the app head, and its open candidates (built on the old base) are rejected so
+   * none of them can be promoted over the new head. `[stale-base]` when the head or the app moved meanwhile;
+   * `invalid-state` for an ended or Genome realization. A task in `evaluated` goes back to `realizing` until the
+   * rebased candidate is evaluated. Emits `realization.updated` and `task.updated` (the submit that follows emits
+   * `candidate.submitted`).
+   */
+  rebaseRealization(id: string, input: { baseCommit: string; baseHead: string; baseRepo: string }): { realization: Realization; superseded: string[] } {
+    const out = this.ctx.storage.transactionSync(() => {
+      const r = this.realizationRow(id);
+      if (!r) throw new ConflictError("not-found", `unknown realization ${id}`);
+      if (TERMINAL_REALIZATION.includes(String(r.status) as RealizationStatus)) throw new ConflictError("invalid-state", `realization ${id} is ${r.status}`);
+      if (r.target !== "app") throw new ConflictError("invalid-state", `realization ${id} is a Genome realization; only app candidates are rebased`);
+      const s = this.state();
+      if (!s?.appSource || s.head !== input.baseHead || s.appSource.commit !== input.baseCommit || s.appSource.repo !== input.baseRepo) {
+        throw new StaleBaseRefusal(`the System head moved to ${s?.head?.slice(0, 12) ?? "nothing"} during the rebase; rebase again`);
+      }
+      const superseded = this.all("SELECT id FROM candidates WHERE realization_id = ? AND state IN ('submitted','evaluated','selected')", id).map((c) => String(c.id));
+      for (const c of superseded) this.sql.exec("UPDATE candidates SET state = 'rejected' WHERE id = ?", c);
+      this.sql.exec("UPDATE realizations SET base_commit = ?, base_repo = ?, base_head = ?, updated_at = ? WHERE id = ?",
+        input.baseCommit, input.baseRepo, input.baseHead, nowIso(), id);
+      return { superseded, tasks: this.tasks_().advance(id, "realizing", ["evaluated"]) };
+    });
+    const realization = this.realizationDto(this.realizationRow(id)!);
+    this.emit({ type: "realization.updated", realization });
+    this.emitTasks(out.tasks);
+    return { realization, superseded: out.superseded };
+  }
+
+  /**
    * Store a preview URL on an open candidate that was created without one (a queue submit that beat the CLI's).
    * Returns false when the candidate already has a preview or is no longer open. The manifest hash excludes the preview.
    */
