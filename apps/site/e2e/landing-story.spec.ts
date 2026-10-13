@@ -86,6 +86,8 @@ test('homepage static example and all narratives survive without JavaScript', as
   await expect(page.locator(scene)).toHaveAttribute('data-sticky', 'false');
   expect(await page.locator('.scene-system').evaluate(element => parseFloat(getComputedStyle(element).borderTopLeftRadius))).toBeGreaterThan(0);
   expect(await page.locator('.scene-board').evaluate(element => getComputedStyle(element).display)).toBe('grid');
+  await expect(page.locator('.scene-opening')).toBeHidden();
+  await expect(page.locator('.scene-app-shape').getByText('Purpose',{exact:true})).toBeVisible();
   for (const title of ['Give the application its shape.', 'Make that shape tangible.', 'See what happens when it functions.']) await expect(page.getByRole('heading', { name: title })).toBeVisible();
   await page.getByText('Composition + provenance', { exact: true }).click();
   await expect(page.locator('.scene-selected-detail details')).toHaveAttribute('open', '');
