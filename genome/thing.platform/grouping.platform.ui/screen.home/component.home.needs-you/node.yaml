@@ -6,5 +6,5 @@ fields:
   states:
     - loaded
     - "empty: Nothing is waiting on you."
-    - <System> · 2 candidates await review · 1 stale (attention)
+    - <System> · n await your review (attention)
     - <System> · deploy failed (danger)
