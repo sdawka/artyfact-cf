@@ -14,6 +14,8 @@ type Row = Record<string, SqlStorageValue>;
 
 /** How long an `accepting` claim holds before another accept may take it over. */
 export const CLAIM_LEASE_MS = 5 * 60_000;
+/** Replies a proposal takes; beyond this the conversation is too long to route and translate again. */
+export const MAX_TURNS = 10;
 
 /** One reply: the question it answered (absent for a free follow-up) and the answer. */
 export interface ProposalTurn { question?: string; answer: string }
@@ -29,6 +31,13 @@ export type ClaimResult =
   | { refused: "not-found" }
   | { refused: "invalid-state"; status: string }
   | { refused: "stale-base"; currentHead: string };
+
+/** `revise`: the stored revision; else why not (the row is checked and written in one statement). */
+export type ReviseResult =
+  | { revised: Proposal }
+  | { refused: "invalid-state" }
+  | { refused: "too-many-turns" }
+  | { refused: "changed" };
 
 export class ProposalsStore {
   constructor(private readonly sql: SqlStorage) {}
@@ -60,13 +69,23 @@ export class ProposalsStore {
     return stored;
   }
 
-  /** Replaces an `open` proposal's content and conversation; null when it is gone or no longer open. */
-  revise(proposal: Proposal, turns: ProposalTurn[]): Proposal | null {
+  /**
+   * Replaces an `open` proposal's content and conversation with `turns`, which appends one turn to the stored ones. One
+   * conditional UPDATE: it writes only while the row is open, still holds `turns.length - 1` turns (no other reply
+   * landed meanwhile) and holds fewer than MAX_TURNS, so concurrent replies can neither both append nor pass the cap.
+   */
+  revise(proposal: Proposal, turns: ProposalTurn[]): ReviseResult {
+    const before = turns.length - 1;
+    const written = this.sql.exec(
+      `UPDATE proposals SET status = ?, json = ?, turns_json = ?, updated_at = ?
+       WHERE id = ? AND status = 'open' AND json_array_length(turns_json) = ? AND json_array_length(turns_json) < ? RETURNING id`,
+      proposal.status, JSON.stringify(proposal), JSON.stringify(turns), nowIso(), proposal.id, before, MAX_TURNS,
+    ).toArray();
+    if (written.length) return { revised: proposal };
     const r = this.row(proposal.id);
-    if (!r || String(r.status) !== "open") return null;
-    this.sql.exec("UPDATE proposals SET status = ?, json = ?, turns_json = ?, updated_at = ? WHERE id = ?",
-      proposal.status, JSON.stringify(proposal), JSON.stringify(turns), nowIso(), proposal.id);
-    return proposal;
+    if (!r || String(r.status) !== "open") return { refused: "invalid-state" };
+    if ((JSON.parse(String(r.turns_json)) as unknown[]).length >= MAX_TURNS) return { refused: "too-many-turns" };
+    return { refused: "changed" };
   }
 
   /**
@@ -75,19 +94,23 @@ export class ProposalsStore {
    * is taken over. Synchronous, so within the DO no other accept, reply or head change interleaves.
    */
   claim(id: string, headGenome: string, now: number = Date.now()): ClaimResult {
+    const lapsedBefore = new Date(now - CLAIM_LEASE_MS).toISOString();
+    // One conditional UPDATE decides the claim and returns the revision it claimed; no read precedes it.
+    const [won] = this.sql.exec(
+      `UPDATE proposals SET status = 'accepting', accept_error = NULL, claimed_at = ?, updated_at = ?
+       WHERE id = ? AND (status = 'open' OR (status = 'accepting' AND (claimed_at IS NULL OR claimed_at < ?)))
+         AND json_extract(json, '$.provenance.genomeCommit') = ? RETURNING json`,
+      new Date(now).toISOString(), nowIso(), id, lapsedBefore, headGenome,
+    ).toArray() as Row[];
+    if (won) return { claimed: JSON.parse(String(won.json)) as Proposal };
+    // Refused: say why.
     const r = this.row(id);
     if (!r) return { refused: "not-found" };
     const status = String(r.status);
-    const lapsed = status === "accepting" && (r.claimed_at == null || now - Date.parse(String(r.claimed_at)) > CLAIM_LEASE_MS);
+    const lapsed = status === "accepting" && (r.claimed_at == null || String(r.claimed_at) < lapsedBefore);
     if (status !== "open" && !lapsed) return { refused: "invalid-state", status };
-    const proposal = JSON.parse(String(r.json)) as Proposal;
-    if (proposal.provenance.genomeCommit !== headGenome) {
-      if (lapsed) this.release(id, "the accept holding this proposal stopped before it finished");
-      return { refused: "stale-base", currentHead: headGenome };
-    }
-    this.sql.exec("UPDATE proposals SET status = 'accepting', accept_error = NULL, claimed_at = ?, updated_at = ? WHERE id = ?",
-      new Date(now).toISOString(), nowIso(), id);
-    return { claimed: proposal };
+    if (lapsed) this.release(id, "the accept holding this proposal stopped before it finished");
+    return { refused: "stale-base", currentHead: headGenome };
   }
 
   /** An accept that pushed nothing: back to `open`, with `error` (when given) kept for the admin. */

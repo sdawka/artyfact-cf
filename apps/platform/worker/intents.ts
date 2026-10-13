@@ -14,7 +14,7 @@ import type { IntentAcceptResponse, Proposal, ProposalProblem, ProposalQuestion,
 import { artifactsFor, withRepo } from "./artifacts/client";
 import { genomePrefix } from "./artifacts/genome-source";
 import type { HeadState } from "./do/system-authority";
-import type { ProposalTurn } from "./do/proposals-store";
+import { MAX_TURNS, type ProposalTurn } from "./do/proposals-store";
 import { commitEdit } from "./editor";
 import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
 import { createEvolution, genomeAt, refreshRegistry, registryStub, revokeEnded, startWork, systemStub } from "./service";
@@ -23,8 +23,7 @@ import { nowIso } from "./util";
 /** The agent label of an intent's Genome realization; its commits are authored as `intent`. */
 export const INTENT_AGENT = "human:intent";
 const MAX_MESSAGE = 4000;
-/** Replies a proposal takes; beyond this the conversation is too long to route and translate again. */
-export const MAX_TURNS = 10;
+export { MAX_TURNS };
 
 // ------------------------------------------------------------------ providers
 
@@ -266,19 +265,23 @@ export async function replyProposal(env: Env, systemId: string, pid: string, bod
   if (body.questionId !== undefined && typeof body.questionId !== "string") throw badRequest("questionId must be a string");
   const s = await stored(env, systemId, pid);
   if (s.proposal.status !== "open" || s.accepting) throw conflict("invalid-state", `proposal ${pid} is ${s.accepting ? "being accepted" : s.proposal.status}`);
-  if (s.turns.length >= MAX_TURNS) {
-    throw unprocessable("too-many-turns", `proposal ${pid} already has ${MAX_TURNS} replies; describe the change again as a new intent`);
-  }
+  // A fast path only: the DO enforces the cap where the turn is appended (reviseProposal), as one conditional write.
+  if (s.turns.length >= MAX_TURNS) throw tooManyTurns(pid);
   const question = body.questionId === undefined ? undefined : s.proposal.questions.find((q) => q.id === body.questionId);
   if (body.questionId !== undefined && !question) throw badRequest(`proposal ${pid} has no open question ${body.questionId}`);
   const turns = [...s.turns, { ...(question && { question: question.text }), answer }];
   const h = await headGenome(env, systemId);
   const turn = await runTurn(env, h, conversation(h, s.proposal.message, s.proposal.anchor, turns), `q.${turns.length + 1}`);
   const { answer: _previous, ...rest } = s.proposal;
-  const revised = await systemStub(env, systemId).reviseProposal({ ...rest, ...turn }, turns);
-  if (!revised) throw conflict("invalid-state", `proposal ${pid} is no longer open`);
-  return revised;
+  const r = await systemStub(env, systemId).reviseProposal({ ...rest, ...turn }, turns);
+  if ("revised" in r) return r.revised;
+  if (r.refused === "too-many-turns") throw tooManyTurns(pid);
+  if (r.refused === "changed") throw conflict("invalid-state", `another reply to proposal ${pid} landed first; read it and reply again`);
+  throw conflict("invalid-state", `proposal ${pid} is no longer open`);
 }
+
+const tooManyTurns = (pid: string) =>
+  unprocessable("too-many-turns", `proposal ${pid} already has ${MAX_TURNS} replies; describe the change again as a new intent`);
 
 /** The chosen ops of `p`, in proposal order: 400 for an id it lacks, 422 `missing-dependency` for an op without its `dependsOn`. */
 function chosenOps(p: Proposal, opIds: string[]): ProposedOp[] {

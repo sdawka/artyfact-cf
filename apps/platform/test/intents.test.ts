@@ -141,18 +141,41 @@ describe("POST /intents/:pid/reply", () => {
 });
 
 describe("POST /intents/:pid/reply, turn cap", () => {
+  const setTurns = (s: Sys, pid: string, k: number) => runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (_i: SystemAuthority, st) => {
+    st.storage.sql.exec("UPDATE proposals SET turns_json = ? WHERE id = ?", JSON.stringify(Array.from({ length: k }, (_, i) => ({ answer: `a${i}` }))), pid);
+  });
+  const reply = (s: Sys, pid: string, answer: string) => call<Proposal & ApiError>("POST", routes.intentReply(s.systemId, pid), { answer });
+
   it(`refuses a reply beyond ${MAX_TURNS} turns with a 422`, async () => {
     const s = await importSystem();
     const p = (await create(s, "Change what the Today screen says")).json;
-    const turns = (k: number) => JSON.stringify(Array.from({ length: k }, (_, i) => ({ answer: `a${i}` })));
-    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (_i: SystemAuthority, st) => {
-      st.storage.sql.exec("UPDATE proposals SET turns_json = ? WHERE id = ?", turns(MAX_TURNS - 1), p.id);
-    });
-    expect((await call<Proposal>("POST", routes.intentReply(s.systemId, p.id), { answer: "the last one" })).status).toBe(200);
+    await setTurns(s, p.id, MAX_TURNS - 1);
+    expect((await reply(s, p.id, "the last one")).status).toBe(200);
     expect((await systemStub(env, s.systemId).proposal(p.id))?.turns).toHaveLength(MAX_TURNS);
-    const r = await call<ApiError>("POST", routes.intentReply(s.systemId, p.id), { answer: "one more" });
+    const r = await reply(s, p.id, "one more");
     expect(r.status).toBe(422);
     expect(r.json.error).toMatchObject({ code: "too-many-turns", message: `proposal ${p.id} already has ${MAX_TURNS} replies; describe the change again as a new intent` });
+  });
+
+  it("lets only one of two concurrent replies at the cap's last turn append", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    await setTurns(s, p.id, MAX_TURNS - 1);
+    const both = await Promise.all([reply(s, p.id, "first"), reply(s, p.id, "second")]);
+    expect(both.map((r) => r.status).sort()).toEqual([200, 422]);
+    expect(both.find((r) => r.status === 422)!.json.error.code).toBe("too-many-turns");
+    const turns = (await systemStub(env, s.systemId).proposal(p.id))!.turns;
+    expect(turns).toHaveLength(MAX_TURNS);
+    expect(["first", "second"]).toContain(turns.at(-1)!.answer);
+  });
+
+  it("refuses a reply that would overwrite one that landed meanwhile", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const stub = systemStub(env, s.systemId);
+    expect(await stub.reviseProposal(p, [{ answer: "a" }])).toEqual({ revised: p });
+    expect(await stub.reviseProposal(p, [{ answer: "b" }])).toEqual({ refused: "changed" });
+    expect((await stub.proposal(p.id))!.turns).toEqual([{ answer: "a" }]);
   });
 });
 
@@ -333,6 +356,21 @@ describe("POST /intents/:pid/accept", () => {
     } finally {
       restore();
     }
+  });
+
+  it("lets exactly one of two concurrent claims win, on an open row and on a lapsed one", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const stub = systemStub(env, s.systemId);
+    const both = await Promise.all([stub.claimProposal(p.id), stub.claimProposal(p.id)]);
+    expect(both.filter((c) => "claimed" in c)).toHaveLength(1);
+    expect(both.find((c) => "refused" in c)).toEqual({ refused: "invalid-state", status: "accepting" });
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (_i: SystemAuthority, st) => {
+      st.storage.sql.exec("UPDATE proposals SET claimed_at = ? WHERE id = ?", new Date(Date.now() - CLAIM_LEASE_MS - 1000).toISOString(), p.id);
+    });
+    const again = await Promise.all([stub.claimProposal(p.id), stub.claimProposal(p.id)]);
+    expect(again.filter((c) => "claimed" in c)).toHaveLength(1);
+    expect(again.find((c) => "refused" in c)).toEqual({ refused: "invalid-state", status: "accepting" });
   });
 
   it("lets a new accept take over a claim older than the lease, never a fresh one", async () => {

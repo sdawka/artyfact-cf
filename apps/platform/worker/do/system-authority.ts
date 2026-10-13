@@ -6,7 +6,7 @@ import type {
 } from "../../shared/api";
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
-import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalTurn, type StoredProposal } from "./proposals-store";
+import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalTurn, type ReviseResult, type StoredProposal } from "./proposals-store";
 import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentInput } from "./builds-store";
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
 import { ChangelogStore, type CachedChangelog } from "./changelog-store";
@@ -1498,7 +1498,7 @@ export class SystemAuthority extends DurableObject<Env> {
   }
   proposal(id: string): StoredProposal | null { return this.proposals().get(id); }
   createProposal(proposal: Omit<Proposal, "id">): Proposal { return this.proposals().create(proposal); }
-  reviseProposal(proposal: Proposal, turns: ProposalTurn[]): Proposal | null { return this.proposals().revise(proposal, turns); }
+  reviseProposal(proposal: Proposal, turns: ProposalTurn[]): ReviseResult { return this.proposals().revise(proposal, turns); }
   /** Starts an accept: open → accepting, only while the head Genome is the one the proposal was computed on. */
   claimProposal(id: string): ClaimResult {
     const s = this.state();
