@@ -8,3 +8,18 @@
   nodes: [section.domain]
 - glob: system/**
   nodes: [genome]
+# App infrastructure: dependencies, Worker config, runtime env, the Phenome helper, tests, static assets. These are
+# realized by the app Thing itself; without them every template upgrade is unmapped and cannot be promoted.
+- glob: "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.test.jsonc,source-map.yaml,.gitignore,.dev.vars.example,README.md}"
+  nodes: ["$thing"]
+- glob: src/index.ts
+  nodes: ["$thing"]
+- glob: src/worker/*.ts
+  nodes: ["$thing"]
+- glob: test/**
+  nodes: ["$thing"]
+# Top-level static files only: an app's own public/<screen>/** mappings stay specific.
+- glob: public/*
+  nodes: ["$thing"]
+- glob: .artyfact/**
+  nodes: ["$thing"]

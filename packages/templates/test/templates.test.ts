@@ -86,6 +86,12 @@ describe("templates", () => {
       { glob: "src/ui/**", nodes: ["section.ui"] },
       { glob: "src/worker/routes/**", nodes: ["section.domain"] },
       { glob: "system/**", nodes: ["genome"] },
+      { glob: "{package.json,package-lock.json,tsconfig.json,vitest.config.ts,wrangler.jsonc,wrangler.test.jsonc,source-map.yaml,.gitignore,.dev.vars.example,README.md}", nodes: ["$thing"] },
+      { glob: "src/index.ts", nodes: ["$thing"] },
+      { glob: "src/worker/*.ts", nodes: ["$thing"] },
+      { glob: "test/**", nodes: ["$thing"] },
+      { glob: "public/*", nodes: ["$thing"] },
+      { glob: ".artyfact/**", nodes: ["$thing"] },
     ]);
     expect(t.scaffold).toEqual({ repo: "platform", path: "templates/thing/cloudflare-worker-webapp@1/scaffold" });
     expect(templateFile(thingRef, "scaffold.yaml")).toMatch(/commands:\n {2}install:/);
