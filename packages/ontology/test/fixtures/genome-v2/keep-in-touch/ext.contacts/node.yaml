@@ -1,0 +1,10 @@
+id: ext.contacts
+kind: external
+fields:
+  name: Contacts
+  kind: group
+  modeled: Friends, family and other selected people; some have app accounts and some do not
+  external: Whether and how they respond; what the relationship means to them
+  source:
+    doc: keep-in-touch-world-specification
+    section: "2"

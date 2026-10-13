@@ -1,0 +1,19 @@
+id: T1
+kind: claim
+fields:
+  name: Remembering
+  purpose: P1
+  mechanism: Private context and a chosen cadence reduce forgetting
+  outcome: Wanted contact happens more reliably
+  indicator: Weekly proportion of active goals satisfied by qualifying contact; denominator excludes paused goals
+  evaluationMethod: Two-week personal baseline where the user chooses, then a four-week pilot; compare descriptive trends and interview participants. A later randomized or staggered comparison with consent and a defined outcome protocol can test T1-T3.
+  limitation: Missing baseline remains unknown; a before-and-after improvement cannot establish causality; no numerical effect target is set. Does not assume more frequent contact always improves a relationship.
+  activities:
+    - GD.contacts
+    - GD.goals
+    - GD.prompts
+  kind: hypothesis
+  status: unknown
+  deferred: false
+links:
+  - { rel: beneficiary, to: ext.owner }

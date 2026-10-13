@@ -1,0 +1,17 @@
+id: affordance.DeletionControls.delete
+kind: affordance
+fields:
+  name: Delete account
+  owningThing: thing.webapp
+  revision: 1
+  actor: ext.owner
+  trigger: Owner reauthenticates and confirms deletion
+  preconditions:
+    - Owner reauthentication
+  effects:
+    - Deletion revokes access immediately
+    - cancels jobs and purges owned live data within seven days
+  failure:
+    - Reauthentication failure denies the deletion
+links:
+  - { rel: invokes, to: operation.data.delete }

@@ -1,0 +1,7 @@
+id: component.GoalHeading
+kind: component
+fields:
+  name: PageHeading
+  owningThing: thing.webapp
+  revision: 1
+  cardinality: exactly one

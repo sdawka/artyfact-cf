@@ -1,0 +1,57 @@
+id: entity.ContactRecord
+kind: entity
+fields:
+  name: ContactRecord
+  owningThing: thing.webapp
+  revision: 1
+  description: ID, ownerAccountId, display name, optional channels and linkedAccountId; belongs to one owner. A ContactRecord is a person's private representation of another person. Linking it to an Account does not transfer ownership or reveal notes
+  source:
+    doc: keep-in-touch-world-specification
+    section: "5"
+  fields:
+    - name: id
+      type: string
+      optional: false
+    - name: ownerAccountId
+      type: ref:entity.Account
+      optional: false
+    - name: displayName
+      type: string
+      optional: false
+    - name: channels
+      type: list<json>
+      optional: true
+    - name: linkedAccountId
+      type: ref:entity.Account
+      optional: true
+    - name: version
+      type: int
+      optional: false
+  invariants:
+    - Belongs to one owner
+    - Owner-only
+    - Linking to an Account does not transfer ownership or reveal notes
+    - At most one linked contact per owner and counterpart account
+links:
+  - { rel: storedIn, to: binding.contactsStore }
+criteria:
+  - id: C.webapp.contact.storage
+    title: Contact storage
+    claim: Checks owner and version constraints and authorized persistence through the declared storage binding
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    sourceRefs:
+      - S.webapp.operations
+    hooks:
+      - id: hook.webapp.contact.storage
+        assay: webapp.contact.storage
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          fixture: owner and version constraints via binding.contactsStore
+        costTier: cheap

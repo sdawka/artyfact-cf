@@ -1,0 +1,20 @@
+id: affordance.ConsentPanel.accept
+kind: affordance
+fields:
+  name: Accept
+  owningThing: thing.webapp
+  revision: 1
+  actor: ext.owner
+  trigger: Signed-in invitee activates Accept
+  preconditions:
+    - Signed-in distinct invitee
+    - Valid unused credential
+    - No block in either direction
+  effects:
+    - Atomically consume invite and create or return the unique active pair
+    - Creating the invitation and accepting it provide the two consents
+  failure:
+    - Invalid, expired or used invitations show one UnavailablePanel and no acceptance control
+    - Concurrent accept yields one pair and one redemption
+links:
+  - { rel: invokes, to: operation.invite.accept }

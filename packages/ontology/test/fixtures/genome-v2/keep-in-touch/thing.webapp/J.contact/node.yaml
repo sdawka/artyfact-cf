@@ -1,0 +1,12 @@
+id: J.contact
+kind: journey
+fields:
+  name: Reach out to one person
+  actorGoal: Open a channel to one person and record what actually happened
+  features:
+    - GD.prompts
+  requirements:
+    - S.webapp.scope
+    - S.webapp.qualification
+  start: c1
+  deferred: false

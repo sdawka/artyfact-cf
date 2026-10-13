@@ -1,0 +1,18 @@
+id: J.contact/c5
+kind: step
+fields:
+  step: c5
+  actor: user
+  action: Fill the contact event form and optionally mark Met this goal
+  kind: branch
+  unresolved: false
+  requirementRefs:
+    - S.webapp.qualification
+  next:
+    - to: e1
+      when: Met this goal checked
+    - to: e2
+      when: unchecked
+links:
+  - { rel: stepScreen, to: screen.logContact }
+  - { rel: stepOperation, to: operation.contact.log }

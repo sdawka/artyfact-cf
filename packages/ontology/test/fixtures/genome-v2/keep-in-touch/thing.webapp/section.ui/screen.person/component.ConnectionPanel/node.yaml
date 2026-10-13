@@ -1,0 +1,10 @@
+id: component.ConnectionPanel
+kind: component
+fields:
+  name: ConnectionPanel
+  owningThing: thing.webapp
+  revision: 1
+  description: Connection status determines Invite, Disconnect or Block availability
+  cardinality: exactly one
+links:
+  - { rel: reads, to: entity.Connection }

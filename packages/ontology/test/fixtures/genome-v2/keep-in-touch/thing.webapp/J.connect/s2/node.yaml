@@ -1,0 +1,15 @@
+id: J.connect/s2
+kind: step
+fields:
+  step: s2
+  actor: system
+  action: "Create invitation: 128-bit credential, only a token hash stored, expires in 24 hours, one acceptance"
+  kind: action
+  unresolved: false
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: s3
+links:
+  - { rel: stepScreen, to: screen.person }
+  - { rel: stepOperation, to: operation.invite.create }

@@ -1,0 +1,7 @@
+id: component.ExportControls
+kind: component
+fields:
+  name: ExportControls
+  owningThing: thing.webapp
+  revision: 1
+  cardinality: exactly one

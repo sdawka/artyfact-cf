@@ -1,0 +1,22 @@
+id: screen.invitation
+kind: screen
+fields:
+  name: Invitation
+  owningThing: thing.webapp
+  revision: 1
+  description: Exactly InvitePreview and ConsentPanel after validation; Accept and Decline controls. Invalid, expired or used invitations show one UnavailablePanel and no acceptance control
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+  route: /connect/:token
+  states:
+    - valid
+    - invalid
+    - expired
+    - used
+    - loading
+    - error
+  roles:
+    - invitee
+links:
+  - { rel: serves, to: ext.owner }

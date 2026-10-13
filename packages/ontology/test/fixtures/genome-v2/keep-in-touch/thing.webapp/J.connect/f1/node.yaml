@@ -1,0 +1,15 @@
+id: J.connect/f1
+kind: step
+fields:
+  step: f1
+  actor: system
+  action: UnavailablePanel shown; no acceptance control
+  kind: failure
+  unresolved: false
+  requirementRefs:
+    - S.webapp.authentication
+  next:
+    - to: e3
+      when: stop
+links:
+  - { rel: stepScreen, to: screen.invitation }

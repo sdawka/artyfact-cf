@@ -1,0 +1,12 @@
+id: J.contacts/e1
+kind: step
+fields:
+  step: e1
+  actor: system
+  action: Contact saved
+  kind: end
+  unresolved: false
+  requirementRefs:
+    - S.webapp.operations
+links:
+  - { rel: stepScreen, to: screen.people }

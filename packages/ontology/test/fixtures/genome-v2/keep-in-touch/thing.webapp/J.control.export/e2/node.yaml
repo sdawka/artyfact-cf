@@ -1,0 +1,12 @@
+id: J.control.export/e2
+kind: step
+fields:
+  step: e2
+  actor: user
+  action: No export produced
+  kind: end
+  unresolved: false
+  requirementRefs:
+    - S.webapp.operations
+links:
+  - { rel: stepScreen, to: screen.settings }

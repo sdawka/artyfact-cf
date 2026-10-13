@@ -1,0 +1,20 @@
+id: T4
+kind: claim
+fields:
+  name: Autonomy
+  purpose: P1
+  mechanism: Adjustable cadence, pauses and recipient consent reduce unwanted pressure
+  outcome: Less unwanted pressure
+  indicator: Notification burden, snoozes, opt-outs and private burden reports
+  evaluationMethod: Four-week pilot with private burden reports against the two-week baseline; interview participants.
+  limitation: Blocking is not a product failure; before-and-after change cannot establish causality.
+  activities:
+    - GD.goals
+    - GD.connect
+    - GD.prompts
+  kind: hypothesis
+  status: unknown
+  deferred: false
+links:
+  - { rel: beneficiary, to: ext.owner }
+  - { rel: beneficiary, to: ext.contacts }

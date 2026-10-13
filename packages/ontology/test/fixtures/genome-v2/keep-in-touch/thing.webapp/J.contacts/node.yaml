@@ -1,0 +1,12 @@
+id: J.contacts
+kind: journey
+fields:
+  name: Add or edit a private contact
+  actorGoal: Keep a private record of someone I want to stay in touch with
+  features:
+    - GD.contacts
+  requirements:
+    - S.webapp.screens
+    - S.webapp.operations
+  start: s1
+  deferred: false

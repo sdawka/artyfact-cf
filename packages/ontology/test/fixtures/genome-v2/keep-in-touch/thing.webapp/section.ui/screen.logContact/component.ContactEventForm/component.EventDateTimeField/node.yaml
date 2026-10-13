@@ -1,0 +1,8 @@
+id: component.EventDateTimeField
+kind: component
+fields:
+  name: DateTimeField
+  owningThing: thing.webapp
+  revision: 1
+  description: Date and time; a nonfuture event time is required
+  cardinality: exactly one

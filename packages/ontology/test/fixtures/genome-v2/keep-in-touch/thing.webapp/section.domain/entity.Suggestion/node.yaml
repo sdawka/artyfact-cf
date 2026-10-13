@@ -1,0 +1,37 @@
+id: entity.Suggestion
+kind: entity
+fields:
+  name: Suggestion
+  owningThing: thing.webapp
+  revision: 1
+  description: ID, goal version, reason, due date, target ContactRecord and state; does not itself contact anybody
+  source:
+    doc: keep-in-touch-world-specification
+    section: "5"
+  fields:
+    - name: id
+      type: string
+      optional: false
+    - name: goalId
+      type: ref:entity.RelationshipGoal
+      optional: false
+    - name: goalVersion
+      type: int
+      optional: false
+    - name: reason
+      type: string
+      optional: false
+    - name: dueDate
+      type: local-date
+      optional: false
+    - name: targetContactRecordId
+      type: ref:entity.ContactRecord
+      optional: false
+    - name: state
+      type: enum open|resolved|snoozed|suppressed
+      optional: false
+  invariants:
+    - Does not itself contact anybody
+    - At most one open suggestion per goal version and due cycle
+links:
+  - { rel: storedIn, to: binding.contactsStore }

@@ -1,0 +1,113 @@
+import { mkdirSync, rmSync, writeFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { parse as parseYaml } from "yaml";
+import { describe, expect, it } from "vitest";
+import { readDir } from "../src/adapters/artyfact/node.ts";
+import { convertV1 } from "../src/codec/v1.ts";
+import { templateDir, GenomeTreeError, graphHash, isLegacyGenome, loadArtyfactSystem, readTree, type Graph } from "../src/index.ts";
+
+/** The meta@1 `template.yaml` sources, as `@artyfact/templates`' `metaTemplates` serves them. */
+const metaStore = (files: Record<string, string>) => ({
+  get: (ref: string) => { const t = files[`${templateDir(ref)}/template.yaml`]; return t === undefined ? undefined : parseYaml(t); },
+});
+const V1 = join(__dirname, "../../../examples/keep-in-touch-system");
+const FIXTURE = join(__dirname, "fixtures/genome-v2/keep-in-touch");
+const TPL = readDir(join(__dirname, "../../templates"));
+const templates = metaStore(TPL);
+const v1 = readDir(V1);
+const tree = convertV1(v1, TPL);
+const v1Graph = loadArtyfactSystem(v1, { templates: TPL });
+const v2Graph = readTree(tree, templates);
+
+/** Kinds v1 left parentless that the tree places (design §2, the three intended parent differences). */
+const PLACED = new Set(["purpose", "claim", "external", "feature", "commitment", "journey", "requirement"]);
+const sortBy = <T>(xs: T[], key: (x: T) => string) => [...xs].sort((a, b) => (key(a) < key(b) ? -1 : key(a) > key(b) ? 1 : 0));
+const comparable = (g: Graph) => ({
+  nodes: sortBy(g.nodes, (n) => `${n.id} ${n.kind}`).map(({ parent, ...n }) => ({
+    ...n,
+    ...(parent !== undefined && !PLACED.has(n.kind) && { parent }),
+    // A shared hook lists its criteria in tree order rather than v1 file order.
+    fields: n.kind === "hook" ? { ...n.fields, criteria: [...(n.fields.criteria as string[])].sort() } : n.fields,
+  })),
+  // v1 left the certainty of derived links unset; the tree projects an absent certainty as `declared`.
+  links: sortBy(g.links.map((l) => `${l.from} ${l.rel} ${l.to} ${l.certainty ?? "declared"}`), (x) => x),
+});
+
+describe("convertV1 (Keep in Touch)", () => {
+  it("writes the tree the fixture holds", () => {
+    if (process.env.UPDATE_GENOME_FIXTURE) {
+      rmSync(FIXTURE, { recursive: true, force: true });
+      for (const [p, text] of tree) { mkdirSync(dirname(join(FIXTURE, p)), { recursive: true }); writeFileSync(join(FIXTURE, p), text); }
+    }
+    expect(new Map(Object.entries(readDir(FIXTURE)))).toEqual(tree);
+    expect(isLegacyGenome(tree.keys())).toBe(false);
+  });
+
+  it("lays out the tree (listing snapshot)", () => {
+    expect([...tree.keys()].join("\n")).toMatchSnapshot();
+  });
+
+  it("projects to the v1 adapter's graph, apart from the intended parents", () => {
+    expect(comparable(v2Graph)).toEqual(comparable(v1Graph));
+    expect(v2Graph.nodes).toHaveLength(v1Graph.nodes.length);
+    expect(v2Graph.links).toHaveLength(v1Graph.links.length);
+  });
+
+  it("places purposes, claims, externals, features, commitments, journeys and requirements", () => {
+    const parent = new Map(v2Graph.nodes.map((n) => [n.id, n.parent]));
+    const kinds = new Map(v1Graph.nodes.map((n) => [n.id, n.kind]));
+    for (const n of v1Graph.nodes.filter((x) => ["purpose", "claim", "external", "feature", "commitment"].includes(x.kind))) {
+      expect(parent.get(n.id), n.id).toBe("system.keep-in-touch");
+    }
+    expect(parent.get("J.contacts")).toBe("thing.webapp");
+    expect(parent.get("J.updates")).toBe("system.keep-in-touch");
+    expect(parent.get("S.webapp.scope")).toBe("thing.webapp");
+    expect(parent.get("S.webapp.screens")).toBe("screen.signin");
+    for (const n of v1Graph.nodes.filter((x) => x.kind === "requirement")) {
+      const subjects = v1Graph.links.filter((l) => l.from === n.id && l.rel === "subject").map((l) => l.to);
+      expect(parent.get(n.id)).toBe(subjects[0] ?? n.fields.thing);
+      expect(kinds.has(parent.get(n.id)!)).toBe(true);
+    }
+  });
+
+  it("keeps every node id and criterion id", () => {
+    const ids = new Set(v2Graph.nodes.map((n) => n.id));
+    expect(v1Graph.nodes.map((n) => n.id).filter((id) => !ids.has(id))).toEqual([]);
+    const criteria = v1Graph.nodes.filter((n) => n.kind === "criterion").map((n) => n.id);
+    expect(criteria.length).toBeGreaterThan(20);
+    for (const id of criteria) expect([...tree.values()].some((t) => t.includes(`id: ${id}\n`)), id).toBe(true);
+  });
+
+  it("puts each criterion on its subject node and shares a hook by id", () => {
+    expect(tree.get("node.yaml")).toContain("id: C.system.structure");
+    expect(tree.get("thing.webapp/section.ui/screen.people/node.yaml")).toContain("id: C.webapp.screen.people");
+    const shared = v1Graph.nodes.find((n) => n.kind === "hook" && (n.fields.criteria as string[]).length > 1);
+    if (shared) expect([...tree.values()].filter((t) => t.includes(`id: ${shared.id}\n`))).toHaveLength(1);
+  });
+
+  it("keeps the label of every v1 cross link, which the graph does not carry", () => {
+    const v1Labels = Object.entries(v1).filter(([p]) => /ontology\.yaml$|externals\.yaml$/.test(p)).flatMap(([, t]) => [...t.matchAll(/label: ([^,}\n]+)/g)].map((m) => m[1]!.trim()));
+    expect(v1Labels).toHaveLength(4);
+    const v2Labels = [...tree.values()].flatMap((t) => [...t.matchAll(/label: ([^,}\n]+)/g)].map((m) => m[1]!.trim()));
+    expect(v2Labels.sort()).toEqual(v1Labels.sort());
+    expect(tree.get("thing.webapp/section.ui/screen.signin/node.yaml")).toContain("{ rel: references, to: ext.providers, label: identity provider }");
+  });
+
+  it("names step directories by local id and keeps evolutions verbatim", () => {
+    expect(tree.has("thing.webapp/J.contacts/s1/node.yaml")).toBe(true);
+    expect(tree.get("thing.webapp/J.contacts/s1/node.yaml")).toMatch(/^id: J\.contacts\/s1\n/);
+    for (const [p, t] of Object.entries(v1)) if (p.startsWith("evolutions/")) expect(tree.get(p)).toBe(t);
+  });
+
+  it("is deterministic whatever the input order", () => {
+    const reversed = Object.fromEntries(Object.entries(v1).reverse());
+    expect([...convertV1(reversed, TPL)]).toEqual([...tree]);
+    expect(graphHash(readTree(new Map([...tree].reverse()), templates))).toBe(graphHash(v2Graph));
+  });
+
+  it("refuses a criterion whose owner is not the nearest Thing or System above its subject", () => {
+    const bad = { ...v1, "criteria.yaml": v1["criteria.yaml"]!.replace("ownerId: system.keep-in-touch", "ownerId: thing.webapp") };
+    expect(() => convertV1(bad, TPL)).toThrow(GenomeTreeError);
+    expect(() => convertV1(bad, TPL)).toThrow(/is owned by thing\.webapp/);
+  });
+});

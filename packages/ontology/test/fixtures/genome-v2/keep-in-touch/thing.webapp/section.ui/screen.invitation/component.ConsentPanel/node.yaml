@@ -1,0 +1,7 @@
+id: component.ConsentPanel
+kind: component
+fields:
+  name: ConsentPanel
+  owningThing: thing.webapp
+  revision: 1
+  cardinality: exactly one after validation

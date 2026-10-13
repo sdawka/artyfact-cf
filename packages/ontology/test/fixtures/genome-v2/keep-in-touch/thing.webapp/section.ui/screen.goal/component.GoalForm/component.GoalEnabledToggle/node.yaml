@@ -1,0 +1,7 @@
+id: component.GoalEnabledToggle
+kind: component
+fields:
+  name: EnabledToggle
+  owningThing: thing.webapp
+  revision: 1
+  cardinality: exactly one

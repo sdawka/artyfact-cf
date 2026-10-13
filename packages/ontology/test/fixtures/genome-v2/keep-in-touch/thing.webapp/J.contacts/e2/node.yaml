@@ -1,0 +1,12 @@
+id: J.contacts/e2
+kind: step
+fields:
+  step: e2
+  actor: user
+  action: Dialog closed; nothing saved
+  kind: end
+  unresolved: false
+  requirementRefs:
+    - S.webapp.screens
+links:
+  - { rel: stepScreen, to: screen.people }

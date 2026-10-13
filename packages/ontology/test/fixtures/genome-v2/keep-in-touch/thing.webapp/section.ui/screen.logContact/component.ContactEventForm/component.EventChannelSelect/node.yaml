@@ -1,0 +1,7 @@
+id: component.EventChannelSelect
+kind: component
+fields:
+  name: ChannelSelect
+  owningThing: thing.webapp
+  revision: 1
+  cardinality: exactly one

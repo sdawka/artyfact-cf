@@ -1,0 +1,7 @@
+id: component.SuggestionReason
+kind: component
+fields:
+  name: Reason
+  owningThing: thing.webapp
+  revision: 1
+  cardinality: exactly one per card

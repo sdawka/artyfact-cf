@@ -16,7 +16,8 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@artyfact/model": "*"
+    "@artyfact/model": "*",
+    "@artyfact/ontology": "*"
   },
   "devDependencies": {
     "@types/node": "^26.6.5"

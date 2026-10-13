@@ -1,0 +1,17 @@
+id: J.connect/s5
+kind: step
+fields:
+  step: s5
+  actor: system
+  action: Is the invitee signed in?
+  kind: branch
+  unresolved: false
+  requirementRefs:
+    - S.webapp.authentication
+  next:
+    - to: s7
+      when: signed in
+    - to: s6
+      when: not signed in
+links:
+  - { rel: stepScreen, to: screen.invitation }

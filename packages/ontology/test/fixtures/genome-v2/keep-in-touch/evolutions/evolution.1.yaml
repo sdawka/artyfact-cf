@@ -1,0 +1,22 @@
+id: evolution.1
+title: Private contact foundation
+intent: Establish owner-only contacts, app identity and health; existence, health, owner isolation and
+  screen Assays
+state: actionable
+kind: implementation
+affectedNodes:
+- thing.webapp
+- policy.ownerOnly
+- screen.people
+- affordance.AddContactDialog.save
+- entity.ContactRecord
+- section.ui
+acceptanceCriteria:
+- C.webapp.exists
+- C.webapp.health
+- C.webapp.private.owner
+- C.webapp.screen.exact
+- C.webapp.contact.save
+- C.webapp.screen.people
+- C.webapp.contact.storage
+risk: low

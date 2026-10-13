@@ -1,0 +1,19 @@
+id: screen.settings
+kind: screen
+fields:
+  name: Settings
+  owningThing: thing.webapp
+  revision: 1
+  description: Exactly ProfilePreferences, NotificationPreferences, ExportControls and DeletionControls. Export and deletion act only on the authenticated owner's data
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+  route: /settings
+  states:
+    - loaded
+    - loading
+    - error
+  roles:
+    - owner
+links:
+  - { rel: serves, to: ext.owner }

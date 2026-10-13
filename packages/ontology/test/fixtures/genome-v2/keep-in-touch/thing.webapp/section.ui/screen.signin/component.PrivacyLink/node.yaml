@@ -1,0 +1,8 @@
+id: component.PrivacyLink
+kind: component
+fields:
+  name: PrivacyLink
+  owningThing: thing.webapp
+  revision: 1
+  description: One privacy link
+  cardinality: exactly one

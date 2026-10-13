@@ -93,7 +93,7 @@ Schema: `NodeFileSchema` in `packages/ontology/src/genome/node.ts`. It is strict
 | `template` | `template.<kind>.<name>@<v>` | The template this node instantiates: the System and every Thing |
 | `root` | repo-relative path | Prefix for the `files` of this node and all nodes below it (a Thing's app root) |
 | `fields` | map | The kind's declared fields; `title` and `description` are always allowed |
-| `links` | `{rel, to, certainty?}[]` | Outgoing typed links. `certainty` is one of `declared` (the default), `assumed`, `hypothesis`, `proposed`, `observed` or `derived`. Containment is never a link |
+| `links` | `{rel, to, certainty?, label?, source?}[]` | Outgoing typed links. `certainty` is one of `declared` (the default), `assumed`, `hypothesis`, `proposed`, `observed` or `derived`. `label` (text) and `source` (`{doc, section?, quote?}`) annotate the link for people, as v1 cross links did. Containment is never a link |
 | `files` | repo-relative globs | Source that realises this node, relative to the nearest `root` at or above it |
 | `criteria` | `NodeCriterion[]` | What must hold for this node; see below |
 | `provisional` | boolean | Added on a hypothesis; readiness treats it as the engine does |
@@ -151,10 +151,11 @@ The v1 (by-concern) layout is dropped. The rules:
 | Tree | `Graph` |
 |---|---|
 | A `node.yaml` | `{id, kind, parent: enclosing node's id (absent for the root), fields, provisional?}` |
-| `links[]` | `{from: node id, rel, to, certainty}`. An absent `certainty` projects as `declared`, as the v1 adapter does, so v1 and v2 graphs compare equal |
+| `links[]` | `{from: node id, rel, to, certainty}`. An absent `certainty` projects as `declared`, as the v1 adapter does, so v1 and v2 graphs compare equal. A link's `label` and `source` are not projected: the engine `GraphLink` has no slot for them (the v1 adapter dropped them too), so they live only in `node.yaml` |
 | A criterion | A `criterion` node with no parent, exactly as the v1 adapter emits it (`criterionFields`), plus links `subject` → the declaring node and `owner` → the owning Thing or System |
 | An inline hook | A `hook` node (`hookFields`) whose `criteria` field lists every criterion that declares or names it |
 | `template` (root) | `graph.template` is the root's template ref. A Thing's `template` and `root` stay in the codec's tree index (source map, template resolution) and are not fields |
+| `template` (any node) | A `template` node and a `pinned` link. The node is the one the meta@1 template declares for itself in `nodes` (`{id: <ref>, kind: template}`), else `{kind, version}` from the ref |
 | `files` | Not in the graph; the node-attached source map reads them (W6) |
 | `evolutions/*.yaml` | `evolution` nodes with no parent, plus `acceptance` and `affects` links, as in v1 |
 

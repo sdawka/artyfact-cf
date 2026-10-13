@@ -1,0 +1,20 @@
+id: J.goals/g5
+kind: step
+fields:
+  step: g5
+  actor: user
+  action: Save or cancel
+  kind: branch
+  unresolved: false
+  requirementRefs:
+    - S.webapp.qualification
+  next:
+    - to: e1
+      when: save, interval valid
+    - to: g3
+      when: interval invalid, values kept
+    - to: e2
+      when: cancel
+links:
+  - { rel: stepScreen, to: screen.goal }
+  - { rel: stepOperation, to: operation.goal.save }

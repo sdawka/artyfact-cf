@@ -1,0 +1,14 @@
+id: J.contacts/s1
+kind: step
+fields:
+  step: s1
+  actor: user
+  action: Open People
+  kind: action
+  unresolved: false
+  requirementRefs:
+    - S.webapp.screens
+  next:
+    - to: s2
+links:
+  - { rel: stepScreen, to: screen.people }

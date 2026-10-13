@@ -1,0 +1,16 @@
+id: affordance.ExportControls.export
+kind: affordance
+fields:
+  name: Export
+  owningThing: thing.webapp
+  revision: 1
+  actor: ext.owner
+  trigger: Owner reauthenticates and activates Export
+  preconditions:
+    - Owner reauthentication
+  effects:
+    - Export authorized records of the authenticated owner only
+  failure:
+    - Reauthentication failure denies the export
+links:
+  - { rel: invokes, to: operation.data.export }

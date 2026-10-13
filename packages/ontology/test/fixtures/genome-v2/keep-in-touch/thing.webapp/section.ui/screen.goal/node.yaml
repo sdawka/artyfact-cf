@@ -1,0 +1,21 @@
+id: screen.goal
+kind: screen
+fields:
+  name: Goal
+  owningThing: thing.webapp
+  revision: 1
+  description: Exactly PageHeading, GoalForm and SchedulePreview. Form contains interval, depth, preferred channel and enabled controls, plus Save and Cancel. No saved goal displays as no goal, not as an inferred target
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+  route: /people/:id/goal
+  states:
+    - loaded
+    - loading
+    - error
+    - validation-error
+    - no-goal
+  roles:
+    - owner
+links:
+  - { rel: serves, to: ext.owner }

@@ -1,0 +1,21 @@
+id: J.prompts/p3
+kind: step
+fields:
+  step: p3
+  actor: user
+  action: Choose an action on a card
+  kind: branch
+  unresolved: false
+  requirementRefs:
+    - S.webapp.prompts
+  next:
+    - to: p4
+      when: Log contact
+    - to: p5
+      when: Snooze
+    - to: p6
+      when: pause goal
+    - to: p7
+      when: revise goal
+links:
+  - { rel: stepScreen, to: screen.today }

@@ -1,0 +1,10 @@
+id: ext.relationship-context
+kind: external
+fields:
+  name: Relationship context
+  kind: context
+  modeled: Distance, changing routines, communication preferences and welcome or unwelcome contact; record uncertainty
+  external: The real state of the relationship
+  source:
+    doc: keep-in-touch-world-specification
+    section: "2"

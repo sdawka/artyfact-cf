@@ -1,0 +1,13 @@
+id: J.control.delete
+kind: journey
+fields:
+  name: Delete my account and data
+  actorGoal: Remove myself and the data I own from the live system
+  features:
+    - GD.contacts
+    - GD.connect
+  requirements:
+    - S.webapp.operations
+    - S.webapp.concurrency
+  start: z1
+  deferred: false

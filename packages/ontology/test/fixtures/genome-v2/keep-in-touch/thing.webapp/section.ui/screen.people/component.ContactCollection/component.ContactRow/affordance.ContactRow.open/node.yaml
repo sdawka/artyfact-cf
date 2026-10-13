@@ -1,0 +1,14 @@
+id: affordance.ContactRow.open
+kind: affordance
+fields:
+  name: Open
+  owningThing: thing.webapp
+  revision: 1
+  actor: ext.owner
+  trigger: Owner activates the row Open control
+  preconditions:
+    - Owned contact
+  effects:
+    - Navigates to /people/:id
+  failure:
+    - Another owner's record returns a non-revealing denial

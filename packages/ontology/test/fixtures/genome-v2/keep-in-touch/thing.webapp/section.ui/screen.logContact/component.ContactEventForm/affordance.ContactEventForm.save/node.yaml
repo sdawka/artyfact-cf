@@ -1,0 +1,19 @@
+id: affordance.ContactEventForm.save
+kind: affordance
+fields:
+  name: Save
+  owningThing: thing.webapp
+  revision: 1
+  actor: ext.owner
+  trigger: Owner activates Save
+  preconditions:
+    - Owned contact
+    - Nonfuture event time
+  effects:
+    - Persist event; recompute affected goals without sending anything
+    - A ContactEvent must qualify only when the owner explicitly marks that it met this goal
+  failure:
+    - Validation failure keeps entered values and renders one ErrorSummary
+    - Stale version returns conflict
+links:
+  - { rel: invokes, to: operation.contact.log }

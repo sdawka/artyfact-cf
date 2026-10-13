@@ -1,0 +1,17 @@
+id: J.control.export/x3
+kind: step
+fields:
+  step: x3
+  actor: system
+  action: Owner reauthentication checked
+  kind: branch
+  unresolved: false
+  requirementRefs:
+    - S.webapp.operations
+  next:
+    - to: x4
+      when: reauthenticated
+    - to: f1
+      when: reauthentication failed
+links:
+  - { rel: stepScreen, to: screen.settings }

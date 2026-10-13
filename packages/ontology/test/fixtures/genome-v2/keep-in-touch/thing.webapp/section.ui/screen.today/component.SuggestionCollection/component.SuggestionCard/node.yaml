@@ -1,0 +1,10 @@
+id: component.SuggestionCard
+kind: component
+fields:
+  name: SuggestionCard
+  owningThing: thing.webapp
+  revision: 1
+  description: Each card has one person label, reason, Open person, Log contact and Snooze controls
+  cardinality: 0..5, one per open suggestion
+links:
+  - { rel: reads, to: entity.Suggestion }

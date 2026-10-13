@@ -1,0 +1,15 @@
+id: J.goals/g4
+kind: step
+fields:
+  step: g4
+  actor: system
+  action: SchedulePreview shows the due date and which historical events would qualify under the chosen depth
+  kind: reaction
+  unresolved: false
+  requirementRefs:
+    - S.webapp.qualification
+    - S.webapp.due
+  next:
+    - to: g5
+links:
+  - { rel: stepScreen, to: screen.goal }

@@ -1,0 +1,7 @@
+id: component.GoalChannelField
+kind: component
+fields:
+  name: PreferredChannelField
+  owningThing: thing.webapp
+  revision: 1
+  cardinality: exactly one

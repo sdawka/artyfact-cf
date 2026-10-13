@@ -1,0 +1,17 @@
+id: affordance.ConnectionPanel.block
+kind: affordance
+fields:
+  name: Block
+  owningThing: thing.webapp
+  revision: 1
+  actor: ext.owner
+  trigger: Owner confirms Block
+  preconditions:
+    - Contact is linked to an Account
+  effects:
+    - A block prevents new app-mediated contact until removed
+    - Pauses the blocker's corresponding goal and suppresses its suggestions
+  failure:
+    - Not available when the contact has no linked account
+links:
+  - { rel: invokes, to: operation.connection.revoke }

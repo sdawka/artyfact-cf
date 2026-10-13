@@ -1,0 +1,11 @@
+id: component.SignInForm
+kind: component
+fields:
+  name: SignInForm
+  owningThing: thing.webapp
+  revision: 1
+  description: One SignInForm
+  source:
+    doc: keep-in-touch-world-specification
+    section: "6"
+  cardinality: exactly one

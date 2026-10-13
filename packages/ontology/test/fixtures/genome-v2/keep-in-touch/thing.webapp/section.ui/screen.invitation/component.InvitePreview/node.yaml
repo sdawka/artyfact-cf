@@ -1,0 +1,10 @@
+id: component.InvitePreview
+kind: component
+fields:
+  name: InvitePreview
+  owningThing: thing.webapp
+  revision: 1
+  description: The recipient sees who is inviting them
+  cardinality: exactly one after validation
+links:
+  - { rel: reads, to: entity.ConnectionInvite }

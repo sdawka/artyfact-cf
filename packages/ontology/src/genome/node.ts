@@ -66,12 +66,20 @@ export const RepoPathSchema = z.string().min(1).refine(
 /** How sure the author is of a link; the same values as the v1 model's `Certainty`. */
 export const CERTAINTIES = ["declared", "assumed", "hypothesis", "proposed", "observed", "derived"] as const;
 
-/** An outgoing link of the node: `from` is the node itself. Containment is never a link; it is the directory tree. */
+/** Where a statement comes from: a document, optionally a section and a quote (the v1 `Source`). */
+export const SourceRefSchema = z.strictObject({ doc: z.string(), section: z.string().optional(), quote: z.string().optional() });
+
+/**
+ * An outgoing link of the node: `from` is the node itself. Containment is never a link; it is the directory tree.
+ * `label` and `source` annotate the link for people; the engine graph does not carry them.
+ */
 export const NodeLinkSchema = z.strictObject({
   rel: name,
   to: name,
   /** Absent means `declared`. */
   certainty: z.enum(CERTAINTIES).optional(),
+  label: z.string().optional(),
+  source: SourceRefSchema.optional(),
 });
 
 export const GATES = ["submission", "candidate", "selection", "promotion", "deployment", "outcome"] as const;
@@ -148,6 +156,7 @@ export const NodeFileSchema = z.strictObject({
 });
 
 export type NodeLink = z.infer<typeof NodeLinkSchema>;
+export type SourceRef = z.infer<typeof SourceRefSchema>;
 export type NodeHook = z.infer<typeof NodeHookSchema>;
 export type NodeCriterion = z.infer<typeof NodeCriterionSchema>;
 export type NodeFile = z.infer<typeof NodeFileSchema>;

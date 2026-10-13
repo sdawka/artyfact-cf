@@ -1,0 +1,8 @@
+id: component.UnavailablePanel
+kind: component
+fields:
+  name: UnavailablePanel
+  owningThing: thing.webapp
+  revision: 1
+  description: Invalid, expired or used invitations show one UnavailablePanel and no acceptance control
+  cardinality: 1 only for invalid, expired or used invitations

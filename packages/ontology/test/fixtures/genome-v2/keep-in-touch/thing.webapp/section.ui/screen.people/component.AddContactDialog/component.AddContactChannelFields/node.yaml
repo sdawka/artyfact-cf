@@ -1,0 +1,8 @@
+id: component.AddContactChannelFields
+kind: component
+fields:
+  name: ChannelFields
+  owningThing: thing.webapp
+  revision: 1
+  description: Optional channel fields
+  cardinality: optional

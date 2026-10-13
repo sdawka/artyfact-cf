@@ -1,0 +1,15 @@
+id: J.prompts/p7
+kind: step
+fields:
+  step: p7
+  actor: user
+  action: Revise the goal; due state recomputed and obsolete jobs cancelled, no ContactEvent created
+  kind: action
+  unresolved: false
+  requirementRefs:
+    - S.webapp.due
+  next:
+    - to: e2
+links:
+  - { rel: stepScreen, to: screen.goal }
+  - { rel: stepOperation, to: operation.goal.save }

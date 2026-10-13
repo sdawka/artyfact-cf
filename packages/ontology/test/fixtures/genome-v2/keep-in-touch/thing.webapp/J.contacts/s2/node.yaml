@@ -1,0 +1,15 @@
+id: J.contacts/s2
+kind: step
+fields:
+  step: s2
+  actor: user
+  action: Choose Add contact (or open an existing row to edit); AddContactDialog opens
+  state: dialog open
+  kind: action
+  unresolved: false
+  requirementRefs:
+    - S.webapp.screens
+  next:
+    - to: s3
+links:
+  - { rel: stepScreen, to: screen.people }
