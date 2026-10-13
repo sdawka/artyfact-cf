@@ -1486,16 +1486,22 @@ export class SystemAuthority extends DurableObject<Env> {
   /**
    * Undo an accept that failed after creating its Evolution: delete the Evolution with its realizations and what they
    * recorded (checkpoints, candidates, evaluations), so a retry leaves exactly one. Realization numbers stay used, so
-   * fork names never repeat. Returns the realizations' credentials for the Worker to revoke and unregister.
+   * fork names never repeat. Returns the realizations' credentials for the Worker to revoke and unregister. Refuses
+   * (`invalid-state`, nothing deleted) once any of it was promoted or a System commit names the Evolution.
    */
   discardEvolution(id: string): EndedCredential[] {
     return this.ctx.storage.transactionSync(() => {
-      const rows = this.all("SELECT id, fork_repo, token_id FROM realizations WHERE evolution_id = ?", id);
+      const rows = this.all("SELECT id, fork_repo, token_id, status FROM realizations WHERE evolution_id = ?", id);
+      const promoted = rows.some((r) => String(r.status) === "promoted")
+        || rows.some((r) => this.one("SELECT 1 FROM candidates WHERE realization_id = ? AND state = 'promoted'", String(r.id)))
+        || this.all("SELECT evolution_ids FROM system_commits").some((c) => (JSON.parse(String(c.evolution_ids)) as string[]).includes(id));
+      if (promoted) throw new ConflictError("invalid-state", `evolution ${id} is part of the System's history and cannot be discarded`);
       for (const r of rows) {
         const rid = String(r.id);
         for (const c of this.all("SELECT id FROM candidates WHERE realization_id = ?", rid)) {
           for (const t of ["evaluations", "candidate_reviews", "conflict_runs", "evaluation_claims"]) this.sql.exec(`DELETE FROM ${t} WHERE candidate_id = ?`, String(c.id));
         }
+        this.sql.exec("DELETE FROM builds WHERE realization_id = ? OR candidate_id IN (SELECT id FROM candidates WHERE realization_id = ?)", rid, rid);
         this.sql.exec("DELETE FROM candidates WHERE realization_id = ?", rid);
         this.sql.exec("DELETE FROM checkpoints WHERE realization_id = ?", rid);
         this.sql.exec("DELETE FROM realizations WHERE id = ?", rid);

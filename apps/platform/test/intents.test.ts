@@ -219,6 +219,29 @@ describe("POST /intents/:pid/accept", () => {
     expect(after.realizations.filter((r) => r.agent.id === "human:intent")).toHaveLength(1);
   });
 
+  it("never discards an Evolution that is part of the System's history", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const { evolution, realization, candidate } = (await accept(s, p, ["op.1"])).json;
+    const sql = (q: string, ...args: string[]) => runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (_i: SystemAuthority, st) => { st.storage.sql.exec(q, ...args); });
+    const refused = async () => {
+      await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (i: SystemAuthority) => {
+        expect(() => i.discardEvolution(evolution.id)).toThrow(/^\[invalid-state\]/);
+      });
+      expect(await systemStub(env, s.systemId).evolution(evolution.id)).not.toBeNull();
+      expect(await systemStub(env, s.systemId).candidate(candidate.id)).not.toBeNull();
+    };
+    await sql("UPDATE realizations SET status = 'promoted' WHERE id = ?", realization.id);
+    await refused();
+    await sql("UPDATE realizations SET status = 'evaluated' WHERE id = ?", realization.id);
+    await sql("UPDATE candidates SET state = 'promoted' WHERE id = ?", candidate.id);
+    await refused();
+    await sql("UPDATE candidates SET state = 'evaluated' WHERE id = ?", candidate.id);
+    await sql("INSERT INTO system_commits (id, parent, manifest_json, manifest_hash, evolution_ids, decision_json, created_at) VALUES ('sc-x', NULL, '{}', 'h', ?, '{}', 'now')",
+      JSON.stringify([evolution.id]));
+    await refused();
+  });
+
   it("is a 409 stale-base once the head Genome moved", async () => {
     const s = await importSystem();
     const p = (await create(s, "Change what the Today screen says")).json;
