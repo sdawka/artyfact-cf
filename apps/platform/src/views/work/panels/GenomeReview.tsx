@@ -52,7 +52,9 @@ function ImportReviewPanel({ review }: { review: ImportReview }) {
   const m = useModel();
   const accepted = review.status === "accepted";
   const [plan, setPlan] = useState<ProposalPlanNode[]>(() => (accepted ? decidedTree(review) : review.tree));
-  const [outcome, setOutcome] = useState<ImportReviewAcceptResponse | null>(null);
+  // The mutation lives here, not in the form: its success caches the accepted review, which must not unmount the outcome.
+  const accept = useAcceptImportReview();
+  const outcome = accept.data ?? null;
   const fixture = m.bundle.source === "fixture";
   const readOnly = accepted || outcome
     ? "The import review is accepted; its decisions are final."
@@ -108,11 +110,11 @@ function ImportReviewPanel({ review }: { review: ImportReview }) {
           <AcceptedNote review={review} titleOf={(id) => titles.get(id) ?? id} />
         ) : (
           <ImportDecision
+            accept={accept}
             fixture={fixture}
             blocker={acceptImportBlocker(decisions, (id) => titles.get(id) ?? id)}
             rejected={decisions.rejected}
             outcome={outcome}
-            onOutcome={setOutcome}
           />
         )}
       </Section>
@@ -160,16 +162,15 @@ function AcceptedNote({ review, titleOf }: { review: ImportReview; titleOf(id: s
   );
 }
 
-function ImportDecision({ fixture, blocker, rejected, outcome, onOutcome }: {
+function ImportDecision({ accept, fixture, blocker, rejected, outcome }: {
+  accept: ReturnType<typeof useAcceptImportReview>;
   fixture: boolean;
   /** Why the decisions cannot be accepted yet (undecided nodes, an agreed node under a rejected one). */
   blocker: string | null;
   rejected: string[];
   outcome: ImportReviewAcceptResponse | null;
-  onOutcome(o: ImportReviewAcceptResponse): void;
 }) {
   const href = useKeepParams();
-  const accept = useAcceptImportReview();
   const [interpretation, setInterpretation] = useState("");
   const [adminToken, setAdminToken] = useAdminTokenField();
   const [error, setError] = useState<string | null>(null);
@@ -179,10 +180,7 @@ function ImportDecision({ fixture, blocker, rejected, outcome, onOutcome }: {
   const doAccept = () => {
     if (!interpretation.trim()) return setError("Interpretation is required to accept.");
     setError(null);
-    accept.mutate(
-      { body: { interpretation: interpretation.trim(), ...(rejected.length && { rejectedNodes: rejected }) }, ...(adminToken && { adminToken }) },
-      { onSuccess: onOutcome },
-    );
+    accept.mutate({ body: { interpretation: interpretation.trim(), ...(rejected.length && { rejectedNodes: rejected }) }, ...(adminToken && { adminToken }) });
   };
 
   return (

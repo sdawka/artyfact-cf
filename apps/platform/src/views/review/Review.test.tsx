@@ -425,6 +425,22 @@ describe("Import review", () => {
     await waitFor(() => expect(screen.queryByTestId("queue-import")).toBeNull());
   });
 
+  it("drops the row when the review itself is accepted, even while the systems list still says pending", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.endsWith("/api/systems")) return json(200, [summary(true)]);
+      if (u.endsWith("/import-review")) return json(200, { ...review, status: "accepted" });
+      return json(404, { error: { code: "not-found", message: "no" } });
+    }));
+    renderApp(REVIEW, undefined, (qc) => {
+      importSeed(qc);
+      qc.removeQueries({ queryKey: ["importReview", SYSTEM] });
+    });
+    const q = await queue();
+    await waitFor(() => expect(within(q).queryByTestId("queue-import")).toBeNull());
+    expect(within(q).getByRole("heading", { name: /Waiting on you\s*3/ })).toBeTruthy();
+  });
+
   it("says so when the System has no import review", async () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) =>
       String(input).endsWith("/api/systems") ? json(200, [summary(false)]) : json(404, { error: { code: "not-found", message: "no review" } })));

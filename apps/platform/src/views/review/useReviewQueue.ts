@@ -2,7 +2,7 @@ import { useQueries } from "@tanstack/react-query";
 import { useMemo } from "react";
 import type { Candidate, ConflictReport } from "../../../shared/api";
 import * as api from "@/api/client";
-import { qk, useConflicts, useEvolutions, useHistory, useSystems } from "@/api/queries";
+import { qk, useConflicts, useEvolutions, useHistory, useImportReview, useSystems } from "@/api/queries";
 import { useSystemRoute } from "@/model/useSelection";
 import { reviewQueue, type QueueGroup } from "./queue";
 
@@ -28,7 +28,12 @@ export function useReviewQueue(): ReviewQueue {
   const history = useHistory();
   const commits = history.data;
   const { data: conflicts } = useConflicts();
-  const importReview = useSystems().data?.find((s) => s.systemId === systemId)?.importReview;
+  // The summary says a review is pending; the review itself (refetched on `system.import-review` and after accept) has
+  // the last word, because the client keeps the first `/api/systems` answer for the session.
+  const summarized = useSystems().data?.find((s) => s.systemId === systemId)?.importReview;
+  const pending = summarized?.status === "pending";
+  const { data: live } = useImportReview({ enabled: pending });
+  const importReview = pending && live?.status === "accepted" ? { ...summarized, status: "accepted" as const } : summarized;
   const realizations = board.data?.realizations;
   const evolutionIds = useMemo(
     () => [...new Set((realizations ?? []).filter((r) => WAITING.has(r.status)).map((r) => r.evolution))].sort(),
