@@ -14,6 +14,8 @@ import type { TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeReq
 import type { IntentAccept, IntentAcceptResponse, IntentDecisionsRequest, IntentReply, IntentRequest, Proposal } from "../../shared/api";
 // plan
 import type { PlanRequest, PlanUpdateRequest, StartWaveRequest, StartWaveResponse, TaskPlan, TasksQuery, TasksResponse } from "../../shared/api";
+// review
+import type { ImportReview, ImportReviewAccept, ImportReviewAcceptResponse } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
 
 /** Any non-2xx response. `body` is the parsed {@link ApiError} when the server sent one. */
@@ -426,6 +428,20 @@ export const startWave = (systemId: string, evolutionId: string, n: number, body
 /** Tasks across the System's Evolutions. */
 export const listTasks = (systemId: string, q: TasksQuery = {}) =>
   readOrEmpty<TasksResponse>({ tasks: [], conflicts: [], waves: {} }, () => request(routes.tasks(systemId, q)));
+
+// ---------------------------------------------------------------------------
+// review: the import review of an imported System (agreement tree over the head Genome)
+// ---------------------------------------------------------------------------
+
+/** The pending or accepted import review; 404 when the System was imported without one. Not available on fixture data. */
+export async function getImportReview(systemId: string): Promise<ImportReview> {
+  if (await isFixtureMode()) throw notInFixture("The import review");
+  return request<ImportReview>(routes.importReview(systemId));
+}
+
+/** Admin: accept the import; `rejectedNodes` become `remove` ops of an awaiting-admin amendment. */
+export const acceptImportReview = (systemId: string, body: ImportReviewAccept, adminToken?: string) =>
+  writeOrThrow("Accept import", () => post<ImportReviewAcceptResponse>(routes.importReviewAccept(systemId), body, bearer(adminToken)));
 
 // ---------------------------------------------------------------------------
 // App template upgrades

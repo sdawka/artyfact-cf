@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { fixtureBundle } from "@/api/fixtures";
 import { candidate, commit, realization } from "../work/testData";
-import { awaitingReview, behindBy, reviewQueue } from "./queue";
+import { awaitingReview, behindBy, IMPORT_GROUP, importLabel, reviewQueue } from "./queue";
 
 const evolutions = fixtureBundle().model.evolutions;
 const E1 = evolutions[0]!.id;
@@ -72,5 +72,23 @@ describe("reviewQueue", () => {
     const [g] = reviewQueue({ evolutions, realizations: [realization({ status: "evaluated", candidate: "cand.1" })], conflicts: [soft] });
     expect(g!.rows[0]!.conflicts).toEqual([soft]);
     expect(g!.rows.at(-1)).toMatchObject({ kind: "promotion", conflicts: [soft] });
+  });
+
+  it("puts a pending import review first, in its own group, with the node count; not counted as an Evolution's review", () => {
+    const groups = reviewQueue({
+      evolutions,
+      realizations: [realization({ id: "r.g", evolution: E1, status: "awaiting-admin", target: "genome", candidate: "cand.g" })],
+      importReview: { status: "pending", genomeCommit: "abc1234def", nodes: 12 },
+    });
+    expect(groups.map((g) => g.title)).toEqual(["Import", evolutions[0]!.title]);
+    expect(groups[0]).toMatchObject({ evolution: IMPORT_GROUP, rows: [{ kind: "import", key: "import:abc1234def", importReview: { genomeCommit: "abc1234def", nodes: 12 } }] });
+    expect(awaitingReview(groups[0])).toBe(0);
+    expect(importLabel(12)).toBe("Import · 12 nodes");
+    expect(importLabel(1)).toBe("Import · 1 node");
+  });
+
+  it("drops the import row once the review is accepted", () => {
+    expect(reviewQueue({ evolutions, realizations: [], importReview: { status: "accepted", genomeCommit: "abc", nodes: 3 } })).toEqual([]);
+    expect(reviewQueue({ evolutions, realizations: [], importReview: { status: "pending", genomeCommit: "abc", nodes: 3 } })[0]!.rows.map((r) => r.kind)).toEqual(["import"]);
   });
 });
