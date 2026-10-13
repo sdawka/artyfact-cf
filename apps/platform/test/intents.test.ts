@@ -49,7 +49,7 @@ async function importSystem(): Promise<Sys> {
   ns.create(`intent-app-${tag}`).commit(app, "app");
   setArtifactsOverride(ns);
   setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
-  const imp = await call<ImportSystemResponse>("POST", "/api/systems/import", { systemId, genomeRepo: `intent-genome-${tag}`, appRepo: `intent-app-${tag}` });
+  const imp = await call<ImportSystemResponse>("POST", "/api/systems/import", { systemId, genomeRepo: `intent-genome-${tag}`, appRepo: `intent-app-${tag}`, review: false });
   expect(imp.status, JSON.stringify(imp.json)).toBe(201);
   return { ns, systemId, genomeCommit: imp.json.genomeCommit };
 }

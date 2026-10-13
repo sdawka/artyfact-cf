@@ -279,7 +279,7 @@ describe("a Genome in the retired v1 layout", () => {
     const plain = await apiCall<ApiError>("POST", "/systems/import", { systemId: f.systemId, genomeRepo: f.genomeRepo, appRepo: f.appRepo }, ADMIN);
     expect(plain.status).toBe(409);
     expect(plain.json.error.code).toBe("already-imported");
-    const forced = await apiCall<{ genomeCommit: string }>("POST", "/systems/import", { systemId: f.systemId, genomeRepo: f.genomeRepo, appRepo: f.appRepo, force: true }, ADMIN);
+    const forced = await apiCall<{ genomeCommit: string }>("POST", "/systems/import", { systemId: f.systemId, genomeRepo: f.genomeRepo, appRepo: f.appRepo, force: true, review: false }, ADMIN);
     expect(forced.status, JSON.stringify(forced.json)).toBe(201);
     expect(forced.json.genomeCommit).toBe(v2);
     for (const path of [routes.model(f.systemId), routes.readiness(f.systemId)]) expect((await get<unknown>(path)).status).toBe(200);

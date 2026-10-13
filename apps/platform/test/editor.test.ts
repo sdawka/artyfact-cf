@@ -47,7 +47,7 @@ async function importNested(): Promise<Flow> {
   ns.create(genomeRepo).commit(Object.fromEntries(Object.entries(files).map(([p, t]) => [`system/${p}`, t])), "genome");
   ns.create(appRepo).commit(appFiles, "scaffold");
   setArtifactsOverride(ns);
-  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo }, ADMIN);
+  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo, review: false }, ADMIN);
   expect(res.status, JSON.stringify(res.json)).toBe(201);
   rp = fakeReceivePack(ns);
   setEditorTransport({ fetch: rp.fetch });

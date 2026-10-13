@@ -17,7 +17,7 @@ it('imports and opens a Genome-only Thing without creating a source artifact or 
   };
   const ns = new FakeArtifacts();
   ns.create(repo).commit(files, 'Genome only'); setArtifactsOverride(ns);
-  const imported = await call<ImportSystemResponse>('POST', '/systems/import', { systemId: id, genomeRepo: repo }, ADMIN);
+  const imported = await call<ImportSystemResponse>('POST', '/systems/import', { systemId: id, genomeRepo: repo, review: false }, ADMIN);
   expect(imported.status, JSON.stringify(imported.json)).toBe(201);
   expect(imported.json.appCommit).toBeNull();
   const state = await systemStub(env, id).state();

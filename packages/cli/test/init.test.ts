@@ -252,6 +252,20 @@ describe("artyfact init", { timeout: 60_000 }, () => {
     noTokenLeaks(lc.tokens, ok.out, refused.err, adopted.out);
   });
 
+  it("prints the review URL when the import is pending, and --no-review sends review: false", async () => {
+    const pendingImport = mockPlatform(() => [201, { head: "sc-1-abc", warnings: [], system: { importReview: { status: "pending" } } }]);
+    const r = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: pendingImport.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    expect(r.code, r.err).toBe(0);
+    expect(r.out).toContain("review: pending — open https://platform.test/s/system.peopling/r/head/review?panel=import");
+    expect(pendingImport.requests[0]!.body.review).toBeUndefined();
+
+    const p = mockPlatform();
+    const skipped = await run(["init", "--dir", dir, "--no-review"], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    expect(skipped.code, skipped.err).toBe(0);
+    expect(p.requests[0]!.body.review).toBe(false);
+    expect(skipped.out).not.toContain("review: pending");
+  });
+
   it("tells the user to pass --force on 409 already-imported", async () => {
     const p = mockPlatform(() => [409, { error: { code: "already-imported", message: "system system.peopling is already imported from x" } }]);
     const r = await run(["init", "--dir", dir], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
