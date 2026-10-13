@@ -13,14 +13,15 @@ test('homepage leads to the guide and links the hosted platform', async ({ page 
   await expect(page.locator('code').filter({ hasText: 'ARTYFACT_SECRET' }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
-test('model layers work with keyboard and preserve unknown evidence', async ({ page }) => {
+test('model layers work with keyboard and keep illustrative evidence labelled', async ({ page }) => {
   const errors: string[] = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('https://artyfact.test/model');
   await page.getByRole('tab', { name: /Genome/ }).focus();
   await page.keyboard.press('ArrowRight');
   await expect(page.getByRole('tab', { name: /Proteome/ })).toHaveAttribute('aria-selected', 'true');
   await page.keyboard.press('ArrowRight');
-  await expect(page.getByRole('tabpanel')).toContainText('Unknown');
+  await expect(page.getByRole('tabpanel')).toContainText('Input received');
+  await expect(page.getByRole('tabpanel')).toContainText('not live Artyfact telemetry');
   expect(errors).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -36,8 +37,12 @@ test('code copying reports success or a useful fallback', async ({ page }) => {
 test('public content is useful without JavaScript', async ({ page }) => {
   await page.route('**/*.js', route => route.abort());
   await page.goto('https://artyfact.test/model');
-  await expect(page.getByRole('heading', { name: /One System/ })).toBeVisible();
-  await expect(page.locator('.detail-title').filter({ hasText: /A Thing can begin with its Genome alone/ })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Start with the domain/ })).toBeVisible();
+  await expect(page.getByText(/A Thing can begin with its Genome alone/)).toBeVisible();
+  await expect(page.locator('.model-view-panels > section')).toHaveCount(3);
+  for(const panel of await page.locator('.model-view-panels > section').all()) await expect(panel).toBeVisible();
+  await expect(page.getByText('Proposed acceptance test',{exact:true})).toBeVisible();
+  await expect(page.getByRole('list',{name:'Proposed event stream'})).toBeVisible();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://artyfact.ing/model');
 });
 const scene = '[data-system-view]';

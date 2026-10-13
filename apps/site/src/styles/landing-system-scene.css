@@ -16,9 +16,9 @@
 .scene-coding-agent, .scene-save-chart { position: absolute; inset: 0; display: flex; flex-direction: column; justify-content: center; }
 .scene-coding-agent { color: var(--scene-blue); }
 .scene-agent-label { visibility: hidden; font-size: .7rem; line-height: 1.4; margin-bottom: 10px; }
-.scene-computer { transform: translateX(calc((1 - var(--realization-progress, 0)) * -22px - var(--observation-progress, 0) * 45px)); clip-path: inset(0 calc((1 - var(--realization-progress, 0)) * 100%) 0 0); opacity: clamp(0, calc(1 - var(--observation-progress, 0) * 2), 1); width: 100%; max-width: 105px; fill: #243b42; stroke: var(--scene-blue); stroke-width: 1.5; }
+.scene-computer { transform: translateX(calc((1 - var(--agent-progress, var(--realization-progress, 0))) * -22px - var(--observation-progress, 0) * 45px)); clip-path: inset(0 calc((1 - var(--agent-progress, var(--realization-progress, 0))) * 100%) 0 0); opacity: clamp(0, calc(1 - var(--observation-progress, 0) * 2), 1); width: 100%; max-width: 105px; fill: #243b42; stroke: var(--scene-blue); stroke-width: 1.5; }
 .scene-code-lines { fill: none; stroke: #fff0e4; }
-.scene-realization-arrow { opacity: clamp(0, calc(1 - var(--observation-progress, 0) * 2), 1); width: calc(100% + 18px); height: 20px; margin-top: 12px; fill: none; stroke: var(--scene-blue); stroke-width: 1.5; stroke-dasharray: 100; stroke-dashoffset: calc((1 - var(--realization-progress, 0)) * 100); }
+.scene-realization-arrow { opacity: clamp(0, calc(1 - var(--observation-progress, 0) * 2), 1); width: calc(100% + 18px); height: 20px; margin-top: 12px; fill: none; stroke: var(--scene-blue); stroke-width: 1.5; stroke-dasharray: 100; stroke-dashoffset: calc((1 - var(--arrow-progress, var(--realization-progress, 0))) * 100); }
 .scene-card { position: relative; min-width: 0; margin: 0; color: var(--scene-paper); border: 1px solid #c49b7d; border-radius: 8px 8px 3px 3px; background: #142027; }
 .scene-app-heading { display: flex; justify-content: space-between; align-items: center; gap: 8px; height: 32px; padding: 7px 11px; font-size: .65rem; line-height: 1.3; color: inherit; }
 .scene-app-body { padding: 10px; display: grid; grid-template-rows: 48px 75px 34px; gap: 9px; color: inherit; }
@@ -144,7 +144,7 @@ button.scene-save:active, button.scene-save[data-pressing='true'] { transform: t
 
 .scene-demo-control[aria-disabled="true"] { border-bottom-color: transparent; cursor: default; }
 
-[data-realization-started='true'][data-observation-started='false'] .scene-agent-label { visibility: visible; }
+[data-system-view='proteome'][data-realization-started='true'][data-observation-started='false'] .scene-agent-label { visibility: visible; }
 [data-observation-started='true'] .scene-save-chart { visibility: visible; }
 [data-enhanced='true'][data-opening-settled='false'] .scene-app-shape span,
 [data-enhanced='true'][data-opening-settled='false'] .scene-runtime-shape span,
@@ -168,3 +168,8 @@ button.scene-save:active, button.scene-save[data-pressing='true'] { transform: t
 .scene-chart-bar[data-chart-level="12"] { --chart-fill: 1.00000000; }
 
 [data-realization-started="true"] .scene-example-label { visibility: visible; }
+
+/* Text belongs to the accepted chapter; only decorative plot geometry reverses. */
+[data-system-view]:not([data-system-view='phenome']) .scene-chart-caption,
+[data-system-view]:not([data-system-view='phenome']) .scene-chart-ticks,
+[data-system-view]:not([data-system-view='phenome']) .scene-save-chart strong { visibility: hidden; }
