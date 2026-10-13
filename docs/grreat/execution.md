@@ -3,7 +3,7 @@
 
 ## Now
 
-- Active public-site follow-up: Ontology Driven Development redesign implemented and locally verified on `feat/ontology-driven-development`; site gates and independent review are complete. Shared pre-push CI passed (59.0s), and the branch is pushed. Next: one PR and hosted review/checks. Evidence: [[journals/2026-10-13-ontology-driven-development]]. The platform release work below remains separate.
+- Active public-site follow-up: Ontology Driven Development redesign implemented and locally verified on `feat/ontology-driven-development`; site gates and independent review are complete. Shared pre-push CI passed (59.0s), and the branch is pushed. PR [#57](https://github.com/sdawka/artyfact-cf/pull/57) is open; next: hosted review/checks. Evidence: [[journals/2026-10-13-ontology-driven-development]]. The platform release work below remains separate.
 
 - Goal: [[goals]]. Milestone: iteration 3, the ontology-engine core, delivered as PR #47 in [[roadmap]] context.
 - Working revision: branch `iteration-3` (98 commits), PR #47; local `npm run ci` green. Hosted CI is tracked on the PR.
