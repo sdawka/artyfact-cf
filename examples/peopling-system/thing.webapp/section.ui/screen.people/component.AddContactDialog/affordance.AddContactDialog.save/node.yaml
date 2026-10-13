@@ -19,7 +19,7 @@ fields:
 links:
   - { rel: invokes, to: operation.contact.save }
 files:
-  - public/people/add-contact-dialog.js
+  - public/people/index.html
 criteria:
   - id: C.webapp.contact.save
     title: Contact save

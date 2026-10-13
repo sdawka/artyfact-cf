@@ -65,6 +65,16 @@ links:
   - { rel: implements, to: endpoint.intents-get }
   - { rel: implements, to: endpoint.intents-reply }
   - { rel: implements, to: endpoint.intents-accept }
+  - { rel: implements, to: endpoint.intents-decisions }
+  - { rel: implements, to: endpoint.realization-rebase }
+  - { rel: implements, to: endpoint.tasks-release }
+  - { rel: implements, to: endpoint.tasks-claim }
+  - { rel: implements, to: endpoint.tasks-get }
+  - { rel: implements, to: endpoint.tasks-list }
+  - { rel: implements, to: endpoint.wave-start }
+  - { rel: implements, to: endpoint.plan-update }
+  - { rel: implements, to: endpoint.plan-create }
+  - { rel: implements, to: endpoint.plan-get }
 files:
   - worker/index.ts
   - worker/routes/**

@@ -1,0 +1,9 @@
+id: endpoint.plan-create
+kind: endpoint
+fields:
+  name: "Plan an Evolution into Tasks"
+  description: "Splits an actionable Evolution into Tasks with footprints, conflicts and waves; replans only with force."
+  route: POST /api/systems/:id/evolutions/:eid/plan
+  auth: "Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set."
+  request: PlanRequest
+  response: TaskPlan

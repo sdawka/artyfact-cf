@@ -1,0 +1,7 @@
+id: section.events
+kind: section
+fields:
+  name: Contact events
+  description: Logged contact events and how they qualify against goals
+files:
+  - src/worker/routes/events.ts

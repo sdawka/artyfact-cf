@@ -25,6 +25,16 @@ links:
   - { rel: exposes, to: endpoint.changelog }
   - { rel: exposes, to: endpoint.compare-system }
   - { rel: exposes, to: endpoint.intents-create }
+  - { rel: exposes, to: endpoint.intents-decisions }
+  - { rel: exposes, to: endpoint.realization-rebase }
+  - { rel: exposes, to: endpoint.tasks-release }
+  - { rel: exposes, to: endpoint.tasks-claim }
+  - { rel: exposes, to: endpoint.tasks-get }
+  - { rel: exposes, to: endpoint.tasks-list }
+  - { rel: exposes, to: endpoint.wave-start }
+  - { rel: exposes, to: endpoint.plan-update }
+  - { rel: exposes, to: endpoint.plan-create }
+  - { rel: exposes, to: endpoint.plan-get }
 files:
   - e2e/**
   - playwright.config.ts

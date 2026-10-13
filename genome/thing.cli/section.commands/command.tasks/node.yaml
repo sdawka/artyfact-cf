@@ -5,3 +5,5 @@ fields:
   usage: artyfact tasks --system sid [--evolution eid] [--json] [--platform url]
   exitCodes: 0 on success, 1 on any error.
   description: Lists the System's tasks with evolution, status, wave, dependencies, nodes and footprint, then the task conflicts and the first claim line. Public; needs no credential.
+files:
+  - src/main.ts

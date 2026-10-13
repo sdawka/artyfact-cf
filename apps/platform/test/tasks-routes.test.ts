@@ -102,7 +102,7 @@ describe("plan routes", () => {
   it("refuses non-admins, Evolutions not ready to plan, and replans only with force", async () => {
     const s = await importSystem();
     expect((await call<ApiError>("POST", plan(s), {}, {})).status).toBe(401);
-    const proposed = await call<ApiError>("POST", plan(s, "evolution.2"), {});
+    const proposed = await call<ApiError>("POST", plan(s, "evolution.3"), {});
     expect(proposed.status).toBe(409);
     expect(proposed.json.error.code).toBe("invalid-state");
     expect((await call<ApiError>("POST", plan(s, "evolution.99"), {})).status).toBe(404);
