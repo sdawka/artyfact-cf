@@ -1,0 +1,7 @@
+id: endpoint.artifacts
+kind: endpoint
+fields:
+  name: Realized artifacts
+  description: "Lists the System's realized artifacts: the built and deployed outputs of its Things."
+  route: GET /api/systems/:id/artifacts
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

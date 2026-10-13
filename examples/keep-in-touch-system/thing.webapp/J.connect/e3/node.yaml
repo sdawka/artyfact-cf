@@ -5,6 +5,5 @@ fields:
   actor: counterpart
   action: No connection created
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.concurrency

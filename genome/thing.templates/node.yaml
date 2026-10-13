@@ -1,0 +1,50 @@
+id: thing.templates
+kind: thing
+template: template.thing.ts-library@1
+root: packages/templates
+fields:
+  name: Templates
+  description: "@artyfact/templates: the System and Thing templates and Rule Packs, bundled so Workers and the browser read them without a filesystem."
+links:
+  - { rel: artifact, to: artifact.templates }
+  - { rel: dependsOn, to: thing.model }
+  - { rel: dependsOn, to: thing.ontology }
+  - { rel: exposes, to: export.templates.load }
+  - { rel: exposes, to: export.templates.compose }
+  - { rel: exposes, to: export.templates.packs }
+criteria:
+  - id: C.templates.unit
+    title: "@artyfact/templates tests pass"
+    claim: Every template passes its form and view-hint checks and the packs flag their fixtures.
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    hooks:
+      - id: hook.templates.unit
+        assay: templates.unit
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          command: npm test -w @artyfact/templates
+  - id: C.thing.templates.checks
+    title: Changed nodes meet their checks
+    claim: Changed nodes meet the checks their kinds declare.
+    severity: soft
+    gates:
+      - submission
+    hooks:
+      - id: hook.thing.templates.checks
+        assay: templates.checks
+        tier: semantic
+        engine: model-rules
+        triggers:
+          - submission
+        inputs:
+          packs: checks@1
+        binding: bound
+        fromTemplate: template.thing.ts-library@1
+    fromTemplate: template.thing.ts-library@1

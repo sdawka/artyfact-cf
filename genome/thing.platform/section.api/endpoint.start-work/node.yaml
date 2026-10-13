@@ -1,0 +1,9 @@
+id: endpoint.start-work
+kind: endpoint
+fields:
+  name: Start work
+  description: Forks the app or Genome repo for a new realization and returns the write token and realization secret once.
+  route: POST /api/systems/:id/evolutions/:eid/realizations
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  request: "{agentLabel, role, origin}"
+  response: 201 StartWorkResponse

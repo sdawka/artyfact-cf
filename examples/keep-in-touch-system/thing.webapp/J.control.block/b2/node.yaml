@@ -5,7 +5,6 @@ fields:
   actor: user
   action: Choose Block and confirm
   kind: branch
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
   next:

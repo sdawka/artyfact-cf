@@ -1,0 +1,7 @@
+id: export.effects.provider
+kind: export
+fields:
+  name: EffectsProvider
+  signature: "export function EffectsProvider(props: EffectsProviderProps)"
+  stability: stable
+  description: "Provides the effects settings: enabled, reduced motion and software-renderer policy."

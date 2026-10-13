@@ -2,6 +2,4 @@ id: component.TodayControls
 kind: component
 fields:
   name: TodayControls
-  owningThing: thing.webapp
-  revision: 1
   cardinality: exactly one

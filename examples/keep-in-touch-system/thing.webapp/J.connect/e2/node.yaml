@@ -5,7 +5,6 @@ fields:
   actor: counterpart
   action: Invitation declined; no pair created
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
 links:

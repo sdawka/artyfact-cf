@@ -1,0 +1,9 @@
+id: command.init
+kind: command
+fields:
+  name: init
+  usage: artyfact init [--dir project] [--genome dir --app dir] [--from-template ref] [--platform url] [--namespace ns] [--force] [--adopt]
+  exitCodes: 0 on success, 1 on any error.
+  description: Pushes <slug>.genome and <slug>.app and the platform repo, then imports the System; without ARTYFACT_ADMIN_TOKEN it prints the import call instead. Exits 1 on any failure.
+links:
+  - { rel: calls, to: endpoint.import }

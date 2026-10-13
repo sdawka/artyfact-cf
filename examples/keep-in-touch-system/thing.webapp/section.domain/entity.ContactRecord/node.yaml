@@ -2,8 +2,6 @@ id: entity.ContactRecord
 kind: entity
 fields:
   name: ContactRecord
-  owningThing: thing.webapp
-  revision: 1
   description: ID, ownerAccountId, display name, optional channels and linkedAccountId; belongs to one owner. A ContactRecord is a person's private representation of another person. Linking it to an Account does not transfer ownership or reveal notes
   source:
     doc: keep-in-touch-world-specification
@@ -34,6 +32,8 @@ fields:
     - At most one linked contact per owner and counterpart account
 links:
   - { rel: storedIn, to: binding.contactsStore }
+files:
+  - src/worker/routes/contacts.ts
 criteria:
   - id: C.webapp.contact.storage
     title: Contact storage

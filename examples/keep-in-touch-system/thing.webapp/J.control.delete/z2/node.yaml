@@ -5,7 +5,6 @@ fields:
   actor: user
   action: Choose Delete in DeletionControls, confirm and reauthenticate
   kind: branch
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
   next:

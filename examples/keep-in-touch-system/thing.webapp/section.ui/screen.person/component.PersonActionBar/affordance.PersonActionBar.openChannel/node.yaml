@@ -2,8 +2,6 @@ id: affordance.PersonActionBar.openChannel
 kind: affordance
 fields:
   name: Open channel
-  owningThing: thing.webapp
-  revision: 1
   source:
     doc: keep-in-touch-world-specification
     section: "6"

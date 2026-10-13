@@ -5,7 +5,6 @@ fields:
   actor: system
   action: Qualifying contact resolves the suggestion
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.prompts
 links:

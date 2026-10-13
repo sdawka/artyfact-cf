@@ -5,6 +5,5 @@ fields:
   actor: system
   action: Pair no longer active; the private ContactRecord remains; delivered external messages are not retracted
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.operations

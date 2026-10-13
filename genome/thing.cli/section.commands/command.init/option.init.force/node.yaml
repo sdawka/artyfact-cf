@@ -1,0 +1,7 @@
+id: option.init.force
+kind: option
+fields:
+  name: force
+  flag: --force
+  description: Overwrite existing repos.
+  valueType: boolean

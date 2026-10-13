@@ -1,0 +1,7 @@
+id: option.start.evolution
+kind: option
+fields:
+  name: evolution
+  flag: --evolution <eid>
+  description: Evolution id, or ARTYFACT_EVOLUTION.
+  valueType: string

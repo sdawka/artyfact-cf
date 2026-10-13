@@ -2,8 +2,6 @@ id: policy.revocation
 kind: policy
 fields:
   name: Current revocation
-  owningThing: thing.webapp
-  revision: 1
   description: Read and send authorization must check revocation against current authoritative state; a block overrides connection and sharing
   source:
     doc: keep-in-touch-world-specification

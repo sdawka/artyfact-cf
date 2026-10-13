@@ -92,7 +92,7 @@ describe("editor reads", () => {
     expect(g.files.every((x) => Array.isArray(x.nodes))).toBe(true);
     const onto = (await call<FileResponse>("GET", `/systems/${f.systemId}/file?scope=genome&path=thing.webapp/section.domain/entity.ContactRecord/node.yaml`)).json;
     expect(onto.nodes).toEqual(nodesOf("thing.webapp/section.domain/entity.ContactRecord/node.yaml"));
-    // The app scope keeps its source-map nodes and listing shape.
+    // The app scope keeps its listing shape (a file read maps nodes through the Genome's node files).
     const app = (await call<FilesResponse>("GET", `/systems/${f.systemId}/files?scope=app`)).json;
     expect(app.files.some((x) => "nodes" in x)).toBe(false);
   });

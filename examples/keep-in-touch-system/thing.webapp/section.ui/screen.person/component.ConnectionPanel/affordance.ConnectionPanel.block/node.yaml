@@ -2,8 +2,6 @@ id: affordance.ConnectionPanel.block
 kind: affordance
 fields:
   name: Block
-  owningThing: thing.webapp
-  revision: 1
   actor: ext.owner
   trigger: Owner confirms Block
   preconditions:

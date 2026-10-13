@@ -5,7 +5,6 @@ fields:
   actor: system
   action: SchedulePreview shows the due date and which historical events would qualify under the chosen depth
   kind: reaction
-  unresolved: false
   requirementRefs:
     - S.webapp.qualification
     - S.webapp.due

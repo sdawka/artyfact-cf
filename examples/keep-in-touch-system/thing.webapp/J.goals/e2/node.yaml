@@ -5,7 +5,6 @@ fields:
   actor: user
   action: No change saved; no goal shown as no goal, not an inferred target
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.screens
 links:

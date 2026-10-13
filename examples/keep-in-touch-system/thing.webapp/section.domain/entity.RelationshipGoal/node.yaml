@@ -2,8 +2,6 @@ id: entity.RelationshipGoal
 kind: entity
 fields:
   name: RelationshipGoal
-  owningThing: thing.webapp
-  revision: 1
   description: ID, owner, ContactRecord, intervalDays, desiredDepth, channel, anchorDate, pause and snooze; owner-only
   source:
     doc: keep-in-touch-world-specification

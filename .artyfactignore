@@ -1,0 +1,8 @@
+# Paths the self-Genome does not map (see packages/templates/test/self-genome.test.ts).
+# A leading / anchors a pattern at the repo root; otherwise it matches any path segment.
+node_modules/
+dist/
+.wrangler/
+/examples/
+/.superpowers/
+/docs/

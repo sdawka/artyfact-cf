@@ -1,0 +1,8 @@
+id: endpoint.ci-health
+kind: endpoint
+fields:
+  name: CI health
+  route: GET /health
+  auth: Anonymous; any other path answers 404.
+  description: Reports that the artyfact-ci Worker is up.
+  response: "{ok: true, service: artyfact-ci}"

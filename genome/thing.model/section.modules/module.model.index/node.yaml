@@ -1,0 +1,8 @@
+id: module.model.index
+kind: module
+fields:
+  name: Model index
+  description: Indexes nodes, links and criteria for lookups.
+  path: src/model-index.ts
+files:
+  - src/model-index.ts

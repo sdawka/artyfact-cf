@@ -4,8 +4,6 @@ fields:
   step: b1
   actor: user
   action: Open Person
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
   next:

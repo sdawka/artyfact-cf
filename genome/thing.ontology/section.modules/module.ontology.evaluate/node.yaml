@@ -1,0 +1,11 @@
+id: module.ontology.evaluate
+kind: module
+fields:
+  name: Evaluation
+  description: Readiness packs, facts and findings over the rules engine.
+  path: src/evaluate
+links:
+  - { rel: implements, to: export.ontology.evaluate }
+  - { rel: dependsOn, to: module.rules.engine }
+files:
+  - src/evaluate/**

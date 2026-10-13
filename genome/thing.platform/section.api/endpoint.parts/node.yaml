@@ -1,0 +1,7 @@
+id: endpoint.parts
+kind: endpoint
+fields:
+  name: Parts catalogue
+  description: Lists published Parts.
+  route: GET /api/parts
+  auth: Anonymous read.

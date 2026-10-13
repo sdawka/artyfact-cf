@@ -1,0 +1,9 @@
+id: endpoint.import
+kind: endpoint
+fields:
+  name: Import a System
+  description: Registers a System from its Genome and app repos in the namespace and loads its head.
+  route: POST /api/systems/import
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  request: ImportSystemRequest {systemId, genomeRepo, appRepo}
+  response: 201 SystemSummary

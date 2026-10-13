@@ -2,8 +2,6 @@ id: operation.goal.save
 kind: operation
 fields:
   name: Save goal
-  owningThing: thing.webapp
-  revision: 1
   description: Owned contact and valid interval. Increment goal version, recompute due state and cancel obsolete jobs
   source:
     doc: keep-in-touch-world-specification

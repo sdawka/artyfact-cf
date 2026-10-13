@@ -5,7 +5,6 @@ fields:
   actor: user
   action: Fill the contact event form and optionally mark Met this goal
   kind: branch
-  unresolved: false
   requirementRefs:
     - S.webapp.qualification
   next:

@@ -42,10 +42,18 @@ describe("genome v2 node.yaml", () => {
     ["an unknown severity", { id: "a", kind: "k", criteria: [{ id: "C.a", claim: "c", severity: "gate" }] }],
     ["an escaping files glob", { id: "a", kind: "k", files: ["../x/**"] }],
     ["an absolute root", { id: "a", kind: "k", root: "/apps/web" }],
+    ["a . segment in a files glob", { id: "a", kind: "k", files: ["./src/**"] }],
+    ["a . segment in a root", { id: "a", kind: "k", root: "apps/./web" }],
+    ["an absolute files glob", { id: "a", kind: "k", files: ["/src/**"] }],
     ["a template ref in another form", { id: "a", kind: "k", template: "thing/x@1" }],
     ["an unknown certainty", { id: "a", kind: "k", links: [{ rel: "r", to: "b", certainty: "maybe" }] }],
   ])("rejects %s", (_name, raw) => {
     expect(NodeFileSchema.safeParse(raw).success).toBe(false);
+  });
+
+  it("names the rule when a path is not repo-relative", () => {
+    const r = NodeFileSchema.safeParse({ id: "a", kind: "k", root: "apps/./web" });
+    expect(r.error?.issues[0]?.message).toBe("expected a repo-relative path: no leading /, no . or .. segments, no backslash");
   });
 
   it("recognises a legacy v1 tree by its root file only", () => {

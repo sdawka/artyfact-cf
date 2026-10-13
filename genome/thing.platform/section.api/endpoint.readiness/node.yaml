@@ -1,0 +1,7 @@
+id: endpoint.readiness
+kind: endpoint
+fields:
+  name: Readiness
+  description: Returns the rule-pack findings and their derivations for the head or ?rev.
+  route: GET /api/systems/:id/readiness
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

@@ -88,7 +88,7 @@ Terminal **ops**:
 ./scripts/bootstrap.sh       # = npx artyfact init --genome examples/keep-in-touch-system --app examples/keep-in-touch-app
 ```
 
-`init` reads `system.yaml` and derives every name from the System id: slug `keep-in-touch`, repos
+`init` reads the root `node.yaml` and derives every name from the System id: slug `keep-in-touch`, repos
 `keep-in-touch.genome` and `keep-in-touch.app`, forks `<repo>--r<N>`. It checks that `npx wrangler whoami` and
 `cf auth whoami` show the same account and prints only its prefix. It creates the namespace and repos when missing,
 creates `platform` (templates and rule packs) when it is missing or empty, pushes both projects with short-lived write tokens, and calls
@@ -322,7 +322,7 @@ curl -s $B/conflicts | jq -c '.conflicts[] | {kind, candidates, nodes, paths, me
 ```
 
 **Narration.** The conflict is deterministic. A's save handler maps to `affordance.AddContactDialog.save` and
-`operation.contact.save` through the app's `source-map.yaml`; B's routes file maps to the same operation,
+`operation.contact.save` through those nodes' `files` in the Genome; B's routes file maps to the same operation,
 `policy.ownerOnly` and `entity.ContactRecord`. `paths` is empty because no file is shared. `interferes: 0.05` is
 System One's answer to "do these changes interfere?", and 0.05 means "no". That number is from the fake provider,
 whose canned answer is always the benign one, so say on video that the overlap is the platform's finding and the

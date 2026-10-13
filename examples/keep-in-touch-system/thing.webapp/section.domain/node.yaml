@@ -2,8 +2,6 @@ id: section.domain
 kind: section
 fields:
   name: Domain
-  owningThing: thing.webapp
-  revision: 1
   description: Entities, operations and invariants.
   fromTemplate: template.thing.cloudflare-worker-webapp@1
 criteria:

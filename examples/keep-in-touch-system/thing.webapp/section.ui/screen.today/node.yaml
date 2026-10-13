@@ -2,8 +2,6 @@ id: screen.today
 kind: screen
 fields:
   name: Today
-  owningThing: thing.webapp
-  revision: 1
   description: Exactly PageHeading, TodayControls and SuggestionCollection; 0–5 cards, or one EmptyState inside the collection. Each card has one person label, reason, Open person, Log contact and Snooze controls
   source:
     doc: keep-in-touch-world-specification

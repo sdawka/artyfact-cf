@@ -2,7 +2,5 @@ id: component.PersonActionBar
 kind: component
 fields:
   name: ActionBar
-  owningThing: thing.webapp
-  revision: 1
   description: Actions are Edit goal, Log contact and Open channel
   cardinality: exactly one

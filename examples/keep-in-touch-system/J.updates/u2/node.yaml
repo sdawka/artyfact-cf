@@ -4,7 +4,6 @@ fields:
   step: u2
   actor: counterpart
   action: Subscribe, read, or reply privately to the author
-  kind: action
   unresolved: true
   next:
     - to: u3

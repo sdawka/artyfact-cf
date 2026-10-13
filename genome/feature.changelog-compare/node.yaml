@@ -1,0 +1,5 @@
+id: feature.changelog-compare
+kind: feature
+fields:
+  name: Changelog and Compare
+  summary: One row per System commit with its semantic delta, and a compare of any two revisions at System, Genome or file level.

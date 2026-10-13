@@ -1,0 +1,7 @@
+id: artifact.ontology
+kind: artifact
+fields:
+  type: external
+  repo: artyfact-cf
+  scope:
+    - packages/ontology

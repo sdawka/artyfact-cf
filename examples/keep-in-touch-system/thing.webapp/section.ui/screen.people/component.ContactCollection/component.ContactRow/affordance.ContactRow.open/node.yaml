@@ -2,8 +2,6 @@ id: affordance.ContactRow.open
 kind: affordance
 fields:
   name: Open
-  owningThing: thing.webapp
-  revision: 1
   actor: ext.owner
   trigger: Owner activates the row Open control
   preconditions:

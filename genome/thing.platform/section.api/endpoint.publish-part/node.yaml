@@ -1,0 +1,7 @@
+id: endpoint.publish-part
+kind: endpoint
+fields:
+  name: Publish a Part
+  description: Publishes a Part package to the shared catalogue.
+  route: POST /api/parts
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.

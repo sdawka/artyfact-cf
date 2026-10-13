@@ -2,8 +2,6 @@ id: operation.contact.log
 kind: operation
 fields:
   name: Log or revise contact
-  owningThing: thing.webapp
-  revision: 1
   description: Owned contact, nonfuture event time. Persist event; recompute affected goals without sending anything
   source:
     doc: keep-in-touch-world-specification

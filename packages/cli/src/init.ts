@@ -343,13 +343,13 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const dirArg = resolve(io.cwd, (values.dir as string | undefined) ?? ".");
   if (!existsSync(dirArg)) {
     // With --genome the project dir only holds init's state; otherwise there is nothing to read.
-    if (values.genome === undefined) throw new CliError(`no ${NODE_FILE} in ${join(dirArg, "system")}; pass --dir <project> (with system/) or --genome <dir>`);
+    if (values.genome === undefined) throw new CliError(`no ${NODE_FILE} in ${join(dirArg, "genome")}; pass --dir <project> (with genome/) or --genome <dir>`);
     mkdirSync(dirArg, { recursive: true });
   }
   const project = realDir("--dir", dirArg);
   const genomeDir = values.genome !== undefined
     ? realDir("--genome", resolve(io.cwd, values.genome as string))
-    : (existsSync(join(project, "system")) ? realDir("genome dir", join(project, "system"), project) : join(project, "system"));
+    : (existsSync(join(project, "genome")) ? realDir("genome dir", join(project, "genome"), project) : join(project, "genome"));
   const appGiven = values.app !== undefined;
   const appPath = appGiven ? resolve(io.cwd, values.app as string) : join(project, "app");
   const appDir = existsSync(appPath) ? realDir(appGiven ? "--app" : "app dir", appPath, appGiven ? undefined : project) : appPath;
@@ -359,7 +359,7 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const rootFile = join(genomeDir, NODE_FILE);
   if (!existsSync(rootFile)) {
     if (existsSync(join(genomeDir, V1_ROOT_FILE))) throw new CliError(`${genomeDir} is a v1 Genome; convert it first with artyfact convert-genome`);
-    throw new CliError(`no ${NODE_FILE} in ${genomeDir}; pass --dir <project> (with system/) or --genome <dir>`);
+    throw new CliError(`no ${NODE_FILE} in ${genomeDir}; pass --dir <project> (with genome/) or --genome <dir>`);
   }
   if (!isInside(genomeDir, realpathSync(rootFile))) throw new CliError(`${NODE_FILE} in ${genomeDir} resolves outside it`);
   const systemId = assertSystemId(systemIdOf(readFileSync(rootFile, "utf8")));

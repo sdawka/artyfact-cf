@@ -2,8 +2,6 @@ id: entity.Connection
 kind: entity
 fields:
   name: Connection
-  owningThing: thing.webapp
-  revision: 1
   description: ID, two distinct account IDs in canonical order, acceptance provenance and state; at most one active pair
   source:
     doc: keep-in-touch-world-specification

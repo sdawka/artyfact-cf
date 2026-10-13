@@ -4,8 +4,6 @@ fields:
   step: s3
   actor: user
   action: Share the invitation by QR or connection code through an outside channel
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
   next:

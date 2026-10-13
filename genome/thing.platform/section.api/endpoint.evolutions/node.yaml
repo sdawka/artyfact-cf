@@ -1,0 +1,7 @@
+id: endpoint.evolutions
+kind: endpoint
+fields:
+  name: List Evolutions
+  description: The same Evolutions as the Work board, under the collection's own path.
+  route: GET /api/systems/:id/evolutions
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

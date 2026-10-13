@@ -1,0 +1,7 @@
+id: endpoint.review
+kind: endpoint
+fields:
+  name: Amendment review
+  description: Returns a Genome amendment's semantic delta, added and resolved findings and System One signals.
+  route: GET /api/systems/:id/realizations/:rid/review
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

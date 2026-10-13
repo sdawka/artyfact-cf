@@ -4,8 +4,6 @@ fields:
   step: z4
   actor: system
   action: Access revoked immediately, sessions and jobs cancelled
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
     - S.webapp.concurrency

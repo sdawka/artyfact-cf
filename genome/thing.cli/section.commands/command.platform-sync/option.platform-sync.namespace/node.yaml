@@ -1,0 +1,7 @@
+id: option.platform-sync.namespace
+kind: option
+fields:
+  name: namespace
+  flag: --namespace <ns>
+  description: Artifacts namespace; default artyfact.
+  valueType: string

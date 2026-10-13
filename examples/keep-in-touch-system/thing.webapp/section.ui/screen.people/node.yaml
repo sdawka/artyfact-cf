@@ -2,8 +2,6 @@ id: screen.people
 kind: screen
 fields:
   name: People
-  owningThing: thing.webapp
-  revision: 1
   description: Exactly PageHeading, SearchInput, AddContact control and ContactCollection. One ContactRow per result; each row has a name and Open control. One AddContactDialog only while invoked, with name, optional channel fields, Save and Cancel
   source:
     doc: keep-in-touch-world-specification
@@ -18,6 +16,8 @@ fields:
     - owner
 links:
   - { rel: serves, to: ext.owner }
+files:
+  - public/people/**
 criteria:
   - id: C.webapp.screen.people
     title: People screen

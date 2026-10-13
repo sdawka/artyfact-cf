@@ -1,0 +1,9 @@
+id: endpoint.editor-commit
+kind: endpoint
+fields:
+  name: Commit from the editor
+  description: Commits browser edits to the realization's fork over Git and submits the result as a candidate.
+  route: POST /api/systems/:id/realizations/:rid/commit
+  auth: The realization's secret or the admin bearer; 401 without a bearer, 403 for any other token.
+  request: "{message, why, changes[{path, content}]}"
+  response: 201 EditorCommitResponse

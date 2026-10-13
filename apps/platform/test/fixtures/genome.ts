@@ -250,6 +250,8 @@ fields:
   mode: owner-only
 links:
   - { rel: governs, to: operation.contact.save }
+files:
+  - src/worker/routes/contacts.ts
 `,
   "thing.webapp/section.domain/entity.ContactRecord/node.yaml": `
 id: entity.ContactRecord
@@ -258,6 +260,8 @@ fields:
   name: Contact record
   owningThing: thing.webapp
   revision: 1
+files:
+  - src/worker/routes/contacts.ts
 `,
   "thing.webapp/section.domain/node.yaml": `
 id: section.domain
@@ -278,6 +282,8 @@ fields:
   revision: 1
 links:
   - { rel: writes, to: entity.ContactRecord }
+files:
+  - src/worker/routes/contacts.ts
 `,
   "thing.webapp/section.runtime/binding.d1/node.yaml": `
 id: binding.d1
@@ -398,6 +404,8 @@ fields:
   name: Add contact
   owningThing: thing.webapp
   revision: 1
+files:
+  - src/ui/people/**
 `,
   "thing.webapp/section.ui/screen.people/node.yaml": `
 id: screen.people
@@ -407,6 +415,8 @@ fields:
   owningThing: thing.webapp
   revision: 1
   route: /people
+files:
+  - src/ui/people/**
 criteria:
   - id: C.people.list
     title: People screen lists contacts
@@ -480,12 +490,6 @@ export const appFiles: Record<string, string> = {
   "src/worker/health.ts": "ok",
   "src/ui/people/index.html": "<main></main>",
   "src/worker/routes/contacts.ts": "routes",
-  "source-map.yaml": `
-- glob: src/ui/people/**
-  nodes: [screen.people, component.AddContactDialog]
-- glob: src/worker/routes/contacts.ts
-  nodes: [operation.contact.save, policy.ownerOnly, entity.ContactRecord]
-`,
 };
 
 export const genomeMap = () => new Map(Object.entries(genomeFiles));

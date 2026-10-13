@@ -1,0 +1,7 @@
+id: endpoint.system
+kind: endpoint
+fields:
+  name: System summary
+  description: "Returns one System's summary: head, phase, open candidates and signifiers."
+  route: GET /api/systems/:id
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

@@ -5,6 +5,5 @@ fields:
   actor: system
   action: Connection active; both consents recorded; private goals and notes stay unshared
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.operations

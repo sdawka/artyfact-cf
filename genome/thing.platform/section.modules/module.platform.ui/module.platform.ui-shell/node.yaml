@@ -1,0 +1,9 @@
+id: module.platform.ui-shell
+kind: module
+fields:
+  name: Shell
+  description: Top bar, side navigation, command palette and routes.
+  path: src/app
+files:
+  - src/app/**
+  - src/main.tsx

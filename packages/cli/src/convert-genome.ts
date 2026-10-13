@@ -1,4 +1,4 @@
-import { existsSync, lstatSync, mkdirSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, lstatSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { parseArgs } from "node:util";
 import { fileURLToPath } from "node:url";
@@ -11,19 +11,20 @@ import type { Io } from "./main.ts";
 const here = dirname(fileURLToPath(import.meta.url));
 
 /**
- * `artyfact convert-genome <src> <dst> [--templates dir]`: writes the v2 node tree for the v1 Genome in `src` into
- * `dst`, which must not exist or be empty. Only the Genome's YAML is read; `src` is never changed. Templates come from
- * `--templates`, else the checkout's `packages/templates`.
+ * `artyfact convert-genome <src> <dst> [--templates dir] [--source-map file]`: writes the v2 node tree for the v1
+ * Genome in `src` into `dst`, which must not exist or be empty. Only the Genome's YAML is read; `src` is never changed.
+ * Templates come from `--templates`, else the checkout's `packages/templates`. `--source-map` is the app repo's v1
+ * `source-map.yaml`: its globs become the named nodes' `files`.
  */
 export function convertGenomeCommand(argv: string[], io: Pick<Io, "cwd" | "out" | "root">): number {
   let parsed;
   try {
-    parsed = parseArgs({ args: argv, options: { templates: { type: "string" } }, allowPositionals: true });
+    parsed = parseArgs({ args: argv, options: { templates: { type: "string" }, "source-map": { type: "string" } }, allowPositionals: true });
   } catch (e) {
     throw new CliError((e as Error).message);
   }
   const args = parsed.positionals;
-  if (args.length !== 2) throw new CliError("usage: artyfact convert-genome <src> <dst> [--templates dir]");
+  if (args.length !== 2) throw new CliError("usage: artyfact convert-genome <src> <dst> [--templates dir] [--source-map file]");
   const tplDir = parsed.values.templates ? resolve(io.cwd, parsed.values.templates) : join(io.root ?? resolve(here, "../../.."), "packages", "templates");
   if (!existsSync(tplDir)) throw new CliError(`templates directory ${tplDir} not found; pass --templates`);
   const src = resolve(io.cwd, args[0]!), dst = resolve(io.cwd, args[1]!);
@@ -31,9 +32,11 @@ export function convertGenomeCommand(argv: string[], io: Pick<Io, "cwd" | "out" 
   const files = readDir(src);
   if (!isLegacyGenome(Object.keys(files))) throw new CliError(`${args[0]} is not a v1 Genome (no system.yaml, or it already has a root node.yaml)`);
   if (existsSync(dst) && (!lstatSync(dst).isDirectory() || readdirSync(dst).length)) throw new CliError(`${args[1]} exists and is not an empty directory`);
+  const mapPath = parsed.values["source-map"] === undefined ? undefined : resolve(io.cwd, parsed.values["source-map"]);
+  if (mapPath && !existsSync(mapPath)) throw new CliError(`source map ${parsed.values["source-map"]} not found`);
   let tree: Map<string, string>;
   try {
-    tree = convertV1(files, readDir(tplDir));
+    tree = convertV1(files, readDir(tplDir), { sourceMap: mapPath && readFileSync(mapPath, "utf8") });
   } catch (e) {
     throw new CliError(`cannot convert ${args[0]}: ${(e as Error).message}`);
   }

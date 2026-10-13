@@ -1,0 +1,7 @@
+id: export.rules.parse
+kind: export
+fields:
+  name: parse
+  signature: "export function parse(src: string, name: string): Program"
+  stability: stable
+  description: Parses Datalog source into a Program, or throws RuleParseError naming the line.

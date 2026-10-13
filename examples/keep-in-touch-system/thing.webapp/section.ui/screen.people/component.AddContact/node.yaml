@@ -2,7 +2,5 @@ id: component.AddContact
 kind: component
 fields:
   name: AddContact
-  owningThing: thing.webapp
-  revision: 1
   description: AddContact control
   cardinality: exactly one

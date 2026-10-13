@@ -1,5 +1,5 @@
 import {
-  composeTemplates, GenomeTreeError, isLegacyGenome, loadTemplate, parseTree, projectTree, TemplateCompositionError,
+  composeTemplates, GenomeTreeError, instantiateNodes, isLegacyGenome, loadTemplate, parseTree, projectTree, TemplateCompositionError,
   type GenomeFiles, type GenomeTree, type Graph, type GraphNode, type Template, type TemplateUse,
 } from "@artyfact/ontology";
 import { index, type ModelIndex } from "./model-index.ts";
@@ -68,8 +68,13 @@ export interface SystemModel {
   graph: Graph;
   /** The template the Genome is evaluated against: the System's composed with its Things' (`composeTemplates`). */
   template: Template;
+  /** Tree node id → its effective source globs (§3 `files` defaults), prefixed with the nearest `root`. */
+  files: Record<string, SourceGlob[]>;
   index: ModelIndex;
 }
+
+/** One effective source glob of a node: `declared` when the node's own `files` list it, else a template default. */
+export interface SourceGlob { glob: string; declared: boolean }
 
 /** A journey step's graph id: `<journey id>/<local id>` (`J.contacts/s1`), as rule findings name steps. */
 export const stepKey = (journey: string, step: string) => `${journey}/${step}`;
@@ -285,7 +290,6 @@ export function fromGraph(graph: Graph, templates: TemplateStore, tree: GenomeTr
       version: str(f.version) ?? ref.slice(at + 1), name: str(f.name) ?? ref, ...opt("description", str(f.description)), sections: strs(f.sections),
       nodes: nodes.filter((n) => n.fromTemplate === ref), criteria: criteria.filter((c) => c.fromTemplate === ref), hooks: hooks.filter((h) => h.fromTemplate === ref),
       ...opt("scaffold", isObj(f.scaffold) ? f.scaffold as schema.Template["scaffold"] : undefined),
-      ...opt("sourceMapDefaults", Array.isArray(f.sourceMapDefaults) ? f.sourceMapDefaults as schema.Template["sourceMapDefaults"] : undefined),
       requires: strs(f.requires),
     };
   });
@@ -303,6 +307,7 @@ export function fromGraph(graph: Graph, templates: TemplateStore, tree: GenomeTr
   const model = {
     ...opt("revision", revision), system, purposes, externals, claims, ...opt("description", description), kits, things, templates: projectedTemplates,
     nodes, requirements, criteria, hooks, journeys, evolutions, origin, warnings: [], graph, template: composed(graph, templates, tree),
+    files: sourceFiles(graph, templates, tree),
   };
   return { ...model, index: index(model) };
 }
@@ -319,6 +324,40 @@ function composed(graph: Graph, templates: TemplateStore, tree: GenomeTree): Tem
     if (e instanceof TemplateCompositionError) throw new ModelParseError(rootPath, [{ path: ["template"], message: e.message }], "template-composition");
     throw e;
   }
+}
+
+/** `s` with glob metacharacters backslash-escaped, so an id filled into a kind default matches only itself. */
+const globEscape = (s: string) => s.replace(/[*?[\]{}()!+@,|^$\\]/g, "\\$&");
+
+/**
+ * Each tree node's effective globs (design §3): its kind's `files` (from the nearest template that declares the kind,
+ * `{id}`/`{slug}` filled in), its prefilled template node's `files`, the template's root `files` for the node that
+ * instantiates it, and its own `files`; each prefixed with the nearest `root` at or above the node.
+ */
+function sourceFiles(graph: Graph, templates: TemplateStore, tree: GenomeTree): Record<string, SourceGlob[]> {
+  const out: Record<string, SourceGlob[]> = {};
+  const walk = (id: string, owners: { id: string; t: Template }[], root: string) => {
+    const n = tree.nodes.get(id)!;
+    const ref = n.file.template ?? (id === tree.root ? graph.template : undefined);
+    const chain = ref ? [{ id, t: templateOf(templates, ref, n.path) }, ...owners] : owners;
+    const at = n.file.root !== undefined ? n.file.root.replace(/\/+$/, "") : root;
+    const slug = n.dir.slice(n.dir.lastIndexOf("/") + 1);
+    const kindFiles = chain.find((o) => o.t.kinds[n.file.kind])?.t.kinds[n.file.kind]?.files ?? [];
+    const owner = chain.find((o) => o.id !== id);
+    const defaults = [
+      ...kindFiles.map((g) => g.replaceAll("{id}", globEscape(id)).replaceAll("{slug}", slug)),
+      ...(owner ? instantiateNodes(owner.t, owner.id).find((x) => x.id === id)?.files ?? [] : []),
+      ...(ref ? chain[0]!.t.files ?? [] : []),
+    ];
+    const own = n.file.files ?? [];
+    const globs = new Map<string, boolean>();
+    for (const g of defaults) globs.set(g, false);
+    for (const g of own) globs.set(g, true);
+    if (globs.size) out[id] = [...globs].map(([g, declared]) => ({ glob: at ? `${at}/${g}` : g, declared }));
+    for (const c of n.children) walk(c, chain, at);
+  };
+  walk(tree.root, [], "");
+  return out;
 }
 
 /** Steps from `start` along `next` (breadth first), then any step the walk did not reach, in tree order. */

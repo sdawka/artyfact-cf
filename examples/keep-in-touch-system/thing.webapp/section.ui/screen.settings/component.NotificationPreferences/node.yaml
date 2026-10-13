@@ -2,8 +2,6 @@ id: component.NotificationPreferences
 kind: component
 fields:
   name: NotificationPreferences
-  owningThing: thing.webapp
-  revision: 1
   cardinality: exactly one
 links:
   - { rel: reads, to: entity.Account }

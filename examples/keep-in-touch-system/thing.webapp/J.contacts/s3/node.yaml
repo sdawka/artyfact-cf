@@ -5,8 +5,6 @@ fields:
   actor: user
   action: Enter name and optional channel fields
   state: dialog open
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.screens
   next:

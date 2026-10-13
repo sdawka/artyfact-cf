@@ -1,0 +1,8 @@
+id: module.platform.git
+kind: module
+fields:
+  name: Git wire
+  description: Encodes Git objects, packs and pkt-lines for editor pushes without a Git library.
+  path: worker/git
+files:
+  - worker/git/**

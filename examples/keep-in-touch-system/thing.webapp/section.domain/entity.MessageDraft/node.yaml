@@ -2,8 +2,6 @@ id: entity.MessageDraft
 kind: entity
 fields:
   name: MessageDraft
-  owningThing: thing.webapp
-  revision: 1
   description: ID, author, exactly one recipient, body, approved attachments and state; no autonomous send
   source:
     doc: keep-in-touch-world-specification

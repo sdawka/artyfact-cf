@@ -2,8 +2,6 @@ id: entity.Subscription
 kind: entity
 fields:
   name: Subscription
-  owningThing: thing.webapp
-  revision: 1
   description: Subscriber, author, approval, start time and state; directed and independently revocable
   source:
     doc: keep-in-touch-world-specification

@@ -27,7 +27,6 @@ const V1: Record<string, string> = {
   "src/worker/old.ts": "old",
   "src/worker/routes/contacts.ts": "routes",
   "src/ui/people/index.html": "<main></main>",
-  "source-map.yaml": "- glob: src/ui/people/**\n  nodes: [screen.people]\n",
   "README.md": "template readme",
   ".dev.vars": "SECRET=1",
 };

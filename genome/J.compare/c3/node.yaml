@@ -1,0 +1,12 @@
+id: J.compare/c3
+kind: step
+fields:
+  step: c3
+  actor: system
+  action: Shows the System compare and the Genome delta by node
+  kind: reaction
+  next:
+    - to: c4
+links:
+  - { rel: stepOperation, to: endpoint.compare-system }
+  - { rel: stepOperation, to: endpoint.compare-genome }

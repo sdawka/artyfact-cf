@@ -6,7 +6,6 @@ fields:
   action: "Recoverable validation failure: ErrorSummary shown, entered values kept"
   state: validation error
   kind: failure
-  unresolved: false
   requirementRefs:
     - S.webapp.screens
   next:

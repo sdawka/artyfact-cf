@@ -63,7 +63,7 @@ const USAGE = `artyfact <command>
   status [--json]
   compose <rid> <rid> ...
   parts create|extract|validate|publish|compose|upgrade ...
-  convert-genome <src> <dst> [--templates dir]
+  convert-genome <src> <dst> [--templates dir] [--source-map file]
         write the node-tree (v2) form of the v1 Genome in <src> into a new directory <dst>
         (templates default to the checkout's packages/templates)
 

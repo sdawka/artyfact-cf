@@ -1,0 +1,8 @@
+id: module.platform.promotion
+kind: module
+fields:
+  name: Promotion gate
+  description: Decides which criteria block promotion and whether their verdicts allow it.
+  path: worker/promotion.ts
+files:
+  - worker/promotion.ts

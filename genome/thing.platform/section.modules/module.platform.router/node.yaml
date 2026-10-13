@@ -1,0 +1,71 @@
+id: module.platform.router
+kind: module
+fields:
+  name: API router
+  description: Mounts the /api route groups, rejects reads of unknown Systems and maps errors to status codes.
+  path: worker/index.ts
+links:
+  - { rel: implements, to: endpoint.health }
+  - { rel: implements, to: endpoint.systems }
+  - { rel: implements, to: endpoint.import }
+  - { rel: implements, to: endpoint.system }
+  - { rel: implements, to: endpoint.model }
+  - { rel: implements, to: endpoint.readiness }
+  - { rel: implements, to: endpoint.work }
+  - { rel: implements, to: endpoint.create-evolution }
+  - { rel: implements, to: endpoint.start-work }
+  - { rel: implements, to: endpoint.accept-evolution }
+  - { rel: implements, to: endpoint.packet }
+  - { rel: implements, to: endpoint.checkpoint }
+  - { rel: implements, to: endpoint.submit }
+  - { rel: implements, to: endpoint.reject }
+  - { rel: implements, to: endpoint.review }
+  - { rel: implements, to: endpoint.candidates }
+  - { rel: implements, to: endpoint.evaluate }
+  - { rel: implements, to: endpoint.evaluations }
+  - { rel: implements, to: endpoint.conflicts }
+  - { rel: implements, to: endpoint.promote }
+  - { rel: implements, to: endpoint.events }
+  - { rel: implements, to: endpoint.files }
+  - { rel: implements, to: endpoint.file }
+  - { rel: implements, to: endpoint.editor-commit }
+  - { rel: implements, to: endpoint.changelog }
+  - { rel: implements, to: endpoint.changelog-entry }
+  - { rel: implements, to: endpoint.revisions }
+  - { rel: implements, to: endpoint.compare-system }
+  - { rel: implements, to: endpoint.compare-genome }
+  - { rel: implements, to: endpoint.compare-file }
+  - { rel: implements, to: endpoint.history }
+  - { rel: implements, to: endpoint.builds }
+  - { rel: implements, to: endpoint.report-build }
+  - { rel: implements, to: endpoint.report-realization-build }
+  - { rel: implements, to: endpoint.deployments }
+  - { rel: implements, to: endpoint.create-deployment }
+  - { rel: implements, to: endpoint.phenome-events }
+  - { rel: implements, to: endpoint.ingest-events }
+  - { rel: implements, to: endpoint.parts }
+  - { rel: implements, to: endpoint.publish-part }
+  - { rel: implements, to: endpoint.template-upgrade }
+  - { rel: implements, to: endpoint.evolutions }
+  - { rel: implements, to: endpoint.evolution }
+  - { rel: implements, to: endpoint.evolution-realizations }
+  - { rel: implements, to: endpoint.evolution-candidates }
+  - { rel: implements, to: endpoint.realizations }
+  - { rel: implements, to: endpoint.realization }
+  - { rel: implements, to: endpoint.sync }
+  - { rel: implements, to: endpoint.realization-builds }
+  - { rel: implements, to: endpoint.artifacts }
+  - { rel: implements, to: endpoint.ingest-token }
+  - { rel: implements, to: endpoint.part }
+  - { rel: implements, to: endpoint.system-parts }
+  - { rel: implements, to: endpoint.system-part }
+  - { rel: implements, to: endpoint.publish-system-part }
+  - { rel: implements, to: endpoint.apply-template-upgrade }
+  - { rel: implements, to: endpoint.intents-create }
+  - { rel: implements, to: endpoint.intents-get }
+  - { rel: implements, to: endpoint.intents-reply }
+  - { rel: implements, to: endpoint.intents-accept }
+files:
+  - worker/index.ts
+  - worker/routes/**
+  - worker/errors.ts

@@ -4,8 +4,6 @@ fields:
   step: z1
   actor: user
   action: Open Settings
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.screens
   next:

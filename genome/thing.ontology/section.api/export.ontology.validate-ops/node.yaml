@@ -1,0 +1,7 @@
+id: export.ontology.validate-ops
+kind: export
+fields:
+  name: validateOps
+  signature: "export function validateOps(ops: Op[], template: RouteVocabularySource, g: Graph): OpProblem[]"
+  stability: stable
+  description: Checks proposed ops for unknown nodes, kinds and relations without calls.

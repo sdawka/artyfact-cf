@@ -5,6 +5,5 @@ fields:
   actor: system
   action: Block in force until removed
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.operations

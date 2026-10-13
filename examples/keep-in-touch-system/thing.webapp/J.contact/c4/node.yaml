@@ -5,7 +5,6 @@ fields:
   actor: user
   action: Log what happened?
   kind: branch
-  unresolved: false
   requirementRefs:
     - S.webapp.qualification
   next:

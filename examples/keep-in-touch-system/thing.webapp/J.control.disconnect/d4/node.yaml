@@ -5,7 +5,6 @@ fields:
   actor: counterpart
   action: Counterpart's access to shared capabilities ends; revocation checked against current state on every read and send
   kind: reaction
-  unresolved: false
   requirementRefs:
     - S.webapp.concurrency
   next:

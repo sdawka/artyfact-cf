@@ -1,0 +1,17 @@
+id: module.effects.context
+kind: module
+fields:
+  name: Context and support
+  description: Settings context, presets, GPU support checks, colour and pointer helpers.
+  path: src/context.tsx
+links:
+  - { rel: implements, to: export.effects.provider }
+files:
+  - src/context.tsx
+  - src/presets.ts
+  - src/support.ts
+  - src/color.ts
+  - src/pointer.ts
+  - src/interpolate.ts
+  - src/Fallback.tsx
+  - src/index.ts

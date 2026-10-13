@@ -11,7 +11,7 @@ import type {
 import { canonicalJson } from "./util";
 import { diffTreesAcross } from "./artifacts/candidates";
 import { artifactsErrorCode, artifactsFor, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
-import { loadSourceMap, nodesForPath, type SourceMapEntry } from "./artifacts/source-map";
+import { nodesForPath, sourceMapFor } from "./artifacts/source-map";
 import type { HeadState } from "./do/system-authority";
 import { badRequest, HttpError, notFound, unprocessable } from "./errors";
 import { genomeAt, systemStub, type SystemApi } from "./service";
@@ -313,17 +313,10 @@ export async function changedFiles(env: Env, from: ResolvedRef | null, to: Resol
       : diffTreesAcross(null, { repo: rb, commit: to.commit }));
 }
 
-/** The app Thing's source map at `commit`: its template's defaults (from model `m`) ∪ the repo's `source-map.yaml`. */
-async function sourceMapAt(m: SystemModel | undefined, repo: ArtifactsRepoLike, commit: string): Promise<SourceMapEntry[]> {
-  const thing = m?.things.find((t) => t.artifacts.some((a) => a.type === "worker-fullstack")) ?? m?.things[0];
-  const template = thing?.templateRef ? m?.templates.find((t) => `${t.id}@${t.version}` === thing.templateRef) : undefined;
-  const blob = await repo.readFile({ ref: commit, path: "source-map.yaml" });
-  return loadSourceMap(template?.sourceMapDefaults, thing?.id, blob ? await blob.text() : undefined);
-}
-
-export async function pathNodesAt(env: Env, m: SystemModel | undefined, to: ResolvedRef, paths: string[]): Promise<Record<string, string[]>> {
+/** Model nodes per app path, from the node-attached source map of the Genome model `m` (none without one). */
+export function pathNodesAt(m: SystemModel | undefined, paths: string[]): Record<string, string[]> {
   if (!paths.length) return {};
-  const sm = await withRepo(artifactsFor(env), to.repo, (r) => sourceMapAt(m, r, to.commit));
+  const sm = m ? sourceMapFor(m) : [];
   return Object.fromEntries(paths.map((p) => [p, nodesForPath(sm, p).filter((n) => !n.startsWith("unmapped:"))]));
 }
 
@@ -348,7 +341,7 @@ export async function compareSystem(env: Env, head: HeadState, from: SystemSide 
   const gFiles = typeof genomeFiles === "string" ? null : genomeFiles;
   const gLoadError = genome.loadError ?? (typeof genomeFiles === "string" ? genomeFiles : undefined);
   const app = to.app && files
-    ? { from: from?.app ?? null, to: to.app, files, pathNodes: await pathNodesAt(env, genome.toModel, to.app, [...files.added, ...files.modified, ...files.removed]) }
+    ? { from: from?.app ?? null, to: to.app, files, pathNodes: pathNodesAt(genome.toModel, [...files.added, ...files.modified, ...files.removed]) }
     : null;
   const fc = from?.commit.composition, tc = to.commit.composition;
   const manifest = {

@@ -1,0 +1,7 @@
+id: export.ontology.evaluate
+kind: export
+fields:
+  name: evaluate
+  signature: "export function evaluate(template: Template, input: Graph | unknown, opts?: EvaluateOptions): Readiness"
+  stability: stable
+  description: Evaluates a graph against a template with the core and template packs; synchronous, no calls.

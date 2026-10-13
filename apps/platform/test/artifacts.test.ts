@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { forkAndWait, withRepo } from "../worker/artifacts/client";
 import { diffTrees } from "../worker/artifacts/candidates";
 import { listTree, walkTree } from "../worker/artifacts/genome-source";
-import { loadSourceMap, nodesForPath, parseSourceMap, permittedGlobs } from "../worker/artifacts/source-map";
+import { nodesForPath, permittedGlobs, sourceMapFor } from "../worker/artifacts/source-map";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 
 function threeCommits() {
@@ -106,36 +106,34 @@ describe("forkAndWait", () => {
 });
 
 describe("source map", () => {
-  const repoYaml = `
-- glob: src/ui/people/**
-  nodes: [screen.people, component.AddContactDialog]
-- glob: src/worker/routes/contacts.ts
-  nodes: [operation.contact.save, policy.ownerOnly]
-`;
-  const defaults = [
-    { glob: "src/worker/health.ts", nodes: ["$thing"] },
-    { glob: "src/ui/**", nodes: ["section.ui"] },
-    { glob: "system/**", nodes: ["genome"] },
-  ];
+  // Effective node globs as the loader computes them (`SystemModel.files`): template defaults and the nodes' own files.
+  const files = {
+    "thing.webapp": [{ glob: "src/worker/health.ts", declared: false }],
+    "section.ui": [{ glob: "src/ui/**", declared: false }],
+    "screen.people": [{ glob: "src/ui/people/**", declared: true }],
+    "component.AddContactDialog": [{ glob: "src/ui/people/**", declared: true }],
+    "operation.contact.save": [{ glob: "src/worker/routes/contacts.ts", declared: true }],
+    "policy.ownerOnly": [{ glob: "src/worker/routes/contacts.ts", declared: true }],
+  };
 
-  it("parses list and object forms", () => {
-    expect(parseSourceMap(repoYaml)).toHaveLength(2);
-    expect(parseSourceMap("src/a.ts: [x.y]\nsrc/b/**: z")).toEqual([
-      { glob: "src/a.ts", nodes: ["x.y"] }, { glob: "src/b/**", nodes: ["z"] },
-    ]);
-  });
-  it("unions template defaults (with $thing rebased) and the repo file", () => {
-    const sm = loadSourceMap(defaults, "thing.webapp", repoYaml);
+  it("groups node globs by glob, keeping where each came from", () => {
+    const sm = sourceMapFor({ files });
     expect(sm.find((e) => e.glob === "src/worker/health.ts")).toEqual({ glob: "src/worker/health.ts", nodes: ["thing.webapp"], origin: "template" });
-    expect(sm.filter((e) => e.origin === "repo")).toHaveLength(2);
+    expect(sm.find((e) => e.glob === "src/ui/people/**")).toEqual({ glob: "src/ui/people/**", nodes: ["screen.people", "component.AddContactDialog"], origin: "node" });
+    expect(sm.filter((e) => e.origin === "node")).toHaveLength(2);
   });
   it("maps paths to node ids, unmapped:<path> on a miss", () => {
-    const sm = loadSourceMap(defaults, "thing.webapp", repoYaml);
+    const sm = sourceMapFor({ files });
     expect(nodesForPath(sm, "src/ui/people/list.html").sort()).toEqual(["component.AddContactDialog", "screen.people", "section.ui"]);
     expect(nodesForPath(sm, "README.md")).toEqual(["unmapped:README.md"]);
   });
+  it("matches an escaped {id} default only literally", () => {
+    const sm = sourceMapFor({ files: { "screen.*": [{ glob: "ids/screen.\\*.ts", declared: false }] } });
+    expect(nodesForPath(sm, "ids/screen.*.ts")).toEqual(["screen.*"]);
+    expect(nodesForPath(sm, "ids/screen.people.ts")).toEqual(["unmapped:ids/screen.people.ts"]);
+  });
   it("permits globs for affected nodes and their non-root ancestors", () => {
-    const sm = loadSourceMap(defaults, "thing.webapp", repoYaml);
+    const sm = sourceMapFor({ files });
     const path = (id: string) =>
       ({ "screen.people": ["system.k", "thing.webapp", "section.ui", "screen.people"], "operation.contact.save": ["system.k", "thing.webapp", "section.domain", "operation.contact.save"] })[id] ?? [id];
     const kindOf = (id: string) => (id.startsWith("system.") ? "system" : id.startsWith("thing.") ? "thing" : "node");

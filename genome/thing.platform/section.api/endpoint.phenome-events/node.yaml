@@ -1,0 +1,7 @@
+id: endpoint.phenome-events
+kind: endpoint
+fields:
+  name: Phenome events
+  description: Lists runtime events from deployed apps, filtered by deployment, commit, kind or realization.
+  route: GET /api/systems/:id/phenome/events
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

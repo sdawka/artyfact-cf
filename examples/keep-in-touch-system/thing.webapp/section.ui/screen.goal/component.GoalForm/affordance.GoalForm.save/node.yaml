@@ -2,8 +2,6 @@ id: affordance.GoalForm.save
 kind: affordance
 fields:
   name: Save
-  owningThing: thing.webapp
-  revision: 1
   actor: ext.owner
   trigger: Owner activates Save
   preconditions:

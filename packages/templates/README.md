@@ -14,7 +14,7 @@ packsFor([{ id: "readiness", version: "1" }]);              // [{ id, version, s
 ```
 system/<name>@<v>/template.yaml      meta@1 (the engine's format); extends template.meta.artyfact-genome@1
 system/<name>@<v>/template.v1.yaml   the same template in the legacy artyfact shape (deleted with the v1 readers in W4)
-thing/<name>@<v>/template.yaml       + template.v1.yaml, and optional criteria.yaml, source-map.defaults.yaml, scaffold.yaml
+thing/<name>@<v>/template.yaml       + template.v1.yaml, and optional criteria.yaml, scaffold.yaml
 rule-packs/<id>@<v>.dl               legacy-dialect packs for @artyfact/model's validate (deleted in W4)
 ```
 
@@ -23,7 +23,7 @@ rule-packs/<id>@<v>.dl               legacy-dialect packs for @artyfact/model's 
 `template.yaml` is a `meta@1` template (`docs/design/ontology.md` section 3). Kinds, relations, legal `parents` and the per-kind view hints (label, plural, glyph, colour token, Map layer, Inspector field order) are inherited from the base `template.meta.artyfact-genome@1` in `@artyfact/ontology`, which the UI renders from. Each template adds what is its own:
 
 - `rules`: the domain packs. The System template owns `readiness`, `theory` and `topology.private-pairs` (with its `topology.multiRecipient` question); the Thing templates own `authorization` and `journeys`. The generic `facts` and `metamodel` packs stay in the base.
-- `nodes` and `criteria`: the prefilled nodes (`$self` is the instantiating node), criteria and hooks. `files` on the worker's root and prefilled nodes replace `source-map.defaults.yaml` for the Genome v2 source map (globs are relative to the Thing's `root`).
+- `nodes` and `criteria`: the prefilled nodes (`$self` is the instantiating node), criteria and hooks. `files` on kinds, prefilled nodes and the template root are the defaults of the node-attached source map (globs are relative to the Thing's `root`; see docs/design/ontology.md §3).
 
 ```ts
 import { composeTemplates } from "@artyfact/ontology";
@@ -36,7 +36,7 @@ composeTemplates({ template: loadMetaTemplate(systemRef), self: systemId },
 
 A test keeps `template.yaml` and `template.v1.yaml` in step (prefilled nodes, criteria, hooks, source globs) and checks that Keep in Touch yields artyfact's findings against the composed template.
 
-`templates.get` still returns the legacy `Template` from `template.v1.yaml`, folding the sibling files in: `criteria.yaml` (`criteria:` + `hooks:`), `source-map.defaults.yaml` (list of `{glob, nodes}`) and the `repo`/`path` of `scaffold.yaml`. Raw files are available through `templateFile(ref, name)`.
+`templates.get` still returns the legacy `Template` from `template.v1.yaml`, folding the sibling files in: `criteria.yaml` (`criteria:` + `hooks:`) and the `repo`/`path` of `scaffold.yaml`. Raw files are available through `templateFile(ref, name)`.
 
 ## The `$thing` placeholder
 

@@ -1,0 +1,9 @@
+id: command.checkpoint
+kind: command
+fields:
+  name: checkpoint
+  usage: artyfact checkpoint "<message>"
+  exitCodes: 0 on success, 1 on any error.
+  description: Commits the workspace if dirty, pushes and records a checkpoint. Exits 1 outside a workspace.
+links:
+  - { rel: calls, to: endpoint.checkpoint }

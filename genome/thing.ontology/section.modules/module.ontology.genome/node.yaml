@@ -1,0 +1,9 @@
+id: module.ontology.genome
+kind: module
+fields:
+  name: Genome contract
+  description: node.yaml and view-hint schemas.
+  path: src/genome
+files:
+  - src/genome/**
+  - src/index.ts

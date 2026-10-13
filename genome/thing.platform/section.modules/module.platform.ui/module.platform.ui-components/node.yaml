@@ -1,0 +1,8 @@
+id: module.platform.ui-components
+kind: module
+fields:
+  name: Components
+  description: "Shared presentational components: chips, cards, tabs, diffs and code views."
+  path: src/components
+files:
+  - src/components/**

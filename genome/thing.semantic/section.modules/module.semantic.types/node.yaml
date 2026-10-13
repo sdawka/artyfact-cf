@@ -1,0 +1,10 @@
+id: module.semantic.types
+kind: module
+fields:
+  name: Types
+  description: The engine's answer and question types under the builders' names, and the model types the questions read.
+  path: src/types.ts
+files:
+  - src/types.ts
+  - src/model-types.ts
+  - src/index.ts

@@ -1,0 +1,7 @@
+id: endpoint.evolution-realizations
+kind: endpoint
+fields:
+  name: Evolution realizations
+  description: Lists the realizations started for one Evolution.
+  route: GET /api/systems/:id/evolutions/:eid/realizations
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

@@ -2,7 +2,7 @@ import { NODE_FILE } from "@artyfact/ontology/genome";
 import type { schema, SystemModel } from "@artyfact/model";
 import { stringify as toYaml } from "yaml";
 import type { Certainty, TaskPacket } from "../../shared/api";
-import { globMatch, permittedGlobs, type SourceMapEntry } from "../artifacts/source-map";
+import { globMatch, permittedGlobs, sourceMapFor, type SourceMapEntry } from "../artifacts/source-map";
 import { isBlocking } from "../promotion";
 import { canonicalJson, sha256Hex } from "../util";
 
@@ -13,7 +13,6 @@ export interface PacketInput {
   model: SystemModel;
   evolution: schema.Evolution;
   workspace: TaskPacket["workspace"];
-  sourceMap: SourceMapEntry[];
   /** Blob paths in the fork's base tree (for entry files). */
   baseTreePaths: string[];
   commands: string[];
@@ -42,7 +41,7 @@ const kindOf = (m: SystemModel) => (id: string) => m.index.byId[id]?.type === "n
 function entryFiles(sm: SourceMapEntry[], affected: string[], tree: string[]): TaskPacket["entryFiles"] {
   const out = new Map<string, Certainty>();
   for (const e of sm.filter((x) => x.nodes.some((n) => affected.includes(n)))) {
-    const certainty: Certainty = e.origin === "repo" ? "declared" : "assumed";
+    const certainty: Certainty = e.origin === "node" ? "declared" : "assumed";
     const hits = tree.filter((p) => globMatch(e.glob, p));
     if (!hits.length && !out.has(e.glob)) out.set(e.glob, "proposed");
     for (const p of hits) if (out.get(p) !== "declared") out.set(p, certainty);
@@ -95,11 +94,13 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
   const related = allCommitments.filter((c) => c.features.some((f) => features.has(f)));
   const commitments = (related.length ? related : allCommitments).map((c) => c.statement);
 
+  // App scope comes from the affected nodes' `files` (and their ancestors' below the Thing).
+  const sourceMap = i.target === "app" ? sourceMapFor(m) : [];
   // An empty scope is unconstrained: everything is permitted, and the protected paths are still refused first.
   const permittedPaths = !affected.length
     ? [i.target === "genome" && i.genomePrefix ? `${i.genomePrefix.replace(/\/+$/, "")}/**` : "**"]
     : i.target === "app"
-      ? permittedGlobs(i.sourceMap, affected, (id) => m.index.path(id), kindOf(m))
+      ? permittedGlobs(sourceMap, affected, (id) => m.index.path(id), kindOf(m))
       : genomePermitted(m, affected, i.genomePrefix ?? "");
   const protectedPaths = protectedPathsFor(i.target);
   const required = acceptanceCriteria.filter((c) => c.gate).map((c) => c.id);
@@ -124,7 +125,7 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
     commitments,
     permittedPaths,
     protectedPaths,
-    entryFiles: i.target === "app" ? entryFiles(i.sourceMap, affected, i.baseTreePaths) : [],
+    entryFiles: i.target === "app" ? entryFiles(sourceMap, affected, i.baseTreePaths) : [],
     commands: i.commands,
     concurrentWork: i.concurrentWork,
     startCommand: startCommand(i.systemId, i.evolution.id, i.realizationId),

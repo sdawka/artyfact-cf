@@ -1,0 +1,7 @@
+id: endpoint.conflicts
+kind: endpoint
+fields:
+  name: Conflicts
+  description: Reports file, soft-semantic and hard-semantic conflicts between candidates in flight.
+  route: GET /api/systems/:id/conflicts
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

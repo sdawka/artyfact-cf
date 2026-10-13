@@ -1,0 +1,7 @@
+id: endpoint.evaluations
+kind: endpoint
+fields:
+  name: Evaluations
+  description: Lists evaluations with question, method, observations, verdict and limits.
+  route: GET /api/systems/:id/evaluations
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

@@ -1,0 +1,7 @@
+id: artifact.model
+kind: artifact
+fields:
+  type: external
+  repo: artyfact-cf
+  scope:
+    - packages/model

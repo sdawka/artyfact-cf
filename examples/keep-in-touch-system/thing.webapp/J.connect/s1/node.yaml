@@ -4,8 +4,6 @@ fields:
   step: s1
   actor: user
   action: Open Person and choose Invite
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.screens
   next:

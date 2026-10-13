@@ -5,7 +5,6 @@ fields:
   actor: system
   action: Goal version incremented, due state recomputed, obsolete jobs cancelled; no ContactEvent created
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.due
 links:

@@ -193,6 +193,18 @@ describe("POST /intents/:pid/accept", () => {
     expect(r.json.candidate.changedSubjects).toEqual(["screen.today"]);
   });
 
+  it("scopes an app realization of the accepted Evolution to the touched nodes' files", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the People screen says")).json;
+    const r = await accept(s, p, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.evolution.affectedNodes).toEqual(["screen.people"]);
+    const started = await startWork(env, s.systemId, r.json.evolution.id, { target: "app", origin: "editor", agentLabel: "human:sam", role: "implementer" }, "http://x");
+    // screen.people's own files, plus its section's template default (section.ui is below the Thing).
+    expect(started.packet.permittedPaths.sort()).toEqual(["public/people/**", "src/ui/**"]);
+    expect(started.packet.entryFiles).toContainEqual({ path: "public/people/index.html", certainty: "declared" });
+  });
+
   it("lets only one of two concurrent accepts push", async () => {
     const s = await importSystem();
     const p = (await create(s, "Change what the Today screen says")).json;

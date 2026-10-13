@@ -1097,7 +1097,13 @@ export interface TemplateUpgradeFile {
   reason: string;
 }
 
-/** `GET /api/systems/:id/template-upgrade?ref=head`. */
+/** `GET /api/systems/:id/template-upgrade?ref=head` for a Thing template that ships no `scaffold.yaml`: nothing to upgrade from. */
+export interface TemplateUpgradeNoScaffold {
+  status: "no-scaffold";
+  template: string;
+}
+
+/** `GET /api/systems/:id/template-upgrade?ref=head` (200; {@link TemplateUpgradeNoScaffold} when the template has no scaffold). */
 export interface TemplateUpgradePlan {
   template: string;
   /** The lock's `scaffoldCommit`; null when the app repo has no lock. */

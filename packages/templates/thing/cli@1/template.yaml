@@ -106,6 +106,10 @@ relations:
     description: The module is the code that realises the target.
     from: [module]
     to: [command, option]
+  stepOperation:
+    description: The journey step runs the target. Redeclared so that a command can be a step's operation, beside the artyfact operation kind.
+    from: [step]
+    to: [operation, command]
 nodes:
   - id: template.thing.cli@1
     kind: template

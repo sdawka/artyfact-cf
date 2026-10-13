@@ -1,0 +1,7 @@
+id: export.model.diff
+kind: export
+fields:
+  name: diffModels
+  signature: "export function diffModels(a: SystemModel, b: SystemModel): SemanticDelta"
+  stability: stable
+  description: "Returns the semantic delta between two models: added, changed and removed nodes."

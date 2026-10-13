@@ -5,7 +5,6 @@ fields:
   actor: system
   action: Contact saved
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
 links:

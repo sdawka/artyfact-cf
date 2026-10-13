@@ -1,0 +1,14 @@
+id: module.cli.init
+kind: module
+fields:
+  name: Init
+  description: "init and platform-sync: repos, tokens and the import call."
+  path: src/init.ts
+links:
+  - { rel: implements, to: command.init }
+  - { rel: implements, to: command.platform-sync }
+files:
+  - src/init.ts
+  - src/cloud.ts
+  - src/safety.ts
+  - src/agents-md.ts

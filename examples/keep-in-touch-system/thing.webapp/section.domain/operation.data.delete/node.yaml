@@ -2,8 +2,6 @@ id: operation.data.delete
 kind: operation
 fields:
   name: Delete
-  owningThing: thing.webapp
-  revision: 1
   description: Owner reauthentication. Deletion revokes access immediately, cancels jobs and purges owned live data within seven days. Backup expiry follows a pinned retention policy disclosed separately
   source:
     doc: keep-in-touch-world-specification

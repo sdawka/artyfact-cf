@@ -5,7 +5,6 @@ fields:
   actor: system
   action: Owner reauthentication checked
   kind: branch
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
   next:

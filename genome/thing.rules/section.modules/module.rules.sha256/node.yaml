@@ -1,0 +1,9 @@
+id: module.rules.sha256
+kind: module
+fields:
+  name: SHA-256
+  description: Content hashes of rule packs.
+  path: src/sha256.ts
+files:
+  - src/sha256.ts
+  - src/index.ts

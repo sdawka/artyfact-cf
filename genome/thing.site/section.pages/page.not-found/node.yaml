@@ -1,0 +1,7 @@
+id: page.not-found
+kind: page
+fields:
+  name: Not found
+  route: /404
+  rendering: prerendered
+  description: Tells a visitor the page does not exist and links back to the home page and the guide.

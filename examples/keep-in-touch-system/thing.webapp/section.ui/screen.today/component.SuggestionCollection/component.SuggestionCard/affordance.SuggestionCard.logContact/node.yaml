@@ -2,8 +2,6 @@ id: affordance.SuggestionCard.logContact
 kind: affordance
 fields:
   name: Log contact
-  owningThing: thing.webapp
-  revision: 1
   actor: ext.owner
   trigger: Owner activates Log contact on a card
   preconditions:

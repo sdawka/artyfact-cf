@@ -2,8 +2,6 @@ id: operation.data.export
 kind: operation
 fields:
   name: Export
-  owningThing: thing.webapp
-  revision: 1
   description: Owner reauthentication. Export authorized records
   source:
     doc: keep-in-touch-world-specification

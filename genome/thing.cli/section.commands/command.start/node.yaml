@@ -1,0 +1,9 @@
+id: command.start
+kind: command
+fields:
+  name: start
+  usage: artyfact start <realizationId> [--dir d] [--platform url] --system sid --evolution eid
+  exitCodes: 0 on success, 1 on any error.
+  description: Clones the realization's fork with ARTYFACT_TOKEN, writes the task packet and an AGENTS.md block. Exits 1 without the token or secret.
+links:
+  - { rel: calls, to: endpoint.packet }

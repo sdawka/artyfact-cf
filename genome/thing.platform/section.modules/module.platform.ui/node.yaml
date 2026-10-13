@@ -1,0 +1,11 @@
+id: module.platform.ui
+kind: module
+fields:
+  name: Single-page app
+  description: "The React app served from Static Assets: Home, Map, Inspector, Work, Code, Changelog, Compare and the other views."
+  path: src
+links:
+  - { rel: dependsOn, to: module.effects.ambient }
+files:
+  - src/**
+  - index.html

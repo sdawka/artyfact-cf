@@ -1,0 +1,11 @@
+id: J.describe-change/d4
+kind: step
+fields:
+  step: d4
+  actor: user
+  action: Accepts the ops to keep
+  kind: action
+  next:
+    - to: d5
+links:
+  - { rel: stepOperation, to: endpoint.intents-accept }

@@ -2,8 +2,6 @@ id: entity.Account
 kind: entity
 fields:
   name: Account
-  owningThing: thing.webapp
-  revision: 1
   description: ID, identity-provider subject, display name, time zone and notification preferences; one authenticated owner
   source:
     doc: keep-in-touch-world-specification

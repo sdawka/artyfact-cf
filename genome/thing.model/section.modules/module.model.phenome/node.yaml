@@ -1,0 +1,8 @@
+id: module.model.phenome
+kind: module
+fields:
+  name: Phenome schema
+  description: Event header schema and limits for runtime events.
+  path: src/phenome.ts
+files:
+  - src/phenome.ts

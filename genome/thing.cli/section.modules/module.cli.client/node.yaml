@@ -1,0 +1,9 @@
+id: module.cli.client
+kind: module
+fields:
+  name: Platform client
+  description: Finds the platform and calls its API with the realization secret.
+  path: src/api.ts
+files:
+  - src/api.ts
+  - src/platform-url.ts

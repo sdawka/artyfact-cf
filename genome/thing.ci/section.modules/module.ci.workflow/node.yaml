@@ -1,0 +1,13 @@
+id: module.ci.workflow
+kind: module
+fields:
+  name: Workflow entry
+  description: Maps platform params onto @cloudflare/ci and wires the pipeline to steps, the sandbox and repo reads.
+  path: src/index.ts
+links:
+  - { rel: implements, to: workflow.artyfact-ci }
+  - { rel: implements, to: durable-object.ci-sandbox }
+  - { rel: implements, to: endpoint.ci-health }
+files:
+  - src/index.ts
+  - src/env.d.ts

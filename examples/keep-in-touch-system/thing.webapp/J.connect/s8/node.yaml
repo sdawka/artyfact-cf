@@ -5,7 +5,6 @@ fields:
   actor: system
   action: Atomically consume the invite and create or return the unique active pair
   kind: branch
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
     - S.webapp.concurrency

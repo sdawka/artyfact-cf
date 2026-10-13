@@ -60,7 +60,12 @@ describe("Genome v2 projection parity (Keep in Touch)", () => {
     n.kind === "hook" ? { ...n.fields, criteria: [...(n.fields.criteria as string[])].sort() }
       : n.kind === "template" ? { ...n.fields, ...("criteria" in n.fields && { criteria: selfIds(n.fields.criteria) }), ...("hooks" in n.fields && { hooks: selfIds(n.fields.hooks) }) }
       : n.fields;
-  const nodes = (g: typeof m.graph) => new Map(g.nodes.map((n) => [n.id, { kind: n.kind, provisional: !!n.provisional, fields: canon(sortHookCriteria(n)) }]));
+  // The committed tree leaves out v1 projection artefacts the tree derives or defaults: `owningThing`, `revision: 1`, step defaults.
+  const dropArtefacts = ({ owningThing: _o, ...f }: Record<string, unknown>) => {
+    const { revision, kind, unresolved, ...rest } = f;
+    return { ...rest, ...(revision !== 1 && revision !== undefined && { revision }), ...(kind !== "action" && kind !== undefined && { kind }), ...(unresolved === true && { unresolved }) };
+  };
+  const nodes = (g: typeof m.graph) => new Map(g.nodes.map((n) => [n.id, { kind: n.kind, provisional: !!n.provisional, fields: canon(dropArtefacts(sortHookCriteria(n))) }]));
   const links = (g: typeof m.graph) => [...new Set(g.links.filter((l) => !selfRequirement(l)).map((l) => `${l.from} ${l.rel} ${l.to} ${l.certainty ?? "declared"}`))].sort();
   const parent = (g: { nodes: { id: string; parent?: string | null }[] }) => new Map(g.nodes.map((n) => [n.id, n.parent ?? null]));
 

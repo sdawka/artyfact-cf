@@ -1,5 +1,5 @@
-# meta@1 template (docs/design/ontology.md section 3). Same section contract and rules as cloudflare-worker-webapp; v1 gave it no
-# source-map defaults, so it declares no `files`. template.v1.yaml is the legacy shape, kept until W4.
+# meta@1 template (docs/design/ontology.md section 3). Same section contract and rules as cloudflare-worker-webapp; it declares no
+# `files`. template.v1.yaml is the legacy shape, kept until W4.
 id: template.thing.vue-webapp
 version: 1
 meta: 1

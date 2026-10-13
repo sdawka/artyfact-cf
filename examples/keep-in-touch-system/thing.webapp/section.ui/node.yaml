@@ -2,8 +2,6 @@ id: section.ui
 kind: section
 fields:
   name: UI
-  owningThing: thing.webapp
-  revision: 1
   description: Screens, shared components and affordances.
   fromTemplate: template.thing.cloudflare-worker-webapp@1
 criteria:

@@ -10,7 +10,7 @@ import {
   type PartsResponse,
 } from "../../shared/api";
 import { isBlocking } from "../../shared/verdict";
-import type { TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse } from "../../shared/api";
+import type { TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse } from "../../shared/api";
 import type { IntentAccept, IntentAcceptResponse, IntentReply, IntentRequest, Proposal } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
 
@@ -396,7 +396,7 @@ export const acceptIntent = (systemId: string, proposalId: string, body: IntentA
 // ---------------------------------------------------------------------------
 
 /** What upgrading the app repo to the current template scaffold would change. Not available on fixture data. */
-export async function getTemplateUpgrade(systemId: string, ref = "head"): Promise<TemplateUpgradePlan> {
+export async function getTemplateUpgrade(systemId: string, ref = "head"): Promise<TemplateUpgradePlan | TemplateUpgradeNoScaffold> {
   if (await isFixtureMode()) throw notInFixture("The template upgrade plan");
   return request(routes.templateUpgrade(systemId, ref));
 }

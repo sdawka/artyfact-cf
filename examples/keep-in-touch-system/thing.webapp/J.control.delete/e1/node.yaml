@@ -5,6 +5,5 @@ fields:
   actor: system
   action: Owner's live data purged
   kind: end
-  unresolved: false
   requirementRefs:
     - S.webapp.operations

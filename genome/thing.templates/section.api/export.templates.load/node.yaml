@@ -1,0 +1,7 @@
+id: export.templates.load
+kind: export
+fields:
+  name: loadMetaTemplate
+  signature: "export function loadMetaTemplate(ref: string): MetaTemplate"
+  stability: stable
+  description: Returns a bundled meta@1 template merged over its extends chain; throws on an unknown ref.

@@ -1,0 +1,51 @@
+id: thing.model
+kind: thing
+template: template.thing.ts-library@1
+root: packages/model
+fields:
+  name: Model
+  description: "@artyfact/model: loads a v2 Genome through the ontology engine into a SystemModel and ModelIndex, evaluates its readiness, diffs two models and composes Parts."
+links:
+  - { rel: artifact, to: artifact.model }
+  - { rel: dependsOn, to: thing.ontology }
+  - { rel: dependsOn, to: thing.rules }
+  - { rel: exposes, to: export.model.load }
+  - { rel: exposes, to: export.model.validate }
+  - { rel: exposes, to: export.model.diff }
+  - { rel: exposes, to: export.model.compose }
+criteria:
+  - id: C.model.unit
+    title: "@artyfact/model tests pass"
+    claim: Loading, validation, diff, Parts and conformance suites pass on Keep in Touch.
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    hooks:
+      - id: hook.model.unit
+        assay: model.unit
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          command: npm test -w @artyfact/model
+  - id: C.thing.model.checks
+    title: Changed nodes meet their checks
+    claim: Changed nodes meet the checks their kinds declare.
+    severity: soft
+    gates:
+      - submission
+    hooks:
+      - id: hook.thing.model.checks
+        assay: model.checks
+        tier: semantic
+        engine: model-rules
+        triggers:
+          - submission
+        inputs:
+          packs: checks@1
+        binding: bound
+        fromTemplate: template.thing.ts-library@1
+    fromTemplate: template.thing.ts-library@1

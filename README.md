@@ -108,7 +108,7 @@ An agent (or its operator) starts work on an Evolution. The platform forks, issu
 
 ## The two moments
 
-**Two agents, different files, one conflict.** Agent A edits the add-contact dialog's save handler. Agent B edits the contacts routes. No file is shared. Through the app's source map both files reach the node `operation.contact.save`, and the platform reports a soft-semantic conflict between the candidates. The overlap is derived from the Genome and the source map, so it does not depend on a model. System One is also asked whether the changes interfere. With the fake provider it answers "low", and the video says so. The reviewer sees the conflict on the Work board and the Map before promotion. Promoting A and then trying B returns 409 `stale-base`, and promoting B on the current head is refused because it was built on the old one.
+**Two agents, different files, one conflict.** Agent A edits the add-contact dialog's save handler. Agent B edits the contacts routes. No file is shared. Through the source map (the `files` globs on Genome nodes) both files reach the node `operation.contact.save`, and the platform reports a soft-semantic conflict between the candidates. The overlap is derived from the Genome and the source map, so it does not depend on a model. System One is also asked whether the changes interfere. With the fake provider it answers "low", and the video says so. The reviewer sees the conflict on the Work board and the Map before promotion. Promoting A and then trying B returns 409 `stale-base`, and promoting B on the current head is refused because it was built on the old one.
 
 **A rule violation is not a deliberate choice.** One agent amends the Genome so that a draft message has a list of recipients. The rules engine proves a `topology.recipientArray` violation and shows its derivation. Accepting the amendment returns 409 and the admin rejects it with a reason. A second agent rewords a commitment. No rule fires, the review panel shows System One's signals, and the admin accepts it with an interpretation. The commit records which provider backed the evidence, here `fake`. The fake provider labels both amendments "deliberate choice", including the violating one, and the rules engine and the gate do not rely on it.
 
@@ -144,7 +144,7 @@ npm run dev:amendment -w @artyfact/platform
 
 Admin routes (import, start work, accept, reject, promote) need `ADMIN_TOKEN`. Read routes are unauthenticated. The preview health probe reaches only `*.workers.dev`, `*.pages.dev`, hosts in `PREVIEW_HOST_ALLOWLIST`, or localhost when `ALLOW_LOCAL_PREVIEW=1`.
 
-**Importing a project.** `npx artyfact init --dir <project>` takes a cloned project from its `system.yaml` to an imported System in one command. For the example, `scripts/bootstrap.sh` is a wrapper that runs `init` on `examples/`.
+**Importing a project.** `npx artyfact init --dir <project>` takes a cloned project from its Genome (`genome/node.yaml`) to an imported System in one command. For the example, `scripts/bootstrap.sh` is a wrapper that runs `init` on `examples/`.
 
 - **Names.** One Artifacts namespace per deployment (`artyfact` by default). The repository names come from the System id: `system.keep-in-touch` gives `keep-in-touch.genome` and `keep-in-touch.app`. Forks are `<repo>--r<N>`. The id must be lower-case, so two ids never share repositories.
 - **The `platform` repository.** It holds the Thing and System templates and the Rule Packs. `init` creates it when it is missing or empty, and `npx artyfact platform-sync` is the way to update it. The import records its commit on the System head and on every System commit. Evaluation still uses the packages bundled into the Worker. `platform` is provenance only.
@@ -178,6 +178,15 @@ A re-run pushes nothing and re-imports as a no-op. Flags and details: [packages/
 
 The full loop against real Artifacts, with two agents, a conflict, a promotion and two Genome amendments, is in [docs/demo-runbook.md](docs/demo-runbook.md). It needs a Cloudflare login and an `ADMIN_TOKEN`. Hosted deployment: [docs/deploy.md](docs/deploy.md).
 
+## Artyfact describes itself
+
+The repo-root `genome/` is Artyfact's own Genome (`system.artyfact`, on the dev-platform template): the platform, ci and site Workers, the libraries and the CLI as Things, with their real endpoints, commands, Durable Objects, Workflow and bindings, `dependsOn` links that match the workspace dependencies, and node `files` that cover every source file outside `.artyfactignore`. `packages/templates/test/self-genome.test.ts` checks all of that. To browse it on the fake platform, with no login:
+
+```sh
+cd apps/platform
+FAKE_ARTIFACTS=1 FAKE_SEED=artyfact npx vite --port 1337   # FAKE_SEED=both imports Keep in Touch too
+```
+
 ## Phenome event header
 
 A deployed app reports what it observes with `POST /api/systems/:id/phenome/events` and `{"events": [...]}` (up to 100 per request, 8 KB each). The bearer is the deployment's ingest token, a realization secret for a preview, or the admin token. Every event carries this header; `payload` is free-form JSON.
@@ -207,6 +216,7 @@ The platform stamps `seq`, `receivedAt` and the realization. The Deployments pag
 | `packages/semantic` | System One client, question catalog, policy |
 | `packages/cli` | The `artyfact` command for agents |
 | `apps/platform` | The Worker, the Durable Object and the SPA |
+| `genome` | Artyfact's own Genome (node tree) |
 | `examples/keep-in-touch-system` | The worked example Genome |
 | `examples/keep-in-touch-app` | The example app that agents change |
 | `docs/design` | Design notes for each part |

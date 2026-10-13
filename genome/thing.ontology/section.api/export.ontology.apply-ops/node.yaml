@@ -1,0 +1,7 @@
+id: export.ontology.apply-ops
+kind: export
+fields:
+  name: applyOps
+  signature: "export function applyOps(files: GenomeFiles, ops: readonly TreeOp[]): ApplyResult"
+  stability: stable
+  description: Turns ops into file changes that touch only the affected node directories.

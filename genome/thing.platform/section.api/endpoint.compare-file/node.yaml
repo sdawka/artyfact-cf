@@ -1,0 +1,7 @@
+id: endpoint.compare-file
+kind: endpoint
+fields:
+  name: Compare a file
+  description: Returns a text diff of one file between two revisions, at any revision format.
+  route: GET /api/systems/:id/compare/file
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

@@ -1,0 +1,17 @@
+id: module.cli.main
+kind: module
+fields:
+  name: Command dispatch
+  description: Parses argv, dispatches commands and runs the realization commands.
+  path: src/main.ts
+links:
+  - { rel: implements, to: command.start }
+  - { rel: implements, to: command.checkpoint }
+  - { rel: implements, to: command.submit }
+  - { rel: implements, to: command.build-report }
+  - { rel: implements, to: command.status }
+  - { rel: implements, to: command.compose }
+files:
+  - src/main.ts
+  - src/index.ts
+  - src/types.ts

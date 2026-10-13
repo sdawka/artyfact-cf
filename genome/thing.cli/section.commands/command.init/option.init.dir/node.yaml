@@ -1,0 +1,7 @@
+id: option.init.dir
+kind: option
+fields:
+  name: dir
+  flag: --dir <project>
+  description: Project directory holding genome/ and app/.
+  valueType: path

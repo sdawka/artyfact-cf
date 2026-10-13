@@ -4,8 +4,6 @@ fields:
   step: x4
   actor: system
   action: Export authorized records of the authenticated owner only
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
   next:

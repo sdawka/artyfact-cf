@@ -2,8 +2,6 @@ id: affordance.ConnectionPanel.disconnect
 kind: affordance
 fields:
   name: Disconnect
-  owningThing: thing.webapp
-  revision: 1
   actor: ext.owner
   trigger: Owner confirms Disconnect
   preconditions:

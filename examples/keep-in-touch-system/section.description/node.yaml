@@ -2,6 +2,5 @@ id: section.description
 kind: section
 fields:
   name: Description
-  revision: 1
   description: Narrative, features, commitments, alternatives and open questions.
   fromTemplate: template.system.social-networking.cloudflare@1

@@ -2,6 +2,4 @@ id: component.SuggestionPersonLabel
 kind: component
 fields:
   name: PersonLabel
-  owningThing: thing.webapp
-  revision: 1
   cardinality: exactly one per card

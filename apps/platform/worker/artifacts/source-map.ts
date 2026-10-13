@@ -1,35 +1,25 @@
+import type { SystemModel } from "@artyfact/model";
 import picomatch from "picomatch";
-import { parse as parseYaml } from "yaml";
 
-export interface SourceMapEntry { glob: string; nodes: string[]; origin: "template" | "repo" }
+/**
+ * One glob of the node-attached source map (docs/design/ontology.md §3) and the nodes it realises. `node` globs are
+ * declared in a node's own `files`; `template` globs are kind, prefilled-node or template-root defaults.
+ */
+export interface SourceMapEntry { glob: string; nodes: string[]; origin: "template" | "node" }
 
-const asList = (v: unknown): string[] => (Array.isArray(v) ? v.map(String) : v == null ? [] : [String(v)]);
-
-/** Accepts `[{glob, nodes}]`, `{mappings: [...]}` or `{<glob>: <ids>}`. */
-export function parseSourceMap(text: string | undefined): { glob: string; nodes: string[] }[] {
-  if (!text?.trim()) return [];
-  const raw = parseYaml(text) as unknown;
-  const list = Array.isArray(raw) ? raw : (raw as { mappings?: unknown })?.mappings;
-  if (Array.isArray(list)) {
-    return list
-      .filter((e): e is { glob: unknown; nodes: unknown } => !!e && typeof e === "object" && "glob" in e)
-      .map((e) => ({ glob: String(e.glob), nodes: asList(e.nodes) }));
+/** The source map of a Genome: every tree node's effective globs (`SystemModel.files`), grouped by glob. */
+export function sourceMapFor(m: Pick<SystemModel, "files">): SourceMapEntry[] {
+  const entries = new Map<string, SourceMapEntry>();
+  for (const [id, globs] of Object.entries(m.files)) {
+    for (const { glob, declared } of globs) {
+      const origin = declared ? "node" : "template";
+      const key = `${origin}\0${glob}`;
+      const e = entries.get(key) ?? { glob, nodes: [], origin };
+      e.nodes.push(id);
+      entries.set(key, e);
+    }
   }
-  if (raw && typeof raw === "object") return Object.entries(raw).map(([glob, nodes]) => ({ glob, nodes: asList(nodes) }));
-  return [];
-}
-
-/** Template defaults (with `$thing` rebased to the owning Thing) ∪ the repo's `source-map.yaml`. */
-export function loadSourceMap(
-  defaults: { glob: string; nodes: string[] }[] | undefined,
-  thingId: string | undefined,
-  repoText: string | undefined,
-): SourceMapEntry[] {
-  const rebase = (n: string) => (n === "$thing" && thingId ? thingId : n);
-  return [
-    ...(defaults ?? []).map((e) => ({ glob: e.glob, nodes: e.nodes.map(rebase), origin: "template" as const })),
-    ...parseSourceMap(repoText).map((e) => ({ ...e, origin: "repo" as const })),
-  ];
+  return [...entries.values()];
 }
 
 const matchers = new Map<string, (p: string) => boolean>();

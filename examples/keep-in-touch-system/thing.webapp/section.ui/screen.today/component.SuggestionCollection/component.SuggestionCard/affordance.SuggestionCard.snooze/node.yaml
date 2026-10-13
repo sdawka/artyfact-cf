@@ -2,8 +2,6 @@ id: affordance.SuggestionCard.snooze
 kind: affordance
 fields:
   name: Snooze
-  owningThing: thing.webapp
-  revision: 1
   actor: ext.owner
   trigger: Owner activates Snooze on a card
   preconditions:

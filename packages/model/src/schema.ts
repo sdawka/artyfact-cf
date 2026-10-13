@@ -615,7 +615,6 @@ export const Template = z.object({
   criteria: z.array(Criterion).default([]),
   hooks: z.array(AssayHook).default([]),
   scaffold: z.object({ repo: str.optional(), path: str.optional() }).optional(),
-  sourceMapDefaults: z.array(z.object({ glob: str, nodes: z.array(str) })).optional(),
   requires: strs,
 });
 export type Template = z.infer<typeof Template>;

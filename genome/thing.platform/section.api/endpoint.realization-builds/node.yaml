@@ -1,0 +1,7 @@
+id: endpoint.realization-builds
+kind: endpoint
+fields:
+  name: Realization builds
+  description: Lists one realization's preview builds.
+  route: GET /api/systems/:id/realizations/:rid/builds
+  auth: Anonymous read; a System the registry does not know answers 404 not-found.

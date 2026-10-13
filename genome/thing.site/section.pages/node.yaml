@@ -1,0 +1,5 @@
+id: thing.site.pages
+kind: section
+fields:
+  name: Pages
+  description: The routes the site serves and what each shows.

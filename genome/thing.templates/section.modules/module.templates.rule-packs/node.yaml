@@ -1,0 +1,8 @@
+id: module.templates.rule-packs
+kind: module
+fields:
+  name: Rule Packs
+  description: metamodel, readiness, theory, journeys, authorization and topology packs.
+  path: rule-packs
+files:
+  - rule-packs/**

@@ -1,0 +1,10 @@
+id: module.platform.contract
+kind: module
+fields:
+  name: Wire contract
+  description: The request and response types shared by the Worker, the UI and the CLI.
+  path: shared
+files:
+  - shared/**
+  - worker/env.d.ts
+  - worker/secrets.d.ts

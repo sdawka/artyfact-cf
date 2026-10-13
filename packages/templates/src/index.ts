@@ -28,7 +28,7 @@ const cache = new Map<string, Template>();
 const isMeta = (text: string): boolean => (parseYaml(text) as { meta?: unknown } | null)?.meta === 1;
 
 // Legacy (v1) shape for today's consumers, until W4: `template.v1.yaml` plus sibling files (criteria.yaml,
-// source-map.defaults.yaml, scaffold.yaml) folded in. The meta@1 `template.yaml` is read by `metaTemplates`.
+// scaffold.yaml) folded in. The meta@1 `template.yaml` is read by `metaTemplates`.
 function load(dir: string): Template | undefined {
   const main = files[`${dir}/template.v1.yaml`];
   if (main === undefined) return undefined;
@@ -39,8 +39,6 @@ function load(dir: string): Template | undefined {
     raw.criteria = [...((raw.criteria as unknown[]) ?? []), ...(criteria.criteria ?? [])];
     raw.hooks = [...((raw.hooks as unknown[]) ?? []), ...(criteria.hooks ?? [])];
   }
-  const sourceMap = read("source-map.defaults.yaml");
-  if (sourceMap) raw.sourceMapDefaults = sourceMap;
   const scaffold = read("scaffold.yaml") as { repo?: string; path?: string } | undefined;
   if (scaffold) raw.scaffold = { repo: scaffold.repo, path: scaffold.path };
   const t = Template.parse(raw);

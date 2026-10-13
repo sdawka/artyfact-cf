@@ -1,0 +1,7 @@
+id: endpoint.evaluate
+kind: endpoint
+fields:
+  name: Evaluate a candidate
+  description: Runs the hooks for a candidate again and stores the evaluations.
+  route: POST /api/systems/:id/candidates/:cid/evaluate
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.

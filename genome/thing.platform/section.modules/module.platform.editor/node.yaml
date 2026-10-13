@@ -1,0 +1,10 @@
+id: module.platform.editor
+kind: module
+fields:
+  name: Editor
+  description: Commits browser edits to a realization's fork over Git.
+  path: worker/editor.ts
+links:
+  - { rel: dependsOn, to: module.platform.git }
+files:
+  - worker/editor.ts

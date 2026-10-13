@@ -1,0 +1,7 @@
+id: option.build-report.commit
+kind: option
+fields:
+  name: commit
+  flag: --commit <sha>
+  description: Commit built; default HEAD.
+  valueType: string

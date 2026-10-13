@@ -1,0 +1,7 @@
+id: command.status
+kind: command
+fields:
+  name: status
+  usage: artyfact status [--json]
+  exitCodes: 0 on success, 1 on any error.
+  description: Prints the realization's status, token expiry, evaluations and conflicts. Exits 1 outside a workspace.

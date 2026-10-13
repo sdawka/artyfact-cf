@@ -2,7 +2,5 @@ id: binding.d1
 kind: binding
 fields:
   name: D1 database
-  owningThing: thing.webapp
-  revision: 1
   description: Template placeholder, superseded by binding.contactsStore
 provisional: true

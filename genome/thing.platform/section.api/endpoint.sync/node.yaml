@@ -1,0 +1,7 @@
+id: endpoint.sync
+kind: endpoint
+fields:
+  name: Sync a realization
+  description: Re-reads the fork head and submits it when it is new and not the base commit.
+  route: POST /api/systems/:id/realizations/:rid/sync
+  auth: The realization's secret or the admin bearer; 401 without a bearer, 403 for any other token.

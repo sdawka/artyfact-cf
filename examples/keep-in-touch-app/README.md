@@ -7,7 +7,7 @@ Small Hono Worker (Static Assets + D1) that agents fork to realize evolutions of
     npm test         # workerd via @cloudflare/vitest-plugin
 
 Create the D1 database once (`database_name` keep-in-touch), put its id in `wrangler.jsonc`, then apply
-`migrations/0001_contacts.sql`. `source-map.yaml` maps paths to model nodes for the platform.
+`migrations/0001_contacts.sql`. The Genome's nodes map these paths to model nodes through their `files` globs.
 
 ## Auth
 

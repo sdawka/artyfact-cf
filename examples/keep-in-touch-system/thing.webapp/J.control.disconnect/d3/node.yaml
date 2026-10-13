@@ -4,8 +4,6 @@ fields:
   step: d3
   actor: system
   action: Participant authority checked; sharing revoked; pending deliveries cancelled
-  kind: action
-  unresolved: false
   requirementRefs:
     - S.webapp.operations
     - S.webapp.concurrency

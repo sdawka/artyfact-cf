@@ -1,0 +1,6 @@
+id: command.parts-create
+kind: command
+fields:
+  name: parts create
+  usage: artyfact parts create ...
+  description: The parts create subcommand; without --apply it only prints what it would do.

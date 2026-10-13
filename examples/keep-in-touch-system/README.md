@@ -3,7 +3,9 @@
 Worked example System `system.keep-in-touch`, encoded as the Genome v2 node tree that `@artyfact/model` `loadGenome()` loads.
 Source: `docs/source/keep-in-touch-world-specification.docx`. Phase: unrealized.
 
-One directory per node, each with its `node.yaml`; a node's children are its subdirectories.
+One directory per node, each with its `node.yaml`; a node's children are its subdirectories. Nodes map app paths with `files` globs
+(there is no `source-map.yaml`): the platform cuts a task packet's permitted paths from the affected nodes' globs and answers
+"which nodes did this candidate touch" from them. `npx artyfact init --genome examples/keep-in-touch-system --app examples/keep-in-touch-app` imports it.
 
 | Path | Spec section |
 | --- | --- |

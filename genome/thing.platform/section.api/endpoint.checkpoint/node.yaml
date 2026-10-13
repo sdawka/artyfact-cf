@@ -1,0 +1,9 @@
+id: endpoint.checkpoint
+kind: endpoint
+fields:
+  name: Checkpoint
+  description: Records a checkpoint commit of the realization's fork.
+  route: POST /api/systems/:id/realizations/:rid/checkpoints
+  auth: The realization's secret or the admin bearer; 401 without a bearer, 403 for any other token.
+  request: "{commit, message}"
+  response: 201 Checkpoint

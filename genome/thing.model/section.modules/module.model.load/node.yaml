@@ -1,0 +1,13 @@
+id: module.model.load
+kind: module
+fields:
+  name: Genome loader
+  description: Projects the engine graph of a Genome tree onto the SystemModel the platform reads.
+  path: src/genome.ts
+links:
+  - { rel: implements, to: export.model.load }
+  - { rel: dependsOn, to: module.ontology.codec }
+files:
+  - src/genome.ts
+  - src/schema.ts
+  - src/index.ts

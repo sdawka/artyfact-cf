@@ -5,7 +5,6 @@ fields:
   actor: system
   action: Is the invitee signed in?
   kind: branch
-  unresolved: false
   requirementRefs:
     - S.webapp.authentication
   next:

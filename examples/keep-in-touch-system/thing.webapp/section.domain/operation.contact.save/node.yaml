@@ -2,8 +2,6 @@ id: operation.contact.save
 kind: operation
 fields:
   name: Create or edit private contact
-  owningThing: thing.webapp
-  revision: 1
   description: Owner session; nonblank name. Save only that owner's record; editing does not send invitations
   source:
     doc: keep-in-touch-world-specification
@@ -19,3 +17,6 @@ fields:
     - Concurrent stale-version edits return conflict without overwriting current data
 links:
   - { rel: writes, to: entity.ContactRecord }
+files:
+  - src/worker/routes/contacts.ts
+  - public/people/add-contact-dialog.js

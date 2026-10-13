@@ -1,0 +1,5 @@
+id: thing.ci.api
+kind: section
+fields:
+  name: API
+  description: The routes the Worker serves and who may call them.
