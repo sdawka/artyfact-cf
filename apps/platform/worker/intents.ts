@@ -17,7 +17,7 @@ import type { HeadState } from "./do/system-authority";
 import type { ProposalTurn } from "./do/proposals-store";
 import { commitEdit } from "./editor";
 import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
-import { createEvolution, genomeAt, refreshRegistry, revokeEnded, startWork, systemStub } from "./service";
+import { createEvolution, genomeAt, refreshRegistry, registryStub, revokeEnded, startWork, systemStub } from "./service";
 import { nowIso } from "./util";
 
 /** The agent label of an intent's Genome realization; its commits are authored as `intent`. */
@@ -346,12 +346,14 @@ async function pushAccepted(env: Env, systemId: string, p: Proposal, ops: Propos
       candidate: edit.submitted.candidate, commit: edit.commit,
     };
   } catch (e) {
-    // Leave nothing a retry would duplicate: the Evolution goes (withdrawn if a realization started) with its work.
+    // Leave nothing a retry would duplicate: the Evolution goes with its realization (token revoked, unregistered).
     try {
-      await revokeEnded(env, systemId, await stub.withdrawEvolution(evolution.id));
+      const ended = await stub.discardEvolution(evolution.id);
+      await revokeEnded(env, systemId, ended);
+      await Promise.all(ended.map((x) => registryStub(env).unregisterRealization(systemId, x.realizationId)));
       await refreshRegistry(env, systemId);
     } catch (w) {
-      console.error(`[intents] withdrawing ${evolution.id} after a failed accept failed: ${(w as Error)?.message ?? w}`);
+      console.error(`[intents] discarding ${evolution.id} after a failed accept failed: ${(w as Error)?.message ?? w}`);
     }
     if (e instanceof HttpError && e.code === "stale-base") {
       const head = (await stub.state())?.genomeCommit ?? null;
