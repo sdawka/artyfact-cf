@@ -6,11 +6,11 @@ import { diffModels, type Readiness, type schema, type SystemModel } from "@arty
 import { templateFile } from "@artyfact/templates";
 import { parse as parseYaml } from "yaml";
 import type {
-  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, DeleteSystemResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse,
+  Candidate, CandidatesResponse, ConflictReport, CreateEvolutionResponse, EvaluateCandidateResponse, Finding, PlatformRef, ScaffoldSource, ConflictsResponse, DeleteSystemResponse, Evaluation, Evolution, GateItem, GenomeCandidateReview, ImportReview, ImportReviewAccept, ImportReviewAcceptResponse, ImportSystemResponse, ModelBundle, PacketResponse, PromoteResponse, ProposalPlanNode,
   ReadinessResponse, RealizationResponse, SystemSummary, SerializedModel, StartWorkRequest, StartWorkResponse, SubmitResponse, SubmitSource, SyncResponse,
 } from "../shared/api";
 import { newRealizationSecret } from "./auth";
-import { sha256Hex } from "./util";
+import { nowIso, sha256Hex } from "./util";
 import { isName, systemRepoNames } from "@artyfact/cli/naming";
 import { readPlatform, unreadableWarning, unsyncedWarning } from "./artifacts/platform";
 import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
@@ -27,6 +27,7 @@ import { buildTaskPacket, protectedPathsFor } from "./packets/task-packet";
 import { ensurePushSubscription, removePushSubscription } from "./artifacts/subscriptions";
 import { dispatchPreviewBuild, requestProductionDeploy } from "./deployments";
 import { gateCriteria, hooksOf, type GateCriterion } from "./promotion";
+import { acceptProposal } from "./intents";
 
 const TOKEN_TTL_S = 21_600;
 const COMMIT_RE = /^[0-9a-f]{40}$/;
@@ -234,7 +235,7 @@ async function platformCheck(
 }
 
 /** `genomeRepo`/`appRepo` are optional: omitted ones default to `<slug>.genome` / `<slug>.app`. */
-export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown }): Promise<ImportSystemResponse> {
+export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown; review?: unknown }): Promise<ImportSystemResponse> {
   const { systemId } = body;
   if (typeof systemId !== "string" || !systemId) throw badRequest("systemId is a required string");
   if (systemId === REGISTRY) throw badRequest("reserved system id");
@@ -281,6 +282,7 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   const booted = await rpc(stub.bootstrap({
     systemId, title: g.model.system.name, phase: g.model.system.phase, genomeRepo, appRepo, genomeCommit, appCommit,
     evolutions: evolutionSeeds(g.model), ...manifestExtras(g.model), platform, ...(scaffoldFrom && { scaffoldFrom }), force: body.force === true,
+    review: body.review !== false, reviewNodes: containmentNodes(g.model).length,
   }));
   if ("alreadyImported" in booted) throw conflict("already-imported", booted.alreadyImported);
   await stub.putModelCache(genomeCommit, cacheParts(genomeCommit, {
@@ -292,6 +294,113 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   const system = (await systemStub(env, systemId).summary()) ?? booted;
   await registryStub(env).registerSystem(system);
   return { system, head: system.head!, genomeRepo, appRepo, genomeCommit, appCommit, evolutions: g.model.evolutions.map((e) => e.id), platform, warnings };
+}
+
+// ------------------------------------------------------------------ import review (backend.md B.10)
+
+/** Containment nodes below the System root, in containment order: what an import review lists and can reject. */
+function containmentNodes(m: SystemModel): string[] {
+  const out: string[] = [];
+  const walk = (id: string) => {
+    for (const c of m.index.children[id] ?? []) {
+      out.push(c);
+      walk(c);
+    }
+  };
+  walk(m.system.id);
+  return out;
+}
+
+/** The imported Genome as an agreement tree: roots are the System's children (its Things), every node added. */
+function importTree(m: SystemModel): ProposalPlanNode[] {
+  const node = (id: string): ProposalPlanNode => {
+    const e = m.index.byId[id];
+    const description = (e?.item as { description?: unknown } | undefined)?.description;
+    return {
+      id, kind: e?.kind ?? "node", title: e?.name ?? id, path: m.index.path(id),
+      summary: typeof description === "string" ? description.trim() : "", opIds: [], children: (m.index.children[id] ?? []).map(node),
+    };
+  };
+  return (m.index.children[m.system.id] ?? []).map(node);
+}
+
+/** 409 `import-unreviewed` while the System's import review is pending; the guard of creating work. */
+export async function assertImportReviewed(env: Env, systemId: string): Promise<void> {
+  const review = await systemStub(env, systemId).importReview();
+  if (review?.status !== "pending") return;
+  throw conflict("import-unreviewed", `the import of ${systemId} is not reviewed yet; accept it at /s/${encodeURIComponent(systemId)}/r/head/review?panel=import first`,
+    { genomeCommit: review.genomeCommit });
+}
+
+async function reviewView(env: Env, s: HeadState, review: { status: "pending" | "accepted"; genomeCommit: string; decidedAt?: string; interpretation?: string; rejectedNodes?: string[] }): Promise<{ view: ImportReview; model: SystemModel }> {
+  // The reviewed commit lives in the imported Genome repo, which an accepted amendment's fork does not replace.
+  const g = await genomeAt(env, s.systemId, review.genomeCommit, s.genomeRepo);
+  const findings = withPlatform(s, readinessReport(g.model, g.readiness, [])).findings;
+  const sm = sourceMapFor(g.model);
+  const unmapped = s.appSource
+    ? [...(await withRepo(artifactsFor(env), s.appSource.repo, (r) => listTree(r, s.appSource!.commit))).keys()]
+      .filter((p) => !p.startsWith(".artyfact/") && nodesForPath(sm, p).every((n) => n.startsWith("unmapped:"))).sort()
+    : [];
+  const { status, genomeCommit, decidedAt, interpretation, rejectedNodes } = review;
+  return {
+    model: g.model,
+    view: { status, genomeCommit, tree: importTree(g.model), findings, unmapped, ...(decidedAt && { decidedAt }), ...(interpretation && { interpretation }), ...(rejectedNodes?.length && { rejectedNodes }) },
+  };
+}
+
+/** `GET /api/systems/:id/import-review`: 404 when the System was imported without a review. */
+export async function importReview(env: Env, systemId: string): Promise<ImportReview> {
+  const s = await headState(env, systemId);
+  const review = await systemStub(env, systemId).importReview();
+  if (!review) throw notFound(`system ${systemId} has no import review`);
+  return (await reviewView(env, s, review)).view;
+}
+
+/**
+ * `POST /api/systems/:id/import-review/accept` (admin): the review becomes `accepted` (recording the interpretation and
+ * the rejected nodes), and rejected nodes become `remove` ops pushed through the intents accept path as an ordinary
+ * awaiting-admin Genome amendment. A node under another rejected node is covered by the ancestor's removal. A failure
+ * before the amendment is pushed returns the review to pending.
+ */
+export async function acceptImportReview(env: Env, systemId: string, body: Partial<ImportReviewAccept>, platformUrl: string): Promise<ImportReviewAcceptResponse> {
+  const { interpretation, rejectedNodes } = body;
+  if (interpretation !== undefined && (typeof interpretation !== "string" || interpretation.length > 4000)) throw badRequest("interpretation must be a string of at most 4000 characters");
+  if (rejectedNodes !== undefined && (!Array.isArray(rejectedNodes) || rejectedNodes.some((n) => typeof n !== "string"))) throw badRequest("rejectedNodes must be an array of node ids");
+  const s = await headState(env, systemId);
+  const stub = systemStub(env, systemId);
+  const review = await stub.importReview();
+  if (!review) throw notFound(`system ${systemId} has no import review`);
+  if (review.status !== "pending") throw conflict("invalid-state", `the import review of ${systemId} is already accepted`);
+  const { model } = await reviewView(env, s, review);
+  const reviewable = new Set(containmentNodes(model));
+  const rejected = [...new Set(rejectedNodes ?? [])];
+  const unknown = rejected.filter((n) => !reviewable.has(n));
+  if (unknown.length) throw badRequest(`not nodes of the imported Genome: ${unknown.join(", ")}`);
+  const roots = rejected.filter((n) => !model.index.path(n).slice(0, -1).some((a) => rejected.includes(a)));
+  if (roots.length && s.genomeCommit !== review.genomeCommit) {
+    throw conflict("stale-base", "the Genome moved since the import; rejected nodes cannot be removed from the reviewed commit");
+  }
+  const accepted = { ...review, status: "accepted" as const, decidedAt: nowIso(), ...(interpretation?.trim() && { interpretation: interpretation.trim() }), ...(rejected.length && { rejectedNodes: rejected }) };
+  await stub.setImportReview(JSON.stringify(accepted));
+  let amendment: ImportReviewAcceptResponse["amendment"];
+  try {
+    if (roots.length) {
+      const ops = roots.map((node, i) => ({ id: `op.${i + 1}`, op: "remove" as const, node }));
+      const proposal = await stub.createProposal({
+        systemId, message: `Import review: remove ${roots.length} node${roots.length === 1 ? "" : "s"}`, status: "open", route: [], ops, questions: [], problems: [], plan: [],
+        provenance: { router: { provider: "platform", model: "import-review", calls: 0 }, translator: { provider: "platform", model: "import-review" }, genomeCommit: s.genomeCommit, fake: false },
+        createdAt: nowIso(),
+      });
+      const out = await acceptProposal(env, systemId, proposal.id, { opIds: ops.map((o) => o.id) }, platformUrl);
+      amendment = { evolution: out.evolution.id, realization: out.realization.id, candidate: out.candidate.id };
+    }
+  } catch (e) {
+    await stub.setImportReview(JSON.stringify(review)).catch((r: unknown) => console.error(`[import-review] restoring pending for ${systemId} failed: ${(r as Error)?.message ?? r}`));
+    await refreshRegistry(env, systemId).catch(() => {});
+    throw e;
+  }
+  await refreshRegistry(env, systemId);
+  return { review: (await importReview(env, systemId)), ...(amendment && { amendment }) };
 }
 
 // ------------------------------------------------------------------ model + readiness
