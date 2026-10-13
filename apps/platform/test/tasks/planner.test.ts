@@ -77,6 +77,9 @@ describe("fallbackPlan", () => {
     expect(p.problems).toContainEqual(expect.objectContaining({ task: p.tasks[0].id, severity: "missing", message: expect.stringContaining("unscoped") }));
     expect(p.problems).toContainEqual(expect.objectContaining({ severity: "warning", message: expect.stringContaining("no.such.node") }));
     expect(p.tasks[0].footprint.globs).toEqual([]);
+    const empty = fallbackPlan(input(custom([])));
+    expect(empty.tasks).toEqual([]);
+    expect(empty.problems).toContainEqual({ severity: "missing", message: expect.stringContaining("names no affected nodes") });
   });
 });
 

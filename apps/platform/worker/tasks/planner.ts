@@ -181,6 +181,7 @@ function unknownNodes(i: PlanInput): { known: string[]; problems: TaskPlanProble
   const known = all.filter((n) => i.model.index.byId[n]);
   const problems = all.filter((n) => !i.model.index.byId[n])
     .map((n): TaskPlanProblem => ({ severity: "warning", message: `affected node ${n} is not in the Genome; no task covers it` }));
+  if (!known.length) problems.push({ severity: "missing", message: `${i.evolution.id} names no affected nodes in the Genome; there is nothing to plan` });
   return { known, problems };
 }
 
