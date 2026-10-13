@@ -214,6 +214,7 @@ Templates stay `meta@1`. A template is checked by `checkTemplateForm`, extended 
 | Acceptance criteria every instance gets | Template `criteria[]` (`{id, owner, subject, severity, gates, hooks}`), with `subject: $self` or a prefilled node id. The codec places each on its subject node when the template is instantiated (`fromTemplate` set) |
 | Prefilled nodes (`section.ui`, `binding.d1`, …) | `nodes[]` with `$self` for the instantiating node. Each gets a directory under it when the Thing is created |
 | Rule packs | `rules[] {id, version, source}` (Datalog) |
+| Local validation | `artyfact validate-genome <dir> [--app dir]` loads the tree and runs `validate()` as the platform does (same bundled templates, same packs, info-level semantic candidates dropped). With `--app` it maps the app's tracked files through the effective globs below: `unmapped` paths (list them in `.artyfactignore` or bind them) and `stale` globs (declared globs that match no file). Errors exit 1; `--strict` also fails on unmapped and stale |
 
 So the plan's "kind-wide criteria" means `checks`. Hook-bearing acceptance criteria are per node: declared in `node.yaml` or stamped from the template's `criteria`.
 
@@ -318,6 +319,8 @@ Providers are wired by W5 and W7. System One comes from `providerFromEnv`: `FAKE
 | Files in ops | `update.files` replaces or removes a node's `files`; the translator prompt names it; `validateOps` checks entries (`op.invalidFile`) | Evolutions bind nodes to code | Done (W1) |
 | Node ids on `add` | None | Ops name nodes | The platform mints ids (§4); `ProposedOp.node` carries them |
 | Legality of a proposal | `validateOps` checks ids, kinds and relation endpoints only | Valid tree after accept | W7 runs `evaluate` on the applied copy and reports new findings as `problems` |
+| Agreement on a proposal | Ops are a flat list | Review at the level the person thinks in | Done (W8): `plan` is a tree of nodes owning ops, decisions cascade, accept takes the agreed ops and defers the rest (§5) |
+| Task scope | None | Tasks need to know their files | Derived, no model: a task's footprint is the `files` globs of its nodes (§3), and a wave holds tasks with no declared dependency and no shared file; shared nodes are reported as soft-semantic conflicts (`docs/design/backend.md` B.9) |
 | Reparent | No op | Containment is the tree | Not in this contract: remove plus add (§4) |
 | Routing depth | Spaces are the root's children; shortlist reaches any depth; up to 3 nodes; at most 12 options per question | Routed path through layers | Accepted. Depth comes from the shortlist and the kind and node questions. For deep v2 trees, measure on the Artyfact self-Genome (W11) before adding a per-depth level |
 | "Kind-wide criteria" | `kinds.<k>.criteria` is question wording; checklists are `checks` | Template criteria per kind | §3: kind-wide means `checks`; acceptance criteria with hooks are per node |
