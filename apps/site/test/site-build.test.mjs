@@ -61,7 +61,7 @@ test('404 page uses the site layout, is not indexed, and stays out of the sitema
 });
 test('noscript copy only mentions features the page has', async () => {
   const note = async route => new JSDOM(await readFile(resolve(dist, '.' + route, 'index.html'), 'utf8')).window.document.querySelector('noscript')?.textContent ?? '';
-  assert(/example shows/.test(await note('/model')));
+  assert(/All three example views are readable/.test(await note('/model')));
   assert(!/copy buttons/.test(await note('/model')));
   assert(/copy buttons/.test(await note('/connect-agent')));
   assert(!/example shows/.test(await note('/connect-agent')));

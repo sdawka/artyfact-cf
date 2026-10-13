@@ -5,7 +5,7 @@ import { LandingStory } from './LandingStory';
 import { publishSelection } from './systemState';
 export function hydrateExamples() {
   for (const element of document.querySelectorAll<HTMLElement>('[data-landing-story]')) {
-    hydrateRoot(element, <LandingStory />);
+    hydrateRoot(element, <LandingStory platform={element.dataset.platform} />);
   }
   for (const element of document.querySelectorAll<HTMLElement>('[data-system-explorer]')) {
     hydrateRoot(element, <SystemExplorer onSelect={publishSelection} />);
