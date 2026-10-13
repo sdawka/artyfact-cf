@@ -66,6 +66,8 @@ Candidates carry `build`, the latest build of their commit.
 
 **CI Worker** (`apps/ci`): deploy steps, secrets and the R2 bucket are in [`apps/ci/README.md`](../apps/ci/README.md). Deploy `artyfact-ci` before redeploying the platform, so the `CI` binding has a target.
 
+Container, R2 and preview Worker costs, and the caps on them, are in [costs.md](costs.md).
+
 ## Trust model
 
 App repos are untrusted. Agents write them, and the install and test steps run their code. CI keeps that code away from every credential, so a hostile commit can at most break or misuse its own app Worker. **Preview Workers are the blast radius**, plus the production app Worker once a commit is promoted.
