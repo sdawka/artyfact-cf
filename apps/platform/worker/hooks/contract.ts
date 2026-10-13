@@ -78,9 +78,9 @@ export interface SubmissionContext {
    */
   trigger?: "submission" | "promotion";
   /**
-   * The candidate's Evolution as the SystemAuthority DO stores it. Evolutions created through the API exist only
-   * there, so hook selection falls back to this record when the Genome at `genomeCommit` does not declare
-   * `candidate.evolutionId`. The Genome's own Evolution always wins when present.
+   * The candidate's Evolution as the SystemAuthority DO stores it, with the task's acceptance criteria for a task
+   * realization. When given (and naming `candidate.evolutionId`), hook selection uses it over the Genome's Evolution;
+   * Evolutions created through the API exist only there.
    */
   evolution?: EvolutionRef;
 }
