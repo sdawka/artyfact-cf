@@ -1484,28 +1484,25 @@ export class SystemAuthority extends DurableObject<Env> {
   finishProposal(id: string, ids: AcceptedIds): Proposal | null { return this.proposals().finish(id, ids); }
 
   /**
-   * Undo an accept that failed after creating its Evolution: an Evolution no realization started is deleted; otherwise
-   * its live realizations end `abandoned` (secrets nulled, open candidates rejected) and it becomes `withdrawn`.
-   * Returns the ended credentials for the Worker to revoke.
+   * Undo an accept that failed after creating its Evolution: delete the Evolution with its realizations and what they
+   * recorded (checkpoints, candidates, evaluations), so a retry leaves exactly one. Realization numbers stay used, so
+   * fork names never repeat. Returns the realizations' credentials for the Worker to revoke and unregister.
    */
-  withdrawEvolution(id: string): EndedCredential[] {
-    const ended = this.ctx.storage.transactionSync(() => {
-      const live = this.all("SELECT id, fork_repo, token_id FROM realizations WHERE evolution_id = ? AND status NOT IN ('promoted', 'rejected', 'abandoned', 'accepted')", id);
-      if (!this.one("SELECT 1 FROM realizations WHERE evolution_id = ?", id)) {
-        this.sql.exec("DELETE FROM evolutions WHERE id = ?", id);
-        return [];
+  discardEvolution(id: string): EndedCredential[] {
+    return this.ctx.storage.transactionSync(() => {
+      const rows = this.all("SELECT id, fork_repo, token_id FROM realizations WHERE evolution_id = ?", id);
+      for (const r of rows) {
+        const rid = String(r.id);
+        for (const c of this.all("SELECT id FROM candidates WHERE realization_id = ?", rid)) {
+          for (const t of ["evaluations", "candidate_reviews", "conflict_runs", "evaluation_claims"]) this.sql.exec(`DELETE FROM ${t} WHERE candidate_id = ?`, String(c.id));
+        }
+        this.sql.exec("DELETE FROM candidates WHERE realization_id = ?", rid);
+        this.sql.exec("DELETE FROM checkpoints WHERE realization_id = ?", rid);
+        this.sql.exec("DELETE FROM realizations WHERE id = ?", rid);
       }
-      for (const r of live) {
-        this.sql.exec("UPDATE realizations SET status = 'abandoned', secret_hash = NULL, updated_at = ? WHERE id = ?", nowIso(), String(r.id));
-        this.sql.exec("UPDATE candidates SET state = 'rejected' WHERE realization_id = ? AND state != 'promoted'", String(r.id));
-      }
-      this.setEvolutionStatus(id, "withdrawn", true);
-      return live.map((r) => ({ realizationId: String(r.id), forkRepo: String(r.fork_repo), tokenId: str(r.token_id) ?? null }));
+      this.sql.exec("DELETE FROM evolutions WHERE id = ?", id);
+      return rows.map((r) => ({ realizationId: String(r.id), forkRepo: String(r.fork_repo), tokenId: str(r.token_id) ?? null }));
     });
-    for (const x of ended) this.emit({ type: "realization.updated", realization: this.realizationDto(this.realizationRow(x.realizationId)!) });
-    const evo = this.evolution(id);
-    if (evo) this.emit({ type: "evolution.updated", evolution: evo });
-    return ended;
   }
 
   // ---------------------------------------------------------------- end W7 intent proposals

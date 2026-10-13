@@ -206,19 +206,17 @@ describe("POST /intents/:pid/accept", () => {
     expect(failed.status).toBeGreaterThanOrEqual(500);
     const stored = await systemStub(env, s.systemId).proposal(p.id);
     expect(stored).toMatchObject({ proposal: { status: "open" }, accepting: false, acceptError: expect.any(String) });
-    // The failed attempt's Evolution is withdrawn and its realization abandoned with its secret revoked.
+    // The failed attempt leaves no Evolution and no realization behind.
     const work = await systemStub(env, s.systemId).work();
-    const tried = work.evolutions.filter((e) => e.title === p.message);
-    expect(tried.map((e) => e.state)).toEqual(["withdrawn"]);
-    const rz = work.realizations.filter((r) => r.evolution === tried[0]!.id);
-    expect(rz.map((r) => r.status)).toEqual(["abandoned"]);
-    expect(await systemStub(env, s.systemId).realizationSecretHash(rz[0]!.id)).toBeNull();
+    expect(work.evolutions.filter((e) => e.title === p.message)).toEqual([]);
+    expect(work.realizations.filter((r) => r.agent.id === "human:intent")).toEqual([]);
 
     setEditorTransport({ fetch: fakeReceivePack(s.ns).fetch });
     expect((await accept(s, p, ["op.1"])).status).toBe(201);
     expect((await systemStub(env, s.systemId).proposal(p.id))?.proposal.status).toBe("accepted");
-    const after = (await systemStub(env, s.systemId).work()).evolutions.filter((e) => e.title === p.message);
-    expect(after.map((e) => e.state).sort()).toEqual(["evaluated", "withdrawn"]);
+    const after = await systemStub(env, s.systemId).work();
+    expect(after.evolutions.filter((e) => e.title === p.message).map((e) => e.state)).toEqual(["evaluated"]);
+    expect(after.realizations.filter((r) => r.agent.id === "human:intent")).toHaveLength(1);
   });
 
   it("is a 409 stale-base once the head Genome moved", async () => {
@@ -235,7 +233,7 @@ describe("POST /intents/:pid/accept", () => {
     expect((await systemStub(env, s.systemId).proposal(p.id))?.proposal.status).toBe("open");
   });
 
-  it("refuses a fork once the head moved after the claim, and deletes the Evolution no realization started", async () => {
+  it("refuses a fork once the head moved after the claim, and discards the Evolution", async () => {
     const s = await importSystem();
     const stub = systemStub(env, s.systemId);
     const { evolution } = await createEvolution(env, s.systemId, { title: "t", intent: "i", kind: "genome-amendment" });
@@ -247,7 +245,7 @@ describe("POST /intents/:pid/accept", () => {
     });
     const started = await startWork(env, s.systemId, evolution.id, { target: "genome" }, "http://x", { expectedBase: "f".repeat(40) }).catch((e: unknown) => e);
     expect(started).toMatchObject({ status: 409, code: "stale-base" });
-    expect(await stub.withdrawEvolution(evolution.id)).toEqual([]);
+    expect(await stub.discardEvolution(evolution.id)).toEqual([]);
     expect(await stub.evolution(evolution.id)).toBeNull();
   });
 });
