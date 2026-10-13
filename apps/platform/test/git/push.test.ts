@@ -59,6 +59,29 @@ describe("rewriteTree", () => {
     expect(parseTree(out.objects.find((o) => o.type === "tree")!.body)[0]).toMatchObject({ name: "run.sh", mode: "100755", type: "exec" });
   });
 
+  it("sets the entry kind from the change type, including mode-only changes", async () => {
+    const { repo, base } = repoWith(FILES);
+    const root = (await repo.readCommit(base))!.treeHash;
+    const entries = (await repo.readTree(root))!;
+    const readme = entries.find((e) => e.name === "README.md")!;
+    const link = { ...readme, name: "link", mode: "120000", type: "symlink" as const };
+    repo.store.objects.set("f".repeat(40), { kind: "tree", entries: [readme, link] });
+    const { parseTree } = await import("../../worker/git/objects");
+    const kinds = async (changes: Parameters<typeof rewriteTree>[2]) => {
+      const out = await rewriteTree(repo, "f".repeat(40), changes);
+      return { changed: out.changed, entries: Object.fromEntries(parseTree(out.objects.find((o) => o.type === "tree")?.body ?? new Uint8Array()).map((e) => [e.name, e.mode])) };
+    };
+    // Same content, now executable: a change on its own.
+    expect(await kinds([{ path: "README.md", content: "readme\n", type: "exec" }])).toEqual({ changed: true, entries: { "README.md": "100755", link: "120000" } });
+    // A symlink replaced by a regular file with the same target text.
+    const target = new TextDecoder().decode(await (await repo.readBlob(readme.hash))!.arrayBuffer());
+    expect(await kinds([{ path: "link", content: target, type: "blob" }])).toEqual({ changed: true, entries: { "README.md": "100644", link: "100644" } });
+    // A new symlink, and an untyped edit that keeps the existing kind.
+    expect((await kinds([{ path: "new", content: "README.md", type: "symlink" }, { path: "link", content: "src/a.ts" }])).entries).toEqual({ "README.md": "100644", link: "120000", new: "120000" });
+    // Same content and kind: nothing changes.
+    expect((await rewriteTree(repo, "f".repeat(40), [{ path: "link", content: target, type: "symlink" }])).changed).toBe(false);
+  });
+
   it.each([
     ["empty", ""],
     ["absolute", "/etc/passwd"],
