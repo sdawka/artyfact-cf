@@ -1,0 +1,8 @@
+id: endpoint.delete-system
+kind: endpoint
+fields:
+  name: Remove a System
+  description: "Wipes a System's Durable Object (best effort) and drops its registry row and fork index, so the registry and every /api/systems/:id route stop seeing it. Artifacts repos, forks and push subscriptions stay. Used after a re-import under a new id."
+  route: DELETE /api/systems/:id
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set. An id the registry does not know answers 404 not-found.
+  response: 200 DeleteSystemResponse {systemId, stateCleared}
