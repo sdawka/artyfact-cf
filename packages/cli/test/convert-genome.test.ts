@@ -25,7 +25,9 @@ describe("artyfact convert-genome", () => {
     expect(r.out).toMatch(/239 nodes, 6 change records/);
     const dst = join(tmp, "kit-v2");
     expect(list(dst)).toEqual(list(FIXTURE));
-    for (const p of list(FIXTURE)) expect(readFileSync(join(dst, p), "utf8")).toBe(readFileSync(join(FIXTURE, p), "utf8"));
+    // Node `files` came from the app's v1 source-map.yaml, not the v1 Genome, and were moved onto the example by hand.
+    const withoutFiles = (t: string) => t.replace(/^files:\n(  - .*\n)+/m, "");
+    for (const p of list(FIXTURE)) expect(readFileSync(join(dst, p), "utf8")).toBe(withoutFiles(readFileSync(join(FIXTURE, p), "utf8")));
   });
 
   it("refuses a non-empty destination, a non-v1 source and missing arguments", async () => {
