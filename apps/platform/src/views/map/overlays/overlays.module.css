@@ -51,7 +51,11 @@
   color: var(--color-brand-primary);
   font-size: var(--font-size-xs);
   line-height: 1.4;
+  text-decoration: none;
+  pointer-events: auto;
 }
+.overlap:hover { text-decoration: underline; }
+.overlap:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
   .halo { mask: none; border-color: Highlight; }
 }

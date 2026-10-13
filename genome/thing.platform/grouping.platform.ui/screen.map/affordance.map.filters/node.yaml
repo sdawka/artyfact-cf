@@ -1,0 +1,11 @@
+id: affordance.map.filters
+kind: affordance
+fields:
+  name: Filters
+  description: Toggles hide node kinds and link kinds.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - Hidden kinds disappear from the Map; the filter count updates
+  failure: []

@@ -1,0 +1,10 @@
+id: component.overview.signifiers
+kind: component
+fields:
+  name: Health and phase
+  description: A health light always paired with its word, plus Phase, deploy, build and template. Only pass is green; a missing verdict reads literally unknown, never a blank or a tick.
+  states:
+    - ● healthy (success)
+    - attention (attention)
+    - failing (danger)
+    - unknown (subtle)

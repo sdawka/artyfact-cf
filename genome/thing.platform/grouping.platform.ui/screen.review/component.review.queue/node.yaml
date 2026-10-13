@@ -1,0 +1,12 @@
+id: component.review.queue
+kind: component
+fields:
+  name: Review queue
+  description: Rows of waiting candidates and amendments, each with its kind word, Evolution and agent.
+  states:
+    - loaded
+    - "empty: Nothing is waiting on you."
+    - candidate (attention)
+    - amendment (attention)
+    - promotion (attention)
+    - stale (subtle)

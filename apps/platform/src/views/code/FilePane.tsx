@@ -67,7 +67,7 @@ export function FilePane({ repo, path, draft, editBlocked, editing, onEdit, onSt
           {file.nodes.map((id) => (
             <li key={id} className={styles.nodeItem}>
               <NodeChip id={id} size="sm" />
-              <Link className="u-marker" to={href("work", { panel: "intent", anchor: id })}>Change this…<span className="sr-only"> ({id})</span></Link>
+              <Link className="u-marker" to={href("work", { panel: "intent", anchor: id })}>Describe a change<span className="sr-only"> ({id})</span></Link>
             </li>
           ))}
         </ul>

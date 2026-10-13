@@ -11,3 +11,7 @@ Independent source review found no other issue but inferred that fragment links 
 ## Handoff
 
 Branch: feat/ontology-driven-development; PR [#57](https://github.com/sdawka/artyfact-cf/pull/57) is open. Shared pre-push CI passed in 59.0s on commit d3f558e and the branch was pushed. Its site-only gate passed typecheck/build, 56 unit tests, 11 static checks and 47 browser checks (5 existing skips). Hosted PR checks remain next; no merge or deployment is part of this revision. A local network-bound preview returns HTTP 200 with the redesigned heading; this does not establish access from another device. Canonical records validate (7 records). Versioned direct-RPC sync preview was attempted and applied zero commands; it proposes six new records in the existing workspace. A separate Artyfact destination is still unestablished, so sync stays pending and the earlier GOAL_HIERARCHY_CONFLICT is preserved rather than writing into the other hierarchy.
+
+## Release integration
+
+PR #57 was reconciled with main at 5c39a76, retaining the newer platform and homepage work. The sole conflict was the Execution handoff; both the new main context and this page revision are retained. Fresh hosted CI must pass on the reconciled revision before merge and public-site deployment.

@@ -38,8 +38,8 @@ main, .site-header, .site-footer { width: min(1240px, calc(100% - 96px)); margin
 .landing-story-controller { min-width: 0; }
 .landing-sticky-stage { grid-column: 2; grid-row: 1 / span 4; align-self: start; position: relative; container-type: inline-size; z-index: 2; }
 .landing-story-controller > .scene-support { margin-top: 64px; }
-.landing-story-controller[data-sticky="true"] .landing-sticky-stage { position: sticky; top: 24px; background: var(--color-background); }
-.landing-view-controls { clip-path: inset(0 calc(100% * (1 - var(--opening-progress, 1))) 0 0); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 5px; margin-bottom: 12px; background: var(--color-surface-primary); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-lg); }
+.landing-story-controller[data-sticky="true"] .landing-sticky-stage { position: sticky; top: 24px; }
+.landing-view-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 4px; padding: 5px; margin-bottom: 12px; background: transparent; border: 0; border-radius: var(--border-radius-lg); }
 .landing-view-controls button { min-height: 54px; border: 0; border-radius: var(--border-radius-md); color: var(--color-text-secondary); background: none; font-size: .88rem; }
 .landing-view-controls small { display: block; color: var(--color-text-secondary); font-size: .7rem; }
 .landing-view-controls button[aria-selected="true"] { background: var(--color-background-active); color: var(--color-brand-primary); }
@@ -246,7 +246,7 @@ html, body { overflow-x: clip; }
   .story-step { order: 1; }
   .scene-support { order: 2; }
   .landing-story-instruction { order: 3; }
-  .landing-story-controller[data-sticky="true"] .landing-sticky-stage { top: 16px; background: var(--color-background); }
+  .landing-story-controller[data-sticky="true"] .landing-sticky-stage { top: 16px; background: transparent; }
   .landing-view-controls { padding: 4px; gap: 2px; margin-bottom: 8px; }
   .landing-view-controls button { min-height: 44px; box-sizing: border-box; padding: 4px 3px; font-size: .76rem; line-height: 1.2; }
   .landing-view-controls small { font-size: .6rem; line-height: 1.2; }
@@ -261,3 +261,23 @@ html, body { overflow-x: clip; }
 @media (forced-colors: active) {
   .landing-view-controls button[aria-selected="true"] { outline: 2px solid Highlight; outline-offset: -3px; }
 }
+
+[data-enhanced='true'][data-opening-readable='false'] .landing-view-controls { visibility: hidden; }
+.workflow-list { position: relative; }
+.workflow-list li { border: 0; }
+.workflow-list li::before { display: none; }
+.workflow-connector { position: absolute; left: 52px; top: 32px; width: calc(100% - 28px); height: 22px; fill: none; stroke: var(--color-brand-primary); stroke-width: 1.5; opacity: .7; }
+.workflow-connector path { stroke-dasharray: 150; stroke-dashoffset: 150; transition: stroke-dashoffset 480ms ease-out; }
+.workflow-list li[data-revealed='true'] .workflow-connector path { stroke-dashoffset: 0; }
+.workflow-list li:last-child .workflow-connector { display: none; }
+.workflow-list li .step-number { transition: color 240ms ease, text-shadow 240ms ease; color: var(--color-text-secondary); }
+.workflow-list li[data-revealed='true'] .step-number { color: var(--color-brand-primary); text-shadow: 0 0 28px var(--glow-accent); }
+.handoff-path { display: block; width: 160px; height: 32px; margin: 0 0 24px; fill: none; stroke: var(--color-brand-primary); stroke-width: 2; }
+.handoff-path path { stroke-dasharray: 180; stroke-dashoffset: 180; transition: stroke-dashoffset 600ms ease-out; }
+.closing[data-revealed='true'] .handoff-path path { stroke-dashoffset: 0; }
+@media (max-width: 950px) {
+  .landing-story-controller[data-stage-pinned='true'] .landing-sticky-stage::before { content: ''; position: absolute; inset: -20px -20px -48px; z-index: -1; background: linear-gradient(to bottom, transparent, var(--color-background) 20px, var(--color-background) calc(100% - 24px), transparent); pointer-events: none; }
+}
+@media (max-width: 780px) { .workflow-connector { width: calc(100% - 36px); } .workflow-list li:nth-child(2) .workflow-connector { display: none; } }
+@media (max-width: 380px) { .workflow-connector { left: auto; right: 8px; top: 45px; width: 70px; transform: rotate(90deg); transform-origin: center; } .workflow-list li:nth-child(2) .workflow-connector { display: block; } }
+@media (prefers-reduced-motion: reduce) { .workflow-connector path, .handoff-path path { transition: none; stroke-dashoffset: 0; } .workflow-list li .step-number { transition: none; } }

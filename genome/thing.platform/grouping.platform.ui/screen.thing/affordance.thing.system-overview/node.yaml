@@ -1,0 +1,14 @@
+id: affordance.thing.system-overview
+kind: affordance
+fields:
+  name: System overview
+  description: Returns to the System's Overview.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - Overview opens
+  failure: []
+links:
+  - rel: references
+    to: screen.overview

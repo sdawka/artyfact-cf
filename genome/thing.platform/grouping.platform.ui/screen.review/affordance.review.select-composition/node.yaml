@@ -1,0 +1,15 @@
+id: affordance.review.select-composition
+kind: affordance
+fields:
+  name: Select for composition
+  description: Marks a candidate to be composed with others; the button then reads Selected for composition.
+  actor: user
+  trigger: click
+  preconditions:
+    - A candidate is selected
+  effects:
+    - The button reads Selected for composition and the overlap is recomputed
+  failure: []
+links:
+  - rel: references
+    to: component.review.promotion

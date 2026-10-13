@@ -1,0 +1,9 @@
+id: component.changelog.signifiers
+kind: component
+fields:
+  name: Commit signifiers
+  description: "Per row: policy, node counts changed and the legacy-format notice for commits that predate the node tree."
+  states:
+    - policy word (subtle)
+    - +N ~N −N nodes (subtle)
+    - legacy format (attention)

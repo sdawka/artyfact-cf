@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { LandingSystemScene, LandingSystemSupport } from './LandingSystemScene';
 import type { LandingSubject, LandingView } from './landingSystemData';
 import { useLandingScroll } from './useLandingScroll';
@@ -18,6 +18,12 @@ export function LandingStory({ platform }: { platform?: string | null } = {}) {
   const controls = useRef<HTMLDivElement>(null);
   const { pinned, manual, settled, chooseView } = useLandingScroll(scene, controls, setView);
   const demo = useLandingDemo(scene, view, settled);
+  useEffect(() => {
+    const targets=[...document.querySelectorAll<HTMLElement>('.workflow-list li, .closing')];
+    if (typeof IntersectionObserver==='undefined') { for(const target of targets) target.dataset.revealed='true'; return; }
+    const observer=new IntersectionObserver(entries=>{ for(const entry of entries) if(entry.isIntersecting) { (entry.target as HTMLElement).dataset.revealed='true'; observer.unobserve(entry.target); } },{threshold:.35});
+    for(const target of targets) observer.observe(target); return()=>observer.disconnect();
+  },[]);
   return <div ref={scene} className="landing-story-controller" data-system-view={view} data-sticky={String(pinned)} data-scroll-mode={pinned ? manual ? 'manual' : 'following' : 'static'}>
     <div className="landing-story-scroll-region">
       <div className="hero-copy"><h1>Make Meaningful<br /> Systems</h1><p className="cloudflare-line">(on Cloudflare)</p><p className="lead">Give your agent the whole picture.</p><p>Shape a Thing with its Genome. Compose reusable Parts when they help. Keep the work, its functioning and its purpose in the same System.</p><div className="actions"><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a><a className="text-link" href="/model">Understand the model</a></div>{platform ? <a className="button u-brackets" href={platform}>Open the platform</a> : <p className="availability"><span className="availability-mark" aria-hidden="true" />The hosted handoff is being prepared. The guide is ready.</p>}</div>

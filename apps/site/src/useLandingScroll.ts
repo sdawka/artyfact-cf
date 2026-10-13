@@ -16,11 +16,17 @@ export function useLandingScroll(scene: RefObject<HTMLDivElement | null>, contro
     for (const [key, progress] of Object.entries(value)) element.style.setProperty('--' + key + '-progress', String(progress));
     element.dataset.phenomeSettled = String(value.observation === 1);
     element.dataset.openingSettled = String(value.opening === 1);
+    const opened = value.opening >= .5, realized = value.realization > 0;
+    element.dataset.openingReadable = String(opened);
+    element.dataset.realizedVisible = String(realized);
+    element.dataset.chartReadable = String(value.observation >= .65);
     element.dataset.realizationStarted = String(value.agent > 0);
     element.dataset.observationStarted = String(value.observation > 0);
-    if (controls.current) { controls.current.inert = value.opening < 1; controls.current.setAttribute('aria-hidden', String(value.opening < 1)); }
-    element.querySelector('.scene-opening')?.setAttribute('aria-hidden', String(value.opening === 1));
-    for (const part of element.querySelectorAll('.scene-system-heading, .scene-board')) part.setAttribute('aria-hidden', String(value.opening < 1));
+    if (controls.current) { controls.current.inert = !opened; controls.current.setAttribute('aria-hidden', String(!opened)); }
+    element.querySelector('.scene-opening')?.setAttribute('aria-hidden', String(opened));
+    for (const part of element.querySelectorAll('.scene-system-heading, .scene-board')) part.setAttribute('aria-hidden', String(!opened));
+    for (const part of element.querySelectorAll<HTMLElement>('.scene-realized-app, .scene-runtime-realized')) { part.setAttribute('aria-hidden', String(!realized)); if (part.classList.contains('scene-realized-app')) part.inert = !realized || selected.current === 'phenome' && value.observation < 1; }
+    for (const part of element.querySelectorAll('.scene-app-shape, .scene-runtime-shape, .scene-application > .scene-app-heading')) part.setAttribute('aria-hidden', String(realized));
     setSettled(value.observation === 1);
   }, [scene, controls]);
   const endpoint = useCallback((view: LandingView) => { cancel.current(); apply(poseFor(view)); if (scene.current) scene.current.dataset.motion = 'settled'; }, [apply]);
@@ -71,10 +77,12 @@ export function useLandingScroll(scene: RefObject<HTMLDivElement | null>, contro
       frame = 0; if (!alive) return;
       const rect = stage.getBoundingClientRect(), height = window.innerHeight;
       const desktop = window.innerWidth > 950, top = desktop ? 24 : 16;
-      const readingHeight = desktop ? height - top * 2 : Math.max(0, height - top - rect.height);
-      const enabled = (desktop ? rect.height <= height - top * 2 : rect.height <= height - 32 - 176) && !media?.matches && rect.height > 0;
+      const guard = desktop ? 0 : 24;
+      const readingHeight = desktop ? height - top * 2 : Math.max(0, height - top - rect.height - guard);
+      const enabled = (desktop ? rect.height <= height - top * 2 : rect.height + guard <= height - top - 176) && !media?.matches && rect.height > 0;
       setPinned(enabled);
-      const line = desktop ? height * .5 : top + rect.height + readingHeight * .5;
+      element.dataset.stagePinned = String(enabled && rect.top <= top + 1);
+      const line = desktop ? height * .5 : top + rect.height + guard + readingHeight * .5;
       const positions = steps.map(step => (step.querySelector<HTMLElement>('[data-story-heading]') ?? step).getBoundingClientRect().top);
       let next = accepted;
       const band = Math.max(24, Math.min(64, readingHeight * .12));

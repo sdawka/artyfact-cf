@@ -1,0 +1,8 @@
+id: component.shell.inspector.rules
+kind: component
+fields:
+  name: Rules & claims
+  description: The rules and claims that constrain the node.
+  states:
+    - loaded
+    - "empty: no rules"

@@ -1,0 +1,15 @@
+id: component.shell.inspector
+kind: component
+fields:
+  name: Inspector
+  description: The side panel for the focused node, with six tabs. The [ and ] keys switch tabs and Esc closes it. The header shows the node chip with its id and the readiness verdict; only pass is green.
+  states:
+    - closed
+    - loaded
+    - no node focused
+    - NodeChip + id (subtle)
+    - ✓ pass (success)
+    - × fail (danger)
+    - unknown (subtle)
+    - stale (subtle, dashed)
+    - not-run (subtle)

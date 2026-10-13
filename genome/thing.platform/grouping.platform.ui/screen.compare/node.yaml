@@ -1,0 +1,15 @@
+id: screen.compare
+kind: screen
+fields:
+  name: Compare
+  description: Two revisions side by side, with the Genome delta by node and file diffs. It sits off the rail and is reached from the Changelog or go key g x. Actionable targets wear corner brackets and the page has one primary button; picking a revision re-runs the compare and opening a file shows its diff.
+  route: /s/:systemId/r/:rev/compare
+  states:
+    - loading
+    - loaded
+    - empty
+    - error
+    - same revision
+links:
+  - rel: serves
+    to: feature.changelog-compare

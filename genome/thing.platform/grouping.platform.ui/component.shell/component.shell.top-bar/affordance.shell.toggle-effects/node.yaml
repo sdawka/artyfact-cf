@@ -1,0 +1,11 @@
+id: affordance.shell.toggle-effects
+kind: affordance
+fields:
+  name: Effects
+  description: Turns the ambient WebGL effects on or off.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - The effects start or stop at once
+  failure: []

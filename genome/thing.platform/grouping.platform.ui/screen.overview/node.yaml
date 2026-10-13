@@ -1,0 +1,12 @@
+id: screen.overview
+kind: screen
+fields:
+  name: Overview
+  description: "The System at a glance: health, three meters, Active Evolutions and Blockers. Actionable targets wear corner brackets and the page has one primary button; Open Map, Open Deployments and the Review line navigate immediately, and Review upgrade shows its result inline."
+  route: /s/:systemId/r/:rev/overview
+  states:
+    - loading
+    - loaded
+    - empty
+    - error
+    - fixture data

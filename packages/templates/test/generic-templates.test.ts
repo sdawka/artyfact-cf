@@ -106,6 +106,7 @@ describe("generic templates", () => {
 
   it("lets journey steps target the generic kinds: endpoints and commands as operations, pages as screens", () => {
     expect(load("template.thing.cloudflare-worker-service@1").relations.stepOperation!.to).toEqual(expect.arrayContaining(["operation", "endpoint"]));
+    expect(load("template.thing.cloudflare-worker-service@1").relations.invokes!.to).toContain("endpoint");
     expect(load("template.thing.cli@1").relations.stepOperation!.to).toEqual(expect.arrayContaining(["operation", "command"]));
     expect(load("template.thing.static-site@1").relations.stepScreen!.to).toEqual(expect.arrayContaining(["screen", "page"]));
   });

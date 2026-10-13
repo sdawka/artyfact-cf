@@ -9,3 +9,4 @@ fields:
     - to: c2
 links:
   - { rel: stepOperation, to: endpoint.changelog }
+  - { rel: stepScreen, to: screen.changelog }

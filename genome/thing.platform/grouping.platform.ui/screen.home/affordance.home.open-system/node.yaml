@@ -1,0 +1,16 @@
+id: affordance.home.open-system
+kind: affordance
+fields:
+  name: Open System
+  description: The System card is a link that opens its Overview.
+  actor: user
+  trigger: click
+  preconditions:
+    - A System card is listed
+  effects:
+    - The workspace opens on the System's Overview
+  failure:
+    - "Unknown System: the route error page"
+links:
+  - rel: references
+    to: screen.overview

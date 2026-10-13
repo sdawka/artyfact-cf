@@ -1,0 +1,9 @@
+id: component.shell.top-bar
+kind: component
+fields:
+  name: Top bar
+  description: System and revision selector with a state pill, the Phase badge, the System One provider label and the global controls.
+  states:
+    - "System One: fake provider (subtle)"
+    - Phase badge (subtle)
+    - revision state pill (subtle)

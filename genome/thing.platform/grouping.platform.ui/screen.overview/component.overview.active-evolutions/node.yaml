@@ -1,0 +1,12 @@
+id: component.overview.active-evolutions
+kind: component
+fields:
+  name: Active Evolutions
+  description: Evolutions in flight with their candidate count and the conflict chips between candidates.
+  states:
+    - loaded
+    - "empty: no active Evolutions"
+    - § file conflict (attention)
+    - ≈ soft-semantic conflict (attention)
+    - ⊥ hard-semantic conflict (danger)
+    - ◇ evidence conflict (attention)

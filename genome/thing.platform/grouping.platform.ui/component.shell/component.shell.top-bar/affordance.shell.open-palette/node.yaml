@@ -1,0 +1,14 @@
+id: affordance.shell.open-palette
+kind: affordance
+fields:
+  name: Go to… ⌘K
+  description: Opens the command palette.
+  actor: user
+  trigger: click or ⌘K
+  preconditions: []
+  effects:
+    - The palette opens with search focused
+  failure: []
+links:
+  - rel: references
+    to: component.shell.command-palette
