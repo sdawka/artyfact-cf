@@ -73,3 +73,6 @@
   .grid { grid-template-columns: 1fr; }
 }
 .spacer { flex: 1; }
+.cardItem { display: grid; grid-template-rows: 1fr auto; gap: var(--spacing-2); min-width: 0; margin: 0; padding: 0; list-style: none; }
+.cardAction { justify-self: start; font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.cardAction:hover { color: var(--color-text-primary); }
