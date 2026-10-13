@@ -5,6 +5,7 @@ export {
   emptyStore, instantiateNodes, loadTemplate, memoryStore, mergeChecks, refOf, resolveLineage, templateHash,
   type Template, type TemplateStore,
 } from "./meta/template.ts";
+export { composeTemplates, TemplateCompositionError, type TemplateUse } from "./meta/compose.ts";
 export { cachedForm, checkTemplateForm, formFacts, nextCycles, packName, TemplateFormError, type TemplateForm } from "./meta/form.ts";
 export * from "./graph/graph.ts";
 export { EDB_DECLS, EDB_RELATIONS, FORM_DECLS, GRAPH_DECLS, TEMPLATE_DECLS } from "./evaluate/edb.ts";

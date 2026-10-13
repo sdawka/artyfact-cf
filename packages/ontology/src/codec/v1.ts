@@ -1,14 +1,15 @@
-import { loadSystem, schema, type SystemModel, type TemplateStore } from "@artyfact/model";
 import { ontologyFields } from "../adapters/artyfact/graph.ts";
-import { artyfactTemplateStore } from "../adapters/artyfact/templates.ts";
+import { loadArtyfactModel, type ArtyfactModel } from "../adapters/artyfact/load.ts";
+import type * as schema from "../adapters/artyfact/schema.ts";
+import type { ArtyfactTemplateStore } from "../adapters/artyfact/templates.ts";
 import { EVOLUTIONS_DIR, NODE_FILE, slugOf, type NodeCriterion, type NodeFile, type NodeHook, type NodeLink } from "../genome/node.ts";
 import { entriesOf, GenomeTreeError, type GenomeFiles, type TreeIssue } from "./tree.ts";
 import { formatNodeFile } from "./write.ts";
 
 /**
  * The one-time v1 -> v2 Genome converter (`docs/design/ontology.md` §2a, "v1 → v2 conversion"). It reads the v1
- * (by-concern) layout through `@artyfact/model`, which knows Parts and Composition, and writes the node tree. It is
- * the only v1 reader that outlives the v1 adapter, and goes with it after the migration release.
+ * (by-concern) layout through the engine's artyfact v1 loader, which carries a Thing's Parts and Composition through
+ * unchecked, and writes the node tree. It is the only v1 reader left, and goes after the migration release.
  */
 
 const isEmpty = (v: unknown) =>
@@ -24,10 +25,8 @@ interface Draft { id: string; kind: string; parent?: string; slug: string; file:
  * Genome cannot be placed losslessly: a node whose parent is unknown, a criterion whose owner is not the nearest
  * Thing or System above its subject, a hook no criterion names, an inbound link to something that is not a node.
  */
-export function convertV1(files: GenomeFiles, templates?: TemplateStore | Record<string, string>): Map<string, string> {
-  const store = templates === undefined || typeof templates.get === "function" ? templates as TemplateStore | undefined
-    : artyfactTemplateStore(templates as Record<string, string>) as TemplateStore;
-  const m = loadSystem(new Map(entriesOf(files)), { templates: store });
+export function convertV1(files: GenomeFiles, templates?: ArtyfactTemplateStore | Record<string, string>): Map<string, string> {
+  const m = loadArtyfactModel(Object.fromEntries(entriesOf(files)), { templates });
   const issues: TreeIssue[] = [];
   const drafts = new Map<string, Draft>();
   const add = (d: Omit<Draft, "slug"> & { slug?: string }, origin: string) => {
@@ -196,7 +195,7 @@ export function convertV1(files: GenomeFiles, templates?: TemplateStore | Record
 }
 
 /** A journey's owner: the one Thing its steps' screens and operations belong to, else the System. */
-function journeyOwner(m: SystemModel, j: schema.Journey): string {
+function journeyOwner(m: ArtyfactModel, j: schema.Journey): string {
   const owning = new Map(m.nodes.map((n) => [n.id, n.owningThing]));
   const things = new Set(j.steps.flatMap((st) => [st.screen, st.operation]).filter((x): x is string => !!x).map((id) => owning.get(id)));
   const [only] = things;

@@ -322,10 +322,9 @@ describe("parts authoring", () => {
     const invalid = {
       id: "part.invalid-genome", version: "1", name: "Invalid", visibility: "shared", published: true,
       payload: { files: {}, model: {
-        "system.yaml": "id: system.demo\nname: Demo\ntemplate: null\nthings: [thing.same]\npurposes: []\n",
-        "kits.yaml": "kits: []\nrulePacks: []\nrequired: []\n",
-        "things/a/thing.yaml": "id: thing.same\nname: A\ntemplateRef: null\ndescription: A\nartifacts: []\npurposeRefs: []\n",
-        "things/b/thing.yaml": "id: thing.same\nname: B\ntemplateRef: null\ndescription: B\nartifacts: []\npurposeRefs: []\n",
+        "node.yaml": "id: system.demo\nkind: system\nfields: {name: Demo}\n",
+        "a/node.yaml": "id: thing.same\nkind: thing\nfields: {name: A}\n",
+        "b/node.yaml": "id: thing.same\nkind: thing\nfields: {name: B}\n",
       } },
     };
     catalog.set("part.invalid-genome@1", invalid);

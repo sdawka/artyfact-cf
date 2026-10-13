@@ -9,23 +9,25 @@ import { composeTemplate, metaTemplates } from "../src/index";
 import { files as bundled } from "../src/generated/files";
 
 const templatesDir = Object.fromEntries(Object.entries(bundled).filter(([p]) => !p.startsWith("rule-packs/")));
-const v1 = readDir(join(__dirname, "../../../examples/keep-in-touch-system"));
-const template = composeTemplate("template.system.social-networking.cloudflare@1", ["template.thing.cloudflare-worker-webapp@1"]);
-const v1Graph = loadArtyfactSystem(v1, { templates: artyfactTemplateStore(templatesDir) });
+const v1 = readDir(join(__dirname, "../../ontology/test/fixtures/artyfact/keep-in-touch-system"));
+const SYSTEM = "template.system.social-networking.cloudflare@1";
+const template = composeTemplate(SYSTEM, ["template.thing.cloudflare-worker-webapp@1"]);
+// The v1 adapter names its base template; the tree names the root's, which the composed template keeps.
+const v1Graph = { ...loadArtyfactSystem(v1, { templates: artyfactTemplateStore(templatesDir) }), template: SYSTEM };
 const v2Graph = readTree(convertV1(v1, templatesDir), metaTemplates);
 
 /** Kinds v1 left parentless and the tree places (the three intended parent differences). */
 const PLACED = new Set(["purpose", "claim", "external", "feature", "commitment", "journey", "requirement"]);
-// Neither graph names the composed template (v1 the base, v2 its System template), so both raise this once.
-const comparable = (fs: Finding[]) => fs.filter((f) => f.rule !== "graph.templateMismatch");
 const key = (f: Finding) => `${f.rule} ${f.subject ?? ""} ${f.level}`;
 
 describe("Genome v2 findings parity (Keep in Touch)", () => {
-  const before = comparable(evaluate(template, v1Graph).findings);
-  const after = comparable(evaluate(template, v2Graph).findings);
+  const before = evaluate(template, v1Graph).findings;
+  const after = evaluate(template, v2Graph).findings;
   const afterKeys = new Set(after.map(key)), beforeKeys = new Set(before.map(key));
 
   it("the converted tree raises no finding the v1 Genome did not", () => {
+    expect(v2Graph.template).toBe(template.ref);
+    expect(after.filter((f) => f.rule === "graph.templateMismatch")).toEqual([]);
     expect(after.map(key).filter((k) => !beforeKeys.has(k))).toEqual([]);
   });
 

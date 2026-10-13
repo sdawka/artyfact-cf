@@ -5,7 +5,7 @@ import {
   checkTemplateForm, checkViewHints, evaluate, instantiateNodes, loadTemplate, resolveKindView, type Graph, type Template,
 } from "@artyfact/ontology";
 import { loadMetaTemplate, metaTemplateRefs, metaTemplates, templateRefs, templates } from "../src/index";
-import { COMPOSED, compose, GENERIC_THINGS, readGenome, SYSTEM } from "./dev-platform";
+import { compose, GENERIC_THINGS, readGenome, SYSTEM } from "./dev-platform";
 
 const ALL = [SYSTEM, ...GENERIC_THINGS];
 const load = (ref: string) => loadMetaTemplate(ref);
@@ -112,13 +112,13 @@ describe("generic templates", () => {
   });
 
   it("keeps module identical across the templates that declare it", () => {
-    // compose() throws when two templates declare one kind differently.
+    // composeTemplates throws when two templates declare one kind differently.
     expect(() => compose(ALL)).not.toThrow();
   });
 });
 
 describe("the dev-platform fixture Genome", () => {
-  const composed = () => loadTemplate(compose(ALL));
+  const composed = () => compose(ALL);
   const { graph, nodes } = readGenome(genomeDir);
   const run = (g: Graph) => evaluate(composed(), g);
   const rule = (g: Graph, id: string) => run(g).findings.filter((f) => f.rule === id);
@@ -126,7 +126,8 @@ describe("the dev-platform fixture Genome", () => {
   it("composes into a form-valid template", () => {
     const form = checkTemplateForm(composed());
     expect(form.findings).toEqual([]);
-    expect(composed().ref).toBe(COMPOSED);
+    expect(composed().ref).toBe(SYSTEM);
+    expect(graph.template).toBe(SYSTEM);
   });
 
   it("loads as a tree: one System root, four Things, every node under its enclosing directory", () => {
