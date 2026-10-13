@@ -131,7 +131,7 @@ export function proposedOps(engine: Op[], graph: Graph, template: Template): { o
         break;
       }
       case "update":
-        first[i] = push({ op: "update", node: op.id, ...(op.fields && { fields: op.fields }), ...(op.criteria && { criteria: op.criteria }) });
+        first[i] = push({ op: "update", node: op.id, ...(op.fields && { fields: op.fields }), ...(op.criteria && { criteria: op.criteria }), ...(op.files !== undefined && { files: op.files }) });
         break;
       case "remove":
         first[i] = push({ op: "remove", node: op.id });

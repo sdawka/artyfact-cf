@@ -1,4 +1,4 @@
-import { NodeCriterionSchema } from "../genome/node.ts";
+import { NodeCriterionSchema, RepoPathSchema } from "../genome/node.ts";
 import { linkKey, type Graph, type GraphNode } from "../graph/graph.ts";
 import { titleOf, type RouteVocabularySource } from "./route.ts";
 import type { Op, OpCriterion, OpProblem } from "./types.ts";
@@ -12,7 +12,7 @@ const ALWAYS = new Set(["title", "description"]);
  * an undeclared kind or relation, a relation whose endpoint kinds the template does not allow, an `add` whose title
  * repeats an existing node of the same kind, a criterion that does not fit the `node.yaml` criterion schema, an upsert
  * of a criterion id another node declares, a removal of a criterion the node does not declare, and an `update` with
- * nothing to change. Warnings: an `add` or `update` field the kind does not declare, an `unlink` of a link that is
+ * nothing to change (a `files`-only update counts as a change), and an `update` whose `files` entry is not a valid repo path (`op.invalidFile`). Warnings: `op.filesOnTemplateRoot` (files on a `system` node),  an `add` or `update` field the kind does not declare, an `unlink` of a link that is
  * not there, a `link` that already is.
  */
 export function validateOps(ops: Op[], template: RouteVocabularySource, g: Graph): OpProblem[] {
@@ -74,9 +74,11 @@ export function validateOps(ops: Op[], template: RouteVocabularySource, g: Graph
       }
       case "update": {
         if (!known(i, op.id)) break;
-        if (!Object.keys(op.fields ?? {}).length && !op.criteria?.length) err(i, "op.emptyUpdate", [op.id], `the update of ${op.id} changes nothing`);
+        if (!Object.keys(op.fields ?? {}).length && !op.criteria?.length && op.files === undefined) err(i, "op.emptyUpdate", [op.id], `the update of ${op.id} changes nothing`);
         fields(i, op.id, byId.get(op.id)!.kind, Object.keys(op.fields ?? {}));
         criteria(i, op.id, op.criteria ?? []);
+        for (const f of op.files ?? []) if (!RepoPathSchema.safeParse(f).success) err(i, "op.invalidFile", [op.id], `${op.id}: "${f}" is not a repo-relative path`);
+        if (op.files?.length && byId.get(op.id)!.kind === "system") warn(i, "op.filesOnTemplateRoot", [op.id], `${op.id} is the System root; files belong on the nodes that realise it`);
         break;
       }
       case "remove":

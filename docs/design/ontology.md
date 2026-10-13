@@ -28,17 +28,17 @@ The intent pipeline is three engine calls. Each is bounded, and none sees the wh
 
    A `Route` holds `path[]`: per step the level, question id and text, offered choices, answer, confidence, distribution and status. It also holds `target {space, kind, nodes[≤3], new?, related[≤5]}`, `intent`, `status`, `calls` and `provenance` (provider, model, usage, thresholds, errors, truncated).
 2. **`routeSlice(graph, route)` and `routeVocabulary(template, route, slice)`** build what the translator sees: the targets (else the related nodes), their parent chains and nodes one link away, at most 40 nodes, text cut to 300 characters, `source.*` fields dropped. The vocabulary holds only the kinds in view and the relations touching them.
-3. **`translator.translate({message, route, slice, vocabulary})`** returns exactly one of `ops[]`, a `question` or an `answer`. `openRouterTranslator` uses `openai/gpt-6-luna` by default, temperature 0, 800 output tokens, a 30 s timeout and 2 retries, and an LRU cache. It never throws; failures come back as `provider: "error"`. `fakeTranslator` asks a question when the route is not confident. Otherwise it updates the first target's `description`, or adds a node of the route's kind, linked to the first target with the first vocabulary relation whose ends fit the two kinds (none when no relation fits). `translatorFromEnv` order: `TRANSLATE=0` → off, `FAKE_S1=1` → fake, `OPENROUTER_API_KEY` → OpenRouter (`OPENROUTER_TRANSLATE_MODEL`), else off.
+3. **`translator.translate({message, route, slice, vocabulary})`** returns exactly one of `ops[]`, a `question` or an `answer`. `openRouterTranslator` uses `openai/gpt-6-luna` by default, temperature 0, 800 output tokens, a 30 s timeout and 2 retries, and an LRU cache. It never throws; failures come back as `provider: "error"`. `fakeTranslator` asks a question when the route is not confident. A message carrying `#files:<glob>[,<glob>]` updates the first target's `files` to those globs. Otherwise it updates the first target's `description`, or adds a node of the route's kind, linked to the first target with the first vocabulary relation whose ends fit the two kinds (none when no relation fits). `translatorFromEnv` order: `TRANSLATE=0` → off, `FAKE_S1=1` → fake, `OPENROUTER_API_KEY` → OpenRouter (`OPENROUTER_TRANSLATE_MODEL`), else off.
 4. **`validateOps(ops, template, graph)`** runs deterministic checks and makes no calls. It returns `OpProblem {level, rule, op (index), subjects, message}`:
-   - Errors: `op.unknownNode`, `op.unknownKind`, `op.unknownRelation`, `op.relationEndpoint` (endpoint kinds), `op.duplicateTitle` (an `add` repeating a same-kind title), `op.invalidCriterion` (not a `node.yaml` criterion), `op.duplicateCriterion` (an upsert of an id another node declares), `op.unknownCriterion` (a removal of a criterion the node does not declare) and `op.emptyUpdate`.
-   - Warnings: `op.unknownField` (an `add` or `update` field the kind does not declare; `title` and `description` are always allowed), `op.missingLink` and `op.duplicateLink`.
+   - Errors: `op.unknownNode`, `op.unknownKind`, `op.unknownRelation`, `op.relationEndpoint` (endpoint kinds), `op.duplicateTitle` (an `add` repeating a same-kind title), `op.invalidCriterion` (not a `node.yaml` criterion), `op.duplicateCriterion` (an upsert of an id another node declares), `op.unknownCriterion` (a removal of a criterion the node does not declare) `op.emptyUpdate` (an update with no fields, criteria or `files`) and `op.invalidFile` (a `files` entry that is not a repo-relative path).
+   - Warnings: `op.filesOnTemplateRoot` (non-empty `files` on a `system` node), `op.unknownField` (an `add` or `update` field the kind does not declare; `title` and `description` are always allowed), `op.missingLink` and `op.duplicateLink`.
    - It does **not** check `parents` legality, completeness, or links left dangling by a `remove`.
 
 Engine op shapes (`src/route/types.ts`):
 
 ```ts
 { op: "add"; kind; parent?; title; description?; fields?; criteria?: NodeCriterion[]; links?: { rel; to? | from? }[] }   // no id: the platform mints one
-{ op: "update"; id; fields?: Record<string, unknown>; criteria?: (NodeCriterion | { id; remove: true })[] }
+{ op: "update"; id; fields?: Record<string, unknown>; criteria?: (NodeCriterion | { id; remove: true })[]; files?: string[] | null }
 { op: "remove"; id }
 { op: "link" | "unlink"; from; rel; to }
 ```
@@ -255,6 +255,7 @@ The writer edits the head tree and touches only the affected node directories. T
 | `add {kind, parent, fields, criteria?, links?}` | Create `<parent dir>/<slugOf(id)>/node.yaml`. The id is minted as `<kind>.<slug of title>`, with `-2`, `-3`, … on collision. A parent-less add goes under the root. Prefilled template nodes of the new kind are not instantiated (only a new Thing or System instantiates a template) |
 | `update {node, fields}` | Set each field in `fields` on the node's `node.yaml`; `null` deletes the key |
 | `update {node, criteria}` | Upsert each criterion by id; `{id, remove: true}` deletes it. Inline hooks follow their criterion |
+| `update {node, files}` | Replace the node's `files` globs wholesale (each entry a `RepoPathSchema` path, relative to the nearest `root`); `null` or an empty list removes the key |
 | `remove {node}` | Delete the node's directory with its whole subtree. Links from other nodes to any removed id are not rewritten: the proposal must carry the matching `unlink` ops, and evaluation reports what is left dangling |
 | `link {node, link: {rel, to, certainty?}}` | Append to `links` of the `from` node, unless the link is already there |
 | `unlink {node, link: {rel, to}}` | Remove the matching entry from `links` of the `from` node |
@@ -310,6 +311,7 @@ Providers are wired by W5 and W7. System One comes from `providerFromEnv`: `FAKE
 | Topic | Engine today | Plan | Resolution and owner |
 |---|---|---|---|
 | Criteria in ops | `Op` carries `add.fields`, `add.criteria` and `update.criteria` (upserts and removals); the translator prompt names them; `validateOps` checks them | Ops carry criteria and fields | Done (W7) |
+| Files in ops | `update.files` replaces or removes a node's `files`; the translator prompt names it; `validateOps` checks entries (`op.invalidFile`) | Evolutions bind nodes to code | Done (W1) |
 | Node ids on `add` | None | Ops name nodes | The platform mints ids (§4); `ProposedOp.node` carries them |
 | Legality of a proposal | `validateOps` checks ids, kinds and relation endpoints only | Valid tree after accept | W7 runs `evaluate` on the applied copy and reports new findings as `problems` |
 | Reparent | No op | Containment is the tree | Not in this contract: remove plus add (§4) |
