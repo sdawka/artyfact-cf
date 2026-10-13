@@ -326,8 +326,9 @@ curl -s $B/conflicts | jq -c '.conflicts[] | {kind, candidates, nodes, paths, me
 `policy.ownerOnly` and `entity.ContactRecord`. `paths` is empty because no file is shared. `interferes: 0.05` is
 System One's answer to "do these changes interfere?", and 0.05 means "no". That number is from the fake provider,
 whose canned answer is always the benign one, so say on video that the overlap is the platform's finding and the
-interference judgment is fake here. Health is `not-run` for B because B gave no preview URL. Show the Work and
-Evaluations views.
+interference judgment is fake here. Health is `not-run` for B because B gave no preview URL. Show Work (the
+`evolution.1` card carries a ≈ overlap chip), the Map with candidates on, and follow its `overlap · 2` chip into Review,
+where both candidates are preselected.
 
 A repeat submit of the same commit converges on the same candidate:
 
@@ -341,7 +342,8 @@ cd /tmp/kit-a && artyfact submit --json | jq -c '{created, candidate: .candidate
 
 ## 8. Promote A, then B is stale (about 2 s)
 
-Terminal **ops**:
+In the browser this is the Review view (`g r`): its promotion row for `evolution.1` opens the desk with the gates
+summary and the Promote button; Work only links there. Terminal **ops** does the same call:
 
 ```sh
 curl -s -XPOST $B/promote -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' -d '{
@@ -370,7 +372,8 @@ curl -s -w ' HTTP %{http_code}\n' -XPOST $B/promote -H "authorization: Bearer $A
 {"error":{"code":"stale-base","message":"System head moved; reload and retry","details":{"currentHead":"sc-2-88b3ec84"}}} HTTP 409
 ```
 
-B with the current head (`"expectedHead":"sc-2-88b3ec84"`) is refused as well, because it was built on the old head:
+B with the current head (`"expectedHead":"sc-2-88b3ec84"`) is refused as well, because it was built on the old head.
+Review lists B's candidate as `stale · behind by 1`, and the desk prints the agent's rebase-and-resubmit line:
 
 ```text
 {"error":{"code":"stale-base","message":"a candidate was built on an earlier System head; rebase it on the current head and resubmit","details":{"currentHead":"sc-2-88b3ec84"}}} HTTP 409
@@ -422,7 +425,8 @@ C.system.topology     fail     completed
 C.system.topology     pass     completed
 ```
 
-The review shows the delta, the violation with its proof tree, and System One's signals:
+The review shows the delta, the violation with its proof tree, and System One's signals. In the browser the same
+review is the amendment row for `realization.5.r5` on Review, with Reject on its Amendment tab:
 
 ```sh
 curl -s $B/realizations/realization.5.r5/review | jq -c '{
@@ -519,7 +523,8 @@ The same review query:
 
 **Narration.** No rule fires, and the change is inside evolution.5's scope. System One's signals (class, weakens,
 contradicts per commitment, specificity) are shown in the review panel and labelled fake. The decision to treat the
-rewording as deliberate is the admin's, recorded as the interpretation. Terminal **ops**:
+rewording as deliberate is the admin's, recorded as the interpretation, typed on Review's Amendment tab or sent from
+terminal **ops**:
 
 ```sh
 curl -s $B/realizations/realization.5.r6/review \
