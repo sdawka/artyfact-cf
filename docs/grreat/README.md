@@ -1,7 +1,7 @@
 <!-- grreat:manifest version=1 root=goal.north-star active=goals.md#goal.north-star,research.md#research.current,roadmap.md#roadmap.next,execution.md#execution.next,analysis.md#analysis.current,time.md#time.current -->
 # Artyfact Parts and Thing composition
 
-Start with [[goals]] and the Now section in [[execution]]. The manifest selects the records to read when resuming.
+Start with [[goals]] and the Now section in [[execution]]. The manifest selects the records to read when resuming. These local Markdown goals and roadmap are authoritative. Artyfact and Bropilot keep separate GRREAT records for now; remote sync remains pending a separate Artyfact destination and does not replace this project's plan.
 
 - Planning: [[goals]] → [[research]] → [[roadmap]]
 - Working: [[execution]] → [[analysis]] → [[time]]

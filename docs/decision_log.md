@@ -11,3 +11,7 @@ A Thing can be an entire application and can start with only its Genome, without
 ## 2026-10-12T18:31:11-04:00 — Canonical project planning
 
 Use `docs/grreat/` for canonical goal-led planning linked to existing design documents. Split implementation into dependency-aware subagent chunks, parallel where independent, and deliver through one integration PR to minimize PR overhead.
+
+## 2026-10-12T20:01:23-04:00 — Artyfact and Bropilot planning boundary
+
+Artyfact is the broader project; Bropilot covers its ontology section. Keep their GRREAT records separate for now. Preserve this project's goals and roadmap in `docs/grreat/` as canonical Markdown; a remote sync conflict must not replace them with Bropilot's hierarchy.
