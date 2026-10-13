@@ -7,7 +7,7 @@
  * then). Only one accept can hold it; a failed accept releases it with its error recorded. A claim older than
  * CLAIM_LEASE_MS (its isolate died mid-accept) can be taken over by a new accept.
  */
-import type { Proposal } from "../../shared/api";
+import type { Proposal, ProposalPlanNode } from "../../shared/api";
 import { nowIso } from "../util";
 
 type Row = Record<string, SqlStorageValue>;
@@ -20,7 +20,14 @@ export const MAX_TURNS = 10;
 /** One reply: the question it answered (absent for a free follow-up) and the answer. */
 export interface ProposalTurn { question?: string; answer: string }
 
-export interface StoredProposal { proposal: Proposal; turns: ProposalTurn[]; accepting: boolean; acceptError?: string }
+export interface StoredProposal {
+  proposal: Proposal; turns: ProposalTurn[]; accepting: boolean; acceptError?: string;
+  /** The agreement tree (`plan_json`), the admin's per-node decisions and the proposal a deferral came from, when stored. */
+  plan?: ProposalPlanNode[]; decisions?: ProposalDecisions; deferredFrom?: string;
+}
+
+/** Node id → the admin's decision on it (`decisions_json`). */
+export type ProposalDecisions = Record<string, NonNullable<ProposalPlanNode["decision"]>>;
 
 /** What an accept produced, recorded on the proposal. */
 export interface AcceptedIds { evolution: string; realization: string; candidate: string; commit: string }
@@ -55,6 +62,9 @@ export class ProposalsStore {
     return {
       proposal: JSON.parse(String(r.json)) as Proposal, turns: JSON.parse(String(r.turns_json)) as ProposalTurn[],
       accepting: String(r.status) === "accepting", ...(r.accept_error != null && { acceptError: String(r.accept_error) }),
+      ...(r.plan_json != null && { plan: JSON.parse(String(r.plan_json)) as ProposalPlanNode[] }),
+      ...(r.decisions_json != null && { decisions: JSON.parse(String(r.decisions_json)) as ProposalDecisions }),
+      ...(r.deferred_from != null && { deferredFrom: String(r.deferred_from) }),
     };
   }
 
@@ -137,5 +147,34 @@ export class ProposalsStore {
       JSON.stringify(ids), error ?? null, nowIso(), id, claimedAt,
     ).toArray() as Row[];
     return r ? (JSON.parse(String(r.json)) as Proposal) : null;
+  }
+
+  // Plan columns: storage only; the planning logic lives in the Worker.
+
+  /** Stores the agreement tree (null clears it). False for an unknown proposal. */
+  setPlan(id: string, plan: ProposalPlanNode[] | null): boolean {
+    return this.set(id, "plan_json", plan == null ? null : JSON.stringify(plan));
+  }
+  plan(id: string): ProposalPlanNode[] | null { return this.read(id, "plan_json"); }
+
+  /** Stores the per-node decisions (null clears them). False for an unknown proposal. */
+  setDecisions(id: string, decisions: ProposalDecisions | null): boolean {
+    return this.set(id, "decisions_json", decisions == null ? null : JSON.stringify(decisions));
+  }
+  decisions(id: string): ProposalDecisions | null { return this.read(id, "decisions_json"); }
+
+  /** Records the proposal this one was deferred from (null clears it). False for an unknown proposal. */
+  setDeferredFrom(id: string, from: string | null): boolean { return this.set(id, "deferred_from", from); }
+  deferredFrom(id: string): string | null {
+    const v = (this.sql.exec("SELECT deferred_from FROM proposals WHERE id = ?", id).toArray() as Row[])[0]?.deferred_from;
+    return v == null ? null : String(v);
+  }
+
+  private set(id: string, column: "plan_json" | "decisions_json" | "deferred_from", value: string | null): boolean {
+    return this.sql.exec(`UPDATE proposals SET ${column} = ?, updated_at = ? WHERE id = ? RETURNING id`, value, nowIso(), id).toArray().length > 0;
+  }
+  private read<T>(id: string, column: "plan_json" | "decisions_json"): T | null {
+    const v = (this.sql.exec(`SELECT ${column} AS v FROM proposals WHERE id = ?`, id).toArray() as Row[])[0]?.v;
+    return v == null ? null : (JSON.parse(String(v)) as T);
   }
 }
