@@ -14,4 +14,4 @@ Branch: feat/ontology-driven-development; PR [#57](https://github.com/sdawka/art
 
 ## Release integration
 
-PR #57 was reconciled with main at 5c39a76, retaining the newer platform and homepage work. The sole conflict was the Execution handoff; both the new main context and this page revision are retained. Fresh hosted CI must pass on the reconciled revision before merge and public-site deployment.
+PR #57 was reconciled with main at 5c39a76, retaining the newer platform and homepage work. The sole conflict was the Execution handoff; both the new main context and this page revision are retained. Full local CI passed in 202.0s (2412 root tests, 9 skips; 57 site units, 11 static checks; 47 fixture, 13 fake-platform and 47 site browser checks with 5 site skips), and hosted full CI passed on fa27e34. Main then advanced through the docs-only #59; the newer handoff is preserved with this entry, and the PR check must pass on the final notes revision before merge and public-site deployment.

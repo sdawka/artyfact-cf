@@ -26,8 +26,14 @@ Slices: #53 d-rail (D1, D2 shell, D3 redirect, D4), #54 d-review (D2 queue and d
 - Observed: #47 merged on green hosted CI; the five slice PRs are open drafts against `main` and report no hosted checks yet. Nothing from the design pass is merged, deployed or verified live.
 - Observed: `node validate.mjs docs/grreat` reports 7 records valid after this entry and the Now update.
 
+## Released
+
+- `main` at `49d5922` deployed as Worker version `342b3c76` at 15:23 UTC.
+- Prod Keep in Touch Genome migrated to v2: Genome commit `0d02fce56219`, System head `sc-4-c597c0ba`, model route 200. The `ADMIN_TOKEN` secret was re-set after a 403, and `wrangler` needed a re-login for Artifacts token issuance; both recorded in `docs/deploy.md`. Platform sync at `39a545be2938`.
+- Design pass: integration PR #56 (the five slices plus this slice's Phase A) merged as `e9b7fa3` and deployed as version `e763f73b` at 15:48 UTC; health and the Home, Review and Work routes answer 200.
+- Phase B: `docs/design/ui.md` and the platform README reconciled against the merged code (PR #59); five code defects across slice boundaries reported there, not fixed (Home counts only amendments, the Review count includes the promotion row, a stale Work hint, no Review context line in a Thing, a self-Genome affordance naming a missing `artyfact rebase`).
+
 ## Pending
 
-- W1 merges (#53 first, then #54, #51, #50, #49) on green CI, then `docs/design/ui.md` reconciled end to end against the merged code and an independent read-through across slice boundaries.
-- Production deploy and the Genome v2 migration, then live verification; wait out Durable Object version skew after the deploy.
+- The five defects reported in PR #59, owned by their slices.
 - Screenshots `work-conflict`, `amendment-violation` and `amendment-deliberate` in `docs/images/` retaken on the new Work card and the Review view (see `docs/video-script.md`).
