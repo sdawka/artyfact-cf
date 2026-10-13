@@ -72,6 +72,39 @@ const MIGRATION_KEYS: ReadonlySet<string> = new Set(["tag", "new_classes", "new_
 
 const isObj = (v: unknown): v is Record<string, unknown> => !!v && typeof v === "object" && !Array.isArray(v);
 
+/** The all-zero id app repos commit in place of a real D1 database id (or any all-zero UUID-shaped string). */
+const PLACEHOLDER_D1_ID = /^[0-]*$/;
+
+/** `database_name` -> account D1 database id, for one System. */
+export type D1Ids = Readonly<Record<string, string>>;
+
+/**
+ * The platform's `D1_DATABASE_IDS` var: `systemId` -> (`database_name` -> account D1 database id). Keyed by System so
+ * an app can bind only its own System's databases. Accepts the object Wrangler passes for a JSON var or a JSON
+ * string; anything malformed (or a non-string or placeholder id) is dropped rather than trusted.
+ */
+export function parseD1DatabaseIds(v: unknown): Record<string, D1Ids> {
+  let obj: unknown = v;
+  if (typeof v === "string") {
+    try {
+      obj = JSON.parse(v);
+    } catch {
+      return {};
+    }
+  }
+  if (!isObj(obj)) return {};
+  const out: Record<string, D1Ids> = {};
+  for (const [system, dbs] of Object.entries(obj)) {
+    if (!isObj(dbs)) continue;
+    out[system] = Object.fromEntries(Object.entries(dbs).filter((e): e is [string, string] => typeof e[1] === "string" && !PLACEHOLDER_D1_ID.test(e[1])));
+  }
+  return out;
+}
+
+/** One System's databases from the parsed var (empty when the System has none). */
+export const systemD1Ids = (all: Readonly<Record<string, D1Ids>> | undefined, systemId: string): D1Ids =>
+  all && Object.hasOwn(all, systemId) ? all[systemId]! : {};
+
 /** A repo-relative path that stays inside the repo (no absolute paths, no `..` escapes, no NUL). */
 function insideRepo(path: unknown): string | null {
   if (typeof path !== "string" || !path.trim() || path.includes("\0") || posix.isAbsolute(path)) return null;
@@ -113,7 +146,9 @@ export interface DeploySpec {
  * Check the repo config against the allowlist. Every problem is reported at once; `build.command` gets its own
  * explicit reason because it is the common way to ask Wrangler to run a repo command during deploy.
  */
-export function validateRepoConfig(file: string, text: string, opts: { accountId: string }): DeploySpec {
+export function validateRepoConfig(
+  file: string, text: string, opts: { accountId: string; d1DatabaseIds?: D1Ids },
+): DeploySpec {
   if (file.endsWith(".toml")) throw new DeployRefused(`${file}: artyfact CI deploys from wrangler.json or wrangler.jsonc only`);
   let raw: unknown;
   try {
@@ -171,10 +206,46 @@ export function validateRepoConfig(file: string, text: string, opts: { accountId
     if (!isObj(raw.vars)) problems.push("vars must be an object");
     for (const k of Object.keys(isObj(raw.vars) ? raw.vars : {})) if (SECRET_VARS.has(k)) problems.push(`vars.${k} is set by the platform`);
   }
+  const d1 = resolveD1(raw.d1_databases, opts.d1DatabaseIds ?? {}, problems);
   if (problems.length || !main) throw new DeployRefused(`refusing to deploy ${file}: ${problems.join("; ")}`);
 
   const pick = (keys: readonly string[]) => Object.fromEntries(keys.filter((k) => raw[k] !== undefined).map((k) => [k, raw[k]]));
-  return { file, main, ...(assets && { assets }), copied: pick(COPIED), bundleOnly: pick(BUNDLE_ONLY) };
+  const copied = { ...pick(COPIED), ...(d1 && { d1_databases: d1 }) };
+  return { file, main, ...(assets && { assets }), copied, bundleOnly: pick(BUNDLE_ONLY) };
+}
+
+/**
+ * App repos commit a placeholder `database_id`; the platform maps `database_name` to the account's id through its
+ * `D1_DATABASE_IDS` var, scoped to the build's System. A real id in the repo is accepted only when it is the id that
+ * System maps for that name, so a repo cannot bind another System's database or an arbitrary account database.
+ */
+function resolveD1(value: unknown, ids: D1Ids, problems: string[]): unknown[] | undefined {
+  if (value === undefined) return undefined;
+  if (!Array.isArray(value)) {
+    problems.push("d1_databases must be a list");
+    return undefined;
+  }
+  return value.map((db) => {
+    if (!isObj(db) || typeof db.binding !== "string" || typeof db.database_name !== "string") {
+      problems.push("each d1_databases entry needs binding and database_name");
+      return db;
+    }
+    if (db.database_id !== undefined && typeof db.database_id !== "string") {
+      problems.push(`d1_databases ${db.binding}: database_id must be a string`);
+      return db;
+    }
+    const id = Object.hasOwn(ids, db.database_name) ? ids[db.database_name] : undefined;
+    if (!id) {
+      problems.push(`d1_databases ${db.binding}: no account database is mapped to database_name "${db.database_name}" for this System (ask the platform owner to add it to D1_DATABASE_IDS)`);
+      return db;
+    }
+    const real = typeof db.database_id === "string" && !PLACEHOLDER_D1_ID.test(db.database_id);
+    if (real && db.database_id !== id) {
+      problems.push(`d1_databases ${db.binding}: database_id is not this System's "${db.database_name}" database (commit the all-zero placeholder instead)`);
+      return db;
+    }
+    return { ...db, database_id: id };
+  });
 }
 
 const abs = (rel: string) => (rel === "." ? WORKSPACE : `${WORKSPACE}/${rel}`);

@@ -66,7 +66,9 @@ Candidates carry `build`, the latest build of their commit.
 
 **CI Worker** (`apps/ci`): deploy steps, secrets and the R2 bucket are in [`apps/ci/README.md`](../apps/ci/README.md). Deploy `artyfact-ci` before redeploying the platform, so the `CI` binding has a target.
 
-Container, R2 and preview Worker costs, and the caps on them, are in [costs.md](costs.md).
+**App databases.** App repos never carry a real D1 id. They commit the all-zero placeholder `database_id`, and the CI Worker resolves it through its `D1_DATABASE_IDS` var in `apps/ci/wrangler.jsonc`, shaped `{ "<systemId>": { "<database_name>": "<id>" } }`. Only the build's own System is consulted, so an app cannot bind another System's database by name. A real `database_id` in the repo is accepted only when it equals that System's mapped id. Any other D1 entry refuses the deploy. To add an app database, create it in the account, apply the app's migrations, add it under its System in `D1_DATABASE_IDS` and redeploy `artyfact-ci`.
+
+Container, R2 and preview Worker costs, and the caps on them, are in [costs.md](costs.md), which also lists the app databases.
 
 ## Trust model
 
@@ -74,7 +76,7 @@ App repos are untrusted. Agents write them, and the install and test steps run t
 
 - **One narrow credential, one step.** The CI Worker's `CF_TOKEN` has `Workers Scripts: Edit` on this account, plus `D1: Edit` when apps bind D1. It is never the platform admin token or the Artifacts token (`CF_API_TOKEN`). Only the deploy step receives it. Install, test, build and bundle get no Cloudflare credentials, no `ARTYFACT_INGEST_TOKEN` and no platform secrets.
 - **Nothing from the repo runs with the token.** The deploy step runs a Wrangler pinned in the CI image (`/opt/artyfact/bin/wrangler`, version in `apps/ci/Dockerfile`) by absolute path, under `env -i` with a system-only `PATH`, no `NODE_OPTIONS` / `NPM_CONFIG_*`, and no `.env`. It uploads a bundle made by a credential-free step, so esbuild never runs where it could read the token.
-- **Platform-written Wrangler config.** The CI Worker reads the repo's `wrangler.json(c)` at the commit and keeps only allowlisted, self-contained keys. `build.command` fails the build with an explicit reason. So do module rules, aliases, containers, routes, service bindings, Workflows, other Workers' Durable Objects, Durable Object migrations that transfer state (`transferred_classes`, `from_script`), and bindings to existing KV, R2 or Queues. D1 bindings are accepted as-is; the deploy token's D1 scope is the control.
+- **Platform-written Wrangler config.** The CI Worker reads the repo's `wrangler.json(c)` at the commit and keeps only allowlisted, self-contained keys. `build.command` fails the build with an explicit reason. So do module rules, aliases, containers, routes, service bindings, Workflows, other Workers' Durable Objects, Durable Object migrations that transfer state (`transferred_classes`, `from_script`), and bindings to existing KV, R2 or Queues. D1 bindings resolve only to databases the platform maps to the build's System in `D1_DATABASE_IDS`, so a repo cannot bind another System's database or an arbitrary account database.
 - **No reads outside the repo.** The deploy step refuses symlinks in the bundle or assets, and an assets directory resolving outside the workspace.
 - **Allowlisted commands.** See above; the CI Worker re-checks them.
 - **Residual risk.** The ingest token is visible in Workflow instance params to account members who can read Workflows.

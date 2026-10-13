@@ -14,7 +14,7 @@ Everything artyfact runs on one Cloudflare account on the Workers Paid plan. Pri
 | `CiSandbox` container application (`standard-4`, `max_instances` 2) and its Durable Object namespace | `apps/ci/wrangler.jsonc` (`containers`, `exports`) | **No** |
 | Workflow `artyfact-ci` (`ArtyfactCI`) | `apps/ci/wrangler.jsonc` (`workflows`), bound from the platform by `script_name` | **No** |
 | R2 bucket `artyfact-ci-cache` (install cache and workspace snapshots) | `apps/ci/wrangler.jsonc` (`r2_buckets`); `npx wrangler r2 bucket create` | **No** |
-| D1 `keep-in-touch` (`26e6d5af-8dec-4989-9e16-cfcc3e3d21b0`): app previews and production, one shared database for the test round | Created by hand; mapped to apps by the CI var `D1_DATABASE_IDS` (parallel PR) | Yes. An unrelated `artyfact-db` also exists |
+| D1 `keep-in-touch` (`26e6d5af-8dec-4989-9e16-cfcc3e3d21b0`): app previews and production, one shared database for the test round | Created by hand; mapped to System `system.keep-in-touch` by the CI var `D1_DATABASE_IDS` (see [ci.md](ci.md)) | Yes. An unrelated `artyfact-db` also exists |
 | Preview Workers `<slug>-app-r<N>`, one per realization (redeploys overwrite the same name) | Named in `worker/deployments.ts` (`previewWorkerName`); deployed by CI | **None yet** (the CI Worker is not deployed) |
 | Production app Worker `<slug>-app` | Same, on promotion | None yet |
 | Marketing site Worker `artyfact-site` | `apps/site` | Yes |
