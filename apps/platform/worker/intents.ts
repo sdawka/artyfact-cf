@@ -322,24 +322,24 @@ export async function acceptProposal(env: Env, systemId: string, pid: string, bo
     try {
       ops = chosenOps(claim.claimed, opIds as string[]);
     } catch (e) {
-      await stub.releaseProposal(pid, null);
+      await stub.releaseProposal(pid, claim.claimedAt, null);
       throw e;
     }
     out = await pushAccepted(env, systemId, claim.claimed, ops, platformUrl);
   } catch (e) {
-    await stub.releaseProposal(pid, (e as Error)?.message ?? String(e)).catch((r: unknown) =>
+    await stub.releaseProposal(pid, claim.claimedAt, (e as Error)?.message ?? String(e)).catch((r: unknown) =>
       console.error(`[intents] releasing proposal ${pid} failed: ${(r as Error)?.message ?? r}`));
     throw e;
   }
   // Pushed: the proposal is accepted whatever happens next, so a retry can never push the change twice.
   const ids = { evolution: out.evolution.id, realization: out.realization.id, candidate: out.candidate.id, commit: out.commit };
   try {
-    if (!(await stub.finishProposal(pid, ids))) console.error(`[intents] proposal ${pid} was not accepting when ${out.commit} was committed for it`);
+    if (!(await stub.finishProposal(pid, claim.claimedAt, ids))) console.error(`[intents] proposal ${pid} was no longer held by this accept when ${out.commit} was committed for it`);
   } catch (e) {
     const error = `recording the accept failed after ${out.commit} was pushed: ${(e as Error)?.message ?? e}`;
     console.error(`[intents] ${pid}: ${error}`);
     // Left `accepting` (a 409 to any retry) if this fails too.
-    await stub.finishProposal(pid, ids, error).catch((r: unknown) =>
+    await stub.finishProposal(pid, claim.claimedAt, ids, error).catch((r: unknown) =>
       console.error(`[intents] proposal ${pid} stays accepting: ${(r as Error)?.message ?? r}`));
   }
   return out;

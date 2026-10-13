@@ -358,6 +358,28 @@ describe("POST /intents/:pid/accept", () => {
     }
   });
 
+  it("never lets an accept whose claim was taken over reopen or finish the row", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (_i: SystemAuthority, st) => {
+      const store = new ProposalsStore(st.storage.sql);
+      const t0 = Date.parse("2026-10-13T10:00:00Z");
+      const original = store.claim(p.id, s.genomeCommit, t0);
+      const taker = store.claim(p.id, s.genomeCommit, t0 + CLAIM_LEASE_MS + 1);
+      if (!("claimed" in original) || !("claimed" in taker)) throw new Error("both claims should win in turn");
+      expect(taker.claimedAt).not.toBe(original.claimedAt);
+      const ids = { evolution: "evolution.9", realization: "realization.9.r1", candidate: "cand.9", commit: "c".repeat(40) };
+      expect(store.release(p.id, original.claimedAt, "the original failed late")).toBe(false);
+      expect(store.get(p.id)).toMatchObject({ accepting: true });
+      expect(store.get(p.id)?.acceptError).toBeUndefined();
+      expect(store.finish(p.id, original.claimedAt, ids)).toBeNull();
+      expect(store.get(p.id)).toMatchObject({ accepting: true, proposal: { status: "open" } });
+      expect(store.finish(p.id, taker.claimedAt, ids)).toMatchObject({ id: p.id, status: "accepted" });
+      expect(store.get(p.id)).toMatchObject({ accepting: false, proposal: { status: "accepted" } });
+      expect(store.release(p.id, taker.claimedAt, "too late")).toBe(false);
+    });
+  });
+
   it("lets exactly one of two concurrent claims win, on an open row and on a lapsed one", async () => {
     const s = await importSystem();
     const p = (await create(s, "Change what the Today screen says")).json;

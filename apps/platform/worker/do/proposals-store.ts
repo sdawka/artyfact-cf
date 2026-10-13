@@ -25,9 +25,12 @@ export interface StoredProposal { proposal: Proposal; turns: ProposalTurn[]; acc
 /** What an accept produced, recorded on the proposal. */
 export interface AcceptedIds { evolution: string; realization: string; candidate: string; commit: string }
 
-/** `claim`: the proposal, now `accepting`; else why not. */
+/**
+ * `claim`: the proposal, now `accepting`, and the claim's token (its `claimed_at`), which `release` and `finish` must
+ * present, so an accept whose claim was taken over can neither reopen nor finish the row; else why not.
+ */
 export type ClaimResult =
-  | { claimed: Proposal }
+  | { claimed: Proposal; claimedAt: string }
   | { refused: "not-found" }
   | { refused: "invalid-state"; status: string }
   | { refused: "stale-base"; currentHead: string };
@@ -96,39 +99,43 @@ export class ProposalsStore {
   claim(id: string, headGenome: string, now: number = Date.now()): ClaimResult {
     const lapsedBefore = new Date(now - CLAIM_LEASE_MS).toISOString();
     // One conditional UPDATE decides the claim and returns the revision it claimed; no read precedes it.
+    // The token is unique per claim: a takeover in the same millisecond as the claim it replaces still differs.
+    const claimedAt = `${new Date(now).toISOString()}#${crypto.randomUUID()}`;
     const [won] = this.sql.exec(
       `UPDATE proposals SET status = 'accepting', accept_error = NULL, claimed_at = ?, updated_at = ?
        WHERE id = ? AND (status = 'open' OR (status = 'accepting' AND (claimed_at IS NULL OR claimed_at < ?)))
          AND json_extract(json, '$.provenance.genomeCommit') = ? RETURNING json`,
-      new Date(now).toISOString(), nowIso(), id, lapsedBefore, headGenome,
+      claimedAt, nowIso(), id, lapsedBefore, headGenome,
     ).toArray() as Row[];
-    if (won) return { claimed: JSON.parse(String(won.json)) as Proposal };
+    if (won) return { claimed: JSON.parse(String(won.json)) as Proposal, claimedAt };
     // Refused: say why.
     const r = this.row(id);
     if (!r) return { refused: "not-found" };
     const status = String(r.status);
     const lapsed = status === "accepting" && (r.claimed_at == null || String(r.claimed_at) < lapsedBefore);
     if (status !== "open" && !lapsed) return { refused: "invalid-state", status };
-    if (lapsed) this.release(id, "the accept holding this proposal stopped before it finished");
+    if (lapsed) this.release(id, (r.claimed_at ?? null) as string | null, "the accept holding this proposal stopped before it finished");
     return { refused: "stale-base", currentHead: headGenome };
   }
 
-  /** An accept that pushed nothing: back to `open`, with `error` (when given) kept for the admin. */
-  release(id: string, error: string | null): void {
-    this.sql.exec("UPDATE proposals SET status = 'open', accept_error = ?, claimed_at = NULL, updated_at = ? WHERE id = ? AND status = 'accepting'",
-      error, nowIso(), id);
+  /** An accept that pushed nothing: back to `open`, with `error` (when given) kept for the admin. Only while `claimedAt` still holds the row. */
+  release(id: string, claimedAt: string | null, error: string | null): boolean {
+    return this.sql.exec(
+      "UPDATE proposals SET status = 'open', accept_error = ?, claimed_at = NULL, updated_at = ? WHERE id = ? AND status = 'accepting' AND claimed_at IS ? RETURNING id",
+      error, nowIso(), id, claimedAt,
+    ).toArray().length > 0;
   }
 
   /**
    * A pushed accept: `accepted`, with what it produced, and `error` when something after the push failed (the commit
-   * stands, so the proposal must not reopen). Null unless the proposal was `accepting`.
+   * stands, so the proposal must not reopen). Null unless `claimedAt` still holds the row.
    */
-  finish(id: string, ids: AcceptedIds, error?: string): Proposal | null {
-    const stored = this.get(id);
-    if (!stored?.accepting) return null;
-    const proposal: Proposal = { ...stored.proposal, status: "accepted" };
-    this.sql.exec("UPDATE proposals SET status = 'accepted', json = ?, accepted_json = ?, accept_error = ?, claimed_at = NULL, updated_at = ? WHERE id = ?",
-      JSON.stringify(proposal), JSON.stringify(ids), error ?? null, nowIso(), id);
-    return proposal;
+  finish(id: string, claimedAt: string, ids: AcceptedIds, error?: string): Proposal | null {
+    const [r] = this.sql.exec(
+      `UPDATE proposals SET status = 'accepted', json = json_set(json, '$.status', 'accepted'), accepted_json = ?, accept_error = ?, claimed_at = NULL, updated_at = ?
+       WHERE id = ? AND status = 'accepting' AND claimed_at = ? RETURNING json`,
+      JSON.stringify(ids), error ?? null, nowIso(), id, claimedAt,
+    ).toArray() as Row[];
+    return r ? (JSON.parse(String(r.json)) as Proposal) : null;
   }
 }
