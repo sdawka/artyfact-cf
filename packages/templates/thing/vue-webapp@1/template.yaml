@@ -25,6 +25,15 @@ criteria:
       - outcome
     hooks:
       - hook.webapp.health
+  - id: C.webapp.checks
+    owner: thing
+    subject: thing
+    severity: soft
+    description: Changed nodes meet the checks their kinds declare.
+    gates:
+      - submission
+    hooks:
+      - hook.webapp.checks
 rules:
   - id: artyfact.authorization
     version: 1
@@ -120,9 +129,11 @@ nodes:
       criteria:
         - C.webapp.exists
         - C.webapp.health
+        - C.webapp.checks
       hooks:
         - hook.webapp.exists
         - hook.webapp.health
+        - hook.webapp.checks
   - id: section.ui
     kind: section
     parent: $self
@@ -238,6 +249,27 @@ nodes:
         to: $self
       - rel: subject
         to: $self
+  - id: C.webapp.checks
+    kind: criterion
+    fields:
+      version: 1
+      title: Changed nodes meet their checks
+      claim: Changed nodes meet the checks their kinds declare.
+      ownerKind: thing
+      subjectKind: thing
+      targetKind: model
+      severity: soft
+      gates:
+        - submission
+      deferred: false
+      hooks:
+        - hook.webapp.checks
+      fromTemplate: template.thing.vue-webapp@1
+    links:
+      - rel: owner
+        to: $self
+      - rel: subject
+        to: $self
   - id: hook.webapp.exists
     kind: hook
     fields:
@@ -275,4 +307,22 @@ nodes:
       timeoutMs: 2000
       costTier: free
       binding: defined
+      fromTemplate: template.thing.vue-webapp@1
+  - id: hook.webapp.checks
+    kind: hook
+    fields:
+      version: 1
+      assay: webapp.checks
+      criteria:
+        - C.webapp.checks
+      tier: semantic
+      engine: model-rules
+      targetKind: model
+      triggers:
+        - submission
+      inputs:
+        packs: checks@1
+      timeoutMs: 60000
+      costTier: free
+      binding: bound
       fromTemplate: template.thing.vue-webapp@1

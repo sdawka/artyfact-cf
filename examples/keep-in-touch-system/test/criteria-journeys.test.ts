@@ -31,7 +31,7 @@ describe("counts", () => {
   it("has the specified criteria, journeys and evolutions", () => {
     expect(sysCrit.map((c) => c.id)).toEqual(["structure", "purpose", "topology", "autonomy", "readiness", "promotion", "concurrency"].map((x) => `C.system.${x}`));
     expect(thingCrit).toHaveLength(13);
-    expect(m.criteria.filter((c) => c.fromTemplate).map((c) => c.id).sort()).toEqual(["C.webapp.exists", "C.webapp.health"]);
+    expect(m.criteria.filter((c) => c.fromTemplate).map((c) => c.id).sort()).toEqual(["C.webapp.checks", "C.webapp.exists", "C.webapp.health"]);
     expect(journeys).toHaveLength(10);
     expect(m.evolutions).toHaveLength(6);
   });
