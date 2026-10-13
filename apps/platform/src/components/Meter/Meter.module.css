@@ -2,7 +2,8 @@
 .meter[tabindex] { border-radius: var(--border-radius-sm); }
 .meter[tabindex]:focus-visible { outline: var(--focus-ring); outline-offset: 4px; }
 .title { margin: 0; font-family: var(--font-ui); font-size: var(--font-size-base); font-weight: var(--font-weight-semibold); }
-.question { margin: calc(-1 * var(--spacing-1)) 0 0; color: var(--color-text-subtle); font-size: var(--font-size-sm); }
+.head { display: grid; gap: var(--spacing-1); }
+.question { margin: 0; color: var(--color-text-subtle); font-size: var(--font-size-sm); }
 .headline { margin: 0; font-size: var(--font-size-xl); color: var(--color-text-primary); }
 .headline[data-unknown] { color: var(--color-text-subtle); }
 .bar {

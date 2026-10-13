@@ -47,8 +47,10 @@ export function Meter({ title, question, headline, segments, caption, asOf, empt
         onFocus: (e: React.FocusEvent<HTMLElement>) => onActivate(e.currentTarget),
       })}
     >
-      <h3 className={styles.title}>{title}</h3>
-      {question && <p className={styles.question} data-question="">{question}</p>}
+      <div className={styles.head}>
+        <h3 className={styles.title}>{title}</h3>
+        {question && <p className={styles.question} data-question="">{question}</p>}
+      </div>
       <p className={styles.headline} data-unknown={headline === "unknown" || undefined}>{headline}</p>
       {total > 0 ? (
         <div className={styles.bar} aria-hidden="true">

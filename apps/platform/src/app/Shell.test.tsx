@@ -95,6 +95,14 @@ describe("Shell", () => {
     expect(router.state.location.hash).toBe("#gates");
   });
 
+  it("/things/:thingId/work?panel=promote redirects to that Thing's Review keeping the other params", async () => {
+    const { router } = renderApp(`${BASE}/things/thing.webapp/work?panel=promote&evolution=e1&focus=screen.people`);
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp/review`));
+    expect(search(router).get("panel")).toBe("promote");
+    expect(search(router).get("evolution")).toBe("e1");
+    expect(search(router).get("focus")).toBe("screen.people");
+  });
+
   it("/work with another panel stays on Work", async () => {
     const { router } = renderApp(`${BASE}/work?panel=intent`);
     expect(await screen.findByRole("heading", { level: 1, name: "Work" })).toBeTruthy();
