@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
-import type { Evaluation, SystemSummary } from "../shared/api";
+import type { Evaluation, ImportReview, SystemSummary, Task, TaskPlan } from "../shared/api";
 import { REGISTRY, StaleBaseError, PromotionBlockedError, type BootstrapInput, type GateCriterion, type SystemAuthority } from "../worker/do/system-authority";
 
 const G1 = "1".repeat(40), A1 = "a".repeat(40), A2 = "b".repeat(40), A3 = "c".repeat(40);
@@ -626,5 +626,289 @@ describe("registry", () => {
       const tables = state.storage.sql.exec("SELECT name FROM sqlite_master WHERE type = 'table'").toArray().map((r) => r.name);
       expect(tables).not.toContain("registry_systems");
     });
+  });
+});
+
+// ---------------------------------------------------------------- tasks (backend.md B.9)
+
+const task = (id: string, extra: Partial<Task> = {}): Task => ({
+  id, evolutionId: "evolution.1", title: id, intent: `do ${id}`, thing: "thing.webapp", nodes: ["screen.people"],
+  footprint: { globs: [], paths: [], unmatched: [], entryFiles: [] }, acceptanceCriteria: ["C.people.list"], dependsOn: [],
+  status: "planned", origin: "fallback", ...extra,
+});
+const planOf = (tasks: Task[], evolutionId = "evolution.1"): TaskPlan => ({
+  version: 1, evolutionId, genomeCommit: G1, appCommit: A1, tasks, conflicts: [], waves: [tasks.map((t) => t.id)], problems: [],
+  provenance: { planner: { provider: "fake", model: "fake" }, fake: true }, createdAt: "2026-10-13T00:00:00.000Z", updatedAt: "2026-10-13T00:00:00.000Z",
+});
+const LEASE = 30 * 60_000;
+
+/** Claim, reserve and bind `taskId`; optionally submit a candidate at `commit` evaluated pass on `criteria`. */
+function startTask(i: SystemAuthority, taskId: string, label: string, commit?: string, criteria: string[] = ["C.people.list"]) {
+  const claim = i.claimTask(taskId, label);
+  if (!("claimed" in claim)) throw new Error(`claim refused: ${claim.refused}`);
+  const r = i.reserveRealization({ evolutionId: "evolution.1", target: "app", agentLabel: label, taskId });
+  i.bindTask(taskId, r.realization.id);
+  if (!commit) return { r };
+  const c = i.recordCandidate({ realizationId: r.realization.id, commit, manifest: {}, changedPaths: [`src/${taskId}.ts`], changedNodes: ["screen.people"] }).candidate;
+  i.recordEvaluations(c.id, criteria.map((k) => ev(c.id, k, "pass")), "evaluated");
+  return { r, c };
+}
+
+describe("tasks store", () => {
+  it("putPlan / plan round trip, Evolution plan summary, edits only while planned", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      const stored = i.putPlan(planOf([task("task.a"), task("task.b", { dependsOn: ["task.a"] })]));
+      expect(stored.tasks.map((t) => [t.id, t.status, t.dependsOn])).toEqual([["task.a", "planned", []], ["task.b", "planned", ["task.a"]]]);
+      expect(i.plan("evolution.1")).toMatchObject({ version: 1, evolutionId: "evolution.1", waves: [["task.a", "task.b"]], tasks: stored.tasks });
+      expect(i.plan("evolution.9")).toBeNull();
+      expect(i.evolution("evolution.1")!.plan).toMatchObject({ tasks: 2, waves: 1, byStatus: { planned: 2 } });
+      expect(i.tasks({ status: ["planned"] }).map((t) => t.id)).toEqual(["task.a", "task.b"]);
+      expect(i.tasks({ evolutionId: "evolution.9" })).toEqual([]);
+
+      const edited = i.updateTask("task.b", { title: "B!", acceptanceCriteria: ["C.people.sorted"] });
+      expect(edited).toMatchObject({ title: "B!", acceptanceCriteria: ["C.people.sorted"], status: "planned" });
+      expect(i.plan("evolution.1")!.tasks[1].title).toBe("B!");
+      i.claimTask("task.a", "agent-1");
+      expect(() => i.updateTask("task.a", { title: "late" })).toThrow(/\[invalid-state\]/);
+      expect(() => i.putPlan(planOf([task("task.c")], "evolution.9"))).toThrow(/\[not-found\]/);
+    });
+  });
+
+  it("refuses a new plan once a task is claimed, and a task id of another plan", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap({ ...boot, evolutions: [boot.evolutions[0], { ...boot.evolutions[0], id: "evolution.2" }] });
+      i.putPlan(planOf([task("task.a")]));
+      i.putPlan(planOf([task("task.a"), task("task.b")]));
+      expect(i.tasks().map((t) => t.id)).toEqual(["task.a", "task.b"]);
+      expect(() => i.putPlan(planOf([task("task.a", { evolutionId: "evolution.2" })], "evolution.2"))).toThrow(/belongs to the plan of evolution.1/);
+      i.claimTask("task.a", "agent-1");
+      expect(() => i.putPlan(planOf([task("task.z")]))).toThrow(/\[invalid-state\].*in progress/);
+      expect(i.tasks().map((t) => t.id)).toEqual(["task.a", "task.b"]);
+    });
+  });
+
+  it("claimTask: fresh, same label again, taken, lease takeover, blocked", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      i.putPlan(planOf([task("task.a"), task("task.b", { dependsOn: ["task.a"] })]));
+      const t0 = Date.parse("2026-10-13T10:00:00.000Z");
+      const first = i.claimTask("task.a", "agent-1", t0);
+      expect(first).toMatchObject({ fresh: true, claimed: { status: "claimed", claim: { agentLabel: "agent-1", at: "2026-10-13T10:00:00.000Z", expiresAt: "2026-10-13T10:30:00.000Z" } } });
+      expect(i.claimTask("task.a", "agent-1", t0 + 1000)).toMatchObject({ fresh: false, claimed: { claim: { at: "2026-10-13T10:00:00.000Z" } } });
+      expect(i.claimTask("task.a", "agent-2", t0 + 1000)).toEqual({ refused: "taken", by: "agent-1" });
+      expect(i.claimTask("task.b", "agent-2", t0)).toEqual({ refused: "blocked", blockedOn: ["task.a"] });
+      expect(i.taskBlockedOn("task.b")).toEqual(["task.a"]);
+      expect(i.claimTask("task.404", "agent-2", t0)).toEqual({ refused: "not-found" });
+      // The lease lapses: another agent takes over, and any realization of the lapsed claim is cleared.
+      const r = i.reserveRealization({ evolutionId: "evolution.1", target: "app", agentLabel: "agent-1", taskId: "task.a" });
+      i.bindTask("task.a", r.realization.id);
+      const over = i.claimTask("task.a", "agent-2", t0 + LEASE + 1);
+      expect(over).toMatchObject({ fresh: true, claimed: { claim: { agentLabel: "agent-2" } } });
+      expect((over as { claimed: Task }).claimed.realizationId).toBeUndefined();
+      // Promoted dependency: the dependent is claimable; a promoted task is not.
+      i.setTaskStatus("task.a", "promoted");
+      expect(i.claimTask("task.b", "agent-3", t0)).toMatchObject({ fresh: true });
+      expect(i.claimTask("task.a", "agent-3", t0 + 10 * LEASE)).toEqual({ refused: "invalid-state" });
+    });
+  });
+
+  it("two claims in the same tick: exactly one is fresh", async () => {
+    const s = stub();
+    await s.bootstrap(boot);
+    await s.putPlan(planOf([task("task.a")]));
+    const now = Date.now();
+    const out = await Promise.all([s.claimTask("task.a", "agent-1", now), s.claimTask("task.a", "agent-2", now), s.claimTask("task.a", "agent-1", now)]);
+    const fresh = out.filter((o) => "claimed" in o && o.fresh);
+    expect(fresh).toHaveLength(1);
+    expect(out.filter((o) => "refused" in o).length + out.filter((o) => "claimed" in o && !o.fresh).length).toBe(2);
+  });
+
+  it("bindTask, status propagation through checkpoint and evaluation, release on reject and abandon", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      i.putPlan(planOf([task("task.a"), task("task.b")]));
+      expect(() => i.bindTask("task.a", "realization.1.r9")).toThrow(/\[not-found\]/);
+      const { r } = startTask(i, "task.a", "agent-1");
+      expect(i.task("task.a")).toMatchObject({ status: "claimed", realizationId: r.realization.id });
+      expect(i.realization(r.realization.id)).toMatchObject({ taskId: "task.a", realization: { task: "task.a" } });
+      expect(() => i.bindTask("task.b", r.realization.id)).toThrow(/works on task.a/);
+
+      i.checkpoint(r.realization.id, { summary: "started" });
+      expect(i.task("task.a")!.status).toBe("realizing");
+      const c = i.recordCandidate({ realizationId: r.realization.id, commit: A2, manifest: {}, changedPaths: ["src/a.ts"], changedNodes: ["screen.people"] }).candidate;
+      i.recordEvaluations(c.id, [ev(c.id, "C.people.list", "pass")], "evaluated");
+      expect(i.task("task.a")!.status).toBe("evaluated");
+
+      i.rejectRealization(r.realization.id, "wrong approach");
+      const released = i.task("task.a")!;
+      expect(released.status).toBe("planned");
+      expect(released.claim).toBeUndefined();
+      expect(released.realizationId).toBeUndefined();
+      expect(i.realization(r.realization.id)!.realization).toMatchObject({ status: "rejected", rejectionReason: "wrong approach" });
+
+      // A failed start (abandon) releases too; releaseTask releases by hand.
+      const again = startTask(i, "task.a", "agent-2");
+      i.abandonRealization(again.r.realization.id);
+      expect(i.task("task.a")).toMatchObject({ status: "planned" });
+      i.claimTask("task.b", "agent-3");
+      expect(i.releaseTask("task.b")).toMatchObject({ status: "planned" });
+      expect(i.task("task.b")!.claim).toBeUndefined();
+    });
+  });
+
+  it("gates a task realization on its task's criteria, not the Evolution's", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      i.putPlan(planOf([task("task.a", { acceptanceCriteria: ["C.task.a"] })]));
+      const { c } = startTask(i, "task.a", "agent-1", A2, ["C.task.a"]);
+      // C.people.list (the Evolution's criterion) has no evaluation; the task's own criterion passed.
+      expect(await i.promote(promoteInput([c!.id], i.state()!.head))).toMatchObject({ ok: true });
+
+      // Without a task, the Evolution's criterion still gates.
+      const other = await runInDurableObject(stub(), async (j: SystemAuthority) => {
+        await j.bootstrap(boot);
+        const r = j.reserveRealization({ evolutionId: "evolution.1", target: "app" });
+        const cand = j.recordCandidate({ realizationId: r.realization.id, commit: A2, manifest: {}, changedPaths: ["src/a.ts"], changedNodes: [] }).candidate;
+        j.recordEvaluations(cand.id, [ev(cand.id, "C.task.a", "pass")], "evaluated");
+        return j.promote(promoteInput([cand.id], j.state()!.head));
+      });
+      expect(other).toMatchObject({ ok: false, code: "blocked", blocking: [{ criterion: "C.people.list" }] });
+    });
+  });
+
+  it("promotion rejects same-task competitors only; the Evolution is promoted with its last task", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      i.putPlan(planOf([task("task.a"), task("task.b")]));
+      const a = startTask(i, "task.a", "agent-1", A2);
+      const b = startTask(i, "task.b", "agent-2", A3);
+      // A competitor on task.a (not bound to the task).
+      const rival = i.reserveRealization({ evolutionId: "evolution.1", target: "app", agentLabel: "agent-3", taskId: "task.a" });
+      const cr = i.recordCandidate({ realizationId: rival.realization.id, commit: "d".repeat(40), manifest: {}, changedPaths: ["src/x.ts"], changedNodes: [] }).candidate;
+      i.recordEvaluations(cr.id, [ev(cr.id, "C.people.list", "pass")], "evaluated");
+
+      const out = await i.promote(promoteInput([a.c!.id], i.state()!.head));
+      expect(out).toMatchObject({ ok: true, rejected: [cr.id] });
+      expect(i.candidate(b.c!.id)!.state).toBe("evaluated");
+      expect(i.realization(rival.realization.id)!.realization.status).toBe("rejected");
+      expect(i.task("task.a")).toMatchObject({ status: "promoted", realizationId: a.r.realization.id });
+      expect(i.task("task.b")!.status).toBe("evaluated");
+      expect(i.evolution("evolution.1")!.state).toBe("realizing");
+      // task.b's realization can still start work after the first promotion (the Evolution is not promoted yet).
+      expect(() => i.reserveRealization({ evolutionId: "evolution.1", target: "app", taskId: "task.b" })).not.toThrow();
+    });
+
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      i.putPlan(planOf([task("task.a")]));
+      const a = startTask(i, "task.a", "agent-1", A2);
+      expect(await i.promote(promoteInput([a.c!.id], i.state()!.head))).toMatchObject({ ok: true });
+      expect(i.evolution("evolution.1")!.state).toBe("promoted");
+    });
+  });
+
+  it("reserveRealization refuses an Evolution whose dependency is not promoted", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      const evo2 = { ...boot.evolutions[0], id: "evolution.2", dependsOn: ["evolution.1"] };
+      const evo3 = { ...boot.evolutions[0], id: "evolution.3", dependsOn: ["evolution.404"] };
+      await i.bootstrap({ ...boot, evolutions: [boot.evolutions[0], evo2, evo3] });
+      expect(() => i.reserveRealization({ evolutionId: "evolution.2", target: "app" })).toThrow("[invalid-state] evolution evolution.2 depends on evolution.1 which is actionable");
+      expect(() => i.reserveRealization({ evolutionId: "evolution.3", target: "app" })).toThrow(/depends on evolution.404 which is unknown/);
+      const r = i.reserveRealization({ evolutionId: "evolution.1", target: "app" });
+      const c = i.recordCandidate({ realizationId: r.realization.id, commit: A2, manifest: {}, changedPaths: ["src/a.ts"], changedNodes: [] }).candidate;
+      i.recordEvaluations(c.id, [ev(c.id, "C.people.list", "pass")], "evaluated");
+      expect(await i.promote(promoteInput([c.id], i.state()!.head))).toMatchObject({ ok: true });
+      expect(i.reserveRealization({ evolutionId: "evolution.2", target: "app" }).realization.evolution).toBe("evolution.2");
+      // A task of another Evolution is refused.
+      i.putPlan(planOf([task("task.e3", { evolutionId: "evolution.3" })], "evolution.3"));
+      expect(() => i.reserveRealization({ evolutionId: "evolution.2", target: "app", taskId: "task.e3" })).toThrow(/belongs to evolution.3/);
+    });
+  });
+
+  it("summary: taskCounts and task signifiers", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      expect(i.summary()!.taskCounts).toBeUndefined();
+      i.putPlan(planOf([task("task.a"), task("task.b", { dependsOn: ["task.a"] })]));
+      let s = i.summary()!;
+      expect(s.taskCounts).toEqual({ planReady: 1, awaitingAgent: 0, running: 0, blocked: 1 });
+      expect(s.signifiers).toContain("plan-ready");
+      expect(s.signifiers).not.toContain("task-awaiting-agent");
+
+      const { r } = startTask(i, "task.a", "agent-1");
+      s = i.summary()!;
+      expect(s.taskCounts).toEqual({ planReady: 0, awaitingAgent: 1, running: 0, blocked: 1 });
+      expect(s.signifiers).toEqual(expect.arrayContaining(["task-awaiting-agent"]));
+      expect(s.signifiers).not.toContain("plan-ready");
+
+      i.checkpoint(r.realization.id, { summary: "go" });
+      s = i.summary()!;
+      expect(s.taskCounts).toEqual({ planReady: 0, awaitingAgent: 0, running: 1, blocked: 1 });
+      expect(s.signifiers).toContain("wave-running");
+      expect(s.signifiers).not.toContain("task-awaiting-agent");
+    });
+  });
+
+  it("import review kv: stored, summarised, signified while pending", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      expect(i.importReview()).toBeNull();
+      expect(i.summary()!.importReview).toBeUndefined();
+      const leaf = { id: "screen.people", kind: "screen", title: "People", path: ["system.peopling", "thing.webapp"], summary: "added", opIds: [], children: [] };
+      const review: ImportReview = {
+        status: "pending", genomeCommit: G1, findings: [], unmapped: ["src/x.ts"],
+        tree: [{ id: "thing.webapp", kind: "thing", title: "Web app", path: ["system.peopling"], summary: "added", opIds: [], children: [leaf] }],
+      };
+      i.setImportReview(review);
+      expect(i.importReview()).toEqual(review);
+      let s = i.summary()!;
+      expect(s.importReview).toEqual({ status: "pending", genomeCommit: G1, nodes: 2 });
+      expect(s.signifiers).toContain("import-pending");
+      i.setImportReview({ ...review, status: "accepted", decidedAt: "2026-10-13T00:00:00.000Z" });
+      s = i.summary()!;
+      expect(s.importReview).toMatchObject({ status: "accepted" });
+      expect(s.signifiers).not.toContain("import-pending");
+    });
+  });
+
+  it("proposal plan, decisions and deferral source: stored together, only while open", async () => {
+    await runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap(boot);
+      const p = i.createProposal({ status: "open", plan: [], provenance: { genomeCommit: G1 } } as never);
+      expect(i.proposalPlan(p.id)).toEqual({ plan: [], decisions: {} });
+      expect(i.proposalPlan("proposal.404")).toBeNull();
+      const node = { id: "screen.people", kind: "screen", title: "People", path: [], summary: "s", opIds: ["op.1"], children: [] };
+      expect(i.setProposalPlan(p.id, [node], { "screen.people": "defer" }, "proposal.0")).toBe(true);
+      expect(i.proposalPlan(p.id)).toEqual({ plan: [node], decisions: { "screen.people": "defer" }, deferredFrom: "proposal.0" });
+      expect(i.setProposalPlan(p.id, [node], {})).toBe(true);
+      expect(i.proposalPlan(p.id)).toEqual({ plan: [node], decisions: {} });
+      expect(i.setProposalPlan("proposal.404", [], {})).toBe(false);
+      // Not open (accepting): refused, nothing written.
+      expect(i.claimProposal(p.id)).toHaveProperty("claimed");
+      expect(i.setProposalPlan(p.id, [], { "screen.people": "agree" })).toBe(false);
+      expect(i.proposalPlan(p.id)).toEqual({ plan: [node], decisions: {} });
+    });
+  });
+
+  it("a Genome candidate is gated by model-target criteria only", async () => {
+    const model = JSON.stringify({ criteria: [
+      { id: "C.people.list", targetKind: "artifact" }, { id: "C.people.health", targetKind: "runtime" }, { id: "C.genome.valid", targetKind: "model" },
+    ] });
+    const accept = async (acceptance: string[], evaluated: string[], gates: GateCriterion[] = []) => runInDurableObject(stub(), async (i: SystemAuthority) => {
+      await i.bootstrap({ ...boot, evolutions: [{ ...boot.evolutions[0], acceptanceCriteria: acceptance }] });
+      i.putModelCache(G1, { model });
+      const g = i.reserveRealization({ evolutionId: "evolution.1", target: "genome" });
+      const c = i.recordCandidate({ realizationId: g.realization.id, commit: "2".repeat(40), manifest: {}, changedPaths: ["x.yaml"], changedNodes: [] }).candidate;
+      i.recordEvaluations(c.id, evaluated.map((k) => ev(c.id, k, "pass")), "awaiting-admin");
+      return i.accept({ realizationId: g.realization.id, candidateId: c.id, commit: c.commit, rationale: "ok", by: "admin", evolutions: [], gates, artifactId: "artifact.webapp", templateVersions: {}, hookVersions: {} });
+    });
+    // Artifact and runtime criteria (acceptance or Worker-computed) do not block a Genome candidate.
+    expect(await accept(["C.people.list", "C.people.health"], [], hard("C.people.list", "C.people.health"))).toMatchObject({ ok: true });
+    // A model criterion still does, and passes once evaluated.
+    expect(await accept(["C.people.list", "C.genome.valid"], [])).toMatchObject({ ok: false, code: "blocked", blocking: [{ criterion: "C.genome.valid" }] });
+    expect(await accept(["C.people.list", "C.genome.valid"], ["C.genome.valid"], hard("C.genome.valid"))).toMatchObject({ ok: true });
+    // A criterion the cached model does not know stays in (fail closed).
+    expect(await accept(["C.unknown"], [])).toMatchObject({ ok: false, code: "blocked", blocking: [{ criterion: "C.unknown" }] });
   });
 });
