@@ -164,6 +164,20 @@ describe("Describe a change", () => {
     await waitFor(() => expect(router.state.location.search).not.toContain("panel="));
   });
 
+  it("keeps ?evolution= across the round trip and the Work header actions stay", async () => {
+    const { router } = renderApp(`${WORK}?evolution=evolution.1`);
+    fireEvent.click(await screen.findByRole("button", { name: "Describe a change" }));
+    await waitFor(() => expect(router.state.location.search).toContain("panel=intent"));
+    expect(router.state.location.search).toContain("evolution=evolution.1");
+    expect(screen.getByRole("button", { name: "+ Evolution" })).toBeTruthy();
+    const heading = await screen.findByRole("heading", { level: 2, name: "Describe a change" });
+    expect(document.activeElement).toBe(heading);
+    fireEvent.click(screen.getByRole("button", { name: "Back to board" }));
+    await waitFor(() => expect(router.state.location.search).not.toContain("panel="));
+    expect(router.state.location.search).toContain("evolution=evolution.1");
+    expect(document.activeElement).toBe(screen.getAllByRole("button", { name: "Describe a change" })[0]);
+  });
+
   it("replaces the board and detail while open and keeps the board after Back to board", async () => {
     const { router } = renderApp(`${WORK}?panel=intent&anchor=screen.people`);
     expect(await screen.findByRole("heading", { level: 2, name: "Describe a change" })).toBeTruthy();
