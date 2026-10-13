@@ -17,6 +17,35 @@ test.describe("the self-model @fake", () => {
     expect(model.model.system.things).toEqual(THINGS);
   });
 
+  test("the Map bands a Thing by template layer and the Inspector orders fields by the view hints @fake", async ({ page, request }, testInfo) => {
+    const { model } = await (await request.get(`/api/systems/${SYS}/model`)).json() as { model: { views: { layers: { id: string }[] } } };
+    await page.goto(`${BASE}/map?focus=thing.platform`);
+    const bands = page.locator("[data-map-band]");
+    await expect(bands.first()).toBeVisible();
+    const ids = await bands.evaluateAll((els) => els.map((e) => e.getAttribute("data-map-band")!));
+    expect(ids).toEqual(expect.arrayContaining(["experience", "domain", "runtime"]));
+    // Bands run left to right in template layer order.
+    const order = model.views.layers.map((l) => l.id).filter((id) => ids.includes(id));
+    expect(ids).toEqual(order);
+    const xs = await bands.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().x));
+    expect([...xs].sort((a, b) => a - b)).toEqual(xs);
+    // The Kinds filter lists the kinds drawn here with their template labels.
+    await page.getByText("Kinds", { exact: true }).click();
+    await expect(page.getByRole("group", { name: "Kinds shown" }).getByRole("checkbox", { name: /Endpoint/ })).toBeVisible();
+    await checkPage(page, testInfo, "self-map-bands");
+
+    // A worker-service endpoint: Route, Auth, Request, Response in the template's field order.
+    await page.goto(`${BASE}/map?focus=endpoint.apply-template-upgrade`);
+    const inspector = page.getByRole("complementary", { name: "Inspector" });
+    await expect(inspector.getByText("Route", { exact: true })).toBeVisible();
+    const text = await inspector.innerText();
+    const at = ["Route", "Auth", "Request", "Response"].map((l) => text.lastIndexOf(`\n${l}\n`));
+    expect(at.every((i) => i >= 0)).toBe(true);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+    await expect(inspector.getByText("POST /api/systems/:id/template-upgrade")).toBeVisible();
+    await checkPage(page, testInfo, "self-inspector-hints");
+  });
+
   test("every view renders for Artyfact without console errors @fake", async ({ page }, testInfo) => {
     await sweepViews(page, testInfo, BASE, "self");
   });
