@@ -28,6 +28,10 @@ let transport: { fetch?: typeof fetch; auth?: AuthScheme } = {};
 export function setEditorTransport(t: { fetch?: typeof fetch; auth?: AuthScheme } | undefined): void {
   transport = t ?? {};
 }
+/** The installed transport, for other Worker pushes (the rebase route) that must go the same way. */
+export function editorTransport(): { fetch?: typeof fetch; auth?: AuthScheme } {
+  return transport;
+}
 
 async function headState(env: Env, systemId: string): Promise<HeadState> {
   const s = await systemStub(env, systemId).state();
