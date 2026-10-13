@@ -15,6 +15,8 @@ links:
   - { rel: exposes, to: command.checkpoint }
   - { rel: exposes, to: command.submit }
   - { rel: exposes, to: command.convert-genome }
+  - { rel: exposes, to: command.validate-genome }
+  - { rel: exposes, to: command.skill }
 criteria:
   - id: C.cli.unit
     title: "@artyfact/cli tests pass"

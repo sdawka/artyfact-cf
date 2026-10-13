@@ -20,3 +20,5 @@ links:
   - { rel: reads, to: entity.RelationshipGoal }
   - { rel: writes, to: entity.ContactEvent }
   - { rel: writes, to: entity.Suggestion }
+files:
+  - src/worker/routes/events.ts
