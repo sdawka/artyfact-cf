@@ -9,18 +9,21 @@ import { runInDurableObject } from "cloudflare:test";
 import { parse as parseYaml } from "yaml";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { fakeSystemOne, fakeTranslator, scriptedSystemOne } from "@artyfact/ontology";
-import { routes, type ApiError, type ImportSystemResponse, type IntentAcceptResponse, type Proposal } from "../shared/api";
+import { routes, type ApiError, type ImportSystemResponse, type IntentAcceptResponse, type IntentDecisionsRequest, type Proposal, type ProposalPlanNode, type ProposedOp } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { walkTree } from "../worker/artifacts/genome-source";
-import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
+import { REGISTRY, SystemAuthority } from "../worker/do/system-authority";
 import { CLAIM_LEASE_MS, ProposalsStore } from "../worker/do/proposals-store";
 import { setEditorTransport } from "../worker/editor";
-import { resetHooks, setHooks } from "../worker/hooks/index";
-import { genomeGraph, intentProviders, MAX_TURNS, proposedOps, setIntentProviders } from "../worker/intents";
+import { noopHookRunner, resetHooks, setHooks } from "../worker/hooks/index";
+import type { HookRunner, SubmissionContext } from "../worker/hooks/contract";
+import { applyDecisions, genomeGraph, intentProviders, MAX_TURNS, opsByDecision, planOf, planStoreReady, proposedOps, setIntentProviders, type PlanDecisions } from "../worker/intents";
+import { parseTree } from "@artyfact/ontology";
 import { loadGenome, validate } from "@artyfact/model";
 import { metaTemplates } from "@artyfact/templates";
 import { createEvolution, startWork, systemStub } from "../worker/service";
 import { createHookRunner } from "../worker/hooks/run";
+import { gateCriteria } from "../worker/promotion";
 import { createSystemOne } from "@artyfact/semantic";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
 import { fakeReceivePack } from "./helpers/fake-receive-pack";
@@ -195,7 +198,7 @@ describe("POST /intents/:pid/accept", () => {
     expect(r.status, JSON.stringify(r.json)).toBe(201);
     const { evolution, realization, candidate, commit } = r.json;
     expect(evolution).toMatchObject({
-      title: p.message, intent: p.message, kind: "genome-amendment", affectedNodes: [node], realizations: [realization.id],
+      title: p.message, intent: p.message, kind: "mixed", affectedNodes: [node], realizations: [realization.id],
       acceptanceCriteria: expect.arrayContaining(["C.system.structure"]),
     });
     expect(realization).toMatchObject({ evolution: evolution.id, target: "genome", origin: "editor", agent: { id: "human:intent" }, candidate: candidate.id });
@@ -281,7 +284,7 @@ describe("POST /intents/:pid/accept", () => {
     const both = await Promise.all([accept(s, p, ["op.1"]), accept(s, p, ["op.1"])]);
     expect(both.map((r) => r.status).sort()).toEqual([201, 409]);
     expect(both.find((r) => r.status === 409)!.json.error.code).toBe("invalid-state");
-    expect((await systemStub(env, s.systemId).work()).evolutions.filter((e) => e.kind === "genome-amendment" && e.title === p.message)).toHaveLength(1);
+    expect((await systemStub(env, s.systemId).work()).evolutions.filter((e) => e.kind === "mixed" && e.title === p.message)).toHaveLength(1);
     expect((await call<Proposal>("GET", routes.intent(s.systemId, p.id))).json.status).toBe("accepted");
   });
 
@@ -495,6 +498,7 @@ describe("intent routes", () => {
     ["GET", routes.intent(S, "proposal.1"), undefined],
     ["POST", routes.intentReply(S, "proposal.1"), { answer: "a" }],
     ["POST", routes.intentAccept(S, "proposal.1"), { opIds: ["op.1"] }],
+    ["PUT", routes.intentDecisions(S, "proposal.1"), { decisions: [{ nodeId: "thing.webapp", decision: "agree" }] }],
   ];
   it.each(cases)("%s %s is admin only", async (method, path, body) => {
     expect((await call<ApiError>(method, path, body, {})).status).toBe(401);
@@ -539,5 +543,316 @@ describe("intent providers and ops", () => {
       { id: "op.4", op: "unlink", node: "a", link: { rel: "r", to: "b" } },
     ]);
     expect(first).toEqual(["op.1", "op.2", "op.4"]);
+  });
+});
+
+// ------------------------------------------------------------------ W8: plan, decisions, deferral, kind mixed
+
+/**
+ * TODO(W3): remove once ProposalsStore/SystemAuthority store plan decisions. Until then the tests stand in the W3
+ * contract (`proposalPlan`, `setProposalPlan`, on the W0 columns) so the decision routes run end to end.
+ */
+function standInPlanStore(): void {
+  if (planStoreReady()) return;
+  type Self = { sql: SqlStorage };
+  Object.assign(SystemAuthority.prototype, {
+    proposalPlan(this: Self, pid: string) {
+      const [r] = this.sql.exec("SELECT plan_json, decisions_json, deferred_from FROM proposals WHERE id = ?", pid).toArray();
+      return r ? { plan: JSON.parse(String(r.plan_json ?? "[]")), decisions: JSON.parse(String(r.decisions_json ?? "{}")),
+        ...(r.deferred_from != null && { deferredFrom: String(r.deferred_from) }) } : null;
+    },
+    setProposalPlan(this: Self, pid: string, plan: ProposalPlanNode[], decisions: PlanDecisions, deferredFrom?: string) {
+      return this.sql.exec("UPDATE proposals SET plan_json = ?, decisions_json = ?, deferred_from = ? WHERE id = ? AND status = 'open' RETURNING id",
+        JSON.stringify(plan), JSON.stringify(decisions), deferredFrom ?? null, pid).toArray().length > 0;
+    },
+  });
+}
+
+const tree = () => parseTree(new Map(Object.entries(genome)));
+const strip = (plan: ProposalPlanNode[]): unknown[] => plan.map((n) => ({ id: n.id, opIds: n.opIds, summary: n.summary, children: strip(n.children) }));
+const decide = (s: Sys, p: Proposal, decisions: IntentDecisionsRequest["decisions"]) =>
+  call<Proposal & ApiError>("PUT", routes.intentDecisions(s.systemId, p.id), { decisions });
+const ADD = "Add a screen for quiet hours #s1pick:add";
+
+describe("proposal plan", () => {
+  it("roots an update at its Thing, with the containment path from the head tree", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    expect(p.plan).toEqual([{
+      id: "thing.webapp", kind: "thing", title: "Peopling web app", path: [s.systemId, "thing.webapp"], summary: "1 update", opIds: [],
+      children: [{
+        id: "section.ui", kind: "section", title: expect.any(String), path: [s.systemId, "thing.webapp", "section.ui"], summary: "1 update", opIds: [],
+        children: [{ id: "screen.today", kind: "screen", title: "Today", path: [s.systemId, "thing.webapp", "section.ui", "screen.today"], summary: "1 update", opIds: ["op.1"], children: [] }],
+      }],
+    }]);
+  });
+
+  it("places an add under its parent with the proposed title and kind, and its links on it", async () => {
+    const s = await importSystem();
+    const p = (await create(s, ADD)).json;
+    const node = p.ops[0]!.node;
+    expect(p.ops.map((o) => o.op)).toEqual(["add", "link"]);
+    // No parent: the System root holds it, since it is in no Thing.
+    expect(p.plan).toEqual([{
+      id: s.systemId, kind: "system", title: expect.any(String), path: [s.systemId], summary: "1 add · 1 link", opIds: [],
+      children: [{ id: node, kind: "screen", title: p.ops[0]!.fields!.name, path: [s.systemId, node], summary: "1 add · 1 link", opIds: ["op.1", "op.2"], children: [] }],
+    }]);
+  });
+
+  it("puts a remove on its node, a link on its from node, an add under its parent and unknown nodes under Other changes", () => {
+    const ops: ProposedOp[] = [
+      { id: "op.1", op: "remove", node: "component.TodayHeading" },
+      { id: "op.2", op: "link", node: "screen.people", link: { rel: "uses", to: "GD.contacts" } },
+      { id: "op.3", op: "add", node: "component.New", kind: "component", parent: "screen.people", fields: { name: "New" } },
+      { id: "op.4", op: "link", node: "component.New", link: { rel: "uses", to: "GD.contacts" }, dependsOn: ["op.3"] },
+      { id: "op.5", op: "update", node: "screen.gone" },
+      { id: "op.6", op: "update", node: "GD.goals" },
+    ];
+    const plan = planOf(ops, tree());
+    expect(strip(plan)).toEqual([
+      { id: "thing.webapp", opIds: [], summary: "1 add · 1 remove · 2 link", children: [{ id: "section.ui", opIds: [], summary: "1 add · 1 remove · 2 link", children: [
+        { id: "screen.today", opIds: [], summary: "1 remove", children: [{ id: "component.TodayHeading", opIds: ["op.1"], summary: "1 remove", children: [] }] },
+        { id: "screen.people", opIds: ["op.2"], summary: "1 add · 2 link", children: [{ id: "component.New", opIds: ["op.3", "op.4"], summary: "1 add · 1 link", children: [] }] },
+      ] }] },
+      { id: "system.peopling", opIds: [], summary: "1 update", children: [{ id: "GD.goals", opIds: ["op.6"], summary: "1 update", children: [] }] },
+      { id: "other", opIds: ["op.5"], summary: "1 update", children: [] },
+    ]);
+    expect(plan[2]).toMatchObject({ kind: "other", title: "Other changes", path: [] });
+    expect(plan[0]!.children[0]!.children[1]!.children[0]).toMatchObject({ kind: "component", title: "New", path: ["system.peopling", "thing.webapp", "section.ui", "screen.people", "component.New"] });
+    const all = (n: ProposalPlanNode[]): string[] => n.flatMap((x) => [...x.opIds, ...all(x.children)]);
+    expect(all(plan).sort()).toEqual(ops.map((o) => o.id).sort());
+  });
+
+  it("is recomputed on reply", async () => {
+    setIntentProviders({
+      s1: scriptedSystemOne({ "route.intent": (state) => (JSON.stringify(state).includes("A: ") ? "update" : "question") }),
+      translator: fakeTranslator(),
+    });
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    expect(p.ops).toEqual([]);
+    expect(p.plan).toEqual([]);
+    const r = await call<Proposal>("POST", routes.intentReply(s.systemId, p.id), { answer: "The Today screen", questionId: "q.1" });
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json.ops.length).toBeGreaterThan(0);
+    expect(strip(r.json.plan)).toHaveLength(1);
+    expect(r.json.plan[0]!.id).toBe("thing.webapp");
+  });
+
+  it("reads a proposal stored before plans as an empty plan, and accepts it as before", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const legacy = await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (_i: SystemAuthority, state): Promise<Proposal> => {
+      const { id: _id, plan: _plan, ...rest } = p;
+      return new ProposalsStore(state.storage.sql).create(rest as Omit<Proposal, "id">);
+    });
+    expect("plan" in legacy).toBe(false);
+    const got = await call<Proposal>("GET", routes.intent(s.systemId, legacy.id));
+    expect(got.status).toBe(200);
+    expect(got.json.plan).toEqual([]);
+    const r = await accept(s, got.json, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.deferred).toBeUndefined();
+  });
+});
+
+describe("decision rules", () => {
+  const plan = planOf([
+    { id: "op.1", op: "update", node: "screen.today" },
+    { id: "op.2", op: "update", node: "component.TodayHeading" },
+    { id: "op.3", op: "update", node: "screen.people" },
+  ], tree());
+  it("a parent decision clears its descendants' explicit decisions; null clears the node's own", () => {
+    let d = applyDecisions(plan, {}, [{ nodeId: "screen.today", decision: "reject" }, { nodeId: "component.TodayHeading", decision: "defer" }]);
+    expect(d).toEqual({ "screen.today": "reject", "component.TodayHeading": "defer" });
+    d = applyDecisions(plan, d, [{ nodeId: "thing.webapp", decision: "agree" }]);
+    expect(d).toEqual({ "thing.webapp": "agree" });
+    expect(applyDecisions(plan, d, [{ nodeId: "thing.webapp", decision: null }])).toEqual({});
+    expect(() => applyDecisions(plan, d, [{ nodeId: "screen.nope", decision: "agree" }])).toThrow(/no node screen.nope/);
+  });
+  it("a node inherits its nearest decided ancestor's decision", () => {
+    const by = opsByDecision(plan, { "thing.webapp": "agree", "screen.today": "defer", "component.TodayHeading": "reject" });
+    expect([...by.agreed]).toEqual(["op.3"]);
+    expect([...by.deferred]).toEqual(["op.1"]);
+    expect([...by.rejected]).toEqual(["op.2"]);
+    expect(by.deferredNodes).toEqual(["screen.today"]);
+  });
+});
+
+describe("PUT /intents/:pid/decisions", () => {
+  beforeAll(standInPlanStore);
+
+  it("stores decisions, clearing descendants on a parent decision and the node's own on null", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    let r = await decide(s, p, [{ nodeId: "screen.today", decision: "reject" }]);
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json.plan[0]!.children[0]!.children[0]!.decision).toBe("reject");
+    r = await decide(s, p, [{ nodeId: "thing.webapp", decision: "agree" }]);
+    expect(r.json.plan[0]!.decision).toBe("agree");
+    expect(r.json.plan[0]!.children[0]!.children[0]!.decision).toBeUndefined();
+    const got = (await call<Proposal>("GET", routes.intent(s.systemId, p.id))).json;
+    expect(got.plan[0]!.decision).toBe("agree");
+    r = await decide(s, p, [{ nodeId: "thing.webapp", decision: null }]);
+    expect(r.json.plan[0]!.decision).toBeUndefined();
+  });
+
+  it("keeps decisions on a reply only for nodes the rebuilt plan still has", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const stub = systemStub(env, s.systemId) as unknown as { setProposalPlan(...a: unknown[]): Promise<boolean>; proposalPlan(pid: string): Promise<{ decisions: PlanDecisions }> };
+    expect(await stub.setProposalPlan(p.id, p.plan, { "thing.webapp": "agree", "screen.gone": "agree" })).toBe(true);
+    const r = await call<Proposal>("POST", routes.intentReply(s.systemId, p.id), { answer: "Yes, the Today screen" });
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json.plan[0]).toMatchObject({ id: "thing.webapp", decision: "agree" });
+    expect((await stub.proposalPlan(p.id)).decisions).toEqual({ "thing.webapp": "agree" });
+  });
+
+  it("is 404 for a node the plan lacks, 400 for a malformed body, 409 once the proposal is not open", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const missing = await decide(s, p, [{ nodeId: "screen.nope", decision: "agree" }]);
+    expect(missing.status).toBe(404);
+    expect((await decide(s, p, [{ nodeId: "thing.webapp", decision: "maybe" as never }])).status).toBe(400);
+    expect((await decide(s, p, [])).status).toBe(400);
+    expect((await accept(s, p, ["op.1"])).status).toBe(201);
+    const late = await decide(s, p, [{ nodeId: "thing.webapp", decision: "agree" }]);
+    expect(late.status).toBe(409);
+    expect(late.json.error.code).toBe("invalid-state");
+  });
+});
+
+describe("POST /intents/:pid/accept with decisions", () => {
+  beforeAll(standInPlanStore);
+
+  it("refuses ops outside agreed nodes with 422 invalid-ops", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    await decide(s, p, [{ nodeId: "thing.webapp", decision: "reject" }]);
+    const r = await accept(s, p, ["op.1"]);
+    expect(r.status).toBe(422);
+    expect(r.json.error).toMatchObject({ code: "invalid-ops", details: { offenders: ["op.1"] } });
+    expect((await call<Proposal>("GET", routes.intent(s.systemId, p.id))).json.status).toBe("open");
+  });
+
+  it("keeps the dependency rule under agreed nodes", async () => {
+    const s = await importSystem();
+    const p = (await create(s, ADD)).json;
+    await decide(s, p, [{ nodeId: s.systemId, decision: "agree" }]);
+    const r = await accept(s, p, ["op.2"]);
+    expect(r.status).toBe(422);
+    expect(r.json.error.code).toBe("missing-dependency");
+  });
+
+  it("moves the ops of deferred nodes to a new open proposal", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    // Two ops under two screens: a proposal that updates both, built from the ops of two replies' worth.
+    const ops: ProposedOp[] = [first.ops[0]!, { id: "op.2", op: "update", node: "screen.people", fields: { description: "[fake] calmer" } }];
+    const both = await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (_i: SystemAuthority, state): Promise<Proposal> => {
+      const { id: _id, ...rest } = first;
+      return new ProposalsStore(state.storage.sql).create({ ...rest, ops, plan: planOf(ops, parseTree(new Map(Object.entries(genome).map(([k, v]) => [k, v.replaceAll("system.peopling", s.systemId)])))) });
+    });
+    const d = await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "defer" }]);
+    expect(d.status, JSON.stringify(d.json)).toBe(200);
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.evolution.affectedNodes).toEqual(["screen.today"]);
+    expect(r.json.deferred).toEqual({ proposal: expect.stringMatching(/^proposal\.\d+$/), nodeIds: ["screen.people"] });
+    const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
+    expect(next).toMatchObject({ status: "open", message: both.message, deferredFrom: both.id, ops: [ops[1]], questions: [] });
+    expect(next.provenance.genomeCommit).toBe(both.provenance.genomeCommit);
+    expect(strip(next.plan)).toEqual([{ id: "thing.webapp", opIds: [], summary: "1 update", children: [{ id: "section.ui", opIds: [], summary: "1 update",
+      children: [{ id: "screen.people", opIds: ["op.2"], summary: "1 update", children: [] }] }] }]);
+    expect(next.plan[0]!.decision).toBeUndefined();
+    const columns = await (systemStub(env, s.systemId) as unknown as { proposalPlan(pid: string): Promise<{ deferredFrom?: string }> }).proposalPlan(next.id);
+    expect(columns.deferredFrom).toBe(both.id);
+    expect((await call<Proposal>("GET", routes.intent(s.systemId, both.id))).json.status).toBe("accepted");
+  });
+
+  // Only the model criteria pass: the app ones do not apply to the Genome candidate (gateCriteria), so they cannot block it.
+  const passModelCriteria = () => {
+    const all = (ctx: SubmissionContext) => {
+      const at = new Date().toISOString();
+      return loadGenome(new Map(Object.entries(ctx.genomeFiles)), { templates: metaTemplates }).criteria.filter((c) => c.targetKind === "model").map((c) => ({
+        id: `${ctx.candidate.id}:hook:${c.id}`, candidate: ctx.candidate.id, hook: `hook:${c.id}`, criterion: c.id, ownerId: "o", subjectId: "s",
+        targetRef: ctx.candidate.commit, execution: "completed" as const, verdict: "pass" as const, verifier: "artyfact-platform",
+        startedAt: at, finishedAt: at, observations: [], limitations: [], provenance: {},
+      }));
+    };
+    const runner: HookRunner = {
+      async runSubmission(ctx) { return all(ctx); },
+      async runGenome(ctx) { return { ...(await noopHookRunner.runGenome(ctx)), evaluations: all(ctx) }; },
+      async conflicts() { return []; },
+    };
+    setHooks({ runner: () => runner });
+  };
+  const adminAccept = (s: Sys, r: IntentAcceptResponse) => call<ApiError>("POST", `/api/systems/${s.systemId}/evolutions/${r.evolution.id}/accept`,
+    { realizationId: r.realization.id, candidateId: r.candidate.id, commit: r.commit, interpretation: "ok" });
+
+  it("creates a mixed Evolution with app and model criteria that admin accept makes genome-approved", async () => {
+    passModelCriteria();
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    await decide(s, p, [{ nodeId: "thing.webapp", decision: "agree" }]);
+    const r = await accept(s, p, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.evolution.kind).toBe("mixed");
+    const m = loadGenome(new Map(Object.entries(genome)), { templates: metaTemplates });
+    const kinds = new Set(r.json.evolution.acceptanceCriteria.map((id) => m.criteria.find((c) => c.id === id)?.targetKind));
+    expect(kinds.has("model")).toBe(true);
+    expect(kinds.has("artifact") || kinds.has("runtime")).toBe(true);
+    const acc = await adminAccept(s, r.json);
+    expect(acc.status, JSON.stringify(acc.json)).toBe(200);
+    expect((await systemStub(env, s.systemId).evolution(r.json.evolution.id))?.state).toBe("genome-approved");
+  });
+
+  it("re-applies a deferred proposal's ops on the head once its sibling's Genome candidate is accepted", async () => {
+    passModelCriteria();
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const ops: ProposedOp[] = [first.ops[0]!, { id: "op.2", op: "update", node: "screen.people", fields: { description: "[fake] calmer" } }];
+    const store = (o: Omit<Proposal, "id">) => runInDurableObject(env.SYSTEMS.getByName(s.systemId),
+      async (_i: SystemAuthority, state): Promise<Proposal> => new ProposalsStore(state.storage.sql).create(o));
+    const { id: _id, ...rest } = first;
+    const both = await store({ ...rest, ops, plan: planOf(ops, parseTree(new Map(Object.entries(genome).map(([k, v]) => [k, v.replaceAll("system.peopling", s.systemId)])))) });
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "defer" }]);
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.evolution.kind).toBe("mixed");
+    expect((await adminAccept(s, r.json)).status).toBe(200);
+    const head = (await systemStub(env, s.systemId).state())!.genomeCommit;
+    expect(head).not.toBe(both.provenance.genomeCommit);
+
+    const deferred = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
+    const d = await accept(s, deferred, ["op.2"]);
+    expect(d.status, JSON.stringify(d.json)).toBe(201);
+    expect(d.json.evolution.id).not.toBe(r.json.evolution.id);
+    expect(d.json.evolution.affectedNodes).toEqual(["screen.people"]);
+    const after = (await call<Proposal>("GET", routes.intent(s.systemId, deferred.id))).json;
+    expect(after).toMatchObject({ status: "accepted", provenance: { genomeCommit: head } });
+
+    // Deferred ops that no longer apply on the head stay a 409 stale-base, and the proposal stays open on its base.
+    const gone = await store({ ...rest, ops: [{ id: "op.1", op: "update", node: "screen.gone", fields: { description: "x" } }], plan: [], deferredFrom: both.id });
+    const g = await accept(s, gone, ["op.1"]);
+    expect(g.status, JSON.stringify(g.json)).toBe(409);
+    expect(g.json.error).toMatchObject({ code: "stale-base", details: { currentHead: head } });
+    expect((await systemStub(env, s.systemId).proposal(gone.id))?.proposal).toMatchObject({ status: "open", provenance: { genomeCommit: both.provenance.genomeCommit } });
+  });
+
+  it("gates a Genome candidate on model criteria only, an app candidate on its app criteria too", () => {
+    const m = loadGenome(new Map(Object.entries(genome)), { templates: metaTemplates });
+    const kind = (id: string) => m.criteria.find((c) => c.id === id)?.targetKind;
+    const app = m.criteria.filter((c) => c.targetKind === "artifact" || c.targetKind === "runtime").map((c) => c.id);
+    const model = m.criteria.filter((c) => c.targetKind === "model").map((c) => c.id);
+    expect(app.length && model.length).toBeTruthy();
+    const evo = { acceptanceCriteria: [...app, ...model, "C.nope"] };
+    const onGenome = gateCriteria(m, evo, { target: "genome" });
+    expect(onGenome.filter((g) => g.blocking && g.id !== "C.nope").every((g) => kind(g.id) === "model")).toBe(true);
+    expect(onGenome.filter((g) => app.includes(g.id)).every((g) => !g.blocking)).toBe(true);
+    expect(onGenome.find((g) => g.id === "C.nope")).toMatchObject({ blocking: true });
+    const blockingOnApp = gateCriteria(m, evo, { target: "app" }).filter((g) => g.blocking && app.includes(g.id)).map((g) => g.id);
+    expect(blockingOnApp.length).toBeGreaterThan(0);
+    expect(onGenome.filter((g) => blockingOnApp.includes(g.id)).map((g) => g.blocking)).toEqual(blockingOnApp.map(() => false));
   });
 });

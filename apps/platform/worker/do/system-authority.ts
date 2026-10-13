@@ -1601,6 +1601,8 @@ export class SystemAuthority extends DurableObject<Env> {
   }
   proposal(id: string): StoredProposal | null { return this.proposals().get(id); }
   createProposal(proposal: Omit<Proposal, "id">): Proposal { return this.proposals().create(proposal); }
+  /** A deferred proposal moved from base `from` to `to` (its ops were re-validated on `to`); false when it no longer qualifies. */
+  rebaseProposal(id: string, from: string, to: string): boolean { return this.proposals().rebase(id, from, to); }
   reviseProposal(proposal: Proposal, turns: ProposalTurn[]): ReviseResult { return this.proposals().revise(proposal, turns); }
   /** Starts an accept: open → accepting, only while the head Genome is the one the proposal was computed on. */
   claimProposal(id: string): ClaimResult {
