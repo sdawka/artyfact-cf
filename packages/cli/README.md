@@ -42,6 +42,16 @@ also works for another System's `<slug>.app`. The source `{repo, commit, path}` 
 re-runs need no flag: with no local app, init uses the app repo's head, and the platform keeps the recorded
 `scaffoldFrom` on a `--force` re-import of the same repo.
 
+A path scaffold also gets `.artyfact/template.json`, the template lock: `{template, scaffoldCommit, files}`, with the git
+blob id of every file the scaffold shipped. The platform's template upgrade (Overview "App template", or
+`GET`/`POST /api/systems/:id/template-upgrade`) compares the current scaffold in `platform` with the app and this lock.
+Files the app left alone are updated, added or removed. Files the app edited, or every differing file when there is no
+lock, are conflicts that only change when the admin includes them. READMEs and secret files are never touched, and a
+file the template has not changed since the lock is left to the app. The upgrade is one commit on a new Evolution
+("Upgrade app template to <commit>"), so it runs the gates and CI preview and is promoted like any other change; it
+rewrites the lock. Run `platform-sync` after changing a scaffold so existing apps see it. A whole-repo (fork) scaffold
+gets no lock.
+
 `platform-sync` lays out `packages/templates` as the `platform` repo, copying each scaffold's `bundle` directory. It
 pushes only when the content changed.
 
