@@ -33,3 +33,13 @@ The Phenome illustration gives visitors six automatic sample saves, then lets th
 ## 2026-10-13T02:23:00-04:00 — Scroll-scrubbed miniature Artyfact
 
 The homepage illustration opens with only “Artyfact” and “Turn ideas into meaningful systems.” Native scrolling continuously and reversibly reveals its Genome, brings outside coding agents into the Proteome realization, and reveals Phenome activity. The miniature interface cycles curated sample System names and purposes through Randomize; it makes no AI, backend or persistence claims. A short scripted cursor demonstrates six readable automatic interactions with Pause/Resume, then hands over to the visitor, retaining the existing once-only celebration and local progress. Keep full supporting content in normal flow around a measured compact sticky illustration; keyboard focus freezes stage changes, and reduced-motion/no-JS visitors receive readable settled views.
+
+## 2026-10-13T09:08:01-04:00 — Public model explanation
+
+Explain Artyfact from the domain outward: a System is the outer context with one or more Things, and people choose each Thing's granularity and typed relationships. A Thing has form and content; nested subjects are not additional Things or Parts. Parts contribute optional reusable content or implementation, while Rule Packs express shared constraints. Show Genome, Proteome and Phenome as parallel views of the same clearly illustrative Artyfact feature, with agents as possible Proteome participants and proposed observations distinguished from live evidence. Keep this public explanation ahead of backend changes.
+
+## 2026-10-13T10:48:24-04:00 — Readable chapters and one model story
+
+Native scroll selects homepage chapters; short reversible animations settle fully even when scrolling stops. Preserve readable still intervals, spatial hysteresis, direct controls and local demo state. Focus locks the accepted chapter and settles its artwork immediately. Keep supporting inspection and provenance outside the bounded sticky narrative so content never overlaps it. This supersedes continuously scrubbing every illustration property.
+
+Use one clearly illustrative Artyfact scoped-change request to connect the model page's domain, chosen Thing boundaries, nested subjects, reusable content, three parallel views and evidence questions. Keep proposed behavior and observations distinct from implemented APIs and live outcome evidence.

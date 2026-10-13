@@ -49,3 +49,9 @@ Read-only whole-branch correctness/security/regression review. Primary fixes fin
 8. Existing review gates, command allowlists, invalid-Genome review, criteria scoping, and changelog regressions pass; relevant tests, typecheck, builds, and browser checks pass against the integrated revision.
 
 - First action: [[execution]]. Record exact evidence and remaining gaps in [[analysis]].
+
+## Public model page follow-up
+
+Revise `/model` to explain the System boundary, user-chosen Things and typed connections, form/content, optional Parts, Rule Packs, and Genome/Proteome/Phenome as parallel views. Use a clearly illustrative Artyfact change-scope feature; keep the homepage and backend unchanged. Verify static/no-JS, keyboard, reduced-motion, mobile, and homepage behavior before one site PR and site-only release.
+
+Deferred capability gaps, outside this page revision: creation accepts a System with zero Things despite the one-or-more domain intent; design-system-specific rules and visual compliance are absent; runtime loads bundled Rule Packs rather than user-managed packs; change scope is manual without a separate intent-confirmation or automatic mapping step; external-agent handoff does not launch an agent; the illustrated acceptance test and event producers do not exist; transient workflow SSE is not a persisted Phenome stream. These require their own product and implementation decisions.
