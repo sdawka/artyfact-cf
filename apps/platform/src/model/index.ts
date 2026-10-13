@@ -2,9 +2,12 @@ import type {
   AssayHook, Certainty, Criterion, Journey, ModelJson, Relation, Requirement, UiBundle,
 } from "./types";
 
-export type EntryType =
-  | "system" | "thing" | "node" | "external" | "purpose" | "claim" | "feature" | "commitment"
-  | "requirement" | "criterion" | "hook" | "journey" | "step" | "evolution";
+/** The model's own object shapes. Every other template kind is a plain `node`, shown through its view hints. */
+export const ENTRY_TYPES = [
+  "system", "thing", "node", "external", "purpose", "claim", "feature", "commitment",
+  "requirement", "criterion", "hook", "journey", "step", "evolution",
+] as const;
+export type EntryType = (typeof ENTRY_TYPES)[number];
 
 /** One focusable object. `item` is the raw model object (OntologyNode, Criterion, Journey, ...). */
 export interface IndexEntry<T = unknown> {

@@ -44,9 +44,9 @@ describe("Inspector kind bodies", () => {
     expect(within(i).getByTitle("Purpose: P1")).toBeTruthy();
   });
 
-  it("SectionBody rolls up conformance without green when nothing ran", async () => {
+  it("a container's node body rolls up conformance without green when nothing ran", async () => {
     const i = await open("section.domain");
-    expect(await within(i).findByText("Conformance in this section")).toBeTruthy();
+    expect(await within(i).findByText("Conformance inside")).toBeTruthy();
     expect(within(i).getByText(/0 pass/)).toBeTruthy();
   });
 

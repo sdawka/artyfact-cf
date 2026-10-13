@@ -30,3 +30,7 @@
   padding: 0;
   list-style: none;
 }
+.facts { display: grid; gap: var(--spacing-3); margin: 0; }
+.facts > div { display: grid; gap: var(--spacing-1); }
+.facts dt { color: var(--color-text-subtle); font-size: var(--font-size-sm); }
+.facts dd { margin: 0; }

@@ -16,7 +16,8 @@ const isEmpty = (v: unknown) =>
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   !!v && typeof v === "object" && !Array.isArray(v) && Object.values(v).every((x) => x === null || typeof x !== "object");
 
-const humanize = (k: string) => k.replace(/([a-z])([A-Z])/g, "$1 $2").replace(/^./, (c) => c.toUpperCase());
+/** Sentence case: `owningThing` → "Owning thing". */
+const humanize = (k: string) => k.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().replace(/^./, (c) => c.toUpperCase());
 
 /** Definition list dump of an object. Strings that are model ids render as NodeChips; lists of flat records as a table. */
 export function KeyValue({ data, omit = [] }: KeyValueProps) {

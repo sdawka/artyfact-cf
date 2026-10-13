@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { fixtureBundle } from "@/api/fixtures";
 import { buildIndex } from "@/model/index";
 import { resolveKindView } from "@artyfact/ontology";
-import type { KindViews } from "@/model/kinds";
+import { kindViews, type KindViews } from "@/model/kinds";
+import { modelKinds } from "./MapView";
 import { bandFrameId, buildMapGraph, certaintyStroke, DEFAULT_FILTERS, findingSubjectIds, mapLayoutRequest, mapLocationFor, mapScopeFor } from "./useMapGraph";
 
 const index = buildIndex(fixtureBundle());
@@ -189,5 +190,14 @@ describe("Map bands", () => {
     const req = mapLayoutRequest(g, "genome");
     expect(req.nodes.some((n) => n.id.startsWith(bandFrameId("")))).toBe(false);
     expect(req.nodes.find((n) => n.id === "component.SearchInput")!.parentId).toBe("screen.people");
+  });
+});
+
+describe("Map Kinds filter", () => {
+  it("lists every drawn kind in the containment tree, intent and journey kinds included", () => {
+    const { kinds } = modelKinds(index, kindViews(index.model));
+    for (const k of ["purpose", "claim", "journey", "step", "screen", "entity"]) expect(kinds).toContain(k);
+    for (const k of ["thing", "section", "criterion"]) expect(kinds).not.toContain(k);
+    expect(modelKinds(index, unlayered).kinds).toContain("thing");
   });
 });

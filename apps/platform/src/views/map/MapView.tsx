@@ -205,13 +205,17 @@ function FitNewGraph({ width, height, container }: { width: number; height: numb
   return null;
 }
 
-/** Kinds the Map can draw (with template layers, only kinds in a layer) and the relations present. */
-function modelKinds(index: ModelIndex, views: KindViews) {
+/** Kinds the Map can draw (anything in the System's containment tree; with template layers, only kinds in a layer) and the relations present. */
+export function modelKinds(index: ModelIndex, views: KindViews) {
   const kinds = new Set<string>();
   const links = new Set<string>();
   const layers = new Set(views.layers.map((l) => l.id));
+  const root = index.model.system.id;
+  for (const id of index.descendants(root)) {
+    const kind = index.byId(id)?.kind;
+    if (id !== root && kind && (!layers.size || layers.has(views.of(kind).layer ?? ""))) kinds.add(kind);
+  }
   for (const e of index.entries) {
-    if ((e.type === "thing" || e.type === "node") && (!layers.size || layers.has(views.of(e.kind).layer ?? ""))) kinds.add(e.kind);
     for (const l of index.crossLinks(e.id, "out")) if ((l.rel as string) !== "contains") links.add(l.rel);
   }
   return { kinds: [...kinds].sort(), links: [...links].sort() };

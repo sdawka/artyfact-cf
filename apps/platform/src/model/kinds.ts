@@ -94,7 +94,7 @@ export interface KindViews {
   of(kind: string): ResolvedKindView;
   /** True when one of the System's templates declares `kind`. */
   declares(kind: string): boolean;
-  /** Map bands, top to bottom; empty when the templates declare none. */
+  /** Map bands in template layer order, drawn left to right; empty when the templates declare none. */
   layers: MapLayer[];
 }
 
