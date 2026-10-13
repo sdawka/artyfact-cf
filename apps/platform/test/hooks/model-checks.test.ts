@@ -32,6 +32,12 @@ describe("model-rules checks", () => {
     expect(o.interpretation).toContain('bogus: unknown (Unknown check "bogus")');
   });
 
+  it("an engine run that fails is unknown with the error in limitations, never pass", async () => {
+    const o = await modelRulesHook({ ...env(), engine: () => Promise.reject(new Error("unknown template template.system.gone@1")) }, hook({ packs: "metamodel@1" }));
+    expect(o).toMatchObject({ execution: "error", verdict: "unknown" });
+    expect(o.limitations.join(" ")).toContain("unknown template template.system.gone@1");
+  });
+
   it("only not-run parts → not-run", async () => {
     const o = await modelRulesHook(env(), hook({ check: "manifest-exact,evidence-fresh" }));
     expect(o).toMatchObject({ execution: "not-run", verdict: "unknown" });

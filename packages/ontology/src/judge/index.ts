@@ -1,7 +1,7 @@
 export * from "./types.ts";
 export { fakeAnswer, fakeAnswers } from "./fake.ts";
 export {
-  cacheKeyFor, DEFAULT_TYPESAFE_MODEL, fakeSystemOne, httpSystemOne, offSystemOne, S1Error, TYPESAFE_URL, typeSafeProvider, wireQuestions,
+  cacheKeyFor, DEFAULT_TYPESAFE_MODEL, fakeSystemOne, httpSystemOne, offSystemOne, S1Error, stripDirectives, TYPESAFE_URL, typeSafeProvider, wireQuestions,
   type HttpOptions, type S1ErrorCode, type TypeSafeOptions,
 } from "./provider.ts";
 export {

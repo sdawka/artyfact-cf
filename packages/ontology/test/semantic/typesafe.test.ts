@@ -42,6 +42,14 @@ describe("typeSafeProvider", () => {
     expect(reply).toMatchObject({ provider: "typesafe", model: "jev-2026-10", answers: ANSWERS, usage: { input_tokens: 12, output_tokens: 3 } });
   });
 
+  it("strips fake-provider directives from the state it sends", async () => {
+    const { f, calls } = mockFetch(ok);
+    await typeSafeProvider({ apiKey: KEY, fetch: f }).ask({ subject: { text: "Lists contacts. #s1no #s1pick:b #s1:yn=yes" }, list: ["#s1harm keep"] }, QUESTIONS);
+    const body = JSON.parse(String(calls[0]!.init.body));
+    expect(JSON.stringify(body.state)).not.toContain("#s1");
+    expect(body.state).toEqual({ subject: { text: "Lists contacts.   " }, list: [" keep"] });
+  });
+
   it("caches a reply and retries a 429", async () => {
     let n = 0;
     const { f, calls } = mockFetch(() => (++n === 1 ? new Response("busy", { status: 429 }) : ok()));

@@ -11,7 +11,7 @@ import type { SystemModel, schema } from "@artyfact/model";
 import type { SubmissionContext } from "./contract";
 import { diffScope } from "./diff-scope";
 import type { ModelRulesResult } from "./model-rules";
-import { errored as erroredOutcome, notRun, type Outcome } from "./provenance";
+import { errored as erroredOutcome, errorMessage, notRun, type Outcome } from "./provenance";
 
 export interface ModelCheckEnv {
   ctx: SubmissionContext;
@@ -66,7 +66,7 @@ export async function modelRulesHook(env: ModelCheckEnv, h: schema.AssayHook): P
     try {
       o = await env.engine(h);
     } catch (e) {
-      o = erroredOutcome(e, { interpretation: "The engine rules run failed." });
+      o = erroredOutcome(e, { interpretation: "The engine rules run failed.", limitations: [`Engine run failed: ${errorMessage(e)}`] });
     }
     parts.push({ check: "rules", o });
   }

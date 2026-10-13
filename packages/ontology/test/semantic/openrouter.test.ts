@@ -65,6 +65,12 @@ describe("openRouterProvider wire format", () => {
     expect(JSON.stringify(r)).not.toContain(KEY);
   });
 
+  it("never sends fake-provider directives", async () => {
+    const { f, calls } = mockFetch(() => reply(GOOD));
+    await openRouterProvider({ apiKey: KEY, fetch: f }).ask({ text: "Shows people. #s1no #s1pick:a" }, QUESTIONS);
+    expect(calls[0]!.body.state).toEqual({ text: "Shows people.  " });
+  });
+
   it("model is a constructor option", async () => {
     const { f, calls } = mockFetch(() => reply({ ...GOOD, model: undefined }));
     const r = await openRouterProvider({ apiKey: KEY, model: "cloudflare/clef", fetch: f }).ask({}, { yn: QUESTIONS.yn });

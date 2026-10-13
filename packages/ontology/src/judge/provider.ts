@@ -29,6 +29,20 @@ export const wireQuestions = (questions: S1Questions): S1Questions =>
     return [id, wire as S1Questions[string]];
   }));
 
+/** A fake-provider directive (`#s1no`, `#s1pick:<key>`, `#s1:<id>=<answer>`, ...) anywhere in a string. */
+const DIRECTIVE = /#s1[\w.:|=-]*/g;
+
+/**
+ * The state with every fake-provider directive removed from its strings. Real providers send this, so Genome text
+ * cannot carry instructions meant for the fake (which only `FAKE_S1=1` selects) to a real model.
+ */
+export function stripDirectives(state: unknown): unknown {
+  if (typeof state === "string") return state.replace(DIRECTIVE, "");
+  if (Array.isArray(state)) return state.map(stripDirectives);
+  if (state && typeof state === "object") return Object.fromEntries(Object.entries(state).map(([k, v]) => [k, stripDirectives(v)]));
+  return state;
+}
+
 export const fakeSystemOne = (model = "fake"): SystemOne => ({
   mode: "fake",
   model,
@@ -64,7 +78,7 @@ export function httpSystemOne(o: HttpOptions): SystemOne {
       const res = await doFetch(o.url, {
         method: "POST",
         headers: { "Content-Type": "application/json", ...(o.apiKey && { Authorization: `Bearer ${o.apiKey}` }) },
-        body: JSON.stringify({ state, model: o.model, questions: wireQuestions(questions) }),
+        body: JSON.stringify({ state: stripDirectives(state), model: o.model, questions: wireQuestions(questions) }),
         signal: ctl.signal,
       });
       if (!res.ok) throw new S1Error(`System One HTTP ${res.status}`, "http", res.status);
