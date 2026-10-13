@@ -10,7 +10,7 @@ import styles from "./home.module.css";
  * "Describe a change" and "Review" sit beside the card link (a linked card holds no other interactive content).
  */
 export function SystemCard({ system, now }: { system: CardSummary; now: number }) {
-  const { headline, state, deploy, reviewHref } = cardSummary(system);
+  const { headline, state, deploy, reviewHref, workHref } = cardSummary(system);
   const updated = system.updatedAt ? relTime(system.updatedAt, now) : "unknown";
   const name = system.title || system.systemId;
   const base = `/s/${encodeURIComponent(system.systemId)}`;
@@ -41,6 +41,7 @@ export function SystemCard({ system, now }: { system: CardSummary; now: number }
       </Card>
       <div className={styles.cardActions}>
         <Link className={`u-marker ${styles.cardAction}`} to={`${base}/r/head/work?panel=intent`} aria-label={`Describe a change to ${name}`}>Describe a change</Link>
+        {workHref && <Link className={`u-marker ${styles.cardAction}`} to={workHref} aria-label={`Work on ${name}`}>Work</Link>}
         {reviewHref && <Link className={`u-marker ${styles.cardAction}`} to={reviewHref} aria-label={`Review ${name}`}>Review</Link>}
       </div>
     </li>
