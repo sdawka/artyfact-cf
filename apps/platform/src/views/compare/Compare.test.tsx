@@ -15,8 +15,8 @@ const REVISIONS: RevisionOption[] = [
   { id: "cand.2", kind: "candidate", label: "cand.2 · agent-beta" },
 ];
 const system: SystemCompare = {
-  from: { ...entry.from!, manifest: [{ artifact: "artifact.webapp", type: "worker-fullstack", repo: "kit-app", commit: "0".repeat(40), scope: [] }] },
-  to: { ...entry.to, manifest: [{ artifact: "artifact.webapp", type: "worker-fullstack", repo: "kit-app", commit: "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678", scope: [] }] },
+  from: { ...entry.from!, manifest: [{ artifact: "artifact.webapp", type: "worker-fullstack", repo: "peopling-app", commit: "0".repeat(40), scope: [] }] },
+  to: { ...entry.to, manifest: [{ artifact: "artifact.webapp", type: "worker-fullstack", repo: "peopling-app", commit: "a1b2c3d4e5f60718293a4b5c6d7e8f9012345678", scope: [] }] },
   genome: entry.genome,
   app: entry.app,
   manifest: { templateVersions: ["worker-fullstack"], hookVersions: [], platformChanged: false },
@@ -25,8 +25,8 @@ const system: SystemCompare = {
 const genome: GenomeCompare = { from: entry.app!.from, to: entry.app!.to, delta: entry.genome.delta, files: { added: [], modified: ["system.yaml"], removed: [] } };
 const file: FileCompare = {
   path: "src/index.ts",
-  from: { ref: "sc-1", repo: "kit-app", commit: "0".repeat(40), hash: "h1", text: "a\nb\nc\n", size: 6 },
-  to: { ref: "head", repo: "kit-app", commit: "a".repeat(40), hash: "h2", text: "a\nB\nc\n", size: 6 },
+  from: { ref: "sc-1", repo: "peopling-app", commit: "0".repeat(40), hash: "h1", text: "a\nb\nc\n", size: 6 },
+  to: { ref: "head", repo: "peopling-app", commit: "a".repeat(40), hash: "h2", text: "a\nB\nc\n", size: 6 },
   truncated: false,
   binary: false,
 };

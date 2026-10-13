@@ -7,7 +7,7 @@ import { FakeArtifacts } from "./helpers/fake-artifacts";
 
 function threeCommits() {
   const ns = new FakeArtifacts();
-  const repo = ns.create("kit-app");
+  const repo = ns.create("peopling-app");
   const c1 = repo.commit({ "package.json": "{}", "src/index.ts": "a", "src/ui/people/index.html": "<p>", "docs/a/b/c.md": "deep" }, "c1");
   const c2 = repo.commit({ "package.json": "{}", "src/index.ts": "a2", "src/ui/people/index.html": "<p>", "src/ui/people/new.css": "x", "docs/a/b/c.md": "deep" }, "c2");
   const c3 = repo.commit({ "package.json": "{}", "src/index.ts": "a2", "src/ui/people/new.css": "x", "migrations/0001.sql": "create" }, "c3");
@@ -82,26 +82,26 @@ describe("forkAndWait", () => {
   it("forks and polls until ready", async () => {
     const { ns } = threeCommits();
     ns.forkDelayPolls = 2;
-    const r = await forkAndWait(ns, "kit-app", "kit-app--r1", { intervalMs: 1 });
-    expect(r.remote).toBe("https://fake/kit-app--r1.git");
-    expect(ns.repo("kit-app--r1").calls.filter((c) => c === "info").length).toBe(3);
+    const r = await forkAndWait(ns, "peopling-app", "peopling-app--r1", { intervalMs: 1 });
+    expect(r.remote).toBe("https://fake/peopling-app--r1.git");
+    expect(ns.repo("peopling-app--r1").calls.filter((c) => c === "info").length).toBe(3);
   });
   it("tolerates an existing fork (retried start)", async () => {
     const { ns } = threeCommits();
-    await forkAndWait(ns, "kit-app", "kit-app--r1", { intervalMs: 1 });
-    await expect(forkAndWait(ns, "kit-app", "kit-app--r1", { intervalMs: 1 })).resolves.toBeDefined();
+    await forkAndWait(ns, "peopling-app", "peopling-app--r1", { intervalMs: 1 });
+    await expect(forkAndWait(ns, "peopling-app", "peopling-app--r1", { intervalMs: 1 })).resolves.toBeDefined();
   });
   it("refuses an existing fork whose head moved past the base commit (left over from another run)", async () => {
     const { ns, c3 } = threeCommits();
-    await forkAndWait(ns, "kit-app", "kit-app--r1", { intervalMs: 1, baseCommit: c3 });
-    await expect(forkAndWait(ns, "kit-app", "kit-app--r1", { intervalMs: 1, baseCommit: c3 })).resolves.toBeDefined();
-    ns.repo("kit-app--r1").commit({ "README.md": "someone else's work" });
-    await expect(forkAndWait(ns, "kit-app", "kit-app--r1", { intervalMs: 1, baseCommit: c3 })).rejects.toMatchObject({ status: 409, code: "fork-exists" });
+    await forkAndWait(ns, "peopling-app", "peopling-app--r1", { intervalMs: 1, baseCommit: c3 });
+    await expect(forkAndWait(ns, "peopling-app", "peopling-app--r1", { intervalMs: 1, baseCommit: c3 })).resolves.toBeDefined();
+    ns.repo("peopling-app--r1").commit({ "README.md": "someone else's work" });
+    await expect(forkAndWait(ns, "peopling-app", "peopling-app--r1", { intervalMs: 1, baseCommit: c3 })).rejects.toMatchObject({ status: 409, code: "fork-exists" });
   });
   it("times out", async () => {
     const { ns } = threeCommits();
     ns.forkDelayPolls = 1000;
-    await expect(forkAndWait(ns, "kit-app", "kit-app--r2", { intervalMs: 1, timeoutMs: 10 })).rejects.toThrow(/not ready/);
+    await expect(forkAndWait(ns, "peopling-app", "peopling-app--r2", { intervalMs: 1, timeoutMs: 10 })).rejects.toThrow(/not ready/);
   });
 });
 
@@ -146,7 +146,7 @@ describe("artifactsErrorCode", () => {
   it("reads .code or falls back to the proxied message", async () => {
     const { artifactsErrorCode } = await import("../worker/artifacts/client");
     expect(artifactsErrorCode(Object.assign(new Error("x"), { code: "INVALID_TTL" }))).toBe("INVALID_TTL");
-    expect(artifactsErrorCode(new Error("ArtifactsError: Repository not found: kit-app."))).toBe("NOT_FOUND");
+    expect(artifactsErrorCode(new Error("ArtifactsError: Repository not found: peopling-app."))).toBe("NOT_FOUND");
     expect(artifactsErrorCode(new Error("boom"))).toBeUndefined();
   });
 });

@@ -4,7 +4,7 @@ import { renderApp } from "@/testing/render";
 
 describe("Overview", () => {
   it("shows P1, three captioned meters and literal unknown for outcome progress", async () => {
-    renderApp("/s/system.keep-in-touch/r/head/overview");
+    renderApp("/s/system.peopling/r/head/overview");
     expect(await screen.findByRole("heading", { level: 1, name: "Overview" })).toBeTruthy();
     expect(screen.getByText(/Help an individual keep in touch/)).toBeTruthy();
     const readiness = screen.getByRole("region", { name: "Model readiness" });
@@ -19,7 +19,7 @@ describe("Overview", () => {
   });
 
   it("labels each meter with its layer's question, the same words as the rail", async () => {
-    renderApp("/s/system.keep-in-touch/r/head/overview");
+    renderApp("/s/system.peopling/r/head/overview");
     await screen.findByRole("heading", { level: 1, name: "Overview" });
     for (const [meter, question] of [
       ["Model readiness", "What should it be"], ["Implementation conformance", "What is being made"], ["Outcome progress", "What does it do"],
@@ -31,8 +31,8 @@ describe("Overview", () => {
   });
 
   it("leads with a hero: the System name, its Purpose once, a luminous content container and a caption saying what drives it", async () => {
-    renderApp("/s/system.keep-in-touch/r/head/overview");
-    const hero = await screen.findByRole("region", { name: "Keep in Touch" });
+    renderApp("/s/system.peopling/r/head/overview");
+    const hero = await screen.findByRole("region", { name: "Peopling" });
     expect(within(hero).getByText(/Help an individual keep in touch/)).toBeTruthy();
     expect(screen.getAllByText(/Help an individual keep in touch/)).toHaveLength(1);
     expect(hero.querySelector('[data-effect="orb"]')).toBeNull();
@@ -43,15 +43,15 @@ describe("Overview", () => {
     expect(within(hero).getByRole("region", { name: "Model readiness" }).tabIndex).toBe(0);
   });
 
-  it("lists Keep in Touch's provisional nodes apart from its blockers (none)", async () => {
-    renderApp("/s/system.keep-in-touch/r/head/overview");
+  it("lists Peopling's provisional nodes apart from its blockers (none)", async () => {
+    renderApp("/s/system.peopling/r/head/overview");
     const card = await screen.findByRole("region", { name: "Blockers" });
     expect(within(card).getByText("No errors or missing items.")).toBeTruthy();
     expect(within(card).getAllByText(/node\.provisional/).length).toBeGreaterThan(0);
   });
 
   it("does not paint a zero pass count in the success tone", async () => {
-    renderApp("/s/system.keep-in-touch/r/head/overview");
+    renderApp("/s/system.peopling/r/head/overview");
     const conformance = await screen.findByRole("region", { name: "Implementation conformance" });
     const pass = within(conformance).getByText("pass", { selector: "li > span" }).closest("li")!;
     expect(pass.textContent).toContain("0");
@@ -60,7 +60,7 @@ describe("Overview", () => {
   });
 
   it("lists kit.unpinned with an expandable derivation", async () => {
-    renderApp("/s/system.keep-in-touch/r/head/overview");
+    renderApp("/s/system.peopling/r/head/overview");
     const row = (await screen.findByText("kit.unpinned")).closest("li")!;
     expect(within(row).getByText("Pin the kit under kits in the root node.yaml.")).toBeTruthy();
     fireEvent.click(within(row).getByRole("button", { name: /Explain/ }));
@@ -69,7 +69,7 @@ describe("Overview", () => {
   });
 
   it("shows evolutions by state with links to Work and an undeployed card", async () => {
-    renderApp("/s/system.keep-in-touch/r/head/overview");
+    renderApp("/s/system.peopling/r/head/overview");
     const link = await screen.findByRole("link", { name: "Private contact foundation" });
     expect(link.getAttribute("href")).toContain("/work?");
     expect(link.getAttribute("href")).toContain("evolution=evolution.1");

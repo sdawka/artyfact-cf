@@ -1,0 +1,28 @@
+id: entity.DigestEdition
+kind: entity
+fields:
+  name: DigestEdition
+  description: ID, author, content version, publication time and access policy; no shared discussion thread
+  source:
+    doc: peopling-world-specification
+    section: "5"
+  fields:
+    - name: id
+      type: string
+      optional: false
+    - name: authorAccountId
+      type: ref:entity.Account
+      optional: false
+    - name: contentVersion
+      type: int
+      optional: false
+    - name: publishedAt
+      type: timestamp
+      optional: false
+    - name: accessPolicy
+      type: json
+      optional: false
+  invariants:
+    - No shared discussion thread
+    - Immutable publication timestamp
+provisional: true

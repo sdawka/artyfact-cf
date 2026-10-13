@@ -7,7 +7,7 @@ import { validate } from "./vendor/artyfact/validate.ts";
 
 export type Files = Record<string, string>;
 
-export const systemFiles = (): Files => readDir(`${__dirname}/fixtures/artyfact/keep-in-touch-system`);
+export const systemFiles = (): Files => readDir(`${__dirname}/fixtures/artyfact/peopling-system`);
 export const templateFiles = (): Files => readDir(`${__dirname}/fixtures/artyfact/templates`);
 
 /** artyfact's own template bundle loader, against the fixture copies. */

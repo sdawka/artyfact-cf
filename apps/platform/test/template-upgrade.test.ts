@@ -12,7 +12,7 @@ import { fakeReceivePack } from "./helpers/fake-receive-pack";
 import { ADMIN, call, passing } from "./helpers/flows";
 
 const TPL = "templates/thing/cloudflare-worker-webapp@1";
-const SCAFFOLD_YAML = `repo: platform\npath: ${TPL}/scaffold\nbundle: examples/keep-in-touch-app\n`;
+const SCAFFOLD_YAML = `repo: platform\npath: ${TPL}/scaffold\nbundle: examples/peopling-app\n`;
 const platformTree = (files: Record<string, string>) => ({
   [`${TPL}/template.yaml`]: "id: template.thing.cloudflare-worker-webapp\n", [`${TPL}/scaffold.yaml`]: SCAFFOLD_YAML,
   ...Object.fromEntries(Object.entries(files).map(([p, t]) => [`${TPL}/scaffold/${p}`, t])),

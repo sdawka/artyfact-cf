@@ -1,0 +1,14 @@
+id: commitment.owner-cadence
+kind: commitment
+fields:
+  statement: Owner-defined cadence and depth - goals are owner-only; depth labels are the owner's, not a global quality ranking.
+  features:
+    - GD.goals
+    - GD.contacts
+  coupledWith:
+    - commitment.one-to-one
+    - commitment.finite-incoming
+    - commitment.personal-initiation
+  source:
+    doc: peopling-world-specification
+    section: "3"

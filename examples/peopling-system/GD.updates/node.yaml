@@ -1,0 +1,9 @@
+id: GD.updates
+kind: feature
+fields:
+  name: Digests and photo suggestions (later)
+  summary: Later digests and photo suggestions; realization deferred while the digest interpretation is unresolved.
+  deferred: true
+  source:
+    doc: peopling-world-specification
+    section: "3"

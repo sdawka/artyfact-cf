@@ -1,9 +1,9 @@
 # Demo runbook
 
 The whole loop against the real Cloudflare Artifacts service, in order. Every output below comes from one real run
-on 2026-10-12 (wrangler 4.149.0, namespace `artyfact`, repos `keep-in-touch.genome`, `keep-in-touch.app` and `platform`), with
+on 2026-10-12 (wrangler 4.149.0, namespace `artyfact`, repos `peopling.genome`, `peopling.app` and `platform`), with
 tokens and secrets redacted. Commit ids and timestamps will differ on your run. Realization numbers start at r3 here because
-the namespace still held forks `keep-in-touch.app--r1` and `--r2` from an earlier run on a reset platform state: start
+the namespace still held forks `peopling.app--r1` and `--r2` from an earlier run on a reset platform state: start
 skips any number whose fork already exists.
 
 The two moments to show on video:
@@ -59,7 +59,7 @@ VARS
 start responses are written to owner-only files in `$RUN`, and each terminal reads the one it needs.
 
 ```sh
-export REPO=$PWD RUN=$HOME/.artyfact-demo B=localhost:1337/api/systems/system.keep-in-touch
+export REPO=$PWD RUN=$HOME/.artyfact-demo B=localhost:1337/api/systems/system.peopling
 mkdir -p -m 700 "$RUN"; umask 077
 alias artyfact='npx --prefix "$REPO" --no-install artyfact'
 ```
@@ -85,11 +85,11 @@ npm run dev -w @artyfact/platform          # http://localhost:1337, Artifacts bi
 Terminal **ops**:
 
 ```sh
-./scripts/bootstrap.sh       # = npx artyfact init --genome examples/keep-in-touch-system --app examples/keep-in-touch-app
+./scripts/bootstrap.sh       # = npx artyfact init --genome examples/peopling-system --app examples/peopling-app
 ```
 
-`init` reads the root `node.yaml` and derives every name from the System id: slug `keep-in-touch`, repos
-`keep-in-touch.genome` and `keep-in-touch.app`, forks `<repo>--r<N>`. It checks that `npx wrangler whoami` and
+`init` reads the root `node.yaml` and derives every name from the System id: slug `peopling`, repos
+`peopling.genome` and `peopling.app`, forks `<repo>--r<N>`. It checks that `npx wrangler whoami` and
 `cf auth whoami` show the same account and prints only its prefix. It creates the namespace and repos when missing,
 creates `platform` (templates and rule packs) when it is missing or empty, pushes both projects with short-lived write tokens, and calls
 `POST /api/systems/import` with `$ARTYFACT_ADMIN_TOKEN`. Tokens reach git only through `GIT_CONFIG_*` variables,
@@ -99,12 +99,12 @@ On this namespace the first run stopped, because the Genome repo still held an e
 script, whose tree also carried the package's `dist/` build output:
 
 ```text
-system.keep-in-touch -> keep-in-touch.genome, keep-in-touch.app (namespace artyfact)
+system.peopling -> peopling.genome, peopling.app (namespace artyfact)
 account 1bae12d5… (wrangler and cf agree)
 namespace artyfact: exists
   created repo platform
 platform: created at 6bd3603921dc
-artyfact: keep-in-touch.genome has commits this checkout did not push (head ffb68c7) and its tree differs from …/examples/keep-in-touch-system.
+artyfact: peopling.genome has commits this checkout did not push (head ffb68c7) and its tree differs from …/examples/peopling-system.
 init never builds over unknown history: merge that history into your project first, or re-run with --adopt to commit your project on top of ffb68c7 (a fast-forward).
 ```
 
@@ -115,14 +115,14 @@ init never builds over unknown history: merge that history into your project fir
 ```
 
 ```text
-system.keep-in-touch -> keep-in-touch.genome, keep-in-touch.app (namespace artyfact)
+system.peopling -> peopling.genome, peopling.app (namespace artyfact)
 account 1bae12d5… (wrangler and cf agree)
 namespace artyfact: exists
 platform: unchanged at 6bd3603921dc
-keep-in-touch.genome: pushed at 18374568e231
-keep-in-touch.app: unchanged at c945510ffdf5
-imported system.keep-in-touch at sc-1-b11cb27a
-System: http://localhost:1337/s/system.keep-in-touch/r/head/overview
+peopling.genome: pushed at 18374568e231
+peopling.app: unchanged at c945510ffdf5
+imported system.peopling at sc-1-b11cb27a
+System: http://localhost:1337/s/system.peopling/r/head/overview
 ```
 
 That run predates the 1337 default; its last line said `5173` and was edited. `platform` was still pushed by every
@@ -134,14 +134,14 @@ so `init` leaves it alone. This run is verbatim. It went to a second local platf
 1337. The head is `sc-3-c00256a3` because steps 3 to 11 had run on this namespace since:
 
 ```text
-system.keep-in-touch -> keep-in-touch.genome, keep-in-touch.app (namespace artyfact)
+system.peopling -> peopling.genome, peopling.app (namespace artyfact)
 account 1bae12d5… (wrangler and cf agree)
 namespace artyfact: exists
 platform: exists at 6bd3603921dc, left alone (update it with 'npx artyfact platform-sync --namespace artyfact')
-keep-in-touch.genome: unchanged at 18374568e231
-keep-in-touch.app: unchanged at c945510ffdf5
-imported system.keep-in-touch at sc-3-c00256a3
-System: http://localhost:1339/s/system.keep-in-touch/r/head/overview
+peopling.genome: unchanged at 18374568e231
+peopling.app: unchanged at c945510ffdf5
+imported system.peopling at sc-3-c00256a3
+System: http://localhost:1339/s/system.peopling/r/head/overview
 ```
 
 On an empty namespace the first run creates everything and imports in one go. If the import answers 409
@@ -153,11 +153,11 @@ The import response records the `platform` commit; each later System commit carr
 
 ```sh
 curl -s -XPOST localhost:1337/api/systems/import -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
-  -d '{"systemId":"system.keep-in-touch"}' | jq -c '{head, genomeRepo, appRepo, platform, warnings, evolutions}'
+  -d '{"systemId":"system.peopling"}' | jq -c '{head, genomeRepo, appRepo, platform, warnings, evolutions}'
 ```
 
 ```text
-{"head":"sc-1-b11cb27a","genomeRepo":"keep-in-touch.genome","appRepo":"keep-in-touch.app","platform":{"repo":"platform","commit":"6bd3603921dcd7e3916906a0ff38a7510195bf1a"},"warnings":[],"evolutions":["evolution.1","evolution.2","evolution.3","evolution.4","evolution.5","evolution.6"]}
+{"head":"sc-1-b11cb27a","genomeRepo":"peopling.genome","appRepo":"peopling.app","platform":{"repo":"platform","commit":"6bd3603921dcd7e3916906a0ff38a7510195bf1a"},"warnings":[],"evolutions":["evolution.1","evolution.2","evolution.3","evolution.4","evolution.5","evolution.6"]}
 ```
 
 `genomeRepo` and `appRepo` default to the derived names. `warnings` is empty because every rule pack and template the
@@ -181,7 +181,7 @@ see the same System; Overview, Work, Evaluations and History read the live API.
 Terminal **sse**:
 
 ```sh
-curl -sN localhost:1337/api/systems/system.keep-in-touch/events
+curl -sN localhost:1337/api/systems/system.peopling/events
 ```
 
 The stream sends only live events plus a `ping` every 15 s. Events emitted while nothing is connected are not
@@ -199,8 +199,8 @@ for f in a b; do jq -c '{realization: .realization.id, agent: .realization.agent
 ```
 
 ```text
-{"realization":"realization.1.r3","agent":"agent-a","fork":"keep-in-touch.app--r3","baseCommit":"c945510ffdf5c5d8a9e93ce663bd10f88714632c","expiresAt":"2026-10-12T21:53:01.637Z"}
-{"realization":"realization.1.r4","agent":"agent-b","fork":"keep-in-touch.app--r4","baseCommit":"c945510ffdf5c5d8a9e93ce663bd10f88714632c","expiresAt":"2026-10-12T21:53:02.176Z"}
+{"realization":"realization.1.r3","agent":"agent-a","fork":"peopling.app--r3","baseCommit":"c945510ffdf5c5d8a9e93ce663bd10f88714632c","expiresAt":"2026-10-12T21:53:01.637Z"}
+{"realization":"realization.1.r4","agent":"agent-b","fork":"peopling.app--r4","baseCommit":"c945510ffdf5c5d8a9e93ce663bd10f88714632c","expiresAt":"2026-10-12T21:53:02.176Z"}
 ```
 
 Each start forks the app repo, waits until the fork is ready, issues a 6-hour write token and a realization secret,
@@ -209,7 +209,7 @@ checkpoint, submit, sync, status and packet calls. When the two requests race, n
 field is the canonical start line:
 
 ```text
-ARTYFACT_TOKEN=<redacted> ARTYFACT_SECRET=<redacted> npx artyfact start realization.1.r3 --system system.keep-in-touch --evolution evolution.1 --dir ./realization.1.r3
+ARTYFACT_TOKEN=<redacted> ARTYFACT_SECRET=<redacted> npx artyfact start realization.1.r3 --system system.peopling --evolution evolution.1 --dir ./realization.1.r3
 ```
 
 ## 5. Two agents work (terminals **A** and **B**)
@@ -222,8 +222,8 @@ Terminal **A**:
 
 ```sh
 export ARTYFACT_TOKEN=$(jq -r .token.value $RUN/a.json) ARTYFACT_SECRET=$(jq -r .secret $RUN/a.json)
-artyfact start realization.1.r3 --system system.keep-in-touch --evolution evolution.1 --dir /tmp/kit-a
-cd /tmp/kit-a
+artyfact start realization.1.r3 --system system.peopling --evolution evolution.1 --dir /tmp/peopling-a
+cd /tmp/peopling-a
 # Add the AddContactDialog (markup in public/people/index.html) and its Save handler in
 # public/people/add-contact-dialog.js: POST /api/contacts, keep the values and show one ErrorSummary on failure.
 artyfact checkpoint "AddContactDialog markup and save handler"
@@ -233,16 +233,16 @@ Terminal **B**:
 
 ```sh
 export ARTYFACT_TOKEN=$(jq -r .token.value $RUN/b.json) ARTYFACT_SECRET=$(jq -r .secret $RUN/b.json)
-artyfact start realization.1.r4 --system system.keep-in-touch --evolution evolution.1 --dir /tmp/kit-b
-cd /tmp/kit-b
+artyfact start realization.1.r4 --system system.peopling --evolution evolution.1 --dir /tmp/peopling-b
+cd /tmp/peopling-b
 # Owner-only read in src/worker/routes/contacts.ts: GET /api/contacts/:id answers another owner's record
 # (or a guessed id) with the same non-revealing 404.
 artyfact checkpoint "Owner-only GET /api/contacts/:id with non-revealing 404"
 ```
 
 ```text
-Workspace ready in /tmp/kit-a
-Next: cd /tmp/kit-a && read TASK_PACKET.md, then npm install && npm run dev
+Workspace ready in /tmp/peopling-a
+Next: cd /tmp/peopling-a && read TASK_PACKET.md, then npm install && npm run dev
 Checkpoint with 'npx artyfact checkpoint "<msg>"'; finish with 'npx artyfact submit'.
 Checkpoint recorded at df7eba46bb31
 ```
@@ -260,7 +260,7 @@ Keep edits inside the packet's permitted paths; the scope check fails `C.system.
 `BUILD_ID` and leave it running in a spare terminal:
 
 ```sh
-cd /tmp/kit-a && ln -s "$REPO/node_modules" node_modules   # ignored: the scaffold's .gitignore and start's excludes cover it
+cd /tmp/peopling-a && ln -s "$REPO/node_modules" node_modules   # ignored: the scaffold's .gitignore and start's excludes cover it
 npx wrangler dev --port 8788 --var BUILD_ID:$(git rev-parse HEAD)
 ```
 
@@ -333,7 +333,7 @@ where both candidates are preselected.
 A repeat submit of the same commit converges on the same candidate:
 
 ```sh
-cd /tmp/kit-a && artyfact submit --json | jq -c '{created, candidate: .candidate.id}'
+cd /tmp/peopling-a && artyfact submit --json | jq -c '{created, candidate: .candidate.id}'
 ```
 
 ```text
@@ -353,7 +353,7 @@ curl -s -XPOST $B/promote -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-ty
 ```
 
 ```text
-{"commit":"sc-2-88b3ec84","parent":"sc-1-b11cb27a","manifest":[{"artifact":"artifact.webapp","type":"worker-fullstack","repo":"keep-in-touch.app--r3","commit":"df7eba46bb317d2d8437a27492eb1482e13f3fe1","scope":[]}],"rejected":["candidate.1.r4.8ca7b2a"],"acknowledged":["C.webapp.private.owner","C.webapp.screen.exact","C.webapp.contact.save","C.webapp.screen.people","C.webapp.contact.storage","C.system.concurrency","C.webapp.connection.consent","C.webapp.outgoing.single","C.webapp.schedule.correct","C.webapp.prompts.bounded","C.webapp.revocation.current","C.webapp.lifecycle.data"],"evidenceProviders":["fake"]}
+{"commit":"sc-2-88b3ec84","parent":"sc-1-b11cb27a","manifest":[{"artifact":"artifact.webapp","type":"worker-fullstack","repo":"peopling.app--r3","commit":"df7eba46bb317d2d8437a27492eb1482e13f3fe1","scope":[]}],"rejected":["candidate.1.r4.8ca7b2a"],"acknowledged":["C.webapp.private.owner","C.webapp.screen.exact","C.webapp.contact.save","C.webapp.screen.people","C.webapp.contact.storage","C.system.concurrency","C.webapp.connection.consent","C.webapp.outgoing.single","C.webapp.schedule.correct","C.webapp.prompts.bounded","C.webapp.revocation.current","C.webapp.lifecycle.data"],"evidenceProviders":["fake"]}
 ```
 
 Promotion re-runs the hooks on the exact commit with the promotion facts. The blocking set (hard criteria with a bound
@@ -395,12 +395,12 @@ Terminal **C**:
 
 ```sh
 export ARTYFACT_TOKEN=$(jq -r .token.value $RUN/c1.json) ARTYFACT_SECRET=$(jq -r .secret $RUN/c1.json)
-artyfact start realization.5.r5 --system system.keep-in-touch --evolution evolution.5 --dir /tmp/kit-c1
-cd /tmp/kit-c1
+artyfact start realization.5.r5 --system system.peopling --evolution evolution.5 --dir /tmp/peopling-c1
+cd /tmp/peopling-c1
 ```
 
 ```text
-{"realization":"realization.5.r5","target":"genome","fork":"keep-in-touch.genome--r5","permittedPaths":["thing.webapp/section.domain/entity.DigestEdition/**","thing.webapp/section.domain/entity.Subscription/**","thing.webapp/section.domain/**","commitment.no-engagement-mechanics/**","evolutions/**"]}
+{"realization":"realization.5.r5","target":"genome","fork":"peopling.genome--r5","permittedPaths":["thing.webapp/section.domain/entity.DigestEdition/**","thing.webapp/section.domain/entity.Subscription/**","thing.webapp/section.domain/**","commitment.no-engagement-mechanics/**","evolutions/**"]}
 ```
 
 In `thing.webapp/section.domain/entity.MessageDraft/node.yaml`, firm up `entity.MessageDraft`: remove
@@ -472,7 +472,7 @@ artyfact status
 
 ```text
 {"status":"rejected","reason":"topology.recipientArray: a recipients list on MessageDraft breaks the private-pairs topology. Drafts stay addressed to exactly one person."}
-artyfact: GET /api/systems/system.keep-in-touch/evolutions/evolution.5/realizations/realization.5.r5 -> 403 forbidden: realization secret does not match
+artyfact: GET /api/systems/system.peopling/evolutions/evolution.5/realizations/realization.5.r5 -> 403 forbidden: realization secret does not match
 ```
 
 Reject revokes the fork's write token and the realization secret together, so agent C can no longer push or report.
@@ -490,8 +490,8 @@ Terminal **C**:
 
 ```sh
 export ARTYFACT_TOKEN=$(jq -r .token.value $RUN/c2.json) ARTYFACT_SECRET=$(jq -r .secret $RUN/c2.json)
-artyfact start realization.5.r6 --system system.keep-in-touch --evolution evolution.5 --dir /tmp/kit-c2
-cd /tmp/kit-c2
+artyfact start realization.5.r6 --system system.peopling --evolution evolution.5 --dir /tmp/peopling-c2
+cd /tmp/peopling-c2
 ```
 
 In `commitment.no-engagement-mechanics/node.yaml`, reword the commitment's `statement` to "The core contract has no streak penalties, no
@@ -544,9 +544,9 @@ curl -s $B/history | jq -c '.commits[] | {id, parent, genome: .genomeCommit[:12]
 ```
 
 ```text
-{"id":"sc-3-c00256a3","parent":"sc-2-88b3ec84","genome":"49611c90d45f","manifest":["keep-in-touch.app--r3@df7eba46bb31"],"policy":"admin-accept","providers":["fake"]}
-{"id":"sc-2-88b3ec84","parent":"sc-1-b11cb27a","genome":"18374568e231","manifest":["keep-in-touch.app--r3@df7eba46bb31"],"policy":"admin","providers":["fake"]}
-{"id":"sc-1-b11cb27a","parent":null,"genome":"18374568e231","manifest":["keep-in-touch.app@c945510ffdf5"],"policy":"import","providers":null}
+{"id":"sc-3-c00256a3","parent":"sc-2-88b3ec84","genome":"49611c90d45f","manifest":["peopling.app--r3@df7eba46bb31"],"policy":"admin-accept","providers":["fake"]}
+{"id":"sc-2-88b3ec84","parent":"sc-1-b11cb27a","genome":"18374568e231","manifest":["peopling.app--r3@df7eba46bb31"],"policy":"admin","providers":["fake"]}
+{"id":"sc-1-b11cb27a","parent":null,"genome":"18374568e231","manifest":["peopling.app@c945510ffdf5"],"policy":"import","providers":null}
 ```
 
 The model now renders from the accepted fork commit. History marks `sc-2` and `sc-3` "System One: fake provider".
@@ -562,7 +562,7 @@ Artifacts emits `pushed` only from a **repository-level** event subscription (`-
 
 ```sh
 npx wrangler queues subscription create artyfact-artifacts-events --source artifacts.repo --events pushed \
-  --source-namespace artyfact --source-repo-name keep-in-touch.app--r3
+  --source-namespace artyfact --source-repo-name peopling.app--r3
 ```
 
 The local dev server also never receives messages from a remote queue. **`artyfact submit` is therefore the primary
@@ -592,7 +592,7 @@ cd apps/platform && ARTYFACT_INTEGRATION=1 npx vitest run --project integration
 ```
 
 The test runs its own `wrangler dev` (`wrangler.integration.jsonc`), then `artyfact init` on a copy of the example
-renamed `system.itest-keep-in-touch-<run>`, so the repos are `itest-keep-in-touch-<run>.genome` and `.app` in
+renamed `system.itest-peopling-<run>`, so the repos are `itest-peopling-<run>.genome` and `.app` in
 `artyfact-test`, next to that namespace's shared `platform` repo. It drives two starts, two real CLI starts and
 submits, the conflict, promotion, the 409 and history. Then it deletes the repos and forks of its own run, never
 `platform`. Without the flag it is skipped.
@@ -601,7 +601,7 @@ submits, the conflict, promotion, the 409 and history. Then it deletes the repos
 
 - **Token expired (401/403 from git):** start tokens last 6 hours (`expiresAt` in the start response). Issue a fresh
   one for the fork and export it, without echoing it:
-  `export ARTYFACT_TOKEN=$(npx wrangler artifacts repos issue-token keep-in-touch.app--r3 --namespace artyfact --scope write --ttl 3600 --json | jq -r .plaintext)`.
+  `export ARTYFACT_TOKEN=$(npx wrangler artifacts repos issue-token peopling.app--r3 --namespace artyfact --scope write --ttl 3600 --json | jq -r .plaintext)`.
   The JSON fields are `id`, `plaintext`, `scope` and `expires_at`. The plaintext looks like `art_v1_<hex>?expires=<unix>`.
 - **401/403 from a platform call:** start work needs `-H "authorization: Bearer $ADMIN_TOKEN"`. The CLI's calls
   need the realization secret: it is in the clone's `.artyfact.json`, or set `ARTYFACT_SECRET` from the start
@@ -632,7 +632,7 @@ submits, the conflict, promotion, the 409 and history. Then it deletes the repos
 for r in $(npx wrangler artifacts repos list --namespace artyfact --json | jq -r '.[].name'); do
   npx wrangler artifacts repos delete "$r" --namespace artyfact --force
 done
-rm -rf apps/platform/.wrangler/state /tmp/kit-a /tmp/kit-b /tmp/kit-c1 /tmp/kit-c2 "$RUN"
+rm -rf apps/platform/.wrangler/state /tmp/peopling-a /tmp/peopling-b /tmp/peopling-c1 /tmp/peopling-c2 "$RUN"
 ```
 
 Then start again at step 1. To start over without deleting anything in the account, stop the dev server and move

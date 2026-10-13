@@ -5,7 +5,7 @@ import type { Build, Deployment, PhenomeEvent } from "../../../shared/api";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 
-const SYSTEM = "system.keep-in-touch";
+const SYSTEM = "system.peopling";
 const PATH = `/s/${SYSTEM}/r/head/phenome`;
 const COMMIT = "a".repeat(40);
 const OTHER = "b".repeat(40);

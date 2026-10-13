@@ -1,7 +1,7 @@
 // Synthetic GenomeCandidateReview data for tests and the dev-only fixture page (amendment-dev.html).
 import type { Candidate, DeltaReview, Finding, GenomeCandidateReview, Readiness, Realization } from "../../../../../shared/api";
 
-export const SYSTEM_ID = "system.keep-in-touch";
+export const SYSTEM_ID = "system.peopling";
 export const RID = "realization.1";
 export const EID = "evolution.1";
 export const CHANGED = "section.purpose";
@@ -85,7 +85,7 @@ export function makeReview(over: Partial<GenomeCandidateReview> = {}): GenomeCan
           id: CHANGED,
           kind: "section",
           before: { description: "Why the System exists." },
-          after: { description: "Keep in Touch deliberately has no feed, so nothing is optimised for time spent." },
+          after: { description: "Peopling deliberately has no feed, so nothing is optimised for time spent." },
           fieldsChanged: ["description"],
         },
       ],

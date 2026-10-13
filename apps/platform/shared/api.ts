@@ -122,7 +122,7 @@ export const routes = {
 // Primitives
 // ---------------------------------------------------------------------------
 
-/** Dotted model id such as `system.keep-in-touch`, `screen.people`, `evolution.1`, `crit.x`. */
+/** Dotted model id such as `system.peopling`, `screen.people`, `evolution.1`, `crit.x`. */
 export type NodeId = string;
 export type SystemId = string;
 /** Git commit hash (full sha) of a Genome or Artifacts repo. */

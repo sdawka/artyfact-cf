@@ -1,0 +1,9 @@
+id: GD.prompts
+kind: feature
+fields:
+  name: Suggested next actions
+  summary: A finite Today view of at most five due suggestions; opening a channel never completes a goal.
+  deferred: false
+  source:
+    doc: peopling-world-specification
+    section: "3"

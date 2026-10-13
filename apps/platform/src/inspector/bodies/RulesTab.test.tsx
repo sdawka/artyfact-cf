@@ -4,9 +4,9 @@ import { qk } from "@/api/queries";
 import { fixtureBundle } from "@/api/fixtures";
 import { renderApp } from "@/testing/render";
 
-const url = "/s/system.keep-in-touch/r/head/map?focus=operation.contact.save";
+const url = "/s/system.peopling/r/head/map?focus=operation.contact.save";
 const withDerived = (qc: Parameters<NonNullable<Parameters<typeof renderApp>[2]>>[0]) =>
-  qc.setQueryData(qk.readiness("system.keep-in-touch", "head"), {
+  qc.setQueryData(qk.readiness("system.peopling", "head"), {
     ...fixtureBundle().readiness,
     derived: {
       governedBy: [["operation.contact.save", "policy.ownerOnly"], ["operation.other", "policy.ownerOnly"]],

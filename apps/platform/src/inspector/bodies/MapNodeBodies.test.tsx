@@ -2,7 +2,7 @@ import { screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { renderApp } from "@/testing/render";
 
-const at = (id: string) => `/s/system.keep-in-touch/r/head/overview?focus=${id}`;
+const at = (id: string) => `/s/system.peopling/r/head/overview?focus=${id}`;
 const inspector = () => screen.findByRole("complementary", { name: "Inspector" });
 
 describe("Map slice Inspector bodies", () => {

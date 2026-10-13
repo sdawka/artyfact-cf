@@ -2,7 +2,7 @@ import { act, fireEvent, screen, waitFor, within } from "@testing-library/react"
 import { describe, expect, it } from "vitest";
 import { renderApp } from "@/testing/render";
 
-const BASE = "/s/system.keep-in-touch/r/head";
+const BASE = "/s/system.peopling/r/head";
 
 describe("CommandPalette", () => {
   it("opens with ⌘K, filters by id or name, and Enter focuses in the best view", async () => {

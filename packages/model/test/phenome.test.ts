@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { PHENOME_LIMITS, PhenomeEventHeader } from "../src/index";
 
 const ok = {
-  systemId: "system.kit",
+  systemId: "system.peopling",
   thingId: "thing.app",
   artifactId: "artifact.webapp",
   buildId: "0123456789abcdef0123456789abcdef01234567",

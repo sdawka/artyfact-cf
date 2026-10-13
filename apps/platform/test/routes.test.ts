@@ -45,9 +45,9 @@ async function call<T>(method: string, path: string, body?: unknown, headers?: R
 
 /** Each test gets its own System id so DO state never leaks between tests. */
 function setup(ns = new FakeArtifacts()) {
-  const id = `system.kit`;
+  const id = `system.peopling`;
   const suffix = `-${++seq}`;
-  const genomeRepo = `kit-system${suffix}`, appRepo = `kit-app${suffix}`;
+  const genomeRepo = `peopling-system${suffix}`, appRepo = `peopling-app${suffix}`;
   const files = { ...genomeFiles };
   ns.create(genomeRepo).commit(files, "genome");
   ns.create(appRepo).commit(appFiles, "scaffold");
@@ -97,7 +97,7 @@ afterEach(() => { setArtifactsOverride(undefined); resetHooks(); });
 
 /** System ids are global DO names; give each test a unique one by rewriting the root node.yaml. */
 function uniqueSystem(ns: FakeArtifacts, genomeRepo: string): string {
-  const id = `system.kit${seq}`;
+  const id = `system.peopling${seq}`;
   const files = { ...genomeFor(id), };
   ns.repo(genomeRepo).commit(files, "rename");
   return id;
@@ -575,7 +575,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect((await call<ApiError>("GET", `/systems/system.none/model`)).status).toBe(404);
     expect((await call<ApiError>("POST", `/systems/import`, { systemId: "x" })).status).toBe(401);
     expect((await call<ApiError>("POST", `/systems/import`, {}, ADMIN)).status).toBe(400);
-    for (const systemId of ["system.--", "system.a/b", "system.Ünïcode", "system.a..b", "system.Kit"]) {
+    for (const systemId of ["system.--", "system.a/b", "system.Ünïcode", "system.a..b", "system.Peopling"]) {
       const bad = await call<ApiError>("POST", `/systems/import`, { systemId }, ADMIN);
       expect([bad.status, bad.json.error.code], systemId).toEqual([400, "invalid-system-id"]);
     }
@@ -836,7 +836,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(seen).toHaveLength(1);
     expect(seen[0].candidate.previewUrl).toBeUndefined();
 
-    const previewUrl = "https://kit-r1.example.workers.dev";
+    const previewUrl = "https://peopling-r1.example.workers.dev";
     const cli = await call<SubmitResponse>("POST", `/systems/${systemId}/realizations/${rid}/submit`, { commit, previewUrl });
     expect(cli.status).toBe(200);
     expect(cli.json.created).toBe(false);

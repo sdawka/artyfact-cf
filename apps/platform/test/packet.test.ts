@@ -12,12 +12,12 @@ const evolution = genome.model.evolutions.find((e) => e.id === "evolution.1")!;
 
 function input(over: Partial<PacketInput> = {}): PacketInput {
   return {
-    systemId: "system.kit",
+    systemId: "system.peopling",
     realizationId: "realization.1.r1",
     target: "app",
     model: genome.model,
     evolution,
-    workspace: { repo: "kit-app", fork: "kit-app--r1", baseCommit: "a".repeat(40), remote: "https://acc.artifacts.cloudflare.net/git/artyfact/kit-app--r1.git" },
+    workspace: { repo: "peopling-app", fork: "peopling-app--r1", baseCommit: "a".repeat(40), remote: "https://acc.artifacts.cloudflare.net/git/artyfact/peopling-app--r1.git" },
     baseTreePaths: Object.keys(appFiles),
     commands: ["npm install", "npm run dev", "npm test"],
     concurrentWork: [],
@@ -61,7 +61,7 @@ describe("task packet", () => {
   it("excerpts affected nodes with their containment path and touching journeys", async () => {
     const p = await buildTaskPacket(input());
     const ex = p.genomeExcerpts.find((e) => e.id === "screen.people")!;
-    expect(ex.path).toEqual(["system.kit", "thing.webapp", "section.ui", "screen.people"]);
+    expect(ex.path).toEqual(["system.peopling", "thing.webapp", "section.ui", "screen.people"]);
     expect(ex.body).toContain("route: /people");
     expect(p.journeys.map((j) => j.id)).toEqual(["J.add"]);
     expect(p.commitments).toEqual(["Contacts are private to their owner"]);
@@ -72,12 +72,12 @@ describe("task packet", () => {
     expect(p.markdown).toContain("# Task Packet: List people");
     expect(p.markdown).toContain("C.people.list");
     expect(p.markdown).toContain("src/ui/people/**");
-    expect(p.agentsMd).toContain("You are realizing evolution.1 for system.kit");
+    expect(p.agentsMd).toContain("You are realizing evolution.1 for system.peopling");
     expect(p.agentsMd).toContain("npx artyfact submit");
     // App realizations learn how to report a preview when CI did not build their submit.
     expect(p.submitInstructions).toContain("Report a preview");
     expect(p.markdown).toContain("npx artyfact build-report --status passed --url <preview-url>");
-    expect(p.markdown).toContain("/api/systems/system.kit/realizations/realization.1.r1/builds");
+    expect(p.markdown).toContain("/api/systems/system.peopling/realizations/realization.1.r1/builds");
     expect(p.agentsMd).toContain("npx artyfact build-report");
     // Only placeholders: no bearer header and no workspace secret.
     expect(JSON.stringify(p)).not.toMatch(/Bearer/);
@@ -86,7 +86,7 @@ describe("task packet", () => {
 
   it("carries the CLI start line with a token placeholder", async () => {
     const p = await buildTaskPacket(input());
-    const line = "ARTYFACT_TOKEN=<token> ARTYFACT_SECRET=<secret> npx artyfact start realization.1.r1 --system system.kit --evolution evolution.1 --dir ./realization.1.r1";
+    const line = "ARTYFACT_TOKEN=<token> ARTYFACT_SECRET=<secret> npx artyfact start realization.1.r1 --system system.peopling --evolution evolution.1 --dir ./realization.1.r1";
     expect(p.startCommand).toBe(line);
     expect(p.markdown).toContain(`## Start`);
     expect(p.markdown).toContain(line);
@@ -103,7 +103,7 @@ describe("task packet", () => {
 
   it("genome targets permit the affected nodes' Genome files", async () => {
     const evo2 = genome.model.evolutions.find((e) => e.id === "evolution.2")!;
-    const p = await buildTaskPacket(input({ target: "genome", evolution: evo2, workspace: { ...input().workspace, repo: "kit-system", fork: "kit-system--r2" } }));
+    const p = await buildTaskPacket(input({ target: "genome", evolution: evo2, workspace: { ...input().workspace, repo: "peopling-system", fork: "peopling-system--r2" } }));
     expect(p.permittedPaths).toEqual(["thing.webapp/section.domain/entity.ContactRecord/**", "evolutions/**"]);
     expect(p.protectedPaths).toEqual(["assays/**"]);
   });

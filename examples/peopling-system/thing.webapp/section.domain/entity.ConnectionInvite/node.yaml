@@ -1,0 +1,33 @@
+id: entity.ConnectionInvite
+kind: entity
+fields:
+  name: ConnectionInvite
+  description: ID, inviter, token hash, expiry and state; optional recipient binding; never contains login credentials
+  source:
+    doc: peopling-world-specification
+    section: "5"
+  fields:
+    - name: id
+      type: string
+      optional: false
+    - name: inviterAccountId
+      type: ref:entity.Account
+      optional: false
+    - name: tokenHash
+      type: string
+      optional: false
+    - name: expiresAt
+      type: timestamp
+      optional: false
+    - name: state
+      type: enum pending|accepted|expired|revoked
+      optional: false
+    - name: boundAccountId
+      type: ref:entity.Account
+      optional: true
+  invariants:
+    - Never contains login credentials
+    - Stores only a token hash
+    - Allows one successful acceptance
+links:
+  - { rel: storedIn, to: binding.contactsStore }

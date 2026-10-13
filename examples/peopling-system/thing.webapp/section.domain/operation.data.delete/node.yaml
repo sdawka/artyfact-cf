@@ -1,0 +1,42 @@
+id: operation.data.delete
+kind: operation
+fields:
+  name: Delete
+  description: Owner reauthentication. Deletion revokes access immediately, cancels jobs and purges owned live data within seven days. Backup expiry follows a pinned retention policy disclosed separately
+  source:
+    doc: peopling-world-specification
+    section: "6"
+  preconditions:
+    - Owner reauthentication
+  effects:
+    - Revoke access immediately
+    - Cancel jobs
+    - Purge owned live data within seven days
+    - Backup expiry follows a pinned retention policy disclosed separately
+  failure:
+    - Reauthentication failure denies the deletion
+links:
+  - { rel: writes, to: entity.Account }
+  - { rel: writes, to: entity.ContactRecord }
+  - { rel: writes, to: entity.NotificationJob }
+criteria:
+  - id: C.webapp.lifecycle.data
+    title: Data lifecycle
+    claim: Owner export excludes others' data. Account deletion revokes sessions and jobs and meets live-data purge and retention contracts
+    target: artifact
+    gates:
+      - candidate
+      - promotion
+    sourceRefs:
+      - S.webapp.operations
+    hooks:
+      - id: hook.webapp.lifecycle.data
+        assay: webapp.lifecycle.data
+        tier: execution
+        engine: vitest
+        triggers:
+          - candidate
+          - promotion
+        inputs:
+          fixture: export isolation, deletion purge and retention
+        costTier: cheap

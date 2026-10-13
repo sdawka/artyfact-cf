@@ -3,7 +3,7 @@ kind: thing
 template: template.thing.cloudflare-worker-webapp@1
 fields:
   name: Web app
-  description: The Keep in Touch web app
+  description: The Peopling web app
   sections:
     - section.ui
     - section.domain
@@ -12,7 +12,7 @@ fields:
   artifacts:
     - artifact: artifact.webapp
       type: worker-fullstack
-      repo: kit-app
+      repo: peopling-app
       scope: []
 criteria:
   - id: C.webapp.exists

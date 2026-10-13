@@ -3,8 +3,8 @@
  * Opt-in: ARTYFACT_INTEGRATION=1 npm test -w @artyfact/platform -- --project integration
  * Needs `wrangler` logged in (and `cf` if the namespace does not exist yet). Never prints tokens.
  *
- * wrangler dev (wrangler.integration.jsonc) → `artyfact init` on a copy of the example renamed `system.itest-keep-in-touch-<run>`
- * (repos `itest-keep-in-touch-<run>.genome/.app`, plus the shared `platform` repo) → start ×2 → CLI start ×2 → edit →
+ * wrangler dev (wrangler.integration.jsonc) → `artyfact init` on a copy of the example renamed `system.itest-peopling-<run>`
+ * (repos `itest-peopling-<run>.genome/.app`, plus the shared `platform` repo) → start ×2 → CLI start ×2 → edit →
  * CLI submit ×2 → conflicts → promote A → promote B with the old head (409) → history; then deletes this run's repos
  * (never `platform`).
  */
@@ -26,7 +26,7 @@ const NS = ITEST_NAMESPACE;
 const PLATFORM = resolve(__dirname, "../..");
 const ROOT = resolve(PLATFORM, "../..");
 const CLI = join(ROOT, "packages/cli/bin/artyfact.js");
-const SLUG = itestPrefix("keep-in-touch", Date.now().toString(36));
+const SLUG = itestPrefix("peopling", Date.now().toString(36));
 const SYSTEM = `system.${SLUG}`;
 const { genomeRepo: GENOME_REPO, appRepo: APP_REPO } = systemRepoNames(SYSTEM);
 const ADMIN = `itest-${crypto.randomUUID()}`;
@@ -92,11 +92,11 @@ describe.skipIf(!ENABLED)("integration: the demo loop on real Artifacts", () => 
     // A project copy under this run's System id, so `init` derives this run's repo names.
     const project = join(work, "project");
     const skip = (p: string) => !/(^|\/)(node_modules|dist|\.wrangler)(\/|$)/.test(p);
-    cpSync(join(ROOT, "examples/keep-in-touch-system"), join(project, "system"), { recursive: true, filter: skip });
-    cpSync(join(ROOT, "examples/keep-in-touch-app"), join(project, "app"), { recursive: true, filter: skip });
+    cpSync(join(ROOT, "examples/peopling-system"), join(project, "system"), { recursive: true, filter: skip });
+    cpSync(join(ROOT, "examples/peopling-app"), join(project, "app"), { recursive: true, filter: skip });
     for (const f of ["system.yaml", "criteria.yaml"]) {
       const path = join(project, "system", f);
-      writeFileSync(path, readFileSync(path, "utf8").replaceAll("system.keep-in-touch", SYSTEM));
+      writeFileSync(path, readFileSync(path, "utf8").replaceAll("system.peopling", SYSTEM));
     }
     const { stdout } = await run(process.execPath, [CLI, "init", "--dir", project, "--namespace", NS, "--platform", base], {
       cwd: work, maxBuffer: 1 << 24, env: envWith({ ARTYFACT_ADMIN_TOKEN: ADMIN, CLOUDFLARE_ACCOUNT_ID: accountId }),

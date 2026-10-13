@@ -1,7 +1,7 @@
 /// <reference types="vite/client" />
 /**
  * `FAKE_ARTIFACTS=1` boot mode: the whole backend without a Cloudflare account. On the first request the Worker
- * swaps Artifacts for an in-memory namespace seeded from `examples/` (Keep in Touch), the repo-root `genome/`
+ * swaps Artifacts for an in-memory namespace seeded from `examples/` (Peopling), the repo-root `genome/`
  * (Artyfact itself) or both, as `FAKE_SEED` says, and `packages/templates` (the `platform` repo, so template upgrades
  * and provenance work), imports those Systems, and pushes
  * editor commits through a fake git receive-pack. State lives in the isolate, so a restart starts over (the Vite
@@ -17,10 +17,10 @@ import { fakeReceivePack } from "./fake-receive-pack";
 const strip = (files: Record<string, string>, root: string) =>
   Object.fromEntries(Object.entries(files).map(([p, t]) => [p.slice(p.indexOf(root) + root.length), t] as const));
 
-export const exampleGenome = strip(import.meta.glob("../../../../examples/keep-in-touch-system/**/*.yaml",
-  { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch-system/");
-export const exampleApp = strip(import.meta.glob(["../../../../examples/keep-in-touch-app/**/*", "!**/node_modules/**", "!**/.wrangler/**"],
-  { query: "?raw", import: "default", eager: true }) as Record<string, string>, "keep-in-touch-app/");
+export const exampleGenome = strip(import.meta.glob("../../../../examples/peopling-system/**/*.yaml",
+  { query: "?raw", import: "default", eager: true }) as Record<string, string>, "peopling-system/");
+export const exampleApp = strip(import.meta.glob(["../../../../examples/peopling-app/**/*", "!**/node_modules/**", "!**/.wrangler/**"],
+  { query: "?raw", import: "default", eager: true }) as Record<string, string>, "peopling-app/");
 const templateYaml = strip(import.meta.glob("../../../../packages/templates/{system,thing}/*/*.yaml",
   { query: "?raw", import: "default", eager: true }) as Record<string, string>, "packages/");
 const rulePacks = strip(import.meta.glob("../../../../packages/templates/rule-packs/*.dl",
@@ -28,14 +28,14 @@ const rulePacks = strip(import.meta.glob("../../../../packages/templates/rule-pa
 
 /**
  * The `platform` repo as `artyfact platform-sync` lays it out: template YAML under `templates/{system,thing}/<name>@<v>/`,
- * rule packs at `templates/rule-packs/<id>@<v>/pack.dl`, and the Keep in Touch app as the scaffold of every Thing template
+ * rule packs at `templates/rule-packs/<id>@<v>/pack.dl`, and the Peopling app as the scaffold of every Thing template
  * whose `scaffold.yaml` bundles it.
  */
 export function examplePlatform(app: Record<string, string> = exampleApp): Record<string, string> {
   const out: Record<string, string> = {};
   for (const [p, text] of Object.entries(templateYaml)) {
     out[p] = text;
-    if (p.endsWith("/scaffold.yaml") && /^bundle:\s*examples\/keep-in-touch-app\s*$/m.test(text)) {
+    if (p.endsWith("/scaffold.yaml") && /^bundle:\s*examples\/peopling-app\s*$/m.test(text)) {
       const dir = p.slice(0, -"scaffold.yaml".length);
       for (const [f, t] of Object.entries(app)) out[`${dir}scaffold/${f}`] = t;
     }
@@ -44,19 +44,19 @@ export function examplePlatform(app: Record<string, string> = exampleApp): Recor
   return out;
 }
 
-export const exampleSystemId = /^id:\s*(\S+)/m.exec(exampleGenome["node.yaml"] ?? "")?.[1] ?? "system.keep-in-touch";
+export const exampleSystemId = /^id:\s*(\S+)/m.exec(exampleGenome["node.yaml"] ?? "")?.[1] ?? "system.peopling";
 
-export type FakeSeed = "keep-in-touch" | "artyfact" | "both";
+export type FakeSeed = "peopling" | "artyfact" | "both";
 
-/** `FAKE_SEED`: which Systems the fake platform imports; anything else is the default, Keep in Touch. */
-export const fakeSeed = (v: string | undefined): FakeSeed => (v === "artyfact" || v === "both" ? v : "keep-in-touch");
+/** `FAKE_SEED`: which Systems the fake platform imports; anything else is the default, Peopling. */
+export const fakeSeed = (v: string | undefined): FakeSeed => (v === "artyfact" || v === "both" ? v : "peopling");
 
 interface SeedSystem { systemId: string; genome: Record<string, string>; app: Record<string, string>; title: string }
 
 async function seedSystems(seed: FakeSeed): Promise<SeedSystem[]> {
   const out: SeedSystem[] = [];
-  if (seed !== "artyfact") out.push({ systemId: exampleSystemId, genome: exampleGenome, app: exampleApp, title: "Keep in Touch" });
-  if (seed !== "keep-in-touch") {
+  if (seed !== "artyfact") out.push({ systemId: exampleSystemId, genome: exampleGenome, app: exampleApp, title: "Peopling" });
+  if (seed !== "peopling") {
     const a = await import("./fake-seed-artyfact");
     out.push({ systemId: a.artyfactSystemId, genome: a.artyfactGenome, app: a.artyfactApp, title: "Artyfact" });
   }

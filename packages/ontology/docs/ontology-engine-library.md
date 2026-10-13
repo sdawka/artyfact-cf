@@ -113,7 +113,7 @@ Recommended home: `packages/ontology-engine` in this repository, published to np
 
 1. Move `@artyfact/rules` into the engine unchanged. Its tests move with it.
 2. Write `meta@1` and express the current artyfact node kinds, relation enum and `Template` zod shape as a `template.meta.artyfact-genome@1` template that other artyfact templates `extend`. Prove form validity on the six bundled templates.
-3. Write the YAML directory adapter so `loadSystem` output maps onto the canonical graph without loss. Compare `toFacts` old and new on the Keep in Touch example; the diff must be explainable by relations that moved into the template.
+3. Write the YAML directory adapter so `loadSystem` output maps onto the canonical graph without loss. Compare `toFacts` old and new on the Peopling example; the diff must be explainable by relations that moved into the template.
 4. Port `metamodel@1` and `readiness@1` to the engine-owned packs. The remaining packs (`authorization`, `journeys`, `theory`, `topology.private-pairs`) become template packs.
 5. Move the provider, fake, policy and judgment runner into `judge/`; the artyfact question catalogue becomes template `questions`.
 6. Switch `apps/platform` and `packages/cli` to the engine. Readiness output for the example must match the old findings set, rule for rule.
@@ -124,7 +124,7 @@ Recommended home: `packages/ontology-engine` in this repository, published to np
 - A template that fails form validity cannot be used to evaluate an instance; the error names the rule and the template hash.
 - Every finding carries a derivation whose leaves are EDB facts or a judgment with provenance.
 - No finding reaches `pass` or `error` from a judgment below the confident threshold.
-- The Keep in Touch example reproduces its current findings through the adapter.
+- The Peopling example reproduces its current findings through the adapter.
 - A second template with kinds and relations that do not exist in artyfact evaluates without touching engine code.
 
 ## Implementation notes (milestone 1, 2026-10-12)
@@ -145,14 +145,14 @@ Recommended home: `packages/ontology-engine` in this repository, published to np
 
 ## Implementation notes (milestone 2, 2026-10-12)
 
-`src/judge/` and `src/adapters/artyfact/` are built. The six artyfact rule packs are ported: `facts` and `metamodel` stay on `template.meta.artyfact-genome@1`, the domain packs live in the `packages/templates` templates, and the Keep in Touch example reproduces artyfact's findings rule for rule against them.
+`src/judge/` and `src/adapters/artyfact/` are built. The six artyfact rule packs are ported: `facts` and `metamodel` stay on `template.meta.artyfact-genome@1`, the domain packs live in the `packages/templates` templates, and the Peopling example reproduces artyfact's findings rule for rule against them.
 
 - A question matches a candidate when the question id equals the candidate's rule id. The slice is structured (`parents`, `hops`, `direction`, `rels`, `kinds`, `fields`), so it is hashable and `meta@1` can reject slices naming unknown kinds or relations.
 - Levels `review` and `pass` exist and come only from judgment. A confident answer the policy does not map stays `unknown`. Provenance records provider, state hash, question hash and thresholds, never timing.
 - `buildable` also blocks on `review` and on any semantic finding without a confident judgment. `evaluate` stays synchronous; `judge` and `evaluateAndJudge` are async.
 - Ported packs are named `artyfact.*` and read `a`-prefixed relations derived by `artyfact.facts@1`, because `node`, `criterion` and `ref` already exist in the generic EDB. Rule ids and messages are verbatim. The dialect has no lowercase, so topology text rules match case-insensitively with generated character classes.
 - Adapter mapping: criterion hooks, hook criteria, `satisfies`, claim activities, step requirement refs and step next objects stay as list fields; `stepNext` links exist alongside. Unresolved step targets are fields. Required but unpinned kits and artifacts are nodes. Lost on load: a cross link's `label` and `source`, whether `refines` came from a field or a link, and whether a thing's sections were defaulted from its template.
-- The generic core adds `node.provisional` missing findings on Keep in Touch that artyfact does not have, so the example is actionable but not buildable under this engine. That is the intended stricter reading, not a parity failure.
+- The generic core adds `node.provisional` missing findings on Peopling that artyfact does not have, so the example is actionable but not buildable under this engine. That is the intended stricter reading, not a parity failure.
 - The reference for parity tests is artyfact's own `toFacts` and `validate`, vendored under `test/vendor/artyfact/` with only import lines changed.
 
 ## Implementation notes (milestone 3, 2026-10-12): other vocabularies
@@ -169,7 +169,7 @@ Two more adapters prove the acceptance criterion that a template with kinds and 
 
 Two layers now look at what nodes say, not only whether they exist.
 
-**Deterministic text checks** (`text@1` core pack, always on). Kind fields may declare `minLength`, `minWords`, `placeholders`, `distinctFrom` and `pattern`; a template-level `textDefaults` block applies a default placeholder list to `description` and `title` when a template opts in. Rules: `text.empty` (whitespace-only required field; an empty string is still `field.required`, so one blank field gives exactly one finding), `text.short`, `text.placeholder` (wins over short), `text.sameAsId`, `text.sameAsField`, `text.pattern`. One finding per node per rule; the field is in the derivation. Degraded copies of Keep in Touch and tidepool prove the rules fire on exactly the ten planted nodes each. With defaults on, the only hit on real content is Keep in Touch's `binding.d1`, whose genuine description contains the word "placeholder"; it is pinned, not suppressed.
+**Deterministic text checks** (`text@1` core pack, always on). Kind fields may declare `minLength`, `minWords`, `placeholders`, `distinctFrom` and `pattern`; a template-level `textDefaults` block applies a default placeholder list to `description` and `title` when a template opts in. Rules: `text.empty` (whitespace-only required field; an empty string is still `field.required`, so one blank field gives exactly one finding), `text.short`, `text.placeholder` (wins over short), `text.sameAsId`, `text.sameAsField`, `text.pattern`. One finding per node per rule; the field is in the derivation. Degraded copies of Peopling and tidepool prove the rules fire on exactly the ten planted nodes each. With defaults on, the only hit on real content is Peopling's `binding.d1`, whose genuine description contains the word "placeholder"; it is pinned, not suppressed.
 
 **Semantic probes and providers** (`src/judge/`). `openRouterProvider` targets the OpenRouter decisions API with `perplexity/pplx-decider-v1-27b` as default model behind the `SystemOne` interface; `providerFromEnv` picks fake, OpenRouter or off. A reusable catalogue offers `text.vague`, `text.unmeasurable`, `pair.contradiction` and `criterion.unfalsifiable`; the `semantic.probe@1` pack emits candidates, with pair candidates encoded as `(A, B)` because the dialect cannot concatenate strings, and `judge` rewriting the judged subject to `A|B`. Fixtures plant 14 natural-language problems and 5 controls across the three vocabularies. A live suite runs only when `OPENROUTER_API_KEY` is set and records every answer to an auditable results file; one run makes 261 calls. Live results (2026-10-12, 261 calls per run, about 35 s wall, zero provider errors after retries were raised to three with exponential backoff and a one-second floor on 429) are recorded in `test/fixtures/semantic/live-results.<model>.json`:
 
@@ -178,7 +178,7 @@ Two layers now look at what nodes say, not only whether they exist.
 | `perplexity/pplx-decider-v1.1-27b` (default) | 12 of 14 | 2 | 0 |
 | `cloudflare/clef` | 8 of 14 | 6 | 0 |
 
-The OpenRouter id `perplexity/pplx-decider-v1-27b` no longer exists; the default is `v1.1`. Both models leave "handles any errors properly" at review rather than vague, and both lean "no contradiction" on the owner-only policy versus a goal effect shared with all contacts, which suggests the pair slice shows the policy too thinly. All three planted unmeasurable outcomes are caught by the Perplexity model. The vague probe over-fires on structural one-liners (section descriptions, "Bindings and deployment surface.") and also flags the real Keep in Touch theory claims T1 to T4, which are genuinely soft; which kinds to probe is a template choice, and the test vocabularies currently probe every node with a description. The live test keeps the strict expectation (level and confidence at or above 0.9) and therefore fails on the review items by design; review is the engine's correct output when a model is unsure.
+The OpenRouter id `perplexity/pplx-decider-v1-27b` no longer exists; the default is `v1.1`. Both models leave "handles any errors properly" at review rather than vague, and both lean "no contradiction" on the owner-only policy versus a goal effect shared with all contacts, which suggests the pair slice shows the policy too thinly. All three planted unmeasurable outcomes are caught by the Perplexity model. The vague probe over-fires on structural one-liners (section descriptions, "Bindings and deployment surface.") and also flags the real Peopling theory claims T1 to T4, which are genuinely soft; which kinds to probe is a template choice, and the test vocabularies currently probe every node with a description. The live test keeps the strict expectation (level and confidence at or above 0.9) and therefore fails on the review items by design; review is the engine's correct output when a model is unsure.
 
 ## Implementation notes (milestone 5, 2026-10-13): defect ontology and question funnel
 

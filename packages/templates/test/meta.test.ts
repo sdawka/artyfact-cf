@@ -30,7 +30,7 @@ const allPacks = [packs.metamodel, packs.readiness, packs.authorization, packs.j
 const DROPPED = new Set(["thing.noArtifact"]);
 const theirs = (files: Files) => pairs(referenceFindings(referenceModel(files, legacy), allPacks).filter((f) => !DROPPED.has(f.rule)));
 const use = (ref: string, self: string) => ({ template: loadMetaTemplate(ref), self });
-const template = composeTemplates(use(systemRef, "system.keep-in-touch"), [use(workerRef, "thing.webapp")]);
+const template = composeTemplates(use(systemRef, "system.peopling"), [use(workerRef, "thing.webapp")]);
 const load = (files: Files) => loadArtyfactSystem(files, { templates: artyfactTemplateStore(bundledDir) }) as Graph;
 
 describe("meta@1 templates", () => {
@@ -76,7 +76,7 @@ describe("meta@1 templates", () => {
       "artyfact.authorization", "artyfact.facts", "artyfact.journeys", "artyfact.metamodel", "artyfact.readiness", "artyfact.theory", "artyfact.topology.private-pairs",
     ]);
     // Both webapp templates prefill section.ui (and more) under fixed ids, so one System cannot use both.
-    expect(() => composeTemplates(use(systemRef, "system.keep-in-touch"), [use(workerRef, "thing.webapp"), use(vueRef, "thing.admin")]))
+    expect(() => composeTemplates(use(systemRef, "system.peopling"), [use(workerRef, "thing.webapp"), use(vueRef, "thing.admin")]))
       .toThrow("thing.webapp and thing.admin both prefill node section.ui, differently");
     expect(loadMetaTemplate(systemRef).questions.map((q) => q.id)).toEqual(["topology.multiRecipient"]);
   });
@@ -129,7 +129,7 @@ const mutations: [name: string, rules: string[], mutate: (f: Files) => Files][] 
   ["thing sections diverge from its template", ["thing.sectionMissing", "template.sectionMissing"], (f) => edit(f, "things/webapp/thing.yaml", (d) => { d.sections = ["section.ui", "section.ghost"]; })],
   ["uncovered requirement", ["coverage.requirement"], (f) => edit(f, "things/webapp/spec.yaml", (d) => { d.requirements.push({ id: "S.webapp.extra", thing: "thing.webapp", title: "Extra", text: "x" }); })],
   ["template criterion moved to the system", ["template.criterionMissing"], (f) => edit(f, "things/webapp/criteria.yaml", (d) => {
-    d.criteria.push({ id: "C.webapp.exists", title: "Exists", claim: "x", ownerKind: "system", ownerId: "system.keep-in-touch", subjectKind: "thing", subjectId: "thing.webapp", targetKind: "artifact", gates: ["candidate"], hooks: ["hook.webapp.exists"] });
+    d.criteria.push({ id: "C.webapp.exists", title: "Exists", claim: "x", ownerKind: "system", ownerId: "system.peopling", subjectKind: "thing", subjectId: "thing.webapp", targetKind: "artifact", gates: ["candidate"], hooks: ["hook.webapp.exists"] });
   })],
   ["empty evolution", ["evolution.acceptanceMissing", "evolution.affectsMissing"], (f) => edit(f, "evolutions/evolution.7.yaml", () =>
     ({ id: "evolution.7", title: "Empty", intent: "x", state: "proposed", kind: "implementation", affectedNodes: [], acceptanceCriteria: [] }))],
@@ -173,7 +173,7 @@ const mutations: [name: string, rules: string[], mutate: (f: Files) => Files][] 
 ];
 
 describe("findings parity with artyfact's six rule packs", () => {
-  it("Keep in Touch reproduces artyfact's findings, including kit.unpinned for auth", () => {
+  it("Peopling reproduces artyfact's findings, including kit.unpinned for auth", () => {
     const expected = theirs(sys);
     expect(expected).toContain("kit.unpinned auth");
     expect(expected.length).toBe(15);

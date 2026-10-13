@@ -10,7 +10,7 @@ const cand = (id: string, changedPaths: string[], changedNodes: string[], extra:
 });
 
 const ctx = (candidate: CandidateRef, openCandidates: CandidateRef[]): ConflictContext => ({
-  systemId: "system.mini-kit", candidate, genomeCommit: BASE, genomeFiles: miniGenome(), openCandidates,
+  systemId: "system.mini-peopling", candidate, genomeCommit: BASE, genomeFiles: miniGenome(), openCandidates,
 });
 
 describe("overlap / conflicts", () => {

@@ -1,0 +1,9 @@
+// Test-only config: no remote bindings, so tests run offline. Keep in sync with wrangler.jsonc.
+{
+  "name": "peopling",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-12",
+  "compatibility_flags": ["global_fetch_strictly_public"],
+  "d1_databases": [{ "binding": "DB", "database_name": "peopling", "database_id": "00000000-0000-0000-0000-000000000000" }],
+  "vars": { "BUILD_ID": "test", "DEV_AUTH_HEADER": "1" }
+}

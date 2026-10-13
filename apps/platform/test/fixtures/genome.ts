@@ -1,5 +1,5 @@
 /**
- * A small Keep-in-Touch-shaped Genome (a v2 node tree) on the real cloudflare-worker-webapp@1 template, plus an app
+ * A small Peopling-shaped Genome (a v2 node tree) on the real cloudflare-worker-webapp@1 template, plus an app
  * tree. Converted from its v1 layout with `artyfact convert-genome`; the template's prefilled nodes are materialised.
  */
 export const genomeFiles: Record<string, string> = {
@@ -62,10 +62,10 @@ fields:
   external: Their relationships
 `,
   "node.yaml": `
-id: system.kit
+id: system.peopling
 kind: system
 fields:
-  name: Keep in Touch (test)
+  name: Peopling (test)
   phase: unrealized
   rulePacks:
     - id: metamodel
@@ -145,7 +145,7 @@ id: thing.webapp
 kind: thing
 template: template.thing.cloudflare-worker-webapp@1
 fields:
-  name: Keep in Touch web app
+  name: Peopling web app
   description: The app
   purposeRefs:
     - P1
@@ -157,7 +157,7 @@ fields:
   artifacts:
     - artifact: artifact.webapp
       type: worker-fullstack
-      repo: kit-app
+      repo: peopling-app
       scope: []
 criteria:
   - id: C.webapp.exists
@@ -481,7 +481,7 @@ criteria:
 
 /** The fixture Genome imported as `systemId`: only the root `node.yaml` names the System. */
 export const genomeFor = (systemId: string): Record<string, string> =>
-  ({ ...genomeFiles, "node.yaml": genomeFiles["node.yaml"]!.replace("id: system.kit", `id: ${systemId}`) });
+  ({ ...genomeFiles, "node.yaml": genomeFiles["node.yaml"]!.replace("id: system.peopling", `id: ${systemId}`) });
 
 export const appFiles: Record<string, string> = {
   "package.json": "{}",

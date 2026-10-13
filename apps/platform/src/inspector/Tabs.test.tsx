@@ -34,7 +34,7 @@ describe("Evidence tab", () => {
       qc.setQueryData(qk.evaluations(SYSTEM, undefined), {
         evaluations: [
           evaluation({ id: "e.child", subjectId: "screen.people", criterion: "C.webapp.screen.people" }),
-          evaluation({ id: "e.other", subjectId: "system.keep-in-touch", criterion: "C.system.structure" }),
+          evaluation({ id: "e.other", subjectId: "system.peopling", criterion: "C.system.structure" }),
         ],
       }),
     );

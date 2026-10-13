@@ -1,8 +1,8 @@
-id: system.mini-kit
+id: system.mini-peopling
 kind: system
 template: template.system.social-networking.cloudflare@1
 fields:
-  name: Mini Keep in Touch
+  name: Mini Peopling
   profile: private-relationships
   phase: unrealized
   kits:

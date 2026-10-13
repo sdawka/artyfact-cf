@@ -16,17 +16,17 @@ const NONCE = "0123456789abcdef0123456789abcdef";
 const ACCOUNT = "acc";
 
 const params = (over: Partial<CiBuildParams> = {}): CiBuildParams => ({
-  buildId: "build.realization.1.aaaaaaa.ci", systemId: "system.keep-in-touch", realizationId: "realization.1", candidateId: "candidate.1.r1.aaaaaaa",
-  namespace: "artyfact", repo: "keep-in-touch.app--r1", commit: COMMIT, kind: "preview", workerName: "keep-in-touch-app-r1",
-  vars: { ARTYFACT_SYSTEM_ID: "system.keep-in-touch", ARTYFACT_PLATFORM_URL: PLATFORM, BUILD_ID: "dev", ARTYFACT_INGEST_TOKEN: INGEST },
+  buildId: "build.realization.1.aaaaaaa.ci", systemId: "system.peopling", realizationId: "realization.1", candidateId: "candidate.1.r1.aaaaaaa",
+  namespace: "artyfact", repo: "peopling.app--r1", commit: COMMIT, kind: "preview", workerName: "peopling-app-r1",
+  vars: { ARTYFACT_SYSTEM_ID: "system.peopling", ARTYFACT_PLATFORM_URL: PLATFORM, BUILD_ID: "dev", ARTYFACT_INGEST_TOKEN: INGEST },
   commands: { install: "npm ci", test: "npm test", build: "npm run build", deploy: "npx wrangler deploy" },
-  reportUrl: `${PLATFORM}/api/systems/system.keep-in-touch/realizations/realization.1/builds`,
+  reportUrl: `${PLATFORM}/api/systems/system.peopling/realizations/realization.1/builds`,
   ...over,
 });
 
 const REPO_CONFIG = `{
   "$schema": "node_modules/wrangler/config-schema.json", // editor hint
-  "name": "keep-in-touch",
+  "name": "peopling",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-12",
   /* static files */
@@ -88,7 +88,7 @@ describe("planSteps", () => {
 
   it("deploys under the worker name with a unique runtime build id and authoritative lineage vars", () => {
     const cmd = step(plan(params({ vars: { ARTYFACT_NOTE: "it's; rm -rf /", BUILD_ID: "dev" } })), "deploy").command;
-    expect(cmd).toContain(`--name 'keep-in-touch-app-r1' --var 'ARTYFACT_NOTE:it'\\''s; rm -rf /' --var 'ARTYFACT_SOURCE_COMMIT:${COMMIT}' --var 'BUILD_ID:build.realization.1.aaaaaaa.ci' --env-file`);
+    expect(cmd).toContain(`--name 'peopling-app-r1' --var 'ARTYFACT_NOTE:it'\\''s; rm -rf /' --var 'ARTYFACT_SOURCE_COMMIT:${COMMIT}' --var 'BUILD_ID:build.realization.1.aaaaaaa.ci' --env-file`);
     expect(cmd).not.toContain("--secrets-file");
     expect(shQuote("a'b")).toBe(`'a'\\''b'`);
   });
@@ -128,7 +128,7 @@ describe("validateRepoConfig", () => {
   it("accepts a self-contained config and writes repo paths as absolute workspace paths", () => {
     const s = spec();
     expect(s).toMatchObject({ file: "wrangler.jsonc", main: "src/index.ts", assets: { directory: "public", binding: "ASSETS" } });
-    const target = { workerName: "keep-in-touch-app-r1", accountId: ACCOUNT };
+    const target = { workerName: "peopling-app-r1", accountId: ACCOUNT };
     const bundle = bundleConfig(s, target);
     expect(bundle).toMatchObject({ name: target.workerName, account_id: ACCOUNT, main: "/workspace/src/index.ts", vars: { GREETING: "hi // not a comment" } });
     expect(bundle).not.toHaveProperty("assets");
@@ -142,7 +142,7 @@ describe("validateRepoConfig", () => {
 
   describe("compatibility_flags", () => {
     const withFlags = (flags?: unknown) => JSON.stringify({ main: "src/index.ts", compatibility_date: "2026-10-12", ...(flags !== undefined && { compatibility_flags: flags }) });
-    const target = { workerName: "keep-in-touch-app-r1", accountId: ACCOUNT };
+    const target = { workerName: "peopling-app-r1", accountId: ACCOUNT };
     const generated = (text: string) => {
       const s = spec(text);
       return [bundleConfig(s, target).compatibility_flags, deployConfig(s, { ...target, nonce: NONCE }).compatibility_flags];
@@ -193,17 +193,17 @@ describe("validateRepoConfig", () => {
 
   const d1Config = (database_id?: string) => JSON.stringify({
     main: "src/index.ts", compatibility_date: "2026-10-12",
-    d1_databases: [{ binding: "DB", database_name: "keep-in-touch", ...(database_id !== undefined && { database_id }), migrations_dir: "migrations" }],
+    d1_databases: [{ binding: "DB", database_name: "peopling", ...(database_id !== undefined && { database_id }), migrations_dir: "migrations" }],
   });
   const REAL_ID = "11111111-2222-3333-4444-555555555555";
   const MAPPED_ID = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
-  const d1Target = { workerName: "keep-in-touch-app-r1", accountId: ACCOUNT };
+  const d1Target = { workerName: "peopling-app-r1", accountId: ACCOUNT };
   const withIds = (text: string, ids: Record<string, string>) => validateRepoConfig("wrangler.jsonc", text, { accountId: ACCOUNT, d1DatabaseIds: ids });
 
   it("substitutes the platform's D1 id for a placeholder or missing database_id", () => {
     for (const id of ["00000000-0000-0000-0000-000000000000", undefined]) {
-      const s = withIds(d1Config(id), { "keep-in-touch": MAPPED_ID });
-      const d1 = [{ binding: "DB", database_name: "keep-in-touch", database_id: MAPPED_ID, migrations_dir: "migrations" }];
+      const s = withIds(d1Config(id), { "peopling": MAPPED_ID });
+      const d1 = [{ binding: "DB", database_name: "peopling", database_id: MAPPED_ID, migrations_dir: "migrations" }];
       expect(deployConfig(s, { ...d1Target, nonce: NONCE })).toMatchObject({ d1_databases: d1 });
       expect(bundleConfig(s, d1Target)).toMatchObject({ d1_databases: d1 });
     }
@@ -211,7 +211,7 @@ describe("validateRepoConfig", () => {
 
   it("refuses a placeholder database_id whose database_name has no mapping", () => {
     expect(() => withIds(d1Config("00000000-0000-0000-0000-000000000000"), { other: MAPPED_ID }))
-      .toThrow(/d1_databases DB: no account database is mapped to database_name "keep-in-touch".*D1_DATABASE_IDS/);
+      .toThrow(/d1_databases DB: no account database is mapped to database_name "peopling".*D1_DATABASE_IDS/);
     expect(() => spec(d1Config(undefined))).toThrow(/no account database is mapped/);
     expect(() => withIds(d1Config(undefined), {})).toThrow(DeployRefused);
     expect(() => spec(JSON.stringify({ main: "src/index.ts", d1_databases: { binding: "DB" } }))).toThrow(/d1_databases must be a list/);
@@ -219,10 +219,10 @@ describe("validateRepoConfig", () => {
   });
 
   it("accepts a real database_id only when it is this System's mapped id", () => {
-    const s = withIds(d1Config(MAPPED_ID), { "keep-in-touch": MAPPED_ID });
+    const s = withIds(d1Config(MAPPED_ID), { "peopling": MAPPED_ID });
     expect(deployConfig(s, { ...d1Target, nonce: NONCE })).toMatchObject({ d1_databases: [{ database_id: MAPPED_ID }] });
-    expect(() => withIds(d1Config(REAL_ID), { "keep-in-touch": MAPPED_ID })).toThrow(/database_id is not this System's "keep-in-touch" database/);
-    expect(() => spec(d1Config(REAL_ID))).toThrow(/no account database is mapped to database_name "keep-in-touch" for this System/);
+    expect(() => withIds(d1Config(REAL_ID), { "peopling": MAPPED_ID })).toThrow(/database_id is not this System's "peopling" database/);
+    expect(() => spec(d1Config(REAL_ID))).toThrow(/no account database is mapped to database_name "peopling" for this System/);
   });
 
   it("parses D1_DATABASE_IDS per System and picks only the build's System", () => {
@@ -331,7 +331,7 @@ describe("runPipeline", () => {
     const out = await runPipeline({ ...h.input, params: params() });
     expect(h.ran.map((s) => s.name)).toEqual(["install", "test", "build", "bundle", "deploy"]);
     expect(h.reports.map((r) => r.status)).toEqual(["running", "passed"]);
-    expect(out).toMatchObject({ status: "passed", url: "https://keep-in-touch-app-r1.dawka.workers.dev", buildId: "build.realization.1.aaaaaaa.ci", externalId: "inst-1" });
+    expect(out).toMatchObject({ status: "passed", url: "https://peopling-app-r1.dawka.workers.dev", buildId: "build.realization.1.aaaaaaa.ci", externalId: "inst-1" });
     expect(out.output).toBeUndefined();
     expect(out.logsUrl).toBe("https://dash.cloudflare.com/acc/workers/workflows/artyfact-ci/instance/inst-1");
     expect(out.steps!.map((s) => [s.name, s.status])).toEqual([
@@ -345,11 +345,11 @@ describe("runPipeline", () => {
 
   it("records the exact deployed Worker version and leaves output unknown when Wrangler does not establish one", async () => {
     const version = "01234567-89ab-cdef-0123-456789abcdef";
-    const withVersion = harness({ deployStdout: `Uploaded keep-in-touch-app-r1\nCurrent Version ID: ${version}\n` });
+    const withVersion = harness({ deployStdout: `Uploaded peopling-app-r1\nCurrent Version ID: ${version}\n` });
     const out = await runPipeline({ ...withVersion.input, params: params() });
-    expect(out.output).toEqual({ locator: `cloudflare:workers:accounts/${ACCOUNT}/workers/keep-in-touch-app-r1/versions/${version}` });
+    expect(out.output).toEqual({ locator: `cloudflare:workers:accounts/${ACCOUNT}/workers/peopling-app-r1/versions/${version}` });
 
-    const unknown = harness({ deployStdout: "Deployed to https://keep-in-touch-app-r1.dawka.workers.dev" });
+    const unknown = harness({ deployStdout: "Deployed to https://peopling-app-r1.dawka.workers.dev" });
     const unknownOut = await runPipeline({ ...unknown.input, params: params() });
     expect(unknownOut.output).toBeUndefined();
   });
@@ -393,16 +393,16 @@ describe("runPipeline", () => {
     const id = "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee";
     const config = JSON.stringify({
       main: "src/index.ts", compatibility_date: "2026-10-12",
-      d1_databases: [{ binding: "DB", database_name: "keep-in-touch", database_id: "00000000-0000-0000-0000-000000000000" }],
+      d1_databases: [{ binding: "DB", database_name: "peopling", database_id: "00000000-0000-0000-0000-000000000000" }],
     });
     const ok = harness({ files: { "wrangler.json": config } });
-    await runPipeline({ ...ok.input, params: params(), d1DatabaseIds: { "system.keep-in-touch": { "keep-in-touch": id } } });
+    await runPipeline({ ...ok.input, params: params(), d1DatabaseIds: { "system.peopling": { "peopling": id } } });
     const deployed = JSON.parse(ok.ran.find((s) => s.name === "deploy")!.env![CONFIG_ENV]!) as { d1_databases: { database_id: string }[] };
     expect(deployed.d1_databases[0]!.database_id).toBe(id);
 
     const other = harness({ files: { "wrangler.json": config } });
-    await expect(runPipeline({ ...other.input, params: params(), d1DatabaseIds: { "system.other": { "keep-in-touch": id } } }))
-      .rejects.toThrow(/no account database is mapped to database_name "keep-in-touch" for this System/);
+    await expect(runPipeline({ ...other.input, params: params(), d1DatabaseIds: { "system.other": { "peopling": id } } }))
+      .rejects.toThrow(/no account database is mapped to database_name "peopling" for this System/);
     expect(other.ran).toEqual([]);
   });
 

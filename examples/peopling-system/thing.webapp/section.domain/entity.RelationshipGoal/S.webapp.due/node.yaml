@@ -1,0 +1,16 @@
+id: S.webapp.due
+kind: requirement
+fields:
+  thing: thing.webapp
+  title: Due dates
+  text: the app must use local calendar dates in the owner's IANA time zone. The anchor must be the latest qualifying event date, or the goal creation date when none exists. dueDate must equal anchor plus intervalDays. A goal must become due when today's date reaches dueDate, unless paused or snoozed until a later date. Revising a goal must not create a ContactEvent. Date and time-zone fixtures must cover daylight-saving changes.
+  enabled: true
+  source:
+    doc: peopling-world-specification
+    section: "6"
+links:
+  - { rel: subject, to: entity.RelationshipGoal }
+  - { rel: subject, to: entity.Suggestion }
+  - { rel: subject, to: operation.goal.save }
+  - { rel: refines, to: GD.goals }
+  - { rel: refines, to: GD.prompts }

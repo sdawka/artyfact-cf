@@ -57,8 +57,8 @@ cd ../.. && npm run deploy
 **App databases.** The platform maps each System's `database_name`s to account D1 ids through the `D1_DATABASE_IDS` var in `wrangler.jsonc`, shaped `{ "<systemId>": { "<database_name>": "<id>" } }`, so the app repo keeps the all-zero placeholder `database_id`. A build looks up only its own System. A placeholder or missing id with no mapping refuses the deploy with the database name in the message. So does a real id that is not the System's mapped id. To add one: create the database, apply the app's migrations, add it under its System in `D1_DATABASE_IDS`, then redeploy this Worker.
 
 ```sh
-cf d1 create --name keep-in-touch --primary-location-hint enam
-cf d1 migrations apply <id> --dir examples/keep-in-touch-app/migrations
+cf d1 create --name peopling --primary-location-hint enam
+cf d1 migrations apply <id> --dir examples/peopling-app/migrations
 ```
 
 ## Trust model
