@@ -39,14 +39,16 @@ async function importSystem(edit: (files: Record<string, string>) => Record<stri
   ns.create(`draft-app-${tag}`).commit(app, "app");
   setArtifactsOverride(ns);
   setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
-  const imp = await call<ImportSystemResponse>("POST", "/api/systems/import", { systemId, genomeRepo: `draft-genome-${tag}`, appRepo: `draft-app-${tag}` });
+  const imp = await call<ImportSystemResponse>("POST", "/api/systems/import", { systemId, genomeRepo: `draft-genome-${tag}`, appRepo: `draft-app-${tag}`, review: false });
   expect(imp.status, JSON.stringify(imp.json)).toBe(201);
   return systemId;
 }
 
 /** Accepts a fake-translated proposal: an accepted Genome Evolution touching the screen the message names. */
 async function acceptChange(systemId: string, message: string) {
-  const p = (await call<Proposal>("POST", routes.intents(systemId), { message })).json;
+  const created = await call<Proposal>("POST", routes.intents(systemId), { message });
+  expect(created.status, JSON.stringify(created.json)).toBe(201);
+  const p = created.json;
   const r = await call<IntentAcceptResponse>("POST", routes.intentAccept(systemId, p.id), { opIds: ["op.1"] });
   expect(r.status, JSON.stringify(r.json)).toBe(201);
   return r.json.evolution;
