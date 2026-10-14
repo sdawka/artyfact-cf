@@ -1,5 +1,8 @@
 import { runInDurableObject } from 'cloudflare:test';
-import type { SystemAuthority } from '../worker/do/system-authority';
+import { REGISTRY, type SystemAuthority } from '../worker/do/system-authority';
+import { replayChanges, replayDelta, replayFrom } from '../worker/lifecycle-service';
+import { FakeArtifacts } from './helpers/fake-artifacts';
+import type { TreeEntry } from '../worker/artifacts/client';
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { lifecyclePaths, type RealizationPlan, type TaskStartResponse, type TaskSubmitResponse, type ImplementationReview, type PlanPromoteResponse } from '../shared/lifecycle';
@@ -10,6 +13,8 @@ import { ADMIN, call, importFresh, passing } from './helpers/flows';
 import { walkTree } from '../worker/artifacts/genome-source';
 import { fakeReceivePack } from './helpers/fake-receive-pack';
 import { setEditorTransport } from '../worker/editor';
+import { listTree } from '../worker/artifacts/genome-source';
+import { pushCommit, type FileChange } from '../worker/git/push';
 const path=(s:string,p?:string,t?:string,a?:'claim'|'resume'|'submit'|'select')=>(a?lifecyclePaths.action(s,p!,t!,a):p?lifecyclePaths.plan(s,p):lifecyclePaths.plans(s)).replace(/^\/api/,'');
 const definition={id:'ui',title:'People UI',artifactId:'artifact.webapp',steps:['Update people UI'],dependsOn:[],readNodes:[],writeNodes:['screen.people'],checks:['C.people.list']};
 beforeEach(()=>setHooks({runner:()=>passing}));
@@ -81,4 +86,74 @@ describe('realization plan HTTP lifecycle',()=>{
   const retried=await call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','resume'),{},ADMIN);expect(retried.status,JSON.stringify(retried.json)).toBe(201);expect(repo.tokens.filter(t=>!t.revoked)).toHaveLength(1);
  });
 
+ it('keeps exec bits and symlinks through fan-in and integration',async()=>{
+  const f=await importFresh(),transport=fakeReceivePack(f.ns);setEditorTransport({fetch:transport.fetch});
+  const task=(id:string,globs:string[],deps:string[]=[])=>({id,title:id,artifactId:'artifact.webapp',steps:['Implement'],dependsOn:deps,readNodes:[],writeNodes:[id],checks:[],footprint:{repo:f.appRepo,artifactId:'artifact.webapp',globs,paths:[],unmatched:globs,known:true}});
+  // x: same content, now executable. y: an existing file becomes a symlink with the same text. z builds on both.
+  const p=await systemStub(env,f.systemId).createRealizationPlan({title:'Modes',tasks:[task('x',['src/index.ts']),task('y',['src/worker/health.ts']),task('z',['src/z.txt'],['x','y'])]});
+  const edits:Record<string,FileChange[]>={x:[{path:'src/index.ts',content:'export default {}',type:'exec'}],y:[{path:'src/worker/health.ts',content:'ok',type:'symlink'}],z:[{path:'src/z.txt',content:'z'}]};
+  const kinds=async(repo:string,commit:string)=>{const t=await listTree(f.ns.repo(repo),commit);return {index:t.get('src/index.ts')?.mode,health:t.get('src/worker/health.ts')?.mode};};
+  for(const id of ['x','y','z']){
+   const start=await call<TaskStartResponse>('POST',path(f.systemId,p.id,id,'claim'),{},ADMIN);expect(start.status,JSON.stringify(start.json)).toBe(201);const s=start.json;
+   if(id==='z')expect(await kinds(s.task.base.repo,s.task.base.commit)).toEqual({index:'100755',health:'120000'});
+   const pushed=await pushCommit({repo:f.ns.repo(s.task.forkRepo),remote:s.token.remote,token:s.token.value,parent:s.task.base.commit,changes:edits[id],fetch:transport.fetch,author:{name:'Agent',email:'agent@example.com'},message:id});
+   const submitted=await call<TaskSubmitResponse>('POST',path(f.systemId,p.id,id,'submit'),{attemptId:s.attempt.id,generation:s.attempt.generation,commit:pushed.commit},{authorization:`Bearer ${s.secret}`});expect(submitted.status,JSON.stringify(submitted.json)).toBe(201);expect(submitted.json.candidate.changedPaths).toEqual(edits[id].map(e=>e.path));
+   expect((await call('POST',path(f.systemId,p.id,id,'select'),{candidateId:submitted.json.candidate.id},ADMIN)).status).toBe(200);
+  }
+  const integrated=await call<ImplementationReview>('POST',lifecyclePaths.integrate(f.systemId,p.id).replace(/^\/api/,''),{},ADMIN);expect(integrated.status,JSON.stringify(integrated.json)).toBe(200);
+  const [b]=integrated.json.bindings;expect(await kinds(b.source.repo,b.source.commit)).toEqual({index:'100755',health:'120000'});
+  expect((await listTree(f.ns.repo(b.source.repo),b.source.commit)).get('src/z.txt')?.mode).toBe('100644');
+  const candidate=integrated.json.candidates.find(c=>c.id===b.candidateId)!;expect(candidate.changedPaths).toEqual(['src/index.ts','src/worker/health.ts','src/z.txt']);
+ });
+
+ it('returns claim refusals with structured details',async()=>{
+  const f=await importFresh();
+  const task=(id:string,deps:string[]=[])=>({id,title:id,artifactId:'artifact.webapp',steps:['Implement'],dependsOn:deps,readNodes:[],writeNodes:[id],checks:[],footprint:{repo:f.appRepo,artifactId:'artifact.webapp',globs:[`src/${id}.txt`],paths:[],unmatched:[`src/${id}.txt`],known:true}});
+  const p=await systemStub(env,f.systemId).createRealizationPlan({title:'Refusals',tasks:[task('a'),task('b'),task('c',['a','b'])]});
+  const blocked=await call<{error:{code:string;message:string;details?:unknown}}>('POST',path(f.systemId,p.id,'c','claim'),{},ADMIN);
+  expect(blocked.status).toBe(409);expect(blocked.json.error).toEqual({code:'invalid-state',message:'dependency a is not selected',details:{blockedOn:['a','b']}});
+  expect((await call('POST',path(f.systemId,p.id,'a','claim'),{agentLabel:'agent-one'},ADMIN)).status).toBe(201);
+  const taken=await call<{error:{code:string;message:string;details?:unknown}}>('POST',path(f.systemId,p.id,'a','claim'),{agentLabel:'agent-two'},ADMIN);
+  expect(taken.status).toBe(409);expect(taken.json.error).toEqual({code:'invalid-state',message:'task already has an active writer',details:{by:'agent-one'}});
+ });
+
+ it('keeps a claim when the registry refresh fails after it landed',async()=>{
+  const f=await importFresh(),p=(await call<RealizationPlan>('POST',path(f.systemId),{title:'Build',tasks:[definition]},ADMIN)).json;let restore=()=>{};
+  await runInDurableObject(env.SYSTEMS.getByName(REGISTRY),async(i:SystemAuthority)=>{const proto=Object.getPrototypeOf(i),orig=proto.registerSystem;let once=true;proto.registerSystem=function(...args:unknown[]){if(once){once=false;throw new Error('registry unavailable');}return orig.apply(this,args);};restore=()=>{proto.registerSystem=orig;};});
+  try{
+   const claimed=await call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN);expect(claimed.status,JSON.stringify(claimed.json)).toBe(201);
+   const after=await systemStub(env,f.systemId).realizationPlan(p.id),a=after.tasks[0].attempts.at(-1)!;
+   expect(a.status).toBe('working');expect(Date.parse(a.leaseExpiresAt)).toBeGreaterThan(Date.now());
+   expect(f.ns.repo(after.tasks[0].forkRepo).tokens.filter(t=>!t.revoked)).toHaveLength(1);
+  }finally{restore();}
+ });
+
+});
+
+describe('replayDelta',()=>{
+ /** A commit whose root tree is the parent's with `edit` applied to its entries. */
+ async function rootEdit(repo:ReturnType<FakeArtifacts['create']>,parent:string,edit:(entries:TreeEntry[])=>TreeEntry[]):Promise<string>{
+  const meta=(await repo.readCommit(parent))!,entries=edit([...(await repo.readTree(meta.treeHash))!]).sort((a,b)=>a.name<b.name?-1:1);
+  const tree=repo.store.put({kind:'tree',entries});
+  return repo.store.put({kind:'commit',meta:{...meta,hash:'',treeHash:tree,parents:[parent],message:'edit'}});
+ }
+ const setup=()=>{const ns=new FakeArtifacts(),repo=ns.create('app'),base=repo.commit({'run.sh':'echo\n','README.md':'r\n'},'base');return {repo,base};};
+ const noScope=()=>{},divergent=(path:string)=>Object.assign(new Error(`divergent ${path}`),{code:'divergent'});
+ const gitlink={name:'sub',mode:'160000',type:'gitlink' as const,hash:'1'.repeat(40)};
+ it('refuses a candidate that adds a gitlink',async()=>{
+  const {repo,base}=setup(),cand=await rootEdit(repo,base,e=>[...e,gitlink]),original=await listTree(repo,base);
+  await expect(replayDelta(repo,base,cand,replayFrom(original),noScope,divergent)).rejects.toMatchObject({status:409,code:'integration-conflict'});
+ });
+ it('refuses a candidate that removes a gitlink',async()=>{
+  const {repo,base}=setup(),withLink=await rootEdit(repo,base,e=>[...e,gitlink]),cand=await rootEdit(repo,withLink,e=>e.filter(x=>x.name!=='sub'));
+  await expect(replayDelta(repo,withLink,cand,replayFrom(await listTree(repo,withLink)),noScope,divergent)).rejects.toMatchObject({status:409,code:'integration-conflict'});
+ });
+ it('replays a mode-only change with its kind and treats it as divergent for a later content edit',async()=>{
+  const {repo,base}=setup(),original=await listTree(repo,base),r=replayFrom(original);
+  const chmod=await rootEdit(repo,base,e=>e.map(x=>x.name==='run.sh'?{...x,mode:'100755',type:'exec' as const}:x));
+  await replayDelta(repo,base,chmod,r,noScope,divergent);
+  expect(replayChanges(r,original)).toEqual([expect.objectContaining({path:'run.sh',type:'exec'})]);
+  const edit=repo.commit({'run.sh':'echo hi\n','README.md':'r\n'},'edit');
+  await expect(replayDelta(repo,base,edit,r,noScope,divergent)).rejects.toMatchObject({code:'divergent'});
+ });
 });

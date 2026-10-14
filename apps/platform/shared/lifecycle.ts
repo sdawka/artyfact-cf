@@ -16,11 +16,11 @@ export interface LifecycleTaskPacket { systemId:string; planId:string; taskId:st
   wave?:number|null;
   /** Plain-language independence statement: which tasks share no scope, which conflict, and what to leave alone. */
   independence?:string;
-  /** Other live tasks' write globs this task must not edit (minus its own). */
+  /** All other open tasks' write globs, minus any that overlap this task's own permitted globs or paths. */
   doNotTouch?:{taskId:string; globs:string[]}[];
   /** Other tasks of the plan that may run at the same time. */
   concurrent?:PacketTaskRef[];
-  /** Dependencies whose selected candidates are in this task's base. */
+  /** Selected dependency tasks. Same-binding ones are already in this task's base; others are not in the fork and are named for context. */
   buildsOn?:{taskId:string; title:string; candidateId:string|null}[];
   /** AGENTS.md for the task workspace. The CLI writes it when present, else its fixed text. */
   agentsMd?:string }

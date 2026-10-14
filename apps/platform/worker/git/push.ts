@@ -8,8 +8,11 @@ import { buildPack } from "./pack";
 import { concatBytes, encodeBlob, encodeCommit, encodeTree, hashObject, type EntryKind, type GitObject, type TreeItem } from "./objects";
 import { FLUSH, demuxSideband, parsePkts, pkt, pktText } from "./pkt-line";
 
-/** One edit: new file content, or null to delete the file. */
-export interface FileChange { path: string; content: string | Uint8Array | null }
+/**
+ * One edit: new file content, or null to delete the file. `type` sets the entry kind (`blob`, `exec`, `symlink`);
+ * without it an existing file keeps its kind and a new file is a plain blob.
+ */
+export interface FileChange { path: string; content: string | Uint8Array | null; type?: "blob" | "exec" | "symlink" }
 
 export type PushRejectCode = "stale-head" | "auth" | "rejected" | "unpack" | "protocol" | "no-change" | "missing-path" | "path-conflict" | "invalid-path";
 
@@ -45,7 +48,7 @@ export function pathProblem(path: string): string | null {
   return null;
 }
 
-type Node = { file: string | Uint8Array | null } | { dir: Map<string, Node> };
+type Node = { file: string | Uint8Array | null; type?: FileChange["type"] } | { dir: Map<string, Node> };
 
 function changeTree(changes: FileChange[]): Map<string, Node> {
   const root = new Map<string, Node>();
@@ -59,7 +62,7 @@ function changeTree(changes: FileChange[]): Map<string, Node> {
       const existing = here.get(name);
       if (i === parts.length - 1) {
         if (existing) throw new PushRejected("path-conflict", `path ${c.path} is changed twice, or both as a file and a directory`);
-        here.set(name, { file: c.content });
+        here.set(name, { file: c.content, ...(c.type && { type: c.type }) });
       } else {
         if (existing && "file" in existing) throw new PushRejected("path-conflict", `path ${parts.slice(0, i + 1).join("/")} is changed both as a file and a directory`);
         if (!existing) here.set(name, { dir: new Map() });
@@ -75,7 +78,8 @@ const asItem = (e: TreeEntry): TreeItem => ({ name: e.name, hash: e.hash, type: 
 /**
  * Apply `changes` to the tree `treeHash` (null = empty). Returns the new root tree id and the objects that must be
  * sent (new blobs and every rewritten tree along an edited path). Unchanged subtrees keep their ids and are not
- * read; a directory left empty is pruned; an executable or symlink file keeps its mode when its content changes.
+ * read; a directory left empty is pruned; a change with a `type` sets the entry kind (a mode-only change counts), and
+ * one without keeps an executable or symlink file's kind when its content changes.
  */
 export async function rewriteTree(repo: ArtifactsRepoLike, treeHash: string | null, changes: FileChange[]): Promise<{ tree: string; objects: GitObject[]; changed: boolean }> {
   const objects = new Map<string, GitObject>();
@@ -103,7 +107,7 @@ export async function rewriteTree(repo: ArtifactsRepoLike, treeHash: string | nu
         // Writing a file where a directory stands would silently drop everything under it.
         if (cur?.type === "tree") throw new PushRejected("path-conflict", `${path} is a directory; it cannot be written as a file`);
         const hash = await add(encodeBlob(node.file));
-        const type: EntryKind = cur?.type === "exec" || cur?.type === "symlink" ? cur.type : "blob";
+        const type: EntryKind = node.type ?? (cur?.type === "exec" || cur?.type === "symlink" ? cur.type : "blob");
         if (cur && cur.hash === hash && cur.type === type) continue;
         items.set(name, { name, hash, type });
         changed = true;

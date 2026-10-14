@@ -333,7 +333,15 @@ export class SystemAuthority extends DurableObject<Env> {
     this.sql.exec('UPDATE realizations SET pinned_genome=?,pinned_genome_repo=?,task_plan_id=? WHERE id=?',p.genome.commit,p.genome.repo,p.id,id);this.sql.exec('UPDATE realizations SET task_binding_id=? WHERE id=?',artifactId,id);
     return this.realization(id)!;
   }
-  async lifecyclePromote(pid:string,input:{candidateIds:string[];expectedHead:string|null;rationale:string;gates:Record<string,GateCriterion[]>;by:string}):Promise<{plan:RealizationPlan;commit:SystemCommit;ended:EndedCredential[]}> {
+  /**
+   * Plan promotion. A gate refusal comes back as `{ok:false, code, blocking, advisories}` (a thrown PromotionBlockedError
+   * would lose its class and items over RPC); every other refusal still throws.
+   */
+  async lifecyclePromote(pid:string,input:{candidateIds:string[];expectedHead:string|null;rationale:string;gates:Record<string,GateCriterion[]>;by:string}):Promise<({ok:true}&{plan:RealizationPlan;commit:SystemCommit;ended:EndedCredential[]})|{ok:false;code:PromotionBlockedError['code'];blocking:GateItem[];advisories:GateItem[]}> {
+    try{return {ok:true,...await this.lifecyclePromoteTx(pid,input)};}
+    catch(e){if(e instanceof PromotionBlockedError)return {ok:false,code:e.code,blocking:e.blocking,advisories:e.advisories};throw e;}
+  }
+  private async lifecyclePromoteTx(pid:string,input:{candidateIds:string[];expectedHead:string|null;rationale:string;gates:Record<string,GateCriterion[]>;by:string}):Promise<{plan:RealizationPlan;commit:SystemCommit;ended:EndedCredential[]}> {
     const p=this.lifecycle().get(pid),state=this.state()!;
     if(p.status!=='integrated'||!p.integration.length)throw new ConflictError('invalid-state','integrate every binding before promotion');
     const ids=p.integration.map(b=>b.candidateId).sort();if(JSON.stringify(ids)!==JSON.stringify([...input.candidateIds].sort()))throw new ConflictError('invalid-state','reviewed integrated candidates changed');
