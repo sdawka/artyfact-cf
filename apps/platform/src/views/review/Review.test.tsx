@@ -1,6 +1,7 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { ConflictReport } from "../../../shared/api";
+import type { ConflictReport, SystemImportReview, ProposalPlanNode, SystemSummary } from "../../../shared/api";
+import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 import { SYSTEM, candidate, commit, realization } from "../work/testData";
@@ -327,5 +328,124 @@ describe("PromotionPanel", () => {
     expect(screen.getByRole("link", { name: "Open in Changelog" }).getAttribute("href")).toContain("commit=newcommit0000");
     window.removeEventListener("artyfact:fx", onFx);
     expect(fx).toContain("promoted");
+  });
+});
+
+describe("Import review", () => {
+  const plan = (id: string, kind: string, title: string, path: string[], children: ProposalPlanNode[] = []): ProposalPlanNode =>
+    ({ id, kind, title, path, summary: "", opIds: [], children });
+  const ROOT = "system.peopling";
+  const tree = [plan("thing.webapp", "thing", "Web app", [ROOT, "thing.webapp"], [
+    plan("section.runtime", "section", "Runtime", [ROOT, "thing.webapp", "section.runtime"]),
+    plan("GD.prompts", "description", "Prompts", [ROOT, "thing.webapp", "GD.prompts"]),
+  ])];
+  const review: SystemImportReview = { status: "pending", genomeCommit: "abc1234def5678", tree, findings: [], unmapped: ["public/legacy.html"] };
+  const summary = (pending: boolean) => ({
+    systemId: SYSTEM, title: "Peopling", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "abc1234def5678", evolutionCounts: {}, updatedAt: "",
+    ...(pending && { importReview: { status: "pending" as const, genomeCommit: "abc1234def5678", nodes: 3 } }),
+  }) as SystemSummary;
+  const importSeed = (qc: Parameters<ReturnType<typeof seed>>[0]) => {
+    queueSeed()(qc);
+    qc.setQueryData(qk.model(SYSTEM, "head"), { ...fixtureBundle(), source: "api" as const });
+    qc.setQueryData(qk.systems(), [summary(true)]);
+    qc.setQueryData(["importReview", SYSTEM], review);
+  };
+  const stub = () => {
+    const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const u = String(input);
+      if (u.endsWith("/api/systems")) return json(200, [summary(false)]);
+      if (u.endsWith("/import-review/accept") && init?.method === "POST") {
+        return json(200, { review: { ...review, status: "accepted" }, amendment: { evolution: EVO1, realization: "realization.rm", candidate: "cand.rm" } });
+      }
+      if (u.endsWith("/import-review")) return json(200, review);
+      if (u.includes("/model")) return json(200, fixtureBundle());
+      if (u.includes("/evolutions")) return json(200, { evolutions: [], realizations: [] });
+      if (u.includes("/history")) return json(200, { commits: [] });
+      if (u.includes("/conflicts")) return json(200, { conflicts: [] });
+      return json(404, { error: { code: "not-found", message: "no" } });
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  };
+
+  it("lists a pending import first as 'Import · N nodes', counted once in the rail", async () => {
+    stub();
+    renderApp(REVIEW, undefined, importSeed);
+    const q = await queue();
+    expect(within(q).getByRole("heading", { name: /Waiting on you\s*3/ })).toBeTruthy();
+    const groups = within(q).getAllByRole("region");
+    expect(groups[0]!.getAttribute("aria-labelledby") && within(groups[0]!).getByRole("heading").textContent).toBe("Import");
+    const row = within(q).getByTestId("queue-import");
+    expect(row.getAttribute("data-kind")).toBe("import");
+    expect(row.textContent).toMatch(/Import · 3 nodes.*awaits an admin.*abc1234/);
+    expect(screen.getByRole("link", { name: "Review, 3 waiting" })).toBeTruthy();
+  });
+
+  it("opens the import review from its row: the tree, the unmapped paths, accept disabled until every node is decided", async () => {
+    stub();
+    const { router } = renderApp(REVIEW, undefined, importSeed);
+    fireEvent.click(within(await queue()).getByTestId("queue-import"));
+    await waitFor(() => expect(router.state.location.search).toBe("?panel=import"));
+    const panel = await screen.findByRole("article", { name: "Import review" });
+    expect(within(await queue()).getByTestId("queue-import").getAttribute("aria-current")).toBe("true");
+    expect(within(panel).getByRole("tree", { name: "Imported Genome" })).toBeTruthy();
+    expect(within(panel).getByRole("list", { name: "Unmapped app paths" }).textContent).toContain("public/legacy.html");
+    // Two-state: no Defer.
+    expect(within(panel).queryByRole("button", { name: /^Defer/ })).toBeNull();
+    const accept = () => within(panel).getByRole("button", { name: /^Accept import/ }) as HTMLButtonElement;
+    fireEvent.change(within(panel).getByLabelText("Accepted interpretation"), { target: { value: "Peopling as written." } });
+    expect(accept().disabled).toBe(true);
+    expect(within(panel).getByText(/3 nodes are undecided/)).toBeTruthy();
+    expect(within(panel).getByTestId("import-summary").textContent).toBe("3 nodes: 0 agreed · 0 rejected · 3 undecided");
+    fireEvent.click(within(panel).getByRole("button", { name: "Agree Web app" }));
+    expect(within(panel).getByTestId("import-summary").textContent).toBe("3 nodes: 3 agreed · 0 rejected");
+    expect(accept().disabled).toBe(false);
+    expect(accept().textContent).toBe("Accept import");
+    // There is no reject route: the button says why it is disabled.
+    expect((within(panel).getByRole("button", { name: "Reject import" }) as HTMLButtonElement).disabled).toBe(true);
+    expect(within(panel).getByText(/cannot reject an import yet/)).toBeTruthy();
+  });
+
+  it("sends the effectively rejected nodes with the interpretation and links the removal amendment", async () => {
+    const fetchMock = stub();
+    renderApp(`${REVIEW}?panel=import`, undefined, importSeed);
+    const panel = await screen.findByRole("article", { name: "Import review" });
+    fireEvent.click(within(panel).getByRole("button", { name: "Agree Web app" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Reject Prompts" }));
+    const accept = within(panel).getByRole("button", { name: "Accept import, remove 1 rejected" }) as HTMLButtonElement;
+    fireEvent.click(accept);
+    expect(within(panel).getByText("Interpretation is required to accept.")).toBeTruthy();
+    expect(fetchMock.mock.calls.some(([u]) => String(u).endsWith("/accept"))).toBe(false);
+    fireEvent.change(within(panel).getByLabelText("Accepted interpretation"), { target: { value: "Peopling, without the prompts." } });
+    fireEvent.click(accept);
+    expect(await within(panel).findByText(/1 rejected node was removed from the Genome/)).toBeTruthy();
+    const body = JSON.parse(String(fetchMock.mock.calls.find(([u]) => String(u).endsWith("/import-review/accept"))![1]!.body));
+    expect(body).toEqual({ interpretation: "Peopling, without the prompts.", rejectedNodes: ["GD.prompts"] });
+    expect(within(panel).getByRole("link", { name: "Open the removal amendment" }).getAttribute("href")).toBe(`${REVIEW}?evolution=${EVO1}&realization=realization.rm`);
+    // The systems refetch has no pending review: the row leaves the queue.
+    await waitFor(() => expect(screen.queryByTestId("queue-import")).toBeNull());
+  });
+
+  it("drops the row when the review itself is accepted, even while the systems list still says pending", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) => {
+      const u = String(input);
+      if (u.endsWith("/api/systems")) return json(200, [summary(true)]);
+      if (u.endsWith("/import-review")) return json(200, { ...review, status: "accepted" });
+      return json(404, { error: { code: "not-found", message: "no" } });
+    }));
+    renderApp(REVIEW, undefined, (qc) => {
+      importSeed(qc);
+      qc.removeQueries({ queryKey: ["importReview", SYSTEM] });
+    });
+    const q = await queue();
+    await waitFor(() => expect(within(q).queryByTestId("queue-import")).toBeNull());
+    expect(within(q).getByRole("heading", { name: /Waiting on you\s*2/ })).toBeTruthy();
+  });
+
+  it("says so when the System has no import review", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) =>
+      String(input).endsWith("/api/systems") ? json(200, [summary(false)]) : json(404, { error: { code: "not-found", message: "no review" } })));
+    renderApp(`${REVIEW}?panel=import`, undefined, (qc) => { queueSeed()(qc); qc.setQueryData(qk.model(SYSTEM, "head"), { ...fixtureBundle(), source: "api" as const }); });
+    expect(await screen.findByText("This System has no import review.")).toBeTruthy();
   });
 });

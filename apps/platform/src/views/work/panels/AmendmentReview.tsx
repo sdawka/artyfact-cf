@@ -1,9 +1,11 @@
-import { useId, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { useAmendmentReview } from "@/api/queries";
+import { useModel } from "@/model/useModel";
 import { useSystemRoute } from "@/model/useSelection";
 import { whyFor } from "../../code/why";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
-import type { Candidate, Realization } from "../../../../shared/api";
+import type { Candidate, GenomeCandidateReview, ProposalPlanNode, Realization } from "../../../../shared/api";
+import { AgreementTree, cascade, opDecisions, planFromDelta, walk } from "../intent/agreement";
 import styles from "./AmendmentReview.module.css";
 import { Decision, type DecisionOutcome } from "./amendment/Decision";
 import { afterText, shortSha } from "./amendment/helpers";
@@ -29,14 +31,48 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+/** Why accept is disabled while any node of an amendment's tree is rejected: the platform takes it whole or not at all. */
+export const PARTIAL_AMENDMENT = "The platform cannot accept part of an amendment; reject it with the reasons or agree all.";
+
 /**
- * Admin review of an agent's Genome change: rule findings (deterministic) and System One signals
- * (model judgments) shown in separate sections, then accept or reject.
+ * The amendment's changes as an agreement tree (`genome` variant) built client-side from the semantic delta; each open
+ * node shows its changes' field diffs. Decisions stay in the view: they only say whether accept can go ahead.
+ */
+function ChangeTree({ delta, readOnly, onRejected }: { delta: GenomeCandidateReview["delta"]; readOnly: string | null; onRejected(titles: string[]): void }) {
+  const m = useModel();
+  const built = useMemo(() => planFromDelta(delta, m.index), [delta, m.index]);
+  const [plan, setPlan] = useState<ProposalPlanNode[]>(built.plan);
+  const changeOf = useMemo(() => new Map(built.ops.map((o, i) => [o.id, delta.changes[i]!] as const)), [built.ops, delta.changes]);
+  if (!delta.changes.length) return <p className={styles.muted}>No Genome subjects changed.</p>;
+  const decide = (id: string, d: Parameters<typeof cascade>[2]) => {
+    const next = cascade(plan, id, d);
+    setPlan(next);
+    const rejectedOps = new Set([...opDecisions(next)].filter(([, v]) => v.decision === "reject").map(([op]) => op));
+    onRejected(walk(next).filter((n) => n.opIds.some((o) => rejectedOps.has(o))).map((n) => n.title));
+  };
+  return (
+    <AgreementTree
+      plan={plan}
+      ops={built.ops}
+      variant="genome"
+      readOnly={readOnly}
+      label="Amendment changes"
+      onDecide={decide}
+      renderOps={(n) => <SemanticDelta delta={{ changes: n.opIds.map((o) => changeOf.get(o)!).filter(Boolean) }} />}
+    />
+  );
+}
+
+/**
+ * Admin review of an agent's Genome change: its changes as an agreement tree, rule findings (deterministic) and System
+ * One signals (model judgments) in separate sections, then accept (all or nothing) or reject.
  */
 export default function AmendmentReview({ evolutionId, realization, candidate }: AmendmentReviewProps) {
   const q = useAmendmentReview(evolutionId, realization.id);
   const [outcome, setOutcome] = useState<DecisionOutcome | null>(null);
+  const [rejectedNodes, setRejectedNodes] = useState<string[]>([]);
   const { systemId } = useSystemRoute();
+  const m = useModel();
   // An editor commit's "why" starts the interpretation (shown as pending until edited).
   const editorWhy = whyFor(systemId, [realization.id]);
 
@@ -71,8 +107,14 @@ export default function AmendmentReview({ evolutionId, realization, candidate }:
         </dl>
       </header>
 
-      <Section title="Semantic delta">
-        <SemanticDelta delta={r.delta} />
+      <Section title="Changes">
+        {/* Keyed on the reviewed commit: a refetch with another delta starts the decisions afresh. */}
+        <ChangeTree
+          key={r.commit ?? candidate.commit}
+          delta={r.delta}
+          readOnly={state !== "awaiting admin" ? "This amendment is already decided." : m.bundle.source === "fixture" ? "Fixture data: the platform API is not connected, so nothing can be decided." : null}
+          onRejected={setRejectedNodes}
+        />
       </Section>
       <Section title="Readiness diff">
         <ReadinessDiff diff={diff} />
@@ -91,6 +133,7 @@ export default function AmendmentReview({ evolutionId, realization, candidate }:
           prefilledFromWhy={!!editorWhy}
           focusId={first?.id}
           blocked={blocked}
+          blockedReason={rejectedNodes.length ? `${PARTIAL_AMENDMENT} Rejected: ${rejectedNodes.join(", ")}.` : null}
           outcome={outcome}
           onOutcome={setOutcome}
         />

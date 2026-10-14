@@ -6,6 +6,7 @@ import { useKeepParams, useSelection } from "@/model/useSelection";
 import { useWorkData } from "../work/data";
 import { useParam } from "../work/lib";
 import { CandidateReview } from "../work/panels/CandidateReview";
+import { GenomeReview } from "../work/panels/GenomeReview";
 import { PromotionPanel } from "../work/panels/PromotionPanel";
 import { QueueList } from "./QueueList";
 import { useReviewQueue } from "./useReviewQueue";
@@ -13,7 +14,8 @@ import styles from "./review.module.css";
 
 /**
  * The operator's inbox and promotion desk. Left: every decision waiting on a person, grouped by Evolution. Right: the
- * selected one, either a candidate review (`?evolution=&realization=`) or the promotion desk (`?panel=promote&evolution=`).
+ * selected one: a candidate review (`?evolution=&realization=`), the promotion desk (`?panel=promote&evolution=`) or the
+ * import review (`?panel=import`, the URL the platform's `import-unreviewed` refusal names).
  * `?candidates=a,b` (global) preselects candidates for composition.
  */
 export default function ReviewView() {
@@ -26,13 +28,14 @@ export default function ReviewView() {
   const realization = realizationId ? realizations.find((r) => r.id === realizationId) : undefined;
   const evolutionId = evolutionParam ?? realization?.evolution ?? null;
   const evolution = evolutionId ? evolutions.find((e) => e.id === evolutionId) : undefined;
+  const importing = panel === "import";
   const promoting = panel === "promote" && !!evolution;
   // Titles from the merged board (the API's, else the Genome's declared Evolutions).
-  const groups = queue.groups.map((g) => ({ ...g, title: evolutions.find((e) => e.id === g.evolution)?.title ?? g.title }));
-  const open = promoting || (!!realization && !!evolution) || selected.length > 0;
+  const groups = queue.groups.map((g) => ({ ...g, title: (g.evolution && evolutions.find((e) => e.id === g.evolution)?.title) || g.title }));
+  const open = importing || promoting || (!!realization && !!evolution) || selected.length > 0;
   const loading = boardLoading || queue.isLoading;
   // A deep link (`?panel=promote&evolution=` or `?realization=`) keeps the panes open while loading or when it names nothing.
-  const linked = panel === "promote" || !!realizationId;
+  const linked = importing || panel === "promote" || !!realizationId;
   const missing = loading
     ? null
     : realizationId && !realization
@@ -44,14 +47,16 @@ export default function ReviewView() {
   return (
     <section aria-labelledby="view-title" className={styles.view}>
       <h1 id="view-title">Review</h1>
-      <p className={styles.lede}>Candidates, amendments and promotions that need a person.</p>
+      <p className={styles.lede}>Imports, candidates, amendments and promotions that need a person.</p>
       {queue.count === 0 && !open && !linked ? (
         <EmptyState surface title={loading ? "Loading the queue…" : "Nothing is waiting on you."} live={loading} />
       ) : (
         <div className={styles.panes}>
-          <QueueList groups={groups} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} loading={loading} />
+          <QueueList groups={groups} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} importing={importing} loading={loading} />
           <div className={styles.detail}>
-            {promoting ? (
+            {importing ? (
+              <GenomeReview />
+            ) : promoting ? (
               <PromotionPanel key={evolution!.id} evolution={evolution!} />
             ) : realization && evolution ? (
               // Keyed: a decision made on one row never carries over to the next.
