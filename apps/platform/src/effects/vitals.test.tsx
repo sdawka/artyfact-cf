@@ -1,7 +1,9 @@
+import type { ReactElement } from "react";
 import { screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { fixtureBundle } from "@/api/fixtures";
-import { useModelBundle } from "@/api/queries";
+import { useEvolutions, useHistory, useModelBundle, useReadiness } from "@/api/queries";
+import { useReviewCount } from "@/model/useReviewCount";
 import { buildIndex } from "@/model/index";
 import { ModelProvider } from "@/model/useModel";
 import { renderApp } from "@/testing/render";
@@ -145,5 +147,40 @@ describe("useSystemVitals", () => {
     renderApp("/s/system.peopling/r/head/x", [{ path: "/s/:systemId/r/:rev/x", element: <Harness /> }]);
     const out = await screen.findByLabelText("vitals");
     expect(JSON.parse(out.textContent!)).toEqual(systemVitals(fixtureInput()).surface);
+  });
+});
+
+/** What the Shell already asked for before vitals shared Work's grouping: SideNav's Review count plus the old vitals queries. */
+function ShellBaseline() {
+  useReviewCount();
+  useReadiness();
+  useEvolutions();
+  useHistory();
+  return <output aria-label="baseline" />;
+}
+function keyHarness(Probe: () => ReactElement) {
+  return function KeyHarness() {
+    const { data } = useModelBundle();
+    if (!data) return null;
+    return <ModelProvider bundle={data}><Probe /></ModelProvider>;
+  };
+}
+const queryKeys = (qc: { getQueryCache(): { getAll(): { queryKey: readonly unknown[] }[] } }) =>
+  new Set(qc.getQueryCache().getAll().map((q) => JSON.stringify(q.queryKey)));
+
+describe("useSystemVitals queries", () => {
+  it("asks for nothing the Shell does not already load on a non-Work route (same query keys, shared cache)", async () => {
+    const at = (el: ReactElement) => renderApp("/s/system.peopling/r/head/x", [{ path: "/s/:systemId/r/:rev/x", element: el }]);
+    const Baseline = keyHarness(ShellBaseline);
+    const base = at(<Baseline />);
+    await screen.findByLabelText("baseline");
+    const baseline = queryKeys(base.qc);
+    base.unmount();
+    const vitals = at(<Harness />);
+    await screen.findByLabelText("vitals");
+    const used = queryKeys(vitals.qc);
+    expect(used.size).toBeGreaterThan(1);
+    const extra = [...used].filter((k) => !baseline.has(k));
+    expect(extra).toEqual([]);
   });
 });
