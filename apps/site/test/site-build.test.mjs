@@ -100,10 +100,11 @@ test('homepage leads with the approved headline and readable struck-through prac
   assert.equal(document.querySelector('h1').textContent, 'The next Git platform keeps track of the product, not just the files.');
   assert(document.body.textContent.includes('A Git platform for teams of AI agents, on Cloudflare.'));
   const struck = [...document.querySelectorAll('.practice-card s')].map(s => s.textContent);
-  assert(struck.length >= 20 && struck.includes('merge conflicts') && struck.includes('spec.md and spec-driven development'));
+  assert(struck.length >= 20 && struck.includes('merge conflicts') && !/task packet|meta-ontology|provenance/i.test(document.querySelector('main').textContent) && struck.includes('spec.md and spec-driven development'));
   assert(!/A\/B|cohort|\bSLOs?\b|incident/i.test(document.querySelector('.practice-stack').textContent));
   assert(document.querySelector('.checkout-step-buttons')?.hasAttribute('hidden'), 'Step buttons stay hidden until hydration');
-  assert(document.body.textContent.includes('Outcome: not measured yet'));
+  assert(document.body.textContent.includes('Not measured yet'));
+  assert(document.body.textContent.includes('Same step in the model. Run in order. 1 rule failing.'));
   assert(/All seven example steps are readable/.test(document.querySelector('noscript')?.textContent ?? ''));
   assert(!document.querySelector('button button'));
 });

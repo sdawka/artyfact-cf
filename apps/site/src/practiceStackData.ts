@@ -4,14 +4,14 @@ export type Practice = { discipline: Discipline; replaces: string; artyfact: str
 /** Each claim is checked against the platform and packages; partial work says so. */
 export const practices: Practice[] = [
   { discipline: 'Engineering', replaces: 'git worktrees, a branch per agent', artyfact: 'A private fork for each agent Task, with a short-lived write token.', term: 'Task', status: 'yes' },
-  { discipline: 'Engineering', replaces: 'AGENTS.md and prompt files', artyfact: 'A task packet cut from the model: subjects, permitted paths, steps, dependencies and checks.', status: 'yes' },
+  { discipline: 'Engineering', replaces: 'AGENTS.md and prompt files', artyfact: 'A brief for each Task, cut from the model: what it changes, which paths it may write, its steps, dependencies and checks.', status: 'yes' },
   { discipline: 'Engineering', replaces: 'spec.md and spec-driven development', artyfact: 'A typed, multi-level model of the product. It is validated and versioned.', term: 'Genome', status: 'yes' },
   { discipline: 'Engineering', replaces: 'linters and policy-as-code', artyfact: 'Rule packs over the model. Each finding shows the facts that produced it.', status: 'yes' },
   { discipline: 'Engineering', replaces: 'CI gates', artyfact: 'Checks bound to criteria. A check that did not run stays unknown. Only pass is green.', status: 'yes' },
   { discipline: 'Engineering', replaces: 'merge queues and branch protection', artyfact: 'A compare-and-swap promote. It refuses work reviewed against an outdated head.', status: 'yes' },
-  { discipline: 'Engineering', replaces: 'merge conflicts', artyfact: 'Semantic overlap. Tasks that touch the same screen, rule or journey are flagged, even in different files.', status: 'yes' },
+  { discipline: 'Engineering', replaces: 'merge conflicts', artyfact: 'Tasks that change the same part of the model are flagged and run in order, even when their files differ.', status: 'yes' },
   { discipline: 'Engineering', replaces: 'changelogs and release notes', artyfact: 'A changelog of every System commit. Compare the model or the files.', term: 'System', status: 'yes' },
-  { discipline: 'Engineering', replaces: 'boilerplate and templates', artyfact: 'Reusable pieces with pinned versions, composed with provenance.', term: 'Parts', status: 'yes' },
+  { discipline: 'Engineering', replaces: 'boilerplate and templates', artyfact: 'Reusable pieces with pinned versions. Composition records where each piece came from.', term: 'Parts', status: 'yes' },
   { discipline: 'Engineering', replaces: 'LLM evals', artyfact: 'AI judgments with a confidence score. Below the threshold they stay unknown, never green.', status: 'yes' },
   { discipline: 'Product', replaces: 'PRDs', artyfact: 'Purposes with success criteria, non-goals and constraints, inside the model.', status: 'yes' },
   { discipline: 'Product', replaces: 'personas', artyfact: 'The people and groups each purpose serves.', status: 'yes' },

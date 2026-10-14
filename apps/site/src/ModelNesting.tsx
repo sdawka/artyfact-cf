@@ -31,6 +31,6 @@ export function ModelNesting() {
         {alongside.map(([kind, value]) => <div key={kind}><dt>{kind}</dt><dd>{value}</dd></div>)}
       </dl>
     </div>
-    <p className="model-nesting-note">Sample data. A meta-ontology lets templates add their own kinds for Workers, CLIs, static sites, web apps and libraries. Artyfact models itself the same way. <a className="text-link" href="/model#meta-ontology">See Artyfact’s own model</a></p>
+    <p className="model-nesting-note">Sample data. A Thing is one app or service you deploy. A Section groups related parts of it. An Affordance is something a person can do on screen. Templates add their own levels for Workers, CLIs, static sites, web apps and libraries. Artyfact describes itself with the same model. <a className="text-link" href="/model#meta-ontology">See Artyfact’s own model</a></p>
   </section>;
 }

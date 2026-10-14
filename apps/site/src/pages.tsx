@@ -5,7 +5,7 @@ import { PracticeStack } from './PracticeStack';
 import { ModelNesting } from './ModelNesting';
 export type SiteConfig = { platform: string | null; source: string | null };
 export const pages = {
-  '/': { title: 'Artyfact — The Git platform that keeps track of the product', description: 'A Git platform for teams of AI agents, on Cloudflare. A living model of your product sits next to the code and connects every change request, agent fork, check, merge, deploy and runtime event to it.' },
+  '/': { title: 'Artyfact — The Git platform that keeps track of the product', description: 'A Git platform for teams of AI agents, on Cloudflare. A living model of your product sits next to the code and connects change requests, agent work, checks, merges, deploys and runtime events to it.' },
   '/model': { title: 'Ontology Driven Development — Artyfact', description: 'Add a semantic layer to code storage and delivery: reuse context, scope implementation, preserve intent and trace evidence. Explore Artyfact’s meta ontology.' },
   '/connect-agent': { title: 'Bring your agent — Artyfact', description: 'Use your own local agent with Artyfact task packets, isolated Git workspaces, checkpoints and candidate submissions.' },
 };
@@ -30,10 +30,10 @@ function NotFound() { return <section className="page-intro"><h1>Page not found.
 function Home({ config, landingHtml }: { config: SiteConfig; landingHtml?: string }) {
   return <>
     <section className="hero">
-      <p className="eyebrow">Next-Gen Git Platform entry · Workers + Artifacts</p>
+      <p className="eyebrow">Cloudflare Next-Gen Git Platform entry · Built on Workers and Artifacts</p>
       <h1>The next Git platform keeps track of the product, not just the files.</h1>
       <p className="lead">A Git platform for teams of AI agents, on Cloudflare.</p>
-      <p>It keeps a living, multi-level model of your product next to the code. Every change request, agent fork, check, merge, deploy and runtime event connects to it.</p>
+      <p>It keeps a living, multi-level model of your product next to the code. It connects change requests, agent work, checks, merges, deploys and runtime events to it.</p>
       <div className="actions"><Platform config={config} /><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a>{config.source && <a className="text-link" href={config.source}>Source</a>}</div>
     </section>
     <PracticeStack />
@@ -42,17 +42,18 @@ function Home({ config, landingHtml }: { config: SiteConfig; landingHtml?: strin
       {landingHtml === undefined ? <div data-landing-story=""><LandingStory /></div> : <div data-landing-story="" dangerouslySetInnerHTML={{ __html: landingHtml }} />}
     </section>
     <section className="section cloudflare-stack" aria-labelledby="cloudflare-heading">
-      <div className="section-heading"><h2 id="cloudflare-heading">How it runs on Cloudflare.</h2><p>One Worker, one Durable Object class and Cloudflare Artifacts for Git. You run it in your own account.</p></div>
+      <div className="section-heading"><h2 id="cloudflare-heading">How it runs on Cloudflare.</h2><p>Workers, a Durable Object, Workflows and Cloudflare Artifacts for Git. You run it in your own account.</p></div>
       <dl className="cloudflare-cells">
-        <div><dt>Workers + Static Assets</dt><dd>One Worker serves the API and the review app.</dd></div>
+        <div><dt>Workers + Static Assets</dt><dd>The platform Worker serves the API and the review app.</dd></div>
         <div><dt>Artifacts</dt><dd>Git repositories for the model and the app. A fork for each agent Task.</dd></div>
+        <div><dt>Workflows</dt><dd>A separate CI Worker builds and deploys app commits. The platform starts it through a cross-script binding.</dd></div>
         <div><dt>Durable Object + SQLite</dt><dd>One per System. It holds the head, the history and the compare-and-swap promote.</dd></div>
         <div><dt>Queues <span className="term-label">optional</span></dt><dd>Push events from Artifacts. The CLI submits directly, so this path is secondary.</dd></div>
       </dl>
     </section>
     <section className="section agent-strip" aria-labelledby="agent-strip-heading">
-      <h2 id="agent-strip-heading">Bring your own agent.</h2>
-      <ol><li>Run the agent you already use, on your machine.</li><li>It gets a task packet and a token for its own fork.</li><li>It checkpoints, then submits a candidate for review.</li></ol>
+      <h2 id="agent-strip-heading">Bring your agent.</h2>
+      <ol><li>Run the agent you already use, on your machine.</li><li>It gets a brief cut from the model and a token for its own fork.</li><li>It checkpoints, then submits a candidate for review.</li></ol>
       <a className="text-link" href="/connect-agent">Read the agent guide</a>
     </section>
     <section className="closing section"><h2>Track the product.<br />Not just the files.</h2><div><p>Start with the agent guide. Explore the model when you want the deeper picture.</p><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a></div></section>

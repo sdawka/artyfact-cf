@@ -64,7 +64,8 @@ test('checkout example steps through all seven states without errors', async ({ 
     await expect(button).toHaveAttribute('aria-current', 'step');
     await expect(page.locator('.checkout-story')).toHaveAttribute('data-step', String(index));
   }
-  await expect(page.locator('.checkout-deploy')).toContainText('Outcome: not measured yet');
+  await expect(page.locator('.checkout-deploy')).toContainText('Not measured yet');
+  await expect(page.getByText('Step 7 of 7: Decide what is next')).toBeVisible();
   expect(errors).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
@@ -74,17 +75,20 @@ test('effects and the example respect reduced motion', async ({ page }) => {
   await page.goto('https://artyfact.test/');
   await revealStory(page);
   await mounted(page);
-  await page.getByRole('button', { name: 'Step 3: Flag the overlap' }).click();
-  expect(await page.locator('.checkout-overlap').evaluate(element => getComputedStyle(element).transitionDuration)).toMatch(/^(0s|1e-05s|0.00001s)$/);
-  const step = await page.locator('.checkout-story').getAttribute('data-step');
-  await page.waitForTimeout(1500);
-  await expect(page.locator('.checkout-story')).toHaveAttribute('data-step', step!);
+  await page.getByRole('button', { name: 'Step 3: Run them in order' }).click();
+  const durations = await page.locator('.checkout-row, .checkout-verdict, .checkout-order').evaluateAll(elements => elements.map(element => getComputedStyle(element).transitionDuration));
+  expect(durations.length).toBeGreaterThan(8);
+  for (const duration of durations) expect(duration).toMatch(/^(0s|1e-05s|0.00001s)(, (0s|1e-05s|0.00001s))*$/);
   expect(errors).toEqual([]);
 });
 for (const path of ['/', '/model', '/connect-agent']) test('no axe violations with effects mounted: ' + path, async ({ page }) => {
   await page.goto('https://artyfact.test' + path);
   await expect(page.locator('[data-ambient] [data-effect="ambient"]')).toHaveAttribute('data-effect-mode', /^(gl|fallback)$/, { timeout: 15000 });
-  if (path === '/') await revealStory(page);
+  if (path === '/') {
+    const initial = await new AxeBuilder({ page }).analyze();
+    expect(initial.violations.map(v => v.id)).toEqual([]);
+    await revealStory(page);
+  }
   for (const step of path === '/' ? [1, 4, 7] : [null]) {
     if (step) await page.getByRole('group', { name: 'Example steps' }).getByRole('button').nth(step - 1).click();
     const { violations } = await new AxeBuilder({ page }).analyze();
