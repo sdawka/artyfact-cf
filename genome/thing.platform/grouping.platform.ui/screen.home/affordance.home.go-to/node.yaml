@@ -1,10 +1,10 @@
 id: affordance.home.go-to
 kind: affordance
 fields:
-  name: Go to… ⌘K
-  description: A header button that opens the command palette.
+  name: Go to…
+  description: "A header button (Mod+K) that opens Home's palette, Go to a System, Part or action…, with groups Systems, Shared Parts and Actions (Admin token…, Retry API with fixture data, Effects: turn on or off)."
   actor: user
-  trigger: click or ⌘K
+  trigger: click or Mod+K
   preconditions: []
   effects:
     - The palette opens with the search field focused

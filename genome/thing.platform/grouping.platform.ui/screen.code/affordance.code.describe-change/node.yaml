@@ -2,13 +2,13 @@ id: affordance.code.describe-change
 kind: affordance
 fields:
   name: Describe a change
-  description: Starts a change anchored on the file's nodes.
+  description: In the file pane, a link anchored on the file's node, or a menu Describe a change in when the file maps to several nodes.
   actor: user
   trigger: click
   preconditions:
-    - A file is open
+    - A mapped file is open
   effects:
-    - Work opens with the change panel anchored on the nodes
+    - Work opens with the change panel anchored on the node
   failure: []
 links:
   - rel: references

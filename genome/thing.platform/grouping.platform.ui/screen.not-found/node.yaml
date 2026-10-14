@@ -1,0 +1,10 @@
+id: screen.not-found
+kind: screen
+fields:
+  name: Page not found
+  description: "Any unknown URL. Home's header, the h1 Page not found and Nothing lives at <path>, with the one primary Open Home and a Start a System link. A route that fails to load shows the sibling error page instead: This System could not be loaded. (or This page could not be loaded.) with the cause, Try again and Open Home; after a deploy a stale chunk reads The app was updated. Reload to continue. with Reload."
+  route: "*"
+  states:
+    - not found
+    - route error
+    - app updated, reload

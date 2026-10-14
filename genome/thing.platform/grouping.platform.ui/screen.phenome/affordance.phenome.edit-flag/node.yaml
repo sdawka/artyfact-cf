@@ -1,0 +1,19 @@
+id: affordance.phenome.edit-flag
+kind: affordance
+fields:
+  name: Create or edit a flag
+  description: Create boolean flag or Edit <key> opens the flag form in place of the list (Back to flags), with Disable flag (danger) and the primary Save flag, disabled until a change reason is entered.
+  actor: user
+  trigger: click
+  preconditions:
+    - An admin token is set
+    - The binding's flag state is available
+  effects:
+    - The flag is saved and the list shows it
+  failure:
+    - "Enter a change reason. (disabled reason)"
+links:
+  - rel: invokes
+    to: endpoint.operations-post-operations-bindings-binding-flags
+  - rel: invokes
+    to: endpoint.operations-patch-operations-bindings-binding-flags-key

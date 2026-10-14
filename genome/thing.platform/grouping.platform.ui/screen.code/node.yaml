@@ -2,12 +2,13 @@ id: screen.code
 kind: screen
 fields:
   name: Code
-  description: A file tree and file pane for the revision's source, with each file mapped to its nodes. Actionable targets wear corner brackets and the page has one primary button; Describe a change opens the change panel, Edit and Commit… show their result in a banner.
+  description: "Genome and app source at any revision. Header: + New file (secondary) and the primary Commit changes, disabled with Nothing to commit. Edit a file first. until something is pending. A toolbar holds the Repository tabs (Genome, App) and the editing state; the pending well lists drafts with Discard. A file list and file pane share a list and detail (Back to files below 900px); the tree opens on the selected path. Commit replaces the file region as a panel (Back to file). The revision comes from the top bar; the header admin token is the only token."
   route: /s/:systemId/r/:rev/code
   states:
-    - loading
+    - "loading: Loading files…"
     - loaded
-    - empty
-    - error
-    - file loading
-    - no file selected
+    - "error: Could not list files"
+    - "no file selected: Pick a file to read it at <rev>."
+    - "not found: No file at <path> in this revision."
+    - binary or too large
+    - commit panel open

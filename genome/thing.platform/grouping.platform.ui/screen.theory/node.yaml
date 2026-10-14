@@ -2,10 +2,10 @@ id: screen.theory
 kind: screen
 fields:
   name: Theory
-  description: Purposes, claims and their evidence. Actionable targets wear corner brackets and the page has one primary button; selecting a claim opens it in the Inspector.
+  description: "Why the System should work: hypotheses, not a validated causal model. The header status counts claims, unknowns and theory gaps. Purpose with its success criteria, then Claims as a list by default (each row the chain Beneficiaries → Activities → Outputs → Outcomes with its indicator and an Evaluation method disclosure) or, at 1280px and wider, the five-column grid. Theory gaps lists the theory and purpose findings when there are any."
   route: /s/:systemId/r/:rev/theory
   states:
     - loading
     - loaded
-    - empty
+    - "empty: No claims yet."
     - error

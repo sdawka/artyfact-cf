@@ -1,8 +1,8 @@
 id: affordance.part.open-home
 kind: affordance
 fields:
-  name: Home
-  description: Returns to Home.
+  name: Open Home
+  description: The primary on the not-found and error states (with Try again when the error is not a 404); otherwise Home is the first scope link.
   actor: user
   trigger: click
   preconditions: []

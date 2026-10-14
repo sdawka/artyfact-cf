@@ -2,7 +2,11 @@ id: component.thing.signifiers
 kind: component
 fields:
   name: Thing signifiers
-  description: The Thing's name, id and the four cards' states.
+  description: The Output status and each section's empty state, which names the next step.
   states:
-    - loaded
+    - "Output: N realized (subtle)"
+    - "Output: none yet (subtle)"
+    - "empty: No source artifacts yet."
+    - "empty: No realized output yet. · Open Work"
+    - "empty: No runtime evidence yet. · Open Deployments"
     - unknown Thing (danger)

@@ -1,0 +1,13 @@
+id: affordance.part.copy
+kind: affordance
+fields:
+  name: Copy, Copy digest
+  description: Copy puts id@version on the clipboard; Copy digest puts the sha256 digest there.
+  actor: user
+  trigger: click
+  preconditions:
+    - The Part loaded
+  effects:
+    - The value is on the clipboard and the button reads Copied
+  failure:
+    - "Clipboard blocked: the value stays selected"

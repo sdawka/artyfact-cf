@@ -2,11 +2,11 @@ id: affordance.shell.jump
 kind: affordance
 fields:
   name: Jump
-  description: Choosing a result opens the best view for it.
+  description: Choosing a result opens it. A view opens; a node opens on the Map or focused in its best view; an action runs.
   actor: user
   trigger: Enter or click
   preconditions:
     - The palette is open
   effects:
-    - The view opens focused on the result and the palette closes
+    - The view opens focused on the result, or the action runs, and the palette closes
   failure: []

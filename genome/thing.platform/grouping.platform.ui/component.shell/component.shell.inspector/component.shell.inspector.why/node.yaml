@@ -2,7 +2,8 @@ id: component.shell.inspector.why
 kind: component
 fields:
   name: Why
-  description: "Why the node exists: the purposes and claims it serves."
+  description: "Why the node exists: its source and the features, requirements, criteria, Theory, Purpose and commitments that refer to it."
   states:
     - loaded
-    - "empty: no purpose linked"
+    - "Source: unknown (subtle)"
+    - "empty: No features, requirements, criteria, Theory, Purpose or commitments refer to this."

@@ -2,7 +2,7 @@ id: affordance.thing.switch-thing
 kind: affordance
 fields:
   name: Switch Thing
-  description: The Thing switcher moves to another Thing.
+  description: The Thing select in the page header's context line moves to another Thing on the same path.
   actor: user
   trigger: click
   preconditions:

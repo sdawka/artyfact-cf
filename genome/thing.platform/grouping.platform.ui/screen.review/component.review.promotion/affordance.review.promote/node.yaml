@@ -2,7 +2,7 @@ id: affordance.review.promote
 kind: affordance
 fields:
   name: Promote
-  description: The primary button. Promotes one candidate against the expected head in one transaction (admin token).
+  description: The desk's primary, in its header. Promotes against the expected head in one transaction; disabled with the first reason inline and n more reasons folded.
   actor: user
   trigger: click
   preconditions:
@@ -12,7 +12,7 @@ fields:
   effects:
     - A System commit is written and the row leaves the queue
   failure:
-    - "409 stale base: the stale message plus the agent's recovery line: rebase the fork on the new head and run `artyfact submit` again"
+    - "409 stale base: The head moved; the agent rebases the fork on the new head and runs `artyfact submit` again"
     - "403: the admin token is wrong"
 links:
   - rel: invokes

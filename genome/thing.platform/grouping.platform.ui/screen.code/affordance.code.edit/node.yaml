@@ -2,13 +2,13 @@ id: affordance.code.edit
 kind: affordance
 fields:
   name: Edit
-  description: Makes the file pane editable on a realization fork.
+  description: Makes the open file editable as a local draft on head; Discard and Delete file also change only the draft.
   actor: user
   trigger: click
   preconditions:
     - A file is open
-    - An admin token is set
+    - The revision is head
   effects:
-    - The pane becomes an editor
+    - The pane becomes an editor and the file joins the pending well
   failure:
-    - "403: the pane stays read-only with the reason"
+    - "Not head: Editing works on head; this is <rev>."

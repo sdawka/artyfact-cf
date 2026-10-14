@@ -1,14 +1,14 @@
 id: affordance.review.select-composition
 kind: affordance
 fields:
-  name: Select for composition
-  description: Marks a candidate to be composed with others; the button then reads Selected for composition.
+  name: Add to promotion
+  description: A pressed toggle on a candidate's detail that adds it to the promotion (?candidates=); its row then reads ● in promotion. With candidates added and nothing open, the detail lists them under Added to promotion with Promote <Evolution>.
   actor: user
   trigger: click
   preconditions:
-    - A candidate is selected
+    - An app candidate is open
   effects:
-    - The button reads Selected for composition and the overlap is recomputed
+    - The toggle is pressed, the row reads ● in promotion and overlap is recomputed
   failure: []
 links:
   - rel: references

@@ -1,0 +1,13 @@
+id: affordance.code.new-file
+kind: affordance
+fields:
+  name: New file
+  description: Opens an inline New file path form with Add and Cancel; the new file joins the draft.
+  actor: user
+  trigger: click
+  preconditions:
+    - Editing is possible (head)
+  effects:
+    - The new file opens empty in the pane and is pending
+  failure:
+    - "Enter a path., a bad path or <path> already exists. is shown inline"

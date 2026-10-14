@@ -1,8 +1,8 @@
 id: affordance.shell.switch-revision
 kind: affordance
 fields:
-  name: Switch revision
-  description: The selector moves the workspace to another System or revision.
+  name: Switch System or revision
+  description: The System and Revision selects in the top bar move the workspace to another System or revision and keep the current view.
   actor: user
   trigger: click
   preconditions:

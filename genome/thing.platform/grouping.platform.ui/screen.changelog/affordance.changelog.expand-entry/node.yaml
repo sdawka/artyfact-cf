@@ -2,14 +2,14 @@ id: affordance.changelog.expand-entry
 kind: affordance
 fields:
   name: Expand
-  description: Loads one commit's entry with its changed files and node delta.
+  description: The whole row toggles its entry; several can be open. ?commit= opens and marks one.
   actor: user
   trigger: click
   preconditions: []
   effects:
     - The entry opens under the row
   failure:
-    - "Error: the row shows the message with Retry"
+    - "Error: Could not load this commit's detail. with Retry"
 links:
   - rel: invokes
     to: endpoint.changelog-entry

@@ -1,0 +1,12 @@
+id: affordance.map.outside
+kind: affordance
+fields:
+  name: Outside (n)
+  description: A menu, shown only when something outside the scope connects in, listing Show <name> on map for each; the Connections rows offer the same Show <name> on map for both ends.
+  actor: user
+  trigger: click
+  preconditions:
+    - Something outside the scope connects to it
+  effects:
+    - The Map scopes to the node's parent and selects it
+  failure: []

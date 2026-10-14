@@ -2,11 +2,11 @@ id: affordance.work.reply-intent
 kind: affordance
 fields:
   name: Reply
-  description: Answers the question the platform asked back.
+  description: Answers a question the platform asked back; with no open question, Follow up refines the request.
   actor: user
   trigger: click
   preconditions:
-    - A question is open
+    - A proposal is shown
   effects:
     - The proposal updates
   failure:

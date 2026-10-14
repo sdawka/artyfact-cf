@@ -1,9 +1,12 @@
 id: component.review.amendment
 kind: component
 fields:
-  name: Amendment
-  description: A Genome amendment awaiting an admin, with its interpretation and the rules it touches.
+  name: Genome amendment
+  description: A Genome amendment awaiting an admin, as the candidate's Amendment tab, with the read-only agreement tree once decided, the readiness diff, System One signals and the Decision.
   states:
     - loading
-    - loaded
+    - awaiting admin (attention)
+    - accepted (subtle)
+    - rejected (subtle)
+    - abandoned (subtle)
     - error

@@ -1,0 +1,15 @@
+id: component.work.wave
+kind: component
+fields:
+  name: Wave
+  description: "Wave N · n tasks, stacked vertically. Task rows toggle their detail (why this wave, command, steps, checks, write and read nodes, footprint, depends on, attempts with their lease, Review Task result). Agent commands, wave N lists each task an agent can take now with Copy and Hide; a task that cannot start shows its reason. Task conflicts name the other task and are never danger."
+  states:
+    - ○ pending (subtle)
+    - ◔ claimed (subtle)
+    - ◑ working (subtle)
+    - ◕ submitted (attention)
+    - ◉ selected (subtle)
+    - ● completed (subtle)
+    - waits on <task> (attention)
+    - awaits an agent (attention)
+    - "<title>: command hidden. (subtle)"

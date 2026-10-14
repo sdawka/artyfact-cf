@@ -2,12 +2,12 @@ id: affordance.theory.open-claim
 kind: affordance
 fields:
   name: Open claim
-  description: Selecting a claim focuses it and opens the Inspector.
+  description: A claim row is one button; selecting it focuses the claim and opens the Inspector.
   actor: user
   trigger: click
   preconditions: []
   effects:
-    - The Inspector opens on the claim
+    - The Inspector opens on the claim and the row is current
   failure: []
 links:
   - rel: references

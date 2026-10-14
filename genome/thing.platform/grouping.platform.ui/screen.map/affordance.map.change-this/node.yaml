@@ -2,11 +2,11 @@ id: affordance.map.change-this
 kind: affordance
 fields:
   name: Describe a change
-  description: Starts a change anchored on the focused node, through the Inspector.
+  description: Offered in an empty scope (Nothing inside <name> yet.) and through Details in the Inspector, anchored on the tile.
   actor: user
   trigger: click
   preconditions:
-    - A node is focused
+    - A tile is selected or the scope is empty
   effects:
     - Work opens with the change panel anchored on the node
   failure: []

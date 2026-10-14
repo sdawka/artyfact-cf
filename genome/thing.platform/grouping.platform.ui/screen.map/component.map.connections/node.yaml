@@ -1,0 +1,8 @@
+id: component.map.connections
+kind: component
+fields:
+  name: Connections
+  description: The selected tile's boundary-crossing links as rows, from path → to path with the relation, label and certainty, each end with Show <name> on map.
+  states:
+    - loaded
+    - "empty: No connections cross this boundary."

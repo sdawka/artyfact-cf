@@ -1,0 +1,11 @@
+id: affordance.compare.swap-revisions
+kind: affordance
+fields:
+  name: Swap revisions
+  description: Swaps From and To.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - The compare reloads with the revisions swapped
+  failure: []

@@ -2,9 +2,10 @@ id: component.theory.signifiers
 kind: component
 fields:
   name: Claim signifiers
-  description: Each claim carries its kind, status and evidence verdict.
+  description: Each claim's status as glyph plus word; supported is never green because a claim is a hypothesis.
   states:
-    - supported (subtle)
-    - unknown (subtle)
-    - contradicted (danger)
+    - ○ unknown (subtle)
+    - ◐ inconclusive (subtle)
+    - ● supported (subtle)
+    - ✕ challenged (danger)
     - deferred (subtle)

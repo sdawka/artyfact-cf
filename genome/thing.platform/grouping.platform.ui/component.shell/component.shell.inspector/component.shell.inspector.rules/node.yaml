@@ -1,8 +1,9 @@
 id: component.shell.inspector.rules
 kind: component
 fields:
-  name: Rules & claims
-  description: The rules and claims that constrain the node.
+  name: Rules
+  description: Criteria, derived obligations, findings and claims that reference the node, each with Explain and Hide; the tab shows the count. When the API supplies no derived relations it says unknown and why.
   states:
     - loaded
-    - "empty: no rules"
+    - "empty: No criteria, derived obligations, findings or claims reference this object."
+    - "derived relations unknown (subtle)"

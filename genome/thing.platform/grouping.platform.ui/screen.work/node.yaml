@@ -2,14 +2,16 @@ id: screen.work
 kind: screen
 fields:
   name: Work
-  description: Evolutions on a board with their realizations, the task packet and start-work. Actionable targets wear corner brackets and the page has one primary button, and Start work is the one primary action on an Evolution; acting shows the new realization or an inline error, and Describe a change replaces the list and detail with its panel until Back to Work.
+  description: "Genome Evolutions and the Task plans that realize them, as a list and detail. The header shows the waiting counts as links (n tasks await an agent, n await review), the primary Describe a change (secondary while a panel or a selection offers its own primary) and the secondary Evolution. The list holds Plans first, then Evolutions in state groups; the detail shows the selected plan or Evolution, and on arrival the first item that needs you opens. Below 900px it is two screens with Back to Work. Panels (Describe a change, New Evolution, Plan implementation) replace the list and detail until Back to Work. Deciding happens in Review: rows link Open in Review. In a Thing, Work filters to the Thing with Show all."
   route: /s/:systemId/r/:rev/work
   states:
     - loading
     - loaded
-    - empty
+    - "empty: No Genome Evolutions yet."
     - error
-    - describe-a-change panel open
+    - "no selection: Pick a plan or an Evolution from the list."
+    - panel open
+    - fixture data
     - fake provider
 links:
   - rel: serves

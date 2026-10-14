@@ -2,13 +2,13 @@ id: affordance.shell.change-this
 kind: affordance
 fields:
   name: Describe a change
-  description: Starts a change anchored on the node.
+  description: A secondary button in the header, offered for System, Thing, node and External entries, that starts a change anchored on the node.
   actor: user
   trigger: click
   preconditions:
-    - A node is focused
+    - A System, Thing, node or External is focused
   effects:
-    - Work opens with the change panel anchored on the node
+    - Work opens with the Describe a change panel anchored on the node
   failure: []
 links:
   - rel: references

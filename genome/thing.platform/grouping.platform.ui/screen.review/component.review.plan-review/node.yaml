@@ -1,0 +1,11 @@
+id: component.review.plan-review
+kind: component
+fields:
+  name: Combined implementation review
+  description: "?plan=: the integrated plan's per-binding changes, promotion blockers and rationale."
+  states:
+    - loaded
+    - blocked (attention)
+links:
+  - rel: invokes
+    to: endpoint.lifecycle-get-realization-plans-pid-review

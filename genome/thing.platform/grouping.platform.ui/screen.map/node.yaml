@@ -2,11 +2,11 @@ id: screen.map
 kind: screen
 fields:
   name: Map
-  description: The System as a layered graph; focus a node to scope the view. Actionable targets wear corner brackets and the page has one primary button; focusing, filtering and toggling candidates re-draw the Map at once, and the overlap chip opens Review.
+  description: "The System as a nested map of tiles. A compact header: the scope path (Environment / …) as context, h1 Map, a purpose, and at Environment the primary Enter <System>. A toolbar row holds Up, Tree, Filters and Outside (n), the Overlay tabs (Genome, Proteome, Phenome) and a key hint (Drag pan, Enter open, D details, Backspace up). Selecting a tile docks its name with Details (primary), Enter <name> and Connections (n). Panels overlay the canvas and never resize it; a map key sits bottom-left. Candidate halos come from ?candidates=."
   route: /s/:systemId/r/:rev/map
   states:
     - loading
     - loaded
-    - empty
+    - "empty scope: Nothing inside <name> yet. Describe a change to add parts."
     - error
     - empty filter

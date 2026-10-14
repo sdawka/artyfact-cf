@@ -1,0 +1,17 @@
+id: affordance.start.create-system
+kind: affordance
+fields:
+  name: Create System
+  description: Step 1's primary. Creates the System with its id and title.
+  actor: user
+  trigger: click
+  preconditions:
+    - An admin token is set
+    - A System ID is entered
+  effects:
+    - Step 1 reads <id> created and Preview your ontology opens
+  failure:
+    - "Could not create the System: the cause is shown"
+links:
+  - rel: invokes
+    to: endpoint.ontology-packages-post-initial

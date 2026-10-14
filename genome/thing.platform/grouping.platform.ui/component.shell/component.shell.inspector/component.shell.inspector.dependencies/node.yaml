@@ -1,8 +1,8 @@
 id: component.shell.inspector.dependencies
 kind: component
 fields:
-  name: Dependencies
-  description: What the node uses and what uses it.
+  name: Links
+  description: What the node uses and what uses it, grouped by link type; the tab shows the count.
   states:
     - loaded
-    - "empty: no links"
+    - "empty: No links from or to this object."

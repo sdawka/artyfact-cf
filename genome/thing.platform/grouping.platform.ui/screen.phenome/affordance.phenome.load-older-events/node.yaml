@@ -1,0 +1,16 @@
+id: affordance.phenome.load-older-events
+kind: affordance
+fields:
+  name: Load older events
+  description: Pages back through retained runtime events in the current scope; with none yet, the empty state shows an ingest example with Copy example.
+  actor: user
+  trigger: click
+  preconditions:
+    - Older events exist
+  effects:
+    - Older events append; at the end it reads All retained events in this scope are loaded.
+  failure:
+    - "Error: Retry older events"
+links:
+  - rel: invokes
+    to: endpoint.phenome-events

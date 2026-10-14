@@ -2,10 +2,10 @@ id: affordance.map.filters
 kind: affordance
 fields:
   name: Filters
-  description: Toggles hide node kinds and link kinds.
+  description: "A side panel titled Connections: All connections, Show Externals and Findings only, then Layers, Kinds and Link types groups, each summary with n hidden; Reset appears once something changed."
   actor: user
   trigger: click
   preconditions: []
   effects:
-    - Hidden kinds disappear from the Map; the filter count updates
+    - Hidden kinds and links leave the Map and the counts update
   failure: []

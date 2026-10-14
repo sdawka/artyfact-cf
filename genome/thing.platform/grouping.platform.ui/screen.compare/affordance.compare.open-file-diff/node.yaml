@@ -2,7 +2,7 @@ id: affordance.compare.open-file-diff
 kind: affordance
 fields:
   name: Open file diff
-  description: Opens one file's diff.
+  description: Opens one file's line diff beside the list (Back to files below 900px), with Open in Code at the To revision.
   actor: user
   trigger: click
   preconditions:
@@ -10,7 +10,9 @@ fields:
   effects:
     - The diff opens beside the list
   failure:
-    - "Binary or large file: a notice replaces the diff"
+    - "Binary or large file: a notice replaces or limits the diff"
 links:
   - rel: invokes
     to: endpoint.compare-file
+  - rel: references
+    to: screen.code

@@ -1,14 +1,14 @@
 id: affordance.overview.review-waiting
 kind: affordance
 fields:
-  name: Review n waiting
-  description: A line that links to Review when candidates or amendments are waiting.
+  name: Needs you row
+  description: "Whole-row links under the header: n decisions await your review (to Review) and n findings block this System (See blockers, scrolls to Blockers and warnings). Hidden when nothing waits."
   actor: user
   trigger: click
   preconditions:
-    - At least one item awaits review
+    - At least one decision or blocking finding waits
   effects:
-    - Review opens on the queue
+    - Review opens on the queue, or the page scrolls to the blockers
   failure: []
 links:
   - rel: references

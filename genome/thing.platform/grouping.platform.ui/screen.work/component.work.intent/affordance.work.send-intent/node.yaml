@@ -1,12 +1,12 @@
 id: affordance.work.send-intent
 kind: affordance
 fields:
-  name: Send
+  name: Propose changes
   description: Sends the change text, optionally anchored on a node.
   actor: user
   trigger: click
   preconditions:
-    - The text is not empty
+    - The text is not empty (otherwise Describe the change first.)
   effects:
     - A proposal or a question appears
   failure:

@@ -1,13 +1,14 @@
 id: affordance.parts.open-part
 kind: affordance
 fields:
-  name: Open part
-  description: Opens one Part's version.
+  name: Open Part
+  description: Selecting a row opens that Part's pinned package in the detail pane; below 900px the detail replaces the list with Back to Private Parts.
   actor: user
   trigger: click
-  preconditions: []
+  preconditions:
+    - Private Parts are loaded
   effects:
-    - The Part's page opens
+    - The detail shows the Part's meta and payload
   failure:
     - "404: the Part is not found"
 links:

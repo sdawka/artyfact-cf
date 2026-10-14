@@ -1,0 +1,13 @@
+id: component.work.candidate-review
+kind: component
+fields:
+  name: Candidate review
+  description: "A candidate's detail in Review (it left Work): the Evolution title with the verdict summary, a meta line (behind, candidate, agent, state, base, build with Preview), Add to promotion and Re-run checks, and tabs Semantic delta, Files, Evaluations and, for Genome targets, Amendment."
+  states:
+    - loading
+    - loaded
+    - "empty: No candidate yet."
+    - error
+links:
+  - rel: references
+    to: component.review.queue

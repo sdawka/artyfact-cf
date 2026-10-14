@@ -1,0 +1,16 @@
+id: affordance.start.preview-import
+kind: affordance
+fields:
+  name: Preview import
+  description: Step 2's primary. Validates the pasted package and shows the pinned preview; nothing is saved.
+  actor: user
+  trigger: click
+  preconditions:
+    - A package is pasted
+  effects:
+    - Review the import opens with the pinned package and its issues
+  failure:
+    - "Invalid package: the issues are listed and the text is kept"
+links:
+  - rel: invokes
+    to: endpoint.ontology-packages-post-ontology-imports-preview

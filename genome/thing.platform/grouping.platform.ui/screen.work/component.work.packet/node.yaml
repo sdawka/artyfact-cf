@@ -2,8 +2,10 @@ id: component.work.packet
 kind: component
 fields:
   name: Task packet
-  description: "The packet an agent reads: affected nodes, permitted paths, acceptance criteria and the start command."
+  description: "After Start work: the Start command (it holds the write token and realization secret and is shown once, with Copy command and I have copied it, hide), the token countdown, and the Task Packet with Copy packet."
   states:
     - loading
     - loaded
+    - command hidden
+    - "Command unavailable"
     - error

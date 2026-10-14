@@ -1,0 +1,10 @@
+id: component.code.pending
+kind: component
+fields:
+  name: Pending changes
+  description: A well listing the draft's files with + added, ~ changed or − deleted, each linking to the file with Discard.
+  states:
+    - n pending (attention)
+    - "+ added (subtle)"
+    - ~ changed (attention)
+    - − deleted (danger)

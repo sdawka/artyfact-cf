@@ -1,0 +1,14 @@
+id: affordance.home.start-system
+kind: affordance
+fields:
+  name: Start a System
+  description: The page's one primary button; also a link in the empty state.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - Start a System opens on its first step
+  failure: []
+links:
+  - rel: references
+    to: screen.start

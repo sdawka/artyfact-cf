@@ -1,12 +1,12 @@
 id: affordance.map.focus-scope
 kind: affordance
 fields:
-  name: Focus
-  description: Click a node to focus it, double-click to scope the Map to it, Backspace to go up.
+  name: Select, open and go up
+  description: "Click selects a tile (the URL records focus) and draws its boundary connections; double-click, Enter, Open, n inside or Enter <name> opens a nonempty container; Up, Backspace or a scope path link goes up. Ctrl or ⌘ with the wheel, or a pinch, moves depth once per gesture; the ordinary wheel pans."
   actor: user
-  trigger: click, double-click or Backspace
+  trigger: click, double-click, Enter or Backspace
   preconditions:
-    - A node is drawn
+    - A tile is drawn
   effects:
-    - The Map re-centres and the URL records the focus
+    - The Map re-scopes or selects and the URL records it
   failure: []

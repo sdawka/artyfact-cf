@@ -1,0 +1,19 @@
+id: component.phenome.operations
+kind: component
+fields:
+  name: Operations
+  description: "Runtime metrics, custom measurements and feature flags for one artifact binding of the scope, over a chosen window (last hour, 24 hours, 7 days), with Refresh. Counts do not prove expected effects. It needs the admin token; without one it shows its own Admin token field and Set admin token. The change history is a disclosure."
+  states:
+    - token needed
+    - loaded
+    - "fixture: Operations need the platform API."
+    - (not configured) binding (subtle)
+links:
+  - rel: invokes
+    to: endpoint.operations-get-operations-bindings
+  - rel: invokes
+    to: endpoint.operations-get-operations-bindings-binding-metrics
+  - rel: invokes
+    to: endpoint.operations-get-operations-bindings-binding-measurements
+  - rel: invokes
+    to: endpoint.operations-get-operations-bindings-binding-flags

@@ -1,0 +1,12 @@
+id: affordance.theory.toggle-view
+kind: affordance
+fields:
+  name: List, Grid
+  description: Tabs that switch the claims between the list and the five-column logic model; shown at 1280px and wider, list only below.
+  actor: user
+  trigger: click
+  preconditions:
+    - The viewport is at least 1280px wide
+  effects:
+    - The claims redraw in the chosen view
+  failure: []

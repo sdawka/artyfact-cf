@@ -2,8 +2,8 @@ id: component.shell.inspector.changes
 kind: component
 fields:
   name: Changes
-  description: Evolutions and candidates that touch the node; a candidate holding it reads in N candidates · overlap.
+  description: Evolutions and realizations that touch the node, under Evolutions and Realizations; the tab shows their count.
   states:
+    - "loading: Loading changes…"
     - loaded
-    - "empty: no changes"
-    - in N candidates · overlap (attention)
+    - "empty: No evolutions touch this object."

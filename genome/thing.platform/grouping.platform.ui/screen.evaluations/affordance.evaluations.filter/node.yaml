@@ -1,0 +1,11 @@
+id: affordance.evaluations.filter
+kind: affordance
+fields:
+  name: Filters
+  description: Candidate, Criterion, Verdict and Execution selects (each All by default) narrow the table; Clear filters resets them.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - The table and the count (k of N results) update and the URL records the filters
+  failure: []

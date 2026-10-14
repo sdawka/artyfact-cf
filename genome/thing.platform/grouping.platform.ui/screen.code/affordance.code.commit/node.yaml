@@ -1,17 +1,22 @@
 id: affordance.code.commit
 kind: affordance
 fields:
-  name: Commit…
-  description: Commits the edit to the realization's fork.
+  name: Commit changes
+  description: "The header primary opens the Commit n files panel: Message, Why (or Leave the rationale to the agent), an Evolution or a new one, and Your name. Its primary Commit shows the first unmet reason (for example Set the admin token in the header.). The commit goes to a new editor realization's fork and becomes a candidate; App changes point to a Realization Task instead."
   actor: user
   trigger: click
   preconditions:
-    - The file was edited
-    - An admin token is set
+    - Changes are pending
+    - An admin token is set in the header
   effects:
-    - A commit is made and the pane shows the new head
+    - A commit is made on the fork and Work opens on the realization
   failure:
-    - "409: the stale message is shown and the edit is kept"
+    - "401 or 403: the admin token message"
+    - "409: The fork moved since the draft was read; the draft is kept"
 links:
   - rel: invokes
     to: endpoint.editor-commit
+  - rel: invokes
+    to: endpoint.start-work
+  - rel: invokes
+    to: endpoint.create-evolution

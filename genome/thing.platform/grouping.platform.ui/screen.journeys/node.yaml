@@ -2,10 +2,10 @@ id: screen.journeys
 kind: screen
 fields:
   name: Journeys
-  description: Step-by-step journeys of the System; a step links to the screen or operation it uses. Actionable targets wear corner brackets and the page has one primary button; choosing a journey or step focuses it and a step's screen link opens that screen.
+  description: "How people and services move through the System. A catalog of journeys (the current row marked; deferred ones collapsed under Deferred (n); a Journey select below 900px) beside the stage: the journey's name and goal, Fit and 100%, Segment tabs when it has segments, and a lane canvas (Actor, System, External) with a legend and a Steps (n) list, open by default on narrow screens. No header actions."
   route: /s/:systemId/r/:rev/journeys
   states:
     - loading
     - loaded
-    - empty
+    - "empty: No journeys yet."
     - error

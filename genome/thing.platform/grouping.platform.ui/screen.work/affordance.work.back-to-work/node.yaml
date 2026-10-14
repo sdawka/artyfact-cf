@@ -1,0 +1,12 @@
+id: affordance.work.back-to-work
+kind: affordance
+fields:
+  name: Back to Work
+  description: Closes a panel (Describe a change, New Evolution, Plan implementation), or on narrow screens the detail, and returns to the list, keeping the other params.
+  actor: user
+  trigger: click
+  preconditions:
+    - A panel or the narrow detail is open
+  effects:
+    - The list and detail replace the panel and focus returns to the opener
+  failure: []

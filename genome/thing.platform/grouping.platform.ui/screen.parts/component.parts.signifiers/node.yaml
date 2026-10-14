@@ -2,8 +2,9 @@ id: component.parts.signifiers
 kind: component
 fields:
   name: Part signifiers
-  description: "Per Part: name, version and where it is used."
+  description: "Per Part row: name, version, short digest and when it was published."
   states:
     - version (subtle)
-    - private (subtle)
-    - upgrade available (attention)
+    - digest (subtle)
+    - published <time> (subtle)
+    - Token loaded. (subtle)

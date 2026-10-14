@@ -1,0 +1,17 @@
+id: affordance.review.accept-import
+kind: affordance
+fields:
+  name: Accept import
+  description: Accepts the import with a required interpretation; with rejected nodes it reads Accept import, remove N rejected and removes them in the same step.
+  actor: user
+  trigger: click
+  preconditions:
+    - The import is pending
+    - An admin token is set
+  effects:
+    - The import is accepted; rejected nodes leave the Genome with Open the removal amendment
+  failure:
+    - "409: a rules violation is named"
+links:
+  - rel: invokes
+    to: endpoint.import-review-accept

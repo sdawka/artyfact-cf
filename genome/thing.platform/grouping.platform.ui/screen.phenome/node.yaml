@@ -2,13 +2,14 @@ id: screen.phenome
 kind: screen
 fields:
   name: Deployments
-  description: Deployments of the System with their build and the runtime events they report. Actionable targets wear corner brackets and the page has one primary button; Create deployment shows the new row and its status, and a failed deploy reads deploy failed in the danger tone.
+  description: "Builds, deployments and what the running System reports. No header actions: deployments come from promotion and CI. Filter chips with Clear filters sit under the header, then the Production summary, Builds, Deployments (each row's Details of <id> expands), Runtime events with older pages on demand, Outcome criteria (always unknown without an authoritative evaluation) and, for a selected deployment, Implementation evaluations. Operations closes the page. Each table has its own loading, empty and error state; an API failure never reads as no data."
   route: /s/:systemId/r/:rev/phenome
   states:
     - loading
     - loaded
-    - empty
-    - error
+    - "empty: No builds or deployments yet."
+    - "error: Could not load builds."
+    - fixture data
     - fake provider
 links:
   - rel: serves
