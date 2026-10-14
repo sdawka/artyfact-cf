@@ -1,5 +1,6 @@
 import { useCallback, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
 import type { ProposalPlanNode, ProposalProblem, ProposedOp } from "../../../../../shared/api";
+import { Kbd } from "@/components/Kbd/Kbd";
 import { useKindViews } from "@/model/kinds";
 import { AgreementRow, type RowContext } from "./AgreementRow";
 import { blockedBy, expandable, flatten, initialExpanded, rollupPlan, walk, type Decision } from "./lib";
@@ -131,10 +132,14 @@ export function AgreementTree({ plan, ops = NO_OPS, problems = NO_PROBLEMS, vari
         ))}
       </ul>
       <p id={`${uid}-hint`} className={styles.hint}>
-        <kbd>↑</kbd> <kbd>↓</kbd> move · <kbd>→</kbd> <kbd>←</kbd> open and close
+        <span><Kbd keys={["↑"]} /> <Kbd keys={["↓"]} /> move</span>
+        <span><Kbd keys={["→"]} /> <Kbd keys={["←"]} /> open and close</span>
         {!readOnly && (
           <>
-            {" "}· <kbd>a</kbd> agree · <kbd>r</kbd> reject{variant === "intent" && <> · <kbd>d</kbd> defer</>} · <kbd>Backspace</kbd> clears
+            <span><Kbd keys={["a"]} /> agree</span>
+            <span><Kbd keys={["r"]} /> reject</span>
+            {variant === "intent" && <span><Kbd keys={["d"]} /> defer</span>}
+            <span><Kbd keys={["Backspace"]} /> clears</span>
           </>
         )}
       </p>

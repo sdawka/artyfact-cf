@@ -69,6 +69,7 @@ function decidingApi(start: Proposal, accept: IntentAcceptResponse = ACCEPTED) {
 }
 
 const acceptBtn = () => screen.getByRole("button", { name: "Accept agreed" }) as HTMLButtonElement;
+const diffToggle = (op: string) => screen.getByText((_, el) => el?.tagName === "SUMMARY" && el.textContent === `Show before and after ${op}`);
 const treeitem = (name: RegExp) => screen.getByRole("treeitem", { name });
 const decisions = (calls: Call[]) => calls.filter((c) => c.url.endsWith("/decisions")).map((c) => (c.body as IntentDecisionsRequest).decisions);
 
@@ -89,12 +90,12 @@ describe("Describe a change", () => {
     expect(calls[0]).toMatchObject({ method: "POST", body: { message: "Show birthdays on people" }, auth: "Bearer tok" });
     await waitFor(() => expect(router.state.location.search).toContain("proposal=proposal.1"));
     // Routed path with confidence, and the provider label.
-    expect(screen.getByText("confidence 82%")).toBeTruthy();
+    expect(screen.getByText("(confidence 82%)")).toBeTruthy();
     expect(screen.getByText("provider real")).toBeTruthy();
     // Per-node diff: the update shows the current description before the proposed one.
-    expect(screen.getByText("Review op.1 delta").parentElement?.hasAttribute("open")).toBe(false);
-    fireEvent.click(screen.getByText("Review op.1 delta"));
-    fireEvent.click(screen.getByText("Review op.2 delta"));
+    expect(diffToggle("op.1").parentElement?.hasAttribute("open")).toBe(false);
+    fireEvent.click(diffToggle("op.1"));
+    fireEvent.click(diffToggle("op.2"));
     const fields = screen.getByRole("table", { name: "op.1 fields" });
     expect(within(fields).getByText(/One AddContactDialog only while invoked/)).toBeTruthy();
     expect(within(fields).getByText(/the birthday when known/)).toBeTruthy();
@@ -138,7 +139,7 @@ describe("Describe a change", () => {
     await waitFor(() => expect(calls.find((c) => c.url.endsWith("/accept"))?.body).toEqual({ opIds: ["op.1", "op.2", "op.3"] }));
     await waitFor(() => {
       const p = new URLSearchParams(router.state.location.search);
-      expect([p.get("evolution"), p.get("realization"), p.get("panel"), p.get("proposal")]).toEqual(["evolution.9", "real.9", null, null]);
+      expect([p.get("evolution"), p.get("realization"), p.get("panel"), p.get("proposal")]).toEqual(["evolution.9", null, null, null]);
     });
   });
 
@@ -387,7 +388,7 @@ describe("Describe a change", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Describe a change" }));
     await waitFor(() => expect(router.state.location.search).toContain("panel=intent"));
     expect(await screen.findByRole("heading", { level: 2, name: "Describe a change" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Back to board" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to Work" }));
     await waitFor(() => expect(router.state.location.search).not.toContain("panel="));
   });
 
@@ -396,23 +397,26 @@ describe("Describe a change", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Describe a change" }));
     await waitFor(() => expect(router.state.location.search).toContain("panel=intent"));
     expect(router.state.location.search).toContain("evolution=evolution.1");
-    expect(screen.getByRole("button", { name: "+ Evolution" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Evolution" })).toBeTruthy();
+    // The header primary turns secondary and pressed while the panel is open.
+    const opener = screen.getAllByRole("button", { name: "Describe a change" })[0]!;
+    expect(opener.getAttribute("data-variant")).toBe("secondary");
+    expect(opener.getAttribute("aria-pressed")).toBe("true");
     const heading = await screen.findByRole("heading", { level: 2, name: "Describe a change" });
     expect(document.activeElement).toBe(heading);
-    fireEvent.click(screen.getByRole("button", { name: "Back to board" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to Work" }));
     await waitFor(() => expect(router.state.location.search).not.toContain("panel="));
     expect(router.state.location.search).toContain("evolution=evolution.1");
     expect(document.activeElement).toBe(screen.getAllByRole("button", { name: "Describe a change" })[0]);
   });
 
-  it("replaces the board and detail while open and keeps the board after Back to board", async () => {
+  it("replaces the list and detail while open and brings them back after Back to Work", async () => {
     const { router } = renderApp(`${WORK}?panel=intent&anchor=screen.people`);
     expect(await screen.findByRole("heading", { level: 2, name: "Describe a change" })).toBeTruthy();
-    expect(screen.queryByRole("group", { name: "Evolution board" })).toBeNull();
-    expect(screen.queryByText(/Select an Evolution to see/)).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "Back to board" }));
-    await waitFor(() => expect(router.state.location.search).toBe(""));
-    expect(await screen.findByText(/Select an Evolution to see|No Evolutions yet/)).toBeTruthy();
+    expect(screen.queryByRole("region", { name: "Plans and Evolutions" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Back to Work" }));
+    await waitFor(() => expect(router.state.location.search).not.toContain("panel"));
+    expect(await screen.findByRole("region", { name: "Plans and Evolutions" })).toBeTruthy();
   });
 });
 

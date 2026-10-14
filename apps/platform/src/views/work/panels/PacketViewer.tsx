@@ -1,30 +1,9 @@
 import { Button } from "@/components/ui";
-import { useEffect, useState } from "react";
-import { countdown, useNow } from "../lib";
+import { useState } from "react";
+import { CopyText } from "../CopyText";
+import { countdown, countdownTone, useNow } from "../lib";
 import { Markdown } from "../Markdown";
 import styles from "../work.module.css";
-
-/** Copy button whose accessible name does not repeat the (possibly secret, possibly huge) value. */
-function CopyText({ value, label }: { value: string; label: string }) {
-  const [state, setState] = useState<"idle" | "copied" | "failed">("idle");
-  useEffect(() => {
-    if (state === "idle") return;
-    const t = setTimeout(() => setState("idle"), 1500);
-    return () => clearTimeout(t);
-  }, [state]);
-  const copy = () => {
-    const w = navigator.clipboard?.writeText(value) ?? Promise.reject(new Error("clipboard unavailable"));
-    w.then(() => setState("copied"), () => setState("failed"));
-  };
-  return (
-    <>
-      <Button type="button" variant="secondary" onClick={copy} aria-label={label}>
-        {state === "idle" ? label : state === "copied" ? "Copied" : "Copy failed"}
-      </Button>
-      <span className="sr-only" role="status">{state === "idle" ? "" : state === "copied" ? "Copied" : "Copy failed"}</span>
-    </>
-  );
-}
 
 export interface PacketViewerProps {
   markdown: string;
@@ -40,37 +19,38 @@ export function PacketViewer({ markdown, cli, expiresAt, remote }: PacketViewerP
   const now = useNow(1000);
   const [hidden, setHidden] = useState(false);
   const showCli = !!cli && !hidden;
+  const tone = countdownTone(expiresAt, now);
   return (
     <div className={styles.packet}>
       {cli !== undefined && (
-        <section className={styles.cli} aria-label="Start command">
+        <section className={styles.startCommand} aria-label="Start command">
           <h3>Start command</h3>
           {cli === null ? (
-            <p className={styles.warn} role="note">Command unavailable: the server did not return one. The token is not shown again.</p>
+            <p role="note">Command unavailable: the server did not return one. The token is not shown again.</p>
           ) : showCli ? (
             <>
-              <p className={styles.warn} role="note">
+              <p role="note">
                 This command contains the write token and the realization secret. Neither is shown again, so copy it now.
               </p>
-              <pre className={styles.cliLine}><code>{cli}</code></pre>
+              <pre className={styles.commandWell}><code>{cli}</code></pre>
               <div className={styles.actions}>
-                <CopyText value={cli} label="Copy command" />
-                <Button type="button" variant="secondary" onClick={() => setHidden(true)}>I have copied it, hide</Button>
+                <CopyText value={cli} label="Copy command" variant="primary" />
+                <Button type="button" variant="ghost" onClick={() => setHidden(true)}>I have copied it, hide</Button>
               </div>
             </>
           ) : (
             <p className={styles.muted}>Command hidden. The token is not shown again; start another realization to get a new one.</p>
           )}
-          <p>
-            Token expires in <strong data-testid="token-countdown">{countdown(expiresAt, now)}</strong>
-            {remote && <> · remote <code>{remote}</code></>}
+          <p className={styles.tokenLine}>
+            <span className={styles.token} data-tone={tone}>Token expires in <strong className="u-numeric" data-testid="token-countdown">{countdown(expiresAt, now)}</strong></span>
+            {remote && <span>remote <code>{remote}</code></span>}
           </p>
         </section>
       )}
-      <section aria-label="Task Packet">
-        <div className={styles.rhead}>
+      <section aria-label="Task Packet" className={styles.packetBody}>
+        <div className={styles.packetHead}>
           <h3>Task Packet</h3>
-          <CopyText value={markdown} label="Copy packet" />
+          <CopyText value={markdown} label="Copy packet" variant="ghost" />
         </div>
         <Markdown source={markdown} />
       </section>

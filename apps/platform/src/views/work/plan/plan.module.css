@@ -1,20 +1,82 @@
-/* Plan view: only what work.module.css does not already have. */
+/* Plan detail pane: header, waves stacked top to bottom, task rows that expand in place, commands on a well. */
+.plan { display: grid; gap: var(--spacing-8); min-width: 0; }
+.planHead { display: grid; gap: var(--spacing-2); }
+.titleRow { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--spacing-2) var(--spacing-4); }
+.titleRow h2 { margin: 0; font: var(--type-h2); display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2) var(--spacing-3); overflow-wrap: anywhere; }
+.headActions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }
+.planFacts { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1) var(--spacing-4); font: var(--type-meta); color: var(--color-text-secondary); }
+.counts { font-weight: var(--font-weight-semibold); color: var(--color-text-primary); }
+.quiet { margin: 0; font: var(--type-meta); color: var(--color-text-secondary); max-width: 70ch; }
+.quiet code, .taskDetail code { font: var(--type-code); overflow-wrap: anywhere; }
+.error { margin: 0; color: var(--color-danger); }
+
+.waves { display: grid; gap: var(--spacing-8); }
+.wave + .wave { margin-top: 0; }
+.taskList { display: grid; margin: 0; padding: 0; list-style: none; }
+.task { display: grid; gap: var(--spacing-2); border-bottom: 1px solid var(--color-border-faint); min-width: 0; }
+.task:first-child { border-top: 1px solid var(--color-border-faint); }
+.task > ul { padding-inline: var(--spacing-4); }
+.task[data-open] { padding-bottom: var(--spacing-4); }
+.taskHead {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2) var(--spacing-4);
+  width: 100%;
+  min-height: var(--control-height);
+  padding: var(--spacing-3) var(--spacing-4);
+  font: var(--type-ui);
+  color: var(--color-text-primary);
+  text-align: left;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  cursor: pointer;
+}
+.taskHead:focus-visible { outline-offset: -2px; }
+.taskMain { display: grid; gap: var(--spacing-1); flex: 1; min-width: 0; }
+.taskTitle { font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
+.taskStatus { display: inline-flex; flex-direction: column; align-items: flex-end; gap: var(--spacing-1); flex: none; max-width: 45%; text-align: right; }
+.chevron { flex: none; color: var(--color-text-subtle); }
+
+.taskDetail { display: grid; gap: var(--spacing-5) var(--spacing-8); padding-inline: var(--spacing-4); min-width: 0; }
+.taskCol { display: grid; gap: var(--spacing-5); align-content: start; min-width: 0; }
+.taskWide { display: grid; gap: var(--spacing-2); justify-items: start; min-width: 0; }
+.taskDetail section { display: grid; gap: var(--spacing-2); min-width: 0; }
+.taskDetail h4 { margin: 0; font: var(--type-h3); }
+.taskDetail h5 { margin: var(--spacing-2) 0 0; font: var(--type-meta); color: var(--color-text-subtle); }
+.taskDetail p { margin: 0; }
+@media (min-width: 1100px) {
+  .taskDetail { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+  .taskWide { grid-column: 1 / -1; }
+}
+.steps { margin: 0; padding-left: var(--spacing-5); }
+.checks { display: grid; gap: var(--spacing-1); margin: 0; padding: 0; list-style: none; }
+.checks li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1) var(--spacing-2); margin: 0; padding: 0; list-style: none; }
+.paths { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font: var(--type-code); overflow-wrap: anywhere; }
+.tableWrap { max-width: 100%; overflow-x: auto; }
+.attemptsTable { border-collapse: collapse; font: var(--type-meta); }
+.attemptsTable th { padding: var(--spacing-1) var(--spacing-3) var(--spacing-1) 0; text-align: left; color: var(--color-text-subtle); font-weight: var(--font-weight-medium); border-bottom: 1px solid var(--color-border-subtle); }
+.attemptsTable td { padding: var(--spacing-1) var(--spacing-3) var(--spacing-1) 0; border-bottom: 1px solid var(--color-border-faint); }
+
+/* Agent commands of a wave, on a well. */
+.commands { display: grid; gap: var(--spacing-2); padding: var(--spacing-3) var(--spacing-4); background: var(--surface-well); border-radius: var(--border-radius-md); min-width: 0; }
+.commandsHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--spacing-2); }
+.commandsHead h4 { margin: 0; font: var(--type-h3); }
+.commandList { display: grid; gap: var(--spacing-3); margin: 0; padding: 0; list-style: none; }
+.commandList li { display: grid; gap: var(--spacing-1); min-width: 0; }
+.commandLine { margin: 0; white-space: pre-wrap; font: var(--type-code); overflow-wrap: anywhere; }
+.taskDetail .commandLine { padding: var(--spacing-2) var(--spacing-3); background: var(--surface-well); border-radius: var(--border-radius-sm); }
+.lineActions { display: flex; flex-wrap: wrap; gap: var(--spacing-1); }
+.hiddenLine { font: var(--type-meta); color: var(--color-text-secondary); }
+
+/* Draft panel */
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2) var(--spacing-3); }
-.toolbar > strong { margin-right: auto; }
-.task { display: grid; gap: var(--spacing-2); padding: var(--spacing-3); background: var(--color-surface-secondary); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); font-size: var(--font-size-sm); min-width: 0; }
-.task[data-open="true"] { border-color: var(--color-brand-primary); }
-.task[data-status="blocked"] { border-style: dashed; }
-.taskTop { display: flex; align-items: flex-start; gap: var(--spacing-2); }
-.taskTitle { flex: 1; min-width: 0; padding: 0; color: var(--color-text-primary); background: none; border: 0; font: inherit; font-weight: var(--font-weight-semibold); text-align: left; cursor: pointer; overflow-wrap: anywhere; }
-.taskTitle:hover { color: var(--color-brand-primary); }
-.taskTitle:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
-.paths { display: grid; gap: 2px; margin: 0; padding: 0; list-style: none; font-family: var(--font-code); font-size: var(--font-size-xs); overflow-wrap: anywhere; }
-.commands { display: grid; gap: var(--spacing-2); padding-top: var(--spacing-2); border-top: 1px solid var(--color-border-subtle); }
-.commandsHead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }
-.commandsHead h5 { margin: 0 auto 0 0; font-size: var(--font-size-sm); }
-.commandList { display: grid; gap: var(--spacing-2); margin: 0; padding: 0; list-style: none; }
-.commandList li { display: grid; gap: var(--spacing-1); }
-.commandLine { display: block; white-space: pre-wrap; font-family: var(--font-code); font-size: var(--font-size-xs); overflow-wrap: anywhere; }
 .draftTask { display: grid; gap: var(--spacing-2); }
 .draftTask legend { overflow-wrap: anywhere; }
-.planList { display: grid; gap: var(--spacing-1); margin: 0; padding: 0; list-style: none; }
+
+@media (max-width: 639px) {
+  .taskHead { flex-wrap: wrap; padding-inline: var(--spacing-3); }
+  .taskStatus { align-items: flex-start; max-width: none; text-align: left; }
+  .taskDetail { padding-inline: var(--spacing-3); }
+}
