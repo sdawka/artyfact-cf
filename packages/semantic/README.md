@@ -10,8 +10,11 @@ Question catalogue, threshold policy and judgments for System One. The client is
 | --- | --- | --- |
 | fake | `FAKE_S1=1` | canned answers, no network |
 | TypeSafe | `TYPESAFE_API_KEY` | `https://api.typesafe.ai/v1/systemone`, `jev-latest` |
+| Clef | `AI` (Workers AI binding) | `env.AI.run("@cf/cloudflare/clef", …)`, or `CLEF_MODEL`; reads images |
 | OpenRouter | `OPENROUTER_API_KEY` | the Decisions API, `OPENROUTER_MODEL` or `perplexity/pplx-decider-v1.1-27b` |
 | off | none of the above | every judgment is `unknown`, `provenance.provider = 'off'` |
+
+`createVisionSystemOne(env, selected?)` is the provider for screenshot judgments. It returns `selected` when that provider reads images, else Clef when `AI` is bound, else `selected`, which refuses images with an `unsupported` `S1Error`. `visualCriterion(s1, subject, images)` asks whether labelled screenshots satisfy a criterion's claim. It accepts at most 4 PNG, JPEG or WebP images per ask, each up to 4 MiB and 8 MiB in all, and the images are hashed into the cache key.
 
 `env` also accepts `fetch` for injection in tests. Timeouts, 429 and 529 (OpenRouter: 5xx) are retried; other failures throw `S1Error`. Replies are cached in memory (200 entries, LRU) under `cacheKeyFor(state, questions, model)`. The `judgments.*` functions never throw: failures become `verdict: 'unknown'`, `level: 'info'`, `provenance.provider: 'error'`.
 

@@ -16,10 +16,18 @@
   // wrangler.test.jsonc, so `env.CI` is optional in code.
   "workflows": [{ "binding": "CI", "name": "artyfact-ci", "class_name": "ArtyfactCI", "script_name": "artyfact-ci" }],
   "queues": { "consumers": [{ "queue": "artyfact-artifacts-events", "max_batch_size": 10, "max_retries": 3 }] },
+  // Workers AI: with AI bound, System One is Cloudflare Clef (@cf/cloudflare/clef; CLEF_MODEL overrides) unless
+  // FAKE_S1=1 or TYPESAFE_API_KEY wins first. Visual checks use Clef whenever AI is bound (Clef reads images).
+  "ai": { "binding": "AI" },
+  // Browser Run: visual checks capture the candidate's preview with the screenshot Quick Action.
+  "browser": { "binding": "BROWSER" },
+  // Evidence images: screenshots agents attach at submit and the platform's own captures (create the bucket first).
+  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "artyfact-evidence" }],
   // ACCOUNT_ID builds fork remotes (https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/<ns>/<repo>.git); set it in .dev.vars or here.
   // PREVIEW_HOST_ALLOWLIST: extra hosts the health hook may fetch agent-supplied preview URLs from, comma-separated
   // (`app.example.com` exact, `*.example.com` subdomains); *.workers.dev and *.pages.dev are always allowed.
-  // System One: TYPESAFE_API_KEY or OPENROUTER_API_KEY (+ OPENROUTER_MODEL) are secrets; with neither, judgments are unknown.
+  // System One: FAKE_S1=1, then TYPESAFE_API_KEY, then Clef (the AI binding), then OPENROUTER_API_KEY (+ OPENROUTER_MODEL);
+  // with none, judgments are unknown. The keys are secrets.
   // FAKE_S1=1 belongs in .dev.vars and test configs only, never in deployed vars.
   // PUBLIC_URL records the deployed origin. Start lines and task packets use the request origin, so local dev (http://localhost:1337) needs no override.
   // WORKERS_SUBDOMAIN: the account's workers.dev subdomain; CI deploys previews to https://<worker>.<WORKERS_SUBDOMAIN>.workers.dev.

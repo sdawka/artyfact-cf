@@ -1,5 +1,6 @@
 import { failWith, limiter, lruCache, openRouterHeaders, postJson, redactor, withRetries } from "./http.ts";
-import { cacheKeyFor, fakeSystemOne, offSystemOne, S1Error, stripDirectives, typeSafeProvider, wireQuestions } from "./provider.ts";
+import { askCacheKey, fakeSystemOne, offSystemOne, refuseImages, S1Error, stripDirectives, typeSafeProvider, wireQuestions } from "./provider.ts";
+import { CLEF_MODEL, workersAiProvider, type AiBinding } from "./workers-ai.ts";
 import type { Answer, AskOptions, S1Questions, S1Reply, SystemOne } from "./types.ts";
 
 /** OpenRouter Decisions API ("System One" decision models). */
@@ -94,7 +95,8 @@ export function openRouterProvider(o: OpenRouterOptions): SystemOne {
     });
 
   async function ask(state: unknown, questions: S1Questions, opts: AskOptions = {}): Promise<S1Reply> {
-    const cacheKey = opts.cacheKey ?? cacheKeyFor(state, questions, model);
+    refuseImages("OpenRouter", opts);
+    const cacheKey = askCacheKey(state, questions, model, opts);
     const hit = cache.get(cacheKey);
     if (hit) return hit;
     const { timeoutMs = 2500, retries = 3, backoffMs = 250 } = opts;
@@ -112,20 +114,35 @@ export function openRouterProvider(o: OpenRouterOptions): SystemOne {
 export interface ProviderEnv {
   FAKE_S1?: string;
   TYPESAFE_API_KEY?: string;
+  /** Workers AI binding (wrangler `ai`); bound, it selects Cloudflare Clef. */
+  AI?: AiBinding;
+  /** Workers AI model id for Clef; default `@cf/cloudflare/clef` (`@cf/cloudflare/clef-flash` is the 9B one). */
+  CLEF_MODEL?: string;
   OPENROUTER_API_KEY?: string;
   OPENROUTER_MODEL?: string;
   fetch?: typeof fetch;
 }
 
 /**
- * artyfact's precedence: `FAKE_S1=1` wins, then `TYPESAFE_API_KEY`, then `OPENROUTER_API_KEY` (model from
- * `OPENROUTER_MODEL`), else off.
+ * artyfact's precedence: `FAKE_S1=1` wins, then `TYPESAFE_API_KEY`, then Cloudflare Clef when the `AI` binding is
+ * present (model from `CLEF_MODEL`), then `OPENROUTER_API_KEY` (model from `OPENROUTER_MODEL`), else off.
  */
 export function providerFromEnv(env: ProviderEnv): SystemOne {
   if (env.FAKE_S1 === "1") return fakeSystemOne();
   const typeSafeKey = env.TYPESAFE_API_KEY?.trim();
   if (typeSafeKey) return typeSafeProvider({ apiKey: typeSafeKey, fetch: env.fetch });
+  if (env.AI && typeof env.AI.run === "function") return workersAiProvider(env.AI, env.CLEF_MODEL?.trim() || CLEF_MODEL);
   const apiKey = env.OPENROUTER_API_KEY?.trim();
   if (apiKey) return openRouterProvider({ apiKey, model: env.OPENROUTER_MODEL?.trim() || undefined, fetch: env.fetch });
   return offSystemOne();
+}
+
+/**
+ * The provider for judgments with images: the selected one when it reads images (Clef, the fake), else Clef when the
+ * `AI` binding is present, else the selected one, which refuses images with an `unsupported` S1Error.
+ */
+export function visionProviderFromEnv(env: ProviderEnv, selected: SystemOne = providerFromEnv(env)): SystemOne {
+  if (selected.images) return selected;
+  if (env.AI && typeof env.AI.run === "function") return workersAiProvider(env.AI, env.CLEF_MODEL?.trim() || CLEF_MODEL);
+  return selected;
 }

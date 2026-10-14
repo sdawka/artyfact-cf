@@ -1,5 +1,5 @@
 import { constants, existsSync, lstatSync, mkdirSync, openSync, closeSync, writeSync, fchmodSync, readFileSync, readdirSync, rmSync, renameSync, unlinkSync } from 'node:fs';
-import { resolve, join, dirname } from 'node:path';
+import { resolve, join, dirname, basename } from 'node:path';
 import { parseArgs } from 'node:util';
 import { lifecyclePaths, type CreateRealizationPlanRequest, type DraftRealizationPlanRequest, type DraftRealizationPlanResponse, type ImplementationReview, type RealizationPlan, type Task, type TaskStartResponse, type TaskSubmitResponse } from '../../../apps/platform/shared/lifecycle.ts';
 import { shellArg } from '../../../apps/platform/shared/shell.ts';
@@ -15,6 +15,26 @@ import type { Io } from './main.ts';
 /** Inside .git, so no .gitignore negation can stage it; the old root location is read once and moved here. */
 const CONFIG='.git/artyfact-task.json',LEGACY_CONFIG='.artyfact-task.json';
 const id=(label:string,value:string|undefined)=>{if(!value)throw new CliError(`${label} is required`);return assertId(label,value);};
+/** Screenshot limits the platform enforces on `task submit --screenshot`: 4 images, 4 MiB each, PNG/JPEG/WebP. */
+const MAX_SCREENSHOTS=4,MAX_SCREENSHOT_BYTES=4*1024*1024;
+function imageType(b:Buffer):'image/png'|'image/jpeg'|'image/webp'|null{
+ if(b.length>=8&&b[0]===0x89&&b.subarray(1,4).toString('latin1')==='PNG')return 'image/png';
+ if(b.length>=3&&b[0]===0xff&&b[1]===0xd8&&b[2]===0xff)return 'image/jpeg';
+ if(b.length>=12&&b.subarray(0,4).toString('latin1')==='RIFF'&&b.subarray(8,12).toString('latin1')==='WEBP')return 'image/webp';
+ return null;
+}
+/** `--screenshot` files as the submit body's `screenshots`: regular files, at most 4, each a PNG, JPEG or WebP of at most 4 MiB. */
+function readScreenshots(files:string[],io:Io){
+ if(files.length>MAX_SCREENSHOTS)throw new CliError(`at most ${MAX_SCREENSHOTS} --screenshot files`);
+ return files.map(file=>{
+  const path=resolve(io.cwd,file);let stat;try{stat=lstatSync(path);}catch{throw new CliError(`screenshot ${file} not found`);}
+  if(!stat.isFile())throw new CliError(`screenshot ${file} must be a regular file`);
+  if(stat.size>MAX_SCREENSHOT_BYTES)throw new CliError(`screenshot ${file} is ${stat.size} bytes; the limit is ${MAX_SCREENSHOT_BYTES}`);
+  const bytes=readFileSync(path);if(bytes.length>MAX_SCREENSHOT_BYTES)throw new CliError(`screenshot ${file} is ${bytes.length} bytes; the limit is ${MAX_SCREENSHOT_BYTES}`);
+  const mediaType=imageType(bytes);if(!mediaType)throw new CliError(`screenshot ${file} is not a PNG, JPEG or WebP image`);
+  return {name:basename(path).slice(0,200),mediaType,base64:bytes.toString('base64')};
+ });
+}
 const readJson=(file:string,io:Io)=>{const path=resolve(io.cwd,file);const stat=lstatSync(path);if(!stat.isFile()||stat.size>4*1024*1024)throw new CliError('input must be a regular JSON file smaller than 4 MiB');return JSON.parse(readFileSync(path,'utf8'));};
 function write(path:string,data:string,mode=0o644){if(existsSync(path)&&lstatSync(path).isSymbolicLink())throw new CliError('refusing symlinked task workspace file');const fd=openSync(path,constants.O_WRONLY|constants.O_CREAT|constants.O_TRUNC|constants.O_NOFOLLOW,mode);try{writeSync(fd,data);fchmodSync(fd,mode);}finally{closeSync(fd);}}
 /** Credentials: a fresh 0600 file renamed into place, so the path never holds them with wider permissions. */
@@ -76,17 +96,20 @@ function printDraft(d:DraftRealizationPlanResponse,io:Io){
 }
 const reviewLink=(base:string,s:string,p:string)=>`${base}/s/${encodeURIComponent(s)}/r/head/work?plan=${encodeURIComponent(p)}`;
 export async function lifecycleCommand(command:string,args:string[],io:Io):Promise<number>{
- const {values:v,positionals:p}=parseArgs({args,allowPositionals:true,options:{system:{type:'string'},platform:{type:'string'},file:{type:'string'},dir:{type:'string'},hash:{type:'string'},candidate:{type:'string'},binding:{type:'string'},key:{type:'string'},reason:{type:'string'},'expected-version':{type:'string'},'agent-label':{type:'string'},from:{type:'string'},to:{type:'string'},before:{type:'string'},cursor:{type:'string'},limit:{type:'string'},json:{type:'boolean'},evolution:{type:'string',multiple:true},node:{type:'string',multiple:true},hint:{type:'string'},title:{type:'string'},create:{type:'boolean'}}});
+ const {values:v,positionals:p}=parseArgs({args,allowPositionals:true,options:{system:{type:'string'},platform:{type:'string'},file:{type:'string'},dir:{type:'string'},hash:{type:'string'},candidate:{type:'string'},binding:{type:'string'},key:{type:'string'},reason:{type:'string'},'expected-version':{type:'string'},'agent-label':{type:'string'},from:{type:'string'},to:{type:'string'},before:{type:'string'},cursor:{type:'string'},limit:{type:'string'},json:{type:'boolean'},screenshot:{type:'string',multiple:true},evolution:{type:'string',multiple:true},node:{type:'string',multiple:true},hint:{type:'string'},title:{type:'string'},create:{type:'boolean'}}});
  const action=p[0];
  if(command==='task'&&['checkpoint','submit','status'].includes(action??'')){
   if(action==='checkpoint'&&!p[1])throw new CliError('usage: artyfact task checkpoint "<message>"');
+  if(action!=='submit'&&v.screenshot?.length)throw new CliError('--screenshot belongs to task submit');
+  // Read before committing or pushing, so a bad file stops the submit before anything leaves the workspace.
+  const screenshots=action==='submit'?readScreenshots(v.screenshot??[],io):[];
   const cfg=local(io);const client=new PlatformClient(cfg.platform,io.env.ARTYFACT_SECRET||cfg.secret);const path=lifecyclePaths.action(cfg.systemId,cfg.planId,cfg.taskId,action==='checkpoint'?'checkpoint':'submit');
   if(action==='status'){io.out(JSON.stringify(await client.request('GET',lifecyclePaths.task(cfg.systemId,cfg.planId,cfg.taskId)),null,2));return 0;}
   const writeToken=action==='submit'?io.env.ARTYFACT_TOKEN||cfg.token:undefined;if(action==='submit'&&!writeToken)throw new CliError(`no task write token: ${CONFIG} holds none and ARTYFACT_TOKEN is unset; run task resume <plan> <task> --system <system> --dir . to store a fresh one`);
   if(action==='submit'&&!io.env.ARTYFACT_TOKEN&&cfg.tokenExpires&&Date.parse(cfg.tokenExpires)<=Date.now())io.err(`note: the stored task write token expired at ${cfg.tokenExpires}; if the push fails, run task resume to store a fresh one`);
   if(writeToken)assertToken(writeToken);const message=p[1]??'Task submission';const commit=commitIfDirty(io.cwd,message,io.err);
   if(writeToken)git(io.cwd,['push','--',cfg.remote,'HEAD:main'],writeToken);
-  const res=await client.request<TaskSubmitResponse>('POST',path,{attemptId:cfg.attemptId,generation:cfg.generation,commit,...(action==='checkpoint'?{message}:{})});io.out(JSON.stringify({...res,reviewUrl:cfg.reviewUrl},null,2));if(!v.json)io.out(`Review: ${cfg.reviewUrl}`);return 0;
+  const res=await client.request<TaskSubmitResponse>('POST',path,{attemptId:cfg.attemptId,generation:cfg.generation,commit,...(action==='checkpoint'?{message}:{}),...(screenshots.length>0&&{screenshots})});io.out(JSON.stringify({...res,reviewUrl:cfg.reviewUrl},null,2));if(!v.json)io.out(`Review: ${cfg.reviewUrl}`);return 0;
  }
  const publicRead=command==='plan'&&['tasks','list','show','review'].includes(action??'');
  const token=io.env.ARTYFACT_ADMIN_TOKEN;if(!token&&!publicRead)throw new CliError('ARTYFACT_ADMIN_TOKEN is required for this scoped administrative command');if(token)assertToken(token);

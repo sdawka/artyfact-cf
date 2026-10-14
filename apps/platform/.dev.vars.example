@@ -4,7 +4,8 @@ ADMIN_TOKEN=
 # Cloudflare account id (`wrangler whoami` / `cf auth whoami`); used to build fork git remotes.
 # Overrides the empty `ACCOUNT_ID` var in wrangler.jsonc. If unset, the remote returned by the fork call is used.
 ACCOUNT_ID=
-# System One provider: TypeSafe direct, or OpenRouter. With neither key set, System One judgments are `unknown`,
+# System One provider: TypeSafe direct, Cloudflare Clef (the AI binding in wrangler.jsonc; CLEF_MODEL overrides the
+# model), or OpenRouter. With none, System One judgments are `unknown`,
 # so hard criteria judged by System One (e.g. C.system.purpose) keep the promotion gate closed.
 TYPESAFE_API_KEY=
 OPENROUTER_API_KEY=

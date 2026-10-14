@@ -6,6 +6,7 @@ import { draftRealizationPlan } from '../tasks/planner';
 import { fromRpc } from '../errors';
 import { assertImportReviewed } from '../import-review';
 import { body, origin, type AppEnv, type Ctx } from './app';
+import { MAX_SUBMIT_BODY } from '../evidence';
 const prefix='/systems/:id/realization-plans';
 const plan=`${prefix}/:pid`,task=`${plan}/tasks/:tid`;
 async function call<T>(p:Promise<T>) {try{return await p;}catch(e){throw fromRpc(e)??e;}}
@@ -25,7 +26,8 @@ export const lifecycle=new Hono<AppEnv>()
  .post(`${plan}/integrate`,requireAdmin,reviewed,async c=>c.json(await integrateLifecyclePlan(c.env,c.req.param('id'),c.req.param('pid'),origin(c))))
  .post(`${plan}/promote`,requireAdmin,reviewed,async c=>c.json(await promoteLifecyclePlan(c.env,c.req.param('id'),c.req.param('pid'),await body(c))))
  .post(`${task}/checkpoint`,async c=>{await authed(c);return c.json(await checkpointLifecycleTask(c.env,...ids(c),await body(c)));})
- .post(`${task}/submit`,async c=>{await authed(c);return c.json(await submitLifecycleTask(c.env,...ids(c),await body(c)),201);})
+ // Submit carries up to four screenshots: its body is capped server side (413) before it is parsed.
+ .post(`${task}/submit`,async c=>{await authed(c);return c.json(await submitLifecycleTask(c.env,...ids(c),await body(c,MAX_SUBMIT_BODY)),201);})
  .post(`${task}/select`,requireAdmin,reviewed,async c=>c.json(await selectLifecycleTask(c.env,...ids(c),await body(c))));
 lifecycle.get(task,async c=>{await authed(c);const [sid,pid,tid]=ids(c),p=await call(systemStub(c.env,sid).realizationPlan(pid));return c.json({task:p.tasks.find(t=>t.id===tid)!,planId:pid,genome:p.genome});});
 for(const action of ['claim','start','resume'])lifecycle.post(`${task}/${action}`,requireAdmin,reviewed,async c=>c.json(await startLifecycleTask(c.env,...ids(c),await body(c),origin(c),action==='resume'),201));

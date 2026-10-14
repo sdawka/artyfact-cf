@@ -144,12 +144,15 @@ describe('cache', () => {
     expect(f).toHaveBeenCalledTimes(2);
   });
 
-  it('explicit cacheKey is honoured and cacheKeyFor is stable', async () => {
+  it('an explicit cacheKey scopes the cache but never replaces the state, and cacheKeyFor is stable', async () => {
     const f = mockFetch(() => jsonRes(okBody(answers)));
     const s1 = createSystemOne({ TYPESAFE_API_KEY: 'k', fetch: f });
     await s1.ask({ x: 1 }, questions, { cacheKey: 'k1' });
-    await s1.ask({ x: 2 }, questions, { cacheKey: 'k1' });
+    await s1.ask({ x: 1 }, questions, { cacheKey: 'k1' });
     expect(f).toHaveBeenCalledTimes(1);
+    // Same scope, different state: a fresh ask, never the other state's answer.
+    await s1.ask({ x: 2 }, questions, { cacheKey: 'k1' });
+    expect(f).toHaveBeenCalledTimes(2);
     const k = await cacheKeyFor({ a: 1, b: 2 }, questions, 'm');
     expect(k).toMatch(/^[0-9a-f]{64}$/);
     expect(await cacheKeyFor({ b: 2, a: 1 }, questions, 'm')).toBe(k);

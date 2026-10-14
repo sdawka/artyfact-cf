@@ -1,0 +1,7 @@
+id: endpoint.evidence
+kind: endpoint
+fields:
+  name: Evidence image
+  description: Serves a screenshot a visual check judged, either a platform capture of the preview or one the agent attached at submit, from the EVIDENCE bucket by the key its evaluation cites.
+  route: GET /api/systems/:id/evidence
+  auth: Admin bearer or the secret of the realization named in the key (401 without a token, 403 for a wrong one); a key that is not exactly evidence/<system>/<realization>/<commit>/<file> for this System answers 404 not-found.
