@@ -137,6 +137,15 @@ describe("the Artyfact self-Genome", () => {
     }
   });
 
+  it("binds every self artifact to the CLI-derived shared Artyfact app repository", () => {
+    const artifacts = graph.nodes.filter((node) => node.kind === "artifact");
+    expect(artifacts.map((artifact) => artifact.id).sort()).toEqual([
+      "artifact.ci", "artifact.cli", "artifact.effects", "artifact.model", "artifact.ontology", "artifact.platform", "artifact.rules", "artifact.semantic", "artifact.site", "artifact.templates",
+    ]);
+    expect(new Set(artifacts.map((artifact) => artifact.fields.repo))).toEqual(new Set(["artyfact.app"]));
+    expect(artifacts.find((artifact) => artifact.id === "artifact.platform")?.fields.type).toBe("worker-fullstack");
+  });
+
   it("loads through loadGenome with no findings under its pinned packs, and topology.services runs and passes", () => {
     expect(model.kits.rulePacks).toEqual([{ id: "topology.services", version: "1" }]);
     expect(model.things).toHaveLength(10);
