@@ -1,0 +1,7 @@
+id: section.contacts
+kind: section
+fields:
+  name: Contacts
+  description: The contact record, owned by one account and written by the contact routes
+files:
+  - src/worker/routes/contacts.ts

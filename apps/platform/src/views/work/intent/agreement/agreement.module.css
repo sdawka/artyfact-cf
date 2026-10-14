@@ -1,0 +1,54 @@
+.wrap { display: grid; gap: var(--spacing-2); min-width: 0; }
+.tree, .group { display: grid; gap: var(--spacing-1); margin: 0; padding: 0; list-style: none; }
+.group { padding-left: var(--spacing-4); }
+.item { display: grid; gap: var(--spacing-2); min-width: 0; outline: none; }
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--spacing-1) var(--spacing-2);
+  min-width: 0;
+  padding: var(--spacing-1) var(--spacing-2);
+  border-left: 3px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-sm);
+  font-size: var(--font-size-sm);
+}
+.item[data-active] > .row { background: var(--color-background-hover); }
+.item:focus-visible > .row { outline: var(--focus-ring); outline-offset: 1px; }
+/* Decisions: never green. Agree solid apricot, reject dashed and quiet, defer dotted, mixed half strength. */
+.item[data-decision="agree"] > .row { border-left: 3px solid var(--color-brand-primary); }
+.item[data-decision="reject"] > .row { border-left: 3px dashed var(--color-border); color: var(--color-text-secondary); }
+.item[data-decision="reject"] > .row .title { text-decoration: line-through; text-decoration-color: var(--color-text-subtle); }
+.item[data-decision="defer"] > .row { border-left: 3px dotted var(--color-text-subtle); }
+.item[data-decision="mixed"] > .row { border-left: 3px solid color-mix(in oklch, var(--color-brand-primary) 50%, transparent); }
+.twisty { width: var(--spacing-4); flex: none; color: var(--color-text-subtle); text-align: center; cursor: pointer; }
+.glyph { flex: none; color: var(--kind, var(--color-text-subtle)); }
+.title { min-width: 0; font-weight: var(--font-weight-medium); overflow-wrap: anywhere; }
+.decide { display: inline-flex; gap: var(--spacing-1); margin-left: auto; }
+.decide button {
+  padding: 0 var(--spacing-2);
+  color: var(--color-text-secondary);
+  background: transparent;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--border-radius-sm);
+  font: inherit;
+  font-size: var(--font-size-xs);
+  line-height: 1.8;
+  cursor: pointer;
+}
+.decide button:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.decide button:disabled { color: var(--color-text-disabled); cursor: not-allowed; }
+.decide button[aria-pressed="true"] { color: var(--color-text-primary); border-color: var(--color-brand-primary); }
+.decide button[aria-pressed="mixed"] { color: var(--color-text-primary); border-color: var(--color-brand-primary); opacity: 0.75; }
+.decide button[data-decision="reject"][aria-pressed="true"],
+.decide button[data-decision="reject"][aria-pressed="mixed"] { border-style: dashed; border-color: var(--color-border); }
+.decide button[data-decision="defer"][aria-pressed="true"],
+.decide button[data-decision="defer"][aria-pressed="mixed"] { border-style: dotted; border-color: var(--color-text-subtle); }
+.body { display: grid; gap: var(--spacing-2); min-width: 0; padding-left: calc(var(--spacing-4) + 3px); }
+.summary { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.hint { margin: 0; color: var(--color-text-subtle); font-size: var(--font-size-xs); }
+.hint kbd { font-family: var(--font-code); }
+@media (max-width: 640px) {
+  .decide { margin-left: 0; }
+  .group { padding-left: var(--spacing-2); }
+}

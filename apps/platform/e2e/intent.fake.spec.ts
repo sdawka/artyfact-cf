@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { ADMIN_TOKEN, auth, BASE, checkPage, SYS } from "./fake";
 
 test.describe("describe a change by intent @fake", () => {
-  test("message, routed path, op toggle, accept, candidate with gates, Evolution, packet scope @fake", async ({ page, request }, testInfo) => {
+  test("message, routed path, agreement tree, accept, candidate with gates, Evolution, packet scope @fake", async ({ page, request }, testInfo) => {
     // The header's admin token lives in sessionStorage; seed it before the SPA boots.
     await page.addInitScript(([k, v]) => sessionStorage.setItem(k, v), ["artyfact.adminToken", ADMIN_TOKEN]);
     await page.goto(`${BASE}/work`);
@@ -18,17 +18,32 @@ test.describe("describe a change by intent @fake", () => {
     const routed = page.getByRole("region", { name: "Routed path" }).or(page.getByRole("heading", { name: "Routed path" }).locator(".."));
     await expect(routed.getByText("screen.people", { exact: true })).toBeVisible();
     await expect(page.getByText("provider fake")).toBeVisible();
-    await expect(page.getByText("1 of 1 selected")).toBeVisible();
+    // The agreement tree: the Thing row counts the one update under it; nothing is decided yet.
+    const tree = page.getByRole("tree", { name: "Proposed changes" });
+    const thing = tree.getByRole("treeitem", { name: /^Peopling web app,/ });
+    await expect(thing.getByText("1 update").first()).toBeVisible();
+    const acceptAgreed = page.getByRole("button", { name: "Accept agreed" });
+    await expect(acceptAgreed).toBeDisabled();
+    await expect(page.getByText("Decide every change first: 1 undecided.")).toBeVisible();
     await checkPage(page, testInfo, "intent-proposal");
 
-    // Toggle the op off: nothing is left to accept. Toggle it back on.
-    const toggle = page.getByRole("checkbox").first();
-    await toggle.uncheck();
-    await expect(page.getByText("0 of 1 selected")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Accept selected" })).toBeDisabled();
-    await toggle.check();
+    // Reject the Thing: nothing is agreed. Agree it: the update is agreed.
+    await page.getByRole("button", { name: "Reject Peopling web app" }).click();
+    await expect(acceptAgreed).toBeDisabled();
+    await expect(page.getByText("Agree at least one change to accept.")).toBeVisible();
+    await page.getByRole("button", { name: "Agree Peopling web app" }).click();
+    await expect(acceptAgreed).toBeEnabled();
+    await expect(page.getByText("1 of 1 change agreed")).toBeVisible();
 
-    await page.getByRole("button", { name: "Accept selected" }).click();
+    // The same from the keyboard on the focused row.
+    await thing.focus();
+    await page.keyboard.press("r");
+    await expect(acceptAgreed).toBeDisabled();
+    await page.keyboard.press("a");
+    await expect(acceptAgreed).toBeEnabled();
+    await checkPage(page, testInfo, "intent-agreed");
+
+    await acceptAgreed.click();
 
     // Work: the candidate row with its gates, opened for review, under an Evolution that lists the touched node.
     await expect(page).toHaveURL(/\/work\?.*realization=/);
@@ -67,8 +82,8 @@ test.describe("describe a change by intent @fake", () => {
     expect(packet.genome.commit).toBe(plan.genome.commit);
     await page.goto(`${BASE}/work?plan=${encodeURIComponent(plan.id)}`);
     await expect(page.getByRole("heading", { name: definition.title })).toBeVisible();
-    await page.getByText("Scope, steps, checks and Task Attempts", { exact: true }).click();
-    await expect(page.getByText("local:e2e", { exact: false })).toBeVisible();
+    await page.getByTestId("task-task.people").getByRole("button", { name: "Implement People copy" }).click();
+    await expect(page.getByTestId("task-detail").getByText(/local:e2e · working/)).toBeVisible();
 
   });
 
@@ -80,7 +95,7 @@ test.describe("describe a change by intent @fake", () => {
     await page.getByRole("button", { name: "Propose changes" }).click();
     await expect(page.getByRole("heading", { name: "Questions" })).toBeVisible();
     await expect(page.getByText("Which of these is it about")).toBeVisible();
-    await expect(page.getByRole("button", { name: "Accept selected" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Accept agreed" })).toHaveCount(0);
     const proposalId = new URL(page.url()).searchParams.get("proposal")!;
     const get = async () => (await (await request.get(`/api/systems/${SYS}/intents/${proposalId}`, { headers: auth })).json()) as { status: string; ops: unknown[]; questions: { id: string }[] };
     expect((await get()).questions.map((q) => q.id)).toEqual(["q.1"]);

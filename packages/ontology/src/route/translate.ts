@@ -158,7 +158,8 @@ export function openRouterTranslator(o: OpenRouterTranslatorOptions): Translator
 
 /**
  * A canned, gold-free translator: a question when the route is not confident or the intent is `question`/`unclear`,
- * an answer for `answer`, else an `update` of the first target, else an `add` of the route's kind, else a question.
+ * an answer for `answer`, else an `update` of each target (a `#files:` directive binds the first target's files), else
+ * an `add` of the route's kind, else a question.
  * The `add` links to the first target with the first vocabulary relation whose ends fit the two kinds, if any.
  */
 export const fakeTranslator = (): Translator => ({
@@ -166,14 +167,16 @@ export const fakeTranslator = (): Translator => ({
   model: "fake",
   translate: async ({ message, route: r, slice, vocabulary }) => {
     const base = { model: "fake", provider: "fake" };
+    const dir = /#files:(\S+)/.exec(message);
+    // The `#files:` directive is an instruction to the fake, not part of the change: never echo it.
+    const text = message.replace(/\s*#files:\S+/g, "").trim();
     if (r.status !== "confident" || r.intent === "question" || r.intent === "unclear" || r.intent === undefined) {
-      return { ...base, question: `[fake] Which part should change for: ${message}` };
+      return { ...base, question: `[fake] Which part should change for: ${text}` };
     }
     if (r.intent === "answer") return { ...base, answer: `[fake] See ${[...r.target.nodes, ...r.target.related].join(", ") || "the specification"}.` };
     const first = r.target.nodes[0];
-    const dir = /#files:(\S+)/.exec(message);
     if (first && dir) return { ...base, ops: [{ op: "update", id: first, files: dir[1]!.split(",").filter(Boolean) }] };
-    if (first && r.intent !== "add") return { ...base, ops: [{ op: "update", id: first, fields: { description: `[fake] ${message}` } }] };
+    if (first && r.intent !== "add") return { ...base, ops: r.target.nodes.map((id) => ({ op: "update" as const, id, fields: { description: `[fake] ${text}` } })) };
     if (r.target.kind) {
       const kind = r.target.kind;
       const other = first === undefined ? undefined : slice.nodes.find((n) => n.id === first)?.kind;
@@ -181,9 +184,9 @@ export const fakeTranslator = (): Translator => ({
       const out = other === undefined ? undefined : rels.find(([, e]) => e.from.includes(kind) && e.to.includes(other))?.[0];
       const into = other === undefined || out ? undefined : rels.find(([, e]) => e.from.includes(other) && e.to.includes(kind))?.[0];
       const links = out ? [{ rel: out, to: first! }] : into ? [{ rel: into, from: first! }] : [];
-      return { ...base, ops: [{ op: "add", kind, title: `[fake] ${message}`.slice(0, 80), ...(links.length && { links }) }] };
+      return { ...base, ops: [{ op: "add", kind, title: `[fake] ${text}`.slice(0, 80), ...(links.length && { links }) }] };
     }
-    return { ...base, question: `[fake] Which part should change for: ${message}` };
+    return { ...base, question: `[fake] Which part should change for: ${text}` };
   },
 });
 

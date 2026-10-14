@@ -106,14 +106,22 @@ Then tell the person to open Review, then Import on the platform and agree node 
 
 ## 6. Realize (after the person plans an Evolution)
 
-Once an Evolution is planned the platform lists Tasks. Claim one and work in an isolated directory:
+An Evolution changes only the Genome. Implementation runs through a Realization plan of Tasks. Draft one, then claim Tasks wave by wave:
 
 ```
-npx artyfact tasks --system <id>
-npx artyfact claim <task-id> --system <id> --agent <label> --dir ./work/<task-id>
+npx artyfact plan draft --system <id> --evolution <evolution-id> [--node <node-id>] [--hint "<text>"]   # saves nothing
+npx artyfact plan draft --system <id> --evolution <evolution-id> --create                                 # saves it and prints the plan id
+npx artyfact plan tasks <plan> --system <id>                  # status, wave, depends-on, write nodes, footprint, conflicts, next claim
 ```
 
-Read `AGENTS.md` and `TASK_PACKET.md` in the work directory. Edit only inside the permitted paths. Save progress with `npx artyfact checkpoint "<what, why, what is left>"`, then hand in with `npx artyfact submit`. The platform verifies; your logs are advisory. The `tasks`, `claim`, `checkpoint` and `submit` commands come from the artyfact CLI release you have installed; run `npx artyfact` to see which exist.
+Claim a Task with the admin token on that one command, from `ADMIN_TOKEN`, a shell variable set without exporting it; then run the agent without it, then submit:
+
+```
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim <plan> <task> --system <id> --dir ./work/<task> --agent-label claude:<task>
+cd ./work/<task> && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit"
+```
+
+`task claim` stores the fork write token in `.git/artyfact-task.json` (mode 0600, never staged, never printed) and `task submit` finds it there; never export the admin token or set it in a shell profile, and never paste either token into source, logs or a review. Read `AGENTS.md` and `TASK_PACKET.md`, edit only inside the permitted paths, save progress with `npx artyfact task checkpoint "<what, why, what is left>"`, then hand in with `npx artyfact task submit`. The platform verifies; your logs are advisory. Claim only Tasks `plan tasks` names as claimable; a `blocked by`, `taken by` or `conflicts with` message means wait or pick another. Resume an interrupted attempt with `task resume`, which refreshes the stored token. Run `npx artyfact` to see which commands your installed release has.
 
 ## Checklist before stopping
 
@@ -140,18 +148,23 @@ Artyfact stores plans and evidence. Run agents in the user's local harness.
   Each Task declares `id`, `title`, `artifactId`, `steps`, `dependsOn`, `readNodes`, `writeNodes`, and `checks`.
 - Create the durable plan with `npx artyfact plan create --system <system> --file plan.json`.
   Read `plan show <plan> --system <system>` for dependency waves and scope conflicts.
-- Start only eligible Tasks: `npx artyfact task start <plan> <task> --system <system> --dir ./task --json`.
-  JSON hands off credentials once; never paste them into source, logs, a review, or another agent's context.
-  Set `ARTYFACT_TOKEN` in that Task's process environment; it is never saved to disk.
+- Draft instead of hand-writing: `npx artyfact plan draft --system <system> --evolution <evolution> [--node <node>] [--hint "<text>"]`
+  prints the Task table, waves and problems and saves nothing; add `--create` to save the draft unchanged.
+  `plan tasks <plan> --system <system>` lists status, wave, dependencies, write nodes, footprint and conflicts, and the next claim.
+- Claim only eligible Tasks, with the admin token on that command only (`ADMIN_TOKEN` set in the shell, not exported):
+  `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim <plan> <task> --system <system> --dir ./task --agent-label claude:<task>`.
+  Run the agent with `env -u ARTYFACT_ADMIN_TOKEN claude -p "..."`. The fork write token is saved in `.git/artyfact-task.json`
+  (mode 0600, never staged) and never printed; `task submit` reads it, so `ARTYFACT_TOKEN` is optional. Never paste credentials
+  into source, logs, a review, or another agent's context.
 - Read TASK_PACKET.md. Honor the pinned Genome, permitted paths, read/write scope and checks.
   Inside the fork use `npx artyfact task checkpoint "<what changed and what remains>"` and `task submit`.
-- Resume interruptions with `task resume <plan> <task> --system <system> --dir ./task --json`.
-  This preserves the fork and rotates credentials, fencing the old attempt. Never start a second writer.
-- Review each candidate, then `task select <plan> <task> --system <system> --candidate <candidate>`.
-  Integrate with `plan integrate <plan> --system <system>` and read `plan review <plan> --system <system>`.
+- Resume interruptions with `task resume <plan> <task> --system <system> --dir ./task`.
+  This preserves the fork and stores fresh credentials, fencing the old attempt. Never start a second writer.
+- Review each candidate, then `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task select <plan> <task> --system <system> --candidate <candidate>`.
+  Integrate with `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan integrate <plan> --system <system>` and read `plan review <plan> --system <system>`.
 - Return the combined implementation review URL. Promotion requires that exact reviewed candidate set
-  and expected System head; use `plan promote <plan> --system <system> --file reviewed-promotion.json`.
+  and expected System head; use `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan promote <plan> --system <system> --file reviewed-promotion.json`.
 - Metrics and Flagship controls are separate: `operations metrics|flags|audit --system <system> --binding <binding>`.
   Never infer intended outcomes from raw request counts. Flag changes require an explicit reason and version.
 
-Administrative commands use `ARTYFACT_ADMIN_TOKEN`; attempt commands use their scoped saved secret.
+Administrative commands use `ARTYFACT_ADMIN_TOKEN`, passed per command as `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN"`; attempt commands use their scoped saved secret and stored write token. Plan reads (`plan tasks`, `plan show`) need no token for a public System.

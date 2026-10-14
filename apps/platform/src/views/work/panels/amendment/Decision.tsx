@@ -22,6 +22,8 @@ export interface DecisionProps {
   focusId: string | undefined;
   /** Set when a hard violation (rule or model-flagged) blocks accept. */
   blocked: boolean;
+  /** Another reason accept is disabled (e.g. a rejected node: an amendment is accepted whole or not at all). */
+  blockedReason?: string | null;
   outcome: DecisionOutcome | null;
   onOutcome(o: DecisionOutcome): void;
   /** The interpretation starts from an editor commit's "why"; say so until it is edited. */
@@ -29,7 +31,7 @@ export interface DecisionProps {
 }
 
 /** Accept (interpretation required) or reject (reason required). Both need the platform API. */
-export function Decision({ evolutionId, realization, candidateId, commit, initialInterpretation, focusId, blocked, outcome, onOutcome, prefilledFromWhy = false }: DecisionProps) {
+export function Decision({ evolutionId, realization, candidateId, commit, initialInterpretation, focusId, blocked, blockedReason = null, outcome, onOutcome, prefilledFromWhy = false }: DecisionProps) {
   const m = useModel();
   const href = useKeepParams();
   const accept = useAcceptAmendment();
@@ -47,15 +49,15 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
   const acceptDisabledReason = outcome
     ? "This amendment is already decided."
     : fixture
-      ? "Fixture data: the platform API is not connected, so nothing can be accepted."
+      ? "Accepting needs the platform API. The UI is showing fixture data."
       : blocked
         ? "Accept is blocked: a hard violation is present. Reject it, or ask the agent to fix the Genome and resubmit."
-        : null;
+        : blockedReason;
 
   const rejectDisabledReason = outcome
     ? "This amendment is already decided."
     : fixture
-      ? "Fixture data: the platform API is not connected, so nothing can be rejected."
+      ? "Rejecting needs the platform API. The UI is showing fixture data."
       : null;
 
   const doAccept = () => {

@@ -11,7 +11,9 @@ import {
 } from "../../shared/api";
 import { isBlocking } from "../../shared/verdict";
 import type { TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse } from "../../shared/api";
-import type { IntentAccept, IntentAcceptResponse, IntentReply, IntentRequest, Proposal } from "../../shared/api";
+import type { IntentAccept, IntentAcceptResponse, IntentDecisionsRequest, IntentReply, IntentRequest, Proposal } from "../../shared/api";
+// review
+import type { SystemImportReview, SystemImportReviewAccept, SystemImportReviewAcceptResponse } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
 
 /** Any non-2xx response. `body` is the parsed {@link ApiError} when the server sent one. */
@@ -123,6 +125,8 @@ const post = <T>(path: string, body: unknown, headers?: Record<string, string>) 
 // ---------------------------------------------------------------------------
 
 let mode: Promise<{ fixture: boolean; systems: SystemSummary[] }> | undefined;
+/** Whether `getSystems()` already answered with the list that decided the mode. */
+let modeSystemsServed = false;
 
 export const FIXTURE_SYSTEM_ID = "system.peopling";
 
@@ -184,6 +188,7 @@ export const getClientMode = async (): Promise<ClientMode> => ((await resolveMod
 /** Forget the cached fixture decision so the next call asks the API again (TopBar "Retry API", tests). */
 export function resetClientMode() {
   mode = undefined;
+  modeSystemsServed = false;
 }
 
 async function readOrEmpty<T>(empty: T, load: () => Promise<T>): Promise<T> {
@@ -199,8 +204,18 @@ async function writeOrThrow<T>(action: string, run: () => Promise<T>): Promise<T
 // Reads
 // ---------------------------------------------------------------------------
 
+/**
+ * The first read answers with the list that decided the mode; every later read (a `systems` invalidation, e.g. on
+ * `system.import-review`) asks the API again, so a running page sees a review that turns pending without a reload.
+ */
 export async function getSystems(): Promise<SystemSummary[]> {
-  return (await resolveMode()).systems;
+  const m = await resolveMode();
+  if (m.fixture || !modeSystemsServed) {
+    modeSystemsServed = true;
+    return m.systems;
+  }
+  const r = await request<SystemSummary[] | { systems: SystemSummary[] }>(paths.systems());
+  return Array.isArray(r) ? r : (r.systems ?? []);
 }
 
 /** Shared, immutable Part catalog. System-private packages require an explicit System route and are never requested here. */
@@ -391,6 +406,26 @@ export const replyIntent = (systemId: string, proposalId: string, body: IntentRe
 export const acceptIntent = (systemId: string, proposalId: string, body: IntentAccept, adminToken?: string) =>
   writeOrThrow("Accepting a proposal", () => post<IntentAcceptResponse>(paths.intentAccept(systemId, proposalId), body, bearer(adminToken)));
 
+/** Decides agreement-tree nodes in one batch; a decision on a parent clears its descendants'. Returns the proposal. */
+export const decideIntent = (systemId: string, proposalId: string, body: IntentDecisionsRequest, adminToken?: string) =>
+  writeOrThrow("Deciding changes", () =>
+    request<Proposal>(routes.intentDecisions(systemId, proposalId), { method: "PUT", body: JSON.stringify(body), ...(adminToken && { headers: bearer(adminToken) }) }),
+  );
+
+// ---------------------------------------------------------------------------
+// review: the System import review of an imported System (agreement tree over the imported Genome)
+// ---------------------------------------------------------------------------
+
+/** The pending or accepted import review; 404 when the System was imported without one. Not available on fixture data. */
+export async function getImportReview(systemId: string): Promise<SystemImportReview> {
+  if (await isFixtureMode()) throw notInFixture("The import review");
+  return request<SystemImportReview>(routes.importReview(systemId));
+}
+
+/** Admin: accept the import; `rejectedNodes` are removed at once by an accepted Genome amendment. */
+export const acceptImportReview = (systemId: string, body: SystemImportReviewAccept, adminToken?: string) =>
+  writeOrThrow("Accept import", () => post<SystemImportReviewAcceptResponse>(routes.importReviewAccept(systemId), body, bearer(adminToken)));
+
 // ---------------------------------------------------------------------------
 // App template upgrades
 // ---------------------------------------------------------------------------
@@ -424,7 +459,7 @@ const SSE_TYPE_SET = {
   "realization.created": true, "realization.updated": true, checkpoint: true, "candidate.submitted": true,
   "evaluation.completed": true, "conflict.detected": true, "evolution.updated": true, "system.promoted": true,
   "genome.accepted": true, "system.imported": true, "build.updated": true, "deployment.updated": true,
-  "phenome.ingested": true, "system.updated": true, "evolution.created": true, ping: true,
+  "phenome.ingested": true, "system.updated": true, "evolution.created": true, "system.import-review": true, ping: true,
 } satisfies Record<SseType, true>;
 
 /** Named EventSource listeners (the server may also send unnamed `data:` frames, handled by `onmessage`). */

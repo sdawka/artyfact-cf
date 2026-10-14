@@ -6,6 +6,9 @@
  *                       (the Genome's Evolution, else the DO's record `ctx.evolution` for API-created ones)
  *                     ∪ criteria whose subjectId is in candidate.changedNodes    (reason "subject")
  *                     ∪ System-owned criteria with `submission` in gates         (reason "system-gate")
+ *                     ∪ criteria that block this candidate's promotion          (reason "promotion-gate")
+ *                       (promotion-gated, hard, with a bound hook, and for a Genome candidate model-targeted:
+ *                        promotion.ts gateCriteria demands their evidence, so they run whatever the Evolution lists)
  *   in that order, deduped, deferred criteria dropped. Every hook bound to an affected criterion (hook.criteria ∪
  *   criterion.hooks) yields one Evaluation per (hook, criterion); a criterion with no hook yields hook "none".
  *   A hook runs when its engine is a platform engine (manifest, diff, model-rules, llm, http) and its triggers
@@ -23,6 +26,7 @@ import { LegacyGenomeError, ModelParseError, type Readiness, type SystemModel, t
 import type { Graph } from "@artyfact/ontology";
 import { createSystemOne, type SystemOne, type SystemOneEnv } from "@artyfact/semantic";
 import type { CandidateRef, ConflictContext, EvolutionRef, ConflictReport, DeltaReview, Evaluation, GenomeContext, GenomeResult, HookRunner, SubmissionContext } from "./contract";
+import { isBlocking } from "../promotion";
 import { diffScope } from "./diff-scope";
 import { engineRules, engineRun, genomeGraph, judgeChecks, wantsChecks, type ChecksOptions, type EngineRun } from "./engine-gates";
 import { HEALTH_TIMEOUT_MS, httpHealth, previewPolicy, type PreviewEnv } from "./http-health";
@@ -46,7 +50,7 @@ export interface RunnerDeps {
   genome?: GenomeDeps;
 }
 
-export type SelectionReason = "acceptance" | "subject" | "system-gate";
+export type SelectionReason = "acceptance" | "subject" | "system-gate" | "promotion-gate";
 
 export interface Selected {
   criterion: schema.Criterion;
@@ -101,6 +105,11 @@ export function selectHooks(m: SystemModel, candidate: CandidateRef, trigger: "s
   for (const c of m.criteria) if (changed.has(c.subjectId)) add(c, "subject");
   for (const c of m.criteria) {
     if (c.ownerKind === "system" && (c.gates.includes("submission") || (trigger === "promotion" && c.gates.includes("promotion")))) add(c, "system-gate");
+  }
+  // The promotion gate requires a pass of each of these; without this a Thing-owned one (C.webapp.exists) would run only
+  // when the Evolution or task happens to list it, and every other promotion would be blocked on missing evidence.
+  for (const c of m.criteria) {
+    if (c.gates.includes("promotion") && isBlocking(m, c) && (candidate.target !== "genome" || c.targetKind === "model")) add(c, "promotion-gate");
   }
 
   const out: Selected[] = [];

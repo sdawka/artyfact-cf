@@ -4,10 +4,13 @@
  * repo is this repo's source, narrowed to what the Genome's node `files` point at (no tests, fixtures, stylesheets or generated
  * Worker types), with paths repo-relative so each Thing's `root` resolves. Loaded only when the seed asks for it.
  */
-const UP = "../../../../";
+// Glob keys are relative to this file, and Vite shortens them (apps/ci/x is `../../../ci/x` here, apps/platform/src/x is
+// `../../src/x`), so resolve each key against this file's place in the repo rather than cutting a fixed prefix.
+const HERE = "file:///repo/apps/platform/worker/artifacts/";
+const ROOT = "/repo/";
 
 const repoRelative = (files: Record<string, string>, under = "") =>
-  Object.fromEntries(Object.entries(files).map(([p, t]) => [p.slice(UP.length + under.length), t] as const));
+  Object.fromEntries(Object.entries(files).map(([p, t]) => [new URL(p, HERE).pathname.slice(ROOT.length + under.length), t] as const));
 
 export const artyfactSystemId = "system.artyfact";
 

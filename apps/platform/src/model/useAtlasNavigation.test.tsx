@@ -84,10 +84,10 @@ describe("atlas URL navigation", () => {
   });
   it("normalizes a legacy focus to its real containing scope once, then selection stays there", () => {
     const r = renderApp(`${BASE}/map?focus=entity.ContactRecord`, routes);
-    expect(screen.getByRole("status").textContent).toBe("section.domain");
-    expect(params(r).get("scope")).toBe("section.domain");
+    expect(screen.getByRole("status").textContent).toBe("section.contacts");
+    expect(params(r).get("scope")).toBe("section.contacts");
     click("Select");
-    expect(params(r).get("scope")).toBe("section.domain");
+    expect(params(r).get("scope")).toBe("section.contacts");
   });
   it("separates replaced selection and Details from pushed depth history", async () => {
     const r = renderApp(`${BASE}/map?scope=environment&layer=phenome`, routes);
@@ -130,7 +130,7 @@ describe("atlas URL navigation", () => {
   });
   it("normalizes an explicit leaf to its parent without allowing focus to override it", () => {
     const r = renderApp(`${BASE}/map?scope=entity.ContactRecord&focus=screen.people`, routes);
-    expect(params(r).get("scope")).toBe("section.domain");
+    expect(params(r).get("scope")).toBe("section.contacts");
   });
   it("resets stale explicit scope instead of recovering depth from selected focus", () => {
     const r = renderApp(`${BASE}/map?scope=thing.deleted&focus=screen.people`, routes);

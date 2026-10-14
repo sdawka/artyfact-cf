@@ -25,7 +25,7 @@ missing. When creating reports that the namespace exists, init confirms it with 
 prints one page without a next cursor, so a namespace beyond the first page is refused rather than assumed. It writes `platform` only when that repo is missing or empty; an existing one is left alone, and
 `platform-sync` is the update path. It then pushes the Genome and the app, and calls `POST /api/systems/import` with
 `Authorization: Bearer $ARTYFACT_ADMIN_TOKEN`, over https or plain http to localhost / 127.0.0.1 only. Without that
-variable it prints the `curl` line instead and exits 0, even when no platform is running. A 409 `already-imported` asks for `--force`. A re-run pushes
+variable it prints the `curl` line instead and exits 0, even when no platform is running. A 409 `already-imported` asks for `--force`. The import leaves a System import review pending and refuses work until it is accepted; init prints its review URL, and `--no-review` sends `review: false` to skip it. A re-run pushes
 nothing and re-imports as a no-op. Error text names the account by its first 8 characters only. The System id must be lower-case
 (`system.peopling`), so every id maps to its own repos.
 
@@ -117,19 +117,23 @@ against it; the command prints the resulting evaluations. Statuses are `queued`,
 
 ## Genome lifecycle and local agents
 
-Administrative commands require `ARTYFACT_ADMIN_TOKEN`. Pass `--platform <url>` or set
-`ARTYFACT_PLATFORM`; credentials are sent only over HTTPS or local HTTP.
+Administrative commands require `ARTYFACT_ADMIN_TOKEN`. Set `ADMIN_TOKEN` in this shell without exporting it, and
+pass it to each admin command only, as `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact …`; never export
+`ARTYFACT_ADMIN_TOKEN` or put it in a shell profile. Pass `--platform <url>` or set `ARTYFACT_PLATFORM`; credentials are
+sent only over HTTPS or local HTTP.
 
 ```sh
-artyfact ontology preview --system system.example --file native-package.json
-artyfact ontology show import.id --system system.example
-artyfact ontology accept import.id --system system.example --hash <reviewed-hash>
-artyfact ontology bootstrap import.id --system system.example --dir ./project
-artyfact evolution propose --system system.example --file intent.json
-artyfact evolution create --system system.example --file evolution.json
-artyfact plan create --system system.example --file plan.json
-artyfact plan show plan.id --system system.example
-artyfact task start plan.id task.id --system system.example --dir ./task --json
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology preview --system system.example --file native-package.json
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology show import.id --system system.example
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology accept import.id --system system.example --hash <reviewed-hash>
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology bootstrap import.id --system system.example --dir ./project
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact evolution propose --system system.example --file intent.json
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact evolution create --system system.example --file evolution.json
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan draft --system system.example --evolution evolution.id [--node node.id] [--hint "text"] [--create]
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan create --system system.example --file plan.json
+npx artyfact plan show plan.id --system system.example     # reads: no token on a public System
+npx artyfact plan tasks plan.id --system system.example
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim plan.id task.id --system system.example --dir ./task
 ```
 
 Preview accepts a native package JSON directly or `{package, genomeFiles}`; `genomeFiles` maps
@@ -139,15 +143,42 @@ Bootstrap materializes the exact accepted Genome files in a new directory and ru
 it uses the existing Cloudflare authentication and provisioning flow. `intent.json` contains
 `message` and optional `anchor`. New Evolutions are always Genome amendments.
 
-`plan.json` contains `title`, optional current accepted `genomeCommit`, and `tasks`; each Task declares
+`plan draft` asks the platform to partition accepted, not-yet-realized Genome Evolutions (`--evolution`, repeatable),
+plus any explicit `--node` ids and a `--hint`, into Tasks. It prints the Task table, the waves and the problems, and
+saves nothing. `--create` posts the draft unchanged and prints the plan id and review URL. `--json` prints the draft
+(or `{draft, plan}` with `--create`).
+
+`plan.json` (for `plan create`) contains `title`, optional current accepted `genomeCommit`, and `tasks`; each Task declares
 `id`, `title`, `artifactId`, `steps`, `dependsOn`, `readNodes`, `writeNodes`, and `checks`.
 The platform resolves repository scope and dependency waves before granting a writing attempt.
 
-`task claim`, `task start`, and `task resume` have the same arguments. Explicit `--json`
-hands off `{workspace, attemptId, generation, token, secret, reviewUrl}` once. Set
-`ARTYFACT_TOKEN` from `token` in the Task process environment before pushing; it is never
-saved to disk. The scoped attempt secret is saved in a Git-excluded 0600 configuration.
-Resume preserves the fork and local work while rotating credentials and fencing the old attempt.
+`plan tasks <plan>` prints `task | status | wave | depends-on | write nodes | footprint`, one `conflicts:` line per
+overlapping pair, and the claim command for the lowest-wave pending Task whose dependencies are selected or completed.
+Like `plan show`, it needs no token for a public System.
+
+`task claim`, `task start`, and `task resume` have the same arguments (`--agent-label` names the agent).
+The target directory is checked before any request: it must be absent, empty, or this Task's earlier workspace.
+The fork write token is stored in `.git/artyfact-task.json` in the workspace (mode 0600, written to a temporary file
+and renamed into place) together with the scoped attempt secret. It lives inside `.git`, so no `.gitignore` rule can
+stage it; checkpoint and submit also never stage a `.artyfact-task.json` or `TASK_PACKET.md`, and an older workspace's root copy moves into
+`.git` on first use. Neither is printed, and both are scrubbed
+from `TASK_PACKET.md` and `AGENTS.md`. `task submit` uses `ARTYFACT_TOKEN` when set, else the stored token, and
+notes when the stored one has expired. Resume preserves the fork and local work, stores fresh credentials and fences
+the old attempt. `AGENTS.md` is the packet's `agentsMd` when the platform sends one, else a fixed text. A claim
+refused by a dependency prints `blocked by <tasks> (not yet selected)`; a Task someone else holds prints
+`task <id> is taken by <label>`, and one a conflicting Task's live attempt blocks prints
+`task <id> conflicts with <task>, held by <label>`.
+
+The agent loop gives the admin token to `claim` only, inline, and runs the agent without it:
+
+```sh
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim plan.id task.id --system system.example --dir ./work/task.id --agent-label claude:task.id
+cd ./work/task.id && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit"
+```
+
+`env -u` removes the token from the agent's environment, and nothing the agent starts inherits it. The risk is a shell
+profile that exports `ARTYFACT_ADMIN_TOKEN`: a tool shell that reads the profile gets it back. So keep `ADMIN_TOKEN`
+unexported and never set either name in a profile.
 
 Inside the Task fork:
 
@@ -160,10 +191,10 @@ artyfact task submit
 The agent returns the durable review URL. After reviewing each submitted candidate:
 
 ```sh
-artyfact task select plan.id task.id --system system.example --candidate candidate.id
-artyfact plan integrate plan.id --system system.example
-artyfact plan review plan.id --system system.example
-artyfact plan promote plan.id --system system.example --file reviewed-promotion.json
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task select plan.id task.id --system system.example --candidate candidate.id
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan integrate plan.id --system system.example
+npx artyfact plan review plan.id --system system.example        # a read: no token on a public System
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan promote plan.id --system system.example --file reviewed-promotion.json
 ```
 
 Promotion JSON contains the reviewed `expectedHead` (string or null), `rationale`, and exact

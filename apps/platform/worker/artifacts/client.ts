@@ -121,6 +121,8 @@ export function artifactsErrorCode(e: unknown): string | undefined {
 }
 
 export function remoteUrl(env: Env, repo: string, fallback?: string): string {
+  // The fake platform's repos live in memory: their own remote, never the account's Artifacts host.
+  if ((env as { FAKE_ARTIFACTS?: string }).FAKE_ARTIFACTS === "1" && fallback) return fallback;
   const account = (env as { ACCOUNT_ID?: string }).ACCOUNT_ID;
   if (account) return `https://${account}.artifacts.cloudflare.net/git/${env.ARTIFACTS_NAMESPACE}/${repo}.git`;
   if (fallback) return fallback;

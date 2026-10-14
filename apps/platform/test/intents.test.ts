@@ -4,18 +4,19 @@
  * accepted ops committed to a Genome realization's fork and submitted as a candidate. The Genome repo holds the example's
  * v2 node tree, which the model loader (import, start work, submit) and the tree codec both read.
  */
+import { PLAN_TREE, PLAN_TREE_OPS, planShape } from "./fixtures/plan-tree";
 import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { fakeSystemOne, fakeTranslator, scriptedSystemOne } from "@artyfact/ontology";
-import { routes, type ApiError, type ImportSystemResponse, type IntentAcceptResponse, type Proposal } from "../shared/api";
+import { fakeSystemOne, fakeTranslator, parseTree, scriptedSystemOne } from "@artyfact/ontology";
+import { routes, type ApiError, type ImportSystemResponse, type IntentAcceptResponse, type IntentDecisionsRequest, type Proposal, type ProposalDecisions, type ProposalPlanNode, type ProposedOp } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { walkTree } from "../worker/artifacts/genome-source";
 import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
 import { CLAIM_LEASE_MS, ProposalsStore } from "../worker/do/proposals-store";
 import { setEditorTransport } from "../worker/editor";
 import { resetHooks, setHooks } from "../worker/hooks/index";
-import { genomeGraph, intentProviders, MAX_TURNS, proposedOps, setIntentProviders } from "../worker/intents";
+import { applyDecisions, deferredMessage, effectiveDecisions, genomeGraph, intentProviders, MAX_TURNS, opsByDecision, planOf, proposedOps, setIntentProviders } from "../worker/intents";
 import { loadGenome, validate } from "@artyfact/model";
 import { metaTemplates } from "@artyfact/templates";
 import { createRealizationPlan as createPlan, startLifecycleTask } from '../worker/lifecycle-service';
@@ -50,7 +51,7 @@ async function importSystem(): Promise<Sys> {
   ns.create(`intent-app-${tag}`).commit(app, "app");
   setArtifactsOverride(ns);
   setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
-  const imp = await call<ImportSystemResponse>("POST", "/api/systems/import", { systemId, genomeRepo: `intent-genome-${tag}`, appRepo: `intent-app-${tag}` });
+  const imp = await call<ImportSystemResponse>("POST", "/api/systems/import", { systemId, genomeRepo: `intent-genome-${tag}`, appRepo: `intent-app-${tag}`, review: false });
   expect(imp.status, JSON.stringify(imp.json)).toBe(201);
   return { ns, systemId, genomeCommit: imp.json.genomeCommit };
 }
@@ -262,7 +263,7 @@ describe("POST /intents/:pid/accept", () => {
     const s=await importSystem(),p=(await create(s,'Change what the People screen says')).json,r=await accept(s,p,['op.1']);expect(r.status,JSON.stringify(r.json)).toBe(201);
     const plan=await createPlan(env,s.systemId,{title:'Implement People',tasks:[{id:'people',title:'People',artifactId:'artifact.webapp',steps:['Implement'],dependsOn:[],readNodes:[],writeNodes:['screen.people'],checks:[]}]});
     const started=await startLifecycleTask(env,s.systemId,plan.id,'people',{},'http://x');
-    expect(started.packet.permittedGlobs.sort()).toEqual(['public/people/**','public/people/add-contact-dialog.js','src/ui/**']);
+    expect(started.packet.permittedGlobs.sort()).toEqual(['public/people/**','public/people/index.html','src/ui/**']);
     expect(started.plan.genome.commit).toBe(r.json.commit);
   });
 
@@ -486,6 +487,7 @@ describe("intent routes", () => {
     ["GET", routes.intent(S, "proposal.1"), undefined],
     ["POST", routes.intentReply(S, "proposal.1"), { answer: "a" }],
     ["POST", routes.intentAccept(S, "proposal.1"), { opIds: ["op.1"] }],
+    ["PUT", routes.intentDecisions(S, "proposal.1"), { decisions: [{ nodeId: "thing.webapp", decision: "agree" }] }],
   ];
   it.each(cases)("%s %s is admin only", async (method, path, body) => {
     expect((await call<ApiError>(method, path, body, {})).status).toBe(401);
@@ -530,5 +532,571 @@ describe("intent providers and ops", () => {
       { id: "op.4", op: "unlink", node: "a", link: { rel: "r", to: "b" } },
     ]);
     expect(first).toEqual(["op.1", "op.2", "op.4"]);
+  });
+});
+
+// ------------------------------------------------------------------ plan, decisions and deferral
+
+const peopling = (systemId = "system.peopling") => new Map(Object.entries(genome).map(([k, v]) => [k, v.replaceAll("system.peopling", systemId)] as const));
+const tree = (systemId?: string) => parseTree(peopling(systemId));
+const strip = (plan: ProposalPlanNode[]): unknown[] => plan.map((n) => ({ id: n.id, opIds: n.opIds, summary: n.summary, children: strip(n.children) }));
+const decide = (s: Sys, p: Proposal, decisions: IntentDecisionsRequest["decisions"]) =>
+  call<Proposal & ApiError>("PUT", routes.intentDecisions(s.systemId, p.id), { decisions });
+const ADD = "Add a screen for quiet hours #s1:route.intent=add";
+const TWO_OPS = (first: Proposal): ProposedOp[] => [first.ops[0]!, { id: "op.2", op: "update", node: "screen.people", fields: { description: "[fake] calmer" } }];
+
+/** A proposal on the System's base holding `ops` (and its plan), linked to `first`'s Evolution, as the DO stores one. */
+async function storeProposal(s: Sys, first: Proposal, ops: ProposedOp[], extra: Partial<Proposal> = {}): Promise<Proposal> {
+  const { id: _id, plan: _plan, ...rest } = first;
+  return systemStub(env, s.systemId).createProposal({ ...rest, ops, plan: planOf(ops, tree(s.systemId)), ...extra });
+}
+const sqlOn = (s: Sys, q: string, ...args: string[]) =>
+  runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (_i: SystemAuthority, st) => { st.storage.sql.exec(q, ...args); });
+
+describe("proposal plan", () => {
+  it("roots an update at its Thing, with inclusive containment paths from the head tree", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    expect(p.plan).toEqual([{
+      id: "thing.webapp", kind: "thing", title: "Peopling web app", path: [s.systemId, "thing.webapp"], summary: "1 update", opIds: [],
+      children: [{
+        id: "section.ui", kind: "section", title: expect.any(String), path: [s.systemId, "thing.webapp", "section.ui"], summary: "1 update", opIds: [],
+        children: [{ id: "screen.today", kind: "screen", title: "Today", path: [s.systemId, "thing.webapp", "section.ui", "screen.today"], summary: "1 update", opIds: ["op.1"], children: [] }],
+      }],
+    }]);
+    expect((await call<Proposal>("GET", routes.intent(s.systemId, p.id))).json.plan).toEqual(p.plan);
+  });
+
+  it("places an add without a parent under the System root, with its proposed title and kind and its links on it", async () => {
+    const s = await importSystem();
+    const p = (await create(s, ADD)).json;
+    const node = p.ops[0]!.node;
+    expect(p.ops.map((o) => o.op)).toEqual(["add", "link"]);
+    expect(p.plan).toEqual([{
+      id: s.systemId, kind: "system", title: expect.any(String), path: [s.systemId], summary: "1 add · 1 link", opIds: [],
+      children: [{ id: node, kind: "screen", title: p.ops[0]!.fields!.name, path: [s.systemId, node], summary: "1 add · 1 link", opIds: ["op.1", "op.2"], children: [] }],
+    }]);
+  });
+
+  it("puts a remove on its node, a link on its from node, an add under its parent and unknown nodes under Other changes", () => {
+    const ops: ProposedOp[] = [
+      { id: "op.1", op: "remove", node: "component.TodayHeading" },
+      { id: "op.2", op: "link", node: "screen.people", link: { rel: "uses", to: "GD.contacts" } },
+      { id: "op.3", op: "add", node: "component.New", kind: "component", parent: "screen.people", fields: { name: "New" } },
+      { id: "op.4", op: "link", node: "component.New", link: { rel: "uses", to: "GD.contacts" }, dependsOn: ["op.3"] },
+      { id: "op.5", op: "update", node: "screen.gone" },
+      { id: "op.6", op: "update", node: "GD.goals" },
+    ];
+    const plan = planOf(ops, tree());
+    expect(strip(plan)).toEqual([
+      { id: "thing.webapp", opIds: [], summary: "1 add · 1 remove · 2 link", children: [{ id: "section.ui", opIds: [], summary: "1 add · 1 remove · 2 link", children: [
+        { id: "screen.today", opIds: [], summary: "1 remove", children: [{ id: "component.TodayHeading", opIds: ["op.1"], summary: "1 remove", children: [] }] },
+        { id: "screen.people", opIds: ["op.2"], summary: "1 add · 2 link", children: [{ id: "component.New", opIds: ["op.3", "op.4"], summary: "1 add · 1 link", children: [] }] },
+      ] }] },
+      { id: "system.peopling", opIds: [], summary: "1 update", children: [{ id: "GD.goals", opIds: ["op.6"], summary: "1 update", children: [] }] },
+      { id: "other", opIds: ["op.5"], summary: "1 update", children: [] },
+    ]);
+    expect(plan[1]).toMatchObject({ path: ["system.peopling"] });
+    expect(plan[2]).toMatchObject({ kind: "other", title: "Other changes", path: [] });
+    expect(plan[0]!.children[0]!.children[1]!.children[0]).toMatchObject({ kind: "component", title: "New", path: ["system.peopling", "thing.webapp", "section.ui", "screen.people", "component.New"] });
+    const all = (n: ProposalPlanNode[]): string[] => n.flatMap((x) => [...x.opIds, ...all(x.children)]);
+    expect(all(plan).sort()).toEqual(ops.map((o) => o.id).sort());
+  });
+
+  it("is rebuilt on reply", async () => {
+    setIntentProviders({
+      s1: scriptedSystemOne({ "route.intent": (state) => (JSON.stringify(state).includes("A: ") ? "update" : "question") }),
+      translator: fakeTranslator(),
+    });
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    expect(p.plan).toEqual([]);
+    const r = await call<Proposal>("POST", routes.intentReply(s.systemId, p.id), { answer: "The Today screen", questionId: "q.1" });
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json.plan.map((n) => n.id)).toEqual(["thing.webapp"]);
+    expect((await systemStub(env, s.systemId).proposalPlan(p.id))?.plan).toEqual(r.json.plan);
+  });
+
+  it("reads a proposal stored before plans as an empty plan, and accepts any op ids as before", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const legacy = await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (_i: SystemAuthority, state): Promise<Proposal> => {
+      const { id: _id, plan: _plan, ...rest } = p;
+      return new ProposalsStore(state.storage.sql).create(rest as Omit<Proposal, "id">);
+    });
+    expect("plan" in legacy).toBe(false);
+    const got = await call<Proposal>("GET", routes.intent(s.systemId, legacy.id));
+    expect(got.status).toBe(200);
+    expect(got.json.plan).toEqual([]);
+    const r = await accept(s, got.json, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.deferred).toBeUndefined();
+  });
+});
+
+describe("decision rules", () => {
+  const plan = planOf([
+    { id: "op.1", op: "update", node: "screen.today" },
+    { id: "op.2", op: "update", node: "component.TodayHeading" },
+    { id: "op.3", op: "update", node: "screen.people" },
+  ], tree());
+  it("a parent decision clears its descendants' explicit decisions; null clears the node's own; an unknown node is a 404", () => {
+    let d = applyDecisions(plan, {}, [{ nodeId: "screen.today", decision: "reject" }, { nodeId: "component.TodayHeading", decision: "defer" }]);
+    expect(d).toEqual({ "screen.today": "reject", "component.TodayHeading": "defer" });
+    d = applyDecisions(plan, d, [{ nodeId: "thing.webapp", decision: "agree" }]);
+    expect(d).toEqual({ "thing.webapp": "agree" });
+    expect(applyDecisions(plan, d, [{ nodeId: "thing.webapp", decision: null }])).toEqual({});
+    expect(() => applyDecisions(plan, d, [{ nodeId: "screen.nope", decision: "agree" }])).toThrow(/no node screen.nope/);
+  });
+  it("an explicit child decision overrides the inherited one; others inherit the nearest decided ancestor's", () => {
+    const decisions: ProposalDecisions = { "thing.webapp": "agree", "screen.today": "defer", "component.TodayHeading": "reject" };
+    const eff = effectiveDecisions(plan, decisions);
+    expect([eff.get("section.ui"), eff.get("screen.people"), eff.get("screen.today"), eff.get("component.TodayHeading")]).toEqual(["agree", "agree", "defer", "reject"]);
+    const by = opsByDecision(plan, decisions);
+    expect([...by.agreed]).toEqual(["op.3"]);
+    expect([...by.deferred]).toEqual(["op.1"]);
+    expect([...by.rejected]).toEqual(["op.2"]);
+    expect(by.deferredNodes).toEqual(["screen.today"]);
+    expect(opsByDecision(plan, {}).agreed.size).toBe(0);
+  });
+});
+
+describe("PUT /intents/:pid/decisions", () => {
+  it("stores decisions, clearing descendants on a parent decision and the node's own on null", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    let r = await decide(s, p, [{ nodeId: "screen.today", decision: "reject" }]);
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json.plan[0]!.children[0]!.children[0]!.decision).toBe("reject");
+    r = await decide(s, p, [{ nodeId: "thing.webapp", decision: "agree" }]);
+    expect(r.json.plan[0]!.decision).toBe("agree");
+    expect(r.json.plan[0]!.children[0]!.children[0]!.decision).toBeUndefined();
+    expect((await call<Proposal>("GET", routes.intent(s.systemId, p.id))).json.plan[0]!.decision).toBe("agree");
+    expect((await systemStub(env, s.systemId).proposalPlan(p.id))?.decisions).toEqual({ "thing.webapp": "agree" });
+    r = await decide(s, p, [{ nodeId: "thing.webapp", decision: null }]);
+    expect(r.json.plan[0]!.decision).toBeUndefined();
+    expect((await systemStub(env, s.systemId).proposalPlan(p.id))?.decisions).toEqual({});
+  });
+
+  it("is 404 for a node the plan lacks, 400 for a malformed body, 409 once the proposal is not open", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    expect((await decide(s, p, [{ nodeId: "screen.nope", decision: "agree" }])).status).toBe(404);
+    expect((await decide(s, p, [{ nodeId: "thing.webapp", decision: "maybe" as never }])).status).toBe(400);
+    expect((await decide(s, p, [])).status).toBe(400);
+    expect((await accept(s, p, ["op.1"])).status).toBe(201);
+    const late = await decide(s, p, [{ nodeId: "thing.webapp", decision: "agree" }]);
+    expect(late.status).toBe(409);
+    expect(late.json.error.code).toBe("invalid-state");
+  });
+
+  it("restores the tree of a reply that lands between its read and its write", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    // The reply moves op.1 to screen.people and drops screen.today from the tree.
+    const ops: ProposedOp[] = [{ id: "op.1", op: "update", node: "screen.people", fields: { description: "Revised by the reply" } }];
+    const revised: Proposal = { ...p, ops, plan: planOf(ops, tree(s.systemId)) };
+    let fired = false;
+    let restore = () => {};
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (i: SystemAuthority) => {
+      const proto = Object.getPrototypeOf(i) as Record<string, unknown>;
+      const orig = proto.setProposalPlan as (...a: unknown[]) => unknown;
+      proto.setProposalPlan = function (this: SystemAuthority, ...a: unknown[]) {
+        if (!fired) { fired = true; this.reviseProposal(revised, [{ answer: "the People screen" }]); }
+        return orig.apply(this, a);
+      };
+      restore = () => { proto.setProposalPlan = orig; };
+    });
+    try {
+      const r = await decide(s, p, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.today", decision: "defer" }]);
+      expect(r.status, JSON.stringify(r.json)).toBe(200);
+      expect(r.json.ops).toEqual(ops);
+      expect(strip(r.json.plan)).toEqual(strip(revised.plan));
+      expect(r.json.plan[0]!.decision).toBe("agree");
+      const stored = await systemStub(env, s.systemId).proposalPlan(p.id);
+      expect(strip(stored!.plan)).toEqual(strip(revised.plan));
+      expect(stored!.decisions).toEqual({ "thing.webapp": "agree" });
+    } finally {
+      restore();
+    }
+  });
+
+  it("re-reads and prunes a PUT that lands while the reply repair writes, instead of dropping it", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const ops: ProposedOp[] = [{ id: "op.1", op: "update", node: "screen.people", fields: { description: "Revised by the reply" } }];
+    const revised: Proposal = { ...p, ops, plan: planOf(ops, tree(s.systemId)) };
+    let calls = 0;
+    let restore = () => {};
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (i: SystemAuthority) => {
+      const proto = Object.getPrototypeOf(i) as Record<string, unknown>;
+      const orig = proto.setProposalPlan as (...a: unknown[]) => unknown;
+      proto.setProposalPlan = function (this: SystemAuthority, ...a: unknown[]) {
+        calls++;
+        // The PUT's own write: a reply lands just before it.
+        if (calls === 1) this.reviseProposal(revised, [{ answer: "the People screen" }]);
+        // The repair's first write: another PUT on a node the reply kept lands just before it.
+        if (calls === 2) orig.call(this, a[0], a[1], { ...(a[4] as object), "screen.people": "reject" });
+        return orig.apply(this, a);
+      };
+      restore = () => { proto.setProposalPlan = orig; };
+    });
+    try {
+      const r = await decide(s, p, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.today", decision: "defer" }]);
+      expect(r.status, JSON.stringify(r.json)).toBe(200);
+      expect(calls).toBe(3);
+      const stored = await systemStub(env, s.systemId).proposalPlan(p.id);
+      expect(strip(stored!.plan)).toEqual(strip(revised.plan));
+      expect(stored!.decisions).toEqual({ "thing.webapp": "agree", "screen.people": "reject" });
+    } finally {
+      restore();
+    }
+  });
+});
+
+describe("decisions compare-and-set", () => {
+  it("keeps both of two PUTs that interleave between read and write", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, TWO_OPS(first));
+    let fired = false;
+    let restore = () => {};
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (i: SystemAuthority) => {
+      const proto = Object.getPrototypeOf(i) as Record<string, unknown>;
+      const orig = proto.setProposalPlan as (...a: unknown[]) => unknown;
+      proto.setProposalPlan = function (this: SystemAuthority, ...a: unknown[]) {
+        // Another PUT's write lands after this PUT read the decisions.
+        if (!fired) { fired = true; orig.call(this, a[0], a[1], { "screen.people": "defer" }); }
+        return orig.apply(this, a);
+      };
+      restore = () => { proto.setProposalPlan = orig; };
+    });
+    try {
+      const r = await decide(s, both, [{ nodeId: "screen.today", decision: "agree" }]);
+      expect(r.status, JSON.stringify(r.json)).toBe(200);
+      expect((await systemStub(env, s.systemId).proposalPlan(both.id))?.decisions).toEqual({ "screen.people": "defer", "screen.today": "agree" });
+    } finally {
+      restore();
+    }
+  });
+
+  it("keeps both of two concurrent PUTs on different nodes", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, TWO_OPS(first));
+    const rs = await Promise.all([decide(s, both, [{ nodeId: "screen.today", decision: "agree" }]), decide(s, both, [{ nodeId: "screen.people", decision: "defer" }])]);
+    expect(rs.map((r) => r.status)).toEqual([200, 200]);
+    expect((await systemStub(env, s.systemId).proposalPlan(both.id))?.decisions).toEqual({ "screen.today": "agree", "screen.people": "defer" });
+  });
+
+  it("refuses a store write whose expected decisions are stale", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const stub = systemStub(env, s.systemId);
+    expect(await stub.setProposalPlan(p.id, p.plan, { "thing.webapp": "agree" }, undefined, {})).toBe(true);
+    expect(await stub.setProposalPlan(p.id, p.plan, { "thing.webapp": "reject" }, undefined, {})).toBe(false);
+    expect((await stub.proposalPlan(p.id))?.decisions).toEqual({ "thing.webapp": "agree" });
+  });
+});
+
+describe("a reply racing a staged accept", () => {
+  it("never erases the staged approval", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const approval = { evolutionId: "evolution.x", realizationId: "r.x", candidateId: "c.x", commit: "c".repeat(40), opIds: ["op.1"] };
+    await sqlOn(s, "UPDATE proposals SET json = json_set(json, '$.stagedApproval', json(?)) WHERE id = ?", JSON.stringify(approval), p.id);
+    const stub = systemStub(env, s.systemId);
+    // The reply read the row before the staging: its revision carries no stagedApproval.
+    expect(await stub.reviseProposal(p, [{ answer: "a" }])).toEqual({ refused: "staged" });
+    expect((await stub.proposal(p.id))?.proposal.stagedApproval).toEqual(approval);
+  });
+});
+
+describe("POST /intents/:pid/reply with decisions", () => {
+  it("keeps decisions only on nodes the rebuilt plan still has", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const stub = systemStub(env, s.systemId);
+    expect(await stub.setProposalPlan(p.id, p.plan, { "thing.webapp": "agree", "screen.gone": "agree" })).toBe(true);
+    const r = await call<Proposal>("POST", routes.intentReply(s.systemId, p.id), { answer: "Yes, the Today screen" });
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json.plan[0]).toMatchObject({ id: "thing.webapp", decision: "agree" });
+    expect((await stub.proposalPlan(p.id))?.decisions).toEqual({ "thing.webapp": "agree" });
+  });
+});
+
+describe("POST /intents/:pid/accept with decisions", () => {
+  it("accepts only ops under agreed nodes once any decision exists (422 invalid-ops)", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, TWO_OPS(first));
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "reject" }]);
+    const r = await accept(s, both, ["op.1", "op.2"]);
+    expect(r.status).toBe(422);
+    expect(r.json.error).toMatchObject({ code: "invalid-ops", details: { offenders: ["op.2"] } });
+    expect(await systemStub(env, s.systemId).proposal(both.id)).toMatchObject({ proposal: { status: "open" }, accepting: false });
+    expect((await systemStub(env, s.systemId).proposal(both.id))?.acceptError).toBeUndefined();
+    const ok = await accept(s, both, ["op.1"]);
+    expect(ok.status, JSON.stringify(ok.json)).toBe(201);
+    expect(ok.json.evolution.affectedNodes).toEqual(["screen.today"]);
+    expect(ok.json.deferred).toBeUndefined();
+  });
+
+  it("keeps the dependency rule under agreed nodes", async () => {
+    const s = await importSystem();
+    const p = (await create(s, ADD)).json;
+    await decide(s, p, [{ nodeId: s.systemId, decision: "agree" }]);
+    const r = await accept(s, p, ["op.2"]);
+    expect(r.status).toBe(422);
+    expect(r.json.error.code).toBe("missing-dependency");
+  });
+
+  it("moves deferred ops to a new proposal with its own Evolution, accepted on the moved head", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, TWO_OPS(first));
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "defer" }]);
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.evolution.id).toBe(first.evolutionId);
+    expect(r.json.evolution.affectedNodes).toEqual(["screen.today"]);
+    expect(r.json.deferred).toEqual({ proposal: expect.stringMatching(/^proposal\.\d+$/), nodeIds: ["screen.people"] });
+    const head = (await systemStub(env, s.systemId).state())!.genomeCommit;
+    expect(head).toBe(r.json.commit);
+
+    const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
+    expect(next).toMatchObject({ status: "open", deferredFrom: both.id, ops: [TWO_OPS(first)[1]], questions: [] });
+    expect(next.message).toBe(deferredMessage(both.id, ["People"], both.message));
+    expect(next.message.split("\n")[0]).toBe(`Deferred from ${both.id}: People`);
+    expect(next.message).toContain(both.message);
+    expect(next.stagedApproval).toBeUndefined();
+    expect(next.provenance.genomeCommit).toBe(s.genomeCommit);
+    expect(strip(next.plan)).toEqual([{ id: "thing.webapp", opIds: [], summary: "1 update", children: [{ id: "section.ui", opIds: [], summary: "1 update",
+      children: [{ id: "screen.people", opIds: ["op.2"], summary: "1 update", children: [] }] }] }]);
+    expect(next.plan[0]!.decision).toBeUndefined();
+    expect((await systemStub(env, s.systemId).proposalPlan(next.id))?.deferredFrom).toBe(both.id);
+    expect(next.evolutionId).toBeTruthy();
+    expect(next.evolutionId).not.toBe(first.evolutionId);
+    expect(await systemStub(env, s.systemId).evolution(next.evolutionId!)).toMatchObject({ kind: "genome-amendment", title: `Deferred from ${both.id}: People` });
+    expect((await call<Proposal>("GET", routes.intent(s.systemId, both.id))).json.status).toBe("accepted");
+
+    // The approval moved the head past the deferred proposal's base: its ops still apply there, so it is rebased.
+    const d = await accept(s, next, ["op.2"]);
+    expect(d.status, JSON.stringify(d.json)).toBe(201);
+    expect(d.json.evolution.id).toBe(next.evolutionId);
+    expect(d.json.evolution.affectedNodes).toEqual(["screen.people"]);
+    expect((await call<Proposal>("GET", routes.intent(s.systemId, next.id))).json).toMatchObject({ status: "accepted", provenance: { genomeCommit: head } });
+    expect((await systemStub(env, s.systemId).state())!.genomeCommit).toBe(d.json.commit);
+  });
+
+  it("is a 409 stale-base when deferred ops no longer apply on the moved head, and leaves the proposal on its base", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const ops: ProposedOp[] = [first.ops[0]!, { id: "op.2", op: "update", node: "component.TodayHeading", fields: { description: "[fake] bolder" } }];
+    const both = await storeProposal(s, first, ops);
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "component.TodayHeading", decision: "defer" }]);
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
+    // A second proposal removes the node the deferred op updates, and lands first.
+    const rm = await storeProposal(s, (await create(s, "Change what the Today screen says")).json, [{ id: "op.1", op: "remove", node: "component.TodayHeading" }],
+      { provenance: { ...first.provenance, genomeCommit: r.json.commit } });
+    const removed = await accept(s, rm, ["op.1"]);
+    expect(removed.status, JSON.stringify(removed.json)).toBe(201);
+    const head = removed.json.commit;
+
+    const g = await accept(s, next, ["op.2"]);
+    expect(g.status, JSON.stringify(g.json)).toBe(409);
+    expect(g.json.error).toMatchObject({ code: "stale-base", details: { currentHead: head } });
+    expect(await systemStub(env, s.systemId).proposal(next.id)).toMatchObject({ accepting: false, proposal: { status: "open", provenance: { genomeCommit: s.genomeCommit } } });
+  });
+});
+
+describe("POST /intents/:pid/accept with blocked agreed ops", () => {
+  // op.1 updates screen.today; op.2 adds a component under screen.people; op.3 links screen.today to it (needs op.2),
+  // so op.3 sits under the agreed screen.today while its dependency sits under screen.people.
+  const BLOCKED = (first: Proposal): ProposedOp[] => [
+    first.ops[0]!,
+    { id: "op.2", op: "add", node: "component.QuietHours", kind: "component", parent: "screen.people", fields: { name: "Quiet hours" } },
+    { id: "op.3", op: "link", node: "screen.today", link: { rel: "contains", to: "component.QuietHours" }, dependsOn: ["op.2"] },
+  ];
+
+  it("moves an agreed op whose dependency is deferred to the deferred proposal, with that dependency", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, BLOCKED(first));
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "defer" }]);
+    expect((await accept(s, both, ["op.1", "op.3"])).json.error).toMatchObject({ code: "missing-dependency" });
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    // The moved agreed op's node is listed too, after the explicitly deferred one.
+    expect(r.json.deferred).toEqual({ proposal: expect.any(String), nodeIds: ["screen.people", "screen.today"] });
+    expect(r.json.dropped).toBeUndefined();
+    const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
+    expect(next.ops).toEqual([BLOCKED(first)[1], BLOCKED(first)[2]]);
+    const all = (n: ProposalPlanNode[]): string[] => n.flatMap((x) => [...x.opIds, ...all(x.children)]);
+    expect(all(next.plan).sort()).toEqual(["op.2", "op.3"]);
+  });
+
+  it("drops an agreed op whose dependency is rejected, deferring nothing", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, BLOCKED(first));
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "reject" }]);
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.deferred).toBeUndefined();
+    expect(r.json.dropped).toEqual(["op.2", "op.3"]);
+    expect(r.json.evolution.affectedNodes).toEqual(["screen.today"]);
+  });
+
+  it("drops a deferred op whose dependency is rejected, and the deferred ops that depend on it, keeping the rest deferred", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const ops: ProposedOp[] = [
+      first.ops[0]!,
+      { id: "op.2", op: "add", node: "component.QuietHours", kind: "component", parent: "screen.people", fields: { name: "Quiet hours" } },
+      { id: "op.3", op: "link", node: "GD.goals", link: { rel: "uses", to: "component.QuietHours" }, dependsOn: ["op.2"] },
+      { id: "op.4", op: "update", node: "GD.goals", fields: { description: "[fake] goals" } },
+      { id: "op.5", op: "unlink", node: "GD.goals", link: { rel: "uses", to: "component.QuietHours" }, dependsOn: ["op.3"] },
+    ];
+    const both = await storeProposal(s, first, ops);
+    await decide(s, both, [
+      { nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "reject" }, { nodeId: "GD.goals", decision: "defer" },
+    ]);
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.dropped).toEqual(["op.2", "op.3", "op.5"]);
+    expect(r.json.deferred).toEqual({ proposal: expect.any(String), nodeIds: ["GD.goals"] });
+    const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
+    expect(next.ops).toEqual([ops[3]]);
+  });
+
+  it("reports a deferral that fails, and leaves no orphan Evolution", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, TWO_OPS(first));
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "defer" }]);
+    let restore = () => {};
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (i: SystemAuthority) => {
+      const proto = Object.getPrototypeOf(i) as Record<string, unknown>;
+      const orig = proto.createProposal;
+      proto.createProposal = () => { throw new Error("storage hiccup"); };
+      restore = () => { proto.createProposal = orig; };
+    });
+    try {
+      const r = await accept(s, both, ["op.1"]);
+      expect(r.status, JSON.stringify(r.json)).toBe(201);
+      expect(r.json.deferred).toBeUndefined();
+      expect(r.json.deferralError).toMatch(/moving the deferred ops op\.2 .*storage hiccup/);
+      expect(await systemStub(env, s.systemId).proposal(both.id)).toMatchObject({ proposal: { status: "accepted" }, acceptError: expect.stringContaining("storage hiccup") });
+      const evolutions = (await systemStub(env, s.systemId).work()).evolutions;
+      expect(evolutions.filter((e) => e.title.startsWith("Deferred from"))).toEqual([]);
+    } finally {
+      restore();
+    }
+  });
+
+  it("re-translates a reply on a deferred proposal against its scope, with the original only as context", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, TWO_OPS(first));
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "defer" }]);
+    const r = await accept(s, both, ["op.1"]);
+    const next = r.json.deferred!.proposal;
+    const reply = await call<Proposal>("POST", routes.intentReply(s.systemId, next), { answer: "make it calmer" });
+    expect(reply.status, JSON.stringify(reply.json)).toBe(200);
+    expect(reply.json.message.startsWith(`Deferred from ${both.id}: People`)).toBe(true);
+    expect(reply.json.deferredFrom).toBe(both.id);
+    // The fake translator echoes the conversation it translated: the scope comes first, the original after it.
+    const said = String(reply.json.ops[0]?.fields?.description ?? "");
+    expect(said).toContain(`Deferred from ${both.id}: People`);
+    expect(said.indexOf("Deferred from")).toBeLessThan(said.indexOf("Context, the original request"));
+    expect(reply.json.provenance.genomeCommit).toBe(r.json.commit);
+  });
+
+  it("rebuilds a deferred proposal's plan on the head it is rebased to", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    // op.2 adds a child under the component op.1 adds: on the base, its parent is unknown to the deferred proposal.
+    const ops: ProposedOp[] = [
+      { id: "op.1", op: "add", node: "component.QuietHours", kind: "component", parent: "screen.today", fields: { name: "Quiet hours" } },
+      { id: "op.2", op: "add", node: "component.QuietNote", kind: "component", parent: "component.QuietHours", fields: { name: "Quiet note" }, dependsOn: ["op.1"] },
+    ];
+    const both = await storeProposal(s, first, ops);
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "component.QuietNote", decision: "defer" }]);
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
+    expect(next.ops).toEqual([{ ...ops[1], dependsOn: undefined }].map(({ dependsOn: _d, ...o }) => o));
+    expect(next.plan.map((n) => n.id)).toEqual(["other"]);
+    const d = await accept(s, next, ["op.2"]);
+    expect(d.status, JSON.stringify(d.json)).toBe(201);
+    const plan = (await systemStub(env, s.systemId).proposalPlan(next.id))!.plan;
+    expect(plan[0]!.id).toBe("thing.webapp");
+    const leaf = (n: ProposalPlanNode): ProposalPlanNode => (n.children.length ? leaf(n.children[0]!) : n);
+    expect(leaf(plan[0]!)).toMatchObject({ id: "component.QuietNote", path: [s.systemId, "thing.webapp", "section.ui", "screen.today", "component.QuietHours", "component.QuietNote"] });
+  });
+});
+
+describe("POST /intents/:pid/accept with a staged approval", () => {
+  /** Stages a candidate the approval then refuses: the real runner fails the Genome gates for this add. */
+  async function stagedAdd() {
+    setHooks({ runner: () => createHookRunner({ s1: createSystemOne({}), fetch: (async () => { throw new Error("no fetch expected"); }) as unknown as typeof fetch, previewEnv: {} }) });
+    const s = await importSystem();
+    const p = (await create(s, ADD)).json;
+    await decide(s, p, [{ nodeId: s.systemId, decision: "agree" }]);
+    const r = await accept(s, p, ["op.1", "op.2"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(409);
+    const staged = (await systemStub(env, s.systemId).proposal(p.id))!.proposal.stagedApproval as NonNullable<Proposal["stagedApproval"]> & { decisions?: ProposalDecisions };
+    expect(staged).toMatchObject({ opIds: ["op.1", "op.2"], decisions: { [s.systemId]: "agree" } });
+    return { s, p, staged };
+  }
+
+  it("refuses a decisions PUT while a candidate is staged", async () => {
+    const { s, p } = await stagedAdd();
+    const r = await decide(s, p, [{ nodeId: s.systemId, decision: "reject" }]);
+    expect(r.status).toBe(409);
+    expect(r.json.error.code).toBe("invalid-state");
+    expect((await systemStub(env, s.systemId).proposalPlan(p.id))?.decisions).toEqual({ [s.systemId]: "agree" });
+  });
+
+  it("refuses the accept when the decisions changed since staging, and takes it again once they match", async () => {
+    const { s, p, staged } = await stagedAdd();
+    const stub = systemStub(env, s.systemId);
+    const node = p.ops[0]!.node;
+    // A decisions write that raced the staging.
+    expect(await stub.setProposalPlan(p.id, p.plan, { [s.systemId]: "agree", [node]: "agree" })).toBe(true);
+    const r = await accept(s, p, ["op.1", "op.2"]);
+    expect(r.status).toBe(409);
+    expect(r.json.error).toMatchObject({ code: "invalid-state", message: expect.stringContaining("decisions changed") });
+    expect(await stub.proposal(p.id)).toMatchObject({ accepting: false, proposal: { status: "open", stagedApproval: { candidateId: staged.candidateId } } });
+
+    expect(await stub.setProposalPlan(p.id, p.plan, { [s.systemId]: "agree" })).toBe(true);
+    const again = await accept(s, p, ["op.1", "op.2"]);
+    // Past the decisions check: the approval itself is what the real runner refuses again.
+    expect(again.json.error?.message ?? "").not.toContain("decisions changed");
+  });
+
+  it("is a 409 stale-base for a deferred proposal with a staged candidate once the head moved", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, TWO_OPS(first));
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "defer" }]);
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    const next = r.json.deferred!.proposal;
+    await sqlOn(s, "UPDATE proposals SET json = json_set(json, '$.stagedApproval', json(?)) WHERE id = ?",
+      JSON.stringify({ evolutionId: "evolution.x", realizationId: "r.x", candidateId: "c.x", commit: "c".repeat(40), opIds: ["op.2"], decisions: {} }), next);
+    const g = await accept(s, (await call<Proposal>("GET", routes.intent(s.systemId, next))).json, ["op.2"]);
+    expect(g.status, JSON.stringify(g.json)).toBe(409);
+    expect(g.json.error).toMatchObject({ code: "stale-base", message: expect.stringContaining("candidate was staged"), details: { currentHead: r.json.commit } });
+    expect((await systemStub(env, s.systemId).proposal(next))?.proposal.provenance.genomeCommit).toBe(s.genomeCommit);
+  });
+});
+
+describe("plan tree shape", () => {
+  it("builds the tree the SPA fallback builds from the same ops (shared fixture)", () => {
+    expect(planShape(planOf(PLAN_TREE_OPS, tree()))).toEqual(PLAN_TREE);
   });
 });

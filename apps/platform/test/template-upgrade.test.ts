@@ -59,7 +59,7 @@ async function setup(app: Record<string, string>, versions: Record<string, strin
   ns.create(appRepo).commit(app, "scaffold");
   setArtifactsOverride(ns);
   setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
-  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo }, ADMIN);
+  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo, review: false }, ADMIN);
   expect(res.status, JSON.stringify(res.json)).toBe(201);
   return { ns, systemId, appRepo, imp: res.json, platform };
 }
@@ -81,7 +81,7 @@ async function setupEdited(): Promise<Setup> {
   const s = await setup({ "package.json": "{}" }, [V1, V2]);
   const app = s.ns.repo(s.appRepo);
   app.commit(editedV1(s.platform[0]!), "edited");
-  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId: s.systemId, genomeRepo: s.imp.genomeRepo, appRepo: s.appRepo, force: true }, ADMIN);
+  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId: s.systemId, genomeRepo: s.imp.genomeRepo, appRepo: s.appRepo, force: true, review: false }, ADMIN);
   expect(res.status, JSON.stringify(res.json)).toBe(201);
   return { ...s, imp: res.json };
 }

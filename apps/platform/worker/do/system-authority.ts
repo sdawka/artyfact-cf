@@ -10,7 +10,11 @@ import type { GateCriterion } from "../promotion";
 import type {
   ArtifactBinding, PartScope, PartRecord, PartSummary, RealizedArtifact, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Proposal, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
+  ProposalDecisions, ProposalPlanNode, SystemImportReview, SystemImportReviewStatus,
 } from "../../shared/api";
+import { ImportReviewStore } from "./import-review-store";
+import { ProposalPlanStore, type StoredProposalPlan } from "./proposal-plan-store";
+import { planCounts } from "./plan-summary";
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
 import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalTurn, type ReviseResult, type StoredProposal } from "./proposals-store";
@@ -329,7 +333,15 @@ export class SystemAuthority extends DurableObject<Env> {
     this.sql.exec('UPDATE realizations SET pinned_genome=?,pinned_genome_repo=?,task_plan_id=? WHERE id=?',p.genome.commit,p.genome.repo,p.id,id);this.sql.exec('UPDATE realizations SET task_binding_id=? WHERE id=?',artifactId,id);
     return this.realization(id)!;
   }
-  async lifecyclePromote(pid:string,input:{candidateIds:string[];expectedHead:string|null;rationale:string;gates:Record<string,GateCriterion[]>;by:string}):Promise<{plan:RealizationPlan;commit:SystemCommit;ended:EndedCredential[]}> {
+  /**
+   * Plan promotion. A gate refusal comes back as `{ok:false, code, blocking, advisories}` (a thrown PromotionBlockedError
+   * would lose its class and items over RPC); every other refusal still throws.
+   */
+  async lifecyclePromote(pid:string,input:{candidateIds:string[];expectedHead:string|null;rationale:string;gates:Record<string,GateCriterion[]>;by:string}):Promise<({ok:true}&{plan:RealizationPlan;commit:SystemCommit;ended:EndedCredential[]})|{ok:false;code:PromotionBlockedError['code'];blocking:GateItem[];advisories:GateItem[]}> {
+    try{return {ok:true,...await this.lifecyclePromoteTx(pid,input)};}
+    catch(e){if(e instanceof PromotionBlockedError)return {ok:false,code:e.code,blocking:e.blocking,advisories:e.advisories};throw e;}
+  }
+  private async lifecyclePromoteTx(pid:string,input:{candidateIds:string[];expectedHead:string|null;rationale:string;gates:Record<string,GateCriterion[]>;by:string}):Promise<{plan:RealizationPlan;commit:SystemCommit;ended:EndedCredential[]}> {
     const p=this.lifecycle().get(pid),state=this.state()!;
     if(p.status!=='integrated'||!p.integration.length)throw new ConflictError('invalid-state','integrate every binding before promotion');
     const ids=p.integration.map(b=>b.candidateId).sort();if(JSON.stringify(ids)!==JSON.stringify([...input.candidateIds].sort()))throw new ConflictError('invalid-state','reviewed integrated candidates changed');
@@ -1535,10 +1547,16 @@ export class SystemAuthority extends DurableObject<Env> {
     if (builds.deployState === "behind") signifiers.push("behind");
     if (observed) signifiers.push("observed");
     if (s.phase === "unrealized" && everCandidates === 0) signifiers.push("unrealized");
+    const plans = planCounts(this.lifecycle().list());
+    const importReview = this.importReviews().summary();
+    if (importReview?.status === "pending") signifiers.push("import-pending");
+    if (plans.awaitingAgent) signifiers.push("tasks-awaiting-agent");
+    if (plans.integrated) signifiers.push("plan-awaiting-promotion");
 
     return {
       ...(s.appSource?.commit && { appCommit: s.appSource.commit }),
       built, realizationCounts, openCandidates, ...builds, phenome, ...(readiness && { readiness }), signifiers,
+      planCounts: plans, ...(importReview && { importReview }),
     };
   }
 
@@ -1588,18 +1606,59 @@ export class SystemAuthority extends DurableObject<Env> {
   private proposals(): ProposalsStore {
     return (this.proposalsStore ??= new ProposalsStore(this.sql));
   }
-  proposal(id: string): StoredProposal | null { return this.proposals().get(id); }
-  createProposal(proposal: Omit<Proposal, "id">): Proposal { return this.proposals().create(proposal); }
+  private proposalPlans(): ProposalPlanStore { return new ProposalPlanStore(this.sql); }
+  /** Stored proposals carry `plan` and `deferredFrom` from the plan columns (`[]` for rows older than plans). */
+  proposal(id: string): StoredProposal | null {
+    const s = this.proposals().get(id);
+    return s && { ...s, proposal: this.proposalPlans().decorate(s.proposal) };
+  }
+  /** Creates the row and its plan columns (`plan` default `[]`, `deferredFrom`) in one transaction. */
+  createProposal(proposal: Omit<Proposal, "id" | "plan"> & { plan?: ProposalPlanNode[] }): Proposal {
+    return this.ctx.storage.transactionSync(() => {
+      const created = this.proposals().create({ ...proposal, plan: proposal.plan ?? [] });
+      this.proposalPlans().init(created.id, created.plan, proposal.deferredFrom);
+      return this.proposalPlans().decorate(created);
+    });
+  }
   stageProposal(id:string,claimedAt:string,approval:NonNullable<Proposal['stagedApproval']>):boolean{return this.proposals().stage(id,claimedAt,approval);}
-  reviseProposal(proposal: Proposal, turns: ProposalTurn[]): ReviseResult { return this.proposals().revise(proposal, turns); }
+  /** A revision that carries a `plan` array also replaces the stored tree (decisions are kept), in the same transaction. */
+  reviseProposal(proposal: Proposal, turns: ProposalTurn[]): ReviseResult {
+    return this.ctx.storage.transactionSync(() => {
+      const out = this.proposals().revise(proposal, turns);
+      if (!("revised" in out)) return out;
+      if (Array.isArray(proposal.plan)) this.proposalPlans().setTree(proposal.id, proposal.plan);
+      return { revised: this.proposalPlans().decorate(out.revised) };
+    });
+  }
   /** Starts an accept: open → accepting, only while the head Genome is the one the proposal was computed on. */
   claimProposal(id: string): ClaimResult {
     const s = this.state();
     if (!s) throw new ConflictError("not-found", "System not imported");
-    return this.proposals().claim(id, s.genomeCommit);
+    const out = this.proposals().claim(id, s.genomeCommit);
+    return "claimed" in out ? { ...out, claimed: this.proposalPlans().decorate(out.claimed) } : out;
   }
   releaseProposal(id: string, claimedAt: string, error: string | null): boolean { return this.proposals().release(id, claimedAt, error); }
-  finishProposal(id: string, claimedAt: string, ids: AcceptedIds, error?: string): Proposal | null { return this.proposals().finish(id, claimedAt, ids, error); }
+  /** `open` or `accepting` → `abandoned` (the import review's removal amendment after a failed accept). Emits nothing. */
+  abandonProposal(id: string): boolean { return this.proposals().abandon(id); }
+  finishProposal(id: string, claimedAt: string, ids: AcceptedIds, error?: string): Proposal | null {
+    const p = this.proposals().finish(id, claimedAt, ids, error);
+    return p && this.proposalPlans().decorate(p);
+  }
+  /** Agreement tree, explicit decisions and deferral source (storage only); null for an unknown proposal. */
+  proposalPlan(id: string): StoredProposalPlan | null { return this.proposalPlans().get(id); }
+  /**
+   * Stores tree and decisions (and `deferredFrom` when given) in one conditional UPDATE while the proposal is `open`
+   * and, with `expected`, its decisions are still exactly `expected` (compare-and-set); false when it is `accepting`,
+   * accepted, abandoned, unknown or its decisions changed. Emits nothing.
+   */
+  setProposalPlan(id: string, plan: ProposalPlanNode[], decisions: ProposalDecisions, deferredFrom?: string, expected?: ProposalDecisions): boolean {
+    return this.proposalPlans().set(id, plan, decisions, deferredFrom, expected);
+  }
+  /**
+   * Moves an open deferred proposal with no staged approval from base Genome `oldBase` to `newBase` (the Worker has
+   * re-validated its ops on `newBase`). One conditional UPDATE; false when any condition fails. Emits nothing.
+   */
+  rebaseProposal(id: string, oldBase: string, newBase: string): boolean { return this.proposalPlans().rebase(id, oldBase, newBase); }
 
   /**
    * Undo an accept that failed after creating its Evolution: delete the Evolution with its realizations and what they
@@ -1630,6 +1689,36 @@ export class SystemAuthority extends DurableObject<Env> {
   }
 
   // ---------------------------------------------------------------- end W7 intent proposals
+
+  // ---------------------------------------------------------------- System import review (backend.md B.10)
+
+  private importReviews(): ImportReviewStore { return new ImportReviewStore(this.sql); }
+  /** The stored System import review; null when the System has none. */
+  importReview(): SystemImportReview | null { return this.importReviews().get(); }
+  /**
+   * Replaces the review (null clears it) in one transaction. When a row was written or deleted it emits
+   * `system.import-review` (`status`, or null on clear) and then `system.updated`.
+   */
+  setImportReview(review: SystemImportReview | null): SystemImportReview | null {
+    const changed = this.ctx.storage.transactionSync(() => this.importReviews().set(review));
+    if (changed) {
+      this.emit({ type: "system.import-review", status: review?.status ?? null });
+      this.publishSummary();
+    }
+    return review;
+  }
+  /**
+   * Compare-and-set in one transaction: stores `next` only while the stored review has `expectedStatus` and
+   * `expectedGenomeCommit`, so concurrent accepts flip pending to accepted once, and an accept never overwrites a review
+   * a forced re-import opened meanwhile. Emits `system.import-review` and `system.updated` only on success.
+   */
+  casImportReview(expectedStatus: SystemImportReviewStatus, expectedGenomeCommit: string, next: SystemImportReview): boolean {
+    const done = this.ctx.storage.transactionSync(() => this.importReviews().cas(expectedStatus, expectedGenomeCommit, next));
+    if (!done) return false;
+    this.emit({ type: "system.import-review", status: next.status });
+    this.publishSummary();
+    return true;
+  }
 
   // ---------------------------------------------------------------- registry (instance `__registry` only)
 

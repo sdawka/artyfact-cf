@@ -99,6 +99,16 @@ describe("fake and off translators", () => {
     const out = await t.translate(await input(SCREEN, "Bind the picker #files:src/picker/**,lib/*.ts"));
     expect(out.ops).toEqual([{ op: "update", id: "screen-species-picker", files: ["src/picker/**", "lib/*.ts"] }]);
   });
+  it("fake: an update of each routed target", async () => {
+    const r = await input(SCREEN);
+    const two = { ...r, route: { ...r.route, target: { ...r.route.target, nodes: ["screen-species-picker", "screen-other"] } } };
+    expect((await fakeTranslator().translate(two)).ops?.map((o) => o.op === "update" && o.id)).toEqual(["screen-species-picker", "screen-other"]);
+  });
+  it("fake: echoed text never carries the #files: directive", async () => {
+    const t = fakeTranslator();
+    const q = await t.translate(await input({ "route.intent": "question" }, "Bind the picker #files:src/picker/** please"));
+    expect(q.question).toBe("[fake] Which part should change for: Bind the picker please");
+  });
   it("fake: an add links to the first target only with a relation the vocabulary declares for the two kinds", async () => {
     const base = await input({ "route.intent": "add", "route.space": "solution", "route.kind": "screen", "route.node": "screen-species-picker", "route.more": "no" });
     expect(base.route.target).toMatchObject({ kind: "screen", nodes: ["screen-species-picker"] });
