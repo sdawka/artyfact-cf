@@ -161,7 +161,7 @@ never in the fork's tracked files) together with the scoped attempt secret. Neit
 from `TASK_PACKET.md` and `AGENTS.md`. `task submit` uses `ARTYFACT_TOKEN` when set, else the stored token, and
 notes when the stored one has expired. Resume preserves the fork and local work, stores fresh credentials and fences
 the old attempt. `AGENTS.md` is the packet's `agentsMd` when the platform sends one, else a fixed text. A claim
-refused by a dependency prints `blocked by <tasks> (not yet promoted)`; a Task someone else holds prints
+refused by a dependency prints `blocked by <tasks> (not yet selected)`; a Task someone else holds prints
 `task <id> is taken by <label>`.
 
 The agent loop gives the admin token to `claim` only, inline, and runs the agent without it:

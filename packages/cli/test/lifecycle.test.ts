@@ -179,7 +179,7 @@ it('claim turns blocked and taken conflicts into friendly one-line errors', asyn
  const taken = await fake(() => [409, { error: { code: 'task-taken', message: 'taken', details: { by: 'claude:task.b' } } }]);
  try {
   const a = await cli(['task', 'claim', 'plan.one', 'task.b', '--system', 'system.one', '--dir', dir, '--platform', blocked.base], { ARTYFACT_ADMIN_TOKEN: 'admin' });
-  expect(a.code).toBe(1); expect(a.err).toContain('blocked by task.a, task.x (not yet promoted)');
+  expect(a.code).toBe(1); expect(a.err).toContain('blocked by task.a, task.x (not yet selected)');
   const b = await cli(['task', 'claim', 'plan.one', 'task.b', '--system', 'system.one', '--dir', dir, '--platform', taken.base], { ARTYFACT_ADMIN_TOKEN: 'admin' });
   expect(b.code).toBe(1); expect(b.err).toContain('task task.b is taken by claude:task.b');
   expect(existsSync(dir)).toBe(false);
@@ -199,6 +199,9 @@ it('claim validates the target directory before any HTTP call', async () => {
   writeFileSync(join(other, '.artyfact-task.json'), JSON.stringify({ platform: srv.base, systemId: 'system.one', planId: 'plan.one', taskId: 'task.z', attemptId: 'a', generation: 1, remote: `https://${'a'.repeat(32)}.artifacts.cloudflare.net/git/ns/t.git`, secret: 'a1'.repeat(32), reviewUrl: 'u' }));
   const c = await cli(['task', 'claim', 'plan.one', 'task.a', '--system', 'system.one', '--dir', other, '--platform', srv.base], { ARTYFACT_ADMIN_TOKEN: 'admin' });
   expect(c.code).toBe(1); expect(c.err).toContain('another task');
+  const locked = join(cwd, 'locked-parent'); mkdirSync(locked); writeFileSync(join(locked, 'f'), 'x');
+  const d = await cli(['task', 'claim', 'plan.one', 'task.a', '--system', 'system.one', '--dir', join(locked, 'f', 'sub'), '--platform', srv.base], { ARTYFACT_ADMIN_TOKEN: 'admin' });
+  expect(d.code).toBe(1); expect(d.err).toContain('cannot inspect');
   expect(srv.hits).toHaveLength(0);
  } finally { await srv.close(); }
 });

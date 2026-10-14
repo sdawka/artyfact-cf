@@ -20,7 +20,7 @@ interface LocalTask {platform:string;systemId:string;planId:string;taskId:string
 function local(io:Io):LocalTask {const path=join(io.cwd,CONFIG);if(!existsSync(path))throw new CliError(`run artyfact task start first (${CONFIG} missing)`);if(lstatSync(path).isSymbolicLink())throw new CliError('refusing symlinked task config');const cfg=JSON.parse(readFileSync(path,'utf8')) as LocalTask;for(const key of ['systemId','planId','taskId','attemptId'] as const)assertId(key,cfg[key]);assertSecret(cfg.secret);if(cfg.token!==undefined)assertToken(cfg.token);assertRemote('task remote',cfg.remote,io.env);return cfg;}
 /** Validate the claim/start/resume target before any HTTP call: absent or empty, or this task's earlier workspace. */
 function assertTaskDir(dir:string,io:Io,system:string,plan:string,task:string):LocalTask|undefined{
- let stat;try{stat=lstatSync(dir);}catch{return undefined;}
+ let stat;try{stat=lstatSync(dir);}catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return undefined;throw new CliError(`cannot inspect ${dir}: ${(e as NodeJS.ErrnoException).code??(e as Error).message}; choose another --dir`);}
  if(stat.isSymbolicLink())throw new CliError('refusing symlinked workspace');
  if(!stat.isDirectory())throw new CliError(`${dir} exists and is not a directory; choose another --dir`);
  if(!readdirSync(dir).length)return undefined;
@@ -36,7 +36,7 @@ function claimError(e:unknown,task:string):unknown{
  if(!(e instanceof PlatformError)||e.status!==409)return e;
  const d=(e.details??{}) as {blockedOn?:unknown;by?:unknown;agentLabel?:unknown;claim?:{agentLabel?:unknown}};
  const blocked=Array.isArray(d.blockedOn)?d.blockedOn.filter((x):x is string=>typeof x==='string'):[];
- if(e.code==='task-blocked'||blocked.length)return new CliError(blocked.length?`blocked by ${blocked.join(', ')} (not yet promoted)`:`blocked: ${e.detail??'a dependency is not yet promoted'}`);
+ if(e.code==='task-blocked'||blocked.length)return new CliError(blocked.length?`blocked by ${blocked.join(', ')} (not yet selected)`:`blocked: ${e.detail??'a dependency is not yet selected'}`);
  const by=[d.by,d.agentLabel,d.claim?.agentLabel].find((x):x is string=>typeof x==='string');
  if(e.code==='task-taken'||by)return new CliError(by?`task ${task} is taken by ${by}`:`task ${task} is taken${e.detail?`: ${e.detail}`:''}`);
  return e;
