@@ -72,7 +72,7 @@ export function NewEvolutionPanel({ onCreated, onCancel, backLabel = "Back" }: {
 
   return (
     <Panel title="New Evolution" {...(onCancel && { onBack: onCancel, backLabel })}>
-      <p className={styles.listNote}>An Evolution changes the Genome. After acceptance, plan implementation in a separate Realization.</p>
+      <p className={styles.listNote}>An Evolution changes the Genome. After acceptance, plan the implementation as a Plan in Work.</p>
       <form onSubmit={submit} className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`${uid}-t`}>Title</label>

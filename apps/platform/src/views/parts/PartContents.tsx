@@ -19,10 +19,9 @@ export function PartMeta({ part }: { part: PartRecord }) {
   const pin = `${pkg.id}@${pkg.version}`;
   return (
     <div className={styles.meta}>
-      <div className={styles.pin}><code>{pin}</code><CopyButton value={pin} /></div>
+      <div className={styles.pin}><code>{pin}</code><CopyButton value={pin} label="Copy pin" /></div>
       <div className={styles.pin}>
         <MetaLine items={[
-          { value: `pinned ${pkg.version}` },
           { label: "published", value: relTime(part.publishedAt, now), title: part.publishedAt || undefined },
           { label: "digest", value: shortDigest(part.digest), code: true, title: part.digest },
         ]} />
@@ -47,7 +46,7 @@ export function PartContents({ part, headingLevel = 2 }: { part: PartRecord; hea
     </Section>
     <Section title="Payload" headingLevel={headingLevel} description={`${files.length} ${files.length === 1 ? "file" : "files"}, ${nodes.length === 0 ? "no Genome nodes" : `${nodes.length} Genome ${nodes.length === 1 ? "node" : "nodes"}`}`}>
       {files.length > 0 && <ul className={styles.files} aria-label="Payload files">
-        {files.map(([path, content]) => <li key={path}><details><summary><code>{path}</code><span className={styles.quiet}>{typeof content === "string" ? `${content.length} chars` : ""}</span></summary><pre tabIndex={0} className={styles.code}>{text(content)}</pre></details></li>)}
+        {files.map(([path, content]) => <li key={path}><details><summary><code>{path}</code><span className={styles.quiet}>{typeof content === "string" ? `${content.length} characters` : ""}</span></summary><pre tabIndex={0} className={styles.code}>{text(content)}</pre></details></li>)}
       </ul>}
       {nodes.length > 0 && <ul className={styles.list} aria-label="Genome nodes">{nodes.map(([id]) => <li key={id}><code>{id}</code></li>)}</ul>}
       <details className={styles.raw}><summary>View raw JSON</summary><pre tabIndex={0} className={styles.code}>{JSON.stringify(pkg.payload, null, 2)}</pre></details>

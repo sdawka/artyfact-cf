@@ -109,6 +109,14 @@ describe("Home", () => {
     ]);
   });
 
+  it("groups several reasons under one System and counts Systems", async () => {
+    stubSystems([{ ...awaiting, signifiers: [...(awaiting.signifiers ?? []), "tasks-awaiting-agent"], planCounts: { awaitingAgent: 2 } as CardSummary["planCounts"] }]);
+    renderApp("/");
+    const ledger = await screen.findByRole("region", { name: /^Needs you/ });
+    expect(within(ledger).getAllByText("Beta")).toHaveLength(1);
+    expect(within(ledger).getAllByRole("link").map((a) => a.getAttribute("href"))).toEqual(["/s/system.b/r/head/review", "/s/system.b/r/head/work"]);
+  });
+
   it("counts app candidates the way the Review rail does, not as evolving", async () => {
     // Two submitted app candidates and nothing for an admin: the server's awaitingReview is the rail's number.
     const apps: CardSummary = { ...evolving, systemId: "system.apps", title: "Apps", signifiers: ["evolving", "pending-realization"], realizationCounts: { evolving: 1, pending: 2, awaitingAdmin: 0, awaitingReview: 2 } };
@@ -142,9 +150,9 @@ describe("Home", () => {
     stubSystems([evolving, { ...base, systemId: "system.c", title: "Gamma", head: null, updatedAt: "" }]);
     const { container } = renderApp("/");
     await screen.findByRole("link", { name: /^Alpha$/ });
-    expect(within(card(/Alpha/)).getByText("not deployed, unknown")).toBeTruthy();
+    expect(within(card(/Alpha/)).getByText("not deployed")).toBeTruthy();
     const c = card(/Gamma/);
-    expect(within(c).getByText("not deployed, unknown")).toBeTruthy();
+    expect(within(c).getByText("not deployed")).toBeTruthy();
     expect(within(c).getByText("quiet")).toBeTruthy();
     expect(within(c).getAllByText("unknown").length).toBeGreaterThan(1);
     expect(container.querySelector('[data-tone="pass"]')).toBeNull();

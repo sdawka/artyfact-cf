@@ -93,26 +93,21 @@ function EvolutionRow({ evolution: e, current, signal, titleOf }: { evolution: E
   const verdicts = e.acceptanceCriteria.map((c) => m.verdictOf(c));
   const pass = verdicts.filter((v) => v === "pass").length;
   const awaiting = signal?.awaiting ?? 0;
-  const attention = awaiting > 0 || !!signal?.overlap;
   return (
     <Row
       to={stay("work", { evolution: e.id })}
       current={current}
+      className={styles.evoRow}
       title={e.title}
       meta={
         <span className={styles.rowMeta}>
+          {signal?.overlap && <StatusText status="overlap" tone="attention" glyph="≈" label="overlap" />}
+          {awaiting > 0 && <StatusText status="awaiting" tone="attention" label={`${awaiting} await${awaiting === 1 ? "s" : ""} review`} />}
           <StatusText {...verdictStatus(aggregate(verdicts), `${pass}/${e.acceptanceCriteria.length} pass`)} />
           {e.dependsOn.length > 0 && <span>after {e.dependsOn.map(titleOf).join(", ")}</span>}
           {e.kind !== "genome-amendment" && <span>legacy {e.kind}</span>}
         </span>
       }
-      tone="attention"
-      status={attention ? (
-        <span className={styles.rowStatus}>
-          {signal?.overlap && <StatusText status="overlap" tone="attention" glyph="≈" label="overlap" />}
-          {awaiting > 0 && <StatusText status="awaiting" tone="attention" label={`${awaiting} await${awaiting === 1 ? "s" : ""} review`} />}
-        </span>
-      ) : undefined}
       trailing={awaiting > 0 ? (
         <Link to={href("review", { evolution: e.id, realization: signal?.realization ?? null, panel: null })} className={styles.trailingLink}>
           Open in Review <span className="sr-only">{e.title}</span>

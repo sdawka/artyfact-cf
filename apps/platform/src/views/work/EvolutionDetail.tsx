@@ -10,12 +10,15 @@ import { Section } from "@/components/Section/Section";
 import { StatusChip } from "@/components/StatusChip/StatusChip";
 import { StatusText } from "@/components/StatusText/StatusText";
 import { useModel } from "@/model/useModel";
-import { useKeepParams } from "@/model/useSelection";
+import { useKeepParams, useSelection } from "@/model/useSelection";
 import { StartWorkPanel } from "./panels/StartWorkPanel";
 import { RealizationRow } from "./RealizationRow";
 import { aggregate, conflictsOf, mergeConflicts, STARTABLE, useNow, useParam, verdictStatus } from "./lib";
 import type { EvolutionSignal } from "./useEvolutionSignals";
 import styles from "./work.module.css";
+
+/** States before an Evolution can take work; later states have no Start work to offer. */
+const PRE_ACTIONABLE = new Set<string>(["proposed", "draft"]);
 
 const NO_CONFLICTS: never[] = [];
 
@@ -39,6 +42,7 @@ export function EvolutionDetail({ evolution: e, realizations, signal, titleOf }:
   const m = useModel();
   const now = useNow(30_000);
   const href = useKeepParams();
+  const { setFocus } = useSelection();
   const [panel, setPanel] = useParam("panel");
   const { data: cand } = useCandidates(e.id);
   const { data: global } = useConflicts();
@@ -84,7 +88,7 @@ export function EvolutionDetail({ evolution: e, realizations, signal, titleOf }:
               </>
             ) : (
               <>
-                <Button variant="secondary" reason={`${e.id} is ${e.state}; Start work needs actionable.`}>Start work</Button>
+                {PRE_ACTIONABLE.has(e.state) && <Button variant="secondary" reason="Start work opens once the Evolution is actionable.">Start work</Button>}
                 {primary === "promote" ? promote("primary") : promotable && promote("secondary")}
               </>
             )}
@@ -109,7 +113,7 @@ export function EvolutionDetail({ evolution: e, realizations, signal, titleOf }:
           <KindGlyphs hidden>
             <RowList label="Acceptance criteria" density="compact">
               {e.acceptanceCriteria.map((c, i) => (
-                <Row key={c} title={<NodeChip id={c} size="sm" glyph={false} />} status={<StatusText {...verdictStatus(verdicts[i]!)} />} />
+                <Row key={c} onSelect={() => setFocus(c)} title={<NodeChip id={c} size="sm" glyph={false} interactive={false} />} status={<StatusText {...verdictStatus(verdicts[i]!)} />} />
               ))}
             </RowList>
           </KindGlyphs>

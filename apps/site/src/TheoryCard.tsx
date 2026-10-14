@@ -1,19 +1,19 @@
 import React from 'react';
 
-type Part = { field: string; text: string };
-const part = (field: string, text: string): Part => ({ field, text });
+type Part = { field: string; text: string; tail?: string };
+const part = (field: string, text: string, tail?: string): Part => ({ field, text, ...(tail && { tail }) });
 
 // Continues home step 6: "Did loyalty points bring customers back? Not measured yet."
 const sentence: (string | Part)[] = [
   'We build ', part('mechanism', 'loyalty points'), ' for ', part('beneficiaries', 'returning shoppers'),
-  ' because we believe they ', part('outcome', 'come back to buy again'), ', shown by ', part('indicator', 'repeat orders within 30 days'), '.',
+  ' because we believe they ', part('outcome', 'come back to buy again', ','), ' shown by ', part('indicator', 'repeat orders within 30 days'), '.',
 ];
 
 /** The hero: one claim written as a sentence, each part labelled with the claim field that holds it. Sample data. */
 export function TheoryCard() {
   return <figure className="theory-card" data-theory-card="">
     <p className="theory-sentence">{sentence.map((item, index) => typeof item === 'string' ? item
-      : <span key={index} className="theory-part" data-theory-part={item.field}><span className="theory-part-text">{item.text}</span><span className="theory-part-label" aria-hidden="true">{item.field}</span></span>)}</p>
+      : <span key={index} className={item.tail ? 'theory-keep' : undefined}><span className="theory-part" data-theory-part={item.field}><span className="theory-part-text">{item.text}</span><span className="theory-part-label" aria-hidden="true">{item.field}</span></span>{item.tail}</span>)}</p>
     <p className="theory-card-status"><span className="claim-status" data-status="unknown"><span className="glyph" aria-hidden="true">○</span> unknown</span><span>Measurement in progress. Nothing measures the indicator yet.</span></p>
     <figcaption className="meta">A product theory, written as one claim. Sample data.</figcaption>
   </figure>;

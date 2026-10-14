@@ -317,7 +317,6 @@ blockquote { margin: 20px 0; padding-left: 20px; border-left: 1px solid var(--co
   .site-header nav { gap: 0; }
   .site-header nav a { padding-inline: 6px; font: var(--type-meta); white-space: nowrap; }
   .wordmark { font-size: 22px; }
-  .nav-platform { display: none !important; }
   .actions { flex-direction: column; align-items: stretch; }
   .actions .button { width: 100%; }
   .actions .text-link { align-self: flex-start; }
