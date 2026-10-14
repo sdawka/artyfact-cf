@@ -213,7 +213,7 @@ it('plan tasks quotes a hostile plan or task id in the printed claim line', asyn
 });
 
 it('plan tasks names no claim when every pending task waits on a dependency', async () => {
- const waiting = { ...planFixture, tasks: planFixture.tasks.map(t => t.id === 'task.a' ? { ...t, status: 'working' } : t) };
+ const waiting = { ...planFixture, tasks: planFixture.tasks.map(t => t.id === 'task.a' ? { ...t, status: 'working', attempts:[{status:'working',leaseExpiresAt:'2099-01-01T00:00:00Z'}] } : t) };
  const srv = await fake(() => [200, waiting]);
  try {
   const r = await cli(['plan', 'tasks', 'plan.one', '--system', 'system.one', '--platform', srv.base], {});
@@ -241,7 +241,7 @@ it('claim turns blocked, taken and interference refusals into friendly one-line 
 
 it('plan tasks skips a task whose conflicting task holds a live attempt', async () => {
  const live = { id: 'attempt.1', status: 'working', agentLabel: 'claude:task.c', leaseExpiresAt: '2099-01-01T00:00:00Z' };
- const plan = { ...planFixture, tasks: planFixture.tasks.map(t => t.id === 'task.a' ? { ...t, status: 'selected' } : t.id === 'task.c' ? { ...t, attempts: [live] } : t) };
+ const plan = { ...planFixture, tasks: planFixture.tasks.map(t => t.id === 'task.a' ? { ...t, status: 'selected', selectedCandidate:'candidate.a' } : t.id === 'task.c' ? { ...t, attempts: [live] } : t) };
  const srv = await fake(() => [200, plan]);
  try {
   const r = await cli(['plan', 'tasks', 'plan.one', '--system', 'system.one', '--platform', srv.base], {});
@@ -370,4 +370,25 @@ it('claim stores the write token only in .git/artyfact-task.json, writes packet.
   await srv.close();
   for (const [key, value] of [['GIT_CONFIG_COUNT', old.c], ['GIT_CONFIG_KEY_0', old.k], ['GIT_CONFIG_VALUE_0', old.v]] as const) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
  }
+});
+
+it.each(['claimed','working'])('plan tasks offers resume for an expired %s attempt and preserves next JSON',async(status)=>{
+ const t={...planFixture.tasks[0],status,attempts:[{status:'working',leaseExpiresAt:'2000-01-01T00:00:00Z'}]};
+ const p={...planFixture,tasks:[t]};const send=vi.fn(async()=>Response.json(p));vi.stubGlobal('fetch',send);
+ const args=['plan','tasks','plan.one','--system','system.one','--platform','https://example.com'];
+ const r=await cli(args,{});expect(r.code).toBe(0);
+ expect(r.out).toContain('resume: ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task resume plan.one task.a');
+ expect(r.out).toContain('--dir ./work/task.a');expect(r.out).toContain('--platform https://example.com');
+ expect(r.out).toContain("existing workspace");
+ const json=JSON.parse((await cli([...args,'--json'],{})).out);
+ expect(json).toMatchObject({next:'task.a',nextAction:{taskId:'task.a',action:'resume'}});
+});
+it('orders available recovery and fresh tasks by wave and quotes hostile IDs',async()=>{
+ const evil="task.a'$(touch pwned)";
+ const t={...planFixture.tasks[0],id:evil,status:'working',attempts:[{status:'working',leaseExpiresAt:'2000-01-01T00:00:00Z'}]};
+ const p={...planFixture,id:'plan one;x',tasks:[{...planFixture.tasks[0],id:'task.later'},t],analysis:{conflicts:[],waves:[[evil],['task.later']]}};
+ vi.stubGlobal('fetch',vi.fn(async()=>Response.json(p)));
+ const r=await cli(['plan','tasks','plan.one','--system','system.one','--platform','https://example.com'],{});
+ expect(r.out).toContain(`task resume 'plan one;x' 'task.a'\\''$(touch pwned)'`);
+ expect(r.out).not.toContain('task claim');
 });

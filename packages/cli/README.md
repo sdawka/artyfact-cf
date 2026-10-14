@@ -162,7 +162,11 @@ saves nothing. `--create` posts the draft unchanged and prints the plan id and r
 The platform resolves repository scope and dependency waves before granting a writing attempt.
 
 `plan tasks <plan>` prints `task | status | wave | depends-on | write nodes | footprint`, one `conflicts:` line per
-overlapping pair, and the claim command for the lowest-wave pending Task whose dependencies are selected or completed.
+overlapping pair, and the claim or resume command for the lowest-wave available Task. Dependencies must have selected
+candidates and no conflicting writer may hold a live lease. Pending Tasks can be claimed; expired claimed/working
+Tasks are offered with `resume` and an explicit platform origin. Use the existing workspace path to preserve local
+work. Submitted, selected, completed and promoted work is excluded. JSON retains `next` (Task id or null) and adds
+`nextAction: {taskId, action: "claim" | "resume"}` (or null).
 Like `plan show`, it needs no token for a public System.
 
 `task claim`, `task start`, and `task resume` have the same arguments (`--agent-label` names the agent).

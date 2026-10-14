@@ -73,7 +73,7 @@ const USAGE = `artyfact <command>
   plan draft --system sid [--evolution eid ...] [--node id ...] [--hint text] [--title t] [--create] [--json]
         draft a Realization plan (persists nothing); --create posts the draft and prints the plan id
   plan tasks <plan> --system sid [--json]
-        task | status | wave | depends-on | write nodes | footprint, conflicts, and the next claim command
+        task | status | wave | depends-on | write nodes | footprint, conflicts, and the next claim or resume command
   task claim|start|resume <plan> <task> --system sid [--dir d] [--agent-label l]
         keeps the fork write token in <dir>/.git/artyfact-task.json (0600, never staged); submit uses it, never prints it
   task checkpoint "<message>" | submit | status
