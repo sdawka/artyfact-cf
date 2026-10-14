@@ -1,0 +1,13 @@
+id: J.lifecycle/save-plan
+kind: step
+fields:
+  step: save-plan
+  actor: user
+  action: Saves the plan, pinned to the accepted model version, and lists which Task can be claimed next. A draft saves nothing on its own.
+  next:
+    - to: claim
+      when: for each Task, in parallel
+links:
+  - { rel: stepOperation, to: command.plan-tasks }
+  - { rel: stepOperation, to: endpoint.lifecycle-post-realization-plans }
+  - { rel: stepScreen, to: screen.work }

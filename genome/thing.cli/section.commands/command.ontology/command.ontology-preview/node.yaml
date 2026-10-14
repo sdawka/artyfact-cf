@@ -1,0 +1,8 @@
+id: command.ontology-preview
+kind: command
+fields:
+  name: ontology preview
+  usage: artyfact ontology preview --system <system-id> --file <native-package.json>
+  description: Uploads a native ontology package for review and prints the review link. Nothing becomes the model until the preview is accepted.
+links:
+  - { rel: calls, to: endpoint.ontology-packages-post-ontology-imports-preview }

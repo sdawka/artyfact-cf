@@ -1,0 +1,7 @@
+id: command.plan
+kind: command
+fields:
+  name: plan
+  usage: artyfact plan draft|tasks|create|list|show|integrate|review|promote --system <system-id> ...
+  exitCodes: 0 on success, 1 on any error.
+  description: Drafts, saves, lists and shows Realization plans, integrates their selected Tasks, opens the combined review and promotes it. tasks, list, show and review read without a token; the rest need ARTYFACT_ADMIN_TOKEN and exit 1 without it.

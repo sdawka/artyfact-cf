@@ -5,6 +5,21 @@ fields:
   description: Coordinates accepted-Genome plans, scoped Tasks, fenced attempts and combined implementation review.
   path: worker/lifecycle-service.ts
 links:
+  - { rel: implements, to: endpoint.plan-draft }
+  - { rel: implements, to: endpoint.lifecycle-post-realization-plans }
+  - { rel: implements, to: endpoint.lifecycle-get-realization-plans }
+  - { rel: implements, to: endpoint.lifecycle-get-realization-plans-pid }
+  - { rel: implements, to: endpoint.lifecycle-get-realization-plans-pid-tasks-tid }
+  - { rel: implements, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-claim }
+  - { rel: implements, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-start }
+  - { rel: implements, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-resume }
+  - { rel: implements, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-checkpoint }
+  - { rel: implements, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-submit }
+  - { rel: implements, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-select }
+  - { rel: implements, to: endpoint.lifecycle-post-realization-plans-pid-integrate }
+  - { rel: implements, to: endpoint.lifecycle-get-realization-plans-pid-review }
+  - { rel: implements, to: endpoint.lifecycle-review-file }
+  - { rel: implements, to: endpoint.lifecycle-post-realization-plans-pid-promote }
   - { rel: implements, to: endpoint.lifecycle-task-review }
   - { rel: implements, to: endpoint.lifecycle-task-review-file }
 files:

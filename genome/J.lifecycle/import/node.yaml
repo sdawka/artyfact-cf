@@ -1,0 +1,11 @@
+id: J.lifecycle/import
+kind: step
+fields:
+  step: import
+  actor: user
+  action: Uploads the product's model as an ontology package. The platform validates it and shows a preview to review; nothing is saved yet.
+  next:
+    - to: accept-import
+links:
+  - { rel: stepOperation, to: command.ontology-preview }
+  - { rel: stepOperation, to: endpoint.ontology-packages-post-ontology-imports-preview }

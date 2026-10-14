@@ -1,4 +1,4 @@
-// Test-only config: identical to wrangler.jsonc but without the remote `artifacts` binding,
+// Test-only config: identical to wrangler.jsonc but without the remote `artifacts`, `ai` and `browser` bindings,
 // and without the cross-script `workflows` (CI) binding, so tests run offline without a Cloudflare login. Keep in sync.
 {
   "$schema": "node_modules/wrangler/config-schema.json",
@@ -10,6 +10,8 @@
   "exports": { "SystemAuthority": { "type": "durable-object", "storage": "sqlite" } },
   "durable_objects": { "bindings": [{ "name": "SYSTEMS", "class_name": "SystemAuthority" }] },
   "queues": { "consumers": [{ "queue": "artyfact-artifacts-events", "max_batch_size": 10, "max_retries": 3 }] },
+  // Local R2 for evidence images. The AI and BROWSER bindings are remote-only, so tests pass mocks instead.
+  "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "artyfact-evidence" }],
   // ACCOUNT_ID builds fork remotes (https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/<ns>/<repo>.git); set it in .dev.vars or here.
   "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "http://localhost:1337", "ACCOUNT_ID": "", "PREVIEW_HOST_ALLOWLIST": "", "WORKERS_SUBDOMAIN": "" },
   "observability": { "enabled": true }

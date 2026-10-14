@@ -1,12 +1,14 @@
 import { Hono } from "hono";
-import type { DeleteSystemResponse, ImportSystemRequest, SystemImportReviewAccept, SystemsResponse } from "../../shared/api";
+import type { DeleteSystemResponse, ImportSystemRequest, PlatformResponse, SystemImportReviewAccept, SystemsResponse } from "../../shared/api";
 import { requireAdmin } from "../auth";
+import { HOSTED_DEMO_NOTICE, isHostedDemo } from "../demo";
 import { notFound } from "../errors";
 import { acceptImportReview, importReview } from "../import-review";
 import { deleteSystem, importSystem, listSystems, modelBundle, readiness, systemStub } from "../service";
 import { body, origin, type AppEnv } from "./app";
 
 export const systems = new Hono<AppEnv>()
+  .get("/platform", (c) => c.json<PlatformResponse>(isHostedDemo(c.env) ? { hostedDemo: true, notice: HOSTED_DEMO_NOTICE } : { hostedDemo: false }))
   .get("/systems", async (c) => c.json<SystemsResponse>({ systems: await listSystems(c.env) }))
   .post("/systems/import", requireAdmin, async (c) => c.json(await importSystem(c.env, (await body(c)) as Partial<ImportSystemRequest>), 201))
   .delete("/systems/:id", requireAdmin, async (c) => c.json<DeleteSystemResponse>(await deleteSystem(c.env, c.req.param("id"))))

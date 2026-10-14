@@ -561,6 +561,7 @@ async function storedCandidates(env: Env, systemId: string, filter: { open?: boo
       realizationId: c.realization, evolutionId: c.evolution, target: m.target ?? "app", repo: m.repo ?? "", baseRepo: m.baseRepo ?? "",
       baseCommit: m.baseCommit ?? "", commit: c.commit, changedPaths: c.changedPaths, changedNodes: c.changedSubjects,
       diff: m.diff ?? { added: [], modified: [], removed: [] }, ...(m.previewUrl && { previewUrl: m.previewUrl }),
+      ...(Array.isArray(m.screenshots) && m.screenshots.length && { screenshots: m.screenshots }),
       ...(m.pathNodes && { pathNodes: m.pathNodes }), ...(m.manifestHash && { manifestHash: m.manifestHash }), id: c.id, state: c.state,
     };
   }));
@@ -577,7 +578,7 @@ async function hookRef(env: Env, systemId: string, c: StoredCandidate): Promise<
   return {
     id: c.id, realizationId: c.realizationId, evolutionId: c.evolutionId, target: c.target, commit: c.commit, baseCommit: c.baseCommit,
     changedPaths: c.changedPaths, changedNodes: c.changedNodes, ...(c.pathNodes && { pathNodes: c.pathNodes }),
-    ...(c.previewUrl && { previewUrl: c.previewUrl }), ...(passedBuild?.buildId && { expectedBuildId: passedBuild.buildId }), ...(genomeFiles && { genomeFiles: JSON.parse(genomeFiles) as FileMap }),
+    ...(c.previewUrl && { previewUrl: c.previewUrl }), ...(c.screenshots?.length && { screenshots: c.screenshots }), ...(passedBuild?.buildId && { expectedBuildId: passedBuild.buildId }), ...(genomeFiles && { genomeFiles: JSON.parse(genomeFiles) as FileMap }),
   };
 }
 

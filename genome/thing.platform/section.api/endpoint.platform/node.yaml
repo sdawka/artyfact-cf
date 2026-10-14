@@ -1,0 +1,7 @@
+id: endpoint.platform
+kind: endpoint
+fields:
+  name: Platform mode
+  description: Says whether this Worker is the hosted demo, whose System One judgments, visual checks, translations and plan drafts are simulated, and carries the notice the header shows.
+  route: GET /api/platform
+  auth: Anonymous read.

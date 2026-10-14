@@ -1,0 +1,120 @@
+/* /how-it-works: a spine of phases drawn from the Genome. The Task phases split into three lanes and join again. */
+.how-intro { padding-bottom: 36px; }
+.how-source { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 8px 48px; align-items: start; margin-bottom: 70px; padding: 26px 30px; border: 1px solid var(--color-border-subtle); border-left: 2px solid var(--color-brand-primary); border-radius: var(--border-radius-md); background: var(--color-surface-primary); }
+.how-source h2 { grid-row: span 2; margin: 0; font-size: clamp(1.6rem, 2.6vw, 2.3rem); }
+.how-source p { margin: 0; font-size: .92rem; }
+.how-source .how-counts { color: var(--color-text-secondary); font-size: .84rem; }
+.how-counts strong { font: 400 1.25em var(--font-display); color: var(--color-brand-primary); }
+
+.flow { --gutter: 64px; --node: 30px; --lane: var(--color-border); --task: var(--color-brand-primary); margin: 0; }
+.flow figcaption { margin-bottom: 14px; color: var(--color-text-secondary); font-size: .88rem; }
+.flow-legend { display: flex; flex-wrap: wrap; gap: 10px 28px; margin: 0 0 34px; padding: 0; list-style: none; }
+.flow-legend li { display: flex; align-items: baseline; gap: 9px; color: var(--color-text-secondary); font-size: .8rem; }
+
+/* Who acts: one colour per actor, always with its name beside it. */
+.flow-actor { --actor: var(--color-text-primary); display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px 1px 7px; border: 1px solid color-mix(in oklch, var(--actor) 55%, transparent); border-radius: var(--border-radius-full); color: var(--color-text-primary); font: .72rem/1.6 var(--font-body); white-space: nowrap; }
+.flow-actor-mark { width: 7px; height: 7px; border: 1px solid var(--actor); border-radius: 50%; background: var(--actor); }
+.flow-actor[data-actor="person"] { --actor: var(--color-brand-primary); }
+.flow-actor[data-actor="agent"] { --actor: var(--color-status-info); }
+.flow-actor[data-actor="platform"] { --actor: var(--color-neutral-100); }
+.flow-actor[data-actor="ci"] { --actor: var(--color-status-success); }
+.flow-actor[data-actor="platform"] .flow-actor-mark { background: transparent; }
+
+/* The spine: each phase hangs off one vertical line; its number sits on the line. */
+.flow-spine { position: relative; margin: 0; padding: 0; list-style: none; }
+.flow-spine > li { position: relative; padding-left: var(--gutter); }
+.flow-spine > li::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--gutter) / 2); border-left: 1.5px solid var(--lane); }
+.flow > .flow-spine > li:first-child::before { top: 30px; }
+.flow > .flow-spine > li:last-child::before { bottom: auto; height: 30px; }
+.flow-phase { padding-block: 6px; }
+.flow-phase details { border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); background: var(--color-surface-primary); transition: border-color var(--motion-transition-normal); }
+.flow-phase details[open] { border-color: var(--color-border); }
+.flow-phase summary { display: grid; grid-template-columns: minmax(0, 1fr) auto 22px; align-items: center; gap: 8px 20px; min-height: 64px; padding: 14px 20px; cursor: pointer; list-style: none; }
+.flow-phase summary::-webkit-details-marker { display: none; }
+.flow-phase summary:hover .flow-name { color: var(--color-brand-primary); }
+.flow-node { position: absolute; top: 23px; left: calc(var(--gutter) / 2 - var(--node) / 2 + .75px); z-index: 1; display: grid; place-items: center; width: var(--node); height: var(--node); border: 1.5px solid var(--color-brand-primary); border-radius: 50%; background: var(--color-background); color: var(--color-text-primary); font: .78rem var(--font-code); transition: background var(--motion-transition-normal), color var(--motion-transition-normal); }
+.flow-phase details[open] .flow-node, .flow-phase summary:hover .flow-node { background: var(--color-brand-primary); color: var(--color-text-inverse); }
+.flow-head { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.flow-name { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; font: 400 clamp(1.25rem, 1.9vw, 1.55rem)/1.2 var(--font-display); letter-spacing: -.02em; transition: color var(--motion-transition-fast); }
+.flow-name .term-label { letter-spacing: 0; }
+.flow-line { color: var(--color-text-secondary); font-size: .86rem; line-height: 1.45; }
+.flow-actors { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; }
+.flow-toggle { color: var(--color-brand-primary); font: 1.2rem/1 var(--font-code); text-align: center; }
+.flow-toggle::before { content: '+'; }
+.flow-phase details[open] .flow-toggle::before { content: '\2212'; }
+
+/* An open phase: what happens on the left, how and what guards it on the right, its model ids across the bottom. */
+.flow-body { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); grid-template-areas: "what how" "who guards" "ids ids"; gap: 0 36px; margin: 0; padding: 2px 20px 20px; border-top: 1px solid var(--color-border-subtle); }
+.flow-body > div { min-width: 0; margin: 0; padding: 18px 0 0; border: 0; }
+.flow-body dt { margin-bottom: 9px; color: var(--color-text-secondary); font: 600 .76rem/1.4 var(--font-body); }
+.flow-body dd { font-size: .88rem; }
+.flow-body ul, .flow-body ol { margin: 0; padding: 0; list-style: none; }
+.flow-body p { margin: 0; font-size: .88rem; }
+.flow-what { grid-area: what; } .flow-how { grid-area: how; } .flow-who { grid-area: who; } .flow-guards { grid-area: guards; } .flow-ids { grid-area: ids; }
+.flow-steps { display: flex; flex-direction: column; gap: 12px; }
+.flow-steps li { display: grid; grid-template-columns: 86px minmax(0, 1fr); align-items: baseline; gap: 12px; }
+.flow-steps .flow-actor { justify-self: start; }
+.flow-steps p { color: var(--color-text-primary); line-height: 1.55; }
+.flow-note { margin-top: 14px !important; padding: 10px 14px; border-left: 2px solid var(--color-status-success); background: var(--color-background-secondary); color: var(--color-text-secondary); font-size: .84rem !important; }
+.flow-who li { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; margin-bottom: 6px; color: var(--color-text-secondary); }
+.flow-commands { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px !important; }
+.flow-commands code { display: block; padding: 7px 11px; border-left: 2px solid var(--color-brand-primary); border-radius: var(--border-radius-sm); background: var(--color-background-secondary); color: var(--color-text-primary); font-size: .76rem; }
+.flow-uses li { margin-bottom: 4px; color: var(--color-text-primary); font-size: .84rem; }
+.flow-uses span { display: inline-block; min-width: 3.4em; color: var(--color-text-secondary); font-size: .74rem; }
+.flow-uses code { color: var(--color-text-secondary); font-size: .76rem; }
+.flow-guards li { position: relative; margin-bottom: 8px; padding-left: 20px; color: var(--color-text-secondary); }
+.flow-guards li::before { content: ''; position: absolute; top: .45em; left: 2px; width: 8px; height: 8px; border: 1.5px solid var(--color-status-success); border-radius: 2px; transform: rotate(45deg); }
+.flow-ids ul { display: flex; flex-wrap: wrap; gap: 6px; }
+.flow-ids li { display: inline-block; max-width: 100%; padding: 2px 9px; line-height: 1.6; border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-sm); }
+.flow-ids span { margin-right: 2px; color: var(--color-text-secondary); font-size: .68rem; }
+.flow-ids code { color: var(--color-text-primary); font-size: .74rem; }
+
+/* The fan-out: the spine forks into three Task lanes, the Task phases run on them as a stack of copies, then the lanes join. */
+.flow-fan { padding-block: 4px; }
+.flow-fan::before { display: none; }
+.flow-parallel { margin-left: calc(var(--gutter) * -1); }
+.flow-parallel::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--gutter) * 14 / 96); width: calc(var(--gutter) * 68 / 96); border-inline: 1.5px dashed var(--task); pointer-events: none; }
+.flow-parallel > li::before { border-left: 1.5px dashed var(--task); }
+.flow-parallel details { margin-right: 10px; box-shadow: 5px 5px 0 -1px var(--color-background), 5px 5px 0 0 var(--color-border), 10px 10px 0 -1px var(--color-background), 10px 10px 0 0 var(--color-border-subtle); }
+.flow-parallel .flow-phase { padding-bottom: 16px; }
+.flow-fan-label { position: relative; display: flex; align-items: center; min-height: 48px; margin-left: calc(var(--gutter) * -1); padding: 6px 0 6px var(--gutter); }
+.flow-fan-label::before { content: ''; position: absolute; top: 0; bottom: 0; left: calc(var(--gutter) / 2); border-left: 1.5px solid var(--lane); }
+.flow-fan-label:has(.flow-fork)::before { display: none; }
+.flow-fork { position: absolute; top: 0; left: 0; width: var(--gutter); height: 100%; overflow: visible; }
+.flow-fork path { fill: none; stroke: var(--task); stroke-width: 1.5; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.flow-fork path:first-child { stroke: var(--lane); stroke-dasharray: none; }
+.flow-fork-join { transform: scaleY(-1); }
+.flow-fan-label p { max-width: 74ch; margin: 0; padding: 10px 0 10px 2px; color: var(--color-text-secondary); font-size: .86rem; }
+.flow-fan-label strong { color: var(--color-brand-primary); font-weight: 600; }
+.flow-loop { display: flex; align-items: center; gap: 12px; margin: 14px 0 0; padding-left: calc(var(--gutter) / 2 - 11px); color: var(--color-text-secondary); font-size: .88rem; max-width: none; }
+.flow-loop svg { flex-shrink: 0; color: var(--color-brand-primary); }
+.flow-loop a { color: var(--color-brand-primary); }
+.how-close { margin-top: 40px; }
+
+@media (max-width: 900px) {
+  .how-source { grid-template-columns: minmax(0, 1fr); }
+  .how-source h2 { grid-row: auto; margin-bottom: 6px; }
+  .flow-body { grid-template-columns: minmax(0, 1fr); grid-template-areas: "what" "how" "guards" "who" "ids"; }
+}
+@media (max-width: 640px) {
+  .flow { --gutter: 40px; --node: 26px; }
+  .how-source { padding: 20px; margin-bottom: 45px; }
+  .flow-phase summary { grid-template-columns: minmax(0, 1fr) 22px; padding: 12px 14px; }
+  .flow-actors { grid-column: 1; grid-row: 2; justify-content: flex-start; }
+  .flow-toggle { grid-column: 2; grid-row: 1; }
+  .flow-node { top: 20px; font-size: .7rem; }
+  .flow-body { padding: 0 14px 16px; }
+  .flow-steps li { grid-template-columns: minmax(0, 1fr); gap: 4px; }
+  .flow-parallel details { margin-right: 8px; box-shadow: 4px 4px 0 -1px var(--color-background), 4px 4px 0 0 var(--color-border), 8px 8px 0 -1px var(--color-background), 8px 8px 0 0 var(--color-border-subtle); }
+  .flow-legend { flex-direction: column; gap: 8px; }
+}
+@media (forced-colors: active) {
+  .flow { --lane: CanvasText; --task: CanvasText; }
+  .flow-phase details, .flow-ids li, .flow-actor, .flow-node { border-color: CanvasText; }
+  .flow-actor-mark { border-color: CanvasText; background: CanvasText; }
+  .flow-phase details[open] .flow-node, .flow-phase summary:hover .flow-node { background: Highlight; color: HighlightText; forced-color-adjust: none; }
+  .flow-parallel details { box-shadow: none; outline: 1px dashed CanvasText; outline-offset: 3px; }
+  .flow-fork path { stroke: CanvasText; }
+  .flow-guards li::before { border-color: CanvasText; }
+  .how-source, .flow-note, .flow-commands code { border-color: CanvasText; }
+}

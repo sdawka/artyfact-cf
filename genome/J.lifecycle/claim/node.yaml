@@ -1,0 +1,11 @@
+id: J.lifecycle/claim
+kind: step
+fields:
+  step: claim
+  actor: user
+  action: Claims a Task. The platform gives it a private fork and a write token for that fork only; the CLI clones it and writes the brief, TASK_PACKET.md and AGENTS.md, cut from the model.
+  next:
+    - to: work
+links:
+  - { rel: stepOperation, to: command.task-claim }
+  - { rel: stepOperation, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-claim }

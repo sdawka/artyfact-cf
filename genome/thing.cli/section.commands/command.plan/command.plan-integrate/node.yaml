@@ -1,0 +1,8 @@
+id: command.plan-integrate
+kind: command
+fields:
+  name: plan integrate
+  usage: artyfact plan integrate <plan-id> --system <system-id>
+  description: Combines the selected candidate of every Task into one integration fork and prints the review link. The platform refuses it while any Task has no selected candidate.
+links:
+  - { rel: calls, to: endpoint.lifecycle-post-realization-plans-pid-integrate }

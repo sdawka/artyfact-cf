@@ -4,3 +4,7 @@ fields:
   statement: Only a pass verdict is drawn as success; unknown, stale and waived never are, and unknown blocks promotion.
   features:
     - feature.promotion-gate
+links:
+  - { rel: governs, to: J.lifecycle/check }
+  - { rel: governs, to: J.lifecycle/integrate }
+  - { rel: governs, to: J.lifecycle/promote }

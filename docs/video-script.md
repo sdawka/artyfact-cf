@@ -6,23 +6,23 @@ Target length about 9 minutes, hard limits 5 to 10. Two parts: about 3 minutes o
 - Browser tab 1: https://artyfact.ing. Browser tab 2: the platform UI. Both at 1440 by 900 or larger.
 - Two terminals side by side labelled "agent t1" and "agent t2", then "agent t3". A third terminal "ops" for the claim and admin commands, shown when used.
 - Optional small terminal with the event stream (step 3).
-- The platform top bar shows "System One: fake provider". Say it once when Part 2 starts, and again at the rule moment.
+- Part 2 runs on the hosted platform, a read-only demo. Its System One judgments, visual checks, intent translations and plan drafts are simulated, labelled "simulated", and a header pill says so. Say it once when Part 2 starts, and again at the rule moment.
 
 ## Pre-flight checklist
 - [ ] artyfact.ing open in a tab, scrolled to the top.
 - [ ] `npx wrangler login` and `cf auth login` show the same account (runbook step 0).
-- [ ] `apps/platform/.dev.vars` has `ADMIN_TOKEN`, `ACCOUNT_ID`, `FAKE_S1=1`, `ALLOW_LOCAL_PREVIEW=1`. Never show it.
+- [ ] For the optional local visual-check beat: `apps/platform/.dev.vars` has `ADMIN_TOKEN`, `ACCOUNT_ID` and the model keys, and `npm run dev` provides the Workers AI and Browser Run bindings. Never show it.
 - [ ] Reset to a clean state first (runbook "Reset"), so no earlier forks or plans exist.
 - [ ] `validate-genome` and `init` are done before recording (steps 1 and 2). Leave the import review pending so step 4 is live.
 - [ ] The `export` block from step 0 is run in every terminal: ops, sse. The admin token is a shell variable in ops only and is passed inline to the commands that need it. Never export it in a shell that starts an agent.
 - [ ] A claim's write token and lease last 15 minutes (`leaseSeconds` default 900 in `apps/platform/worker/lifecycle-service.ts`). Claim on camera and submit within 15 minutes. If a token expires, run `artyfact task resume` (runbook "Troubleshooting").
 - [ ] Decide whether `claude -p` runs live or a prepared edit stands in for the agent. A live agent must finish inside the 15 minutes. Say which on camera.
-- [ ] Do not expect real System One. Every judgment is canned and labelled fake. The fake translator proposes one op per message, so the deferral beat needs the real translator or is narrated over the tests.
+- [ ] Do not expect real judgments on the hosted platform. They are simulated. Clef, Jev and Browser Run run only on your own account with `npm run dev`; `S1_PROVIDER` picks the judge.
 - [ ] After recording, delete `./work` and `$RUN`.
 
 ## Part 1: the site (0:00 to 3:00)
 
-The page scrolls in this order: hero, agent environment, practices, model, checkout story, Cloudflare. Follow the page.
+The page scrolls in this order: hero, agent environment, practices, model, checkout story, Cloudflare. Follow the page, then open artyfact.ing/how-it-works for the last beat.
 
 | Time | Beat | On screen | Say |
 |---|---|---|---|
@@ -31,10 +31,11 @@ The page scrolls in this order: hero, agent environment, practices, model, check
 | 1:00 | The practices | Scroll the "You know → In Artyfact" cards, Engineering first | These are practices teams already use, in separate files and tools. Artyfact keeps them and ties each one to the model. Some are built in: worktrees become a fork per Task, AGENTS.md a brief cut from the model, merge queues a compare-and-swap promote. Some are extended: CI gates, changelogs, LLM evals. Some are connected: PRDs, personas, journey maps, ERDs and tracking plans become part of the model. OKRs are marked partial: measurement is still in progress. |
 | 1:35 | The model | "A model of the whole product, not just a spec." | A spec file is flat text. This is a model with levels: System, Thing, section, screen, component, down to one button. The purpose, the people, the journey, the data, the policy and the criteria attach to the parts they describe. We call it the Genome. |
 | 2:00 | The checkout story | Click steps 1 to 7 of the stepper | This example is illustrative. Two agents work in parallel on one change, in different files. On GitHub: no conflicts, merged. Here, both touch the "Place order" step and its rule "guests can still check out", so the overlap is flagged. A asks for a login and fails the rule. B is integrated and promoted. A updates onto B and revises. Then deploy, observe, and the next change. |
+| 2:30 | How it works | artyfact.ing/how-it-works: open "Work in parallel", then "Check each candidate" | This page is drawn from Artyfact's own model when the site is built. Ten phases, from describing the product to watching it run. Here the work fans out: each Task gets its own fork and its own agent. Each candidate is checked: deterministic hooks first, then Cloudflare Clef, which can also judge screenshots of the preview. Then the work joins in one review. |
 
 ## Transition (3:00)
 
-Switch to the platform tab. Say: "Now the real platform, with a real System. Peopling is a small contacts app. Its purpose is to help you stay in touch with the people you choose." Then: "System One runs on a fake provider in this recording, and it says so in the top bar."
+Switch to the platform tab. Say: "Now the real platform, with a real System. Peopling is a small contacts app. Its purpose is to help you stay in touch with the people you choose." Then: "This is the hosted demo. Its model judgments are simulated, and the header says so. Run it on your own Cloudflare account and Clef, Jev and Browser Run do the judging."
 
 ## Part 2: the platform (3:05 to 9:00)
 
@@ -49,11 +50,12 @@ Each beat names the site claim it makes real.
 | 5:45 | The dependent task | 8 | Terminal ops: `task claim` of t3, refused "blocked by t1, t2 (not yet selected)". Select both, claim again | A Task whose predecessors are not selected cannot start. The server refuses it. Once they are selected, its packet says what it builds on. | Merge queue and branch protection built in |
 | 6:15 | Violation or choice | 5 | Work: a proposal with a rule finding; the node cannot be agreed. Then the deliberate wording change | See Moment 2. | Policy-as-code extended |
 | 7:05 | Integrate, review, promote | 9 | Task detail select form; `plan integrate`, `plan review`, `plan promote` | Selected results become one candidate per binding and one review. Only pass is green; a check that did not run stays unknown and blocks. Promotion is a compare-and-swap on the System head. If the head moved since the review, it is refused. | CI gates and definition of done extended; merge queues built in |
+| 7:40 | A real visual check | none | The evaluation from a local run: `C.site.model.compelling-visual-presentation`, two Browser Run captures of artyfact.ing/model, Clef 0.83, unknown | Off camera, a local run on my own account checked our own /model page. Clef judged the desktop and mobile captures at 0.83, no concern but low confidence. That is unknown, not a pass: a pass needs 0.9. The whole check took about 13 seconds. | CI gates extended; LLM evals extended |
 | 7:55 | Changelog | 9 | Changelog timeline, Compare | One System commit per decision, with the manifest hash and the evidence provider. Compare the model or the files. | Changelogs extended |
-| 8:15 | How it runs | none | Site "Built on Cloudflare" section (artyfact.ing/#cloudflare): the Artifacts diagram top to bottom, then the products below it | Artifacts is the backbone. The model and the app are Git repos. Each Task gets its own fork with a token for that fork only, and agents use plain git. The selected results are combined in an integration fork. Promote writes a System commit that pins the model commit and the app commit together, through a compare-and-swap in the System's Durable Object. The platform Worker serves the API and the review app. A separate CI Worker runs a Workflow that builds each commit in a container, with an R2 cache, and deploys. Feature flags come from Flagship. Email is coming soon. | Cloudflare section |
+| 8:15 | How it runs | none | Site "Built on Cloudflare" section (artyfact.ing/#cloudflare): the Artifacts diagram top to bottom, then the products below it | Artifacts is the backbone. The model and the app are Git repos. Each Task gets its own fork with a token for that fork only, and agents use plain git. The selected results are combined in an integration fork. Promote writes a System commit that pins the model commit and the app commit together, through a compare-and-swap in the System's Durable Object. The platform Worker serves the API and the review app. A separate CI Worker runs a Workflow that builds each commit in a container, with an R2 cache, and deploys. On your own account, Workers AI runs Cloudflare Clef and Browser Run takes the screenshots it checks. Feature flags come from Flagship. Email is coming soon. | Cloudflare section |
 | 8:50 | Close | none | artyfact.ing hero | The next Git platform keeps track of the product, not just the files. artyfact.ing. | Headline |
 
-Fake-only steps: the agent can be a prepared file edit, System One and the translator are canned, and CI builds and previews do not run (health stays unknown). The plan-to-promote walk has run on the fake platform, not on real Artifacts.
+Simulated steps on the hosted demo: the agent can be a prepared file edit, System One, visual checks, the translator and the planner draft are simulated, and CI builds and previews do not run (health stays unknown). The plan-to-promote walk has run on the fake platform, not on real Artifacts.
 
 ## Moment 1: independent, then ordered (steps 6 to 8)
 

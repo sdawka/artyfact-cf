@@ -1,0 +1,8 @@
+id: command.ontology-accept
+kind: command
+fields:
+  name: ontology accept
+  usage: artyfact ontology accept <import-id> --system <system-id> --hash <preview-hash>
+  description: Accepts a reviewed import by the hash of the preview that was reviewed; without --hash it exits 1.
+links:
+  - { rel: calls, to: endpoint.ontology-packages-post-ontology-imports-reviewId-accept }

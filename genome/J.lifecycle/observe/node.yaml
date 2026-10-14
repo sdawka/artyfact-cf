@@ -1,0 +1,13 @@
+id: J.lifecycle/observe
+kind: step
+fields:
+  step: observe
+  actor: system
+  action: Receives the events the running app reports, validates each one and links it to the deployment and commit that sent it.
+  kind: reaction
+  next:
+    - to: revise
+links:
+  - { rel: stepOperation, to: endpoint.ingest-token }
+  - { rel: stepOperation, to: endpoint.ingest-events }
+  - { rel: stepScreen, to: screen.phenome }

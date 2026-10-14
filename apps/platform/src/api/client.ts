@@ -8,6 +8,7 @@ import {
   type PartResponse, type PromoteResponse, type ReadinessReport, type RealizedArtifactsResponse, type RejectRequest, type RejectResponse, type RevisionsResponse, type SseEvent,
   type StartWorkRequest, type StartWorkResponse, type SystemCompare, type SystemSummary,
   type PartsResponse,
+  type PlatformResponse,
 } from "../../shared/api";
 import { isBlocking } from "../../shared/verdict";
 import type { TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse } from "../../shared/api";
@@ -54,6 +55,7 @@ const enc = encodeURIComponent;
 export const paths = {
   systems: () => `/api/systems`,
   parts: () => "/api/parts",
+  platform: () => "/api/platform",
   systemParts: (s: string) => `/api/systems/${enc(s)}/parts`,
   systemPart: (s: string, partId: string, version: string) => `/api/systems/${enc(s)}/parts/${enc(partId)}/${enc(version)}`,
   part: (partId: string, version: string) => `/api/parts/${enc(partId)}/${enc(version)}`,
@@ -217,6 +219,9 @@ export async function getSystems(): Promise<SystemSummary[]> {
   const r = await request<SystemSummary[] | { systems: SystemSummary[] }>(paths.systems());
   return Array.isArray(r) ? r : (r.systems ?? []);
 }
+
+/** Hosted demo or not; the fixture is neither. */
+export const getPlatform = () => readOrEmpty<PlatformResponse>({ hostedDemo: false }, () => request<PlatformResponse>(paths.platform()));
 
 /** Shared, immutable Part catalog. System-private packages require an explicit System route and are never requested here. */
 export const getParts = () => readOrEmpty<PartsResponse>({ parts: [] }, () => request<PartsResponse>(paths.parts()));

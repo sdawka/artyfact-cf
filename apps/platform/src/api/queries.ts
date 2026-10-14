@@ -16,6 +16,7 @@ import * as api from "./client";
 export const qk = {
   systems: () => ["systems"] as const,
   parts: () => ["parts"] as const,
+  platform: () => ["platform"] as const,
   part: (partId: string, version: string) => ["part", partId, version] as const,
   clientMode: () => ["clientMode"] as const,
   model: (systemId: string, rev: string) => ["model", systemId, rev] as const,
@@ -56,6 +57,7 @@ export const modelQuery = (systemId: string, rev: string) =>
   queryOptions({ queryKey: qk.model(systemId, rev), queryFn: () => api.getModel(systemId, rev), staleTime: 30_000 });
 
 export const useSystems = () => useQuery({ queryKey: qk.systems(), queryFn: api.getSystems });
+export const usePlatform = () => useQuery({ queryKey: qk.platform(), queryFn: api.getPlatform, staleTime: Infinity });
 export const useParts = () => useQuery({ queryKey: qk.parts(), queryFn: api.getParts, select: (r) => r.parts });
 export const usePart = (partId: string, version: string) => useQuery({ queryKey: qk.part(partId, version), queryFn: () => api.getPart(partId, version), enabled: !!partId && !!version });
 

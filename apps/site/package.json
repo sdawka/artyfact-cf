@@ -16,6 +16,8 @@
   },
   "dependencies": {
     "@artyfact/effects": "*",
+    "@artyfact/model": "*",
+    "@artyfact/templates": "*",
     "react": "^19.3.0",
     "react-dom": "^19.3.0"
   },

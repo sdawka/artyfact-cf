@@ -7,6 +7,7 @@ import { OperationsAuditStore } from '../operations/audit-store';
 import type { OperationAuditEntry } from '../../shared/operations';
 import { DurableObject } from "cloudflare:workers";
 import type { GateCriterion } from "../promotion";
+import type { EvidenceImageRef } from "../hooks/contract";
 import type {
   ArtifactBinding, PartScope, PartRecord, PartSummary, RealizedArtifact, Build, BuildKind, BuildSummary, Candidate, Deployment, Checkpoint, ConflictReport, Evaluation, GateItem, Evolution, EvolutionState, PhenomeEventsQuery, PhenomeEventsResponse, PlatformRef, Proposal, Realization, RealizationOrigin, RealizationStatus, ScaffoldSource, Signifier, SseEnvelope, SseEvent,
   SystemCommit, SystemManifest, SystemSummary, TaskPacket, WorkResponse,
@@ -958,6 +959,18 @@ export class SystemAuthority extends DurableObject<Env> {
     return true;
   }
 
+  /**
+   * Record the screenshots an agent attached at submit (refs into the evidence bucket) on the candidate manifest. Like
+   * the preview URL, they are not part of the manifest hash; a later submit of the same open candidate replaces them.
+   */
+  setCandidateScreenshots(candidateId: string, screenshots: EvidenceImageRef[]): boolean {
+    const c = this.one("SELECT manifest_json, state FROM candidates WHERE id = ?", candidateId);
+    if (!c || !OPEN_CANDIDATE.includes(String(c.state))) return false;
+    const manifest = json<Record<string, unknown>>(c.manifest_json, {});
+    this.sql.exec("UPDATE candidates SET manifest_json = ? WHERE id = ?", JSON.stringify({ ...manifest, screenshots }), candidateId);
+    return true;
+  }
+
   // ---- B1 editor: thin delegate ----
   /**
    * Record an editor commit's `why` on the candidate manifest as `rationale`; a blank one sets `rationalePending`.
@@ -1013,7 +1026,7 @@ export class SystemAuthority extends DurableObject<Env> {
         this.sql.exec(
           "INSERT OR REPLACE INTO evaluations (id, candidate_id, criterion_id, hook_id, execution, verdict, observations_json, evidence_key, verifier, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
           id, candidateId, e.criterion, hook, e.execution, e.verdict, JSON.stringify({ observations: observations ?? [], extra }),
-          null, e.verifier ?? "artyfact-platform", at,
+          e.provenance?.evidenceKey ?? null, e.verifier ?? "artyfact-platform", at,
         );
         stored.push({ ...e, id, candidate: candidateId, hook });
       }

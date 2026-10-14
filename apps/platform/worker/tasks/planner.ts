@@ -24,7 +24,8 @@ import { genomeAt, systemStub } from "../service";
 import { globMatch } from "../artifacts/source-map";
 import { contractDependencies, expandNodes, taskDefinitions } from "./definitions";
 import { taskFootprint } from "./footprint";
-import { plannerFromEnv, type PlanContext, type Planner, type PlanReplyTask } from "./planner-llm";
+import { isHostedDemo } from "../demo";
+import { demoPlanner, plannerFromEnv, type PlanContext, type Planner, type PlanReplyTask } from "./planner-llm";
 
 /** Create's limits (`lifecycle-service.ts` planSchema): ids, titles and steps up to 200 characters, 100 tasks. */
 const MAX_TEXT = 200;
@@ -866,5 +867,5 @@ export async function draftRealizationPlan(env: Env, systemId: string, body: unk
     evolutions: scope.evolutions, nodes: scope.nodes, artifactOf: scope.artifactOf, criteria: scope.criteria, removals: scope.removals,
     ...(hint && { hint }), ...(req.title && { title: req.title }),
   };
-  return buildDraft(input, plannerFromEnv(env), scope.problems);
+  return buildDraft(input, isHostedDemo(env) ? demoPlanner() : plannerFromEnv(env), scope.problems);
 }

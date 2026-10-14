@@ -1,0 +1,8 @@
+id: command.plan-promote
+kind: command
+fields:
+  name: plan promote
+  usage: artyfact plan promote <plan-id> --system <system-id> --file <promotion.json>
+  description: Promotes the reviewed result with the expected head, a rationale and the exact candidate ids from the file; exits 1 without --file or when the platform refuses it.
+links:
+  - { rel: calls, to: endpoint.lifecycle-post-realization-plans-pid-promote }

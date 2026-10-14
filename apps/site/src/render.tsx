@@ -5,6 +5,8 @@ import { Site, pages, notFoundPage, type PagePath } from './pages';
 import { SystemExplorer } from './SystemExplorer';
 import { LandingStory } from './LandingStory';
 import { resolveSiteConfig } from './config';
+import { loadSelfGenome } from './selfGenome';
+import { deriveWorkflow } from './workflow';
 const origin = 'https://artyfact.ing';
 const config = resolveSiteConfig(process.env);
 const escapeAttr = (value: string) => value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#39;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -14,9 +16,11 @@ const entry = manifest['src/client.tsx'];
 // text-node separators match what hydrateRoot expects on the client.
 const explorerHtml = renderToString(<SystemExplorer />);
 const landingHtml = renderToString(<LandingStory />);
+// How it works is drawn from Artyfact's own Genome; a missing or broken journey fails the build.
+const workflow = deriveWorkflow(loadSelfGenome());
 
 function document(meta: { title: string; description: string }, path: PagePath | '/404') {
-  const content = renderToStaticMarkup(<Site path={path} config={config} explorerHtml={explorerHtml} landingHtml={landingHtml} />);
+  const content = renderToStaticMarkup(<Site path={path} config={config} explorerHtml={explorerHtml} landingHtml={landingHtml} workflow={workflow} />);
   const title = escapeAttr(meta.title), description = escapeAttr(meta.description);
   const indexed = path !== '/404';
   const hasExplorer = content.includes('data-system-explorer');
@@ -37,7 +41,8 @@ function document(meta: { title: string; description: string }, path: PagePath |
   const noscript = needs
     ? '<noscript><p class="no-script">' + (hasStory ? 'All seven example steps are readable below. ' : hasExplorer ? 'All three example views are readable below. ' : '') + 'Enable JavaScript to ' + needs + '.</p></noscript>'
     : '';
-  const script = needs ? '<script type="module" src="/' + escapeAttr(entry.file) + '"></script>' : '';
+  // Pages with nothing to hydrate still load the client for the ambient effect; the 404 page has neither.
+  const script = needs || content.includes('data-ambient') ? '<script type="module" src="/' + escapeAttr(entry.file) + '"></script>' : '';
   return '<!doctype html><html lang="en"><head>' + head + '</head><body>' + content + noscript + script + '</body></html>';
 }
 

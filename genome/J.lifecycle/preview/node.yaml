@@ -1,0 +1,13 @@
+id: J.lifecycle/preview
+kind: step
+fields:
+  step: preview
+  actor: system
+  action: Builds the candidate in a container and deploys a preview, then reports the build back to the platform.
+  kind: reaction
+  next:
+    - to: select
+      when: once every Task has a candidate
+links:
+  - { rel: stepOperation, to: endpoint.report-build }
+  - { rel: stepOperation, to: workflow.artyfact-ci }

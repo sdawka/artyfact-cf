@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { execFileSync } from 'node:child_process';
 import { JSDOM } from 'jsdom';
 const dist = resolve(import.meta.dirname, '../dist');
-const routes = ['/', '/model', '/connect-agent'];
+const routes = ['/', '/model', '/how-it-works', '/connect-agent'];
 for (const route of routes) test('built page and destinations: ' + route, async () => {
   const html = await readFile(resolve(dist, '.' + route, 'index.html'), 'utf8');
   const document = new JSDOM(html).window.document;
@@ -35,7 +35,8 @@ for (const route of routes) test('built page and destinations: ' + route, async 
 });
 test('sitemap contains public pages only', async () => {
   const xml = await readFile(resolve(dist, 'sitemap.xml'), 'utf8');
-  assert.equal((xml.match(/<loc>/g) || []).length, 3);
+  assert.equal((xml.match(/<loc>/g) || []).length, 4);
+  assert(xml.includes('<loc>https://artyfact.ing/how-it-works</loc>'));
   assert(!xml.includes('/app'));
 });
 test('documented CLI setup remains usable from the realization directory', async () => {
@@ -131,10 +132,36 @@ test('the Built on Cloudflare section prerenders its lanes, forks, promote node 
   const promote = section.querySelector('.backbone-node[data-kind="promote"]');
   assert(promote && promote.dataset.stage === '5' && /Pins model a2 and app c1/.test(promote.textContent));
   const pieces = [...section.querySelectorAll('.backbone-pieces > div')];
-  for (const name of ['Artifacts', 'Artifacts binding', 'Workers + Static Assets', 'Durable Object + SQLite', 'Workflows + Containers + R2', 'Queues', 'Flagship', 'Email']) assert(pieces.some(piece => piece.querySelector('dt').textContent.startsWith(name)), name);
+  for (const name of ['Artifacts', 'Artifacts binding', 'Workers + Static Assets', 'Durable Object + SQLite', 'Workflows + Containers + R2', 'Workers AI + Clef', 'Queues', 'Flagship', 'Email']) assert(pieces.some(piece => piece.querySelector('dt').textContent.startsWith(name)), name);
   const soon = pieces.filter(piece => piece.dataset.status === 'coming-soon');
   assert.equal(soon.length, 1);
   assert(/^Email/.test(soon[0].querySelector('dt').textContent) && soon[0].textContent.includes('Coming soon'));
   assert.equal((document.body.textContent.match(/Email Service/g) ?? []).length, 1, 'Email is claimed only in the coming-soon item');
   assert(!document.querySelector('.cloudflare-cells'));
+});
+
+test('How it works prerenders the genome-derived diagram, usable without JavaScript', async () => {
+  const html = await readFile(resolve(dist, 'how-it-works/index.html'), 'utf8');
+  const document = new JSDOM(html).window.document;
+  assert.equal(document.querySelector('h1').textContent, 'How it works');
+  assert.equal(document.querySelector('figure.flow').dataset.workflow, 'J.lifecycle');
+  const phases = [...document.querySelectorAll('.flow-phase')];
+  assert.deepEqual(phases.map(phase => phase.querySelector('.flow-name').firstChild.textContent), ['Describe the product', 'Agree the change', 'Plan the work', 'Work in parallel', 'Check each candidate', 'Combine and review', 'Promote', 'Deploy', 'Observe', 'Revise']);
+  for (const phase of phases) {
+    assert(phase.querySelector('details > summary'), 'each phase is a native disclosure');
+    assert(phase.querySelectorAll('[data-model-node]').length > 0);
+    assert(phase.querySelector('.flow-steps li'));
+  }
+  assert.equal(document.querySelectorAll('.flow-parallel > .flow-phase').length, 2);
+  assert(document.querySelector('.flow-fan').textContent.includes('for each Task, in parallel'));
+  assert(document.querySelector('.flow-fan').textContent.includes('once every Task has a candidate'));
+  assert(document.querySelector('#phase-check-each-candidate').textContent.includes('Cloudflare Clef'));
+  assert(!document.querySelector('noscript'), 'nothing on this page needs JavaScript');
+  assert(!document.querySelector('main [style]'), 'no inline styles under the CSP');
+  for (const route of routes) {
+    const page = new JSDOM(await readFile(resolve(dist, '.' + route, 'index.html'), 'utf8')).window.document;
+    assert(page.querySelector('header nav a[href="/how-it-works"]'), 'nav links How it works from ' + route);
+  }
+  assert(new JSDOM(await readFile(resolve(dist, 'index.html'), 'utf8')).window.document.querySelector('main a[href="/how-it-works"]'));
+  assert(new JSDOM(await readFile(resolve(dist, 'model/index.html'), 'utf8')).window.document.querySelector('main a[href="/how-it-works"]'));
 });

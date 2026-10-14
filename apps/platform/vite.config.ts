@@ -14,20 +14,29 @@ const noSelfSeed = (): Plugin => ({
     : undefined),
 });
 
-const config = {
+const configFor = (command: "build" | "serve") => ({
   // A second dev server in the same checkout (the e2e self-model one) sets its own dep cache so cold starts cannot race.
   ...(process.env.VITE_CACHE_DIR && { cacheDir: process.env.VITE_CACHE_DIR }),
   // e2e fixture mode previews with in-memory state, so a System imported for the demo (.wrangler/state) never leaks in.
   // FAKE_ARTIFACTS=1 runs the backend on in-memory Artifacts seeded from examples/ (FAKE_SEED=artyfact|both adds the
   // repo-root genome/, Artyfact itself): no remote binding, no persisted state (the fake repos live in the isolate),
-  // the fake System One (deployed vars no longer set FAKE_S1), and an admin token for local use unless ADMIN_TOKEN is set.
+  // the fake System One (deployed vars no longer set FAKE_S1), no AI or BROWSER, and an admin token unless ADMIN_TOKEN is set.
+  // The deployed wrangler.jsonc is the hosted demo (HOSTED_DEMO=1, no AI or BROWSER). A dev server is never the demo;
+  // `npm run dev` (real backend) adds Workers AI and Browser Run, which are remote-only and need a Cloudflare login like
+  // ARTIFACTS. A build keeps the deployed config as is.
   plugins: [react(), ...(fake ? [] : [noSelfSeed()]), cloudflare({
     ...((process.env.ARTYFACT_E2E_FIXTURE === "1" || fake) && { persistState: false }),
-    ...(fake && {
+    ...(command === "serve" && {
       config: (c) => {
-        delete (c as { artifacts?: unknown }).artifacts;
-        c.vars = { ...c.vars, FAKE_ARTIFACTS: "1", FAKE_S1: "1", ALLOW_LOCAL_PREVIEW: "1", ADMIN_TOKEN: process.env.ADMIN_TOKEN ?? "fake-admin-token",
-          ...(process.env.FAKE_SEED && { FAKE_SEED: process.env.FAKE_SEED }) };
+        if (fake) {
+          // Artifacts is remote-only: without it the dev server needs no Cloudflare login.
+          delete (c as { artifacts?: unknown }).artifacts;
+          c.vars = { ...c.vars, HOSTED_DEMO: "0", FAKE_ARTIFACTS: "1", FAKE_S1: "1", ALLOW_LOCAL_PREVIEW: "1", ADMIN_TOKEN: process.env.ADMIN_TOKEN ?? "fake-admin-token",
+            ...(process.env.FAKE_SEED && { FAKE_SEED: process.env.FAKE_SEED }) };
+          return;
+        }
+        Object.assign(c, { ai: { binding: "AI" }, browser: { binding: "BROWSER" } });
+        c.vars = { ...c.vars, HOSTED_DEMO: "0" };
       },
     }),
   })],
@@ -42,9 +51,9 @@ const config = {
   resolve: {
     alias: { "@": fileURLToPath(new URL("./src", import.meta.url)) },
   },
-} satisfies UserConfig;
+}) satisfies UserConfig;
 
 export default defineConfig(({ command }) => {
   assertNoFakeBuild(command, process.env);
-  return config;
+  return configFor(command);
 });

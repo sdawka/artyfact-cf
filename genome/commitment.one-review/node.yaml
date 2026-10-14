@@ -1,0 +1,6 @@
+id: commitment.one-review
+kind: commitment
+fields:
+  statement: Nothing is integrated until every Task has a selected candidate; the selected results are combined and checked again as one reviewed result.
+links:
+  - { rel: governs, to: J.lifecycle/integrate }

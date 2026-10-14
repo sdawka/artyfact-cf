@@ -1,0 +1,8 @@
+id: command.task-submit
+kind: command
+fields:
+  name: task submit
+  usage: artyfact task submit
+  description: Commits pending changes, pushes to the Task fork and submits that exact commit as a candidate; exits 1 when no write token is stored or set.
+links:
+  - { rel: calls, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-submit }

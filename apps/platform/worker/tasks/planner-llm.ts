@@ -220,6 +220,9 @@ export function setPlannerOverride(p: Planner | undefined): void {
   override = p;
 }
 
+/** The hosted demo's planner: the deterministic fake, unless a test overrides it. */
+export const demoPlanner = (): Planner => override ?? fakePlanner();
+
 /**
  * `TRANSLATE=0` turns the LLM planner off; then `FAKE_S1=1` gives the fake; then `OPENROUTER_API_KEY` gives OpenRouter
  * (`OPENROUTER_PLAN_MODEL`, else `OPENROUTER_TRANSLATE_MODEL`, else the default); else off. Off plans with the fallback.

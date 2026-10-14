@@ -1,0 +1,14 @@
+id: affordance.how-it-works.open-phase
+kind: affordance
+fields:
+  name: Open a phase
+  description: Each phase is a disclosure with a visible plus or minus mark; opening it shows the phase's detail and the mark changes to show it is open.
+  owningThing: thing.site
+  actor: visitor
+  trigger: Activate a phase heading with a pointer or the keyboard.
+  effects:
+    - Show what happens in the phase, who acts, its commands and screens, its guardrails and its model node ids.
+  failure:
+    - Without JavaScript the disclosure still opens and closes; it is native HTML.
+files:
+  - src/HowItWorks.tsx

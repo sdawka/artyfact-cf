@@ -1,0 +1,13 @@
+id: J.lifecycle/promote
+kind: step
+fields:
+  step: promote
+  actor: user
+  action: Promotes the reviewed result with the expected head, a rationale and the exact candidate ids. The System's current state moves only if nothing changed since the review.
+  next:
+    - to: deploy
+links:
+  - { rel: stepOperation, to: command.plan-promote }
+  - { rel: stepOperation, to: endpoint.lifecycle-post-realization-plans-pid-promote }
+  - { rel: stepScreen, to: screen.review }
+  - { rel: references, to: J.promote }

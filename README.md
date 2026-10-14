@@ -54,7 +54,9 @@ One Worker serves everything. Static Assets serve the React single-page app. A H
 
 **Storage.** The System's state lives in two places: the Artifacts repositories and the Durable Object's SQLite. Evaluations and their observations are stored in the Durable Object.
 
-**System One.** Semantic judgments, such as classifying a Genome change, go to System One through TypeSafe, or through OpenRouter if only that key is set. The key is a Worker secret. Without a provider every judgment is `unknown`. See the run notes for `FAKE_S1`.
+**System One.** Semantic judgments, such as classifying a Genome change, go to System One. Providers are tried in this order: the fake provider (`FAKE_S1=1`), TypeSafe (`TYPESAFE_API_KEY`), Cloudflare Clef through the Workers AI binding (`AI`, `@cf/cloudflare/clef`), then OpenRouter (`OPENROUTER_API_KEY`). `S1_PROVIDER` (`auto`, `clef`, `jev`, `openrouter`, `fake` or `off`) names one instead, and a named one without its key or binding is off with the reason rather than another provider; `jev` is TypeSafe's Jev, through `TYPESAFE_API_KEY` or, with only `OPENROUTER_API_KEY`, OpenRouter's `typesafe/jev-1.13`. Without a provider every judgment is `unknown`. The hosted platform is a read-only demo: its judgments, visual checks, translations and plan drafts are simulated and labelled so, and it reads no model key. Clef, Jev and Browser Run run when you run Artyfact locally on your own Cloudflare account. Keys are Worker secrets. Text generation (intent translation and plan drafting) stays on OpenRouter, because Clef does not generate text. See the run notes for `FAKE_S1`.
+
+**Visual checks.** A criterion can be judged from screenshots. A `browser` hook with `inputs.judgment: visual` captures the candidate's CI preview at desktop (1280×800) and mobile (390×844) widths through Cloudflare Browser Run, and reads any screenshots the agent attached with `artyfact task submit --screenshot page.png` (up to 4 per submit). Visual checks always use Clef when the `AI` binding is present, even when TypeSafe judges text. Each image is labelled as a platform capture or an agent screenshot and kept in the R2 bucket `artyfact-evidence`, linked from the evaluation. Agent screenshots are unverified: they can fail a check but never pass it without a platform capture. An ask takes up to 4 images (PNG, JPEG or WebP, 4 MiB each, 8 MiB per ask), and a check makes at most 3 asks. Clef returns a probability: 0.9 or above passes, 0.1 or below fails with a named concern (broken layout, unreadable text, missing content, weak hierarchy or error state), and anything between is `unknown`. With no images, or no model that can read them, the check is `not-run`; it is never judged from text alone. Artyfact judges its own /model page this way, through `C.site.model.compelling-visual-presentation`.
 
 The longer version, with a diagram, is in [docs/architecture.md](docs/architecture.md).
 
@@ -70,7 +72,7 @@ flowchart LR
   subgraph Worker["Worker: artyfact-platform"]
     API[Hono /api]
     Q[Queue consumer]
-    Hooks[Hook runner<br/>manifest, diff, rules, System One, http]
+    Hooks["Hook runner<br/>manifest, diff, rules, System One, http,<br/>browser (Clef visual)"]
   end
   DO[(SystemAuthority<br/>Durable Object + SQLite)]
   ART[(Artifacts<br/>genome repo, app repo, forks)]
@@ -96,7 +98,7 @@ The Genome is loaded and validated by a Datalog engine running versioned Rule Pa
 
 System One is asked only questions that need judgment: is a change a deliberate non-standard choice or a violation, does an edit contradict a stated commitment, would two changes interfere. Its answers are probabilities. At 0.9 or above they count as confident, between 0.5 and 0.9 they are labelled "review", and low confidence never produces a pass. The admin decides. Promotion blocks on hard criteria that have a bound hook, and an Evolution's acceptance criteria are always in the gate pool. Those that are hard and have a bound hook block. A blocking criterion with no completed evaluation is `unknown`, and `unknown` blocks. The exception is an outcome hook that only runs after deployment: its `not-run` row is disregarded.
 
-Without a System One provider (`TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`), set `FAKE_S1=1` or the purpose gate stays `unknown` and promotion stays closed. The UI labels judgments from the fake provider. `.dev.vars.example` sets `FAKE_S1=1`, and it takes precedence over real keys. A local run copied from the example therefore uses the fake provider until you remove that line.
+Without a System One provider (`TYPESAFE_API_KEY`, the Workers AI `AI` binding for Clef, or `OPENROUTER_API_KEY`), set `FAKE_S1=1` or the purpose gate stays `unknown` and promotion stays closed. The UI labels judgments from the fake provider. `.dev.vars.example` sets `FAKE_S1=1`, and it takes precedence over real keys. A local run copied from the example therefore uses the fake provider until you remove that line.
 
 ## The model in two paragraphs
 

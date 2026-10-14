@@ -15,14 +15,16 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 | Queue consumer | `artyfact-artifacts-events` | `npx wrangler queues create artyfact-artifacts-events` before the first deploy |
 | Artifacts namespace `artyfact` | `platform`, `peopling.genome`, `peopling.app` repos | `artyfact init` (runbook step 2), not this doc |
 | Secret `ADMIN_TOKEN` | | `wrangler secret put` |
+| R2 bucket `artyfact-evidence` (binding `EVIDENCE`) | screenshots for visual checks | `npx wrangler r2 bucket create artyfact-evidence` before the first deploy |
+| Workers AI (binding `AI`) and Browser Run (binding `BROWSER`) | Clef judgments and preview captures, local runs only | none: `npm run dev` adds both; the deployed hosted demo has neither |
 | CI Worker `artyfact-ci` (Workflow, Sandbox container, R2 `artyfact-ci-cache`) and secret `CI_REPORT_TOKEN` | optional | [`apps/ci/README.md`](../apps/ci/README.md), see [`ci.md`](ci.md) |
 
-There is no D1 or R2. System One needs a secret, `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY` (`wrangler secret put`); without one every System One judgment is `unknown` and System One-gated hard criteria keep promotion closed. `FAKE_S1` is not a deployed var: it belongs in `.dev.vars` and test configs only.
+There is no D1. R2 holds only evidence images. The deployed Worker is the hosted demo (`HOSTED_DEMO=1` in `wrangler.jsonc`): System One, visual checks, intent translation and plan drafting are simulated, and no model key or binding is read, so a hosted run spends nothing on models. To judge with Clef or Jev, run the platform locally (`npm run dev`) on your own account with keys in `.dev.vars`; see the platform README for `S1_PROVIDER`. `FAKE_S1` is not a deployed var: it belongs in `.dev.vars` and test configs only.
 
 ## First deploy
 
 1. `npx wrangler whoami`; confirm the account.
-2. `npx wrangler queues create artyfact-artifacts-events`
+2. `npx wrangler queues create artyfact-artifacts-events` and `npx wrangler r2 bucket create artyfact-evidence`
 3. Set `vars.ACCOUNT_ID` in `apps/platform/wrangler.jsonc` to the account id. Leave `PREVIEW_HOST_ALLOWLIST` empty and never set `ALLOW_LOCAL_PREVIEW`.
 4. `npm run deploy`. Note the `https://artyfact-platform.<subdomain>.workers.dev` URL, put it in `vars.PUBLIC_URL`, and deploy again.
 5. Configure `ADMIN_TOKEN` using the saved-token procedure below. Keep production and local `.dev.vars` tokens separate; never generate a token directly into the upload pipe.
@@ -32,7 +34,7 @@ There is no D1 or R2. System One needs a secret, `TYPESAFE_API_KEY` or `OPENROUT
 
 `npm run deploy` (builds the platform, then `wrangler deploy`). Secrets and the Queue persist.
 
-Before deploying, confirm a System One key is set: `cd apps/platform && npx wrangler secret list` must list `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`. `wrangler deploy` replaces `vars`, and no fake is deployed, so without a key System One is off: hard System One gates stay `unknown` and intents only ask questions.
+The deployed build keeps `wrangler.jsonc` as is: `HOSTED_DEMO=1`, no `AI` or `BROWSER`, and no model secrets needed. A self-hosted Worker that should judge for real removes `HOSTED_DEMO` and adds `"ai": { "binding": "AI" }` and `"browser": { "binding": "BROWSER" }` before deploying; then `S1_PROVIDER` and the keys apply as locally. `wrangler deploy` replaces `vars`.
 
 ## Production admin token
 

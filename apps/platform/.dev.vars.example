@@ -4,10 +4,22 @@ ADMIN_TOKEN=
 # Cloudflare account id (`wrangler whoami` / `cf auth whoami`); used to build fork git remotes.
 # Overrides the empty `ACCOUNT_ID` var in wrangler.jsonc. If unset, the remote returned by the fork call is used.
 ACCOUNT_ID=
-# System One provider: TypeSafe direct, or OpenRouter. With neither key set, System One judgments are `unknown`,
-# so hard criteria judged by System One (e.g. C.system.purpose) keep the promotion gate closed.
+# Local runs are never the hosted demo: `npm run dev` sets HOSTED_DEMO=0 and adds the AI (Workers AI) and BROWSER
+# (Browser Run) bindings, billed to the account you are logged in with. The deployed wrangler.jsonc sets HOSTED_DEMO=1:
+# simulated judgments, no model keys read, no AI or Browser Run.
+# System One provider. S1_PROVIDER picks one: auto (default: TypeSafe, then Clef, then OpenRouter) | clef | jev |
+# openrouter | fake | off. An explicit one whose key or binding is missing is off, with the reason, never another provider.
+#   clef: Cloudflare Clef through the AI binding (CLEF_MODEL=@cf/cloudflare/clef-flash for the 9B model).
+#   jev: TypeSafe's Jev; TYPESAFE_API_KEY (jev-latest), else OPENROUTER_API_KEY (typesafe/jev-1.13). JEV_MODEL overrides.
+#   openrouter: the Decisions API (OPENROUTER_MODEL, default perplexity/pplx-decider-v1.1-27b).
+# Visual checks need a model that reads images: Clef when AI is bound (also beside Jev or OpenRouter), else not-run.
+# With no provider, System One judgments are `unknown`, so hard criteria judged by System One (e.g. C.system.purpose)
+# keep the promotion gate closed.
+S1_PROVIDER=auto
 TYPESAFE_API_KEY=
 OPENROUTER_API_KEY=
+CLEF_MODEL=
+JEV_MODEL=
 # Without a key, FAKE_S1=1 answers from the fake provider so the gate can go green locally; the UI labels those judgments as fake.
 # The fake answers every question with the benign answer the question catalogue declares for it.
 FAKE_S1=1

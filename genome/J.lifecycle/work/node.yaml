@@ -1,0 +1,11 @@
+id: J.lifecycle/work
+kind: step
+fields:
+  step: work
+  actor: external
+  action: Works on the Task in its own fork, with any harness and model, and records checkpoints along the way.
+  next:
+    - to: submit
+links:
+  - { rel: stepOperation, to: command.task-checkpoint }
+  - { rel: stepOperation, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-checkpoint }

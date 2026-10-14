@@ -76,7 +76,8 @@ const USAGE = `artyfact <command>
         task | status | wave | depends-on | write nodes | footprint, conflicts, and the next claim or resume command
   task claim|start|resume <plan> <task> --system sid [--dir d] [--agent-label l]
         keeps the fork write token in <dir>/.git/artyfact-task.json (0600, never staged); submit uses it, never prints it
-  task checkpoint "<message>" | submit | status
+  task checkpoint "<message>" | submit [--screenshot file ...] | status
+        --screenshot (repeatable, at most 4; PNG, JPEG or WebP, 4 MiB each) attaches images that visual checks judge
   task select <plan> <task> --system sid --candidate id
   ontology preview|list|show|accept|bootstrap --system sid [--file json] [--hash exact-hash]
         bootstrap <import> --dir new-project [--prepare-only] materializes accepted Genome; prepare-only never provisions

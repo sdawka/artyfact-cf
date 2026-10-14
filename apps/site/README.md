@@ -1,6 +1,6 @@
 # Artyfact public site
 
-Static, pre-rendered pages at /, /model, and /connect-agent, with one React example island. Apache-2.0.
+Static, pre-rendered pages at /, /model, /how-it-works and /connect-agent, with one React example island. Apache-2.0. The /how-it-works diagram is generated at build time from the repository's own `genome/` (journey `J.lifecycle`).
 The guide works without JavaScript; the model example has a readable initial state.
 
 From the repository root:

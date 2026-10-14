@@ -1,0 +1,11 @@
+id: J.lifecycle/draft-plan
+kind: step
+fields:
+  step: draft-plan
+  actor: system
+  action: Drafts a plan from the accepted change. Each Task names the model nodes and paths it may write, what it depends on and its checks. Tasks that write the same nodes go to later waves.
+  next:
+    - to: save-plan
+links:
+  - { rel: stepOperation, to: command.plan-draft }
+  - { rel: stepOperation, to: endpoint.plan-draft }

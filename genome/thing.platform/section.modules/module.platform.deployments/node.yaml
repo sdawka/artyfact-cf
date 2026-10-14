@@ -6,5 +6,10 @@ fields:
   path: worker/deployments.ts
 links:
   - { rel: dependsOn, to: module.platform.authority }
+  - { rel: implements, to: endpoint.create-deployment }
+  - { rel: implements, to: endpoint.report-build }
+  - { rel: implements, to: endpoint.ingest-token }
+  - { rel: implements, to: endpoint.builds }
+  - { rel: implements, to: endpoint.deployments }
 files:
   - worker/deployments.ts

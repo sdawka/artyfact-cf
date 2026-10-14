@@ -1,0 +1,9 @@
+id: command.plan-draft
+kind: command
+fields:
+  name: plan draft
+  usage: artyfact plan draft --system <system-id> --evolution <evolution-id> [--create]
+  description: Prints a drafted plan with its Tasks, waves, conflicts and problems. It saves nothing unless --create is given.
+links:
+  - { rel: calls, to: endpoint.plan-draft }
+  - { rel: calls, to: endpoint.lifecycle-post-realization-plans }

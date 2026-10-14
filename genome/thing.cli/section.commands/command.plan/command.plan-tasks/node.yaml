@@ -1,0 +1,8 @@
+id: command.plan-tasks
+kind: command
+fields:
+  name: plan tasks
+  usage: artyfact plan tasks <plan-id> --system <system-id>
+  description: Lists each Task with its status, wave, dependencies and footprint, then prints the claim command for the next claimable Task.
+links:
+  - { rel: calls, to: endpoint.lifecycle-get-realization-plans-pid }

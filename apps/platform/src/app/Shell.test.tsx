@@ -432,6 +432,17 @@ describe("Shell", () => {
       const pill = await screen.findByText("System One: fake provider");
       expect(pill.closest("header")).toBeTruthy();
     });
+    it("on the hosted demo shows its notice instead of the fake-provider marker", async () => {
+      const notice = "Hosted demo: judgments are simulated. Run it locally on your Cloudflare account for Clef or Jev.";
+      renderApp(`${BASE}/overview`, undefined, (qc) => {
+        seed(qc);
+        qc.setQueryData(qk.platform(), { hostedDemo: true, notice });
+        qc.setQueryData(qk.evaluations("system.peopling"), { evaluations: [{ ...evaluation, provenance: { provider: "simulated" } }] });
+      });
+      const pill = await screen.findByText("Hosted demo: judgments are simulated");
+      expect(pill.getAttribute("title")).toBe(notice);
+      expect(screen.queryByText("System One: fake provider")).toBeNull();
+    });
     it("never shows an unpromoted candidate's pass on the canonical view", async () => {
       renderApp(`${BASE}/overview?focus=screen.people`, undefined, seed);
       expect(await screenPeopleVerdict()).toBe("not-run");

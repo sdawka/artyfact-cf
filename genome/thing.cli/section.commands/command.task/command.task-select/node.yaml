@@ -1,0 +1,8 @@
+id: command.task-select
+kind: command
+fields:
+  name: task select
+  usage: artyfact task select <plan-id> <task-id> --system <system-id> --candidate <candidate-id>
+  description: Selects the candidate that will represent the Task in integration.
+links:
+  - { rel: calls, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-select }

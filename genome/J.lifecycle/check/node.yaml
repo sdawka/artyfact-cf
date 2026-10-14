@@ -1,0 +1,13 @@
+id: J.lifecycle/check
+kind: step
+fields:
+  step: check
+  actor: system
+  action: Refuses a candidate that changes files outside its Task, then runs the checks bound to the criteria it affects. Deterministic hooks cover files, diffs, model rules and health; System One judgments cover what needs judgment, including visual criteria judged from screenshots of the preview, never from text alone; an agent's own screenshot can fail a check but not pass it without a platform capture.
+  kind: reaction
+  next:
+    - to: preview
+links:
+  - { rel: stepOperation, to: endpoint.evaluate }
+  - { rel: stepOperation, to: endpoint.evaluations }
+  - { rel: stepScreen, to: screen.evaluations }

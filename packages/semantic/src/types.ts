@@ -2,7 +2,7 @@
 // question builders use.
 export type {
   Answer, AskOptions, ChoiceAnswer, ChoiceCriteria, ChoiceQuestion, Instructions, NoulAnswer, NoulCriteria, NoulQuestion, Provenance,
-  S1Mode, S1Question as Question, S1Questions as Questions, S1Reply, ScoreAnswer, ScoreCriteria, ScoreQuestion, SystemOne, Usage,
+  S1Image, S1ImageType, S1Mode, S1Question as Question, S1Questions as Questions, S1Reply, ScoreAnswer, ScoreCriteria, ScoreQuestion, SystemOne, Usage,
 } from '@artyfact/ontology';
 
 export type Verdict = 'pass' | 'fail' | 'unknown';

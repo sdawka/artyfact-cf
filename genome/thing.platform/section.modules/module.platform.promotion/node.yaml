@@ -4,5 +4,8 @@ fields:
   name: Promotion gate
   description: Decides which criteria block promotion and whether their verdicts allow it.
   path: worker/promotion.ts
+links:
+  - { rel: implements, to: endpoint.lifecycle-post-realization-plans-pid-promote }
+  - { rel: implements, to: endpoint.promote }
 files:
   - worker/promotion.ts

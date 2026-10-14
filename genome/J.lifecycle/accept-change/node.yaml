@@ -1,0 +1,12 @@
+id: J.lifecycle/accept-change
+kind: step
+fields:
+  step: accept-change
+  actor: user
+  action: Reviews the proposal from its purpose down to each node and accepts the edits to keep. The accepted change, an Evolution, edits only the model.
+  next:
+    - to: draft-plan
+links:
+  - { rel: stepOperation, to: endpoint.intents-accept }
+  - { rel: stepOperation, to: endpoint.accept-evolution }
+  - { rel: stepScreen, to: screen.work }

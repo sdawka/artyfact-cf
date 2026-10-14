@@ -10,6 +10,7 @@ import {
   type GenomeTree, type Translation, type Translator, type TranslatorEnv, type TreeOp,
 } from "@artyfact/ontology";
 import { metaTemplates } from "@artyfact/templates";
+import { demoModels, isHostedDemo } from "./demo";
 import type {
   IntentAcceptResponse, IntentDecisionsRequest, Proposal, ProposalDecision, ProposalDecisions, ProposalPlanNode, ProposalProblem, ProposalQuestion, ProposedOp,
 } from "../shared/api";
@@ -43,6 +44,7 @@ export function setIntentProviders(p: Partial<IntentProviders> | undefined): voi
  * intents pick providers; the gates use the same `providerFromEnv`.
  */
 export function intentProviders(env: Env): IntentProviders {
+  if (isHostedDemo(env)) return { ...demoModels(), ...override };
   return {
     s1: override.s1 ?? providerFromEnv(env as unknown as ProviderEnv),
     translator: override.translator ?? translatorFromEnv(env as unknown as TranslatorEnv),

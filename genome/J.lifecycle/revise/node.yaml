@@ -1,0 +1,12 @@
+id: J.lifecycle/revise
+kind: step
+fields:
+  step: revise
+  actor: user
+  action: Reads what happened against the claims the product makes and describes the next change, so the model and the product move together.
+  kind: end
+  next:
+    - to: propose
+      when: the next change
+links:
+  - { rel: stepScreen, to: screen.theory }

@@ -4,5 +4,10 @@ fields:
   name: Ontology package review
   description: Validates private immutable ontology imports and resolves accepted template pins.
   path: worker/ontology-packages
+links:
+  - { rel: implements, to: endpoint.ontology-packages-post-ontology-imports-preview }
+  - { rel: implements, to: endpoint.ontology-packages-get-ontology-imports }
+  - { rel: implements, to: endpoint.ontology-packages-get-ontology-imports-reviewId }
+  - { rel: implements, to: endpoint.ontology-packages-post-ontology-imports-reviewId-accept }
 files:
   - worker/ontology-packages/**
