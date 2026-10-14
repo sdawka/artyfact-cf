@@ -20,11 +20,11 @@ Git tells you which files changed. It does not tell you whether two changes agre
 
 artyfact makes the whole System the main object. A System has a Purpose, Externals, Things and a Theory, kept as a typed model called the Genome in its own repository. The Genome says what the screens, entities, policies and journeys are, and which criteria decide whether each is done. Agents realize changes to it in forks of the app repository.
 
-A person starts work on an Evolution. The platform forks the repository, issues a scoped write token and returns a task packet cut from the Genome. The agent clones the fork and works with any harness it likes. On push, the platform maps changed files back to Genome nodes, runs the hooks bound to the affected criteria and compares the candidate with every other candidate in flight.
+A person describes a change and agrees it node by node. Accepting commits exactly the agreed change to the Genome; nothing is built yet. Implementation is a separate plan of tasks pinned to that Genome, with dependencies and waves computed from the nodes each task reads and writes. Each task gets its own fork, a scoped write token and a packet cut from the Genome, and the agent works with any harness it likes. On submit, the platform maps changed files back to Genome nodes and runs the hooks bound to the task's checks.
 
-The comparison is the point. Two agents can change different files and still disagree. If both touch nodes that serve the same journey or policy, the platform reports a soft-semantic conflict and shows it before promotion. Promotion is a compare-and-swap on the System head inside a Durable Object. A candidate built on an old head gets a 409 and has to rebase.
+The comparison is the point. Two agents can change different files and still disagree. If two tasks write or read the same nodes, or the platform cannot tell what a task touches, it reports the interference before anything launches in parallel, and a dependent task cannot start until its predecessors are selected. Selected results integrate into one candidate per binding and one review. Promotion is a compare-and-swap on the System head inside a Durable Object, and a plan whose binding moved must be replanned.
 
-Genome amendments get a review of their own. An agent can propose a change to the model. Rule Packs recompute readiness and System One classifies each change. The panel separates a deliberate non-standard choice from a rule violation. The admin decides and writes down the interpretation.
+Changes to the model get a review of their own. Rule Packs recompute readiness and System One classifies each change. The agreement tree separates a deliberate non-standard choice from a rule violation, and an imported System is reviewed before any work can start. The admin decides and writes down the interpretation.
 
 The platform is strict about what counts as evidence. A verdict is pass, fail, unknown, stale or waived. Only pass is drawn green. Missing evidence is unknown and blocks promotion. The model is asked only for judgment, never for a pass without confidence. Everything else is deterministic code and a Datalog rule engine that records its derivations.
 
@@ -34,7 +34,7 @@ Not done on purpose: platform-hosted agents, a reasoning-model evaluator beyond 
 
 ## Features
 - Home with a card per System and signifiers for evolving, pending, awaiting review, not built, deployed and observed.
-- Describe a change in the browser or hand it to an agent: Evolution, task packet, in-browser editor with a real Git push to a fork.
+- Describe a change in the browser or hand it to an agent: an agreement tree to agree, reject or defer node by node, then a plan of tasks in waves with one claim command per task (`artyfact task claim`), a task packet and a real Git push to a fork.
 - Intent edits: a message is routed through the Genome tree by the ontology engine and becomes ops to review and accept. Artyfact describes itself with ten Things in the same format.
 - Changelog and Compare across System, Genome and file level.
 - Preview builds and production deployments through a CI Worker, with a health assay on the deployed preview.
@@ -44,7 +44,7 @@ Not done on purpose: platform-hosted agents, a reasoning-model evaluator beyond 
 ## How Workers and Artifacts are used
 - Workers: one Worker with Static Assets for the SPA, a Hono API, a Queue consumer and the `SystemAuthority` Durable Object with SQLite.
 - Artifacts: one namespace with a Genome repository and an app repository per System, plus a shared `platform` repository of templates and Rule Packs. Binding reads of commits and trees, forks per realization, scoped write tokens, and a Queue consumer for `cf.artifacts.repo.pushed` events alongside the CLI submit path.
-- Concurrency: several agents fork, work and push at once. The platform records each candidate, detects file and semantic overlap and resolves them through a compare-and-swap promotion.
+- Concurrency: several agents fork, work and push at once, one writer per task. The platform computes task footprints and conflicts, orders dependent tasks, integrates the selected results and promotes with a compare-and-swap.
 
 ## Team
 Team: solo — sahil.pro
