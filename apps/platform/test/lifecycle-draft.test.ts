@@ -52,7 +52,7 @@ async function acceptChange(systemId: string, message: string) {
   return r.json.evolution;
 }
 
-const draft = (systemId: string, body: unknown, headers = ADMIN) => call<DraftRealizationPlanResponse & { code?: string }>("POST", lifecyclePaths.draft(systemId), body, headers);
+const draft = (systemId: string, body: unknown, headers: Record<string, string> = ADMIN) => call<DraftRealizationPlanResponse & { code?: string }>("POST", lifecyclePaths.draft(systemId), body, headers);
 
 beforeEach(() => {
   setHooks({ runner: () => ({ ...passing, async runGenome(ctx) { const out = await passing.runGenome(ctx); const exemplar = out.evaluations[0]!; return { ...out, evaluations: [...out.evaluations, ...(ctx.evolution?.acceptanceCriteria ?? []).filter((c) => !out.evaluations.some((e) => e.criterion === c)).map((c) => ({ ...exemplar, id: `${ctx.candidate.id}:${c}`, criterion: c, hook: `hook:${c}`, verdict: "pass" as const, execution: "completed" as const, targetRef: ctx.candidate.commit }))] }; } }) });
