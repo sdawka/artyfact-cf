@@ -107,6 +107,12 @@ describe("Work list and detail", () => {
     fireEvent.click(within(note).getByRole("button", { name: "Show all" }));
     await waitFor(() => expect(router.state.location.search).toContain("all=1"));
     await waitFor(() => expect(names().some((n) => n.startsWith("Photo suggestions"))).toBe(true));
+    // Rows stay on Work, so picking one keeps the lifted filter.
+    const photo = within(list).getAllByRole("link").find((l) => l.textContent?.startsWith("Photo suggestions"))!;
+    expect(photo.getAttribute("href")).toContain("all=1");
+    fireEvent.click(photo);
+    await waitFor(() => expect(router.state.location.search).toContain("evolution=evolution.6"));
+    expect(router.state.location.search).toContain("all=1");
     expect(within(screen.getByTestId("thing-scope-note")).getByRole("button", { name: "Show only Peopling web app" })).toBeTruthy();
   });
 

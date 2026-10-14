@@ -1,12 +1,12 @@
 import { useId } from "react";
-import { Link, useSearchParams } from "react-router";
+import { Link } from "react-router";
 import { Count } from "@/components/Count/Count";
 import { Kbd } from "@/components/Kbd/Kbd";
 import { MetaLine, type MetaItem } from "@/components/MetaLine/MetaLine";
 import { Row, RowList } from "@/components/RowList/RowList";
 import { StatusText } from "@/components/StatusText/StatusText";
 import { useKeepParams, useSelection } from "@/model/useSelection";
-import { SHOW_ALL_PARAM } from "@/model/useThingFilter";
+import { useStayHref } from "@/model/useThingFilter";
 import { ConflictChips } from "../work/ConflictChips";
 import { importLabel, waitingCount, type QueueGroup, type QueueKind, type QueueRow } from "./queue";
 import styles from "./review.module.css";
@@ -95,10 +95,8 @@ function Group({ group, evolutionId, realizationId, promoting, importing, planId
 
 /** Where a row opens: the plan or Task review, the import review, the promotion desk or the candidate review. */
 export function useRowHref() {
-  const keep = useKeepParams();
   // Rows stay on Review, so they keep a lifted Thing filter ("Show all").
-  const [params] = useSearchParams();
-  const href = (target: "review", extra: Record<string, string | null>) => keep(target, { ...extra, [SHOW_ALL_PARAM]: params.get(SHOW_ALL_PARAM) });
+  const href = useStayHref();
   return (row: QueueRow) => row.plan ? href("review", { plan: row.plan.id, task: row.task?.id ?? null, evolution: null, realization: null, panel: null }) : row.kind === "import"
     ? href("review", { evolution: null, realization: null, panel: "import", plan: null, task: null })
     : row.kind === "promotion"

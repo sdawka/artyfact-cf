@@ -10,7 +10,7 @@ import { ThingScopeNote } from "@/components/ThingScope/ThingScopeNote";
 import { useEvaluationFx } from "@/effects/fx";
 import { useModel } from "@/model/useModel";
 import { useKeepParams, useSystemRoute } from "@/model/useSelection";
-import { useThingFilter } from "@/model/useThingFilter";
+import { useStayHref, useThingFilter } from "@/model/useThingFilter";
 import { useWorkCount } from "@/model/useWorkCount";
 import { useWorkData } from "./data";
 import { EvolutionDetail, evolutionPrimary } from "./EvolutionDetail";
@@ -49,6 +49,8 @@ function Workbench() {
   const m = useModel();
   const { systemId } = useSystemRoute();
   const href = useKeepParams();
+  // Links that stay on Work keep a lifted Thing filter ("Show all").
+  const stay = useStayHref();
   const api = useApiMode();
   const now = useNow(15_000);
   const { evolutions: all, realizations } = useWorkData();
@@ -116,7 +118,7 @@ function Workbench() {
   const status = (railCount > 0 || awaitingReview > 0) && (
     <span className={styles.headerStatus}>
       {railCount > 0 && (
-        <Link to={firstWaitingPlan ? href("work", { plan: firstWaitingPlan.id }) : href("work")}>
+        <Link to={firstWaitingPlan ? stay("work", { plan: firstWaitingPlan.id }) : stay("work")}>
           <StatusText status="awaits-agent" tone="attention" label={tasksAwaitText(railCount)} />
         </Link>
       )}

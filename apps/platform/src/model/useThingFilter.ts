@@ -1,6 +1,7 @@
 import { useCallback, useMemo } from "react";
 import { useParams, useSearchParams } from "react-router";
 import { useModel } from "./useModel";
+import { useKeepParams } from "./useSelection";
 
 /** Search param that lifts the Thing filter ("Show all"). Kept per view: nav links do not carry it. */
 export const SHOW_ALL_PARAM = "all";
@@ -60,4 +61,18 @@ export function useThingFilter(): ThingFilter {
       filter: (items, nodesOf) => (active ? items.filter((item) => includesAny(nodesOf(item))) : [...items]),
     };
   }, [active, id, thing, showAll, setShowAll, m]);
+}
+
+/**
+ * `useKeepParams` for links that stay on the current view (a Work row, a Review row): they also keep a lifted Thing
+ * filter (`?all=1`), which nav links to other views drop. `extra` can still set or clear it.
+ */
+export function useStayHref() {
+  const keep = useKeepParams();
+  const [params] = useSearchParams();
+  const all = params.get(SHOW_ALL_PARAM);
+  return useCallback(
+    (target: string, extra: Record<string, string | null> = {}) => keep(target, { [SHOW_ALL_PARAM]: all, ...extra }),
+    [keep, all],
+  );
 }

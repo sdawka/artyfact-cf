@@ -6,6 +6,7 @@ import { Section } from "@/components/Section/Section";
 import { StatusText } from "@/components/StatusText/StatusText";
 import { useModel } from "@/model/useModel";
 import { useKeepParams } from "@/model/useSelection";
+import { useStayHref } from "@/model/useThingFilter";
 import { aggregate, STATE_GROUPS, TERMINAL, verdictStatus } from "./lib";
 import type { EvolutionSignal } from "./useEvolutionSignals";
 import styles from "./work.module.css";
@@ -87,13 +88,15 @@ export function EvolutionGroups({ groups, selectedId, signals, total, titleOf }:
 function EvolutionRow({ evolution: e, current, signal, titleOf }: { evolution: Evolution; current: boolean; signal?: EvolutionSignal | undefined; titleOf(id: string): string }) {
   const m = useModel();
   const href = useKeepParams();
+  // The row stays on Work, so it keeps a lifted Thing filter ("Show all").
+  const stay = useStayHref();
   const verdicts = e.acceptanceCriteria.map((c) => m.verdictOf(c));
   const pass = verdicts.filter((v) => v === "pass").length;
   const awaiting = signal?.awaiting ?? 0;
   const attention = awaiting > 0 || !!signal?.overlap;
   return (
     <Row
-      to={href("work", { evolution: e.id })}
+      to={stay("work", { evolution: e.id })}
       current={current}
       title={e.title}
       meta={

@@ -6,7 +6,8 @@ import { useAdminToken } from "@/api/adminToken";
 import { Row, RowList } from "@/components/RowList/RowList";
 import { Section } from "@/components/Section/Section";
 import { StatusText } from "@/components/StatusText/StatusText";
-import { useKeepParams, useSystemRoute } from "@/model/useSelection";
+import { useSystemRoute } from "@/model/useSelection";
+import { useStayHref } from "@/model/useThingFilter";
 import { useWorkData } from "./data";
 import { useParam } from "./lib";
 import { DraftPanel } from "./plan/DraftPanel";
@@ -34,7 +35,7 @@ export function PlansSection({ plans, loading, error, current, now }: {
   current: string | null;
   now: number;
 }) {
-  const href = useKeepParams();
+  const href = useStayHref();
   const api = useApiMode();
   const [panel, setPanel] = useParam("panel");
   const drafting = panel === "plan";
