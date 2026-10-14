@@ -1,4 +1,5 @@
-.view { display: grid; gap: var(--spacing-4); min-width: 0; }
+/* The grid gap plus the header margin make the standard spacing-8 under the PageHeader. */
+.view { --page-header-gap: var(--spacing-4); display: grid; gap: var(--spacing-4); min-width: 0; }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-3) var(--spacing-4); }
 .muted { color: var(--color-text-subtle); margin: 0; }
 .error { color: var(--color-status-error); margin: 0; }
@@ -10,12 +11,9 @@
 .filter:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 .treeList { margin: 0; padding: 0 0 0 var(--spacing-4); list-style: none; font-size: var(--font-size-sm); }
 .tree > .treeList { padding-left: 0; }
-.dir { display: flex; align-items: center; gap: var(--spacing-1); min-height: 2.25rem; cursor: pointer; color: var(--color-text-secondary); font-family: var(--font-code); font-size: var(--font-size-sm); list-style: none; overflow-wrap: anywhere; }
+.dir { display: flex; align-items: center; gap: var(--spacing-1); min-height: 2.25rem; color: var(--color-text-secondary); font-family: var(--font-code); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
 .folder { flex: none; opacity: 0.7; }
-.dir::-webkit-details-marker { display: none; }
 .dir:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
-.chevron { flex: none; transition: transform var(--motion-duration-fast) var(--motion-easing-ease-out); }
-details[open] > .dir .chevron { transform: rotate(90deg); }
 .file { display: flex; align-items: center; gap: var(--spacing-2); min-height: 2.25rem; padding: var(--spacing-1) var(--spacing-2); color: var(--color-text-primary); text-decoration: none; font-family: var(--font-code); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
 .file:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
 .file[data-change="deleted"] .fileName { text-decoration: line-through; }

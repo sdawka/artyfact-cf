@@ -200,6 +200,7 @@ describe("Review queue", () => {
     await screen.findByRole("region", { name: "Review realization.g" });
     const note = screen.getByTestId("thing-scope-note");
     expect(note.textContent).toMatch(/Showing Peopling web app/);
+    expect(note.closest("header")?.firstElementChild?.contains(note)).toBe(true);
     expect(screen.queryByText("Showing the whole System")).toBeNull();
     expect(within(q).getByRole("region", { name: TITLE })).toBeTruthy();
     expect(within(q).queryByRole("region", { name: "Photo suggestions (later)" })).toBeNull();

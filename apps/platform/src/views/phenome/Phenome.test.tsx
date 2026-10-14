@@ -86,6 +86,8 @@ describe("Deployments page", () => {
     expect(screen.queryByText("cand.other")).toBeNull();
     expect(screen.getByRole("cell", { name: "selected.event" })).toBeTruthy();
     expect(screen.queryByRole("cell", { name: "other.event" })).toBeNull();
+    const note = screen.getByTestId("thing-scope-note");
+    expect(note.closest("header")?.firstElementChild?.contains(note)).toBe(true);
   });
 
   it("separates events for distinct outputs built from the same source", async () => {

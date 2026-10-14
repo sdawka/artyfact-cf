@@ -1,7 +1,6 @@
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { ChangeKind } from "./useDraft";
-import { ChevronRightIcon } from "@radix-ui/react-icons";
 import { buildTree, compactTree, filterTree, type FileEntry, type TreeNode } from "./tree";
 import styles from "./code.module.css";
 
@@ -48,7 +47,7 @@ function Nodes({ nodes, selected, changes, hrefFor, forceOpen }: Omit<FileTreePr
         n.type === "dir" ? (
           <li key={n.path}>
             <details open={forceOpen || !!selected?.startsWith(`${n.path}/`)}>
-              <summary className={styles.dir}><ChevronRightIcon aria-hidden="true" className={styles.chevron} /><FolderGlyph />{n.name}/</summary>
+              <summary className={styles.dir}><FolderGlyph />{n.name}/</summary>
               <Nodes nodes={n.children} selected={selected} changes={changes} hrefFor={hrefFor} forceOpen={forceOpen} />
             </details>
           </li>

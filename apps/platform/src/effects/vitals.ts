@@ -6,10 +6,14 @@
 import { useMemo } from "react";
 import type { Finding } from "@artyfact/model";
 import { WHIMSY, type SurfacePresetName } from "@artyfact/effects";
-import { useEvolutions, useHistory, useReadiness } from "@/api/queries";
+import { useHistory, useReadiness } from "@/api/queries";
 import type { UiVerdict } from "@/model/status";
 import { useModel } from "@/model/useModel";
 import { isBlocking } from "../../shared/verdict";
+import type { Evolution } from "../../shared/api";
+import { useWorkData } from "@/views/work/data";
+import { activeEvolutions } from "@/views/work/groups";
+import { useEvolutionSignals, type EvolutionSignal } from "@/views/work/useEvolutionSignals";
 
 /** Overall health, in priority order: `failing` (a fail verdict), `blocked` (error/missing findings), `passing` (every counted criterion passes), else `pending`. */
 export type SystemHealth = "failing" | "blocked" | "passing" | "pending";
@@ -21,8 +25,11 @@ export interface VitalsInput {
   entryCount: number;
   /** Scoped verdicts of the non-deferred Thing criteria (as the conformance meter counts them). */
   verdicts: readonly UiVerdict[];
-  evolutions: readonly { id: string; state: string }[];
-  realizations: readonly { evolution: string; status: string; updatedAt?: string; checkpoints?: readonly { at: string }[] }[];
+  /** The System's Evolutions and Review signals, as Work groups them: the active ones are Work's active set. */
+  evolutions: readonly Evolution[];
+  signals: ReadonlyMap<string, EvolutionSignal>;
+  /** Realizations, for their checkpoint times. */
+  realizations: readonly { checkpoints?: readonly { at: string }[] }[];
   /** System commits, newest first. */
   commits: readonly { createdAt?: string }[];
   /** Evaluation finish times, any scope. */
@@ -43,8 +50,6 @@ export interface SystemVitals {
   measures: { readiness: number; troubled: number; active: number; recent: number; blockers: number };
 }
 
-const ACTIVE_EVOLUTION = new Set(["actionable", "realizing", "evaluated"]);
-const ACTIVE_REALIZATION = new Set(["claimed", "working", "submitted", "evaluating", "evaluated", "selected", "awaiting-admin"]);
 /** Activity half-life for sparks and ambient intensity: an event 6 h old counts half. */
 const HALF_LIFE_MS = 6 * 3600_000;
 const COLOR: Record<SurfacePresetName, string> = { apricot: WHIMSY.apricot, verdant: WHIMSY.success, ember: WHIMSY.error, tide: WHIMSY.info, dusk: WHIMSY.dusk };
@@ -82,10 +87,8 @@ export function systemVitals(input: VitalsInput): SystemVitals {
     n("fail") > 0 ? "failing" : blocking.length > 0 ? "blocked" : counted.length > 0 && n("pass") === counted.length ? "passing" : "pending";
   const preset: SurfacePresetName = health === "passing" ? "verdant" : health === "pending" ? "apricot" : "ember";
 
-  const live = input.realizations.filter((r) => ACTIVE_REALIZATION.has(r.status));
-  const covered = new Set(live.map((r) => r.evolution));
-  // Active work: live realizations plus active Evolutions nobody is realizing yet.
-  const active = live.length + input.evolutions.filter((e) => ACTIVE_EVOLUTION.has(e.state) && !covered.has(e.id)).length;
+  // Active Evolutions: the same set Work groups as active and Overview lists (legacy and finished ones left out).
+  const active = activeEvolutions(input.evolutions, input.signals).length;
 
   // Recent activity: commits, realization checkpoints and finished evaluations, decayed by age.
   const recent = recency(
@@ -96,7 +99,7 @@ export function systemVitals(input: VitalsInput): SystemVitals {
     ],
     input.now,
   );
-  // Overall activity 0..1: active work saturates at 4, recent events at 6.
+  // Overall activity 0..1: active Evolutions saturate at 4, recent events at 6.
   const activity = clamp01(0.5 * Math.min(1, active / 4) + 0.5 * Math.min(1, recent / 6));
 
   return {
@@ -108,7 +111,7 @@ export function systemVitals(input: VitalsInput): SystemVitals {
       level: round(0.2 + 0.7 * readiness),
       // agitation ← fail + stale share: calm at 0.25, fully agitated at 1.
       agitation: round(0.25 + 0.75 * troubled),
-      // channels ← active realizations/Evolutions, one light channel each, 1..8.
+      // channels ← active Evolutions, one light channel each, 1..8.
       channels: Math.min(8, Math.max(1, active)),
       // activity ← recent commits, checkpoints and evaluations: 0.15 idle, +0.12 per fresh event, max 1.
       activity: round(Math.min(1, 0.15 + 0.12 * recent)),
@@ -129,22 +132,23 @@ export function systemVitals(input: VitalsInput): SystemVitals {
 export function useSystemVitals(now?: number): SystemVitals {
   const m = useModel();
   const { data: readinessData } = useReadiness();
-  const { data: board } = useEvolutions();
+  const { evolutions, realizations } = useWorkData();
+  const { signals } = useEvolutionSignals();
   const { data: commits } = useHistory();
   // A malformed or partial response (old API, test stubs) falls back to the bundled report rather than crashing the Shell.
   const report = readinessData?.modelReadiness?.findings ? readinessData : m.bundle.readiness;
   return useMemo(() => {
     const criteria = (m.index.model.criteria ?? []).filter((c) => c.ownerKind === "thing" && !c.deferred);
-    const live = board?.evolutions ?? [];
     return systemVitals({
       readiness: { findings: report.modelReadiness.findings, incomplete: (report as { incomplete?: boolean }).incomplete },
       entryCount: m.index.entries.length,
       verdicts: criteria.map((c) => m.verdictOf(c.id)),
-      evolutions: live.length ? live : (m.index.model.evolutions ?? []),
-      realizations: board?.realizations ?? [],
+      evolutions,
+      signals,
+      realizations,
       commits: commits ?? [],
       evaluationTimes: m.evaluations.flatMap((e) => (e.finishedAt ? [e.finishedAt] : [])),
       now: now ?? Date.now(),
     });
-  }, [m, report, board, commits, now]);
+  }, [m, report, evolutions, signals, realizations, commits, now]);
 }

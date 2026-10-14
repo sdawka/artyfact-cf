@@ -120,8 +120,7 @@ export default function ReviewView() {
 
   return (
     <section aria-labelledby="view-title" className={styles.view}>
-      <PageHeader title="Review" purpose="Decisions that need a person: imports, Task results, candidates, amendments and promotions." />
-      <ThingScopeNote filter={thingFilter} />
+      <PageHeader title="Review" purpose="Decisions that need a person: imports, Task results, candidates, amendments and promotions." scopeNote={<ThingScopeNote filter={thingFilter} />} />
       {queue.error && <p role="alert" className={styles.error}>{queue.error}</p>}
       {empty ? (
         <EmptyState

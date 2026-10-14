@@ -2,7 +2,7 @@ import { screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { Evolution } from "../../../shared/api";
 import { renderApp } from "@/testing/render";
-import { activeEvolutions } from "./ActiveEvolutionsCard";
+import { activeEvolutions } from "../work/groups";
 
 vi.mock("@/model/useReviewCount", () => ({ useReviewCount: () => 2 }));
 

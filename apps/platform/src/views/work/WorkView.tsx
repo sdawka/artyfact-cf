@@ -14,7 +14,8 @@ import { useStayHref, useThingFilter } from "@/model/useThingFilter";
 import { useWorkCount } from "@/model/useWorkCount";
 import { useWorkData } from "./data";
 import { EvolutionDetail, evolutionPrimary } from "./EvolutionDetail";
-import { EvolutionGroups, groupEvolutions, listOrder } from "./EvolutionGroups";
+import { EvolutionGroups } from "./EvolutionGroups";
+import { groupEvolutions, listOrder } from "./groups";
 import { IntentPanel } from "./intent/IntentPanel";
 import { NewEvolutionPanel } from "./panels/NewEvolutionPanel";
 import { STARTABLE, useNow, useParam } from "./lib";
@@ -134,6 +135,7 @@ function Workbench() {
       title="Work"
       titleRef={titleRef}
       purpose="Genome Evolutions and the Task plans that realize them."
+      scopeNote={!describing && !creating ? <ThingScopeNote filter={thingFilter} /> : undefined}
       status={status || undefined}
       secondary={
         <Button
@@ -220,7 +222,6 @@ function Workbench() {
   return (
     <section aria-labelledby="view-title" className={styles.view}>
       {header}
-      {!describing && !creating && <ThingScopeNote filter={thingFilter} />}
       {body}
     </section>
   );

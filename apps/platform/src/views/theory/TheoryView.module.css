@@ -1,4 +1,4 @@
-.view { display: flex; flex-direction: column; gap: var(--spacing-8); }
+.view { --page-header-gap: 0px; display: flex; flex-direction: column; gap: var(--spacing-8); }
 .purpose { max-width: calc(var(--measure-body) + var(--spacing-12)); }
 .statement p { margin: 0 0 var(--spacing-2); font: var(--type-body); max-width: var(--measure-body); }
 .statement ul { margin: 0; padding-inline-start: var(--spacing-5); color: var(--color-text-secondary); font: var(--type-ui); }

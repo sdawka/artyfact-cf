@@ -7,42 +7,10 @@ import { StatusText } from "@/components/StatusText/StatusText";
 import { useModel } from "@/model/useModel";
 import { useKeepParams } from "@/model/useSelection";
 import { useStayHref } from "@/model/useThingFilter";
-import { aggregate, STATE_GROUPS, TERMINAL, verdictStatus } from "./lib";
+import type { EvolutionGroup } from "./groups";
+import { aggregate, verdictStatus } from "./lib";
 import type { EvolutionSignal } from "./useEvolutionSignals";
 import styles from "./work.module.css";
-
-export interface EvolutionGroup {
-  key: string;
-  label: string;
-  items: Evolution[];
-  /** Some item waits on a person (awaits review, overlaps): the group opens. */
-  attention: boolean;
-  /** Promoted, rejected, withdrawn, Legacy: collapsed unless it holds attention or the selection. */
-  quiet: boolean;
-}
-
-const ACTIVE = new Set(["actionable", "realizing", "evaluated"]);
-const needsYou = (s: EvolutionSignal | undefined) => !!s && (s.awaiting > 0 || s.overlap);
-
-/**
- * State groups in lifecycle order, then "Legacy" last: legacy (non Genome) Evolutions are read-only history unless they
- * are active or wait on someone, in which case they stay in their state's group.
- */
-export function groupEvolutions(evolutions: readonly Evolution[], signals: ReadonlyMap<string, EvolutionSignal>): EvolutionGroup[] {
-  const isLegacy = (e: Evolution) => e.kind !== "genome-amendment" && !ACTIVE.has(e.state) && !needsYou(signals.get(e.id));
-  const groups: EvolutionGroup[] = STATE_GROUPS
-    .filter((g) => g.state !== "withdrawn" || evolutions.some((e) => e.state === "withdrawn"))
-    .map((g) => {
-      const items = evolutions.filter((e) => e.state === g.state && !isLegacy(e));
-      return { key: g.state, label: g.label, items, attention: items.some((e) => needsYou(signals.get(e.id))), quiet: TERMINAL.has(g.state) };
-    });
-  const legacy = evolutions.filter(isLegacy);
-  if (legacy.length) groups.push({ key: "legacy", label: "Legacy", items: legacy, attention: false, quiet: true });
-  return groups;
-}
-
-/** The Evolutions in the order the list shows them (groups top to bottom). */
-export const listOrder = (groups: readonly EvolutionGroup[]) => groups.flatMap((g) => g.items);
 
 /**
  * The Evolutions group of the Work list pane: one disclosure per non-empty state group with its count (open when it
