@@ -1645,11 +1645,12 @@ export class SystemAuthority extends DurableObject<Env> {
   /** Agreement tree, explicit decisions and deferral source (storage only); null for an unknown proposal. */
   proposalPlan(id: string): StoredProposalPlan | null { return this.proposalPlans().get(id); }
   /**
-   * Stores tree and decisions (and `deferredFrom` when given) in one conditional UPDATE while the proposal is `open`;
-   * false when it is `accepting`, accepted, abandoned or unknown. Emits nothing.
+   * Stores tree and decisions (and `deferredFrom` when given) in one conditional UPDATE while the proposal is `open`
+   * and, with `expected`, its decisions are still exactly `expected` (compare-and-set); false when it is `accepting`,
+   * accepted, abandoned, unknown or its decisions changed. Emits nothing.
    */
-  setProposalPlan(id: string, plan: ProposalPlanNode[], decisions: ProposalDecisions, deferredFrom?: string): boolean {
-    return this.proposalPlans().set(id, plan, decisions, deferredFrom);
+  setProposalPlan(id: string, plan: ProposalPlanNode[], decisions: ProposalDecisions, deferredFrom?: string, expected?: ProposalDecisions): boolean {
+    return this.proposalPlans().set(id, plan, decisions, deferredFrom, expected);
   }
   /**
    * Moves an open deferred proposal with no staged approval from base Genome `oldBase` to `newBase` (the Worker has

@@ -48,13 +48,16 @@ export class ProposalPlanStore {
 
   /**
    * Writes tree and decisions (and `deferredFrom` when given; undefined keeps the stored one) in one conditional
-   * UPDATE, only while the proposal is `open`. False when it is not open (including `accepting`) or unknown.
+   * UPDATE, only while the proposal is `open`, and, when `expected` is given, only while the stored decisions are
+   * still exactly `expected` (a compare-and-set; a row without decisions counts as `{}`). False when it is not open
+   * (including `accepting`), unknown, or its decisions changed.
    */
-  set(id: string, plan: ProposalPlanNode[], decisions: ProposalDecisions, deferredFrom?: string): boolean {
+  set(id: string, plan: ProposalPlanNode[], decisions: ProposalDecisions, deferredFrom?: string, expected?: ProposalDecisions): boolean {
+    const want = expected === undefined ? null : JSON.stringify(expected);
     return this.sql.exec(
       `UPDATE proposals SET plan_json = ?, decisions_json = ?, deferred_from = COALESCE(?, deferred_from), updated_at = ?
-       WHERE id = ? AND status = 'open' RETURNING id`,
-      JSON.stringify(plan), JSON.stringify(decisions), deferredFrom ?? null, nowIso(), id,
+       WHERE id = ? AND status = 'open' AND (? IS NULL OR COALESCE(decisions_json, '{}') = ?) RETURNING id`,
+      JSON.stringify(plan), JSON.stringify(decisions), deferredFrom ?? null, nowIso(), id, want, want,
     ).toArray().length > 0;
   }
 

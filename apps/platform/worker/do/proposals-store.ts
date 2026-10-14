@@ -40,7 +40,8 @@ export type ReviseResult =
   | { revised: Proposal }
   | { refused: "invalid-state" }
   | { refused: "too-many-turns" }
-  | { refused: "changed" };
+  | { refused: "changed" }
+  | { refused: "staged" };
 
 export class ProposalsStore {
   constructor(private readonly sql: SqlStorage) {}
@@ -76,18 +77,22 @@ export class ProposalsStore {
    * Replaces an `open` proposal's content and conversation with `turns`, which appends one turn to the stored ones. One
    * conditional UPDATE: it writes only while the row is open, still holds `turns.length - 1` turns (no other reply
    * landed meanwhile) and holds fewer than MAX_TURNS, so concurrent replies can neither both append nor pass the cap.
+   * It never writes over a staged approval (an accept staged a candidate after the reply read the row): the json is
+   * replaced wholesale, which would erase the record of the pushed candidate.
    */
   revise(proposal: Proposal, turns: ProposalTurn[]): ReviseResult {
     const before = turns.length - 1;
     const written = this.sql.exec(
       `UPDATE proposals SET status = ?, json = ?, turns_json = ?, updated_at = ?
-       WHERE id = ? AND status = 'open' AND json_array_length(turns_json) = ? AND json_array_length(turns_json) < ? RETURNING id`,
+       WHERE id = ? AND status = 'open' AND json_array_length(turns_json) = ? AND json_array_length(turns_json) < ?
+         AND json_extract(json, '$.stagedApproval') IS NULL RETURNING id`,
       proposal.status, JSON.stringify(proposal), JSON.stringify(turns), nowIso(), proposal.id, before, MAX_TURNS,
     ).toArray();
     if (written.length) return { revised: proposal };
     const r = this.row(proposal.id);
     if (!r || String(r.status) !== "open") return { refused: "invalid-state" };
     if ((JSON.parse(String(r.turns_json)) as unknown[]).length >= MAX_TURNS) return { refused: "too-many-turns" };
+    if ((JSON.parse(String(r.json)) as Proposal).stagedApproval) return { refused: "staged" };
     return { refused: "changed" };
   }
 
