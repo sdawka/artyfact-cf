@@ -10,8 +10,12 @@ test.describe("home on the fake platform", () => {
     await expect(page.getByText("fixture data")).toHaveCount(0);
     const card = systemCard(page, /Peopling/);
     await expect(card.getByText("Phase: unrealized")).toBeVisible();
-    await expect(card.getByText("not built")).toBeVisible();
-    expect(await successToneElements(page)).toEqual([]);
+    // The fake seed: a live production deployment from a passed build, and one evaluated candidate awaiting review.
+    await expect(card.getByText("deployed · build passed")).toBeVisible();
+    await expect(card.getByText("1 awaits your review")).toBeVisible();
+    const green = await successToneElements(page);
+    expect(green.length).toBeGreaterThan(0);
+    expect(green.every((h) => h.includes("build passed"))).toBe(true);
     await checkA11yAndShoot(page, testInfo, "home-fake");
     await card.click();
     await expect(page).toHaveURL(/\/s\/system\.peopling\/r\/head\/map\?scope=environment$/);

@@ -7,7 +7,7 @@ import type {
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { walkTree } from "../worker/artifacts/genome-source";
 import { artyfactApp, artyfactSystemId } from "../worker/artifacts/fake-seed-artyfact";
-import { ensureFakePlatform, exampleSystemId, fakeSeed, resetFakePlatform } from "../worker/artifacts/fake-platform";
+import { ensureFakePlatform, exampleSystemId, FAKE_ACTIVITY, fakeSeed, resetFakePlatform } from "../worker/artifacts/fake-platform";
 import { resetHooks, setHooks } from "../worker/hooks/index";
 import { resetPhenomeThrottle } from "../worker/phenome";
 import { ADMIN, call, genomeAmendment, importFresh, passing, renameContact, type Flow } from "./helpers/flows";
@@ -225,10 +225,24 @@ describe("FAKE_ARTIFACTS=1 boot", () => {
     await ensureFakePlatform(env); // idempotent
     const s = await listed(exampleSystemId);
     expect(s).toMatchObject({ title: "Peopling", genomeRepo: "peopling.genome", appRepo: "peopling.app" });
-    expect(s.signifiers).toContain("unrealized");
+    // The seeded activity: a live production deployment of the app commit, one runtime event, one evaluated candidate.
+    expect(s).toMatchObject({ deployState: "live", openCandidates: 1, phenome: { events: 1 } });
+    expect(s.signifiers).toEqual(expect.arrayContaining(["deployed", "observed", "pending-realization"]));
+    expect(s.signifiers).not.toContain("unrealized");
+    const builds = await call<{ builds: { id: string; status: string; kind: string }[] }>("GET", `/systems/${exampleSystemId}/builds`);
+    expect(builds.json.builds).toEqual([expect.objectContaining({ id: FAKE_ACTIVITY.build, status: "passed", kind: "production" })]);
+    const deployments = await call<{ production: { status: string; commit: string } | null; history: unknown[] }>("GET", `/systems/${exampleSystemId}/deployments`);
+    expect(deployments.json.production).toMatchObject({ status: "live", commit: s.appCommit });
+    expect(deployments.json.history).toHaveLength(1);
+    const events = await call<{ events: { kind: string }[]; versions: { output: string | null; count: number }[] }>("GET", `/systems/${exampleSystemId}/phenome/events`);
+    expect(events.json.events.map((e) => e.kind)).toEqual(["journey.step"]);
+    expect(events.json.versions).toEqual([expect.objectContaining({ output: expect.any(String), count: 1 })]);
+    const evals = await call<{ evaluations: { criterion: string; hook: string; verdict: string; execution: string }[] }>("GET", `/systems/${exampleSystemId}/evaluations`);
+    expect(evals.json.evaluations).toEqual([expect.objectContaining({ criterion: FAKE_ACTIVITY.criterion, hook: "hook.webapp.exists", verdict: "pass", execution: "completed" })]);
 
     const work = await call<{ evolutions: Evolution[] }>("GET", `/systems/${exampleSystemId}/work`);
-    const evo = work.json.evolutions.find((e) => e.state === "actionable")!;
+    // The seed's realization moved evolution.1, the only actionable one, to evaluated; it still takes new work.
+    const evo = work.json.evolutions.find((e) => e.id === FAKE_ACTIVITY.evolution)!;
     const start = await call<StartWorkResponse>("POST", `/systems/${exampleSystemId}/evolutions/${evo.id}/realizations`,
       { agentLabel: "human:sam", role: "author", origin: "editor" }, ADMIN);
     expect(start.status, JSON.stringify(start.json)).toBe(201);
@@ -239,7 +253,7 @@ describe("FAKE_ARTIFACTS=1 boot", () => {
     expect(res.status, JSON.stringify(res.json)).toBe(201);
     expect(res.json.commit).toMatch(/^[0-9a-f]{40}$/);
     expect(res.json.submitted.candidate.commit).toBe(res.json.commit);
-    expect((await listed(exampleSystemId)).openCandidates).toBe(1);
+    expect((await listed(exampleSystemId)).openCandidates).toBe(2); // the seeded candidate and this one
   });
 
   it("seeds the platform repo, so the example app gets a template upgrade plan (no lock yet, nothing behind)", async () => {

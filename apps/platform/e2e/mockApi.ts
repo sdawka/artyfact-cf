@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import type { Page, Route } from "@playwright/test";
 import type {
-  Build, ChangelogEntry, ChangelogRow, Deployment, DeploymentsResponse, FileCompare, FileResponse, FilesResponse, GenomeCompare, ModelBundle,
+  Build, ChangelogEntry, ChangelogRow, Deployment, DeploymentsResponse, Evaluation, FileCompare, FileResponse, FilesResponse, GenomeCompare, ModelBundle,
   PartRecord, PartSummary, PhenomeEventsResponse, RealizedArtifact, RevisionOption, SystemCommit, SystemCompare, SystemSummary,
 } from "../shared/api";
 
@@ -28,6 +28,8 @@ export interface MockData {
   builds: Build[];
   deployments: DeploymentsResponse;
   phenome: PhenomeEventsResponse;
+  /** Every candidate's evaluations (the SPA scopes verdicts itself; `?candidate=` filters). */
+  evaluations: Evaluation[];
   /** Public shared catalog only; System-private Parts are deliberately unavailable to Home. */
   parts: PartSummary[];
   partRecords: Record<string, PartRecord>;
@@ -162,6 +164,14 @@ export function defaultMockData(): MockData {
       })),
       versions: [{ output: null, genomeCommit: null, key: HEAD_APP, buildId: HEAD_APP, commit: HEAD_APP, deployment: "deploy.2", systemCommit: "sc-2", count: 37 }],
     },
+    // cand.1 was promoted into sc-2 (head), so its pass counts on the canonical view (src/README.md "Verdict scope").
+    evaluations: [{
+      id: "cand.1:hook.webapp.exists:C.webapp.exists", candidate: "cand.1", hook: "hook.webapp.exists", criterion: "C.webapp.exists",
+      ownerId: "thing.webapp", subjectId: "thing.webapp", targetRef: `app@${HEAD_APP}`, execution: "completed", verdict: "pass",
+      verifier: "artyfact-platform", startedAt: minutesAgo(46), finishedAt: minutesAgo(46), observations: [{ missing: [], empty: [], required: 3 }],
+      interpretation: "All 3 required files are present and non-empty.", limitations: ["Checks presence and size only, not content."],
+      provenance: { engine: "manifest", engineVersion: "2", hookVersion: "1" },
+    }],
     parts: [{ partId: "part.ui.buttons", version: "2.1.0", name: "Button system", description: "Shared button primitives", scope: { kind: "shared" }, digest: "sha256:part-buttons", publishedAt: minutesAgo(90), dependencies: [] }],
     partRecords: {
       "part.ui.buttons@2.1.0": {
@@ -216,7 +226,7 @@ export async function mockApi(page: Page, overrides: Partial<MockData> = {}): Pr
       case "evolutions":
         return json(route, { evolutions: [], realizations: [] });
       case "evaluations":
-        return json(route, { evaluations: [] });
+        return json(route, { evaluations: data.evaluations.filter((e) => !q.get("candidate") || e.candidate === q.get("candidate")) });
       case "conflicts":
         return json(route, { conflicts: [] });
       case "history":
