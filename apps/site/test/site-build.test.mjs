@@ -119,10 +119,10 @@ test('homepage leads with the approved headline and the practices Artyfact build
   assert(!document.querySelector('button button'));
 });
 
-test('the Artifacts backbone prerenders its lanes, forks, promote node and an honest email item', async () => {
+test('the Built on Cloudflare section prerenders its lanes, forks, promote node and an honest email item', async () => {
   const document = new JSDOM(await readFile(resolve(dist, 'index.html'), 'utf8')).window.document;
-  const section = document.getElementById('artifacts');
-  assert.equal(section.querySelector('h2').textContent, 'Built on Cloudflare Artifacts.');
+  const section = document.getElementById('cloudflare');
+  assert.equal(section.querySelector('h2').textContent, 'Built on Cloudflare.');
   assert.deepEqual([...section.querySelectorAll('.backbone-lane')].map(lane => lane.dataset.lane), ['system', 'genome', 'app', 'tasks', 'integrate', 'platform']);
   assert.equal(section.querySelectorAll('[data-lane="tasks"] .backbone-node[data-kind="fork"]').length, 2);
   assert.equal(section.querySelectorAll('[data-lane="tasks"] .backbone-token').length, 2);

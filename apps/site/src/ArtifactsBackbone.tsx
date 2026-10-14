@@ -49,8 +49,8 @@ function Branch() {
 
 /** Static: lanes are lists of commits and forks, each tagged with its stage. CSS lays them out as a branching history. */
 export function ArtifactsBackbone() {
-  return <section className="section artifacts-backbone" id="artifacts" aria-labelledby="artifacts-heading">
-    <div className="section-heading"><h2 id="artifacts-heading">Built on Cloudflare Artifacts.</h2><p>Artifacts is Cloudflare’s Git storage. Every System lives in it: the model, the app, and a private fork for each Task. Workers, a Durable Object and Workflows run around it.</p></div>
+  return <section className="section artifacts-backbone" id="cloudflare" aria-labelledby="cloudflare-heading">
+    <div className="section-heading"><h2 id="cloudflare-heading">Built on Cloudflare.</h2><p>Every piece runs on Cloudflare. At the centre is Artifacts, Cloudflare’s Git storage: the model, the app and a private fork for each Task all live there. Workers, a Durable Object, Workflows, Queues and Flagship do the rest.</p></div>
     <figure className="backbone" aria-labelledby="backbone-caption">
       <figcaption id="backbone-caption">One System’s history, from import to a promoted change. Sample commits.</figcaption>
       <div className="backbone-stages" aria-hidden="true">{stages.map((stage, index) => <span key={stage}>{index + 1}. {stage}</span>)}</div>

@@ -180,8 +180,8 @@ test('guide step links move focus to their section', async ({ page }) => {
 test('the Artifacts backbone fits 320px, stacks its lanes and survives forced colors', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
-  await page.goto('https://artyfact.test/#artifacts');
-  const section = page.locator('#artifacts');
+  await page.goto('https://artyfact.test/#cloudflare');
+  const section = page.locator('#cloudflare');
   await expect(section.locator('.backbone-lane')).toHaveCount(6);
   for (const node of await section.locator('.backbone-node').all()) await expect(node).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
