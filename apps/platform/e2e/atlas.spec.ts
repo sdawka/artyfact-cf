@@ -74,8 +74,55 @@ async function settle(page: Page) {
     requestAnimationFrame(tick);
   }));
 }
-/** A tile interaction once the atlas has settled. */
+/** Text inside a tile once the atlas has settled. */
 const settledTile = async (page: Page, id: string) => { await settle(page); return tile(page, id); };
+
+/**
+ * Pan with the ordinary wheel, as a person would, until the tile has a visible point it owns, and return that point.
+ * Without this, Playwright scrolls the overflow-hidden React Flow root to reach an offscreen tile, and that scroll can
+ * snap back between mousedown and mouseup, so the click lands on another tile or the pane.
+ */
+async function revealTile(page: Page, id: string) {
+  const frame = (await canvas(page).boundingBox())!;
+  for (let step = 0; step < 24; step++) {
+    await settle(page);
+    const point = await pointOwnedBy(page, id);
+    if (point) return point;
+    const box = (await tile(page, id).boundingBox())!;
+    const dx = box.x + Math.min(box.width / 2, 120) - (frame.x + frame.width / 2);
+    const dy = box.y + Math.min(box.height / 2, 40) - (frame.y + frame.height / 2);
+    const pane = await pointOwnedBy(page, null);
+    expect(pane, "the canvas must expose pannable surface").not.toBeNull();
+    await page.mouse.move(pane!.x, pane!.y);
+    await page.mouse.wheel(dx, dy);
+  }
+  throw new Error(`${id} never came into view`);
+}
+
+/** The visible canvas point nearest its middle that hits the tile (or, for null, any tile or the pane), never a control. */
+function pointOwnedBy(page: Page, id: string | null) {
+  return page.evaluate((id) => {
+    const frame = document.querySelector('[data-testid="atlas-canvas"]')!.getBoundingClientRect();
+    const target = id ? document.querySelector(`[data-map-node="${id}"]`)!.getBoundingClientRect() : frame;
+    const left = Math.max(target.left, frame.left), right = Math.min(target.right, frame.right);
+    const top = Math.max(target.top, frame.top), bottom = Math.min(target.bottom, frame.bottom);
+    const cx = (left + right) / 2, cy = (top + bottom) / 2, points: { x: number; y: number }[] = [];
+    for (let x = left + 4; x < right - 4; x += 8) for (let y = top + 4; y < bottom - 4; y += 8) points.push({ x, y });
+    points.sort((a, b) => Math.hypot(a.x - cx, a.y - cy) - Math.hypot(b.x - cx, b.y - cy));
+    return points.find(({ x, y }) => {
+      const hit = document.elementFromPoint(x, y);
+      if (!hit || hit.closest("button, a, input, [role=dialog], aside")) return false;
+      if (id) return hit.closest("[data-map-node]")?.getAttribute("data-map-node") === id;
+      return !!hit.closest(".react-flow__pane, .react-flow__node");
+    }) ?? null;
+  }, id);
+}
+
+/** Click a tile the way a person would: bring it into view, then press a visible point it owns. */
+async function pressTile(page: Page, id: string, action: "click" | "dblclick" = "click") {
+  const point = await revealTile(page, id);
+  await page.mouse[action](point.x, point.y);
+}
 
 async function tilePoint(page: Page, id: string) {
   const target = (await tile(page, id).boundingBox())!, frame = (await canvas(page).boundingBox())!;
@@ -94,15 +141,15 @@ test("direct containment, selection, Details and browser history keep separate U
   await scope(page, SID);
   await expect(tile(page, "thing.webapp")).toBeVisible();
   await expect(tile(page, "screen.people")).toHaveCount(0);
-  await (await settledTile(page, "thing.webapp")).click();
+  await pressTile(page, "thing.webapp");
   await scope(page, SID);
   await expect(inspector(page)).toHaveCount(0);
   await selection(page).getByRole("button", { name: "Enter Peopling web app", exact: true }).click();
   await scope(page, "thing.webapp");
   for (const id of ["section.ui", "section.domain", "section.authorization", "section.runtime"]) await expect(tile(page, id)).toBeVisible();
-  await (await settledTile(page, "section.ui")).dblclick();
+  await pressTile(page, "section.ui", "dblclick");
   await scope(page, "section.ui");
-  await (await settledTile(page, "screen.people")).click();
+  await pressTile(page, "screen.people");
   await expect(inspector(page)).toHaveCount(0);
   await selection(page).getByRole("button", { name: "Details", exact: true }).click();
   await expect(inspector(page)).toBeVisible();
@@ -149,7 +196,7 @@ test("selected boundary connections retain actual endpoint paths, labels, certai
   await page.goto(`${SYSTEM}/map?scope=thing.webapp`);
   await scope(page, "thing.webapp");
   await expect(page.locator(".react-flow__edge")).toHaveCount(0);
-  await (await settledTile(page, "section.authorization")).click();
+  await pressTile(page, "section.authorization");
   await expect(page.locator(".react-flow__edge")).toHaveCount(1);
   await selection(page).getByRole("button", { name: "Connections (2)", exact: true }).click();
   const connections = page.getByRole("region", { name: "Selected connections" });
@@ -166,11 +213,11 @@ test("selected boundary connections retain actual endpoint paths, labels, certai
 
 test("selection, Details, connection visibility and overlays preserve tile geometry and camera @fixture", async ({ page }, testInfo) => {
   await page.goto(`${SYSTEM}/map?scope=thing.webapp`);
-  await expect(tile(page, "section.ui")).toBeVisible();
+  await revealTile(page, "section.ui");
   const initialGeometry = await geometry(page);
   const initialCamera = await camera(page);
   await checkA11yAndShoot(page, testInfo, "atlas-thing-mosaic");
-  await (await settledTile(page, "section.ui")).click();
+  await pressTile(page, "section.ui");
   expect(await geometry(page)).toEqual(initialGeometry);
   expect(await camera(page)).toBe(initialCamera);
   await page.getByRole("checkbox", { name: "Show all connections" }).check();
@@ -297,7 +344,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await scope(page, SID);
     await waitAtlasReveals(page);
     await checkA11yAndShoot(page, testInfo, `atlas-system-mosaic-${viewport.width}x${viewport.height}`);
-    await (await settledTile(page, "thing.webapp")).click();
+    await pressTile(page, "thing.webapp");
     await selection(page).getByRole("button", { name: "Enter Peopling web app", exact: true }).click();
     await scope(page, "thing.webapp");
     await waitAtlasReveals(page);
@@ -326,7 +373,7 @@ test("on-demand filters retain real containers and unfamiliar leaves stay inspec
   for (const checkbox of await page.getByRole("group", { name: "Layers shown" }).getByRole("checkbox").all()) await checkbox.uncheck();
   await expect(tile(page, "thing.webapp")).toBeVisible();
   await page.getByRole("button", { name: "Close map navigation" }).click();
-  await (await settledTile(page, "thing.webapp")).dblclick();
+  await pressTile(page, "thing.webapp", "dblclick");
   await scope(page, "thing.webapp");
   await expect(tile(page, "section.ui")).toBeVisible();
   await expect(tile(page, "screen.people")).toHaveCount(0);
@@ -350,7 +397,7 @@ test("offscreen selected connections remain discoverable through Locate @fixture
   model.nodes.find((node) => node.id === "policy.ownerOnly")!.links = [{ rel: "governs", to: "screen.people", direction: "out", certainty: "declared" }];
   await mockApi(page, data);
   await page.goto(`${SYSTEM}/map?scope=thing.webapp`);
-  await (await settledTile(page, "section.ui")).click();
+  await pressTile(page, "section.ui");
   await expect(page.locator(".react-flow__edge").first()).toBeAttached();
   const box = (await canvas(page).boundingBox())!;
   await page.mouse.move(box.x + box.width - 70, box.y + box.height / 2);
@@ -524,9 +571,10 @@ test("scope reveal runs once while selection, Details and layer changes preserve
   await surface.evaluate(async (element) => { const animation = element.getAnimations()[0]!; animation.play(); await animation.finished; });
   expect((await scopeMotions(page))[0]!.finished).toBe(true);
   const stableGeometry = await geometry(page), stableCamera = await camera(page);
-  await (await settledTile(page, "thing.webapp")).click();
+  // Both selections are visible at the fitted camera, so no pan disturbs the camera under test.
+  await pressTile(page, "GD.connect");
   await expect.poll(async () => (await motions(page)).filter((record) => record.target === "Map selection").length).toBe(1);
-  await (await settledTile(page, SID)).getByText("Peopling", { exact: true }).click();
+  await pressTile(page, SID);
   await page.getByRole("tab", { name: "Phenome", exact: true }).click();
   await selection(page).getByRole("button", { name: "Details", exact: true }).click();
   await expect(inspector(page)).toBeVisible();
@@ -575,7 +623,7 @@ test("reduced motion suppresses scope and overlay reveals while preserving their
   await scope(page, "environment");
   await page.getByRole("button", { name: "Enter Peopling", exact: true }).click();
   await scope(page, SID);
-  await (await settledTile(page, "thing.webapp")).click();
+  await pressTile(page, "thing.webapp");
   await page.getByRole("button", { name: "Tree", exact: true }).click();
   await expect(page.getByRole("tree", { name: "Containment" })).toBeVisible();
   await page.getByRole("button", { name: "Close map navigation" }).click();
