@@ -13,7 +13,7 @@ it('creates an initial System, previews, and accepts the exact reviewed native p
  fireEvent.change(await screen.findByLabelText('System ID'),{target:{value:'system.custom'}});
  fireEvent.click(screen.getByRole('button',{name:'Create System'}));
  fireEvent.change(await screen.findByLabelText('Native ontology package'),{target:{value:'{"format":"artyfact.ontology-package@1"}'}});
- fireEvent.click(screen.getByText('Add reviewed Genome files'));fireEvent.change(screen.getByLabelText('Genome files (optional JSON)'),{target:{value:JSON.stringify({'node.yaml':'id: system.custom\nkind: system\n'})}});
+ fireEvent.click(screen.getByText('Add reviewed Genome files (optional)'));fireEvent.change(screen.getByLabelText('Genome files (optional JSON)'),{target:{value:JSON.stringify({'node.yaml':'id: system.custom\nkind: system\n'})}});
  fireEvent.click(screen.getByRole('button',{name:'Preview import'}));
  fireEvent.click(await screen.findByRole('button',{name:'Accept reviewed import'}));
  await waitFor(()=>expect(calls.find(c=>c.url.endsWith('/accept'))?.body).toEqual({hash:'exact-hash'}));
@@ -26,7 +26,7 @@ it('offers a valid native starter with explicit optional outcomes vocabulary',as
  renderApp('/start');fireEvent.change(await screen.findByLabelText('System ID'),{target:{value:'system.custom'}});fireEvent.click(screen.getByRole('button',{name:'Create System'}));
  fireEvent.click(await screen.findByRole('button',{name:'Use starter package'}));const source=screen.getByLabelText('Native ontology package') as HTMLTextAreaElement;const native=JSON.parse(source.value);
  expect(inspectOntologyPackage(native,{bundled:metaTemplates,accepted:[]}).issues).toEqual([]);expect(native.templates['template.system.custom@1'].extends).toBe('template.meta.artyfact-genome@1');
- fireEvent.click(screen.getByRole('checkbox',{name:'Include events, expected effects and assays in the starter'}));fireEvent.click(screen.getByRole('button',{name:'Use starter package'}));expect(inspectOntologyPackage(JSON.parse(source.value),{bundled:metaTemplates,accepted:[]}).issues).toEqual([]);expect(JSON.parse(source.value).templates['template.system.custom@1'].extends).toBe('template.meta.outcomes@1');
+ fireEvent.click(screen.getByRole('checkbox',{name:'Include outcomes vocabulary (events, expected effects, assays)'}));fireEvent.click(screen.getByRole('button',{name:'Use starter package'}));expect(inspectOntologyPackage(JSON.parse(source.value),{bundled:metaTemplates,accepted:[]}).issues).toEqual([]);expect(JSON.parse(source.value).templates['template.system.custom@1'].extends).toBe('template.meta.outcomes@1');
 });
 
 it('gives a scoped, quoted source-preparation handoff without inventing a plan file',async()=>{
@@ -34,8 +34,8 @@ it('gives a scoped, quoted source-preparation handoff without inventing a plan f
  const system="system.custom; echo bad",reviewId="import.one'bad";
  vi.stubGlobal('fetch',vi.fn(async(url:string)=>Response.json(String(url).includes('/ontology-imports/')?{id:reviewId,systemId:system,status:'accepted',issues:[],templateRefs:[],package:{}}:String(url).endsWith('/systems')?{systems:[]}:{})));
  renderApp(`/start?system=${encodeURIComponent(system)}&import=${encodeURIComponent(reviewId)}`);
- const heading=await screen.findByText('Build with your agent');
- const text=heading.parentElement!.textContent!;
+ const heading=(await screen.findByRole('button',{name:'Check local bootstrap completion'})).closest('li')!;
+ const text=heading.textContent!;
  expect(text).toContain('--prepare-only');expect(text).toContain('skill --dir ./project --write --agent generic');
  expect(text).toContain(`--platform ${window.location.origin}`);
  expect(text).toContain('ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN"');expect(text).not.toContain('must-not-leak');

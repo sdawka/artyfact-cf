@@ -5,7 +5,7 @@ import { renderApp } from "@/testing/render";
 const PATH = "/s/system.peopling/r/head/parts";
 const part = { package: { id: "part.private", version: "1.0.0", name: "Private logic", visibility: "system-private", systemId: "system.peopling", published: true, inputs: [], payload: { model: {}, files: {} }, commands: [{ id: "build", run: "echo must-not-run", purpose: "Compile" }] }, scope: { kind: "system", systemId: "system.peopling" }, digest: "sha256:private", publishedAt: "2026-10-12T12:00:00Z" };
 const unlock = async () => {
-  fireEvent.change(await screen.findByLabelText("Admin token"), { target: { value: "admin-secret" } });
+  fireEvent.change(await screen.findByLabelText("Admin token or realization secret"), { target: { value: "admin-secret" } });
   fireEvent.click(screen.getByRole("button", { name: "Load private Parts" }));
 };
 
@@ -32,10 +32,10 @@ describe("System-private Parts", () => {
       return Response.json(url.endsWith("/parts") ? { parts: [{ partId: "part.private", version: "1.0.0", name: "Private logic", scope: part.scope, digest: part.digest, publishedAt: part.publishedAt, dependencies: [] }] } : { part });
     }));
     renderApp(PATH);
-    expect(await screen.findByText(/Enter an admin token to inspect/)).toBeTruthy();
+    expect(await screen.findByText(/Reading them needs a token/)).toBeTruthy();
     await unlock();
     fireEvent.click(await screen.findByRole("button", { name: "Private logic 1.0.0" }));
-    expect(await screen.findByRole("heading", { name: "Pinned payload" })).toBeTruthy();
+    expect(await screen.findByRole("heading", { name: "Payload" })).toBeTruthy();
     expect(screen.getByText(/echo must-not-run/)).toBeTruthy();
   });
 
