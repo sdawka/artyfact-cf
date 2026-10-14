@@ -399,8 +399,9 @@ local git transport:
 
 ```sh
 cd apps/platform && FAKE_ARTIFACTS=1 ADMIN_TOKEN=test FAKE_S1=1 npx vite --port 1339 --strictPort
-export ARTYFACT_PLATFORM=http://localhost:1339 ARTYFACT_ADMIN_TOKEN=test
+export ARTYFACT_PLATFORM=http://localhost:1339
 export ARTYFACT_ALLOW_REMOTE_HOST=fake.artifacts.local GIT_CONFIG_GLOBAL=$PWD/gitconfig
+# The fake admin token is `test`: pass it inline (`ARTYFACT_ADMIN_TOKEN=test artyfact …`) on admin commands, never export it.
 # gitconfig: [url "http://localhost:1339/api/fake-git/"] insteadOf = https://fake.artifacts.local/git/artyfact/
 ```
 
