@@ -150,6 +150,8 @@ describe("Changelog", () => {
     expect(screen.queryByRole("list", { name: "System commits, newest first" })).toBeNull();
     expect((screen.getByRole("button", { name: "Create Evolution" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/needs the platform API/)).toBeTruthy();
+    // One back control: the panel's own.
+    expect(screen.getAllByRole("button", { name: /^Back/ })).toHaveLength(1);
     fireEvent.click(screen.getByRole("button", { name: "Back to Changelog" }));
     await waitFor(() => expect(router.state.location.search).toBe(""));
     expect(await list()).toBeTruthy();

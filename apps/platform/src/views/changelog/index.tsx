@@ -2,7 +2,7 @@ import { Select, Button } from "@/components/ui";
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useChangelog } from "@/api/queries";
-import { ArrowLeftIcon, PlusIcon } from "@radix-ui/react-icons";
+import { PlusIcon } from "@radix-ui/react-icons";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { useFxOnArrival } from "@/effects/fx";
@@ -63,15 +63,11 @@ export default function ChangelogView() {
         )}
       />
       {creating ? (
-        <>
-          <Button type="button" variant="ghost" size="compact" onClick={() => setParam("panel", null)}>
-            <ArrowLeftIcon aria-hidden="true" />Back to Changelog
-          </Button>
-          <NewEvolutionPanel
-            onCreated={(e) => void navigate(href("work", { evolution: e.id }))}
-            onCancel={() => setParam("panel", null)}
-          />
-        </>
+        <NewEvolutionPanel
+          backLabel="Back to Changelog"
+          onCreated={(e) => void navigate(href("work", { evolution: e.id }))}
+          onCancel={() => setParam("panel", null)}
+        />
       ) : (
         <>
       <div className={styles.toolbar}>
