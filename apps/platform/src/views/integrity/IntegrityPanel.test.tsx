@@ -1,6 +1,8 @@
-import { screen } from "@testing-library/react";
+import { fireEvent, screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { IntegrityPanel, retryRequest } from "./IntegrityPanel";
+const { restartMutate } = vi.hoisted(() => ({ restartMutate: vi.fn() }));
+vi.mock("@/api/queries", async (importOriginal) => ({ ...(await importOriginal<typeof import("@/api/queries")>()), useStartIntegrity: () => ({ mutate: restartMutate, isPending: false }) }));
+import { IntegrityPanel } from "./IntegrityPanel";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { render, } from "@testing-library/react";
@@ -24,20 +26,23 @@ it("labels automated and human integrity results separately, including partial c
   expect(screen.queryByRole("button", { name: /agree/i })).toBeNull();
 });
 
-it("allows a first human agreement for a completed passing report without a prior agreement", async () => {
+it("restarts completed checks with the original requested ceiling and thresholds", async () => {
+  restartMutate.mockReset();
   const report={version:1,id:"report.pass",systemId:"system.demo",snapshotHash:"sha256:s",policyVersion:"integrity.v1",createdAt:"2026-10-14T00:00:00Z",status:"passed",structural:{status:"passed",complete:true,findings:[],limitations:[],checkedSubjects:["system.demo"],checkedRelationships:[]},semantic:{status:"passed",complete:true,intentFidelity:"checked",findings:[],limitations:[],checkedSubjects:["system.demo"],checkedRelationships:[],provenance:{provider:"test-real",model:"test-model",questions:["node.kind"],thresholds:{confident:0.9,review:0.5},budget:{requestedCalls:200,maxCalls:500,usedCalls:1},truncated:false,fake:false,retries:0}}};
-  const run={id:"run.pass",systemId:"system.demo",snapshotId:"snapshot",snapshotHash:"sha256:s",provider:"clef",requestedCalls:1,attempt:1,state:"completed",createdAt:"",updatedAt:"",reviewUrl:"/review",report} as any;
+  const run={id:"run.pass",systemId:"system.demo",snapshotId:"snapshot",snapshotHash:"sha256:s",provider:"clef",model:"original-model",requestedCalls:37,thresholds:{confident:.81,review:.41},attempt:1,state:"completed",createdAt:"",updatedAt:"",reviewUrl:"/review",report} as any;
   const router=createMemoryRouter([{path:"/s/:systemId/r/:rev/work",element:<IntegrityPanel run={run}/> }],{initialEntries:["/s/system.demo/r/head/work"]});
   render(<QueryClientProvider client={testQueryClient()}><RouterProvider router={router}/></QueryClientProvider>);
   expect(await screen.findByRole("button",{name:"Record agreement"})).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Run check again" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Run check again" }));
+  expect(restartMutate).toHaveBeenCalledWith({body:{snapshotId:"snapshot",provider:"clef",model:"original-model",thresholds:{confident:.81,review:.41},budget:{maxCalls:37},rerun:true}});
   expect(screen.getByText("Evidence and coverage")).toBeTruthy();
 });
 
-it("retries completed and reportless failed runs with the original requested-call ceiling", () => {
-  const completed = { id:"run.37", snapshotId:"snapshot", provider:"clef", model:"model", requestedCalls:37, thresholds:{confident:.9,review:.5}, state:"completed" } as any;
-  const failed = { ...completed, id:"run.failed", model:undefined, state:"failed" };
-  expect(retryRequest(completed)).toMatchObject({snapshotId:"snapshot",provider:"clef",model:"model",thresholds:{confident:.9,review:.5},budget:{maxCalls:37},rerun:true});
-  expect(retryRequest(failed)).toMatchObject({snapshotId:"snapshot",provider:"clef",thresholds:{confident:.9,review:.5},budget:{maxCalls:37},rerun:true});
-  expect(retryRequest(failed)).not.toHaveProperty("model");
+it("retries failed reportless checks with the original requested ceiling and thresholds", () => {
+  restartMutate.mockReset();
+  const run = {id:"run.failed",systemId:"system.demo",snapshotId:"snapshot.failed",snapshotHash:"sha256:s",provider:"off",requestedCalls:37,thresholds:{confident:.72,review:.22},attempt:1,state:"failed",createdAt:"",updatedAt:"",reviewUrl:"/review",error:{code:"transport",message:"offline"}} as any;
+  const router=createMemoryRouter([{path:"/s/:systemId/r/:rev/work",element:<IntegrityPanel run={run}/> }],{initialEntries:["/s/system.demo/r/head/work"]});
+  render(<QueryClientProvider client={testQueryClient()}><RouterProvider router={router}/></QueryClientProvider>);
+  fireEvent.click(screen.getByRole("button", {name:"Retry check"}));
+  expect(restartMutate).toHaveBeenCalledWith({body:{snapshotId:"snapshot.failed",provider:"off",thresholds:{confident:.72,review:.22},budget:{maxCalls:37},rerun:true}});
 });
