@@ -158,6 +158,7 @@ it('plan tasks prints the table, conflicts and the next claimable task, without 
   expect(r.out).toMatch(/task\.c\s+working\s+2\s+task\.a\s+thing\.c,thing\.d\s+-/);
   expect(r.out).toContain('conflicts: task.b <-> task.c [source] src/ui.ts: both write src/ui.ts');
   expect(r.out).toMatch(/claim: .*task claim plan\.one task\.a --system system\.one /);
+  expect(r.out).toContain('claim: ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim plan.one task.a');
   expect(r.out).not.toContain('task claim plan.one task.b');
   const json = JSON.parse((await cli(['plan', 'tasks', 'plan.one', '--system', 'system.one', '--platform', srv.base, '--json'], {})).out);
   expect(json).toMatchObject({ planId: 'plan.one', next: 'task.a', tasks: [{ id: 'task.a', wave: 1 }, { id: 'task.b', wave: 2 }, { id: 'task.c', wave: 2 }] });

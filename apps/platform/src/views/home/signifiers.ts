@@ -18,7 +18,7 @@ export interface DeployLine {
 }
 
 export interface CardView {
-  /** One sentence: awaiting review > import pending > tasks await an agent > plan awaiting promotion > tasks await selection > evolving > not built > quiet. */
+  /** One sentence: awaiting review > import awaits review > tasks await an agent > plan awaiting promotion > tasks await selection > evolving > not built > quiet. */
   headline: string;
   tone: CardTone;
   /** The card's border state: `tone`, except that deploy trouble on an otherwise quiet System reads as attention. */

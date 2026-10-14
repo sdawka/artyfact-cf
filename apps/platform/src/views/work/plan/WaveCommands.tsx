@@ -39,7 +39,7 @@ export function WaveCommands({ plan, wave, tasks, now, hidden, onHide }: Props) 
           </>
         )}
       </div>
-      <p className={workStyles.muted}>Run with ARTYFACT_ADMIN_TOKEN set in your shell; the agent line unsets it. Copy all starts each agent once its claim succeeds, side by side.</p>
+      <p className={workStyles.muted}>Set ADMIN_TOKEN in this shell without exporting it; each claim passes it to that command only, and the agent line unsets it. Copy all starts each agent once its claim succeeds, side by side.</p>
       <ul className={styles.commandList}>
         {lines.map((l) =>
           hidden.has(l.id) ? (

@@ -117,21 +117,23 @@ against it; the command prints the resulting evaluations. Statuses are `queued`,
 
 ## Genome lifecycle and local agents
 
-Administrative commands require `ARTYFACT_ADMIN_TOKEN`. Pass `--platform <url>` or set
-`ARTYFACT_PLATFORM`; credentials are sent only over HTTPS or local HTTP.
+Administrative commands require `ARTYFACT_ADMIN_TOKEN`. Set `ADMIN_TOKEN` in this shell without exporting it, and
+pass it to each admin command only, as `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact …`; never export
+`ARTYFACT_ADMIN_TOKEN` or put it in a shell profile. Pass `--platform <url>` or set `ARTYFACT_PLATFORM`; credentials are
+sent only over HTTPS or local HTTP.
 
 ```sh
-artyfact ontology preview --system system.example --file native-package.json
-artyfact ontology show import.id --system system.example
-artyfact ontology accept import.id --system system.example --hash <reviewed-hash>
-artyfact ontology bootstrap import.id --system system.example --dir ./project
-artyfact evolution propose --system system.example --file intent.json
-artyfact evolution create --system system.example --file evolution.json
-artyfact plan draft --system system.example --evolution evolution.id [--node node.id] [--hint "text"] [--create]
-artyfact plan create --system system.example --file plan.json
-artyfact plan show plan.id --system system.example
-artyfact plan tasks plan.id --system system.example
-ARTYFACT_ADMIN_TOKEN=... artyfact task claim plan.id task.id --system system.example --dir ./task
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology preview --system system.example --file native-package.json
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology show import.id --system system.example
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology accept import.id --system system.example --hash <reviewed-hash>
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology bootstrap import.id --system system.example --dir ./project
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact evolution propose --system system.example --file intent.json
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact evolution create --system system.example --file evolution.json
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan draft --system system.example --evolution evolution.id [--node node.id] [--hint "text"] [--create]
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan create --system system.example --file plan.json
+npx artyfact plan show plan.id --system system.example     # reads: no token on a public System
+npx artyfact plan tasks plan.id --system system.example
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim plan.id task.id --system system.example --dir ./task
 ```
 
 Preview accepts a native package JSON directly or `{package, genomeFiles}`; `genomeFiles` maps
@@ -156,22 +158,27 @@ Like `plan show`, it needs no token for a public System.
 
 `task claim`, `task start`, and `task resume` have the same arguments (`--agent-label` names the agent).
 The target directory is checked before any request: it must be absent, empty, or this Task's earlier workspace.
-The fork write token is stored in `.artyfact-task.json` in the workspace (mode 0600, listed in `.git/info/exclude`,
-never in the fork's tracked files) together with the scoped attempt secret. Neither is printed, and both are scrubbed
+The fork write token is stored in `.git/artyfact-task.json` in the workspace (mode 0600, written to a temporary file
+and renamed into place) together with the scoped attempt secret. It lives inside `.git`, so no `.gitignore` rule can
+stage it; checkpoint and submit also never stage a `.artyfact-task.json`, and an older workspace's root copy moves into
+`.git` on first use. Neither is printed, and both are scrubbed
 from `TASK_PACKET.md` and `AGENTS.md`. `task submit` uses `ARTYFACT_TOKEN` when set, else the stored token, and
 notes when the stored one has expired. Resume preserves the fork and local work, stores fresh credentials and fences
 the old attempt. `AGENTS.md` is the packet's `agentsMd` when the platform sends one, else a fixed text. A claim
 refused by a dependency prints `blocked by <tasks> (not yet selected)`; a Task someone else holds prints
-`task <id> is taken by <label>`.
+`task <id> is taken by <label>`, and one a conflicting Task's live attempt blocks prints
+`task <id> conflicts with <task>, held by <label>`.
 
 The agent loop gives the admin token to `claim` only, inline, and runs the agent without it:
 
 ```sh
-ARTYFACT_ADMIN_TOKEN=... npx artyfact task claim plan.id task.id --system system.example --dir ./work/task.id --agent-label "claude:task.id"
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim plan.id task.id --system system.example --dir ./work/task.id --agent-label claude:task.id
 cd ./work/task.id && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit"
 ```
 
-`env -u` clears the token only for the agent's own launch. Set `ARTYFACT_ADMIN_TOKEN` inline for `claim` and never export it or put it in a shell profile, or the agent's tool shells inherit it.
+`env -u` removes the token from the agent's environment, and nothing the agent starts inherits it. The risk is a shell
+profile that exports `ARTYFACT_ADMIN_TOKEN`: a tool shell that reads the profile gets it back. So keep `ADMIN_TOKEN`
+unexported and never set either name in a profile.
 
 Inside the Task fork:
 
@@ -184,10 +191,10 @@ artyfact task submit
 The agent returns the durable review URL. After reviewing each submitted candidate:
 
 ```sh
-ARTYFACT_ADMIN_TOKEN=... artyfact task select plan.id task.id --system system.example --candidate candidate.id
-ARTYFACT_ADMIN_TOKEN=... artyfact plan integrate plan.id --system system.example
-artyfact plan review plan.id --system system.example        # a read: no token on a public System
-ARTYFACT_ADMIN_TOKEN=... artyfact plan promote plan.id --system system.example --file reviewed-promotion.json
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task select plan.id task.id --system system.example --candidate candidate.id
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan integrate plan.id --system system.example
+npx artyfact plan review plan.id --system system.example        # a read: no token on a public System
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan promote plan.id --system system.example --file reviewed-promotion.json
 ```
 
 Promotion JSON contains the reviewed `expectedHead` (string or null), `rationale`, and exact

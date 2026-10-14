@@ -118,7 +118,8 @@ describe("Realization plans", () => {
     expect(within(w2).queryByText(/Agent commands/)).toBeNull();
     const p = { id: "plan.one", systemId: SID };
     expect(within(w1).getByRole("listitem", { name: "Command for Task t1" }).textContent).toContain(commandLines("claim", p, "t1"));
-    expect(document.body.textContent).not.toMatch(/TOKEN=|Bearer|secret|--json/);
+    // The only token reference is the shell variable the person sets; no value appears.
+    expect(document.body.textContent!.replaceAll('ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN"', "")).not.toMatch(/TOKEN=|Bearer|secret|--json/);
 
     // "Copy all" is the first button of the wave's command section; it reads "Copied" for a moment after a click.
     const copyAll = () => within(within(w1).getByRole("region", { name: "Agent commands · wave 1" })).getAllByRole("button")[0]!;

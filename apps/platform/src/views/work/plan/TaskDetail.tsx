@@ -64,7 +64,7 @@ export function TaskDetail({ task: t, plan, now, writeReason, commandHidden, sel
         <>
           <code className={styles.commandLine}>{command.line}</code>
           <span className={workStyles.inlineRow}><CopyButton value={command.line} /></span>
-          <p className={workStyles.muted}>Run with ARTYFACT_ADMIN_TOKEN set in your shell; the agent line unsets it.</p>
+          <p className={workStyles.muted}>Set ADMIN_TOKEN in this shell without exporting it; the claim passes it to that command only, and the agent line unsets it.</p>
         </>
       )}
 

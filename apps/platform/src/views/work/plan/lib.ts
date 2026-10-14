@@ -70,12 +70,16 @@ export interface TaskLines { claim: string; agent: string }
 
 /**
  * The CLI README pair for `task`: claim (or resume) into `./work/<task>`, which stores the fork token in the workspace,
- * then the agent inside it in a subshell. No credential and no `--json` handoff; every value is quoted.
+ * then the agent inside it in a subshell. The claim takes the admin token from `$ADMIN_TOKEN`, a plain shell variable the
+ * person sets without exporting it; no credential appears in the line. No `--json` handoff; every value is quoted.
  */
+/** Every admin command shown anywhere: the token from a plain, non-exported shell variable, set for that command only. */
+export const ADMIN_PREFIX = 'ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" ';
+
 export function taskLines(verb: "claim" | "resume", plan: Pick<RealizationPlan, "id" | "systemId">, taskId: string): TaskLines {
   const dir = shellArg(`./work/${taskId}`);
   return {
-    claim: `npx artyfact task ${verb} ${shellArg(plan.id)} ${shellArg(taskId)} --system ${shellArg(plan.systemId)} --dir ${dir}`,
+    claim: `${ADMIN_PREFIX}npx artyfact task ${verb} ${shellArg(plan.id)} ${shellArg(taskId)} --system ${shellArg(plan.systemId)} --dir ${dir}`,
     agent: `( cd ${dir} && env -u ARTYFACT_ADMIN_TOKEN claude -p ${shellArg(AGENT_PROMPT)} )`,
   };
 }

@@ -66,9 +66,9 @@ mkdir -p -m 700 "$RUN"; umask 077
 alias artyfact='npx --prefix "$REPO" --no-install artyfact'
 ```
 
-**Only in terminal ops**, the one the admin uses, load the admin token into a shell variable, not the environment. Pass
-it inline to the one command that needs it (`ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact …`) so it is never exported
-into a shell that starts an agent. An agent holds only its task's fork token and attempt secret, so it cannot claim,
+**Only in terminal ops**, the one the admin uses, set the admin token in a plain shell variable `ADMIN_TOKEN`, without
+exporting it. Every admin command takes it inline (`ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" artyfact …`), so it is never in
+the environment of a shell that starts an agent. An agent holds only its task's fork token and attempt secret, so it cannot claim,
 select, integrate, promote or accept.
 
 ```sh
@@ -90,7 +90,7 @@ warnings for Peopling) and the exact `init` line:
 
 ```sh
 artyfact validate-genome examples/peopling-system --app examples/peopling-app
-ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN ./scripts/bootstrap.sh   # = npx artyfact init --genome examples/peopling-system --app examples/peopling-app
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" ./scripts/bootstrap.sh   # = npx artyfact init --genome examples/peopling-system --app examples/peopling-app
 ```
 
 `init` reads the root `node.yaml` and derives every name from the System id: slug `peopling`, repos
@@ -274,7 +274,7 @@ The accepted Evolution changed only the Genome. Implementation is a Realization 
 to partition the accepted, not-yet-realized changes into tasks:
 
 ```sh
-ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact plan draft --system system.peopling
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" artyfact plan draft --system system.peopling
 ```
 
 Fake platform output; nothing is saved:
@@ -303,7 +303,7 @@ checks it), adding read nodes, derived dependencies and checks:
 ```
 
 ```sh
-ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact plan create --system system.peopling --file plan.json
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" artyfact plan create --system system.peopling --file plan.json
 export P=plan.…                                        # the id it prints
 artyfact plan tasks $P --system system.peopling        # plan reads need no token on a public System
 ```
@@ -318,7 +318,7 @@ t2    pending  1     -           entity.ContactEvent,operation.contact.log
 t3    pending  2     t1,t2       screen.goal,screen.logContact,screen.today,component.TodayList,affordance.To…
 conflicts: t1 <-> t3 [dependency] : t1 and t3: dependency interference
 conflicts: t2 <-> t3 [dependency] : t2 and t3: dependency interference
-claim: ARTYFACT_ADMIN_TOKEN=... npx artyfact task claim plan.… t1 --system system.peopling --dir ./work/t1 --agent-label claude:t1
+claim: ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim plan.… t1 --system system.peopling --dir ./work/t1 --agent-label claude:t1
 ```
 
 The waves are `[[t1, t2], [t3]]`. The Work plan view shows them as "Wave 1 · 2 tasks" and "Wave 2 · 1 task" with a
@@ -330,14 +330,16 @@ The wave board lists, per task, a claim line and an agent line. "Copy all" chain
 (`claim && { agent & }`), so a failed claim never starts its agent and the wave's agents run side by side. By hand, per task, in terminal **ops**:
 
 ```sh
-ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact task claim $P t1 --system system.peopling --dir ./work/t1 --agent-label claude:t1
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" artyfact task claim $P t1 --system system.peopling --dir ./work/t1 --agent-label claude:t1
 ( cd ./work/t1 && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit" ) &
 wait
 ```
 
 The claim clones the task's fork into `./work/t1`, writes `TASK_PACKET.md` and `AGENTS.md` and stores the fork token
-and attempt secret in `.artyfact-task.json` (mode 0600, git-excluded, never printed). The agent never sees the admin
-token: it is set for the claim only, and the agent line unsets it. `env -u` clears the token only for the agent's own launch: if it is exported anywhere (a shell profile, the ops shell), the agent's tool shells pick it up again. Set it inline for the claim only and never export it or put it in a profile.
+and attempt secret in `.git/artyfact-task.json` (mode 0600, never staged, never printed). The agent never sees the
+admin token: it is set for the claim only, and the agent line unsets it. Nothing started under `env -u` inherits the
+token; the risk is a shell profile that exports it, which a tool shell reading that profile picks up again. Keep
+`ADMIN_TOKEN` unexported and never set either name in a profile.
 `AGENTS.md` carries the wave, permitted edits, do-not-touch (the other tasks' globs), concurrent tasks and what the
 task builds on. A claim that fails after it landed (for example the clone) is recovered with `artyfact task resume`,
 which stores fresh credentials and fences the old attempt.
@@ -356,7 +358,7 @@ Submit commits pending changes, pushes the fork and submits the exact commit; th
 ## 8. Wave 2: the dependent task is refused until its dependencies are selected
 
 ```sh
-ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact task claim $P t3 --system system.peopling --dir ./work/t3
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" artyfact task claim $P t3 --system system.peopling --dir ./work/t3
 ```
 
 Fake platform output while t1 and t2 are only claimed or submitted:
@@ -370,8 +372,8 @@ The server's 409 carries `details {blockedOn: ["t1","t2"]}`. A task another agen
 detail or here:
 
 ```sh
-ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact task select $P t1 --system system.peopling --candidate candidate.task.r4.9a7d4cb
-ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact task select $P t2 --system system.peopling --candidate candidate.task.r5.1d0e64c
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" artyfact task select $P t1 --system system.peopling --candidate candidate.task.r4.9a7d4cb
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" artyfact task select $P t2 --system system.peopling --candidate candidate.task.r5.1d0e64c
 artyfact plan tasks $P --system system.peopling        # t1, t2 selected; the claim line now names t3
 ```
 
@@ -381,8 +383,8 @@ Now the claim for t3 succeeds, and its `AGENTS.md` says "Builds on: t1 (selected
 ## 9. Select, integrate, review, promote (about 10 s)
 
 ```sh
-ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact task select $P t3 --system system.peopling --candidate candidate.task.r6.7adc6e6
-ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact plan integrate $P --system system.peopling
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" artyfact task select $P t3 --system system.peopling --candidate candidate.task.r6.7adc6e6
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" artyfact plan integrate $P --system system.peopling
 artyfact plan review $P --system system.peopling
 ```
 
@@ -398,7 +400,7 @@ Promote with the reviewed head and the exact integrated candidate ids:
 cat > promotion.json <<'JSON'
 {"expectedHead":"sc-2-f72705ae","rationale":"Goals and contact memory","candidateIds":["candidate.task.r7.4784397"]}
 JSON
-ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact plan promote $P --system system.peopling --file promotion.json
+ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" artyfact plan promote $P --system system.peopling --file promotion.json
 ```
 
 Promotion re-runs the gate on the exact commits and records one System commit with the realized Genome per binding.
@@ -415,7 +417,7 @@ local git transport:
 cd apps/platform && FAKE_ARTIFACTS=1 ADMIN_TOKEN=test FAKE_S1=1 npx vite --port 1339 --strictPort
 export ARTYFACT_PLATFORM=http://localhost:1339
 export ARTYFACT_ALLOW_REMOTE_HOST=fake.artifacts.local GIT_CONFIG_GLOBAL=$PWD/gitconfig
-# The fake admin token is `test`: pass it inline (`ARTYFACT_ADMIN_TOKEN=test artyfact …`) on admin commands, never export it.
+# The fake admin token is `test`: set ADMIN_TOKEN=test in this shell without exporting it; admin commands pass it inline.
 # gitconfig: [url "http://localhost:1339/api/fake-git/"] insteadOf = https://fake.artifacts.local/git/artyfact/
 ```
 
@@ -472,7 +474,7 @@ submits, the conflict, promotion, the 409 and history. Then it deletes the repos
 
 ## Troubleshooting
 
-- **Token expired (401/403 from git):** task tokens last 6 hours (`tokenExpires` in `.artyfact-task.json`). Run
+- **Token expired (401/403 from git):** task tokens last 6 hours (`tokenExpires` in `.git/artyfact-task.json`). Run
   `artyfact task resume <plan> <task> --system <id> --dir <dir>` with the admin token: it keeps the fork and your local
   work, stores fresh credentials and fences the old attempt. `task submit` says when the stored token has expired.
 - **A claim failed after it landed (clone error):** the attempt and its lease exist, but the CLI removed the
