@@ -42,8 +42,6 @@ test.describe("Review: agreement trees @fake", () => {
   });
 
   test("import review: Home row, Review 'Import' row, reject a file-less node, accept with an interpretation @fake @import", async ({ page, request }, testInfo) => {
-    // The import-review routes (P4) and the Home "import awaits review" row (P7b) are not on this branch; P10 turns this on.
-    test.fixme(true, "needs P4's import-review routes and P7b's Home row; enabled in P10 integration");
     test.setTimeout(120_000);
     // A forced re-import of unchanged repos keeps the head (no new System commit, so no review): delete the System and
     // import it again from its repos, which leaves the review pending.

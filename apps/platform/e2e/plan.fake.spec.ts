@@ -10,10 +10,9 @@ import { ADMIN_TOKEN, apiPlan, BASE, checkPage, cli, SYS } from "./fake";
  * the later task is refused until both are selected, and the plan is selected, integrated, reviewed and promoted in the UI.
  */
 test.describe("realization plan from draft to promotion @fake", () => {
-  // Needs the planner draft route (P2), the lifecycle packet and modes (P3), the CLI token at rest (P6) and the fake git
-  // server (P1) on one branch. P10 flips this to `test` after merging them, and picks draft nodes from P8's Genome that
-  // give a plan whose wave 2 task depends on two wave 1 tasks.
-  test.fixme(true, "P10: needs P1 fake git, P2 draft route, P3 lifecycle packet and P6 token at rest merged");
+  // The fake planner drafts one task per section: goals and events in wave 1, and the UI task, whose screens invoke both
+  // operations, in wave 2 (test/node/peopling-waves.test.ts checks the same shape).
+  const NODES = ["operation.goal.save", "entity.ContactEvent", "operation.contact.log", "screen.goal", "screen.logContact", "screen.today"];
 
   test("draft, edit, create, claim, refuse, submit, select, integrate, review and promote @fake", async ({ page, request, baseURL }, testInfo) => {
     testInfo.setTimeout(180_000);
@@ -23,7 +22,7 @@ test.describe("realization plan from draft to promotion @fake", () => {
 
     // Draft and edit in the UI. Nothing is stored until Create plan.
     await page.goto(`${BASE}/work?panel=plan`);
-    await page.getByLabel("Genome nodes to implement").fill(["binding.contactsStore", "screen.people", "component.TodayList"].join("\n"));
+    await page.getByLabel("Genome nodes to implement").fill(NODES.join("\n"));
     await expect(page.getByRole("button", { name: "Draft tasks" })).toBeEnabled();
     await page.getByRole("button", { name: "Draft tasks" }).click();
     await expect(page.getByTestId("draft-waves")).toHaveText(/^As drafted: wave 1/);
@@ -54,7 +53,7 @@ test.describe("realization plan from draft to promotion @fake", () => {
     }
     const early = await run(["task", "claim", planId, t3.id, "--system", SYS, "--dir", t3.id]);
     expect(early.code).not.toBe(0);
-    expect(early.stderr).toMatch(/dependency .* is not selected/);
+    expect(early.stderr).toContain(`blocked by ${deps.map((t) => t.id).join(", ")} (not yet selected)`);
     for (const t of deps) submitted[t.id] = await implementAndSubmit(t, join(work, t.id), run);
 
     plan = await apiPlan(request, planId);
