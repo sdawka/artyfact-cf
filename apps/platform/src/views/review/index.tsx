@@ -4,7 +4,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import type { Evolution, Realization } from "../../../shared/api";
 import { useCandidates } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
-import { ListDetail } from "@/components/ListDetail/ListDetail";
+import { ListDetail, twoPanes } from "@/components/ListDetail/ListDetail";
 import { isGoKeyPending, isTyping } from "@/app/useShellShortcuts";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { ThingScopeNote } from "@/components/ThingScope/ThingScopeNote";
@@ -22,7 +22,6 @@ import { useReviewQueue } from "./useReviewQueue";
 import styles from "./review.module.css";
 
 /** Two panes side by side (the ListDetail breakpoint). Without `matchMedia` (tests) assume a wide screen. */
-const wide = () => typeof window === "undefined" || typeof window.matchMedia !== "function" || window.matchMedia("(min-width: 900px)").matches;
 
 /** State on a navigation the view made by itself (the first decision opened by default): the detail does not take focus. */
 export interface AutoOpened { autoOpened?: boolean }
@@ -79,7 +78,7 @@ export default function ReviewView() {
   const first = groups.flatMap((g) => g.rows).find(isWaiting);
   const firstHref = first ? rowHref(first) : null;
   useEffect(() => {
-    if (loading || open || linked || !firstHref || !wide()) return;
+    if (loading || open || linked || !firstHref || !twoPanes()) return;
     void navigate(firstHref, { replace: true, state: { autoOpened: true } satisfies AutoOpened });
   }, [loading, open, linked, firstHref, navigate]);
 
@@ -91,7 +90,7 @@ export default function ReviewView() {
       if (isGoKeyPending(ev.key) || isTyping(ev.target)) return;
       const t = ev.target as HTMLElement | null;
       if (t && (t.closest("input, textarea, select, [contenteditable=''], [contenteditable='true'], [role='tree'], [role='tablist']"))) return;
-      const rows = [...document.querySelectorAll<HTMLElement>(`[${QUEUE_ROW}]`)].filter((r) => r.offsetParent !== null || !wide());
+      const rows = [...document.querySelectorAll<HTMLElement>(`[${QUEUE_ROW}]`)].filter((r) => r.offsetParent !== null || !twoPanes());
       if (!rows.length) return;
       const at = rows.indexOf(document.activeElement as HTMLElement);
       const from = at >= 0 ? at : rows.findIndex((r) => r.getAttribute("aria-current") === "true");

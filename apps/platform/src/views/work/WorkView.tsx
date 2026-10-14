@@ -3,7 +3,7 @@ import { useEffect, useMemo, useRef } from "react";
 import { Link, Navigate, useLocation, useNavigation, useSearchParams } from "react-router";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
-import { ListDetail } from "@/components/ListDetail/ListDetail";
+import { ListDetail, twoPanes } from "@/components/ListDetail/ListDetail";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { StatusText } from "@/components/StatusText/StatusText";
 import { ThingScopeNote } from "@/components/ThingScope/ThingScopeNote";
@@ -29,7 +29,6 @@ import styles from "./work.module.css";
 const SELECTION = ["evolution", "plan", "task", "panel", "realization"] as const;
 
 /** Two panes fit side by side (ListDetail's breakpoint). Below it, arriving selects nothing so the list shows first. */
-const wide = () => typeof window === "undefined" || typeof window.matchMedia !== "function" || window.matchMedia("(min-width: 900px)").matches;
 
 /**
  * Work: one list pane (Plans first, then Evolutions grouped by state) beside one detail pane (`?plan=` or
@@ -89,7 +88,7 @@ function Workbench() {
   const idle = useNavigation().state === "idle";
   const ready = idle && !signalsLoading && (!api || !plansQ.isLoading);
   useEffect(() => {
-    if (!nothingPicked || !ready || !wide()) return;
+    if (!nothingPicked || !ready || !twoPanes()) return;
     const evolution =
       ordered.find((e) => (signals.get(e.id)?.awaiting ?? 0) > 0 || signals.get(e.id)?.overlap) ??
       ordered.find((e) => STARTABLE.has(e.state)) ??

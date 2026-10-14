@@ -141,6 +141,22 @@ test.describe('application UI polish @fixture', () => {
     }
   });
 
+  for (const width of [1024,1100]) test(`Work and Review stay one pane without sideways scroll beside the Inspector at ${width}px`, async ({ page }, info) => {
+    await page.setViewportSize({ width, height:900 }); await populated(page);
+    for (const [route, label, query] of [['work','Work','evolution=evolution.1'], ['review','Review','evolution=evolution.1&panel=promote']] as const) {
+      await page.goto(`${SYSTEM}/${route}?${query}&focus=screen.people`);
+      await expect(page.getByRole('heading', { name:label, level:1 })).toBeVisible();
+      await expect(page.getByRole('complementary', { name:'Inspector' })).toBeVisible();
+      const root = page.locator('[data-list-detail]'); await expect(root).toBeVisible();
+      await expect.poll(() => page.locator('#main').evaluate(el => el.scrollWidth <= el.clientWidth + 1), `${label} main does not scroll sideways`).toBe(true);
+      // The Inspector leaves the view less than two panes need: one pane (the selection), with its back link.
+      await expect.poll(() => root.evaluate(el => el.getBoundingClientRect().width)).toBeLessThan(640);
+      await expect(root.getByRole('button', { name:/^Back to/ })).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${label} page width`).toBe(true);
+      if (width === 1024) await page.screenshot({ path:info.outputPath(`${route}-inspector-${width}.png`) });
+    }
+  });
+
   test('Admin, revision dropdown and palette fit a short mobile viewport', async ({ page }, info) => {
     test.setTimeout(90_000);
     await populated(page,true);
