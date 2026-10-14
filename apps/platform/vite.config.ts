@@ -20,12 +20,13 @@ const config = {
   // e2e fixture mode previews with in-memory state, so a System imported for the demo (.wrangler/state) never leaks in.
   // FAKE_ARTIFACTS=1 runs the backend on in-memory Artifacts seeded from examples/ (FAKE_SEED=artyfact|both adds the
   // repo-root genome/, Artyfact itself): no remote binding, no persisted state (the fake repos live in the isolate),
-  // the fake System One (deployed vars no longer set FAKE_S1), and an admin token for local use unless ADMIN_TOKEN is set.
+  // the fake System One (deployed vars no longer set FAKE_S1), no AI or BROWSER, and an admin token unless ADMIN_TOKEN is set.
   plugins: [react(), ...(fake ? [] : [noSelfSeed()]), cloudflare({
     ...((process.env.ARTYFACT_E2E_FIXTURE === "1" || fake) && { persistState: false }),
     ...(fake && {
       config: (c) => {
-        delete (c as { artifacts?: unknown }).artifacts;
+        // Artifacts, Workers AI and Browser Run are remote-only: without them the dev server needs no Cloudflare login.
+        for (const k of ["artifacts", "ai", "browser"]) delete (c as Record<string, unknown>)[k];
         c.vars = { ...c.vars, FAKE_ARTIFACTS: "1", FAKE_S1: "1", ALLOW_LOCAL_PREVIEW: "1", ADMIN_TOKEN: process.env.ADMIN_TOKEN ?? "fake-admin-token",
           ...(process.env.FAKE_SEED && { FAKE_SEED: process.env.FAKE_SEED }) };
       },
