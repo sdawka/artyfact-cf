@@ -5,7 +5,8 @@ import { defineConfig, devices } from "@playwright/test";
  * to its bundled fixture. Live mode (`ARTYFACT_E2E_LIVE=1`): `wrangler dev` serves the SPA built by `npm run build` and the Worker API together; specs tagged `@live` run only there, specs tagged `@fixture`
  * only in fixture mode. Fake mode (`ARTYFACT_E2E_FAKE=1`): `vite` boots the Worker with `FAKE_ARTIFACTS=1` (in-memory Artifacts seeded from `examples/*`)
  * and `ADMIN_TOKEN=test`; only specs tagged `@fake` run there, one at a time because they share one in-memory platform. A second server
- * (port + 1, `FAKE_SEED=artyfact`) serves the self-model specs, so Artyfact's own Genome is exercised too.
+ * (port + 1, `FAKE_SEED=artyfact`) serves the self-model specs, so Artyfact's own Genome is exercised too. `fake-import` runs the
+ * `@import` tests last: they re-import the shared System with an import review pending.
  */
 const live = process.env.ARTYFACT_E2E_LIVE === "1";
 const fake = process.env.ARTYFACT_E2E_FAKE === "1";
@@ -17,6 +18,8 @@ const chromium = { ...devices["Desktop Chrome"], viewport: { width: 1440, height
 const baseURL = `http://localhost:${port}`;
 const selfURL = `http://localhost:${port + 1}`;
 const selfSpec = /self-model\.fake\.spec/;
+// Tests tagged @import re-import the shared System with a review, so they run last, in their own project.
+const importTag = /@import/;
 
 export default defineConfig({
   testDir: "./e2e",
@@ -34,7 +37,8 @@ export default defineConfig({
     ? [
         // Home asserts the untouched System, so it runs first; the flows then change the shared platform.
         { name: "fake-home", testMatch: /home\.fake\.spec/, use: chromium },
-        { name: "fake-flows", testIgnore: [/home\.fake\.spec/, selfSpec], dependencies: ["fake-home"], use: chromium },
+        { name: "fake-flows", testIgnore: [/home\.fake\.spec/, selfSpec], grepInvert: importTag, dependencies: ["fake-home"], use: chromium },
+        { name: "fake-import", testMatch: /genome-review\.fake\.spec/, grep: importTag, dependencies: ["fake-flows"], use: chromium },
         { name: "fake-self", testMatch: selfSpec, use: { ...chromium, baseURL: selfURL } },
       ]
     : [{ name: "chromium", use: chromium }],
