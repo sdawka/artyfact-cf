@@ -61,7 +61,8 @@ export function fitViewport(w: number, h: number, cw: number, ch: number, minZoo
   return {
     zoom,
     x: w * zoom * pad > cw ? cw * PAD : (cw - w * zoom) / 2,
-    y: h * zoom * pad > ch ? ch * PAD : (ch - h * zoom) / 2,
+    // Anchored to the top: a short graph never floats in the middle of a tall canvas.
+    y: ch * PAD,
   };
 }
 

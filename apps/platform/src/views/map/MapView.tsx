@@ -1,4 +1,4 @@
-import { Button, IconButton, Menu } from "@/components/ui";
+import { Button, IconButton } from "@/components/ui";
 import { Kbd } from "@/components/Kbd/Kbd";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { Cross2Icon } from "@radix-ui/react-icons";
@@ -31,6 +31,7 @@ import { atlasFlowEdges, atlasFlowNodes } from "./atlasFlow";
 import { selectedBoundaryEdges } from "./atlasConnections";
 import type { AtlasTravel } from "./atlasCameraMotion";
 import { AtlasCamera, saveAtlasCamera } from "./AtlasCamera";
+import { OutsideMenu } from "./OutsideMenu";
 import { AtlasSelection } from "./AtlasSelection";
 import { useDepthGestures } from "./useDepthGestures";
 import { useAtlasReveal } from "./useAtlasReveal";
@@ -245,7 +246,7 @@ export function MapView() {
   const systemName = index.model.system.name;
   const scopeName = environment ? systemName : index.byId(graph.scope)?.name ?? graph.scope;
   const enterSystem = environment && index.children(index.model.system.id).length > 0;
-  const outsideItems = outside.map((id) => ({ id, label: `Show ${graph.nodes.find((n) => n.id === id)?.name ?? id} on map`, onSelect: () => locateNode(id) }));
+  const outsideItems = [...new Set(outside)].map((id) => ({ id, name: graph.nodes.find((n) => n.id === id)?.name ?? id, kind: graph.nodes.find((n) => n.id === id)?.kind ?? "other", onSelect: () => locateNode(id) }));
   const breadcrumbs = <nav aria-label="Map scope" className={styles.breadcrumbs}><ol>
     <li><button onClick={() => { if (!environment) { navigation.enter(ENVIRONMENT_SCOPE); } }} aria-current={environment ? "location" : undefined}>Environment</button></li>
     {scopePath.map((entry, i) => <li key={entry.id}><span aria-hidden="true">/</span><button aria-current={i === scopePath.length - 1 ? "location" : undefined} onClick={() => openScope(entry.id)}>{entry.name}</button></li>)}
@@ -260,7 +261,7 @@ export function MapView() {
         <Button size="compact" onClick={goUp} disabled={environment}>Up</Button>
         <Button size="compact" onClick={() => setPanel((last) => last === "tree" ? null : "tree")} aria-expanded={panel === "tree"} aria-controls="atlas-navigation">Tree</Button>
         <Button size="compact" onClick={() => setPanel((last) => last === "filters" ? null : "filters")} aria-expanded={panel === "filters"} aria-controls="atlas-navigation">Filters</Button>
-        {outsideItems.length > 0 && <Menu label={`Outside ${scopeName}`} align="start" items={outsideItems} trigger={<Button size="compact">Outside ({outsideItems.length})</Button>} />}
+        {outsideItems.length > 0 && <OutsideMenu label={`Outside ${scopeName}`} items={outsideItems} trigger={<Button size="compact">Outside ({outsideItems.length})</Button>} />}
         <div className={styles.overlay}><LayerSwitch /></div>
         <span className={styles.hint}>
           <span>Drag pan</span><span><Kbd keys={["Enter"]} /> open</span><span><Kbd keys={["D"]} /> details</span><span><Kbd keys={["Backspace"]} /> up</span>

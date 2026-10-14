@@ -1,7 +1,7 @@
 /* Sticky, with its own scroll: ten journeys never push the canvas down the page. */
-.catalog { position: sticky; top: 0; align-self: start; max-height: calc(100dvh - 11rem); overflow-y: auto; min-width: 0; }
+.catalog { min-height: 0; max-height: 100%; overflow-y: auto; min-width: 0; }
 .goal, .uses { display: block; }
 .uses { color: var(--color-text-subtle); }
 .deferred { margin-top: var(--spacing-4); }
-.deferred summary { min-height: var(--control-height); display: flex; align-items: center; padding: 0 var(--spacing-4); font: var(--type-meta); color: var(--color-text-secondary); cursor: pointer; }
+.deferred summary { min-height: var(--control-height); display: list-item; padding: var(--spacing-2) var(--spacing-4); font: var(--type-meta); color: var(--color-text-secondary); cursor: pointer; }
 .deferred summary:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
