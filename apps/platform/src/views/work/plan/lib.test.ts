@@ -1,0 +1,65 @@
+import { describe, expect, it } from "vitest";
+import { blockedOn, conflictsOf, displayStatus, footprintLine, integrateReason, planCountsLine, planError, taskCommand, waveOf, whyWave } from "./lib";
+import { workWaiting } from "./signals";
+import { attempt, makePlan, NOW, task } from "./testPlan";
+
+describe("plan lib", () => {
+  it("labels waves from 1 and counts", () => {
+    const p = makePlan();
+    expect(waveOf(p, "t1")).toBe(1);
+    expect(waveOf(p, "t3")).toBe(2);
+    expect(waveOf(p, "nope")).toBeNull();
+    expect(planCountsLine(p)).toBe("3 tasks · 2 waves");
+  });
+
+  it("blocks a pending task until every dependency is selected", () => {
+    const p = makePlan();
+    const t3 = p.tasks[2]!;
+    expect(blockedOn(t3, p)).toEqual(["t1", "t2"]);
+    expect(displayStatus(t3, p)).toBe("blocked");
+    const done = makePlan({ tasks: [task("t1", { status: "selected", selectedCandidate: "c1" }), task("t2", { status: "selected", selectedCandidate: "c2" }), t3] });
+    expect(displayStatus(t3, done)).toBe("pending");
+  });
+
+  it("gives claim lines with no credential, refuses t3 before t1 and t2 are selected, resumes a lapsed lease", () => {
+    const p = makePlan();
+    const c1 = taskCommand(p, p.tasks[0]!, NOW);
+    expect(c1).toEqual({ verb: "claim", line: "npx artyfact task claim plan.one t1 --system system.peopling" });
+    expect(JSON.stringify(c1)).not.toMatch(/token|secret|Bearer/i);
+    expect(taskCommand(p, p.tasks[2]!, NOW)).toEqual({ verb: null, reason: "Waits until “Task t1”, “Task t2” are selected." });
+    const lapsed = makePlan({ tasks: [task("t1", { status: "working", attempts: [attempt({ leaseExpiresAt: new Date(NOW - 1).toISOString() })] }), task("t2")] });
+    expect(taskCommand(lapsed, lapsed.tasks[0]!, NOW)).toMatchObject({ verb: "resume" });
+    const live = makePlan({ tasks: [task("t1", { status: "working", attempts: [attempt()] }), task("t2")] });
+    expect(taskCommand(live, live.tasks[0]!, NOW)).toEqual({ verb: null, reason: `claude holds it until ${new Date(NOW + 600_000).toISOString()}.` });
+  });
+
+  it("holds a ready task while a conflicting task has a live attempt", () => {
+    const p = makePlan({
+      tasks: [task("t1"), task("t2", { status: "working", attempts: [attempt({ taskId: "t2" })] })],
+      analysis: { waves: [["t2"], ["t1"]], conflicts: [{ tasks: ["t1", "t2"], kind: "unknown", subjects: [], message: "" }] },
+    });
+    expect(taskCommand(p, p.tasks[0]!, NOW)).toEqual({ verb: null, reason: "Waits while “Task t2” is being worked; they conflict." });
+  });
+
+  it("explains waves and names the other task on conflicts", () => {
+    const p = makePlan();
+    expect(whyWave(p, "t1")).toBe("Wave 1: it waits on no other task and does not conflict with “Task t2”.");
+    expect(whyWave(p, "t3")).toBe("Wave 2 because it depends on “Task t1” in wave 1; it edits files also in “Task t2” in wave 1 (on src/shared.ts).");
+    expect(conflictsOf(p, "t3").map((c) => [c.kind, c.with])).toEqual([["dependency", "Task t1"], ["source", "Task t2"]]);
+  });
+
+  it("describes footprints, integration readiness and errors", () => {
+    expect(footprintLine(task("t1"))).toBe("1 glob · 1 file");
+    expect(footprintLine(task("t1", { footprint: { ...task("t1").footprint, known: false } }))).toBe("1 glob · 1 file · scope unknown");
+    expect(integrateReason(makePlan())).toBe("Select a candidate for “Task t1”, “Task t2”, “Task t3” first.");
+    expect(integrateReason(makePlan({ tasks: [task("t1", { selectedCandidate: "c" })] }))).toBeNull();
+    expect(integrateReason(makePlan({ status: "integrated" }))).toBe("The plan is integrated.");
+    expect(planError("Drafting", { status: 401 })).toMatch(/needs the admin token/);
+    expect(planError("Drafting", { status: 409, code: "import-unreviewed", message: "import is unreviewed." })).toBe("import is unreviewed. Accept the import review first.");
+  });
+
+  it("counts work waiting from planCounts", () => {
+    expect(workWaiting(undefined)).toBe(0);
+    expect(workWaiting({ open: 2, awaitingAgent: 2, submitted: 1, integrated: 1 })).toBe(4);
+  });
+});
