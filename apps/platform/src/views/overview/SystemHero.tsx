@@ -42,12 +42,12 @@ export function SystemHero({ children }: { children?: ReactNode }) {
         <div className={styles.heroHead}>{children}</div>
       </div>
       <div className={styles.heroFoot}>
-        <p className={styles.heroLead}>The light reflects readiness, checks, active work and blockers.</p>
+        <p className={styles.heroLead}>The light reflects readiness, checks, active Evolutions and blockers.</p>
         <MetaLine
           items={[
             { label: "Readiness", value: `${Math.round(measures.readiness * 100)}%` },
             { label: "Failing or stale checks", value: troubled },
-            { label: "Active work", value: measures.active },
+            { label: "Active Evolutions", value: measures.active },
             { label: "Blockers", value: measures.blockers },
             ...(health === "pending" ? [] : [{ label: "Light", value: health }]),
           ]}

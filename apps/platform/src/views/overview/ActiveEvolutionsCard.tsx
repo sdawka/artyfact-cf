@@ -6,27 +6,14 @@ import { Section } from "@/components/Section/Section";
 import { StatusText } from "@/components/StatusText/StatusText";
 import { Button } from "@/components/ui";
 import { useKeepParams } from "@/model/useSelection";
-import type { Evolution } from "../../../shared/api";
 import { useWorkData } from "../work/data";
-import { groupEvolutions } from "../work/EvolutionGroups";
-import { TERMINAL } from "../work/lib";
-import { useEvolutionSignals, type EvolutionSignal } from "../work/useEvolutionSignals";
+import { activeEvolutions } from "../work/groups";
+import { useEvolutionSignals } from "../work/useEvolutionSignals";
 import styles from "./Overview.module.css";
 
-/** Active states, nearest to done first. promoted, rejected and withdrawn are finished, not active. */
-const ORDER = ["actionable", "realizing", "evaluated", "genome-approved", "proposed"];
 const LIMIT = 5;
 /** Narrow screens show this many rows; "All Evolutions" has the rest. */
 const NARROW_LIMIT = 3;
-
-/**
- * The Evolutions Work groups under an unfinished state, by Work's own classifier: Legacy (read-only history) and the
- * terminal groups are left out, so Overview and Work agree on what is active and in which state.
- */
-export function activeEvolutions(all: readonly Evolution[], signals: ReadonlyMap<string, EvolutionSignal>): Evolution[] {
-  const live = groupEvolutions(all, signals).filter((g) => g.key !== "legacy" && !TERMINAL.has(g.key as Evolution["state"])).flatMap((g) => g.items);
-  return ORDER.flatMap((state) => live.filter((e) => e.state === state));
-}
 
 /** The first five active Evolutions as rows into Work, then a link to all of them. */
 export function ActiveEvolutionsCard() {

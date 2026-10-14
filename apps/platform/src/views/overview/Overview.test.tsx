@@ -64,8 +64,12 @@ describe("Overview", () => {
     const hero = screen.getByRole("region", { name: "System light" });
     expect(hero.querySelector('[data-effect="orb"]')).toBeNull();
     expect(hero.querySelector('[data-effect="surface"]')).toBeTruthy();
-    expect(within(hero).getByText("The light reflects readiness, checks, active work and blockers.")).toBeTruthy();
-    for (const label of ["Readiness", "Failing or stale checks", "Active work", "Blockers"]) expect(within(hero).getByText(label)).toBeTruthy();
+    expect(within(hero).getByText("The light reflects readiness, checks, active Evolutions and blockers.")).toBeTruthy();
+    for (const label of ["Readiness", "Failing or stale checks", "Active Evolutions", "Blockers"]) expect(within(hero).getByText(label)).toBeTruthy();
+    // The hero counts the same active Evolutions the card lists (Work's grouping).
+    const card = screen.getByRole("region", { name: /Active Evolutions/ });
+    const listed = within(card).getByRole("heading", { name: /Active Evolutions/ }).querySelector(".u-numeric")!.textContent;
+    await waitFor(() => expect(within(hero).getByText("Active Evolutions").nextElementSibling!.textContent).toBe(listed));
   });
 
   it("lists Peopling's provisional nodes apart from its blockers (none)", async () => {
@@ -113,7 +117,7 @@ describe("Overview hero and facts (design critique S5, S18)", () => {
     expect(field.contains(h1)).toBe(true);
     expect(within(hero).getByRole("link", { name: "Describe a change" })).toBeTruthy();
     // The labelled values sit outside the field, never over the haze.
-    const lead = within(hero).getByText("The light reflects readiness, checks, active work and blockers.");
+    const lead = within(hero).getByText("The light reflects readiness, checks, active Evolutions and blockers.");
     expect(field.contains(lead)).toBe(false);
   });
 
