@@ -318,11 +318,12 @@ in its own background subshell, so the wave's agents run side by side. By hand, 
 ```sh
 ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact task claim $P t1 --system system.peopling --dir ./work/t1 --agent-label "claude:t1"
 ( cd ./work/t1 && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit" ) &
+wait
 ```
 
 The claim clones the task's fork into `./work/t1`, writes `TASK_PACKET.md` and `AGENTS.md` and stores the fork token
 and attempt secret in `.artyfact-task.json` (mode 0600, git-excluded, never printed). The agent never sees the admin
-token: it is set for the claim only, and the agent line unsets it. Do not export it in the shell that runs agents.
+token: it is set for the claim only, and the agent line unsets it. `env -u` clears the token only for the agent's own launch: if it is exported anywhere (a shell profile, the ops shell), the agent's tool shells pick it up again. Set it inline for the claim only and never export it or put it in a profile.
 `AGENTS.md` carries the wave, permitted edits, do-not-touch (the other tasks' globs), concurrent tasks and what the
 task builds on. A claim that fails after it landed (for example the clone) is recovered with `artyfact task resume`,
 which stores fresh credentials and fences the old attempt.
