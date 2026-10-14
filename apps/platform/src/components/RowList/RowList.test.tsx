@@ -30,4 +30,22 @@ describe("RowList and Row", () => {
     expect(items[0]!.getAttribute("data-density")).toBe("compact");
     expect(items[1]!.querySelector(".u-selected")).toBeTruthy();
   });
+
+  it("label names the target, targetProps reach it, and a disclosure row shows children only while expanded", () => {
+    const { rerender } = render(<MemoryRouter><RowList label="Rows">
+      <Row to="/s/p" title="Peopling" meta="2" label="Peopling, 2 await your review" targetProps={{ "data-testid": "row-p" }} />
+      <Row title="Run" onSelect={() => {}} expanded={false} targetProps={{ "data-kind": "run" }}>details</Row>
+    </RowList></MemoryRouter>);
+    const link = screen.getByRole("link", { name: "Peopling, 2 await your review" });
+    expect(link.getAttribute("data-testid")).toBe("row-p");
+    const toggle = screen.getByRole("button", { name: "Run" });
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.getAttribute("data-kind")).toBe("run");
+    expect(screen.queryByText("details")).toBeNull();
+    rerender(<MemoryRouter><RowList label="Rows">
+      <Row title="Run" onSelect={() => {}} expanded targetProps={{ "data-kind": "run" }}>details</Row>
+    </RowList></MemoryRouter>);
+    expect(screen.getByRole("button", { name: "Run" }).getAttribute("aria-expanded")).toBe("true");
+    expect(screen.getByRole("button", { name: "Run" }).contains(screen.getByText("details"))).toBe(false);
+  });
 });
