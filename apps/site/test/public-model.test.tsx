@@ -7,10 +7,11 @@ afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 const config = { platform: null, source: null };
 
-it('explains the public page using the real model and three criteria', () => {
+it('explains the public page as Theory Driven Development using the real model and three criteria', () => {
   const { container } = render(<Site path="/model" config={config} />);
-  expect(screen.getByRole('heading', { level: 1, name: /Ontology Driven Development/ })).toBeTruthy();
-  expect(screen.getByText(/within a typed model/i)).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1, name: 'Theory Driven Development' })).toBeTruthy();
+  expect(container.querySelector('[data-theory-card]')).toBeTruthy();
+  expect(container.querySelectorAll('#lifecycle ol > li')).toHaveLength(6);
   expect(container.querySelector('[data-model-subject="component.model-explanation"]')).toBeTruthy();
   expect(screen.getByText('Represent Artyfact accurately')).toBeTruthy();
   expect(screen.getByText('Communicate clearly')).toBeTruthy();
@@ -19,11 +20,11 @@ it('explains the public page using the real model and three criteria', () => {
 });
 it('preserves optional Parts, Rule Packs and bounded evidence claims', () => {
   render(<Site path="/model" config={config} />);
-  expect(screen.getByText(/A Thing can begin with its Genome alone/)).toBeTruthy();
-  expect(screen.getByText(/Parts carry reusable implementation/)).toBeTruthy();
+  expect(screen.getByText(/A Thing can start with its model alone/)).toBeTruthy();
+  expect(screen.getByText(/Reusable model content, files and pinned dependencies/)).toBeTruthy();
   expect(screen.getByText(/authorization pack checks modeled policy coverage/)).toBeTruthy();
-  expect(screen.getByText(/Source and each build output keep distinct identities/)).toBeTruthy();
-  expect(screen.getByText(/A passing check establishes only what that check measured/)).toBeTruthy();
+  expect(screen.getByText(/a passing check establishes only what that check measured/)).toBeTruthy();
+  expect(screen.getAllByText(/Measurement in progress/).length).toBeGreaterThan(0);
 });
 
 it('documents shipped Parts commands and explicit authoring and review gates', () => {

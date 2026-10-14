@@ -37,8 +37,13 @@ test('code copying reports success or a useful fallback', async ({ page }) => {
 test('public content is useful without JavaScript', async ({ page }) => {
   await page.route('**/*.js', route => route.abort());
   await page.goto('https://artyfact.test/model');
-  await expect(page.getByRole('heading', { name: /Ontology Driven Development/ })).toBeVisible();
-  await expect(page.getByText(/A Thing can begin with its Genome alone/)).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Theory Driven Development');
+  await expect(page.locator('[data-theory-card] [data-theory-part]')).toHaveCount(4);
+  await expect(page.locator('[data-theory-card]')).toContainText('Measurement in progress');
+  await expect(page.locator('#lifecycle ol > li summary')).toHaveCount(6);
+  for (const summary of await page.locator('#lifecycle ol > li summary').all()) await expect(summary).toBeVisible();
+  await expect(page.locator('#claim-anatomy [data-claim-field]')).toHaveCount(7);
+  await expect(page.getByText(/A Thing can start with its model alone/)).toBeVisible();
   await expect(page.locator('.model-view-panels > section')).toHaveCount(3);
   for(const panel of await page.locator('.model-view-panels > section').all()) await expect(panel).toBeVisible();
   await expect(page.getByText('Acceptance check',{exact:true})).toBeVisible();
@@ -115,30 +120,40 @@ test('self-model anchor and view controls work with reduced motion', async ({ pa
   await expect(page.getByRole('tabpanel')).toContainText('Reader feedback remains unmeasured');
 });
 
-test('model jump links remain usable on a narrow screen with reduced motion', async ({ page }) => {
+test('model jump links and loop steps remain usable on a narrow screen with reduced motion', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('https://artyfact.test/model');
+  expect(await page.locator('.loop-flow').evaluate(element => getComputedStyle(element).animationName)).toBe('none');
   const navigation = page.getByRole('navigation', { name: 'On this page' });
-  await navigation.getByRole('link', { name: 'Artyfact’s meta ontology' }).focus();
+  await navigation.getByRole('link', { name: 'The vocabulary' }).focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#meta-ontology$/);
   await expect(page.locator('#meta-ontology')).toBeFocused();
-  await expect(page.getByRole('heading', { name: 'Artyfact’s meta ontology', exact: true })).toBeInViewport();
-  await navigation.getByRole('link', { name: 'Why a semantic layer' }).focus();
+  await expect(page.getByRole('heading', { name: 'The vocabulary: a multi-level model.', exact: true })).toBeInViewport();
+  await navigation.getByRole('link', { name: 'Why it helps' }).focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#benefits$/);
   await expect(page.locator('#benefits')).toBeFocused();
-  await page.locator('.model-benefits-grid summary').filter({ hasText: 'Reuse context' }).click();
-  await expect(page.getByText(/Carry relevant context into each task or agent session/)).toBeVisible();
-  await navigation.getByRole('link', { name: 'From intent to evidence' }).focus();
+  await page.locator('.model-benefits-grid summary').filter({ hasText: 'Context agents can use' }).click();
+  await expect(page.getByText(/A Task Packet carries the purpose, the criteria/)).toBeVisible();
+  await navigation.getByRole('link', { name: 'How a change moves' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#lifecycle')).toBeFocused();
-  const evolution = page.locator('#lifecycle summary').filter({ hasText: 'Review an Evolution' });
-  await evolution.focus();
+  const theory = page.locator('#lifecycle summary').filter({ hasText: 'Write the theory down' });
+  await theory.focus();
   await page.keyboard.press('Enter');
   await expect(page.getByText(/An Evolution changes the Genome/)).toBeVisible();
-  await page.locator('#lifecycle summary').filter({ hasText: 'Review the implementation together' }).click();
-  await expect(page.getByText(/Promoting this implementation is a separate approval/)).toBeVisible();
+  await page.locator('#lifecycle summary').filter({ hasText: 'Ship the combined result' }).click();
+  await expect(page.getByText(/Promoting is a separate approval/)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test('opening a loop step lights its node on the ring', async ({ page }) => {
+  await page.goto('https://artyfact.test/model');
+  const fill = () => page.locator('.loop-node-3 circle').evaluate(element => getComputedStyle(element).fill);
+  const before = await fill();
+  await page.locator('#lifecycle summary').filter({ hasText: 'Check the work' }).click();
+  await page.mouse.move(0, 0);
+  await expect.poll(fill).not.toBe(before);
+  await expect(page.locator('#claim-anatomy .claim-statuses [aria-current]')).toHaveAttribute('data-status', 'unknown');
 });
