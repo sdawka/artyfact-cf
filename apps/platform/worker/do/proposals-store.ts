@@ -149,14 +149,15 @@ export class ProposalsStore {
    * Claims recovery of one exact staged candidate. The proposal remains unchanged while the Worker prepares a revision
    * or rejects the candidate, and an accept cannot interleave because both operations use `status = accepting`.
    */
-  claimRecovery(id: string, candidateId: string, commit: string): RecoveryClaimResult {
-    const claimedAt = `${new Date().toISOString()}#recovery:${crypto.randomUUID()}`;
+  claimRecovery(id: string, candidateId: string, commit: string, now: number = Date.now()): RecoveryClaimResult {
+    const lapsedBefore = new Date(now - CLAIM_LEASE_MS).toISOString();
+    const claimedAt = `${new Date(now).toISOString()}#recovery:${crypto.randomUUID()}`;
     const [won] = this.sql.exec(
       `UPDATE proposals SET status = 'accepting', claimed_at = ?, updated_at = ?
-       WHERE id = ? AND status = 'open'
+       WHERE id = ? AND (status = 'open' OR (status = 'accepting' AND (claimed_at IS NULL OR claimed_at < ?)))
          AND json_extract(json, '$.stagedApproval.candidateId') = ?
          AND json_extract(json, '$.stagedApproval.commit') = ? RETURNING json`,
-      claimedAt, nowIso(), id, candidateId, commit,
+      claimedAt, nowIso(), id, lapsedBefore, candidateId, commit,
     ).toArray() as Row[];
     if (won) {
       const r = this.row(id)!;
@@ -164,7 +165,9 @@ export class ProposalsStore {
     }
     const r = this.row(id);
     if (!r) return { refused: "not-found" };
-    if (String(r.status) !== "open") return { refused: "invalid-state", status: String(r.status) };
+    const status = String(r.status);
+    const lapsed = status === "accepting" && (r.claimed_at == null || String(r.claimed_at) < lapsedBefore);
+    if (status !== "open" && !lapsed) return { refused: "invalid-state", status };
     return { refused: "stale-candidate" };
   }
 

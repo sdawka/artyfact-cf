@@ -1188,6 +1188,28 @@ describe("POST /intents/:pid/accept with a staged approval", () => {
     expect((await systemStub(env, s.systemId).proposal(p.id))?.proposal.attempts).toHaveLength(1);
   });
 
+  it("reclaims an expired recovery after a crash that already rejected the realization", async () => {
+    const { s, p, staged } = await stagedAdd();
+    const stub = systemStub(env, s.systemId);
+    const crashed = await stub.claimProposalRecovery(p.id, staged.candidateId, staged.commit);
+    expect(crashed).toMatchObject({ claimed: { id: p.id, stagedApproval: { candidateId: staged.candidateId } } });
+    const rejected = await call("POST", routes.reject(s.systemId, staged.evolutionId, staged.realizationId), { reason: "Failed review before the Worker crashed." });
+    expect(rejected.status).toBe(200);
+
+    const path = routes.intentAbandon(s.systemId, p.id);
+    const input = { candidateId: staged.candidateId, commit: staged.commit, reason: "Finish the interrupted recovery." };
+    expect((await call<ApiError>("POST", path, input)).status).toBe(409); // the fresh claim remains fenced
+    await sqlOn(s, "UPDATE proposals SET claimed_at = ? WHERE id = ?", new Date(Date.now() - CLAIM_LEASE_MS - 1000).toISOString(), p.id);
+
+    const recovered = await call<Proposal & ApiError>("POST", path, input);
+    expect(recovered.status, JSON.stringify(recovered.json)).toBe(200);
+    expect(recovered.json).toMatchObject({
+      status: "abandoned",
+      attempts: [{ disposition: "abandoned", stagedApproval: { candidateId: staged.candidateId, commit: staged.commit } }],
+    });
+    expect(recovered.json.attempts).toHaveLength(1);
+  });
+
   it("refuses the accept when the decisions changed since staging, and takes it again once they match", async () => {
     const { s, p, staged } = await stagedAdd();
     const stub = systemStub(env, s.systemId);
