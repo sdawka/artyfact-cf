@@ -77,7 +77,7 @@ describe("Work list and detail", () => {
     const five = await screen.findByRole("region", { name: "Private digests (later)" });
     const start = within(five).getByRole("button", { name: "Start work" }) as HTMLButtonElement;
     expect(start.disabled).toBe(true);
-    expect(within(five).getByText("evolution.5 is proposed; Start work needs actionable.")).toBeTruthy();
+    expect(within(five).getByText("Start work opens once the Evolution is actionable.")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Describe a change" }).getAttribute("data-variant")).toBe("primary");
   });
 

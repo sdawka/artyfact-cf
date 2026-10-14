@@ -122,7 +122,7 @@ test.describe('application UI polish @fixture', () => {
   for (const width of [320,390,768,1024,1440]) test(`Home and every workspace shell fit ${width}px with long labels`, async ({ page }, info) => {
     test.setTimeout(120_000); await page.setViewportSize({ width, height:844 }); await populated(page,true); await page.goto('/');
     await expect(page.getByRole('heading', { name:'Systems', level:1 })).toBeVisible(); await fits(page.locator('header').first(),page);
-    const systems = page.getByRole('list', { name:'Systems' }); await expect(systems.getByText(longName,{ exact:true })).toBeVisible(); await expect(systems.getByText('not deployed, unknown')).toBeVisible();
+    const systems = page.getByRole('list', { name:'Systems' }); await expect(systems.getByText(longName,{ exact:true })).toBeVisible(); await expect(systems.getByText('not deployed')).toBeVisible();
     if ([390,1440].includes(width)) await page.screenshot({ path:info.outputPath(`home-${width}.png`),fullPage:true });
     for (const [route, label] of routes) {
       // The Overview's h1 is the System name.

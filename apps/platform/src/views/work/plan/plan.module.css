@@ -36,6 +36,7 @@
 .taskMain { display: grid; gap: var(--spacing-1); flex: 1; min-width: 0; }
 .taskTitle { font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
 .taskStatus { display: inline-flex; flex-direction: column; align-items: flex-end; gap: var(--spacing-1); flex: none; max-width: 45%; text-align: right; }
+.waits { min-width: 0; font: var(--type-ui); color: var(--color-text-secondary); overflow-wrap: anywhere; white-space: normal; }
 .chevron { flex: none; color: var(--color-text-subtle); }
 
 .taskDetail { display: grid; gap: var(--spacing-5) var(--spacing-8); padding-inline: var(--spacing-4); min-width: 0; }
@@ -77,6 +78,6 @@
 
 @media (max-width: 639px) {
   .taskHead { flex-wrap: wrap; padding-inline: var(--spacing-3); }
-  .taskStatus { align-items: flex-start; max-width: none; text-align: left; }
+  .taskStatus { align-items: flex-start; flex: 1 1 calc(100% - 40px); max-width: none; min-width: 0; text-align: left; }
   .taskDetail { padding-inline: var(--spacing-3); }
 }

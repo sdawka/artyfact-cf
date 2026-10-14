@@ -8,7 +8,9 @@
 .list code, .files code { font: var(--type-code); overflow-wrap: anywhere; }
 .files { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--color-border-faint); }
 .files li { border-bottom: 1px solid var(--color-border-faint); }
-.files summary, .raw summary { display: flex; flex-wrap: wrap; gap: var(--spacing-3); align-items: center; min-height: var(--control-height); cursor: pointer; }
+.files summary, .raw summary { display: list-item; min-height: var(--control-height); line-height: var(--control-height); cursor: pointer; }
+.files summary > * + * { margin-inline-start: var(--spacing-3); }
+.pin button { min-height: var(--control-height); min-width: var(--control-height); }
 .code { margin: 0 0 var(--spacing-3); padding: var(--spacing-3); overflow: auto; max-height: 24rem; font: var(--type-code); background: var(--surface-well); border-radius: var(--border-radius-sm); }
 .raw { margin-top: var(--spacing-2); }
 

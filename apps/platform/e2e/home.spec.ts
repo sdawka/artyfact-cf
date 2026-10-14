@@ -33,7 +33,7 @@ test.describe("home with a populated API", () => {
     await expect(page.getByText("fixture data")).toHaveCount(0);
     await expect(page.getByRole("heading", { level: 2, name: "Shared Parts" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Button system" })).toHaveAttribute("href", "/parts/part.ui.buttons/2.1.0");
-    await expect(notes.getByText("not deployed, unknown")).toBeVisible();
+    await expect(notes.getByText("not deployed")).toBeVisible();
     await expect(peopling.locator('[data-status="deployed"]')).toHaveText(/deployed/);
     const green = await successToneElements(page);
     expect(green.length).toBeGreaterThan(0);

@@ -31,6 +31,11 @@
 .cellDescription { flex: 1 0 100%; }
 .quiet { margin: 0; color: var(--color-text-subtle); font: var(--type-meta); }
 .destination { margin-left: var(--spacing-4); color: var(--color-text-secondary); white-space: nowrap; }
+.ledgerGroup { border-bottom: 1px solid var(--color-border-faint); }
+.ledgerGroup:first-child { border-top: 1px solid var(--color-border-faint); }
+.ledgerHead { margin: 0; padding: var(--spacing-3) var(--spacing-4) var(--spacing-1); font: var(--type-ui); font-weight: var(--font-weight-semibold); }
+.ledgerGroup li:last-child { border-bottom: 0; }
+.ledgerGroup li:first-child { border-top: 0; }
 .emptyActions { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-4); }
 
 @media (min-width: 900px) {

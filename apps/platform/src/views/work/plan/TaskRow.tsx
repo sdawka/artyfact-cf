@@ -44,7 +44,7 @@ export const TaskRow = memo(function TaskRow({ task: t, plan, open, now, writeRe
         </span>
         <span className={styles.taskStatus}>
           <TaskStatus status={status} />
-          {status === "blocked" && <StatusText status="waits" tone="attention" glyph="" label={`waits on ${waits.join(", ")}`} />}
+          {status === "blocked" && <span className={styles.waits} data-status="waits">{`waits on ${waits.join(", ")}`}</span>}
           {command.verb && <StatusText status="awaits-agent" tone="attention" label="awaits an agent" />}
         </span>
         <Chevron aria-hidden="true" className={styles.chevron} />

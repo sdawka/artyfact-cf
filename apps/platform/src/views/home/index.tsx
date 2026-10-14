@@ -90,7 +90,7 @@ export function PartsContent({ parts, isLoading, isError }: PartsContentProps) {
                 <MetaLine items={[{ value: `${part.partId}@${part.version}`, code: true }]} />
               </span>
               <span className={styles.cell}><span className={styles.cellLabel}>Version </span><code>{part.version}</code></span>
-              <span className={`${styles.cell} ${styles.cellDescription}`}>{part.description || <span className={styles.quiet}>No description</span>}</span>
+              <span className={`${styles.cell} ${styles.cellDescription}`}>{part.description || <span className={styles.quiet}>No description.</span>}</span>
               <span className={styles.cell}>{deps === 0 ? "no dependencies" : `${deps} ${deps === 1 ? "dependency" : "dependencies"}`}</span>
               <span className={styles.cell} title={part.publishedAt || undefined}>{part.publishedAt ? relTime(part.publishedAt, now) : "unknown"}</span>
             </Link>

@@ -73,6 +73,8 @@
 .empties { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-4); margin: 0; padding-inline: var(--spacing-2); font: var(--type-meta); color: var(--color-text-subtle); }
 .rowMeta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-1) var(--spacing-3); }
 .rowStatus { display: inline-flex; flex-direction: column; align-items: flex-end; gap: var(--spacing-1); }
+.evoRow:has([aria-current="true"]) { background: var(--selection-surface); box-shadow: inset var(--selection-rule-width) 0 0 var(--selection-rule-color); }
+.evoRow > :nth-child(2) { flex: 1 0 100%; padding: 0 var(--spacing-4) var(--spacing-3); }
 .listNote { margin: 0; font: var(--type-meta); color: var(--color-text-secondary); }
 
 /* Evolution detail */
