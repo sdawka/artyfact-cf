@@ -113,7 +113,7 @@ function CriteriaSection() {
     <Section title="Outcome criteria" description="Runtime outcome evaluation is not available. Observations are listed separately and do not establish verdicts.">
       <ul className={styles.critList}>
         {crits.map((c) => (
-          <li key={c.id}><NodeChip id={c.id} size="sm" /> <StatusText status="unknown" glyph="" /></li>
+          <li key={c.id}><NodeChip id={c.id} size="sm" glyph={false} /> <StatusText status="unknown" glyph="" /></li>
         ))}
       </ul>
     </Section>

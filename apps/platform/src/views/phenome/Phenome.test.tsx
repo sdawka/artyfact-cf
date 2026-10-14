@@ -187,6 +187,8 @@ it("keeps runtime outcome verdicts unknown despite implementation and raw pass e
  });
  const card=(await screen.findByRole('heading',{name:'Outcome criteria'})).closest('section')!;
  expect(within(card).getByText('unknown')).toBeTruthy();expect(card.querySelector('[data-verdict="pass"]')).toBeNull();expect(container.textContent).toContain('Runtime outcome evaluation is not available');
+ // A verdict row: the criterion's ✓ kind glyph beside "unknown" would read as a pass.
+ expect(card.querySelector('li')!.textContent).not.toContain('✓');
 });
 
 it('shows implementation evaluations only through the selected deployment build candidate',async()=>{
