@@ -5,6 +5,7 @@ import { PracticeStack } from './PracticeStack';
 import { ModelNesting } from './ModelNesting';
 import { AgentEnvironment } from './AgentEnvironment';
 import { HandoffDiagram } from './HandoffDiagram';
+import { ArtifactsBackbone } from './ArtifactsBackbone';
 export type SiteConfig = { platform: string | null; source: string | null };
 export const pages = {
   '/': { title: 'Artyfact — The Git platform that keeps track of the product', description: 'A Git platform for teams of AI agents, on Cloudflare. A model of your product sits next to the code. Change requests, agent work, checks, merges, deploys and runtime events all link back to it.' },
@@ -44,16 +45,7 @@ function Home({ config, landingHtml }: { config: SiteConfig; landingHtml?: strin
     <section className="section landing-story" id="home-system-story" aria-labelledby="checkout-heading">
       {landingHtml === undefined ? <div data-landing-story=""><LandingStory /></div> : <div data-landing-story="" dangerouslySetInnerHTML={{ __html: landingHtml }} />}
     </section>
-    <section className="section cloudflare-stack" aria-labelledby="cloudflare-heading">
-      <div className="section-heading"><h2 id="cloudflare-heading">How it runs on Cloudflare.</h2><p>It uses Workers, a Durable Object, Workflows and Cloudflare Artifacts for Git. You run it in your own account.</p></div>
-      <dl className="cloudflare-cells">
-        <div><dt>Workers + Static Assets</dt><dd>The platform Worker serves the API and the review app.</dd></div>
-        <div><dt>Artifacts</dt><dd>Git repositories for the model and the app. A fork for each agent Task.</dd></div>
-        <div><dt>Workflows</dt><dd>A separate CI Worker builds and deploys app commits. The platform starts it through a cross-script binding.</dd></div>
-        <div><dt>Durable Object + SQLite</dt><dd>One per System. It holds the head, the history and the compare-and-swap promote.</dd></div>
-        <div><dt>Queues <span className="term-label">optional</span></dt><dd>Push events from Artifacts. The CLI submits directly, so you rarely need this path.</dd></div>
-      </dl>
-    </section>
+    <ArtifactsBackbone />
     <section className="section agent-strip" aria-labelledby="agent-strip-heading">
       <h2 id="agent-strip-heading">Bring your agent.</h2>
       <ol><li>Run the agent you already use, on your machine.</li><li>It gets a brief cut from the model and a token for its own fork.</li><li>It checkpoints, then submits a candidate for review.</li></ol>

@@ -177,3 +177,18 @@ test('guide step links move focus to their section', async ({ page }) => {
   await expect(page).toHaveURL(/#review$/);
   await expect(page.locator('#review')).toBeFocused();
 });
+test('the Artifacts backbone fits 320px, stacks its lanes and survives forced colors', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+  await page.goto('https://artyfact.test/#artifacts');
+  const section = page.locator('#artifacts');
+  await expect(section.locator('.backbone-lane')).toHaveCount(6);
+  for (const node of await section.locator('.backbone-node').all()) await expect(node).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(await section.locator('.backbone-node, .backbone-pieces > div').evaluateAll(elements => elements.filter(element => element.scrollWidth > element.clientWidth + 1).length)).toBe(0);
+  const lanes = await section.locator('[data-lane="system"] .backbone-node').evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().left)));
+  expect(new Set(lanes).size).toBe(1);
+  const [fork, canvasText] = await section.locator('[data-kind="fork"]').first().evaluate(element => [getComputedStyle(element).borderTopColor, getComputedStyle(document.body).color]);
+  expect(fork).toBe(canvasText);
+  await expect(section.locator('[data-status="coming-soon"]')).toContainText('Coming soon');
+});

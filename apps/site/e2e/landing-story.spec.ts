@@ -72,7 +72,7 @@ test('narrow screens keep every section in flow without horizontal scroll', asyn
     await page.getByRole('button', { name: 'Step 5: Integrate and promote' }).click();
     await expect(page.locator('.checkout-promote')).toHaveAttribute('data-phase', 'current');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    const clipped = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.practice-card, .checkout-row, .cloudflare-cells > div')].filter(element => element.scrollWidth > element.clientWidth + 1).length);
+    const clipped = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.practice-card, .checkout-row, .backbone-node, .backbone-pieces > div')].filter(element => element.scrollWidth > element.clientWidth + 1).length);
     expect(clipped).toBe(0);
     await page.locator('.checkout-stage').screenshot({ path: info.outputPath(`${width}x${height}-stage.png`) });
   }
