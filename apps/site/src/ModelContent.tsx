@@ -71,7 +71,7 @@ export function ModelContent({ explorerHtml, platform }: ModelContentProps) {
     <section className="section model-where" aria-labelledby="model-where-heading">
       <div className="section-heading"><h2 id="model-where-heading">Where it lives.</h2><p>The model sits next to your code in Git. A Thing can start with its model alone, before any Parts or source code.</p></div>
       <dl className="model-where-list">
-        <div><dt>Cloudflare</dt><dd>Source can be versioned through Cloudflare Artifacts, its Git-compatible repository service. A Thing maps to one or more artifacts, such as a Worker with static assets. A logical subject is not a deployed resource; source, build output and running resources stay distinct. <a className="text-link" href="/#cloudflare">See how a System lives in Artifacts</a></dd></div>
+        <div><dt>Cloudflare</dt><dd>Source can be versioned through Cloudflare Artifacts, its Git-compatible repository service. A Thing maps to one or more artifacts, such as a Worker with static assets. A logical subject is not a deployed resource; source, build output and running resources stay distinct. <a className="text-link" href="/#cloudflare">See how it runs on Cloudflare</a></dd></div>
         <div><dt>Parts</dt><dd>Reusable model content, files and pinned dependencies that a Thing can compose. Composition records where each piece came from.</dd></div>
         <div><dt>Rule Packs</dt><dd>Checks over the model, such as <code>theory@1</code> for claims. The bundled authorization pack checks modeled policy coverage, not deployed security.</dd></div>
       </dl>

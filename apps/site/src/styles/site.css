@@ -330,7 +330,7 @@ html, body { overflow-x: clip; }
 .backbone-pieces dd { font-size: .86rem; }
 .backbone-pieces > [data-status="coming-soon"] { border-style: dashed; background: transparent; }
 .backbone-pieces > [data-status="coming-soon"] dd, .backbone-pieces > [data-status="coming-soon"] dt { color: var(--color-text-secondary); }
-#cloudflare { scroll-margin-top: 24px; }
+#cloudflare, #artifacts { scroll-margin-top: 24px; }
 @supports (animation-timeline: view()) {
   .backbone-branch path { stroke-dasharray: 1; animation: practice-arrow-draw linear both; animation-timeline: view(); animation-range: entry 10% cover 35%; }
 }

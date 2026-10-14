@@ -37,7 +37,7 @@ const pieces: { name: string; text: React.ReactNode; soon?: boolean }[] = [
   { name: 'Artifacts binding', text: 'The Worker reads commits and trees directly. It writes with a small built-in Git push, not a Git library.' },
   { name: 'Workers + Static Assets', text: 'The platform Worker serves the API and the review app.' },
   { name: 'Durable Object + SQLite', text: 'One per System. It holds the head and the history, and runs the compare-and-swap promote.' },
-  { name: 'Workflows', text: 'The artyfact-ci Worker builds app commits and deploys previews and production.' },
+  { name: 'Workflows + Containers + R2', text: 'The artyfact-ci Worker runs a Workflow that builds each app commit in a container and deploys previews and production. R2 holds workspace snapshots and the install cache.' },
   { name: 'Queues', text: <>Push events from Artifacts. Optional: the CLI submits directly.</> },
   { name: 'Flagship', text: 'Feature flags are shown next to deployments and metrics. An admin can create, update or turn off a flag, with a reason, and each change is logged.' },
   { name: 'Email', soon: true, text: 'Review requests and promotion notices, through Cloudflare Email Service.' },
@@ -50,8 +50,8 @@ function Branch() {
 /** Static: lanes are lists of commits and forks, each tagged with its stage. CSS lays them out as a branching history. */
 export function ArtifactsBackbone() {
   return <section className="section artifacts-backbone" id="cloudflare" aria-labelledby="cloudflare-heading">
-    <div className="section-heading"><h2 id="cloudflare-heading">Built on Cloudflare.</h2><p>Every piece runs on Cloudflare. At the centre is Artifacts, Cloudflare’s Git storage: the model, the app and a private fork for each Task all live there. Workers, a Durable Object, Workflows, Queues and Flagship do the rest.</p></div>
-    <figure className="backbone" aria-labelledby="backbone-caption">
+    <div className="section-heading"><h2 id="cloudflare-heading">Built on Cloudflare.</h2><p>Each Cloudflare product has one job. Artifacts, Cloudflare’s Git storage, is the backbone: it holds the product’s history and gives every Task its own isolated copy. You run all of it in your own account.</p></div>
+    <figure className="backbone" id="artifacts" aria-labelledby="backbone-caption">
       <figcaption id="backbone-caption">One System’s history, from import to a promoted change. Sample commits.</figcaption>
       <div className="backbone-stages" aria-hidden="true">{stages.map((stage, index) => <span key={stage}>{index + 1}. {stage}</span>)}</div>
       {lanes.map(lane => <div key={lane.id} className="backbone-lane" data-lane={lane.id}>

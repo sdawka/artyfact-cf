@@ -123,6 +123,7 @@ test('the Built on Cloudflare section prerenders its lanes, forks, promote node 
   const document = new JSDOM(await readFile(resolve(dist, 'index.html'), 'utf8')).window.document;
   const section = document.getElementById('cloudflare');
   assert.equal(section.querySelector('h2').textContent, 'Built on Cloudflare.');
+  assert(section.querySelector('#artifacts.backbone'), '#artifacts stays an alias for the diagram');
   assert.deepEqual([...section.querySelectorAll('.backbone-lane')].map(lane => lane.dataset.lane), ['system', 'genome', 'app', 'tasks', 'integrate', 'platform']);
   assert.equal(section.querySelectorAll('[data-lane="tasks"] .backbone-node[data-kind="fork"]').length, 2);
   assert.equal(section.querySelectorAll('[data-lane="tasks"] .backbone-token').length, 2);
@@ -130,7 +131,7 @@ test('the Built on Cloudflare section prerenders its lanes, forks, promote node 
   const promote = section.querySelector('.backbone-node[data-kind="promote"]');
   assert(promote && promote.dataset.stage === '5' && /Pins model a2 and app c1/.test(promote.textContent));
   const pieces = [...section.querySelectorAll('.backbone-pieces > div')];
-  for (const name of ['Artifacts', 'Artifacts binding', 'Workers + Static Assets', 'Durable Object + SQLite', 'Workflows', 'Queues', 'Flagship', 'Email']) assert(pieces.some(piece => piece.querySelector('dt').textContent.startsWith(name)), name);
+  for (const name of ['Artifacts', 'Artifacts binding', 'Workers + Static Assets', 'Durable Object + SQLite', 'Workflows + Containers + R2', 'Queues', 'Flagship', 'Email']) assert(pieces.some(piece => piece.querySelector('dt').textContent.startsWith(name)), name);
   const soon = pieces.filter(piece => piece.dataset.status === 'coming-soon');
   assert.equal(soon.length, 1);
   assert(/^Email/.test(soon[0].querySelector('dt').textContent) && soon[0].textContent.includes('Coming soon'));

@@ -177,7 +177,7 @@ test('guide step links move focus to their section', async ({ page }) => {
   await expect(page).toHaveURL(/#review$/);
   await expect(page.locator('#review')).toBeFocused();
 });
-test('the Artifacts backbone fits 320px, stacks its lanes and survives forced colors', async ({ page }) => {
+test('the Cloudflare section fits 320px, stacks its lanes and survives forced colors', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 640 });
   await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
   await page.goto('https://artyfact.test/#cloudflare');
