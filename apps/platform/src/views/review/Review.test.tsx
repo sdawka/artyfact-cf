@@ -407,6 +407,15 @@ describe("Import review", () => {
     expect(within(panel).getByText(/delete the System and import it again/)).toBeTruthy();
   });
 
+  it("shows an explicit legacy integrity-unreviewed reason without treating it as agreement", async () => {
+    stub();
+    const legacy = { ...review, integrityUnreviewed: { reason: "Imported before full integrity checks existed", at: "2026-10-14T12:00:00Z" } } as SystemImportReview;
+    renderApp(`${REVIEW}?panel=import`, undefined, (qc) => { importSeed(qc); qc.setQueryData(["importReview", SYSTEM], legacy); });
+    const panel = await screen.findByRole("article", { name: "Import review" });
+    expect(within(panel).getByRole("note").textContent).toContain("Integrity remains unreviewed: Imported before full integrity checks existed");
+    expect(within(panel).getByText("awaiting admin")).toBeTruthy();
+  });
+
   it("sends the effectively rejected nodes with the interpretation and links the removal amendment", async () => {
     const fetchMock = stub();
     renderApp(`${REVIEW}?panel=import`, undefined, importSeed);
