@@ -190,7 +190,7 @@ function Workbench() {
       <ListDetail
         listWidth="wide"
         listLabel="Plans and Evolutions"
-        detailLabel={drafting ? "Plan implementation" : selected ? selected.title : planId ? "Plan" : "Detail"}
+        detailLabel={drafting ? "Plan draft" : selected ? selected.title : planId ? "Plan" : "Detail"}
         hasSelection={hasSelection}
         backLabel="Back to Work"
         onBack={() => setParams((prev) => {
