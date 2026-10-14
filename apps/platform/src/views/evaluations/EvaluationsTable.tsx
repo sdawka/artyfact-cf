@@ -1,3 +1,5 @@
+import { ChevronDownIcon, ChevronRightIcon } from "@radix-ui/react-icons";
+import { Select, IconButton } from "@/components/ui";
 import { Fragment, useId, useMemo, useState } from "react";
 import type { Evaluation } from "../../../shared/api";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
@@ -59,10 +61,10 @@ export function EvaluationsTable({ evaluations, compact, expandedId, onExpand, e
     <div className={styles.wrap}>
       {!compact && (
         <form className={styles.filters} aria-label="Filter evaluations" onSubmit={(e) => e.preventDefault()}>
-          <Select id={`${uid}-c`} label="Candidate" value={candidate} onChange={setCandidate} options={candidates} />
-          <Select id={`${uid}-k`} label="Criterion" value={criterion} onChange={setCriterion} options={criteria} />
-          <Select id={`${uid}-v`} label="Verdict" value={verdict} onChange={(v) => setVerdict(v as UiVerdict | "")} options={VERDICT_FILTERS} />
-          <Select id={`${uid}-x`} label="Execution" value={execution} onChange={setExecution} options={EXECUTION_FILTERS} />
+          <EvaluationFilter id={`${uid}-c`} label="Candidate" value={candidate} onChange={setCandidate} options={candidates} />
+          <EvaluationFilter id={`${uid}-k`} label="Criterion" value={criterion} onChange={setCriterion} options={criteria} />
+          <EvaluationFilter id={`${uid}-v`} label="Verdict" value={verdict} onChange={(v) => setVerdict(v as UiVerdict | "")} options={VERDICT_FILTERS} />
+          <EvaluationFilter id={`${uid}-x`} label="Execution" value={execution} onChange={setExecution} options={EXECUTION_FILTERS} />
         </form>
       )}
       {rows.length === 0 ? (
@@ -87,16 +89,15 @@ export function EvaluationsTable({ evaluations, compact, expandedId, onExpand, e
                 <Fragment key={e.id}>
                   <tr data-open={isOpen || undefined}>
                     <td>
-                      <button
+                      <IconButton variant="ghost"
                         type="button"
-                        className={styles.expand}
                         aria-expanded={isOpen}
                         aria-controls={isOpen ? `${uid}-${e.id}` : undefined}
-                        aria-label={`${isOpen ? "Collapse" : "Expand"} evaluation ${e.id}`}
+                        label={`${isOpen ? "Collapse" : "Expand"} evaluation ${e.id}`}
                         onClick={() => toggle(e.id)}
                       >
-                        <span aria-hidden="true">{isOpen ? "▾" : "▸"}</span>
-                      </button>
+                        {isOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
+                      </IconButton>
                     </td>
                     <td><NodeChip id={e.criterion} size="sm" showId={!compact} /></td>
                     {!compact && <td><code>{e.candidate}</code></td>}
@@ -126,14 +127,11 @@ export function EvaluationsTable({ evaluations, compact, expandedId, onExpand, e
   );
 }
 
-function Select({ id, label, value, onChange, options }: { id: string; label: string; value: string; onChange(v: string): void; options: readonly string[] }) {
+function EvaluationFilter({ id, label, value, onChange, options }: { id: string; label: string; value: string; onChange(v: string): void; options: readonly string[] }) {
   return (
     <div className={styles.field}>
       <label htmlFor={id}>{label}</label>
-      <select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
-        <option value={ALL}>All</option>
-        {options.map((o) => <option key={o} value={o}>{o}</option>)}
-      </select>
+      <Select id={id} value={value} onChange={onChange} options={[{ value: ALL, label: "All" }, ...options.map((option) => ({ value: option, label: option }))]} />
     </div>
   );
 }

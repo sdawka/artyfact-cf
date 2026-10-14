@@ -3,10 +3,11 @@
 .item { padding: var(--spacing-1); border-radius: var(--border-radius-md); }
 .item[data-deferred] { color: var(--color-text-secondary); }
 .select {
-  all: unset;
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
   gap: var(--spacing-1);
   width: 100%;
   padding: var(--spacing-2);

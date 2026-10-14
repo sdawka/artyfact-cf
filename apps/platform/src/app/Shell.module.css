@@ -3,7 +3,7 @@
   position: relative;
   z-index: 1;
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: 256px minmax(0, 1fr) auto;
   grid-template-rows: auto 1fr;
   height: 100dvh;
   overflow: hidden;
@@ -13,12 +13,12 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  padding: var(--spacing-6);
+  padding: 32px;
   background: var(--surface-wash);
 }
 .main:focus { outline: none; }
 .loading {
-  padding: var(--spacing-6);
+  padding: 32px;
   color: var(--color-text-secondary);
 }
 .errorPage {
@@ -26,8 +26,9 @@
   margin: 0 auto;
   padding: var(--spacing-12) var(--spacing-4);
 }
-@media (max-width: 640px) {
-  .main { padding: var(--spacing-4); }
+@media (max-width: 1023px) {
+  .shell { grid-template-columns: minmax(0, 1fr); }
+  .main { padding: 20px; }
 }
 
 .breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-3); margin-bottom: var(--spacing-4); font-size: var(--font-size-sm); }
@@ -35,7 +36,7 @@
 .context { color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0 0 var(--spacing-4); }
 
 /* The atlas owns scrolling and viewport layout. Details overlays rather than resizing its canvas. */
-.shell[data-view="map"] { grid-template-columns: auto minmax(0, 1fr); }
+.shell[data-view="map"] { grid-template-columns: 256px minmax(0, 1fr); }
 .shell[data-view="map"] .main { padding: 0; overflow: hidden; }
 .shell[data-view="map"] > aside {
   position: absolute;
@@ -45,10 +46,13 @@
   max-width: 100%;
   box-shadow: var(--shadow-lg);
 }
-@media (max-width: 640px) {
+@media (max-width: 1023px) {
   .shell[data-view="map"] > aside {
     position: fixed;
     inset: auto 0 0 0;
     height: 55dvh;
   }
 }
+
+.navigationSheet { width: min(320px, calc(100vw - 20px)); padding: 20px; overflow-y: auto; }
+@media (max-width: 1023px) { .shell[data-view="map"] { grid-template-columns: minmax(0, 1fr); } }

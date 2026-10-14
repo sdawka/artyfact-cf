@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { useSearchParams } from "react-router";
 import type { FileScope } from "../../../shared/api";
 import { useClientMode, useCompare, useRevisions } from "@/api/queries";
@@ -70,7 +71,7 @@ export default function CompareView() {
         ) : current.isError ? (
           <EmptyState
             title="Could not compare these revisions."
-            action={<button type="button" className={`u-brackets ${styles.btn}`} onClick={() => void current.refetch()}>Retry</button>}
+            action={<Button type="button" variant="secondary" onClick={() => void current.refetch()}>Retry</Button>}
           >
             {current.error.message}
           </EmptyState>

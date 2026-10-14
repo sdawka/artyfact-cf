@@ -1,3 +1,5 @@
+import { useCompactLayout, useViewportWidth } from "@/app/useCompactLayout";
+import { Sheet } from "@/components/ui";
 import { useRef, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import styles from "./Drawer.module.css";
 
@@ -9,19 +11,24 @@ export interface DrawerProps {
   onWidthChange?(width: number): void;
   minWidth?: number;
   maxWidth?: number;
+  onClose?(): void;
   children: ReactNode;
 }
 
 /**
- * Right-hand panel with a drag/keyboard resize handle on its left edge. At phone width it
- * becomes a bottom sheet (CSS only). Renders nothing when closed.
+ * Right-hand panel with a drag/keyboard resize handle on its left edge. Below the shell breakpoint it
+ * becomes a modal bottom sheet. Renders nothing when closed.
  */
-export function Drawer({ open, label, width, onWidthChange, minWidth = 280, maxWidth = 720, children }: DrawerProps) {
+export function Drawer({ open, label, width, onWidthChange, minWidth = 280, maxWidth = 720, onClose, children }: DrawerProps) {
+  const compact = useCompactLayout();
+  const viewportWidth = useViewportWidth();
+  const availableMax = Math.max(minWidth, Math.min(maxWidth, viewportWidth - 256 - 400));
+  const effectiveWidth = Math.min(width, availableMax);
   const start = useRef<{ x: number; w: number } | null>(null);
   if (!open) return null;
-  const clamp = (w: number) => Math.min(maxWidth, Math.max(minWidth, Math.round(w)));
+  const clamp = (w: number) => Math.min(availableMax, Math.max(minWidth, Math.round(w)));
   const onDown = (e: PointerEvent<HTMLDivElement>) => {
-    start.current = { x: e.clientX, w: width };
+    start.current = { x: e.clientX, w: effectiveWidth };
     e.currentTarget.setPointerCapture?.(e.pointerId);
   };
   const onMove = (e: PointerEvent<HTMLDivElement>) => {
@@ -34,20 +41,25 @@ export function Drawer({ open, label, width, onWidthChange, minWidth = 280, maxW
     const d = e.key === "ArrowLeft" ? 16 : e.key === "ArrowRight" ? -16 : 0;
     if (d) {
       e.preventDefault();
-      onWidthChange?.(clamp(width + d));
+      onWidthChange?.(clamp(effectiveWidth + d));
     }
   };
+  if (compact) return <Sheet open={open} onOpenChange={(next) => { if (!next) onClose?.(); }} title={label} side="bottom" className={styles.sheet} onEscapeKeyDown={(event) => event.stopPropagation()}
+    onCloseAutoFocus={(event) => event.preventDefault()}
+    onOpenAutoFocus={(event) => { event.preventDefault(); (event.target as HTMLElement).querySelector<HTMLElement>("[data-inspector-title]")?.focus(); }}>
+    <aside aria-label={label}><div className={styles.body}>{children}</div></aside>
+  </Sheet>;
   return (
-    <aside className={styles.drawer} aria-label={label} style={{ width }}>
+    <aside className={styles.drawer} aria-label={label} style={{ width: effectiveWidth }}>
       {onWidthChange && (
         <div
           className={styles.handle}
           role="separator"
           aria-orientation="vertical"
           aria-label={`Resize ${label}`}
-          aria-valuenow={width}
+          aria-valuenow={effectiveWidth}
           aria-valuemin={minWidth}
-          aria-valuemax={maxWidth}
+          aria-valuemax={availableMax}
           tabIndex={0}
           onPointerDown={onDown}
           onPointerMove={onMove}

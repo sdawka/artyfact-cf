@@ -1,5 +1,7 @@
 /* Verdict tokens: only pass uses the success colour; stale is the same subtle tone, dashed. */
 :root {
+  --control-height: 44px;
+  --app-gutter: 32px;
   --verdict-pass: var(--color-success);
   --verdict-fail: var(--color-danger);
   --verdict-unknown: var(--color-text-subtle);
@@ -119,3 +121,5 @@
 .u-verdict[data-verdict="unknown"] { color: var(--verdict-unknown); }
 .u-verdict[data-verdict="not-run"] { color: var(--verdict-not-run); }
 .u-verdict[data-verdict="stale"] { color: var(--verdict-stale); border-style: dashed; }
+
+@media (max-width: 1023px) { :root { --app-gutter: 20px; } }

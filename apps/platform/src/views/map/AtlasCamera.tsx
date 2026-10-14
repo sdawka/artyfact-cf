@@ -1,5 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { Controls, useReactFlow, type Viewport } from "@xyflow/react";
+import { useSystemReducedMotion } from "@artyfact/effects";
+import { useEffectsPreference } from "@/effects/effectsPreference";
+import { anchoredViewport, readableLocateViewport, CameraSequence, cameraDuration, type AtlasTravel } from "./atlasCameraMotion";
 import type { AtlasLayout } from "./atlasLayout";
 import type { MapGraph } from "./useMapGraph";
 import { useModel } from "@/model/useModel";
@@ -10,41 +13,124 @@ import styles from "./MapView.module.css";
 
 /** Session-local scope cameras survive scope changes and Details without persisting model data. */
 const cameras = new Map<string, Viewport>();
-export const saveAtlasCamera = (key: string, viewport: Viewport) => { cameras.set(key, viewport); };
-const reduced = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+export const saveAtlasCamera = (key: string, viewport: Viewport) => {
+  // A hidden/zero-size pane can yield a nonfinite intermediate d3 frame. Never retain it.
+  if (![viewport.x, viewport.y, viewport.zoom].every(Number.isFinite) || viewport.zoom <= 0) return;
+  cameras.set(key, viewport);
+};
 
-export function AtlasCamera({ cameraKey, layout, canvas, graph, focusId, locate, onLocate }: {
+
+export function AtlasCamera({ cameraKey, layout, canvas, graph, focusId, travel, onTravel, onCancelTravel, locate, onLocate }: {
   cameraKey: string; layout: AtlasLayout; canvas: HTMLElement | null; graph: MapGraph; focusId: string | null;
+  travel: AtlasTravel | null; onTravel: (request: AtlasTravel) => boolean | void; onCancelTravel: () => void;
   locate: { id: string; sequence: number } | null; onLocate: (id: string) => void;
 }) {
   const rf = useReactFlow();
   const { index } = useModel();
+  const { enabled } = useEffectsPreference();
+  const reduced = useSystemReducedMotion();
+  const sequence = useRef(new CameraSequence());
+  const handoff = useRef<{ target: string; id: string; anchor: { x: number; y: number }; renderedWidth: number } | null>(null);
+  const traveling = useRef(false);
+  const approachActive = useRef(false);
+  const handledTravel = useRef<number | null>(null);
+  const travelCallbacks = useRef({ onTravel, onCancelTravel });
+  travelCallbacks.current = { onTravel, onCancelTravel };
+  const motionDuration = cameraDuration(enabled, reduced, 240);
   const active = useRef<string | null>(null);
   const located = useRef<number | null>(null);
   const [outside, setOutside] = useState<string[]>([]);
-  useEffect(() => {
-    if (!canvas) return;
+  useLayoutEffect(() => {
+    if (!canvas || !rf.viewportInitialized) return;
     const fit = () => {
       if (active.current === cameraKey) return;
-      const width = canvas.clientWidth || canvas.offsetWidth;
-      const height = canvas.clientHeight || canvas.offsetHeight;
+      const width = canvas.clientWidth || canvas.offsetWidth, height = canvas.clientHeight || canvas.offsetHeight;
       if (!width || !height) return;
       active.current = cameraKey;
-      void rf.setViewport(cameras.get(cameraKey) ?? initialAtlasViewport(layout, graph, width, height));
+      const ticket = sequence.current.begin();
+      const final = cameras.get(cameraKey) ?? initialAtlasViewport(layout, graph, width, height);
+      const transfer = handoff.current;
+      handoff.current = null;
+      const box = transfer?.target === graph.scope ? layout.boxes[transfer.id] : undefined;
+      if (transfer && box && motionDuration) {
+        const start = anchoredViewport(box, transfer.anchor, transfer.renderedWidth / box.width);
+        traveling.current = true;
+        void rf.setViewport(start).then(() => {
+          if (!sequence.current.isCurrent(ticket)) return;
+          return rf.setViewport(final, { duration: motionDuration }).then(() => {
+            if (!sequence.current.isCurrent(ticket)) return;
+            traveling.current = false;
+            saveAtlasCamera(cameraKey, final);
+          });
+        });
+      } else { traveling.current = false; void rf.setViewport(final); }
     };
     fit();
     const ro = typeof ResizeObserver === "undefined" ? null : new ResizeObserver(fit);
     ro?.observe(canvas);
     return () => ro?.disconnect();
-  }, [cameraKey, layout, graph.scope, canvas, rf]);
+  }, [cameraKey, layout, graph.scope, canvas, rf, motionDuration]);
   useEffect(() => {
-    if (!locate || located.current === locate.sequence) return;
-    const box = layout.boxes[locate.id];
-    if (box) {
-      located.current = locate.sequence;
-      void rf.setCenter(box.x + box.width / 2, box.y + box.height / 2, { zoom: rf.getViewport().zoom, duration: reduced() ? 0 : 180 }).then(() => saveAtlasCamera(cameraKey, rf.getViewport()));
+    if (!travel && approachActive.current) {
+      sequence.current.cancel(); approachActive.current = false; traveling.current = false; handoff.current = null;
+      void rf.setViewport(rf.getViewport());
     }
-  }, [locate, layout, rf, cameraKey]);
+    if (!travel || !canvas || !rf.viewportInitialized || (travel.source && (!travel.historyKey || travel.source !== graph.scope)) || handledTravel.current === travel.sequence) return;
+    handledTravel.current = travel.sequence;
+    approachActive.current = true;
+    const ticket = sequence.current.begin();
+    const before = rf.getViewport();
+    saveAtlasCamera(cameraKey, before);
+    const box = layout.boxes[travel.id];
+    const anchor = box ? { x: (box.x + box.width / 2) * before.zoom + before.x, y: (box.y + box.height / 2) * before.zoom + before.y } : { x: canvas.clientWidth / 2, y: canvas.clientHeight / 2 };
+    const approach = box ? anchoredViewport(box, anchor, before.zoom * (travel.kind === "up" ? .82 : 1.2)) : before;
+    traveling.current = true;
+    void rf.setViewport(approach, { duration: cameraDuration(enabled, reduced, 150) }).then(() => {
+      if (!sequence.current.isCurrent(ticket)) return;
+      approachActive.current = false;
+      handoff.current = { target: travel.target, id: travel.kind === "up" ? travel.id : travel.focus ?? travel.target, anchor, renderedWidth: (box?.width ?? 432) * approach.zoom };
+      traveling.current = false;
+      if (travelCallbacks.current.onTravel(travel) === false) handoff.current = null;
+    });
+  }, [travel, canvas, rf, cameraKey, layout, graph.scope, enabled, reduced]);
+  useEffect(() => {
+    if (!locate || located.current === locate.sequence || !canvas || !rf.viewportInitialized) return;
+    const box = layout.boxes[locate.id];
+    if (!box) return;
+    located.current = locate.sequence;
+    const ticket = sequence.current.begin();
+    const target = readableLocateViewport(box, canvas.clientWidth || canvas.offsetWidth, canvas.clientHeight || canvas.offsetHeight, rf.getViewport().zoom);
+    traveling.current = true;
+    void rf.setViewport(target, { duration: cameraDuration(enabled, reduced, 180) }).then(() => {
+      if (!sequence.current.isCurrent(ticket)) return;
+      traveling.current = false;
+      saveAtlasCamera(cameraKey, rf.getViewport());
+    });
+  }, [locate, layout, rf, cameraKey, canvas, motionDuration]);
+  useEffect(() => {
+    if (!canvas) return;
+    const interrupt = (event: Event) => {
+      // Overlay actions (such as closing Tree) are not pan/zoom gestures.
+      if (!(event.target instanceof Element) || !event.target.closest(".react-flow")) return;
+      // A continuing depth gesture owns its latched navigation request.
+      if (event instanceof WheelEvent && (event.ctrlKey || event.metaKey)) return;
+      if (event instanceof TouchEvent && event.touches.length === 2) return;
+      if (!traveling.current) return;
+      sequence.current.cancel();
+      approachActive.current = false;
+      handoff.current = null;
+      traveling.current = false;
+      // React Flow's immediate setViewport interrupts its current d3 zoom transition.
+      void rf.setViewport(rf.getViewport());
+      saveAtlasCamera(cameraKey, rf.getViewport());
+      travelCallbacks.current.onCancelTravel();
+    };
+    canvas.addEventListener("pointerdown", interrupt, true);
+    canvas.addEventListener("wheel", interrupt, true);
+    canvas.addEventListener("touchstart", interrupt, true);
+    return () => { canvas.removeEventListener("pointerdown", interrupt, true); canvas.removeEventListener("wheel", interrupt, true); canvas.removeEventListener("touchstart", interrupt, true); };
+  }, [canvas, rf, cameraKey]);
+  useEffect(() => () => { sequence.current.cancel(); }, []);
   useEffect(() => {
     if (!canvas || (!focusId && graph.scope !== ENVIRONMENT_SCOPE)) { setOutside([]); return; }
     const update = () => {

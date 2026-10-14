@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { memo } from "react";
 import { Link } from "react-router";
 import type { Candidate, ConflictReport, Realization } from "../../../shared/api";
@@ -45,12 +46,12 @@ export const RealizationRow = memo(function RealizationRow({ realization: r, can
       {candidate && <div className={styles.rmeta}><BuildChip build={candidate.build} /></div>}
       <ConflictChips conflicts={conflicts} />
       <div className={styles.actions}>
-        <button type="button" className={`u-brackets ${styles.btn}`} aria-pressed={reviewing} onClick={() => onReview(r.id)}>
+        <Button type="button" variant="secondary" aria-pressed={reviewing} onClick={() => onReview(r.id)}>
           {reviewing ? "Reviewing" : "Review"} <span className="sr-only">{r.id}</span>
-        </button>
-        <Link className={`u-brackets ${styles.reviewLink}`} to={href("review", { evolution: r.evolution, realization: r.id, panel: null })}>
+        </Button>
+        <Button asChild className="u-brackets"><Link to={href("review", { evolution: r.evolution, realization: r.id, panel: null })}>
           Open in Review <span className="sr-only">{r.id}</span>
-        </Link>
+        </Link></Button>
       </div>
     </li>
   );

@@ -42,7 +42,7 @@ export function CrossLinkEdge(props: EdgeProps<CrossLinkFlowEdge>) {
         id={id}
         path={path}
         {...(markerEnd && { markerEnd })}
-        className={styles.path}
+        className={`${styles.path} ${data?.active ? styles.active : ""}`}
         style={{ strokeDasharray: DASH[edge.stroke], opacity: data?.dim ? 0.15 : 1, strokeWidth: data?.active ? 2 : 1.25 }}
       />
       {data?.flow && <path d={path} className="fx-flow" aria-hidden="true" data-edge-flow={id} />}

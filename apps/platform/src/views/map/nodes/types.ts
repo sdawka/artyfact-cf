@@ -1,3 +1,4 @@
+import type { RelationDirections } from "../atlasRelationStyle";
 import type { Edge, Node } from "@xyflow/react";
 import type { ElkPoint } from "@/graph/elk";
 import type { Layer } from "@/model/useSelection";
@@ -5,6 +6,8 @@ import type { MapBand, MapEdge, MapNode } from "../useMapGraph";
 
 export interface MapNodeData extends Record<string, unknown> {
   node: MapNode;
+  relation?: RelationDirections;
+  emphasized?: boolean;
   layer: Layer;
   /** Selected candidates touching this node (or its subtree). */
   candidates: string[];

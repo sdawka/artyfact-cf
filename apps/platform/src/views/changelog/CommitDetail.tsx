@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import type { ReactNode } from "react";
 import { Link } from "react-router";
 import type { ChangelogEntry, ChangelogRow } from "../../../shared/api";
@@ -127,7 +128,7 @@ function Detail({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
       </Section>
       {row.parent && (
         <p>
-          <Link to={href("compare", { from: row.parent, to: row.id })} className={`u-brackets ${styles.btn}`}>Compare with parent</Link>
+          <Button asChild variant="secondary"><Link to={href("compare", { from: row.parent, to: row.id })}>Compare with parent</Link></Button>
         </p>
       )}
     </>
@@ -143,7 +144,7 @@ export function CommitDetail({ id, row }: { id: string; row: ChangelogRow }) {
         <p role="status">Loading commit {row.id}…</p>
       ) : q.isError || !q.data ? (
         <p role="alert" className={styles.error}>
-          Could not load this commit's detail. <button type="button" className={`u-brackets ${styles.btn}`} onClick={() => void q.refetch()}>Retry</button>
+          Could not load this commit's detail. <Button type="button" variant="secondary" onClick={() => void q.refetch()}>Retry</Button>
         </p>
       ) : (
         <Detail entry={q.data} row={row} />

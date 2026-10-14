@@ -3,6 +3,7 @@ import { kindColour, titleOf, useKindView } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
 import { CandidateHalo } from "../overlays/CandidateHalo";
 import { LayerBadges, useRealizationCount } from "./NodeOverlays";
+import { relationBorderStyle } from "../atlasRelationStyle";
 import styles from "./nodes.module.css";
 import type { SubjectFlowNode } from "./types";
 
@@ -16,6 +17,9 @@ export function SubjectNode({ data, selected }: NodeProps<SubjectFlowNode>) {
   return (
     <div
       className={styles.node}
+      style={relationBorderStyle(data.relation)}
+      data-related={!!data.relation || undefined}
+      data-emphasized={data.emphasized || undefined}
       data-map-node={node.id}
       data-role={node.role}
       data-system={node.kind === "system" || undefined}

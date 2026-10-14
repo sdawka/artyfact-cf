@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { lazy, Suspense } from "react";
 import { Link } from "react-router";
 import type { FileScope } from "../../../shared/api";
@@ -54,11 +55,11 @@ export function FilePane({ repo, path, draft, editBlocked, editing, onEdit, onSt
         {kind && <span className={styles.kind} data-change={kind}>{kind}</span>}
         <div className={styles.paneActions}>
           {canEdit && readOnly && kind !== "deleted" && (
-            <button type="button" className={`u-brackets ${styles.btn}`} onClick={onEdit}>Edit</button>
+            <Button type="button" variant="secondary" onClick={onEdit}>Edit</Button>
           )}
-          {kind && <button type="button" className={`u-brackets ${styles.btn}`} onClick={discard}>Discard</button>}
+          {kind && <Button type="button" variant="secondary" onClick={discard}>Discard</Button>}
           {canEdit && kind !== "deleted" && (
-            <button type="button" className={`u-brackets ${styles.btn}`} onClick={() => { draft.remove(path, base); onStopEditing(); }}>Delete file</button>
+            <Button type="button" variant="secondary" onClick={() => { draft.remove(path, base); onStopEditing(); }}>Delete file</Button>
           )}
         </div>
       </div>

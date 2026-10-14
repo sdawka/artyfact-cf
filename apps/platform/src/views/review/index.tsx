@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { Link } from "react-router";
 import type { Evolution, Realization } from "../../../shared/api";
 import { useCandidates } from "@/api/queries";
@@ -112,9 +113,9 @@ function Composition({ ids }: { ids: readonly string[] }) {
         })}
       </ul>
       {owners.length === 1 ? (
-        <Link className={`u-brackets ${styles.action}`} to={href("review", { evolution: owners[0]!, realization: null, panel: "promote" })}>
+        <Button asChild className={styles.action}><Link to={href("review", { evolution: owners[0]!, realization: null, panel: "promote" })}>
           Promote {title(owners[0]!)}
-        </Link>
+        </Link></Button>
       ) : (
         <p className={styles.muted}>
           {owners.length > 1 ? "These candidates belong to different Evolutions; each is promoted from its own Evolution." : "Open a candidate to review it."}

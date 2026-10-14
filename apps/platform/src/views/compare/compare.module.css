@@ -3,17 +3,6 @@
 .error { color: var(--verdict-fail); }
 .stack { display: grid; gap: var(--spacing-4); }
 .picker { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-3); }
-.btn {
-  padding: var(--spacing-1) var(--spacing-3);
-  color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-.btn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .identical { margin: 0; color: var(--color-text-secondary); }
 .table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); background: var(--color-surface-secondary); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); }
 .table th, .table td { padding: var(--spacing-1) var(--spacing-3); text-align: left; vertical-align: top; border-bottom: 1px solid var(--color-border-subtle); }

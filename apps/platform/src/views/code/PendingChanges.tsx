@@ -1,3 +1,4 @@
+import { Button, Input } from "@/components/ui";
 import { useId, useState, type FormEvent } from "react";
 import { Link } from "react-router";
 import { Card } from "@/components/Card/Card";
@@ -49,13 +50,13 @@ export function PendingChanges({ pending, existing, editBlocked, hrefFor, commit
       title={`Pending changes${pending.length ? ` (${pending.length})` : ""}`}
       actions={
         <>
-          <button type="button" className={`u-brackets ${styles.btn}`} onClick={() => setAdding((a) => !a)} disabled={!!editBlocked} aria-expanded={adding}>
+          <Button type="button" variant="secondary" onClick={() => setAdding((a) => !a)} disabled={!!editBlocked} aria-expanded={adding}>
             New file…
-          </button>
+          </Button>
           {pending.length ? (
-            <Link to={commitHref} className={`u-brackets ${styles.primary}`}>Commit…</Link>
+            <Button asChild variant="primary"><Link to={commitHref}>Commit…</Link></Button>
           ) : (
-            <button type="button" className={styles.primary} disabled title="No pending changes.">Commit…</button>
+            <Button type="button" variant="primary" disabled title="No pending changes.">Commit…</Button>
           )}
         </>
       }
@@ -63,8 +64,8 @@ export function PendingChanges({ pending, existing, editBlocked, hrefFor, commit
       {adding && (
         <form onSubmit={submit} className={styles.inlineForm}>
           <label htmlFor={`${uid}-p`}>New file path</label>
-          <input id={`${uid}-p`} value={path} onChange={(e) => setPath(e.target.value)} placeholder="e.g. src/notes.md" autoComplete="off" aria-describedby={problem ? `${uid}-e` : undefined} />
-          <button type="submit" className={`u-brackets ${styles.btn}`}>Add</button>
+          <Input id={`${uid}-p`} value={path} onChange={(e) => setPath(e.target.value)} placeholder="e.g. src/notes.md" autoComplete="off" aria-describedby={problem ? `${uid}-e` : undefined} />
+          <Button type="submit" variant="secondary">Add</Button>
           {problem && <span id={`${uid}-e`} role="alert" className={styles.error}>{problem}</span>}
         </form>
       )}
@@ -75,7 +76,7 @@ export function PendingChanges({ pending, existing, editBlocked, hrefFor, commit
               <span aria-hidden="true" className={styles.glyph}>{GLYPH[c.kind]}</span>
               <Link to={hrefFor(c.path)} className="u-marker"><code>{c.path}</code></Link>
               <span className={styles.muted}>{c.kind}</span>
-              <button type="button" className={`u-brackets ${styles.btnSm}`} onClick={() => onDiscard(c.path)} aria-label={`Discard ${c.path}`}>Discard</button>
+              <Button type="button" variant="secondary" onClick={() => onDiscard(c.path)} aria-label={`Discard ${c.path}`}>Discard</Button>
             </li>
           ))}
         </ul>

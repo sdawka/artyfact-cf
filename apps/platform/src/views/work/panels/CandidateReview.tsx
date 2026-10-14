@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { lazy, Suspense, useId, useMemo, useState } from "react";
 import type { Candidate, Evolution, Realization } from "../../../../shared/api";
 import { useAdminToken } from "@/api/adminToken";
@@ -51,9 +52,9 @@ export function CandidateReview({ realization, candidate, evolution }: Props) {
     <section className={styles.panel} aria-label={`Review ${realization.id}`}>
       <div className={styles.rhead}>
         <h3>Review {realization.id}</h3>
-        <button type="button" className={`u-brackets ${styles.btn}`} aria-pressed={isSelected} onClick={toggle}>
+        <Button type="button" variant="secondary" aria-pressed={isSelected} onClick={toggle}>
           {isSelected ? "Selected for composition" : "Select for composition"}
-        </button>
+        </Button>
       </div>
       <p className={styles.rmeta}>
         Candidate <code>{candidate.id}</code> · {candidate.state} · base <code>{candidate.baseRevision}</code> · <BuildChip build={candidate.build} />
@@ -92,15 +93,15 @@ function RerunChecks({ candidate }: { candidate: Candidate }) {
   const ran = rerun.isSuccess && rerun.variables?.candidateId === candidate.id ? rerun.data : null;
   return (
     <div className={styles.actions}>
-      <button
+      <Button
         type="button"
-        className={`u-brackets ${styles.btn}`}
+        variant="secondary"
         disabled={!!reason || rerun.isPending}
         aria-describedby={reason ? `${uid}-why` : undefined}
         onClick={() => rerun.mutate({ candidateId: candidate.id, ...(token && { adminToken: token }) })}
       >
         {rerun.isPending ? "Re-running checks…" : "Re-run checks"}
-      </button>
+      </Button>
       {reason && <span id={`${uid}-why`} className={styles.muted}>{reason}</span>}
       {ran && <span role="status" className={styles.muted}>Checks re-run: {ran.evaluations.length} evaluation{ran.evaluations.length === 1 ? "" : "s"} recorded.</span>}
       {rerun.isError && <span role="alert" className={styles.error}>{rerunError(rerun.error)}</span>}

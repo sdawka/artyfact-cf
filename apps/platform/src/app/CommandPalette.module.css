@@ -6,10 +6,12 @@
 }
 .content {
   position: fixed;
-  top: 12vh;
+  top: min(12vh, 64px);
   left: 50%;
   z-index: 41;
-  width: min(640px, calc(100vw - var(--spacing-8)));
+  width: min(640px, calc(100vw - 24px));
+  max-height: calc(100dvh - 88px);
+  overflow: hidden;
   transform: translateX(-50%);
   background: var(--color-surface-primary);
   border: 1px solid var(--color-border-subtle);
@@ -21,7 +23,9 @@
   flex-direction: column;
 }
 .input {
-  padding: var(--spacing-3) var(--spacing-4);
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 12px 20px;
   color: var(--color-text-primary);
   background: none;
   border: 0;
@@ -33,7 +37,7 @@
   border-bottom: 2px solid var(--color-brand-primary);
 }
 .list {
-  max-height: 50vh;
+  max-height: min(50dvh, calc(100dvh - 150px));
   overflow-y: auto;
   padding: var(--spacing-2);
 }
@@ -43,9 +47,11 @@
 }
 .item {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: var(--spacing-2);
-  padding: var(--spacing-2) var(--spacing-3);
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 10px 12px;
   border-radius: var(--border-radius-sm);
   cursor: pointer;
 }
@@ -70,3 +76,14 @@
   color: var(--color-text-subtle);
   font-size: var(--font-size-xs);
 }
+
+.dialog[data-effects="off"] *, .dialog[data-effects="off"] { animation: none !important; transition: none !important; }
+@media (max-width: 640px) { .id { display: none; } }
+
+.overlay, .content { animation: paletteAppear var(--motion-duration-normal) var(--motion-easing-ease-out); }
+@keyframes paletteAppear { from { opacity: 0; } to { opacity: 1; } }
+.motionOff { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .overlay, .content, .dialog * { animation: none !important; transition: none !important; } }
+
+/* Home/Parts uses the shared Dialog frame; it owns centering and viewport bounds. */
+.homeContent { width: min(640px, calc(100vw - 40px)); }

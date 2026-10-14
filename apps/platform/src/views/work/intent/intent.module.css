@@ -23,8 +23,7 @@
   border-radius: var(--border-radius-md);
 }
 .op[data-included="false"] { border-style: dashed; color: var(--color-text-secondary); }
-.opHead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); cursor: pointer; }
-.opHead input:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.opHead { min-height: var(--control-height); display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); cursor: pointer; }
 .verb { font-weight: var(--font-weight-semibold); }
 .opId { margin-left: auto; color: var(--color-text-subtle); font-size: var(--font-size-xs); }
 .line { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1); margin: 0; font-size: var(--font-size-sm); }

@@ -18,25 +18,13 @@
   font-weight: var(--font-weight-semibold);
   color: var(--color-text-secondary);
 }
-.reset {
-  padding: 0 var(--spacing-2);
-  border: 0;
-  border-radius: var(--border-radius-sm);
-  background: none;
-  color: var(--color-text-secondary);
-  font: inherit;
-  cursor: pointer;
-}
-.reset:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
-.check {
+.check { min-height: var(--control-height);
   display: flex;
   gap: var(--spacing-2);
   align-items: center;
   color: var(--color-text-secondary);
   cursor: pointer;
 }
-.check input { accent-color: var(--color-brand-primary); margin: 0; }
-.check input:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .count { color: var(--color-text-subtle); }
 .glyph { width: 1em; color: var(--kind, var(--color-text-subtle)); text-align: center; }
 .group summary {

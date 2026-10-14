@@ -3,18 +3,7 @@
 .wrap { display: grid; gap: var(--spacing-4); }
 .empty { max-width: 70ch; padding: var(--spacing-4) 0; color: var(--color-text-secondary); }
 .filters { display: flex; flex-wrap: wrap; gap: var(--spacing-4); }
-.field { display: grid; gap: var(--spacing-1); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
-.field select {
-  min-width: 10rem;
-  padding: var(--spacing-1) var(--spacing-2);
-  color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--border-radius-sm);
-  font: inherit;
-}
-.field select:hover, .field select:focus-visible { border-width: 2px; padding: calc(var(--spacing-1) - 1px) calc(var(--spacing-2) - 1px); }
-.field select:focus-visible { border-color: var(--color-brand-primary); outline: none; }
+.field { min-width: 10rem; display: grid; gap: var(--spacing-1); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
 .table { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); }
 .table th {
   padding: var(--spacing-2);
@@ -25,15 +14,6 @@
 }
 .table td { padding: var(--spacing-2); vertical-align: top; border-bottom: 1px solid var(--color-border-subtle); }
 .table code { font-family: var(--font-code); overflow-wrap: anywhere; }
-.expand {
-  padding: var(--spacing-1) var(--spacing-2);
-  color: var(--color-text-secondary);
-  background: none;
-  border: 0;
-  font: inherit;
-  cursor: pointer;
-}
-.expand:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .detailRow td { background: var(--color-surface-secondary); }
 .detail { display: grid; gap: var(--spacing-3); max-width: 70ch; padding: var(--spacing-2) 0; }
 .detail h4 { margin: 0 0 var(--spacing-1); color: var(--color-text-subtle); font-size: var(--font-size-sm); font-weight: var(--font-weight-medium); }

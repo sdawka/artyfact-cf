@@ -2,7 +2,7 @@
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--spacing-1);
+  gap: var(--spacing-2);
   margin: 0;
   padding: 0;
   list-style: none;
@@ -10,7 +10,9 @@
 .item {
   display: inline-flex;
   align-items: center;
-  gap: var(--spacing-1);
+  gap: var(--spacing-2);
   min-width: 0;
 }
 .sep { color: var(--color-text-subtle); }
+
+.item a { display: inline-flex; align-items: center; min-height: var(--control-height); overflow-wrap: anywhere; }

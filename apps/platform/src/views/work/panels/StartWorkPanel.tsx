@@ -1,3 +1,4 @@
+import { Select, Button, Input } from "@/components/ui";
 import { useId, useState } from "react";
 import type { Evolution, Realization, StartWorkRequest, StartWorkResponse } from "../../../../shared/api";
 import { useAdminTokenField } from "@/api/adminToken";
@@ -77,29 +78,24 @@ export function StartWorkPanel({ evolution }: { evolution: Evolution }) {
         <form onSubmit={submit} className={styles.form}>
           <div className={styles.field}>
             <label htmlFor={`${uid}-a`}>Agent label</label>
-            <input id={`${uid}-a`} value={agentLabel} onChange={(e) => setAgentLabel(e.target.value)} placeholder="e.g. codex-1" autoComplete="off" />
+            <Input id={`${uid}-a`} value={agentLabel} onChange={(e) => setAgentLabel(e.target.value)} placeholder="e.g. codex-1" autoComplete="off" />
           </div>
           <div className={styles.field}>
             <label htmlFor={`${uid}-t`}>Target</label>
-            <select id={`${uid}-t`} value={target} onChange={(e) => setTarget(e.target.value as "app" | "genome")}>
-              {evolution.kind !== "genome-amendment" && <option value="app">app</option>}
-              <option value="genome">genome</option>
-            </select>
+            <Select id={`${uid}-t`} value={target} onChange={(value) => setTarget(value as "app" | "genome")} options={[...(evolution.kind !== "genome-amendment" ? [{ value: "app", label: "app" }] : []), { value: "genome", label: "genome" }]} />
           </div>
           <div className={styles.field}>
             <label htmlFor={`${uid}-r`}>Role</label>
-            <select id={`${uid}-r`} value={role} onChange={(e) => setRole(e.target.value as (typeof ROLES)[number])}>
-              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-            </select>
+            <Select id={`${uid}-r`} value={role} onChange={(value) => setRole(value as (typeof ROLES)[number])} options={ROLES.map((value) => ({ value, label: value }))} />
           </div>
           <div className={styles.field}>
             <label htmlFor={`${uid}-k`}>Admin token</label>
-            <input id={`${uid}-k`} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} autoComplete="off" />
+            <Input id={`${uid}-k`} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} autoComplete="off" />
           </div>
           <div className={styles.actions}>
-            <button type="submit" className={`u-brackets ${styles.primary}`} disabled={!!reason || start.isPending} aria-describedby={reason ? `${uid}-why` : undefined}>
+            <Button type="submit" variant="primary" disabled={!!reason || start.isPending} aria-describedby={reason ? `${uid}-why` : undefined}>
               {start.isPending ? "Starting…" : "Start work"}
-            </button>
+            </Button>
             {reason && <span id={`${uid}-why`} className={styles.reason}>{reason}</span>}
           </div>
           {start.isError && <p role="alert" className={styles.error}>{startWorkError(start.error)}</p>}

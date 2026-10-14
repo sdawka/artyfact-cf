@@ -12,9 +12,7 @@
 .catalog { display: grid; gap: var(--spacing-4); max-width: 72rem; }
 .catalog h1 { margin: 0; }
 .auth { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-3); }
-.auth input { max-width: 100%; min-width: 0; background: var(--color-surface-primary); color: var(--color-text-primary); border: 1px solid var(--color-border-subtle); padding: var(--spacing-2); }
 .list { margin: 0; padding: 0; list-style: none; display: grid; gap: var(--spacing-3); }
 .list li { display: flex; flex-wrap: wrap; gap: var(--spacing-3); overflow-wrap: anywhere; }
 
-.auth button, .list button { padding: var(--spacing-2) var(--spacing-3); border: 1px solid var(--color-border-subtle); border-radius: var(--radius-sm); background: var(--color-surface-primary); color: var(--color-text-primary); font: inherit; cursor: pointer; }
-.auth button:disabled { color: var(--color-text-subtle); cursor: default; }
+.auth input { max-width: 100%; min-width: 0; }

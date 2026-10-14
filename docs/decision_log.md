@@ -63,3 +63,15 @@ Make Map the System front door, opening the environment even when there is only 
 ## 2026-10-13T19:02:43-04:00 — Quiet atlas exploration
 
 Selection reveals boundary relationships without opening the Inspector; Details opens it explicitly. Enter only nonempty containers, leaving leaves inspectable. Keep original relationship endpoints, labels, certainty and counts available with endpoint paths and Locate actions. Separate scope, selection and Details in Map URLs and history, restore cameras per System/revision/scope, and provide explicit Up/Enter alongside gesture navigation, keyboard, mobile and reduced-motion paths.
+
+## 2026-10-13T23:20:59-04:00 — Spacious application controls and shared primitives
+
+Polish the application while preserving its colours, fonts, luminous identity and domain behaviour; keep the public site outside this pass. Use spacious 44px standard controls, a labelled mobile Menu drawer, and Radix Primitives with Artyfact CSS Modules for shared controls and overlays. Preserve native form contracts and cmdk search.
+
+## 2026-10-13T23:20:59-04:00 — Atlas relation emphasis and navigation motion
+
+Give Atlas components glowy borders and shadows, with thicker emphasis on the sides facing their relations, and smooth zoom transitions when entering, leaving or moving to connected components. Preserve geometry, keyboard interaction and immediate reduced-motion/Effects-off navigation.
+
+## 2026-10-13T23:23:10-04:00 — Atlas emphasis follows interaction
+
+Keep Atlas components quiet at rest; stronger glow and relation-facing borders follow selection and hover. This scopes the relation emphasis chosen above.

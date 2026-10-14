@@ -1,3 +1,4 @@
+import { Button, Textarea } from "@/components/ui";
 import { useId, useState } from "react";
 import type { IntentAcceptResponse, Proposal } from "../../../../shared/api";
 import { useAdminToken } from "@/api/adminToken";
@@ -28,12 +29,12 @@ function ReplyForm({ proposalId, questionId, label, blocked }: { proposalId: str
     <form onSubmit={submit} className={styles.reply}>
       <div className={workStyles.field}>
         <label htmlFor={`${uid}-a`}>{label}</label>
-        <textarea id={`${uid}-a`} rows={2} value={answer} onChange={(e) => setAnswer(e.target.value)} disabled={!!blocked} />
+        <Textarea id={`${uid}-a`} rows={2} value={answer} onChange={(e) => setAnswer(e.target.value)} disabled={!!blocked} />
       </div>
       <span className={workStyles.inlineRow}>
-        <button type="submit" className={`u-brackets ${workStyles.btn}`} disabled={!!blocked || !answer.trim() || reply.isPending}>
+        <Button type="submit" variant="secondary" disabled={!!blocked || !answer.trim() || reply.isPending}>
           {reply.isPending ? "Sending…" : "Reply"}
-        </button>
+        </Button>
       </span>
       {reply.isError && <p role="alert" className={workStyles.error}>{intentError(reply.error)}</p>}
     </form>
@@ -150,15 +151,15 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
 
       {proposal.ops.length > 0 && (
         <div className={workStyles.actions}>
-          <button
+          <Button
             type="button"
-            className={`u-brackets ${workStyles.primary}`}
+            variant="primary"
             onClick={submit}
             disabled={!!acceptReason || accept.isPending}
             aria-describedby={acceptReason ? `${uid}-why` : undefined}
           >
             {accept.isPending ? "Accepting…" : "Accept selected"}
-          </button>
+          </Button>
           {acceptReason && <span id={`${uid}-why`} className={workStyles.reason}>{acceptReason}</span>}
         </div>
       )}

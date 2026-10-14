@@ -51,37 +51,15 @@
 .pendingRow code { font-family: var(--font-code); overflow-wrap: anywhere; }
 .glyph { width: 1ch; color: var(--color-brand-primary); }
 .inlineForm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); margin-bottom: var(--spacing-3); font-size: var(--font-size-sm); }
-.inlineForm input { padding: var(--spacing-1) var(--spacing-2); color: var(--color-text-primary); background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); font: inherit; font-family: var(--font-code); }
-
-/* Buttons */
-.btn, .btnSm, .primary {
-  display: inline-block;
-  padding: var(--spacing-1) var(--spacing-3);
-  color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  text-decoration: none;
-  cursor: pointer;
-}
-.btnSm { padding: 0 var(--spacing-2); font-size: var(--font-size-xs); }
-.primary, .primary:hover, .primary:visited { color: var(--color-text-inverse); background: var(--color-brand-primary); border-color: var(--color-brand-primary); }
-.btn:disabled, .primary:disabled { color: var(--color-text-disabled); background: var(--color-surface-disabled); border-color: var(--color-border-subtle); cursor: not-allowed; }
-.btn:focus-visible, .btnSm:focus-visible, .primary:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 
 /* Commit sheet */
 .sheet { display: grid; gap: var(--spacing-3); }
 .sheetHead { display: flex; align-items: center; justify-content: space-between; gap: var(--spacing-2); }
 .sheetHead h2 { margin: 0; font-family: var(--font-ui); font-size: var(--font-size-lg); }
-.form { display: grid; gap: var(--spacing-3); }
-.field { display: grid; gap: var(--spacing-1); }
+.form { display: grid; gap: var(--spacing-4); }
+.field { display: grid; gap: var(--spacing-2); }
 .field label { font-size: var(--font-size-sm); color: var(--color-text-secondary); }
-.field input, .field select, .field textarea { padding: var(--spacing-1) var(--spacing-2); color: var(--color-text-primary); background: var(--color-background); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); font: inherit; }
-.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible { outline: var(--focus-ring); outline-offset: 1px; border-color: var(--color-brand-primary); }
-.field textarea:disabled { color: var(--color-text-disabled); }
-.check { display: flex; align-items: center; gap: var(--spacing-2); font-size: var(--font-size-sm); }
+.check { min-height: var(--control-height); display: flex; align-items: center; gap: var(--spacing-2); font-size: var(--font-size-sm); }
 .actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }
 .reasons { margin: 0; padding-left: var(--spacing-4); color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .sheet code { font-family: var(--font-code); overflow-wrap: anywhere; }

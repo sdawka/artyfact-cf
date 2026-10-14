@@ -43,9 +43,6 @@
 /* Accent glow for primary actions and active nav: on hover and press only, alongside (never instead of) the outline. */
 .u-glow-accent { transition: box-shadow var(--motion-duration-fast) var(--motion-easing-ease-out); }
 .u-glow-accent:is(:hover, :active):not(:disabled) { box-shadow: var(--shadow-glow-accent); }
-.shell-nav a { transition: box-shadow var(--motion-duration-fast) var(--motion-easing-ease-out), background-color var(--motion-duration-fast) var(--motion-easing-ease-out); }
-.shell-nav a[aria-current="page"] { box-shadow: var(--shadow-glow-accent-soft); }
-.shell-nav a:is(:hover, :active)[aria-current="page"] { box-shadow: var(--shadow-glow-accent); }
 
 /* Flow along graph edges that touch the selection: a dash of light travelling source to target over the base stroke.
    CSS only, a handful of paths at a time; stopped when effects are off or motion is reduced. */

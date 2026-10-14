@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { Link } from "react-router";
 import type { PartSummary, SystemSummary } from "../../../shared/api";
 import { useParts, useSystems } from "@/api/queries";
@@ -28,7 +29,7 @@ export function HomeContent({ systems, isLoading, isError, onRetry }: HomeConten
     return (
       <EmptyState
         title="Could not reach the platform API."
-        action={onRetry && <button type="button" className={`u-brackets ${styles.retry}`} onClick={onRetry}>Try again</button>}
+        action={onRetry && <Button type="button" variant="secondary" onClick={onRetry}>Try again</Button>}
       />
     );
   if (isLoading || !systems) return <LoadingState label="Loading Systems…" />;

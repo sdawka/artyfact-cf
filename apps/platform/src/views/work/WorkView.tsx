@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { useRef } from "react";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { useEvaluationFx } from "@/effects/fx";
@@ -35,24 +36,23 @@ export default function WorkView() {
       <div className={styles.detailHead}>
         <h1 id="view-title" ref={titleRef} tabIndex={-1}>Work</h1>
         <span className={styles.inlineRow}>
-          <button
+          <Button
             ref={describeBtn}
             type="button"
             // The page's one primary action while nothing else (a panel, a selected Evolution) offers one.
-            className={`u-brackets ${panel || selected ? styles.btn : styles.primary}`}
+            variant={panel || selected ? "secondary" : "primary"}
             aria-pressed={describing}
             onClick={() => (describing ? closePanel() : setPanel("intent"))}
           >
             Describe a change
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className={styles.textBtn}
             aria-pressed={creating}
             onClick={() => (creating ? setPanel(null) : setPanel("new", { evolution: null, realization: null, anchor: null, proposal: null }))}
           >
             + Evolution
-          </button>
+          </Button>
         </span>
       </div>
       <Plans />

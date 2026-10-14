@@ -1,3 +1,4 @@
+import { Select, Button, Checkbox, Input, Textarea } from "@/components/ui";
 import { useId, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import type { CreateEvolutionRequest, Evolution, WorkResponse } from "../../../../shared/api";
@@ -69,16 +70,16 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
       <form onSubmit={submit} className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`${uid}-t`}>Title</label>
-          <input id={`${uid}-t`} value={title} onChange={(e) => setTitle(e.target.value)} autoComplete="off" required />
+          <Input id={`${uid}-t`} value={title} onChange={(e) => setTitle(e.target.value)} autoComplete="off" required />
         </div>
         <div className={styles.field}>
           <label htmlFor={`${uid}-i`}>Intent</label>
-          <textarea id={`${uid}-i`} value={intent} onChange={(e) => setIntent(e.target.value)} rows={3} required />
+          <Textarea id={`${uid}-i`} value={intent} onChange={(e) => setIntent(e.target.value)} rows={3} required />
         </div>
         <div className={styles.field}>
           <label htmlFor={`${uid}-n`}>Affected nodes</label>
           <span className={styles.inlineRow}>
-            <input
+            <Input
               id={`${uid}-n`}
               list={`${uid}-ids`}
               value={nodeInput}
@@ -86,7 +87,7 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addNode(); } }}
               autoComplete="off"
             />
-            <button type="button" className={`u-brackets ${styles.btn}`} onClick={addNode} disabled={!nodeInput.trim()}>Add node</button>
+            <Button type="button" variant="secondary" onClick={addNode} disabled={!nodeInput.trim()}>Add node</Button>
           </span>
           <datalist id={`${uid}-ids`}>
             {m.index.entries.map((e) => <option key={e.id} value={e.id}>{e.name}</option>)}
@@ -96,7 +97,7 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
               {nodes.map((id) => (
                 <li key={id} className={styles.inlineRow}>
                   <NodeChip id={id} size="sm" interactive={false} showId />
-                  <button type="button" className={styles.btn} aria-label={`Remove ${id}`} onClick={() => setNodes(nodes.filter((n) => n !== id))}>×</button>
+                  <Button type="button" variant="secondary" aria-label={`Remove ${id}`} onClick={() => setNodes(nodes.filter((n) => n !== id))}>×</Button>
                 </li>
               ))}
             </ul>
@@ -106,16 +107,15 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
           <fieldset className={styles.fieldset}>
             <legend>Acceptance criteria</legend>
             <span className={styles.inlineRow}>
-              <button type="button" className={styles.btn} onClick={() => setPicked(criteria.map((c) => c.id))}>Select all</button>
-              <button type="button" className={styles.btn} onClick={() => setPicked([])}>Clear</button>
+              <Button type="button" variant="secondary" onClick={() => setPicked(criteria.map((c) => c.id))}>Select all</Button>
+              <Button type="button" variant="secondary" onClick={() => setPicked([])}>Clear</Button>
               <span className={styles.muted}>Leave untouched to use the System's defaults for this target</span>
             </span>
             <ul className={styles.plain}>
               {criteria.map((c) => (
                 <li key={c.id}>
                   <label className={styles.check}>
-                    <input
-                      type="checkbox"
+                    <Checkbox
                       checked={!!picked?.includes(c.id)}
                       onChange={(e) => { const cur = picked ?? []; setPicked(e.target.checked ? [...cur, c.id] : cur.filter((x) => x !== c.id)); }}
                     />
@@ -128,25 +128,21 @@ export function NewEvolutionPanel({ onCreated, onCancel }: { onCreated(evolution
         )}
         <div className={styles.field}>
           <label htmlFor={`${uid}-k`}>Kind</label>
-          <select id={`${uid}-k`} value={kind} onChange={(e) => setKind(e.target.value as (typeof KINDS)[number])}>
-            {KINDS.map((k) => <option key={k} value={k}>{k}</option>)}
-          </select>
+          <Select id={`${uid}-k`} value={kind} onChange={(value) => setKind(value as (typeof KINDS)[number])} options={KINDS.map((value) => ({ value, label: value }))} />
         </div>
         <div className={styles.field}>
           <label htmlFor={`${uid}-r`}>Risk</label>
-          <select id={`${uid}-r`} value={risk} onChange={(e) => setRisk(e.target.value as (typeof RISKS)[number])}>
-            {RISKS.map((r) => <option key={r} value={r}>{r}</option>)}
-          </select>
+          <Select id={`${uid}-r`} value={risk} onChange={(value) => setRisk(value as (typeof RISKS)[number])} options={RISKS.map((value) => ({ value, label: value }))} />
         </div>
         <div className={styles.field}>
           <label htmlFor={`${uid}-a`}>Admin token</label>
-          <input id={`${uid}-a`} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} autoComplete="off" />
+          <Input id={`${uid}-a`} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} autoComplete="off" />
         </div>
         <div className={styles.actions}>
-          <button type="submit" className={`u-brackets ${styles.primary}`} disabled={!!reason || create.isPending} aria-describedby={reason ? `${uid}-why` : undefined}>
+          <Button type="submit" variant="primary" disabled={!!reason || create.isPending} aria-describedby={reason ? `${uid}-why` : undefined}>
             {create.isPending ? "Creating…" : "Create Evolution"}
-          </button>
-          {onCancel && <button type="button" className={`u-brackets ${styles.btn}`} onClick={onCancel}>Cancel</button>}
+          </Button>
+          {onCancel && <Button type="button" variant="secondary" onClick={onCancel}>Cancel</Button>}
           {reason && <span id={`${uid}-why`} className={styles.reason}>{reason}</span>}
         </div>
         {create.isError && <p role="alert" className={styles.error}>{startWorkError(create.error).replace("Start work", "Creating an Evolution")}</p>}

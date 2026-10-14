@@ -1,7 +1,7 @@
 .page {
-  max-width: 70ch;
+  max-width: 960px;
   margin: 0 auto;
-  padding: var(--spacing-12) var(--spacing-4);
+  padding: var(--spacing-8) var(--app-gutter);
 }
 .wordmark {
   margin: 0;
@@ -50,15 +50,6 @@
   background: var(--color-background);
   border-radius: var(--border-radius-lg);
 }
-.smallButton {
-  padding: var(--spacing-1) var(--spacing-3);
-  color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--border-radius-md);
-  font: inherit;
-  cursor: pointer;
-}
 .ambientPanel {
   position: relative;
   height: 18rem;
@@ -91,3 +82,9 @@
 .surfaceContent { position: relative; z-index: 1; padding: var(--spacing-4); }
 .surfaceContent h3 { margin: 0 0 var(--spacing-3); color: var(--color-text-primary); }
 .surfaceContent p { margin: 0; font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+
+.controls { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-3); margin-block: var(--spacing-4); }
+.fields { display: grid; gap: var(--spacing-4); }
+.fields > label { display: grid; gap: var(--spacing-2); }
+.fields > .toggle { display: flex; min-height: var(--control-height); }
+.page > h2 { margin-top: var(--spacing-8); }

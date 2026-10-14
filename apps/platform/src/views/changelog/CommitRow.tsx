@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import type { ChangelogRow } from "../../../shared/api";
 import { StatePill } from "@/app/StatePill";
 import { CopyButton } from "@/components/CopyButton/CopyButton";
@@ -25,7 +26,7 @@ export function CommitRow({ row, expanded, current, now, onToggle }: Props) {
   return (
     <li id={`commit-${row.id}`} className={styles.row} data-current={current || undefined} {...(current && { "aria-current": "true" as const })}>
       <div className={styles.rowHead}>
-        <button
+        <Button variant="ghost"
           type="button"
           className={`u-brackets ${styles.toggle}`}
           aria-expanded={expanded}
@@ -54,7 +55,7 @@ export function CommitRow({ row, expanded, current, now, onToggle }: Props) {
               <StatusChip status={row.deployment.status} label={`${row.deployment.kind} ${row.deployment.status}`} tone={row.deployment.status === "failed" ? "fail" : "neutral"} />
             )}
           </span>
-        </button>
+        </Button>
         <CopyButton value={row.id} label="Copy commit id" />
       </div>
       {expanded && <CommitDetail id={detailId} row={row} />}

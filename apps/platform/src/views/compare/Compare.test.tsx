@@ -40,7 +40,7 @@ const seed = (o: { system?: SystemCompare; from?: string; to?: string } = {}) =>
   qc.setQueryData(qk.compare(SYSTEM, "genome", from, to), genome);
   qc.setQueryData(qk.compareFile(SYSTEM, "app", from, to, "src/index.ts"), file);
 };
-const select = (label: string) => screen.getByLabelText(label) as HTMLSelectElement;
+const select = (label: string) => screen.getByRole("combobox", { name: label });
 
 describe("defaultPair", () => {
   it("defaults to head against head's parent, or the commit before `to`", () => {
@@ -55,8 +55,8 @@ describe("Compare", () => {
   it("compares head with its parent by default and shows the System table with per-artifact commits", async () => {
     renderApp(URL, undefined, seed());
     const table = await screen.findByRole("table", { name: "System commits compared" });
-    expect(select("From").value).toBe("sc-1");
-    expect(select("To").value).toBe("head");
+    expect(select("From").textContent).toContain("sc-1");
+    expect(select("To").textContent).toContain("head");
     const artifact = within(table).getByRole("row", { name: /artifact\.webapp/ });
     expect(artifact.textContent).toMatch("0000000");
     expect(artifact.textContent).toMatch("a1b2c3d");
@@ -106,6 +106,8 @@ describe("Compare", () => {
   it("explains that fixture data has a single revision", async () => {
     renderApp(URL);
     expect(await screen.findByText("Compare needs the platform API.")).toBeTruthy();
-    expect([...select("From").options].map((o) => o.value)).toEqual(["head"]);
+    fireEvent.keyDown(select("From"), { key: "Enter" });
+    expect(await screen.findByRole("option", { name: "head" })).toBeTruthy();
+    expect(screen.getAllByRole("option")).toHaveLength(1);
   });
 });

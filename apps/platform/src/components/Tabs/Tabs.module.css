@@ -7,7 +7,7 @@
   flex-wrap: wrap;
   font-size: var(--font-size-sm);
 }
-.list > * { padding: var(--spacing-2) var(--spacing-2); }
+.list > * { min-height: var(--control-height); padding: var(--spacing-2) var(--spacing-4); }
 .panel {
   min-height: 0;
   padding-top: var(--spacing-3);

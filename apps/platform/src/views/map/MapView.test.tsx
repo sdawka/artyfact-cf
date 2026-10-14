@@ -31,6 +31,25 @@ describe("System atlas", () => {
     await waitFor(() => expect(router.state.location.search).toContain("scope=system.peopling"));
   });
 
+  it("keeps the native camera finite through animated Locate and an interrupting wheel", async () => {
+    renderApp(`${MAP}?scope=screen.people`);
+    await ready("component.AddContactDialog");
+    const measuredPane = document.querySelector<HTMLElement>(".react-flow__renderer")!;
+    expect(measuredPane.getBoundingClientRect().width).toBeGreaterThan(0);
+    expect(measuredPane.getBoundingClientRect().height).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: "Tree" }));
+    const row = within(screen.getByRole("tree", { name: "Containment" })).getAllByRole("treeitem").find(el => el.textContent?.includes("AddContactDialog"))!;
+    fireEvent.click(row);
+    await act(async () => { await new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))); });
+    const renderer = document.querySelector<HTMLElement>(".react-flow__renderer")! as HTMLElement & { __zoom: { x: number; y: number; k: number } };
+    // Exercise the native d3 transform, which CSS may silently reject when it is nonfinite.
+    expect([renderer.__zoom.x, renderer.__zoom.y, renderer.__zoom.k].every(Number.isFinite)).toBe(true);
+    const before = document.querySelector<HTMLElement>(".react-flow__viewport")!.style.transform;
+    fireEvent.wheel(document.querySelector(".react-flow__pane")!, { deltaY: 180 });
+    await waitFor(() => expect(document.querySelector<HTMLElement>(".react-flow__viewport")!.style.transform).not.toBe(before));
+    expect([renderer.__zoom.x, renderer.__zoom.y, renderer.__zoom.k].every(Number.isFinite)).toBe(true);
+  });
+
   it("selects without Details and keeps scope and tile geometry across overlays", async () => {
     const { router } = renderApp(`${MAP}?scope=screen.people`);
     await ready("component.AddContact");
@@ -159,6 +178,52 @@ describe("System atlas", () => {
     expect(flowNode(selected)?.getAttribute("aria-label")).toBeTruthy();
   });
 
+  it("restores the panned camera after a cross-scope connected Locate leaves Map and goes Back", async () => {
+    const { router } = renderApp(`${MAP}?scope=screen.people&focus=component.AddContactDialog`);
+    await ready("component.AddContactDialog");
+    fireEvent.click(screen.getByRole("button", { name: /Connections \(/ }));
+    fireEvent.click(within(screen.getByRole("region", { name: "Selected connections" })).getAllByRole("button", { name: /^Locate / })[0]!);
+    await ready("affordance.AddContactDialog.save");
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    const viewport = () => document.querySelector<HTMLElement>(".react-flow__viewport")!.style.transform;
+    const initial = viewport();
+    fireEvent.wheel(document.querySelector(".react-flow__pane")!, { deltaY: 180 });
+    await waitFor(() => expect(viewport()).not.toBe(initial));
+    const panned = viewport();
+    fireEvent.click(screen.getByRole("link", { name: /^Overview$/ }));
+    await screen.findByRole("heading", { name: "Overview", level: 1 });
+    await act(() => router.navigate(-1));
+    await ready("affordance.AddContactDialog.save");
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+    expect(viewport()).toBe(panned);
+    expect(new URLSearchParams(router.state.location.search).get("focus")).toBe("affordance.AddContactDialog.save");
+  });
+
+  it("does not commit cross-scope Locate after a newer same-scope URL selection", async () => {
+    const { router } = renderApp(`${MAP}?scope=screen.people&focus=component.AddContactDialog`);
+    await ready("component.AddContactDialog");
+    fireEvent.click(screen.getByRole("button", { name: /Connections \(/ }));
+    fireEvent.click(within(screen.getByRole("region", { name: "Selected connections" })).getAllByRole("button", { name: /^Locate / })[0]!);
+    await act(() => router.navigate(`${MAP}?scope=screen.people&focus=component.ContactCollection`));
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 300)); });
+    const params = new URLSearchParams(router.state.location.search);
+    expect(params.get("scope")).toBe("screen.people");
+    expect(params.get("focus")).toBe("component.ContactCollection");
+  });
+
+  it("does not replay an abandoned connected Locate after unrelated navigation reaches its old destination", async () => {
+    const { router } = renderApp(`${MAP}?scope=screen.people&focus=component.AddContactDialog`);
+    await ready("component.AddContactDialog");
+    fireEvent.click(screen.getByRole("button", { name: /Connections \(/ }));
+    const region = screen.getByRole("region", { name: "Selected connections" });
+    fireEvent.click(within(region).getAllByRole("button", { name: /^Locate / })[0]!);
+    // Leave before the approach commits; a later visit must obey the new URL selection.
+    await act(() => router.navigate(`${MAP}?scope=component.AddContactDialog&focus=affordance.AddContactDialog.cancel`));
+    await ready("affordance.AddContactDialog.cancel");
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 300)); });
+    expect(new URLSearchParams(router.state.location.search).get("focus")).toBe("affordance.AddContactDialog.cancel");
+  });
+
   it("keyboard Enter enters a container and keeps focus on its new scope frame", async () => {
     renderApp(`${MAP}?scope=screen.people`);
     await ready("component.AddContactDialog");
@@ -175,6 +240,8 @@ describe("System atlas", () => {
     fireEvent.wheel(canvas, { deltaY: -300 });
     expect(router.state.location.search).toContain("scope=screen.people");
     fireEvent.wheel(canvas, { deltaY: -160, ctrlKey: true });
+    fireEvent.wheel(canvas, { deltaY: -100, ctrlKey: true });
+    fireEvent.wheel(canvas, { deltaY: -80, ctrlKey: true });
     await waitFor(() => expect(router.state.location.search).toContain("scope=component.AddContactDialog"));
     fireEvent.wheel(canvas, { deltaY: 300, ctrlKey: true });
     expect(router.state.location.search).toContain("scope=component.AddContactDialog");
