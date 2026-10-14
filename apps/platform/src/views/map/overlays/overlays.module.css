@@ -1,25 +1,15 @@
 .phenome {
   display: inline-flex;
-  gap: var(--spacing-2);
-  font-family: var(--font-code);
-  font-size: var(--font-size-sm);
-  line-height: 1;
+  flex-wrap: wrap;
+  gap: var(--spacing-1) var(--spacing-3);
+  font: var(--type-meta);
 }
-.counter {
-  display: inline-flex;
-  gap: 2px;
-  align-items: center;
-  color: var(--color-text-subtle);
-}
-.counter[data-tone="pass"] { color: var(--verdict-pass); }
-.counter[data-tone="fail"] { color: var(--verdict-fail); }
-.counter[data-zero] { color: var(--color-text-disabled); }
+.none { color: var(--color-text-secondary); }
 
 .proteome {
-  font-size: var(--font-size-sm);
-  color: var(--color-text-subtle);
+  font: var(--type-meta);
+  color: var(--color-text-secondary);
 }
-.proteome[data-active] { color: var(--color-brand-primary); }
 
 /* Always-on corner brackets, like .u-brackets--on; the overlap variant adds a second, wider set. */
 .halo,
@@ -47,14 +37,15 @@
   right: var(--spacing-2);
   padding: 0 var(--spacing-1);
   border-radius: var(--border-radius-sm);
-  background: var(--color-background);
-  color: var(--color-brand-primary);
-  font-size: var(--font-size-sm);
-  line-height: 1.4;
-  text-decoration: none;
+  background: var(--surface-page);
+  color: var(--color-link);
+  font: var(--type-meta);
+  text-decoration: underline;
+  text-decoration-color: var(--color-link-underline);
+  text-underline-offset: 3px;
   pointer-events: auto;
 }
-.overlap:hover { text-decoration: underline; }
+.overlap:hover { text-decoration-color: currentColor; }
 .overlap:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 @media (forced-colors: active) {
   .halo { mask: none; border-color: Highlight; }

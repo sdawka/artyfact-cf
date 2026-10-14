@@ -254,8 +254,8 @@ describe("Shell", () => {
   it("LayerSwitch sits in the Map header (not the TopBar) and writes ?layer=", async () => {
     const { router } = renderApp(`${BASE}/map`);
     const topBar = (await screen.findByRole("link", { name: "artyfact" })).closest("header")!;
-    expect(within(topBar).queryByRole("tablist", { name: "Layer" })).toBeNull();
-    const tabs = await screen.findByRole("tablist", { name: "Layer" });
+    expect(within(topBar).queryByRole("tablist", { name: "Overlay" })).toBeNull();
+    const tabs = await screen.findByRole("tablist", { name: "Overlay" });
     const tab = (name: string) => within(tabs).getByRole("tab", { name });
     expect(tab("Genome").getAttribute("aria-selected")).toBe("true");
     await act(async () => tab("Proteome").click());
