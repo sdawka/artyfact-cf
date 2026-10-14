@@ -88,6 +88,7 @@ export const integrity = new Hono<AppEnv>()
       if (!state) throw badRequest("snapshotId is required before the System has an imported Genome");
       const loaded = await withRepo(artifactsFor(c.env), state.genomeSource, (repo) => readGenomeSourceFiles(repo, state.genomeCommit));
       request.snapshotId = (await rpc(stub.integrityPreview(id, Object.fromEntries(loaded), "imported"))).id;
+      await rpc(stub.integrityLinkSource(state.genomeCommit, request.snapshotId));
     }
     return c.json({ run: await rpc(stub.integrityStart(request)) }, 202);
   })

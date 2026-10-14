@@ -80,7 +80,7 @@ T3 owns `worker/intents.ts`, `routes/intents.ts`, proposal-store changes and ded
 - [x] Add failing UI/browser checks for copyable pre-package intent handoff, structural and semantic states, model-off failure, stale run/disposition display, revise/abandon and explicit agreement without invented pass results.
 - [x] Run focused Start/Review/Intent suites; observe failures.
 - [x] Build reusable integrity report/run controls consumed from Start, import review and proposals, plus direct review URLs. Preserve one Review inbox, exact node links and separate automated/human states. Include loading, partial, retry and cancellation affordances; queued polling must stop on unmount/scope changes.
-- [ ] Run UI and fixture/fake-provider browser journeys at desktop and 320px, keyboard/reduced motion and accessibility; commit owned files.
+- [x] Run UI and fixture/fake-provider browser journeys at desktop and 320px, keyboard/reduced motion and accessibility; commit owned files.
 
 ## Task 6: Artyfact ontology and representative examples
 

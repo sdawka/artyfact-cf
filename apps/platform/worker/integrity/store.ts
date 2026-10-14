@@ -1,6 +1,6 @@
 import { agreementEligibility, integrityStatus, type IntegrityDisposition, type IntegrityFinding, type IntegrityReport, type IntegritySnapshot } from "@artyfact/model";
 import {
-  INTEGRITY_POLICY_VERSION, type IntegrityAgreement, type IntegrityAgreementRequest, type IntegrityProviderSelection,
+  INTEGRITY_POLICY_VERSION, type IntegrityCurrentSummary, type IntegrityAgreement, type IntegrityAgreementRequest, type IntegrityProviderSelection,
   type IntegrityResolvedProvider, type IntegrityReviewBinding, type IntegrityRun, type IntegrityRunRequest, type IntegrityRunState, type IntegritySnapshotKind, type StoredIntegritySnapshot,
 } from "../../shared/integrity";
 import { DEFAULT_THRESHOLDS, hashOf } from "@artyfact/ontology";
@@ -58,6 +58,7 @@ export class IntegrityStore {
     const columns = new Set((sql.exec("PRAGMA table_info(integrity_runs)").toArray() as Row[]).map((row) => String(row.name)));
     if (!columns.has("actual_provider")) sql.exec("ALTER TABLE integrity_runs ADD COLUMN actual_provider TEXT");
     if (!columns.has("actual_model")) sql.exec("ALTER TABLE integrity_runs ADD COLUMN actual_model TEXT");
+    sql.exec("CREATE TABLE IF NOT EXISTS integrity_sources (genome_commit TEXT PRIMARY KEY, snapshot_id TEXT NOT NULL)");
     sql.exec(`CREATE TABLE IF NOT EXISTS integrity_checkpoints (
       run_id TEXT NOT NULL, key TEXT NOT NULL, json TEXT NOT NULL, bytes INTEGER NOT NULL, created_at TEXT NOT NULL,
       PRIMARY KEY(run_id,key))`);
@@ -76,6 +77,27 @@ export class IntegrityStore {
   snapshot(id: string): StoredIntegritySnapshot | null {
     const row = this.sql.exec("SELECT json FROM integrity_snapshots WHERE id=?", id).toArray()[0] as Row | undefined;
     return row ? JSON.parse(String(row.json)) as StoredIntegritySnapshot : null;
+  }
+
+  bindSource(genomeCommit: string, snapshotId: string): void {
+    if (!/^[a-f0-9]{40}$/.test(genomeCommit) || !this.snapshot(snapshotId)) invalid("invalid integrity source identity");
+    this.sql.exec("INSERT INTO integrity_sources VALUES (?,?) ON CONFLICT(genome_commit) DO UPDATE SET snapshot_id=excluded.snapshot_id", genomeCommit, snapshotId);
+  }
+
+  sourceSnapshot(genomeCommit: string): StoredIntegritySnapshot | null {
+    const row = this.sql.exec("SELECT snapshot_id FROM integrity_sources WHERE genome_commit=?", genomeCommit).toArray()[0] as Row | undefined;
+    return row ? this.snapshot(String(row.snapshot_id)) : null;
+  }
+
+  summary(snapshot: StoredIntegritySnapshot): IntegrityCurrentSummary {
+    const row = this.sql.exec("SELECT * FROM integrity_runs WHERE snapshot_id=? AND json_extract(request_json,'$.policyVersion')=? ORDER BY created_at DESC,rowid DESC LIMIT 1", snapshot.id, INTEGRITY_POLICY_VERSION).toArray()[0] as Row | undefined;
+    if (!row) return { state: "not-run", snapshotHash: snapshot.hash };
+    const run = this.row(row);
+    return {
+      state: run.state, snapshotHash: snapshot.hash, runId: run.id, reviewUrl: run.reviewUrl,
+      agreementStatus: run.agreement?.status ?? "pending",
+      ...(run.report && { reportId: run.report.id, automatedStatus: integrityStatus(run.report) }),
+    };
   }
 
   start(snapshotId: string, request: IntegrityRunRequest, selected: IntegrityProviderSelection): { run: IntegrityRun; created: boolean } {

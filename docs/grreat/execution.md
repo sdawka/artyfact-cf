@@ -4,10 +4,10 @@
 ## Now
 
 - Implementing intent-to-ontology authoring, truthful integrity review and Artyfact's enriched System map under the [approved plan](../design/intent-integrity-plan.md), [PR #80](https://github.com/sdawka/artyfact-cf/pull/80).
-- Core, backend, recovery, CLI/UI and self-Genome slices are integrated. Independent review repairs and combined CI are in progress. Private live controls confirm native previews and structural blocking; real-provider transmission awaits specific destination approval.
+- Core, backend, recovery, CLI/UI and self-Genome slices are integrated. Independent review repairs are integrated; exact-current status metadata and clean combined CI are next. Private live controls confirm native previews and structural blocking; real-provider transmission awaits specific destination approval.
 - Next: finish review repairs and full local/hosted gates, then verify real-provider examples and import the self-Genome into production. [Evidence](journals/2026-10-14-intent-integrity-implementation.md).
-- GRREAT remote sync remains pending credentials and a confirmed separate Artyfact destination; preserve the wrong-project conflict.
-- Last updated: 2026-10-14T17:00:00-04:00.
+- GRREAT validation passes; RPC preview applied 0 records. Remote sync remains pending a confirmed separate Artyfact destination; preserve the wrong-project conflict.
+- Last updated: 2026-10-14T17:05:31-04:00.
 
 ## Spike baseline
 

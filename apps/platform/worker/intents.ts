@@ -845,7 +845,11 @@ async function proposalIntegrityBinding(
   if (!runId) return undefined;
   const resolver = acceptedTemplateResolver(await systemStub(env, systemId).ontologyAcceptedPackages());
   const snapshot = createIntegritySnapshot({ systemId, files: Object.fromEntries(files), templates: resolver.templates });
-  return systemStub(env, systemId).integrityBinding(runId, snapshot.hash);
+  const stub = systemStub(env, systemId);
+  const binding = await stub.integrityBinding(runId, snapshot.hash);
+  const stored = await stub.integrityPreview(systemId, Object.fromEntries(files), "imported");
+  await stub.integrityLinkSource(commit, stored.id);
+  return binding;
 }
 
 /**

@@ -252,7 +252,10 @@ export interface ReadinessSummary {
  * The full `@artyfact/model` rules-engine `Readiness` (findings with derivations, `derived` relation → tuples,
  * packs, snapshotHash, incomplete, actionable) plus the {@link ReadinessSummary}.
  */
-export type ReadinessReport = Readiness & ReadinessSummary;
+export type ReadinessReport = Readiness & ReadinessSummary & {
+  /** Exact imported Genome integrity, distinct from legacy rules readiness. */
+  integrity?: import("./integrity").IntegrityCurrentSummary;
+};
 
 /** `SystemModel.index` without functions: `byId` without the duplicated `item`, `path()` materialised. */
 export interface SerializedIndex extends Omit<ModelIndex, "byId" | "path" | "layer" | "depthOf" | "layerOf"> {
@@ -718,6 +721,7 @@ export interface ImportSystemRequest {
   integrityUnreviewedReason?: string;
 }
 export interface ImportSystemResponse {
+  integrity?: import("./integrity").IntegrityCurrentSummary;
   system: SystemSummary;
   head: string;
   genomeRepo: string;

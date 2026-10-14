@@ -29,7 +29,7 @@ import { applySchema } from "./schema";
 import { isBlocking } from "../../shared/verdict";
 import type { IntegrityAgreementRequest, IntegrityRunRequest, IntegritySnapshotKind } from "../../shared/integrity";
 import { IntegrityStore } from "../integrity/store";
-import { executeIntegrity, resolveIntegrityProvider } from "../integrity/execution";
+import { assertIntegritySnapshotCurrent, executeIntegrity, resolveIntegrityProvider } from "../integrity/execution";
 
 /** Name of the DO instance holding the System registry and the realization/fork index. */
 export const REGISTRY = "__registry";
@@ -382,6 +382,14 @@ export class SystemAuthority extends DurableObject<Env> {
   integrityPreview(systemId:string,files:Record<string,string>,kind:IntegritySnapshotKind='initial-preview') {
     const store=this.integrity(systemId),resolver=acceptedTemplateResolver(this.ontologyAcceptedPackages());
     return store.putSnapshot(createIntegritySnapshot({systemId,files,templates:resolver.templates}),kind);
+  }
+  integrityLinkSource(genomeCommit:string,snapshotId:string) {this.integrity().bindSource(genomeCommit,snapshotId);}
+  integrityCurrent(genomeCommit:string):import('../../shared/integrity').IntegrityCurrentSummary {
+    const store=this.integrity(),snapshot=store.sourceSnapshot(genomeCommit);
+    if(!snapshot)return {state:'not-run'};
+    try {assertIntegritySnapshotCurrent(snapshot,acceptedTemplateResolver(this.ontologyAcceptedPackages()).templates);}
+    catch {return {state:'not-run'};}
+    return store.summary(snapshot);
   }
   async integrityStart(input:IntegrityRunRequest) {
     if(!input.snapshotId)throw new ConflictError('invalid-state','snapshotId is required');

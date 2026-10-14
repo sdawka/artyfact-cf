@@ -66,3 +66,14 @@ export interface IntegrityReviewBinding {
   snapshotHash: string;
   agreementStatus: AgreementStatus;
 }
+
+/** Public status only; private source text, findings and dispositions stay in authenticated review. */
+export interface IntegrityCurrentSummary {
+  state: "not-run" | IntegrityRunState;
+  snapshotHash?: string;
+  runId?: string;
+  reportId?: string;
+  automatedStatus?: IntegrityReport["status"];
+  agreementStatus?: AgreementStatus;
+  reviewUrl?: string;
+}

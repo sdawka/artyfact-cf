@@ -325,6 +325,10 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     model: JSON.stringify(serializeModel(g.model)),
     rules: JSON.stringify(g.readiness),
   }));
+  if (intentAuthored || integrity) {
+    const snapshot = await stub.integrityPreview(systemId, Object.fromEntries(sourceFiles), "imported");
+    await stub.integrityLinkSource(genomeCommit, snapshot.id);
+  }
   // B.10: a new System commit is a new import to review unless `review: false` (worker/import-review.ts).
   await recordImportReview(env, systemId, {
     review: body.review, head: booted.head, priorHead: prior?.head, genome: g, genomeCommit, integrity,
@@ -333,7 +337,7 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   // Re-read the summary now that the rules readiness is cached (B5: readiness counts and signifiers).
   const system = (await systemStub(env, systemId).summary()) ?? booted;
   await registryStub(env).registerSystem(system);
-  return { system, head: system.head!, genomeRepo, appRepo, genomeCommit, appCommit, evolutions: g.model.evolutions.map((e) => e.id), platform, warnings };
+  return { system, integrity: await stub.integrityCurrent(genomeCommit), head: system.head!, genomeRepo, appRepo, genomeCommit, appCommit, evolutions: g.model.evolutions.map((e) => e.id), platform, warnings };
 }
 
 // ------------------------------------------------------------------ model + readiness
@@ -402,14 +406,14 @@ export async function modelBundle(env: Env, systemId: string, rev?: string): Pro
   const s = await headState(env, systemId);
   const r = await resolveRevision(env, s, rev);
   const [v, evals] = await Promise.all([genomeView(env, systemId, r.genomeCommit, r.repo), evaluationsFor(env, systemId, r.candidateIds)]);
-  return { systemId, revision: r.revision, genomeCommit: r.genomeCommit, model: v.model, readiness: withPlatform(s, readinessReport(v.model, v.readiness, evals)) };
+  return { systemId, revision: r.revision, genomeCommit: r.genomeCommit, model: v.model, readiness: { ...withPlatform(s, readinessReport(v.model, v.readiness, evals)), integrity: await systemStub(env, systemId).integrityCurrent(r.genomeCommit) } };
 }
 
 export async function readiness(env: Env, systemId: string, rev?: string): Promise<ReadinessResponse> {
   const s = await headState(env, systemId);
   const r = await resolveRevision(env, s, rev);
   const [v, evals] = await Promise.all([genomeView(env, systemId, r.genomeCommit, r.repo), evaluationsFor(env, systemId, r.candidateIds)]);
-  return { ...withPlatform(s, readinessReport(v.model, v.readiness, evals)), systemId, revision: r.revision, genomeCommit: r.genomeCommit };
+  return { ...withPlatform(s, readinessReport(v.model, v.readiness, evals)), integrity: await systemStub(env, systemId).integrityCurrent(r.genomeCommit), systemId, revision: r.revision, genomeCommit: r.genomeCommit };
 }
 
 // ------------------------------------------------------------------ start work
