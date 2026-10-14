@@ -10,9 +10,9 @@ import { ADMIN_TOKEN, apiPlan, BASE, checkPage, cli, SYS } from "./fake";
  * the later task is refused until both are selected, and the plan is selected, integrated, reviewed and promoted in the UI.
  */
 test.describe("realization plan from draft to promotion @fake", () => {
-  // The fake planner drafts one task per section: the goal and contact-event entities in wave 1, and the UI task, whose
-  // screens read both, in wave 2. (Operations would not do: the draft reads what they write, and both write Suggestion.)
-  const NODES = ["entity.RelationshipGoal", "entity.ContactEvent", "screen.goal", "screen.logContact"];
+  // The fake planner drafts one task per section: the goal and contact-log operations in wave 1, and the UI task, whose
+  // screens invoke both, in wave 2. Both operations write Suggestion, which has its own file, so they do not interfere.
+  const NODES = ["operation.goal.save", "operation.contact.log", "screen.goal", "screen.logContact"];
 
   test("draft, edit, create, claim, refuse, submit, select, integrate, review and promote @fake", async ({ page, request, baseURL }, testInfo) => {
     testInfo.setTimeout(180_000);
@@ -35,6 +35,7 @@ test.describe("realization plan from draft to promotion @fake", () => {
     const planId = new URL(page.url()).searchParams.get("plan")!;
     let plan = await apiPlan(request, planId);
     expect(plan.tasks[0]!.title).toMatch(/\(edited\)$/);
+    expect(plan.analysis.waves).toEqual([["t1", "t2"], ["t3"]]);
 
     // The board mirrors analysis.waves; wave 2's task waits on its wave 1 dependencies.
     const board = page.getByRole("group", { name: "Waves" });
