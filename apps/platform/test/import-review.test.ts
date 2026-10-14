@@ -90,7 +90,8 @@ describe("import review: pending, guard, opt-out", () => {
     expect(listed.importReview?.status).toBe("pending");
     expect(listed.signifiers).toContain("import-pending");
 
-    const rv = await getReview(systemId);
+    // The read follows the System's visibility like /model: public, no credentials.
+    const rv = await call<SystemImportReview & ApiError>("GET", `/systems/${systemId}/import-review`, undefined, {});
     expect(rv.status, JSON.stringify(rv.json)).toBe(200);
     expect(rv.json.status).toBe("pending");
     expect(rv.json.genomeCommit).toBe(imp.genomeCommit);
@@ -200,6 +201,7 @@ describe("import review: accept", () => {
     expect(rz!.realization.status).toBe("promoted");
     const head = (await call<ModelBundle>("GET", `/systems/${systemId}/model`)).json;
     expect(head.genomeCommit).not.toBe(imp.genomeCommit);
+    expect((await call<SystemsResponse["systems"][number]>("GET", `/systems/${systemId}`)).json.head).toBe(acc.json.amendment!.systemCommit);
 
     const files = await candidateFiles(ns, systemId, realization, candidate);
     const paths = [...files.keys()];
@@ -318,5 +320,35 @@ describe("import review: accept", () => {
     expect([res.status, res.json.error.code]).toEqual([409, "stale-base"]);
     expect((await getReview(systemId)).json.status).toBe("pending");
     expect(imp.genomeCommit).not.toBe("f".repeat(40));
+  });
+});
+
+describe("import review: the Peopling example", () => {
+  const raw = (g: Record<string, string>, root: string) =>
+    Object.fromEntries(Object.entries(g).map(([p, t]) => [p.slice(p.indexOf(root) + root.length), t] as const));
+  const genome = raw(import.meta.glob("../../../examples/peopling-system/**/*.yaml", { query: "?raw", import: "default", eager: true }) as Record<string, string>, "peopling-system/");
+  const app = raw(import.meta.glob(["../../../examples/peopling-app/**/*", "!**/node_modules/**", "!**/.wrangler/**"], { query: "?raw", import: "default", eager: true }) as Record<string, string>, "peopling-app/");
+
+  it("rejecting a template-listed System section (section.externals) commits the removal: no 422, systemCommit is the new head", async () => {
+    const ns = new FakeArtifacts();
+    const n = ++seq;
+    const systemId = `system.irpeopling${n}`;
+    ns.create(`irp-genome-${n}`).commit(Object.fromEntries(Object.entries(genome).map(([p, t]) => [p, t.replaceAll("system.peopling", systemId)])), "genome");
+    ns.create(`irp-app-${n}`).commit(app, "app");
+    setArtifactsOverride(ns);
+    setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
+    const imp = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo: `irp-genome-${n}`, appRepo: `irp-app-${n}` }, ADMIN);
+    expect(imp.status, JSON.stringify(imp.json)).toBe(201);
+    // System-level sections are review roots next to the Things.
+    expect((await getReview(systemId)).json.tree.map((x) => x.id)).toEqual(expect.arrayContaining(["thing.webapp", "section.externals"]));
+
+    const acc = await accept(systemId, { rejectedNodes: ["section.externals"] });
+    expect(acc.status, JSON.stringify(acc.json)).toBe(200);
+    const { realization, candidate, systemCommit } = acc.json.amendment!;
+    expect(systemCommit).toEqual(expect.any(String));
+    const summary = (await call<SystemsResponse["systems"][number]>("GET", `/systems/${systemId}`)).json;
+    expect(summary.head).toBe(systemCommit);
+    const files = await candidateFiles(ns, systemId, realization, candidate);
+    expect([...files.keys()].some((p) => p.includes("section.externals"))).toBe(false);
   });
 });
