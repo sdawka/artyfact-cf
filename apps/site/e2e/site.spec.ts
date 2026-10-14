@@ -10,7 +10,7 @@ test('homepage leads to the guide and links the hosted platform', async ({ page 
   await expect(page.locator('a[href="/app"]')).toHaveCount(0);
   await page.getByRole('link', { name: 'Bring your agent', exact: true }).first().click();
   await expect(page).toHaveURL('https://artyfact.test/connect-agent');
-  await expect(page.locator('code').filter({ hasText: 'artyfact task start' }).first()).toBeVisible();
+  await expect(page.locator('code').filter({ hasText: 'artyfact task claim' }).first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 test('model layers work with keyboard and keep illustrative evidence labelled', async ({ page }) => {
