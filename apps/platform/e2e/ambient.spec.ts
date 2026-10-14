@@ -16,7 +16,7 @@ test.describe("ambient shell", () => {
   test("one fixed field behind the Shell, decorative, with veiled chrome", async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     const field = page.locator("[data-shell-ambient] [data-effect=ambient]");
     await expect(field).toHaveCount(1);
     await expect(field).toHaveAttribute("data-effect-mode", /^(gl|fallback)$/);
@@ -32,7 +32,7 @@ test.describe("ambient shell", () => {
   });
 
   test("Effects switch turns WebGL off, persists, and the palette offers it", async ({ page }) => {
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     const toggle = page.getByRole("button", { name: /Effects/ });
     await expect(toggle).toHaveAttribute("aria-pressed", "true");
     await toggle.click();
@@ -50,7 +50,7 @@ test.describe("ambient shell", () => {
   test("reduced motion defaults the switch off", async ({ browser }) => {
     const context = await browser.newContext({ reducedMotion: "reduce" });
     const page = await context.newPage();
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     await expect(page.getByRole("button", { name: /Effects/ })).toHaveAttribute("aria-pressed", "false");
     await context.close();
   });

@@ -6,13 +6,14 @@ const shoot = (page: Page, testInfo: TestInfo, name: string) =>
   page.screenshot({ path: testInfo.outputPath(`${name}.png`) });
 
 test.describe("platform hero moments", () => {
-  test("overview hero: data-driven content surface, encoding caption, focusable meters, pulse on artyfact:fx", async ({ page }, testInfo) => {
+  test("overview hero: data-driven content surface, labelled values, hover-only meters, pulse on artyfact:fx", async ({ page }, testInfo) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
-    await open(page, "/overview", "Overview");
-    const hero = page.getByRole("region", { name: "Peopling" });
-    await expect(hero.getByRole("heading", { level: 2, name: "Peopling" })).toBeVisible();
-    await expect(hero.getByText(/Readiness: \d+%/)).toBeVisible();
+    await open(page, "/overview", "Peopling");
+    const hero = page.getByRole("region", { name: "System light" });
+    await expect(page.getByRole("heading", { level: 1, name: "Peopling" })).toBeVisible();
+    await expect(hero.getByText("Readiness", { exact: true })).toBeVisible();
+    await expect(hero.getByText(/^\d+%$/)).toBeVisible();
     const surface = hero.locator('[data-effect="surface"]');
     await expect(surface).toHaveAttribute("data-effect-mode", /^(css|static)$/);
     await expect(page.locator('[data-effect="orb"]')).toHaveCount(0);
@@ -22,9 +23,10 @@ test.describe("platform hero moments", () => {
     await page.waitForTimeout(500);
     expect(await hero.boundingBox()).toEqual(before);
 
-    const readiness = hero.getByRole("region", { name: "Model readiness" });
-    await readiness.focus();
-    await expect(readiness).toBeFocused();
+    const readiness = page.getByRole("region", { name: "Model readiness" });
+    // The meter is not a tab stop (its title is the link); hovering it sparks the light.
+    await expect(readiness).not.toHaveAttribute("tabindex", /.*/);
+    await readiness.hover();
     const spark = hero.locator('[data-surface-spark]');
     const sparkBox = await spark.boundingBox();
     const surfaceBox = await surface.boundingBox();
@@ -57,6 +59,6 @@ test.describe("platform hero moments", () => {
     await page.waitForTimeout(1200);
     await shoot(page, testInfo, "model-loader");
     release();
-    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Peopling" })).toBeVisible();
   });
 });

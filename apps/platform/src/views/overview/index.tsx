@@ -1,10 +1,6 @@
 import { Link } from "react-router";
-import { useEvaluations, usePlatform } from "@/api/queries";
-import { PhaseBadge } from "@/app/PhaseBadge";
-import { StatePill } from "@/app/StatePill";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { Button } from "@/components/ui";
-import { FAKE_PROVIDER_TITLE, isFakeProvider } from "@/model/provider";
 import { useModel } from "@/model/useModel";
 import { useKeepParams } from "@/model/useSelection";
 import { ActiveEvolutionsCard } from "./ActiveEvolutionsCard";
@@ -22,9 +18,6 @@ export default function OverviewView() {
   const href = useKeepParams();
   const system = m.index.model.system;
   const purpose = [...m.index.model.purposes].sort((a, b) => a.id.localeCompare(b.id, "en", { numeric: true }))[0];
-  const evaluations = useEvaluations();
-  const platform = usePlatform();
-  const fakeProvider = !platform.data?.hostedDemo && (evaluations.data ?? []).some((e) => isFakeProvider(e.provenance?.provider));
   return (
     <div className={styles.view}>
       <PageHeader
@@ -33,10 +26,6 @@ export default function OverviewView() {
         purpose={
           purpose ? <>{purpose.statement} <span className={styles.purposeId}>{purpose.id}</span></> : "This System declares no Purpose."
         }
-        status={<>
-          <PhaseBadge phase={system.phase} />
-          {fakeProvider && <StatePill state="fake" title={FAKE_PROVIDER_TITLE}>System One: fake provider</StatePill>}
-        </>}
         primary={<Button asChild variant="primary"><Link to={href("work", { panel: "intent" })}>Describe a change</Link></Button>}
       />
       <SystemHero />
