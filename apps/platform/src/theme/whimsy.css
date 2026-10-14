@@ -3,10 +3,12 @@
 
 :root {
   color-scheme: dark;
-  --font-display: Georgia, serif;
-  --font-body: "Trebuchet MS", Verdana, sans-serif;
-  --font-ui: "Trebuchet MS", Verdana, sans-serif;
-  --font-code: SFMono-Regular, Consolas, monospace;
+  --font-display: "Alegreya", "Alegreya Fallback", Georgia, serif;
+  --font-body: "Atkinson Hyperlegible Next", "Atkinson Fallback", "Trebuchet MS", system-ui, sans-serif;
+  --font-ui: "Atkinson Hyperlegible Next", "Atkinson Fallback", "Trebuchet MS", system-ui, sans-serif;
+  --font-code: "Atkinson Hyperlegible Mono", ui-monospace, SFMono-Regular, Consolas, monospace;
+  /* Status glyphs the text faces lack (✓ ◔ ⊘ ○ ●); for the aria-hidden glyph span only. */
+  --font-glyph: "Apple Symbols", "Segoe UI Symbol", "Noto Sans Symbols 2", "DejaVu Sans", sans-serif;
   --color-black: oklch(0.18 0.018 286);
   --color-white: oklch(0.94 0.015 95);
   --color-gray-50: oklch(0.25 0.024 282);
@@ -40,7 +42,7 @@
   --color-surface-disabled: oklch(0.215 0.02 285);
   --color-text-primary: oklch(0.94 0.015 95);
   --color-text-secondary: oklch(0.75 0.025 285);
-  --color-text-subtle: oklch(0.63 0.03 280);
+  --color-text-subtle: oklch(0.665 0.03 280);
   --color-text-tertiary: oklch(0.63 0.03 280);
   --color-text-placeholder: oklch(0.63 0.03 280);
   --color-text-disabled: oklch(0.63 0.03 280);
@@ -56,6 +58,7 @@
   --color-border: oklch(0.535 0.04 276);
   --color-border-strong: oklch(0.63 0.03 280);
   --color-border-subtle: oklch(0.535 0.04 276 / 0.55);
+  --color-border-faint: oklch(0.535 0.04 276 / 0.32);
   --color-border-disabled: oklch(0.535 0.04 276 / 0.55);
   --color-focus: oklch(0.79 0.125 60);
   --color-focus-ring: oklch(0.79 0.125 60);
@@ -151,11 +154,54 @@
   --color-status-error-active: oklch(
     from oklch(0.686 0.107 25.3) calc(l - 0.08) c h
   );
+
+  /* Roles, not brand: apricot is the operator's colour (where you are, what you can do, what waits on you). */
+  --color-attention: var(--color-brand-primary);
+  --color-link: var(--color-text-primary);
+  --color-link-underline: oklch(0.79 0.125 60 / 0.55);
+  --color-primary-disabled-bg: oklch(0.79 0.125 60 / 0.16);
+  --color-primary-disabled-text: var(--color-text-secondary);
+
+  /* Surfaces: wells go down, overlays go up, one step per containment, at most two steps on a page. */
+  --surface-page: var(--color-background);
+  --surface-well: oklch(0.165 0.016 286);
+  --surface-panel: var(--color-surface-primary);
+  --surface-raised: var(--color-surface-secondary);
+  --surface-overlay: oklch(0.285 0.026 282);
+
+  /* Type roles: components say which role they use (`font: var(--type-h2)`), never a size. Root is 16px.
+     One display-face element per view (the h1); h2 and below use the UI face; nothing below 13px except hints. */
+  --type-display: 400 clamp(2.6rem, 6vw, 5.5rem)/1.04 var(--font-display);
+  --type-display-tracking: -0.02em;
+  --type-display-2: 400 clamp(1.9rem, 3.4vw, 3rem)/1.12 var(--font-display);
+  --type-display-2-tracking: -0.015em;
+  --type-system: 500 clamp(2.25rem, 4vw, 3rem)/1.08 var(--font-display);
+  --type-h1: 500 2rem/1.15 var(--font-display);
+  --type-h1-compact: 500 1.5rem/1.2 var(--font-display);
+  --type-h1-tracking: -0.01em;
+  --type-h2: 600 1.125rem/1.35 var(--font-ui);
+  --type-h3: 600 1rem/1.4 var(--font-ui);
+  --type-body: 400 1rem/1.55 var(--font-ui);
+  --type-prose: 400 1.0625rem/1.65 var(--font-ui);
+  --type-ui: 400 0.875rem/1.45 var(--font-ui);
+  --type-control: 500 0.9375rem/1.2 var(--font-ui);
+  --type-meta: 400 0.8125rem/1.4 var(--font-ui);
+  --type-hint: 400 0.75rem/1.35 var(--font-ui);
+  --type-code: 400 0.875em/1.5 var(--font-code);
+  --type-code-block: 400 0.8125rem/1.6 var(--font-code);
+  --type-numeric: 600 1em/1.4 var(--font-ui);
+  --measure-body: 70ch;
+  --measure-prose: 68ch;
+
   --border-radius-sm: 4px;
   --border-radius-md: 6px;
   --border-radius-lg: 10px;
   --border-radius-xl: 10px;
   --border-radius-full: 9999px;
+}
+
+@media (max-width: 639px) {
+  :root { --type-h1: 500 1.75rem/1.15 var(--font-display); }
 }
 
 * { box-sizing: border-box; }
@@ -175,15 +221,24 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-a { color: var(--color-brand-primary); }
-a:hover { color: var(--color-brand-primary-hover); }
+/* Links in text: text colour with a 1px apricot underline. Apricot text at rest is for the operator's marks only. */
+a {
+  color: var(--color-link);
+  text-decoration-line: underline;
+  text-decoration-color: var(--color-link-underline);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 0.2em;
+}
+a:hover { color: var(--color-link); text-decoration-color: var(--color-brand-primary); }
 
 code, kbd, pre { font-family: var(--font-code); }
 
-:where(a, button, select, input, textarea, [tabindex]):focus-visible {
+/* Focus rings only on keyboard focus (:focus-visible), including headings focused by script (tabIndex=-1). */
+:where(a, button, select, input, textarea, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
 }
+:where([tabindex="-1"]):focus:not(:focus-visible) { outline: none; }
 
 .sr-only:not(:focus) {
   position: absolute;
@@ -203,9 +258,13 @@ code, kbd, pre { font-family: var(--font-code); }
 .shell-rule { border-color: var(--color-border-subtle); }
 
 /* Display face: wordmark and page h1 only. */
-.wordmark, h1 {
+.wordmark {
   font-family: var(--font-display);
   font-weight: var(--font-weight-normal);
+}
+h1 {
+  font: var(--type-h1);
+  letter-spacing: var(--type-h1-tracking);
 }
 
 @media (prefers-reduced-motion: reduce) {

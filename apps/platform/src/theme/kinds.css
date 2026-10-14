@@ -1,7 +1,8 @@
 /*
  * Kind colours: one token per template view-hint colour (`kinds.<k>.view.colour`, docs/design/ontology.md §3).
  * Used for kind glyphs only, always beside a label or name. Dark is the shipped theme; `data-theme="light"` is ready
- * for a light one.
+ * for a light one. Kind hues stay at least 25° from the verdict hues (success 166, danger 25), so no kind glyph reads as
+ * pass or fail: "red" is a raspberry, "green" and "lime" lean yellow, "teal" leans blue (theme.test.ts checks it).
  */
 :root {
   --kind-neutral: oklch(0.72 0.012 200);
@@ -9,13 +10,13 @@
   --kind-blue: oklch(0.74 0.11 245);
   --kind-indigo: oklch(0.72 0.12 275);
   --kind-violet: oklch(0.74 0.12 305);
-  --kind-pink: oklch(0.76 0.11 350);
-  --kind-red: oklch(0.72 0.13 25);
+  --kind-pink: oklch(0.76 0.11 330);
+  --kind-red: oklch(0.72 0.13 355);
   --kind-orange: oklch(0.76 0.12 55);
   --kind-amber: oklch(0.8 0.12 85);
-  --kind-lime: oklch(0.8 0.13 130);
-  --kind-green: oklch(0.76 0.1 155);
-  --kind-teal: oklch(0.76 0.08 190);
+  --kind-lime: oklch(0.82 0.12 112);
+  --kind-green: oklch(0.78 0.11 132);
+  --kind-teal: oklch(0.76 0.08 196);
 }
 
 :root[data-theme="light"] {
@@ -24,11 +25,11 @@
   --kind-blue: oklch(0.5 0.14 245);
   --kind-indigo: oklch(0.48 0.15 275);
   --kind-violet: oklch(0.5 0.15 305);
-  --kind-pink: oklch(0.52 0.15 350);
-  --kind-red: oklch(0.52 0.16 25);
+  --kind-pink: oklch(0.52 0.15 330);
+  --kind-red: oklch(0.52 0.16 355);
   --kind-orange: oklch(0.55 0.14 55);
   --kind-amber: oklch(0.56 0.12 85);
-  --kind-lime: oklch(0.55 0.13 130);
-  --kind-green: oklch(0.52 0.11 155);
-  --kind-teal: oklch(0.52 0.09 190);
+  --kind-lime: oklch(0.56 0.12 112);
+  --kind-green: oklch(0.53 0.11 132);
+  --kind-teal: oklch(0.52 0.09 196);
 }

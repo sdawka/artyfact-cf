@@ -122,4 +122,26 @@
 .u-verdict[data-verdict="not-run"] { color: var(--verdict-not-run); }
 .u-verdict[data-verdict="stale"] { color: var(--verdict-stale); border-style: dashed; }
 
+/* Selection: one rule everywhere. Current/selected = left rule + one surface step; hover = the surface step only;
+   focus = the 2px outline. Put `.u-selected` on the element carrying aria-current / aria-selected / aria-pressed, or
+   use it directly for a selected state the markup already names. */
+.u-selectable:hover { background: var(--selection-surface); }
+.u-selected,
+.u-selectable:is([aria-current="true"], [aria-current="page"], [aria-selected="true"], [aria-pressed="true"]) {
+  background: var(--selection-surface);
+  box-shadow: inset var(--selection-rule-width) 0 0 var(--selection-rule-color);
+}
+@media (forced-colors: active) {
+  .u-selected,
+  .u-selectable:is([aria-current="true"], [aria-current="page"], [aria-selected="true"], [aria-pressed="true"]) {
+    border-left: var(--selection-rule-width) solid Highlight;
+  }
+}
+
+/* Counts, durations and meter values: tabular figures (the font shorthand resets font-variant, so set it after). */
+.u-numeric { font: var(--type-numeric); font-variant-numeric: tabular-nums; }
+
+/* The aria-hidden glyph span beside a status word: system symbol faces for glyphs the text faces lack. */
+.u-glyph { font-family: var(--font-glyph); font-weight: normal; }
+
 @media (max-width: 1023px) { :root { --app-gutter: 20px; } }

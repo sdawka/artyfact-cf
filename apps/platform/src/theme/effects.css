@@ -31,6 +31,18 @@
   --shadow-glow-success-soft: 0 0 12px -5px var(--glow-success);
   --shadow-glow-error-soft: 0 0 12px -4px var(--glow-error);
 
+  /* Selection and status glow: the only glows that may show without hover, always alongside the outline or rule that
+     carries the meaning. Nothing glows at rest otherwise (no resting nav, card or tile glow). */
+  --shadow-glow-selection: var(--shadow-glow-accent-soft);
+  --shadow-glow-status-attention: var(--shadow-glow-accent-soft);
+  --shadow-glow-status-fail: var(--shadow-glow-error-soft);
+  --shadow-glow-status-pass: var(--shadow-glow-success-soft);
+
+  /* Selection: one rule everywhere, a 2px apricot left rule plus one surface step (`.u-selected` in utilities.css). */
+  --selection-rule-width: 2px;
+  --selection-rule-color: var(--color-brand-primary);
+  --selection-surface: var(--color-surface-secondary);
+
   /* Ambient motion: slow loops such as breathing glows. Effects ease data changes over about this long. */
   --motion-duration-ambient: 2400ms;
   --motion-easing-ambient: cubic-bezier(0.37, 0, 0.63, 1);
