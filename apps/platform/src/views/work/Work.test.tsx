@@ -100,6 +100,8 @@ describe("Work list and detail", () => {
     const note = await screen.findByTestId("thing-scope-note");
     expect(note.textContent).toMatch(/Showing Peopling web app/);
     expect(screen.getAllByTestId("thing-scope-note")).toHaveLength(1);
+    // The note sits on the header's context row, beside the scope path.
+    expect(note.closest("header")?.firstElementChild?.contains(note)).toBe(true);
     expect(screen.queryByText("Showing the whole System")).toBeNull();
     const names = () => within(list).getAllByRole("link").map((l) => l.textContent ?? "");
     await waitFor(() => expect(names().some((n) => n.startsWith("Private contact foundation"))).toBe(true));

@@ -134,6 +134,7 @@ function Workbench() {
       title="Work"
       titleRef={titleRef}
       purpose="Genome Evolutions and the Task plans that realize them."
+      scopeNote={!describing && !creating ? <ThingScopeNote filter={thingFilter} /> : undefined}
       status={status || undefined}
       secondary={
         <Button
@@ -220,7 +221,6 @@ function Workbench() {
   return (
     <section aria-labelledby="view-title" className={styles.view}>
       {header}
-      {!describing && !creating && <ThingScopeNote filter={thingFilter} />}
       {body}
     </section>
   );

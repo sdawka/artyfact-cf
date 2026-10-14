@@ -55,9 +55,8 @@ export default function PhenomeView() {
 
   return (
     <div className={styles.view}>
-      <PageHeader title="Deployments" purpose="Builds, deployments and what the running System reports." />
+      <PageHeader title="Deployments" purpose="Builds, deployments and what the running System reports." scopeNote={<ThingScopeNote filter={filter} />} />
       <div className={styles.scope}>
-        <ThingScopeNote filter={filter} />
         <FilterChips />
       </div>
       {!loading && !failed && <ProductionSummary production={production} history={history} />}
