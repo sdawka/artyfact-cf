@@ -42,7 +42,8 @@ test("direct Thing routes retain a full workspace as the System grows and distin
   await page.getByRole("navigation", { name: "Views", exact: true }).getByRole("link", { name: "Code" }).click();
   await expect(page).toHaveURL(new RegExp(`${THING}/code$`));
   await expect(page.getByRole("tab", { name: "Genome" })).toBeVisible();
-  await expect(page.getByText("Showing the whole System")).toBeVisible();
+  // The PageHeader's scope note (the Shell's CSS-hidden fallback scope line is also in the DOM).
+  await expect(page.locator("header[data-variant]").getByText("Showing the whole System")).toBeVisible();
   await page.getByRole("navigation", { name: "Views", exact: true }).getByRole("link", { name: "Deployments" }).click();
   await expect(page).toHaveURL(new RegExp(`${THING}/phenome$`));
   await expect(page.locator("summary").filter({ hasText: "events" })).toHaveCount(2);
