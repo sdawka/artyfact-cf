@@ -2,7 +2,7 @@ export * from "./types.ts";
 export { fakeAnswer, fakeAnswers } from "./fake.ts";
 export {
   askCacheKey, base64Bytes, checkImages, IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGES, MAX_TOTAL_IMAGE_BYTES, refuseImages,
-  cacheKeyFor, DEFAULT_TYPESAFE_MODEL, fakeSystemOne, httpSystemOne, offSystemOne, S1Error, stripDirectives, TYPESAFE_URL, typeSafeProvider, wireQuestions,
+  cacheKeyFor, DEFAULT_TYPESAFE_MODEL, fakeSystemOne, httpSystemOne, offSystemOne, simulatedSystemOne, S1Error, stripDirectives, TYPESAFE_URL, typeSafeProvider, wireQuestions,
   type HttpOptions, type S1ErrorCode, type TypeSafeOptions,
 } from "./provider.ts";
 export {
@@ -15,7 +15,7 @@ export {
 } from "./defects.ts";
 export { buildSlice, pairOf, type SliceNode, type SliceState } from "./slice.ts";
 export {
-  DEFAULT_OPENROUTER_MODEL, OPENROUTER_DECISIONS_URL, openRouterProvider, providerFromEnv, readDecision, visionProviderFromEnv,
+  DEFAULT_OPENROUTER_MODEL, JEV_OPENROUTER_MODEL, OPENROUTER_DECISIONS_URL, S1_PROVIDERS, type S1ProviderChoice, openRouterProvider, providerFromEnv, readDecision, visionProviderFromEnv,
   type OpenRouterOptions, type ProviderEnv,
 } from "./openrouter.ts";
 export { CLEF_FLASH_MODEL, CLEF_MODEL, workersAiProvider, type AiBinding, type WorkersAiOptions } from "./workers-ai.ts";

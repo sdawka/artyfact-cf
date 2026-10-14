@@ -1,5 +1,5 @@
 import { failWith, limiter, lruCache, openRouterHeaders, postJson, redactor, withRetries } from "./http.ts";
-import { askCacheKey, fakeSystemOne, offSystemOne, refuseImages, S1Error, stripDirectives, typeSafeProvider, wireQuestions } from "./provider.ts";
+import { askCacheKey, DEFAULT_TYPESAFE_MODEL, fakeSystemOne, offSystemOne, refuseImages, S1Error, stripDirectives, typeSafeProvider, wireQuestions } from "./provider.ts";
 import { CLEF_MODEL, workersAiProvider, type AiBinding } from "./workers-ai.ts";
 import type { Answer, AskOptions, S1Questions, S1Reply, SystemOne } from "./types.ts";
 
@@ -111,9 +111,19 @@ export function openRouterProvider(o: OpenRouterOptions): SystemOne {
   return { mode: "http", model, ask };
 }
 
+/** `S1_PROVIDER` values. `auto` (or unset) keeps the precedence order; any other value is that provider or off. */
+export const S1_PROVIDERS = ["auto", "clef", "jev", "openrouter", "fake", "off"] as const;
+export type S1ProviderChoice = (typeof S1_PROVIDERS)[number];
+/** Jev on OpenRouter's Decisions API, for `S1_PROVIDER=jev` with only an OpenRouter key. */
+export const JEV_OPENROUTER_MODEL = "typesafe/jev-1.13";
+
 export interface ProviderEnv {
   FAKE_S1?: string;
+  /** `auto` (default) | `clef` | `jev` | `openrouter` | `fake` | `off`; see `providerFromEnv`. */
+  S1_PROVIDER?: string;
   TYPESAFE_API_KEY?: string;
+  /** Jev model: on TypeSafe default `jev-latest`; on OpenRouter default `typesafe/jev-1.13` (a bare id gets `typesafe/`). */
+  JEV_MODEL?: string;
   /** Workers AI binding (wrangler `ai`); bound, it selects Cloudflare Clef. */
   AI?: AiBinding;
   /** Workers AI model id for Clef; default `@cf/cloudflare/clef` (`@cf/cloudflare/clef-flash` is the 9B one). */
@@ -123,26 +133,53 @@ export interface ProviderEnv {
   fetch?: typeof fetch;
 }
 
-/**
- * artyfact's precedence: `FAKE_S1=1` wins, then `TYPESAFE_API_KEY`, then Cloudflare Clef when the `AI` binding is
- * present (model from `CLEF_MODEL`), then `OPENROUTER_API_KEY` (model from `OPENROUTER_MODEL`), else off.
- */
-export function providerFromEnv(env: ProviderEnv): SystemOne {
-  if (env.FAKE_S1 === "1") return fakeSystemOne();
+const hasAi = (env: ProviderEnv): env is ProviderEnv & { AI: AiBinding } => !!env.AI && typeof env.AI.run === "function";
+const clef = (env: ProviderEnv & { AI: AiBinding }) => workersAiProvider(env.AI, env.CLEF_MODEL?.trim() || CLEF_MODEL);
+
+/** Jev: TypeSafe direct with `TYPESAFE_API_KEY`, else OpenRouter's Decisions API with `OPENROUTER_API_KEY`, else off. */
+function jev(env: ProviderEnv): SystemOne {
+  const model = env.JEV_MODEL?.trim();
   const typeSafeKey = env.TYPESAFE_API_KEY?.trim();
-  if (typeSafeKey) return typeSafeProvider({ apiKey: typeSafeKey, fetch: env.fetch });
-  if (env.AI && typeof env.AI.run === "function") return workersAiProvider(env.AI, env.CLEF_MODEL?.trim() || CLEF_MODEL);
+  if (typeSafeKey) return typeSafeProvider({ apiKey: typeSafeKey, model: model || DEFAULT_TYPESAFE_MODEL, fetch: env.fetch });
   const apiKey = env.OPENROUTER_API_KEY?.trim();
-  if (apiKey) return openRouterProvider({ apiKey, model: env.OPENROUTER_MODEL?.trim() || undefined, fetch: env.fetch });
-  return offSystemOne();
+  if (apiKey) return openRouterProvider({ apiKey, model: model ? (model.includes("/") ? model : `typesafe/${model}`) : JEV_OPENROUTER_MODEL, fetch: env.fetch });
+  return offSystemOne("S1_PROVIDER=jev needs TYPESAFE_API_KEY or OPENROUTER_API_KEY");
 }
 
 /**
- * The provider for judgments with images: the selected one when it reads images (Clef, the fake), else Clef when the
- * `AI` binding is present, else the selected one, which refuses images with an `unsupported` S1Error.
+ * `FAKE_S1=1` wins (local and tests). Then `S1_PROVIDER`: unset or `auto` is artyfact's precedence (`TYPESAFE_API_KEY`,
+ * then Cloudflare Clef when the `AI` binding is present (model from `CLEF_MODEL`), then `OPENROUTER_API_KEY` (model from
+ * `OPENROUTER_MODEL`), else off). An explicit value is that provider or, when its key or binding is missing, off with a
+ * reason; it never falls through to another provider.
+ */
+export function providerFromEnv(env: ProviderEnv): SystemOne {
+  if (env.FAKE_S1 === "1") return fakeSystemOne();
+  const choice = env.S1_PROVIDER?.trim().toLowerCase() || "auto";
+  const apiKey = env.OPENROUTER_API_KEY?.trim();
+  switch (choice) {
+    case "auto": {
+      const typeSafeKey = env.TYPESAFE_API_KEY?.trim();
+      if (typeSafeKey) return typeSafeProvider({ apiKey: typeSafeKey, model: env.JEV_MODEL?.trim() || undefined, fetch: env.fetch });
+      if (hasAi(env)) return clef(env);
+      if (apiKey) return openRouterProvider({ apiKey, model: env.OPENROUTER_MODEL?.trim() || undefined, fetch: env.fetch });
+      return offSystemOne();
+    }
+    case "clef": return hasAi(env) ? clef(env) : offSystemOne("S1_PROVIDER=clef needs the Workers AI binding AI");
+    case "jev": return jev(env);
+    case "openrouter":
+      return apiKey ? openRouterProvider({ apiKey, model: env.OPENROUTER_MODEL?.trim() || undefined, fetch: env.fetch }) : offSystemOne("S1_PROVIDER=openrouter needs OPENROUTER_API_KEY");
+    case "fake": return fakeSystemOne();
+    case "off": return offSystemOne("S1_PROVIDER=off");
+    default: return offSystemOne(`S1_PROVIDER=${choice.slice(0, 40)} is not one of ${S1_PROVIDERS.join(", ")}`);
+  }
+}
+
+/**
+ * The provider for judgments with images: the selected one when it reads images (Clef, the fake) or is off, else Clef
+ * when the `AI` binding is present (Jev, TypeSafe and OpenRouter read text only), else the selected one, which refuses
+ * images with an `unsupported` S1Error.
  */
 export function visionProviderFromEnv(env: ProviderEnv, selected: SystemOne = providerFromEnv(env)): SystemOne {
-  if (selected.images) return selected;
-  if (env.AI && typeof env.AI.run === "function") return workersAiProvider(env.AI, env.CLEF_MODEL?.trim() || CLEF_MODEL);
-  return selected;
+  if (selected.images || selected.mode === "off") return selected;
+  return hasAi(env) ? clef(env) : selected;
 }

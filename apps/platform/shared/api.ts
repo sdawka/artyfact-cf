@@ -221,6 +221,12 @@ export interface PlanCounts {
   integrated: number;
 }
 
+/** `GET /api/platform`: whether this Worker is the hosted demo, whose judgments are simulated. */
+export interface PlatformResponse {
+  hostedDemo: boolean;
+  notice?: string;
+}
+
 /** `GET /api/systems`. */
 export interface SystemsResponse {
   systems: SystemSummary[];

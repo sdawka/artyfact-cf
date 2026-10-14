@@ -48,6 +48,8 @@ export interface SystemOne {
   model: string;
   /** True when `ask` sends `opts.images` to the model; any other provider refuses them with an `unsupported` S1Error. */
   images?: boolean;
+  /** Why an `off` provider is off, when it was asked for explicitly. */
+  reason?: string;
   ask(state: unknown, questions: S1Questions, opts?: AskOptions): Promise<S1Reply>;
 }
 

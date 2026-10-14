@@ -95,21 +95,29 @@ export function stripDirectives(state: unknown): unknown {
   return state;
 }
 
-/** The fake accepts images within the limits (so the visual path is testable) and answers from the state alone. */
-export const fakeSystemOne = (model = "fake"): SystemOne => ({
+/**
+ * The fake accepts images within the limits (so the visual path is testable) and answers from the state alone.
+ * `provider` names it in every reply: `fake` locally, `simulated` on the hosted demo.
+ */
+export const fakeSystemOne = (model = "fake", provider: "fake" | "simulated" = "fake"): SystemOne => ({
   mode: "fake",
   model,
   images: true,
   ask: async (state, questions, opts) => {
     checkImages(opts?.images);
-    return { answers: fakeAnswers(state, questions), model, ms: 0, usage: ZERO, provider: "fake" };
+    return { answers: fakeAnswers(state, questions), model, ms: 0, usage: ZERO, provider };
   },
 });
 
-export const offSystemOne = (): SystemOne => ({
+/** The hosted demo's System One: the fake's canned answers, recorded as provider and model `simulated`. */
+export const simulatedSystemOne = (): SystemOne => fakeSystemOne("simulated", "simulated");
+
+/** No provider. `reason` says why (an explicit `S1_PROVIDER` whose key or binding is missing) and is in every error. */
+export const offSystemOne = (reason?: string): SystemOne => ({
   mode: "off",
   model: "off",
-  ask: async () => { throw new S1Error("System One is off", "off"); },
+  ...(reason && { reason }),
+  ask: async () => { throw new S1Error(reason ? `System One is off: ${reason}` : "System One is off", "off"); },
 });
 
 export interface HttpOptions {

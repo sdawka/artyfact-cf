@@ -16,11 +16,9 @@
   // wrangler.test.jsonc, so `env.CI` is optional in code.
   "workflows": [{ "binding": "CI", "name": "artyfact-ci", "class_name": "ArtyfactCI", "script_name": "artyfact-ci" }],
   "queues": { "consumers": [{ "queue": "artyfact-artifacts-events", "max_batch_size": 10, "max_retries": 3 }] },
-  // Workers AI: with AI bound, System One is Cloudflare Clef (@cf/cloudflare/clef; CLEF_MODEL overrides) unless
-  // FAKE_S1=1 or TYPESAFE_API_KEY wins first. Visual checks use Clef whenever AI is bound (Clef reads images).
-  "ai": { "binding": "AI" },
-  // Browser Run: visual checks capture the candidate's preview with the screenshot Quick Action.
-  "browser": { "binding": "BROWSER" },
+  // No Workers AI (AI) or Browser Run (BROWSER) here: the deployed Worker is the hosted demo (HOSTED_DEMO=1), whose
+  // judgments are simulated. `npm run dev` adds both bindings and HOSTED_DEMO=0 in vite.config.ts, so local runs use
+  // Clef, Jev and Browser Run on your own account.
   // Evidence images: screenshots agents attach at submit and the platform's own captures (create the bucket first).
   "r2_buckets": [{ "binding": "EVIDENCE", "bucket_name": "artyfact-evidence" }],
   // ACCOUNT_ID builds fork remotes (https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/<ns>/<repo>.git); set it in .dev.vars or here.
@@ -32,6 +30,6 @@
   // PUBLIC_URL records the deployed origin. Start lines and task packets use the request origin, so local dev (http://localhost:1337) needs no override.
   // WORKERS_SUBDOMAIN: the account's workers.dev subdomain; CI deploys previews to https://<worker>.<WORKERS_SUBDOMAIN>.workers.dev.
   // ALLOW_LOCAL_PREVIEW=1 (http://localhost / 127.0.0.1 previews) belongs in .dev.vars only, never in deployed vars.
-  "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "https://artyfact-platform.dawka.workers.dev", "ACCOUNT_ID": "1bae12d5089e4c2ee5c0e62c021a117f", "PREVIEW_HOST_ALLOWLIST": "", "WORKERS_SUBDOMAIN": "dawka" },
+  "vars": { "ARTIFACTS_NAMESPACE": "artyfact", "PUBLIC_URL": "https://artyfact-platform.dawka.workers.dev", "ACCOUNT_ID": "1bae12d5089e4c2ee5c0e62c021a117f", "PREVIEW_HOST_ALLOWLIST": "", "WORKERS_SUBDOMAIN": "dawka", "HOSTED_DEMO": "1" },
   "observability": { "enabled": true }
 }

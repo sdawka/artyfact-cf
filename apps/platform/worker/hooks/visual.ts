@@ -10,10 +10,11 @@
  *
  * Images go to the judgment in batches Clef accepts (at most 4, 8 MiB together); any batch failing fails the check,
  * all passing passes it, anything else is unknown. Without a provider that reads images, or without any image, the
- * check is `not-run` with the reason; it is never judged from text alone.
+ * check is `not-run` with the reason; it is never judged from text alone. The one exception is the hosted demo
+ * (`simulated`): it captures and reads nothing and records a canned verdict, labelled simulated, from the fake.
  */
 import type { schema, SystemModel } from "@artyfact/model";
-import { MAX_IMAGE_BYTES, MAX_IMAGES, MAX_TOTAL_IMAGE_BYTES, safeLabel, visualCriterion, type S1Image, type S1ImageType, type SystemOne, type VisualImageLabel, type VisualResult } from "@artyfact/semantic";
+import { MAX_IMAGE_BYTES, MAX_IMAGES, MAX_TOTAL_IMAGE_BYTES, safeLabel, visualCriterion, visualQuestions, visualState, type S1Image, type S1ImageType, type SystemOne, type VisualImageLabel, type VisualResult } from "@artyfact/semantic";
 import type { CandidateRef, EvidenceImageRef } from "./contract";
 import { validatePreviewUrl, type PreviewPolicy } from "./http-health";
 import { notRun, type Outcome } from "./provenance";
@@ -51,6 +52,33 @@ export interface VisualInput {
   policy: PreviewPolicy;
   browser?: BrowserLike;
   evidence?: EvidenceStore;
+  /** Hosted demo: no capture, no evidence read, no paid call; `s1` is the simulated provider. */
+  simulated?: boolean;
+}
+
+/** Why a hosted-demo visual verdict is not a judgment. */
+export const SIMULATED = "Hosted demo: simulated verdict. No screenshot was captured or judged; run Artyfact locally on your Cloudflare account for Clef";
+
+/** The hosted demo's visual check: the simulated provider's canned answer on the claim alone, labelled as such. */
+async function simulatedCheck(input: VisualInput): Promise<Outcome> {
+  const c = input.criterion, node = input.model.index.byId[c.subjectId];
+  const v = {
+    criterion: { id: c.id, title: c.title, claim: c.claim },
+    subject: { id: c.subjectId, ...(node?.kind && { kind: node.kind }), ...(node?.name && { name: node.name }) },
+    page: { path: input.hook.inputs.path ?? "/" }, images: [],
+  };
+  const reply = await input.s1.ask(visualState(v), visualQuestions(v));
+  const a = reply.answers.satisfies;
+  const p = a?.type === "noul" ? a.noul : 0.5;
+  const verdict = p >= 0.9 ? "pass" : p <= 0.1 ? "fail" : "unknown";
+  return {
+    execution: "completed",
+    verdict,
+    observations: [{ simulated: true, satisfies: p, verdict }],
+    interpretation: `Simulated ${verdict} for "${c.title}" (hosted demo).`,
+    limitations: [`${SIMULATED}.`],
+    provenance: { provider: reply.provider ?? "simulated", model: reply.model, images: "0", sources: "simulated", simulated: "hosted-demo" },
+  };
 }
 
 const seg = (s: string) => encodeURIComponent(s).replace(/%/g, "_");
@@ -192,9 +220,10 @@ async function agentShot(store: EvidenceStore, ref: EvidenceImageRef, notes: str
 export async function visualCheck(input: VisualInput): Promise<Outcome> {
   const { s1, candidate: cand, criterion: c } = input;
   if (!s1.images) {
-    const why = s1.mode === "off" ? "System One is off" : `System One provider ${s1.model} cannot read images`;
+    const why = s1.mode === "off" ? (s1.reason ? `System One is off (${s1.reason})` : "System One is off") : `System One provider ${s1.model} cannot read images`;
     return notRun(`${why}; visual checks need Cloudflare Clef (the Workers AI binding AI).`, { provenance: { provider: s1.mode === "off" ? "off" : s1.model, model: s1.model } });
   }
+  if (input.simulated) return simulatedCheck(input);
   const notes: string[] = [];
   const shots: Shot[] = [];
 

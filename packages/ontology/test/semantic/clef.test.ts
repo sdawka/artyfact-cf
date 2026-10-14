@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  askCacheKey, base64Bytes, CLEF_MODEL, checkImages, fakeSystemOne, MAX_IMAGE_BYTES, openRouterProvider, providerFromEnv, S1Error, typeSafeProvider,
+  askCacheKey, base64Bytes, CLEF_MODEL, checkImages, DEFAULT_TYPESAFE_MODEL, fakeSystemOne, JEV_OPENROUTER_MODEL, MAX_IMAGE_BYTES, simulatedSystemOne, openRouterProvider, providerFromEnv, S1Error, typeSafeProvider,
   visionProviderFromEnv, workersAiProvider, type AiBinding, type S1Image, type S1Questions,
 } from "../../src/index.ts";
 
@@ -55,6 +55,63 @@ describe("providerFromEnv with Clef", () => {
     expect(visionProviderFromEnv({ TYPESAFE_API_KEY: "ts-key", AI: ai })).toMatchObject({ model: CLEF_MODEL, images: true });
     expect(visionProviderFromEnv({ TYPESAFE_API_KEY: "ts-key" })).toMatchObject({ model: "jev-latest" });
     expect(visionProviderFromEnv({}).mode).toBe("off");
+  });
+});
+
+describe("S1_PROVIDER", () => {
+  const { ai } = mockAi();
+  const all = { TYPESAFE_API_KEY: "ts-key", AI: ai, OPENROUTER_API_KEY: "or", fetch: never };
+
+  it("auto (or unset, any case) keeps the precedence order", () => {
+    expect(providerFromEnv({ ...all, S1_PROVIDER: "auto" }).model).toBe("jev-latest");
+    expect(providerFromEnv({ ...all, S1_PROVIDER: " AUTO " }).model).toBe("jev-latest");
+    expect(providerFromEnv({ AI: ai, S1_PROVIDER: "" }).model).toBe(CLEF_MODEL);
+  });
+
+  it("picks the named provider over the precedence order", () => {
+    expect(providerFromEnv({ ...all, S1_PROVIDER: "clef" })).toMatchObject({ model: CLEF_MODEL, images: true });
+    expect(providerFromEnv({ ...all, S1_PROVIDER: "clef", CLEF_MODEL: "@cf/cloudflare/clef-flash" }).model).toBe("@cf/cloudflare/clef-flash");
+    expect(providerFromEnv({ ...all, S1_PROVIDER: "openrouter" }).model).toBe("perplexity/pplx-decider-v1.1-27b");
+    expect(providerFromEnv({ ...all, S1_PROVIDER: "fake" }).mode).toBe("fake");
+    expect(providerFromEnv({ ...all, S1_PROVIDER: "off" })).toMatchObject({ mode: "off", reason: "S1_PROVIDER=off" });
+    expect(providerFromEnv({ ...all, S1_PROVIDER: "fake", FAKE_S1: "1" }).mode).toBe("fake");
+  });
+
+  it("jev is TypeSafe with a TypeSafe key, else Jev on OpenRouter, with JEV_MODEL overriding either", () => {
+    expect(providerFromEnv({ ...all, S1_PROVIDER: "jev" }).model).toBe(DEFAULT_TYPESAFE_MODEL);
+    expect(providerFromEnv({ ...all, S1_PROVIDER: "jev", JEV_MODEL: "jev-1.13.0" }).model).toBe("jev-1.13.0");
+    expect(providerFromEnv({ OPENROUTER_API_KEY: "or", S1_PROVIDER: "jev" }).model).toBe(JEV_OPENROUTER_MODEL);
+    expect(JEV_OPENROUTER_MODEL).toBe("typesafe/jev-1.13");
+    expect(providerFromEnv({ OPENROUTER_API_KEY: "or", S1_PROVIDER: "jev", JEV_MODEL: "jev-latest" }).model).toBe("typesafe/jev-latest");
+    expect(providerFromEnv({ OPENROUTER_API_KEY: "or", S1_PROVIDER: "jev", JEV_MODEL: "~typesafe/jev-latest" }).model).toBe("~typesafe/jev-latest");
+  });
+
+  it("an explicit provider without its key or binding is off with the reason, never another provider", async () => {
+    const cases: [string, Record<string, unknown>, RegExp][] = [
+      ["clef", { TYPESAFE_API_KEY: "ts-key", OPENROUTER_API_KEY: "or" }, /needs the Workers AI binding AI/],
+      ["jev", { AI: ai }, /needs TYPESAFE_API_KEY or OPENROUTER_API_KEY/],
+      ["openrouter", { TYPESAFE_API_KEY: "ts-key", AI: ai }, /needs OPENROUTER_API_KEY/],
+      ["clfe", all, /S1_PROVIDER=clfe is not one of auto, clef, jev, openrouter, fake, off/],
+    ];
+    for (const [name, env, reason] of cases) {
+      const s1 = providerFromEnv({ ...env, S1_PROVIDER: name });
+      expect(s1.mode, name).toBe("off");
+      expect(s1.reason, name).toMatch(reason);
+      await expect(s1.ask({}, QUESTIONS)).rejects.toThrow(reason);
+    }
+  });
+
+  it("visual checks: Clef beside Jev or OpenRouter when AI is bound; an explicit off stays off", () => {
+    expect(visionProviderFromEnv({ ...all, S1_PROVIDER: "jev" })).toMatchObject({ model: CLEF_MODEL, images: true });
+    expect(visionProviderFromEnv({ OPENROUTER_API_KEY: "or", S1_PROVIDER: "jev" })).toMatchObject({ model: JEV_OPENROUTER_MODEL });
+    expect(visionProviderFromEnv({ ...all, S1_PROVIDER: "openrouter" })).toMatchObject({ model: CLEF_MODEL });
+    expect(visionProviderFromEnv({ ...all, S1_PROVIDER: "off" }).mode).toBe("off");
+    expect(visionProviderFromEnv({ TYPESAFE_API_KEY: "ts-key", S1_PROVIDER: "clef" })).toMatchObject({ mode: "off", reason: expect.stringMatching(/AI/) });
+  });
+
+  it("the simulated provider is the fake recorded as simulated", async () => {
+    const r = await simulatedSystemOne().ask({}, QUESTIONS);
+    expect(r).toMatchObject({ provider: "simulated", model: "simulated" });
   });
 });
 

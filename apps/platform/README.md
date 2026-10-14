@@ -12,17 +12,20 @@ npm run dev -w @artyfact/platform   # http://localhost:1337 (next free port if t
 - `npm test -w @artyfact/platform` (workerd + jsdom projects), `npm run typecheck`, `npm run build`.
 - The full demo against real Artifacts is `docs/demo-runbook.md`. The opt-in integration test runs that loop in namespace `artyfact-test`: `ARTYFACT_INTEGRATION=1 npx vitest run --project integration` (uses `wrangler.integration.jsonc`).
 - `npm run cf-typegen` regenerates `worker/env.d.ts` after editing `wrangler.jsonc`.
-- The `ARTIFACTS` binding is `remote: true`, and Workers AI (`AI`) and Browser Run (`BROWSER`) are remote-only, so `npm run dev` (real backend) needs `wrangler login` or `CLOUDFLARE_API_TOKEN`. Nothing else does: `FAKE_ARTIFACTS=1` drops all three bindings (no platform captures; System One is the fake), and tests use `wrangler.test.jsonc`, the same config without those bindings (keep the two in sync). Tests pass mocks of `AI` and `BROWSER`; the `EVIDENCE` R2 bucket runs locally.
+- The `ARTIFACTS` binding is `remote: true`, and Workers AI (`AI`) and Browser Run (`BROWSER`) are remote-only, so `npm run dev` (real backend) needs `wrangler login` or `CLOUDFLARE_API_TOKEN`. `wrangler.jsonc` has no `AI` or `BROWSER`: it is the deployed hosted demo (`HOSTED_DEMO=1`). `npm run dev` adds both bindings and `HOSTED_DEMO=0` in `vite.config.ts`, so local runs are real and billed to your account. Nothing else needs a login: `FAKE_ARTIFACTS=1` drops `ARTIFACTS` too (no platform captures; System One is the fake), and tests use `wrangler.test.jsonc`, the same config without those bindings (keep the two in sync). Tests pass mocks of `AI` and `BROWSER`; the `EVIDENCE` R2 bucket runs locally.
 - `FAKE_ARTIFACTS=1 npx vite --port 1339` (in `apps/platform`) runs the whole backend without an account: in-memory Artifacts seeded from `examples/` (Peopling is imported on the first request), editor commits pushed through a fake receive-pack, no persisted state, the fake System One (`FAKE_S1=1`), and admin token `fake-admin-token` unless `ADMIN_TOKEN` is set. Local only (`worker/artifacts/fake-platform.ts`).
 - `npm run preview:fixture` builds and serves the SPA statically (`vite.fixture.config.ts`, no Cloudflare plugin) on http://localhost:1338 with bundled fixture data. `npm run e2e` runs Playwright against it; no Cloudflare credentials needed. `npm run e2e:live` runs the `@live` specs against `wrangler dev` and does need a login.
 - `worker/env.d.ts` is generated; do not hand-edit it (use `cf-typegen`, secrets go in `worker/secrets.d.ts`).
 
 ## Env
-Secrets (`.dev.vars` locally, `wrangler secret put` deployed): `ADMIN_TOKEN`, `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `CLEF_MODEL` (optional), `ALLOW_LOCAL_PREVIEW` (local only). `FAKE_S1` goes in `.dev.vars` and test configs only, never in deployed vars. Vars live in `wrangler.jsonc`;
+Secrets (`.dev.vars` locally, `wrangler secret put` deployed): `ADMIN_TOKEN`, `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `S1_PROVIDER`, `CLEF_MODEL`, `JEV_MODEL` (optional), `ALLOW_LOCAL_PREVIEW` (local only). The hosted demo never reads the model ones. `FAKE_S1` goes in `.dev.vars` and test configs only, never in deployed vars. Vars live in `wrangler.jsonc`;
 set `ACCOUNT_ID` (from `wrangler whoami`) in `.dev.vars` so fork remotes are `https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/<ns>/<repo>.git`.
 
+### Hosted demo
+The deployed Worker (`HOSTED_DEMO=1` in `wrangler.jsonc`, `worker/demo.ts`) has no spending gate, so it calls no paid or external model and reads no model key or binding. System One is the simulated provider: the fake's canned answers, recorded as provider and model `simulated`. Visual checks capture and read nothing and record a simulated verdict whose limitation says so. Intent translation and the plan draft planner are the deterministic fakes. `GET /api/platform` returns `{hostedDemo, notice}`, and the header shows "Hosted demo: judgments are simulated" with the notice "Run it locally on your Cloudflare account for Clef or Jev." Agent screenshots are still stored in `EVIDENCE` at submit: the upload is authorized by the realization secret and capped, and costs only R2 storage. Local runs (`npm run dev`) are never the demo.
+
 ### System One provider
-One client (`providerFromEnv` in `@artyfact/ontology`) serves the gates and the review questions, chosen in this order:
+One client (`providerFromEnv` in `@artyfact/ontology`) serves the gates and the review questions. `S1_PROVIDER` picks one: `auto` (the default) uses the order below; `clef`, `jev`, `openrouter`, `fake` and `off` name one. A named provider whose key or binding is missing is `off`, with the reason in every judgment; it never falls through to another. `jev` is TypeSafe's Jev: TypeSafe with `TYPESAFE_API_KEY` (`jev-latest`), else OpenRouter's Decisions API with `OPENROUTER_API_KEY` (`typesafe/jev-1.13`); `JEV_MODEL` overrides either. In `auto` order:
 
 | Provider | When |
 |---|---|
@@ -32,7 +35,7 @@ One client (`providerFromEnv` in `@artyfact/ontology`) serves the gates and the 
 | OpenRouter | `OPENROUTER_API_KEY` (Decisions API; `OPENROUTER_MODEL`, default `perplexity/pplx-decider-v1.1-27b`) |
 | off | none of the above |
 
-Visual checks need a provider that reads images: the selected one if it can (Clef, the fake), else Clef whenever `AI` is bound (so TypeSafe can judge text while Clef judges screenshots), else the check is `not-run`. Intent translation and the plan draft planner generate text, so they stay on OpenRouter.
+Visual checks need a provider that reads images: the selected one if it can (Clef, the fake), else Clef whenever `AI` is bound (so Jev or OpenRouter can judge text while Clef judges screenshots), else the check is `not-run`. An explicit `off`, or a named provider that is off, keeps visual checks off too. Intent translation and the plan draft planner generate text, so they stay on OpenRouter.
 
 Off, every System One judgment is `unknown`. Hard criteria judged by System One, such as `C.system.purpose`, then keep the promotion gate closed. This is by design: nothing is green without evidence. For local work set `FAKE_S1=1` in `.dev.vars`; tests pin it per test, and `wrangler.integration.jsonc` sets it for the integration suite.
 

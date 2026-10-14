@@ -50,6 +50,8 @@ export interface RunnerDeps {
   browser?: BrowserLike;
   /** Evidence bucket: agent screenshots are read from it, platform captures written to it. */
   evidence?: EvidenceStore;
+  /** Hosted demo: visual checks record a simulated verdict and touch neither Browser Run nor the evidence bucket. */
+  simulated?: boolean;
   /** Preview URL policy env (ALLOW_LOCAL_PREVIEW, PREVIEW_HOST_ALLOWLIST). The Worker wiring passes `env`. Absent → defaults only. */
   previewEnv?: PreviewEnv;
   fetch?: typeof fetch;
@@ -329,7 +331,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
       case "system-one":
       case "llm": {
         if (isVisual(h)) {
-          return visualCheck({ systemId: st.ctx.systemId, candidate: cand, criterion: c, hook: h, model: st.base, s1: vision, policy, browser: deps.browser, evidence: deps.evidence });
+          return visualCheck({ systemId: st.ctx.systemId, candidate: cand, criterion: c, hook: h, model: st.base, s1: vision, policy, browser: deps.browser, evidence: deps.evidence, simulated: deps.simulated });
         }
         if (h.engine === "browser") return notRun("Browser hooks without inputs.judgment: visual run in the agent's or CI environment.");
         const { judgment, inferred } = llmJudgment(h, c);
