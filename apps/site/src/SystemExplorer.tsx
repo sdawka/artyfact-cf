@@ -16,7 +16,7 @@ export function SystemExplorer({ onSelect }: { onSelect?: (selection: SystemSele
 
   return <section className="explorer model-feature-explorer" data-enhanced={enhanced} aria-label="Ontology explanation through three views">
     <header className="explorer-heading">
-      <div><p className="example-label">Declared in the Genome</p><h3>Explain Artyfact clearly</h3></div>
+      <div><p className="meta">Declared in the Genome</p><h3>Explain Artyfact clearly</h3></div>
       <span className="example-system">Artyfact System</span>
     </header>
     <div className="feature-subject">
@@ -30,7 +30,7 @@ export function SystemExplorer({ onSelect }: { onSelect?: (selection: SystemSele
         onKeyDown={event => {
           const next = event.key === 'ArrowRight' ? (layer + 1) % 3 : event.key === 'ArrowLeft' ? (layer + 2) % 3 : event.key === 'Home' ? 0 : event.key === 'End' ? 2 : null;
           if (next !== null) { event.preventDefault(); setLayer(next); (event.currentTarget.parentElement?.children[next] as HTMLButtonElement)?.focus(); }
-        }}><span>{item.meaning}</span>{' '}<small>{item.name}</small></button>)}
+        }}><strong>{item.name}</strong>{' '}<span>{item.meaning}</span></button>)}
     </div>
     <div className="model-view-panels">
       <section id="model-layer-panel-0" className="example-detail" role={enhanced ? 'tabpanel' : undefined} aria-labelledby={enhanced ? 'model-layer-0' : undefined} tabIndex={enhanced ? 0 : undefined} hidden={enhanced && layer !== 0}>
