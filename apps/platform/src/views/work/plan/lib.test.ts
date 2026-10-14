@@ -29,7 +29,7 @@ describe("plan lib", () => {
     expect(c1).toEqual({ verb: "claim", line: `${claim}\n${agent}`, lines: { claim, agent } });
     expect(c1.verb && c1.line).not.toMatch(/--json/);
     // The claim reads the token from the non-exported $ADMIN_TOKEN and `env -u` unsets it for the agent; no value appears.
-    expect(c1.line!.replaceAll('ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN"', "")).not.toMatch(/TOKEN=|secret|Bearer/i);
+    expect((c1 as { line: string }).line.replaceAll('ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN"', "")).not.toMatch(/TOKEN=|secret|Bearer/i);
     expect(taskCommand(p, p.tasks[2]!, NOW)).toEqual({ verb: null, reason: "Waits until “Task t1”, “Task t2” are selected." });
     const lapsed = makePlan({ tasks: [task("t1", { status: "working", attempts: [attempt({ leaseExpiresAt: new Date(NOW - 1).toISOString() })] }), task("t2")] });
     expect(taskCommand(lapsed, lapsed.tasks[0]!, NOW)).toMatchObject({ verb: "resume" });

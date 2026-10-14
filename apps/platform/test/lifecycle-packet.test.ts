@@ -198,7 +198,7 @@ describe('lifecycle evidence freshness', () => {
     expect(promoted.status, JSON.stringify(promoted.json)).toBe(409);
     const error = (promoted.json as unknown as { error: { code: string; message: string; details: { criteria: { criterion: string; verdict: string; severity: string }[]; advisories: unknown[] } } }).error;
     expect(error.code).toBe('blocked');
-    expect(error.message).toBe('promotion blocked by 1 hard criteria');
+    expect(error.message).toBe('blocking criteria (hard, with a bound hook) lack pass+completed evaluations');
     expect(error.details.criteria).toEqual([expect.objectContaining({ criterion: 'C.system.promotion', verdict: 'fail', severity: 'hard' })]);
     expect(error.details.advisories).toEqual(expect.any(Array));
   });
