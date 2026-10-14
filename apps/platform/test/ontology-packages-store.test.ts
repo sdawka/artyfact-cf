@@ -28,12 +28,13 @@ describe("OntologyPackagesStore", () => {
       expect(new OntologyPackagesStore(state.storage.sql).acceptedPackages()).toEqual([]);
     });
   });
-  it("keeps Genome parse issues reviewable and requires source mappings for a supplied Genome", async () => {
+  it("keeps Genome parse issues reviewable without requiring fabricated source mappings", async () => {
     await runInDurableObject(env.SYSTEMS.getByName("system.mapping"), (_i, state) => {
       const s = new OntologyPackagesStore(state.storage.sql);
       const r = s.preview("system.mapping", { package: pkg, genomeFiles: { "node.yaml": "id: system.mapping\nkind: system\ntemplate: template.system.private@1\nfields: {name: Mapping}\n",
         "module/node.yaml": "id: module.a\nkind: module\nfields: {name: A}\n" } });
-      expect(r.status).toBe("invalid"); expect(r.issues.some(i => i.message.includes("source mapping"))).toBe(true);
+      expect(r.status).toBe("review");
+      expect(r.issues.some(i => i.message.includes("source mapping"))).toBe(false);
     });
   });
 });

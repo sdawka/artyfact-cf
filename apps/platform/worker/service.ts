@@ -16,7 +16,7 @@ import { isName, systemRepoNames } from "@artyfact/cli/naming";
 import { readPlatform, unreadableWarning, unsyncedWarning } from "./artifacts/platform";
 import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo, type ArtifactsRepoLike } from "./artifacts/client";
 import { buildCandidateManifest, manifestHash, type CandidateManifest } from "./artifacts/candidates";
-import { buildGenome, byteLength, GENOME_MAX_BYTES, genomePrefix, listTree, memoGenome, readGenomeFiles, type LoadedGenome } from "./artifacts/genome-source";
+import { buildGenome, byteLength, GENOME_MAX_BYTES, genomePrefix, listTree, memoGenome, readGenomeFiles, readGenomeSourceFiles, type LoadedGenome } from "./artifacts/genome-source";
 import { nodesForPath, sourceMapFor } from "./artifacts/source-map";
 import { REGISTRY, TERMINAL_REALIZATION, type EndedCredential, type SystemAuthority, type EvolutionSeed, type HeadState, type ManifestExtras, type RealizationRecord } from "./do/system-authority";
 import { badRequest, conflict, fromRpc, HttpError, notFound, unprocessable } from "./errors";
@@ -237,7 +237,7 @@ async function platformCheck(
 }
 
 /** `genomeRepo`/`appRepo` are optional: omitted ones default to `<slug>.genome` / `<slug>.app`. */
-export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown; review?: unknown }): Promise<ImportSystemResponse> {
+export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown; review?: unknown; integrityRunId?: unknown }): Promise<ImportSystemResponse> {
   const { systemId } = body;
   if (typeof systemId !== "string" || !systemId) throw badRequest("systemId is a required string");
   if (systemId === REGISTRY) throw badRequest("reserved system id");
@@ -265,7 +265,8 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     return c.hash;
   };
   const genomeCommit = await headOf(genomeRepo);
-  const files = await withRepo(ns, genomeRepo, (r) => readGenomeFiles(r, genomeCommit));
+  const [files, sourceFiles] = await withRepo(ns, genomeRepo, async (r) =>
+    Promise.all([readGenomeFiles(r, genomeCommit), readGenomeSourceFiles(r, genomeCommit)]));
   const resolver=acceptedTemplateResolver(await systemStub(env,systemId).ontologyAcceptedPackages());
   const g = memoGenome(`${systemId}@${genomeCommit}@${resolver.digest}`, () => buildGenome(files, genomeCommit, resolver.templates));
   if (g.model.system.id !== systemId) {
@@ -287,6 +288,13 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   }
 
   const stub = systemStub(env, systemId);
+  if (body.integrityRunId !== undefined && (typeof body.integrityRunId !== "string" || !body.integrityRunId.startsWith("integrity."))) {
+    throw badRequest("integrityRunId must be an integrity run id");
+  }
+  const integrity = typeof body.integrityRunId === "string"
+    ? await stub.integrityBinding(body.integrityRunId,
+      (await stub.integrityPreview(systemId, Object.fromEntries(sourceFiles), "imported")).hash)
+    : undefined;
   // Pins are checked against the Genome that will be canonical after this import, before the DO applies it: an import
   // of exactly the last-imported commits keeps the current head (after an accepted amendment, not the imported Genome).
   const [base, prior] = await Promise.all([stub.importBase(), stub.state()]);
@@ -305,7 +313,7 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     rules: JSON.stringify(g.readiness),
   }));
   // B.10: a new System commit is a new import to review unless `review: false` (worker/import-review.ts).
-  await recordImportReview(env, systemId, { review: body.review, head: booted.head, priorHead: prior?.head, genome: g, genomeCommit });
+  await recordImportReview(env, systemId, { review: body.review, head: booted.head, priorHead: prior?.head, genome: g, genomeCommit, integrity });
   // Re-read the summary now that the rules readiness is cached (B5: readiness counts and signifiers).
   const system = (await systemStub(env, systemId).summary()) ?? booted;
   await registryStub(env).registerSystem(system);

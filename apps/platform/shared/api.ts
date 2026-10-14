@@ -116,6 +116,8 @@ export const routes = {
   intentReply: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/reply`,
   /** `POST` {@link IntentAccept} → 201 {@link IntentAcceptResponse}. */
   intentAccept: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/accept`,
+  intentRevise: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/revise`,
+  intentAbandon: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/abandon`,
   /** `PUT` {@link IntentDecisionsRequest} (admin) → {@link Proposal}; 404 unknown node, 409 `invalid-state` unless open. */
   intentDecisions: (s: string, p: string) => `${sys(s)}/intents/${enc(p)}/decisions`,
 
@@ -710,6 +712,8 @@ export interface ImportSystemRequest {
    * `--no-review`, fake seeds, bootstrap from an accepted ontology package.
    */
   review?: boolean;
+  /** Existing reviewed preview; the server reloads the remote files and requires an exact snapshot match. */
+  integrityRunId?: string;
 }
 export interface ImportSystemResponse {
   system: SystemSummary;
@@ -1280,13 +1284,23 @@ export interface ProposalProvenance {
   fake: boolean;
 }
 
+export interface ProposalAttempt {
+  stagedApproval: NonNullable<Proposal["stagedApproval"]>;
+  disposition: "revised" | "abandoned";
+  reason: string;
+  endedAt: string;
+  acceptError?: string;
+}
+
 /** `GET /api/systems/:id/intents/:pid`; also the body of the create and reply responses. */
 export interface Proposal {
   /** Durable Genome Evolution linked before human approval; absent on legacy proposals. */
   evolutionId?: string;
   stagedApproval?: {evolutionId:string;realizationId:string;candidateId:string;commit:string;opIds:string[];
     /** The plan decisions the candidate was staged under; absent for candidates staged before plans. */
-    decisions?: ProposalDecisions};
+    decisions?: ProposalDecisions;
+    integrity?: import("./integrity").IntegrityReviewBinding};
+  attempts?: ProposalAttempt[];
   id: string;
   systemId: SystemId;
   message: string;
@@ -1341,7 +1355,10 @@ export interface IntentReply {
 /** `POST /api/systems/:id/intents/:pid/accept` (admin): the ops to apply; the rest are rejected. */
 export interface IntentAccept {
   opIds: string[];
+  integrity?: { runId: string };
 }
+export interface IntentReviseRequest { candidateId: string; commit: CommitHash; answer: string; questionId?: string }
+export interface IntentAbandonRequest { candidateId: string; commit: CommitHash; reason: string }
 
 /**
  * 201: the accepted ops written to the Genome through a Genome realization (`origin: editor`), its commit and the
@@ -1389,6 +1406,7 @@ export interface SystemImportReview {
   decidedAt?: string;
   interpretation?: string;
   rejectedNodes?: NodeId[];
+  integrity?: import("./integrity").IntegrityReviewBinding;
 }
 
 /** `POST /api/systems/:id/import-review/accept` (admin). Rejected nodes are removed by an accepted Genome amendment. */
