@@ -68,20 +68,19 @@ describe("artyfact validate-genome", () => {
     const j = JSON.parse((await run(["validate-genome", GENOME, "--app", APP, "--json"])).out);
     expect(j.system).toBe("system.peopling");
     expect(j.findings.filter((f: { level: string }) => f.level === "error")).toEqual([]);
-    expect(j.counts).toMatchObject({ nodes: 243, evolutions: 6 });
+    expect(j.counts).toMatchObject({ nodes: 244, evolutions: 6 });
     expect(j.ok).toBe(true);
     // evolution.2 binds files it has not built yet; nothing else is stale.
     expect(j.unmapped).toEqual([]);
     expect(j.stale).toEqual([
       { node: "entity.ContactEvent", glob: "src/worker/routes/events.ts" },
-      { node: "entity.RelationshipGoal", glob: "src/worker/routes/goals.ts" },
+      { node: "entity.RelationshipGoal", glob: "src/worker/goals.ts" },
       { node: "operation.contact.log", glob: "src/worker/routes/events.ts" },
       { node: "operation.goal.save", glob: "src/worker/routes/goals.ts" },
       { node: "screen.goal", glob: "public/goals/**" },
       { node: "screen.logContact", glob: "public/log/**" },
       { node: "screen.today", glob: "public/today/**" },
       { node: "section.events", glob: "src/worker/routes/events.ts" },
-      { node: "section.goals", glob: "src/worker/routes/goals.ts" },
     ]);
   });
 

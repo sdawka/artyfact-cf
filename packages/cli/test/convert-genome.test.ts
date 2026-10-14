@@ -23,7 +23,7 @@ describe("artyfact convert-genome", () => {
     const tmp = mkdtempSync(join(tmpdir(), "artyfact-convert-"));
     const r = await run(["convert-genome", SRC, "peopling-v2", "--source-map", SOURCE_MAP], tmp);
     expect(r).toMatchObject({ code: 0, err: "" });
-    expect(r.out).toMatch(/243 nodes, 6 change records/);
+    expect(r.out).toMatch(/244 nodes, 6 change records/);
     const dst = join(tmp, "peopling-v2");
     expect(list(dst)).toEqual(list(FIXTURE));
     for (const p of list(FIXTURE)) expect(readFileSync(join(dst, p), "utf8")).toBe(readFileSync(join(FIXTURE, p), "utf8"));

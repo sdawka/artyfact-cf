@@ -646,6 +646,11 @@ nodes:
     name: Goals
     parent: thing.webapp
     description: The goal entity and its save operation
+  - id: section.contacts
+    kind: section
+    name: Contacts
+    parent: thing.webapp
+    description: The contact record, owned by one account and written by the contact routes
   - id: section.events
     kind: section
     name: Contact events
@@ -672,7 +677,7 @@ nodes:
   - id: entity.ContactRecord
     kind: entity
     name: ContactRecord
-    parent: section.domain
+    parent: section.contacts
     description: >-
       ID, ownerAccountId, display name, optional channels and linkedAccountId; belongs to one owner.
       A ContactRecord is a person's private representation of another person. Linking it to an Account does not

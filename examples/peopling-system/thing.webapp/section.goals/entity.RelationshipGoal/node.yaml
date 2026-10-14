@@ -44,7 +44,7 @@ fields:
 links:
   - { rel: storedIn, to: binding.contactsStore }
 files:
-  - src/worker/routes/goals.ts
+  - src/worker/goals.ts
 criteria:
   - id: C.webapp.schedule.correct
     title: Schedule correctness

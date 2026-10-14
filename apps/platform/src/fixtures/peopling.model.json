@@ -902,6 +902,91 @@
         "provisional": false
       },
       {
+        "name": "ContactRecord",
+        "description": "ID, ownerAccountId, display name, optional channels and linkedAccountId; belongs to one owner. A ContactRecord is a person's private representation of another person. Linking it to an Account does not transfer ownership or reveal notes",
+        "source": {
+          "doc": "peopling-world-specification",
+          "section": "5"
+        },
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "ownerAccountId",
+            "type": "ref:entity.Account",
+            "optional": false
+          },
+          {
+            "name": "displayName",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "channels",
+            "type": "list<json>",
+            "optional": true
+          },
+          {
+            "name": "linkedAccountId",
+            "type": "ref:entity.Account",
+            "optional": true
+          },
+          {
+            "name": "version",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "invariants": [
+          "Belongs to one owner",
+          "Owner-only",
+          "Linking to an Account does not transfer ownership or reveal notes",
+          "At most one linked contact per owner and counterpart account"
+        ],
+        "id": "entity.ContactRecord",
+        "kind": "entity",
+        "parent": "section.contacts",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [
+          {
+            "rel": "storedIn",
+            "to": "binding.contactsStore",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "provisional": false
+      },
+      {
+        "name": "Contacts",
+        "description": "The contact record, owned by one account and written by the contact routes",
+        "id": "section.contacts",
+        "kind": "section",
+        "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
         "name": "Account",
         "description": "ID, identity-provider subject, display name, time zone and notification preferences; one authenticated owner",
         "source": {
@@ -1108,72 +1193,6 @@
           "Allows one successful acceptance"
         ],
         "id": "entity.ConnectionInvite",
-        "kind": "entity",
-        "parent": "section.domain",
-        "owningThing": "thing.webapp",
-        "revision": 1,
-        "refines": [],
-        "links": [
-          {
-            "rel": "storedIn",
-            "to": "binding.contactsStore",
-            "direction": "out",
-            "certainty": "declared"
-          }
-        ],
-        "states": [],
-        "roles": [],
-        "preconditions": [],
-        "effects": [],
-        "failure": [],
-        "provisional": false
-      },
-      {
-        "name": "ContactRecord",
-        "description": "ID, ownerAccountId, display name, optional channels and linkedAccountId; belongs to one owner. A ContactRecord is a person's private representation of another person. Linking it to an Account does not transfer ownership or reveal notes",
-        "source": {
-          "doc": "peopling-world-specification",
-          "section": "5"
-        },
-        "fields": [
-          {
-            "name": "id",
-            "type": "string",
-            "optional": false
-          },
-          {
-            "name": "ownerAccountId",
-            "type": "ref:entity.Account",
-            "optional": false
-          },
-          {
-            "name": "displayName",
-            "type": "string",
-            "optional": false
-          },
-          {
-            "name": "channels",
-            "type": "list<json>",
-            "optional": true
-          },
-          {
-            "name": "linkedAccountId",
-            "type": "ref:entity.Account",
-            "optional": true
-          },
-          {
-            "name": "version",
-            "type": "int",
-            "optional": false
-          }
-        ],
-        "invariants": [
-          "Belongs to one owner",
-          "Owner-only",
-          "Linking to an Account does not transfer ownership or reveal notes",
-          "At most one linked contact per owner and counterpart account"
-        ],
-        "id": "entity.ContactRecord",
         "kind": "entity",
         "parent": "section.domain",
         "owningThing": "thing.webapp",
@@ -7555,13 +7574,14 @@
       "policy.revocation": "thing.webapp/section.authorization/policy.revocation/node.yaml",
       "C.webapp.revocation.current": "thing.webapp/section.authorization/policy.revocation/node.yaml",
       "hook.webapp.revocation.current": "thing.webapp/section.authorization/policy.revocation/node.yaml",
+      "entity.ContactRecord": "thing.webapp/section.contacts/entity.ContactRecord/node.yaml",
+      "C.webapp.contact.storage": "thing.webapp/section.contacts/entity.ContactRecord/node.yaml",
+      "hook.webapp.contact.storage": "thing.webapp/section.contacts/entity.ContactRecord/node.yaml",
+      "section.contacts": "thing.webapp/section.contacts/node.yaml",
       "entity.Account": "thing.webapp/section.domain/entity.Account/node.yaml",
       "entity.Block": "thing.webapp/section.domain/entity.Block/node.yaml",
       "entity.Connection": "thing.webapp/section.domain/entity.Connection/node.yaml",
       "entity.ConnectionInvite": "thing.webapp/section.domain/entity.ConnectionInvite/node.yaml",
-      "entity.ContactRecord": "thing.webapp/section.domain/entity.ContactRecord/node.yaml",
-      "C.webapp.contact.storage": "thing.webapp/section.domain/entity.ContactRecord/node.yaml",
-      "hook.webapp.contact.storage": "thing.webapp/section.domain/entity.ContactRecord/node.yaml",
       "entity.DigestEdition": "thing.webapp/section.domain/entity.DigestEdition/node.yaml",
       "entity.MediaAsset": "thing.webapp/section.domain/entity.MediaAsset/node.yaml",
       "entity.MessageDraft": "thing.webapp/section.domain/entity.MessageDraft/node.yaml",
@@ -7752,16 +7772,22 @@
           "declared": true
         }
       ],
-      "section.domain": [
+      "section.contacts": [
         {
-          "glob": "src/worker/routes/**",
-          "declared": false
+          "glob": "src/worker/routes/contacts.ts",
+          "declared": true
         }
       ],
       "entity.ContactRecord": [
         {
           "glob": "src/worker/routes/contacts.ts",
           "declared": true
+        }
+      ],
+      "section.domain": [
+        {
+          "glob": "src/worker/routes/**",
+          "declared": false
         }
       ],
       "operation.contact.save": [
@@ -7788,15 +7814,9 @@
           "declared": true
         }
       ],
-      "section.goals": [
-        {
-          "glob": "src/worker/routes/goals.ts",
-          "declared": true
-        }
-      ],
       "entity.RelationshipGoal": [
         {
-          "glob": "src/worker/routes/goals.ts",
+          "glob": "src/worker/goals.ts",
           "declared": true
         }
       ],

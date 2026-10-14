@@ -128,11 +128,12 @@ thing.webapp/section.authorization/policy.authentication/node.yaml
 thing.webapp/section.authorization/policy.ownerOnly/node.yaml
 thing.webapp/section.authorization/policy.pairConsent/node.yaml
 thing.webapp/section.authorization/policy.revocation/node.yaml
+thing.webapp/section.contacts/entity.ContactRecord/node.yaml
+thing.webapp/section.contacts/node.yaml
 thing.webapp/section.domain/entity.Account/node.yaml
 thing.webapp/section.domain/entity.Block/node.yaml
 thing.webapp/section.domain/entity.Connection/node.yaml
 thing.webapp/section.domain/entity.ConnectionInvite/node.yaml
-thing.webapp/section.domain/entity.ContactRecord/node.yaml
 thing.webapp/section.domain/entity.DigestEdition/node.yaml
 thing.webapp/section.domain/entity.MediaAsset/node.yaml
 thing.webapp/section.domain/entity.MessageDraft/node.yaml
