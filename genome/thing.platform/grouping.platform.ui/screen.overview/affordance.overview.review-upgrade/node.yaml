@@ -2,15 +2,17 @@ id: affordance.overview.review-upgrade
 kind: affordance
 fields:
   name: Review upgrade
-  description: Reads the pending template upgrade and offers to apply it.
+  description: A compact secondary in the Facts strip's App template row. It opens the template upgrade panel in place (Back to overview, primary Start upgrade); disabled with its reason while the template is checked or when no upgrade applies.
   actor: user
   trigger: click
   preconditions:
     - A newer template version exists
   effects:
-    - The upgrade diff is shown for review
+    - The upgrade panel replaces the page body; Start upgrade opens the upgrade as an Evolution
   failure:
     - A rules violation or stale head is reported inline
 links:
   - rel: invokes
     to: endpoint.template-upgrade
+  - rel: invokes
+    to: endpoint.apply-template-upgrade

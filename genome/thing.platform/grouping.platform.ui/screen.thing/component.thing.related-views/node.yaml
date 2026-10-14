@@ -1,0 +1,8 @@
+id: component.thing.related-views
+kind: component
+fields:
+  name: Related views
+  description: "Links to this Thing's Work, Review, Code and Deployments. Thing-scoped Work, Review and Deployments filter to the Thing and read Showing <Thing> with Show all (decision f)."
+  states:
+    - Showing <Thing> · Show all (subtle)
+    - Showing everything in this System · Show only <Thing> (subtle)

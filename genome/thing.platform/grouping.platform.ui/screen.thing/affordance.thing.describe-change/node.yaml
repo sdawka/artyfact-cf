@@ -1,0 +1,14 @@
+id: affordance.thing.describe-change
+kind: affordance
+fields:
+  name: Describe a change
+  description: The header's primary, anchored on the Thing.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - Work opens with the Describe a change panel anchored on the Thing
+  failure: []
+links:
+  - rel: references
+    to: screen.work

@@ -1,0 +1,15 @@
+id: affordance.phenome.filter
+kind: affordance
+fields:
+  name: Filters
+  description: "Chips for each active filter (Deployment, Build, Output, Kind, Commit, Realization), each with × (Remove <label> filter), and Clear filters; the Events link on a deployment and the runtime event selects add filters."
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - Every section narrows to the filter and the URL records it
+  failure:
+    - "No match: No runtime events match these filters."
+links:
+  - rel: invokes
+    to: endpoint.phenome-events

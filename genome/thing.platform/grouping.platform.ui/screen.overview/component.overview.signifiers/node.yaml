@@ -1,8 +1,8 @@
 id: component.overview.signifiers
 kind: component
 fields:
-  name: Health and phase
-  description: A health light always paired with its word, plus Phase, deploy, build and template. Only pass is green; a missing verdict reads literally unknown, never a blank or a tick.
+  name: System light
+  description: The System light reflects readiness, checks, active work and blockers, with its facts beside it (Readiness, Failing or stale checks, Active Evolutions, Blockers, Light). The light always pairs with a word; only a passing state is green and a missing value reads literally unknown.
   states:
     - ● healthy (success)
     - attention (attention)

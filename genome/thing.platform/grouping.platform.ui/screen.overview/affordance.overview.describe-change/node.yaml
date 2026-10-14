@@ -1,0 +1,14 @@
+id: affordance.overview.describe-change
+kind: affordance
+fields:
+  name: Describe a change
+  description: The header's one primary; also the action in the Active Evolutions empty state.
+  actor: user
+  trigger: click
+  preconditions: []
+  effects:
+    - Work opens with the Describe a change panel
+  failure: []
+links:
+  - rel: references
+    to: screen.work

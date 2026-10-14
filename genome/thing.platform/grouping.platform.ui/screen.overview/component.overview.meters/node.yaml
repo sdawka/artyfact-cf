@@ -1,8 +1,8 @@
 id: component.overview.meters
 kind: component
 fields:
-  name: Three meters
-  description: The Genome, Proteome and Phenome meters, each with its question as a sublabel (what should it be, what is being made, what does it do). They are never summed.
+  name: Three states
+  description: Model readiness, Implementation conformance and Outcome progress, reported side by side and never summed (No combined score exists.); each carries its layer's question and its title links to its view.
   states:
     - loaded
     - unknown (subtle)
