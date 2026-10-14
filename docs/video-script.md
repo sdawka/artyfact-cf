@@ -1,38 +1,57 @@
 # Video script
 
-Target length about 8 minutes, hard limits 5 to 10. Every command comes from [demo-runbook.md](demo-runbook.md); step numbers below refer to it. Timings come from the runbook's recorded run of the older commands, so treat the waits as approximate. Fixed names: System `system.peopling`, repos `peopling.genome` and `peopling.app`, namespace `artyfact`.
+Target length about 9 minutes, hard limits 5 to 10. Two parts: about 3 minutes on the public site https://artyfact.ing, then about 6 minutes on the platform with a real System. Every platform command comes from [demo-runbook.md](demo-runbook.md); step numbers below refer to it. Timings come from the runbook's recorded run of the older commands, so treat the waits as approximate. Fixed names: System `system.peopling`, repos `peopling.genome` and `peopling.app`, namespace `artyfact`.
 
 ## Screen layout
-- Browser with the platform UI at 1440 by 900 or larger.
+- Browser tab 1: https://artyfact.ing. Browser tab 2: the platform UI. Both at 1440 by 900 or larger.
 - Two terminals side by side labelled "agent t1" and "agent t2", then "agent t3". A third terminal "ops" for the claim and admin commands, shown when used.
 - Optional small terminal with the event stream (step 3).
-- The top bar shows "System One: fake provider". Say it once, early, and again at the rule moment.
+- The platform top bar shows "System One: fake provider". Say it once when Part 2 starts, and again at the rule moment.
 
 ## Pre-flight checklist
+- [ ] artyfact.ing open in a tab, scrolled to the top.
 - [ ] `npx wrangler login` and `cf auth login` show the same account (runbook step 0).
 - [ ] `apps/platform/.dev.vars` has `ADMIN_TOKEN`, `ACCOUNT_ID`, `FAKE_S1=1`, `ALLOW_LOCAL_PREVIEW=1`. Never show it.
 - [ ] Reset to a clean state first (runbook "Reset"), so no earlier forks or plans exist.
-- [ ] `validate-genome` and `init` are done before recording, unless you want them on camera (steps 1 and 2, about 10 s and 30 s). Leave the import review pending so step 4 is live.
+- [ ] `validate-genome` and `init` are done before recording (steps 1 and 2). Leave the import review pending so step 4 is live.
 - [ ] The `export` block from step 0 is run in every terminal: ops, sse. The admin token is a shell variable in ops only and is passed inline to the commands that need it. Never export it in a shell that starts an agent.
-- [ ] Task tokens last six hours. Claim close to recording.
-- [ ] Decide whether `claude -p` runs live or a prepared edit stands in for the agent; say which.
+- [ ] A claim's write token and lease last 15 minutes (`leaseSeconds` default 900 in `apps/platform/worker/lifecycle-service.ts`). Claim on camera and submit within 15 minutes. If a token expires, run `artyfact task resume` (runbook "Troubleshooting").
+- [ ] Decide whether `claude -p` runs live or a prepared edit stands in for the agent. A live agent must finish inside the 15 minutes. Say which on camera.
 - [ ] Do not expect real System One. Every judgment is canned and labelled fake. The fake translator proposes one op per message, so the deferral beat needs the real translator or is narrated over the tests.
 - [ ] After recording, delete `./work` and `$RUN`.
 
-## Beats
+## Part 1: the site (0:00 to 3:00)
 
-| Time | Beat | Runbook step | On screen | Say |
-|---|---|---|---|---|
-| 0:00 | The problem | none | Title card, then Overview | Git shows which files changed. It does not show whether two changes agree about the product. Here the System is the object. |
-| 0:40 | The model | 2 | Terminal: `artyfact validate-genome`, then `init`. Map on `screen.people`, flip Genome, Proteome, Phenome | The Genome is checked before anything is pushed. One model, three layers over the same nodes. The Phenome counters are grey because nothing is evaluated. Unknown is not green. |
-| 1:30 | Review the import | 4 | Review: the "Import" group, the containment tree, unmapped paths; accept | An imported System is a claim about the code, so a person reviews it first. Until it is accepted, no work can start: the platform answers 409 import-unreviewed. |
-| 2:10 | Describe a change | 5 | Work, "Describe a change": message, routed path, agreement tree. Agree node by node, defer one, "Accept agreed" | The change is agreed node by node, and exactly what is agreed commits to the Genome. Deferred changes wait in a new proposal. Nothing is built yet. |
-| 3:10 | Plan the tasks | 6 | Terminal: `artyfact plan draft`, then `plan create`. Work plan view: Wave 1 with two tasks, Wave 2 with one | The planner splits the accepted change into tasks. Goals and contact events are independent, so they share a wave. The Today screen invokes both, so it waits. |
-| 4:00 | Claim and run the agents | 7 | Wave 1 commands, "Copy all". Terminals t1 and t2: `artyfact task claim`, then `env -u ARTYFACT_ADMIN_TOKEN claude -p`, then `artyfact task submit` | The admin token is used for the claim only. The agent line unsets it, and the fork token is stored in the workspace, never printed. Agents run on this machine with any harness. |
-| 5:00 | The dependent task | 8 | Terminal ops: `task claim` of t3, refused "blocked by t1, t2 (not yet selected)". Then select both, claim again | A task whose predecessors are not selected cannot start. Once they are, its packet says what it builds on. |
-| 5:50 | Moment 2: violation or choice | 5 | Work: a proposal with a rule finding; the node cannot be agreed | See below. |
-| 6:40 | Select, integrate, promote | 9 | Task detail select form; `plan integrate`, `plan review`, `plan promote`; Changelog | Selected results integrate into one candidate per binding and one review. Promotion re-runs the gate on the exact commits and records the Genome actually realized. If the Genome moved under the plan, it says replan. |
-| 7:40 | History and close | 9 | Changelog timeline, README architecture diagram | One System commit per decision, with the manifest hash and the evidence provider. Everything runs on one Worker, Artifacts, a Queue consumer and one Durable Object. |
+The page scrolls in this order: hero, agent environment, practices, model, checkout story, Cloudflare. Follow the page.
+
+| Time | Beat | On screen | Say |
+|---|---|---|---|
+| 0:00 | The headline | artyfact.ing hero | "The next Git platform keeps track of the product, not just the files." GitHub knows which files changed. It does not know whether two changes agree about the product. When several agents work at once, that is the part that breaks. |
+| 0:30 | The agent environment | "Give your coding agents the environment to thrive." Three columns | Agents need three things. Context: a brief cut from the model, with the rules up front. Guardrails: a private fork, the paths they may write, and a promote that refuses unproven work. Freedom: any harness, their own approach. Running several agents on one contract is the direction we are taking it. |
+| 1:00 | The practices | Scroll the struck-through list, Engineering first | These are practices teams keep in separate files and tools. Worktrees. spec.md. AGENTS.md. Merge queues. Changelogs. PRDs and journey maps. ERDs. Release tracking. Each one is struck through because Artyfact does it in one place. OKRs are marked partial: measurement is still in progress. |
+| 1:35 | The model | "A model of the whole product, not just a spec." | A spec file is flat text. This is a model with levels: System, Thing, section, screen, component, down to one button. The purpose, the people, the journey, the data, the policy and the criteria attach to the parts they describe. We call it the Genome. |
+| 2:00 | The checkout story | Click steps 1 to 7 of the stepper | This example is illustrative. Two agents work in parallel on one change, in different files. On GitHub: no conflicts, merged. Here, both touch the "Place order" step and its rule "guests can still check out", so the overlap is flagged. A asks for a login and fails the rule. B is integrated and promoted. A updates onto B and revises. Then deploy, observe, and the next change. |
+
+## Transition (3:00)
+
+Switch to the platform tab. Say: "Now the real platform, with a real System. Peopling is a small contacts app. Its purpose is to help you stay in touch with the people you choose." Then: "System One runs on a fake provider in this recording, and it says so in the top bar."
+
+## Part 2: the platform (3:05 to 9:00)
+
+Each beat names the site claim it makes real.
+
+| Time | Beat | Runbook step | On screen | Say | Site claim |
+|---|---|---|---|---|---|
+| 3:05 | Review the import | 4 | Review: the "Import" group, the containment tree, unmapped paths; accept | This is the model from the site, for a real app: the System, its Thing, sections, screens. An import is a claim about the code, so a person reviews it first. Until then no work can start: the platform answers 409 import-unreviewed. | Multi-level model; spec.md replaced |
+| 3:35 | Describe a change | 5 | Work, "Describe a change": message, routed path, agreement tree. Agree node by node, defer one, "Accept agreed" | A change request is agreed node by node, from the purpose down. Exactly what is agreed commits to the Genome. Deferred changes wait in a new proposal. Nothing is built yet. | PRDs and backlog replaced |
+| 4:20 | Plan the tasks | 6 | Terminal: `artyfact plan draft`, then `plan create`. Plan view: Wave 1 with two tasks, Wave 2 with one | The planner splits the change into Tasks. Goals and contact events touch separate nodes, so they share a wave. The Today screen depends on both, so it waits. The conflicts come from the model, not from a language model. | Merge conflicts replaced |
+| 5:00 | Claim and run the agents | 7 | Wave 1 commands, "Copy all". Terminals t1 and t2: `artyfact task claim`, then `env -u ARTYFACT_ADMIN_TOKEN claude -p`, then `artyfact task submit` | Each claim makes a private fork and a 15-minute write token, and writes the brief: TASK_PACKET.md and AGENTS.md. The agent line unsets the admin token. The fork token is stored in the workspace, never printed. Any harness works. | Worktrees and AGENTS.md replaced; context, guardrails, freedom |
+| 5:45 | The dependent task | 8 | Terminal ops: `task claim` of t3, refused "blocked by t1, t2 (not yet selected)". Select both, claim again | A Task whose predecessors are not selected cannot start. The server refuses it. Once they are selected, its packet says what it builds on. | Merge queue and branch protection replaced |
+| 6:15 | Violation or choice | 5 | Work: a proposal with a rule finding; the node cannot be agreed. Then the deliberate wording change | See Moment 2. | Policy-as-code replaced |
+| 7:05 | Integrate, review, promote | 9 | Task detail select form; `plan integrate`, `plan review`, `plan promote` | Selected results become one candidate per binding and one review. Only pass is green; a check that did not run stays unknown and blocks. Promotion is a compare-and-swap on the System head. If the head moved since the review, it is refused. | CI gates, definition of done, merge queues replaced |
+| 7:55 | Changelog | 9 | Changelog timeline, Compare | One System commit per decision, with the manifest hash and the evidence provider. Compare the model or the files. | Changelogs replaced |
+| 8:15 | How it runs | none | Site "How it runs on Cloudflare" section, or README diagram | The platform Worker serves the API and the review app. One Durable Object per System holds the head and does the compare-and-swap. Artifacts hold the Genome, the app and a fork per Task. A separate CI Worker runs a Workflow that builds and deploys. Agents push through the CLI; the Queue path exists but needs a subscription per fork. | Cloudflare section |
+| 8:50 | Close | none | artyfact.ing hero | The next Git platform keeps track of the product, not just the files. artyfact.ing. | Headline |
 
 Fake-only steps: the agent can be a prepared file edit, System One and the translator are canned, and CI builds and previews do not run (health stays unknown). The plan-to-promote walk has run on the fake platform, not on real Artifacts.
 
@@ -42,7 +61,7 @@ Setup. The plan has waves `[[t1, t2], [t3]]`: goals (t1) and contact events (t2)
 
 On screen. `artyfact plan tasks` shows the table with t3 depending on t1 and t2 and the two dependency conflicts. The wave board shows "Wave 1 · 2 tasks" and "Wave 2 · 1 task". Claim t3 early and show the refusal: `blocked by t1, t2 (not yet selected)`.
 
-Say. The platform maps each task's nodes to the files that realise them and to the nodes they read. Writes, contracts and explicit dependencies decide interference, with no language model involved. Where the platform cannot tell, it says unknown and does not launch in parallel.
+Say. The platform maps each Task's nodes to the files that realise them and to the nodes they read. Writes, reads and explicit dependencies decide interference, with no language model involved. Where the platform cannot tell, it says unknown and does not launch in parallel. This is the checkout story from the site, for real: overlap is found in the model, not in the diff.
 
 ## Moment 2: a rule violation, then a deliberate choice (step 5)
 
@@ -54,10 +73,11 @@ Say. A new wording can look like a violation when it is a decision. The platform
 
 ## Not on camera
 - The Queue consumer. Pushes reach it only through a per-fork repository subscription, which is not created automatically, so the CLI submit path is what the video shows.
+- Several agents on the same Task contract, and outcome measurement. The site shows them as direction. Say so if they come up; do not demo them.
 - Bootstrap internals. The video uses `scripts/bootstrap.sh`, a wrapper over `npx artyfact init` (runbook step 2).
 
 ## Screenshots
-Saved in `docs/images/`. The images below predate the plan flow and show the older realization views; retake them from a `FAKE_S1=1` run of steps 4 to 9 before publishing.
+Saved in `docs/images/`. The platform images below predate the plan flow and show the older realization views; retake them from a `FAKE_S1=1` run of steps 4 to 9 before publishing. Site screenshots, if needed, come from artyfact.ing at 1440 by 900.
 
 | File | Shows |
 |---|---|
