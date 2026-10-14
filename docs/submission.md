@@ -35,7 +35,7 @@ Direction, not shipped: several agents taking the same Task contract in parallel
 
 ## Judging criteria
 
-- Originality (50%): the unit of version control is the product model, not the file tree. Interference, readiness and promotion are computed over model nodes, so a clean textual merge can still be flagged. One model replaces the spec, the policy files, the agent instructions and the release notes.
+- Originality (50%): the unit of version control is the product model, not the file tree. Interference, readiness and promotion are computed over model nodes, so a clean textual merge can still be flagged. One model connects the practices teams already use: it builds in the spec and the agent instructions, extends checks and release notes, and connects PRDs, personas and schemas.
 - Multi-agent concurrency (25%): Task footprints from the model, deterministic conflicts and waves, one fork and one writer per Task, server-side refusal of dependent Tasks until their predecessors are selected, one integrated review, and a compare-and-swap promote in a Durable Object.
 - User experience (25%): an agreement tree to accept a change node by node, a wave board with one claim command per Task, one review across all Tasks, verdicts that are never green without a pass, and a changelog and compare at System, Genome and file level.
 
