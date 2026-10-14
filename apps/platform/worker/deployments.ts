@@ -416,7 +416,11 @@ export async function reportBuild(env: Env, systemId: string, rid: string | null
     deployment = pending;
     if (!deployment) {
       if (!sourceRepo) throw conflict("no-app-source", "the System has no unambiguous source artifact to deploy");
-      deployment = await stub.createDeployment({ kind: "production", ...(artifactId && { artifactId }), repo: sourceRepo, commit: r.commit, by: reporter, buildRow: id });
+      // Only the head's app commit gets here (see not-promoted above): the head is the System commit it deploys.
+      const atHead = !!state.head && Object.values(state.manifest?.artifacts ?? {}).some((a) => a.repo === sourceRepo && a.commit === r.commit);
+      deployment = await stub.createDeployment({
+        kind: "production", ...(artifactId && { artifactId }), repo: sourceRepo, commit: r.commit, ...(atHead && { systemCommit: state.head! }), by: reporter, buildRow: id,
+      });
     }
   }
   if (deployment) {

@@ -325,7 +325,7 @@ describe("build report routes", () => {
     const ok = await call<BuildReportResponse>("POST", sys, { status: "passed", commit: ctx.imp.appCommit, url: "https://app.workers.dev" }, CI);
     expect(ok.status, JSON.stringify(ok.json)).toBe(200);
     deps = await call<DeploymentsResponse>("GET", `/systems/${ctx.systemId}/deployments`);
-    expect(deps.json.production).toMatchObject({ commit: ctx.imp.appCommit, status: "live", url: "https://app.workers.dev", repo: ctx.appRepo });
+    expect(deps.json.production).toMatchObject({ commit: ctx.imp.appCommit, status: "live", url: "https://app.workers.dev", repo: ctx.appRepo, systemCommit: ctx.imp.head });
     // Once promoted (without CI: a pending deployment), the candidate's commit may go live too.
     const promoted = await call<PromoteResponse>("POST", `/systems/${ctx.systemId}/promote`,
       { candidateIds: [a.sub.candidate.id], expectedHead: ctx.imp.head, rationale: "ok" }, ADMIN);
