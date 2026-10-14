@@ -6,7 +6,8 @@
  * Pure part: `draftScope` (which Evolutions and nodes, each node's source binding, the criteria pool), `planContext`
  * (what an LLM planner sees), `fallbackGroups` (artifact → Thing → nearest section → union-find over shared footprint
  * paths or globs), `validateReply` (an LLM reply checked like ops; it may add criteria, never move or drop them) and
- * `assembleDraft` (ids, steps, read nodes, create's derived dependencies, footprints and `analyzeTasks`).
+ * `assembleDraft` (ids, steps, read nodes, create's derived dependencies, and `analyzeTasks` over `taskDefinitions`, the
+ * same definitions create stores).
  * Env part: `draftRealizationPlan` for the route.
  *
  * Problem severities: `error` means asked-for scope was lost or create will refuse the request; `missing` means part of
@@ -20,6 +21,8 @@ import { artifactsFor, withRepo } from "../artifacts/client";
 import { listTree } from "../artifacts/genome-source";
 import { badRequest, notFound } from "../errors";
 import { genomeAt, systemStub } from "../service";
+import { globMatch } from "../artifacts/source-map";
+import { CONTRACT_RELS, expandNodes, taskDefinitions } from "./definitions";
 import { taskFootprint } from "./footprint";
 import { plannerFromEnv, type PlanContext, type Planner, type PlanReplyTask } from "./planner-llm";
 
@@ -123,9 +126,6 @@ function coverCriteria(m: SystemModel, pool: string[], drafts: TaskDraft[]): voi
   }
 }
 
-/** A node and every node under it, as create expands write and read scope. */
-const expand = (m: SystemModel, nodes: string[]) =>
-  uniq([...nodes, ...Object.keys(m.index.byId).filter((id) => nodes.some((n) => m.index.path(id).includes(n)))]);
 
 // ------------------------------------------------------------------ scope
 
@@ -177,20 +177,26 @@ export function legacyRealizedIndex(history: SystemCommit[], artifactId: string)
 
 /**
  * Whether `node` of an Evolution accepted at history index `accepted` is implemented on binding `artifactId`: a promoted
- * or integrated realization plan pinned at or after the acceptance writes it there (create stores expanded write nodes),
+ * realization plan pinned at or after the acceptance wrote it, on any binding (create stores expanded write nodes),
  * or the binding's pre-plan realized Genome (`legacyRealizedIndex`) is at or after the acceptance. `realizedGenome`
  * alone is not used: promote records it for every binding of a plan, whatever the plan's scope.
  */
 export function nodeRealized(h: ScopeHistory, accepted: number | undefined, artifactId: string, node: string): boolean {
   if (accepted === undefined || accepted < 0) return false;
+  // Any binding: a plan may have put the node on a different binding than the one it maps to now.
   const byPlan = h.plans.some((p) => {
-    if (p.status !== "promoted" && p.status !== "integrated") return false;
+    if (p.status !== "promoted") return false;
     const pinned = genomeIndex(h.history, p.genome.commit);
-    return pinned >= 0 && pinned <= accepted && p.tasks.some((t) => t.artifactId === artifactId && t.writeNodes.includes(node));
+    return pinned >= 0 && pinned <= accepted && p.tasks.some((t) => t.writeNodes.includes(node));
   });
   if (byPlan) return true;
   const legacy = legacyRealizedIndex(h.history, artifactId);
   return legacy >= 0 && legacy <= accepted;
+}
+
+/** The first plan not yet promoted (planned, implementing or integrated) whose tasks write `node`. */
+export function openPlanHolding(h: ScopeHistory, node: string): RealizationPlan | undefined {
+  return h.plans.find((p) => p.status !== "promoted" && p.tasks.some((t) => t.writeNodes.includes(node)));
 }
 
 /** An Evolution the draft may implement: a Genome amendment that was accepted. */
@@ -213,12 +219,12 @@ export interface DraftScope {
 /**
  * Picks the scope of a draft. Named Evolutions must be accepted Genome amendments; with neither `evolutionIds` nor
  * `nodes`, every accepted Evolution with an unrealized node is taken. Nodes already realized (`nodeRealized`) are
- * skipped; explicit nodes are always taken. A removed node is resolved in the Genome before acceptance and becomes a
+ * skipped; so are nodes an open plan holds, unless their Evolution is named. Explicit nodes are always taken. A removed node is resolved in the Genome before acceptance and becomes a
  * removal on its nearest surviving, file-mapped ancestor. The criteria pool holds the Evolutions' criteria about taken
  * nodes (and removal ancestors) plus System-owned ones, and the Genome's criteria about explicit nodes.
  */
 export function draftScope(
-  model: SystemModel, manifest: SystemManifest, h: ScopeHistory, all: Evolution[], req: ScopeRequest,
+  model: SystemModel, manifest: SystemManifest, h: ScopeHistory, all: Evolution[], req: ScopeRequest, trees: Record<string, string[]> = {},
 ): DraftScope {
   const problems: DraftPlanProblem[] = [];
   const known = (id: string) => !!model.index.byId[id];
@@ -249,11 +255,19 @@ export function draftScope(
     const take: string[] = [];
     const gone: DraftRemoval[] = [];
     const realized: string[] = [];
+    const held = new Map<string, string[]>();
+    const hold = (n: string, writes: string) => {
+      if (named.has(e.id)) return false;
+      const p = openPlanHolding(h, writes);
+      if (p) held.set(p.id, [...(held.get(p.id) ?? []), n]);
+      return !!p;
+    };
     const accepted = h.acceptedAt[e.id];
+    if (accepted === undefined) problems.push({ severity: "warning", message: `the acceptance of ${e.id} was not found in System history; its nodes count as unrealized` });
     for (const n of e.affectedNodes ?? []) {
       if (isCriterion(n)) continue;
       if (!known(n)) {
-        const r = removalOf(model, manifest, h.previous[e.id], e.id, n);
+        const r = removalOf(model, manifest, h.previous[e.id], e.id, n, trees);
         if ("problem" in r) {
           // Unresolvable, but every binding already realized the Genome that dropped it (an Evolution seeded at import).
           if (Object.keys(manifest.artifacts).every((a) => nodeRealized(h, accepted, a, n))) { realized.push(n); continue; }
@@ -261,14 +275,20 @@ export function draftScope(
           continue;
         }
         if (nodeRealized(h, accepted, r.artifactId, r.ancestor)) { realized.push(n); continue; }
+        if (hold(n, r.ancestor)) continue;
         gone.push(r);
         continue;
       }
       const a = bind(n);
       if (!a) { problems.push({ severity: "error", message: `${e.id}: node ${n} has no source binding in the manifest; dropped` }); continue; }
       if (nodeRealized(h, accepted, a, n)) { realized.push(n); continue; }
+      if (hold(n, n)) continue;
       take.push(n);
     }
+    for (const [pid, ns] of held) {
+      problems.push({ severity: "warning", message: `${e.id}: ${ns.join(", ")} ${ns.length === 1 ? "is" : "are"} in open plan ${pid}; skipped (name ${e.id} to draft ${ns.length === 1 ? "it" : "them"} again)` });
+    }
+    if (!take.length && !gone.length && held.size) continue;
     if (!take.length && !gone.length && realized.length) {
       if (named.has(e.id)) problems.push({ severity: "warning", message: `${e.id} is already realized; skipped` });
       continue;
@@ -304,21 +324,28 @@ export function draftScope(
 }
 
 /**
- * Resolves a node the accepted Genome no longer has: in `before` (the Genome before acceptance) it must exist; its
- * nearest ancestor that survives, is bound and maps to files takes the removal, with the removed subtree's old globs.
- * Anything unresolvable is a `missing` problem: the draft would otherwise leave the code in place silently.
+ * Resolves a node the accepted Genome no longer has: in `before` (the Genome before acceptance) it must exist. The
+ * removal goes to its nearest surviving, bound ancestor whose footprint (expanded, as create computes it) covers every
+ * path the removed subtree's old globs match in the binding's tree, so submit accepts the deletions. Anything
+ * unresolvable is a `missing` problem: the draft would otherwise leave the code in place silently.
  */
-function removalOf(model: SystemModel, manifest: SystemManifest, before: SystemModel | undefined, eid: string, n: string): DraftRemoval | { problem: DraftPlanProblem } {
+function removalOf(
+  model: SystemModel, manifest: SystemManifest, before: SystemModel | undefined, eid: string, n: string, trees: Record<string, string[]>,
+): DraftRemoval | { problem: DraftPlanProblem } {
   const missing = (message: string) => ({ problem: { severity: "missing" as const, message } });
   if (!before?.index.byId[n]) return missing(`${eid}: node ${n} is not in the accepted Genome and cannot be resolved in the Genome before it; its code is not planned`);
-  const globs = uniq(expand(before, [n]).flatMap((id) => (before.files[id] ?? []).map((g) => g.glob))).sort();
+  const globs = uniq(expandNodes(before, [n]).flatMap((id) => (before.files[id] ?? []).map((g) => g.glob))).sort();
   for (const a of [...before.index.path(n)].reverse().slice(1)) {
-    if (!model.index.byId[a] || !(model.files[a] ?? []).length) continue;
+    if (!model.index.byId[a]) continue;
     const artifactId = nodeArtifact(model, manifest, a);
     if (!artifactId) continue;
+    const tree = trees[artifactId] ?? [];
+    const old = tree.filter((p) => globs.some((g) => globMatch(g, p)));
+    const fp = taskFootprint(model, expandNodes(model, [a]), tree, artifactId, manifest.artifacts[artifactId]?.repo ?? "");
+    if (!fp.globs.length || !old.every((p) => fp.globs.some((g) => globMatch(g, p)))) continue;
     return { evolutionId: eid, node: n, title: before.index.byId[n].name || n, ancestor: a, artifactId, globs };
   }
-  return missing(`${eid}: removed node ${n} has no surviving ancestor that maps to source files; delete its code (${globs.join(", ") || "no globs"}) by hand`);
+  return missing(`${eid}: no surviving ancestor of removed node ${n} has a footprint covering its code; delete it (${globs.join(", ") || "no globs"}) by hand`);
 }
 
 // ------------------------------------------------------------------ context
@@ -527,8 +554,6 @@ function reaches(deps: number[][], from: number, to: number): boolean {
 
 // ------------------------------------------------------------------ assembly
 
-/** Create's contract dependencies (`createRealizationPlan`): a task reads, invokes, calls or uses what another writes. */
-const CONTRACT_RELS = new Set(["invokes", "calls", "reads", "uses", "stepOperation"]);
 
 /** Strongly connected components of an index graph (Tarjan), each sorted, in discovery order. */
 function components(deps: number[][]): number[][] {
@@ -554,7 +579,7 @@ function components(deps: number[][]): number[][] {
 
 /** Create's derived dependencies between drafts, as index edges (task → the tasks whose writes it reads). */
 function contractDeps(m: SystemModel, drafts: TaskDraft[]): number[][] {
-  const writes = drafts.map((d) => expand(m, d.nodes));
+  const writes = drafts.map((d) => expandNodes(m, d.nodes));
   return drafts.map((_, j) => {
     const reads = writes[j].flatMap((n) => (m.index.linksOut[n] ?? []).filter((l) => CONTRACT_RELS.has(l.rel)).map((l) => l.to));
     return drafts.flatMap((_, k) => (k !== j && writes[k].some((n) => reads.includes(n)) ? [k] : []));
@@ -646,11 +671,11 @@ export function stepsOf(intent: string, fallback: string): string[] {
  * Read scope: the one-hop link targets of the task's (expanded) write nodes outside its own write scope that either
  * map to source files of its binding or are written by another task. This filters non-contract links only: create
  * re-adds every contract-link target (`CONTRACT_RELS`) unfiltered, so an external reached by `reads` or `uses` still
- * marks the footprint unknown, and `asCreated` mirrors that.
+ * marks the footprint unknown, and `taskDefinitions` does the same for the analysis.
  */
 function readNodesOf(i: DraftInput, d: TaskDraft, otherWrites: Set<string>): string[] {
   const m = i.model;
-  const writes = new Set(expand(m, d.nodes));
+  const writes = new Set(expandNodes(m, d.nodes));
   const tree = i.trees[d.artifactId] ?? [], repo = i.manifest.artifacts[d.artifactId]?.repo ?? "";
   return uniq([...writes].flatMap((n) => (m.index.linksOut[n] ?? []).map((l) => l.to)))
     .filter((id) => m.index.byId[id] && !writes.has(id))
@@ -658,25 +683,6 @@ function readNodesOf(i: DraftInput, d: TaskDraft, otherWrites: Set<string>): str
     .sort();
 }
 
-/**
- * The definitions create stores for `tasks` (`createRealizationPlan`): write and read nodes expanded to descendants,
- * contract dependencies and reads added, footprints over each binding's tree. Kept in step with create by the route test.
- */
-export function asCreated(i: DraftInput, tasks: CreateRealizationPlanRequest["tasks"]): TaskDefinition[] {
-  const m = i.model;
-  const defs = tasks.map((t) => {
-    const binding = i.manifest.artifacts[t.artifactId];
-    const writeNodes = expand(m, t.writeNodes), readNodes = expand(m, t.readNodes);
-    return { ...t, dependsOn: [...t.dependsOn], writeNodes, readNodes, footprint: taskFootprint(m, writeNodes, i.trees[t.artifactId] ?? [], t.artifactId, binding?.repo ?? "", readNodes) };
-  });
-  for (const t of defs) {
-    const reads = t.writeNodes.flatMap((n) => (m.index.linksOut[n] ?? []).filter((l) => CONTRACT_RELS.has(l.rel)).map((l) => l.to));
-    for (const other of defs) if (other.id !== t.id && other.writeNodes.some((n) => reads.includes(n)) && !t.dependsOn.includes(other.id)) t.dependsOn.push(other.id);
-    t.readNodes = uniq([...t.readNodes, ...reads]);
-    t.footprint = taskFootprint(m, t.writeNodes, i.trees[t.artifactId] ?? [], t.artifactId, t.footprint.repo, t.readNodes);
-  }
-  return defs;
-}
 
 /** The plan title: the request's, else the Evolutions' titles, else a count of nodes. */
 function planTitle(i: DraftInput): string {
@@ -695,7 +701,7 @@ export function assembleDraft(i: DraftInput, input: TaskDraft[], problems: Draft
   const drafts = breakContractCycles(i, input.map((d) => ({ ...d, nodes: [...d.nodes], checks: uniq(d.checks), dependsOn: [...d.dependsOn] })), out);
   const ids = drafts.map((_, k) => `t${k + 1}`);
   const derived = contractDeps(m, drafts);
-  const writes = drafts.map((d) => expand(m, d.nodes));
+  const writes = drafts.map((d) => expandNodes(m, d.nodes));
   const tasks = drafts.map((d, k) => ({
     id: ids[k],
     title: clip(d.title.trim() || `Task ${k + 1}`),
@@ -715,7 +721,7 @@ export function assembleDraft(i: DraftInput, input: TaskDraft[], problems: Draft
   const request: CreateRealizationPlanRequest = { title: planTitle(i), genomeCommit: i.genomeCommit, tasks };
   let analysis: TaskAnalysis = { conflicts: [], waves: [] };
   if (tasks.length) {
-    const defs = asCreated(i, tasks);
+    const defs = taskDefinitions(i.model, i.manifest, i.trees, tasks);
     for (const d of defs) {
       if (!d.footprint.globs.length) out.push({ taskId: d.id, severity: "missing", message: `unscoped: no source files of ${d.artifactId} are bound to ${d.writeNodes.slice(0, 5).join(", ")}${d.writeNodes.length > 5 ? ", …" : ""}` });
       else if (!d.footprint.known) out.push({ taskId: d.id, severity: "warning", message: "part of the scope maps to no source files; the task runs alone until it is mapped" });
@@ -858,9 +864,9 @@ export async function draftRealizationPlan(env: Env, systemId: string, body: unk
     genomeAt(env, systemId, state.genomeCommit, state.genomeSource), stub.evolutions(), stub.history(), stub.realizationPlans(),
   ]);
   const h = await scopeHistory(env, state, model, evolutions, history, plans);
-  const scope = draftScope(model, state.manifest, h, evolutions, req);
   const tree: Record<string, string[]> = {};
-  for (const a of uniq([...Object.values(scope.artifactOf), ...scope.removals.map((r) => r.artifactId)])) tree[a] = await treeOf(env, state.manifest.artifacts[a]);
+  for (const [a, b] of Object.entries(state.manifest.artifacts)) tree[a] = await treeOf(env, b);
+  const scope = draftScope(model, state.manifest, h, evolutions, req, tree);
   const hint = req.hint?.trim() || undefined;
   const input: DraftInput = {
     model, manifest: state.manifest, trees: tree, genomeCommit: state.genomeCommit,

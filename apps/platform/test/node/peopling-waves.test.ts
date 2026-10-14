@@ -5,7 +5,8 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import { analyzeTasks, loadGenome, type SystemModel, type TaskDefinition } from "@artyfact/model";
 import { metaTemplates } from "@artyfact/templates";
-import { taskFootprint } from "../../worker/tasks/footprint";
+import type { SystemManifest } from "../../shared/api";
+import { taskDefinitions } from "../../worker/tasks/definitions";
 
 const root = join(__dirname, "../../../..");
 const tracked = (dir: string) => execFileSync("git", ["ls-files", dir], { cwd: root, encoding: "utf8" }).split("\n").filter((f) => f && existsSync(join(root, f)));
@@ -13,19 +14,10 @@ const genome = Object.fromEntries(tracked("examples/peopling-system").filter((f)
 const tree = tracked("examples/peopling-app").map((f) => f.slice("examples/peopling-app/".length));
 const model: SystemModel = loadGenome(genome, { templates: metaTemplates });
 
-const expand = (nodes: string[]) => [...new Set([...nodes, ...Object.keys(model.index.byId).filter((id) => nodes.some((n) => model.index.path(id).includes(n)))])];
-/** Tasks as plan creation builds them: write nodes expanded to descendants, reads and dependencies derived from links. */
-function define(specs: Record<string, string[]>): TaskDefinition[] {
-  const rels = new Set(["invokes", "calls", "reads", "uses", "stepOperation"]);
-  const tasks: TaskDefinition[] = Object.entries(specs).map(([id, w]) => ({ id, title: id, artifactId: "artifact.webapp", steps: ["implement"], dependsOn: [], readNodes: [], writeNodes: expand(w), checks: [], footprint: undefined as never }));
-  for (const t of tasks) {
-    const reads = t.writeNodes.flatMap((n) => (model.index.linksOut[n] ?? []).filter((l) => rels.has(l.rel)).map((l) => l.to));
-    for (const o of tasks) if (o.id !== t.id && o.writeNodes.some((n) => reads.includes(n)) && !t.dependsOn.includes(o.id)) t.dependsOn.push(o.id);
-    t.readNodes = [...new Set(reads)];
-  }
-  for (const t of tasks) t.footprint = taskFootprint(model, t.writeNodes, tree, t.artifactId, "app", t.readNodes);
-  return tasks;
-}
+const manifest: SystemManifest = { genomeCommit: "g", artifacts: { "artifact.webapp": { repo: "app", commit: "a" } }, templateVersions: {}, hookVersions: {} };
+/** Tasks exactly as plan creation builds them (`taskDefinitions`, shared with create and the plan draft). */
+const define = (specs: Record<string, string[]>): TaskDefinition[] =>
+  taskDefinitions(model, manifest, { "artifact.webapp": tree }, Object.entries(specs).map(([id, w]) => ({ id, title: id, artifactId: "artifact.webapp", steps: ["implement"], dependsOn: [], readNodes: [], writeNodes: w, checks: [] })));
 
 const goals = ["operation.goal.save"];
 const events = ["entity.ContactEvent", "operation.contact.log"];

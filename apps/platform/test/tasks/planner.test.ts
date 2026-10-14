@@ -5,9 +5,10 @@ import { metaTemplates } from "@artyfact/templates";
 import type { Evolution, SystemCommit, SystemManifest } from "../../shared/api";
 import type { RealizationPlan } from "../../shared/lifecycle";
 import {
-  asCreated, assembleDraft, buildDraft, draftScope, fallbackGroups, legacyRealizedIndex, nodeArtifact, nodeRealized, planContext, stepsOf, validateReply,
+  assembleDraft, buildDraft, draftScope, fallbackGroups, legacyRealizedIndex, nodeArtifact, nodeRealized, planContext, stepsOf, validateReply,
   type DraftInput, type ScopeHistory, type ScopeRequest,
 } from "../../worker/tasks/planner";
+import { taskDefinitions } from "../../worker/tasks/definitions";
 import {
   fakePlanner, offPlanner, openRouterPlanner, parsePlanReply, plannerFromEnv, setPlannerOverride, type Planner, type PlanReplyTask,
 } from "../../worker/tasks/planner-llm";
@@ -29,7 +30,7 @@ const custom = (affectedNodes: string[], acceptanceCriteria: string[] = []): Evo
 
 const none: ScopeHistory = { history: [], plans: [], acceptedAt: {}, previous: {} };
 function input(req: ScopeRequest, evolutions: Evolution[] = [evo2], h: ScopeHistory = none, model: SystemModel = m) {
-  const s = draftScope(model, manifest, h, evolutions, req);
+  const s = draftScope(model, manifest, h, evolutions, req, { "artifact.webapp": tree });
   const i: DraftInput = {
     model, manifest, trees: { "artifact.webapp": tree }, genomeCommit: "g1",
     evolutions: s.evolutions, nodes: s.nodes, artifactOf: s.artifactOf, criteria: s.criteria, removals: s.removals,
@@ -40,7 +41,7 @@ function input(req: ScopeRequest, evolutions: Evolution[] = [evo2], h: ScopeHist
 const of = (e: Evolution, hint?: string) => input({ evolutionIds: [e.id], ...(hint && { hint }) }, [e]);
 const fallback = async (e: Evolution) => { const x = of(e); return buildDraft(x.i, offPlanner(), x.problems); };
 /** The request is one main's create accepts: unique ids, steps, write scope, matching identity, no cycle. */
-const valid = (i: DraftInput, d: { request: { tasks: Parameters<typeof asCreated>[1] } }) => validateTaskDefinitions(asCreated(i, d.request.tasks));
+const valid = (i: DraftInput, d: { request: { tasks: Parameters<typeof taskDefinitions>[3] } }) => validateTaskDefinitions(taskDefinitions(i.model, i.manifest, i.trees, d.request.tasks));
 
 describe("draftScope", () => {
   it("takes named accepted Evolutions and reports unknown, unaccepted and unbound scope", () => {
@@ -109,9 +110,25 @@ describe("draftScope", () => {
     const s = draftScope(m, manifest, h, [evo2, other], {});
     expect(s.evolutions.map((e) => e.id)).toEqual(["evolution.9"]);
     expect(s.nodes).toEqual(["screen.person"]);
-    // A plan still open does not count.
-    const open = { ...h, plans: [{ ...plan, status: "implementing" } as RealizationPlan] };
-    expect(draftScope(m, manifest, open, [evo2, other], {}).evolutions.map((e) => e.id)).toEqual(["evolution.2", "evolution.9"]);
+    // A plan pinned before the acceptance did not implement it.
+    const early = { ...h, acceptedAt: { "evolution.2": 0, "evolution.9": 2 }, history: [commit("c4", "g4", ["evolution.2"], { commit: "a2", realizationPlan: "plan.1" }), ...history] };
+    expect(draftScope(m, manifest, early, [evo2, other], {}).evolutions.map((e) => e.id)).toEqual(["evolution.2", "evolution.9"]);
+  });
+
+  it("an open plan holds its nodes from the default draft; naming the Evolution takes them again", () => {
+    const history = [commit("c1", "g2", ["evolution.2"], { commit: "a1" }), commit("c0", "g1", [], { commit: "a1" })];
+    for (const status of ["planned", "implementing", "integrated"]) {
+      const plan = { id: "plan.7", status, genome: { repo: "g", commit: "g2" }, tasks: [{ artifactId: "artifact.webapp", writeNodes: ["screen.goal", "screen.today"] }] } as unknown as RealizationPlan;
+      const h: ScopeHistory = { history, plans: [plan], acceptedAt: { "evolution.2": 0 }, previous: {} };
+      const byDefault = draftScope(m, manifest, h, [evo2], {});
+      expect(byDefault.nodes).toEqual(["entity.RelationshipGoal", "operation.goal.save", "screen.logContact"]);
+      expect(byDefault.problems).toContainEqual({ severity: "warning", message: "evolution.2: screen.goal, screen.today are in open plan plan.7; skipped (name evolution.2 to draft them again)" });
+      expect(draftScope(m, manifest, h, [evo2], { evolutionIds: ["evolution.2"] }).nodes).toEqual(evo2.affectedNodes);
+    }
+  });
+
+  it("warns when an Evolution's acceptance is not found in history", () => {
+    expect(draftScope(m, manifest, none, [evo2], {}).problems).toContainEqual({ severity: "warning", message: "the acceptance of evolution.2 was not found in System history; its nodes count as unrealized" });
   });
 
   it("pools the Genome's criteria about explicit nodes", () => {
@@ -143,6 +160,16 @@ describe("draftScope", () => {
     expect(d.request.tasks[0].writeNodes).toEqual(["section.ui"]);
     expect(d.request.tasks[0].steps.join(" ")).toContain("Delete the code for");
     expect(d.request.tasks[0].steps.join(" ")).toContain("screen.goal");
+    // Removing the domain section: its old globs cover src/worker/routes/**. Today's app has only routes/contacts.ts,
+    // which thing.webapp still owns, so the removal lands there. A route file no surviving node owns (goals.ts and
+    // events.ts belong to their sections) leaves no covering ancestor.
+    const domain = Object.keys(genome).find((p) => p.endsWith("/section.domain/node.yaml"))!.replace(/node\.yaml$/, "");
+    const noDomain = loadGenome(Object.fromEntries(Object.entries(genome).filter(([p]) => !p.startsWith(domain))), { templates: metaTemplates });
+    const covered = draftScope(noDomain, manifest, h, [custom(["section.domain"])], { evolutionIds: ["evolution.9"] }, { "artifact.webapp": tree });
+    expect(covered.removals).toEqual([expect.objectContaining({ node: "section.domain", ancestor: "thing.webapp" })]);
+    const gone = draftScope(noDomain, manifest, h, [custom(["section.domain"])], { evolutionIds: ["evolution.9"] }, { "artifact.webapp": [...tree, "src/worker/routes/digest.ts"] });
+    expect(gone.removals).toEqual([]);
+    expect(gone.problems).toContainEqual({ severity: "missing", message: expect.stringContaining("no surviving ancestor of removed node section.domain has a footprint covering its code") });
     const lost = draftScope(after, manifest, { ...h, previous: {} }, [removal], { evolutionIds: ["evolution.9"] });
     expect(lost.removals).toEqual([]);
     expect(lost.problems).toContainEqual({ severity: "missing", message: expect.stringContaining("screen.goal is not in the accepted Genome") });
