@@ -15,7 +15,7 @@ import { badRequest, conflict, notFound, unprocessable } from "./errors";
 import { acceptProposal } from "./intents";
 import { readinessReport } from "./model-bundle";
 import { acceptedTemplateResolver } from "./ontology-packages/store";
-import { createEvolution, genomeAt, refreshRegistry, reject, systemStub, withPlatform } from "./service";
+import { createEvolution, genomeAt, refreshRegistry, registryStub, reject, revokeEnded, systemStub, withPlatform } from "./service";
 import { nowIso } from "./util";
 
 async function headState(env: Env, systemId: string): Promise<HeadState> {
@@ -286,13 +286,14 @@ export async function acceptImportReview(env: Env, systemId: string, body: Parti
     throw conflict("invalid-state", `the import review of ${systemId} was accepted or re-opened meanwhile`);
   }
   let amendment: SystemImportReviewAcceptResponse["amendment"];
-  let proposalId: string | undefined;
+  let proposalId: string | undefined, evolutionId: string | undefined;
   try {
     if (ops.length) {
       const message = `Import review: remove ${roots.length} node${roots.length === 1 ? "" : "s"}`;
       const intent = `${message} (${roots.join(", ")}), rejected when the import of ${review.genomeCommit.slice(0, 12)} was reviewed.`.slice(0, 4000);
       // Linked like an intent's proposal; the accept sets its affected nodes to the nodes the ops touch.
       const { evolution } = await createEvolution(env, systemId, { title: message, intent, kind: "genome-amendment" });
+      evolutionId = evolution.id;
       const proposal = await stub.createProposal({
         evolutionId: evolution.id, systemId, message, status: "open", route: [], ops, questions: [], problems: [],
         provenance: { router: { provider: "platform", model: "import-review", calls: 0 }, translator: { provider: "platform", model: "import-review" }, genomeCommit: review.genomeCommit, fake: false },
@@ -327,11 +328,23 @@ export async function acceptImportReview(env: Env, systemId: string, body: Parti
       await stub.abandonProposal(proposalId)
         .catch((r: unknown) => console.error(`[import-review] abandoning ${proposalId} failed: ${(r as Error)?.message ?? r}`));
     }
+    // Nothing committed, so the removal's Evolution goes too, with its realizations (tokens revoked, unregistered),
+    // as a failed deferral discards its own.
+    if (evolutionId) {
+      try {
+        const ended = await stub.discardEvolution(evolutionId);
+        await revokeEnded(env, systemId, ended);
+        await Promise.all(ended.map((x) => registryStub(env).unregisterRealization(systemId, x.realizationId)));
+      } catch (w) {
+        console.error(`[import-review] discarding ${evolutionId} after a failed accept failed: ${(w as Error)?.message ?? w}`);
+      }
+    }
     await stub.casImportReview("accepted", review.genomeCommit, review)
       .catch((r: unknown) => console.error(`[import-review] restoring pending for ${systemId} failed: ${(r as Error)?.message ?? r}`));
     await refreshRegistry(env, systemId).catch(() => {});
     throw e;
   }
-  await refreshRegistry(env, systemId);
+  // Best-effort, like every registry refresh after a write: the accept has landed.
+  await refreshRegistry(env, systemId).catch((r: unknown) => console.error(`[import-review] refreshing the registry for ${systemId} failed: ${(r as Error)?.message ?? r}`));
   return { review: accepted, ...(amendment && { amendment }), ...(warnings.length && { warnings }) };
 }

@@ -5,14 +5,14 @@
  */
 import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type {
   ApiError, GenomeCandidateReview, ImportSystemResponse, ModelBundle, ProposalPlanNode, StartWorkResponse,
   SystemImportReview, SystemImportReviewAcceptResponse, SystemsResponse, WorkResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { walkTree } from "../worker/artifacts/genome-source";
-import type { SystemAuthority } from "../worker/do/system-authority";
+import { SystemAuthority } from "../worker/do/system-authority";
 import { setEditorTransport } from "../worker/editor";
 import { resetHooks, setHooks } from "../worker/hooks/index";
 import { setAmendmentAccept, UNMAPPED_CAP } from "../worker/import-review";
@@ -80,6 +80,10 @@ const guarded = (systemId: string) => {
     call<ApiError>("POST", `${intent}/reply`, { answers: [] }, ADMIN),
     call<ApiError>("PUT", `${intent}/decisions`, { decisions: [] }, ADMIN),
     call<ApiError>("POST", `${intent}/accept`, {}, ADMIN),
+    call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.1/accept`, { candidateId: "c" }, ADMIN),
+    call<ApiError>("POST", `${task}/select`, { candidateId: "c" }, ADMIN),
+    call<ApiError>("POST", `${plans}/plan.1/integrate`, {}, ADMIN),
+    call<ApiError>("POST", `${plans}/plan.1/promote`, { rationale: "r" }, ADMIN),
   ]);
 };
 
@@ -322,12 +326,27 @@ describe("import review: accept", () => {
     expect(listed.importReview?.status).toBe("pending");
     expect((await guarded(systemId)).every((r) => r.status === 409)).toBe(true);
     // The pushed but unapproved removal is rejected, so nothing can land it behind the pending review.
+    // The pushed but unapproved removal goes with its Evolution, so nothing can land it behind the pending review.
     const work = (await call<WorkResponse>("GET", `/systems/${systemId}/evolutions`)).json;
-    expect(work.realizations.map((r) => r.status)).toEqual(["rejected"]);
+    expect(work.realizations).toEqual([]);
+    expect(work.evolutions.map((e) => e.title)).not.toContain("Import review: remove 1 node");
     // And its proposal is abandoned, not left open.
     const statuses = await runInDurableObject(env.SYSTEMS.getByName(systemId), async (_i: SystemAuthority, st) =>
       st.storage.sql.exec("SELECT status FROM proposals").toArray().map((r) => r.status));
     expect(statuses).toEqual(["abandoned"]);
+  });
+
+  it("a proposal that cannot be stored leaves no orphan Evolution and the review pending", async () => {
+    const { systemId, imp } = await pending();
+    const spy = vi.spyOn(SystemAuthority.prototype, "createProposal").mockImplementation(() => { throw new Error("storage full"); });
+    try {
+      const res = await accept(systemId, { rejectedNodes: ["component.ErrorSummary"] });
+      expect(res.status).toBe(500);
+    } finally { spy.mockRestore(); }
+    expect((await getReview(systemId)).json.status).toBe("pending");
+    const work = (await call<WorkResponse>("GET", `/systems/${systemId}/evolutions`)).json;
+    expect(work.evolutions.map((e) => e.id)).toEqual(imp.evolutions);
+    expect(work.realizations).toEqual([]);
   });
 
   it("a failure after the approve committed keeps the review accepted and answers with the committed amendment", async () => {

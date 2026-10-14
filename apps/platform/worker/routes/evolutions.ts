@@ -30,5 +30,7 @@ export const evolutions = new Hono<AppEnv>()
   .get("/systems/:id/evolutions/:eid/realizations", async (c) =>
     c.json({ realizations: await systemStub(c.env, c.req.param("id")).realizations(c.req.param("eid")) }))
   .get("/systems/:id/evolutions/:eid/candidates", async (c) => c.json(await candidatesView(c.env, c.req.param("id"), c.req.param("eid"))))
-  .post("/systems/:id/evolutions/:eid/accept", requireAdmin, async (c) =>
-    c.json(await accept(c.env, c.req.param("id"), c.req.param("eid"), await body(c))));
+  .post("/systems/:id/evolutions/:eid/accept", requireAdmin, async (c) => {
+    await assertImportReviewed(c.env, c.req.param("id"));
+    return c.json(await accept(c.env, c.req.param("id"), c.req.param("eid"), await body(c)));
+  });
