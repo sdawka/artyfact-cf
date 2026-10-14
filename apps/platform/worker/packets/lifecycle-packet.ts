@@ -121,7 +121,7 @@ export function renderLifecycleAgentsMd(plan: RealizationPlan, task: Task, f: Fi
     "Implement only the pinned Genome, permitted paths, and Task scope. Run its checks.",
     "Check the attempt with `artyfact task status`.",
     'Checkpoint with `artyfact task checkpoint "What changed and what remains"`.',
-    "Submit with `artyfact task submit`. The CLI reads the stored task token from .artyfact-task.json; never print, paste or commit it.",
+    "Submit with `artyfact task submit`. The CLI reads the stored task token from .git/artyfact-task.json; never print, paste or copy it out.",
     "Never approve an Evolution, integrate, or promote without review.",
     `Return the durable review link: ${reviewUrl}`,
     "",

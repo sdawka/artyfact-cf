@@ -51,7 +51,7 @@ it('starts and resumes one task fork with fenced credentials, checkpoints, and s
   writeFileSync(join(dir,'app.ts'),'user work');const resumed=await run(['task','resume','plan.one','task.one','--system','system.one','--dir',dir,'--json']);expect(resumed.code).toBe(0);expect(readFileSync(join(dir,'app.ts'),'utf8')).toBe('user work');
   sh(dir,'config','user.name','test');sh(dir,'config','user.email','test@test');const checkpoint=await run(['task','checkpoint','Saved user work'],dir);expect(checkpoint.code).toBe(0);expect(calls.at(-1)).toMatchObject({auth:`Bearer ${secret2}`,body:{attemptId:'attempt.2',generation:2}});
   writeFileSync(join(dir,'next.ts'),'next');const submit=await run(['task','submit'],dir);expect(submit.err).toBe('');expect(submit.out+submit.err+checkpoint.out+checkpoint.err+resumed.out+first.err).not.toContain(token);expect(submit.code).toBe(0);expect(sh(bare,'rev-parse','main')).toBe(sh(dir,'rev-parse','HEAD'));
-  expect(JSON.parse(readFileSync(join(dir,'.artyfact-task.json'),'utf8')).token).toBe(token);for(const f of ['TASK_PACKET.md','AGENTS.md'])expect(readFileSync(join(dir,f),'utf8')).not.toContain(token);expect(statSync(join(dir,'.artyfact-task.json')).mode&0o777).toBe(0o600);expect(sh(dir,'ls-files')).not.toContain('.artyfact-task.json');expect(sh(dir,'status','--porcelain')).toBe('');
+  expect(JSON.parse(readFileSync(join(dir,'.git/artyfact-task.json'),'utf8')).token).toBe(token);for(const f of ['TASK_PACKET.md','AGENTS.md'])expect(readFileSync(join(dir,f),'utf8')).not.toContain(token);expect(statSync(join(dir,'.git/artyfact-task.json')).mode&0o777).toBe(0o600);expect(sh(dir,'ls-files')).not.toContain('.artyfact-task.json');expect(sh(dir,'status','--porcelain')).toBe('');
   writeFileSync(join(dir,'.artyfact-task.json'),'{}');sh(dir,'add','-f','.artyfact-task.json');sh(dir,'commit','-q','-m','unsafe tracked configuration');sh(dir,'push','-q',bare,'HEAD:main');
   const unsafeDir=join(cwd,'unsafe-task');const unsafe=await run(['task','start','plan.one','task.one','--system','system.one','--dir',unsafeDir]);expect(unsafe.code).toBe(1);expect(unsafe.err).toContain('tracked task configuration');expect(readFileSync(join(unsafeDir,'.artyfact-task.json'),'utf8')).toBe('{}');
  }finally{for(const [key,value] of [['GIT_CONFIG_COUNT',old.count],['GIT_CONFIG_KEY_0',old.key],['GIT_CONFIG_VALUE_0',old.value]]){if(value===undefined)delete process.env[key!];else process.env[key!]=value;}}
@@ -70,7 +70,7 @@ it('accepts an import preview envelope containing reviewed Genome files',async()
 
 // ---- plan draft / plan tasks / claim hygiene, against a fake HTTP server ------------------------------------------------
 import { createServer, type Server } from 'node:http';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync } from 'node:fs';
 import { execFileSync } from 'node:child_process';
 interface Hit { method: string; url: string; auth: string | undefined; body: any }
 async function fake(handler: (hit: Hit) => [number, unknown]): Promise<{ base: string; hits: Hit[]; close: () => Promise<void> }> {
@@ -185,17 +185,35 @@ it('plan tasks names no claim when every pending task waits on a dependency', as
  } finally { await srv.close(); }
 });
 
-it('claim turns blocked and taken conflicts into friendly one-line errors', async () => {
+it('claim turns blocked, taken and interference refusals into friendly one-line errors', async () => {
  const dir = join(cwd, 'friendly');
- const blocked = await fake(() => [409, { error: { code: 'task-blocked', message: 'blocked', details: { blockedOn: ['task.a', 'task.x'] } } }]);
- const taken = await fake(() => [409, { error: { code: 'task-taken', message: 'taken', details: { by: 'claude:task.b' } } }]);
+ const refusal = (details: object) => fake(() => [409, { error: { code: 'invalid-state', message: 'refused', details } }]);
+ const blocked = await refusal({ blockedOn: ['task.a', 'task.x'] });
+ const taken = await refusal({ by: 'claude:task.b' });
+ const interfering = await refusal({ taskId: 'task.c', by: null });
  try {
-  const a = await cli(['task', 'claim', 'plan.one', 'task.b', '--system', 'system.one', '--dir', dir, '--platform', blocked.base], { ARTYFACT_ADMIN_TOKEN: 'admin' });
+  const claim = (base: string) => cli(['task', 'claim', 'plan.one', 'task.b', '--system', 'system.one', '--dir', dir, '--platform', base], { ARTYFACT_ADMIN_TOKEN: 'admin' });
+  const a = await claim(blocked.base);
   expect(a.code).toBe(1); expect(a.err).toContain('blocked by task.a, task.x (not yet selected)');
-  const b = await cli(['task', 'claim', 'plan.one', 'task.b', '--system', 'system.one', '--dir', dir, '--platform', taken.base], { ARTYFACT_ADMIN_TOKEN: 'admin' });
+  const b = await claim(taken.base);
   expect(b.code).toBe(1); expect(b.err).toContain('task task.b is taken by claude:task.b');
+  const c = await claim(interfering.base);
+  expect(c.code).toBe(1); expect(c.err).toContain('task task.b conflicts with task.c, held by an unnamed agent');
   expect(existsSync(dir)).toBe(false);
- } finally { await blocked.close(); await taken.close(); }
+ } finally { await blocked.close(); await taken.close(); await interfering.close(); }
+});
+
+it('plan tasks skips a task whose conflicting task holds a live attempt', async () => {
+ const live = { id: 'attempt.1', status: 'working', agentLabel: 'claude:task.c', leaseExpiresAt: '2099-01-01T00:00:00Z' };
+ const plan = { ...planFixture, tasks: planFixture.tasks.map(t => t.id === 'task.a' ? { ...t, status: 'selected' } : t.id === 'task.c' ? { ...t, attempts: [live] } : t) };
+ const srv = await fake(() => [200, plan]);
+ try {
+  const r = await cli(['plan', 'tasks', 'plan.one', '--system', 'system.one', '--platform', srv.base], {});
+  expect(r.out).toContain('claim: no task is claimable now');
+  const lapsed = { ...plan, tasks: plan.tasks.map(t => t.id === 'task.c' ? { ...t, attempts: [{ ...live, leaseExpiresAt: '2000-01-01T00:00:00Z' }] } : t) };
+  const srv2 = await fake(() => [200, lapsed]);
+  try { expect((await cli(['plan', 'tasks', 'plan.one', '--system', 'system.one', '--platform', srv2.base], {})).out).toMatch(/claim: .*task claim plan\.one task\.b /); } finally { await srv2.close(); }
+ } finally { await srv.close(); }
 });
 
 it('claim validates the target directory before any HTTP call', async () => {
@@ -237,7 +255,7 @@ it('a claim whose clone fails removes the half-made workspace and names the resu
   process.env.GIT_CONFIG_KEY_0 = `url.${bare}.insteadOf`;
   const resume = await cli(['task', 'resume', 'plan.one', 'task.a', '--system', 'system.one', '--dir', dir, '--platform', srv.base], { ARTYFACT_ADMIN_TOKEN: 'admin' });
   expect(resume.err).toBe(''); expect(resume.code).toBe(0);
-  expect(existsSync(join(dir, '.artyfact-task.json'))).toBe(true);
+  expect(existsSync(join(dir, '.git/artyfact-task.json'))).toBe(true);
   expect(srv.hits.map(h => h.url.split('/').at(-1))).toEqual(['claim', 'resume']);
  } finally {
   for (const [k, v] of [['GIT_CONFIG_COUNT', old.c], ['GIT_CONFIG_KEY_0', old.k], ['GIT_CONFIG_VALUE_0', old.v]] as const) if (v === undefined) delete process.env[k]; else process.env[k] = v;
@@ -245,7 +263,39 @@ it('a claim whose clone fails removes the half-made workspace and names the resu
  }
 });
 
-it('claim stores the write token only in .artyfact-task.json, writes packet.agentsMd, and submit works without ARTYFACT_TOKEN', async () => {
+it('a .gitignore negation never stages the task config: the legacy root file moves into .git and a root copy is left out', async () => {
+ const sh = (at: string, ...args: string[]) => execFileSync('git', ['-C', at, ...args], { encoding: 'utf8' }).trim();
+ const source = join(cwd, 'neg-source'), bare = join(cwd, 'neg.git'), dir = join(cwd, 'neg-work');
+ mkdirSync(source); sh(cwd, 'init', '--bare', '-q', bare); sh(source, 'init', '-q', '-b', 'main'); writeFileSync(join(source, 'app.ts'), 'base'); sh(source, 'add', 'app.ts');
+ sh(source, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'base'); sh(source, 'push', '-q', bare, 'HEAD:main'); sh(bare, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+ const remote = `https://${'e'.repeat(32)}.artifacts.cloudflare.net/git/ns/neg.git`, token = 'NEG-WRITE-TOKEN-0123456789';
+ const srv = await fake(h => h.url.endsWith('/claim')
+  ? [200, { attempt: { id: 'attempt.1', generation: 1 }, secret: 'e5'.repeat(32), token: { value: token, remote, expiresAt: '2099-01-01T00:00:00Z' }, remote, packet: { markdown: 'packet' }, reviewUrl: 'http://localhost/review' }]
+  : [200, { task: { status: 'submitted' }, candidate: { id: 'candidate.1' }, evaluations: [] }]);
+ const old = { c: process.env.GIT_CONFIG_COUNT, k: process.env.GIT_CONFIG_KEY_0, v: process.env.GIT_CONFIG_VALUE_0 };
+ process.env.GIT_CONFIG_COUNT = '1'; process.env.GIT_CONFIG_KEY_0 = `url.${bare}.insteadOf`; process.env.GIT_CONFIG_VALUE_0 = remote;
+ try {
+  expect((await cli(['task', 'claim', 'plan.one', 'task.a', '--system', 'system.one', '--dir', dir, '--platform', srv.base], { ARTYFACT_ADMIN_TOKEN: 'admin' })).code).toBe(0);
+  // A workspace from before the move: the config at the root, and a .gitignore that un-ignores it.
+  renameSync(join(dir, '.git/artyfact-task.json'), join(dir, '.artyfact-task.json'));
+  writeFileSync(join(dir, '.gitignore'), '!.artyfact-task.json\n'); sh(dir, 'config', 'user.name', 't'); sh(dir, 'config', 'user.email', 't@t');
+  const first = await cli(['task', 'submit'], {}, dir);
+  expect(first.err).toBe(''); expect(first.code).toBe(0);
+  expect(existsSync(join(dir, '.artyfact-task.json'))).toBe(false);
+  expect(statSync(join(dir, '.git/artyfact-task.json')).mode & 0o777).toBe(0o600);
+  // A root copy written later is still never staged.
+  writeFileSync(join(dir, '.artyfact-task.json'), readFileSync(join(dir, '.git/artyfact-task.json'))); writeFileSync(join(dir, 'more.ts'), 'more');
+  const second = await cli(['task', 'submit'], {}, dir);
+  expect(second.code).toBe(0); expect(second.err).toContain('not staged');
+  expect(sh(bare, 'ls-tree', '-r', '--name-only', 'main')).not.toContain('artyfact-task.json');
+  expect(sh(bare, 'log', '-p', 'main')).not.toContain(token);
+ } finally {
+  for (const [k, v] of [['GIT_CONFIG_COUNT', old.c], ['GIT_CONFIG_KEY_0', old.k], ['GIT_CONFIG_VALUE_0', old.v]] as const) if (v === undefined) delete process.env[k]; else process.env[k] = v;
+  await srv.close();
+ }
+});
+
+it('claim stores the write token only in .git/artyfact-task.json, writes packet.agentsMd, and submit works without ARTYFACT_TOKEN', async () => {
  const sh = (at: string, ...args: string[]) => execFileSync('git', ['-C', at, ...args], { encoding: 'utf8' }).trim();
  const source = join(cwd, 'hyg-source'), bare = join(cwd, 'hyg.git'), dir = join(cwd, 'hyg-work');
  mkdirSync(source); sh(cwd, 'init', '--bare', '-q', bare); sh(source, 'init', '-q', '-b', 'main'); writeFileSync(join(source, 'app.ts'), 'base'); sh(source, 'add', 'app.ts');
@@ -273,9 +323,9 @@ it('claim stores the write token only in .artyfact-task.json, writes packet.agen
   for (const secretText of [token, admin]) expect(claim.out + claim.err + submit.out + submit.err).not.toContain(secretText);
   const walk = (d: string): string[] => readdirSync(d, { withFileTypes: true }).flatMap(e => e.isDirectory() ? walk(join(d, e.name)) : [join(d, e.name)]);
   const holders = walk(dir).filter(f => readFileSync(f).includes(token));
-  expect(holders).toEqual([join(dir, '.artyfact-task.json')]);
+  expect(holders).toEqual([join(dir, '.git/artyfact-task.json')]);
   expect(walk(dir).filter(f => readFileSync(f).includes(admin))).toEqual([]);
-  expect(statSync(join(dir, '.artyfact-task.json')).mode & 0o777).toBe(0o600);
+  expect(statSync(join(dir, '.git/artyfact-task.json')).mode & 0o777).toBe(0o600);
   expect(sh(dir, 'ls-files')).not.toContain('.artyfact-task.json');
   expect(readFileSync(join(dir, 'TASK_PACKET.md'), 'utf8')).not.toContain(token);
   // an environment token takes precedence over the stored one

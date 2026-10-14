@@ -1,4 +1,4 @@
-import { constants, existsSync, lstatSync, mkdirSync, openSync, closeSync, writeSync, fchmodSync, readFileSync, readdirSync, rmSync } from 'node:fs';
+import { constants, existsSync, lstatSync, mkdirSync, openSync, closeSync, writeSync, fchmodSync, readFileSync, readdirSync, rmSync, renameSync, unlinkSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { parseArgs } from 'node:util';
 import { lifecyclePaths, type CreateRealizationPlanRequest, type DraftRealizationPlanRequest, type DraftRealizationPlanResponse, type ImplementationReview, type RealizationPlan, type Task, type TaskStartResponse, type TaskSubmitResponse } from '../../../apps/platform/shared/lifecycle.ts';
@@ -12,34 +12,44 @@ import { resolvePlatform } from './platform-url.ts';
 import { WORKSPACE_IGNORES } from './ignore.ts';
 import { mergeAgentsBlock } from './agents-md.ts';
 import type { Io } from './main.ts';
-const CONFIG='.artyfact-task.json';
+/** Inside .git, so no .gitignore negation can stage it; the old root location is read once and moved here. */
+const CONFIG='.git/artyfact-task.json',LEGACY_CONFIG='.artyfact-task.json';
 const id=(label:string,value:string|undefined)=>{if(!value)throw new CliError(`${label} is required`);return assertId(label,value);};
 const readJson=(file:string,io:Io)=>{const path=resolve(io.cwd,file);const stat=lstatSync(path);if(!stat.isFile()||stat.size>4*1024*1024)throw new CliError('input must be a regular JSON file smaller than 4 MiB');return JSON.parse(readFileSync(path,'utf8'));};
 function write(path:string,data:string,mode=0o644){if(existsSync(path)&&lstatSync(path).isSymbolicLink())throw new CliError('refusing symlinked task workspace file');const fd=openSync(path,constants.O_WRONLY|constants.O_CREAT|constants.O_TRUNC|constants.O_NOFOLLOW,mode);try{writeSync(fd,data);fchmodSync(fd,mode);}finally{closeSync(fd);}}
-/** `.artyfact-task.json` (mode 0600, git-excluded, never in the fork's tracked files). `token` is the fork write token at rest. */
+/** Credentials: a fresh 0600 file renamed into place, so the path never holds them with wider permissions. */
+function writeSecret(path:string,data:string){if(existsSync(path)&&lstatSync(path).isSymbolicLink())throw new CliError('refusing symlinked task workspace file');const tmp=`${path}.${process.pid}.tmp`;rmSync(tmp,{force:true});const fd=openSync(tmp,constants.O_WRONLY|constants.O_CREAT|constants.O_EXCL|constants.O_NOFOLLOW,0o600);try{writeSync(fd,data);fchmodSync(fd,0o600);}finally{closeSync(fd);}renameSync(tmp,path);}
+/** The task config path in `dir`, moving a legacy root `.artyfact-task.json` into .git first. */
+function configPath(dir:string):string{
+ const path=join(dir,CONFIG),legacy=join(dir,LEGACY_CONFIG);
+ if(!existsSync(path)&&existsSync(legacy)&&existsSync(join(dir,'.git'))&&lstatSync(join(dir,'.git')).isDirectory()){if(lstatSync(legacy).isSymbolicLink())throw new CliError('refusing symlinked task config');writeSecret(path,readFileSync(legacy,'utf8'));unlinkSync(legacy);}
+ return path;
+}
+/** `.git/artyfact-task.json` (mode 0600, inside .git, never staged). `token` is the fork write token at rest. */
 interface LocalTask {platform:string;systemId:string;planId:string;taskId:string;attemptId:string;generation:number;remote:string;secret:string;reviewUrl:string;token?:string;tokenExpires?:string}
-function local(io:Io):LocalTask {const path=join(io.cwd,CONFIG);if(!existsSync(path))throw new CliError(`run artyfact task start first (${CONFIG} missing)`);if(lstatSync(path).isSymbolicLink())throw new CliError('refusing symlinked task config');const cfg=JSON.parse(readFileSync(path,'utf8')) as LocalTask;for(const key of ['systemId','planId','taskId','attemptId'] as const)assertId(key,cfg[key]);assertSecret(cfg.secret);if(cfg.token!==undefined)assertToken(cfg.token);assertRemote('task remote',cfg.remote,io.env);return cfg;}
+function local(io:Io):LocalTask {const path=configPath(io.cwd);if(!existsSync(path))throw new CliError(`run artyfact task start first (${CONFIG} missing)`);if(lstatSync(path).isSymbolicLink())throw new CliError('refusing symlinked task config');const cfg=JSON.parse(readFileSync(path,'utf8')) as LocalTask;for(const key of ['systemId','planId','taskId','attemptId'] as const)assertId(key,cfg[key]);assertSecret(cfg.secret);if(cfg.token!==undefined)assertToken(cfg.token);assertRemote('task remote',cfg.remote,io.env);return cfg;}
 /** Validate the claim/start/resume target before any HTTP call: absent or empty, or this task's earlier workspace. */
 function assertTaskDir(dir:string,io:Io,system:string,plan:string,task:string):LocalTask|undefined{
  let stat;try{stat=lstatSync(dir);}catch(e){if((e as NodeJS.ErrnoException).code==='ENOENT')return undefined;throw new CliError(`cannot inspect ${dir}: ${(e as NodeJS.ErrnoException).code??(e as Error).message}; choose another --dir`);}
  if(stat.isSymbolicLink())throw new CliError('refusing symlinked workspace');
  if(!stat.isDirectory())throw new CliError(`${dir} exists and is not a directory; choose another --dir`);
  if(!readdirSync(dir).length)return undefined;
- if(!existsSync(join(dir,CONFIG)))throw new CliError(`${dir} exists and is not empty; choose an empty --dir or this task's earlier workspace`);
+ if(!existsSync(configPath(dir)))throw new CliError(`${dir} exists and is not empty; choose an empty --dir or this task's earlier workspace`);
  const prior=local({...io,cwd:dir});
  if(prior.systemId!==system||prior.planId!==plan||prior.taskId!==task)throw new CliError('workspace belongs to another task');
  for(const sub of ['.git','.git/info']){let st;try{st=lstatSync(join(dir,sub));}catch{throw new CliError('workspace has no usable git directory; choose an empty --dir');}if(!st.isDirectory())throw new CliError('refusing unsafe git workspace');}
  if(git(dir,['config','--get','remote.origin.url'])!==prior.remote)throw new CliError('resumed workspace remote differs; preserve work and choose a new --dir');
  return prior;
 }
-/** Turn the claim routes' 409s into the one-line texts the agent loop prints; anything else passes through. */
+/** Turn the claim routes' 409 details (`{blockedOn}`, `{by}`, `{taskId, by}`) into the one-line texts the agent loop prints; anything else passes through. */
 function claimError(e:unknown,task:string):unknown{
  if(!(e instanceof PlatformError)||e.status!==409)return e;
- const d=(e.details??{}) as {blockedOn?:unknown;by?:unknown;agentLabel?:unknown;claim?:{agentLabel?:unknown}};
+ const d=(e.details??{}) as {blockedOn?:unknown;by?:unknown;taskId?:unknown};
  const blocked=Array.isArray(d.blockedOn)?d.blockedOn.filter((x):x is string=>typeof x==='string'):[];
- if(e.code==='task-blocked'||blocked.length)return new CliError(blocked.length?`blocked by ${blocked.join(', ')} (not yet selected)`:`blocked: ${e.detail??'a dependency is not yet selected'}`);
- const by=[d.by,d.agentLabel,d.claim?.agentLabel].find((x):x is string=>typeof x==='string');
- if(e.code==='task-taken'||by)return new CliError(by?`task ${task} is taken by ${by}`:`task ${task} is taken${e.detail?`: ${e.detail}`:''}`);
+ if(blocked.length)return new CliError(`blocked by ${blocked.join(', ')} (not yet selected)`);
+ const by=typeof d.by==='string'?d.by:'an unnamed agent';
+ if(typeof d.taskId==='string')return new CliError(`task ${task} conflicts with ${d.taskId}, held by ${by}`);
+ if('by' in d)return new CliError(`task ${task} is taken by ${by}`);
  return e;
 }
 const cell=(xs:readonly string[]|undefined)=>xs?.length?xs.join(','):'-';
@@ -47,10 +57,12 @@ const table=(head:string[],rows:string[][])=>{const w=head.map((h,i)=>Math.max(h
 const waveOf=(waves:string[][]|undefined,id:string)=>{const i=(waves??[]).findIndex(w=>w.includes(id));return i<0?'-':String(i+1);};
 const footprintOf=(t:Pick<Task,'footprint'>)=>cell([...new Set([...(t.footprint?.globs??[]),...(t.footprint?.paths??[])])]);
 const conflictLines=(a:RealizationPlan['analysis']|undefined)=>(a?.conflicts??[]).map(c=>`conflicts: ${c.tasks.join(' <-> ')} [${c.kind}] ${c.subjects.join(', ')}: ${c.message}`);
-/** The lowest-wave pending task whose dependencies are all selected or completed. */
+/** The lowest-wave pending task whose dependencies are all selected or completed and that no conflicting live attempt blocks. */
 function nextClaimable(plan:RealizationPlan):Task|undefined{
  const done=new Set(plan.tasks.filter(t=>t.status==='selected'||t.status==='completed').map(t=>t.id));
- return plan.tasks.filter(t=>t.status==='pending'&&t.dependsOn.every(d=>done.has(d)))
+ const live=(t:Task)=>{const a=t.attempts?.at(-1);return !!a&&a.status!=='ended'&&Date.parse(a.leaseExpiresAt)>Date.now();};
+ const held=(t:Task)=>(plan.analysis?.conflicts??[]).some(c=>c.tasks.includes(t.id)&&c.tasks.some(o=>o!==t.id&&plan.tasks.some(x=>x.id===o&&live(x))));
+ return plan.tasks.filter(t=>t.status==='pending'&&t.dependsOn.every(d=>done.has(d))&&!held(t))
   .sort((a,b)=>(Number(waveOf(plan.analysis?.waves,a.id))||Infinity)-(Number(waveOf(plan.analysis?.waves,b.id))||Infinity))[0];
 }
 function printDraft(d:DraftRealizationPlanResponse,io:Io){
@@ -120,15 +132,15 @@ export async function lifecycleCommand(command:string,args:string[],io:Io):Promi
     if(fresh)rmSync(dir,{recursive:true,force:true});else for(const entry of readdirSync(dir))rmSync(join(dir,entry),{recursive:true,force:true});
     throw new CliError(`${action} landed but the workspace could not be cloned (${(e as Error).message}); the lease is still yours, so fix the cause and run: artyfact task resume ${[plan,task,'--system',system,'--dir',dir].map(shellArg).join(' ')}`);}}
    for(const sub of ['.git','.git/info'])if(!lstatSync(join(dir,sub)).isDirectory()||lstatSync(join(dir,sub)).isSymbolicLink())throw new CliError('refusing unsafe git workspace');
-   if(isTracked(dir,CONFIG)||isTracked(dir,'TASK_PACKET.md'))throw new CliError('refusing tracked task configuration or packet; do not store attempt credentials in source');
+   if(isTracked(dir,LEGACY_CONFIG)||isTracked(dir,'TASK_PACKET.md'))throw new CliError('refusing tracked task configuration or packet; do not store attempt credentials in source');
    const cfg:LocalTask={platform:base,systemId:system,planId:plan,taskId:task,attemptId:res.attempt.id,generation:res.attempt.generation,remote,secret,reviewUrl:res.reviewUrl,token:writeToken,tokenExpires:res.token.expiresAt};
-   const exclude=join(dir,'.git/info/exclude'),existing=readFileSync(exclude,'utf8');write(exclude,`${existing}\n${[CONFIG,'TASK_PACKET.md','AGENTS.md',...WORKSPACE_IGNORES].join('\n')}\n`);
+   const exclude=join(dir,'.git/info/exclude'),existing=readFileSync(exclude,'utf8');write(exclude,`${existing}\n${[LEGACY_CONFIG,'TASK_PACKET.md','AGENTS.md',...WORKSPACE_IGNORES].join('\n')}\n`);
    const hidden=[secret,writeToken,token,io.env.ARTYFACT_TOKEN,io.env.ARTYFACT_SECRET,prior?.token,prior?.secret].filter((x):x is string=>!!x);
    const scrub=(s:string)=>hidden.reduce((out,h)=>out.replaceAll(h,'***'),s);write(join(dir,'TASK_PACKET.md'),scrub(res.packet.markdown));
    const agents=join(dir,'AGENTS.md');write(agents,mergeAgentsBlock(existsSync(agents)?readFileSync(agents,'utf8'):'',scrub(res.packet.agentsMd??`Read TASK_PACKET.md. Implement only the pinned Genome, permitted paths, and Task scope. Run its checks. Checkpoint with npx artyfact task checkpoint "<message>". Submit with npx artyfact task submit; the task write token is stored in ${CONFIG} and is never shown. Never approve an Evolution, integrate, or promote without review. Return the durable review link: ${res.reviewUrl}`),'artyfact-task'));
-   write(join(dir,CONFIG),JSON.stringify(cfg,null,2)+'\n',0o600);
+   writeSecret(join(dir,CONFIG),JSON.stringify(cfg,null,2)+'\n');
    if(v.json){io.out(JSON.stringify({workspace:dir,attemptId:res.attempt.id,generation:res.attempt.generation,reviewUrl:res.reviewUrl,tokenExpires:res.token.expiresAt}));return 0;}
-   io.out(`Task workspace ready: ${dir}`);io.out(`Review: ${res.reviewUrl}`);io.out(`The task write token is stored in ${CONFIG} (mode 0600, git-excluded); task submit uses it. Run task resume to refresh it.`);return 0;
+   io.out(`Task workspace ready: ${dir}`);io.out(`Review: ${res.reviewUrl}`);io.out(`The task write token is stored in ${CONFIG} (mode 0600, inside .git, never staged); task submit uses it. Run task resume to refresh it.`);return 0;
   }else throw new CliError('usage: artyfact task claim|start|resume <plan> <task> | checkpoint <message> | submit | select <plan> <task> --candidate id');
  }else if(command==='ontology'){
   const root=`/api/systems/${encodeURIComponent(system)}/ontology-imports`;

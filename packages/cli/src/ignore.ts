@@ -6,10 +6,13 @@ export const isSecretFile = (base: string) => /^\.(dev\.vars|env)(\..+)?$/.test(
 /** Directories checkpoint and submit never stage, whatever the repo's own ignore rules say. */
 export const NEVER_STAGED_DIRS = ["node_modules", ".wrangler"] as const;
 
-/** A repo-relative path checkpoint and submit never stage: node_modules or .wrangler (a directory or a symlink), anything in them, or a secret file. */
+/** CLI files holding attempt credentials (the task config's legacy root location, and `start`'s config). */
+export const CREDENTIAL_FILES = [".artyfact-task.json", ".artyfact.json"] as const;
+
+/** A repo-relative path checkpoint and submit never stage: node_modules or .wrangler (a directory or a symlink), anything in them, a secret file or a credential file. */
 export function neverStaged(rel: string): boolean {
-  const parts = rel.split("/");
-  return parts.some((p) => (NEVER_STAGED_DIRS as readonly string[]).includes(p)) || isSecretFile(parts.at(-1)!);
+  const parts = rel.split("/"), base = parts.at(-1)!;
+  return parts.some((p) => (NEVER_STAGED_DIRS as readonly string[]).includes(p)) || isSecretFile(base) || (CREDENTIAL_FILES as readonly string[]).includes(base);
 }
 
 /** Ignore patterns `start` appends to the clone's `.git/info/exclude` (the app scaffold's `.gitignore` has the same). */
