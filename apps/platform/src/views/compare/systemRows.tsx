@@ -14,6 +14,9 @@ export interface SystemRow {
   role?: "genome" | "app";
 }
 
+/** A long hash in the row, e09a721…973a; the whole value stays in the title. */
+const clip = (s: string) => (s.length > 16 ? `${s.slice(0, 7)}…${s.slice(-4)}` : s);
+const idCode = (s: string) => <code title={s}>{clip(s)}</code>;
 const full = (s: string | null | undefined, n: number) => (s ? <code title={s}>{s.slice(0, n)}</code> : "unknown");
 const sha = (s: string | null | undefined) => (s ? <code title={s}>{shortSha(s)}</code> : "unknown");
 const versions = (c: SystemCommit | null, kind: "templateVersions" | "hookVersions", key: string) => c?.composition?.[kind]?.[key] ?? "none";
@@ -28,7 +31,7 @@ export function systemRows(cmp: SystemCompare): SystemRow[] {
   const artifacts = [...new Set([...(from?.manifest ?? []), ...to.manifest].map((b) => b.artifact))].sort();
   const commitOf = (c: SystemCommit | null, artifact: string) => c?.manifest.find((b) => b.artifact === artifact);
   const rows: SystemRow[] = [
-    { key: "system", name: "System commit", label: "System commit", from: from ? <code>{from.id}</code> : "none", to: <code>{to.id}</code>, changed: from?.id !== to.id },
+    { key: "system", name: "System commit", label: "System commit", from: from ? idCode(from.id) : "none", to: idCode(to.id), changed: from?.id !== to.id },
     { key: "genome", name: "Genome commit", label: "Genome commit", from: sha(cmp.genome.from), to: sha(cmp.genome.to), changed: cmp.genome.from !== cmp.genome.to, role: "genome" },
     {
       key: "manifest", name: "manifest hash", label: "Manifest hash",

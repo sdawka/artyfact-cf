@@ -71,7 +71,7 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
   const resuming = !!resume?.realizationId && !!resume.secret;
 
   const reasons: string[] = [];
-  if (repo === "app") reasons.push("App implementation uses a Realization Task in your local harness.");
+  if (repo === "app") reasons.push("App implementation uses a Plan in your local harness.");
   if (fixture) reasons.push("Commit needs the platform API.");
   if (!changes.length) reasons.push("There are no pending changes.");
   if (!message.trim()) reasons.push("Write a commit message.");
@@ -152,9 +152,9 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
       }
     >
       <p className={styles.muted}>
-        The commit goes to a new editor realization's fork and becomes a candidate on Work. Realize it there with Promote or Accept.
+        The commit goes to a new editor fork and becomes a candidate on Work. Open it in Review to Promote or Accept it.
       </p>
-      {repo === "app" && <p><Link to={href("work", { panel: "plan", evolution: null, realization: null })}>Create a Realization Task</Link>. Your app draft stays here until you discard it.</p>}
+      {repo === "app" && <p><Link to={href("work", { panel: "plan", evolution: null, realization: null })}>Create a Plan</Link>. Your app draft stays here until you discard it.</p>}
       <form id={`${uid}-form`} ref={formRef} onSubmit={submit} className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`${uid}-m`}>Message</label>
