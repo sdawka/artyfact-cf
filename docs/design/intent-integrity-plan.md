@@ -37,58 +37,58 @@ T3 owns `worker/intents.ts`, `routes/intents.ts`, proposal-store changes and ded
 
 ## Task 1: Intent provenance and shared integrity policy
 
-- [ ] Add failing model tests for duplicate JSON keys, unsafe/absolute source paths, over-limit UTF-8 sidecars, brief-only drift, exact hash round trips, missing versus error status, unknown semantics and immutable disposition eligibility. Representative assertions:
+- [x] Add failing model tests for duplicate JSON keys, unsafe/absolute source paths, over-limit UTF-8 sidecars, brief-only drift, exact hash round trips, missing versus error status, unknown semantics and immutable disposition eligibility. Representative assertions:
   ```ts
   expect(readIntentSources({"intent/manifest.json": '{"version":1,"version":2}'}).issues.length).toBeGreaterThan(0);
   expect(integrityStatus({...report, structural: {status: "blocked"}})).toBe("blocked");
   ```
-- [ ] Run `npm test -w @artyfact/model -- test/intent.test.ts test/integrity.test.ts`; observe failures for absent contracts.
-- [ ] Implement bounded sidecar parsing/canonical hashing, selected-template closure traversal and shared report/eligibility policy. Keep existing node schemas and lightweight validator compatibility; template closure uses actual reachable template references, including dependencies.
-- [ ] Run focused tests/typecheck; publish interfaces and commit only owned files.
+- [x] Run `npm test -w @artyfact/model -- test/intent.test.ts test/integrity.test.ts`; observe failures for absent contracts.
+- [x] Implement bounded sidecar parsing/canonical hashing, selected-template closure traversal and shared report/eligibility policy. Keep existing node schemas and lightweight validator compatibility; template closure uses actual reachable template references, including dependencies.
+- [x] Run focused tests/typecheck; publish interfaces and commit only owned files.
 
 ## Task 2: Durable integrity runs, reviewed snapshots and imports
 
-- [ ] Add failing Worker tests for initial Genome-only previews, exact snapshot agreement, unknown/off providers, all status transitions, lease fencing, duplicate start, checkpoint reuse, custom packages and cross-System denial. Assert no-source previews need no app bindings:
+- [x] Add failing Worker tests for initial Genome-only previews, exact snapshot agreement, unknown/off providers, all status transitions, lease fencing, duplicate start, checkpoint reuse, custom packages and cross-System denial. Assert no-source previews need no app bindings:
   ```ts
   expect(preview.snapshot.systemId).toBe("system.example");
   expect(run.report.status).toBe("needs-review"); // provider off
   expect(secondStart.id).toBe(firstStart.id);
   ```
-- [ ] Run the new `test/integrity*.test.ts` suites and import-review suites, retaining expected failing assertions.
-- [ ] Implement strict bounded request schemas, immutable snapshot rows, queued run/lease/checkpoint store and alarm-driven execution. Replay persisted SystemOne answers by exact hashes; retain bounded retries and cancellation state. Run deterministic checks, the full defect funnel/per-kind checks, and explicit bounded intent-to-node coverage/unsupported-claim judgments. Track actual coverage and unavailable providers as limitations.
-- [ ] Integrate native package resolution and conditional source mappings. Preserve sidecars when reading/importing remote Genome; carry agreement only after server-computed identity matches the reviewed preview. Expose latest applicable run/report through import/model/readiness responses without treating missing reports as success.
-- [ ] Make native-package preview reject invalid structure while permitting source-free planned nodes. Require full-check eligibility on new reviewed authoring paths; preserve explicitly labeled legacy bypass behavior.
-- [ ] Run focused Worker suites and typecheck; commit owned files and publish actual wire types.
+- [x] Run the new `test/integrity*.test.ts` suites and import-review suites, retaining expected failing assertions.
+- [x] Implement strict bounded request schemas, immutable snapshot rows, queued run/lease/checkpoint store and alarm-driven execution. Replay persisted SystemOne answers by exact hashes; retain bounded retries and cancellation state. Run deterministic checks, the full defect funnel/per-kind checks, and explicit bounded intent-to-node coverage/unsupported-claim judgments. Track actual coverage and unavailable providers as limitations.
+- [x] Integrate native package resolution and conditional source mappings. Preserve sidecars when reading/importing remote Genome; carry agreement only after server-computed identity matches the reviewed preview. Expose latest applicable run/report through import/model/readiness responses without treating missing reports as success.
+- [x] Make native-package preview reject invalid structure while permitting source-free planned nodes. Require full-check eligibility on new reviewed authoring paths; preserve explicitly labeled legacy bypass behavior.
+- [x] Run focused Worker suites and typecheck; commit owned files and publish actual wire types.
 
 ## Task 3: Recoverable exact Genome proposals
 
-- [ ] Add failing tests for proposal-wide known errors being refused before push and a gate-refused staged candidate being revised/abandoned without losing history or accepting stale evidence.
-- [ ] Run `npm test -w @artyfact/platform -- test/intents.test.ts` and observe the new failures.
-- [ ] Add admin-only abandon/revise recovery, immutable prior-attempt history and exact stale/claim checks. Reuse accepted custom template resolution in head loading and proposal simulation. Integrate report/decision binding through T2's shared contract; coordinate DO changes through T2 to avoid overlapping writes.
-- [ ] Run all intent tests; publish recovery endpoints and commit owned files.
+- [x] Add failing tests for proposal-wide known errors being refused before push and a gate-refused staged candidate being revised/abandoned without losing history or accepting stale evidence.
+- [x] Run `npm test -w @artyfact/platform -- test/intents.test.ts` and observe the new failures.
+- [x] Add admin-only abandon/revise recovery, immutable prior-attempt history and exact stale/claim checks. Reuse accepted custom template resolution in head loading and proposal simulation. Integrate report/decision binding through T2's shared contract; coordinate DO changes through T2 to avoid overlapping writes.
+- [x] Run all intent tests; publish recovery endpoints and commit owned files.
 
 ## Task 4: Agent-led initial authoring and full-check CLI
 
-- [ ] Add failing CLI tests for authoring without code, safe sidecar/bootstrap round trips, full-check 0/1/2 exits, origin/auth handoff, exact snapshot imports and pending/off-provider output. Preserve the legacy validate-genome exit contract but replace unqualified ready wording.
-- [ ] Run focused CLI tests and observe failures.
-- [ ] Extend the authoring skill/generated AGENTS.md with new-intent and existing-code paths. Add `ontology check` (preview/start/poll/JSON), `ontology agreement` and snapshot materialization/import commands using the shared API. Explicitly show assumptions, citations, incomplete semantic checks and durable review URLs. Never export admin credentials to spawned agents.
-- [ ] Extend CLI push/read logic for allowlisted sidecars and Genome-only imports; avoid provisioning or uploading source when absent. Document actual runnable commands in existing CLI docs and the agent skill.
-- [ ] Run CLI suites/typecheck; commit owned files.
+- [x] Add failing CLI tests for authoring without code, safe sidecar/bootstrap round trips, full-check 0/1/2 exits, origin/auth handoff, exact snapshot imports and pending/off-provider output. Preserve the legacy validate-genome exit contract but replace unqualified ready wording.
+- [x] Run focused CLI tests and observe failures.
+- [x] Extend the authoring skill/generated AGENTS.md with new-intent and existing-code paths. Add `ontology check` (preview/start/poll/JSON), `ontology agreement` and snapshot materialization/import commands using the shared API. Explicitly show assumptions, citations, incomplete semantic checks and durable review URLs. Never export admin credentials to spawned agents.
+- [x] Extend CLI push/read logic for allowlisted sidecars and Genome-only imports; avoid provisioning or uploading source when absent. Document actual runnable commands in existing CLI docs and the agent skill.
+- [x] Run CLI suites/typecheck; commit owned files.
 
 ## Task 5: Start, integrity review and recovery UI
 
-- [ ] Add failing UI/browser checks for copyable pre-package intent handoff, structural and semantic states, model-off failure, stale run/disposition display, revise/abandon and explicit agreement without invented pass results.
-- [ ] Run focused Start/Review/Intent suites; observe failures.
-- [ ] Build reusable integrity report/run controls consumed from Start, import review and proposals, plus direct review URLs. Preserve one Review inbox, exact node links and separate automated/human states. Include loading, partial, retry and cancellation affordances; queued polling must stop on unmount/scope changes.
+- [x] Add failing UI/browser checks for copyable pre-package intent handoff, structural and semantic states, model-off failure, stale run/disposition display, revise/abandon and explicit agreement without invented pass results.
+- [x] Run focused Start/Review/Intent suites; observe failures.
+- [x] Build reusable integrity report/run controls consumed from Start, import review and proposals, plus direct review URLs. Preserve one Review inbox, exact node links and separate automated/human states. Include loading, partial, retry and cancellation affordances; queued polling must stop on unmount/scope changes.
 - [ ] Run UI and fixture/fake-provider browser journeys at desktop and 320px, keyboard/reduced motion and accessibility; commit owned files.
 
 ## Task 6: Artyfact ontology and representative examples
 
-- [ ] Add failing self-Genome tests asserting canonical nodes/links for intent clarification, provenance, integrity statuses, full-check review, local agents and agreement boundaries.
-- [ ] Run `npm test -w @artyfact/templates -- test/self-genome.test.ts`; observe missing-node failures.
-- [ ] Enrich existing stable nodes and add missing ones from accepted docs/decision_log and docs/design. Add `intent/brief.md` and a valid manifest with real canonical references/hashes. Keep implementation status truthful until code lands and preserve all source/realized/runtime distinctions.
-- [ ] Add small source-free new-idea, amendment and intentionally flawed examples with explicit expected structural/semantic findings and clean controls; include ambiguity and omitted-intent cases.
-- [ ] Run self-Genome validation/source mapping plus example tests; commit owned files.
+- [x] Add failing self-Genome tests asserting canonical nodes/links for intent clarification, provenance, integrity statuses, full-check review, local agents and agreement boundaries.
+- [x] Run `npm test -w @artyfact/templates -- test/self-genome.test.ts`; observe missing-node failures.
+- [x] Enrich existing stable nodes and add missing ones from accepted docs/decision_log and docs/design. Add `intent/brief.md` and a valid manifest with real canonical references/hashes. Keep implementation status truthful until code lands and preserve all source/realized/runtime distinctions.
+- [x] Add small source-free new-idea, amendment and intentionally flawed examples with explicit expected structural/semantic findings and clean controls; include ambiguity and omitted-intent cases.
+- [x] Run self-Genome validation/source mapping plus example tests; commit owned files.
 
 ## Task 7: Integration, independent review and live acceptance
 

@@ -1,14 +1,9 @@
-{
-  "id": "operation.share-borrower",
-  "kind": "operation",
-  "fields": {
-    "name": "Share member contacts",
-    "description": "Publish every member contact address to every neighbour so that borrowing feels excellent."
-  },
-  "links": [
-    {
-      "rel": "dependsOn",
-      "to": "entity.borrower-contact-missing"
-    }
-  ]
-}
+id: operation.share-borrower
+kind: operation
+fields:
+  name: Share member contacts
+  description: Publish every member contact address to every neighbour so that
+    borrowing feels excellent.
+links:
+  - rel: dependsOn
+    to: entity.borrower-contact-missing

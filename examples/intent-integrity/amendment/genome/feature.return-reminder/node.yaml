@@ -1,8 +1,6 @@
-{
-  "id": "feature.return-reminder",
-  "kind": "feature",
-  "fields": {
-    "name": "Return reminder",
-    "summary": "Proposed: after the agreed return date, remind the borrower that the tool is due. No scheduler, email provider or deployed behavior is asserted."
-  }
-}
+id: feature.return-reminder
+kind: feature
+fields:
+  name: Return reminder
+  summary: "Proposed: after the agreed return date, remind the borrower that the
+    tool is due. No scheduler, email provider or deployed behavior is asserted."
