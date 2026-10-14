@@ -18,7 +18,7 @@ export function hasLiveAttempt(t: Pick<Task, "attempts">, now: number = Date.now
   return !!last && last.status !== "ended" && Date.parse(last.leaseExpiresAt) > now;
 }
 
-const NEEDS = 'If you need a file another task owns, run `npx artyfact task checkpoint "needs:<path>"` and stop.';
+const NEEDS = 'If you need a file another task owns, run `artyfact task checkpoint "needs:<path>"` and stop.';
 const short = (sha: string) => sha.slice(0, 12);
 
 /** Why two tasks may not run at once, in a sentence, by conflict kind. */
@@ -99,8 +99,9 @@ export function renderLifecycleAgentsMd(plan: RealizationPlan, task: Task, f: Fi
     ...(builds.length ? [`Builds on: ${builds.join("; ")}.`] : []),
     `After you: ${dependents.length ? `${dependents.join(", ")} ${dependents.length === 1 ? "starts" : "start"} once this task is selected` : "no task waits on this one"}.`,
     "Implement only the pinned Genome, permitted paths, and Task scope. Run its checks.",
-    'Checkpoint with `npx artyfact task checkpoint "<message>"`.',
-    "Submit with `npx artyfact task submit`; set ARTYFACT_TOKEN to the current task write token before push.",
+    "Check the attempt with `artyfact task status`.",
+    'Checkpoint with `artyfact task checkpoint "What changed and what remains"`.',
+    "Submit with `artyfact task submit`. The CLI reads the stored task token from .artyfact-task.json; never print, paste or commit it.",
     "Never approve an Evolution, integrate, or promote without review.",
     `Return the durable review link: ${reviewUrl}`,
     "",

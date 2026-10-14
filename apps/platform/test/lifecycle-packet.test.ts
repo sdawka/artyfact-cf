@@ -52,7 +52,7 @@ describe('lifecycle packet fields', () => {
     expect(waveOf(p, 'nope')).toBeNull();
     expect(f.independence).toBe(
       'Independent of b, d: no shared source or ontology scope at aaaaaaaaaaaa. Ordered with a (wave 1) by a declared or ontology dependency. ' +
-      'Ordered with e (wave 3) by a declared or ontology dependency. If you need a file another task owns, run `npx artyfact task checkpoint "needs:<path>"` and stop.',
+      'Ordered with e (wave 3) by a declared or ontology dependency. If you need a file another task owns, run `artyfact task checkpoint "needs:<path>"` and stop.',
     );
     // Other open tasks' globs minus c's own (src/shared.ts is c's too).
     expect(f.doNotTouch).toEqual([{ taskId: 'a', globs: ['src/a/**'] }, { taskId: 'b', globs: ['src/b/**'] }, { taskId: 'd', globs: ['src/a/**'] }, { taskId: 'e', globs: ['src/e/**'] }]);
@@ -87,8 +87,9 @@ describe('lifecycle packet fields', () => {
       'Builds on: a (selected; its changes are in your base).',
       'After you: e starts once this task is selected.',
       'Implement only the pinned Genome, permitted paths, and Task scope. Run its checks.',
-      'Checkpoint with `npx artyfact task checkpoint "<message>"`.',
-      'Submit with `npx artyfact task submit`; set ARTYFACT_TOKEN to the current task write token before push.',
+      'Check the attempt with `artyfact task status`.',
+      'Checkpoint with `artyfact task checkpoint "What changed and what remains"`.',
+      'Submit with `artyfact task submit`. The CLI reads the stored task token from .artyfact-task.json; never print, paste or commit it.',
       'Never approve an Evolution, integrate, or promote without review.',
       'Return the durable review link: https://p.example/review',
     ]);
