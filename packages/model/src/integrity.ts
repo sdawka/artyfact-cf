@@ -230,10 +230,12 @@ const callCount = (value: unknown): value is number => Number.isInteger(value) &
 const completeProvenance = (value: unknown): value is IntegrityProvenance => {
   if (!record(value) || typeof value.provider !== "string" || value.provider.trim() === ""
     || typeof value.model !== "string" || value.model.trim() === ""
-    || !Array.isArray(value.questions) || !value.questions.every((question) => typeof question === "string")
-    || !record(value.thresholds) || !Object.values(value.thresholds).every((threshold) => typeof threshold === "number" && Number.isFinite(threshold))
+    || !Array.isArray(value.questions) || value.questions.length === 0 || !value.questions.every((question) => typeof question === "string" && question.trim() !== "")
+    || !record(value.thresholds) || typeof value.thresholds.confident !== "number" || typeof value.thresholds.review !== "number"
+    || !Object.values(value.thresholds).every((threshold) => typeof threshold === "number" && Number.isFinite(threshold) && threshold >= 0 && threshold <= 1)
+    || value.thresholds.review > value.thresholds.confident
     || !record(value.budget) || !callCount(value.budget.requestedCalls) || !callCount(value.budget.maxCalls) || !callCount(value.budget.usedCalls)
-    || value.budget.requestedCalls > value.budget.maxCalls || value.budget.usedCalls > value.budget.maxCalls
+    || value.budget.usedCalls === 0 || value.budget.usedCalls > value.budget.requestedCalls || value.budget.requestedCalls > value.budget.maxCalls || value.budget.maxCalls > 500
     || typeof value.truncated !== "boolean" || typeof value.fake !== "boolean" || !callCount(value.retries)) return false;
   return value.failure === undefined || (record(value.failure) && typeof value.failure.code === "string" && value.failure.code.trim() !== ""
     && typeof value.failure.message === "string" && value.failure.message.trim() !== "");
