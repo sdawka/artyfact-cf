@@ -61,7 +61,18 @@ export async function buildImportReview(env: Env, s: HeadState, g: LoadedGenome,
     ? [...(await withRepo(artifactsFor(env), s.appSource.repo, (r) => listTree(r, s.appSource!.commit))).keys()]
       .filter((p) => !p.startsWith(".artyfact/") && nodesForPath(sm, p).every((n) => n.startsWith("unmapped:"))).sort()
     : [];
-  return { ...review, tree: importTree(g.model), findings, unmapped };
+  return { ...review, tree: importTree(g.model), findings, ...capUnmapped(unmapped) };
+}
+
+/** At most this many unmapped paths are stored and served; `unmappedTotal` counts them all. */
+export const UNMAPPED_CAP = 200;
+
+/**
+ * The stored review keeps the first {@link UNMAPPED_CAP} sorted paths (the DO row stays small for a large app repo) and
+ * the total. TODO(contract gap): `unmappedTotal` is not yet on {@link SystemImportReview} in shared/api.ts.
+ */
+function capUnmapped(all: string[]): { unmapped: string[]; unmappedTotal: number } {
+  return { unmapped: all.slice(0, UNMAPPED_CAP), unmappedTotal: all.length };
 }
 
 /**
@@ -117,7 +128,7 @@ const isRecord = (x: unknown): x is Record<string, unknown> => typeof x === "obj
  * did not have) is a 422 `rejected-node-referenced` naming the node that holds it and the rejected node. Findings on
  * Evolution records are exempt: they are history.
  */
-export function rejectionOps(base: { files: Map<string, string>; readiness: Readiness }, roots: string[], templates: TemplateStore): ProposedOp[] {
+export function rejectionOps(base: { files: Map<string, string>; readiness: Readiness }, roots: string[], templates: TemplateStore): RejectionPlan {
   const { files } = base;
   const tree = parseTree(files);
   const dirs = roots.map((r) => {
@@ -207,8 +218,34 @@ export function rejectionOps(base: { files: Map<string, string>; readiness: Read
   if (blocked.length) {
     throw unprocessable("rejected-node-referenced", `cannot reject without a dangling reference: ${[...new Set(blocked)].join("; ")}`);
   }
-  return ops;
+  return { ops, removed: rootOf };
 }
+
+/** {@link rejectionOps}' result: the ops, and every removed id (nodes, criteria, inline hooks) with its rejected root. */
+export interface RejectionPlan { ops: ProposedOp[]; removed: Map<string, string> }
+
+/** Evolution states that never run a gate again. */
+const SETTLED_EVOLUTION = new Set(["promoted", "rejected", "withdrawn"]);
+
+/**
+ * Live Evolutions whose acceptance criteria the removal deletes. They stay as they are (history) and their gate fails
+ * closed ("criterion not found") until they are withdrawn or the criteria come back; the accept says so by name.
+ */
+export function liveEvolutionWarnings(evolutions: { id: string; state: string; acceptanceCriteria?: string[] }[], removed: Map<string, string>): string[] {
+  return evolutions.filter((e) => !SETTLED_EVOLUTION.has(e.state)).flatMap((e) => {
+    const gone = (e.acceptanceCriteria ?? []).filter((c) => removed.has(c));
+    if (!gone.length) return [];
+    const roots = [...new Set(gone.map((c) => removed.get(c)!))];
+    return [`${e.id} (${e.state}) accepts ${gone.join(", ")}, which removing ${roots.join(", ")} deletes; its gate fails closed until it is withdrawn or those criteria are added back`];
+  });
+}
+
+/** The accept response: the contract's, plus warnings about live Evolutions. TODO(contract gap): `warnings` on SystemImportReviewAcceptResponse. */
+export type ImportReviewAcceptResult = SystemImportReviewAcceptResponse & { warnings?: string[] };
+
+/** Test seam: the intents accept the removal goes through (tests wrap it to fail after the approve). */
+let acceptAmendment: typeof acceptProposal = acceptProposal;
+export function setAmendmentAccept(fn: typeof acceptProposal | undefined): void { acceptAmendment = fn ?? acceptProposal; }
 
 /**
  * `POST /api/systems/:id/import-review/accept` (admin). Validation and the removal ops ({@link rejectionOps}) come first
@@ -219,7 +256,7 @@ export function rejectionOps(base: { files: Map<string, string>; readiness: Read
  * returns. Any failure after the flip rejects a candidate left staged, compare-and-sets the review back to pending and
  * rethrows.
  */
-export async function acceptImportReview(env: Env, systemId: string, body: Partial<SystemImportReviewAccept>, platformUrl: string): Promise<SystemImportReviewAcceptResponse> {
+export async function acceptImportReview(env: Env, systemId: string, body: Partial<SystemImportReviewAccept>, platformUrl: string): Promise<ImportReviewAcceptResult> {
   const { interpretation, rejectedNodes } = body;
   if (interpretation !== undefined && (typeof interpretation !== "string" || interpretation.length > 4000)) throw badRequest("interpretation must be a string of at most 4000 characters");
   if (rejectedNodes !== undefined && (!Array.isArray(rejectedNodes) || rejectedNodes.some((n) => typeof n !== "string"))) throw badRequest("rejectedNodes must be an array of node ids");
@@ -238,9 +275,11 @@ export async function acceptImportReview(env: Env, systemId: string, body: Parti
   }
   // Built and validated before the review flips: a rejection that would leave a dangling reference is a 422 and the
   // review stays pending.
-  const ops = roots.length
+  const plan = roots.length
     ? rejectionOps(await genomeAt(env, systemId, review.genomeCommit, s.genomeSource), roots, acceptedTemplateResolver(await stub.ontologyAcceptedPackages()).templates)
-    : [];
+    : { ops: [], removed: new Map<string, string>() };
+  const { ops } = plan;
+  const warnings = plan.removed.size ? liveEvolutionWarnings((await stub.work()).evolutions, plan.removed) : [];
   const accepted: SystemImportReview = {
     ...review, status: "accepted", decidedAt: nowIso(),
     ...(interpretation?.trim() && { interpretation: interpretation.trim() }), ...(rejected.length && { rejectedNodes: rejected }),
@@ -262,13 +301,25 @@ export async function acceptImportReview(env: Env, systemId: string, body: Parti
         createdAt: nowIso(),
       });
       proposalId = proposal.id;
-      const out = await acceptProposal(env, systemId, proposal.id, { opIds: ops.map((o) => o.id) }, platformUrl);
+      const out = await acceptAmendment(env, systemId, proposal.id, { opIds: ops.map((o) => o.id) }, platformUrl);
       amendment = { evolution: out.evolution.id, realization: out.realization.id, candidate: out.candidate.id, ...(out.systemCommit && { systemCommit: out.systemCommit.id }) };
     }
   } catch (e) {
+    const staged = proposalId ? (await stub.proposal(proposalId).catch(() => null))?.proposal.stagedApproval : undefined;
+    // The approve already committed the removal (the staged realization is promoted) and something after it failed: the
+    // review stays accepted, since the head holds what the admin decided. Answer with the amendment as committed.
+    const committed = staged ? await stub.realization(staged.realizationId).catch(() => null) : null;
+    if (staged && committed?.realization.status === "promoted") {
+      console.error(`[import-review] ${systemId}: the removal committed but the accept failed after it: ${(e as Error)?.message ?? e}`);
+      await refreshRegistry(env, systemId).catch(() => {});
+      const head = (await stub.state())?.head ?? undefined;
+      return {
+        review: accepted, amendment: { evolution: staged.evolutionId, realization: staged.realizationId, candidate: staged.candidateId, ...(head && { systemCommit: head }) },
+        ...(warnings.length && { warnings }),
+      };
+    }
     // A candidate pushed but not approved (the gate refused it) stays staged on the open proposal; reject it so a later
     // accept of that proposal cannot land the removal while the review is pending again.
-    const staged = proposalId ? (await stub.proposal(proposalId).catch(() => null))?.proposal.stagedApproval : undefined;
     if (staged) {
       await reject(env, systemId, staged.realizationId, { reason: "the import review accept that pushed this removal failed" })
         .catch((r: unknown) => console.error(`[import-review] rejecting ${staged.realizationId} failed: ${(r as Error)?.message ?? r}`));
@@ -279,5 +330,5 @@ export async function acceptImportReview(env: Env, systemId: string, body: Parti
     throw e;
   }
   await refreshRegistry(env, systemId);
-  return { review: accepted, ...(amendment && { amendment }) };
+  return { review: accepted, ...(amendment && { amendment }), ...(warnings.length && { warnings }) };
 }

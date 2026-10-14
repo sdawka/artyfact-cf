@@ -3,18 +3,20 @@
  * route that creates or starts work, accept by compare-and-set, and rejected nodes removed by an amendment that the
  * intents accept commits and approves at once.
  */
-import { env } from "cloudflare:workers";
+import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
   ApiError, GenomeCandidateReview, ImportSystemResponse, ModelBundle, ProposalPlanNode, StartWorkResponse,
-  SystemImportReview, SystemImportReviewAcceptResponse, SystemsResponse, WorkResponse,
+  SystemImportReview, SystemsResponse, WorkResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { walkTree } from "../worker/artifacts/genome-source";
 import type { SystemAuthority } from "../worker/do/system-authority";
 import { setEditorTransport } from "../worker/editor";
 import { resetHooks, setHooks } from "../worker/hooks/index";
+import { setAmendmentAccept, UNMAPPED_CAP, type ImportReviewAcceptResult } from "../worker/import-review";
+import { acceptProposal } from "../worker/intents";
 import { systemStub } from "../worker/service";
 import { appFiles, genomeFor } from "./fixtures/genome";
 import { FakeArtifacts } from "./helpers/fake-artifacts";
@@ -38,7 +40,7 @@ beforeEach(() => {
     }),
   });
 });
-afterEach(() => { setArtifactsOverride(undefined); setEditorTransport(undefined); resetHooks(); });
+afterEach(() => { setArtifactsOverride(undefined); setEditorTransport(undefined); resetHooks(); setAmendmentAccept(undefined); });
 
 /** An import that leaves its review pending (the default) unless `review` says otherwise. */
 async function pending(review?: boolean, extra: Record<string, string> = {}) {
@@ -61,7 +63,7 @@ async function pending(review?: boolean, extra: Record<string, string> = {}) {
 
 const ids = (ns: ProposalPlanNode[]): string[] => ns.flatMap((n) => [n.id, ...ids(n.children ?? [])]);
 const accept = (systemId: string, body: unknown, headers: Record<string, string> = ADMIN) =>
-  call<SystemImportReviewAcceptResponse & ApiError>("POST", `/systems/${systemId}/import-review/accept`, body, headers);
+  call<ImportReviewAcceptResult & ApiError>("POST", `/systems/${systemId}/import-review/accept`, body, headers);
 const getReview = (systemId: string) => call<SystemImportReview & ApiError>("GET", `/systems/${systemId}/import-review`);
 
 /** The routes this slice guards (lifecycle routes are wired by the integration slice). */
@@ -187,6 +189,7 @@ describe("import review: accept", () => {
     expect(acc.status, JSON.stringify(acc.json)).toBe(200);
     expect(acc.json.review.status).toBe("accepted");
     expect(acc.json.review.rejectedNodes).toEqual(rejected);
+    expect(acc.json.warnings).toBeUndefined();
     expect(acc.json.amendment).toEqual({ evolution: expect.any(String), realization: expect.any(String), candidate: expect.any(String), systemCommit: expect.any(String) });
     const { evolution, realization, candidate } = acc.json.amendment!;
 
@@ -226,6 +229,9 @@ describe("import review: accept", () => {
     });
     const acc = await accept(systemId, { rejectedNodes: ["screen.people"] });
     expect(acc.status, JSON.stringify(acc.json)).toBe(200);
+    // evolution.1 (live) accepts C.people.* criteria the removal deletes: it fails closed, and the accept says so by name.
+    expect(acc.json.warnings).toHaveLength(1);
+    expect(acc.json.warnings![0]).toMatch(/^evolution\.1 \(\w[\w-]*\) accepts C\.people\.list.* which removing screen\.people deletes; its gate fails closed/);
     const { realization, candidate } = acc.json.amendment!;
     const files = await candidateFiles(ns, systemId, realization, candidate);
     const paths = [...files.keys()];
@@ -311,6 +317,42 @@ describe("import review: accept", () => {
     expect(work.realizations.map((r) => r.status)).toEqual(["rejected"]);
   });
 
+  it("a failure after the approve committed keeps the review accepted and answers with the committed amendment", async () => {
+    const { systemId, imp } = await pending();
+    setAmendmentAccept(async (...a) => {
+      await acceptProposal(...a);
+      throw new Error("reading the approved records failed");
+    });
+    const acc = await accept(systemId, { rejectedNodes: ["component.ErrorSummary"] });
+    expect(acc.status, JSON.stringify(acc.json)).toBe(200);
+    expect(acc.json.review.status).toBe("accepted");
+    const { realization, systemCommit } = acc.json.amendment!;
+    expect((await systemStub(env, systemId).realization(realization))!.realization.status).toBe("promoted");
+    const summary = (await call<SystemsResponse["systems"][number]>("GET", `/systems/${systemId}`)).json;
+    expect(summary.head).toBe(systemCommit);
+    expect(summary.importReview?.status).toBe("accepted");
+    expect((await call<SystemsResponse>("GET", "/systems")).json.systems.find((x) => x.systemId === systemId)!.importReview?.status).toBe("accepted");
+    expect((await getReview(systemId)).json.status).toBe("accepted");
+    expect((await call<ModelBundle>("GET", `/systems/${systemId}/model`)).json.genomeCommit).not.toBe(imp.genomeCommit);
+    for (const r of await guarded(systemId)) expect(r.json.error?.code, JSON.stringify(r.json)).not.toBe("import-unreviewed");
+  });
+
+  it("unmapped is capped at the first paths in order, with the total", async () => {
+    const extras = Object.fromEntries(Array.from({ length: UNMAPPED_CAP + 50 }, (_, i) => [`legacy/f${String(i).padStart(4, "0")}.txt`, "x"]));
+    const ns = new FakeArtifacts();
+    const n = ++seq;
+    const systemId = `system.importreview${n}`;
+    ns.create(`ir-genome-${n}`).commit(genomeFor(systemId), "genome");
+    ns.create(`ir-app-${n}`).commit({ ...appFiles, ...extras }, "app");
+    setArtifactsOverride(ns);
+    const imp = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo: `ir-genome-${n}`, appRepo: `ir-app-${n}` }, ADMIN);
+    expect(imp.status, JSON.stringify(imp.json)).toBe(201);
+    const rv = (await getReview(systemId)).json as SystemImportReview & { unmappedTotal?: number };
+    expect(rv.unmapped).toHaveLength(UNMAPPED_CAP);
+    expect(rv.unmapped[0]).toBe("legacy/f0000.txt");
+    expect(rv.unmappedTotal).toBe(UNMAPPED_CAP + 50);
+  });
+
   it("rejecting nodes after the Genome moved is 409 stale-base; the review stays pending", async () => {
     const { systemId, imp } = await pending();
     // The review describes an older commit than the head (as after an accepted amendment and a re-opened review).
@@ -320,6 +362,52 @@ describe("import review: accept", () => {
     expect([res.status, res.json.error.code]).toEqual([409, "stale-base"]);
     expect((await getReview(systemId)).json.status).toBe("pending");
     expect(imp.genomeCommit).not.toBe("f".repeat(40));
+  });
+});
+
+describe("import review: SSE", () => {
+  /** Reads the System's event stream through the Worker route and keeps the import-review statuses. */
+  async function reviewEvents(systemId: string): Promise<{ next: () => Promise<string | null>; close: () => Promise<void> }> {
+    const res = await exports.default.fetch(new Request(`http://example.com/api/systems/${systemId}/events`));
+    const reader = res.body!.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    const queue: (string | null)[] = [];
+    return {
+      async next() {
+        for (;;) {
+          if (queue.length) return queue.shift()!;
+          const { value } = await reader.read();
+          buf += dec.decode(value);
+          const frames = buf.split("\n\n");
+          buf = frames.pop()!;
+          for (const f of frames) {
+            const line = f.split("\n").find((l) => l.startsWith("data: "));
+            if (!line) continue;
+            const e = JSON.parse(line.slice(6)) as { type: string; status?: string | null };
+            if (e.type === "system.import-review") queue.push(e.status ?? null);
+          }
+        }
+      },
+      close: () => reader.cancel(),
+    };
+  }
+
+  it("announces every change: accepted, reset to pending on a failed accept, re-opened by a forced re-import, and cleared", async () => {
+    const { ns, systemId, genomeRepo, appRepo } = await pending();
+    const ev = await reviewEvents(systemId);
+    // A gate-refused accept flips to accepted and back to pending.
+    setHooks({ runner: () => ({ ...passing, async runGenome(ctx) { const out = await passing.runGenome(ctx); return { ...out, evaluations: out.evaluations.map((e) => ({ ...e, verdict: "fail" as const })) }; } }) });
+    expect((await accept(systemId, { rejectedNodes: ["component.ErrorSummary"] })).status).toBe(409);
+    expect([await ev.next(), await ev.next()]).toEqual(["accepted", "pending"]);
+    expect((await accept(systemId, {})).status).toBe(200);
+    expect(await ev.next()).toBe("accepted");
+    ns.repo(genomeRepo).commit({ ...genomeFor(systemId), "thing.webapp/section.ui/component.ErrorSummary/node.yaml": "id: component.ErrorSummary\nkind: component\nfields:\n  name: Errors\n" }, "edit");
+    expect((await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo, force: true }, ADMIN)).status).toBe(201);
+    expect(await ev.next()).toBe("pending");
+    expect((await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo, review: false }, ADMIN)).status).toBe(201);
+    expect(await ev.next()).toBeNull();
+    await ev.close();
   });
 });
 
