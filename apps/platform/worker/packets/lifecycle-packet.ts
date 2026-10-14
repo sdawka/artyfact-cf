@@ -122,6 +122,7 @@ export function renderLifecycleAgentsMd(plan: RealizationPlan, task: Task, f: Fi
     "Check the attempt with `artyfact task status`.",
     'Checkpoint with `artyfact task checkpoint "What changed and what remains"`.',
     "Submit with `artyfact task submit`. The CLI reads the stored task token from .git/artyfact-task.json; never print, paste or copy it out.",
+    "When the task changes how a page looks, attach screenshots: `artyfact task submit --screenshot page.png` (up to 4; PNG, JPEG or WebP, 4 MiB each). Visual checks judge them beside the platform's own captures.",
     "Never approve an Evolution, integrate, or promote without review.",
     `Return the durable review link: ${reviewUrl}`,
     "",

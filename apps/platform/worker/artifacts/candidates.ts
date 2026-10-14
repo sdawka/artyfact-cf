@@ -1,3 +1,4 @@
+import type { EvidenceImageRef } from "../hooks/contract";
 import type { ArtifactsRepoLike, TreeEntry } from "./client";
 import { nodesForPath, type SourceMapEntry } from "./source-map";
 import { unprocessable } from "../errors";
@@ -86,6 +87,8 @@ export interface CandidateManifest {
   changedNodes: string[];
   diff: TreeDiff;
   previewUrl?: string;
+  /** Agent-attached screenshots in the evidence bucket; set after submission, like `previewUrl`, outside the hash. */
+  screenshots?: EvidenceImageRef[];
 }
 
 export function changedNodesFor(sourceMap: SourceMapEntry[], paths: string[]): string[] {

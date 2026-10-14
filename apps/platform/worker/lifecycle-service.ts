@@ -22,6 +22,7 @@ import { evidenceFresh, gateRefusal, genomeAt, refreshRegistry, revokeEnded, sys
 import { lifecyclePacket } from './packets/lifecycle-packet';
 import { taskDefinitions } from './tasks/definitions';
 import { sha256Hex } from './util';
+import { screenshotsSchema, storeScreenshots } from './evidence';
 
 /** Registry refresh after a lifecycle write landed: best-effort, so a failed cache write never fails the write itself. */
 const refresh=(env:Env,sid:string)=>refreshRegistry(env,sid).then(()=>{},e=>console.error(`[lifecycle] registry refresh for ${sid} failed: ${(e as Error)?.message??e}`));
@@ -32,7 +33,7 @@ const planSchema=z.object({title:nonempty,genomeCommit:sha.optional(),tasks:z.ar
 const claimSchema=z.object({agentLabel:nonempty.optional(),leaseSeconds:z.number().int().min(30).max(3600).optional()}).strict();
 const attemptSchema=z.object({attemptId:nonempty,generation:z.number().int().positive()});
 const checkpointSchema=attemptSchema.extend({message:z.string().trim().min(1).max(4000),commit:sha.optional()}).strict();
-const submitSchema=attemptSchema.extend({commit:sha,previewUrl:z.string().url().max(2048).optional()}).strict();
+const submitSchema=attemptSchema.extend({commit:sha,previewUrl:z.string().url().max(2048).optional(),screenshots:screenshotsSchema.optional()}).strict();
 const selectSchema=z.object({candidateId:nonempty}).strict();
 const promoteSchema=z.object({expectedHead:z.string().nullable(),rationale:z.string().trim().min(1).max(4000),candidateIds:strings.min(1)}).strict();
 function parse<T>(schema:z.ZodType<T>,body:unknown):T {const out=schema.safeParse(body);if(!out.success)throw badRequest('invalid lifecycle request',out.error.issues);return out.data;}
@@ -108,7 +109,8 @@ async function runCandidate(env:Env,p:RealizationPlan,task:Pick<Task,'checks'|'w
  const tree=await withRepo(artifactsFor(env),repoName,async repo=>{const listing=await listTree(repo,candidate.commit),required=new Set(g.model.hooks.filter(h=>h.engine==='manifest').flatMap(h=>(h.inputs.requiredFiles??'').split(',').map(s=>s.trim()).filter(Boolean)));return Promise.all([...listing].map(async([path,e])=>({path,size:required.has(path)?(await repo.readBlob(e.hash))?.size??-1:-1})));});
  const previewUrl=typeof manifest.previewUrl==='string'?manifest.previewUrl:undefined;
  const build=previewUrl?(await stub.builds({realization:candidate.realization,commit:candidate.commit,kind:'preview'})).find(b=>b.status==='passed'&&b.url===previewUrl&&!!b.buildId&&(b.candidate===candidate.id||b.candidate===null)):undefined;
- const ref:CandidateRef={...(previewUrl&&{previewUrl}),...(build?.buildId&&{expectedBuildId:build.buildId}),id:candidate.id,realizationId:candidate.realization,evolutionId:'',target:'app',commit:candidate.commit,baseCommit:task.base.commit,changedPaths:candidate.changedPaths,changedNodes:candidate.changedSubjects,pathNodes};
+ const screenshots=Array.isArray(manifest.screenshots)?manifest.screenshots as CandidateRef['screenshots']:undefined;
+ const ref:CandidateRef={...(previewUrl&&{previewUrl}),...(screenshots?.length&&{screenshots}),...(build?.buildId&&{expectedBuildId:build.buildId}),id:candidate.id,realizationId:candidate.realization,evolutionId:'',target:'app',commit:candidate.commit,baseCommit:task.base.commit,changedPaths:candidate.changedPaths,changedNodes:candidate.changedSubjects,pathNodes};
  // Same freshness rule as the legacy gate: latest evaluation per blocking criterion binds this candidate (commit, Genome or preview).
  const evidenceFreshNow=evidenceFresh(g.model,{acceptanceCriteria:task.checks},ref,await stub.evaluations(candidate.id),candidate.submittedAt,p.genome.commit);
  const ctx:SubmissionContext={systemId:p.systemId,candidate:ref,genomeCommit:p.genome.commit,genomeFiles:Object.fromEntries(g.files),tree,permittedPaths:task.footprint.globs,protectedPaths:protectedPathsFor('app'),openCandidates:[],trigger,evolution:{id:'',kind:'implementation',acceptanceCriteria:task.checks,affectedNodes:task.writeNodes,state:'realizing'},...(trigger==='promotion'&&{promotionFacts:{currentBaseCommit:task.base.commit,manifestExact:exact,evidenceFresh:evidenceFreshNow}})};
@@ -122,8 +124,11 @@ export async function submitLifecycleTask(env:Env,sid:string,pid:string,tid:stri
  if(!manifest.changedPaths.length)throw unprocessable('no-change','task candidate changes no files');
  const outside=manifest.changedPaths.filter(path=>!f.task.footprint.globs.some(glob=>globMatch(glob,path))||protectedPathsFor('app').some(glob=>globMatch(glob,path)));
  if(outside.length)throw unprocessable('scope-violation',`candidate changes outside its task binding scope: ${outside.join(', ')}`);
+ // Screenshots are checked and stored before the candidate is recorded; the fence above already proved the caller holds this attempt.
+ const shots=await storeScreenshots(env.EVIDENCE,sid,f.attempt.realizationId,i.commit,i.screenshots??[]);
  const record=await rpc(stub.lifecycleCandidate(pid,tid,i.attemptId,i.generation,{commit:i.commit,manifest:{...manifest,manifestHash:await manifestHash(manifest),planId:pid,taskId:tid,genomeCommit:f.plan.genome.commit},changedPaths:manifest.changedPaths,changedNodes:manifest.changedNodes}));
  if(i.previewUrl)await stub.setPreviewUrl(record.candidate.id,i.previewUrl);
+ if(shots.length)await stub.setCandidateScreenshots(record.candidate.id,shots);
  const evaluations=await runCandidate(env,record.plan,record.task,record.candidate,f.task.forkRepo);
  const state=await stub.state(),rec=await stub.realization(record.candidate.realization);if(state&&rec)await dispatchPreviewBuild(env,state,rec,record.candidate);
  await refresh(env,sid);return {plan:record.plan,task:record.task,candidate:record.candidate,evaluations};

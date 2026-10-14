@@ -25,6 +25,16 @@ export interface TreeEntry {
   size: number;
 }
 
+/** One agent-attached screenshot in the evidence bucket. */
+export interface EvidenceImageRef {
+  key: string;
+  /** The file name the agent gave, for labels only. */
+  name: string;
+  mediaType: "image/png" | "image/jpeg" | "image/webp";
+  bytes: number;
+  sha256: string;
+}
+
 /** A submitted candidate, as stored by the DO. */
 export interface CandidateRef {
   id: string;
@@ -44,6 +54,8 @@ export interface CandidateRef {
    */
   pathNodes?: Record<string, string[]>;
   previewUrl?: string;
+  /** Screenshots the agent attached at submission (`task submit --screenshot`), stored in the evidence bucket. */
+  screenshots?: EvidenceImageRef[];
   /** Runtime identity from a passed stored build for this candidate, commit, and preview URL. */
   expectedBuildId?: string;
   /**

@@ -336,3 +336,37 @@ it('claim stores the write token only in .git/artyfact-task.json, writes packet.
   for (const [key, value] of [['GIT_CONFIG_COUNT', old.c], ['GIT_CONFIG_KEY_0', old.k], ['GIT_CONFIG_VALUE_0', old.v]] as const) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
  }
 });
+
+it('task submit --screenshot sends checked images and refuses bad ones before pushing', async () => {
+ const sh = (at: string, ...args: string[]) => execFileSync('git', ['-C', at, ...args], { encoding: 'utf8' }).trim();
+ const source = join(cwd, 'scr-source'), bare = join(cwd, 'scr.git'), dir = join(cwd, 'scr-work');
+ mkdirSync(source); sh(cwd, 'init', '--bare', '-q', bare); sh(source, 'init', '-q', '-b', 'main'); writeFileSync(join(source, 'app.ts'), 'base'); sh(source, 'add', 'app.ts');
+ sh(source, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'base'); sh(source, 'push', '-q', bare, 'HEAD:main'); sh(bare, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+ const remote = `https://${'d'.repeat(32)}.artifacts.cloudflare.net/git/ns/scr.git`, token = 'SCR-WRITE-TOKEN-0123456789';
+ const srv = await fake(h => h.url.endsWith('/claim')
+  ? [200, { attempt: { id: 'attempt.1', generation: 1 }, secret: 'd4'.repeat(32), token: { value: token, remote, expiresAt: '2099-01-01T00:00:00Z' }, remote, packet: { markdown: 'packet' }, reviewUrl: 'http://localhost/review' }]
+  : [200, { task: { status: 'submitted' }, candidate: { id: 'candidate.1' }, evaluations: [] }]);
+ const old = { c: process.env.GIT_CONFIG_COUNT, k: process.env.GIT_CONFIG_KEY_0, v: process.env.GIT_CONFIG_VALUE_0 };
+ process.env.GIT_CONFIG_COUNT = '1'; process.env.GIT_CONFIG_KEY_0 = `url.${bare}.insteadOf`; process.env.GIT_CONFIG_VALUE_0 = remote;
+ try {
+  expect((await cli(['task', 'claim', 'plan.one', 'task.a', '--system', 'system.one', '--dir', dir, '--platform', srv.base], { ARTYFACT_ADMIN_TOKEN: 'admin' })).code).toBe(0);
+  sh(dir, 'config', 'user.name', 't'); sh(dir, 'config', 'user.email', 't@t'); writeFileSync(join(dir, 'page.ts'), 'work');
+  const shots = join(cwd, 'scr-shots'); mkdirSync(shots);
+  const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
+  writeFileSync(join(shots, 'home.png'), png); writeFileSync(join(shots, 'anim.gif'), 'GIF89a....');
+  const head = sh(bare, 'rev-parse', 'main');
+  const bad = await cli(['task', 'submit', '--screenshot', join(shots, 'anim.gif')], {}, dir);
+  expect(bad.code).toBe(1); expect(bad.err).toMatch(/not a PNG, JPEG or WebP/);
+  const many = await cli(['task', 'submit', ...Array(5).fill(['--screenshot', join(shots, 'home.png')]).flat()], {}, dir);
+  expect(many.code).toBe(1); expect(many.err).toMatch(/at most 4/);
+  expect((await cli(['task', 'checkpoint', 'wip', '--screenshot', join(shots, 'home.png')], {}, dir)).code).toBe(1);
+  expect(sh(bare, 'rev-parse', 'main')).toBe(head);
+  expect(srv.hits.filter(h => h.url.endsWith('/submit'))).toHaveLength(0);
+  const ok = await cli(['task', 'submit', '--screenshot', join(shots, 'home.png')], {}, dir);
+  expect(ok.err).toBe(''); expect(ok.code).toBe(0);
+  expect((srv.hits.at(-1)!.body as { screenshots: unknown }).screenshots).toEqual([{ name: 'home.png', mediaType: 'image/png', base64: png.toString('base64') }]);
+ } finally {
+  await srv.close();
+  for (const [key, value] of [['GIT_CONFIG_COUNT', old.c], ['GIT_CONFIG_KEY_0', old.k], ['GIT_CONFIG_VALUE_0', old.v]] as const) { if (value === undefined) delete process.env[key]; else process.env[key] = value; }
+ }
+});

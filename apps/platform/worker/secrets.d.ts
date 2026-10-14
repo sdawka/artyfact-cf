@@ -3,9 +3,11 @@
 interface Secrets {
   /** Bearer token required for admin routes (import, promote, accept, reject). */
   ADMIN_TOKEN: string;
-  /** System One providers, in this order: FAKE_S1=1 (local and tests only), TypeSafe, OpenRouter; none is off. */
+  /** System One providers, in this order: FAKE_S1=1 (local and tests only), TypeSafe, Clef (the AI binding), OpenRouter; none is off. */
   FAKE_S1?: string;
   TYPESAFE_API_KEY?: string;
+  /** Workers AI model id of Clef when the AI binding selects it; default @cf/cloudflare/clef (@cf/cloudflare/clef-flash is the 9B one). */
+  CLEF_MODEL?: string;
   OPENROUTER_API_KEY?: string;
   /** OpenRouter decision model; default perplexity/pplx-decider-v1.1-27b. */
   OPENROUTER_MODEL?: string;
@@ -36,6 +38,13 @@ interface Secrets {
    * wrangler.test.jsonc omits it; `wrangler types` emits it as required, so drop that generated line after regenerating.
    */
   CI?: Workflow<import("../shared/api").CiBuildParams>;
+  /**
+   * Workers AI (wrangler.jsonc `ai`): selects Cloudflare Clef for System One and for visual checks. Browser Run
+   * (`browser`): platform screenshots for visual checks. Both are remote-only, so wrangler.test.jsonc omits them and
+   * they are optional here; drop the generated required lines after `wrangler types`, like CI's.
+   */
+  AI?: Ai;
+  BROWSER?: BrowserRun;
 }
 declare namespace Cloudflare {
   interface Env extends Secrets {}

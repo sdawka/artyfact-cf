@@ -11,20 +11,22 @@
  *                        promotion.ts gateCriteria demands their evidence, so they run whatever the Evolution lists)
  *   in that order, deduped, deferred criteria dropped. Every hook bound to an affected criterion (hook.criteria ∪
  *   criterion.hooks) yields one Evaluation per (hook, criterion); a criterion with no hook yields hook "none".
- *   A hook runs when its engine is a platform engine (manifest, diff, model-rules, llm, http) and its triggers
- *   include `submission` or `candidate`; `http` also runs off-trigger because a submitted previewUrl is the only
- *   runtime the platform sees. Everything else is `not-run / unknown` with the reason in `limitations`, so the
+ *   A hook runs when its engine is a platform engine (manifest, diff, model-rules, llm, http, and browser with
+ *   `inputs.judgment: visual`) and its triggers include `submission` or `candidate`; `http` also runs off-trigger
+ *   because a submitted previewUrl is the only runtime the platform sees. Other browser hooks (fixtures, commands)
+ *   run in the agent's or CI environment. Everything else is `not-run / unknown` with the reason in `limitations`, so the
  *   promotion panel shows it grey instead of missing.
  *
  * Engines: manifest → manifest-exists.ts; diff (inputs.mode scope|overlap, else inferred from id/assay) →
  * diff-scope.ts / overlap.ts; model-rules → engine-gates.ts for the rules part (inputs.packs / inputs.rulePrefix
  * filter; a checks@1 pack judges the template's checks on the changed nodes) and model-checks.ts (inputs.requires
  * criteria, inputs.check list); system-one / llm (inputs.judgment reviewDelta|topology|
- * purposeMeasures|interference) → system-one.ts; http → http-health.ts. Any throw → `execution: error`.
+ * purposeMeasures|interference) → system-one.ts; http → http-health.ts; browser, or system-one / llm with
+ * inputs.judgment visual → visual.ts (screenshots judged by an image-reading System One). Any throw → `execution: error`.
  */
 import { LegacyGenomeError, ModelParseError, type Readiness, type SystemModel, type schema } from "@artyfact/model";
 import type { Graph } from "@artyfact/ontology";
-import { createSystemOne, type SystemOne, type SystemOneEnv } from "@artyfact/semantic";
+import { createSystemOne, createVisionSystemOne, type SystemOne, type SystemOneEnv } from "@artyfact/semantic";
 import type { CandidateRef, ConflictContext, EvolutionRef, ConflictReport, DeltaReview, Evaluation, GenomeContext, GenomeResult, HookRunner, SubmissionContext } from "./contract";
 import { isBlocking } from "../promotion";
 import { diffScope } from "./diff-scope";
@@ -36,11 +38,18 @@ import { filterFromInputs, legacyOutcome, loadGenome, modelRules, selectableRule
 import { computeConflicts } from "./overlap";
 import { errored, errorMessage, notRun, toEvaluation, type Outcome } from "./provenance";
 import { aggregate, judgePurpose, judgeTopology, reviewGenome, reviewsAsJudged, reviewUnavailable } from "./system-one";
+import { visualCheck, type BrowserLike, type EvidenceStore } from "./visual";
 
 export interface RunnerDeps {
   /** System One client; defaults to `createSystemOne(s1Env ?? {})` (provider off when no key). */
   s1?: SystemOne;
   s1Env?: SystemOneEnv;
+  /** Provider for screenshot judgments; defaults to `s1` when it reads images, else Clef when `s1Env.AI` is bound. */
+  vision?: SystemOne;
+  /** Browser Run binding for platform captures (visual checks). Absent → no platform capture. */
+  browser?: BrowserLike;
+  /** Evidence bucket: agent screenshots are read from it, platform captures written to it. */
+  evidence?: EvidenceStore;
   /** Preview URL policy env (ALLOW_LOCAL_PREVIEW, PREVIEW_HOST_ALLOWLIST). The Worker wiring passes `env`. Absent → defaults only. */
   previewEnv?: PreviewEnv;
   fetch?: typeof fetch;
@@ -64,7 +73,9 @@ export interface Selected {
   notes: string[];
 }
 
-const PLATFORM_ENGINES = new Set<schema.AssayHook["engine"]>(["manifest", "diff", "model-rules", "system-one", "llm", "http"]);
+const PLATFORM_ENGINES = new Set<schema.AssayHook["engine"]>(["manifest", "diff", "model-rules", "system-one", "llm", "http", "browser"]);
+/** A visual check: a browser hook marked `inputs.judgment: visual`, or a System One hook asking for that judgment. */
+const isVisual = (h: schema.AssayHook) => h.inputs.judgment?.trim() === "visual" && (h.engine === "browser" || h.engine === "llm" || h.engine === "system-one");
 const SUBMISSION_TRIGGERS = new Set<schema.Gate>(["submission", "candidate"]);
 const PROMOTION_TRIGGERS = new Set<schema.Gate>(["submission", "candidate", "promotion"]);
 
@@ -129,7 +140,9 @@ export function selectHooks(m: SystemModel, candidate: CandidateRef, trigger: "s
     }
     for (const h of bound) {
       let skip: string | undefined;
-      if (!PLATFORM_ENGINES.has(h.engine)) skip = `Engine ${h.engine} runs in the agent's or CI environment, not in the platform.`;
+      if (!PLATFORM_ENGINES.has(h.engine) || (h.engine === "browser" && !isVisual(h))) {
+        skip = `Engine ${h.engine} runs in the agent's or CI environment, not in the platform.${h.engine === "browser" ? " The platform runs browser hooks with inputs.judgment: visual only." : ""}`;
+      }
       else if (h.engine !== "http" && !h.triggers.some((t) => runsOn.has(t))) skip = `Triggers [${h.triggers.join(", ")}] do not include ${trigger === "promotion" ? "submission, candidate or promotion" : "submission or candidate"}.`;
       out.push({ criterion: c, hook: h, reason, run: !skip, ...(skip && { skip }), notes: cNotes });
     }
@@ -198,6 +211,7 @@ function vacuous(r: ModelRulesResult, counts: Record<string, number>, what: stri
 
 export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
   const s1 = deps.s1 ?? createSystemOne(deps.s1Env ?? {});
+  const vision = deps.vision ?? createVisionSystemOne(deps.s1Env ?? {}, s1);
   const now = () => (deps.now ?? (() => new Date()))().toISOString();
   const policy = previewPolicy(deps.previewEnv ?? {});
 
@@ -311,8 +325,13 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
       }
       case "model-rules":
         return modelRulesHook({ ctx: st.ctx, base: st.base, rules: () => rulesFor(st), engine: (x) => engineHook(st, x) }, h);
+      case "browser":
       case "system-one":
       case "llm": {
+        if (isVisual(h)) {
+          return visualCheck({ systemId: st.ctx.systemId, candidate: cand, criterion: c, hook: h, model: st.base, s1: vision, policy, browser: deps.browser, evidence: deps.evidence });
+        }
+        if (h.engine === "browser") return notRun("Browser hooks without inputs.judgment: visual run in the agent's or CI environment.");
         const { judgment, inferred } = llmJudgment(h, c);
         let o = await semanticEngine(st, h, judgment);
         if (inferred) o = withLimitation(o, `inputs.judgment is not set; ran ${judgment} (inferred from ${c.id}).`);
@@ -399,7 +418,7 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
   function targetRef(st: RunState, h: schema.AssayHook | null): string {
     const c = st.ctx.candidate;
     if (h?.engine === "model-rules") return c.target === "genome" ? `genome@${c.commit}` : `genome@${st.ctx.genomeCommit}`;
-    if (h?.engine === "http" && c.previewUrl) return c.previewUrl;
+    if ((h?.engine === "http" || h?.engine === "browser") && c.previewUrl) return c.previewUrl;
     return `${c.target}@${c.commit}`;
   }
 
@@ -415,8 +434,8 @@ export function createHookRunner(deps: RunnerDeps = {}): HookRunner {
         res = { o: notRun(s.skip ?? "Not run.", { provenance: { reason: s.reason, ...(s.hook && { binding: s.hook.binding }) } }), startedAt: t, finishedAt: t };
       } else {
         const h = s.hook;
-        // Per-hook cache, except where the outcome depends on the criterion (llm judgment inference).
-        const key = h.engine === "llm" ? `${h.id}\u0000${s.criterion.id}` : h.id;
+        // Per-hook cache, except where the outcome depends on the criterion (llm judgment inference, a visual claim).
+        const key = h.engine === "llm" || isVisual(h) ? `${h.id}\u0000${s.criterion.id}` : h.id;
         let p = cache.get(key);
         if (!p) {
           p = (async () => {
