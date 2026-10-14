@@ -1,4 +1,5 @@
-import type { SystemSummary } from "../../../shared/api";
+import type { Signifier, SystemSummary } from "../../../shared/api";
+import { promotionText, tasksAwaitText } from "@/views/work/plan/signals";
 import { buildTone, type ChipTone } from "@/components/StatusChip/StatusChip";
 
 /** A SystemSummary from any server version: every iteration-2 field is optional and may be missing. */
@@ -17,7 +18,7 @@ export interface DeployLine {
 }
 
 export interface CardView {
-  /** One sentence: attention > evolving > not built > quiet. */
+  /** One sentence: awaiting review > import pending > tasks await an agent > plan awaiting promotion > evolving > not built > quiet. */
   headline: string;
   tone: CardTone;
   /** The card's border state: `tone`, except that deploy trouble on an otherwise quiet System reads as attention. */
@@ -25,6 +26,8 @@ export interface CardView {
   deploy: DeployLine;
   /** The System's head Review, present only when something awaits. */
   reviewHref?: string;
+  /** The System's Work view, present when its plans need an agent or a promotion. */
+  workHref?: string;
 }
 
 const base = (systemId: string) => `/s/${encodeURIComponent(systemId)}/r/head`;
@@ -38,6 +41,14 @@ function awaiting(s: CardSummary): number | undefined {
   if (n !== undefined) return n > 0 ? n : undefined;
   return (s.signifiers ?? []).includes("awaiting-admin") ? (s.realizationCounts?.awaitingAdmin ?? 0) : undefined;
 }
+
+const has = (s: CardSummary, k: Signifier) => (s.signifiers ?? []).includes(k);
+/** An imported System whose review is still pending (signifier, or the summary's own status from an older signifier set). */
+const importPending = (s: CardSummary) => has(s, "import-pending") || s.importReview?.status === "pending";
+/** Tasks an agent can take now (`planCounts.awaitingAgent`); undefined when none. */
+const tasksAwaiting = (s: CardSummary) => (has(s, "tasks-awaiting-agent") ? Math.max(s.planCounts?.awaitingAgent ?? 0, 1) : undefined);
+/** Integrated plans awaiting promotion (`planCounts.integrated`); undefined when none. */
+const promotions = (s: CardSummary) => (has(s, "plan-awaiting-promotion") ? Math.max(s.planCounts?.integrated ?? 0, 1) : undefined);
 
 const awaitText = (n: number) => (n === 0 ? "awaiting your review" : `${n} ${n === 1 ? "awaits" : "await"} your review`);
 
@@ -78,6 +89,7 @@ function headlineOf(s: CardSummary): Omit<CardView, "state"> {
   const sig = new Set(s.signifiers ?? []);
   const deploy = deployLine(s);
   const n = awaiting(s);
+  const workHref = `${base(s.systemId)}/work`;
   if (n !== undefined)
     return {
       headline: awaitText(n),
@@ -85,6 +97,11 @@ function headlineOf(s: CardSummary): Omit<CardView, "state"> {
       deploy,
       reviewHref: `${base(s.systemId)}/review`,
     };
+  if (importPending(s)) return { headline: "import awaits review", tone: "attention", deploy, reviewHref: `${base(s.systemId)}/review` };
+  const agents = tasksAwaiting(s);
+  if (agents !== undefined) return { headline: tasksAwaitText(agents), tone: "attention", deploy, workHref };
+  const promote = promotions(s);
+  if (promote !== undefined) return { headline: promotionText(promote), tone: "attention", deploy, workHref };
   if (sig.has("evolving")) {
     const e = s.realizationCounts?.evolving;
     return { headline: e ? `${e} ${e === 1 ? "realization" : "realizations"} evolving` : "evolving", tone: "evolving", deploy };
@@ -110,7 +127,11 @@ export interface LedgerRow {
   tone: "attention" | "fail";
 }
 
-/** One row per System with something pending, in the order given: decisions to review, then deploy trouble. */
+/**
+ * Rows per System with something pending, in the order given: decisions to review, a pending import review, tasks an
+ * agent can take, plans awaiting promotion, then deploy trouble. Plan rows read the list's `planCounts`, which are as
+ * fresh as the last registry refresh.
+ */
 export function needsYou(systems: readonly CardSummary[]): LedgerRow[] {
   const rows: LedgerRow[] = [];
   for (const s of systems) {
@@ -121,6 +142,14 @@ export function needsYou(systems: readonly CardSummary[]): LedgerRow[] {
         key: `${s.systemId}:review`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/review`,
         text: awaitText(n),
       });
+    if (importPending(s))
+      rows.push({ key: `${s.systemId}:import`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/review`, text: "import awaits review" });
+    const agents = tasksAwaiting(s);
+    if (agents !== undefined)
+      rows.push({ key: `${s.systemId}:agent`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/work`, text: tasksAwaitText(agents) });
+    const promote = promotions(s);
+    if (promote !== undefined)
+      rows.push({ key: `${s.systemId}:promote`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/work`, text: promotionText(promote) });
     if (s.deployState === "behind")
       rows.push({ key: `${s.systemId}:behind`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/phenome`, text: "deployed, behind" });
     if (s.deployState === "failed")
