@@ -15,7 +15,7 @@ import { badRequest, conflict, notFound, unprocessable } from "./errors";
 import { acceptProposal } from "./intents";
 import { readinessReport } from "./model-bundle";
 import { acceptedTemplateResolver } from "./ontology-packages/store";
-import { createEvolution, genomeAt, refreshRegistry, systemStub, withPlatform } from "./service";
+import { createEvolution, genomeAt, refreshRegistry, reject, systemStub, withPlatform } from "./service";
 import { nowIso } from "./util";
 
 async function headState(env: Env, systemId: string): Promise<HeadState> {
@@ -216,7 +216,8 @@ export function rejectionOps(base: { files: Map<string, string>; readiness: Read
  * concurrent second accept, or one racing a re-import, is 409 `invalid-state`). Rejected nodes (a node under another
  * rejected node is covered by the ancestor's removal) are then removed by a platform-authored proposal with its own
  * linked Evolution, accepted through the intents accept, which pushes and approves: the removal is committed when this
- * returns. Any failure after the flip compare-and-sets the review back to pending and rethrows.
+ * returns. Any failure after the flip rejects a candidate left staged, compare-and-sets the review back to pending and
+ * rethrows.
  */
 export async function acceptImportReview(env: Env, systemId: string, body: Partial<SystemImportReviewAccept>, platformUrl: string): Promise<SystemImportReviewAcceptResponse> {
   const { interpretation, rejectedNodes } = body;
@@ -248,6 +249,7 @@ export async function acceptImportReview(env: Env, systemId: string, body: Parti
     throw conflict("invalid-state", `the import review of ${systemId} was accepted or re-opened meanwhile`);
   }
   let amendment: SystemImportReviewAcceptResponse["amendment"];
+  let proposalId: string | undefined;
   try {
     if (ops.length) {
       const message = `Import review: remove ${roots.length} node${roots.length === 1 ? "" : "s"}`;
@@ -259,10 +261,18 @@ export async function acceptImportReview(env: Env, systemId: string, body: Parti
         provenance: { router: { provider: "platform", model: "import-review", calls: 0 }, translator: { provider: "platform", model: "import-review" }, genomeCommit: review.genomeCommit, fake: false },
         createdAt: nowIso(),
       });
+      proposalId = proposal.id;
       const out = await acceptProposal(env, systemId, proposal.id, { opIds: ops.map((o) => o.id) }, platformUrl);
       amendment = { evolution: out.evolution.id, realization: out.realization.id, candidate: out.candidate.id, ...(out.systemCommit && { systemCommit: out.systemCommit.id }) };
     }
   } catch (e) {
+    // A candidate pushed but not approved (the gate refused it) stays staged on the open proposal; reject it so a later
+    // accept of that proposal cannot land the removal while the review is pending again.
+    const staged = proposalId ? (await stub.proposal(proposalId).catch(() => null))?.proposal.stagedApproval : undefined;
+    if (staged) {
+      await reject(env, systemId, staged.realizationId, { reason: "the import review accept that pushed this removal failed" })
+        .catch((r: unknown) => console.error(`[import-review] rejecting ${staged.realizationId} failed: ${(r as Error)?.message ?? r}`));
+    }
     await stub.casImportReview("accepted", review.genomeCommit, review)
       .catch((r: unknown) => console.error(`[import-review] restoring pending for ${systemId} failed: ${(r as Error)?.message ?? r}`));
     await refreshRegistry(env, systemId).catch(() => {});
