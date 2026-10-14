@@ -1,5 +1,5 @@
 import { useParams, useSearchParams } from "react-router";
-import { VIEW_LABELS } from "@/model/kinds";
+import { VIEW_LABELS, type ViewName } from "@/model/kinds";
 import { useModelOptional } from "@/model/useModel";
 import { thingPath, useSystemRoute, viewPath } from "@/model/useSelection";
 
@@ -36,4 +36,14 @@ export function useScopeContext(): ScopeCrumb[] {
   if (view && view !== "overview") crumbs.push({ label: VIEW_LABELS[view] });
   else delete crumbs[1]!.to;
   return crumbs;
+}
+
+/** Views that list the whole System even inside a Thing workspace; the scope line says so. */
+const WHOLE_SYSTEM_VIEWS = new Set<ViewName>(["journeys", "theory", "code", "work", "review", "evaluations", "changelog", "compare"]);
+
+/** "Showing the whole System" inside a Thing workspace on a System-wide view; otherwise undefined. */
+export function useScopeNote(): string | undefined {
+  const { thingId } = useParams();
+  const { view } = useSystemRoute();
+  return thingId && view && WHOLE_SYSTEM_VIEWS.has(view) ? "Showing the whole System" : undefined;
 }

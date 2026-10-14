@@ -39,6 +39,13 @@ const stubSystems = (systems: CardSummary[]) =>
 const card = (name: RegExp) => within(screen.getByRole("list", { name: "Systems" })).getByRole("link", { name: new RegExp(`^(?:${name.source})$`) }).closest("li")!;
 
 describe("Home", () => {
+  /** The bar shows Effects and Retry API inline from 1280px; jsdom starts at 1024. */
+  const wide = () => {
+  const original = window.innerWidth;
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+  return () => void Object.defineProperty(window, "innerWidth", { configurable: true, value: original });
+};
+
   it("never displays System-private Parts in the public catalog", () => {
     renderApp("/", [{ path: "/", element: <PartsContent parts={[{ partId: "part.private", version: "1.0.0", name: "Private package", scope: { kind: "system", systemId: "system.a" }, digest: "sha256:private", publishedAt: "", dependencies: [] }]} isLoading={false} isError={false} /> }]);
     expect(screen.queryByRole("link", { name: "Private package" })).toBeNull();
@@ -46,12 +53,14 @@ describe("Home", () => {
   });
 
   it("shows the fixture System in fixture mode and opens its environment", async () => {
+    const restore = wide();
     const { router } = renderApp("/");
     const link = await screen.findByRole("link", { name: /^Peopling$/ });
-    expect(screen.getByText("fixture data")).toBeTruthy();
+    expect(screen.getByText("Fixture data")).toBeTruthy();
     expect(screen.getByRole("button", { name: "Retry API" })).toBeTruthy();
     act(() => link.click());
     await waitFor(() => expect(router.state.location.pathname).toBe("/s/system.peopling/r/head/map"));
+    restore();
   });
 
   it("shows the empty state with an init link when the API has no Systems", async () => {

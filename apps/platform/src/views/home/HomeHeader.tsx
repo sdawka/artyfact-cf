@@ -1,21 +1,26 @@
-import { EffectsPreferenceProvider } from "@/effects/effectsPreference";
+import { EffectsPreferenceProvider, useEffectsPreference } from "@/effects/effectsPreference";
 import { useEffect, useRef, useState } from "react";
-import { useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "@/app/AppHeader";
 import { handlePaletteShortcut } from "@/app/paletteShortcut";
 import { HeaderActions } from "@/app/HeaderActions";
-import { resetClientMode } from "@/api/client";
+import { useRetryApi } from "@/app/useRetryApi";
 import { useClientMode, useParts, usePlatform, useSystems } from "@/api/queries";
-import { FIXTURE_TITLE, HostedDemoPill, StatePill } from "@/app/StatePill";
+import { FixtureCluster, HostedDemoPill } from "@/app/StatePill";
+import { useViewportWidth } from "@/app/useCompactLayout";
 import { HomePalette } from "./HomePalette";
 
-/** Wordmark plus, in fixture mode, the "fixture data" pill and a Retry button; on the hosted demo, its pill. */
+/** Wordmark plus, in fixture mode, the fixture cluster (state and Retry API); on the hosted demo, its pill. Same Effects toggle as a System. */
 export function HomeHeader() {
+  return <EffectsPreferenceProvider><HomeHeaderBody /></EffectsPreferenceProvider>;
+}
+
+function HomeHeaderBody() {
   const { data: mode } = useClientMode();
-  const qc = useQueryClient();
   const systems = useSystems();
   const parts = useParts();
   const platform = usePlatform();
+  const effects = useEffectsPreference();
+  const width = useViewportWidth();
   const paletteTrigger = useRef<HTMLButtonElement>(null);
   const [paletteOpen, setPaletteOpen] = useState(false);
   useEffect(() => {
@@ -25,10 +30,11 @@ export function HomeHeader() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, []);
-  const retry = () => { resetClientMode(); void qc.invalidateQueries(); };
-  return <EffectsPreferenceProvider>
-    <AppHeader status={mode === "fixture" ? <StatePill state="fixture" title={FIXTURE_TITLE}>fixture data</StatePill> : platform.data?.notice ? <HostedDemoPill notice={platform.data.notice} /> : undefined}
-      actions={<HeaderActions paletteTriggerRef={paletteTrigger} onOpenPalette={() => setPaletteOpen(true)} retry={mode === "fixture" ? retry : undefined} />} />
-    <HomePalette returnFocus={paletteTrigger} open={paletteOpen} onOpenChange={setPaletteOpen} systems={systems.data ?? []} parts={parts.data ?? []} />
-  </EffectsPreferenceProvider>;
+  const retryApi = useRetryApi();
+  const retry = mode === "fixture" ? retryApi : undefined;
+  return <>
+    <AppHeader status={mode === "fixture" ? <FixtureCluster retry={width >= 1280 ? retry : undefined} /> : platform.data?.notice ? <HostedDemoPill notice={platform.data.notice} /> : undefined}
+      actions={<HeaderActions paletteTriggerRef={paletteTrigger} onOpenPalette={() => setPaletteOpen(true)} retry={retry} effects={effects} />} />
+    <HomePalette returnFocus={paletteTrigger} open={paletteOpen} onOpenChange={setPaletteOpen} systems={systems.data ?? []} parts={parts.data ?? []} retry={retry} />
+  </>;
 }

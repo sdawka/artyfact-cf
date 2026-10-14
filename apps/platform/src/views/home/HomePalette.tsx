@@ -1,18 +1,19 @@
 import { useEffectsPreference } from "@/effects/effectsPreference";
 import type { RefObject } from "react";
-import { Dialog } from "@/components/ui";
-import { Command } from "cmdk";
 import { useNavigate } from "react-router";
+import { OPEN_ADMIN_TOKEN_EVENT } from "@/app/AdminTokenControl";
+import { PaletteFooter, PaletteFrame, PaletteGroup, PaletteItem, paletteScore } from "@/app/CommandPalette";
 import type { PartSummary, SystemSummary } from "../../../shared/api";
-import styles from "@/app/CommandPalette.module.css";
 
-/** ⌘K on Home: go to a System or a shared Part. Home has no System model, so this is its own small index. */
-export function HomePalette({ open, onOpenChange, systems, parts, returnFocus }: {
+/** Ctrl/⌘ K on Home and Part pages: the shared palette with Systems, shared Parts and global actions. Home has no System model. */
+export function HomePalette({ open, onOpenChange, systems, parts, returnFocus, retry }: {
   returnFocus?: RefObject<HTMLButtonElement | null>;
   open: boolean;
   onOpenChange(open: boolean): void;
   systems: readonly SystemSummary[];
   parts: readonly PartSummary[];
+  /** Offered as an action only in fixture mode. */
+  retry?: () => void;
 }) {
   const navigate = useNavigate();
   const effects = useEffectsPreference();
@@ -21,37 +22,29 @@ export function HomePalette({ open, onOpenChange, systems, parts, returnFocus }:
     void navigate(to);
   };
   return (
-    <Dialog open={open} onOpenChange={onOpenChange} title="Go to a System or Part" className={styles.homeContent}
-      onOpenAutoFocus={(event) => { event.preventDefault(); (event.target as HTMLElement).querySelector<HTMLElement>('[role="combobox"]')?.focus(); }}
+    <PaletteFrame open={open} onOpenChange={onOpenChange} placeholder="Go to a System, Part or action…" footer={<PaletteFooter />}
       onCloseAutoFocus={(event) => { event.preventDefault(); const target = returnFocus?.current; (target?.isConnected ? target : document.getElementById("main"))?.focus(); }}>
-      <Command vimBindings={false} label="Go to a System or Part" className={styles.dialog} data-effects={effects.enabled ? "on" : "off"}>
-      <Command.Input className={styles.input} placeholder="Go to a System or Part…" />
-      <Command.List className={styles.list}>
-        <Command.Empty className={styles.empty}>No matches.</Command.Empty>
-        <Command.Group heading="Systems" className={styles.group}>
-          {systems.map((s) => (
-            <Command.Item key={s.systemId} value={`system ${s.systemId}`} keywords={[s.title]} className={styles.item} onSelect={() => go(`/s/${encodeURIComponent(s.systemId)}`)}>
-              <span className={styles.name}>{s.title || s.systemId}</span>
-              <code className={styles.id}>{s.systemId}</code>
-            </Command.Item>
-          ))}
-        </Command.Group>
-        <Command.Group heading="Reusable Parts" className={styles.group}>
-          {parts.filter((p) => p.scope.kind === "shared").map((p) => (
-            <Command.Item
-              key={`${p.partId}@${p.version}`}
-              value={`part ${p.partId}@${p.version}`}
-              keywords={[p.name || p.partId]}
-              className={styles.item}
-              onSelect={() => go(`/parts/${encodeURIComponent(p.partId)}/${encodeURIComponent(p.version)}`)}
-            >
-              <span className={styles.name}>{p.name || p.partId}</span>
-              <code className={styles.id}>{p.partId}@{p.version}</code>
-            </Command.Item>
-          ))}
-        </Command.Group>
-      </Command.List>
-      </Command>
-    </Dialog>
+      {(query) => {
+        const sys = systems.filter((s) => paletteScore(query, [s.systemId, s.title]) > 0);
+        const shared = parts.filter((p) => p.scope.kind === "shared" && paletteScore(query, [`${p.partId}@${p.version}`, p.name || p.partId]) > 0);
+        const actions = [
+          { id: "admin", label: "Admin token…", keywords: ["admin", "token", "auth"], run: () => { onOpenChange(false); window.dispatchEvent(new Event(OPEN_ADMIN_TOKEN_EVENT)); } },
+          ...(retry ? [{ id: "retry", label: "Retry API", keywords: ["retry", "api", "fixture"], run: () => { onOpenChange(false); retry(); } }] : []),
+          { id: "effects", label: effects.enabled ? "Effects: turn off" : "Effects: turn on", keywords: ["effects", "ambient", "animation", "motion"], run: () => { onOpenChange(false); effects.toggle(); } },
+        ].filter((a) => paletteScore(query, [a.label, ...a.keywords]) > 0);
+        return <>
+          {sys.length > 0 && <PaletteGroup heading="Systems">
+            {sys.map((s) => <PaletteItem key={s.systemId} value={`system ${s.systemId}`} name={s.title || s.systemId} id={s.systemId} onSelect={() => go(`/s/${encodeURIComponent(s.systemId)}`)} />)}
+          </PaletteGroup>}
+          {shared.length > 0 && <PaletteGroup heading="Shared Parts">
+            {shared.map((p) => <PaletteItem key={`${p.partId}@${p.version}`} value={`part ${p.partId}@${p.version}`} name={p.name || p.partId} id={`${p.partId}@${p.version}`}
+              onSelect={() => go(`/parts/${encodeURIComponent(p.partId)}/${encodeURIComponent(p.version)}`)} />)}
+          </PaletteGroup>}
+          {actions.length > 0 && <PaletteGroup heading="Actions">
+            {actions.map((a) => <PaletteItem key={a.id} value={`action.${a.id}`} name={a.label} onSelect={a.run} />)}
+          </PaletteGroup>}
+        </>;
+      }}
+    </PaletteFrame>
   );
 }

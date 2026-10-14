@@ -14,9 +14,9 @@ const key = (k: string, init: KeyboardEventInit = {}) => act(() => void fireEven
 
 describe("Shell", () => {
   it.each([
-    ["/", "Go to a System or Part"],
-    ["/parts/part.ui.buttons/2.1.0", "Go to a System or Part"],
-    [`${BASE}/overview`, "Go to node"],
+    ["/", "Go to"],
+    ["/parts/part.ui.buttons/2.1.0", "Go to"],
+    [`${BASE}/overview`, "Go to"],
   ])("palette shortcuts defer to other overlays and toggle normally at %s", async (path, title) => {
     renderApp(path);
     const admin = await screen.findByRole("button", { name: "Admin token" });
@@ -45,9 +45,9 @@ describe("Shell", () => {
     const trigger = await screen.findByRole("button", { name: "Go to…" });
     trigger.focus();
     await act(() => trigger.click());
-    const dialog = await screen.findByRole("dialog", { name: "Go to a System or Part" });
+    const dialog = await screen.findByRole("dialog", { name: "Go to" });
     await act(() => void fireEvent.keyDown(within(dialog).getByRole("combobox"), { key: "Escape" }));
-    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Go to a System or Part" })).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Go to" })).toBeNull());
     await waitFor(() => expect(document.activeElement).toBe(trigger));
   });
 
@@ -59,7 +59,7 @@ describe("Shell", () => {
       const more = await screen.findByRole("button", { name: "More" });
       more.focus();
       await act(() => void fireEvent.keyDown(more, { key: "ArrowDown" }));
-      const admin = await screen.findByRole("menuitem", { name: "Admin token" });
+      const admin = await screen.findByRole("menuitem", { name: "Admin token…" });
       await act(() => admin.click());
       const input = await screen.findByLabelText("Token for admin actions");
       await waitFor(() => expect(document.activeElement).toBe(input));
@@ -165,8 +165,8 @@ describe("Shell", () => {
     act(() => within(nav).getByRole("link", { name: "Review" }).click());
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp/review`));
     expect(await screen.findByRole("heading", { level: 1, name: "Review" })).toBeTruthy();
-    // Review lists the whole System's decisions, and inside a Thing it says so.
-    expect(screen.getByText("Review shows decisions for the whole System.")).toBeTruthy();
+    // Review lists the whole System's decisions, and inside a Thing the scope line says so.
+    expect(screen.getByText("Showing the whole System")).toBeTruthy();
   });
 
   it("g r opens Review keeping params", async () => {
@@ -244,11 +244,12 @@ describe("Shell", () => {
     expect((await screen.findByRole("link", { name: "Open Home" })).getAttribute("href")).toBe("/");
   });
 
-  it("shows the fixture pill, phase and canonical state", async () => {
+  it("shows the fixture state, phase and no state pill at head", async () => {
     renderApp(`${BASE}/overview`);
-    expect(await screen.findByText("fixture data")).toBeTruthy();
+    expect(await screen.findByText("Fixture data")).toBeTruthy();
     expect(screen.getByText("Phase: unrealized")).toBeTruthy();
-    expect(screen.getByText("canonical")).toBeTruthy();
+    // At head the revision state is implied by "head": the pill shows only for candidate or deployed.
+    expect(screen.queryByText("canonical")).toBeNull();
   });
 
   it("LayerSwitch sits in the Map header (not the TopBar) and writes ?layer=", async () => {
@@ -326,7 +327,7 @@ describe("Shell", () => {
   it("focusing a chip opens the Inspector; Dependencies lists links grouped by relation", async () => {
     renderApp(`${BASE}/overview?focus=entity.ContactRecord`);
     const inspector = await screen.findByRole("complementary", { name: "Inspector" });
-    act(() => within(inspector).getByRole("tab", { name: "Dependencies" }).click());
+    act(() => within(inspector).getByRole("tab", { name: /^Links/ }).click());
     expect(within(inspector).getByText("storedIn →")).toBeTruthy();
     expect(within(inspector).getByText("← governs")).toBeTruthy();
     act(() => within(inspector).getByRole("button", { name: /contactsStore/ }).click());
@@ -395,7 +396,7 @@ describe("Shell", () => {
     });
     const inspector = await screen.findByRole("complementary", { name: "Inspector" });
     expect(within(inspector).getAllByText("J.connect/s4").length).toBeGreaterThan(0);
-    act(() => within(inspector).getByRole("tab", { name: "Rules & claims" }).click());
+    act(() => within(inspector).getByRole("tab", { name: /^Rules/ }).click());
     expect(within(inspector).getByText(/Step s4 is unresolved/)).toBeTruthy();
   });
 
@@ -415,21 +416,21 @@ describe("Shell", () => {
     };
     const screenPeopleVerdict = async () => {
       const inspector = await screen.findByRole("complementary", { name: "Inspector" });
-      act(() => within(inspector).getByRole("tab", { name: "Rules & claims" }).click());
+      act(() => within(inspector).getByRole("tab", { name: /^Rules/ }).click());
       const chip = inspector.querySelector('[title="Criterion: C.webapp.screen.people"]')!;
-      return chip.closest("section")!.querySelector("[data-verdict]")!.getAttribute("data-verdict");
+      return chip.closest("section")!.querySelector("[data-status]")!.getAttribute("data-status");
     };
     it("marks the TopBar only when a loaded evaluation came from the fake provider", async () => {
       renderApp(`${BASE}/overview`, undefined, seed);
       await screen.findByRole("heading", { level: 1, name: "Overview" });
-      expect(screen.queryByText("System One: fake provider")).toBeNull();
+      expect(screen.queryByText("fake provider")).toBeNull();
     });
     it("shows the fake-provider marker in the TopBar", async () => {
       renderApp(`${BASE}/overview`, undefined, (qc) => {
         seed(qc);
         qc.setQueryData(qk.evaluations("system.peopling"), { evaluations: [{ ...evaluation, provenance: { provider: "fake" } }] });
       });
-      const pill = await screen.findByText("System One: fake provider");
+      const pill = await screen.findByText("fake provider");
       expect(pill.closest("header")).toBeTruthy();
     });
     it("on the hosted demo shows its notice instead of the fake-provider marker", async () => {

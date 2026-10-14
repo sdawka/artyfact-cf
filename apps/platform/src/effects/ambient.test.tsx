@@ -1,6 +1,6 @@
 import { WHIMSY } from "@artyfact/effects";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { emptyRollup } from "@/model/status";
 import { renderApp } from "@/testing/render";
 import { nodeStatus } from "@/views/map/MapView";
@@ -12,6 +12,17 @@ const fx = (detail: unknown) => act(() => void window.dispatchEvent(new CustomEv
 const ambient = () => document.querySelector<HTMLElement>("[data-shell-ambient]")!;
 
 afterEach(() => window.localStorage.clear());
+
+/** The bar shows Effects and Retry API inline from 1280px; jsdom starts at 1024. */
+const wide = () => {
+  const original = window.innerWidth;
+  Object.defineProperty(window, "innerWidth", { configurable: true, value: 1440 });
+  return () => void Object.defineProperty(window, "innerWidth", { configurable: true, value: original });
+};
+
+let restoreWidth = () => {};
+beforeEach(() => { restoreWidth = wide(); });
+afterEach(() => restoreWidth());
 
 describe("parseAmbientFx", () => {
   it("accepts the five kinds, keeps finite coordinates and clamps strength", () => {
@@ -72,7 +83,7 @@ describe("Effects switch", () => {
     await act(async () => void fireEvent.keyDown(window, { key: "k", metaKey: true }));
     const dialog = await screen.findByRole("dialog");
     fireEvent.change(within(dialog).getByRole("combobox"), { target: { value: "effects" } });
-    const item = await within(dialog).findByRole("option", { name: /Turn effects on/ });
+    const item = await within(dialog).findByRole("option", { name: /Effects: turn on/ });
     await act(async () => void fireEvent.click(item));
     await waitFor(() => expect(screen.getByRole("button", { name: /Effects/ }).getAttribute("aria-pressed")).toBe("true"));
     expect(window.localStorage.getItem(EFFECTS_KEY)).toBe("on");

@@ -2,7 +2,10 @@ import type { ReactNode } from "react";
 import { Link } from "react-router";
 import styles from "./AppHeader.module.css";
 
-/** Presentational header shared by Home, Part details and System workspaces. */
+/**
+ * Presentational header shared by Home, Part details and System workspaces. One row from 1024px (wordmark, selects, status,
+ * actions pushed right); below that the selects take a second row.
+ */
 export function AppHeader({ navigation, context, status, actions }: {
   navigation?: ReactNode; context?: ReactNode; status?: ReactNode; actions: ReactNode;
 }) {

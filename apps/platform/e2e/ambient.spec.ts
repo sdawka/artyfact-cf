@@ -43,7 +43,7 @@ test.describe("ambient shell", () => {
     await expect(page.getByRole("button", { name: /Effects/ })).toHaveAttribute("aria-pressed", "false");
     await page.keyboard.press("ControlOrMeta+k");
     await page.getByRole("combobox").fill("effects");
-    await page.getByRole("option", { name: /Turn effects on/ }).click();
+    await page.getByRole("option", { name: /Effects: turn on/ }).click();
     await expect(page.getByRole("button", { name: /Effects/ })).toHaveAttribute("aria-pressed", "true");
   });
 

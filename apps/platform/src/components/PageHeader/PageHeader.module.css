@@ -10,6 +10,8 @@
 .status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }
 .extra { min-width: 0; }
 .context { min-width: 0; }
+.scopeLine { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: var(--spacing-1) var(--spacing-6); }
+.scopeNote { font: var(--type-meta); color: var(--color-text-subtle); }
 .scope ol { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-1) var(--spacing-2); margin: 0; padding: 0; list-style: none; font: var(--type-meta); color: var(--color-text-secondary); }
 .scope li { display: inline-flex; align-items: baseline; gap: var(--spacing-2); min-width: 0; }
 .scope li + li::before { content: "/"; color: var(--color-text-subtle); }

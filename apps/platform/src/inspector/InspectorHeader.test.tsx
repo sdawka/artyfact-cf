@@ -65,12 +65,12 @@ describe("Inspector header: Open in Review", () => {
     const link = await inspector.findByRole("link", { name: "Open in Review" });
     expect(link.getAttribute("href")).toBe(`${BASE}/review?focus=${node}&evolution=evolution.1&realization=realization.1`);
     expect(inspector.queryByRole("button", { name: "Open in Work" })).toBeNull();
-    expect(inspector.getByText(/in 1 candidate$/)).toBeTruthy();
+    expect(inspector.getByText("In 1 candidate")).toBeTruthy();
   });
 
   it("says overlap when two candidates in ?candidates= touch it", async () => {
     const cands = [cand("cand.1", "realization.1", [node]), cand("cand.2", "realization.2", [node])];
     const inspector = await open("&candidates=cand.1,cand.2", cands, [realization("realization.1", "cand.1"), realization("realization.2", "cand.2")]);
-    expect(await inspector.findByText(/in 2 candidates · overlap/)).toBeTruthy();
+    expect(await inspector.findByText("In 2 candidates, overlapping")).toBeTruthy();
   });
 });

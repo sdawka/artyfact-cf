@@ -1,14 +1,16 @@
-import { ArchiveIcon, ArrowRightIcon, CheckCircledIcon, CheckIcon, CodeIcon, CommitIcon, CounterClockwiseClockIcon, DashboardIcon, GlobeIcon, MixIcon, RocketIcon, TriangleUpIcon } from "@radix-ui/react-icons";
-import { NavLink } from "react-router";
-import { useKindViews, VIEW_GLYPHS, VIEW_GROUPS, VIEW_KINDS, VIEW_LABELS, type ViewName } from "@/model/kinds";
+import { ArchiveIcon, ArrowRightIcon, CheckCircledIcon, CodeIcon, CommitIcon, CounterClockwiseClockIcon, DashboardIcon, GlobeIcon, MixIcon, ReaderIcon, RocketIcon, TargetIcon } from "@radix-ui/react-icons";
+import { Link, NavLink, useParams, useSearchParams } from "react-router";
+import { Count } from "@/components/Count/Count";
+import { useModel } from "@/model/useModel";
+import { GO_KEYS, useKindViews, VIEW_GLYPHS, VIEW_GROUPS, VIEW_KINDS, VIEW_LABELS, type ViewName } from "@/model/kinds";
 import { useReviewCount } from "@/model/useReviewCount";
 import { useWorkCount } from "@/model/useWorkCount";
-import { useKeepParams, useSystemRoute } from "@/model/useSelection";
+import { useKeepParams, useSystemRoute, viewPath } from "@/model/useSelection";
 import styles from "./SideNav.module.css";
 
 const NAV_ICONS: Record<ViewName, typeof GlobeIcon> = {
-  map: GlobeIcon, overview: DashboardIcon, journeys: ArrowRightIcon, theory: TriangleUpIcon,
-  code: CodeIcon, work: CommitIcon, review: CheckCircledIcon, evaluations: CheckIcon,
+  map: GlobeIcon, overview: DashboardIcon, journeys: ArrowRightIcon, theory: ReaderIcon,
+  code: CodeIcon, work: CommitIcon, review: CheckCircledIcon, evaluations: TargetIcon,
   changelog: CounterClockwiseClockIcon, compare: MixIcon, phenome: RocketIcon,
 };
 
@@ -17,22 +19,44 @@ export const NAV_VIEWS: { view: ViewName; glyph: string }[] = VIEW_GROUPS.flatMa
   g.views.map((view) => ({ view, glyph: VIEW_GLYPHS[view] })),
 );
 
+/** The word after a rail count, for the link's accessible name ("Work, 2 ready for an agent"). */
+const COUNT_WORDS: Partial<Record<ViewName, string>> = { review: "waiting", work: "ready for an agent" };
+
 function NavItem({ view, href, count = 0 }: { view: ViewName; href: string; count?: number }) {
   const label = VIEW_LABELS[view];
   const Icon = NAV_ICONS[view];
+  const goKey = Object.entries(GO_KEYS).find(([, v]) => v === view)?.[0];
   return (
     <li>
       <NavLink
         to={href}
-        className={`u-brackets ${styles.link}`}
-        title={label}
-        aria-label={count > 0 ? `${label}, ${count} waiting` : undefined}
+        className={`u-selectable ${styles.link}`}
+        title={goKey ? `${label} (G then ${goKey.toUpperCase()})` : label}
+        aria-label={count > 0 ? `${label}, ${count} ${COUNT_WORDS[view] ?? "waiting"}` : undefined}
       >
         <span className={styles.glyph} aria-hidden="true"><Icon /></span>
         <span className={styles.label}>{label}</span>
-        {count > 0 && <span className={styles.count} data-tone="attention">{count}</span>}
+        <Count n={count} tone="attention" />
       </NavLink>
     </li>
+  );
+}
+
+/** Inside a Thing every rail link resolves to the Thing; this row says so and offers the way back to System depth. */
+function ThingScope() {
+  const { thingId } = useParams();
+  const { systemId, rev, view } = useSystemRoute();
+  const { bundle } = useModel();
+  const [params] = useSearchParams();
+  const thing = thingId ? bundle.model.things.find((t) => t.id === thingId) : undefined;
+  if (!thing) return null;
+  const qs = params.toString();
+  const leave = `${viewPath(systemId, rev, view ?? "overview")}${qs ? `?${qs}` : ""}`;
+  return (
+    <div className={styles.scope} data-testid="thing-scope">
+      <span className={styles.scopeName}>In {thing.name || thing.id}</span>
+      <Link to={leave} className={styles.leave}>Leave</Link>
+    </div>
   );
 }
 
@@ -48,6 +72,7 @@ export function SideNav({ onNavigate }: { onNavigate?: () => void } = {}) {
   const item = (v: ViewName) => <NavItem key={v} view={v} href={href(v)} count={v === "review" ? reviewCount : v === "work" ? workCount : 0} />;
   return (
     <nav className={`shell-nav ${styles.nav}`} aria-label="Views" onClick={(event) => { if ((event.target as HTMLElement).closest("a")) onNavigate?.(); }}>
+      <ThingScope />
       {VIEW_GROUPS.map((g) =>
         g.label === null ? (
           <ul key="top" className={styles.list}>
@@ -69,7 +94,9 @@ export function SideNav({ onNavigate }: { onNavigate?: () => void } = {}) {
           </div>
         ),
       )}
-      <NavLink className={styles.link} to={`/s/${encodeURIComponent(systemId)}/r/${encodeURIComponent(rev)}/parts`} title="Private Parts"><span className={styles.glyph} aria-hidden="true"><ArchiveIcon /></span><span className={styles.label}>Private Parts</span></NavLink>
+      <div className={styles.partsRow}>
+        <NavLink className={`u-selectable ${styles.link}`} to={`/s/${encodeURIComponent(systemId)}/r/${encodeURIComponent(rev)}/parts`} title="Private Parts"><span className={styles.glyph} aria-hidden="true"><ArchiveIcon /></span><span className={styles.label}>Private Parts</span></NavLink>
+      </div>
     </nav>
   );
 }

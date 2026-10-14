@@ -17,7 +17,7 @@ const withDerived = (qc: Parameters<NonNullable<Parameters<typeof renderApp>[2]>
 
 async function openRules() {
   const inspector = await screen.findByRole("complementary", { name: "Inspector" });
-  fireEvent.click(within(inspector).getByRole("tab", { name: "Rules & claims" }));
+  fireEvent.click(within(inspector).getByRole("tab", { name: /^Rules/ }));
   return inspector;
 }
 
@@ -28,7 +28,7 @@ describe("RulesTab", () => {
     const card = (await within(inspector).findByTitle("Criterion: C.webapp.contact.save")).closest("li")!;
     expect(within(card).getByText("Owner")).toBeTruthy();
     expect(within(card).getByText("Subject")).toBeTruthy();
-    expect(within(card).getByText(/artifact · gates candidate, promotion/)).toBeTruthy();
+    expect(within(card).getByText(/artifact, gates candidate, promotion/)).toBeTruthy();
     expect(within(card).getByText(/not-run/)).toBeTruthy();
   });
 
