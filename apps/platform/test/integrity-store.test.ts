@@ -104,7 +104,8 @@ it("fails a queued run when its preview template closure is no longer current", 
     const store = new IntegrityStore(state.storage.sql, systemId);
     const stored = store.putSnapshot(preview, "initial-preview");
     const runId = store.start(stored.id, { snapshotId: stored.id, provider: "off" }, { provider: "off", model: "off" }).run.id;
-    await state.storage.setAlarm(Date.now());
+    // The helper fires this alarm; leave time so the real scheduler cannot claim it first.
+    await state.storage.setAlarm(Date.now() + 60_000);
     return runId;
   });
   await runDurableObjectAlarm(env.SYSTEMS.getByName(systemId));
