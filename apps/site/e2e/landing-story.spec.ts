@@ -18,8 +18,8 @@ test('all content and seven stacked steps survive without JavaScript', async ({ 
   for (let index = 0; index < 7; index++) await expect(page.locator(`[data-checkout-step="${index}"]`)).toBeVisible();
   await expect(page.locator('.checkout-deploy')).toContainText('Not measured yet');
   expect(await page.locator('.checkout-steps').evaluate(list => !!(list.compareDocumentPosition(document.querySelector('.checkout-stage')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-  await expect(page.locator('.practice-card .practice-known').first()).toBeVisible();
-  await expect(page.locator('.practice-card .practice-arrow').first()).toBeVisible();
+  await expect(page.locator('.practice-row .practice-known').first()).toBeVisible();
+  await expect(page.locator('.practice-group:not([open])')).toHaveCount(0);
   await expect(page.getByRole('heading', { name: 'Give your coding agents the environment to thrive.' })).toBeVisible();
   await expect(page.locator('.environment-columns article')).toHaveCount(3);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -72,7 +72,7 @@ test('narrow screens keep every section in flow without horizontal scroll', asyn
     await page.getByRole('button', { name: 'Step 5: Integrate and promote' }).click();
     await expect(page.locator('.checkout-promote')).toHaveAttribute('data-phase', 'current');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    const clipped = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.practice-card, .checkout-row, .backbone-node, .backbone-pieces > div')].filter(element => element.scrollWidth > element.clientWidth + 1).length);
+    const clipped = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.practice-row, .checkout-row, .backbone-node, .backbone-pieces > div')].filter(element => element.scrollWidth > element.clientWidth + 1).length);
     expect(clipped).toBe(0);
     await page.locator('.checkout-stage').screenshot({ path: info.outputPath(`${width}x${height}-stage.png`) });
   }
@@ -86,11 +86,10 @@ test('forced colors keep the current step and row visible', async ({ page }, inf
   await expect(button).toHaveAttribute('aria-current', 'step');
   expect(await button.evaluate(element => getComputedStyle(element).outlineWidth)).toBe('2px');
   expect(await page.locator('.checkout-overlap').evaluate(element => getComputedStyle(element).outlineStyle)).toBe('solid');
-  const card = page.locator('.practice-card').first();
-  const [arrow, border] = await card.evaluate(element => [getComputedStyle(element.querySelector('.practice-arrow')!).color, getComputedStyle(element).borderTopColor]);
-  expect(arrow).toBe(border);
-  expect(await card.locator('.relation-tag').evaluate(element => getComputedStyle(element, '::before').borderTopColor)).toBe(border);
-  expect(await page.locator('.environment-columns article').first().evaluate(element => getComputedStyle(element).borderTopStyle)).toBe('solid');
+  const row = page.locator('.practice-row').first();
+  const [text, marker] = await row.locator('.relation-tag').evaluate(element => [getComputedStyle(document.body).color, getComputedStyle(element, '::before').borderTopColor]);
+  expect(marker).toBe(text);
+  expect(await page.locator('.checkout-step-nav button').first().evaluate(element => getComputedStyle(element).minHeight)).toBe('44px');
   await page.locator('.checkout-stage').screenshot({ path: info.outputPath('forced-colors.png') });
 });
 test('a 1024x700 viewport fits the sticky stage and follows scrolling', async ({ page }, info) => {
@@ -101,9 +100,8 @@ test('a 1024x700 viewport fits the sticky stage and follows scrolling', async ({
   await page.getByRole('button', { name: 'Step 4: Check against the rule' }).click();
   await expect(page.locator(story)).toHaveAttribute('data-following', 'true');
   await expect(page.locator(story)).toHaveAttribute('data-step', '3');
-  const stage = await page.locator('.checkout-stage').boundingBox();
-  expect(stage!.y).toBeGreaterThanOrEqual(0);
-  expect(stage!.y + stage!.height).toBeLessThanOrEqual(700);
+  // The click scrolls smoothly; the stage settles under its sticky offset when the scroll ends.
+  await expect.poll(async () => { const box = await page.locator('.checkout-stage').boundingBox(); return box!.y >= 0 && box!.y + box!.height <= 700; }).toBe(true);
   await readStep(page, 5);
   await expect(page.locator(story)).toHaveAttribute('data-step', '5');
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);

@@ -35,9 +35,9 @@ it('keeps one illustrative feature in all three parallel views', () => {
   expect(panels).toHaveLength(3);
   expect(panels.map(panel => panel.hasAttribute('hidden'))).toEqual([true, true, false]);
 });
-it('leads each view with plain words and keeps the product name as a label', () => {
+it('leads each view with its product name and keeps the plain words as a label', () => {
   render(<SystemExplorer />);
-  expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['What it should be Genome', 'What is being made Proteome', 'What it does Phenome']);
+  expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['Genome What it should be', 'Proteome What is being made', 'Phenome What it does']);
 });
 it('supports keyboard navigation across views', () => {
   render(<SystemExplorer />);

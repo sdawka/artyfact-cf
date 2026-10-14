@@ -40,7 +40,7 @@ it('documents shipped Parts commands and explicit authoring and review gates', (
 });
 it('maps the agent handoff to its sections and names the real plan commands', () => {
   const { container } = render(<Site path="/connect-agent" config={config} />);
-  expect(screen.getByRole('heading', { level: 1, name: 'Your agent, in an environment built for it.' })).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1, name: 'Bring your agent.' })).toBeTruthy();
   expect(container.querySelector('#start h2')?.textContent).toBe('Start a plan');
   const links = [...container.querySelectorAll<HTMLAnchorElement>('.handoff a')];
   expect(links).toHaveLength(7);

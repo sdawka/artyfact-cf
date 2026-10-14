@@ -12,10 +12,10 @@ const sentence: (string | Part)[] = [
 /** The hero: one claim written as a sentence, each part labelled with the claim field that holds it. Sample data. */
 export function TheoryCard() {
   return <figure className="theory-card" data-theory-card="">
-    <figcaption className="theory-card-head"><span>A product theory</span><span className="term-label">claim</span></figcaption>
     <p className="theory-sentence">{sentence.map((item, index) => typeof item === 'string' ? item
       : <span key={index} className="theory-part" data-theory-part={item.field}><span className="theory-part-text">{item.text}</span><span className="theory-part-label" aria-hidden="true">{item.field}</span></span>)}</p>
-    <p className="theory-card-status"><span className="claim-status" data-status="unknown"><span aria-hidden="true">○</span> unknown</span><span>Measurement in progress. Nothing measures the indicator yet.</span></p>
+    <p className="theory-card-status"><span className="claim-status" data-status="unknown"><span className="glyph" aria-hidden="true">○</span> unknown</span><span>Measurement in progress. Nothing measures the indicator yet.</span></p>
+    <figcaption className="meta">A product theory, written as one claim. Sample data.</figcaption>
   </figure>;
 }
 
@@ -46,17 +46,17 @@ const rules = [
 export function ClaimAnatomy() {
   return <div className="claim-anatomy">
     <article className="claim-sheet" aria-labelledby="claim-sheet-title">
-      <header><span className="term-label">claim</span><h3 id="claim-sheet-title">Loyalty points bring shoppers back</h3></header>
+      <header><h3 id="claim-sheet-title">Loyalty points bring shoppers back</h3><span className="meta">A claim</span></header>
       <dl className="claim-fields">
         {fields.map(([plain, field, value]) => <div key={field} data-claim-field={field}><dt>{plain} <span className="term-label">{field}</span></dt><dd>{value}</dd></div>)}
-        <div data-claim-field="status"><dt>Where it stands <span className="term-label">status</span></dt><dd><span className="claim-status" data-status="unknown"><span aria-hidden="true">○</span> unknown</span> Measurement in progress.</dd></div>
+        <div data-claim-field="status"><dt>Where it stands <span className="term-label">status</span></dt><dd><span className="claim-status" data-status="unknown"><span className="glyph" aria-hidden="true">○</span> unknown</span> Measurement in progress.</dd></div>
       </dl>
     </article>
     <div className="claim-side">
       <section aria-labelledby="claim-status-heading">
         <h3 id="claim-status-heading">Four honest answers</h3>
         <ul className="claim-statuses">
-          {statuses.map(([glyph, status, meaning]) => <li key={status} data-status={status} aria-current={status === 'unknown' ? 'true' : undefined}><span className="claim-status" data-status={status}><span aria-hidden="true">{glyph}</span> {status}</span><span>{meaning}</span></li>)}
+          {statuses.map(([glyph, status, meaning]) => <li key={status} data-status={status} aria-current={status === 'unknown' ? 'true' : undefined}><span className="claim-status" data-status={status}><span className="glyph" aria-hidden="true">{glyph}</span> {status}</span><span>{meaning}</span></li>)}
         </ul>
         <p className="claim-note">None of them is green. Measuring indicators automatically is still being built, so today every claim on this page reads unknown.</p>
       </section>

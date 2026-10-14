@@ -11,6 +11,13 @@ if (document.querySelector('[data-ambient]')) {
     import('./effects').then(({ mountEffects }) => mountEffects()).catch(() => {});
   }));
 }
+// Disclosures that are open in the markup (so no-JS shows everything) collapse on narrow screens, except those marked to stay open.
+for (const details of document.querySelectorAll<HTMLDetailsElement>('details[data-collapse-below]')) {
+  const narrow = matchMedia('(max-width: ' + (Number(details.dataset.collapseBelow) - 1) + 'px)');
+  const sync = () => { details.open = !narrow.matches || details.hasAttribute('data-keep-open'); };
+  sync();
+  narrow.addEventListener('change', sync);
+}
 for (const button of document.querySelectorAll<HTMLButtonElement>('[data-copy]')) {
   button.hidden = false;
   button.addEventListener('click', async () => {
