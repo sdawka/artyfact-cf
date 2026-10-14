@@ -1,0 +1,4 @@
+.combo { display: inline-flex; align-items: center; gap: 2px; font: var(--type-hint); color: var(--color-text-secondary); white-space: nowrap; }
+.part { display: inline-flex; align-items: center; gap: 2px; }
+.key { display: inline-block; min-width: 1.6em; padding: 0 var(--spacing-1); font: var(--type-hint); text-align: center; color: var(--color-text-primary); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-sm); }
+.sep { padding-inline: 1px; color: var(--color-text-subtle); }

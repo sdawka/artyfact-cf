@@ -1,0 +1,30 @@
+.header { display: grid; gap: var(--spacing-2); margin-bottom: var(--spacing-8); min-width: 0; }
+.top { display: flex; flex-wrap: wrap; align-items: flex-start; justify-content: space-between; gap: var(--spacing-3) var(--spacing-6); }
+.titleRow { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-2) var(--spacing-4); min-width: 0; }
+.title { margin: 0; font: var(--type-h1); letter-spacing: var(--type-h1-tracking); color: var(--color-text-primary); overflow-wrap: anywhere; }
+.header[data-variant="system"] .title { font: var(--type-system); letter-spacing: var(--type-h1-tracking); }
+.header[data-variant="compact"] { margin-bottom: var(--spacing-4); }
+.header[data-variant="compact"] .title { font: var(--type-h1-compact); }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }
+.purpose { margin: 0; max-width: var(--measure-body); font: var(--type-body); color: var(--color-text-secondary); }
+.status { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }
+.extra { min-width: 0; }
+.context { min-width: 0; }
+.scope ol { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-1) var(--spacing-2); margin: 0; padding: 0; list-style: none; font: var(--type-meta); color: var(--color-text-secondary); }
+.scope li { display: inline-flex; align-items: baseline; gap: var(--spacing-2); min-width: 0; }
+.scope li + li::before { content: "/"; color: var(--color-text-subtle); }
+.scope a { color: var(--color-text-secondary); }
+.scope a:hover { color: var(--color-text-primary); }
+.scope [aria-current] { color: var(--color-text-primary); }
+
+/* Narrow: actions wrap under the purpose, left-aligned, primary first. */
+@media (max-width: 639px) {
+  .top { display: contents; }
+  .header { grid-template-columns: minmax(0, 1fr); }
+  .titleRow { order: 1; }
+  .context { order: 0; }
+  .purpose { order: 2; }
+  .actions { order: 3; flex-direction: row-reverse; justify-content: flex-end; }
+  .status { order: 4; }
+  .extra { order: 5; }
+}
