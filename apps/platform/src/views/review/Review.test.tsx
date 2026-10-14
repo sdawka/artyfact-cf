@@ -299,7 +299,7 @@ describe("PromotionPanel", () => {
   });
 
   it("renders blocking and advisory groups from a server refusal", async () => {
-    stubApi(() => json(409, { error: { code: "blocked", message: "refused", details: { blocking: [{ candidate: "cand.1", criterion: "C.webapp.exists", severity: "hard", verdict: "missing", execution: "missing" }], advisories: [{ candidate: "cand.1", criterion: "C.webapp.screen.people", severity: "soft", verdict: "unknown", execution: "completed" }] } } }), allPass());
+    stubApi(() => json(409, { error: { code: "blocked", message: "refused", details: { criteria: [{ candidate: "cand.1", criterion: "C.webapp.exists", severity: "hard", verdict: "missing", execution: "missing" }], advisories: [{ candidate: "cand.1", criterion: "C.webapp.screen.people", severity: "soft", verdict: "unknown", execution: "completed" }] } } }), allPass());
     renderApp(url, undefined, seed({ api: true, evals: allPass() }));
     await fill();
     fireEvent.click(submit());
@@ -402,9 +402,9 @@ describe("Import review", () => {
     expect(within(panel).getByTestId("import-summary").textContent).toBe("3 nodes: 3 agreed · 0 rejected");
     expect(accept().disabled).toBe(false);
     expect(accept().textContent).toBe("Accept import");
-    // There is no reject route: the button says why it is disabled.
-    expect((within(panel).getByRole("button", { name: "Reject import" }) as HTMLButtonElement).disabled).toBe(true);
-    expect(within(panel).getByText(/cannot reject an import yet/)).toBeTruthy();
+    // An import is never rejected whole: no such button, and the panel says what to do instead.
+    expect(within(panel).queryByRole("button", { name: "Reject import" })).toBeNull();
+    expect(within(panel).getByText(/delete the System and import it again/)).toBeTruthy();
   });
 
   it("sends the effectively rejected nodes with the interpretation and links the removal amendment", async () => {

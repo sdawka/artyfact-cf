@@ -630,9 +630,10 @@ export interface StaleBaseResponse extends ApiError {
 /**
  * 409 `blocked`: a blocking criterion lacks pass+completed. 400 `advisories-unacknowledged`:
  * no blocking items, but advisories exist and the rationale is empty (a request the caller fixes by adding one).
+ * `criteria` lists the blocking items. Legacy promote and accept and plan promote answer alike.
  */
 export interface PromoteBlockedResponse extends ApiError {
-  error: { code: "blocked" | "advisories-unacknowledged"; message: string; details: { blocking: GateItem[]; advisories: GateItem[] } };
+  error: { code: "blocked" | "advisories-unacknowledged"; message: string; details: { criteria: GateItem[]; advisories: GateItem[] } };
 }
 
 /** One System One review of a changed node (`reviewDelta`): the model proposes, policy decides. */
@@ -1389,7 +1390,7 @@ export interface SystemImportReviewAccept {
 export interface SystemImportReviewAcceptResponse {
   review: SystemImportReview;
   /** The accepted amendment that removed `rejectedNodes`, when there were any. */
-  amendment?: { evolution: NodeId; realization: string; candidate: string; systemCommit?: string };
+  amendment?: { evolution: string; realization: string; candidate: string; systemCommit?: string };
   /** Live Evolutions whose acceptance criteria the removal deletes (their gates fail closed). */
   warnings?: string[];
 }

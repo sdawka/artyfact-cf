@@ -457,13 +457,13 @@ describe("routes: import → model → start → submit → promote", () => {
     const res = await call<ApiError>("POST", `/systems/${systemId}/promote`, { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "" }, ADMIN);
     expect(res.status).toBe(409);
     expect(res.json.error.code).toBe("blocked");
-    const details = res.json.error.details as { blocking: { criterion: string }[]; advisories: { criterion: string }[] };
+    const details = res.json.error.details as { criteria: { criterion: string }[]; advisories: { criterion: string }[] };
     // Pool = acceptance ∪ promotion-gated, then hard + bound hook blocks. C.people.list is acceptance though gated
     // [submission] only; C.people.audit is [promotion] only. C.people.sorted (soft, no hook) is an advisory.
-    expect(details.blocking.map((b) => b.criterion).sort()).toEqual(["C.people.audit", "C.people.list", "C.system.promotion", "C.webapp.exists"]);
+    expect(details.criteria.map((b) => b.criterion).sort()).toEqual(["C.people.audit", "C.people.list", "C.system.promotion", "C.webapp.exists"]);
     expect(details.advisories.map((b) => b.criterion)).toContain("C.people.sorted");
     // C.people.lint is [submission] only and not acceptance: a failing evaluation neither blocks nor advises.
-    expect([...details.blocking, ...details.advisories].map((b) => b.criterion)).not.toContain("C.people.lint");
+    expect([...details.criteria, ...details.advisories].map((b) => b.criterion)).not.toContain("C.people.lint");
   });
 
   it("C.system.promotion blocks without promotionFacts and passes with them", async () => {
@@ -477,7 +477,7 @@ describe("routes: import → model → start → submit → promote", () => {
     const body = { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "ok" };
     const blocked = await call<ApiError>("POST", `/systems/${systemId}/promote`, body, ADMIN);
     expect(blocked.status).toBe(409);
-    expect(blocked.json.error).toMatchObject({ code: "blocked", details: { blocking: [{ criterion: "C.system.promotion", verdict: "unknown", execution: "not-run" }] } });
+    expect(blocked.json.error).toMatchObject({ code: "blocked", details: { criteria: [{ criterion: "C.system.promotion", verdict: "unknown", execution: "not-run" }] } });
     useFacts = true;
     const ok = await call<PromoteResponse>("POST", `/systems/${systemId}/promote`, body, ADMIN);
     expect(ok.status, JSON.stringify(ok.json)).toBe(200);
@@ -494,7 +494,7 @@ describe("routes: import → model → start → submit → promote", () => {
     const body = { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "" };
     const refused = await call<ApiError>("POST", `/systems/${systemId}/promote`, body, ADMIN);
     expect(refused.status).toBe(400);
-    expect(refused.json.error).toMatchObject({ code: "advisories-unacknowledged", details: { blocking: [], advisories: [{ criterion: "C.people.sorted", severity: "soft", verdict: "fail" }] } });
+    expect(refused.json.error).toMatchObject({ code: "advisories-unacknowledged", details: { criteria: [], advisories: [{ criterion: "C.people.sorted", severity: "soft", verdict: "fail" }] } });
     const ok = await call<PromoteResponse>("POST", `/systems/${systemId}/promote`, { ...body, rationale: "sorting follows next week" }, ADMIN);
     expect(ok.status, JSON.stringify(ok.json)).toBe(200);
     expect(ok.json.advisories.map((x) => x.criterion)).toEqual(["C.people.sorted"]);
@@ -510,7 +510,7 @@ describe("routes: import → model → start → submit → promote", () => {
     const res = await call<ApiError>("POST", `/systems/${systemId}/promote`, { candidates: [sub.json.candidate.id], expectedHead: imp.head, rationale: "x" }, ADMIN);
     expect(res.status).toBe(409);
     expect(seen.at(-1)!.promotionFacts).toMatchObject({ manifestExact: false, evidenceFresh: false });
-    expect(res.json.error).toMatchObject({ code: "blocked", details: { blocking: [{ criterion: "C.system.promotion", verdict: "fail", execution: "completed" }] } });
+    expect(res.json.error).toMatchObject({ code: "blocked", details: { criteria: [{ criterion: "C.system.promotion", verdict: "fail", execution: "completed" }] } });
   });
 
   it("stores a failed conflict run as an error instead of hiding it", async () => {
@@ -692,7 +692,7 @@ describe("routes: import → model → start → submit → promote", () => {
     expect(res.status).toBe(409);
     expect(res.json.error.code).toBe("blocked");
     // Only model-level criteria gate a Genome candidate; the artifact criteria gate app candidates.
-    expect((res.json.error.details as { blocking: { criterion: string }[] }).blocking.map((b) => b.criterion)).toEqual(["C.system.promotion"]);
+    expect((res.json.error.details as { criteria: { criterion: string }[] }).criteria.map((b) => b.criterion)).toEqual(["C.system.promotion"]);
     expect((await call<ModelBundle>("GET", `/systems/${systemId}/model`)).json.genomeCommit).toBe(imp.genomeCommit);
   });
 

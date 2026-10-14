@@ -18,7 +18,7 @@ import type { CandidateRef, SubmissionContext } from './hooks/contract';
 import { pushCommit, type FileChange } from './git/push';
 import { protectedPathsFor } from './packets/task-packet';
 import { gateCriteria, hooksOf } from './promotion';
-import { evidenceFresh, genomeAt, refreshRegistry, revokeEnded, systemStub } from './service';
+import { evidenceFresh, gateRefusal, genomeAt, refreshRegistry, revokeEnded, systemStub } from './service';
 import { lifecyclePacket } from './packets/lifecycle-packet';
 import { taskDefinitions } from './tasks/definitions';
 import { sha256Hex } from './util';
@@ -79,7 +79,10 @@ export async function startLifecycleTask(env:Env,sid:string,pid:string,tid:strin
   const reviewUrl=`${platformUrl.replace(/\/$/,'')}/s/${encodeURIComponent(sid)}/r/head/work?plan=${encodeURIComponent(pid)}`;
   const current=taskOf(plan,tid),packet=lifecyclePacket({plan,task:current,attempt:current.attempts.at(-1)!,remote,reviewUrl});
   out={plan,task:current,attempt:current.attempts.at(-1)!,secret,token:{value:token.plaintext,expiresAt:token.expiresAt,remote},remote,packet,reviewUrl};
- }catch(e){if(tokenId)await withRepo(artifactsFor(env),task.forkRepo,r=>r.revokeToken(tokenId!)).then(()=>stub.lifecycleCredentialRevoked(attempt.realizationId,tokenId!)).catch(()=>{});await stub.lifecycleEnd(pid,tid,attempt.id,attempt.generation).catch(()=>{});await refresh(env,sid);throw e;}
+ }catch(e){
+  const log=(what:string)=>(w:unknown)=>console.error(`[lifecycle] ${what} after a failed ${resume?'resume':'claim'} of ${pid}/${tid} failed: ${(w as Error)?.message??w}`);
+  if(tokenId)await withRepo(artifactsFor(env),task.forkRepo,r=>r.revokeToken(tokenId!)).then(()=>stub.lifecycleCredentialRevoked(attempt.realizationId,tokenId!)).catch(log(`revoking token ${tokenId}`));
+  await stub.lifecycleEnd(pid,tid,attempt.id,attempt.generation).catch(log(`ending attempt ${attempt.id}`));await refresh(env,sid);throw e;}
  // Outside the try: the claim is live and credentials are minted; nothing after this may undo them.
  await refresh(env,sid);return out;
 }
@@ -127,7 +130,9 @@ export async function submitLifecycleTask(env:Env,sid:string,pid:string,tid:stri
 }
 export async function selectLifecycleTask(env:Env,sid:string,pid:string,tid:string,body:unknown):Promise<RealizationPlan> {
  const i=parse(selectSchema,body),stub=systemStub(env,sid),p=await rpc(stub.realizationPlan(pid)),task=taskOf(p,tid),last=task.attempts.at(-1);await assertGenomeCompatible(env,p);
- const plan=await rpc(stub.lifecycleSelect(pid,tid,i.candidateId));if(last){const rec=await stub.realization(last.realizationId);if(rec?.tokenId)await withRepo(artifactsFor(env),task.forkRepo,r=>r.revokeToken(rec.tokenId!));}
+ const plan=await rpc(stub.lifecycleSelect(pid,tid,i.candidateId));
+ // The selection has landed; revoking the attempt's write token is best-effort (it also expires with the lease).
+ if(last)await stub.realization(last.realizationId).then(rec=>rec?.tokenId?withRepo(artifactsFor(env),task.forkRepo,r=>r.revokeToken(rec.tokenId!)):undefined).catch(w=>console.error(`[lifecycle] revoking the write token of ${pid}/${tid} after select failed: ${(w as Error)?.message??w}`));
  await refresh(env,sid);return plan;
 }
 
@@ -224,8 +229,6 @@ export async function promoteLifecyclePlan(env:Env,sid:string,pid:string,body:un
  const out=await rpc(stub.lifecyclePromote(pid,{...input,gates,by:'admin'}));if(!out.ok)throw gateRefusal(out);const result=out;await revokeEnded(env,sid,result.ended);await refresh(env,sid);return {plan:result.plan,commit:result.commit};
 }
 
-/** A plan gate refusal as 409 with the criteria behind it: `blocking` (hard items not passing) and `advisories`. */
-function gateRefusal(out:{code:string;blocking:GateItem[];advisories:GateItem[]}){const details={criteria:out.blocking,advisories:out.advisories};return out.code==='advisories-unacknowledged'?conflict(out.code,'advisory criteria are not green; acknowledge them with a non-empty rationale',details):conflict('blocked',`promotion blocked by ${out.blocking.length} hard criteria`,details);}
 
 async function prepareFanInBase(env:Env,p:RealizationPlan,t:Task):Promise<{source:ArtifactBinding;selections:string[]}|undefined> {
  const same=t.dependsOn.map(id=>taskOf(p,id)).filter(d=>d.artifactId===t.artifactId);

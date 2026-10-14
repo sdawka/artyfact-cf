@@ -955,9 +955,9 @@ async function prepareGate(
   return { g, gates };
 }
 
-/** Map a DO gate refusal to its HTTP error (the same for promote and accept). */
-function gateRefusal(out: { code: string; blocking: GateItem[]; advisories: GateItem[] }): HttpError {
-  const details = { blocking: out.blocking, advisories: out.advisories };
+/** Map a DO gate refusal to its HTTP error: the same for legacy promote and accept and for plan promote. */
+export function gateRefusal(out: { code: string; blocking: GateItem[]; advisories: GateItem[] }): HttpError {
+  const details = { criteria: out.blocking, advisories: out.advisories };
   if (out.code === "advisories-unacknowledged") {
     return new HttpError(400, out.code, "advisory criteria are not green; acknowledge them with a non-empty rationale", details);
   }

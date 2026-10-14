@@ -175,7 +175,7 @@ function ImportDecision({ accept, fixture, blocker, rejected, outcome }: {
   const [interpretation, setInterpretation] = useState("");
   const [adminToken, setAdminToken] = useAdminTokenField();
   const [error, setError] = useState<string | null>(null);
-  const ids = { interp: useId(), why: useId(), reject: useId(), token: useId() };
+  const ids = { interp: useId(), why: useId(), token: useId() };
   const acceptWhy = outcome ? null : fixture ? "Accepting needs the platform API. The UI is showing fixture data." : blocker;
 
   const doAccept = () => {
@@ -218,11 +218,10 @@ function ImportDecision({ accept, fixture, blocker, rejected, outcome }: {
       {accept.error && <p className={styles.error} role="alert">{accept.error.message}</p>}
       {!outcome && (
         <div className={styles.actions}>
-          {/* TODO(contract): no reject route for an import review (only `POST …/import-review/accept`); see the SPA-S4 report. */}
-          <button type="button" className="u-brackets" disabled aria-describedby={ids.reject}>Reject import</button>
-          <p id={ids.reject} className={styles.muted}>
-            The platform cannot reject an import yet. Reject the nodes that should not be there and accept the rest, or
-            import the System again.
+          {/* By design an import is never rejected whole (backend.md B.10): reject nodes, or delete and re-import. */}
+          <p className={styles.muted}>
+            To drop part of the import, reject those nodes and accept the rest. To discard all of it, delete the System
+            and import it again.
           </p>
         </div>
       )}

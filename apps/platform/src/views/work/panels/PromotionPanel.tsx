@@ -17,12 +17,12 @@ import { emitFx } from "@/effects/fx";
 import { whyFor } from "../../code/why";
 import styles from "../work.module.css";
 
-/** `details` of a refused promotion: `{ blocking, advisories }`. */
+/** `details` of a refused promotion: `{ criteria, advisories }` (the blocking items are `criteria`). */
 function serverIssues(err: unknown): { blocking: unknown[]; advisories: unknown[] } | null {
   if (!(err instanceof ApiRequestError) || err instanceof StaleBaseError) return null;
-  const d = err.body?.error?.details as { blocking?: unknown[]; advisories?: unknown[] } | undefined;
-  if (!d || (!Array.isArray(d.blocking) && !Array.isArray(d.advisories))) return null;
-  return { blocking: d.blocking ?? [], advisories: d.advisories ?? [] };
+  const d = err.body?.error?.details as { criteria?: unknown[]; advisories?: unknown[] } | undefined;
+  if (!d || (!Array.isArray(d.criteria) && !Array.isArray(d.advisories))) return null;
+  return { blocking: d.criteria ?? [], advisories: d.advisories ?? [] };
 }
 
 interface GateItemLike { candidate?: string; criterion: string; severity?: string; verdict?: string; execution?: string }

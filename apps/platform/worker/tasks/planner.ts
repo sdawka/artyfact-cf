@@ -22,7 +22,7 @@ import { listTree } from "../artifacts/genome-source";
 import { badRequest, notFound } from "../errors";
 import { genomeAt, systemStub } from "../service";
 import { globMatch } from "../artifacts/source-map";
-import { CONTRACT_RELS, expandNodes, taskDefinitions } from "./definitions";
+import { contractDependencies, expandNodes, taskDefinitions } from "./definitions";
 import { taskFootprint } from "./footprint";
 import { plannerFromEnv, type PlanContext, type Planner, type PlanReplyTask } from "./planner-llm";
 
@@ -578,13 +578,7 @@ function components(deps: number[][]): number[][] {
 }
 
 /** Create's derived dependencies between drafts, as index edges (task → the tasks whose writes it reads). */
-function contractDeps(m: SystemModel, drafts: TaskDraft[]): number[][] {
-  const writes = drafts.map((d) => expandNodes(m, d.nodes));
-  return drafts.map((_, j) => {
-    const reads = writes[j].flatMap((n) => (m.index.linksOut[n] ?? []).filter((l) => CONTRACT_RELS.has(l.rel)).map((l) => l.to));
-    return drafts.flatMap((_, k) => (k !== j && writes[k].some((n) => reads.includes(n)) ? [k] : []));
-  });
-}
+const contractDeps = (m: SystemModel, drafts: TaskDraft[]): number[][] => contractDependencies(m, drafts.map((d) => expandNodes(m, d.nodes)));
 
 /**
  * Drops planner dependencies that close a cycle with create's derived ones, then merges drafts that the derived
