@@ -902,6 +902,91 @@
         "provisional": false
       },
       {
+        "name": "ContactRecord",
+        "description": "ID, ownerAccountId, display name, optional channels and linkedAccountId; belongs to one owner. A ContactRecord is a person's private representation of another person. Linking it to an Account does not transfer ownership or reveal notes",
+        "source": {
+          "doc": "peopling-world-specification",
+          "section": "5"
+        },
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "ownerAccountId",
+            "type": "ref:entity.Account",
+            "optional": false
+          },
+          {
+            "name": "displayName",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "channels",
+            "type": "list<json>",
+            "optional": true
+          },
+          {
+            "name": "linkedAccountId",
+            "type": "ref:entity.Account",
+            "optional": true
+          },
+          {
+            "name": "version",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "invariants": [
+          "Belongs to one owner",
+          "Owner-only",
+          "Linking to an Account does not transfer ownership or reveal notes",
+          "At most one linked contact per owner and counterpart account"
+        ],
+        "id": "entity.ContactRecord",
+        "kind": "entity",
+        "parent": "section.contacts",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [
+          {
+            "rel": "storedIn",
+            "to": "binding.contactsStore",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "provisional": false
+      },
+      {
+        "name": "Contacts",
+        "description": "The contact record, owned by one account and written by the contact routes",
+        "id": "section.contacts",
+        "kind": "section",
+        "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
         "name": "Account",
         "description": "ID, identity-provider subject, display name, time zone and notification preferences; one authenticated owner",
         "source": {
@@ -1108,152 +1193,6 @@
           "Allows one successful acceptance"
         ],
         "id": "entity.ConnectionInvite",
-        "kind": "entity",
-        "parent": "section.domain",
-        "owningThing": "thing.webapp",
-        "revision": 1,
-        "refines": [],
-        "links": [
-          {
-            "rel": "storedIn",
-            "to": "binding.contactsStore",
-            "direction": "out",
-            "certainty": "declared"
-          }
-        ],
-        "states": [],
-        "roles": [],
-        "preconditions": [],
-        "effects": [],
-        "failure": [],
-        "provisional": false
-      },
-      {
-        "name": "ContactEvent",
-        "description": "ID, owner, ContactRecord, time, channel, self-reported depth and optional private note; one contact target",
-        "source": {
-          "doc": "peopling-world-specification",
-          "section": "5"
-        },
-        "fields": [
-          {
-            "name": "id",
-            "type": "string",
-            "optional": false
-          },
-          {
-            "name": "ownerAccountId",
-            "type": "ref:entity.Account",
-            "optional": false
-          },
-          {
-            "name": "contactRecordId",
-            "type": "ref:entity.ContactRecord",
-            "optional": false
-          },
-          {
-            "name": "occurredAt",
-            "type": "timestamp",
-            "optional": false
-          },
-          {
-            "name": "channel",
-            "type": "string",
-            "optional": false
-          },
-          {
-            "name": "selfReportedDepth",
-            "type": "enum light|meaningful|shared-time",
-            "optional": false
-          },
-          {
-            "name": "privateNote",
-            "type": "string",
-            "optional": true
-          },
-          {
-            "name": "qualifiedGoalId",
-            "type": "ref:entity.RelationshipGoal",
-            "optional": true
-          },
-          {
-            "name": "qualifiedDepth",
-            "type": "enum light|meaningful|shared-time",
-            "optional": true
-          }
-        ],
-        "invariants": [
-          "One contact target",
-          "Qualifies only when the owner explicitly marks that it met this goal",
-          "Records the goal ID and desiredDepth at confirmation"
-        ],
-        "id": "entity.ContactEvent",
-        "kind": "entity",
-        "parent": "section.domain",
-        "owningThing": "thing.webapp",
-        "revision": 1,
-        "refines": [],
-        "links": [
-          {
-            "rel": "storedIn",
-            "to": "binding.contactsStore",
-            "direction": "out",
-            "certainty": "declared"
-          }
-        ],
-        "states": [],
-        "roles": [],
-        "preconditions": [],
-        "effects": [],
-        "failure": [],
-        "provisional": false
-      },
-      {
-        "name": "ContactRecord",
-        "description": "ID, ownerAccountId, display name, optional channels and linkedAccountId; belongs to one owner. A ContactRecord is a person's private representation of another person. Linking it to an Account does not transfer ownership or reveal notes",
-        "source": {
-          "doc": "peopling-world-specification",
-          "section": "5"
-        },
-        "fields": [
-          {
-            "name": "id",
-            "type": "string",
-            "optional": false
-          },
-          {
-            "name": "ownerAccountId",
-            "type": "ref:entity.Account",
-            "optional": false
-          },
-          {
-            "name": "displayName",
-            "type": "string",
-            "optional": false
-          },
-          {
-            "name": "channels",
-            "type": "list<json>",
-            "optional": true
-          },
-          {
-            "name": "linkedAccountId",
-            "type": "ref:entity.Account",
-            "optional": true
-          },
-          {
-            "name": "version",
-            "type": "int",
-            "optional": false
-          }
-        ],
-        "invariants": [
-          "Belongs to one owner",
-          "Owner-only",
-          "Linking to an Account does not transfer ownership or reveal notes",
-          "At most one linked contact per owner and counterpart account"
-        ],
-        "id": "entity.ContactRecord",
         "kind": "entity",
         "parent": "section.domain",
         "owningThing": "thing.webapp",
@@ -1513,91 +1452,6 @@
         "provisional": false
       },
       {
-        "name": "RelationshipGoal",
-        "description": "ID, owner, ContactRecord, intervalDays, desiredDepth, channel, anchorDate, pause and snooze; owner-only",
-        "source": {
-          "doc": "peopling-world-specification",
-          "section": "5"
-        },
-        "fields": [
-          {
-            "name": "id",
-            "type": "string",
-            "optional": false
-          },
-          {
-            "name": "ownerAccountId",
-            "type": "ref:entity.Account",
-            "optional": false
-          },
-          {
-            "name": "contactRecordId",
-            "type": "ref:entity.ContactRecord",
-            "optional": false
-          },
-          {
-            "name": "intervalDays",
-            "type": "int 1..3650",
-            "optional": false
-          },
-          {
-            "name": "desiredDepth",
-            "type": "enum light|meaningful|shared-time",
-            "optional": false
-          },
-          {
-            "name": "channel",
-            "type": "string",
-            "optional": true
-          },
-          {
-            "name": "anchorDate",
-            "type": "local-date",
-            "optional": false
-          },
-          {
-            "name": "pausedAt",
-            "type": "timestamp",
-            "optional": true
-          },
-          {
-            "name": "snoozedUntil",
-            "type": "local-date",
-            "optional": true
-          },
-          {
-            "name": "version",
-            "type": "int",
-            "optional": false
-          }
-        ],
-        "invariants": [
-          "Owner-only",
-          "At most one current goal per owned contact",
-          "Goal is never exposed to its contact"
-        ],
-        "id": "entity.RelationshipGoal",
-        "kind": "entity",
-        "parent": "section.domain",
-        "owningThing": "thing.webapp",
-        "revision": 1,
-        "refines": [],
-        "links": [
-          {
-            "rel": "storedIn",
-            "to": "binding.contactsStore",
-            "direction": "out",
-            "certainty": "declared"
-          }
-        ],
-        "states": [],
-        "roles": [],
-        "preconditions": [],
-        "effects": [],
-        "failure": [],
-        "provisional": false
-      },
-      {
         "name": "Subscription",
         "description": "Subscriber, author, approval, start time and state; directed and independently revocable",
         "source": {
@@ -1803,58 +1657,6 @@
         "provisional": false
       },
       {
-        "name": "Log or revise contact",
-        "description": "Owned contact, nonfuture event time. Persist event; recompute affected goals without sending anything",
-        "source": {
-          "doc": "peopling-world-specification",
-          "section": "6"
-        },
-        "preconditions": [
-          "Owned contact",
-          "Nonfuture event time"
-        ],
-        "effects": [
-          "Persist event",
-          "Recompute affected goals without sending anything",
-          "Logging qualifying contact resolves its suggestion"
-        ],
-        "failure": [
-          "Future event time is rejected",
-          "Stale version returns conflict"
-        ],
-        "id": "operation.contact.log",
-        "kind": "operation",
-        "parent": "section.domain",
-        "owningThing": "thing.webapp",
-        "revision": 1,
-        "refines": [],
-        "links": [
-          {
-            "rel": "reads",
-            "to": "entity.RelationshipGoal",
-            "direction": "out",
-            "certainty": "declared"
-          },
-          {
-            "rel": "writes",
-            "to": "entity.ContactEvent",
-            "direction": "out",
-            "certainty": "declared"
-          },
-          {
-            "rel": "writes",
-            "to": "entity.Suggestion",
-            "direction": "out",
-            "certainty": "declared"
-          }
-        ],
-        "states": [],
-        "roles": [],
-        "fields": [],
-        "invariants": [],
-        "provisional": false
-      },
-      {
         "name": "Create or edit private contact",
         "description": "Owner session; nonblank name. Save only that owner's record; editing does not send invitations",
         "source": {
@@ -1994,65 +1796,6 @@
         "provisional": false
       },
       {
-        "name": "Save goal",
-        "description": "Owned contact and valid interval. Increment goal version, recompute due state and cancel obsolete jobs",
-        "source": {
-          "doc": "peopling-world-specification",
-          "section": "6"
-        },
-        "preconditions": [
-          "Owned contact",
-          "Valid interval"
-        ],
-        "effects": [
-          "Increment goal version",
-          "Recompute due state",
-          "Cancel obsolete jobs",
-          "Revising a goal must not create a ContactEvent"
-        ],
-        "failure": [
-          "Invalid interval is rejected with a validation error",
-          "Stale version returns conflict"
-        ],
-        "id": "operation.goal.save",
-        "kind": "operation",
-        "parent": "section.domain",
-        "owningThing": "thing.webapp",
-        "revision": 1,
-        "refines": [],
-        "links": [
-          {
-            "rel": "reads",
-            "to": "entity.ContactRecord",
-            "direction": "out",
-            "certainty": "declared"
-          },
-          {
-            "rel": "writes",
-            "to": "entity.RelationshipGoal",
-            "direction": "out",
-            "certainty": "declared"
-          },
-          {
-            "rel": "writes",
-            "to": "entity.Suggestion",
-            "direction": "out",
-            "certainty": "declared"
-          },
-          {
-            "rel": "writes",
-            "to": "entity.NotificationJob",
-            "direction": "out",
-            "certainty": "declared"
-          }
-        ],
-        "states": [],
-        "roles": [],
-        "fields": [],
-        "invariants": [],
-        "provisional": false
-      },
-      {
         "name": "Accept invite",
         "description": "Signed-in distinct invitee, valid unused credential, no block in either direction. Atomically consume invite and create or return the unique active pair",
         "source": {
@@ -2135,6 +1878,320 @@
           {
             "rel": "writes",
             "to": "entity.ConnectionInvite",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "states": [],
+        "roles": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "name": "ContactEvent",
+        "description": "ID, owner, ContactRecord, time, channel, self-reported depth and optional private note; one contact target",
+        "source": {
+          "doc": "peopling-world-specification",
+          "section": "5"
+        },
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "ownerAccountId",
+            "type": "ref:entity.Account",
+            "optional": false
+          },
+          {
+            "name": "contactRecordId",
+            "type": "ref:entity.ContactRecord",
+            "optional": false
+          },
+          {
+            "name": "occurredAt",
+            "type": "timestamp",
+            "optional": false
+          },
+          {
+            "name": "channel",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "selfReportedDepth",
+            "type": "enum light|meaningful|shared-time",
+            "optional": false
+          },
+          {
+            "name": "privateNote",
+            "type": "string",
+            "optional": true
+          },
+          {
+            "name": "qualifiedGoalId",
+            "type": "ref:entity.RelationshipGoal",
+            "optional": true
+          },
+          {
+            "name": "qualifiedDepth",
+            "type": "enum light|meaningful|shared-time",
+            "optional": true
+          }
+        ],
+        "invariants": [
+          "One contact target",
+          "Qualifies only when the owner explicitly marks that it met this goal",
+          "Records the goal ID and desiredDepth at confirmation"
+        ],
+        "id": "entity.ContactEvent",
+        "kind": "entity",
+        "parent": "section.events",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [
+          {
+            "rel": "storedIn",
+            "to": "binding.contactsStore",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "provisional": false
+      },
+      {
+        "name": "Contact events",
+        "description": "Logged contact events and how they qualify against goals",
+        "id": "section.events",
+        "kind": "section",
+        "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "name": "Log or revise contact",
+        "description": "Owned contact, nonfuture event time. Persist event; recompute affected goals without sending anything",
+        "source": {
+          "doc": "peopling-world-specification",
+          "section": "6"
+        },
+        "preconditions": [
+          "Owned contact",
+          "Nonfuture event time"
+        ],
+        "effects": [
+          "Persist event",
+          "Recompute affected goals without sending anything",
+          "Logging qualifying contact resolves its suggestion"
+        ],
+        "failure": [
+          "Future event time is rejected",
+          "Stale version returns conflict"
+        ],
+        "id": "operation.contact.log",
+        "kind": "operation",
+        "parent": "section.events",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [
+          {
+            "rel": "reads",
+            "to": "entity.RelationshipGoal",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "writes",
+            "to": "entity.ContactEvent",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "writes",
+            "to": "entity.Suggestion",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "states": [],
+        "roles": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "name": "RelationshipGoal",
+        "description": "ID, owner, ContactRecord, intervalDays, desiredDepth, channel, anchorDate, pause and snooze; owner-only",
+        "source": {
+          "doc": "peopling-world-specification",
+          "section": "5"
+        },
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "ownerAccountId",
+            "type": "ref:entity.Account",
+            "optional": false
+          },
+          {
+            "name": "contactRecordId",
+            "type": "ref:entity.ContactRecord",
+            "optional": false
+          },
+          {
+            "name": "intervalDays",
+            "type": "int 1..3650",
+            "optional": false
+          },
+          {
+            "name": "desiredDepth",
+            "type": "enum light|meaningful|shared-time",
+            "optional": false
+          },
+          {
+            "name": "channel",
+            "type": "string",
+            "optional": true
+          },
+          {
+            "name": "anchorDate",
+            "type": "local-date",
+            "optional": false
+          },
+          {
+            "name": "pausedAt",
+            "type": "timestamp",
+            "optional": true
+          },
+          {
+            "name": "snoozedUntil",
+            "type": "local-date",
+            "optional": true
+          },
+          {
+            "name": "version",
+            "type": "int",
+            "optional": false
+          }
+        ],
+        "invariants": [
+          "Owner-only",
+          "At most one current goal per owned contact",
+          "Goal is never exposed to its contact"
+        ],
+        "id": "entity.RelationshipGoal",
+        "kind": "entity",
+        "parent": "section.goals",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [
+          {
+            "rel": "storedIn",
+            "to": "binding.contactsStore",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "provisional": false
+      },
+      {
+        "name": "Goals",
+        "description": "The goal entity and its save operation",
+        "id": "section.goals",
+        "kind": "section",
+        "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "name": "Save goal",
+        "description": "Owned contact and valid interval. Increment goal version, recompute due state and cancel obsolete jobs",
+        "source": {
+          "doc": "peopling-world-specification",
+          "section": "6"
+        },
+        "preconditions": [
+          "Owned contact",
+          "Valid interval"
+        ],
+        "effects": [
+          "Increment goal version",
+          "Recompute due state",
+          "Cancel obsolete jobs",
+          "Revising a goal must not create a ContactEvent"
+        ],
+        "failure": [
+          "Invalid interval is rejected with a validation error",
+          "Stale version returns conflict"
+        ],
+        "id": "operation.goal.save",
+        "kind": "operation",
+        "parent": "section.goals",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [
+          {
+            "rel": "reads",
+            "to": "entity.ContactRecord",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "writes",
+            "to": "entity.RelationshipGoal",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "writes",
+            "to": "entity.Suggestion",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "writes",
+            "to": "entity.NotificationJob",
             "direction": "out",
             "certainty": "declared"
           }
@@ -4399,6 +4456,65 @@
         "provisional": false
       },
       {
+        "name": "Refresh",
+        "actor": "ext.owner",
+        "trigger": "Owner opens or refreshes Today",
+        "preconditions": [
+          "Owner session"
+        ],
+        "effects": [
+          "Reads current goals and logged contact events to rebuild at most five prompts",
+          "Sends nothing"
+        ],
+        "failure": [
+          "Network error keeps the previous cards and renders one ErrorSummary"
+        ],
+        "id": "affordance.Today.refresh",
+        "kind": "affordance",
+        "parent": "component.TodayList",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [
+          {
+            "rel": "invokes",
+            "to": "operation.goal.save",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "invokes",
+            "to": "operation.contact.log",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "states": [],
+        "roles": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "name": "TodayList",
+        "cardinality": "exactly one",
+        "id": "component.TodayList",
+        "kind": "component",
+        "parent": "screen.today",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
         "name": "Today",
         "description": "Exactly PageHeading, TodayControls and SuggestionCollection; 0–5 cards, or one EmptyState inside the collection. Each card has one person label, reason, Open person, Log contact and Snooze controls",
         "source": {
@@ -4460,47 +4576,6 @@
         }
       },
       {
-        "id": "S.webapp.due",
-        "thing": "thing.webapp",
-        "title": "Due dates",
-        "text": "the app must use local calendar dates in the owner's IANA time zone. The anchor must be the latest qualifying event date, or the goal creation date when none exists. dueDate must equal anchor plus intervalDays. A goal must become due when today's date reaches dueDate, unless paused or snoozed until a later date. Revising a goal must not create a ContactEvent. Date and time-zone fixtures must cover daylight-saving changes.",
-        "refines": [
-          "GD.goals",
-          "GD.prompts"
-        ],
-        "subjects": [
-          "entity.RelationshipGoal",
-          "entity.Suggestion",
-          "operation.goal.save"
-        ],
-        "enabled": true,
-        "source": {
-          "doc": "peopling-world-specification",
-          "section": "6"
-        }
-      },
-      {
-        "id": "S.webapp.qualification",
-        "thing": "thing.webapp",
-        "title": "Goal qualification",
-        "text": "an enabled goal must have intervalDays from 1 through 3650 and desiredDepth in light, meaningful or shared-time. These are the owner's labels, not a global quality ranking. A ContactEvent must qualify only when the owner explicitly marks that it met this goal. The app must record the goal ID and desiredDepth at confirmation and count only qualifications matching the current desiredDepth. Changing depth may change which historical events qualify; SchedulePreview must show that effect before saving. Editing or deleting an event must recompute the schedule.",
-        "refines": [
-          "GD.goals",
-          "GD.prompts"
-        ],
-        "subjects": [
-          "entity.RelationshipGoal",
-          "entity.ContactEvent",
-          "component.SchedulePreview",
-          "operation.contact.log"
-        ],
-        "enabled": true,
-        "source": {
-          "doc": "peopling-world-specification",
-          "section": "6"
-        }
-      },
-      {
         "id": "S.webapp.operations",
         "thing": "thing.webapp",
         "title": "Operations",
@@ -4538,6 +4613,47 @@
           "operation.invite.accept",
           "entity.Connection",
           "policy.revocation"
+        ],
+        "enabled": true,
+        "source": {
+          "doc": "peopling-world-specification",
+          "section": "6"
+        }
+      },
+      {
+        "id": "S.webapp.due",
+        "thing": "thing.webapp",
+        "title": "Due dates",
+        "text": "the app must use local calendar dates in the owner's IANA time zone. The anchor must be the latest qualifying event date, or the goal creation date when none exists. dueDate must equal anchor plus intervalDays. A goal must become due when today's date reaches dueDate, unless paused or snoozed until a later date. Revising a goal must not create a ContactEvent. Date and time-zone fixtures must cover daylight-saving changes.",
+        "refines": [
+          "GD.goals",
+          "GD.prompts"
+        ],
+        "subjects": [
+          "entity.RelationshipGoal",
+          "entity.Suggestion",
+          "operation.goal.save"
+        ],
+        "enabled": true,
+        "source": {
+          "doc": "peopling-world-specification",
+          "section": "6"
+        }
+      },
+      {
+        "id": "S.webapp.qualification",
+        "thing": "thing.webapp",
+        "title": "Goal qualification",
+        "text": "an enabled goal must have intervalDays from 1 through 3650 and desiredDepth in light, meaningful or shared-time. These are the owner's labels, not a global quality ranking. A ContactEvent must qualify only when the owner explicitly marks that it met this goal. The app must record the goal ID and desiredDepth at confirmation and count only qualifications matching the current desiredDepth. Changing depth may change which historical events qualify; SchedulePreview must show that effect before saving. Editing or deleting an event must recompute the schedule.",
+        "refines": [
+          "GD.goals",
+          "GD.prompts"
+        ],
+        "subjects": [
+          "entity.RelationshipGoal",
+          "entity.ContactEvent",
+          "component.SchedulePreview",
+          "operation.contact.log"
         ],
         "enabled": true,
         "source": {
@@ -4939,32 +5055,6 @@
         ]
       },
       {
-        "id": "C.webapp.schedule.correct",
-        "version": 1,
-        "title": "Schedule correctness",
-        "claim": "Fixed-clock fixtures cover zero logs, qualification, interval and depth changes, time zones, DST, snooze, pause and deleted events",
-        "ownerKind": "thing",
-        "ownerId": "thing.webapp",
-        "subjectKind": "entity",
-        "subjectId": "entity.RelationshipGoal",
-        "targetKind": "artifact",
-        "sourceRefs": [
-          "S.webapp.qualification",
-          "S.webapp.due"
-        ],
-        "refines": [],
-        "satisfies": [],
-        "severity": "hard",
-        "gates": [
-          "candidate",
-          "promotion"
-        ],
-        "deferred": false,
-        "hooks": [
-          "hook.webapp.schedule.correct"
-        ]
-      },
-      {
         "id": "C.webapp.outgoing.single",
         "version": 1,
         "title": "Single outgoing target",
@@ -5088,6 +5178,32 @@
         "deferred": false,
         "hooks": [
           "hook.webapp.connection.consent"
+        ]
+      },
+      {
+        "id": "C.webapp.schedule.correct",
+        "version": 1,
+        "title": "Schedule correctness",
+        "claim": "Fixed-clock fixtures cover zero logs, qualification, interval and depth changes, time zones, DST, snooze, pause and deleted events",
+        "ownerKind": "thing",
+        "ownerId": "thing.webapp",
+        "subjectKind": "entity",
+        "subjectId": "entity.RelationshipGoal",
+        "targetKind": "artifact",
+        "sourceRefs": [
+          "S.webapp.qualification",
+          "S.webapp.due"
+        ],
+        "refines": [],
+        "satisfies": [],
+        "severity": "hard",
+        "gates": [
+          "candidate",
+          "promotion"
+        ],
+        "deferred": false,
+        "hooks": [
+          "hook.webapp.schedule.correct"
         ]
       },
       {
@@ -5513,27 +5629,6 @@
         "binding": "defined"
       },
       {
-        "id": "hook.webapp.schedule.correct",
-        "version": 1,
-        "assay": "webapp.schedule.correct",
-        "criteria": [
-          "C.webapp.schedule.correct"
-        ],
-        "tier": "execution",
-        "engine": "vitest",
-        "targetKind": "artifact",
-        "triggers": [
-          "candidate",
-          "promotion"
-        ],
-        "inputs": {
-          "fixture": "fixed-clock scheduling fixtures with IANA zones and DST"
-        },
-        "timeoutMs": 60000,
-        "costTier": "cheap",
-        "binding": "defined"
-      },
-      {
         "id": "hook.webapp.outgoing.single",
         "version": 1,
         "assay": "webapp.outgoing.single",
@@ -5633,6 +5728,27 @@
         ],
         "inputs": {
           "fixture": "invite state machine incl. concurrent redemption"
+        },
+        "timeoutMs": 60000,
+        "costTier": "cheap",
+        "binding": "defined"
+      },
+      {
+        "id": "hook.webapp.schedule.correct",
+        "version": 1,
+        "assay": "webapp.schedule.correct",
+        "criteria": [
+          "C.webapp.schedule.correct"
+        ],
+        "tier": "execution",
+        "engine": "vitest",
+        "targetKind": "artifact",
+        "triggers": [
+          "candidate",
+          "promotion"
+        ],
+        "inputs": {
+          "fixture": "fixed-clock scheduling fixtures with IANA zones and DST"
         },
         "timeoutMs": 60000,
         "costTier": "cheap",
@@ -7458,23 +7574,18 @@
       "policy.revocation": "thing.webapp/section.authorization/policy.revocation/node.yaml",
       "C.webapp.revocation.current": "thing.webapp/section.authorization/policy.revocation/node.yaml",
       "hook.webapp.revocation.current": "thing.webapp/section.authorization/policy.revocation/node.yaml",
+      "entity.ContactRecord": "thing.webapp/section.contacts/entity.ContactRecord/node.yaml",
+      "C.webapp.contact.storage": "thing.webapp/section.contacts/entity.ContactRecord/node.yaml",
+      "hook.webapp.contact.storage": "thing.webapp/section.contacts/entity.ContactRecord/node.yaml",
+      "section.contacts": "thing.webapp/section.contacts/node.yaml",
       "entity.Account": "thing.webapp/section.domain/entity.Account/node.yaml",
       "entity.Block": "thing.webapp/section.domain/entity.Block/node.yaml",
       "entity.Connection": "thing.webapp/section.domain/entity.Connection/node.yaml",
       "entity.ConnectionInvite": "thing.webapp/section.domain/entity.ConnectionInvite/node.yaml",
-      "entity.ContactEvent": "thing.webapp/section.domain/entity.ContactEvent/node.yaml",
-      "entity.ContactRecord": "thing.webapp/section.domain/entity.ContactRecord/node.yaml",
-      "C.webapp.contact.storage": "thing.webapp/section.domain/entity.ContactRecord/node.yaml",
-      "hook.webapp.contact.storage": "thing.webapp/section.domain/entity.ContactRecord/node.yaml",
       "entity.DigestEdition": "thing.webapp/section.domain/entity.DigestEdition/node.yaml",
       "entity.MediaAsset": "thing.webapp/section.domain/entity.MediaAsset/node.yaml",
       "entity.MessageDraft": "thing.webapp/section.domain/entity.MessageDraft/node.yaml",
       "entity.NotificationJob": "thing.webapp/section.domain/entity.NotificationJob/node.yaml",
-      "S.webapp.due": "thing.webapp/section.domain/entity.RelationshipGoal/S.webapp.due/node.yaml",
-      "S.webapp.qualification": "thing.webapp/section.domain/entity.RelationshipGoal/S.webapp.qualification/node.yaml",
-      "entity.RelationshipGoal": "thing.webapp/section.domain/entity.RelationshipGoal/node.yaml",
-      "C.webapp.schedule.correct": "thing.webapp/section.domain/entity.RelationshipGoal/node.yaml",
-      "hook.webapp.schedule.correct": "thing.webapp/section.domain/entity.RelationshipGoal/node.yaml",
       "entity.Subscription": "thing.webapp/section.domain/entity.Subscription/node.yaml",
       "entity.Suggestion": "thing.webapp/section.domain/entity.Suggestion/node.yaml",
       "section.domain": "thing.webapp/section.domain/node.yaml",
@@ -7485,19 +7596,27 @@
       "C.webapp.photo.approved": "thing.webapp/section.domain/node.yaml",
       "hook.webapp.photo.approved": "thing.webapp/section.domain/node.yaml",
       "operation.connection.revoke": "thing.webapp/section.domain/operation.connection.revoke/node.yaml",
-      "operation.contact.log": "thing.webapp/section.domain/operation.contact.log/node.yaml",
       "S.webapp.operations": "thing.webapp/section.domain/operation.contact.save/S.webapp.operations/node.yaml",
       "operation.contact.save": "thing.webapp/section.domain/operation.contact.save/node.yaml",
       "operation.data.delete": "thing.webapp/section.domain/operation.data.delete/node.yaml",
       "C.webapp.lifecycle.data": "thing.webapp/section.domain/operation.data.delete/node.yaml",
       "hook.webapp.lifecycle.data": "thing.webapp/section.domain/operation.data.delete/node.yaml",
       "operation.data.export": "thing.webapp/section.domain/operation.data.export/node.yaml",
-      "operation.goal.save": "thing.webapp/section.domain/operation.goal.save/node.yaml",
       "S.webapp.concurrency": "thing.webapp/section.domain/operation.invite.accept/S.webapp.concurrency/node.yaml",
       "operation.invite.accept": "thing.webapp/section.domain/operation.invite.accept/node.yaml",
       "C.webapp.connection.consent": "thing.webapp/section.domain/operation.invite.accept/node.yaml",
       "hook.webapp.connection.consent": "thing.webapp/section.domain/operation.invite.accept/node.yaml",
       "operation.invite.create": "thing.webapp/section.domain/operation.invite.create/node.yaml",
+      "entity.ContactEvent": "thing.webapp/section.events/entity.ContactEvent/node.yaml",
+      "section.events": "thing.webapp/section.events/node.yaml",
+      "operation.contact.log": "thing.webapp/section.events/operation.contact.log/node.yaml",
+      "S.webapp.due": "thing.webapp/section.goals/entity.RelationshipGoal/S.webapp.due/node.yaml",
+      "S.webapp.qualification": "thing.webapp/section.goals/entity.RelationshipGoal/S.webapp.qualification/node.yaml",
+      "entity.RelationshipGoal": "thing.webapp/section.goals/entity.RelationshipGoal/node.yaml",
+      "C.webapp.schedule.correct": "thing.webapp/section.goals/entity.RelationshipGoal/node.yaml",
+      "hook.webapp.schedule.correct": "thing.webapp/section.goals/entity.RelationshipGoal/node.yaml",
+      "section.goals": "thing.webapp/section.goals/node.yaml",
+      "operation.goal.save": "thing.webapp/section.goals/operation.goal.save/node.yaml",
       "binding.contactsStore": "thing.webapp/section.runtime/binding.contactsStore/node.yaml",
       "binding.d1": "thing.webapp/section.runtime/binding.d1/node.yaml",
       "binding.scheduler": "thing.webapp/section.runtime/binding.scheduler/node.yaml",
@@ -7595,6 +7714,8 @@
       "component.SuggestionCollection": "thing.webapp/section.ui/screen.today/component.SuggestionCollection/node.yaml",
       "component.TodayControls": "thing.webapp/section.ui/screen.today/component.TodayControls/node.yaml",
       "component.TodayHeading": "thing.webapp/section.ui/screen.today/component.TodayHeading/node.yaml",
+      "affordance.Today.refresh": "thing.webapp/section.ui/screen.today/component.TodayList/affordance.Today.refresh/node.yaml",
+      "component.TodayList": "thing.webapp/section.ui/screen.today/component.TodayList/node.yaml",
       "screen.today": "thing.webapp/section.ui/screen.today/node.yaml",
       "C.webapp.prompts.bounded": "thing.webapp/section.ui/screen.today/node.yaml",
       "hook.webapp.prompts.bounded": "thing.webapp/section.ui/screen.today/node.yaml",
@@ -7651,10 +7772,10 @@
           "declared": true
         }
       ],
-      "section.domain": [
+      "section.contacts": [
         {
-          "glob": "src/worker/routes/**",
-          "declared": false
+          "glob": "src/worker/routes/contacts.ts",
+          "declared": true
         }
       ],
       "entity.ContactRecord": [
@@ -7663,13 +7784,45 @@
           "declared": true
         }
       ],
+      "section.domain": [
+        {
+          "glob": "src/worker/routes/**",
+          "declared": false
+        }
+      ],
       "operation.contact.save": [
         {
           "glob": "src/worker/routes/contacts.ts",
           "declared": true
-        },
+        }
+      ],
+      "section.events": [
         {
-          "glob": "public/people/add-contact-dialog.js",
+          "glob": "src/worker/routes/events.ts",
+          "declared": true
+        }
+      ],
+      "entity.ContactEvent": [
+        {
+          "glob": "src/worker/routes/events.ts",
+          "declared": true
+        }
+      ],
+      "operation.contact.log": [
+        {
+          "glob": "src/worker/routes/events.ts",
+          "declared": true
+        }
+      ],
+      "entity.RelationshipGoal": [
+        {
+          "glob": "src/worker/goals.ts",
+          "declared": true
+        }
+      ],
+      "operation.goal.save": [
+        {
+          "glob": "src/worker/routes/goals.ts",
           "declared": true
         }
       ],
@@ -7691,6 +7844,18 @@
           "declared": false
         }
       ],
+      "screen.goal": [
+        {
+          "glob": "public/goals/**",
+          "declared": true
+        }
+      ],
+      "screen.logContact": [
+        {
+          "glob": "public/log/**",
+          "declared": true
+        }
+      ],
       "screen.people": [
         {
           "glob": "public/people/**",
@@ -7705,7 +7870,13 @@
       ],
       "affordance.AddContactDialog.save": [
         {
-          "glob": "public/people/add-contact-dialog.js",
+          "glob": "public/people/index.html",
+          "declared": true
+        }
+      ],
+      "screen.today": [
+        {
+          "glob": "public/today/**",
           "declared": true
         }
       ]

@@ -1,0 +1,9 @@
+id: endpoint.intents-decisions
+kind: endpoint
+fields:
+  name: Decide proposal nodes
+  description: Records the admin's agree, reject or defer decisions on a proposal's plan nodes; a decision on a parent clears its descendants'.
+  route: PUT /api/systems/:id/intents/:pid/decisions
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  request: IntentDecisionsRequest {decisions}
+  response: Proposal

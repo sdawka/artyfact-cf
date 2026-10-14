@@ -1,0 +1,5 @@
+id: component.TodayList
+kind: component
+fields:
+  name: TodayList
+  cardinality: exactly one

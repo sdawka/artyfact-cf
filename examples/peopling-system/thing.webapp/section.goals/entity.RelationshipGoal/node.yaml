@@ -43,6 +43,8 @@ fields:
     - Goal is never exposed to its contact
 links:
   - { rel: storedIn, to: binding.contactsStore }
+files:
+  - src/worker/goals.ts
 criteria:
   - id: C.webapp.schedule.correct
     title: Schedule correctness

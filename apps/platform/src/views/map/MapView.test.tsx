@@ -108,7 +108,7 @@ describe("Map scope rules", () => {
     await ready("entity.ContactRecord");
     fireEvent.doubleClick(nodeEl("entity.ContactRecord")!);
     await waitFor(() => expect(router.state.location.search).toContain("focus=entity.ContactRecord"));
-    await waitFor(() => expect(crumbs().at(-1)?.textContent).toContain("Domain"));
+    await waitFor(() => expect(crumbs().at(-1)?.textContent).toContain("Contacts"));
     await waitFor(() => expect(nodeEl("entity.ContactRecord")?.getAttribute("data-role")).toBe("child"), { timeout: 4000 });
   });
 

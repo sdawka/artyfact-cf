@@ -75,6 +75,24 @@ nodes:
         kind: component
         name: TodayControls
         cardinality: exactly one
+      - id: component.TodayList
+        kind: component
+        name: TodayList
+        cardinality: exactly one
+        children:
+          - id: affordance.Today.refresh
+            kind: affordance
+            name: Refresh
+            actor: ext.owner
+            trigger: Owner opens or refreshes Today
+            preconditions: [Owner session]
+            effects:
+              - Reads current goals and logged contact events to rebuild at most five prompts
+              - Sends nothing
+            failure: [Network error keeps the previous cards and renders one ErrorSummary]
+            links:
+              - { rel: invokes, to: operation.goal.save }
+              - { rel: invokes, to: operation.contact.log }
       - id: component.SuggestionCollection
         kind: component
         name: SuggestionCollection
@@ -623,6 +641,21 @@ nodes:
             links:
               - { rel: invokes, to: operation.data.delete }
 
+  - id: section.goals
+    kind: section
+    name: Goals
+    parent: thing.webapp
+    description: The goal entity and its save operation
+  - id: section.contacts
+    kind: section
+    name: Contacts
+    parent: thing.webapp
+    description: The contact record, owned by one account and written by the contact routes
+  - id: section.events
+    kind: section
+    name: Contact events
+    parent: thing.webapp
+    description: Logged contact events and how they qualify against goals
   # ---------------------------------------------------------------- Domain: entities (spec §5 table)
   # "These are domain types and runtime records inside thing.webapp. They are not separate Things."
   - id: entity.Account
@@ -644,7 +677,7 @@ nodes:
   - id: entity.ContactRecord
     kind: entity
     name: ContactRecord
-    parent: section.domain
+    parent: section.contacts
     description: >-
       ID, ownerAccountId, display name, optional channels and linkedAccountId; belongs to one owner.
       A ContactRecord is a person's private representation of another person. Linking it to an Account does not
@@ -720,7 +753,7 @@ nodes:
   - id: entity.RelationshipGoal
     kind: entity
     name: RelationshipGoal
-    parent: section.domain
+    parent: section.goals
     description: ID, owner, ContactRecord, intervalDays, desiredDepth, channel, anchorDate, pause and snooze; owner-only
     source: { doc: peopling-world-specification, section: "5" }
     fields:
@@ -744,7 +777,7 @@ nodes:
   - id: entity.ContactEvent
     kind: entity
     name: ContactEvent
-    parent: section.domain
+    parent: section.events
     description: ID, owner, ContactRecord, time, channel, self-reported depth and optional private note; one contact target
     source: { doc: peopling-world-specification, section: "5" }
     fields:
@@ -882,7 +915,7 @@ nodes:
   - id: operation.goal.save
     kind: operation
     name: Save goal
-    parent: section.domain
+    parent: section.goals
     description: Owned contact and valid interval. Increment goal version, recompute due state and cancel obsolete jobs
     preconditions: [Owned contact, Valid interval]
     effects: [Increment goal version, Recompute due state, Cancel obsolete jobs, Revising a goal must not create a ContactEvent]
@@ -898,7 +931,7 @@ nodes:
   - id: operation.contact.log
     kind: operation
     name: Log or revise contact
-    parent: section.domain
+    parent: section.events
     description: Owned contact, nonfuture event time. Persist event; recompute affected goals without sending anything
     preconditions: [Owned contact, Nonfuture event time]
     effects: [Persist event, Recompute affected goals without sending anything, Logging qualifying contact resolves its suggestion]
