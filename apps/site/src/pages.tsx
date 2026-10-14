@@ -28,10 +28,10 @@ export function Site({ path, config, explorerHtml, landingHtml, workflow }: { pa
     <a className="skip-link" href="#main">Skip to content</a>
     <header className="site-header">
       <a className="brand" href="/" aria-label="Artyfact home"><Wordmark /></a>
-      <nav aria-label="Main navigation">{nav.map(([href, label]) => <a key={href} href={href} aria-current={path === href ? 'page' : undefined}>{label}</a>)}{config.platform && <a className="nav-platform" href={config.platform}>Platform</a>}</nav>
+      <nav aria-label="Main navigation">{nav.map(([href, label]) => <a key={href} href={href} aria-current={path === href ? 'page' : undefined}>{label}</a>)}{config.platform && <a className="nav-platform" href={config.platform}>Platform</a>}{config.source && <a className="nav-source" href={config.source}>Source</a>}</nav>
     </header>
     <main id="main">{path === '/' ? <Home config={config} landingHtml={landingHtml} /> : path === '/model' ? <Model explorerHtml={explorerHtml} platform={config.platform} /> : path === '/404' ? <NotFound /> : path === '/how-it-works' ? <HowItWorksPage workflow={workflow} /> : <Guide config={config} />}</main>
-    <footer className="site-footer"><div><Wordmark /><p>A Cloudflare “Build the Next-Gen Git Platform” entry.</p></div><nav className="footer-links" aria-label="Footer"><a href="/how-it-works">How it works</a><a href="/model">Theory Driven Development</a><a href="/connect-agent">Bring your agent</a>{config.platform && <a href={config.platform}>Open the platform</a>}{config.source ? <a href={config.source}>Source · Apache-2.0</a> : <span>Apache-2.0 · Source publication pending</span>}<span>Working prototype</span></nav></footer>
+    <footer className="site-footer"><div><Wordmark /><p>A Cloudflare “Build the Next-Gen Git Platform” entry.</p></div><nav className="footer-links" aria-label="Footer"><a href="/how-it-works">How it works</a><a href="/model">Theory Driven Development</a><a href="/connect-agent">Bring your agent</a>{config.platform && <a href={config.platform}>Open the platform</a>}{config.source && <a href={config.source}>Source on GitHub</a>}<span>Apache-2.0</span><span>Working prototype</span></nav></footer>
   </>;
 }
 function NotFound() { return <section className="page-intro not-found"><h1>Page not found.</h1><p className="lead">That address does not lead anywhere.</p><div className="actions"><a className="button primary u-brackets" href="/">Return to Artyfact</a></div><p className="page-links"><a className="text-link" href="/connect-agent">Bring your agent</a><a className="text-link" href="/model">Theory Driven Development</a></p></section>; }
@@ -52,12 +52,19 @@ function Home({ config, landingHtml }: { config: SiteConfig; landingHtml?: strin
     <PracticeStack />
     <AgentEnvironment />
     <ArtifactsBackbone />
-    <section className="closing section" aria-labelledby="closing-heading">
-      <h2 id="closing-heading">Track the product.<br />Not just the files.</h2>
-      <div>
-        <ol className="closing-steps"><li>Run the agent you already use, on your machine.</li><li>It gets a brief cut from the model and a token for its own fork.</li><li>It checkpoints, then submits a candidate for review.</li></ol>
-        <div className="actions"><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a><a className="text-link" href="/model">Read the theory behind it</a></div>
+    <section className="closing section" id="get-artyfact" aria-labelledby="closing-heading">
+      <div className="closing-lead">
+        <h2 id="closing-heading">Track the product.<br />Not just the files.</h2>
+        <p>Artyfact is open source under Apache-2.0 and runs in your own Cloudflare account. Start wherever suits you.</p>
       </div>
+      <ol className="closing-steps" aria-label="Your agent’s first Task"><li>Run the agent you already use, on your machine.</li><li>It gets a brief cut from the model and a token for its own fork.</li><li>It checkpoints, then submits a candidate for review.</li></ol>
+      <p className="closing-links"><a className="text-link" href="/model">Read the theory behind it</a></p>
+      <ul className="get-routes" aria-label="Get Artyfact">
+        {config.source && <li><a href={config.source}><strong>Get the source</strong><span>{config.source.replace('https://', '')}, Apache-2.0. The platform, the CLI and this site, in one repository.</span></a></li>}
+        {config.platform && <li><a href={config.platform}><strong>Open the platform</strong><span>The hosted developer preview: start a System, review candidates, promote.</span></a></li>}
+        <li><a href="/connect-agent"><strong>Bring your agent</strong><span>Six steps from a checkout to a promoted candidate, with the commands.</span></a></li>
+        <li><a href="/how-it-works"><strong>See how it works</strong><span>One change from describing the product to deploy, drawn from Artyfact’s own model.</span></a></li>
+      </ul>
     </section>
   </>;
 }
@@ -81,7 +88,7 @@ function Guide({ config }: { config: SiteConfig }) {
       </ul></section>
     <section className="guide-handoff" aria-label="The handoff at a glance"><HandoffDiagram /></section>
     <section className="guide-layout section"><aside className="guide-aside"><h2 className="guide-aside-title">The handoff</h2><details open data-collapse-below="1100"><summary>Steps</summary><nav aria-label="Guide steps"><ol><li><a href="#prepare">Prepare your tools</a></li><li><a href="#start">Start a plan</a></li><li><a href="#work">What your agent works from</a></li><li><a href="#parts">Author reusable Parts (optional)</a></li><li><a href="#submit">Checkpoint and submit</a></li><li><a href="#review">Review and promote</a></li></ol></nav></details></aside><div className="guide-steps">
-      <article id="prepare" tabIndex={-1}><h2>Prepare your tools</h2><p>Install Node 24 and Git. Get a checkout of the Artyfact source and run this from its root. npm links the local CLI into the workspace.</p>{config.source ? <a className="text-link" href={config.source}>Get the source</a> : <p className="note">The public repository link will appear here once publication is verified. If you already have a checkout, you can prepare it now.</p>}<Code id="install-code" label="install commands">{'npm ci\nexport PATH="$PWD/node_modules/.bin:$PATH"\nnpx --no-install artyfact --help'}</Code><p>The PATH line keeps the checkout's CLI available in this terminal, even after you enter the fork. <code>--no-install</code> stops npx from fetching an unrelated package from the registry.</p></article>
+      <article id="prepare" tabIndex={-1}><h2>Prepare your tools</h2><p>Install Node 24 and Git. Get a checkout of the Artyfact source and run this from its root. npm links the local CLI into the workspace.</p>{config.source && <a className="text-link" href={config.source}>Get the source</a>}<Code id="install-code" label="install commands">{'npm ci\nexport PATH="$PWD/node_modules/.bin:$PATH"\nnpx --no-install artyfact --help'}</Code><p>The PATH line keeps the checkout's CLI available in this terminal, even after you enter the fork. <code>--no-install</code> stops npx from fetching an unrelated package from the registry.</p></article>
       <article id="start" tabIndex={-1}><h2>Start a plan</h2>
         <h3>Agree the change to the model</h3><p>Start a System in the platform. Import a native ontology package, or have your agent convert existing material into one for review. For an existing System, describe your change in words, in the platform or from the CLI. Artyfact finds the parts of the model it touches and proposes edits to them. The edits you keep become an Evolution: a proposed change to the model. Replace each <span className="ph">&lt;placeholder&gt;</span> with your own id.</p><Code id="propose-code" label="propose command">{'echo \'{"message": "Let shoppers save a card at checkout"}\' > intent.json\nARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact evolution propose \\\n  --system <system-id> --file ./intent.json'}</Code><p>Review the edits from the purpose down to each node. Approving it commits the change on a fork of the model repo, and that fork becomes the model’s new version. No code changes yet.</p>
         <h3>Draft the plan</h3><p>Plan the build as a Realization: a build plan pinned to the accepted model version. Each Task names the app it changes, the parts of the model it reads and writes, the files that covers, its dependencies, steps and checks. The draft saves nothing until you add <code>--create</code>. If you already have a plan file, <code>plan create --file</code> saves it directly.</p><Code id="plan-code" label="plan commands">{'ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan draft \\\n  --system <system-id> --evolution <evolution-id>\nARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan draft \\\n  --system <system-id> --evolution <evolution-id> --create\nnpx artyfact plan tasks <plan-id> --system <system-id>'}</Code><p><code>plan tasks</code> lists each Task with its wave, dependencies and footprint, then prints the next claim command. Tasks that touch the same part of the model go to later waves.</p>

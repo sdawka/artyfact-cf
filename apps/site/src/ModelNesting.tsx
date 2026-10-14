@@ -31,6 +31,11 @@ export function ModelNesting() {
         {alongside.map(([kind, value]) => <div key={kind}><dt>{kind}</dt><dd>{value}</dd></div>)}
       </dl>
     </div>
-    <p className="model-nesting-note meta">Sample data. A Thing is one app or service you deploy. A Section groups related parts of it. An Affordance is something a person can do on screen. Artyfact is described with the same model. <a className="text-link" href="/model#meta-ontology">See Artyfact’s own model</a></p>
+    <dl className="model-nesting-terms" aria-label="Three terms from the model">
+      <div><dt>Thing</dt><dd>One app or service you deploy.</dd></div>
+      <div><dt>Section</dt><dd>Groups related parts of it.</dd></div>
+      <div><dt>Affordance</dt><dd>Something a person can do on screen.</dd></div>
+    </dl>
+    <p className="model-nesting-note meta">Sample data. Artyfact is described with the same model. <a className="text-link" href="/model#meta-ontology">See Artyfact’s own model</a></p>
   </section>;
 }
