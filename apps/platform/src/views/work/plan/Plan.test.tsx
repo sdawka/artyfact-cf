@@ -5,7 +5,7 @@ import { ADMIN_TOKEN_KEY } from "@/api/adminToken";
 import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
-import { TOKEN_REASON } from "./lib";
+import { commandLines, TOKEN_REASON } from "./lib";
 import { PUBLIC_PLAN_READS } from "./queries";
 import { makePlan, task } from "./testPlan";
 
@@ -113,16 +113,17 @@ describe("Realization plans", () => {
     expect(within(t3).getByRole("list", { name: "Conflicts" }).textContent).toContain("source · Task t2");
     // Wave 2 has no command: t3 waits on t1 and t2.
     expect(within(w2).queryByText(/Agent commands/)).toBeNull();
-    expect(within(w1).getByRole("listitem", { name: "Command for Task t1" }).textContent).toContain("npx artyfact task claim plan.one t1 --system system.peopling");
-    expect(document.body.textContent).not.toMatch(/ARTYFACT_TOKEN|Bearer|secret/);
+    const p = { id: "plan.one", systemId: SID };
+    expect(within(w1).getByRole("listitem", { name: "Command for Task t1" }).textContent).toContain(commandLines("claim", p, "t1"));
+    expect(document.body.textContent).not.toMatch(/TOKEN=|Bearer|secret|--json/);
 
     // "Copy all" is the first button of the wave's command section; it reads "Copied" for a moment after a click.
     const copyAll = () => within(within(w1).getByRole("region", { name: "Agent commands · wave 1" })).getAllByRole("button")[0]!;
     fireEvent.click(copyAll());
-    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith("npx artyfact task claim plan.one t1 --system system.peopling\nnpx artyfact task claim plan.one t2 --system system.peopling"));
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(`${commandLines("claim", p, "t1")}\n${commandLines("claim", p, "t2")}`));
     fireEvent.click(within(w1).getByRole("button", { name: "Hide the command for Task t1" }));
     fireEvent.click(copyAll());
-    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith("npx artyfact task claim plan.one t2 --system system.peopling"));
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(commandLines("claim", p, "t2")));
     fireEvent.click(within(w1).getByRole("button", { name: "Hide the command for Task t2" }));
     const all = within(w1).getByRole("button", { name: "Copy all" });
     expect((all as HTMLButtonElement).disabled).toBe(true);

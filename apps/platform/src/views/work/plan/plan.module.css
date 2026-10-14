@@ -14,7 +14,7 @@
 .commandsHead h5 { margin: 0 auto 0 0; font-size: var(--font-size-sm); }
 .commandList { display: grid; gap: var(--spacing-2); margin: 0; padding: 0; list-style: none; }
 .commandList li { display: grid; gap: var(--spacing-1); }
-.commandLine { font-family: var(--font-code); font-size: var(--font-size-xs); overflow-wrap: anywhere; }
+.commandLine { display: block; white-space: pre-wrap; font-family: var(--font-code); font-size: var(--font-size-xs); overflow-wrap: anywhere; }
 .draftTask { display: grid; gap: var(--spacing-2); }
 .draftTask legend { overflow-wrap: anywhere; }
 .planList { display: grid; gap: var(--spacing-1); margin: 0; padding: 0; list-style: none; }

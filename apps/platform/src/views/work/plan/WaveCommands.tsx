@@ -16,9 +16,9 @@ interface Props {
 }
 
 /**
- * The commands an agent runs for a wave: one `npx artyfact task claim|resume …` line per task it can take now, each with
- * a copy button and Hide, and "Copy all" over the lines still shown. The lines carry no credential: the CLI claims with
- * the agent's own admin token and keeps the write token in the task workspace.
+ * The commands an agent runs for a wave: the claim (or resume) line and the agent line for each task it can take now, each with
+ * a copy button and Hide, and "Copy all" over the lines still shown. The lines carry no credential and every value is
+ * shell-quoted: the CLI claims with the person's own admin token and keeps the write token in the task workspace.
  */
 export function WaveCommands({ plan, wave, tasks, now, hidden, onHide }: Props) {
   const uid = useId();

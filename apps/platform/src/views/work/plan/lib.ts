@@ -54,6 +54,29 @@ export function liveConflicts(plan: Plan, taskId: string, now: number): Task[] {
 }
 
 /**
+ * One shell word for a server-supplied value in a copied command: unchanged when it is plainly safe, otherwise POSIX
+ * single-quoted (`'` becomes `'\''`), so ids with `;`, `$(…)`, backticks, quotes or newlines cannot run anything.
+ */
+export function shellArg(s: string): string {
+  return /^[A-Za-z0-9._:@\/-]+$/.test(s) ? s : `'${s.replace(/'/g, "'\\''")}'`;
+}
+
+/** The agent prompt line from the CLI README; the admin token never reaches the agent. */
+export const AGENT_PROMPT = "Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit";
+
+/**
+ * The two lines an agent runs for `task`, as in the CLI README: claim (or resume) into `./work/<task>`, which stores the
+ * fork token in the workspace, then the agent inside it. No credential and no `--json` handoff; every value is quoted.
+ */
+export function commandLines(verb: "claim" | "resume", plan: Pick<RealizationPlan, "id" | "systemId">, taskId: string): string {
+  const dir = shellArg(`./work/${taskId}`);
+  return [
+    `npx artyfact task ${verb} ${shellArg(plan.id)} ${shellArg(taskId)} --system ${shellArg(plan.systemId)} --dir ${dir}`,
+    `cd ${dir} && env -u ARTYFACT_ADMIN_TOKEN claude -p ${shellArg(AGENT_PROMPT)}`,
+  ].join("\n");
+}
+
+/**
  * What an agent runs for `task`, by the claim rules of the lifecycle store (the same rules as `planCounts.awaitingAgent`):
  * `claim` for a pending task whose dependencies are selected, `resume` for a claimed or working task whose lease lapsed,
  * and no command while a conflicting task holds a live attempt. The line never carries a credential.
@@ -76,7 +99,7 @@ export function taskCommand(plan: Plan & Pick<RealizationPlan, "id" | "systemId"
   if (verb) {
     const busy = liveConflicts(plan, task.id, now);
     if (busy.length) return { verb: null, reason: `Waits while ${busy.map((t) => quote(t.title)).join(", ")} ${busy.length === 1 ? "is" : "are"} being worked; they conflict.` };
-    return { verb, line: `npx artyfact task ${verb} ${plan.id} ${task.id} --system ${plan.systemId}` };
+    return { verb, line: commandLines(verb, plan, task.id) };
   }
   return { verb: null, reason };
 }
