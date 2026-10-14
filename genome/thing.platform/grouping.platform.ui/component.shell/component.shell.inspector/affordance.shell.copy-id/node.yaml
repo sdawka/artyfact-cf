@@ -2,7 +2,7 @@ id: affordance.shell.copy-id
 kind: affordance
 fields:
   name: Copy id
-  description: Copies the node id.
+  description: Copies the node id from the header's meta line.
   actor: user
   trigger: click
   preconditions:

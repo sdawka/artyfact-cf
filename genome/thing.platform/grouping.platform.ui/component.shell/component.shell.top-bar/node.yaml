@@ -2,8 +2,12 @@ id: component.shell.top-bar
 kind: component
 fields:
   name: Top bar
-  description: System and revision selector with a state pill, the Phase badge, the System One provider label and the global controls.
+  description: "One row: the wordmark (to Home), the System and Revision selects with a state pill only for a candidate or deployed revision, a Workspace status group (Phase, Fixture data with Retry API, the hosted-demo pill, fake provider), then Admin token, Effects: on/off, Go to… with its key hint and a More menu. Below 1280px Retry API and Effects move into More; on compact screens a Menu button opens the rail as a sheet and Admin token… and the Phase and provider facts move into More."
   states:
-    - "System One: fake provider (subtle)"
-    - Phase badge (subtle)
-    - revision state pill (subtle)
+    - "Phase: <phase> (subtle)"
+    - candidate | deployed state pill (subtle)
+    - ⊘ Fixture data (attention)
+    - "Hosted demo: judgments are simulated (subtle)"
+    - fake provider (subtle)
+    - Admin, set (subtle)
+    - compact
