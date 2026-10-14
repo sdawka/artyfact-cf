@@ -172,7 +172,7 @@ function SemanticDelta({ candidate }: { candidate: Candidate }) {
           <ul className={styles.plain}>
             {criteria.map((c) => {
               const v = aggregate([verdictFor(c, evals, own)]);
-              return <li key={c} className={styles.inlineRow}><NodeChip id={c} size="sm" /><VerdictBadge verdict={v} /></li>;
+              return <li key={c} className={styles.inlineRow}><NodeChip id={c} size="sm" glyph={false} /><VerdictBadge verdict={v} /></li>;
             })}
           </ul>
         ) : <p className={styles.muted}>none</p>}

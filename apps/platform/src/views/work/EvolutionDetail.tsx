@@ -55,7 +55,7 @@ export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evo
       <h3>Acceptance criteria</h3>
       <ul className={styles.plain}>
         {e.acceptanceCriteria.map((c) => (
-          <li key={c} className={styles.inlineRow}><NodeChip id={c} size="sm" /><VerdictBadge verdict={m.verdictOf(c)} /></li>
+          <li key={c} className={styles.inlineRow}><NodeChip id={c} size="sm" glyph={false} /><VerdictBadge verdict={m.verdictOf(c)} /></li>
         ))}
       </ul>
 

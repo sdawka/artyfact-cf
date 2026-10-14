@@ -204,6 +204,6 @@ function ImplementationEvaluationsCard({deployment,builds}:{deployment?:Deployme
  const evaluations=build?.candidate ? m.evaluations.filter(e=>e.candidate===build.candidate) : [];
  return <Card title="Implementation evaluations" headingLevel={2}>
   <p className={styles.muted}>Candidate, Genome and preview evaluations describe implementation checks; they are not runtime outcome verdicts.</p>
-  {!build?.candidate ? <p className={styles.muted}>No exact deployment → build → candidate association.</p> : evaluations.length===0 ? <p className={styles.muted}>No implementation evaluations for this deployment.</p> : <ul className={styles.list}>{evaluations.map(e=><li key={e.id}><code>{e.id}</code> · <NodeChip id={e.criterion} size="sm"/> · <VerdictBadge verdict={e.execution==='completed'?e.verdict:'unknown'}/></li>)}</ul>}
+  {!build?.candidate ? <p className={styles.muted}>No exact deployment → build → candidate association.</p> : evaluations.length===0 ? <p className={styles.muted}>No implementation evaluations for this deployment.</p> : <ul className={styles.list}>{evaluations.map(e=><li key={e.id}><code>{e.id}</code> · <NodeChip id={e.criterion} size="sm" glyph={false}/> · <VerdictBadge verdict={e.execution==='completed'?e.verdict:'unknown'}/></li>)}</ul>}
  </Card>;
 }

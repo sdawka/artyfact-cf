@@ -24,7 +24,7 @@ function EvolutionBody({ entry }: BodyProps) {
       <div className={styles.row}>
         <div className={styles.rowLabel}>Acceptance criteria</div>
         <ul className={styles.plain}>
-          {e.acceptanceCriteria.map((c) => <li key={c} className={styles.cardHead}><NodeChip id={c} size="sm" /><VerdictBadge verdict={m.verdictOf(c)} /></li>)}
+          {e.acceptanceCriteria.map((c) => <li key={c} className={styles.cardHead}><NodeChip id={c} size="sm" glyph={false} /><VerdictBadge verdict={m.verdictOf(c)} /></li>)}
         </ul>
       </div>
       <div className={styles.row}><div className={styles.rowLabel}>Depends on</div><Chips ids={e.dependsOn} /></div>

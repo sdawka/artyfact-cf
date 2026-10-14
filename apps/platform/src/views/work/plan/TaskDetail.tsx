@@ -95,7 +95,7 @@ export function TaskDetail({ task: t, plan, now, writeReason, commandHidden, err
       <h5>Checks</h5>
       {t.checks.length ? (
         <ul className={workStyles.plain}>
-          {t.checks.map((c) => <li key={c} className={workStyles.inlineRow}><NodeChip id={c} size="sm" /><VerdictBadge verdict={m.verdictOf(c)} /></li>)}
+          {t.checks.map((c) => <li key={c} className={workStyles.inlineRow}><NodeChip id={c} size="sm" glyph={false} /><VerdictBadge verdict={m.verdictOf(c)} /></li>)}
         </ul>
       ) : <p className={workStyles.muted}>none</p>}
 

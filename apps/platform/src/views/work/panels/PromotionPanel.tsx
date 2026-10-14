@@ -46,7 +46,7 @@ function IssueList({ items }: { items: readonly unknown[] }) {
       {items.map((x, i) =>
         isGateItem(x) ? (
           <li key={`${x.candidate ?? ""}-${x.criterion}-${i}`} className={styles.inlineRow}>
-            <NodeChip id={x.criterion} size="sm" showId />
+            <NodeChip id={x.criterion} size="sm" showId glyph={false} />
             <VerdictBadge verdict={itemVerdict(x)} />
             <span className={styles.muted}>{[x.candidate, x.execution && x.execution !== "completed" ? x.execution : undefined, x.severity].filter(Boolean).join(" · ")}</span>
           </li>
@@ -282,7 +282,7 @@ function GateTable({ rows, label }: { rows: GateRow[]; label: string }) {
       <tbody>
         {rows.map((r) => (
           <tr key={r.criterion.id}>
-            <td><NodeChip id={r.criterion.id} size="sm" /></td>
+            <td><NodeChip id={r.criterion.id} size="sm" glyph={false} /></td>
             <td><code>{r.hook}</code></td>
             <td><VerdictBadge verdict={r.verdict} /></td>
             <td>{r.execution}</td>

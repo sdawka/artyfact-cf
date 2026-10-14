@@ -99,7 +99,7 @@ export function EvaluationsTable({ evaluations, compact, expandedId, onExpand, e
                         {isOpen ? <ChevronDownIcon /> : <ChevronRightIcon />}
                       </IconButton>
                     </td>
-                    <td><NodeChip id={e.criterion} size="sm" showId={!compact} /></td>
+                    <td><NodeChip id={e.criterion} size="sm" showId={!compact} glyph={false} /></td>
                     {!compact && <td><code>{e.candidate}</code></td>}
                     <td>
                       <VerdictBadge verdict={evaluationVerdict(e)} />

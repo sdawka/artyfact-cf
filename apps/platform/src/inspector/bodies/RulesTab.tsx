@@ -75,7 +75,7 @@ function CriterionCard({ s }: { s: Scoped }) {
   return (
     <li className={styles.card}>
       <div className={styles.head}>
-        <NodeChip id={c.id} size="sm" />
+        <NodeChip id={c.id} size="sm" glyph={false} />
         <VerdictBadge verdict={m.verdictOf(c.id)} />
       </div>
       <div className={styles.lines}>
