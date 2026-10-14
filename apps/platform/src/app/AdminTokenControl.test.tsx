@@ -21,7 +21,7 @@ describe("AdminTokenControl", () => {
     expect(sessionStorage.getItem(ADMIN_TOKEN_KEY)).toBeNull();
   });
 
-  it("saves the token, shows 'Admin: set', and Forget clears it", () => {
+  it("saves the token, shows 'Admin set', and Forget clears it", () => {
     render(<AdminTokenControl />);
     const button = screen.getByRole("button", { name: /Admin token/ });
     fireEvent.click(button);
@@ -33,7 +33,7 @@ describe("AdminTokenControl", () => {
     fireEvent.click(screen.getByRole("button", { name: "Save" }));
     expect(screen.queryByRole("dialog")).toBeNull();
     expect(sessionStorage.getItem(ADMIN_TOKEN_KEY)).toBe("adm_1");
-    const set = screen.getByRole("button", { name: /Admin: set/ });
+    const set = screen.getByRole("button", { name: /^Admin set$/ });
     expect(document.activeElement).toBe(set);
     expect(dialog.isConnected).toBe(false);
     fireEvent.click(set);

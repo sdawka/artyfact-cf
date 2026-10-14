@@ -56,7 +56,7 @@ test.describe("home with a populated API", () => {
     await page.getByRole("button", { name: /Go to…/ }).click();
     await expect(page.getByRole("option", { name: /Peopling/ })).toBeVisible();
     await expect(page.getByRole("option", { name: /Button system/ })).toBeVisible();
-    const palette = page.getByRole("dialog", { name: "Go to a System or Part" });
+    const palette = page.getByRole("dialog", { name: "Go to", exact: true });
     await expect.poll(() => palette.evaluate(element => element.getAnimations({ subtree: true }).some(animation => animation.playState === "running"))).toBe(false);
     await checkA11yAndShoot(page, testInfo, "home-palette");
     await page.keyboard.press("Escape");

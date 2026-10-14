@@ -8,7 +8,7 @@ import { SYSTEM, evaluation, realization } from "@/views/work/testData";
 const open = async (focus: string, tab: string, seed: Parameters<typeof renderApp>[2]) => {
   renderApp(`/s/${SYSTEM}/r/head/overview?focus=${focus}`, undefined, seed);
   const inspector = await screen.findByRole("complementary", { name: "Inspector" });
-  act(() => within(inspector).getByRole("tab", { name: tab }).click());
+  act(() => within(inspector).getByRole("tab", { name: new RegExp(`^${tab}`) }).click());
   return inspector;
 };
 
@@ -17,9 +17,10 @@ describe("Changes tab", () => {
     const inspector = await open("screen.people", "Changes", (qc) =>
       qc.setQueryData(qk.evolutions(SYSTEM), { evolutions: fixtureBundle().model.evolutions, realizations: [realization({ status: "evaluating", candidate: "cand.1" })] }),
     );
-    await waitFor(() => expect(within(inspector).getByRole("link", { name: "realization.1" })).toBeTruthy());
-    expect(within(inspector).getByText(/evaluating/)).toBeTruthy();
-    expect(within(inspector).getAllByRole("link", { name: "Open in Work" }).length).toBeGreaterThan(0);
+    await waitFor(() => expect(within(inspector).getByRole("link", { name: /^realization\.1/ })).toBeTruthy());
+    expect(within(inspector).getByText("evaluating")).toBeTruthy();
+    // Each evolution row is one link into Work.
+    expect(within(inspector).getByRole("list", { name: "Evolutions" })).toBeTruthy();
   });
 
   it("says when nothing touches the node", async () => {
@@ -45,7 +46,7 @@ describe("Evidence tab", () => {
 
   it("is honest when nothing has run", async () => {
     const inspector = await open("thing.webapp", "Evidence", undefined);
-    expect(within(inspector).getByText("No evaluations yet — nothing is known")).toBeTruthy();
+    expect(within(inspector).getByText("No evaluations yet.")).toBeTruthy();
     expect(inspector.querySelector('[data-verdict="pass"]')).toBeNull();
   });
 });

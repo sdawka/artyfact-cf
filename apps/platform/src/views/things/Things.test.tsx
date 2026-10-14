@@ -23,7 +23,7 @@ describe("Thing workspace", () => {
     await act(() => within(rail).getByRole("link", { name: "Deployments" }).click());
     expect(await screen.findByRole("heading", { name: "Deployments", level: 1 })).toBeTruthy();
     expect(router.state.location.pathname).toBe(`${THING}/phenome`);
-    expect(screen.getByRole("link", { name: "System overview" }).getAttribute("href")).toBe(`${BASE}/overview`);
+    expect(within(screen.getByRole("navigation", { name: "Scope" })).getByRole("link", { name: "Peopling" }).getAttribute("href")).toBe(`${BASE}/overview`);
   });
 
   it("rejects missing Things in a deep view instead of showing an unrelated System view", async () => {

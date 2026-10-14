@@ -1,6 +1,6 @@
 import { useId, type ReactNode, type Ref } from "react";
 import { Link, useInRouterContext } from "react-router";
-import { useScopeContext, type ScopeCrumb } from "./useScopeContext";
+import { useScopeContext, useScopeNote, type ScopeCrumb } from "./useScopeContext";
 import styles from "./PageHeader.module.css";
 
 export type PageHeaderVariant = "standard" | "system" | "compact";
@@ -54,13 +54,16 @@ export function PageHeader({
   );
 }
 
-function RouteScope() {
+/** The route's scope path and note; also the Shell's fallback for views that have not adopted PageHeader yet. */
+export function RouteScope() {
   if (!useInRouterContext()) return null;
   return <RouteScopeInner />;
 }
 function RouteScopeInner() {
   const crumbs = useScopeContext();
-  return crumbs.length ? <ScopePath crumbs={crumbs} /> : null;
+  const note = useScopeNote();
+  if (!crumbs.length) return null;
+  return note ? <div className={styles.scopeLine}><ScopePath crumbs={crumbs} /><span className={styles.scopeNote}>{note}</span></div> : <ScopePath crumbs={crumbs} />;
 }
 
 /** A scope path: plain links, the current item as text (`aria-current="page"`). Never marker pills. */

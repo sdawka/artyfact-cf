@@ -13,7 +13,10 @@ export function revisionState(rev: string, candidates: string[]): RevisionState 
   return "canonical";
 }
 
-/** System + revision pickers. Changing either keeps the current view and global params. */
+/** "head (sc-1)" reads "head sc-1": the revision stays whole and never truncates to "head (…". */
+export const revisionLabel = (label: string) => label.replace(/\s*\(([^)]*)\)\s*$/, " $1");
+
+/** System + revision pickers. Changing either keeps the current view and global params. The state pill shows only off head. */
 export function SystemRevisionSelector() {
   const { systemId, rev, view } = useSystemRoute();
   const [params] = useSearchParams();
@@ -32,11 +35,12 @@ export function SystemRevisionSelector() {
     ? systems
     : [{ systemId, title: bundle.model.system.name }, ...systems];
   const revOptions = revisions.some((r) => r.id === "head") ? revisions : [{ id: "head", kind: "head" as const, label: "head" }, ...revisions];
+  const state = revisionState(rev, candidates);
   return <div className={styles.selector}>
-    <div className={styles.field}><Select label="System" className={styles.select} value={systemId} onChange={(value) => go(value, "head")}
+    <div className={styles.system}><Select label="System" className={styles.select} value={systemId} onChange={(value) => go(value, "head")}
       options={systemOptions.map((system) => ({ value: system.systemId, label: system.title }))} /></div>
-    <div className={styles.field}><Select label="Revision" className={styles.select} value={rev} onChange={(value) => go(systemId, value)}
-      options={revisionGroups(revOptions, rev).flatMap((group) => group.options.map((revision) => ({ value: revision.id, label: revision.label, group: group.label })))} /></div>
-    <StatePill state={revisionState(rev, candidates)} />
+    <div className={styles.revision}><Select label="Revision" className={styles.select} value={rev} onChange={(value) => go(systemId, value)}
+      options={revisionGroups(revOptions, rev).flatMap((group) => group.options.map((revision) => ({ value: revision.id, label: revisionLabel(revision.label), group: group.label })))} /></div>
+    {state !== "canonical" && <StatePill state={state} />}
   </div>;
 }

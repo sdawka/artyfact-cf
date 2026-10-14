@@ -31,9 +31,9 @@
   .main { padding: 20px; }
 }
 
-.breadcrumb { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-3); margin-bottom: var(--spacing-4); font-size: var(--font-size-sm); }
-
-.context { color: var(--color-text-secondary); font-size: var(--font-size-sm); margin: 0 0 var(--spacing-4); }
+/* Temporary: Thing scope line for views without a PageHeader (PageHeader renders the same line itself). */
+.scopeFallback { margin-bottom: var(--spacing-4); }
+.main:has(header[data-variant]) > .scopeFallback { display: none; }
 
 /* The atlas owns scrolling and viewport layout. Details overlays rather than resizing its canvas. */
 .shell[data-view="map"] { grid-template-columns: 256px minmax(0, 1fr); }
@@ -50,7 +50,7 @@
   .shell[data-view="map"] > aside {
     position: fixed;
     inset: auto 0 0 0;
-    height: 55dvh;
+    height: min(70dvh, 640px);
   }
 }
 

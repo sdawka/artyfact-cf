@@ -1,11 +1,16 @@
 import { useMemo } from "react";
+import { Cross2Icon } from "@radix-ui/react-icons";
 import { Link } from "react-router";
 import { useTree } from "@/api/queries";
-import { Breadcrumbs } from "@/components/Breadcrumbs/Breadcrumbs";
+import { useCompactLayout } from "@/app/useCompactLayout";
 import { CopyButton } from "@/components/CopyButton/CopyButton";
-import { NodeChip } from "@/components/NodeChip/NodeChip";
+import { MetaLine } from "@/components/MetaLine/MetaLine";
+import { StatusChip, type ChipTone } from "@/components/StatusChip/StatusChip";
+import { StatusText } from "@/components/StatusText/StatusText";
+import { Button, IconButton } from "@/components/ui";
+import type { Rollup } from "@/model/status";
 import type { IndexEntry } from "@/model/index";
-import { summaryOf, useKindView, VIEW_LABELS, type ViewName } from "@/model/kinds";
+import { kindColour, summaryOf, titleOf, useKindView, useKindViews, VIEW_LABELS, type ViewName } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
 import { useBody } from "./bodies/registry";
 import { NodeBody } from "./NodeBody";
@@ -17,6 +22,17 @@ import styles from "./Inspector.module.css";
 const THEORY = new Set(["purpose", "claim", "external", "feature", "commitment"]);
 /** Genome nodes a described change can start from (Work `?panel=intent&anchor=`). */
 const CHANGEABLE = new Set(["system", "thing", "node", "external"]);
+export const canDescribeChange = (entry: Pick<IndexEntry, "type">) => CHANGEABLE.has(entry.type);
+
+/** The node's readiness verdict from its criteria rollup: only an all-pass node is green; nothing run is not-run. */
+export function readiness(r: Rollup): { label: string; tone: ChipTone; status: string; glyph?: string } {
+  const total = r.pass + r.fail + r.unknown + r.stale + r.notRun + r.waived;
+  if (total === 0) return { label: "No criteria", tone: "neutral", status: "none" };
+  if (r.fail > 0) return { label: `${r.fail} failing`, tone: "fail", status: "fail", glyph: "×" };
+  if (r.pass === total) return { label: "All criteria pass", tone: "pass", status: "pass", glyph: "✓" };
+  if (r.pass === 0 && r.unknown + r.stale === 0) return { label: "Not run", tone: "neutral", status: "not-run", glyph: "–" };
+  return { label: `${r.pass} of ${total} pass`, tone: "neutral", status: "partial", glyph: "–" };
+}
 
 /** Which "Open in" views make sense for an object. */
 export function openInViews(entry: IndexEntry, m: ReturnType<typeof useModel>): ViewName[] {
@@ -54,11 +70,13 @@ function useTouchingCandidates(entry: IndexEntry, m: ReturnType<typeof useModel>
 export function InspectorHeader({ entry, onClose }: { entry: IndexEntry; onClose?: () => void }) {
   const m = useModel();
   const view = useKindView(entry.kind);
+  const compact = useCompactLayout();
   // Under the name: the kind's summary field. A registered body lays out its own fields, summary included.
   const summary = useBody(entry) === NodeBody ? summaryOf(entry, view) : undefined;
   const { setFocus, clear } = useSelection();
   const { view: current } = useSystemRoute();
-  const path = m.path(entry.id).map((e) => e.id);
+  const kinds = useKindViews();
+  const trail = m.path(entry.id).slice(0, -1);
   const href = useKeepParams();
   const doc = (entry.item as { source?: { doc?: unknown } } | undefined)?.source?.doc;
   // Code opens the node's own `node.yaml` (its origin); else a Genome file mapped to it; else `source.doc`, a document id
@@ -66,58 +84,58 @@ export function InspectorHeader({ entry, onClose }: { entry: IndexEntry; onClose
   const tree = useTree({ repo: "genome" });
   const origin = m.index.model.origin?.[entry.id];
   const touching = useTouchingCandidates(entry, m);
-  // A node a candidate touches opens in Review (where the decision is) instead of Work.
-  const views = openInViews(entry, m).filter((v) => !(touching.ids.length && v === "work"));
+  const verdict = readiness(m.rollup(entry.id));
+  // A node a candidate touches opens in Review (where the decision is) instead of Work; the current view is never offered.
+  const views = openInViews(entry, m).filter((v) => !(touching.ids.length && v === "work") && v !== current);
   const codePath = origin ?? tree.data?.files.find((f) => f.nodes?.includes(entry.id))?.path ?? (typeof doc === "string" ? doc : "");
+  const showCode = codePath && current !== "code";
+  const showReview = touching.ids.length > 0 && current !== "review";
+  const close = onClose ?? clear;
   return (
-    <header className={styles.header}>
-      <div className={styles.titleRow}>
-        <h2 className={styles.title} tabIndex={-1} data-inspector-title>
-          <NodeChip id={entry.id} interactive={false} />
-        </h2>
-        <button type="button" className={`u-brackets ${styles.close}`} onClick={onClose ?? clear} aria-label="Close inspector">
-          Close
-        </button>
-      </div>
+    <header className={styles.header} data-inspector-header>
+      {!compact && (
+        <div className={styles.titleRow}>
+          <h2 className={styles.title} tabIndex={-1} data-inspector-title>
+            <span className={styles.glyph} style={kindColour(view)} aria-hidden="true">{view.glyph}</span>
+            {titleOf(entry, view)}
+            <span className="sr-only">, {view.label}</span>
+          </h2>
+          <IconButton label="Close inspector" variant="ghost" onClick={close}><Cross2Icon /></IconButton>
+        </div>
+      )}
       {summary && <p className={styles.summary} data-inspector-summary>{summary}</p>}
       <div className={styles.idRow}>
-        <span className={styles.muted}>{view.label}</span>
-        <code className={styles.idCode}>{entry.id}</code>
+        <MetaLine items={[{ value: view.label }, { value: entry.id, code: true }]} />
         <CopyButton value={entry.id} label="Copy id" />
+        <StatusChip status={verdict.status} label={verdict.label} tone={verdict.tone} glyph={verdict.glyph} title="Readiness of this node and everything inside it" />
       </div>
-      {path.length > 1 && <Breadcrumbs ids={path} label="Containment path" />}
+      {!compact && trail.length > 0 && (
+        <nav aria-label="Containment path">
+          <ol className={styles.trail}>
+            {trail.map((e) => (
+              <li key={e.id}><button type="button" className={styles.linkButton} onClick={() => setFocus(e.id)}>{titleOf(e, kinds.of(e.kind))}</button></li>
+            ))}
+          </ol>
+        </nav>
+      )}
       {touching.ids.length > 0 && (
         <p className={styles.touching} title={touching.ids.join(", ")}>
-          <span aria-hidden="true">◧</span> in {touching.ids.length} candidate{touching.ids.length === 1 ? "" : "s"}
-          {touching.ids.length > 1 && " · overlap"}
+          <StatusText status="candidate" tone="attention" glyph="◧" label={`In ${touching.ids.length} candidate${touching.ids.length === 1 ? "" : "s"}${touching.ids.length > 1 ? ", overlapping" : ""}`} />
+          {showReview && <Link to={href("review", touching.review)} aria-label="Open in Review">Open in Review</Link>}
         </p>
       )}
-      <div className={styles.openIn}>
-        {views.map((v) => (
-          <button
-            key={v}
-            type="button"
-            className={`u-brackets ${styles.openButton}`}
-            aria-current={v === current ? "page" : undefined}
-            onClick={() => setFocus(entry.id, { view: v })}
-          >
-            Open in {VIEW_LABELS[v]}
-          </button>
-        ))}
-        {touching.ids.length > 0 && (
-          <Link className={`u-brackets ${styles.openButton}`} to={href("review", touching.review)}>
-            Open in Review
-          </Link>
-        )}
+      <div className={styles.actions}>
         {CHANGEABLE.has(entry.type) && (
-          <Link className={`u-brackets ${styles.openButton}`} to={href("work", { panel: "intent", anchor: entry.id })}>
-            Describe a change
-          </Link>
+          <Button asChild variant="secondary"><Link to={href("work", { panel: "intent", anchor: entry.id })}>Describe a change</Link></Button>
         )}
-        {codePath && (
-          <Link className={`u-brackets ${styles.openButton}`} to={href("code", { repo: "genome", path: codePath })}>
-            Open in Code
-          </Link>
+        {(views.length > 0 || showCode) && (
+          <p className={styles.openIn}>
+            <span>Open in</span>
+            {views.map((v) => (
+              <button key={v} type="button" className={styles.linkButton} aria-label={`Open in ${VIEW_LABELS[v]}`} onClick={() => setFocus(entry.id, { view: v })}>{VIEW_LABELS[v]}</button>
+            ))}
+            {showCode && <Link to={href("code", { repo: "genome", path: codePath })} aria-label="Open in Code">Code</Link>}
+          </p>
         )}
       </div>
     </header>

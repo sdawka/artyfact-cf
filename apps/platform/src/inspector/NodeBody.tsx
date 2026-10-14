@@ -2,7 +2,10 @@ import { KeyValue } from "@/components/KeyValue/KeyValue";
 import { GenericBody } from "./bodies/GenericBody";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import type { IndexEntry } from "@/model/index";
-import { fieldValue, useKindView } from "@/model/kinds";
+import { Count } from "@/components/Count/Count";
+import { Row, RowList } from "@/components/RowList/RowList";
+import { fieldValue, titleOf, useKindView, useKindViews } from "@/model/kinds";
+import { useSelection } from "@/model/useSelection";
 import { useModel } from "@/model/useModel";
 import styles from "./NodeBody.module.css";
 
@@ -34,7 +37,7 @@ export function NodeBody({ entry }: { entry: IndexEntry }) {
       </div>
       <Conformance id={entry.id} />
       {node.provisional && <p className={styles.note}>Provisional: not yet confirmed in the Genome.</p>}
-      {node.fromTemplate && (
+      {node.fromTemplate && !fields.includes("fromTemplate") && (
         <p className={styles.note}>
           From template <code>{node.fromTemplate}</code>
         </p>
@@ -73,20 +76,28 @@ function Conformance({ id }: { id: string }) {
   );
 }
 
-/** Containment children as chips. */
+/** Containment children: chips for a few, a row list when there are many. */
 function Inside({ id }: { id: string }) {
   const kids = useModel().children(id);
+  const views = useKindViews();
+  const { setFocus } = useSelection();
   if (!kids.length) return null;
   return (
     <section className={styles.inside} aria-label="Inside">
-      <h3 className={styles.heading}>Inside · {kids.length}</h3>
-      <ul className={styles.chips}>
-        {kids.map((k) => (
-          <li key={k.id}>
-            <NodeChip id={k.id} size="sm" />
-          </li>
-        ))}
-      </ul>
+      <h3 className={styles.heading}>Inside <Count n={kids.length} /></h3>
+      {kids.length > 6 ? (
+        <RowList label="Inside">
+          {kids.map((k) => <Row key={k.id} onSelect={() => setFocus(k.id)} title={titleOf(k, views.of(k.kind))} meta={views.of(k.kind).label} />)}
+        </RowList>
+      ) : (
+        <ul className={styles.chips}>
+          {kids.map((k) => (
+            <li key={k.id}>
+              <NodeChip id={k.id} size="sm" />
+            </li>
+          ))}
+        </ul>
+      )}
     </section>
   );
 }

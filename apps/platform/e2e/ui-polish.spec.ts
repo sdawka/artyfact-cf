@@ -39,7 +39,7 @@ async function openAdmin(page: Page) {
   const direct = page.getByRole('button', { name: 'Admin token', exact: true });
   const trigger = await direct.isVisible() ? direct : page.getByRole('button', { name: 'More', exact: true });
   await trigger.click();
-  if (trigger !== direct) await page.getByRole('menuitem', { name: 'Admin token', exact: true }).click();
+  if (trigger !== direct) await page.getByRole('menuitem', { name: 'Admin token…', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Admin token', exact: true })).toBeVisible();
   return trigger;
 }
@@ -63,15 +63,15 @@ test.describe('application UI polish @fixture', () => {
     for (const shortcut of ['Meta+k','Control+k']) {
       await page.keyboard.press(shortcut);
       await expect(navigation).toBeVisible();
-      await expect(page.getByRole('dialog', { name:'Go to node' })).toHaveCount(0);
+      await expect(page.getByRole('dialog', { name:'Go to',exact:true })).toHaveCount(0);
       expect(await navigation.evaluate(el => el.contains(document.activeElement))).toBe(true);
     }
     await page.keyboard.press('Escape'); await expect(navigation).toHaveCount(0); await expect(trigger).toBeFocused();
     await page.getByRole('combobox', { name:'Revision',exact:true }).click();
     await page.keyboard.press('Meta+k'); await expect(page.getByRole('listbox')).toBeVisible();
-    await expect(page.getByRole('dialog', { name:'Go to node' })).toHaveCount(0);
+    await expect(page.getByRole('dialog', { name:'Go to',exact:true })).toHaveCount(0);
     await page.keyboard.press('Escape');
-    for (const [path,title] of [[`${SYSTEM}/overview`,'Go to node'], ['/','Go to a System or Part'], ['/parts/part.ui.buttons/2.1.0','Go to a System or Part']]) {
+    for (const [path,title] of [[`${SYSTEM}/overview`,'Go to'], ['/','Go to'], ['/parts/part.ui.buttons/2.1.0','Go to']]) {
       await page.goto(path!); await expect(page.getByRole('banner').first()).toBeVisible();
       await page.getByRole('button', { name:'More',exact:true }).click();
       await page.keyboard.press('Control+k'); const utilities = page.getByRole('menu');
@@ -132,7 +132,6 @@ test.describe('application UI polish @fixture', () => {
       for (const control of await controls.all()) { await fits(control,page); await hitArea(control); rects.push((await control.boundingBox())!); }
       for (let i=0;i<rects.length;i++) for (let j=i+1;j<rects.length;j++) { const a=rects[i]!, b=rects[j]!; expect(Math.min(a.x+a.width,b.x+b.width)-Math.max(a.x,b.x)>1 && Math.min(a.y+a.height,b.y+b.height)-Math.max(a.y,b.y)>1, `${heading}: header controls do not overlap`).toBe(false); }
       for (const control of await header.getByRole('combobox').all()) expect(await control.evaluate(el => el.scrollWidth <= el.clientWidth + 1), 'selector label fits inside its trigger').toBe(true);
-      await fits(header.getByText('canonical',{exact:true}),page);
       await fits(page.getByRole('main'),page,false); await fits(page.getByRole('heading', { name:heading, level:1 }),page,false);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1), `${heading} shell width`).toBe(true);
       if ([390,1440].includes(width) && ['overview','map'].includes(route)) await page.screenshot({ path:info.outputPath(`${route}-${width}.png`),fullPage:true });
@@ -150,7 +149,7 @@ test.describe('application UI polish @fixture', () => {
     await page.screenshot({ path:info.outputPath(`admin-${width}.png`) }); await page.keyboard.press('Escape'); await expect(admin).toBeFocused();
     await page.getByRole('combobox', { name:'Revision',exact:true }).click(); await fits(page.getByRole('listbox'),page);
     await page.screenshot({ path:info.outputPath(`select-${width}.png`) }); await page.keyboard.press('Escape');
-    await page.getByRole('button', { name:/Go to…/ }).click(); await fits(page.getByRole('dialog', { name:'Go to node' }),page); await axe(page,'[role="dialog"]');
+    await page.getByRole('button', { name:/Go to…/ }).click(); await fits(page.getByRole('dialog', { name:'Go to',exact:true }),page); await axe(page,'[role="dialog"]');
     await page.screenshot({ path:info.outputPath(`palette-${width}.png`) });
     await page.keyboard.press('Escape');
     }
@@ -171,7 +170,7 @@ test.describe('application UI polish @fixture', () => {
     const admin = page.getByRole('button', { name:/Admin token/ }); await admin.click(); await page.keyboard.press('Escape');
     await expect(page.getByRole('dialog', { name:'Admin token',exact:true })).toBeHidden(); await expect(admin).toBeFocused(); expect(page.url()).toBe(before); await expect(inspector).toBeVisible();
     await page.getByRole('combobox', { name:'Revision',exact:true }).click(); await page.keyboard.press('Escape'); await expect(page.getByRole('listbox')).toBeHidden(); expect(page.url()).toBe(before);
-    await page.getByRole('button', { name:/Go to…/ }).click(); await page.keyboard.press('Escape'); await expect(page.getByRole('dialog', { name:'Go to node' })).toBeHidden(); expect(page.url()).toBe(before); await expect(inspector).toBeVisible();
+    await page.getByRole('button', { name:/Go to…/ }).click(); await page.keyboard.press('Escape'); await expect(page.getByRole('dialog', { name:'Go to',exact:true })).toBeHidden(); expect(page.url()).toBe(before); await expect(inspector).toBeVisible();
   });
 
   test('mobile Inspector closes to its Details trigger and preserves atlas selection', async ({ page }) => {
@@ -179,11 +178,11 @@ test.describe('application UI polish @fixture', () => {
     await page.goto(`${SYSTEM}/map?scope=environment&focus=screen.people`);
     const details = page.getByRole('complementary',{name:'Map selection'}).getByRole('button',{name:'Details',exact:true});
     await details.focus(); await details.click();
-    const dialog = page.getByRole('dialog',{name:'Inspector',exact:true}); await expect(dialog).toBeVisible();
+    const dialog = page.getByRole('dialog',{name:'People',exact:true}); await expect(dialog).toBeVisible();
     await page.keyboard.press('Escape'); await expect(dialog).toBeHidden(); await expect(details).toBeFocused();
     expect(new URL(page.url()).searchParams.get('focus')).toBe('screen.people');
     expect(new URL(page.url()).searchParams.has('inspect')).toBe(false);
-    await details.click(); await page.getByRole('button',{name:'Close Inspector',exact:true}).click();
+    await details.click(); await page.getByRole('button',{name:'Close inspector',exact:true}).click();
     await expect(dialog).toBeHidden(); await expect(details).toBeFocused();
   });
 
@@ -200,7 +199,7 @@ test.describe('application UI polish @fixture', () => {
         const search = header.getByRole('button', { name:/Go to…/ }); await hitArea(search);
         const admin = await openAdmin(page); await hitArea(admin); await page.keyboard.press('Escape'); await expect(admin).toBeFocused();
         dimensions.push([(await header.boundingBox())!.height,(await admin.boundingBox())!.height,(await search.boundingBox())!.height]);
-        await search.click(); const palette = page.getByRole('dialog', { name:'Go to a System or Part' });
+        await search.click(); const palette = page.getByRole('dialog', { name:'Go to',exact:true });
         await fits(palette,page);
         await page.screenshot({path:info.outputPath(`${heading === 'Systems' ? 'home' : 'part'}-palette-${width}.png`)});
         await page.keyboard.press('Escape'); await expect(search).toBeFocused();

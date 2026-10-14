@@ -42,12 +42,12 @@ test("direct Thing routes retain a full workspace as the System grows and distin
   await page.getByRole("navigation", { name: "Views", exact: true }).getByRole("link", { name: "Code" }).click();
   await expect(page).toHaveURL(new RegExp(`${THING}/code$`));
   await expect(page.getByRole("tab", { name: "Genome" })).toBeVisible();
-  await expect(page.getByText("Code shows saved files for the whole System.")).toBeVisible();
+  await expect(page.getByText("Showing the whole System")).toBeVisible();
   await page.getByRole("navigation", { name: "Views", exact: true }).getByRole("link", { name: "Deployments" }).click();
   await expect(page).toHaveURL(new RegExp(`${THING}/phenome$`));
   await expect(page.locator("summary").filter({ hasText: "events" })).toHaveCount(2);
   await checkA11yAndShoot(page, testInfo, "thing-deployments");
-  await page.getByRole("link", { name: "System overview", exact: true }).click();
+  await page.getByRole("navigation", { name: "Scope", exact: true }).getByRole("link", { name: "Peopling", exact: true }).click();
   await expect(page).toHaveURL(`${page.url().split(SYSTEM)[0]}${SYSTEM}/overview`);
   await page.goto(`${SYSTEM}/things/thing.notes`);
   await expect(page.getByRole("heading", { name: "Notes", level: 1 })).toBeVisible();

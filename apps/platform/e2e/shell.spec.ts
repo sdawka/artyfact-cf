@@ -25,7 +25,7 @@ test.describe("shell", () => {
   test("command palette opens with Ctrl+K and navigates", async ({ page }, testInfo) => {
     await open(page, "/overview", "Overview");
     await page.keyboard.press("Control+k");
-    const dialog = page.getByRole("dialog", { name: "Go to node" });
+    const dialog = page.getByRole("dialog", { name: "Go to", exact: true });
     await expect(dialog).toBeVisible();
     await checkA11yAndShoot(page, testInfo, "palette");
     await page.getByRole("combobox").fill("People");

@@ -441,7 +441,7 @@ test("Go to from explicit environment locates a deep target in its actual parent
   await page.goto(`${SYSTEM}/map?scope=environment`);
   await scope(page, "environment");
   await page.getByRole("button", { name: /^Go to/ }).click();
-  const dialog = page.getByRole("dialog", { name: "Go to node" });
+  const dialog = page.getByRole("dialog", { name: "Go to", exact: true });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("combobox").fill("People");
   await dialog.getByRole("option", { name: /screen\.people/ }).first().click();
@@ -472,7 +472,7 @@ test("Go to from another view overrides its remembered map scope @fixture", asyn
   await page.goto(`${SYSTEM}/overview?scope=environment&layer=proteome`);
   await expect(page.getByRole("heading", { name: "Overview", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: /^Go to/ }).click();
-  const dialog = page.getByRole("dialog", { name: "Go to node" });
+  const dialog = page.getByRole("dialog", { name: "Go to", exact: true });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("combobox").fill("People");
   await dialog.getByRole("option", { name: /screen\.people/ }).first().click();
@@ -491,7 +491,7 @@ test("browser Back restores a panned camera without replaying consumed Go to Loc
   await page.goto(`${SYSTEM}/map?scope=environment`);
   await scope(page, "environment");
   await page.getByRole("button", { name: /^Go to/ }).click();
-  const dialog = page.getByRole("dialog", { name: "Go to node" });
+  const dialog = page.getByRole("dialog", { name: "Go to", exact: true });
   await expect(dialog).toBeVisible();
   await dialog.getByRole("combobox").fill("affordance.AddContactDialog.save");
   await dialog.getByRole("option", { name: /affordance\.AddContactDialog\.save/ }).click();
