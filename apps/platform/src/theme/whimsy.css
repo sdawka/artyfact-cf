@@ -239,6 +239,31 @@ code, kbd, pre { font-family: var(--font-code); }
   outline-offset: 2px;
 }
 :where([tabindex="-1"]):focus:not(:focus-visible) { outline: none; }
+/* Headings are not controls: focusing one by script (load, deep link) draws no box, even where the browser says focus-visible. */
+:where(h1, h2, h3, h4, h5, h6)[tabindex="-1"]:focus,
+:where(h1, h2, h3, h4, h5, h6)[tabindex="-1"]:focus-visible { outline: none; }
+
+/* Native radios and checkboxes take the brand accent, not the browser blue. */
+:where(input[type="radio"], input[type="checkbox"]) { accent-color: var(--color-brand-primary); }
+
+/* A <summary> keeps a visible disclosure marker even where a component lays it out as flex. */
+summary { list-style: none; cursor: pointer; }
+summary::-webkit-details-marker { display: none; }
+summary::before {
+  content: "";
+  display: inline-block;
+  flex: none;
+  width: 0.45em;
+  height: 0.45em;
+  margin-inline-end: 0.55em;
+  vertical-align: 0.08em;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  transform: rotate(-45deg);
+  transition: transform var(--motion-duration-fast) var(--motion-easing-ease-out);
+}
+details[open] > summary::before { transform: rotate(45deg); }
+@media (prefers-reduced-motion: reduce) { summary::before { transition: none; } }
 
 .sr-only:not(:focus) {
   position: absolute;

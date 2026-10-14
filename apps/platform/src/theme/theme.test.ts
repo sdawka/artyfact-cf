@@ -53,6 +53,15 @@ describe("theme css", () => {
     expect(index).toContain('@import "./kinds.css"');
   });
 
+  it("keeps headings unfocused-looking, a disclosure marker on summaries, brand radios and bottom-only tab rules", () => {
+    const whimsy = read("whimsy.css");
+    expect(whimsy).toMatch(/h1, h2, h3, h4, h5, h6\)\[tabindex="-1"\]:focus-visible \{ outline: none; \}/);
+    expect(whimsy).toMatch(/summary::before \{/);
+    expect(whimsy).toMatch(/details\[open\] > summary::before/);
+    expect(whimsy).toMatch(/input\[type="radio"\][^}]*accent-color: var\(--color-brand-primary\)/);
+    expect(read("utilities.css")).toMatch(/\.u-segments\[role="tablist"\] > \*::before \{ display: none; \}/);
+  });
+
   it("provides base tokens", () => {
     expect(tokens).toMatch(/--spacing-4:/);
     expect(tokens).toMatch(/--motion-duration-normal:\s*180ms/);

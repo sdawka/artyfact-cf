@@ -12,6 +12,8 @@
 .list::-webkit-scrollbar { display: none; }
 .list > * { flex: none; min-height: var(--control-height); padding: var(--spacing-2) var(--spacing-3); white-space: nowrap; }
 .list > *:focus:not(:focus-visible) { outline: none; }
+/* The tablist clips overflow, so the ring sits inside the tab. */
+.list > *:focus-visible { outline-offset: -2px; }
 .count { color: var(--color-text-subtle); font-weight: 400; }
 .list > [aria-selected="true"] .count { color: inherit; }
 .panel {

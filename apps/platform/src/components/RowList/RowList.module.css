@@ -22,7 +22,8 @@
 .row[data-density="compact"] .target { min-height: 36px; padding-block: var(--spacing-2); }
 .row[data-density="compact"][data-interactive] .target { min-height: var(--control-height); }
 .main { display: grid; gap: var(--spacing-1); flex: 1; min-width: 0; }
-.title { font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
+.title { font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; text-align: left; }
+.title > button { text-align: left; }
 .meta { font: var(--type-meta); color: var(--color-text-secondary); }
 .status { flex: none; color: var(--color-text-secondary); }
 .status[data-tone="attention"] { color: var(--color-attention); }

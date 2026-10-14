@@ -72,6 +72,9 @@
   transition: opacity var(--motion-duration-fast) var(--motion-easing-ease-out);
 }
 .u-segments > *::before { top: 0; }
+/* Tabs are underlined once, at the bottom, with a plain rule; both-sided arcs belong to segment toggles only. */
+.u-segments[role="tablist"] > *::before { display: none; }
+.u-segments[role="tablist"] > *::after { mask-image: none; }
 .u-segments > *::after { bottom: 0; }
 .u-segments > *:hover::before,
 .u-segments > *:hover::after { opacity: 1; }

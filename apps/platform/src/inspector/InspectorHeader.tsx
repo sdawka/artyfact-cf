@@ -8,7 +8,7 @@ import { MetaLine } from "@/components/MetaLine/MetaLine";
 import { StatusChip, type ChipTone } from "@/components/StatusChip/StatusChip";
 import { StatusText } from "@/components/StatusText/StatusText";
 import { Button, IconButton } from "@/components/ui";
-import type { Rollup } from "@/model/status";
+import { emptyRollup, type Rollup } from "@/model/status";
 import type { IndexEntry } from "@/model/index";
 import { kindColour, summaryOf, titleOf, useKindView, useKindViews, VIEW_LABELS, type ViewName } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
@@ -32,6 +32,29 @@ export function readiness(r: Rollup): { label: string; tone: ChipTone; status: s
   if (r.pass === total) return { label: "All criteria pass", tone: "pass", status: "pass", glyph: "✓" };
   if (r.pass === 0 && r.unknown + r.stale === 0) return { label: "Not run", tone: "neutral", status: "not-run", glyph: "–" };
   return { label: `${r.pass} of ${total} pass`, tone: "neutral", status: "partial", glyph: "–" };
+}
+
+/** Verdict counts over the criteria the node inherits from its ancestors (the Rules tab lists them as "inherited from ancestor"). */
+export function inheritedRollup(m: ReturnType<typeof useModel>, id: string): Rollup {
+  const out = emptyRollup();
+  const key = { pass: "pass", fail: "fail", unknown: "unknown", stale: "stale", "not-run": "notRun", waived: "waived" } as const;
+  const seen = new Set<string>();
+  for (const a of m.path(id).slice(0, -1)) {
+    for (const c of m.criteriaFor(a.id)) {
+      if (c.deferred || seen.has(c.id)) continue;
+      seen.add(c.id);
+      out[key[m.verdictOf(c.id)]]++;
+    }
+  }
+  return out;
+}
+
+/** Readiness with inherited criteria counted when the node has none of its own; those read "inherited". */
+export function readinessWithInherited(own: Rollup, inherited: Rollup): ReturnType<typeof readiness> {
+  const mine = readiness(own);
+  if (mine.status !== "none") return mine;
+  const inh = readiness(inherited);
+  return inh.status === "none" ? mine : { ...inh, label: `${inh.label}, inherited` };
 }
 
 /** Which "Open in" views make sense for an object. */
@@ -84,7 +107,7 @@ export function InspectorHeader({ entry, onClose }: { entry: IndexEntry; onClose
   const tree = useTree({ repo: "genome" });
   const origin = m.index.model.origin?.[entry.id];
   const touching = useTouchingCandidates(entry, m);
-  const verdict = readiness(m.rollup(entry.id));
+  const verdict = readinessWithInherited(m.rollup(entry.id), inheritedRollup(m, entry.id));
   // A node a candidate touches opens in Review (where the decision is) instead of Work; the current view is never offered.
   const views = openInViews(entry, m).filter((v) => !(touching.ids.length && v === "work") && v !== current);
   const codePath = origin ?? tree.data?.files.find((f) => f.nodes?.includes(entry.id))?.path ?? (typeof doc === "string" ? doc : "");

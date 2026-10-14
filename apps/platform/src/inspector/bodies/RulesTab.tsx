@@ -76,6 +76,8 @@ function ObligationItem({ relation, tuple, subject }: { relation: string; tuple:
 
 const VERDICT_GLYPH: Record<UiVerdict, string> = { pass: "✓", fail: "×", unknown: "?", stale: "↻", "not-run": "–", waived: "⊘" };
 
+const INHERITED = "inherited from ancestor";
+
 function CriterionRow({ s }: { s: Scoped }) {
   const m = useModel();
   const c = s.criterion;
@@ -90,7 +92,7 @@ function CriterionRow({ s }: { s: Scoped }) {
         { label: same ? "Owner and subject" : "Owner", value: <NodeLink id={c.ownerId} /> },
         ...(same ? [] : [{ label: "Subject", value: <NodeLink id={c.subjectId} /> }]),
         { label: "Target", value: `${c.targetKind}, gates ${c.gates.join(", ") || "none"}` },
-        ...(s.via ? [{ value: <>{s.via.why} <NodeLink id={s.via.id} /></> }] : []),
+        ...(s.via && s.via.why !== INHERITED ? [{ value: <>{s.via.why} <NodeLink id={s.via.id} /></> }] : []),
       ]} />}
     />
   );
@@ -106,7 +108,7 @@ export function useRules(entry: IndexEntry) {
   const add = (c: Criterion, via?: Scoped["via"]) => { if (!scoped.has(c.id)) scoped.set(c.id, { criterion: c, via }); };
   for (const c of m.criteriaFor(id)) add(c);
   for (const c of m.criteriaOwnedBy(id)) add(c);
-  for (const a of m.path(id).slice(0, -1).reverse()) for (const c of m.criteriaFor(a.id)) add(c, { id: a.id, why: "inherited from ancestor" });
+  for (const a of m.path(id).slice(0, -1).reverse()) for (const c of m.criteriaFor(a.id)) add(c, { id: a.id, why: INHERITED });
   for (const l of m.crossLinks(id)) {
     if (l.rel !== "invokes") continue;
     const other = l.from === id ? l.to : l.from;
@@ -128,6 +130,10 @@ export function RulesTab({ entry }: { entry: IndexEntry }) {
   const id = entry.id;
   const { scoped, derived, obligations, findings, claims } = useRules(entry);
 
+  const all = [...scoped.values()];
+  const direct = all.filter((s) => s.via?.why !== INHERITED);
+  const inherited = new Map<string, Scoped[]>();
+  for (const s of all) if (s.via?.why === INHERITED) inherited.set(s.via.id, [...(inherited.get(s.via.id) ?? []), s]);
   if (derived && !scoped.size && !obligations.length && !findings.length && !claims.length) {
     return <EmptyState title="No criteria, derived obligations, findings or claims reference this object." />;
   }
@@ -136,7 +142,13 @@ export function RulesTab({ entry }: { entry: IndexEntry }) {
       {scoped.size > 0 && (
         <section aria-label="Criteria" className={styles.section}>
           <h3 className={styles.title}>Criteria</h3>
-          <RowList label="Criteria" density="compact">{[...scoped.values()].map((s) => <CriterionRow key={s.criterion.id} s={s} />)}</RowList>
+          {direct.length > 0 && <RowList label="Criteria" density="compact">{direct.map((s) => <CriterionRow key={s.criterion.id} s={s} />)}</RowList>}
+          {[...inherited].map(([ancestor, rows]) => (
+            <div key={ancestor} className={styles.section}>
+              <h4 className={styles.subtitle}>Inherited from <NodeLink id={ancestor} /></h4>
+              <RowList label={`Criteria inherited from ${ancestor}`} density="compact">{rows.map((s) => <CriterionRow key={s.criterion.id} s={s} />)}</RowList>
+            </div>
+          ))}
         </section>
       )}
       {!derived && (

@@ -20,3 +20,4 @@
   cursor: pointer;
 }
 .button:hover { border-color: var(--color-border); }
+.subtitle { margin: var(--spacing-2) 0 0; color: var(--color-text-subtle); font-family: var(--font-ui); font-size: var(--font-size-sm); font-weight: var(--font-weight-semibold); }

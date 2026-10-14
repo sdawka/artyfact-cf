@@ -46,3 +46,16 @@ describe("ScopePath", () => {
     expect(nav.querySelector(".u-marker")).toBeNull();
   });
 });
+
+describe("PageHeader scope note", () => {
+  it("sits on the context row beside the scope path, not under the header", () => {
+    render(
+      <MemoryRouter initialEntries={["/s/system.peopling/r/head/things/thing.web/work"]}>
+        <PageHeader title="Work" scopeNote={<p data-testid="note">Showing Web</p>} />
+      </MemoryRouter>,
+    );
+    const note = screen.getByTestId("note");
+    const header = note.closest("header")!;
+    expect(header.firstElementChild!.contains(note)).toBe(true);
+  });
+});
