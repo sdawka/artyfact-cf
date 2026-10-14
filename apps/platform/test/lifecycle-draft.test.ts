@@ -31,11 +31,11 @@ async function call<T>(method: string, path: string, body?: unknown, headers: Re
 }
 
 let n = 0;
-async function importSystem() {
+async function importSystem(edit: (files: Record<string, string>) => Record<string, string> = (f) => f) {
   const ns = new FakeArtifacts();
   const tag = `${++n}${Math.random().toString(36).slice(2, 6)}`;
   const systemId = `system.draft${tag}`;
-  ns.create(`draft-genome-${tag}`).commit(Object.fromEntries(Object.entries(genome).map(([p, t]) => [p, t.replaceAll("system.peopling", systemId)])), "genome");
+  ns.create(`draft-genome-${tag}`).commit(edit(Object.fromEntries(Object.entries(genome).map(([p, t]) => [p, t.replaceAll("system.peopling", systemId)]))), "genome");
   ns.create(`draft-app-${tag}`).commit(app, "app");
   setArtifactsOverride(ns);
   setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
@@ -113,6 +113,23 @@ describe("POST /realization-plans/draft", () => {
     expect((await draft(systemId, { evolutionIds: "evolution.1" })).status).toBe(400);
     expect((await draft(systemId, { tasks: [] })).status).toBe(400);
     expect((await draft("system.nope", {})).status).toBe(404);
+  });
+
+  it("an accepted Evolution seeded from the Genome at import counts as realized by the imported app", async () => {
+    // evolution.5 ships accepted, and names a node the Genome no longer has (removed before import).
+    const systemId = await importSystem((f) => ({ ...f, "evolutions/evolution.5.yaml": f["evolutions/evolution.5.yaml"].replace("state: proposed", "state: promoted").replace("- section.domain", "- section.domain\n- screen.gone") }));
+    const seeded = (await systemStub(env, systemId).evolution("evolution.5"))!;
+    expect(seeded).toMatchObject({ state: "promoted", kind: "genome-amendment" });
+    const none = await draft(systemId, {});
+    expect(none.status, JSON.stringify(none.json)).toBe(200);
+    expect(none.json.provenance.evolutionIds).toEqual([]);
+    expect(none.json.problems.filter((p) => p.message.includes("evolution.5"))).toEqual([]);
+    const evolution = await acceptChange(systemId, "Change what the Today screen says");
+    expect((await draft(systemId, {})).json.provenance.evolutionIds).toEqual([evolution.id]);
+    // Named, it is reported as realized rather than planned.
+    const named = await draft(systemId, { evolutionIds: ["evolution.5"] });
+    expect(named.json.request.tasks).toEqual([]);
+    expect(named.json.problems).toContainEqual({ severity: "warning", message: "evolution.5 is already realized; skipped" });
   });
 
   it("with an empty body drafts every accepted, unrealized Evolution", async () => {

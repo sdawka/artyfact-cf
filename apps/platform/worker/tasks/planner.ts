@@ -8,22 +8,27 @@
  * paths or globs), `validateReply` (an LLM reply checked like ops; it may add criteria, never move or drop them) and
  * `assembleDraft` (ids, steps, read nodes, create's derived dependencies, footprints and `analyzeTasks`).
  * Env part: `draftRealizationPlan` for the route.
+ *
+ * Problem severities: `error` means asked-for scope was lost or create will refuse the request; `missing` means part of
+ * the scope has no task or no source files; `warning` means the planner's output was repaired and the request is usable.
  */
 import { analyzeTasks, type SystemModel, type TaskAnalysis, type TaskDefinition } from "@artyfact/model";
 import { z } from "zod";
 import type { Evolution, SystemCommit, SystemManifest } from "../../shared/api";
-import type { CreateRealizationPlanRequest, DraftPlanProblem, DraftRealizationPlanResponse } from "../../shared/lifecycle";
+import type { CreateRealizationPlanRequest, DraftPlanProblem, DraftRealizationPlanResponse, RealizationPlan } from "../../shared/lifecycle";
 import { artifactsFor, withRepo } from "../artifacts/client";
 import { listTree } from "../artifacts/genome-source";
 import { badRequest, notFound } from "../errors";
 import { genomeAt, systemStub } from "../service";
 import { taskFootprint } from "./footprint";
-import { plannerFromEnv, type PlanContext, type Planner, type PlannerEnv, type PlanReplyTask } from "./planner-llm";
+import { plannerFromEnv, type PlanContext, type Planner, type PlanReplyTask } from "./planner-llm";
 
 /** Create's limits (`lifecycle-service.ts` planSchema): ids, titles and steps up to 200 characters, 100 tasks. */
 const MAX_TEXT = 200;
 const MAX_TASKS = 100;
 const MAX_STEPS = 20;
+/** Create's limit on each of a task's id lists. */
+const MAX_LIST = 500;
 
 const uniq = <T>(xs: Iterable<T>) => [...new Set(xs)];
 const clip = (s: string, n = MAX_TEXT) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s);
@@ -45,6 +50,8 @@ export interface DraftInput {
   artifactOf: Record<string, string>;
   /** Criteria tasks may carry: the Evolutions' (in the Genome) plus, for explicit nodes, the Genome's about them. */
   criteria: string[];
+  /** Removed nodes whose code a task on a surviving ancestor deletes. */
+  removals?: DraftRemoval[];
   hint?: string;
   title?: string;
 }
@@ -122,17 +129,68 @@ const expand = (m: SystemModel, nodes: string[]) =>
 
 // ------------------------------------------------------------------ scope
 
+/** What realization and removal checks read: System history (newest first), the plan store, when each Evolution was accepted. */
+export interface ScopeHistory {
+  history: SystemCommit[];
+  plans: RealizationPlan[];
+  /** Evolution id → index in `history` of the commit that accepted it, or that first carried it (seeded from Genome YAML). */
+  acceptedAt: Record<string, number>;
+  /** Evolution id → the Genome before its acceptance (the parent commit's), when one of its nodes was removed. */
+  previous: Record<string, SystemModel | undefined>;
+}
+
+/** The binding `artifactId` in System commit `c` (composition first, else the model manifest). */
+function bindingAt(c: SystemCommit, artifactId: string): { repo?: string; commit?: string; realizedGenome?: string; realizationPlan?: string } | undefined {
+  const b = c.composition?.artifacts?.[artifactId];
+  if (b) return b;
+  const x = (c.manifest ?? []).find((y) => y.artifact === artifactId);
+  return x && { repo: x.repo, commit: x.commit };
+}
+
+/** The oldest index in `history` whose System commit pins Genome `genome`; -1 when none does. */
+function genomeIndex(history: SystemCommit[], genome: string): number {
+  let k = -1;
+  history.forEach((c, i) => { if (c.genomeCommit === genome) k = i; });
+  return k;
+}
+
 /**
- * Whether binding `artifactId` already implements Evolution `eid`: its `realizedGenome` was accepted at or after the
- * System commit that accepted the Evolution. `history` is newest first.
+ * The history index of the Genome a binding realized before any realization plan, main's rule (`phenome.ts`): the newest
+ * commit carrying the binding without `realizationPlan`; its `realizedGenome`, else the Genome of the oldest commit
+ * carrying that same source commit. -1 when the binding never had one.
  */
-export function realizedOn(history: SystemCommit[], manifest: SystemManifest, eid: string, artifactId: string): boolean {
-  const realized = manifest.artifacts[artifactId]?.realizedGenome;
-  if (!realized) return false;
-  const accepted = history.findIndex((c) => c.evolutions.includes(eid));
-  let first = -1;
-  history.forEach((c, i) => { if (c.genomeCommit === realized) first = i; });
-  return accepted >= 0 && first >= 0 && first <= accepted;
+export function legacyRealizedIndex(history: SystemCommit[], artifactId: string): number {
+  for (let i = 0; i < history.length; i++) {
+    const b = bindingAt(history[i], artifactId);
+    if (!b || b.realizationPlan) continue;
+    if (b.realizedGenome) return genomeIndex(history, b.realizedGenome);
+    let j = i;
+    for (let k = i + 1; k < history.length; k++) {
+      const x = bindingAt(history[k], artifactId);
+      if (!x || x.realizationPlan || x.repo !== b.repo || x.commit !== b.commit) break;
+      j = k;
+    }
+    return genomeIndex(history, history[j].genomeCommit);
+  }
+  return -1;
+}
+
+/**
+ * Whether `node` of an Evolution accepted at history index `accepted` is implemented on binding `artifactId`: a promoted
+ * or integrated realization plan pinned at or after the acceptance writes it there (create stores expanded write nodes),
+ * or the binding's pre-plan realized Genome (`legacyRealizedIndex`) is at or after the acceptance. `realizedGenome`
+ * alone is not used: promote records it for every binding of a plan, whatever the plan's scope.
+ */
+export function nodeRealized(h: ScopeHistory, accepted: number | undefined, artifactId: string, node: string): boolean {
+  if (accepted === undefined || accepted < 0) return false;
+  const byPlan = h.plans.some((p) => {
+    if (p.status !== "promoted" && p.status !== "integrated") return false;
+    const pinned = genomeIndex(h.history, p.genome.commit);
+    return pinned >= 0 && pinned <= accepted && p.tasks.some((t) => t.artifactId === artifactId && t.writeNodes.includes(node));
+  });
+  if (byPlan) return true;
+  const legacy = legacyRealizedIndex(h.history, artifactId);
+  return legacy >= 0 && legacy <= accepted;
 }
 
 /** An Evolution the draft may implement: a Genome amendment that was accepted. */
@@ -140,14 +198,28 @@ export const isAcceptedGenomeEvolution = (e: Pick<Evolution, "state" | "kind">) 
 
 export interface ScopeRequest { evolutionIds?: string[]; nodes?: string[]; hint?: string; title?: string }
 
+/** A node an Evolution removed: its code goes with a task on its nearest surviving ancestor that maps to files. */
+export interface DraftRemoval { evolutionId: string; node: string; title: string; ancestor: string; artifactId: string; globs: string[] }
+
+export interface DraftScope {
+  evolutions: DraftEvolution[];
+  nodes: string[];
+  artifactOf: Record<string, string>;
+  criteria: string[];
+  removals: DraftRemoval[];
+  problems: DraftPlanProblem[];
+}
+
 /**
  * Picks the scope of a draft. Named Evolutions must be accepted Genome amendments; with neither `evolutionIds` nor
- * `nodes`, every accepted Evolution some binding has not realized is taken. An Evolution's nodes on bindings that
- * already realized it are skipped; explicit nodes are always taken. Unknown ids and unbound nodes are problems.
+ * `nodes`, every accepted Evolution with an unrealized node is taken. Nodes already realized (`nodeRealized`) are
+ * skipped; explicit nodes are always taken. A removed node is resolved in the Genome before acceptance and becomes a
+ * removal on its nearest surviving, file-mapped ancestor. The criteria pool holds the Evolutions' criteria about taken
+ * nodes (and removal ancestors) plus System-owned ones, and the Genome's criteria about explicit nodes.
  */
 export function draftScope(
-  model: SystemModel, manifest: SystemManifest, history: SystemCommit[], all: Evolution[], req: ScopeRequest,
-): { evolutions: DraftEvolution[]; nodes: string[]; artifactOf: Record<string, string>; criteria: string[]; problems: DraftPlanProblem[] } {
+  model: SystemModel, manifest: SystemManifest, h: ScopeHistory, all: Evolution[], req: ScopeRequest,
+): DraftScope {
   const problems: DraftPlanProblem[] = [];
   const known = (id: string) => !!model.index.byId[id];
   const isCriterion = (id: string) => model.criteria.some((c) => c.id === id);
@@ -171,30 +243,49 @@ export function draftScope(
   const nodes: string[] = [];
   const pool: string[] = [];
   const evolutions: DraftEvolution[] = [];
+  const removals: DraftRemoval[] = [];
   const named = new Set(req.evolutionIds ?? []);
   for (const e of chosen) {
     const take: string[] = [];
+    const gone: DraftRemoval[] = [];
     const realized: string[] = [];
+    const accepted = h.acceptedAt[e.id];
     for (const n of e.affectedNodes ?? []) {
-      if (isCriterion(n)) { pool.push(n); continue; }
-      if (!known(n)) { problems.push({ severity: "warning", message: `${e.id}: node ${n} is not in the accepted Genome; nothing to implement for it` }); continue; }
+      if (isCriterion(n)) continue;
+      if (!known(n)) {
+        const r = removalOf(model, manifest, h.previous[e.id], e.id, n);
+        if ("problem" in r) {
+          // Unresolvable, but every binding already realized the Genome that dropped it (an Evolution seeded at import).
+          if (Object.keys(manifest.artifacts).every((a) => nodeRealized(h, accepted, a, n))) { realized.push(n); continue; }
+          problems.push(r.problem);
+          continue;
+        }
+        if (nodeRealized(h, accepted, r.artifactId, r.ancestor)) { realized.push(n); continue; }
+        gone.push(r);
+        continue;
+      }
       const a = bind(n);
       if (!a) { problems.push({ severity: "error", message: `${e.id}: node ${n} has no source binding in the manifest; dropped` }); continue; }
-      if (realizedOn(history, manifest, e.id, a)) { realized.push(n); continue; }
+      if (nodeRealized(h, accepted, a, n)) { realized.push(n); continue; }
       take.push(n);
     }
-    if (!take.length && realized.length) {
-      if (named.has(e.id)) problems.push({ severity: "warning", message: `${e.id} is already realized on ${uniq(realized.map((n) => artifactOf[n])).join(", ")}; skipped` });
+    if (!take.length && !gone.length && realized.length) {
+      if (named.has(e.id)) problems.push({ severity: "warning", message: `${e.id} is already realized; skipped` });
       continue;
     }
     if (realized.length) problems.push({ severity: "warning", message: `${e.id}: ${realized.join(", ")} already realized; skipped` });
-    if (!take.length && named.has(e.id)) problems.push({ severity: "missing", message: `${e.id} names no nodes to implement` });
-    if (!take.length) continue;
-    evolutions.push({ id: e.id, title: e.title, intent: e.intent, affectedNodes: take, acceptanceCriteria: e.acceptanceCriteria ?? [] });
+    if (!take.length && !gone.length) {
+      if (named.has(e.id)) problems.push({ severity: "missing", message: `${e.id} names no nodes to implement` });
+      continue;
+    }
+    evolutions.push({ id: e.id, title: e.title, intent: e.intent, affectedNodes: [...take, ...gone.map((r) => r.node)], acceptanceCriteria: e.acceptanceCriteria ?? [] });
     nodes.push(...take);
-    for (const c of e.acceptanceCriteria ?? []) {
-      if (isCriterion(c)) pool.push(c);
-      else problems.push({ severity: "warning", message: `${e.id}: acceptance criterion ${c} is not in the Genome` });
+    removals.push(...gone);
+    const scoped = [...take, ...gone.map((r) => r.ancestor)];
+    for (const c of uniq([...(e.acceptanceCriteria ?? []), ...(e.affectedNodes ?? []).filter(isCriterion)])) {
+      if (!isCriterion(c)) { problems.push({ severity: "warning", message: `${e.id}: acceptance criterion ${c} is not in the Genome` }); continue; }
+      // Only criteria about what this draft implements: one about a realized node would land on an unrelated task.
+      if (criteriaFor(model, [c], scoped).length) pool.push(c);
     }
   }
   for (const n of explicit) {
@@ -204,12 +295,30 @@ export function draftScope(
     pool.push(...model.criteria.filter((c) => c.subjectId === n || model.index.path(c.subjectId).includes(n)).map((c) => c.id));
   }
   const scope = uniq(nodes);
-  if (!scope.length) problems.push({ severity: "missing", message: "nothing to implement: no accepted, unrealized Genome change or node in scope" });
+  if (!scope.length && !removals.length) problems.push({ severity: "missing", message: "nothing to implement: no accepted, unrealized Genome change or node in scope" });
   return {
-    evolutions, nodes: scope, criteria: uniq(pool),
+    evolutions, nodes: scope, criteria: uniq(pool), removals,
     artifactOf: Object.fromEntries(scope.map((n) => [n, artifactOf[n]])),
     problems,
   };
+}
+
+/**
+ * Resolves a node the accepted Genome no longer has: in `before` (the Genome before acceptance) it must exist; its
+ * nearest ancestor that survives, is bound and maps to files takes the removal, with the removed subtree's old globs.
+ * Anything unresolvable is a `missing` problem: the draft would otherwise leave the code in place silently.
+ */
+function removalOf(model: SystemModel, manifest: SystemManifest, before: SystemModel | undefined, eid: string, n: string): DraftRemoval | { problem: DraftPlanProblem } {
+  const missing = (message: string) => ({ problem: { severity: "missing" as const, message } });
+  if (!before?.index.byId[n]) return missing(`${eid}: node ${n} is not in the accepted Genome and cannot be resolved in the Genome before it; its code is not planned`);
+  const globs = uniq(expand(before, [n]).flatMap((id) => (before.files[id] ?? []).map((g) => g.glob))).sort();
+  for (const a of [...before.index.path(n)].reverse().slice(1)) {
+    if (!model.index.byId[a] || !(model.files[a] ?? []).length) continue;
+    const artifactId = nodeArtifact(model, manifest, a);
+    if (!artifactId) continue;
+    return { evolutionId: eid, node: n, title: before.index.byId[n].name || n, ancestor: a, artifactId, globs };
+  }
+  return missing(`${eid}: removed node ${n} has no surviving ancestor that maps to source files; delete its code (${globs.join(", ") || "no globs"}) by hand`);
 }
 
 // ------------------------------------------------------------------ context
@@ -312,8 +421,8 @@ function fallbackDrafts(i: DraftInput, nodes: string[]): TaskDraft[] {
  * Checks an LLM reply like ops: unknown and out-of-scope nodes are dropped, a node in two tasks stays only in the
  * first, a task spanning Things or bindings is split, uncovered nodes get fallback tasks, `dependsOn` titles become
  * draft indexes. Reply criteria outside the pool are dropped; every task always keeps `criteriaFor` its own nodes, so a
- * reply can add criteria but never move or drop them. Every fix is a problem; a cycle among the reply's dependencies
- * loses the edges that close it (an `error` problem).
+ * reply can add criteria but never move or drop them. Every fix is a `warning` (unknown nodes and a dependency cycle,
+ * whose closing edges are dropped, included): the repaired request is usable.
  */
 export function validateReply(i: DraftInput, reply: PlanReplyTask[]): { drafts: TaskDraft[]; problems: DraftPlanProblem[] } {
   const m = i.model;
@@ -330,7 +439,7 @@ export function validateReply(i: DraftInput, reply: PlanReplyTask[]): { drafts: 
     else problems.push({ severity: "warning", message: `two tasks are titled "${t.title}"; dependencies on it mean the first` });
     const nodes: string[] = [];
     for (const n of t.nodes) {
-      if (!m.index.byId[n]) { problems.push({ severity: "error", message: `task "${t.title}": unknown node ${n} dropped` }); continue; }
+      if (!m.index.byId[n]) { problems.push({ severity: "warning", message: `task "${t.title}": unknown node ${n} dropped` }); continue; }
       if (!scope.has(n)) { problems.push({ severity: "warning", message: `task "${t.title}": node ${n} is not in the draft's scope; dropped` }); continue; }
       if (used.has(n) || nodes.includes(n)) { problems.push({ severity: "warning", message: `task "${t.title}": node ${n} is already in an earlier task; removed` }); continue; }
       nodes.push(n);
@@ -397,7 +506,7 @@ export function validateReply(i: DraftInput, reply: PlanReplyTask[]): { drafts: 
   });
   if (cyclic.size) {
     const names = [...cyclic].sort((a, b) => a - b).map((j) => `"${drafts[j].title}"`);
-    problems.push({ severity: "error", message: `the planner's dependencies form a cycle among ${names.join(", ")}; the edges closing it were dropped` });
+    problems.push({ severity: "warning", message: `the planner's dependencies form a cycle among ${names.join(", ")}; the edges closing it were dropped` });
   }
   return { drafts: drafts.map(({ deps: _d, ...d }, j) => ({ ...d, dependsOn: deps[j] })), problems };
 }
@@ -535,8 +644,9 @@ export function stepsOf(intent: string, fallback: string): string[] {
 
 /**
  * Read scope: the one-hop link targets of the task's (expanded) write nodes outside its own write scope that either
- * map to source files of its binding or are written by another task. Targets with neither (externals, unmapped nodes)
- * add no conflict a reviewer could act on and would only mark the footprint unknown.
+ * map to source files of its binding or are written by another task. This filters non-contract links only: create
+ * re-adds every contract-link target (`CONTRACT_RELS`) unfiltered, so an external reached by `reads` or `uses` still
+ * marks the footprint unknown, and `asCreated` mirrors that.
  */
 function readNodesOf(i: DraftInput, d: TaskDraft, otherWrites: Set<string>): string[] {
   const m = i.model;
@@ -597,6 +707,11 @@ export function assembleDraft(i: DraftInput, input: TaskDraft[], problems: Draft
     checks: uniq(d.checks),
   }));
   if (tasks.length > MAX_TASKS) out.push({ severity: "error", message: `${tasks.length} tasks exceed create's limit of ${MAX_TASKS}; narrow the scope` });
+  for (const t of tasks) {
+    for (const key of ["writeNodes", "readNodes", "checks", "dependsOn"] as const) {
+      if (t[key].length > MAX_LIST) out.push({ taskId: t.id, severity: "error", message: `${t[key].length} ${key} exceed create's limit of ${MAX_LIST}; split the task` });
+    }
+  }
   const request: CreateRealizationPlanRequest = { title: planTitle(i), genomeCommit: i.genomeCommit, tasks };
   let analysis: TaskAnalysis = { conflicts: [], waves: [] };
   if (tasks.length) {
@@ -617,6 +732,27 @@ export function assembleDraft(i: DraftInput, input: TaskDraft[], problems: Draft
 // ------------------------------------------------------------------ planning
 
 /**
+ * Removals join the task that already writes their ancestor (same binding), else one task per ancestor, whose intent
+ * names each removed node and its old file globs.
+ */
+export function applyRemovals(i: DraftInput, drafts: TaskDraft[]): TaskDraft[] {
+  const out = drafts.map((d) => ({ ...d }));
+  const byAncestor = new Map<string, DraftRemoval[]>();
+  for (const r of i.removals ?? []) byAncestor.set(`${r.artifactId}|${r.ancestor}`, [...(byAncestor.get(`${r.artifactId}|${r.ancestor}`) ?? []), r]);
+  for (const rs of byAncestor.values()) {
+    const { ancestor, artifactId } = rs[0];
+    const text = rs.map((r) => `Delete the code for ${r.title} (${r.node})${r.globs.length ? ` under ${r.globs.join(", ")}` : ""}.`).join(" ");
+    const home = out.find((d) => d.artifactId === artifactId && d.nodes.includes(ancestor));
+    if (home) { home.intent = `${home.intent} ${text}`.trim(); continue; }
+    out.push({
+      title: `Remove ${rs.map((r) => r.title).join(", ")}`, intent: text, artifactId, nodes: [ancestor], dependsOn: [],
+      checks: criteriaFor(i.model, i.criteria, [ancestor]), origin: "fallback",
+    });
+  }
+  return out;
+}
+
+/**
  * Drafts with `planner`: a valid reply is validated and assembled; an off planner or a failed reply gives the fallback
  * partition (a failure is a warning). Never throws on planner output.
  */
@@ -625,14 +761,16 @@ export async function buildDraft(i: DraftInput, planner: Planner, scopeProblems:
     planner: { provider, model }, genomeCommit: i.genomeCommit, evolutionIds: i.evolutions.map((e) => e.id), nodes: i.nodes, fake: planner.mode === "fake", fallback,
   });
   const fallback = (extra: DraftPlanProblem[]) => {
-    const drafts = fallbackDrafts(i, i.nodes);
+    const drafts = applyRemovals(i, fallbackDrafts(i, i.nodes));
     coverCriteria(i.model, i.criteria, drafts);
     return { ...assembleDraft(i, drafts, [...scopeProblems, ...extra]), provenance: provenance("fallback", "fallback", true) };
   };
   if (!i.nodes.length || planner.mode === "off") return fallback([]);
+  // Removals never go to the model: their task is fixed by the ancestor that survives.
   const reply = await planner.plan(planContext(i));
   if (!reply.tasks) return fallback([{ severity: "warning", message: `${reply.error ?? `planner ${reply.provider} gave no tasks`}; planned by the fallback` }]);
-  const { drafts, problems } = validateReply(i, reply.tasks);
+  const { drafts: planned, problems } = validateReply(i, reply.tasks);
+  const drafts = applyRemovals(i, planned);
   coverCriteria(i.model, i.criteria, drafts);
   const usedFallback = drafts.some((d) => d.origin === "fallback");
   return { ...assembleDraft(i, drafts, [...scopeProblems, ...problems]), provenance: provenance(reply.provider, reply.model, usedFallback) };
@@ -662,6 +800,48 @@ async function treeOf(env: Env, b: { repo: string; commit: string }): Promise<st
   return t;
 }
 
+/** Genomes a seeded Evolution's acceptance is looked up in, oldest first. */
+const MAX_SEED_LOOKUPS = 12;
+
+/**
+ * The history facts `draftScope` reads. An accepted Evolution with no accepting commit was seeded from Genome YAML: it
+ * counts as accepted at the oldest System commit whose Genome carries it. An Evolution that names nodes the current
+ * Genome lacks gets the Genome of the commit before its acceptance, to resolve the removals.
+ */
+async function scopeHistory(
+  env: Env, state: { systemId: string; genomeCommit: string; genomeSource: string; genomeRepo: string },
+  model: SystemModel, evolutions: Evolution[], history: SystemCommit[], plans: RealizationPlan[],
+): Promise<ScopeHistory> {
+  const loaded = new Map<string, SystemModel | null>([[state.genomeCommit, model]]);
+  const at = async (commit: string) => {
+    if (!loaded.has(commit)) {
+      let m: SystemModel | null = null;
+      for (const repo of uniq([state.genomeSource, state.genomeRepo])) {
+        try { m = (await genomeAt(env, state.systemId, commit, repo)).model; break; } catch { /* try the next repo */ }
+      }
+      loaded.set(commit, m);
+    }
+    return loaded.get(commit)!;
+  };
+  const oldestFirst: [string, number][] = [];
+  for (let k = history.length - 1; k >= 0; k--) if (!oldestFirst.some(([g]) => g === history[k].genomeCommit)) oldestFirst.push([history[k].genomeCommit, k]);
+  const acceptedAt: Record<string, number> = {};
+  const previous: Record<string, SystemModel | undefined> = {};
+  for (const e of evolutions.filter(isAcceptedGenomeEvolution)) {
+    let k = history.findIndex((c) => c.evolutions.includes(e.id));
+    if (k < 0) {
+      for (const [g, idx] of oldestFirst.slice(0, MAX_SEED_LOOKUPS)) {
+        if ((await at(g))?.evolutions.some((x) => x.id === e.id)) { k = idx; break; }
+      }
+    }
+    if (k < 0) continue;
+    acceptedAt[e.id] = k;
+    const removed = (e.affectedNodes ?? []).some((n) => !model.index.byId[n] && !model.criteria.some((c) => c.id === n));
+    if (removed && history[k + 1]) previous[e.id] = (await at(history[k + 1].genomeCommit)) ?? undefined;
+  }
+  return { history, plans, acceptedAt, previous };
+}
+
 /**
  * `POST …/realization-plans/draft {title?, evolutionIds?, nodes?, hint?}` (admin): a draft over the current accepted
  * Genome and manifest. 400 for a malformed body, 404 without an accepted Genome; everything else is a problem.
@@ -674,17 +854,18 @@ export async function draftRealizationPlan(env: Env, systemId: string, body: unk
   const state = await stub.state();
   if (!state?.manifest) throw notFound(`system ${systemId} has no accepted Genome`);
   // TODO(P10): guard with the System import review (`assertImportReviewed`, 409 `import-unreviewed`) once P4 lands.
-  const [{ model }, evolutions, history] = await Promise.all([
-    genomeAt(env, systemId, state.genomeCommit, state.genomeSource), stub.evolutions(), stub.history(),
+  const [{ model }, evolutions, history, plans] = await Promise.all([
+    genomeAt(env, systemId, state.genomeCommit, state.genomeSource), stub.evolutions(), stub.history(), stub.realizationPlans(),
   ]);
-  const scope = draftScope(model, state.manifest, history, evolutions, req);
+  const h = await scopeHistory(env, state, model, evolutions, history, plans);
+  const scope = draftScope(model, state.manifest, h, evolutions, req);
   const tree: Record<string, string[]> = {};
-  for (const a of uniq(Object.values(scope.artifactOf))) tree[a] = await treeOf(env, state.manifest.artifacts[a]);
+  for (const a of uniq([...Object.values(scope.artifactOf), ...scope.removals.map((r) => r.artifactId)])) tree[a] = await treeOf(env, state.manifest.artifacts[a]);
   const hint = req.hint?.trim() || undefined;
   const input: DraftInput = {
     model, manifest: state.manifest, trees: tree, genomeCommit: state.genomeCommit,
-    evolutions: scope.evolutions, nodes: scope.nodes, artifactOf: scope.artifactOf, criteria: scope.criteria,
+    evolutions: scope.evolutions, nodes: scope.nodes, artifactOf: scope.artifactOf, criteria: scope.criteria, removals: scope.removals,
     ...(hint && { hint }), ...(req.title && { title: req.title }),
   };
-  return buildDraft(input, plannerFromEnv(env as unknown as PlannerEnv), scope.problems);
+  return buildDraft(input, plannerFromEnv(env), scope.problems);
 }
