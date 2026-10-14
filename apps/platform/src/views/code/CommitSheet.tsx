@@ -149,7 +149,7 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
       <p className={styles.muted}>
         The commit goes to a new editor realization's fork and becomes a candidate on Work. Realize it there with Promote or Accept.
       </p>
-      {repo === "app" && <p><Link className="u-marker" to={href("work", { panel: "plan", evolution: null, realization: null })}>Create a Realization Task</Link>. Your app draft stays here until you discard it.</p>}
+      {repo === "app" && <p><Link to={href("work", { panel: "plan", evolution: null, realization: null })}>Create a Realization Task</Link>. Your app draft stays here until you discard it.</p>}
       <form ref={formRef} onSubmit={submit} className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`${uid}-m`}>Message</label>
