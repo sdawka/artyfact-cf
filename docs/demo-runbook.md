@@ -356,8 +356,8 @@ The server's 409 carries `details {blockedOn: ["t1","t2"]}`. A task another agen
 detail or here:
 
 ```sh
-artyfact task select $P t1 --system system.peopling --candidate candidate.task.r4.9a7d4cb
-artyfact task select $P t2 --system system.peopling --candidate candidate.task.r5.1d0e64c
+ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact task select $P t1 --system system.peopling --candidate candidate.task.r4.9a7d4cb
+ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact task select $P t2 --system system.peopling --candidate candidate.task.r5.1d0e64c
 artyfact plan tasks $P --system system.peopling        # t1, t2 selected; the claim line now names t3
 ```
 
@@ -367,7 +367,7 @@ Now the claim for t3 succeeds, and its `AGENTS.md` says "Builds on: t1 (selected
 ## 9. Select, integrate, review, promote (about 10 s)
 
 ```sh
-artyfact task select $P t3 --system system.peopling --candidate candidate.task.r6.7adc6e6
+ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact task select $P t3 --system system.peopling --candidate candidate.task.r6.7adc6e6
 ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact plan integrate $P --system system.peopling
 artyfact plan review $P --system system.peopling
 ```

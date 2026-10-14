@@ -184,10 +184,10 @@ artyfact task submit
 The agent returns the durable review URL. After reviewing each submitted candidate:
 
 ```sh
-artyfact task select plan.id task.id --system system.example --candidate candidate.id
-artyfact plan integrate plan.id --system system.example
-artyfact plan review plan.id --system system.example
-artyfact plan promote plan.id --system system.example --file reviewed-promotion.json
+ARTYFACT_ADMIN_TOKEN=... artyfact task select plan.id task.id --system system.example --candidate candidate.id
+ARTYFACT_ADMIN_TOKEN=... artyfact plan integrate plan.id --system system.example
+artyfact plan review plan.id --system system.example        # a read: no token on a public System
+ARTYFACT_ADMIN_TOKEN=... artyfact plan promote plan.id --system system.example --file reviewed-promotion.json
 ```
 
 Promotion JSON contains the reviewed `expectedHead` (string or null), `rationale`, and exact
