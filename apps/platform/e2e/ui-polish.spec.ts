@@ -197,7 +197,8 @@ test.describe('application UI polish @fixture', () => {
         await page.goto(path!); await expect(page.getByRole('heading', { name:heading!,level:1 })).toBeVisible();
         const header = page.locator('header').first(); await fits(header,page);
         const search = header.getByRole('button', { name:/Go to…/ }); await hitArea(search);
-        const admin = await openAdmin(page); await hitArea(admin); await page.keyboard.press('Escape'); await expect(admin).toBeFocused();
+        const direct = header.getByRole('button', { name:'Admin token',exact:true }); await hitArea(await direct.isVisible() ? direct : header.getByRole('button', { name:'More',exact:true }));
+        const admin = await openAdmin(page); await page.keyboard.press('Escape'); await expect(admin).toBeFocused();
         dimensions.push([(await header.boundingBox())!.height,(await admin.boundingBox())!.height,(await search.boundingBox())!.height]);
         await search.click(); const palette = page.getByRole('dialog', { name:'Go to',exact:true });
         await fits(palette,page);

@@ -4,6 +4,7 @@ import { useReadiness } from "@/api/queries";
 import { Derivation, type DerivationTree } from "@/components/Derivation/Derivation";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
+import { NodeLink } from "../NodeLink";
 import { MetaLine } from "@/components/MetaLine/MetaLine";
 import { RowList, Row } from "@/components/RowList/RowList";
 import { StatusText } from "@/components/StatusText/StatusText";
@@ -83,13 +84,13 @@ function CriterionRow({ s }: { s: Scoped }) {
   const same = c.ownerId === c.subjectId;
   return (
     <Row
-      title={<NodeChip id={c.id} size="sm" glyph={false} />}
+      title={<NodeLink id={c.id} />}
       status={<StatusText status={verdict} tone={tone === "subtle" ? "neutral" : tone} glyph={VERDICT_GLYPH[verdict]} />}
       meta={<MetaLine items={[
-        { label: same ? "Owner and subject" : "Owner", value: <NodeChip id={c.ownerId} size="sm" glyph={false} /> },
-        ...(same ? [] : [{ label: "Subject", value: <NodeChip id={c.subjectId} size="sm" glyph={false} /> }]),
+        { label: same ? "Owner and subject" : "Owner", value: <NodeLink id={c.ownerId} /> },
+        ...(same ? [] : [{ label: "Subject", value: <NodeLink id={c.subjectId} /> }]),
         { label: "Target", value: `${c.targetKind}, gates ${c.gates.join(", ") || "none"}` },
-        ...(s.via ? [{ label: "Inherited", value: <>{s.via.why} <NodeChip id={s.via.id} size="sm" glyph={false} /></> }] : []),
+        ...(s.via ? [{ value: <>{s.via.why} <NodeLink id={s.via.id} /></> }] : []),
       ]} />}
     />
   );

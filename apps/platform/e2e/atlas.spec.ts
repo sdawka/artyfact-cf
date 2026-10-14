@@ -355,7 +355,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await checkA11yAndShoot(page, testInfo, `atlas-selection-${viewport.width}x${viewport.height}`);
     await selection(page).getByRole("button", { name: "Details", exact: true }).click();
     await expect(inspector(page)).toBeVisible();
-    await expect(inspector(page).getByRole("button", { name: /Close/ })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Close inspector" })).toBeVisible();
     await waitAtlasReveals(page);
     await checkA11yAndShoot(page, testInfo, `atlas-details-${viewport.width}x${viewport.height}`);
   });

@@ -5,7 +5,7 @@ import { useNavigate } from "react-router";
 import { Kbd } from "@/components/Kbd/Kbd";
 import { Count } from "@/components/Count/Count";
 import { useEffectsPreference } from "@/effects/effectsPreference";
-import { bestViewFor, GO_KEYS, kindColour, titleOf, useKindViews, VIEWS, VIEW_LABELS, VIEW_KINDS, type ViewName } from "@/model/kinds";
+import { bestViewFor, GO_KEYS, kindColour, titleOf, useKindViews, VIEWS, VIEW_GROUPS, VIEW_LABELS, VIEW_KINDS, type ViewName } from "@/model/kinds";
 import { canDescribeChange } from "@/inspector/InspectorHeader";
 import { useModel } from "@/model/useModel";
 import { useAtlasNavigation } from "@/model/useAtlasNavigation";
@@ -14,6 +14,9 @@ import { useKeepParams, useSelection, useSystemRoute } from "@/model/useSelectio
 import { OPEN_ADMIN_TOKEN_EVENT } from "./AdminTokenControl";
 import { useRetryApi } from "./useRetryApi";
 import styles from "./CommandPalette.module.css";
+
+/** Views in rail order, then Compare (which has no rail row, only `g x`). */
+const RAIL_ORDER: ViewName[] = [...VIEW_GROUPS.flatMap((g) => g.views), ...VIEWS.filter((v) => !VIEW_GROUPS.some((g) => g.views.includes(v)))];
 
 /** How many nodes the Nodes group shows at once (best matches first). */
 export const PALETTE_NODE_LIMIT = 50;
@@ -127,7 +130,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   return (
     <PaletteFrame open={open} onOpenChange={onOpenChange} placeholder="Go to a view, node or action…" footer={<PaletteFooter siblings={!!focusId} />}>
       {(query) => {
-        const viewRows = VIEWS.filter((v) => !VIEW_KINDS[v] || views.declares(VIEW_KINDS[v]!))
+        const viewRows = RAIL_ORDER.filter((v) => !VIEW_KINDS[v] || views.declares(VIEW_KINDS[v]!))
           .filter((v) => paletteScore(query, [VIEW_LABELS[v], "view"]) > 0);
         const nodes = index.entries
           .map((e) => { const info = views.of(e.kind); const name = titleOf(e, info); return { e, info, name, score: paletteScore(query, [e.id, name, info.label]) }; })
