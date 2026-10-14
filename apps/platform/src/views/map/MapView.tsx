@@ -149,7 +149,8 @@ export function MapView() {
   }, [graph, index, navigation, locKey]);
   useEffect(() => {
     // Rapid depth actions may arrive before their just-committed source scope renders.
-    if (!travel || travel.historyKey || travel.source !== graph.scope) return;
+    // A newer gesture may already have replaced this travel by the time the effect runs.
+    if (!travel || travel.historyKey || travel.source !== graph.scope || travel.sequence !== travelSequence.current) return;
     // A double-click includes a selecting click. Wait for that exact URL replacement;
     // other focus/layer/Details changes still cancel this gesture before it can enter.
     if (travel.pendingSelection && location.search !== travel.pendingSelection.search) {
