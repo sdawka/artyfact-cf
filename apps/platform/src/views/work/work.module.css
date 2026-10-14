@@ -66,10 +66,7 @@
   list-style: none;
   border-radius: var(--border-radius-sm);
 }
-.stateGroup > summary::-webkit-details-marker { display: none; }
 .stateGroup > summary:hover { background: var(--surface-raised); }
-.stateGroup > summary::before { content: "▸"; color: var(--color-text-subtle); font-size: 0.75em; }
-.stateGroup[open] > summary::before { content: "▾"; }
 .empties { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-4); margin: 0; padding-inline: var(--spacing-2); font: var(--type-meta); color: var(--color-text-subtle); }
 .rowMeta { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-1) var(--spacing-3); }
 .rowStatus { display: inline-flex; flex-direction: column; align-items: flex-end; gap: var(--spacing-1); }
