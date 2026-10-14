@@ -3,9 +3,8 @@ import React from 'react';
 type Phase = 'done' | 'current' | 'next';
 const phase = (from: number, step: number): Phase => from < step ? 'done' : from === step ? 'current' : 'next';
 const lanes = [
-  ['A', 'CheckoutButton.tsx', 'Runs first', 'Failed: requires login. Revised.', 'fail'],
-  ['C', 'emails/points.tsx', 'Runs beside A', 'Pass', 'pass'],
-  ['B', 'api/orders.ts', 'Waits for A', 'Pass', 'pass'],
+  ['A', 'CheckoutButton.tsx', 'Working now', 'Fail: requires login', 'fail'],
+  ['B', 'api/orders.ts', 'Working now', 'Pass', 'pass'],
 ] as const;
 
 /** The board for one step. All text is prerendered; later rows become placeholders once enhanced. */
@@ -20,12 +19,12 @@ export function CheckoutScene({ step }: { step: number }) {
     <div className="checkout-lanes">
       {lanes.map(([task, file, order, verdict, kind]) => <div key={task} className="checkout-row checkout-lane" data-task={task} {...at(1)}>
         <span className="checkout-kind">Task {task} · private fork</span><code>{file}</code>
-        <span className="checkout-order" {...at(2)}>{order}</span>
+        <span className="checkout-order" {...at(1)}>{order}</span>
         <span className="checkout-verdict" data-verdict={kind} {...at(3)}>{verdict}</span>
       </div>)}
     </div>
-    <div className="checkout-row checkout-overlap" {...at(2)}><span className="checkout-kind">Same step, different files</span><strong>A and B both change Place order: run in order</strong></div>
-    <div className="checkout-row checkout-promote" {...at(4)}><span className="checkout-kind">Promote</span><strong>A, B and C integrated and promoted</strong></div>
+    <div className="checkout-row checkout-overlap" {...at(2)}><span className="checkout-kind">Overlap, different files</span><strong>Both change Place order and its rule</strong></div>
+    <div className="checkout-row checkout-promote" {...at(4)}><span className="checkout-kind">Promote</span><strong>B integrated and promoted</strong><span>A updated onto B, revising</span></div>
     <div className="checkout-row checkout-deploy" {...at(5)}><span className="checkout-kind">Deployed</span><code>3f9c2a1</code><span>42 sample order events</span><span className="checkout-outcome">Did loyalty points bring customers back? Not measured yet.</span></div>
     <div className="checkout-row checkout-next" {...at(6)}><span className="checkout-kind">Next change request</span><strong>Show the points balance</strong></div>
   </figure>;

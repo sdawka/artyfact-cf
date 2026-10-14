@@ -13,10 +13,10 @@ export function LandingStory() {
     <div className="checkout-intro">
       <p className="eyebrow">Example · illustrative</p>
       <h2 id="checkout-heading">The clean merge that still breaks checkout.</h2>
-      <p>An online store has one change request and three agent Tasks.</p>
+      <p>An online store has one change request and two agents working at once.</p>
       <div className="checkout-contrast">
-        <article><h3>On GitHub</h3><p>Different files, so the Tasks run side by side. No conflicts. Merged.</p></article>
-        <article><h3>On Artyfact</h3><p>Same step in the model, so the Tasks run in order. One rule fails.</p></article>
+        <article><h3>On GitHub</h3><p>Different files. No conflicts. Merged.</p></article>
+        <article><h3>On Artyfact</h3><p>Overlap on Place order. 1 rule failing.</p></article>
       </div>
     </div>
     <div className="checkout-body">

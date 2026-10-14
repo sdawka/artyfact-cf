@@ -19,6 +19,8 @@ test('all content and seven stacked steps survive without JavaScript', async ({ 
   await expect(page.locator('.checkout-deploy')).toContainText('Not measured yet');
   expect(await page.locator('.checkout-steps').evaluate(list => !!(list.compareDocumentPosition(document.querySelector('.checkout-stage')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   await expect(page.locator('.practice-card s').first()).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Give your coding agents the environment to thrive.' })).toBeVisible();
+  await expect(page.locator('.environment-columns article')).toHaveCount(3);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.locator('#home-system-story').screenshot({ path: info.outputPath('no-js.png') });
   await context.close();
@@ -78,12 +80,13 @@ test('forced colors keep the current step and row visible', async ({ page }, inf
   await page.emulateMedia({ forcedColors: 'active' });
   await page.goto('https://artyfact.test/');
   await revealStory(page);
-  const button = page.getByRole('button', { name: 'Step 3: Run them in order' });
+  const button = page.getByRole('button', { name: 'Step 3: Flag the overlap' });
   await button.click();
   await expect(button).toHaveAttribute('aria-current', 'step');
   expect(await button.evaluate(element => getComputedStyle(element).outlineWidth)).toBe('2px');
   expect(await page.locator('.checkout-overlap').evaluate(element => getComputedStyle(element).outlineStyle)).toBe('solid');
   await expect(page.locator('.practice-card s').first()).toHaveCSS('text-decoration-line', 'line-through');
+  expect(await page.locator('.environment-columns article').first().evaluate(element => getComputedStyle(element).borderTopStyle)).toBe('solid');
   await page.locator('.checkout-stage').screenshot({ path: info.outputPath('forced-colors.png') });
 });
 test('a 1024x700 viewport fits the sticky stage and follows scrolling', async ({ page }, info) => {

@@ -75,7 +75,7 @@ test('effects and the example respect reduced motion', async ({ page }) => {
   await page.goto('https://artyfact.test/');
   await revealStory(page);
   await mounted(page);
-  await page.getByRole('button', { name: 'Step 3: Run them in order' }).click();
+  await page.getByRole('button', { name: 'Step 3: Flag the overlap' }).click();
   const durations = await page.locator('.checkout-row, .checkout-verdict, .checkout-order').evaluateAll(elements => elements.map(element => getComputedStyle(element).transitionDuration));
   expect(durations.length).toBeGreaterThan(8);
   for (const duration of durations) expect(duration).toMatch(/^(0s|1e-05s|0.00001s)(, (0s|1e-05s|0.00001s))*$/);

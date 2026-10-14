@@ -9,7 +9,7 @@ export const practices: Practice[] = [
   { discipline: 'Engineering', replaces: 'linters and policy-as-code', artyfact: 'Rule packs that run over the model. Each finding shows the facts behind it.', status: 'yes' },
   { discipline: 'Engineering', replaces: 'CI gates', artyfact: 'Checks tied to criteria. A check that did not run stays unknown. Only a pass is green.', status: 'yes' },
   { discipline: 'Engineering', replaces: 'merge queues and branch protection', artyfact: 'A compare-and-swap promote. It refuses work that was reviewed against an old head.', status: 'yes' },
-  { discipline: 'Engineering', replaces: 'merge conflicts', artyfact: 'Tasks that change the same part of the model are flagged and run in order, even if they touch different files.', status: 'yes' },
+  { discipline: 'Engineering', replaces: 'merge conflicts', artyfact: 'Tasks that touch the same screen, rule or journey are flagged, even in different files.', status: 'yes' },
   { discipline: 'Engineering', replaces: 'changelogs and release notes', artyfact: 'A changelog of every System commit. You can compare the model or the files.', term: 'System', status: 'yes' },
   { discipline: 'Engineering', replaces: 'boilerplate and templates', artyfact: 'Reusable pieces with pinned versions. Composing them records where each piece came from.', term: 'Parts', status: 'yes' },
   { discipline: 'Engineering', replaces: 'LLM evals', artyfact: 'AI judgments with a confidence score. Below the threshold, a judgment stays unknown, never green.', status: 'yes' },

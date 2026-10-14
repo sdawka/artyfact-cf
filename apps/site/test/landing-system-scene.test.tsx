@@ -42,6 +42,6 @@ it('reveals board rows in order', () => {
   expect(phase('.checkout-overlap')).toBe('done');
   expect(phase('.checkout-promote')).toBe('current');
   expect(phase('.checkout-deploy')).toBe('next');
-  expect(container.querySelectorAll('.checkout-verdict[data-phase="done"]')).toHaveLength(3);
-  expect(container.querySelector('[data-task="B"] .checkout-order')?.textContent).toBe('Waits for A');
+  expect(container.querySelectorAll('.checkout-verdict[data-phase="done"]')).toHaveLength(2);
+  expect(container.querySelector('.checkout-promote')?.textContent).toContain('A updated onto B');
 });
