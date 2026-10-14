@@ -7,7 +7,7 @@ import { useParam } from "./lib";
 import { DraftPanel } from "./plan/DraftPanel";
 import { FIXTURE_REASON, planError, TOKEN_REASON } from "./plan/lib";
 import { PlanDetail } from "./plan/PlanDetail";
-import { planKeys, useApiMode, usePlan, usePlans } from "./plan/queries";
+import { planKeys, PUBLIC_PLAN_READS, useApiMode, usePlan, usePlans } from "./plan/queries";
 import { TaskStatus } from "./plan/TaskStatus";
 import styles from "./work.module.css";
 import planStyles from "./plan/plan.module.css";
@@ -63,7 +63,11 @@ export function Plans() {
       </div>
       <p>A Realization implements a pinned accepted Genome. Its Tasks run in isolated forks; Task Attempts preserve retry history.</p>
       {!api && <p className={styles.muted}>{FIXTURE_REASON}</p>}
-      {api && !token && <p className={styles.muted}>Set the admin token to draft, select, integrate or promote plans.</p>}
+      {api && !token && (
+        <p className={styles.muted}>
+          {PUBLIC_PLAN_READS ? "Set the admin token to draft, select, integrate or promote plans." : "Set the admin token to load and manage Realization plans."}
+        </p>
+      )}
       {plans.isLoading && <p role="status">Loading Realizations…</p>}
       {plans.error && <p role="alert">{planError("Reading plans", plans.error)}</p>}
       {plans.data && plans.data.plans.length > 0 && (

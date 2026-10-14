@@ -6,6 +6,7 @@ import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 import { TOKEN_REASON } from "./lib";
+import { PUBLIC_PLAN_READS } from "./queries";
 import { makePlan, task } from "./testPlan";
 
 const SID = "system.peopling";
@@ -145,14 +146,19 @@ describe("Realization plans", () => {
     expect(screen.getByRole("button", { name: "Integrate selected Task results" }).hasAttribute("disabled")).toBe(true);
   });
 
-  it("reads plans without a token and explains why writes are off", async () => {
+  it("explains why writes are off without a token, and reads plans only when reads are public", async () => {
     const calls = stub();
     render(`/s/${SID}/r/head/work?panel=plan`, { token: false });
     const draftBtn = await screen.findByRole("button", { name: "Draft tasks" });
     expect((draftBtn as HTMLButtonElement).disabled).toBe(true);
     await waitFor(() => expect(document.getElementById(draftBtn.getAttribute("aria-describedby")!)!.textContent).toBe(TOKEN_REASON));
-    await waitFor(() => expect(calls.some((c) => c.url.endsWith("/realization-plans"))).toBe(true));
-    expect(calls.find((c) => c.url.endsWith("/realization-plans"))!.auth).toBeNull();
-    expect(await screen.findByRole("button", { name: "Implement birthdays" })).toBeTruthy();
+    if (PUBLIC_PLAN_READS) {
+      await waitFor(() => expect(calls.some((c) => c.url.endsWith("/realization-plans"))).toBe(true));
+      expect(calls.find((c) => c.url.endsWith("/realization-plans"))!.auth).toBeNull();
+      expect(await screen.findByRole("button", { name: "Implement birthdays" })).toBeTruthy();
+    } else {
+      expect(await screen.findByText("Set the admin token to load and manage Realization plans.")).toBeTruthy();
+      expect(calls.some((c) => c.url.includes("/realization-plans"))).toBe(false);
+    }
   });
 });

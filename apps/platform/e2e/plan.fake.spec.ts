@@ -24,6 +24,7 @@ test.describe("realization plan from draft to promotion @fake", () => {
     // Draft and edit in the UI. Nothing is stored until Create plan.
     await page.goto(`${BASE}/work?panel=plan`);
     await page.getByLabel("Genome nodes to implement").fill(["binding.contactsStore", "screen.people", "component.TodayList"].join("\n"));
+    await expect(page.getByRole("button", { name: "Draft tasks" })).toBeEnabled();
     await page.getByRole("button", { name: "Draft tasks" }).click();
     await expect(page.getByTestId("draft-waves")).toHaveText(/^As drafted: wave 1/);
     await checkPage(page, testInfo, "plan-draft");

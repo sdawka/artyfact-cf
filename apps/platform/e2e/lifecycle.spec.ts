@@ -45,13 +45,13 @@ for(const width of [1440,360])test(`draft, edit and create a plan, then its wave
   await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});});
  await page.goto(`/s/${SID}/r/head/work?panel=plan`);
  await page.getByLabel('Genome nodes to implement').fill('component.t1');
- const draftBtn=page.getByRole('button',{name:'Draft tasks'});await draftBtn.focus();await page.keyboard.press('Enter');
+ const draftBtn=page.getByRole('button',{name:'Draft tasks'});await expect(draftBtn).toBeEnabled();await draftBtn.focus();await page.keyboard.press('Enter');
  await expect(page.getByTestId('draft-waves')).toHaveText(/As drafted: wave 1 \(t1, t2, t4\); wave 2 \(t3\)/);
  // Keyboard: remove t4, rename t1, then create.
  await page.getByRole('button',{name:'Remove Task t4'}).focus();await page.keyboard.press('Enter');
  await page.getByLabel('Title of t1').fill('Cards');
  expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
- await page.getByRole('button',{name:'Create plan'}).focus();await page.keyboard.press('Enter');
+ await expect(page.getByRole('button',{name:'Create plan'})).toBeEnabled();await page.getByRole('button',{name:'Create plan'}).focus();await page.keyboard.press('Enter');
  await expect(page.getByTestId('plan-counts')).toHaveText('3 tasks · 2 waves');
  expect(created!.tasks.map(t=>t.id)).toEqual(['t1','t2','t3']);
  const board=page.getByRole('group',{name:'Waves'});
