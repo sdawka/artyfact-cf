@@ -1,7 +1,7 @@
 import { Button, Input, Textarea } from "@/components/ui";
 import { useId, useState } from "react";
 import { Link } from "react-router";
-import { useAdminTokenField } from "@/api/adminToken";
+import { useAdminToken, useAdminTokenField } from "@/api/adminToken";
 import { useAcceptAmendment, useRejectAmendment } from "@/api/queries";
 import { useModel } from "@/model/useModel";
 import { useKeepParams } from "@/model/useSelection";
@@ -41,10 +41,11 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
   const [edited, setEdited] = useState(false);
   const [reason, setReason] = useState("");
   // Pre-filled from the header token; a typed value is a one-off.
-  const [adminToken, setAdminToken, resetAdminToken] = useAdminTokenField();
+  const { token: headerToken } = useAdminToken();
+  const [adminToken, setAdminToken] = useAdminTokenField();
   const [acceptError, setAcceptError] = useState<string | null>(null);
   const [rejectError, setRejectError] = useState<string | null>(null);
-  const ids = { interp: useId(), reason: useId(), why: useId(), token: useId() };
+  const ids = { interp: useId(), reason: useId(), token: useId() };
 
   const fixture = m.bundle.source === "fixture";
   const acceptDisabledReason = outcome
@@ -80,56 +81,64 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
 
   return (
     <div className={styles.decision}>
-      <div className={styles.fieldBlock}>
-        <label htmlFor={ids.token}>Admin token</label>
-        <Input id={ids.token} type="password" value={adminToken} disabled={!!outcome} autoComplete="off" onChange={(e) => setAdminToken(e.target.value)} />
-      </div>
-      <div className={styles.fieldBlock}>
-        <label htmlFor={ids.interp}>Accepted interpretation</label>
-        <p id={`${ids.interp}-hint`} className={styles.muted}>
-          Recorded with the amendment. Say how the Genome should now be read.
-        </p>
-        <Textarea
-          id={ids.interp}
-          aria-describedby={`${ids.interp}-hint`}
-          rows={4}
-          value={interpretation}
-          disabled={!!outcome}
-          onChange={(e) => { setEdited(true); setInterpretation(e.target.value); }}
-        />
-        {prefilledFromWhy && !edited && !outcome && <p className={styles.muted}>Rationale pending: pre-filled from the editor commit's why. Edit it to confirm.</p>}
-        {acceptError && <p className={styles.error} role="alert">{acceptError}</p>}
-      </div>
-      <div className={styles.actions}>
-        <Button
-          type="button"
-          variant="primary"
-          disabled={!!acceptDisabledReason || accept.isPending}
-          aria-describedby={acceptDisabledReason ? ids.why : undefined}
-          onClick={doAccept}
-        >
-          {accept.isPending ? "Accepting…" : "Accept amendment"}
-        </Button>
-        {acceptDisabledReason && !outcome && <p id={ids.why} className={styles.muted}>{acceptDisabledReason}</p>}
-      </div>
-      {accept.error && <p className={styles.error} role="alert">{accept.error.message}</p>}
-      {reject.error && <p className={styles.error} role="alert">{reject.error.message}</p>}
-
-      <div className={styles.fieldBlock}>
-        <label htmlFor={ids.reason}>Rejection reason</label>
-        <Textarea id={ids.reason} rows={2} value={reason} disabled={!!outcome} onChange={(e) => setReason(e.target.value)} />
-        {rejectError && <p className={styles.error} role="alert">{rejectError}</p>}
-      </div>
-      <div className={styles.actions}>
-        <Button variant="secondary"
-          type="button"
-          disabled={!!rejectDisabledReason || reject.isPending}
-          aria-describedby={rejectDisabledReason ? `${ids.why}-reject` : undefined}
-          onClick={doReject}
-        >
-          {reject.isPending ? "Rejecting…" : "Reject amendment"}
-        </Button>
-        {rejectDisabledReason && !outcome && <p id={`${ids.why}-reject`} className={styles.muted}>{rejectDisabledReason}</p>}
+      {/* The header token is the one source; this field only appears while it is unset. */}
+      {!headerToken && (
+        <div className={styles.fieldBlock}>
+          <label htmlFor={ids.token}>Admin token</label>
+          <Input id={ids.token} type="password" value={adminToken} disabled={!!outcome} autoComplete="off" onChange={(e) => setAdminToken(e.target.value)} />
+        </div>
+      )}
+      <div className={styles.choices}>
+        <div className={styles.choice}>
+          <div className={styles.fieldBlock}>
+            <label htmlFor={ids.interp}>Accepted interpretation</label>
+            <p id={`${ids.interp}-hint`} className={styles.muted}>
+              Recorded with the amendment. Say how the Genome should now be read.
+            </p>
+            <Textarea
+              id={ids.interp}
+              aria-describedby={`${ids.interp}-hint`}
+              rows={4}
+              value={interpretation}
+              disabled={!!outcome}
+              onChange={(e) => { setEdited(true); setInterpretation(e.target.value); }}
+            />
+            {prefilledFromWhy && !edited && !outcome && <p className={styles.muted}>Rationale pending: pre-filled from the editor commit's why. Edit it to confirm.</p>}
+            {acceptError && <p className={styles.error} role="alert">{acceptError}</p>}
+          </div>
+          <div className={styles.actions}>
+            <Button
+              type="button"
+              variant="primary"
+              reason={outcome ? undefined : acceptDisabledReason ?? undefined}
+              disabled={!!outcome || accept.isPending}
+              onClick={doAccept}
+            >
+              {accept.isPending ? "Accepting…" : "Accept amendment"}
+            </Button>
+          </div>
+          {accept.error && <p className={styles.error} role="alert">{accept.error.message}</p>}
+        </div>
+        <div className={styles.choice}>
+          <div className={styles.fieldBlock}>
+            <label htmlFor={ids.reason}>Rejection reason</label>
+            <p id={`${ids.reason}-hint`} className={styles.muted}>Recorded with the rejection; the agent reads it.</p>
+            <Textarea id={ids.reason} aria-describedby={`${ids.reason}-hint`} rows={4} value={reason} disabled={!!outcome} onChange={(e) => setReason(e.target.value)} />
+            {rejectError && <p className={styles.error} role="alert">{rejectError}</p>}
+          </div>
+          <div className={styles.actions}>
+            <Button
+              variant="danger"
+              type="button"
+              reason={outcome ? undefined : rejectDisabledReason ?? undefined}
+              disabled={!!outcome || reject.isPending}
+              onClick={doReject}
+            >
+              {reject.isPending ? "Rejecting…" : "Reject amendment"}
+            </Button>
+          </div>
+          {reject.error && <p className={styles.error} role="alert">{reject.error.message}</p>}
+        </div>
       </div>
 
       {outcome?.kind === "accepted" && (

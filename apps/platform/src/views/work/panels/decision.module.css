@@ -1,0 +1,67 @@
+/* Review's decisions (candidate review, promotion desk): one surface, sections separated by space and a faint rule. */
+.pane { display: grid; gap: var(--spacing-6); min-width: 0; }
+.head { display: grid; gap: var(--spacing-3); min-width: 0; }
+.titleRow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2) var(--spacing-4); min-width: 0; }
+.title { margin: 0; font: var(--type-h2); overflow-wrap: anywhere; }
+.actions { display: flex; flex-wrap: wrap; align-items: flex-start; gap: var(--spacing-2) var(--spacing-3); }
+.note { margin: 0; font: var(--type-meta); color: var(--color-text-secondary); }
+.note code, .code { font: var(--type-code); white-space: nowrap; }
+.muted { margin: 0; color: var(--color-text-subtle); }
+.error { margin: 0; color: var(--color-danger); }
+.plain { display: grid; gap: var(--spacing-1); margin: 0; padding: 0; list-style: none; }
+
+.section { display: grid; gap: var(--spacing-3); min-width: 0; }
+.sectionTitle { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-2); margin: 0; font: var(--type-h3); }
+.step { font: var(--type-meta); color: var(--color-text-subtle); font-variant-numeric: tabular-nums; }
+.hint { margin: 0; max-width: var(--measure-body); font: var(--type-meta); color: var(--color-text-secondary); }
+
+/* Verdict summary: "✓ 4 pass · ? 1 unknown". */
+.summaryChip, .summaryText { display: inline-flex; flex-wrap: wrap; align-items: baseline; color: var(--color-text-secondary); font: var(--type-ui); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.summaryChip { padding: 0 var(--spacing-2); line-height: 1.8; border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-sm); }
+.summaryChip[data-tone="pass"], .summaryText[data-tone="pass"] { color: var(--verdict-pass); border-color: var(--verdict-pass); }
+.summaryChip[data-tone="fail"] { border-color: var(--verdict-fail); }
+.summaryPart { white-space: nowrap; }
+.summarySep { white-space: pre; color: var(--color-text-subtle); }
+
+/* Semantic delta groups. */
+.groups { display: grid; gap: var(--spacing-5); }
+.group { display: grid; gap: var(--spacing-2); }
+.groupTitle { margin: 0; font: var(--type-meta); font-weight: var(--font-weight-semibold); color: var(--color-text-secondary); }
+.chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1) var(--spacing-2); margin: 0; padding: 0; list-style: none; }
+.rows { display: grid; margin: 0; padding: 0; list-style: none; }
+.rows > li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--spacing-1) var(--spacing-3); min-height: 36px; padding-block: var(--spacing-1); border-bottom: 1px solid var(--color-border-faint); }
+.rows code { font: var(--type-code); overflow-wrap: anywhere; }
+.unmapped { margin-left: var(--spacing-2); font: var(--type-meta); color: var(--color-text-subtle); }
+
+/* Promotion desk. */
+.alert { display: grid; gap: var(--spacing-2); padding: var(--spacing-3) var(--spacing-4); background: var(--surface-well); border-left: 2px solid var(--color-danger); border-radius: var(--border-radius-sm); }
+.alert p { margin: 0; }
+.alertLead { color: var(--color-danger); font-weight: var(--font-weight-semibold); }
+.alert code, .result code { font: var(--type-code); }
+.compare { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-1) var(--spacing-4); margin: 0; font: var(--type-ui); }
+.compare > div { display: inline-flex; align-items: baseline; gap: var(--spacing-2); }
+.compare dt { color: var(--color-text-subtle); }
+.compare dd { margin: 0; }
+.compare code { font: var(--type-code); white-space: nowrap; }
+.candidates { display: grid; margin: 0; padding: 0; list-style: none; }
+.candidate { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1) var(--spacing-3); min-height: var(--control-height); padding: var(--spacing-2) var(--spacing-3); border-bottom: 1px solid var(--color-border-faint); cursor: pointer; }
+.candidate:hover { background: var(--surface-raised); }
+.candidate:has(input:checked) { background: var(--selection-surface); box-shadow: inset var(--selection-rule-width) 0 0 var(--selection-rule-color); }
+.candidate code { font: var(--type-code); white-space: nowrap; }
+.tableWrap { overflow-x: auto; min-width: 0; }
+.gates { width: 100%; border-collapse: collapse; font: var(--type-ui); }
+.gates th { padding: var(--spacing-2) var(--spacing-3); text-align: left; font: var(--type-meta); color: var(--color-text-subtle); border-bottom: 1px solid var(--color-border-subtle); }
+.gates td { padding: var(--spacing-2) var(--spacing-3); vertical-align: middle; border-bottom: 1px solid var(--color-border-faint); }
+.gates code { font: var(--type-code); white-space: nowrap; }
+.blocking { display: grid; gap: var(--spacing-2); padding: var(--spacing-3) var(--spacing-4); border-left: 2px solid var(--verdict-fail); background: var(--surface-well); border-radius: var(--border-radius-sm); }
+.inlineRow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }
+.more { font: var(--type-meta); color: var(--color-text-secondary); }
+.more summary { cursor: pointer; min-height: 24px; }
+.more ul { margin: var(--spacing-1) 0 0; padding-left: var(--spacing-4); }
+.form { display: grid; gap: var(--spacing-4); max-width: 40rem; }
+.field { display: grid; gap: var(--spacing-2); font: var(--type-ui); color: var(--color-text-secondary); }
+.check { display: flex; align-items: center; gap: var(--spacing-2); min-height: var(--control-height); font: var(--type-ui); }
+.result { display: grid; gap: var(--spacing-3); }
+.result p { margin: 0; }
+.links { display: flex; flex-wrap: wrap; gap: var(--spacing-2) var(--spacing-4); }
+.action { justify-self: start; }

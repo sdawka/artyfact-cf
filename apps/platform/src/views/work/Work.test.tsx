@@ -244,9 +244,9 @@ describe("CandidateReview", () => {
     const files = within(review).getByRole("list", { name: "Changed files" });
     expect(within(files).getByText("src/odd.ts").parentElement?.textContent).toMatch(/unmapped/);
     expect(within(files).getByText("src/app.ts").parentElement?.textContent).not.toMatch(/unmapped/);
-    fireEvent.click(within(review).getByRole("button", { name: "Select for composition" }));
+    fireEvent.click(within(review).getByRole("button", { name: "Add to promotion" }));
     await waitFor(() => expect(router.state.location.search).toContain("candidates=cand.1"));
-    expect(await within(review).findByRole("button", { name: "Selected for composition" })).toBeTruthy();
+    await waitFor(() => expect(within(review).getByRole("button", { name: "Add to promotion" }).getAttribute("aria-pressed")).toBe("true"));
   });
 
   it("uses per-subject operations when the backend sends them", async () => {
@@ -259,7 +259,7 @@ describe("CandidateReview", () => {
   it("lists this candidate's evaluations and empty-states honestly", async () => {
     renderApp(url, undefined, seed({ realizations: [realization()], candidates: [candidate()], evals: [evalFor("C.webapp.exists")] }));
     const review = await screen.findByRole("region", { name: "Review realization.1" });
-    fireEvent.click(within(review).getByRole("tab", { name: "Evaluations" }));
+    fireEvent.click(within(review).getByRole("tab", { name: /^Evaluations/ }));
     expect(within(review).getAllByRole("row")).toHaveLength(2);
   });
 
