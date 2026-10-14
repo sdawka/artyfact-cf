@@ -32,6 +32,18 @@ describe("artyfact skill", () => {
     expect(r.out).not.toContain("--no-review");
   });
 
+  it("guides new-intent authoring without source or inherited admin credentials", async () => {
+    const r = await run(["skill"], project());
+    expect(r.out).toContain("## Author a new System from intent");
+    expect(r.out).toContain("intent/brief.md");
+    expect(r.out).toContain("intent/manifest.json");
+    expect(r.out).toContain("assumptions");
+    expect(r.out).toContain("unresolved questions");
+    expect(r.out).toContain("env -u ARTYFACT_ADMIN_TOKEN");
+    expect(r.out).toContain("ontology check");
+    expect(r.out).toContain("ontology agreement");
+  });
+
   it("ships a SKILL.md of at most 180 lines", () => {
     expect(readFileSync(join(SKILLS, "SKILL.md"), "utf8").split("\n").length).toBeLessThanOrEqual(181);
   });

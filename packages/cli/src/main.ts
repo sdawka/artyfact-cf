@@ -13,6 +13,7 @@ import { convertGenomeCommand } from "./convert-genome.ts";
 import { lifecycleCommand } from "./lifecycle.ts";
 import { skillCommand } from "./skill.ts";
 import { validateGenomeCommand } from "./validate-genome.ts";
+import { integrityCommand } from "./integrity.ts";
 
 export interface Io extends Pick<InitIo, "cloud" | "fetch" | "root" | "pollMs"> {
   out: (s: string) => void;
@@ -81,6 +82,9 @@ const USAGE = `artyfact <command>
   task select <plan> <task> --system sid --candidate id
   ontology preview|list|show|accept|bootstrap --system sid [--file json] [--hash exact-hash]
         bootstrap <import> --dir new-project [--prepare-only] materializes accepted Genome; prepare-only never provisions
+  ontology check --system sid --genome dir [--provider auto|clef|jev|openrouter|off] [--json]
+  ontology agreement <run> --system sid --file dispositions.json --snapshot snapshot.json
+  ontology materialize --file agreed-snapshot.json --dir new-project [--prepare-only]
   operations bindings|metrics|measurements|flags|audit|flag-create|flag-update|flag-disable --system sid [--binding id]
   skill [--dir project] [--write] [--agent claude|generic]
   validate-genome <genomeDir> [--app dir] [--templates dir] [--json] [--strict]
@@ -102,6 +106,7 @@ export async function main(argv: string[], io?: Partial<Io>): Promise<number> {
   };
   try {
     const [cmd, ...rest] = argv;
+    if (cmd === "ontology" && ["check", "agreement", "materialize"].includes(rest[0] ?? "")) return await integrityCommand(rest, full);
     switch (cmd) {
       case "evolution": case "plan": case "task": case "ontology": case "operations": return await lifecycleCommand(cmd, rest, full);
       case "init": return await initCommand(rest, full);

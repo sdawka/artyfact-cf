@@ -5,7 +5,17 @@ description: Write or update this repository's Genome (an artyfact node tree wit
 
 # Write this repository's Genome
 
-A Genome is a tree of `node.yaml` files that describes a System: what it is for, which Things it is made of, and which source files realise each node. You are writing it for code that already exists, so describe what the repository does today. Do not invent features, checks or paths. The person reviews and accepts every node on the platform before anything counts.
+A Genome is a tree of `node.yaml` files that describes a System: what it is for, which Things it is made of, and which source files realise each node when source exists. Choose the new-intent or existing-code path below. Do not invent agreement, implemented behavior, checks or paths. The person reviews the exact snapshot before anything counts.
+
+## Author a new System from intent
+
+For an idea without code, first preserve the person's words in `intent/brief.md`: purposes, actors, boundaries, concepts, relationships, constraints, observable acceptance criteria, exclusions, assumptions, disagreements and unresolved questions. Ask only consequential clarification questions; distinguish proposed behavior from implemented behavior. Cite canonical sources rather than silently filling gaps.
+
+Create `intent/manifest.json` with `{"version":1,"nodes":[{"nodeId":"...","briefSections":["Exact ATX heading text"],"documents":[{"path":"docs/example.md","hash":"sha256:..."}]}]}`. Heading text is exact and case-sensitive. Paths are safe repository-relative references and hashes cover exact document bytes. Never include secrets, credentials or absolute local paths.
+
+Write native nodes using the templates below. A Genome-only System is complete without an app binding. Run local structural validation, then `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology check --system <system> --genome ./genome --platform <origin> --json`. Return its durable Review URL and disclose assumptions, citations, unresolved questions and incomplete semantic coverage. Record reviewed dispositions with `ontology agreement`; materialize only an eligible agreed envelope. Run the local authoring agent with `env -u ARTYFACT_ADMIN_TOKEN` so it never inherits the admin credential.
+
+## Author from existing code
 
 ## When to use
 
@@ -13,7 +23,7 @@ A Genome is a tree of `node.yaml` files that describes a System: what it is for,
 - Code changed and the Genome (`./genome`) no longer matches it.
 - `npx artyfact validate-genome` reports errors, unmapped files or stale globs.
 
-Do not use it to plan new features. That is an Evolution, and you never edit `evolutions/`.
+Do not present planned features as existing code. Existing-System changes use the same brief, manifest and integrity review; implementation still belongs to Tasks. Never edit `evolutions/` directly.
 
 ## 1. Choose templates
 

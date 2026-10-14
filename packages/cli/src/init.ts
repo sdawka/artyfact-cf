@@ -9,6 +9,7 @@ import { dirname, join, relative, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
 import { EVOLUTIONS_DIR, NODE_FILE, V1_ROOT_FILE } from "@artyfact/ontology/genome";
+import { parseTree } from "@artyfact/ontology";
 import { cloudCli, spawnExec, type Cloud } from "./cloud.ts";
 import { CliError, git } from "./git.ts";
 import { assertName, assertSystemId, assertTemplateRef, copyFiles, isInside, projectFiles, realDir, realSubdir } from "./safety.ts";
@@ -51,28 +52,36 @@ export function systemIdOf(yaml: string): string {
   return m[1]!;
 }
 
-/** Every `node.yaml` under `dir` whose node is a Thing, in path order (dot-directories and evolutions skipped). */
-function thingFiles(root: string, dir = root): string[] {
-  return readdirSync(dir, { withFileTypes: true }).sort((a, b) => (a.name < b.name ? -1 : 1)).flatMap((e) => {
-    if (e.name.startsWith(".") || (dir === root && e.name === EVOLUTIONS_DIR)) return [];
-    const p = join(dir, e.name);
-    if (e.isDirectory()) return thingFiles(root, p);
-    return e.name === NODE_FILE && /^kind:\s*["']?thing["']?\s*$/m.test(readFileSync(p, "utf8")) ? [p] : [];
-  });
-}
-
 /** worker-fullstack artifact ids declared in the Things' `node.yaml` (`fields.artifacts`), in path order. */
 export function appArtifactIds(genomeDir: string): string[] {
   if (!existsSync(genomeDir)) return [];
-  const ids: string[] = [];
-  for (const f of thingFiles(genomeDir)) {
-    if (!isInside(realpathSync(genomeDir), realpathSync(f))) continue;
-    const text = readFileSync(f, "utf8");
-    for (const m of text.matchAll(/artifact:\s*["']?(artifact\.[A-Za-z0-9._-]+)["']?([^\n]*\n?(?:[ \t]+[^\n]*\n?){0,4})/g)) {
-      if (/type:\s*["']?worker-fullstack/.test(m[0])) ids.push(m[1]!);
+  const root = realpathSync(genomeDir), files: Record<string, string> = {};
+  const walk = (dir = root) => {
+    for (const entry of readdirSync(dir, { withFileTypes: true }).sort((left, right) => left.name.localeCompare(right.name))) {
+      if (entry.name.startsWith(".")) continue;
+      const path = join(dir, entry.name), stat = lstatSync(path);
+      if (stat.isSymbolicLink()) continue;
+      if (stat.isDirectory()) walk(path);
+      else if (entry.name.endsWith(".yaml") || entry.name.endsWith(".yml")) files[relative(root, path).split("\\").join("/")] = readFileSync(path, "utf8");
+    }
+  };
+  walk();
+  const tree = parseTree(files);
+  const ids = new Set<string>();
+  for (const thing of tree.nodes.values()) {
+    if (thing.file.kind !== "thing") continue;
+    const embedded = thing.file.fields?.artifacts;
+    for (const artifact of Array.isArray(embedded) ? embedded : []) {
+      if (artifact && typeof artifact === "object" && "artifact" in artifact && "type" in artifact
+        && artifact.type === "worker-fullstack" && typeof artifact.artifact === "string") ids.add(artifact.artifact);
+    }
+    for (const link of thing.file.links ?? []) {
+      if (link.rel !== "artifact") continue;
+      const artifact = tree.nodes.get(link.to)?.file;
+      if (artifact?.kind === "artifact" && artifact.fields?.type === "worker-fullstack") ids.add(artifact.id);
     }
   }
-  return ids;
+  return [...ids];
 }
 
 /** `key: value` lines of a flat YAML file such as scaffold.yaml. */
@@ -337,7 +346,7 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const values = parse(args, {
     dir: { type: "string" }, genome: { type: "string" }, app: { type: "string" }, platform: { type: "string" },
     namespace: { type: "string" }, "from-template": { type: "string" }, force: { type: "boolean" }, adopt: { type: "boolean" },
-    "genome-only": { type: "boolean" }, "no-review": { type: "boolean" },
+    "genome-only": { type: "boolean" }, "no-review": { type: "boolean" }, "integrity-run": { type: "string" },
   });
   // --genome-only pushes the Genome and re-imports; the app repo is never read from disk, pushed or seeded (the platform
   // keeps its head and recorded scaffold source). For migrating a deployed System's Genome (docs/deploy.md).
@@ -384,7 +393,7 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const platformUrl = await resolvePlatform(values.platform as string | undefined, io.env, io.fetch ?? fetch, io.err, sendsBearer ? undefined : DEFAULT_URL);
 
   const cloud = connect(io, ns);
-  return withAccountScrubbed(cloud, () => initWith(io, { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force: values.force === true, adopt: values.adopt === true, genomeOnly, noReview: values["no-review"] === true }));
+  return withAccountScrubbed(cloud, () => initWith(io, { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force: values.force === true, adopt: values.adopt === true, genomeOnly, noReview: values["no-review"] === true, integrityRunId: values["integrity-run"] as string | undefined }));
 }
 
 /** CLI errors name the account by its prefix only (git and wrangler failures can echo remote URLs holding the id). */
@@ -401,10 +410,11 @@ async function withAccountScrubbed<T>(cloud: Cloud, fn: () => Promise<T>): Promi
 interface InitPlan {
   project: string; genomeDir: string; appDir: string; hasApp: boolean; appNeeded: boolean; fromTemplate: string | undefined; ns: string; systemId: string;
   names: ReturnType<typeof systemRepoNames>; cloud: Cloud; platformUrl: string; force: boolean; adopt: boolean; genomeOnly: boolean; noReview: boolean;
+  integrityRunId?: string;
 }
 
 async function initWith(io: InitIo, plan: InitPlan): Promise<number> {
-  const { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force, adopt, genomeOnly, noReview } = plan;
+  const { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force, adopt, genomeOnly, noReview, integrityRunId } = plan;
   const stateFile = stateFileFor(io, project);
   const state = readState(stateFile);
   const key = `${cloud.remote(ns, "").replace(/\.git$/, "")}`;
@@ -435,7 +445,7 @@ async function initWith(io: InitIo, plan: InitPlan): Promise<number> {
       io.out(`${names.appRepo}: no local app; using its head ${head.slice(0, 12)}`);
     }
 
-    return await importIntoPlatform(io, platformUrl, { systemId, genomeRepo: names.genomeRepo, ...(appNeeded && { appRepo: names.appRepo }), ...(scaffoldFrom && { scaffoldFrom }), ...(noReview && { review: false }) }, force);
+    return await importIntoPlatform(io, platformUrl, { systemId, genomeRepo: names.genomeRepo, ...(appNeeded && { appRepo: names.appRepo }), ...(scaffoldFrom && { scaffoldFrom }), ...(noReview && { review: false }), ...(integrityRunId && { integrityRunId }) }, force);
   } finally {
     writeState(stateFile, state);
   }
