@@ -20,7 +20,7 @@ export interface LifecycleTaskPacket { systemId:string; planId:string; taskId:st
   doNotTouch?:{taskId:string; globs:string[]}[];
   /** Other tasks of the plan that may run at the same time. */
   concurrent?:PacketTaskRef[];
-  /** Dependencies whose selected candidates are in this task's base. */
+  /** Selected dependency tasks. Same-binding ones are already in this task's base; others are not in the fork and are named for context. */
   buildsOn?:{taskId:string; title:string; candidateId:string|null}[];
   /** AGENTS.md for the task workspace. The CLI writes it when present, else its fixed text. */
   agentsMd?:string }
