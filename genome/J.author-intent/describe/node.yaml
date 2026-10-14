@@ -1,0 +1,11 @@
+id: J.author-intent/describe
+kind: step
+fields:
+  step: describe
+  actor: user
+  action: States a new idea or an amendment, including its purpose, boundaries and exclusions, for a local agent to turn into a draft Genome.
+  kind: action
+  next:
+    - to: clarify
+links:
+  - { rel: stepScreen, to: screen.work }

@@ -1,0 +1,11 @@
+id: J.author-intent/check
+kind: step
+fields:
+  step: check
+  actor: system
+  action: Produces structural and semantic integrity findings for an exact snapshot, disclosing unavailable providers, uncertainty and incomplete coverage.
+  kind: reaction
+  next:
+    - to: agree
+links:
+  - { rel: stepScreen, to: screen.review }

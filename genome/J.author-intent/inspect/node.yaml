@@ -1,0 +1,11 @@
+id: J.author-intent/inspect
+kind: step
+fields:
+  step: inspect
+  actor: user
+  action: Inspects the drafted nodes, their cited intent sections and the stated proposed-versus-implemented boundary.
+  kind: action
+  next:
+    - to: check
+links:
+  - { rel: stepScreen, to: screen.map }

@@ -1,0 +1,9 @@
+id: commitment.intent-fidelity
+kind: commitment
+fields:
+  statement: Intent authoring preserves the person's statements, citations, assumptions and disagreements; it never invents agreement, implemented behavior or executable evidence.
+  features:
+    - feature.intent-integrity
+links:
+  - { rel: governs, to: J.author-intent/describe }
+  - { rel: governs, to: J.author-intent/clarify }

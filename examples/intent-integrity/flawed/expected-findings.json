@@ -1,0 +1,40 @@
+{
+  "expectedStatus": "blocked",
+  "findings": [
+    {
+      "id": "structural.dangling-reference",
+      "section": "structural",
+      "severity": "blocked",
+      "subject": "operation.share-borrower",
+      "reason": "The draft refers to a missing borrower-contact node."
+    },
+    {
+      "id": "semantic.boundary-contradiction",
+      "section": "semantic",
+      "severity": "needs-review",
+      "subject": "operation.share-borrower",
+      "reason": "Sharing contact details conflicts with the stated privacy constraint."
+    },
+    {
+      "id": "semantic.vague-criterion",
+      "section": "semantic",
+      "severity": "needs-review",
+      "subject": "criterion.borrowing-experience",
+      "reason": "Excellent has no observable acceptance measure."
+    },
+    {
+      "id": "semantic.omitted-intent",
+      "section": "semantic",
+      "severity": "needs-review",
+      "subject": "system.tool-library",
+      "reason": "No drafted node accounts for the stated privacy constraint."
+    },
+    {
+      "id": "semantic.vocabulary-drift",
+      "section": "semantic",
+      "severity": "needs-review",
+      "subject": "operation.share-borrower",
+      "reason": "The draft switches between borrower and member without a declared equivalence."
+    }
+  ]
+}

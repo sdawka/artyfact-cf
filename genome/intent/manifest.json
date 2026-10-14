@@ -1,0 +1,43 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "nodeId": "system.artyfact",
+      "briefSections": ["system", "review-and-evidence"],
+      "documents": [
+        { "path": "docs/decision_log.md", "hash": "sha256:c948178e14c1e3040372f71fa2e463b642a27ca221af571aa7f43b25dc0698f6" },
+        { "path": "docs/design/model.md", "hash": "sha256:e735a2af93e221c62629b6329e1056b958f8d62d7896ef6ac906a423fd7f981b" }
+      ]
+    },
+    {
+      "nodeId": "feature.intent-integrity",
+      "briefSections": ["integrity", "boundaries"],
+      "documents": [
+        { "path": "docs/design/intent-integrity.md", "hash": "sha256:920928d7f84c414adc37b2d7d975aa2a861cda74130fdbc2c00332bd628af766" }
+      ]
+    },
+    {
+      "nodeId": "J.author-intent",
+      "briefSections": ["authoring", "integrity"],
+      "documents": [
+        { "path": "docs/design/intent-integrity.md", "hash": "sha256:920928d7f84c414adc37b2d7d975aa2a861cda74130fdbc2c00332bd628af766" },
+        { "path": "docs/design/ontology.md", "hash": "sha256:2f028b3fe5df46ef7f0213cbd9d9133fe2da63ae1bb42cf8cd0673c9dea7559e" }
+      ]
+    },
+    {
+      "nodeId": "commitment.intent-fidelity",
+      "briefSections": ["authoring"],
+      "documents": [
+        { "path": "docs/design/intent-integrity.md", "hash": "sha256:920928d7f84c414adc37b2d7d975aa2a861cda74130fdbc2c00332bd628af766" }
+      ]
+    },
+    {
+      "nodeId": "commitment.integrity-review",
+      "briefSections": ["integrity", "review-and-evidence"],
+      "documents": [
+        { "path": "docs/design/intent-integrity.md", "hash": "sha256:920928d7f84c414adc37b2d7d975aa2a861cda74130fdbc2c00332bd628af766" },
+        { "path": "docs/decision_log.md", "hash": "sha256:c948178e14c1e3040372f71fa2e463b642a27ca221af571aa7f43b25dc0698f6" }
+      ]
+    }
+  ]
+}

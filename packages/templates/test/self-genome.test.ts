@@ -1,5 +1,6 @@
 // Artyfact describes itself: the repo-root genome/ loads under its pinned templates and maps every source file.
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join, relative } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -191,6 +192,62 @@ describe("the Artyfact self-Genome", () => {
     const kinds = new Set(ops.map((l) => graph.nodes.find((n) => n.id === l.to)?.kind));
     expect([...kinds].sort()).toEqual(["command", "endpoint", "workflow"]);
     for (const j of ["J.describe-change", "J.realize", "J.promote", "J.compare", "J.lifecycle"]) expect(ops.some((l) => l.from.startsWith(`${j}/`)), j).toBe(true);
+  });
+
+  it("records the intended authoring and integrity loop without treating proposed checks as shipped", () => {
+    const node = (id: string) => graph.nodes.find((candidate) => candidate.id === id);
+    for (const id of ["feature.intent-integrity", "commitment.intent-fidelity", "commitment.integrity-review", "J.author-intent"]) {
+      expect(node(id), id).toBeDefined();
+    }
+    expect(graph.links).toContainEqual(expect.objectContaining({ from: "J.author-intent", rel: "serves", to: "feature.intent-integrity" }));
+    expect(node("feature.intent-integrity")?.fields.summary).toMatch(/proposed/i);
+    expect(node("commitment.integrity-review")?.fields.statement).toMatch(/does not itself establish user agreement/i);
+    expect(node("commitment.intent-fidelity")?.fields.statement).toMatch(/assumptions.*disagreements/i);
+  });
+
+  it("pins a source-backed intent brief and manifest for the self-Genome", () => {
+    const briefPath = join(genomeDir, "intent/brief.md");
+    const manifestPath = join(genomeDir, "intent/manifest.json");
+    const brief = readFileSync(briefPath, "utf8");
+    const manifest = JSON.parse(readFileSync(manifestPath, "utf8")) as {
+      version: number;
+      nodes: Array<{ nodeId: string; briefSections: string[]; documents: Array<{ path: string; hash: string }> }>;
+    };
+    expect(Buffer.byteLength(brief, "utf8")).toBeLessThanOrEqual(64 * 1024);
+    expect(manifest.version).toBe(1);
+    expect(Buffer.byteLength(JSON.stringify(manifest), "utf8")).toBeLessThanOrEqual(128 * 1024);
+    expect(manifest.nodes.map((entry) => entry.nodeId).sort()).toEqual([
+      "J.author-intent", "commitment.integrity-review", "commitment.intent-fidelity", "feature.intent-integrity", "system.artyfact",
+    ]);
+    for (const entry of manifest.nodes) {
+      expect(entry.briefSections.length, entry.nodeId).toBeGreaterThan(0);
+      for (const source of entry.documents) {
+        expect(source.path).toMatch(/^(?!\/)(?!.*(?:^|\/)\.?(?:\/|$))[A-Za-z0-9][A-Za-z0-9._/-]*$/);
+        const expected = createHash("sha256").update(readFileSync(join(repo, source.path))).digest("hex");
+        expect(source.hash, `${entry.nodeId}: ${source.path}`).toBe(`sha256:${expected}`);
+      }
+    }
+  });
+
+  it("keeps source-free intent controls explicit about expected integrity outcomes", () => {
+    const examples = join(repo, "examples/intent-integrity");
+    const expected = new Map([
+      ["new-idea", "needs-review"],
+      ["amendment", "needs-review"],
+      ["flawed", "blocked"],
+      ["clean", "passed"],
+    ]);
+    for (const [name, status] of expected) {
+      const dir = join(examples, name);
+      const brief = readFileSync(join(dir, "brief.md"), "utf8");
+      const manifest = JSON.parse(readFileSync(join(dir, "manifest.json"), "utf8")) as { version: number; nodes: unknown[] };
+      const findings = JSON.parse(readFileSync(join(dir, "expected-findings.json"), "utf8")) as { expectedStatus: string; findings: Array<{ id: string; section: string }> };
+      expect(brief).not.toMatch(/(?:token|password|secret|https?:\/\/)/i);
+      expect(manifest).toMatchObject({ version: 1 });
+      expect(manifest.nodes.length).toBeGreaterThan(0);
+      expect(findings.expectedStatus).toBe(status);
+      if (name === "flawed") expect(findings.findings.map((finding) => finding.section).sort()).toEqual(["semantic", "semantic", "semantic", "semantic", "structural"]);
+    }
   });
 
   it("maps every non-ignored source file under apps/ and packages/ to at least one node", () => {
