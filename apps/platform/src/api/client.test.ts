@@ -28,6 +28,17 @@ describe("api client fixture fallback", () => {
     expect(await getClientMode()).toBe("api");
   });
 
+  it("reads the systems list again after the first answer, so a review that turns pending shows without a reload", async () => {
+    let pending = false;
+    const fetchMock = vi.fn(async () => json(200, { systems: [{ systemId: "system.x", ...(pending && { importReview: { status: "pending", genomeCommit: "g", nodes: 1 } }) }] }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect((await getSystems())[0]?.importReview).toBeUndefined();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    pending = true;
+    expect((await getSystems())[0]?.importReview?.status).toBe("pending");
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it("reports fixture mode when the API is unreachable", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => Promise.reject(new TypeError("Failed to fetch"))));
     expect(await getClientMode()).toBe("fixture");

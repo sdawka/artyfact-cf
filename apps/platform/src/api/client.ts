@@ -125,6 +125,8 @@ const post = <T>(path: string, body: unknown, headers?: Record<string, string>) 
 // ---------------------------------------------------------------------------
 
 let mode: Promise<{ fixture: boolean; systems: SystemSummary[] }> | undefined;
+/** Whether `getSystems()` already answered with the list that decided the mode. */
+let modeSystemsServed = false;
 
 export const FIXTURE_SYSTEM_ID = "system.peopling";
 
@@ -186,6 +188,7 @@ export const getClientMode = async (): Promise<ClientMode> => ((await resolveMod
 /** Forget the cached fixture decision so the next call asks the API again (TopBar "Retry API", tests). */
 export function resetClientMode() {
   mode = undefined;
+  modeSystemsServed = false;
 }
 
 async function readOrEmpty<T>(empty: T, load: () => Promise<T>): Promise<T> {
@@ -201,8 +204,18 @@ async function writeOrThrow<T>(action: string, run: () => Promise<T>): Promise<T
 // Reads
 // ---------------------------------------------------------------------------
 
+/**
+ * The first read answers with the list that decided the mode; every later read (a `systems` invalidation, e.g. on
+ * `system.import-review`) asks the API again, so a running page sees a review that turns pending without a reload.
+ */
 export async function getSystems(): Promise<SystemSummary[]> {
-  return (await resolveMode()).systems;
+  const m = await resolveMode();
+  if (m.fixture || !modeSystemsServed) {
+    modeSystemsServed = true;
+    return m.systems;
+  }
+  const r = await request<SystemSummary[] | { systems: SystemSummary[] }>(paths.systems());
+  return Array.isArray(r) ? r : (r.systems ?? []);
 }
 
 /** Shared, immutable Part catalog. System-private packages require an explicit System route and are never requested here. */
