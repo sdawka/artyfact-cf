@@ -1,5 +1,5 @@
 .view { display: grid; gap: var(--spacing-6); max-width: 100rem; }
-.muted { color: var(--color-text-subtle); }
+.muted { composes: muted from "../../components/Form/Form.module.css"; }
 .chips { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1) var(--spacing-2); margin: 0; padding: 0; list-style: none; }
 .plain { display: grid; gap: var(--spacing-1); margin: 0; padding: 0; list-style: none; }
 .inlineRow { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }
@@ -48,31 +48,27 @@
 .rhead { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }
 .rhead h3 { margin-right: auto; }
 .rmeta { margin: 0; font-size: var(--font-size-sm); color: var(--color-text-secondary); }
-.rmeta code, .facts code, .reasons code, .panel code { font-family: var(--font-code); overflow-wrap: anywhere; }
+.rmeta code { font-family: var(--font-code); overflow-wrap: anywhere; }
 .tag, .status { color: var(--color-text-secondary); font-size: var(--font-size-xs); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-sm); padding: 0 var(--spacing-1); }
 .status[data-status="promoted"] { border-color: var(--color-text-subtle); }
 .conflicts { display: flex; flex-wrap: wrap; gap: var(--spacing-2); margin: 0; padding: 0; list-style: none; }
 .conflict { padding: 0 var(--spacing-2); color: var(--color-text-secondary); font-size: var(--font-size-xs); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); }
 .conflict[data-kind="hard-semantic"], .conflict[data-kind="file"] { color: var(--verdict-fail); border-color: var(--verdict-fail); }
 .conflict[data-kind="evidence"] { border-style: dashed; }
-.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-3); }
+.actions { composes: actions from "../../components/Form/Form.module.css"; }
 
 
-/* Panels and forms */
-.panel { display: grid; gap: var(--spacing-3); padding: var(--spacing-4); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); }
-.panel h3, .panel h4 { margin: 0; }
-.panel h4 { font-size: var(--font-size-sm); color: var(--color-text-subtle); font-weight: var(--font-weight-medium); }
-.form { display: grid; gap: var(--spacing-4); max-width: 40rem; }
-.field { display: grid; gap: var(--spacing-2); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
-.check { min-height: var(--control-height); display: flex; gap: var(--spacing-2); align-items: center; font-size: var(--font-size-sm); }
-.fieldset { margin: 0; padding: var(--spacing-3); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-sm); }
-.reason, .reasons { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
-.reasons { margin: 0; padding-left: var(--spacing-4); }
-.error { color: var(--verdict-fail); }
+/* Panels and forms: shared primitives in components/Form, components/Facts and components/CommandBlock. */
+.panel { composes: box from "../../components/Form/Form.module.css"; }
+.form { composes: form from "../../components/Form/Form.module.css"; }
+.field { composes: field from "../../components/Form/Form.module.css"; }
+.check { composes: check from "../../components/Form/Form.module.css"; }
+.fieldset { composes: fieldset from "../../components/Form/Form.module.css"; }
+.reason { composes: reason from "../../components/Form/Form.module.css"; }
+.reasons { composes: reasons from "../../components/Form/Form.module.css"; }
+.error { composes: error from "../../components/Form/Form.module.css"; }
 .warn { margin: 0; color: var(--color-text-primary); }
-.facts { display: grid; grid-template-columns: max-content 1fr; gap: var(--spacing-1) var(--spacing-4); margin: 0; font-size: var(--font-size-sm); }
-.facts dt { color: var(--color-text-subtle); }
-.facts dd { margin: 0; min-width: 0; }
+.facts { composes: facts from "../../components/Facts/Facts.module.css"; }
 .gates { width: 100%; border-collapse: collapse; font-size: var(--font-size-sm); }
 .gates th { padding: var(--spacing-1) var(--spacing-2); text-align: left; color: var(--color-text-subtle); font-weight: var(--font-weight-medium); border-bottom: 1px solid var(--color-border-subtle); }
 .gates td { padding: var(--spacing-1) var(--spacing-2); vertical-align: middle; border-bottom: 1px solid var(--color-border-subtle); }
@@ -82,9 +78,8 @@
 
 /* Packet */
 .packet { display: grid; gap: var(--spacing-4); }
-.cli { display: grid; gap: var(--spacing-2); padding: var(--spacing-3); border: 1px solid var(--color-brand-primary); border-radius: var(--border-radius-md); }
-.cli h3 { margin: 0; }
-.cliLine { margin: 0; padding: var(--spacing-2); overflow-x: auto; font-family: var(--font-code); font-size: var(--font-size-sm); background: var(--color-background); border-radius: var(--border-radius-sm); white-space: pre-wrap; overflow-wrap: anywhere; }
+.cli { composes: block from "../../components/CommandBlock/CommandBlock.module.css"; }
+.cliLine { composes: line from "../../components/CommandBlock/CommandBlock.module.css"; }
 .markdown { max-width: 70ch; font-size: var(--font-size-sm); }
 .markdown h3, .markdown h4, .markdown h5, .markdown h6 { margin: var(--spacing-3) 0 var(--spacing-1); font-family: var(--font-ui); color: var(--color-text-secondary); }
 .markdown p, .markdown ul, .markdown ol { margin: 0 0 var(--spacing-2); }
@@ -93,10 +88,8 @@
 
 @media (max-width: 640px) {
   .board { grid-auto-columns: minmax(80%, 1fr); }
-  .facts { grid-template-columns: 1fr; }
 }
-.panel p, .detail p, .cli p { margin: 0; }
-.panel h4 { margin-top: var(--spacing-1); }
+.detail p { margin: 0; }
 
 .rmeta[data-tone="pass"] { color: var(--verdict-pass); }
 /* Attention: something on this card waits on a person. */

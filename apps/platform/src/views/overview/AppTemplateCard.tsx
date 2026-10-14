@@ -7,7 +7,7 @@ import { ApiRequestError } from "@/api/client";
 import { useApplyTemplateUpgrade, useTemplateUpgrade } from "@/api/queries";
 import { useModel } from "@/model/useModel";
 import { useKeepParams } from "@/model/useSelection";
-import workStyles from "../work/work.module.css";
+import { formStyles as workStyles } from "@/components/Form/Form";
 import styles from "./Overview.module.css";
 
 const FIXTURE_REASON = "Template upgrades need the platform API. The UI is showing fixture data.";
@@ -115,7 +115,7 @@ export function TemplateUpgradePanel({ plan }: { plan: TemplateUpgradePlan }) {
   };
 
   return (
-    <section className={workStyles.panel} aria-labelledby={`${uid}-h`}>
+    <section className={workStyles.box} aria-labelledby={`${uid}-h`}>
       <h3 id={`${uid}-h`}>Upgrade to {plan.template} at {short(plan.to)}</h3>
       <p className={styles.muted}>
         The upgrade implements the accepted Genome in a Realization Task. Review its candidate, integrate it, and promote the reviewed implementation. README and secret files are never touched.

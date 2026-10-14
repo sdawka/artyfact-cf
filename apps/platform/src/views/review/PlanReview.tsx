@@ -8,7 +8,7 @@ import { useAdminToken } from "@/api/adminToken";
 import { lifecycleApi } from "@/api/lifecycle";
 import { planError } from "../work/plan/lib";
 import { planKeys } from "../work/plan/queries";
-import workStyles from "../work/work.module.css";
+import { formStyles as workStyles } from "@/components/Form/Form";
 
 interface Props {
   plan: RealizationPlan;

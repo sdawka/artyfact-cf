@@ -4,7 +4,7 @@ import {useParams} from 'react-router';
 import {useQuery,useInfiniteQuery,useQueryClient} from '@tanstack/react-query';
 import {useAdminToken} from '@/api/adminToken';import {scopedRequest} from '@/api/lifecycle';import {useSystemRoute} from '@/model/useSelection';import {useModel} from '@/model/useModel';
 import {operationsPaths,type OperationsBindingsResponse,type RuntimeMetricsResponse,type MeasurementsResponse,type FlagsResponse,type OperationalFlag,type FlagRule,type CreateFlagRequest,type UpdateFlagRequest,type OperationsAuditResponse} from '../../../shared/operations';
-import styles from '../work/work.module.css';
+import { formStyles as styles } from '@/components/Form/Form';
 export function Operations(){
  const {systemId,rev}=useSystemRoute();const {thingId}=useParams();
  return <ScopedOperations key={`${systemId}/${rev}/${thingId??''}`} thingId={thingId}/>;
@@ -15,7 +15,7 @@ function ScopedOperations({thingId}:{thingId?:string}){
  const artifacts=thingId?new Set(model.bundle.model.things.find(t=>t.id===thingId)?.artifacts.map(a=>a.artifact)??[]):null;
  const eligible=bindings.data?.bindings.filter(b=>!artifacts||artifacts.has(b.bindingId))??[];
  const binding=eligible.some(b=>b.bindingId===picked)?picked:eligible[0]?.bindingId??'';
- return <section className={styles.panel} aria-labelledby="operations-title"><h2 id="operations-title">Runtime metrics and feature flags</h2><p>Observe your running app and change its Flagship controls independently of Genome Evolutions. Counts do not prove expected effects.</p>
+ return <section className={styles.box} aria-labelledby="operations-title"><h2 id="operations-title">Runtime metrics and feature flags</h2><p>Observe your running app and change its Flagship controls independently of Genome Evolutions. Counts do not prove expected effects.</p>
  {!enabled&&<p>Set the admin token to load runtime observations and operational controls.</p>}{bindings.isLoading&&<p role="status">Loading operational bindings…</p>}{bindings.error&&<p role="alert">{(bindings.error as Error).message}</p>}
  {bindings.data&&!binding&&<p>{thingId?'No operational bindings for this Thing.':'No operational bindings for this System.'}</p>}
  {!!binding&&<><div className={styles.field}><label htmlFor="operation-binding">Artifact binding</label><Select id="operation-binding" value={binding} onChange={setPicked} options={eligible.map(b=>({value:b.bindingId,label:`${b.bindingId}${b.configured?'':' (not configured)'}`}))}/></div><BindingOperations key={binding} binding={binding} enabled={enabled}/></>}

@@ -1,0 +1,4 @@
+/* Pages outside the System shell (Home, Start, Part): full-height page and a centred main column. */
+.page { min-height: 100dvh; background: var(--color-background); }
+.main { max-width: 72rem; margin: 0 auto; padding: var(--spacing-8) var(--spacing-6); }
+.main:focus { outline: none; }
