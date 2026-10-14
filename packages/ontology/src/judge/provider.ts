@@ -29,14 +29,17 @@ export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
 export const MAX_TOTAL_IMAGE_BYTES = 8 * 1024 * 1024;
 export const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
 
-/** Decoded size of a base64 string, without decoding it. */
+/**
+ * Decoded size of canonical base64 (`checkImages` admits only that: alphabet, padding, length a multiple of 4), which
+ * is exact without decoding: 3 bytes per 4 characters, less the padding.
+ */
 export function base64Bytes(b64: string): number {
-  const n = b64.replace(/\s/g, "").length;
   const pad = b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0;
-  return Math.max(0, Math.floor((n * 3) / 4) - pad);
+  return (b64.length / 4) * 3 - pad;
 }
 
 const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
+const isCanonicalBase64 = (s: string) => s.length > 0 && s.length % 4 === 0 && BASE64.test(s);
 
 /** Throws an `invalid` S1Error when `images` breaks a limit: count, type, base64 form, per-image or total size. */
 export function checkImages(images: readonly S1Image[] | undefined): void {
@@ -45,7 +48,7 @@ export function checkImages(images: readonly S1Image[] | undefined): void {
   let total = 0;
   images.forEach((img, i) => {
     if (!(IMAGE_TYPES as readonly string[]).includes(img.mediaType)) throw new S1Error(`image ${i + 1}: type ${String(img.mediaType).slice(0, 40)} is not PNG, JPEG or WebP`, "invalid");
-    if (!img.base64 || !BASE64.test(img.base64)) throw new S1Error(`image ${i + 1}: not base64`, "invalid");
+    if (typeof img.base64 !== "string" || !isCanonicalBase64(img.base64)) throw new S1Error(`image ${i + 1}: not base64`, "invalid");
     const bytes = base64Bytes(img.base64);
     if (bytes > MAX_IMAGE_BYTES) throw new S1Error(`image ${i + 1}: ${bytes} bytes is over the ${MAX_IMAGE_BYTES}-byte limit`, "invalid");
     total += bytes;
@@ -53,11 +56,17 @@ export function checkImages(images: readonly S1Image[] | undefined): void {
   if (total > MAX_TOTAL_IMAGE_BYTES) throw new S1Error(`images total ${total} bytes, over the ${MAX_TOTAL_IMAGE_BYTES}-byte limit`, "invalid");
 }
 
-/** The cache key of an ask: `opts.cacheKey` or the state/questions/model hash, plus a hash of the images when there are any. */
+/**
+ * The cache key of an ask: a hash over everything that can change the answer, namely the model, the full state, the
+ * questions and each image's type and bytes. The image hash is computed here from the base64; a caller's `sha256` is
+ * never trusted, so a wrong one cannot alias another image. `opts.cacheKey` only adds a scope and never replaces
+ * state, so no caller can pick a key that collides with another caller's ask. Keys are hashes of canonical JSON, so
+ * field boundaries cannot be forged by string content.
+ */
 export function askCacheKey(state: unknown, questions: S1Questions, model: string, opts: AskOptions = {}): string {
-  const key = opts.cacheKey ?? cacheKeyFor(state, questions, model);
-  if (!opts.images?.length) return key;
-  return `${key}:img:${hashOf(opts.images.map((i) => [i.mediaType, i.sha256 ?? hashOf(i.base64)]))}`;
+  const base = cacheKeyFor(state, questions, model);
+  if (opts.cacheKey === undefined && !opts.images?.length) return base;
+  return hashOf({ base, scope: opts.cacheKey ?? null, images: (opts.images ?? []).map((i) => [i.mediaType, hashOf(i.base64)]) });
 }
 
 /** The refusal of a provider that cannot read images: an S1Error, so judgments record it as an unknown, never a pass. */

@@ -30,14 +30,14 @@ export interface S1Reply {
 }
 
 export type S1ImageType = "image/png" | "image/jpeg" | "image/webp";
-/** An embedded image for a provider that reads images (Clef). `sha256` (hex of the bytes) saves re-hashing for cache keys. */
+/** An embedded image for a provider that reads images (Clef). `sha256` (hex of the bytes) is provenance only; cache keys hash the base64 itself. */
 export interface S1Image { mediaType: S1ImageType; base64: string; sha256?: string }
 
 export interface AskOptions {
   timeoutMs?: number;
   retries?: number;
   backoffMs?: number;
-  /** Replaces the state/questions/model part of the cache key; a hash of `images` is always appended. */
+  /** An extra scope mixed into the cache key; it never replaces the state, questions, model or image hashes. */
   cacheKey?: string;
   /** At most 4, each at most 4 MiB and 8 MiB together (`checkImages`). Only a provider with `images: true` sends them. */
   images?: S1Image[];

@@ -13,7 +13,7 @@
  * check is `not-run` with the reason; it is never judged from text alone.
  */
 import type { schema, SystemModel } from "@artyfact/model";
-import { MAX_IMAGE_BYTES, MAX_IMAGES, MAX_TOTAL_IMAGE_BYTES, visualCriterion, type S1Image, type S1ImageType, type SystemOne, type VisualImageLabel, type VisualResult } from "@artyfact/semantic";
+import { MAX_IMAGE_BYTES, MAX_IMAGES, MAX_TOTAL_IMAGE_BYTES, safeLabel, visualCriterion, type S1Image, type S1ImageType, type SystemOne, type VisualImageLabel, type VisualResult } from "@artyfact/semantic";
 import type { CandidateRef, EvidenceImageRef } from "./contract";
 import { validatePreviewUrl, type PreviewPolicy } from "./http-health";
 import { notRun, type Outcome } from "./provenance";
@@ -167,7 +167,17 @@ async function agentShot(store: EvidenceStore, ref: EvidenceImageRef, notes: str
       return null;
     }
     const bytes = new Uint8Array(await obj.arrayBuffer());
-    return { source: "agent", label: `agent screenshot ${ref.name}`, image: { mediaType: ref.mediaType, base64: toBase64(bytes), sha256: ref.sha256 }, bytes: bytes.byteLength, key: ref.key };
+    // Checked again on the bytes actually read, never on the ref's recorded size or type.
+    if (bytes.byteLength > MAX_IMAGE_BYTES) {
+      notes.push(`agent screenshot ${safeLabel(ref.name)} is ${bytes.byteLength} bytes, over the ${MAX_IMAGE_BYTES}-byte image limit; not judged`);
+      return null;
+    }
+    const actual = sniffImage(bytes);
+    if (actual !== ref.mediaType) {
+      notes.push(`agent screenshot ${safeLabel(ref.name)} is not the ${ref.mediaType} image it was recorded as; not judged`);
+      return null;
+    }
+    return { source: "agent", label: `agent screenshot ${safeLabel(ref.name)}`, image: { mediaType: ref.mediaType, base64: toBase64(bytes), sha256: ref.sha256 }, bytes: bytes.byteLength, key: ref.key };
   } catch (e) {
     notes.push(`agent screenshot ${ref.name} could not be read: ${(e as Error)?.message?.slice(0, 200) ?? String(e)}`);
     return null;

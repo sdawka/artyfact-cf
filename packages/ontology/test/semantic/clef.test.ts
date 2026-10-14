@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  askCacheKey, CLEF_MODEL, checkImages, fakeSystemOne, MAX_IMAGE_BYTES, openRouterProvider, providerFromEnv, S1Error, typeSafeProvider,
+  askCacheKey, base64Bytes, CLEF_MODEL, checkImages, fakeSystemOne, MAX_IMAGE_BYTES, openRouterProvider, providerFromEnv, S1Error, typeSafeProvider,
   visionProviderFromEnv, workersAiProvider, type AiBinding, type S1Image, type S1Questions,
 } from "../../src/index.ts";
 
@@ -24,6 +24,9 @@ function mockAi(respond: (n: number) => unknown | Promise<unknown> = () => ({ mo
   return { ai, calls };
 }
 
+/** Real base64 of exactly `n` decoded bytes. */
+const sized = (n: number): S1Image => ({ mediaType: "image/png", base64: Buffer.alloc(n).toString("base64") });
+const plainKey = () => askCacheKey({ a: 1 }, QUESTIONS, "m");
 const png = (bytes = 8): S1Image => ({ mediaType: "image/png", base64: btoa("x".repeat(bytes)) });
 const never = (() => { throw new Error("must not fetch"); }) as unknown as typeof fetch;
 
@@ -126,15 +129,28 @@ describe("image limits", () => {
     expect(() => checkImages([png(), png(), png(), png(), png()])).toThrow(/at most 4 images/);
     expect(() => checkImages([{ mediaType: "image/gif" as "image/png", base64: btoa("g") }])).toThrow(/not PNG, JPEG or WebP/);
     expect(() => checkImages([{ mediaType: "image/png", base64: "not base64!" }])).toThrow(/not base64/);
-    const big = { mediaType: "image/png" as const, base64: "A".repeat(Math.ceil(((MAX_IMAGE_BYTES + 3) * 4) / 3)) };
-    expect(() => checkImages([big])).toThrow(/over the 4194304-byte limit/);
-    const three = { mediaType: "image/png" as const, base64: "A".repeat(Math.floor(((3 * 1024 * 1024) * 4) / 3)) };
-    expect(() => checkImages([three, three, three])).toThrow(/images total/);
+    expect(() => checkImages([sized(MAX_IMAGE_BYTES)])).not.toThrow();
+    expect(() => checkImages([sized(MAX_IMAGE_BYTES + 1)])).toThrow(/4194305 bytes is over the 4194304-byte limit/);
+    const three = sized(3 * 1024 * 1024);
+    expect(() => checkImages([three, three])).not.toThrow();
+    expect(() => checkImages([three, three, three])).toThrow(/images total 9437184 bytes/);
+  });
+
+  it("measures decoded bytes exactly and refuses non-canonical base64 rather than guessing its size", () => {
+    for (const n of [1, 2, 3, 4, 5, 1000, 1001, 1002]) expect(base64Bytes(Buffer.alloc(n).toString("base64"))).toBe(n);
+    // Unpadded or whitespace-split base64 is refused, so no length trick can understate the size.
+    for (const bad of ["QUJD\nREVG", "QUJDRA", "QUJDRA=", "====", ""]) {
+      expect(() => checkImages([{ mediaType: "image/png", base64: bad }]), bad).toThrow(/not base64/);
+    }
   });
 
   it("Clef refuses images over the limits before calling the model", async () => {
     const { ai, calls } = mockAi();
     await expect(workersAiProvider(ai).ask({}, QUESTIONS, { images: [png(), png(), png(), png(), png()] })).rejects.toMatchObject({ code: "invalid" });
+    expect(calls).toHaveLength(0);
+    // Sizes are decoded bytes, whatever size or digest the caller claims.
+    await expect(workersAiProvider(ai).ask({}, QUESTIONS, { images: [{ ...sized(MAX_IMAGE_BYTES + 1), sha256: "small" }] })).rejects.toMatchObject({ code: "invalid" });
+    await expect(workersAiProvider(ai).ask({}, QUESTIONS, { images: [sized(3 << 20), sized(3 << 20), sized(3 << 20)] })).rejects.toMatchObject({ code: "invalid" });
     expect(calls).toHaveLength(0);
   });
 
@@ -145,13 +161,41 @@ describe("image limits", () => {
     await expect(fakeSystemOne().ask({}, QUESTIONS, opts)).resolves.toMatchObject({ provider: "fake" });
   });
 
-  it("the cache key carries an image hash", () => {
+  it("the cache key covers model, full state, questions and image bytes", () => {
     const plain = askCacheKey({ a: 1 }, QUESTIONS, "m");
     expect(askCacheKey({ a: 1 }, QUESTIONS, "m", { images: [] })).toBe(plain);
     const one = askCacheKey({ a: 1 }, QUESTIONS, "m", { images: [png(8)] });
-    expect(one).not.toBe(plain);
-    expect(one.startsWith(plain)).toBe(true);
-    expect(askCacheKey({ a: 1 }, QUESTIONS, "m", { images: [png(9)] })).not.toBe(one);
-    expect(askCacheKey({ a: 1 }, QUESTIONS, "m", { cacheKey: "k", images: [png(8)] })).toMatch(/^k:img:/);
+    expect(new Set([
+      plain, one,
+      askCacheKey({ a: 1 }, QUESTIONS, "m2", { images: [png(8)] }),
+      askCacheKey({ a: 2 }, QUESTIONS, "m", { images: [png(8)] }),
+      askCacheKey({ a: 1 }, { yn: QUESTIONS.yn! }, "m", { images: [png(8)] }),
+      // Same size, different bytes; same bytes, different type.
+      askCacheKey({ a: 1 }, QUESTIONS, "m", { images: [{ mediaType: "image/png", base64: btoa("y".repeat(8)) }] }),
+      askCacheKey({ a: 1 }, QUESTIONS, "m", { images: [{ ...png(8), mediaType: "image/jpeg" }] }),
+      askCacheKey({ a: 1 }, QUESTIONS, "m", { images: [png(8), png(8)] }),
+    ]).size).toBe(8);
+  });
+
+  it("a caller cannot alias another ask through a claimed sha256 or a cacheKey", () => {
+    const real = askCacheKey({ a: 1 }, QUESTIONS, "m", { images: [png(8)] });
+    // A different image claiming the first one's digest still keys on its own bytes.
+    const liar = { mediaType: "image/png" as const, base64: btoa("evil-bytes"), sha256: "same-digest" };
+    const honest = { ...png(8), sha256: "same-digest" };
+    expect(askCacheKey({ a: 1 }, QUESTIONS, "m", { images: [liar] })).not.toBe(askCacheKey({ a: 1 }, QUESTIONS, "m", { images: [honest] }));
+    expect(askCacheKey({ a: 1 }, QUESTIONS, "m", { images: [honest] })).toBe(real);
+    // An explicit cacheKey scopes, it never stands in for the state.
+    expect(askCacheKey({ a: 1 }, QUESTIONS, "m", { cacheKey: "k" })).not.toBe(askCacheKey({ a: 2 }, QUESTIONS, "m", { cacheKey: "k" }));
+    expect(askCacheKey({ a: 1 }, QUESTIONS, "m", { cacheKey: plainKey() })).not.toBe(askCacheKey({ a: 1 }, QUESTIONS, "m"));
+  });
+
+  it("Clef does not serve one image's answer for another", async () => {
+    let n = 0;
+    const { ai, calls } = mockAi(() => ({ answers: { yn: { type: "noul", noul: ++n === 1 ? 0.95 : 0.05 } }, usage: {} }));
+    const s1 = workersAiProvider(ai);
+    const good = await s1.ask({ c: 1 }, { yn: QUESTIONS.yn! }, { images: [{ ...png(8), sha256: "x" }] });
+    const bad = await s1.ask({ c: 1 }, { yn: QUESTIONS.yn! }, { images: [{ mediaType: "image/png", base64: btoa("other!!!"), sha256: "x" }] });
+    expect(calls).toHaveLength(2);
+    expect([good.answers.yn, bad.answers.yn]).toEqual([{ type: "noul", noul: 0.95 }, { type: "noul", noul: 0.05 }]);
   });
 });

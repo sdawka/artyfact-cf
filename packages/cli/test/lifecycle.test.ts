@@ -357,6 +357,9 @@ it('task submit --screenshot sends checked images and refuses bad ones before pu
   const head = sh(bare, 'rev-parse', 'main');
   const bad = await cli(['task', 'submit', '--screenshot', join(shots, 'anim.gif')], {}, dir);
   expect(bad.code).toBe(1); expect(bad.err).toMatch(/not a PNG, JPEG or WebP/);
+  writeFileSync(join(shots, 'huge.png'), Buffer.concat([png, Buffer.alloc(4 * 1024 * 1024)]));
+  const huge = await cli(['task', 'submit', '--screenshot', join(shots, 'huge.png')], {}, dir);
+  expect(huge.code).toBe(1); expect(huge.err).toMatch(/the limit is 4194304/);
   const many = await cli(['task', 'submit', ...Array(5).fill(['--screenshot', join(shots, 'home.png')]).flat()], {}, dir);
   expect(many.code).toBe(1); expect(many.err).toMatch(/at most 4/);
   expect((await cli(['task', 'checkpoint', 'wip', '--screenshot', join(shots, 'home.png')], {}, dir)).code).toBe(1);

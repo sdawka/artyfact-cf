@@ -30,7 +30,8 @@ function readScreenshots(files:string[],io:Io){
   const path=resolve(io.cwd,file);let stat;try{stat=lstatSync(path);}catch{throw new CliError(`screenshot ${file} not found`);}
   if(!stat.isFile())throw new CliError(`screenshot ${file} must be a regular file`);
   if(stat.size>MAX_SCREENSHOT_BYTES)throw new CliError(`screenshot ${file} is ${stat.size} bytes; the limit is ${MAX_SCREENSHOT_BYTES}`);
-  const bytes=readFileSync(path),mediaType=imageType(bytes);if(!mediaType)throw new CliError(`screenshot ${file} is not a PNG, JPEG or WebP image`);
+  const bytes=readFileSync(path);if(bytes.length>MAX_SCREENSHOT_BYTES)throw new CliError(`screenshot ${file} is ${bytes.length} bytes; the limit is ${MAX_SCREENSHOT_BYTES}`);
+  const mediaType=imageType(bytes);if(!mediaType)throw new CliError(`screenshot ${file} is not a PNG, JPEG or WebP image`);
   return {name:basename(path).slice(0,200),mediaType,base64:bytes.toString('base64')};
  });
 }

@@ -4,7 +4,7 @@
  * recorded as `evaluations.evidence_key` by the visual checks that used them.
  */
 import { z } from "zod";
-import { IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGES } from "@artyfact/semantic";
+import { IMAGE_TYPES, MAX_IMAGE_BYTES, MAX_IMAGES, safeLabel } from "@artyfact/semantic";
 import { badRequest, HttpError } from "./errors";
 import type { EvidenceImageRef } from "./hooks/contract";
 import { evidencePrefix, evidenceRoot, sha256Bytes, sniffImage, type EvidenceStore } from "./hooks/visual";
@@ -13,7 +13,8 @@ import { evidencePrefix, evidenceRoot, sha256Bytes, sniffImage, type EvidenceSto
 const MAX_BASE64 = Math.ceil(MAX_IMAGE_BYTES / 3) * 4;
 
 export const screenshotSchema = z.object({
-  name: z.string().trim().min(1).max(200),
+  // A label only: reduced to file-name characters so it can never carry instructions into a judgment.
+  name: z.string().trim().min(1).max(200).transform(safeLabel),
   mediaType: z.enum(IMAGE_TYPES),
   base64: z.string().min(1).max(MAX_BASE64).regex(/^[A-Za-z0-9+/]+={0,2}$/, "base64"),
 }).strict();
