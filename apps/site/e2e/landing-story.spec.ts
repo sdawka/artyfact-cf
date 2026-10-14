@@ -16,7 +16,8 @@ test('all content and seven stacked steps survive without JavaScript', async ({ 
   await expect(page.locator(story)).not.toHaveAttribute('data-enhanced', 'true');
   await expect(page.locator('.checkout-step-buttons')).toBeHidden();
   for (let index = 0; index < 7; index++) await expect(page.locator(`[data-checkout-step="${index}"]`)).toBeVisible();
-  await expect(page.locator('.checkout-deploy')).toContainText('Outcome: not measured yet');
+  await expect(page.locator('.checkout-deploy')).toContainText('Not measured yet');
+  expect(await page.locator('.checkout-steps').evaluate(list => !!(list.compareDocumentPosition(document.querySelector('.checkout-stage')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
   await expect(page.locator('.practice-card s').first()).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.locator('#home-system-story').screenshot({ path: info.outputPath('no-js.png') });
@@ -41,6 +42,8 @@ test('scrolling the steps drives the same step state on wide screens', async ({ 
   await page.goto('https://artyfact.test/');
   await revealStory(page);
   await expect(page.locator(story)).toHaveAttribute('data-following', 'true');
+  const gap = await page.evaluate(() => { const items = [...document.querySelectorAll('[data-checkout-step]')].map(item => item.getBoundingClientRect().top); return (items[1] - items[0]) / innerHeight; });
+  expect(gap).toBeLessThanOrEqual(.42);
   for (const index of [2, 5, 1]) {
     await readStep(page, index);
     await expect(page.locator(story)).toHaveAttribute('data-step', String(index));
@@ -50,8 +53,9 @@ test('scrolling the steps drives the same step state on wide screens', async ({ 
   expect(stage!.y).toBeGreaterThanOrEqual(0);
   expect(stage!.y + stage!.height).toBeLessThanOrEqual(900);
   await page.getByRole('button', { name: 'Step 7: Decide what is next' }).click();
-  await page.evaluate(() => window.scrollBy({ top: 10, behavior: 'instant' }));
   await expect(page.locator(story)).toHaveAttribute('data-step', '6');
+  await expect(page.locator('[data-checkout-step="6"]')).toBeInViewport();
+  await expect(page.getByText('Step 7 of 7: Decide what is next')).toBeVisible();
   await readStep(page, 3);
   await expect(page.locator(story)).toHaveAttribute('data-step', '3');
   await page.screenshot({ path: info.outputPath('desktop-scroll.png') });
@@ -74,11 +78,26 @@ test('forced colors keep the current step and row visible', async ({ page }, inf
   await page.emulateMedia({ forcedColors: 'active' });
   await page.goto('https://artyfact.test/');
   await revealStory(page);
-  const button = page.getByRole('button', { name: 'Step 3: Flag the overlap' });
+  const button = page.getByRole('button', { name: 'Step 3: Run them in order' });
   await button.click();
   await expect(button).toHaveAttribute('aria-current', 'step');
   expect(await button.evaluate(element => getComputedStyle(element).outlineWidth)).toBe('2px');
   expect(await page.locator('.checkout-overlap').evaluate(element => getComputedStyle(element).outlineStyle)).toBe('solid');
   await expect(page.locator('.practice-card s').first()).toHaveCSS('text-decoration-line', 'line-through');
   await page.locator('.checkout-stage').screenshot({ path: info.outputPath('forced-colors.png') });
+});
+test('a 1024x700 viewport fits the sticky stage and follows scrolling', async ({ page }, info) => {
+  test.skip(info.project.name !== 'desktop', 'Desktop viewport');
+  await page.setViewportSize({ width: 1024, height: 700 });
+  await page.goto('https://artyfact.test/');
+  await revealStory(page);
+  await page.getByRole('button', { name: 'Step 4: Check against the rule' }).click();
+  await expect(page.locator(story)).toHaveAttribute('data-following', 'true');
+  await expect(page.locator(story)).toHaveAttribute('data-step', '3');
+  const stage = await page.locator('.checkout-stage').boundingBox();
+  expect(stage!.y).toBeGreaterThanOrEqual(0);
+  expect(stage!.y + stage!.height).toBeLessThanOrEqual(700);
+  await readStep(page, 5);
+  await expect(page.locator(story)).toHaveAttribute('data-step', '5');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });

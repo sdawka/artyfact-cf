@@ -13,19 +13,13 @@ export function LandingStory() {
     <div className="checkout-intro">
       <p className="eyebrow">Example · illustrative</p>
       <h2 id="checkout-heading">The clean merge that still breaks checkout.</h2>
-      <p>An online store. One change request. Two agents.</p>
+      <p>An online store. One change request. Three agent Tasks.</p>
       <div className="checkout-contrast">
-        <article><h3>On GitHub</h3><p>No conflicts. Merged.</p></article>
-        <article><h3>On Artyfact</h3><p>Overlap on Place order. 1 rule failing.</p></article>
+        <article><h3>On GitHub</h3><p>Different files. Run side by side. No conflicts. Merged.</p></article>
+        <article><h3>On Artyfact</h3><p>Same step in the model. Run in order. 1 rule failing.</p></article>
       </div>
     </div>
     <div className="checkout-body">
-      <div className="checkout-stage">
-        <div className="checkout-step-buttons" role="group" aria-label="Example steps" hidden={!enhanced}>
-          {checkoutSteps.map((item, index) => <button key={item.title} type="button" aria-current={step === index ? 'step' : undefined} aria-label={`Step ${index + 1}: ${item.title}`} onClick={() => chooseStep(index)}>{index + 1}</button>)}
-        </div>
-        <CheckoutScene step={step} />
-      </div>
       <ol className="checkout-steps">
         {checkoutSteps.map((item, index) => <li key={item.title} data-checkout-step={index} data-active={step === index ? 'true' : undefined}>
           <h3><span className="checkout-step-number">{index + 1}</span>{item.title}</h3>
@@ -33,6 +27,13 @@ export function LandingStory() {
           {item.term && <span className="term-label">{item.term}</span>}
         </li>)}
       </ol>
+      <div className="checkout-stage">
+        <div className="checkout-step-buttons" role="group" aria-label="Example steps" hidden={!enhanced}>
+          {checkoutSteps.map((item, index) => <button key={item.title} type="button" aria-current={step === index ? 'step' : undefined} aria-label={`Step ${index + 1}: ${item.title}`} onClick={() => chooseStep(index)}>{index + 1}</button>)}
+        </div>
+        <p className="checkout-step-caption" aria-live="polite" hidden={!enhanced}>Step {step + 1} of {checkoutSteps.length}: {checkoutSteps[step].title}</p>
+        <CheckoutScene step={step} />
+      </div>
     </div>
     <a className="text-link" href="/model#lifecycle">Explore each step</a>
   </div>;
