@@ -206,6 +206,33 @@ it('claim validates the target directory before any HTTP call', async () => {
  } finally { await srv.close(); }
 });
 
+it('a claim whose clone fails removes the half-made workspace and names the resume command', async () => {
+ const sh = (at: string, ...args: string[]) => execFileSync('git', ['-C', at, ...args], { encoding: 'utf8' }).trim();
+ const source = join(cwd, 'cf-source'), bare = join(cwd, 'cf.git'), dir = join(cwd, 'cf work');
+ mkdirSync(source); sh(cwd, 'init', '--bare', '-q', bare); sh(source, 'init', '-q', '-b', 'main'); writeFileSync(join(source, 'app.ts'), 'base'); sh(source, 'add', 'app.ts');
+ sh(source, '-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'base'); sh(source, 'push', '-q', bare, 'HEAD:main'); sh(bare, 'symbolic-ref', 'HEAD', 'refs/heads/main');
+ const remote = `https://${'d'.repeat(32)}.artifacts.cloudflare.net/git/ns/cf.git`, token = 'CF-WRITE-TOKEN-0123456789';
+ const srv = await fake(() => [200, { attempt: { id: 'attempt.1', generation: 1 }, secret: 'd4'.repeat(32), token: { value: token, remote, expiresAt: '2099-01-01T00:00:00Z' }, remote, packet: { markdown: 'packet' }, reviewUrl: 'http://localhost/review' }]);
+ const old = { c: process.env.GIT_CONFIG_COUNT, k: process.env.GIT_CONFIG_KEY_0, v: process.env.GIT_CONFIG_VALUE_0 };
+ process.env.GIT_CONFIG_COUNT = '1'; process.env.GIT_CONFIG_KEY_0 = `url.${join(cwd, 'missing.git')}.insteadOf`; process.env.GIT_CONFIG_VALUE_0 = remote;
+ try {
+  const claim = await cli(['task', 'claim', 'plan.one', 'task.a', '--system', 'system.one', '--dir', dir, '--platform', srv.base], { ARTYFACT_ADMIN_TOKEN: 'admin' });
+  expect(claim.code).toBe(1);
+  expect(claim.err).toContain('claim landed but the workspace could not be cloned');
+  expect(claim.err).toContain(`artyfact task resume plan.one task.a --system system.one --dir '${dir}'`);
+  expect(claim.err).not.toContain(token);
+  expect(existsSync(dir)).toBe(false);
+  process.env.GIT_CONFIG_KEY_0 = `url.${bare}.insteadOf`;
+  const resume = await cli(['task', 'resume', 'plan.one', 'task.a', '--system', 'system.one', '--dir', dir, '--platform', srv.base], { ARTYFACT_ADMIN_TOKEN: 'admin' });
+  expect(resume.err).toBe(''); expect(resume.code).toBe(0);
+  expect(existsSync(join(dir, '.artyfact-task.json'))).toBe(true);
+  expect(srv.hits.map(h => h.url.split('/').at(-1))).toEqual(['claim', 'resume']);
+ } finally {
+  for (const [k, v] of [['GIT_CONFIG_COUNT', old.c], ['GIT_CONFIG_KEY_0', old.k], ['GIT_CONFIG_VALUE_0', old.v]] as const) if (v === undefined) delete process.env[k]; else process.env[k] = v;
+  await srv.close();
+ }
+});
+
 it('claim stores the write token only in .artyfact-task.json, writes packet.agentsMd, and submit works without ARTYFACT_TOKEN', async () => {
  const sh = (at: string, ...args: string[]) => execFileSync('git', ['-C', at, ...args], { encoding: 'utf8' }).trim();
  const source = join(cwd, 'hyg-source'), bare = join(cwd, 'hyg.git'), dir = join(cwd, 'hyg-work');

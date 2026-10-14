@@ -461,8 +461,9 @@ submits, the conflict, promotion, the 409 and history. Then it deletes the repos
 - **Token expired (401/403 from git):** task tokens last 6 hours (`tokenExpires` in `.artyfact-task.json`). Run
   `artyfact task resume <plan> <task> --system <id> --dir <dir>` with the admin token: it keeps the fork and your local
   work, stores fresh credentials and fences the old attempt. `task submit` says when the stored token has expired.
-- **A claim failed after it landed (clone error):** the attempt exists but its credentials were not stored. Run
-  `task resume` as above. Another agent's live lease is refused with "task <id> is taken by <label>".
+- **A claim failed after it landed (clone error):** the attempt and its lease exist, but the CLI removed the
+  half-made workspace and printed the `task resume` line to run once the cause is fixed. Another agent's live lease is
+  refused with "task <id> is taken by <label>".
 - **"blocked by … (not yet selected)":** a dependency has no selected candidate. Select it (step 8) and claim again.
   The plan view and `plan tasks` name the next claimable task.
 - **409 `import-unreviewed`:** accept the System import review (step 4), or import with `review: false`.

@@ -1,7 +1,8 @@
-import { constants, existsSync, lstatSync, mkdirSync, openSync, closeSync, writeSync, fchmodSync, readFileSync, readdirSync } from 'node:fs';
+import { constants, existsSync, lstatSync, mkdirSync, openSync, closeSync, writeSync, fchmodSync, readFileSync, readdirSync, rmSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
 import { parseArgs } from 'node:util';
 import { lifecyclePaths, type CreateRealizationPlanRequest, type DraftRealizationPlanRequest, type DraftRealizationPlanResponse, type ImplementationReview, type RealizationPlan, type Task, type TaskStartResponse, type TaskSubmitResponse } from '../../../apps/platform/shared/lifecycle.ts';
+import { shellArg } from '../../../apps/platform/shared/shell.ts';
 import { operationsPaths } from '../../../apps/platform/shared/operations.ts';
 import type { OntologyImportReview } from '../../../apps/platform/shared/ontology-packages.ts';
 import { initCommand } from './init.ts';
@@ -114,7 +115,10 @@ export async function lifecycleCommand(command:string,args:string[],io:Io):Promi
    const dir=resolve(io.cwd,v.dir??task),prior=assertTaskDir(dir,io,system,plan,task);
    let res:TaskStartResponse;try{res=await client.request<TaskStartResponse>('POST',lifecyclePaths.action(system,plan,task,action),{agentLabel:v['agent-label']??'local agent'});}catch(e){throw claimError(e,task);}
    const remote=assertRemote('task remote',res.remote,io.env),secret=assertSecret(res.secret),writeToken=assertToken(res.token.value);
-   if(prior){if(prior.remote!==remote)throw new CliError('resumed workspace remote differs; preserve work and choose a new --dir');}else{mkdirSync(dir,{recursive:true});git(io.cwd,['clone','--',remote,dir],writeToken);}
+   if(prior){if(prior.remote!==remote)throw new CliError('resumed workspace remote differs; preserve work and choose a new --dir');}else{const fresh=!existsSync(dir);mkdirSync(dir,{recursive:true});try{git(io.cwd,['clone','--',remote,dir],writeToken);}catch(e){
+    // The claim holds a live lease and there is no release route; drop the half-made workspace and point at resume, which reuses the lease.
+    if(fresh)rmSync(dir,{recursive:true,force:true});else for(const entry of readdirSync(dir))rmSync(join(dir,entry),{recursive:true,force:true});
+    throw new CliError(`${action} landed but the workspace could not be cloned (${(e as Error).message}); the lease is still yours, so fix the cause and run: artyfact task resume ${[plan,task,'--system',system,'--dir',dir].map(shellArg).join(' ')}`);}}
    for(const sub of ['.git','.git/info'])if(!lstatSync(join(dir,sub)).isDirectory()||lstatSync(join(dir,sub)).isSymbolicLink())throw new CliError('refusing unsafe git workspace');
    if(isTracked(dir,CONFIG)||isTracked(dir,'TASK_PACKET.md'))throw new CliError('refusing tracked task configuration or packet; do not store attempt credentials in source');
    const cfg:LocalTask={platform:base,systemId:system,planId:plan,taskId:task,attemptId:res.attempt.id,generation:res.attempt.generation,remote,secret,reviewUrl:res.reviewUrl,token:writeToken,tokenExpires:res.token.expiresAt};
