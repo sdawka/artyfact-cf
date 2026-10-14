@@ -56,13 +56,33 @@ export function modelKinds(index: ModelIndex, _views: KindViews) {
   return { kinds: [...kinds].sort(), links: [...links].sort() };
 }
 
+/**
+ * The history entry's identity for travel bookkeeping. A replace that only adds the `scope` param (URL normalisation on
+ * first load) is the same entry: it must not cancel a travel the user already started.
+ */
+function useEntryKey(location: { key: string; pathname: string; search: string }) {
+  const aliases = useRef(new Map<string, string>());
+  const previous = useRef(location);
+  const canon = (key: string) => aliases.current.get(key) ?? key;
+  if (previous.current.key !== location.key) {
+    const strip = (search: string) => { const p = new URLSearchParams(search); p.delete("scope"); return p.toString(); };
+    const before = previous.current;
+    if (before.pathname === location.pathname && !new URLSearchParams(before.search).has("scope") && strip(before.search) === strip(location.search)) {
+      aliases.current.set(location.key, canon(before.key));
+    }
+    previous.current = location;
+  }
+  return canon(location.key);
+}
+
 export function MapView() {
   const { index, path, rollup } = useModel();
   const views = useKindViews();
   const navigation = useAtlasNavigation();
   const location = useLocation();
-  const currentLocationKey = useRef(location.key);
-  currentLocationKey.current = location.key;
+  const locKey = useEntryKey(location);
+  const currentLocationKey = useRef(locKey);
+  currentLocationKey.current = locKey;
   const { focusId, layer, candidates } = useSelection();
   const { systemId, rev } = useSystemRoute();
   const [filters, setFilters] = useState<MapFilterState>(DEFAULT_FILTERS);
@@ -97,18 +117,18 @@ export function MapView() {
     setPendingLocate(null);
     const selectedSearch = new URLSearchParams(location.search);
     selectedSearch.set("scope", graph.scope); selectedSearch.set("focus", id); selectedSearch.delete("inspect");
-    const pendingSelection = afterClickSelection ? { historyKey: location.key, search: `?${selectedSearch}` } : undefined;
-    setTravel({ pendingSelection, historyKey: pendingSelection ? undefined : committedScope.current === graph.scope ? location.key : undefined, source: committedScope.current, id, target: id, kind: "enter", sequence: ++travelSequence.current });
+    const pendingSelection = afterClickSelection ? { historyKey: locKey, search: `?${selectedSearch}` } : undefined;
+    setTravel({ pendingSelection, historyKey: pendingSelection ? undefined : committedScope.current === graph.scope ? locKey : undefined, source: committedScope.current, id, target: id, kind: "enter", sequence: ++travelSequence.current });
     if (keyboard) setFocusFrame(id);
-  }, [index, graph.scope, navigation, location.key, location.search]);
+  }, [index, graph.scope, navigation, locKey, location.search]);
   const goUp = useCallback(() => {
     const source = committedScope.current;
     if (source === ENVIRONMENT_SCOPE) return;
     const target = source === index.model.system.id ? ENVIRONMENT_SCOPE : index.parent(source)?.id ?? ENVIRONMENT_SCOPE;
     setPendingLocate(null);
-    setTravel({ historyKey: source === graph.scope ? location.key : undefined, source, id: source, target, kind: "up", sequence: ++travelSequence.current });
+    setTravel({ historyKey: source === graph.scope ? locKey : undefined, source, id: source, target, kind: "up", sequence: ++travelSequence.current });
     setFocusFrame(target);
-  }, [navigation, graph.scope, index, location.key]);
+  }, [navigation, graph.scope, index, locKey]);
   useDepthGestures(canvas, (id) => { const target = id ?? focusId; if (target) openScope(target); }, goUp);
   const locateNode = useCallback((id: string) => {
     if (graph.ids.has(id)) {
@@ -122,46 +142,46 @@ export function MapView() {
     const next = index.byId(id)?.type === "external" ? ENVIRONMENT_SCOPE : (index.parent(id)?.id ?? mapScopeFor(index, id));
     const ownerSequence = ++travelSequence.current;
     setPendingLocate(null);
-    if (next === graph.scope) { setPendingLocate({ id, scope: next, sourceKey: location.key }); setTravel(null); return; }
+    if (next === graph.scope) { setPendingLocate({ id, scope: next, sourceKey: locKey }); setTravel(null); return; }
     const projected = [...index.path(id)].reverse().find(entry => graph.ids.has(entry.id))?.id ?? graph.scope;
-    setTravel({ historyKey: committedScope.current === graph.scope ? location.key : undefined, source: committedScope.current, id: projected, target: next, focus: id, kind: "locate", sequence: ownerSequence });
-  }, [graph, index, navigation, location.key]);
+    setTravel({ historyKey: committedScope.current === graph.scope ? locKey : undefined, source: committedScope.current, id: projected, target: next, focus: id, kind: "locate", sequence: ownerSequence });
+  }, [graph, index, navigation, locKey]);
   useEffect(() => {
     // Rapid depth actions may arrive before their just-committed source scope renders.
     if (!travel || travel.historyKey || travel.source !== graph.scope) return;
     // A double-click includes a selecting click. Wait for that exact URL replacement;
     // other focus/layer/Details changes still cancel this gesture before it can enter.
     if (travel.pendingSelection && location.search !== travel.pendingSelection.search) {
-      if (location.key !== travel.pendingSelection.historyKey) { ++travelSequence.current; setTravel(null); setPendingLocate(null); }
+      if (locKey !== travel.pendingSelection.historyKey) { ++travelSequence.current; setTravel(null); setPendingLocate(null); }
       return;
     }
-    setTravel({ ...travel, historyKey: location.key, pendingSelection: undefined });
-  }, [travel, graph.scope, location.key, location.search]);
+    setTravel({ ...travel, historyKey: locKey, pendingSelection: undefined });
+  }, [travel, graph.scope, locKey, location.search]);
   useEffect(() => {
-    if (!travel?.historyKey || travel.historyKey === location.key) return;
+    if (!travel?.historyKey || travel.historyKey === locKey) return;
     ++travelSequence.current; setTravel(null); setPendingLocate(null);
-  }, [location.key, travel]);
+  }, [locKey, travel]);
   useEffect(() => {
-    if (!pendingLocate?.sourceKey || location.key === pendingLocate.sourceKey) return;
+    if (!pendingLocate?.sourceKey || locKey === pendingLocate.sourceKey) return;
     ++travelSequence.current; setTravel(null); setPendingLocate(null);
-  }, [location.key, pendingLocate]);
+  }, [locKey, pendingLocate]);
   useEffect(() => {
     const requested = (location.state as { atlasLocate?: string } | null)?.atlasLocate;
-    const requestKey = `${systemId}/${rev}/${location.key}`;
+    const requestKey = `${systemId}/${rev}/${locKey}`;
     if (!requested || requested !== focusId || consumedLocateEntries.has(requestKey)) return;
     setFilters(DEFAULT_FILTERS);
-    setPendingLocate({ id: requested, scope: graph.scope, requestKey, sourceKey: location.key });
+    setPendingLocate({ id: requested, scope: graph.scope, requestKey, sourceKey: locKey });
   }, [location, focusId, graph.scope, systemId, rev]);
   useEffect(() => {
     if (!pendingLocate) return;
     // Effects share one render closure: reject an unauthorized arrival before any selection/camera write.
-    if (pendingLocate.sourceKey && location.key !== pendingLocate.sourceKey) return;
+    if (pendingLocate.sourceKey && locKey !== pendingLocate.sourceKey) return;
     if (graph.scope !== pendingLocate.scope || !graph.ids.has(pendingLocate.id)) return;
     if (pendingLocate.requestKey) consumedLocateEntries.add(pendingLocate.requestKey);
     if (focusId !== pendingLocate.id) navigation.select(pendingLocate.id);
     setLocate((last) => ({ id: pendingLocate.id, sequence: (last?.sequence ?? 0) + 1 }));
     setPendingLocate(null);
-  }, [pendingLocate, graph, focusId, navigation, location.key]);
+  }, [pendingLocate, graph, focusId, navigation, locKey]);
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Backspace" || event.defaultPrevented || isTyping(event.target) || event.metaKey || event.ctrlKey || event.altKey || document.querySelector("[role=dialog][aria-modal=true]")) return;
