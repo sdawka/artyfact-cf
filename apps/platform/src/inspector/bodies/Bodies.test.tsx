@@ -64,3 +64,14 @@ describe("hook body", () => {
     expect(within(i).getByText("Binding")).toBeTruthy();
   });
 });
+
+describe("evolution body", () => {
+  it("EvolutionBody groups acceptance criteria by layer, Realization before Running thing", async () => {
+    const i = await open("evolution.1");
+    expect(await within(i).findByText("Acceptance criteria")).toBeTruthy();
+    const groups = [...i.querySelectorAll<HTMLElement>("[data-layer]")];
+    expect(groups.map((g) => g.getAttribute("data-layer"))).toEqual(["realization", "phenome"]);
+    expect(groups[1]!.textContent).toContain("Running thing");
+    expect(within(groups[1]!).getByTitle(/C\.webapp\.health$/)).toBeTruthy();
+  });
+});

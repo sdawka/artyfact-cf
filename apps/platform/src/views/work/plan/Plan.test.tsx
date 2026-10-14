@@ -177,3 +177,30 @@ describe("Realization plans", () => {
     expect(screen.queryByText(/Set the admin token to draft/)).toBeNull();
   });
 });
+
+describe("Task fork model", () => {
+  it("shows the pinned model under system/ and groups the checks by layer", async () => {
+    const plan = makePlan({ tasks: [task("t1", { checks: ["C.webapp.health", "C.webapp.exists", "C.system.structure"], model: { prefix: "system", genomeCommit: "a".repeat(40), commit: "b".repeat(40) } }), task("t2"), task("t3", { dependsOn: ["t1", "t2"] })] });
+    stub({ plan });
+    render(`/s/${SID}/r/head/work?plan=plan.one&task=t1`);
+    const detail = await screen.findByTestId("task-detail");
+    const model = within(detail).getByTestId("task-model");
+    expect(within(model).getByTitle("a".repeat(40)).textContent).toBe("aaaaaaa");
+    expect(within(model).getByTitle("b".repeat(40)).textContent).toBe("bbbbbbb");
+    expect(model.textContent).toMatch(/system\/.*Read-only unless the model cannot be realized as written/);
+    const groups = [...detail.querySelectorAll<HTMLElement>("[data-layer]")];
+    expect(groups.map((g) => g.getAttribute("data-layer"))).toEqual(["genome", "realization", "phenome"]);
+    expect(within(within(detail).getByRole("group", { name: "Running thing" })).getByTitle(/C\.webapp\.health$/)).toBeTruthy();
+    expect(within(within(detail).getByRole("group", { name: "Model" })).getByTitle(/C\.system\.structure$/)).toBeTruthy();
+    // Nothing ran, so nothing is green.
+    expect(detail.querySelector("[data-layer] [data-tone='pass']")).toBeNull();
+  });
+
+  it("says the fork receives the pinned Genome at claim when the Task has no model yet", async () => {
+    stub();
+    render(`/s/${SID}/r/head/work?plan=plan.one&task=t2`);
+    const model = within(await screen.findByTestId("task-detail")).getByTestId("task-model");
+    expect(model.textContent).toMatch(/committed under system\/ at the first claim/);
+    expect(within(model).getByTitle("a".repeat(40)).textContent).toBe("aaaaaaa");
+  });
+});
