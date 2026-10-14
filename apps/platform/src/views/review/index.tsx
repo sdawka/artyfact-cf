@@ -10,6 +10,7 @@ import { CandidateReview } from "../work/panels/CandidateReview";
 import { GenomeReview } from "../work/panels/GenomeReview";
 import { PromotionPanel } from "../work/panels/PromotionPanel";
 import { PlanDecision } from "./PlanDecision";
+import { IntegrityReview } from "../integrity/IntegrityPanel";
 import { QueueList } from "./QueueList";
 import { useReviewQueue } from "./useReviewQueue";
 import styles from "./review.module.css";
@@ -29,6 +30,7 @@ export default function ReviewView() {
   const [panel] = useParam("panel");
   const [evolutionParam] = useParam("evolution");
   const [realizationId] = useParam("realization");
+  const [integrityId] = useParam("integrity");
   const realization = realizationId ? realizations.find((r) => r.id === realizationId) : undefined;
   const evolutionId = evolutionParam ?? realization?.evolution ?? null;
   const evolution = evolutionId ? evolutions.find((e) => e.id === evolutionId) : undefined;
@@ -36,10 +38,10 @@ export default function ReviewView() {
   const promoting = panel === "promote" && !!evolution;
   // Titles from the merged board (the API's, else the Genome's declared Evolutions).
   const groups = queue.groups.map((g) => ({ ...g, title: (g.evolution && evolutions.find((e) => e.id === g.evolution)?.title) || g.title }));
-  const open = !!planId || importing || promoting || (!!realization && !!evolution) || selected.length > 0;
+  const open = !!planId || !!integrityId || importing || promoting || (!!realization && !!evolution) || selected.length > 0;
   const loading = boardLoading || queue.isLoading;
   // A deep link (`?panel=promote&evolution=` or `?realization=`) keeps the panes open while loading or when it names nothing.
-  const linked = !!planId || !!taskId || importing || panel === "promote" || !!realizationId;
+  const linked = !!planId || !!taskId || !!integrityId || importing || panel === "promote" || !!realizationId;
   const missing = loading
     ? null
     : realizationId && !realization
@@ -58,9 +60,9 @@ export default function ReviewView() {
         <EmptyState surface title={loading ? "Loading the queue…" : "Nothing is waiting on you."} live={loading} />
       ) : (
         <div className={styles.panes}>
-          <QueueList groups={groups} planId={planId} taskId={taskId} error={queue.error} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} importing={importing} loading={loading} />
+          <QueueList groups={groups} planId={planId} taskId={taskId} integrityId={integrityId} error={queue.error} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} importing={importing} loading={loading} />
           <div className={styles.detail}>
-            {planId ? (<PlanDecision key={planId} planId={planId} taskId={taskId} />) : importing ? (
+            {planId ? (<PlanDecision key={planId} planId={planId} taskId={taskId} />) : integrityId ? (<IntegrityReview runId={integrityId} />) : importing ? (
               <GenomeReview />
             ) : promoting ? (
               <PromotionPanel key={evolution!.id} evolution={evolution!} />

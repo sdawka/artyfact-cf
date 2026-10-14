@@ -43,3 +43,14 @@ it('gives a scoped, quoted source-preparation handoff without inventing a plan f
  expect(text).toContain('--node');expect(text).not.toContain('plan.json');expect(text).not.toContain('--no-review');
  expect(text).toContain('Genome-only');expect(text).toContain('source-bound');
 });
+
+it('previews source-free native Genome files then opens the exact integrity run', async () => {
+ sessionStorage.setItem(ADMIN_TOKEN_KEY,'admin'); const calls:string[]=[];
+ const run={id:'integrity.one',systemId:'system.custom',snapshotId:'snapshot.one',snapshotHash:'sha256:s',provider:'off',requestedCalls:200,attempt:1,state:'completed',createdAt:'',updatedAt:'',reviewUrl:'/start?system=system.custom&integrity=integrity.one',report:{version:1,id:'report.one',systemId:'system.custom',snapshotHash:'sha256:s',policyVersion:'integrity.v1',createdAt:'',status:'needs-review',structural:{status:'passed',complete:true,findings:[],limitations:[],checkedSubjects:[],checkedRelationships:[]},semantic:{status:'needs-review',complete:false,intentFidelity:'checked',findings:[],limitations:[],checkedSubjects:[],checkedRelationships:[]}}};
+ vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{const u=String(url);calls.push(u);if(u.endsWith('/integrity/preview'))return Response.json({snapshot:{id:'snapshot.one'}});if(u.endsWith('/integrity/runs')&&init?.method==='POST')return Response.json({run});if(u.endsWith('/integrity/runs/integrity.one'))return Response.json({run});if(u.endsWith('/systems'))return Response.json({systems:[]});return Response.json({});}));
+ renderApp('/start?system=system.custom');
+ fireEvent.change(await screen.findByLabelText('Genome files (JSON path-to-text object)'),{target:{value:JSON.stringify({'system.yaml':'id: system.custom\nkind: system\n'})}});
+ fireEvent.click(screen.getByRole('button',{name:'Preview and start integrity check'}));
+ expect(await screen.findByText(/Automated result: needs-review/)).toBeTruthy();
+ expect(calls.some(u=>u.endsWith('/integrity/preview'))).toBe(true);expect(calls.some(u=>u.endsWith('/integrity/runs'))).toBe(true);
+});

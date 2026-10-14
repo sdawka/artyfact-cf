@@ -520,16 +520,16 @@ export function useAcceptImportReview() {
   });
 }
 
-export function useIntegrityRun(runId: string | null | undefined, adminToken?: string) {
-  const { systemId } = useSystemRoute();
-  return useQuery({ queryKey: qk.integrityRun(systemId, runId ?? ""), queryFn: () => api.getIntegrityRun(systemId, runId!, adminToken), enabled: !!systemId && !!runId, retry: false,
+export function useIntegrityRun(runId: string | null | undefined, adminToken?: string, systemOverride?: string) {
+  const route = useSystemRoute(); const systemId = systemOverride ?? route.systemId;
+  return useQuery({ queryKey: qk.integrityRun(systemId, runId ?? ""), queryFn: () => api.getIntegrityRun(systemId, runId!, adminToken), enabled: !!systemId && !!runId && !!adminToken, retry: false,
     refetchInterval: (q) => ["queued", "running"].includes(q.state.data?.run.state ?? "") ? 1500 : false });
 }
-export function useIntegrityRuns(adminToken?: string) { const { systemId } = useSystemRoute(); return useQuery({ queryKey: qk.integrityRuns(systemId), queryFn: () => api.getIntegrityRuns(systemId, adminToken), enabled: !!systemId, retry:false }); }
-export function useStartIntegrity() { const { systemId } = useSystemRoute(); const qc = useQueryClient(); return useMutation({ mutationFn: ({body,adminToken}:{body:IntegrityRunRequest;adminToken?:string})=>api.startIntegrity(systemId,body,adminToken), onSuccess:(r)=>qc.setQueryData(qk.integrityRun(systemId,r.run.id),r) }); }
-export function usePreviewIntegrity() { const { systemId } = useSystemRoute(); return useMutation({ mutationFn: ({body,adminToken}:{body:IntegrityPreviewRequest;adminToken?:string})=>api.previewIntegrity(systemId,body,adminToken) }); }
-export function useCancelIntegrity() { const { systemId } = useSystemRoute(); const qc = useQueryClient(); return useMutation({ mutationFn: ({runId,adminToken}:{runId:string;adminToken?:string})=>api.cancelIntegrity(systemId,runId,adminToken), onSuccess:(r)=>qc.setQueryData(qk.integrityRun(systemId,r.run.id),r) }); }
-export function useAgreeIntegrity() { const { systemId } = useSystemRoute(); const qc = useQueryClient(); return useMutation({ mutationFn: ({runId,body,adminToken}:{runId:string;body:IntegrityAgreementRequest;adminToken?:string})=>api.agreeIntegrity(systemId,runId,body,adminToken), onSuccess:(r)=>qc.setQueryData(qk.integrityRun(systemId,r.run.id),r) }); }
+export function useIntegrityRuns(adminToken?: string, systemOverride?: string) { const route = useSystemRoute(); const systemId = systemOverride ?? route.systemId; return useQuery({ queryKey: qk.integrityRuns(systemId), queryFn: () => api.getIntegrityRuns(systemId, adminToken), enabled: !!systemId && !!adminToken, retry:false }); }
+export function useStartIntegrity(systemOverride?: string) { const route = useSystemRoute(); const systemId = systemOverride ?? route.systemId; const qc = useQueryClient(); return useMutation({ mutationFn: ({body,adminToken}:{body:IntegrityRunRequest;adminToken?:string})=>api.startIntegrity(systemId,body,adminToken), onSuccess:(r)=>qc.setQueryData(qk.integrityRun(systemId,r.run.id),r) }); }
+export function usePreviewIntegrity(systemOverride?: string) { const route = useSystemRoute(); const systemId = systemOverride ?? route.systemId; return useMutation({ mutationFn: ({body,adminToken}:{body:IntegrityPreviewRequest;adminToken?:string})=>api.previewIntegrity(systemId,body,adminToken) }); }
+export function useCancelIntegrity(systemOverride?: string) { const route = useSystemRoute(); const systemId = systemOverride ?? route.systemId; const qc = useQueryClient(); return useMutation({ mutationFn: ({runId,adminToken}:{runId:string;adminToken?:string})=>api.cancelIntegrity(systemId,runId,adminToken), onSuccess:(r)=>qc.setQueryData(qk.integrityRun(systemId,r.run.id),r) }); }
+export function useAgreeIntegrity(systemOverride?: string) { const route = useSystemRoute(); const systemId = systemOverride ?? route.systemId; const qc = useQueryClient(); return useMutation({ mutationFn: ({runId,body,adminToken}:{runId:string;body:IntegrityAgreementRequest;adminToken?:string})=>api.agreeIntegrity(systemId,runId,body,adminToken), onSuccess:(r)=>qc.setQueryData(qk.integrityRun(systemId,r.run.id),r) }); }
 
 // ---------------------------------------------------------------------------
 // App template upgrades
