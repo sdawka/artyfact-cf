@@ -3,11 +3,11 @@
 
 ## Now
 
-- Current milestone: atlas polish is implemented on [PR #66](https://github.com/sdawka/artyfact-cf/pull/66): stronger teal scope/System treatment, inset selection and candidate states, clearer Details and preference-gated scope/overlay motion, preserving geometry and cameras.
-- Latest local evidence reported by the primary: 62 focused tests across 9 files and platform typecheck pass; 5 targeted browser cases pass, including the corrected 216px tile footer overlap, settled responsive layouts and Details. Final atlas/Shell suite passed: 34 cases in 18.2s, no retries. Prior full-CI evidence remains in [[journals/2026-10-13-system-atlas]].
-- Next action: pass normal pre-push checks and confirm all hosted CI checks are green, merge PR #66 and deploy the platform as authorized; then record the deployed version and live checks. No deployment is claimed at this checkpoint.
+- Released: [PR #66](https://github.com/sdawka/artyfact-cf/pull/66) merged at `4bc93a811f2251ec949e060e98d6bf4d081d8fbf` after all hosted checks passed. The polished System atlas is deployed to [artyfact-platform](https://artyfact-platform.dawka.workers.dev), Worker version `83e29bb9-0f2e-42c2-892a-a8aa496bf46b`, built from that exact merged revision.
+- Verified: final pre-push passed all five platform steps (2564 unit, 74 fixture and 13 fake browser tests; no retries). Authenticated desktop/mobile smoke passed on real Peopling, including environment/containment, Details, history/pan restoration, direct Thing Map, Work/Deployments and reduced motion; no serious/critical axe findings, overflow, writes or page errors. Evidence: [[journals/2026-10-13-system-atlas]].
+- Next action: resume direct-RPC sync when credentials and a separate Artyfact destination are available.
 - Blockers: direct-RPC sync remains pending missing credentials and a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
-- Last updated: 2026-10-13T22:01:24-04:00.
+- Last updated: 2026-10-13T22:37:34-04:00.
 
 ## Work history
 
