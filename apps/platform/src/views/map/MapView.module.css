@@ -42,11 +42,8 @@
 .connections p { margin: var(--spacing-2) 0; color: var(--color-text-secondary); }
 .connectionList li { flex-wrap: wrap; }
 .legend {
-  display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-4); padding: var(--spacing-2) var(--spacing-3);
-  background: var(--surface-overlay); border: 1px solid var(--color-border-faint); color: var(--color-text-secondary); font: var(--type-meta);
+  display: flex; flex-direction: column; gap: var(--spacing-2); color: var(--color-text-secondary); font: var(--type-meta);
 }
-/* Collapsed by default so the key never covers tiles; Key toggles it. */
-.keyWrap { display: flex; flex-direction: column; align-items: flex-start; gap: var(--spacing-2); }
 .legend span { display: inline-flex; align-items: center; gap: var(--spacing-2); }
 
 @media (max-width: 700px) {
@@ -58,5 +55,5 @@
   .selection { width: 100%; }
   .selectedName { width: 100%; max-width: none; }
   .connections { max-height: 30vh; }
-  .legend, .keyWrap { display: none; }
+  
 }
