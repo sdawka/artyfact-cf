@@ -215,8 +215,20 @@ curl -s -XPOST $B/import-review/accept -H "authorization: Bearer $ADMIN_TOKEN" -
 curl -s $B/import-review | jq -c '{status, nodes: (.tree | length), unmapped: (.unmapped | length), unmappedTotal}'   # public read
 ```
 
-*Not walked on the fake platform.* Its seed imports with `review: false`, so the guards are already open there.
-`artyfact init --no-review` does the same on a real platform.
+*On the fake platform* the seed imports with `review: false`, so the guards start open. To walk this step there,
+delete the System and import it again with a review (the fake repos stay):
+
+```sh
+curl -s -XDELETE $B -H "authorization: Bearer $ADMIN_TOKEN" | jq -c .
+curl -s -XPOST $ARTYFACT_PLATFORM/api/systems/import -H "authorization: Bearer $ADMIN_TOKEN" -H 'content-type: application/json' \
+  -d '{"systemId":"system.peopling","review":true}' | jq -c '.genomeCommit'
+```
+
+Until the accept, the review read gives `{"status":"pending","nodes":5,"unmapped":0,"unmappedTotal":0}` and
+`POST $B/intents` answers 409 `import-unreviewed`. The accept above then prints `["review"]`, and the read gives
+`"status":"accepted"`.
+
+`artyfact init --no-review` imports with no review on a real platform.
 
 ## 5. Describe a change, agree it node by node (about 1 min)
 
@@ -279,7 +291,9 @@ Nothing was saved. Re-run with --create to create this plan.
 (`?panel=plan`), "Draft tasks" does the same: rename, merge, split or remove tasks in the browser, then "Create plan".
 Nodes held by an open plan are skipped from the next default draft, and a node counts as realized only after a promoted plan.
 
-For the demo shape, three tasks for Peopling's goals, contact events and Today screen, create the plan from a file:
+For the demo shape, three tasks for Peopling's goals, contact events and Today screen, create the plan from a file.
+`plan draft --node` with the same eight nodes drafts the same three tasks and waves (fake planner; the planner test
+checks it), adding read nodes, derived dependencies and checks:
 
 ```json
 {"title":"Goals and contact memory","tasks":[
@@ -304,7 +318,7 @@ t2    pending  1     -           entity.ContactEvent,operation.contact.log
 t3    pending  2     t1,t2       screen.goal,screen.logContact,screen.today,component.TodayList,affordance.To…
 conflicts: t1 <-> t3 [dependency] : t1 and t3: dependency interference
 conflicts: t2 <-> t3 [dependency] : t2 and t3: dependency interference
-claim: ARTYFACT_ADMIN_TOKEN=... npx artyfact task claim plan.… t1 --system system.peopling --dir ./work/t1 --agent-label "claude:t1"
+claim: ARTYFACT_ADMIN_TOKEN=... npx artyfact task claim plan.… t1 --system system.peopling --dir ./work/t1 --agent-label claude:t1
 ```
 
 The waves are `[[t1, t2], [t3]]`. The Work plan view shows them as "Wave 1 · 2 tasks" and "Wave 2 · 1 task" with a
@@ -316,7 +330,7 @@ The wave board lists, per task, a claim line and an agent line. "Copy all" chain
 (`claim && { agent & }`), so a failed claim never starts its agent and the wave's agents run side by side. By hand, per task, in terminal **ops**:
 
 ```sh
-ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact task claim $P t1 --system system.peopling --dir ./work/t1 --agent-label "claude:t1"
+ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact task claim $P t1 --system system.peopling --dir ./work/t1 --agent-label claude:t1
 ( cd ./work/t1 && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit" ) &
 wait
 ```
