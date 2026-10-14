@@ -25,7 +25,7 @@ function Section({ title, children }: { title: string; children: ReactNode }) {
   const id = useId();
   return (
     <section aria-labelledby={id} className={styles.section}>
-      <h3 id={id} className={styles.sectionTitle}>{title}</h3>
+      <h4 id={id} className={styles.sectionTitle}>{title}</h4>
       {children}
     </section>
   );
@@ -100,7 +100,7 @@ export default function AmendmentReview({ evolutionId, realization, candidate }:
   return (
     <article className={styles.panel} aria-label="Genome amendment review">
       <header className={styles.header}>
-        <h2 className={styles.title}>Genome amendment</h2>
+        <h3 className={styles.title}>Genome amendment</h3>
         <span className={styles.badge} data-state={state}>{state}</span>
         <dl className={styles.meta}>
           <div><dt>Realization</dt><dd>{realization.id}</dd></div>

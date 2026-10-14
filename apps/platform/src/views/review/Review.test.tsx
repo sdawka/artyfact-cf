@@ -21,6 +21,8 @@ const amendment = realization({ id: "realization.g", target: "genome", status: "
 const queueSeed = (extra: Parameters<typeof seed>[0] = {}) =>
   seed({ realizations: [evaluated, amendment], candidates: [candidate({ baseRevision: "sc-1" })], commits: [head], ...extra });
 const queue = () => screen.findByRole("region", { name: /Waiting on you/ });
+/** The queue's decision rows (the group heads are links to Work too). */
+const rowsIn = (el: HTMLElement) => [...el.querySelectorAll<HTMLElement>("[data-queue-row]")];
 
 describe("Review queue", () => {
   it("says nothing is waiting when the queue is empty", async () => {
@@ -34,24 +36,32 @@ describe("Review queue", () => {
     const q = await queue();
     expect(within(q).getByRole("heading", { name: /Waiting on you\s*2/ })).toBeTruthy();
     const group = within(q).getByRole("region", { name: TITLE });
-    const rows = within(group).getAllByRole("link");
+    const rows = rowsIn(group);
     expect(rows.map((r) => r.getAttribute("data-kind"))).toEqual(["amendment", "candidate", "promotion"]);
-    expect(rows[1]!.textContent).toMatch(/candidate.*agent-alpha.*implementer.*cand\.1.*base = head/);
-    expect(rows[0]!.textContent).toMatch(/amendment.*agent-genome/);
-    expect(rows[2]!.textContent).toMatch(/promotion.*ready to promote/);
+    expect(rows[1]!.textContent).toMatch(/candidate.*Evaluated candidate to review.*agent-alpha.*implementer.*cand\.1.*base = head/);
+    expect(rows[0]!.textContent).toMatch(/amendment.*Genome amendment awaits an admin.*agent-genome/);
+    expect(rows[2]!.textContent).toMatch(/promotion.*Ready to promote, 1 candidate evaluated.*Promote/);
     // Promotion rows carry their Evolution in the accessible name, so two are never named alike.
     expect(within(group).getByRole("link", { name: new RegExp(`promotion.*${TITLE} \\(${EVO1}\\)`) })).toBe(rows[2]);
-    expect(screen.getByText("Select a decision from the queue.")).toBeTruthy();
+    // The group head opens the Evolution in Work.
+    expect(within(group).getByRole("heading", { level: 3 }).querySelector("a")!.getAttribute("href")).toBe(`${BASE}/work?evolution=${EVO1}`);
+    // The first waiting decision opens by itself (replacing the URL), never "Select a decision…".
+    expect(screen.queryByText("Select a decision from the queue.")).toBeNull();
+    expect(await screen.findByRole("region", { name: "Review realization.g" })).toBeTruthy();
+    expect(rows[0]!.getAttribute("aria-current")).toBe("true");
   });
 
   it("opens a candidate row on the right with its review tabs and marks it current", async () => {
     const { router } = renderApp(REVIEW, undefined, queueSeed());
     const q = await queue();
-    fireEvent.click(within(q).getAllByRole("link").find((l) => l.getAttribute("data-kind") === "candidate")!);
+    fireEvent.click(rowsIn(q).find((l) => l.getAttribute("data-kind") === "candidate")!);
     await waitFor(() => expect(router.state.location.search).toBe(`?evolution=${EVO1}&realization=realization.1`));
     const review = await screen.findByRole("region", { name: "Review realization.1" });
     expect(within(review).getAllByRole("tab").map((t) => t.textContent)).toEqual(["Semantic delta", "Files", "Evaluations"]);
-    expect(within(q).getAllByRole("link").find((l) => l.getAttribute("aria-current") === "true")!.getAttribute("data-kind")).toBe("candidate");
+    // The detail's h2 is the Evolution's title.
+    expect(within(review).getByRole("heading", { level: 2, name: TITLE })).toBeTruthy();
+    expect(within(review).getByRole("button", { name: "Add to promotion" }).getAttribute("aria-pressed")).toBe("false");
+    expect(rowsIn(q).find((l) => l.getAttribute("aria-current") === "true")!.getAttribute("data-kind")).toBe("candidate");
   });
 
   it("opens the amendment with its Amendment tab", async () => {
@@ -63,7 +73,7 @@ describe("Review queue", () => {
   it("opens the promotion desk from the promotion row", async () => {
     const { router } = renderApp(REVIEW, undefined, queueSeed());
     const q = await queue();
-    fireEvent.click(within(q).getAllByRole("link").find((l) => l.getAttribute("data-kind") === "promotion")!);
+    fireEvent.click(rowsIn(q).find((l) => l.getAttribute("data-kind") === "promotion")!);
     await waitFor(() => expect(router.state.location.search).toBe(`?evolution=${EVO1}&panel=promote`));
     expect(await screen.findByRole("heading", { name: `Promote ${TITLE}` })).toBeTruthy();
   });
@@ -71,16 +81,18 @@ describe("Review queue", () => {
   it("marks a candidate built on an earlier head as stale, behind by the distance, and offers no promotion", async () => {
     const next = commit({ id: "sc-2", parent: "sc-1" });
     renderApp(REVIEW, undefined, queueSeed({ realizations: [evaluated], commits: [head, next] }));
-    const rows = within(await queue()).getAllByRole("link");
+    const rows = rowsIn(await queue());
     expect(rows.map((r) => r.getAttribute("data-kind"))).toEqual(["stale"]);
-    expect(within(rows[0]!).getByText("behind by 1")).toBeTruthy();
+    // The stale precondition leads the meta line, in attention.
+    const behind = within(rows[0]!).getByText(/behind by 1/);
+    expect(behind.closest('[data-tone="attention"]')).toBeTruthy();
   });
 
   it("shows one typed conflict chip per kind on a row, with the number of conflicts", async () => {
     const soft = (other: string): ConflictReport => ({ kind: "soft-semantic", candidates: ["cand.1", other], subjects: [], nodes: ["screen.people"], message: `Both edit people with ${other}` });
     const file: ConflictReport = { kind: "file", candidates: ["cand.1", "cand.4"], subjects: [], paths: ["src/app.ts"], message: "Same file" };
     renderApp(REVIEW, undefined, queueSeed({ conflicts: [soft("cand.2"), soft("cand.3"), file] }));
-    const row = within(await queue()).getAllByRole("link").find((l) => l.getAttribute("data-kind") === "candidate")!;
+    const row = rowsIn(await queue()).find((l) => l.getAttribute("data-kind") === "candidate")!;
     const chips = within(within(row).getByRole("list", { name: "Conflicts" })).getAllByRole("listitem").map((li) => li.textContent);
     expect(chips).toEqual(["§ file", "≈ soft-semantic · 2 conflicts"]);
   });
@@ -101,10 +113,10 @@ describe("Review queue", () => {
 
   it("preselects ?candidates= for composition and links to its promotion", async () => {
     renderApp(`${REVIEW}?candidates=cand.1`, undefined, queueSeed());
-    const panel = await screen.findByRole("region", { name: "Selected for composition" });
+    const panel = await screen.findByRole("region", { name: "Added to promotion" });
     expect(within(panel).getByText("cand.1")).toBeTruthy();
     expect(within(panel).getByRole("link", { name: `Promote ${TITLE}` }).getAttribute("href")).toBe(`${REVIEW}?candidates=cand.1&evolution=${EVO1}&panel=promote`);
-    expect(within(await queue()).getByText("selected for composition")).toBeTruthy();
+    expect(within(await queue()).getByText("in promotion")).toBeTruthy();
   });
 
   it("says a promotion link names an unknown Evolution instead of claiming nothing waits", async () => {
@@ -144,7 +156,7 @@ describe("Review queue", () => {
     renderApp(`${BASE}/things/thing.webapp/review`, undefined, queueSeed());
     const q = await queue();
     expect(screen.getByRole("heading", { level: 1, name: "Review" })).toBeTruthy();
-    expect(within(q).getAllByRole("link")[0]!.getAttribute("href")).toContain(`${BASE}/things/thing.webapp/review?`);
+    expect(rowsIn(q)[0]!.getAttribute("href")).toContain(`${BASE}/things/thing.webapp/review?`);
   });
 
   it("feeds the rail count from the same queue", async () => {
@@ -258,7 +270,7 @@ describe("PromotionPanel", () => {
     renderApp(url, undefined, seed({ api: true, evals }));
     await fill();
     const summary = screen.getByTestId("gates-summary");
-    expect(summary.textContent).toBe(`${BLOCKING - 1} pass · 1 unknown`);
+    expect(summary.textContent).toBe(`✓ ${BLOCKING - 1} pass · ? 1 unknown`);
     expect(summary.getAttribute("data-tone")).toBeNull();
   });
 
@@ -291,7 +303,7 @@ describe("PromotionPanel", () => {
     fireEvent.click(submit());
     const alert = await screen.findByRole("alert");
     expect(alert.textContent).toContain("deadbee");
-    expect(alert.textContent).toContain("re-evaluate");
+    expect(alert.textContent).toContain("Re-evaluate before promoting.");
     // The agent's way out: no rebase command exists, so rebase the fork on the new head and submit again.
     expect(alert.textContent).toMatch(/rebases the fork on deadbee and submits again: artyfact submit/);
     expect(screen.getByRole("button", { name: "Refresh" })).toBeTruthy();
@@ -324,8 +336,10 @@ describe("PromotionPanel", () => {
     renderApp(url, undefined, seed({ api: true, evals: allPass() }));
     await fill();
     fireEvent.click(submit());
-    expect(await screen.findByText(/newcomm/)).toBeTruthy();
+    expect((await screen.findByRole("status")).textContent).toMatch(/System commit newcomm recorded/);
+    expect(screen.getByText(/requested, state unknown/)).toBeTruthy();
     expect(screen.getByRole("link", { name: "Open in Changelog" }).getAttribute("href")).toContain("commit=newcommit0000");
+    expect(screen.getByRole("link", { name: "Open Deployments" }).getAttribute("href")).toContain("/phenome");
     window.removeEventListener("artyfact:fx", onFx);
     expect(fx).toContain("promoted");
   });
@@ -448,6 +462,10 @@ describe("Import review", () => {
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL) =>
       String(input).endsWith("/api/systems") ? json(200, [summary(false)]) : json(404, { error: { code: "not-found", message: "no review" } })));
     renderApp(`${REVIEW}?panel=import`, undefined, (qc) => { queueSeed()(qc); qc.setQueryData(qk.model(SYSTEM, "head"), { ...fixtureBundle(), source: "api" as const }); });
-    expect(await screen.findByText("This System has no import review.")).toBeTruthy();
+    expect(await screen.findByText("No import review on this System.")).toBeTruthy();
+    expect(screen.getByText("A pending Genome import appears here.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Back to queue" })).toBeTruthy();
+    // The summary names no review, so nothing asks for one (no 404 in the console).
+    expect((fetch as unknown as { mock: { calls: unknown[][] } }).mock.calls.some(([u]) => String(u).endsWith("/import-review"))).toBe(false);
   });
 });

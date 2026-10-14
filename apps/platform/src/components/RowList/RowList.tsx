@@ -44,11 +44,13 @@ export interface RowProps {
   expanded?: boolean;
   /** The disclosure's content, rendered full width under the row while `expanded`. */
   children?: ReactNode;
+  /** `data-*` attributes for the row target (test ids, the row's kind). */
+  targetProps?: { [key: `data-${string}`]: string | undefined };
   className?: string;
 }
 
 /** One row. With `to` or `onSelect` the whole row is the target; `trailing` stays outside it. */
-export function Row({ to, onSelect, current, tone = "neutral", title, meta, status, trailing, expanded, children, label, className }: RowProps) {
+export function Row({ to, onSelect, current, tone = "neutral", title, meta, status, trailing, expanded, children, label, targetProps, className }: RowProps) {
   const density = useContext(DensityContext);
   const body = (
     <>
@@ -61,10 +63,10 @@ export function Row({ to, onSelect, current, tone = "neutral", title, meta, stat
   );
   const sel = current ? "true" : undefined;
   const target = to !== undefined
-    ? <Link to={to} className={`u-selectable ${styles.target}`} aria-current={sel} aria-label={label}>{body}</Link>
+    ? <Link {...targetProps} to={to} className={`u-selectable ${styles.target}`} aria-current={sel} aria-label={label}>{body}</Link>
     : onSelect
-      ? <button type="button" className={`u-selectable ${styles.target}`} aria-current={sel} aria-label={label} aria-expanded={expanded} onClick={onSelect}>{body}</button>
-      : <div className={`${styles.target} ${current ? "u-selected" : ""}`}>{body}</div>;
+      ? <button {...targetProps} type="button" className={`u-selectable ${styles.target}`} aria-current={sel} aria-label={label} aria-expanded={expanded} onClick={onSelect}>{body}</button>
+      : <div {...targetProps} className={`${styles.target} ${current ? "u-selected" : ""}`}>{body}</div>;
   return (
     <li className={[styles.row, className].filter(Boolean).join(" ")} data-density={density} data-interactive={to !== undefined || onSelect ? "" : undefined}>
       {target}

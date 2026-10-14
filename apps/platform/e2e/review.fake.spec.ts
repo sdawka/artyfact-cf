@@ -58,7 +58,10 @@ test.describe("Review: the decision queue @fake", () => {
     await expect(pick).toBeChecked();
     await expect(page.getByTestId("gates-summary")).toContainText("pass");
     await expect(page.getByTestId("gates-summary")).not.toHaveAttribute("data-tone", "pass");
-    await expect(page.getByRole("list", { name: "Why promotion is disabled" })).toBeVisible();
+    // Promote sits in the desk's header, disabled with its first blocking reason beside it.
+    const promoteButton = page.getByRole("button", { name: "Promote", exact: true });
+    await expect(promoteButton).toBeDisabled();
+    await expect(promoteButton).toHaveAttribute("aria-describedby", /.+/);
     await checkPage(page, testInfo, "review-promote");
 
     // Reject one amendment with a reason: it leaves the queue.

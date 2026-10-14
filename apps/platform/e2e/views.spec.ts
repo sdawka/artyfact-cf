@@ -121,7 +121,7 @@ test.describe("views", () => {
 
   test("evaluations empty state is never green @fixture", async ({ page }, testInfo) => {
     await open(page, "/evaluations", "Evaluations");
-    await expect(page.getByText("No evaluations yet — nothing is known")).toBeVisible();
+    await expect(page.getByText("No evaluations yet.", { exact: true })).toBeVisible();
     expect(await successToneElements(page)).toEqual([]);
     await checkA11yAndShoot(page, testInfo, "evaluations-empty");
   });
