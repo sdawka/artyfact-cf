@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockedOn, CLI_ID_REASON, cliId, commandLines, shellArg, conflictsOf, displayStatus, footprintLine, integrateReason, planCountsLine, planError, taskCommand, waveOf, whyWave } from "./lib";
+import { blockedOn, caseTwinReason, CLI_ID_REASON, cliId, commandLines, shellArg, conflictsOf, displayStatus, footprintLine, integrateReason, planCountsLine, planError, taskCommand, waveOf, whyWave } from "./lib";
 import { workWaiting } from "./signals";
 import { attempt, makePlan, NOW, task } from "./testPlan";
 
@@ -70,6 +70,13 @@ describe("plan lib", () => {
     expect(taskCommand(p, p.tasks[0]!, NOW)).toEqual({ verb: null, reason: CLI_ID_REASON });
     const sys = makePlan({ systemId: "-s" });
     expect(taskCommand(sys, sys.tasks[0]!, NOW)).toEqual({ verb: null, reason: CLI_ID_REASON });
+  });
+
+  it("refuses a command when another task id differs only in case (one ./work directory on macOS)", () => {
+    const p = makePlan({ tasks: [task("T1"), task("t1"), task("t2")], analysis: { waves: [["T1", "t1", "t2"]], conflicts: [] } });
+    expect(taskCommand(p, p.tasks[0]!, NOW)).toEqual({ verb: null, reason: caseTwinReason("t1") });
+    expect(taskCommand(p, p.tasks[1]!, NOW)).toEqual({ verb: null, reason: caseTwinReason("T1") });
+    expect(taskCommand(p, p.tasks[2]!, NOW).verb).toBe("claim");
   });
 
   it("holds a ready task while a conflicting task has a live attempt", () => {

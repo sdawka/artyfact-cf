@@ -67,6 +67,8 @@ export const AGENT_PROMPT = "Follow AGENTS.md and TASK_PACKET.md, then run npx a
 /** The CLI's id rule (`assertId` in packages/cli/src/git.ts): anything else is refused or read as an option. */
 export const cliId = (s: string) => /^[A-Za-z0-9._-]+$/.test(s) && !s.startsWith("-") && s !== "." && s !== "..";
 export const CLI_ID_REASON = "This id cannot be used on the command line; rename the task or plan.";
+/** Two task ids that differ only in case share one `./work/<task>` directory on a case-insensitive file system (macOS). */
+export const caseTwinReason = (other: string) => `Task ${other} differs from this id only in case, so both would claim into one ./work directory on macOS; rename one.`;
 
 /** One task's commands: `claim` runs in the person's shell; `agent` is a subshell, so it never moves the shell's directory. */
 export interface TaskLines { claim: string; agent: string }
@@ -90,11 +92,12 @@ export const commandLines = (verb: "claim" | "resume", plan: Pick<RealizationPla
 };
 
 /**
- * "Copy all" for a wave: every claim first, from the shell's own directory, then every agent subshell in the background
- * and one `wait`, so the wave's agents run side by side and the shell never changes directory.
+ * "Copy all" for a wave: each claim runs in turn from the shell's own directory and, only when it succeeds, starts its
+ * agent subshell in the background (`claim && { agent & }`); one `wait` ends it. The wave's agents run side by side, a
+ * failed claim never starts its agent, and the shell never changes directory.
  */
 export const waveScript = (tasks: readonly TaskLines[]) =>
-  [...tasks.map((t) => t.claim), ...tasks.map((t) => `${t.agent} &`), "wait"].join("\n");
+  [...tasks.map((t) => `${t.claim} && { ${t.agent} & }`), "wait"].join("\n");
 
 /**
  * What an agent runs for `task`, by the claim rules of the lifecycle store (the same rules as `planCounts.awaitingAgent`):
@@ -120,6 +123,8 @@ export function taskCommand(plan: Plan & Pick<RealizationPlan, "id" | "systemId"
     const busy = liveConflicts(plan, task.id, now);
     if (busy.length) return { verb: null, reason: `Waits while ${busy.map((t) => quote(t.title)).join(", ")} ${busy.length === 1 ? "is" : "are"} being worked; they conflict.` };
     if (![plan.id, plan.systemId, task.id].every(cliId)) return { verb: null, reason: CLI_ID_REASON };
+    const twin = plan.tasks.find((t) => t.id !== task.id && t.id.toLowerCase() === task.id.toLowerCase());
+    if (twin) return { verb: null, reason: caseTwinReason(twin.id) };
     const lines = taskLines(verb, plan, task.id);
     return { verb, line: `${lines.claim}\n${lines.agent}`, lines };
   }
