@@ -4,10 +4,10 @@
 ## Now
 
 - Implementing intent-to-ontology authoring, truthful integrity review and Artyfact's enriched System map under the [approved plan](../design/intent-integrity-plan.md), [PR #80](https://github.com/sdawka/artyfact-cf/pull/80).
-- Core, backend, recovery, CLI/UI and self-Genome slices are integrated. Independent review repairs and exact-current status metadata are integrated. The full clean gate passed at `92dd5f88`, and the final platform gate passed at `aaf75113`. User-approved real Jev controls caught a dangling reference and unsupported sharing; low-confidence clean results remain needs-review. Exact materialization and real Artifacts import preserved explicit test-operator agreement. The large self-ontology exposed an input-size failure; bounded coverage and continuation are being repaired.
-- Next: verify the bounded self-ontology run, finish exact-head local/hosted gates, then deploy and import the self-Genome into production. [Evidence](journals/2026-10-14-intent-integrity-implementation.md).
+- Core, backend, recovery, CLI/UI and self-Genome slices are integrated. Independent review repairs and exact-current status metadata are integrated. The full clean gate passed at `92dd5f88`, and the final platform gate passed at `e6c472f0` (3,069 units, 100 fixture, 16 fake browser checks). User-approved real Jev controls caught a dangling reference and unsupported sharing; low-confidence clean results remain needs-review. Exact materialization and real Artifacts import preserved explicit test-operator agreement. The bounded self retry now completes real node checks, honestly needs-review after 200 calls (167 subjects); total live use is 212/500. Input-size hardening passed independent review.
+- Next: finish exact-head local/hosted gates, then deploy and import the self-Genome into production and verify its map. [Evidence](journals/2026-10-14-intent-integrity-implementation.md).
 - GRREAT validation passes; RPC preview applied 0 records. Remote sync remains pending a confirmed separate Artyfact destination; preserve the wrong-project conflict.
-- Last updated: 2026-10-14T17:23:02-04:00.
+- Last updated: 2026-10-14T17:46:30-04:00.
 
 ## Spike baseline
 
