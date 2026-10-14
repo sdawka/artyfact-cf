@@ -1,0 +1,16 @@
+id: affordance.review.accept-model-change
+kind: affordance
+fields:
+  name: Accept the model change
+  description: A checkbox shown when the integrated result carries a model delta (Model change in the integrated result lists its files and nodes). Checking it sets acceptModelDelta on the promote request; until then Promote reviewed implementation is disabled with Accept the model change to promote it.
+  actor: user
+  trigger: click
+  preconditions:
+    - The implementation review carries a modelDelta
+  effects:
+    - Promotion sends acceptModelDelta and moves the accepted Genome to the integrated commit
+  failure:
+    - "409 model-delta-unreviewed when the request lacks acceptModelDelta"
+links:
+  - rel: invokes
+    to: endpoint.lifecycle-post-realization-plans-pid-promote

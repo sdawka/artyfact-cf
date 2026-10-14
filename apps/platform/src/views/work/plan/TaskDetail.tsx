@@ -2,8 +2,10 @@ import { Button } from "@/components/ui";
 import { Link } from "react-router";
 import { useKeepParams } from "@/model/useSelection";
 import type { RealizationPlan, Task } from "../../../../shared/lifecycle";
+import { Facts } from "@/components/Facts/Facts";
 import { KindGlyphs, NodeChip } from "@/components/NodeChip/NodeChip";
 import { StatusText } from "@/components/StatusText/StatusText";
+import { groupByLayer, layerFromModel } from "@/model/layers";
 import { useModel } from "@/model/useModel";
 import { CopyText } from "../CopyText";
 import { relTime, verdictStatus } from "../lib";
@@ -65,14 +67,33 @@ export function TaskDetail({ id, task: t, plan, now, commandHidden, onOpenTask }
           <h4>Checks</h4>
           {t.checks.length ? (
             <KindGlyphs hidden>
-              <ul className={styles.checks}>
-                {t.checks.map((c) => <li key={c}><NodeChip id={c} size="sm" glyph={false} /><StatusText {...verdictStatus(m.verdictOf(c))} /></li>)}
-              </ul>
+              {groupByLayer(t.checks, (c) => layerFromModel(m, c)).map((g) => (
+                <div key={g.layer} role="group" aria-label={g.label} data-layer={g.layer}>
+                  <h5>{g.label} · {g.says}</h5>
+                  <ul className={styles.checks}>
+                    {g.items.map((c) => <li key={c}><NodeChip id={c} size="sm" glyph={false} /><StatusText {...verdictStatus(m.verdictOf(c))} /></li>)}
+                  </ul>
+                </div>
+              ))}
             </KindGlyphs>
           ) : <p className={styles.quiet}>None.</p>}
         </section>
       </div>
       <div className={styles.taskCol}>
+        <section aria-label="Model" data-testid="task-model">
+          <h4>Model</h4>
+          {t.model ? (
+            <>
+              <Facts items={[
+                { term: "Pinned Genome", value: <code title={t.model.genomeCommit}>{t.model.genomeCommit.slice(0, 7)}</code> },
+                { term: "In the fork", value: <><code>{t.model.prefix}/</code> at <code title={t.model.commit}>{t.model.commit.slice(0, 7)}</code></> },
+              ]} />
+              <p className={styles.quiet}>Read-only unless the model cannot be realized as written; then the agent edits <code>{t.model.prefix}/</code> and says why in a checkpoint.</p>
+            </>
+          ) : (
+            <p className={styles.quiet}>The pinned Genome <code title={plan.genome.commit}>{plan.genome.commit.slice(0, 7)}</code> is committed under <code>system/</code> at the first claim; read-only unless the model cannot be realized as written.</p>
+          )}
+        </section>
         <section>
           <h4>Write nodes</h4>
           <span className={styles.chips}>{t.writeNodes.map((nid) => <NodeChip key={nid} id={nid} size="sm" />)}</span>

@@ -1,0 +1,13 @@
+id: component.review.model-change
+kind: component
+fields:
+  name: Model change proposed by the agent
+  description: "Beside a Task candidate's code: the pinned Genome and system/ prefix, the changed model files (each opens the same compare route as a code file), the delta's added, changed and removed node ids with their kinds against the Task's write nodes (outside this Task's write nodes in attention), System One's judgment per node (verdict, level, subject, provider; unknown reads not judged with the provider's reason; only pass is green) and the agent's reason from its last checkpoint. Recorded evaluations group by layer: Model, Realization, Running thing."
+  states:
+    - loaded
+    - "not judged: System One did not review this change"
+    - "load error: the candidate's model does not load (alert)"
+    - "empty: no node changed"
+links:
+  - rel: references
+    to: component.review.semantic-delta
