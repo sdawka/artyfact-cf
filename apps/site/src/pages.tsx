@@ -33,7 +33,7 @@ function Home({ config, landingHtml }: { config: SiteConfig; landingHtml?: strin
       <p className="eyebrow">Cloudflare Next-Gen Git Platform entry · Built on Workers and Artifacts</p>
       <h1>The next Git platform keeps track of the product, not just the files.</h1>
       <p className="lead">A Git platform for teams of AI agents, on Cloudflare.</p>
-      <p>It keeps a model of your product, with levels, next to the code. Change requests, agent work, checks, merges, deploys and runtime events all link back to it.</p>
+      <p>It keeps a multi-level model of your product next to the code. Change requests, agent work, checks, merges, deploys and runtime events all link back to it.</p>
       <div className="actions"><Platform config={config} /><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a>{config.source && <a className="text-link" href={config.source}>Source</a>}</div>
     </section>
     <PracticeStack />

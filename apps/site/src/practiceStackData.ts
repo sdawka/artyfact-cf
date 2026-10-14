@@ -5,7 +5,7 @@ export type Practice = { discipline: Discipline; replaces: string; artyfact: str
 export const practices: Practice[] = [
   { discipline: 'Engineering', replaces: 'git worktrees, a branch per agent', artyfact: 'A private fork for each agent Task, with a short-lived write token.', term: 'Task', status: 'yes' },
   { discipline: 'Engineering', replaces: 'AGENTS.md and prompt files', artyfact: 'A brief for each Task, cut from the model. It lists what the Task changes, the paths it may write, its steps, its dependencies and its checks.', status: 'yes' },
-  { discipline: 'Engineering', replaces: 'spec.md and spec-driven development', artyfact: 'A typed model of the product, with levels. It is validated and versioned.', term: 'Genome', status: 'yes' },
+  { discipline: 'Engineering', replaces: 'spec.md and spec-driven development', artyfact: 'A typed, multi-level model of the product. It is validated and versioned.', term: 'Genome', status: 'yes' },
   { discipline: 'Engineering', replaces: 'linters and policy-as-code', artyfact: 'Rule packs that run over the model. Each finding shows the facts behind it.', status: 'yes' },
   { discipline: 'Engineering', replaces: 'CI gates', artyfact: 'Checks tied to criteria. A check that did not run stays unknown. Only a pass is green.', status: 'yes' },
   { discipline: 'Engineering', replaces: 'merge queues and branch protection', artyfact: 'A compare-and-swap promote. It refuses work that was reviewed against an old head.', status: 'yes' },

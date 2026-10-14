@@ -12,7 +12,7 @@ const alongside = [
 /** Static illustration; reuses the /model nesting styles. Sample data. */
 export function ModelNesting() {
   return <section className="section model-nesting" aria-labelledby="model-nesting-heading">
-    <div className="section-heading"><h2 id="model-nesting-heading">A model of the whole product, not just a spec.</h2><p>A spec file is flat text. Artyfact keeps a typed model with levels, from the whole System down to one button. Purposes, people, journeys, data, policies and criteria attach to the parts they describe. <span className="term-label">Genome</span></p></div>
+    <div className="section-heading"><h2 id="model-nesting-heading">A model of the whole product, not just a spec.</h2><p>A spec file is flat text. Artyfact keeps a typed, multi-level model (an ontology), from the whole System down to one button. Purposes, people, journeys, data, policies and criteria attach to the parts they describe. <span className="term-label">Genome</span></p></div>
     <div className="model-nesting-layout">
       <div className="model-self-portrait" role="group" aria-label="Illustrative model of an online store, from System to one affordance">
         <div className="model-self-system"><div className="model-self-caption"><span>System</span><strong>Online store</strong></div>
