@@ -13,14 +13,15 @@ async function call<T>(p:Promise<T>) {try{return await p;}catch(e){throw fromRpc
 const reviewed:MiddlewareHandler<AppEnv>=async(c,next)=>{await assertImportReviewed(c.env,c.req.param('id')!);await next();};
 const ids=(c:Ctx)=>[c.req.param('id')!,c.req.param('pid')!,c.req.param('tid')!] as const;
 async function authed(c:Ctx) {const [sid,pid,tid]=ids(c);await requireRealizationSecret(c.env,c.req.header('authorization'),async()=>{try{const p=await systemStub(c.env,sid).realizationPlan(pid),t=p.tasks.find(t=>t.id===tid),a=t?.attempts.at(-1);return [{systemId:sid,hash:a?await systemStub(c.env,sid).realizationSecretHash(a.realizationId):null}];}catch{return [];}});}
+// Reads follow the System's visibility like /work (public); every write is admin or realization-secret only.
 export const lifecycle=new Hono<AppEnv>()
- .get(prefix,requireAdmin,async c=>c.json({plans:await systemStub(c.env,c.req.param('id')).realizationPlans()}))
+ .get(prefix,async c=>c.json({plans:await systemStub(c.env,c.req.param('id')).realizationPlans()}))
  .post(prefix,requireAdmin,reviewed,async c=>c.json(await createRealizationPlan(c.env,c.req.param('id'),await body(c)),201))
  // Draft: persists nothing; its `request` posts unchanged to create.
  .post(`${prefix}/draft`,requireAdmin,reviewed,async c=>c.json(await draftRealizationPlan(c.env,c.req.param('id'),await body(c))))
- .get(plan,requireAdmin,async c=>c.json(await call(systemStub(c.env,c.req.param('id')).realizationPlan(c.req.param('pid')))))
- .get(`${plan}/review`,requireAdmin,async c=>c.json(await reviewLifecyclePlan(c.env,c.req.param('id'),c.req.param('pid'))))
- .get(`${plan}/review/files`,requireAdmin,async c=>c.json(await reviewLifecycleFile(c.env,c.req.param('id'),c.req.param('pid'),c.req.query('artifactId')??'',c.req.query('path')??'')))
+ .get(plan,async c=>c.json(await call(systemStub(c.env,c.req.param('id')).realizationPlan(c.req.param('pid')))))
+ .get(`${plan}/review`,async c=>c.json(await reviewLifecyclePlan(c.env,c.req.param('id'),c.req.param('pid'))))
+ .get(`${plan}/review/files`,async c=>c.json(await reviewLifecycleFile(c.env,c.req.param('id'),c.req.param('pid'),c.req.query('artifactId')??'',c.req.query('path')??'')))
  .post(`${plan}/integrate`,requireAdmin,async c=>c.json(await integrateLifecyclePlan(c.env,c.req.param('id'),c.req.param('pid'),origin(c))))
  .post(`${plan}/promote`,requireAdmin,async c=>c.json(await promoteLifecyclePlan(c.env,c.req.param('id'),c.req.param('pid'),await body(c))))
  .post(`${task}/checkpoint`,async c=>{await authed(c);return c.json(await checkpointLifecycleTask(c.env,...ids(c),await body(c)));})

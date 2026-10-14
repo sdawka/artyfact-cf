@@ -31,7 +31,9 @@ describe('realization plan HTTP lifecycle',()=>{
   const selected=await call<RealizationPlan>('POST',path(f.systemId,p.id,'ui','select'),{candidateId:sub.json.candidate.id},ADMIN);expect(selected.status,JSON.stringify(selected.json)).toBe(200);
   const integrated=await call<ImplementationReview>('POST',lifecyclePaths.integrate(f.systemId,p.id).replace(/^\/api/,''),{},ADMIN);expect(integrated.status,JSON.stringify(integrated.json)).toBe(200);expect(integrated.json.bindings).toHaveLength(1);
   const review=integrated.json;
-  const compared=await call<{from:{repo:string};to:{text:string}}>('GET',lifecyclePaths.reviewFile(f.systemId,p.id,'artifact.webapp','src/ui/people/index.html').replace(/^\/api/,''),undefined,ADMIN);expect(compared.status).toBe(200);expect(compared.json.from.repo).toBe(f.appRepo);expect(compared.json.to.text).toBe('<h1>People</h1>');
+  // Reads follow the System's visibility like /work: no token needed.
+  for(const read of [path(f.systemId),path(f.systemId,p.id),lifecyclePaths.review(f.systemId,p.id).replace(/^\/api/,'')]){const r=await call('GET',read,undefined,{});expect(r.status,read).toBe(200);}
+  const compared=await call<{from:{repo:string};to:{text:string}}>('GET',lifecyclePaths.reviewFile(f.systemId,p.id,'artifact.webapp','src/ui/people/index.html').replace(/^\/api/,''),undefined,{});expect(compared.status).toBe(200);expect(compared.json.from.repo).toBe(f.appRepo);expect(compared.json.to.text).toBe('<h1>People</h1>');
   const promoted=await call<PlanPromoteResponse>('POST',lifecyclePaths.promote(f.systemId,p.id).replace(/^\/api/,''),{expectedHead:review.expectedHead,rationale:'Reviewed',candidateIds:review.bindings.map(b=>b.candidateId)},ADMIN);expect(promoted.status,JSON.stringify(promoted.json)).toBe(200);
   const state=await systemStub(env,f.systemId).state();expect(state!.genomeCommit).toBe(p.genome.commit);expect(state!.manifest!.artifacts['artifact.webapp'].realizedGenome).toBe(p.genome.commit);expect((await systemStub(env,f.systemId).evolutions()).length).toBe(count);
  });

@@ -37,6 +37,7 @@ function stubApi(intents: (call: Call) => Response) {
     }
     if (u.includes("/model")) return json(200, fixtureBundle());
     if (u.includes("/evolutions")) return json(200, { evolutions: [], realizations: [] });
+    if (u.endsWith("/realization-plans")) return json(200, { plans: [] });
     return json(404, { error: { code: "not-found", message: "no" } });
   }));
   return calls;
