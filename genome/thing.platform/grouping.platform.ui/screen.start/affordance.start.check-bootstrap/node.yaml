@@ -1,0 +1,18 @@
+id: affordance.start.check-bootstrap
+kind: affordance
+fields:
+  name: Check local bootstrap completion
+  description: Step 4's primary. Checks that the local bootstrap registered the System; once it has, the primary becomes Open System work.
+  actor: user
+  trigger: click
+  preconditions:
+    - The import is accepted
+  effects:
+    - System registered. and Open System work, which opens Work at head
+  failure:
+    - "Not registered yet: Complete the local bootstrap command first, then check again."
+links:
+  - rel: invokes
+    to: endpoint.systems
+  - rel: references
+    to: screen.work

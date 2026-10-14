@@ -1,0 +1,17 @@
+id: affordance.start.accept-import
+kind: affordance
+fields:
+  name: Accept reviewed import
+  description: Step 3's primary. Accepts the previewed package by its pin.
+  actor: user
+  trigger: click
+  preconditions:
+    - The preview has no blocking issues
+    - An admin token is set
+  effects:
+    - Step 3 reads Accepted <pin> and Build with your agent opens
+  failure:
+    - "The cause is shown and the preview stays"
+links:
+  - rel: invokes
+    to: endpoint.ontology-packages-post-ontology-imports-reviewId-accept

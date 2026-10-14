@@ -2,14 +2,13 @@ id: screen.part
 kind: screen
 fields:
   name: Part
-  description: "A public Part's page: its description, Genome nodes and source files. Actionable targets wear corner brackets and the page has one primary button; a page without a System in its URL reads the Part only, and a missing Part shows a not-found state with a link home."
+  description: "A shared Part version, read-only. The scope line reads Home / Shared Parts / <name>; the h1 is the Part's name with its description. A meta line shows id@version with Copy, pinned, published and the digest with Copy digest, then Dependencies and inputs, Payload (files or Genome nodes, each expandable, and View raw JSON) and Saved commands, which this page does not run. Parts are authored and upgraded with the CLI or an agent."
   route: /parts/:partId/:version
   states:
-    - loading
+    - "loading: Loading Part…"
     - loaded
-    - empty
-    - error
-    - not found
+    - "not found: Part not found"
+    - "error: This Part could not be loaded."
 links:
   - rel: serves
     to: feature.parts

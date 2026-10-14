@@ -2,14 +2,15 @@ id: screen.parts
 kind: screen
 fields:
   name: Private Parts
-  description: Reusable Parts this System has published or composed, with their versions. Actionable targets wear corner brackets and the page has one primary button; Publish part shows the new version in the list, and a failed publish keeps the form with the message.
+  description: "Packages that stay inside the System; reading them needs a token. A panel, Read private Parts, takes Admin token or realization secret (kept in memory only, never the header token) with the primary Load private Parts. Once loaded it reads Token loaded. with Change, and the Parts show as a list and detail (name, version, short digest, time; the first opens). Parts are published from the CLI or an agent; there is no publish form."
   route: /s/:systemId/r/:rev/parts
   states:
-    - loading
+    - token needed
+    - "loading: Loading private Parts…"
     - loaded
-    - empty
-    - error
-    - "empty: no Parts"
+    - "empty: No private Parts in this System."
+    - "error: This token is not authorized to read private Parts in this System."
+    - "error: Could not load private Parts."
 links:
   - rel: serves
     to: feature.parts
