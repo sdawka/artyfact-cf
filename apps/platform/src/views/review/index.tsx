@@ -6,7 +6,9 @@ import { useCandidates } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { ListDetail } from "@/components/ListDetail/ListDetail";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
+import { ThingScopeNote } from "@/components/ThingScope/ThingScopeNote";
 import { useKeepParams, useSelection } from "@/model/useSelection";
+import { SHOW_ALL_PARAM, useThingFilter } from "@/model/useThingFilter";
 import { useWorkData } from "../work/data";
 import { useParam } from "../work/lib";
 import { CandidateReview } from "../work/panels/CandidateReview";
@@ -50,7 +52,13 @@ export default function ReviewView() {
   const importing = panel === "import";
   const promoting = panel === "promote" && !!evolution;
   // Titles from the merged board (the API's, else the Genome's declared Evolutions).
-  const groups = queue.groups.map((g) => ({ ...g, title: (g.evolution && evolutions.find((e) => e.id === g.evolution)?.title) || g.title }));
+  // Inside a Thing the queue keeps the Evolutions that touch it (decision f); plan and import groups name no nodes and stay.
+  const thingFilter = useThingFilter();
+  const groups = queue.groups.flatMap((g) => {
+    const evolution = g.planId ? undefined : evolutions.find((e) => e.id === g.evolution);
+    if (evolution && !thingFilter.includesAny(evolution.affectedNodes)) return [];
+    return [{ ...g, title: evolution?.title || g.title }];
+  });
   const open = !!planId || importing || promoting || (!!realization && !!evolution) || selected.length > 0;
   const loading = boardLoading || queue.isLoading;
   // A deep link (`?panel=promote&evolution=` or `?realization=`) keeps the panes open while loading or when it names nothing.
@@ -93,7 +101,7 @@ export default function ReviewView() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  const back = () => void navigate(href("review", { evolution: null, realization: null, panel: null, plan: null, task: null }));
+  const back = () => void navigate(href("review", { evolution: null, realization: null, panel: null, plan: null, task: null, [SHOW_ALL_PARAM]: thingFilter.showAll ? "1" : null }));
   const empty = queue.count === 0 && !open && !linked && !queue.error;
   // The import review's own empty state carries "Back to queue"; no second one above it.
   const hasImport = useHasImportReview();
@@ -102,6 +110,7 @@ export default function ReviewView() {
   return (
     <section aria-labelledby="view-title" className={styles.view}>
       <PageHeader title="Review" purpose="Decisions that need a person: imports, Task results, candidates, amendments and promotions." />
+      <ThingScopeNote filter={thingFilter} />
       {queue.error && <p role="alert" className={styles.error}>{queue.error}</p>}
       {empty ? (
         <EmptyState

@@ -39,7 +39,7 @@ export function useScopeContext(): ScopeCrumb[] {
 }
 
 /** Views that list the whole System even inside a Thing workspace; the scope line says so. */
-const WHOLE_SYSTEM_VIEWS = new Set<ViewName>(["journeys", "theory", "code", "work", "review", "evaluations", "changelog", "compare"]);
+const WHOLE_SYSTEM_VIEWS = new Set<ViewName>(["journeys", "theory", "code", "evaluations", "changelog", "compare"]);
 
 /** "Showing the whole System" inside a Thing workspace on a System-wide view; otherwise undefined. */
 export function useScopeNote(): string | undefined {

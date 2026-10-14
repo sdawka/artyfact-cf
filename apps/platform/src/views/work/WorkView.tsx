@@ -1,14 +1,16 @@
 import { Button } from "@/components/ui";
 import { useEffect, useMemo, useRef } from "react";
-import { Link, Navigate, useLocation, useNavigation, useParams, useSearchParams } from "react-router";
+import { Link, Navigate, useLocation, useNavigation, useSearchParams } from "react-router";
 import { PlusIcon } from "@radix-ui/react-icons";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { ListDetail } from "@/components/ListDetail/ListDetail";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { StatusText } from "@/components/StatusText/StatusText";
+import { ThingScopeNote } from "@/components/ThingScope/ThingScopeNote";
 import { useEvaluationFx } from "@/effects/fx";
 import { useModel } from "@/model/useModel";
 import { useKeepParams, useSystemRoute } from "@/model/useSelection";
+import { useThingFilter } from "@/model/useThingFilter";
 import { useWorkCount } from "@/model/useWorkCount";
 import { useWorkData } from "./data";
 import { EvolutionDetail, evolutionPrimary } from "./EvolutionDetail";
@@ -46,7 +48,6 @@ export default function WorkView() {
 function Workbench() {
   const m = useModel();
   const { systemId } = useSystemRoute();
-  const { thingId } = useParams();
   const href = useKeepParams();
   const api = useApiMode();
   const now = useNow(15_000);
@@ -56,7 +57,6 @@ function Workbench() {
   const [evolutionId, setEvolutionId] = useParam("evolution");
   const [planId] = useParam("plan");
   const [panel, setPanel] = useParam("panel");
-  const [showAll, setShowAll] = useParam("all");
   const describeBtn = useRef<HTMLButtonElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const plansQ = usePlans(systemId, api);
@@ -67,12 +67,9 @@ function Workbench() {
   const railCount = useWorkCount();
 
   // Inside a Thing, Work shows the Evolutions that touch it (decision f); "Show all" keeps the whole System one click away.
-  const thing = thingId ? m.index.byId(thingId) : undefined;
-  const scoped = !!thingId && showAll !== "1";
-  const evolutions = useMemo(
-    () => (scoped ? all.filter((e) => e.affectedNodes.some((n) => n === thingId || m.index.path(n).some((p) => p.id === thingId))) : all),
-    [all, scoped, thingId, m.index],
-  );
+  // Plans stay unfiltered: a plan realizes Evolutions, it names no nodes of its own.
+  const thingFilter = useThingFilter();
+  const evolutions = useMemo(() => thingFilter.filter(all, (e) => e.affectedNodes), [all, thingFilter]);
   const groups = useMemo(() => groupEvolutions(evolutions, signals), [evolutions, signals]);
   const ordered = useMemo(() => listOrder(groups), [groups]);
   const titleOf = (id: string) => all.find((e) => e.id === id)?.title ?? id;
@@ -200,14 +197,6 @@ function Workbench() {
         })}
         list={
           <div className={styles.listPane}>
-            {thingId && (
-              <p className={styles.listNote}>
-                {scoped ? <>Showing changes to {thing?.name ?? thingId}. </> : <>Showing all of this System. </>}
-                <Button variant="ghost" size="compact" onClick={() => setShowAll(scoped ? "1" : null)}>
-                  {scoped ? "Show all" : `Only ${thing?.name ?? thingId}`}
-                </Button>
-              </p>
-            )}
             <PlansSection plans={plans} loading={api && plansQ.isLoading} error={plansQ.error} current={drafting ? null : planId} now={now} />
             <EvolutionGroups groups={groups} selectedId={selected?.id ?? null} signals={signals} total={evolutions.length} titleOf={titleOf} />
           </div>
@@ -230,6 +219,7 @@ function Workbench() {
   return (
     <section aria-labelledby="view-title" className={styles.view}>
       {header}
+      {!describing && !creating && <ThingScopeNote filter={thingFilter} />}
       {body}
     </section>
   );

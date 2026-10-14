@@ -159,6 +159,30 @@ describe("Review queue", () => {
     expect(rowsIn(q)[0]!.getAttribute("href")).toContain(`${BASE}/things/thing.webapp/review?`);
   });
 
+  it("inside a Thing keeps the decisions on Evolutions that touch it, with Show all", async () => {
+    const other = realization({ id: "realization.6", evolution: "evolution.6", status: "evaluated", candidate: "cand.6", baseRevision: "sc-1" });
+    const seeded = queueSeed({ realizations: [evaluated, amendment, other] });
+    const { router } = renderApp(`${BASE}/things/thing.webapp/review`, undefined, (qc) => {
+      seeded(qc);
+      // Evolution 6 moves outside the Thing (an unknown node has no containment path).
+      const bundle = fixtureBundle();
+      bundle.model.evolutions.find((e) => e.id === "evolution.6")!.affectedNodes = ["ext.elsewhere"];
+      qc.setQueryData(qk.model(SYSTEM, "head"), bundle);
+    });
+    const q = await queue();
+    // The first decision opens by itself; the lifted filter then survives row links.
+    await screen.findByRole("region", { name: "Review realization.g" });
+    const note = screen.getByTestId("thing-scope-note");
+    expect(note.textContent).toMatch(/Showing Peopling web app/);
+    expect(screen.queryByText("Showing the whole System")).toBeNull();
+    expect(within(q).getByRole("region", { name: TITLE })).toBeTruthy();
+    expect(within(q).queryByRole("region", { name: "Photo suggestions (later)" })).toBeNull();
+    fireEvent.click(within(note).getByRole("button", { name: "Show all" }));
+    await waitFor(() => expect(router.state.location.search).toContain("all=1"));
+    const group = await within(q).findByRole("region", { name: "Photo suggestions (later)" });
+    expect(rowsIn(group)[0]!.getAttribute("href")).toContain("all=1");
+  });
+
   it("feeds the rail count from the same queue", async () => {
     renderApp(`${BASE}/overview`, undefined, queueSeed());
     // An amendment and an evaluated candidate: 2 waiting, the promotion row is not counted again.

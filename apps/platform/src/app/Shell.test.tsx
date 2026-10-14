@@ -165,10 +165,10 @@ describe("Shell", () => {
     act(() => within(nav).getByRole("link", { name: "Review" }).click());
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp/review`));
     expect(await screen.findByRole("heading", { level: 1, name: "Review" })).toBeTruthy();
-    // Review lists the whole System's decisions, and inside a Thing the scope line says so.
-    // (The Shell's CSS-hidden fallback scope line also renders in jsdom; read the PageHeader's.)
-    const notes = screen.getAllByText("Showing the whole System");
-    expect(notes.some((note) => note.closest("header[data-variant]"))).toBe(true);
+    // Inside a Thing, Review filters its queue to the Thing (decision f): one scope note, the view's own, with Show all.
+    expect(screen.queryByText("Showing the whole System")).toBeNull();
+    const note = await screen.findByTestId("thing-scope-note");
+    expect(within(note).getByRole("button", { name: "Show all" })).toBeTruthy();
   });
 
   it("g r opens Review keeping params", async () => {

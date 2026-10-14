@@ -88,6 +88,28 @@ describe("Work list and detail", () => {
     expect(router.state.location.hash).toBe("#x");
   });
 
+  it("inside a Thing lists the Evolutions that touch it, with one scope note and Show all", async () => {
+    // Evolution 6 moves outside the Thing (an unknown node has no containment path).
+    const outside = (qc: QueryClient) => {
+      const bundle = fixtureBundle();
+      bundle.model.evolutions.find((e) => e.id === "evolution.6")!.affectedNodes = ["ext.elsewhere"];
+      qc.setQueryData(qk.model(SYSTEM, "head"), bundle);
+    };
+    const { router } = renderApp(`/s/${SYSTEM}/r/head/things/thing.webapp/work?evolution=${EVO1}`, undefined, outside);
+    const list = await screen.findByRole("region", { name: "Plans and Evolutions" });
+    const note = await screen.findByTestId("thing-scope-note");
+    expect(note.textContent).toMatch(/Showing Peopling web app/);
+    expect(screen.getAllByTestId("thing-scope-note")).toHaveLength(1);
+    expect(screen.queryByText("Showing the whole System")).toBeNull();
+    const names = () => within(list).getAllByRole("link").map((l) => l.textContent ?? "");
+    await waitFor(() => expect(names().some((n) => n.startsWith("Private contact foundation"))).toBe(true));
+    expect(names().some((n) => n.startsWith("Photo suggestions"))).toBe(false);
+    fireEvent.click(within(note).getByRole("button", { name: "Show all" }));
+    await waitFor(() => expect(router.state.location.search).toContain("all=1"));
+    await waitFor(() => expect(names().some((n) => n.startsWith("Photo suggestions"))).toBe(true));
+    expect(within(screen.getByTestId("thing-scope-note")).getByRole("button", { name: "Show only Peopling web app" })).toBeTruthy();
+  });
+
   it("shows the header purpose and hides the waiting counts at zero", async () => {
     renderApp(`${WORK}?evolution=${EVO1}`);
     expect(await screen.findByText("Genome Evolutions and the Task plans that realize them.")).toBeTruthy();
