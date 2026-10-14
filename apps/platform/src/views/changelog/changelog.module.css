@@ -1,4 +1,5 @@
-.view { display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--spacing-4); min-width: 0; }
+/* The grid gap plus the header margin make the standard spacing-8 under the PageHeader. */
+.view { --page-header-gap: var(--spacing-4); display: grid; grid-template-columns: minmax(0, 1fr); gap: var(--spacing-4); min-width: 0; }
 .muted { color: var(--color-text-subtle); margin: 0; }
 .error { color: var(--verdict-fail); }
 .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); font-size: var(--font-size-sm); color: var(--color-text-secondary); }

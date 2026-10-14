@@ -46,7 +46,7 @@
 .rmeta[data-tone="pass"] { color: var(--verdict-pass); }
 
 /* Work view: header, then the list and detail panes (or one replacing Panel). */
-.view { display: grid; gap: var(--spacing-8); min-width: 0; }
+.view { --page-header-gap: 0px; display: grid; gap: var(--spacing-8); min-width: 0; }
 .headerStatus { display: flex; flex-wrap: wrap; gap: var(--spacing-2) var(--spacing-4); }
 .headerStatus a { text-decoration: none; }
 .headerStatus a:hover { text-decoration: underline; text-decoration-color: var(--color-link-underline); }
