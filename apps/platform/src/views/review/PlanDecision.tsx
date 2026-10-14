@@ -7,6 +7,7 @@ import { FIXTURE_REASON,TOKEN_REASON,planError } from '../work/plan/lib';
 import { useApiMode,usePlan } from '../work/plan/queries';
 import { PlanReview } from './PlanReview';
 import { TaskReview } from './TaskReview';
+import styles from './review.module.css';
 
 export function PlanDecision({planId,taskId}:{planId:string;taskId:string|null}) {
  const {systemId}=useSystemRoute();const api=useApiMode(),detail=usePlan(systemId,planId,api),{token}=useAdminToken(),qc=useQueryClient(),href=useKeepParams();
@@ -17,7 +18,7 @@ export function PlanDecision({planId,taskId}:{planId:string;taskId:string|null})
  if(detail.error)return <p role="alert">{planError('Reading the plan',detail.error)}</p>;
  if(!detail.data)return <p role="alert">No plan {planId} on this System.</p>;
  const plan=detail.data;
- return <><Link to={href('work',{plan:planId,task:taskId,panel:null,evolution:null,realization:null})}>Open execution plan</Link>
+ return <div className={styles.detailPane}><Link className={styles.action} to={href('work',{plan:planId,task:taskId,panel:null,evolution:null,realization:null})}>Open execution plan</Link>
  {taskId&&!plan.tasks.some(t=>t.id===taskId)?<p role="alert">No Task {taskId} in plan {planId}.</p>:taskId?<TaskReview key={taskId} plan={plan} taskId={taskId} writeReason={writeReason} busy={busy} run={run}/>:<PlanReview plan={plan} writeReason={writeReason} busy={busy} run={run}/>}
- {error&&<p role="alert">{error}</p>}</>;
+ {error&&<p role="alert" className={styles.error}>{error}</p>}</div>;
 }
