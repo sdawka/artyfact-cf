@@ -267,6 +267,12 @@ describe("PromotionPanel", () => {
     expect(screen.queryByText(/preselected/)).toBeNull();
   });
 
+  it("preselects the app candidate beside a Genome amendment (amendments are decided on their own row)", async () => {
+    renderApp(`${REVIEW}?evolution=${EVO1}&panel=promote`, undefined, seed({ api: true, evals: allPass(), realizations: [evaluated, amendment], candidates: [candidate(), candidate({ id: "cand.g", realization: "realization.g" })] }));
+    await waitFor(() => expect((screen.getByRole("checkbox", { name: /cand\.1/ }) as HTMLInputElement).checked).toBe(true));
+    expect((screen.getByRole("checkbox", { name: /cand\.g/ }) as HTMLInputElement).checked).toBe(false);
+  });
+
   it("does not preselect when two candidates are evaluated", async () => {
     renderApp(`${REVIEW}?evolution=${EVO1}&panel=promote`, undefined, seed({ api: true, evals: allPass(), candidates: [candidate(), candidate({ id: "cand.2", realization: "realization.2" })] }));
     await fill();

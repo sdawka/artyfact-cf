@@ -18,6 +18,7 @@ import { mergeConflicts, shortSha } from "../lib";
 import { describeIssue } from "../gates";
 import { emitFx } from "@/effects/fx";
 import { whyFor } from "../../code/why";
+import { useWorkData } from "../data";
 import { DecisionHead } from "./DecisionHead";
 import { VerdictSummary } from "./VerdictSummary";
 import styles from "./decision.module.css";
@@ -98,10 +99,13 @@ export function PromotionPanel({ evolution, autoFocus = false }: { evolution: Ev
   const [, setParams] = useSearchParams();
   const [preselected, setPreselected] = useState<string | null>(null);
   const checkedOnce = useRef(false);
-  const eligible = candidates.filter((c) => c.state === "evaluated" || c.state === "selected");
+  const { realizations, isLoading: workLoading } = useWorkData();
+  // Like the queue's promotion row: evaluated app candidates; Genome amendments are decided on their own row.
+  const amendment = (c: Candidate) => realizations.some((r) => r.id === c.realization && r.target === "genome");
+  const eligible = candidates.filter((c) => (c.state === "evaluated" || c.state === "selected") && !amendment(c));
   const lone = eligible.length === 1 && !candidates.some((c) => selected.includes(c.id)) ? eligible[0]!.id : null;
   useEffect(() => {
-    if (checkedOnce.current || !cand) return;
+    if (checkedOnce.current || !cand || workLoading) return;
     checkedOnce.current = true;
     if (!lone) return;
     setPreselected(lone);
@@ -111,7 +115,7 @@ export function PromotionPanel({ evolution, autoFocus = false }: { evolution: Ev
       next.set("candidates", [...ids, lone].join(","));
       return next;
     }, { replace: true });
-  }, [cand, lone, setParams]);
+  }, [cand, workLoading, lone, setParams]);
   const chosen = candidates.filter((c) => selected.includes(c.id));
   const ids = chosen.map((c) => c.id);
   // Realize an editor commit: start from the commit's "why" until the admin edits it.
