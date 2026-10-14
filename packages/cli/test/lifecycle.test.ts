@@ -164,6 +164,18 @@ it('plan tasks prints the table, conflicts and the next claimable task, without 
  } finally { await srv.close(); }
 });
 
+it('plan tasks quotes a hostile plan or task id in the printed claim line', async () => {
+ const evil = "task.a'$(touch pwned)";
+ const hostile = JSON.parse(JSON.stringify(planFixture).replaceAll('"task.a"', JSON.stringify(evil)).replaceAll('"plan.one"', '"plan one;x"'));
+ const srv = await fake(() => [200, hostile]);
+ try {
+  const r = await cli(['plan', 'tasks', 'plan.one', '--system', 'system.one', '--platform', srv.base], {});
+  expect(r.code).toBe(0);
+  const q = `'task.a'\\''$(touch pwned)'`;
+  expect(r.out).toContain(`task claim 'plan one;x' ${q} --system system.one --dir './work/${q.slice(1)} --agent-label 'claude:${q.slice(1)}`);
+ } finally { await srv.close(); }
+});
+
 it('plan tasks names no claim when every pending task waits on a dependency', async () => {
  const waiting = { ...planFixture, tasks: planFixture.tasks.map(t => t.id === 'task.a' ? { ...t, status: 'working' } : t) };
  const srv = await fake(() => [200, waiting]);

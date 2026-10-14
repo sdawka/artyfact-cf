@@ -102,7 +102,7 @@ export async function lifecycleCommand(command:string,args:string[],io:Io):Promi
    if(!plan.tasks.length){io.out(`Plan ${plan.id} has no tasks.`);return 0;}
    io.out(table(['task','status','wave','depends-on','write nodes','footprint'],plan.tasks.map(t=>[t.id,t.status,waveOf(plan.analysis?.waves,t.id),cell(t.dependsOn),cell(t.writeNodes),footprintOf(t)])).join('\n'));
    for(const line of conflictLines(plan.analysis))io.out(line);
-   const next=nextClaimable(plan);io.out(next?`claim: ARTYFACT_ADMIN_TOKEN=... npx artyfact task claim ${plan.id} ${next.id} --system ${system} --dir ./work/${next.id} --agent-label "claude:${next.id}"`:'claim: no task is claimable now (all claimed, finished, or blocked by an unfinished dependency)');
+   const next=nextClaimable(plan);io.out(next?`claim: ARTYFACT_ADMIN_TOKEN=... npx artyfact task claim ${[plan.id,next.id,'--system',system,'--dir',`./work/${next.id}`,'--agent-label',`claude:${next.id}`].map(shellArg).join(' ')}`:'claim: no task is claimable now (all claimed, finished, or blocked by an unfinished dependency)');
    return 0;
   }
   else if(action==='list')result=await client.request('GET',lifecyclePaths.plans(system));
