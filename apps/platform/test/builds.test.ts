@@ -89,7 +89,7 @@ async function imported() {
   }, "genome");
   ns.create(appRepo).commit(appFiles, "scaffold");
   setArtifactsOverride(ns);
-  const imp = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo }, ADMIN);
+  const imp = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo, review: false }, ADMIN);
   expect(imp.status, JSON.stringify(imp.json)).toBe(201);
   return { ns, systemId, appRepo, genomeRepo, imp: imp.json };
 }

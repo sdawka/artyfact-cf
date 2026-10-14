@@ -1,0 +1,12 @@
+id: module.cli.validate-genome
+kind: module
+fields:
+  name: Validate Genome
+  description: Loads a Genome tree and reports readiness findings, unmapped app paths and stale files globs.
+  path: src/validate-genome.ts
+links:
+  - { rel: implements, to: command.validate-genome }
+  - { rel: dependsOn, to: module.model.load }
+  - { rel: dependsOn, to: module.model.validate }
+files:
+  - src/validate-genome.ts

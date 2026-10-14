@@ -80,6 +80,35 @@ describe("System atlas", () => {
     await waitFor(() => expect(router.state.location.search).toContain("scope=section.ui"));
   });
 
+  it("enters after the real click-click-doubleclick selection sequence commits its URL", async () => {
+    const { router } = renderApp(`${MAP}?scope=screen.people`);
+    await ready("component.AddContactDialog");
+    const node = nodeEl("component.AddContactDialog")!;
+    await act(async () => {
+      fireEvent.click(node, { detail: 1 });
+      fireEvent.click(node, { detail: 2 });
+      fireEvent.doubleClick(node, { detail: 2 });
+    });
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get("scope")).toBe("component.AddContactDialog"));
+    await ready("affordance.AddContactDialog.save");
+  });
+
+  it("cancels double-click Enter when a newer unrelated URL supersedes its selecting click", async () => {
+    const { router } = renderApp(`${MAP}?scope=screen.people`);
+    await ready("component.AddContactDialog");
+    const node = nodeEl("component.AddContactDialog")!;
+    await act(async () => {
+      fireEvent.click(node, { detail: 1 });
+      fireEvent.click(node, { detail: 2 });
+      fireEvent.doubleClick(node, { detail: 2 });
+      await router.navigate(`${MAP}?scope=screen.people&focus=component.ContactCollection`);
+    });
+    await act(async () => { await new Promise(resolve => setTimeout(resolve, 300)); });
+    const params = new URLSearchParams(router.state.location.search);
+    expect(params.get("scope")).toBe("screen.people");
+    expect(params.get("focus")).toBe("component.ContactCollection");
+  });
+
   it("reveals selected connections and retains original endpoint paths with Locate", async () => {
     renderApp(`${MAP}?scope=screen.people`);
     await ready("component.AddContactDialog");
@@ -99,9 +128,15 @@ describe("System atlas", () => {
     const list = screen.getByRole("region", { name: "Selected connections" });
     expect(within(list).getAllByRole("button", { name: "Locate ContactRecord" }).length).toBeGreaterThan(0);
     expect(within(list).getAllByRole("button", { name: "Locate Create or edit private contact" }).length).toBeGreaterThan(0);
-    fireEvent.click(screen.getByRole("button", { name: /zoom in/i }));
-    fireEvent.click(screen.getByRole("button", { name: /zoom in/i }));
-    await waitFor(() => expect(screen.getByLabelText("Offscreen connections").textContent).toContain("ContactRecord"));
+    const canvas = screen.getByTestId("atlas-canvas");
+    const renderer = document.querySelector<HTMLElement>(".react-flow__renderer")! as HTMLElement & { __zoom: { x: number; y: number; k: number } };
+    const record = box("entity.ContactRecord");
+    // Scope cameras survive remounts. Deliberately move this endpoint beyond the measured
+    // viewport rather than assuming two zoom clicks hide it from every saved camera.
+    const shift = canvas.offsetWidth + 32 - (record.x * renderer.__zoom.k + renderer.__zoom.x);
+    fireEvent.wheel(document.querySelector(".react-flow__pane")!, { deltaX: -shift / 0.5, deltaY: 0 });
+    expect(record.x * renderer.__zoom.k + renderer.__zoom.x).toBeGreaterThan(canvas.offsetWidth);
+    await waitFor(() => expect(within(screen.getByLabelText("Offscreen connections")).getByRole("button", { name: "Locate ContactRecord" })).toBeTruthy());
   });
 
   it('Tree Locate selects a direct child hidden by a filter without changing scope', async () => {

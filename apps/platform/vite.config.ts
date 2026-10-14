@@ -33,7 +33,9 @@ const config = {
   })],
   // Local default port is 1337 (fixture preview and e2e use 1338). Not strict: Vite takes the next free port and the CLI finds it.
   // Playwright writes trace HTML into e2e-artifacts while the fake suite runs on this dev server; watching it reloads the page.
-  server: { port: 1337, watch: { ignored: ["**/e2e-artifacts/**"] } },
+  // Under the fake e2e suite a background poll that the dev server fails once ("fetch failed" from miniflare) would paint
+  // Vite's error overlay over the page under test and fail its axe check; the SPA itself retries the poll.
+  server: { port: 1337, watch: { ignored: ["**/e2e-artifacts/**"] }, hmr: { overlay: process.env.ARTYFACT_E2E_FAKE !== "1" } },
   // The elk worker is only reached when a graph first lays out; pre-bundle it so a cold dev server does not re-optimize and
   // reload the page mid-test.
   optimizeDeps: { include: ["elkjs/lib/elk-worker.min.js", "elkjs/lib/elk-api.js", "elkjs/lib/elk.bundled.js"] },

@@ -1,0 +1,8 @@
+id: endpoint.import-review
+kind: endpoint
+fields:
+  name: Read a System's import review
+  description: "Returns the imported Genome as an agreement tree with findings and unmapped app paths; 404 when the System was imported without a review."
+  route: GET /api/systems/:id/import-review
+  auth: "Public read."
+  response: SystemImportReview

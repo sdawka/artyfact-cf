@@ -28,7 +28,7 @@ describe("examples/peopling", () => {
     setArtifactsOverride(ns);
     const systemId = /^id:\s*(\S+)/m.exec(genome["node.yaml"])![1];
 
-    const imp = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo: "ex-system", appRepo: "ex-app" }, { authorization: "Bearer test-admin-token" });
+    const imp = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo: "ex-system", appRepo: "ex-app", review: false }, { authorization: "Bearer test-admin-token" });
     expect(imp.status, JSON.stringify(imp.json)).toBe(201);
     expect(imp.json.evolutions).toContain("evolution.1");
     const model = await call<ModelBundle>("GET", `/systems/${systemId}/model`);

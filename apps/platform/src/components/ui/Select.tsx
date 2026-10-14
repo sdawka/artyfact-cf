@@ -25,7 +25,7 @@ export const Select = forwardRef<HTMLButtonElement,SelectProps>(function Select(
       </Primitive.Trigger>
       <Primitive.Portal><Primitive.Content position="popper" sideOffset={6} collisionPadding={12} className={styles.selectContent} data-effects={effects.enabled ? 'on' : 'off'}>
         <Primitive.ScrollUpButton className={styles.scrollButton}><ChevronUpIcon /></Primitive.ScrollUpButton>
-        <Primitive.Viewport className={styles.selectViewport}>
+        <Primitive.Viewport>
           {[...groups].map(([group,entries])=><Primitive.Group key={group}>
             {group && <Primitive.Label className={styles.groupLabel}>{group}</Primitive.Label>}
             {entries.map(({option,index})=><Primitive.Item key={index} value={String(index)} disabled={option.disabled} className={styles.item}>

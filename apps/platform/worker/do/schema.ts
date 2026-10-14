@@ -48,7 +48,10 @@ CREATE TABLE IF NOT EXISTS realized_artifacts (id TEXT PRIMARY KEY, thing_id TEX
 CREATE INDEX IF NOT EXISTS realized_by_source ON realized_artifacts(source_repo, source_commit);
 CREATE TABLE IF NOT EXISTS changelog_cache (commit_id TEXT PRIMARY KEY, row_json TEXT NOT NULL, entry_json TEXT, created_at TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS proposals (id TEXT PRIMARY KEY, status TEXT NOT NULL, json TEXT NOT NULL, turns_json TEXT NOT NULL,
-  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, accept_error TEXT, accepted_json TEXT, claimed_at TEXT);
+  created_at TEXT NOT NULL, updated_at TEXT NOT NULL, accept_error TEXT, accepted_json TEXT, claimed_at TEXT,
+  plan_json TEXT, decisions_json TEXT, deferred_from TEXT);
+CREATE TABLE IF NOT EXISTS import_review (id INTEGER PRIMARY KEY CHECK (id = 1), status TEXT NOT NULL, genome_commit TEXT NOT NULL,
+  json TEXT NOT NULL, updated_at TEXT NOT NULL);
 `;
 
 /**
@@ -78,6 +81,9 @@ export const ADDED_COLUMNS: [table: string, column: string, type: string][] = [
   ["realizations", "origin", "TEXT"],
   ["changelog_cache", "version", "INTEGER"],
   ["proposals", "claimed_at", "TEXT"],
+  ["proposals", "plan_json", "TEXT"],
+  ["proposals", "decisions_json", "TEXT"],
+  ["proposals", "deferred_from", "TEXT"],
 ];
 
 export function applySchema(sql: SqlStorage): void {

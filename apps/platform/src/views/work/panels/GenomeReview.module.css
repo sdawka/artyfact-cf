@@ -1,0 +1,4 @@
+/* Import review extras; the panel, sections and decision reuse AmendmentReview.module.css. */
+.paths { display: grid; gap: var(--spacing-1); margin: 0; padding: 0; list-style: none; max-block-size: 16rem; overflow-y: auto; }
+.paths code { font-family: var(--font-code); font-size: var(--font-size-sm); overflow-wrap: anywhere; }
+.more { justify-self: start; }

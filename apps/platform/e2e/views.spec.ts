@@ -169,8 +169,8 @@ test.describe("views", () => {
   test("compare: file level shows a line diff of an added file @fixture", async ({ page }, testInfo) => {
     await mockApi(page);
     await open(page, "/compare?level=files&path=src/screens/People.tsx", "Compare");
-    await expect(page.getByLabel("From", { exact: true })).toHaveValue("sc-1");
-    await expect(page.getByLabel("To", { exact: true })).toHaveValue("head");
+    await expect(page.getByRole("combobox", { name: "From", exact: true })).toHaveText("sc-1 · Initial import");
+    await expect(page.getByRole("combobox", { name: "To", exact: true })).toHaveText("head");
     const diff = page.getByRole("table", { name: "src/screens/People.tsx" });
     await expect(diff.locator('[data-op="add"]')).toHaveCount(3);
     await expect(diff.locator('[data-op="del"]')).toHaveCount(0);

@@ -3,20 +3,20 @@
 
 ## Now
 
-- Working: application UI polish on `feat/application-ui-polish`, based on released `b5ece29`. Shared controls, shell and control adoption are integrated; Atlas final Locate interruption guard/browser proof remains in progress.
-- Verified: 17 UI browser checks passed before the final Tabs handler repair; the repaired actual Tabs component passes 7 independent Chromium cases. Focused shared/theme/Work checks passed 115 tests and platform typecheck. Evidence: [[journals/2026-10-13-ui-polish]].
-- Latest integrated gate: full typecheck passed; unit suite stopped with 4 Atlas camera/discovery failures, 2597 passed and 9 skipped. Atlas owner is diagnosing the deterministic cause; no full gate or release is claimed.
-- Next: fix the Atlas failures with focused/full-unit evidence, freeze source and rerun full CI, then commit/push and open one PR. All hosted checks must be green before merge; release is separate.
-- Sync: versioned RPC preview authenticates and proposes 6 new records in `ws_bddc55cbf3e14dc8b8c22e651e82a8fd`, with 0 applied. A separate Artyfact destination remains unconfirmed; preserve the prior wrong-project conflict and do not apply records there.
-- Last updated: 2026-10-13T23:48:44-04:00.
+- Implemented: application UI polish on `feat/application-ui-polish`, integrated with upstream `5014bb5` (task planning on the lifecycle). Shared controls, responsive shell, native form behaviour and Atlas relation/camera polish preserve the latest domain flows.
+- Verified: full integrated CI passes all 10 steps in 294.5s: 2823 unit tests (9 skips), 95 fixture and 16 fake-platform browser tests; site 55 units and 51 browser tests (5 skips), plus typechecks/build/static checks. Independent integration and actual-browser keyboard reviews are clear. Evidence: [[journals/2026-10-13-ui-polish]].
+- Next: push and open one PR, then follow hosted CI/review. No merge or deployment is claimed for this branch; the lifecycle runbook's real-Artifacts flow remains unverified ([[journals/2026-10-14-lifecycle-port]]).
+- Sync: authenticated versioned RPC preview proposes 6 new records in `ws_bddc55cbf3e14dc8b8c22e651e82a8fd`, with 0 applied. A separate Artyfact destination remains unconfirmed; preserve the prior wrong-project conflict and do not apply records there.
+- Last updated: 2026-10-14T00:49:25-04:00.
 
 ## Previous release
 
 - Released: [PR #66](https://github.com/sdawka/artyfact-cf/pull/66) merged at `4bc93a811f2251ec949e060e98d6bf4d081d8fbf` after all hosted checks passed. The polished System atlas is deployed to [artyfact-platform](https://artyfact-platform.dawka.workers.dev), Worker version `83e29bb9-0f2e-42c2-892a-a8aa496bf46b`, built from that exact merged revision.
 - Verified: final pre-push passed all five platform steps (2564 unit, 74 fixture and 13 fake browser tests; no retries). Authenticated desktop/mobile smoke passed on real Peopling, including environment/containment, Details, history/pan restoration, direct Thing Map, Work/Deployments and reduced motion; no serious/critical axe findings, overflow, writes or page errors. Evidence: [[journals/2026-10-13-system-atlas]].
+- In progress: porting the task-planning work onto the released lifecycle (branch `lifecycle-port`, now merged with the atlas); docs, runbook and site guide are updated for it. Evidence and scope: [[journals/2026-10-14-lifecycle-port]]. Next: full CI and one PR; the runbook's plan flow is not yet walked on real Artifacts.
 - Next action: resume direct-RPC sync when credentials and a separate Artyfact destination are available.
 - Blockers: direct-RPC sync remains pending missing credentials and a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
-- Last updated: 2026-10-13T22:37:34-04:00.
+- Last updated: 2026-10-14.
 
 ## Work history
 
@@ -26,7 +26,9 @@
 - [[journals/2026-10-13-model-page]]: public model page follow-up and validation.
 - [[journals/2026-10-13-model-page]]: settled public story chapters (#52).
 - [[journals/2026-10-13-design-pass]]: PR #47 merged; design pass decisions D1–D8 and slice PRs.
-
+- [[journals/2026-10-13-lifecycle]]: approved lifecycle released, PR #64 at `df6dcdb`.
+- [[journals/2026-10-13-system-atlas]]: nested System atlas released, PR #66.
+- [[journals/2026-10-14-lifecycle-port]]: task-planning port onto the lifecycle; docs, runbook and site guide.
 - [[journals/2026-10-13-ontology-driven-development]]: semantic-layer benefits and platform meta ontology explanation, site-only.
 
 ## Prior recorded release context
@@ -44,4 +46,4 @@
 - Earlier from `main`: landing-site agent story (#44/#45, [[journals/2026-10-12-foundation]]), the public `/model` page (#48) and settled story chapters (#52, [[journals/2026-10-13-model-page]]); their last recorded site gates passed.
 - Homepage visual recovery: frame-free composition and whole-object transitions replace sliced reveals; the existing purpose, workflow and closing form a clearer conclusion. Fresh forward/reverse visual review is clear; full CI passed in 195.8s (2361 root tests, 9 skips; 56 site units, 11 static, 45 browser checks). Corrective PR, hosted checks and site release remain next; see [[journals/2026-10-13-model-page]].
 - Deferred: Remote GRREAT sync stays pending; the earlier `GOAL_HIERARCHY_CONFLICT` checkpoint is preserved and no remote record was overwritten.
-- Last updated: 2026-10-13.
+- Last updated: 2026-10-14.

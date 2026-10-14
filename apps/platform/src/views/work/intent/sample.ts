@@ -1,4 +1,9 @@
-import type { Proposal } from "../../../../shared/api";
+import type { Proposal, ProposalPlanNode } from "../../../../shared/api";
+
+const SYS = "system.peopling";
+const at = (...ids: string[]) => [SYS, ...ids];
+const node = (id: string, kind: string, title: string, path: string[], summary: string, opIds: string[], children: ProposalPlanNode[] = []): ProposalPlanNode =>
+  ({ id, kind, title, path, summary, opIds, children });
 
 /**
  * Shown read-only in fixture mode so the panel has something to review without the API. Ids are from the
@@ -44,5 +49,21 @@ export const SAMPLE_PROPOSAL: Proposal = {
     genomeCommit: "unknown",
     fake: true,
   },
+  // What `planFromOps` builds from these ops on the fixture (agreement/lib.test.ts checks it).
+  plan: [
+    node("thing.webapp", "thing", "Peopling web app", at("thing.webapp"), "1 add · 1 update · 1 link", [], [
+      node("section.ui", "section", "UI", at("thing.webapp", "section.ui"), "1 add · 1 update · 1 link", [], [
+        node("screen.people", "screen", "People", at("thing.webapp", "section.ui", "screen.people"), "1 add · 1 update · 1 link", ["op.1"], [
+          node("component.ContactCollection", "component", "ContactCollection", at("thing.webapp", "section.ui", "screen.people", "component.ContactCollection"), "1 add · 1 link", [], [
+            node(
+              "component.BirthdayField", "component", "Birthday field",
+              at("thing.webapp", "section.ui", "screen.people", "component.ContactCollection", "component.BirthdayField"),
+              "1 add · 1 link", ["op.2", "op.3"],
+            ),
+          ]),
+        ]),
+      ]),
+    ]),
+  ],
   createdAt: "2026-10-13T00:00:00.000Z",
 };

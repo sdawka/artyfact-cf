@@ -84,12 +84,15 @@ export function MapView() {
   const [locate, setLocate] = useState<{ id: string; sequence: number } | null>(null);
   const [pendingLocate, setPendingLocate] = useState<{ id: string; scope: string; requestKey?: string; sourceKey?: string } | null>(null);
   const cameraKey = `${systemId}/${rev}/${graph.scope}`;
-  const openScope = useCallback((id: string, keyboard = false) => {
+  const openScope = useCallback((id: string, keyboard = false, afterClickSelection = false) => {
     if (!index.children(id).length || id === committedScope.current || index.byId(id)?.type === "external") return;
     setPendingLocate(null);
-    setTravel({ historyKey: committedScope.current === graph.scope ? location.key : undefined, source: committedScope.current, id, target: id, kind: "enter", sequence: ++travelSequence.current });
+    const selectedSearch = new URLSearchParams(location.search);
+    selectedSearch.set("scope", graph.scope); selectedSearch.set("focus", id); selectedSearch.delete("inspect");
+    const pendingSelection = afterClickSelection ? { historyKey: location.key, search: `?${selectedSearch}` } : undefined;
+    setTravel({ pendingSelection, historyKey: pendingSelection ? undefined : committedScope.current === graph.scope ? location.key : undefined, source: committedScope.current, id, target: id, kind: "enter", sequence: ++travelSequence.current });
     if (keyboard) setFocusFrame(id);
-  }, [index, graph.scope, navigation, location.key]);
+  }, [index, graph.scope, navigation, location.key, location.search]);
   const goUp = useCallback(() => {
     const source = committedScope.current;
     if (source === ENVIRONMENT_SCOPE) return;
@@ -117,8 +120,15 @@ export function MapView() {
   }, [graph, index, navigation, location.key]);
   useEffect(() => {
     // Rapid depth actions may arrive before their just-committed source scope renders.
-    if (travel && !travel.historyKey && travel.source === graph.scope) setTravel({ ...travel, historyKey: location.key });
-  }, [travel, graph.scope, location.key]);
+    if (!travel || travel.historyKey || travel.source !== graph.scope) return;
+    // A double-click includes a selecting click. Wait for that exact URL replacement;
+    // other focus/layer/Details changes still cancel this gesture before it can enter.
+    if (travel.pendingSelection && location.search !== travel.pendingSelection.search) {
+      if (location.key !== travel.pendingSelection.historyKey) { ++travelSequence.current; setTravel(null); setPendingLocate(null); }
+      return;
+    }
+    setTravel({ ...travel, historyKey: location.key, pendingSelection: undefined });
+  }, [travel, graph.scope, location.key, location.search]);
   useEffect(() => {
     if (!travel?.historyKey || travel.historyKey === location.key) return;
     ++travelSequence.current; setTravel(null); setPendingLocate(null);
@@ -236,7 +246,11 @@ export function MapView() {
           elevateNodesOnSelect={false} deleteKeyCode={null} selectionKeyCode={null} multiSelectionKeyCode={null}
           zoomOnDoubleClick={false} zoomOnScroll={false} zoomOnPinch={false} zoomActivationKeyCode={null} panOnScroll
           onNodeMouseEnter={(_, node) => setHoverId(node.id)} onNodeMouseLeave={() => setHoverId(null)}
-          onNodeClick={(_, node) => { cancelTravel(); navigation.select(node.id); }} onNodeDoubleClick={(_, node) => openScope(node.id)}
+          onNodeClick={(event, node) => {
+            if (event.detail > 1) return; // The second click belongs to the double-click Enter gesture.
+            cancelTravel();
+            if (focusId !== node.id || new URLSearchParams(location.search).has("inspect")) navigation.select(node.id);
+          }} onNodeDoubleClick={(event, node) => openScope(node.id, false, event.detail > 1)}
           onPaneClick={() => { cancelTravel(); navigation.select(null); }}
           onMoveStart={(event, viewport) => { if (event) saveAtlasCamera(cameraKey, viewport); canvas?.dispatchEvent(new Event("atlas-camera-move")); }}
           onMove={(event, viewport) => { if (event) saveAtlasCamera(cameraKey, viewport); canvas?.dispatchEvent(new Event("atlas-camera-move")); }}

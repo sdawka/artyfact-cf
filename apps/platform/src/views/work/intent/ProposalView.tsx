@@ -1,13 +1,17 @@
 import { Button, Textarea } from "@/components/ui";
-import { useId, useState } from "react";
-import type { IntentAcceptResponse, Proposal } from "../../../../shared/api";
+import { useId, useMemo, useState } from "react";
+import { useIsMutating } from "@tanstack/react-query";
+import type { IntentAcceptResponse, Proposal, ProposalPlanNode } from "../../../../shared/api";
 import { useAdminToken } from "@/api/adminToken";
-import { useAcceptIntent, useReplyIntent } from "@/api/queries";
+import { decideIntentKey, useAcceptIntent, useDecideIntent, useReplyIntent } from "@/api/queries";
+import { useSystemRoute } from "@/model/useSelection";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { StatusChip } from "@/components/StatusChip/StatusChip";
 import { shortSha } from "../lib";
+import { useModel } from "@/model/useModel";
+import { AgreementTree, acceptSet, cascade, planFromOps, uncoveredOps, type Decision } from "./agreement";
 import { OpDiff, ProblemList } from "./OpDiff";
-import { confidenceText, intentError, providerLabel, withDependencies, withDependents } from "./lib";
+import { confidenceText, intentError, providerLabel } from "./lib";
 import workStyles from "../work.module.css";
 import styles from "./intent.module.css";
 
@@ -41,38 +45,94 @@ function ReplyForm({ proposalId, questionId, label, blocked }: { proposalId: str
   );
 }
 
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+
+/** What an accept did, for the panel's status line. */
+export interface AcceptedCounts {
+  accepted: number;
+  deferred: number;
+}
+
 /**
- * A proposal: the routed path, provider, answer, problems, ops with an include toggle each, questions with inline
- * replies, and "Accept selected". `readOnly` (a reason) disables every write, e.g. the fixture sample.
+ * A proposal: the routed path, provider, answer, problems, the agreement tree over its ops (decided per node),
+ * questions with inline replies, and "Accept agreed". `readOnly` (a reason) disables every write, e.g. the fixture
+ * sample. Decisions persist on the proposal; a proposal without a stored plan (an older platform) gets one built
+ * from the model index and keeps its decisions in this view.
  */
 export function ProposalView({ proposal, readOnly, onAccepted }: {
   proposal: Proposal;
   readOnly: string | null;
-  onAccepted(res: IntentAcceptResponse): void;
+  onAccepted(res: IntentAcceptResponse, counts: AcceptedCounts): void;
 }) {
   const uid = useId();
+  const { index } = useModel();
   const accept = useAcceptIntent();
+  const decideM = useDecideIntent();
+  const { systemId } = useSystemRoute();
+  // Any decision save still in flight (this view's or another's, queued one at a time) holds accept.
+  const saving = useIsMutating({ mutationKey: decideIntentKey(systemId) }) > 0;
   const { token } = useAdminToken();
-  const [included, setIncluded] = useState(() => new Set(proposal.ops.map((o) => o.id)));
   const provider = providerLabel(proposal);
   const { router, translator, genomeCommit } = proposal.provenance;
   const open = proposal.status === "open";
   const blocked = readOnly ?? (open ? null : `This proposal is ${proposal.status}.`);
-  const selected = proposal.ops.filter((o) => included.has(o.id)).map((o) => o.id);
-  const acceptReason = blocked ?? (selected.length ? null : "Select at least one change to accept.");
   const general = proposal.problems.filter((p) => !p.opId || !proposal.ops.some((o) => o.id === p.opId));
 
-  const toggle = (id: string, on: boolean) =>
-    setIncluded((prev) => {
-      if (on) return new Set([...prev, ...withDependencies(proposal.ops, [id])]);
-      const drop = withDependents(proposal.ops, [id]);
-      return new Set([...prev].filter((x) => !drop.has(x)));
-    });
+  const stored = proposal.plan?.length ? proposal.plan : null;
+  const sig = proposal.ops.map((o) => o.id).join("\n");
+  const built = useMemo(() => planFromOps(proposal.ops, index), [proposal.ops, index]);
+  const [local, setLocal] = useState<{ sig: string; plan: ProposalPlanNode[] } | null>(null);
+  const plan = stored ?? (local?.sig === sig ? local.plan : built);
+  const set = acceptSet(plan, proposal.ops);
+  const uncovered = uncoveredOps(plan, proposal.ops);
+  const total = proposal.ops.length - uncovered.length;
+  const acceptReason =
+    blocked ??
+    (saving
+      ? "Saving decisions…"
+      : set.undecided.length
+        ? `Decide every change first: ${set.undecided.length} undecided.`
+        : set.opIds.length
+          ? null
+          : "Agree at least one change to accept.");
+  const summary = [
+    `${set.agreed.length} of ${plural(total, "change")} agreed`,
+    set.deferred.length && `${set.deferred.length} deferred`,
+    set.rejected.length && `${set.rejected.length} rejected`,
+    set.undecided.length && `${set.undecided.length} undecided`,
+    set.blocked.size && `${set.blocked.size} blocked by what they need`,
+  ].filter(Boolean).join(" · ");
+
+  const decide = (nodeId: string, decision: Decision | null) => {
+    if (blocked) return;
+    if (stored) {
+      decideM.mutate({
+        proposalId: proposal.id,
+        body: { decisions: [{ nodeId, decision }] },
+        apply: (p) => ({ ...p, plan: cascade(p.plan, nodeId, decision) }),
+        ...(token && { adminToken: token }),
+      });
+    } else {
+      setLocal({ sig, plan: cascade(plan, nodeId, decision) });
+    }
+  };
 
   const submit = () => {
     if (acceptReason) return;
-    accept.mutate({ proposalId: proposal.id, body: { opIds: selected }, ...(token && { adminToken: token }) }, { onSuccess: onAccepted });
+    const counts = { accepted: set.opIds.length, deferred: set.deferred.length };
+    accept.mutate(
+      { proposalId: proposal.id, body: { opIds: set.opIds }, ...(token && { adminToken: token }) },
+      { onSuccess: (res) => onAccepted(res, counts) },
+    );
   };
+
+  const opsOf = (node: ProposalPlanNode) => (
+    <ul className={styles.ops} aria-label={`Changes to ${node.title}`}>
+      {proposal.ops.filter((o) => node.opIds.includes(o.id)).map((op) => (
+        <OpDiff key={op.id} op={op} problems={proposal.problems.filter((p) => p.opId === op.id)} />
+      ))}
+    </ul>
+  );
 
   return (
     <div className={styles.proposal}>
@@ -87,7 +147,7 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
         <span className={workStyles.muted}>Genome <code>{shortSha(genomeCommit)}</code></span>
         {proposal.anchor && <span className={workStyles.muted}>from <NodeChip id={proposal.anchor} size="sm" interactive={false} /></span>}
       </div>
-      <p className={workStyles.muted}>Review this Genome Evolution. Accepting selected changes commits only the reviewed Genome delta; implementation uses a separate Realization.</p>
+      <p className={workStyles.muted}>Review this Genome Evolution. Accepting the agreed changes commits exactly them to the Genome at once; implementation follows in a separate Realization plan.</p>
       <blockquote className={styles.message}>{proposal.message}</blockquote>
 
       <section aria-labelledby={`${uid}-route`} className={styles.block}>
@@ -123,19 +183,29 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
       {proposal.ops.length > 0 && (
         <section aria-labelledby={`${uid}-ops`} className={styles.block}>
           <h3 id={`${uid}-ops`}>Proposed changes</h3>
-          <p className={workStyles.muted}>{selected.length} of {proposal.ops.length} selected. Unchecked changes are rejected.</p>
-          <ul className={styles.ops}>
-            {proposal.ops.map((op) => (
-              <OpDiff
-                key={op.id}
-                op={op}
-                included={included.has(op.id)}
-                onToggle={(on) => toggle(op.id, on)}
-                problems={proposal.problems.filter((p) => p.opId === op.id)}
-                disabled={!open}
-              />
-            ))}
-          </ul>
+          <p className={workStyles.muted} role="status">{summary}</p>
+          <AgreementTree
+            plan={plan}
+            ops={proposal.ops}
+            problems={proposal.problems}
+            // Without a stored plan the platform keeps no decisions, so a deferral would be dropped on accept: agree or reject only.
+            variant={stored ? "intent" : "genome"}
+            readOnly={blocked}
+            onDecide={decide}
+            renderOps={opsOf}
+            label="Proposed changes"
+          />
+          {uncovered.length > 0 && (
+            <>
+              <p className={workStyles.muted}>Not in the tree, so not accepted: {uncovered.map((o) => o.id).join(", ")}</p>
+              <ul className={styles.ops}>
+                {uncovered.map((op) => (
+                  <OpDiff key={op.id} op={op} problems={proposal.problems.filter((p) => p.opId === op.id)} />
+                ))}
+              </ul>
+            </>
+          )}
+          {decideM.isError && <p role="alert" className={workStyles.error}>{intentError(decideM.error)}</p>}
         </section>
       )}
 
@@ -158,7 +228,7 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
             disabled={!!acceptReason || accept.isPending}
             aria-describedby={acceptReason ? `${uid}-why` : undefined}
           >
-            {accept.isPending ? "Accepting…" : "Accept selected"}
+            {accept.isPending ? "Accepting…" : "Accept agreed"}
           </Button>
           {acceptReason && <span id={`${uid}-why`} className={workStyles.reason}>{acceptReason}</span>}
         </div>

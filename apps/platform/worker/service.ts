@@ -28,6 +28,7 @@ import { buildTaskPacket, protectedPathsFor } from "./packets/task-packet";
 import { ensurePushSubscription, removePushSubscription } from "./artifacts/subscriptions";
 import { dispatchPreviewBuild, requestProductionDeploy } from "./deployments";
 import { gateCriteria, hooksOf, type GateCriterion } from "./promotion";
+import { recordImportReview } from "./import-review";
 
 const TOKEN_TTL_S = 21_600;
 const COMMIT_RE = /^[0-9a-f]{40}$/;
@@ -236,7 +237,7 @@ async function platformCheck(
 }
 
 /** `genomeRepo`/`appRepo` are optional: omitted ones default to `<slug>.genome` / `<slug>.app`. */
-export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown }): Promise<ImportSystemResponse> {
+export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown; review?: unknown }): Promise<ImportSystemResponse> {
   const { systemId } = body;
   if (typeof systemId !== "string" || !systemId) throw badRequest("systemId is a required string");
   if (systemId === REGISTRY) throw badRequest("reserved system id");
@@ -303,6 +304,8 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     model: JSON.stringify(serializeModel(g.model)),
     rules: JSON.stringify(g.readiness),
   }));
+  // B.10: a new System commit is a new import to review unless `review: false` (worker/import-review.ts).
+  await recordImportReview(env, systemId, { review: body.review, head: booted.head, priorHead: prior?.head, genome: g, genomeCommit });
   // Re-read the summary now that the rules readiness is cached (B5: readiness counts and signifiers).
   const system = (await systemStub(env, systemId).summary()) ?? booted;
   await registryStub(env).registerSystem(system);
@@ -365,7 +368,7 @@ async function genomeView(env: Env, systemId: string, genomeCommit: string, repo
 }
 
 /** `platform.unsynced` is a readiness warning (never a blocker) while the System has no recorded `platform` commit. */
-function withPlatform<R extends { findings: Finding[]; modelReadiness: { findings: Finding[]; blockers: Finding[] } }>(s: HeadState, r: R): R {
+export function withPlatform<R extends { findings: Finding[]; modelReadiness: { findings: Finding[]; blockers: Finding[] } }>(s: HeadState, r: R): R {
   if (s.platform) return r;
   const w = unsyncedWarning(s.systemId);
   return { ...r, findings: [...r.findings, w], modelReadiness: { ...r.modelReadiness, findings: [...r.modelReadiness.findings, w] } };
@@ -707,11 +710,19 @@ async function recordRun(env: Env, systemId: string, candidateId: string, run: R
 }
 
 /**
+ * Whether an evaluation's `targetRef` is evidence about this candidate: its bare commit, `<target>@<commit>`, the
+ * canonical Genome it ran on (`genome@<genomeCommit>`, model-rules hooks) or the candidate's preview URL (http hooks).
+ */
+export function evidenceBinds(ref: string, candidate: Pick<CandidateRef, "commit" | "previewUrl">, genomeCommit: string): boolean {
+  return ref === candidate.commit || ref.endsWith(`@${candidate.commit}`) || ref === `genome@${genomeCommit}` || (!!candidate.previewUrl && ref === candidate.previewUrl);
+}
+
+/**
  * `evidence-fresh`: every blocking criterion's latest evaluation was produced for this candidate's commit (its
  * `targetRef` binds the commit, the canonical Genome it ran on, or the candidate's preview) at or after submission.
  * Criteria whose hooks consume promotionFacts themselves (inputs.check) are excluded: they are re-run with the facts.
  */
-function evidenceFresh(
+export function evidenceFresh(
   m: SystemModel, evolution: Pick<schema.Evolution, "acceptanceCriteria">, candidate: CandidateRef, evals: Evaluation[], submittedAt: string, genomeCommit: string,
 ): boolean {
   const byId = new Map(m.criteria.map((c) => [c.id, c] as const));
@@ -719,8 +730,7 @@ function evidenceFresh(
     const c = byId.get(id);
     return !!c && hooksOf(m, c).some((h) => /base-current|manifest-exact|evidence-fresh/.test(h.inputs.check ?? ""));
   };
-  const binds = (ref: string) =>
-    ref === candidate.commit || ref.endsWith(`@${candidate.commit}`) || ref === `genome@${genomeCommit}` || (!!candidate.previewUrl && ref === candidate.previewUrl);
+  const binds = (ref: string) => evidenceBinds(ref, candidate, genomeCommit);
   const at = (e: Evaluation) => e.finishedAt ?? e.startedAt ?? "";
   for (const g of gateCriteria(m, evolution, candidate)) {
     if (!g.blocking || consumesFacts(g.id)) continue;
@@ -945,9 +955,9 @@ async function prepareGate(
   return { g, gates };
 }
 
-/** Map a DO gate refusal to its HTTP error (the same for promote and accept). */
-function gateRefusal(out: { code: string; blocking: GateItem[]; advisories: GateItem[] }): HttpError {
-  const details = { blocking: out.blocking, advisories: out.advisories };
+/** Map a DO gate refusal to its HTTP error: the same for legacy promote and accept and for plan promote. */
+export function gateRefusal(out: { code: string; blocking: GateItem[]; advisories: GateItem[] }): HttpError {
+  const details = { criteria: out.blocking, advisories: out.advisories };
   if (out.code === "advisories-unacknowledged") {
     return new HttpError(400, out.code, "advisory criteria are not green; acknowledge them with a non-empty rationale", details);
   }

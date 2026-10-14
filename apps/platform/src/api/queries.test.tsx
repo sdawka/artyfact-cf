@@ -2,7 +2,7 @@ import { act, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { renderApp } from "@/testing/render";
 import { ApiRequestError } from "./client";
-import { ManualCommitError, SSE_INVALIDATIONS, qk, useManualCommit, useSystemEvents, type ManualCommitInput } from "./queries";
+import { ManualCommitError, SSE_INVALIDATIONS, qk, useManualCommit, useSystemEvents, useSystems, type ManualCommitInput } from "./queries";
 
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { "content-type": "application/json" } });
@@ -143,6 +143,22 @@ describe("useSystemEvents", () => {
     expect(spy).not.toHaveBeenCalled();
     send({ type: "phenome.ingested", count: 1, commit: "c", at: "" });
     expect(spy.mock.calls.map((c) => c[0]!.queryKey)).toEqual([["phenome", "s"], ["systems"]]);
+  });
+
+  it("a review that turns pending mid-session reaches the systems list on system.import-review", async () => {
+    vi.stubGlobal("EventSource", FakeSource);
+    let pending = false;
+    vi.stubGlobal("fetch", vi.fn(async () => json(200, { systems: [{ systemId: "s", ...(pending && { importReview: { status: "pending", genomeCommit: "g", nodes: 2 } }) }] })));
+    function Status() {
+      useSystemEvents();
+      return <output data-testid="review">{useSystems().data?.[0]?.importReview?.status ?? "none"}</output>;
+    }
+    renderApp("/s/s/r/head/p", [{ path: "/s/:systemId/r/:rev/p", element: <Status /> }]);
+    await waitFor(() => expect(screen.getByTestId("review").textContent).toBe("none"));
+    await waitFor(() => expect(FakeSource.last?.url).toBe("/api/systems/s/events"));
+    pending = true;
+    send({ type: "system.import-review", status: "pending" });
+    await waitFor(() => expect(screen.getByTestId("review").textContent).toBe("pending"));
   });
 
   it("the polling fallback refreshes the live lists", async () => {

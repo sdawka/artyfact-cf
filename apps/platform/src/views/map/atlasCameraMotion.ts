@@ -16,4 +16,4 @@ export class CameraSequence {
   cancel() { ++this.sequence; }
   isCurrent(sequence: number) { return this.sequence === sequence; }
 }
-export interface AtlasTravel { historyKey?: string; source?: string; id: string; target: string; kind: "enter" | "up" | "locate"; focus?: string; sequence: number }
+export interface AtlasTravel { pendingSelection?: { historyKey: string; search: string }; historyKey?: string; source?: string; id: string; target: string; kind: "enter" | "up" | "locate"; focus?: string; sequence: number }

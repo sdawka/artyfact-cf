@@ -1,0 +1,5 @@
+id: section.suggestions
+kind: section
+fields:
+  name: Suggestions
+  description: The suggestion and its notification job, each in its own file, written by the goal and contact-event operations

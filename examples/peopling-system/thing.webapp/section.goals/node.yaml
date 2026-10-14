@@ -1,0 +1,5 @@
+id: section.goals
+kind: section
+fields:
+  name: Goals
+  description: The goal entity and its save operation

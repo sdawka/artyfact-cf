@@ -7,7 +7,7 @@ import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { useModel } from "@/model/useModel";
 import { useParam } from "../lib";
 import { intentError } from "./lib";
-import { ProposalView } from "./ProposalView";
+import { ProposalView, type AcceptedCounts } from "./ProposalView";
 import { SAMPLE_PROPOSAL } from "./sample";
 import workStyles from "../work.module.css";
 import styles from "./intent.module.css";
@@ -28,6 +28,9 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
   const create = useCreateIntent();
   const proposal = useIntent(fixture ? null : proposalId, token || undefined);
   const [message, setMessage] = useState("");
+  // An accept that deferred, dropped or failed to defer changes: the panel stays open on this status until the admin moves on.
+  const [done, setDone] = useState<{ res: IntentAcceptResponse; counts: AcceptedCounts; from: string | null } | null>(null);
+  const settled = done && done.from === proposalId ? done : null;
   const heading = useRef<HTMLHeadingElement>(null);
   // Opening the panel (also from a deep link) moves focus to its heading.
   useEffect(() => heading.current?.focus(), []);
@@ -44,6 +47,11 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
   };
 
   const shown = fixture ? SAMPLE_PROPOSAL : proposalId ? proposal.data : undefined;
+  const accepted = (res: IntentAcceptResponse, counts: AcceptedCounts) => {
+    if (res.deferred || res.dropped?.length || res.deferralError) setDone({ res, counts, from: proposalId });
+    else onAccepted(res);
+  };
+  const deferredCount = settled ? settled.counts.deferred : 0;
 
   return (
     <section className={workStyles.panel} aria-labelledby={`${uid}-h`}>
@@ -86,16 +94,36 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
         </form>
       )}
 
+      {settled && (
+        <div className={styles.block} role="status">
+          <p>
+            Accepted {settled.counts.accepted} {settled.counts.accepted === 1 ? "change" : "changes"} into {settled.res.evolution.title} and
+            committed {settled.counts.accepted === 1 ? "it" : "them"} to the Genome.
+            {settled.res.deferred && <> {deferredCount} deferred {deferredCount === 1 ? "change waits" : "changes wait"} in a new proposal.</>}
+          </p>
+          {!!settled.res.dropped?.length && <p>Not accepted or deferred: {settled.res.dropped.join(", ")}.</p>}
+          {settled.res.deferralError && <p className={workStyles.error}>The deferred changes were not kept: {settled.res.deferralError}.</p>}
+          <span className={workStyles.inlineRow}>
+            {settled.res.deferred && (
+              <Button type="button" variant="primary" className="u-brackets" onClick={() => setProposalId(settled.res.deferred!.proposal)}>
+                Continue with deferred
+              </Button>
+            )}
+            <Button type="button" variant="secondary" className="u-brackets" onClick={() => onAccepted(settled.res)}>
+              Open the accepted change
+            </Button>
+          </span>
+        </div>
+      )}
       {fixture && <h3 className={styles.sampleHead}>Sample proposal (fixture data, read-only)</h3>}
       {proposalId && !fixture && proposal.isPending && <p className={workStyles.muted} role="status">Loading proposal {proposalId}…</p>}
       {proposalId && !fixture && proposal.isError && <p role="alert" className={workStyles.error}>{intentError(proposal.error)}</p>}
-      {shown && (
+      {shown && !settled && (
         <ProposalView
-          // A revised proposal (reply) resets the selection to every op.
-          key={`${shown.id}:${shown.ops.map((o) => o.id).join(",")}`}
+          key={shown.id}
           proposal={shown}
           readOnly={fixture ? FIXTURE_REASON : null}
-          onAccepted={onAccepted}
+          onAccepted={accepted}
         />
       )}
     </section>

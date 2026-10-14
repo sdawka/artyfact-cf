@@ -60,7 +60,7 @@ ACCOUNT_ID=<the account id from npx wrangler whoami>
    Review the tree; `node.yaml` at its root must name `system.peopling`.
 3. Push the Genome only and re-import:
    ```
-   ARTYFACT_ADMIN_TOKEN=... npx artyfact init --dir /tmp/peopling-migrate --genome /tmp/peopling-v2 --platform $URL --genome-only --adopt --force
+   ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact init --dir /tmp/peopling-migrate --genome /tmp/peopling-v2 --platform $URL --genome-only --adopt --force
    ```
    `--genome-only` never reads, pushes or seeds an app: `peopling.app` keeps its head, and the platform keeps its recorded scaffold source. `--adopt` commits the converted tree on top of the v1 head of the same Genome repo (a fast-forward), and `--force` re-points the System at that commit.
 4. Verify: `curl -s -o /dev/null -w '%{http_code}\n' $URL/api/systems/system.peopling/model` prints `200`.

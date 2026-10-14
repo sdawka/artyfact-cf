@@ -9,6 +9,12 @@ interface Secrets {
   OPENROUTER_API_KEY?: string;
   /** OpenRouter decision model; default perplexity/pplx-decider-v1.1-27b. */
   OPENROUTER_MODEL?: string;
+  /** "0" turns the LLM translator and the plan draft planner off (the draft uses its deterministic partition). */
+  TRANSLATE?: string;
+  /** OpenRouter model of the intent translator; also the plan draft planner's when OPENROUTER_PLAN_MODEL is unset. */
+  OPENROUTER_TRANSLATE_MODEL?: string;
+  /** OpenRouter model of the plan draft planner. */
+  OPENROUTER_PLAN_MODEL?: string;
   /** "1" lets the health hook fetch http://localhost / 127.0.0.1 previews. `.dev.vars` only, never deployed. */
   ALLOW_LOCAL_PREVIEW?: string;
   /** Bearer the artyfact-ci Workflow sends with build reports. */

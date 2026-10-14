@@ -183,3 +183,33 @@ export async function apiEvolution(request: APIRequestContext, title: string, ki
   expect(res.ok(), await res.text()).toBe(true);
   return ((await res.json()) as { evolution: { id: string } }).evolution.id;
 }
+
+/** `GET …/realization-plans/:plan` through the API (plan reads follow the System's visibility). */
+export async function apiPlan(request: APIRequestContext, planId: string): Promise<import("../shared/lifecycle").RealizationPlan> {
+  const res = await request.get(`/api/systems/${SYS}/realization-plans/${encodeURIComponent(planId)}`, { headers: auth });
+  expect(res.ok(), `plan ${planId}: ${res.status()}`).toBe(true);
+  return res.json();
+}
+
+/**
+ * Runs the repo's CLI (`packages/cli/bin/artyfact.js`) against the fake platform as an agent would. The environment is
+ * scrubbed of every `ARTYFACT_*` variable from the developer's shell, so `task submit` must use the token stored at claim
+ * (a token-at-rest regression cannot hide behind an exported `ARTYFACT_TOKEN`); only the fake remote host is trusted
+ * (`ARTYFACT_ALLOW_REMOTE_HOST`) and routed to the fake git server. The admin token is passed only to
+ * `task claim|start|resume`, as the README's claim line runs with it and the agent line unsets it.
+ * Resolves with the exit code and output; never throws on a non-zero exit, so refusals can be asserted.
+ */
+export async function cli(args: string[], opts: { cwd: string; baseURL: string; env?: Record<string, string> }): Promise<{ code: number; stdout: string; stderr: string }> {
+  const { execFile } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const bin = fileURLToPath(new URL("../../../packages/cli/bin/artyfact.js", import.meta.url));
+  const env: Record<string, string> = Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => !e[0].startsWith("ARTYFACT_") && e[1] !== undefined));
+  const admin = args[0] === "task" && ["claim", "start", "resume"].includes(args[1] ?? "");
+  // The fake repos report https://fake.artifacts.local remotes; git reaches them on the platform's fake git server.
+  const git = { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: `url.${opts.baseURL}/api/fake-git/.insteadOf`, GIT_CONFIG_VALUE_0: "https://fake.artifacts.local/git/artyfact/" };
+  Object.assign(env, git, { ARTYFACT_PLATFORM: opts.baseURL, ARTYFACT_ALLOW_REMOTE_HOST: "fake.artifacts.local" }, admin ? { ARTYFACT_ADMIN_TOKEN: ADMIN_TOKEN } : {}, opts.env);
+  return new Promise((ok) => {
+    execFile(process.execPath, [bin, ...args], { cwd: opts.cwd, env, timeout: 60_000 }, (err, stdout, stderr) =>
+      ok({ code: err ? (typeof err.code === "number" ? err.code : 1) : 0, stdout: String(stdout), stderr: String(stderr) }));
+  });
+}

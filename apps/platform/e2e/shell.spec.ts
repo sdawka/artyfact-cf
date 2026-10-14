@@ -98,22 +98,29 @@ test.describe("shell", () => {
     }
   });
 
-  test("narrow screens collapse the rail to glyphs and keep the three layer heads", async ({ page }, testInfo) => {
+  test("narrow screens open labelled navigation from Menu and close it after navigation", async ({ page }, testInfo) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto(`${SYSTEM}/overview`);
-    const nav = page.getByRole("navigation", { name: "Views" });
+    await expect(page.getByRole("navigation", { name: "Views" })).toBeHidden();
+    const trigger = page.getByRole("button", { name: "Menu", exact: true });
+    await trigger.click();
+    const dialog = page.getByRole("dialog", { name: "Navigation", exact: true });
+    await expect(dialog).toBeVisible();
+    const nav = dialog.getByRole("navigation", { name: "Views" });
     await expect(nav.getByRole("group")).toHaveCount(3);
-    for (const name of ["Genome", "Proteome", "Phenome"]) {
-      await expect(nav.getByText(name, { exact: true })).toBeVisible();
-      expect((await nav.getByText(name, { exact: true }).boundingBox())!.width).toBeGreaterThan(1);
+    for (const [layer, question] of [["Genome", "What should it be"], ["Proteome", "What is being made"], ["Phenome", "What does it do"]]) {
+      await expect(nav.getByRole("group", { name: layer })).toHaveAccessibleDescription(question!);
+      await expect(nav.getByText(layer!, { exact: true })).toBeVisible();
+      await expect(nav.getByText(question!, { exact: true })).toBeVisible();
     }
-    const question = nav.getByText("What is being made", { exact: true });
-    expect((await question.boundingBox())!.width).toBeLessThanOrEqual(1);
     const label = nav.getByText("Deployments", { exact: true });
-    expect((await label.boundingBox())!.width).toBeLessThanOrEqual(1);
-    expect((await nav.boundingBox())!.width).toBeLessThan(80);
-    await nav.getByRole("link", { name: "Deployments" }).click();
+    await expect(label).toBeVisible();
+    expect((await label.boundingBox())!.width).toBeGreaterThan(45);
+    await checkA11yAndShoot(page, testInfo, "shell-menu-narrow");
+    await nav.getByRole("link", { name: "Deployments", exact: true }).click();
+    await expect(dialog).toBeHidden();
     await expect(page.getByRole("heading", { level: 1, name: "Deployments" })).toBeVisible();
+    await expect(trigger).toBeFocused();
     await checkA11yAndShoot(page, testInfo, "shell-narrow");
   });
 

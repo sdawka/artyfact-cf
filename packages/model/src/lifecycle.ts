@@ -3,10 +3,14 @@ export interface TaskFootprint { repo: string; artifactId: string; globs: string
 export interface TaskDefinition { id: string; title: string; artifactId: string; steps: string[]; dependsOn: string[]; readNodes: string[]; writeNodes: string[]; checks: string[]; footprint: TaskFootprint }
 export interface TaskConflict { tasks: [string, string]; kind: 'dependency' | 'source' | 'ontology' | 'unknown'; subjects: string[]; message: string }
 export interface TaskAnalysis { conflicts: TaskConflict[]; waves: string[][] }
+/** The CLI's id rule: ids end up in URLs and git argv, so nothing that reads as an option or a path. */
+export const TASK_ID_RE = /^[A-Za-z0-9._-]+$/;
+export const isTaskId = (id: string) => TASK_ID_RE.test(id) && !id.startsWith('-') && id !== '.' && id !== '..';
 export function validateTaskDefinitions(tasks: TaskDefinition[]): void {
   const ids = new Set<string>();
   for (const t of tasks) {
     if (!t.id || ids.has(t.id)) throw new Error('task ids must be unique and nonempty');
+    if (!isTaskId(t.id)) throw new Error(`task id ${JSON.stringify(t.id)} must be letters, digits, ".", "_" or "-", not start with "-", and not be "." or ".."`);
     if (!t.artifactId || !t.steps.length || !t.writeNodes.length) throw new Error(`task ${t.id} requires artifact, steps and write scope`);
     if (t.footprint.artifactId !== t.artifactId || !t.footprint.repo) throw new Error(`task ${t.id} requires matching source identity`);
     ids.add(t.id);

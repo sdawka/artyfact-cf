@@ -17,7 +17,7 @@ it("validates optional outcomes against the realized Genome's exact contract ver
   const appCommit = artifacts.create("outcome-app").commit(appFiles, "app");
   setArtifactsOverride(artifacts);
   const imported = await exports.default.fetch(new Request("http://example.com/api/systems/import", { method: "POST", headers,
-    body: JSON.stringify({ systemId, genomeRepo: "outcome-genome", appRepo: "outcome-app" }) }));
+    body: JSON.stringify({ systemId, genomeRepo: "outcome-genome", appRepo: "outcome-app", review: false }) }));
   expect(imported.status, await imported.clone().text()).toBe(201);
   const event = (version: number, count: unknown) => ({ systemId, thingId: "thing.webapp", artifactId: "artifact.webapp",
     buildId: appCommit, commit: appCommit, emittedAt: new Date().toISOString(), kind: "outcome.event", payload: { contractId: "event.saved", version, payload: { count } } });

@@ -43,6 +43,18 @@ async function geometry(page: Page) {
   }));
 }
 const camera = (page: Page) => page.locator(".react-flow__viewport").getAttribute("style");
+async function waitAtlasCameraSettled(page: Page) {
+  await page.evaluate(() => new Promise<void>((resolve) => {
+    let previous = "", stableFrames = 0;
+    const check = () => {
+      const current = document.querySelector<HTMLElement>(".react-flow__viewport")?.style.transform ?? "";
+      stableFrames = current && current === previous ? stableFrames + 1 : 0;
+      previous = current;
+      if (stableFrames >= 3) resolve(); else requestAnimationFrame(check);
+    };
+    check();
+  }));
+}
 async function waitAtlasReveals(page: Page) {
   // Audit settled surfaces only; ambient effects can animate indefinitely.
   await page.evaluate(async () => {
@@ -492,6 +504,7 @@ test("scope reveal runs once while selection, Details and layer changes preserve
   await page.screenshot({ path: framePath });
   await testInfo.attach("atlas-normal-motion-frame", { path: framePath, contentType: "image/png" });
   await surface.evaluate(async (element) => { const animation = element.getAnimations()[0]!; animation.play(); await animation.finished; });
+  await waitAtlasCameraSettled(page);
   const stableGeometry = await geometry(page), stableCamera = await camera(page);
   await tile(page, "thing.webapp").click();
   await expect.poll(async () => (await motions(page)).filter((record) => record.target === "Map selection").length).toBe(1);

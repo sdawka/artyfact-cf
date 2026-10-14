@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { forkAndWait, withRepo } from "../worker/artifacts/client";
+import { forkAndWait, withRepo, remoteUrl } from "../worker/artifacts/client";
 import { diffTrees } from "../worker/artifacts/candidates";
 import { listTree, walkTree } from "../worker/artifacts/genome-source";
 import { nodesForPath, permittedGlobs, sourceMapFor } from "../worker/artifacts/source-map";
@@ -75,6 +75,15 @@ describe("diffTrees", () => {
   it("is empty for the same commit", async () => {
     const { repo, c2 } = threeCommits();
     expect(await diffTrees(repo, c2, c2)).toEqual({ added: [], modified: [], removed: [] });
+  });
+});
+
+describe("remoteUrl", () => {
+  it("names the account's Artifacts host, except on the fake platform, whose repos keep their own remote", () => {
+    const env = { ACCOUNT_ID: "a".repeat(32), ARTIFACTS_NAMESPACE: "artyfact" } as unknown as Env;
+    expect(remoteUrl(env, "x.app--r1", "https://fake/x.git")).toBe(`https://${"a".repeat(32)}.artifacts.cloudflare.net/git/artyfact/x.app--r1.git`);
+    expect(remoteUrl({ ...env, FAKE_ARTIFACTS: "1" } as Env, "x.app--r1", "https://fake.artifacts.local/git/artyfact/x.app--r1.git"))
+      .toBe("https://fake.artifacts.local/git/artyfact/x.app--r1.git");
   });
 });
 

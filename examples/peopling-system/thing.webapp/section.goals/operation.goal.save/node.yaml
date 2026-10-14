@@ -1,0 +1,26 @@
+id: operation.goal.save
+kind: operation
+fields:
+  name: Save goal
+  description: Owned contact and valid interval. Increment goal version, recompute due state and cancel obsolete jobs
+  source:
+    doc: peopling-world-specification
+    section: "6"
+  preconditions:
+    - Owned contact
+    - Valid interval
+  effects:
+    - Increment goal version
+    - Recompute due state
+    - Cancel obsolete jobs
+    - Revising a goal must not create a ContactEvent
+  failure:
+    - Invalid interval is rejected with a validation error
+    - Stale version returns conflict
+links:
+  - { rel: reads, to: entity.ContactRecord }
+  - { rel: writes, to: entity.RelationshipGoal }
+  - { rel: writes, to: entity.Suggestion }
+  - { rel: writes, to: entity.NotificationJob }
+files:
+  - src/worker/routes/goals.ts

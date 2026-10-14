@@ -35,7 +35,7 @@ describe("node files: app infrastructure", () => {
   it("keeps the nodes' own files in the union", () => {
     expect(mapped("src/index.ts")).toEqual(expect.arrayContaining(["thing.webapp"]));
     expect(mapped("src/worker/routes/contacts.ts")).toEqual(expect.arrayContaining(["operation.contact.save", "policy.ownerOnly"]));
-    expect(mapped("public/people/add-contact-dialog.js")).toEqual(expect.arrayContaining(["affordance.AddContactDialog.save"]));
+    expect(mapped("public/people/index.html")).toEqual(expect.arrayContaining(["affordance.AddContactDialog.save"]));
   });
 
   it("maps every file the scaffold ships", () => {
