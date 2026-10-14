@@ -10,6 +10,7 @@ import type { Candidate, Evaluation } from '../shared/api';
 import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo } from './artifacts/client';
 import { buildCandidateManifest, diffTrees, manifestHash } from './artifacts/candidates';
 import { listTree } from './artifacts/genome-source';
+import type { ArtifactsRepoLike, TreeEntry } from './artifacts/client';
 import { globMatch, nodesForPath, sourceMapFor } from './artifacts/source-map';
 import { newRealizationSecret } from './auth';
 import { badRequest, conflict, fromRpc, notFound, unprocessable } from './errors';
@@ -18,7 +19,8 @@ import type { CandidateRef, SubmissionContext } from './hooks/contract';
 import { pushCommit, type FileChange } from './git/push';
 import { protectedPathsFor } from './packets/task-packet';
 import { gateCriteria, hooksOf } from './promotion';
-import { genomeAt, refreshRegistry, revokeEnded, systemStub } from './service';
+import { evidenceFresh, genomeAt, refreshRegistry, revokeEnded, systemStub } from './service';
+import { lifecyclePacket } from './packets/lifecycle-packet';
 import { taskFootprint } from './tasks/footprint';
 import { sha256Hex } from './util';
 
@@ -52,7 +54,9 @@ export async function createRealizationPlan(env:Env,sid:string,body:unknown):Pro
  // Contract dependencies in the accepted ontology become durable dependencies, never a runtime guess.
  const rels=new Set(['invokes','calls','reads','uses','stepOperation']);
  for(const t of tasks){const reads=t.writeNodes.flatMap(n=>(model.index.linksOut[n]??[]).filter(l=>rels.has(l.rel)).map(l=>l.to));for(const other of tasks)if(other.id!==t.id&&other.writeNodes.some(n=>reads.includes(n))&&!t.dependsOn.includes(other.id))t.dependsOn.push(other.id);t.readNodes=[...new Set([...t.readNodes,...reads])];t.footprint=taskFootprint(model,t.writeNodes,trees.get(t.artifactId)!,t.artifactId,t.footprint.repo,t.readNodes);}
- try{return await rpc(stub.createRealizationPlan({...input,genomeCommit:state.genomeCommit,expectedHead:state.head,tasks}));}catch(e){if(fromRpc(e))throw e;if(e instanceof Error&&!('status'in e))throw badRequest(e.message);throw e;}
+ let plan:RealizationPlan;
+ try{plan=await rpc(stub.createRealizationPlan({...input,genomeCommit:state.genomeCommit,expectedHead:state.head,tasks}));}catch(e){if(fromRpc(e))throw e;if(e instanceof Error&&!('status'in e))throw badRequest(e.message);throw e;}
+ await refreshRegistry(env,sid);return plan;
 }
 export async function assertGenomeCompatible(env:Env,p:RealizationPlan):Promise<void> {
  const state=await systemStub(env,p.systemId).state();if(!state)throw notFound('System no longer exists');
@@ -77,9 +81,10 @@ export async function startLifecycleTask(env:Env,sid:string,pid:string,tid:strin
   const remote=remoteUrl(env,task.forkRepo,forked.remote),secret=newRealizationSecret();
   const plan=await rpc(stub.lifecycleActivate(pid,tid,attempt.id,attempt.generation,{tokenId:token.id,tokenExpires:token.expiresAt,remote,secretHash:await sha256Hex(secret)}));
   const reviewUrl=`${platformUrl.replace(/\/$/,'')}/s/${encodeURIComponent(sid)}/r/head/work?plan=${encodeURIComponent(pid)}`;
-  const packet={systemId:sid,planId:pid,taskId:tid,attemptId:attempt.id,generation:attempt.generation,genome:plan.genome,artifactId:task.artifactId,workspace:{repo:task.base.repo,fork:task.forkRepo,baseCommit:task.base.commit,remote},steps:task.steps,dependsOn:task.dependsOn,readNodes:task.readNodes,writeNodes:task.writeNodes,permittedGlobs:task.footprint.globs,checks:task.checks,reviewUrl,markdown:`# ${task.title}\n\nImplement accepted Genome ${plan.genome.commit}.\nArtifact: ${task.artifactId}\nWrite only: ${task.footprint.globs.join(', ') || 'unknown scope; do not write until mapped'}\n\n${task.steps.map((s,i)=>`${i+1}. ${s}`).join('\n')}\n\nChecks: ${task.checks.join(', ')}\nReview: ${reviewUrl}\nCheckpoint and submit using attempt ${attempt.id} generation ${attempt.generation}.`};
+  const current=taskOf(plan,tid),packet=lifecyclePacket({plan,task:current,attempt:current.attempts.at(-1)!,remote,reviewUrl});
+  await refreshRegistry(env,sid);
   return {plan,task:taskOf(plan,tid),attempt:taskOf(plan,tid).attempts.at(-1)!,secret,token:{value:token.plaintext,expiresAt:token.expiresAt,remote},remote,packet,reviewUrl};
- }catch(e){if(tokenId)await withRepo(artifactsFor(env),task.forkRepo,r=>r.revokeToken(tokenId!)).then(()=>stub.lifecycleCredentialRevoked(attempt.realizationId,tokenId!)).catch(()=>{});await stub.lifecycleEnd(pid,tid,attempt.id,attempt.generation).catch(()=>{});throw e;}
+ }catch(e){if(tokenId)await withRepo(artifactsFor(env),task.forkRepo,r=>r.revokeToken(tokenId!)).then(()=>stub.lifecycleCredentialRevoked(attempt.realizationId,tokenId!)).catch(()=>{});await stub.lifecycleEnd(pid,tid,attempt.id,attempt.generation).catch(()=>{});await refreshRegistry(env,sid).catch(()=>{});throw e;}
 }
 export async function checkpointLifecycleTask(env:Env,sid:string,pid:string,tid:string,body:unknown){const i=parse(checkpointSchema,body);return rpc(systemStub(env,sid).lifecycleCheckpoint(pid,tid,i.attemptId,i.generation,i));}
 
@@ -91,9 +96,9 @@ async function runCandidate(env:Env,p:RealizationPlan,task:Pick<Task,'checks'|'w
  const previewUrl=typeof manifest.previewUrl==='string'?manifest.previewUrl:undefined;
  const build=previewUrl?(await stub.builds({realization:candidate.realization,commit:candidate.commit,kind:'preview'})).find(b=>b.status==='passed'&&b.url===previewUrl&&!!b.buildId&&(b.candidate===candidate.id||b.candidate===null)):undefined;
  const ref:CandidateRef={...(previewUrl&&{previewUrl}),...(build?.buildId&&{expectedBuildId:build.buildId}),id:candidate.id,realizationId:candidate.realization,evolutionId:'',target:'app',commit:candidate.commit,baseCommit:task.base.commit,changedPaths:candidate.changedPaths,changedNodes:candidate.changedSubjects,pathNodes};
- const gates=gateCriteria(g.model,{acceptanceCriteria:task.checks},ref),prior=await stub.evaluations(candidate.id);
- const evidenceFresh=gates.filter(gate=>gate.blocking).every(gate=>{const c=g.model.criteria.find(c=>c.id===gate.id);if(c&&hooksOf(g.model,c).some(h=>/base-current|manifest-exact|evidence-fresh/.test(h.inputs.check??'')))return true;return prior.some(e=>e.criterion===gate.id&&e.execution==='completed'&&e.verdict==='pass'&&(e.targetRef===candidate.commit||e.targetRef.endsWith(`@${candidate.commit}`))&&!!e.finishedAt&&e.finishedAt>=candidate.submittedAt);});
- const ctx:SubmissionContext={systemId:p.systemId,candidate:ref,genomeCommit:p.genome.commit,genomeFiles:Object.fromEntries(g.files),tree,permittedPaths:task.footprint.globs,protectedPaths:protectedPathsFor('app'),openCandidates:[],trigger,evolution:{id:'',kind:'implementation',acceptanceCriteria:task.checks,affectedNodes:task.writeNodes,state:'realizing'},...(trigger==='promotion'&&{promotionFacts:{currentBaseCommit:task.base.commit,manifestExact:exact,evidenceFresh}})};
+ // Same freshness rule as the legacy gate: latest evaluation per blocking criterion binds this candidate (commit, Genome or preview).
+ const evidenceFreshNow=evidenceFresh(g.model,{acceptanceCriteria:task.checks},ref,await stub.evaluations(candidate.id),candidate.submittedAt,p.genome.commit);
+ const ctx:SubmissionContext={systemId:p.systemId,candidate:ref,genomeCommit:p.genome.commit,genomeFiles:Object.fromEntries(g.files),tree,permittedPaths:task.footprint.globs,protectedPaths:protectedPathsFor('app'),openCandidates:[],trigger,evolution:{id:'',kind:'implementation',acceptanceCriteria:task.checks,affectedNodes:task.writeNodes,state:'realizing'},...(trigger==='promotion'&&{promotionFacts:{currentBaseCommit:task.base.commit,manifestExact:exact,evidenceFresh:evidenceFreshNow}})};
  const evaluations=await hookRunner(env,acceptedTemplateResolver(await stub.ontologyAcceptedPackages()).templates).runSubmission(ctx);await stub.recordEvaluations(candidate.id,evaluations,'evaluated',trigger==='promotion');return evaluations;
 }
 export async function submitLifecycleTask(env:Env,sid:string,pid:string,tid:string,body:unknown):Promise<TaskSubmitResponse> {
@@ -112,7 +117,31 @@ export async function submitLifecycleTask(env:Env,sid:string,pid:string,tid:stri
 }
 export async function selectLifecycleTask(env:Env,sid:string,pid:string,tid:string,body:unknown):Promise<RealizationPlan> {
  const i=parse(selectSchema,body),stub=systemStub(env,sid),p=await rpc(stub.realizationPlan(pid)),task=taskOf(p,tid),last=task.attempts.at(-1);await assertGenomeCompatible(env,p);
- const plan=await rpc(stub.lifecycleSelect(pid,tid,i.candidateId));if(last){const rec=await stub.realization(last.realizationId);if(rec?.tokenId)await withRepo(artifactsFor(env),task.forkRepo,r=>r.revokeToken(rec.tokenId!));}return plan;
+ const plan=await rpc(stub.lifecycleSelect(pid,tid,i.candidateId));if(last){const rec=await stub.realization(last.realizationId);if(rec?.tokenId)await withRepo(artifactsFor(env),task.forkRepo,r=>r.revokeToken(rec.tokenId!));}
+ await refreshRegistry(env,sid);return plan;
+}
+
+/** A file's identity for replay: content and entry kind, so a mode-only change (exec bit, symlink) is a change. */
+const entryKey=(e?:TreeEntry)=>e?`${e.type}:${e.hash}`:undefined;
+interface Replay {current:Map<string,string>;edits:Map<string,FileChange>}
+const replayFrom=(original:Map<string,TreeEntry>):Replay=>({current:new Map([...original].map(([path,e])=>[path,entryKey(e)!])),edits:new Map()});
+/** The replayed edits that still differ from `original`, each with its entry kind. */
+const replayChanges=(r:Replay,original:Map<string,TreeEntry>)=>[...r.edits.values()].filter(e=>r.current.get(e.path)!==entryKey(original.get(e.path)));
+/**
+ * Replay one selected candidate's delta (`from` to `to` in `repo`) onto `r`. A path whose current content or kind is
+ * neither the candidate's base nor its result is a divergent predecessor (`divergent`).
+ */
+async function replayDelta(repo:ArtifactsRepoLike,from:string,to:string,r:Replay,check:(path:string)=>void,divergent:(path:string)=>Error):Promise<void> {
+ const [before,after,diff]=await Promise.all([listTree(repo,from),listTree(repo,to),diffTrees(repo,from,to)]);
+ for(const path of [...diff.added,...diff.modified,...diff.removed]) {
+  check(path);
+  const nextEntry=after.get(path),expected=entryKey(before.get(path)),next=entryKey(nextEntry),existing=r.current.get(path);
+  if(!nextEntry&&!diff.removed.includes(path))throw conflict('integration-conflict',`${path} is not a regular file, executable or symlink; replan or revise the candidate`);
+  if(existing!==expected&&existing!==next)throw divergent(path);
+  if(next===existing)continue;
+  if(nextEntry){const blob=await repo.readBlob(nextEntry.hash);if(!blob)throw conflict('integration-unavailable',`missing selected blob ${path}`);if(blob.size>1_000_000)throw unprocessable('integration-too-large',`changed file ${path} exceeds 1 MB integration limit`);r.edits.set(path,{path,content:new Uint8Array(await blob.arrayBuffer()),type:nextEntry.type as FileChange['type']});r.current.set(path,next!);}
+  else{r.edits.set(path,{path,content:null});r.current.delete(path);}
+ }
 }
 
 /** Combine exact task deltas in dependency order; mismatched predecessor content refuses integration. */
@@ -124,22 +153,15 @@ export async function integrateLifecyclePlan(env:Env,sid:string,pid:string,platf
  const bindings:IntegratedBinding[]=[],ns=artifactsFor(env),g=await genomeAt(env,sid,p.genome.commit,p.genome.repo);
  for(const artifactId of [...new Set(p.tasks.map(t=>t.artifactId))].sort()) {
   const base=p.baseManifest.artifacts[artifactId],ordered=topo(p).filter(t=>t.artifactId===artifactId),original=await withRepo(ns,base.repo,r=>listTree(r,base.commit));
-  const current=new Map([...original].map(([path,e])=>[path,e.hash])),edits=new Map<string,FileChange>();
+  const replay=replayFrom(original);
   for(const task of ordered) {
    const candidate=await stub.candidate(task.selectedCandidate!);if(!candidate)throw notFound('selected task candidate disappeared');
    const latest=(await stub.candidates({realizationId:candidate.realization}))[0];if(latest?.id!==candidate.id)throw conflict('stale-candidate','selected task candidate has been superseded');
-   await withRepo(ns,task.forkRepo,async repo=>{
-    const before=await listTree(repo,task.base.commit),after=await listTree(repo,candidate.commit),diff=await diffTrees(repo,task.base.commit,candidate.commit);
-    for(const path of [...diff.added,...diff.modified,...diff.removed]) {
-     if(!task.footprint.globs.some(glob=>globMatch(glob,path)))throw conflict('scope-violation',`selected candidate changes outside task ${task.id}`);
-     const expected=before.get(path)?.hash,next=after.get(path)?.hash,existing=current.get(path);
-     if(existing!==expected&&existing!==next)throw conflict('integration-conflict',`task ${task.id} has a divergent predecessor at ${path}; replan or revise the candidate`);
-     if(next===existing)continue;
-     if(next){const blob=await repo.readBlob(next);if(!blob)throw conflict('integration-unavailable',`missing selected blob ${path}`);if(blob.size>1_000_000)throw unprocessable('integration-too-large',`changed file ${path} exceeds 1 MB integration limit`);edits.set(path,{path,content:new Uint8Array(await blob.arrayBuffer())});current.set(path,next);}else{edits.set(path,{path,content:null});current.delete(path);}
-    }
-   });
+   await withRepo(ns,task.forkRepo,repo=>replayDelta(repo,task.base.commit,candidate.commit,replay,
+    path=>{if(!task.footprint.globs.some(glob=>globMatch(glob,path)))throw conflict('scope-violation',`selected candidate changes outside task ${task.id}`);},
+    path=>conflict('integration-conflict',`task ${task.id} has a divergent predecessor at ${path}; replan or revise the candidate`)));
   }
-  const changes=[...edits.values()].filter(e=>current.get(e.path)!==original.get(e.path)?.hash);
+  const changes=replayChanges(replay,original);
   if(changes.reduce((n,e)=>n+(typeof e.content==='string'?new TextEncoder().encode(e.content).length:e.content?.byteLength??0),0)>8_000_000)throw unprocessable('integration-too-large','binding changes exceed 8 MB integration limit');
   if(!changes.length)throw conflict('no-change',`binding ${artifactId} has no integrated changes`);
   const forkRepo=`${base.repo}--integrate-${crypto.randomUUID().slice(0,12)}`,forked=await forkAndWait(ns,base.repo,forkRepo,{baseCommit:base.commit}),rec=await rpc(stub.lifecycleReserveIntegration(pid,artifactId,forkRepo));
@@ -155,7 +177,7 @@ export async function integrateLifecyclePlan(env:Env,sid:string,pid:string,platf
    bindings.push({artifactId,source:{repo:forkRepo,commit:pushed.commit},candidateId:result.candidate.id,taskCandidates:ordered.map(t=>t.selectedCandidate!),realizedGenome:p.genome.commit});
   }finally{if(tokenId)await withRepo(ns,forkRepo,r=>r.revokeToken(tokenId!));}
  }
- await rpc(stub.lifecycleIntegrate(pid,bindings,p.tasks.map(t=>t.selectedCandidate!)));
+ await rpc(stub.lifecycleIntegrate(pid,bindings,p.tasks.map(t=>t.selectedCandidate!)));await refreshRegistry(env,sid);
  void platformUrl;
  return reviewLifecyclePlan(env,sid,pid);
 }
@@ -186,8 +208,11 @@ export async function promoteLifecyclePlan(env:Env,sid:string,pid:string,body:un
   if(!exact)throw conflict('stale-candidate','integrated candidate no longer matches exact reviewed evidence');
   await runCandidate(env,p,combined,c,b.source.repo,'promotion',exact);gates[c.id]=gateCriteria(g.model,{acceptanceCriteria:combined.checks},{target:'app'});
  }
- const result=await rpc(stub.lifecyclePromote(pid,{...input,gates,by:'admin'}));await revokeEnded(env,sid,result.ended);await refreshRegistry(env,sid);return {plan:result.plan,commit:result.commit};
+ const result=await rpc(stub.lifecyclePromote(pid,{...input,gates,by:'admin'})).catch(e=>{throw gateRefusal(e)??e;});await revokeEnded(env,sid,result.ended);await refreshRegistry(env,sid);return {plan:result.plan,commit:result.commit};
 }
+
+/** The DO's PromotionBlockedError loses its class over RPC; its message still names the refusal. */
+function gateRefusal(e:unknown){const m=(e as Error)?.message??'';if(/^promotion blocked by \d+ hard criteria$/.test(m))return conflict('blocked',m);if(m==='advisories must be acknowledged with a rationale')return conflict('advisories-unacknowledged',m);return undefined;}
 
 async function prepareFanInBase(env:Env,p:RealizationPlan,t:Task):Promise<{source:ArtifactBinding;selections:string[]}|undefined> {
  const same=t.dependsOn.map(id=>taskOf(p,id)).filter(d=>d.artifactId===t.artifactId);
@@ -196,20 +221,13 @@ async function prepareFanInBase(env:Env,p:RealizationPlan,t:Task):Promise<{sourc
  if(maximal.length<2)return;
  if(maximal.some(a=>!a.selectedCandidate))return;
  const selectedTasks=topo(p).filter(a=>a.artifactId===t.artifactId&&maximal.some(b=>a.id===b.id||ancestor(a.id,b)));
- const base=p.baseManifest.artifacts[t.artifactId],ns=artifactsFor(env),original=await withRepo(ns,base.repo,r=>listTree(r,base.commit)),current=new Map([...original].map(([path,e])=>[path,e.hash])),edits=new Map<string,FileChange>();
+ const base=p.baseManifest.artifacts[t.artifactId],ns=artifactsFor(env),original=await withRepo(ns,base.repo,r=>listTree(r,base.commit)),replay=replayFrom(original);
  for(const predecessor of selectedTasks) {
   if(!predecessor.selectedCandidate)throw conflict('invalid-state','fan-in ancestor has no selected candidate');
   const candidate=await systemStub(env,p.systemId).candidate(predecessor.selectedCandidate);if(!candidate)throw conflict('invalid-state','fan-in candidate unavailable');
-  await withRepo(ns,predecessor.forkRepo,async repo=>{const before=await listTree(repo,predecessor.base.commit),after=await listTree(repo,candidate.commit),diff=await diffTrees(repo,predecessor.base.commit,candidate.commit);
-   for(const path of [...diff.added,...diff.modified,...diff.removed]) {
-    const old=before.get(path)?.hash,next=after.get(path)?.hash,existing=current.get(path);
-    if(existing!==old&&existing!==next)throw conflict('integration-conflict',`fan-in predecessor conflicts at ${path}`);
-    if(existing===next)continue;
-    if(next){const blob=await repo.readBlob(next);if(!blob)throw conflict('integration-unavailable','fan-in blob missing');if(blob.size>1_000_000)throw unprocessable('integration-too-large',`changed file ${path} exceeds 1 MB integration limit`);edits.set(path,{path,content:new Uint8Array(await blob.arrayBuffer())});current.set(path,next);}else{edits.set(path,{path,content:null});current.delete(path);}
-   }
-  });
+  await withRepo(ns,predecessor.forkRepo,repo=>replayDelta(repo,predecessor.base.commit,candidate.commit,replay,()=>{},path=>conflict('integration-conflict',`fan-in predecessor conflicts at ${path}`)));
  }
- const changes=[...edits.values()].filter(e=>current.get(e.path)!==original.get(e.path)?.hash);
+ const changes=replayChanges(replay,original);
  if(!changes.length)return {source:base,selections:p.tasks.map(t=>t.selectedCandidate??'')};
  const forkRepo=`${base.repo}--fan-in-${crypto.randomUUID().slice(0,12)}`,forked=await forkAndWait(ns,base.repo,forkRepo,{baseCommit:base.commit}),token=await withRepo(ns,forkRepo,r=>r.createToken('write',300));
  try{const result=await withRepo(ns,forkRepo,r=>pushCommit({repo:r,remote:remoteUrl(env,forkRepo,forked.remote),token:token.plaintext,parent:base.commit,changes,...gitTransport(),author:{name:'Artyfact',email:'platform@artyfact.local'},message:`Combine predecessors for ${t.title}`}));return {source:{repo:forkRepo,commit:result.commit},selections:p.tasks.map(t=>t.selectedCandidate??'')};}finally{await withRepo(ns,forkRepo,r=>r.revokeToken(token.id));}
