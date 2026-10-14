@@ -36,7 +36,7 @@ export function HomePalette({ open, onOpenChange, systems, parts, returnFocus, r
           {sys.length > 0 && <PaletteGroup heading="Systems">
             {sys.map((s) => <PaletteItem key={s.systemId} value={`system ${s.systemId}`} name={s.title || s.systemId} id={s.systemId} onSelect={() => go(`/s/${encodeURIComponent(s.systemId)}`)} />)}
           </PaletteGroup>}
-          {shared.length > 0 && <PaletteGroup heading="Reusable Parts">
+          {shared.length > 0 && <PaletteGroup heading="Shared Parts">
             {shared.map((p) => <PaletteItem key={`${p.partId}@${p.version}`} value={`part ${p.partId}@${p.version}`} name={p.name || p.partId} id={`${p.partId}@${p.version}`}
               onSelect={() => go(`/parts/${encodeURIComponent(p.partId)}/${encodeURIComponent(p.version)}`)} />)}
           </PaletteGroup>}
