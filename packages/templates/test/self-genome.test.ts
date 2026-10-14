@@ -187,6 +187,23 @@ describe("the Artyfact self-Genome", () => {
     expect(endpoints.sort()).toEqual([...platformRoutes()].sort());
   });
 
+  it("maps integrity, proposal recovery, CLI and review surfaces to their actual contracts", () => {
+    const route = (id: string) => graph.nodes.find((n) => n.id === id)?.fields.route;
+    expect(route("endpoint.integrity-preview")).toBe("POST /api/systems/:id/integrity/preview");
+    expect(route("endpoint.integrity-runs")).toBe("GET /api/systems/:id/integrity/runs");
+    expect(route("endpoint.integrity-run")).toBe("GET /api/systems/:id/integrity/runs/:runId");
+    expect(route("endpoint.integrity-cancel")).toBe("POST /api/systems/:id/integrity/runs/:runId/cancel");
+    expect(route("endpoint.integrity-agreement")).toBe("POST /api/systems/:id/integrity/runs/:runId/agreement");
+    expect(route("endpoint.intents-revise")).toBe("POST /api/systems/:id/intents/:pid/revise");
+    expect(route("endpoint.intents-abandon")).toBe("POST /api/systems/:id/intents/:pid/abandon");
+    for (const id of ["module.platform.integrity", "module.cli.integrity", "command.ontology-check", "command.ontology-agreement", "command.ontology-materialize", "screen.start", "component.start.integrity", "component.review.integrity"]) {
+      expect(graph.nodes.some((n) => n.id === id), id).toBe(true);
+    }
+    expect(graph.links).toContainEqual(expect.objectContaining({ from: "module.platform.integrity", rel: "implements", to: "endpoint.integrity-runs" }));
+    expect(graph.links).toContainEqual(expect.objectContaining({ from: "affordance.start.preview-integrity", rel: "invokes", to: "endpoint.integrity-preview" }));
+    expect(graph.links).toContainEqual(expect.objectContaining({ from: "component.review.integrity", rel: "references", to: "component.start.integrity" }));
+  });
+
   it("links journey steps to the endpoints and commands they run", () => {
     const ops = graph.links.filter((l) => l.rel === "stepOperation");
     const kinds = new Set(ops.map((l) => graph.nodes.find((n) => n.id === l.to)?.kind));

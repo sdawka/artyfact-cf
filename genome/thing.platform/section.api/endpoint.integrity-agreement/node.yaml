@@ -1,0 +1,9 @@
+id: endpoint.integrity-agreement
+kind: endpoint
+fields:
+  name: Record integrity agreement
+  description: Records explicit per-finding dispositions and a rationale against one exact completed integrity report.
+  route: POST /api/systems/:id/integrity/runs/:runId/agreement
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  request: IntegrityAgreementRequest {dispositions}
+  response: IntegrityRunResponse

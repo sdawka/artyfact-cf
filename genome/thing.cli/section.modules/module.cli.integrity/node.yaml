@@ -1,0 +1,12 @@
+id: module.cli.integrity
+kind: module
+fields:
+  name: Integrity commands
+  description: Reads bounded native Genome files, starts or reads integrity checks, records agreements, and materializes only an agreed exact snapshot.
+  path: src/integrity.ts
+links:
+  - { rel: implements, to: command.ontology-check }
+  - { rel: implements, to: command.ontology-agreement }
+  - { rel: implements, to: command.ontology-materialize }
+files:
+  - src/integrity.ts

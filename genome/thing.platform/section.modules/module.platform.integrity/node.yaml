@@ -1,0 +1,18 @@
+id: module.platform.integrity
+kind: module
+fields:
+  name: Integrity review
+  description: Creates immutable snapshots, executes bounded structural and semantic integrity runs, and records separate human agreements.
+  path: worker/integrity
+links:
+  - { rel: dependsOn, to: module.platform.contract }
+  - { rel: implements, to: endpoint.integrity-preview }
+  - { rel: implements, to: endpoint.integrity-runs-post }
+  - { rel: implements, to: endpoint.integrity-runs }
+  - { rel: implements, to: endpoint.integrity-run }
+  - { rel: implements, to: endpoint.integrity-cancel }
+  - { rel: implements, to: endpoint.integrity-agreement }
+files:
+  - worker/integrity/**
+  - worker/routes/integrity.ts
+  - shared/integrity.ts
