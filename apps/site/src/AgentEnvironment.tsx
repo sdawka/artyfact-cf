@@ -1,6 +1,6 @@
 import React from 'react';
 
-const columns = [
+const columns: { title: string; label: string; items: string[]; note?: string }[] = [
   { title: 'What they need', label: 'Context', items: [
     'A brief cut from the model: the pinned version, the steps and the checks.',
     'The parts of the model it reads and changes, such as a screen or a journey.',
@@ -16,9 +16,8 @@ const columns = [
   { title: 'Freedom', label: 'Choices stay theirs', items: [
     'Any agent harness or model you run.',
     'Their own approach inside the brief.',
-    'Several agents can take the same change in parallel. Each fulfils one tightly defined contract, so any version that meets it should work. If one meets it and still falls short, you sharpen the contract. The variation explores more of the solution space.',
     'They can propose a change to the model itself, reviewed like any other change.',
-  ] },
+  ], note: 'Several agents can take the same change in parallel. Each fulfils one tightly defined contract, so any version that meets it should work. If one meets it and still falls short, you sharpen the contract. The variation explores more of the solution space.' },
 ];
 
 /** Static three-column section: context, guardrails and freedom. */
@@ -30,6 +29,7 @@ export function AgentEnvironment() {
         <h3>{column.title}</h3>
         <p className="environment-label">{column.label}</p>
         <ul>{column.items.map(item => <li key={item}>{item}</li>)}</ul>
+        {column.note && <p className="environment-note">{column.note}</p>}
       </article>)}
     </div>
   </section>;

@@ -20,7 +20,7 @@ export function CheckoutScene({ step }: { step: number }) {
       {lanes.map(([task, file, order, verdict, kind]) => <div key={task} className="checkout-row checkout-lane" data-task={task} {...at(1)}>
         <span className="checkout-kind">Task {task} · private fork</span><code>{file}</code>
         <span className="checkout-order" {...at(1)}>{order}</span>
-        <span className="checkout-verdict" data-verdict={kind} {...at(3)}>{verdict}</span>
+        <span className="checkout-verdict" data-verdict={kind} {...at(3)}><span className="glyph" aria-hidden="true">{kind === 'pass' ? '✓' : '✕'}</span> {verdict}</span>
       </div>)}
     </div>
     <div className="checkout-row checkout-overlap" {...at(2)}><span className="checkout-kind">Overlap, different files</span><strong>Both change Place order and its rule</strong></div>

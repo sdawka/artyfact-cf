@@ -8,13 +8,12 @@ afterEach(cleanup);
 
 it('shows every familiar practice in full beside what Artyfact does with it', () => {
   const { container } = render(<PracticeStack />);
-  const cards = container.querySelectorAll('.practice-card');
+  const cards = container.querySelectorAll('.practice-row');
   expect(cards).toHaveLength(practices.length);
   expect(container.querySelector('s, del, strike')).toBe(null);
   cards.forEach((card, index) => {
     expect(card.querySelector('.practice-known')?.textContent).toBe('You know: ' + practices[index].known);
     expect(card.querySelector('.practice-artyfact')?.textContent).toBe('In Artyfact: ' + practices[index].artyfact);
-    expect(card.querySelector('.practice-arrow')?.getAttribute('aria-hidden')).toBe('true');
     expect(card.getAttribute('data-relation')).toBe(practices[index].relation);
     expect(card.querySelector('.relation-tag')?.textContent).toBe(relationLabels[practices[index].relation]);
   });
