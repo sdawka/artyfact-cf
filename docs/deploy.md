@@ -4,7 +4,7 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 
 **Prerequisite:** the account must be on Workers Paid; Artifacts is unavailable on Free.
 
-**Status:** first deploy done on 2026-10-12 at https://artyfact-platform.dawka.workers.dev. Queue, DO migration, vars and `ADMIN_TOKEN` are in place. The operator keeps the `ADMIN_TOKEN` plaintext outside the repo; rotate it with `wrangler secret put ADMIN_TOKEN`. The System import is a separate step: `./scripts/bootstrap.sh` (a wrapper over `npx artyfact init`) with `--platform $URL`, as in the runbook.
+**Status:** application polish is deployed from merged `994d2ff8a0be410cae3f3e156115c0079913018e` at https://artyfact-platform.dawka.workers.dev (Worker version `9eb75476-c87e-4e1a-822b-0054066c4b55`). Queue, DO migration, vars and `ADMIN_TOKEN` are in place. The production token is stored in macOS Keychain as described below. The System import is a separate step: `./scripts/bootstrap.sh` (a wrapper over `npx artyfact init`) with `--platform $URL`, as in the runbook.
 
 ## Resources
 
@@ -25,7 +25,7 @@ There is no D1 or R2. System One needs a secret, `TYPESAFE_API_KEY` or `OPENROUT
 2. `npx wrangler queues create artyfact-artifacts-events`
 3. Set `vars.ACCOUNT_ID` in `apps/platform/wrangler.jsonc` to the account id. Leave `PREVIEW_HOST_ALLOWLIST` empty and never set `ALLOW_LOCAL_PREVIEW`.
 4. `npm run deploy`. Note the `https://artyfact-platform.<subdomain>.workers.dev` URL, put it in `vars.PUBLIC_URL`, and deploy again.
-5. Secret, without echoing it: `openssl rand -hex 32 | (cd apps/platform && npx wrangler secret put ADMIN_TOKEN)`. Keep a copy in a password manager; locally it goes in `apps/platform/.dev.vars`.
+5. Configure `ADMIN_TOKEN` using the saved-token procedure below. Keep production and local `.dev.vars` tokens separate; never generate a token directly into the upload pipe.
 6. Check: `curl -i $URL/api/health` returns 200, and the SPA loads with the fixture-mode banner until a System is imported.
 
 ## Redeploy
@@ -33,6 +33,37 @@ There is no D1 or R2. System One needs a secret, `TYPESAFE_API_KEY` or `OPENROUT
 `npm run deploy` (builds the platform, then `wrangler deploy`). Secrets and the Queue persist.
 
 Before deploying, confirm a System One key is set: `cd apps/platform && npx wrangler secret list` must list `TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`. `wrangler deploy` replaces `vars`, and no fake is deployed, so without a key System One is off: hard System One gates stay `unknown` and intents only ask questions.
+
+## Production admin token
+
+Cloudflare's `ADMIN_TOKEN`, the CLI's `ARTYFACT_ADMIN_TOKEN`, local `.dev.vars` and the browser's saved token are separate stores. Production commands must retrieve the verified canonical credential into an unexported variable and map it to `ARTYFACT_ADMIN_TOKEN` for that command only ([runbook](demo-runbook.md)). Replace the browser's independently saved token after rotation and verify a protected read; “saved” confirms storage, not authentication. Public health/model reads do not validate admin authentication.
+
+Rotate through the operator's credential manager:
+
+1. Reuse an existing pending replacement on retries. Otherwise generate once and securely save it as pending **before** changing Cloudflare. Keep the current canonical credential until verification succeeds.
+2. Retrieve the saved pending bytes and upload those same bytes through stdin to `ADMIN_TOKEN` for Worker `artyfact-platform`, Cloudflare account `1bae12d5089e4c2ee5c0e62c021a117f`, using the `apps/platform` Wrangler configuration. If save or upload fails, stop; retain the pending credential for diagnosis.
+3. Verify GET `https://artyfact-platform.dawka.workers.dev/api/systems/system.peopling/parts`. Retry initial 403 responses with the same saved credential, for example at most six attempts five seconds apart; stop on 200 or a different status. Do not generate or upload another token merely because activation initially returns 403.
+4. Only after 200, promote the same pending bytes to canonical in the credential manager, then remove the pending entry. A failed check leaves both entries intact.
+
+### macOS operator store
+
+Production uses Keychain service `artyfact-platform.production`, account `1bae12d5089e4c2ee5c0e62c021a117f|artyfact-platform|https://artyfact-platform.dawka.workers.dev`. Pending replacements use the **same service** and the account with `|pending` appended. Save/promote through Keychain Access or the operator's secure credential manager; do not pass credential values in process arguments.
+
+For a routine protected read, retrieve canonical into an unexported variable and send the header through stdin. During rotation, append `|pending` to the account to verify the saved replacement instead. Disable shell tracing; never print credentials or store them in profiles or agent shells.
+
+```sh
+set +x
+unset production_admin_token
+if production_admin_token=$(security find-generic-password -s artyfact-platform.production \
+  -a '1bae12d5089e4c2ee5c0e62c021a117f|artyfact-platform|https://artyfact-platform.dawka.workers.dev' -w); then
+  printf 'Authorization: Bearer %s\n' "$production_admin_token" | \
+    curl -sS -o /dev/null -w '%{http_code}\n' -H @- \
+      https://artyfact-platform.dawka.workers.dev/api/systems/system.peopling/parts
+fi
+unset production_admin_token
+```
+
+On 2026-10-14, the replacement credential initially returned 403 on the protected read after secret activation at 12:19:33Z, then 200 without another upload; it also returned 200 after deployment. No exact propagation duration is established.
 
 ## Migrate a v1 Genome
 
@@ -65,14 +96,15 @@ ACCOUNT_ID=<the account id from npx wrangler whoami>
    `--genome-only` never reads, pushes or seeds an app: `peopling.app` keeps its head, and the platform keeps its recorded scaffold source. `--adopt` commits the converted tree on top of the v1 head of the same Genome repo (a fast-forward), and `--force` re-points the System at that commit.
 4. Verify: `curl -s -o /dev/null -w '%{http_code}\n' $URL/api/systems/system.peopling/model` prints `200`.
 
-Gotchas from the 2026-10-13 run: `issue-token` fails until `npx wrangler login` has been run again for the Artifacts scope, and a 403 from `init` meant the platform's `ADMIN_TOKEN` secret had to be re-set (`npx wrangler secret put ADMIN_TOKEN`) before retrying. A second run after the Genome repo head is already v2 must skip step 2: `convert-genome` refuses a v2 tree, so clone the head and go straight to `init --genome-only --adopt --force`.
+Gotchas from the 2026-10-13 run: `issue-token` fails until `npx wrangler login` has been run again for the Artifacts scope, and a 403 from `init` required checking the token source and platform secret. Use the saved-token procedure above; a newly activated secret can initially return 403, so verify with bounded retries before considering another upload. A second run after the Genome repo head is already v2 must skip step 2: `convert-genome` refuses a v2 tree, so clone the head and go straight to `init --genome-only --adopt --force`.
 
 ## Remove a System
 
 After re-importing under a new id (the Keep in Touch to Peopling rename, for instance), the old System still sits in the registry. `DELETE /api/systems/:id` is admin only: it drops the registry row (so `GET /api/systems` and every `/api/systems/:id` route stop seeing it) and wipes the System's Durable Object; `stateCleared: false` in the response means the row went but the wipe failed, which leaves the object idle with stale state: retry the DELETE, or re-import with `force`. The registry's fork index is dropped; Artifacts repos, forks and push subscriptions are not, so remove or keep those by hand.
 
 ```
-curl -s -X DELETE $URL/api/systems/system.keep-in-touch -H "authorization: Bearer $ARTYFACT_ADMIN_TOKEN"
+printf 'Authorization: Bearer %s\n' "$ADMIN_TOKEN" | \
+  curl -s -X DELETE "$URL/api/systems/system.keep-in-touch" -H @-
 ```
 
 ## Rollback

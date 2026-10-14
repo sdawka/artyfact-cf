@@ -3,20 +3,20 @@
 
 ## Now
 
-- Implemented: application UI polish on `feat/application-ui-polish`, integrated with upstream `5014bb5` (task planning on the lifecycle). Shared controls, responsive shell, native form behaviour and Atlas relation/camera polish preserve the latest domain flows.
-- Verified: full integrated CI passes all 10 steps in 294.5s: 2823 unit tests (9 skips), 95 fixture and 16 fake-platform browser tests; site 55 units and 51 browser tests (5 skips), plus typechecks/build/static checks. Independent integration and actual-browser keyboard reviews are clear. Evidence: [[journals/2026-10-13-ui-polish]].
-- Published: [PR #71](https://github.com/sdawka/artyfact-cf/pull/71) is open. The normal pre-push hook also passed all 10 steps in 290.1s.
-- Next: follow hosted checks/review. No merge or deployment is claimed for this branch; the lifecycle runbook's real-Artifacts flow remains unverified ([[journals/2026-10-14-lifecycle-port]]).
-- Sync: authenticated versioned RPC preview proposes 6 new records in `ws_bddc55cbf3e14dc8b8c22e651e82a8fd`, with 0 applied. A separate Artyfact destination remains unconfirmed; preserve the prior wrong-project conflict and do not apply records there.
-- Last updated: 2026-10-14T00:58:01-04:00.
+- Released: application UI polish [PR #71](https://github.com/sdawka/artyfact-cf/pull/71) merged at `994d2ff8a0be410cae3f3e156115c0079913018e`, including upstream `161be0b` and the final overlay-shortcut guard. That exact merged revision deployed as Worker version `9eb75476-c87e-4e1a-822b-0054066c4b55` to [artyfact-platform](https://artyfact-platform.dawka.workers.dev).
+- Verified: final local platform gate passed 2826 units (9 skips), 96 fixture and 16 fake-platform browser tests, plus typecheck/build. [Hosted verification](https://github.com/sdawka/artyfact-cf/actions/runs/38560962465) passed on the final PR head in 13m30s. The earlier full local gate, before the final shortcut fix, passed site checks (55 units, 51 browser tests with 5 skips). The canonical protected read returned 200 after deployment, proving admin-token preservation. Evidence: [[journals/2026-10-13-ui-polish]].
+- Live smoke: authenticated desktop/mobile checks pass across Home, Atlas, Thing/Code/Deployments/Overview/Work and private Parts. Twenty-one settled captures at 1440×900 and 390×844 show no horizontal overflow, serious/critical axe findings, app errors or attempted writes; mobile Menu focus/Escape and overlay shortcut ownership, normal palette toggling, Effects off and reduced-motion portals pass. Entering AddContactDialog then Up restores the exact prior viewport at both widths.
+- Next: retain release evidence and resume deferred lifecycle verification. The lifecycle runbook's real-Artifacts flow remains unverified ([[journals/2026-10-14-lifecycle-port]]).
+- Sync: the earlier authenticated versioned RPC preview applied 0 records. This release's new dry-run was blocked by automatic approval review before transmission because the destination is unconfirmed; no new transmission or apply completed. Destination `ws_bddc55cbf3e14dc8b8c22e651e82a8fd` remains unconfirmed for Artyfact; preserve the prior wrong-project conflict and do not apply there.
+- Last updated: 2026-10-14T08:30:04-04:00.
 
 ## Previous release
 
 - Released: [PR #66](https://github.com/sdawka/artyfact-cf/pull/66) merged at `4bc93a811f2251ec949e060e98d6bf4d081d8fbf` after all hosted checks passed. The polished System atlas is deployed to [artyfact-platform](https://artyfact-platform.dawka.workers.dev), Worker version `83e29bb9-0f2e-42c2-892a-a8aa496bf46b`, built from that exact merged revision.
 - Verified: final pre-push passed all five platform steps (2564 unit, 74 fixture and 13 fake browser tests; no retries). Authenticated desktop/mobile smoke passed on real Peopling, including environment/containment, Details, history/pan restoration, direct Thing Map, Work/Deployments and reduced motion; no serious/critical axe findings, overflow, writes or page errors. Evidence: [[journals/2026-10-13-system-atlas]].
 - Released: [PR #68](https://github.com/sdawka/artyfact-cf/pull/68) (task planning and local agents on the lifecycle) merged at `5014bb5` and [PR #70](https://github.com/sdawka/artyfact-cf/pull/70) (atlas e2e flakes) at `161be0b`, both on green hosted CI. Platform Worker version `e672b1b1-be57-4685-9878-f6efcabe462f` and site version `b5cc61f6-b3d8-4e65-889b-d60d0114eec0` are deployed from `161be0b`. Prod Peopling is re-imported at `sc-2-5ab52983`. Evidence: [[journals/2026-10-14-lifecycle-port]].
-- Next action: resume direct-RPC sync when credentials and a separate Artyfact destination are available.
-- Blockers: direct-RPC sync remains pending missing credentials and a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
+- Next action: resume direct-RPC sync when a separate Artyfact destination is confirmed.
+- Blockers: credentials are available, but direct-RPC sync remains pending a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
 - Last updated: 2026-10-14.
 
 ## Work history
