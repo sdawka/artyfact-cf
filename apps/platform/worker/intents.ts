@@ -567,30 +567,45 @@ function chosenOps(p: Proposal, opIds: string[]): ProposedOp[] {
 }
 
 /** The ops an accept defers: the effectively deferred ops of the plan, and the deferred nodes holding them. */
-interface DeferredOps { ops: ProposedOp[]; nodeIds: string[] }
+interface DeferredOps { ops: ProposedOp[]; nodeIds: string[]; titles: string[] }
+
+/** What the plan decides for an accept: the ops applied now, those moved to a deferred proposal, those dropped. */
+interface PlanChoice { ops: ProposedOp[]; deferred?: DeferredOps; dropped: string[] }
 
 /**
- * The chosen ops of `p` under its plan decisions. Once any node is decided, the chosen ops must all be under
- * effectively agreed nodes (else 422 `invalid-ops` naming them) and the effectively deferred ops are returned to move
- * to a new proposal; rejected and undecided ops are dropped. With no decisions at all, any ops may be chosen (as
- * before plans) and nothing is deferred.
- *
- * Blocked agreed ops: an op under an agreed node that is not chosen because a dependency (directly or through other
- * unchosen ops) is deferred moves to the deferred proposal with it, provided every dependency is chosen or deferred
- * too. When any dependency is rejected or undecided instead, it is dropped with that dependency. Agreed ops the admin
- * simply left out (no deferred dependency) are dropped as before.
+ * TODO(contract gap, P0/P10): `IntentAcceptResponse` has no `dropped` (op ids neither accepted nor deferred) and no
+ * `deferralError` (the deferred proposal could not be created); both are sent as optional fields until it does.
  */
-function chosenByPlan(p: Proposal, opIds: string[], decisions: ProposalDecisions): { ops: ProposedOp[]; deferred?: DeferredOps } {
-  if (!Object.keys(decisions).length) return { ops: chosenOps(p, opIds) };
+type AcceptResult = IntentAcceptResponse & { dropped?: string[]; deferralError?: string };
+
+/**
+ * The chosen ops of `p` under its plan decisions. With no decisions at all, any ops may be chosen (as before plans),
+ * nothing is deferred and the rest are dropped. Once any node is decided, the chosen ops must all be under
+ * effectively agreed nodes (else 422 `invalid-ops` naming them), and the unchosen ops are split:
+ * - effectively deferred ops move to a new proposal;
+ * - an unchosen agreed op follows a deferred dependency there (directly or through other unchosen ops) when every
+ *   dependency it has is chosen or moving (a blocked agreed op);
+ * - a moving op is kept only while each of its dependencies is chosen (applied now) or moving too; otherwise it is
+ *   dropped, and so are the moving ops that depend on it, so a deferred proposal never carries an op without the
+ *   dependency it was proposed with;
+ * - every other op (rejected, undecided, agreed but left out, or dropped above) is dropped and reported.
+ * `deferred.nodeIds` are the deferred proposal's topmost nodes: the explicitly deferred nodes holding moving ops, and
+ * the nodes of moved agreed ops outside them.
+ */
+function chosenByPlan(p: Proposal, opIds: string[], decisions: ProposalDecisions): PlanChoice {
+  if (!Object.keys(decisions).length) {
+    const ops = chosenOps(p, opIds);
+    return { ops, dropped: p.ops.filter((o) => !ops.includes(o)).map((o) => o.id) };
+  }
   const unknown = opIds.filter((id) => !p.ops.some((o) => o.id === id));
   if (unknown.length) throw badRequest(`proposal ${p.id} has no ops ${unknown.join(", ")}`);
-  const by = opsByDecision(onWire(p).plan, decisions);
+  const plan = onWire(p).plan;
+  const by = opsByDecision(plan, decisions);
   const offenders = [...new Set(opIds)].filter((id) => !by.agreed.has(id));
   if (offenders.length) throw unprocessable("invalid-ops", `only ops under agreed nodes can be accepted: ${offenders.join(", ")}`, { offenders });
   const ops = chosenOps(p, opIds);
   const chosen = new Set(opIds);
   const moving = new Set(by.deferred);
-  // Fixed point: an unchosen agreed op follows a deferred dependency when all its dependencies are chosen or moving.
   for (let grew = true; grew;) {
     grew = false;
     for (const o of p.ops) {
@@ -601,16 +616,45 @@ function chosenByPlan(p: Proposal, opIds: string[], decisions: ProposalDecisions
       }
     }
   }
+  for (let shrank = true; shrank;) {
+    shrank = false;
+    for (const o of p.ops) {
+      if (moving.has(o.id) && (o.dependsOn ?? []).some((d) => !moving.has(d) && !chosen.has(d))) {
+        moving.delete(o.id);
+        shrank = true;
+      }
+    }
+  }
+  const dropped = p.ops.filter((o) => !chosen.has(o.id) && !moving.has(o.id)).map((o) => o.id);
   const deferredOps = p.ops.filter((o) => moving.has(o.id));
-  return { ops, ...(deferredOps.length && { deferred: { ops: deferredOps, nodeIds: by.deferredNodes } }) };
+  if (!deferredOps.length) return { ops, dropped };
+  const nodes = [...walkPlan(plan)].map((x) => x.node);
+  const holder = new Map(nodes.flatMap((n) => n.opIds.map((id) => [id, n] as const)));
+  const nodeIds: string[] = [];
+  for (const o of deferredOps) {
+    const n = holder.get(o.id);
+    if (!n) continue;
+    const top = by.deferredNodes.find((d) => n.path.includes(d) || n.id === d) ?? n.id;
+    if (!nodeIds.includes(top)) nodeIds.push(top);
+  }
+  const titleOfNode = new Map(nodes.map((n) => [n.id, n.title] as const));
+  return { ops, dropped, deferred: { ops: deferredOps, nodeIds, titles: nodeIds.map((id) => titleOfNode.get(id) ?? id) } };
+}
+
+/** The deferred proposal's message: its scope first (also its Evolution's title), then the original request as context. */
+export function deferredMessage(from: string, titles: string[], original: string): string {
+  const head = `Deferred from ${from}: ${titles.join(", ")}`.slice(0, 200);
+  const context = `\n\nContext, the original request (its other parts were decided in ${from}):\n`;
+  return head + context + original.slice(0, Math.max(0, MAX_MESSAGE - head.length - context.length));
 }
 
 /**
- * The new open proposal holding an accept's deferred ops, with its own linked Genome Evolution: same System, message,
- * anchor, route and provenance (so the accepted proposal's base Genome, which rebaseDeferred moves to the head at its
- * accept), the deferred ops with their dependencies on ops outside them dropped, their problems, a plan rebuilt over
- * them on that base, no decisions, `deferredFrom` the accepted proposal. The Evolution is discarded if the proposal
- * cannot be stored.
+ * The new open proposal holding an accept's deferred ops, with its own linked Genome Evolution: same System, route
+ * and provenance (so the accepted proposal's base Genome, which rebaseDeferred moves to the head at its accept), a
+ * scoped message (deferredMessage; a reply re-translates against that scope, with the original only as context, and
+ * no anchor), the deferred ops (dependencies on ops accepted now are dropped; chosenByPlan keeps no other outside
+ * dependency), their problems, a plan rebuilt over them on that base, no decisions, `deferredFrom` the accepted
+ * proposal. The Evolution is discarded (and the registry refreshed) if the proposal cannot be stored.
  */
 async function deferProposal(env: Env, systemId: string, p: Proposal, d: DeferredOps): Promise<Proposal> {
   const keep = new Set(d.ops.map((o) => o.id));
@@ -622,15 +666,21 @@ async function deferProposal(env: Env, systemId: string, p: Proposal, d: Deferre
   });
   const plan = await planOn(env, systemId, ops, p.provenance.genomeCommit);
   const stub = systemStub(env, systemId);
-  const { evolution } = await createEvolution(env, systemId, { title: p.message.split("\n")[0]!.trim().slice(0, 200), intent: p.message, kind: "genome-amendment" });
-  const { id: _id, answer: _answer, deferredFrom: _from, stagedApproval: _staged, evolutionId: _evolution, ...base } = p;
+  const message = deferredMessage(p.id, d.titles, p.message);
+  const { evolution } = await createEvolution(env, systemId, { title: message.split("\n")[0]!, intent: message, kind: "genome-amendment" });
+  const { id: _id, answer: _answer, anchor: _anchor, deferredFrom: _from, stagedApproval: _staged, evolutionId: _evolution, ...base } = p;
   try {
     return await stub.createProposal({
-      ...base, evolutionId: evolution.id, status: "open", ops, questions: [], problems: p.problems.filter((x) => x.opId !== undefined && keep.has(x.opId)),
+      ...base, message, evolutionId: evolution.id, status: "open", ops, questions: [], problems: p.problems.filter((x) => x.opId !== undefined && keep.has(x.opId)),
       plan, deferredFrom: p.id, createdAt: nowIso(),
     });
   } catch (e) {
-    await stub.discardEvolution(evolution.id).catch((w: unknown) => console.error(`[intents] discarding ${evolution.id} after a failed deferral failed: ${(w as Error)?.message ?? w}`));
+    try {
+      await stub.discardEvolution(evolution.id);
+      await refreshRegistry(env, systemId);
+    } catch (w) {
+      console.error(`[intents] discarding ${evolution.id} after a failed deferral failed: ${(w as Error)?.message ?? w}`);
+    }
     throw e;
   }
 }
@@ -665,7 +715,12 @@ async function rebaseDeferred(env: Env, systemId: string, pid: string, opIds: st
       { currentHead: head });
   }
   // False when another accept, a staging or a head move got there first: the claim then says why.
-  await stub.rebaseProposal(pid, base, head);
+  if (!(await stub.rebaseProposal(pid, base, head))) return;
+  // The plan follows the base: rebuilt on the head (titles, paths, adds whose parent now exists), decisions pruned to
+  // it. Best effort: a decisions PUT that lands meanwhile keeps its own. The stored problems stay those of the base.
+  const decisions = await decisionsOf(env, systemId, pid);
+  const plan = planOf(s.proposal.ops, h.tree, titles(h, s.proposal.ops));
+  await stub.setProposalPlan(pid, plan, prune(decisions, plan), undefined, decisions);
 }
 
 /**
@@ -694,14 +749,15 @@ export async function acceptProposal(env: Env, systemId: string, pid: string, bo
     }
     throw conflict("invalid-state", `proposal ${pid} is ${claim.status}`);
   }
-  let out: IntentAcceptResponse;
+  let out: AcceptResult;
   let deferred: DeferredOps | undefined;
+  let dropped: string[] = [];
   let pushed=false,staged=!!claim.claimed.stagedApproval;
   try {
     // Decisions are written only while the proposal is open, so the claim fixes them.
     const decisions = await decisionsOf(env, systemId, pid);
     let ops: ProposedOp[];
-    ({ ops, deferred } = chosenByPlan(claim.claimed, opIds as string[], decisions));
+    ({ ops, deferred, dropped } = chosenByPlan(claim.claimed, opIds as string[], decisions));
     const previous=claim.claimed.stagedApproval;
     if(previous){
       if(JSON.stringify([...previous.opIds].sort())!==JSON.stringify([...(opIds as string[])].sort()))throw conflict('invalid-state','The staged candidate pins the previously reviewed op selection');
@@ -724,12 +780,14 @@ export async function acceptProposal(env: Env, systemId: string, pid: string, bo
   // Pushed: the proposal is accepted whatever happens next, so a retry can never push the change twice.
   const ids = { evolution: out.evolution.id, realization: out.realization.id, candidate: out.candidate.id, commit: out.commit };
   let deferError: string | undefined;
+  if (dropped.length) out = { ...out, dropped };
   if (deferred) {
     try {
       out = { ...out, deferred: { proposal: (await deferProposal(env, systemId, claim.claimed, deferred)).id, nodeIds: deferred.nodeIds } };
     } catch (e) {
       deferError = `moving the deferred ops ${deferred.ops.map((o) => o.id).join(", ")} to a new proposal failed: ${(e as Error)?.message ?? e}`;
       console.error(`[intents] ${pid}: ${deferError}`);
+      out = { ...out, deferralError: deferError };
     }
   }
   try {

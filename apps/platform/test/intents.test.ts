@@ -15,7 +15,7 @@ import { REGISTRY, type SystemAuthority } from "../worker/do/system-authority";
 import { CLAIM_LEASE_MS, ProposalsStore } from "../worker/do/proposals-store";
 import { setEditorTransport } from "../worker/editor";
 import { resetHooks, setHooks } from "../worker/hooks/index";
-import { applyDecisions, effectiveDecisions, genomeGraph, intentProviders, MAX_TURNS, opsByDecision, planOf, proposedOps, setIntentProviders } from "../worker/intents";
+import { applyDecisions, deferredMessage, effectiveDecisions, genomeGraph, intentProviders, MAX_TURNS, opsByDecision, planOf, proposedOps, setIntentProviders } from "../worker/intents";
 import { loadGenome, validate } from "@artyfact/model";
 import { metaTemplates } from "@artyfact/templates";
 import { createRealizationPlan as createPlan, startLifecycleTask } from '../worker/lifecycle-service';
@@ -832,7 +832,10 @@ describe("POST /intents/:pid/accept with decisions", () => {
     expect(head).toBe(r.json.commit);
 
     const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
-    expect(next).toMatchObject({ status: "open", message: both.message, deferredFrom: both.id, ops: [TWO_OPS(first)[1]], questions: [] });
+    expect(next).toMatchObject({ status: "open", deferredFrom: both.id, ops: [TWO_OPS(first)[1]], questions: [] });
+    expect(next.message).toBe(deferredMessage(both.id, ["People"], both.message));
+    expect(next.message.split("\n")[0]).toBe(`Deferred from ${both.id}: People`);
+    expect(next.message).toContain(both.message);
     expect(next.stagedApproval).toBeUndefined();
     expect(next.provenance.genomeCommit).toBe(s.genomeCommit);
     expect(strip(next.plan)).toEqual([{ id: "thing.webapp", opIds: [], summary: "1 update", children: [{ id: "section.ui", opIds: [], summary: "1 update",
@@ -841,7 +844,7 @@ describe("POST /intents/:pid/accept with decisions", () => {
     expect((await systemStub(env, s.systemId).proposalPlan(next.id))?.deferredFrom).toBe(both.id);
     expect(next.evolutionId).toBeTruthy();
     expect(next.evolutionId).not.toBe(first.evolutionId);
-    expect(await systemStub(env, s.systemId).evolution(next.evolutionId!)).toMatchObject({ kind: "genome-amendment", title: both.message });
+    expect(await systemStub(env, s.systemId).evolution(next.evolutionId!)).toMatchObject({ kind: "genome-amendment", title: `Deferred from ${both.id}: People` });
     expect((await call<Proposal>("GET", routes.intent(s.systemId, both.id))).json.status).toBe("accepted");
 
     // The approval moved the head past the deferred proposal's base: its ops still apply there, so it is rebased.
@@ -893,7 +896,9 @@ describe("POST /intents/:pid/accept with blocked agreed ops", () => {
     expect((await accept(s, both, ["op.1", "op.3"])).json.error).toMatchObject({ code: "missing-dependency" });
     const r = await accept(s, both, ["op.1"]);
     expect(r.status, JSON.stringify(r.json)).toBe(201);
-    expect(r.json.deferred).toEqual({ proposal: expect.any(String), nodeIds: ["screen.people"] });
+    // The moved agreed op's node is listed too, after the explicitly deferred one.
+    expect(r.json.deferred).toEqual({ proposal: expect.any(String), nodeIds: ["screen.people", "screen.today"] });
+    expect((r.json as { dropped?: string[] }).dropped).toBeUndefined();
     const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
     expect(next.ops).toEqual([BLOCKED(first)[1], BLOCKED(first)[2]]);
     const all = (n: ProposalPlanNode[]): string[] => n.flatMap((x) => [...x.opIds, ...all(x.children)]);
@@ -908,7 +913,96 @@ describe("POST /intents/:pid/accept with blocked agreed ops", () => {
     const r = await accept(s, both, ["op.1"]);
     expect(r.status, JSON.stringify(r.json)).toBe(201);
     expect(r.json.deferred).toBeUndefined();
+    expect((r.json as { dropped?: string[] }).dropped).toEqual(["op.2", "op.3"]);
     expect(r.json.evolution.affectedNodes).toEqual(["screen.today"]);
+  });
+
+  it("drops a deferred op whose dependency is rejected, and the deferred ops that depend on it, keeping the rest deferred", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const ops: ProposedOp[] = [
+      first.ops[0]!,
+      { id: "op.2", op: "add", node: "component.QuietHours", kind: "component", parent: "screen.people", fields: { name: "Quiet hours" } },
+      { id: "op.3", op: "link", node: "GD.goals", link: { rel: "uses", to: "component.QuietHours" }, dependsOn: ["op.2"] },
+      { id: "op.4", op: "update", node: "GD.goals", fields: { description: "[fake] goals" } },
+      { id: "op.5", op: "unlink", node: "GD.goals", link: { rel: "uses", to: "component.QuietHours" }, dependsOn: ["op.3"] },
+    ];
+    const both = await storeProposal(s, first, ops);
+    await decide(s, both, [
+      { nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "reject" }, { nodeId: "GD.goals", decision: "defer" },
+    ]);
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect((r.json as { dropped?: string[] }).dropped).toEqual(["op.2", "op.3", "op.5"]);
+    expect(r.json.deferred).toEqual({ proposal: expect.any(String), nodeIds: ["GD.goals"] });
+    const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
+    expect(next.ops).toEqual([ops[3]]);
+  });
+
+  it("reports a deferral that fails, and leaves no orphan Evolution", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, TWO_OPS(first));
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "defer" }]);
+    let restore = () => {};
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (i: SystemAuthority) => {
+      const proto = Object.getPrototypeOf(i) as Record<string, unknown>;
+      const orig = proto.createProposal;
+      proto.createProposal = () => { throw new Error("storage hiccup"); };
+      restore = () => { proto.createProposal = orig; };
+    });
+    try {
+      const r = await accept(s, both, ["op.1"]);
+      expect(r.status, JSON.stringify(r.json)).toBe(201);
+      expect(r.json.deferred).toBeUndefined();
+      expect((r.json as { deferralError?: string }).deferralError).toMatch(/moving the deferred ops op\.2 .*storage hiccup/);
+      expect(await systemStub(env, s.systemId).proposal(both.id)).toMatchObject({ proposal: { status: "accepted" }, acceptError: expect.stringContaining("storage hiccup") });
+      const evolutions = (await systemStub(env, s.systemId).work()).evolutions;
+      expect(evolutions.filter((e) => e.title.startsWith("Deferred from"))).toEqual([]);
+    } finally {
+      restore();
+    }
+  });
+
+  it("re-translates a reply on a deferred proposal against its scope, with the original only as context", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, TWO_OPS(first));
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "defer" }]);
+    const r = await accept(s, both, ["op.1"]);
+    const next = r.json.deferred!.proposal;
+    const reply = await call<Proposal>("POST", routes.intentReply(s.systemId, next), { answer: "make it calmer" });
+    expect(reply.status, JSON.stringify(reply.json)).toBe(200);
+    expect(reply.json.message.startsWith(`Deferred from ${both.id}: People`)).toBe(true);
+    expect(reply.json.deferredFrom).toBe(both.id);
+    // The fake translator echoes the conversation it translated: the scope comes first, the original after it.
+    const said = String(reply.json.ops[0]?.fields?.description ?? "");
+    expect(said).toContain(`Deferred from ${both.id}: People`);
+    expect(said.indexOf("Deferred from")).toBeLessThan(said.indexOf("Context, the original request"));
+    expect(reply.json.provenance.genomeCommit).toBe(r.json.commit);
+  });
+
+  it("rebuilds a deferred proposal's plan on the head it is rebased to", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    // op.2 adds a child under the component op.1 adds: on the base, its parent is unknown to the deferred proposal.
+    const ops: ProposedOp[] = [
+      { id: "op.1", op: "add", node: "component.QuietHours", kind: "component", parent: "screen.today", fields: { name: "Quiet hours" } },
+      { id: "op.2", op: "add", node: "component.QuietNote", kind: "component", parent: "component.QuietHours", fields: { name: "Quiet note" }, dependsOn: ["op.1"] },
+    ];
+    const both = await storeProposal(s, first, ops);
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "component.QuietNote", decision: "defer" }]);
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
+    expect(next.ops).toEqual([{ ...ops[1], dependsOn: undefined }].map(({ dependsOn: _d, ...o }) => o));
+    expect(next.plan.map((n) => n.id)).toEqual(["other"]);
+    const d = await accept(s, next, ["op.2"]);
+    expect(d.status, JSON.stringify(d.json)).toBe(201);
+    const plan = (await systemStub(env, s.systemId).proposalPlan(next.id))!.plan;
+    expect(plan[0]!.id).toBe("thing.webapp");
+    const leaf = (n: ProposalPlanNode): ProposalPlanNode => (n.children.length ? leaf(n.children[0]!) : n);
+    expect(leaf(plan[0]!)).toMatchObject({ id: "component.QuietNote", path: [s.systemId, "thing.webapp", "section.ui", "screen.today", "component.QuietHours", "component.QuietNote"] });
   });
 });
 
