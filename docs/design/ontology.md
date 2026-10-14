@@ -270,13 +270,13 @@ POST /api/systems/:id/intents {message, anchor?}             (admin) → 201 Pro
   → Proposal stored in the System DO (`proposals`)
 POST /api/systems/:id/intents/:pid/reply {answer, questionId?} (admin) → Proposal (revised: route and translate again with the answer)
 PUT  /api/systems/:id/intents/:pid/decisions {decisions:[{nodeId, decision|null}]} (admin) → Proposal
-POST /api/systems/:id/intents/:pid/accept {opIds}            (admin) → 201 {evolution, realization, candidate, systemCommit, deferred?, dropped?, deferralError?}
+POST /api/systems/:id/intents/:pid/accept {opIds}            (admin) → 201 {evolution, realization, candidate, commit, systemCommit?, deferred?, dropped?, deferralError?}
   ops → tree codec → genome realization (startWork, origin editor) → commitEdit push → staged candidate → approve (the Genome commits at once);
   Evolution affectedNodes = touched nodes; app packets take permitted paths from those nodes' files
 GET  /api/systems/:id/intents/:pid                           (admin) → Proposal
 ```
 
-Wire types are in `apps/platform/shared/api.ts`: `IntentRequest`, `Proposal`, `ProposalRouteStep`, `ProposedOp`, `ProposalQuestion`, `ProposalProblem`, `ProposalProvenance`, `ProposalPlanNode`, `ProposalDecisions`, `IntentReply`, `IntentAccept`, `IntentDecisionsRequest` and `IntentAcceptResponse`. The route builders are `routes.intents`, `intent`, `intentReply`, `intentDecisions` and `intentAccept`. The routes are admin only (`worker/routes/intents.ts`, logic in `worker/intents.ts`).
+Wire types are in `apps/platform/shared/api.ts`: `IntentRequest`, `Proposal`, `ProposalRouteStep`, `ProposedOp`, `ProposalQuestion`, `ProposalProblem`, `ProposalProvenance`, `ProposalPlanNode`, `ProposalDecisions`, `IntentReply`, `IntentAccept`, `IntentDecisionsRequest` and `IntentAcceptResponse`. The route builders are `routes.intents`, `intent`, `intentReply`, `intentDecisions` and `intentAccept`. The routes are admin only (`worker/routes/intents.ts`, logic in `worker/intents.ts`). While the System's import review is pending, create, reply, decisions and accept answer 409 `import-unreviewed` (backend.md B.10); the GET does not.
 
 How the platform runs them:
 

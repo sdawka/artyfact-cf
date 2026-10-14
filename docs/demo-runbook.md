@@ -404,7 +404,7 @@ ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" artyfact plan promote $P --system system.peo
 ```
 
 Promotion re-runs the gate on the exact commits and records one System commit with the realized Genome per binding.
-A refused gate answers 409 `blocked` or `advisories-unacknowledged` with `details {criteria, advisories}`; a head that
+A refused gate answers 409 `blocked` or 400 `advisories-unacknowledged` with `details {criteria, advisories}`; a head that
 moved is 409 `stale-base`. Fake platform result: the plan is `promoted`, its tasks `completed`, the head moved to
 `sc-3-83fdeb29` and `planCounts` is all zero.
 
