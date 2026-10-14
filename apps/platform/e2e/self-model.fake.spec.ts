@@ -83,9 +83,9 @@ test.describe("the self-model @fake", () => {
     for (const op of proposal.ops) expect(model.model.nodes.find((n) => n.id === op.node)?.owningThing).toBe("thing.platform");
     await checkPage(page, testInfo, "self-proposal");
 
-    // Agree every root of the agreement tree (Things), then accept.
+    // Agree every root of the agreement tree (Things), then accept. Children inherit ("mixed") and are skipped.
     for (const agree of await page.getByRole("tree", { name: "Proposed changes" }).getByRole("button", { name: /^Agree / }).all()) {
-      if ((await agree.getAttribute("aria-pressed")) !== "true") await agree.click();
+      if ((await agree.getAttribute("aria-pressed")) === "false") await agree.click();
     }
     await page.getByRole("button", { name: "Accept agreed" }).click();
     await expect(page).toHaveURL(/\/work\?.*realization=/);
