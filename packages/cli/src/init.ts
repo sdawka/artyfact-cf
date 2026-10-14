@@ -347,7 +347,17 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
     dir: { type: "string" }, genome: { type: "string" }, app: { type: "string" }, platform: { type: "string" },
     namespace: { type: "string" }, "from-template": { type: "string" }, force: { type: "boolean" }, adopt: { type: "boolean" },
     "genome-only": { type: "boolean" }, "no-review": { type: "boolean" }, "integrity-run": { type: "string" },
+    "integrity-unreviewed-reason": { type: "string" },
   });
+  const integrityRunId = values["integrity-run"] as string | undefined;
+  const rawUnreviewedReason = values["integrity-unreviewed-reason"] as string | undefined;
+  if (integrityRunId !== undefined && rawUnreviewedReason !== undefined) {
+    throw new CliError("--integrity-run and --integrity-unreviewed-reason are mutually exclusive");
+  }
+  const integrityUnreviewedReason = rawUnreviewedReason?.trim();
+  if (rawUnreviewedReason !== undefined && (!integrityUnreviewedReason || integrityUnreviewedReason.length > 500)) {
+    throw new CliError("--integrity-unreviewed-reason must be 1 to 500 characters after trimming");
+  }
   // --genome-only pushes the Genome and re-imports; the app repo is never read from disk, pushed or seeded (the platform
   // keeps its head and recorded scaffold source). For migrating a deployed System's Genome (docs/deploy.md).
   const genomeOnly = values["genome-only"] === true;
@@ -393,7 +403,7 @@ export async function initCommand(args: string[], io: InitIo): Promise<number> {
   const platformUrl = await resolvePlatform(values.platform as string | undefined, io.env, io.fetch ?? fetch, io.err, sendsBearer ? undefined : DEFAULT_URL);
 
   const cloud = connect(io, ns);
-  return withAccountScrubbed(cloud, () => initWith(io, { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force: values.force === true, adopt: values.adopt === true, genomeOnly, noReview: values["no-review"] === true, integrityRunId: values["integrity-run"] as string | undefined }));
+  return withAccountScrubbed(cloud, () => initWith(io, { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force: values.force === true, adopt: values.adopt === true, genomeOnly, noReview: values["no-review"] === true, integrityRunId, integrityUnreviewedReason }));
 }
 
 /** CLI errors name the account by its prefix only (git and wrangler failures can echo remote URLs holding the id). */
@@ -411,10 +421,11 @@ interface InitPlan {
   project: string; genomeDir: string; appDir: string; hasApp: boolean; appNeeded: boolean; fromTemplate: string | undefined; ns: string; systemId: string;
   names: ReturnType<typeof systemRepoNames>; cloud: Cloud; platformUrl: string; force: boolean; adopt: boolean; genomeOnly: boolean; noReview: boolean;
   integrityRunId?: string;
+  integrityUnreviewedReason?: string;
 }
 
 async function initWith(io: InitIo, plan: InitPlan): Promise<number> {
-  const { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force, adopt, genomeOnly, noReview, integrityRunId } = plan;
+  const { project, genomeDir, appDir, hasApp, appNeeded, fromTemplate, ns, systemId, names, cloud, platformUrl, force, adopt, genomeOnly, noReview, integrityRunId, integrityUnreviewedReason } = plan;
   const stateFile = stateFileFor(io, project);
   const state = readState(stateFile);
   const key = `${cloud.remote(ns, "").replace(/\.git$/, "")}`;
@@ -445,7 +456,8 @@ async function initWith(io: InitIo, plan: InitPlan): Promise<number> {
       io.out(`${names.appRepo}: no local app; using its head ${head.slice(0, 12)}`);
     }
 
-    return await importIntoPlatform(io, platformUrl, { systemId, genomeRepo: names.genomeRepo, ...(appNeeded && { appRepo: names.appRepo }), ...(scaffoldFrom && { scaffoldFrom }), ...(noReview && { review: false }), ...(integrityRunId && { integrityRunId }) }, force);
+    if (integrityUnreviewedReason) io.out("integrity: unreviewed import requested; full integrity check and agreement remain pending");
+    return await importIntoPlatform(io, platformUrl, { systemId, genomeRepo: names.genomeRepo, ...(appNeeded && { appRepo: names.appRepo }), ...(scaffoldFrom && { scaffoldFrom }), ...(noReview && { review: false }), ...(integrityRunId && { integrityRunId }), ...(integrityUnreviewedReason && { integrityUnreviewedReason }) }, force);
   } finally {
     writeState(stateFile, state);
   }
@@ -514,6 +526,8 @@ async function waitForHead(c: Ctx, repo: string): Promise<string> {
   }
 }
 
+const shellSingleQuote = (value: string) => `'${value.replaceAll("'", `'"'"'`)}'`;
+
 async function importIntoPlatform(io: InitIo, base: string, body: Record<string, unknown>, force: boolean): Promise<number> {
   const url = `${base}/api/systems/import`;
   const payload = JSON.stringify({ ...body, force });
@@ -521,7 +535,7 @@ async function importIntoPlatform(io: InitIo, base: string, body: Record<string,
   if (!admin) {
     io.out("");
     io.out("ARTYFACT_ADMIN_TOKEN is not set, so the System was not imported. Import it with:");
-    io.out(`  curl -sS -XPOST ${url} -H "authorization: Bearer $ARTYFACT_ADMIN_TOKEN" -H 'content-type: application/json' -d '${payload}'`);
+    io.out(`  curl -sS -XPOST ${url} -H "authorization: Bearer $ARTYFACT_ADMIN_TOKEN" -H 'content-type: application/json' -d ${shellSingleQuote(payload)}`);
     return 0;
   }
   assertBearerTransport(base, "ARTYFACT_ADMIN_TOKEN");
@@ -542,6 +556,11 @@ async function importIntoPlatform(io: InitIo, base: string, body: Record<string,
   for (const w of json.warnings ?? []) io.out(`  warning ${w.rule}${w.subject ? ` (${w.subject})` : ""}: ${w.message}`);
   const sid = encodeURIComponent(String(body.systemId));
   io.out(`System: ${base}/s/${sid}/r/head/overview`);
-  if (json.system?.importReview?.status === "pending") io.out(`review: pending, open ${base}/s/${sid}/r/head/review?panel=import (work is refused until it is accepted; re-run with --no-review to skip)`);
+  if (json.system?.importReview?.status === "pending") {
+    const note = body.integrityUnreviewedReason
+      ? "full integrity check and agreement are required; --no-review does not clear this integrity review"
+      : "work is refused until it is accepted; re-run with --no-review to skip";
+    io.out(`review: pending, open ${base}/s/${sid}/r/head/review?panel=import (${note})`);
+  }
   return 0;
 }

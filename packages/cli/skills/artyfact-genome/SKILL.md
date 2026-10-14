@@ -13,7 +13,7 @@ For an idea without code, first preserve the person's words in `intent/brief.md`
 
 Create `intent/manifest.json` with `{"version":1,"nodes":[{"nodeId":"...","briefSections":["Exact ATX heading text"],"documents":[{"path":"docs/example.md","hash":"sha256:..."}]}]}`. Heading text is exact and case-sensitive. Paths are safe repository-relative references and hashes cover exact document bytes. Never include secrets, credentials or absolute local paths.
 
-Write native nodes using the templates below. A Genome-only System is complete without an app binding. Run local structural validation, then `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology check --system <system> --genome ./genome --platform <origin> --json`. Return its durable Review URL and disclose assumptions, citations, unresolved questions and incomplete semantic coverage. Record reviewed dispositions with `ontology agreement`; materialize only an eligible agreed envelope. Run the local authoring agent with `env -u ARTYFACT_ADMIN_TOKEN` so it never inherits the admin credential.
+Write native nodes using the templates below. Before the first CLI check, create the System at `<origin>/start` and accept any custom native package there; a planned Genome using built-in packages needs no app. Run local structural validation without an app argument for a source-free Genome, then `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology check --system <system> --genome ./genome --platform <origin> --json`. Return its durable Review URL and disclose assumptions, citations, unresolved questions and incomplete semantic coverage. Record reviewed dispositions with `ontology agreement`; materialize only an eligible agreed envelope. Run the local authoring agent with `env -u ARTYFACT_ADMIN_TOKEN` so it never inherits the admin credential.
 
 ## Author from existing code
 
@@ -109,7 +109,7 @@ npx artyfact validate-genome ./genome --app .
 ## 5. Import
 
 ```
-npx artyfact init --genome ./genome --app .
+npx artyfact init --genome ./genome --app . --integrity-run <eligible-run>
 ```
 
 Then tell the person to open Review, then Import on the platform and agree node by node. Nothing is evolved until they accept.
@@ -146,9 +146,9 @@ cd ./work/<task> && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and 
 This is a separate workflow from authoring a Genome for existing source above. An accepted custom ontology may have no source yet. A Genome-only System with no Thing or source is valid completion; do not invent implementation to make it pass.
 
 1. Set `ADMIN_TOKEN` in the shell without exporting it. Pass `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN"` on each administrative command and `--platform <origin>` explicitly. Browser credentials do not configure the shell.
-2. Materialize exact accepted files: `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology bootstrap <review> --system <system> --dir ./project --prepare-only --platform <origin>`. This creates a new directory without provisioning. Then run `npx artyfact skill --dir ./project --write --agent generic` and work in that project. To recover, continue in the existing directory; bootstrap never overwrites it.
+2. Materialize exact accepted files: `npx artyfact ontology materialize --file reviewed-snapshot.json --dir ./project --prepare-only`. This creates a new directory without provisioning. Then run `npx artyfact skill --dir ./project --write --agent generic` and work in that project. To recover, continue in the existing directory; materialize never overwrites it.
 3. For implementation, prepare only minimal genuine scaffold/app source in `./app`, plus accurate Thing/artifact/source mappings to files that exist. Use the accepted custom template vocabulary, or a matching supported Thing scaffold. Do not implement requested features here: feature work belongs to Tasks. If keeping the System Genome-only, skip source and planning.
-4. Run `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact init --dir . --platform <origin>` with default import review. If no local app exists for a declared binding, finish the scaffold or use a matching `--from-template <thing-template@version>`; never claim nonexistent source. Changed Genome content must return to Review for acceptance. Custom packages require server import validation because the local validator cannot resolve accepted custom packages; bundled templates can also use local validation.
+4. Run `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact init --dir . --integrity-run <eligible-run> --platform <origin>` with default import review. If no local app exists for a declared binding, finish the scaffold or use a matching `--from-template <thing-template@version>`; never claim nonexistent source. Changed Genome content must return to Review for acceptance. Custom packages require server import validation because the local validator cannot resolve accepted custom packages; bundled templates can also use local validation.
 5. After the person accepts the import, choose actual source-bound node IDs from the accepted Genome. Draft with `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan draft --system <system> --node <source-bound-node-id> --platform <origin>`. Review scope and problems, then repeat the same node arguments with `--create`. No plan file is assumed. Return the durable plan review URL before implementation.
 
 ## Coordinate accepted Genome implementation

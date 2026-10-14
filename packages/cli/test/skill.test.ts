@@ -42,6 +42,12 @@ describe("artyfact skill", () => {
     expect(r.out).toContain("env -u ARTYFACT_ADMIN_TOKEN");
     expect(r.out).toContain("ontology check");
     expect(r.out).toContain("ontology agreement");
+    const newIntent = r.out.split("## Author from existing code")[0]!;
+    expect(newIntent).toContain("<origin>/start");
+    expect(newIntent).toContain("needs no app");
+    expect(newIntent).not.toContain("--app .");
+    expect(r.out).toContain("--integrity-run <eligible-run>");
+    expect(r.out).not.toContain("--integrity-unreviewed-reason");
   });
 
   it("ships a SKILL.md of at most 180 lines", () => {

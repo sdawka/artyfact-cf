@@ -231,6 +231,8 @@ The older `start`, `checkpoint`, and `submit` commands remain available for hist
 
 Keep new intent beside the Genome as `intent/brief.md` and `intent/manifest.json`. Manifest `briefSections` are exact, case-sensitive ATX heading text. A source-free Genome is valid; do not add a fake app binding. Run a full check through the authenticated System authority:
 
+Before the first CLI check, create the System at `<origin>/start` and accept any custom native package there. A planned Genome using built-in packages needs no app.
+
 ```sh
 ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology check --system system.example --genome ./genome --provider auto --platform https://platform.example --json > reviewed-snapshot.json
 ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology agreement run.id --system system.example --file dispositions.json --snapshot reviewed-snapshot.json --platform https://platform.example
@@ -241,3 +243,5 @@ ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology materialize --file rev
 `check` sends only allowlisted Genome YAML plus the two canonical sidecars, starts a durable run and polls it. JSON returns the exact server snapshot and run; exits are 0 passed, 1 blocked and 2 needs-review. A queued/running/cancelled or provider-off check is needs-review. Transport and failed-run errors are printed as errors rather than integrity results. The Review URL in the run is the browser handoff.
 
 `agreement` updates the snapshot envelope only after the server records the exact dispositions. `materialize` requires eligible human agreement, writes the exact `snapshot.files`, and invents no source repository. Without `--prepare-only`, it pushes that Genome and imports with `integrityRunId`; the server reloads and recomputes the snapshot before carrying agreement. Caller-supplied hashes never establish agreement. Keep `ADMIN_TOKEN` unexported and run local authoring agents with `env -u ARTYFACT_ADMIN_TOKEN`.
+
+Direct `init` of authored intent uses `--integrity-run <eligible-run>`. A legacy or demo bootstrap may instead use `--integrity-unreviewed-reason "<reason>"` (1 to 500 characters); the two options are mutually exclusive, and the latter remains visibly pending a full integrity check and agreement.

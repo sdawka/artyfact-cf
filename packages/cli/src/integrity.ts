@@ -81,7 +81,9 @@ function readSnapshotFiles(directory: string): Record<string, string> {
       const path = join(root, rel), stat = lstatSync(path);
       if (stat.isSymbolicLink()) throw new CliError(`refusing symlink in integrity snapshot: ${rel}`);
       if (stat.isDirectory()) { if (!name.startsWith(".")) walk(rel); continue; }
-      const allowed = /\.ya?ml$/.test(rel) || rel === "intent/brief.md" || rel === "intent/manifest.json";
+      const allowed = (rel === "node.yaml" || (rel.endsWith("/node.yaml") && !rel.startsWith("evolutions/")))
+        || /^evolutions\/[^/]+\.ya?ml$/.test(rel)
+        || rel === "intent/brief.md" || rel === "intent/manifest.json";
       if (!allowed) continue;
       files[rel] = readFileSync(path, "utf8");
     }

@@ -9,16 +9,29 @@ const token = "admin-secret-that-must-stay-out-of-files";
 const genome = () => {
   const dir = join(cwd, `genome-${Math.random()}`);
   mkdirSync(join(dir, "intent"), { recursive: true });
+  mkdirSync(join(dir, "artifact.platform"), { recursive: true });
+  mkdirSync(join(dir, "evolutions"), { recursive: true });
+  mkdirSync(join(dir, "evolutions/nested"), { recursive: true });
+  mkdirSync(join(dir, "config"), { recursive: true });
   writeFileSync(join(dir, "node.yaml"), "id: system.one\nkind: system\nfields: {name: One}\n");
+  writeFileSync(join(dir, "artifact.platform/node.yaml"), "id: artifact.platform\nkind: artifact\nfields: {name: Platform}\n");
+  writeFileSync(join(dir, "evolutions/evolution.one.yaml"), [
+    "id: evolution.one", "title: One", "intent: Build one useful thing.", "state: proposed", "kind: implementation",
+    "affectedNodes: []", "affectedClaims: []", "genomeDelta: []", "acceptanceCriteria: []", "requiredEvidence: []",
+    "dependsOn: []", "risk: low", "realizations: []", "",
+  ].join("\n"));
+  writeFileSync(join(dir, "evolutions/nested/node.yaml"), "secret: do-not-upload-nested\n");
   writeFileSync(join(dir, "intent/brief.md"), "# Intent\n\nBuild one useful thing.\n");
   writeFileSync(join(dir, "intent/manifest.json"), '{"version":1,"nodes":[]}\n');
+  writeFileSync(join(dir, "secrets.yaml"), "api_token: do-not-upload\n");
+  writeFileSync(join(dir, "config/unrelated.yml"), "private: unrelated-config\n");
   return dir;
 };
 const section = (status: string) => ({ status, complete: true, findings: [], checkedSubjects: [], checkedRelationships: [], limitations: [] });
 const report = (status: "passed" | "blocked" | "needs-review") => ({
   version: 1, id: `report.${status}`, systemId: "system.one", snapshotHash: "sha256:one", policyVersion: "integrity.v1", createdAt: "2026-10-14T00:00:00Z", status,
   structural: section(status === "blocked" ? "blocked" : "passed"),
-  semantic: { ...section(status), intentFidelity: "checked", provenance: { provider: "jev", model: "jev", questions: [], thresholds: {}, budget: { requestedCalls: 1, maxCalls: 1, usedCalls: 1 }, truncated: false, fake: false, retries: 0 } },
+  semantic: { ...section(status), intentFidelity: "checked", provenance: { provider: "jev", model: "jev", questions: ["semantic.vague"], thresholds: { confident: 0.8, review: 0.5 }, budget: { requestedCalls: 1, maxCalls: 1, usedCalls: 1 }, truncated: false, fake: false, retries: 0 } },
 });
 const snapshot = (files: Record<string, string>) => ({ version: 1, id: "snapshot.one", createdAt: "2026-10-14T00:00:00Z", kind: "initial-preview", systemId: "system.one", hash: "sha256:one", genomeHash: "sha256:g", files, intent: { hash: "sha256:i", issues: [], fidelity: "checked", documents: [] }, templateClosure: [], templateClosureHash: "sha256:t", staticFindings: [] });
 const run = (status: "passed" | "blocked" | "needs-review") => ({ id: "run.one", systemId: "system.one", state: "completed", snapshotId: "snapshot.one", snapshotHash: "sha256:one", provider: "jev", requestedCalls: 1, attempt: 1, createdAt: "2026-10-14T00:00:00Z", updatedAt: "2026-10-14T00:00:01Z", report: report(status), reviewUrl: "http://localhost:1337/start?system=system.one&integrity=run.one" });
@@ -33,6 +46,8 @@ afterEach(() => vi.unstubAllGlobals());
 describe("ontology integrity CLI", () => {
   it.each([["passed", 0], ["blocked", 1], ["needs-review", 2]] as const)("returns the %s full-check exit", async (status, code) => {
     const dir = genome(), files = {
+      "artifact.platform/node.yaml": readFileSync(join(dir, "artifact.platform/node.yaml"), "utf8"),
+      "evolutions/evolution.one.yaml": readFileSync(join(dir, "evolutions/evolution.one.yaml"), "utf8"),
       "intent/brief.md": readFileSync(join(dir, "intent/brief.md"), "utf8"),
       "intent/manifest.json": readFileSync(join(dir, "intent/manifest.json"), "utf8"),
       "node.yaml": readFileSync(join(dir, "node.yaml"), "utf8"),
@@ -52,7 +67,14 @@ describe("ontology integrity CLI", () => {
       "http://localhost:1337/api/systems/system.one/integrity/runs",
       "http://localhost:1337/api/systems/system.one/integrity/runs/run.one",
     ]);
-    expect(calls[0]).toMatchObject({ body: { files }, auth: `Bearer ${token}` });
+    expect(calls[0]).toEqual({
+      url: "http://localhost:1337/api/systems/system.one/integrity/preview",
+      body: { files },
+      auth: `Bearer ${token}`,
+    });
+    expect(JSON.stringify(calls[0]?.body)).not.toContain("do-not-upload");
+    expect(JSON.stringify(calls[0]?.body)).not.toContain("unrelated-config");
+    expect(JSON.stringify(calls[0]?.body)).not.toContain("do-not-upload-nested");
     expect(calls[1]?.body).toEqual({ snapshotId: "snapshot.one", provider: "jev", budget: { maxCalls: 1 } });
     expect(result.out).not.toContain(token);
   });
