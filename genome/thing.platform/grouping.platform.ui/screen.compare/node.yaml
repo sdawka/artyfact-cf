@@ -2,14 +2,11 @@ id: screen.compare
 kind: screen
 fields:
   name: Compare
-  description: Two revisions side by side, with the Genome delta by node and file diffs. It sits off the rail and is reached from the Changelog or go key g x. Actionable targets wear corner brackets and the page has one primary button; picking a revision re-runs the compare and opening a file shows its diff.
+  description: "Two revisions side by side at the System, Genome or file level. Off the rail: reached with g x, the palette or Changelog's Compare with parent. The header holds Compare <From> ⇄ <To>; the default pair is the previous commit against head. Tabs System, Genome and Files carry counts. System opens with a sentence derived from the changed rows and hides unchanged rows behind Show n unchanged; Files lists App and Genome changes with a legend and a line diff with Open in Code."
   route: /s/:systemId/r/:rev/compare
   states:
-    - loading
+    - "loading: Comparing <from> with <to>…"
     - loaded
-    - empty
-    - error
-    - same revision
-links:
-  - rel: serves
-    to: feature.changelog-compare
+    - "same: Nothing differs between these revisions."
+    - "error: Could not compare these revisions."
+    - "fixture: Compare needs the platform API."

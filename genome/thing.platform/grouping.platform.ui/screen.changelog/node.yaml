@@ -2,14 +2,11 @@ id: screen.changelog
 kind: screen
 fields:
   name: Changelog
-  description: Every System commit with its time, author, policy, Evolutions and a node-delta summary. Actionable targets wear corner brackets and the page has one primary button; expanding a row loads its entry, and Compare with parent opens Compare.
+  description: "Every System commit, newest first. Header secondary Evolution opens the New Evolution panel (Back to Changelog). An Evolution select filters. Each row is one button that expands: id, time and author, the rationale, then a node, file and criteria summary with one status. An expanded row shows Compare with parent, Open in Map, the Genome delta grouped by kind (Show all per group), files (Show all n files past 12), and the rest folded into one line when empty; Provenance last. Older commits load on demand."
   route: /s/:systemId/r/:rev/changelog
   states:
-    - loading
+    - "loading: Loading the changelog…"
     - loaded
-    - empty
-    - error
-    - legacy format notice
-links:
-  - rel: serves
-    to: feature.changelog-compare
+    - "empty: No System commits yet. · Open Review"
+    - "error: Could not load the changelog."
+    - "Genome v1 format — not comparable"

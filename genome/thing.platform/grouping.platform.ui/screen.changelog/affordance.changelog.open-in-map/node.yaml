@@ -1,0 +1,15 @@
+id: affordance.changelog.open-in-map
+kind: affordance
+fields:
+  name: Open in Map
+  description: Opens the Map at that commit's revision; hidden for legacy-format commits.
+  actor: user
+  trigger: click
+  preconditions:
+    - The commit is not in the legacy format
+  effects:
+    - The Map opens at that revision
+  failure: []
+links:
+  - rel: references
+    to: screen.map
