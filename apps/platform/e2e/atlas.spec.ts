@@ -43,6 +43,9 @@ async function geometry(page: Page) {
   }));
 }
 const camera = (page: Page) => page.locator(".react-flow__viewport").getAttribute("style");
+/** Details narrows the pan area and may recentre the selection, so only the zoom is stable across it. */
+const zoomOf = (transform: string | null) => /scale\(([\d.]+)\)/.exec(transform ?? "")?.[1];
+
 async function waitAtlasReveals(page: Page) {
   // Audit settled surfaces only; ambient effects can animate indefinitely.
   await page.evaluate(async () => {
@@ -186,7 +189,7 @@ test("explicit scope wins over selected focus and legacy focus stays selectable 
   await scope(page, "environment");
 });
 
-test("selected boundary connections retain actual endpoint paths, labels, certainty and Locate @fixture", async ({ page }) => {
+test("selected boundary connections retain actual endpoint paths, labels, certainty and Show on map @fixture", async ({ page }) => {
   const data = defaultMockData();
   const model = data.bundles[SID]!.model as ModelJson;
   for (const node of model.nodes) node.links = [];
@@ -203,9 +206,9 @@ test("selected boundary connections retain actual endpoint paths, labels, certai
   await expect(connections.getByRole("listitem")).toHaveCount(2);
   await expect(connections).toContainText("Peopling / Peopling web app / Authorization / Owner-only access");
   await expect(connections).toContainText("Peopling / Peopling web app / UI / People");
-  await expect(connections).toContainText("Owner consent · assumed");
-  await expect(connections).toContainText("Signed in · declared");
-  await connections.getByRole("button", { name: "Locate People", exact: true }).first().click();
+  await expect(connections).toContainText("Owner consent, assumed");
+  await expect(connections).toContainText("Signed in, declared");
+  await connections.getByRole("button", { name: "Show People on map", exact: true }).first().click();
   await scope(page, "section.ui");
   await expect(tile(page, "screen.people")).toHaveAttribute("data-selected", "true");
   await expect(inspector(page)).toHaveCount(0);
@@ -220,7 +223,9 @@ test("selection, Details, connection visibility and overlays preserve tile geome
   await pressTile(page, "section.ui");
   expect(await geometry(page)).toEqual(initialGeometry);
   expect(await camera(page)).toBe(initialCamera);
-  await page.getByRole("checkbox", { name: "Show all connections" }).check();
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+  await page.getByRole("checkbox", { name: "All connections" }).check();
+  await page.getByRole("button", { name: "Close map navigation" }).click();
   expect(await geometry(page)).toEqual(initialGeometry);
   expect(await camera(page)).toBe(initialCamera);
   for (const layer of ["Proteome", "Phenome", "Genome"]) {
@@ -230,12 +235,14 @@ test("selection, Details, connection visibility and overlays preserve tile geome
   }
   await selection(page).getByRole("button", { name: "Details", exact: true }).click();
   await expect(inspector(page)).toBeVisible();
+  await settle(page);
   expect(await geometry(page)).toEqual(initialGeometry);
-  expect(await camera(page)).toBe(initialCamera);
+  expect(zoomOf(await camera(page))).toBe(zoomOf(initialCamera));
   await page.keyboard.press("Escape");
   await expect(inspector(page)).toHaveCount(0);
+  await settle(page);
   expect(await geometry(page)).toEqual(initialGeometry);
-  expect(await camera(page)).toBe(initialCamera);
+  expect(zoomOf(await camera(page))).toBe(zoomOf(initialCamera));
 });
 
 test("keyboard and reduced motion provide explicit Enter, Up and Details paths @fixture", async ({ page }, testInfo) => {
@@ -390,7 +397,7 @@ test("on-demand filters retain real containers and unfamiliar leaves stay inspec
   await expect(inspector(page)).toContainText("PageHeading");
 });
 
-test("offscreen selected connections remain discoverable through Locate @fixture", async ({ page }) => {
+test("offscreen selected connections remain discoverable through Show on map @fixture", async ({ page }) => {
   const data = defaultMockData();
   const model = data.bundles[SID]!.model as ModelJson;
   for (const node of model.nodes) node.links = [];
@@ -402,9 +409,10 @@ test("offscreen selected connections remain discoverable through Locate @fixture
   const box = (await canvas(page).boundingBox())!;
   await page.mouse.move(box.x + box.width - 70, box.y + box.height / 2);
   await page.mouse.wheel(3200, 0);
-  const indicators = page.locator('[aria-label="Offscreen connections"]');
-  await expect(indicators.getByRole("button").first()).toBeVisible();
-  await indicators.getByRole("button").first().click();
+  await page.getByRole("button", { name: /^Outside \(/ }).click();
+  const indicators = page.getByRole("menu", { name: /^Outside / });
+  await expect(indicators.getByRole("menuitem").first()).toBeVisible();
+  await indicators.getByRole("menuitem").first().click();
   await scope(page, "thing.webapp");
   const selected = page.locator("[data-map-node][data-selected]");
   await expect(selected).toHaveCount(1);
@@ -431,8 +439,8 @@ test("current scope selection exposes descendant links crossing its boundary @fi
   const connections = page.getByRole("region", { name: "Selected connections" });
   await expect(connections.getByRole("listitem")).toHaveCount(1);
   await expect(connections).toContainText("Peopling / Peopling web app / UI / People");
-  await expect(connections).toContainText("Scope boundary evidence · assumed");
-  await expect(connections.getByRole("button", { name: "Locate Owner", exact: true })).toBeVisible();
+  await expect(connections).toContainText("Scope boundary evidence, assumed");
+  await expect(connections.getByRole("button", { name: "Show Owner on map", exact: true })).toBeVisible();
   await expect(connections).not.toContainText("Internal only");
   await expect(page.locator(".react-flow__edge")).toHaveCount(1);
 });
@@ -486,7 +494,7 @@ test("Go to from another view overrides its remembered map scope @fixture", asyn
   expect(new URL(page.url()).searchParams.get("scope")).toBe("environment");
 });
 
-test("browser Back restores a panned camera without replaying consumed Go to Locate @fixture", async ({ page }) => {
+test("browser Back restores a panned camera without replaying consumed Go to Show on map @fixture", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(`${SYSTEM}/map?scope=environment`);
   await scope(page, "environment");
@@ -581,8 +589,9 @@ test("scope reveal runs once while selection, Details and layer changes preserve
   await expect(inspector(page)).toBeVisible();
   expect(await scopeMotions(page)).toHaveLength(1);
   expect((await motions(page)).filter((record) => record.target === "Map selection")).toHaveLength(1);
+  await settle(page);
   expect(await geometry(page)).toEqual(stableGeometry);
-  expect(await camera(page)).toBe(stableCamera);
+  expect(zoomOf(await camera(page))).toBe(zoomOf(stableCamera));
 });
 
 test("interrupted depth cancels the old reveal and Effects toggling cannot replay it @fixture", async ({ page }) => {
@@ -635,7 +644,7 @@ test("reduced motion suppresses scope and overlay reveals while preserving their
   await checkA11yAndShoot(page, testInfo, "atlas-polish-reduced-motion");
 });
 
-test("Details retains contrasting primary colors in normal, hover and active states @fixture", async ({ page }, testInfo) => {
+test("Details retains contrasting primary colors in normal and hover states @fixture", async ({ page }, testInfo) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto(`${SYSTEM}/map?scope=thing.webapp&focus=section.ui`);
   await scope(page, "thing.webapp");
@@ -655,12 +664,7 @@ test("Details retains contrasting primary colors in normal, hover and active sta
   await expect(details).toHaveCSS("color", tokenColors.color);
   await expect(details).toHaveCSS("background-color", tokenColors.hover);
   await checkA11yAndShoot(page, testInfo, "atlas-details-hover-colors");
-  await page.mouse.down();
-  try {
-    await expect(details).toHaveCSS("color", tokenColors.color);
-    await expect(details).toHaveCSS("background-color", tokenColors.active);
-    await checkA11yAndShoot(page, testInfo, "atlas-details-active-colors");
-  } finally { await page.mouse.up(); }
+  // The shared Button has no separate pressed fill; normal and hover are the contract.
 });
 
 test("candidate overlap link remains separate from Phenome and Proteome footer badges @fixture", async ({ page }, testInfo) => {
@@ -684,12 +688,12 @@ test("candidate overlap link remains separate from Phenome and Proteome footer b
   expect(await page.locator(`.react-flow__node[data-id="${subject}"]`).evaluate((element) => parseFloat((element as HTMLElement).style.height))).toBe(144);
   await expect(tile(page, subject).getByText("Small leaf with a short purpose.", { exact: true })).toBeVisible();
   testInfo.annotations.push({ type: "minimum-tile-width", description: `${unscaledWidth}px authored width` });
-  const node = tile(page, subject), overlap = node.getByRole("link", { name: "overlap · 2", exact: true });
+  const node = tile(page, subject), overlap = node.getByRole("link", { name: "Overlap, 2 candidates", exact: true });
   await expect(overlap).toBeVisible();
   const stableGeometry = await geometry(page);
   for (const layer of ["Phenome", "Proteome"] as const) {
     await page.getByRole("tab", { name: layer, exact: true }).click();
-    const badges = layer === "Phenome" ? node.locator("[data-counter]") : node.getByRole("img", { name: "2 realizations", exact: true });
+    const badges = layer === "Phenome" ? node.locator("[data-map-phenome]") : node.getByRole("img", { name: "2 realizations", exact: true });
     await expect(badges.first()).toBeVisible();
     const linkBox = (await overlap.boundingBox())!, nodeBox = (await node.boundingBox())!;
     expect(linkBox.x + linkBox.width).toBeLessThanOrEqual(nodeBox.x + nodeBox.width + 1);

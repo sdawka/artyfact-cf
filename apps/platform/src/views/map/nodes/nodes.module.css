@@ -164,7 +164,7 @@
 /* Selection: outline plus the selection glow, and one surface step. */
 .node[data-selected], .group[data-selected] {
   outline: 2px solid var(--color-brand-primary);
-  outline-offset: -3px;
+  outline-offset: -5px;
   box-shadow: var(--shadow-glow-selection);
   background: var(--surface-raised);
 }

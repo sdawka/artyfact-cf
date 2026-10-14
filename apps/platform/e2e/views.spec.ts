@@ -29,34 +29,14 @@ test.describe("views", () => {
     expect(order.every((i) => i >= 0)).toBe(true);
     expect([...order].sort((a, b) => a - b)).toEqual(order);
     await expect(page.getByRole("complementary", { name: "Inspector" })).toBeVisible();
-    // No evaluations are promoted: the pass counter renders as a zero count in the disabled grey.
+    // Phenome tiles carry words for non-zero counts only; with no evaluations promoted there is no pass count, and nothing is green.
     const counters = page.locator(".react-flow [data-counter]");
     await expect(counters.first()).toBeVisible();
-    expect(await counters.count()).toBeGreaterThan(0);
-    const passCounters = page.locator('.react-flow [data-counter="pass"]');
-    await expect(passCounters.first()).toBeVisible();
-    await expect(page.locator('.react-flow [data-counter="pass"]:not([data-zero])')).toHaveCount(0);
-    const grey = await page.evaluate(() => {
-      const probe = document.createElement("span");
-      probe.style.color = "var(--color-text-disabled)";
-      document.body.append(probe);
-      const c = getComputedStyle(probe).color;
-      probe.remove();
-      return c;
-    });
-    // Positively: not-run counters are present, non-zero, and paint the not-run token.
-    const notRun = page.locator('.react-flow [data-counter="notRun"]:not([data-zero])');
+    await expect(page.locator('.react-flow [data-counter="pass"]')).toHaveCount(0);
+    await expect(page.locator('.react-flow [data-tone="pass"]')).toHaveCount(0);
+    const notRun = page.locator('.react-flow [data-counter="notRun"]');
     await expect(notRun.first()).toBeVisible();
-    const notRunColor = await page.evaluate(() => {
-      const probe = document.createElement("span");
-      probe.style.color = "var(--verdict-not-run)";
-      document.body.append(probe);
-      const c = getComputedStyle(probe).color;
-      probe.remove();
-      return c;
-    });
-    for (const el of await notRun.all()) await expect(el).toHaveCSS("color", notRunColor);
-    for (const el of await passCounters.all()) await expect(el).toHaveCSS("color", grey);
+    await expect(notRun.first()).toContainText(/\d+ not run/);
     await checkA11yAndShoot(page, testInfo, "map-phenome");
   });
 

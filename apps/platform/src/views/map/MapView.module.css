@@ -51,7 +51,7 @@
   .view { padding-inline: var(--spacing-4); }
   .overlay { width: 100%; margin: 0; order: -1; }
   .hint { display: none; }
-  .canvas { min-height: 60vh; }
+  .canvas { min-height: 280px; }
   .dock { right: var(--spacing-3); max-width: none; }
   .selection { width: 100%; }
   .selectedName { width: 100%; max-width: none; }
