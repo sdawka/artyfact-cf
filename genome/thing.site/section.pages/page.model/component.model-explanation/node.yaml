@@ -33,8 +33,20 @@ criteria:
     deferred: true
   - id: C.site.model.compelling-visual-presentation
     title: Compelling visual presentation
-    claim: The visual hierarchy and parallel views invite exploration while keeping the explanation readable and usable at desktop and mobile widths. Human visual review remains pending; layout checks alone do not establish that the presentation is compelling.
-    target: observation
+    claim: The visual hierarchy and parallel views invite exploration while keeping the explanation readable and usable at desktop and mobile widths. A visual check judges screenshots of /model at both widths; human visual review can still overrule it.
+    target: runtime
     severity: soft
-    gates: [outcome]
-    deferred: true
+    gates: [candidate]
+    hooks:
+      - id: hook.site.model.visual-presentation
+        assay: site.model.visual-presentation
+        tier: semantic
+        engine: browser
+        triggers: [candidate]
+        inputs:
+          judgment: visual
+          path: /model
+          viewports: desktop,mobile
+        timeoutMs: 60000
+        costTier: expensive
+        binding: bound

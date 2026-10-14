@@ -2,7 +2,7 @@ id: module.platform.hooks
 kind: module
 fields:
   name: Hook runner
-  description: Runs the assay hooks of affected criteria (manifest, diff, model rules, System One, http health) and consumes Artifacts push events.
+  description: Runs the assay hooks of affected criteria (manifest, diff, model rules, System One, http health, and visual checks that judge preview captures and agent screenshots with Clef) and consumes Artifacts push events.
   path: worker/hooks
 links:
   - { rel: dependsOn, to: module.model.validate }

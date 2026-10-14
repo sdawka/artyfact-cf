@@ -171,11 +171,13 @@ describe("the Artyfact self-Genome", () => {
     }
     expect(criteria[0]).toMatchObject({ target: "artifact", gates: ["candidate", "promotion"] });
     expect(criteria[0]!.hooks?.[0]).toMatchObject({ engine: "vitest", inputs: { command: "npm test -w @artyfact/site -- test/model-content.test.tsx test/public-model.test.tsx" } });
-    for (const c of criteria.slice(1)) {
-      expect(c).toMatchObject({ target: "observation", deferred: true, gates: ["outcome"] });
-      expect(c.hooks).toBeUndefined();
-      expect(c.claim).toContain("review remains pending");
-    }
+    expect(criteria[1]).toMatchObject({ target: "observation", deferred: true, gates: ["outcome"] });
+    expect(criteria[1]!.hooks).toBeUndefined();
+    expect(criteria[1]!.claim).toContain("review remains pending");
+    // Artyfact judges its own page visually: platform captures of /model at desktop and mobile, judged by Clef.
+    expect(criteria[2]).toMatchObject({ target: "runtime", severity: "soft", gates: ["candidate"] });
+    expect(criteria[2]!.deferred).toBeFalsy();
+    expect(criteria[2]!.hooks?.[0]).toMatchObject({ engine: "browser", triggers: ["candidate"], binding: "bound", inputs: { judgment: "visual", path: "/model", viewports: "desktop,mobile" } });
   });
 
   it("has one platform endpoint per route the Worker registers, and none it does not", () => {
