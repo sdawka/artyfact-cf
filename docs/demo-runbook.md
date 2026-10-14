@@ -312,8 +312,8 @@ conflict chip on each dependency.
 
 ## 7. Wave 1: claim and run the agents (about 10 s each)
 
-The wave board lists, per task, a claim line and an agent line. "Copy all" copies every claim first, then every agent
-in its own background subshell, so the wave's agents run side by side. By hand, per task, in terminal **ops**:
+The wave board lists, per task, a claim line and an agent line. "Copy all" chains each claim to its agent
+(`claim && { agent & }`), so a failed claim never starts its agent and the wave's agents run side by side. By hand, per task, in terminal **ops**:
 
 ```sh
 ARTYFACT_ADMIN_TOKEN=$ADMIN_TOKEN artyfact task claim $P t1 --system system.peopling --dir ./work/t1 --agent-label "claude:t1"
