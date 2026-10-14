@@ -69,7 +69,7 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   // The editor's "New evolution…" cannot list affected nodes, and a Genome candidate may only touch the directories of
   // the Evolution's affected nodes, so the Evolution comes from Work with section.runtime (where bindings live).
   // A Genome amendment: its default acceptance criteria are the model ones (app criteria would block the accept).
-  await createEvolution(page, title, `Add ${title} to the runtime.`, ["section.runtime"], ADMIN_TOKEN, BASE, "genome-amendment");
+  await createEvolution(page, title, `Add ${title} to the runtime.`, ["section.runtime"], ADMIN_TOKEN, BASE);
   await page.goto(`${BASE}/map?focus=section.runtime&inspect=1`);
   await page.getByRole("button", { name: "Open in Code" }).or(page.getByRole("link", { name: "Open in Code" })).first().click();
   await expect(page).toHaveURL(/\/code\?.*repo=genome/);
@@ -91,11 +91,9 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   await page.getByLabel("Admin token").fill(ADMIN_TOKEN);
   await page.getByRole("button", { name: "Commit", exact: true }).click();
 
-  await expect(page).toHaveURL(/\/work\?.*realization=/);
+  // The commit lands on Work's deep link to the realization, which Review (the decision desk) now answers.
+  await expect(page).toHaveURL(/\/review\?.*realization=/);
   const rid = new URL(page.url()).searchParams.get("realization")!;
-  const row = page.getByTestId(`realization-${rid}`);
-  await expect(row.locator("[data-status]").filter({ hasText: "awaiting-admin" })).toBeVisible();
-  // The commit lands on a deep link to the realization, which opens its review.
   await expect(page.getByRole("region", { name: `Review ${rid}` })).toBeVisible();
   // The review re-renders when its evaluations arrive, which can reset the selected tab: select Amendment until its form shows.
   const interpretation = page.getByRole("textbox", { name: "Accepted interpretation" });
@@ -113,26 +111,31 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   return rid;
 }
 
-/** Work "+ Evolution": fill the form and create it; the new card is selected afterwards. */
-export async function createEvolution(page: Page, title: string, intent: string, nodes: string[] = [], token = ADMIN_TOKEN, base = BASE, kind?: string): Promise<void> {
+/** The header's admin token lives in sessionStorage: seed it before the SPA boots (and now, when a page is open). */
+export async function setHeaderToken(page: Page, token = ADMIN_TOKEN): Promise<void> {
+  await page.addInitScript(([k, v]) => sessionStorage.setItem(k!, v!), ["artyfact.adminToken", token]);
+  if (page.url().startsWith("http")) await page.evaluate(([k, v]) => sessionStorage.setItem(k!, v!), ["artyfact.adminToken", token]);
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/** Work "+ Evolution" (a Genome Evolution): fill the form and create it with the header token; the new row is selected afterwards. */
+export async function createEvolution(page: Page, title: string, intent: string, nodes: string[] = [], token = ADMIN_TOKEN, base = BASE): Promise<void> {
+  await setHeaderToken(page, token);
   await page.goto(`${base}/work`);
   await expect(page.getByRole("heading", { level: 1, name: "Work" })).toBeVisible();
-  await page.getByRole("button", { name: "+ Evolution" }).click();
+  await page.getByRole("button", { name: "Evolution", exact: true }).click();
   await page.getByLabel("Title").fill(title);
   await page.getByLabel("Intent").fill(intent);
   for (const n of nodes) {
     await page.getByLabel("Affected nodes").fill(n);
     await page.getByRole("button", { name: "Add node" }).click();
   }
-  if (kind) {
-    await page.getByRole("combobox", { name: "Kind", exact: true }).click();
-    await page.getByRole("listbox").getByRole("option", { name: kind, exact: true }).click();
-  }
-  // An untouched list lets the server default the criteria, and hard ones gate Accept; these flows only edit the Genome, so send none.
+  // The System's defaults gate Accept with hard criteria; these flows only edit the Genome, so send none.
+  await page.getByText("Choose criteria").click();
   await page.getByRole("button", { name: "Clear" }).click();
-  await page.getByLabel("Admin token").fill(token);
   await page.getByRole("button", { name: "Create Evolution" }).click();
-  await expect(page.getByRole("heading", { level: 2, name: title })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2, name: new RegExp(`^${escapeRe(title)}`) })).toBeVisible();
 }
 
 /** Every System view renders at `base` (a `/s/<id>/r/head` path) with its heading, no console error and no uncaught exception. */

@@ -87,9 +87,11 @@ test.describe("the self-model @fake", () => {
       if ((await agree.getAttribute("aria-pressed")) === "false") await agree.click();
     }
     await page.getByRole("button", { name: "Accept agreed" }).click();
-    await expect(page).toHaveURL(/\/work\?.*realization=/);
-    const rid = new URL(page.url()).searchParams.get("realization")!;
-    await expect(page.getByRole("region", { name: `Review ${rid}` })).toBeVisible();
+    // Work selects the accepted Evolution; its attempt row names the realization (Review decides on it).
+    await expect(page).toHaveURL(/\/work\?.*evolution=/);
+    const attempt = page.locator('[data-testid^="realization-"]').first();
+    await expect(attempt).toBeVisible();
+    const rid = (await attempt.getAttribute("data-testid"))!.replace(/^realization-/, "");
 
     // Acceptance commits the exact Genome delta. Compare the snapshot captured before acceptance with that candidate.
     const { candidates } = await (await request.get(`/api/systems/${SYS}/candidates`)).json() as { candidates: { id: string; realization: string }[] };
