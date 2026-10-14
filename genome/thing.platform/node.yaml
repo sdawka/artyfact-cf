@@ -29,6 +29,14 @@ links:
   - { rel: exposes, to: endpoint.intents-decisions }
   - { rel: exposes, to: endpoint.import-review }
   - { rel: exposes, to: endpoint.import-review-accept }
+  - { rel: exposes, to: endpoint.integrity-preview }
+  - { rel: exposes, to: endpoint.integrity-runs-post }
+  - { rel: exposes, to: endpoint.integrity-runs }
+  - { rel: exposes, to: endpoint.integrity-run }
+  - { rel: exposes, to: endpoint.integrity-cancel }
+  - { rel: exposes, to: endpoint.integrity-agreement }
+  - { rel: exposes, to: endpoint.intents-revise }
+  - { rel: exposes, to: endpoint.intents-abandon }
 files:
   - e2e/**
   - playwright.config.ts

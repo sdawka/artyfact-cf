@@ -1,0 +1,9 @@
+id: J.author-intent/agree
+kind: step
+fields:
+  step: agree
+  actor: user
+  action: Records agreement or per-finding dispositions for the exact checked snapshot; a blocker requires repair and a rerun.
+  kind: end
+links:
+  - { rel: stepScreen, to: screen.review }

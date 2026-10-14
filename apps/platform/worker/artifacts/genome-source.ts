@@ -69,6 +69,9 @@ export async function walkTree(
 }
 
 const isYaml = (p: string) => /\.ya?ml$/.test(p);
+const INTENT_BRIEF = "intent/brief.md";
+const INTENT_MANIFEST = "intent/manifest.json";
+const isGenomeSource = (p: string) => isYaml(p) || p === INTENT_BRIEF || p === INTENT_MANIFEST;
 
 /** Where the Genome lives in a repo: root (`node.yaml`, or a legacy `system.yaml`) or `system/`. */
 export async function genomePrefix(repo: ArtifactsRepoLike, commit: string): Promise<string> {
@@ -97,6 +100,15 @@ export function assertGenomeSize(files: Map<string, string>, commit: string): vo
 export async function readGenomeFiles(repo: ArtifactsRepoLike, commit: string): Promise<Map<string, string>> {
   const files = await walkTree(repo, commit, await genomePrefix(repo, commit), isYaml);
   assertGenomeSize(files, commit);
+  return files;
+}
+
+/** Genome YAML plus the two allowlisted intent sidecars; no other repo content crosses this boundary. */
+export async function readGenomeSourceFiles(repo: ArtifactsRepoLike, commit: string): Promise<Map<string, string>> {
+  const files = await walkTree(repo, commit, await genomePrefix(repo, commit), isGenomeSource);
+  assertGenomeSize(new Map([...files].filter(([path]) => isYaml(path))), commit);
+  if (byteLength(files.get(INTENT_BRIEF) ?? "") > 64 * 1024) throw unprocessable("intent-too-large", "intent/brief.md exceeds 64 KiB");
+  if (byteLength(files.get(INTENT_MANIFEST) ?? "") > 128 * 1024) throw unprocessable("intent-too-large", "intent/manifest.json exceeds 128 KiB");
   return files;
 }
 

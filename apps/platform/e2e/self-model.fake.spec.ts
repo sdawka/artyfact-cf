@@ -68,7 +68,8 @@ test.describe("the self-model @fake", () => {
   test("an intent about the platform lands under thing.platform; Compare shows the change at that depth @fake", async ({ page, request }, testInfo) => {
     await page.addInitScript(([k, v]) => sessionStorage.setItem(k, v), ["artyfact.adminToken", ADMIN_TOKEN]);
     await page.goto(`${BASE}/work?panel=intent`);
-    const message = `add rate limiting to the intents endpoint ${Date.now().toString(36)}`;
+    // Name the canonical API node: the System also has an intent-authoring journey.
+    const message = `In thing.platform, add rate limiting to endpoint.intents-create, Describe a change (POST /api/systems/:id/intents) ${Date.now().toString(36)}`;
     await page.getByLabel("What should change?").fill(message);
     await page.getByRole("button", { name: "Propose changes" }).click();
     await expect(page.getByText("provider fake")).toBeVisible();

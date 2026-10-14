@@ -3,11 +3,11 @@
 
 ## Now
 
-- Released: all seven intention fixes merged in [PR #77](https://github.com/sdawka/artyfact-cf/pull/77) as `1ec3826de3bd3a24ff4ac7eddb061ae8f0c56888`, preserving individual fix commits. Platform version `39aba8f8-dd0d-4810-b6a6-5feb373fa6c0` and site version `a5b7ff36-c033-4420-b9c6-49ce6518b300` are deployed from that revision.
-- Verified: independent reviews, full local/pre-push and hosted CI pass. Post-merge site checks pass. Live authenticated API reads and 16 desktop/mobile route checks pass; app checks found no serious/critical accessibility violations, overflow, page errors or attempted writes. Evidence: [[journals/2026-10-14-intention-fixes]].
-- Next action: resume the deferred real-Artifacts lifecycle verification; fresh-account provisioning and production task submission/promotion remain unverified by this read-only release smoke.
-- Tracking: canonical Markdown remains authoritative. Remote GRREAT sync is pending missing credentials and a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
-- Last updated: 2026-10-14T11:53:48-04:00.
+- Implementing intent-to-ontology authoring, truthful integrity review and Artyfact's enriched System map under the [approved plan](../design/intent-integrity-plan.md), [PR #80](https://github.com/sdawka/artyfact-cf/pull/80).
+- Core, backend, recovery, CLI/UI and self-Genome slices are integrated. Independent review repairs and exact-current status metadata are integrated. The full clean gate passed at `92dd5f88`, and the final platform gate passed at `e6c472f0` (3,069 units, 100 fixture, 16 fake browser checks). User-approved real Jev controls caught a dangling reference and unsupported sharing; low-confidence clean results remain needs-review. Exact materialization and real Artifacts import preserved explicit test-operator agreement. The bounded self retry now completes real node checks, honestly needs-review after 200 calls (167 subjects); total live use is 214/500. Input-size hardening passed independent review. Hosted baseline `d3b78a60` passed; final retry/exhaustion budget corrections passed the local gate at `99cf1794` (3,072 units, 100 fixture and 16 fake browser tests); exact-head hosted verification is pending, with real partial-report agreement now verified.
+- Next: finish exact-head local/hosted gates, then deploy and import the self-Genome into production and verify its map. [Evidence](journals/2026-10-14-intent-integrity-implementation.md).
+- GRREAT validation passes; RPC preview applied 0 records. Remote sync remains pending a confirmed separate Artyfact destination; preserve the wrong-project conflict.
+- Last updated: 2026-10-14T18:04:30-04:00.
 
 ## Spike baseline
 

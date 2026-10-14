@@ -1,0 +1,14 @@
+id: J.author-intent
+kind: journey
+fields:
+  name: Author and agree an intent
+  actorGoal: Describe a new System or amendment with a local agent, clarify material uncertainty, inspect the resulting Genome and integrity evidence, then agree the exact snapshot
+  features:
+    - feature.intent-integrity
+  start: describe
+  segments:
+    - { name: State and clarify intent, steps: [describe, clarify] }
+    - { name: Inspect and check, steps: [inspect, check] }
+    - { name: Agree the snapshot, steps: [agree] }
+links:
+  - { rel: serves, to: feature.intent-integrity }

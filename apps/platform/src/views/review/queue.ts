@@ -1,5 +1,6 @@
 import type { Candidate, ConflictReport, Evolution, Realization, SystemCommit, SystemSummary } from "../../../shared/api";
 import type { RealizationPlan, Task } from "../../../shared/lifecycle";
+import type { IntegrityRun } from "../../../shared/integrity";
 import { conflictsOf, mergeConflicts } from "../work/lib";
 import { headOf } from "../work/gates";
 
@@ -11,7 +12,7 @@ import { headOf } from "../work/gates";
  * - `promotion`: an Evolution with an evaluated candidate on the current head, ready for the promotion desk;
  * - `import`: the System's import review is pending (the imported Genome awaits an admin's agreement; work is refused until then).
  */
-export type QueueKind = "candidate" | "stale" | "amendment" | "promotion" | "import" | "task-selection" | "plan-promotion";
+export type QueueKind = "candidate" | "stale" | "amendment" | "promotion" | "import" | "integrity" | "task-selection" | "plan-promotion";
 
 /** The import row's group: not an Evolution, so its `evolution` is empty (the Work board's signals skip it). */
 export const IMPORT_GROUP = "";
@@ -31,6 +32,7 @@ export interface QueueRow {
   behind?: number | null;
   /** `import` rows: the reviewed Genome commit and its node count. */
   importReview?: { genomeCommit: string; nodes: number };
+  integrity?: IntegrityRun;
 }
 
 export interface QueueGroup {
@@ -50,6 +52,7 @@ export interface QueueInput {
   conflicts?: readonly ConflictReport[] | undefined;
   /** The System's import review (`SystemSummary.importReview`); a pending one is a row of its own, first. */
   importReview?: SystemSummary["importReview"];
+  integrityRuns?: readonly IntegrityRun[];
 }
 
 /** Realization statuses that mean "a candidate is open" (the DO's `pending` set). */
@@ -73,7 +76,7 @@ export function behindBy(base: string | null | undefined, head: string | null, c
 }
 
 /** Rank within a group: what blocks others first (amendments, an import), then candidates, then the promotion row. */
-const RANK: Record<QueueKind, number> = { import: 0, amendment: 0, stale: 1, candidate: 1, promotion: 2, "task-selection": 1, "plan-promotion": 2 };
+const RANK: Record<QueueKind, number> = { import: 0, integrity: 0, amendment: 0, stale: 1, candidate: 1, promotion: 2, "task-selection": 1, "plan-promotion": 2 };
 
 /** "Import · 12 nodes": the import row's label. */
 export const importLabel = (nodes: number) => `Import · ${nodes} node${nodes === 1 ? "" : "s"}`;
@@ -83,7 +86,7 @@ export const importLabel = (nodes: number) => `Import · ${nodes} node${nodes ==
  * promotion row. A pending import review is its own group ("Import") before every Evolution: until it is accepted the
  * platform refuses new work.
  */
-export function reviewQueue({ evolutions, realizations, commits, candidates = [], conflicts, importReview, plans = [] }: QueueInput): QueueGroup[] {
+export function reviewQueue({ evolutions, realizations, commits, candidates = [], conflicts, importReview, plans = [], integrityRuns = [] }: QueueInput): QueueGroup[] {
   const head = headOf(commits);
   const allConflicts = mergeConflicts(conflicts);
   const candidateFor = (r: Realization) => candidates.find((c) => c.realization === r.id || (r.candidate !== undefined && c.id === r.candidate));
@@ -133,10 +136,12 @@ export function reviewQueue({ evolutions, realizations, commits, candidates = []
       : plan.tasks.filter(t=>t.status === "submitted").map(task=>({key:`task-selection:${plan.id}:${task.id}`,kind:"task-selection",evolution:"",plan,task,conflicts:[]}));
     if(rows.length) out.push({evolution:"",planId:plan.id,title:plan.title,rows});
   }
-  if (importReview?.status !== "pending") return out;
+  const integrityRows = integrityRuns.filter(run => run.state === "queued" || run.state === "running" || (run.state === "completed" && !run.agreement)).map(run => ({ key:`integrity:${run.id}`,kind:"integrity" as const,evolution:IMPORT_GROUP,conflicts:[],integrity:run }));
+  const integrityGroup = integrityRows.length ? [{ evolution: IMPORT_GROUP, title: "Integrity", rows: integrityRows }] : [];
+  if (importReview?.status !== "pending") return [...integrityGroup, ...out];
   const { genomeCommit, nodes } = importReview;
   const row: QueueRow = { key: `import:${genomeCommit}`, kind: "import", evolution: IMPORT_GROUP, conflicts: [], importReview: { genomeCommit, nodes } };
-  return [{ evolution: IMPORT_GROUP, title: "Import", rows: [row] }, ...out];
+  return [{ evolution: IMPORT_GROUP, title: "Import", rows: [row] }, ...integrityGroup, ...out];
 }
 
 /**

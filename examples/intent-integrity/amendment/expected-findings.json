@@ -1,0 +1,12 @@
+{
+  "expectedStatus": "needs-review",
+  "findings": [
+    {
+      "id": "intent.source-unavailable",
+      "section": "semantic",
+      "severity": "needs-review",
+      "subject": "feature.return-reminder",
+      "reason": "The amended System has no source or runtime evidence, so implementation claims remain unknown."
+    }
+  ]
+}

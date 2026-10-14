@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "nodeId": "system.tool-library",
+      "briefSections": ["purpose", "boundaries", "acceptance"],
+      "documents": []
+    },
+    {
+      "nodeId": "operation.request-tool",
+      "briefSections": ["acceptance"],
+      "documents": []
+    }
+  ]
+}

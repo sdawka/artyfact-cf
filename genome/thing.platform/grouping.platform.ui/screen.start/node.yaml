@@ -1,0 +1,14 @@
+id: screen.start
+kind: screen
+fields:
+  name: Start a System
+  description: Creates a System, offers a copyable local-agent handoff, previews native packages, and starts an integrity review for exact source-free Genome files.
+  route: /start
+  states:
+    - loading
+    - local-agent handoff
+    - integrity check ready
+    - integrity review
+    - error
+links:
+  - { rel: serves, to: feature.intent-integrity }

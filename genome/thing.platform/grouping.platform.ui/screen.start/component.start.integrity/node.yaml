@@ -1,0 +1,12 @@
+id: component.start.integrity
+kind: component
+fields:
+  name: Proposed Genome integrity check
+  description: Accepts exact native Genome files and intent sidecars, creates a review snapshot and starts an automated integrity check. A source-free System is allowed and runtime evidence remains unverified.
+  states:
+    - ready
+    - previewing
+    - queued
+    - error
+links:
+  - { rel: references, to: component.review.integrity }

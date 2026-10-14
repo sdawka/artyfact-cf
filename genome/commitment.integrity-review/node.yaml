@@ -1,0 +1,9 @@
+id: commitment.integrity-review
+kind: commitment
+fields:
+  statement: An integrity report records the exact Genome, intent and template closure it checked; an automated passed result does not itself establish user agreement, and unresolved findings need an explicit human disposition.
+  features:
+    - feature.intent-integrity
+links:
+  - { rel: governs, to: J.author-intent/check }
+  - { rel: governs, to: J.author-intent/agree }

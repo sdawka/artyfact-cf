@@ -102,6 +102,12 @@ it('keeps independent Task attempts out of the legacy Evolution decision queue',
  expect(reviewQueue({evolutions,realizations:[realization({id:'realization.task',evolution:'',status:'evaluated',candidate:'candidate.task'})]})).toEqual([]);
 });
 
+it("keeps active and completed-unagreed integrity runs in the one Review inbox", () => {
+ const run = (id:string,state:"queued"|"completed", agreement?: unknown) => ({id,systemId:"system.peopling",snapshotId:"snapshot",snapshotHash:"sha256:s",provider:"off",requestedCalls:1,attempt:1,state,createdAt:"",updatedAt:"",reviewUrl:"/start", ...(state === "completed" ? {report:{status:"needs-review"}} : {}), ...(agreement ? {agreement} : {})}) as any;
+ const groups=reviewQueue({evolutions,realizations:[],integrityRuns:[run("run.queued","queued"),run("run.pending","completed"),run("run.done","completed",{status:"accepted"})]});
+ expect(groups).toHaveLength(1);expect(groups[0]!.title).toBe("Integrity");expect(groups[0]!.rows.map(r=>r.integrity?.id)).toEqual(["run.queued","run.pending"]);
+});
+
 it("counts import, legacy, submitted Task and integrated plan once each", () => {
  const submitted=makePlan({tasks:[task("t1",{status:"submitted",attempts:[attempt({id:"a1"}),attempt({id:"a2"})]}),task("t2",{status:"selected"}),task("t3",{status:"completed"})]});
  const integrated=makePlan({id:"integrated",status:"integrated",tasks:[]});

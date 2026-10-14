@@ -2,7 +2,7 @@ id: screen.review
 kind: screen
 fields:
   name: Review
-  description: "The operator's inbox for pending imports, Genome amendments, legacy candidate decisions, Task result selection, and integrated implementation promotion. Task decisions show exact candidate manifests, pinned source/base lineage, changed-file diffs, and recorded evaluations. Execution and planning remain in Work."
+  description: "The operator's inbox for pending imports, integrity reports and agreements, Genome amendments, legacy candidate decisions, Task result selection, and integrated implementation promotion. Task decisions show exact candidate manifests, pinned source/base lineage, changed-file diffs, and recorded evaluations. Execution and planning remain in Work."
   route: /s/:systemId/r/:rev/review
   states:
     - loading
@@ -10,6 +10,7 @@ fields:
     - empty
     - error
     - fake provider
+    - integrity agreement pending
 links:
   - rel: serves
     to: feature.promotion-gate

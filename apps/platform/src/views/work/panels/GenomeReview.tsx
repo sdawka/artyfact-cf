@@ -64,6 +64,7 @@ function ImportReviewPanel({ review }: { review: SystemImportReview }) {
       : null;
   const decisions = useMemo(() => importDecisions(plan), [plan]);
   const titles = useMemo(() => new Map(walk(plan).map((n) => [n.id, n.title])), [plan]);
+  const integrityUnreviewed = (review as SystemImportReview & { integrityUnreviewed?: { reason: string; at: string } }).integrityUnreviewed;
 
   return (
     <article className={styles.panel} aria-label="Import review">
@@ -79,6 +80,7 @@ function ImportReviewPanel({ review }: { review: SystemImportReview }) {
           removes the rejected nodes in the same step, as an accepted Genome amendment. New Evolutions, plans and intents
           wait until this review is accepted.
         </p>
+        {integrityUnreviewed && <p role="note" className={styles.muted}>Integrity remains unreviewed: {integrityUnreviewed.reason}. Recorded {integrityUnreviewed.at}.</p>}
       </header>
 
       <Section title="Imported Genome">

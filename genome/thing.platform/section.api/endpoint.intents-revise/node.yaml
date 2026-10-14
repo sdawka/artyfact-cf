@@ -1,0 +1,8 @@
+id: endpoint.intents-revise
+kind: endpoint
+fields:
+  name: Revise a staged proposal
+  description: Revises a gate-refused staged proposal while preserving its earlier attempt history.
+  route: POST /api/systems/:id/intents/:pid/revise
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  response: Proposal

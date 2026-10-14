@@ -7,6 +7,7 @@
 import { loadGenome, validate, type Readiness, type SystemModel } from "@artyfact/model";
 import { applyOps, parseTree, type NodeCriterion, type TemplateStore, type TreeOp } from "@artyfact/ontology";
 import type { ProposalPlanNode, ProposedOp, SystemImportReview, SystemImportReviewAccept, SystemImportReviewAcceptResponse } from "../shared/api";
+import type { IntegrityReviewBinding } from "../shared/integrity";
 import { artifactsFor, withRepo } from "./artifacts/client";
 import { listTree, type LoadedGenome } from "./artifacts/genome-source";
 import { nodesForPath, sourceMapFor } from "./artifacts/source-map";
@@ -82,14 +83,20 @@ function capUnmapped(all: string[]): { unmapped: string[]; unmappedTotal: number
  */
 export async function recordImportReview(env: Env, systemId: string, input: {
   review: unknown; head: string | null | undefined; priorHead: string | null | undefined; genome: LoadedGenome; genomeCommit: string;
+  integrity?: IntegrityReviewBinding;
+  integrityUnreviewed?: NonNullable<SystemImportReview["integrityUnreviewed"]>;
 }): Promise<void> {
   const stub = systemStub(env, systemId);
-  if (input.review === false) {
+  if (input.review === false && !input.integrityUnreviewed) {
     if ((await stub.importReview())?.status === "pending") await stub.setImportReview(null);
     return;
   }
-  if (!input.head || input.head === input.priorHead) return;
-  await stub.setImportReview(await buildImportReview(env, await headState(env, systemId), input.genome, { status: "pending", genomeCommit: input.genomeCommit }));
+  if (!input.head || (input.head === input.priorHead && !input.integrityUnreviewed)) return;
+  const review = await buildImportReview(env, await headState(env, systemId), input.genome, { status: "pending", genomeCommit: input.genomeCommit });
+  await stub.setImportReview({
+    ...review, ...(input.integrity && { integrity: input.integrity }),
+    ...(input.integrityUnreviewed && { integrityUnreviewed: input.integrityUnreviewed }),
+  });
 }
 
 /**
