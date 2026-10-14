@@ -1,5 +1,5 @@
 /* Effect tokens: a site-owned snapshot of apps/platform/src/theme/effects.css (same names and values).
-   Load after whimsy.css. Glow marks calls to action and the workflow steps; haze sits behind content, never dense text. */
+   Load after whimsy.css. Glow marks calls to action and the practice cards; haze sits behind content, never dense text. */
 
 :root {
   --glow-accent: oklch(0.79 0.125 60 / 0.42);

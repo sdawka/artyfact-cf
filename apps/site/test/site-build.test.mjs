@@ -81,33 +81,32 @@ test('effects stay off the critical path and out of the static markup', async ()
   const html = await readFile(resolve(dist, 'index.html'), 'utf8');
   const document = new JSDOM(html).window.document;
   assert(!document.querySelector('[data-hero-orb]'));
-  assert(document.querySelector('[data-landing-story] [data-system-view="genome"]'));
-  assert.equal(document.querySelectorAll('[data-story-step]').length, 3);
+  assert(document.querySelector('[data-landing-story] .checkout-story[data-step="0"]'));
+  assert.equal(document.querySelectorAll('[data-checkout-step]').length, 7);
   assert(document.querySelector('[data-ambient]')?.children.length === 0);
-  assert(/Three views of the same System/.test(document.querySelector('.landing-story-instruction')?.textContent ?? ''));
   assert(!document.querySelector('canvas'));
   assert.equal(document.querySelectorAll('script').length, 1);
   assert(!/effects-|engine-|modulepreload/.test(html), 'effects must load after hydration, not from the page head');
 });
 
-test('the initial stylesheet includes the meaningful System scene before hydration', async () => {
+test('the initial stylesheet includes the checkout scene before hydration', async () => {
   const document = new JSDOM(await readFile(resolve(dist, 'index.html'), 'utf8')).window.document;
   const css = await Promise.all([...document.querySelectorAll('link[rel="stylesheet"]')].map(link => readFile(resolve(dist, '.' + link.getAttribute('href')), 'utf8')));
-  assert(css.some(text => text.includes('.scene-system') && text.includes('.scene-application')), 'Meaningful scene styles must be in initial CSS, not a lazy hydration chunk');
+  assert(css.some(text => text.includes('.checkout-scene') && text.includes('.practice-card')), 'Home styles must be in initial CSS, not a lazy hydration chunk');
 });
 
-test('homepage starts with quiet declared shapes and preserves the approved hero copy', async () => {
+test('homepage leads with the approved headline and readable struck-through practices', async () => {
   const document = new JSDOM(await readFile(resolve(dist, 'index.html'), 'utf8')).window.document;
-  assert.equal(document.querySelector('h1').textContent.replace(/\s+/g, ' ').trim(), 'Make Meaningful Systems');
-  assert.equal(document.querySelector('.cloudflare-line').textContent, '(on Cloudflare)');
-  assert(document.title.endsWith('Make Meaningful Systems'));
-  assert(document.body.textContent.includes('Bring an ontology or build one with your agent. Connect intention to files and folders, agree on what changes, and coordinate the work around the same System.'));
-  const app = document.querySelector('.scene-application');
-  assert(app && !app.querySelector('input, button.scene-save'));
-  assert.equal(document.querySelector('.scene-save-chart')?.getAttribute('aria-hidden'), 'true');
-  assert(!document.querySelector('[data-demo-pointer], [data-scene-confetti]'));
-  assert.equal(document.querySelector('.scene-realized-app')?.getAttribute('aria-hidden'), 'true');
-  assert(document.body.textContent.includes('Turn ideas into meaningful systems.'));
-  assert(document.querySelector('.scene-name-slot')?.textContent.includes('System name'));
-  assert(!document.querySelector('button button'), 'Inspection and demo controls must never be nested');
+  assert.equal(document.querySelector('h1').textContent, 'The next Git platform keeps track of the product, not just the files.');
+  assert(document.body.textContent.includes('A Git platform for teams of AI agents, on Cloudflare.'));
+  const struck = [...document.querySelectorAll('.practice-card s')].map(s => s.textContent);
+  assert(struck.length >= 20 && struck.includes('merge conflicts') && !/task packet|meta-ontology|provenance/i.test(document.querySelector('main').textContent) && struck.includes('spec.md and spec-driven development'));
+  assert(!/A\/B|cohort|\bSLOs?\b|incident/i.test(document.querySelector('.practice-stack').textContent));
+  assert(document.querySelector('.checkout-step-buttons')?.hasAttribute('hidden'), 'Step buttons stay hidden until hydration');
+  assert(document.body.textContent.includes('Not measured yet'));
+  assert(document.body.textContent.includes('Overlap on Place order. 1 rule failing.'));
+  assert.equal(document.querySelector('#environment-heading')?.textContent, 'Give your coding agents the environment to thrive.');
+  assert.equal(document.querySelectorAll('.environment-columns article').length, 3);
+  assert(/All seven example steps are readable/.test(document.querySelector('noscript')?.textContent ?? ''));
+  assert(!document.querySelector('button button'));
 });

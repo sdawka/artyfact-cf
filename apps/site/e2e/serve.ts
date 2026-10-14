@@ -17,8 +17,8 @@ export async function serveDist(page: Page) {
   });
 }
 
-/** Reach the first narrative before operating chrome deliberately hidden in the opening. */
+/** Bring the checkout example into view and wait for hydration. */
 export async function revealStory(page: Page) {
-  await page.evaluate(() => { const step = document.querySelector('[data-story-step="genome"]'); if (step) window.scrollTo({ top: scrollY + step.getBoundingClientRect().top - innerHeight * .25, behavior: 'instant' }); });
-  await page.getByRole('tab', { name: /Genome/ }).click();
+  await page.locator('#home-system-story').scrollIntoViewIfNeeded();
+  await page.locator('.checkout-story[data-enhanced="true"]').waitFor();
 }

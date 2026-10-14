@@ -2,156 +2,82 @@ import React, { useRef, useState } from 'react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { useLandingScroll } from '../src/useLandingScroll';
-import type { LandingView } from '../src/landingSystemData';
 
-let sceneHeight = 500;
+let wide = true, stageHeight = 600, reduced = false;
+const scrolled = vi.fn();
 let positions = [1000, 1500, 2000];
-let reduced = false;
-let keyboardMode = false;
 const mediaListeners = new Set<() => void>();
-const box = (top: number, height = 250) => ({ top, bottom: top + height, height, width: 600, left: 0, right: 600, x: 0, y: top, toJSON: () => ({}) });
+const box = (top: number) => ({ top, bottom: top + 200, height: 200, width: 600, left: 0, right: 600, x: 0, y: top, toJSON: () => ({}) });
 function Harness() {
-  const scene = useRef<HTMLDivElement>(null), controls = useRef<HTMLDivElement>(null);
-  const [view, setView] = useState<LandingView>('genome');
-  const { pinned, manual, chooseView } = useLandingScroll(scene, controls, setView);
-  return <section id="home-system-story"><div ref={scene} data-test-scene="" data-pinned={String(pinned)}><div className="landing-sticky-stage"><div ref={controls}>
-    {(['genome', 'proteome', 'phenome'] as const).map(item => <button key={item} onClick={() => chooseView(item)}>{item}</button>)}
-  </div><button className="scene-save">Save record</button><output>{view}:{String(manual)}</output></div></div>
-    {(['genome', 'proteome', 'phenome'] as const).map(item => <article key={item} data-story-step={item} />)}
-    <button className="scene-demo-control">Outside controls</button>
-  </section>;
+  const root = useRef<HTMLDivElement>(null);
+  const [step, setStep] = useState(0);
+  const { enhanced, following, chooseStep } = useLandingScroll(root, setStep);
+  return <div ref={root} data-enhanced={String(enhanced)} data-following={String(following)}>
+    {[0, 1, 2].map(index => <button key={index} onClick={() => chooseStep(index)}>step {index}</button>)}
+    <div className="checkout-stage" /><output>{step}</output>
+    {[0, 1, 2].map(index => <article key={index} data-checkout-step={index} />)}
+  </div>;
 }
 const flush = () => act(() => { vi.runOnlyPendingTimers(); });
+const shown = () => screen.getByRole('status').textContent;
 beforeEach(() => {
-  vi.useFakeTimers(); sceneHeight = 500; positions = [1000, 1500, 2000]; reduced = false; keyboardMode = false;
-  const nativeMatches = HTMLElement.prototype.matches;
-  vi.spyOn(HTMLElement.prototype, 'matches').mockImplementation(function (this: HTMLElement, selector: string) { return selector === ':focus-visible' ? keyboardMode : nativeMatches.call(this, selector); });
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 });
+  vi.useFakeTimers(); wide = true; stageHeight = 600; reduced = false; positions = [1000, 1500, 2000]; scrolled.mockReset();
+  HTMLElement.prototype.scrollIntoView = scrolled;
   Object.defineProperty(window, 'innerHeight', { configurable: true, value: 900 });
   vi.stubGlobal('requestAnimationFrame', (callback: FrameRequestCallback) => setTimeout(() => callback(0), 0));
   vi.stubGlobal('cancelAnimationFrame', (handle: number) => clearTimeout(handle));
-  vi.stubGlobal('matchMedia', () => ({ get matches() { return reduced; }, addEventListener: (_: string, fn: () => void) => mediaListeners.add(fn), removeEventListener: (_: string, fn: () => void) => mediaListeners.delete(fn) }));
+  vi.stubGlobal('matchMedia', (query: string) => ({ get matches() { return query.includes('reduced-motion') ? reduced : wide; }, addEventListener: (_: string, fn: () => void) => mediaListeners.add(fn), removeEventListener: (_: string, fn: () => void) => mediaListeners.delete(fn) }));
   vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(function (this: HTMLElement) {
-    if (this.hasAttribute('data-test-scene') || this.classList.contains('landing-sticky-stage')) return box(24, sceneHeight);
-    const index = ['genome', 'proteome', 'phenome'].indexOf(this.dataset.storyStep ?? '');
-    return box(index >= 0 ? positions[index] : 0);
+    if (this.classList.contains('checkout-stage')) return { ...box(24), height: stageHeight, bottom: 24 + stageHeight };
+    return box(this.dataset.checkoutStep === undefined ? 0 : positions[Number(this.dataset.checkoutStep)]);
   });
 });
 afterEach(() => { cleanup(); mediaListeners.clear(); vi.restoreAllMocks(); vi.unstubAllGlobals(); vi.useRealTimers(); });
-it('follows narrative panels and keeps manual choice until a different panel', () => {
-  render(<Harness />);
-  fireEvent.click(screen.getByRole('button', { hidden: true, name: 'phenome' }));
-  expect(screen.getByText('phenome:true')).toBeTruthy();
-  positions = [200, 700, 1200]; fireEvent.scroll(window); flush();
-  expect(screen.getByText('phenome:true')).toBeTruthy();
-  positions = [-400, 200, 700]; fireEvent.scroll(window); flush();
-  expect(screen.getByText('proteome:false')).toBeTruthy();
-});
-it('suspends automatic selection while the controls retain keyboard focus', () => {
-  render(<Harness />);
-  keyboardMode = true;
-  screen.getByRole('button', { hidden: true, name: 'genome' }).focus();
-  positions = [-400, 200, 700]; fireEvent.scroll(window); flush();
-  expect(screen.getByText('genome:false')).toBeTruthy();
-  screen.getByRole('button', { hidden: true, name: 'Outside controls' }).focus(); flush();
-  expect(screen.getByText('proteome:false')).toBeTruthy();
-});
-it('uses normal flow for short mobile viewports and reduced motion while keeping controls', () => {
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
-  Object.defineProperty(window, 'innerHeight', { configurable: true, value: 667 });
+
+it('marks the story enhanced and follows the step nearest the reading line', () => {
   const { container } = render(<Harness />);
-  expect(container.querySelector('[data-pinned]')?.getAttribute('data-pinned')).toBe('false');
-  positions = [-400, 100, 200]; fireEvent.scroll(window); flush();
-  expect(screen.getByText('genome:false')).toBeTruthy();
-  fireEvent.click(screen.getByRole('button', { hidden: true, name: 'phenome' }));
-  expect(screen.getByText('phenome:true')).toBeTruthy();
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: 1440 });
-  reduced = true; act(() => { for (const listener of mediaListeners) listener(); }); flush();
-  expect(container.querySelector('[data-pinned]')?.getAttribute('data-pinned')).toBe('false');
+  expect(container.firstElementChild?.getAttribute('data-enhanced')).toBe('true');
+  expect(container.firstElementChild?.getAttribute('data-following')).toBe('true');
+  positions = [-400, 200, 700]; fireEvent.scroll(window); flush();
+  expect(shown()).toBe('1');
+  positions = [-1000, -500, 300]; fireEvent.scroll(window); flush();
+  expect(shown()).toBe('2');
+  positions = [0, 600, 1100]; fireEvent.scroll(window); flush();
+  expect(shown()).toBe('0');
 });
-it('pins only when measured geometry leaves room and releases queued work on unmount', () => {
-  Object.defineProperty(window, 'innerWidth', { configurable: true, value: 390 });
-  Object.defineProperty(window, 'innerHeight', { configurable: true, value: 568 });
+it('scrolls a chosen step into view and holds it until the reader arrives', () => {
+  render(<Harness />);
+  fireEvent.click(screen.getByRole('button', { name: 'step 2' }));
+  expect(shown()).toBe('2');
+  expect(scrolled).toHaveBeenCalledWith({ block: 'center', behavior: 'smooth' });
+  positions = [-400, 200, 700]; fireEvent.scroll(window); flush();
+  expect(shown()).toBe('2');
+  positions = [-1000, -500, 300]; fireEvent.scroll(window); flush();
+  positions = [-400, 200, 700]; fireEvent.scroll(window); flush();
+  expect(shown()).toBe('1');
+  reduced = true; fireEvent.click(screen.getByRole('button', { name: 'step 0' }));
+  expect(scrolled).toHaveBeenLastCalledWith({ block: 'center', behavior: 'auto' });
+});
+it('does not follow scrolling when the stage is taller than the viewport', () => {
+  stageHeight = 880;
+  const { container } = render(<Harness />);
+  expect(container.firstElementChild?.getAttribute('data-following')).toBe('false');
+  positions = [-1000, -500, 300]; fireEvent.scroll(window); flush();
+  expect(shown()).toBe('0');
+  fireEvent.click(screen.getByRole('button', { name: 'step 1' }));
+  expect(scrolled).not.toHaveBeenCalled();
+});
+it('leaves narrow screens to the buttons and releases listeners on unmount', () => {
+  wide = false;
   const { container, unmount } = render(<Harness />);
-  expect(container.querySelector('[data-pinned]')?.getAttribute('data-pinned')).toBe('false');
-  sceneHeight = 350; fireEvent.resize(window); flush();
-  expect(container.querySelector('[data-pinned]')?.getAttribute('data-pinned')).toBe('true');
+  expect(container.firstElementChild?.getAttribute('data-following')).toBe('false');
+  positions = [-1000, -500, 300]; fireEvent.scroll(window); flush();
+  expect(shown()).toBe('0');
+  fireEvent.click(screen.getByRole('button', { name: 'step 1' }));
+  expect(shown()).toBe('1');
+  wide = true; act(() => { for (const listener of mediaListeners) listener(); }); flush();
+  expect(shown()).toBe('2');
   fireEvent.scroll(window); unmount();
   expect(vi.getTimerCount()).toBe(0);
   expect(mediaListeners.size).toBe(0);
-});
-
-it('keeps a keyboard-focused demo control visible while scrolling and resumes after it leaves the story', () => {
-  render(<Harness />);
-  fireEvent.click(screen.getByRole('button', { hidden: true, name: 'phenome' }));
-  positions = [-1000, -500, 200]; fireEvent.scroll(window); flush();
-  keyboardMode = true; act(() => screen.getByRole('button', { hidden: true, name: 'Save record' }).focus());
-  positions = [-400, 200, 700]; fireEvent.scroll(window); flush();
-  expect(screen.getByText('phenome:false')).toBeTruthy();
-  act(() => screen.getByRole('button', { hidden: true, name: 'Outside controls' }).focus()); flush();
-  expect(screen.getByText('proteome:false')).toBeTruthy();
-});
-
-it('finishes a chapter after scrolling stops and holds its endpoint', () => {
-  const { container } = render(<Harness />); const root = container.querySelector('[data-test-scene]') as HTMLElement;
-  positions = [-400,200,700]; fireEvent.scroll(window); flush();
-  act(() => vi.advanceTimersByTime(900));
-  expect(screen.getByText('proteome:false')).toBeTruthy();
-  expect(root.style.getPropertyValue('--realization-progress')).toBe('1');
-  positions = [-390,210,710]; fireEvent.scroll(window); flush();
-  expect(root.style.getPropertyValue('--realization-progress')).toBe('1');
-});
-it('uses a backward spatial threshold and retargets rapidly without queued chapters', () => {
-  render(<Harness />); positions = [-400,200,700]; fireEvent.scroll(window); flush();
-  positions = [0,475,975]; fireEvent.scroll(window); flush();
-  expect(screen.getByText('proteome:false')).toBeTruthy();
-  positions = [0,530,1030]; fireEvent.scroll(window); flush();
-  expect(screen.getByText('genome:false')).toBeTruthy();
-  positions = [-1000,-500,200]; fireEvent.scroll(window); flush();
-  expect(screen.getByText('phenome:false')).toBeTruthy();
-});
-it('settles the same focused view when reduced motion changes at a scrub midpoint', () => {
-  const { container } = render(<Harness />); const root = container.querySelector('[data-test-scene]') as HTMLElement;
-  positions = [-350,650,1650]; fireEvent.scroll(window); flush();
-  keyboardMode = true; act(() => screen.getByRole('button', { hidden: true, name: 'genome' }).focus());
-  reduced = true; act(() => { for (const listener of mediaListeners) listener(); }); flush();
-  expect(root.style.getPropertyValue('--opening-progress')).toBe('1');
-  expect(root.style.getPropertyValue('--realization-progress')).toBe('0');
-});
-
-it.each(['wheel', 'touchmove'])('protects pointer demo focus from assisted scrolling, then rejoins on %s', (gesture) => {
-  render(<Harness />); fireEvent.click(screen.getByRole('button', { hidden:true, name:'phenome' }));
-  act(() => screen.getByRole('button', { name:'Save record' }).focus());
-  positions=[-400,200,700]; fireEvent.scroll(window); flush();
-  expect(screen.getByText('phenome:true')).toBeTruthy();
-  fireEvent(window,new Event(gesture)); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
-});
-it('rejoins after pointer demo focus leaves and preserves the stronger keyboard lock', () => {
-  render(<Harness />); fireEvent.click(screen.getByRole('button', { hidden:true,name:'phenome' }));
-  act(() => screen.getByRole('button', { name:'Save record' }).focus());
-  positions=[-400,200,700]; fireEvent.scroll(window); flush(); expect(screen.getByText('phenome:true')).toBeTruthy();
-  keyboardMode=true; fireEvent.wheel(window); flush(); expect(screen.getByText('phenome:true')).toBeTruthy();
-  act(() => screen.getByRole('button', {name:'Outside controls'}).focus()); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
-});
-
-it('releases pointer protection even when an outside focus target has a demo-like class', () => {
-  render(<Harness />); fireEvent.click(screen.getByRole('button',{hidden:true,name:'phenome'}));
-  act(() => screen.getByRole('button',{name:'Save record'}).focus()); positions=[-400,200,700]; fireEvent.scroll(window); flush();
-  act(() => screen.getByRole('button',{name:'Outside controls'}).focus()); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
-});
-it('does not latch protection for a non-primary pointer without demo focus', () => {
-  render(<Harness />); fireEvent.click(screen.getByRole('button',{hidden:true,name:'phenome'}));
-  act(() => screen.getByRole('button',{name:'Outside controls'}).focus());
-  fireEvent.pointerDown(screen.getByRole('button',{name:'Save record'}),{button:2,isPrimary:false});
-  positions=[-400,200,700]; fireEvent.scroll(window); flush(); expect(screen.getByText('proteome:false')).toBeTruthy();
-});
-
-it('cancels a forward destination when reversing before its first visible frame', () => {
-  const { container } = render(<Harness />); const root = container.querySelector('[data-test-scene]') as HTMLElement;
-  fireEvent.click(screen.getByRole('button',{hidden:true,name:'genome'}));
-  positions=[-400,200,700]; fireEvent.scroll(window); flush();
-  positions=[0,600,1100]; fireEvent.scroll(window); flush();
-  act(() => vi.advanceTimersByTime(900));
-  expect(screen.getByText('genome:false')).toBeTruthy();
-  expect(root.style.getPropertyValue('--realization-progress')).toBe('0');
 });
