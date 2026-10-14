@@ -262,6 +262,36 @@ describe("Describe a change", () => {
     await waitFor(() => expect(acceptBtn().disabled).toBe(false));
   });
 
+  it("sends decision PUTs one at a time and holds accept until every queued save has answered", async () => {
+    const gates: (() => void)[] = [];
+    let current = PROPOSAL;
+    const calls = stubApi((c) => {
+      if (c.url.endsWith("/decisions")) {
+        for (const d of (c.body as IntentDecisionsRequest).decisions) current = { ...current, plan: cascade(current.plan, d.nodeId, d.decision) };
+        const answer = current;
+        return new Promise<Response>((r) => gates.push(() => r(json(200, answer)))) as unknown as Response;
+      }
+      return json(c.method === "GET" ? 200 : 201, current);
+    });
+    renderApp(`${WORK}?panel=intent`, undefined, api);
+    await describe_("Show birthdays");
+    fireEvent.click(await screen.findByRole("button", { name: "Agree Peopling web app" }));
+    fireEvent.click(screen.getByRole("button", { name: "Reject Birthday field" }));
+    await waitFor(() => expect(decisions(calls)).toHaveLength(1));
+    // The second waits in the System's scope until the first answers.
+    await new Promise((r) => setTimeout(r, 20));
+    expect(decisions(calls)).toEqual([[{ nodeId: "thing.webapp", decision: "agree" }]]);
+    expect(acceptBtn().disabled).toBe(true);
+    gates[0]!();
+    await waitFor(() => expect(decisions(calls)).toHaveLength(2));
+    expect(decisions(calls)[1]).toEqual([{ nodeId: "component.BirthdayField", decision: "reject" }]);
+    // The first answered, the second has not: still saving.
+    expect(acceptBtn().disabled).toBe(true);
+    expect(screen.getByText("Saving decisions…")).toBeTruthy();
+    gates[1]!();
+    await waitFor(() => expect(acceptBtn().disabled).toBe(false));
+  });
+
   it("names why a node with errors cannot be agreed, in text the Agree button points at", async () => {
     const failing: Proposal = { ...PROPOSAL, problems: [{ opId: "op.3", severity: "error", message: "Unknown relation." }] };
     stubApi((c) => json(c.method === "GET" ? 200 : 201, failing));

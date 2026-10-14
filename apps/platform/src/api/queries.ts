@@ -429,6 +429,9 @@ export function useAcceptIntent() {
   });
 }
 
+/** Every decision save of one System; `useIsMutating` on it says whether any is still in flight. */
+export const decideIntentKey = (systemId: string) => ["decideIntent", systemId] as const;
+
 /**
  * Decides agreement-tree nodes. `apply` (the decisions applied locally to the cached proposal) shows at once and is
  * rolled back when the platform refuses; rapid decisions compose, and the last answer from the platform wins.
@@ -436,9 +439,11 @@ export function useAcceptIntent() {
 export function useDecideIntent() {
   const { systemId } = useSystemRoute();
   const qc = useQueryClient();
-  const mutationKey = ["decideIntent", systemId];
+  const mutationKey = decideIntentKey(systemId);
   return useMutation({
     mutationKey,
+    // One decision PUT at a time per System: the platform applies them in click order.
+    scope: { id: `decide-${systemId}` },
     mutationFn: ({ proposalId, body, adminToken }: { proposalId: string; body: IntentDecisionsRequest; adminToken?: string; apply?(p: Proposal): Proposal }) =>
       api.decideIntent(systemId, proposalId, body, adminToken),
     onMutate: async ({ proposalId, apply }) => {

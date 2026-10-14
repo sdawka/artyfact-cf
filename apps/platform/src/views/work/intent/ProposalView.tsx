@@ -1,7 +1,9 @@
 import { useId, useMemo, useState } from "react";
+import { useIsMutating } from "@tanstack/react-query";
 import type { IntentAcceptResponse, Proposal, ProposalPlanNode } from "../../../../shared/api";
 import { useAdminToken } from "@/api/adminToken";
-import { useAcceptIntent, useDecideIntent, useReplyIntent } from "@/api/queries";
+import { decideIntentKey, useAcceptIntent, useDecideIntent, useReplyIntent } from "@/api/queries";
+import { useSystemRoute } from "@/model/useSelection";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { StatusChip } from "@/components/StatusChip/StatusChip";
 import { shortSha } from "../lib";
@@ -65,6 +67,9 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
   const { index } = useModel();
   const accept = useAcceptIntent();
   const decideM = useDecideIntent();
+  const { systemId } = useSystemRoute();
+  // Any decision save still in flight (this view's or another's, queued one at a time) holds accept.
+  const saving = useIsMutating({ mutationKey: decideIntentKey(systemId) }) > 0;
   const { token } = useAdminToken();
   const provider = providerLabel(proposal);
   const { router, translator, genomeCommit } = proposal.provenance;
@@ -82,7 +87,7 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
   const total = proposal.ops.length - uncovered.length;
   const acceptReason =
     blocked ??
-    (decideM.isPending
+    (saving
       ? "Saving decisions…"
       : set.undecided.length
         ? `Decide every change first: ${set.undecided.length} undecided.`

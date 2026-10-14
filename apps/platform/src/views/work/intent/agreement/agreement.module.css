@@ -40,8 +40,10 @@
 .decide button:disabled { color: var(--color-text-disabled); cursor: not-allowed; }
 .decide button[aria-pressed="true"] { color: var(--color-text-primary); border-color: var(--color-brand-primary); }
 .decide button[aria-pressed="mixed"] { color: var(--color-text-primary); border-color: var(--color-brand-primary); opacity: 0.75; }
-.decide button[data-decision="reject"][aria-pressed="true"] { border-style: dashed; border-color: var(--color-border); }
-.decide button[data-decision="defer"][aria-pressed="true"] { border-style: dotted; border-color: var(--color-text-subtle); }
+.decide button[data-decision="reject"][aria-pressed="true"],
+.decide button[data-decision="reject"][aria-pressed="mixed"] { border-style: dashed; border-color: var(--color-border); }
+.decide button[data-decision="defer"][aria-pressed="true"],
+.decide button[data-decision="defer"][aria-pressed="mixed"] { border-style: dotted; border-color: var(--color-text-subtle); }
 .body { display: grid; gap: var(--spacing-2); min-width: 0; padding-left: calc(var(--spacing-4) + 3px); }
 .summary { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .hint { margin: 0; color: var(--color-text-subtle); font-size: var(--font-size-xs); }
