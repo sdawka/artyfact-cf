@@ -16,6 +16,8 @@ describe("Journeys view", () => {
     const catalog = await screen.findByRole("navigation", { name: "Journeys" });
     expect(catalog.querySelectorAll("li")).toHaveLength(10);
     expect(within(catalog).getAllByText("deferred")).toHaveLength(1);
+    // Deferred journeys sit last, in their own collapsed group.
+    expect(within(catalog).getByText("Deferred (1)").closest("details")!.hasAttribute("open")).toBe(false);
     const current = catalog.querySelectorAll("[aria-current='true']");
     expect(current).toHaveLength(1);
     expect(current[0]!.textContent).toContain("Connect with someone through a consented invitation");
@@ -27,6 +29,13 @@ describe("Journeys view", () => {
     // React Flow hides nodes until measured, which never happens in jsdom, so query by label.
     await waitFor(() => expect(within(canvas).getAllByLabelText(/^Step /)).toHaveLength(14));
     expect([...canvas.querySelectorAll("[data-lane]")].map((l) => l.getAttribute("data-lane"))).toEqual(["actor", "system", "external"]);
+  });
+
+  it("names the selected journey as the stage heading with its goal", async () => {
+    renderApp(`${base}?journey=J.connect`);
+    expect(await screen.findByRole("heading", { level: 2, name: /Connect with someone through a consented invitation/ })).toBeTruthy();
+    expect(screen.getByRole("heading", { level: 1, name: "Journeys" })).toBeTruthy();
+    expect(await screen.findByRole("list", { name: "Steps" })).toBeTruthy();
   });
 
   it("selecting a journey in the catalog updates ?journey=", async () => {
@@ -66,7 +75,9 @@ describe("Journeys view", () => {
   it("offers zoom, zoom out and fit controls", async () => {
     renderApp(`${base}?journey=J.connect`);
     const canvas = await screen.findByTestId("journey-canvas");
-    for (const name of [/zoom in/i, /zoom out/i, /fit view/i]) expect(await within(canvas).findByRole("button", { name })).toBeTruthy();
+    for (const name of [/zoom in/i, /zoom out/i]) expect(await within(canvas).findByRole("button", { name })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Fit" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: "100%" })).toBeTruthy();
   });
 
   describe("with segments and a provisional step", () => {

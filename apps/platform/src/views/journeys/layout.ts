@@ -16,6 +16,8 @@ export const ROW_GAP = 20;
 export const LANE_PAD = 24;
 export const COLUMN_PITCH = DECISION_W + COL_GAP;
 export const LANE_LABEL_W = 96;
+/** A lane with no steps collapses to a slim band that says so. */
+export const EMPTY_LANE_H = 40;
 
 export interface LayoutNode {
   id: string;
@@ -70,6 +72,8 @@ export interface LaneBand {
   lane: Lane;
   y: number;
   height: number;
+  /** No step sits in this lane. */
+  empty: boolean;
 }
 export interface Placement {
   positions: Map<string, { x: number; y: number }>;
@@ -98,7 +102,7 @@ export function placeInLanes(nodes: LayoutNode[], columns: Map<string, number>):
     }
     const rows = Math.max(rowEnds.length, 1);
     const rowH = DECISION_H + ROW_GAP;
-    const height = LANE_PAD * 2 + rows * rowH - ROW_GAP;
+    const height = inLane.length === 0 ? EMPTY_LANE_H : LANE_PAD * 2 + rows * rowH - ROW_GAP;
     for (const n of inLane) {
       const row = rowOf.get(n.id) ?? 0;
       positions.set(n.id, {
@@ -106,7 +110,7 @@ export function placeInLanes(nodes: LayoutNode[], columns: Map<string, number>):
         y: y + LANE_PAD + row * rowH + (DECISION_H - n.h) / 2,
       });
     }
-    bands.push({ lane, y, height });
+    bands.push({ lane, y, height, empty: inLane.length === 0 });
     y += height;
   }
   return { positions, bands, width: width + LANE_LABEL_W, height: y };
