@@ -2,6 +2,8 @@ import type { QueryClient } from "@tanstack/react-query";
 import { cleanup, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import type { Build, Deployment, PhenomeEvent } from "../../../shared/api";
+import { phenomeVersionKey } from "../../../shared/phenome";
+import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 
@@ -30,7 +32,7 @@ const seed = (s: Seed = {}) => (qc: QueryClient) => {
   qc.setQueryData(qk.builds(SYSTEM, {}), { builds: s.builds ?? [] });
   qc.setQueryData(qk.deployments(SYSTEM), { production: s.production ?? null, history: s.history ?? [] });
   const events = s.events ?? [];
-  const keyOf = (e: PhenomeEvent) => e.outputId || e.buildId || e.commit;
+  const keyOf = (e: PhenomeEvent) => phenomeVersionKey(e.outputId, e.buildId, e.commit);
   const keys = [...new Set(events.map(keyOf))];
   qc.setQueryData(qk.phenome(SYSTEM, s.query ?? {}), {
     events,
@@ -57,6 +59,7 @@ describe("Deployments page", () => {
   it("keeps other Things' builds and events outside a scoped Thing workspace", async () => {
     renderApp(`/s/${SYSTEM}/r/head/things/thing.webapp/phenome`, undefined, seed({
       builds: [build({ thingId: "thing.webapp", candidate: "cand.selected" }), build({ id: "build.other", thingId: "thing.other", candidate: "cand.other" })],
+      query: {thing:"thing.webapp"},
       events: [event(2, COMMIT, { kind: "selected.event" }), event(1, OTHER, { thingId: "thing.other", kind: "other.event" })],
     }));
     expect(await screen.findByText("cand.selected")).toBeTruthy();
@@ -125,4 +128,33 @@ describe("Deployments page", () => {
     expect(container.querySelector('[data-status="live"]')!.getAttribute("data-tone")).toBe("neutral");
     expect(container.querySelectorAll('[data-tone="pass"]')).toHaveLength(1);
   });
+});
+
+
+it("keeps runtime outcome verdicts unknown despite implementation and raw pass evidence",async()=>{
+ const bundle=fixtureBundle();const criterion=bundle.model.criteria[0]!;bundle.model.criteria=[{...criterion,id:'C.runtime',targetKind:'observation'}];
+ const {container}=renderApp(`${PATH}?deployment=deploy.1&candidates=cand.foreign`,undefined,qc=>{
+  seed({history:[deployment({build:'build.1'})],builds:[build()],events:[event(1,COMMIT,{criterion:'C.runtime',payload:{verdict:'pass'}})],query:{deployment:'deploy.1'}})(qc);
+  qc.setQueryData(qk.model(SYSTEM,'head'),bundle);qc.setQueryData(qk.evaluations(SYSTEM),{evaluations:[{id:'eval.foreign',criterion:'C.runtime',candidate:'cand.foreign',execution:'completed',verdict:'pass',evaluatedAt:T}]});
+ });
+ const card=(await screen.findByRole('heading',{name:'Outcome criteria'})).closest('section')!;
+ expect(within(card).getByText('unknown')).toBeTruthy();expect(card.querySelector('[data-verdict="pass"]')).toBeNull();expect(container.textContent).toContain('Runtime outcome evaluation is not available');
+});
+
+it('shows implementation evaluations only through the selected deployment build candidate',async()=>{
+ const evaluation=(candidate:string,id:string)=>({id,candidate,hook:'hook.test',criterion:'C.people.list',ownerId:'thing.webapp',subjectId:'screen.people',targetRef:COMMIT,execution:'completed',verdict:'pass',verifier:'ci',startedAt:T,observations:[],limitations:[],provenance:{}});
+ const {router}=renderApp(`${PATH}?deployment=deploy.1`,undefined,qc=>{
+  seed({history:[deployment({build:'build.1'}),deployment({id:'deploy.foreign',build:'build.other'}),deployment({id:'deploy.legacy',build:undefined})],builds:[build(),build({id:'build.other',candidate:'cand.foreign'})],query:{deployment:'deploy.1'}})(qc);
+  qc.setQueryData(qk.evaluations(SYSTEM),{evaluations:[evaluation('cand.1','eval.exact'),evaluation('cand.foreign','eval.foreign')]});
+ });
+ const card=(await screen.findByRole('heading',{name:'Implementation evaluations'})).closest('section')!;
+ expect(card.textContent).toContain('eval.exact');expect(card.textContent).not.toContain('eval.foreign');
+ await router.navigate(`${PATH}?deployment=deploy.foreign`);await screen.findByText('eval.foreign');expect(screen.queryByText('eval.exact')).toBeNull();
+ await router.navigate(`${PATH}?deployment=deploy.legacy`);expect(await screen.findByText('No exact deployment → build → candidate association.')).toBeTruthy();expect(screen.queryByText('eval.foreign')).toBeNull();
+});
+it('keeps legacy reused-build commits in separate groups with exact summaries',async()=>{
+ const newer=event(3,'runtime.reused',{commit:OTHER,kind:'new.commit'}),older=event(2,'runtime.reused',{commit:COMMIT,kind:'old.commit'});
+ const versions=[{key:JSON.stringify(['runtime.reused',OTHER]),output:null,genomeCommit:null,buildId:'runtime.reused',commit:OTHER,deployment:'dep.new',systemCommit:'sc.new',count:1},{key:JSON.stringify(['runtime.reused',COMMIT]),output:null,genomeCommit:null,buildId:'runtime.reused',commit:COMMIT,deployment:'dep.old',systemCommit:'sc.old',count:2}];
+ renderApp(PATH,undefined,qc=>{seed()(qc);qc.setQueryData(qk.phenome(SYSTEM,{}),{events:[newer,older,event(1,'runtime.reused',{commit:COMMIT,kind:'old.second'})],versions});});
+ const groups=await screen.findAllByText(/events/,{selector:'summary'});expect(groups).toHaveLength(2);expect(groups[0].textContent).toContain('1 events');expect(groups[0].textContent).toContain('sc.new');expect(groups[1].textContent).toContain('2 events');expect(groups[1].textContent).toContain('sc.old');expect(groups[0].textContent).toContain('Source bbbbbbb');expect(groups[1].textContent).toContain('Source aaaaaaa');
 });

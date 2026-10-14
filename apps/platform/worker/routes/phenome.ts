@@ -21,6 +21,7 @@ export const phenome = new Hono<AppEnv>()
   .get("/systems/:id/phenome/events", async (c) => {
     const q = c.req.query();
     const query: PhenomeEventsQuery = {
+      ...(q.thing && { thing: q.thing }), ...(q.build && { build: q.build }), ...(q.output && { output: q.output }),
       ...(q.deployment && { deployment: q.deployment }), ...(q.commit && { commit: q.commit }), ...(q.kind && { kind: q.kind }),
       ...(q.realization && { realization: q.realization }), limit: limit(q.limit), before: int(q.before, "before"),
     };

@@ -1,6 +1,7 @@
 import { Operations } from "./Operations";
 import { Link, useParams, useSearchParams } from "react-router";
-import type { Build, Deployment, PhenomeEvent } from "../../../shared/api";
+import type { Build, Deployment, PhenomeEvent, PhenomeEventsResponse } from "../../../shared/api";
+import { phenomeVersionKey } from "../../../shared/phenome";
 import { useAdminToken } from "@/api/adminToken";
 import { useBuilds, useDeployments, usePhenomeEvents, useRealizedArtifacts } from "@/api/queries";
 import { Card } from "@/components/Card/Card";
@@ -27,7 +28,8 @@ export default function PhenomeView() {
   const buildFilter = params.get("build") ?? undefined;
   const builds = useBuilds();
   const deployments = useDeployments();
-  const events = usePhenomeEvents(deployment ? { deployment } : {});
+  const output = params.get("output") ?? undefined;
+  const events = usePhenomeEvents({ ...(deployment && { deployment }), ...(thingId && { thing: thingId }), ...(buildFilter && { build: buildFilter }), ...(output && { output }) });
   const artifacts = useRealizedArtifacts();
   const list = sortNewest((builds.data ?? []).filter((build) => !thingId || (build.thingId ?? build.output?.thingId) === thingId));
   const outputIds = new Set((artifacts.data ?? []).filter((output) => output.thingId === thingId).map((output) => output.id));
@@ -36,7 +38,7 @@ export default function PhenomeView() {
   const production = currentProduction && belongs(currentProduction) ? currentProduction : null;
   const history = (deployments.data?.history ?? []).filter(belongs);
   const runtimeEvents = (events.data?.events ?? []).filter((event) => !thingId || event.thingId === thingId);
-  const versions = (events.data?.versions ?? []).map((version) => thingId ? { ...version, count: runtimeEvents.filter((event) => (event.outputId || event.buildId || event.commit) === version.key).length } : version);
+  const versions = events.data?.versions ?? [];
   const { token: adminToken } = useAdminToken();
   const empty = !builds.isLoading && !deployments.isLoading && list.length === 0 && history.length === 0 && !production;
   return (
@@ -49,6 +51,7 @@ export default function PhenomeView() {
       <DeploymentsCard production={production} history={history} />
       <EventsCard events={runtimeEvents} versions={versions} buildFilter={buildFilter} deployment={deployment} />
       <CriteriaCard />
+      <ImplementationEvaluationsCard deployment={history.find(d => d.id === deployment) ?? (production?.id === deployment ? production ?? undefined : undefined)} builds={list} />
     </section>
   );
 }
@@ -117,12 +120,12 @@ function DeploymentsCard({ production, history }: { production: Deployment | nul
 
 function EventsCard({ events, versions, buildFilter, deployment }: {
   events: PhenomeEvent[];
-  versions: { output?: string | null; genomeCommit?: string | null; key: string; buildId: string; commit: string; deployment: string | null; systemCommit: string | null; count: number }[];
+  versions: PhenomeEventsResponse["versions"];
   buildFilter: string | undefined;
   deployment: string | undefined;
 }) {
   const shown = buildFilter ? events.filter((e) => e.buildId === buildFilter) : events;
-  const keyOf = (e: PhenomeEvent) => e.outputId || e.buildId || e.commit;
+  const keyOf = (e: PhenomeEvent) => phenomeVersionKey(e.outputId, e.buildId, e.commit);
   const keys = [...new Set(shown.map(keyOf))];
   return (
     <Card title="Runtime events" headingLevel={2}>
@@ -139,7 +142,7 @@ function EventsCard({ events, versions, buildFilter, deployment }: {
         return (
           <details key={k} className={styles.group}>
             <summary>
-              <code>{short(k)}</code> · {v?.count ?? group.length} events · Output {v?.output || group[0]?.outputId ? <code>{v?.output || group[0]?.outputId}</code> : "unknown"} · Genome {v?.genomeCommit || group[0]?.genomeCommit ? short(v?.genomeCommit || group[0]?.genomeCommit || "") : "unknown"}{v?.systemCommit ? ` · ${v.systemCommit}` : ""}
+              <code>{short(group[0].outputId ?? group[0].buildId)}</code> · {v ? `${v.count} events` : `${group.length} loaded events`} · Source {short(group[0].commit)} · Output {v?.output ? <code>{v.output}</code> : "unknown"} · Genome {v?.genomeCommit ? short(v.genomeCommit) : "unknown"}{v?.systemCommit ? ` · ${v.systemCommit}` : ""}
             </summary>
             <ul className={styles.list}>{group.map((e) => <EventRow key={e.seq} e={e} />)}</ul>
           </details>
@@ -171,14 +174,14 @@ function CriteriaCard() {
   const crits = m.bundle.model.criteria.filter((c) => c.targetKind === "observation");
   return (
     <Card title={thingId ? "System outcome criteria" : "Outcome criteria"} headingLevel={2}>
+      <p className={styles.muted}>Runtime outcome evaluation is not available. Observations are listed separately and do not establish verdicts.</p>
       {crits.length === 0 ? <p className={styles.muted}>No observation criteria — <Unknown />.</p> : (
         <ul className={styles.list}>
           {crits.map((c) => {
-            const has = m.evaluations.some((e) => e.criterion === c.id);
             return (
               <li key={c.id} className={styles.crit}>
                 <NodeChip id={c.id} size="sm" />
-                {has ? <VerdictBadge verdict={m.verdictOf(c.id)} /> : <Unknown />}
+                <Unknown />
               </li>
             );
           })}
@@ -186,4 +189,15 @@ function CriteriaCard() {
       )}
     </Card>
   );
+}
+
+
+function ImplementationEvaluationsCard({deployment,builds}:{deployment?:Deployment;builds:Build[]}) {
+ const m=useModel();
+ const build=deployment?.build ? builds.find(b=>b.id===deployment.build && b.commit===deployment.commit && (!deployment.output || b.output?.id===deployment.output) && (!b.source || b.source.repo===deployment.repo)) : undefined;
+ const evaluations=build?.candidate ? m.evaluations.filter(e=>e.candidate===build.candidate) : [];
+ return <Card title="Implementation evaluations" headingLevel={2}>
+  <p className={styles.muted}>Candidate, Genome and preview evaluations describe implementation checks; they are not runtime outcome verdicts.</p>
+  {!build?.candidate ? <p className={styles.muted}>No exact deployment → build → candidate association.</p> : evaluations.length===0 ? <p className={styles.muted}>No implementation evaluations for this deployment.</p> : <ul className={styles.list}>{evaluations.map(e=><li key={e.id}><code>{e.id}</code> · <NodeChip id={e.criterion} size="sm"/> · <VerdictBadge verdict={e.execution==='completed'?e.verdict:'unknown'}/></li>)}</ul>}
+ </Card>;
 }
