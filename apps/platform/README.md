@@ -12,13 +12,13 @@ npm run dev -w @artyfact/platform   # http://localhost:1337 (next free port if t
 - `npm test -w @artyfact/platform` (workerd + jsdom projects), `npm run typecheck`, `npm run build`.
 - The full demo against real Artifacts is `docs/demo-runbook.md`. The opt-in integration test runs that loop in namespace `artyfact-test`: `ARTYFACT_INTEGRATION=1 npx vitest run --project integration` (uses `wrangler.integration.jsonc`).
 - `npm run cf-typegen` regenerates `worker/env.d.ts` after editing `wrangler.jsonc`.
-- The `ARTIFACTS` binding is `remote: true`, so `npm run dev` (real backend) needs `wrangler login` or `CLOUDFLARE_API_TOKEN`. Nothing else does: tests use `wrangler.test.jsonc`, the same config without that binding (keep the two in sync).
+- The `ARTIFACTS` binding is `remote: true`, and Workers AI (`AI`) and Browser Run (`BROWSER`) are remote-only, so `npm run dev` (real backend) needs `wrangler login` or `CLOUDFLARE_API_TOKEN`. Nothing else does: tests use `wrangler.test.jsonc`, the same config without those bindings (keep the two in sync). Tests pass mocks of `AI` and `BROWSER`; the `EVIDENCE` R2 bucket runs locally.
 - `FAKE_ARTIFACTS=1 npx vite --port 1339` (in `apps/platform`) runs the whole backend without an account: in-memory Artifacts seeded from `examples/` (Peopling is imported on the first request), editor commits pushed through a fake receive-pack, no persisted state, the fake System One (`FAKE_S1=1`), and admin token `fake-admin-token` unless `ADMIN_TOKEN` is set. Local only (`worker/artifacts/fake-platform.ts`).
 - `npm run preview:fixture` builds and serves the SPA statically (`vite.fixture.config.ts`, no Cloudflare plugin) on http://localhost:1338 with bundled fixture data. `npm run e2e` runs Playwright against it; no Cloudflare credentials needed. `npm run e2e:live` runs the `@live` specs against `wrangler dev` and does need a login.
 - `worker/env.d.ts` is generated; do not hand-edit it (use `cf-typegen`, secrets go in `worker/secrets.d.ts`).
 
 ## Env
-Secrets (`.dev.vars` locally, `wrangler secret put` deployed): `ADMIN_TOKEN`, `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `ALLOW_LOCAL_PREVIEW` (local only). `FAKE_S1` goes in `.dev.vars` and test configs only, never in deployed vars. Vars live in `wrangler.jsonc`;
+Secrets (`.dev.vars` locally, `wrangler secret put` deployed): `ADMIN_TOKEN`, `TYPESAFE_API_KEY`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`, `CLEF_MODEL` (optional), `ALLOW_LOCAL_PREVIEW` (local only). `FAKE_S1` goes in `.dev.vars` and test configs only, never in deployed vars. Vars live in `wrangler.jsonc`;
 set `ACCOUNT_ID` (from `wrangler whoami`) in `.dev.vars` so fork remotes are `https://<ACCOUNT_ID>.artifacts.cloudflare.net/git/<ns>/<repo>.git`.
 
 ### System One provider
@@ -28,8 +28,11 @@ One client (`providerFromEnv` in `@artyfact/ontology`) serves the gates and the 
 |---|---|
 | fake | `FAKE_S1=1`. Canned benign answers; the UI labels them |
 | TypeSafe | `TYPESAFE_API_KEY` (`https://api.typesafe.ai/v1/systemone`, `jev-latest`) |
+| Clef | the `AI` binding (Workers AI `@cf/cloudflare/clef`; `CLEF_MODEL=@cf/cloudflare/clef-flash` for the 9B model). Reads images |
 | OpenRouter | `OPENROUTER_API_KEY` (Decisions API; `OPENROUTER_MODEL`, default `perplexity/pplx-decider-v1.1-27b`) |
 | off | none of the above |
+
+Visual checks need a provider that reads images: the selected one if it can (Clef, the fake), else Clef whenever `AI` is bound (so TypeSafe can judge text while Clef judges screenshots), else the check is `not-run`. Intent translation and the plan draft planner generate text, so they stay on OpenRouter.
 
 Off, every System One judgment is `unknown`. Hard criteria judged by System One, such as `C.system.purpose`, then keep the promotion gate closed. This is by design: nothing is green without evidence. For local work set `FAKE_S1=1` in `.dev.vars`; tests pin it per test, and `wrangler.integration.jsonc` sets it for the integration suite.
 
@@ -61,6 +64,7 @@ All under `/api`; errors are `{error: {code, message, details?}}`. DTOs in `shar
 | GET | `/systems/:id/realizations` | - | `{realizations}` |
 | GET | `/systems/:id/candidates` | - | `{candidates}` |
 | GET | `/systems/:id/evaluations?candidate=` | - | `EvaluationsResponse` |
+| GET | `/systems/:id/evidence?key=` | - | an evidence image (PNG/JPEG/WebP) a visual check cites in `observations[].images[].key`; 404 for a key outside the System's `evidence/<system>/` prefix |
 | GET | `/systems/:id/conflicts` | - | `ConflictsResponse` |
 | POST | `/systems/:id/promote` | admin | `{candidateIds or candidates, expectedHead, rationale}` → `PromoteResponse` (with `advisories`); 409 `stale-base` `{currentHead}`, or `blocked` `{blocking, advisories}`, or `gate-unavailable`, or `invalid-state` (e.g. more than one app candidate: composition is not supported yet), or `use-accept` for a Genome candidate (Genome amendments go through accept); 400 `advisories-unacknowledged`. Promotion revokes the realization secret and write token of the promoted realization and of rejected siblings (accept does the same for the accepted one) |
 | POST | `/systems/:id/candidates/:cid/evaluate` | admin | → `EvaluateCandidateResponse`: re-runs the candidate's submission hooks with its current preview URL and passed build (as a submit or a preview URL arrival does); the new evaluations replace the old ones. 404 unknown candidate; 409 `invalid-state` for promoted or rejected candidates, `evaluation-running` while another run holds the claim |
@@ -81,7 +85,9 @@ Every `GET /systems/:id/…` (and the SSE stream) answers 404 for a System the r
 
 `<R>` is any of `/systems/:id/evolutions/:eid/realizations/:rid` (CLI), `/systems/:id/realizations/:rid`, `/realizations/:rid` (System found via the registry; realization ids are unique only per System, so this returns 409 `ambiguous` with `details.systems` when several Systems have that id).
 
-Hooks: the backend calls `HookRunner` (`worker/hooks/contract.ts`); `worker/hooks/index.ts` wires `createHookRunner({ s1Env: env, previewEnv: env })` and the queue consumer. The candidate tree passed to hooks carries blob sizes from a per-System cache; only files some `manifest` hook requires are measured, and any other entry not yet cached has `size: -1` (not measured). The manifest engine treats a size ≤ 0 as empty, so an unmeasured required file fails rather than passes.
+Hooks: the backend calls `HookRunner` (`worker/hooks/contract.ts`); `worker/hooks/index.ts` wires `createHookRunner({ s1Env: env, previewEnv: env, browser: env.BROWSER, evidence: env.EVIDENCE })` and the queue consumer.
+
+Visual checks (`worker/hooks/visual.ts`) run for a `browser` hook with `inputs.judgment: visual`, or a `system-one`/`llm` hook with that judgment. Other `browser` hooks are fixture or command hooks and run in CI or the agent's environment. A visual check uses two kinds of screenshot. Platform captures come from Browser Run's screenshot Quick Action. It shoots the validated `previewUrl` + `inputs.path` (default `/`) at `inputs.viewports` (default `desktop,mobile`, which is 1280×800 and 390×844 @2x) as JPEG, after `inputs.waitFor` (a CSS selector) appears when one is set. Agent screenshots are the ones `task submit --screenshot` attached. Platform captures come first, and each image is labelled with its source. Clef receives at most 4 images and 8 MiB per ask, so larger sets go in several batches. Any failing batch fails the check, all passing passes it, and anything else is `unknown`. The noul `satisfies` question decides the verdict (≥ 0.9 pass, ≤ 0.1 fail). A `concern` choice (`broken-layout`, `unreadable-text`, `missing-content`, `weak-hierarchy`, `error-state`) stands in for a reason, because Clef returns probabilities only. Without an image-reading provider, or without any screenshot, the check is `not-run` with the reason. Captures are stored under `evidence/<system>/<realization>/<commit>/` in `EVIDENCE`. That prefix becomes the evaluation's `provenance.evidenceKey` and `evaluations.evidence_key`, and `GET /api/systems/:id/evidence?key=` serves an image. The candidate tree passed to hooks carries blob sizes from a per-System cache; only files some `manifest` hook requires are measured, and any other entry not yet cached has `size: -1` (not measured). The manifest engine treats a size ≤ 0 as empty, so an unmeasured required file fails rather than passes.
 
 ## Repos and the `platform` meta repo
 One Artifacts namespace per deployment (the `ARTIFACTS` binding's, `artyfact` in `wrangler.jsonc`). Names come from `@artyfact/cli/naming`: `slug` is the System id without `system.`, lower-cased, `[a-z0-9._-]`; repos `<slug>.genome` and `<slug>.app` (with several worker-fullstack artifacts, `<slug>.<artifact id without "artifact.">`); forks `<repo>--r<N>` with N System-wide. Start skips any N whose fork already exists in the namespace (left by an earlier platform state), so nothing is overwritten.
