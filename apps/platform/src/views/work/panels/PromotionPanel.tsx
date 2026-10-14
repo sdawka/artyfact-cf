@@ -1,7 +1,7 @@
 import { Button, Checkbox, Input, Textarea } from "@/components/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import type { Candidate, ConflictReport, Evolution } from "../../../../shared/api";
 import { useAdminToken, useAdminTokenField } from "@/api/adminToken";
 import { ApiRequestError, StaleBaseError } from "@/api/client";
@@ -18,6 +18,7 @@ import { mergeConflicts, shortSha } from "../lib";
 import { describeIssue } from "../gates";
 import { emitFx } from "@/effects/fx";
 import { whyFor } from "../../code/why";
+import { useWorkData } from "../data";
 import { DecisionHead } from "./DecisionHead";
 import { VerdictSummary } from "./VerdictSummary";
 import styles from "./decision.module.css";
@@ -94,6 +95,27 @@ export function PromotionPanel({ evolution, autoFocus = false }: { evolution: Ev
   const panelRef = useRef<HTMLElement>(null);
 
   const candidates: Candidate[] = cand?.candidates ?? [];
+  // Exactly one evaluated candidate and none chosen yet: preselect it once (replace), so Promote is one step. Clearing it stays cleared.
+  const [, setParams] = useSearchParams();
+  const [preselected, setPreselected] = useState<string | null>(null);
+  const checkedOnce = useRef(false);
+  const { realizations, isLoading: workLoading } = useWorkData();
+  // Like the queue's promotion row: evaluated app candidates; Genome amendments are decided on their own row.
+  const amendment = (c: Candidate) => realizations.some((r) => r.id === c.realization && r.target === "genome");
+  const eligible = candidates.filter((c) => (c.state === "evaluated" || c.state === "selected") && !amendment(c));
+  const lone = eligible.length === 1 && !candidates.some((c) => selected.includes(c.id)) ? eligible[0]!.id : null;
+  useEffect(() => {
+    if (checkedOnce.current || !cand || workLoading) return;
+    checkedOnce.current = true;
+    if (!lone) return;
+    setPreselected(lone);
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      const ids = (prev.get("candidates") ?? "").split(",").filter(Boolean);
+      next.set("candidates", [...ids, lone].join(","));
+      return next;
+    }, { replace: true });
+  }, [cand, workLoading, lone, setParams]);
   const chosen = candidates.filter((c) => selected.includes(c.id));
   const ids = chosen.map((c) => c.id);
   // Realize an editor commit: start from the commit's "why" until the admin edits it.
@@ -228,7 +250,7 @@ export function PromotionPanel({ evolution, autoFocus = false }: { evolution: Ev
                     onChange={(e) => setSelection(e.target.checked ? [...selected, c.id] : selected.filter((x) => x !== c.id))}
                   />
                   <code>{c.id}</code>
-                  <MetaLine items={[{ value: c.state }, { label: "manifest", value: c.hash ? shortSha(c.hash) : "unknown", code: !!c.hash, ...(c.hash && { title: c.hash }) }]} />
+                  <MetaLine items={[{ value: c.state }, ...(preselected === c.id && selected.includes(c.id) ? [{ value: "preselected: the only evaluated candidate" }] : []), { label: "manifest", value: c.hash ? shortSha(c.hash) : "unknown", code: !!c.hash, ...(c.hash && { title: c.hash }) }]} />
                 </label>
               </li>
             ))}

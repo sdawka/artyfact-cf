@@ -100,6 +100,25 @@ describe("Evaluations view", () => {
     expect(screen.queryByRole("heading", { name: "Question" })).toBeNull();
   });
 
+  it("shows Execution only when it says more than the verdict, and readable provenance", async () => {
+    renderApp(URL, undefined, seed([
+      evaluation({ id: "e1", provenance: { engineVersion: "1.2", selectedBy: "admin" } }),
+      evaluation({ id: "e2", criterion: "C.webapp.health", execution: "error", verdict: "unknown", startedAt: "2026-01-01T00:00:00Z" }),
+    ]));
+    await screen.findByRole("table");
+    const done = screen.getByRole("button", { name: "Expand evaluation e1" }).closest("tr")!;
+    expect(done.querySelector("td[data-plain] .sr-only")?.textContent).toBe("completed");
+    const failed = screen.getByRole("button", { name: "Expand evaluation e2" }).closest("tr")!;
+    expect(failed.querySelector("td:not([data-plain]) .sr-only")).toBeNull();
+    expect(within(failed).getByText("error")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Expand evaluation e1" }));
+    const prov = screen.getByRole("region", { name: "Provenance" });
+    expect(within(prov).getByText("Engine version")).toBeTruthy();
+    expect(within(prov).getByText("Selected by")).toBeTruthy();
+    expect(within(prov).queryByText("engineVersion")).toBeNull();
+    expect(within(prov).getByText("2026-01-01 00:00 UTC").getAttribute("dateTime")).toBe("2026-01-01T00:00:00.000Z");
+  });
+
   it("shows the criterion as plain text with its id, and the hook beside a duplicate title", async () => {
     renderApp(URL, undefined, seed([
       evaluation({ id: "e1", criterion: "C.webapp.exists", hook: "hook.a" }),

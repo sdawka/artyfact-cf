@@ -1,7 +1,7 @@
 import type { Evaluation } from "../../../shared/api";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { useModel } from "@/model/useModel";
-import { durationMs } from "./lib";
+import { durationMs, humanKey, stamp } from "./lib";
 import styles from "./evaluations.module.css";
 
 const plain = (v: unknown) => (typeof v === "string" ? v : JSON.stringify(v, null, 2));
@@ -70,11 +70,11 @@ export function EvaluationDetail({ evaluation: e }: { evaluation: Evaluation }) 
           <dl className={styles.facts}>
             <dt>Verifier</dt><dd>{e.verifier}</dd>
             <dt>Target</dt><dd><code>{e.targetRef}</code></dd>
-            <dt>Started</dt><dd>{e.startedAt}</dd>
+            <dt>Started</dt><dd>{e.startedAt ? <time dateTime={e.startedAt} title={e.startedAt}>{stamp(e.startedAt)}</time> : "unknown"}</dd>
             <dt>Duration</dt><dd>{ms === undefined ? "unknown" : `${ms} ms`}</dd>
             {provenance.map(([k, v]) => (
               <div key={k} className={styles.factRow}>
-                <dt>{k}</dt><dd><code>{v}</code></dd>
+                <dt title={k}>{humanKey(k)}</dt><dd><code>{typeof v === "string" ? v : JSON.stringify(v)}</code></dd>
               </div>
             ))}
           </dl>

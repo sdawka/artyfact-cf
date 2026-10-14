@@ -74,8 +74,34 @@ describe("Review queue", () => {
     const { router } = renderApp(REVIEW, undefined, queueSeed());
     const q = await queue();
     fireEvent.click(rowsIn(q).find((l) => l.getAttribute("data-kind") === "promotion")!);
-    await waitFor(() => expect(router.state.location.search).toBe(`?evolution=${EVO1}&panel=promote`));
+    // The desk preselects the one evaluated candidate (replace), so the URL gains it.
+    await waitFor(() => expect(router.state.location.search).toBe(`?evolution=${EVO1}&panel=promote&candidates=cand.1`));
     expect(await screen.findByRole("heading", { name: `Promote ${TITLE}` })).toBeTruthy();
+  });
+
+  it("opens the first promotable Evolution for ?panel=promote without one, keeping params (replace)", async () => {
+    const { router } = renderApp(`${REVIEW}?panel=promote&layer=phenome`, undefined, queueSeed());
+    expect(await screen.findByRole("heading", { name: `Promote ${TITLE}` })).toBeTruthy();
+    const search = new URLSearchParams(router.state.location.search);
+    expect(search.get("evolution")).toBe(EVO1);
+    expect(search.get("panel")).toBe("promote");
+    expect(search.get("layer")).toBe("phenome");
+    expect(router.state.historyAction).toBe("REPLACE");
+    expect(screen.queryByText(/Promotion needs an Evolution/)).toBeNull();
+  });
+
+  it("opens the first waiting decision for ?panel=promote when nothing is promotable", async () => {
+    const { router } = renderApp(`${REVIEW}?panel=promote`, undefined, seed({ realizations: [amendment], candidates: [candidate({ id: "cand.g", realization: "realization.g" })], commits: [head] }));
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get("realization")).toBe("realization.g"));
+    expect(new URLSearchParams(router.state.location.search).get("panel")).toBeNull();
+    expect(await screen.findByRole("region", { name: "Review realization.g" })).toBeTruthy();
+  });
+
+  it("says nothing is ready to promote, with Open Work, when ?panel=promote finds no decision", async () => {
+    renderApp(`${REVIEW}?panel=promote`, undefined, seed({ realizations: [realization({ status: "working" })] }));
+    expect(await screen.findByRole("heading", { name: "Nothing is ready to promote." })).toBeTruthy();
+    expect(screen.getByText("A promotion appears when a candidate is evaluated.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open Work" })).toBeTruthy();
   });
 
   it("marks a candidate built on an earlier head as stale, behind by the distance, and offers no promotion", async () => {
@@ -224,6 +250,36 @@ describe("PromotionPanel", () => {
   const fill = async () => {
     fireEvent.change(await screen.findByLabelText("Rationale"), { target: { value: "All required gates pass" } });
   };
+
+  it("preselects the one evaluated candidate so Promote is enabled, and says so; clearing it stays cleared", async () => {
+    const { router } = renderApp(`${REVIEW}?evolution=${EVO1}&panel=promote`, undefined, seed({ api: true, evals: allPass(), commits: [head], candidates: [candidate({ baseRevision: "sc-1" })] }));
+    await fill();
+    const box = await screen.findByRole("checkbox", { name: /cand\.1/ }) as HTMLInputElement;
+    await waitFor(() => expect(box.checked).toBe(true));
+    expect(screen.getByText(/preselected: the only evaluated candidate/)).toBeTruthy();
+    expect(new URLSearchParams(router.state.location.search).get("candidates")).toBe("cand.1");
+    expect(router.state.historyAction).toBe("REPLACE");
+    expect(screen.queryByText("Add at least one candidate.")).toBeNull();
+    await waitFor(() => expect(submit().disabled).toBe(false));
+    fireEvent.click(box);
+    await waitFor(() => expect(box.checked).toBe(false));
+    expect(await screen.findByText("Add at least one candidate.")).toBeTruthy();
+    expect(screen.queryByText(/preselected/)).toBeNull();
+  });
+
+  it("preselects the app candidate beside a Genome amendment (amendments are decided on their own row)", async () => {
+    renderApp(`${REVIEW}?evolution=${EVO1}&panel=promote`, undefined, seed({ api: true, evals: allPass(), realizations: [evaluated, amendment], candidates: [candidate(), candidate({ id: "cand.g", realization: "realization.g" })] }));
+    await waitFor(() => expect((screen.getByRole("checkbox", { name: /cand\.1/ }) as HTMLInputElement).checked).toBe(true));
+    expect((screen.getByRole("checkbox", { name: /cand\.g/ }) as HTMLInputElement).checked).toBe(false);
+  });
+
+  it("does not preselect when two candidates are evaluated", async () => {
+    renderApp(`${REVIEW}?evolution=${EVO1}&panel=promote`, undefined, seed({ api: true, evals: allPass(), candidates: [candidate(), candidate({ id: "cand.2", realization: "realization.2" })] }));
+    await fill();
+    const boxes = await screen.findAllByRole("checkbox") as HTMLInputElement[];
+    expect(boxes.filter((b) => b.checked)).toHaveLength(0);
+    expect(screen.getByText("Add at least one candidate.")).toBeTruthy();
+  });
 
   it("is disabled in fixture mode", async () => {
     renderApp(url, undefined, seed({ evals: allPass() }));
