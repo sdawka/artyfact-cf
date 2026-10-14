@@ -106,7 +106,7 @@ function uniqueSystem(ns: FakeArtifacts, genomeRepo: string): string {
 async function imported(ns?: FakeArtifacts) {
   const s = setup(ns);
   const systemId = uniqueSystem(s.ns, s.genomeRepo);
-  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo: s.genomeRepo, appRepo: s.appRepo }, ADMIN);
+  const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo: s.genomeRepo, appRepo: s.appRepo, review: false }, ADMIN);
   expect(res.status, JSON.stringify(res.json)).toBe(201);
   return { ...s, systemId, imp: res.json };
 }
@@ -130,7 +130,7 @@ describe("routes: import names and platform provenance", () => {
 
   it("derives omitted repo names from the slug, names forks <slug>.app--r<n>, and warns platform.unsynced", async () => {
     const { ns, systemId, slug } = slugNamed();
-    const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN);
+    const res = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, review: false }, ADMIN);
     expect(res.status, JSON.stringify(res.json)).toBe(201);
     expect(res.json).toMatchObject({ genomeRepo: `${slug}.genome`, appRepo: `${slug}.app`, platform: null });
     expect(res.json.warnings.map((w) => [w.level, w.rule])).toEqual([["warning", "platform.unsynced"]]);
@@ -216,7 +216,7 @@ describe("routes: import names and platform provenance", () => {
     // Forks left by an earlier platform state on the same namespace.
     ns.create(`${slug}.app--r1`).commit({ "README.md": "old run" });
     ns.create(`${slug}.genome--r2`).commit({ "README.md": "old run" });
-    expect((await call<ImportSystemResponse>("POST", "/systems/import", { systemId }, ADMIN)).status).toBe(201);
+    expect((await call<ImportSystemResponse>("POST", "/systems/import", { systemId, review: false }, ADMIN)).status).toBe(201);
     const a = await call<StartWorkResponse>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, {});
     expect(a.status, JSON.stringify(a.json)).toBe(201);
     expect([a.json.realization.id, a.json.realization.workspace.fork]).toEqual(["realization.1.r2", `${slug}.app--r2`]);

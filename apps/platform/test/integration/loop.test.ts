@@ -98,7 +98,7 @@ describe.skipIf(!ENABLED)("integration: the demo loop on real Artifacts", () => 
       const path = join(project, "system", f);
       writeFileSync(path, readFileSync(path, "utf8").replaceAll("system.peopling", SYSTEM));
     }
-    const { stdout } = await run(process.execPath, [CLI, "init", "--dir", project, "--namespace", NS, "--platform", base], {
+    const { stdout } = await run(process.execPath, [CLI, "init", "--dir", project, "--namespace", NS, "--platform", base, "--no-review"], {
       cwd: work, maxBuffer: 1 << 24, env: envWith({ ARTYFACT_ADMIN_TOKEN: ADMIN, CLOUDFLARE_ACCOUNT_ID: accountId }),
     });
     expect(stdout).toContain(`${SYSTEM} -> ${GENOME_REPO}, ${APP_REPO} (namespace ${NS})`);

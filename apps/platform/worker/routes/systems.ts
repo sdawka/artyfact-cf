@@ -1,9 +1,10 @@
 import { Hono } from "hono";
-import type { DeleteSystemResponse, ImportSystemRequest, SystemsResponse } from "../../shared/api";
+import type { DeleteSystemResponse, ImportSystemRequest, SystemImportReviewAccept, SystemsResponse } from "../../shared/api";
 import { requireAdmin } from "../auth";
 import { notFound } from "../errors";
+import { acceptImportReview, importReview } from "../import-review";
 import { deleteSystem, importSystem, listSystems, modelBundle, readiness, systemStub } from "../service";
-import { body, type AppEnv } from "./app";
+import { body, origin, type AppEnv } from "./app";
 
 export const systems = new Hono<AppEnv>()
   .get("/systems", async (c) => c.json<SystemsResponse>({ systems: await listSystems(c.env) }))
@@ -15,4 +16,8 @@ export const systems = new Hono<AppEnv>()
     return c.json(s);
   })
   .get("/systems/:id/model", async (c) => c.json(await modelBundle(c.env, c.req.param("id"), c.req.query("rev"))))
-  .get("/systems/:id/readiness", async (c) => c.json(await readiness(c.env, c.req.param("id"), c.req.query("rev"))));
+  .get("/systems/:id/readiness", async (c) => c.json(await readiness(c.env, c.req.param("id"), c.req.query("rev"))))
+  // System import review (B.10): public read like the model; accepting (and removing rejected nodes) is admin only.
+  .get("/systems/:id/import-review", async (c) => c.json(await importReview(c.env, c.req.param("id"))))
+  .post("/systems/:id/import-review/accept", requireAdmin, async (c) =>
+    c.json(await acceptImportReview(c.env, c.req.param("id"), (await body(c)) as Partial<SystemImportReviewAccept>, origin(c))));
