@@ -123,6 +123,10 @@ describe('task submit with screenshots', () => {
     expect(two.status, JSON.stringify(two.json)).toBe(201);
     const old = await call('POST', path(f.systemId, p.id, 'ui', 'submit'), { attemptId: s.attempt.id, generation: s.attempt.generation, commit, screenshots: [png()] }, { authorization: `Bearer ${s.secret}` });
     expect(old.status).toBe(403);
+    // The current secret with the superseded attempt's fence is refused too: uploads attach only to the fenced attempt.
+    const fenced = await call('POST', path(f.systemId, p.id, 'ui', 'submit'), { attemptId: s.attempt.id, generation: s.attempt.generation, commit, screenshots: [png()] }, { authorization: `Bearer ${two.json.secret}` });
+    expect(fenced.status).toBeGreaterThanOrEqual(400);
+    expect(fenced.status).toBeLessThan(500);
     for (const rid of [s.attempt.realizationId, two.json.attempt.realizationId]) {
       expect((await env.EVIDENCE.list({ prefix: `evidence/${f.systemId}/` })).objects.filter((o) => o.key.includes(rid))).toHaveLength(0);
     }
