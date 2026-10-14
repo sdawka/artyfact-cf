@@ -1,0 +1,9 @@
+{
+  "id": "thing.library",
+  "kind": "thing",
+  "fields": {
+    "name": "Tool borrowing",
+    "description": "A proposed interface for listing tools and reviewing borrowing requests. There is no application source or deployed runtime yet."
+  },
+  "template": "template.thing.tool-library@1"
+}

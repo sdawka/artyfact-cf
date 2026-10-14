@@ -1,0 +1,8 @@
+{
+  "id": "criterion.borrowing-experience",
+  "kind": "policy",
+  "fields": {
+    "name": "Excellent borrowing",
+    "description": "Borrowing should be excellent and handle all errors properly."
+  }
+}

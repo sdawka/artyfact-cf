@@ -1,0 +1,8 @@
+{
+  "id": "operation.request-tool",
+  "kind": "operation",
+  "fields": {
+    "name": "Request a tool",
+    "description": "Given one available listed tool, a neighbour requests it with a return date. Its owner accepts or declines, and the request records that decision."
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "policy.privacy",
+  "kind": "policy",
+  "fields": {
+    "name": "Borrower privacy",
+    "description": "Only the owner of the requested tool may read the requesting borrower contact details. Other neighbours cannot read those details."
+  }
+}

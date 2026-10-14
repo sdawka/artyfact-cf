@@ -1,0 +1,14 @@
+{
+  "id": "system.tool-library",
+  "kind": "system",
+  "fields": {
+    "name": "Neighbourhood tool library",
+    "description": "A planned tool borrowing service where one owner decides one neighbour borrowing request with an agreed return date.",
+    "phase": "proposed",
+    "alternatives": [
+      "Paper loan register"
+    ],
+    "openQuestions": []
+  },
+  "template": "template.system.tool-library@1"
+}
