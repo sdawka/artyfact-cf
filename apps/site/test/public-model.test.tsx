@@ -64,3 +64,17 @@ it('introduces the Git platform, the practice stack and the prerendered checkout
   expect(container.querySelectorAll('[data-checkout-step]')).toHaveLength(7);
   expect(container.querySelector('a[href="/model#lifecycle"]')).toBeTruthy();
 });
+it('glosses lifecycle terms in plain words and tells a solo developer they are the coordinator', () => {
+  const { container } = render(<Site path="/connect-agent" config={config} />);
+  const text = container.querySelector('.guide-steps')!.textContent!;
+  for (const gloss of ['an Evolution: a proposed change to the model', 'a Realization: a build plan pinned to the accepted model version', 'a candidate: one submitted version', 'make the reviewed result the System’s current state', 'only if nothing changed since the review', 'If you work alone, that is you', 'wrangler secret put ADMIN_TOKEN', 'a plain shell variable you never export', 'shuts out the previous agent']) expect(text).toContain(gloss);
+  expect(text).not.toMatch(/fences|rotates its credentials/);
+  for (const id of ['prepare', 'start', 'work', 'parts', 'submit', 'review']) expect(container.querySelector('#' + id)?.getAttribute('tabindex')).toBe('-1');
+});
+it('describes the Task Packet as it is: no purpose or criteria text', () => {
+  const { container: model } = render(<Site path="/model" config={config} />);
+  for (const text of [...model.querySelectorAll('p')].map(p => p.textContent!).filter(text => /Task Packet carries/.test(text))) expect(text).not.toMatch(/purpose|criteria|claims/);
+  cleanup();
+  const { container: home } = render(<Site path="/" config={config} />);
+  expect(home.querySelector('.environment-columns')!.textContent).not.toMatch(/purpose and the criteria/);
+});

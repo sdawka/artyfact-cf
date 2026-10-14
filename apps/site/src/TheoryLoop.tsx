@@ -2,15 +2,15 @@ import React from 'react';
 
 const steps = [
   { name: 'Theory', title: 'Write the theory down', term: 'Evolution', line: 'Propose a change to the model and agree on it before any code.',
-    body: 'Ask your agent for a change and review it as an Evolution: the purpose, the claims it touches and the criteria the work must meet. An Evolution changes the Genome. Accepting it records a new Genome revision.' },
+    body: 'An Evolution is a proposed change to the model. Ask your agent for one, then review the purpose, the claims it touches and the criteria the work must meet. Accepting it records a new Genome revision.' },
   { name: 'Build', title: 'Build against it', term: 'Realization · Tasks', line: 'Split the accepted change into Tasks for one or more agents.',
-    body: 'A Realization pins the accepted Genome revision and breaks the work into Tasks. Each Task names its subjects, the paths it may read and write, and its dependencies. Each Task gets its own Git fork with one active writer.' },
+    body: 'A Realization is a build plan pinned to the accepted Genome revision. It breaks the work into Tasks. Each Task names its subjects, the paths it may read and write, and its dependencies. Each Task gets its own Git fork with one active writer.' },
   { name: 'Check', title: 'Check the work', term: 'verdicts', line: 'Run the checks bound to the model’s criteria.',
-    body: 'Agents checkpoint and submit exact candidates. Checks bound to criteria give a verdict: pass, fail, unknown, stale or waived. A check that did not run stays unknown, and unknown blocks.' },
+    body: 'Each agent submits a candidate: one submitted version of its Task’s work. Checks bound to criteria give a verdict: pass, fail, unknown, stale or waived. Only a pass is green. A check that did not run stays unknown, and unknown blocks.' },
   { name: 'Ship', title: 'Ship the combined result', term: 'promote', line: 'Review the integrated implementation, then promote it.',
-    body: 'Select a candidate for each Task, integrate them and review the combined implementation against the accepted Genome. Promoting is a separate approval from accepting the Evolution. Deploying is a separate action again.' },
-  { name: 'Observe', title: 'Watch what happens', term: 'Phenome', line: 'See deployments, runtime metrics and feature flags.',
-    body: 'The Phenome connects deployments, Cloudflare runtime metrics, custom measurements and feature flags. A deployment or a metric alone does not prove an outcome. Measuring claim indicators is still in progress.' },
+    body: 'Select a candidate for each Task, integrate them and review the result against the accepted Genome. To promote is to make the reviewed result the System’s current state, and only if nothing changed since the review. It is a separate approval from accepting the Evolution. Deploying is a separate step again.' },
+  { name: 'Observe', title: 'Watch what happens', term: 'Phenome', line: 'See what each deployment did.',
+    body: 'The Phenome links runtime events and deployments to the commit that produced them. A deployment or an event alone does not prove an outcome. Measuring claim indicators is in progress.' },
   { name: 'Revise', title: 'Revise the theory', term: 'claim status', line: 'Update what you believe, then start the next change.',
     body: 'Record whether the evidence supports or challenges the claim, or leaves it inconclusive. The next Evolution names the claims it affects, so the theory and the product move together.' },
 ] as const;

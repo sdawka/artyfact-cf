@@ -9,7 +9,7 @@ it('opens with the checkout theory as a sentence whose parts carry claim field l
   expect(screen.getByText('Every product is a theory.')).toBeTruthy();
   const card = container.querySelector('[data-theory-card]')!;
   const parts = [...card.querySelectorAll('[data-theory-part]')].map(part => [part.getAttribute('data-theory-part'), part.querySelector('.theory-part-text')!.textContent]);
-  expect(parts).toEqual([['mechanism', 'loyalty points'], ['beneficiary', 'returning shoppers'], ['outcome', 'come back to buy again'], ['indicator', 'repeat orders within 30 days']]);
+  expect(parts).toEqual([['mechanism', 'loyalty points'], ['beneficiaries', 'returning shoppers'], ['outcome', 'come back to buy again'], ['indicator', 'repeat orders within 30 days']]);
   expect(card.querySelector('[data-status="unknown"]')).toBeTruthy();
   expect(card.textContent).toContain('Measurement in progress');
 });
@@ -21,11 +21,11 @@ it('makes the loop discoverable as six readable steps that keep the two approval
   const steps = [...lifecycle.querySelectorAll('ol > li')];
   expect(steps.map(step => step.getAttribute('data-loop-step'))).toEqual(['theory', 'build', 'check', 'ship', 'observe', 'revise']);
   for (const step of steps) expect(step.querySelector('details > summary .term-label')).toBeTruthy();
-  expect(steps[0].textContent).toContain('An Evolution changes the Genome');
+  expect(steps[0].textContent).toContain('An Evolution is a proposed change to the model');
   expect(steps[1].textContent).toContain('accepted Genome revision');
   expect(steps[2].textContent).toContain('unknown blocks');
-  expect(steps[3].textContent).toContain('Promoting is a separate approval');
-  expect(steps[4].textContent).toContain('Measuring claim indicators is still in progress');
+  expect(steps[3].textContent).toContain('a separate approval from accepting the Evolution');
+  expect(steps[4].textContent).toContain('Measuring claim indicators is in progress');
   expect(lifecycle.querySelector('svg[aria-hidden="true"]')).toBeTruthy();
 });
 it('shows the real claim fields, statuses and theory rules, with outcome measurement unknown', () => {

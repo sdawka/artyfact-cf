@@ -4,7 +4,7 @@ import { disciplines, practices, relationLabels } from './practiceStackData';
 /** Static: every card is readable without CSS or JavaScript. The arrow is decorative; the labels carry the meaning. */
 export function PracticeStack() {
   return <section className="section practice-stack" aria-labelledby="practice-stack-heading">
-    <div className="section-heading"><h2 id="practice-stack-heading">The practices you already use, connected and taken further.</h2><p>Today they live in separate tools and files. Artyfact keeps them and ties each one to the same model of your product. Some are built in, some are extended, and some connect what you already write.</p></div>
+    <div className="section-heading"><h2 id="practice-stack-heading">The practices you already use, connected and taken further.</h2><p>Artyfact keeps these practices and ties each one to the same model of your product. Some are built in, some are extended, and some connect what you already write.</p></div>
     <p className="practice-legend" aria-hidden="true"><span>You know</span><PracticeArrow /><span>In Artyfact</span></p>
     {disciplines.map(discipline => <div key={discipline} className="practice-group">
       <h3>{discipline}</h3>

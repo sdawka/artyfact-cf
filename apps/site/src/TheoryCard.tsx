@@ -5,7 +5,7 @@ const part = (field: string, text: string): Part => ({ field, text });
 
 // Continues home step 6: "Did loyalty points bring customers back? Not measured yet."
 const sentence: (string | Part)[] = [
-  'We build ', part('mechanism', 'loyalty points'), ' for ', part('beneficiary', 'returning shoppers'),
+  'We build ', part('mechanism', 'loyalty points'), ' for ', part('beneficiaries', 'returning shoppers'),
   ' because we believe they ', part('outcome', 'come back to buy again'), ', shown by ', part('indicator', 'repeat orders within 30 days'), '.',
 ];
 
@@ -62,7 +62,7 @@ export function ClaimAnatomy() {
       </section>
       <section aria-labelledby="claim-rules-heading">
         <h3 id="claim-rules-heading">Gaps get flagged</h3>
-        <p>The <code>theory@1</code> Rule Pack reads every claim that is not deferred.</p>
+        <p>A Rule Pack is a set of automated checks over the model. The <code>theory@1</code> pack reads every claim that is not deferred.</p>
         <ul className="claim-rules">{rules.map(([rule, meaning]) => <li key={rule}><code>{rule}</code><span>{meaning}</span></li>)}</ul>
       </section>
     </div>

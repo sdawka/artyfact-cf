@@ -86,7 +86,10 @@ test('forced colors keep the current step and row visible', async ({ page }, inf
   await expect(button).toHaveAttribute('aria-current', 'step');
   expect(await button.evaluate(element => getComputedStyle(element).outlineWidth)).toBe('2px');
   expect(await page.locator('.checkout-overlap').evaluate(element => getComputedStyle(element).outlineStyle)).toBe('solid');
-  await expect(page.locator('.practice-card .practice-known').first()).toHaveCSS('text-decoration-line', 'none');
+  const card = page.locator('.practice-card').first();
+  const [arrow, border] = await card.evaluate(element => [getComputedStyle(element.querySelector('.practice-arrow')!).color, getComputedStyle(element).borderTopColor]);
+  expect(arrow).toBe(border);
+  expect(await card.locator('.relation-tag').evaluate(element => getComputedStyle(element, '::before').borderTopColor)).toBe(border);
   expect(await page.locator('.environment-columns article').first().evaluate(element => getComputedStyle(element).borderTopStyle)).toBe('solid');
   await page.locator('.checkout-stage').screenshot({ path: info.outputPath('forced-colors.png') });
 });

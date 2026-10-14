@@ -136,16 +136,16 @@ test('model jump links and loop steps remain usable on a narrow screen with redu
   await expect(page).toHaveURL(/#benefits$/);
   await expect(page.locator('#benefits')).toBeFocused();
   await page.locator('.model-benefits-grid summary').filter({ hasText: 'Context agents can use' }).click();
-  await expect(page.getByText(/A Task Packet carries the purpose, the criteria/)).toBeVisible();
+  await expect(page.getByText(/A Task Packet carries the pinned Genome version, the model nodes/)).toBeVisible();
   await navigation.getByRole('link', { name: 'How a change moves' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#lifecycle')).toBeFocused();
   const theory = page.locator('#lifecycle summary').filter({ hasText: 'Write the theory down' });
   await theory.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByText(/An Evolution changes the Genome/)).toBeVisible();
+  await expect(page.getByText(/An Evolution is a proposed change to the model/)).toBeVisible();
   await page.locator('#lifecycle summary').filter({ hasText: 'Ship the combined result' }).click();
-  await expect(page.getByText(/Promoting is a separate approval/)).toBeVisible();
+  await expect(page.getByText(/a separate approval from accepting the Evolution/)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 test('the handoff map is readable without JavaScript and links each step', async ({ browser }, info) => {
@@ -169,4 +169,11 @@ test('opening a loop step lights its node on the ring', async ({ page }) => {
   await page.mouse.move(0, 0);
   await expect.poll(fill).not.toBe(before);
   await expect(page.locator('#claim-anatomy .claim-statuses [aria-current]')).toHaveAttribute('data-status', 'unknown');
+});
+test('guide step links move focus to their section', async ({ page }) => {
+  await page.goto('https://artyfact.test/connect-agent');
+  await page.getByRole('navigation', { name: 'Guide steps' }).getByRole('link', { name: 'Review and promote' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#review$/);
+  await expect(page.locator('#review')).toBeFocused();
 });

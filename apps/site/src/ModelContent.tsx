@@ -32,7 +32,7 @@ export function ModelContent({ explorerHtml, platform }: ModelContentProps) {
     </section>
 
     <section id="meta-ontology" className="section model-story-shape" aria-labelledby="meta-ontology-heading" tabIndex={-1}>
-      <div className="section-heading"><h2 id="meta-ontology-heading">The vocabulary: a multi-level model.</h2><p>The ontology defines the kinds, from a whole System down to one Affordance, plus the purposes and criteria that attach to them. Your theory and design fill them in. Here they are filled in with this page. <span className="term-label">meta ontology</span></p></div>
+      <div className="section-heading"><h2 id="meta-ontology-heading">The vocabulary: a multi-level model.</h2><p>The ontology defines the kinds, from a whole System down to one Affordance, plus the purposes and criteria that attach to them. Your theory and design fill them in. Here they are filled in with this page. A Thing is one app or service you deploy. A Section groups related parts of it. An Affordance is something a person can do on screen. <span className="term-label">meta ontology</span></p></div>
       <div className="model-self-portrait" role="group" aria-label="Artyfact canonical containment from System to explanation component">
         <div className="model-self-system" data-model-subject="system.artyfact"><div className="model-self-caption"><span>System · the whole product</span><strong>Artyfact</strong></div>
           <div className="model-self-thing" data-model-subject="thing.site"><div className="model-self-caption"><span>Thing · one app you deploy</span><strong>Public site</strong></div>
@@ -55,10 +55,10 @@ export function ModelContent({ explorerHtml, platform }: ModelContentProps) {
     <section id="benefits" className="section model-story-benefits" aria-labelledby="benefits-heading" tabIndex={-1}>
       <div className="section-heading"><h2 id="benefits-heading">Why write the theory down?</h2><p>People and agents work from the same reasons instead of guessing them.</p></div>
       <div className="model-benefits-grid">
-        <article><details><summary><strong>Context agents can use</strong><span>Purpose and criteria travel with each Task.</span></summary><p>A Task Packet carries the purpose, the criteria and the related subjects into the agent’s workspace, so it does not rebuild them from source files.</p></details></article>
+        <article><details><summary><strong>Context agents can use</strong><span>Each Task arrives with its scope.</span></summary><p>A Task Packet carries the pinned Genome version, the model nodes the Task reads and writes, the paths it may change, its steps, its checks and its dependencies. The agent does not have to rebuild that from source files.</p></details></article>
         <article><details><summary><strong>Changes keep their reason</strong><span>An Evolution names the claims it affects.</span></summary><p>A change moves from request to code to review with its reason attached. When the theory changes, you can see which work it touched.</p></details></article>
         <article><details><summary><strong>Gaps show early</strong><span>Rule Packs flag a claim with nothing to measure.</span></summary><p>A claim with no indicator, no method or no beneficiary is flagged before anyone builds it. Every agent and reviewer checks against the same modeled rules.</p></details></article>
-        <article><details><summary><strong>Evidence stays honest</strong><span>Unknown is a real answer.</span></summary><p>Checks give verdicts and claims carry a status. A deployment is not an outcome, and a passing check establishes only what that check measured.</p></details></article>
+        <article><details><summary><strong>Evidence stays honest</strong><span>Unknown is a real answer.</span></summary><p>Checks give verdicts and claims carry a status. Only a pass is green. A deployment is not an outcome, and a passing check establishes only what that check measured.</p></details></article>
       </div>
       <h3 className="model-story-subheading">Keep the answers separate.</h3>
       <div className="model-story-questions">
@@ -76,6 +76,6 @@ export function ModelContent({ explorerHtml, platform }: ModelContentProps) {
         <div><dt>Rule Packs</dt><dd>Checks over the model, such as <code>theory@1</code> for claims. The bundled authorization pack checks modeled policy coverage, not deployed security.</dd></div>
       </dl>
     </section>
-    <section className="section closing model-story-close"><h2>Write the theory. Hand it to your agents.</h2><div><p>A Task Packet carries the relevant purpose, claims and criteria into your agent’s workspace.</p><div className="model-close-actions"><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a>{platform && <a className="text-link" href={platform}>Open the platform</a>}</div></div></section>
+    <section className="section closing model-story-close"><h2>Write the theory. Hand it to your agents.</h2><div><p>A Task Packet carries the pinned Genome version, the Task’s model nodes, paths, steps and checks into your agent’s workspace.</p><div className="model-close-actions"><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a>{platform && <a className="text-link" href={platform}>Open the platform</a>}</div></div></section>
   </div>;
 }

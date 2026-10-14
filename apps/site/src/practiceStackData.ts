@@ -7,7 +7,7 @@ export const relationLabels: Record<Relation, string> = { 'built-in': 'Built in'
  * built-in: the practice exists natively in a new shape. extended: kept and given more. connected: your artifact becomes part of the model. */
 export const practices: Practice[] = [
   { discipline: 'Engineering', known: 'git worktrees, a branch per agent', relation: 'built-in', artyfact: 'A private fork for each agent Task, with a short-lived write token.', term: 'Task', status: 'yes' },
-  { discipline: 'Engineering', known: 'AGENTS.md and prompt files', relation: 'built-in', artyfact: 'A brief for each Task, cut from the model. It lists what the Task changes, the paths it may write, its steps, its dependencies and its checks.', status: 'yes' },
+  { discipline: 'Engineering', known: 'AGENTS.md and prompt files', relation: 'extended', artyfact: 'Each Task workspace gets an AGENTS.md block and a brief cut from the model. The brief lists what the Task changes, the paths it may write, its steps, its dependencies and its checks.', status: 'yes' },
   { discipline: 'Engineering', known: 'spec.md and spec-driven development', relation: 'built-in', artyfact: 'A typed, multi-level model of the product. It is validated and versioned.', term: 'Genome', status: 'yes' },
   { discipline: 'Engineering', known: 'linters and policy-as-code', relation: 'extended', artyfact: 'Rule packs that run over the model. Each finding shows the facts behind it.', status: 'yes' },
   { discipline: 'Engineering', known: 'CI gates', relation: 'extended', artyfact: 'Checks tied to criteria. A check that did not run stays unknown. Only a pass is green.', status: 'yes' },
@@ -15,7 +15,7 @@ export const practices: Practice[] = [
   { discipline: 'Engineering', known: 'merge conflicts', relation: 'extended', artyfact: 'Tasks that touch the same screen, rule or journey are flagged, even in different files.', status: 'yes' },
   { discipline: 'Engineering', known: 'changelogs and release notes', relation: 'extended', artyfact: 'A changelog of every System commit. You can compare the model or the files.', term: 'System', status: 'yes' },
   { discipline: 'Engineering', known: 'boilerplate and templates', relation: 'built-in', artyfact: 'Reusable pieces with pinned versions. Composing them records where each piece came from.', term: 'Parts', status: 'yes' },
-  { discipline: 'Engineering', known: 'LLM evals', relation: 'extended', artyfact: 'AI judgments with a confidence score. Below the threshold, a judgment stays unknown, never green.', status: 'yes' },
+  { discipline: 'Engineering', known: 'LLM evals', relation: 'extended', artyfact: 'AI judgments with a confidence score. Below the threshold, a judgment stays unknown. Only a pass is green.', status: 'yes' },
   { discipline: 'Product', known: 'PRDs', relation: 'connected', artyfact: 'Purposes, with success criteria, non-goals and constraints, stored in the model.', status: 'yes' },
   { discipline: 'Product', known: 'personas', relation: 'connected', artyfact: 'The people and groups each purpose is for.', status: 'yes' },
   { discipline: 'Product', known: 'journey maps', relation: 'connected', artyfact: 'Journeys whose steps point at real screens and operations. A rule pack checks that they connect.', status: 'yes' },

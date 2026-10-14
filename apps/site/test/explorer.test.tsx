@@ -37,7 +37,7 @@ it('keeps one illustrative feature in all three parallel views', () => {
 });
 it('leads each view with plain words and keeps the product name as a label', () => {
   render(<SystemExplorer />);
-  expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['What it should beGenome', 'What is being madeProteome', 'What it doesPhenome']);
+  expect(screen.getAllByRole('tab').map(tab => tab.textContent)).toEqual(['What it should be Genome', 'What is being made Proteome', 'What it does Phenome']);
 });
 it('supports keyboard navigation across views', () => {
   render(<SystemExplorer />);

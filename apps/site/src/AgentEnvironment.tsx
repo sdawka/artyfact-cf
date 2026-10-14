@@ -2,12 +2,12 @@ import React from 'react';
 
 const columns = [
   { title: 'What they need', label: 'Context', items: [
-    'A brief cut from the model: the purpose and the criteria to meet.',
-    'The related screens, data and journeys.',
-    'The rules up front, not after review.',
+    'A brief cut from the model: the pinned version, the steps and the checks.',
+    'The parts of the model it reads and changes, such as a screen or a journey.',
+    'Which finished Tasks it builds on, and which open ones it must not overlap.',
     'What other agents are working on.',
   ] },
-  { title: 'Guardrails', label: 'Can’t do the wrong thing', items: [
+  { title: 'Guardrails', label: 'Hard to do the wrong thing', items: [
     'A private fork for each Task, with a short-lived token.',
     'Paths they may write, and paths that stay protected.',
     'Checks bound to the model’s rules.',
