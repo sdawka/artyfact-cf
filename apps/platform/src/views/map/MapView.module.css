@@ -1,77 +1,60 @@
-.view { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: var(--spacing-3); }
-.header { padding: var(--spacing-1) 0 var(--spacing-2); flex: none; display: flex; flex-direction: column; gap: var(--spacing-2); }
-.titleRow { display: flex; align-items: center; gap: var(--spacing-4); min-width: 0; }
-.h1 { margin: 0; font-size: var(--font-size-2xl); flex: none; }
-.breadcrumbs { min-width: 0; overflow-x: auto; }
-.breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-2); margin: 0; padding: 0; list-style: none; white-space: nowrap; }
-.breadcrumbs li { display: flex; gap: var(--spacing-2); align-items: center; color: var(--color-text-subtle); }
-.breadcrumbs button { border: 0; background: none; color: var(--color-text-secondary); padding: var(--spacing-1) 0; font: inherit; font-size: var(--font-size-sm); cursor: pointer; }
-.breadcrumbs button[aria-current] { color: var(--color-text-primary); }
-.overlay { margin-left: auto; flex: none; }
-.overlay :global(.u-segments) > * { padding: var(--spacing-1) var(--spacing-2); }
-.toolbar { display: flex; gap: var(--spacing-2); align-items: center; flex-wrap: wrap; }
-.toolbar button, .summary button, .endpoint button, .panelHead button, .offscreen button, .actors button {
-  border: 1px solid var(--color-border-subtle); background: var(--color-surface-primary); color: var(--color-text-secondary); padding: var(--spacing-1) var(--spacing-2); border-radius: var(--border-radius-sm); font: inherit; font-size: var(--font-size-xs); cursor: pointer; min-height: 30px;
+/* Canvas archetype: compact header (h1 + scope path), one toolbar row, a bordered canvas that fills the rest. Buttons are the
+   shared `Button size="compact"`; nothing here restyles a control. */
+.view {
+  display: flex; flex-direction: column; height: 100%; min-height: 0; box-sizing: border-box;
+  padding: var(--spacing-3) var(--app-gutter) var(--spacing-4);
 }
-.view :is(.toolbar, .summary, .endpoint, .panelHead, .offscreen, .actors) button:hover:not(:disabled) { background: var(--color-background-hover); color: var(--color-brand-primary); border-color: var(--color-brand-primary); }
-.toolbar button:disabled { opacity: .45; cursor: default; }
-.view :is(.toolbar, .summary) button[aria-expanded=true] { background: color-mix(in oklch, var(--color-brand-primary) 8%, var(--color-surface-primary)); border-color: var(--color-brand-primary); color: var(--color-brand-primary); }
-.view :is(.toolbar, .summary, .endpoint, .panelHead, .offscreen, .actors) button:active:not(:disabled) { background: color-mix(in oklch, var(--color-brand-primary) 15%, var(--color-surface-primary)); }
-.breadcrumbs button:hover { color: var(--color-brand-primary); }
-.view button:focus-visible, .showAll input:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
-.showAll { display: inline-flex; align-items: center; gap: var(--spacing-1); color: var(--color-text-secondary); font-size: var(--font-size-xs); cursor: pointer; }
-.showAll input { accent-color: var(--color-brand-primary); }
-.hint { color: var(--color-text-subtle); font-size: var(--font-size-xs); margin-left: auto; }
-.canvas { position: relative; flex: 1; min-height: 300px; overflow: hidden; border: 1px solid var(--color-border-subtle); background: var(--color-background); }
+/* Details open beside the Map: the pan area ends where the drawer begins. */
+.view[data-inspecting] { padding-right: calc(var(--inspector-inset, 0px) + var(--spacing-3)); }
+.header { flex: none; margin-bottom: var(--spacing-3); }
+.breadcrumbs { min-width: 0; overflow-x: auto; }
+.breadcrumbs ol { display: flex; align-items: center; gap: var(--spacing-2); margin: 0; padding: 0; list-style: none; white-space: nowrap; font: var(--type-meta); }
+.breadcrumbs li { display: flex; gap: var(--spacing-2); align-items: center; color: var(--color-text-subtle); }
+.breadcrumbs button { border: 0; background: none; color: var(--color-text-secondary); padding: var(--spacing-2) 0; min-height: 36px; font: inherit; cursor: pointer; }
+.breadcrumbs button[aria-current] { color: var(--color-text-primary); }
+.breadcrumbs button:hover { color: var(--color-text-primary); }
+.breadcrumbs button:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.toolbar { display: flex; gap: var(--spacing-2); align-items: center; flex-wrap: wrap; }
+.overlay { margin-left: var(--spacing-3); flex: none; }
+.hint { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-4); margin-left: auto; color: var(--color-text-subtle); font: var(--type-hint); }
+.canvas { position: relative; flex: 1; min-height: 300px; overflow: hidden; border: 1px solid var(--color-border-subtle); background: var(--surface-page); }
 .flowSurface { position: absolute; inset: 0; }
 .canvas :global(.react-flow__node.selected) { outline: none; }
 .canvas :global(.react-flow__node):focus-visible { outline: 2px dashed var(--color-text-primary); outline-offset: -6px; }
-.navigation { position: absolute; z-index: 20; top: var(--spacing-3); left: var(--spacing-3); width: min(300px, calc(100% - 24px)); max-height: calc(100% - 72px); display: flex; flex-direction: column; overflow: auto; border: 1px solid var(--color-border); background: var(--color-surface-primary); box-shadow: var(--shadow-md); }
-.panelHead { display: flex; align-items: center; justify-content: space-between; padding: var(--spacing-2) var(--spacing-3); border-bottom: 1px solid var(--color-border-subtle); font-size: var(--font-size-sm); }
+
+/* Overlay panels (Tree, Filters) overlap the canvas, so they are the one place a shadow is allowed. */
+.navigation { position: absolute; z-index: 20; top: var(--spacing-3); left: var(--spacing-3); width: min(300px, calc(100% - 24px)); max-height: calc(100% - 72px); display: flex; flex-direction: column; overflow: auto; border: 1px solid var(--color-border); background: var(--surface-overlay); box-shadow: var(--shadow-md); }
+.panelHead { display: flex; align-items: center; justify-content: space-between; padding: var(--spacing-2) var(--spacing-3); border-bottom: 1px solid var(--color-border-faint); }
+.panelHead h2 { margin: 0; font: var(--type-h3); }
 .navigation > :last-child { min-height: 0; }
-.selection { position: absolute; z-index: 15; bottom: var(--spacing-10); left: var(--spacing-3); right: 54px; width: fit-content; max-width: calc(100% - 66px); background: var(--color-surface-primary); border: 1px solid var(--color-border); box-shadow: var(--shadow-md); }
+
+/* Selection tray and key share one dock, tray above key, so they can never overlap. */
+.dock { position: absolute; z-index: 15; left: var(--spacing-3); bottom: var(--spacing-3); right: 64px; display: flex; flex-direction: column; align-items: flex-start; gap: var(--spacing-2); pointer-events: none; max-width: calc(100% - 76px); }
+.dock > * { pointer-events: auto; }
+.selection { max-width: 100%; background: var(--surface-overlay); border: 1px solid var(--color-border); box-shadow: var(--shadow-md); }
 .summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); padding: var(--spacing-2); }
 .selectedName { display: flex; flex-direction: column; min-width: 0; max-width: 240px; gap: 2px; padding: 0 var(--spacing-1); }
-.selectedName strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--font-size-sm); }
-.selectedName span { color: var(--color-text-subtle); font-size: var(--font-size-xs); }
+.selectedName strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--type-ui); font-weight: 600; }
+.selectedName span { color: var(--color-text-secondary); font: var(--type-meta); }
 .summary > button { flex: none; max-width: 100%; overflow-wrap: anywhere; }
-.view .summary .detailsAction { background: var(--color-brand-primary); color: var(--color-background); border-color: var(--color-brand-primary); font-weight: 600; }
-.view .summary button.detailsAction:hover:not(:disabled) { background: var(--color-brand-primary-hover); color: var(--color-background); }
-.view .summary button.detailsAction:active:not(:disabled) { background: var(--color-brand-primary-active); color: var(--color-background); }
-.summary .clearAction { border-color: transparent; background: transparent; margin-left: auto; font-size: var(--font-size-base); }
-.connections { max-height: 240px; overflow-y: auto; border-top: 1px solid var(--color-border-subtle); padding: var(--spacing-3); font-size: var(--font-size-xs); }
-.connections ul { padding: 0; margin: 0; list-style: none; }
-.connections li + li { border-top: 1px solid var(--color-border-subtle); margin-top: var(--spacing-3); padding-top: var(--spacing-3); }
-.endpoint { display: flex; gap: var(--spacing-3); align-items: center; justify-content: space-between; }
-.endpoint span { overflow-wrap: anywhere; max-width: 70ch; line-height: 1.5; }
-.endpoint button { flex: none; max-width: 48%; overflow-wrap: anywhere; }
-.relation { color: var(--color-text-secondary); margin: var(--spacing-1) 0; }
-.legend { position: absolute; left: var(--spacing-3); bottom: var(--spacing-3); display: flex; gap: var(--spacing-3); pointer-events: none; font-size: var(--font-size-xs); color: var(--color-text-subtle); }
-.offscreen { position: absolute; z-index: 10; top: var(--spacing-3); right: var(--spacing-3); display: flex; flex-direction: column; gap: var(--spacing-1); max-width: min(300px, calc(100% - 24px)); max-height: 30%; overflow-y: auto;
-  background: var(--color-surface-primary); padding: var(--spacing-1); border: 1px solid var(--color-border-subtle); }
-.offscreen button { text-align: left; overflow-wrap: anywhere; }
+.clearAction { margin-left: auto; }
+.connections { max-height: 240px; overflow-y: auto; border-top: 1px solid var(--color-border-faint); padding: var(--spacing-2) var(--spacing-3); font: var(--type-meta); }
+.connections p { margin: var(--spacing-2) 0; color: var(--color-text-secondary); }
+.connectionList li { flex-wrap: wrap; }
+.legend {
+  display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-4); padding: var(--spacing-2) var(--spacing-3);
+  background: var(--surface-overlay); border: 1px solid var(--color-border-faint); color: var(--color-text-secondary); font: var(--type-meta);
+}
+.legend span { display: inline-flex; align-items: center; gap: var(--spacing-2); }
+
 @media (max-width: 700px) {
-  .titleRow { flex-wrap: wrap; gap: var(--spacing-2); }
-  .h1 { font-size: var(--font-size-xl); }
-  .breadcrumbs { flex: 1; }
-  .overlay { width: 100%; margin: 0; }
-  .toolbar { gap: var(--spacing-1); }
+  .view { padding-inline: var(--spacing-4); }
+  .overlay { width: 100%; margin: 0; order: -1; }
   .hint { display: none; }
-  .toolbar button, .summary button, .endpoint button { min-height: 36px; }
   .canvas { min-height: 280px; }
-  .selection { width: auto; right: 54px; }
-  .summary { flex-wrap: wrap; }
+  .dock { right: var(--spacing-3); max-width: none; }
+  .selection { width: 100%; }
   .selectedName { width: 100%; max-width: none; }
   .connections { max-height: 30vh; }
-  .endpoint { align-items: start; flex-direction: column; gap: var(--spacing-1); }
-  .endpoint button { max-width: 100%; }
+  .legend { display: none; }
 }
-
-.actors { position: absolute; bottom: var(--spacing-10); left: var(--spacing-3); right: 54px; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1); padding: var(--spacing-2); max-width: 580px; background: var(--color-surface-primary); border: 1px solid var(--color-border-subtle); }
-.actors > span { width: 100%; font-size: var(--font-size-xs); color: var(--color-text-subtle); }
-.actors button { min-height: 30px; }
-.canvas:has(.selection) .actors { display: none; }
-
-.canvas :global(.react-flow__controls-button):hover { background: var(--color-background-hover); color: var(--color-brand-primary); }
-.canvas :global(.react-flow__controls-button):focus-visible { outline: var(--focus-ring); outline-offset: -3px; }
-.canvas :global(.react-flow__controls-button):active { background: color-mix(in oklch, var(--color-brand-primary) 15%, var(--color-surface-primary)); }

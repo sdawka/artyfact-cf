@@ -21,28 +21,30 @@
   pointer-events: all;
   position: relative;
   color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border-subtle);
+  background: var(--graph-node-bg);
+  border: 1px solid var(--graph-node-border);
   border-radius: var(--border-radius-md);
   font-size: var(--font-size-sm);
-  transition: box-shadow var(--motion-duration-normal) var(--motion-easing-ease-out);
+  transition: background-color var(--motion-duration-fast) var(--motion-easing-ease-out);
 }
-.node:hover { border-color: var(--color-border-strong); box-shadow: var(--shadow-glow-accent-soft); }
+/* Flat: no hover, failure or pressed glow. Hover is one surface step; failure is the danger border plus the word. */
+.node:hover { background: var(--surface-raised); border-color: var(--color-border-strong); }
 .node:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
-.node[aria-pressed="true"] { border-color: var(--color-brand-primary); border-width: 2px; }
-.node[data-failure] { border-color: var(--color-danger); box-shadow: var(--shadow-glow-error-soft); }
-.node[aria-pressed="true"] { box-shadow: var(--shadow-glow-accent); }
+.node[data-failure] { border-color: var(--graph-edge-danger); }
+/* The selected step: 2px outline plus the selection glow, the only light on the canvas. */
+.node[aria-pressed="true"] { border-color: var(--color-brand-primary); outline: 2px solid var(--color-brand-primary); outline-offset: -2px; background: var(--surface-raised); box-shadow: var(--shadow-glow-selection); }
+:global([data-effects="off"]) .node { box-shadow: none; }
 .node[data-unresolved] { border-style: dotted; border-color: var(--color-border-strong); }
 .meta {
   display: flex;
   align-items: baseline;
   gap: var(--spacing-2);
-  font-size: var(--font-size-xs);
+  font: var(--type-meta);
   color: var(--color-text-secondary);
 }
 .id { font-family: var(--font-code); }
 .mark { margin-inline-start: auto; }
-.node[data-failure] .mark { color: var(--color-danger); }
+.node[data-failure] .mark { color: var(--graph-edge-danger); }
 .unresolved { margin-inline-start: auto; font-weight: var(--font-weight-bold); color: var(--color-text-secondary); }
 .action {
   display: -webkit-box;
@@ -54,9 +56,9 @@
 .refs { display: flex; gap: var(--spacing-1); margin-top: auto; overflow: hidden; }
 
 .wait { border-style: double; border-width: 3px; }
-.terminal { border-radius: var(--border-radius-lg); background: var(--color-background-secondary); }
-.system { background: var(--color-surface-primary); }
-.external { background: var(--color-background-secondary); border-style: dashed; }
+.terminal { border-radius: var(--border-radius-lg); background: var(--surface-well); }
+.system { background: var(--surface-panel); }
+.external { background: var(--surface-well); border-style: dashed; }
 
 .decision {
   background: transparent;
@@ -68,33 +70,32 @@
 }
 .decision .meta { z-index: 1; justify-content: center; }
 .decision .mark { display: none; }
-.decision .action { z-index: 1; -webkit-line-clamp: 2; font-size: var(--font-size-xs); }
+.decision .action { z-index: 1; -webkit-line-clamp: 2; font: var(--type-meta); }
 .diamond { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
-.diamond polygon { fill: var(--color-surface-secondary); stroke: var(--color-border-subtle); stroke-width: 1px; }
-/* The diamond glows through a drop-shadow (a box-shadow would outline the button's rectangle). */
-.node.decision:is(*, :hover, [aria-pressed="true"], [data-failure]) { box-shadow: none; }
-.decision[data-failure] .diamond { filter: drop-shadow(0 0 6px var(--glow-error)); }
-.decision:hover .diamond polygon { stroke: var(--color-border-strong); }
-.decision:hover .diamond { filter: drop-shadow(0 0 6px var(--glow-accent)); }
-.decision[aria-pressed="true"] .diamond polygon { stroke: var(--color-brand-primary); stroke-width: 2px; }
-.decision[aria-pressed="true"] .diamond { filter: drop-shadow(0 0 8px var(--glow-accent)); }
+/* The diamond is an SVG, so its outline carries hover and selection; no drop-shadow glow. */
+.node.decision:is(*, :hover, [aria-pressed="true"], [data-failure]) { box-shadow: none; outline: none; background: transparent; }
+.diamond polygon { fill: var(--graph-node-bg); stroke: var(--graph-node-border); stroke-width: 1px; }
+.decision[data-failure] .diamond polygon { stroke: var(--graph-edge-danger); }
+.decision:hover .diamond polygon { fill: var(--surface-raised); stroke: var(--color-border-strong); }
+.decision[aria-pressed="true"] .diamond polygon { fill: var(--surface-raised); stroke: var(--color-brand-primary); stroke-width: 2px; }
 .decision[data-unresolved] .diamond polygon { stroke-dasharray: 2 3; }
 
 .lane {
   box-sizing: border-box;
   border-top: 1px solid var(--color-border-subtle);
-  background: color-mix(in oklch, var(--color-surface-secondary) 45%, transparent);
+  background: color-mix(in oklch, var(--surface-raised) 45%, transparent);
   pointer-events: none;
 }
-.lane[data-lane="system"] { background: color-mix(in oklch, var(--color-surface-primary) 55%, transparent); }
-.lane[data-lane="external"] { background: color-mix(in oklch, var(--color-background-secondary) 55%, transparent); }
+.lane[data-lane="system"] { background: color-mix(in oklch, var(--surface-panel) 55%, transparent); }
+.lane[data-lane="external"] { background: color-mix(in oklch, var(--surface-well) 55%, transparent); }
 .laneLabel {
   position: absolute;
   inset-block-start: var(--spacing-3);
   inset-inline-start: var(--spacing-3);
-  font-size: var(--font-size-xs);
+  font: var(--type-meta);
   color: var(--color-text-secondary);
 }
+.laneEmpty { margin-inline-start: var(--spacing-3); color: var(--color-text-subtle); }
 
 @media (prefers-reduced-motion: reduce) {
   .node { transition: none; }

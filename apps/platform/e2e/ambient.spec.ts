@@ -95,7 +95,7 @@ test.describe("ambient shell", () => {
     await expect(selected).toHaveCSS("outline-width", "2px");
     await expect(selected).toHaveCSS("outline-offset", "-5px");
     await expect(selected).toHaveCSS("outline-color", brand);
-    // Selection keeps its approved relation glow after hover leaves the tile.
+    // Selection keeps its glow after hover leaves the tile.
     await page.mouse.move(10, 10);
     await expect(selected).not.toHaveCSS("box-shadow", "none");
     await expect(page.locator("[data-edge-flow]").first()).toBeAttached();
@@ -143,7 +143,8 @@ test.describe("ambient shell", () => {
     await expect(step).toHaveAttribute("aria-pressed", "true");
     await expect(step).not.toHaveCSS("box-shadow", "none");
     await expect(page.locator("[data-edge-flow]").first()).toBeAttached();
-    await expect(page.getByRole("button", { name: /^Step f1:.*failure/ })).not.toHaveCSS("box-shadow", "none");
+    // Failure is the danger border and the word, not a glow.
+    await expect(page.getByRole("button", { name: /^Step f1:.*failure/ })).toHaveCSS("box-shadow", "none");
     await expect.poll(async () => (await fxEvents(page)).filter((e) => e.kind === "select").length).toBe(1);
     await page.mouse.move(10, 10);
     await page.waitForTimeout(300);

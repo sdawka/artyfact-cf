@@ -1,4 +1,6 @@
 import { Handle, Position, type NodeProps } from "@xyflow/react";
+import { Link } from "react-router";
+import { useKeepParams } from "@/model/useSelection";
 import { kindColour, titleOf, useKindView } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
 import { CandidateHalo } from "../overlays/CandidateHalo";
@@ -14,6 +16,7 @@ export function GroupNode({ data, selected }: NodeProps<GroupFlowNode>) {
   const entry = useModel().byId(node.id);
   const name = entry ? titleOf(entry, info) : node.name;
   const realizations = useRealizationCount(node.id, layer);
+  const href = useKeepParams();
   return (
     <div
       className={styles.group}
@@ -33,11 +36,13 @@ export function GroupNode({ data, selected }: NodeProps<GroupFlowNode>) {
           <span className={styles.name}>{name}</span>
         </div>
         <div className={styles.meta}>
-          <span className={styles.kind}>{info.label} · scope</span>
+          <span className={styles.kind}>{info.label}, current scope</span>
           <LayerBadges id={node.id} layer={layer} realizations={realizations} />
         </div>
       </div>
-      {node.childCount === 0 && <p className={styles.empty}>Nothing inside</p>}
+      {node.childCount === 0 && <p className={styles.empty}>
+        Nothing inside {name} yet. <Link className="nodrag nopan" to={href("work", { panel: "intent", anchor: node.id })}>Describe a change</Link> to add parts.
+      </p>}
       <Handle type="source" position={Position.Right} className={styles.handle} isConnectable={false} />
       <CandidateHalo candidates={candidates} />
     </div>

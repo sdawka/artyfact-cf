@@ -47,12 +47,12 @@ for (const width of [1440, 390]) test(`relation glow and anchored camera travel 
   await page.screenshot({ path: info.outputPath(`atlas-${width}-up.png`) });
   await tile(page, "component.AddContactDialog").click();
   await page.getByRole("button", { name: /Connections/ }).click();
-  const connected = await sampledTravel(page, () => page.getByRole("region", { name: "Selected connections" }).getByRole("button", { name: "Locate Create or edit private contact", exact: true }).first().click());
+  const connected = await sampledTravel(page, () => page.getByRole("region", { name: "Selected connections" }).getByRole("button", { name: "Show Create or edit private contact on map", exact: true }).first().click());
   expect(new Set(connected).size).toBeGreaterThan(3);
   await expect(tile(page, "operation.contact.save")).toHaveAttribute("data-selected", "true");
   await page.screenshot({ path: info.outputPath(`atlas-${width}-connected.png`) });
   if (!await page.getByRole("region", { name: "Selected connections" }).isVisible()) await page.getByRole("button", { name: /Connections/ }).click();
-  const crossScope = await sampledTravel(page, () => page.getByRole("region", { name: "Selected connections" }).getByRole("button", { name: "Locate Save", exact: true }).first().click());
+  const crossScope = await sampledTravel(page, () => page.getByRole("region", { name: "Selected connections" }).getByRole("button", { name: "Show Save on map", exact: true }).first().click());
   await expect(page.getByTestId("atlas-canvas")).toHaveAttribute("data-scope", "component.AddContactDialog");
   await expect(tile(page, "affordance.AddContactDialog.save")).toHaveAttribute("data-selected", "true");
   expect(new Set(crossScope).size).toBeGreaterThan(5);

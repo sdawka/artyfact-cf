@@ -1,15 +1,16 @@
-/* @xyflow/react overrides: flat surfaces, quiet borders, no pills. Glow for selection and status lives in the view
-   modules (effect tokens); the canvas is transparent so the Shell's ambient field shows through its wash. */
+/* @xyflow/react overrides: flat surfaces, quiet borders, no pills, no glow on graph nodes. Only selection lights up
+   (outline + --shadow-glow-selection, set in the view modules); the canvas is transparent so the Shell's ambient field
+   shows through its wash. */
 .react-flow {
   --xy-background-color: transparent;
-  --xy-node-background-color: var(--color-surface-secondary);
+  --xy-node-background-color: var(--graph-node-bg);
   --xy-node-color: var(--color-text-primary);
-  --xy-node-border: 1px solid var(--color-border-subtle);
+  --xy-node-border: 1px solid var(--graph-node-border);
   --xy-node-border-radius: var(--border-radius-md);
   --xy-node-boxshadow-hover: none;
   --xy-node-boxshadow-selected: none;
-  --xy-edge-stroke: var(--color-border-strong);
-  --xy-edge-stroke-selected: var(--color-brand-primary);
+  --xy-edge-stroke: var(--graph-edge);
+  --xy-edge-stroke-selected: var(--graph-edge-active);
   --xy-connectionline-stroke: var(--color-border-strong);
   --xy-handle-background-color: var(--color-border-strong);
   --xy-handle-border-color: var(--color-background);
@@ -27,5 +28,21 @@
 .react-flow__node.selected { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
 .react-flow__controls { box-shadow: none; border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); overflow: hidden; }
 .react-flow__attribution { display: none; }
-.react-flow__edge-text { fill: var(--color-text-secondary); font-size: var(--font-size-xs); }
-.react-flow__edge-textbg { fill: var(--color-background); }
+.react-flow__edge-text { fill: var(--color-text-secondary); font: var(--type-meta); }
+.react-flow__edge-textbg { fill: var(--graph-label-bg); fill-opacity: 1; }
+
+/* Shared graph tokens (Map, Journeys): flat nodes, certainty-carrying edges, selection by weight and ink, not hue. */
+:root {
+  --graph-node-bg: var(--surface-panel);
+  --graph-node-border: var(--color-border-subtle);
+  --graph-edge: var(--color-border-strong);
+  --graph-edge-active: var(--color-text-primary);
+  --graph-edge-danger: var(--color-danger);
+  --graph-label-bg: var(--surface-page);
+  --graph-edge-width: 1.25px;
+  --graph-edge-width-active: 2px;
+}
+/* Zoom controls: a 44px hit area and an inset focus ring. */
+.react-flow__controls-button { width: 44px; height: 44px; }
+.react-flow__controls-button:hover { background: var(--surface-raised); color: var(--color-text-primary); }
+.react-flow__controls-button:focus-visible { outline: var(--focus-ring); outline-offset: -3px; }

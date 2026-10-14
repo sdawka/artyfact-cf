@@ -1,11 +1,18 @@
-import { useMemo, useRef } from "react";
+import { useMemo, useRef, type CSSProperties } from "react";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import type { Purpose, TheoryClaim } from "@/model/types";
+import { StatusText } from "@/components/StatusText/StatusText";
 import { ClaimStatus } from "./ClaimStatus";
 import { Links, type LinkSpec } from "./Links";
 import styles from "./LogicModel.module.css";
 
 const COLUMNS = ["Purpose", "Beneficiaries", "Activities", "Outputs", "Outcomes"] as const;
+
+/** An empty cell is quiet text, not a card. */
+function Chips({ ids }: { ids: readonly string[] }) {
+  if (!ids.length) return <span className={styles.none}>none stated</span>;
+  return <span className={styles.chips}>{ids.map((id) => <NodeChip key={id} id={id} size="sm" />)}</span>;
+}
 
 /** The four hand-offs drawn for one claim row: purpose → beneficiaries → activities → outputs → outcomes. */
 export function rowLinks(claim: TheoryClaim): LinkSpec[] {
@@ -32,10 +39,12 @@ export function LogicModel({ purposes, claims }: LogicModelProps) {
     [purposes, claims],
   );
 
+  // The Purpose column is dropped when no claim points at a purpose.
+  const shift = spans.length ? 0 : 1;
   return (
-    <div ref={grid} className={styles.grid} role="group" aria-label="Logic model">
+    <div ref={grid} className={styles.grid} role="group" aria-label="Logic model" style={{ "--cols": COLUMNS.length - shift } as CSSProperties}>
       <div className={styles.headRow}>
-        {COLUMNS.map((c, i) => (
+        {COLUMNS.slice(shift).map((c, i) => (
           <div key={c} className={styles.head} style={{ gridColumn: i + 1, gridRow: 1 }}>
             {c}
           </div>
@@ -60,27 +69,19 @@ export function LogicModel({ purposes, claims }: LogicModelProps) {
       ))}
       {claims.map((c, i) => {
         const row = i + 2;
-        const cell = (col: number, key: string) => ({ "data-cell": `${c.id}:${key}`, style: { gridColumn: col, gridRow: row } });
+        const cell = (col: number, key: string) => ({ "data-cell": `${c.id}:${key}`, style: { gridColumn: col - shift, gridRow: row } });
         return (
           <div key={c.id} className={styles.row} data-claim={c.id} data-deferred={c.deferred || undefined}>
-            <div className={styles.cell} {...cell(2, "ben")}>
-              <span className={styles.chips}>
-                {c.beneficiaries.map((b) => (
-                  <NodeChip key={b} id={b} size="sm" />
-                ))}
-              </span>
+            <div className={styles.cell} data-empty={c.beneficiaries.length ? undefined : ""} {...cell(2, "ben")}>
+              <Chips ids={c.beneficiaries} />
             </div>
-            <div className={styles.cell} {...cell(3, "act")}>
-              <span className={styles.chips}>
-                {c.activities.map((a) => (
-                  <NodeChip key={a} id={a} size="sm" />
-                ))}
-              </span>
+            <div className={styles.cell} data-empty={c.activities.length ? undefined : ""} {...cell(3, "act")}>
+              <Chips ids={c.activities} />
             </div>
             <div className={styles.cell} {...cell(4, "out")}>
               <span className={styles.titleLine}>
                 <NodeChip id={c.id} size="sm" />
-                {c.deferred && <span className={styles.deferred}>deferred</span>}
+                {c.deferred && <StatusText status="deferred" />}
               </span>
               <p className={styles.text}>{c.mechanism}</p>
             </div>

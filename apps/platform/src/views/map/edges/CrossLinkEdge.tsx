@@ -1,6 +1,7 @@
 import { BaseEdge, EdgeLabelRenderer, getSmoothStepPath, type EdgeProps } from "@xyflow/react";
 import type { ElkPoint } from "@/graph/elk";
 import type { CrossLinkFlowEdge } from "../nodes/types";
+import { useEffectsPreference } from "@/effects/effectsPreference";
 import styles from "./CrossLinkEdge.module.css";
 
 const DASH: Record<string, string | undefined> = { solid: undefined, dashed: "6 4", dotted: "1.5 4" };
@@ -31,6 +32,7 @@ function routePath(points: ElkPoint[]): [string, number, number] {
 export function CrossLinkEdge(props: EdgeProps<CrossLinkFlowEdge>) {
   const { id, data, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, markerEnd } = props;
   const edge = data!.edge;
+  const { enabled: effects } = useEffectsPreference();
   const [path, labelX, labelY] =
     data?.points && data.points.length > 1
       ? routePath(data.points)
@@ -43,9 +45,9 @@ export function CrossLinkEdge(props: EdgeProps<CrossLinkFlowEdge>) {
         path={path}
         {...(markerEnd && { markerEnd })}
         className={`${styles.path} ${data?.active ? styles.active : ""}`}
-        style={{ strokeDasharray: DASH[edge.stroke], opacity: data?.dim ? 0.15 : 1, strokeWidth: data?.active ? 2 : 1.25 }}
+        style={{ strokeDasharray: DASH[edge.stroke], opacity: data?.dim ? 0.15 : 1, strokeWidth: data?.active ? "var(--graph-edge-width-active)" : "var(--graph-edge-width)" }}
       />
-      {data?.flow && <path d={path} className="fx-flow" aria-hidden="true" data-edge-flow={id} />}
+      {data?.flow && effects && <path d={path} className={`fx-flow ${styles.flow}`} aria-hidden="true" data-edge-flow={id} />}
       {data?.showLabel !== false && (
       <EdgeLabelRenderer>
         <span

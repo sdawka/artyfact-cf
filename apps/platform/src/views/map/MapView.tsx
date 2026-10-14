@@ -1,9 +1,12 @@
-import { Button, Checkbox, IconButton } from "@/components/ui";
+import { Button, IconButton, Menu } from "@/components/ui";
+import { Kbd } from "@/components/Kbd/Kbd";
+import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { Cross2Icon } from "@radix-ui/react-icons";
 import { ReactFlow, ReactFlowProvider } from "@xyflow/react";
 import { useLocation } from "react-router";
-import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type CSSProperties, type KeyboardEvent } from "react";
 import { isTyping } from "@/app/Shell";
+import { useCompactLayout } from "@/app/useCompactLayout";
 import { LayerSwitch } from "@/app/LayerSwitch";
 import { useEvolutions } from "@/api/queries";
 import { announceSelect, flowNodeElement } from "@/effects/ambientEvents";
@@ -65,6 +68,11 @@ export function MapView() {
   const [filters, setFilters] = useState<MapFilterState>(DEFAULT_FILTERS);
   const [panel, setPanel] = useState<"tree" | "filters" | null>(null);
   const [showAll, setShowAll] = useState(false);
+  const [outside, setOutside] = useState<string[]>([]);
+  const reportOutside = useCallback((next: string[]) => setOutside((last) => last.length === next.length && last.every((id, i) => id === next[i]) ? last : next), []);
+  const inspecting = !!focusId && new URLSearchParams(location.search).get("inspect") === "1";
+  const compactLayout = useCompactLayout();
+  const inspectorInset = useInspectorInset(inspecting && !compactLayout);
   const graph = useMapGraph(navigation.scope, filters);
   const committedScope = useRef(graph.scope);
   useEffect(() => { committedScope.current = graph.scope; }, [graph.scope]);
@@ -213,29 +221,36 @@ export function MapView() {
   const { kinds, links } = useMemo(() => modelKinds(index, views), [index, views]);
   const findingCount = useFindingSubjects().size;
   const scopePath = graph.scope === ENVIRONMENT_SCOPE ? [] : path(graph.scope);
-  return <div className={styles.view}>
-    <header className={styles.header}>
-      <div className={styles.titleRow}>
-        <h1 className={styles.h1}>Map</h1>
-        <nav aria-label="Map scope" className={styles.breadcrumbs}><ol>
-          <li><button onClick={() => { if (graph.scope !== ENVIRONMENT_SCOPE) { navigation.enter(ENVIRONMENT_SCOPE); } }} aria-current={graph.scope === ENVIRONMENT_SCOPE ? "location" : undefined}>Environment</button></li>
-          {scopePath.map((entry, i) => <li key={entry.id}><span aria-hidden="true">/</span><button aria-current={i === scopePath.length - 1 ? "location" : undefined} onClick={() => openScope(entry.id)}>{entry.name}</button></li>)}
-        </ol></nav>
-        <div className={styles.overlay}><LayerSwitch /></div>
-      </div>
+  const environment = graph.scope === ENVIRONMENT_SCOPE;
+  const systemName = index.model.system.name;
+  const scopeName = environment ? systemName : index.byId(graph.scope)?.name ?? graph.scope;
+  const enterSystem = environment && index.children(index.model.system.id).length > 0;
+  const outsideItems = outside.map((id) => ({ id, label: `Show ${graph.nodes.find((n) => n.id === id)?.name ?? id} on map`, onSelect: () => locateNode(id) }));
+  const breadcrumbs = <nav aria-label="Map scope" className={styles.breadcrumbs}><ol>
+    <li><button onClick={() => { if (!environment) { navigation.enter(ENVIRONMENT_SCOPE); } }} aria-current={environment ? "location" : undefined}>Environment</button></li>
+    {scopePath.map((entry, i) => <li key={entry.id}><span aria-hidden="true">/</span><button aria-current={i === scopePath.length - 1 ? "location" : undefined} onClick={() => openScope(entry.id)}>{entry.name}</button></li>)}
+  </ol></nav>;
+  return <div className={styles.view} data-inspecting={inspectorInset ? "" : undefined} style={inspectorInset ? { "--inspector-inset": `${inspectorInset}px` } as CSSProperties : undefined}>
+    <PageHeader
+      variant="compact" className={styles.header} title="Map" context={breadcrumbs}
+      purpose={`Where each part of ${scopeName} sits and what it touches.`}
+      primary={enterSystem ? <Button variant="primary" size="compact" onClick={() => openScope(index.model.system.id)}>Enter {systemName}</Button> : undefined}
+    >
       <div className={styles.toolbar}>
-        <Button size="compact" onClick={goUp} disabled={graph.scope === ENVIRONMENT_SCOPE}>Up</Button>
-        {graph.scope === ENVIRONMENT_SCOPE && index.children(index.model.system.id).length > 0 && <Button size="compact" onClick={() => openScope(index.model.system.id)}>Enter {index.model.system.name}</Button>}
+        <Button size="compact" onClick={goUp} disabled={environment}>Up</Button>
         <Button size="compact" onClick={() => setPanel((last) => last === "tree" ? null : "tree")} aria-expanded={panel === "tree"} aria-controls="atlas-navigation">Tree</Button>
         <Button size="compact" onClick={() => setPanel((last) => last === "filters" ? null : "filters")} aria-expanded={panel === "filters"} aria-controls="atlas-navigation">Filters</Button>
-        <label className={styles.showAll}><Checkbox checked={showAll} onChange={(event) => setShowAll(event.target.checked)} />Show all connections</label>
-        <span className={styles.hint}>Drag or scroll to pan. Enter to explore. D for Details.</span>
+        {outsideItems.length > 0 && <Menu label={`Outside ${scopeName}`} align="start" items={outsideItems} trigger={<Button size="compact">Outside ({outsideItems.length})</Button>} />}
+        <div className={styles.overlay}><LayerSwitch /></div>
+        <span className={styles.hint}>
+          <span>Drag pan</span><span><Kbd keys={["Enter"]} /> open</span><span><Kbd keys={["D"]} /> details</span><span><Kbd keys={["Backspace"]} /> up</span>
+        </span>
       </div>
-    </header>
+    </PageHeader>
     <div className={styles.canvas} ref={setCanvas} onKeyDown={onCanvasKeyDown} data-layer={layer} data-scope={graph.scope} data-testid="atlas-canvas">
       {panel && <aside ref={setNavigationPanel} id="atlas-navigation" className={styles.navigation} aria-label="Map navigation">
-        <div className={styles.panelHead}><strong>{panel === "tree" ? "Containment" : "Filters"}</strong><IconButton size="compact" label="Close map navigation" onClick={() => setPanel(null)}><Cross2Icon /></IconButton></div>
-        {panel === "tree" ? <HierarchyTree scope={graph.scope === ENVIRONMENT_SCOPE ? index.model.system.id : graph.scope} focusId={focusId} onSelect={locateNode} /> : <MapFilters value={filters} onChange={setFilters} kinds={kinds} linkTypes={links} findingCount={findingCount} />}
+        <div className={styles.panelHead}><h2>{panel === "tree" ? "Containment" : "Filters"}</h2><IconButton size="compact" label="Close map navigation" onClick={() => setPanel(null)}><Cross2Icon /></IconButton></div>
+        {panel === "tree" ? <HierarchyTree scope={environment ? index.model.system.id : graph.scope} focusId={focusId} onSelect={locateNode} /> : <MapFilters value={filters} onChange={setFilters} kinds={kinds} linkTypes={links} findingCount={findingCount} showAll={showAll} onShowAll={setShowAll} />}
       </aside>}
       <div className={styles.flowSurface} ref={setSurface} data-testid="atlas-surface">
       <ReactFlowProvider>
@@ -257,12 +272,45 @@ export function MapView() {
           onMoveEnd={(event, viewport) => { if (event) saveAtlasCamera(cameraKey, viewport); canvas?.dispatchEvent(new Event("atlas-camera-move")); }}
           proOptions={{ hideAttribution: true }}
         >
-          <AtlasCamera cameraKey={cameraKey} layout={layout} canvas={canvas} graph={graph} focusId={focusId} travel={travel} onTravel={finishTravel} onCancelTravel={cancelTravel} locate={locate} onLocate={locateNode} />
+          <AtlasCamera cameraKey={cameraKey} layout={layout} canvas={canvas} graph={graph} focusId={focusId} travel={travel} onTravel={finishTravel} onCancelTravel={cancelTravel} locate={locate} onOutside={reportOutside} />
         </ReactFlow>
       </ReactFlowProvider>
       </div>
-      <AtlasSelection id={focusId} graph={graph} onEnter={openScope} onDetails={() => navigation.showDetails()} onLocate={locateNode} onClear={() => navigation.select(null)} />
-      <div className={styles.legend} aria-label="Connection certainty"><span>━ declared</span><span>┄ assumed</span><span>┈ proposed</span></div>
+      <div className={styles.dock}>
+        <AtlasSelection id={focusId} graph={graph} onEnter={openScope} onDetails={() => navigation.showDetails()} onLocate={locateNode} onClear={() => navigation.select(null)} />
+        <MapKey />
+      </div>
     </div>
+  </div>;
+}
+
+/** Width of the open Details drawer on wide screens, so the Map's pan area shrinks beside it instead of sitting under it. */
+function useInspectorInset(active: boolean) {
+  const [width, setWidth] = useState(0);
+  useEffect(() => {
+    if (!active) { setWidth(0); return; }
+    let ro: ResizeObserver | undefined, raf = 0, tries = 0;
+    const attach = () => {
+      const aside = document.querySelector<HTMLElement>('aside[aria-label="Inspector"]');
+      if (!aside) { if (++tries < 20) raf = requestAnimationFrame(attach); return; }
+      const read = () => setWidth(Math.round(aside.getBoundingClientRect().width));
+      read();
+      if (typeof ResizeObserver !== "undefined") { ro = new ResizeObserver(read); ro.observe(aside); }
+    };
+    attach();
+    return () => { cancelAnimationFrame(raf); ro?.disconnect(); };
+  }, [active]);
+  return active ? width : 0;
+}
+
+/** Key on `--surface-overlay`: line samples use the edge dash arrays, plus outside-System and candidate samples. */
+function MapKey() {
+  const line = (dash?: string) => <svg width="28" height="8" viewBox="0 0 28 8" aria-hidden="true" focusable="false"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" strokeWidth="1.5" {...(dash && { strokeDasharray: dash })} /></svg>;
+  return <div className={styles.legend} role="group" aria-label="Map key">
+    <span>{line()}declared</span>
+    <span>{line("6 4")}assumed</span>
+    <span>{line("1.5 4")}proposed</span>
+    <span><svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true" focusable="false"><rect x=".75" y=".75" width="16.5" height="10.5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3 2" /></svg>outside System</span>
+    <span><svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true" focusable="false"><path d="M1 4V1h3M10 1h3v3M13 8v3h-3M4 11H1V8" fill="none" stroke="var(--color-brand-primary)" strokeWidth="1.5" /></svg>candidate touches</span>
   </div>;
 }

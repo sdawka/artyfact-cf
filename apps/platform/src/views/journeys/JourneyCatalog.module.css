@@ -1,23 +1,7 @@
-.catalog { min-height: 0; overflow: auto; }
-.list { margin: 0; padding: 0; list-style: none; display: flex; flex-direction: column; gap: var(--spacing-1); }
-.item { padding: var(--spacing-1); border-radius: var(--border-radius-md); }
-.item[data-deferred] { color: var(--color-text-secondary); }
-.select {
-  box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  align-items: stretch;
-  justify-content: flex-start;
-  gap: var(--spacing-1);
-  width: 100%;
-  padding: var(--spacing-2);
-  border-radius: var(--border-radius-md);
-  cursor: pointer;
-}
-.select:hover { background: var(--color-background-hover); }
-.select:focus-visible { outline: 2px solid var(--color-focus-ring); outline-offset: 2px; }
-.select[aria-current="true"] { background: var(--color-background-active); }
-.name { display: flex; align-items: baseline; gap: var(--spacing-2); font-weight: var(--font-weight-semibold); }
-.deferred { font-size: var(--font-size-xs); font-weight: var(--font-weight-normal); color: var(--color-text-secondary); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-sm); padding: 0 var(--spacing-1); }
-.goal { font-size: var(--font-size-sm); color: var(--color-text-secondary); line-height: var(--font-line-height-tight); }
-.features { display: flex; flex-wrap: wrap; gap: var(--spacing-1); padding: 0 var(--spacing-2) var(--spacing-1); }
+/* Sticky, with its own scroll: ten journeys never push the canvas down the page. */
+.catalog { position: sticky; top: 0; align-self: start; max-height: calc(100dvh - 11rem); overflow-y: auto; min-width: 0; }
+.goal, .uses { display: block; }
+.uses { color: var(--color-text-subtle); }
+.deferred { margin-top: var(--spacing-4); }
+.deferred summary { min-height: var(--control-height); display: flex; align-items: center; padding: 0 var(--spacing-4); font: var(--type-meta); color: var(--color-text-secondary); cursor: pointer; }
+.deferred summary:focus-visible { outline: var(--focus-ring); outline-offset: -2px; }
