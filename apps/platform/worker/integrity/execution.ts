@@ -1,12 +1,16 @@
 import {
-  integrityStatus, loadGenome, readinessTemplate, type IntegrityFinding, type IntegrityReport,
+  createIntegritySnapshot, integrityStatus, loadGenome, readinessTemplate, type IntegrityFinding, type IntegrityReport, type IntegritySnapshot,
 } from "@artyfact/model";
 import {
-  askCacheKey, evaluate, evaluateAndJudge, hashOf, kindGlossary, loadTemplate, providerFromEnv, TemplateSourceSchema,
-  withSemanticProbes, type Answer, type ProviderEnv, type S1Questions, type S1Reply, type SystemOne,
+  askCacheKey, band, CLEF_MODEL, DEFAULT_OPENROUTER_MODEL, DEFAULT_TYPESAFE_MODEL, evaluate, evaluateAndJudge, fakeSystemOne, hashOf,
+  JEV_OPENROUTER_MODEL, kindGlossary, loadTemplate, offSystemOne, openRouterProvider, simulatedSystemOne, TemplateSourceSchema,
+  typeSafeProvider, withSemanticProbes, workersAiProvider, type ProviderEnv, type S1Questions, type S1Reply,
+  type SystemOne, type TemplateStore,
 } from "@artyfact/ontology";
-import { INTEGRITY_POLICY_VERSION, type IntegrityRun, type StoredIntegritySnapshot } from "../../shared/integrity";
-import { demoModels, isHostedDemo } from "../demo";
+import {
+  INTEGRITY_POLICY_VERSION, type IntegrityProviderSelection, type IntegrityRun, type IntegrityRunRequest, type StoredIntegritySnapshot,
+} from "../../shared/integrity";
+import { isHostedDemo } from "../demo";
 import { acceptedTemplateResolver } from "../ontology-packages/store";
 import { IntegrityStore } from "./store";
 
@@ -29,6 +33,10 @@ function coverageIn(value: unknown, known: Set<string>, telemetry: ProviderTelem
   for (const item of Object.values(object)) coverageIn(item, known, telemetry);
 }
 function replaying(provider: SystemOne, store: IntegrityStore, runId: string, leaseToken: string, known: Set<string>, telemetry: ProviderTelemetry): SystemOne {
+  const observe = (reply: S1Reply) => {
+    store.assertProviderIdentity(runId, leaseToken, { provider: reply.provider, model: reply.model });
+    telemetry.provider = reply.provider; telemetry.model = reply.model;
+  };
   return {
     ...provider,
     async ask(state: unknown, questions: S1Questions, opts = {}): Promise<S1Reply> {
@@ -43,12 +51,12 @@ function replaying(provider: SystemOne, store: IntegrityStore, runId: string, le
       const key = askCacheKey(state, questions, provider.model, opts);
       const saved = store.checkpoint<S1Reply>(runId, key);
       if (saved) {
-        telemetry.provider = saved.provider; telemetry.model = saved.model;
+        observe(saved);
         return saved;
       }
-      const reply = await provider.ask(state, questions, opts);
+      const reply = await provider.ask(state, questions, { ...opts, retries: 0 });
       store.assertLease(runId, leaseToken);
-      telemetry.provider = reply.provider; telemetry.model = reply.model;
+      observe(reply);
       store.putCheckpoint(runId, key, reply);
       return reply;
     },
@@ -69,24 +77,72 @@ const mapFinding = (finding: {
   };
 };
 
-function selectedProvider(env: Env, run: IntegrityRun): SystemOne {
-  if (isHostedDemo(env)) return demoModels().s1;
-  const configured = { ...(env as unknown as ProviderEnv), S1_PROVIDER: run.provider };
-  if (run.model) {
-    if (run.provider === "openrouter") configured.OPENROUTER_MODEL = run.model;
-    else if (run.provider === "jev") configured.JEV_MODEL = run.model;
-    else if (run.provider === "clef") configured.CLEF_MODEL = run.model;
-    else throw new Error("model override requires an explicit clef, jev or openrouter provider");
+export function resolveIntegrityProvider(env: Env, request: Pick<IntegrityRunRequest, "provider" | "model">): IntegrityProviderSelection {
+  if (isHostedDemo(env)) return { provider: "simulated", model: "simulated" };
+  const configured = env as unknown as ProviderEnv;
+  if (configured.FAKE_S1 === "1") return { provider: "fake", model: "fake" };
+  const choice = request.provider ?? "auto", requestedModel = request.model?.trim();
+  const typeSafe = !!configured.TYPESAFE_API_KEY?.trim(), openRouter = !!configured.OPENROUTER_API_KEY?.trim();
+  const clef = !!configured.AI && typeof configured.AI.run === "function";
+  if (choice === "off") return { provider: "off", model: "off" };
+  if (choice === "clef") return clef ? { provider: "clef", model: requestedModel || configured.CLEF_MODEL?.trim() || CLEF_MODEL } : { provider: "off", model: "off" };
+  if (choice === "openrouter") return openRouter
+    ? { provider: "openrouter", model: requestedModel || configured.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL }
+    : { provider: "off", model: "off" };
+  if (choice === "jev") {
+    if (typeSafe) return { provider: "typesafe", model: requestedModel || configured.JEV_MODEL?.trim() || DEFAULT_TYPESAFE_MODEL };
+    if (openRouter) {
+      const model = requestedModel || configured.JEV_MODEL?.trim();
+      return { provider: "openrouter", model: model ? (model.includes("/") ? model : `typesafe/${model}`) : JEV_OPENROUTER_MODEL };
+    }
+    return { provider: "off", model: "off" };
   }
-  return providerFromEnv(configured);
+  if (typeSafe) return { provider: "typesafe", model: configured.JEV_MODEL?.trim() || DEFAULT_TYPESAFE_MODEL };
+  if (clef) return { provider: "clef", model: configured.CLEF_MODEL?.trim() || CLEF_MODEL };
+  if (openRouter) return { provider: "openrouter", model: configured.OPENROUTER_MODEL?.trim() || DEFAULT_OPENROUTER_MODEL };
+  return { provider: "off", model: "off" };
+}
+
+export function providerForIntegrityRun(env: Env, run: Pick<IntegrityRun, "resolvedProvider" | "resolvedModel">): SystemOne {
+  const configured = env as unknown as ProviderEnv;
+  const provider = run.resolvedProvider, model = run.resolvedModel;
+  if (provider === "simulated") {
+    if (!isHostedDemo(env)) throw new Error("[provider-config-drift] provider configuration changed since the integrity run was queued");
+    return simulatedSystemOne();
+  }
+  if (isHostedDemo(env)) throw new Error("[provider-config-drift] provider configuration changed since the integrity run was queued");
+  if (provider === "fake") {
+    if (configured.FAKE_S1 !== "1") throw new Error("[provider-config-drift] provider configuration changed since the integrity run was queued");
+    return fakeSystemOne(model);
+  }
+  if (provider === "off") return offSystemOne("provider was off when the integrity run was queued");
+  if (provider === "typesafe") {
+    const apiKey = configured.TYPESAFE_API_KEY?.trim();
+    if (!apiKey) throw new Error("[provider-config-drift] provider configuration changed since the integrity run was queued");
+    return typeSafeProvider({ apiKey, model, fetch: configured.fetch });
+  }
+  if (provider === "openrouter") {
+    const apiKey = configured.OPENROUTER_API_KEY?.trim();
+    if (!apiKey) throw new Error("[provider-config-drift] provider configuration changed since the integrity run was queued");
+    return openRouterProvider({ apiKey, model, fetch: configured.fetch });
+  }
+  if (provider !== "clef" || !configured.AI || typeof configured.AI.run !== "function") {
+    throw new Error("[provider-config-drift] provider configuration changed since the integrity run was queued");
+  }
+  return workersAiProvider(configured.AI, model);
+}
+
+export function assertIntegritySnapshotCurrent(snapshot: IntegritySnapshot, templates: TemplateStore): void {
+  const current = createIntegritySnapshot({ systemId: snapshot.systemId, files: snapshot.files, templates });
+  if (current.templateClosureHash !== snapshot.templateClosureHash || current.hash !== snapshot.hash) {
+    throw new Error("[template-drift] reachable template closure changed after integrity preview; create a new preview and run");
+  }
 }
 
 const NOUL = (instructions: string) => ({
   type: "noul" as const, instructions, benign: "no" as const,
   criteria: { true: "The defect is present.", false: "The defect is absent." },
 });
-const yes = (answer: Answer | undefined) => answer?.type === "noul" && answer.noul >= 0.5;
-
 function semanticTemplate(model: ReturnType<typeof loadGenome>) {
   const base = readinessTemplate(model);
   const { ref: _ref, extends: _extends, lineage: _lineage, edges: _edges, hash: _hash, ...input } = base;
@@ -107,6 +163,7 @@ export async function executeIntegrity(
   leaseToken = "",
 ): Promise<IntegrityReport> {
   const resolver = acceptedTemplateResolver(packages);
+  assertIntegritySnapshotCurrent(snapshot, resolver.templates);
   const structuralFindings = snapshot.staticFindings.filter((finding) => finding.section === "structural");
   const intentFindings = snapshot.staticFindings.filter((finding) => finding.section === "intent");
   const structural: IntegrityReport["structural"] = {
@@ -133,7 +190,7 @@ export async function executeIntegrity(
       : structuralFindings.some((finding) => finding.severity === "review" || finding.severity === "warning") ? "needs-review" : "passed";
     structural.findings = structuralFindings;
   }
-  const provider = providerOverride ?? selectedProvider(env, run);
+  const provider = providerOverride ?? providerForIntegrityRun(env, run);
   const limitations: IntegrityFinding[] = [];
   let semanticFindings: IntegrityFinding[] = [...intentFindings];
   let checkedSubjects: string[] = [], checkedRelationships: string[] = [];
@@ -160,17 +217,26 @@ export async function executeIntegrity(
           "intent.omitted": NOUL("Does the authored intent contain a material requirement that the resulting nodes omit?"),
           "intent.unsupported": NOUL("Do the resulting nodes assert a material claim that the authored intent does not support?"),
         });
+        const unknownIntent: string[] = [];
         for (const [key, code, message] of [
           ["intent.omitted", "intent.omitted-requirement", "A material authored requirement appears to be omitted from the Genome."],
           ["intent.unsupported", "intent.unsupported-claim", "The Genome appears to contain a material claim unsupported by authored intent."],
-        ] as const) if (yes(reply.answers[key])) {
-          semanticFindings.push({
+        ] as const) {
+          const answer = reply.answers[key];
+          const probability = answer?.type === "noul" && Number.isFinite(answer.noul) && answer.noul >= 0 && answer.noul <= 1 ? answer.noul : undefined;
+          const status = probability === undefined ? "unknown" : band(Math.max(probability, 1 - probability), run.thresholds);
+          if (status !== "confident") { unknownIntent.push(key); continue; }
+          if (probability! >= 0.5) semanticFindings.push({
             id: findingId("intent", code, []), section: "intent", severity: "review", code, message, subjects: [],
             sourceStatements: snapshot.intent.brief ? [snapshot.intent.brief.slice(0, 2000)] : [],
             evidence: [`provider=${reply.provider}`, `model=${reply.model}`],
             suggestion: "Clarify the intent or revise the affected nodes, then run integrity again.",
           });
         }
+        if (unknownIntent.length) limitations.push({
+          ...limitation("intent.judgment-unknown", "One or more direct intent fidelity judgments were missing, invalid, or below the configured confidence threshold."),
+          subjects: unknownIntent, evidence: unknownIntent.map((id) => `question=${id}`),
+        });
       }
       const judged = await evaluateAndJudge(semanticTemplate(model), model.graph, wrapped, {
         thresholds: run.thresholds,

@@ -29,7 +29,7 @@ import { applySchema } from "./schema";
 import { isBlocking } from "../../shared/verdict";
 import type { IntegrityAgreementRequest, IntegrityRunRequest, IntegritySnapshotKind } from "../../shared/integrity";
 import { IntegrityStore } from "../integrity/store";
-import { executeIntegrity } from "../integrity/execution";
+import { executeIntegrity, resolveIntegrityProvider } from "../integrity/execution";
 
 /** Name of the DO instance holding the System registry and the realization/fork index. */
 export const REGISTRY = "__registry";
@@ -385,7 +385,7 @@ export class SystemAuthority extends DurableObject<Env> {
   }
   async integrityStart(input:IntegrityRunRequest) {
     if(!input.snapshotId)throw new ConflictError('invalid-state','snapshotId is required');
-    const out=this.integrity().start(input.snapshotId,input);
+    const out=this.integrity().start(input.snapshotId,input,resolveIntegrityProvider(this.env,input));
     if(out.created)await this.ctx.storage.setAlarm(Date.now()+1000);
     return out.run;
   }
@@ -396,15 +396,23 @@ export class SystemAuthority extends DurableObject<Env> {
   integrityBinding(id:string,snapshotHash:string) {return this.integrity().binding(id,snapshotHash);}
   override async alarm():Promise<void> {
     const store=this.integrity(),lease=store.lease();
-    if(!lease)return;
+    if(!lease) {
+      const next=store.nextAlarm();
+      if(next!==null)await this.ctx.storage.setAlarm(next);
+      return;
+    }
+    await this.ctx.storage.setAlarm(lease.expiresAt);
     try {
       const report=await executeIntegrity(this.env,store,lease.run,lease.snapshot,this.ontologyAcceptedPackages(),undefined,lease.token);
       store.complete(lease.run.id,lease.token,report);
     } catch(error) {
-      try { store.fail(lease.run.id,lease.token,{code:'integrity-run-failed',message:(error as Error)?.message??String(error)}); }
+      const message=(error as Error)?.message??String(error),coded=/^\[([^\]]+)\]/.exec(message)?.[1];
+      try { store.fail(lease.run.id,lease.token,{code:coded??'integrity-run-failed',message}); }
       catch { /* cancellation or a reclaimed lease fenced this completion */ }
     } finally {
-      if(store.hasPending())await this.ctx.storage.setAlarm(Date.now()+10);
+      const next=store.nextAlarm();
+      if(next===null)await this.ctx.storage.deleteAlarm();
+      else await this.ctx.storage.setAlarm(next);
     }
   }
   operationsAuditAppend(entry:OperationAuditEntry) {return new OperationsAuditStore(this.sql).append(entry);}

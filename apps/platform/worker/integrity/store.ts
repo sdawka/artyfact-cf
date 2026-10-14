@@ -1,7 +1,7 @@
 import { agreementEligibility, integrityStatus, type IntegrityDisposition, type IntegrityFinding, type IntegrityReport, type IntegritySnapshot } from "@artyfact/model";
 import {
-  INTEGRITY_POLICY_VERSION, type IntegrityAgreement, type IntegrityAgreementRequest, type IntegrityProviderChoice,
-  type IntegrityReviewBinding, type IntegrityRun, type IntegrityRunRequest, type IntegrityRunState, type IntegritySnapshotKind, type StoredIntegritySnapshot,
+  INTEGRITY_POLICY_VERSION, type IntegrityAgreement, type IntegrityAgreementRequest, type IntegrityProviderSelection,
+  type IntegrityResolvedProvider, type IntegrityReviewBinding, type IntegrityRun, type IntegrityRunRequest, type IntegrityRunState, type IntegritySnapshotKind, type StoredIntegritySnapshot,
 } from "../../shared/integrity";
 import { DEFAULT_THRESHOLDS, hashOf } from "@artyfact/ontology";
 import { canonicalJson, nowIso } from "../util";
@@ -14,7 +14,7 @@ const LEASE_MS = 5 * 60_000;
 const bytes = (value: unknown) => new TextEncoder().encode(typeof value === "string" ? value : JSON.stringify(value)).length;
 const invalid = (message: string): never => { throw new Error(`[invalid-state] ${message}`); };
 
-export interface IntegrityLease { run: IntegrityRun; snapshot: StoredIntegritySnapshot; token: string }
+export interface IntegrityLease { run: IntegrityRun; snapshot: StoredIntegritySnapshot; token: string; expiresAt: number }
 
 function boundedReport(report: IntegrityReport): IntegrityReport {
   if (bytes(report) <= MAX_REPORT) return report;
@@ -50,7 +50,10 @@ export class IntegrityStore {
       id TEXT PRIMARY KEY, request_key TEXT NOT NULL, active_key TEXT UNIQUE, snapshot_id TEXT NOT NULL, state TEXT NOT NULL,
       provider TEXT NOT NULL, model TEXT, requested_calls INTEGER NOT NULL, attempt INTEGER NOT NULL,
       request_json TEXT NOT NULL, report_json TEXT, agreement_json TEXT, error_json TEXT,
-      lease_token TEXT, lease_expires INTEGER, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+      lease_token TEXT, lease_expires INTEGER, actual_provider TEXT, actual_model TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)`);
+    const columns = new Set((sql.exec("PRAGMA table_info(integrity_runs)").toArray() as Row[]).map((row) => String(row.name)));
+    if (!columns.has("actual_provider")) sql.exec("ALTER TABLE integrity_runs ADD COLUMN actual_provider TEXT");
+    if (!columns.has("actual_model")) sql.exec("ALTER TABLE integrity_runs ADD COLUMN actual_model TEXT");
     sql.exec(`CREATE TABLE IF NOT EXISTS integrity_checkpoints (
       run_id TEXT NOT NULL, key TEXT NOT NULL, json TEXT NOT NULL, bytes INTEGER NOT NULL, created_at TEXT NOT NULL,
       PRIMARY KEY(run_id,key))`);
@@ -71,13 +74,13 @@ export class IntegrityStore {
     return row ? JSON.parse(String(row.json)) as StoredIntegritySnapshot : null;
   }
 
-  start(snapshotId: string, request: IntegrityRunRequest): { run: IntegrityRun; created: boolean } {
+  start(snapshotId: string, request: IntegrityRunRequest, selected: IntegrityProviderSelection): { run: IntegrityRun; created: boolean } {
     const snapshot = this.snapshot(snapshotId);
     if (!snapshot) throw new Error("[not-found] integrity snapshot not found");
-    const provider = request.provider ?? "auto";
     const requestedCalls = Math.max(1, Math.min(request.budget?.maxCalls ?? 200, 500));
     const thresholds = { ...DEFAULT_THRESHOLDS, ...request.thresholds };
-    const normalized = { snapshotId, snapshotHash: snapshot.hash, provider, model: request.model ?? null,
+    const normalized = { snapshotId, snapshotHash: snapshot.hash, requestedProvider: request.provider ?? "auto", requestedModel: request.model ?? null,
+      provider: selected.provider, model: selected.model,
       thresholds, requestedCalls, policyVersion: INTEGRITY_POLICY_VERSION, questions: INTEGRITY_POLICY_VERSION };
     const requestKey = hashOf(normalized);
     const active = this.sql.exec("SELECT * FROM integrity_runs WHERE active_key=?", requestKey).toArray()[0] as Row | undefined;
@@ -87,7 +90,7 @@ export class IntegrityStore {
     const attempt = Number((this.sql.exec("SELECT COALESCE(MAX(attempt),0)+1 AS n FROM integrity_runs WHERE request_key=?", requestKey).toArray()[0] as Row).n);
     const id = `integrity.${crypto.randomUUID()}`, at = nowIso();
     this.sql.exec("INSERT INTO integrity_runs (id,request_key,active_key,snapshot_id,state,provider,model,requested_calls,attempt,request_json,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)",
-      id, requestKey, requestKey, snapshotId, "queued", provider, request.model ?? null, requestedCalls, attempt, JSON.stringify(normalized), at, at);
+      id, requestKey, requestKey, snapshotId, "queued", selected.provider, selected.model, requestedCalls, attempt, JSON.stringify(normalized), at, at);
     return { run: this.get(id)!, created: true };
   }
 
@@ -111,12 +114,30 @@ export class IntegrityStore {
   }
 
   lease(now = Date.now()): IntegrityLease | null {
-    const row = this.sql.exec("SELECT * FROM integrity_runs WHERE state='queued' OR (state='running' AND lease_expires < ?) ORDER BY created_at LIMIT 1", now).toArray()[0] as Row | undefined;
+    const row = this.sql.exec("SELECT * FROM integrity_runs WHERE state='queued' OR (state='running' AND lease_expires <= ?) ORDER BY created_at LIMIT 1", now).toArray()[0] as Row | undefined;
     if (!row) return null;
-    const token = crypto.randomUUID(), at = nowIso();
-    this.sql.exec("UPDATE integrity_runs SET state='running',lease_token=?,lease_expires=?,updated_at=? WHERE id=? AND (state='queued' OR lease_expires < ?)", token, now + LEASE_MS, at, row.id, now);
+    const token = crypto.randomUUID(), at = nowIso(), expiresAt = now + LEASE_MS;
+    this.sql.exec("UPDATE integrity_runs SET state='running',lease_token=?,lease_expires=?,updated_at=? WHERE id=? AND (state='queued' OR lease_expires <= ?)", token, expiresAt, at, row.id, now);
     const run = this.get(String(row.id));
-    return run?.state === "running" ? { run, snapshot: this.snapshot(run.snapshotId)!, token } : null;
+    return run?.state === "running" ? { run, snapshot: this.snapshot(run.snapshotId)!, token, expiresAt } : null;
+  }
+
+  nextAlarm(now = Date.now()): number | null {
+    if (this.sql.exec("SELECT 1 FROM integrity_runs WHERE state='queued' LIMIT 1").toArray().length) return now + 10;
+    const row = this.sql.exec("SELECT MIN(lease_expires) AS expires FROM integrity_runs WHERE state='running'").toArray()[0] as Row | undefined;
+    return row?.expires === null || row?.expires === undefined ? null : Math.max(now + 10, Number(row.expires));
+  }
+
+  assertProviderIdentity(id: string, token: string, identity: { provider: string; model: string }): void {
+    this.fence(id, token);
+    const row = this.sql.exec("SELECT actual_provider,actual_model FROM integrity_runs WHERE id=?", id).toArray()[0] as Row;
+    if (row.actual_provider === null || row.actual_provider === undefined) {
+      this.sql.exec("UPDATE integrity_runs SET actual_provider=?,actual_model=? WHERE id=? AND lease_token=? AND actual_provider IS NULL", identity.provider, identity.model, id, token);
+      return this.assertProviderIdentity(id, token, identity);
+    }
+    if (String(row.actual_provider) !== identity.provider || String(row.actual_model) !== identity.model) {
+      invalid(`provider identity changed from ${String(row.actual_provider)}/${String(row.actual_model)} to ${identity.provider}/${identity.model}`);
+    }
   }
 
   checkpoint<T>(runId: string, key: string): T | null {
@@ -183,10 +204,6 @@ export class IntegrityStore {
     return { runId: run.id, reportId: report.id, snapshotHash, agreementStatus: agreement.status };
   }
 
-  hasPending(): boolean {
-    return !!this.sql.exec("SELECT 1 FROM integrity_runs WHERE state='queued' OR state='running' LIMIT 1").toArray().length;
-  }
-
   assertLease(id: string, token: string): void { this.fence(id, token); }
 
   private fence(id: string, token: string): void {
@@ -199,11 +216,14 @@ export class IntegrityStore {
     const report = row.report_json ? JSON.parse(String(row.report_json)) as IntegrityReport : undefined;
     const agreement = row.agreement_json ? JSON.parse(String(row.agreement_json)) as IntegrityAgreement : undefined;
     const error = row.error_json ? JSON.parse(String(row.error_json)) as IntegrityRun["error"] : undefined;
-    const request = JSON.parse(String(row.request_json)) as { thresholds?: IntegrityRun["thresholds"] };
+    const request = JSON.parse(String(row.request_json)) as {
+      thresholds?: IntegrityRun["thresholds"]; requestedProvider?: IntegrityRun["provider"]; requestedModel?: string | null;
+    };
     return {
       id: String(row.id), systemId: this.systemId, state: String(row.state) as IntegrityRunState,
       snapshotId: String(row.snapshot_id), snapshotHash: snapshot.hash,
-      provider: String(row.provider) as IntegrityProviderChoice, ...(row.model && { model: String(row.model) }),
+      provider: request.requestedProvider ?? "auto", ...(request.requestedModel && { model: request.requestedModel }),
+      resolvedProvider: String(row.provider) as IntegrityResolvedProvider, resolvedModel: String(row.model ?? "off"),
       requestedCalls: Number(row.requested_calls), thresholds: request.thresholds ?? DEFAULT_THRESHOLDS, attempt: Number(row.attempt),
       createdAt: String(row.created_at), updatedAt: String(row.updated_at),
       ...(report && { report }), ...(agreement && { agreement }), ...(error && { error }),

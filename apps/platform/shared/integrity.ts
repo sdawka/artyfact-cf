@@ -14,6 +14,8 @@ export type StoredIntegritySnapshot = IntegritySnapshot & {
 };
 export type IntegrityRunState = "queued" | "running" | "completed" | "failed" | "cancelled";
 export type IntegrityProviderChoice = "auto" | "clef" | "jev" | "openrouter" | "off";
+export type IntegrityResolvedProvider = "typesafe" | "clef" | "openrouter" | "fake" | "simulated" | "off";
+export interface IntegrityProviderSelection { provider: IntegrityResolvedProvider; model: string }
 export interface IntegrityPreviewRequest { files: Record<string, string> }
 export interface IntegritySnapshotResponse { snapshot: StoredIntegritySnapshot }
 export interface IntegrityRunRequest {
@@ -41,6 +43,8 @@ export interface IntegrityRun {
   snapshotHash: string;
   provider: IntegrityProviderChoice;
   model?: string;
+  resolvedProvider: IntegrityResolvedProvider;
+  resolvedModel: string;
   requestedCalls: number;
   thresholds: { confident: number; review: number };
   attempt: number;

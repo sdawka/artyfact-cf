@@ -3,7 +3,7 @@ import { runInDurableObject } from "cloudflare:test";
 import { expect, it } from "vitest";
 import { createIntegritySnapshot } from "@artyfact/model";
 import type { Answer, S1Questions, SystemOne } from "@artyfact/ontology";
-import { executeIntegrity } from "../worker/integrity/execution";
+import { assertIntegritySnapshotCurrent, executeIntegrity, providerForIntegrityRun, resolveIntegrityProvider } from "../worker/integrity/execution";
 import { IntegrityStore } from "../worker/integrity/store";
 import { acceptedTemplateResolver, OntologyPackagesStore } from "../worker/ontology-packages/store";
 
@@ -13,13 +13,13 @@ import cleanPackageText from "../../../examples/intent-integrity/clean/ontology-
 const filesFrom = (modules: Record<string, string>, marker: string): Record<string, string> =>
   Object.fromEntries(Object.entries(modules).map(([path, text]) => [path.split(marker)[1]!, text]));
 
-function provider(asked: string[], omitted = false, followPairs = false): SystemOne {
+function provider(asked: string[], omitted = false, followPairs = false, uncertainIntent = false): SystemOne {
   return {
     mode: "fake", model: "integrity-test",
     async ask(_state: unknown, questions: S1Questions) {
       asked.push(...Object.keys(questions));
       const answers = Object.fromEntries(Object.entries(questions).map(([id, question]): [string, Answer] => {
-        if (question.type === "noul") return [id, { type: "noul", noul: id === "intent.omitted" && omitted ? 0.95 : 0.05 }];
+        if (question.type === "noul") return [id, { type: "noul", noul: id.startsWith("intent.") && uncertainIntent ? 0.6 : id === "intent.omitted" && omitted ? 0.95 : 0.05 }];
         if (question.type === "choice") {
           const dynamic = followPairs && ["set.member", "sections.which", "sections.section", "sections.other"].includes(id)
             ? Object.keys(question.criteria).find((choice) => choice !== "none") : undefined;
@@ -47,7 +47,9 @@ async function execute(systemId: string, files: Record<string, string>, s1: Syst
     const templates = acceptedTemplateResolver(accepted).templates;
     const store = new IntegrityStore(state.storage.sql, systemId);
     const snapshot = store.putSnapshot(createIntegritySnapshot({ systemId, files, templates }), "initial-preview");
-    const started = store.start(snapshot.id, { snapshotId: snapshot.id, provider: "auto", budget: { maxCalls: 200 } }).run;
+    const started = store.start(snapshot.id, { snapshotId: snapshot.id, provider: "auto", budget: { maxCalls: 200 } }, {
+      provider: s1.mode === "fake" ? "fake" : s1.mode === "off" ? "off" : "typesafe", model: s1.model,
+    }).run;
     const lease = store.lease();
     if (!lease) throw new Error("integrity run was not leasable");
     const report = await executeIntegrity({} as Env, store, started, snapshot, accepted, s1, lease.token);
@@ -93,4 +95,31 @@ it("sends relationship, section, and terminology candidates through the producti
   expect(run.report?.semantic.provenance?.questions).toEqual(expect.arrayContaining(asked));
   expect(run.report?.semantic.checkedRelationships.some((relationship) => relationship.startsWith("pair:"))).toBe(true);
   expect(run.report?.semantic.findings.some((finding) => finding.severity === "blocked")).toBe(false);
+});
+
+it("freezes the resolved provider selection and refuses changed execution configuration", () => {
+  const selected = resolveIntegrityProvider({ TYPESAFE_API_KEY: "first" } as Env, { provider: "auto" });
+  expect(selected).toEqual({ provider: "typesafe", model: "jev-latest" });
+  const run = { resolvedProvider: selected.provider, resolvedModel: selected.model } as Parameters<typeof providerForIntegrityRun>[1];
+  expect(() => providerForIntegrityRun({ OPENROUTER_API_KEY: "second" } as Env, run)).toThrow(/provider configuration changed/);
+});
+
+it("keeps uncertain direct intent judgments out of passing evidence", async () => {
+  const files = filesFrom(cleanModules, "/clean/genome/");
+  const run = await execute("system.tool-library", files, provider([], false, false, true), JSON.parse(cleanPackageText));
+  expect(run.report?.semantic.limitations).toEqual(expect.arrayContaining([
+    expect.objectContaining({ code: "intent.judgment-unknown" }),
+  ]));
+  expect(run.report?.status).toBe("needs-review");
+});
+
+it("refuses to execute when the reachable template closure drifted after preview", () => {
+  const systemId = "system.template-drift";
+  const files = {
+    "node.yaml": `id: ${systemId}\nkind: system\ntemplate: template.system.drift@1\nfields: { name: Drift }\n`,
+  };
+  const source = { id: "template.system.drift", version: 1, meta: 1 };
+  const snapshot = createIntegritySnapshot({ systemId, files, templates: { get: () => source } });
+  expect(() => assertIntegritySnapshotCurrent(snapshot, { get: () => source })).not.toThrow();
+  expect(() => assertIntegritySnapshotCurrent(snapshot, { get: () => undefined })).toThrow(/template closure changed/);
 });

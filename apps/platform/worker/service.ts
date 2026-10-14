@@ -237,7 +237,7 @@ async function platformCheck(
 }
 
 /** `genomeRepo`/`appRepo` are optional: omitted ones default to `<slug>.genome` / `<slug>.app`. */
-export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown; review?: unknown; integrityRunId?: unknown }): Promise<ImportSystemResponse> {
+export async function importSystem(env: Env, body: { systemId?: unknown; genomeRepo?: unknown; appRepo?: unknown; scaffoldFrom?: unknown; force?: unknown; review?: unknown; integrityRunId?: unknown; integrityUnreviewedReason?: unknown }): Promise<ImportSystemResponse> {
   const { systemId } = body;
   if (typeof systemId !== "string" || !systemId) throw badRequest("systemId is a required string");
   if (systemId === REGISTRY) throw badRequest("reserved system id");
@@ -291,6 +291,19 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
   if (body.integrityRunId !== undefined && (typeof body.integrityRunId !== "string" || !body.integrityRunId.startsWith("integrity."))) {
     throw badRequest("integrityRunId must be an integrity run id");
   }
+  if (body.integrityUnreviewedReason !== undefined && (typeof body.integrityUnreviewedReason !== "string"
+    || !body.integrityUnreviewedReason.trim() || body.integrityUnreviewedReason.length > 500)) {
+    throw badRequest("integrityUnreviewedReason must be a nonblank string of at most 500 characters");
+  }
+  if (body.integrityRunId !== undefined && body.integrityUnreviewedReason !== undefined) {
+    throw badRequest("integrityRunId and integrityUnreviewedReason are mutually exclusive");
+  }
+  const intentAuthored = sourceFiles.has("intent/brief.md") || sourceFiles.has("intent/manifest.json");
+  const unreviewedReason = typeof body.integrityUnreviewedReason === "string" ? body.integrityUnreviewedReason.trim() : undefined;
+  if (intentAuthored && body.integrityRunId === undefined && unreviewedReason === undefined) {
+    throw unprocessable("integrity-required", "an intent-authored initial import needs an eligible integrity agreement or an explicit unreviewed reason");
+  }
+  if (!intentAuthored && unreviewedReason !== undefined) throw badRequest("integrityUnreviewedReason is only valid for an intent-authored import");
   const integrity = typeof body.integrityRunId === "string"
     ? await stub.integrityBinding(body.integrityRunId,
       (await stub.integrityPreview(systemId, Object.fromEntries(sourceFiles), "imported")).hash)
@@ -313,7 +326,10 @@ export async function importSystem(env: Env, body: { systemId?: unknown; genomeR
     rules: JSON.stringify(g.readiness),
   }));
   // B.10: a new System commit is a new import to review unless `review: false` (worker/import-review.ts).
-  await recordImportReview(env, systemId, { review: body.review, head: booted.head, priorHead: prior?.head, genome: g, genomeCommit, integrity });
+  await recordImportReview(env, systemId, {
+    review: body.review, head: booted.head, priorHead: prior?.head, genome: g, genomeCommit, integrity,
+    ...(unreviewedReason && { integrityUnreviewed: { reason: unreviewedReason, at: new Date().toISOString() } }),
+  });
   // Re-read the summary now that the rules readiness is cached (B5: readiness counts and signifiers).
   const system = (await systemStub(env, systemId).summary()) ?? booted;
   await registryStub(env).registerSystem(system);

@@ -714,6 +714,8 @@ export interface ImportSystemRequest {
   review?: boolean;
   /** Existing reviewed preview; the server reloads the remote files and requires an exact snapshot match. */
   integrityRunId?: string;
+  /** Explicit legacy bypass for intent-authored imports that cannot yet run a real provider; always leaves review pending. */
+  integrityUnreviewedReason?: string;
 }
 export interface ImportSystemResponse {
   system: SystemSummary;
@@ -1407,6 +1409,7 @@ export interface SystemImportReview {
   interpretation?: string;
   rejectedNodes?: NodeId[];
   integrity?: import("./integrity").IntegrityReviewBinding;
+  integrityUnreviewed?: { reason: string; at: string };
 }
 
 /** `POST /api/systems/:id/import-review/accept` (admin). Rejected nodes are removed by an accepted Genome amendment. */

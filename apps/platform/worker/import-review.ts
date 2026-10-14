@@ -84,15 +84,19 @@ function capUnmapped(all: string[]): { unmapped: string[]; unmappedTotal: number
 export async function recordImportReview(env: Env, systemId: string, input: {
   review: unknown; head: string | null | undefined; priorHead: string | null | undefined; genome: LoadedGenome; genomeCommit: string;
   integrity?: IntegrityReviewBinding;
+  integrityUnreviewed?: NonNullable<SystemImportReview["integrityUnreviewed"]>;
 }): Promise<void> {
   const stub = systemStub(env, systemId);
-  if (input.review === false) {
+  if (input.review === false && !input.integrityUnreviewed) {
     if ((await stub.importReview())?.status === "pending") await stub.setImportReview(null);
     return;
   }
-  if (!input.head || input.head === input.priorHead) return;
+  if (!input.head || (input.head === input.priorHead && !input.integrityUnreviewed)) return;
   const review = await buildImportReview(env, await headState(env, systemId), input.genome, { status: "pending", genomeCommit: input.genomeCommit });
-  await stub.setImportReview({ ...review, ...(input.integrity && { integrity: input.integrity }) });
+  await stub.setImportReview({
+    ...review, ...(input.integrity && { integrity: input.integrity }),
+    ...(input.integrityUnreviewed && { integrityUnreviewed: input.integrityUnreviewed }),
+  });
 }
 
 /**
