@@ -5,7 +5,9 @@ import type {
   PhenomeEventsQuery, PromoteRequest, Realization, RejectRequest, StartWorkRequest,
 } from "../../shared/api";
 import type { TemplateUpgradeRequest } from "../../shared/api";
-import type { IntentAccept, IntentReply, IntentRequest, Proposal } from "../../shared/api";
+import type { IntentAccept, IntentDecisionsRequest, IntentReply, IntentRequest, Proposal } from "../../shared/api";
+// review
+import type { SystemImportReviewAccept } from "../../shared/api";
 import { emitFx } from "@/effects/fx";
 import { useSystemRoute } from "@/model/useSelection";
 import * as api from "./client";
@@ -424,6 +426,71 @@ export function useAcceptIntent() {
     mutationFn: ({ proposalId, body, adminToken }: { proposalId: string; body: IntentAccept; adminToken?: string }) =>
       api.acceptIntent(systemId, proposalId, body, adminToken),
     onSettled: () => invalidate(qc, systemId, "intent", "evolutions", "candidates", "builds", "revisions", "systems"),
+  });
+}
+
+/** Every decision save of one System; `useIsMutating` on it says whether any is still in flight. */
+export const decideIntentKey = (systemId: string) => ["decideIntent", systemId] as const;
+
+/**
+ * Decides agreement-tree nodes. `apply` (the decisions applied locally to the cached proposal) shows at once and is
+ * rolled back when the platform refuses; rapid decisions compose, and the last answer from the platform wins.
+ */
+export function useDecideIntent() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  const mutationKey = decideIntentKey(systemId);
+  return useMutation({
+    mutationKey,
+    // One decision PUT at a time per System: the platform applies them in click order.
+    scope: { id: `decide-${systemId}` },
+    mutationFn: ({ proposalId, body, adminToken }: { proposalId: string; body: IntentDecisionsRequest; adminToken?: string; apply?(p: Proposal): Proposal }) =>
+      api.decideIntent(systemId, proposalId, body, adminToken),
+    onMutate: async ({ proposalId, apply }) => {
+      const key = qk.intent(systemId, proposalId);
+      await qc.cancelQueries({ queryKey: key });
+      const prev = qc.getQueryData<Proposal>(key);
+      if (prev && apply) qc.setQueryData(key, apply(prev));
+      return { prev };
+    },
+    onError: (_err, { proposalId }, ctx) => {
+      if (ctx?.prev) qc.setQueryData(qk.intent(systemId, proposalId), ctx.prev);
+    },
+    // Another decision still in flight answers later with the fuller state.
+    onSuccess: (p: Proposal) => {
+      if (qc.isMutating({ mutationKey }) <= 1) qc.setQueryData(qk.intent(systemId, p.id), p);
+    },
+    // A refusal restored an older snapshot over later decisions: once the last one settles, the platform's copy wins.
+    onSettled: (_p, err, { proposalId }) => {
+      if (err && qc.isMutating({ mutationKey }) <= 1) void qc.invalidateQueries({ queryKey: qk.intent(systemId, proposalId) });
+    },
+  });
+}
+
+// ---------------------------------------------------------------------------
+// review: the System import review. `["importReview", systemId]`; the `system.import-review` event invalidates it.
+// ---------------------------------------------------------------------------
+
+export const importReviewKey = (systemId: string) => ["importReview", systemId] as const;
+
+export function useImportReview(opts: { enabled?: boolean } = {}) {
+  const { systemId } = useSystemRoute();
+  return useQuery({
+    queryKey: importReviewKey(systemId),
+    queryFn: () => api.getImportReview(systemId),
+    enabled: !!systemId && opts.enabled !== false,
+    retry: false,
+  });
+}
+
+/** Admin: accept the import review (interpretation, rejected nodes). A removal commits the Genome at once. */
+export function useAcceptImportReview() {
+  const { systemId } = useSystemRoute();
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ body, adminToken }: { body: SystemImportReviewAccept; adminToken?: string }) => api.acceptImportReview(systemId, body, adminToken),
+    onSuccess: (r) => qc.setQueryData(importReviewKey(systemId), r.review),
+    onSettled: () => invalidate(qc, systemId, "importReview", "evolutions", "candidates", "revisions", "systems"),
   });
 }
 

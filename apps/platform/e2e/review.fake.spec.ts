@@ -82,6 +82,12 @@ test.describe("Review: the decision queue @fake", () => {
       await keepReview.getByRole("tab", { name: "Amendment" }).click();
       await expect(interpretation).toBeVisible({ timeout: 2_000 });
     }).toPass({ timeout: 15_000 });
+    // The amendment's changes are an agreement tree, not checkboxes: agree at the Thing, then accept the whole amendment.
+    const changes = keepReview.getByRole("tree", { name: "Amendment changes" });
+    await expect(changes.getByRole("checkbox")).toHaveCount(0);
+    const thing = changes.locator('[role="treeitem"][data-node-id="thing.webapp"]');
+    await thing.locator(":scope > div").first().getByRole("button", { name: /^Agree / }).click();
+    await expect(changes.locator('[role="treeitem"][data-node-id="section.runtime"]')).toHaveAttribute("data-decision", "agree");
     await interpretation.fill("The binding is part of the runtime.");
     await page.getByRole("button", { name: "Accept amendment" }).click();
     await expect(page.getByText(/Accepted\. New Genome commit/)).toBeVisible();

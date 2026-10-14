@@ -42,11 +42,14 @@ export function ProblemList({ problems, label }: { problems: ProposalProblem[]; 
   );
 }
 
-/** One proposed op: include toggle, target, and its before/after for fields, criteria and links. */
+/**
+ * One proposed op: target and its before/after for fields, criteria and links. With `onToggle` it carries an include
+ * checkbox; in the agreement tree it has none (the node it sits under is decided as a whole).
+ */
 export function OpDiff({ op, included, onToggle, problems, disabled }: {
   op: ProposedOp;
-  included: boolean;
-  onToggle(on: boolean): void;
+  included?: boolean;
+  onToggle?(on: boolean): void;
   problems: ProposalProblem[];
   disabled?: boolean;
 }) {
@@ -72,14 +75,23 @@ export function OpDiff({ op, included, onToggle, problems, disabled }: {
       removed,
     };
   });
+  const head = (
+    <>
+      <span className={styles.verb}>{VERB[op.op]}</span>
+      <NodeChip id={op.node} kind={op.kind} interactive={false} size="sm" showId />
+      <code className={styles.opId}>{op.id}</code>
+    </>
+  );
   return (
     <li className={styles.op} data-op={op.op} data-included={included}>
-      <label className={styles.opHead}>
-        <input type="checkbox" checked={included} disabled={disabled} onChange={(e) => onToggle(e.target.checked)} />
-        <span className={styles.verb}>{VERB[op.op]}</span>
-        <NodeChip id={op.node} kind={op.kind} interactive={false} size="sm" showId />
-        <code className={styles.opId}>{op.id}</code>
-      </label>
+      {onToggle ? (
+        <label className={styles.opHead}>
+          <input type="checkbox" checked={!!included} disabled={disabled} onChange={(e) => onToggle(e.target.checked)} />
+          {head}
+        </label>
+      ) : (
+        <div className={styles.opHead} data-static>{head}</div>
+      )}
       {op.op === "add" && (
         <p className={styles.line}>
           New {op.kind ?? "unknown"} under {op.parent ? <NodeChip id={op.parent} size="sm" interactive={false} /> : "unknown"}
@@ -93,10 +105,12 @@ export function OpDiff({ op, included, onToggle, problems, disabled }: {
           {op.link.certainty && <span className={styles.muted}> ({op.link.certainty})</span>}
         </p>
       )}
-      <details><summary>Review {op.id} delta</summary>
-      {fieldRows.length > 0 && <DiffTable label={`${op.id} fields`} rows={fieldRows} />}
-      {criterionRows.length > 0 && <DiffTable label={`${op.id} criteria`} rows={criterionRows} />}
-      </details>
+      {(fieldRows.length > 0 || criterionRows.length > 0) && (
+        <details><summary>Review {op.id} delta</summary>
+          {fieldRows.length > 0 && <DiffTable label={`${op.id} fields`} rows={fieldRows} />}
+          {criterionRows.length > 0 && <DiffTable label={`${op.id} criteria`} rows={criterionRows} />}
+        </details>
+      )}
       {op.dependsOn?.length ? <p className={styles.muted}>Needs {op.dependsOn.join(", ")}</p> : null}
       <ProblemList problems={problems} label={`Problems with ${op.id}`} />
     </li>
