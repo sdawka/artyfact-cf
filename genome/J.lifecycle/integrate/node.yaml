@@ -3,7 +3,7 @@ kind: step
 fields:
   step: integrate
   actor: system
-  action: Combines the selected results in one integration fork, runs the checks again on the combined commit and opens one review.
+  action: Combines the selected results in one integration fork, runs the checks again on the combined commit and opens one review, with any model delta beside the code.
   next:
     - to: promote
 links:

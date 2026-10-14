@@ -2,21 +2,21 @@ import React from 'react';
 
 const columns: { title: string; label: string; items: string[]; note?: string }[] = [
   { title: 'What they need', label: 'Context', items: [
-    'The model of your product at one pinned version, from the System down to its journeys, screens and rules.',
-    'The parts of that model each Task reads and changes, with the steps and checks that come from them.',
+    'The whole model of your product, pinned to one version, in the fork: from the System down to its journeys, screens and rules.',
+    'A brief naming the exact parts of that model each Task realizes, with the steps and checks that come from them.',
     'Which finished Tasks it builds on, and which open ones it must not overlap.',
     'What other agents are working on.',
-  ] },
+  ], note: 'With the whole model and an exact brief, even a small change can go to a cheaper, weaker model; its result is still validated against the entire model.' },
   { title: 'Guardrails', label: 'Hard to do the wrong thing', items: [
     'A private fork for each Task, with a short-lived token.',
-    'Paths they may write, and paths that stay protected, the model included.',
+    'Paths they may write, and paths that stay protected. The model in the fork is read-only by default.',
     'Checks bound to the model’s rules.',
     'A promote that refuses unproven or out-of-date work.',
   ] },
   { title: 'Freedom', label: 'Choices stay theirs', items: [
     'Any agent harness or LLM you run.',
     'Their own approach inside the brief.',
-    'When the model looks wrong, they can say so. The change to it is reviewed like any other.',
+    'When the model can’t be built as written, they may change it from their fork and say why. The change is judged against the whole model and reviewed beside the code.',
   ], note: 'Several agents can take the same change in parallel. Each fulfils one tightly defined contract, so any version that meets it should work. If one meets it and still falls short, you sharpen the contract. The variation explores more of the solution space.' },
 ];
 

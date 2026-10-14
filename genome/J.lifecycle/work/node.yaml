@@ -3,7 +3,7 @@ kind: step
 fields:
   step: work
   actor: external
-  action: Works on the Task in its own fork, with any harness and model, and records checkpoints along the way.
+  action: Works on the Task in its own fork, with any harness and model, and records checkpoints along the way. The model in the fork is read-only by default; if it cannot be built as written, the agent may change it and says why in a checkpoint.
   next:
     - to: submit
 links:
