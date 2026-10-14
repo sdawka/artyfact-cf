@@ -3,11 +3,11 @@
 
 ## Now
 
-- Implemented: the seven intention-alignment fixes in [[roadmap]], using parallel Sol agents and one integration PR [#77](https://github.com/sdawka/artyfact-cf/pull/77). Work is execution; Review contains pending decisions. Runtime observations remain separate from implementation evidence and unknown outcome verdicts.
-- Verification: independent Sol reviews are clear after corrections. The complete 10-step local gate passed in 256s: 2872 root units, 98 fixture and 16 fake-provider browser cases, plus all site checks. See [[journals/2026-10-14-intention-fixes]]; exact hosted check results remain attached to PR #77.
-- Next action: review the seven fixes in PR #77 after its final hosted checks are green. No merge or deployment is included.
-- Tracking: seven canonical records validate. Versioned RPC preview returned `pending: missing_credentials`, `applied: 0`; the separate Artyfact destination requirement and prior conflict remain unresolved. Real-Artifacts provisioning is unverified.
-- Last updated: 2026-10-14T10:53:13-04:00.
+- Released: all seven intention fixes merged in [PR #77](https://github.com/sdawka/artyfact-cf/pull/77) as `1ec3826de3bd3a24ff4ac7eddb061ae8f0c56888`, preserving individual fix commits. Platform version `39aba8f8-dd0d-4810-b6a6-5feb373fa6c0` and site version `a5b7ff36-c033-4420-b9c6-49ce6518b300` are deployed from that revision.
+- Verified: independent reviews, full local/pre-push and hosted CI pass. Post-merge site checks pass. Live authenticated API reads and 16 desktop/mobile route checks pass; app checks found no serious/critical accessibility violations, overflow, page errors or attempted writes. Evidence: [[journals/2026-10-14-intention-fixes]].
+- Next action: resume the deferred real-Artifacts lifecycle verification; fresh-account provisioning and production task submission/promotion remain unverified by this read-only release smoke.
+- Tracking: canonical Markdown remains authoritative. Remote GRREAT sync is pending missing credentials and a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
+- Last updated: 2026-10-14T11:53:48-04:00.
 
 ## Spike baseline
 
