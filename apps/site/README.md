@@ -17,7 +17,7 @@ The build uses Vite/React to render HTML and hydrate the example.
 src/render.tsx renders the pages; src/client.tsx handles copy controls and lazily loads the example.
 Token CSS is a site-owned snapshot of the platform's Whimsy theme. Georgia is the display fallback.
 
-The homepage leads with familiar practices, struck through, beside what Artyfact does instead (src/practiceStackData.ts; each claim checked against the platform, partial work marked). Its centerpiece is an illustrative checkout change in seven steps. Step buttons and, on wide screens, native scrolling drive one step state; a chosen step holds until the reader scrolls to another. Without JavaScript all seven steps render stacked. Reduced motion removes transitions; nothing autoplays.
+The homepage pairs familiar practices with what Artyfact does with them, tagged built in, extended or connected (src/practiceStackData.ts; each claim checked against the platform, partial work marked). Its centerpiece is an illustrative checkout change in seven steps. Step buttons and, on wide screens, native scrolling drive one step state; a chosen step holds until the reader scrolls to another. Without JavaScript all seven steps render stacked. Reduced motion removes transitions; nothing autoplays.
 
 Effects: the ambient field comes from the private workspace package `@artyfact/effects`, loading after hydration and an idle moment. It mounts into an empty, aria-hidden slot and falls back to CSS haze without a usable GPU. The example uses ordinary HTML, not the former hero Orb. Shared GPU engines are unchanged.
 

@@ -1,44 +1,90 @@
-.model-story-view-name { color: var(--color-brand-primary); font-size: .78rem; }
-.model-story-intro { max-width: 860px; padding: 42px 0 45px; }
-.model-story-intro h1 { font-size: clamp(2.5rem, 4vw, 4rem); margin-bottom: 17px; }
-.model-story-intro > p { max-width: 72ch; font-size: 1.08rem; line-height: 1.6; }
+/* /model: Theory Driven Development. The hero card, the loop and the claim anatomy carry the story. */
+.model-story-intro h1 { font-size: clamp(2.45rem, 4.5vw, 3.7rem); line-height: 1.06; margin-bottom: 14px; }
+.model-story-view-name { color: var(--color-brand-primary); font-size: .78rem; margin: 0 0 9px !important; }
 .model-story-bridge { max-width: 75ch; border-left: 2px solid var(--color-border-strong); margin: 23px 0 0; padding-left: 17px; font-size: .94rem; }
-.model-story-bridge strong { color: var(--color-text-primary); font-weight: 500; }
-.model-story-subheading { font: 400 1.65rem/1.25 var(--font-display); margin: 30px 0 0; }
-.model-story-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 22px; margin-top: 26px; }
-.model-story-pair article { min-width: 0; border-top: 2px solid var(--color-border-strong); padding: 19px 0 0; }
-.model-story-pair h3 { font: 400 1.75rem/1.2 var(--font-display); margin-bottom: 12px; }
-.model-story-pair p { max-width: 57ch; margin-bottom: 0; font-size: .94rem; }
-.model-story-rule-note { max-width: 76ch; border-left: 2px solid var(--color-brand-primary); padding-left: 17px; margin: 22px 0 0; font-size: .88rem; }
+.model-story-bridge code { overflow-wrap: anywhere; }
+.model-story-subheading { font: 400 1.65rem/1.25 var(--font-display); margin: 40px 0 18px; }
 .model-story-views .section-heading p { max-width: 62ch; }
 .model-feature-explorer .layer-tabs[hidden], .model-feature-explorer [hidden] { display: none; }
 .model-feature-explorer[data-enhanced="false"] .example-detail + .example-detail { border-top: 1px solid var(--color-border-subtle); }
-.model-story-view-name { margin: 0 0 9px !important; }
 .model-story-questions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 25px; }
 .model-story-questions article { border-top: 1px solid var(--color-border); padding-top: 16px; }
-.model-story-questions h3 { font: 400 1.35rem/1.25 var(--font-display); margin-bottom: 12px; }
+.model-story-questions h4 { font: 400 1.3rem/1.25 var(--font-display); margin-bottom: 10px; }
 .model-story-questions p { font-size: .9rem; }
+#lifecycle, #claim-anatomy, #meta-ontology, #model-parallel-views, #benefits { scroll-margin-top: 24px; }
 
-@media (max-width: 640px) {
-  .model-story-intro { padding-block: 30px 35px; }
-  .model-story-intro > p { font-size: 1rem; }
-  .model-story-pair, .model-story-questions { grid-template-columns: 1fr; gap: 18px; }
-  .model-story-pair { margin-top: 20px; }
-  .model-story-pair article { padding-top: 14px; }
-  .model-story-pair h3 { font-size: 1.55rem; }
-  .model-story-questions article { padding-top: 13px; }
-}
+/* Hero: the theory as a sentence, each part underlined and labelled with the claim field that holds it. */
+.theory-hero { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: 28px 56px; align-items: center; padding: 48px 0 36px; }
+.theory-hero-text > p { max-width: 54ch; font-size: 1rem; line-height: 1.6; margin-bottom: 13px; }
+.theory-hero-text > .theory-lede { font: 400 clamp(1.45rem, 2.4vw, 1.9rem)/1.3 var(--font-display); color: var(--color-text-primary); margin-bottom: 18px; }
+.theory-card { margin: 0; padding: clamp(20px, 3vw, 34px); border: 1px solid var(--color-brand-primary); border-radius: var(--border-radius-lg); background: var(--color-background); box-shadow: 0 0 60px color-mix(in oklch, var(--color-brand-primary) 12%, transparent); }
+.theory-card-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; color: var(--color-text-secondary); font-size: .85rem; margin-bottom: 18px; }
+.theory-sentence { font: 400 clamp(1.35rem, 2.3vw, 1.85rem)/1.75 var(--font-display); color: var(--color-text-primary); margin: 0; }
+.theory-part { display: inline-flex; flex-direction: column; max-width: 100%; margin-bottom: 6px; }
+.theory-part-text { border-bottom: 2px solid var(--color-brand-primary); line-height: 1.3; }
+.theory-part-label { color: var(--color-brand-primary); font: .72rem/1.7 var(--font-code); }
+.theory-card-status { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 20px 0 0; padding-top: 16px; border-top: 1px solid var(--color-border-subtle); color: var(--color-text-secondary); font-size: .88rem; }
+.claim-status { display: inline-flex; align-items: center; gap: 6px; padding: 1px 9px; border: 1px solid var(--color-border); border-radius: var(--border-radius-full); color: var(--color-text-primary); font: .78rem/1.6 var(--font-code); white-space: nowrap; }
+.claim-status[data-status="challenged"] { border-color: var(--color-semantic-error); }
+.model-story-jumps { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 4px 25px; font-size: .88rem; }
+.model-story-jumps a { display: inline-flex; align-items: center; min-height: 44px; }
 
-/* The model's containment is the visual: a page inside its own explanation. */
-.model-story-intro { max-width: 850px; }
-.model-story-intro h1 { max-width: 15ch; font-size: clamp(2.7rem, 5.4vw, 4.6rem); line-height: 1.06; }
-.model-cloudflare { display: grid; grid-template-columns: 1fr 1.1fr; gap: 20px 45px; padding: 26px 0; border-block: 1px solid var(--color-border); }
-.model-cloudflare h2 { font: 400 1.65rem/1.2 var(--font-display); margin-bottom: 12px; }
-.model-cloudflare p, .model-cloudflare dd { font-size: .9rem; line-height: 1.65; margin: 0; }
-.model-cloudflare dl { display: grid; gap: 18px; margin: 0; }
-.model-cloudflare dl > div { display: grid; grid-template-columns: 52px 1fr; gap: 17px; }
-.model-cloudflare dt { color: var(--color-brand-primary); }
-.model-cloudflare-note { grid-column: 1 / -1; max-width: 90ch; color: var(--color-text-secondary); }
+/* The loop: a decorative ring beside the six steps; opening or pointing at a step lights its node. */
+.theory-loop { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); gap: 32px 56px; align-items: start; }
+.theory-loop-ring { width: 100%; max-width: 440px; position: sticky; top: 90px; overflow: visible; }
+.loop-track { fill: none; stroke: var(--color-border); stroke-width: 1.5; }
+.loop-flow { fill: none; stroke: var(--color-brand-primary); stroke-width: 2.5; stroke-linecap: round; stroke-dasharray: 46 554; transform: rotate(-90deg); transform-origin: 160px 160px; animation: loop-flow 14s linear infinite; }
+@keyframes loop-flow { to { stroke-dashoffset: -600; } }
+.loop-node circle { stroke: var(--color-brand-primary); stroke-width: 1.5; transition: fill .2s ease; }
+.loop-index { font: 12px var(--font-code); text-anchor: middle; }
+.loop-label { font: 15px var(--font-display); transition: fill .2s ease; }
+.loop-center { fill: var(--color-text-secondary); font: 13px var(--font-body); text-anchor: middle; }
+.theory-loop:has(li:nth-child(1) details[open], li:nth-child(1):hover) .loop-node-1,
+.theory-loop:has(li:nth-child(2) details[open], li:nth-child(2):hover) .loop-node-2,
+.theory-loop:has(li:nth-child(3) details[open], li:nth-child(3):hover) .loop-node-3,
+.theory-loop:has(li:nth-child(4) details[open], li:nth-child(4):hover) .loop-node-4,
+.theory-loop:has(li:nth-child(5) details[open], li:nth-child(5):hover) .loop-node-5,
+.theory-loop:has(li:nth-child(6) details[open], li:nth-child(6):hover) .loop-node-6 { --node-on: 1; }
+.loop-node circle { fill: color-mix(in oklch, var(--color-brand-primary) calc(var(--node-on, 0) * 100%), var(--color-background)); }
+.loop-node .loop-label { fill: color-mix(in oklch, var(--color-text-primary) calc(var(--node-on, 0) * 100%), var(--color-text-secondary)); }
+.loop-node .loop-index { fill: color-mix(in oklch, var(--color-text-inverse) calc(var(--node-on, 0) * 100%), var(--color-text-primary)); }
+.model-lifecycle-steps { list-style: none; padding: 0; margin: 0; counter-reset: lifecycle; }
+.model-lifecycle-steps > li { counter-increment: lifecycle; border-top: 1px solid var(--color-border); min-width: 0; }
+.model-lifecycle-steps > li:last-child { border-bottom: 1px solid var(--color-border); }
+.model-lifecycle-steps summary { cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 6px 12px; padding: 14px 0; list-style: none; }
+.model-lifecycle-steps summary::-webkit-details-marker { display: none; }
+.theory-loop-title { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px; }
+.model-lifecycle-steps summary strong { font: 400 1.35rem/1.3 var(--font-display); }
+.model-lifecycle-steps summary strong::before { content: counter(lifecycle) '  '; color: var(--color-brand-primary); font: .85rem var(--font-code); white-space: pre; }
+.theory-loop-line { grid-column: 1; margin-left: 22px; color: var(--color-text-secondary); font-size: .9rem; }
+.theory-loop-toggle { grid-column: 2; grid-row: 1; color: var(--color-brand-primary); font: 1.2rem var(--font-code); }
+.theory-loop-toggle::before { content: '+'; }
+.model-lifecycle-steps details[open] .theory-loop-toggle::before { content: '−'; }
+.model-lifecycle-steps details > p { font-size: .94rem; margin: 0 0 18px 22px; max-width: 64ch; }
+
+/* Claim anatomy: one claim's fields beside its status scale and the checks that read it. */
+.claim-anatomy { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 28px 48px; align-items: start; }
+.claim-sheet { padding: 22px 24px 8px; border: 1px solid var(--color-border-subtle); border-top: 2px solid var(--color-brand-primary); border-radius: var(--border-radius-md); background: var(--color-surface-primary); }
+.claim-sheet header { display: grid; justify-items: start; gap: 8px; margin-bottom: 8px; }
+.claim-sheet h3 { font: 400 1.5rem/1.25 var(--font-display); margin: 0; }
+.claim-fields { margin: 0; }
+.claim-fields > div { display: grid; grid-template-columns: minmax(0, 11rem) minmax(0, 1fr); gap: 6px 18px; padding: 13px 0; border-top: 1px solid var(--color-border-subtle); }
+.claim-fields dt { display: grid; justify-items: start; gap: 5px; color: var(--color-text-secondary); font-size: .85rem; }
+.claim-fields dd { margin: 0; font-size: .95rem; }
+.claim-fields dd .claim-status { margin-right: 8px; }
+.claim-side { display: grid; gap: 34px; }
+.claim-side h3 { font: 400 1.35rem/1.25 var(--font-display); margin-bottom: 12px; }
+.claim-side p { font-size: .9rem; }
+.claim-statuses, .claim-rules { list-style: none; padding: 0; margin: 0; }
+.claim-statuses li { display: grid; grid-template-columns: 8.5rem minmax(0, 1fr); gap: 4px 14px; align-items: center; padding: 9px 10px; border-left: 2px solid transparent; font-size: .88rem; color: var(--color-text-secondary); }
+.claim-statuses li[aria-current] { border-left-color: var(--color-brand-primary); background: color-mix(in oklch, var(--color-brand-primary) 8%, transparent); color: var(--color-text-primary); }
+.claim-statuses .claim-status { justify-self: start; }
+.claim-note { margin: 12px 0 0; color: var(--color-text-secondary); }
+.claim-rules li { display: grid; gap: 3px; padding: 9px 0; border-top: 1px solid var(--color-border-subtle); font-size: .88rem; }
+.claim-rules code { color: var(--color-brand-primary); overflow-wrap: anywhere; }
+.claim-rules span { color: var(--color-text-secondary); }
+
+/* The vocabulary: Artyfact's own nesting, also reused by the home page. */
 .model-self-portrait { padding: 8px; border-radius: 14px; background: radial-gradient(ellipse at 75% 70%, color-mix(in oklch, var(--color-semantic-info) 12%, transparent), transparent 70%); }
 .model-self-system, .model-self-thing, .model-self-section, .model-self-page { border: 1px solid var(--color-border); border-radius: 12px; padding: clamp(12px, 2.1vw, 27px); }
 .model-self-system { background: color-mix(in oklch, var(--color-surface-primary) 80%, transparent); }
@@ -58,61 +104,50 @@
 .model-self-criteria span { display: block; color: var(--color-text-secondary); font-size: .83rem; line-height: 1.65; }
 .model-self-affordance { display: inline-flex; flex-wrap: wrap; gap: 10px; padding: 10px 0 2px; margin-top: 21px; border-bottom: 1px solid currentColor; font-size: .9rem; }
 .model-self-affordance span { color: var(--color-text-secondary); font-size: .78rem; }
-#model-parallel-views { scroll-margin-top: 30px; }
-@media (max-width: 780px) { .model-cloudflare { grid-template-columns: 1fr; gap: 21px; } .model-self-criteria { grid-template-columns: 1fr; gap: 15px; } }
+.model-story-shape > .section-heading { margin-bottom: 22px; }
+
+/* Why it helps, and where it lives. */
+.model-benefits-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px 28px; }
+.model-benefits-grid article { min-width: 0; border-top: 1px solid var(--color-border); }
+.model-benefits-grid summary { cursor: pointer; min-height: 44px; padding-block: 12px; color: var(--color-text-primary); font-size: .95rem; }
+.model-benefits-grid summary strong { font-weight: 500; }
+.model-benefits-grid summary span { display: block; margin-top: 5px; color: var(--color-text-secondary); font-size: .8rem; line-height: 1.5; }
+.model-benefits-grid p { font-size: .88rem; line-height: 1.65; }
+.model-where-list { display: grid; margin: 0; }
+.model-where-list > div { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 8px 24px; padding: 14px 0; border-top: 1px solid var(--color-border-subtle); }
+.model-where-list dt { color: var(--color-brand-primary); font-size: .9rem; }
+.model-where-list dd { margin: 0; max-width: 78ch; font-size: .92rem; }
+.model-close-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 26px; }
+
+@media (max-width: 900px) {
+  .theory-hero, .theory-loop, .claim-anatomy { grid-template-columns: minmax(0, 1fr); }
+  .theory-loop-ring { position: static; max-width: 340px; justify-self: center; }
+  .model-benefits-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 780px) { .model-self-criteria { grid-template-columns: 1fr; gap: 15px; } }
 @media (max-width: 640px) {
+  .theory-hero { padding-block: 28px 20px; }
+  .theory-card { padding: 18px 16px; }
+  .claim-sheet { padding: 18px 16px 4px; }
+  .claim-fields > div, .model-where-list > div { grid-template-columns: minmax(0, 1fr); }
+  .claim-statuses li { grid-template-columns: minmax(0, 1fr); padding-inline: 10px 0; }
+  .model-story-questions { grid-template-columns: 1fr; gap: 18px; }
+  .model-benefits-grid summary { font-size: .88rem; }
   .model-self-portrait { padding: 0; }
-  .model-self-system, .model-self-thing, .model-self-section, .model-self-page { padding: 10px; border-radius: 8px; }
-  .model-self-thing, .model-self-section, .model-self-page { margin: 13px 0 0 3px; }
-  .model-self-component { padding: 14px; }
+  .model-self-system { padding: 10px; border-radius: 8px; }
+  .model-self-thing, .model-self-section, .model-self-page { padding: 10px 0 0; margin: 13px 0 0; border: 0; border-top: 1px solid var(--color-border); border-radius: 0; background: transparent; }
+  .model-self-component { padding: 16px; }
   .model-self-caption { gap: 5px 11px; }
   .model-self-caption > strong { font-size: 1.15rem; }
   .model-self-component .model-self-caption { display: grid; }
-  .model-story-bridge code { overflow-wrap: anywhere; }
 }
-@media (forced-colors: active) { .model-self-component { box-shadow: none; } }
-.model-story-intro { padding-block: 24px 25px; }
-.model-story-intro h1 { max-width: 22ch; font-size: clamp(2.45rem, 4.5vw, 3.7rem); }
-.model-story-intro > p { font-size: .98rem; margin-bottom: 13px; }
-.model-cloudflare { padding-block: 19px; gap: 15px 35px; }
-.model-cloudflare p, .model-cloudflare dd { font-size: .85rem; }
-.model-story-shape > .section-heading { margin-bottom: 22px; }
-@media (max-width: 640px) {
-  .model-story-shape { padding-top: 30px; }
-  .model-story-shape > .section-heading { gap: 15px; }
-  .model-self-system { padding: 10px; }
-  .model-self-thing, .model-self-section, .model-self-page { padding: 10px 0 0; margin-left: 0; border: 0; border-top: 1px solid var(--color-border); border-radius: 0; background: transparent; }
-  .model-self-component { padding: 16px; }
-  .model-cloudflare dl > div { grid-template-columns: 45px 1fr; gap: 10px; }
+@media (max-width: 360px) { .model-benefits-grid { grid-template-columns: 1fr; gap: 0; } }
+@media (forced-colors: active) {
+  .theory-card, .model-self-component { box-shadow: none; }
+  .theory-part-text { border-bottom-color: CanvasText; }
+  .claim-status, .claim-sheet { border-color: CanvasText; }
+  .claim-statuses li[aria-current] { border-left-color: Highlight; }
+  .loop-track, .loop-flow, .loop-node circle { stroke: CanvasText; }
+  .loop-node circle { fill: Canvas; }
+  .loop-node .loop-label, .loop-node .loop-index, .loop-center { fill: CanvasText; }
 }
-
-.model-story-jumps { display: flex; flex-wrap: wrap; gap: 8px 25px; font-size: .88rem; }
-.model-story-jumps a { display: inline-flex; align-items: center; min-height: 44px; }
-.model-story-benefits, #meta-ontology { scroll-margin-top: 24px; }
-.model-story-benefits { padding-block: 28px; }
-.model-story-benefits .section-heading { margin-bottom: 16px; }
-.model-benefits-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 28px; }
-.model-benefits-grid article { min-width: 0; border-top: 1px solid var(--color-border); }
-.model-benefits-grid summary { cursor: pointer; min-height: 44px; padding-block: 12px; color: var(--color-text-primary); font-size: .95rem; }
-.model-benefits-grid p { font-size: .88rem; line-height: 1.65; }
-@media (max-width: 640px) { .model-benefits-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 15px; } .model-benefits-grid summary { font-size: .85rem; } .model-story-benefits .section-heading { gap: 12px; } }
-
-.model-benefits-grid summary strong { font-weight: 500; }
-.model-benefits-grid summary span { display: block; margin-top: 5px; color: var(--color-text-secondary); font-size: .78rem; line-height: 1.5; }
-@media (max-width: 360px) {
-  .model-benefits-grid { grid-template-columns: 1fr; gap: 0; }
-  .model-benefits-grid summary { padding-block: 8px; font-size: .9rem; }
-  .model-benefits-grid summary span { margin-top: 3px; font-size: .8rem; }
-}
-
-/* Progressive lifecycle details keep the two approvals visible in one reading path. */
-.model-lifecycle-steps { list-style: none; padding: 0; margin: 0; counter-reset: lifecycle; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px 32px; }
-.model-lifecycle-steps > li { counter-increment: lifecycle; border-top: 1px solid var(--color-border); padding-top: 16px; min-width: 0; }
-.model-lifecycle-steps summary { cursor: pointer; padding: 4px 0 12px; }
-.model-lifecycle-steps summary::marker { color: var(--color-brand-primary); }
-.model-lifecycle-steps summary strong { font: 400 1.4rem/1.3 var(--font-display); }
-.model-lifecycle-steps summary strong::before { content: counter(lifecycle, decimal-leading-zero) ' / '; color: var(--color-brand-primary); font: .85rem var(--font-mono, monospace); }
-.model-lifecycle-steps summary span { display: block; margin: 9px 0 0 18px; color: var(--color-text-secondary); font-size: .9rem; }
-.model-lifecycle-steps details > p { font-size: .94rem; margin: 4px 0 12px 18px; max-width: 64ch; }
-#lifecycle { scroll-margin-top: 30px; }
-@media (max-width: 640px) { .model-lifecycle-steps { grid-template-columns: 1fr; gap: 14px; } }

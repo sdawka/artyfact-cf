@@ -18,7 +18,8 @@ test('all content and seven stacked steps survive without JavaScript', async ({ 
   for (let index = 0; index < 7; index++) await expect(page.locator(`[data-checkout-step="${index}"]`)).toBeVisible();
   await expect(page.locator('.checkout-deploy')).toContainText('Not measured yet');
   expect(await page.locator('.checkout-steps').evaluate(list => !!(list.compareDocumentPosition(document.querySelector('.checkout-stage')!) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
-  await expect(page.locator('.practice-card s').first()).toBeVisible();
+  await expect(page.locator('.practice-card .practice-known').first()).toBeVisible();
+  await expect(page.locator('.practice-card .practice-arrow').first()).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Give your coding agents the environment to thrive.' })).toBeVisible();
   await expect(page.locator('.environment-columns article')).toHaveCount(3);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -71,7 +72,7 @@ test('narrow screens keep every section in flow without horizontal scroll', asyn
     await page.getByRole('button', { name: 'Step 5: Integrate and promote' }).click();
     await expect(page.locator('.checkout-promote')).toHaveAttribute('data-phase', 'current');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    const clipped = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.practice-card, .checkout-row, .cloudflare-cells > div')].filter(element => element.scrollWidth > element.clientWidth + 1).length);
+    const clipped = await page.evaluate(() => [...document.querySelectorAll<HTMLElement>('.practice-card, .checkout-row, .backbone-node, .backbone-pieces > div')].filter(element => element.scrollWidth > element.clientWidth + 1).length);
     expect(clipped).toBe(0);
     await page.locator('.checkout-stage').screenshot({ path: info.outputPath(`${width}x${height}-stage.png`) });
   }
@@ -85,7 +86,10 @@ test('forced colors keep the current step and row visible', async ({ page }, inf
   await expect(button).toHaveAttribute('aria-current', 'step');
   expect(await button.evaluate(element => getComputedStyle(element).outlineWidth)).toBe('2px');
   expect(await page.locator('.checkout-overlap').evaluate(element => getComputedStyle(element).outlineStyle)).toBe('solid');
-  await expect(page.locator('.practice-card s').first()).toHaveCSS('text-decoration-line', 'line-through');
+  const card = page.locator('.practice-card').first();
+  const [arrow, border] = await card.evaluate(element => [getComputedStyle(element.querySelector('.practice-arrow')!).color, getComputedStyle(element).borderTopColor]);
+  expect(arrow).toBe(border);
+  expect(await card.locator('.relation-tag').evaluate(element => getComputedStyle(element, '::before').borderTopColor)).toBe(border);
   expect(await page.locator('.environment-columns article').first().evaluate(element => getComputedStyle(element).borderTopStyle)).toBe('solid');
   await page.locator('.checkout-stage').screenshot({ path: info.outputPath('forced-colors.png') });
 });

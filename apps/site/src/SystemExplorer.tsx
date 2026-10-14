@@ -2,9 +2,9 @@ import React, { useEffect, useState } from 'react';
 import type { SystemSelection } from './systemState';
 
 const layers = [
-  { name: 'Genome', meaning: 'What should hold true' },
-  { name: 'Proteome', meaning: 'How it is realized' },
-  { name: 'Phenome', meaning: 'What is observed' },
+  { name: 'Genome', meaning: 'What it should be' },
+  { name: 'Proteome', meaning: 'What is being made' },
+  { name: 'Phenome', meaning: 'What it does' },
 ] as const;
 
 /** The canonical model-page component, viewed from three angles without inventing runtime evidence. */
@@ -30,11 +30,11 @@ export function SystemExplorer({ onSelect }: { onSelect?: (selection: SystemSele
         onKeyDown={event => {
           const next = event.key === 'ArrowRight' ? (layer + 1) % 3 : event.key === 'ArrowLeft' ? (layer + 2) % 3 : event.key === 'Home' ? 0 : event.key === 'End' ? 2 : null;
           if (next !== null) { event.preventDefault(); setLayer(next); (event.currentTarget.parentElement?.children[next] as HTMLButtonElement)?.focus(); }
-        }}><span>{item.name}</span><small>{item.meaning}</small></button>)}
+        }}><span>{item.meaning}</span>{' '}<small>{item.name}</small></button>)}
     </div>
     <div className="model-view-panels">
       <section id="model-layer-panel-0" className="example-detail" role={enhanced ? 'tabpanel' : undefined} aria-labelledby={enhanced ? 'model-layer-0' : undefined} tabIndex={enhanced ? 0 : undefined} hidden={enhanced && layer !== 0}>
-        <p className="model-story-view-name" hidden={enhanced}>Genome · What should hold true</p>
+        <p className="model-story-view-name" hidden={enhanced}>What it should be · Genome</p>
         <h4>What should this explanation achieve?</h4>
         <p>The canonical Genome names this page, its explanation component, its purpose and three criteria.</p>
         <div className="feature-facts">
@@ -45,8 +45,8 @@ export function SystemExplorer({ onSelect }: { onSelect?: (selection: SystemSele
         <p className="evidence-note">These criteria are declared expectations. Clarity and visual quality still need human review.</p>
       </section>
       <section id="model-layer-panel-1" className="example-detail" role={enhanced ? 'tabpanel' : undefined} aria-labelledby={enhanced ? 'model-layer-1' : undefined} tabIndex={enhanced ? 0 : undefined} hidden={enhanced && layer !== 1}>
-        <p className="model-story-view-name" hidden={enhanced}>Proteome · How it is realized</p>
-        <h4>Your agents can be the Proteome.</h4>
+        <p className="model-story-view-name" hidden={enhanced}>What is being made · Proteome</p>
+        <h4>Your agents do the making.</h4>
         <p>Agents can work on the words, illustration and controls, then check that version and submit it for review.</p>
         <p className="feature-test"><span>Acceptance check</span>Given this model page, its named subjects and criteria agree with the canonical Genome; all three views remain readable without JavaScript.</p>
         <div className="feature-facts">
@@ -57,7 +57,7 @@ export function SystemExplorer({ onSelect }: { onSelect?: (selection: SystemSele
         <p className="evidence-note">This describes the work and checks, not an agent running or a passing result.</p>
       </section>
       <section id="model-layer-panel-2" className="example-detail" role={enhanced ? 'tabpanel' : undefined} aria-labelledby={enhanced ? 'model-layer-2' : undefined} tabIndex={enhanced ? 0 : undefined} hidden={enhanced && layer !== 2}>
-        <p className="model-story-view-name" hidden={enhanced}>Phenome · What is observed</p>
+        <p className="model-story-view-name" hidden={enhanced}>What it does · Phenome</p>
         <h4>What do readers actually understand?</h4>
         <p>A future observation could connect a reader’s visit, exploration and feedback to this component and page version. The sequence below is illustrative, not live Artyfact telemetry. Example reference: <code>example-model-01</code>.</p>
         <ol className="feature-events" aria-label="Illustrative reader observations">
@@ -66,6 +66,6 @@ export function SystemExplorer({ onSelect }: { onSelect?: (selection: SystemSele
         <p className="evidence-note">Visits and clicks alone cannot establish clarity or visual quality. Reader feedback remains unmeasured here.</p>
       </section>
     </div>
-    <p className="explorer-caption">Genome, Proteome and Phenome are parallel views of this component, not successive build stages.</p>
+    <p className="explorer-caption">Three views of the same component at the same time, not steps one after another.</p>
   </section>;
 }

@@ -23,7 +23,7 @@ It keeps a typed, multi-level model of the product, the Genome, in its own Git r
 
 A person agrees a change node by node in an agreement tree. Accepting commits exactly the agreed change to the Genome. Rule Packs run over the model in a Datalog engine and record the facts behind each finding, so a rule violation is kept apart from a deliberate choice. An imported System is reviewed before any work can start.
 
-Implementation is a plan of Tasks pinned to that Genome. The platform computes interference from the model nodes each Task writes and reads, with no language model. Tasks that change the same part of the model, or read what another changes, conflict even in different files. A Task whose footprint is unknown conflicts too. Conflicting Tasks go to later waves. A dependent Task is refused until its predecessors are selected. The aim is an environment where coding agents thrive. Each Task gets context (a brief cut from the model: purpose, criteria, related screens and concurrent work), guardrails (a private fork, a 15-minute write token, protected paths, checks bound to the model's rules) and freedom (any local harness, its own approach, and the option to propose a change to the model itself).
+Implementation is a plan of Tasks pinned to that Genome. The platform computes interference from the model nodes each Task writes and reads, with no language model. Tasks that change the same part of the model, or read what another changes, conflict even in different files. A Task whose footprint is unknown conflicts too. Conflicting Tasks go to later waves. A dependent Task is refused until its predecessors are selected. The aim is an environment where coding agents thrive. Each Task gets context (a brief cut from the model: pinned Genome, nodes, steps, checks and concurrent work), guardrails (a private fork, a 15-minute write token, protected paths, checks bound to the model's rules) and freedom (any local harness, its own approach, and the option to propose a change to the model itself).
 
 Selected results integrate into one review. Promotion is a compare-and-swap on the System head inside a Durable Object. Work reviewed against an old head is refused.
 
@@ -35,7 +35,7 @@ Direction, not shipped: several agents taking the same Task contract in parallel
 
 ## Judging criteria
 
-- Originality (50%): the unit of version control is the product model, not the file tree. Interference, readiness and promotion are computed over model nodes, so a clean textual merge can still be flagged. One model replaces the spec, the policy files, the agent instructions and the release notes.
+- Originality (50%): the unit of version control is the product model, not the file tree. Interference, readiness and promotion are computed over model nodes, so a clean textual merge can still be flagged. One model connects the practices teams already use: it builds in the spec and the agent instructions, extends checks and release notes, and connects PRDs, personas and schemas.
 - Multi-agent concurrency (25%): Task footprints from the model, deterministic conflicts and waves, one fork and one writer per Task, server-side refusal of dependent Tasks until their predecessors are selected, one integrated review, and a compare-and-swap promote in a Durable Object.
 - User experience (25%): an agreement tree to accept a change node by node, a wave board with one claim command per Task, one review across all Tasks, verdicts that are never green without a pass, and a changelog and compare at System, Genome and file level.
 

@@ -37,8 +37,13 @@ test('code copying reports success or a useful fallback', async ({ page }) => {
 test('public content is useful without JavaScript', async ({ page }) => {
   await page.route('**/*.js', route => route.abort());
   await page.goto('https://artyfact.test/model');
-  await expect(page.getByRole('heading', { name: /Ontology Driven Development/ })).toBeVisible();
-  await expect(page.getByText(/A Thing can begin with its Genome alone/)).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('Theory Driven Development');
+  await expect(page.locator('[data-theory-card] [data-theory-part]')).toHaveCount(4);
+  await expect(page.locator('[data-theory-card]')).toContainText('Measurement in progress');
+  await expect(page.locator('#lifecycle ol > li summary')).toHaveCount(6);
+  for (const summary of await page.locator('#lifecycle ol > li summary').all()) await expect(summary).toBeVisible();
+  await expect(page.locator('#claim-anatomy [data-claim-field]')).toHaveCount(7);
+  await expect(page.getByText(/A Thing can start with its model alone/)).toBeVisible();
   await expect(page.locator('.model-view-panels > section')).toHaveCount(3);
   for(const panel of await page.locator('.model-view-panels > section').all()) await expect(panel).toBeVisible();
   await expect(page.getByText('Acceptance check',{exact:true})).toBeVisible();
@@ -115,30 +120,75 @@ test('self-model anchor and view controls work with reduced motion', async ({ pa
   await expect(page.getByRole('tabpanel')).toContainText('Reader feedback remains unmeasured');
 });
 
-test('model jump links remain usable on a narrow screen with reduced motion', async ({ page }) => {
+test('model jump links and loop steps remain usable on a narrow screen with reduced motion', async ({ page }) => {
   await page.setViewportSize({ width: 320, height: 568 });
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('https://artyfact.test/model');
+  expect(await page.locator('.loop-flow').evaluate(element => getComputedStyle(element).animationName)).toBe('none');
   const navigation = page.getByRole('navigation', { name: 'On this page' });
-  await navigation.getByRole('link', { name: 'Artyfact’s meta ontology' }).focus();
+  await navigation.getByRole('link', { name: 'The vocabulary' }).focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#meta-ontology$/);
   await expect(page.locator('#meta-ontology')).toBeFocused();
-  await expect(page.getByRole('heading', { name: 'Artyfact’s meta ontology', exact: true })).toBeInViewport();
-  await navigation.getByRole('link', { name: 'Why a semantic layer' }).focus();
+  await expect(page.getByRole('heading', { name: 'The vocabulary: a multi-level model.', exact: true })).toBeInViewport();
+  await navigation.getByRole('link', { name: 'Why it helps' }).focus();
   await page.keyboard.press('Enter');
   await expect(page).toHaveURL(/#benefits$/);
   await expect(page.locator('#benefits')).toBeFocused();
-  await page.locator('.model-benefits-grid summary').filter({ hasText: 'Reuse context' }).click();
-  await expect(page.getByText(/Carry relevant context into each task or agent session/)).toBeVisible();
-  await navigation.getByRole('link', { name: 'From intent to evidence' }).focus();
+  await page.locator('.model-benefits-grid summary').filter({ hasText: 'Context agents can use' }).click();
+  await expect(page.getByText(/A Task Packet carries the pinned Genome version, the model nodes/)).toBeVisible();
+  await navigation.getByRole('link', { name: 'How a change moves' }).focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('#lifecycle')).toBeFocused();
-  const evolution = page.locator('#lifecycle summary').filter({ hasText: 'Review an Evolution' });
-  await evolution.focus();
+  const theory = page.locator('#lifecycle summary').filter({ hasText: 'Write the theory down' });
+  await theory.focus();
   await page.keyboard.press('Enter');
-  await expect(page.getByText(/An Evolution changes the Genome/)).toBeVisible();
-  await page.locator('#lifecycle summary').filter({ hasText: 'Review the implementation together' }).click();
-  await expect(page.getByText(/Promoting this implementation is a separate approval/)).toBeVisible();
+  await expect(page.getByText(/An Evolution is a proposed change to the model/)).toBeVisible();
+  await page.locator('#lifecycle summary').filter({ hasText: 'Ship the combined result' }).click();
+  await expect(page.getByText(/a separate approval from accepting the Evolution/)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test('the handoff map is readable without JavaScript and links each step', async ({ browser }, info) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, viewport: info.project.name === 'desktop' ? { width: 1280, height: 900 } : { width: 320, height: 568 } });
+  const page = await context.newPage();
+  await serveDist(page);
+  await page.goto('https://artyfact.test/connect-agent');
+  await expect(page.locator('.handoff-station')).toHaveCount(7);
+  for (const station of await page.locator('.handoff-station').all()) await expect(station).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator('.handoff a').filter({ hasText: 'task submit' }).click();
+  await expect(page).toHaveURL(/#submit$/);
+  await expect(page.getByRole('heading', { name: 'Checkpoint and submit' })).toBeInViewport();
+  await context.close();
+});
+test('opening a loop step lights its node on the ring', async ({ page }) => {
+  await page.goto('https://artyfact.test/model');
+  const fill = () => page.locator('.loop-node-3 circle').evaluate(element => getComputedStyle(element).fill);
+  const before = await fill();
+  await page.locator('#lifecycle summary').filter({ hasText: 'Check the work' }).click();
+  await page.mouse.move(0, 0);
+  await expect.poll(fill).not.toBe(before);
+  await expect(page.locator('#claim-anatomy .claim-statuses [aria-current]')).toHaveAttribute('data-status', 'unknown');
+});
+test('guide step links move focus to their section', async ({ page }) => {
+  await page.goto('https://artyfact.test/connect-agent');
+  await page.getByRole('navigation', { name: 'Guide steps' }).getByRole('link', { name: 'Review and promote' }).focus();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(/#review$/);
+  await expect(page.locator('#review')).toBeFocused();
+});
+test('the Cloudflare section fits 320px, stacks its lanes and survives forced colors', async ({ page }) => {
+  await page.setViewportSize({ width: 320, height: 640 });
+  await page.emulateMedia({ forcedColors: 'active', reducedMotion: 'reduce' });
+  await page.goto('https://artyfact.test/#cloudflare');
+  const section = page.locator('#cloudflare');
+  await expect(section.locator('.backbone-lane')).toHaveCount(6);
+  for (const node of await section.locator('.backbone-node').all()) await expect(node).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  expect(await section.locator('.backbone-node, .backbone-pieces > div').evaluateAll(elements => elements.filter(element => element.scrollWidth > element.clientWidth + 1).length)).toBe(0);
+  const lanes = await section.locator('[data-lane="system"] .backbone-node').evaluateAll(nodes => nodes.map(node => Math.round(node.getBoundingClientRect().left)));
+  expect(new Set(lanes).size).toBe(1);
+  const [fork, canvasText] = await section.locator('[data-kind="fork"]').first().evaluate(element => [getComputedStyle(element).borderTopColor, getComputedStyle(document.body).color]);
+  expect(fork).toBe(canvasText);
+  await expect(section.locator('[data-status="coming-soon"]')).toContainText('Coming soon');
 });

@@ -76,6 +76,11 @@ test('the guide names the hosted origin and the verified local CLI discovery ord
   assert(html.includes('localhost:1337') && html.includes('localhost:1346') && !html.includes('5173'));
   assert(!html.includes('CLI defaults to'));
   assert(html.includes('https://github.com/sdawka/artyfact-cf'));
+  const document = new JSDOM(html).window.document;
+  const handoff = [...document.querySelectorAll('.handoff a')].map(link => link.getAttribute('href'));
+  assert.equal(handoff.length, 7);
+  for (const href of handoff) assert(document.getElementById(href.slice(1)), href);
+  assert(!document.querySelector('.handoff [style]'), 'The handoff map needs no inline styles under the CSP');
 });
 test('effects stay off the critical path and out of the static markup', async () => {
   const html = await readFile(resolve(dist, 'index.html'), 'utf8');
@@ -95,12 +100,15 @@ test('the initial stylesheet includes the checkout scene before hydration', asyn
   assert(css.some(text => text.includes('.checkout-scene') && text.includes('.practice-card')), 'Home styles must be in initial CSS, not a lazy hydration chunk');
 });
 
-test('homepage leads with the approved headline and readable struck-through practices', async () => {
+test('homepage leads with the approved headline and the practices Artyfact builds on', async () => {
   const document = new JSDOM(await readFile(resolve(dist, 'index.html'), 'utf8')).window.document;
   assert.equal(document.querySelector('h1').textContent, 'The next Git platform keeps track of the product, not just the files.');
   assert(document.body.textContent.includes('A Git platform for teams of AI agents, on Cloudflare.'));
-  const struck = [...document.querySelectorAll('.practice-card s')].map(s => s.textContent);
-  assert(struck.length >= 20 && struck.includes('merge conflicts') && !/task packet|meta-ontology|provenance/i.test(document.querySelector('main').textContent) && struck.includes('spec.md and spec-driven development'));
+  assert.equal(document.querySelector('#practice-stack-heading').textContent, 'The practices you already use, connected and taken further.');
+  assert(!document.querySelector('.practice-stack s, .practice-stack del'), 'Practices stay fully legible, never struck through');
+  const known = [...document.querySelectorAll('.practice-card .practice-known')].map(p => p.textContent.replace('You know: ', ''));
+  assert(known.length >= 20 && known.includes('merge conflicts') && !/task packet|meta-ontology|provenance/i.test(document.querySelector('main').textContent) && known.includes('spec.md and spec-driven development'));
+  for (const card of document.querySelectorAll('.practice-card')) assert(['built-in', 'extended', 'connected'].includes(card.getAttribute('data-relation')) && card.querySelector('.relation-tag'));
   assert(!/A\/B|cohort|\bSLOs?\b|incident/i.test(document.querySelector('.practice-stack').textContent));
   assert(document.querySelector('.checkout-step-buttons')?.hasAttribute('hidden'), 'Step buttons stay hidden until hydration');
   assert(document.body.textContent.includes('Not measured yet'));
@@ -109,4 +117,24 @@ test('homepage leads with the approved headline and readable struck-through prac
   assert.equal(document.querySelectorAll('.environment-columns article').length, 3);
   assert(/All seven example steps are readable/.test(document.querySelector('noscript')?.textContent ?? ''));
   assert(!document.querySelector('button button'));
+});
+
+test('the Built on Cloudflare section prerenders its lanes, forks, promote node and an honest email item', async () => {
+  const document = new JSDOM(await readFile(resolve(dist, 'index.html'), 'utf8')).window.document;
+  const section = document.getElementById('cloudflare');
+  assert.equal(section.querySelector('h2').textContent, 'Built on Cloudflare.');
+  assert(section.querySelector('#artifacts.backbone'), '#artifacts stays an alias for the diagram');
+  assert.deepEqual([...section.querySelectorAll('.backbone-lane')].map(lane => lane.dataset.lane), ['system', 'genome', 'app', 'tasks', 'integrate', 'platform']);
+  assert.equal(section.querySelectorAll('[data-lane="tasks"] .backbone-node[data-kind="fork"]').length, 2);
+  assert.equal(section.querySelectorAll('[data-lane="tasks"] .backbone-token').length, 2);
+  assert.equal(section.querySelectorAll('[data-lane="integrate"] .backbone-node').length, 1);
+  const promote = section.querySelector('.backbone-node[data-kind="promote"]');
+  assert(promote && promote.dataset.stage === '5' && /Pins model a2 and app c1/.test(promote.textContent));
+  const pieces = [...section.querySelectorAll('.backbone-pieces > div')];
+  for (const name of ['Artifacts', 'Artifacts binding', 'Workers + Static Assets', 'Durable Object + SQLite', 'Workflows + Containers + R2', 'Queues', 'Flagship', 'Email']) assert(pieces.some(piece => piece.querySelector('dt').textContent.startsWith(name)), name);
+  const soon = pieces.filter(piece => piece.dataset.status === 'coming-soon');
+  assert.equal(soon.length, 1);
+  assert(/^Email/.test(soon[0].querySelector('dt').textContent) && soon[0].textContent.includes('Coming soon'));
+  assert.equal((document.body.textContent.match(/Email Service/g) ?? []).length, 1, 'Email is claimed only in the coming-soon item');
+  assert(!document.querySelector('.cloudflare-cells'));
 });
