@@ -3,15 +3,24 @@ import { describe, expect, it } from "vitest";
 import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
+import { afterEach } from "vitest";
 import { rowLinks } from "./LogicModel";
 
 const url = "/s/system.peopling/r/head/theory";
-const banner = "Hypotheses, not a validated causal model";
+const banner = /Hypotheses, not a validated causal model/;
+
+/** The Grid toggle exists from 1280px; the claim list is the default reading. */
+function openGrid() {
+  act(() => screen.getByRole("tab", { name: "Grid" }).click());
+}
 
 // The view chunk, elk and React Flow load lazily; give them room when the whole suite runs in parallel.
 configure({ asyncUtilTimeout: 5000 });
 
 describe("Theory view", () => {
+  const width = window.innerWidth;
+  afterEach(() => Object.defineProperty(window, "innerWidth", { value: width, configurable: true }));
+
   it("shows the hypotheses banner and one row per claim", async () => {
     const { container } = renderApp(url);
     expect(await screen.findByText(banner)).toBeTruthy();
@@ -27,12 +36,23 @@ describe("Theory view", () => {
     expect(within(container.querySelector<HTMLElement>("[data-claim='T5']")!).getByText("deferred")).toBeTruthy();
   });
 
-  it("draws one link per hand-off in every row", async () => {
+  it("draws one link per hand-off in every row of the Grid view", async () => {
+    Object.defineProperty(window, "innerWidth", { value: 1440, configurable: true });
     const { container } = renderApp(url);
     await screen.findByText(banner);
+    expect(container.querySelectorAll("path[data-link]")).toHaveLength(0);
+    openGrid();
     const expected = fixtureBundle().model.claims.reduce((n, c) => n + rowLinks(c).length, 0);
     expect(expected).toBe(20);
     await waitFor(() => expect(container.querySelectorAll("path[data-link]")).toHaveLength(expected));
+  });
+
+  it("offers the Grid toggle only on wide screens", async () => {
+    Object.defineProperty(window, "innerWidth", { value: 1024, configurable: true });
+    renderApp(url);
+    await screen.findByText(banner);
+    expect(screen.queryByRole("tab", { name: "Grid" })).toBeNull();
+    expect(screen.getByRole("heading", { level: 1, name: "Theory" })).toBeTruthy();
   });
 
   it("shows the purpose statement and its success criteria", async () => {
@@ -56,10 +76,11 @@ describe("Theory view", () => {
     expect(within(gaps).getByTitle("Claim: T2")).toBeTruthy();
   });
 
-  it("says no findings were reported rather than claiming the theory is sound", async () => {
+  it("says no gaps were reported as header status, with no empty gaps section", async () => {
     renderApp(url);
-    const gaps = await screen.findByRole("region", { name: /Theory gaps/ });
-    expect(await within(gaps).findByText("No theory or purpose findings were reported.")).toBeTruthy();
+    expect(await screen.findByText("No theory gaps reported")).toBeTruthy();
+    expect(screen.queryByRole("region", { name: /Theory gaps/ })).toBeNull();
+    expect(screen.queryByText(/\(0\)/)).toBeNull();
   });
 
   it("clicking a claim chip opens its Inspector body with observations unknown", async () => {
