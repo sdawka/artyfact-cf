@@ -8,7 +8,7 @@ import { PLAN_TREE, PLAN_TREE_OPS, planShape } from "./fixtures/plan-tree";
 import { env, exports } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeAll, beforeEach, describe, expect, it } from "vitest";
-import { fakeSystemOne, fakeTranslator, parseTree, scriptedSystemOne } from "@artyfact/ontology";
+import { ARTYFACT_GENOME, fakeSystemOne, fakeTranslator, parseTree, scriptedSystemOne } from "@artyfact/ontology";
 import { routes, type ApiError, type ImportSystemResponse, type IntentAcceptResponse, type IntentDecisionsRequest, type Proposal, type ProposalDecisions, type ProposalPlanNode, type ProposedOp } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { walkTree } from "../worker/artifacts/genome-source";
@@ -42,12 +42,12 @@ async function call<T>(method: string, path: string, body?: unknown, headers: Re
 interface Sys { ns: FakeArtifacts; systemId: string; genomeCommit: string }
 
 let n = 0;
-async function importSystem(): Promise<Sys> {
+async function importSystem(sourceExtra: Record<string, string> = {}): Promise<Sys> {
   const ns = new FakeArtifacts();
   const tag = `${++n}${Math.random().toString(36).slice(2, 6)}`;
   const systemId = `system.intent${tag}`;
   const files = Object.fromEntries(Object.entries(genome).map(([p, t]) => [p, t.replaceAll("system.peopling", systemId)]));
-  ns.create(`intent-genome-${tag}`).commit(files, "genome");
+  ns.create(`intent-genome-${tag}`).commit({ ...files, ...sourceExtra }, "genome");
   ns.create(`intent-app-${tag}`).commit(app, "app");
   setArtifactsOverride(ns);
   setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
@@ -184,6 +184,38 @@ describe("POST /intents/:pid/reply, turn cap", () => {
 });
 
 describe("POST /intents/:pid/accept", () => {
+  it("refuses a known proposal-wide error before creating or pushing a candidate", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const p = await storeProposal(s, first, first.ops, {
+      problems: [{ severity: "error", message: "The proposed Genome cannot be assembled." }],
+    });
+
+    const r = await accept(s, p, ["op.1"]);
+    expect(r.status).toBe(422);
+    expect(r.json.error).toMatchObject({ code: "proposal-error", message: expect.stringContaining("cannot be assembled") });
+    const stored = await systemStub(env, s.systemId).proposal(p.id);
+    expect(stored).toMatchObject({ accepting: false, proposal: { status: "open" } });
+    expect(stored?.proposal.stagedApproval).toBeUndefined();
+    expect((await systemStub(env, s.systemId).work()).realizations.filter((x) => x.agent.id === "human:intent")).toEqual([]);
+    const malformed = await call<ApiError>("POST", routes.intentAccept(s.systemId, p.id), { opIds: ["op.1"], integrity: {} });
+    expect(malformed.status).toBe(400);
+    expect((await systemStub(env, s.systemId).work()).realizations.filter((x) => x.agent.id === "human:intent")).toEqual([]);
+  });
+
+  it("refuses a new intent-authored candidate before push without an exact integrity agreement", async () => {
+    const s = await importSystem({ "intent/brief.md": "# Purpose\n\nKeep the Today screen calm.\n" });
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const r = await accept(s, p, ["op.1"]);
+    expect(r.status).toBe(422);
+    expect(r.json.error.code).toBe("integrity-required");
+    expect((await systemStub(env, s.systemId).state())!.genomeCommit).toBe(s.genomeCommit);
+    const stored = await systemStub(env, s.systemId).proposal(p.id);
+    expect(stored).toMatchObject({ accepting: false, proposal: { status: "open" } });
+    expect(stored?.proposal.stagedApproval).toBeUndefined();
+    expect((await systemStub(env, s.systemId).work()).realizations.filter((x) => x.agent.id === "human:intent")).toEqual([]);
+  });
+
   it("commits the chosen ops to a Genome realization and submits the candidate on a new Evolution", async () => {
     const s = await importSystem();
     const p = (await create(s, "Add a screen for quiet hours #s1:route.intent=add")).json;
@@ -486,6 +518,8 @@ describe("intent routes", () => {
     ["POST", routes.intents(S), { message: "m" }],
     ["GET", routes.intent(S, "proposal.1"), undefined],
     ["POST", routes.intentReply(S, "proposal.1"), { answer: "a" }],
+    ["POST", routes.intentRevise(S, "proposal.1"), { candidateId: "candidate.1", commit: "a".repeat(40), answer: "a" }],
+    ["POST", routes.intentAbandon(S, "proposal.1"), { candidateId: "candidate.1", commit: "a".repeat(40), reason: "r" }],
     ["POST", routes.intentAccept(S, "proposal.1"), { opIds: ["op.1"] }],
     ["PUT", routes.intentDecisions(S, "proposal.1"), { decisions: [{ nodeId: "thing.webapp", decision: "agree" }] }],
   ];
@@ -505,6 +539,30 @@ describe("the head Genome intents judge against", () => {
     const ours = genomeGraph(files).readiness.findings.map(key).sort();
     expect(ours).toEqual(validate(loadGenome(files, { templates: metaTemplates })).findings.map(key).sort());
     expect(ours.length).toBeGreaterThan(0);
+  });
+
+  it("loads and simulates proposals with the System's accepted custom templates", async () => {
+    const systemId = `system.intentcustom${++n}`;
+    expect((await call("POST", "/api/systems/initial", { systemId })).status).toBe(201);
+    const imports = `/api/systems/${systemId}/ontology-imports`;
+    const preview = await call<{ id: string; pin?: { hash: string } }>("POST", `${imports}/preview`, { package: {
+      format: "artyfact.ontology-package@1", id: "intent.custom", version: "1", dependencies: [], templates: {
+        "template.system.intent-custom@1": { id: "template.system.intent-custom", version: 1, meta: 1, extends: ARTYFACT_GENOME },
+      },
+    } });
+    expect(preview.status, JSON.stringify(preview.json)).toBe(201);
+    const accepted = await call<{ genomeFiles?: Record<string, string> }>("POST", `${imports}/${preview.json.id}/accept`, { hash: preview.json.pin!.hash });
+    expect(accepted.status, JSON.stringify(accepted.json)).toBe(200);
+    const ns = new FakeArtifacts();
+    ns.create(`intent-custom-${n}`).commit(accepted.json.genomeFiles!, "genome");
+    setArtifactsOverride(ns);
+    const imported = await call<ImportSystemResponse>("POST", "/api/systems/import", { systemId, genomeRepo: `intent-custom-${n}`, review: false });
+    expect(imported.status, JSON.stringify(imported.json)).toBe(201);
+
+    const proposal = await call<Proposal>("POST", routes.intents(systemId), { message: ADD });
+    expect(proposal.status, JSON.stringify(proposal.json)).toBe(201);
+    expect(proposal.json.provenance.genomeCommit).toBe(imported.json.genomeCommit);
+    expect(proposal.json.ops.length).toBeGreaterThan(0);
   });
 });
 
@@ -1059,6 +1117,75 @@ describe("POST /intents/:pid/accept with a staged approval", () => {
     expect(r.status).toBe(409);
     expect(r.json.error.code).toBe("invalid-state");
     expect((await systemStub(env, s.systemId).proposalPlan(p.id))?.decisions).toEqual({ [s.systemId]: "agree" });
+  });
+
+  it("abandons the exact refused candidate, rejects its realization and preserves the attempt", async () => {
+    const { s, p, staged } = await stagedAdd();
+    const integrity = { runId: "integrity.run.1", reportId: "integrity.report.1", snapshotHash: "sha256:reviewed", agreementStatus: "accepted" };
+    await sqlOn(s, "UPDATE proposals SET json = json_set(json, '$.stagedApproval.integrity', json(?)) WHERE id = ?", JSON.stringify(integrity), p.id);
+    const path = routes.intentAbandon(s.systemId, p.id);
+    const r = await call<Proposal & { attempts?: unknown[] } & ApiError>("POST", path, {
+      candidateId: staged.candidateId, commit: staged.commit, reason: "The candidate failed review.",
+    });
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json).toMatchObject({
+      status: "abandoned",
+      attempts: [{ disposition: "abandoned", stagedApproval: { candidateId: staged.candidateId, commit: staged.commit, integrity } }],
+    });
+    expect(r.json.stagedApproval).toBeUndefined();
+    expect((await systemStub(env, s.systemId).realization(staged.realizationId))?.realization.status).toBe("rejected");
+    expect((await accept(s, p, staged.opIds)).status).toBe(409);
+  });
+
+  it("revises after rejecting the exact refused candidate and does not inherit its evidence", async () => {
+    const { s, p, staged } = await stagedAdd();
+    const oldIntegrity = { runId: "integrity.run.old", reportId: "integrity.report.old", snapshotHash: "sha256:old", agreementStatus: "accepted" };
+    await sqlOn(s, "UPDATE proposals SET json = json_set(json, '$.stagedApproval.integrity', json(?)) WHERE id = ?", JSON.stringify(oldIntegrity), p.id);
+    setHooks({ runner: () => passing });
+    const path = routes.intentRevise(s.systemId, p.id);
+    const r = await call<Proposal & { attempts?: unknown[] } & ApiError>("POST", path, {
+      candidateId: staged.candidateId, commit: staged.commit, answer: "Revise this as a calmer Today screen.",
+    });
+    expect(r.status, JSON.stringify(r.json)).toBe(200);
+    expect(r.json).toMatchObject({
+      status: "open",
+      attempts: [{ disposition: "revised", stagedApproval: { candidateId: staged.candidateId, commit: staged.commit, integrity: oldIntegrity } }],
+    });
+    expect(r.json.stagedApproval).toBeUndefined();
+    expect((await systemStub(env, s.systemId).realization(staged.realizationId))?.realization.status).toBe("rejected");
+    const decision = await decide(s, r.json, [{ nodeId: s.systemId, decision: "agree" }]);
+    expect(decision.status, JSON.stringify(decision.json)).toBe(200);
+    const retried = await accept(s, decision.json, decision.json.ops.map((op) => op.id));
+    expect(retried.status).toBe(409); // the real gate still refuses, but this is a fresh staged attempt
+    const next = (await systemStub(env, s.systemId).proposal(p.id))?.proposal.stagedApproval;
+    expect(next?.candidateId).not.toBe(staged.candidateId);
+    expect(next?.integrity).toBeUndefined();
+  });
+
+  it("fences recovery to the exact staged candidate and commit", async () => {
+    const { s, p, staged } = await stagedAdd();
+    const path = routes.intentAbandon(s.systemId, p.id);
+    const wrong = await call<ApiError>("POST", path, {
+      candidateId: staged.candidateId, commit: "f".repeat(40), reason: "Wrong snapshot.",
+    });
+    expect(wrong.status).toBe(409);
+    expect(wrong.json.error.code).toBe("stale-candidate");
+    expect(await systemStub(env, s.systemId).proposal(p.id)).toMatchObject({
+      accepting: false, proposal: { status: "open", stagedApproval: { candidateId: staged.candidateId, commit: staged.commit } },
+    });
+  });
+
+  it("lets only one exact recovery claim dispose the staged candidate", async () => {
+    const { s, p, staged } = await stagedAdd();
+    const path = routes.intentAbandon(s.systemId, p.id);
+    const input = { candidateId: staged.candidateId, commit: staged.commit, reason: "Failed review." };
+    const both = await Promise.all([
+      call<Proposal & ApiError>("POST", path, input),
+      call<Proposal & ApiError>("POST", path, input),
+    ]);
+    expect(both.map((r) => r.status).sort()).toEqual([200, 409]);
+    expect(both.find((r) => r.status === 409)?.json.error.code).toBe("invalid-state");
+    expect((await systemStub(env, s.systemId).proposal(p.id))?.proposal.attempts).toHaveLength(1);
   });
 
   it("refuses the accept when the decisions changed since staging, and takes it again once they match", async () => {
