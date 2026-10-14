@@ -898,7 +898,7 @@ describe("POST /intents/:pid/accept with blocked agreed ops", () => {
     expect(r.status, JSON.stringify(r.json)).toBe(201);
     // The moved agreed op's node is listed too, after the explicitly deferred one.
     expect(r.json.deferred).toEqual({ proposal: expect.any(String), nodeIds: ["screen.people", "screen.today"] });
-    expect((r.json as { dropped?: string[] }).dropped).toBeUndefined();
+    expect(r.json.dropped).toBeUndefined();
     const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
     expect(next.ops).toEqual([BLOCKED(first)[1], BLOCKED(first)[2]]);
     const all = (n: ProposalPlanNode[]): string[] => n.flatMap((x) => [...x.opIds, ...all(x.children)]);
@@ -913,7 +913,7 @@ describe("POST /intents/:pid/accept with blocked agreed ops", () => {
     const r = await accept(s, both, ["op.1"]);
     expect(r.status, JSON.stringify(r.json)).toBe(201);
     expect(r.json.deferred).toBeUndefined();
-    expect((r.json as { dropped?: string[] }).dropped).toEqual(["op.2", "op.3"]);
+    expect(r.json.dropped).toEqual(["op.2", "op.3"]);
     expect(r.json.evolution.affectedNodes).toEqual(["screen.today"]);
   });
 
@@ -933,7 +933,7 @@ describe("POST /intents/:pid/accept with blocked agreed ops", () => {
     ]);
     const r = await accept(s, both, ["op.1"]);
     expect(r.status, JSON.stringify(r.json)).toBe(201);
-    expect((r.json as { dropped?: string[] }).dropped).toEqual(["op.2", "op.3", "op.5"]);
+    expect(r.json.dropped).toEqual(["op.2", "op.3", "op.5"]);
     expect(r.json.deferred).toEqual({ proposal: expect.any(String), nodeIds: ["GD.goals"] });
     const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
     expect(next.ops).toEqual([ops[3]]);
@@ -955,7 +955,7 @@ describe("POST /intents/:pid/accept with blocked agreed ops", () => {
       const r = await accept(s, both, ["op.1"]);
       expect(r.status, JSON.stringify(r.json)).toBe(201);
       expect(r.json.deferred).toBeUndefined();
-      expect((r.json as { deferralError?: string }).deferralError).toMatch(/moving the deferred ops op\.2 .*storage hiccup/);
+      expect(r.json.deferralError).toMatch(/moving the deferred ops op\.2 .*storage hiccup/);
       expect(await systemStub(env, s.systemId).proposal(both.id)).toMatchObject({ proposal: { status: "accepted" }, acceptError: expect.stringContaining("storage hiccup") });
       const evolutions = (await systemStub(env, s.systemId).work()).evolutions;
       expect(evolutions.filter((e) => e.title.startsWith("Deferred from"))).toEqual([]);

@@ -573,12 +573,6 @@ interface DeferredOps { ops: ProposedOp[]; nodeIds: string[]; titles: string[] }
 interface PlanChoice { ops: ProposedOp[]; deferred?: DeferredOps; dropped: string[] }
 
 /**
- * TODO(contract gap, P0/P10): `IntentAcceptResponse` has no `dropped` (op ids neither accepted nor deferred) and no
- * `deferralError` (the deferred proposal could not be created); both are sent as optional fields until it does.
- */
-type AcceptResult = IntentAcceptResponse & { dropped?: string[]; deferralError?: string };
-
-/**
  * The chosen ops of `p` under its plan decisions. With no decisions at all, any ops may be chosen (as before plans),
  * nothing is deferred and the rest are dropped. Once any node is decided, the chosen ops must all be under
  * effectively agreed nodes (else 422 `invalid-ops` naming them), and the unchosen ops are split:
@@ -749,7 +743,7 @@ export async function acceptProposal(env: Env, systemId: string, pid: string, bo
     }
     throw conflict("invalid-state", `proposal ${pid} is ${claim.status}`);
   }
-  let out: AcceptResult;
+  let out: IntentAcceptResponse;
   let deferred: DeferredOps | undefined;
   let dropped: string[] = [];
   let pushed=false,staged=!!claim.claimed.stagedApproval;

@@ -1344,6 +1344,10 @@ export interface IntentAcceptResponse {
   commit: CommitHash;
   /** The new open proposal holding the ops of `defer` nodes, and the topmost deferred nodes that held ops. */
   deferred?: { proposal: string; nodeIds: NodeId[] };
+  /** Op ids neither accepted nor deferred (rejected, undecided, or left out), when there were any. */
+  dropped?: string[];
+  /** Why the deferred proposal could not be created; the accept itself succeeded. */
+  deferralError?: string;
 }
 
 /**
@@ -1367,8 +1371,10 @@ export interface SystemImportReview {
   genomeCommit: CommitHash;
   tree: ProposalPlanNode[];
   findings: Finding[];
-  /** App paths no node's `files` maps. */
+  /** App paths no node's `files` maps: the first 200, sorted. */
   unmapped: string[];
+  /** How many app paths are unmapped in all, when the review stored a capped list. */
+  unmappedTotal?: number;
   decidedAt?: string;
   interpretation?: string;
   rejectedNodes?: NodeId[];
@@ -1384,6 +1390,8 @@ export interface SystemImportReviewAcceptResponse {
   review: SystemImportReview;
   /** The accepted amendment that removed `rejectedNodes`, when there were any. */
   amendment?: { evolution: NodeId; realization: string; candidate: string; systemCommit?: string };
+  /** Live Evolutions whose acceptance criteria the removal deletes (their gates fail closed). */
+  warnings?: string[];
 }
 
 export type { RealizationPlan, Task, TaskAttempt, CreateRealizationPlanRequest, TaskStartResponse, TaskSubmitResponse, ImplementationReview, PlanPromoteRequest, PlanPromoteResponse, DraftRealizationPlanRequest, DraftRealizationPlanResponse, DraftPlanProblem, DraftPlanProvenance, LifecycleTaskPacket } from './lifecycle';

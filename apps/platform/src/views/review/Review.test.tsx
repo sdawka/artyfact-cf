@@ -339,7 +339,7 @@ describe("Import review", () => {
     plan("section.runtime", "section", "Runtime", [ROOT, "thing.webapp", "section.runtime"]),
     plan("GD.prompts", "description", "Prompts", [ROOT, "thing.webapp", "GD.prompts"]),
   ])];
-  const review: SystemImportReview = { status: "pending", genomeCommit: "abc1234def5678", tree, findings: [], unmapped: ["public/legacy.html"] };
+  const review: SystemImportReview = { status: "pending", genomeCommit: "abc1234def5678", tree, findings: [], unmapped: ["public/legacy.html"], unmappedTotal: 240 };
   const summary = (pending: boolean) => ({
     systemId: SYSTEM, title: "Peopling", head: null, genomeRepo: "g", appRepo: "a", genomeCommit: "abc1234def5678", evolutionCounts: {}, updatedAt: "",
     ...(pending && { importReview: { status: "pending" as const, genomeCommit: "abc1234def5678", nodes: 3 } }),
@@ -355,7 +355,7 @@ describe("Import review", () => {
       const u = String(input);
       if (u.endsWith("/api/systems")) return json(200, [summary(false)]);
       if (u.endsWith("/import-review/accept") && init?.method === "POST") {
-        return json(200, { review: { ...review, status: "accepted" }, amendment: { evolution: EVO1, realization: "realization.rm", candidate: "cand.rm" } });
+        return json(200, { review: { ...review, status: "accepted" }, amendment: { evolution: EVO1, realization: "realization.rm", candidate: "cand.rm" }, warnings: ["evolution.1 accepts C.prompts, which removing GD.prompts deletes"] });
       }
       if (u.endsWith("/import-review")) return json(200, review);
       if (u.includes("/model")) return json(200, fixtureBundle());
@@ -390,6 +390,7 @@ describe("Import review", () => {
     expect(within(await queue()).getByTestId("queue-import").getAttribute("aria-current")).toBe("true");
     expect(within(panel).getByRole("tree", { name: "Imported Genome" })).toBeTruthy();
     expect(within(panel).getByRole("list", { name: "Unmapped app paths" }).textContent).toContain("public/legacy.html");
+    expect(within(panel).getByText("Showing the first 1 of 240.")).toBeTruthy();
     // Two-state: no Defer.
     expect(within(panel).queryByRole("button", { name: /^Defer/ })).toBeNull();
     const accept = () => within(panel).getByRole("button", { name: /^Accept import/ }) as HTMLButtonElement;
@@ -419,6 +420,7 @@ describe("Import review", () => {
     fireEvent.change(within(panel).getByLabelText("Accepted interpretation"), { target: { value: "Peopling, without the prompts." } });
     fireEvent.click(accept);
     expect(await within(panel).findByText(/1 rejected node was removed from the Genome/)).toBeTruthy();
+    expect(within(panel).getByText("Warning: evolution.1 accepts C.prompts, which removing GD.prompts deletes")).toBeTruthy();
     const body = JSON.parse(String(fetchMock.mock.calls.find(([u]) => String(u).endsWith("/import-review/accept"))![1]!.body));
     expect(body).toEqual({ interpretation: "Peopling, without the prompts.", rejectedNodes: ["GD.prompts"] });
     expect(within(panel).getByRole("link", { name: "Open the removal amendment" }).getAttribute("href")).toBe(`${REVIEW}?evolution=${EVO1}&realization=realization.rm`);

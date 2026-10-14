@@ -8,14 +8,14 @@ import { runInDurableObject } from "cloudflare:test";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type {
   ApiError, GenomeCandidateReview, ImportSystemResponse, ModelBundle, ProposalPlanNode, StartWorkResponse,
-  SystemImportReview, SystemsResponse, WorkResponse,
+  SystemImportReview, SystemImportReviewAcceptResponse, SystemsResponse, WorkResponse,
 } from "../shared/api";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { walkTree } from "../worker/artifacts/genome-source";
 import type { SystemAuthority } from "../worker/do/system-authority";
 import { setEditorTransport } from "../worker/editor";
 import { resetHooks, setHooks } from "../worker/hooks/index";
-import { setAmendmentAccept, UNMAPPED_CAP, type ImportReviewAcceptResult } from "../worker/import-review";
+import { setAmendmentAccept, UNMAPPED_CAP } from "../worker/import-review";
 import { acceptProposal } from "../worker/intents";
 import { systemStub } from "../worker/service";
 import { appFiles, genomeFor } from "./fixtures/genome";
@@ -63,7 +63,7 @@ async function pending(review?: boolean, extra: Record<string, string> = {}) {
 
 const ids = (ns: ProposalPlanNode[]): string[] => ns.flatMap((n) => [n.id, ...ids(n.children ?? [])]);
 const accept = (systemId: string, body: unknown, headers: Record<string, string> = ADMIN) =>
-  call<ImportReviewAcceptResult & ApiError>("POST", `/systems/${systemId}/import-review/accept`, body, headers);
+  call<SystemImportReviewAcceptResponse & ApiError>("POST", `/systems/${systemId}/import-review/accept`, body, headers);
 const getReview = (systemId: string) => call<SystemImportReview & ApiError>("GET", `/systems/${systemId}/import-review`);
 
 /** Every route that creates or starts work, or moves a Genome change forward. */
@@ -356,7 +356,7 @@ describe("import review: accept", () => {
     setArtifactsOverride(ns);
     const imp = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo: `ir-genome-${n}`, appRepo: `ir-app-${n}` }, ADMIN);
     expect(imp.status, JSON.stringify(imp.json)).toBe(201);
-    const rv = (await getReview(systemId)).json as SystemImportReview & { unmappedTotal?: number };
+    const rv = (await getReview(systemId)).json;
     expect(rv.unmapped).toHaveLength(UNMAPPED_CAP);
     expect(rv.unmapped[0]).toBe("legacy/f0000.txt");
     expect(rv.unmappedTotal).toBe(UNMAPPED_CAP + 50);

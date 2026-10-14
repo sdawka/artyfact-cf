@@ -188,6 +188,23 @@ describe("Describe a change", () => {
     expect(screen.queryByText(/deferred changes wait/)).toBeNull();
   });
 
+  it("an accept that dropped changes or failed to defer them keeps the panel open and says so", async () => {
+    decidingApi(PROPOSAL, { ...ACCEPTED, dropped: ["op.3"], deferralError: "moving the deferred ops op.2 to a new proposal failed: busy" });
+    const { router } = renderApp(`${WORK}?panel=intent`, undefined, api);
+    await describe_("Show birthdays");
+    fireEvent.click(await screen.findByRole("button", { name: "Agree Peopling web app" }));
+    fireEvent.click(screen.getByRole("button", { name: "Defer Birthday field" }));
+    await screen.findByText("1 of 3 changes agreed · 2 deferred");
+    fireEvent.click(acceptBtn());
+    expect(await screen.findByText("Accepted 1 change into Show birthdays and committed it to the Genome.")).toBeTruthy();
+    expect(screen.getByText("Not accepted or deferred: op.3.")).toBeTruthy();
+    expect(screen.getByText("The deferred changes were not kept: moving the deferred ops op.2 to a new proposal failed: busy.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Continue with deferred" })).toBeNull();
+    expect(new URLSearchParams(router.state.location.search).get("panel")).toBe("intent");
+    fireEvent.click(screen.getByRole("button", { name: "Open the accepted change" }));
+    await waitFor(() => expect(new URLSearchParams(router.state.location.search).get("evolution")).toBe("evolution.9"));
+  });
+
   it("keyboard: arrows move between rows, a / r / d decide, Backspace clears", async () => {
     const calls = decidingApi(PROPOSAL);
     renderApp(`${WORK}?panel=intent`, undefined, api);

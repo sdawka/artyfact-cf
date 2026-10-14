@@ -69,7 +69,7 @@ export const UNMAPPED_CAP = 200;
 
 /**
  * The stored review keeps the first {@link UNMAPPED_CAP} sorted paths (the DO row stays small for a large app repo) and
- * the total. TODO(contract gap): `unmappedTotal` is not yet on {@link SystemImportReview} in shared/api.ts.
+ * the total.
  */
 function capUnmapped(all: string[]): { unmapped: string[]; unmappedTotal: number } {
   return { unmapped: all.slice(0, UNMAPPED_CAP), unmappedTotal: all.length };
@@ -240,8 +240,6 @@ export function liveEvolutionWarnings(evolutions: { id: string; state: string; a
   });
 }
 
-/** The accept response: the contract's, plus warnings about live Evolutions. TODO(contract gap): `warnings` on SystemImportReviewAcceptResponse. */
-export type ImportReviewAcceptResult = SystemImportReviewAcceptResponse & { warnings?: string[] };
 
 /** Test seam: the intents accept the removal goes through (tests wrap it to fail after the approve). */
 let acceptAmendment: typeof acceptProposal = acceptProposal;
@@ -256,7 +254,7 @@ export function setAmendmentAccept(fn: typeof acceptProposal | undefined): void 
  * returns. Any failure after the flip rejects a candidate left staged, compare-and-sets the review back to pending and
  * rethrows.
  */
-export async function acceptImportReview(env: Env, systemId: string, body: Partial<SystemImportReviewAccept>, platformUrl: string): Promise<ImportReviewAcceptResult> {
+export async function acceptImportReview(env: Env, systemId: string, body: Partial<SystemImportReviewAccept>, platformUrl: string): Promise<SystemImportReviewAcceptResponse> {
   const { interpretation, rejectedNodes } = body;
   if (interpretation !== undefined && (typeof interpretation !== "string" || interpretation.length > 4000)) throw badRequest("interpretation must be a string of at most 4000 characters");
   if (rejectedNodes !== undefined && (!Array.isArray(rejectedNodes) || rejectedNodes.some((n) => typeof n !== "string"))) throw badRequest("rejectedNodes must be an array of node ids");

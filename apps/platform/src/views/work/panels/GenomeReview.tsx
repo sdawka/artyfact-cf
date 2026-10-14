@@ -97,6 +97,7 @@ function ImportReviewPanel({ review }: { review: SystemImportReview }) {
         {review.unmapped.length ? (
           <>
             <p className={styles.muted}>No node's <code>files</code> binding maps these app paths, so no change to them can be tied to the model.</p>
+            {(review.unmappedTotal ?? 0) > review.unmapped.length && <p className={styles.muted}>Showing the first {review.unmapped.length} of {review.unmappedTotal}.</p>}
             <ul className={own.paths} aria-label="Unmapped app paths">
               {review.unmapped.map((p) => <li key={p}><code>{p}</code></li>)}
             </ul>
@@ -232,6 +233,7 @@ function ImportDecision({ accept, fixture, blocker, rejected, outcome }: {
               ? `${rejected.length} rejected node${rejected.length === 1 ? " was" : "s were"} removed from the Genome${outcome.amendment.systemCommit ? ` (System commit ${outcome.amendment.systemCommit.slice(0, 7)})` : ""}.`
               : "Nothing was rejected; the Genome stands as imported."}
           </p>
+          {outcome.warnings?.map((w) => <p key={w}>Warning: {w}</p>)}
           {outcome.amendment && (
             <Link className="u-marker" to={href("review", { panel: null, evolution: outcome.amendment.evolution, realization: outcome.amendment.realization })}>
               Open the removal amendment

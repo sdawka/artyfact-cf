@@ -27,7 +27,7 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
   const create = useCreateIntent();
   const proposal = useIntent(fixture ? null : proposalId, token || undefined);
   const [message, setMessage] = useState("");
-  // An accept that left deferred changes: the panel stays open on this status until the admin moves on.
+  // An accept that deferred, dropped or failed to defer changes: the panel stays open on this status until the admin moves on.
   const [done, setDone] = useState<{ res: IntentAcceptResponse; counts: AcceptedCounts; from: string | null } | null>(null);
   const settled = done && done.from === proposalId ? done : null;
   const heading = useRef<HTMLHeadingElement>(null);
@@ -47,7 +47,7 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
 
   const shown = fixture ? SAMPLE_PROPOSAL : proposalId ? proposal.data : undefined;
   const accepted = (res: IntentAcceptResponse, counts: AcceptedCounts) => {
-    if (res.deferred) setDone({ res, counts, from: proposalId });
+    if (res.deferred || res.dropped?.length || res.deferralError) setDone({ res, counts, from: proposalId });
     else onAccepted(res);
   };
   const deferredCount = settled ? settled.counts.deferred : 0;
@@ -93,17 +93,21 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
         </form>
       )}
 
-      {settled?.res.deferred && (
+      {settled && (
         <div className={styles.block} role="status">
           <p>
             Accepted {settled.counts.accepted} {settled.counts.accepted === 1 ? "change" : "changes"} into {settled.res.evolution.title} and
-            committed {settled.counts.accepted === 1 ? "it" : "them"} to the Genome.{" "}
-            {deferredCount} deferred {deferredCount === 1 ? "change waits" : "changes wait"} in a new proposal.
+            committed {settled.counts.accepted === 1 ? "it" : "them"} to the Genome.
+            {settled.res.deferred && <> {deferredCount} deferred {deferredCount === 1 ? "change waits" : "changes wait"} in a new proposal.</>}
           </p>
+          {!!settled.res.dropped?.length && <p>Not accepted or deferred: {settled.res.dropped.join(", ")}.</p>}
+          {settled.res.deferralError && <p className={workStyles.error}>The deferred changes were not kept: {settled.res.deferralError}.</p>}
           <span className={workStyles.inlineRow}>
-            <button type="button" className={`u-brackets ${workStyles.primary}`} onClick={() => setProposalId(settled.res.deferred!.proposal)}>
-              Continue with deferred
-            </button>
+            {settled.res.deferred && (
+              <button type="button" className={`u-brackets ${workStyles.primary}`} onClick={() => setProposalId(settled.res.deferred!.proposal)}>
+                Continue with deferred
+              </button>
+            )}
             <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => onAccepted(settled.res)}>
               Open the accepted change
             </button>
