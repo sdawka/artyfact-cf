@@ -9,3 +9,4 @@ fields:
 links:
   - { rel: stepOperation, to: command.ontology-preview }
   - { rel: stepOperation, to: endpoint.ontology-packages-post-ontology-imports-preview }
+  - { rel: stepScreen, to: screen.start }
