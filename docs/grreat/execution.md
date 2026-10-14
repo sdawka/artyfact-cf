@@ -5,9 +5,10 @@
 
 - Implemented: application UI polish on `feat/application-ui-polish`, integrated with upstream `5014bb5` (task planning on the lifecycle). Shared controls, responsive shell, native form behaviour and Atlas relation/camera polish preserve the latest domain flows.
 - Verified: full integrated CI passes all 10 steps in 294.5s: 2823 unit tests (9 skips), 95 fixture and 16 fake-platform browser tests; site 55 units and 51 browser tests (5 skips), plus typechecks/build/static checks. Independent integration and actual-browser keyboard reviews are clear. Evidence: [[journals/2026-10-13-ui-polish]].
-- Next: push and open one PR, then follow hosted CI/review. No merge or deployment is claimed for this branch; the lifecycle runbook's real-Artifacts flow remains unverified ([[journals/2026-10-14-lifecycle-port]]).
+- Published: [PR #71](https://github.com/sdawka/artyfact-cf/pull/71) is open. The normal pre-push hook also passed all 10 steps in 290.1s.
+- Next: follow hosted checks/review. No merge or deployment is claimed for this branch; the lifecycle runbook's real-Artifacts flow remains unverified ([[journals/2026-10-14-lifecycle-port]]).
 - Sync: authenticated versioned RPC preview proposes 6 new records in `ws_bddc55cbf3e14dc8b8c22e651e82a8fd`, with 0 applied. A separate Artyfact destination remains unconfirmed; preserve the prior wrong-project conflict and do not apply records there.
-- Last updated: 2026-10-14T00:49:25-04:00.
+- Last updated: 2026-10-14T00:58:01-04:00.
 
 ## Previous release
 
