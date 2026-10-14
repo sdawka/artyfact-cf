@@ -104,7 +104,7 @@ test('homepage leads with the approved headline and readable struck-through prac
   assert(!/A\/B|cohort|\bSLOs?\b|incident/i.test(document.querySelector('.practice-stack').textContent));
   assert(document.querySelector('.checkout-step-buttons')?.hasAttribute('hidden'), 'Step buttons stay hidden until hydration');
   assert(document.body.textContent.includes('Not measured yet'));
-  assert(document.body.textContent.includes('Same step in the model. Run in order. 1 rule failing.'));
+  assert(document.body.textContent.includes('Same step in the model, so the Tasks run in order. One rule fails.'));
   assert(/All seven example steps are readable/.test(document.querySelector('noscript')?.textContent ?? ''));
   assert(!document.querySelector('button button'));
 });
