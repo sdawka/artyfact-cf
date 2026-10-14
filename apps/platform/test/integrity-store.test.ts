@@ -37,12 +37,13 @@ it("reuses active work, fences leases, binds exact immutable agreements, and exp
     expect(store.checkpoint(first.run.id, "same")).toEqual({ answer: "first" });
 
     const huge = Array.from({ length: 800 }, (_, index): IntegrityFinding => ({
-      id: `finding.${index}`, section: "semantic", severity: "info", code: "test.large", message: "x".repeat(1000), subjects: [systemId], evidence: ["y".repeat(1000)],
+      id: `finding.${index}`, section: "semantic", severity: index === 799 ? "blocked" : "info", code: "test.large", message: "x".repeat(1000), subjects: [systemId], evidence: ["y".repeat(1000)],
     }));
     const completed = store.complete(first.run.id, lease.token, report(systemId, stored.hash, huge));
     expect(completed.report?.semantic.limitations).toEqual(expect.arrayContaining([expect.objectContaining({ code: "report.truncated" })]));
     expect(completed.report?.semantic.provenance?.truncated).toBe(true);
-    expect(completed.report?.status).toBe("needs-review");
+    expect(completed.report?.semantic.status).toBe("blocked");
+    expect(completed.report?.status).toBe("blocked");
     expect(() => store.complete(first.run.id, lease.token, report(systemId, stored.hash))).toThrow(/stale integrity run lease/);
     const same = { snapshotId: stored.id, provider: "off" as const, thresholds: { confident: 0.8, review: 0.4 } };
     expect(store.start(stored.id, same, selected)).toMatchObject({ created: false, run: { id: first.run.id, attempt: 1 } });

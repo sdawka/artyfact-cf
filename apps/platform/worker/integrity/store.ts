@@ -28,10 +28,14 @@ function boundedReport(report: IntegrityReport): IntegrityReport {
   bounded.semantic.limitations = [...bounded.semantic.limitations.filter((finding) => finding.code !== truncation.code), truncation];
   if (bounded.semantic.provenance) bounded.semantic.provenance.truncated = true;
   for (const section of [bounded.structural, bounded.semantic]) {
+    const blocked = section.status === "blocked" || [...section.findings, ...section.limitations].some((finding) => finding.severity === "blocked");
+    const review = section.status === "needs-review" || [...section.findings, ...section.limitations].some((finding) => finding.severity === "review" || finding.severity === "warning");
     section.findings = section.findings.slice(0, 200).map((finding) => ({ ...finding, evidence: finding.evidence.slice(0, 4), sourceStatements: finding.sourceStatements?.slice(0, 2) }));
     section.limitations = section.limitations.slice(0, 100).map((finding) => ({ ...finding, evidence: finding.evidence.slice(0, 4), sourceStatements: finding.sourceStatements?.slice(0, 2) }));
     section.checkedSubjects = section.checkedSubjects.slice(0, 1000);
     section.checkedRelationships = section.checkedRelationships.slice(0, 1000);
+    if (blocked) section.status = "blocked";
+    else if (review) section.status = "needs-review";
   }
   while (bytes(bounded) > MAX_REPORT && (bounded.semantic.findings.length > 1 || bounded.structural.findings.length > 1)) {
     bounded.semantic.findings.length = Math.ceil(bounded.semantic.findings.length / 2);
