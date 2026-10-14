@@ -214,6 +214,14 @@ describe("integrity policy", () => {
     expect(agreementEligibility(current, [disposition])).toEqual(expect.objectContaining({ eligible: false, status: "pending" }));
   });
 
+  it("does not make an omitted direct intent run eligible through a disposition", () => {
+    const limitation = finding("intent.not-run");
+    const current = report({ semantic: { ...report().semantic, status: "needs-review", complete: false, limitations: [limitation] } });
+    const disposition = { findingId: limitation.id, decision: "accepted" as const, actor: "user.1", at: "2026-10-14T12:01:00.000Z", reportId: current.id, snapshotHash: current.snapshotHash, rationale: "Accept anyway." };
+
+    expect(agreementEligibility(current, [disposition])).toEqual(expect.objectContaining({ eligible: false, status: "pending" }));
+  });
+
   const provenanceCases: [IntegrityProvenance, string][] = [
     [{ provider: "fake", model: "fixture", questions: [], thresholds: {}, budget: { requestedCalls: 1, maxCalls: 1, usedCalls: 1 }, truncated: false, fake: true, retries: 0 }, "fake"],
     [{ provider: "off", model: "off", questions: [], thresholds: {}, budget: { requestedCalls: 0, maxCalls: 0, usedCalls: 0 }, truncated: false, fake: false, retries: 0 }, "off"],

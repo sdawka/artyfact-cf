@@ -1,7 +1,7 @@
 import { env } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { expect, it } from "vitest";
-import { createIntegritySnapshot } from "@artyfact/model";
+import { agreementEligibility, createIntegritySnapshot } from "@artyfact/model";
 import type { Answer, S1Questions, SystemOne } from "@artyfact/ontology";
 import { assertIntegritySnapshotCurrent, executeIntegrity, providerForIntegrityRun, resolveIntegrityProvider } from "../worker/integrity/execution";
 import { IntegrityStore } from "../worker/integrity/store";
@@ -128,7 +128,12 @@ it("refuses to execute when the reachable template closure drifted after preview
 it("checks authored intent against policy statements and declared relationships outside descriptions", async () => {
   const files = filesFrom(cleanModules, "/clean/genome/");
   const statement = "Borrower information is never disclosed to advertisers.";
+  const evolutionIntent = "Audit the privacy guarantee before any implementation begins.";
   files["thing.library/policy.privacy/node.yaml"] += `  statement: ${statement}\nlinks:\n  - rel: governs\n    to: operation.request-tool\n`;
+  files["evolutions/evolution.privacy.yaml"] = [
+    "id: evolution.privacy", "title: Review privacy", `intent: ${evolutionIntent}`, "state: proposed", "kind: genome-amendment",
+    "affectedNodes: [policy.privacy]", "acceptanceCriteria: []",
+  ].join("\n");
   const delegate = provider([]);
   let input = "";
   const observer: SystemOne = {
@@ -142,4 +147,63 @@ it("checks authored intent against policy statements and declared relationships 
   expect(run.report?.structural.status).not.toBe("blocked");
   expect(input).toContain(statement);
   expect(input).toContain("governs");
+  expect(input).toContain(evolutionIntent);
+});
+
+it("bounds large direct intent checks to exact manifest-mapped declarations and discloses partial coverage", async () => {
+  const files = filesFrom(cleanModules, "/clean/genome/");
+  const statement = "Borrower information is never disclosed to advertisers.";
+  const slashMappedStatement = "The borrower confirms the agreed return date.";
+  files["thing.library/policy.privacy/node.yaml"] += `  statement: ${statement}\nlinks:\n  - rel: governs\n    to: operation.request-tool\n`;
+  files["thing.library/J.borrow/node.yaml"] = "id: J.borrow\nkind: journey\nfields: { name: Borrow a tool, actorGoal: Borrow a tool, start: s1, deferred: false }\n";
+  files["thing.library/J.borrow/s1/node.yaml"] = `id: J.borrow/s1\nkind: step\nfields: { step: s1, actor: counterpart, action: ${slashMappedStatement}, kind: end, unresolved: false }\n`;
+  for (let index = 0; index < 48; index++) files[`thing.library/policy.filler-${index}/node.yaml`] = [
+    `id: policy.filler-${index}`, "kind: policy", "fields:", `  name: Filler ${index}`, `  description: ${"unmapped filler ".repeat(55)}${index}`,
+  ].join("\n");
+  files["intent/manifest.json"] = JSON.stringify({ version: 1, nodes: [{
+    nodeId: "policy.privacy", briefSections: ["boundaries"], documents: [],
+  }, {
+    nodeId: "J.borrow/s1", briefSections: ["acceptance"], documents: [],
+  }] });
+  let direct: unknown;
+  const delegate = provider([]), observer: SystemOne = {
+    ...delegate,
+    async ask(state, questions, opts) {
+      if ("intent.omitted" in questions) direct = state;
+      return delegate.ask(state, questions, opts);
+    },
+  };
+  const run = await execute("system.tool-library", files, observer, JSON.parse(cleanPackageText));
+  expect(direct, JSON.stringify(run.report)).toBeDefined();
+  const serialized = JSON.stringify(direct);
+  expect(new TextEncoder().encode(serialized).length).toBeLessThanOrEqual(24 * 1024);
+  expect(serialized).toContain(statement);
+  expect(serialized).toContain(slashMappedStatement);
+  expect(serialized).toContain("governs");
+  expect(serialized).not.toContain("policy.filler-47");
+  expect(direct).toMatchObject({ scope: { mode: "manifest-mapped", totalDeclarations: 54, coveredDeclarations: 2 } });
+  expect(run.report?.semantic.limitations).toEqual(expect.arrayContaining([
+    expect.objectContaining({ code: "intent.coverage-limited", subjects: ["policy.privacy", "J.borrow/s1"] }),
+  ]));
+  expect(run.report?.status).toBe("needs-review");
+});
+
+it("skips an oversized mapped intent context but still runs the per-node semantic funnel", async () => {
+  const files = filesFrom(cleanModules, "/clean/genome/");
+  files["intent/brief.md"] = `# enormous\n\n${"exact requirement ".repeat(1900)}\n`;
+  files["intent/manifest.json"] = JSON.stringify({ version: 1, nodes: [{
+    nodeId: "operation.request-tool", briefSections: ["enormous"], documents: [],
+  }] });
+  const asked: string[] = [];
+  const run = await execute("system.tool-library", files, provider(asked, false, true), JSON.parse(cleanPackageText));
+  expect(asked.some((id) => id.startsWith("intent."))).toBe(false);
+  expect(asked.some((id) => !id.startsWith("intent.")), JSON.stringify(run.report)).toBe(true);
+  const notRun = run.report!.semantic.limitations.find((finding) => finding.code === "intent.not-run")!;
+  expect(notRun).toMatchObject({ severity: "review", subjects: ["operation.request-tool"] });
+  const disposition = {
+    findingId: notRun.id, decision: "accepted" as const, actor: "admin", at: new Date().toISOString(),
+    reportId: run.report!.id, snapshotHash: run.snapshotHash, rationale: "Accept the missing global check.",
+  };
+  expect(agreementEligibility(run.report!, [disposition])).toMatchObject({ eligible: false, status: "pending" });
+  expect(run.report?.semantic.provenance).toMatchObject({ provider: "simulated", model: "integrity-test" });
 });

@@ -254,7 +254,7 @@ export function integrityStatus(report: IntegrityReport): IntegrityStatus {
   return "passed";
 }
 
-const NON_DISPOSITIONABLE = new Set(["provider.off", "provider.transport", "semantic.not-run"]);
+const NON_DISPOSITIONABLE = new Set(["provider.off", "provider.transport", "semantic.not-run", "intent.not-run"]);
 const reviewItems = (report: IntegrityReport): IntegrityFinding[] =>
   [...report.structural.findings, ...report.structural.limitations, ...report.semantic.findings, ...report.semantic.limitations]
     .filter(requiresReview);

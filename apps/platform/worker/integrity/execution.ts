@@ -4,7 +4,7 @@ import {
 import {
   askCacheKey, band, CLEF_MODEL, DEFAULT_OPENROUTER_MODEL, DEFAULT_TYPESAFE_MODEL, evaluate, evaluateAndJudge, fakeSystemOne, hashOf,
   JEV_OPENROUTER_MODEL, kindGlossary, loadTemplate, offSystemOne, openRouterProvider, simulatedSystemOne, TemplateSourceSchema,
-  typeSafeProvider, withSemanticProbes, workersAiProvider, type ProviderEnv, type S1Questions, type S1Reply,
+  parseTree, typeSafeProvider, withSemanticProbes, workersAiProvider, type ProviderEnv, type S1Questions, type S1Reply,
   type SystemOne, type TemplateStore,
 } from "@artyfact/ontology";
 import {
@@ -143,6 +143,134 @@ const NOUL = (instructions: string) => ({
   type: "noul" as const, instructions, benign: "no" as const,
   criteria: { true: "The defect is present.", false: "The defect is absent." },
 });
+const DIRECT_INTENT_MAX_BYTES = 24 * 1024;
+const jsonBytes = (value: unknown) => new TextEncoder().encode(JSON.stringify(value)).length;
+
+interface DirectIntentContext {
+  state?: Record<string, unknown>;
+  limited: boolean;
+  coveredNodeIds: string[];
+  totalMappings: number;
+  coveredMappings: number;
+  totalDeclarations: number;
+  coveredDeclarations: number;
+  totalRelationships: number;
+  coveredRelationships: number;
+}
+
+function markdownSections(markdown: string): Map<string, string[]> {
+  const headings: Array<{ name: string; level: number; start: number }> = [];
+  const pattern = /^( {0,3})(#{1,6})[\t ]+(.+?)[\t ]*#*[\t ]*(?:\r?\n|$)/gm;
+  for (let match = pattern.exec(markdown); match; match = pattern.exec(markdown)) {
+    headings.push({ name: match[3]!.trim(), level: match[2]!.length, start: match.index });
+  }
+  const sections = new Map<string, string[]>();
+  for (let index = 0; index < headings.length; index++) {
+    const heading = headings[index]!;
+    const next = headings.slice(index + 1).find((candidate) => candidate.level <= heading.level);
+    const exact = markdown.slice(heading.start, next?.start ?? markdown.length);
+    sections.set(heading.name, [...(sections.get(heading.name) ?? []), exact]);
+  }
+  return sections;
+}
+
+function directIntentContext(snapshot: StoredIntegritySnapshot, model: ReturnType<typeof loadGenome>): DirectIntentContext {
+  const declarations = Object.fromEntries(Object.entries(snapshot.files).filter(([path]) =>
+    path === "node.yaml" || path.endsWith("/node.yaml") || /^evolutions\/[^/]+\.ya?ml$/.test(path)));
+  const relationships = model.graph.links.map((link) => ({ from: link.from, rel: link.rel, to: link.to }));
+  const manifest = snapshot.intent.manifest!;
+  const full = {
+    intent: { brief: snapshot.intent.brief, manifest },
+    scope: {
+      mode: "full", totalMappings: manifest.nodes.length, coveredMappings: manifest.nodes.length,
+      totalDeclarations: Object.keys(declarations).length, coveredDeclarations: Object.keys(declarations).length,
+      totalRelationships: relationships.length, coveredRelationships: relationships.length,
+      coveredNodeIds: manifest.nodes.map((entry) => entry.nodeId),
+    },
+    genome: declarations, nodes: model.nodes, relationships,
+  };
+  if (jsonBytes(full) <= DIRECT_INTENT_MAX_BYTES) return {
+    state: full, limited: false, coveredNodeIds: manifest.nodes.map((entry) => entry.nodeId),
+    totalMappings: manifest.nodes.length, coveredMappings: manifest.nodes.length,
+    totalDeclarations: Object.keys(declarations).length, coveredDeclarations: Object.keys(declarations).length,
+    totalRelationships: relationships.length, coveredRelationships: relationships.length,
+  };
+
+  const genomeFiles = Object.fromEntries(Object.entries(snapshot.files).filter(([path]) => !path.startsWith("intent/")));
+  const tree = parseTree(genomeFiles);
+  const pathById = new Map<string, string>();
+  for (const node of tree.nodes.values()) {
+    pathById.set(node.id, node.path);
+    for (const criterion of node.file.criteria ?? []) {
+      pathById.set(criterion.id, node.path);
+      for (const hook of criterion.hooks ?? []) if (typeof hook !== "string") pathById.set(hook.id, node.path);
+    }
+  }
+  for (const evolution of tree.evolutions) pathById.set(evolution.evolution.id, evolution.path);
+  const sections = markdownSections(snapshot.intent.brief!);
+  const modelById = new Map(model.nodes.map((node) => [node.id, node]));
+  const selected: typeof manifest.nodes = [], selectedSections = new Map<string, string[]>(), selectedPaths = new Set<string>();
+  let selectedRelationships: typeof relationships = [];
+  const assemble = (entries = selected, pickedSections = selectedSections, paths = selectedPaths, links = selectedRelationships) => {
+    const ids = new Set(entries.map((entry) => entry.nodeId));
+    return {
+      intent: {
+        sections: [...pickedSections].flatMap(([heading, exact]) => exact.map((markdown) => ({ heading, markdown }))),
+        manifest: { version: 1 as const, nodes: entries },
+      },
+      scope: {
+        mode: "manifest-mapped", totalMappings: manifest.nodes.length, coveredMappings: entries.length,
+        totalDeclarations: Object.keys(declarations).length, coveredDeclarations: paths.size,
+        totalRelationships: relationships.length,
+        coveredRelationships: links.length, coveredNodeIds: [...ids],
+      },
+      genome: Object.fromEntries([...paths].sort().map((path) => [path, snapshot.files[path]!])),
+      nodes: entries.flatMap((entry) => { const node = modelById.get(entry.nodeId); return node ? [node] : []; }),
+      relationships: links,
+    };
+  };
+  for (const entry of manifest.nodes) {
+    const path = pathById.get(entry.nodeId);
+    if (!path || snapshot.files[path] === undefined) continue;
+    const candidateEntries = [...selected, entry];
+    const candidatePaths = new Set(selectedPaths).add(path);
+    const candidateSections = new Map(selectedSections);
+    for (const heading of entry.briefSections) candidateSections.set(heading, sections.get(heading) ?? []);
+    if (jsonBytes(assemble(candidateEntries, candidateSections, candidatePaths, [])) > DIRECT_INTENT_MAX_BYTES) continue;
+    selected.push(entry); selectedPaths.add(path);
+    for (const [heading, exact] of candidateSections) selectedSections.set(heading, exact);
+  }
+  if (!selected.length) return {
+    limited: true, coveredNodeIds: [], totalMappings: manifest.nodes.length, coveredMappings: 0,
+    totalDeclarations: Object.keys(declarations).length, coveredDeclarations: 0,
+    totalRelationships: relationships.length, coveredRelationships: 0,
+  };
+  const selectedIds = new Set(selected.map((entry) => entry.nodeId));
+  const relevant = relationships.filter((link) => selectedIds.has(link.from) || selectedIds.has(link.to));
+  for (const relationship of relevant) {
+    const candidate = [...selectedRelationships, relationship];
+    if (jsonBytes(assemble(selected, selectedSections, selectedPaths, candidate)) <= DIRECT_INTENT_MAX_BYTES) selectedRelationships = candidate;
+  }
+  const state = assemble();
+  return {
+    state, limited: true, coveredNodeIds: [...selectedIds], totalMappings: manifest.nodes.length, coveredMappings: selected.length,
+    totalDeclarations: Object.keys(declarations).length, coveredDeclarations: selectedPaths.size,
+    totalRelationships: relationships.length, coveredRelationships: selectedRelationships.length,
+  };
+}
+
+function directCoverageFinding(code: "intent.coverage-limited" | "intent.not-run", context: DirectIntentContext, message: string): IntegrityFinding {
+  return {
+    ...limitation(code, message), subjects: context.coveredNodeIds,
+    evidence: [
+      `manifest mappings=${context.coveredMappings}/${context.totalMappings}`,
+      `declarations=${context.coveredDeclarations}/${context.totalDeclarations}`,
+      `relationships=${context.coveredRelationships}/${context.totalRelationships}`,
+      `serialized limit=${DIRECT_INTENT_MAX_BYTES} bytes`,
+    ],
+  };
+}
+
 function semanticTemplate(model: ReturnType<typeof loadGenome>) {
   const base = readinessTemplate(model);
   const { ref: _ref, extends: _extends, lineage: _lineage, edges: _edges, hash: _hash, ...input } = base;
@@ -195,7 +323,7 @@ export async function executeIntegrity(
   let semanticFindings: IntegrityFinding[] = [...intentFindings];
   let checkedSubjects: string[] = [], checkedRelationships: string[] = [];
   let budget = "ok", failure: { code: string; message: string } | undefined;
-  const telemetry: ProviderTelemetry = { provider: provider.mode, model: provider.model, questions: new Set(), subjects: new Set(), relationships: new Set(), calls: 0 };
+  const telemetry: ProviderTelemetry = { provider: run.resolvedProvider, model: run.resolvedModel, questions: new Set(), subjects: new Set(), relationships: new Set(), calls: 0 };
 
   if (provider.mode === "off") {
     limitations.push(limitation("provider.off", provider.reason ?? "No semantic provider is configured."));
@@ -205,41 +333,44 @@ export async function executeIntegrity(
       const known = new Set(model.nodes.map((node) => node.id));
       const wrapped = replaying(provider, store, run.id, leaseToken, known, telemetry);
       if (snapshot.intent.fidelity === "checked") {
-        const intentState = {
-          brief: snapshot.intent.brief,
-          manifest: snapshot.intent.manifest,
-          // Exact native declarations retain policy statements, criteria and links beyond display fields.
-          genome: Object.fromEntries(Object.entries(snapshot.files).filter(([path]) =>
-            path === "node.yaml" || path.endsWith("/node.yaml") || /^evolutions\/[^/]+\.ya?ml$/.test(path))),
-          nodes: model.nodes.map((node) => ({
-            id: node.id, kind: node.kind, name: node.name,
-            description: typeof node.description === "string" ? node.description.slice(0, 1000) : undefined,
-          })),
-        };
-        const reply = await wrapped.ask(intentState, {
-          "intent.omitted": NOUL("Does the authored intent contain a material requirement that the resulting nodes omit?"),
-          "intent.unsupported": NOUL("Do the resulting nodes assert a material claim that the authored intent does not support?"),
-        });
-        const unknownIntent: string[] = [];
-        for (const [key, code, message] of [
-          ["intent.omitted", "intent.omitted-requirement", "A material authored requirement appears to be omitted from the Genome."],
-          ["intent.unsupported", "intent.unsupported-claim", "The Genome appears to contain a material claim unsupported by authored intent."],
-        ] as const) {
-          const answer = reply.answers[key];
-          const probability = answer?.type === "noul" && Number.isFinite(answer.noul) && answer.noul >= 0 && answer.noul <= 1 ? answer.noul : undefined;
-          const status = probability === undefined ? "unknown" : band(Math.max(probability, 1 - probability), run.thresholds);
-          if (status !== "confident") { unknownIntent.push(key); continue; }
-          if (probability! >= 0.5) semanticFindings.push({
-            id: findingId("intent", code, []), section: "intent", severity: "review", code, message, subjects: [],
-            sourceStatements: snapshot.intent.brief ? [snapshot.intent.brief.slice(0, 2000)] : [],
-            evidence: [`provider=${reply.provider}`, `model=${reply.model}`],
-            suggestion: "Clarify the intent or revise the affected nodes, then run integrity again.",
-          });
+        const context = directIntentContext(snapshot, model);
+        if (!context.state) limitations.push(directCoverageFinding("intent.not-run", { ...context, coveredNodeIds: snapshot.intent.manifest!.nodes.map((entry) => entry.nodeId) },
+          "Direct intent fidelity did not run because no exact manifest-mapped context fit the bounded request."));
+        else {
+          if (context.limited) limitations.push(directCoverageFinding("intent.coverage-limited", context,
+            "Direct intent fidelity assessed only the disclosed manifest-mapped scope because the full native declarations exceeded the bounded request."));
+          try {
+            const reply = await wrapped.ask(context.state, {
+              "intent.omitted": NOUL("Within only the provided scope, does the provided authored intent contain a material requirement that the provided declarations omit? Do not infer requirements outside this scope."),
+              "intent.unsupported": NOUL("Within only the provided scope, do the provided declarations assert a material claim that the provided authored intent does not support? Do not infer claims outside this scope."),
+            });
+            const unknownIntent: string[] = [];
+            for (const [key, code, message] of [
+              ["intent.omitted", "intent.omitted-requirement", "A material authored requirement appears to be omitted from the provided Genome scope."],
+              ["intent.unsupported", "intent.unsupported-claim", "The provided Genome scope appears to contain a material claim unsupported by authored intent."],
+            ] as const) {
+              const answer = reply.answers[key];
+              const probability = answer?.type === "noul" && Number.isFinite(answer.noul) && answer.noul >= 0 && answer.noul <= 1 ? answer.noul : undefined;
+              const status = probability === undefined ? "unknown" : band(Math.max(probability, 1 - probability), run.thresholds);
+              if (status !== "confident") { unknownIntent.push(key); continue; }
+              if (probability! >= 0.5) semanticFindings.push({
+                id: findingId("intent", code, context.coveredNodeIds), section: "intent", severity: "review", code, message,
+                subjects: context.coveredNodeIds, evidence: [`provider=${reply.provider}`, `model=${reply.model}`],
+                suggestion: "Clarify the intent or revise the affected nodes, then run integrity again.",
+              });
+            }
+            if (unknownIntent.length) limitations.push({
+              ...limitation("intent.judgment-unknown", "One or more direct intent fidelity judgments were missing, invalid, or below the configured confidence threshold."),
+              subjects: unknownIntent, evidence: unknownIntent.map((id) => `question=${id}`),
+            });
+          } catch (error) {
+            const skipped = directCoverageFinding("intent.not-run", context,
+              "Direct intent fidelity failed for the bounded context; per-node semantic evaluation continued.");
+            limitations.push({
+              ...skipped, evidence: [...skipped.evidence, `error=${(error as Error)?.message ?? String(error)}`],
+            });
+          }
         }
-        if (unknownIntent.length) limitations.push({
-          ...limitation("intent.judgment-unknown", "One or more direct intent fidelity judgments were missing, invalid, or below the configured confidence threshold."),
-          subjects: unknownIntent, evidence: unknownIntent.map((id) => `question=${id}`),
-        });
       }
       const judged = await evaluateAndJudge(semanticTemplate(model), model.graph, wrapped, {
         thresholds: run.thresholds,
