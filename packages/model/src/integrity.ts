@@ -225,6 +225,19 @@ export function createIntegritySnapshot({ systemId, files: supplied, templates }
 
 const requiresReview = (entry: IntegrityFinding): boolean => entry.severity === "review" || entry.severity === "warning";
 const blocks = (entry: IntegrityFinding): boolean => entry.severity === "blocked";
+const record = (value: unknown): value is Record<string, unknown> => value !== null && typeof value === "object" && !Array.isArray(value);
+const callCount = (value: unknown): value is number => Number.isInteger(value) && (value as number) >= 0;
+const completeProvenance = (value: unknown): value is IntegrityProvenance => {
+  if (!record(value) || typeof value.provider !== "string" || value.provider.trim() === ""
+    || typeof value.model !== "string" || value.model.trim() === ""
+    || !Array.isArray(value.questions) || !value.questions.every((question) => typeof question === "string")
+    || !record(value.thresholds) || !Object.values(value.thresholds).every((threshold) => typeof threshold === "number" && Number.isFinite(threshold))
+    || !record(value.budget) || !callCount(value.budget.requestedCalls) || !callCount(value.budget.maxCalls) || !callCount(value.budget.usedCalls)
+    || value.budget.requestedCalls > value.budget.maxCalls || value.budget.usedCalls > value.budget.maxCalls
+    || typeof value.truncated !== "boolean" || typeof value.fake !== "boolean" || !callCount(value.retries)) return false;
+  return value.failure === undefined || (record(value.failure) && typeof value.failure.code === "string" && value.failure.code.trim() !== ""
+    && typeof value.failure.message === "string" && value.failure.message.trim() !== "");
+};
 
 /** Recomputes status from evidence instead of trusting the report's cached status field. */
 export function integrityStatus(report: IntegrityReport): IntegrityStatus {
@@ -234,7 +247,7 @@ export function integrityStatus(report: IntegrityReport): IntegrityStatus {
   if (report.structural.status === "needs-review") return "needs-review";
   if (report.semantic.status !== "passed" || !report.semantic.complete || report.semantic.intentFidelity !== "checked") return "needs-review";
   const provenance = report.semantic.provenance;
-  if (provenance?.fake || provenance?.provider === "off" || provenance?.failure !== undefined || provenance?.truncated) return "needs-review";
+  if (!completeProvenance(provenance) || provenance.fake || provenance.provider === "off" || provenance.failure !== undefined || provenance.truncated) return "needs-review";
   if (structuralItems.some(requiresReview) || [...report.semantic.findings, ...report.semantic.limitations].some(requiresReview)) return "needs-review";
   return "passed";
 }
@@ -252,7 +265,7 @@ export function agreementEligibility(report: IntegrityReport, dispositions: read
   const items = reviewItems(report);
   const provenance = report.semantic.provenance;
   if (report.semantic.status === "not-run" || report.semantic.status === "unknown" || report.semantic.intentFidelity !== "checked"
-    || provenance?.fake || provenance?.provider === "off" || provenance?.failure !== undefined
+    || !completeProvenance(provenance) || provenance.fake || provenance.provider === "off" || provenance.failure !== undefined
     || items.some((entry) => NON_DISPOSITIONABLE.has(entry.code))) {
     return { eligible: false, status: "pending", unresolvedFindingIds: items.map((entry) => entry.id), reason: "semantic evaluation must be completed or retried" };
   }

@@ -94,6 +94,23 @@ describe("createIntegritySnapshot", () => {
     expect(snapshot.intent.fidelity).toBe("invalid");
     expect(snapshot.staticFindings).toEqual(expect.arrayContaining([expect.objectContaining({ severity: "blocked", code })]));
   });
+
+  it("maps a realistic nested journey step id containing a slash", () => {
+    const snapshot = createIntegritySnapshot({
+      systemId: "system.mini",
+      files: {
+        "node.yaml": "id: system.mini\nkind: system\ntemplate: template.system.mini@1\nfields: { name: Intent example }\n",
+        "J.author-intent/node.yaml": "id: J.author-intent\nkind: journey\nfields: { name: Author intent }\n",
+        "J.author-intent/check/node.yaml": "id: J.author-intent/check\nkind: step\nfields: { action: Check integrity }\n",
+        "intent/brief.md": "# Check\n\nRun integrity for the exact snapshot.\n",
+        "intent/manifest.json": JSON.stringify({ version: 1, nodes: [{ nodeId: "J.author-intent/check", briefSections: ["Check"], documents: [] }] }),
+      },
+      templates: store(),
+    });
+
+    expect(snapshot.intent.fidelity).toBe("checked");
+    expect(snapshot.staticFindings).toEqual([]);
+  });
 });
 
 const finding = (id: string, severity: "blocked" | "review" = "review") => ({
@@ -106,6 +123,17 @@ const finding = (id: string, severity: "blocked" | "review" = "review") => ({
   evidence: [],
 });
 
+const validProvenance: IntegrityProvenance = {
+  provider: "openrouter",
+  model: "example/model",
+  questions: ["semantic.vague"],
+  thresholds: { pass: 0.8 },
+  budget: { requestedCalls: 10, maxCalls: 200, usedCalls: 1 },
+  truncated: false,
+  fake: false,
+  retries: 0,
+};
+
 const report = (overrides: Partial<IntegrityReport> = {}): IntegrityReport => ({
   version: 1,
   id: "report.1",
@@ -115,7 +143,7 @@ const report = (overrides: Partial<IntegrityReport> = {}): IntegrityReport => ({
   createdAt: "2026-10-14T12:00:00.000Z",
   status: "passed",
   structural: { status: "passed", complete: true, findings: [], checkedSubjects: ["system.mini"], checkedRelationships: [], limitations: [] },
-  semantic: { status: "passed", complete: true, findings: [], checkedSubjects: ["system.mini"], checkedRelationships: [], limitations: [], intentFidelity: "checked" },
+  semantic: { status: "passed", complete: true, findings: [], checkedSubjects: ["system.mini"], checkedRelationships: [], limitations: [], intentFidelity: "checked", provenance: validProvenance },
   ...overrides,
 });
 
@@ -128,6 +156,21 @@ describe("integrity policy", () => {
 
   it("does not pass a structural section that explicitly needs review", () => {
     expect(integrityStatus(report({ structural: { status: "needs-review", complete: true, findings: [], checkedSubjects: [], checkedRelationships: [], limitations: [] } }))).toBe("needs-review");
+  });
+
+  it.each([
+    undefined,
+    { ...validProvenance, provider: "" },
+    { ...validProvenance, model: "" },
+    { ...validProvenance, questions: undefined },
+    { ...validProvenance, thresholds: undefined },
+    { ...validProvenance, budget: undefined },
+    { ...validProvenance, truncated: undefined },
+  ])("fails closed when passed semantics omit required provenance %#", (provenance) => {
+    const current = report({ semantic: { ...report().semantic, provenance: provenance as IntegrityProvenance | undefined } });
+
+    expect(integrityStatus(current)).toBe("needs-review");
+    expect(agreementEligibility(current, [])).toEqual(expect.objectContaining({ eligible: false, status: "pending" }));
   });
 
   it.each(["not-run", "unknown"] as const)("keeps %s semantics in needs-review", (status) => {
@@ -144,7 +187,7 @@ describe("integrity policy", () => {
 
   it("requires immutable exact-report dispositions with rationale for every review item", () => {
     const item = finding("semantic.vague");
-    const current = report({ semantic: { status: "needs-review", complete: true, findings: [item], checkedSubjects: [], checkedRelationships: [], limitations: [], intentFidelity: "checked" } });
+    const current = report({ semantic: { status: "needs-review", complete: true, findings: [item], checkedSubjects: [], checkedRelationships: [], limitations: [], intentFidelity: "checked", provenance: validProvenance } });
     const disposition = { findingId: item.id, decision: "accepted" as const, actor: "user.1", at: "2026-10-14T12:01:00.000Z", reportId: current.id, snapshotHash: current.snapshotHash, rationale: "Intentional broad language." };
 
     expect(agreementEligibility(current, [])).toEqual(expect.objectContaining({ eligible: false, status: "pending", unresolvedFindingIds: [item.id] }));

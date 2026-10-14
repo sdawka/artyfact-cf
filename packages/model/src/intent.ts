@@ -56,7 +56,7 @@ const documentSchema = z.strictObject({
   hash: z.string().regex(/^sha256:[a-f0-9]{64}$/),
 });
 const nodeSchema = z.strictObject({
-  nodeId: z.string().regex(/^[A-Za-z0-9][\w.-]{0,199}$/),
+  nodeId: z.string().min(1),
   briefSections: z.array(z.string().min(1).max(200)).min(1).max(128),
   documents: z.array(documentSchema).max(128),
 });
