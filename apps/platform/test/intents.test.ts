@@ -721,6 +721,64 @@ describe("PUT /intents/:pid/decisions", () => {
   });
 });
 
+describe("decisions compare-and-set", () => {
+  it("keeps both of two PUTs that interleave between read and write", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, TWO_OPS(first));
+    let fired = false;
+    let restore = () => {};
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (i: SystemAuthority) => {
+      const proto = Object.getPrototypeOf(i) as Record<string, unknown>;
+      const orig = proto.setProposalPlan as (...a: unknown[]) => unknown;
+      proto.setProposalPlan = function (this: SystemAuthority, ...a: unknown[]) {
+        // Another PUT's write lands after this PUT read the decisions.
+        if (!fired) { fired = true; orig.call(this, a[0], a[1], { "screen.people": "defer" }); }
+        return orig.apply(this, a);
+      };
+      restore = () => { proto.setProposalPlan = orig; };
+    });
+    try {
+      const r = await decide(s, both, [{ nodeId: "screen.today", decision: "agree" }]);
+      expect(r.status, JSON.stringify(r.json)).toBe(200);
+      expect((await systemStub(env, s.systemId).proposalPlan(both.id))?.decisions).toEqual({ "screen.people": "defer", "screen.today": "agree" });
+    } finally {
+      restore();
+    }
+  });
+
+  it("keeps both of two concurrent PUTs on different nodes", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, TWO_OPS(first));
+    const rs = await Promise.all([decide(s, both, [{ nodeId: "screen.today", decision: "agree" }]), decide(s, both, [{ nodeId: "screen.people", decision: "defer" }])]);
+    expect(rs.map((r) => r.status)).toEqual([200, 200]);
+    expect((await systemStub(env, s.systemId).proposalPlan(both.id))?.decisions).toEqual({ "screen.today": "agree", "screen.people": "defer" });
+  });
+
+  it("refuses a store write whose expected decisions are stale", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const stub = systemStub(env, s.systemId);
+    expect(await stub.setProposalPlan(p.id, p.plan, { "thing.webapp": "agree" }, undefined, {})).toBe(true);
+    expect(await stub.setProposalPlan(p.id, p.plan, { "thing.webapp": "reject" }, undefined, {})).toBe(false);
+    expect((await stub.proposalPlan(p.id))?.decisions).toEqual({ "thing.webapp": "agree" });
+  });
+});
+
+describe("a reply racing a staged accept", () => {
+  it("never erases the staged approval", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const approval = { evolutionId: "evolution.x", realizationId: "r.x", candidateId: "c.x", commit: "c".repeat(40), opIds: ["op.1"] };
+    await sqlOn(s, "UPDATE proposals SET json = json_set(json, '$.stagedApproval', json(?)) WHERE id = ?", JSON.stringify(approval), p.id);
+    const stub = systemStub(env, s.systemId);
+    // The reply read the row before the staging: its revision carries no stagedApproval.
+    expect(await stub.reviseProposal(p, [{ answer: "a" }])).toEqual({ refused: "staged" });
+    expect((await stub.proposal(p.id))?.proposal.stagedApproval).toEqual(approval);
+  });
+});
+
 describe("POST /intents/:pid/reply with decisions", () => {
   it("keeps decisions only on nodes the rebuilt plan still has", async () => {
     const s = await importSystem();

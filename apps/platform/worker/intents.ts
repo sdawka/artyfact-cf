@@ -483,22 +483,32 @@ export async function decideProposal(env: Env, systemId: string, pid: string, bo
     throw badRequest("decisions must be a non-empty array of {nodeId, decision: agree | reject | defer | null}");
   }
   const stub = systemStub(env, systemId);
-  const s = await stored(env, systemId, pid);
-  if (s.proposal.status !== "open" || s.accepting) throw conflict("invalid-state", `proposal ${pid} is ${s.accepting ? "being accepted" : s.proposal.status}`);
-  if (s.proposal.stagedApproval) throw conflict("invalid-state", `proposal ${pid} already has an exact staged Genome candidate; approve or abandon it before changing decisions`);
-  const plan = onWire(s.proposal).plan;
-  const decisions = applyDecisions(plan, await decisionsOf(env, systemId, pid), changes as IntentDecisionsRequest["decisions"]);
-  if (!(await stub.setProposalPlan(pid, plan, decisions))) throw conflict("invalid-state", `proposal ${pid} is no longer open`);
-  const after = await stub.proposal(pid);
-  if (after && after.turns.length !== s.turns.length) {
-    const rebuilt = await planOn(env, systemId, after.proposal.ops, after.proposal.provenance.genomeCommit);
-    const kept = prune(decisions, rebuilt);
-    // Best effort: when this loses to another reply or an accept, that one's state stands.
-    await stub.setProposalPlan(pid, rebuilt, kept);
-    return onWire({ ...after.proposal, plan: rebuilt }, kept);
+  for (let attempt = 1; ; attempt++) {
+    const s = await stored(env, systemId, pid);
+    if (s.proposal.status !== "open" || s.accepting) throw conflict("invalid-state", `proposal ${pid} is ${s.accepting ? "being accepted" : s.proposal.status}`);
+    if (s.proposal.stagedApproval) throw conflict("invalid-state", `proposal ${pid} already has an exact staged Genome candidate; approve or abandon it before changing decisions`);
+    const plan = onWire(s.proposal).plan;
+    const before = await decisionsOf(env, systemId, pid);
+    const decisions = applyDecisions(plan, before, changes as IntentDecisionsRequest["decisions"]);
+    // Compare-and-set on the decisions read: a concurrent PUT that landed meanwhile makes this re-read and re-apply.
+    if (!(await stub.setProposalPlan(pid, plan, decisions, undefined, before))) {
+      if (attempt < CAS_ATTEMPTS) continue;
+      throw conflict("invalid-state", `the decisions of proposal ${pid} kept changing; read it and decide again`);
+    }
+    const after = await stub.proposal(pid);
+    if (after && after.turns.length !== s.turns.length) {
+      const rebuilt = await planOn(env, systemId, after.proposal.ops, after.proposal.provenance.genomeCommit);
+      const kept = prune(decisions, rebuilt);
+      // Best effort: when this loses to another reply, PUT or accept, that one's state stands.
+      await stub.setProposalPlan(pid, rebuilt, kept, undefined, decisions);
+      return onWire({ ...after.proposal, plan: rebuilt }, kept);
+    }
+    return onWire(s.proposal, decisions);
   }
-  return onWire(s.proposal, decisions);
 }
+
+/** Tries of a decisions compare-and-set before giving up (a PUT answers 409; a reply's prune leaves them). */
+const CAS_ATTEMPTS = 3;
 
 /** `POST …/reply`: route and translate again on the current head with the answer appended; same id, still open. */
 export async function replyProposal(env: Env, systemId: string, pid: string, body: Record<string, unknown>): Promise<Proposal> {
@@ -521,6 +531,7 @@ export async function replyProposal(env: Env, systemId: string, pid: string, bod
   if ("revised" in r) return onWire(r.revised, await prunedDecisions(env, systemId, r.revised));
   if (r.refused === "too-many-turns") throw tooManyTurns(pid);
   if (r.refused === "changed") throw conflict("invalid-state", `another reply to proposal ${pid} landed first; read it and reply again`);
+  if (r.refused === "staged") throw conflict("invalid-state", `an accept staged a Genome candidate for proposal ${pid} meanwhile; approve or abandon it before revising`);
   throw conflict("invalid-state", `proposal ${pid} is no longer open`);
 }
 
@@ -529,12 +540,16 @@ export async function replyProposal(env: Env, systemId: string, pid: string, bod
  * dropped would otherwise switch on strict accepts (chosenByPlan) for ops nobody decided.
  */
 async function prunedDecisions(env: Env, systemId: string, p: Proposal): Promise<ProposalDecisions> {
-  const decisions = await decisionsOf(env, systemId, p.id);
-  const kept = prune(decisions, p.plan);
-  if (Object.keys(kept).length === Object.keys(decisions).length) return decisions;
-  // Best effort: when the write loses to a decisions PUT or an accept, that one's state stands.
-  await systemStub(env, systemId).setProposalPlan(p.id, p.plan, kept);
-  return kept;
+  let decisions: ProposalDecisions = {};
+  for (let attempt = 0; attempt < CAS_ATTEMPTS; attempt++) {
+    decisions = await decisionsOf(env, systemId, p.id);
+    const kept = prune(decisions, p.plan);
+    if (Object.keys(kept).length === Object.keys(decisions).length) return decisions;
+    // Compare-and-set: a decisions PUT that landed meanwhile is re-read and pruned, never overwritten.
+    if (await systemStub(env, systemId).setProposalPlan(p.id, p.plan, kept, undefined, decisions)) return kept;
+  }
+  // Still changing (or no longer open): whatever landed stands; the next read prunes nothing it should not.
+  return decisions;
 }
 
 const tooManyTurns = (pid: string) =>
@@ -589,12 +604,6 @@ function chosenByPlan(p: Proposal, opIds: string[], decisions: ProposalDecisions
   const deferredOps = p.ops.filter((o) => moving.has(o.id));
   return { ops, ...(deferredOps.length && { deferred: { ops: deferredOps, nodeIds: by.deferredNodes } }) };
 }
-
-/**
- * The staged approval with the decisions it was staged under. TODO(contract gap): `Proposal.stagedApproval` has no
- * `decisions` field; it is stored in the same json object until P0's type carries it. Absent means none.
- */
-type StagedApproval = NonNullable<Proposal["stagedApproval"]> & { decisions?: ProposalDecisions };
 
 /**
  * The new open proposal holding an accept's deferred ops, with its own linked Genome Evolution: same System, message,
@@ -693,7 +702,7 @@ export async function acceptProposal(env: Env, systemId: string, pid: string, bo
     const decisions = await decisionsOf(env, systemId, pid);
     let ops: ProposedOp[];
     ({ ops, deferred } = chosenByPlan(claim.claimed, opIds as string[], decisions));
-    const previous=claim.claimed.stagedApproval as StagedApproval|undefined;
+    const previous=claim.claimed.stagedApproval;
     if(previous){
       if(JSON.stringify([...previous.opIds].sort())!==JSON.stringify([...(opIds as string[])].sort()))throw conflict('invalid-state','The staged candidate pins the previously reviewed op selection');
       if(decisionKey(previous.decisions ?? {}) !== decisionKey(decisions)) throw conflict("invalid-state", "the plan decisions changed since the Genome candidate was staged; restore them or abandon the candidate");
@@ -702,7 +711,7 @@ export async function acceptProposal(env: Env, systemId: string, pid: string, bo
       out={evolution,realization:record.realization,candidate,commit:previous.commit};
     }else{
       out=await pushAccepted(env,systemId,claim.claimed,ops,platformUrl);pushed=true;
-      const approval: StagedApproval = {evolutionId:out.evolution.id,realizationId:out.realization.id,candidateId:out.candidate.id,commit:out.commit,opIds:opIds as string[],decisions};
+      const approval: NonNullable<Proposal["stagedApproval"]> = {evolutionId:out.evolution.id,realizationId:out.realization.id,candidateId:out.candidate.id,commit:out.commit,opIds:opIds as string[],decisions};
       staged=await stub.stageProposal(pid,claim.claimedAt,approval);
       if(!staged)throw conflict('invalid-state','Genome candidate pushed but approval claim changed; inspect the exact candidate before retrying');
     }

@@ -1273,7 +1273,9 @@ export interface ProposalProvenance {
 export interface Proposal {
   /** Durable Genome Evolution linked before human approval; absent on legacy proposals. */
   evolutionId?: string;
-  stagedApproval?: {evolutionId:string;realizationId:string;candidateId:string;commit:string;opIds:string[]};
+  stagedApproval?: {evolutionId:string;realizationId:string;candidateId:string;commit:string;opIds:string[];
+    /** The plan decisions the candidate was staged under; absent for candidates staged before plans. */
+    decisions?: ProposalDecisions};
   id: string;
   systemId: SystemId;
   message: string;
