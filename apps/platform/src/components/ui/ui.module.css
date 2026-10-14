@@ -16,8 +16,8 @@
 .button[data-variant="danger"] { color: var(--color-danger); border-color: var(--color-error-border); }
 .button[data-variant="ghost"] { background: transparent; border-color: transparent; }
 .button[data-size="compact"] { min-height: 36px; padding: var(--spacing-1) var(--spacing-3); font-size: var(--font-size-sm); }
-/* Toggles (aria-pressed): one rule. On = apricot border + active background; ghost toggles in lists use the selection rule. */
-.button[aria-pressed="true"]:not([data-variant="primary"]) { color: var(--color-text-primary); background: var(--color-background-active); border-color: var(--color-attention); }
+/* Toggles (aria-pressed): one rule. On = apricot border + one surface step; ghost toggles in lists use the selection rule. */
+.button[aria-pressed="true"]:not([data-variant="primary"]) { color: var(--color-text-primary); background: var(--selection-surface); border-color: var(--color-attention); }
 .button[data-variant="ghost"][aria-pressed="true"] { background: var(--selection-surface); border-color: transparent; box-shadow: inset var(--selection-rule-width) 0 0 var(--selection-rule-color); }
 .withReason { display: inline-flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1) var(--spacing-3); max-width: 100%; }
 .reason { font: var(--type-meta); color: var(--color-text-secondary); max-width: 48ch; }

@@ -180,7 +180,7 @@ starts with `[name, systemId]`, so `invalidateQueries({ queryKey: [name, systemI
   it, so ✓ beside a verdict always means pass.
 - `Button` (`components/ui`) also takes `reason?: string`: a reason disables the button and renders as visible `--type-meta` text
   beside it, linked by `aria-describedby`. A disabled primary uses `--color-primary-disabled-bg`. `aria-pressed` toggles are styled
-  once (on = apricot border + active background; ghost toggles use the selection rule). Card padding is 20 (16 below 640px).
+  once (on = apricot border + one surface step; ghost toggles use the selection rule). Card padding is 20 (16 below 640px).
 
 ### Page primitives (UI refresh foundation)
 
