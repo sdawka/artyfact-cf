@@ -189,9 +189,21 @@ describe("System atlas", () => {
   expect(new URLSearchParams(router.state.location.search).get("focus")).toBe("affordance.AddContactDialog.save");
 });
 
-  it("restores a camera changed by a single ordinary-wheel tick after Enter and Up", async () => {
+  it("Enter clicked immediately after mount survives the scope-param normalisation", async () => {
     renderApp(MAP);
     await ready(SYS);
+    fireEvent.click(screen.getByRole("button", { name: "Enter Peopling" }));
+    await ready("thing.webapp");
+    expect(screen.getByTestId("atlas-canvas").getAttribute("data-scope")).toBe(SYS);
+  });
+
+  it("restores a camera changed by a single ordinary-wheel tick after Enter and Up", async () => {
+    const { router } = renderApp(MAP);
+    await ready(SYS);
+    // The scope param is normalized by a replace navigation; a travel started before it lands is (correctly) superseded.
+    await waitFor(() => expect(router.state.location.search).toContain("scope=environment"));
+    // Replace navigations can still be queued behind the first render; let the location key settle.
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 400)); });
     const viewport = () => document.querySelector<HTMLElement>(".react-flow__viewport")!.style.transform;
     const initial = viewport();
     fireEvent.wheel(document.querySelector(".react-flow__pane")!, { deltaY: 90 });
