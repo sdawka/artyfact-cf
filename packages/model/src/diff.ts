@@ -35,10 +35,11 @@ export function diffModels(a: SystemModel, b: SystemModel): SemanticDelta {
   }
 
   const touched = new Set([...added, ...removed, ...changed.map((c) => c.id)]);
-  const sourceRefsChanged = new Set(changed.filter((c) => c.fields.includes("sourceRefs")).map((c) => c.id));
+  const hookCriteria = new Set([...a.hooks, ...b.hooks].filter((h) => touched.has(h.id)).flatMap((h) => h.criteria));
   const affectedCriteria = sorted(
     [...a.criteria, ...b.criteria]
-      .filter((c) => touched.has(c.subjectId) || sourceRefsChanged.has(c.id) || c.sourceRefs.some((r) => touched.has(r)))
+      .filter((c) => touched.has(c.id) || touched.has(c.subjectId) || c.sourceRefs.some((r) => touched.has(r))
+        || c.hooks.some((id) => touched.has(id)) || hookCriteria.has(c.id))
       .map((c) => c.id),
   );
   const ids = [...touched];
@@ -57,8 +58,9 @@ const touchedBy = (d: SemanticDelta) => new Set([...d.added, ...d.removed, ...d.
  */
 export function overlap(d1: SemanticDelta, d2: SemanticDelta, m: SystemModel): { shared: string[]; viaCriteria: string[]; viaJourneys: string[] } {
   const t1 = touchedBy(d1), t2 = touchedBy(d2);
+  const criterionIds = new Set(m.criteria.map((c) => c.id));
   const reach = (d: SemanticDelta, t: Set<string>) => ({
-    criteria: new Set([...d.affectedCriteria, ...[...t].flatMap((id) => m.index.criteriaBySubject[id] ?? [])]),
+    criteria: new Set([...d.affectedCriteria, ...[...t].filter((id) => criterionIds.has(id)), ...[...t].flatMap((id) => m.index.criteriaBySubject[id] ?? [])]),
     journeys: new Set([...d.affectedJourneys, ...[...t].flatMap((id) => m.index.journeysByNode[id] ?? [])]),
   });
   const r1 = reach(d1, t1), r2 = reach(d2, t2);

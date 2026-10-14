@@ -14,6 +14,7 @@ import { globMatch, nodesForPath, sourceMapFor } from './artifacts/source-map';
 import { newRealizationSecret } from './auth';
 import { badRequest, conflict, fromRpc, notFound, unprocessable } from './errors';
 import { hookRunner } from './hooks';
+import { selectHooks } from './hooks/run';
 import type { CandidateRef, SubmissionContext } from './hooks/contract';
 import { pushCommit, type FileChange } from './git/push';
 import { protectedPathsFor } from './packets/task-packet';
@@ -58,12 +59,24 @@ export async function assertGenomeCompatible(env:Env,p:RealizationPlan):Promise<
  const state=await systemStub(env,p.systemId).state();if(!state)throw notFound('System no longer exists');
  if(state.genomeCommit===p.genome.commit)return;
  const [before,after]=await Promise.all([genomeAt(env,p.systemId,p.genome.commit,p.genome.repo),genomeAt(env,p.systemId,state.genomeCommit,state.genomeSource)]);
- const delta=diffModels(before.model,after.model),nodes=[...new Set(p.tasks.flatMap(t=>[...t.writeNodes,...t.readNodes]))];
- const taskDelta={added:[],removed:[],changed:nodes.map(id=>({id,fields:[]})),affectedCriteria:[],affectedJourneys:[]};
+ const delta=diffModels(before.model,after.model),nodes=[...new Set(p.tasks.flatMap(t=>[...t.writeNodes,...t.readNodes]))],checks=[...new Set(p.tasks.flatMap(t=>t.checks))];
+ const scope=new Set([...nodes,...checks]),criteria=new Set(checks);
+ // Selection and promotion use both revisions: an attached or newly enforced contract is also a scope change.
+ for(const model of [before.model,after.model]) {
+  const candidate:CandidateRef={id:'',realizationId:'',evolutionId:'',target:'app',commit:'',baseCommit:'',changedPaths:[],changedNodes:nodes};
+  const evolution={id:'',kind:'implementation' as const,acceptanceCriteria:checks,affectedNodes:nodes,state:'realizing' as const};
+  const effective=new Set([...checks,...gateCriteria(model,evolution,candidate).map(c=>c.id),...(['submission','promotion'] as const).flatMap(trigger=>selectHooks(model,candidate,trigger,evolution).map(s=>s.criterion.id))]);
+  for(const id of effective) {
+   criteria.add(id);scope.add(id);
+   const c=model.criteria.find(c=>c.id===id);if(!c)continue;
+   for(const dependency of [c.ownerId,c.subjectId,...c.sourceRefs,...c.hooks,...hooksOf(model,c).map(h=>h.id)])if(dependency)scope.add(dependency);
+  }
+  // Owners and source dependencies can inherit contracts from their enclosing ontology paths.
+  for(const id of [...scope])for(const ancestor of model.index.path(id))scope.add(ancestor);
+ }
+ const taskDelta={added:[],removed:[],changed:[...scope].map(id=>({id,fields:[]})),affectedCriteria:[...criteria],affectedJourneys:[]};
  const o=overlap(delta,taskDelta,before.model);
- const changed=[...delta.added,...delta.removed,...delta.changed.map(c=>c.id)];
- const inherited=p.tasks.flatMap(t=>[...t.writeNodes,...t.readNodes]).flatMap(id=>before.model.index.path(id));
- if(o.shared.length||o.viaCriteria.length||changed.some(id=>inherited.includes(id)))throw conflict('replan-required','accepted Genome changed overlapping task scope; create a new pinned plan');
+ if(o.shared.length||o.viaCriteria.length)throw conflict('replan-required','accepted Genome changed overlapping task scope; create a new pinned plan');
 }
 export async function startLifecycleTask(env:Env,sid:string,pid:string,tid:string,body:unknown,platformUrl:string,resume=false):Promise<TaskStartResponse> {
  const input=parse(claimSchema,body),stub=systemStub(env,sid),p=await rpc(stub.realizationPlan(pid));await assertGenomeCompatible(env,p);
