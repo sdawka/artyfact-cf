@@ -103,4 +103,15 @@ describe('realization plan HTTP lifecycle',()=>{
   const candidate=integrated.json.candidates.find(c=>c.id===b.candidateId)!;expect(candidate.changedPaths).toEqual(['src/index.ts','src/worker/health.ts','src/z.txt']);
  });
 
+ it('returns claim refusals with structured details',async()=>{
+  const f=await importFresh();
+  const task=(id:string,deps:string[]=[])=>({id,title:id,artifactId:'artifact.webapp',steps:['Implement'],dependsOn:deps,readNodes:[],writeNodes:[id],checks:[],footprint:{repo:f.appRepo,artifactId:'artifact.webapp',globs:[`src/${id}.txt`],paths:[],unmatched:[`src/${id}.txt`],known:true}});
+  const p=await systemStub(env,f.systemId).createRealizationPlan({title:'Refusals',tasks:[task('a'),task('b'),task('c',['a','b'])]});
+  const blocked=await call<{error:{code:string;message:string;details?:unknown}}>('POST',path(f.systemId,p.id,'c','claim'),{},ADMIN);
+  expect(blocked.status).toBe(409);expect(blocked.json.error).toEqual({code:'invalid-state',message:'dependency a is not selected',details:{blockedOn:['a','b']}});
+  expect((await call('POST',path(f.systemId,p.id,'a','claim'),{agentLabel:'agent-one'},ADMIN)).status).toBe(201);
+  const taken=await call<{error:{code:string;message:string;details?:unknown}}>('POST',path(f.systemId,p.id,'a','claim'),{agentLabel:'agent-two'},ADMIN);
+  expect(taken.status).toBe(409);expect(taken.json.error).toEqual({code:'invalid-state',message:'task already has an active writer',details:{by:'agent-one'}});
+ });
+
 });

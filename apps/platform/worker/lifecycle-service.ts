@@ -72,7 +72,7 @@ export async function assertGenomeCompatible(env:Env,p:RealizationPlan):Promise<
 export async function startLifecycleTask(env:Env,sid:string,pid:string,tid:string,body:unknown,platformUrl:string,resume=false):Promise<TaskStartResponse> {
  const input=parse(claimSchema,body),stub=systemStub(env,sid),p=await rpc(stub.realizationPlan(pid));await assertGenomeCompatible(env,p);
  const originalTask=taskOf(p,tid),preparedBase=originalTask.attempts.length?undefined:await prepareFanInBase(env,p,originalTask);
- const claim=await rpc(stub.claimLifecycleTask(pid,tid,input,resume,preparedBase)),{task,attempt}=claim;let tokenId:string|undefined;
+ const claim=await stub.claimLifecycleTask(pid,tid,input,resume,preparedBase).catch(async e=>{throw await claimRefusal(stub,pid,tid,e);}),{task,attempt}=claim;let tokenId:string|undefined;
  try {
   // Revoke before creating replacement credentials; if revocation fails, no replacement writer is minted.
   for(const credential of await stub.lifecycleCredentials(pid,tid))if(credential.tokenId){await withRepo(artifactsFor(env),credential.forkRepo,r=>r.revokeToken(credential.tokenId!));await stub.lifecycleCredentialRevoked(credential.realizationId,credential.tokenId);}
@@ -85,6 +85,19 @@ export async function startLifecycleTask(env:Env,sid:string,pid:string,tid:strin
   await refreshRegistry(env,sid);
   return {plan,task:taskOf(plan,tid),attempt:taskOf(plan,tid).attempts.at(-1)!,secret,token:{value:token.plaintext,expiresAt:token.expiresAt,remote},remote,packet,reviewUrl};
  }catch(e){if(tokenId)await withRepo(artifactsFor(env),task.forkRepo,r=>r.revokeToken(tokenId!)).then(()=>stub.lifecycleCredentialRevoked(attempt.realizationId,tokenId!)).catch(()=>{});await stub.lifecycleEnd(pid,tid,attempt.id,attempt.generation).catch(()=>{});await refreshRegistry(env,sid).catch(()=>{});throw e;}
+}
+/**
+ * A claim refusal from the DO as an HttpError with structured details, same code and message: unselected dependencies
+ * give `{blockedOn}`, a live writer on this task gives `{by}`, a live conflicting task gives `{taskId, by}`.
+ */
+async function claimRefusal(stub:ReturnType<typeof systemStub>,pid:string,tid:string,e:unknown):Promise<unknown> {
+ const http=fromRpc(e);if(!http||http.status!==409)return http??e;
+ const p=await stub.realizationPlan(pid).catch(()=>null),t=p?.tasks.find(t=>t.id===tid);if(!p||!t)return http;
+ let details:Record<string,unknown>|undefined;
+ if(/^dependency \S+ is not selected$/.test(http.message))details={blockedOn:t.dependsOn.filter(d=>!p.tasks.find(x=>x.id===d)?.selectedCandidate)};
+ else if(http.message==='task already has an active writer')details={by:t.attempts.at(-1)?.agentLabel??null};
+ else{const m=/^task interference with active (\S+)$/.exec(http.message),other=m&&p.tasks.find(x=>x.id===m[1]);if(other)details={taskId:other.id,by:other.attempts.at(-1)?.agentLabel??null};}
+ return details?conflict(http.code,http.message,details):http;
 }
 export async function checkpointLifecycleTask(env:Env,sid:string,pid:string,tid:string,body:unknown){const i=parse(checkpointSchema,body);return rpc(systemStub(env,sid).lifecycleCheckpoint(pid,tid,i.attemptId,i.generation,i));}
 
