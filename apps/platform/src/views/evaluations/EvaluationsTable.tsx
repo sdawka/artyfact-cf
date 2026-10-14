@@ -218,7 +218,8 @@ export function EvaluationsTable({ evaluations, compact, expandedId, onExpand, f
                           {isFakeProvider(e.provenance?.provider) && <span className={styles.fakeTag} title={FAKE_PROVIDER_TITLE}>fake</span>}
                         </td>
                         <td className={styles.execution} data-plain={plainExecution || undefined}>
-                          {e.execution}
+                          {/* Shown only when it says more than the verdict; a plain "completed" stays for screen readers. */}
+                          {plainExecution ? <span className="sr-only">{e.execution}</span> : e.execution}
                           {e.execution === "error" && <span className={styles.rowError}>{e.error ?? "no message recorded"}</span>}
                         </td>
                         {!compact && <td className={styles.hookCol}><code className={styles.hook} title={e.hook}>{e.hook}</code></td>}
