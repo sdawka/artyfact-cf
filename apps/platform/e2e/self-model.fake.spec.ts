@@ -5,8 +5,9 @@ import { systemCard } from "./helpers";
 /** Artyfact describing itself: the platform here is seeded with the repo-root `genome/` (`FAKE_SEED=artyfact`). */
 const SYS = "system.artyfact";
 const BASE = `/s/${SYS}/r/head`;
-/** The System Map's containment tree lists every Thing (they have no Map layer, so the canvas draws their descendants instead). */
+/** The on-demand containment tree lists every real Thing. */
 async function expectTenThings(page: Page) {
+  await page.getByRole("button", { name: "Tree", exact: true }).click();
   const tree = page.getByRole("tree", { name: "Containment" });
   for (const t of THINGS) await expect(tree.locator(`#map-tree-${t.replace(".", "_")}`)).toHaveAttribute("role", "treeitem");
   await expect(tree.getByRole("treeitem", { name: /, Thing$/ })).toHaveCount(THINGS.length);
@@ -24,37 +25,35 @@ test.describe("the self-model @fake", () => {
     // Home shows no Thing list; the card opens the System, whose Map tree lists all ten.
     await systemCard(page, /Artyfact/).click();
     await expect(page).toHaveURL(/\/s\/system\.artyfact/);
-    await page.goto(`${BASE}/map`);
+    await expect(page.getByRole("heading", { name: "Map", level: 1 })).toBeVisible();
+    await expect(page.locator(`[data-map-node="${SYS}"]`)).toBeVisible();
     await expectTenThings(page);
     const model = await (await request.get(`/api/systems/${SYS}/model`)).json() as { model: { system: { things: string[] } } };
     expect(model.model.system.things).toEqual(THINGS);
   });
 
-  test("the Map bands a Thing by template layer and the Inspector orders fields by the view hints @fake", async ({ page, request }, testInfo) => {
-    const { model } = await (await request.get(`/api/systems/${SYS}/model`)).json() as { model: { views: { layers: { id: string }[] } } };
-    // System scope: Things have no Map layer, so the canvas looks through them to the layer bands; the containment tree lists all ten.
-    await page.goto(`${BASE}/map`);
+  test("the Map preserves Things and immediate children while Inspector fields follow view hints @fake", async ({ page, request }, testInfo) => {
+    const { model } = await (await request.get(`/api/systems/${SYS}/model`)).json() as { model: { nodes: { id: string; parent: string; kind: string }[] } };
+    await page.goto(`${BASE}/map?scope=${SYS}`);
+    const drawnThings = page.locator('[data-map-node][data-role="child"][data-map-node^="thing."]');
+    await expect(drawnThings).toHaveCount(THINGS.length);
+    expect(await drawnThings.evaluateAll((els) => els.map((e) => e.getAttribute("data-map-node")!).sort())).toEqual([...THINGS].sort());
     await expectTenThings(page);
-    await expect(page.locator("[data-map-band]").first()).toBeVisible();
-    expect(await page.locator("[data-map-node]").evaluateAll((els) => els.map((e) => e.getAttribute("data-map-node")!).filter((id) => id.startsWith("thing.")))).toEqual([]);
-
-    await page.goto(`${BASE}/map?focus=thing.platform`);
-    const bands = page.locator("[data-map-band]");
-    await expect(bands.first()).toBeVisible();
-    const ids = await bands.evaluateAll((els) => els.map((e) => e.getAttribute("data-map-band")!));
-    expect(ids).toEqual(expect.arrayContaining(["experience", "domain", "runtime"]));
-    // Bands run left to right in template layer order.
-    const order = model.views.layers.map((l) => l.id).filter((id) => ids.includes(id));
-    expect(ids).toEqual(order);
-    const xs = await bands.evaluateAll((els) => els.map((e) => e.getBoundingClientRect().x));
-    expect([...xs].sort((a, b) => a - b)).toEqual(xs);
-    // The Kinds filter lists the kinds drawn here with their template labels.
+    await page.getByRole("button", { name: "Close map navigation" }).click();
+    await page.goto(`${BASE}/map?scope=thing.platform`);
+    const children = model.nodes.filter((node) => node.parent === "thing.platform").map((node) => node.id);
+    const tiles = page.locator('[data-map-node][data-role="child"]');
+    await expect(tiles).toHaveCount(children.length);
+    expect(await tiles.evaluateAll((els) => els.map((e) => e.getAttribute("data-map-node")!).sort())).toEqual(children.sort());
+    await expect(page.locator("[data-map-band]")).toHaveCount(0);
+    // All kinds remain discoverable even when their template layers are not tiles.
+    await page.getByRole("button", { name: "Filters", exact: true }).click();
     await page.getByText("Kinds", { exact: true }).click();
     await expect(page.getByRole("group", { name: "Kinds shown" }).getByRole("checkbox", { name: /Endpoint/ })).toBeVisible();
-    await checkPage(page, testInfo, "self-map-bands");
+    await checkPage(page, testInfo, "self-map-containment");
 
     // A worker-service endpoint: Route, Auth, Request, Response in the template's field order.
-    await page.goto(`${BASE}/map?focus=endpoint.apply-template-upgrade`);
+    await page.goto(`${BASE}/map?focus=endpoint.apply-template-upgrade&inspect=1`);
     const inspector = page.getByRole("complementary", { name: "Inspector" });
     await expect(inspector.getByText("Route", { exact: true })).toBeVisible();
     await expect(inspector.locator("dt, [data-field-label]").filter({ hasText: /^(Route|Auth|Request|Response)$/ })).toHaveText(["Route", "Auth", "Request", "Response"]);

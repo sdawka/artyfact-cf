@@ -2,7 +2,7 @@
   display: inline-flex;
   gap: var(--spacing-2);
   font-family: var(--font-code);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   line-height: 1;
 }
 .counter {
@@ -16,7 +16,7 @@
 .counter[data-zero] { color: var(--color-text-disabled); }
 
 .proteome {
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   color: var(--color-text-subtle);
 }
 .proteome[data-active] { color: var(--color-brand-primary); }
@@ -25,9 +25,9 @@
 .halo,
 .halo[data-overlap]::after {
   position: absolute;
-  inset: -6px;
+  inset: 5px;
   border: 2px solid var(--color-brand-primary);
-  border-radius: var(--border-radius-lg);
+  border-radius: 0;
   pointer-events: none;
   --corner: 12px;
   mask:
@@ -38,18 +38,18 @@
 }
 .halo[data-overlap]::after {
   content: "";
-  inset: -7px;
+  inset: 4px;
   border-width: 2px;
 }
 .overlap {
   position: absolute;
-  top: calc(-1 * var(--spacing-5));
-  right: 0;
+  bottom: calc(var(--spacing-2) + 22px);
+  right: var(--spacing-2);
   padding: 0 var(--spacing-1);
   border-radius: var(--border-radius-sm);
   background: var(--color-background);
   color: var(--color-brand-primary);
-  font-size: var(--font-size-xs);
+  font-size: var(--font-size-sm);
   line-height: 1.4;
   text-decoration: none;
   pointer-events: auto;

@@ -3,7 +3,7 @@ import { describe, expect, it } from "vitest";
 import { renderApp } from "@/testing/render";
 
 async function open(id: string) {
-  renderApp(`/s/system.peopling/r/head/map?focus=${id}`);
+  renderApp(`/s/system.peopling/r/head/map?focus=${id}&inspect=1`);
   return screen.findByRole("complementary", { name: "Inspector" });
 }
 

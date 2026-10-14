@@ -3,11 +3,11 @@
 
 ## Now
 
-- Released the [approved lifecycle](../design/lifecycle.md): PR [#64](https://github.com/sdawka/artyfact-cf/pull/64) merged on green hosted CI at `df6dcdb`; site, platform and CI Worker are deployed. Original checkout and user changes are preserved.
-- Verified: full local CI, independent release review (38 targeted tests), public health/model and authenticated Realization/import/operations APIs for both existing Systems, plus desktop/mobile route and no-JavaScript model smoke checks. Detailed evidence: [[journals/2026-10-13-lifecycle]].
-- Production admin credential was rotated as authorized and the ignored local environment file updated. Live metrics and feature flags await operations bindings and credentials; no live Flagship behavior is claimed.
-- GRREAT protocol validates 7 records. Direct-RPC sync remains pending missing credentials and a separate Artyfact destination; earlier conflict checkpoints are preserved.
-- Last updated: 2026-10-13.
+- Current milestone: atlas polish is implemented on [PR #66](https://github.com/sdawka/artyfact-cf/pull/66): stronger teal scope/System treatment, inset selection and candidate states, clearer Details and preference-gated scope/overlay motion, preserving geometry and cameras.
+- Latest local evidence reported by the primary: 62 focused tests across 9 files and platform typecheck pass; 5 targeted browser cases pass, including the corrected 216px tile footer overlap, settled responsive layouts and Details. Final atlas/Shell suite passed: 34 cases in 18.2s, no retries. Prior full-CI evidence remains in [[journals/2026-10-13-system-atlas]].
+- Next action: pass normal pre-push checks and confirm all hosted CI checks are green, merge PR #66 and deploy the platform as authorized; then record the deployed version and live checks. No deployment is claimed at this checkpoint.
+- Blockers: direct-RPC sync remains pending missing credentials and a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
+- Last updated: 2026-10-13T22:01:24-04:00.
 
 ## Work history
 

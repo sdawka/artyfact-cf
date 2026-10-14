@@ -51,7 +51,7 @@ function useTouchingCandidates(entry: IndexEntry, m: ReturnType<typeof useModel>
   }, [entry.id, m, selectedTouches, queue]);
 }
 
-export function InspectorHeader({ entry }: { entry: IndexEntry }) {
+export function InspectorHeader({ entry, onClose }: { entry: IndexEntry; onClose?: () => void }) {
   const m = useModel();
   const view = useKindView(entry.kind);
   // Under the name: the kind's summary field. A registered body lays out its own fields, summary included.
@@ -75,7 +75,7 @@ export function InspectorHeader({ entry }: { entry: IndexEntry }) {
         <h2 className={styles.title} tabIndex={-1} data-inspector-title>
           <NodeChip id={entry.id} interactive={false} />
         </h2>
-        <button type="button" className={`u-brackets ${styles.close}`} onClick={clear} aria-label="Close inspector">
+        <button type="button" className={`u-brackets ${styles.close}`} onClick={onClose ?? clear} aria-label="Close inspector">
           Close
         </button>
       </div>

@@ -4,7 +4,7 @@ import { buildIndex } from "@/model/index";
 import { resolveKindView } from "@artyfact/ontology";
 import { kindViews, type KindViews } from "@/model/kinds";
 import { modelKinds } from "./MapView";
-import { bandFrameId, buildMapGraph, certaintyStroke, DEFAULT_FILTERS, findingSubjectIds, mapLayoutRequest, mapLocationFor, mapScopeFor } from "./useMapGraph";
+import { bandFrameId, buildMapGraph, certaintyStroke, DEFAULT_FILTERS, ENVIRONMENT_SCOPE, findingSubjectIds, mapLayoutRequest, mapLocationFor, mapScopeFor } from "./useMapGraph";
 
 const index = buildIndex(fixtureBundle());
 const ids = (g: ReturnType<typeof buildMapGraph>, role?: string) =>
@@ -37,16 +37,15 @@ describe("buildMapGraph", () => {
     expect(g.edges.some((e) => (e.type as string) === "contains")).toBe(false);
   });
 
-  it("System scope looks through undrawn containers to the drawn kinds, banded by template layer", () => {
+  it("System scope preserves immediate containment even for kinds outside template layers", () => {
     const g = buildMapGraph(index, "system.peopling");
     const children = ids(g, "child");
-    expect(children).toContain("screen.people");
-    expect(children).toContain("entity.ContactRecord");
-    expect(children).not.toContain("thing.webapp");
-    expect(children.some((id) => id.startsWith("section."))).toBe(false);
+    expect(children).toContain("thing.webapp");
+    expect(children).not.toContain("screen.people");
+    expect(children).not.toContain("entity.ContactRecord");
     expect(ids(g, "outside")).toEqual([]);
     expect(ids(g, "external")).toEqual(["ext.channels", "ext.owner", "ext.providers"]);
-    expect(g.edges.some((e) => e.source === "screen.people" && e.target === "ext.owner")).toBe(true);
+    expect(g.edges.some((e) => e.source === "thing.webapp" && e.target === "ext.owner")).toBe(true);
   });
 
   it("System scope without template layers shows its direct children (things, sections)", () => {
@@ -103,8 +102,7 @@ describe("buildMapGraph edge cases", () => {
   it("keeps direction-in links whose normalised source is a thing", () => {
     const m = structuredClone(fixtureBundle().model);
     m.nodes.find((n) => n.id === "component.SearchInput")!.links.push({ rel: "dependsOn", to: "thing.webapp", direction: "in", certainty: "assumed" });
-    // With template layers a thing is in no layer, so it is not drawn.
-    expect(buildMapGraph(buildIndex(m), "screen.people").ids.has("thing.webapp")).toBe(false);
+    expect(buildMapGraph(buildIndex(m), "screen.people").ids.has("thing.webapp")).toBe(true);
     const g = buildMapGraph(buildIndex(m), "screen.people", DEFAULT_FILTERS, new Set(), unlayered);
     expect(g.nodes.find((n) => n.id === "thing.webapp")?.role).toBe("outside");
     expect(g.edges.find((e) => e.source === "thing.webapp" && e.target === "component.SearchInput")).toMatchObject({ type: "dependsOn", stroke: "dashed" });
@@ -161,24 +159,22 @@ describe("mapLayoutRequest", () => {
 
 describe("Map bands", () => {
   it("bands children by template layer, in template order, and hides hidden layers", () => {
-    const g = buildMapGraph(index, "system.peopling");
+    const g = buildMapGraph(index, "screen.people");
     expect(g.layered).toBe(true);
-    expect(g.bands.map((b) => b.id)).toEqual(["intent", "journeys", "experience", "domain", "rules", "runtime"]);
-    expect(g.bands[2]!.label).toBe("Experience");
-    expect(g.nodes.find((n) => n.id === "T1")?.band).toBe("intent");
-    expect(g.nodes.find((n) => n.id === "J.connect")?.band).toBe("journeys");
-    expect(g.nodes.find((n) => n.id === "screen.people")?.band).toBe("experience");
-    expect(g.nodes.find((n) => n.id === "entity.ContactRecord")?.band).toBe("domain");
-    const noDomain = buildMapGraph(index, "system.peopling", { ...DEFAULT_FILTERS, hiddenLayers: ["domain"] });
-    expect(noDomain.bands.map((b) => b.id)).toEqual(["intent", "journeys", "experience", "rules", "runtime"]);
-    expect(ids(noDomain)).not.toContain("entity.ContactRecord");
+    expect(g.bands).toEqual([{ id: "experience", label: "Experience" }]);
+    expect(g.nodes.find((n) => n.id === "component.SearchInput")?.band).toBe("experience");
+    const hidden = buildMapGraph(index, "screen.people", { ...DEFAULT_FILTERS, hiddenLayers: ["experience"] });
+    expect(ids(hidden, "child")).toEqual([]);
+    expect(hidden.bands).toEqual([]);
+    // Unlayered containers stay navigable rather than being flattened into their descendants.
+    expect(ids(buildMapGraph(index, "system.peopling"), "child")).toContain("thing.webapp");
   });
 
   it("chains band frames in layer order inside the scope", () => {
-    const req = mapLayoutRequest(buildMapGraph(index, "system.peopling"), "genome");
+    const req = mapLayoutRequest(buildMapGraph(index, "screen.people"), "genome");
     const frames = req.nodes.filter((n) => n.id.startsWith(bandFrameId(""))).map((n) => n.id);
-    expect(frames).toEqual(["intent", "journeys", "experience", "domain", "rules", "runtime"].map(bandFrameId));
-    for (const f of frames) expect(req.nodes.find((n) => n.id === f)!.parentId).toBe("system.peopling");
+    expect(frames).toEqual(["experience"].map(bandFrameId));
+    for (const f of frames) expect(req.nodes.find((n) => n.id === f)!.parentId).toBe("screen.people");
     const chain = req.edges.filter((e) => e.source.startsWith(bandFrameId(""))).map((e) => [e.source, e.target]);
     expect(chain).toEqual(frames.slice(1).map((f, i) => [frames[i], f]));
   });
@@ -194,10 +190,66 @@ describe("Map bands", () => {
 });
 
 describe("Map Kinds filter", () => {
-  it("lists every drawn kind in the containment tree, intent and journey kinds included", () => {
+  it("lists every navigable kind in the containment tree, including real containers", () => {
     const { kinds } = modelKinds(index, kindViews(index.model));
-    for (const k of ["purpose", "claim", "journey", "step", "screen", "entity"]) expect(kinds).toContain(k);
-    for (const k of ["thing", "section", "criterion"]) expect(kinds).not.toContain(k);
+    for (const k of ["purpose", "claim", "journey", "step", "screen", "entity", "thing", "section"]) expect(kinds).toContain(k);
+    expect(kinds).not.toContain("criterion");
     expect(modelKinds(index, unlayered).kinds).toContain("thing");
+  });
+});
+
+
+describe("atlas graph projection", () => {
+  it("includes every declared external in environment, even disconnected and filtered", () => {
+    const m = structuredClone(fixtureBundle().model);
+    m.externals.push({ ...m.externals[0]!, id: "ext.disconnected", name: "Disconnected observer", links: [] });
+    const g = buildMapGraph(buildIndex(m), ENVIRONMENT_SCOPE, { ...DEFAULT_FILTERS, showExternals: false, hiddenKinds: ["system", "external"], findingsOnly: true });
+    expect(g.scope).toBe("environment");
+    expect(ids(g, "child")).toEqual(["system.peopling"]);
+    expect(ids(g, "scope")).toEqual([]);
+    expect(ids(g, "external")).toEqual(["ext.channels", "ext.contacts", "ext.device", "ext.disconnected", "ext.events", "ext.owner", "ext.providers", "ext.relationship-context"]);
+    expect(g.nodes.find((n) => n.id === "system.peopling")?.parentId).toBeUndefined();
+    expect(g.edges.find((e) => e.source === "system.peopling" && e.target === "ext.owner")?.count).toBeGreaterThan(1);
+  });
+
+  it("retains normalized original members, labels and least certainty in lifted links", () => {
+    const m = structuredClone(fixtureBundle().model);
+    const row = m.nodes.find((n) => n.id === "component.ContactRow")!;
+    row.links = [{ rel: "reads", to: "entity.ContactRecord", direction: "out", certainty: "proposed", label: "row data" }];
+    const search = m.nodes.find((n) => n.id === "component.SearchInput")!;
+    search.links.push({ rel: "dependsOn", to: "thing.webapp", direction: "in", certainty: "assumed", label: "host" });
+    const g = buildMapGraph(buildIndex(m), "screen.people");
+    const reads = g.edges.find((e) => e.source === "component.ContactCollection" && e.target === "entity.ContactRecord")!;
+    expect(reads).toMatchObject({ certainty: "proposed", count: 2 });
+    expect(reads.members ?? []).toContainEqual({ from: "component.ContactRow", to: "entity.ContactRecord", rel: "reads", certainty: "proposed", label: "row data" });
+    expect(reads.members).toHaveLength(reads.count);
+    expect(g.edges.find((e) => e.source === "thing.webapp" && e.target === "component.SearchInput")?.members).toEqual([
+      { from: "thing.webapp", to: "component.SearchInput", rel: "dependsOn", certainty: "assumed", label: "host" },
+    ]);
+  });
+
+  it("has bounded direct-child previews and authored descriptions", () => {
+    const m = structuredClone(fixtureBundle().model);
+    m.nodes.find((n) => n.id === "component.AddContactDialog")!.description = "Collect a contact.";
+    m.externals.find((e) => e.id === "ext.owner")!.modeled = "Uses the contact workspace.";
+    const g = buildMapGraph(buildIndex(m), "screen.people");
+    expect(g.nodes.find((n) => n.id === "ext.owner")?.description).toBe("Uses the contact workspace.");
+    const dialog = g.nodes.find((n) => n.id === "component.AddContactDialog")!;
+    expect(dialog.description).toBe("Collect a contact.");
+    expect(dialog.preview).toHaveLength(3);
+    expect(dialog.preview.every((p) => buildIndex(m).parent(p.id)?.id === dialog.id)).toBe(true);
+    expect(g.nodes.find((n) => n.id === "component.SearchInput")?.preview).toEqual([]);
+  });
+
+  it("admission is one hop only and empty/unfamiliar scopes remain valid", () => {
+    const m = structuredClone(fixtureBundle().model);
+    const original = m.nodes.find((n) => n.id === "component.PeopleHeading")!;
+    m.nodes.push({ ...original, id: "node.unknown", kind: "unfamiliar", parent: "component.SearchInput", links: [] });
+    m.nodes.push({ ...original, id: "node.twoHops", parent: "thing.webapp", links: [] });
+    m.nodes.find((n) => n.id === "operation.contact.save")!.links.push({ rel: "dependsOn", to: "node.twoHops", direction: "out", certainty: "declared" });
+    const i = buildIndex(m);
+    expect(buildMapGraph(i, "screen.people").ids.has("node.twoHops")).toBe(false);
+    expect(ids(buildMapGraph(i, "component.SearchInput"), "child")).toEqual(["node.unknown"]);
+    expect(ids(buildMapGraph(i, "node.unknown"))).toEqual(["node.unknown"]);
   });
 });

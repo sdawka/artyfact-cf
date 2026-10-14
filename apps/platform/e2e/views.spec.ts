@@ -21,7 +21,7 @@ test.describe("views", () => {
   });
 
   test("map: breadcrumbs and grey phenome badges", async ({ page }, testInfo) => {
-    await page.goto("/s/system.peopling/r/head/map?focus=screen.people&layer=phenome");
+    await page.goto("/s/system.peopling/r/head/map?focus=screen.people&inspect=1&layer=phenome");
     const crumbs = page.getByRole("navigation", { name: "Map scope" });
     await expect(crumbs).toBeVisible();
     const text = (await crumbs.innerText()).replace(/\s+/g, " ");
