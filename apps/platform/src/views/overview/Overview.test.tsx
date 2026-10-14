@@ -65,7 +65,7 @@ describe("Overview", () => {
     expect(hero.querySelector('[data-effect="orb"]')).toBeNull();
     expect(hero.querySelector('[data-effect="surface"]')).toBeTruthy();
     expect(within(hero).getByText("The light reflects readiness, checks, active work and blockers.")).toBeTruthy();
-    for (const label of ["Readiness", "Failing or stale checks", "Active Evolutions", "Blockers"]) expect(within(hero).getByText(label)).toBeTruthy();
+    for (const label of ["Readiness", "Failing or stale checks", "Active work", "Blockers"]) expect(within(hero).getByText(label)).toBeTruthy();
   });
 
   it("lists Peopling's provisional nodes apart from its blockers (none)", async () => {

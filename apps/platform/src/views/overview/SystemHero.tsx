@@ -47,7 +47,7 @@ export function SystemHero({ children }: { children?: ReactNode }) {
           items={[
             { label: "Readiness", value: `${Math.round(measures.readiness * 100)}%` },
             { label: "Failing or stale checks", value: troubled },
-            { label: "Active Evolutions", value: measures.active },
+            { label: "Active work", value: measures.active },
             { label: "Blockers", value: measures.blockers },
             ...(health === "pending" ? [] : [{ label: "Light", value: health }]),
           ]}
