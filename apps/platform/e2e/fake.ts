@@ -179,3 +179,24 @@ export async function apiEvolution(request: APIRequestContext, title: string, ki
   expect(res.ok(), await res.text()).toBe(true);
   return ((await res.json()) as { evolution: { id: string } }).evolution.id;
 }
+
+/** `GET …/realization-plans/:plan` through the API (plan reads follow the System's visibility). */
+export async function apiPlan(request: APIRequestContext, planId: string): Promise<import("../shared/lifecycle").RealizationPlan> {
+  const res = await request.get(`/api/systems/${SYS}/realization-plans/${encodeURIComponent(planId)}`, { headers: auth });
+  expect(res.ok(), `plan ${planId}: ${res.status()}`).toBe(true);
+  return res.json();
+}
+
+/**
+ * Runs the repo's CLI (`packages/cli/bin/artyfact.js`) against the fake platform with the admin token, as an agent would.
+ * Resolves with the exit code and output; never throws on a non-zero exit, so refusals can be asserted.
+ */
+export async function cli(args: string[], opts: { cwd: string; baseURL: string; env?: Record<string, string> }): Promise<{ code: number; stdout: string; stderr: string }> {
+  const { execFile } = await import("node:child_process");
+  const { fileURLToPath } = await import("node:url");
+  const bin = fileURLToPath(new URL("../../../packages/cli/bin/artyfact.js", import.meta.url));
+  return new Promise((ok) => {
+    execFile(process.execPath, [bin, ...args], { cwd: opts.cwd, env: { ...process.env, ARTYFACT_PLATFORM: opts.baseURL, ARTYFACT_ADMIN_TOKEN: ADMIN_TOKEN, ...opts.env }, timeout: 60_000 }, (err, stdout, stderr) =>
+      ok({ code: err ? (typeof err.code === "number" ? err.code : 1) : 0, stdout: String(stdout), stderr: String(stderr) }));
+  });
+}
