@@ -233,3 +233,56 @@ export function classifyStatementQuestions(_sentence: string, kinds: KindOption[
   };
 }
 
+
+// ── visual ───────────────────────────────────────────────────────────────────────────────────────
+/** Where one attached image came from: a platform capture of the preview, or a screenshot the agent attached. */
+export type VisualImageSource = 'platform' | 'agent';
+/** One attached image, in the order the images are sent. `sha256` binds the state (and its hash) to the bytes judged. */
+export type VisualImageLabel = { source: VisualImageSource; label: string; sha256?: string };
+export type VisualSubject = {
+  criterion: { id: string; title: string; claim: string };
+  subject: { id: string; kind?: string; name?: string };
+  /** The page judged: its path, and the URL the platform captured when there is one. */
+  page: { path: string; url?: string };
+  images: VisualImageLabel[];
+};
+
+/** Concerns a failing screenshot most plainly shows; `none` when nothing stands out. */
+export const VISUAL_CONCERNS = {
+  none: 'nothing stands out against the claim',
+  'broken-layout': 'overlapping, cut-off, overflowing or misaligned elements',
+  'unreadable-text': 'text too small, low contrast or hidden behind other elements',
+  'missing-content': 'content the claim needs is absent, empty or still loading',
+  'weak-hierarchy': 'no clear focal point or reading order; the page reads as undifferentiated',
+  'error-state': 'an error page, a crash message or a blank page',
+} as const;
+
+export function visualState(v: VisualSubject) {
+  return {
+    criterion: { id: v.criterion.id, title: v.criterion.title, claim: v.criterion.claim },
+    subject: v.subject,
+    page: v.page,
+    images: v.images.map((img, i) => ({ position: i + 1, source: img.source === 'platform' ? 'captured by the platform from the preview' : 'attached by the implementing agent', label: img.label, ...(img.sha256 && { sha256: img.sha256 }) })),
+  };
+}
+
+export function visualQuestions(_v?: VisualSubject): Questions {
+  return {
+    satisfies: {
+      type: 'noul',
+      benign: 'yes',
+      instructions:
+        'The attached images are screenshots of one page, in the order listed in state.images (each says whether the platform captured it or the implementing agent attached it, and at what size). Taken together, do they show that the page satisfies the claim in state.criterion.claim?',
+      criteria: {
+        true: 'The screenshots show the page satisfies the claim at the sizes shown.',
+        false: 'The screenshots show the page falls short of the claim, or they do not show enough of it to tell.',
+      },
+    },
+    concern: {
+      type: 'choice',
+      benign: 'none',
+      instructions: 'Which concern do the screenshots most plainly show against state.criterion.claim?',
+      criteria: { ...VISUAL_CONCERNS },
+    },
+  };
+}

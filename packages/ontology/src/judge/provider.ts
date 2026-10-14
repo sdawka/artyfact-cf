@@ -1,9 +1,10 @@
 import { hashOf } from "../canon.ts";
 import { fakeAnswers } from "./fake.ts";
 import { lruCache } from "./http.ts";
-import type { AskOptions, S1Questions, S1Reply, SystemOne } from "./types.ts";
+import type { AskOptions, S1Image, S1Questions, S1Reply, SystemOne } from "./types.ts";
 
-export type S1ErrorCode = "off" | "timeout" | "http" | "network" | "bad-response";
+/** `unsupported`: the provider cannot do what was asked (images); `invalid`: the request breaks a documented limit. */
+export type S1ErrorCode = "off" | "timeout" | "http" | "network" | "bad-response" | "unsupported" | "invalid";
 
 export class S1Error extends Error {
   readonly code: S1ErrorCode;
@@ -21,6 +22,48 @@ interface WireResponse { model?: string; answers: S1Reply["answers"]; usage?: S1
 const ZERO = { input_tokens: 0, output_tokens: 0 };
 
 export const cacheKeyFor = (state: unknown, questions: S1Questions, model: string): string => hashOf({ state, questions, model });
+
+/** Clef's image limits: at most 4 images, each at most 4 MiB, at most 8 MiB together (decoded bytes). */
+export const MAX_IMAGES = 4;
+export const MAX_IMAGE_BYTES = 4 * 1024 * 1024;
+export const MAX_TOTAL_IMAGE_BYTES = 8 * 1024 * 1024;
+export const IMAGE_TYPES = ["image/png", "image/jpeg", "image/webp"] as const;
+
+/** Decoded size of a base64 string, without decoding it. */
+export function base64Bytes(b64: string): number {
+  const n = b64.replace(/\s/g, "").length;
+  const pad = b64.endsWith("==") ? 2 : b64.endsWith("=") ? 1 : 0;
+  return Math.max(0, Math.floor((n * 3) / 4) - pad);
+}
+
+const BASE64 = /^[A-Za-z0-9+/]*={0,2}$/;
+
+/** Throws an `invalid` S1Error when `images` breaks a limit: count, type, base64 form, per-image or total size. */
+export function checkImages(images: readonly S1Image[] | undefined): void {
+  if (!images?.length) return;
+  if (images.length > MAX_IMAGES) throw new S1Error(`at most ${MAX_IMAGES} images per ask (got ${images.length})`, "invalid");
+  let total = 0;
+  images.forEach((img, i) => {
+    if (!(IMAGE_TYPES as readonly string[]).includes(img.mediaType)) throw new S1Error(`image ${i + 1}: type ${String(img.mediaType).slice(0, 40)} is not PNG, JPEG or WebP`, "invalid");
+    if (!img.base64 || !BASE64.test(img.base64)) throw new S1Error(`image ${i + 1}: not base64`, "invalid");
+    const bytes = base64Bytes(img.base64);
+    if (bytes > MAX_IMAGE_BYTES) throw new S1Error(`image ${i + 1}: ${bytes} bytes is over the ${MAX_IMAGE_BYTES}-byte limit`, "invalid");
+    total += bytes;
+  });
+  if (total > MAX_TOTAL_IMAGE_BYTES) throw new S1Error(`images total ${total} bytes, over the ${MAX_TOTAL_IMAGE_BYTES}-byte limit`, "invalid");
+}
+
+/** The cache key of an ask: `opts.cacheKey` or the state/questions/model hash, plus a hash of the images when there are any. */
+export function askCacheKey(state: unknown, questions: S1Questions, model: string, opts: AskOptions = {}): string {
+  const key = opts.cacheKey ?? cacheKeyFor(state, questions, model);
+  if (!opts.images?.length) return key;
+  return `${key}:img:${hashOf(opts.images.map((i) => [i.mediaType, i.sha256 ?? hashOf(i.base64)]))}`;
+}
+
+/** The refusal of a provider that cannot read images: an S1Error, so judgments record it as an unknown, never a pass. */
+export const refuseImages = (provider: string, opts?: AskOptions): void => {
+  if (opts?.images?.length) throw new S1Error(`${provider} cannot read images; visual judgments need Clef (Workers AI binding AI)`, "unsupported");
+};
 
 /** Strips the fake provider's `benign` hint before a question goes on the wire. */
 export const wireQuestions = (questions: S1Questions): S1Questions =>
@@ -43,10 +86,15 @@ export function stripDirectives(state: unknown): unknown {
   return state;
 }
 
+/** The fake accepts images within the limits (so the visual path is testable) and answers from the state alone. */
 export const fakeSystemOne = (model = "fake"): SystemOne => ({
   mode: "fake",
   model,
-  ask: async (state, questions) => ({ answers: fakeAnswers(state, questions), model, ms: 0, usage: ZERO, provider: "fake" }),
+  images: true,
+  ask: async (state, questions, opts) => {
+    checkImages(opts?.images);
+    return { answers: fakeAnswers(state, questions), model, ms: 0, usage: ZERO, provider: "fake" };
+  },
 });
 
 export const offSystemOne = (): SystemOne => ({
@@ -99,8 +147,9 @@ export function httpSystemOne(o: HttpOptions): SystemOne {
   const retryable = (e: S1Error) => e.code === "timeout" || (e.code === "http" && (e.status === 429 || e.status === 529));
 
   async function ask(state: unknown, questions: S1Questions, opts: AskOptions = {}): Promise<S1Reply> {
+    refuseImages(o.provider ?? "This System One provider", opts);
     const t0 = Date.now();
-    const key = opts.cacheKey ?? cacheKeyFor(state, questions, o.model);
+    const key = askCacheKey(state, questions, o.model, opts);
     const hit = cache.get(key);
     if (hit) return hit;
     const { timeoutMs = 2500, retries = 1, backoffMs = 200 } = opts;

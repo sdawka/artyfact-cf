@@ -17,23 +17,26 @@ import {
   reviewDeltaState,
   topologyQuestions,
   topologyState,
+  visualQuestions,
+  visualState,
   type AttachCandidate,
   type KindOption,
+  type VisualSubject,
 } from './questions';
-import type { Answer, Level, Provenance, Questions, S1Reply, SystemOne, Verdict } from './types';
+import type { Answer, AskOptions, Level, Provenance, Questions, S1Image, S1Reply, SystemOne, Verdict } from './types';
 
 export type ChoiceJudgment = { choice: string; outcome: string; probabilities: Record<string, number>; confidence: number };
 export type ScoreJudgment = { score: number; probabilities: Record<string, number>; confidence: number };
 
 type Run = { reply: S1Reply | null; provenance: Provenance };
 
-async function run(s1: SystemOne, state: unknown, questions: Questions): Promise<Run> {
+async function run(s1: SystemOne, state: unknown, questions: Questions, opts?: AskOptions): Promise<Run> {
   const stateHash = hashOf(state);
   const questionHash = hashOf(questions);
   const thresholds = DEFAULT_THRESHOLDS;
   const t0Ask = Date.now();
   try {
-    const reply = await s1.ask(state, questions);
+    const reply = await s1.ask(state, questions, opts);
     return { reply, provenance: { provider: reply.provider, model: reply.model, questionHash, stateHash, thresholds, ms: reply.ms, usage: reply.usage } };
   } catch (e) {
     const error = e instanceof S1Error ? { name: e.name, code: e.code, status: e.status, message: e.message } : { name: (e as Error)?.name ?? 'Error', message: String((e as Error)?.message ?? e) };
@@ -206,3 +209,37 @@ export const classifyStatements = (s1: SystemOne, sentences: string[], kinds: Ki
       return { sentence, kind: choice(r, 'kind'), attachTo: choice(r, 'attachTo'), isDistinctiveChoice, verdict: verdictOf(isDistinctiveChoice), provenance: r.provenance };
     }),
   );
+
+// ── visual ───────────────────────────────────────────────────────────────────────────────────────
+export type VisualResult = {
+  criterionId: string;
+  /** Probability the screenshots show the claim satisfied. */
+  satisfies: number | null;
+  /** The plainest concern; Clef answers with probabilities only, so this choice stands in for a reason. */
+  concern: ChoiceJudgment | null;
+  images: number;
+  verdict: Verdict;
+  provenance: Provenance;
+};
+
+/**
+ * One criterion judged from screenshots: `images` go with the ask, in the order `v.images` labels them. Pass needs
+ * satisfies ≥ 0.9, fail ≤ 0.1; a provider that cannot read images, or no images, is `unknown` with the reason in
+ * provenance.error, never a pass from text alone.
+ */
+export async function visualCriterion(s1: SystemOne, v: VisualSubject, images: S1Image[], opts: Omit<AskOptions, 'images'> = {}): Promise<VisualResult> {
+  if (images.length !== v.images.length) throw new Error(`visualCriterion: ${images.length} image(s) but ${v.images.length} label(s)`);
+  const state = visualState(v);
+  const questions = visualQuestions(v);
+  const r: Run = images.length
+    ? await run(s1, state, questions, { ...opts, images })
+    : {
+        reply: null,
+        provenance: {
+          provider: 'none', model: s1.model, stateHash: hashOf(state), questionHash: hashOf(questions), thresholds: DEFAULT_THRESHOLDS, ms: 0,
+          usage: { input_tokens: 0, output_tokens: 0 }, error: { name: 'NoImages', message: 'No screenshots to judge.' },
+        },
+      };
+  const satisfies = noul(r, 'satisfies');
+  return { criterionId: v.criterion.id, satisfies, concern: choice(r, 'concern'), images: images.length, verdict: verdictOf(satisfies), provenance: r.provenance };
+}
