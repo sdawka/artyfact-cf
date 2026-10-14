@@ -1,6 +1,6 @@
 import * as DialogPrimitive from "@radix-ui/react-dialog";
 import { Command } from "cmdk";
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router";
 import { Kbd } from "@/components/Kbd/Kbd";
 import { Count } from "@/components/Count/Count";
@@ -79,19 +79,31 @@ export function PaletteFrame({ open, onOpenChange, placeholder, footer, children
   onOpenChange(open: boolean): void;
   placeholder: string;
   footer?: ReactNode;
-  /** Groups for the current query. */
-  children(query: string): ReactNode;
+  /**
+   * Groups for the current query. `closeThen(run)` closes the palette and runs `run` once it has closed, instead of the
+   * palette's focus restore: an action that opens another overlay (the admin token popover) would otherwise be closed
+   * again by that focus move.
+   */
+  children(query: string, closeThen: (run: () => void) => void): ReactNode;
   onCloseAutoFocus?: (event: Event) => void;
 }) {
   const effects = useEffectsPreference();
   const [query, setQuery] = useState("");
+  const afterClose = useRef<(() => void) | null>(null);
+  const closeThen = (run: () => void) => { afterClose.current = run; setQuery(""); onOpenChange(false); };
   const off = !effects.enabled;
   return (
     <DialogPrimitive.Root open={open} onOpenChange={(next) => { if (!next) setQuery(""); onOpenChange(next); }}>
       <DialogPrimitive.Portal>
         <DialogPrimitive.Overlay className={`${styles.overlay} ${off ? styles.motionOff : ""}`} />
         <DialogPrimitive.Content aria-describedby={undefined} data-effects={effects.enabled ? "on" : "off"} className={`${styles.content} ${off ? styles.motionOff : ""}`}
-          onCloseAutoFocus={onCloseAutoFocus}>
+          onCloseAutoFocus={(event) => {
+            const run = afterClose.current;
+            afterClose.current = null;
+            if (!run) return onCloseAutoFocus?.(event);
+            event.preventDefault();
+            run();
+          }}>
           <DialogPrimitive.Title className="sr-only">Go to</DialogPrimitive.Title>
           <Command vimBindings={false} shouldFilter={false} label="Go to" className={styles.dialog} data-effects={effects.enabled ? "on" : "off"}>
             <Command.Input className={styles.input} placeholder={placeholder} value={query} onValueChange={setQuery} />
@@ -99,7 +111,7 @@ export function PaletteFrame({ open, onOpenChange, placeholder, footer, children
               <Command.Empty className={styles.empty}>
                 {query.trim() ? <>Nothing matches “{query.trim()}”. Try a name or an id such as <code>thing.webapp</code>.</> : "Nothing to show."}
               </Command.Empty>
-              {children(query)}
+              {children(query, closeThen)}
             </Command.List>
           </Command>
           {footer}
@@ -129,7 +141,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
 
   return (
     <PaletteFrame open={open} onOpenChange={onOpenChange} placeholder="Go to a view, node or action…" footer={<PaletteFooter siblings={!!focusId} />}>
-      {(query) => {
+      {(query, closeThen) => {
         const viewRows = RAIL_ORDER.filter((v) => !VIEW_KINDS[v] || views.declares(VIEW_KINDS[v]!))
           .filter((v) => paletteScore(query, [VIEW_LABELS[v], "view"]) > 0);
         const nodes = index.entries
@@ -140,7 +152,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
         const describe = anchor ? `Describe a change (anchored to ${titleOf(anchor, views.of(anchor.kind))})` : "Describe a change";
         const actions: { id: string; label: string; keywords: string[]; run(): void }[] = [
           { id: "describe", label: describe, keywords: ["describe", "change", "intent", "propose", "work"], run: () => go(href("work", { panel: "intent", anchor: anchor?.id ?? null })) },
-          { id: "admin", label: "Admin token…", keywords: ["admin", "token", "auth"], run: () => { close(); window.dispatchEvent(new Event(OPEN_ADMIN_TOKEN_EVENT)); } },
+          { id: "admin", label: "Admin token…", keywords: ["admin", "token", "auth"], run: () => closeThen(() => window.dispatchEvent(new Event(OPEN_ADMIN_TOKEN_EVENT))) },
           ...(fixture ? [{ id: "retry", label: "Retry API", keywords: ["retry", "api", "fixture", "reconnect"], run: () => { close(); retry(); } }] : []),
           { id: "effects", label: effects.enabled ? "Effects: turn off" : "Effects: turn on", keywords: ["effects", "ambient", "animation", "motion", "glow"], run: () => { close(); effects.toggle(); } },
         ].filter((a) => paletteScore(query, [a.label, ...a.keywords]) > 0);

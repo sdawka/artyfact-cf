@@ -51,6 +51,25 @@ test.describe("shell", () => {
     await expect(button).toBeFocused();
   });
 
+  for (const [where, path] of [["Home", "/"], ["a System", "/overview"]] as const) {
+    test(`palette Admin token… on ${where} leaves the token popover open with focus in the input`, async ({ page }) => {
+      if (path === "/") await page.goto("/");
+      else await open(page, path, "Peopling");
+      await expect(page.getByRole("button", { name: /Admin token/ })).toBeVisible();
+      await page.keyboard.press("Control+k");
+      const palette = page.getByRole("dialog", { name: "Go to", exact: true });
+      await expect(palette).toBeVisible();
+      await page.getByRole("combobox").fill("admin");
+      await page.getByRole("option", { name: /Admin token/ }).click();
+      await expect(palette).toBeHidden();
+      const input = page.getByLabel("Token for admin actions");
+      await expect(input).toBeFocused();
+      await page.waitForTimeout(300);
+      await expect(page.getByRole("dialog", { name: "Admin token" })).toBeVisible();
+      await expect(input).toBeFocused();
+    });
+  }
+
   test("Escape closes the Inspector", async ({ page }) => {
     await page.goto(`${SYSTEM}/journeys?journey=J.contacts&step=s2&focus=J.contacts%2Fs2`);
     const inspector = page.getByRole("complementary", { name: "Inspector" });

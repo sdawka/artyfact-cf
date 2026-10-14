@@ -24,11 +24,11 @@ export function HomePalette({ open, onOpenChange, systems, parts, returnFocus, r
   return (
     <PaletteFrame open={open} onOpenChange={onOpenChange} placeholder="Go to a System, Part or action…" footer={<PaletteFooter />}
       onCloseAutoFocus={(event) => { event.preventDefault(); const target = returnFocus?.current; (target?.isConnected ? target : document.getElementById("main"))?.focus(); }}>
-      {(query) => {
+      {(query, closeThen) => {
         const sys = systems.filter((s) => paletteScore(query, [s.systemId, s.title]) > 0);
         const shared = parts.filter((p) => p.scope.kind === "shared" && paletteScore(query, [`${p.partId}@${p.version}`, p.name || p.partId]) > 0);
         const actions = [
-          { id: "admin", label: "Admin token…", keywords: ["admin", "token", "auth"], run: () => { onOpenChange(false); window.dispatchEvent(new Event(OPEN_ADMIN_TOKEN_EVENT)); } },
+          { id: "admin", label: "Admin token…", keywords: ["admin", "token", "auth"], run: () => closeThen(() => window.dispatchEvent(new Event(OPEN_ADMIN_TOKEN_EVENT))) },
           ...(retry ? [{ id: "retry", label: "Retry API", keywords: ["retry", "api", "fixture"], run: () => { onOpenChange(false); retry(); } }] : []),
           { id: "effects", label: effects.enabled ? "Effects: turn off" : "Effects: turn on", keywords: ["effects", "ambient", "animation", "motion"], run: () => { onOpenChange(false); effects.toggle(); } },
         ].filter((a) => paletteScore(query, [a.label, ...a.keywords]) > 0);

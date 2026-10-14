@@ -40,6 +40,24 @@ describe("Shell", () => {
     await waitFor(() => expect(screen.queryByRole("dialog", { name: title })).toBeNull());
   });
 
+  it.each([["/"], [`${BASE}/overview`]])("palette Admin token… opens the token popover and keeps it open with focus in the input at %s", async (path) => {
+    renderApp(path);
+    await screen.findByRole("button", { name: "Admin token" });
+    key("k", { metaKey: true });
+    const palette = await screen.findByRole("dialog", { name: "Go to" });
+    const combobox = within(palette).getByRole("combobox");
+    await act(() => void fireEvent.change(combobox, { target: { value: "admin" } }));
+    const item = await within(palette).findByRole("option", { name: /Admin token/ });
+    await act(() => item.click());
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Go to" })).toBeNull());
+    const input = await screen.findByLabelText("Token for admin actions");
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    // Still open after the palette has finished closing and restoring focus.
+    await act(() => new Promise((r) => setTimeout(r, 50)));
+    expect(screen.getByLabelText("Token for admin actions")).toBe(input);
+    expect(document.activeElement).toBe(input);
+  });
+
   it("restores the Home palette trigger after Escape", async () => {
     renderApp("/");
     const trigger = await screen.findByRole("button", { name: "Go to…" });
