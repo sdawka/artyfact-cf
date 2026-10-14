@@ -1,16 +1,14 @@
 import "./testing/flowEnv";
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { CandidatesResponse, EvolutionsResponse } from "../../../shared/api";
 import { qk } from "@/api/queries";
-import * as elk from "@/graph/elk";
 import { renderApp } from "@/testing/render";
 
 const MAP = "/s/system.peopling/r/head/map";
 const SYS = "system.peopling";
 const nodeEl = (id: string) => document.querySelector(`[data-map-node="${id}"]`);
 const flowNode = (id: string) => document.querySelector<HTMLElement>(`.react-flow__node[data-id="${id}"]`);
-const crumbs = () => within(screen.getByRole("navigation", { name: "Map scope" })).getAllByRole("listitem");
 /** React Flow places every node (children included) at its absolute flow position via `transform`. */
 const box = (id: string) => {
   const el = flowNode(id)!;
@@ -19,104 +17,173 @@ const box = (id: string) => {
 };
 const ready = (id: string) => waitFor(() => expect(nodeEl(id)).not.toBeNull(), { timeout: 4000 });
 
-describe("Map view", () => {
-  it("deep link: breadcrumbs, nested components and grey not-run phenome badges", async () => {
-    const { router } = renderApp(`${MAP}?focus=screen.people&layer=phenome`);
-    const crumbs = await screen.findByRole("navigation", { name: "Map scope" });
-    expect(within(crumbs).getAllByRole("listitem").map((li) => li.textContent?.replace(/^\//, "").replace(/, \w+$/, ""))).toEqual([
-      "Peopling",
-      "Peopling web app",
-      "UI",
-      "People",
-    ].map((s) => expect.stringContaining(s)) as unknown as string[]);
-    await waitFor(() => expect(nodeEl("component.SearchInput")).not.toBeNull(), { timeout: 4000 });
-    // children are nested: each child's box lies inside the scope group's box
-    expect(nodeEl("screen.people")?.getAttribute("data-role")).toBe("scope");
-    const group = box("screen.people");
-    for (const id of ["component.SearchInput", "component.AddContactDialog", "component.ContactCollection"]) {
-      const c = box(id);
-      expect(c.x, id).toBeGreaterThanOrEqual(group.x);
-      expect(c.y, id).toBeGreaterThan(group.y);
-      expect(c.x + c.w, id).toBeLessThanOrEqual(group.x + group.w);
-      expect(c.y + c.h, id).toBeLessThanOrEqual(group.y + group.h);
-    }
-    expect(box("ext.owner").x + box("ext.owner").w).toBeLessThanOrEqual(group.x);
-    expect(flowNode("screen.people")!.getAttribute("aria-label")).toMatch(/evidence 0 pass, 0 fail, 0 unknown, 0 stale, \d+ not run/);
-    // phenome counters: nothing promoted in fixture mode, so not-run (grey), never pass
-    const badge = document.querySelector('[data-map-phenome="screen.people"]')!;
-    const notRun = badge.querySelector('[data-counter="notRun"]')!;
-    expect(notRun.getAttribute("data-tone")).toBe("subtle");
-    expect(notRun.textContent).toMatch(/[1-9]/);
-    expect(badge.querySelector('[data-counter="pass"]')!.textContent).toMatch(/0/);
-    expect(router.state.location.search).toContain("focus=screen.people");
+describe("System atlas", () => {
+  it("starts in the environment and offers navigation on demand", async () => {
+    const { router } = renderApp(MAP);
+    await ready(SYS);
+    expect(screen.getByRole("navigation", { name: "Map scope" }).textContent).toContain("Environment");
+    expect(nodeEl("ext.owner")).not.toBeNull();
+    expect(screen.queryByRole("tree")).toBeNull();
+    expect(screen.queryByText("Node kinds")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Tree" }));
+    expect(await screen.findByRole("tree", { name: "Containment" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Enter Peopling" }));
+    await waitFor(() => expect(router.state.location.search).toContain("scope=system.peopling"));
   });
 
-  it("selecting a visible child keeps the scope; Backspace goes out to the parent", async () => {
-    const { router } = renderApp(`${MAP}?focus=screen.people`);
-    await waitFor(() => expect(nodeEl("component.AddContact")).not.toBeNull(), { timeout: 4000 });
+  it("selects without Details and keeps scope and tile geometry across overlays", async () => {
+    const { router } = renderApp(`${MAP}?scope=screen.people`);
+    await ready("component.AddContact");
+    const before = box("component.AddContact");
     fireEvent.click(nodeEl("component.AddContact")!);
     await waitFor(() => expect(router.state.location.search).toContain("focus=component.AddContact"));
-    expect(within(screen.getByRole("navigation", { name: "Map scope" })).getAllByRole("listitem")).toHaveLength(4);
-    fireEvent.keyDown(document.body, { key: "Backspace" });
-    await waitFor(() => expect(router.state.location.search).toContain("focus=section.ui"));
-    await waitFor(() => expect(within(screen.getByRole("navigation", { name: "Map scope" })).getAllByRole("listitem")).toHaveLength(3));
+    expect(router.state.location.search).toContain("scope=screen.people");
+    expect(router.state.location.search).not.toContain("inspect");
+    expect(screen.queryByRole("complementary", { name: "Inspector" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
+    await waitFor(() => expect(router.state.location.search).toContain("inspect=1"));
+    expect(box("component.AddContact")).toEqual(before);
+    await act(() => router.navigate(`${MAP}?scope=screen.people&focus=component.AddContact&layer=phenome`));
+    expect(box("component.AddContact")).toEqual(before);
   });
 
-  it("double-clicking a child makes it the new scope", async () => {
-    const { router } = renderApp(`${MAP}?focus=screen.people`);
-    await waitFor(() => expect(nodeEl("component.AddContactDialog")).not.toBeNull(), { timeout: 4000 });
+  it("enters containers, ignores leaf zoom, and goes up explicitly or by keyboard", async () => {
+    const { router } = renderApp(`${MAP}?scope=screen.people`);
+    await ready("component.AddContactDialog");
     fireEvent.doubleClick(nodeEl("component.AddContactDialog")!);
-    await waitFor(() => expect(router.state.location.search).toContain("focus=component.AddContactDialog"));
-    await waitFor(() => expect(nodeEl("component.AddContactDialog")?.getAttribute("data-role")).toBe("scope"), { timeout: 4000 });
-    await waitFor(() => expect(nodeEl("affordance.AddContactDialog.save")).not.toBeNull(), { timeout: 4000 });
+    await waitFor(() => expect(router.state.location.search).toContain("scope=component.AddContactDialog"));
+    await ready("affordance.AddContactDialog.save");
+    fireEvent.doubleClick(nodeEl("affordance.AddContactDialog.save")!);
+    expect(router.state.location.search).toContain("scope=component.AddContactDialog");
+    fireEvent.click(screen.getByRole("button", { name: "Up" }));
+    await waitFor(() => expect(router.state.location.search).toContain("scope=screen.people"));
+    fireEvent.keyDown(document.body, { key: "Backspace" });
+    await waitFor(() => expect(router.state.location.search).toContain("scope=section.ui"));
   });
+
+  it("reveals selected connections and retains original endpoint paths with Locate", async () => {
+    renderApp(`${MAP}?scope=screen.people`);
+    await ready("component.AddContactDialog");
+    expect(document.querySelectorAll("[data-edge-type]")).toHaveLength(0);
+    fireEvent.click(screen.getByRole("checkbox", { name: "Show all connections" }));
+    await waitFor(() => expect(document.querySelectorAll("[data-edge-type]").length).toBeGreaterThan(0));
+    fireEvent.click(nodeEl("component.AddContactDialog")!);
+    fireEvent.click(screen.getByRole("button", { name: /Connections \(/ }));
+    expect(screen.getByRole("region", { name: "Selected connections" }).textContent).toContain("Peopling");
+    expect(screen.getAllByRole("button", { name: /^Locate / }).length).toBeGreaterThan(0);
+  });
+
+  it("selected scope lists descendant boundary endpoints with outside context discovery", async () => {
+    renderApp(`${MAP}?scope=screen.people&focus=screen.people`);
+    await ready("component.ContactCollection");
+    fireEvent.click(screen.getByRole("button", { name: /Connections \(/ }));
+    const list = screen.getByRole("region", { name: "Selected connections" });
+    expect(within(list).getAllByRole("button", { name: "Locate ContactRecord" }).length).toBeGreaterThan(0);
+    expect(within(list).getAllByRole("button", { name: "Locate Create or edit private contact" }).length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /zoom in/i }));
+    fireEvent.click(screen.getByRole("button", { name: /zoom in/i }));
+    await waitFor(() => expect(screen.getByLabelText("Offscreen connections").textContent).toContain("ContactRecord"));
+  });
+
+  it('Tree Locate selects a direct child hidden by a filter without changing scope', async () => {
+  const { router } = renderApp(`${MAP}?scope=screen.people`);
+  await waitFor(() => expect(nodeEl('component.AddContactDialog')).not.toBeNull());
+  fireEvent.click(screen.getByRole('button', { name: 'Filters' }));
+  const kinds = screen.getByRole('group', { name: 'Kinds shown' });
+  const checkbox = within(kinds).getByRole('checkbox', { name: /Component/ });
+  fireEvent.click(checkbox);
+  await waitFor(() => expect(nodeEl('component.AddContactDialog')).toBeNull());
+  fireEvent.click(screen.getByRole('button', { name: 'Tree' }));
+  const tree = screen.getByRole('tree', { name: 'Containment' });
+  const row = within(tree).getAllByRole('treeitem').find(el => el.textContent?.includes('AddContactDialog'))!;
+  const before = document.querySelector<HTMLElement>('.react-flow__viewport')!.style.transform;
+  fireEvent.click(row);
+  await waitFor(() => expect(nodeEl('component.AddContactDialog')).not.toBeNull());
+  expect(new URLSearchParams(router.state.location.search).get('focus')).toBe('component.AddContactDialog');
+  expect(new URLSearchParams(router.state.location.search).get('scope')).toBe('screen.people');
+  expect(router.state.historyAction).toBe('REPLACE');
+  await waitFor(() => expect(document.querySelector<HTMLElement>('.react-flow__viewport')!.style.transform).not.toBe(before));
 });
 
-describe("Map scope rules", () => {
-  it("focusing an object with no Map place (a requirement) keeps the view", async () => {
-    const { router } = renderApp(`${MAP}?focus=screen.people`);
-    await ready("component.AddContact");
-    await act(() => router.navigate(`${MAP}?focus=S.webapp.scope`));
-    await waitFor(() => expect(router.state.location.search).toContain("S.webapp.scope"));
-    expect(crumbs()).toHaveLength(4);
-    expect(nodeEl("screen.people")?.getAttribute("data-role")).toBe("scope");
+
+  it('does not replay consumed palette Locate after leaving Map and going Back to a panned scope', async () => {
+  const { router } = renderApp(`${MAP}?scope=environment`);
+  await waitFor(() => expect(nodeEl('system.peopling')).not.toBeNull());
+  await act(async () => void fireEvent.keyDown(window, { key: 'k', metaKey: true }));
+  const dialog = await screen.findByRole('dialog');
+  const input = within(dialog).getByRole('combobox');
+  await act(async () => void fireEvent.change(input, { target: { value: 'AddContactDialog.save' } }));
+  await waitFor(() => expect(within(dialog).getAllByRole('option')[0]!.getAttribute('aria-selected')).toBe('true'));
+  await act(async () => void fireEvent.keyDown(input, { key: 'Enter' }));
+  await waitFor(() => expect(nodeEl('affordance.AddContactDialog.save')).not.toBeNull());
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+  const viewport = () => document.querySelector<HTMLElement>('.react-flow__viewport')!.style.transform;
+  const initial = viewport();
+  fireEvent.wheel(document.querySelector('.react-flow__pane')!, { deltaY: 180 });
+  await waitFor(() => expect(viewport()).not.toBe(initial));
+  const panned = viewport();
+  fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
+  await screen.findByRole('heading', { name: 'Overview', level: 1 });
+  await act(() => router.navigate(-1));
+  await waitFor(() => expect(nodeEl('affordance.AddContactDialog.save')).not.toBeNull());
+  await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
+  expect(viewport()).toBe(panned);
+  expect(router.state.historyAction).toBe("POP");
+  expect(new URLSearchParams(router.state.location.search).get("focus")).toBe("affordance.AddContactDialog.save");
+});
+
+  it("restores a camera changed by a single ordinary-wheel tick after Enter and Up", async () => {
+    renderApp(MAP);
+    await ready(SYS);
+    const viewport = () => document.querySelector<HTMLElement>(".react-flow__viewport")!.style.transform;
+    const initial = viewport();
+    fireEvent.wheel(document.querySelector(".react-flow__pane")!, { deltaY: 90 });
+    await waitFor(() => expect(viewport()).not.toBe(initial));
+    const panned = viewport();
+    fireEvent.click(screen.getByRole("button", { name: "Enter Peopling" }));
+    await ready("thing.webapp");
+    fireEvent.click(screen.getByRole("button", { name: "Up" }));
+    await waitFor(() => expect(viewport()).toBe(panned));
   });
 
-  it("focusing a criterion whose subject is on screen keeps the view; a subject elsewhere re-scopes", async () => {
-    const { router } = renderApp(`${MAP}?focus=screen.people`);
-    await ready("entity.ContactRecord");
-    await act(() => router.navigate(`${MAP}?focus=C.webapp.contact.storage`));
-    expect(crumbs()).toHaveLength(4);
-    await act(() => router.navigate(`${MAP}?focus=component.GoalForm`));
-    await waitFor(() => expect(crumbs().at(-1)?.textContent).toContain("GoalForm"));
+  it("Locate reveals the actual endpoint in its immediate parent scope", async () => {
+    const { router } = renderApp(`${MAP}?scope=screen.people&focus=component.AddContactDialog`);
+    await ready("component.AddContactDialog");
+    fireEvent.click(screen.getByRole("button", { name: /Connections \(/ }));
+    const list = screen.getByRole("region", { name: "Selected connections" });
+    const target = within(list).getAllByRole("button", { name: /^Locate / })[0]!;
+    fireEvent.click(target);
+    await waitFor(() => expect(router.state.location.search).not.toContain("scope=screen.people"));
+    const selected = new URLSearchParams(router.state.location.search).get("focus")!;
+    await ready(selected);
+    expect(flowNode(selected)?.getAttribute("aria-label")).toBeTruthy();
   });
 
-  it("clicking and hovering visible nodes never re-runs elk", async () => {
-    const spy = vi.spyOn(elk, "layoutGraph");
-    const { router } = renderApp(`${MAP}?focus=screen.people`);
-    await ready("component.AddContact");
-    const runs = spy.mock.calls.length;
-    fireEvent.mouseEnter(flowNode("component.ContactCollection")!);
-    fireEvent.click(nodeEl("component.AddContact")!);
-    await waitFor(() => expect(router.state.location.search).toContain("focus=component.AddContact"));
-    fireEvent.mouseLeave(flowNode("component.ContactCollection")!);
-    expect(spy.mock.calls.length).toBe(runs);
+  it("keyboard Enter enters a container and keeps focus on its new scope frame", async () => {
+    renderApp(`${MAP}?scope=screen.people`);
+    await ready("component.AddContactDialog");
+    flowNode("component.AddContactDialog")!.focus();
+    fireEvent.keyDown(flowNode("component.AddContactDialog")!, { key: "Enter" });
+    await ready("affordance.AddContactDialog.save");
+    await waitFor(() => expect(document.activeElement).toBe(flowNode("component.AddContactDialog")));
   });
 
-  it("double-clicking a leaf opens its container, not an empty frame", async () => {
-    const { router } = renderApp(`${MAP}?focus=screen.people`);
-    await ready("entity.ContactRecord");
-    fireEvent.doubleClick(nodeEl("entity.ContactRecord")!);
-    await waitFor(() => expect(router.state.location.search).toContain("focus=entity.ContactRecord"));
-    await waitFor(() => expect(crumbs().at(-1)?.textContent).toContain("Contacts"));
-    await waitFor(() => expect(nodeEl("entity.ContactRecord")?.getAttribute("data-role")).toBe("child"), { timeout: 4000 });
-  });
-
-  it("Backspace moves keyboard focus to the new scope frame", async () => {
-    renderApp(`${MAP}?focus=screen.people`);
-    await ready("component.AddContact");
-    fireEvent.keyDown(document.body, { key: "Backspace" });
-    await waitFor(() => expect(document.activeElement).toBe(flowNode("section.ui")), { timeout: 4000 });
+  it("ordinary wheel pans while modified wheel and actual pinch navigate once per gesture", async () => {
+    const { router } = renderApp(`${MAP}?scope=screen.people&focus=component.AddContactDialog`);
+    await ready("component.AddContactDialog");
+    const canvas = screen.getByTestId("atlas-canvas");
+    fireEvent.wheel(canvas, { deltaY: -300 });
+    expect(router.state.location.search).toContain("scope=screen.people");
+    fireEvent.wheel(canvas, { deltaY: -160, ctrlKey: true });
+    await waitFor(() => expect(router.state.location.search).toContain("scope=component.AddContactDialog"));
+    fireEvent.wheel(canvas, { deltaY: 300, ctrlKey: true });
+    expect(router.state.location.search).toContain("scope=component.AddContactDialog");
+    fireEvent.touchStart(canvas, { touches: [{ clientX: 0, clientY: 0 }, { clientX: 100, clientY: 0 }] });
+    fireEvent.touchMove(canvas, { touches: [{ clientX: 0, clientY: 0 }, { clientX: 65, clientY: 0 }] });
+    await waitFor(() => expect(router.state.location.search).toContain("scope=screen.people"));
+    fireEvent.touchMove(canvas, { touches: [{ clientX: 0, clientY: 0 }, { clientX: 20, clientY: 0 }] });
+    expect(router.state.location.search).toContain("scope=screen.people");
+    fireEvent.touchEnd(canvas, { touches: [] });
   });
 });
 
@@ -160,6 +227,7 @@ describe("Candidate overlay", () => {
 describe("HierarchyTree", () => {
   it("navigates with the keyboard and selects with Enter", async () => {
     const { router } = renderApp(`${MAP}?focus=screen.people`);
+    fireEvent.click(await screen.findByRole("button", { name: "Tree" }));
     const tree = await screen.findByRole("tree", { name: "Containment" });
     const active = () => document.getElementById(tree.getAttribute("aria-activedescendant")!)!;
     expect(active().textContent).toContain("People");
@@ -189,6 +257,7 @@ describe("HierarchyTree", () => {
 
   it("windows rows: only a slice of a long tree is in the DOM", async () => {
     renderApp(`${MAP}?focus=component.AddContactNameField`);
+    fireEvent.click(await screen.findByRole("button", { name: "Tree" }));
     const tree = await screen.findByRole("tree", { name: "Containment" });
     const rendered = within(tree).getAllByRole("treeitem").length;
     const total = Number((tree.firstElementChild as HTMLElement).style.height.replace("px", "")) / 28;

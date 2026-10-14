@@ -5,7 +5,7 @@ import { VIEWS, type ViewName } from "./kinds";
 export const DEFAULT_REV = "head";
 
 /** Search params every nav link carries across views. View-specific params (journey, step, ...) are dropped. */
-export const GLOBAL_PARAMS = ["focus", "layer", "candidates"] as const;
+export const GLOBAL_PARAMS = ["focus", "layer", "candidates", "scope"] as const;
 
 export const LAYERS = ["genome", "proteome", "phenome"] as const;
 export type Layer = (typeof LAYERS)[number];
@@ -31,7 +31,7 @@ export const thingPath = (systemId: string, rev: string, thingId: string) =>
 
 /**
  * Returns `href(target, extra?)`: a link to a view (or any path) that keeps `focus`, `layer`
- * and `candidates`. `extra` adds params; a `null` value removes one.
+ * and `candidates`, plus the Map scope for returning to the atlas. `extra` adds params; a `null` value removes one.
  */
 export function useKeepParams() {
   const [params] = useSearchParams();
@@ -44,12 +44,13 @@ export function useKeepParams() {
         const v = params.get(k);
         if (v !== null) next.set(k, v);
       }
-      if (thingId && target === "map" && !next.has("focus")) next.set("focus", thingId);
+      if (thingId && target === "map" && !next.has("focus") && !next.has("scope")) next.set("focus", thingId);
       for (const [k, v] of Object.entries(extra)) {
         if (v === null) next.delete(k);
         else next.set(k, v);
       }
-      const path = isView(target) ? (thingId ? `${thingPath(systemId, rev, thingId)}/${target}` : viewPath(systemId, rev, target)) : target;
+      const inThing = thingId && !(target === "map" && next.has("scope"));
+      const path = isView(target) ? (inThing ? `${thingPath(systemId, rev, thingId)}/${target}` : viewPath(systemId, rev, target)) : target;
       const qs = next.toString();
       return qs ? `${path}?${qs}` : path;
     },
@@ -87,9 +88,10 @@ export function useSelection(): Selection {
         const next = new URLSearchParams(prev);
         if (value === null || value === "") next.delete(key);
         else next.set(key, value);
+        if (key === "focus") next.delete("inspect");
         return next;
-      }),
-    [setParams],
+      }, { replace: current === "map" }),
+    [setParams, current],
   );
 
   const setFocus = useCallback(

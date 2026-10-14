@@ -3,7 +3,9 @@ import { Drawer } from "@/components/Drawer/Drawer";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { Tabs } from "@/components/Tabs/Tabs";
 import { useModel } from "@/model/useModel";
-import { useSelection } from "@/model/useSelection";
+import { useSearchParams } from "react-router";
+import { useAtlasNavigation } from "@/model/useAtlasNavigation";
+import { useSelection, useSystemRoute } from "@/model/useSelection";
 import { InspectorHeader } from "./InspectorHeader";
 import { useTabComponent } from "./tabRegistry";
 import { INSPECTOR_TABS, type InspectorTab } from "./tabs";
@@ -19,9 +21,13 @@ const readWidth = () => {
   }
 };
 
-/** Right-hand Inspector; open iff `?focus=` is set. */
+/** Map opens Details explicitly; other views inspect their focused object automatically. */
 export function InspectorDrawer() {
   const { focusId, clear } = useSelection();
+  const { view } = useSystemRoute();
+  const [params] = useSearchParams();
+  const { closeDetails } = useAtlasNavigation();
+  const close = view === "map" ? closeDetails : clear;
   const m = useModel();
   const [width, setWidth] = useState(readWidth);
   const [tab, setTab] = useState<InspectorTab>("what");
@@ -36,7 +42,7 @@ export function InspectorDrawer() {
   const container = useRef<HTMLDivElement>(null);
   const returnTo = useRef<HTMLElement | null>(null);
   const wasOpen = useRef(false);
-  const open = !!focusId;
+  const open = !!focusId && (view !== "map" || params.get("inspect") === "1");
 
   // Focus management (non-modal): on open remember where focus was and move it to the title;
   // when the focused node changes and focus was lost (e.g. the clicked chip unmounted), refocus
@@ -69,7 +75,7 @@ export function InspectorDrawer() {
       <div ref={container} className={styles.inspector}>
         {entry ? (
           <>
-            <InspectorHeader entry={entry} />
+            <InspectorHeader entry={entry} onClose={close} />
             <Tabs<InspectorTab> tabs={INSPECTOR_TABS} value={tab} onChange={setTab} label="Inspector sections">
               <Body entry={entry} />
             </Tabs>
@@ -78,7 +84,7 @@ export function InspectorDrawer() {
           <EmptyState
             title={`Nothing in this revision has the id ${focusId ?? ""}.`}
             action={
-              <button type="button" className={`u-brackets ${styles.close}`} onClick={clear} data-inspector-title>
+              <button type="button" className={`u-brackets ${styles.close}`} onClick={close} data-inspector-title>
                 Close
               </button>
             }

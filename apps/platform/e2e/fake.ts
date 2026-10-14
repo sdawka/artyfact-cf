@@ -70,7 +70,7 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   // the Evolution's affected nodes, so the Evolution comes from Work with section.runtime (where bindings live).
   // A Genome amendment: its default acceptance criteria are the model ones (app criteria would block the accept).
   await createEvolution(page, title, `Add ${title} to the runtime.`, ["section.runtime"], ADMIN_TOKEN, BASE, "genome-amendment");
-  await page.goto(`${BASE}/map?focus=section.runtime`);
+  await page.goto(`${BASE}/map?focus=section.runtime&inspect=1`);
   await page.getByRole("button", { name: "Open in Code" }).or(page.getByRole("link", { name: "Open in Code" })).first().click();
   await expect(page).toHaveURL(/\/code\?.*repo=genome/);
   await expect(page.getByRole("heading", { level: 1, name: "Code" })).toBeVisible();

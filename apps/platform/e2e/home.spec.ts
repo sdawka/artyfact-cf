@@ -40,7 +40,9 @@ test.describe("home with a populated API", () => {
     expect(green.every((h) => h.includes("build passed"))).toBe(true);
     await checkA11yAndShoot(page, testInfo, "home-populated");
     await peopling.click();
-    await expect(page.getByRole("heading", { level: 1, name: "Peopling web app" })).toBeVisible();
+    await expect(page).toHaveURL(/\/s\/system\.peopling\/r\/head\/map\?scope=environment$/);
+    await expect(page.getByRole("heading", { level: 1, name: "Map" })).toBeVisible();
+    await expect(page.locator('[data-map-node="system.peopling"]')).toBeVisible();
   });
 
   test("the Needs you ledger names what awaits review, and Go to… opens a palette @fixture", async ({ page }, testInfo) => {

@@ -72,19 +72,32 @@ test.describe("ambient shell", () => {
     await expect(page.locator("[data-shell-ambient]")).not.toHaveAttribute("data-accent", /./, { timeout: 4_000 });
   });
 
-  test("map: selection glows, its edges flow, and it ripples from the node", async ({ page }, testInfo) => {
+  test("map: selection has an inset ring, its edges flow, and it ripples from the node", async ({ page }, testInfo) => {
     await recordFx(page);
-    await page.goto(`${SYSTEM}/map`);
+    await page.goto(`${SYSTEM}/map?scope=thing.webapp`);
     await expect(page.getByRole("heading", { level: 1, name: "Map" })).toBeVisible();
-    const edge = page.locator(".react-flow__edge[aria-label^='Edge from']").first();
-    await expect(edge).toBeAttached();
-    const source = (await edge.getAttribute("aria-label"))!.replace(/^Edge from (\S+) to .*$/, "$1");
-    const node = page.locator(`.react-flow__node[data-id="${source}"]`);
-    // Where the node is when clicked (opening the Inspector refits the graph afterwards).
+    const node = page.locator('.react-flow__node[data-id="section.ui"]');
+    await expect(node).toBeVisible();
+    // Selection reveals connections without opening Details or moving the camera.
     const box = (await node.boundingBox())!;
     await node.click();
-    await expect(node.locator("[data-selected]")).toBeVisible();
-    await expect(node.locator("[data-selected]")).not.toHaveCSS("box-shadow", "none");
+    const selected = node.locator("[data-selected]");
+    await expect(selected).toBeVisible();
+    const brand = await selected.evaluate((element) => {
+      const probe = document.createElement("span");
+      probe.style.color = getComputedStyle(element).getPropertyValue("--color-brand-primary");
+      element.append(probe);
+      const color = getComputedStyle(probe).color;
+      probe.remove();
+      return color;
+    });
+    await expect(selected).toHaveCSS("outline-style", "solid");
+    await expect(selected).toHaveCSS("outline-width", "2px");
+    await expect(selected).toHaveCSS("outline-offset", "-3px");
+    await expect(selected).toHaveCSS("outline-color", brand);
+    // Hover glow can still be transitioning; the settled selection is an inset ring.
+    await page.mouse.move(10, 10);
+    await expect(selected).toHaveCSS("box-shadow", "none");
     await expect(page.locator("[data-edge-flow]").first()).toBeAttached();
     await expect.poll(async () => (await fxEvents(page)).filter((e) => e.kind === "select").length).toBeGreaterThan(0);
     const sel = (await fxEvents(page)).find((e) => e.kind === "select")!;
@@ -92,7 +105,6 @@ test.describe("ambient shell", () => {
     expect(sel.x!).toBeLessThanOrEqual(box.x + box.width + 1);
     expect(sel.y!).toBeGreaterThanOrEqual(box.y - 1);
     expect(sel.y!).toBeLessThanOrEqual(box.y + box.height + 1);
-    await page.mouse.move(10, 10);
     await page.waitForTimeout(300);
     await shot(page, "map-selection");
     await checkA11yAndShoot(page, testInfo, "ambient-map");

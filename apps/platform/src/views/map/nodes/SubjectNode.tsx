@@ -18,6 +18,8 @@ export function SubjectNode({ data, selected }: NodeProps<SubjectFlowNode>) {
       className={styles.node}
       data-map-node={node.id}
       data-role={node.role}
+      data-system={node.kind === "system" || undefined}
+      data-candidate-overlap={candidates.length > 1 || undefined}
       data-dim={dim || undefined}
       data-ring={(layer === "proteome" && realizations > 0) || undefined}
       data-selected={selected || undefined}
@@ -29,21 +31,23 @@ export function SubjectNode({ data, selected }: NodeProps<SubjectFlowNode>) {
         <span className={styles.name}>{name}</span>
       </div>
       <div className={styles.meta}>
-        <span className={styles.kind}>{node.role === "outside" ? `${info.label} · outside` : info.label}</span>
+        <span className={styles.kind}>{node.kind === "system" ? "System" : node.role === "outside" ? `${info.label} · outside this scope` : info.label}</span>
         {node.childCount > 0 && (
           <button
             type="button"
-            className={`nodrag nopan u-brackets ${styles.open}`}
+            className={`nodrag nopan ${styles.open}`}
             onClick={(e) => {
               e.stopPropagation();
               onOpen(node.id, e.detail === 0); // detail 0: activated from the keyboard
             }}
             aria-label={`Open ${node.name} (${node.childCount} inside)`}
           >
-            {node.childCount} inside ›
+            Enter · {node.childCount} inside
           </button>
         )}
       </div>
+      {node.description && <p className={styles.purpose}>{node.description}</p>}
+      {!!node.preview.length && <ul className={styles.preview} aria-label="Inside preview">{node.preview.map((child) => <li key={child.id}>{child.name}</li>)}</ul>}
       <div className={styles.badges}>
         <LayerBadges id={node.id} layer={layer} realizations={realizations} />
       </div>

@@ -3,12 +3,12 @@
 
 ## Now
 
-- Released the [approved lifecycle](../design/lifecycle.md): PR [#64](https://github.com/sdawka/artyfact-cf/pull/64) merged on green hosted CI at `df6dcdb`; site, platform and CI Worker are deployed. Original checkout and user changes are preserved.
-- Verified: full local CI, independent release review (38 targeted tests), public health/model and authenticated Realization/import/operations APIs for both existing Systems, plus desktop/mobile route and no-JavaScript model smoke checks. Detailed evidence: [[journals/2026-10-13-lifecycle]].
-- Production admin credential was rotated as authorized and the ignored local environment file updated. Live metrics and feature flags await operations bindings and credentials; no live Flagship behavior is claimed.
-- GRREAT protocol validates 7 records. Direct-RPC sync remains pending missing credentials and a separate Artyfact destination; earlier conflict checkpoints are preserved.
-- In progress: porting the task-planning work onto the released lifecycle (branch `lifecycle-port`); docs, runbook and site guide are updated for it. Evidence and scope: [[journals/2026-10-14-lifecycle-port]]. Next: integration, full CI and one PR; the runbook's plan flow is not yet walked on real Artifacts.
-- Last updated: 2026-10-14.
+- Released: [PR #66](https://github.com/sdawka/artyfact-cf/pull/66) merged at `4bc93a811f2251ec949e060e98d6bf4d081d8fbf` after all hosted checks passed. The polished System atlas is deployed to [artyfact-platform](https://artyfact-platform.dawka.workers.dev), Worker version `83e29bb9-0f2e-42c2-892a-a8aa496bf46b`, built from that exact merged revision.
+- Verified: final pre-push passed all five platform steps (2564 unit, 74 fixture and 13 fake browser tests; no retries). Authenticated desktop/mobile smoke passed on real Peopling, including environment/containment, Details, history/pan restoration, direct Thing Map, Work/Deployments and reduced motion; no serious/critical axe findings, overflow, writes or page errors. Evidence: [[journals/2026-10-13-system-atlas]].
+- In progress: porting the task-planning work onto the released lifecycle (branch `lifecycle-port`, now merged with the atlas); docs, runbook and site guide are updated for it. Evidence and scope: [[journals/2026-10-14-lifecycle-port]]. Next: full CI and one PR; the runbook's plan flow is not yet walked on real Artifacts.
+- Next action: resume direct-RPC sync when credentials and a separate Artyfact destination are available.
+- Blockers: direct-RPC sync remains pending missing credentials and a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
+- Last updated: 2026-10-13.
 
 ## Work history
 
@@ -19,6 +19,8 @@
 - [[journals/2026-10-13-model-page]]: settled public story chapters (#52).
 - [[journals/2026-10-13-design-pass]]: PR #47 merged; design pass decisions D1–D8 and slice PRs.
 
+- [[journals/2026-10-13-lifecycle]]: approved lifecycle released, PR #64 at `df6dcdb`.
+- [[journals/2026-10-13-system-atlas]]: nested System atlas released, PR #66.
 - [[journals/2026-10-14-lifecycle-port]]: task-planning port onto the lifecycle; docs, runbook and site guide.
 - [[journals/2026-10-13-ontology-driven-development]]: semantic-layer benefits and platform meta ontology explanation, site-only.
 

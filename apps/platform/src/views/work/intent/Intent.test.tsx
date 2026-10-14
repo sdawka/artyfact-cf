@@ -354,12 +354,13 @@ describe("Describe a change", () => {
   });
 
   it("the Inspector's Describe a change opens the panel anchored on the node", async () => {
-    const { router } = renderApp(`/s/${SYSTEM}/r/head/map?focus=screen.people`);
+    const { router } = renderApp(`/s/${SYSTEM}/r/head/map?focus=screen.people&inspect=1`);
     const link = await screen.findByRole("link", { name: "Describe a change" });
     act(() => link.click());
     await waitFor(() => expect(router.state.location.pathname).toBe(WORK));
     const p = new URLSearchParams(router.state.location.search);
     expect([p.get("panel"), p.get("anchor")]).toEqual(["intent", "screen.people"]);
+    expect(p.has("inspect")).toBe(false);
     expect(await screen.findByText("Starting from")).toBeTruthy();
   });
 

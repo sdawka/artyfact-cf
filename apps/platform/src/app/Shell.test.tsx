@@ -1,3 +1,4 @@
+import "@/views/map/testing/flowEnv";
 import type { QueryClient } from "@tanstack/react-query";
 import { act, cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
@@ -18,25 +19,26 @@ describe("Shell", () => {
     const card = await screen.findByRole("link", { name: /^Peopling$/ });
     expect(screen.queryByRole("navigation", { name: "Views" })).toBeNull();
     act(() => card.click());
-    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp`));
-    expect(await screen.findByRole("heading", { level: 1, name: "Peopling web app" })).toBeTruthy();
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/map`));
+    expect(await screen.findByRole("heading", { level: 1, name: "Map" })).toBeTruthy();
   });
 
-  it("redirects /s/:systemId to its sole Thing workspace", async () => {
+  it("opens the environment when entering a System with one Thing", async () => {
     const { router } = renderApp("/s/system.peopling");
-    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp`));
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/map`));
+    expect(search(router).get("scope")).toBe("environment");
   });
 
-  it("renders Overview plus three layer groups (4, 4, 1) whose links keep focus, layer and candidates", async () => {
+  it("renders Map above three layer groups (3, 4, 1) whose links keep focus, layer and candidates", async () => {
     renderApp(`${BASE}/overview?layer=phenome&focus=screen.people&candidates=c1&journey=J.contacts`);
     const nav = await screen.findByRole("navigation", { name: "Views" });
     const groups = within(nav).getAllByRole("group");
     expect(groups.map((g) => [g.getAttribute("aria-labelledby") && document.getElementById(g.getAttribute("aria-labelledby")!)?.textContent, within(g).getAllByRole("link").length])).toEqual([
-      ["Genome", 4], ["Proteome", 4], ["Phenome", 1],
+      ["Genome", 3], ["Proteome", 4], ["Phenome", 1],
     ]);
     const links = within(nav).getAllByRole("link");
     expect(links.map((l) => l.textContent)).toEqual([
-      "◎Overview", "▦Map", "⇢Journeys", "△Theory", "{}Code", "⎇Work", "◧Review", "✓Evaluations", "↺Changelog", "◍Deployments", "▧Private Parts",
+      "▦Map", "◎Overview", "⇢Journeys", "△Theory", "{}Code", "⎇Work", "◧Review", "✓Evaluations", "↺Changelog", "◍Deployments", "▧Private Parts",
     ]);
     expect(within(groups[2]!).getByRole("link", { name: /Deployments/ }).getAttribute("href")).toContain(`${BASE}/phenome`);
     expect(within(nav).getByRole("link", { name: "Private Parts" }).getAttribute("href")).toBe(`${BASE}/parts`);
@@ -192,6 +194,38 @@ describe("Shell", () => {
     await waitFor(() => expect(screen.queryByRole("complementary", { name: "Inspector" })).toBeNull());
     expect(search(router).get("focus")).toBeNull();
     expect(search(router).get("layer")).toBe("phenome");
+  });
+
+  it("Escape closes Map Details before clearing the selected tile", async () => {
+    const { router } = renderApp(`${BASE}/map?scope=thing.webapp&focus=screen.people&inspect=1`);
+    await screen.findByRole("complementary", { name: "Inspector" });
+    key("Escape");
+    await waitFor(() => expect(screen.queryByRole("complementary", { name: "Inspector" })).toBeNull());
+    expect(search(router).get("focus")).toBe("screen.people");
+    expect(search(router).get("scope")).toBe("thing.webapp");
+    expect(search(router).has("inspect")).toBe(false);
+    expect(router.state.historyAction).toBe("REPLACE");
+    key("Escape");
+    expect(search(router).get("focus")).toBeNull();
+    expect(search(router).get("scope")).toBe("thing.webapp");
+  });
+
+  it("leaves Map Details intact when Escape comes from a text field or the command palette", async () => {
+    const { router } = renderApp(`${BASE}/map?scope=thing.webapp&focus=screen.people&inspect=1`);
+    await screen.findByRole("complementary", { name: "Inspector" });
+    await act(() => screen.getByRole("button", { name: /^Admin token$/ }).click());
+    const token = screen.getByLabelText("Token for admin actions");
+    await act(() => void fireEvent.keyDown(token, { key: "Escape" }));
+    expect(search(router).get("inspect")).toBe("1");
+    expect(search(router).get("focus")).toBe("screen.people");
+    expect(screen.queryByRole("dialog", { name: "Admin token" })).toBeNull();
+    key("k", { metaKey: true });
+    const palette = await screen.findByRole("dialog");
+    await act(() => void fireEvent.keyDown(within(palette).getByRole("combobox"), { key: "Escape" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+    expect(search(router).get("inspect")).toBe("1");
+    expect(search(router).get("focus")).toBe("screen.people");
+    expect(search(router).get("scope")).toBe("thing.webapp");
   });
 
   it("does not render the Inspector without focus", async () => {
