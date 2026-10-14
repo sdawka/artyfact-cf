@@ -1,5 +1,5 @@
 .list { margin: 0; padding: 0; list-style: none; min-width: 0; }
-.row { display: flex; align-items: center; min-width: 0; border-bottom: 1px solid var(--color-border-faint); }
+.row { display: flex; flex-wrap: wrap; align-items: center; min-width: 0; border-bottom: 1px solid var(--color-border-faint); }
 .row:first-child { border-top: 1px solid var(--color-border-faint); }
 .target {
   flex: 1;
@@ -31,3 +31,4 @@
 @media (max-width: 639px) {
   .target { flex-wrap: wrap; padding-inline: var(--spacing-3); }
 }
+.detail { flex: 1 0 100%; min-width: 0; padding: var(--spacing-2) var(--spacing-4) var(--spacing-4); }

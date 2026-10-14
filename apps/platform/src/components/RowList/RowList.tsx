@@ -38,11 +38,15 @@ export interface RowProps {
   status?: ReactNode;
   /** Actions after the row target, outside the link (compact secondary buttons, a trailing link word). */
   trailing?: ReactNode;
+  /** Disclosure row (with `onSelect`): sets `aria-expanded` on the row button and shows `children` under it while true. */
+  expanded?: boolean;
+  /** The disclosure's content, rendered full width under the row while `expanded`. */
+  children?: ReactNode;
   className?: string;
 }
 
 /** One row. With `to` or `onSelect` the whole row is the target; `trailing` stays outside it. */
-export function Row({ to, onSelect, current, tone = "neutral", title, meta, status, trailing, className }: RowProps) {
+export function Row({ to, onSelect, current, tone = "neutral", title, meta, status, trailing, expanded, children, className }: RowProps) {
   const density = useContext(DensityContext);
   const body = (
     <>
@@ -57,12 +61,13 @@ export function Row({ to, onSelect, current, tone = "neutral", title, meta, stat
   const target = to !== undefined
     ? <Link to={to} className={`u-selectable ${styles.target}`} aria-current={sel}>{body}</Link>
     : onSelect
-      ? <button type="button" className={`u-selectable ${styles.target}`} aria-current={sel} onClick={onSelect}>{body}</button>
+      ? <button type="button" className={`u-selectable ${styles.target}`} aria-current={sel} aria-expanded={expanded} onClick={onSelect}>{body}</button>
       : <div className={`${styles.target} ${current ? "u-selected" : ""}`}>{body}</div>;
   return (
     <li className={[styles.row, className].filter(Boolean).join(" ")} data-density={density} data-interactive={to !== undefined || onSelect ? "" : undefined}>
       {target}
       {trailing && <span className={styles.trailing}>{trailing}</span>}
+      {expanded && children && <div className={styles.detail}>{children}</div>}
     </li>
   );
 }

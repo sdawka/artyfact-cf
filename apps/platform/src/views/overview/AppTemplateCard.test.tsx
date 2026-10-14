@@ -40,8 +40,8 @@ function stubApi(plan: TemplateUpgradePlan | TemplateUpgradeNoScaffold, onPost?:
 describe("App template card", () => {
   it("shows unknown on fixture data, with the button disabled and the standard reason", async () => {
     renderApp(OVERVIEW);
-    const card = await screen.findByRole("region", { name: "App template" });
-    expect(within(card).getByText("unknown")).toBeTruthy();
+    const card = await screen.findByRole("region", { name: "Facts" });
+    expect(within(card).getAllByText("unknown").length).toBeGreaterThan(0);
     const button = within(card).getByRole("button", { name: "Review upgrade" }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
     expect(within(card).getByText("Template upgrades need the platform API. The UI is showing fixture data.")).toBeTruthy();
@@ -54,8 +54,8 @@ describe("App template card", () => {
     renderApp(OVERVIEW, undefined, apiSeed);
     const fetched = () => (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.some(([u]) => String(u).includes("/template-upgrade"));
     await waitFor(() => expect(fetched()).toBe(true));
-    await screen.findByRole("heading", { name: "Overview" }).catch(() => undefined);
-    await waitFor(() => expect(screen.queryByRole("region", { name: "App template" })).toBeNull());
+    await screen.findByRole("region", { name: "Facts" });
+    await waitFor(() => expect(screen.queryByText("App template")).toBeNull());
     expect(error).not.toHaveBeenCalled();
     error.mockRestore();
   });
@@ -63,7 +63,7 @@ describe("App template card", () => {
   it("says up to date and keeps the button disabled", async () => {
     stubApi({ ...PLAN, upToDate: true, files: [] });
     renderApp(OVERVIEW, undefined, apiSeed);
-    const card = await screen.findByRole("region", { name: "App template" });
+    const card = await screen.findByRole("region", { name: "Facts" });
     expect(await within(card).findByText(/up to date with thing\/cloudflare-worker-webapp@1 at bbbbbbb/)).toBeTruthy();
     expect((within(card).getByRole("button", { name: "Review upgrade" }) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -75,27 +75,28 @@ describe("App template card", () => {
       return json(201, { realizationPlan: { id: "plan.upgrade" }, task: { id: "task.upgrade" }, realization: { id: "realization.12" }, candidate: { id: "candidate.12.r1" }, plan: PLAN });
     });
     const { router } = renderApp(OVERVIEW, undefined, apiSeed);
-    const card = await screen.findByRole("region", { name: "App template" });
+    const card = await screen.findByRole("region", { name: "Facts" });
     expect(await within(card).findByText(/5 files behind thing\/cloudflare-worker-webapp@1 at bbbbbbb/)).toBeTruthy();
     fireEvent.click(within(card).getByRole("button", { name: "Review upgrade" }));
+    const panel = await screen.findByRole("region", { name: /^Upgrade to thing\/cloudflare-worker-webapp@1/ });
 
     for (const [group, paths] of [["Add", ["src/worker/phenome.ts"]], ["Update", ["src/worker/env.ts"]], ["Remove", ["src/old.ts"]], ["Conflict", ["src/index.ts", "wrangler.jsonc"]]] as const) {
-      const g = within(card).getByRole("group", { name: new RegExp(`^${group}`) });
+      const g = within(panel).getByRole("group", { name: new RegExp(`^${group}`) });
       expect(within(g).getAllByRole("listitem").map((li) => li.querySelector("code")!.textContent)).toEqual(paths);
     }
-    const conflict = within(card).getByRole("group", { name: /^Conflict/ });
+    const conflict = within(panel).getByRole("group", { name: /^Conflict/ });
     expect(within(conflict).getAllByRole("checkbox")).toHaveLength(2);
     const compare = within(conflict).getAllByRole("link", { name: "Compare" })[0]!.getAttribute("href")!;
     expect(compare).toContain("/compare?");
     expect(compare).toContain("level=files");
     expect(compare).toContain("path=src%2Findex.ts");
-    expect(within(within(card).getByRole("group", { name: /^Add/ })).queryByRole("link", { name: "Compare" })).toBeNull();
+    expect(within(within(panel).getByRole("group", { name: /^Add/ })).queryByRole("link", { name: "Compare" })).toBeNull();
 
-    fireEvent.click(within(card).getByRole("checkbox", { name: "Use template version of src/index.ts" }));
-    const token = within(card).getByLabelText("Admin token") as HTMLInputElement;
+    fireEvent.click(within(panel).getByRole("checkbox", { name: "Use template version of src/index.ts" }));
+    const token = within(panel).getByLabelText("Admin token") as HTMLInputElement;
     expect(token.type).toBe("password");
     fireEvent.change(token, { target: { value: "adm_x" } });
-    fireEvent.click(within(card).getByRole("button", { name: "Start upgrade" }));
+    fireEvent.click(within(panel).getByRole("button", { name: "Start upgrade" }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe(`/s/${SYSTEM}/r/head/work`));
     expect(posts).toEqual([{ body: { include: ["src/index.ts"] }, auth: "Bearer adm_x" }]);
@@ -107,10 +108,11 @@ describe("App template card", () => {
   it("says plainly when the admin token is refused", async () => {
     stubApi(PLAN, () => json(403, { error: { code: "forbidden", message: "nope" } }));
     renderApp(OVERVIEW, undefined, apiSeed);
-    const card = await screen.findByRole("region", { name: "App template" });
+    const card = await screen.findByRole("region", { name: "Facts" });
     await within(card).findByText(/5 files behind/);
     fireEvent.click(within(card).getByRole("button", { name: "Review upgrade" }));
-    fireEvent.click(within(card).getByRole("button", { name: "Start upgrade" }));
-    expect((await within(card).findByRole("alert")).textContent).toMatch(/admin token was refused \(403\)/);
+    const panel = await screen.findByRole("region", { name: /^Upgrade to/ });
+    fireEvent.click(within(panel).getByRole("button", { name: "Start upgrade" }));
+    expect((await within(panel).findByRole("alert")).textContent).toMatch(/admin token was refused \(403\)/);
   });
 });

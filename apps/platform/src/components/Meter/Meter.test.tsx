@@ -63,4 +63,22 @@ describe("Meter", () => {
     expect(container.querySelectorAll('[data-tone="subtle"]').length).toBeGreaterThan(0);
     expect(screen.getByText("unknown", { selector: "p" }).getAttribute("data-unknown")).not.toBeNull();
   });
+  it("links the title when given a destination, and never makes the region focusable", () => {
+    const seen: HTMLElement[] = [];
+    render(<Meter title="T" headline="h" caption="c" to="/s/x/map" onActivate={(el) => seen.push(el)} segments={[{ key: "p", label: "pass", count: 1, tone: "pass" }]} />);
+    const region = screen.getByRole("region", { name: "T" });
+    expect(region.getAttribute("tabindex")).toBeNull();
+    expect(screen.getByRole("link", { name: "T" }).getAttribute("href")).toBe("/s/x/map");
+  });
+  it("gives zero counts the neutral tone whatever the segment tone, and hatches a not-run segment", () => {
+    const { container } = render(
+      <Meter title="T" headline="h" caption="c" segments={[
+        { key: "f", label: "fail", count: 0, tone: "fail" },
+        { key: "n", label: "not run", count: 2, tone: "subtle", hatched: true },
+      ]} />,
+    );
+    expect(screen.getByText("fail").closest("li")!.getAttribute("data-tone")).toBe("subtle");
+    expect(container.querySelector('[data-tone="fail"]')).toBeNull();
+    expect(container.querySelector("[data-hatched]")).not.toBeNull();
+  });
 });
