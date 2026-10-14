@@ -30,4 +30,6 @@ it("allows a first human agreement for a completed passing report without a prio
   const router=createMemoryRouter([{path:"/s/:systemId/r/:rev/work",element:<IntegrityPanel run={run}/> }],{initialEntries:["/s/system.demo/r/head/work"]});
   render(<QueryClientProvider client={testQueryClient()}><RouterProvider router={router}/></QueryClientProvider>);
   expect(await screen.findByRole("button",{name:"Record agreement"})).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Run check again" })).toBeTruthy();
+  expect(screen.getByText("Evidence and coverage")).toBeTruthy();
 });

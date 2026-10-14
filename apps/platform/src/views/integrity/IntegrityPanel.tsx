@@ -17,7 +17,7 @@ export function IntegrityPanel({ run, systemId }: { run: IntegrityRun; systemId?
   useEffect(() => { setDispositions({}); }, [run.id, report?.id]);
   const proposed = report ? reviewItems.map(f => ({ findingId:f.id, decision:dispositions[f.id]?.decision ?? "accepted", rationale:dispositions[f.id]?.rationale ?? "", actor:"", at:"", reportId:report.id, snapshotHash:report.snapshotHash })) : [];
   const eligibility = report ? agreementEligibility(report, proposed) : undefined;
-  const canAgree = !!report && eligibility?.eligible === true;
+  const canAgree = !!report && !run.agreement && eligibility?.eligible === true;
   return <section className={styles.panel} aria-labelledby="integrity-title">
     <h2 id="integrity-title">Integrity review</h2>
     <p role="status">Run {run.state}. {report ? <>Automated result: {report.status}.</> : "No automated result yet."}</p>
@@ -26,14 +26,16 @@ export function IntegrityPanel({ run, systemId }: { run: IntegrityRun; systemId?
     {report && <>
       <p>Structural: {report.structural.status} {report.structural.complete ? "complete" : "incomplete"}. Semantic: {report.semantic.status} {report.semantic.complete ? "complete" : "partial"}.</p>
       {report.semantic.provenance?.fake && <p role="note">Hosted demo model results are simulated; they are not real-provider evidence.</p>}
-      <FindingList key={`${run.id}:${report.id}`} title="Findings and coverage limits" findings={items(run)} dispositions={dispositions} setDispositions={setDispositions} allowDisposition={report.status !== "blocked" && run.state === "completed"} />
+      <details><summary>Evidence and coverage</summary><p>Snapshot <code>{run.snapshotId}</code> · <code>{run.snapshotHash}</code></p><p>Structural subjects: {report.structural.checkedSubjects.join(", ") || "none"}. Relationships: {report.structural.checkedRelationships.join(", ") || "none"}.</p><p>Semantic subjects: {report.semantic.checkedSubjects.join(", ") || "none"}. Relationships: {report.semantic.checkedRelationships.join(", ") || "none"}.</p>{report.semantic.provenance && <p>Provider {report.semantic.provenance.provider} · model {report.semantic.provenance.model || "unknown"} · calls {report.semantic.provenance.budget.usedCalls}/{report.semantic.provenance.budget.maxCalls} · questions {report.semantic.provenance.questions.join(", ") || "none"}.</p>}</details>
+      <FindingList key={`${run.id}:${report.id}`} title="Findings and coverage limits" findings={items(run)} dispositions={dispositions} setDispositions={setDispositions} allowDisposition={!run.agreement && report.status !== "blocked" && run.state === "completed"} />
       {eligibility?.reason && <p className={styles.reason}>{eligibility.reason}</p>}
       {canAgree && <Button type="button" variant="primary" disabled={agree.isPending} onClick={()=>agree.mutate({runId:run.id,body:{dispositions:proposed.map(({findingId,decision,rationale})=>({findingId,decision,rationale}))},...(token&&{adminToken:token})})}>{agree.isPending ? "Recording…" : "Record agreement"}</Button>}
+      {run.agreement?.eligibility.eligible && <section><h3>Materialize this agreed snapshot</h3><p>Use the exact agreed run when importing prepared files; accepted vocabulary is separate from this Genome agreement.</p><pre tabIndex={0} style={{overflow:"auto"}}>{`ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact init --dir ./project --integrity-run ${run.id} --platform ${window.location.origin}`}</pre></section>}
       {agree.isError && <p role="alert" className={styles.error}>{(agree.error as Error).message}</p>}
     </>}
     <div className={styles.actions}>
       {active(run.state) && <Button type="button" variant="secondary" disabled={cancel.isPending} onClick={()=>cancel.mutate({runId:run.id,...(token&&{adminToken:token})})}>Cancel check</Button>}
-      {(run.state === "failed" || run.state === "cancelled") && <Button type="button" variant="secondary" disabled={restart.isPending} onClick={()=>restart.mutate({body:{snapshotId:run.snapshotId,provider:run.provider,rerun:true},...(token&&{adminToken:token})})}>Retry check</Button>}
+      {(run.state === "failed" || run.state === "cancelled" || (run.state === "completed" && !run.agreement)) && <Button type="button" variant="secondary" disabled={restart.isPending} onClick={()=>restart.mutate({body:{snapshotId:run.snapshotId,provider:run.provider,model:run.model,thresholds:report?.semantic.provenance?.thresholds,budget:report?.semantic.provenance ? {maxCalls:report.semantic.provenance.budget.maxCalls} : undefined,rerun:true},...(token&&{adminToken:token})})}>{run.state === "completed" ? "Run check again" : "Retry check"}</Button>}
     </div>
   </section>;
 }

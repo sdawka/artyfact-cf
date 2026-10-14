@@ -18,6 +18,7 @@ it('creates an initial System, previews, and accepts the exact reviewed native p
  fireEvent.click(await screen.findByRole('button',{name:'Accept reviewed import'}));
  await waitFor(()=>expect(calls.find(c=>c.url.endsWith('/accept'))?.body).toEqual({hash:'exact-hash'}));
  expect(await screen.findByText('Build with your agent')).toBeTruthy();expect(calls.find(c=>c.url.endsWith('/preview'))?.body).toMatchObject({genomeFiles:{'node.yaml':'id: system.custom\nkind: system\n'}});
+ expect(screen.getByRole('heading',{name:'Check the proposed Genome'})).toBeTruthy();expect(screen.getByText(/accepted package only accepts vocabulary/)).toBeTruthy();
  fireEvent.click(screen.getByRole('button',{name:'Check local bootstrap completion'}));expect(await screen.findByRole('link',{name:'Open System work'})).toBeTruthy();
 });
 it('offers a valid native starter with explicit optional outcomes vocabulary',async()=>{
