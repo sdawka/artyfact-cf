@@ -1,7 +1,11 @@
 <!-- grreat:record id=roadmap.next kind=roadmap_item status=active parent=goal.north-star -->
-# Implement the app intention fixes
+# Intent authoring and ontology integrity
 
-## Active follow-up: app intention alignment
+## Active follow-up: intent and integrity foundations
+
+The user approved the foundation scope and repairing/enriching Artyfact’s app System map. The [proposed architectural design](../design/intent-integrity.md) defines acceptance and is awaiting user review before implementation planning. Canonical Markdown remains authoritative; preserve existing release evidence and the earlier work below.
+
+## Earlier follow-up: app intention alignment
 
 Accepted implementation plan, 2026-10-14. Close the six confirmed gaps in [[journals/2026-10-14-intention-spike]] and unify Review. Extend PR #77 with one commit per fix; keep local agents, optional Parts, Genome-only Things and separate Genome/implementation approval. Finish at a green review-ready PR; no merge or deployment is included.
 
