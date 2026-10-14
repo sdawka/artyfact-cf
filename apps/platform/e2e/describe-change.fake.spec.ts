@@ -30,14 +30,14 @@ test.describe("describe a change @fake", () => {
     await expect(page.getByRole("button", { name: "Copy command" })).toHaveAttribute("data-variant", "primary");
     await checkPage(page, testInfo, "packet", undefined, [PACKET_PRE]);
 
-    // 3. App drafts stay local; implementation hands off to an isolated Realization Task.
+    // 3. App drafts stay local; implementation hands off to a Plan.
     await page.goto(`${BASE}/code?repo=app&path=README.md`);
     await expect(page.getByRole("heading", { level: 1, name: "Code" })).toBeVisible();
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await typeInEditor(page, "\n\nBirthdays are shown next to each contact.\n");
     await page.getByRole("link", { name: "Commit changes" }).click();
     await expect(page.getByRole("button", { name: "Commit", exact: true })).toBeDisabled();
-    await expect(page.getByRole("link", { name: "Create a Realization Task" })).toBeVisible();
+    await expect(page.getByRole("link", { name: "Create a Plan" })).toBeVisible();
     await expect.poll(() => page.evaluate(() => localStorage.getItem("artyfact.draft.system.peopling.app.head"))).toContain("Birthdays are shown next to each contact.");
     await checkPage(page, testInfo, "local-task-handoff");
 

@@ -179,5 +179,5 @@ describe("useSystemEvents", () => {
 it("refuses browser app commits before creating an Evolution or writer",async()=>{
  const send=vi.fn(async(_url:string,_init?:RequestInit)=>json(200,{}));vi.stubGlobal("fetch",send);
  renderApp("/s/s/r/head/p",[{path:"/s/:systemId/r/:rev/p",element:<Probe input={{target:"app",newEvolution:{title:"App implementation",intent:"Edit app"},commit:{message:"Edit",changes:[{path:"src/app.ts",content:"x"}]}}}/>}]);
- act(()=>screen.getByRole("button",{name:"go"}).click());await waitFor(()=>expect(screen.getByTestId("out").textContent).toContain("Realization Task"));expect(send.mock.calls.every(call=>!(call[1] as RequestInit|undefined)?.method)).toBe(true);
+ act(()=>screen.getByRole("button",{name:"go"}).click());await waitFor(()=>expect(screen.getByTestId("out").textContent).toContain("Create a Plan from Work"));expect(send.mock.calls.every(call=>!(call[1] as RequestInit|undefined)?.method)).toBe(true);
 });

@@ -374,7 +374,7 @@ export function useManualCommit() {
   const qc = useQueryClient();
   return useMutation<ManualCommitResult, Error, ManualCommitInput>({
     mutationFn: async (input) => {
-      if (input.target === "app" || input.startWork?.target === "app") throw new Error("App implementation uses a Realization Task in your local harness. Create a Realization Task from Work.");
+      if (input.target === "app" || input.startWork?.target === "app") throw new Error("App implementation uses a Plan in your local harness. Create a Plan from Work.");
       if (input.realizationId) {
         const result = await api.commitFiles(systemId, input.realizationId, input.commit, input.secret ?? input.adminToken);
         return { evolutionId: input.evolutionId, realizationId: input.realizationId, result };
