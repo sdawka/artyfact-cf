@@ -139,7 +139,9 @@ describe("image limits", () => {
   it("measures decoded bytes exactly and refuses non-canonical base64 rather than guessing its size", () => {
     for (const n of [1, 2, 3, 4, 5, 1000, 1001, 1002]) expect(base64Bytes(Buffer.alloc(n).toString("base64"))).toBe(n);
     // Unpadded or whitespace-split base64 is refused, so no length trick can understate the size.
-    for (const bad of ["QUJD\nREVG", "QUJDRA", "QUJDRA=", "====", ""]) {
+    expect([base64Bytes("QQ=="), base64Bytes("QUI="), base64Bytes("QUJD")]).toEqual([1, 2, 3]);
+    const ok = Buffer.alloc(9).toString("base64");
+    for (const bad of ["QUJD\nREVG", "QUJDRA", "QUJDRA=", "====", "", ` ${ok}`, `${ok}\n`, "QUJD\tREVG", "QUJD REVG", `data:image/png;base64,${ok}`, "QQ==QUJD", "QUJD===="]) {
       expect(() => checkImages([{ mediaType: "image/png", base64: bad }]), bad).toThrow(/not base64/);
     }
   });
@@ -152,6 +154,19 @@ describe("image limits", () => {
     await expect(workersAiProvider(ai).ask({}, QUESTIONS, { images: [{ ...sized(MAX_IMAGE_BYTES + 1), sha256: "small" }] })).rejects.toMatchObject({ code: "invalid" });
     await expect(workersAiProvider(ai).ask({}, QUESTIONS, { images: [sized(3 << 20), sized(3 << 20), sized(3 << 20)] })).rejects.toMatchObject({ code: "invalid" });
     expect(calls).toHaveLength(0);
+  });
+
+  it("Clef checks images before the cache, so a cached answer never stands in for a refused ask", async () => {
+    const { ai, calls } = mockAi();
+    const s1 = workersAiProvider(ai);
+    await s1.ask({ c: 1 }, QUESTIONS, { images: [png()] });
+    await s1.ask({ c: 1 }, QUESTIONS, { images: [png()] });
+    expect(calls).toHaveLength(1);
+    for (const images of [[png(), png(), png(), png(), png()], [{ ...png(), base64: ` ${png().base64}` }], [{ ...sized(MAX_IMAGE_BYTES + 1), sha256: "x" }]]) {
+      await expect(s1.ask({ c: 1 }, QUESTIONS, { images })).rejects.toMatchObject({ code: "invalid" });
+      await expect(s1.ask({ c: 1 }, QUESTIONS, { images })).rejects.toMatchObject({ code: "invalid" });
+    }
+    expect(calls).toHaveLength(1);
   });
 
   it("providers that cannot read images refuse them instead of answering without them", async () => {

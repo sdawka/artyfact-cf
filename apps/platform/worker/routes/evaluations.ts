@@ -1,8 +1,8 @@
 import { Hono } from "hono";
 import type { ConflictsResponse, EvaluateCandidateResponse, EvaluationsResponse } from "../../shared/api";
-import { requireAdmin } from "../auth";
+import { requireAdmin, requireRealizationSecret } from "../auth";
 import { conflicts, promote, reevaluate, systemStub } from "../service";
-import { readEvidence } from "../evidence";
+import { parseEvidenceKey, readEvidence } from "../evidence";
 import { notFound } from "../errors";
 import { body, type AppEnv } from "./app";
 
@@ -12,9 +12,17 @@ export const evaluations = new Hono<AppEnv>()
     c.json<EvaluateCandidateResponse>(await reevaluate(c.env, c.req.param("id"), c.req.param("cid"))))
   .get("/systems/:id/evaluations", async (c) =>
     c.json<EvaluationsResponse>({ evaluations: await systemStub(c.env, c.req.param("id")).evaluations(c.req.query("candidate") || undefined) }))
-  // An evidence image a visual check judged (observations[].images[].key), readable like the evaluations that cite it.
+  // An evidence image a visual check judged (observations[].images[].key). Not public: the admin bearer, or the secret of
+  // the realization the key belongs to. Keys outside the System's evidence prefix are 404 before any lookup.
   .get("/systems/:id/evidence", async (c) => {
-    const res = await readEvidence(c.env.EVIDENCE, c.req.param("id"), c.req.query("key") ?? "");
+    const sid = c.req.param("id"), key = c.req.query("key") ?? "";
+    const parsed = parseEvidenceKey(sid, key);
+    await requireRealizationSecret(c.env, c.req.header("authorization"), async () => {
+      if (!parsed) return [];
+      try { return [{ systemId: sid, hash: await systemStub(c.env, sid).realizationSecretHash(parsed.realization) }]; } catch { return []; }
+    });
+    if (!parsed) throw notFound("no such evidence image");
+    const res = await readEvidence(c.env.EVIDENCE, sid, key);
     if (!res) throw notFound("no such evidence image");
     return res;
   })

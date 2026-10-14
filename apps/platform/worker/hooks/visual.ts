@@ -27,6 +27,11 @@ export interface EvidenceStore {
   put(key: string, value: ArrayBuffer | Uint8Array, options?: { httpMetadata?: { contentType?: string }; customMetadata?: Record<string, string> }): Promise<unknown>;
 }
 
+/** Paid asks one visual check may make; a set needing more batches is not-run rather than partly judged. */
+export const MAX_ASKS = 3;
+/** Why agent screenshots alone never pass a visual check. */
+export const UNVERIFIED = "agent screenshots are unverified; a pass needs a platform capture of the validated preview";
+
 export const VIEWPORTS = {
   desktop: { width: 1280, height: 800 },
   mobile: { width: 390, height: 844, deviceScaleFactor: 2, isMobile: true, hasTouch: true },
@@ -202,8 +207,14 @@ export async function visualCheck(input: VisualInput): Promise<Outcome> {
   }
 
   const refs = cand.screenshots ?? [];
-  if (refs.length && !input.evidence) notes.push(`${refs.length} agent screenshot(s) not read: the evidence bucket EVIDENCE is not configured.`);
-  else for (const ref of refs) {
+  // Only the candidate's own prefix, re-derived here: a manifest can never point a check at another System's,
+  // realization's or commit's images.
+  const own = evidencePrefix(input.systemId, cand.realizationId, cand.commit);
+  const inside = refs.filter((r) => typeof r.key === "string" && r.key.startsWith(own) && !r.key.slice(own.length).includes("/") && !/\.\.|%/.test(r.key));
+  if (inside.length < refs.length) notes.push(`${refs.length - inside.length} agent screenshot(s) outside this candidate's evidence prefix were not read.`);
+  if (inside.length > MAX_IMAGES) return notRun(`The candidate lists ${inside.length} agent screenshots; at most ${MAX_IMAGES} are accepted.`, { provenance: { provider: "none", model: s1.model } });
+  if (inside.length && !input.evidence) notes.push(`${inside.length} agent screenshot(s) not read: the evidence bucket EVIDENCE is not configured.`);
+  else for (const ref of inside) {
     const shot = await agentShot(input.evidence!, ref, notes);
     if (shot) shots.push(shot);
   }
@@ -215,15 +226,21 @@ export async function visualCheck(input: VisualInput): Promise<Outcome> {
   const subject = { id: c.subjectId, ...(node?.kind && { kind: node.kind }), ...(node?.name && { name: node.name }) };
   const page = { path: input.hook.inputs.path ?? "/", ...("url" in target && { url: target.url }) };
   const askMs = Math.max(10_000, Math.min(60_000, input.hook.timeoutMs));
+  const groups = batches(shots);
+  if (groups.length > MAX_ASKS) return notRun(`${shots.length} screenshots would need ${groups.length} asks; a visual check makes at most ${MAX_ASKS}.`, { provenance: { provider: "none", model: s1.model } });
   const results: { shots: Shot[]; r: VisualResult }[] = [];
-  for (const group of batches(shots)) {
+  for (const group of groups) {
     const labels: VisualImageLabel[] = group.map((s) => ({ source: s.source, label: s.label, sha256: s.image.sha256 }));
     const r = await visualCriterion(s1, { criterion: { id: c.id, title: c.title, claim: c.claim }, subject, page, images: labels }, group.map((s) => s.image), { timeoutMs: askMs });
     results.push({ shots: group, r });
   }
 
   const failed = results.filter((x) => x.r.verdict === "fail");
-  const verdict = failed.length ? "fail" : results.every((x) => x.r.verdict === "pass") ? "pass" : "unknown";
+  const captured = shots.some((s) => s.source === "platform");
+  const allPass = results.every((x) => x.r.verdict === "pass");
+  // Agent screenshots can fail a check or leave it unknown, never pass it on their own.
+  const verdict = failed.length ? "fail" : allPass && captured ? "pass" : "unknown";
+  if (allPass && !captured) notes.unshift(`Not a pass: ${UNVERIFIED}.`);
   const errors = results.filter((x) => x.r.provenance.error);
   const stored = shots.some((s) => s.key);
   const providers = [...new Set(results.map((x) => x.r.provenance.provider))].join(",");
@@ -243,7 +260,7 @@ export async function visualCheck(input: VisualInput): Promise<Outcome> {
       ? `${shots.length} screenshot(s) judged to satisfy "${c.title}" at ≥ 0.9.`
       : verdict === "fail"
         ? `Screenshots judged not to satisfy "${c.title}"${concerns.length ? ` (${[...new Set(concerns)].join(", ")})` : ""}.`
-        : `Screenshots did not settle "${c.title}": ${errors.length ? "System One failed for some batches" : "the judgment is under threshold"}.`,
+        : `Screenshots did not settle "${c.title}": ${allPass && !captured ? UNVERIFIED : errors.length ? "System One failed for some batches" : "the judgment is under threshold"}.`,
     limitations: [
       `Judged from ${shots.length} screenshot(s) (${sources.join(" and ")}); a screenshot shows one state of the page at one size.`,
       ...notes,

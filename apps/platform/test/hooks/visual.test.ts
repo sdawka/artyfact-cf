@@ -4,7 +4,8 @@ import { createSystemOne, type SystemOne } from "@artyfact/semantic";
 import type { CandidateRef, EvidenceImageRef, EvolutionRef, FileMap, SubmissionContext } from "../../worker/hooks/contract";
 import { createHookRunner, selectHooks, type RunnerDeps } from "../../worker/hooks/run";
 import { loadGenome } from "../../worker/hooks/model-rules";
-import { batches, evidencePrefix, sniffImage, viewportsOf, type BrowserLike, type EvidenceStore } from "../../worker/hooks/visual";
+import { batches, evidencePrefix, MAX_ASKS, sniffImage, UNVERIFIED, viewportsOf, type BrowserLike, type EvidenceStore } from "../../worker/hooks/visual";
+import { MAX_IMAGE_BYTES, MAX_IMAGES, MAX_TOTAL_IMAGE_BYTES } from "@artyfact/semantic";
 import { BASE, COMMIT, miniGenome } from "./fixtures";
 
 const CRITERION = "C.webapp.look";
@@ -163,8 +164,59 @@ describe("visual check: agent screenshots", () => {
     expect(asks).toEqual([4, 2]);
     expect(e.verdict).toBe("pass");
     const solo = await run({ evidence: store }, candidate({ previewUrl: undefined, screenshots: refs.slice(0, 1) }));
-    expect(solo).toMatchObject({ execution: "completed", verdict: "pass", provenance: { sources: "agent" } });
+    expect(solo).toMatchObject({ execution: "completed", verdict: "unknown", provenance: { sources: "agent" } });
+    expect(solo.interpretation).toContain(UNVERIFIED);
+    expect(solo.limitations.join(" ")).toContain(`Not a pass: ${UNVERIFIED}`);
     expect(solo.limitations.join(" ")).toMatch(/No platform capture: no previewUrl/);
+  });
+
+  it("agent screenshots alone can fail a check, and reach the judge labelled unverified", async () => {
+    const { store } = memoryStore({ [ref(1).key]: PNG });
+    const states: { images: { source: string }[] }[] = [];
+    const no: SystemOne = { ...fake, ask: async (s, q, o) => { states.push(s as never); return fake.ask(s, q, o); } };
+    const e = await run({ evidence: store, vision: no }, candidate({ previewUrl: undefined, screenshots: [ref(1)] }), withVisual("The people screen reads clearly #s1no"));
+    expect(e.verdict).toBe("fail");
+    expect(states[0]!.images[0]!.source).toMatch(/unverified, not captured by the platform/);
+  });
+
+  it("never reads refs outside the candidate's own evidence prefix", async () => {
+    const foreign = [
+      evidencePrefix("system.other", "realization.1.r1", COMMIT), evidencePrefix("system.mini-peopling", "realization.9", COMMIT),
+      evidencePrefix("system.mini-peopling", "realization.1.r1", "deadbeef"), `${prefix}../`, `${prefix}sub/`, `${prefix}%2e`,
+    ].map((p, n): EvidenceImageRef => ({ ...ref(n), key: `${p}agent-${n}-abc.png` }));
+    const read: string[] = [];
+    const { store } = memoryStore(Object.fromEntries(foreign.map((r) => [r.key, PNG])));
+    const spying: EvidenceStore = { ...store, get: async (k) => { read.push(k); return store.get(k); } };
+    const e = await run({ evidence: spying }, candidate({ previewUrl: undefined, screenshots: foreign }));
+    expect(read).toEqual([]);
+    expect(e.execution).toBe("not-run");
+    expect(e.limitations.join(" ")).toMatch(/6 agent screenshot\(s\) outside this candidate's evidence prefix were not read/);
+  });
+
+  it("the worst case, two 4 MiB captures and four 4 MiB agent screenshots, stays within three asks", async () => {
+    const big = (head: Uint8Array) => { const b = new Uint8Array(MAX_IMAGE_BYTES); b.set(head); return b; };
+    const refs = [1, 2, 3, 4].map((n) => ({ ...ref(n), bytes: MAX_IMAGE_BYTES }));
+    const { store } = memoryStore(Object.fromEntries(refs.map((r) => [r.key, big(PNG)])));
+    const { browser } = mockBrowser(() => new Response(big(JPEG), { headers: { "content-type": "image/jpeg" } }));
+    const asks: { n: number; bytes: number }[] = [];
+    const counting: SystemOne = { ...fake, ask: async (s, q, o) => {
+      asks.push({ n: o?.images?.length ?? 0, bytes: (o?.images ?? []).reduce((t, i) => t + (i.base64.length / 4) * 3 - (i.base64.match(/=*$/)?.[0].length ?? 0), 0) });
+      return fake.ask(s, q, o);
+    } };
+    const e = await run({ browser, evidence: store, vision: counting }, candidate({ screenshots: refs }));
+    expect(e.execution).toBe("completed");
+    expect(asks.length).toBeLessThanOrEqual(MAX_ASKS);
+    for (const a of asks) { expect(a.n).toBeLessThanOrEqual(MAX_IMAGES); expect(a.bytes).toBeLessThanOrEqual(MAX_TOTAL_IMAGE_BYTES); }
+    expect(asks.reduce((t, a) => t + a.n, 0)).toBe(6);
+  });
+
+  it("more agent refs than the image limit is not-run without reading any", async () => {
+    const refs = [1, 2, 3, 4, 5].map((n) => ref(n));
+    const read: string[] = [];
+    const { store } = memoryStore(Object.fromEntries(refs.map((r) => [r.key, PNG])));
+    const e = await run({ evidence: { ...store, get: async (k) => { read.push(k); return store.get(k); } } }, candidate({ previewUrl: undefined, screenshots: refs }));
+    expect(e.execution).toBe("not-run");
+    expect(read).toEqual([]);
   });
 
   it("re-checks agent screenshots on the bytes read, not the recorded size or type", async () => {
@@ -250,6 +302,11 @@ describe("visual helpers", () => {
     const mb = 1024 * 1024;
     expect(batches([1, 1, 1, 1, 1].map((n) => ({ bytes: n }))).map((b) => b.length)).toEqual([4, 1]);
     expect(batches([3 * mb, 3 * mb, 3 * mb].map((bytes) => ({ bytes }))).map((b) => b.length)).toEqual([2, 1]);
+    // Every image is at most 4 MiB, so every batch but the last holds at least two: six images never need more than three.
+    for (let mask = 0; mask < 64; mask++) {
+      const sizes = [0, 1, 2, 3, 4, 5].map((i) => (mask >> i) & 1 ? MAX_IMAGE_BYTES : 1);
+      expect(batches(sizes.map((bytes) => ({ bytes }))).length).toBeLessThanOrEqual(MAX_ASKS);
+    }
   });
 
   it("defaults to desktop and mobile viewports", () => {

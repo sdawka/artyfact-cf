@@ -65,9 +65,27 @@ export async function storeScreenshots(store: EvidenceStore | undefined, systemI
   }));
 }
 
-/** An evidence image of `systemId`, or null when the key is outside its prefix or missing. */
+/** One path segment as `evidencePrefix` writes it: no slashes, no `%`, no `..`. */
+const SEGMENT = /^[A-Za-z0-9_.!~*'()-]+$/;
+
+/**
+ * `{realization segment}` when `key` is exactly `evidence/<system>/<realization>/<commit>/<file>` for `systemId`, else
+ * null: no traversal (`..`), no encoded characters, no extra or empty segments.
+ */
+export function parseEvidenceKey(systemId: string, key: string): { realization: string } | null {
+  const root = evidenceRoot(systemId);
+  if (!key.startsWith(root) || key.includes("..") || key.includes("%") || key.includes("\\")) return null;
+  const parts = key.slice(root.length).split("/");
+  if (parts.length !== 3 || !parts.every((p) => SEGMENT.test(p))) return null;
+  return { realization: parts[0]! };
+}
+
+/** Upper bound of a task submit body: four screenshots at the image limit, as base64, plus the JSON around them. */
+export const MAX_SUBMIT_BODY = MAX_IMAGES * MAX_BASE64 + 64 * 1024;
+
+/** An evidence image of `systemId`, or null when the key is not one of its evidence keys or is missing. */
 export async function readEvidence(store: R2Bucket | undefined, systemId: string, key: string): Promise<Response | null> {
-  if (!store || !key.startsWith(evidenceRoot(systemId)) || key.includes("..")) return null;
+  if (!store || !parseEvidenceKey(systemId, key)) return null;
   const obj = await store.get(key);
   if (!obj) return null;
   const type = obj.httpMetadata?.contentType ?? "application/octet-stream";
