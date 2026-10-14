@@ -1,19 +1,22 @@
+import { Button } from "@/components/ui";
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
 import { useNavigate, useSearchParams } from "react-router";
 import type { FileScope } from "../../../shared/api";
-import { useRevisions, useTree, type ManualCommitProgress } from "@/api/queries";
-import { Drawer } from "@/components/Drawer/Drawer";
+import { useTree, type ManualCommitProgress } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
-import { RevisionPicker } from "@/components/RevisionPicker/RevisionPicker";
-import { StatusChip } from "@/components/StatusChip/StatusChip";
+import { PageHeader } from "@/components/PageHeader/PageHeader";
+import { ListDetail } from "@/components/ListDetail/ListDetail";
+import { StatusText } from "@/components/StatusText/StatusText";
+import { PlusIcon } from "@radix-ui/react-icons";
 import { Tabs } from "@/components/Tabs/Tabs";
 import { shortRev } from "@/model/revisions";
 import { useModel } from "@/model/useModel";
-import { useKeepParams, useSystemRoute, viewPath } from "@/model/useSelection";
+import { useKeepParams, useSystemRoute } from "@/model/useSelection";
 import { CommitSheet } from "./CommitSheet";
 import { FilePane } from "./FilePane";
 import { FileTree } from "./FileTree";
-import { PendingChanges } from "./PendingChanges";
+import { NewFileForm, PendingWell } from "./PendingChanges";
 import type { FileEntry } from "./tree";
 import { useDraft, type ChangeKind } from "./useDraft";
 import styles from "./code.module.css";
@@ -37,12 +40,11 @@ export default function CodePage() {
   const fixture = m.bundle.source === "fixture";
 
   const tree = useTree({ repo });
-  const { data: revisions = [] } = useRevisions();
   const draft = useDraft(systemId, repo, rev);
   const [editingPath, setEditingPath] = useState<string | null>(null);
-  const [sheetWidth, setSheetWidth] = useState(440);
+  const [adding, setAdding] = useState(false);
   // A failed commit's evolution, realization and one-time secret, per repo. In memory only (it holds the secret) and
-  // outside the sheet, which unmounts when it closes, so a retry never starts a second realization.
+  // outside the panel, which unmounts when it closes, so a retry never starts a second realization.
   const [resume, setResume] = useState<Partial<Record<FileScope, ManualCommitProgress>>>({});
 
   const view = (extra: Record<string, string | null>) => {
@@ -77,80 +79,101 @@ export default function CodePage() {
   }, [path, tree.data, existing]);
 
   const editing = draft.pending.length > 0 || editingPath !== null;
-  const pill = editing ? `editing · ${draft.pending.length} pending` : `read-only · ${HEADS.has(rev) ? "canonical" : shortRev(rev)}`;
+  const committing = panel === "commit";
+  const topLevel = useMemo(() => [...new Set(listed.map((f) => (f.path.includes("/") ? `${f.path.split("/")[0]}/` : f.path)))].slice(0, 12), [listed]);
+  const statusLine = editing
+    ? `Editing, ${draft.pending.length} pending`
+    : HEADS.has(rev)
+      ? "Read-only, canonical"
+      : `Read-only at ${shortRev(rev)}. Editing works on head.`;
+
+  const commitAction = draft.pending.length ? (
+    <Button asChild variant={committing ? "secondary" : "primary"}><Link to={view({ panel: "commit" })}>Commit changes</Link></Button>
+  ) : (
+    <Button type="button" variant="primary" reason="Nothing to commit. Edit a file first.">Commit changes</Button>
+  );
+  const leaveFile = () => navigate(view({ path: null, panel: null }));
+
+  const discard = (p: string) => {
+    draft.discard(p);
+    if (p === editingPath) setEditingPath(null);
+  };
 
   return (
-    <section className={styles.view} aria-labelledby="code-title">
-      <header className={styles.head}>
-        <h1 id="code-title">Code</h1>
+    <section className={styles.view} aria-labelledby="view-title">
+      <PageHeader
+        title="Code"
+        purpose="Genome and app source at any revision."
+        secondary={
+          <Button type="button" variant="secondary" onClick={() => setAdding((a) => !a)} disabled={!!editBlocked} aria-expanded={adding}>
+            <PlusIcon aria-hidden="true" />New file
+          </Button>
+        }
+        primary={commitAction}
+      >
         <div className={styles.toolbar}>
           <Tabs tabs={REPOS} value={repo} label="Repository" onChange={(id) => navigate(view({ repo: id, path: null, panel: null }))} />
-          <RevisionPicker
-            id="code-rev"
-            label="Revision"
-            value={rev}
-            options={revisions}
-            onChange={(next) => navigate(href(viewPath(systemId, next, "code"), { repo: params.get("repo"), path, panel: null }))}
-          />
-          <StatusChip status={editing ? "editing" : "read-only"} label={pill} tone={editing ? "attention" : "neutral"} />
+          <StatusText status={editing ? "editing" : "read-only"} label={statusLine} tone={editing ? "attention" : "neutral"} glyph={editing ? "◔" : ""} />
         </div>
-      </header>
+      </PageHeader>
 
-      <div className={styles.workspace}>
-      <div className={styles.content}>
+      {adding && !editBlocked && (
+        <NewFileForm
+          existing={existing}
+          onCancel={() => setAdding(false)}
+          onAdd={(p) => {
+            draft.newFile(p);
+            setEditingPath(p);
+            setAdding(false);
+            navigate(fileHref(p));
+          }}
+        />
+      )}
+      <PendingWell pending={draft.pending} hrefFor={fileHref} onDiscard={discard} />
+
       {fixtureNoApp ? (
         <EmptyState title="The fixture has no app repo.">Switch to Genome to browse the fixture's files.</EmptyState>
       ) : tree.isError ? (
         <p role="alert" className={styles.error}>Could not list files: {tree.error.message}</p>
       ) : (
-        <div className={styles.layout}>
-          {tree.isPending ? <p className={styles.muted}>Loading files…</p> : <FileTree entries={entries} selected={path} changes={changes} hrefFor={fileHref} />}
-          <div className={styles.main}>
-            <PendingChanges
-              pending={draft.pending}
-              existing={existing}
-              editBlocked={editBlocked}
-              hrefFor={fileHref}
-              commitHref={view({ panel: "commit" })}
-              onDiscard={(p) => {
-                draft.discard(p);
-                if (p === editingPath) setEditingPath(null);
-              }}
-              onNewFile={(p) => {
-                draft.newFile(p);
-                setEditingPath(p);
-                navigate(fileHref(p));
-              }}
-            />
-            <FilePane
-              repo={repo}
-              path={path}
-              draft={draft}
-              editBlocked={editBlocked}
-              editing={editingPath === path}
-              onEdit={() => setEditingPath(path)}
-              onStopEditing={() => setEditingPath(null)}
-            />
-          </div>
-        </div>
-      )}
-      </div>
-
-      <Drawer open={panel === "commit"} label="Commit" width={sheetWidth} onWidthChange={setSheetWidth}>
-        <CommitSheet
-          repo={repo}
-          fixture={fixture}
-          changes={draft.toRequestFiles()}
-          onClose={() => navigate(view({ panel: null }))}
-          resume={resume[repo] ?? null}
-          onResume={(p) => setResume((prev) => ({ ...prev, [repo]: p ?? undefined }))}
-          onCommitted={() => {
-            draft.clear();
-            setEditingPath(null);
-          }}
+        <ListDetail
+          listLabel="Repository"
+          detailLabel="File"
+          listWidth="wide"
+          hasSelection={!!path || committing}
+          onBack={committing ? undefined : leaveFile}
+          backLabel="Back to files"
+          list={tree.isPending ? <p className={styles.muted}>Loading files…</p> : <FileTree entries={entries} selected={path} changes={changes} hrefFor={fileHref} />}
+          detail={
+            committing ? (
+              <CommitSheet
+                repo={repo}
+                fixture={fixture}
+                changes={draft.toRequestFiles()}
+                onClose={() => navigate(view({ panel: null }))}
+                resume={resume[repo] ?? null}
+                onResume={(p) => setResume((prev) => ({ ...prev, [repo]: p ?? undefined }))}
+                onCommitted={() => {
+                  draft.clear();
+                  setEditingPath(null);
+                }}
+              />
+            ) : (
+              <FilePane
+                repo={repo}
+                path={path}
+                rev={HEADS.has(rev) ? "head" : shortRev(rev)}
+                topLevel={topLevel}
+                draft={draft}
+                editBlocked={editBlocked}
+                editing={editingPath === path}
+                onEdit={() => setEditingPath(path)}
+                onStopEditing={() => setEditingPath(null)}
+              />
+            )
+          }
         />
-      </Drawer>
-      </div>
+      )}
     </section>
   );
 }
