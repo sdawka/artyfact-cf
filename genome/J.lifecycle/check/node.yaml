@@ -3,7 +3,7 @@ kind: step
 fields:
   step: check
   actor: system
-  action: Refuses a candidate that changes files outside its Task, then runs the checks bound to the criteria it affects. Deterministic hooks cover files, diffs, model rules and health; System One judgments cover what needs judgment.
+  action: Refuses a candidate that changes files outside its Task, then runs the checks bound to the criteria it affects. Deterministic hooks cover files, diffs, model rules and health; System One judgments cover what needs judgment, including visual criteria judged from screenshots of the preview, never from text alone.
   kind: reaction
   next:
     - to: preview

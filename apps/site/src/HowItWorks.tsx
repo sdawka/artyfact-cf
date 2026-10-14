@@ -11,7 +11,7 @@ const kindLabel: Record<string, string> = { step: 'Step', command: 'Command', en
 
 /** Site-side copy that the Genome does not hold yet: the platform's judge for the Checks phase, keyed by step id. */
 const notes: Record<string, React.ReactNode> = {
-  'J.lifecycle/check': <>The default System One judge is Cloudflare Clef, an open-weight decision model on Workers AI. Clef is multimodal, so visual criteria can be checked too: against screenshots the platform takes of the CI preview with Cloudflare’s browser tooling, or that the agent attaches with <code>task submit --screenshot</code>.</>,
+  'J.lifecycle/check': <>Cloudflare Clef, an open-weight decision model on Workers AI, is the default production judge. Visual criteria always go to Clef: screenshots of the candidate’s CI preview, captured with Cloudflare Browser Run at 1280×800 and 390×844, and up to four the agent attaches with <code>artyfact task submit --screenshot page.png</code>. Each image is labelled with its source and stored in R2. Clef returns a probability: 0.9 or above passes, 0.1 or below fails with a named concern such as broken layout or unreadable text, and anything between stays unknown. Without screenshots the check is not run; it is never judged from text alone.</>,
 };
 
 const sentence = (step: WorkflowStep) => who[step.actor].subject + ' ' + step.action.charAt(0).toLowerCase() + step.action.slice(1);

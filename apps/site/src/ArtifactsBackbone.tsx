@@ -38,7 +38,7 @@ const pieces: { name: string; text: React.ReactNode; soon?: boolean }[] = [
   { name: 'Workers + Static Assets', text: 'The platform Worker serves the API and the review app.' },
   { name: 'Durable Object + SQLite', text: 'One per System. It holds the head and the history, and runs the compare-and-swap promote.' },
   { name: 'Workflows + Containers + R2', text: 'The artyfact-ci Worker runs a Workflow that builds each app commit in a container and deploys previews and production. R2 holds workspace snapshots and the install cache.' },
-  { name: 'Workers AI + Clef', text: 'Cloudflare Clef, an open-weight decision model on Workers AI, is the default System One judge. Deterministic hooks run first. Clef then judges the claims that need judgment, and screenshots too: of the CI preview, or attached by the agent.' },
+  { name: 'Workers AI + Clef', text: 'Cloudflare Clef (@cf/cloudflare/clef), an open-weight decision model, is the default production judge. Deterministic hooks run first. Clef judges the claims that need judgment, and screenshots of the CI preview, captured with Browser Run or attached by the agent. Between 0.1 and 0.9, a verdict stays unknown.' },
   { name: 'Queues', text: <>Push events from Artifacts. Optional: the CLI submits directly.</> },
   { name: 'Flagship', text: 'Feature flags are shown next to deployments and metrics. An admin can create, update or turn off a flag, with a reason, and each change is logged.' },
   { name: 'Email', soon: true, text: 'Review requests and promotion notices, through Cloudflare Email Service.' },

@@ -54,7 +54,9 @@ One Worker serves everything. Static Assets serve the React single-page app. A H
 
 **Storage.** The System's state lives in two places: the Artifacts repositories and the Durable Object's SQLite. Evaluations and their observations are stored in the Durable Object.
 
-**System One.** Semantic judgments, such as classifying a Genome change, go to System One through TypeSafe, or through OpenRouter if only that key is set. The key is a Worker secret. Without a provider every judgment is `unknown`. See the run notes for `FAKE_S1`.
+**System One.** Semantic judgments, such as classifying a Genome change, go to System One. Providers are tried in this order: the fake provider (`FAKE_S1=1`), TypeSafe, Cloudflare Clef through the Workers AI binding (`@cf/cloudflare/clef`), then OpenRouter. Clef is the default production judge. Without a provider every judgment is `unknown`. Keys are Worker secrets. Text generation (intent translation and plan drafting) stays on OpenRouter, because Clef does not generate text. See the run notes for `FAKE_S1`.
+
+**Visual checks.** Visual criteria always use Clef when the AI binding is present, even when TypeSafe judges text. The screenshots come from two places: the platform captures the candidate's CI preview with Cloudflare Browser Run (desktop 1280×800 and mobile 390×844), and agents attach their own with `artyfact task submit --screenshot page.png`, up to 4 per submit. Each image is labelled with its source, stored in R2 and linked from the evaluation. An ask takes up to 4 images (PNG, JPEG or WebP, 4 MiB each, 8 MiB per ask); larger sets are split. Clef returns a probability: 0.9 or above passes, 0.1 or below fails with a named concern (broken layout, unreadable text, missing content, weak hierarchy or error state), and anything between is `unknown`. With no images, or no model that can read them, the result is `not-run`; a visual check is never judged from text alone. Artyfact judges its own /model page this way, through `C.site.model.compelling-visual-presentation`.
 
 The longer version, with a diagram, is in [docs/architecture.md](docs/architecture.md).
 
@@ -96,7 +98,7 @@ The Genome is loaded and validated by a Datalog engine running versioned Rule Pa
 
 System One is asked only questions that need judgment: is a change a deliberate non-standard choice or a violation, does an edit contradict a stated commitment, would two changes interfere. Its answers are probabilities. At 0.9 or above they count as confident, between 0.5 and 0.9 they are labelled "review", and low confidence never produces a pass. The admin decides. Promotion blocks on hard criteria that have a bound hook, and an Evolution's acceptance criteria are always in the gate pool. Those that are hard and have a bound hook block. A blocking criterion with no completed evaluation is `unknown`, and `unknown` blocks. The exception is an outcome hook that only runs after deployment: its `not-run` row is disregarded.
 
-Without a System One provider (`TYPESAFE_API_KEY` or `OPENROUTER_API_KEY`), set `FAKE_S1=1` or the purpose gate stays `unknown` and promotion stays closed. The UI labels judgments from the fake provider. `.dev.vars.example` sets `FAKE_S1=1`, and it takes precedence over real keys. A local run copied from the example therefore uses the fake provider until you remove that line.
+Without a System One provider (`TYPESAFE_API_KEY`, the Workers AI binding for Clef, or `OPENROUTER_API_KEY`), set `FAKE_S1=1` or the purpose gate stays `unknown` and promotion stays closed. The UI labels judgments from the fake provider. `.dev.vars.example` sets `FAKE_S1=1`, and it takes precedence over real keys. A local run copied from the example therefore uses the fake provider until you remove that line.
 
 ## The model in two paragraphs
 
