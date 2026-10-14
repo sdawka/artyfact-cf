@@ -3,7 +3,7 @@ kind: step
 fields:
   step: submit
   actor: external
-  action: Commits, pushes to the fork and submits that exact commit as a candidate, one submitted version of the Task's work.
+  action: Commits, pushes to the fork and submits that exact commit as a candidate, one submitted version of the Task's work. Any change under system/ becomes a model delta, judged by System One against the whole ontology.
   next:
     - to: check
 links:

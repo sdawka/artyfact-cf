@@ -107,7 +107,7 @@ export default function StartView() {
 
   // Source-free: the agent's exact Genome and intent sidecars go to integrity review, apart from the package import.
   const proposedGenome = (
-    <Section title="Check the proposed Genome" headingLevel={3} description="Paste the exact native Genome and intent sidecars returned by your agent. A source-free System is valid; this starts integrity review without claiming implementation evidence. An accepted package only accepts vocabulary; it is not agreement with this assembled Genome.">
+    <Section title="Check the proposed Genome" headingLevel={2} description="Paste the exact native Genome and intent sidecars returned by your agent. A source-free System is valid; this starts integrity review without claiming implementation evidence. An accepted package only accepts vocabulary; it is not agreement with this assembled Genome.">
       <Form onSubmit={(e) => { e.preventDefault(); void checkGenome(); }}>
         <Field label="Genome files (JSON path-to-text object)"><Textarea id="integrity-files" className={styles.source} rows={8} value={integrityFiles} onChange={(e) => setIntegrityFiles(e.target.value)} disabled={busy} /></Field>
         <FormActions>
@@ -154,8 +154,8 @@ export default function StartView() {
           </FormActions>
         </Form>
         {!review && (
-          <Section title="Local-agent intent handoff" headingLevel={3} description={<>Before a package exists, give your local agent this brief. It must produce native Genome files plus <code>intent/brief.md</code> and <code>intent/manifest.json</code>; no application source, Part, or implementation evidence is required.</>}>
-            <div className={styles.pin}><CopyButton value={intentBrief(system)} label="Copy brief" /></div>
+          <Section title="Local-agent intent handoff" headingLevel={2} description={<>Before a package exists, give your local agent this brief. It must produce native Genome files plus <code>intent/brief.md</code> and <code>intent/manifest.json</code>; no application source, Part, or implementation evidence is required.</>}>
+            <div className={styles.pin}><CopyButton value={intentBrief(system)} label="Copy brief" name={`Copy brief for ${system}`} /></div>
             <pre tabIndex={0} className={styles.code}>{intentBrief(system)}</pre>
           </Section>
         )}
