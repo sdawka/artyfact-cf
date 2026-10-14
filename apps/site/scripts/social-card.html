@@ -1,0 +1,25 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<link rel="stylesheet" href="../src/styles/tokens.css"><link rel="stylesheet" href="../src/styles/whimsy.css">
+<style>
+  * { box-sizing: border-box; margin: 0; }
+  html, body { width: 1200px; height: 630px; overflow: hidden; }
+  body { background: var(--color-background); color: var(--color-text-primary); font-family: var(--font-body); padding: 64px 72px; display: grid; grid-template-columns: 1fr 360px; grid-template-rows: auto 1fr auto; column-gap: 56px; }
+  .brand { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; font: 400 34px/1 var(--font-display); }
+  .brand i { color: var(--color-brand-primary); font-style: normal; }
+  h1 { align-self: center; font: 400 58px/1.08 var(--font-display); letter-spacing: -0.01em; }
+  .stack { align-self: center; border: 1px solid color-mix(in oklch, var(--color-border) 55%, transparent); border-radius: 12px; padding: 22px 26px; background: var(--color-background-secondary); }
+  .stack s { display: block; font: 500 21px/1.75 var(--font-code); color: var(--color-text-secondary); text-decoration-thickness: 2px; text-decoration-color: var(--color-brand-primary); }
+  .stack p { margin-top: 12px; padding-top: 12px; border-top: 1px solid color-mix(in oklch, var(--color-border) 45%, transparent); font-size: 19px; line-height: 1.4; }
+  .foot { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 21px; color: var(--color-text-secondary); }
+  .foot b { color: var(--color-brand-primary); font-weight: 400; }
+</style></head>
+<body>
+  <div class="brand"><i>⟐</i> artyfact</div>
+  <h1>The next Git platform keeps track of the product, not just the files.</h1>
+  <div class="stack">
+    <s>git worktrees</s><s>spec.md</s><s>CI gates</s><s>merge queues</s><s>PRDs</s><s>release tracking</s>
+    <p>One multi-level model of your product, next to the code.</p>
+  </div>
+  <div class="foot"><span>Give your coding agents the environment to thrive.</span><b>Built on Cloudflare</b></div>
+</body></html>
