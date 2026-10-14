@@ -135,6 +135,15 @@ export class ProposalsStore {
     return this.sql.exec("UPDATE proposals SET json=json_set(json,'$.stagedApproval',json(?)),updated_at=? WHERE id=? AND status='accepting' AND claimed_at=?",JSON.stringify(approval),nowIso(),id,claimedAt).rowsWritten>0;
   }
 
+  /** An open (or held) proposal whose accept failed for good: `abandoned`, so nothing can accept it later. */
+  abandon(id: string): boolean {
+    return this.sql.exec(
+      `UPDATE proposals SET status = 'abandoned', json = json_set(json, '$.status', 'abandoned'), claimed_at = NULL, updated_at = ?
+       WHERE id = ? AND status IN ('open', 'accepting') RETURNING id`,
+      nowIso(), id,
+    ).toArray().length > 0;
+  }
+
   /**
    * A pushed accept: `accepted`, with what it produced, and `error` when something after the push failed (the commit
    * stands, so the proposal must not reopen). Null unless `claimedAt` still holds the row.

@@ -322,6 +322,11 @@ export async function acceptImportReview(env: Env, systemId: string, body: Parti
       await reject(env, systemId, staged.realizationId, { reason: "the import review accept that pushed this removal failed" })
         .catch((r: unknown) => console.error(`[import-review] rejecting ${staged.realizationId} failed: ${(r as Error)?.message ?? r}`));
     }
+    // The removal's proposal is the platform's own: abandon it so no open proposal is left to accept later.
+    if (proposalId) {
+      await stub.abandonProposal(proposalId)
+        .catch((r: unknown) => console.error(`[import-review] abandoning ${proposalId} failed: ${(r as Error)?.message ?? r}`));
+    }
     await stub.casImportReview("accepted", review.genomeCommit, review)
       .catch((r: unknown) => console.error(`[import-review] restoring pending for ${systemId} failed: ${(r as Error)?.message ?? r}`));
     await refreshRegistry(env, systemId).catch(() => {});

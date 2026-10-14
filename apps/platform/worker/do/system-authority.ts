@@ -1638,6 +1638,8 @@ export class SystemAuthority extends DurableObject<Env> {
     return "claimed" in out ? { ...out, claimed: this.proposalPlans().decorate(out.claimed) } : out;
   }
   releaseProposal(id: string, claimedAt: string, error: string | null): boolean { return this.proposals().release(id, claimedAt, error); }
+  /** `open` or `accepting` → `abandoned` (the import review's removal amendment after a failed accept). Emits nothing. */
+  abandonProposal(id: string): boolean { return this.proposals().abandon(id); }
   finishProposal(id: string, claimedAt: string, ids: AcceptedIds, error?: string): Proposal | null {
     const p = this.proposals().finish(id, claimedAt, ids, error);
     return p && this.proposalPlans().decorate(p);

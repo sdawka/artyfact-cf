@@ -324,6 +324,10 @@ describe("import review: accept", () => {
     // The pushed but unapproved removal is rejected, so nothing can land it behind the pending review.
     const work = (await call<WorkResponse>("GET", `/systems/${systemId}/evolutions`)).json;
     expect(work.realizations.map((r) => r.status)).toEqual(["rejected"]);
+    // And its proposal is abandoned, not left open.
+    const statuses = await runInDurableObject(env.SYSTEMS.getByName(systemId), async (_i: SystemAuthority, st) =>
+      st.storage.sql.exec("SELECT status FROM proposals").toArray().map((r) => r.status));
+    expect(statuses).toEqual(["abandoned"]);
   });
 
   it("a failure after the approve committed keeps the review accepted and answers with the committed amendment", async () => {
