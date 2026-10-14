@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { requireAdmin, requireRealizationSecret } from '../auth';
 import { checkpointLifecycleTask, createRealizationPlan, integrateLifecyclePlan, promoteLifecyclePlan, reviewLifecycleFile, reviewLifecyclePlan, selectLifecycleTask, startLifecycleTask, submitLifecycleTask } from '../lifecycle-service';
 import { systemStub } from '../service';
+import { draftRealizationPlan } from '../tasks/planner';
 import { fromRpc } from '../errors';
 import { body, origin, type AppEnv, type Ctx } from './app';
 const prefix='/systems/:id/realization-plans';
@@ -12,6 +13,8 @@ async function authed(c:Ctx) {const [sid,pid,tid]=ids(c);await requireRealizatio
 export const lifecycle=new Hono<AppEnv>()
  .get(prefix,requireAdmin,async c=>c.json({plans:await systemStub(c.env,c.req.param('id')).realizationPlans()}))
  .post(prefix,requireAdmin,async c=>c.json(await createRealizationPlan(c.env,c.req.param('id'),await body(c)),201))
+ // Draft: persists nothing; its `request` posts unchanged to create. TODO(P10): import-review guard once P4 lands.
+ .post(`${prefix}/draft`,requireAdmin,async c=>c.json(await draftRealizationPlan(c.env,c.req.param('id'),await body(c))))
  .get(plan,requireAdmin,async c=>c.json(await call(systemStub(c.env,c.req.param('id')).realizationPlan(c.req.param('pid')))))
  .get(`${plan}/review`,requireAdmin,async c=>c.json(await reviewLifecyclePlan(c.env,c.req.param('id'),c.req.param('pid'))))
  .get(`${plan}/review/files`,requireAdmin,async c=>c.json(await reviewLifecycleFile(c.env,c.req.param('id'),c.req.param('pid'),c.req.query('artifactId')??'',c.req.query('path')??'')))
