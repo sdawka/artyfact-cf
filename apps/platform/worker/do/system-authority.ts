@@ -1,6 +1,6 @@
 import { LifecycleStore, type ClaimReservation } from './lifecycle-store';
 import type { RealizationPlan, TaskClaimRequest, IntegratedBinding } from '../../shared/lifecycle';
-import type { TaskDefinition } from '@artyfact/model';
+import { createIntegritySnapshot, type TaskDefinition } from '@artyfact/model';
 import { acceptedTemplateResolver, OntologyPackagesStore } from '../ontology-packages/store';
 import type { OntologyImportPreviewRequest } from '../../shared/ontology-packages';
 import { OperationsAuditStore } from '../operations/audit-store';
@@ -18,7 +18,7 @@ import { ProposalPlanStore, type StoredProposalPlan } from "./proposal-plan-stor
 import { planCounts } from "./plan-summary";
 import { forkName } from "@artyfact/cli/naming";
 import { canonicalJson, evolutionShort, nowIso, sha256Hex } from "../util";
-import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalTurn, type ReviseResult, type StoredProposal } from "./proposals-store";
+import { ProposalsStore, type AcceptedIds, type ClaimResult, type ProposalRecoveryRevision, type ProposalTurn, type RecoveryClaimResult, type ReviseResult, type StoredProposal } from "./proposals-store";
 import { BuildsStore, type BuildUpsert, type BuildsSummaryPart, type DeploymentInput } from "./builds-store";
 import { PhenomeStore, type PhenomePrincipal, type PhenomeRow } from "./phenome-store";
 import { ChangelogStore, type CachedChangelog } from "./changelog-store";
@@ -27,6 +27,9 @@ import { PartsStore } from "../parts/store";
 import type { schema } from "@artyfact/model";
 import { applySchema } from "./schema";
 import { isBlocking } from "../../shared/verdict";
+import type { IntegrityAgreementRequest, IntegrityRunRequest, IntegritySnapshotKind } from "../../shared/integrity";
+import { IntegrityStore } from "../integrity/store";
+import { assertIntegritySnapshotCurrent, executeIntegrity, resolveIntegrityProvider } from "../integrity/execution";
 
 /** Name of the DO instance holding the System registry and the realization/fork index. */
 export const REGISTRY = "__registry";
@@ -370,6 +373,56 @@ export class SystemAuthority extends DurableObject<Env> {
   ontologyImportGet(id:string) {return new OntologyPackagesStore(this.sql).get(id);}
   ontologyImportAccept(id:string,hash:string) {const out=new OntologyPackagesStore(this.sql).accept(id,hash);this.sql.exec('DELETE FROM model_cache');this.readinessMemo.clear();return out;}
   ontologyAcceptedPackages() {return new OntologyPackagesStore(this.sql).acceptedPackages();}
+  private integrity(systemId?:string) {
+    const actual=this.ontologyInitial()?.systemId??this.state()?.systemId;
+    if(!actual)throw new ConflictError('not-found','System import destination not found');
+    if(systemId&&actual!==systemId)throw new ConflictError('invalid-state','System scope mismatch');
+    return new IntegrityStore(this.sql,actual);
+  }
+  integrityPreview(systemId:string,files:Record<string,string>,kind:IntegritySnapshotKind='initial-preview') {
+    const store=this.integrity(systemId),resolver=acceptedTemplateResolver(this.ontologyAcceptedPackages());
+    return store.putSnapshot(createIntegritySnapshot({systemId,files,templates:resolver.templates}),kind);
+  }
+  integrityLinkSource(genomeCommit:string,snapshotId:string) {this.integrity().bindSource(genomeCommit,snapshotId);}
+  integrityCurrent(genomeCommit:string):import('../../shared/integrity').IntegrityCurrentSummary {
+    const store=this.integrity(),snapshot=store.sourceSnapshot(genomeCommit);
+    if(!snapshot)return {state:'not-run'};
+    try {assertIntegritySnapshotCurrent(snapshot,acceptedTemplateResolver(this.ontologyAcceptedPackages()).templates);}
+    catch {return {state:'not-run'};}
+    return store.summary(snapshot);
+  }
+  async integrityStart(input:IntegrityRunRequest) {
+    if(!input.snapshotId)throw new ConflictError('invalid-state','snapshotId is required');
+    const out=this.integrity().start(input.snapshotId,input,resolveIntegrityProvider(this.env,input));
+    if(out.created)await this.ctx.storage.setAlarm(Date.now()+1000);
+    return out.run;
+  }
+  integrityRun(id:string) {return this.integrity().get(id);}
+  integrityRuns(limit?:number) {return this.integrity().list(limit);}
+  integrityCancel(id:string) {return this.integrity().cancel(id);}
+  integrityAgree(id:string,input:IntegrityAgreementRequest) {return this.integrity().agree(id,input);}
+  integrityBinding(id:string,snapshotHash:string) {return this.integrity().binding(id,snapshotHash);}
+  override async alarm():Promise<void> {
+    const store=this.integrity(),lease=store.lease();
+    if(!lease) {
+      const next=store.nextAlarm();
+      if(next!==null)await this.ctx.storage.setAlarm(next);
+      return;
+    }
+    await this.ctx.storage.setAlarm(lease.expiresAt);
+    try {
+      const report=await executeIntegrity(this.env,store,lease.run,lease.snapshot,this.ontologyAcceptedPackages(),undefined,lease.token);
+      store.complete(lease.run.id,lease.token,report);
+    } catch(error) {
+      const message=(error as Error)?.message??String(error),coded=/^\[([^\]]+)\]/.exec(message)?.[1];
+      try { store.fail(lease.run.id,lease.token,{code:coded??'integrity-run-failed',message}); }
+      catch { /* cancellation or a reclaimed lease fenced this completion */ }
+    } finally {
+      const next=store.nextAlarm();
+      if(next===null)await this.ctx.storage.deleteAlarm();
+      else await this.ctx.storage.setAlarm(next);
+    }
+  }
   operationsAuditAppend(entry:OperationAuditEntry) {return new OperationsAuditStore(this.sql).append(entry);}
   operationsAuditList(bindingId:string,limit?:number) {return new OperationsAuditStore(this.sql).list(bindingId,limit);}
   operationsAuditBegin(entry:OperationAuditEntry) {return new OperationsAuditStore(this.sql).begin(entry);}
@@ -1651,6 +1704,18 @@ export class SystemAuthority extends DurableObject<Env> {
     return "claimed" in out ? { ...out, claimed: this.proposalPlans().decorate(out.claimed) } : out;
   }
   releaseProposal(id: string, claimedAt: string, error: string | null): boolean { return this.proposals().release(id, claimedAt, error); }
+  claimProposalRecovery(id:string,candidateId:string,commit:string):RecoveryClaimResult {
+    const out=this.proposals().claimRecovery(id,candidateId,commit);
+    return 'claimed' in out?{...out,claimed:this.proposalPlans().decorate(out.claimed)}:out;
+  }
+  finishProposalRecovery(id:string,claimedAt:string,disposition:'revised'|'abandoned',reason:string,revision?:ProposalRecoveryRevision):Proposal|null {
+    return this.ctx.storage.transactionSync(()=>{
+      const out=this.proposals().recover(id,claimedAt,disposition,reason,revision);
+      if(!out)return null;
+      if(disposition==='revised'&&revision?.proposal.plan)this.proposalPlans().setTree(id,revision.proposal.plan);
+      return this.proposalPlans().decorate(out);
+    });
+  }
   /** `open` or `accepting` → `abandoned` (the import review's removal amendment after a failed accept). Emits nothing. */
   abandonProposal(id: string): boolean { return this.proposals().abandon(id); }
   finishProposal(id: string, claimedAt: string, ids: AcceptedIds, error?: string): Proposal | null {

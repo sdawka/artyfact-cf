@@ -1,0 +1,8 @@
+id: endpoint.integrity-cancel
+kind: endpoint
+fields:
+  name: Cancel integrity check
+  description: Cancels a queued or running integrity check; completed evidence remains available.
+  route: POST /api/systems/:id/integrity/runs/:runId/cancel
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  response: IntegrityRunResponse

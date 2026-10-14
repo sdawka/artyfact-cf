@@ -2,6 +2,6 @@ id: command.ontology
 kind: command
 fields:
   name: ontology
-  usage: artyfact ontology preview|list|show|accept|bootstrap --system <system-id> ...
+  usage: artyfact ontology preview|list|show|accept|bootstrap|check|agreement|materialize --system <system-id> ...
   exitCodes: 0 on success, 1 on any error.
-  description: Previews, lists, shows and accepts ontology package imports, and bootstraps a project from an accepted import. Needs ARTYFACT_ADMIN_TOKEN; exits 1 without it or when the platform refuses the call.
+  description: Previews, lists, shows and accepts ontology package imports; checks and agrees exact Genome snapshots; and bootstraps or materializes an agreed Genome. Scoped administrative calls need ARTYFACT_ADMIN_TOKEN; automated integrity status and human agreement stay separate.

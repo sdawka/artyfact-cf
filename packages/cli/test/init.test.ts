@@ -108,6 +108,7 @@ describe("project reading", () => {
     expect(systemIdOf("# c\nid: system.peopling\nname: x\n")).toBe("system.peopling");
     expect(() => systemIdOf("name: x")).toThrow(/id/);
     expect(appArtifactIds(join(ROOT, "examples/peopling-system"))).toEqual(["artifact.webapp"]);
+    expect(appArtifactIds(join(ROOT, "genome"))).toEqual(["artifact.platform"]);
     expect(flatYaml("repo: platform\npath: 'a/b' # c\ncommands:\n  dev: x\n")).toEqual({ repo: "platform", path: "a/b" });
   });
 });
@@ -236,6 +237,49 @@ describe("artyfact init", { timeout: 60_000 }, () => {
     expect(p.requests[0]!.body.force).toBe(false);
   });
 
+  it("binds an exact reviewed integrity run for server-side import verification", async () => {
+    const p = mockPlatform();
+    const r = await run(["init", "--dir", dir, "--integrity-run", "run.reviewed"], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "adm-tok" } });
+    expect(r.code, r.err).toBe(0);
+    expect(p.requests[0]!.body).toMatchObject({ systemId: "system.peopling", integrityRunId: "run.reviewed", force: false });
+    expect(p.requests[0]!.body).not.toHaveProperty("snapshotHash");
+  });
+
+  it("labels an explicitly unreviewed import and keeps the full check pending", async () => {
+    const p = mockPlatform(() => [201, { head: "sc-1-abc", warnings: [], system: { importReview: { status: "pending" } } }]);
+    const r = await run(["init", "--dir", dir, "--no-review", "--integrity-unreviewed-reason", "  Hosted simulator bootstrap  "], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "adm-tok" } });
+    expect(r.code, r.err).toBe(0);
+    expect(p.requests[0]!.body).toMatchObject({ systemId: "system.peopling", integrityUnreviewedReason: "Hosted simulator bootstrap", review: false, force: false });
+    expect(p.requests[0]!.body).not.toHaveProperty("integrityRunId");
+    expect(r.out).toContain("full integrity check and agreement remain pending");
+    expect(r.out).toContain("--no-review does not clear this integrity review");
+    expect(r.out).not.toContain("integrity: passed");
+  });
+
+  it("shell-quotes an unreviewed reason in the no-token import command", async () => {
+    const reason = "Simulator can't claim $(echo agreed)";
+    const r = await run(["init", "--dir", dir, "--integrity-unreviewed-reason", reason], { cloud: lc.cloud });
+    expect(r.code, r.err).toBe(0);
+    expect(r.out).toContain(`integrityUnreviewedReason":"Simulator can'"'"'t claim $(echo agreed)`);
+    expect(r.out).not.toContain(`-d '${JSON.stringify({ systemId: "system.peopling", genomeRepo: "peopling.genome", appRepo: "peopling.app", integrityUnreviewedReason: reason, force: false })}'`);
+  });
+
+  it.each(["", "   ", "x".repeat(501)])("rejects an invalid unreviewed integrity reason before import", async (reason) => {
+    const p = mockPlatform();
+    const r = await run(["init", "--dir", dir, "--integrity-unreviewed-reason", reason], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "adm-tok" } });
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("--integrity-unreviewed-reason must be 1 to 500 characters");
+    expect(p.requests).toEqual([]);
+  });
+
+  it("rejects reviewed and unreviewed integrity claims together", async () => {
+    const p = mockPlatform();
+    const r = await run(["init", "--dir", dir, "--integrity-run", "run.reviewed", "--integrity-unreviewed-reason", "Legacy bootstrap"], { cloud: lc.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "adm-tok" } });
+    expect(r.code).toBe(1);
+    expect(r.err).toContain("mutually exclusive");
+    expect(p.requests).toEqual([]);
+  });
+
   it("fast-forwards its own line, and refuses to build over history it did not push unless --adopt", async () => {
     const genome = lc.path("artyfact", "peopling.genome");
     const before = headOf(genome);
@@ -323,18 +367,18 @@ describe("artyfact init", { timeout: 60_000 }, () => {
     expect(filesAt(cloud.path("artyfact", "peopling.genome"))).toContain("node.yaml");
   });
 
-  it("imports the repo's own Genome from <dir>/genome (a Genome-only System)", async () => {
+  it("imports the repo's own v2 Genome with its real worker-fullstack app", async () => {
     const cloud = localCloud(join(tmp, "cloud-self"));
     const dir = join(tmp, "self");
     cpSync(join(ROOT, "genome"), join(dir, "genome"), { recursive: true });
     const p = mockPlatform();
-    const r = await run(["init", "--dir", dir], { cloud: cloud.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
+    const r = await run(["init", "--dir", dir, "--app", ROOT], { cloud: cloud.cloud, fetch: p.fetch, env: { ARTYFACT_ADMIN_TOKEN: "a" } });
     expect(r.code, r.err).toBe(0);
-    expect(r.out).toContain("system.artyfact -> artyfact.genome (namespace artyfact)");
-    expect(p.requests[0]!.body).toEqual({ systemId: "system.artyfact", genomeRepo: "artyfact.genome", force: false });
+    expect(r.out).toContain("system.artyfact -> artyfact.genome, artyfact.app (namespace artyfact)");
+    expect(p.requests[0]!.body).toEqual({ systemId: "system.artyfact", genomeRepo: "artyfact.genome", appRepo: "artyfact.app", force: false });
     expect(filesAt(cloud.path("artyfact", "artyfact.genome"))).toEqual(expect.arrayContaining(["node.yaml", "thing.cli/node.yaml"]));
+    expect(filesAt(cloud.path("artyfact", "artyfact.app"))).toContain("package.json");
     expect(filesAt(cloud.path("artyfact", "platform"))).toContain("templates/thing/cloudflare-worker-webapp@1/template.yaml");
-    expect(existsSync(cloud.path("artyfact", "artyfact.app"))).toBe(false);
   });
 
   it("imports a Genome-only System without creating or naming an app repo", async () => {

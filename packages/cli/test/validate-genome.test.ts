@@ -64,7 +64,9 @@ describe("artyfact validate-genome", () => {
     expect(r.code).toBe(0);
     expect(r.out).toMatch(/^system\.peopling {2}template\.system\.social-networking\.cloudflare@1 {2}\(genome: examples\/peopling-system\)/);
     expect(r.out).toContain("things: thing.webapp (root ., template.thing.cloudflare-worker-webapp@1)");
-    expect(r.out).toMatch(/^ok: ready for `npx artyfact init --genome examples\/peopling-system --app examples\/peopling-app`$/m);
+    expect(r.out).toMatch(/^structural validation passed; semantic integrity and human agreement were not checked\.$/m);
+    expect(r.out).toContain("next: `npx artyfact ontology check");
+    expect(r.out).not.toContain("ready for");
     const j = JSON.parse((await run(["validate-genome", GENOME, "--app", APP, "--json"])).out);
     expect(j.system).toBe("system.peopling");
     expect(j.findings.filter((f: { level: string }) => f.level === "error")).toEqual([]);

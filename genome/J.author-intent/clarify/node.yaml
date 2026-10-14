@@ -1,0 +1,11 @@
+id: J.author-intent/clarify
+kind: step
+fields:
+  step: clarify
+  actor: external
+  action: Asks only consequential questions and records answers, assumptions and disagreements beside the source brief.
+  kind: reaction
+  next:
+    - to: inspect
+links:
+  - { rel: stepScreen, to: screen.work }

@@ -1,0 +1,8 @@
+id: endpoint.integrity-runs
+kind: endpoint
+fields:
+  name: List integrity runs
+  description: Lists bounded recent integrity runs for one System.
+  route: GET /api/systems/:id/integrity/runs
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  response: IntegrityRunsResponse

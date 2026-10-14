@@ -1,0 +1,7 @@
+id: command.ontology-materialize
+kind: command
+fields:
+  name: ontology materialize
+  usage: artyfact ontology materialize --file <agreed-snapshot.json> --dir <new-project> [--prepare-only]
+  exitCodes: 0 on success, 1 on an invalid or ineligible agreement envelope.
+  description: Writes only the exact agreed snapshot into a new Genome directory; prepare-only does not provision repositories or invent source evidence.

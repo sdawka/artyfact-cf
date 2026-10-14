@@ -1,0 +1,906 @@
+{
+  "version": 1,
+  "verifiedAt": "2026-10-14",
+  "environment": "Isolated local Cloudflare Worker authority with real TypeSafe/Jev; clean materialization also uses real Cloudflare Artifacts.",
+  "approvedProviderCallCap": 500,
+  "usedProviderCalls": 214,
+  "agreementActorScope": "Explicit test-operator workflow dispositions; production self integrity remains pending.",
+  "observations": [
+    "A dangling reference blocks before semantic calls.",
+    "After structural repair, unsupported contact-sharing is flagged.",
+    "Clean and new-idea controls remain needs-review at unchanged confidence thresholds.",
+    "Full self context initially failed HTTP 400; bounded mapped context continues node checks and reports coverage limits.",
+    "The self retry exhausts 200 calls and truncates its report, retaining needs-review.",
+    "A two-call amendment accepts explicit partial-coverage dispositions while automated status stays needs-review."
+  ],
+  "cleanMaterialization": {
+    "filesMatched": 6,
+    "repo": "tool-library.genome",
+    "commit": "3d260c3fadeb",
+    "systemCommit": "sc-1-68d39ccf",
+    "importReview": "accepted in isolated local authority",
+    "agreementStatus": "accepted-with-dispositions"
+  },
+  "runs": [
+    {
+      "case": "clean",
+      "inputPath": "examples/intent-integrity/clean/genome",
+      "runtimeRevision": "aaf75113",
+      "runId": "integrity.b99c0677-a107-48de-80b4-c4211f4fa52d",
+      "reportId": "report.6c8448b95298a35226c7b5e15fb6435d54057ec6d7c293a178d9a9d63598823f",
+      "snapshotHash": "sha256:05343dc74b2671b5809d1635e061bc32d65b8a730701ea072b3c73dbc2f87bc0",
+      "createdAt": "2026-10-14T21:28:29.810Z",
+      "state": "completed",
+      "automatedStatus": "needs-review",
+      "structuralStatus": "passed",
+      "semanticComplete": false,
+      "resolvedProvider": "typesafe",
+      "resolvedModel": "jev-latest",
+      "provenance": {
+        "provider": "typesafe",
+        "model": "jev-1.13.0",
+        "questions": [
+          "intent.omitted",
+          "intent.unsupported",
+          "node.kind",
+          "node.tangibility"
+        ],
+        "thresholds": {
+          "confident": 0.9,
+          "review": 0.5
+        },
+        "budget": {
+          "requestedCalls": 60,
+          "maxCalls": 500,
+          "usedCalls": 2
+        },
+        "truncated": false,
+        "fake": false,
+        "retries": 0
+      },
+      "checkedSubjects": 2,
+      "checkedRelationships": 0,
+      "findingCounts": {
+        "semantic:node.kind": 1,
+        "semantic:node.tangibility": 1
+      },
+      "limitations": [
+        {
+          "id": "semantic.24001931504bea419c3172c7a21060a5742de5d13f024917aaa3dc921e62ca65",
+          "section": "semantic",
+          "severity": "review",
+          "code": "intent.judgment-unknown",
+          "message": "One or more direct intent fidelity judgments were missing, invalid, or below the configured confidence threshold.",
+          "subjects": [
+            "intent.omitted",
+            "intent.unsupported"
+          ],
+          "evidence": [
+            "question=intent.omitted",
+            "question=intent.unsupported"
+          ],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        }
+      ],
+      "findings": [
+        {
+          "id": "semantic.680ea3a9843778fe356fe61c684ea09370cb0f4a64de878e2f5cdb818f0edf98",
+          "code": "semantic:node.kind",
+          "severity": "review",
+          "subjects": [
+            "operation.request-tool"
+          ]
+        },
+        {
+          "id": "semantic.ceaa42f429e841d242e8e392f9f2b30229dcce5fbc0c1469ed42cf7503b67a64",
+          "code": "semantic:node.tangibility",
+          "severity": "review",
+          "subjects": [
+            "operation.request-tool"
+          ]
+        }
+      ],
+      "testOperatorAgreement": {
+        "status": "accepted-with-dispositions",
+        "actor": "admin",
+        "at": "2026-10-14T21:37:32.524Z",
+        "reportId": "report.6c8448b95298a35226c7b5e15fb6435d54057ec6d7c293a178d9a9d63598823f",
+        "snapshotHash": "sha256:05343dc74b2671b5809d1635e061bc32d65b8a730701ea072b3c73dbc2f87bc0",
+        "dispositions": [
+          {
+            "findingId": "semantic.680ea3a9843778fe356fe61c684ea09370cb0f4a64de878e2f5cdb818f0edf98",
+            "reportId": "report.6c8448b95298a35226c7b5e15fb6435d54057ec6d7c293a178d9a9d63598823f",
+            "snapshotHash": "sha256:05343dc74b2671b5809d1635e061bc32d65b8a730701ea072b3c73dbc2f87bc0",
+            "decision": "accepted",
+            "rationale": "Test operator reviewed the declared operation as a planned request-and-decision action. Keeping this small sample for workflow verification; the model confidence warning remains recorded.",
+            "actor": "admin",
+            "at": "2026-10-14T21:37:32.524Z"
+          },
+          {
+            "findingId": "semantic.ceaa42f429e841d242e8e392f9f2b30229dcce5fbc0c1469ed42cf7503b67a64",
+            "reportId": "report.6c8448b95298a35226c7b5e15fb6435d54057ec6d7c293a178d9a9d63598823f",
+            "snapshotHash": "sha256:05343dc74b2671b5809d1635e061bc32d65b8a730701ea072b3c73dbc2f87bc0",
+            "decision": "accepted",
+            "rationale": "Test operator checked the stated input (one listed tool and return date), owner decision and recorded outcome against the brief. This is a planned behavior, not evidence of implemented code.",
+            "actor": "admin",
+            "at": "2026-10-14T21:37:32.524Z"
+          },
+          {
+            "findingId": "semantic.24001931504bea419c3172c7a21060a5742de5d13f024917aaa3dc921e62ca65",
+            "reportId": "report.6c8448b95298a35226c7b5e15fb6435d54057ec6d7c293a178d9a9d63598823f",
+            "snapshotHash": "sha256:05343dc74b2671b5809d1635e061bc32d65b8a730701ea072b3c73dbc2f87bc0",
+            "decision": "accepted",
+            "rationale": "Test operator manually compared every exact native declaration in this small example with the mapped brief and found no omitted or unsupported requirement. The automated result remains needs-review; this is only an explicit workflow-test disposition.",
+            "actor": "admin",
+            "at": "2026-10-14T21:37:32.524Z"
+          }
+        ],
+        "eligibility": {
+          "eligible": true,
+          "status": "accepted-with-dispositions",
+          "unresolvedFindingIds": []
+        }
+      }
+    },
+    {
+      "case": "new-idea",
+      "inputPath": "examples/intent-integrity/new-idea/genome",
+      "runtimeRevision": "aaf75113",
+      "runId": "integrity.6a27fb37-cf74-46a0-a7d6-14ef897d087c",
+      "reportId": "report.6df235ef9874a819481bc9a1d9f77cb3575f8d59085bcbec8177fa7c2d15d390",
+      "snapshotHash": "sha256:e9c4e93eee949340d9900354c6769dcf1a23c699fb8bfa46ddccb8beb5057ca1",
+      "createdAt": "2026-10-14T21:31:06.054Z",
+      "state": "completed",
+      "automatedStatus": "needs-review",
+      "structuralStatus": "passed",
+      "semanticComplete": false,
+      "resolvedProvider": "typesafe",
+      "resolvedModel": "jev-latest",
+      "provenance": {
+        "provider": "typesafe",
+        "model": "jev-1.13.0",
+        "questions": [
+          "intent.omitted",
+          "intent.unsupported",
+          "node.kind",
+          "node.tangibility"
+        ],
+        "thresholds": {
+          "confident": 0.9,
+          "review": 0.5
+        },
+        "budget": {
+          "requestedCalls": 50,
+          "maxCalls": 500,
+          "usedCalls": 2
+        },
+        "truncated": false,
+        "fake": false,
+        "retries": 0
+      },
+      "checkedSubjects": 2,
+      "checkedRelationships": 0,
+      "findingCounts": {
+        "semantic:node.kind": 1,
+        "semantic:node.tangibility": 1
+      },
+      "limitations": [
+        {
+          "id": "semantic.24001931504bea419c3172c7a21060a5742de5d13f024917aaa3dc921e62ca65",
+          "section": "semantic",
+          "severity": "review",
+          "code": "intent.judgment-unknown",
+          "message": "One or more direct intent fidelity judgments were missing, invalid, or below the configured confidence threshold.",
+          "subjects": [
+            "intent.omitted",
+            "intent.unsupported"
+          ],
+          "evidence": [
+            "question=intent.omitted",
+            "question=intent.unsupported"
+          ],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        }
+      ],
+      "findings": [
+        {
+          "id": "semantic.680ea3a9843778fe356fe61c684ea09370cb0f4a64de878e2f5cdb818f0edf98",
+          "code": "semantic:node.kind",
+          "severity": "review",
+          "subjects": [
+            "operation.request-tool"
+          ]
+        },
+        {
+          "id": "semantic.ceaa42f429e841d242e8e392f9f2b30229dcce5fbc0c1469ed42cf7503b67a64",
+          "code": "semantic:node.tangibility",
+          "severity": "review",
+          "subjects": [
+            "operation.request-tool"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "amendment",
+      "inputPath": "examples/intent-integrity/amendment/genome",
+      "runtimeRevision": "aaf75113",
+      "runId": "integrity.9f3b698f-6729-4154-b9f0-a18980c5e235",
+      "reportId": "report.4f30aa7167b3bfee5f94fb020d94c03d15a579c4a6125cf793ada807a1300c24",
+      "snapshotHash": "sha256:c0529b6a6dec1195b0aa2a7c87c7a93394f0f9b94dfe276fb8a4ff6ea373bfda",
+      "createdAt": "2026-10-14T21:31:06.578Z",
+      "state": "completed",
+      "automatedStatus": "needs-review",
+      "structuralStatus": "passed",
+      "semanticComplete": false,
+      "resolvedProvider": "typesafe",
+      "resolvedModel": "jev-latest",
+      "provenance": {
+        "provider": "typesafe",
+        "model": "jev-1.13.0",
+        "questions": [
+          "intent.omitted",
+          "intent.unsupported",
+          "node.kind",
+          "node.purpose",
+          "node.tangibility",
+          "sections.allHold",
+          "sections.inconsistent",
+          "sections.which"
+        ],
+        "thresholds": {
+          "confident": 0.9,
+          "review": 0.5
+        },
+        "budget": {
+          "requestedCalls": 50,
+          "maxCalls": 500,
+          "usedCalls": 4
+        },
+        "truncated": false,
+        "fake": false,
+        "retries": 0
+      },
+      "checkedSubjects": 2,
+      "checkedRelationships": 0,
+      "findingCounts": {
+        "semantic:node.kind": 1,
+        "semantic:node.purpose": 1,
+        "semantic:sections.which": 1,
+        "semantic:node.tangibility": 1,
+        "semantic:sections.allHold": 1
+      },
+      "limitations": [
+        {
+          "id": "semantic.24001931504bea419c3172c7a21060a5742de5d13f024917aaa3dc921e62ca65",
+          "section": "semantic",
+          "severity": "review",
+          "code": "intent.judgment-unknown",
+          "message": "One or more direct intent fidelity judgments were missing, invalid, or below the configured confidence threshold.",
+          "subjects": [
+            "intent.omitted",
+            "intent.unsupported"
+          ],
+          "evidence": [
+            "question=intent.omitted",
+            "question=intent.unsupported"
+          ],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        }
+      ],
+      "findings": [
+        {
+          "id": "semantic.680ea3a9843778fe356fe61c684ea09370cb0f4a64de878e2f5cdb818f0edf98",
+          "code": "semantic:node.kind",
+          "severity": "review",
+          "subjects": [
+            "operation.request-tool"
+          ]
+        },
+        {
+          "id": "semantic.8d8beff80df22918eb03e5899525646c5b9f1205b1272cc1ab06729f3dc9be11",
+          "code": "semantic:node.purpose",
+          "severity": "review",
+          "subjects": [
+            "feature.return-reminder"
+          ]
+        },
+        {
+          "id": "semantic.5b84ac7fdb4542ab73d2941aae9f74eb4755d05261904c0e61865145bc20211b",
+          "code": "semantic:sections.which",
+          "severity": "review",
+          "subjects": [
+            "system.tool-library"
+          ]
+        },
+        {
+          "id": "semantic.ceaa42f429e841d242e8e392f9f2b30229dcce5fbc0c1469ed42cf7503b67a64",
+          "code": "semantic:node.tangibility",
+          "severity": "review",
+          "subjects": [
+            "operation.request-tool"
+          ]
+        },
+        {
+          "id": "semantic.5c68f820a0a25c5b8f118c3f6df53c970e9d6fb70558b713b686f1a17d5c38b2",
+          "code": "semantic:sections.allHold",
+          "severity": "info",
+          "subjects": [
+            "system.tool-library"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "flawed",
+      "inputPath": "examples/intent-integrity/flawed/genome",
+      "runtimeRevision": "aaf75113",
+      "runId": "integrity.273819ca-16e2-40b4-846e-39a35160d000",
+      "reportId": "report.0766b2e5e908ccf7ca8e62a3041b13c7dfb655ca7cf45fd2e71211f9b8d3e461",
+      "snapshotHash": "sha256:f1aa79aa09e0c9bffa7f63fa0108e2a936542fdd99f9ebcd48927718eb156ed0",
+      "createdAt": "2026-10-14T21:31:06.614Z",
+      "state": "completed",
+      "automatedStatus": "blocked",
+      "structuralStatus": "blocked",
+      "semanticComplete": false,
+      "resolvedProvider": "typesafe",
+      "resolvedModel": "jev-latest",
+      "provenance": {
+        "provider": "http",
+        "model": "jev-latest",
+        "questions": [],
+        "thresholds": {
+          "confident": 0.9,
+          "review": 0.5
+        },
+        "budget": {
+          "requestedCalls": 10,
+          "maxCalls": 500,
+          "usedCalls": 0
+        },
+        "truncated": false,
+        "fake": false,
+        "retries": 0
+      },
+      "checkedSubjects": 0,
+      "checkedRelationships": 0,
+      "findingCounts": {
+        "ref.dangling": 1
+      },
+      "limitations": [
+        {
+          "id": "semantic.6ec2775480d5e2c030f6505079984af913df1a84f883729997bc63c50e0dcce6",
+          "section": "semantic",
+          "severity": "review",
+          "code": "semantic.not-run",
+          "message": "Semantic evaluation did not run because deterministic structural blockers must be repaired first.",
+          "subjects": [],
+          "evidence": [],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        }
+      ],
+      "findings": [
+        {
+          "id": "structural.cbd4f8882fc5634613a7ac9352e09d2ae7033b376a62ad3037b6e718b0835091",
+          "code": "ref.dangling",
+          "severity": "blocked",
+          "subjects": [
+            "operation.share-borrower"
+          ]
+        }
+      ]
+    },
+    {
+      "case": "flawed-repaired",
+      "inputPath": "examples/intent-integrity/flawed/genome",
+      "runtimeRevision": "aaf75113",
+      "runId": "integrity.051f1611-7891-42e3-92b4-9c0e92aa2ede",
+      "reportId": "report.8092fa6601f658e7d45ca7ef4cbabefdfc1e6ae6e48e9d2231288a3bd2f5c0fa",
+      "snapshotHash": "sha256:bec656fd3d9b32b2b79d3528e373259662cd3816c2d63236dcb112ca2b5a0947",
+      "createdAt": "2026-10-14T21:31:06.915Z",
+      "state": "completed",
+      "automatedStatus": "needs-review",
+      "structuralStatus": "passed",
+      "semanticComplete": false,
+      "resolvedProvider": "typesafe",
+      "resolvedModel": "jev-latest",
+      "provenance": {
+        "provider": "typesafe",
+        "model": "jev-1.13.0",
+        "questions": [
+          "intent.omitted",
+          "intent.unsupported",
+          "node.kind",
+          "node.tangibility"
+        ],
+        "thresholds": {
+          "confident": 0.9,
+          "review": 0.5
+        },
+        "budget": {
+          "requestedCalls": 80,
+          "maxCalls": 500,
+          "usedCalls": 3
+        },
+        "truncated": false,
+        "fake": false,
+        "retries": 0
+      },
+      "checkedSubjects": 3,
+      "checkedRelationships": 0,
+      "findingCounts": {
+        "intent.unsupported-claim": 1,
+        "semantic:node.kind": 2,
+        "semantic:node.tangibility": 2
+      },
+      "limitations": [
+        {
+          "id": "semantic.24001931504bea419c3172c7a21060a5742de5d13f024917aaa3dc921e62ca65",
+          "section": "semantic",
+          "severity": "review",
+          "code": "intent.judgment-unknown",
+          "message": "One or more direct intent fidelity judgments were missing, invalid, or below the configured confidence threshold.",
+          "subjects": [
+            "intent.omitted"
+          ],
+          "evidence": [
+            "question=intent.omitted"
+          ],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        }
+      ],
+      "findings": [
+        {
+          "id": "intent.01cf08708ffe76321b38a28dd7546135528f11feae9854459f41429e6a15d152",
+          "code": "intent.unsupported-claim",
+          "severity": "review",
+          "subjects": []
+        },
+        {
+          "id": "semantic.680ea3a9843778fe356fe61c684ea09370cb0f4a64de878e2f5cdb818f0edf98",
+          "code": "semantic:node.kind",
+          "severity": "review",
+          "subjects": [
+            "operation.request-tool"
+          ]
+        },
+        {
+          "id": "semantic.cb236dd285ffc5df1b2d579890c3740cbd3edfeaebeb0fb16e899ac54a538d66",
+          "code": "semantic:node.kind",
+          "severity": "review",
+          "subjects": [
+            "operation.share-borrower"
+          ]
+        },
+        {
+          "id": "semantic.ceaa42f429e841d242e8e392f9f2b30229dcce5fbc0c1469ed42cf7503b67a64",
+          "code": "semantic:node.tangibility",
+          "severity": "review",
+          "subjects": [
+            "operation.request-tool"
+          ]
+        },
+        {
+          "id": "semantic.9dc58f2d1c07064ab9df4eb7ea58c95a901046d0e5df1feb78f27e040635cb03",
+          "code": "semantic:node.tangibility",
+          "severity": "review",
+          "subjects": [
+            "operation.share-borrower"
+          ]
+        }
+      ],
+      "inputChange": "Remove the dangling dependsOn link to entity.borrower-contact-missing from thing.library/operation.share-borrower/node.yaml; retain the other deliberate defects."
+    },
+    {
+      "case": "self",
+      "inputPath": "genome",
+      "runtimeRevision": "aaf75113",
+      "runId": "integrity.af791d3b-b71a-45a9-8686-2ef9669871c9",
+      "reportId": "report.27b0fdcb3e3833b44c2a87c1dcfafc6da97df150f080f97be04e0c27cd0e4b4c",
+      "snapshotHash": "sha256:43f7842f1a44ca70ad02f473752265653ddf06503563332b0c62c19d0b962d4a",
+      "createdAt": "2026-10-14T21:31:06.309Z",
+      "state": "completed",
+      "automatedStatus": "needs-review",
+      "structuralStatus": "passed",
+      "semanticComplete": false,
+      "resolvedProvider": "typesafe",
+      "resolvedModel": "jev-latest",
+      "provenance": {
+        "provider": "http",
+        "model": "jev-latest",
+        "questions": [
+          "intent.omitted",
+          "intent.unsupported"
+        ],
+        "thresholds": {
+          "confident": 0.9,
+          "review": 0.5
+        },
+        "budget": {
+          "requestedCalls": 200,
+          "maxCalls": 500,
+          "usedCalls": 1
+        },
+        "truncated": false,
+        "fake": false,
+        "retries": 0,
+        "failure": {
+          "code": "provider.transport",
+          "message": "System One HTTP 400"
+        }
+      },
+      "checkedSubjects": 0,
+      "checkedRelationships": 0,
+      "findingCounts": {},
+      "limitations": [
+        {
+          "id": "semantic.4a48391042dec4e0656dea51b521698d450b1419614c7fd284dba268849f7701",
+          "section": "semantic",
+          "severity": "review",
+          "code": "provider.transport",
+          "message": "System One HTTP 400",
+          "subjects": [],
+          "evidence": [],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        },
+        {
+          "id": "semantic.02fe41a8eb59226d053ef5f1ce6ab28b041c4bd30778f6b5f347105c8c13984c",
+          "section": "semantic",
+          "severity": "review",
+          "code": "intent.source-unverified",
+          "message": "Referenced intent source documents were not present in the snapshot, so their declared hashes could not be verified.",
+          "subjects": [
+            "docs/decision_log.md",
+            "docs/decision_log.md",
+            "docs/design/intent-integrity.md",
+            "docs/design/intent-integrity.md",
+            "docs/design/intent-integrity.md",
+            "docs/design/intent-integrity.md",
+            "docs/design/model.md",
+            "docs/design/ontology.md"
+          ],
+          "evidence": [
+            "docs/decision_log.md=sha256:c948178e14c1e3040372f71fa2e463b642a27ca221af571aa7f43b25dc0698f6",
+            "docs/decision_log.md=sha256:c948178e14c1e3040372f71fa2e463b642a27ca221af571aa7f43b25dc0698f6",
+            "docs/design/intent-integrity.md=sha256:920928d7f84c414adc37b2d7d975aa2a861cda74130fdbc2c00332bd628af766",
+            "docs/design/intent-integrity.md=sha256:920928d7f84c414adc37b2d7d975aa2a861cda74130fdbc2c00332bd628af766",
+            "docs/design/intent-integrity.md=sha256:920928d7f84c414adc37b2d7d975aa2a861cda74130fdbc2c00332bd628af766",
+            "docs/design/intent-integrity.md=sha256:920928d7f84c414adc37b2d7d975aa2a861cda74130fdbc2c00332bd628af766",
+            "docs/design/model.md=sha256:e735a2af93e221c62629b6329e1056b958f8d62d7896ef6ac906a423fd7f981b",
+            "docs/design/ontology.md=sha256:2f028b3fe5df46ef7f0213cbd9d9133fe2da63ae1bb42cf8cd0673c9dea7559e"
+          ],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        }
+      ],
+      "findings": []
+    },
+    {
+      "case": "self-scoped",
+      "inputPath": "genome",
+      "runtimeRevision": "e6c472f0",
+      "runId": "integrity.7493f0d0-fd1f-4cc2-8202-801a9af360b5",
+      "reportId": "report.fae14da0ab6a0ba989d48c5a9c8fc80cee1e75b043bae71df40f9a2b30fa0701",
+      "snapshotHash": "sha256:43f7842f1a44ca70ad02f473752265653ddf06503563332b0c62c19d0b962d4a",
+      "createdAt": "2026-10-14T21:41:35.858Z",
+      "state": "completed",
+      "automatedStatus": "needs-review",
+      "structuralStatus": "passed",
+      "semanticComplete": false,
+      "resolvedProvider": "typesafe",
+      "resolvedModel": "jev-latest",
+      "provenance": {
+        "provider": "typesafe",
+        "model": "jev-1.13.0",
+        "questions": [
+          "check:asset.provenance",
+          "check:command.documented",
+          "check:component.emptyState",
+          "check:component.loadingState",
+          "check:durable-object.instanceKey",
+          "check:endpoint.authPrincipal",
+          "check:endpoint.failureResponses",
+          "intent.omitted",
+          "intent.unsupported",
+          "node.kind",
+          "node.tangibility"
+        ],
+        "thresholds": {
+          "confident": 0.9,
+          "review": 0.5
+        },
+        "budget": {
+          "requestedCalls": 200,
+          "maxCalls": 500,
+          "usedCalls": 200
+        },
+        "truncated": true,
+        "fake": false,
+        "retries": 0,
+        "failure": {
+          "code": "budget",
+          "message": "the judge's call or round budget ran out before this was asked"
+        }
+      },
+      "checkedSubjects": 167,
+      "checkedRelationships": 13,
+      "findingCounts": {
+        "semantic:check:command.documented": 37,
+        "semantic:check:component.emptyState": 5,
+        "semantic:check:endpoint.failureResponses": 46,
+        "semantic:check:asset.provenance": 4,
+        "semantic:check:component.loadingState": 2,
+        "semantic:check:durable-object.instanceKey": 2,
+        "semantic:check:endpoint.authPrincipal": 70,
+        "semantic:node.kind": 34
+      },
+      "limitations": [
+        {
+          "id": "semantic.cb85b7f91b146cc51139ac5404378190c62bae1ce06f77ad917761f23d80c30e",
+          "section": "semantic",
+          "severity": "review",
+          "code": "intent.coverage-limited",
+          "message": "Direct intent fidelity assessed only the disclosed manifest-mapped scope because the full native declarations exceeded the bounded request.",
+          "subjects": [
+            "system.artyfact",
+            "feature.intent-integrity",
+            "J.author-intent",
+            "commitment.intent-fidelity",
+            "commitment.integrity-review"
+          ],
+          "evidence": [
+            "manifest mappings=5/5",
+            "declarations=5/529",
+            "relationships=13/619",
+            "serialized limit=24576 bytes"
+          ],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        },
+        {
+          "id": "semantic.24001931504bea419c3172c7a21060a5742de5d13f024917aaa3dc921e62ca65",
+          "section": "semantic",
+          "severity": "review",
+          "code": "intent.judgment-unknown",
+          "message": "One or more direct intent fidelity judgments were missing, invalid, or below the configured confidence threshold.",
+          "subjects": [
+            "intent.omitted",
+            "intent.unsupported"
+          ],
+          "evidence": [
+            "question=intent.omitted",
+            "question=intent.unsupported"
+          ],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        },
+        {
+          "id": "semantic.4a48391042dec4e0656dea51b521698d450b1419614c7fd284dba268849f7701",
+          "section": "semantic",
+          "severity": "review",
+          "code": "provider.transport",
+          "message": "the judge's call or round budget ran out before this was asked",
+          "subjects": [],
+          "evidence": [],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        },
+        {
+          "id": "semantic.d8e3706b865d0d0f03441631bf5f52f32d2ab939a97d5b8287f053242bb29bf3",
+          "section": "semantic",
+          "severity": "review",
+          "code": "budget.exhausted",
+          "message": "The semantic call budget was exhausted before full coverage.",
+          "subjects": [],
+          "evidence": [],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        },
+        {
+          "id": "semantic.02fe41a8eb59226d053ef5f1ce6ab28b041c4bd30778f6b5f347105c8c13984c",
+          "section": "semantic",
+          "severity": "review",
+          "code": "intent.source-unverified",
+          "message": "Referenced intent source documents were not present in the snapshot, so their declared hashes could not be verified.",
+          "subjects": [
+            "docs/decision_log.md",
+            "docs/decision_log.md",
+            "docs/design/intent-integrity.md",
+            "docs/design/intent-integrity.md",
+            "docs/design/intent-integrity.md",
+            "docs/design/intent-integrity.md",
+            "docs/design/model.md",
+            "docs/design/ontology.md"
+          ],
+          "evidence": [
+            "docs/decision_log.md=sha256:c948178e14c1e3040372f71fa2e463b642a27ca221af571aa7f43b25dc0698f6",
+            "docs/decision_log.md=sha256:c948178e14c1e3040372f71fa2e463b642a27ca221af571aa7f43b25dc0698f6",
+            "docs/design/intent-integrity.md=sha256:920928d7f84c414adc37b2d7d975aa2a861cda74130fdbc2c00332bd628af766",
+            "docs/design/intent-integrity.md=sha256:920928d7f84c414adc37b2d7d975aa2a861cda74130fdbc2c00332bd628af766"
+          ],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        },
+        {
+          "id": "semantic.bacf7414c9e7e7ec47b87f3eec7a6f1f5c8ee11ee7eef3605eafbc336d10e344",
+          "section": "semantic",
+          "severity": "review",
+          "code": "report.truncated",
+          "message": "The stored integrity report was truncated to its durable size limit.",
+          "subjects": [],
+          "evidence": [],
+          "suggestion": "Run a narrower review or reduce the evaluated Genome before accepting findings."
+        }
+      ]
+    },
+    {
+      "case": "amendment-budget",
+      "inputPath": "examples/intent-integrity/amendment/genome",
+      "runtimeRevision": "99cf1794",
+      "runId": "integrity.7ea93ddf-ddb1-45c2-bd8b-8feae87b83d4",
+      "reportId": "report.f46563e2fae35a14045de51c568b97e1e19324fa6b3fa00495d507ec6e5861f3",
+      "snapshotHash": "sha256:c0529b6a6dec1195b0aa2a7c87c7a93394f0f9b94dfe276fb8a4ff6ea373bfda",
+      "createdAt": "2026-10-14T22:00:27.332Z",
+      "state": "completed",
+      "automatedStatus": "needs-review",
+      "structuralStatus": "passed",
+      "semanticComplete": false,
+      "resolvedProvider": "typesafe",
+      "resolvedModel": "jev-latest",
+      "provenance": {
+        "provider": "typesafe",
+        "model": "jev-1.13.0",
+        "questions": [
+          "intent.omitted",
+          "intent.unsupported",
+          "node.kind",
+          "node.tangibility"
+        ],
+        "thresholds": {
+          "confident": 0.9,
+          "review": 0.5
+        },
+        "budget": {
+          "requestedCalls": 2,
+          "maxCalls": 500,
+          "usedCalls": 2
+        },
+        "truncated": true,
+        "fake": false,
+        "retries": 0
+      },
+      "checkedSubjects": 2,
+      "checkedRelationships": 2,
+      "findingCounts": {
+        "semantic:node.kind": 1,
+        "semantic:node.purpose": 1,
+        "semantic:node.tangibility": 1,
+        "semantic:sections.allHold": 1
+      },
+      "limitations": [
+        {
+          "id": "semantic.24001931504bea419c3172c7a21060a5742de5d13f024917aaa3dc921e62ca65",
+          "section": "semantic",
+          "severity": "review",
+          "code": "intent.judgment-unknown",
+          "message": "One or more direct intent fidelity judgments were missing, invalid, or below the configured confidence threshold.",
+          "subjects": [
+            "intent.omitted",
+            "intent.unsupported"
+          ],
+          "evidence": [
+            "question=intent.omitted",
+            "question=intent.unsupported"
+          ],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        },
+        {
+          "id": "semantic.d8e3706b865d0d0f03441631bf5f52f32d2ab939a97d5b8287f053242bb29bf3",
+          "section": "semantic",
+          "severity": "review",
+          "code": "budget.exhausted",
+          "message": "The semantic call budget was exhausted before full coverage.",
+          "subjects": [],
+          "evidence": [],
+          "suggestion": "Retry with a real provider and enough budget, then review the new exact report."
+        }
+      ],
+      "findings": [
+        {
+          "id": "semantic.680ea3a9843778fe356fe61c684ea09370cb0f4a64de878e2f5cdb818f0edf98",
+          "code": "semantic:node.kind",
+          "severity": "review",
+          "subjects": [
+            "operation.request-tool"
+          ]
+        },
+        {
+          "id": "semantic.8d8beff80df22918eb03e5899525646c5b9f1205b1272cc1ab06729f3dc9be11",
+          "code": "semantic:node.purpose",
+          "severity": "review",
+          "subjects": [
+            "feature.return-reminder"
+          ]
+        },
+        {
+          "id": "semantic.ceaa42f429e841d242e8e392f9f2b30229dcce5fbc0c1469ed42cf7503b67a64",
+          "code": "semantic:node.tangibility",
+          "severity": "review",
+          "subjects": [
+            "operation.request-tool"
+          ]
+        },
+        {
+          "id": "semantic.5c68f820a0a25c5b8f118c3f6df53c970e9d6fb70558b713b686f1a17d5c38b2",
+          "code": "semantic:sections.allHold",
+          "severity": "review",
+          "subjects": [
+            "system.tool-library"
+          ]
+        }
+      ],
+      "testOperatorAgreement": {
+        "status": "accepted-with-dispositions",
+        "actor": "admin",
+        "at": "2026-10-14T22:01:00.937Z",
+        "reportId": "report.f46563e2fae35a14045de51c568b97e1e19324fa6b3fa00495d507ec6e5861f3",
+        "snapshotHash": "sha256:c0529b6a6dec1195b0aa2a7c87c7a93394f0f9b94dfe276fb8a4ff6ea373bfda",
+        "dispositions": [
+          {
+            "findingId": "semantic.680ea3a9843778fe356fe61c684ea09370cb0f4a64de878e2f5cdb818f0edf98",
+            "decision": "accepted",
+            "rationale": "Test operator reviewed this as a planned request and owner decision, with no claim of implemented code. Preserve the model warning.",
+            "actor": "admin",
+            "at": "2026-10-14T22:01:00.937Z",
+            "reportId": "report.f46563e2fae35a14045de51c568b97e1e19324fa6b3fa00495d507ec6e5861f3",
+            "snapshotHash": "sha256:c0529b6a6dec1195b0aa2a7c87c7a93394f0f9b94dfe276fb8a4ff6ea373bfda"
+          },
+          {
+            "findingId": "semantic.8d8beff80df22918eb03e5899525646c5b9f1205b1272cc1ab06729f3dc9be11",
+            "decision": "accepted",
+            "rationale": "Test operator checked that a proposed reminder after the agreed return date supports the tool-loan purpose; scheduler/provider/deployment remain explicitly unasserted.",
+            "actor": "admin",
+            "at": "2026-10-14T22:01:00.937Z",
+            "reportId": "report.f46563e2fae35a14045de51c568b97e1e19324fa6b3fa00495d507ec6e5861f3",
+            "snapshotHash": "sha256:c0529b6a6dec1195b0aa2a7c87c7a93394f0f9b94dfe276fb8a4ff6ea373bfda"
+          },
+          {
+            "findingId": "semantic.ceaa42f429e841d242e8e392f9f2b30229dcce5fbc0c1469ed42cf7503b67a64",
+            "decision": "accepted",
+            "rationale": "Test operator reviewed the available-tool input, agreed return date, owner decision and recorded outcome in the exact declaration. This is planned behavior only.",
+            "actor": "admin",
+            "at": "2026-10-14T22:01:00.937Z",
+            "reportId": "report.f46563e2fae35a14045de51c568b97e1e19324fa6b3fa00495d507ec6e5861f3",
+            "snapshotHash": "sha256:c0529b6a6dec1195b0aa2a7c87c7a93394f0f9b94dfe276fb8a4ff6ea373bfda"
+          },
+          {
+            "findingId": "semantic.5c68f820a0a25c5b8f118c3f6df53c970e9d6fb70558b713b686f1a17d5c38b2",
+            "decision": "accepted",
+            "rationale": "Test operator manually checked the five native declarations: proposed loan, private contacts and proposed return reminder can coexist, while the multiple-borrower question stays unresolved.",
+            "actor": "admin",
+            "at": "2026-10-14T22:01:00.937Z",
+            "reportId": "report.f46563e2fae35a14045de51c568b97e1e19324fa6b3fa00495d507ec6e5861f3",
+            "snapshotHash": "sha256:c0529b6a6dec1195b0aa2a7c87c7a93394f0f9b94dfe276fb8a4ff6ea373bfda"
+          },
+          {
+            "findingId": "semantic.24001931504bea419c3172c7a21060a5742de5d13f024917aaa3dc921e62ca65",
+            "decision": "accepted",
+            "rationale": "Test operator compared this exact small amendment and its provenance with the brief. Unknown automated fidelity remains recorded; no user agreement or implementation evidence is claimed.",
+            "actor": "admin",
+            "at": "2026-10-14T22:01:00.937Z",
+            "reportId": "report.f46563e2fae35a14045de51c568b97e1e19324fa6b3fa00495d507ec6e5861f3",
+            "snapshotHash": "sha256:c0529b6a6dec1195b0aa2a7c87c7a93394f0f9b94dfe276fb8a4ff6ea373bfda"
+          },
+          {
+            "findingId": "semantic.d8e3706b865d0d0f03441631bf5f52f32d2ab939a97d5b8287f053242bb29bf3",
+            "decision": "accepted",
+            "rationale": "Explicit workflow-test acceptance of partial coverage: only two real provider calls were allowed, so the remaining node and relationship questions were not exhaustively evaluated. Keep automated needs-review; this disposition demonstrates the approved partial-report path only.",
+            "actor": "admin",
+            "at": "2026-10-14T22:01:00.937Z",
+            "reportId": "report.f46563e2fae35a14045de51c568b97e1e19324fa6b3fa00495d507ec6e5861f3",
+            "snapshotHash": "sha256:c0529b6a6dec1195b0aa2a7c87c7a93394f0f9b94dfe276fb8a4ff6ea373bfda"
+          }
+        ],
+        "eligibility": {
+          "eligible": true,
+          "status": "accepted-with-dispositions",
+          "unresolvedFindingIds": []
+        }
+      }
+    }
+  ]
+}

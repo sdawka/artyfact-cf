@@ -13,6 +13,7 @@ import {
 import { isBlocking } from "../../shared/verdict";
 import type { TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse } from "../../shared/api";
 import type { IntentAccept, IntentAcceptResponse, IntentDecisionsRequest, IntentReply, IntentRequest, Proposal } from "../../shared/api";
+import type { IntegrityAgreementRequest, IntegrityPreviewRequest, IntegrityRun, IntegrityRunRequest, IntegrityRunResponse, IntegrityRunsResponse, IntegritySnapshotResponse } from "../../shared/integrity";
 // review
 import type { SystemImportReview, SystemImportReviewAccept, SystemImportReviewAcceptResponse } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
@@ -96,6 +97,11 @@ export const paths = {
   intent: routes.intent,
   intentReply: routes.intentReply,
   intentAccept: routes.intentAccept,
+  integrityPreview: (s: string) => `/api/systems/${enc(s)}/integrity/preview`,
+  integrityRuns: (s: string) => `/api/systems/${enc(s)}/integrity/runs`,
+  integrityRun: (s: string, run: string) => `/api/systems/${enc(s)}/integrity/runs/${enc(run)}`,
+  integrityCancel: (s: string, run: string) => `/api/systems/${enc(s)}/integrity/runs/${enc(run)}/cancel`,
+  integrityAgreement: (s: string, run: string) => `/api/systems/${enc(s)}/integrity/runs/${enc(run)}/agreement`,
 };
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
@@ -393,6 +399,19 @@ export const commitFiles = (systemId: string, realizationId: string, body: Edito
 
 const bearer = (token?: string) => (token ? { authorization: `Bearer ${token}` } : undefined);
 
+export const previewIntegrity = (systemId: string, body: IntegrityPreviewRequest, adminToken?: string) =>
+  writeOrThrow("Previewing integrity", () => post<IntegritySnapshotResponse>(paths.integrityPreview(systemId), body, bearer(adminToken)));
+export const startIntegrity = (systemId: string, body: IntegrityRunRequest, adminToken?: string) =>
+  writeOrThrow("Starting integrity", () => post<IntegrityRunResponse>(paths.integrityRuns(systemId), body, bearer(adminToken)));
+export const getIntegrityRun = (systemId: string, runId: string, adminToken?: string) =>
+  request<IntegrityRunResponse>(paths.integrityRun(systemId, runId), bearer(adminToken) ? { headers: bearer(adminToken) } : undefined);
+export const getIntegrityRuns = (systemId: string, adminToken?: string) =>
+  request<IntegrityRunsResponse>(paths.integrityRuns(systemId), bearer(adminToken) ? { headers: bearer(adminToken) } : undefined);
+export const cancelIntegrity = (systemId: string, runId: string, adminToken?: string) =>
+  writeOrThrow("Cancelling integrity", () => post<IntegrityRunResponse>(paths.integrityCancel(systemId, runId), {}, bearer(adminToken)));
+export const agreeIntegrity = (systemId: string, runId: string, body: IntegrityAgreementRequest, adminToken?: string) =>
+  writeOrThrow("Recording integrity agreement", () => post<IntegrityRunResponse>(paths.integrityAgreement(systemId, runId), body, bearer(adminToken)));
+
 /** Routes and translates `message` into a {@link Proposal}. A platform without intents answers 501 `not-implemented`. */
 export const createIntent = (systemId: string, body: IntentRequest, adminToken?: string) =>
   writeOrThrow("Describing a change", () => post<Proposal>(paths.intents(systemId), body, bearer(adminToken)));
@@ -416,6 +435,10 @@ export const decideIntent = (systemId: string, proposalId: string, body: IntentD
   writeOrThrow("Deciding changes", () =>
     request<Proposal>(routes.intentDecisions(systemId, proposalId), { method: "PUT", body: JSON.stringify(body), ...(adminToken && { headers: bearer(adminToken) }) }),
   );
+export const reviseIntent = (systemId: string, proposalId: string, body: { candidateId: string; commit: string; answer: string; questionId?: string }, adminToken?: string) =>
+  writeOrThrow("Revising staged proposal", () => post<Proposal>(routes.intentRevise(systemId, proposalId), body, bearer(adminToken)));
+export const abandonIntent = (systemId: string, proposalId: string, body: { candidateId: string; commit: string; reason: string }, adminToken?: string) =>
+  writeOrThrow("Abandoning staged proposal", () => post<Proposal>(routes.intentAbandon(systemId, proposalId), body, bearer(adminToken)));
 
 // ---------------------------------------------------------------------------
 // review: the System import review of an imported System (agreement tree over the imported Genome)

@@ -160,7 +160,10 @@ export function validateGenomeCommand(argv: string[], io: Pick<Io, "cwd" | "out"
     } else {
       io.out("files: no app dir given (--app)");
     }
-    io.out(ok ? `ok: ready for \`npx artyfact init --genome ${arg} --app ${appArg ?? "<appDir>"}\`` : "not ok: fix the errors above");
+    if (ok) {
+      io.out("structural validation passed; semantic integrity and human agreement were not checked.");
+      io.out(`next: \`npx artyfact ontology check --system ${model.system.id} --genome ${arg} --platform <origin>\``);
+    } else io.out("not ok: fix the errors above");
   }
   return ok && !strictFail ? 0 : 1;
 }

@@ -17,6 +17,9 @@ links:
   - { rel: exposes, to: command.convert-genome }
   - { rel: exposes, to: command.validate-genome }
   - { rel: exposes, to: command.skill }
+  - { rel: exposes, to: command.ontology-check }
+  - { rel: exposes, to: command.ontology-agreement }
+  - { rel: exposes, to: command.ontology-materialize }
 criteria:
   - id: C.cli.unit
     title: "@artyfact/cli tests pass"

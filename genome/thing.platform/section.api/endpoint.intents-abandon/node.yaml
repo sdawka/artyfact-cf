@@ -1,0 +1,8 @@
+id: endpoint.intents-abandon
+kind: endpoint
+fields:
+  name: Abandon a staged proposal
+  description: Marks a staged proposal abandoned without accepting its candidate or erasing its attempt history.
+  route: POST /api/systems/:id/intents/:pid/abandon
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  response: Proposal

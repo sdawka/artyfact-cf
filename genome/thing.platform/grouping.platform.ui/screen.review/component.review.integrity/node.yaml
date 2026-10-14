@@ -1,0 +1,16 @@
+id: component.review.integrity
+kind: component
+fields:
+  name: Integrity review
+  description: Shows queued, running, failed, cancelled or completed automated integrity evidence alongside separate human agreement and bounded finding dispositions.
+  states:
+    - loading
+    - queued
+    - running
+    - completed
+    - failed
+    - cancelled
+    - agreement pending
+    - agreement recorded
+links:
+  - { rel: references, to: component.start.integrity }

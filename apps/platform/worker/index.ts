@@ -22,11 +22,13 @@ import { templateUpgrade } from "./routes/template-upgrade";
 import { operations } from "./routes/operations";
 import { lifecycle } from "./routes/lifecycle";
 import { ontologyPackages } from "./routes/ontology-packages";
+import { integrity } from "./routes/integrity";
 
 const app = new Hono<AppEnv>();
 // Import destinations are reviewable before a System has an accepted Genome and registry entry.
 // These routes enforce admin authorization themselves, including every read.
 app.route("/api", ontologyPackages);
+app.route("/api", integrity);
 
 app.get("/api/health", (c) =>
   c.json<HealthResponse>({ status: "ok", service: "artyfact-platform", time: new Date().toISOString() }),

@@ -14,9 +14,15 @@ import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { StatusText } from "@/components/StatusText/StatusText";
 import { Steps, type Step } from "@/components/Steps/Steps";
 import { HomeHeader } from "../home/HomeHeader";
+import { IntegrityReview } from "../integrity/IntegrityPanel";
+import { previewIntegrity, startIntegrity } from "@/api/client";
+import { Section } from "@/components/Section/Section";
 import styles from "./start.module.css";
 
 const NO_TOKEN = "Set the admin token in the header.";
+
+/** The brief a local agent turns into a Genome-only System before any package exists. */
+const intentBrief = (system: string) => `Create a Genome-only System for ${system}. Preserve the user's statements, assumptions, unresolved questions, boundaries, concepts, relationships, constraints, and observable acceptance criteria in intent/brief.md. Map stable node IDs to brief sections in intent/manifest.json. Use native node.yaml files and a native ontology package only when vocabulary needs extension. Do not invent source bindings, implementation evidence, or user agreement. Return exact files for browser preview and integrity review.`;
 
 /** Parse pasted JSON, naming the field in the error instead of surfacing a raw SyntaxError. */
 function parseJson(what: string, text: string): unknown {
@@ -36,6 +42,7 @@ export default function StartView() {
   const [created, setCreated] = useState(!!params.get("system"));
   const [source, setSource] = useState("");
   const [genomeFiles, setGenomeFiles] = useState("");
+  const [integrityFiles, setIntegrityFiles] = useState("");
   const [review, setReview] = useState<OntologyImportReview>();
   const [reopened, setReopened] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -43,6 +50,7 @@ export default function StartView() {
   const [registered, setRegistered] = useState(false);
   const [outcomes, setOutcomes] = useState(false);
   const sourceRef = useRef<HTMLTextAreaElement>(null);
+  const integrityId = params.get("integrity");
 
   const starter = (): NativeOntologyPackage => ({
     format: "artyfact.ontology-package@1", id: "custom.domain", version: "1", dependencies: [],
@@ -73,6 +81,11 @@ export default function StartView() {
     setParams({ system, import: next.id });
   });
   const accept = () => run("Could not accept the import", async () => setReview(await lifecycleApi.acceptImport(system, review!.id, { hash: review!.pin!.hash }, token)));
+  const checkGenome = () => run("Could not start the integrity check", async () => {
+    const snapshot = await previewIntegrity(system, { files: parseJson("Genome files", integrityFiles) as Record<string, string> }, token);
+    const started = await startIntegrity(system, { snapshotId: snapshot.snapshot.id }, token);
+    setParams({ system, integrity: started.run.id });
+  });
   const check = () => run("Could not check", async () => {
     const result = await scopedRequest<SystemsResponse>("/api/systems", token);
     if (!result.systems.some((s) => s.systemId === system)) throw new Error("Complete the local bootstrap command first, then check again.");
@@ -91,6 +104,18 @@ export default function StartView() {
     { id: "agent", title: "Build with your agent", state: stage === 4 ? "current" : "todo" },
   ];
   if (review && review.status !== "accepted" && stage === 3) steps[1]!.onEdit = () => setReopened(true);
+
+  // Source-free: the agent's exact Genome and intent sidecars go to integrity review, apart from the package import.
+  const proposedGenome = (
+    <Section title="Check the proposed Genome" headingLevel={3} description="Paste the exact native Genome and intent sidecars returned by your agent. A source-free System is valid; this starts integrity review without claiming implementation evidence. An accepted package only accepts vocabulary; it is not agreement with this assembled Genome.">
+      <Form onSubmit={(e) => { e.preventDefault(); void checkGenome(); }}>
+        <Field label="Genome files (JSON path-to-text object)"><Textarea id="integrity-files" className={styles.source} rows={8} value={integrityFiles} onChange={(e) => setIntegrityFiles(e.target.value)} disabled={busy} /></Field>
+        <FormActions>
+          <Button type="submit" variant="secondary" disabled={busy} reason={!token ? NO_TOKEN : !integrityFiles.trim() ? "Paste the Genome files first." : undefined}>Preview and start integrity check</Button>
+        </FormActions>
+      </Form>
+    </Section>
+  );
 
   let body: ReactNode;
   if (stage === 1) {
@@ -128,6 +153,13 @@ export default function StartView() {
             <Button type="submit" variant="primary" disabled={busy} reason={!token ? NO_TOKEN : !source.trim() ? "Paste a package first." : undefined}>Preview import</Button>
           </FormActions>
         </Form>
+        {!review && (
+          <Section title="Local-agent intent handoff" headingLevel={3} description={<>Before a package exists, give your local agent this brief. It must produce native Genome files plus <code>intent/brief.md</code> and <code>intent/manifest.json</code>; no application source, Part, or implementation evidence is required.</>}>
+            <div className={styles.pin}><CopyButton value={intentBrief(system)} label="Copy brief" /></div>
+            <pre tabIndex={0} className={styles.code}>{intentBrief(system)}</pre>
+          </Section>
+        )}
+        {!review && proposedGenome}
         {err}
       </div>
     );
@@ -180,6 +212,7 @@ export default function StartView() {
           <p>Default import review must stay enabled when Genome content changes. After acceptance, choose actual source-bound node IDs from the Genome. Draft with each ID using --node, review the printed scope and problems, then repeat that command with --create.</p>
           <p>Preparation can be resumed in ./project; bootstrap refuses to overwrite it. If init reports no app, finish its scaffold or use a matching --from-template; do not invent source bindings.</p>
         </details>
+        {proposedGenome}
         {registered
           ? <FormActions><span>System registered.</span><Button asChild variant="primary"><Link to={`/s/${encodeURIComponent(system)}/r/head/work`}>Open System work</Link></Button></FormActions>
           : <FormActions><Button variant="primary" disabled={busy} reason={!token ? NO_TOKEN : undefined} onClick={() => void check()}>Check local bootstrap completion</Button></FormActions>}
@@ -192,6 +225,7 @@ export default function StartView() {
       <div className={styles.page}>
         <PageHeader title="Start a System" purpose="Create a System, review its ontology, then hand it to your agent." context={null} />
         <Steps steps={steps} label="Start a System steps">{body}</Steps>
+        {integrityId && <IntegrityReview runId={integrityId} systemId={system} />}
       </div>
     </EntryLayout>
   );

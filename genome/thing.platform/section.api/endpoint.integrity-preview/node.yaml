@@ -1,0 +1,9 @@
+id: endpoint.integrity-preview
+kind: endpoint
+fields:
+  name: Preview integrity snapshot
+  description: Creates an immutable integrity snapshot from bounded native Genome files and their intent sidecars.
+  route: POST /api/systems/:id/integrity/preview
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  request: IntegrityPreviewRequest {files}
+  response: 201 IntegritySnapshotResponse

@@ -1,0 +1,12 @@
+{
+  "expectedStatus": "needs-review",
+  "findings": [
+    {
+      "id": "intent.open-question.multiple-reservations",
+      "section": "semantic",
+      "severity": "needs-review",
+      "subject": "system.tool-library",
+      "reason": "The concurrent-reservation policy is intentionally unresolved."
+    }
+  ]
+}

@@ -1,0 +1,11 @@
+id: command.ontology-check
+kind: command
+fields:
+  name: ontology check
+  usage: artyfact ontology check --system <system-id> --genome <dir> [--provider auto|clef|jev|openrouter|off] [--json]
+  exitCodes: 0 passed, 1 blocked, 2 needs-review; transport failures are errors.
+  description: Creates an exact snapshot from native Genome files and intent sidecars, starts or polls a full integrity check, and prints automated status separately from agreement.
+links:
+  - { rel: calls, to: endpoint.integrity-preview }
+  - { rel: calls, to: endpoint.integrity-runs-post }
+  - { rel: calls, to: endpoint.integrity-run }
