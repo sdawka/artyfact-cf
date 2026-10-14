@@ -72,8 +72,14 @@ the environment of a shell that starts an agent. An agent holds only its task's 
 select, integrate, promote or accept.
 
 ```sh
+set +x
+unset ADMIN_TOKEN ARTYFACT_ADMIN_TOKEN
 ADMIN_TOKEN=$(sed -n 's/^ADMIN_TOKEN=//p' "$REPO/apps/platform/.dev.vars")
 ```
+
+This is the **local** token. Production uses a separate verified macOS Keychain item: service `artyfact-platform.production`, account `1bae12d5089e4c2ee5c0e62c021a117f|artyfact-platform|https://artyfact-platform.dawka.workers.dev`. For production ops, replace the assignment above with `ADMIN_TOKEN=$(security find-generic-password -s artyfact-platform.production -a '1bae12d5089e4c2ee5c0e62c021a117f|artyfact-platform|https://artyfact-platform.dawka.workers.dev' -w)` and set the platform URL accordingly. Keep it unexported and use `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN"` only on the intended admin command. Do not copy a differing inherited CLI token or local `.dev.vars` token into production.
+
+Follow [Deploy: production admin token](deploy.md#production-admin-token) for rotation: generate once, save pending, upload the saved bytes through stdin, verify a protected read with bounded activation retries, and promote only after HTTP 200. The browser stores its own session token; replace it after rotation. Its “saved” label does not establish authentication. No credential values belong in output, screenshots or agent shells.
 
 ## 1. Platform (about 10 s)
 
