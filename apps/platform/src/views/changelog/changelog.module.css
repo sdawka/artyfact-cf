@@ -48,3 +48,4 @@
   .rationale, .meta { padding-left: 0; }
 }
 .more { justify-self: start; }
+.nodes { color: var(--color-text-subtle); font: var(--type-meta); overflow-wrap: anywhere; }

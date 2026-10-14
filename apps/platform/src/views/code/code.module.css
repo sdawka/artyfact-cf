@@ -10,7 +10,8 @@
 .filter:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 .treeList { margin: 0; padding: 0 0 0 var(--spacing-4); list-style: none; font-size: var(--font-size-sm); }
 .tree > .treeList { padding-left: 0; }
-.dir { display: flex; align-items: center; gap: var(--spacing-1); min-height: 2.25rem; cursor: pointer; color: var(--color-text-secondary); font: var(--type-meta); list-style: none; overflow-wrap: anywhere; }
+.dir { display: flex; align-items: center; gap: var(--spacing-1); min-height: 2.25rem; cursor: pointer; color: var(--color-text-secondary); font-family: var(--font-code); font-size: var(--font-size-sm); list-style: none; overflow-wrap: anywhere; }
+.folder { flex: none; opacity: 0.7; }
 .dir::-webkit-details-marker { display: none; }
 .dir:focus-visible { outline: var(--focus-ring); outline-offset: 1px; }
 .chevron { flex: none; transition: transform var(--motion-duration-fast) var(--motion-easing-ease-out); }
@@ -42,9 +43,9 @@ details[open] > .dir .chevron { transform: rotate(90deg); }
 .pendingWell { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-1) var(--spacing-4); padding: var(--spacing-2) var(--spacing-4); background: var(--surface-well); border-radius: var(--border-radius-md); }
 .pendingCount { margin: 0; font: var(--type-meta); color: var(--color-attention); }
 .pendingList { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1) var(--spacing-4); margin: 0; padding: 0; list-style: none; font-size: var(--font-size-sm); }
-.pendingRow { display: inline-flex; align-items: center; gap: var(--spacing-2); min-width: 0; }
-.pendingRow code { font-family: var(--font-code); overflow-wrap: anywhere; }
-.pendingLink { text-decoration: none; }
+.pendingRow { display: inline-flex; align-items: center; gap: var(--spacing-2); min-width: 0; max-width: 100%; }
+.pendingRow code { font-family: var(--font-code); white-space: nowrap; }
+.pendingLink { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-decoration: none; }
 .pendingLink:hover { text-decoration: underline; text-decoration-color: var(--color-link-underline); }
 .glyph { width: 1ch; color: var(--color-text-secondary); }
 .inlineForm { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); font-size: var(--font-size-sm); }

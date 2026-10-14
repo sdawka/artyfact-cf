@@ -5,7 +5,6 @@ import { Link } from "react-router";
 import type { ChangelogEntry, ChangelogRow } from "../../../shared/api";
 import { useChangelogEntry } from "@/api/queries";
 import { CopyButton } from "@/components/CopyButton/CopyButton";
-import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { StatusText } from "@/components/StatusText/StatusText";
 import { buildTone } from "@/components/StatusChip/StatusChip";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
@@ -45,7 +44,7 @@ function Files({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
           <li key={`${f.scope}:${f.path}`} data-status={f.status} data-scope={f.scope}>
             <span className={styles.glyph} aria-label={f.status}>{GLYPH[f.status]}</span>
             <Link to={to}><code>{f.path}</code></Link>
-            {f.nodes.map((n) => <NodeChip key={n} id={n} size="sm" />)}
+            {f.nodes.length > 0 && <span className={styles.nodes}>{f.nodes.join(", ")}</span>}
           </li>
         );
       })}
@@ -55,6 +54,37 @@ function Files({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
         {all ? "Show fewer files" : `Show all ${entry.codeLinks.length} files`}
       </Button>
     )}
+    </>
+  );
+}
+
+function Criteria({ criteria }: { criteria: ChangelogEntry["criteria"] }) {
+  const href = useKeepParams();
+  const [all, setAll] = useState(false);
+  const changed = criteria.filter((c) => c.before !== c.after);
+  const same = criteria.filter((c) => c.before === c.after);
+  const shown = all ? criteria : changed;
+  const verdicts = [...new Set(same.map((c) => c.after))].join(", ");
+  return (
+    <>
+      {shown.length > 0 && (
+        <ul className={styles.criteria}>
+          {shown.map((c) => (
+            <li key={c.id}>
+              <Link to={href("evaluations", { criterion: c.id })}><code>{c.id}</code></Link>
+              <VerdictBadge verdict={c.before} label={`before ${c.before}`} />
+              <ArrowRightIcon aria-hidden="true" />
+              <VerdictBadge verdict={c.after} label={`after ${c.after}`} />
+            </li>
+          ))}
+        </ul>
+      )}
+      {same.length > 0 && (
+        <p className={styles.muted}>
+          {same.length} {same.length === 1 ? "criterion" : "criteria"}, unchanged ({verdicts}).{" "}
+          <Button type="button" variant="ghost" size="compact" aria-expanded={all} onClick={() => setAll(!all)}>{all ? "Show changed only" : "Show all"}</Button>
+        </p>
+      )}
     </>
   );
 }
@@ -75,7 +105,7 @@ function Detail({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
     <>
       <div className={styles.detailHead}>
         {row.parent && <Button asChild variant="secondary"><Link to={href("compare", { from: row.parent, to: row.id })}>Compare with parent</Link></Button>}
-        {!row.legacyFormat && <Link to={viewPath(systemId, row.id, "map")} className="u-marker">Open in Map</Link>}
+        {!row.legacyFormat && <Button asChild variant="ghost"><Link to={viewPath(systemId, row.id, "map")}>Open in Map</Link></Button>}
       </div>
       <Section title="Genome">
         {row.legacyFormat ? (
@@ -92,16 +122,7 @@ function Detail({ entry, row }: { entry: ChangelogEntry; row: ChangelogRow }) {
       </Section>
       {entry.criteria.length > 0 && (
         <Section title="Criteria">
-          <ul className={styles.criteria}>
-            {entry.criteria.map((c) => (
-              <li key={c.id}>
-                <Link to={href("evaluations", { criterion: c.id })}><code>{c.id}</code></Link>
-                <VerdictBadge verdict={c.before} label={`before ${c.before}`} />
-                <ArrowRightIcon aria-hidden="true" />
-                <VerdictBadge verdict={c.after} label={`after ${c.after}`} />
-              </li>
-            ))}
-          </ul>
+          <Criteria criteria={entry.criteria} />
         </Section>
       )}
       {evaluations.length > 0 && (

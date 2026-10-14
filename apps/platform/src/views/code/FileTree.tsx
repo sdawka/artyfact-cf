@@ -1,4 +1,4 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
 import type { ChangeKind } from "./useDraft";
 import { ChevronRightIcon } from "@radix-ui/react-icons";
@@ -21,9 +21,15 @@ export function FileTree({ entries, selected, changes, hrefFor }: FileTreeProps)
   const uid = useId();
   const [query, setQuery] = useState("");
   const tree = useMemo(() => buildTree(entries), [entries]);
+  const navRef = useRef<HTMLElement>(null);
   const shown = useMemo(() => compactTree(filterTree(tree, query)), [tree, query]);
+  // Reveal the selected file in the list pane's own scroll (nearest: no page jump when it is already visible).
+  useEffect(() => {
+    const el = navRef.current?.querySelector<HTMLElement>('[aria-current="true"]');
+    el?.scrollIntoView?.({ block: "nearest" });
+  }, [selected, entries.length]);
   return (
-    <nav aria-label="Files" className={styles.tree}>
+    <nav ref={navRef} aria-label="Files" className={styles.tree}>
       <label htmlFor={`${uid}-f`} className={styles.srOnly}>Filter files</label>
       <input id={`${uid}-f`} type="search" className={styles.filter} placeholder="Filter files" value={query} onChange={(e) => setQuery(e.target.value)} autoComplete="off" />
       {shown.length ? (
@@ -42,7 +48,7 @@ function Nodes({ nodes, selected, changes, hrefFor, forceOpen }: Omit<FileTreePr
         n.type === "dir" ? (
           <li key={n.path}>
             <details open={forceOpen || !!selected?.startsWith(`${n.path}/`)}>
-              <summary className={styles.dir}><ChevronRightIcon aria-hidden="true" className={styles.chevron} />{n.name}/</summary>
+              <summary className={styles.dir}><ChevronRightIcon aria-hidden="true" className={styles.chevron} /><FolderGlyph />{n.name}/</summary>
               <Nodes nodes={n.children} selected={selected} changes={changes} hrefFor={hrefFor} forceOpen={forceOpen} />
             </details>
           </li>
@@ -67,5 +73,13 @@ function Nodes({ nodes, selected, changes, hrefFor, forceOpen }: Omit<FileTreePr
         ),
       )}
     </ul>
+  );
+}
+
+function FolderGlyph() {
+  return (
+    <svg aria-hidden="true" className={styles.folder} width="14" height="14" viewBox="0 0 15 15" fill="none" stroke="currentColor" strokeWidth="1.2" strokeLinejoin="round">
+      <path d="M1.5 3.5h4l1.2 1.5h6.8v7h-12z" />
+    </svg>
   );
 }

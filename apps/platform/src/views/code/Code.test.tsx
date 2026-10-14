@@ -296,7 +296,7 @@ describe("Code page in fixture mode", () => {
   });
 });
 
-it("keeps an app draft local and directs implementation to a Realization Task",async()=>{
+it("keeps an app draft local and directs implementation to a Plan",async()=>{
  const calls=stubApi();renderApp(`${CODE}?repo=app&path=system.yaml`,undefined,apiSeed);await waitFor(()=>expect(editorText()).toBe(FILES["system.yaml"]));await editCurrent("local app draft\n");fireEvent.click(screen.getByRole("link",{name:"Commit changes"}));const sheet=await commitPanel();
- expect((within(sheet).getByRole("button",{name:"Commit"}) as HTMLButtonElement).disabled).toBe(true);expect(within(sheet).getByRole("link",{name:"Create a Realization Task"}).getAttribute("href")).toContain("panel=plan");expect(calls.some(c=>c.method==='POST')).toBe(false);expect(localStorage.getItem(`artyfact.draft.${SYSTEM}.app.head`)).toContain('local app draft');
+ expect((within(sheet).getByRole("button",{name:"Commit"}) as HTMLButtonElement).disabled).toBe(true);expect(within(sheet).getByRole("link",{name:"Create a Plan"}).getAttribute("href")).toContain("panel=plan");expect(calls.some(c=>c.method==='POST')).toBe(false);expect(localStorage.getItem(`artyfact.draft.${SYSTEM}.app.head`)).toContain('local app draft');
 });
