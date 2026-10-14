@@ -2,11 +2,14 @@ id: component.review.queue
 kind: component
 fields:
   name: Review queue
-  description: Rows of waiting candidates and amendments, each with its kind word, Evolution and agent.
+  description: "Rows of waiting decisions grouped by Evolution or plan, the Import group first; group heads link to Work. Within a group: import or amendment, then candidates, then the promotion row. Each row has a kind glyph and an outcome sentence (for example Evaluated candidate to review, Built on an earlier head, Genome amendment awaits an admin, Ready to promote, n candidates evaluated, Import · n nodes awaits an admin, <task>: result awaits selection, Plan awaits promotion), its agent and candidate, whether its base is the head and its conflicts. The current row carries the selection rule."
   states:
     - loaded
     - "empty: Nothing is waiting on you."
-    - candidate (attention)
-    - amendment (attention)
-    - promotion (attention)
-    - stale (subtle)
+    - ◇ candidate (attention)
+    - ↻ stale (attention)
+    - ✎ amendment (attention)
+    - ↑ promotion (attention)
+    - ⤓ import (attention)
+    - ◇ task (attention)
+    - ↑ plan (attention)

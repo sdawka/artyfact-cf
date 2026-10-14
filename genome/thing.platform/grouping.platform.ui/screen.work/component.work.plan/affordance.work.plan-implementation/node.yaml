@@ -1,0 +1,19 @@
+id: affordance.work.plan-implementation
+kind: affordance
+fields:
+  name: Plan implementation
+  description: Opens the Plan implementation panel (Back to Work). Draft tasks drafts from accepted Genome Evolutions or named nodes and saves nothing; the draft can be merged, split, removed or undone; Create plan saves it.
+  actor: user
+  trigger: click
+  preconditions:
+    - An accepted Genome Evolution exists
+    - An admin token is set in the header
+  effects:
+    - The new plan is selected with its waves
+  failure:
+    - "The problems are listed and Create plan stays disabled"
+links:
+  - rel: invokes
+    to: endpoint.plan-draft
+  - rel: invokes
+    to: endpoint.lifecycle-post-realization-plans

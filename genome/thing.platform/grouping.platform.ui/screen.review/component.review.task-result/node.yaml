@@ -1,0 +1,9 @@
+id: component.review.task-result
+kind: component
+fields:
+  name: Task result
+  description: "?plan=&task=: the Task's submitted candidates with changed files (each opens a line diff), changed Genome nodes and recorded evaluations, and Open execution plan."
+  states:
+    - loaded
+    - "empty: No submitted candidate for this Task."
+    - "missing: No Task <id> in plan <plan>."

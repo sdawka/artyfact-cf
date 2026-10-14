@@ -1,14 +1,11 @@
 id: affordance.evaluations.open-criterion
 kind: affordance
 fields:
-  name: Open criterion
-  description: Selecting an evaluation row opens its criterion.
+  name: Expand evaluation
+  description: Selecting a row expands its evaluation in place and records it in the URL.
   actor: user
   trigger: click
   preconditions: []
   effects:
-    - The Inspector opens on the criterion
+    - The row opens with its method, observations and provenance
   failure: []
-links:
-  - rel: references
-    to: component.shell.inspector

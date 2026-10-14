@@ -1,0 +1,17 @@
+id: affordance.review.select-task-result
+kind: affordance
+fields:
+  name: Select reviewed Task result
+  description: Selects one candidate as the Task's result.
+  actor: user
+  trigger: click
+  preconditions:
+    - The Task result awaits selection
+    - An admin token is set
+  effects:
+    - The Task is selected and its row leaves the queue
+  failure:
+    - "This Task result is no longer awaiting selection."
+links:
+  - rel: invokes
+    to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-select

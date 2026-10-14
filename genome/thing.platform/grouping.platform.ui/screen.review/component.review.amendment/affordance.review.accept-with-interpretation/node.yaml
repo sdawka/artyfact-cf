@@ -1,15 +1,15 @@
 id: affordance.review.accept-with-interpretation
 kind: affordance
 fields:
-  name: Accept with interpretation
-  description: Accepts the amendment with the reader's interpretation (admin token).
+  name: Accept amendment
+  description: Accepts the amendment with a required Accepted interpretation.
   actor: user
   trigger: click
   preconditions:
-    - The amendment is awaiting-admin
+    - The amendment is awaiting-admin and no hard violation is present
     - An admin token is set
   effects:
-    - The amendment leaves the queue and the decision is recorded
+    - Accepted. New Genome commit <sha>, with Open in Map
   failure:
     - "409: a rules violation is named and nothing changes"
 links:

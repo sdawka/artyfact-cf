@@ -1,0 +1,13 @@
+id: affordance.work.copy-all
+kind: affordance
+fields:
+  name: Copy all, wave N
+  description: The plan's primary (Copy all in later waves). Copies one script that claims each shown task and, only when the claim succeeds, starts its agent in the background, then waits; the token comes from an unexported ADMIN_TOKEN in the person's shell and the agent line unsets it.
+  actor: user
+  trigger: click
+  preconditions:
+    - At least one command in the wave is shown (otherwise Every command is hidden.)
+  effects:
+    - The script is on the clipboard and the button reads Copied
+  failure:
+    - "Clipboard blocked: the commands stay visible for manual copy"

@@ -1,17 +1,19 @@
 id: affordance.work.accept-ops
 kind: affordance
 fields:
-  name: Accept
-  description: Accepts the ops to keep and commits the node updates.
+  name: Accept agreed
+  description: The panel's primary in the sticky footer. Commits exactly the agreed changes to the Genome; deferred changes move to a new proposal (Continue with deferred).
   actor: user
   trigger: click
   preconditions:
-    - A proposal is shown
-    - An admin token is set
+    - Every node is decided and at least one is agreed
+    - An admin token is set in the header
   effects:
-    - A candidate and an Evolution open and are linked
+    - The accepted Evolution is selected, or the result names the deferred proposal
   failure:
     - "409: the stale message is shown"
 links:
   - rel: invokes
     to: endpoint.intents-accept
+  - rel: invokes
+    to: endpoint.intents-decisions

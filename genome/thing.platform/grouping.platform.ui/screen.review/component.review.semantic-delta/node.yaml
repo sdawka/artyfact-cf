@@ -2,7 +2,7 @@ id: component.review.semantic-delta
 kind: component
 fields:
   name: Semantic delta
-  description: The node-level change a candidate makes to the Genome.
+  description: The node-level change a candidate makes to the Genome, summarised by kind; groups of more than six collapse behind Show all.
   states:
     - loading
     - loaded

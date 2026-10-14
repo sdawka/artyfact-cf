@@ -1,14 +1,14 @@
 id: affordance.work.new-evolution
 kind: affordance
 fields:
-  name: + Evolution
-  description: A secondary text button that opens a form to create an Evolution.
+  name: Evolution
+  description: "A secondary with a plus icon that opens the New Evolution panel: Title, Intent, Affected nodes, Acceptance criteria (the System's defaults, or Choose criteria with a filter) and Risk (low, medium, high); the primary is Create Evolution."
   actor: user
   trigger: click
   preconditions:
-    - An admin token is set
+    - An admin token is set in the header
   effects:
-    - The new Evolution appears on the board
+    - The new Evolution is selected in the list
   failure:
     - "400: unknown nodes or criteria are named"
 links:

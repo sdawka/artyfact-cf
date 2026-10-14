@@ -2,7 +2,7 @@ id: component.work.intent
 kind: component
 fields:
   name: Describe a change
-  description: The panel that takes a change in words, proposes node updates or asks a question, and lets the person accept the ops to keep. It replaces the board while open.
+  description: "A panel that replaces the list and detail (Back to Work). It takes What should change?, optionally starting from an anchor node (Clear anchor), and proposes Genome changes as an agreement tree (Agree, Reject, Defer per node) or asks a question back. Show before and after opens an op's diff. A sticky footer carries the agreed summary and the primary Accept agreed. Start over begins again."
   states:
     - idle
     - routing
@@ -10,3 +10,6 @@ fields:
     - proposal
     - accepted
     - error
+    - "fixture: Sample proposal (fixture data, read-only)"
+    - undecided (attention)
+    - needs <title> (attention)
