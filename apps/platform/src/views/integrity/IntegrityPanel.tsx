@@ -8,6 +8,8 @@ import styles from "../work/work.module.css";
 
 const active = (state: IntegrityRun["state"]) => state === "queued" || state === "running";
 const items = (run: IntegrityRun): IntegrityFinding[] => run.report ? [...run.report.structural.findings, ...run.report.structural.limitations, ...run.report.semantic.findings, ...run.report.semantic.limitations] : [];
+/** A rerun repeats the original caller-approved ceiling, never the provider's global maximum. */
+export const retryRequest = (run: IntegrityRun) => ({ snapshotId:run.snapshotId, provider:run.provider, ...(run.model && {model:run.model}), thresholds:run.thresholds, budget:{maxCalls:run.requestedCalls}, rerun:true });
 
 /** Exact evidence report. Automated status and human agreement deliberately stay separate. */
 export function IntegrityPanel({ run, systemId }: { run: IntegrityRun; systemId?: string }) {
@@ -26,7 +28,7 @@ export function IntegrityPanel({ run, systemId }: { run: IntegrityRun; systemId?
     {report && <>
       <p>Structural: {report.structural.status} {report.structural.complete ? "complete" : "incomplete"}. Semantic: {report.semantic.status} {report.semantic.complete ? "complete" : "partial"}.</p>
       {report.semantic.provenance?.fake && <p role="note">Hosted demo model results are simulated; they are not real-provider evidence.</p>}
-      <details><summary>Evidence and coverage</summary><p style={{overflowWrap:"anywhere"}}>Snapshot <code>{run.snapshotId}</code> · <code>{run.snapshotHash}</code></p><p style={{overflowWrap:"anywhere"}}>Structural subjects: {report.structural.checkedSubjects.join(", ") || "none"}. Relationships: {report.structural.checkedRelationships.join(", ") || "none"}.</p><p style={{overflowWrap:"anywhere"}}>Semantic subjects: {report.semantic.checkedSubjects.join(", ") || "none"}. Relationships: {report.semantic.checkedRelationships.join(", ") || "none"}.</p>{report.semantic.provenance && <p style={{overflowWrap:"anywhere"}}>Provider {report.semantic.provenance.provider} · model {report.semantic.provenance.model || "unknown"} · calls {report.semantic.provenance.budget.usedCalls}/{report.semantic.provenance.budget.maxCalls} · questions {report.semantic.provenance.questions.join(", ") || "none"}.</p>}</details>
+      <details><summary>Evidence and coverage</summary><p style={{overflowWrap:"anywhere"}}>Snapshot <code>{run.snapshotId}</code> · <code>{run.snapshotHash}</code></p><p style={{overflowWrap:"anywhere"}}>Structural subjects: {report.structural.checkedSubjects.join(", ") || "none"}. Relationships: {report.structural.checkedRelationships.join(", ") || "none"}.</p><p style={{overflowWrap:"anywhere"}}>Semantic subjects: {report.semantic.checkedSubjects.join(", ") || "none"}. Relationships: {report.semantic.checkedRelationships.join(", ") || "none"}.</p>{report.semantic.provenance && <p style={{overflowWrap:"anywhere"}}>Provider {report.semantic.provenance.provider} · model {report.semantic.provenance.model || "unknown"} · calls {report.semantic.provenance.budget.usedCalls}/{run.requestedCalls} requested · questions {report.semantic.provenance.questions.join(", ") || "none"}.</p>}</details>
       <FindingList key={`${run.id}:${report.id}`} title="Findings and coverage limits" findings={items(run)} dispositions={dispositions} setDispositions={setDispositions} allowDisposition={!run.agreement && report.status !== "blocked" && run.state === "completed"} />
       {eligibility?.reason && <p className={styles.reason}>{eligibility.reason}</p>}
       {canAgree && <Button type="button" variant="primary" disabled={agree.isPending} onClick={()=>agree.mutate({runId:run.id,body:{dispositions:proposed.map(({findingId,decision,rationale})=>({findingId,decision,rationale}))},...(token&&{adminToken:token})})}>{agree.isPending ? "Recording…" : "Record agreement"}</Button>}
@@ -35,7 +37,7 @@ export function IntegrityPanel({ run, systemId }: { run: IntegrityRun; systemId?
     </>}
     <div className={styles.actions}>
       {active(run.state) && <Button type="button" variant="secondary" disabled={cancel.isPending} onClick={()=>cancel.mutate({runId:run.id,...(token&&{adminToken:token})})}>Cancel check</Button>}
-      {(run.state === "failed" || run.state === "cancelled" || (run.state === "completed" && !run.agreement)) && <Button type="button" variant="secondary" disabled={restart.isPending} onClick={()=>restart.mutate({body:{snapshotId:run.snapshotId,provider:run.provider,model:run.model,thresholds:report?.semantic.provenance?.thresholds,budget:report?.semantic.provenance ? {maxCalls:report.semantic.provenance.budget.maxCalls} : undefined,rerun:true},...(token&&{adminToken:token})})}>{run.state === "completed" ? "Run check again" : "Retry check"}</Button>}
+      {(run.state === "failed" || run.state === "cancelled" || (run.state === "completed" && !run.agreement)) && <Button type="button" variant="secondary" disabled={restart.isPending} onClick={()=>restart.mutate({body:retryRequest(run),...(token&&{adminToken:token})})}>{run.state === "completed" ? "Run check again" : "Retry check"}</Button>}
     </div>
   </section>;
 }

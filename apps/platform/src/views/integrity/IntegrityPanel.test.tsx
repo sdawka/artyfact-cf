@@ -1,6 +1,6 @@
 import { screen } from "@testing-library/react";
 import { expect, it, vi } from "vitest";
-import { IntegrityPanel } from "./IntegrityPanel";
+import { IntegrityPanel, retryRequest } from "./IntegrityPanel";
 import { createMemoryRouter, RouterProvider } from "react-router";
 import { QueryClientProvider } from "@tanstack/react-query";
 import { render, } from "@testing-library/react";
@@ -32,4 +32,12 @@ it("allows a first human agreement for a completed passing report without a prio
   expect(await screen.findByRole("button",{name:"Record agreement"})).toBeTruthy();
   expect(screen.getByRole("button", { name: "Run check again" })).toBeTruthy();
   expect(screen.getByText("Evidence and coverage")).toBeTruthy();
+});
+
+it("retries completed and reportless failed runs with the original requested-call ceiling", () => {
+  const completed = { id:"run.37", snapshotId:"snapshot", provider:"clef", model:"model", requestedCalls:37, thresholds:{confident:.9,review:.5}, state:"completed" } as any;
+  const failed = { ...completed, id:"run.failed", model:undefined, state:"failed" };
+  expect(retryRequest(completed)).toMatchObject({snapshotId:"snapshot",provider:"clef",model:"model",thresholds:{confident:.9,review:.5},budget:{maxCalls:37},rerun:true});
+  expect(retryRequest(failed)).toMatchObject({snapshotId:"snapshot",provider:"clef",thresholds:{confident:.9,review:.5},budget:{maxCalls:37},rerun:true});
+  expect(retryRequest(failed)).not.toHaveProperty("model");
 });
