@@ -123,12 +123,14 @@ describe("Describe a change", () => {
     expect(within(treeitem(/^Peopling web app/)).getAllByText("1 add · 1 update · 1 link").length).toBeGreaterThan(0);
 
     fireEvent.click(screen.getByRole("button", { name: "Agree Peopling web app" }));
-    // Optimistic: enabled as soon as the decision is made.
+    // Enabled once the decision is saved (the tree shows it at once).
     await waitFor(() => expect(acceptBtn().disabled).toBe(false));
     await waitFor(() => expect(decisions(calls)).toEqual([[{ nodeId: "thing.webapp", decision: "agree" }]]));
     expect(calls.find((c) => c.url.endsWith("/decisions"))).toMatchObject({ method: "PUT", auth: "Bearer tok" });
     expect(screen.getByText("3 of 3 changes agreed")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Agree Birthday field" }).getAttribute("aria-pressed")).toBe("true");
+    // Inherited from the Thing: "mixed", while the Thing's own Agree is pressed.
+    expect(screen.getByRole("button", { name: "Agree Birthday field" }).getAttribute("aria-pressed")).toBe("mixed");
+    expect(screen.getByRole("button", { name: "Agree Peopling web app" }).getAttribute("aria-pressed")).toBe("true");
     expect(treeitem(/^Birthday field/).dataset.decision).toBe("agree");
 
     fireEvent.click(acceptBtn());
@@ -228,8 +230,47 @@ describe("Describe a change", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Agree Peopling web app" }));
     expect(acceptBtn().disabled).toBe(false);
     expect(decisions(calls)).toEqual([]);
+    // Nothing stores a deferral here, so the tree offers no Defer (button or key) rather than drop the changes on accept.
+    expect(screen.queryByRole("button", { name: /^Defer / })).toBeNull();
+    fireEvent.keyDown(treeitem(/^Peopling web app/), { key: "d" });
+    expect(screen.queryByText(/deferred/)).toBeNull();
     fireEvent.click(acceptBtn());
     await waitFor(() => expect(calls.find((c) => c.url.endsWith("/accept"))?.body).toEqual({ opIds: ["op.1", "op.2", "op.3"] }));
+  });
+
+  it("holds Accept agreed while a decision is being saved, and offers Defer on a stored plan", async () => {
+    let release: () => void = () => {};
+    const gate = new Promise<void>((r) => { release = r; });
+    let current = PROPOSAL;
+    const calls = stubApi((c) => {
+      if (c.url.endsWith("/decisions")) {
+        for (const d of (c.body as IntentDecisionsRequest).decisions) current = { ...current, plan: cascade(current.plan, d.nodeId, d.decision) };
+        const answer = current;
+        return gate.then(() => json(200, answer)) as unknown as Response;
+      }
+      return json(c.method === "GET" ? 200 : 201, current);
+    });
+    renderApp(`${WORK}?panel=intent`, undefined, api);
+    await describe_("Show birthdays");
+    expect(await screen.findByRole("button", { name: "Defer Peopling web app" })).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Agree Peopling web app" }));
+    await waitFor(() => expect(decisions(calls)).toHaveLength(1));
+    expect(screen.getByText("3 of 3 changes agreed")).toBeTruthy();
+    expect(acceptBtn().disabled).toBe(true);
+    expect(screen.getByText("Saving decisions…")).toBeTruthy();
+    release();
+    await waitFor(() => expect(acceptBtn().disabled).toBe(false));
+  });
+
+  it("names why a node with errors cannot be agreed, in text the Agree button points at", async () => {
+    const failing: Proposal = { ...PROPOSAL, problems: [{ opId: "op.3", severity: "error", message: "Unknown relation." }] };
+    stubApi((c) => json(c.method === "GET" ? 200 : 201, failing));
+    renderApp(`${WORK}?panel=intent`, undefined, api);
+    await describe_("Show birthdays");
+    const agree = (await screen.findByRole("button", { name: "Agree Peopling web app" })) as HTMLButtonElement;
+    expect(agree.disabled).toBe(true);
+    const described = document.getElementById(agree.getAttribute("aria-describedby")!);
+    expect(described?.textContent).toBe("has errors, cannot be agreed");
   });
 
   it("answers a question inline and shows the revised proposal", async () => {

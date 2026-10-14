@@ -82,11 +82,13 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
   const total = proposal.ops.length - uncovered.length;
   const acceptReason =
     blocked ??
-    (set.undecided.length
-      ? `Decide every change first: ${set.undecided.length} undecided.`
-      : set.opIds.length
-        ? null
-        : "Agree at least one change to accept.");
+    (decideM.isPending
+      ? "Saving decisions…"
+      : set.undecided.length
+        ? `Decide every change first: ${set.undecided.length} undecided.`
+        : set.opIds.length
+          ? null
+          : "Agree at least one change to accept.");
   const summary = [
     `${set.agreed.length} of ${plural(total, "change")} agreed`,
     set.deferred.length && `${set.deferred.length} deferred`,
@@ -180,7 +182,8 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
             plan={plan}
             ops={proposal.ops}
             problems={proposal.problems}
-            variant="intent"
+            // Without a stored plan the platform keeps no decisions, so a deferral would be dropped on accept: agree or reject only.
+            variant={stored ? "intent" : "genome"}
             readOnly={blocked}
             onDecide={decide}
             renderOps={opsOf}

@@ -105,7 +105,7 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
               Continue with deferred
             </button>
             <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => onAccepted(settled.res)}>
-              Open the candidate
+              Open the accepted change
             </button>
           </span>
         </div>

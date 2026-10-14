@@ -39,6 +39,7 @@
 .decide button:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .decide button:disabled { color: var(--color-text-disabled); cursor: not-allowed; }
 .decide button[aria-pressed="true"] { color: var(--color-text-primary); border-color: var(--color-brand-primary); }
+.decide button[aria-pressed="mixed"] { color: var(--color-text-primary); border-color: var(--color-brand-primary); opacity: 0.75; }
 .decide button[data-decision="reject"][aria-pressed="true"] { border-style: dashed; border-color: var(--color-border); }
 .decide button[data-decision="defer"][aria-pressed="true"] { border-style: dotted; border-color: var(--color-text-subtle); }
 .body { display: grid; gap: var(--spacing-2); min-width: 0; padding-left: calc(var(--spacing-4) + 3px); }

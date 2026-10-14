@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useId, type ReactNode } from "react";
 import type { ProposalPlanNode } from "../../../../../shared/api";
 import { StatusChip } from "@/components/StatusChip/StatusChip";
 import { kindColour, type KindViews } from "@/model/kinds";
@@ -47,6 +47,7 @@ export function AgreementRow({ node, level, posInSet, setSize, ctx }: {
   const word = ROLLUP_WORD[r.rollup];
   const needs = (ctx.needs.get(node.id) ?? []).map((id) => ctx.titles.get(id) ?? id);
   const hasErrors = ctx.errors.has(node.id);
+  const errorsId = useId();
   const buttons = BUTTONS.filter((b) => ctx.variant === "intent" || b.decision !== "defer");
   const label = [node.title, view.label, word, counts, needs.length ? `needs ${needs.join(", ")}` : ""].filter(Boolean).join(", ");
   return (
@@ -86,19 +87,23 @@ export function AgreementRow({ node, level, posInSet, setSize, ctx }: {
         {counts && <StatusChip status="changes" label={counts} />}
         <StatusChip status={`decision-${r.rollup}`} label={r.inherited && r.rollup !== "mixed" ? `${word} (inherited)` : word} tone={r.rollup === "undecided" ? "attention" : "neutral"} />
         {needs.length > 0 && <StatusChip status="needs" label={`needs ${needs.join(", ")}`} tone="attention" />}
-        {hasErrors && <StatusChip status="error" label="has errors" tone="fail" />}
+        {hasErrors && <span id={errorsId}><StatusChip status="error" label="has errors, cannot be agreed" tone="fail" /></span>}
         <span className={styles.decide} role="group" aria-label={`Decide ${node.title}`}>
           {buttons.map((b) => {
-            const blocked = ctx.readOnly ?? (b.decision === "agree" && hasErrors ? "Changes with errors cannot be agreed." : null);
+            const blockedByErrors = !ctx.readOnly && b.decision === "agree" && hasErrors;
+            const blocked = ctx.readOnly ?? (blockedByErrors ? "Changes with errors cannot be agreed." : null);
+            // Its own decision is pressed; one inherited from an ancestor is "mixed" (a click pins it on this node).
+            const pressed = node.decision === b.decision ? true : r.effective === b.decision ? "mixed" : false;
             return (
               <button
                 key={b.decision}
                 type="button"
                 data-decision={b.decision}
-                aria-pressed={r.effective === b.decision}
+                aria-pressed={pressed}
                 aria-label={`${b.label} ${node.title}`}
                 disabled={!!blocked}
                 title={blocked ?? undefined}
+                aria-describedby={blockedByErrors ? errorsId : undefined}
                 // Only the active row's buttons are tab stops; a, r and d decide from the row itself.
                 tabIndex={ctx.activeId === node.id ? 0 : -1}
                 onClick={(e) => {
