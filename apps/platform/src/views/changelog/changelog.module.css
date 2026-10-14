@@ -47,3 +47,4 @@
   .detail { padding-left: var(--spacing-3); }
   .rationale, .meta { padding-left: 0; }
 }
+.more { justify-self: start; }

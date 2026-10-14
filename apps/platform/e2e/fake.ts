@@ -151,7 +151,7 @@ export async function sweepViews(page: Page, testInfo: TestInfo, base: string, t
     await page.goto(`${base}/${path}`);
     await expect(page.getByRole("heading", { level: 1, name: heading })).toBeVisible();
     await expect(page.getByText("fixture data")).toHaveCount(0);
-    await checkPage(page, testInfo, `${tag}-${path}`, isPass, [PACKET_PRE, '[data-op] > [class*="num"]']);
+    await checkPage(page, testInfo, `${tag}-${path}`, isPass, [PACKET_PRE]);
   }
   expect(errors).toEqual([]);
 }
