@@ -233,6 +233,25 @@ describe("fallback partition", () => {
     const x = of(evo2, "#plan:split");
     expect(JSON.stringify(await buildDraft(x.i, fakePlanner()))).toBe(JSON.stringify(await buildDraft(x.i, fakePlanner())));
   });
+
+  it("drafts the two operations into one wave and the screens after them (the fake e2e and runbook shape)", async () => {
+    // Both operations write entity.Suggestion; its own narrow file keeps that read from overlapping either route file.
+    const x = input({ nodes: ["operation.goal.save", "operation.contact.log", "screen.goal", "screen.logContact"] });
+    const d = await buildDraft(x.i, fakePlanner(), x.problems);
+    expect(d.request.tasks.map((t) => t.writeNodes)).toEqual([["operation.goal.save"], ["operation.contact.log"], ["screen.goal", "screen.logContact"]]);
+    expect(d.analysis.waves).toEqual([["t1", "t2"], ["t3"]]);
+    expect(() => valid(x.i, d)).not.toThrow();
+  });
+
+  it("drafts the runbook's plan.json partition from its nodes", async () => {
+    // docs/demo-runbook.md step 6: the hand-written plan.json and this draft give the same tasks and waves.
+    const planJson = [["operation.goal.save"], ["entity.ContactEvent", "operation.contact.log"], ["screen.goal", "screen.logContact", "screen.today", "component.TodayList", "affordance.Today.refresh"]];
+    const x = input({ nodes: planJson.flat() });
+    const d = await buildDraft(x.i, fakePlanner(), x.problems);
+    expect(d.problems).toEqual([]);
+    expect(d.request.tasks.map((t) => t.writeNodes)).toEqual(planJson);
+    expect(d.analysis.waves).toEqual([["t1", "t2"], ["t3"]]);
+  });
 });
 
 describe("validateReply", () => {

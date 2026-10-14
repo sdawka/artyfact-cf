@@ -1375,83 +1375,6 @@
         "provisional": true
       },
       {
-        "name": "NotificationJob",
-        "description": "ID, owner, suggestion and preference version, scheduled time, delivery state and deduplication key",
-        "source": {
-          "doc": "peopling-world-specification",
-          "section": "5"
-        },
-        "fields": [
-          {
-            "name": "id",
-            "type": "string",
-            "optional": false
-          },
-          {
-            "name": "ownerAccountId",
-            "type": "ref:entity.Account",
-            "optional": false
-          },
-          {
-            "name": "suggestionId",
-            "type": "ref:entity.Suggestion",
-            "optional": false
-          },
-          {
-            "name": "preferenceVersion",
-            "type": "int",
-            "optional": false
-          },
-          {
-            "name": "scheduledAt",
-            "type": "timestamp",
-            "optional": false
-          },
-          {
-            "name": "deliveryState",
-            "type": "enum scheduled|delivered|cancelled|failed",
-            "optional": false
-          },
-          {
-            "name": "dedupKey",
-            "type": "string",
-            "optional": false
-          }
-        ],
-        "invariants": [
-          "Delivery rechecks preferences and cancellations",
-          "One owner notification per local day containing a link without contact details",
-          "Queue bodies carry minimal IDs, not private relationship notes"
-        ],
-        "id": "entity.NotificationJob",
-        "kind": "entity",
-        "parent": "section.domain",
-        "owningThing": "thing.webapp",
-        "revision": 1,
-        "refines": [],
-        "links": [
-          {
-            "rel": "storedIn",
-            "to": "binding.contactsStore",
-            "direction": "out",
-            "certainty": "declared"
-          },
-          {
-            "rel": "triggers",
-            "to": "ext.providers",
-            "direction": "out",
-            "certainty": "declared",
-            "label": "optional external reminder"
-          }
-        ],
-        "states": [],
-        "roles": [],
-        "preconditions": [],
-        "effects": [],
-        "failure": [],
-        "provisional": false
-      },
-      {
         "name": "Subscription",
         "description": "Subscriber, author, approval, start time and state; directed and independently revocable",
         "source": {
@@ -1502,75 +1425,6 @@
         "effects": [],
         "failure": [],
         "provisional": true
-      },
-      {
-        "name": "Suggestion",
-        "description": "ID, goal version, reason, due date, target ContactRecord and state; does not itself contact anybody",
-        "source": {
-          "doc": "peopling-world-specification",
-          "section": "5"
-        },
-        "fields": [
-          {
-            "name": "id",
-            "type": "string",
-            "optional": false
-          },
-          {
-            "name": "goalId",
-            "type": "ref:entity.RelationshipGoal",
-            "optional": false
-          },
-          {
-            "name": "goalVersion",
-            "type": "int",
-            "optional": false
-          },
-          {
-            "name": "reason",
-            "type": "string",
-            "optional": false
-          },
-          {
-            "name": "dueDate",
-            "type": "local-date",
-            "optional": false
-          },
-          {
-            "name": "targetContactRecordId",
-            "type": "ref:entity.ContactRecord",
-            "optional": false
-          },
-          {
-            "name": "state",
-            "type": "enum open|resolved|snoozed|suppressed",
-            "optional": false
-          }
-        ],
-        "invariants": [
-          "Does not itself contact anybody",
-          "At most one open suggestion per goal version and due cycle"
-        ],
-        "id": "entity.Suggestion",
-        "kind": "entity",
-        "parent": "section.domain",
-        "owningThing": "thing.webapp",
-        "revision": 1,
-        "refines": [],
-        "links": [
-          {
-            "rel": "storedIn",
-            "to": "binding.contactsStore",
-            "direction": "out",
-            "certainty": "declared"
-          }
-        ],
-        "states": [],
-        "roles": [],
-        "preconditions": [],
-        "effects": [],
-        "failure": [],
-        "provisional": false
       },
       {
         "name": "Domain",
@@ -2297,6 +2151,171 @@
         "description": "Policies governing who may read or change what.",
         "fromTemplate": "template.thing.cloudflare-worker-webapp@1",
         "id": "section.authorization",
+        "kind": "section",
+        "parent": "thing.webapp",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "fields": [],
+        "invariants": [],
+        "provisional": false
+      },
+      {
+        "name": "NotificationJob",
+        "description": "ID, owner, suggestion and preference version, scheduled time, delivery state and deduplication key",
+        "source": {
+          "doc": "peopling-world-specification",
+          "section": "5"
+        },
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "ownerAccountId",
+            "type": "ref:entity.Account",
+            "optional": false
+          },
+          {
+            "name": "suggestionId",
+            "type": "ref:entity.Suggestion",
+            "optional": false
+          },
+          {
+            "name": "preferenceVersion",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "scheduledAt",
+            "type": "timestamp",
+            "optional": false
+          },
+          {
+            "name": "deliveryState",
+            "type": "enum scheduled|delivered|cancelled|failed",
+            "optional": false
+          },
+          {
+            "name": "dedupKey",
+            "type": "string",
+            "optional": false
+          }
+        ],
+        "invariants": [
+          "Delivery rechecks preferences and cancellations",
+          "One owner notification per local day containing a link without contact details",
+          "Queue bodies carry minimal IDs, not private relationship notes"
+        ],
+        "id": "entity.NotificationJob",
+        "kind": "entity",
+        "parent": "section.suggestions",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [
+          {
+            "rel": "storedIn",
+            "to": "binding.contactsStore",
+            "direction": "out",
+            "certainty": "declared"
+          },
+          {
+            "rel": "triggers",
+            "to": "ext.providers",
+            "direction": "out",
+            "certainty": "declared",
+            "label": "optional external reminder"
+          }
+        ],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "provisional": false
+      },
+      {
+        "name": "Suggestion",
+        "description": "ID, goal version, reason, due date, target ContactRecord and state; does not itself contact anybody",
+        "source": {
+          "doc": "peopling-world-specification",
+          "section": "5"
+        },
+        "fields": [
+          {
+            "name": "id",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "goalId",
+            "type": "ref:entity.RelationshipGoal",
+            "optional": false
+          },
+          {
+            "name": "goalVersion",
+            "type": "int",
+            "optional": false
+          },
+          {
+            "name": "reason",
+            "type": "string",
+            "optional": false
+          },
+          {
+            "name": "dueDate",
+            "type": "local-date",
+            "optional": false
+          },
+          {
+            "name": "targetContactRecordId",
+            "type": "ref:entity.ContactRecord",
+            "optional": false
+          },
+          {
+            "name": "state",
+            "type": "enum open|resolved|snoozed|suppressed",
+            "optional": false
+          }
+        ],
+        "invariants": [
+          "Does not itself contact anybody",
+          "At most one open suggestion per goal version and due cycle"
+        ],
+        "id": "entity.Suggestion",
+        "kind": "entity",
+        "parent": "section.suggestions",
+        "owningThing": "thing.webapp",
+        "revision": 1,
+        "refines": [],
+        "links": [
+          {
+            "rel": "storedIn",
+            "to": "binding.contactsStore",
+            "direction": "out",
+            "certainty": "declared"
+          }
+        ],
+        "states": [],
+        "roles": [],
+        "preconditions": [],
+        "effects": [],
+        "failure": [],
+        "provisional": false
+      },
+      {
+        "name": "Suggestions",
+        "description": "The suggestion and its notification job, each in its own file, written by the goal and contact-event operations",
+        "id": "section.suggestions",
         "kind": "section",
         "parent": "thing.webapp",
         "owningThing": "thing.webapp",
@@ -7585,9 +7604,7 @@
       "entity.DigestEdition": "thing.webapp/section.domain/entity.DigestEdition/node.yaml",
       "entity.MediaAsset": "thing.webapp/section.domain/entity.MediaAsset/node.yaml",
       "entity.MessageDraft": "thing.webapp/section.domain/entity.MessageDraft/node.yaml",
-      "entity.NotificationJob": "thing.webapp/section.domain/entity.NotificationJob/node.yaml",
       "entity.Subscription": "thing.webapp/section.domain/entity.Subscription/node.yaml",
-      "entity.Suggestion": "thing.webapp/section.domain/entity.Suggestion/node.yaml",
       "section.domain": "thing.webapp/section.domain/node.yaml",
       "C.webapp.outgoing.single": "thing.webapp/section.domain/node.yaml",
       "hook.webapp.outgoing.single": "thing.webapp/section.domain/node.yaml",
@@ -7622,6 +7639,9 @@
       "binding.scheduler": "thing.webapp/section.runtime/binding.scheduler/node.yaml",
       "binding.worker": "thing.webapp/section.runtime/binding.worker/node.yaml",
       "section.runtime": "thing.webapp/section.runtime/node.yaml",
+      "entity.NotificationJob": "thing.webapp/section.suggestions/entity.NotificationJob/node.yaml",
+      "entity.Suggestion": "thing.webapp/section.suggestions/entity.Suggestion/node.yaml",
+      "section.suggestions": "thing.webapp/section.suggestions/node.yaml",
       "component.PrimaryNav": "thing.webapp/section.ui/component.AppShell/component.PrimaryNav/node.yaml",
       "component.RouteOutlet": "thing.webapp/section.ui/component.AppShell/component.RouteOutlet/node.yaml",
       "component.TopBar": "thing.webapp/section.ui/component.AppShell/component.TopBar/node.yaml",
@@ -7836,6 +7856,18 @@
         {
           "glob": "migrations/**",
           "declared": false
+        }
+      ],
+      "entity.NotificationJob": [
+        {
+          "glob": "src/worker/notifications.ts",
+          "declared": true
+        }
+      ],
+      "entity.Suggestion": [
+        {
+          "glob": "src/worker/suggestions.ts",
+          "declared": true
         }
       ],
       "section.ui": [

@@ -33,3 +33,5 @@ fields:
     - At most one open suggestion per goal version and due cycle
 links:
   - { rel: storedIn, to: binding.contactsStore }
+files:
+  - src/worker/suggestions.ts

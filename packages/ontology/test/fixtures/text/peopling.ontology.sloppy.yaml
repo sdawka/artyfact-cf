@@ -638,6 +638,11 @@ nodes:
     name: Goals
     parent: thing.webapp
     description: The goal entity and its save operation
+  - id: section.suggestions
+    kind: section
+    name: Suggestions
+    parent: thing.webapp
+    description: The suggestion and its notification job, each in its own file, written by the goal and contact-event operations
   - id: section.contacts
     kind: section
     name: Contacts
@@ -790,7 +795,7 @@ nodes:
   - id: entity.Suggestion
     kind: entity
     name: Suggestion
-    parent: section.domain
+    parent: section.suggestions
     description: "Suggestion"
     source: {doc: peopling-world-specification, section: "5"}
     fields:
@@ -810,7 +815,7 @@ nodes:
   - id: entity.NotificationJob
     kind: entity
     name: NotificationJob
-    parent: section.domain
+    parent: section.suggestions
     description: ID, owner, suggestion and preference version, scheduled time, delivery state and deduplication key
     source: {doc: peopling-world-specification, section: "5"}
     fields:

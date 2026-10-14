@@ -12,6 +12,10 @@
   nodes: [operation.goal.save]
 - glob: src/worker/goals.ts
   nodes: [entity.RelationshipGoal]
+- glob: src/worker/suggestions.ts
+  nodes: [entity.Suggestion]
+- glob: src/worker/notifications.ts
+  nodes: [entity.NotificationJob]
 - glob: public/goals/**
   nodes: [screen.goal]
 - glob: src/worker/routes/events.ts

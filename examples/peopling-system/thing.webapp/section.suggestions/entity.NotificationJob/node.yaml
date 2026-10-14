@@ -35,3 +35,5 @@ fields:
 links:
   - { rel: storedIn, to: binding.contactsStore }
   - { rel: triggers, to: ext.providers, label: optional external reminder }
+files:
+  - src/worker/notifications.ts
