@@ -67,8 +67,8 @@ test.describe("describe a change by intent @fake", () => {
     expect(packet.genome.commit).toBe(plan.genome.commit);
     await page.goto(`${BASE}/work?plan=${encodeURIComponent(plan.id)}`);
     await expect(page.getByRole("heading", { name: definition.title })).toBeVisible();
-    await page.getByText("Scope, steps, checks and Task Attempts", { exact: true }).click();
-    await expect(page.getByText("local:e2e", { exact: false })).toBeVisible();
+    await page.getByTestId("task-task.people").getByRole("button", { name: "Implement People copy" }).click();
+    await expect(page.getByTestId("task-detail").getByText(/local:e2e · working/)).toBeVisible();
 
   });
 
