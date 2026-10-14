@@ -1,9 +1,11 @@
 import React from 'react';
 import { ModelContent } from './ModelContent';
 import { LandingStory } from './LandingStory';
+import { PracticeStack } from './PracticeStack';
+import { ModelNesting } from './ModelNesting';
 export type SiteConfig = { platform: string | null; source: string | null };
 export const pages = {
-  '/': { title: 'Artyfact — Make Meaningful Systems', description: 'Bring an ontology, connect intent to implementation, coordinate agents through scoped Tasks, and review deployments and evidence on Cloudflare.' },
+  '/': { title: 'Artyfact — The Git platform that keeps track of the product', description: 'A Git platform for teams of AI agents, on Cloudflare. A living model of your product sits next to the code and connects every change request, agent fork, check, merge, deploy and runtime event to it.' },
   '/model': { title: 'Ontology Driven Development — Artyfact', description: 'Add a semantic layer to code storage and delivery: reuse context, scope implementation, preserve intent and trace evidence. Explore Artyfact’s meta ontology.' },
   '/connect-agent': { title: 'Bring your agent — Artyfact', description: 'Use your own local agent with Artyfact task packets, isolated Git workspaces, checkpoints and candidate submissions.' },
 };
@@ -21,31 +23,39 @@ export function Site({ path, config, explorerHtml, landingHtml }: { path: PagePa
       <nav aria-label="Main navigation"><a href="/model" aria-current={path === '/model' ? 'page' : undefined}>The model</a><a href="/connect-agent" aria-current={path === '/connect-agent' ? 'page' : undefined}>Bring your agent</a>{config.platform && <a href={config.platform}>Platform</a>}</nav>
     </header>
     <main id="main">{path === '/' ? <Home config={config} landingHtml={landingHtml} /> : path === '/model' ? <Model explorerHtml={explorerHtml} /> : path === '/404' ? <NotFound /> : <Guide config={config} />}</main>
-    <footer className="site-footer"><div><Wordmark /><p>Intent, work and evidence. Together.</p></div><div className="footer-links"><a href="/model">Understand the model</a><a href="/connect-agent">Agent guide</a>{config.source ? <a href={config.source}>Source · Apache-2.0</a> : <span>Apache-2.0 · Source publication pending</span>}<span>Working prototype</span></div></footer>
+    <footer className="site-footer"><div><Wordmark /><p>An entry in the Build the Next-Gen Git Platform competition.</p></div><div className="footer-links"><a href="/model">Understand the model</a><a href="/connect-agent">Agent guide</a>{config.source ? <a href={config.source}>Source · Apache-2.0</a> : <span>Apache-2.0 · Source publication pending</span>}<span>Working prototype</span></div></footer>
   </>;
 }
 function NotFound() { return <section className="page-intro"><h1>Page not found.</h1><p className="lead">That address does not lead anywhere.</p><p><a className="text-link" href="/">Return to Artyfact</a> or <a className="text-link" href="/connect-agent">read the agent guide</a>.</p></section>; }
 function Home({ config, landingHtml }: { config: SiteConfig; landingHtml?: string }) {
   return <>
-    <section className="landing-story" id="home-system-story" aria-label="A System through its three views">
-      {landingHtml === undefined ? <div data-landing-story="" data-platform={config.platform ?? undefined}><LandingStory platform={config.platform} /></div> : <div data-landing-story="" data-platform={config.platform ?? undefined} dangerouslySetInnerHTML={{ __html: landingHtml }} />}
+    <section className="hero">
+      <p className="eyebrow">Next-Gen Git Platform entry · Workers + Artifacts</p>
+      <h1>The next Git platform keeps track of the product, not just the files.</h1>
+      <p className="lead">A Git platform for teams of AI agents, on Cloudflare.</p>
+      <p>It keeps a living, multi-level model of your product next to the code. Every change request, agent fork, check, merge, deploy and runtime event connects to it.</p>
+      <div className="actions"><Platform config={config} /><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a>{config.source && <a className="text-link" href={config.source}>Source</a>}</div>
     </section>
-
-    <section className="section workflow"><div className="section-heading"><h2>From a shared model.<br />To work you can review.</h2><p>Your local coordinator runs the agents. Artyfact keeps intent, scoped work and evidence connected.</p></div>
-      <ol className="workflow-list">
-        {[
-          ['Start a System', 'Import an ontology or create one with your agent. Review the vocabulary and shape before accepting it.'],
-          ['Map the implementation', 'Connect subjects to artifact bindings, files and folders so the engine can scope the work.'],
-          ['Agree on an Evolution', 'Review the intended change from its purpose down to individual nodes. Acceptance creates a new Genome revision.'],
-          ['Realize through Tasks', 'Pin that Genome in a Realization. Give independent Tasks to one or more agents, each in its own fork.'],
-          ['Review the whole result', 'Integrate selected Task candidates and approve the combined implementation. Deployment remains a separate action.'],
-          ['Observe and adjust', 'Inspect deployments and metrics, manage feature flags, and add an outcomes pack when you need events, effects and assays.'],
-        ].map(([title, description], index) => <li key={title}><span className="step-number">{index + 1}</span><svg className="workflow-connector" aria-hidden="true" viewBox="0 0 150 22"><path pathLength="150" d="M0 11h138m-8-7 8 7-8 7" /></svg><div><h3>{title}</h3><p>{description}</p></div></li>)}
-      </ol>
-      <a className="text-link" href="/model#lifecycle">Explore each step</a>
+    <PracticeStack />
+    <ModelNesting />
+    <section className="section landing-story" id="home-system-story" aria-labelledby="checkout-heading">
+      {landingHtml === undefined ? <div data-landing-story=""><LandingStory /></div> : <div data-landing-story="" dangerouslySetInnerHTML={{ __html: landingHtml }} />}
     </section>
-    <section className="section principles"><h2>Keep the distinctions<br />that matter.</h2><div className="principle-list"><article><h3>Agents you choose</h3><p>The minimum workflow uses your local agent harness. You choose the provider and orchestration.</p></article><article><h3>Parts you can reuse</h3><p>Optional Parts can be partial or complete at any scale. Composition and upgrades are explicit, saved results with provenance.</p></article><article><h3>Evidence you can inspect</h3><p>A check has an execution state, a verdict and provenance. Unknown stays unknown.</p></article><article><h3>Source and output apart</h3><p>Authored source and each realized build output keep separate identities, linked through the Thing and Genome.</p></article></div></section>
-    <section className="closing section"><h2>Bring your agent.<br />Bring your intent.</h2><div><svg className="handoff-path" aria-hidden="true" viewBox="0 0 160 32"><path pathLength="180" d="M0 16h148m-10-8 10 8-10 8" /></svg><p>Start with how the handoff works. Explore the model when you want the deeper picture.</p><a className="button primary u-brackets" href="/connect-agent">Read the agent guide</a></div></section>
+    <section className="section cloudflare-stack" aria-labelledby="cloudflare-heading">
+      <div className="section-heading"><h2 id="cloudflare-heading">How it runs on Cloudflare.</h2><p>One Worker, one Durable Object class and Cloudflare Artifacts for Git. You run it in your own account.</p></div>
+      <dl className="cloudflare-cells">
+        <div><dt>Workers + Static Assets</dt><dd>One Worker serves the API and the review app.</dd></div>
+        <div><dt>Artifacts</dt><dd>Git repositories for the model and the app. A fork for each agent Task.</dd></div>
+        <div><dt>Durable Object + SQLite</dt><dd>One per System. It holds the head, the history and the compare-and-swap promote.</dd></div>
+        <div><dt>Queues <span className="term-label">optional</span></dt><dd>Push events from Artifacts. The CLI submits directly, so this path is secondary.</dd></div>
+      </dl>
+    </section>
+    <section className="section agent-strip" aria-labelledby="agent-strip-heading">
+      <h2 id="agent-strip-heading">Bring your own agent.</h2>
+      <ol><li>Run the agent you already use, on your machine.</li><li>It gets a task packet and a token for its own fork.</li><li>It checkpoints, then submits a candidate for review.</li></ol>
+      <a className="text-link" href="/connect-agent">Read the agent guide</a>
+    </section>
+    <section className="closing section"><h2>Track the product.<br />Not just the files.</h2><div><p>Start with the agent guide. Explore the model when you want the deeper picture.</p><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a></div></section>
   </>;
 }
 function Model({ explorerHtml }: { explorerHtml?: string }) { return <ModelContent explorerHtml={explorerHtml} />; }

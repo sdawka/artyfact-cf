@@ -39,14 +39,13 @@ it('documents shipped Parts commands and explicit authoring and review gates', (
 });
 
 
-it('introduces meaningful systems with a static scroll story and no literal orb', () => {
+it('introduces the Git platform, the practice stack and the prerendered checkout story', () => {
   vi.stubGlobal('matchMedia', () => ({ matches: false, addEventListener() {}, removeEventListener() {} }));
   const { container } = render(<Site path="/" config={config} />);
-  expect(screen.getByRole('heading', { level: 1, name: /^Make Meaningful Systems$/ })).toBeTruthy();
-  expect(screen.getByText('(on Cloudflare)')).toBeTruthy();
+  expect(screen.getByRole('heading', { level: 1, name: 'The next Git platform keeps track of the product, not just the files.' })).toBeTruthy();
   expect(container.querySelector('[data-hero-orb]')).toBe(null);
-  expect(container.querySelectorAll('[data-story-step]')).toHaveLength(3);
-  expect(screen.getByRole('heading', { name: 'Give the application its shape.' })).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Make that shape tangible.' })).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'See what happens when it functions.' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'Stop stitching these together.' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'The clean merge that still breaks checkout.' })).toBeTruthy();
+  expect(container.querySelectorAll('[data-checkout-step]')).toHaveLength(7);
+  expect(container.querySelector('a[href="/model#lifecycle"]')).toBeTruthy();
 });

@@ -17,9 +17,9 @@ The build uses Vite/React to render HTML and hydrate the example.
 src/render.tsx renders the pages; src/client.tsx handles copy controls and lazily loads the example.
 Token CSS is a site-owned snapshot of the platform's Whimsy theme. Georgia is the display fallback.
 
-The homepage shows the same illustrative application through Genome, Proteome and Phenome. Native scrolling selects a view when the System card fits the viewport; direct controls preserve a choice until the next narrative panel. Small viewports and reduced motion keep the example in normal flow. The scene, composition provenance and all narrative content are prerendered; runtime events and metrics are explicitly sample data.
+The homepage leads with familiar practices, struck through, beside what Artyfact does instead (src/practiceStackData.ts; each claim checked against the platform, partial work marked). Its centerpiece is an illustrative checkout change in seven steps. Step buttons and, on wide screens, native scrolling drive one step state; a chosen step holds until the reader scrolls to another. Without JavaScript all seven steps render stacked. Reduced motion removes transitions; nothing autoplays.
 
-Effects: the ambient field comes from the private workspace package `@artyfact/effects`, loading after hydration and an idle moment. It mounts into an empty, aria-hidden slot and falls back to CSS haze without a usable GPU. The System illustration uses ordinary HTML and a bounded decorative SVG, not the former hero Orb. Shared GPU engines are unchanged.
+Effects: the ambient field comes from the private workspace package `@artyfact/effects`, loading after hydration and an idle moment. It mounts into an empty, aria-hidden slot and falls back to CSS haze without a usable GPU. The example uses ordinary HTML, not the former hero Orb. Shared GPU engines are unchanged.
 
 Public build settings (all optional, read at build time):
 

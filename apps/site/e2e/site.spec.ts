@@ -5,7 +5,7 @@ test.beforeEach(({ page }) => serveDist(page));
 test('homepage leads to the guide and links the hosted platform', async ({ page }) => {
   await page.goto('https://artyfact.test/');
   await revealStory(page);
-  await expect(page.getByRole('heading', { name: /^Make Meaningful Systems$/ })).toBeVisible();
+  await expect(page.getByRole('heading', { level: 1 })).toHaveText('The next Git platform keeps track of the product, not just the files.');
   await expect(page.getByRole('link', { name: 'Open the platform' })).toHaveAttribute('href', 'https://artyfact-platform.dawka.workers.dev');
   await expect(page.locator('a[href="/app"]')).toHaveCount(0);
   await page.getByRole('link', { name: 'Bring your agent', exact: true }).first().click();
@@ -45,7 +45,6 @@ test('public content is useful without JavaScript', async ({ page }) => {
   await expect(page.getByRole('list',{name:'Illustrative reader observations'})).toBeVisible();
   await expect(page.locator('link[rel="canonical"]')).toHaveAttribute('href', 'https://artyfact.ing/model');
 });
-const scene = '[data-system-view]';
 const mounted = (page: Page) => expect(page.locator('[data-ambient] [data-effect="ambient"]')).toHaveAttribute('data-effect-mode', /^(gl|fallback)$/, { timeout: 15000 });
 function watchErrors(page: Page) {
   const errors: string[] = [];
@@ -53,48 +52,41 @@ function watchErrors(page: Page) {
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   return errors;
 }
-test('System illustration stays usable through all views and explicit composition', async ({ page }) => {
+test('checkout example steps through all seven states without errors', async ({ page }) => {
   const errors = watchErrors(page);
   await page.goto('https://artyfact.test/');
   await revealStory(page);
   await mounted(page);
   await expect(page.locator('[data-hero-orb]')).toHaveCount(0);
-  await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'genome');
-  await page.getByRole('tab', { name: /Phenome/ }).click();
-  await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'phenome');
-  await expect(page.getByRole('img', { name: /^Ideas explored:/ })).toBeVisible();
-  await page.getByRole('button', { name: 'Part: Component system' }).click();
-  await page.getByText('Composition + provenance', { exact: true }).click();
-  await expect(page.locator('.scene-selected-detail')).toContainText('caller adapter');
-  await expect(page.getByText('Outcome evidence: unmeasured.')).toBeVisible();
-  await page.getByRole('tab', { name: /Genome/ }).click();
-  await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'genome');
+  for (let index = 0; index < 7; index++) {
+    const button = page.getByRole('group', { name: 'Example steps' }).getByRole('button').nth(index);
+    await button.click();
+    await expect(button).toHaveAttribute('aria-current', 'step');
+    await expect(page.locator('.checkout-story')).toHaveAttribute('data-step', String(index));
+  }
+  await expect(page.locator('.checkout-deploy')).toContainText('Outcome: not measured yet');
   expect(errors).toEqual([]);
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
-test('effects and the scene respect reduced motion and ordinary flow', async ({ page }) => {
+test('effects and the example respect reduced motion', async ({ page }) => {
   const errors = watchErrors(page);
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await page.goto('https://artyfact.test/');
   await revealStory(page);
   await mounted(page);
-  await page.getByRole('tab', { name: /Proteome/ }).click();
-  await expect(page.locator(scene)).toHaveAttribute('data-system-view', 'proteome');
-  await expect(page.locator(scene)).toHaveAttribute('data-sticky', 'false');
-  expect(await page.evaluate(() => getComputedStyle(document.querySelector('.scene-application')!).transitionDuration)).toMatch(/^(0s|1e-05s|0.00001s)$/);
-  expect(await page.evaluate(() => getComputedStyle(document.querySelector('.workflow-list li')!, '::before').animationName)).toBe('none');
+  await page.getByRole('button', { name: 'Step 3: Flag the overlap' }).click();
+  expect(await page.locator('.checkout-overlap').evaluate(element => getComputedStyle(element).transitionDuration)).toMatch(/^(0s|1e-05s|0.00001s)$/);
+  const step = await page.locator('.checkout-story').getAttribute('data-step');
+  await page.waitForTimeout(1500);
+  await expect(page.locator('.checkout-story')).toHaveAttribute('data-step', step!);
   expect(errors).toEqual([]);
 });
 for (const path of ['/', '/model', '/connect-agent']) test('no axe violations with effects mounted: ' + path, async ({ page }) => {
   await page.goto('https://artyfact.test' + path);
   await expect(page.locator('[data-ambient] [data-effect="ambient"]')).toHaveAttribute('data-effect-mode', /^(gl|fallback)$/, { timeout: 15000 });
-  if (path === '/') {
-    const initial = await new AxeBuilder({ page }).analyze();
-    expect(initial.violations.map(v => v.id)).toEqual([]);
-    await revealStory(page);
-  }
-  for (const view of path === '/' ? ['Genome', 'Proteome', 'Phenome'] : [null]) {
-    if (view) await page.getByRole('tab', { name: new RegExp(view) }).click();
+  if (path === '/') await revealStory(page);
+  for (const step of path === '/' ? [1, 4, 7] : [null]) {
+    if (step) await page.getByRole('group', { name: 'Example steps' }).getByRole('button').nth(step - 1).click();
     const { violations } = await new AxeBuilder({ page }).analyze();
     expect(violations.map(v => v.id + ': ' + v.nodes.map(n => n.target.join(' ')).join(', '))).toEqual([]);
   }
