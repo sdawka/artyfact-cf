@@ -1,0 +1,8 @@
+id: commitment.genome-first
+kind: commitment
+fields:
+  statement: Accepting a change edits only the Genome; code changes reach the System later, through a plan, its Tasks and a separate promotion.
+  features:
+    - feature.describe-change
+links:
+  - { rel: governs, to: J.lifecycle/accept-change }

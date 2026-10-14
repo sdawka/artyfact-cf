@@ -1,0 +1,9 @@
+id: commitment.attributed-events
+kind: commitment
+fields:
+  statement: Runtime events are accepted only with a credential such as a deployment's ingest token; each is validated and linked to the deployment and commit that sent it, and a deployment alone is not counted as an outcome.
+  features:
+    - feature.phenome
+links:
+  - { rel: governs, to: J.lifecycle/observe }
+  - { rel: governs, to: J.lifecycle/deploy }

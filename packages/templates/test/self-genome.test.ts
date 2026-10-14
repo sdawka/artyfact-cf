@@ -187,8 +187,8 @@ describe("the Artyfact self-Genome", () => {
   it("links journey steps to the endpoints and commands they run", () => {
     const ops = graph.links.filter((l) => l.rel === "stepOperation");
     const kinds = new Set(ops.map((l) => graph.nodes.find((n) => n.id === l.to)?.kind));
-    expect([...kinds].sort()).toEqual(["command", "endpoint"]);
-    for (const j of ["J.describe-change", "J.realize", "J.promote", "J.compare"]) expect(ops.some((l) => l.from.startsWith(`${j}/`)), j).toBe(true);
+    expect([...kinds].sort()).toEqual(["command", "endpoint", "workflow"]);
+    for (const j of ["J.describe-change", "J.realize", "J.promote", "J.compare", "J.lifecycle"]) expect(ops.some((l) => l.from.startsWith(`${j}/`)), j).toBe(true);
   });
 
   it("maps every non-ignored source file under apps/ and packages/ to at least one node", () => {

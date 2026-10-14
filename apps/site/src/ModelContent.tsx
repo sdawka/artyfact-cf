@@ -21,7 +21,7 @@ export function ModelContent({ explorerHtml, platform }: ModelContentProps) {
     </section>
 
     <section id="lifecycle" className="section model-lifecycle" aria-labelledby="lifecycle-heading" tabIndex={-1}>
-      <div className="section-heading"><h2 id="lifecycle-heading">How a change moves.</h2><p>Theory, build, check, ship, observe, then revise the theory. Each step names the product term it uses. Open a step to see what Artyfact does there.</p></div>
+      <div className="section-heading"><h2 id="lifecycle-heading">How a change moves.</h2><p>Theory, build, check, ship, observe, then revise the theory. Each step names the product term it uses. Open a step to see what Artyfact does there. <a className="text-link" href="/how-it-works">See how work flows, phase by phase</a></p></div>
       <TheoryLoop />
     </section>
 

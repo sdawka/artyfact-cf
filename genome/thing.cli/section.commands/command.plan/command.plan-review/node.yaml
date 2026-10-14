@@ -1,0 +1,8 @@
+id: command.plan-review
+kind: command
+fields:
+  name: plan review
+  usage: artyfact plan review <plan-id> --system <system-id>
+  description: Prints the combined review with its evaluations, blockers and the expected head.
+links:
+  - { rel: calls, to: endpoint.lifecycle-get-realization-plans-pid-review }

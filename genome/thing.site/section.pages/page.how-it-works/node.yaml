@@ -1,0 +1,10 @@
+id: page.how-it-works
+kind: page
+fields:
+  name: How it works
+  route: /how-it-works
+  rendering: prerendered
+  description: Shows a visitor how one change moves through Artyfact, from describing the product to watching it run, as a workflow diagram the build generates from this Genome's J.lifecycle journey.
+files:
+  - src/HowItWorks.tsx
+  - src/pages.tsx

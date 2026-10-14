@@ -1,0 +1,6 @@
+id: commitment.reviewed-import
+kind: commitment
+fields:
+  statement: An imported package becomes the System's model only when a person accepts the preview they reviewed, identified by its hash.
+links:
+  - { rel: governs, to: J.lifecycle/accept-import }

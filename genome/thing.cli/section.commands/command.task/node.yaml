@@ -1,0 +1,7 @@
+id: command.task
+kind: command
+fields:
+  name: task
+  usage: artyfact task claim|start|resume|checkpoint|submit|status|select ...
+  exitCodes: 0 on success, 1 on any error.
+  description: Claims a Task into a local workspace, records checkpoints, submits candidates and selects one candidate per Task. claim, resume and select need ARTYFACT_ADMIN_TOKEN; checkpoint and submit use the credentials stored in the workspace.

@@ -1,0 +1,23 @@
+id: J.lifecycle
+kind: journey
+fields:
+  name: Carry a change from idea to production
+  actorGoal: Take a product from a described model through an agreed change, parallel agent work, checks, one review, promotion and deployment, then watch what happens and decide the next change
+  features:
+    - feature.describe-change
+    - feature.agent-realization
+    - feature.promotion-gate
+    - feature.builds-deployments
+    - feature.phenome
+  start: import
+  segments:
+    - { name: Describe the product, steps: [import, accept-import] }
+    - { name: Agree the change, steps: [propose, accept-change] }
+    - { name: Plan the work, steps: [draft-plan, save-plan] }
+    - { name: Work in parallel, steps: [claim, work, submit] }
+    - { name: Check each candidate, steps: [check, preview] }
+    - { name: Combine and review, steps: [select, integrate] }
+    - { name: Promote, steps: [promote] }
+    - { name: Deploy, steps: [deploy] }
+    - { name: Observe, steps: [observe] }
+    - { name: Revise, steps: [revise] }

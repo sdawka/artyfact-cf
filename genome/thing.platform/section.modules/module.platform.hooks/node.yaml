@@ -9,5 +9,7 @@ links:
   - { rel: dependsOn, to: module.semantic.judgments }
   - { rel: dependsOn, to: module.templates.catalogue }
   - { rel: implements, to: queue.artifacts-events }
+  - { rel: implements, to: endpoint.evaluate }
+  - { rel: implements, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-submit }
 files:
   - worker/hooks/**

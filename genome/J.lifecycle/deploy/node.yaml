@@ -1,0 +1,13 @@
+id: J.lifecycle/deploy
+kind: step
+fields:
+  step: deploy
+  actor: system
+  action: Builds the promoted commit in a container and deploys it to production, recording the deployment against the System commit it runs.
+  kind: reaction
+  next:
+    - to: observe
+links:
+  - { rel: stepOperation, to: endpoint.create-deployment }
+  - { rel: stepScreen, to: screen.phenome }
+  - { rel: stepOperation, to: workflow.artyfact-ci }

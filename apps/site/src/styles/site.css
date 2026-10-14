@@ -4,6 +4,7 @@
 @import './utilities.css';
 @import './landing-system-scene.css';
 @import './model.css';
+@import './how-it-works.css';
 * { box-sizing: border-box; }
 html { background: var(--color-background); scroll-behavior: smooth; }
 body { margin: 0; color: var(--color-text-primary); font: 17px/1.65 var(--font-body); }

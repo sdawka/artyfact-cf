@@ -1,0 +1,13 @@
+id: J.lifecycle/propose
+kind: step
+fields:
+  step: propose
+  actor: user
+  action: Describes a change in plain words. The platform finds the model nodes it touches and proposes edits, or asks a question back.
+  next:
+    - to: accept-change
+links:
+  - { rel: stepOperation, to: command.evolution-propose }
+  - { rel: stepOperation, to: endpoint.intents-create }
+  - { rel: stepScreen, to: screen.work }
+  - { rel: references, to: J.describe-change }

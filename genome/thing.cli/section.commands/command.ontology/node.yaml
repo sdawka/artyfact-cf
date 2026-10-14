@@ -1,0 +1,7 @@
+id: command.ontology
+kind: command
+fields:
+  name: ontology
+  usage: artyfact ontology preview|list|show|accept|bootstrap --system <system-id> ...
+  exitCodes: 0 on success, 1 on any error.
+  description: Previews, lists, shows and accepts ontology package imports, and bootstraps a project from an accepted import. Needs ARTYFACT_ADMIN_TOKEN; exits 1 without it or when the platform refuses the call.

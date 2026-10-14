@@ -1,0 +1,8 @@
+id: command.task-checkpoint
+kind: command
+fields:
+  name: task checkpoint
+  usage: artyfact task checkpoint "<message>"
+  description: Records progress on the Task from its workspace; exits 1 without a message.
+links:
+  - { rel: calls, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-checkpoint }

@@ -1,0 +1,8 @@
+id: command.task-claim
+kind: command
+fields:
+  name: task claim
+  usage: artyfact task claim <plan-id> <task-id> --system <system-id> --dir <dir>
+  description: Claims one Task, clones its fork into the directory and writes TASK_PACKET.md and AGENTS.md. The fork token and attempt secret go to an owner-only file inside .git that is never staged. A Task whose dependencies are not selected is refused.
+links:
+  - { rel: calls, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-claim }

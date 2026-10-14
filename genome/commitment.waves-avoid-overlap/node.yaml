@@ -1,0 +1,7 @@
+id: commitment.waves-avoid-overlap
+kind: commitment
+fields:
+  statement: Tasks that write the same model nodes are put in later waves, and a Task cannot be claimed until the Tasks it depends on have a selected candidate.
+links:
+  - { rel: governs, to: J.lifecycle/draft-plan }
+  - { rel: governs, to: J.lifecycle/claim }

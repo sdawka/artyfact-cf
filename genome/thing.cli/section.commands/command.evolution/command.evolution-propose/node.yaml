@@ -1,0 +1,8 @@
+id: command.evolution-propose
+kind: command
+fields:
+  name: evolution propose
+  usage: artyfact evolution propose --system <system-id> --file <intent.json>
+  description: Sends a change stated in words; the platform routes it to model nodes and proposes edits, or asks a question. Prints the review link.
+links:
+  - { rel: calls, to: endpoint.intents-create }

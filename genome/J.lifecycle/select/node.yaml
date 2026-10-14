@@ -1,0 +1,12 @@
+id: J.lifecycle/select
+kind: step
+fields:
+  step: select
+  actor: user
+  action: Picks one candidate for each Task, with its checks and any overlap with other Tasks in view.
+  next:
+    - to: integrate
+links:
+  - { rel: stepOperation, to: command.task-select }
+  - { rel: stepOperation, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-select }
+  - { rel: stepScreen, to: screen.review }

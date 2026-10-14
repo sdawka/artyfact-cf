@@ -5,3 +5,5 @@ fields:
   features:
     - feature.describe-change
     - feature.promotion-gate
+links:
+  - { rel: governs, to: J.lifecycle/check }

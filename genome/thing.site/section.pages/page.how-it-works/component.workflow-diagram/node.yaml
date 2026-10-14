@@ -1,0 +1,35 @@
+id: component.workflow-diagram
+kind: component
+fields:
+  name: Workflow diagram
+  description: Shows the ordered phases of J.lifecycle, the parallel Task fan-out and the join at review. Each phase opens to show what happens, who acts, the commands and screens it uses, the commitments that guard it and the ids of the model nodes it links to. Every phase is readable before JavaScript loads; there is no empty or loading state because the build fails rather than render a workflow without phases.
+  owningThing: thing.site
+links:
+  - { rel: serves, to: purpose.explain-artyfact }
+  - { rel: reads, to: J.lifecycle }
+files:
+  - src/HowItWorks.tsx
+  - src/workflow.ts
+  - src/selfGenome.ts
+  - src/styles/how-it-works.css
+criteria:
+  - id: C.site.how-it-works.derived-from-genome
+    title: Derived from the Genome
+    claim: The diagram's phases, steps, actors, commands, screens, guardrails and node ids come from the repository's genome/ at build time; every node id it shows exists in that Genome and the phases appear in the journey's order.
+    target: artifact
+    gates: [candidate, promotion]
+    hooks:
+      - id: hook.site.how-it-works.derived-from-genome
+        assay: site.how-it-works.derived-from-genome
+        tier: execution
+        engine: vitest
+        triggers: [candidate, promotion]
+        inputs:
+          command: npm test -w @artyfact/site -- test/how-it-works.test.tsx
+  - id: C.site.how-it-works.clear-communication
+    title: Clear communication
+    claim: A visitor can say who does what at each phase, where agents work in parallel and what stops a bad change. Visitor comprehension review remains pending; structural tests alone do not establish it.
+    target: observation
+    severity: soft
+    gates: [outcome]
+    deferred: true

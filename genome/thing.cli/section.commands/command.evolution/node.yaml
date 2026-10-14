@@ -1,0 +1,7 @@
+id: command.evolution
+kind: command
+fields:
+  name: evolution
+  usage: artyfact evolution create|propose|show --system <system-id> ...
+  exitCodes: 0 on success, 1 on any error.
+  description: Creates a Genome amendment, proposes a change stated in words, or shows a proposal. Needs ARTYFACT_ADMIN_TOKEN; exits 1 without it or when the platform refuses the call.

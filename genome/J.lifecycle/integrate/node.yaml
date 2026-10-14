@@ -1,0 +1,13 @@
+id: J.lifecycle/integrate
+kind: step
+fields:
+  step: integrate
+  actor: system
+  action: Combines the selected results in one integration fork, runs the checks again on the combined commit and opens one review.
+  next:
+    - to: promote
+links:
+  - { rel: stepOperation, to: command.plan-integrate }
+  - { rel: stepOperation, to: endpoint.lifecycle-post-realization-plans-pid-integrate }
+  - { rel: stepOperation, to: endpoint.lifecycle-get-realization-plans-pid-review }
+  - { rel: stepScreen, to: screen.review }

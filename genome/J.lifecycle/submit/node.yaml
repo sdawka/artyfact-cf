@@ -1,0 +1,12 @@
+id: J.lifecycle/submit
+kind: step
+fields:
+  step: submit
+  actor: external
+  action: Commits, pushes to the fork and submits that exact commit as a candidate, one submitted version of the Task's work.
+  next:
+    - to: check
+links:
+  - { rel: stepOperation, to: command.task-submit }
+  - { rel: stepOperation, to: endpoint.lifecycle-post-realization-plans-pid-tasks-tid-submit }
+  - { rel: references, to: J.realize }

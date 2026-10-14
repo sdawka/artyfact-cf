@@ -1,0 +1,12 @@
+id: J.lifecycle/accept-import
+kind: step
+fields:
+  step: accept-import
+  actor: user
+  action: Accepts the reviewed preview by its hash. The package becomes the System's first Genome, the model of what the product should be.
+  next:
+    - to: propose
+links:
+  - { rel: stepOperation, to: command.ontology-accept }
+  - { rel: stepOperation, to: endpoint.ontology-packages-post-ontology-imports-reviewId-accept }
+  - { rel: stepScreen, to: screen.overview }

@@ -4,3 +4,5 @@ fields:
   statement: Tokens and secrets are never printed, logged or put on a command line, and are sent only to a platform that identified itself.
   features:
     - feature.agent-realization
+links:
+  - { rel: governs, to: J.lifecycle/claim }

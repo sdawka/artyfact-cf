@@ -1,0 +1,9 @@
+id: commitment.task-fork-scope
+kind: commitment
+fields:
+  statement: Each Task works in its own fork with a write token for that fork alone, valid for 15 minutes by default and 60 at most; a candidate that changes paths outside its Task's scope is refused.
+  features:
+    - feature.agent-realization
+links:
+  - { rel: governs, to: J.lifecycle/claim }
+  - { rel: governs, to: J.lifecycle/submit }

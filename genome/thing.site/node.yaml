@@ -4,13 +4,16 @@ template: template.thing.static-site@1
 root: apps/site
 fields:
   name: Public site
-  description: The artyfact-site Worker serving the prerendered public pages at artyfact.ing, with one hydrated example island and the shared ambient effect.
+  description: The artyfact-site Worker serving the prerendered public pages at artyfact.ing, with one hydrated example island and the shared ambient effect. Its build reads the repository's own Genome to draw the How it works diagram.
 links:
   - { rel: artifact, to: artifact.site }
   - { rel: dependsOn, to: thing.effects }
+  - { rel: dependsOn, to: thing.model }
+  - { rel: dependsOn, to: thing.templates }
   - { rel: exposes, to: page.home }
   - { rel: exposes, to: page.model }
   - { rel: exposes, to: page.connect-agent }
+  - { rel: exposes, to: page.how-it-works }
 files:
   - e2e/**
   - playwright.config.ts
