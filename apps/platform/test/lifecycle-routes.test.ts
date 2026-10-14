@@ -210,6 +210,7 @@ describe('task fork model (docs/design/task-fork-model.md)',()=>{
   expect(c1.json.candidate.changedPaths).toEqual(['src/ui/people/index.html']);expect(c1.json.candidate.model).toBeUndefined();expect(c1.json.evaluations.some(e=>e.criterion==='C.model.review')).toBe(false);
   // 3. A model edit: the candidate carries the delta, System One's judgment (provider off: unknown) and the review shows both.
   const edited=new Map(code);edited.set(FILE,edited.get(FILE)!.replace('route: /people','route: /contacts'));
+  expect((await call('POST',path(f.systemId,p.id,'ui','checkpoint' as never),{attemptId:s.attempt.id,generation:s.attempt.generation,message:'needs: the route must be /contacts, /people is taken by the legacy app'},auth)).status).toBe(200);
   const c2=await submit(fork.commit(edited,'Route the People screen at /contacts'));expect(c2.status,JSON.stringify(c2.json)).toBe(201);
   expect(c2.json.candidate.changedPaths).toEqual([FILE,'src/ui/people/index.html'].sort());
   expect(c2.json.candidate.model).toMatchObject({prefix:'system',genomeCommit:p.genome.commit,changedPaths:[FILE],changedNodes:['screen.people']});expect(c2.json.candidate.model!.loadError).toBeUndefined();
@@ -217,7 +218,7 @@ describe('task fork model (docs/design/task-fork-model.md)',()=>{
   const judged=c2.json.evaluations.find(e=>e.criterion==='C.model.review');expect(judged).toMatchObject({hook:'model-review',execution:'completed',verdict:'unknown',targetRef:c2.json.candidate.commit});
   const tr=await call<TaskReview>('GET',lifecyclePaths.taskReview(f.systemId,p.id,'ui').replace(/^\/api/,''),undefined,{});expect(tr.status).toBe(200);
   expect(tr.json.layers).toMatchObject({'C.model.review':'genome','C.people.list':'realization'});
-  const entry=tr.json.candidates.find(c=>c.candidate.id===c2.json.candidate.id)!;expect(entry.model).toBeDefined();expect(entry.model!.review!.delta.changes.map(c=>c.id)).toEqual(['screen.people']);expect(entry.model!.review!.signals!.length).toBeGreaterThan(0);
+  const entry=tr.json.candidates.find(c=>c.candidate.id===c2.json.candidate.id)!;expect(entry.model).toBeDefined();expect(entry.model!.reason).toBe('needs: the route must be /contacts, /people is taken by the legacy app');expect(entry.model!.review!.delta.changes.map(c=>c.id)).toEqual(['screen.people']);expect(entry.model!.review!.signals!.length).toBeGreaterThan(0);
   expect(tr.json.candidates.find(c=>c.candidate.id===c1.json.candidate.id)!.model).toBeUndefined();
   // A model path compares against the pinned Genome, not the app base.
   const cmp=await call<{from:{repo:string;text:string|null};to:{text:string|null}}>('GET',`${path(f.systemId,p.id)}/tasks/ui/review/files?candidateId=${enc(c2.json.candidate.id)}&path=${enc(FILE)}`,undefined,{});
@@ -228,12 +229,60 @@ describe('task fork model (docs/design/task-fork-model.md)',()=>{
   const [b]=integrated.json.bindings;expect(b.model).toMatchObject({changedNodes:['screen.people'],changedPaths:[FILE]});expect(integrated.json.modelDelta).toEqual({source:b.source,model:b.model});expect(integrated.json.layers).toMatchObject({'C.model.review':'genome'});
   const snapshot=await walkTree(f.ns.repo(b.source.repo),b.source.commit);expect(snapshot.get('system/node.yaml')).toBe(genome.get('node.yaml'));expect(snapshot.get(FILE)).toContain('route: /contacts');expect(snapshot.get('src/ui/people/index.html')).toBe('<h1>People</h1>');
   const candidate=integrated.json.candidates.find(c=>c.id===b.candidateId)!;expect(candidate.changedPaths).toEqual([FILE,'src/ui/people/index.html'].sort());
+  const planFile=await call<{from:{repo:string;text:string|null};to:{text:string|null}}>('GET',lifecyclePaths.reviewFile(f.systemId,p.id,'artifact.webapp',FILE).replace(/^\/api/,''),undefined,{});expect(planFile.status,JSON.stringify(planFile.json)).toBe(200);expect(planFile.json.from.repo).toBe(f.genomeRepo);expect(planFile.json.to.text).toContain('route: /contacts');
   // 5. Promote refuses an unreviewed model delta; accepted, it moves the Genome to the integrated commit.
   const body={expectedHead:integrated.json.expectedHead,rationale:'Reviewed',candidateIds:integrated.json.bindings.map(b=>b.candidateId)};
   const refused=await call<{error:{code:string}}>('POST',lifecyclePaths.promote(f.systemId,p.id).replace(/^\/api/,''),body,ADMIN);expect(refused.status).toBe(409);expect(refused.json.error.code).toBe('model-delta-unreviewed');
   const promoted=await call<PlanPromoteResponse>('POST',lifecyclePaths.promote(f.systemId,p.id).replace(/^\/api/,''),{...body,acceptModelDelta:true},ADMIN);expect(promoted.status,JSON.stringify(promoted.json)).toBe(200);
   const state=(await systemStub(env,f.systemId).state())!;expect(state.genomeCommit).toBe(b.source.commit);expect(state.genomeSource).toBe(b.source.repo);expect(state.manifest!.genomeCommit).toBe(b.source.commit);expect(state.manifest!.artifacts['artifact.webapp'].realizedGenome).toBe(b.source.commit);
   const {genomeAt}=await import('../worker/service');const m=(await genomeAt(env,f.systemId,state.genomeCommit,state.genomeSource)).model;expect(JSON.stringify(m.index.byId['screen.people'].item)).toContain('/contacts');
+ });
+ async function claimed(title:string) {
+  const f=await importFresh(),p=(await call<RealizationPlan>('POST',path(f.systemId),{title,tasks:[definition]},ADMIN)).json,s=(await call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN)).json;
+  const fork=f.ns.repo(s.task.forkRepo),files=await walkTree(fork,s.task.model!.commit);
+  const submit=(commit:string)=>call<TaskSubmitResponse&{error:{code:string;message:string}}>('POST',path(f.systemId,p.id,'ui','submit'),{attemptId:s.attempt.id,generation:s.attempt.generation,commit},{authorization:`Bearer ${s.secret}`});
+  return {f,p,s,fork,files,submit};
+ }
+ it('keeps the app scope check with a model edit alongside, and flags model edits outside the write nodes',async()=>{
+  const {f,p,fork,files,submit}=await claimed('Scope');
+  const edited=new Map(files);edited.set(FILE,edited.get(FILE)!.replace('route: /people','route: /contacts'));
+  // An app path outside the footprint is refused as before, model edit or not; assays/** stays protected.
+  for(const extra of ['src/api/index.ts','assays/people.spec.ts']) {
+   const out=new Map(edited);out.set(extra,'// out of scope');
+   const r=await submit(fork.commit(out,'Out of scope'));expect(r.status).toBe(422);expect(r.json.error.code).toBe('scope-violation');expect(r.json.error.message).toContain(extra);expect(r.json.error.message).not.toContain(FILE);
+  }
+  // A model edit outside the write node screen.people (its parent section) is recorded and flagged, never silently in scope.
+  const SECTION='system/thing.webapp/section.ui/node.yaml',NEW='system/thing.webapp/section.ui/screen.people/component.PeopleFilter/node.yaml';
+  const DIALOG='system/thing.webapp/section.ui/screen.people/component.AddContactDialog/node.yaml';
+  const wide=new Map(edited);wide.set(SECTION,wide.get(SECTION)!.replace('name: UI\n','name: UI (renamed)\n'));wide.set(NEW,wide.get(DIALOG)!.replace('component.AddContactDialog','component.PeopleFilter').replace('Add contact','People filter'));
+  const r=await submit(fork.commit(wide,'Wide'));expect(r.status,JSON.stringify(r.json)).toBe(201);
+  expect(r.json.candidate.model).toMatchObject({changedPaths:[FILE,SECTION,NEW].sort(),outsideWriteNodes:[SECTION],changedNodes:['component.PeopleFilter','screen.people','section.ui']});expect(r.json.candidate.model!.loadError).toBeUndefined();expect(r.json.candidate.model!.delta.added).toEqual(['component.PeopleFilter']);
+  const tr=await call<TaskReview>('GET',lifecyclePaths.taskReview(f.systemId,p.id,'ui').replace(/^\/api/,''),undefined,{});expect(tr.json.candidates.find(c=>c.candidate.id===r.json.candidate.id)!.model).toMatchObject({outsideWriteNodes:[SECTION]});
+  const judged=r.json.evaluations.find(e=>e.criterion==='C.model.review')!;expect(JSON.stringify(judged.observations)).toContain(SECTION);expect(judged.limitations?.join(' ')).toContain('outside');
+ });
+ it('refuses a candidate whose system/ is over the import caps before reading or judging it',async()=>{
+  const {fork,files,submit}=await claimed('Caps');
+  const {MODEL_MAX_FILES,MODEL_MAX_DEPTH,MODEL_MAX_FILE_BYTES}=await import('../worker/lifecycle-model');
+  const many=new Map(files);for(let i=0;i<=MODEL_MAX_FILES;i++)many.set(`system/thing.webapp/section.ui/screen.people/note-${i}.yaml`,'x: 1\n');
+  const deep=new Map(files);deep.set(`system/${Array.from({length:MODEL_MAX_DEPTH},(_,i)=>`d${i}`).join('/')}/node.yaml`,'name: Deep\n');
+  const big=new Map(files);big.set(FILE,`${big.get(FILE)}# ${'x'.repeat(MODEL_MAX_FILE_BYTES)}\n`);
+  for(const [tree,what] of [[many,'files'],[deep,'levels'],[big,'bytes a file']] as const) {
+   const r=await submit(fork.commit(tree,'Huge'));expect(r.status,what).toBe(422);expect(r.json.error.code).toBe('model-too-large');expect(r.json.error.message).toContain(what);
+  }
+ });
+ it('records a model the Genome loader rejects as loadError and never promotes it',async()=>{
+  const {f,p,fork,files,submit}=await claimed('Invalid');
+  // A second declaration of screen.people, under the write node's own directory so it is not a scope matter.
+  const bad=new Map(files);bad.set('system/thing.webapp/section.ui/screen.people/screen.people/node.yaml',bad.get(FILE)!);
+  const r=await submit(fork.commit(bad,'Duplicate'));expect(r.status,JSON.stringify(r.json)).toBe(201);
+  expect(r.json.candidate.model!.loadError).toBeTruthy();expect(r.json.candidate.model!.changedNodes).toEqual([]);
+  expect(r.json.evaluations.find(e=>e.criterion==='C.model.review')).toMatchObject({execution:'completed',verdict:'fail'});
+  expect((await call('POST',path(f.systemId,p.id,'ui','select'),{candidateId:r.json.candidate.id},ADMIN)).status).toBe(200);
+  const review=(await call<ImplementationReview>('POST',lifecyclePaths.integrate(f.systemId,p.id).replace(/^\/api/,''),{},ADMIN)).json;
+  expect(review.ready).toBe(false);expect(review.blockers.join(' ')).toContain('does not load');expect(review.modelDelta!.model.loadError).toBeTruthy();
+  const promoted=await call<{error:{code:string}}>('POST',lifecyclePaths.promote(f.systemId,p.id).replace(/^\/api/,''),{expectedHead:review.expectedHead,rationale:'Reviewed',candidateIds:review.bindings.map(b=>b.candidateId),acceptModelDelta:true},ADMIN);
+  expect(promoted.status).toBe(409);expect(promoted.json.error.code).toBe('model-delta-invalid');
+  expect((await systemStub(env,f.systemId).state())!.genomeCommit).toBe(p.genome.commit);
  });
  it('keeps a code-only plan on the pinned Genome after promotion',async()=>{
   const f=await importFresh(),p=(await call<RealizationPlan>('POST',path(f.systemId),{title:'Code',tasks:[definition]},ADMIN)).json,s=(await call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN)).json;

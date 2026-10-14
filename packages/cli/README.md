@@ -193,6 +193,8 @@ cd ./work/task.id && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and
 profile that exports `ARTYFACT_ADMIN_TOKEN`: a tool shell that reads the profile gets it back. So keep `ADMIN_TOKEN`
 unexported and never set either name in a profile.
 
+The fork carries the whole pinned Genome under `system/` (the platform commits it at claim; `TASK_PACKET.md` names the file of every node the Task reads or writes). It is the reference: change it only when the model cannot be realized as written, and say why in a checkpoint. A changed `system/` is submitted as the candidate's model delta, judged by System One against the whole ontology and reviewed beside the code (see [docs/design/task-fork-model.md](../../docs/design/task-fork-model.md)).
+
 Inside the Task fork:
 
 ```sh

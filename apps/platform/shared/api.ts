@@ -375,6 +375,8 @@ export interface CandidateModel {
   changedNodes: string[];
   delta: ModelDelta;
   loadError?: string;
+  /** Changed model files outside the Task's write nodes (their directories and declaring files): a reviewer accepts them knowingly or not at all. */
+  outsideWriteNodes?: string[];
 }
 
 export interface ArtifactBinding {

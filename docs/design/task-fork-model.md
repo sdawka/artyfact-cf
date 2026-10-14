@@ -38,9 +38,19 @@ checkpoint. The platform then treats the candidate as code **and** a model propo
   the base is always the pinned Genome, never the fork's base). A non-empty diff gives `Candidate.model`
   (`CandidateModel`): the changed `system/**` paths, the semantic delta of the two loaded models (`diffModels`) and
   its node ids. The candidate manifest stores the same under `model`; the manifest hash covers it.
-- Scope: `system/**` is permitted for app Tasks and `assays/**` stays protected. `system/**` paths map to the nodes
-  their file declares (the inverse of `SystemModel.origin`), so the scope check can pass a model edit; the delta's
-  ids are reported beside the Task's `writeNodes` so a reviewer sees drift at once.
+- Scope: the app-path check is unchanged (every non-`system/` path must be in the Task's footprint and `assays/**`
+  stays protected); permitting `system/**` loosens nothing else. Model edits are confined to the Task's write nodes:
+  a changed `system/**` file is inside when it lies under a write node's directory or declares a write node (the
+  inverse of `SystemModel.origin`); any other is listed in `CandidateModel.outsideWriteNodes`, shown in the review,
+  noted as a limitation of the model-review evaluation, and accepted only knowingly, with the whole delta, at promotion.
+- Caps: a candidate's `system/` is listed before anything is read and refused (422 `model-too-large`) beyond
+  `MODEL_MAX_FILES` (2000), `MODEL_MAX_DEPTH` (24) or `MODEL_MAX_FILE_BYTES` (256 KiB a file); its source files are
+  then read under the import caps (`GENOME_MAX_BYTES` of YAML, the intent sidecar sizes). Nothing over a cap is parsed,
+  stored or sent to System One.
+- Loader: the candidate model is read as the import reads a Genome (`readModelFiles`: source files only) and loaded
+  by the same `buildGenome` (`loadGenome` + `validate`) as a Genome import; there is no lenient path. A model that
+  reads but does not load is recorded with `loadError`, its model-review evaluation fails, and the plan review names
+  it as a blocker.
 - Validation: the platform runs System One `reviewGenome(base, candidate, delta)` (`hooks/system-one.ts`) over the
   whole ontology and stores the result as the candidate's review (DO `candidate_reviews`, the `GenomeCandidateReview`
   shape a Genome amendment uses) plus one Evaluation row `model-review` in the candidate's evidence, so the Review
@@ -50,7 +60,8 @@ checkpoint. The platform then treats the candidate as code **and** a model propo
   untouched never conflict, and the integrated commit holds a full model (seeded, then the edits). The integrated
   binding's `model` is the integrated delta; `ImplementationReview.modelDelta` names it.
 - Promote: when a binding carries a model delta the request must say `acceptModelDelta: true` (else 409
-  `model-delta-unreviewed`); the DO then moves `genomeSource`/`genomeCommit` to the integrated fork commit in the same
+  `model-delta-unreviewed`), and the integrated commit's `system/` is re-read and re-loaded by the canonical loader
+  (`genomeAt`) at that moment, never trusted from the stored delta (409 `model-delta-invalid`); the DO then moves `genomeSource`/`genomeCommit` to the integrated fork commit in the same
   compare-and-swap that moves the app head, exactly as `accept` does for a Genome amendment fork. Open plans pinned to
   the previous Genome are checked by `assertGenomeCompatible` as after any accept.
 
@@ -73,10 +84,16 @@ checks stay on theirs.
 
 ## Demo
 
-`FAKE_MODEL_DELTA=1` with `FAKE_ARTIFACTS=1` also seeds one plan (`Model fit: People screen`, task `people-screen`)
-whose submitted candidate changes `screen.people`'s route under `system/` beside a code change, so Review shows a
-Task candidate with a model delta and System One's simulated judgment (`apps/platform/worker/artifacts/fake-platform.ts`,
-`FAKE_ACTIVITY.modelTask`). It is off by default because the e2e specs count plans and queue items.
+`FAKE_MODEL_DELTA=1` with `FAKE_ARTIFACTS=1` (set by the fake Playwright projects) also seeds, through the services
+the routes use (`apps/platform/worker/artifacts/fake-platform.ts`, `seedModelDelta`, `FAKE_ACTIVITY.model*`):
+
+- `Model fit: People screen` (task `people-screen`, write node `screen.people`, checks on all three layers): claimed,
+  checkpointed with the reason, submitted with a code change beside two model edits, the screen's route and a new
+  `component.ContactFilter` under it, so the delta adds a node outside the write nodes; System One (fake) judges it.
+- `Model fit: Data deletion` (task `data-delete`, write node `operation.data.delete`): submitted with a model-only
+  edit, selected and integrated, so the plan review carries `modelDelta`.
+
+It is off in the unit tests, which count the example System's candidates and evaluations.
 
 ## Review view (for the UI slice)
 

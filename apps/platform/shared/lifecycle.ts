@@ -53,7 +53,11 @@ export interface TaskCandidateReview { candidate:Candidate; manifest:{planId:str
   /** The candidate's model delta (its `system/` vs the pinned Genome) with System One's review of it; absent when `system/` is untouched. */
   model?:TaskCandidateModelReview }
 /** `review` has the Genome amendment review's shape (semantic changes, readiness before and after, System One signals). */
-export interface TaskCandidateModelReview { prefix:'system'; genomeCommit:string; changedPaths:string[]; changedNodes:string[]; delta:SemanticDelta; review:GenomeCandidateReview|null; loadError?:string }
+export interface TaskCandidateModelReview { prefix:'system'; genomeCommit:string; changedPaths:string[]; changedNodes:string[]; delta:SemanticDelta; review:GenomeCandidateReview|null; loadError?:string;
+  /** Changed model files outside the Task's write nodes (`CandidateModel.outsideWriteNodes`); the reviewer accepts such a delta knowingly. */
+  outsideWriteNodes?:string[];
+  /** Why the agent changed the model: its attempt's last checkpoint message, when it left one. */
+  reason?:string }
 export interface TaskReview { plan:RealizationPlan; task:Task; candidates:TaskCandidateReview[];
   /** Layer of every criterion the candidates' evaluations name, for grouping evidence. */
   layers:Record<string,CriterionLayer> }

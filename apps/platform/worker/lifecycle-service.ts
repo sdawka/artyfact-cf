@@ -48,7 +48,7 @@ const topo=(p:RealizationPlan)=>p.analysis.waves.flatMap(w=>w.map(id=>taskOf(p,i
 /** Loads a candidate's model with the System's accepted template packs (the model delta and its review). */
 async function modelLoader(env:Env,sid:string):Promise<{load:ModelLoader;templates:ReturnType<typeof acceptedTemplateResolver>['templates']}> {const templates=acceptedTemplateResolver(await systemStub(env,sid).ontologyAcceptedPackages()).templates;return {load:(files,revision)=>buildGenome(files,revision,templates).model,templates};}
 /** The candidate manifest of a lifecycle fork commit (docs/design/task-fork-model.md §2). */
-async function taskManifest(env:Env,p:RealizationPlan,input:{realizationId:string;repo:string;baseRepo:string;baseCommit:string;commit:string;previewUrl?:string}):Promise<TaskManifest> {const g=await genomeAt(env,p.systemId,p.genome.commit,p.genome.repo),{load}=await modelLoader(env,p.systemId);return buildTaskManifest(artifactsFor(env),input,p.genome,g.model,sourceMapFor(g.model),load);}
+async function taskManifest(env:Env,p:RealizationPlan,input:{realizationId:string;repo:string;baseRepo:string;baseCommit:string;commit:string;previewUrl?:string},writeNodes:string[]):Promise<TaskManifest> {const g=await genomeAt(env,p.systemId,p.genome.commit,p.genome.repo),{load}=await modelLoader(env,p.systemId);return buildTaskManifest(artifactsFor(env),input,p.genome,g.model,sourceMapFor(g.model),load,writeNodes);}
 /** Review a recorded candidate's model delta with System One and store the review and its evaluation row. */
 async function recordModelReview(env:Env,p:RealizationPlan,candidate:Candidate,manifest:TaskManifest):Promise<Evaluation[]> {
  if(!manifest.model)return [];
@@ -152,7 +152,7 @@ async function runCandidate(env:Env,p:RealizationPlan,task:Pick<Task,'checks'|'w
 export async function submitLifecycleTask(env:Env,sid:string,pid:string,tid:string,body:unknown):Promise<TaskSubmitResponse> {
  const i=parse(submitSchema,body),stub=systemStub(env,sid),f=await rpc(stub.lifecycleFence(pid,tid,i.attemptId,i.generation));await assertGenomeCompatible(env,f.plan);
  if(!(f.task.footprint.writeKnown??f.task.footprint.known))throw conflict('scope-unknown','source mappings must be known before submitting');
- const manifest=await taskManifest(env,f.plan,{realizationId:f.attempt.realizationId,repo:f.task.forkRepo,baseRepo:f.task.base.repo,baseCommit:f.task.base.commit,commit:i.commit,...(i.previewUrl&&{previewUrl:i.previewUrl})});
+ const manifest=await taskManifest(env,f.plan,{realizationId:f.attempt.realizationId,repo:f.task.forkRepo,baseRepo:f.task.base.repo,baseCommit:f.task.base.commit,commit:i.commit,...(i.previewUrl&&{previewUrl:i.previewUrl})},f.task.writeNodes);
  if(!manifest.changedPaths.length)throw unprocessable('no-change','task candidate changes no files');
  // Code paths must sit in the footprint and off the protected globs; model paths (system/**) are the candidate's model delta, judged on their own.
  const outside=manifest.changedPaths.filter(path=>!isModelPath(path)&&(!inFootprint(f.task.footprint.globs,path)||TASK_PROTECTED.some(glob=>picomatch(glob,{dot:true})(path))));
@@ -233,7 +233,7 @@ export async function integrateLifecyclePlan(env:Env,sid:string,pid:string,platf
    const remote=remoteUrl(env,forkRepo,forked.remote),seeded=await seedModel(ns,forkRepo,base.commit,p.genome,{overwrite:true,remote});
    const token=await withRepo(ns,forkRepo,r=>r.createToken('write',300));tokenId=token.id;
    const pushed=await withRepo(ns,forkRepo,r=>pushCommit({repo:r,remote,token:token.plaintext,parent:seeded,changes,...gitTransport(),author:{name:'Artyfact',email:'platform@artyfact.local'},message:`Integrate ${p.title}`}));
-   const manifest=await taskManifest(env,p,{realizationId:rec.realization.id,repo:forkRepo,baseRepo:base.repo,baseCommit:base.commit,commit:pushed.commit});
+   const manifest=await taskManifest(env,p,{realizationId:rec.realization.id,repo:forkRepo,baseRepo:base.repo,baseCommit:base.commit,commit:pushed.commit},[...new Set(ordered.flatMap(t=>t.writeNodes))]);
    const result=await rpc(stub.recordCandidate({realizationId:rec.realization.id,commit:pushed.commit,manifest:{...manifest,manifestHash:await manifestHash(manifest),planId:pid,artifactId,genomeCommit:p.genome.commit,taskCandidates:ordered.map(t=>t.selectedCandidate)},changedPaths:manifest.changedPaths,changedNodes:manifest.changedNodes}));
    const combined={checks:[...new Set(ordered.flatMap(t=>t.checks))],writeNodes:[...new Set(ordered.flatMap(t=>t.writeNodes))],footprint:{repo:base.repo,artifactId,globs:[...new Set(ordered.flatMap(t=>t.footprint.globs))],paths:manifest.changedPaths,unmatched:[],known:true},base};
    await recordModelReview(env,p,result.candidate,manifest);await runCandidate(env,p,combined,result.candidate,forkRepo);
@@ -271,8 +271,10 @@ export async function promoteLifecyclePlan(env:Env,sid:string,pid:string,body:un
  for(const b of p.integration) {
   const c=await stub.candidate(b.candidateId),manifest=await stub.candidateManifest(b.candidateId);if(!c||!manifest)throw conflict('gate-unavailable','integrated candidate missing');
   const tasks=p.tasks.filter(t=>t.artifactId===b.artifactId),combined={checks:[...new Set(tasks.flatMap(t=>t.checks))],writeNodes:[...new Set(tasks.flatMap(t=>t.writeNodes))],footprint:{repo:p.baseManifest.artifacts[b.artifactId].repo,artifactId:b.artifactId,globs:[...new Set(tasks.flatMap(t=>t.footprint.globs))],paths:c.changedPaths,unmatched:[],known:true},base:p.baseManifest.artifacts[b.artifactId]};
-  const exact=await manifestHash(await taskManifest(env,p,{realizationId:c.realization,repo:b.source.repo,baseRepo:combined.base.repo,baseCommit:combined.base.commit,commit:c.commit}))===manifest.manifestHash;
+  const exact=await manifestHash(await taskManifest(env,p,{realizationId:c.realization,repo:b.source.repo,baseRepo:combined.base.repo,baseCommit:combined.base.commit,commit:c.commit},combined.writeNodes))===manifest.manifestHash;
   if(!exact)throw conflict('stale-candidate','integrated candidate no longer matches exact reviewed evidence');
+  // The integrated system/ is re-read and re-parsed by the canonical loader now, never trusted from the stored delta: what loads here is what becomes the Genome.
+  if(b.model){try{await genomeAt(env,sid,b.source.commit,b.source.repo);}catch(e){throw conflict('model-delta-invalid',`the integrated model does not load: ${(e as Error)?.message??e}`);}}
   await runCandidate(env,p,combined,c,b.source.repo,'promotion',exact);gates[c.id]=gateCriteria(g.model,{acceptanceCriteria:combined.checks},{target:'app'});
  }
  // An integrated model delta moves the accepted Genome to the integrated commit (its system/), once the reviewer accepts it.

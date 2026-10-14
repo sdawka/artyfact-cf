@@ -26,7 +26,9 @@ export async function reviewLifecycleTask(env:Env,sid:string,pid:string,tid:stri
    const manifest=await stub.candidateManifest(candidate.id);
    if(!manifest || manifest.planId!==pid || manifest.taskId!==tid || manifest.realizationId!==attempt.realizationId || candidate.realization!==attempt.realizationId || manifest.repo!==task.forkRepo || manifest.baseRepo!==task.base.repo || manifest.baseCommit!==task.base.commit || manifest.commit!==candidate.commit || manifest.genomeCommit!==plan.genome.commit || typeof manifest.manifestHash!=='string' || !Array.isArray(manifest.changedPaths) || manifest.changedPaths.length!==candidate.changedPaths.length || candidate.changedPaths.some(path=>!(manifest.changedPaths as string[]).includes(path)))throw conflict('stale-candidate','Task candidate does not match its pinned review manifest');
    const model=manifest.model as CandidateModel|undefined,stored=model?await stub.review(candidate.id):null;
-   candidates.push({candidate,manifest:manifest as TaskCandidateReview['manifest'],evaluations:await stub.evaluations(candidate.id),...(model&&{model:{...model,review:stored?JSON.parse(stored) as GenomeCandidateReview:null}})});
+   // The agent says why it changed the model in a checkpoint: the attempt's last one is the reason shown beside the delta.
+   const reason=model?(await stub.realization(attempt.realizationId))?.realization.checkpoints.at(-1)?.summary:undefined;
+   candidates.push({candidate,manifest:manifest as TaskCandidateReview['manifest'],evaluations:await stub.evaluations(candidate.id),...(model&&{model:{...model,review:stored?JSON.parse(stored) as GenomeCandidateReview:null,...(reason&&{reason})}})});
   }
  }
  const g=await genomeAt(env,sid,plan.genome.commit,plan.genome.repo);

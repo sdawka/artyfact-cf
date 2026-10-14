@@ -69,8 +69,8 @@ export async function walkTree(
 }
 
 const isYaml = (p: string) => /\.ya?ml$/.test(p);
-const INTENT_BRIEF = "intent/brief.md";
-const INTENT_MANIFEST = "intent/manifest.json";
+export const INTENT_BRIEF = "intent/brief.md";
+export const INTENT_MANIFEST = "intent/manifest.json";
 /** A Genome source file (Genome-relative path): YAML, or one of the two intent sidecars. Nothing else is part of the model. */
 export const isGenomeSource = (p: string): boolean => isYaml(p) || p === INTENT_BRIEF || p === INTENT_MANIFEST;
 
@@ -107,10 +107,15 @@ export async function readGenomeFiles(repo: ArtifactsRepoLike, commit: string): 
 /** Genome YAML plus the two allowlisted intent sidecars; no other repo content crosses this boundary. */
 export async function readGenomeSourceFiles(repo: ArtifactsRepoLike, commit: string): Promise<Map<string, string>> {
   const files = await walkTree(repo, commit, await genomePrefix(repo, commit), isGenomeSource);
+  assertGenomeSourceSize(files, commit);
+  return files;
+}
+
+/** The import caps on a set of Genome source files: YAML in all, and each intent sidecar. */
+export function assertGenomeSourceSize(files: Map<string, string>, commit: string): void {
   assertGenomeSize(new Map([...files].filter(([path]) => isYaml(path))), commit);
   if (byteLength(files.get(INTENT_BRIEF) ?? "") > 64 * 1024) throw unprocessable("intent-too-large", "intent/brief.md exceeds 64 KiB");
   if (byteLength(files.get(INTENT_MANIFEST) ?? "") > 128 * 1024) throw unprocessable("intent-too-large", "intent/manifest.json exceeds 128 KiB");
-  return files;
 }
 
 export interface LoadedGenome {

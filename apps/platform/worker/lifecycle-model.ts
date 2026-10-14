@@ -9,12 +9,18 @@ import type { CandidateModel } from "../shared/api";
 import type { TaskModel } from "../shared/lifecycle";
 import { changedNodesFor, diffSubtrees, diffTrees, type CandidateManifest, type TreeDiff } from "./artifacts/candidates";
 import { withRepo, type ArtifactsNamespaceLike, type ArtifactsRepoLike } from "./artifacts/client";
-import { genomePrefix, isGenomeSource, listTree, readGenomeSourceFiles, treeAt, walkTree } from "./artifacts/genome-source";
+import { assertGenomeSourceSize, GENOME_MAX_BYTES, genomePrefix, isGenomeSource, listTree, readGenomeSourceFiles, treeAt } from "./artifacts/genome-source";
+import { unprocessable } from "./errors";
+import { NODE_FILE } from "@artyfact/ontology/genome";
 import { gitTransport } from "./editor";
 import { pushCommit, PushRejected, type FileChange } from "./git/push";
 import { globMatch, type SourceMapEntry } from "./artifacts/source-map";
 
 export const MODEL_PREFIX = "system";
+/** Caps on a candidate's `system/`, checked on the listing before any blob is read (the import path caps total YAML at GENOME_MAX_BYTES). */
+export const MODEL_MAX_FILES = 2000;
+export const MODEL_MAX_DEPTH = 24;
+export const MODEL_MAX_FILE_BYTES = 256 * 1024;
 export const MODEL_GLOB = "system/**";
 /** Protected in every lifecycle fork; `system/**` is not (it is the model, judged by its own delta). */
 export const TASK_PROTECTED = ["assays/**"];
@@ -87,10 +93,51 @@ export function modelPathNodes(m: SystemModel, paths: string[]): Record<string, 
   return Object.fromEntries(paths.filter(isModelPath).map((p) => [p, byFile.get(p) ?? []]));
 }
 
+/** 422 `model-too-large`: the candidate's `system/` is beyond the caps; nothing of it is read or judged. */
+const tooLarge = (what: string) => unprocessable("model-too-large", `the candidate's ${MODEL_PREFIX}/ ${what}; the limits are ${MODEL_MAX_FILES} files, ${MODEL_MAX_DEPTH} levels, ${MODEL_MAX_FILE_BYTES} bytes a file and ${GENOME_MAX_BYTES} bytes of YAML in all`);
+
+/** The listing of a fork commit's `system/`, refused (422) beyond the file and depth caps before any content is read. */
+export async function listModel(repo: ArtifactsRepoLike, commit: string) {
+  const listing = await listTree(repo, commit, MODEL_PREFIX);
+  if (listing.size > MODEL_MAX_FILES) throw tooLarge(`has ${listing.size} files`);
+  for (const p of listing.keys()) if (p.split("/").length > MODEL_MAX_DEPTH) throw tooLarge(`nests ${p} deeper than ${MODEL_MAX_DEPTH} levels`);
+  return listing;
+}
+
+/**
+ * The candidate's model files (Genome-relative paths → text), read the way the import path reads a Genome: source
+ * files only, each blob's size checked before it is decoded, the total capped at GENOME_MAX_BYTES. The same bytes go
+ * to the loader, to System One and, on promotion, into the accepted Genome.
+ */
+export async function readModelFiles(repo: ArtifactsRepoLike, commit: string): Promise<Map<string, string>> {
+  const listing = await listModel(repo, commit), out = new Map<string, string>();
+  let total = 0;
+  for (const [path, e] of [...listing].filter(([p]) => isGenomeSource(p)).sort(([a], [b]) => (a < b ? -1 : 1))) {
+    const blob = await repo.readBlob(e.hash);
+    if (!blob) throw unprocessable("missing-blob", `${MODEL_PREFIX}/${path} is missing at ${commit.slice(0, 12)}`);
+    if (blob.size > MODEL_MAX_FILE_BYTES) throw tooLarge(`${path} is ${blob.size} bytes`);
+    total += blob.size;
+    if (total > GENOME_MAX_BYTES) throw tooLarge(`exceeds ${GENOME_MAX_BYTES} bytes of source`);
+    out.set(path, await blob.text());
+  }
+  assertGenomeSourceSize(out, commit);
+  return out;
+}
+
+/**
+ * Changed model files outside the Task's write nodes: a file is inside when it lies under a write node's directory or
+ * declares a write node. Paths with no node of their own (a new node under a write node's directory) are inside.
+ */
+export function outsideWriteNodes(m: SystemModel, writeNodes: string[], changedPaths: string[]): string[] {
+  const dirs = writeNodes.map((id) => m.origin[id]).filter((o): o is string => !!o).map((o) => `${MODEL_PREFIX}/${o.endsWith(`/${NODE_FILE}`) ? o.slice(0, -NODE_FILE.length) : o === NODE_FILE ? "" : o}`);
+  const declared = modelPathNodes(m, changedPaths), writes = new Set(writeNodes);
+  return changedPaths.filter((p) => !dirs.some((d) => p.startsWith(d)) && !(declared[p] ?? []).some((id) => writes.has(id)));
+}
+
 /** The pinned Genome tree and the fork commit's `system/` tree, in their own repos. */
 async function modelTrees(ns: ArtifactsNamespaceLike, genome: GenomeRef, fork: GenomeRef) {
   const pinned = await withRepo(ns, genome.repo, async (r) => ({ repo: r, tree: await treeAt(r, genome.commit, await genomePrefix(r, genome.commit)) }));
-  const cand = await withRepo(ns, fork.repo, async (r) => ({ repo: r, tree: await treeAt(r, fork.commit, MODEL_PREFIX) }));
+  const cand = await withRepo(ns, fork.repo, async (r) => { const tree = await treeAt(r, fork.commit, MODEL_PREFIX); if (tree) await listModel(r, fork.commit); return { repo: r, tree }; });
   return { pinned, cand };
 }
 
@@ -114,13 +161,15 @@ export type ModelLoader = (files: Map<string, string>, revision: string) => Syst
  * The candidate's model delta: null when its `system/` equals the pinned Genome. Otherwise the changed paths, and
  * the semantic delta of the two loaded models (`loadError` when the candidate's does not load; the delta is then empty).
  */
-export async function modelDelta(ns: ArtifactsNamespaceLike, genome: GenomeRef, base: SystemModel, fork: GenomeRef, load: ModelLoader, diff?: TreeDiff): Promise<CandidateModel | null> {
+export async function modelDelta(ns: ArtifactsNamespaceLike, genome: GenomeRef, base: SystemModel, fork: GenomeRef, load: ModelLoader, diff?: TreeDiff, writeNodes?: string[]): Promise<CandidateModel | null> {
   diff ??= await modelTreeDiff(ns, genome, fork);
   const changedPaths = [...diff.added, ...diff.modified, ...diff.removed].sort();
   if (!changedPaths.length) return null;
   const out: CandidateModel = { prefix: MODEL_PREFIX, genomeCommit: genome.commit, changedPaths, changedNodes: [], delta: emptyDelta() };
+  if (writeNodes) { const outside = outsideWriteNodes(base, writeNodes, changedPaths); if (outside.length) out.outsideWriteNodes = outside; }
+  // Over the caps the candidate is refused (422) before a byte of it is parsed; a model that reads but does not load is recorded with its loadError.
+  const files = await withRepo(ns, fork.repo, (r) => readModelFiles(r, fork.commit));
   try {
-    const files = await withRepo(ns, fork.repo, (r) => walkTree(r, fork.commit, MODEL_PREFIX, (p) => /\.ya?ml$/.test(p)));
     const delta = diffModels(base, load(files, fork.commit));
     out.delta = delta;
     out.changedNodes = [...new Set([...delta.added, ...delta.removed, ...delta.changed.map((c) => c.id)])].sort();
@@ -138,10 +187,10 @@ export type TaskManifest = CandidateManifest & { model?: CandidateModel };
  * changes a code footprint); model paths are the candidate's `system/` vs the pinned Genome. `changedNodes` are the code
  * paths' source-map nodes plus the model delta's ids. The hash covers both path sets.
  */
-export async function buildTaskManifest(ns: ArtifactsNamespaceLike, input: TaskManifestInput, genome: GenomeRef, base: SystemModel, sourceMap: SourceMapEntry[], load: ModelLoader): Promise<TaskManifest> {
+export async function buildTaskManifest(ns: ArtifactsNamespaceLike, input: TaskManifestInput, genome: GenomeRef, base: SystemModel, sourceMap: SourceMapEntry[], load: ModelLoader, writeNodes?: string[]): Promise<TaskManifest> {
   const code = splitDiff(await withRepo(ns, input.repo, (r) => diffTrees(r, input.baseCommit, input.commit))).code;
   const modelDiff = await modelTreeDiff(ns, genome, { repo: input.repo, commit: input.commit });
-  const model = await modelDelta(ns, genome, base, { repo: input.repo, commit: input.commit }, load, modelDiff);
+  const model = await modelDelta(ns, genome, base, { repo: input.repo, commit: input.commit }, load, modelDiff, writeNodes);
   const diff: TreeDiff = { added: [...code.added, ...modelDiff.added].sort(), modified: [...code.modified, ...modelDiff.modified].sort(), removed: [...code.removed, ...modelDiff.removed].sort() };
   const codePaths = [...code.added, ...code.modified, ...code.removed];
   const changedPaths = [...codePaths, ...(model?.changedPaths ?? [])].sort();
