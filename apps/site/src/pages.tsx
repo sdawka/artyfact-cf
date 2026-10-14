@@ -24,7 +24,7 @@ export function Site({ path, config, explorerHtml, landingHtml }: { path: PagePa
       <a className="brand" href="/" aria-label="Artyfact home"><Wordmark /></a>
       <nav aria-label="Main navigation"><a href="/model" aria-current={path === '/model' ? 'page' : undefined}>Theory</a><a href="/connect-agent" aria-current={path === '/connect-agent' ? 'page' : undefined}>Bring your agent</a>{config.platform && <a href={config.platform}>Platform</a>}</nav>
     </header>
-    <main id="main">{path === '/' ? <Home config={config} landingHtml={landingHtml} /> : path === '/model' ? <Model explorerHtml={explorerHtml} /> : path === '/404' ? <NotFound /> : <Guide config={config} />}</main>
+    <main id="main">{path === '/' ? <Home config={config} landingHtml={landingHtml} /> : path === '/model' ? <Model explorerHtml={explorerHtml} platform={config.platform} /> : path === '/404' ? <NotFound /> : <Guide config={config} />}</main>
     <footer className="site-footer"><div><Wordmark /><p>An entry in the Build the Next-Gen Git Platform competition.</p></div><div className="footer-links"><a href="/model">Theory Driven Development</a><a href="/connect-agent">Agent guide</a>{config.source ? <a href={config.source}>Source · Apache-2.0</a> : <span>Apache-2.0 · Source publication pending</span>}<span>Working prototype</span></div></footer>
   </>;
 }
@@ -62,7 +62,7 @@ function Home({ config, landingHtml }: { config: SiteConfig; landingHtml?: strin
     <section className="closing section"><h2>Track the product.<br />Not just the files.</h2><div><p>Start with the agent guide. Read the theory behind it when you want more detail.</p><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a></div></section>
   </>;
 }
-function Model({ explorerHtml }: { explorerHtml?: string }) { return <ModelContent explorerHtml={explorerHtml} />; }
+function Model({ explorerHtml, platform }: { explorerHtml?: string; platform: string | null }) { return <ModelContent explorerHtml={explorerHtml} platform={platform} />; }
 function Guide({ config }: { config: SiteConfig }) {
   const hostedOrigin = config.platform?.startsWith('https://') ? new URL(config.platform).origin : null;
   return <>
