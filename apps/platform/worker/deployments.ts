@@ -319,6 +319,12 @@ async function assertAgentCommit(env: Env, stub: ReturnType<typeof systemStub>, 
   throw unprocessable("unknown-commit", `commit ${commit.slice(0, 12)} is neither a candidate of ${rec.realization.id} nor the head of ${rec.forkRepo}`);
 }
 
+/** The head System commit when `repo@commit` is one of its app artifacts, so a deployment of it records that commit. */
+function headSystemCommit(state: { head: string | null; manifest?: { artifacts?: Record<string, { repo: string; commit: string }> } | null }, repo: string, commit: string): string | undefined {
+  if (!state.head) return undefined;
+  return Object.values(state.manifest?.artifacts ?? {}).some((a) => a.repo === repo && a.commit === commit) ? state.head : undefined;
+}
+
 /**
  * Record a build report. Realization reports are previews (an agent may report nothing else); System reports default
  * to production. `passed` + `url` for a realization re-enters `submit(…, {commit, previewUrl}, "ci")`, which stores the
@@ -417,9 +423,9 @@ export async function reportBuild(env: Env, systemId: string, rid: string | null
     if (!deployment) {
       if (!sourceRepo) throw conflict("no-app-source", "the System has no unambiguous source artifact to deploy");
       // Only the head's app commit gets here (see not-promoted above): the head is the System commit it deploys.
-      const atHead = !!state.head && Object.values(state.manifest?.artifacts ?? {}).some((a) => a.repo === sourceRepo && a.commit === r.commit);
+      const systemCommit = headSystemCommit(state, sourceRepo, r.commit);
       deployment = await stub.createDeployment({
-        kind: "production", ...(artifactId && { artifactId }), repo: sourceRepo, commit: r.commit, ...(atHead && { systemCommit: state.head! }), by: reporter, buildRow: id,
+        kind: "production", ...(artifactId && { artifactId }), repo: sourceRepo, commit: r.commit, ...(systemCommit && { systemCommit }), by: reporter, buildRow: id,
       });
     }
   }
@@ -497,8 +503,9 @@ export async function createDeployment(env: Env, systemId: string, body: unknown
     await stub.setDeploymentIngestHash(pending.id, ingest.hash);
     deployment = await stub.setDeploymentResult(pending.id, { status: "live", ...(url && { url }), buildId: commit });
   } else {
+    const systemCommit = headSystemCommit(s, repo, commit);
     deployment = await stub.createDeployment({
-      kind, status: "live", ...(scopeArtifactId && { artifactId: scopeArtifactId }), repo, commit, ...(rec && { realization: rec.realization.id }), ...(url && { url }), ...lineage, by: "admin", ingestTokenHash: ingest.hash,
+      kind, status: "live", ...(scopeArtifactId && { artifactId: scopeArtifactId }), repo, commit, ...(systemCommit && { systemCommit }), ...(rec && { realization: rec.realization.id }), ...(url && { url }), ...lineage, by: "admin", ingestTokenHash: ingest.hash,
     });
   }
   await refreshRegistry(env, systemId);

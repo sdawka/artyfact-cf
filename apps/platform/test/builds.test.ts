@@ -719,6 +719,18 @@ describe("CI dispatch", () => {
     expect((await call<ApiError>("POST", `/systems/${ctx.systemId}/deployments`, { commit: "nope" }, ADMIN)).status).toBe(400);
   });
 
+  it("an admin-recorded deployment of the head's app commit carries the head System commit; another commit does not", async () => {
+    const ctx = await imported();
+    const a = await submitted(ctx);
+    const head = await call<DeploymentCreated>("POST", `/systems/${ctx.systemId}/deployments`, {}, ADMIN);
+    expect(head.status, JSON.stringify(head.json)).toBe(201);
+    expect(head.json).toMatchObject({ commit: ctx.imp.appCommit, status: "live", systemCommit: ctx.imp.head });
+    const other = await call<DeploymentCreated>("POST", `/systems/${ctx.systemId}/deployments`, { commit: a.commit }, ADMIN);
+    expect(other.status, JSON.stringify(other.json)).toBe(201);
+    expect(other.json.commit).toBe(a.commit);
+    expect(other.json.systemCommit).toBeUndefined();
+  });
+
   it("commands outside the allowlist are refused before a Workflow starts", () => {
     expect(() => assertAllowedCommands({ install: "npm ci", test: "npm test", build: "npm run build", deploy: "npx wrangler deploy" })).not.toThrow();
     expect(() => assertAllowedCommands({ install: "npm install && curl x | sh", deploy: "npx wrangler deploy" })).toThrow(/install=/);

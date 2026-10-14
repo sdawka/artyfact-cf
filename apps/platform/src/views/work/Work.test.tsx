@@ -137,8 +137,10 @@ describe("StartWorkPanel", () => {
 
   it("replaces the Attempts region with Back to Evolution", async () => {
     const { router } = renderApp(`${WORK}?evolution=${EVO1}&panel=start`);
-    const heading = await screen.findByRole("heading", { level: 3, name: /Start work on/ });
-    await waitFor(() => expect(document.activeElement).toBe(heading));
+    // The panel can remount while the Work data settles, so the focused heading is queried afresh each poll.
+    const startHeading = () => screen.getByRole("heading", { level: 3, name: /Start work on/ });
+    await screen.findByRole("heading", { level: 3, name: /Start work on/ });
+    await waitFor(() => expect(document.activeElement).toBe(startHeading()));
     expect(screen.queryByRole("heading", { name: /^Legacy realizations|^Attempts/ })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Back to Evolution" }));
     await waitFor(() => expect(router.state.location.search).toBe(`?evolution=${EVO1}`));
