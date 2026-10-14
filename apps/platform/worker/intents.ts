@@ -559,6 +559,11 @@ interface DeferredOps { ops: ProposedOp[]; nodeIds: string[] }
  * effectively agreed nodes (else 422 `invalid-ops` naming them) and the effectively deferred ops are returned to move
  * to a new proposal; rejected and undecided ops are dropped. With no decisions at all, any ops may be chosen (as
  * before plans) and nothing is deferred.
+ *
+ * Blocked agreed ops: an op under an agreed node that is not chosen because a dependency (directly or through other
+ * unchosen ops) is deferred moves to the deferred proposal with it, provided every dependency is chosen or deferred
+ * too. When any dependency is rejected or undecided instead, it is dropped with that dependency. Agreed ops the admin
+ * simply left out (no deferred dependency) are dropped as before.
  */
 function chosenByPlan(p: Proposal, opIds: string[], decisions: ProposalDecisions): { ops: ProposedOp[]; deferred?: DeferredOps } {
   if (!Object.keys(decisions).length) return { ops: chosenOps(p, opIds) };
@@ -568,7 +573,20 @@ function chosenByPlan(p: Proposal, opIds: string[], decisions: ProposalDecisions
   const offenders = [...new Set(opIds)].filter((id) => !by.agreed.has(id));
   if (offenders.length) throw unprocessable("invalid-ops", `only ops under agreed nodes can be accepted: ${offenders.join(", ")}`, { offenders });
   const ops = chosenOps(p, opIds);
-  const deferredOps = p.ops.filter((o) => by.deferred.has(o.id));
+  const chosen = new Set(opIds);
+  const moving = new Set(by.deferred);
+  // Fixed point: an unchosen agreed op follows a deferred dependency when all its dependencies are chosen or moving.
+  for (let grew = true; grew;) {
+    grew = false;
+    for (const o of p.ops) {
+      if (moving.has(o.id) || chosen.has(o.id) || !by.agreed.has(o.id) || !o.dependsOn?.length) continue;
+      if (o.dependsOn.some((d) => moving.has(d)) && o.dependsOn.every((d) => moving.has(d) || chosen.has(d))) {
+        moving.add(o.id);
+        grew = true;
+      }
+    }
+  }
+  const deferredOps = p.ops.filter((o) => moving.has(o.id));
   return { ops, ...(deferredOps.length && { deferred: { ops: deferredOps, nodeIds: by.deferredNodes } }) };
 }
 

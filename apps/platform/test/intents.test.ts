@@ -818,6 +818,42 @@ describe("POST /intents/:pid/accept with decisions", () => {
   });
 });
 
+describe("POST /intents/:pid/accept with blocked agreed ops", () => {
+  // op.1 updates screen.today; op.2 adds a component under screen.people; op.3 links screen.today to it (needs op.2),
+  // so op.3 sits under the agreed screen.today while its dependency sits under screen.people.
+  const BLOCKED = (first: Proposal): ProposedOp[] => [
+    first.ops[0]!,
+    { id: "op.2", op: "add", node: "component.QuietHours", kind: "component", parent: "screen.people", fields: { name: "Quiet hours" } },
+    { id: "op.3", op: "link", node: "screen.today", link: { rel: "contains", to: "component.QuietHours" }, dependsOn: ["op.2"] },
+  ];
+
+  it("moves an agreed op whose dependency is deferred to the deferred proposal, with that dependency", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, BLOCKED(first));
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "defer" }]);
+    expect((await accept(s, both, ["op.1", "op.3"])).json.error).toMatchObject({ code: "missing-dependency" });
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.deferred).toEqual({ proposal: expect.any(String), nodeIds: ["screen.people"] });
+    const next = (await call<Proposal>("GET", routes.intent(s.systemId, r.json.deferred!.proposal))).json;
+    expect(next.ops).toEqual([BLOCKED(first)[1], BLOCKED(first)[2]]);
+    const all = (n: ProposalPlanNode[]): string[] => n.flatMap((x) => [...x.opIds, ...all(x.children)]);
+    expect(all(next.plan).sort()).toEqual(["op.2", "op.3"]);
+  });
+
+  it("drops an agreed op whose dependency is rejected, deferring nothing", async () => {
+    const s = await importSystem();
+    const first = (await create(s, "Change what the Today screen says")).json;
+    const both = await storeProposal(s, first, BLOCKED(first));
+    await decide(s, both, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.people", decision: "reject" }]);
+    const r = await accept(s, both, ["op.1"]);
+    expect(r.status, JSON.stringify(r.json)).toBe(201);
+    expect(r.json.deferred).toBeUndefined();
+    expect(r.json.evolution.affectedNodes).toEqual(["screen.today"]);
+  });
+});
+
 describe("POST /intents/:pid/accept with a staged approval", () => {
   /** Stages a candidate the approval then refuses: the real runner fails the Genome gates for this add. */
   async function stagedAdd() {
