@@ -198,7 +198,7 @@ Shape every view from these; see `/style` (each sample has `data-style-sample`) 
   labelled by its heading, `--type-h2`); sections are `--spacing-10` apart.
 - `Panel { title, headingLevel?, primary?, secondary?, onBack?, backLabel?, autoFocus? = true }`: the container that replaces the region
   it is about. Focus moves to its h2 on open and back to the opener (else `#view-title`) when it unmounts. `backLabel` names the region
-  ("Back to board").
+  ("Back to Work").
 - `ListDetail { list, detail, listLabel, detailLabel?, hasSelection, onBack?, backLabel?, listWidth?: narrow|wide }`: list pane 20 / 24rem
   (sticky, own scroll) beside the detail. Below 900px only one pane shows (CSS): the detail when `hasSelection`, with the back link.
 - `RowList { label, density?: standard|compact }` + `Row { to? | onSelect?, current?, tone?: neutral|attention|fail, title, meta?, status?, trailing? }`:
@@ -226,7 +226,7 @@ Shape every view from these; see `/style` (each sample has `data-style-sample`) 
 - `views/review/`: the decision queue (`queue.ts` `reviewQueue()`, pure; `useReviewQueue()` over the Work queries) beside
   `CandidateReview` or `PromotionPanel` from `views/work/panels`. `model/useReviewCount()` feeds the rail, Overview and Work cards.
 - `views/work/intent/`: "Describe a change" (`?panel=intent`), opened from the Work header, a Home card, the Inspector and Code
-  (`&anchor=<nodeId>`); while open it replaces the board ("Back to board" closes it). Message → proposal (`&proposal=`): routed path, provider label, the agreement tree
+  (`&anchor=<nodeId>`); while open it replaces the list and detail ("Back to Work" closes it). Message → proposal (`&proposal=`): routed path, provider label, the agreement tree
   (Agree, Reject or Defer per node, persisted by `decideIntent`), problems, inline replies, "Accept agreed" → commits the agreed Genome change and opens the candidate on Work.
   Fixture mode disables writes and shows `intent/sample.ts` read-only.
 

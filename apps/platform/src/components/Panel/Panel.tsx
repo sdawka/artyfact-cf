@@ -12,7 +12,7 @@ export interface PanelProps {
   secondary?: ReactNode;
   /** Close: renders "Back to {region}" and, on unmount, returns focus to the control that opened the panel. */
   onBack?: () => void;
-  /** Default "Back". Name the region it returns to: "Back to board", "Back to files". */
+  /** Default "Back". Name the region it returns to: "Back to Work", "Back to files". */
   backLabel?: string;
   /** Move focus to the panel heading when it opens (default true). */
   autoFocus?: boolean;

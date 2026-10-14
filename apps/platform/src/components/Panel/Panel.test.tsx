@@ -8,7 +8,7 @@ function Host() {
   const [open, setOpen] = useState(false);
   return <>
     <button onClick={() => setOpen(true)}>Describe a change</button>
-    {open ? <Panel title="Describe a change" onBack={() => setOpen(false)} backLabel="Back to board" primary={<button>Send</button>}>form</Panel> : <p>board</p>}
+    {open ? <Panel title="Describe a change" onBack={() => setOpen(false)} backLabel="Back to Work" primary={<button>Send</button>}>form</Panel> : <p>board</p>}
   </>;
 }
 
@@ -23,7 +23,7 @@ describe("Panel", () => {
     expect(h2.getAttribute("tabindex")).toBe("-1");
     expect(screen.getByRole("region", { name: "Describe a change" })).toBeTruthy();
     expect(screen.getByRole("button", { name: "Send" })).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Back to board" }));
+    fireEvent.click(screen.getByRole("button", { name: "Back to Work" }));
     await act(() => new Promise((r) => requestAnimationFrame(() => r(undefined))));
     expect(document.activeElement).toBe(opener);
     expect(screen.getByText("board")).toBeTruthy();

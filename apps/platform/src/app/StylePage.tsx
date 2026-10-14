@@ -303,7 +303,7 @@ function StyleExamples() {
       </Sample>
       <Sample id="panel" label="Panel replaces the region it is about; Back returns focus to the opener">
         {panelOpen
-          ? <Panel title="New Evolution" onBack={() => setPanelOpen(false)} backLabel="Back to board" primary={<Button variant="primary" onClick={() => setPanelOpen(false)}>Create Evolution</Button>}>
+          ? <Panel title="New Evolution" onBack={() => setPanelOpen(false)} backLabel="Back to Work" primary={<Button variant="primary" onClick={() => setPanelOpen(false)}>Create Evolution</Button>}>
               <p className={styles.muted}>The board is replaced while this is open.</p>
             </Panel>
           : <div className={styles.region}><p>Board region.</p><Button onClick={() => setPanelOpen(true)}><PlusIcon aria-hidden="true" />Evolution</Button></div>}
