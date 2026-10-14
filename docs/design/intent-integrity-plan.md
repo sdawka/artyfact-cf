@@ -95,8 +95,8 @@ T3 owns `worker/intents.ts`, `routes/intents.ts`, proposal-store changes and ded
 - [x] Integrate each slice, review each bounded diff independently and repair findings before completion. Reconcile contracts and generated template/source declarations; preserve the newer merged provider/site work.
 - [x] Run `npm run ci -- --ultra-compact`, GRREAT validation, versioned RPC preview and whole-branch correctness/security/regression review. Update the existing integration PR and require exact-head hosted checks green.
 - [x] Inspect existing production System/repo names and verified credentials without printing secrets. Provision/import only the exact reviewed self-Genome/source set using normal CLI review; never force over unrelated repos. Deploy reviewed product changes only within existing authorization, with green checks.
-- [ ] Exercise fresh real-provider examples through authoring, preview, full checks, repairs, dispositions and acceptance; record report IDs/revisions and misses/false alarms. Verify Artyfact in production Systems/model/readiness and its actual System map, Thing entry, relationship inspection and integrity findings at desktop/mobile with keyboard/reduced motion. Keep any missing external capability visibly pending while finishing independent local work.
-- [ ] Update Now plus one meaningful journal with exact implemented/local/hosted/live evidence, remaining gaps and sync status. Finish with a concise result and next action if one remains.
+- [x] Exercise fresh real-provider examples through authoring, preview, full checks, repairs, dispositions and acceptance; record report IDs/revisions and misses/false alarms. Verify Artyfact in production Systems/model/readiness and its actual System map, Thing entry, relationship inspection and integrity findings at desktop/mobile with keyboard/reduced motion. Keep any missing external capability visibly pending while finishing independent local work.
+- [x] Update Now plus one meaningful journal with exact implemented/local/hosted/live evidence, remaining gaps and sync status. Finish with a concise result and next action if one remains.
 
 ## Preflight interface review
 

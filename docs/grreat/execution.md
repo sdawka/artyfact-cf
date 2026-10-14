@@ -3,11 +3,11 @@
 
 ## Now
 
-- Released intent authoring, truthful integrity review and the enriched self-Genome in [PR #80](https://github.com/sdawka/artyfact-cf/pull/80), merged at `6ccefdcb`; deployed Worker `044f50b6-d505-4e30-89e9-6907b83ad34e`.
-- Local gate: 3,072 units, 100 fixture and 16 fake browser checks; final hosted CI passed in 14m18s. Real-provider verification used 214/500 approved calls, including exact source-free materialization/import and explicit partial-report test dispositions. [Evidence](journals/2026-10-14-intent-integrity-implementation.md).
-- Production Artyfact now loads with all ten Things and source bindings. Live desktop/mobile checks found one keyboard-accessibility defect in the long unmapped-path list; its focused repair is in progress. Self integrity remains explicitly unapproved; hosted judgments are simulated.
+- Released intent authoring, truthful integrity review and the enriched self-Genome in [PR #80](https://github.com/sdawka/artyfact-cf/pull/80), followed by the keyboard repair in [PR #81](https://github.com/sdawka/artyfact-cf/pull/81). Revision `7e2fca8e` is deployed as Worker `73c64fdd-ff7a-4667-9c41-031077025c53`.
+- Final local gate: 3,072 units (9 skipped), 104 fixture and 16 fake browser checks, typecheck/build; exact-head hosted CI passed. Real-provider verification used 214/500 approved calls, including exact source-free materialization/import and explicit partial-report test dispositions. [Evidence](journals/2026-10-14-intent-integrity-implementation.md).
+- Production Artyfact loads at `sc-2-51b5f13d` with all ten Things and source bindings. All 15 live desktop/mobile checks pass, including keyboard scrolling and reduced motion, with no overflow, serious/critical axe findings, page errors or attempted writes. Self integrity remains explicitly unapproved; hosted judgments are simulated.
 - Remaining quality work: semantic confidence calibration and larger-graph/source-document coverage. GRREAT RPC preview applied 0; remote sync still awaits a confirmed separate Artyfact destination.
-- Last updated: 2026-10-14T18:29:22-04:00.
+- Last updated: 2026-10-14T18:57:16-04:00.
 
 ## Spike baseline
 
