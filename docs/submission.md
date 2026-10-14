@@ -28,7 +28,7 @@ Implementation is a plan of Tasks pinned to that Genome. The platform computes i
 
 Selected results integrate into one review. Promotion is a compare-and-swap on the System head inside a Durable Object. Work reviewed against an old head is refused.
 
-Verdicts are strict. Only pass is green. On a blocking criterion, anything but a completed pass blocks promotion, and missing evidence counts as unknown. System One judgments are probabilities; between 0.1 and 0.9 they stay unknown. The default judge in production, Cloudflare Clef on Workers AI, also checks visual criteria against screenshots of the CI preview; an agent's own screenshots can fail a check but never pass it alone. A language model drafts plans and model edits, checked like any other edit.
+Verdicts are strict. Only pass is green. On a blocking criterion, anything but a completed pass blocks promotion, and missing evidence counts as unknown. System One judgments are probabilities; between 0.1 and 0.9 they stay unknown. On your own Cloudflare account the judge is Clef on Workers AI, TypeSafe's Jev or OpenRouter; Clef also checks Browser Run screenshots. Locally it scored artyfact.ing/model 0.83: unknown. Hosted demo judgments are simulated. A language model drafts plans and model edits, checked like any other edit.
 
 On Cloudflare, the platform Worker serves the API and the review app through Static Assets, with one Durable Object with SQLite per System. Artifacts hold the Genome and app repositories and a fork per Task. A separate artyfact-ci Worker runs a Workflow, started through a cross-script binding, that builds app commits in a container and deploys previews and production. Agents push through the CLI submit command.
 
@@ -46,7 +46,7 @@ Direction, not shipped: several agents taking the same Task contract in parallel
 - Intent edits: a message is routed through the Genome tree by the ontology engine and becomes ops to review and accept. Artyfact describes itself with ten Things in the same format.
 - Changelog and Compare across System, Genome and file level.
 - Preview builds and production deployments through the CI Worker, with a health check on the deployed preview.
-- Visual checks: Clef judges screenshots of the preview, taken with Browser Run at desktop and mobile sizes or attached with `artyfact task submit --screenshot`, and stored in R2. Agent screenshots are unverified: they can fail a check but never pass it without a platform capture, and a check makes at most 3 Clef asks. Artyfact judges its own /model page this way.
+- Visual checks: Clef judges screenshots of the preview, taken with Browser Run at desktop and mobile sizes or attached with `artyfact task submit --screenshot`, and stored in R2. Agent screenshots are unverified: they can fail a check but never pass it without a platform capture, and a check makes at most 3 Clef asks. Artyfact judges its own /model page this way: a local run scored it 0.83, which stays unknown because a pass needs 0.9. The hosted demo simulates judgments and visual checks and calls no model.
 - How it works: a public page drawn at build time from Artyfact's own Genome.
 - Deployments page with runtime events from the running app, tied to the System commit.
 - Parts: reusable packages with pinned versions, composed with recorded provenance.
@@ -55,7 +55,7 @@ Direction, not shipped: several agents taking the same Task contract in parallel
 ## How Workers and Artifacts are used
 - Workers: the platform Worker (Static Assets for the review app, a Hono API, a Queue consumer and the `SystemAuthority` Durable Object with SQLite); the `artyfact-ci` Worker (a Workflow, a container sandbox and an R2 cache), started by the platform through a cross-script Workflow binding; the site Worker on artyfact.ing.
 - Artifacts: one namespace with a Genome repository and an app repository per System, plus a shared `platform` repository of templates and Rule Packs. Binding reads of commits and trees, a fork per Task, and scoped write tokens that expire with the claim's lease (15 minutes by default, at most 60). The CLI submit command is the primary push path; the Queue consumer for `cf.artifacts.repo.pushed` needs a per-fork subscription, created by hand.
-- Workers AI and Browser Run: Cloudflare Clef (`@cf/cloudflare/clef`) through the AI binding is the default production judge and always judges visual criteria; Browser Run captures the CI preview at 1280×800 and 390×844, and screenshots are stored in R2.
+- Workers AI and Browser Run: Cloudflare Clef (`@cf/cloudflare/clef`) through the AI binding judges visual criteria, and `S1_PROVIDER` picks the text judge (Clef, Jev or OpenRouter), in your own account only; Browser Run captures the CI preview at 1280×800 and 390×844, and screenshots are stored in R2.
 - Concurrency: several agents fork, work and push at once, one writer per Task. The platform computes Task footprints and conflicts, orders dependent Tasks, integrates the selected results and promotes with a compare-and-swap.
 
 ## Not done on purpose
