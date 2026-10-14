@@ -386,13 +386,17 @@ export async function executeIntegrity(
       budget = judged.judgments?.budget ?? "ok";
       checkedSubjects = [...telemetry.subjects].sort();
       checkedRelationships = [...telemetry.relationships].sort();
-      const providerError = judged.findings.find((f) => f.provenance?.error)?.provenance?.error;
+      const providerError = judged.findings
+        .map((finding) => finding.provenance?.error)
+        .find((error) => error && !(error.name === "Budget" && error.code === "budget"));
       if (providerError) {
         failure = { code: providerError.code ?? "provider.transport", message: providerError.message };
         limitations.push(limitation("provider.transport", providerError.message));
       }
       if (budget === "exhausted") limitations.push(limitation("budget.exhausted", "The semantic call budget was exhausted before full coverage."));
-      if (judged.judgments.calls === 0) limitations.push(limitation("semantic.not-run", "The semantic funnel had no candidates to send to the configured provider."));
+      if (judged.judgments.calls === 0 && budget !== "exhausted") {
+        limitations.push(limitation("semantic.not-run", "The semantic funnel had no candidates to send to the configured provider."));
+      }
     } catch (error) {
       failure = { code: "provider.transport", message: (error as Error)?.message ?? String(error) };
       limitations.push(limitation("provider.transport", failure.message));

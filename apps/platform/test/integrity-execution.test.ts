@@ -34,7 +34,7 @@ function provider(asked: string[], omitted = false, followPairs = false, uncerta
   };
 }
 
-async function execute(systemId: string, files: Record<string, string>, s1: SystemOne, pkg?: unknown) {
+async function execute(systemId: string, files: Record<string, string>, s1: SystemOne, pkg?: unknown, maxCalls = 200) {
   return runInDurableObject(env.SYSTEMS.getByName(systemId), async (_authority, state) => {
     const packages = new OntologyPackagesStore(state.storage.sql);
     packages.initialize(systemId);
@@ -47,7 +47,7 @@ async function execute(systemId: string, files: Record<string, string>, s1: Syst
     const templates = acceptedTemplateResolver(accepted).templates;
     const store = new IntegrityStore(state.storage.sql, systemId);
     const snapshot = store.putSnapshot(createIntegritySnapshot({ systemId, files, templates }), "initial-preview");
-    const started = store.start(snapshot.id, { snapshotId: snapshot.id, provider: "auto", budget: { maxCalls: 200 } }, {
+    const started = store.start(snapshot.id, { snapshotId: snapshot.id, provider: "auto", budget: { maxCalls } }, {
       provider: s1.mode === "fake" ? "fake" : s1.mode === "off" ? "off" : "typesafe", model: s1.model,
     }).run;
     const lease = store.lease();
@@ -55,6 +55,17 @@ async function execute(systemId: string, files: Record<string, string>, s1: Syst
     const report = await executeIntegrity({} as Env, store, started, snapshot, accepted, s1, lease.token);
     return store.complete(started.id, lease.token, report);
   });
+}
+
+function realLikeProvider(asked: string[], transportError = false): SystemOne {
+  const delegate = provider(asked);
+  return {
+    ...delegate, mode: "http", model: "jev-test",
+    async ask(state, questions, opts) {
+      if (transportError) throw new Error("test transport failed");
+      return { ...await delegate.ask(state, questions, opts), provider: "typesafe", model: "jev-test" };
+    },
+  };
 }
 
 it("reports an omitted requirement from provider output and labels simulated evidence", async () => {
@@ -111,6 +122,41 @@ it("keeps uncertain direct intent judgments out of passing evidence", async () =
     expect.objectContaining({ code: "intent.judgment-unknown" }),
   ]));
   expect(run.report?.status).toBe("needs-review");
+});
+
+it("classifies exhausted funnel budget without inventing a provider transport failure", async () => {
+  const files = filesFrom(cleanModules, "/clean/genome/");
+  const asked: string[] = [];
+  const run = await execute("system.tool-library", files, realLikeProvider(asked), JSON.parse(cleanPackageText), 1);
+  expect(asked.length).toBeGreaterThan(0);
+  expect(run.report?.semantic.limitations).toEqual(expect.arrayContaining([
+    expect.objectContaining({ code: "budget.exhausted" }),
+  ]));
+  expect(run.report?.semantic.limitations).not.toEqual(expect.arrayContaining([
+    expect.objectContaining({ code: "provider.transport" }),
+  ]));
+  expect(run.report?.semantic.provenance).toMatchObject({ truncated: true });
+  expect(run.report?.semantic.provenance?.failure).toBeUndefined();
+  expect(run.report?.status).toBe("needs-review");
+  const reviewItems = [
+    ...run.report!.structural.findings, ...run.report!.structural.limitations,
+    ...run.report!.semantic.findings, ...run.report!.semantic.limitations,
+  ].filter((finding) => finding.severity === "review" || finding.severity === "warning");
+  const dispositions = reviewItems.map((finding) => ({
+    findingId: finding.id, decision: "accepted" as const, actor: "admin", at: new Date().toISOString(),
+    reportId: run.report!.id, snapshotHash: run.snapshotHash, rationale: "Reviewed bounded automated coverage.",
+  }));
+  expect(agreementEligibility(run.report!, dispositions)).toMatchObject({ eligible: true, status: "accepted-with-dispositions" });
+});
+
+it("keeps real provider transport failures noneligible", async () => {
+  const files = filesFrom(cleanModules, "/clean/genome/");
+  const run = await execute("system.tool-library", files, realLikeProvider([], true), JSON.parse(cleanPackageText));
+  expect(run.report?.semantic.limitations).toEqual(expect.arrayContaining([
+    expect.objectContaining({ code: "provider.transport" }),
+  ]));
+  expect(run.report?.semantic.provenance?.failure).toBeDefined();
+  expect(agreementEligibility(run.report!, [])).toMatchObject({ eligible: false, status: "pending" });
 });
 
 it("refuses to execute when the reachable template closure drifted after preview", () => {
