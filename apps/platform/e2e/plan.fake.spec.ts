@@ -86,7 +86,9 @@ test.describe("realization plan from draft to promotion @fake", () => {
 
 /** Writes one file inside the task's footprint, commits it and submits with the token stored at claim. Returns the candidate id. */
 async function implementAndSubmit(t: Task, dir: string, run: (args: string[], cwd?: string) => Promise<{ code: number; stdout: string; stderr: string }>): Promise<string> {
-  const path = t.footprint.paths[0] ?? t.footprint.globs[0]!.replace(/\*\*.*$/, "").replace(/\/?$/, "/e2e.txt");
+  // An existing file in scope, else the first glob: a plain path as is, a pattern as a new file in its directory.
+  const glob = t.footprint.globs[0]!;
+  const path = t.footprint.paths[0] ?? (/[*?[{]/.test(glob) ? glob.replace(/[^/]*[*?[{].*$/, "").replace(/\/?$/, "/e2e.txt") : glob);
   mkdirSync(dirname(join(dir, path)), { recursive: true });
   writeFileSync(join(dir, path), `// ${t.id}: e2e change\n`, { flag: "a" });
   const { execFileSync } = await import("node:child_process");

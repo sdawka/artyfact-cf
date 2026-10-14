@@ -205,7 +205,8 @@ export async function reviewLifecyclePlan(env:Env,sid:string,pid:string):Promise
   for(const gate of gateCriteria(g.model,{acceptanceCriteria:checks},{target:'app'}))if(gate.blocking) {
    const criterion=g.model.criteria.find(c=>c.id===gate.id);
    if(criterion&&hooksOf(g.model,criterion).some(h=>/base-current|manifest-exact|evidence-fresh/.test(h.inputs.check??'')))continue;
-   const matching=es.filter(e=>e.criterion===gate.id),latest=matching.at(-1);if(!latest||latest.execution!=='completed'||latest.verdict!=='pass')blockers.push(`Integrated ${binding.artifactId}: ${gate.id} is not passing.`);
+   // As the promotion gate (SystemAuthority.gateItems): not-run rows of hooks that never run before promotion are disregarded; any other row must pass.
+   const off=new Set(gate.offTriggerHooks??[]),rows=es.filter(e=>e.criterion===gate.id&&!(e.execution==='not-run'&&off.has(e.hook)));if(!rows.length||rows.some(e=>e.execution!=='completed'||e.verdict!=='pass'))blockers.push(`Integrated ${binding.artifactId}: ${gate.id} is not passing.`);
   }
  }
  return {plan:p,bindings:p.integration,candidates,evaluations,ready:blockers.length===0,blockers,expectedHead:state?.head??null};

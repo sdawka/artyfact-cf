@@ -158,13 +158,15 @@ describe("POST /realization-plans/draft", () => {
     const evolution = await acceptChange(systemId, "Change what the People screen says");
     // Task candidates pass every criterion of the Genome, so the plan promotes.
     const ids = loadGenome(genome, { templates: metaTemplates }).criteria.map((c) => c.id);
+    // Like the real runner, the outcome hook of C.system.purpose (it never runs before promotion) leaves a not-run row.
     setHooks({ runner: () => ({ ...passing, async runSubmission(ctx) {
       const at = new Date().toISOString();
-      return ids.map((criterion) => ({
-        id: `${ctx.candidate.id}:${criterion}`, candidate: ctx.candidate.id, hook: `hook:${criterion}`, criterion, ownerId: "o", subjectId: "s",
-        targetRef: ctx.candidate.commit, execution: "completed" as const, verdict: "pass" as const, verifier: "artyfact-platform", startedAt: at, finishedAt: at,
+      const row = (criterion: string, hook: string, execution: "completed" | "not-run", verdict: "pass" | "unknown") => ({
+        id: `${ctx.candidate.id}:${hook}`, candidate: ctx.candidate.id, hook, criterion, ownerId: "o", subjectId: "s",
+        targetRef: ctx.candidate.commit, execution, verdict, verifier: "artyfact-platform", startedAt: at, ...(execution === "completed" && { finishedAt: at }),
         observations: [], limitations: [], provenance: {},
-      }));
+      });
+      return [...ids.map((c) => row(c, `hook:${c}`, "completed", "pass")), row("C.system.purpose", "hook.system.purpose.outcome", "not-run", "unknown")];
     } }) });
     const d = await draft(systemId, {});
     expect(d.json.provenance.evolutionIds).toEqual([evolution.id]);
@@ -187,6 +189,9 @@ describe("POST /realization-plans/draft", () => {
     }
     const review = await call<ImplementationReview>("POST", lifecyclePaths.integrate(systemId, plan.id), {});
     expect(review.status, JSON.stringify(review.json)).toBe(200);
+    // The review blocks exactly as the gate does: the off-trigger not-run row does not.
+    expect(review.json.blockers).toEqual([]);
+    expect(review.json.ready).toBe(true);
     const promoted = await call<PlanPromoteResponse>("POST", lifecyclePaths.promote(systemId, plan.id), { expectedHead: review.json.expectedHead, rationale: "Reviewed", candidateIds: review.json.bindings.map((b) => b.candidateId) });
     expect(promoted.status, JSON.stringify(promoted.json)).toBe(200);
 

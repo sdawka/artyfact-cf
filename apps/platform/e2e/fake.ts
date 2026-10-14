@@ -190,7 +190,8 @@ export async function apiPlan(request: APIRequestContext, planId: string): Promi
 /**
  * Runs the repo's CLI (`packages/cli/bin/artyfact.js`) against the fake platform as an agent would. The environment is
  * scrubbed of every `ARTYFACT_*` variable from the developer's shell, so `task submit` must use the token stored at claim
- * (a token-at-rest regression cannot hide behind an exported `ARTYFACT_TOKEN`). The admin token is passed only to
+ * (a token-at-rest regression cannot hide behind an exported `ARTYFACT_TOKEN`); only the fake remote host is trusted
+ * (`ARTYFACT_ALLOW_REMOTE_HOST`) and routed to the fake git server. The admin token is passed only to
  * `task claim|start|resume`, as the README's claim line runs with it and the agent line unsets it.
  * Resolves with the exit code and output; never throws on a non-zero exit, so refusals can be asserted.
  */
@@ -200,7 +201,9 @@ export async function cli(args: string[], opts: { cwd: string; baseURL: string; 
   const bin = fileURLToPath(new URL("../../../packages/cli/bin/artyfact.js", import.meta.url));
   const env: Record<string, string> = Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => !e[0].startsWith("ARTYFACT_") && e[1] !== undefined));
   const admin = args[0] === "task" && ["claim", "start", "resume"].includes(args[1] ?? "");
-  Object.assign(env, { ARTYFACT_PLATFORM: opts.baseURL }, admin ? { ARTYFACT_ADMIN_TOKEN: ADMIN_TOKEN } : {}, opts.env);
+  // The fake repos report https://fake.artifacts.local remotes; git reaches them on the platform's fake git server.
+  const git = { GIT_CONFIG_COUNT: "1", GIT_CONFIG_KEY_0: `url.${opts.baseURL}/api/fake-git/.insteadOf`, GIT_CONFIG_VALUE_0: "https://fake.artifacts.local/git/artyfact/" };
+  Object.assign(env, git, { ARTYFACT_PLATFORM: opts.baseURL, ARTYFACT_ALLOW_REMOTE_HOST: "fake.artifacts.local" }, admin ? { ARTYFACT_ADMIN_TOKEN: ADMIN_TOKEN } : {}, opts.env);
   return new Promise((ok) => {
     execFile(process.execPath, [bin, ...args], { cwd: opts.cwd, env, timeout: 60_000 }, (err, stdout, stderr) =>
       ok({ code: err ? (typeof err.code === "number" ? err.code : 1) : 0, stdout: String(stdout), stderr: String(stderr) }));
