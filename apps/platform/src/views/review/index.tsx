@@ -5,6 +5,7 @@ import type { Evolution, Realization } from "../../../shared/api";
 import { useCandidates } from "@/api/queries";
 import { EmptyState } from "@/components/EmptyState/EmptyState";
 import { ListDetail } from "@/components/ListDetail/ListDetail";
+import { isGoKeyPending, isTyping } from "@/app/useShellShortcuts";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { ThingScopeNote } from "@/components/ThingScope/ThingScopeNote";
 import { useKeepParams, useSelection } from "@/model/useSelection";
@@ -86,6 +87,8 @@ export default function ReviewView() {
   useEffect(() => {
     const onKey = (ev: KeyboardEvent) => {
       if ((ev.key !== "j" && ev.key !== "k") || ev.metaKey || ev.ctrlKey || ev.altKey || ev.defaultPrevented) return;
+      // `g` then `j`/`k` is a shell go-key: leave it to the shell.
+      if (isGoKeyPending(ev.key) || isTyping(ev.target)) return;
       const t = ev.target as HTMLElement | null;
       if (t && (t.closest("input, textarea, select, [contenteditable=''], [contenteditable='true'], [role='tree'], [role='tablist']"))) return;
       const rows = [...document.querySelectorAll<HTMLElement>(`[${QUEUE_ROW}]`)].filter((r) => r.offsetParent !== null || !wide());

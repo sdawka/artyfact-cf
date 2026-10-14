@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ConflictReport, SystemImportReview, ProposalPlanNode, SystemSummary } from "../../../shared/api";
 import { fixtureBundle } from "@/api/fixtures";
@@ -181,6 +181,32 @@ describe("Review queue", () => {
     await waitFor(() => expect(router.state.location.search).toContain("all=1"));
     const group = await within(q).findByRole("region", { name: "Photo suggestions (later)" });
     expect(rowsIn(group)[0]!.getAttribute("href")).toContain("all=1");
+  });
+
+  it("j / k move between rows, leave fields alone and yield `g j` to the shell", async () => {
+    // One pane (jsdom lays nothing out, so the two-pane visibility check would hide every row).
+    vi.stubGlobal("matchMedia", (q: string) => ({ matches: false, media: q, addEventListener() {}, removeEventListener() {} }));
+    const { router } = renderApp(REVIEW, undefined, queueSeed());
+    const rows = rowsIn(await queue());
+    const press = (k: string, target: Element = document.body) => act(() => void fireEvent.keyDown(target, { key: k }));
+    press("j");
+    expect(document.activeElement).toBe(rows[0]);
+    press("j");
+    expect(document.activeElement).toBe(rows[1]);
+    press("k");
+    expect(document.activeElement).toBe(rows[0]);
+    // Typing never moves the queue.
+    const field = document.createElement("input");
+    field.setAttribute("role", "combobox");
+    document.body.append(field);
+    field.focus();
+    press("j", field);
+    expect(document.activeElement).toBe(field);
+    field.remove();
+    // `g` then `j` is the go-key to Journeys, not a row move.
+    press("g");
+    press("j");
+    await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/journeys`));
   });
 
   it("feeds the rail count from the same queue", async () => {
