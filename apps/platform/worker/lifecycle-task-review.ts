@@ -1,7 +1,17 @@
+import { layerOf, type CriterionLayer, type SystemModel } from '@artyfact/model';
+import type { Evaluation } from '../shared/api';
 import type { TaskCandidateReview, TaskReview } from '../shared/lifecycle';
 import { compareExplicitFile } from './compare';
 import { badRequest, conflict, fromRpc, notFound } from './errors';
-import { systemStub } from './service';
+import { hooksOf } from './promotion';
+import { genomeAt, systemStub } from './service';
+
+/** Layer of every criterion `evaluations` name (docs/design/task-fork-model.md §3); an id the Genome lacks is `realization`. */
+export function evidenceLayers(m:SystemModel,evaluations:Evaluation[]):Record<string,CriterionLayer> {
+ const out:Record<string,CriterionLayer>={};
+ for(const id of new Set(evaluations.map(e=>e.criterion))){const c=m.criteria.find(c=>c.id===id);out[id]=c?layerOf(c,hooksOf(m,c)):'realization';}
+ return out;
+}
 
 /** Reads have the enclosing System's visibility. Candidates must belong to this Task and pinned plan/base. */
 export async function reviewLifecycleTask(env:Env,sid:string,pid:string,tid:string):Promise<TaskReview> {
@@ -15,7 +25,8 @@ export async function reviewLifecycleTask(env:Env,sid:string,pid:string,tid:stri
    candidates.push({candidate,manifest:manifest as TaskCandidateReview['manifest'],evaluations:await stub.evaluations(candidate.id)});
   }
  }
- return {plan,task,candidates};
+ const g=await genomeAt(env,sid,plan.genome.commit,plan.genome.repo);
+ return {plan,task,candidates,layers:evidenceLayers(g.model,candidates.flatMap(c=>c.evaluations))};
 }
 export async function reviewLifecycleTaskFile(env:Env,sid:string,pid:string,tid:string,candidateId:string,path:string) {
  const review=await reviewLifecycleTask(env,sid,pid,tid),entry=review.candidates.find(c=>c.candidate.id===candidateId);

@@ -25,3 +25,5 @@ export * from './ontology-package.ts';
 export * from './task-availability.ts';
 export * from './intent.ts';
 export * from './integrity.ts';
+export { layerOf } from './layers.ts';
+export type { CriterionLayer } from './layers.ts';
