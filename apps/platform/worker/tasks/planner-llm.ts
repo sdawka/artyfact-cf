@@ -33,7 +33,8 @@ export const PlanReplySchema = z.object({
     title: z.string().min(1).transform((x) => x.slice(0, 200)),
     intent: z.string().default("").transform((x) => x.slice(0, 2000)),
     nodes: z.array(id).min(1),
-    dependsOn: z.array(z.string()).default([]),
+    // Cut like titles, so a dependency on a long title still matches it.
+    dependsOn: z.array(z.string().transform((x) => x.slice(0, 200))).default([]),
     acceptanceCriteria: z.array(id).default([]),
   })).min(1),
 });
@@ -124,7 +125,8 @@ export function openRouterPlanner(o: OpenRouterPlannerOptions): Planner {
         body: JSON.stringify({
           model,
           messages: [{ role: "system", content: PLAN_SYSTEM_PROMPT }, { role: "user", content: JSON.stringify(ctx) }],
-          max_tokens: o.maxTokens ?? 2000,
+          // About 150 tokens per task line; bounded so a large scope cannot ask for an unbounded reply.
+          max_tokens: o.maxTokens ?? Math.min(8000, 1000 + 150 * ctx.nodes.length),
           temperature: 0,
         }),
       });
