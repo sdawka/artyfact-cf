@@ -23,7 +23,7 @@ const zones: Zone[] = [
 ];
 
 /** Static: three zones of one Task seen from the agent's side (the brief it gets, the frame around it, the room inside),
- * then the one sentence about parallel agents pulled out of the prose. */
+ * then the one sentence about parallel agents pulled out of the prose, and three rows on where the work runs. */
 export function AgentEnvironment() {
   return <section className="section agent-environment" id="environment" aria-labelledby="environment-heading">
     <div className="section-heading"><h2 id="environment-heading">Give your coding agents the environment to thrive.</h2><p>With too few limits, agents drift. With too many, they can’t find a better way. Artyfact stops the wrong moves, hands over what the right ones need, and leaves the choices to the agent.</p></div>
@@ -39,5 +39,10 @@ export function AgentEnvironment() {
       <p className="environment-pull">Several agents can take the same change in parallel.</p>
       <p>Each fulfils one tightly defined contract, so any version that meets it should work. If one meets it and still falls short, you sharpen the contract. The variation explores more of the solution space.</p>
     </div>
+    <dl className="environment-contrast" aria-label="Where the work runs">
+      <div><dt>Local worktrees</dt><dd>Tests and tasks run on your machine, and you tend them.</dd></div>
+      <div><dt>Unbounded cloud</dt><dd>They tend themselves, and the bill grows with every agent you start.</dd></div>
+      <div><dt>Artifacts with intent</dt><dd>Each Task is one fork on Cloudflare Artifacts with a short-lived token; checks run there at submit. A Plan names its Tasks, so the work is bounded and controlled, yet free.</dd></div>
+    </dl>
   </section>;
 }
