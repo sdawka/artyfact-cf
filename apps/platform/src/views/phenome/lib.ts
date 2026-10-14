@@ -1,4 +1,7 @@
-import type { Build } from "../../../shared/api";
+import type { Build, Deployment, PhenomeEventsResponse } from "../../../shared/api";
+
+/** "1 event", "2 events". */
+export const plural = (n: number, word: string) => `${n} ${n === 1 ? word : `${word}s`}`;
 
 export const short = (s?: string | null) => (s ? s.slice(0, 7) : "unknown");
 
@@ -22,4 +25,15 @@ export function duration(start?: string | null, end?: string | null): string | u
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
   return m < 60 ? `${m}m ${s % 60}s` : `${Math.floor(m / 60)}h ${m % 60}m`;
+}
+
+/**
+ * A deployment record can lack its System commit (a CI-reported production build creates the deployment without one),
+ * while its runtime events carry the System commit the platform derived from the same app commit. Fill the gap from the
+ * event versions of that deployment, so the row and its events never disagree. A recorded System commit always wins.
+ */
+export function withSystemCommit(d: Deployment, versions: PhenomeEventsResponse["versions"]): Deployment {
+  if (d.systemCommit) return d;
+  const derived = versions.find((v) => v.deployment === d.id && v.commit === d.commit && v.systemCommit)?.systemCommit;
+  return derived ? { ...d, systemCommit: derived } : d;
 }

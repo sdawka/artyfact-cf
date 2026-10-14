@@ -9,7 +9,7 @@ import { Section } from "@/components/Section/Section";
 import { Unknown } from "@/components/Unknown/Unknown";
 import type { usePhenomeEventPages } from "@/api/queries";
 import { FILTERS, useSetFilter } from "./FilterChips";
-import { short } from "./lib";
+import { plural, short } from "./lib";
 import { ExpandRow, When } from "./tables";
 import styles from "./phenome.module.css";
 
@@ -93,15 +93,18 @@ export function EventsSection({ events, versions, buildFilter, paging, deploymen
         return (
           <details key={k} className={styles.group}>
             <summary>
-              <code>{short(group[0]!.outputId ?? group[0]!.buildId)}</code>
-              <span className={styles.groupMeta}>{v ? `${v.count} events` : `${group.length} loaded events`}</span>
-              <span className={styles.groupMeta}><span className={styles.label}>Source</span> {short(group[0]!.commit)}</span>
-              <span className={styles.groupMeta}><span className={styles.label}>Output</span> {v?.output ? <code>{v.output}</code> : <Unknown />}</span>
-              <span className={styles.groupMeta}><span className={styles.label}>Genome</span> {v?.genomeCommit ? short(v.genomeCommit) : <Unknown />}</span>
-              {v?.systemCommit && <span className={styles.groupMeta}><span className={styles.label}>System commit</span> {v.systemCommit}</span>}
+              <span className={styles.groupHead}>
+                <span className={styles.groupTitle}>{[...new Set(group.map((e) => e.kind))].join(", ")}</span>
+                <span className={styles.groupMeta}>{v ? plural(v.count, "event") : plural(group.length, "loaded event")}</span>
+                <span className={styles.groupMeta}><span className={styles.label}>Output</span> {v?.output ?? group[0]!.outputId ? <code>{v?.output ?? group[0]!.outputId}</code> : <Unknown />}</span>
+                <span className={styles.groupMeta}><span className={styles.label}>Runtime build</span> <code>{short(group[0]!.buildId)}</code></span>
+                <span className={styles.groupMeta}><span className={styles.label}>Source</span> <code>{short(group[0]!.commit)}</code></span>
+                <span className={styles.groupMeta}><span className={styles.label}>Genome</span> {v?.genomeCommit ? <code>{short(v.genomeCommit)}</code> : <Unknown />}</span>
+                {v?.systemCommit && <span className={styles.groupMeta}><span className={styles.label}>System commit</span> <code>{v.systemCommit}</code></span>}
+              </span>
             </summary>
             <div className={styles.tableWrap}>
-              <table className={`${styles.table} ${styles.compact}`}>
+              <table className={`${styles.table} ${styles.compact} ${styles.stack}`}>
                 <thead><tr><th className={styles.toggleCell}><span className="sr-only">Details</span></th><th>Time</th><th>Kind</th><th>Subject</th><th>Criterion</th></tr></thead>
                 <tbody>{group.map((e) => <EventRow key={e.seq} e={e} />)}</tbody>
               </table>
@@ -129,8 +132,8 @@ function EventRow({ e }: { e: PhenomeEvent }) {
       cells={<>
         <td><When iso={e.emittedAt} /></td>
         <td><code>{e.kind}</code></td>
-        <td>{e.subject ? <NodeChip id={e.subject} size="sm" /> : null}</td>
-        <td>{e.criterion ? <NodeChip id={e.criterion} size="sm" /> : null}</td>
+        <td className={styles.line2} data-label={e.subject ? "Subject" : undefined}>{e.subject ? <NodeChip id={e.subject} size="sm" /> : null}</td>
+        <td className={styles.line2} data-label={e.criterion ? "Criterion" : undefined}>{e.criterion ? <NodeChip id={e.criterion} size="sm" /> : null}</td>
       </>}
     >
       <pre className={styles.command} aria-label="Raw event">{JSON.stringify(header, null, 2)}</pre>

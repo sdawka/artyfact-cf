@@ -23,21 +23,29 @@
 .filter { display: grid; gap: var(--spacing-1); font: var(--type-meta); color: var(--color-text-secondary); }
 
 /* Tables: rows divided by faint rules, no box per row. */
-.tableWrap { overflow-x: auto; max-width: 100%; }
+.tableWrap { overflow-x: auto; max-width: 100%; container: table / inline-size; }
 .table { width: 100%; border-collapse: collapse; font: var(--type-ui); }
 .table th { padding: var(--spacing-2) var(--spacing-3); text-align: left; font: var(--type-meta); font-weight: var(--font-weight-semibold); color: var(--color-text-subtle); border-bottom: 1px solid var(--color-border-subtle); white-space: nowrap; }
-.table td { padding: var(--spacing-2) var(--spacing-3); border-bottom: 1px solid var(--color-border-faint); vertical-align: middle; overflow-wrap: anywhere; }
-.table code { font-family: var(--font-code); overflow-wrap: anywhere; }
+.table td { padding: var(--spacing-2) var(--spacing-3); border-bottom: 1px solid var(--color-border-faint); vertical-align: middle; }
+/* Ids, shas and kinds never wrap mid-token; the wrapper scrolls instead. */
+.table code { font-family: var(--font-code); white-space: nowrap; }
+.nowrap { white-space: nowrap; }
+.truncate { display: inline-block; max-width: 24ch; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 .dataRow td { height: var(--control-height); }
 .compact .dataRow td { height: 36px; }
 .dataRow[data-expandable] { cursor: pointer; }
 .dataRow[data-expandable]:hover { background: var(--color-background-hover); }
 .dataRow[data-open] { background: var(--color-background-hover); }
 .toggleCell { width: var(--control-height); padding-inline: var(--spacing-1) !important; }
-.toggle { display: grid; place-items: center; width: var(--control-height); height: var(--control-height); background: none; border: 0; color: var(--color-text-secondary); cursor: pointer; }
+.toggle { display: grid; place-items: center; width: var(--control-height); height: var(--control-height); background: none; border: 0; border-radius: var(--border-radius-sm); color: var(--color-text-secondary); cursor: pointer; }
+.toggle:hover { color: var(--color-text-primary); background: var(--color-background-hover); }
+.chevron { width: 18px; height: 18px; transition: transform 120ms ease; }
+.toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+@media (prefers-reduced-motion: reduce) { .chevron { transition: none; } }
 .detailRow td { background: var(--surface-well); padding: var(--spacing-3) var(--spacing-5); }
 .links { white-space: nowrap; text-align: right; }
 .url { max-width: 28ch; }
+.url a { display: inline-block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; vertical-align: bottom; }
 .detail { display: grid; gap: var(--spacing-3); }
 .steps { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-5); margin: 0; padding: 0; list-style: none; font: var(--type-meta); }
 .inlineFacts { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-6); margin: 0; font: var(--type-meta); }
@@ -50,8 +58,11 @@
 
 /* Event groups. */
 .group { border-top: 1px solid var(--color-border-faint); padding: var(--spacing-1) 0; }
-.group > summary { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-1) var(--spacing-4); min-height: var(--control-height); cursor: pointer; font: var(--type-ui); }
-.group > summary code { font-family: var(--font-code); }
+/* The summary keeps its native disclosure marker (no display:flex on it); the head inside it wraps. */
+.group > summary { min-height: var(--control-height); padding-block: var(--spacing-2); cursor: pointer; font: var(--type-ui); }
+.groupHead { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-1) var(--spacing-4); max-width: calc(100% - 1.5em); vertical-align: top; }
+.groupTitle { font-family: var(--font-code); font-weight: var(--font-weight-semibold); }
+.group > summary code { font-family: var(--font-code); white-space: nowrap; }
 .groupMeta { font: var(--type-meta); color: var(--color-text-secondary); }
 .label { color: var(--color-text-subtle); }
 
@@ -70,8 +81,28 @@
 .opsHead { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: var(--spacing-2); }
 .tokenGate { display: grid; gap: var(--spacing-3); justify-items: start; max-width: 28rem; }
 
+/* Stacked rows below 640px of the table's own width: line 1 toggle + plain cells, line 2 the .line2 cells, then actions.
+   tr::before and tr::after are the two line breaks. Header cells hide; each stacked cell shows its data-label. */
+@container table (max-width: 639px) {
+  .stack, .stack tbody { display: block; }
+  .stack thead { display: none; }
+  .stack .dataRow { display: flex; flex-wrap: wrap; align-items: center; column-gap: var(--spacing-3); padding: var(--spacing-1) 0 var(--spacing-2) calc(var(--control-height) + var(--spacing-3)); border-bottom: 1px solid var(--color-border-faint); }
+  .stack .dataRow::before, .stack .dataRow::after { content: ""; flex-basis: 100%; height: 0; }
+  .stack .dataRow::before { order: 1; }
+  .stack .dataRow::after { order: 3; }
+  .stack .dataRow td { display: block; height: auto; min-width: 0; max-width: 100%; padding: 0; border: 0; }
+  .compact.stack .dataRow td { height: auto; }
+  /* The toggle hangs in the row's left gutter, so every line starts at the same edge. */
+  .stack .dataRow .toggleCell { order: 0; width: var(--control-height); padding: 0 !important; margin-left: calc(-1 * (var(--control-height) + var(--spacing-3))); }
+  .stack .dataRow .line2 { order: 2; font: var(--type-meta); }
+  .stack .dataRow .line2[data-label]::before { content: attr(data-label) " "; color: var(--color-text-subtle); }
+  .stack .dataRow .links { order: 4; text-align: left; }
+  .stack .url { max-width: 100%; }
+  .stack .url a { max-width: 22ch; }
+  .stack .detailRow { display: block; }
+  .stack .detailRow td { display: block; }
+}
+
 @media (max-width: 639px) {
-  .hideNarrow { display: none; }
   .summary { padding: var(--spacing-3); }
-  .url { max-width: 18ch; }
 }

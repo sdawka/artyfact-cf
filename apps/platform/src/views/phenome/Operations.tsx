@@ -1,10 +1,10 @@
-import { useState, type FormEvent } from "react";
+import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useAdminToken } from "@/api/adminToken";
 import { scopedRequest } from "@/api/lifecycle";
 import { formStyles } from "@/components/Form/Form";
 import { Section } from "@/components/Section/Section";
-import { Button, Input, Select } from "@/components/ui";
+import { Button, Select } from "@/components/ui";
 import { useModel } from "@/model/useModel";
 import { useSystemRoute } from "@/model/useSelection";
 import { operationsPaths, type OperationsBindingsResponse } from "../../../shared/operations";
@@ -17,24 +17,17 @@ export function Operations({ thingId }: { thingId?: string }) {
   return <ScopedOperations key={`${systemId}/${rev}/${thingId ?? ""}`} thingId={thingId} />;
 }
 
-/** Why nothing loads yet, with a field to set the token right here. */
+/** Why nothing loads yet: the header's admin token is the one source, so the controls wait on it with that reason. */
 function TokenGate() {
-  const { setToken } = useAdminToken();
-  const [draft, setDraft] = useState("");
-  const submit = (e: FormEvent) => {
-    e.preventDefault();
-    if (draft.trim()) setToken(draft);
-    setDraft("");
-  };
+  const id = useId();
   return (
-    <form className={styles.tokenGate} onSubmit={submit}>
-      <p className={styles.quiet}>Observations and flag controls need the admin token.</p>
-      <div className={formStyles.field}>
-        <label htmlFor="operations-token">Admin token</label>
-        <Input id="operations-token" type="password" autoComplete="off" value={draft} onChange={(e) => setDraft(e.target.value)} />
+    <div className={styles.tokenGate}>
+      <p id={id} className={styles.quiet}>Observations and flag controls need the admin token.</p>
+      <div className={styles.opsBar}>
+        <Button disabled aria-describedby={id}>Refresh metrics</Button>
+        <Button reason="Set the admin token in the header." aria-describedby={id}>Create boolean flag</Button>
       </div>
-      <Button type="submit" reason={draft.trim() ? undefined : "Enter the admin token."}>Set admin token</Button>
-    </form>
+    </div>
   );
 }
 

@@ -29,11 +29,11 @@ export function BuildsSection({ builds, production, loading, error, onRetry }: {
         <p className={styles.quiet}>No builds yet.</p>
       ) : (
         <div className={styles.tableWrap}>
-          <table className={styles.table}>
+          <table className={`${styles.table} ${styles.stack}`}>
             <thead>
               <tr>
                 <th className={styles.toggleCell}><span className="sr-only">Details</span></th>
-                <th>Status</th><th>Kind</th><th>Commit</th><th>Output</th><th className={styles.hideNarrow}>Started</th><th className={styles.hideNarrow}>Duration</th>
+                <th>Status</th><th>Kind</th><th>Commit</th><th>Output</th><th>Started</th><th>Duration</th>
                 <th><span className="sr-only">Links</span></th>
               </tr>
             </thead>
@@ -46,11 +46,11 @@ export function BuildsSection({ builds, production, loading, error, onRetry }: {
                   columns={7}
                   cells={<>
                     <td><StatusText status={b.status} tone={buildTone(b.status)} glyph={BUILD_GLYPH[b.status]} /></td>
-                    <td>{b.kind}</td>
-                    <td><code>{short(b.commit)}</code></td>
-                    <td>{b.output ? <code>{b.output.id}</code> : <Unknown />}</td>
-                    <td className={styles.hideNarrow}><When iso={b.startedAt} /></td>
-                    <td className={styles.hideNarrow}>{duration(b.startedAt, b.finishedAt) ?? <Unknown />}</td>
+                    <td className={styles.nowrap}>{b.kind}</td>
+                    <td className={styles.line2} data-label="Commit"><code>{short(b.commit)}</code></td>
+                    <td className={styles.line2} data-label="Output">{b.output ? <code className={styles.truncate} title={b.output.id}>{b.output.id}</code> : <Unknown />}</td>
+                    <td className={styles.line2} data-label="Started"><When iso={b.startedAt} /></td>
+                    <td className={styles.line2} data-label="Duration">{duration(b.startedAt, b.finishedAt) ?? <Unknown />}</td>
                     <td className={styles.links}>
                       {b.url && <Button asChild variant="ghost" size="compact"><a href={b.url} target="_blank" rel="noopener noreferrer">Preview<span className="sr-only"> of {b.id}</span></a></Button>}
                       {b.logsUrl && <Button asChild variant="ghost" size="compact"><a href={b.logsUrl} target="_blank" rel="noopener noreferrer">Logs<span className="sr-only"> of {b.id}</span></a></Button>}

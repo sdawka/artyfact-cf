@@ -1,10 +1,15 @@
 import { useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { ChevronRightIcon } from "@radix-ui/react-icons";
 import { Unknown } from "@/components/Unknown/Unknown";
+import { relativeTime } from "../overview/states";
 import { stamp } from "./lib";
 import styles from "./phenome.module.css";
 
-/** `<time>` text, or the literal unknown. */
-export const When = ({ iso }: { iso?: string | null }) => (iso ? <time dateTime={iso}>{stamp(iso)}</time> : <Unknown />);
+/** `<time>`: relative ("5 minutes ago") with the exact UTC minute in its title, or the literal unknown. */
+export function When({ iso }: { iso?: string | null }) {
+  const rel = iso ? relativeTime(iso) : "unknown";
+  return iso && rel !== "unknown" ? <time dateTime={iso} title={stamp(iso)}>{rel}</time> : <Unknown />;
+}
 
 /**
  * A table row that opens a detail row under it. The whole row toggles (44px target); the first cell carries the
@@ -31,7 +36,7 @@ export function ExpandRow({ id, label, columns, cells, children }: {
         <td className={styles.toggleCell}>
           {children && (
             <button type="button" className={styles.toggle} aria-expanded={open} aria-controls={detailId} onClick={toggle}>
-              <span aria-hidden="true" className="u-glyph">{open ? "▾" : "▸"}</span>
+              <ChevronRightIcon aria-hidden="true" className={styles.chevron} />
               <span className="sr-only">Details of {label}</span>
             </button>
           )}
