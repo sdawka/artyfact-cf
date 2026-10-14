@@ -166,7 +166,9 @@ describe("Shell", () => {
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/things/thing.webapp/review`));
     expect(await screen.findByRole("heading", { level: 1, name: "Review" })).toBeTruthy();
     // Review lists the whole System's decisions, and inside a Thing the scope line says so.
-    expect(screen.getByText("Showing the whole System")).toBeTruthy();
+    // (The Shell's CSS-hidden fallback scope line also renders in jsdom; read the PageHeader's.)
+    const notes = screen.getAllByText("Showing the whole System");
+    expect(notes.some((note) => note.closest("header[data-variant]"))).toBe(true);
   });
 
   it("g r opens Review keeping params", async () => {
