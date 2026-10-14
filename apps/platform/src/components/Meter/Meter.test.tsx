@@ -1,4 +1,5 @@
 import { render, screen } from "@testing-library/react";
+import { MemoryRouter } from "react-router";
 import { describe, expect, it } from "vitest";
 import "@/testing/render";
 import { Meter } from "./Meter";
@@ -65,7 +66,7 @@ describe("Meter", () => {
   });
   it("links the title when given a destination, and never makes the region focusable", () => {
     const seen: HTMLElement[] = [];
-    render(<Meter title="T" headline="h" caption="c" to="/s/x/map" onActivate={(el) => seen.push(el)} segments={[{ key: "p", label: "pass", count: 1, tone: "pass" }]} />);
+    render(<MemoryRouter><Meter title="T" headline="h" caption="c" to="/s/x/map" onActivate={(el) => seen.push(el)} segments={[{ key: "p", label: "pass", count: 1, tone: "pass" }]} /></MemoryRouter>);
     const region = screen.getByRole("region", { name: "T" });
     expect(region.getAttribute("tabindex")).toBeNull();
     expect(screen.getByRole("link", { name: "T" }).getAttribute("href")).toBe("/s/x/map");
