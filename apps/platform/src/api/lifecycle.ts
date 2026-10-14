@@ -1,6 +1,7 @@
-import type { FileCompare } from "../../shared/api";
+import type { FileCompare, SystemSummary } from "../../shared/api";
+import { routes } from "../../shared/api";
 import { ApiRequestError } from './client';
-import { lifecyclePaths, type CreateRealizationPlanRequest, type RealizationPlan, type ImplementationReview, type PlanPromoteRequest, type PlanPromoteResponse } from '../../shared/lifecycle';
+import { lifecyclePaths, type CreateRealizationPlanRequest, type RealizationPlan, type ImplementationReview, type PlanPromoteRequest, type PlanPromoteResponse, type DraftRealizationPlanRequest, type DraftRealizationPlanResponse, type TaskSelectRequest } from '../../shared/lifecycle';
 import type { CreateInitialSystemRequest, CreateInitialSystemResponse, OntologyImportPreviewRequest, OntologyImportReview, OntologyImportAcceptRequest } from '../../shared/ontology-packages';
 export { lifecyclePaths };
 export async function scopedRequest<T>(path:string,token:string,method='GET',body?:unknown):Promise<T>{
@@ -16,6 +17,11 @@ export const lifecycleApi={
  plans:(s:string,token:string)=>scopedRequest<{plans:RealizationPlan[]}>(lifecyclePaths.plans(s),token),
  plan:(s:string,p:string,token:string)=>scopedRequest<RealizationPlan>(lifecyclePaths.plan(s,p),token),
  createPlan:(s:string,body:CreateRealizationPlanRequest,token:string)=>scopedRequest<RealizationPlan>(lifecyclePaths.plans(s),token,'POST',body),
+ /** Editable draft of a plan from the planner; persists nothing. Its `request` posts unchanged to `createPlan`. */
+ draft:(s:string,body:DraftRealizationPlanRequest,token:string)=>scopedRequest<DraftRealizationPlanResponse>(lifecyclePaths.draft(s),token,'POST',body),
+ select:(s:string,p:string,t:string,body:TaskSelectRequest,token:string)=>scopedRequest<RealizationPlan>(lifecyclePaths.action(s,p,t,'select'),token,'POST',body),
+ /** `GET /api/systems/:id`: read live from the System, unlike the list, whose counts are only as fresh as the last registry refresh. */
+ system:(s:string)=>scopedRequest<SystemSummary>(routes.system(s),''),
  reviewFile:(s:string,p:string,artifactId:string,path:string,token:string)=>scopedRequest<FileCompare>(lifecyclePaths.reviewFile(s,p,artifactId,path),token),
  review:(s:string,p:string,token:string)=>scopedRequest<ImplementationReview>(lifecyclePaths.review(s,p),token),
  integrate:(s:string,p:string,token:string)=>scopedRequest<ImplementationReview>(lifecyclePaths.integrate(s,p),token,'POST',{}),
