@@ -132,6 +132,9 @@ describe("fake git server against git", { timeout: 60_000 }, () => {
     expect(claimed.stdout).toContain("Task workspace ready");
     expect(readFileSync(join(dir, "src/x.ts"), "utf8").length).toBeGreaterThan(0);
     expect(existsSync(join(dir, "TASK_PACKET.md"))).toBe(true);
+    // The stored credentials live inside .git, never in the work tree.
+    expect(existsSync(join(dir, ".git/artyfact-task.json"))).toBe(true);
+    expect(existsSync(join(dir, ".artyfact-task.json"))).toBe(false);
     expect(await git(dir, ["rev-parse", "HEAD"])).toBe(repo.head);
 
     writeFileSync(join(dir, "src/claimed.ts"), "export const claimed = true;\n");
@@ -140,6 +143,7 @@ describe("fake git server against git", { timeout: 60_000 }, () => {
     const pushed = await git(dir, ["rev-parse", "HEAD"]);
     expect(transport.pushes.length).toBe(before + 1);
     expect(repo.head).toBe(pushed);
+    expect(await git(dir, ["ls-tree", "-r", "--name-only", "HEAD"])).not.toMatch(/artyfact-task\.json|TASK_PACKET\.md/);
     expect(platformCalls.at(-1)).toMatchObject({ path: expect.stringContaining("/tasks/t1/submit"), body: { commit: pushed, attemptId: "attempt.1" } });
   });
 });

@@ -264,7 +264,7 @@ it('a claim whose clone fails removes the half-made workspace and names the resu
  }
 });
 
-it('a .gitignore negation never stages the task config: the legacy root file moves into .git and a root copy is left out', async () => {
+it('a .gitignore negation never stages the task config or packet: the legacy root file moves into .git and a root copy is left out', async () => {
  const sh = (at: string, ...args: string[]) => execFileSync('git', ['-C', at, ...args], { encoding: 'utf8' }).trim();
  const source = join(cwd, 'neg-source'), bare = join(cwd, 'neg.git'), dir = join(cwd, 'neg-work');
  mkdirSync(source); sh(cwd, 'init', '--bare', '-q', bare); sh(source, 'init', '-q', '-b', 'main'); writeFileSync(join(source, 'app.ts'), 'base'); sh(source, 'add', 'app.ts');
@@ -279,16 +279,16 @@ it('a .gitignore negation never stages the task config: the legacy root file mov
   expect((await cli(['task', 'claim', 'plan.one', 'task.a', '--system', 'system.one', '--dir', dir, '--platform', srv.base], { ARTYFACT_ADMIN_TOKEN: 'admin' })).code).toBe(0);
   // A workspace from before the move: the config at the root, and a .gitignore that un-ignores it.
   renameSync(join(dir, '.git/artyfact-task.json'), join(dir, '.artyfact-task.json'));
-  writeFileSync(join(dir, '.gitignore'), '!.artyfact-task.json\n'); sh(dir, 'config', 'user.name', 't'); sh(dir, 'config', 'user.email', 't@t');
+  writeFileSync(join(dir, '.gitignore'), '!.artyfact-task.json\n!TASK_PACKET.md\n'); sh(dir, 'config', 'user.name', 't'); sh(dir, 'config', 'user.email', 't@t');
   const first = await cli(['task', 'submit'], {}, dir);
-  expect(first.err).toBe(''); expect(first.code).toBe(0);
+  expect(first.code).toBe(0); expect(first.err).toBe('not staged (secret files are never committed): TASK_PACKET.md');
   expect(existsSync(join(dir, '.artyfact-task.json'))).toBe(false);
   expect(statSync(join(dir, '.git/artyfact-task.json')).mode & 0o777).toBe(0o600);
   // A root copy written later is still never staged.
   writeFileSync(join(dir, '.artyfact-task.json'), readFileSync(join(dir, '.git/artyfact-task.json'))); writeFileSync(join(dir, 'more.ts'), 'more');
   const second = await cli(['task', 'submit'], {}, dir);
   expect(second.code).toBe(0); expect(second.err).toContain('not staged');
-  expect(sh(bare, 'ls-tree', '-r', '--name-only', 'main')).not.toContain('artyfact-task.json');
+  expect(sh(bare, 'ls-tree', '-r', '--name-only', 'main')).not.toMatch(/artyfact-task\.json|TASK_PACKET\.md/);
   expect(sh(bare, 'log', '-p', 'main')).not.toContain(token);
  } finally {
   for (const [k, v] of [['GIT_CONFIG_COUNT', old.c], ['GIT_CONFIG_KEY_0', old.k], ['GIT_CONFIG_VALUE_0', old.v]] as const) if (v === undefined) delete process.env[k]; else process.env[k] = v;

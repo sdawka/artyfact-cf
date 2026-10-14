@@ -160,7 +160,7 @@ Like `plan show`, it needs no token for a public System.
 The target directory is checked before any request: it must be absent, empty, or this Task's earlier workspace.
 The fork write token is stored in `.git/artyfact-task.json` in the workspace (mode 0600, written to a temporary file
 and renamed into place) together with the scoped attempt secret. It lives inside `.git`, so no `.gitignore` rule can
-stage it; checkpoint and submit also never stage a `.artyfact-task.json`, and an older workspace's root copy moves into
+stage it; checkpoint and submit also never stage a `.artyfact-task.json` or `TASK_PACKET.md`, and an older workspace's root copy moves into
 `.git` on first use. Neither is printed, and both are scrubbed
 from `TASK_PACKET.md` and `AGENTS.md`. `task submit` uses `ARTYFACT_TOKEN` when set, else the stored token, and
 notes when the stored one has expired. Resume preserves the fork and local work, stores fresh credentials and fences
