@@ -115,6 +115,6 @@ export function HowItWorks({ workflow }: { workflow: Workflow }) {
       <div className="section-heading"><h2 id="workflow-heading">From idea to production.</h2><p>{workflow.journey.goal}.</p></div>
       <WorkflowDiagram workflow={workflow} />
     </section>
-    <section className="section closing how-close"><h2>Try it with your own agent.</h2><div><p>The agent guide walks through each command on this page. The theory explains why the model comes first.</p><div className="model-close-actions"><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a><a className="text-link" href="/model">Read the theory</a></div></div></section>
+    <section className="section closing how-close"><h2>Try it with your own agent.</h2><div><p>The agent guide walks through each command on this page. The theory explains why the model comes first.</p><div className="actions"><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a><a className="text-link" href="/model">Read the theory</a></div></div></section>
   </div>;
 }
