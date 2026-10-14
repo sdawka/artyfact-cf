@@ -16,7 +16,7 @@ import { useSelection, useSystemRoute } from "@/model/useSelection";
 import { EvaluationsTable } from "../../evaluations/EvaluationsTable";
 import { behindBy } from "../../review/queue";
 import { headOf } from "../gates";
-import { aggregate, shortSha, subjectGroups } from "../lib";
+import { aggregate, subjectGroups } from "../lib";
 import { DecisionHead } from "./DecisionHead";
 import { verdictCounts, VerdictSummary } from "./VerdictSummary";
 import styles from "./decision.module.css";
@@ -77,7 +77,7 @@ export function CandidateReview({ realization, candidate, evolution, autoFocus =
     { label: "candidate", value: candidate.id, code: true },
     { label: "agent", value: `${realization.agent.id} ${realization.agent.role}` },
     { label: "state", value: candidate.state },
-    { label: "base", value: <><code>{shortSha(candidate.baseRevision)}</code>{behind === 0 && " = head"}</>, title: candidate.baseRevision ?? undefined },
+    { label: "base", value: <><code>{candidate.baseRevision ?? "none"}</code>{behind === 0 && " = head"}</> },
     { label: "build", value: <>{build?.status ?? "unknown"}{build?.url && <> <a href={build.url} target="_blank" rel="noopener noreferrer">Preview</a></>}</> },
   ];
   return (
@@ -89,7 +89,8 @@ export function CandidateReview({ realization, candidate, evolution, autoFocus =
         meta={<MetaLine items={meta} />}
         secondary={
           <>
-            <Button type="button" variant="secondary" aria-pressed={isSelected} onClick={toggle}>Add to promotion</Button>
+            {/* A Genome amendment is accepted or rejected, never promoted. */}
+            {realization.target !== "genome" && <Button type="button" variant="secondary" aria-pressed={isSelected} onClick={toggle}>Add to promotion</Button>}
             <RerunChecks candidate={candidate} />
           </>
         }

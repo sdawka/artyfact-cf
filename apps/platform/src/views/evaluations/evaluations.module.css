@@ -40,7 +40,7 @@
 .execution[data-plain] { color: var(--color-text-subtle); }
 .hookCol { max-width: 18rem; }
 .hook { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--type-code); color: var(--color-text-secondary); }
-@media (max-width: 1279px) { .hookCol { display: none; } }
+@media (max-width: 1279px) { .table .hookCol { display: none; } }
 .fakeTag {
   display: inline-block;
   margin-left: var(--spacing-2);
@@ -92,7 +92,7 @@
   .table thead { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   .row { display: grid !important; grid-template-columns: auto minmax(0, 1fr); column-gap: var(--spacing-1); padding-block: var(--spacing-1); border-bottom: 1px solid var(--color-border-faint); }
   .table td { border: 0; padding: 0 var(--spacing-2) var(--spacing-1) 0; }
-  .row .toggle { grid-row: 1 / span 4; }
+  .row .toggle { grid-row: 1 / span 4; width: auto; padding: 0 !important; }
   .row td:not(.toggle) { grid-column: 2; }
   .criterion { min-width: 0; }
   .execution[data-plain] { display: none !important; }

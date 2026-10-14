@@ -63,7 +63,8 @@ export default function ReviewView() {
       : panel === "promote" && !evolution
         ? (evolutionParam ? `No Evolution ${evolutionParam} on this System.` : "Promotion needs an Evolution.")
         : null;
-  const autoOpened = !!(location.state as AutoOpened | null)?.autoOpened;
+  // The detail takes focus only when a person opened it here, not on arrival or when the view opened it by itself.
+  const autoOpened = !!(location.state as AutoOpened | null)?.autoOpened || location.key === "default";
 
   // Nothing open: open the first waiting decision (two panes only; on one pane the queue is the first screen).
   const first = groups.flatMap((g) => g.rows).find(isWaiting);
