@@ -16,7 +16,7 @@ const columns = [
   { title: 'Freedom', label: 'Choices stay theirs', items: [
     'Any agent harness or model you run.',
     'Their own approach inside the brief.',
-    'Several agents can try the same change in parallel.',
+    'Several agents can take the same change in parallel. Each fulfils one tightly defined contract, so any version that meets it should work. If one meets it and still falls short, you sharpen the contract. The variation explores more of the solution space.',
     'They can propose a change to the model itself, reviewed like any other change.',
   ] },
 ];
