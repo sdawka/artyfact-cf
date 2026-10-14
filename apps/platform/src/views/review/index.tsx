@@ -68,8 +68,8 @@ export default function ReviewView() {
     : realizationId && !realization
       ? `No realization ${realizationId} on this System.`
       : taskId && !planId ? "Task review needs a plan."
-      : panel === "promote" && !evolution
-        ? (evolutionParam ? `No Evolution ${evolutionParam} on this System.` : "Promotion needs an Evolution.")
+      : panel === "promote" && !evolution && evolutionId
+        ? `No Evolution ${evolutionId} on this System.`
         : null;
   // The detail takes focus only when a person opened it here, not on arrival or when the view opened it by itself.
   const autoOpened = !!(location.state as AutoOpened | null)?.autoOpened || location.key === "default";
@@ -81,6 +81,15 @@ export default function ReviewView() {
     if (loading || open || linked || !firstHref || !twoPanes()) return;
     void navigate(firstHref, { replace: true, state: { autoOpened: true } satisfies AutoOpened });
   }, [loading, open, linked, firstHref, navigate]);
+
+  // `?panel=promote` without an Evolution: open the first promotable one, else the first waiting decision (replace, params kept).
+  const promotable = groups.flatMap((g) => g.rows).find((r) => r.kind === "promotion");
+  const promoteTarget = panel === "promote" && !evolutionId ? (promotable ? rowHref(promotable) : firstHref) : null;
+  const nothingToPromote = !loading && panel === "promote" && !evolutionId && !promoteTarget;
+  useEffect(() => {
+    if (loading || !promoteTarget) return;
+    void navigate(promoteTarget, { replace: true, state: { autoOpened: true } satisfies AutoOpened });
+  }, [loading, promoteTarget, navigate]);
 
   // j / k move between queue rows (Enter follows the focused row's link). Typing in a field is left alone.
   useEffect(() => {
@@ -140,8 +149,16 @@ export default function ReviewView() {
             ) : realization && evolution ? (
               // Keyed: a decision made on one row never carries over to the next.
               <Reviewing key={realization.id} realization={realization} evolution={evolution} autoFocus={!autoOpened} />
-            ) : loading && linked ? (
+            ) : (loading && linked) || promoteTarget ? (
               <EmptyState title="Loading…" live />
+            ) : nothingToPromote ? (
+              <EmptyState
+                title="Nothing is ready to promote."
+                headingLevel={2}
+                action={<Link className="u-marker" to={href("work", { panel: null, evolution: null, realization: null, plan: null, task: null })}>Open Work</Link>}
+              >
+                A promotion appears when a candidate is evaluated.
+              </EmptyState>
             ) : missing ? (
               <EmptyState title={missing} headingLevel={2}>Open a decision from the queue.</EmptyState>
             ) : selected.length ? (
