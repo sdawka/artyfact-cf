@@ -326,12 +326,16 @@ function useInspectorInset(active: boolean) {
 
 /** Key on `--surface-overlay`: line samples use the edge dash arrays, plus outside-System and candidate samples. */
 function MapKey() {
+  const [open, setOpen] = useState(false);
   const line = (dash?: string) => <svg width="28" height="8" viewBox="0 0 28 8" aria-hidden="true" focusable="false"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" strokeWidth="1.5" {...(dash && { strokeDasharray: dash })} /></svg>;
-  return <div className={styles.legend} role="group" aria-label="Map key">
+  return <div className={styles.keyWrap}>
+    <Button size="compact" onClick={() => setOpen((last) => !last)} aria-expanded={open} aria-controls="atlas-key">Key</Button>
+    {open && <div id="atlas-key" className={styles.legend} role="group" aria-label="Map key">
     <span>{line()}declared</span>
     <span>{line("6 4")}assumed</span>
     <span>{line("1.5 4")}proposed</span>
     <span><svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true" focusable="false"><rect x=".75" y=".75" width="16.5" height="10.5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3 2" /></svg>outside System</span>
     <span><svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true" focusable="false"><path d="M1 4V1h3M10 1h3v3M13 8v3h-3M4 11H1V8" fill="none" stroke="var(--color-brand-primary)" strokeWidth="1.5" /></svg>candidate touches</span>
+    </div>}
   </div>;
 }
