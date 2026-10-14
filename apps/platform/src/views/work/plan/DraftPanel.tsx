@@ -45,7 +45,10 @@ export function DraftPanel({ evolutions, writeReason, onCreated, onCancel }: Pro
   const scopeReason = picked.length || lines(nodes).length ? null : "Pick an Evolution or name Genome nodes to draft from.";
   const draftReason = writeReason ?? scopeReason;
   const errors = draft ? draftErrors(tasks) : [];
-  const createReason = writeReason ?? (!title.trim() ? "Give the plan a title." : errors.length ? "Fix the problems listed above first." : null);
+  // The planner's own errors block create while they still apply: a task's error until that task is removed, a draft-wide
+  // error until the draft is edited (an edit may be the fix; create's 400 still answers if it is not).
+  const serverErrors = (draft?.problems ?? []).filter((p) => p.severity === "error" && (p.taskId ? tasks.some((t) => t.id === p.taskId) : !edited));
+  const createReason = writeReason ?? (!title.trim() ? "Give the plan a title." : errors.length || serverErrors.length ? "Fix the problems listed above first." : null);
   const mergeReason = canMerge(tasks, selected);
 
   const act = async (what: string, fn: () => Promise<void>) => {

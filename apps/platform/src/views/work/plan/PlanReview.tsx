@@ -5,6 +5,7 @@ import type { RealizationPlan } from "../../../../shared/lifecycle";
 import { LineDiff } from "@/components/LineDiff/LineDiff";
 import { useAdminToken } from "@/api/adminToken";
 import { lifecycleApi } from "@/api/lifecycle";
+import { planError } from "./lib";
 import { planKeys } from "./queries";
 import workStyles from "../work.module.css";
 
@@ -22,7 +23,7 @@ export function PlanReview({ plan, writeReason, busy, run }: Props) {
   const [rationale, setRationale] = useState("");
   const review = useQuery({ queryKey: planKeys.review(plan.systemId, plan.id, plan.updatedAt), queryFn: () => lifecycleApi.review(plan.systemId, plan.id, token), retry: false });
   if (review.isLoading) return <p role="status">Loading implementation review…</p>;
-  if (review.error) return <p role="alert">{(review.error as Error).message}</p>;
+  if (review.error) return <p role="alert">{planError("Reading the review", review.error)}</p>;
   const r = review.data;
   if (!r) return null;
   const promoteReason = writeReason ?? (r.ready ? null : "The review is not ready; see the blockers above.");

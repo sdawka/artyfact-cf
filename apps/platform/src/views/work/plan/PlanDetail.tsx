@@ -77,6 +77,7 @@ export function PlanDetail({ plan, writeReason, busy, error, run }: Props) {
           plan={plan}
           now={now}
           writeReason={writeReason}
+          commandHidden={hidden.has(task.id)}
           selecting={busy}
           suggestedCandidate={suggested}
           error={null}

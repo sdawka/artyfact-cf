@@ -57,7 +57,7 @@ for(const width of [1440,360])test(`draft, edit and create a plan, then its wave
  const board=page.getByRole('group',{name:'Waves'});
  await expect(board.getByRole('region',{name:'Wave 1 · 2 tasks'})).toBeVisible();await expect(board.getByRole('region',{name:'Wave 2 · 1 task'})).toBeVisible();
  await expect(page.getByTestId('task-t3').locator('[data-status="blocked"]')).toBeVisible();
- await expect(page.getByRole('listitem',{name:'Command for Cards'})).toContainText(`npx artyfact task claim plan.board t1 --system ${SID} --dir ./work/t1`);await expect(page.getByRole('listitem',{name:'Command for Cards'})).toContainText(`cd ./work/t1 && env -u ARTYFACT_ADMIN_TOKEN claude -p`);
+ await expect(page.getByRole('listitem',{name:'Command for Cards'})).toContainText(`npx artyfact task claim plan.board t1 --system ${SID} --dir ./work/t1`);await expect(page.getByRole('listitem',{name:'Command for Cards'})).toContainText(`( cd ./work/t1 && env -u ARTYFACT_ADMIN_TOKEN claude -p`);
  await expect(page.getByRole('listitem',{name:/Command for Task t3/})).toHaveCount(0);
  await page.getByRole('button',{name:'Task t3'}).focus();await page.keyboard.press('Enter');
  await expect(page.getByTestId('task-detail')).toContainText('Waits until “Cards”, “Task t2” are selected.');

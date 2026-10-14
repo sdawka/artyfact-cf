@@ -1,5 +1,6 @@
 import { useId, useState } from "react";
 import type { RealizationPlan, Task } from "../../../../shared/lifecycle";
+import { CopyButton } from "@/components/CopyButton/CopyButton";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { VerdictBadge } from "@/components/VerdictBadge/VerdictBadge";
 import { useModel } from "@/model/useModel";
@@ -14,6 +15,8 @@ interface Props {
   now: number;
   /** Why writes are refused (fixture, no admin token), or null. */
   writeReason: string | null;
+  /** The command was hidden on the board; it stays hidden here. */
+  commandHidden: boolean;
   selecting: boolean;
   /** The latest attempt's candidate, when the realization list knows it; prefills the select form. */
   suggestedCandidate?: string | undefined;
@@ -27,7 +30,7 @@ const List = ({ items, empty }: { items: readonly string[]; empty: string }) =>
   items.length ? <ul className={styles.paths}>{items.map((x) => <li key={x}>{x}</li>)}</ul> : <p className={workStyles.muted}>{empty}</p>;
 
 /** `?task=`: why the task is in its wave, its footprint, read and write nodes, steps, checks, attempts, and the select form. */
-export function TaskDetail({ task: t, plan, now, writeReason, selecting, suggestedCandidate, error, onSelect, onOpenTask, onClose }: Props) {
+export function TaskDetail({ task: t, plan, now, writeReason, commandHidden, selecting, suggestedCandidate, error, onSelect, onOpenTask, onClose }: Props) {
   const uid = useId();
   const m = useModel();
   const [candidate, setCandidate] = useState(suggestedCandidate ?? "");
@@ -53,7 +56,17 @@ export function TaskDetail({ task: t, plan, now, writeReason, selecting, suggest
       <p>{whyWave(plan, t.id)}</p>
 
       <h5>Command</h5>
-      {command.verb ? <code className={styles.commandLine}>{command.line}</code> : <p className={workStyles.muted}>{command.reason}</p>}
+      {!command.verb ? (
+        <p className={workStyles.muted}>{command.reason}</p>
+      ) : commandHidden ? (
+        <p className={workStyles.muted}>Command hidden.</p>
+      ) : (
+        <>
+          <code className={styles.commandLine}>{command.line}</code>
+          <span className={workStyles.inlineRow}><CopyButton value={command.line} /></span>
+          <p className={workStyles.muted}>Run with ARTYFACT_ADMIN_TOKEN set in your shell; the agent line unsets it.</p>
+        </>
+      )}
 
       <h5>Write nodes</h5>
       <span className={workStyles.chips}>{t.writeNodes.map((id) => <NodeChip key={id} id={id} size="sm" />)}</span>

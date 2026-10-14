@@ -64,24 +64,44 @@ export function shellArg(s: string): string {
 /** The agent prompt line from the CLI README; the admin token never reaches the agent. */
 export const AGENT_PROMPT = "Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit";
 
+/** The CLI's id rule (`assertId` in packages/cli/src/git.ts): anything else is refused or read as an option. */
+export const cliId = (s: string) => /^[A-Za-z0-9._-]+$/.test(s) && !s.startsWith("-") && s !== "." && s !== "..";
+export const CLI_ID_REASON = "This id cannot be used on the command line; rename the task or plan.";
+
+/** One task's commands: `claim` runs in the person's shell; `agent` is a subshell, so it never moves the shell's directory. */
+export interface TaskLines { claim: string; agent: string }
+
 /**
- * The two lines an agent runs for `task`, as in the CLI README: claim (or resume) into `./work/<task>`, which stores the
- * fork token in the workspace, then the agent inside it. No credential and no `--json` handoff; every value is quoted.
+ * The CLI README pair for `task`: claim (or resume) into `./work/<task>`, which stores the fork token in the workspace,
+ * then the agent inside it in a subshell. No credential and no `--json` handoff; every value is quoted.
  */
-export function commandLines(verb: "claim" | "resume", plan: Pick<RealizationPlan, "id" | "systemId">, taskId: string): string {
+export function taskLines(verb: "claim" | "resume", plan: Pick<RealizationPlan, "id" | "systemId">, taskId: string): TaskLines {
   const dir = shellArg(`./work/${taskId}`);
-  return [
-    `npx artyfact task ${verb} ${shellArg(plan.id)} ${shellArg(taskId)} --system ${shellArg(plan.systemId)} --dir ${dir}`,
-    `cd ${dir} && env -u ARTYFACT_ADMIN_TOKEN claude -p ${shellArg(AGENT_PROMPT)}`,
-  ].join("\n");
+  return {
+    claim: `npx artyfact task ${verb} ${shellArg(plan.id)} ${shellArg(taskId)} --system ${shellArg(plan.systemId)} --dir ${dir}`,
+    agent: `( cd ${dir} && env -u ARTYFACT_ADMIN_TOKEN claude -p ${shellArg(AGENT_PROMPT)} )`,
+  };
 }
+
+/** The two lines shown and copied for one task. */
+export const commandLines = (verb: "claim" | "resume", plan: Pick<RealizationPlan, "id" | "systemId">, taskId: string) => {
+  const l = taskLines(verb, plan, taskId);
+  return `${l.claim}\n${l.agent}`;
+};
+
+/**
+ * "Copy all" for a wave: every claim first, from the shell's own directory, then every agent subshell in the background
+ * and one `wait`, so the wave's agents run side by side and the shell never changes directory.
+ */
+export const waveScript = (tasks: readonly TaskLines[]) =>
+  [...tasks.map((t) => t.claim), ...tasks.map((t) => `${t.agent} &`), "wait"].join("\n");
 
 /**
  * What an agent runs for `task`, by the claim rules of the lifecycle store (the same rules as `planCounts.awaitingAgent`):
  * `claim` for a pending task whose dependencies are selected, `resume` for a claimed or working task whose lease lapsed,
- * and no command while a conflicting task holds a live attempt. The line never carries a credential.
+ * and no command while a conflicting task holds a live attempt or an id fails the CLI's id rule. No line carries a credential.
  */
-export type TaskCommand = { verb: "claim" | "resume"; line: string } | { verb: null; reason: string };
+export type TaskCommand = { verb: "claim" | "resume"; line: string; lines: TaskLines } | { verb: null; reason: string };
 
 export function taskCommand(plan: Plan & Pick<RealizationPlan, "id" | "systemId">, task: Task, now: number): TaskCommand {
   const waits = blockedOn(task, plan);
@@ -99,13 +119,12 @@ export function taskCommand(plan: Plan & Pick<RealizationPlan, "id" | "systemId"
   if (verb) {
     const busy = liveConflicts(plan, task.id, now);
     if (busy.length) return { verb: null, reason: `Waits while ${busy.map((t) => quote(t.title)).join(", ")} ${busy.length === 1 ? "is" : "are"} being worked; they conflict.` };
-    return { verb, line: commandLines(verb, plan, task.id) };
+    if (![plan.id, plan.systemId, task.id].every(cliId)) return { verb: null, reason: CLI_ID_REASON };
+    const lines = taskLines(verb, plan, task.id);
+    return { verb, line: `${lines.claim}\n${lines.agent}`, lines };
   }
   return { verb: null, reason };
 }
-
-/** True when an agent can take the task now: the SideNav and Home count these as `planCounts.awaitingAgent`. */
-export const awaitsAgent = (plan: Plan & Pick<RealizationPlan, "id" | "systemId">, task: Task, now: number) => taskCommand(plan, task, now).verb !== null;
 
 /** Task conflicts of `taskId`, naming the other task. */
 export interface TaskConflictRow { kind: TaskConflict["kind"]; with: string; subjects: string[]; message: string }

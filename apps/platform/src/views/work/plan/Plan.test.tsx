@@ -5,7 +5,7 @@ import { ADMIN_TOKEN_KEY } from "@/api/adminToken";
 import { fixtureBundle } from "@/api/fixtures";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
-import { commandLines, TOKEN_REASON } from "./lib";
+import { commandLines, taskLines, TOKEN_REASON, waveScript } from "./lib";
 import { PUBLIC_PLAN_READS } from "./queries";
 import { makePlan, task } from "./testPlan";
 
@@ -56,7 +56,7 @@ describe("Realization plans", () => {
     const draft: DraftRealizationPlanResponse = {
       request: { title: "Birthdays", tasks: [d("a"), d("b", { writeNodes: ["n.b1", "n.b2"] }), d("c"), d("e", { dependsOn: ["c"] })] },
       analysis: { waves: [["a", "b", "c"], ["e"]], conflicts: [] },
-      problems: [{ taskId: "c", severity: "warning", message: "no checks" }],
+      problems: [{ taskId: "c", severity: "error", message: "no checks" }],
       provenance: { planner: { provider: "fake", model: "fake" }, genomeCommit: "abcdef0123", evolutionIds: ["evolution.9"], nodes: [], fake: true, fallback: false },
     };
     const calls = stub({ draft });
@@ -67,7 +67,11 @@ describe("Realization plans", () => {
     fireEvent.click(draftBtn);
     expect(await screen.findByText(/As drafted: wave 1 \(a, b, c\); wave 2 \(e\)/)).toBeTruthy();
     expect(calls.find((c) => c.url.endsWith("/draft"))).toMatchObject({ method: "POST", body: { evolutionIds: ["evolution.9"], nodes: [] }, auth: "Bearer admin" });
-    expect(screen.getByRole("list", { name: "Draft problems" }).textContent).toContain("warning: c: no checks");
+    expect(screen.getByRole("list", { name: "Draft problems" }).textContent).toContain("error: c: no checks");
+    // The planner's error on c blocks Create plan until c is removed.
+    const createBtn = screen.getByRole("button", { name: "Create plan" });
+    expect(createBtn.hasAttribute("disabled")).toBe(true);
+    expect(document.getElementById(createBtn.getAttribute("aria-describedby")!)!.textContent).toBe("Fix the problems listed above first.");
 
     fireEvent.change(screen.getByLabelText("Title of a"), { target: { value: "Cards" } });
     expect(screen.getByTestId("draft-waves").textContent).toBe("Edited: waves are recomputed when the plan is created.");
@@ -120,10 +124,13 @@ describe("Realization plans", () => {
     // "Copy all" is the first button of the wave's command section; it reads "Copied" for a moment after a click.
     const copyAll = () => within(within(w1).getByRole("region", { name: "Agent commands · wave 1" })).getAllByRole("button")[0]!;
     fireEvent.click(copyAll());
-    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(`${commandLines("claim", p, "t1")}\n${commandLines("claim", p, "t2")}`));
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(waveScript([taskLines("claim", p, "t1"), taskLines("claim", p, "t2")])));
     fireEvent.click(within(w1).getByRole("button", { name: "Hide the command for Task t1" }));
     fireEvent.click(copyAll());
-    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(commandLines("claim", p, "t2")));
+    await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(waveScript([taskLines("claim", p, "t2")])));
+    // A command hidden on the board stays hidden in the task's detail.
+    fireEvent.click(within(screen.getByTestId("task-t1")).getByRole("button", { name: "Task t1" }));
+    expect(within(await screen.findByTestId("task-detail")).getByText("Command hidden.")).toBeTruthy();
     fireEvent.click(within(w1).getByRole("button", { name: "Hide the command for Task t2" }));
     const all = within(w1).getByRole("button", { name: "Copy all" });
     expect((all as HTMLButtonElement).disabled).toBe(true);

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockedOn, commandLines, shellArg, conflictsOf, displayStatus, footprintLine, integrateReason, planCountsLine, planError, taskCommand, waveOf, whyWave } from "./lib";
+import { blockedOn, CLI_ID_REASON, cliId, commandLines, shellArg, conflictsOf, displayStatus, footprintLine, integrateReason, planCountsLine, planError, taskCommand, waveOf, whyWave } from "./lib";
 import { workWaiting } from "./signals";
 import { attempt, makePlan, NOW, task } from "./testPlan";
 
@@ -24,10 +24,9 @@ describe("plan lib", () => {
   it("gives claim lines with no credential, refuses t3 before t1 and t2 are selected, resumes a lapsed lease", () => {
     const p = makePlan();
     const c1 = taskCommand(p, p.tasks[0]!, NOW);
-    expect(c1).toEqual({
-      verb: "claim",
-      line: "npx artyfact task claim plan.one t1 --system system.peopling --dir ./work/t1\ncd ./work/t1 && env -u ARTYFACT_ADMIN_TOKEN claude -p 'Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit'",
-    });
+    const claim = "npx artyfact task claim plan.one t1 --system system.peopling --dir ./work/t1";
+    const agent = "( cd ./work/t1 && env -u ARTYFACT_ADMIN_TOKEN claude -p 'Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit' )";
+    expect(c1).toEqual({ verb: "claim", line: `${claim}\n${agent}`, lines: { claim, agent } });
     expect(c1.verb && c1.line).not.toMatch(/--json/);
     // `env -u` unsets the admin token for the agent; no token or secret value appears.
     expect(JSON.stringify(c1)).not.toMatch(/TOKEN=|secret|Bearer/i);
@@ -56,12 +55,21 @@ describe("plan lib", () => {
     const line = commandLines("claim", { id: "$(id)", systemId: "s;reboot" }, "x;rm -rf ~");
     expect(line).toBe(
       "npx artyfact task claim '$(id)' 'x;rm -rf ~' --system 's;reboot' --dir './work/x;rm -rf ~'\n" +
-      "cd './work/x;rm -rf ~' && env -u ARTYFACT_ADMIN_TOKEN claude -p 'Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit'",
+      "( cd './work/x;rm -rf ~' && env -u ARTYFACT_ADMIN_TOKEN claude -p 'Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit' )",
     );
     // A newline inside an id stays inside its quotes: exactly the two intended lines start a command.
     const nl = commandLines("resume", { id: "p", systemId: "s" }, "a\nb");
     expect(nl).toContain("'a\nb'");
-    expect(nl.split("\n").filter((l) => /^(npx|cd) /.test(l))).toHaveLength(2);
+    expect(nl.split("\n").filter((l) => /^(npx|\( cd) /.test(l))).toHaveLength(2);
+  });
+
+  it("shows no runnable command for an id the CLI would refuse", () => {
+    for (const bad of ["-x", "--platform=https://x", ".", "..", "x;rm -rf ~", "$(id)", "a b"]) expect(cliId(bad)).toBe(false);
+    for (const ok of ["t1", "task.people", "a-b_c.d"]) expect(cliId(ok)).toBe(true);
+    const p = makePlan({ tasks: [task("--platform=https://x")], analysis: { waves: [["--platform=https://x"]], conflicts: [] } });
+    expect(taskCommand(p, p.tasks[0]!, NOW)).toEqual({ verb: null, reason: CLI_ID_REASON });
+    const sys = makePlan({ systemId: "-s" });
+    expect(taskCommand(sys, sys.tasks[0]!, NOW)).toEqual({ verb: null, reason: CLI_ID_REASON });
   });
 
   it("holds a ready task while a conflicting task has a live attempt", () => {
