@@ -32,11 +32,11 @@ export function DeploymentsSection({ production, history, loading, error, onRetr
         <p className={styles.quiet}>No deployments yet.</p>
       ) : (
         <div className={styles.tableWrap}>
-          <table className={styles.table}>
+          <table className={`${styles.table} ${styles.stack}`}>
             <thead>
               <tr>
                 <th className={styles.toggleCell}><span className="sr-only">Details</span></th>
-                <th>Status</th><th>Kind</th><th>URL</th><th>Commit</th><th className={styles.hideNarrow}>System commit</th><th><span className="sr-only">Links</span></th>
+                <th>Status</th><th>Kind</th><th>URL</th><th>Commit</th><th>System commit</th><th><span className="sr-only">Links</span></th>
               </tr>
             </thead>
             <tbody>
@@ -48,10 +48,10 @@ export function DeploymentsSection({ production, history, loading, error, onRetr
                   columns={6}
                   cells={<>
                     <td><StatusText status={d.status} tone={deploymentTone(d.status)} /></td>
-                    <td>{d.kind}</td>
-                    <td className={styles.url}>{d.url ? <a href={d.url} target="_blank" rel="noopener noreferrer">{d.url}</a> : <Unknown />}</td>
-                    <td><code>{short(d.commit)}</code></td>
-                    <td className={styles.hideNarrow}>{d.systemCommit ? <Link to={href("changelog", { commit: d.systemCommit })}>{d.systemCommit}</Link> : <Unknown />}</td>
+                    <td className={styles.nowrap}>{d.kind}</td>
+                    <td className={`${styles.line2} ${styles.url}`} data-label="URL">{d.url ? <a href={d.url} title={d.url} target="_blank" rel="noopener noreferrer">{d.url}</a> : <Unknown />}</td>
+                    <td className={styles.line2} data-label="Commit"><code>{short(d.commit)}</code></td>
+                    <td className={styles.line2} data-label="System commit">{d.systemCommit ? <Link to={href("changelog", { commit: d.systemCommit })}><code>{d.systemCommit}</code></Link> : <Unknown />}</td>
                     <td className={styles.links}>
                       <Button asChild variant="ghost" size="compact"><Link to={href("phenome", { deployment: d.id })}>Events<span className="sr-only"> of {d.id}</span></Link></Button>
                     </td>

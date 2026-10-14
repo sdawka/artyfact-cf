@@ -27,11 +27,11 @@ const event = (seq: number, buildId: string, o: Partial<PhenomeEvent> = {}): Phe
   kind: "journey.step", payload: {}, ...o,
 });
 
-/** Event group headers: a `summary` whose text reads "N events" or "N loaded events". */
+/** Event group headers: a `summary` whose text reads "1 event", "N events" or "N loaded events". */
 const groupHeaders = async () => {
   await screen.findByRole("heading", { level: 1, name: "Deployments" });
   await waitFor(() => expect(document.querySelectorAll("details > summary").length).toBeGreaterThan(0));
-  return Array.from(document.querySelectorAll("details > summary")).filter((s) => /events/.test(s.textContent ?? ""));
+  return Array.from(document.querySelectorAll("details > summary")).filter((s) => /\d+ (loaded )?events?/.test(s.textContent ?? ""));
 };
 const open = (id: string) => fireEvent.click(screen.getByRole("button", { name: `Details of ${id}` }));
 
@@ -54,8 +54,13 @@ describe("Deployments page", () => {
     renderApp(PATH, undefined, seed());
     const ops = await screen.findByRole("region", { name: "Operations" });
     expect(within(ops).getByText("Observations and flag controls need the admin token.")).toBeTruthy();
-    expect(within(ops).getByRole("button", { name: "Set admin token" }).hasAttribute("disabled")).toBe(true);
-    expect(screen.queryByText(/set it in the header/)).toBeNull();
+    // The header token is the one source: no token field here, and the controls wait with that reason.
+    expect(within(ops).queryByLabelText("Admin token")).toBeNull();
+    expect(within(ops).queryByRole("button", { name: "Set admin token" })).toBeNull();
+    const create = within(ops).getByRole("button", { name: "Create boolean flag" });
+    expect(create.hasAttribute("disabled")).toBe(true);
+    expect(within(ops).getByText("Set the admin token in the header.")).toBeTruthy();
+    expect(within(ops).getByRole("button", { name: "Refresh metrics" }).hasAttribute("disabled")).toBe(true);
     const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label") ?? r.querySelector("h2")?.textContent);
     expect(regions.at(-1)).toBe("Operations");
     sessionStorage.setItem("artyfact.adminToken", "adm");
@@ -155,7 +160,7 @@ describe("Deployments page", () => {
       events: [event(3, COMMIT), event(2, COMMIT), event(1, OTHER)],
     }));
     const groups = await groupHeaders();
-    expect(groups.map((g) => g.textContent)).toEqual([expect.stringMatching(/aaaaaaa.*2 events/), expect.stringMatching(/bbbbbbb.*1 events/)]);
+    expect(groups.map((g) => g.textContent)).toEqual([expect.stringMatching(/2 events.*aaaaaaa/), expect.stringMatching(/1 event(?!s).*bbbbbbb/)]);
     // The filter shows as a removable chip.
     expect(within(screen.getByRole("list", { name: "Active filters" })).getByRole("button", { name: "Remove Deployment filter" })).toBeTruthy();
   });
@@ -222,26 +227,74 @@ function pageApi(setup:{initialError?:boolean;olderError?:boolean}={}) {
  const app=renderApp(`/s/${SYSTEM}/r/head/things/thing.b/phenome?deployment=deploy.b&build=runtime.b&output=output.b&kind=health&commit=${COMMIT}&realization=rz.b`,undefined,qc=>qc.setQueryData(qk.model(SYSTEM,'head'),bundle));return {...app,paths};
 }
 it('loads older scoped events without duplicates or summed counts and resets on Thing navigation',async()=>{
- const {router,paths}=pageApi();expect(await screen.findByText('b.newest')).toBeTruthy();fireEvent.click(await screen.findByRole('button',{name:'Load older events'}));expect(await screen.findByText('b.older')).toBeTruthy();expect(screen.getAllByText('b.newest')).toHaveLength(1);
+ const {router,paths}=pageApi();expect(await screen.findByText('b.newest',{selector:'td code'})).toBeTruthy();fireEvent.click(await screen.findByRole('button',{name:'Load older events'}));expect(await screen.findByText('b.older',{selector:'td code'})).toBeTruthy();expect(screen.getAllByText('b.newest',{selector:'td code'})).toHaveLength(1);
  expect((await groupHeaders()).map(g=>g.textContent)).toEqual([expect.stringMatching(/2 events/)]);expect(screen.queryByText(/999 events|1001 events/)).toBeNull();expect(screen.queryByRole('button',{name:'Load older events'})).toBeNull();
  const query=new URL(paths.find(p=>p.includes('before='))!,'https://example.com').searchParams;expect(Object.fromEntries(query)).toEqual({thing:'thing.b',deployment:'deploy.b',build:'runtime.b',output:'output.b',kind:'health',commit:COMMIT,realization:'rz.b',before:'2'});
- await router.navigate(`/s/${SYSTEM}/r/head/things/thing.webapp/phenome`);expect(await screen.findByText('No runtime events yet.')).toBeTruthy();expect(screen.queryByText('b.older')).toBeNull();
+ await router.navigate(`/s/${SYSTEM}/r/head/things/thing.webapp/phenome`);expect(await screen.findByText('No runtime events yet.')).toBeTruthy();expect(screen.queryByText('b.older',{selector:'td code'})).toBeNull();
 });
 it('shows an initial event error with retry instead of a false empty state',async()=>{
- pageApi({initialError:true});expect(await screen.findByRole('button',{name:'Retry runtime events'})).toBeTruthy();expect(screen.queryByText('No runtime events yet.')).toBeNull();fireEvent.click(screen.getByRole('button',{name:'Retry runtime events'}));expect(await screen.findByText('b.newest')).toBeTruthy();
+ pageApi({initialError:true});expect(await screen.findByRole('button',{name:'Retry runtime events'})).toBeTruthy();expect(screen.queryByText('No runtime events yet.')).toBeNull();fireEvent.click(screen.getByRole('button',{name:'Retry runtime events'}));expect(await screen.findByText('b.newest',{selector:'td code'})).toBeTruthy();
 });
 it('preserves loaded events when an older page fails and retries the same cursor',async()=>{
- const {paths}=pageApi({olderError:true});expect(await screen.findByText('b.newest')).toBeTruthy();fireEvent.click(await screen.findByRole('button',{name:'Load older events'}));expect(await screen.findByRole('button',{name:'Retry older events'})).toBeTruthy();expect(screen.getByText('b.newest')).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'Retry older events'}));expect(await screen.findByText('b.older')).toBeTruthy();expect(paths.filter(p=>p.includes('before=2'))).toHaveLength(2);
+ const {paths}=pageApi({olderError:true});expect(await screen.findByText('b.newest',{selector:'td code'})).toBeTruthy();fireEvent.click(await screen.findByRole('button',{name:'Load older events'}));expect(await screen.findByRole('button',{name:'Retry older events'})).toBeTruthy();expect(screen.getByText('b.newest',{selector:'td code'})).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'Retry older events'}));expect(await screen.findByText('b.older',{selector:'td code'})).toBeTruthy();expect(paths.filter(p=>p.includes('before=2'))).toHaveLength(2);
 });
 
 it('labels counts as loaded events when a version has no retained aggregate',async()=>{
  renderApp(PATH,undefined,qc=>{seed({events:[event(1,COMMIT)]})(qc);qc.setQueryData(qk.phenomePages(SYSTEM,{}),{pages:[{events:[event(1,COMMIT)],versions:[]}],pageParams:[undefined]});});
- expect((await groupHeaders())[0]!.textContent).toMatch(/1 loaded events/);
+ expect((await groupHeaders())[0]!.textContent).toMatch(/1 loaded event(?!s)/);
 });
 
 it('keeps legacy reused-build commits in separate groups with exact summaries across pages',async()=>{
  const newer=event(3,'runtime.reused',{commit:OTHER,kind:'new.commit'}),older=event(2,'runtime.reused',{commit:COMMIT,kind:'old.commit'});
  const versions=[{key:JSON.stringify(['runtime.reused',OTHER]),output:null,genomeCommit:null,buildId:'runtime.reused',commit:OTHER,deployment:'dep.new',systemCommit:'sc.new',count:1},{key:JSON.stringify(['runtime.reused',COMMIT]),output:null,genomeCommit:null,buildId:'runtime.reused',commit:COMMIT,deployment:'dep.old',systemCommit:'sc.old',count:2}];
  renderApp(PATH,undefined,qc=>{seed()(qc);qc.setQueryData(qk.phenomePages(SYSTEM,{}),{pages:[{events:[newer],versions,nextBefore:3},{events:[older,event(1,'runtime.reused',{commit:COMMIT,kind:'old.second'})],versions}],pageParams:[undefined,3]});});
- const groups=await groupHeaders();expect(groups).toHaveLength(2);expect(groups[0].textContent).toContain('1 events');expect(groups[0].textContent).toContain('sc.new');expect(groups[1].textContent).toContain('2 events');expect(groups[1].textContent).toContain('sc.old');expect(groups[0].textContent).toContain('Source bbbbbbb');expect(groups[1].textContent).toContain('Source aaaaaaa');
+ const groups=await groupHeaders();expect(groups).toHaveLength(2);expect(groups[0].textContent).toMatch(/1 event(?!s)/);expect(groups[0].textContent).toContain('sc.new');expect(groups[1].textContent).toContain('2 events');expect(groups[1].textContent).toContain('sc.old');expect(groups[0].textContent).toContain('Source bbbbbbb');expect(groups[1].textContent).toContain('Source aaaaaaa');
+});
+
+describe("Deployments data agrees with its events (design critique S3, B2)", () => {
+  const SC = "sc-1-e12083f7";
+  const seedLive = (qc: QueryClient) => {
+    const live = deployment({ systemCommit: undefined, output: "output.peopling-abc" });
+    const e = event(1, COMMIT, { outputId: "output.peopling-abc", deploymentId: "deploy.1", emittedAt: new Date(Date.now() - 5 * 60_000).toISOString() } as Partial<PhenomeEvent>);
+    seed({ production: live, builds: [build({ startedAt: new Date(Date.now() - 12 * 60_000).toISOString() })] })(qc);
+    qc.setQueryData(qk.phenomePages(SYSTEM, {}), { pages: [{ events: [e], versions: [{
+      key: phenomeVersionKey(e.outputId, e.buildId, e.commit), output: "output.peopling-abc", genomeCommit: null, buildId: COMMIT, commit: COMMIT, deployment: "deploy.1", systemCommit: SC, count: 1,
+    }] }], pageParams: [undefined] });
+  };
+
+  it("takes a live deployment's missing System commit from its events instead of saying unknown", async () => {
+    renderApp(PATH, undefined, seedLive);
+    const row = (await screen.findByRole("button", { name: "Details of deploy.1" })).closest("tr")!;
+    expect(within(row).getByRole("link", { name: SC })).toBeTruthy();
+    expect(within(row).queryByText("unknown")).toBeNull();
+    expect(within(screen.getByRole("region", { name: "Production" })).getByText(SC)).toBeTruthy();
+  });
+
+  it("titles an event group by its kind with a singular count, never a truncated output id", async () => {
+    renderApp(PATH, undefined, seedLive);
+    const [group] = await groupHeaders();
+    expect(group!.textContent).toMatch(/^journey\.step1 event(?!s)/);
+    expect(group!.textContent).not.toMatch(/output\.(?!peopling)/);
+    expect(within(group as HTMLElement).getByText("output.peopling-abc")).toBeTruthy();
+  });
+
+  it("shows relative times with the exact minute in the title, and a chevron expand button", async () => {
+    renderApp(PATH, undefined, seedLive);
+    const toggle = await screen.findByRole("button", { name: "Details of build.1" });
+    expect(toggle.querySelector("svg")).toBeTruthy();
+    expect(toggle.textContent).not.toMatch(/[▸▾]/);
+    const started = toggle.closest("tr")!.querySelector("time")!;
+    expect(started.textContent).toBe("12 minutes ago");
+    expect(started.getAttribute("title")).toMatch(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}Z$/);
+  });
+
+  it("marks build and deployment cells for the stacked narrow layout and never lets ids wrap", async () => {
+    renderApp(PATH, undefined, seedLive);
+    const row = (await screen.findByRole("button", { name: "Details of deploy.1" })).closest("tr")!;
+    expect(row.closest("table")!.className).toMatch(/stack/);
+    const labels = Array.from(row.querySelectorAll("td[data-label]")).map((td) => td.getAttribute("data-label"));
+    expect(labels).toEqual(["URL", "Commit", "System commit"]);
+    const url = within(row).getByRole("link", { name: "https://app.example.dev" });
+    expect(url.getAttribute("title")).toBe("https://app.example.dev");
+  });
 });

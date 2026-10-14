@@ -19,7 +19,7 @@ import { DeploymentsSection } from "./DeploymentsSection";
 import { EventsSection } from "./EventsSection";
 import { FilterChips } from "./FilterChips";
 import { Operations } from "./Operations";
-import { short, sortNewest } from "./lib";
+import { short, sortNewest, withSystemCommit } from "./lib";
 import styles from "./phenome.module.css";
 
 /** Builds, deployments, runtime events and observation criteria of the System's running app. */
@@ -41,11 +41,12 @@ export default function PhenomeView() {
   const list = sortNewest((builds.data ?? []).filter((build) => !thingId || (build.thingId ?? build.output?.thingId) === thingId));
   const outputIds = new Set((artifacts.data ?? []).filter((o) => o.thingId === thingId).map((o) => o.id));
   const belongs = (item: Deployment) => !thingId || (item.output !== undefined && outputIds.has(item.output)) || list.some((build) => build.id === item.build);
-  const currentProduction = deployments.data?.production ?? null;
-  const production = currentProduction && belongs(currentProduction) ? currentProduction : null;
-  const history = (deployments.data?.history ?? []).filter(belongs);
-  const runtimeEvents = (events.data?.events ?? []).filter((event) => !thingId || event.thingId === thingId);
   const versions = events.data?.versions ?? [];
+  const withCommit = (d: Deployment) => withSystemCommit(d, versions);
+  const currentProduction = deployments.data?.production ?? null;
+  const production = currentProduction && belongs(currentProduction) ? withCommit(currentProduction) : null;
+  const history = (deployments.data?.history ?? []).filter(belongs).map(withCommit);
+  const runtimeEvents = (events.data?.events ?? []).filter((event) => !thingId || event.thingId === thingId);
   const loading = builds.isLoading || deployments.isLoading;
   const failed = builds.isError || deployments.isError;
   const noData = !loading && !failed && list.length === 0 && history.length === 0 && !production;

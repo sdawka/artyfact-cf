@@ -96,3 +96,15 @@ export function relativeTime(iso: string, now = Date.now()): string {
   const [unit, size] = units.find(([, sz]) => Math.abs(s) >= sz) ?? units[3]!;
   return new Intl.RelativeTimeFormat("en", { numeric: "always" }).format(Math.round(s / size), unit);
 }
+
+/**
+ * The System's head commit from the same source as the TopBar's revision picker: the model's own `system.head` when it
+ * has one, else the picker's head option ("head (sc-1)") resolved to the full System commit id it lists. Undefined only
+ * when neither knows.
+ */
+export function headCommit(systemHead: string | null | undefined, revisions: readonly { id: string; kind: string; label: string }[] = []): string | undefined {
+  if (systemHead) return systemHead;
+  const short = /\(([^()]+)\)\s*$/.exec(revisions.find((r) => r.kind === "head")?.label ?? "")?.[1]?.trim();
+  if (!short || short === "unknown") return undefined;
+  return revisions.find((r) => r.kind === "commit" && (r.id === short || r.id.startsWith(`${short}-`)))?.id ?? short;
+}

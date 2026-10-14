@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router";
-import { useDeployments, useReadiness } from "@/api/queries";
+import { useDeployments, useReadiness, useRevisions } from "@/api/queries";
 import { Facts } from "@/components/Facts/Facts";
 import { Section } from "@/components/Section/Section";
 import { StatusText } from "@/components/StatusText/StatusText";
@@ -9,6 +9,7 @@ import { Unknown } from "@/components/Unknown/Unknown";
 import { useModel } from "@/model/useModel";
 import { useKeepParams } from "@/model/useSelection";
 import { TemplateUpgradePanel, useAppTemplate } from "./AppTemplateCard";
+import { headCommit, shortRev } from "./states";
 import styles from "./Overview.module.css";
 
 const isZeros = (s: string) => /^0+$/.test(s);
@@ -42,6 +43,7 @@ export function FactsStrip() {
   const m = useModel();
   const { data } = useReadiness();
   const tpl = useAppTemplate();
+  const { data: revisions } = useRevisions();
   const [upgrading, setUpgrading] = useState(false);
   const report = (data ?? m.bundle.readiness) as typeof m.bundle.readiness & {
     snapshotHash?: string;
@@ -51,6 +53,7 @@ export function FactsStrip() {
     return <TemplateUpgradePanel plan={tpl.plan} onBack={() => setUpgrading(false)} />;
   }
   const system = m.index.model.system;
+  const head = headCommit(system.head, revisions);
   const commit = m.bundle.genomeCommit;
   const packs =
     report.packs?.map((p) => `${p.id}@${p.version}`) ??
@@ -59,7 +62,7 @@ export function FactsStrip() {
     <Section title="Facts">
       <Facts>
         <dt>Phase</dt><dd>{system.phase ?? <Unknown />}</dd>
-        <dt>Head</dt><dd>{system.head ? <code>{system.head.slice(0, 7)}</code> : <Unknown />}</dd>
+        <dt>Head</dt><dd>{head ? <code className={styles.nowrap} title={head}>{shortRev(head)}</code> : <Unknown />}</dd>
         <dt>Genome commit</dt><dd>{commit && !isZeros(commit) ? <code>{commit.slice(0, 7)}</code> : <Unknown />}</dd>
         <dt>Deployment</dt><dd><DeploymentValue /></dd>
         {!tpl.hidden && (
