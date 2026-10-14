@@ -8,6 +8,7 @@ import type { TemplateUpgradeRequest } from "../../shared/api";
 import type { IntentAccept, IntentDecisionsRequest, IntentReply, IntentRequest, Proposal } from "../../shared/api";
 // review
 import type { SystemImportReviewAccept } from "../../shared/api";
+import type { IntegrityAgreementRequest, IntegrityPreviewRequest, IntegrityRunRequest } from "../../shared/integrity";
 import { emitFx } from "@/effects/fx";
 import { useSystemRoute } from "@/model/useSelection";
 import * as api from "./client";
@@ -42,6 +43,8 @@ export const qk = {
   phenomePages: (systemId: string, q: PhenomeEventsQuery = {}) => ["phenome", systemId, q, "pages"] as const,
   artifacts: (systemId: string) => ["artifacts", systemId] as const,
   intent: (systemId: string, proposalId: string) => ["intent", systemId, proposalId] as const,
+  integrityRuns: (systemId: string) => ["integrityRuns", systemId] as const,
+  integrityRun: (systemId: string, runId: string) => ["integrityRun", systemId, runId] as const,
 };
 
 /** `system` = two System commits (SystemCompare); `genome` = two Genome revisions (GenomeCompare). File level uses `useCompareFile`. */
@@ -436,6 +439,10 @@ export function useReplyIntent() {
     onSuccess: (p: Proposal) => qc.setQueryData(qk.intent(systemId, p.id), p),
   });
 }
+export function useRecoverIntent(kind: "revise" | "abandon") {
+  const { systemId } = useSystemRoute(); const qc = useQueryClient();
+  return useMutation({ mutationFn: ({proposalId,body,adminToken}:{proposalId:string;body:any;adminToken?:string}) => kind === "revise" ? api.reviseIntent(systemId,proposalId,body,adminToken) : api.abandonIntent(systemId,proposalId,body,adminToken), onSuccess:(p:Proposal)=>qc.setQueryData(qk.intent(systemId,p.id),p) });
+}
 
 /** Accepting writes a Genome realization and its candidate: the board, candidates and builds change. */
 export function useAcceptIntent() {
@@ -512,6 +519,17 @@ export function useAcceptImportReview() {
     onSettled: () => invalidate(qc, systemId, "importReview", "evolutions", "candidates", "revisions", "systems"),
   });
 }
+
+export function useIntegrityRun(runId: string | null | undefined, adminToken?: string) {
+  const { systemId } = useSystemRoute();
+  return useQuery({ queryKey: qk.integrityRun(systemId, runId ?? ""), queryFn: () => api.getIntegrityRun(systemId, runId!, adminToken), enabled: !!systemId && !!runId, retry: false,
+    refetchInterval: (q) => ["queued", "running"].includes(q.state.data?.run.state ?? "") ? 1500 : false });
+}
+export function useIntegrityRuns(adminToken?: string) { const { systemId } = useSystemRoute(); return useQuery({ queryKey: qk.integrityRuns(systemId), queryFn: () => api.getIntegrityRuns(systemId, adminToken), enabled: !!systemId, retry:false }); }
+export function useStartIntegrity() { const { systemId } = useSystemRoute(); const qc = useQueryClient(); return useMutation({ mutationFn: ({body,adminToken}:{body:IntegrityRunRequest;adminToken?:string})=>api.startIntegrity(systemId,body,adminToken), onSuccess:(r)=>qc.setQueryData(qk.integrityRun(systemId,r.run.id),r) }); }
+export function usePreviewIntegrity() { const { systemId } = useSystemRoute(); return useMutation({ mutationFn: ({body,adminToken}:{body:IntegrityPreviewRequest;adminToken?:string})=>api.previewIntegrity(systemId,body,adminToken) }); }
+export function useCancelIntegrity() { const { systemId } = useSystemRoute(); const qc = useQueryClient(); return useMutation({ mutationFn: ({runId,adminToken}:{runId:string;adminToken?:string})=>api.cancelIntegrity(systemId,runId,adminToken), onSuccess:(r)=>qc.setQueryData(qk.integrityRun(systemId,r.run.id),r) }); }
+export function useAgreeIntegrity() { const { systemId } = useSystemRoute(); const qc = useQueryClient(); return useMutation({ mutationFn: ({runId,body,adminToken}:{runId:string;body:IntegrityAgreementRequest;adminToken?:string})=>api.agreeIntegrity(systemId,runId,body,adminToken), onSuccess:(r)=>qc.setQueryData(qk.integrityRun(systemId,r.run.id),r) }); }
 
 // ---------------------------------------------------------------------------
 // App template upgrades
