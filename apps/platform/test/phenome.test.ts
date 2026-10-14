@@ -521,6 +521,13 @@ describe('scoped runtime summaries',()=>{
  });
 });
 
+it('finds older Thing history behind more than fifty other-Thing events and keeps paged totals stable',async()=>{
+ await inDo(i=>{const sql=sqlOf(i);for(let index=0;index<56;index++)sql.exec("INSERT INTO phenome_events (event_id,deployment_id,thing_id,artifact_id,build_id,commit_hash,kind,emitted_at,received_at,payload_json,realized_artifact_id) VALUES (?,?,?,?,?,?,?,?,?,?,?)",`history.${index}`,'dep-b',index<3?'thing.b':'thing.a','artifact.webapp','runtime.b',A2,'health','2026-01-01','2026-01-01','{}','output.b');});
+ expect((await get()).json.events.every(e=>e.thingId==='thing.a')).toBe(true);
+ const scope='?thing=thing.b&deployment=dep-b&build=runtime.b&output=output.b&kind=health&limit=2';const first=(await get(scope)).json;expect(first.events.map(e=>e.id)).toEqual(['history.2','history.1']);expect(first.versions[0].count).toBe(3);
+ const last=(await get(`${scope}&before=${first.nextBefore}`)).json;expect(last.events.map(e=>e.id)).toEqual(['history.0']);expect(last.versions).toEqual(first.versions);expect(last.nextBefore).toBeUndefined();
+});
+
 it('separates legacy source commits that reuse a runtime build ID across pages',async()=>{
  await inDo(i=>{const sql=sqlOf(i);for(const [id,commit,dep,sc] of [['old.1',A1,'dep.old','sc.old'],['old.2',A1,'dep.old','sc.old'],['new.1',A2,'dep.new','sc.new']])sql.exec("INSERT INTO phenome_events (event_id,deployment_id,thing_id,artifact_id,build_id,commit_hash,system_commit,kind,emitted_at,received_at,payload_json) VALUES (?,?,?,?,?,?,?,?,?,?,?)",id,dep,'thing.webapp','artifact.webapp','runtime.reused',commit,sc,'health','2026-01-01','2026-01-01','{}');});
  const newest=(await get('?limit=1')).json;expect(newest.versions).toEqual([

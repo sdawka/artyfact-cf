@@ -3,7 +3,8 @@ import { Link, useParams, useSearchParams } from "react-router";
 import type { Build, Deployment, PhenomeEvent, PhenomeEventsResponse } from "../../../shared/api";
 import { phenomeVersionKey } from "../../../shared/phenome";
 import { useAdminToken } from "@/api/adminToken";
-import { useBuilds, useDeployments, usePhenomeEvents, useRealizedArtifacts } from "@/api/queries";
+import { useBuilds, useDeployments, usePhenomeEventPages, useRealizedArtifacts } from "@/api/queries";
+import { Button } from "@/components/ui";
 import { Card } from "@/components/Card/Card";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { buildTone, StatusChip } from "@/components/StatusChip/StatusChip";
@@ -29,7 +30,7 @@ export default function PhenomeView() {
   const builds = useBuilds();
   const deployments = useDeployments();
   const output = params.get("output") ?? undefined;
-  const events = usePhenomeEvents({ ...(deployment && { deployment }), ...(thingId && { thing: thingId }), ...(buildFilter && { build: buildFilter }), ...(output && { output }) });
+  const events = usePhenomeEventPages({ ...(deployment && { deployment }), ...(thingId && { thing: thingId }), ...(buildFilter && { build: buildFilter }), ...(output && { output }), ...(params.get("kind") && { kind: params.get("kind")! }), ...(params.get("commit") && { commit: params.get("commit")! }), ...(params.get("realization") && { realization: params.get("realization")! }) });
   const artifacts = useRealizedArtifacts();
   const list = sortNewest((builds.data ?? []).filter((build) => !thingId || (build.thingId ?? build.output?.thingId) === thingId));
   const outputIds = new Set((artifacts.data ?? []).filter((output) => output.thingId === thingId).map((output) => output.id));
@@ -49,7 +50,7 @@ export default function PhenomeView() {
       <Operations />
       <BuildsCard builds={list} production={production} />
       <DeploymentsCard production={production} history={history} />
-      <EventsCard events={runtimeEvents} versions={versions} buildFilter={buildFilter} deployment={deployment} />
+      <EventsCard events={runtimeEvents} versions={versions} buildFilter={buildFilter} deployment={deployment} paging={events} />
       <CriteriaCard />
       <ImplementationEvaluationsCard deployment={history.find(d => d.id === deployment) ?? (production?.id === deployment ? production ?? undefined : undefined)} builds={list} />
     </section>
@@ -118,11 +119,12 @@ function DeploymentsCard({ production, history }: { production: Deployment | nul
   );
 }
 
-function EventsCard({ events, versions, buildFilter, deployment }: {
+function EventsCard({ events, versions, buildFilter, deployment, paging }: {
   events: PhenomeEvent[];
   versions: PhenomeEventsResponse["versions"];
   buildFilter: string | undefined;
   deployment: string | undefined;
+  paging: ReturnType<typeof usePhenomeEventPages>;
 }) {
   const shown = buildFilter ? events.filter((e) => e.buildId === buildFilter) : events;
   const keyOf = (e: PhenomeEvent) => phenomeVersionKey(e.outputId, e.buildId, e.commit);
@@ -130,9 +132,11 @@ function EventsCard({ events, versions, buildFilter, deployment }: {
   return (
     <Card title="Runtime events" headingLevel={2}>
       {deployment && <p className={styles.muted}>Deployment <code>{deployment}</code></p>}
-      {shown.length === 0 ? (
+      {paging.isLoading && <p role="status">Loading runtime events…</p>}
+      {paging.error && <div role="alert"><p>{paging.isFetchNextPageError ? "Could not load older events" : "Could not load runtime events"}: {paging.error.message}</p><Button variant="secondary" disabled={paging.isFetching} onClick={() => void (paging.isFetchNextPageError ? paging.fetchNextPage() : paging.refetch())}>{paging.isFetchNextPageError ? "Retry older events" : "Retry runtime events"}</Button></div>}
+      {!paging.isLoading && !paging.error && shown.length === 0 ? (
         <>
-          <p className={styles.muted}>No events ingested.</p>
+          <p className={styles.muted}>No runtime events in this scope.</p>
           <pre className={styles.raw} tabIndex={0} aria-label="Example ingest request">{EXAMPLE}</pre>
         </>
       ) : keys.map((k) => {
@@ -148,6 +152,8 @@ function EventsCard({ events, versions, buildFilter, deployment }: {
           </details>
         );
       })}
+      {paging.hasNextPage && !paging.isFetchNextPageError && <Button variant="secondary" disabled={paging.isFetchingNextPage} onClick={() => void paging.fetchNextPage()}>{paging.isFetchingNextPage ? "Loading older events…" : "Load older events"}</Button>}
+      {paging.data && !paging.hasNextPage && shown.length > 0 && <p className={styles.muted}>All retained events in this scope are loaded.</p>}
     </Card>
   );
 }
