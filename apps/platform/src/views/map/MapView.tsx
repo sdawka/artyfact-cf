@@ -1,4 +1,4 @@
-import { Button, IconButton } from "@/components/ui";
+import { Button, IconButton, Popover } from "@/components/ui";
 import { Kbd } from "@/components/Kbd/Kbd";
 import { PageHeader } from "@/components/PageHeader/PageHeader";
 import { Cross2Icon } from "@radix-ui/react-icons";
@@ -262,6 +262,7 @@ export function MapView() {
         <Button size="compact" onClick={() => setPanel((last) => last === "tree" ? null : "tree")} aria-expanded={panel === "tree"} aria-controls="atlas-navigation">Tree</Button>
         <Button size="compact" onClick={() => setPanel((last) => last === "filters" ? null : "filters")} aria-expanded={panel === "filters"} aria-controls="atlas-navigation">Filters</Button>
         {outsideItems.length > 0 && <OutsideMenu label={`Outside ${scopeName}`} items={outsideItems} trigger={<Button size="compact">Outside ({outsideItems.length})</Button>} />}
+        <MapKey />
         <div className={styles.overlay}><LayerSwitch /></div>
         <span className={styles.hint}>
           <span>Drag pan</span><span><Kbd keys={["Enter"]} /> open</span><span><Kbd keys={["D"]} /> details</span><span><Kbd keys={["Backspace"]} /> up</span>
@@ -299,7 +300,6 @@ export function MapView() {
       </div>
       <div className={styles.dock}>
         <AtlasSelection id={focusId} graph={graph} onEnter={openScope} onDetails={() => navigation.showDetails()} onLocate={locateNode} onClear={() => navigation.select(null)} />
-        <MapKey />
       </div>
     </div>
   </div>;
@@ -327,11 +327,11 @@ function useInspectorInset(active: boolean) {
 /** Key on `--surface-overlay`: line samples use the edge dash arrays, plus outside-System and candidate samples. */
 function MapKey() {
   const line = (dash?: string) => <svg width="28" height="8" viewBox="0 0 28 8" aria-hidden="true" focusable="false"><line x1="0" y1="4" x2="28" y2="4" stroke="currentColor" strokeWidth="1.5" {...(dash && { strokeDasharray: dash })} /></svg>;
-  return <div className={styles.legend} role="group" aria-label="Map key">
+  return <Popover label="Map key" align="start" trigger={<Button size="compact">Key</Button>}><div className={styles.legend} role="group" aria-label="Map key">
     <span>{line()}declared</span>
     <span>{line("6 4")}assumed</span>
     <span>{line("1.5 4")}proposed</span>
     <span><svg width="18" height="12" viewBox="0 0 18 12" aria-hidden="true" focusable="false"><rect x=".75" y=".75" width="16.5" height="10.5" fill="none" stroke="currentColor" strokeWidth="1.25" strokeDasharray="3 2" /></svg>outside System</span>
     <span><svg width="14" height="12" viewBox="0 0 14 12" aria-hidden="true" focusable="false"><path d="M1 4V1h3M10 1h3v3M13 8v3h-3M4 11H1V8" fill="none" stroke="var(--color-brand-primary)" strokeWidth="1.5" /></svg>candidate touches</span>
-  </div>;
+  </div></Popover>;
 }

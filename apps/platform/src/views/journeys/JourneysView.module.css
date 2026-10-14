@@ -28,6 +28,9 @@
 }
 @media (max-width: 899px) {
   .body { grid-template-columns: minmax(0, 1fr); gap: var(--spacing-3); }
+  /* Steps sit right under the journey header, above the canvas. */
+  .stageHead { order: -2; }
+  .steps { order: -1; }
   .canvas { flex: none; height: min(60dvh, 480px); min-height: 320px; }
 }
 .canvas :global(.journey-edge--failure .react-flow__edge-path) { stroke: var(--graph-edge-danger); stroke-dasharray: 6 4; }
