@@ -184,8 +184,8 @@ starts with `[name, systemId]`, so `invalidateQueries({ queryKey: [name, systemI
 - `views/review/`: the decision queue (`queue.ts` `reviewQueue()`, pure; `useReviewQueue()` over the Work queries) beside
   `CandidateReview` or `PromotionPanel` from `views/work/panels`. `model/useReviewCount()` feeds the rail, Overview and Work cards.
 - `views/work/intent/`: "Describe a change" (`?panel=intent`), opened from the Work header, a Home card, the Inspector and Code
-  (`&anchor=<nodeId>`); while open it replaces the board ("Back to board" closes it). Message → proposal (`&proposal=`): routed path, provider label, per-op
-  diff with include toggles (dependencies follow), problems, inline replies, "Accept selected" → the candidate on Work.
+  (`&anchor=<nodeId>`); while open it replaces the board ("Back to board" closes it). Message → proposal (`&proposal=`): routed path, provider label, the agreement tree
+  (Agree, Reject or Defer per node, persisted by `decideIntent`), problems, inline replies, "Accept agreed" → commits the agreed Genome change and opens the candidate on Work.
   Fixture mode disables writes and shows `intent/sample.ts` read-only.
 
 ## Inspector (`inspector/`)
