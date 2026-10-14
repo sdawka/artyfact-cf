@@ -3,7 +3,7 @@ import { expect, test, type Locator, type Page } from '@playwright/test';
 import { SYSTEM } from './helpers';
 import { defaultMockData, mockApi } from './mockApi';
 
-const routes = [ ['overview','Overview'], ['map','Map'], ['journeys','Journeys'], ['theory','Theory'], ['code','Code'], ['work','Work'], ['review','Review'], ['evaluations','Evaluations'], ['changelog','Changelog'], ['compare','Compare'], ['phenome','Deployments'], ['parts','System-private Parts'] ] as const;
+const routes = [ ['overview','Overview'], ['map','Map'], ['journeys','Journeys'], ['theory','Theory'], ['code','Code'], ['work','Work'], ['review','Review'], ['evaluations','Evaluations'], ['changelog','Changelog'], ['compare','Compare'], ['phenome','Deployments'], ['parts','Private Parts'] ] as const;
 const longName = 'Peopling — a deliberately long System name for keeping in touch across many communities and relationships';
 const longRevision = 'Release — a deliberately long revision name documenting changes to the People screen and its supporting shared components';
 async function populated(page: Page, long = false) {

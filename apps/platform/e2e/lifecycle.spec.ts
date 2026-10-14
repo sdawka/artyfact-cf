@@ -15,7 +15,7 @@ for(const width of [1440,360])test(`native import review and keyboard flow at ${
  await page.goto('/start');await page.getByLabel('System ID').fill('system.custom');await page.getByRole('button',{name:'Create System'}).click();
  await page.getByLabel('Native ontology package').fill('{"format":"artyfact.ontology-package@1"}');await page.getByRole('button',{name:'Preview import'}).click();
  const accept=page.getByRole('button',{name:'Accept reviewed import'});await expect(accept).toBeVisible();await accept.focus();await page.keyboard.press('Enter');
- await expect(page.getByRole('heading',{name:'Build with your agent'})).toBeVisible();expect(accepted).toEqual(['exact-hash']);
+ await expect(page.getByRole('button',{name:'Check local bootstrap completion'})).toBeVisible();expect(accepted).toEqual(['exact-hash']);
  const a11y=await new AxeBuilder({page}).analyze();expect(a11y.violations).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
 });

@@ -42,7 +42,7 @@ describe("Home", () => {
   it("never displays System-private Parts in the public catalog", () => {
     renderApp("/", [{ path: "/", element: <PartsContent parts={[{ partId: "part.private", version: "1.0.0", name: "Private package", scope: { kind: "system", systemId: "system.a" }, digest: "sha256:private", publishedAt: "", dependencies: [] }]} isLoading={false} isError={false} /> }]);
     expect(screen.queryByRole("link", { name: "Private package" })).toBeNull();
-    expect(screen.getByText("No reusable Parts published yet.")).toBeTruthy();
+    expect(screen.getByText("No Shared Parts published yet.")).toBeTruthy();
   });
 
   it("shows the fixture System in fixture mode and opens its environment", async () => {
@@ -66,7 +66,7 @@ describe("Home", () => {
     stubSystems([evolving, awaiting]);
     renderApp("/");
     await screen.findByRole("link", { name: /^Alpha$/ });
-    // Each card link is named by the System title only; the body is content, not part of the name.
+    // Each row link is named by the System title only; its cells describe it.
     const names = within(screen.getByRole("list", { name: "Systems" })).getAllByRole("link").map((l) => l.getAttribute("aria-labelledby") && document.getElementById(l.getAttribute("aria-labelledby")!)?.textContent).filter(Boolean);
     expect(names).toEqual(["Beta", "Alpha"]); // attention first
     const a = card(/Alpha/);
@@ -74,28 +74,29 @@ describe("Home", () => {
     expect(a.querySelector("a")!.getAttribute("data-state")).toBe("evolving");
     expect(b.querySelector("a")!.getAttribute("data-state")).toBe("attention");
     expect(within(a).getByRole("link", { name: "Describe a change to Alpha" }).getAttribute("href")).toBe(`/s/${encodeURIComponent(evolving.systemId)}/r/head/work?panel=intent`);
-    expect(within(a).queryByRole("link", { name: "Review Alpha" })).toBeNull();
-    expect(within(b).getByRole("link", { name: "Review Beta" }).getAttribute("href")).toBe("/s/system.b/r/head/review");
+    // Review and Work live in the Needs you ledger, not on System rows.
+    expect(within(a).queryByRole("link", { name: /^(Review|Work)/ })).toBeNull();
+    expect(within(b).queryByRole("link", { name: /^(Review|Work)/ })).toBeNull();
     expect(within(a).getByText("1 realization evolving")).toBeTruthy();
     expect(within(a).queryByText("2 pending realizations")).toBeNull();
     expect(within(b).getByText("1 awaits your review")).toBeTruthy();
     expect(within(b).getByText(/deployed/).getAttribute("data-tone")).toBe("neutral");
     expect(within(b).getByText("build passed").getAttribute("data-tone")).toBe("pass");
     expect(within(a).getByText("build running").getAttribute("data-tone")).toBe("neutral");
-    expect(within(a).getByText("updated 5 min ago")).toBeTruthy();
-    expect(within(a).getByText("Phase: realizing")).toBeTruthy();
+    expect(within(a).getByText("5 min ago").getAttribute("title")).toBe(evolving.updatedAt);
+    expect(within(a).getByText("Phase").nextElementSibling!.textContent).toBe("realizing");
     expect(within(b).queryByText("observed")).toBeNull();
   });
 
   it("lists what waits on a person in the Needs you ledger", async () => {
     stubSystems([evolving, awaiting, { ...base, systemId: "system.c", title: "Gamma", deployState: "failed" }, { ...base, systemId: "system.d", title: "Delta", deployState: "behind" }]);
     renderApp("/");
-    const ledger = await screen.findByRole("region", { name: "Needs you" });
-    const rows = within(ledger).getAllByRole("listitem").map((li) => [li.textContent, li.querySelector("a")!.getAttribute("href")]);
+    const ledger = await screen.findByRole("region", { name: /^Needs you/ });
+    const rows = within(ledger).getAllByRole("link").map((a) => [a.getAttribute("aria-label"), a.textContent, a.getAttribute("href")]);
     expect(rows).toEqual([
-      ["Beta · 1 awaits your review", "/s/system.b/r/head/review"],
-      ["Gamma · deploy failed", "/s/system.c/r/head/phenome"],
-      ["Delta · deployed, behind", "/s/system.d/r/head/phenome"],
+      ["Beta, 1 awaits your review", "Beta◔1 awaits your reviewReview ›", "/s/system.b/r/head/review"],
+      ["Gamma, deploy failed", "Gamma×deploy failedDeployments ›", "/s/system.c/r/head/phenome"],
+      ["Delta, deployed, behind", "Delta◔deployed, behindDeployments ›", "/s/system.d/r/head/phenome"],
     ]);
   });
 
@@ -104,12 +105,11 @@ describe("Home", () => {
     const apps: CardSummary = { ...evolving, systemId: "system.apps", title: "Apps", signifiers: ["evolving", "pending-realization"], realizationCounts: { evolving: 1, pending: 2, awaitingAdmin: 0, awaitingReview: 2 } };
     stubSystems([apps]);
     renderApp("/");
-    const ledger = await screen.findByRole("region", { name: "Needs you" });
-    expect(within(ledger).getByRole("listitem").textContent).toBe("Apps · 2 await your review");
+    const ledger = await screen.findByRole("region", { name: /^Needs you/ });
+    expect(within(ledger).getByRole("link").getAttribute("aria-label")).toBe("Apps, 2 await your review");
     const a = card(/Apps/);
     expect(within(a).getByText("2 await your review")).toBeTruthy();
     expect(a.querySelector("a")!.getAttribute("data-state")).toBe("attention");
-    expect(within(a).getByRole("link", { name: "Review Apps" })).toBeTruthy();
   });
 
   it("says nothing is waiting when no System needs a decision", async () => {
@@ -137,8 +137,7 @@ describe("Home", () => {
     const c = card(/Gamma/);
     expect(within(c).getByText("not deployed, unknown")).toBeTruthy();
     expect(within(c).getByText("quiet")).toBeTruthy();
-    expect(within(c).getByText("unknown")).toBeTruthy();
-    expect(within(c).getByText("updated unknown")).toBeTruthy();
+    expect(within(c).getAllByText("unknown").length).toBeGreaterThan(1);
     expect(container.querySelector('[data-tone="pass"]')).toBeNull();
   });
 
@@ -150,9 +149,9 @@ describe("Home", () => {
     expect(onRetry).toHaveBeenCalled();
   });
 
-  it("keeps reusable Parts separate from Systems and explains an empty catalog", () => {
+  it("keeps Shared Parts separate from Systems and explains an empty catalog", () => {
     render(<MemoryRouter><PartsContent parts={[]} isLoading={false} isError={false} /></MemoryRouter>);
-    expect(screen.getByText("No reusable Parts published yet.")).toBeTruthy();
+    expect(screen.getByText("No Shared Parts published yet.")).toBeTruthy();
     cleanup();
     render(<MemoryRouter><PartsContent parts={[{ partId: "part.ui.buttons", version: "2.1.0", name: "Button system", scope: { kind: "shared" }, digest: "sha256:test", publishedAt: "2026-10-12T00:00:00Z", dependencies: [] }]} isLoading={false} isError={false} /></MemoryRouter>);
     expect(screen.getByRole("link", { name: "Button system" }).getAttribute("href")).toBe("/parts/part.ui.buttons/2.1.0");

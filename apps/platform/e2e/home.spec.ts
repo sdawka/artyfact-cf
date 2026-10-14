@@ -31,7 +31,7 @@ test.describe("home with a populated API", () => {
     await expect(peopling).toHaveAttribute("data-state", "evolving");
     await expect(notes).toHaveAttribute("data-state", "attention");
     await expect(page.getByText("fixture data")).toHaveCount(0);
-    await expect(page.getByRole("heading", { level: 2, name: "Reusable Parts" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 2, name: "Shared Parts" })).toBeVisible();
     await expect(page.getByRole("link", { name: "Button system" })).toHaveAttribute("href", "/parts/part.ui.buttons/2.1.0");
     await expect(notes.getByText("not deployed, unknown")).toBeVisible();
     await expect(peopling.locator('[data-status="deployed"]')).toHaveText(/deployed/);
@@ -50,7 +50,7 @@ test.describe("home with a populated API", () => {
     await page.goto("/");
     const ledger = page.getByRole("region", { name: "Needs you" });
     await expect(ledger.getByRole("link", { name: "Field Notes" })).toHaveAttribute("href", "/s/system.field-notes/r/head/review");
-    await expect(ledger).toContainText("Field Notes · 1 awaits your review");
+    await expect(ledger.getByRole("link", { name: "Field Notes, 1 awaits your review" })).toBeVisible();
     await expect(ledger.getByRole("link", { name: "Peopling" })).toHaveCount(0);
     await expect(systemCard(page, /Field Notes/)).toBeVisible();
     await page.getByRole("button", { name: /Go to…/ }).click();

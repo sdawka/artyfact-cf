@@ -9,9 +9,10 @@ test.describe("home on the fake platform", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Systems" })).toBeVisible();
     await expect(page.getByText("fixture data")).toHaveCount(0);
     const card = systemCard(page, /Peopling/);
-    await expect(card.getByText("Phase: unrealized")).toBeVisible();
+    await expect(card.getByText("unrealized")).toBeVisible();
     // The fake seed: a live production deployment from a passed build, and one evaluated candidate awaiting review.
-    await expect(card.getByText("deployed · build passed")).toBeVisible();
+    await expect(card.getByText("deployed", { exact: true })).toBeVisible();
+    await expect(card.getByText("build passed")).toBeVisible();
     await expect(card.getByText("1 awaits your review")).toBeVisible();
     const green = await successToneElements(page);
     expect(green.length).toBeGreaterThan(0);

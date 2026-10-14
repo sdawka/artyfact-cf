@@ -1,0 +1,4 @@
+.cause { margin: 0; max-width: var(--measure-body); color: var(--color-text-secondary); overflow-wrap: anywhere; }
+.cause code { font: var(--type-code); color: var(--color-text-primary); }
+.path { font: var(--type-code); color: var(--color-text-primary); }
+.links { margin: 0; font: var(--type-ui); }
