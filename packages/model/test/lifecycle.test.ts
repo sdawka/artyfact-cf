@@ -18,6 +18,9 @@ describe('realization task scheduling', () => {
     const a = task('a', ['A']), b = task('b', ['B']); a.dependsOn.push('b'); b.dependsOn.push('a');
     expect(() => validateTaskDefinitions([a, b])).toThrow(/cycle/);
     expect(() => validateTaskDefinitions([{...a, dependsOn: ['missing']}])).toThrow(/unknown dependency/);
+    // The CLI's id rule: ids go into URLs and git argv.
+    for (const id of ['--platform=https://x', '-t1', '.', '..', 'a/b', 'a b']) expect(() => validateTaskDefinitions([{...a, id, dependsOn: []}])).toThrow(/task id/);
+    for (const id of ['t1', 'task.2.t1', 'ui_people-2']) expect(() => validateTaskDefinitions([{...a, id, dependsOn: []}])).not.toThrow();
   });
   it('compares write source paths against read scope from different ontology nodes',()=>{
     const a=task('a',['A']),b=task('b',['B'],['C']);
