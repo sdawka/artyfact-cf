@@ -707,11 +707,19 @@ async function recordRun(env: Env, systemId: string, candidateId: string, run: R
 }
 
 /**
+ * Whether an evaluation's `targetRef` is evidence about this candidate: its bare commit, `<target>@<commit>`, the
+ * canonical Genome it ran on (`genome@<genomeCommit>`, model-rules hooks) or the candidate's preview URL (http hooks).
+ */
+export function evidenceBinds(ref: string, candidate: Pick<CandidateRef, "commit" | "previewUrl">, genomeCommit: string): boolean {
+  return ref === candidate.commit || ref.endsWith(`@${candidate.commit}`) || ref === `genome@${genomeCommit}` || (!!candidate.previewUrl && ref === candidate.previewUrl);
+}
+
+/**
  * `evidence-fresh`: every blocking criterion's latest evaluation was produced for this candidate's commit (its
  * `targetRef` binds the commit, the canonical Genome it ran on, or the candidate's preview) at or after submission.
  * Criteria whose hooks consume promotionFacts themselves (inputs.check) are excluded: they are re-run with the facts.
  */
-function evidenceFresh(
+export function evidenceFresh(
   m: SystemModel, evolution: Pick<schema.Evolution, "acceptanceCriteria">, candidate: CandidateRef, evals: Evaluation[], submittedAt: string, genomeCommit: string,
 ): boolean {
   const byId = new Map(m.criteria.map((c) => [c.id, c] as const));
@@ -719,8 +727,7 @@ function evidenceFresh(
     const c = byId.get(id);
     return !!c && hooksOf(m, c).some((h) => /base-current|manifest-exact|evidence-fresh/.test(h.inputs.check ?? ""));
   };
-  const binds = (ref: string) =>
-    ref === candidate.commit || ref.endsWith(`@${candidate.commit}`) || ref === `genome@${genomeCommit}` || (!!candidate.previewUrl && ref === candidate.previewUrl);
+  const binds = (ref: string) => evidenceBinds(ref, candidate, genomeCommit);
   const at = (e: Evaluation) => e.finishedAt ?? e.startedAt ?? "";
   for (const g of gateCriteria(m, evolution, candidate)) {
     if (!g.blocking || consumesFacts(g.id)) continue;
