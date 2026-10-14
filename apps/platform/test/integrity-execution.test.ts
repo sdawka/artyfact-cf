@@ -123,3 +123,23 @@ it("refuses to execute when the reachable template closure drifted after preview
   expect(() => assertIntegritySnapshotCurrent(snapshot, { get: () => source })).not.toThrow();
   expect(() => assertIntegritySnapshotCurrent(snapshot, { get: () => undefined })).toThrow(/template closure changed/);
 });
+
+
+it("checks authored intent against policy statements and declared relationships outside descriptions", async () => {
+  const files = filesFrom(cleanModules, "/clean/genome/");
+  const statement = "Borrower information is never disclosed to advertisers.";
+  files["thing.library/policy.privacy/node.yaml"] += `  statement: ${statement}\nlinks:\n  - rel: governs\n    to: operation.request-tool\n`;
+  const delegate = provider([]);
+  let input = "";
+  const observer: SystemOne = {
+    ...delegate,
+    async ask(state, questions, opts) {
+      if ("intent.omitted" in questions) input = JSON.stringify(state);
+      return delegate.ask(state, questions, opts);
+    },
+  };
+  const run = await execute("system.tool-library", files, observer, JSON.parse(cleanPackageText));
+  expect(run.report?.structural.status).not.toBe("blocked");
+  expect(input).toContain(statement);
+  expect(input).toContain("governs");
+});

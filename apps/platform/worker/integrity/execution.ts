@@ -208,6 +208,9 @@ export async function executeIntegrity(
         const intentState = {
           brief: snapshot.intent.brief,
           manifest: snapshot.intent.manifest,
+          // Exact native declarations retain policy statements, criteria and links beyond display fields.
+          genome: Object.fromEntries(Object.entries(snapshot.files).filter(([path]) =>
+            path === "node.yaml" || path.endsWith("/node.yaml") || /^evolutions\/[^/]+\.ya?ml$/.test(path))),
           nodes: model.nodes.map((node) => ({
             id: node.id, kind: node.kind, name: node.name,
             description: typeof node.description === "string" ? node.description.slice(0, 1000) : undefined,
