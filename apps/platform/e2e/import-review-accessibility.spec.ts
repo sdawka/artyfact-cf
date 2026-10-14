@@ -6,7 +6,8 @@ const SYSTEM = SID;
 const paths = Array.from({ length: 200 }, (_, index) => `src/unmapped/generated-${String(index).padStart(3, "0")}.ts`);
 
 for (const width of [1440, 390]) {
-  test(`unmapped import paths are keyboard-scrollable at ${width}px @fixture`, async ({ page }) => {
+  for (const key of ["PageDown", "ArrowDown"] as const) {
+    test(`unmapped import paths scroll with ${key} at ${width}px @fixture`, async ({ page }) => {
     await page.setViewportSize({ width, height: 900 });
     await page.emulateMedia({ reducedMotion: "reduce" });
     await page.addInitScript(() => sessionStorage.setItem("artyfact.adminToken", "test-admin"));
@@ -33,13 +34,11 @@ for (const width of [1440, 390]) {
     }
     await expect(list).toBeFocused();
     const start = await list.evaluate((element) => element.scrollTop);
-    await page.keyboard.press("PageDown");
+    await page.keyboard.press(key);
     await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(start);
-    const afterPage = await list.evaluate((element) => element.scrollTop);
-    await page.keyboard.press("ArrowDown");
-    await expect.poll(() => list.evaluate((element) => element.scrollTop)).toBeGreaterThan(afterPage);
 
     const accessibility = await new AxeBuilder({ page }).analyze();
     expect(accessibility.violations.filter((violation) => violation.impact === "serious" || violation.impact === "critical")).toEqual([]);
-  });
+    });
+  }
 }
