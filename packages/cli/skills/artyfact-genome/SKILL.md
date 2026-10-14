@@ -131,26 +131,25 @@ cd ./work/<task> && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and 
 - You did not edit `evolutions/` or any file outside `./genome` and `.artyfactignore`.
 - Tell the person the exact `init` command and that Review, then Import is theirs to accept.
 
+## Prepare an accepted import locally
+
+This is a separate workflow from authoring a Genome for existing source above. An accepted custom ontology may have no source yet. A Genome-only System with no Thing or source is valid completion; do not invent implementation to make it pass.
+
+1. Set `ADMIN_TOKEN` in the shell without exporting it. Pass `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN"` on each administrative command and `--platform <origin>` explicitly. Browser credentials do not configure the shell.
+2. Materialize exact accepted files: `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact ontology bootstrap <review> --system <system> --dir ./project --prepare-only --platform <origin>`. This creates a new directory without provisioning. Then run `npx artyfact skill --dir ./project --write --agent generic` and work in that project. To recover, continue in the existing directory; bootstrap never overwrites it.
+3. For implementation, prepare only minimal genuine scaffold/app source in `./app`, plus accurate Thing/artifact/source mappings to files that exist. Use the accepted custom template vocabulary, or a matching supported Thing scaffold. Do not implement requested features here: feature work belongs to Tasks. If keeping the System Genome-only, skip source and planning.
+4. Run `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact init --dir . --platform <origin>` with default import review. If no local app exists for a declared binding, finish the scaffold or use a matching `--from-template <thing-template@version>`; never claim nonexistent source. Changed Genome content must return to Review for acceptance. Custom packages require server import validation because the local validator cannot resolve accepted custom packages; bundled templates can also use local validation.
+5. After the person accepts the import, choose actual source-bound node IDs from the accepted Genome. Draft with `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan draft --system <system> --node <source-bound-node-id> --platform <origin>`. Review scope and problems, then repeat the same node arguments with `--create`. No plan file is assumed. Return the durable plan review URL before implementation.
+
 ## Coordinate accepted Genome implementation
 
 An Evolution changes only the Genome. Never use it to deploy code or change live flags.
 A Realization implements a pinned accepted Genome; Tasks own artifact bindings and isolated forks.
 Artyfact stores plans and evidence. Run agents in the user's local harness.
 
-- Convert foreign ontology sources locally to `artyfact.ontology-package@1`; preview with
-  `npx artyfact ontology preview --system <system> --file native-package.json`.
-- Return its durable review URL. Accept only the exact reviewed hash with
-  `npx artyfact ontology accept <review> --system <system> --hash <hash>`.
-- Bootstrap accepted files with `npx artyfact ontology bootstrap <review> --system <system> --dir ./project`.
 - Propose a Genome change with `npx artyfact evolution propose --system <system> --file intent.json`
   (`intent.json` contains `message` and optionally `anchor`). Return its review URL.
-- After Genome acceptance, create `plan.json` with `title`, optional `genomeCommit`, and `tasks`.
-  Each Task declares `id`, `title`, `artifactId`, `steps`, `dependsOn`, `readNodes`, `writeNodes`, and `checks`.
-- Create the durable plan with `npx artyfact plan create --system <system> --file plan.json`.
-  Read `plan show <plan> --system <system>` for dependency waves and scope conflicts.
-- Draft instead of hand-writing: `npx artyfact plan draft --system <system> --evolution <evolution> [--node <node>] [--hint "<text>"]`
-  prints the Task table, waves and problems and saves nothing; add `--create` to save the draft unchanged.
-  `plan tasks <plan> --system <system>` lists status, wave, dependencies, write nodes, footprint and conflicts, and the next claim.
+- Draft accepted source-bound nodes with `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact plan draft --system <system> --node <source-bound-node-id> --platform <origin>`; optionally include `--evolution <evolution>`. Review the table, waves and problems, then repeat with `--create` to save it. `plan tasks <plan> --system <system> --platform <origin>` shows the next action.
 - Claim only eligible Tasks, with the admin token on that command only (`ADMIN_TOKEN` set in the shell, not exported):
   `ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim <plan> <task> --system <system> --dir ./task --agent-label claude:<task>`.
   Run the agent with `env -u ARTYFACT_ADMIN_TOKEN claude -p "..."`. The fork write token is saved in `.git/artyfact-task.json`

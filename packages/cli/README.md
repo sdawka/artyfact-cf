@@ -139,7 +139,16 @@ ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim plan.id task.id --sy
 Preview accepts a native package JSON directly or `{package, genomeFiles}`; `genomeFiles` maps
 relative native node paths to their exact text, supporting required custom root fields and initial content.
 
-Bootstrap materializes the exact accepted Genome files in a new directory and runs `init`;
+Bootstrap materializes the exact accepted Genome files in a new directory and runs `init`.
+Use `--prepare-only` to stop before authentication/provisioning, including when a declared app has no source yet.
+Then install guidance with `npx artyfact skill --dir ./project --write --agent generic`.
+A Genome-only System is valid without source. For implementation, prepare genuine minimal scaffold source in
+`./project/app` and accurate Thing/artifact/files mappings; feature work belongs to Tasks. Import with
+`ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact init --dir ./project --platform <origin>` and retain the default
+import review for changed content. Custom packages rely on server import validation. After acceptance, draft actual
+source-bound IDs with `plan draft --system <system> --node <node-id> --platform <origin>`, inspect scope/problems,
+then repeat with `--create`. Bootstrap refuses an existing directory; resume preparation there instead of overwriting.
+The normal bootstrap path
 it uses the existing Cloudflare authentication and provisioning flow. `intent.json` contains
 `message` and optional `anchor`. New Evolutions are always Genome amendments.
 

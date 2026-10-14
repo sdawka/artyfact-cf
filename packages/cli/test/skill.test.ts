@@ -21,6 +21,17 @@ describe("artyfact skill", () => {
     expect(r.out).toMatch(/^---\nname: artyfact-genome\n/);
   });
 
+  it("separates accepted-import source preparation from existing-source authoring",async()=>{
+    const r=await run(["skill"],project());
+    expect(r.out).toContain("## Prepare an accepted import locally");
+    expect(r.out).toContain("Genome-only");
+    expect(r.out).toContain("--prepare-only");
+    expect(r.out).toContain("server import validation");
+    expect(r.out).toContain("--node <source-bound-node-id>");
+    expect(r.out).not.toContain("create `plan.json`");
+    expect(r.out).not.toContain("--no-review");
+  });
+
   it("ships a SKILL.md of at most 180 lines", () => {
     expect(readFileSync(join(SKILLS, "SKILL.md"), "utf8").split("\n").length).toBeLessThanOrEqual(181);
   });

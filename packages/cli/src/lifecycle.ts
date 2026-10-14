@@ -1,5 +1,6 @@
 import { constants, existsSync, lstatSync, mkdirSync, openSync, closeSync, writeSync, fchmodSync, readFileSync, readdirSync, rmSync, renameSync, unlinkSync } from 'node:fs';
 import { resolve, join, dirname } from 'node:path';
+import { parse as parseYaml } from 'yaml';
 import { parseArgs } from 'node:util';
 import { lifecyclePaths, type CreateRealizationPlanRequest, type DraftRealizationPlanRequest, type DraftRealizationPlanResponse, type ImplementationReview, type RealizationPlan, type Task, type TaskStartResponse, type TaskSubmitResponse } from '../../../apps/platform/shared/lifecycle.ts';
 import { shellArg } from '../../../apps/platform/shared/shell.ts';
@@ -76,7 +77,7 @@ function printDraft(d:DraftRealizationPlanResponse,io:Io){
 }
 const reviewLink=(base:string,s:string,p:string)=>`${base}/s/${encodeURIComponent(s)}/r/head/work?plan=${encodeURIComponent(p)}`;
 export async function lifecycleCommand(command:string,args:string[],io:Io):Promise<number>{
- const {values:v,positionals:p}=parseArgs({args,allowPositionals:true,options:{system:{type:'string'},platform:{type:'string'},file:{type:'string'},dir:{type:'string'},hash:{type:'string'},candidate:{type:'string'},binding:{type:'string'},key:{type:'string'},reason:{type:'string'},'expected-version':{type:'string'},'agent-label':{type:'string'},from:{type:'string'},to:{type:'string'},before:{type:'string'},cursor:{type:'string'},limit:{type:'string'},json:{type:'boolean'},evolution:{type:'string',multiple:true},node:{type:'string',multiple:true},hint:{type:'string'},title:{type:'string'},create:{type:'boolean'}}});
+ const {values:v,positionals:p}=parseArgs({args,allowPositionals:true,options:{system:{type:'string'},platform:{type:'string'},file:{type:'string'},dir:{type:'string'},hash:{type:'string'},candidate:{type:'string'},binding:{type:'string'},key:{type:'string'},reason:{type:'string'},'expected-version':{type:'string'},'agent-label':{type:'string'},from:{type:'string'},to:{type:'string'},before:{type:'string'},cursor:{type:'string'},limit:{type:'string'},json:{type:'boolean'},evolution:{type:'string',multiple:true},node:{type:'string',multiple:true},hint:{type:'string'},title:{type:'string'},create:{type:'boolean'},'prepare-only':{type:'boolean'}}});
  const action=p[0];
  if(command==='task'&&['checkpoint','submit','status'].includes(action??'')){
   if(action==='checkpoint'&&!p[1])throw new CliError('usage: artyfact task checkpoint "<message>"');
@@ -149,8 +150,10 @@ export async function lifecycleCommand(command:string,args:string[],io:Io):Promi
    if(review.status!=='accepted'||review.systemId!==system||!review.genomeFiles)throw new CliError('bootstrap requires an accepted import for this System with reviewed Genome files');
    if(!v.dir)throw new CliError('--dir new-project is required');const dir=resolve(io.cwd,v.dir);if(existsSync(dir))throw new CliError('bootstrap destination already exists; choose an empty new directory');
    const entries=Object.entries(review.genomeFiles);if(entries.length>1000||entries.some(([path,content])=>!path||path.startsWith('/')||path.includes('\\')||path.split('/').some(segment=>segment==='..'||segment==='.'||segment==='.git'||!segment)||typeof content!=='string'||content.length>1024*1024))throw new CliError('unsafe or oversized reviewed Genome path');
+   if(parseYaml(review.genomeFiles['node.yaml']??'')?.id!==system)throw new CliError('reviewed Genome root does not match this System');
+   const paths=new Set(entries.map(([path])=>path));if(entries.some(([path])=>path.split('/').slice(0,-1).some((_,i)=>paths.has(path.split('/').slice(0,i+1).join('/')))))throw new CliError('reviewed Genome paths collide');
    mkdirSync(join(dir,'genome'),{recursive:true});for(const [path,content] of entries){const target=join(dir,'genome',path);mkdirSync(dirname(target),{recursive:true});write(target,content);}
-   io.out(`Reviewed Genome materialized in ${dir}/genome`);return await initCommand(['--dir',dir,'--platform',base,'--no-review'],io);
+   io.out(`Reviewed Genome materialized in ${dir}/genome`);if(v['prepare-only']){io.out('No repositories were provisioned. Prepare local source if implementation is wanted, then run init with its default import review.');return 0;}return await initCommand(['--dir',dir,'--platform',base,'--no-review'],io);
   }else if(action==='preview'){if(!v.file)throw new CliError('--file native-package.json is required');result=await client.request<OntologyImportReview>('POST',`${root}/preview`,(()=>{const input=readJson(v.file,io);return input&&typeof input==='object'&&Object.hasOwn(input,'package')?input:{package:input};})());io.out(`Review: ${base}/start?system=${encodeURIComponent(system)}&import=${encodeURIComponent((result as OntologyImportReview).id)}`);}
   else if(action==='list')result=await client.request('GET',root);else if(action==='show')result=await client.request('GET',`${root}/${encodeURIComponent(id('import',p[1]))}`);else if(action==='accept'){if(!v.hash)throw new CliError('--hash from the reviewed preview is required');result=await client.request('POST',`${root}/${encodeURIComponent(id('import',p[1]))}/accept`,{hash:v.hash});}else throw new CliError('usage: artyfact ontology preview|list|show|accept|bootstrap');
  }else if(command==='operations'){

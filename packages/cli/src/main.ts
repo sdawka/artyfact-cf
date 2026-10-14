@@ -79,6 +79,7 @@ const USAGE = `artyfact <command>
   task checkpoint "<message>" | submit | status
   task select <plan> <task> --system sid --candidate id
   ontology preview|list|show|accept|bootstrap --system sid [--file json] [--hash exact-hash]
+        bootstrap <import> --dir new-project [--prepare-only] materializes accepted Genome; prepare-only never provisions
   operations bindings|metrics|measurements|flags|audit|flag-create|flag-update|flag-disable --system sid [--binding id]
   skill [--dir project] [--write] [--agent claude|generic]
   validate-genome <genomeDir> [--app dir] [--templates dir] [--json] [--strict]

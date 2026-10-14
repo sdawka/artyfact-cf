@@ -38,6 +38,30 @@ it('bootstrap refuses invalid reviews before writing or provisioning resources',
  const err:string[]=[];const code=await main(['ontology','bootstrap','import.bad','--system','system.one','--dir','bootstrap-bad','--platform','http://localhost:1337'],{cwd,env:{ARTYFACT_ADMIN_TOKEN:'admin'},out:()=>{},err:s=>err.push(s)});
  expect(code).toBe(1);expect(err.join('\n')).toContain('accepted import');
 });
+it.each([
+ {'node.yaml':'id: system.one\nkind: system\n'},
+ {'node.yaml':'id: system.one\nkind: system\n', 'thing.web/node.yaml':'id: thing.web\nkind: thing\n', 'thing.web/artifact.web/node.yaml':'id: artifact.web\nkind: artifact\nfields: {type: worker-fullstack}\n'},
+])('prepare-only materializes accepted files without source or provisioning',async(genomeFiles)=>{
+ const dir=join(cwd,`prepare-${Math.random()}`),calls:string[]=[];
+ vi.stubGlobal('fetch',vi.fn(async(url:string)=>{calls.push(url);return Response.json({id:'import.one',systemId:'system.one',status:'accepted',genomeFiles});}));
+ const out:string[]=[],err:string[]=[];
+ expect(await main(['ontology','bootstrap','import.one','--system','system.one','--dir',dir,'--prepare-only','--platform','http://localhost:1337'],{cwd,env:{ARTYFACT_ADMIN_TOKEN:'admin'},out:s=>out.push(s),err:s=>err.push(s)})).toBe(0);
+ expect(err).toEqual([]);expect(calls).toHaveLength(1);expect(readdirSync(dir)).toEqual(['genome']);
+ for(const [path,content] of Object.entries(genomeFiles))expect(readFileSync(join(dir,'genome',path),'utf8')).toBe(content);
+ expect(out.join('\n')).toContain('No repositories were provisioned');
+});
+it.each([
+ {status:'review',systemId:'system.one',genomeFiles:{'node.yaml':'id: system.one\n'}},
+ {status:'accepted',systemId:'system.other',genomeFiles:{'node.yaml':'id: system.other\n'}},
+ {status:'accepted',systemId:'system.one',genomeFiles:{'node.yaml':'id: system.other\n'}},
+ {status:'accepted',systemId:'system.one',genomeFiles:{'node.yaml':'id: system.one\n','../escape':'bad'}},
+ {status:'accepted',systemId:'system.one',genomeFiles:{'node.yaml':'id: system.one\n','collision':'file','collision/node.yaml':'bad'}},
+])('prepare-only rejects unsafe or unaccepted source before writing',async(review)=>{
+ const dir=join(cwd,`rejected-${Math.random()}`);
+ vi.stubGlobal('fetch',vi.fn(async()=>Response.json({id:'import.one',...review})));
+ expect(await main(['ontology','bootstrap','import.one','--system','system.one','--dir',dir,'--prepare-only','--platform','http://localhost:1337'],{cwd,env:{ARTYFACT_ADMIN_TOKEN:'admin'},out:()=>{},err:()=>{}})).toBe(1);
+ expect(existsSync(dir)).toBe(false);
+});
 it('starts and resumes one task fork with fenced credentials, checkpoints, and submits real Git commits',async()=>{
  const {execFileSync}=await import('node:child_process');const {mkdirSync,readFileSync,readdirSync,statSync}=await import('node:fs');
  const dir=join(cwd,'task-real'),source=join(cwd,'source'),bare=join(cwd,'task.git');mkdirSync(source);const sh=(at:string,...args:string[])=>execFileSync('git',['-C',at,...args],{encoding:'utf8'}).trim();
@@ -120,6 +144,17 @@ it('plan draft prints tasks, waves and problems and saves nothing without --crea
   expect(r.out).toContain('warning (task.b): footprint unknown for thing.b');
   expect(r.out).toContain('Nothing was saved');
  } finally { await srv.close(); }
+});
+
+it('drafts explicit source-bound nodes without an Evolution or plan file, then saves only with create',async()=>{
+ const srv=await fake(h=>h.url.endsWith('/draft')?[200,draftResponse]:[201,{id:'plan.source'}]);
+ const args=['plan','draft','--system','system.one','--node','module.web.entry','--platform',srv.base];
+ try{
+  expect((await cli(args,{ARTYFACT_ADMIN_TOKEN:'admin'})).code).toBe(0);
+  expect(srv.hits).toHaveLength(1);expect(srv.hits[0].body).toEqual({nodes:['module.web.entry']});
+  expect((await cli([...args,'--create'],{ARTYFACT_ADMIN_TOKEN:'admin'})).code).toBe(0);
+  expect(srv.hits[2].body).toEqual(draftResponse.request);
+ }finally{await srv.close();}
 });
 
 it('plan draft --create posts the draft request unchanged and prints the plan id', async () => {
