@@ -3,11 +3,11 @@
 
 ## Now
 
-- Implementing intent-to-ontology authoring, truthful integrity review and Artyfact's enriched System map under the [approved plan](../design/intent-integrity-plan.md), [PR #80](https://github.com/sdawka/artyfact-cf/pull/80).
-- Core, backend, recovery, CLI/UI and self-Genome slices are integrated. Independent review repairs and exact-current status metadata are integrated. The full clean gate passed at `92dd5f88`, and the final platform gate passed at `e6c472f0` (3,069 units, 100 fixture, 16 fake browser checks). User-approved real Jev controls caught a dangling reference and unsupported sharing; low-confidence clean results remain needs-review. Exact materialization and real Artifacts import preserved explicit test-operator agreement. The bounded self retry now completes real node checks, honestly needs-review after 200 calls (167 subjects); total live use is 214/500. Input-size hardening passed independent review. Hosted baseline `d3b78a60` passed; final retry/exhaustion budget corrections passed the local gate at `99cf1794` (3,072 units, 100 fixture and 16 fake browser tests); exact-head hosted verification is pending, with real partial-report agreement now verified.
-- Next: finish exact-head local/hosted gates, then deploy and import the self-Genome into production and verify its map. [Evidence](journals/2026-10-14-intent-integrity-implementation.md).
-- GRREAT validation passes; RPC preview applied 0 records. Remote sync remains pending a confirmed separate Artyfact destination; preserve the wrong-project conflict.
-- Last updated: 2026-10-14T18:04:30-04:00.
+- Released intent authoring, truthful integrity review and the enriched self-Genome in [PR #80](https://github.com/sdawka/artyfact-cf/pull/80), merged at `6ccefdcb`; deployed Worker `044f50b6-d505-4e30-89e9-6907b83ad34e`.
+- Local gate: 3,072 units, 100 fixture and 16 fake browser checks; final hosted CI passed in 14m18s. Real-provider verification used 214/500 approved calls, including exact source-free materialization/import and explicit partial-report test dispositions. [Evidence](journals/2026-10-14-intent-integrity-implementation.md).
+- Production Artyfact now loads with all ten Things and source bindings. Live desktop/mobile checks found one keyboard-accessibility defect in the long unmapped-path list; its focused repair is in progress. Self integrity remains explicitly unapproved; hosted judgments are simulated.
+- Remaining quality work: semantic confidence calibration and larger-graph/source-document coverage. GRREAT RPC preview applied 0; remote sync still awaits a confirmed separate Artyfact destination.
+- Last updated: 2026-10-14T18:29:22-04:00.
 
 ## Spike baseline
 
