@@ -12,12 +12,12 @@ import {
 } from "./amendment/testData";
 import type { GenomeCandidateReview } from "../../../../shared/api";
 
-function Harness() {
+function Harness({ r = realization }: { r?: typeof realization }) {
   const { data } = useModelBundle();
   if (!data) return null;
   return (
     <ModelProvider bundle={data}>
-      <AmendmentReview systemId={SYSTEM_ID} evolutionId={EID} realization={realization} candidate={candidate} />
+      <AmendmentReview systemId={SYSTEM_ID} evolutionId={EID} realization={r} candidate={candidate} />
     </ModelProvider>
   );
 }
@@ -73,6 +73,19 @@ describe("diffReadiness", () => {
 });
 
 describe("AmendmentReview", () => {
+  it("names an abandoned amendment as such and keeps its tree read-only", async () => {
+    const abandoned = [{ path: "/s/:systemId/r/:rev/work", element: <Harness r={{ ...realization, status: "abandoned" }} /> }];
+    renderApp(URL, abandoned, (qc: QueryClient) => {
+      qc.setQueryData(qk.amendmentReview(SYSTEM_ID, RID), makeReview());
+      qc.setQueryData(qk.model(SYSTEM_ID, "head"), { ...fixtureBundle(), source: "api" });
+    });
+    expect(await screen.findByRole("heading", { name: /Genome amendment/i })).toBeTruthy();
+    expect(screen.getByText("abandoned")).toBeTruthy();
+    expect(screen.queryByText("awaiting admin")).toBeNull();
+    const tree = screen.getByRole("tree", { name: "Amendment changes" });
+    for (const b of within(tree).getAllByRole("button", { name: /^(Agree|Reject) / })) expect((b as HTMLButtonElement).disabled).toBe(true);
+  });
+
   it("shows the header and the changes as an agreement tree in place of the semantic delta, with the field diff under its node", async () => {
     renderReview(makeReview());
     expect(await screen.findByRole("heading", { name: /Genome amendment/i })).toBeTruthy();
@@ -249,6 +262,6 @@ describe("AmendmentReview", () => {
     expect((screen.getByRole("button", { name: "Accept amendment" }) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getAllByText(/fixture data/i)).toHaveLength(2);
     expect((screen.getByRole("button", { name: "Reject amendment" }) as HTMLButtonElement).disabled).toBe(true);
-    expect(screen.getByText(/nothing can be rejected/i)).toBeTruthy();
+    expect(screen.getByText(/Rejecting needs the platform API/)).toBeTruthy();
   });
 });

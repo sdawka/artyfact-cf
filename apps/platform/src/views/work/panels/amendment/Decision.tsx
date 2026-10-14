@@ -49,7 +49,7 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
   const acceptDisabledReason = outcome
     ? "This amendment is already decided."
     : fixture
-      ? "Fixture data: the platform API is not connected, so nothing can be accepted."
+      ? "Accepting needs the platform API. The UI is showing fixture data."
       : blocked
         ? "Accept is blocked: a hard violation is present. Reject it, or ask the agent to fix the Genome and resubmit."
         : blockedReason;
@@ -57,7 +57,7 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
   const rejectDisabledReason = outcome
     ? "This amendment is already decided."
     : fixture
-      ? "Fixture data: the platform API is not connected, so nothing can be rejected."
+      ? "Rejecting needs the platform API. The UI is showing fixture data."
       : null;
 
   const doAccept = () => {

@@ -63,6 +63,9 @@ function ChangeTree({ delta, readOnly, onRejected }: { delta: GenomeCandidateRev
   );
 }
 
+/** Terminal realization statuses and how the badge names them; anything else still awaits an admin. */
+const DECIDED: Partial<Record<Realization["status"], string>> = { promoted: "accepted", rejected: "rejected", abandoned: "abandoned" };
+
 /**
  * Admin review of an agent's Genome change: its changes as an agreement tree, rule findings (deterministic) and System
  * One signals (model judgments) in separate sections, then accept (all or nothing) or reject.
@@ -70,7 +73,8 @@ function ChangeTree({ delta, readOnly, onRejected }: { delta: GenomeCandidateRev
 export default function AmendmentReview({ evolutionId, realization, candidate }: AmendmentReviewProps) {
   const q = useAmendmentReview(evolutionId, realization.id);
   const [outcome, setOutcome] = useState<DecisionOutcome | null>(null);
-  const [rejectedNodes, setRejectedNodes] = useState<string[]>([]);
+  // Rejected node titles from the tree, tied to the commit the tree was built for (a refetch with a new commit resets both).
+  const [rejected, setRejected] = useState<{ commit: string; titles: string[] } | null>(null);
   const { systemId } = useSystemRoute();
   const m = useModel();
   // An editor commit's "why" starts the interpretation (shown as pending until edited).
@@ -89,7 +93,9 @@ export default function AmendmentReview({ evolutionId, realization, candidate }:
   const diff = diffReadiness(r.readinessBase, r.readinessCandidate);
   const first = r.delta.changes[0];
   const blocked = diff.hardAdded.length > 0 || r.review.some(isHardFlag);
-  const state = outcome?.kind ?? (realization.status === "promoted" ? "accepted" : realization.status === "rejected" ? "rejected" : "awaiting admin");
+  const reviewed = r.commit ?? candidate.commit;
+  const rejectedNodes = rejected?.commit === reviewed ? rejected.titles : [];
+  const state = outcome?.kind ?? DECIDED[realization.status] ?? "awaiting admin";
 
   return (
     <article className={styles.panel} aria-label="Genome amendment review">
@@ -110,10 +116,10 @@ export default function AmendmentReview({ evolutionId, realization, candidate }:
       <Section title="Changes">
         {/* Keyed on the reviewed commit: a refetch with another delta starts the decisions afresh. */}
         <ChangeTree
-          key={r.commit ?? candidate.commit}
+          key={reviewed}
           delta={r.delta}
-          readOnly={state !== "awaiting admin" ? "This amendment is already decided." : m.bundle.source === "fixture" ? "Fixture data: the platform API is not connected, so nothing can be decided." : null}
-          onRejected={setRejectedNodes}
+          readOnly={state !== "awaiting admin" ? "This amendment is already decided." : m.bundle.source === "fixture" ? "Deciding needs the platform API. The UI is showing fixture data." : null}
+          onRejected={(titles) => setRejected({ commit: reviewed, titles })}
         />
       </Section>
       <Section title="Readiness diff">

@@ -59,7 +59,7 @@ function ImportReviewPanel({ review }: { review: SystemImportReview }) {
   const readOnly = accepted || outcome
     ? "The import review is accepted; its decisions are final."
     : fixture
-      ? "Fixture data: the platform API is not connected, so nothing can be decided."
+      ? "Deciding needs the platform API. The UI is showing fixture data."
       : null;
   const decisions = useMemo(() => importDecisions(plan), [plan]);
   const titles = useMemo(() => new Map(walk(plan).map((n) => [n.id, n.title])), [plan]);
@@ -175,7 +175,7 @@ function ImportDecision({ accept, fixture, blocker, rejected, outcome }: {
   const [adminToken, setAdminToken] = useAdminTokenField();
   const [error, setError] = useState<string | null>(null);
   const ids = { interp: useId(), why: useId(), reject: useId(), token: useId() };
-  const acceptWhy = outcome ? null : fixture ? "Fixture data: the platform API is not connected, so nothing can be accepted." : blocker;
+  const acceptWhy = outcome ? null : fixture ? "Accepting needs the platform API. The UI is showing fixture data." : blocker;
 
   const doAccept = () => {
     if (!interpretation.trim()) return setError("Interpretation is required to accept.");
