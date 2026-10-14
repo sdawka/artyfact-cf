@@ -3,9 +3,10 @@ import { useId, useRef, useState, type FormEvent } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router";
 import type { EditorCommitRequest, FileScope, StartWorkRequest } from "../../../shared/api";
-import { useAdminTokenField } from "@/api/adminToken";
+import { useAdminToken } from "@/api/adminToken";
 import { ApiRequestError, FixtureModeError, getFile } from "@/api/client";
 import { ManualCommitError, useEvolutions, useManualCommit, useTree, qk, type ManualCommitProgress } from "@/api/queries";
+import { Panel } from "@/components/Panel/Panel";
 import { emitFx } from "@/effects/fx";
 import { useKeepParams, useSystemRoute } from "@/model/useSelection";
 import { rememberWhy } from "./why";
@@ -45,7 +46,7 @@ function loadName(): string {
   }
 }
 
-/** Commit the draft: message, why, target Evolution (or a new one), name, admin token; then a candidate on Work. */
+/** Commit the draft as a Panel that replaces the file region: message, why, target Evolution (or a new one), name; then a candidate on Work. */
 export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resume, onResume }: CommitSheetProps) {
   const uid = useId();
   const navigate = useNavigate();
@@ -63,8 +64,8 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
   const [title, setTitle] = useState("");
   const [intent, setIntent] = useState("");
   const [name, setName] = useState(loadName);
-  // Pre-filled from the header token; a typed value is a one-off.
-  const [adminToken, setAdminToken, resetAdminToken] = useAdminTokenField();
+  // The admin token is the header's: this form has no field for it.
+  const { token: adminToken } = useAdminToken();
 
   const open = (evolutions.data?.evolutions ?? []).filter((e) => STARTABLE.has(e.state));
   const resuming = !!resume?.realizationId && !!resume.secret;
@@ -80,7 +81,7 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
     if (!target) reasons.push("Pick an evolution.");
     if (target === NEW && (!title.trim() || !intent.trim())) reasons.push("Give the new evolution a title and an intent.");
   }
-  if (!resuming && !adminToken) reasons.push("Enter the admin token.");
+  if (!resuming && !adminToken) reasons.push("Set the admin token in the header.");
 
   /** The union of model nodes across every changed file: from the listing, else from the file itself. */
   const changedNodes = async (): Promise<string[]> => {
@@ -127,7 +128,6 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
       {
         onSuccess: (res) => {
           onResume(null);
-          resetAdminToken();
           if (whyText) rememberWhy(systemId, res.realizationId, whyText);
           emitFx({ kind: "submitted", strength: 1.2 }, formRef.current);
           onCommitted();
@@ -141,16 +141,21 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
   };
 
   return (
-    <section className={styles.sheet} aria-labelledby={`${uid}-h`}>
-      <div className={styles.sheetHead}>
-        <h2 id={`${uid}-h`}>Commit {changes.length} file{changes.length === 1 ? "" : "s"}</h2>
-        <Button type="button" variant="secondary" onClick={onClose}>Close</Button>
-      </div>
+    <Panel
+      title={`Commit ${changes.length} file${changes.length === 1 ? "" : "s"}`}
+      onBack={onClose}
+      backLabel="Back to file"
+      primary={
+        <Button type="submit" form={`${uid}-form`} variant="primary" disabled={commit.isPending} reason={reasons[0]}>
+          {commit.isPending ? "Committing…" : resume ? "Retry commit" : "Commit"}
+        </Button>
+      }
+    >
       <p className={styles.muted}>
         The commit goes to a new editor realization's fork and becomes a candidate on Work. Realize it there with Promote or Accept.
       </p>
       {repo === "app" && <p><Link to={href("work", { panel: "plan", evolution: null, realization: null })}>Create a Realization Task</Link>. Your app draft stays here until you discard it.</p>}
-      <form ref={formRef} onSubmit={submit} className={styles.form}>
+      <form id={`${uid}-form`} ref={formRef} onSubmit={submit} className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`${uid}-m`}>Message</label>
           <Input id={`${uid}-m`} value={message} onChange={(e) => setMessage(e.target.value)} required autoComplete="off" />
@@ -186,25 +191,9 @@ export function CommitSheet({ repo, fixture, changes, onClose, onCommitted, resu
           <label htmlFor={`${uid}-n`}>Your name</label>
           <Input id={`${uid}-n`} value={name} onChange={(e) => setName(e.target.value)} autoComplete="name" />
         </div>
-        {!resuming && (
-          <div className={styles.field}>
-            <label htmlFor={`${uid}-k`}>Admin token</label>
-            <Input id={`${uid}-k`} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} autoComplete="off" />
-          </div>
-        )}
         {resuming && <p className={styles.muted}>Retrying on realization <code>{resume!.realizationId}</code>.</p>}
-        <div className={styles.actions}>
-          <Button type="submit" variant="primary" disabled={reasons.length > 0 || commit.isPending} aria-describedby={reasons.length ? `${uid}-why` : undefined}>
-            {commit.isPending ? "Committing…" : resume ? "Retry commit" : "Commit"}
-          </Button>
-        </div>
-        {reasons.length > 0 && (
-          <ul id={`${uid}-why`} className={styles.reasons} aria-label="Why commit is disabled">
-            {reasons.map((r) => <li key={r}>{r}</li>)}
-          </ul>
-        )}
         {commit.isError && <p role="alert" className={styles.error}>{commitError(commit.error)}</p>}
       </form>
-    </section>
+    </Panel>
   );
 }

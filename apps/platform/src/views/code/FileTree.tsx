@@ -1,7 +1,8 @@
 import { useId, useMemo, useState } from "react";
 import { Link } from "react-router";
 import type { ChangeKind } from "./useDraft";
-import { buildTree, filterTree, type FileEntry, type TreeNode } from "./tree";
+import { ChevronRightIcon } from "@radix-ui/react-icons";
+import { buildTree, compactTree, filterTree, type FileEntry, type TreeNode } from "./tree";
 import styles from "./code.module.css";
 
 export interface FileTreeProps {
@@ -12,12 +13,15 @@ export interface FileTreeProps {
   hrefFor(path: string): string;
 }
 
-/** The file list as a nested tree with a filter. Files are links to `?path=`; modified files carry ●. */
+/**
+ * The file list as a tree with a filter. Closed by default except the way to the selected file; single-child directories
+ * fold into one row ("commitment.x/node.yaml"). Files are links to `?path=`; changed files carry ●.
+ */
 export function FileTree({ entries, selected, changes, hrefFor }: FileTreeProps) {
   const uid = useId();
   const [query, setQuery] = useState("");
   const tree = useMemo(() => buildTree(entries), [entries]);
-  const shown = useMemo(() => filterTree(tree, query), [tree, query]);
+  const shown = useMemo(() => compactTree(filterTree(tree, query)), [tree, query]);
   return (
     <nav aria-label="Files" className={styles.tree}>
       <label htmlFor={`${uid}-f`} className={styles.srOnly}>Filter files</label>
@@ -37,8 +41,8 @@ function Nodes({ nodes, selected, changes, hrefFor, forceOpen }: Omit<FileTreePr
       {nodes.map((n) =>
         n.type === "dir" ? (
           <li key={n.path}>
-            <details open={forceOpen || !!selected?.startsWith(`${n.path}/`) || n.path.split("/").length < 2}>
-              <summary className={styles.dir}>{n.name}/</summary>
+            <details open={forceOpen || !!selected?.startsWith(`${n.path}/`)}>
+              <summary className={styles.dir}><ChevronRightIcon aria-hidden="true" className={styles.chevron} />{n.name}/</summary>
               <Nodes nodes={n.children} selected={selected} changes={changes} hrefFor={hrefFor} forceOpen={forceOpen} />
             </details>
           </li>
@@ -46,8 +50,9 @@ function Nodes({ nodes, selected, changes, hrefFor, forceOpen }: Omit<FileTreePr
           <li key={n.path}>
             <Link
               to={hrefFor(n.path)}
-              className={styles.file}
-              aria-current={n.path === selected ? "page" : undefined}
+              className={`u-selectable ${styles.file}`}
+              title={n.path}
+              aria-current={n.path === selected ? "true" : undefined}
               data-change={changes.get(n.path)}
             >
               <span className={styles.fileName}>{n.name}</span>

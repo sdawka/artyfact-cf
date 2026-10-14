@@ -1,23 +1,27 @@
-.wrap { overflow-x: auto; border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); background: var(--color-surface-secondary); }
-.stats { margin: 0; padding: var(--spacing-1) var(--spacing-2); font-size: var(--font-size-xs); color: var(--color-text-subtle); border-bottom: 1px solid var(--color-border-subtle); }
-.table { width: 100%; border-collapse: collapse; font-family: var(--font-code); font-size: var(--font-size-xs); }
+/* A diff sits on a well. Additions use the info tint (never the success colour, which means pass); deletions the danger
+   tint. The tint paints only the sign and text cells: the line-number gutter stays on the well so its subtle text keeps
+   contrast on every row. */
+.wrap { overflow-x: auto; background: var(--surface-well); border: 1px solid var(--color-border-faint); border-radius: var(--border-radius-md); }
+.stats { margin: 0; padding: var(--spacing-1) var(--spacing-3); font: var(--type-meta); color: var(--color-text-secondary); border-bottom: 1px solid var(--color-border-faint); }
+.table { width: 100%; border-collapse: collapse; font-family: var(--font-code); font-size: var(--font-size-sm); }
 .row td { padding: 0 var(--spacing-2); vertical-align: top; }
-.num { width: 1%; text-align: right; color: var(--color-text-subtle); user-select: none; white-space: nowrap; }
+.num { width: 1%; text-align: right; color: var(--color-text-subtle); background: var(--surface-well); user-select: none; white-space: nowrap; }
 .sign { width: 1%; text-align: center; user-select: none; color: var(--color-text-secondary); }
 .text pre { margin: 0; font: inherit; white-space: pre; color: var(--color-text-primary); }
-.row[data-op="del"] { background: var(--color-error-background); }
+.row[data-op="del"] .sign, .row[data-op="del"] .text { background: var(--color-error-background); }
 .row[data-op="del"] .sign { color: var(--color-error-text); }
-.row[data-op="add"] { background: var(--color-info-background); }
+.row[data-op="add"] .sign, .row[data-op="add"] .text { background: var(--color-info-background); }
 .row[data-op="add"] .sign { color: var(--color-info-text); }
-.gap td { padding: 0; border-block: 1px solid var(--color-border-subtle); }
+.gap td { padding: 0; border-block: 1px solid var(--color-border-faint); }
 .expand {
   width: 100%;
-  padding: var(--spacing-1) var(--spacing-2);
+  min-height: 2rem;
+  padding: var(--spacing-1) var(--spacing-3);
   text-align: left;
   color: var(--color-text-secondary);
-  background: var(--color-background-secondary);
+  background: var(--surface-panel);
   border: 0;
-  font: inherit;
+  font: var(--type-meta);
   cursor: pointer;
 }
 .expand:hover { color: var(--color-text-primary); }

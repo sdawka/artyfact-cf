@@ -6,6 +6,7 @@ import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
 import { SYSTEM, entry } from "../changelog/testData";
 import { defaultPair } from "./pair";
+import { systemRows, systemSentence } from "./systemRows";
 
 const URL = `/s/${SYSTEM}/r/head/compare`;
 const REVISIONS: RevisionOption[] = [
@@ -62,6 +63,10 @@ describe("Compare", () => {
     expect(artifact.textContent).toMatch("a1b2c3d");
     expect(artifact.textContent).toMatch("changed");
     expect(within(table).getByRole("row", { name: /Template worker-fullstack/ })).toBeTruthy();
+    // Unchanged rows sit behind a toggle, changed rows come first.
+    expect(within(table).queryByRole("row", { name: /^Platform/ })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /^Show \d+ unchanged$/ }));
+    expect(within(table).getByRole("row", { name: /^Platform/ })).toBeTruthy();
     expect(screen.queryByText(/identical/)).toBeNull();
   });
 
@@ -70,16 +75,19 @@ describe("Compare", () => {
     const diff = await screen.findByRole("table", { name: "src/index.ts" });
     expect(diff.querySelectorAll('[data-op="del"]')).toHaveLength(1);
     expect(diff.querySelectorAll('[data-op="add"]')).toHaveLength(1);
-    expect(screen.getByRole("tab", { name: "Files" }).getAttribute("aria-selected")).toBe("true");
+    expect(screen.getByRole("tab", { name: /^Files/ }).getAttribute("aria-selected")).toBe("true");
     const app = screen.getByRole("region", { name: "App files" });
-    expect(within(app).getByRole("link", { name: "src/screens/People.tsx" }).getAttribute("href")).toContain("level=files");
-    expect(within(screen.getByRole("region", { name: "Genome files" })).getByRole("link", { name: "system.yaml" }).getAttribute("href")).toContain("repo=genome");
+    expect(within(app).getByRole("link", { name: /^src\/screens\/People\.tsx/ }).getAttribute("href")).toContain("level=files");
+    expect(within(screen.getByRole("region", { name: "Genome files" })).getByRole("link", { name: /^system\.yaml/ }).getAttribute("href")).toContain("repo=genome");
+    // The selected file's diff carries a way back into Code at the `to` revision.
+    const open = screen.getByRole("link", { name: "Open in Code" });
+    expect(open.getAttribute("href")).toBe(`/s/${SYSTEM}/r/head/code?repo=app&path=src%2Findex.ts`);
   });
 
   it("swaps the two sides", async () => {
     const { router } = renderApp(URL, undefined, seed());
     await screen.findByRole("table", { name: "System commits compared" });
-    fireEvent.click(screen.getByRole("button", { name: "Swap" }));
+    fireEvent.click(screen.getByRole("button", { name: "Swap revisions" }));
     await waitFor(() => {
       const q = new URLSearchParams(router.state.location.search);
       expect([q.get("from"), q.get("to")]).toEqual(["head", "sc-1"]);
@@ -88,7 +96,7 @@ describe("Compare", () => {
 
   it("shows the Genome delta with field before/after", async () => {
     renderApp(URL, undefined, seed());
-    fireEvent.click(await screen.findByRole("tab", { name: "Genome" }));
+    fireEvent.click(await screen.findByRole("tab", { name: /^Genome/ }));
     expect(await screen.findByLabelText("name before")).toBeTruthy();
     expect(screen.getByLabelText("name after")).toBeTruthy();
   });
@@ -98,9 +106,28 @@ describe("Compare", () => {
     expect(await screen.findByRole("note")).toHaveProperty("textContent", "Genome v1 format — not comparable");
   });
 
-  it("says when the two revisions are identical", async () => {
-    renderApp(URL, undefined, seed({ system: { ...system, identical: true } }));
-    expect(await screen.findByText("The two revisions are identical.")).toBeTruthy();
+  it("never says identical while a row changed: only the System commit and manifest differ", async () => {
+    // The API's `identical` is true when the Genome and app commits match, whatever else moved.
+    const same = "9".repeat(40);
+    const onlyManifest: SystemCompare = {
+      ...system,
+      genome: { ...system.genome, from: same, to: same },
+      app: { ...system.app!, from: { ...system.app!.to }, to: system.app!.to },
+      manifest: { templateVersions: [], hookVersions: [], platformChanged: false },
+      to: { ...system.to, manifestHash: "b".repeat(64) },
+      from: { ...system.from!, manifest: system.to.manifest, manifestHash: "a".repeat(64) },
+      identical: true,
+    };
+    renderApp(URL, undefined, seed({ system: onlyManifest }));
+    const status = await screen.findByText(/Genome and app files are identical; only .* changed\./);
+    expect(status.textContent).toMatch(/System commit and manifest hash/);
+    expect(screen.getByRole("row", { name: /Manifest hash/ }).textContent).toMatch("changed");
+  });
+
+  it("says nothing differs only when every row is the same", () => {
+    const rows = systemRows({ ...system, from: system.to, genome: { ...system.genome, from: system.genome.to }, app: null, manifest: { templateVersions: [], hookVersions: [], platformChanged: false }, identical: true });
+    expect(systemSentence(rows)).toBe("Nothing differs between these revisions.");
+    expect(systemSentence(systemRows(system))).toBe("Genome and App changed, with System commit, artifact artifact.webapp and template worker-fullstack.");
   });
 
   it("explains that fixture data has a single revision", async () => {

@@ -1,8 +1,8 @@
-import { Button } from "@/components/ui";
+import { ChevronDownIcon, ChevronRightIcon } from "@radix-ui/react-icons";
 import type { ChangelogRow } from "../../../shared/api";
-import { StatePill } from "@/app/StatePill";
 import { CopyButton } from "@/components/CopyButton/CopyButton";
-import { StatusChip, buildTone } from "@/components/StatusChip/StatusChip";
+import { StatusText } from "@/components/StatusText/StatusText";
+import { buildTone } from "@/components/StatusChip/StatusChip";
 import { FAKE_PROVIDER_TITLE } from "@/model/provider";
 import { shortRev } from "@/model/revisions";
 import { relTime } from "@/model/time";
@@ -19,44 +19,49 @@ interface Props {
   onToggle(): void;
 }
 
-/** One System commit: a single expand button over a dense summary line, the copy button beside it, the detail below. */
+/** The one state a row shows: the deployment when there is one, else the newest build. */
+function RowStatus({ row }: { row: ChangelogRow }) {
+  const d = row.deployment;
+  if (d) return <StatusText status={d.status} label={`${d.kind} ${d.status}`} tone={d.status === "failed" ? "fail" : "neutral"} />;
+  const b = row.builds[0];
+  return b ? <StatusText status={b.status} label={`${b.kind} build ${b.status}`} tone={buildTone(b.status)} /> : null;
+}
+
+/**
+ * One System commit as a divided row of three lines: id, time and author; the rationale in full; the summary with at most
+ * one state. The whole row toggles its detail; Copy sits beside it.
+ */
 export function CommitRow({ row, expanded, current, now, onToggle }: Props) {
   const detailId = `commit-detail-${row.id}`;
-  const build = row.builds[0];
+  const Caret = expanded ? ChevronDownIcon : ChevronRightIcon;
+  const evolutions = row.evolutions.map((e) => e.title || e.id);
   return (
-    <li id={`commit-${row.id}`} className={styles.row} data-current={current || undefined} {...(current && { "aria-current": "true" as const })}>
+    <li id={`commit-${row.id}`} className={`${styles.row} ${current ? "u-selected" : ""}`} data-current={current || undefined} {...(current && { "aria-current": "true" as const })}>
       <div className={styles.rowHead}>
-        <Button variant="ghost"
+        <button
           type="button"
-          className={`u-brackets ${styles.toggle}`}
+          className={`u-selectable ${styles.toggle}`}
           aria-expanded={expanded}
           aria-controls={expanded ? detailId : undefined}
           onClick={onToggle}
         >
           <span className={styles.line}>
-            <span aria-hidden="true" className={styles.caret}>{expanded ? "▾" : "▸"}</span>
+            <Caret aria-hidden="true" className={styles.caret} />
             <code className={styles.id}>{shortRev(row.id)}</code>
-            <time dateTime={row.at} title={row.at}>{relTime(row.at, now)}</time>
-            <span className={styles.muted}>{row.by} · {row.policy}{row.kind !== "promotion" ? ` · ${row.kind}` : ""}</span>
-            {row.evolutions.map((e) => (
-              <span key={e.id} className={styles.evo} title={e.id}>{e.title || e.id}</span>
-            ))}
+            <time className="u-numeric" dateTime={row.at} title={row.at}>{relTime(row.at, now)}</time>
+            <span className={styles.by} title={row.policy}>by {row.by}{row.kind !== "promotion" ? `, ${row.kind}` : ""}</span>
           </span>
-          <span className={styles.line}>
-            <span className={styles.rationale}>{row.rationale || "No rationale recorded."}</span>
+          <span className={styles.rationale}>{row.rationale || "No rationale recorded."}</span>
+          <span className={`${styles.line} ${styles.meta}`}>
+            <span>{row.loadError ? "summary unknown" : summaryLine(row.summary)}</span>
+            {evolutions.length > 0 && <span title={row.evolutions.map((e) => e.id).join(", ")}>Evolution {evolutions.join(", ")}</span>}
+            <RowStatus row={row} />
+            {row.rationalePending && <StatusText status="pending" label="Rationale pending" tone="attention" />}
+            {row.legacyFormat && <span>{LEGACY_NOTICE}</span>}
+            {row.fakeProvider && <span title={FAKE_PROVIDER_TITLE}>System One: fake provider</span>}
           </span>
-          <span className={styles.line}>
-            <span className={styles.summary}>{row.loadError ? "summary unknown" : summaryLine(row.summary)}</span>
-            {row.legacyFormat && <span className={styles.muted}>{LEGACY_NOTICE}</span>}
-            {row.fakeProvider && <StatePill state="fake" title={FAKE_PROVIDER_TITLE}>System One: fake provider</StatePill>}
-            {row.rationalePending && <StatusChip status="pending" label="rationale pending" tone="attention" />}
-            {build && <StatusChip status={build.status} label={`${build.kind} build ${build.status}`} tone={buildTone(build.status)} />}
-            {row.deployment && (
-              <StatusChip status={row.deployment.status} label={`${row.deployment.kind} ${row.deployment.status}`} tone={row.deployment.status === "failed" ? "fail" : "neutral"} />
-            )}
-          </span>
-        </Button>
-        <CopyButton value={row.id} label="Copy commit id" />
+        </button>
+        <span className={styles.copy}><CopyButton value={row.id} label="Copy commit id" /></span>
       </div>
       {expanded && <CommitDetail id={detailId} row={row} />}
     </li>
