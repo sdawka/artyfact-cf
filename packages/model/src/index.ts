@@ -23,3 +23,5 @@ export type {
 export * from './lifecycle.ts';
 export * from './ontology-package.ts';
 export * from './task-availability.ts';
+export * from './intent.ts';
+export * from './integrity.ts';
