@@ -99,7 +99,7 @@ test.describe("the self-model @fake", () => {
     await page.getByRole("tab", { name: "Genome" }).click();
     await expect(page.getByText(proposal.ops[0]!.node).first()).toBeVisible();
     await page.getByRole("tab", { name: "Files" }).click();
-    await expect(page.getByRole("link", { name: new RegExp(`^thing\\.platform/.*${proposal.ops[0]!.node}/node\\.yaml$`) })).toBeVisible();
-    await checkPage(page, testInfo, "self-compare-files", undefined, ['[data-op] > [class*="num"]']);
+    await expect(page.getByRole("link", { name: new RegExp(`^thing\\.platform/.*${proposal.ops[0]!.node}/node\\.yaml( added| modified| removed)?$`) })).toBeVisible();
+    await checkPage(page, testInfo, "self-compare-files");
   });
 });

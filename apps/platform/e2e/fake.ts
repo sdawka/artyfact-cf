@@ -76,19 +76,20 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   await expect(page.getByRole("heading", { level: 1, name: "Code" })).toBeVisible();
   // The Inspector opens the section's own node.yaml; the new binding is a new node directory under it.
   await expect(page).toHaveURL(/path=thing\.webapp%2Fsection\.runtime%2Fnode\.yaml/);
-  await page.getByRole("button", { name: "New file…" }).click();
+  await page.getByRole("button", { name: "New file", exact: true }).click();
   await page.getByLabel("New file path").fill(`thing.webapp/section.runtime/${node}/node.yaml`);
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await typeInEditor(page, `id: ${node}\nkind: binding\nfields:\n  name: ${title}\n  description: ${title} for the e2e run\n`, `thing.webapp/section.runtime/${node}/node.yaml`);
   await checkPage(page, testInfo, `code-${node}`);
-  await page.getByRole("link", { name: "Commit…" }).click();
+  // The commit panel has no token field: it uses the header's token, which lives in the tab's session storage.
+  await page.evaluate((token) => sessionStorage.setItem("artyfact.adminToken", token), ADMIN_TOKEN);
+  await page.getByRole("link", { name: "Commit changes" }).click();
   await page.getByLabel("Message").fill(`Add ${node}`);
   await page.getByRole("textbox", { name: "Why" }).fill(`The ${title} is needed.`);
   const evolution = page.getByLabel("Evolution", { exact: true });
   await evolution.click();
   await page.getByRole("listbox").getByRole("option").filter({ hasText: title }).last().click();
   await page.getByLabel("Your name").fill("E2E");
-  await page.getByLabel("Admin token").fill(ADMIN_TOKEN);
   await page.getByRole("button", { name: "Commit", exact: true }).click();
 
   await expect(page).toHaveURL(/\/work\?.*realization=/);

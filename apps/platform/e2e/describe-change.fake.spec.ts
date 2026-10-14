@@ -33,7 +33,7 @@ test.describe("describe a change @fake", () => {
     await expect(page.getByRole("heading", { level: 1, name: "Code" })).toBeVisible();
     await page.getByRole("button", { name: "Edit", exact: true }).click();
     await typeInEditor(page, "\n\nBirthdays are shown next to each contact.\n");
-    await page.getByRole("link", { name: "Commit…" }).click();
+    await page.getByRole("link", { name: "Commit changes" }).click();
     await expect(page.getByRole("button", { name: "Commit", exact: true })).toBeDisabled();
     await expect(page.getByRole("link", { name: "Create a Realization Task" })).toBeVisible();
     await expect.poll(() => page.evaluate(() => localStorage.getItem("artyfact.draft.system.peopling.app.head"))).toContain("Birthdays are shown next to each contact.");
