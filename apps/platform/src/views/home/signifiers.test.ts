@@ -126,6 +126,7 @@ describe("plan and import signifiers", () => {
     const noTasks = without(noImport, "tasks-awaiting-agent");
     expect(cardSummary(noTasks)).toMatchObject({ headline: "a plan awaits promotion", tone: "attention", workHref: "/s/system.x/r/head/work" });
     const noPromotion = without(noTasks, "plan-awaiting-promotion");
+    expect(cardSummary({ ...noPromotion, planCounts: counts({ submitted: 2 }) })).toMatchObject({ headline: "2 tasks await selection", tone: "attention", workHref: "/s/system.x/r/head/work" });
     expect(cardSummary(noPromotion)).toMatchObject({ headline: "1 realization evolving", tone: "evolving" });
     expect(cardSummary(noPromotion).workHref).toBeUndefined();
     expect(cardSummary(without(noPromotion, "evolving")).headline).toBe("not built");
@@ -137,11 +138,12 @@ describe("plan and import signifiers", () => {
   });
 
   it("adds ledger rows linking to review and work", () => {
-    const rows = needsYou([sys({ title: "Peopling", signifiers: ["import-pending", "tasks-awaiting-agent", "plan-awaiting-promotion"], planCounts: counts({ awaitingAgent: 1, integrated: 2 }) })]);
+    const rows = needsYou([sys({ title: "Peopling", signifiers: ["import-pending", "tasks-awaiting-agent", "plan-awaiting-promotion"], planCounts: counts({ awaitingAgent: 1, submitted: 1, integrated: 2 }) })]);
     expect(rows.map((r) => [`${r.title} · ${r.text}`, r.href])).toEqual([
       ["Peopling · import awaits review", "/s/system.x/r/head/review"],
       ["Peopling · 1 task awaits an agent", "/s/system.x/r/head/work"],
       ["Peopling · 2 plans await promotion", "/s/system.x/r/head/work"],
+      ["Peopling · 1 task awaits selection", "/s/system.x/r/head/work"],
     ]);
     expect(rows.every((r) => r.tone === "attention")).toBe(true);
   });

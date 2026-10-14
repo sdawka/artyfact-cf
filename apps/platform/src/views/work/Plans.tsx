@@ -5,7 +5,7 @@ import { useSystemRoute } from "@/model/useSelection";
 import { useWorkData } from "./data";
 import { useParam } from "./lib";
 import { DraftPanel } from "./plan/DraftPanel";
-import { FIXTURE_REASON, planError, TOKEN_REASON } from "./plan/lib";
+import { FIXTURE_REASON, planError, plural, TOKEN_REASON } from "./plan/lib";
 import { PlanDetail } from "./plan/PlanDetail";
 import { planKeys, PUBLIC_PLAN_READS, useApiMode, usePlan, usePlans } from "./plan/queries";
 import { TaskStatus } from "./plan/TaskStatus";
@@ -56,13 +56,14 @@ export function Plans() {
           className={`u-brackets ${styles.btn}`}
           aria-pressed={drafting}
           disabled={!api}
+          aria-describedby={!api ? "realization-plans-fixture" : undefined}
           onClick={() => setPanel(drafting ? null : "plan", { evolution: null, realization: null })}
         >
           Plan implementation
         </button>
       </div>
       <p>A Realization implements a pinned accepted Genome. Its Tasks run in isolated forks; Task Attempts preserve retry history.</p>
-      {!api && <p className={styles.muted}>{FIXTURE_REASON}</p>}
+      {!api && <p id="realization-plans-fixture" className={styles.muted}>{FIXTURE_REASON}</p>}
       {api && !token && (
         <p className={styles.muted}>
           {PUBLIC_PLAN_READS ? "Set the admin token to draft, select, integrate or promote plans." : "Set the admin token to load and manage Realization plans."}
@@ -70,13 +71,14 @@ export function Plans() {
       )}
       {plans.isLoading && <p role="status">Loading Realizations…</p>}
       {plans.error && <p role="alert">{planError("Reading plans", plans.error)}</p>}
+      {plans.data && plans.data.plans.length === 0 && <p className={styles.muted}>No Realization plan yet. Plan implementation drafts one.</p>}
       {plans.data && plans.data.plans.length > 0 && (
         <ul className={planStyles.planList} aria-label="Realization plans">
           {plans.data.plans.map((p) => (
             <li key={p.id} className={styles.inlineRow}>
               <button type="button" className={styles.textBtn} aria-pressed={selected === p.id} onClick={() => setPlan(selected === p.id ? null : p.id, { task: null })}>{p.title}</button>
               <span>{p.status}</span>
-              <span className={styles.muted}>{p.tasks.length} tasks</span>
+              <span className={styles.muted}>{plural(p.tasks.length, "task")}</span>
               {p.tasks.some((t) => t.status === "submitted") && <TaskStatus status="submitted" title="A task awaits selection" />}
             </li>
           ))}

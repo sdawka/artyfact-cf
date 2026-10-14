@@ -1,5 +1,5 @@
 import type { Signifier, SystemSummary } from "../../../shared/api";
-import { promotionText, tasksAwaitText } from "@/views/work/plan/signals";
+import { promotionText, selectionText, tasksAwaitText } from "@/views/work/plan/signals";
 import { buildTone, type ChipTone } from "@/components/StatusChip/StatusChip";
 
 /** A SystemSummary from any server version: every iteration-2 field is optional and may be missing. */
@@ -18,7 +18,7 @@ export interface DeployLine {
 }
 
 export interface CardView {
-  /** One sentence: awaiting review > import pending > tasks await an agent > plan awaiting promotion > evolving > not built > quiet. */
+  /** One sentence: awaiting review > import pending > tasks await an agent > plan awaiting promotion > tasks await selection > evolving > not built > quiet. */
   headline: string;
   tone: CardTone;
   /** The card's border state: `tone`, except that deploy trouble on an otherwise quiet System reads as attention. */
@@ -49,6 +49,9 @@ const importPending = (s: CardSummary) => has(s, "import-pending") || s.importRe
 const tasksAwaiting = (s: CardSummary) => (has(s, "tasks-awaiting-agent") ? Math.max(s.planCounts?.awaitingAgent ?? 0, 1) : undefined);
 /** Integrated plans awaiting promotion (`planCounts.integrated`); undefined when none. */
 const promotions = (s: CardSummary) => (has(s, "plan-awaiting-promotion") ? Math.max(s.planCounts?.integrated ?? 0, 1) : undefined);
+
+/** Submitted tasks whose candidate awaits a person's selection (`planCounts.submitted`; no signifier); undefined when none. */
+const selections = (s: CardSummary) => ((s.planCounts?.submitted ?? 0) > 0 ? s.planCounts!.submitted : undefined);
 
 const awaitText = (n: number) => (n === 0 ? "awaiting your review" : `${n} ${n === 1 ? "awaits" : "await"} your review`);
 
@@ -102,6 +105,8 @@ function headlineOf(s: CardSummary): Omit<CardView, "state"> {
   if (agents !== undefined) return { headline: tasksAwaitText(agents), tone: "attention", deploy, workHref };
   const promote = promotions(s);
   if (promote !== undefined) return { headline: promotionText(promote), tone: "attention", deploy, workHref };
+  const select = selections(s);
+  if (select !== undefined) return { headline: selectionText(select), tone: "attention", deploy, workHref };
   if (sig.has("evolving")) {
     const e = s.realizationCounts?.evolving;
     return { headline: e ? `${e} ${e === 1 ? "realization" : "realizations"} evolving` : "evolving", tone: "evolving", deploy };
@@ -129,7 +134,8 @@ export interface LedgerRow {
 
 /**
  * Rows per System with something pending, in the order given: decisions to review, a pending import review, tasks an
- * agent can take, plans awaiting promotion, then deploy trouble. Plan rows read the list's `planCounts`, which are as
+ * agent can take, plans awaiting promotion, tasks awaiting selection, then deploy trouble. The plan rows' numbers add up
+ * to the rail's "Work, n waiting". Plan rows read the list's `planCounts`, which are as
  * fresh as the last registry refresh.
  */
 export function needsYou(systems: readonly CardSummary[]): LedgerRow[] {
@@ -150,6 +156,9 @@ export function needsYou(systems: readonly CardSummary[]): LedgerRow[] {
     const promote = promotions(s);
     if (promote !== undefined)
       rows.push({ key: `${s.systemId}:promote`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/work`, text: promotionText(promote) });
+    const select = selections(s);
+    if (select !== undefined)
+      rows.push({ key: `${s.systemId}:select`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/work`, text: selectionText(select) });
     if (s.deployState === "behind")
       rows.push({ key: `${s.systemId}:behind`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/phenome`, text: "deployed, behind" });
     if (s.deployState === "failed")

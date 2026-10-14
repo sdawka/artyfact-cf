@@ -188,15 +188,21 @@ export async function apiPlan(request: APIRequestContext, planId: string): Promi
 }
 
 /**
- * Runs the repo's CLI (`packages/cli/bin/artyfact.js`) against the fake platform with the admin token, as an agent would.
+ * Runs the repo's CLI (`packages/cli/bin/artyfact.js`) against the fake platform as an agent would. The environment is
+ * scrubbed of every `ARTYFACT_*` variable from the developer's shell, so `task submit` must use the token stored at claim
+ * (a token-at-rest regression cannot hide behind an exported `ARTYFACT_TOKEN`). The admin token is passed only to
+ * `task claim|start|resume`, as the README's claim line runs with it and the agent line unsets it.
  * Resolves with the exit code and output; never throws on a non-zero exit, so refusals can be asserted.
  */
 export async function cli(args: string[], opts: { cwd: string; baseURL: string; env?: Record<string, string> }): Promise<{ code: number; stdout: string; stderr: string }> {
   const { execFile } = await import("node:child_process");
   const { fileURLToPath } = await import("node:url");
   const bin = fileURLToPath(new URL("../../../packages/cli/bin/artyfact.js", import.meta.url));
+  const env: Record<string, string> = Object.fromEntries(Object.entries(process.env).filter((e): e is [string, string] => !e[0].startsWith("ARTYFACT_") && e[1] !== undefined));
+  const admin = args[0] === "task" && ["claim", "start", "resume"].includes(args[1] ?? "");
+  Object.assign(env, { ARTYFACT_PLATFORM: opts.baseURL }, admin ? { ARTYFACT_ADMIN_TOKEN: ADMIN_TOKEN } : {}, opts.env);
   return new Promise((ok) => {
-    execFile(process.execPath, [bin, ...args], { cwd: opts.cwd, env: { ...process.env, ARTYFACT_PLATFORM: opts.baseURL, ARTYFACT_ADMIN_TOKEN: ADMIN_TOKEN, ...opts.env }, timeout: 60_000 }, (err, stdout, stderr) =>
+    execFile(process.execPath, [bin, ...args], { cwd: opts.cwd, env, timeout: 60_000 }, (err, stdout, stderr) =>
       ok({ code: err ? (typeof err.code === "number" ? err.code : 1) : 0, stdout: String(stdout), stderr: String(stderr) }));
   });
 }
