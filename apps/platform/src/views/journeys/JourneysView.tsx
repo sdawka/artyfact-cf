@@ -291,7 +291,7 @@ export default function JourneysView() {
           <p className={styles.hint}><Kbd keys={["+"]} /> <Kbd keys={["-"]} /> zoom <Kbd keys={["0"]} /> fit</p>
           <Legend />
           <details className={styles.steps} key={narrow ? "narrow" : "wide"}>
-            <summary>Steps ({graph.nodes.length}){activeStep ? <>, current <code>{activeStep}</code></> : null}</summary>
+            <summary>Steps ({graph.nodes.length}){activeStep ? `, current: ${graph.nodes.find((n) => n.id === activeStep)?.data.step.action ?? activeStep}` : null}</summary>
             <RowList label="Steps">
               {graph.nodes.map((n) => (
                 <Row
