@@ -16,7 +16,7 @@ export interface LifecycleTaskPacket { systemId:string; planId:string; taskId:st
   wave?:number|null;
   /** Plain-language independence statement: which tasks share no scope, which conflict, and what to leave alone. */
   independence?:string;
-  /** Other live tasks' write globs this task must not edit (minus its own). */
+  /** All other open tasks' write globs, minus any that overlap this task's own permitted globs or paths. */
   doNotTouch?:{taskId:string; globs:string[]}[];
   /** Other tasks of the plan that may run at the same time. */
   concurrent?:PacketTaskRef[];

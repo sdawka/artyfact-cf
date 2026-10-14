@@ -99,6 +99,19 @@ describe('lifecycle packet fields', () => {
     expect(packet).toMatchObject({ wave: 2, permittedGlobs: ['src/c/**', 'src/shared.ts'], workspace: { remote: 'https://git.example/app--c.git', baseCommit: BASE } });
   });
 
+  it('never lists a glob that covers or matches the task\'s own permitted edits', () => {
+    const p = plan([task('wide', ['src/**']), task('same', ['src/a.ts']), task('other', ['docs/**']), task('mine', ['src/a.ts', 'lib/*.ts'], { footprint: { repo: 'app', artifactId: 'artifact.webapp', globs: ['src/a.ts', 'lib/*.ts'], paths: ['src/a.ts', 'lib/x.ts'], unmatched: [], known: true } }), task('narrow', ['lib/x.ts'])]);
+    expect(packetFields(p, p.tasks[3]).doNotTouch).toEqual([{ taskId: 'other', globs: ['docs/**'] }]);
+  });
+
+  it('does not call tasks ordered through other dependencies independent', () => {
+    const p = plan([task('a', ['src/a/**']), task('b', ['src/b/**'], { dependsOn: ['a'] }), task('c', ['src/c/**'], { dependsOn: ['b'] }), task('d', ['src/d/**'])]);
+    const s = independenceStatement(p, p.tasks[0]);
+    expect(s).toMatch(/^Independent of d: /);
+    expect(s).toContain('Ordered with b (wave 2) by a declared or ontology dependency.');
+    expect(s).toContain("Ordered with c (wave 3) through other tasks' dependencies.");
+  });
+
   it('says when a dependency lives on another binding', () => {
     const p = plan([task('a', ['src/a/**'], { artifactId: 'artifact.api', footprint: { repo: 'api', artifactId: 'artifact.api', globs: ['src/a/**'], paths: [], unmatched: [], known: true }, status: 'selected', selectedCandidate: 'candidate.a' }), task('b', ['src/b/**'], { dependsOn: ['a'] })]);
     const b = p.tasks[1], packet = lifecyclePacket({ plan: p, task: b, attempt: attempt('b', 'claimed'), remote: 'r', reviewUrl: 'u' });
@@ -163,6 +176,19 @@ describe('lifecycle evidence freshness', () => {
     setEditorTransport({ fetch: fakeReceivePack(f.ns).fetch });
     const promoted = await walk(f, preview);
     expect(promoted.status, JSON.stringify(promoted.json)).toBe(200);
+  });
+  it('judges the latest evaluation per criterion, not any earlier one', async () => {
+    // Each criterion first passes on the candidate, then a later evaluation of it binds another commit.
+    const later: HookRunner = { ...passing, async runSubmission(ctx) {
+      const out = await passing.runSubmission(ctx), at = new Date(Date.now() + 60_000).toISOString();
+      return ctx.trigger === 'promotion' ? out : [...out, ...out.filter((e) => e.execution === 'completed').map((e) => ({ ...e, id: `${e.id}:later`, hook: `${e.hook}:later`, targetRef: `app@${'0'.repeat(40)}`, startedAt: at, finishedAt: at }))];
+    } };
+    setHooks({ runner: () => later });
+    const f = await importFresh();
+    setEditorTransport({ fetch: fakeReceivePack(f.ns).fetch });
+    const promoted = await walk(f);
+    expect(promoted.status, JSON.stringify(promoted.json)).toBe(409);
+    expect((promoted.json as unknown as { error: { code: string } }).error.code).toBe('blocked');
   });
   it('refuses evidence bound to another commit', async () => {
     setHooks({ runner: () => rewriting(() => `app@${'0'.repeat(40)}`) });

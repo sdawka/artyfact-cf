@@ -4,6 +4,7 @@
  * write token or the attempt secret; the start response hands those over separately.
  */
 import type { LifecycleTaskPacket, PacketTaskRef, RealizationPlan, Task, TaskAttempt, TaskConflict } from "../../shared/lifecycle";
+import { globMatch } from "../artifacts/source-map";
 import { protectedPathsFor } from "./task-packet";
 
 /** The 1-based wave holding `taskId` (`analysis.waves[i]` is wave i + 1), or null when no wave places it. */
@@ -31,6 +32,18 @@ function conflictSentence(c: TaskConflict, other: string, wave: number | null): 
   return `Scope unknown for ${other} or this task${w}; never both at once.`;
 }
 
+/** Every task reachable from `id` through `dependsOn`, in either direction (its ancestors and its dependents). */
+function related(plan: Pick<RealizationPlan, "tasks">, id: string): Set<string> {
+  const walk = (start: string, next: (t: string) => string[]) => {
+    const seen = new Set<string>(), todo = [...next(start)];
+    while (todo.length) { const t = todo.pop()!; if (!seen.has(t)) { seen.add(t); todo.push(...next(t)); } }
+    return seen;
+  };
+  const deps = (t: string) => plan.tasks.find((x) => x.id === t)?.dependsOn ?? [];
+  const dependents = (t: string) => plan.tasks.filter((x) => x.dependsOn.includes(t)).map((x) => x.id);
+  return new Set([...walk(id, deps), ...walk(id, dependents)]);
+}
+
 /**
  * The packet's plain-language independence statement for `task`, from `plan.analysis.conflicts`: which open tasks share
  * no scope (at the task's base commit), which conflict and why, and what to do on needing another task's file.
@@ -41,10 +54,15 @@ export function independenceStatement(plan: Pick<RealizationPlan, "tasks" | "ana
   const other = (c: TaskConflict) => (c.tasks[0] === task.id ? c.tasks[1] : c.tasks[0]);
   const mine = plan.analysis.conflicts.filter((c) => c.tasks.includes(task.id) && open.has(other(c)));
   const conflicting = new Set(mine.map(other));
-  const free = [...open].filter((id) => !conflicting.has(id));
+  const ordered = related(plan, task.id);
+  const free = [...open].filter((id) => !conflicting.has(id) && !ordered.has(id));
   const parts: string[] = [];
   if (free.length) parts.push(`Independent of ${free.join(", ")}: no shared source or ontology scope at ${short(task.base.commit)}.`);
   for (const c of mine) parts.push(conflictSentence(c, other(c), waveOf(plan, other(c))));
+  for (const id of [...open].filter((id) => ordered.has(id) && !conflicting.has(id))) {
+    const w = waveOf(plan, id);
+    parts.push(`Ordered with ${id}${w === null ? "" : ` (wave ${w})`} through other tasks' dependencies.`);
+  }
   if (!open.size) parts.push("No other open task in this plan.");
   parts.push(NEEDS);
   return parts.join(" ");
@@ -54,7 +72,9 @@ type Fields = Required<Pick<LifecycleTaskPacket, "wave" | "independence" | "doNo
 
 /** The plan-derived packet fields for `task`, as the plan stands now (after this attempt's claim). */
 export function packetFields(plan: RealizationPlan, task: Task, now: number = Date.now()): Fields {
-  const own = new Set(task.footprint.globs);
+  // Never tell the task not to touch what it may edit: drop another task's glob that overlaps one of its own globs or paths.
+  const own = [...task.footprint.globs, ...task.footprint.paths];
+  const permitted = (g: string) => own.some((o) => o === g || globMatch(g, o) || globMatch(o, g));
   const others = plan.tasks.filter((t) => t.id !== task.id);
   const ref = (t: Task): PacketTaskRef => ({ taskId: t.id, title: t.title, status: t.status, wave: waveOf(plan, t.id) });
   return {
@@ -62,7 +82,7 @@ export function packetFields(plan: RealizationPlan, task: Task, now: number = Da
     independence: independenceStatement(plan, task),
     doNotTouch: others
       .filter((t) => t.status !== "completed")
-      .map((t) => ({ taskId: t.id, globs: t.footprint.globs.filter((g) => !own.has(g)) }))
+      .map((t) => ({ taskId: t.id, globs: t.footprint.globs.filter((g) => !permitted(g)) }))
       .filter((d) => d.globs.length),
     concurrent: others.filter((t) => hasLiveAttempt(t, now)).map(ref),
     buildsOn: task.dependsOn
