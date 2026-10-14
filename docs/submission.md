@@ -28,7 +28,7 @@ Implementation is a plan of Tasks pinned to that Genome. The platform computes i
 
 Selected results integrate into one review. Promotion is a compare-and-swap on the System head inside a Durable Object. Work reviewed against an old head is refused.
 
-Verdicts are strict. Only pass is green. On a blocking criterion, anything but a completed pass blocks promotion, and missing evidence counts as unknown. System One judgments are probabilities; between 0.1 and 0.9 they stay unknown. The default judge in production, Cloudflare Clef on Workers AI, also checks visual criteria against screenshots of the CI preview or the agent's own; with no screenshot there is no verdict. A language model drafts plans and model edits, checked like any other edit.
+Verdicts are strict. Only pass is green. On a blocking criterion, anything but a completed pass blocks promotion, and missing evidence counts as unknown. System One judgments are probabilities; between 0.1 and 0.9 they stay unknown. The default judge in production, Cloudflare Clef on Workers AI, also checks visual criteria against screenshots of the CI preview; an agent's own screenshots can fail a check but never pass it alone. A language model drafts plans and model edits, checked like any other edit.
 
 On Cloudflare, the platform Worker serves the API and the review app through Static Assets, with one Durable Object with SQLite per System. Artifacts hold the Genome and app repositories and a fork per Task. A separate artyfact-ci Worker runs a Workflow, started through a cross-script binding, that builds app commits in a container and deploys previews and production. Agents push through the CLI submit command.
 
@@ -46,7 +46,7 @@ Direction, not shipped: several agents taking the same Task contract in parallel
 - Intent edits: a message is routed through the Genome tree by the ontology engine and becomes ops to review and accept. Artyfact describes itself with ten Things in the same format.
 - Changelog and Compare across System, Genome and file level.
 - Preview builds and production deployments through the CI Worker, with a health check on the deployed preview.
-- Visual checks: Clef judges screenshots of the preview, taken with Browser Run at desktop and mobile sizes or attached with `artyfact task submit --screenshot`, and stored in R2. Artyfact judges its own /model page this way.
+- Visual checks: Clef judges screenshots of the preview, taken with Browser Run at desktop and mobile sizes or attached with `artyfact task submit --screenshot`, and stored in R2. Agent screenshots are unverified: they can fail a check but never pass it without a platform capture, and a check makes at most 3 Clef asks. Artyfact judges its own /model page this way.
 - How it works: a public page drawn at build time from Artyfact's own Genome.
 - Deployments page with runtime events from the running app, tied to the System commit.
 - Parts: reusable packages with pinned versions, composed with recorded provenance.

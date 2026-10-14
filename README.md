@@ -72,7 +72,7 @@ flowchart LR
   subgraph Worker["Worker: artyfact-platform"]
     API[Hono /api]
     Q[Queue consumer]
-    Hooks[Hook runner<br/>manifest, diff, rules, System One, http]
+    Hooks["Hook runner<br/>manifest, diff, rules, System One, http,<br/>browser (Clef visual)"]
   end
   DO[(SystemAuthority<br/>Durable Object + SQLite)]
   ART[(Artifacts<br/>genome repo, app repo, forks)]
