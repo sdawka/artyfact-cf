@@ -6,7 +6,7 @@ import type { ArtifactBinding } from '../shared/api';
 import { z } from 'zod';
 import { diffModels, overlap, type TaskDefinition } from '@artyfact/model';
 import type { RealizationPlan, Task, TaskStartResponse, TaskSubmitResponse, ImplementationReview, IntegratedBinding, PlanPromoteResponse } from '../shared/lifecycle';
-import type { Candidate, Evaluation } from '../shared/api';
+import type { Candidate, Evaluation, GateItem } from '../shared/api';
 import { artifactsErrorCode, artifactsFor, forkAndWait, remoteUrl, withRepo } from './artifacts/client';
 import { buildCandidateManifest, diffTrees, manifestHash } from './artifacts/candidates';
 import { listTree } from './artifacts/genome-source';
@@ -221,11 +221,11 @@ export async function promoteLifecyclePlan(env:Env,sid:string,pid:string,body:un
   if(!exact)throw conflict('stale-candidate','integrated candidate no longer matches exact reviewed evidence');
   await runCandidate(env,p,combined,c,b.source.repo,'promotion',exact);gates[c.id]=gateCriteria(g.model,{acceptanceCriteria:combined.checks},{target:'app'});
  }
- const result=await rpc(stub.lifecyclePromote(pid,{...input,gates,by:'admin'})).catch(e=>{throw gateRefusal(e)??e;});await revokeEnded(env,sid,result.ended);await refreshRegistry(env,sid);return {plan:result.plan,commit:result.commit};
+ const out=await rpc(stub.lifecyclePromote(pid,{...input,gates,by:'admin'}));if(!out.ok)throw gateRefusal(out);const result=out;await revokeEnded(env,sid,result.ended);await refreshRegistry(env,sid);return {plan:result.plan,commit:result.commit};
 }
 
-/** The DO's PromotionBlockedError loses its class over RPC; its message still names the refusal. */
-function gateRefusal(e:unknown){const m=(e as Error)?.message??'';if(/^promotion blocked by \d+ hard criteria$/.test(m))return conflict('blocked',m);if(m==='advisories must be acknowledged with a rationale')return conflict('advisories-unacknowledged',m);return undefined;}
+/** A plan gate refusal as 409 with the criteria behind it: `blocking` (hard items not passing) and `advisories`. */
+function gateRefusal(out:{code:string;blocking:GateItem[];advisories:GateItem[]}){const details={criteria:out.blocking,advisories:out.advisories};return out.code==='advisories-unacknowledged'?conflict(out.code,'advisory criteria are not green; acknowledge them with a non-empty rationale',details):conflict('blocked',`promotion blocked by ${out.blocking.length} hard criteria`,details);}
 
 async function prepareFanInBase(env:Env,p:RealizationPlan,t:Task):Promise<{source:ArtifactBinding;selections:string[]}|undefined> {
  const same=t.dependsOn.map(id=>taskOf(p,id)).filter(d=>d.artifactId===t.artifactId);

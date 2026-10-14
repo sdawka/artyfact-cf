@@ -169,7 +169,11 @@ describe('lifecycle evidence freshness', () => {
     setEditorTransport({ fetch: fakeReceivePack(f.ns).fetch });
     const promoted = await walk(f);
     expect(promoted.status, JSON.stringify(promoted.json)).toBe(409);
-    expect((promoted.json as unknown as { error: { code: string } }).error.code).toBe('blocked');
+    const error = (promoted.json as unknown as { error: { code: string; message: string; details: { criteria: { criterion: string; verdict: string; severity: string }[]; advisories: unknown[] } } }).error;
+    expect(error.code).toBe('blocked');
+    expect(error.message).toBe('promotion blocked by 1 hard criteria');
+    expect(error.details.criteria).toEqual([expect.objectContaining({ criterion: 'C.system.promotion', verdict: 'fail', severity: 'hard' })]);
+    expect(error.details.advisories).toEqual(expect.any(Array));
   });
 });
 
