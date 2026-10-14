@@ -5,9 +5,12 @@
  */
 import { env, exports } from "cloudflare:workers";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { loadGenome } from "@artyfact/model";
 import { fakeSystemOne, fakeTranslator } from "@artyfact/ontology";
+import { metaTemplates } from "@artyfact/templates";
 import { routes, type ImportSystemResponse, type IntentAcceptResponse, type Proposal } from "../shared/api";
-import { lifecyclePaths, type DraftRealizationPlanResponse, type RealizationPlan } from "../shared/lifecycle";
+import { lifecyclePaths, type DraftRealizationPlanResponse, type ImplementationReview, type PlanPromoteResponse, type RealizationPlan, type TaskStartResponse, type TaskSubmitResponse } from "../shared/lifecycle";
+import { walkTree } from "../worker/artifacts/genome-source";
 import { setArtifactsOverride } from "../worker/artifacts/client";
 import { setEditorTransport } from "../worker/editor";
 import { resetHooks, setHooks } from "../worker/hooks/index";
@@ -31,6 +34,8 @@ async function call<T>(method: string, path: string, body?: unknown, headers: Re
 }
 
 let n = 0;
+/** The Artifacts namespace of the last `importSystem`. */
+let lastNs: FakeArtifacts;
 async function importSystem(edit: (files: Record<string, string>) => Record<string, string> = (f) => f) {
   const ns = new FakeArtifacts();
   const tag = `${++n}${Math.random().toString(36).slice(2, 6)}`;
@@ -39,6 +44,7 @@ async function importSystem(edit: (files: Record<string, string>) => Record<stri
   ns.create(`draft-app-${tag}`).commit(app, "app");
   setArtifactsOverride(ns);
   setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
+  lastNs = ns;
   const imp = await call<ImportSystemResponse>("POST", "/api/systems/import", { systemId, genomeRepo: `draft-genome-${tag}`, appRepo: `draft-app-${tag}`, review: false });
   expect(imp.status, JSON.stringify(imp.json)).toBe(201);
   return systemId;
@@ -144,6 +150,54 @@ describe("POST /realization-plans/draft", () => {
     const named = await draft(systemId, { evolutionIds: ["evolution.5"] });
     expect(named.json.request.tasks).toEqual([]);
     expect(named.json.problems).toContainEqual({ severity: "warning", message: "evolution.5 is already realized; skipped" });
+  });
+
+  it("after its plan is promoted, an empty-body draft has no tasks for the Evolution", async () => {
+    const systemId = await importSystem();
+    const ns = lastNs;
+    const evolution = await acceptChange(systemId, "Change what the People screen says");
+    // Task candidates pass every criterion of the Genome, so the plan promotes.
+    const ids = loadGenome(genome, { templates: metaTemplates }).criteria.map((c) => c.id);
+    setHooks({ runner: () => ({ ...passing, async runSubmission(ctx) {
+      const at = new Date().toISOString();
+      return ids.map((criterion) => ({
+        id: `${ctx.candidate.id}:${criterion}`, candidate: ctx.candidate.id, hook: `hook:${criterion}`, criterion, ownerId: "o", subjectId: "s",
+        targetRef: ctx.candidate.commit, execution: "completed" as const, verdict: "pass" as const, verifier: "artyfact-platform", startedAt: at, finishedAt: at,
+        observations: [], limitations: [], provenance: {},
+      }));
+    } }) });
+    const d = await draft(systemId, {});
+    expect(d.json.provenance.evolutionIds).toEqual([evolution.id]);
+    const created = await call<RealizationPlan>("POST", lifecyclePaths.plans(systemId), d.json.request);
+    expect(created.status, JSON.stringify(created.json)).toBe(201);
+    const plan = created.json;
+    // Every task, wave by wave: claim, commit a file in its footprint, submit, select.
+    for (const id of plan.analysis.waves.flat()) {
+      const start = await call<TaskStartResponse>("POST", lifecyclePaths.action(systemId, plan.id, id, "claim"), {});
+      expect(start.status, JSON.stringify(start.json)).toBe(201);
+      const { task, attempt, secret } = start.json;
+      const repo = ns.repo(task.forkRepo);
+      const files = await walkTree(repo, task.base.commit);
+      const path = task.footprint.paths[0] ?? `${task.footprint.globs[0]!.replace(/\*\*.*$/, "").replace(/\/?$/, "/")}draft.txt`;
+      files.set(path, `${files.get(path) ?? ""}\n// ${id}`);
+      const sub = await call<TaskSubmitResponse>("POST", lifecyclePaths.action(systemId, plan.id, id, "submit"), { attemptId: attempt.id, generation: attempt.generation, commit: repo.commit(files, id) }, { authorization: `Bearer ${secret}` });
+      expect(sub.status, JSON.stringify(sub.json)).toBe(201);
+      const sel = await call<RealizationPlan>("POST", lifecyclePaths.action(systemId, plan.id, id, "select"), { candidateId: sub.json.candidate.id });
+      expect(sel.status, JSON.stringify(sel.json)).toBe(200);
+    }
+    const review = await call<ImplementationReview>("POST", lifecyclePaths.integrate(systemId, plan.id), {});
+    expect(review.status, JSON.stringify(review.json)).toBe(200);
+    const promoted = await call<PlanPromoteResponse>("POST", lifecyclePaths.promote(systemId, plan.id), { expectedHead: review.json.expectedHead, rationale: "Reviewed", candidateIds: review.json.bindings.map((b) => b.candidateId) });
+    expect(promoted.status, JSON.stringify(promoted.json)).toBe(200);
+
+    const after = await draft(systemId, {});
+    expect(after.status, JSON.stringify(after.json)).toBe(200);
+    expect(after.json.provenance.evolutionIds).not.toContain(evolution.id);
+    expect(after.json.request.tasks).toEqual([]);
+    // Not merely held by an open plan (naming it would draft it again): realized.
+    const named = await draft(systemId, { evolutionIds: [evolution.id] });
+    expect(named.json.request.tasks).toEqual([]);
+    expect(named.json.problems).toContainEqual({ severity: "warning", message: `${evolution.id} is already realized; skipped` });
   });
 
   it("with an empty body drafts every accepted, unrealized Evolution", async () => {

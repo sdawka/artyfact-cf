@@ -10,9 +10,9 @@ import { ADMIN_TOKEN, apiPlan, BASE, checkPage, cli, SYS } from "./fake";
  * the later task is refused until both are selected, and the plan is selected, integrated, reviewed and promoted in the UI.
  */
 test.describe("realization plan from draft to promotion @fake", () => {
-  // The fake planner drafts one task per section: goals and events in wave 1, and the UI task, whose screens invoke both
-  // operations, in wave 2 (test/node/peopling-waves.test.ts checks the same shape).
-  const NODES = ["operation.goal.save", "entity.ContactEvent", "operation.contact.log", "screen.goal", "screen.logContact", "screen.today"];
+  // The fake planner drafts one task per section: the goal and contact-event entities in wave 1, and the UI task, whose
+  // screens read both, in wave 2. (Operations would not do: the draft reads what they write, and both write Suggestion.)
+  const NODES = ["entity.RelationshipGoal", "entity.ContactEvent", "screen.goal", "screen.logContact"];
 
   test("draft, edit, create, claim, refuse, submit, select, integrate, review and promote @fake", async ({ page, request, baseURL }, testInfo) => {
     testInfo.setTimeout(180_000);

@@ -859,7 +859,6 @@ export async function draftRealizationPlan(env: Env, systemId: string, body: unk
   const stub = systemStub(env, systemId);
   const state = await stub.state();
   if (!state?.manifest) throw notFound(`system ${systemId} has no accepted Genome`);
-  // TODO(P10): guard with the System import review (`assertImportReviewed`, 409 `import-unreviewed`) once P4 lands.
   const [{ model }, evolutions, history, plans] = await Promise.all([
     genomeAt(env, systemId, state.genomeCommit, state.genomeSource), stub.evolutions(), stub.history(), stub.realizationPlans(),
   ]);
