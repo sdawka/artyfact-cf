@@ -81,8 +81,8 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   await page.getByRole("button", { name: "Add", exact: true }).click();
   await typeInEditor(page, `id: ${node}\nkind: binding\nfields:\n  name: ${title}\n  description: ${title} for the e2e run\n`, `thing.webapp/section.runtime/${node}/node.yaml`);
   await checkPage(page, testInfo, `code-${node}`);
-  // The commit panel has no token field: it uses the header's token, which lives in the tab's session storage.
-  await page.evaluate((token) => sessionStorage.setItem("artyfact.adminToken", token), ADMIN_TOKEN);
+  // The commit panel has no token field: it uses the header's token.
+  await setHeaderToken(page);
   await page.getByRole("link", { name: "Commit changes" }).click();
   await page.getByLabel("Message").fill(`Add ${node}`);
   await page.getByRole("textbox", { name: "Why" }).fill(`The ${title} is needed.`);
