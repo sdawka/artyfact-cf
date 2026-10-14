@@ -24,7 +24,7 @@ export function HomePalette({ open, onOpenChange, systems, parts, returnFocus }:
     <Dialog open={open} onOpenChange={onOpenChange} title="Go to a System or Part" className={styles.homeContent}
       onOpenAutoFocus={(event) => { event.preventDefault(); (event.target as HTMLElement).querySelector<HTMLElement>('[role="combobox"]')?.focus(); }}
       onCloseAutoFocus={(event) => { event.preventDefault(); const target = returnFocus?.current; (target?.isConnected ? target : document.getElementById("main"))?.focus(); }}>
-      <Command label="Go to a System or Part" className={styles.dialog} data-effects={effects.enabled ? "on" : "off"}>
+      <Command vimBindings={false} label="Go to a System or Part" className={styles.dialog} data-effects={effects.enabled ? "on" : "off"}>
       <Command.Input className={styles.input} placeholder="Go to a System or Part…" />
       <Command.List className={styles.list}>
         <Command.Empty className={styles.empty}>No matches.</Command.Empty>

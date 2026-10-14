@@ -12,6 +12,7 @@ import { useAtlasNavigation } from "@/model/useAtlasNavigation";
 import { useModel } from "@/model/useModel";
 import { thingPath, useKeepParams, useSelection, useSystemRoute, viewPath } from "@/model/useSelection";
 import { CommandPalette } from "./CommandPalette";
+import { handlePaletteShortcut } from "./paletteShortcut";
 import { SideNav } from "./SideNav";
 import { TopBar } from "./TopBar";
 import styles from "./Shell.module.css";
@@ -33,7 +34,7 @@ const SYSTEM_VIEW_CONTEXT: Partial<Record<ViewName, string>> = {
 export const isTyping = (t: EventTarget | null) =>
   t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) || t.getAttribute("role") === "combobox");
 
-function useShellShortcuts(openPalette: () => void, paletteOpen: boolean) {
+function useShellShortcuts(togglePalette: () => void, paletteOpen: boolean) {
   const { focusId, setFocus, clear } = useSelection();
   const { siblings } = useModel();
   const { view } = useSystemRoute();
@@ -46,11 +47,7 @@ function useShellShortcuts(openPalette: () => void, paletteOpen: boolean) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        openPalette();
-        return;
-      }
+      if (handlePaletteShortcut(e, togglePalette)) return;
       if (e.defaultPrevented || document.querySelector('[data-state="open"][role="dialog"], [data-state="open"][role="menu"], [data-state="open"][role="listbox"]') || paletteOpen || isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "Escape" && focusId) {
         if (detailsOpen) closeDetails();
@@ -74,7 +71,7 @@ function useShellShortcuts(openPalette: () => void, paletteOpen: boolean) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusId, setFocus, clear, siblings, navigate, href, openPalette, paletteOpen, detailsOpen, closeDetails]);
+  }, [focusId, setFocus, clear, siblings, navigate, href, togglePalette, paletteOpen, detailsOpen, closeDetails]);
 }
 
 /** App frame: TopBar over SideNav · main · Inspector (grid `auto 1fr auto`), over the ambient field. */
@@ -98,7 +95,8 @@ function ShellFrame() {
   useEffect(() => { if (!compact) setNavigationOpen(false); }, [compact]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const openPalette = useCallback(() => setPaletteOpen(true), []);
-  useShellShortcuts(openPalette, paletteOpen);
+  const togglePalette = useCallback(() => setPaletteOpen((open) => !open), []);
+  useShellShortcuts(togglePalette, paletteOpen);
   useSystemEvents();
   const { enabled } = useEffectsPreference();
   return (

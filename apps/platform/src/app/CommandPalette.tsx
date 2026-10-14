@@ -16,6 +16,7 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const effects = useEffectsPreference();
   return (
     <Command.Dialog
+      vimBindings={false}
       data-effects={effects.enabled ? "on" : "off"}
       open={open}
       onOpenChange={onOpenChange}

@@ -55,6 +55,45 @@ async function navigation(nav: Locator) {
 }
 
 test.describe('application UI polish @fixture', () => {
+  test('palette shortcuts yield to mobile Menu and other open overlays', async ({ page }) => {
+    await page.setViewportSize({ width:390, height:844 }); await populated(page);
+    await page.goto(`${SYSTEM}/overview`);
+    const trigger = page.getByRole('button', { name:'Menu', exact:true });
+    await trigger.click(); const navigation = menu(page);
+    for (const shortcut of ['Meta+k','Control+k']) {
+      await page.keyboard.press(shortcut);
+      await expect(navigation).toBeVisible();
+      await expect(page.getByRole('dialog', { name:'Go to node' })).toHaveCount(0);
+      expect(await navigation.evaluate(el => el.contains(document.activeElement))).toBe(true);
+    }
+    await page.keyboard.press('Escape'); await expect(navigation).toHaveCount(0); await expect(trigger).toBeFocused();
+    await page.getByRole('combobox', { name:'Revision',exact:true }).click();
+    await page.keyboard.press('Meta+k'); await expect(page.getByRole('listbox')).toBeVisible();
+    await expect(page.getByRole('dialog', { name:'Go to node' })).toHaveCount(0);
+    await page.keyboard.press('Escape');
+    for (const [path,title] of [[`${SYSTEM}/overview`,'Go to node'], ['/','Go to a System or Part'], ['/parts/part.ui.buttons/2.1.0','Go to a System or Part']]) {
+      await page.goto(path!); await expect(page.getByRole('banner').first()).toBeVisible();
+      await page.getByRole('button', { name:'More',exact:true }).click();
+      await page.keyboard.press('Control+k'); const utilities = page.getByRole('menu');
+      await expect(utilities).toBeVisible();
+      expect(await utilities.evaluate(el => el.contains(document.activeElement))).toBe(true);
+      await expect(page.getByRole('dialog', { name:title!,exact:true })).toHaveCount(0);
+      await page.keyboard.press('Escape');
+      const adminTrigger = await openAdmin(page);
+      const input = page.getByLabel('Token for admin actions');
+      await page.keyboard.press('Control+k'); await expect(input).toBeFocused();
+      await expect(page.getByRole('dialog', { name:title!,exact:true })).toHaveCount(0);
+      await page.keyboard.press('Escape'); await expect(adminTrigger).toBeFocused();
+      await page.keyboard.press('Meta+k'); const palette = page.getByRole('dialog', { name:title!,exact:true });
+      await expect(palette).toBeVisible(); await expect(palette.getByRole('combobox')).toBeFocused();
+      const items = palette.locator('[cmdk-item]:not([aria-disabled="true"])');
+      await page.keyboard.press('End'); await expect(items.last()).toHaveAttribute('aria-selected','true');
+      await page.keyboard.press('Home'); await expect(items.first()).toHaveAttribute('aria-selected','true');
+      await page.keyboard.press('ArrowDown'); await expect(items.nth(1)).toHaveAttribute('aria-selected','true');
+      await page.keyboard.press('Control+k'); await expect(palette).toHaveCount(0);
+    }
+  });
+
   for (const width of [320,390,768]) test(`Menu is a labelled modal with complete navigation at ${width}px`, async ({ page }, info) => {
     await page.setViewportSize({ width, height:844 }); await populated(page); await page.goto(`${SYSTEM}/overview?layer=phenome`);
     const trigger = page.getByRole('button', { name:'Menu', exact:true }); await expect(trigger).toBeVisible(); await hitArea(trigger);

@@ -13,6 +13,33 @@ const search = (router: { state: { location: { search: string } } }) => new URLS
 const key = (k: string, init: KeyboardEventInit = {}) => act(() => void fireEvent.keyDown(window, { key: k, ...init }));
 
 describe("Shell", () => {
+  it.each([
+    ["/", "Go to a System or Part"],
+    ["/parts/part.ui.buttons/2.1.0", "Go to a System or Part"],
+    [`${BASE}/overview`, "Go to node"],
+  ])("palette shortcuts defer to other overlays and toggle normally at %s", async (path, title) => {
+    renderApp(path);
+    const admin = await screen.findByRole("button", { name: "Admin token" });
+    await act(() => admin.click());
+    const input = await screen.findByLabelText("Token for admin actions");
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    const blocked = new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true, cancelable: true });
+    await act(() => { input.dispatchEvent(blocked); });
+    expect(blocked.defaultPrevented).toBe(true);
+    expect(screen.queryByRole("dialog", { name: title })).toBeNull();
+    expect(document.activeElement).toBe(input);
+    await act(() => void fireEvent.keyDown(input, { key: "Escape" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Admin token" })).toBeNull());
+    const consumed = new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true, cancelable: true });
+    consumed.preventDefault();
+    await act(() => { window.dispatchEvent(consumed); });
+    expect(screen.queryByRole("dialog", { name: title })).toBeNull();
+    key("k", { metaKey: true });
+    const palette = await screen.findByRole("dialog", { name: title });
+    await act(() => void fireEvent.keyDown(within(palette).getByRole("combobox"), { key: "k", ctrlKey: true }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: title })).toBeNull());
+  });
+
   it("restores the Home palette trigger after Escape", async () => {
     renderApp("/");
     const trigger = await screen.findByRole("button", { name: "Go to…" });

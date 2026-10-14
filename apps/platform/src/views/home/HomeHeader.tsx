@@ -2,6 +2,7 @@ import { EffectsPreferenceProvider } from "@/effects/effectsPreference";
 import { useEffect, useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { AppHeader } from "@/app/AppHeader";
+import { handlePaletteShortcut } from "@/app/paletteShortcut";
 import { HeaderActions } from "@/app/HeaderActions";
 import { resetClientMode } from "@/api/client";
 import { useClientMode, useParts, useSystems } from "@/api/queries";
@@ -18,10 +19,7 @@ export function HomeHeader() {
   const [paletteOpen, setPaletteOpen] = useState(false);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        setPaletteOpen((o) => !o);
-      }
+      handlePaletteShortcut(e, () => setPaletteOpen((open) => !open));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
