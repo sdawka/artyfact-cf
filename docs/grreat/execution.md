@@ -7,7 +7,8 @@
 - Verified: full local CI, independent release review (38 targeted tests), public health/model and authenticated Realization/import/operations APIs for both existing Systems, plus desktop/mobile route and no-JavaScript model smoke checks. Detailed evidence: [[journals/2026-10-13-lifecycle]].
 - Production admin credential was rotated as authorized and the ignored local environment file updated. Live metrics and feature flags await operations bindings and credentials; no live Flagship behavior is claimed.
 - GRREAT protocol validates 7 records. Direct-RPC sync remains pending missing credentials and a separate Artyfact destination; earlier conflict checkpoints are preserved.
-- Last updated: 2026-10-13.
+- In progress: porting the task-planning work onto the released lifecycle (branch `lifecycle-port`); docs, runbook and site guide are updated for it. Evidence and scope: [[journals/2026-10-14-lifecycle-port]]. Next: integration, full CI and one PR; the runbook's plan flow is not yet walked on real Artifacts.
+- Last updated: 2026-10-14.
 
 ## Work history
 
@@ -18,6 +19,7 @@
 - [[journals/2026-10-13-model-page]]: settled public story chapters (#52).
 - [[journals/2026-10-13-design-pass]]: PR #47 merged; design pass decisions D1–D8 and slice PRs.
 
+- [[journals/2026-10-14-lifecycle-port]]: task-planning port onto the lifecycle; docs, runbook and site guide.
 - [[journals/2026-10-13-ontology-driven-development]]: semantic-layer benefits and platform meta ontology explanation, site-only.
 
 ## Prior recorded release context
