@@ -14,7 +14,7 @@ export const pages = {
 export type PagePath = keyof typeof pages;
 export const notFoundPage = { title: 'Page not found — Artyfact', description: 'This page does not exist. Return to Artyfact or read the agent guide.' };
 function Wordmark() { return <span className="wordmark"><span className="brand-glyph" aria-hidden="true">⟐</span> artyfact</span>; }
-function Code({ id, children }: { id: string; children: string }) { return <div className="code-block"><pre><code id={id}>{children}</code></pre><div className="code-actions"><button hidden data-copy={id}>Copy code</button><span role="status" aria-live="polite" /></div></div>; }
+function Code({ id, children }: { id: string; children: string }) { return <div className="code-block"><pre tabIndex={0}><code id={id}>{children}</code></pre><div className="code-actions"><button hidden data-copy={id}>Copy code</button><span role="status" aria-live="polite" /></div></div>; }
 function Platform({ config }: { config: SiteConfig }) { return config.platform ? <a className="button u-brackets" href={config.platform}>Open the platform</a> : <p className="availability"><span className="availability-mark" aria-hidden="true" />The hosted handoff is being prepared. The guide is ready.</p>; }
 export function Site({ path, config, explorerHtml, landingHtml }: { path: PagePath | '/404'; config: SiteConfig; explorerHtml?: string; landingHtml?: string }) {
   return <>
