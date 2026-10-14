@@ -26,6 +26,7 @@ import { atlasFlowEdges, atlasFlowNodes } from "./atlasFlow";
 import { AtlasCamera, saveAtlasCamera } from "./AtlasCamera";
 import { AtlasSelection } from "./AtlasSelection";
 import { useDepthGestures } from "./useDepthGestures";
+import { useAtlasReveal } from "./useAtlasReveal";
 import styles from "./MapView.module.css";
 
 const NODE_TYPES = { subject: SubjectNode, external: ExternalNode, scope: GroupNode };
@@ -64,6 +65,10 @@ export function MapView() {
   const halos = useMemo(() => candidateHalos(index, graph, touches), [index, graph, touches]);
   const { data: board } = useEvolutions();
   const [canvas, setCanvas] = useState<HTMLDivElement | null>(null);
+  const [surface, setSurface] = useState<HTMLDivElement | null>(null);
+  const [navigationPanel, setNavigationPanel] = useState<HTMLElement | null>(null);
+  useAtlasReveal(surface, graph.scope);
+  useAtlasReveal(navigationPanel, panel, 140);
   const [focusFrame, setFocusFrame] = useState<string | null>(null);
   const [locate, setLocate] = useState<{ id: string; sequence: number } | null>(null);
   const [pendingLocate, setPendingLocate] = useState<{ id: string; scope: string; requestKey?: string } | null>(null);
@@ -170,10 +175,11 @@ export function MapView() {
       </div>
     </header>
     <div className={styles.canvas} ref={setCanvas} onKeyDown={onCanvasKeyDown} data-layer={layer} data-scope={graph.scope} data-testid="atlas-canvas">
-      {panel && <aside id="atlas-navigation" className={styles.navigation} aria-label="Map navigation">
+      {panel && <aside ref={setNavigationPanel} id="atlas-navigation" className={styles.navigation} aria-label="Map navigation">
         <div className={styles.panelHead}><strong>{panel === "tree" ? "Containment" : "Filters"}</strong><button onClick={() => setPanel(null)} aria-label="Close map navigation">×</button></div>
         {panel === "tree" ? <HierarchyTree scope={graph.scope === ENVIRONMENT_SCOPE ? index.model.system.id : graph.scope} focusId={focusId} onSelect={locateNode} /> : <MapFilters value={filters} onChange={setFilters} kinds={kinds} linkTypes={links} findingCount={findingCount} />}
       </aside>}
+      <div className={styles.flowSurface} ref={setSurface} data-testid="atlas-surface">
       <ReactFlowProvider>
         <ReactFlow<MapFlowNode, CrossLinkFlowEdge>
           aria-label={`Map of ${graph.scope === ENVIRONMENT_SCOPE ? `${index.model.system.name} environment` : index.byId(graph.scope)?.name ?? graph.scope}`}
@@ -191,6 +197,7 @@ export function MapView() {
           <AtlasCamera cameraKey={cameraKey} layout={layout} canvas={canvas} graph={graph} focusId={focusId} locate={locate} onLocate={locateNode} />
         </ReactFlow>
       </ReactFlowProvider>
+      </div>
       <AtlasSelection id={focusId} graph={graph} onEnter={openScope} onDetails={() => navigation.showDetails()} onLocate={locateNode} onClear={() => navigation.select(null)} />
       <div className={styles.legend} aria-label="Connection certainty"><span>━ declared</span><span>┄ assumed</span><span>┈ proposed</span></div>
     </div>

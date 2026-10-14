@@ -43,6 +43,16 @@ async function geometry(page: Page) {
   }));
 }
 const camera = (page: Page) => page.locator(".react-flow__viewport").getAttribute("style");
+async function waitAtlasReveals(page: Page) {
+  // Audit settled surfaces only; ambient effects can animate indefinitely.
+  await page.evaluate(async () => {
+    // Route state and newly attached overlay refs commit before their layout-effect reveals.
+    await new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
+    const elements = [...document.querySelectorAll('[data-testid="atlas-surface"], [aria-label="Map selection"]')];
+    await Promise.allSettled(elements.flatMap((element) => element.getAnimations().map((animation) => animation.finished)));
+  });
+}
+
 async function tilePoint(page: Page, id: string) {
   const target = (await tile(page, id).boundingBox())!, frame = (await canvas(page).boundingBox())!;
   const left = Math.max(target.x, frame.x), right = Math.min(target.x + target.width, frame.x + frame.width);
@@ -261,15 +271,21 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await checkA11yAndShoot(page, testInfo, `atlas-environment-${viewport.width}x${viewport.height}`);
     await page.getByRole("button", { name: "Enter Peopling", exact: true }).click();
     await scope(page, SID);
+    await waitAtlasReveals(page);
     await checkA11yAndShoot(page, testInfo, `atlas-system-mosaic-${viewport.width}x${viewport.height}`);
     await tile(page, "thing.webapp").click();
     await selection(page).getByRole("button", { name: "Enter Peopling web app", exact: true }).click();
     await scope(page, "thing.webapp");
+    await waitAtlasReveals(page);
     await checkA11yAndShoot(page, testInfo, `atlas-thing-mosaic-${viewport.width}x${viewport.height}`);
     await tile(page, "thing.webapp").getByText("Peopling web app", { exact: true }).click();
+    await expect(selection(page)).toBeVisible();
+    await waitAtlasReveals(page);
+    await checkA11yAndShoot(page, testInfo, `atlas-selection-${viewport.width}x${viewport.height}`);
     await selection(page).getByRole("button", { name: "Details", exact: true }).click();
     await expect(inspector(page)).toBeVisible();
     await expect(inspector(page).getByRole("button", { name: /Close/ })).toBeVisible();
+    await waitAtlasReveals(page);
     await checkA11yAndShoot(page, testInfo, `atlas-details-${viewport.width}x${viewport.height}`);
   });
 }
@@ -429,4 +445,178 @@ test("browser Back restores a panned camera without replaying consumed Go to Loc
   await expect.poll(() => camera(page)).toBe(panned);
   await expect(tile(page, "affordance.AddContactDialog.save")).toHaveAttribute("data-selected", "true");
   await expect(inspector(page)).toHaveCount(0);
+});
+
+type AtlasMotionRecord = { target: string; scope: string | null; duration: number; transformed: boolean; canceled: boolean; finished: boolean };
+async function recordAtlasMotion(page: Page) {
+  await page.addInitScript(() => {
+    const state = window as unknown as { __atlasMotion: AtlasMotionRecord[] };
+    state.__atlasMotion = [];
+    const animate = Element.prototype.animate;
+    Element.prototype.animate = function (frames, options) {
+      const animation = animate.call(this, frames, options);
+      const target = this.getAttribute("data-testid") === "atlas-surface" ? "scope" : this.getAttribute("aria-label");
+      if (target === "scope" || target === "Map selection" || target === "Map navigation" || target === "Selected connections") {
+        const record = { target, scope: this.closest("[data-scope]")?.getAttribute("data-scope") ?? null, duration: Number(animation.effect?.getTiming().duration), transformed: (animation.effect as KeyframeEffect).getKeyframes().some((frame) => frame.transform !== undefined), canceled: false, finished: false };
+        state.__atlasMotion.push(record);
+        animation.addEventListener("cancel", () => { record.canceled = true; });
+        animation.addEventListener("finish", () => { record.finished = true; });
+      }
+      return animation;
+    };
+  });
+}
+const motions = (page: Page) => page.evaluate(() => (window as unknown as { __atlasMotion: AtlasMotionRecord[] }).__atlasMotion);
+const scopeMotions = async (page: Page) => (await motions(page)).filter((record) => record.target === "scope");
+
+test("scope reveal runs once while selection, Details and layer changes preserve the surface @fixture", async ({ page }, testInfo) => {
+  await recordAtlasMotion(page);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto(`${SYSTEM}/map?scope=environment`);
+  await scope(page, "environment");
+  expect(await scopeMotions(page)).toHaveLength(0);
+  await page.getByRole("button", { name: "Enter Peopling", exact: true }).click();
+  await scope(page, SID);
+  await expect.poll(() => scopeMotions(page)).toHaveLength(1);
+  expect((await scopeMotions(page))[0]!.transformed).toBe(false);
+  const surface = page.getByTestId("atlas-surface");
+  await expect(surface).toHaveCSS("transform", "none");
+  // Pause the actual browser animation at its midpoint for the requested transition-frame artifact.
+  await surface.evaluate((element) => {
+    const animation = element.getAnimations()[0];
+    if (!animation) throw new Error("Scope reveal finished before its transition frame was captured");
+    animation.pause();
+    animation.currentTime = Number(animation.effect!.getTiming().duration) / 2;
+  });
+  const framePath = testInfo.outputPath("atlas-normal-motion-frame.png");
+  await page.screenshot({ path: framePath });
+  await testInfo.attach("atlas-normal-motion-frame", { path: framePath, contentType: "image/png" });
+  await surface.evaluate(async (element) => { const animation = element.getAnimations()[0]!; animation.play(); await animation.finished; });
+  const stableGeometry = await geometry(page), stableCamera = await camera(page);
+  await tile(page, "thing.webapp").click();
+  await expect.poll(async () => (await motions(page)).filter((record) => record.target === "Map selection").length).toBe(1);
+  await tile(page, SID).getByText("Peopling", { exact: true }).click();
+  await page.getByRole("tab", { name: "Phenome", exact: true }).click();
+  await selection(page).getByRole("button", { name: "Details", exact: true }).click();
+  await expect(inspector(page)).toBeVisible();
+  expect(await scopeMotions(page)).toHaveLength(1);
+  expect((await motions(page)).filter((record) => record.target === "Map selection")).toHaveLength(1);
+  expect(await geometry(page)).toEqual(stableGeometry);
+  expect(await camera(page)).toBe(stableCamera);
+});
+
+test("interrupted depth cancels the old reveal and Effects toggling cannot replay it @fixture", async ({ page }) => {
+  await recordAtlasMotion(page);
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.goto(`${SYSTEM}/map?scope=environment`);
+  await scope(page, "environment");
+  await page.getByRole("button", { name: "Enter Peopling", exact: true }).click();
+  await scope(page, SID);
+  await expect.poll(() => scopeMotions(page)).toHaveLength(1);
+  await page.getByTestId("atlas-surface").evaluate((element) => { const animation = element.getAnimations()[0]!; animation.pause(); animation.currentTime = 60; });
+  await page.getByRole("button", { name: "Up", exact: true }).click();
+  await scope(page, "environment");
+  await expect.poll(async () => (await scopeMotions(page))[0]?.canceled).toBe(true);
+  await expect.poll(async () => (await scopeMotions(page)).filter((record) => record.finished).length).toBe(1);
+  await expect(page.getByTestId("atlas-surface")).toHaveCSS("opacity", "1");
+  const count = (await scopeMotions(page)).length;
+  await page.getByRole("button", { name: /Effects/ }).click();
+  await expect(page.getByRole("button", { name: /Effects/ })).toHaveAttribute("aria-pressed", "false");
+  await page.getByRole("button", { name: "Enter Peopling", exact: true }).click();
+  await scope(page, SID);
+  expect(await scopeMotions(page)).toHaveLength(count);
+  await page.getByRole("button", { name: /Effects/ }).click();
+  await expect(page.getByRole("button", { name: /Effects/ })).toHaveAttribute("aria-pressed", "true");
+  expect(await scopeMotions(page)).toHaveLength(count);
+  await page.goBack();
+  await scope(page, "environment");
+});
+
+test("reduced motion suppresses scope and overlay reveals while preserving their actions @fixture", async ({ page }, testInfo) => {
+  await recordAtlasMotion(page);
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`${SYSTEM}/map?scope=environment`);
+  await scope(page, "environment");
+  await page.getByRole("button", { name: "Enter Peopling", exact: true }).click();
+  await scope(page, SID);
+  await tile(page, "thing.webapp").click();
+  await page.getByRole("button", { name: "Tree", exact: true }).click();
+  await expect(page.getByRole("tree", { name: "Containment" })).toBeVisible();
+  await page.getByRole("button", { name: "Close map navigation" }).click();
+  await selection(page).getByRole("button", { name: /^Connections/ }).click();
+  await expect(page.getByRole("region", { name: "Selected connections" })).toBeVisible();
+  expect(await motions(page)).toHaveLength(0);
+  expect(await page.getByTestId("atlas-surface").evaluate((element) => element.getAnimations().length)).toBe(0);
+  await checkA11yAndShoot(page, testInfo, "atlas-polish-reduced-motion");
+});
+
+test("Details retains contrasting primary colors in normal, hover and active states @fixture", async ({ page }, testInfo) => {
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`${SYSTEM}/map?scope=thing.webapp&focus=section.ui`);
+  await scope(page, "thing.webapp");
+  const details = selection(page).getByRole("button", { name: "Details", exact: true });
+  const tokenColors = await details.evaluate((element) => {
+    const probe = document.createElement("span"), computed = getComputedStyle(element);
+    probe.style.transition = "none";
+    element.parentElement!.append(probe);
+    const read = (name: string, property: "color" | "backgroundColor") => { probe.style[property] = computed.getPropertyValue(name); return getComputedStyle(probe)[property]; };
+    const result = { color: read("--color-background", "color"), normal: read("--color-brand-primary", "backgroundColor"), hover: read("--color-brand-primary-hover", "backgroundColor"), active: read("--color-brand-primary-active", "backgroundColor") };
+    probe.remove(); return result;
+  });
+  await expect(details).toHaveCSS("color", tokenColors.color);
+  await expect(details).toHaveCSS("background-color", tokenColors.normal);
+  await checkA11yAndShoot(page, testInfo, "atlas-details-normal-colors");
+  await details.hover();
+  await expect(details).toHaveCSS("color", tokenColors.color);
+  await expect(details).toHaveCSS("background-color", tokenColors.hover);
+  await checkA11yAndShoot(page, testInfo, "atlas-details-hover-colors");
+  await page.mouse.down();
+  try {
+    await expect(details).toHaveCSS("color", tokenColors.color);
+    await expect(details).toHaveCSS("background-color", tokenColors.active);
+    await checkA11yAndShoot(page, testInfo, "atlas-details-active-colors");
+  } finally { await page.mouse.up(); }
+});
+
+test("candidate overlap link remains separate from Phenome and Proteome footer badges @fixture", async ({ page }, testInfo) => {
+  const data = defaultMockData(), model = data.bundles[SID]!.model as ModelJson;
+  const smallScope = "section.small-candidate-cells", subject = "component.small-a";
+  const sectionTemplate = model.nodes.find((node) => node.id === "section.ui")!;
+  const leafTemplate = model.nodes.find((node) => node.id === "component.PeopleHeading")!;
+  model.nodes.push({ ...sectionTemplate, id: smallScope, name: "Small cells", description: "", links: [] });
+  for (const letter of ["a", "b", "c", "d"]) model.nodes.push({ ...leafTemplate, id: `component.small-${letter}`, name: letter.toUpperCase(), description: letter === "a" ? "Small leaf with a short purpose." : "", parent: smallScope, links: [] });
+  model.things[0]!.sections.push(smallScope);
+  await mockApi(page, data);
+  await page.route(`**/api/systems/${SID}/evolutions**`, async (route) => {
+    const candidates = ["cand.a", "cand.b"].map((id) => ({ id, changedSubjects: [subject] }));
+    const body = new URL(route.request().url()).pathname.endsWith("/candidates") ? { candidates } : { evolutions: [{ id: "evolution.overlap", affectedNodes: [subject] }], realizations: candidates.map((candidate, i) => ({ id: `realization.${i}`, candidate: candidate.id, evolution: "evolution.overlap", status: "pending" })) };
+    await route.fulfill({ contentType: "application/json", body: JSON.stringify(body) });
+  });
+  await page.goto(`${SYSTEM}/map?scope=${smallScope}&focus=${subject}&candidates=cand.a,cand.b&layer=phenome`);
+  await scope(page, smallScope);
+  const unscaledWidth = await page.locator(`.react-flow__node[data-id="${subject}"]`).evaluate((element) => parseFloat((element as HTMLElement).style.width));
+  expect(unscaledWidth).toBe(216);
+  expect(await page.locator(`.react-flow__node[data-id="${subject}"]`).evaluate((element) => parseFloat((element as HTMLElement).style.height))).toBe(144);
+  await expect(tile(page, subject).getByText("Small leaf with a short purpose.", { exact: true })).toBeVisible();
+  testInfo.annotations.push({ type: "minimum-tile-width", description: `${unscaledWidth}px authored width` });
+  const node = tile(page, subject), overlap = node.getByRole("link", { name: "overlap · 2", exact: true });
+  await expect(overlap).toBeVisible();
+  const stableGeometry = await geometry(page);
+  for (const layer of ["Phenome", "Proteome"] as const) {
+    await page.getByRole("tab", { name: layer, exact: true }).click();
+    const badges = layer === "Phenome" ? node.locator("[data-counter]") : node.getByRole("img", { name: "2 realizations", exact: true });
+    await expect(badges.first()).toBeVisible();
+    const linkBox = (await overlap.boundingBox())!, nodeBox = (await node.boundingBox())!;
+    expect(linkBox.x + linkBox.width).toBeLessThanOrEqual(nodeBox.x + nodeBox.width + 1);
+    expect(linkBox.y + linkBox.height).toBeLessThanOrEqual(nodeBox.y + nodeBox.height + 1);
+    for (const badge of await badges.all()) {
+      const box = (await badge.boundingBox())!;
+      expect(box.x + box.width <= linkBox.x || linkBox.x + linkBox.width <= box.x || box.y + box.height <= linkBox.y || linkBox.y + linkBox.height <= box.y, `${layer} counter must not overlap the candidate link`).toBe(true);
+    }
+    expect(await geometry(page)).toEqual(stableGeometry);
+    await checkA11yAndShoot(page, testInfo, `atlas-candidate-footer-${layer.toLowerCase()}`);
+    const smallCellPath = testInfo.outputPath(`atlas-small-cell-purpose-${layer.toLowerCase()}.png`);
+    await node.screenshot({ path: smallCellPath });
+    await testInfo.attach(`atlas-small-cell-purpose-${layer.toLowerCase()}`, { path: smallCellPath, contentType: "image/png" });
+  }
 });

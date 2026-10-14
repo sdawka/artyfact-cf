@@ -1,5 +1,5 @@
 .view { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: var(--spacing-3); }
-.header { flex: none; display: flex; flex-direction: column; gap: var(--spacing-2); }
+.header { padding: var(--spacing-1) 0 var(--spacing-2); flex: none; display: flex; flex-direction: column; gap: var(--spacing-2); }
 .titleRow { display: flex; align-items: center; gap: var(--spacing-4); min-width: 0; }
 .h1 { margin: 0; font-size: var(--font-size-2xl); flex: none; }
 .breadcrumbs { min-width: 0; overflow-x: auto; }
@@ -13,33 +13,43 @@
 .toolbar button, .summary button, .endpoint button, .panelHead button, .offscreen button, .actors button {
   border: 1px solid var(--color-border-subtle); background: var(--color-surface-primary); color: var(--color-text-secondary); padding: var(--spacing-1) var(--spacing-2); border-radius: var(--border-radius-sm); font: inherit; font-size: var(--font-size-xs); cursor: pointer; min-height: 30px;
 }
-.toolbar button:hover, .summary button:hover, .endpoint button:hover { color: var(--color-brand-primary); border-color: var(--color-brand-primary); }
+.view :is(.toolbar, .summary, .endpoint, .panelHead, .offscreen, .actors) button:hover:not(:disabled) { background: var(--color-background-hover); color: var(--color-brand-primary); border-color: var(--color-brand-primary); }
 .toolbar button:disabled { opacity: .45; cursor: default; }
-.toolbar button[aria-expanded=true] { border-color: var(--color-brand-primary); color: var(--color-brand-primary); }
+.view :is(.toolbar, .summary) button[aria-expanded=true] { background: color-mix(in oklch, var(--color-brand-primary) 8%, var(--color-surface-primary)); border-color: var(--color-brand-primary); color: var(--color-brand-primary); }
+.view :is(.toolbar, .summary, .endpoint, .panelHead, .offscreen, .actors) button:active:not(:disabled) { background: color-mix(in oklch, var(--color-brand-primary) 15%, var(--color-surface-primary)); }
+.breadcrumbs button:hover { color: var(--color-brand-primary); }
 .view button:focus-visible, .showAll input:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .showAll { display: inline-flex; align-items: center; gap: var(--spacing-1); color: var(--color-text-secondary); font-size: var(--font-size-xs); cursor: pointer; }
 .showAll input { accent-color: var(--color-brand-primary); }
 .hint { color: var(--color-text-subtle); font-size: var(--font-size-xs); margin-left: auto; }
 .canvas { position: relative; flex: 1; min-height: 300px; overflow: hidden; border: 1px solid var(--color-border-subtle); background: var(--color-background); }
-.canvas :global(.react-flow__node):focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
+.flowSurface { position: absolute; inset: 0; }
+.canvas :global(.react-flow__node.selected) { outline: none; }
+.canvas :global(.react-flow__node):focus-visible { outline: 2px dashed var(--color-text-primary); outline-offset: -6px; }
 .navigation { position: absolute; z-index: 20; top: var(--spacing-3); left: var(--spacing-3); width: min(300px, calc(100% - 24px)); max-height: calc(100% - 72px); display: flex; flex-direction: column; overflow: auto; border: 1px solid var(--color-border); background: var(--color-surface-primary); box-shadow: var(--shadow-md); }
 .panelHead { display: flex; align-items: center; justify-content: space-between; padding: var(--spacing-2) var(--spacing-3); border-bottom: 1px solid var(--color-border-subtle); font-size: var(--font-size-sm); }
 .navigation > :last-child { min-height: 0; }
 .selection { position: absolute; z-index: 15; bottom: var(--spacing-10); left: var(--spacing-3); right: 54px; width: fit-content; max-width: calc(100% - 66px); background: var(--color-surface-primary); border: 1px solid var(--color-border); box-shadow: var(--shadow-md); }
-.summary { display: flex; align-items: center; gap: var(--spacing-2); padding: var(--spacing-2); }
+.summary { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); padding: var(--spacing-2); }
 .selectedName { display: flex; flex-direction: column; min-width: 0; max-width: 240px; gap: 2px; padding: 0 var(--spacing-1); }
 .selectedName strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: var(--font-size-sm); }
 .selectedName span { color: var(--color-text-subtle); font-size: var(--font-size-xs); }
-.summary > button { flex: none; }
+.summary > button { flex: none; max-width: 100%; overflow-wrap: anywhere; }
+.view .summary .detailsAction { background: var(--color-brand-primary); color: var(--color-background); border-color: var(--color-brand-primary); font-weight: 600; }
+.view .summary button.detailsAction:hover:not(:disabled) { background: var(--color-brand-primary-hover); color: var(--color-background); }
+.view .summary button.detailsAction:active:not(:disabled) { background: var(--color-brand-primary-active); color: var(--color-background); }
+.summary .clearAction { border-color: transparent; background: transparent; margin-left: auto; font-size: var(--font-size-base); }
 .connections { max-height: 240px; overflow-y: auto; border-top: 1px solid var(--color-border-subtle); padding: var(--spacing-3); font-size: var(--font-size-xs); }
 .connections ul { padding: 0; margin: 0; list-style: none; }
 .connections li + li { border-top: 1px solid var(--color-border-subtle); margin-top: var(--spacing-3); padding-top: var(--spacing-3); }
 .endpoint { display: flex; gap: var(--spacing-3); align-items: center; justify-content: space-between; }
 .endpoint span { overflow-wrap: anywhere; max-width: 70ch; line-height: 1.5; }
-.endpoint button { flex: none; }
+.endpoint button { flex: none; max-width: 48%; overflow-wrap: anywhere; }
 .relation { color: var(--color-text-secondary); margin: var(--spacing-1) 0; }
 .legend { position: absolute; left: var(--spacing-3); bottom: var(--spacing-3); display: flex; gap: var(--spacing-3); pointer-events: none; font-size: var(--font-size-xs); color: var(--color-text-subtle); }
-.offscreen { position: absolute; z-index: 10; top: var(--spacing-3); right: var(--spacing-3); display: flex; flex-direction: column; gap: var(--spacing-1); max-height: 30%; overflow-y: auto; }
+.offscreen { position: absolute; z-index: 10; top: var(--spacing-3); right: var(--spacing-3); display: flex; flex-direction: column; gap: var(--spacing-1); max-width: min(300px, calc(100% - 24px)); max-height: 30%; overflow-y: auto;
+  background: var(--color-surface-primary); padding: var(--spacing-1); border: 1px solid var(--color-border-subtle); }
+.offscreen button { text-align: left; overflow-wrap: anywhere; }
 @media (max-width: 700px) {
   .titleRow { flex-wrap: wrap; gap: var(--spacing-2); }
   .h1 { font-size: var(--font-size-xl); }
@@ -53,10 +63,15 @@
   .summary { flex-wrap: wrap; }
   .selectedName { width: 100%; max-width: none; }
   .connections { max-height: 30vh; }
-  .endpoint { align-items: start; }
+  .endpoint { align-items: start; flex-direction: column; gap: var(--spacing-1); }
+  .endpoint button { max-width: 100%; }
 }
 
 .actors { position: absolute; bottom: var(--spacing-10); left: var(--spacing-3); right: 54px; z-index: 10; display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-1); padding: var(--spacing-2); max-width: 580px; background: var(--color-surface-primary); border: 1px solid var(--color-border-subtle); }
 .actors > span { width: 100%; font-size: var(--font-size-xs); color: var(--color-text-subtle); }
 .actors button { min-height: 30px; }
 .canvas:has(.selection) .actors { display: none; }
+
+.canvas :global(.react-flow__controls-button):hover { background: var(--color-background-hover); color: var(--color-brand-primary); }
+.canvas :global(.react-flow__controls-button):focus-visible { outline: var(--focus-ring); outline-offset: -3px; }
+.canvas :global(.react-flow__controls-button):active { background: color-mix(in oklch, var(--color-brand-primary) 15%, var(--color-surface-primary)); }
