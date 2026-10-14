@@ -6,7 +6,8 @@
  * Pure part: `draftScope` (which Evolutions and nodes, each node's source binding, the criteria pool), `planContext`
  * (what an LLM planner sees), `fallbackGroups` (artifact → Thing → nearest section → union-find over shared footprint
  * paths or globs), `validateReply` (an LLM reply checked like ops; it may add criteria, never move or drop them) and
- * `assembleDraft` (ids, steps, read nodes, create's derived dependencies, footprints and `analyzeTasks`).
+ * `assembleDraft` (ids, steps, read nodes, create's derived dependencies, and `analyzeTasks` over `taskDefinitions`, the
+ * same definitions create stores).
  * Env part: `draftRealizationPlan` for the route.
  *
  * Problem severities: `error` means asked-for scope was lost or create will refuse the request; `missing` means part of
@@ -21,6 +22,7 @@ import { listTree } from "../artifacts/genome-source";
 import { badRequest, notFound } from "../errors";
 import { genomeAt, systemStub } from "../service";
 import { globMatch } from "../artifacts/source-map";
+import { CONTRACT_RELS, expandNodes, taskDefinitions } from "./definitions";
 import { taskFootprint } from "./footprint";
 import { plannerFromEnv, type PlanContext, type Planner, type PlanReplyTask } from "./planner-llm";
 
@@ -124,9 +126,6 @@ function coverCriteria(m: SystemModel, pool: string[], drafts: TaskDraft[]): voi
   }
 }
 
-/** A node and every node under it, as create expands write and read scope. */
-const expandNodes = (m: SystemModel, nodes: string[]) =>
-  uniq([...nodes, ...Object.keys(m.index.byId).filter((id) => nodes.some((n) => m.index.path(id).includes(n)))]);
 
 // ------------------------------------------------------------------ scope
 
@@ -555,8 +554,6 @@ function reaches(deps: number[][], from: number, to: number): boolean {
 
 // ------------------------------------------------------------------ assembly
 
-/** Create's contract dependencies (`createRealizationPlan`): a task reads, invokes, calls or uses what another writes. */
-const CONTRACT_RELS = new Set(["invokes", "calls", "reads", "uses", "stepOperation"]);
 
 /** Strongly connected components of an index graph (Tarjan), each sorted, in discovery order. */
 function components(deps: number[][]): number[][] {
@@ -674,7 +671,7 @@ export function stepsOf(intent: string, fallback: string): string[] {
  * Read scope: the one-hop link targets of the task's (expanded) write nodes outside its own write scope that either
  * map to source files of its binding or are written by another task. This filters non-contract links only: create
  * re-adds every contract-link target (`CONTRACT_RELS`) unfiltered, so an external reached by `reads` or `uses` still
- * marks the footprint unknown, and `asCreated` mirrors that.
+ * marks the footprint unknown, and `taskDefinitions` does the same for the analysis.
  */
 function readNodesOf(i: DraftInput, d: TaskDraft, otherWrites: Set<string>): string[] {
   const m = i.model;
@@ -686,25 +683,6 @@ function readNodesOf(i: DraftInput, d: TaskDraft, otherWrites: Set<string>): str
     .sort();
 }
 
-/**
- * The definitions create stores for `tasks` (`createRealizationPlan`): write and read nodes expanded to descendants,
- * contract dependencies and reads added, footprints over each binding's tree. Kept in step with create by the route test.
- */
-export function asCreated(i: DraftInput, tasks: CreateRealizationPlanRequest["tasks"]): TaskDefinition[] {
-  const m = i.model;
-  const defs = tasks.map((t) => {
-    const binding = i.manifest.artifacts[t.artifactId];
-    const writeNodes = expandNodes(m, t.writeNodes), readNodes = expandNodes(m, t.readNodes);
-    return { ...t, dependsOn: [...t.dependsOn], writeNodes, readNodes, footprint: taskFootprint(m, writeNodes, i.trees[t.artifactId] ?? [], t.artifactId, binding?.repo ?? "", readNodes) };
-  });
-  for (const t of defs) {
-    const reads = t.writeNodes.flatMap((n) => (m.index.linksOut[n] ?? []).filter((l) => CONTRACT_RELS.has(l.rel)).map((l) => l.to));
-    for (const other of defs) if (other.id !== t.id && other.writeNodes.some((n) => reads.includes(n)) && !t.dependsOn.includes(other.id)) t.dependsOn.push(other.id);
-    t.readNodes = uniq([...t.readNodes, ...reads]);
-    t.footprint = taskFootprint(m, t.writeNodes, i.trees[t.artifactId] ?? [], t.artifactId, t.footprint.repo, t.readNodes);
-  }
-  return defs;
-}
 
 /** The plan title: the request's, else the Evolutions' titles, else a count of nodes. */
 function planTitle(i: DraftInput): string {
@@ -743,7 +721,7 @@ export function assembleDraft(i: DraftInput, input: TaskDraft[], problems: Draft
   const request: CreateRealizationPlanRequest = { title: planTitle(i), genomeCommit: i.genomeCommit, tasks };
   let analysis: TaskAnalysis = { conflicts: [], waves: [] };
   if (tasks.length) {
-    const defs = asCreated(i, tasks);
+    const defs = taskDefinitions(i.model, i.manifest, i.trees, tasks);
     for (const d of defs) {
       if (!d.footprint.globs.length) out.push({ taskId: d.id, severity: "missing", message: `unscoped: no source files of ${d.artifactId} are bound to ${d.writeNodes.slice(0, 5).join(", ")}${d.writeNodes.length > 5 ? ", …" : ""}` });
       else if (!d.footprint.known) out.push({ taskId: d.id, severity: "warning", message: "part of the scope maps to no source files; the task runs alone until it is mapped" });

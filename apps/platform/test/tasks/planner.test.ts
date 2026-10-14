@@ -5,9 +5,10 @@ import { metaTemplates } from "@artyfact/templates";
 import type { Evolution, SystemCommit, SystemManifest } from "../../shared/api";
 import type { RealizationPlan } from "../../shared/lifecycle";
 import {
-  asCreated, assembleDraft, buildDraft, draftScope, fallbackGroups, legacyRealizedIndex, nodeArtifact, nodeRealized, planContext, stepsOf, validateReply,
+  assembleDraft, buildDraft, draftScope, fallbackGroups, legacyRealizedIndex, nodeArtifact, nodeRealized, planContext, stepsOf, validateReply,
   type DraftInput, type ScopeHistory, type ScopeRequest,
 } from "../../worker/tasks/planner";
+import { taskDefinitions } from "../../worker/tasks/definitions";
 import {
   fakePlanner, offPlanner, openRouterPlanner, parsePlanReply, plannerFromEnv, setPlannerOverride, type Planner, type PlanReplyTask,
 } from "../../worker/tasks/planner-llm";
@@ -40,7 +41,7 @@ function input(req: ScopeRequest, evolutions: Evolution[] = [evo2], h: ScopeHist
 const of = (e: Evolution, hint?: string) => input({ evolutionIds: [e.id], ...(hint && { hint }) }, [e]);
 const fallback = async (e: Evolution) => { const x = of(e); return buildDraft(x.i, offPlanner(), x.problems); };
 /** The request is one main's create accepts: unique ids, steps, write scope, matching identity, no cycle. */
-const valid = (i: DraftInput, d: { request: { tasks: Parameters<typeof asCreated>[1] } }) => validateTaskDefinitions(asCreated(i, d.request.tasks));
+const valid = (i: DraftInput, d: { request: { tasks: Parameters<typeof taskDefinitions>[3] } }) => validateTaskDefinitions(taskDefinitions(i.model, i.manifest, i.trees, d.request.tasks));
 
 describe("draftScope", () => {
   it("takes named accepted Evolutions and reports unknown, unaccepted and unbound scope", () => {

@@ -93,6 +93,9 @@ describe("POST /realization-plans/draft", () => {
     expect(again.json.problems).toContainEqual({ severity: "warning", message: expect.stringContaining(`in open plan ${created.json.id}; skipped (name ${evolution.id}`) });
     const named = await draft(systemId, { evolutionIds: [evolution.id] });
     expect(named.json.request.tasks).toEqual(d.json.request.tasks);
+    // Create applies the CLI's task-id rule to an edited draft.
+    const bad = { ...d.json.request, tasks: d.json.request.tasks.map((t, k) => (k ? t : { ...t, id: "--platform=https://x" })) };
+    expect((await call("POST", lifecyclePaths.plans(systemId), bad)).status).toBe(400);
   });
 
   it("drafts with the fake planner from explicit nodes, and the split draft posts to create", async () => {

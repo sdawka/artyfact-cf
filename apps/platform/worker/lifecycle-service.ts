@@ -20,7 +20,7 @@ import { protectedPathsFor } from './packets/task-packet';
 import { gateCriteria, hooksOf } from './promotion';
 import { evidenceFresh, genomeAt, refreshRegistry, revokeEnded, systemStub } from './service';
 import { lifecyclePacket } from './packets/lifecycle-packet';
-import { taskFootprint } from './tasks/footprint';
+import { taskDefinitions } from './tasks/definitions';
 import { sha256Hex } from './util';
 
 /** Registry refresh after a lifecycle write landed: best-effort, so a failed cache write never fails the write itself. */
@@ -42,19 +42,14 @@ const topo=(p:RealizationPlan)=>p.analysis.waves.flatMap(w=>w.map(id=>taskOf(p,i
 export async function createRealizationPlan(env:Env,sid:string,body:unknown):Promise<RealizationPlan> {
  const input=parse(planSchema,body),stub=systemStub(env,sid),state=await stub.state();if(!state?.manifest)throw notFound(`system ${sid} has no accepted Genome`);if(input.genomeCommit&&input.genomeCommit!==state.genomeCommit)throw conflict('stale-base','Create the plan against the current accepted Genome revision');
  const g=await genomeAt(env,sid,state.genomeCommit,state.genomeSource),model=g.model;
- const tasks:TaskDefinition[]=[],trees=new Map<string,string[]>();
+ const trees=new Map<string,string[]>();
  for(const t of input.tasks) {
   const binding=state.manifest.artifacts[t.artifactId];if(!binding)throw badRequest(`unknown source binding ${t.artifactId}`);
   const unknown=[...t.readNodes,...t.writeNodes].filter(id=>!model.index.byId[id]);if(unknown.length)throw badRequest(`unknown ontology nodes: ${unknown.join(', ')}`);
   if(t.checks.some(id=>!model.criteria.some(c=>c.id===id)))throw badRequest('task checks must name accepted Genome criteria');
-  const tree=trees.get(t.artifactId)??await withRepo(artifactsFor(env),binding.repo,async repo=>[...(await listTree(repo,binding.commit)).keys()]);trees.set(t.artifactId,tree);
-  const expand=(nodes:string[])=>[...new Set([...nodes,...Object.keys(model.index.byId).filter(id=>nodes.some(n=>model.index.path(id).includes(n)))])];
-  const writeNodes=expand(t.writeNodes),readNodes=expand(t.readNodes);
-  tasks.push({...t,writeNodes,readNodes,footprint:taskFootprint(model,writeNodes,tree,t.artifactId,binding.repo,readNodes)});
+  if(!trees.has(t.artifactId))trees.set(t.artifactId,await withRepo(artifactsFor(env),binding.repo,async repo=>[...(await listTree(repo,binding.commit)).keys()]));
  }
- // Contract dependencies in the accepted ontology become durable dependencies, never a runtime guess.
- const rels=new Set(['invokes','calls','reads','uses','stepOperation']);
- for(const t of tasks){const reads=t.writeNodes.flatMap(n=>(model.index.linksOut[n]??[]).filter(l=>rels.has(l.rel)).map(l=>l.to));for(const other of tasks)if(other.id!==t.id&&other.writeNodes.some(n=>reads.includes(n))&&!t.dependsOn.includes(other.id))t.dependsOn.push(other.id);t.readNodes=[...new Set([...t.readNodes,...reads])];t.footprint=taskFootprint(model,t.writeNodes,trees.get(t.artifactId)!,t.artifactId,t.footprint.repo,t.readNodes);}
+ const tasks:TaskDefinition[]=taskDefinitions(model,state.manifest,Object.fromEntries(trees),input.tasks);
  let plan:RealizationPlan;
  try{plan=await rpc(stub.createRealizationPlan({...input,genomeCommit:state.genomeCommit,expectedHead:state.head,tasks}));}catch(e){if(fromRpc(e))throw e;if(e instanceof Error&&!('status'in e))throw badRequest(e.message);throw e;}
  await refresh(env,sid);return plan;
