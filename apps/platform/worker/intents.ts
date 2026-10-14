@@ -16,7 +16,7 @@ import type {
 import { artifactsFor, withRepo } from "./artifacts/client";
 import { genomePrefix } from "./artifacts/genome-source";
 import type { HeadState } from "./do/system-authority";
-import { MAX_TURNS, type ProposalTurn } from "./do/proposals-store";
+import { MAX_TURNS, type ProposalTurn, type StoredProposal } from "./do/proposals-store";
 import { commitEdit } from "./editor";
 import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
 import { accept as approveGenome, createEvolution, genomeAt, refreshRegistry, registryStub, revokeEnded, startWork, systemStub } from "./service";
@@ -496,14 +496,27 @@ export async function decideProposal(env: Env, systemId: string, pid: string, bo
       throw conflict("invalid-state", `the decisions of proposal ${pid} kept changing; read it and decide again`);
     }
     const after = await stub.proposal(pid);
-    if (after && after.turns.length !== s.turns.length) {
-      const rebuilt = await planOn(env, systemId, after.proposal.ops, after.proposal.provenance.genomeCommit);
-      const kept = prune(decisions, rebuilt);
-      // Best effort: when this loses to another reply, PUT or accept, that one's state stands.
-      await stub.setProposalPlan(pid, rebuilt, kept, undefined, decisions);
-      return onWire({ ...after.proposal, plan: rebuilt }, kept);
-    }
+    if (after && after.turns.length !== s.turns.length) return onWire(...(await repairAfterReply(env, systemId, pid, after, decisions)));
     return onWire(s.proposal, decisions);
+  }
+}
+
+/**
+ * A reply landed while a PUT wrote its decisions: rebuild the tree of the reply's ops and prune the decisions to it, by
+ * compare-and-set. A PUT or another reply that lands meanwhile is re-read (and the tree rebuilt again for a newer reply),
+ * so neither is overwritten; after {@link CAS_ATTEMPTS} losses whatever landed stands.
+ */
+async function repairAfterReply(env: Env, systemId: string, pid: string, after: StoredProposal, decisions: ProposalDecisions): Promise<[Proposal, ProposalDecisions]> {
+  const stub = systemStub(env, systemId);
+  let expected = decisions;
+  for (let attempt = 1; ; attempt++) {
+    const rebuilt = await planOn(env, systemId, after.proposal.ops, after.proposal.provenance.genomeCommit);
+    const kept = prune(expected, rebuilt);
+    if (await stub.setProposalPlan(pid, rebuilt, kept, undefined, expected)) return [{ ...after.proposal, plan: rebuilt }, kept];
+    const next = await stub.proposal(pid);
+    expected = await decisionsOf(env, systemId, pid);
+    if (attempt >= CAS_ATTEMPTS || !next || next.proposal.status !== "open") return [{ ...after.proposal, plan: rebuilt }, prune(expected, rebuilt)];
+    after = next;
   }
 }
 

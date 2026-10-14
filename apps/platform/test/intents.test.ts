@@ -719,6 +719,38 @@ describe("PUT /intents/:pid/decisions", () => {
       restore();
     }
   });
+
+  it("re-reads and prunes a PUT that lands while the reply repair writes, instead of dropping it", async () => {
+    const s = await importSystem();
+    const p = (await create(s, "Change what the Today screen says")).json;
+    const ops: ProposedOp[] = [{ id: "op.1", op: "update", node: "screen.people", fields: { description: "Revised by the reply" } }];
+    const revised: Proposal = { ...p, ops, plan: planOf(ops, tree(s.systemId)) };
+    let calls = 0;
+    let restore = () => {};
+    await runInDurableObject(env.SYSTEMS.getByName(s.systemId), async (i: SystemAuthority) => {
+      const proto = Object.getPrototypeOf(i) as Record<string, unknown>;
+      const orig = proto.setProposalPlan as (...a: unknown[]) => unknown;
+      proto.setProposalPlan = function (this: SystemAuthority, ...a: unknown[]) {
+        calls++;
+        // The PUT's own write: a reply lands just before it.
+        if (calls === 1) this.reviseProposal(revised, [{ answer: "the People screen" }]);
+        // The repair's first write: another PUT on a node the reply kept lands just before it.
+        if (calls === 2) orig.call(this, a[0], a[1], { ...(a[4] as object), "screen.people": "reject" });
+        return orig.apply(this, a);
+      };
+      restore = () => { proto.setProposalPlan = orig; };
+    });
+    try {
+      const r = await decide(s, p, [{ nodeId: "thing.webapp", decision: "agree" }, { nodeId: "screen.today", decision: "defer" }]);
+      expect(r.status, JSON.stringify(r.json)).toBe(200);
+      expect(calls).toBe(3);
+      const stored = await systemStub(env, s.systemId).proposalPlan(p.id);
+      expect(strip(stored!.plan)).toEqual(strip(revised.plan));
+      expect(stored!.decisions).toEqual({ "thing.webapp": "agree", "screen.people": "reject" });
+    } finally {
+      restore();
+    }
+  });
 });
 
 describe("decisions compare-and-set", () => {
