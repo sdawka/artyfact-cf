@@ -1,6 +1,6 @@
 # Intent authoring and ontology integrity
 
-Status: proposed design for user review, 2026-10-14. Scope is approved; this design and its implementation plan have not yet been reviewed. Extends [ontology](ontology.md), [lifecycle](lifecycle.md) and [UI](ui.md).
+Status: approved for implementation by the user, 2026-10-14. Implementation is tracked in [the plan](intent-integrity-plan.md). Extends [ontology](ontology.md), [lifecycle](lifecycle.md) and [UI](ui.md).
 
 ## Outcome and boundaries
 

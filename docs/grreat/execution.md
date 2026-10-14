@@ -3,10 +3,10 @@
 
 ## Now
 
-- Priority: deliver intent-to-ontology authoring, ontology integrity, and a working enriched Artyfact System map. The [proposed design](../design/intent-integrity.md) is ready for required user review; implementation planning follows that review. Evidence: [[journals/2026-10-14-intent-integrity-assessment]].
+- Priority: deliver intent-to-ontology authoring, ontology integrity, and a working enriched Artyfact System map. The [approved design](../design/intent-integrity.md) and [implementation plan](../design/intent-integrity-plan.md) are in execution. Evidence: [[journals/2026-10-14-intent-integrity-assessment]].
 - Released: all seven intention fixes merged in [PR #77](https://github.com/sdawka/artyfact-cf/pull/77) as `1ec3826de3bd3a24ff4ac7eddb061ae8f0c56888`, preserving individual fix commits. Platform version `39aba8f8-dd0d-4810-b6a6-5feb373fa6c0` and site version `a5b7ff36-c033-4420-b9c6-49ce6518b300` are deployed from that revision.
 - Verified: independent reviews, full local/pre-push and hosted CI pass. Post-merge site checks pass. Live authenticated API reads and 16 desktop/mobile route checks pass; app checks found no serious/critical accessibility violations, overflow, page errors or attempted writes. Evidence: [[journals/2026-10-14-intention-fixes]].
-- Next action: review the proposed intent/integrity design, then prepare its implementation plan. Preserve deferred downstream lifecycle verification; it does not replace the new foundation priority.
+- Next action: integrate the shared intent/report contracts, durable integrity backend, proposal recovery, CLI/UI authoring and self-Genome enrichment; then run independent review, full CI and real examples. Preserve deferred downstream lifecycle verification.
 - Tracking: canonical Markdown remains authoritative. Remote GRREAT sync is pending missing credentials and a confirmed separate Artyfact destination; preserve the earlier wrong-project conflict.
 - Last updated: 2026-10-14T15:29:14-04:00.
 

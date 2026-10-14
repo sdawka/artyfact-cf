@@ -3,7 +3,7 @@
 
 ## Active follow-up: intent and integrity foundations
 
-The user approved the foundation scope and repairing/enriching Artyfact’s app System map. The [proposed architectural design](../design/intent-integrity.md) defines acceptance and is awaiting user review before implementation planning. Canonical Markdown remains authoritative; preserve existing release evidence and the earlier work below.
+The user approved the foundation scope and repairing/enriching Artyfact’s app System map. The user approved implementation of the [architectural design](../design/intent-integrity.md); the [implementation plan](../design/intent-integrity-plan.md) defines ownership, contracts, tests and acceptance. Canonical Markdown remains authoritative; preserve existing release evidence and the earlier work below.
 
 ## Earlier follow-up: app intention alignment
 
