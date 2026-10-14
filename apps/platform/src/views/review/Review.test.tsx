@@ -151,7 +151,7 @@ describe("Review queue", () => {
     renderApp(`${BASE}/overview`, undefined, queueSeed());
     // An amendment and an evaluated candidate: 2 waiting, the promotion row is not counted again.
     expect(await screen.findByRole("link", { name: "Review, 2 waiting" })).toBeTruthy();
-    expect(screen.getByRole("link", { name: "2 waiting for review" }).getAttribute("href")).toBe(REVIEW);
+    expect(screen.getByRole("link", { name: /2 decisions await your review/ }).getAttribute("href")).toBe(REVIEW);
   });
 });
 

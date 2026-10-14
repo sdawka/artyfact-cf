@@ -38,7 +38,7 @@ export function conformanceMeter(verdicts: readonly UiVerdict[]): MeterModel {
       { key: "pass", label: "pass", count: pass, tone: "pass" },
       { key: "fail", label: "fail", count: n("fail"), tone: "fail" },
       { key: "unknown", label: "unknown or stale", count: n("unknown", "stale"), tone: "subtle" },
-      { key: "not-run", label: "not run", count: notRun, tone: "subtle" },
+      { key: "not-run", label: "not run", count: notRun, tone: "subtle", hatched: true },
     ],
   };
 }
@@ -60,6 +60,7 @@ export function outcomeMeter(claims: readonly { status: string; deferred: boolea
 }
 
 const ACTIONS: [prefix: string, action: string][] = [
+  ["node.provisional", "Review the provisional nodes in the Map and confirm or remove them."],
   ["coverage.hook", "Add a hook for the criterion."],
   ["coverage.requirement", "Add a requirement or criterion covering the subject."],
   ["hook.unbound", "Bind the hook to an implementation."],
@@ -80,7 +81,7 @@ const ACTIONS: [prefix: string, action: string][] = [
 
 /** Next-action text for a rule family; falls back to pointing at the derivation. */
 export function blockerAction(rule: string): string {
-  return ACTIONS.find(([p]) => rule === p || (p.endsWith(".") && rule.startsWith(p)))?.[1] ?? "Open Explain to see which facts produced this.";
+  return ACTIONS.find(([p]) => rule === p || (p.endsWith(".") && rule.startsWith(p)))?.[1] ?? "Show the derivation to see which facts produced this.";
 }
 
 /** Full shas shorten to 7 characters; names such as "canonical" and "head" stay. */

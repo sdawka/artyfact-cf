@@ -478,7 +478,7 @@ test("Tree Locate reveals a filtered same-scope leaf and centers its selection @
 
 test("Go to from another view overrides its remembered map scope @fixture", async ({ page }) => {
   await page.goto(`${SYSTEM}/overview?scope=environment&layer=proteome`);
-  await expect(page.getByRole("heading", { name: "Overview", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Peopling", level: 1 })).toBeVisible();
   await page.getByRole("button", { name: /^Go to/ }).click();
   const dialog = page.getByRole("dialog", { name: "Go to", exact: true });
   await expect(dialog).toBeVisible();
@@ -490,7 +490,7 @@ test("Go to from another view overrides its remembered map scope @fixture", asyn
   expect(new URL(page.url()).searchParams.get("layer")).toBe("proteome");
   await expect(inspector(page)).toHaveCount(0);
   await page.goBack();
-  await expect(page.getByRole("heading", { name: "Overview", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Peopling", level: 1 })).toBeVisible();
   expect(new URL(page.url()).searchParams.get("scope")).toBe("environment");
 });
 
@@ -516,7 +516,7 @@ test("browser Back restores a panned camera without replaying consumed Go to Sho
   await page.waitForTimeout(250);
   const panned = await camera(page);
   await page.getByRole("navigation", { name: "Views" }).getByRole("link", { name: "Overview", exact: true }).click();
-  await expect(page.getByRole("heading", { name: "Overview", level: 1 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Peopling", level: 1 })).toBeVisible();
   await page.goBack();
   await scope(page, "component.AddContactDialog");
   // Let mount effects finish so an obsolete route Locate cannot pass transiently.

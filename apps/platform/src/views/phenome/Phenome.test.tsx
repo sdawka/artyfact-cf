@@ -27,6 +27,14 @@ const event = (seq: number, buildId: string, o: Partial<PhenomeEvent> = {}): Phe
   kind: "journey.step", payload: {}, ...o,
 });
 
+/** Event group headers: a `summary` whose text reads "N events" or "N loaded events". */
+const groupHeaders = async () => {
+  await screen.findByRole("heading", { level: 1, name: "Deployments" });
+  await waitFor(() => expect(document.querySelectorAll("details > summary").length).toBeGreaterThan(0));
+  return Array.from(document.querySelectorAll("details > summary")).filter((s) => /events/.test(s.textContent ?? ""));
+};
+const open = (id: string) => fireEvent.click(screen.getByRole("button", { name: `Details of ${id}` }));
+
 interface Seed { builds?: Build[]; production?: Deployment | null; history?: Deployment[]; events?: PhenomeEvent[]; query?: object }
 const seed = (s: Seed = {}) => (qc: QueryClient) => {
   qc.setQueryData(qk.builds(SYSTEM, {}), { builds: s.builds ?? [] });
@@ -41,16 +49,21 @@ const seed = (s: Seed = {}) => (qc: QueryClient) => {
 };
 
 describe("Deployments page", () => {
-  it("notes that admin actions need the header token, until one is set", async () => {
+  it("asks for the admin token inside Operations (last on the page), until one is set", async () => {
     sessionStorage.clear();
     renderApp(PATH, undefined, seed());
-    expect(await screen.findByText("Admin actions need the admin token: set it in the header.")).toBeTruthy();
+    const ops = await screen.findByRole("region", { name: "Operations" });
+    expect(within(ops).getByText("Observations and flag controls need the admin token.")).toBeTruthy();
+    expect(within(ops).getByRole("button", { name: "Set admin token" }).hasAttribute("disabled")).toBe(true);
+    expect(screen.queryByText(/set it in the header/)).toBeNull();
+    const regions = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label") ?? r.querySelector("h2")?.textContent);
+    expect(regions.at(-1)).toBe("Operations");
     sessionStorage.setItem("artyfact.adminToken", "adm");
     try {
       cleanup();
       renderApp(PATH, undefined, seed());
       await screen.findByRole("heading", { level: 1, name: "Deployments" });
-      expect(screen.queryByText(/Admin actions need the admin token/)).toBeNull();
+      expect(screen.queryByText(/need the admin token/)).toBeNull();
     } finally {
       sessionStorage.clear();
     }
@@ -62,15 +75,17 @@ describe("Deployments page", () => {
       query: {thing:"thing.webapp"},
       events: [event(2, COMMIT, { kind: "selected.event" }), event(1, OTHER, { thingId: "thing.other", kind: "other.event" })],
     }));
+    fireEvent.click(await screen.findByRole("button", { name: "Details of build.1" }));
     expect(await screen.findByText("cand.selected")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Details of build.other" })).toBeNull();
     expect(screen.queryByText("cand.other")).toBeNull();
-    expect(screen.getByText("selected.event")).toBeTruthy();
-    expect(screen.queryByText("other.event")).toBeNull();
+    expect(screen.getByRole("cell", { name: "selected.event" })).toBeTruthy();
+    expect(screen.queryByRole("cell", { name: "other.event" })).toBeNull();
   });
 
   it("separates events for distinct outputs built from the same source", async () => {
     renderApp(PATH, undefined, seed({ events: [event(2, COMMIT, { outputId: "output.two" }), event(1, COMMIT, { outputId: "output.one" })] }));
-    const groups = await screen.findAllByText(/events/, { selector: "summary" });
+    const groups = await groupHeaders();
     expect(groups).toHaveLength(2);
     expect(groups.map((group) => group.textContent)).toEqual([expect.stringContaining("output.two"), expect.stringContaining("output.one")]);
   });
@@ -81,25 +96,54 @@ describe("Deployments page", () => {
       production: deployment({ output: "output.known" }),
       events: [event(1, COMMIT, { outputId: "output.known", genomeCommit: OTHER })],
     }));
-    expect(await screen.findAllByText("output.known")).toHaveLength(3);
-    expect(screen.getByText("Output unknown")).toBeTruthy();
-    expect(screen.getByText(/Source app@aaaaaaa/)).toBeTruthy();
+    expect(await screen.findAllByText("output.known")).toHaveLength(2);
+    open("deploy.1");
+    expect(screen.getAllByText("output.known")).toHaveLength(3);
+    // The legacy build reports no output identity: its Output cell says unknown.
+    const legacy = screen.getByRole("button", { name: "Details of build.legacy" }).closest("tr")!;
+    expect(legacy.querySelectorAll("td")[4]!.textContent).toBe("unknown");
+    open("build.1");
+    expect(screen.getByText(/app@aaaaaaa/)).toBeTruthy();
   });
 
-  it("shows the empty state with the literal unknown and nothing green", async () => {
+  it("shows one page-level empty state with Open Review and the ingest example, and nothing green", async () => {
     const { container } = renderApp(PATH, undefined, seed());
     expect(await screen.findByRole("heading", { level: 1, name: "Deployments" })).toBeTruthy();
-    expect(screen.getByText(/No deployments recorded/).textContent).toContain("unknown");
-    expect(screen.getByText("No runtime events in this scope.")).toBeTruthy();
+    expect(screen.getByText("No builds or deployments yet.")).toBeTruthy();
+    expect(screen.getByText("A build starts when a candidate is promoted or a preview is reported.")).toBeTruthy();
+    expect(screen.getByRole("link", { name: "Open Review" }).getAttribute("href")).toContain("/review");
+    expect(screen.getByText("No runtime events yet.")).toBeTruthy();
+    expect(screen.getByLabelText("Example ingest request").textContent).toContain("/phenome/events");
+    expect(screen.getByRole("button", { name: /^Copy example/ })).toBeTruthy();
+    // No per-region absences and no "— unknown." suffixes.
+    expect(screen.queryByText(/No builds yet|No deployments yet/)).toBeNull();
+    expect(container.textContent).not.toMatch(/— unknown/);
     expect(container.querySelector('[data-tone="pass"], [data-verdict="pass"]')).toBeNull();
+  });
+
+  it("says a failed builds or deployments query failed, with Try again, instead of claiming absence", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      const u = String(url);
+      if (u.includes("/builds") || u.includes("/deployments")) return Response.json({ error: { code: "down", message: "API down" } }, { status: 503 });
+      return Response.json({ events: [], versions: [] });
+    }));
+    renderApp(PATH);
+    const builds = await screen.findByText("Could not load builds.");
+    expect(builds.closest('[role="alert"]')).toBeTruthy();
+    expect(await screen.findByText("Could not load deployments.")).toBeTruthy();
+    expect(screen.getAllByRole("button", { name: "Try again" }).length).toBe(2);
+    expect(screen.queryByText(/No builds|No deployments/)).toBeNull();
+    vi.unstubAllGlobals();
   });
 
   it("lists builds with steps, a safe preview link and the candidate", async () => {
     renderApp(PATH, undefined, seed({ builds: [build()] }));
+    await screen.findByRole("button", { name: "Details of build.1" });
+    open("build.1");
     const steps = await screen.findByRole("list", { name: "Steps of build.1" });
     expect(within(steps).getByText("install: passed")).toBeTruthy();
     expect(within(steps).getByText("test: failed")).toBeTruthy();
-    const link = screen.getByRole("link", { name: "Preview" });
+    const link = screen.getByRole("link", { name: /^Preview/ });
     expect(link.getAttribute("href")).toBe("https://preview.example.dev");
     expect(link.getAttribute("rel")).toContain("noopener");
     expect(screen.getByText("cand.1")).toBeTruthy();
@@ -110,8 +154,10 @@ describe("Deployments page", () => {
       query: { deployment: "deploy.1" },
       events: [event(3, COMMIT), event(2, COMMIT), event(1, OTHER)],
     }));
-    const groups = await screen.findAllByText(/events/, { selector: "summary" });
-    expect(groups.map((g) => g.textContent)).toEqual([expect.stringContaining("aaaaaaa · 2 events"), expect.stringContaining("bbbbbbb · 1 events")]);
+    const groups = await groupHeaders();
+    expect(groups.map((g) => g.textContent)).toEqual([expect.stringMatching(/aaaaaaa.*2 events/), expect.stringMatching(/bbbbbbb.*1 events/)]);
+    // The filter shows as a removable chip.
+    expect(within(screen.getByRole("list", { name: "Active filters" })).getByRole("button", { name: "Remove Deployment filter" })).toBeTruthy();
   });
 
   it("uses the fail tone for failed builds and pass only for passed", async () => {
@@ -119,14 +165,16 @@ describe("Deployments page", () => {
       builds: [build({ id: "b.fail", status: "failed" }), build({ id: "b.run", status: "running" }), build({ id: "b.err", status: "error" }), build({ id: "b.ok", status: "passed" })],
       production: deployment(),
     }));
-    await screen.findByRole("list", { name: "Steps of b.ok" });
+    await screen.findByRole("button", { name: "Details of b.ok" });
+    for (const id of ["b.fail", "b.run", "b.err", "b.ok"]) open(id);
     const tone = (status: string) => container.querySelector(`[data-status="${status}"][data-tone]`)!.getAttribute("data-tone");
     expect(tone("failed")).toBe("fail");
     expect(tone("error")).toBe("fail");
     expect(tone("running")).toBe("neutral");
     expect(tone("passed")).toBe("pass");
-    expect(container.querySelector('[data-status="live"]')!.getAttribute("data-tone")).toBe("neutral");
-    expect(container.querySelectorAll('[data-tone="pass"]')).toHaveLength(1);
+    expect(container.querySelector('tr [data-status="live"]')!.getAttribute("data-tone")).toBe("neutral");
+    // One passed build and its passed steps; nothing else is pass.
+    for (const el of container.querySelectorAll('[data-tone="pass"]')) expect(el.getAttribute("data-status")).toBe("passed");
   });
 });
 
@@ -150,7 +198,7 @@ it('shows implementation evaluations only through the selected deployment build 
  const card=(await screen.findByRole('heading',{name:'Implementation evaluations'})).closest('section')!;
  expect(card.textContent).toContain('eval.exact');expect(card.textContent).not.toContain('eval.foreign');
  await router.navigate(`${PATH}?deployment=deploy.foreign`);await screen.findByText('eval.foreign');expect(screen.queryByText('eval.exact')).toBeNull();
- await router.navigate(`${PATH}?deployment=deploy.legacy`);expect(await screen.findByText('No exact deployment → build → candidate association.')).toBeTruthy();expect(screen.queryByText('eval.foreign')).toBeNull();
+ await router.navigate(`${PATH}?deployment=deploy.legacy`);expect(await screen.findByText("No implementation evaluations are associated with this deployment's build.")).toBeTruthy();expect(screen.queryByText('eval.foreign')).toBeNull();
 });
 
 
@@ -173,12 +221,12 @@ function pageApi(setup:{initialError?:boolean;olderError?:boolean}={}) {
 }
 it('loads older scoped events without duplicates or summed counts and resets on Thing navigation',async()=>{
  const {router,paths}=pageApi();expect(await screen.findByText('b.newest')).toBeTruthy();fireEvent.click(await screen.findByRole('button',{name:'Load older events'}));expect(await screen.findByText('b.older')).toBeTruthy();expect(screen.getAllByText('b.newest')).toHaveLength(1);
- expect(screen.getByText(/2 events/, {selector:'summary'})).toBeTruthy();expect(screen.queryByText(/999 events|1001 events/)).toBeNull();expect(screen.queryByRole('button',{name:'Load older events'})).toBeNull();
+ expect((await groupHeaders()).map(g=>g.textContent)).toEqual([expect.stringMatching(/2 events/)]);expect(screen.queryByText(/999 events|1001 events/)).toBeNull();expect(screen.queryByRole('button',{name:'Load older events'})).toBeNull();
  const query=new URL(paths.find(p=>p.includes('before='))!,'https://example.com').searchParams;expect(Object.fromEntries(query)).toEqual({thing:'thing.b',deployment:'deploy.b',build:'runtime.b',output:'output.b',kind:'health',commit:COMMIT,realization:'rz.b',before:'2'});
- await router.navigate(`/s/${SYSTEM}/r/head/things/thing.webapp/phenome`);expect(await screen.findByText('No runtime events in this scope.')).toBeTruthy();expect(screen.queryByText('b.older')).toBeNull();
+ await router.navigate(`/s/${SYSTEM}/r/head/things/thing.webapp/phenome`);expect(await screen.findByText('No runtime events yet.')).toBeTruthy();expect(screen.queryByText('b.older')).toBeNull();
 });
 it('shows an initial event error with retry instead of a false empty state',async()=>{
- pageApi({initialError:true});expect(await screen.findByRole('button',{name:'Retry runtime events'})).toBeTruthy();expect(screen.queryByText('No runtime events in this scope.')).toBeNull();fireEvent.click(screen.getByRole('button',{name:'Retry runtime events'}));expect(await screen.findByText('b.newest')).toBeTruthy();
+ pageApi({initialError:true});expect(await screen.findByRole('button',{name:'Retry runtime events'})).toBeTruthy();expect(screen.queryByText('No runtime events yet.')).toBeNull();fireEvent.click(screen.getByRole('button',{name:'Retry runtime events'}));expect(await screen.findByText('b.newest')).toBeTruthy();
 });
 it('preserves loaded events when an older page fails and retries the same cursor',async()=>{
  const {paths}=pageApi({olderError:true});expect(await screen.findByText('b.newest')).toBeTruthy();fireEvent.click(await screen.findByRole('button',{name:'Load older events'}));expect(await screen.findByRole('button',{name:'Retry older events'})).toBeTruthy();expect(screen.getByText('b.newest')).toBeTruthy();fireEvent.click(screen.getByRole('button',{name:'Retry older events'}));expect(await screen.findByText('b.older')).toBeTruthy();expect(paths.filter(p=>p.includes('before=2'))).toHaveLength(2);
@@ -186,12 +234,12 @@ it('preserves loaded events when an older page fails and retries the same cursor
 
 it('labels counts as loaded events when a version has no retained aggregate',async()=>{
  renderApp(PATH,undefined,qc=>{seed({events:[event(1,COMMIT)]})(qc);qc.setQueryData(qk.phenomePages(SYSTEM,{}),{pages:[{events:[event(1,COMMIT)],versions:[]}],pageParams:[undefined]});});
- expect(await screen.findByText(/1 loaded events/,{selector:'summary'})).toBeTruthy();
+ expect((await groupHeaders())[0]!.textContent).toMatch(/1 loaded events/);
 });
 
 it('keeps legacy reused-build commits in separate groups with exact summaries across pages',async()=>{
  const newer=event(3,'runtime.reused',{commit:OTHER,kind:'new.commit'}),older=event(2,'runtime.reused',{commit:COMMIT,kind:'old.commit'});
  const versions=[{key:JSON.stringify(['runtime.reused',OTHER]),output:null,genomeCommit:null,buildId:'runtime.reused',commit:OTHER,deployment:'dep.new',systemCommit:'sc.new',count:1},{key:JSON.stringify(['runtime.reused',COMMIT]),output:null,genomeCommit:null,buildId:'runtime.reused',commit:COMMIT,deployment:'dep.old',systemCommit:'sc.old',count:2}];
  renderApp(PATH,undefined,qc=>{seed()(qc);qc.setQueryData(qk.phenomePages(SYSTEM,{}),{pages:[{events:[newer],versions,nextBefore:3},{events:[older,event(1,'runtime.reused',{commit:COMMIT,kind:'old.second'})],versions}],pageParams:[undefined,3]});});
- const groups=await screen.findAllByText(/events/,{selector:'summary'});expect(groups).toHaveLength(2);expect(groups[0].textContent).toContain('1 events');expect(groups[0].textContent).toContain('sc.new');expect(groups[1].textContent).toContain('2 events');expect(groups[1].textContent).toContain('sc.old');expect(groups[0].textContent).toContain('Source bbbbbbb');expect(groups[1].textContent).toContain('Source aaaaaaa');
+ const groups=await groupHeaders();expect(groups).toHaveLength(2);expect(groups[0].textContent).toContain('1 events');expect(groups[0].textContent).toContain('sc.new');expect(groups[1].textContent).toContain('2 events');expect(groups[1].textContent).toContain('sc.old');expect(groups[0].textContent).toContain('Source bbbbbbb');expect(groups[1].textContent).toContain('Source aaaaaaa');
 });

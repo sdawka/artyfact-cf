@@ -33,7 +33,7 @@ test("direct Thing routes retain a full workspace as the System grows and distin
   await mockApi(page, data);
   await page.goto(THING);
   await expect(page.getByRole("heading", { level: 1, name: "Peopling web app" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Source artifacts" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Source" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Realized outputs" })).toBeVisible();
   await expect(page.getByText("workers-version:mock-v2", { exact: true })).toBeVisible();
   await expect(page.getByText("workers-version:mock-v3", { exact: true })).toBeVisible();
@@ -51,9 +51,9 @@ test("direct Thing routes retain a full workspace as the System grows and distin
   await expect(page).toHaveURL(`${page.url().split(SYSTEM)[0]}${SYSTEM}/overview`);
   await page.goto(`${SYSTEM}/things/thing.notes`);
   await expect(page.getByRole("heading", { name: "Notes", level: 1 })).toBeVisible();
-  await expect(page.getByText("No pinned Parts. This Thing can be Genome-only.")).toBeVisible();
-  await expect(page.getByText(/No source artifacts recorded/)).toBeVisible();
-  await expect(page.getByText(/No realized outputs for this Thing/)).toBeVisible();
+  await expect(page.getByText("none (Genome-only)")).toBeVisible();
+  await expect(page.getByText("No source artifacts yet.")).toBeVisible();
+  await expect(page.getByText("No realized output yet.")).toBeVisible();
   await checkA11yAndShoot(page, testInfo, "genome-only-thing");
 });
 

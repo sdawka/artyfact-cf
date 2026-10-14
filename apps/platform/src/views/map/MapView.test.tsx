@@ -180,7 +180,7 @@ describe("System atlas", () => {
   await waitFor(() => expect(viewport()).not.toBe(initial));
   const panned = viewport();
   fireEvent.click(screen.getByRole('link', { name: 'Overview' }));
-  await screen.findByRole('heading', { name: 'Overview', level: 1 });
+  await screen.findByRole('heading', { name: 'Peopling', level: 1 });
   await act(() => router.navigate(-1));
   await waitFor(() => expect(nodeEl('affordance.AddContactDialog.save')).not.toBeNull());
   await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });
@@ -229,7 +229,7 @@ describe("System atlas", () => {
     await waitFor(() => expect(viewport()).not.toBe(initial));
     const panned = viewport();
     fireEvent.click(screen.getByRole("link", { name: /^Overview$/ }));
-    await screen.findByRole("heading", { name: "Overview", level: 1 });
+    await screen.findByRole("heading", { name: "Peopling", level: 1 });
     await act(() => router.navigate(-1));
     await ready("affordance.AddContactDialog.save");
     await act(async () => { await new Promise(resolve => setTimeout(resolve, 250)); });

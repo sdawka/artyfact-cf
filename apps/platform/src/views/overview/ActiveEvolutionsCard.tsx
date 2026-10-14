@@ -1,59 +1,63 @@
 import { Link } from "react-router";
 import { useEvolutions } from "@/api/queries";
-import { NodeChip } from "@/components/NodeChip/NodeChip";
+import { EmptyState } from "@/components/EmptyState/EmptyState";
+import { MetaLine } from "@/components/MetaLine/MetaLine";
+import { Row, RowList } from "@/components/RowList/RowList";
+import { Section } from "@/components/Section/Section";
+import { StatusText } from "@/components/StatusText/StatusText";
+import { Button } from "@/components/ui";
 import { useModel } from "@/model/useModel";
-import { useReviewCount } from "@/model/useReviewCount";
 import { useKeepParams } from "@/model/useSelection";
 import type { Evolution } from "../../../shared/api";
 import styles from "./Overview.module.css";
 
-const ORDER = ["actionable", "realizing", "evaluated", "genome-approved", "proposed", "promoted", "rejected", "withdrawn"];
-const ACTIVE_LIMIT = 3;
+/** Active states, in the order a change moves through them. promoted, rejected and withdrawn are finished, not active. */
+const ORDER = ["actionable", "realizing", "evaluated", "genome-approved", "proposed"];
+const LIMIT = 5;
+/** Narrow screens show this many rows; "All Evolutions" has the rest. */
+const NARROW_LIMIT = 3;
 
-/** Evolutions grouped by state, each with scope chips and a link to the Work board; a line to Review when decisions wait. */
+/** The first five active Evolutions as rows into Work, then a link to all of them. */
 export function ActiveEvolutionsCard() {
   const m = useModel();
   const href = useKeepParams();
   const { data } = useEvolutions();
-  const waiting = useReviewCount();
   // The live board wins; before the API has any, the Genome's own Evolutions show their declared state.
   const live = data?.evolutions ?? [];
-  const evolutions: Evolution[] = live.length ? live : (m.index.model.evolutions ?? []);
-  const groups = ORDER.map((state) => [state, evolutions.filter((e) => e.state === state)] as const).filter(([, xs]) => xs.length);
-
+  const all: Evolution[] = live.length ? live : (m.index.model.evolutions ?? []);
+  const active = ORDER.flatMap((state) => all.filter((e) => e.state === state));
+  const shown = active.slice(0, LIMIT);
   return (
-    <section className={styles.card} aria-labelledby="evolutions-title">
-      <h2 id="evolutions-title" className={styles.cardTitle}>Evolutions</h2>
-      {waiting > 0 && (
-        <p className={styles.waiting}>
-          <Link className="u-marker" to={href("review")}>{waiting} waiting for review</Link>
-        </p>
-      )}
-      {!groups.length ? (
-        <p className={styles.muted}>No Evolutions.</p>
+    <Section title="Active Evolutions" count={active.length}>
+      {active.length === 0 ? (
+        <EmptyState
+          title="No Evolutions yet."
+          action={<Button asChild><Link to={href("work", { panel: "intent" })}>Describe a change</Link></Button>}
+        >
+          A change starts as an Evolution.
+        </EmptyState>
       ) : (
-        <div className={styles.evoGroups}>
-          {groups.map(([state, xs]) => (
-            <div key={state} className={styles.evoGroup}>
-              <h3 className={styles.blockTitle}>{state} <span className={styles.count}>{xs.length}</span></h3>
-              <ul className={styles.plain}>
-                {xs.map((e) => (
-                  <li key={e.id} className={styles.evo}>
-                    <Link className={`u-marker ${styles.evoLink}`} to={href("work", { evolution: e.id })}>{e.title}</Link>
-                    <span className={styles.muted}> {e.id} · {e.kind} · {e.risk} risk</span>
-                    <ul className={styles.chips} aria-label={`Scope of ${e.title}`}>
-                      {e.affectedNodes.slice(0, ACTIVE_LIMIT).map((n) => <li key={n}><NodeChip id={n} size="sm" /></li>)}
-                      {e.affectedNodes.length > ACTIVE_LIMIT && (
-                        <li className={styles.muted}>+{e.affectedNodes.length - ACTIVE_LIMIT} more</li>
-                      )}
-                    </ul>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+        <>
+          <RowList label="Active Evolutions">
+            {shown.map((e, i) => (
+              <Row
+                key={e.id}
+                className={i >= NARROW_LIMIT ? styles.wideOnly : undefined}
+                to={href("work", { evolution: e.id })}
+                title={e.title}
+                status={<StatusText status={e.state} />}
+                meta={<MetaLine items={[
+                  { value: e.id, code: true },
+                  { value: e.kind },
+                  { value: `${e.risk} risk` },
+                  { value: `${e.affectedNodes.length} ${e.affectedNodes.length === 1 ? "node" : "nodes"}` },
+                ]} />}
+              />
+            ))}
+          </RowList>
+          <Link className={styles.allLink} to={href("work")}>All Evolutions <span className="u-numeric">({all.length})</span></Link>
+        </>
       )}
-    </section>
+    </Section>
   );
 }

@@ -8,7 +8,7 @@ const BASE = "/s/system.peopling/r/head";
 describe("CommandPalette", () => {
   it("opens with ⌘K, filters by id or name, and Enter focuses in the best view", async () => {
     const { router } = renderApp(`${BASE}/overview?layer=proteome`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     await act(async () => void fireEvent.keyDown(window, { key: "k", metaKey: true }));
     const dialog = await screen.findByRole("dialog");
     const all = within(dialog).getAllByRole("option").length;
@@ -36,7 +36,7 @@ describe("CommandPalette", () => {
   it.each(['map', 'overview'])('Go-to from %s with remembered environment reveals a searched leaf', async (view) => {
   const { router } = renderApp(`${BASE}/${view}?scope=environment`);
   if (view === 'map') await waitFor(() => expect(document.querySelector('[data-map-node="system.peopling"]')).not.toBeNull());
-  else await screen.findByRole('heading', { level: 1, name: 'Overview' });
+  else await screen.findByRole('heading', { level: 1, name: 'Peopling' });
   await act(async () => void fireEvent.keyDown(window, { key: 'k', metaKey: true }));
   const dialog = await screen.findByRole('dialog');
   const input = within(dialog).getByRole('combobox');
@@ -55,7 +55,7 @@ describe("CommandPalette", () => {
 
   it("matches names as keywords and sends theory objects to Theory", async () => {
     const { router } = renderApp(`${BASE}/overview`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     await act(async () => void fireEvent.keyDown(window, { key: "k", ctrlKey: true }));
     const dialog = await screen.findByRole("dialog");
     const input = within(dialog).getByRole("combobox");

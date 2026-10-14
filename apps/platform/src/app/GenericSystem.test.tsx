@@ -43,10 +43,9 @@ describe("a System whose templates have other kinds than the webapp's", () => {
 
   it("renders Overview", async () => {
     await renderClean(at("overview"));
-    const hero = screen.getByRole("region", { name: "Toolkit" });
-    expect(within(hero).getByRole("heading", { level: 2, name: "Toolkit" }).id).toBe("hero-title");
-    expect(within(hero).getByText("purpose.reliable-jobs").parentElement!.textContent)
-      .toBe("purpose.reliable-jobs Operators submit a job once and see it finish, instead of resubmitting after silent failures.");
+    expect((await screen.findByRole("heading", { level: 1, name: "Toolkit" })).id).toBe("view-title");
+    expect(screen.getByText(/Operators submit a job once and see it finish/)).toBeTruthy();
+    expect(screen.getAllByText("purpose.reliable-jobs").length).toBeGreaterThan(0);
   });
 
   it("keeps real containment levels and displays template-only kind labels and glyphs", async () => {

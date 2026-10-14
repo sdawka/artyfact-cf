@@ -26,8 +26,8 @@ test.describe("iteration 2 on a live deployment", () => {
     await systemCard(page, /Peopling/).first().click();
     await expect(page).toHaveURL(/\/s\/system\.peopling\/r\/head\/things\/thing\.webapp$/);
     await expect(page.getByRole("heading", { level: 1, name: "Peopling web app" })).toBeVisible();
-    await page.getByRole("link", { name: "System overview", exact: true }).click();
-    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    await page.getByRole("navigation", { name: "Scope" }).getByRole("link", { name: "Peopling", exact: true }).click();
+    await expect(page.getByRole("heading", { level: 1, name: "Peopling" })).toBeVisible();
     await checkPage(page, testInfo, "live-overview");
   });
 

@@ -11,7 +11,7 @@ test.describe("shell", () => {
     await expect(page.locator('[data-map-node="system.peopling"]')).toBeVisible();
     await page.getByRole("navigation", { name: "Views" }).getByRole("link", { name: "Overview", exact: true }).click();
     await expect(page).toHaveURL(new RegExp(`${SYSTEM}/overview\\?scope=environment$`));
-    await expect(page.getByRole("heading", { level: 1, name: "Overview" })).toBeVisible();
+    await expect(page.getByRole("heading", { level: 1, name: "Peopling" })).toBeVisible();
     await page.getByRole("link", { name: "artyfact" }).click();
     await expect(page).toHaveURL(/\/$/);
   });
@@ -23,7 +23,7 @@ test.describe("shell", () => {
   });
 
   test("command palette opens with Ctrl+K and navigates", async ({ page }, testInfo) => {
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     await page.keyboard.press("Control+k");
     const dialog = page.getByRole("dialog", { name: "Go to", exact: true });
     await expect(dialog).toBeVisible();
@@ -38,7 +38,7 @@ test.describe("shell", () => {
   });
 
   test("admin token control is in the header, labelled and axe clean", async ({ page }, testInfo) => {
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     const button = page.getByRole("button", { name: /Admin token/ });
     await expect(button).toBeVisible();
     await button.click();
@@ -71,12 +71,12 @@ test.describe("shell", () => {
     for (const [name, url] of views) {
       await nav.getByRole("link", { name, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/${url}\\?.*layer=phenome`));
-      await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: url === "overview" ? "Peopling" : name })).toBeVisible();
     }
   });
 
   test("Compare stays reachable with g x though it is off the rail", async ({ page }) => {
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     await page.keyboard.press("g");
     await page.keyboard.press("x");
     await expect(page).toHaveURL(new RegExp(`${SYSTEM}/compare`));
@@ -125,13 +125,13 @@ test.describe("shell", () => {
   });
 
   test("fixture mode is announced @fixture", async ({ page }) => {
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     await expect(page.getByText(/fixture data/i).first()).toBeVisible();
   });
 
   test("API is live and the SPA is not in fixture mode @live", async ({ page, request }) => {
     expect((await request.get("/api/health")).status()).toBe(200);
-    await open(page, "/overview", "Overview");
+    await open(page, "/overview", "Peopling");
     await expect(page.getByText(/fixture data/i)).toHaveCount(0);
   });
 });

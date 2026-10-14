@@ -44,7 +44,7 @@ describe("nodeStatus", () => {
 describe("Shell ambient field", () => {
   it("mounts one fixed field coloured by System health", async () => {
     renderApp(`${BASE}/overview`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     expect(document.querySelectorAll("[data-shell-ambient] [data-effect=ambient]")).toHaveLength(1);
     expect(ambient().dataset.health).toMatch(/^(failing|blocked|passing|pending)$/);
     expect(ambient().querySelector<HTMLElement>("[data-effect]")!.style.position).toBe("fixed");
@@ -52,7 +52,7 @@ describe("Shell ambient field", () => {
 
   it("tints by event kind, ignores malformed events, and eases back", async () => {
     renderApp(`${BASE}/overview`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     fx({ kind: "nope" });
     expect(ambient().dataset.accent).toBeUndefined();
     fx({ kind: "select", x: 10, y: 10 });
@@ -68,7 +68,7 @@ describe("Shell ambient field", () => {
 describe("Effects switch", () => {
   it("defaults on, toggles from the TopBar, persists, and is offered in the palette", async () => {
     const first = renderApp(`${BASE}/overview`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     const button = screen.getByRole("button", { name: /Effects/ });
     expect(button.getAttribute("aria-pressed")).toBe("true");
     fireEvent.click(button);
@@ -78,7 +78,7 @@ describe("Effects switch", () => {
     first.unmount();
 
     renderApp(`${BASE}/overview`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     expect(screen.getByRole("button", { name: /Effects/ }).getAttribute("aria-pressed")).toBe("false");
     await act(async () => void fireEvent.keyDown(window, { key: "k", metaKey: true }));
     const dialog = await screen.findByRole("dialog");
@@ -97,7 +97,7 @@ describe("Effects switch", () => {
     proto.setItem = () => { throw new Error("blocked"); };
     try {
       renderApp(`${BASE}/overview`);
-      await screen.findByRole("heading", { level: 1, name: "Overview" });
+      await screen.findByRole("heading", { level: 1, name: "Peopling" });
       const button = screen.getByRole("button", { name: /Effects/ });
       fireEvent.click(button);
       expect(button.getAttribute("aria-pressed")).toBe("false");

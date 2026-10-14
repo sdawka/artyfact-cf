@@ -171,7 +171,7 @@ describe("Shell", () => {
 
   it("g r opens Review keeping params", async () => {
     const { router } = renderApp(`${BASE}/overview?focus=screen.people`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     key("g");
     key("r");
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/review`));
@@ -209,7 +209,7 @@ describe("Shell", () => {
 
   it("g l opens the Changelog and g h (legacy) does too", async () => {
     const { router } = renderApp(`${BASE}/overview?focus=screen.people`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     key("g");
     key("l");
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/changelog`));
@@ -320,7 +320,7 @@ describe("Shell", () => {
 
   it("does not render the Inspector without focus", async () => {
     renderApp(`${BASE}/overview`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     expect(screen.queryByRole("complementary", { name: "Inspector" })).toBeNull();
   });
 
@@ -349,7 +349,7 @@ describe("Shell", () => {
 
   it("g m goes to the Map keeping params", async () => {
     const { router } = renderApp(`${BASE}/overview?focus=screen.people`);
-    await screen.findByRole("heading", { level: 1, name: "Overview" });
+    await screen.findByRole("heading", { level: 1, name: "Peopling" });
     key("g");
     key("m");
     await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/map`));
@@ -422,8 +422,9 @@ describe("Shell", () => {
     };
     it("marks the TopBar only when a loaded evaluation came from the fake provider", async () => {
       renderApp(`${BASE}/overview`, undefined, seed);
-      await screen.findByRole("heading", { level: 1, name: "Overview" });
+      await screen.findByRole("heading", { level: 1, name: "Peopling" });
       expect(screen.queryByText("fake provider")).toBeNull();
+      expect(screen.queryByText("System One: fake provider")).toBeNull();
     });
     it("shows the fake-provider marker in the TopBar", async () => {
       renderApp(`${BASE}/overview`, undefined, (qc) => {
