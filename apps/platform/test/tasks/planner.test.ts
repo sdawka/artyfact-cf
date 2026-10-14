@@ -161,13 +161,13 @@ describe("draftScope", () => {
     expect(d.request.tasks[0].steps.join(" ")).toContain("Delete the code for");
     expect(d.request.tasks[0].steps.join(" ")).toContain("screen.goal");
     // Removing the domain section: its old globs cover src/worker/routes/**. Today's app has only routes/contacts.ts,
-    // which thing.webapp still owns, so the removal lands there. A route file no surviving node owns (goals.ts and
-    // events.ts belong to their sections) leaves no covering ancestor.
+    // which thing.webapp still owns, so the removal lands there. A route file only src/worker/routes/** matched
+    // (goals.ts and events.ts belong to section.goals and section.events) leaves no covering ancestor.
     const domain = Object.keys(genome).find((p) => p.endsWith("/section.domain/node.yaml"))!.replace(/node\.yaml$/, "");
     const noDomain = loadGenome(Object.fromEntries(Object.entries(genome).filter(([p]) => !p.startsWith(domain))), { templates: metaTemplates });
     const covered = draftScope(noDomain, manifest, h, [custom(["section.domain"])], { evolutionIds: ["evolution.9"] }, { "artifact.webapp": tree });
     expect(covered.removals).toEqual([expect.objectContaining({ node: "section.domain", ancestor: "thing.webapp" })]);
-    const gone = draftScope(noDomain, manifest, h, [custom(["section.domain"])], { evolutionIds: ["evolution.9"] }, { "artifact.webapp": [...tree, "src/worker/routes/digest.ts"] });
+    const gone = draftScope(noDomain, manifest, h, [custom(["section.domain"])], { evolutionIds: ["evolution.9"] }, { "artifact.webapp": [...tree, "src/worker/routes/orphan.ts"] });
     expect(gone.removals).toEqual([]);
     expect(gone.problems).toContainEqual({ severity: "missing", message: expect.stringContaining("no surviving ancestor of removed node section.domain has a footprint covering its code") });
     const lost = draftScope(after, manifest, { ...h, previous: {} }, [removal], { evolutionIds: ["evolution.9"] });
