@@ -2,21 +2,21 @@ import React from 'react';
 
 const columns: { title: string; label: string; items: string[]; note?: string }[] = [
   { title: 'What they need', label: 'Context', items: [
-    'A brief cut from the model: the pinned version, the steps and the checks.',
-    'The parts of the model it reads and changes, such as a screen or a journey.',
+    'The model of your product at one pinned version, from the System down to its journeys, screens and rules.',
+    'The parts of that model each Task reads and changes, with the steps and checks that come from them.',
     'Which finished Tasks it builds on, and which open ones it must not overlap.',
     'What other agents are working on.',
   ] },
   { title: 'Guardrails', label: 'Hard to do the wrong thing', items: [
     'A private fork for each Task, with a short-lived token.',
-    'Paths they may write, and paths that stay protected.',
+    'Paths they may write, and paths that stay protected, the model included.',
     'Checks bound to the model’s rules.',
     'A promote that refuses unproven or out-of-date work.',
   ] },
   { title: 'Freedom', label: 'Choices stay theirs', items: [
-    'Any agent harness or model you run.',
+    'Any agent harness or LLM you run.',
     'Their own approach inside the brief.',
-    'They can propose a change to the model itself, reviewed like any other change.',
+    'When the model looks wrong, they can say so. The change to it is reviewed like any other.',
   ], note: 'Several agents can take the same change in parallel. Each fulfils one tightly defined contract, so any version that meets it should work. If one meets it and still falls short, you sharpen the contract. The variation explores more of the solution space.' },
 ];
 

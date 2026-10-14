@@ -4,4 +4,4 @@ fields:
   name: Bring your agent
   route: /connect-agent
   rendering: prerendered
-  description: Explains ontology review, Genome-only Evolution approval, scoped local-agent Tasks and combined implementation review.
+  description: Explains the handoff around the model. A local agent claims a Task, works in an Artifacts fork of the app code with a brief cut from the pinned model, and submits a candidate; checks from the model run, and the reviewed result is promoted. Model changes go through a proposed Evolution, not the Task fork.
