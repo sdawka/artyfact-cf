@@ -173,7 +173,6 @@ cd ./work/task.id && env -u ARTYFACT_ADMIN_TOKEN claude -p "Follow AGENTS.md and
 
 `env -u` clears the token only for the agent's own launch. Set `ARTYFACT_ADMIN_TOKEN` inline for `claim` and never export it or put it in a shell profile, or the agent's tool shells inherit it.
 
-
 Inside the Task fork:
 
 ```sh
