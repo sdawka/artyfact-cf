@@ -4,8 +4,11 @@ import styles from "./CopyButton.module.css";
 type State = "idle" | "copied" | "failed";
 const TEXT: Record<Exclude<State, "idle">, string> = { copied: "Copied", failed: "Copy failed" };
 
-/** Copies `value` to the clipboard; says "Copied" (or "Copy failed") for a moment, also to screen readers. */
-export function CopyButton({ value, label = "Copy" }: { value: string; label?: string }) {
+/**
+ * Copies `value` to the clipboard; says "Copied" (or "Copy failed") for a moment, also to screen readers.
+ * The accessible name is `label` plus `value` (good for short ids); pass `name` when `value` is long.
+ */
+export function CopyButton({ value, label = "Copy", name }: { value: string; label?: string; name?: string }) {
   const [state, setState] = useState<State>("idle");
   useEffect(() => {
     if (state === "idle") return;
@@ -21,7 +24,7 @@ export function CopyButton({ value, label = "Copy" }: { value: string; label?: s
       <button
         type="button"
         className={`u-brackets ${styles.button}`}
-        {...(state === "idle" && { "aria-label": `${label} ${value}` })}
+        {...(state === "idle" && { "aria-label": name ?? `${label} ${value}` })}
         onClick={copy}
       >
         {state === "idle" ? label : TEXT[state]}
