@@ -2,9 +2,13 @@ id: component.journeys.signifiers
 kind: component
 fields:
   name: Step signifiers
-  description: Each step shows its actor and whether it is an action or a reaction; unresolved steps are marked.
+  description: Each step shows its actor and a mark for its kind; failure paths are dashed and labelled, provisional steps dotted with a question mark.
   states:
-    - user action (subtle)
-    - system reaction (subtle)
-    - external (subtle)
-    - unresolved (attention)
+    - User, System, External or Counterpart (subtle)
+    - ⧖ wait (subtle)
+    - ◇ decision (subtle)
+    - ↩ reaction (subtle)
+    - ■ end (subtle)
+    - ✕ failure (danger)
+    - provisional ? (subtle, dotted)
+    - deferred (subtle)

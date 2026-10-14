@@ -1,0 +1,14 @@
+id: component.theory.gaps
+kind: component
+fields:
+  name: Theory gaps
+  description: Theory and purpose findings, each with its message, rule, node and level; it shows only when there are findings.
+  states:
+    - ✕ error (danger)
+    - ○ missing (subtle)
+    - "! warning (attention)"
+    - i info (subtle)
+    - "error: Could not load findings, so gaps are unknown."
+links:
+  - rel: invokes
+    to: endpoint.readiness

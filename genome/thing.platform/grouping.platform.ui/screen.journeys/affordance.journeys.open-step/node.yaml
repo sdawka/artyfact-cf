@@ -1,0 +1,15 @@
+id: affordance.journeys.open-step
+kind: affordance
+fields:
+  name: Open step
+  description: A step on the canvas or in the Steps list selects it and opens it in the Inspector, whose Open in links reach the screen or operation it uses; the step's screen and operation chips are labels, not links.
+  actor: user
+  trigger: click
+  preconditions:
+    - A journey is open
+  effects:
+    - The URL records the step and the Inspector opens on it
+  failure: []
+links:
+  - rel: references
+    to: component.shell.inspector

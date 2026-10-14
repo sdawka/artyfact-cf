@@ -1,14 +1,14 @@
 id: affordance.map.overlap-chip
 kind: affordance
 fields:
-  name: overlap
-  description: The overlap chip on a halo links to Review with those candidates selected.
+  name: Overlap, n candidates
+  description: The chip on a tile that two or more candidates touch; it links to Review with those candidates added to promotion.
   actor: user
   trigger: click
   preconditions:
     - Two or more candidates touch the same node
   effects:
-    - Review opens with the candidates selected
+    - Review opens with ?candidates= set
   failure: []
 links:
   - rel: references
