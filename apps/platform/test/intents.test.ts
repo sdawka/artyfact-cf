@@ -51,8 +51,21 @@ async function importSystem(sourceExtra: Record<string, string> = {}): Promise<S
   ns.create(`intent-app-${tag}`).commit(app, "app");
   setArtifactsOverride(ns);
   setEditorTransport({ fetch: fakeReceivePack(ns).fetch });
-  const imp = await call<ImportSystemResponse>("POST", "/api/systems/import", { systemId, genomeRepo: `intent-genome-${tag}`, appRepo: `intent-app-${tag}`, review: false });
+  const intentAuthored = Object.keys(sourceExtra).some((path) => path.startsWith("intent/"));
+  const imp = await call<ImportSystemResponse>("POST", "/api/systems/import", {
+    systemId,
+    genomeRepo: `intent-genome-${tag}`,
+    appRepo: `intent-app-${tag}`,
+    review: false,
+    ...(intentAuthored && {
+      integrityUnreviewedReason: "Test fixture intentionally exercises candidate integrity gating.",
+    }),
+  });
   expect(imp.status, JSON.stringify(imp.json)).toBe(201);
+  if (intentAuthored) {
+    const review = await call("POST", `/api/systems/${systemId}/import-review/accept`, {});
+    expect(review.status, JSON.stringify(review.json)).toBe(200);
+  }
   return { ns, systemId, genomeCommit: imp.json.genomeCommit };
 }
 
