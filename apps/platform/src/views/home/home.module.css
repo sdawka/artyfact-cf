@@ -24,7 +24,7 @@
 .regAction { padding: var(--spacing-2) var(--spacing-3) 0 0; }
 .cellName { display: grid; gap: var(--spacing-1); flex: 1 0 100%; min-width: 0; }
 .rowTitle { font-weight: var(--font-weight-semibold); overflow-wrap: anywhere; }
-.cell { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-1) var(--spacing-3); min-width: 0; color: var(--color-text-secondary); font: var(--type-meta); }
+.cell { display: inline-flex; flex-wrap: nowrap; align-items: baseline; gap: var(--spacing-1) var(--spacing-3); min-width: 0; color: var(--color-text-secondary); font: var(--type-meta); }
 .cellStatus { flex: 1 0 100%; font: var(--type-ui); }
 .cell code { font: var(--type-code); color: var(--color-text-primary); }
 .cellLabel { color: var(--color-text-subtle); }
@@ -50,7 +50,7 @@
   .regRow.systemCols { grid-template-columns: minmax(0, 1fr) 11.5rem; }
   .regRow.systemCols .regLink { display: grid; grid-template-columns: var(--cols); align-items: start; }
   .cellName, .cellStatus, .cellDescription { flex: none; }
-  .cell { display: block; }
+  .cell { display: flex; flex-wrap: wrap; }
   .cellStatus { font: var(--type-ui); }
   .cellLabel { display: none; }
   .regAction { padding-top: var(--spacing-2); }

@@ -11,7 +11,7 @@ test.describe("home on the fake platform", () => {
     const card = systemCard(page, /Peopling/);
     await expect(card.getByText("unrealized")).toBeVisible();
     // The fake seed: a live production deployment from a passed build, and one evaluated candidate awaiting review.
-    await expect(card.getByText("deployed", { exact: true })).toBeVisible();
+    await expect(card.locator('[data-status="deployed"]')).toBeVisible();
     await expect(card.getByText("build passed")).toBeVisible();
     await expect(card.getByText("1 awaits your review")).toBeVisible();
     const green = await successToneElements(page);
