@@ -1,26 +1,21 @@
 import { Button } from "@/components/ui";
-import { useCallback, useEffect, useId, useState } from "react";
-import type { RealizationPlan } from "../../../../shared/lifecycle";
+import { useCallback, useId, useState } from "react";
+import { Link } from "react-router";
+import type { RealizationPlan, Task } from "../../../../shared/lifecycle";
 import { useAdminToken } from "@/api/adminToken";
 import { lifecycleApi } from "@/api/lifecycle";
-import { useParam } from "../lib";
-import { integrateReason, planCountsLine } from "./lib";
-import { Link } from "react-router";
+import { CopyButton } from "@/components/CopyButton/CopyButton";
+import { MetaLine } from "@/components/MetaLine/MetaLine";
+import { StatusChip } from "@/components/StatusChip/StatusChip";
+import { StatusText } from "@/components/StatusText/StatusText";
 import { useKeepParams } from "@/model/useSelection";
-import { TaskDetail } from "./TaskDetail";
-import { WaveBoard } from "./WaveBoard";
-import workStyles from "../work.module.css";
+import { CopyText } from "../CopyText";
+import { shortSha, useNow, useParam } from "../lib";
+import { tasksAwaitText } from "./signals";
+import { awaitingAgent, firstCommandWave, integrateReason, planCountsLine, planPrimary, taskById, waveScript } from "./lib";
+import { waveLines } from "./WaveCommands";
+import { WaveList } from "./WaveList";
 import styles from "./plan.module.css";
-
-/** The clock the lease rules read; ticks so a lapsed lease turns its task claimable without a write. */
-function useNow(ms = 15_000): number {
-  const [now, setNow] = useState(() => Date.now());
-  useEffect(() => {
-    const t = setInterval(() => setNow(Date.now()), ms);
-    return () => clearInterval(t);
-  }, [ms]);
-  return now;
-}
 
 interface Props {
   plan: RealizationPlan;
@@ -31,59 +26,73 @@ interface Props {
 }
 
 /**
- * A stored RealizationPlan: its pinned Genome and status, the wave board with per-wave agent commands, `?task=` detail
- * with execution metadata and a Review link, and Integrate once every task is selected.
+ * A stored RealizationPlan as the detail pane: title and status, pinned Genome, counts, one primary at a time (Copy all
+ * → Integrate → Review integrated implementation), the ADMIN_TOKEN hint once, then the waves top to bottom with task rows
+ * that expand in place (`?task=`) and each wave's agent commands.
  */
 export function PlanDetail({ plan, writeReason, busy, error, run }: Props) {
   const uid = useId();
   const href = useKeepParams();
   const { token } = useAdminToken();
-  const now = useNow();
+  // The clock the lease rules read; ticks so a lapsed lease turns its task claimable without a write.
+  const now = useNow(15_000);
   const [taskId, setTask] = useParam("task");
   // Hidden commands stay hidden while the plan is open, and "Copy all" skips them.
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const onHide = useCallback((id: string) => setHidden((h) => new Set(h).add(id)), []);
   const openTask = useCallback((id: string) => setTask(id === taskId ? null : id), [setTask, taskId]);
-  const task = taskId ? plan.tasks.find((t) => t.id === taskId) : undefined;
   const integrate = writeReason ?? integrateReason(plan);
+  const primary = planPrimary(plan, now, writeReason);
+  const waiting = awaitingAgent(plan, now);
+  const wave = firstCommandWave(plan, now);
+  const by = taskById(plan);
+  const waveTasks = wave ? plan.analysis.waves[wave - 1]!.map((id) => by.get(id)).filter((t): t is Task => !!t) : [];
+  const copyLines = waveLines(plan, waveTasks, now).filter((l) => !hidden.has(l.id));
+  const done = plan.status === "integrated" || plan.status === "promoted";
+
+  const integrateButton = !done && (
+    <Button
+      variant={primary === "integrate" ? "primary" : "secondary"}
+      disabled={busy}
+      reason={integrate ?? undefined}
+      onClick={() => run(() => lifecycleApi.integrate(plan.systemId, plan.id, token))}
+    >
+      Integrate selected Task results
+    </Button>
+  );
 
   return (
-    <section className={workStyles.panel} aria-labelledby={`${uid}-h`}>
-      <h3 id={`${uid}-h`}>{plan.title}</h3>
-      <p>Pinned Genome <code>{plan.genome.commit}</code> · {plan.status}</p>
-      <div className={styles.toolbar}>
-        <strong data-testid="plan-counts">{planCountsLine(plan)}</strong>
-        {plan.status !== "promoted" && plan.status !== "integrated" && (
-          <>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={!!integrate || busy}
-              aria-describedby={integrate ? `${uid}-i` : undefined}
-              onClick={() => run(() => lifecycleApi.integrate(plan.systemId, plan.id, token))}
-            >
-              Integrate selected Task results
-            </Button>
-            {integrate && <span id={`${uid}-i`} className={workStyles.reason}>{integrate}</span>}
-          </>
+    <article className={styles.plan} aria-labelledby={`${uid}-h`}>
+      <header className={styles.planHead}>
+        <div className={styles.titleRow}>
+          <h2 id={`${uid}-h`}>{plan.title} <StatusChip status={plan.status} /></h2>
+          <div className={styles.headActions}>
+            {integrateButton}
+            {primary === "copy" && wave !== null && (
+              copyLines.length
+                ? <CopyText value={waveScript(copyLines.map((l) => l.pair))} label={`Copy all, wave ${wave}`} variant="primary" />
+                : <Button variant="secondary" reason="Every command is hidden.">Copy all, wave {wave}</Button>
+            )}
+            {done && (
+              <Button asChild variant="primary"><Link to={href("review", { plan: plan.id, task: null, panel: null, evolution: null, realization: null })}>Review integrated implementation</Link></Button>
+            )}
+          </div>
+        </div>
+        <div className={styles.planFacts}>
+          <MetaLine items={[{ label: "Genome", value: shortSha(plan.genome.commit), code: true, title: plan.genome.commit }]} />
+          <CopyButton value={plan.genome.commit} label="Copy" />
+          <span className={styles.counts} data-testid="plan-counts">{planCountsLine(plan)}</span>
+          {waiting > 0 && <StatusText status="awaits-agent" tone="attention" label={tasksAwaitText(waiting)} />}
+        </div>
+        {wave !== null && (
+          <p className={styles.quiet}>
+            Set <code>ADMIN_TOKEN</code> in this shell without exporting it; each claim passes it to that command only, and the agent line
+            unsets it. Copy all starts each agent once its claim succeeds, side by side.
+          </p>
         )}
-      </div>
-      <WaveBoard plan={plan} openTask={taskId} now={now} hidden={hidden} onHide={onHide} onOpen={openTask} />
-      {task && (
-        <TaskDetail
-          key={task.id}
-          task={task}
-          plan={plan}
-          now={now}
-          writeReason={writeReason}
-          commandHidden={hidden.has(task.id)}
-          error={null}
-          onOpenTask={(id) => setTask(id)}
-          onClose={() => setTask(null)}
-        />
-      )}
-      {error && <p role="alert" className={workStyles.error}>{error}</p>}
-      {(plan.status === "integrated" || plan.status === "promoted") && <Button asChild variant="primary"><Link to={href("review", {plan:plan.id, task:null, panel:null, evolution:null, realization:null})}>Review integrated implementation</Link></Button>}
-    </section>
+      </header>
+      {error && <p role="alert" className={styles.error}>{error}</p>}
+      <WaveList plan={plan} openTask={taskId} now={now} writeReason={writeReason} hidden={hidden} onHide={onHide} onOpen={openTask} primaryWave={primary === "copy" ? wave : null} />
+    </article>
   );
 }

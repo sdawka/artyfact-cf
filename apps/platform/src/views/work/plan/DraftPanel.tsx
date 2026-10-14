@@ -5,6 +5,7 @@ import type { DraftRealizationPlanResponse, RealizationPlan } from "../../../../
 import { useAdminToken } from "@/api/adminToken";
 import { lifecycleApi } from "@/api/lifecycle";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
+import { Panel } from "@/components/Panel/Panel";
 import { useSystemRoute } from "@/model/useSelection";
 import { canMerge, canRemove, canSplit, draftErrors, mergeTasks, removeTask, renameTask, splitTask, type DraftTask } from "./draft";
 import { plural, planError, quote } from "./lib";
@@ -78,13 +79,9 @@ export function DraftPanel({ evolutions, writeReason, onCreated, onCancel }: Pro
     });
 
   return (
-    <section className={workStyles.panel} aria-labelledby={`${uid}-h`}>
-      <div className={workStyles.rhead}>
-        <h3 id={`${uid}-h`}>Plan implementation</h3>
-        <Button type="button" variant="secondary" onClick={onCancel}>Close</Button>
-      </div>
+    <Panel title="Plan implementation" onBack={onCancel} backLabel="Back to Work">
       <form className={workStyles.form} onSubmit={(e) => { e.preventDefault(); if (!draftReason) void runDraft(); }}>
-        <fieldset className={workStyles.fieldset}>
+        <fieldset className={workStyles.choice}>
           <legend>Accepted Genome Evolutions</legend>
           {accepted.length ? accepted.map((e) => (
             <label key={e.id} className={workStyles.check}>
@@ -102,16 +99,15 @@ export function DraftPanel({ evolutions, writeReason, onCreated, onCancel }: Pro
           <Textarea id={`${uid}-hint`} rows={2} value={hint} onChange={(e) => setHint(e.target.value)} />
         </div>
         <div className={workStyles.actions}>
-          <Button type="submit" variant={draft ? "secondary" : "primary"} disabled={!!draftReason || busy} aria-describedby={draftReason ? `${uid}-dr` : undefined}>
+          <Button type="submit" variant={draft ? "secondary" : "primary"} disabled={busy} reason={draftReason ?? undefined}>
             {busy && !draft ? "Drafting…" : draft ? "Draft again" : "Draft tasks"}
           </Button>
-          {draftReason && <span id={`${uid}-dr`} className={workStyles.reason}>{draftReason}</span>}
         </div>
       </form>
 
       {draft && (
         <section aria-labelledby={`${uid}-d`} className={styles.draftTask}>
-          <h4 id={`${uid}-d`}>Draft · {plural(tasks.length, "task")}</h4>
+          <h3 id={`${uid}-d`}>Draft, {plural(tasks.length, "task")}</h3>
           <p className={workStyles.muted}>
             Drafted by {draft.provenance.planner.provider}/{draft.provenance.planner.model} from Genome <code>{draft.provenance.genomeCommit.slice(0, 7)}</code>
             {draft.provenance.fallback ? "; the deterministic partition was used" : ""}. Nothing is stored until you create the plan.
@@ -127,11 +123,10 @@ export function DraftPanel({ evolutions, writeReason, onCreated, onCancel }: Pro
               : `As drafted: ${draft.analysis.waves.map((w, i) => `wave ${i + 1} (${w.join(", ")})`).join("; ") || "no waves"}.`}
           </p>
           <div className={styles.toolbar} role="toolbar" aria-label="Draft actions">
-            <Button type="button" variant="secondary" disabled={!!mergeReason} aria-describedby={mergeReason ? `${uid}-mg` : undefined} onClick={() => { setTasks(mergeTasks(tasks, selected)); setSelected([]); }}>
+            <Button type="button" variant="secondary" size="compact" reason={mergeReason ?? undefined} onClick={() => { setTasks(mergeTasks(tasks, selected)); setSelected([]); }}>
               Merge selected{selected.length ? ` (${selected.length})` : ""}
             </Button>
-            {mergeReason && <span id={`${uid}-mg`} className={workStyles.reason}>{mergeReason}</span>}
-            {edited && <Button type="button" variant="secondary" onClick={() => { setTasks(draft.request.tasks); setSelected([]); }}>Undo edits</Button>}
+            {edited && <Button type="button" variant="secondary" size="compact" onClick={() => { setTasks(draft.request.tasks); setSelected([]); }}>Undo edits</Button>}
           </div>
           <ol className={workStyles.plain}>
             {tasks.map((t) => (
@@ -154,15 +149,14 @@ export function DraftPanel({ evolutions, writeReason, onCreated, onCancel }: Pro
             <Input id={`${uid}-t`} value={title} onChange={(e) => setTitle(e.target.value)} autoComplete="off" />
           </div>
           <div className={workStyles.actions}>
-            <Button type="button" variant="primary" disabled={!!createReason || busy} aria-describedby={createReason ? `${uid}-cr` : undefined} onClick={() => void create()}>
+            <Button type="button" variant="primary" disabled={busy} reason={createReason ?? undefined} onClick={() => void create()}>
               {busy ? "Working…" : "Create plan"}
             </Button>
-            {createReason && <span id={`${uid}-cr`} className={workStyles.reason}>{createReason}</span>}
           </div>
         </section>
       )}
       {error && <p role="alert" className={workStyles.error}>{error}</p>}
-    </section>
+    </Panel>
   );
 }
 
@@ -213,16 +207,14 @@ function DraftTaskEditor({ task: t, selected, onSelect, onRename, onSplit, remov
             <Input id={`${uid}-s`} value={splitTitle} onChange={(e) => setSplitTitle(e.target.value)} placeholder={`${t.title} (split)`} autoComplete="off" />
           </div>
           <div className={workStyles.actions}>
-            <Button type="button" variant="secondary" disabled={!!splitReason} aria-describedby={splitReason ? `${uid}-sr` : undefined} onClick={() => { onSplit(moving, splitTitle); setMoving([]); setSplitTitle(""); }}>
+            <Button type="button" variant="secondary" size="compact" reason={splitReason ?? undefined} onClick={() => { onSplit(moving, splitTitle); setMoving([]); setSplitTitle(""); }}>
               Split
             </Button>
-            {splitReason && <span id={`${uid}-sr`} className={workStyles.reason}>{splitReason}</span>}
           </div>
         </fieldset>
       )}
       <div className={workStyles.actions}>
-        <Button type="button" variant="secondary" disabled={!!removeReason} aria-describedby={removeReason ? `${uid}-rr` : undefined} onClick={onRemove} aria-label={`Remove ${t.title || t.id}`}>Remove</Button>
-        {removeReason && <span id={`${uid}-rr`} className={workStyles.reason}>{removeReason}</span>}
+        <Button type="button" variant="secondary" size="compact" reason={removeReason ?? undefined} onClick={onRemove} aria-label={`Remove ${t.title || t.id}`}>Remove</Button>
       </div>
     </fieldset>
   );

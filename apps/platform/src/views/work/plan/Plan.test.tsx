@@ -61,9 +61,9 @@ describe("Realization plans", () => {
     const calls = stub({ draft });
     render(`/s/${SID}/r/head/work?panel=plan`);
     fireEvent.click(await screen.findByRole("checkbox", { name: /Birthdays in the Genome/ }));
-    const draftBtn = screen.getByRole("button", { name: "Draft tasks" }) as HTMLButtonElement;
-    await waitFor(() => expect(draftBtn.disabled).toBe(false));
-    fireEvent.click(draftBtn);
+    // A reason disables the button; once it clears the button is enabled (query again: the reason wrapper goes away).
+    await waitFor(() => expect((screen.getByRole("button", { name: "Draft tasks" }) as HTMLButtonElement).disabled).toBe(false));
+    fireEvent.click(screen.getByRole("button", { name: "Draft tasks" }));
     expect(await screen.findByText(/As drafted: wave 1 \(a, b, c\); wave 2 \(e\)/)).toBeTruthy();
     expect(calls.find((c) => c.url.endsWith("/draft"))).toMatchObject({ method: "POST", body: { evolutionIds: ["evolution.9"], nodes: [] }, auth: "Bearer admin" });
     expect(screen.getByRole("list", { name: "Draft problems" }).textContent).toContain("error: c: no checks");
@@ -85,6 +85,7 @@ describe("Realization plans", () => {
     fireEvent.click(screen.getByRole("button", { name: "Merge selected (2)" }));
     // Remove c: e loses its dependency on it.
     fireEvent.click(screen.getByRole("button", { name: "Remove Draft c" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Create plan" }).hasAttribute("disabled")).toBe(false));
     fireEvent.click(screen.getByRole("button", { name: "Create plan" }));
 
     await waitFor(() => expect(calls.some((c) => c.method === "POST" && c.url.endsWith("/realization-plans"))).toBe(true));
@@ -98,41 +99,52 @@ describe("Realization plans", () => {
     expect(await screen.findByTestId("plan-counts")).toBeTruthy();
   });
 
-  it("shows waves from 1 with task cards, conflicts and credential-free agent commands; Copy all respects Hide", async () => {
+  it("stacks waves from 1 with task rows, conflicts and credential-free agent commands; Copy all respects Hide", async () => {
     stub();
     const writeText = clip();
     render(`/s/${SID}/r/head/work?plan=plan.one`);
-    const board = await screen.findByRole("group", { name: "Waves" });
-    const w1 = within(board).getByRole("region", { name: "Wave 1 · 2 tasks" });
-    const w2 = within(board).getByRole("region", { name: "Wave 2 · 1 task" });
-    expect(within(w1).getAllByRole("article")).toHaveLength(2);
+    const w1 = await screen.findByRole("region", { name: "Wave 1 · 2 tasks" });
+    const w2 = screen.getByRole("region", { name: "Wave 2 · 1 task" });
+    // Waves stack top to bottom: no horizontal board.
+    expect(document.querySelector('[role="group"][aria-label="Waves"]')).toBeNull();
+    expect(w1.compareDocumentPosition(w2) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    expect(within(within(w1).getByRole("list", { name: "Tasks of wave 1" })).getAllByTestId(/^task-/)).toHaveLength(2);
     const t1 = screen.getByTestId("task-t1");
     expect(t1.querySelector('[data-status="pending"]')).toBeTruthy();
-    expect(within(t1).getByText("+1 more")).toBeTruthy();
     expect(within(t1).getByText("awaits an agent")).toBeTruthy();
     const t3 = screen.getByTestId("task-t3");
     expect(t3.querySelector('[data-status="blocked"]')).toBeTruthy();
     expect(within(t3).getByText("waits on Task t1, Task t2")).toBeTruthy();
-    expect(within(t3).getByRole("list", { name: "Conflicts" }).textContent).toContain("source · Task t2");
+    // The dependency is said once ("waits on"); the conflict chip names the other task.
+    expect(within(t3).getByRole("list", { name: "Conflicts" }).textContent).toContain("source with Task t2");
+    expect(within(t3).getByRole("list", { name: "Conflicts" }).textContent).not.toContain("dependency");
     // Wave 2 has no command: t3 waits on t1 and t2.
     expect(within(w2).queryByText(/Agent commands/)).toBeNull();
     const p = { id: "plan.one", systemId: SID };
     expect(within(w1).getByRole("listitem", { name: "Command for Task t1" }).textContent).toContain(commandLines("claim", p, "t1"));
+    // The ADMIN_TOKEN hint is said once per plan.
+    expect(screen.getAllByText(/without exporting it/)).toHaveLength(1);
     // The only token reference is the shell variable the person sets; no value appears.
     expect(document.body.textContent!.replaceAll('ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN"', "")).not.toMatch(/TOKEN=|Bearer|secret|--json/);
+    // Header counts and the plan's one primary: Copy all for wave 1 (tasks await an agent).
+    expect(screen.getByTestId("plan-counts").textContent).toBe("3 tasks · 2 waves");
+    const primary = screen.getByRole("button", { name: "Copy all, wave 1" });
+    expect(primary.getAttribute("data-variant")).toBe("primary");
+    expect(screen.getByRole("button", { name: "Integrate selected Task results" }).getAttribute("data-variant")).toBe("secondary");
 
-    // "Copy all" is the first button of the wave's command section; it reads "Copied" for a moment after a click.
-    const copyAll = () => within(within(w1).getByRole("region", { name: "Agent commands · wave 1" })).getAllByRole("button")[0]!;
-    fireEvent.click(copyAll());
+    // The header primary copies wave 1, so the wave does not repeat its own Copy all.
+    expect(within(within(w1).getByRole("region", { name: "Agent commands, wave 1" })).queryByRole("button", { name: /Copy all/ })).toBeNull();
+    fireEvent.click(primary);
     await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(waveScript([taskLines("claim", p, "t1"), taskLines("claim", p, "t2")])));
     fireEvent.click(within(w1).getByRole("button", { name: "Hide the command for Task t1" }));
-    fireEvent.click(copyAll());
+    fireEvent.click(screen.getByRole("button", { name: /Copy all, wave 1|Copied/ }));
     await waitFor(() => expect(writeText).toHaveBeenLastCalledWith(waveScript([taskLines("claim", p, "t2")])));
-    // A command hidden on the board stays hidden in the task's detail.
-    fireEvent.click(within(screen.getByTestId("task-t1")).getByRole("button", { name: "Task t1" }));
+    // A command hidden in its wave stays hidden in the task's detail.
+    fireEvent.click(within(screen.getByTestId("task-t1")).getByRole("button", { name: /^Task t1/ }));
     expect(within(await screen.findByTestId("task-detail")).getByText("Command hidden.")).toBeTruthy();
+    expect(within(screen.getByTestId("task-t1")).getByRole("button", { name: /^Task t1/ }).getAttribute("aria-expanded")).toBe("true");
     fireEvent.click(within(w1).getByRole("button", { name: "Hide the command for Task t2" }));
-    const all = within(w1).getByRole("button", { name: "Copy all" });
+    const all = screen.getByRole("button", { name: "Copy all, wave 1" });
     expect((all as HTMLButtonElement).disabled).toBe(true);
     expect(document.getElementById(all.getAttribute("aria-describedby")!)!.textContent).toBe("Every command is hidden.");
   });
@@ -145,7 +157,7 @@ describe("Realization plans", () => {
     expect(within(detail).getByText("Wave 1: it waits on no other task and does not conflict with “Task t2”.")).toBeTruthy();
     expect(within(detail).getByText("src/t1/**")).toBeTruthy();
     expect(within(detail).getByText("Do t1")).toBeTruthy();
-    expect(within(detail).getByText(/claude · submitted · generation 1/)).toBeTruthy();
+    expect(within(within(detail).getByRole("table")).getAllByRole("row")[1]!.textContent).toMatch(/claude\s*submitted\s*1\s*r\.t1/);
     expect(within(detail).getByRole("link",{name:"Review Task result"}).getAttribute("href")).toBe(`/s/${SID}/r/head/review?plan=plan.one&task=t1`);
     expect(within(detail).queryByRole("button",{name:"Select reviewed Task result"})).toBeNull();
     expect(calls.some(c=>c.url.endsWith("/select"))).toBe(false);
@@ -161,7 +173,7 @@ describe("Realization plans", () => {
     await waitFor(() => expect(document.getElementById(draftBtn.getAttribute("aria-describedby")!)!.textContent).toBe(TOKEN_REASON));
     await waitFor(() => expect(calls.some((c) => c.url.endsWith("/realization-plans"))).toBe(true));
     expect(calls.find((c) => c.url.endsWith("/realization-plans"))!.auth).toBeNull();
-    expect(await screen.findByRole("button", { name: "Implement birthdays" })).toBeTruthy();
-    expect(screen.getByText("Set the admin token to draft, select, integrate or promote plans.")).toBeTruthy();
+    expect(await screen.findByRole("link", { name: /^Implement birthdays/ })).toBeTruthy();
+    expect(screen.queryByText(/Set the admin token to draft/)).toBeNull();
   });
 });

@@ -1,6 +1,6 @@
 .proposal { display: grid; gap: var(--spacing-4); }
 .block { display: grid; gap: var(--spacing-2); }
-.block h3, .sampleHead { margin: 0; font-family: var(--font-ui); font-size: var(--font-size-base); color: var(--color-text-secondary); }
+.block h3, .sampleHead { margin: 0; font: var(--type-h3); color: var(--color-text-primary); }
 .message {
   max-width: 70ch;
   margin: 0;
@@ -9,8 +9,33 @@
   border-left: 2px solid var(--color-border);
 }
 .answer { max-width: 70ch; margin: 0; }
-.route { display: flex; flex-wrap: wrap; gap: var(--spacing-2) var(--spacing-4); margin: 0; padding: 0; list-style: none; }
-.route li { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); font-size: var(--font-size-sm); }
+.route { display: flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-1) var(--spacing-2); margin: 0; padding: 0; list-style: none; font: var(--type-meta); }
+.route li { display: inline-flex; flex-wrap: wrap; align-items: baseline; gap: var(--spacing-1); }
+.route li + li::before { content: "›"; color: var(--color-text-subtle); margin-right: var(--spacing-1); }
+.route li[data-unclear] .confidence { color: var(--color-attention); }
+.confidence { color: var(--color-text-secondary); }
+.note { margin: 0; max-width: 70ch; font: var(--type-meta); color: var(--color-text-secondary); }
+.followUp > summary { display: inline-flex; align-items: center; min-height: var(--control-height); font: var(--type-control); cursor: pointer; }
+.followUp[open] > summary { margin-bottom: var(--spacing-2); }
+/* Sticky footer: the summary and the panel's one primary stay in view on long trees. */
+.footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--spacing-2) var(--spacing-4);
+  margin-inline: calc(-1 * var(--spacing-5));
+  padding: var(--spacing-3) var(--spacing-5);
+  background: var(--surface-panel);
+  border-top: 1px solid var(--color-border-subtle);
+}
+.summary { margin: 0 auto 0 0; font: var(--type-meta); color: var(--color-text-secondary); }
+@media (max-width: 639px) {
+  .footer { margin-inline: calc(-1 * var(--spacing-4)); padding-inline: var(--spacing-4); }
+}
 .route code, .opId, .diff code, .line code { font-family: var(--font-code); overflow-wrap: anywhere; }
 .ops { display: grid; gap: var(--spacing-3); margin: 0; padding: 0; list-style: none; }
 .op {

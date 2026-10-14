@@ -3,7 +3,8 @@ import { useSearchParams } from "react-router";
 import type { Candidate, ConflictReport, EvolutionState } from "../../../shared/api";
 import type { UiVerdict } from "@/model/status";
 
-export const COLUMNS: { state: EvolutionState; label: string }[] = [
+/** Evolution states in lifecycle order: the list pane's groups (the board's columns, top to bottom). */
+export const STATE_GROUPS: { state: EvolutionState; label: string }[] = [
   { state: "proposed", label: "Proposed" },
   { state: "genome-approved", label: "Genome approved" },
   { state: "actionable", label: "Actionable" },
@@ -11,7 +12,22 @@ export const COLUMNS: { state: EvolutionState; label: string }[] = [
   { state: "evaluated", label: "Evaluated" },
   { state: "promoted", label: "Promoted" },
   { state: "rejected", label: "Rejected" },
+  { state: "withdrawn", label: "Withdrawn" },
 ];
+
+/** Groups collapsed by default: nothing more happens to their Evolutions. */
+export const TERMINAL = new Set<EvolutionState>(["promoted", "rejected", "withdrawn"]);
+
+/** Start work accepts these states; anything else shows the reason on the button. */
+export const STARTABLE = new Set<EvolutionState>(["actionable", "realizing"]);
+
+/** Token countdown tone: attention under 30 minutes left, danger once expired, else neutral. */
+export function countdownTone(expiresAt: string | undefined | null, now: number): "neutral" | "attention" | "fail" {
+  const t = expiresAt ? Date.parse(expiresAt) : NaN;
+  if (!Number.isFinite(t)) return "neutral";
+  if (t <= now) return "fail";
+  return t - now < 30 * 60_000 ? "attention" : "neutral";
+}
 
 export const shortSha = (s?: string | null) => (s ? s.slice(0, 7) : "unknown");
 
@@ -97,4 +113,11 @@ export function useParam(key: string): [string | null, (v: string | null, also?:
     [key, setParams],
   );
   return [params.get(key), set];
+}
+
+const VERDICT_GLYPH: Record<UiVerdict, string> = { pass: "✓", fail: "×", unknown: "?", stale: "↻", "not-run": "–", waived: "⊘" };
+
+/** StatusText props for a verdict: only pass is the pass tone, fail is danger, the rest neutral. */
+export function verdictStatus(v: UiVerdict, label?: string) {
+  return { status: v, label: label ?? v, tone: v === "pass" ? ("pass" as const) : v === "fail" ? ("fail" as const) : ("neutral" as const), glyph: VERDICT_GLYPH[v] };
 }

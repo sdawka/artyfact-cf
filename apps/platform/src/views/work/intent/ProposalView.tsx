@@ -6,6 +6,8 @@ import { useAdminToken } from "@/api/adminToken";
 import { decideIntentKey, useAcceptIntent, useDecideIntent, useReplyIntent } from "@/api/queries";
 import { useSystemRoute } from "@/model/useSelection";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
+import { MetaLine } from "@/components/MetaLine/MetaLine";
+import { Count } from "@/components/Count/Count";
 import { StatusChip } from "@/components/StatusChip/StatusChip";
 import { shortSha } from "../lib";
 import { useModel } from "@/model/useModel";
@@ -86,9 +88,12 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
   const set = acceptSet(plan, proposal.ops);
   const uncovered = uncoveredOps(plan, proposal.ops);
   const total = proposal.ops.length - uncovered.length;
+  const questions = proposal.questions.length;
   const acceptReason =
     blocked ??
-    (saving
+    (questions
+      ? `Answer ${questions === 1 ? "the question" : `the ${questions} questions`} first.`
+      : saving
       ? "Saving decisions…"
       : set.undecided.length
         ? `Decide every change first: ${set.undecided.length} undecided.`
@@ -144,10 +149,12 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
           tone={provider === "real" ? "neutral" : "attention"}
           title={`router ${router.provider} ${router.model} (${router.calls} calls), translator ${translator.provider} ${translator.model}`}
         />
-        <span className={workStyles.muted}>Genome <code>{shortSha(genomeCommit)}</code></span>
-        {proposal.anchor && <span className={workStyles.muted}>from <NodeChip id={proposal.anchor} size="sm" interactive={false} /></span>}
       </div>
-      <p className={workStyles.muted}>Review this Genome Evolution. Accepting the agreed changes commits exactly them to the Genome at once; implementation follows in a separate Realization plan.</p>
+      <MetaLine items={[
+        { label: "Genome", value: shortSha(genomeCommit), code: true, title: genomeCommit },
+        ...(proposal.anchor ? [{ label: "from", value: <NodeChip id={proposal.anchor} size="sm" interactive={false} /> }] : []),
+      ]} />
+      <p className={styles.note}>Accepting the agreed changes commits exactly them to the Genome at once; implementation follows in a separate Realization plan.</p>
       <blockquote className={styles.message}>{proposal.message}</blockquote>
 
       <section aria-labelledby={`${uid}-route`} className={styles.block}>
@@ -156,17 +163,14 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
           <p className={workStyles.muted}>unknown</p>
         ) : (
           <ol className={styles.route}>
-            {proposal.route.map((s, i) => (
-              <li key={`${s.level}-${i}`}>
-                <span className={workStyles.muted}>{s.level}</span>
-                <code>{s.choice}</code>
-                <StatusChip
-                  status="confidence"
-                  label={`confidence ${confidenceText(s.confidence)}`}
-                  tone={s.choice === "unclear" || !(s.confidence > 0) ? "attention" : "neutral"}
-                />
-              </li>
-            ))}
+            {proposal.route.map((s, i) => {
+              const unclear = s.choice === "unclear" || !(s.confidence > 0);
+              return (
+                <li key={`${s.level}-${i}`} title={s.level} data-unclear={unclear || undefined}>
+                  <code>{s.choice}</code> <span className={styles.confidence}>({unclear ? "unclear, " : ""}confidence {confidenceText(s.confidence)})</span>
+                </li>
+              );
+            })}
           </ol>
         )}
       </section>
@@ -180,10 +184,18 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
 
       <ProblemList problems={general} label="Problems with the proposal" />
 
+      {open && questions > 0 && (
+        <section aria-labelledby={`${uid}-q`} className={styles.block}>
+          <h3 id={`${uid}-q`}>Questions <Count n={questions} tone="attention" /></h3>
+          {proposal.questions.map((q) => (
+            <ReplyForm key={q.id} proposalId={proposal.id} questionId={q.id} label={q.text} blocked={blocked} />
+          ))}
+        </section>
+      )}
+
       {proposal.ops.length > 0 && (
         <section aria-labelledby={`${uid}-ops`} className={styles.block}>
           <h3 id={`${uid}-ops`}>Proposed changes</h3>
-          <p className={workStyles.muted} role="status">{summary}</p>
           <AgreementTree
             plan={plan}
             ops={proposal.ops}
@@ -209,28 +221,19 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
         </section>
       )}
 
-      {open && (
-        <section aria-labelledby={`${uid}-q`} className={styles.block}>
-          <h3 id={`${uid}-q`}>{proposal.questions.length ? "Questions" : "Follow up"}</h3>
-          {proposal.questions.map((q) => (
-            <ReplyForm key={q.id} proposalId={proposal.id} questionId={q.id} label={q.text} blocked={blocked} />
-          ))}
-          {proposal.questions.length === 0 && <ReplyForm proposalId={proposal.id} label="Refine the request" blocked={blocked} />}
-        </section>
+      {open && questions === 0 && (
+        <details className={styles.followUp}>
+          <summary>Follow up</summary>
+          <ReplyForm proposalId={proposal.id} label="Refine the request" blocked={blocked} />
+        </details>
       )}
 
       {proposal.ops.length > 0 && (
-        <div className={workStyles.actions}>
-          <Button
-            type="button"
-            variant="primary"
-            onClick={submit}
-            disabled={!!acceptReason || accept.isPending}
-            aria-describedby={acceptReason ? `${uid}-why` : undefined}
-          >
+        <div className={styles.footer}>
+          <p className={styles.summary} role="status">{summary}</p>
+          <Button type="button" variant="primary" onClick={submit} disabled={accept.isPending} reason={acceptReason ?? undefined}>
             {accept.isPending ? "Accepting…" : "Accept agreed"}
           </Button>
-          {acceptReason && <span id={`${uid}-why`} className={workStyles.reason}>{acceptReason}</span>}
         </div>
       )}
       {accept.isError && <p role="alert" className={workStyles.error}>{intentError(accept.error)}</p>}

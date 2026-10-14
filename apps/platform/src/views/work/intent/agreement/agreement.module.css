@@ -46,8 +46,7 @@
 .decide button[data-decision="defer"][aria-pressed="mixed"] { border-style: dotted; border-color: var(--color-text-subtle); }
 .body { display: grid; gap: var(--spacing-2); min-width: 0; padding-left: calc(var(--spacing-4) + 3px); }
 .summary { margin: 0; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
-.hint { margin: 0; color: var(--color-text-subtle); font-size: var(--font-size-xs); }
-.hint kbd { font-family: var(--font-code); }
+.hint { display: flex; flex-wrap: wrap; gap: var(--spacing-1) var(--spacing-4); margin: 0; font: var(--type-hint); color: var(--color-text-secondary); }
 @media (max-width: 640px) {
   .decide { margin-left: 0; }
   .group { padding-left: var(--spacing-2); }
