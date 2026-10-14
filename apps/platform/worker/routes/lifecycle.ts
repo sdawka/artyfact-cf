@@ -1,6 +1,7 @@
 import { Hono, type MiddlewareHandler } from 'hono';
 import { requireAdmin, requireRealizationSecret } from '../auth';
 import { checkpointLifecycleTask, createRealizationPlan, integrateLifecyclePlan, promoteLifecyclePlan, reviewLifecycleFile, reviewLifecyclePlan, selectLifecycleTask, startLifecycleTask, submitLifecycleTask } from '../lifecycle-service';
+import { reviewLifecycleTask, reviewLifecycleTaskFile } from '../lifecycle-task-review';
 import { systemStub } from '../service';
 import { draftRealizationPlan } from '../tasks/planner';
 import { fromRpc } from '../errors';
@@ -25,6 +26,8 @@ export const lifecycle=new Hono<AppEnv>()
  .get(`${plan}/review/files`,async c=>c.json(await reviewLifecycleFile(c.env,c.req.param('id'),c.req.param('pid'),c.req.query('artifactId')??'',c.req.query('path')??'')))
  .post(`${plan}/integrate`,requireAdmin,reviewed,async c=>c.json(await integrateLifecyclePlan(c.env,c.req.param('id'),c.req.param('pid'),origin(c))))
  .post(`${plan}/promote`,requireAdmin,reviewed,async c=>c.json(await promoteLifecyclePlan(c.env,c.req.param('id'),c.req.param('pid'),await body(c))))
+ .get(`${task}/review`,async c=>c.json(await reviewLifecycleTask(c.env,...ids(c))))
+ .get(`${task}/review/files`,async c=>c.json(await reviewLifecycleTaskFile(c.env,...ids(c),c.req.query('candidateId')??'',c.req.query('path')??'')))
  .post(`${task}/checkpoint`,async c=>{await authed(c);return c.json(await checkpointLifecycleTask(c.env,...ids(c),await body(c)));})
  // Submit carries up to four screenshots: its body is capped server side (413) before it is parsed.
  .post(`${task}/submit`,async c=>{await authed(c);return c.json(await submitLifecycleTask(c.env,...ids(c),await body(c,MAX_SUBMIT_BODY)),201);})

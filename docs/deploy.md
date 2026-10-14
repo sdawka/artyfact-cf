@@ -4,7 +4,7 @@ One Worker (`artyfact-platform`) serves the SPA and `/api/*`. Run everything fro
 
 **Prerequisite:** the account must be on Workers Paid; Artifacts is unavailable on Free.
 
-**Status:** application polish is deployed from merged `994d2ff8a0be410cae3f3e156115c0079913018e` at https://artyfact-platform.dawka.workers.dev (Worker version `9eb75476-c87e-4e1a-822b-0054066c4b55`). Queue, DO migration, vars and `ADMIN_TOKEN` are in place. The production token is stored in macOS Keychain as described below. The System import is a separate step: `./scripts/bootstrap.sh` (a wrapper over `npx artyfact init`) with `--platform $URL`, as in the runbook.
+**Status:** intention fixes are deployed from merged `1ec3826de3bd3a24ff4ac7eddb061ae8f0c56888`: platform [artyfact-platform](https://artyfact-platform.dawka.workers.dev), Worker version `39aba8f8-dd0d-4810-b6a6-5feb373fa6c0`; public site [artyfact.ing](https://artyfact.ing), version `a5b7ff36-c033-4420-b9c6-49ce6518b300`. Production credentials remain in Keychain. Protected reads and desktop/mobile smoke passed; see [release evidence](grreat/journals/2026-10-14-intention-fixes.md). System import remains a separate step using `./scripts/bootstrap.sh` (a wrapper over `npx artyfact init`) with `--platform $URL`.
 
 ## Resources
 

@@ -1109,6 +1109,10 @@ export interface PhenomeIngestResponse {
 }
 
 export interface PhenomeEventsQuery {
+  thing?: string;
+  /** Exact runtime buildId, not the platform build row ID. */
+  build?: string;
+  output?: string;
   deployment?: string;
   commit?: CommitHash;
   kind?: string;

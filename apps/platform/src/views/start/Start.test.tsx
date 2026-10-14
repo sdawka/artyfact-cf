@@ -28,3 +28,18 @@ it('offers a valid native starter with explicit optional outcomes vocabulary',as
  expect(inspectOntologyPackage(native,{bundled:metaTemplates,accepted:[]}).issues).toEqual([]);expect(native.templates['template.system.custom@1'].extends).toBe('template.meta.artyfact-genome@1');
  fireEvent.click(screen.getByRole('checkbox',{name:'Include events, expected effects and assays in the starter'}));fireEvent.click(screen.getByRole('button',{name:'Use starter package'}));expect(inspectOntologyPackage(JSON.parse(source.value),{bundled:metaTemplates,accepted:[]}).issues).toEqual([]);expect(JSON.parse(source.value).templates['template.system.custom@1'].extends).toBe('template.meta.outcomes@1');
 });
+
+it('gives a scoped, quoted source-preparation handoff without inventing a plan file',async()=>{
+ sessionStorage.setItem(ADMIN_TOKEN_KEY,'must-not-leak');
+ const system="system.custom; echo bad",reviewId="import.one'bad";
+ vi.stubGlobal('fetch',vi.fn(async(url:string)=>Response.json(String(url).includes('/ontology-imports/')?{id:reviewId,systemId:system,status:'accepted',issues:[],templateRefs:[],package:{}}:String(url).endsWith('/systems')?{systems:[]}:{})));
+ renderApp(`/start?system=${encodeURIComponent(system)}&import=${encodeURIComponent(reviewId)}`);
+ const heading=await screen.findByText('Build with your agent');
+ const text=heading.parentElement!.textContent!;
+ expect(text).toContain('--prepare-only');expect(text).toContain('skill --dir ./project --write --agent generic');
+ expect(text).toContain(`--platform ${window.location.origin}`);
+ expect(text).toContain('ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN"');expect(text).not.toContain('must-not-leak');
+ expect(text).toContain("'system.custom; echo bad'");expect(text).toContain("'import.one'\\''bad'");
+ expect(text).toContain('--node');expect(text).not.toContain('plan.json');expect(text).not.toContain('--no-review');
+ expect(text).toContain('Genome-only');expect(text).toContain('source-bound');
+});

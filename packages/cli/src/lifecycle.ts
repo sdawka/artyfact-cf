@@ -1,5 +1,7 @@
 import { constants, existsSync, lstatSync, mkdirSync, openSync, closeSync, writeSync, fchmodSync, readFileSync, readdirSync, rmSync, renameSync, unlinkSync } from 'node:fs';
 import { resolve, join, dirname, basename } from 'node:path';
+import { taskAvailability } from '@artyfact/model';
+import { parse as parseYaml } from 'yaml';
 import { parseArgs } from 'node:util';
 import { lifecyclePaths, type CreateRealizationPlanRequest, type DraftRealizationPlanRequest, type DraftRealizationPlanResponse, type ImplementationReview, type RealizationPlan, type Task, type TaskStartResponse, type TaskSubmitResponse } from '../../../apps/platform/shared/lifecycle.ts';
 import { shellArg } from '../../../apps/platform/shared/shell.ts';
@@ -77,13 +79,11 @@ const table=(head:string[],rows:string[][])=>{const w=head.map((h,i)=>Math.max(h
 const waveOf=(waves:string[][]|undefined,id:string)=>{const i=(waves??[]).findIndex(w=>w.includes(id));return i<0?'-':String(i+1);};
 const footprintOf=(t:Pick<Task,'footprint'>)=>cell([...new Set([...(t.footprint?.globs??[]),...(t.footprint?.paths??[])])]);
 const conflictLines=(a:RealizationPlan['analysis']|undefined)=>(a?.conflicts??[]).map(c=>`conflicts: ${c.tasks.join(' <-> ')} [${c.kind}] ${c.subjects.join(', ')}: ${c.message}`);
-/** The lowest-wave pending task whose dependencies are all selected or completed and that no conflicting live attempt blocks. */
-function nextClaimable(plan:RealizationPlan):Task|undefined{
- const done=new Set(plan.tasks.filter(t=>t.status==='selected'||t.status==='completed').map(t=>t.id));
- const live=(t:Task)=>{const a=t.attempts?.at(-1);return !!a&&a.status!=='ended'&&Date.parse(a.leaseExpiresAt)>Date.now();};
- const held=(t:Task)=>(plan.analysis?.conflicts??[]).some(c=>c.tasks.includes(t.id)&&c.tasks.some(o=>o!==t.id&&plan.tasks.some(x=>x.id===o&&live(x))));
- return plan.tasks.filter(t=>t.status==='pending'&&t.dependsOn.every(d=>done.has(d))&&!held(t))
-  .sort((a,b)=>(Number(waveOf(plan.analysis?.waves,a.id))||Infinity)-(Number(waveOf(plan.analysis?.waves,b.id))||Infinity))[0];
+/** Lowest-wave eligible task, including expired attempts that need recovery. */
+function nextClaimable(plan:RealizationPlan):{task:Task;action:'claim'|'resume'}|undefined{
+ const now=Date.now();
+ const available=plan.tasks.flatMap(task=>{const action=taskAvailability(plan,task,now);return action?[{task,action}]:[];});
+ return available.sort((a,b)=>(Number(waveOf(plan.analysis?.waves,a.task.id))||Infinity)-(Number(waveOf(plan.analysis?.waves,b.task.id))||Infinity))[0];
 }
 function printDraft(d:DraftRealizationPlanResponse,io:Io){
  const tasks=d.request.tasks;
@@ -94,9 +94,9 @@ function printDraft(d:DraftRealizationPlanResponse,io:Io){
  for(const p of d.problems)io.out(`${p.severity}${p.taskId?` (${p.taskId})`:''}: ${p.message}`);
  if(d.provenance.fallback)io.out('planner: deterministic fallback partition');
 }
-const reviewLink=(base:string,s:string,p:string)=>`${base}/s/${encodeURIComponent(s)}/r/head/work?plan=${encodeURIComponent(p)}`;
+const reviewLink=(base:string,s:string,p:string)=>`${base}/s/${encodeURIComponent(s)}/r/head/review?plan=${encodeURIComponent(p)}`;
 export async function lifecycleCommand(command:string,args:string[],io:Io):Promise<number>{
- const {values:v,positionals:p}=parseArgs({args,allowPositionals:true,options:{system:{type:'string'},platform:{type:'string'},file:{type:'string'},dir:{type:'string'},hash:{type:'string'},candidate:{type:'string'},binding:{type:'string'},key:{type:'string'},reason:{type:'string'},'expected-version':{type:'string'},'agent-label':{type:'string'},from:{type:'string'},to:{type:'string'},before:{type:'string'},cursor:{type:'string'},limit:{type:'string'},json:{type:'boolean'},screenshot:{type:'string',multiple:true},evolution:{type:'string',multiple:true},node:{type:'string',multiple:true},hint:{type:'string'},title:{type:'string'},create:{type:'boolean'}}});
+ const {values:v,positionals:p}=parseArgs({args,allowPositionals:true,options:{system:{type:'string'},platform:{type:'string'},file:{type:'string'},dir:{type:'string'},hash:{type:'string'},candidate:{type:'string'},binding:{type:'string'},key:{type:'string'},reason:{type:'string'},'expected-version':{type:'string'},'agent-label':{type:'string'},from:{type:'string'},to:{type:'string'},before:{type:'string'},cursor:{type:'string'},limit:{type:'string'},json:{type:'boolean'},screenshot:{type:'string',multiple:true},evolution:{type:'string',multiple:true},node:{type:'string',multiple:true},hint:{type:'string'},title:{type:'string'},create:{type:'boolean'},'prepare-only':{type:'boolean'}}});
  const action=p[0];
  if(command==='task'&&['checkpoint','submit','status'].includes(action??'')){
   if(action==='checkpoint'&&!p[1])throw new CliError('usage: artyfact task checkpoint "<message>"');
@@ -132,12 +132,13 @@ export async function lifecycleCommand(command:string,args:string[],io:Io):Promi
    return 0;
   }
   else if(action==='tasks'){
-   const planId=id('plan',p[1]),plan=await client.request<RealizationPlan>('GET',lifecyclePaths.plan(system,planId));
-   if(v.json){io.out(JSON.stringify({planId:plan.id,status:plan.status,tasks:plan.tasks.map(t=>({id:t.id,status:t.status,wave:Number(waveOf(plan.analysis?.waves,t.id))||null,dependsOn:t.dependsOn,writeNodes:t.writeNodes,footprint:t.footprint})),conflicts:plan.analysis?.conflicts??[],waves:plan.analysis?.waves??[],next:nextClaimable(plan)?.id??null},null,2));return 0;}
+   const planId=id('plan',p[1]),plan=await client.request<RealizationPlan>('GET',lifecyclePaths.plan(system,planId)),next=nextClaimable(plan);
+   if(v.json){io.out(JSON.stringify({planId:plan.id,status:plan.status,tasks:plan.tasks.map(t=>({id:t.id,status:t.status,wave:Number(waveOf(plan.analysis?.waves,t.id))||null,dependsOn:t.dependsOn,writeNodes:t.writeNodes,footprint:t.footprint})),conflicts:plan.analysis?.conflicts??[],waves:plan.analysis?.waves??[],next:next?.task.id??null,nextAction:next?{taskId:next.task.id,action:next.action}:null},null,2));return 0;}
    if(!plan.tasks.length){io.out(`Plan ${plan.id} has no tasks.`);return 0;}
    io.out(table(['task','status','wave','depends-on','write nodes','footprint'],plan.tasks.map(t=>[t.id,t.status,waveOf(plan.analysis?.waves,t.id),cell(t.dependsOn),cell(t.writeNodes),footprintOf(t)])).join('\n'));
    for(const line of conflictLines(plan.analysis))io.out(line);
-   const next=nextClaimable(plan);io.out(next?`claim: ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim ${[plan.id,next.id,'--system',system,'--dir',`./work/${next.id}`,'--agent-label',`claude:${next.id}`].map(shellArg).join(' ')}`:'claim: no task is claimable now (all claimed, finished, or blocked by an unfinished dependency)');
+   io.out(next?`${next.action}: ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task ${next.action} ${[plan.id,next.task.id,'--system',system,'--dir',`./work/${next.task.id}`,'--agent-label',`claude:${next.task.id}`,'--platform',base].map(shellArg).join(' ')}`:'claim: no task is claimable now (all claimed, finished, or blocked by an unfinished dependency)');
+   if(next?.action==='resume')io.out('Use --dir for this task’s existing workspace to preserve local work; resume rotates credentials and fences the earlier attempt.');
    return 0;
   }
   else if(action==='list')result=await client.request('GET',lifecyclePaths.plans(system));
@@ -153,7 +154,7 @@ export async function lifecycleCommand(command:string,args:string[],io:Io):Promi
    if(prior){if(prior.remote!==remote)throw new CliError('resumed workspace remote differs; preserve work and choose a new --dir');}else{const fresh=!existsSync(dir);mkdirSync(dir,{recursive:true});try{git(io.cwd,['clone','--',remote,dir],writeToken);}catch(e){
     // The claim holds a live lease and there is no release route; drop the half-made workspace and point at resume, which reuses the lease.
     if(fresh)rmSync(dir,{recursive:true,force:true});else for(const entry of readdirSync(dir))rmSync(join(dir,entry),{recursive:true,force:true});
-    throw new CliError(`${action} landed but the workspace could not be cloned (${(e as Error).message}); the lease is still yours, so fix the cause and run: artyfact task resume ${[plan,task,'--system',system,'--dir',dir].map(shellArg).join(' ')}`);}}
+    throw new CliError(`${action} landed but the workspace could not be cloned (${(e as Error).message}); the lease is still yours, so fix the cause and run: artyfact task resume ${[plan,task,'--system',system,'--dir',dir,'--platform',base].map(shellArg).join(' ')}`);}}
    for(const sub of ['.git','.git/info'])if(!lstatSync(join(dir,sub)).isDirectory()||lstatSync(join(dir,sub)).isSymbolicLink())throw new CliError('refusing unsafe git workspace');
    if(isTracked(dir,LEGACY_CONFIG)||isTracked(dir,'TASK_PACKET.md'))throw new CliError('refusing tracked task configuration or packet; do not store attempt credentials in source');
    const cfg:LocalTask={platform:base,systemId:system,planId:plan,taskId:task,attemptId:res.attempt.id,generation:res.attempt.generation,remote,secret,reviewUrl:res.reviewUrl,token:writeToken,tokenExpires:res.token.expiresAt};
@@ -172,8 +173,10 @@ export async function lifecycleCommand(command:string,args:string[],io:Io):Promi
    if(review.status!=='accepted'||review.systemId!==system||!review.genomeFiles)throw new CliError('bootstrap requires an accepted import for this System with reviewed Genome files');
    if(!v.dir)throw new CliError('--dir new-project is required');const dir=resolve(io.cwd,v.dir);if(existsSync(dir))throw new CliError('bootstrap destination already exists; choose an empty new directory');
    const entries=Object.entries(review.genomeFiles);if(entries.length>1000||entries.some(([path,content])=>!path||path.startsWith('/')||path.includes('\\')||path.split('/').some(segment=>segment==='..'||segment==='.'||segment==='.git'||!segment)||typeof content!=='string'||content.length>1024*1024))throw new CliError('unsafe or oversized reviewed Genome path');
+   if(parseYaml(review.genomeFiles['node.yaml']??'')?.id!==system)throw new CliError('reviewed Genome root does not match this System');
+   const paths=new Set(entries.map(([path])=>path));if(entries.some(([path])=>path.split('/').slice(0,-1).some((_,i)=>paths.has(path.split('/').slice(0,i+1).join('/')))))throw new CliError('reviewed Genome paths collide');
    mkdirSync(join(dir,'genome'),{recursive:true});for(const [path,content] of entries){const target=join(dir,'genome',path);mkdirSync(dirname(target),{recursive:true});write(target,content);}
-   io.out(`Reviewed Genome materialized in ${dir}/genome`);return await initCommand(['--dir',dir,'--platform',base,'--no-review'],io);
+   io.out(`Reviewed Genome materialized in ${dir}/genome`);if(v['prepare-only']){io.out('No repositories were provisioned. Prepare local source if implementation is wanted, then run init with its default import review.');return 0;}return await initCommand(['--dir',dir,'--platform',base,'--no-review'],io);
   }else if(action==='preview'){if(!v.file)throw new CliError('--file native-package.json is required');result=await client.request<OntologyImportReview>('POST',`${root}/preview`,(()=>{const input=readJson(v.file,io);return input&&typeof input==='object'&&Object.hasOwn(input,'package')?input:{package:input};})());io.out(`Review: ${base}/start?system=${encodeURIComponent(system)}&import=${encodeURIComponent((result as OntologyImportReview).id)}`);}
   else if(action==='list')result=await client.request('GET',root);else if(action==='show')result=await client.request('GET',`${root}/${encodeURIComponent(id('import',p[1]))}`);else if(action==='accept'){if(!v.hash)throw new CliError('--hash from the reviewed preview is required');result=await client.request('POST',`${root}/${encodeURIComponent(id('import',p[1]))}/accept`,{hash:v.hash});}else throw new CliError('usage: artyfact ontology preview|list|show|accept|bootstrap');
  }else if(command==='operations'){

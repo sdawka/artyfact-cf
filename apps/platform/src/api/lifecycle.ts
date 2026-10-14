@@ -1,7 +1,7 @@
 import type { FileCompare, SystemSummary } from "../../shared/api";
 import { routes } from "../../shared/api";
 import { ApiRequestError } from './client';
-import { lifecyclePaths, type CreateRealizationPlanRequest, type RealizationPlan, type ImplementationReview, type PlanPromoteRequest, type PlanPromoteResponse, type DraftRealizationPlanRequest, type DraftRealizationPlanResponse, type TaskSelectRequest } from '../../shared/lifecycle';
+import { lifecyclePaths, type CreateRealizationPlanRequest, type RealizationPlan, type ImplementationReview, type PlanPromoteRequest, type PlanPromoteResponse, type DraftRealizationPlanRequest, type DraftRealizationPlanResponse, type TaskReview, type TaskSelectRequest } from '../../shared/lifecycle';
 import type { CreateInitialSystemRequest, CreateInitialSystemResponse, OntologyImportPreviewRequest, OntologyImportReview, OntologyImportAcceptRequest } from '../../shared/ontology-packages';
 export { lifecyclePaths };
 export async function scopedRequest<T>(path:string,token:string,method='GET',body?:unknown):Promise<T>{
@@ -19,6 +19,8 @@ export const lifecycleApi={
  createPlan:(s:string,body:CreateRealizationPlanRequest,token:string)=>scopedRequest<RealizationPlan>(lifecyclePaths.plans(s),token,'POST',body),
  /** Editable draft of a plan from the planner; persists nothing. Its `request` posts unchanged to `createPlan`. */
  draft:(s:string,body:DraftRealizationPlanRequest,token:string)=>scopedRequest<DraftRealizationPlanResponse>(lifecyclePaths.draft(s),token,'POST',body),
+ taskReview:(s:string,p:string,t:string,token:string)=>scopedRequest<TaskReview>(lifecyclePaths.taskReview(s,p,t),token),
+ taskReviewFile:(s:string,p:string,t:string,c:string,path:string,token:string)=>scopedRequest<FileCompare>(lifecyclePaths.taskReviewFile(s,p,t,c,path),token),
  select:(s:string,p:string,t:string,body:TaskSelectRequest,token:string)=>scopedRequest<RealizationPlan>(lifecyclePaths.action(s,p,t,'select'),token,'POST',body),
  /** `GET /api/systems/:id`: read live from the System, unlike the list, whose counts are only as fresh as the last registry refresh. */
  system:(s:string)=>scopedRequest<SystemSummary>(routes.system(s),''),

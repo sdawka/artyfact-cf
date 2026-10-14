@@ -1,0 +1,7 @@
+id: endpoint.lifecycle-task-review-file
+kind: endpoint
+fields:
+  name: Review exact Task file
+  description: Compares only a changed path of a candidate owned by the requested Task against its pinned source base.
+  route: GET /api/systems/:id/realization-plans/:pid/tasks/:tid/review/files
+  auth: System read visibility; writes remain admin-only.

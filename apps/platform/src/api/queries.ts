@@ -39,6 +39,7 @@ export const qk = {
   builds: (systemId: string, q: BuildsQuery = {}) => ["builds", systemId, q.realization ?? null, q.commit ?? null, q.kind ?? null] as const,
   deployments: (systemId: string) => ["deployments", systemId] as const,
   phenome: (systemId: string, q: PhenomeEventsQuery = {}) => ["phenome", systemId, q] as const,
+  phenomePages: (systemId: string, q: PhenomeEventsQuery = {}) => ["phenome", systemId, q, "pages"] as const,
   artifacts: (systemId: string) => ["artifacts", systemId] as const,
   intent: (systemId: string, proposalId: string) => ["intent", systemId, proposalId] as const,
 };
@@ -210,6 +211,22 @@ export function useDeployments() {
 export function usePhenomeEvents(q: PhenomeEventsQuery = {}) {
   const { systemId } = useSystemRoute();
   return useQuery({ queryKey: qk.phenome(systemId, q), queryFn: () => api.getPhenomeEvents(systemId, q), enabled: !!systemId });
+}
+
+/** Scoped runtime history. Totals come from the newest page, never summed across cursor pages. */
+export function usePhenomeEventPages(q: PhenomeEventsQuery = {}) {
+  const { systemId } = useSystemRoute();
+  return useInfiniteQuery({
+    queryKey: qk.phenomePages(systemId, q),
+    initialPageParam: undefined as number | undefined,
+    queryFn: ({ pageParam }) => api.getPhenomeEvents(systemId, { ...q, ...(pageParam !== undefined && { before: pageParam }) }),
+    getNextPageParam: (page) => page.nextBefore,
+    select: (data) => ({
+      events: [...new Map(data.pages.flatMap(page => page.events).map(event => [event.seq, event])).values()],
+      versions: data.pages[0]?.versions ?? [],
+    }),
+    enabled: !!systemId,
+  });
 }
 
 /** Realized output records, newest first. An empty result is valid for a Genome-only System. */

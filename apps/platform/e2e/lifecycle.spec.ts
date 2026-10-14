@@ -25,7 +25,7 @@ for(const width of [1440,360])test(`integrated multi-binding review at ${width}p
  const plan={id:'plan.review',systemId:SID,title:'Accepted implementation',genome:{repo:'genome',commit:'a'.repeat(40)},status:'integrated',tasks:[],analysis:{waves:[],conflicts:[]},integration:[],createdAt:'',updatedAt:''};
  const bindings=['artifact.web','artifact.api'].map((artifactId,i)=>({artifactId,candidateId:`candidate.integrated.${i}`,taskCandidates:[`candidate.task.${i}`],source:{repo:`source-${i}`,commit:'b'.repeat(40)},realizedGenome:'a'.repeat(40)}));
  await page.route('**/api/systems/*/realization-plans**',async route=>{const url=new URL(route.request().url());const path=url.pathname;const body=path.endsWith('/review/files')?{path:url.searchParams.get('path'),from:{repo:'exact-base',commit:'c'.repeat(40),hash:'old',text:'before '+ 'x'.repeat(120),size:127},to:{repo:'exact-fork',commit:'b'.repeat(40),hash:'new',text:'after '+ 'x'.repeat(120),size:126},binary:false,truncated:false}:path.endsWith('/review')?{plan,bindings,candidates:bindings.map(b=>({id:b.candidateId,changedPaths:['src/index.ts'],changedSubjects:['component.entry']})),evaluations:[],ready:true,blockers:[],expectedHead:'sc-1'}:path.endsWith('/realization-plans')?{plans:[plan]}:plan;await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});});
- await page.goto(`/s/${SID}/r/head/work?plan=plan.review`);await expect(page.getByRole('heading',{name:'Combined implementation review'})).toBeVisible();
+ await page.goto(`/s/${SID}/r/head/review?plan=plan.review`);await expect(page.getByRole('heading',{name:'Combined implementation review'})).toBeVisible();
  for(const artifact of ['artifact.web','artifact.api']){await page.getByText(`Changed files and Genome nodes for ${artifact}`).click();}
  await page.getByRole('button',{name:'src/index.ts'}).first().click();await expect(page.getByRole('region',{name:'src/index.ts file changes'})).toBeVisible();
  const a11y=await new AxeBuilder({page}).analyze();expect(a11y.violations).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
@@ -63,4 +63,23 @@ for(const width of [1440,360])test(`draft, edit and create a plan, then its wave
  await expect(page.getByTestId('task-detail')).toContainText('Waits until “Cards”, “Task t2” are selected.');
  expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);
  expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+});
+
+for(const width of [1440,360])test(`Task evidence and keyboard selection in Review at ${width}px @fixture`,async({page})=>{
+ await page.setViewportSize({width,height:900});await page.emulateMedia({reducedMotion:'reduce'});await page.addInitScript(()=>sessionStorage.setItem('artyfact.adminToken','test-admin'));await mockApi(page);
+ let selected=false;const bodies:unknown[]=[];
+ const task=()=>({id:'task.exact',title:'Exact Task',artifactId:'artifact.web',status:selected?'selected':'submitted',selectedCandidate:selected?'candidate.exact':null,attempts:[{id:'attempt.exact',realizationId:'realization.exact',status:'submitted'}]});
+ const plan=()=>({id:'plan.task',systemId:SID,title:'Task implementation',genome:{repo:'genome',commit:'a'.repeat(40)},status:'implementing',tasks:[task()],analysis:{waves:[['task.exact']],conflicts:[]},integration:[],createdAt:'',updatedAt:selected?'selected':'submitted'});
+ const entry={candidate:{id:'candidate.exact',realization:'realization.exact',state:'evaluated',changedPaths:['src/exact.ts'],changedSubjects:['component.entry']},manifest:{planId:'plan.task',taskId:'task.exact',realizationId:'realization.exact',repo:'exact-fork',baseRepo:'exact-base',baseCommit:'c'.repeat(40),commit:'b'.repeat(40),manifestHash:'manifest-exact'},evaluations:[{id:'evaluation.exact',criterion:'C.exact',verdict:'pass',execution:'completed'}]};
+ await page.route('**/api/systems/*/realization-plans**',async route=>{const path=new URL(route.request().url()).pathname;let body:unknown;
+  if(path.endsWith('/select')){bodies.push(route.request().postDataJSON());selected=true;body=plan();}
+  else if(path.endsWith('/review/files'))body={from:{repo:'exact-base',commit:'c'.repeat(40),text:'before'},to:{repo:'exact-fork',commit:'b'.repeat(40),text:'after'},binary:false,truncated:false};
+  else if(path.endsWith('/review'))body={plan:plan(),task:task(),candidates:[entry]};else if(path.endsWith('/realization-plans'))body={plans:[plan()]};else body=plan();
+  await route.fulfill({status:200,contentType:'application/json',body:JSON.stringify(body)});
+ });
+ await page.goto(`/s/${SID}/r/head/review?plan=plan.task&task=task.exact`);
+ const review=page.getByRole('region',{name:'Review Exact Task'});await expect(review.getByText('candidate.exact',{exact:true})).toBeVisible();await expect(review.getByText('C.exact: pass (completed)')).toBeVisible();
+ const file=review.getByRole('button',{name:'src/exact.ts'});await file.focus();await page.keyboard.press('Enter');await expect(page.getByRole('region',{name:'src/exact.ts file changes'})).toBeVisible();
+ expect((await new AxeBuilder({page}).analyze()).violations).toEqual([]);expect(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth)).toBe(true);
+ const select=review.getByRole('button',{name:'Select reviewed Task result'});await select.focus();await page.keyboard.press('Enter');await expect(select).toBeDisabled();expect(bodies).toEqual([{candidateId:'candidate.exact'}]);await expect(page.getByTestId('queue-task-selection:plan.task:task.exact')).toHaveCount(0);
 });

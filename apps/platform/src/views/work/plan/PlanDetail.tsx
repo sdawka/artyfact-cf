@@ -4,9 +4,9 @@ import type { RealizationPlan } from "../../../../shared/lifecycle";
 import { useAdminToken } from "@/api/adminToken";
 import { lifecycleApi } from "@/api/lifecycle";
 import { useParam } from "../lib";
-import { useWorkData } from "../data";
 import { integrateReason, planCountsLine } from "./lib";
-import { PlanReview } from "./PlanReview";
+import { Link } from "react-router";
+import { useKeepParams } from "@/model/useSelection";
 import { TaskDetail } from "./TaskDetail";
 import { WaveBoard } from "./WaveBoard";
 import workStyles from "../work.module.css";
@@ -32,21 +32,19 @@ interface Props {
 
 /**
  * A stored RealizationPlan: its pinned Genome and status, the wave board with per-wave agent commands, `?task=` detail
- * with the select form, Integrate once every task is selected, and the combined review once integrated.
+ * with execution metadata and a Review link, and Integrate once every task is selected.
  */
 export function PlanDetail({ plan, writeReason, busy, error, run }: Props) {
   const uid = useId();
+  const href = useKeepParams();
   const { token } = useAdminToken();
   const now = useNow();
-  const { realizations } = useWorkData();
   const [taskId, setTask] = useParam("task");
   // Hidden commands stay hidden while the plan is open, and "Copy all" skips them.
   const [hidden, setHidden] = useState<ReadonlySet<string>>(new Set());
   const onHide = useCallback((id: string) => setHidden((h) => new Set(h).add(id)), []);
   const openTask = useCallback((id: string) => setTask(id === taskId ? null : id), [setTask, taskId]);
   const task = taskId ? plan.tasks.find((t) => t.id === taskId) : undefined;
-  const lastRealization = task?.attempts.at(-1)?.realizationId;
-  const suggested = realizations.find((r) => r.id === lastRealization)?.candidate;
   const integrate = writeReason ?? integrateReason(plan);
 
   return (
@@ -73,22 +71,19 @@ export function PlanDetail({ plan, writeReason, busy, error, run }: Props) {
       <WaveBoard plan={plan} openTask={taskId} now={now} hidden={hidden} onHide={onHide} onOpen={openTask} />
       {task && (
         <TaskDetail
-          key={`${task.id}:${suggested ?? ""}`}
+          key={task.id}
           task={task}
           plan={plan}
           now={now}
           writeReason={writeReason}
           commandHidden={hidden.has(task.id)}
-          selecting={busy}
-          suggestedCandidate={suggested}
           error={null}
-          onSelect={(candidateId) => run(() => lifecycleApi.select(plan.systemId, plan.id, task.id, { candidateId }, token))}
           onOpenTask={(id) => setTask(id)}
           onClose={() => setTask(null)}
         />
       )}
       {error && <p role="alert" className={workStyles.error}>{error}</p>}
-      {plan.status === "integrated" && <PlanReview plan={plan} writeReason={writeReason} busy={busy} run={run} />}
+      {(plan.status === "integrated" || plan.status === "promoted") && <Button asChild variant="primary"><Link to={href("review", {plan:plan.id, task:null, panel:null, evolution:null, realization:null})}>Review integrated implementation</Link></Button>}
     </section>
   );
 }

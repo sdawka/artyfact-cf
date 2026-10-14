@@ -3,6 +3,8 @@ import { fixtureBundle } from "@/api/fixtures";
 import { candidate, commit, realization } from "../work/testData";
 import { awaitingReview, behindBy, IMPORT_GROUP, importLabel, reviewQueue, waitingCount } from "./queue";
 
+import { makePlan, task, attempt } from "../work/plan/testPlan";
+
 const evolutions = fixtureBundle().model.evolutions;
 const E1 = evolutions[0]!.id;
 const E2 = evolutions[1]!.id;
@@ -98,4 +100,13 @@ describe("reviewQueue", () => {
 });
 it('keeps independent Task attempts out of the legacy Evolution decision queue',()=>{
  expect(reviewQueue({evolutions,realizations:[realization({id:'realization.task',evolution:'',status:'evaluated',candidate:'candidate.task'})]})).toEqual([]);
+});
+
+it("counts import, legacy, submitted Task and integrated plan once each", () => {
+ const submitted=makePlan({tasks:[task("t1",{status:"submitted",attempts:[attempt({id:"a1"}),attempt({id:"a2"})]}),task("t2",{status:"selected"}),task("t3",{status:"completed"})]});
+ const integrated=makePlan({id:"integrated",status:"integrated",tasks:[]});
+ const groups=reviewQueue({evolutions,commits:[c1],realizations:[realization({status:"evaluated",baseRevision:"sc-1"}),realization({evolution:"",status:"evaluated"})],plans:[submitted,integrated,makePlan({id:"done",status:"promoted"})],importReview:{status:"pending",genomeCommit:"abc",nodes:2}});
+ expect(waitingCount(groups)).toBe(4);
+ expect(groups.flatMap(g=>g.rows).filter(r=>r.kind==="task-selection")).toHaveLength(1);
+ expect(groups.flatMap(g=>g.rows).filter(r=>r.kind==="plan-promotion")).toHaveLength(1);
 });

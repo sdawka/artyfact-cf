@@ -139,7 +139,16 @@ ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact task claim plan.id task.id --sy
 Preview accepts a native package JSON directly or `{package, genomeFiles}`; `genomeFiles` maps
 relative native node paths to their exact text, supporting required custom root fields and initial content.
 
-Bootstrap materializes the exact accepted Genome files in a new directory and runs `init`;
+Bootstrap materializes the exact accepted Genome files in a new directory and runs `init`.
+Use `--prepare-only` to stop before authentication/provisioning, including when a declared app has no source yet.
+Then install guidance with `npx artyfact skill --dir ./project --write --agent generic`.
+A Genome-only System is valid without source. For implementation, prepare genuine minimal scaffold source in
+`./project/app` and accurate Thing/artifact/files mappings; feature work belongs to Tasks. Import with
+`ARTYFACT_ADMIN_TOKEN="$ADMIN_TOKEN" npx artyfact init --dir ./project --platform <origin>` and retain the default
+import review for changed content. Custom packages rely on server import validation. After acceptance, draft actual
+source-bound IDs with `plan draft --system <system> --node <node-id> --platform <origin>`, inspect scope/problems,
+then repeat with `--create`. Bootstrap refuses an existing directory; resume preparation there instead of overwriting.
+The normal bootstrap path
 it uses the existing Cloudflare authentication and provisioning flow. `intent.json` contains
 `message` and optional `anchor`. New Evolutions are always Genome amendments.
 
@@ -153,7 +162,11 @@ saves nothing. `--create` posts the draft unchanged and prints the plan id and r
 The platform resolves repository scope and dependency waves before granting a writing attempt.
 
 `plan tasks <plan>` prints `task | status | wave | depends-on | write nodes | footprint`, one `conflicts:` line per
-overlapping pair, and the claim command for the lowest-wave pending Task whose dependencies are selected or completed.
+overlapping pair, and the claim or resume command for the lowest-wave available Task. Dependencies must have selected
+candidates and no conflicting writer may hold a live lease. Pending Tasks can be claimed; expired claimed/working
+Tasks are offered with `resume` and an explicit platform origin. Use the existing workspace path to preserve local
+work. Submitted, selected, completed and promoted work is excluded. JSON retains `next` (Task id or null) and adds
+`nextAction: {taskId, action: "claim" | "resume"}` (or null).
 Like `plan show`, it needs no token for a public System.
 
 `task claim`, `task start`, and `task resume` have the same arguments (`--agent-label` names the agent).

@@ -104,9 +104,9 @@ function headlineOf(s: CardSummary): Omit<CardView, "state"> {
   const agents = tasksAwaiting(s);
   if (agents !== undefined) return { headline: tasksAwaitText(agents), tone: "attention", deploy, workHref };
   const promote = promotions(s);
-  if (promote !== undefined) return { headline: promotionText(promote), tone: "attention", deploy, workHref };
+  if (promote !== undefined) return { headline: promotionText(promote), tone: "attention", deploy, reviewHref: `${base(s.systemId)}/review` };
   const select = selections(s);
-  if (select !== undefined) return { headline: selectionText(select), tone: "attention", deploy, workHref };
+  if (select !== undefined) return { headline: selectionText(select), tone: "attention", deploy, reviewHref: `${base(s.systemId)}/review` };
   if (sig.has("evolving")) {
     const e = s.realizationCounts?.evolving;
     return { headline: e ? `${e} ${e === 1 ? "realization" : "realizations"} evolving` : "evolving", tone: "evolving", deploy };
@@ -155,10 +155,10 @@ export function needsYou(systems: readonly CardSummary[]): LedgerRow[] {
       rows.push({ key: `${s.systemId}:agent`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/work`, text: tasksAwaitText(agents) });
     const promote = promotions(s);
     if (promote !== undefined)
-      rows.push({ key: `${s.systemId}:promote`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/work`, text: promotionText(promote) });
+      rows.push({ key: `${s.systemId}:promote`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/review`, text: promotionText(promote) });
     const select = selections(s);
     if (select !== undefined)
-      rows.push({ key: `${s.systemId}:select`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/work`, text: selectionText(select) });
+      rows.push({ key: `${s.systemId}:select`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/review`, text: selectionText(select) });
     if (s.deployState === "behind")
       rows.push({ key: `${s.systemId}:behind`, systemId: s.systemId, title, tone: "attention", href: `${base(s.systemId)}/phenome`, text: "deployed, behind" });
     if (s.deployState === "failed")

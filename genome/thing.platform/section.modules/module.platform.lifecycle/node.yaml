@@ -20,6 +20,8 @@ links:
   - { rel: implements, to: endpoint.lifecycle-get-realization-plans-pid-review }
   - { rel: implements, to: endpoint.lifecycle-review-file }
   - { rel: implements, to: endpoint.lifecycle-post-realization-plans-pid-promote }
+  - { rel: implements, to: endpoint.lifecycle-task-review }
+  - { rel: implements, to: endpoint.lifecycle-task-review-file }
 files:
-  - worker/lifecycle-service.ts
+  - worker/lifecycle*.ts
   - worker/tasks/**
