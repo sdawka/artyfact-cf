@@ -171,8 +171,50 @@ starts with `[name, systemId]`, so `invalidateQueries({ queryKey: [name, systemI
 - `CodeView { value, path, label, readOnly?, onChange? }` (default export; always `lazy()`-import it): CodeMirror 6 with line
   numbers, yaml/js/ts/json/md by extension and token colours; read-only sets `aria-readonly`. Tests: `@/testing/codemirror`
   `editorText(root)`, `typeInEditor(root, text)` (throws when read-only).
-- `CopyButton { value, label? }` (announces "Copied" / "Copy failed"), `EmptyState { title, children?, action?, live? }` (`live` adds `role="status"`),
+- `CopyButton { value, label? }` (announces "Copied" / "Copy failed"),
+  `EmptyState { title, children?, action?, kind?: empty|error, onRetry?, headingLevel?: 2|3|4, live?, surface? }`: empty = "{Thing} yet." +
+  how it fills + one action; `kind="error"` adds `role="alert"`, the title in the danger colour and "Try again" from `onRetry` (`live`
+  adds `role="status"` to an empty state). One per region; `surface` only at page level. Never "— unknown.".
   `Breadcrumbs { ids, label? }`, `KeyValue { data, omit? }` (strings that are ids render as chips).
+- `NodeChip` also takes `glyph?: boolean`; `<KindGlyphs hidden>` hides the kind glyph of every chip inside. Verdict rows hide
+  it, so ✓ beside a verdict always means pass.
+- `Button` (`components/ui`) also takes `reason?: string`: a reason disables the button and renders as visible `--type-meta` text
+  beside it, linked by `aria-describedby`. A disabled primary uses `--color-primary-disabled-bg`. `aria-pressed` toggles are styled
+  once (on = apricot border + active background; ghost toggles use the selection rule). Card padding is 20 (16 below 640px).
+
+### Page primitives (UI refresh foundation)
+
+Shape every view from these; see `/style` (each sample has `data-style-sample`) and `theme/README.md` for the rules.
+
+- `PageHeader { title, purpose?, context?, primary?, secondary?, status?, variant?: standard|system|compact, titleId? = "view-title", titleRef?, children? }`
+  (`components/PageHeader`): the view's only h1 (`tabIndex=-1`, focus target). One primary per view; it turns secondary while a Panel
+  with its own primary is open. Actions wrap under the purpose below 640px, primary first. `system` sets the System name in
+  `--type-system` (Overview); `compact` (canvas) puts the scope path inline and makes `purpose` the h1's accessible description;
+  `children` is a toolbar row. `context` defaults to `useScopeContext()` (pass `null` to hide).
+- `useScopeContext(): ScopeCrumb[]` (`{ label, to? }`, the last has no `to`): System / Thing / View inside a Thing workspace,
+  Environment / System / … / node on a Map `?scope=`, else `[]`. `ScopePath { crumbs, label? }` renders it (plain links, current as
+  text with `aria-current="page"`, never markers). The Shell still renders its own Thing breadcrumb until the shell slice removes it.
+- `Section { title, headingLevel?: 2|3, description?, count?, actions?, surface?: none|panel, id? }`: a titled region (`section`
+  labelled by its heading, `--type-h2`); sections are `--spacing-10` apart.
+- `Panel { title, headingLevel?, primary?, secondary?, onBack?, backLabel?, autoFocus? = true }`: the container that replaces the region
+  it is about. Focus moves to its h2 on open and back to the opener (else `#view-title`) when it unmounts. `backLabel` names the region
+  ("Back to board").
+- `ListDetail { list, detail, listLabel, detailLabel?, hasSelection, onBack?, backLabel?, listWidth?: narrow|wide }`: list pane 20 / 24rem
+  (sticky, own scroll) beside the detail. Below 900px only one pane shows (CSS): the detail when `hasSelection`, with the back link.
+- `RowList { label, density?: standard|compact }` + `Row { to? | onSelect?, current?, tone?: neutral|attention|fail, title, meta?, status?, trailing? }`:
+  registers, queues, ledgers. The whole row is the link or button (`aria-current="true"` when current: left rule + one surface step);
+  `trailing` actions sit outside it. Rows are divided by `--color-border-faint`. Compact (36px) is for non-interactive rows.
+- `MetaLine { items: { label?, value, code?, title? }[] }`: a `dl` of facts separated by space, never "·".
+- `StatusText { status, label?, tone?: neutral|attention|fail|pass, glyph?, title? }`: inline glyph + word, no border (default glyphs
+  ◔ × ✓ ○). `pass` only for `pass`/`passed`. `StatusChip` stays for headers (one per row).
+- `Count { n, tone?: attention|neutral, hideZero?, srLabel? }`: tabular; attention is apricot and hidden at zero; `srLabel` makes a
+  link read "Review, 2 waiting"; `null` is "unknown".
+- `Kbd { keys, sequence? }`: `"Mod"` is ⌘ on Apple platforms and Ctrl elsewhere (`platformKey`, `isApplePlatform`).
+- `Steps { steps: { id, title, state: done|current|todo, summary?, onEdit? }[], label?, children }`: Start only; children are the
+  current step's body.
+- Forms (`components/Form`): `Form`, `Field { label }`, `Check`, `FormActions`, `Reason { tone?: "error" }`, and `formStyles`
+  (`box` is the former Work `.panel`). `Facts { items: { term, value }[] }`, `CommandBlock { title?, commands, copy? }`,
+  `EntryLayout { header }` (pages outside the shell). No view imports another view's CSS module.
 
 ## Views added in iteration 2
 
