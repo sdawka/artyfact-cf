@@ -52,7 +52,7 @@
   .overlay { width: 100%; margin: 0; order: -1; }
   .hint { display: none; }
   .canvas { min-height: 280px; }
-  .dock { right: var(--spacing-3); max-width: none; }
+  /* The tray stops short of the zoom controls at the right. */
   .selection { width: 100%; }
   .selectedName { width: 100%; max-width: none; }
   .connections { max-height: 30vh; }

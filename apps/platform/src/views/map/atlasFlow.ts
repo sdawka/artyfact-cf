@@ -4,7 +4,7 @@ import { relationDirections } from "./atlasRelationStyle";
 import { selectedBoundaryEdges } from "./atlasConnections";
 import type { Layer } from "@/model/useSelection";
 import type { AtlasLayout } from "./atlasLayout";
-import type { MapGraph } from "./useMapGraph";
+import { ENVIRONMENT_SCOPE, type MapGraph } from "./useMapGraph";
 import type { CrossLinkFlowEdge, MapFlowNode, MapNodeData } from "./nodes/types";
 
 export function atlasFlowNodes(graph: MapGraph, layout: AtlasLayout, extra: {
@@ -35,9 +35,14 @@ export function atlasFlowEdges(graph: MapGraph, focusId: string | null, showAll:
   const selected = selectedBoundaryEdges(graph, focusId, index);
   const hovered = selectedBoundaryEdges(graph, hoverId, index);
   const active = new Set([...selected, ...hovered].map((edge) => edge.id));
-  return (showAll ? graph.edges : [...new Map([...selected, ...hovered].map(edge => [edge.id, edge])).values()]).map((edge) => ({
+  // Environment scope draws its Environment-to-System edges by default. Links between two outside nodes are context, never drawn.
+  const roles = new Map(graph.nodes.map((node) => [node.id, node.role]));
+  const faraway = (role?: string) => role === "outside" || role === "external";
+  const contextual = (edge: { source: string; target: string }) => (roles.get(edge.source) === "outside" || roles.get(edge.source) === "external") && (roles.get(edge.target) === "outside" || roles.get(edge.target) === "external");
+  const shown = showAll || graph.scope === ENVIRONMENT_SCOPE ? graph.edges : [...new Map([...selected, ...hovered].map(edge => [edge.id, edge])).values()];
+  return shown.filter((edge) => !contextual(edge)).map((edge) => ({
     id: edge.id, source: edge.source, target: edge.target, type: "crossLink",
-    data: { edge, dim: false, active: active.has(edge.id), flow: active.has(edge.id), showLabel: true },
+    data: { edge, outsideEnd: faraway(roles.get(edge.source)) ? "source" : faraway(roles.get(edge.target)) ? "target" : undefined, dim: false, active: active.has(edge.id), flow: active.has(edge.id), showLabel: true },
     markerEnd: { type: MarkerType.ArrowClosed, width: 14, height: 14, color: "var(--color-border-strong)" },
     selectable: false, focusable: false,
   }));

@@ -17,7 +17,7 @@
 .none { color: var(--color-text-subtle); font: var(--type-meta); }
 .indicator { font: var(--type-meta); color: var(--color-text-secondary); overflow-wrap: anywhere; }
 .method { padding: 0 var(--spacing-4) var(--spacing-3); }
-.method summary { min-height: var(--control-height); display: flex; align-items: center; font: var(--type-meta); color: var(--color-text-secondary); cursor: pointer; }
+.method summary { min-height: var(--control-height); display: list-item; padding-block: var(--spacing-2); font: var(--type-meta); color: var(--color-text-secondary); cursor: pointer; }
 .method summary:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
 .method p { margin: 0; max-width: var(--measure-body); font: var(--type-meta); color: var(--color-text-secondary); }
 @media (max-width: 899px) {
