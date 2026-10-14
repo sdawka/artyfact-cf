@@ -76,9 +76,12 @@ dd { margin: 0; color: var(--color-text-secondary); }
 .not-found h1 { font: var(--type-display-2); letter-spacing: var(--type-display-2-tracking); }
 .independent { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 32px 64px; }
 
-/* Atmosphere: a soft pool of haze at the top, fading out well inside its box. The WebGL field mounts after hydration. */
+/* Atmosphere: a soft veil of haze at the top and a low pool, both fading out well inside their box. The box is taller
+   than the viewport (large-viewport units) so its bottom edge, where the mask reaches zero, never comes on screen: not
+   behind a collapsing mobile toolbar, not in the WebGL canvas that fills it after hydration, not in the CSS fallback.
+   The gradients use several stops so the dark ramp eases out instead of stepping. */
 html, body { overflow-x: clip; }
-.ambient { position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(90% 60% at 50% 0%, oklch(0.79 0.125 60 / 0.09), transparent 70%); mask-image: linear-gradient(to bottom, #000 40%, transparent 100%); }
+.ambient { position: fixed; top: 0; left: 0; right: 0; height: 115vh; height: 115lvh; z-index: 0; pointer-events: none; background: radial-gradient(90% 56% at 50% 0%, oklch(0.79 0.125 60 / 0.085) 0%, oklch(0.79 0.125 60 / 0.05) 28%, oklch(0.79 0.125 60 / 0.018) 58%, oklch(0.79 0.125 60 / 0) 82%); mask-image: linear-gradient(to bottom, #000 0%, #000 42%, oklch(0 0 0 / 0.6) 68%, oklch(0 0 0 / 0.22) 86%, transparent 100%); }
 .site-header, main, .site-footer { position: relative; z-index: 1; }
 
 /* Home: hero */
