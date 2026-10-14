@@ -142,3 +142,16 @@ test('model jump links remain usable on a narrow screen with reduced motion', as
   await expect(page.getByText(/Promoting this implementation is a separate approval/)).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
+test('the handoff map is readable without JavaScript and links each step', async ({ browser }, info) => {
+  const context = await browser.newContext({ javaScriptEnabled: false, viewport: info.project.name === 'desktop' ? { width: 1280, height: 900 } : { width: 320, height: 568 } });
+  const page = await context.newPage();
+  await serveDist(page);
+  await page.goto('https://artyfact.test/connect-agent');
+  await expect(page.locator('.handoff-station')).toHaveCount(7);
+  for (const station of await page.locator('.handoff-station').all()) await expect(station).toBeVisible();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.locator('.handoff a').filter({ hasText: 'task submit' }).click();
+  await expect(page).toHaveURL(/#submit$/);
+  await expect(page.getByRole('heading', { name: 'Checkpoint and submit' })).toBeInViewport();
+  await context.close();
+});

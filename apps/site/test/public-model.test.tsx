@@ -37,6 +37,17 @@ it('documents shipped Parts commands and explicit authoring and review gates', (
   expect(screen.getByText(/Accept the Genome through review before starting/i)).toBeTruthy();
   expect(screen.getByText(/--apply --run-commands/)).toBeTruthy();
 });
+it('maps the agent handoff to its sections and names the real plan commands', () => {
+  const { container } = render(<Site path="/connect-agent" config={config} />);
+  expect(screen.getByRole('heading', { level: 1, name: 'Your agent, in an environment built for it.' })).toBeTruthy();
+  expect(container.querySelector('#start h2')?.textContent).toBe('Start a plan');
+  const links = [...container.querySelectorAll<HTMLAnchorElement>('.handoff a')];
+  expect(links).toHaveLength(7);
+  for (const link of links) expect(container.querySelector(link.getAttribute('href')!)).toBeTruthy();
+  expect(links.map(link => link.getAttribute('href'))).toEqual(['#start', '#start', '#work', '#work', '#submit', '#review', '#review']);
+  for (const command of ['plan draft', 'plan tasks', 'plan promote', 'task claim', 'task submit']) expect(container.querySelector('.guide-steps')?.textContent).toContain('artyfact ' + command);
+  for (const chip of ['TASK_PACKET.md', '15-minute token', 'Any harness']) expect(container.querySelector('.guide-chips')?.textContent).toContain(chip);
+});
 
 
 it('introduces the Git platform, the practice stack and the prerendered checkout story', () => {
@@ -45,7 +56,9 @@ it('introduces the Git platform, the practice stack and the prerendered checkout
   expect(screen.getByRole('heading', { level: 1, name: 'The next Git platform keeps track of the product, not just the files.' })).toBeTruthy();
   expect(container.querySelector('[data-hero-orb]')).toBe(null);
   expect(screen.getByRole('heading', { name: 'Give your coding agents the environment to thrive.' })).toBeTruthy();
-  expect(screen.getByRole('heading', { name: 'Stop stitching these together.' })).toBeTruthy();
+  expect(screen.getByRole('heading', { name: 'The practices you already use, connected and taken further.' })).toBeTruthy();
+  expect(container.querySelector('.practice-stack s')).toBe(null);
+  expect(screen.getByRole('link', { name: 'Theory' }).getAttribute('href')).toBe('/model');
   expect(screen.getByRole('heading', { name: 'The clean merge that still breaks checkout.' })).toBeTruthy();
   expect(container.querySelectorAll('[data-checkout-step]')).toHaveLength(7);
   expect(container.querySelector('a[href="/model#lifecycle"]')).toBeTruthy();

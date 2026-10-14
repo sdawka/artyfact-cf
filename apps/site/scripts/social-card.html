@@ -4,12 +4,16 @@
 <style>
   * { box-sizing: border-box; margin: 0; }
   html, body { width: 1200px; height: 630px; overflow: hidden; }
-  body { background: var(--color-background); color: var(--color-text-primary); font-family: var(--font-body); padding: 64px 72px; display: grid; grid-template-columns: 1fr 360px; grid-template-rows: auto 1fr auto; column-gap: 56px; }
+  body { background: var(--color-background); color: var(--color-text-primary); font-family: var(--font-body); padding: 64px 72px; display: grid; grid-template-columns: 1fr 500px; grid-template-rows: auto 1fr auto; column-gap: 44px; }
   .brand { grid-column: 1 / -1; display: flex; align-items: center; gap: 14px; font: 400 34px/1 var(--font-display); }
   .brand i { color: var(--color-brand-primary); font-style: normal; }
-  h1 { align-self: center; font: 400 58px/1.08 var(--font-display); letter-spacing: -0.01em; }
+  h1 { align-self: center; font: 400 52px/1.08 var(--font-display); letter-spacing: -0.01em; }
   .stack { align-self: center; border: 1px solid color-mix(in oklch, var(--color-border) 55%, transparent); border-radius: 12px; padding: 22px 26px; background: var(--color-background-secondary); }
-  .stack s { display: block; font: 500 21px/1.75 var(--font-code); color: var(--color-text-secondary); text-decoration-thickness: 2px; text-decoration-color: var(--color-brand-primary); }
+  .stack p.head { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; padding: 0; border: 0; font: 15px var(--font-code); color: var(--color-text-secondary); }
+  .stack dl { display: grid; grid-template-columns: auto 22px 1fr; align-items: center; gap: 10px 14px; margin: 0; }
+  .stack dt { font: 500 19px/1.3 var(--font-code); color: var(--color-text-secondary); }
+  .stack dd { margin: 0; font-size: 18px; line-height: 1.3; }
+  .stack svg { color: var(--color-brand-primary); }
   .stack p { margin-top: 12px; padding-top: 12px; border-top: 1px solid color-mix(in oklch, var(--color-border) 45%, transparent); font-size: 19px; line-height: 1.4; }
   .foot { grid-column: 1 / -1; display: flex; justify-content: space-between; font-size: 21px; color: var(--color-text-secondary); }
   .foot b { color: var(--color-brand-primary); font-weight: 400; }
@@ -18,8 +22,9 @@
   <div class="brand"><i>⟐</i> artyfact</div>
   <h1>The next Git platform keeps track of the product, not just the files.</h1>
   <div class="stack">
-    <s>git worktrees</s><s>spec.md</s><s>CI gates</s><s>merge queues</s><s>PRDs</s><s>release tracking</s>
-    <p>One multi-level model of your product, next to the code.</p>
+    <p class="head"><span>You know</span><svg viewBox="0 0 24 12" width="22" height="12" aria-hidden="true"><path d="M1 6h20M16 1.5 21 6l-5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg><span>In Artyfact</span></p>
+    <dl><dt>git worktrees</dt><span><svg viewBox="0 0 24 12" width="22" height="12" aria-hidden="true"><path d="M1 6h20M16 1.5 21 6l-5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><dd>a fork per Task</dd><dt>AGENTS.md</dt><span><svg viewBox="0 0 24 12" width="22" height="12" aria-hidden="true"><path d="M1 6h20M16 1.5 21 6l-5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><dd>a brief cut from the model</dd><dt>CI gates</dt><span><svg viewBox="0 0 24 12" width="22" height="12" aria-hidden="true"><path d="M1 6h20M16 1.5 21 6l-5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><dd>checks bound to criteria</dd><dt>merge queues</dt><span><svg viewBox="0 0 24 12" width="22" height="12" aria-hidden="true"><path d="M1 6h20M16 1.5 21 6l-5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><dd>compare-and-swap promote</dd><dt>PRDs</dt><span><svg viewBox="0 0 24 12" width="22" height="12" aria-hidden="true"><path d="M1 6h20M16 1.5 21 6l-5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></span><dd>purposes in the model</dd></dl>
+    <p>Connected to one multi-level model of your product, next to the code.</p>
   </div>
   <div class="foot"><span>Give your coding agents the environment to thrive.</span><b>Built on Cloudflare</b></div>
 </body></html>
