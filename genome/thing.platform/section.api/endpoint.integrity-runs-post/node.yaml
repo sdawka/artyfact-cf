@@ -1,0 +1,9 @@
+id: endpoint.integrity-runs-post
+kind: endpoint
+fields:
+  name: Start integrity check
+  description: Starts or reuses a bounded integrity run for a snapshot and provider choice.
+  route: POST /api/systems/:id/integrity/runs
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  request: IntegrityRunRequest {snapshotId?, provider, model?, thresholds?, budget?, rerun?}
+  response: 202 IntegrityRunResponse

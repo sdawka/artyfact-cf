@@ -2,7 +2,7 @@ id: screen.start
 kind: screen
 fields:
   name: Start a System
-  description: "Create a System, review its ontology, then hand it to your agent. Four numbered steps on one reading column; the current step is open with its own primary, done steps collapse to a summary line and later steps show only their title. Every write is disabled with a visible reason until it can run (Set the admin token in the header.); errors read what failed, then the cause."
+  description: "Create a System, review its ontology, then hand it to your agent. Four numbered steps on one reading column; the current step is open with its own primary, done steps collapse to a summary line and later steps show only their title. Before a package exists the preview step offers a copyable local-agent intent handoff; the preview and agent steps offer Check the proposed Genome, which starts an integrity review for exact source-free Genome files, shown below the steps (?integrity=). Every write is disabled with a visible reason until it can run (Set the admin token in the header.); errors read what failed, then the cause."
   route: /start
   states:
     - "Name your System (current)"
@@ -10,7 +10,12 @@ fields:
     - "Review the import (current)"
     - "Build with your agent (current)"
     - System registered
+    - local-agent handoff
+    - integrity check ready
+    - integrity review
     - error
 links:
   - rel: serves
     to: feature.home-dashboard
+  - rel: serves
+    to: feature.intent-integrity

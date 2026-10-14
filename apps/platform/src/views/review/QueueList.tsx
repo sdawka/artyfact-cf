@@ -15,6 +15,7 @@ interface Props {
   groups: readonly QueueGroup[];
   planId?: string | null;
   taskId?: string | null;
+  integrityId?: string | null;
   error?: string | null;
   evolutionId: string | null;
   realizationId: string | null;
@@ -32,6 +33,7 @@ const KIND: Record<QueueKind, { glyph: string; word: string }> = {
   amendment: { glyph: "✎", word: "amendment" },
   promotion: { glyph: "↑", word: "promotion" },
   import: { glyph: "⤓", word: "import" },
+  integrity: { glyph: "◎", word: "integrity" },
   "task-selection": { glyph: "◇", word: "task" },
   "plan-promotion": { glyph: "↑", word: "plan" },
 };
@@ -40,7 +42,7 @@ const KIND: Record<QueueKind, { glyph: string; word: string }> = {
 export const QUEUE_ROW = "data-queue-row";
 
 /** The decision queue: one row per pending decision, grouped by Evolution. A row is a link that opens it in the detail pane. */
-export function QueueList({ groups, evolutionId, realizationId, promoting, importing, planId, taskId, error, loading = false }: Props) {
+export function QueueList({ groups, evolutionId, realizationId, promoting, importing, planId, taskId, integrityId, error, loading = false }: Props) {
   const count = waitingCount(groups);
   return (
     <section className={styles.queue} aria-labelledby="queue-title">
@@ -49,7 +51,7 @@ export function QueueList({ groups, evolutionId, realizationId, promoting, impor
       </h2>
       {groups.length ? (
         groups.map((g) => (
-          <Group key={g.planId ?? g.evolution} group={g} planId={planId} taskId={taskId} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} importing={importing} />
+          <Group key={g.planId ?? g.evolution} group={g} planId={planId} taskId={taskId} integrityId={integrityId} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} importing={importing} />
         ))
       ) : (
         <p className={styles.muted} {...(loading && { role: "status" })}>{error ? "The decision queue could not be fully loaded." : loading ? "Loading the queue…" : "Nothing is waiting on you."}</p>
@@ -64,7 +66,7 @@ export function QueueList({ groups, evolutionId, realizationId, promoting, impor
   );
 }
 
-function Group({ group, evolutionId, realizationId, promoting, importing, planId, taskId }: { group: QueueGroup } & Omit<Props, "groups" | "loading">) {
+function Group({ group, evolutionId, realizationId, promoting, importing, planId, taskId, integrityId }: { group: QueueGroup } & Omit<Props, "groups" | "loading">) {
   const id = useId();
   const href = useKeepParams();
   // The group head opens its Evolution (or plan) in Work; the import group belongs to no Evolution.
@@ -81,7 +83,7 @@ function Group({ group, evolutionId, realizationId, promoting, importing, planId
       </h3>
       <RowList label={`${group.title} decisions`} className={styles.rows}>
         {group.rows.map((row) => {
-          const current = row.plan ? row.plan.id === planId && (row.task?.id ?? null) === (taskId ?? null) : row.kind === "import"
+          const current = row.kind === "integrity" ? row.integrity?.id === integrityId : row.plan ? row.plan.id === planId && (row.task?.id ?? null) === (taskId ?? null) : row.kind === "import"
             ? !!importing
             : row.kind === "promotion"
               ? promoting && evolutionId === group.evolution
@@ -93,15 +95,17 @@ function Group({ group, evolutionId, realizationId, promoting, importing, planId
   );
 }
 
-/** Where a row opens: the plan or Task review, the import review, the promotion desk or the candidate review. */
+/** Where a row opens: the integrity review, the plan or Task review, the import review, the promotion desk or the candidate review. */
 export function useRowHref() {
   // Rows stay on Review, so they keep a lifted Thing filter ("Show all").
   const href = useStayHref();
-  return (row: QueueRow) => row.plan ? href("review", { plan: row.plan.id, task: row.task?.id ?? null, evolution: null, realization: null, panel: null }) : row.kind === "import"
-    ? href("review", { evolution: null, realization: null, panel: "import", plan: null, task: null })
+  return (row: QueueRow) => row.kind === "integrity"
+    ? href("review", { integrity: row.integrity!.id, plan: null, task: null, evolution: null, realization: null, panel: null })
+    : row.plan ? href("review", { plan: row.plan.id, task: row.task?.id ?? null, evolution: null, realization: null, panel: null, integrity: null }) : row.kind === "import"
+    ? href("review", { evolution: null, realization: null, panel: "import", plan: null, task: null, integrity: null })
     : row.kind === "promotion"
-      ? href("review", { evolution: row.evolution, realization: null, panel: "promote", plan: null, task: null })
-      : href("review", { evolution: row.evolution, realization: row.realization?.id ?? null, panel: null, plan: null, task: null });
+      ? href("review", { evolution: row.evolution, realization: null, panel: "promote", plan: null, task: null, integrity: null })
+      : href("review", { evolution: row.evolution, realization: row.realization?.id ?? null, panel: null, plan: null, task: null, integrity: null });
 }
 
 function Chip({ kind }: { kind: QueueKind }) {
@@ -114,6 +118,9 @@ function outcome(row: QueueRow, ready: number): string {
   if (row.plan) return row.task ? `${row.task.title}: result awaits selection` : "Plan awaits promotion";
   switch (row.kind) {
     case "import": return `${importLabel(row.importReview!.nodes)} awaits an admin`;
+    case "integrity": return row.integrity!.state === "completed"
+      ? `Integrity review: automated ${row.integrity!.report?.status ?? "result"}, agreement pending`
+      : `Integrity check ${row.integrity!.state}`;
     case "amendment": return "Genome amendment awaits an admin";
     case "promotion": return `Ready to promote, ${ready} candidate${ready === 1 ? "" : "s"} evaluated`;
     case "stale": return "Built on an earlier head";
@@ -126,7 +133,7 @@ function QueueItem({ row, title, current, ready }: { row: QueueRow; title: strin
   const rowHref = useRowHref();
   const { candidates: selected } = useSelection();
   const r = row.realization;
-  const testId = row.plan ? `queue-${row.key}` : row.importReview ? "queue-import" : r ? `queue-${r.id}` : `queue-promotion-${row.evolution}`;
+  const testId = row.plan || row.integrity ? `queue-${row.key}` : row.importReview ? "queue-import" : r ? `queue-${r.id}` : `queue-promotion-${row.evolution}`;
   const meta: MetaItem[] = [];
   // A base behind head is the 409 precondition: it leads the meta line, in attention.
   if (row.behind !== undefined && row.behind !== 0) {

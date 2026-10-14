@@ -7,7 +7,7 @@
  * then). Only one accept can hold it; a failed accept releases it with its error recorded. A claim older than
  * CLAIM_LEASE_MS (its isolate died mid-accept) can be taken over by a new accept.
  */
-import type { Proposal } from "../../shared/api";
+import type { Proposal, ProposalAttempt } from "../../shared/api";
 import { nowIso } from "../util";
 
 type Row = Record<string, SqlStorageValue>;
@@ -24,6 +24,16 @@ export interface StoredProposal { proposal: Proposal; turns: ProposalTurn[]; acc
 
 /** What an accept produced, recorded on the proposal. */
 export interface AcceptedIds { evolution: string; realization: string; candidate: string; commit: string }
+
+export type ProposalRecoveryDisposition = "revised" | "abandoned";
+export interface ProposalRecoveryRevision { proposal: Proposal; turns: ProposalTurn[] }
+
+/** A recovery holds the same row lock as accept, but fences on the exact staged candidate instead of the Genome head. */
+export type RecoveryClaimResult =
+  | { claimed: Proposal; turns: ProposalTurn[]; claimedAt: string }
+  | { refused: "not-found" }
+  | { refused: "invalid-state"; status: string }
+  | { refused: "stale-candidate" };
 
 /**
  * `claim`: the proposal, now `accepting`, and the claim's token (its `claimed_at`), which `release` and `finish` must
@@ -133,6 +143,71 @@ export class ProposalsStore {
 
   stage(id:string,claimedAt:string,approval:NonNullable<Proposal['stagedApproval']>):boolean {
     return this.sql.exec("UPDATE proposals SET json=json_set(json,'$.stagedApproval',json(?)),updated_at=? WHERE id=? AND status='accepting' AND claimed_at=?",JSON.stringify(approval),nowIso(),id,claimedAt).rowsWritten>0;
+  }
+
+  /**
+   * Claims recovery of one exact staged candidate. The proposal remains unchanged while the Worker prepares a revision
+   * or rejects the candidate, and an accept cannot interleave because both operations use `status = accepting`.
+   */
+  claimRecovery(id: string, candidateId: string, commit: string, now: number = Date.now()): RecoveryClaimResult {
+    const lapsedBefore = new Date(now - CLAIM_LEASE_MS).toISOString();
+    const claimedAt = `${new Date(now).toISOString()}#recovery:${crypto.randomUUID()}`;
+    const [won] = this.sql.exec(
+      `UPDATE proposals SET status = 'accepting', claimed_at = ?, updated_at = ?
+       WHERE id = ? AND (status = 'open' OR (status = 'accepting' AND (claimed_at IS NULL OR claimed_at < ?)))
+         AND json_extract(json, '$.stagedApproval.candidateId') = ?
+         AND json_extract(json, '$.stagedApproval.commit') = ? RETURNING json`,
+      claimedAt, nowIso(), id, lapsedBefore, candidateId, commit,
+    ).toArray() as Row[];
+    if (won) {
+      const r = this.row(id)!;
+      return { claimed: JSON.parse(String(won.json)) as Proposal, turns: JSON.parse(String(r.turns_json)) as ProposalTurn[], claimedAt };
+    }
+    const r = this.row(id);
+    if (!r) return { refused: "not-found" };
+    const status = String(r.status);
+    const lapsed = status === "accepting" && (r.claimed_at == null || String(r.claimed_at) < lapsedBefore);
+    if (status !== "open" && !lapsed) return { refused: "invalid-state", status };
+    return { refused: "stale-candidate" };
+  }
+
+  /**
+   * Completes a held recovery. The exact staged approval (including integrity evidence references) is appended to
+   * immutable attempt history before it is cleared. A revision replaces the proposal/turns under the same claim;
+   * abandonment keeps the last proposal content and closes it.
+   */
+  recover(
+    id: string,
+    claimedAt: string,
+    disposition: ProposalRecoveryDisposition,
+    reason: string,
+    revision?: ProposalRecoveryRevision,
+  ): Proposal | null {
+    const r = this.row(id);
+    if (!r || String(r.status) !== "accepting" || String(r.claimed_at) !== claimedAt) return null;
+    const current = JSON.parse(String(r.json)) as Proposal;
+    if (!current.stagedApproval || (disposition === "revised" && !revision)) return null;
+    const attempt: ProposalAttempt = {
+      stagedApproval: current.stagedApproval,
+      disposition,
+      reason,
+      endedAt: nowIso(),
+      ...(r.accept_error != null && { acceptError: String(r.accept_error) }),
+    };
+    const source = revision?.proposal ?? current;
+    const { stagedApproval: _staged, attempts: revisedAttempts, ...rest } = source;
+    const proposal = {
+      ...rest,
+      status: disposition === "abandoned" ? "abandoned" : "open",
+      attempts: [...(current.attempts ?? revisedAttempts ?? []), attempt],
+    } as Proposal;
+    const turns = revision?.turns ?? (JSON.parse(String(r.turns_json)) as ProposalTurn[]);
+    const [written] = this.sql.exec(
+      `UPDATE proposals SET status = ?, json = ?, turns_json = ?, accept_error = NULL, claimed_at = NULL, updated_at = ?
+       WHERE id = ? AND status = 'accepting' AND claimed_at = ? RETURNING id`,
+      proposal.status, JSON.stringify(proposal), JSON.stringify(turns), nowIso(), id, claimedAt,
+    ).toArray();
+    return written ? proposal : null;
   }
 
   /** An open (or held) proposal whose accept failed for good: `abandoned`, so nothing can accept it later. */

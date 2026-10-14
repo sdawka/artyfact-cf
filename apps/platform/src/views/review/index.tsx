@@ -16,6 +16,7 @@ import { CandidateReview } from "../work/panels/CandidateReview";
 import { GenomeReview, useHasImportReview } from "../work/panels/GenomeReview";
 import { PromotionPanel } from "../work/panels/PromotionPanel";
 import { PlanDecision } from "./PlanDecision";
+import { IntegrityReview } from "../integrity/IntegrityPanel";
 import { QUEUE_ROW, QueueList, useRowHref } from "./QueueList";
 import { isWaiting } from "./queue";
 import { useReviewQueue } from "./useReviewQueue";
@@ -46,23 +47,24 @@ export default function ReviewView() {
   const [panel] = useParam("panel");
   const [evolutionParam] = useParam("evolution");
   const [realizationId] = useParam("realization");
+  const [integrityId] = useParam("integrity");
   const realization = realizationId ? realizations.find((r) => r.id === realizationId) : undefined;
   const evolutionId = evolutionParam ?? realization?.evolution ?? null;
   const evolution = evolutionId ? evolutions.find((e) => e.id === evolutionId) : undefined;
   const importing = panel === "import";
   const promoting = panel === "promote" && !!evolution;
   // Titles from the merged board (the API's, else the Genome's declared Evolutions).
-  // Inside a Thing the queue keeps the Evolutions that touch it (decision f); plan and import groups name no nodes and stay.
+  // Inside a Thing the queue keeps the Evolutions that touch it (decision f); plan, import and integrity groups name no nodes and stay.
   const thingFilter = useThingFilter();
   const groups = queue.groups.flatMap((g) => {
     const evolution = g.planId ? undefined : evolutions.find((e) => e.id === g.evolution);
     if (evolution && !thingFilter.includesAny(evolution.affectedNodes)) return [];
     return [{ ...g, title: evolution?.title || g.title }];
   });
-  const open = !!planId || importing || promoting || (!!realization && !!evolution) || selected.length > 0;
+  const open = !!planId || !!integrityId || importing || promoting || (!!realization && !!evolution) || selected.length > 0;
   const loading = boardLoading || queue.isLoading;
   // A deep link (`?panel=promote&evolution=` or `?realization=`) keeps the panes open while loading or when it names nothing.
-  const linked = !!planId || !!taskId || importing || panel === "promote" || !!realizationId;
+  const linked = !!planId || !!taskId || !!integrityId || importing || panel === "promote" || !!realizationId;
   const missing = loading
     ? null
     : realizationId && !realization
@@ -112,7 +114,7 @@ export default function ReviewView() {
     return () => document.removeEventListener("keydown", onKey);
   }, []);
 
-  const back = () => void navigate(href("review", { evolution: null, realization: null, panel: null, plan: null, task: null, [SHOW_ALL_PARAM]: thingFilter.showAll ? "1" : null }));
+  const back = () => void navigate(href("review", { evolution: null, realization: null, panel: null, plan: null, task: null, integrity: null, [SHOW_ALL_PARAM]: thingFilter.showAll ? "1" : null }));
   const empty = queue.count === 0 && !open && !linked && !queue.error;
   // The import review's own empty state carries "Back to queue"; no second one above it.
   const hasImport = useHasImportReview();
@@ -139,9 +141,9 @@ export default function ReviewView() {
           hasSelection={open || linked}
           {...(!noImport && { onBack: back })}
           backLabel="Back to queue"
-          list={<QueueList groups={groups} planId={planId} taskId={taskId} error={queue.error} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} importing={importing} loading={loading} />}
+          list={<QueueList groups={groups} planId={planId} taskId={taskId} integrityId={integrityId} error={queue.error} evolutionId={evolutionId} realizationId={realizationId} promoting={promoting} importing={importing} loading={loading} />}
           detail={
-            planId ? (<PlanDecision key={planId} planId={planId} taskId={taskId} />) : importing ? (
+            planId ? (<PlanDecision key={planId} planId={planId} taskId={taskId} />) : integrityId ? (<IntegrityReview key={integrityId} runId={integrityId} />) : importing ? (
               <GenomeReview onBack={back} />
             ) : promoting ? (
               <PromotionPanel key={evolution!.id} evolution={evolution!} autoFocus={!autoOpened} />

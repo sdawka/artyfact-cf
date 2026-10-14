@@ -1,0 +1,8 @@
+id: endpoint.integrity-run
+kind: endpoint
+fields:
+  name: Read integrity run
+  description: Returns one durable integrity run, its exact snapshot identity, automated report and separate agreement state.
+  route: GET /api/systems/:id/integrity/runs/:runId
+  auth: Admin bearer token (ADMIN_TOKEN); 401 without a bearer, 403 for a wrong one, 503 admin-unconfigured when none is set.
+  response: IntegrityRunResponse

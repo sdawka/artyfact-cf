@@ -3,7 +3,7 @@
  * Genome), a reply revises it, and accepting a subset writes those ops to the Genome through an ordinary Genome
  * realization and candidate. Spec: docs/design/ontology.md §4–§6.
  */
-import { LegacyGenomeError, loadGenome, ModelParseError, readinessTemplate, type SystemModel } from "@artyfact/model";
+import { createIntegritySnapshot, LegacyGenomeError, loadGenome, ModelParseError, readinessTemplate, type SystemModel, type TemplateStore } from "@artyfact/model";
 import {
   applyOps, diffFindings, evaluate, GenomeTreeError, mintId, parseTree, providerFromEnv, route, ROUTE_NEW, ROUTE_NONE, ROUTE_UNCLEAR, routeSlice, routeVocabulary, titleOf, translatorFromEnv,
   TreeOpError, validateOps, type Graph, type Op, type ProviderEnv, type Readiness, type Route, type SystemOne, type Template,
@@ -14,13 +14,15 @@ import { demoModels, isHostedDemo } from "./demo";
 import type {
   IntentAcceptResponse, IntentDecisionsRequest, Proposal, ProposalDecision, ProposalDecisions, ProposalPlanNode, ProposalProblem, ProposalQuestion, ProposedOp,
 } from "../shared/api";
+import type { IntegrityReviewBinding } from "../shared/integrity";
 import { artifactsFor, withRepo } from "./artifacts/client";
-import { genomePrefix } from "./artifacts/genome-source";
+import { genomePrefix, readGenomeSourceFiles } from "./artifacts/genome-source";
 import type { HeadState } from "./do/system-authority";
 import { MAX_TURNS, type ProposalTurn, type StoredProposal } from "./do/proposals-store";
 import { commitEdit } from "./editor";
 import { badRequest, conflict, HttpError, notFound, unprocessable } from "./errors";
-import { accept as approveGenome, createEvolution, genomeAt, refreshRegistry, registryStub, revokeEnded, startWork, systemStub } from "./service";
+import { acceptedTemplateResolver } from "./ontology-packages/store";
+import { accept as approveGenome, createEvolution, genomeAt, refreshRegistry, registryStub, reject, revokeEnded, startWork, systemStub } from "./service";
 import { nowIso } from "./util";
 
 /** The agent label of an intent's Genome realization; its commits are authored as `intent`. */
@@ -54,13 +56,13 @@ export function intentProviders(env: Env): IntentProviders {
 // ------------------------------------------------------------------ head Genome
 
 /** A Genome commit as intents judge it: its files, projected graph, readiness template and findings, and node tree. */
-interface GenomeAt { files: Map<string, string>; graph: Graph; template: Template; readiness: Readiness; tree: GenomeTree }
+interface GenomeAt { files: Map<string, string>; graph: Graph; template: Template; templates: TemplateStore; readiness: Readiness; tree: GenomeTree }
 interface HeadGenome extends GenomeAt { state: HeadState }
 
 /** The head as the model projects it (`loadGenome`); a v1 or unreadable Genome is 422. */
-function projected(files: Map<string, string>): SystemModel {
+function projected(files: Map<string, string>, templates: TemplateStore = metaTemplates): SystemModel {
   try {
-    return loadGenome(files, { templates: metaTemplates });
+    return loadGenome(files, { templates });
   } catch (e) {
     if (e instanceof LegacyGenomeError) throw unprocessable("legacy-genome", e.message);
     if (e instanceof ModelParseError) throw unprocessable(e.code, e.message);
@@ -73,8 +75,8 @@ function projected(files: Map<string, string>): SystemModel {
  * with its Things' (each instantiated for its Thing) running the packs the System pins, and its readiness, which
  * proposals are compared against.
  */
-export function genomeGraph(files: Map<string, string>): { graph: Graph; template: Template; readiness: Readiness } {
-  const m = projected(files);
+export function genomeGraph(files: Map<string, string>, templates: TemplateStore = metaTemplates): { graph: Graph; template: Template; readiness: Readiness } {
+  const m = projected(files, templates);
   const template = readinessTemplate(m);
   return { graph: m.graph, template, readiness: evaluate(template, m.graph) };
 }
@@ -85,10 +87,11 @@ const MEMO_MAX = 8;
 /** The System's Genome at `commit` (memoized by commit). */
 async function genomeOf(env: Env, systemId: string, state: HeadState, commit: string): Promise<GenomeAt> {
   const { files } = await genomeAt(env, systemId, commit, state.genomeSource);
-  const key = `${systemId}@${commit}`;
+  const resolver = acceptedTemplateResolver(await systemStub(env, systemId).ontologyAcceptedPackages());
+  const key = `${systemId}@${commit}@${resolver.digest}`;
   let g = memo.get(key);
   if (!g) {
-    g = { ...genomeGraph(files), tree: parseTree(files) };
+    g = { ...genomeGraph(files, resolver.templates), templates: resolver.templates, tree: parseTree(files) };
     memo.set(key, g);
     if (memo.size > MEMO_MAX) memo.delete(memo.keys().next().value!);
   }
@@ -373,7 +376,7 @@ function problemsOf(h: HeadGenome, engine: Op[], ops: ProposedOp[], first: strin
   let after: Readiness;
   try {
     const { changes } = applyOps(h.files, ops as TreeOp[]);
-    after = evaluate(h.template, loadGenome(withChanges(h.files, changes), { templates: metaTemplates }).graph);
+    after = evaluate(h.template, loadGenome(withChanges(h.files, changes), { templates: h.templates }).graph);
   } catch (e) {
     if (e instanceof TreeOpError) return [...problems, { opId: ops[e.op]?.id, severity: "error", message: e.message }];
     if (e instanceof ModelParseError) return [...problems, { severity: "error", message: e.message }];
@@ -548,6 +551,78 @@ export async function replyProposal(env: Env, systemId: string, pid: string, bod
   if (r.refused === "changed") throw conflict("invalid-state", `another reply to proposal ${pid} landed first; read it and reply again`);
   if (r.refused === "staged") throw conflict("invalid-state", `an accept staged a Genome candidate for proposal ${pid} meanwhile; approve or abandon it before revising`);
   throw conflict("invalid-state", `proposal ${pid} is no longer open`);
+}
+
+const COMMIT_HASH = /^[a-f0-9]{40}$/;
+
+function recoveryTarget(body: Record<string, unknown>): { candidateId: string; commit: string } {
+  if (typeof body.candidateId !== "string" || !body.candidateId) throw badRequest("candidateId is required");
+  if (typeof body.commit !== "string" || !COMMIT_HASH.test(body.commit)) throw badRequest("commit must be a 40-character lowercase hex hash");
+  return { candidateId: body.candidateId, commit: body.commit };
+}
+
+async function claimRecovery(env: Env, systemId: string, pid: string, body: Record<string, unknown>) {
+  const target = recoveryTarget(body);
+  const claim = await systemStub(env, systemId).claimProposalRecovery(pid, target.candidateId, target.commit);
+  if ("claimed" in claim) return claim;
+  if (claim.refused === "not-found") throw notFound(`unknown proposal ${pid}`);
+  if (claim.refused === "stale-candidate") {
+    throw conflict("stale-candidate", `the staged candidate of proposal ${pid} changed; reload it before recovery`);
+  }
+  throw conflict("invalid-state", `proposal ${pid} is ${claim.status}`);
+}
+
+/** Admin recovery: reject one exact staged candidate and close its proposal, retaining its complete evidence as history. */
+export async function abandonProposal(env: Env, systemId: string, pid: string, body: Record<string, unknown>): Promise<Proposal> {
+  const reason = text(body.reason, "reason");
+  const stub = systemStub(env, systemId);
+  const claim = await claimRecovery(env, systemId, pid, body);
+  const staged = claim.claimed.stagedApproval!;
+  try {
+    await reject(env, systemId, staged.realizationId, { reason });
+    const recovered = await stub.finishProposalRecovery(pid, claim.claimedAt, "abandoned", reason);
+    if (!recovered) throw conflict("invalid-state", `proposal ${pid} recovery claim changed before abandonment completed`);
+    return onWire(recovered, await decisionsOf(env, systemId, pid));
+  } catch (e) {
+    await stub.releaseProposal(pid, claim.claimedAt, (e as Error)?.message ?? String(e));
+    throw e;
+  }
+}
+
+/**
+ * Admin recovery: while holding the exact staged candidate, compute the next conversational revision, reject the
+ * refused realization, then atomically replace the proposal and archive the staged evidence as one prior attempt.
+ */
+export async function reviseStagedProposal(env: Env, systemId: string, pid: string, body: Record<string, unknown>): Promise<Proposal> {
+  const answer = text(body.answer, "answer");
+  if (body.questionId !== undefined && typeof body.questionId !== "string") throw badRequest("questionId must be a string");
+  const stub = systemStub(env, systemId);
+  const claim = await claimRecovery(env, systemId, pid, body);
+  const p = claim.claimed;
+  if (claim.turns.length >= MAX_TURNS) {
+    await stub.releaseProposal(pid, claim.claimedAt, null);
+    throw tooManyTurns(pid);
+  }
+  const question = body.questionId === undefined ? undefined : p.questions.find((q: ProposalQuestion) => q.id === body.questionId);
+  if (body.questionId !== undefined && !question) {
+    await stub.releaseProposal(pid, claim.claimedAt, null);
+    throw badRequest(`proposal ${pid} has no open question ${body.questionId}`);
+  }
+  try {
+    const turns = [...claim.turns, { ...(question && { question: question.text }), answer }];
+    const h = await headGenome(env, systemId);
+    const turn = await runTurn(env, h, conversation(h, p.message, p.anchor, turns), `q.${turns.length + 1}`);
+    const { answer: _previous, stagedApproval: _staged, ...rest } = p;
+    const revised: Proposal = { ...rest, ...turn, status: "open" };
+    const reason = `Revised after staged candidate ${p.stagedApproval!.candidateId} failed review`;
+    await reject(env, systemId, p.stagedApproval!.realizationId, { reason });
+    const recovered = await stub.finishProposalRecovery(pid, claim.claimedAt, "revised", reason, { proposal: revised, turns });
+    if (!recovered) throw conflict("invalid-state", `proposal ${pid} recovery claim changed before revision completed`);
+    return onWire(recovered, await prunedDecisions(env, systemId, recovered));
+  } catch (e) {
+    await stub.releaseProposal(pid, claim.claimedAt, (e as Error)?.message ?? String(e));
+    throw e;
+  }
 }
 
 /**
@@ -732,6 +807,51 @@ async function rebaseDeferred(env: Env, systemId: string, pid: string, opIds: st
   await stub.setProposalPlan(pid, plan, prune(decisions, plan), undefined, decisions);
 }
 
+type StagedApproval = NonNullable<Proposal["stagedApproval"]> & { integrity?: IntegrityReviewBinding };
+
+function requestedIntegrityRun(body: Record<string, unknown>): string | undefined {
+  const requested = body.integrity;
+  if (requested === undefined) return undefined;
+  if (typeof requested !== "object" || requested === null || Array.isArray(requested)
+    || typeof (requested as Record<string, unknown>).runId !== "string" || !(requested as Record<string, unknown>).runId) {
+    throw badRequest("integrity must be {runId}");
+  }
+  return (requested as { runId: string }).runId;
+}
+
+async function intentAuthoredAt(env: Env, state: HeadState, commit: string): Promise<boolean> {
+  const files = await withRepo(artifactsFor(env), state.genomeSource, (r) => readGenomeSourceFiles(r, commit));
+  return files.has("intent/brief.md") || files.has("intent/manifest.json");
+}
+
+/** Resolve the immutable integrity agreement for this exact candidate. Intent-authored snapshots require it. */
+async function proposalIntegrityBinding(
+  env: Env,
+  systemId: string,
+  realization: IntentAcceptResponse["realization"],
+  commit: string,
+  requestedRun: string | undefined,
+  previous?: StagedApproval,
+): Promise<IntegrityReviewBinding | undefined> {
+  if (previous?.integrity && requestedRun && requestedRun !== previous.integrity.runId) {
+    throw conflict("invalid-state", "the staged candidate is already bound to another integrity agreement; revise it to change the reviewed evidence");
+  }
+  const files = await withRepo(artifactsFor(env), realization.workspace.fork, (r) => readGenomeSourceFiles(r, commit));
+  const authored = files.has("intent/brief.md") || files.has("intent/manifest.json");
+  const runId = previous?.integrity?.runId ?? requestedRun;
+  if (authored && !runId) {
+    throw unprocessable("integrity-required", "this intent-authored Genome candidate needs an eligible integrity agreement for its exact snapshot before acceptance");
+  }
+  if (!runId) return undefined;
+  const resolver = acceptedTemplateResolver(await systemStub(env, systemId).ontologyAcceptedPackages());
+  const snapshot = createIntegritySnapshot({ systemId, files: Object.fromEntries(files), templates: resolver.templates });
+  const stub = systemStub(env, systemId);
+  const binding = await stub.integrityBinding(runId, snapshot.hash);
+  const stored = await stub.integrityPreview(systemId, Object.fromEntries(files), "imported");
+  await stub.integrityLinkSource(commit, stored.id);
+  return binding;
+}
+
 /**
  * `POST …/accept`: the chosen ops (each with the ops it depends on, else 422) become a `genome-amendment` Evolution
  * whose affected nodes are the touched nodes, a Genome realization (origin `editor`) and one commit pushed to its fork
@@ -747,6 +867,7 @@ async function rebaseDeferred(env: Env, systemId: string, pid: string, opIds: st
 export async function acceptProposal(env: Env, systemId: string, pid: string, body: Record<string, unknown>, platformUrl: string): Promise<IntentAcceptResponse> {
   const opIds = body.opIds;
   if (!Array.isArray(opIds) || !opIds.length || opIds.some((x) => typeof x !== "string")) throw badRequest("opIds must be a non-empty array of op ids");
+  const requestedRun = requestedIntegrityRun(body);
   await rebaseDeferred(env, systemId, pid, opIds as string[]);
   const stub = systemStub(env, systemId);
   const claim = await stub.claimProposal(pid);
@@ -763,23 +884,41 @@ export async function acceptProposal(env: Env, systemId: string, pid: string, bo
   let dropped: string[] = [];
   let pushed=false,staged=!!claim.claimed.stagedApproval;
   try {
+    const previous=claim.claimed.stagedApproval as StagedApproval | undefined;
+    const proposalErrors = claim.claimed.problems.filter((p) => p.opId === undefined && p.severity === "error");
+    if (proposalErrors.length) {
+      throw unprocessable("proposal-error", `repair the proposal-wide errors before accepting: ${proposalErrors.map((p) => p.message).join("; ")}`,
+        { problems: proposalErrors });
+    }
+    if (!previous && !requestedRun) {
+      const state = await stub.state();
+      if (!state) throw notFound(`system ${systemId} is not imported`);
+      if (await intentAuthoredAt(env, state, claim.claimed.provenance.genomeCommit)) {
+        throw unprocessable("integrity-required", "this intent-authored Genome candidate needs an eligible integrity agreement for its exact snapshot before acceptance");
+      }
+    }
     // Decisions are written only while the proposal is open, so the claim fixes them.
     const decisions = await decisionsOf(env, systemId, pid);
     let ops: ProposedOp[];
     ({ ops, deferred, dropped } = chosenByPlan(claim.claimed, opIds as string[], decisions));
-    const previous=claim.claimed.stagedApproval;
+    let approval: StagedApproval;
     if(previous){
       if(JSON.stringify([...previous.opIds].sort())!==JSON.stringify([...(opIds as string[])].sort()))throw conflict('invalid-state','The staged candidate pins the previously reviewed op selection');
       if(decisionKey(previous.decisions ?? {}) !== decisionKey(decisions)) throw conflict("invalid-state", "the plan decisions changed since the Genome candidate was staged; restore them or abandon the candidate");
       const [evolution,record,candidate]=await Promise.all([stub.evolution(previous.evolutionId),stub.realization(previous.realizationId),stub.candidate(previous.candidateId)]);
       if(!evolution||!record||!candidate)throw conflict('invalid-state','staged approval records are unavailable');
       out={evolution,realization:record.realization,candidate,commit:previous.commit};
+      approval = previous;
     }else{
       out=await pushAccepted(env,systemId,claim.claimed,ops,platformUrl);pushed=true;
-      const approval: NonNullable<Proposal["stagedApproval"]> = {evolutionId:out.evolution.id,realizationId:out.realization.id,candidateId:out.candidate.id,commit:out.commit,opIds:opIds as string[],decisions};
+      approval = {evolutionId:out.evolution.id,realizationId:out.realization.id,candidateId:out.candidate.id,commit:out.commit,opIds:opIds as string[],decisions};
       staged=await stub.stageProposal(pid,claim.claimedAt,approval);
       if(!staged)throw conflict('invalid-state','Genome candidate pushed but approval claim changed; inspect the exact candidate before retrying');
     }
+    const integrity = await proposalIntegrityBinding(env, systemId, out.realization, out.commit, requestedRun, previous);
+    approval = { ...approval, ...(integrity && { integrity }) };
+    staged = await stub.stageProposal(pid, claim.claimedAt, approval);
+    if (!staged) throw conflict("invalid-state", "the staged candidate's integrity binding changed; inspect the exact candidate before retrying");
     const approved=await approveGenome(env,systemId,out.evolution.id,{realizationId:out.realization.id,candidateId:out.candidate.id,commit:out.commit,interpretation:claim.claimed.message});
     out={...out,systemCommit:approved.commit,evolution:(await stub.evolution(out.evolution.id))??out.evolution,realization:approved.realization,candidate:(await stub.candidate(out.candidate.id))??out.candidate};
   }catch(e){

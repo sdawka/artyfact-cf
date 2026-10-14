@@ -1,0 +1,17 @@
+id: affordance.review.record-integrity-agreement
+kind: affordance
+fields:
+  name: Record integrity agreement
+  description: Records explicit finding dispositions and rationales for an eligible completed report.
+  actor: user
+  trigger: click
+  preconditions:
+    - The automated report is eligible for agreement
+    - Required dispositions have rationales
+    - An admin token is set
+  effects:
+    - Human agreement status is recorded separately from the automated result
+  failure:
+    - "401, 403 or ineligible report: agreement remains pending"
+links:
+  - { rel: invokes, to: endpoint.integrity-agreement }

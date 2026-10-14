@@ -83,3 +83,11 @@ Review is the unified inbox for imports, Genome approvals, Task selections and i
 ## 2026-10-14T10:18:07-04:00 — Truthful runtime evidence before automated evaluation
 
 Scope runtime observations to the inspected Thing/deployment/output, label implementation evaluations separately, and keep outcome verdicts unknown without matching authoritative runtime evaluation evidence. This delivery does not add a runtime evaluation engine or turn raw counts/events into passing outcomes.
+
+## 2026-10-14T15:08:32-04:00 — Intent and ontology first
+
+Prioritize a reliable intent-to-ontology flow, including authoring through an external local agent, followed by ontology integrity checking. Establish these foundations before advancing the downstream implementation workflow.
+
+## 2026-10-14T15:29:14-04:00 — Artyfact as a real ontology example
+
+Repair Artyfact’s own ontology in the app System map and enrich its canonical Genome from the agreed direction and canonical documentation. Use it alongside real examples to validate the intent-authoring and integrity foundations.

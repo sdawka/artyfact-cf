@@ -1,0 +1,20 @@
+{
+  "format": "artyfact.ontology-package@1",
+  "id": "tool-library",
+  "version": "1",
+  "dependencies": [],
+  "templates": {
+    "template.system.tool-library@1": {
+      "id": "template.system.tool-library",
+      "version": 1,
+      "meta": 1,
+      "extends": "template.meta.artyfact-genome@1"
+    },
+    "template.thing.tool-library@1": {
+      "id": "template.thing.tool-library",
+      "version": 1,
+      "meta": 1,
+      "extends": "template.meta.artyfact-genome@1"
+    }
+  }
+}

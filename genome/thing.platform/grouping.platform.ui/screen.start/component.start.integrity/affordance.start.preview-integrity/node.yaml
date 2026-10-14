@@ -1,0 +1,17 @@
+id: affordance.start.preview-integrity
+kind: affordance
+fields:
+  name: Preview and start integrity check
+  description: Creates the exact snapshot then starts its integrity check.
+  actor: user
+  trigger: click
+  preconditions:
+    - Native Genome files are supplied
+    - An admin token is set
+  effects:
+    - The review URL carries the created run
+  failure:
+    - "401, 403 or validation error: the draft remains available for repair"
+links:
+  - { rel: invokes, to: endpoint.integrity-preview }
+  - { rel: invokes, to: endpoint.integrity-runs-post }

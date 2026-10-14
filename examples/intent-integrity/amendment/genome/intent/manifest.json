@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "nodes": [
+    {
+      "nodeId": "feature.return-reminder",
+      "briefSections": ["change", "provenance", "exclusion"],
+      "documents": []
+    }
+  ]
+}

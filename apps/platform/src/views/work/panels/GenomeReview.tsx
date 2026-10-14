@@ -94,6 +94,7 @@ function ImportReviewPanel({ review }: { review: SystemImportReview }) {
       : null;
   const decisions = useMemo(() => importDecisions(plan), [plan]);
   const titles = useMemo(() => new Map(walk(plan).map((n) => [n.id, n.title])), [plan]);
+  const integrityUnreviewed = (review as SystemImportReview & { integrityUnreviewed?: { reason: string; at: string } }).integrityUnreviewed;
 
   return (
     <article className={styles.panel} aria-label="Import review">
@@ -109,6 +110,7 @@ function ImportReviewPanel({ review }: { review: SystemImportReview }) {
           removes the rejected nodes in the same step, as an accepted Genome amendment. New Evolutions, plans and intents
           wait until this review is accepted.
         </p>
+        {integrityUnreviewed && <p role="note" className={styles.muted}>Integrity remains unreviewed: {integrityUnreviewed.reason}. Recorded {integrityUnreviewed.at}.</p>}
       </header>
 
       <Section title="Imported Genome">
@@ -129,7 +131,7 @@ function ImportReviewPanel({ review }: { review: SystemImportReview }) {
           <>
             <p className={styles.muted}>No node's <code>files</code> binding maps these app paths, so no change to them can be tied to the model.</p>
             {(review.unmappedTotal ?? 0) > review.unmapped.length && <p className={styles.muted}>Showing the first {review.unmapped.length} of {review.unmappedTotal}.</p>}
-            <ul className={own.paths} aria-label="Unmapped app paths">
+            <ul className={own.paths} aria-label="Unmapped app paths" tabIndex={0}>
               {review.unmapped.map((p) => <li key={p}><code>{p}</code></li>)}
             </ul>
           </>

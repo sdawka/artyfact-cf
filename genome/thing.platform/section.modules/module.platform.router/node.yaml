@@ -65,10 +65,18 @@ links:
   - { rel: implements, to: endpoint.intents-get }
   - { rel: implements, to: endpoint.intents-reply }
   - { rel: implements, to: endpoint.intents-accept }
+  - { rel: implements, to: endpoint.intents-revise }
+  - { rel: implements, to: endpoint.intents-abandon }
   - { rel: implements, to: endpoint.plan-draft }
   - { rel: implements, to: endpoint.intents-decisions }
   - { rel: implements, to: endpoint.import-review }
   - { rel: implements, to: endpoint.import-review-accept }
+  - { rel: implements, to: endpoint.integrity-preview }
+  - { rel: implements, to: endpoint.integrity-runs-post }
+  - { rel: implements, to: endpoint.integrity-runs }
+  - { rel: implements, to: endpoint.integrity-run }
+  - { rel: implements, to: endpoint.integrity-cancel }
+  - { rel: implements, to: endpoint.integrity-agreement }
 files:
   - worker/index.ts
   - worker/routes/**

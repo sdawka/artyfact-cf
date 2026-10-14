@@ -1,0 +1,16 @@
+id: affordance.review.cancel-integrity
+kind: affordance
+fields:
+  name: Cancel integrity check
+  description: Cancels a queued or running integrity check.
+  actor: user
+  trigger: click
+  preconditions:
+    - The check is queued or running
+    - An admin token is set
+  effects:
+    - The run reads cancelled and completed evidence remains visible
+  failure:
+    - "401 or 403: the check is unchanged"
+links:
+  - { rel: invokes, to: endpoint.integrity-cancel }

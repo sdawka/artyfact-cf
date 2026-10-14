@@ -3,7 +3,8 @@ import { useId, useMemo, useState } from "react";
 import { useIsMutating } from "@tanstack/react-query";
 import type { IntentAcceptResponse, Proposal, ProposalPlanNode } from "../../../../shared/api";
 import { useAdminToken } from "@/api/adminToken";
-import { decideIntentKey, useAcceptIntent, useDecideIntent, useReplyIntent } from "@/api/queries";
+import { decideIntentKey, useAcceptIntent, useDecideIntent, useReplyIntent, useRecoverIntent, useIntegrityRun } from "@/api/queries";
+import { IntegrityPanel } from "@/views/integrity/IntegrityPanel";
 import { useSystemRoute } from "@/model/useSelection";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { MetaLine } from "@/components/MetaLine/MetaLine";
@@ -69,11 +70,14 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
   const uid = useId();
   const { index } = useModel();
   const accept = useAcceptIntent();
+  const revise = useRecoverIntent("revise");
+  const abandon = useRecoverIntent("abandon");
   const decideM = useDecideIntent();
   const { systemId } = useSystemRoute();
   // Any decision save still in flight (this view's or another's, queued one at a time) holds accept.
   const saving = useIsMutating({ mutationKey: decideIntentKey(systemId) }) > 0;
   const { token } = useAdminToken();
+  const integrity = useIntegrityRun(proposal.stagedApproval?.integrity?.runId, token);
   const provider = providerLabel(proposal);
   const { router, translator, genomeCommit } = proposal.provenance;
   const open = proposal.status === "open";
@@ -84,6 +88,7 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
   const sig = proposal.ops.map((o) => o.id).join("\n");
   const built = useMemo(() => planFromOps(proposal.ops, index), [proposal.ops, index]);
   const [local, setLocal] = useState<{ sig: string; plan: ProposalPlanNode[] } | null>(null);
+  const [recovery, setRecovery] = useState("");
   const plan = stored ?? (local?.sig === sig ? local.plan : built);
   const set = acceptSet(plan, proposal.ops);
   const uncovered = uncoveredOps(plan, proposal.ops);
@@ -220,6 +225,21 @@ export function ProposalView({ proposal, readOnly, onAccepted }: {
           {decideM.isError && <p role="alert" className={workStyles.error}>{intentError(decideM.error)}</p>}
         </section>
       )}
+      {proposal.stagedApproval && (
+        <section aria-labelledby={`${uid}-recovery`} className={styles.block}>
+          <h3 id={`${uid}-recovery`}>Staged candidate recovery</h3>
+          <p className={workStyles.muted}>This exact candidate is staged. Revise it or abandon it before changing the agreed changes. Earlier attempts remain visible.</p>
+          <Textarea aria-label="Recovery reason or revision" rows={2} value={recovery} onChange={e=>setRecovery(e.target.value)} />
+          <div className={workStyles.actions}>
+            <Button type="button" variant="secondary" disabled={!recovery.trim() || revise.isPending} onClick={()=>revise.mutate({proposalId:proposal.id,body:{candidateId:proposal.stagedApproval!.candidateId,commit:proposal.stagedApproval!.commit,answer:recovery.trim()},...(token&&{adminToken:token})})}>Revise staged candidate</Button>
+            <Button type="button" variant="secondary" disabled={!recovery.trim() || abandon.isPending} onClick={()=>abandon.mutate({proposalId:proposal.id,body:{candidateId:proposal.stagedApproval!.candidateId,commit:proposal.stagedApproval!.commit,reason:recovery.trim()},...(token&&{adminToken:token})})}>Abandon staged candidate</Button>
+          </div>
+          {proposal.attempts?.length ? <p className={workStyles.muted}>{proposal.attempts.length} prior recovery attempt{proposal.attempts.length === 1 ? "" : "s"} retained.</p> : null}
+          {(revise.isError || abandon.isError) && <p role="alert" className={workStyles.error}>{intentError((revise.error ?? abandon.error)!)}</p>}
+        </section>
+      )}
+      {integrity.data?.run && <IntegrityPanel run={integrity.data.run} headingLevel={3} />}
+      {integrity.isError && <p role="alert" className={workStyles.error}>Integrity review could not be loaded: {(integrity.error as Error).message}</p>}
 
       {open && questions === 0 && (
         <details className={styles.followUp}>

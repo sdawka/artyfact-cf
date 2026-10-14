@@ -2,6 +2,6 @@ id: artifact.effects
 kind: artifact
 fields:
   type: external
-  repo: artyfact-cf
+  repo: artyfact.app
   scope:
     - packages/effects

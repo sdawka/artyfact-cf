@@ -1,0 +1,9 @@
+id: command.ontology-agreement
+kind: command
+fields:
+  name: ontology agreement
+  usage: artyfact ontology agreement <run-id> --system <system-id> --file <dispositions.json> --snapshot <snapshot.json>
+  exitCodes: 0 eligible agreement, 2 pending or ineligible agreement, 1 error.
+  description: Records explicit dispositions for an exact local snapshot envelope; it refuses a response that covers another snapshot.
+links:
+  - { rel: calls, to: endpoint.integrity-agreement }

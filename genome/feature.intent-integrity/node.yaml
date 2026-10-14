@@ -1,0 +1,5 @@
+id: feature.intent-integrity
+kind: feature
+fields:
+  name: Intent authoring and integrity
+  summary: "Proposed capability: a person can author or amend a source-free Genome with a local agent, inspect preserved intent and provenance, and review structural and semantic integrity findings before agreeing an exact snapshot."

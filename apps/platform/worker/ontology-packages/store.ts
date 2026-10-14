@@ -59,8 +59,6 @@ export class OntologyPackagesStore {
         const templates = ontologyPackageStore(metaTemplates, [...accepted.filter(p => p.id !== result.package!.id || p.version !== result.package!.version), result.package]);
         const model = loadGenome(genomeFiles, { templates });
         if (model.system.id !== systemId) issues.push({ path: "genomeFiles.node.yaml", message: "Genome System scope mismatch" });
-        for (const node of model.nodes) if (!["section", "template", "artifact", "kit", "claim", "purpose", "external"].includes(node.kind) && !model.files[node.id]?.length)
-          issues.push({ path: model.origin[node.id] ?? node.id, message: `missing source mapping for ${node.id}; declare files or a kind default` });
       } catch (e) { issues.push({ path: "genomeFiles", message: (e as Error).message }); }
     }
     const review: OntologyImportReview = { id: `import.${crypto.randomUUID()}`, systemId, createdAt: new Date().toISOString(), status: issues.length ? "invalid" : "review",
