@@ -480,7 +480,9 @@ submits, the conflict, promotion, the 409 and history. Then it deletes the repos
 
 ## Troubleshooting
 
-- **Token expired (401/403 from git):** task tokens last 6 hours (`tokenExpires` in `.git/artyfact-task.json`). Run
+- **Token expired (401/403 from git):** a claim's write token and lease last 15 minutes (`leaseSeconds` defaults to 900 in
+  `apps/platform/worker/lifecycle-service.ts`, maximum 3600; the CLI uses the default). `tokenExpires` is in
+  `.git/artyfact-task.json`. Run
   `artyfact task resume <plan> <task> --system <id> --dir <dir>` with the admin token: it keeps the fork and your local
   work, stores fresh credentials and fences the old attempt. `task submit` says when the stored token has expired.
 - **A claim failed after it landed (clone error):** the attempt and its lease exist, but the CLI removed the
