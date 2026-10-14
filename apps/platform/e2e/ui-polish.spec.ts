@@ -28,6 +28,10 @@ async function hitArea(control: Locator) {
 async function axe(page: Page, selector: string, forcedColors = false) {
   // Axe measures authored colors; Chromium paints the forced system palette.
   // The forced-colors case checks Canvas/CanvasText directly below.
+  // Let entrance fades settle first: axe blends opacity into its contrast check.
+  await page.evaluate(() => Promise.all(document.getAnimations()
+    .filter(a => Number.isFinite(Number(a.effect?.getComputedTiming().endTime)))
+    .map(a => a.finished.catch(() => undefined))));
   const builder = new AxeBuilder({ page }).include(selector);
   if (forcedColors) builder.disableRules(['color-contrast']);
   const result = await builder.analyze();

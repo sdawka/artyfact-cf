@@ -59,7 +59,7 @@ test('reduced motion and forced colors preserve meaningful content', async ({ pa
   await expect(surface).toHaveCSS('display', 'none');
   await expect(page.getByRole('heading', { level: 1, name: 'Peopling' })).toBeVisible();
   await expect(page.getByText(/Help an individual keep in touch/)).toBeVisible();
-  await expect(hero.getByText('The light reflects readiness, checks, active work and blockers.')).toBeVisible();
+  await expect(hero.getByText('The light reflects readiness, checks, active Evolutions and blockers.')).toBeVisible();
   const colors = await page.locator('main').evaluate(element => {
     const probe = document.createElement('span'); probe.style.color = 'CanvasText'; document.body.append(probe);
     const canvasText = getComputedStyle(probe).color; probe.remove();
