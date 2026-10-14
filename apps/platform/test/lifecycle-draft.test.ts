@@ -86,6 +86,13 @@ describe("POST /realization-plans/draft", () => {
     expect(created.json.tasks.map((t) => t.id)).toEqual(d.json.request.tasks.map((t) => t.id));
     expect(created.json.analysis).toEqual(d.json.analysis);
     expect(created.json.tasks.map((t) => t.footprint)).toEqual(created.json.tasks.map((t) => expect.objectContaining({ artifactId: "artifact.webapp", repo: state!.manifest!.artifacts["artifact.webapp"].repo })));
+
+    // The open plan holds the Evolution's nodes from the default draft; naming the Evolution drafts them again.
+    const again = await draft(systemId, {});
+    expect(again.json.request.tasks).toEqual([]);
+    expect(again.json.problems).toContainEqual({ severity: "warning", message: expect.stringContaining(`in open plan ${created.json.id}; skipped (name ${evolution.id}`) });
+    const named = await draft(systemId, { evolutionIds: [evolution.id] });
+    expect(named.json.request.tasks).toEqual(d.json.request.tasks);
   });
 
   it("drafts with the fake planner from explicit nodes, and the split draft posts to create", async () => {
