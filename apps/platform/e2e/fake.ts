@@ -106,7 +106,7 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   // Reported to the Work slice; tolerated here until it is neutral.
   await checkPage(page, testInfo, `amendment-${node}`, (h) => isPass(h) || /classRow|_num_|deliberate non-standard choice/.test(h));
   await interpretation.fill(`The ${title} is part of the runtime.`);
-  await page.getByLabel("Admin token").fill(ADMIN_TOKEN);
+  // The header token is set, so the decision shows no token field of its own.
   await page.getByRole("button", { name: "Accept amendment" }).click();
   await expect(page.getByText(/Accepted\. New Genome commit/)).toBeVisible();
   return rid;

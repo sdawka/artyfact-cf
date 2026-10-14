@@ -19,7 +19,7 @@ test.describe("edit and realize @fake", () => {
     await expect(top.getByText("binding.birthdayStore").first()).toBeVisible();
     await checkPage(page, testInfo, "changelog");
     const commitId = (await top.locator("code").first().textContent()) ?? "";
-    await top.getByRole("link", { name: "Open this revision in the Map" }).click();
+    await top.getByRole("link", { name: "Open in Map" }).click();
     await expect(page).toHaveURL(new RegExp(`/r/${commitId}[^/]*/map`));
     await expect(page.getByRole("heading", { level: 1, name: "Map" })).toBeVisible();
     await checkPage(page, testInfo, "map-at-commit");

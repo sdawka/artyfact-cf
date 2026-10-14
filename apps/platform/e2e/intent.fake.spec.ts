@@ -46,10 +46,11 @@ test.describe("describe a change by intent @fake", () => {
     await acceptAgreed.click();
 
     // Work selects the accepted Evolution; its attempt row hands the candidate to Review.
-    await expect(page).toHaveURL(/\/work\?.*evolution=/);
-    const evoId = new URL(page.url()).searchParams.get("evolution")!;
+    // Work may already have selected another Evolution on arrival (kept under the panel): read the id once the new one shows.
     const heading = page.getByRole("heading", { level: 2, name: new RegExp(`^${message}`) });
     await expect(heading).toBeVisible();
+    await expect(page).toHaveURL(/\/work\?.*evolution=/);
+    const evoId = new URL(page.url()).searchParams.get("evolution")!;
     // The Evolution's own detail names the touched node.
     await expect(page.getByRole("region", { name: message }).getByText("People").first()).toBeVisible();
     const row = page.locator('[data-testid^="realization-"]').first();
