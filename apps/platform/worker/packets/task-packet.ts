@@ -2,6 +2,7 @@ import { NODE_FILE } from "@artyfact/ontology/genome";
 import type { schema, SystemModel } from "@artyfact/model";
 import { stringify as toYaml } from "yaml";
 import type { Certainty, TaskPacket } from "../../shared/api";
+import { shellArg } from "../../shared/shell";
 import { globMatch, permittedGlobs, sourceMapFor, type SourceMapEntry } from "../artifacts/source-map";
 import { isBlocking } from "../promotion";
 import { canonicalJson, sha256Hex } from "../util";
@@ -142,7 +143,8 @@ export async function buildTaskPacket(i: PacketInput): Promise<TaskPacket> {
 
 /** CLI start line. The packet carries `<token>` and `<secret>` placeholders; only the StartWork response fills them in. */
 export function startCommand(systemId: string, evolutionId: string, realizationId: string): string {
-  return `ARTYFACT_TOKEN=<token> ARTYFACT_SECRET=<secret> npx artyfact start ${realizationId} --system ${systemId} --evolution ${evolutionId} --dir ./${realizationId}`;
+  const [r, s, e] = [realizationId, systemId, evolutionId].map(shellArg);
+  return `ARTYFACT_TOKEN=<token> ARTYFACT_SECRET=<secret> npx artyfact start ${r} --system ${s} --evolution ${e} --dir ${shellArg(`./${realizationId}`)}`;
 }
 
 const bullets = (xs: string[], empty = "_none_") => (xs.length ? xs.map((x) => `- ${x}`).join("\n") : empty);

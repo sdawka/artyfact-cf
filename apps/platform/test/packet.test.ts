@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { buildGenome } from "../worker/artifacts/genome-source";
 import { nodesForPath, sourceMapFor } from "../worker/artifacts/source-map";
 import { diffScope } from "../worker/hooks/diff-scope";
-import { buildTaskPacket, requiredCriteria, type PacketInput } from "../worker/packets/task-packet";
+import { buildTaskPacket, requiredCriteria, startCommand, type PacketInput } from "../worker/packets/task-packet";
 import { gateCriteria } from "../worker/promotion";
 import { packetThing } from "../worker/service";
 import { appFiles, genomeFiles } from "./fixtures/genome";
@@ -90,6 +90,11 @@ describe("task packet", () => {
     expect(p.startCommand).toBe(line);
     expect(p.markdown).toContain(`## Start`);
     expect(p.markdown).toContain(line);
+  });
+
+  it("quotes ids in the start line so a hostile id cannot run anything", () => {
+    expect(startCommand("s;id", "e$(id)", "r'x")).toBe(
+      "ARTYFACT_TOKEN=<token> ARTYFACT_SECRET=<secret> npx artyfact start 'r'\\''x' --system 's;id' --evolution 'e$(id)' --dir './r'\\''x'");
   });
 
   it("has a stable hash that changes with content", async () => {

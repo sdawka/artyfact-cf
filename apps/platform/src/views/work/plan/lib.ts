@@ -1,4 +1,5 @@
 import type { RealizationPlan, Task, TaskConflict } from "../../../../shared/lifecycle";
+import { shellArg } from "../../../../shared/shell";
 
 /** What a task card shows: the backend status, or `blocked` for a pending task whose dependencies are not selected yet. */
 export type TaskDisplayStatus = Task["status"] | "blocked";
@@ -53,13 +54,7 @@ export function liveConflicts(plan: Plan, taskId: string, now: number): Task[] {
     .filter((t): t is Task => !!t && !!liveAttempt(t, now));
 }
 
-/**
- * One shell word for a server-supplied value in a copied command: unchanged when it is plainly safe, otherwise POSIX
- * single-quoted (`'` becomes `'\''`), so ids with `;`, `$(…)`, backticks, quotes or newlines cannot run anything.
- */
-export function shellArg(s: string): string {
-  return /^[A-Za-z0-9._:@\/-]+$/.test(s) ? s : `'${s.replace(/'/g, "'\\''")}'`;
-}
+export { shellArg };
 
 /** The agent prompt line from the CLI README; the admin token never reaches the agent. */
 export const AGENT_PROMPT = "Follow AGENTS.md and TASK_PACKET.md, then run npx artyfact task submit";
