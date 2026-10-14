@@ -67,7 +67,8 @@ export function ArtifactsBackbone() {
         </li>)}</ol>
       </div>)}
     </figure>
-    <dl className="backbone-pieces">
+    <p className="backbone-pieces-cols" aria-hidden="true"><span>Cloudflare product</span><span>Its one job</span></p>
+    <dl className="backbone-pieces" aria-label="Each Cloudflare product and its job">
       {pieces.map(piece => <div key={piece.name} data-status={piece.soon ? 'coming-soon' : 'shipped'}><dt>{piece.name}{piece.soon && <span className="term-label">Coming soon</span>}</dt><dd>{piece.text}</dd></div>)}
     </dl>
   </section>;
