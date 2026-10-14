@@ -71,7 +71,7 @@ test.describe("shell", () => {
     for (const [name, url] of views) {
       await nav.getByRole("link", { name, exact: true }).click();
       await expect(page).toHaveURL(new RegExp(`/${url}\\?.*layer=phenome`));
-      await expect(page.getByRole("heading", { level: 1, name })).toBeVisible();
+      await expect(page.getByRole("heading", { level: 1, name: url === "overview" ? "Peopling" : name })).toBeVisible();
     }
   });
 
