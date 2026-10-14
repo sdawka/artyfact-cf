@@ -1,3 +1,4 @@
+import { Select } from "@/components/ui";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { useRevisions, useSystems } from "@/api/queries";
 import { revisionGroups } from "@/model/revisions";
@@ -31,29 +32,11 @@ export function SystemRevisionSelector() {
     ? systems
     : [{ systemId, title: bundle.model.system.name }, ...systems];
   const revOptions = revisions.some((r) => r.id === "head") ? revisions : [{ id: "head", kind: "head" as const, label: "head" }, ...revisions];
-  return (
-    <div className={styles.selector}>
-      <label className={styles.field}>
-        <span className="sr-only">System</span>
-        <select className={styles.select} value={systemId} onChange={(e) => go(e.target.value, "head")}>
-          {systemOptions.map((s) => (
-            <option key={s.systemId} value={s.systemId}>{s.title}</option>
-          ))}
-        </select>
-      </label>
-      <label className={styles.field}>
-        <span className="sr-only">Revision</span>
-        <select className={styles.select} value={rev} onChange={(e) => go(systemId, e.target.value)}>
-          {revisionGroups(revOptions, rev).map((g) => (
-            <optgroup key={g.label} label={g.label}>
-              {g.options.map((r) => (
-                <option key={r.id} value={r.id}>{r.label}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
-      </label>
-      <StatePill state={revisionState(rev, candidates)} />
-    </div>
-  );
+  return <div className={styles.selector}>
+    <div className={styles.field}><Select label="System" className={styles.select} value={systemId} onChange={(value) => go(value, "head")}
+      options={systemOptions.map((system) => ({ value: system.systemId, label: system.title }))} /></div>
+    <div className={styles.field}><Select label="Revision" className={styles.select} value={rev} onChange={(value) => go(systemId, value)}
+      options={revisionGroups(revOptions, rev).flatMap((group) => group.options.map((revision) => ({ value: revision.id, label: revision.label, group: group.label })))} /></div>
+    <StatePill state={revisionState(rev, candidates)} />
+  </div>;
 }

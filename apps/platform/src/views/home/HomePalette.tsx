@@ -1,29 +1,30 @@
+import { useEffectsPreference } from "@/effects/effectsPreference";
+import type { RefObject } from "react";
+import { Dialog } from "@/components/ui";
 import { Command } from "cmdk";
 import { useNavigate } from "react-router";
 import type { PartSummary, SystemSummary } from "../../../shared/api";
 import styles from "@/app/CommandPalette.module.css";
 
 /** ⌘K on Home: go to a System or a shared Part. Home has no System model, so this is its own small index. */
-export function HomePalette({ open, onOpenChange, systems, parts }: {
+export function HomePalette({ open, onOpenChange, systems, parts, returnFocus }: {
+  returnFocus?: RefObject<HTMLButtonElement | null>;
   open: boolean;
   onOpenChange(open: boolean): void;
   systems: readonly SystemSummary[];
   parts: readonly PartSummary[];
 }) {
   const navigate = useNavigate();
+  const effects = useEffectsPreference();
   const go = (to: string) => {
     onOpenChange(false);
     void navigate(to);
   };
   return (
-    <Command.Dialog
-      open={open}
-      onOpenChange={onOpenChange}
-      label="Go to a System or Part"
-      className={styles.dialog}
-      overlayClassName={styles.overlay}
-      contentClassName={styles.content}
-    >
+    <Dialog open={open} onOpenChange={onOpenChange} title="Go to a System or Part" className={styles.homeContent}
+      onOpenAutoFocus={(event) => { event.preventDefault(); (event.target as HTMLElement).querySelector<HTMLElement>('[role="combobox"]')?.focus(); }}
+      onCloseAutoFocus={(event) => { event.preventDefault(); const target = returnFocus?.current; (target?.isConnected ? target : document.getElementById("main"))?.focus(); }}>
+      <Command vimBindings={false} label="Go to a System or Part" className={styles.dialog} data-effects={effects.enabled ? "on" : "off"}>
       <Command.Input className={styles.input} placeholder="Go to a System or Part…" />
       <Command.List className={styles.list}>
         <Command.Empty className={styles.empty}>No matches.</Command.Empty>
@@ -50,6 +51,7 @@ export function HomePalette({ open, onOpenChange, systems, parts }: {
           ))}
         </Command.Group>
       </Command.List>
-    </Command.Dialog>
+      </Command>
+    </Dialog>
   );
 }

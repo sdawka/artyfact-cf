@@ -85,7 +85,8 @@ export async function editGenomeAndAccept(page: Page, testInfo: TestInfo, node: 
   await page.getByLabel("Message").fill(`Add ${node}`);
   await page.getByRole("textbox", { name: "Why" }).fill(`The ${title} is needed.`);
   const evolution = page.getByLabel("Evolution", { exact: true });
-  await evolution.selectOption((await evolution.locator("option", { hasText: title }).last().getAttribute("value")) ?? "");
+  await evolution.click();
+  await page.getByRole("listbox").getByRole("option").filter({ hasText: title }).last().click();
   await page.getByLabel("Your name").fill("E2E");
   await page.getByLabel("Admin token").fill(ADMIN_TOKEN);
   await page.getByRole("button", { name: "Commit", exact: true }).click();
@@ -123,7 +124,10 @@ export async function createEvolution(page: Page, title: string, intent: string,
     await page.getByLabel("Affected nodes").fill(n);
     await page.getByRole("button", { name: "Add node" }).click();
   }
-  if (kind) await page.getByLabel("Kind").selectOption(kind);
+  if (kind) {
+    await page.getByRole("combobox", { name: "Kind", exact: true }).click();
+    await page.getByRole("listbox").getByRole("option", { name: kind, exact: true }).click();
+  }
   // An untouched list lets the server default the criteria, and hard ones gate Accept; these flows only edit the Genome, so send none.
   await page.getByRole("button", { name: "Clear" }).click();
   await page.getByLabel("Admin token").fill(token);

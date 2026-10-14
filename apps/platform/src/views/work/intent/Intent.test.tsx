@@ -102,7 +102,7 @@ describe("Describe a change", () => {
     expect(within(screen.getByRole("table", { name: "op.2 criteria" })).getByText("C.people.birthday")).toBeTruthy();
     expect(within(screen.getByRole("list", { name: "Problems with op.3" })).getByText(/does not declare/)).toBeTruthy();
     // One primary action: the Work header button steps back while the panel is open.
-    expect(document.querySelectorAll("main button[class*='primary']")).toHaveLength(1);
+    expect(document.querySelectorAll("main button[data-variant='primary']")).toHaveLength(1);
     expect(screen.getByRole("button", { name: "Accept agreed" })).toBeTruthy();
     // The agreement tree: Thing → section → screen → … → the added component, no checkboxes.
     expect(screen.getByRole("tree", { name: "Proposed changes" })).toBeTruthy();

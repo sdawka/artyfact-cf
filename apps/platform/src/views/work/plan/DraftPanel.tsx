@@ -1,3 +1,4 @@
+import { Button, Checkbox, Input, Textarea } from "@/components/ui";
 import { useId, useState } from "react";
 import type { Evolution } from "../../../../shared/api";
 import type { DraftRealizationPlanResponse, RealizationPlan } from "../../../../shared/lifecycle";
@@ -80,30 +81,30 @@ export function DraftPanel({ evolutions, writeReason, onCreated, onCancel }: Pro
     <section className={workStyles.panel} aria-labelledby={`${uid}-h`}>
       <div className={workStyles.rhead}>
         <h3 id={`${uid}-h`}>Plan implementation</h3>
-        <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={onCancel}>Close</button>
+        <Button type="button" variant="secondary" onClick={onCancel}>Close</Button>
       </div>
       <form className={workStyles.form} onSubmit={(e) => { e.preventDefault(); if (!draftReason) void runDraft(); }}>
         <fieldset className={workStyles.fieldset}>
           <legend>Accepted Genome Evolutions</legend>
           {accepted.length ? accepted.map((e) => (
             <label key={e.id} className={workStyles.check}>
-              <input type="checkbox" checked={picked.includes(e.id)} onChange={(ev) => setPicked((xs) => (ev.target.checked ? [...xs, e.id] : xs.filter((x) => x !== e.id)))} />
+              <Checkbox checked={picked.includes(e.id)} onChange={(ev) => setPicked((xs) => (ev.target.checked ? [...xs, e.id] : xs.filter((x) => x !== e.id)))} />
               {e.title} <span className={workStyles.muted}>({e.id})</span>
             </label>
           )) : <p className={workStyles.muted}>No accepted Genome Evolution. Name nodes below instead.</p>}
         </fieldset>
         <div className={workStyles.field}>
           <label htmlFor={`${uid}-n`}>Genome nodes to implement</label>
-          <textarea id={`${uid}-n`} rows={2} value={nodes} onChange={(e) => setNodes(e.target.value)} placeholder="One node ID per line" />
+          <Textarea id={`${uid}-n`} rows={2} value={nodes} onChange={(e) => setNodes(e.target.value)} placeholder="One node ID per line" />
         </div>
         <div className={workStyles.field}>
           <label htmlFor={`${uid}-hint`}>Hint for the planner</label>
-          <textarea id={`${uid}-hint`} rows={2} value={hint} onChange={(e) => setHint(e.target.value)} />
+          <Textarea id={`${uid}-hint`} rows={2} value={hint} onChange={(e) => setHint(e.target.value)} />
         </div>
         <div className={workStyles.actions}>
-          <button type="submit" className={`u-brackets ${draft ? workStyles.btn : workStyles.primary}`} disabled={!!draftReason || busy} aria-describedby={draftReason ? `${uid}-dr` : undefined}>
+          <Button type="submit" variant={draft ? "secondary" : "primary"} disabled={!!draftReason || busy} aria-describedby={draftReason ? `${uid}-dr` : undefined}>
             {busy && !draft ? "Drafting…" : draft ? "Draft again" : "Draft tasks"}
-          </button>
+          </Button>
           {draftReason && <span id={`${uid}-dr`} className={workStyles.reason}>{draftReason}</span>}
         </div>
       </form>
@@ -126,11 +127,11 @@ export function DraftPanel({ evolutions, writeReason, onCreated, onCancel }: Pro
               : `As drafted: ${draft.analysis.waves.map((w, i) => `wave ${i + 1} (${w.join(", ")})`).join("; ") || "no waves"}.`}
           </p>
           <div className={styles.toolbar} role="toolbar" aria-label="Draft actions">
-            <button type="button" className={`u-brackets ${workStyles.btn}`} disabled={!!mergeReason} aria-describedby={mergeReason ? `${uid}-mg` : undefined} onClick={() => { setTasks(mergeTasks(tasks, selected)); setSelected([]); }}>
+            <Button type="button" variant="secondary" disabled={!!mergeReason} aria-describedby={mergeReason ? `${uid}-mg` : undefined} onClick={() => { setTasks(mergeTasks(tasks, selected)); setSelected([]); }}>
               Merge selected{selected.length ? ` (${selected.length})` : ""}
-            </button>
+            </Button>
             {mergeReason && <span id={`${uid}-mg`} className={workStyles.reason}>{mergeReason}</span>}
-            {edited && <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => { setTasks(draft.request.tasks); setSelected([]); }}>Undo edits</button>}
+            {edited && <Button type="button" variant="secondary" onClick={() => { setTasks(draft.request.tasks); setSelected([]); }}>Undo edits</Button>}
           </div>
           <ol className={workStyles.plain}>
             {tasks.map((t) => (
@@ -150,12 +151,12 @@ export function DraftPanel({ evolutions, writeReason, onCreated, onCancel }: Pro
           {errors.length > 0 && <ul className={workStyles.reasons} aria-label="Problems to fix">{errors.map((e) => <li key={e}>{e}</li>)}</ul>}
           <div className={workStyles.field}>
             <label htmlFor={`${uid}-t`}>Plan title</label>
-            <input id={`${uid}-t`} value={title} onChange={(e) => setTitle(e.target.value)} autoComplete="off" />
+            <Input id={`${uid}-t`} value={title} onChange={(e) => setTitle(e.target.value)} autoComplete="off" />
           </div>
           <div className={workStyles.actions}>
-            <button type="button" className={`u-brackets ${workStyles.primary}`} disabled={!!createReason || busy} aria-describedby={createReason ? `${uid}-cr` : undefined} onClick={() => void create()}>
+            <Button type="button" variant="primary" disabled={!!createReason || busy} aria-describedby={createReason ? `${uid}-cr` : undefined} onClick={() => void create()}>
               {busy ? "Working…" : "Create plan"}
-            </button>
+            </Button>
             {createReason && <span id={`${uid}-cr`} className={workStyles.reason}>{createReason}</span>}
           </div>
         </section>
@@ -185,12 +186,12 @@ function DraftTaskEditor({ task: t, selected, onSelect, onRename, onSplit, remov
     <fieldset className={`${workStyles.fieldset} ${styles.draftTask}`} data-testid={`draft-${t.id}`}>
       <legend>{t.title || t.id}</legend>
       <label className={workStyles.check}>
-        <input type="checkbox" checked={selected} onChange={(e) => onSelect(e.target.checked)} />
+        <Checkbox checked={selected} onChange={(e) => onSelect(e.target.checked)} />
         Select {quote(t.title || t.id)} to merge
       </label>
       <div className={workStyles.field}>
         <label htmlFor={`${uid}-t`}>Title of {t.id}</label>
-        <input id={`${uid}-t`} value={t.title} onChange={(e) => onRename(e.target.value)} autoComplete="off" />
+        <Input id={`${uid}-t`} value={t.title} onChange={(e) => onRename(e.target.value)} autoComplete="off" />
       </div>
       <p className={workStyles.muted}>
         <code>{t.id}</code> · binding <code>{t.artifactId}</code> · {plural(t.steps.length, "step")} · {plural(t.checks.length, "check")}
@@ -203,24 +204,24 @@ function DraftTaskEditor({ task: t, selected, onSelect, onRename, onSplit, remov
           <legend>Split {t.id}</legend>
           {t.writeNodes.map((id) => (
             <label key={id} className={workStyles.check}>
-              <input type="checkbox" checked={moving.includes(id)} onChange={(e) => setMoving((xs) => (e.target.checked ? [...xs, id] : xs.filter((x) => x !== id)))} />
+              <Checkbox checked={moving.includes(id)} onChange={(e) => setMoving((xs) => (e.target.checked ? [...xs, id] : xs.filter((x) => x !== id)))} />
               Move {id}
             </label>
           ))}
           <div className={workStyles.field}>
             <label htmlFor={`${uid}-s`}>New task title</label>
-            <input id={`${uid}-s`} value={splitTitle} onChange={(e) => setSplitTitle(e.target.value)} placeholder={`${t.title} (split)`} autoComplete="off" />
+            <Input id={`${uid}-s`} value={splitTitle} onChange={(e) => setSplitTitle(e.target.value)} placeholder={`${t.title} (split)`} autoComplete="off" />
           </div>
           <div className={workStyles.actions}>
-            <button type="button" className={`u-brackets ${workStyles.btn}`} disabled={!!splitReason} aria-describedby={splitReason ? `${uid}-sr` : undefined} onClick={() => { onSplit(moving, splitTitle); setMoving([]); setSplitTitle(""); }}>
+            <Button type="button" variant="secondary" disabled={!!splitReason} aria-describedby={splitReason ? `${uid}-sr` : undefined} onClick={() => { onSplit(moving, splitTitle); setMoving([]); setSplitTitle(""); }}>
               Split
-            </button>
+            </Button>
             {splitReason && <span id={`${uid}-sr`} className={workStyles.reason}>{splitReason}</span>}
           </div>
         </fieldset>
       )}
       <div className={workStyles.actions}>
-        <button type="button" className={`u-brackets ${workStyles.btn}`} disabled={!!removeReason} aria-describedby={removeReason ? `${uid}-rr` : undefined} onClick={onRemove} aria-label={`Remove ${t.title || t.id}`}>Remove</button>
+        <Button type="button" variant="secondary" disabled={!!removeReason} aria-describedby={removeReason ? `${uid}-rr` : undefined} onClick={onRemove} aria-label={`Remove ${t.title || t.id}`}>Remove</Button>
         {removeReason && <span id={`${uid}-rr`} className={workStyles.reason}>{removeReason}</span>}
       </div>
     </fieldset>

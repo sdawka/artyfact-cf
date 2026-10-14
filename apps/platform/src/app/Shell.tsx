@@ -1,3 +1,6 @@
+import { HamburgerMenuIcon } from "@radix-ui/react-icons";
+import { Button, Sheet } from "@/components/ui";
+import { useCompactLayout } from "./useCompactLayout";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Link, Outlet, useNavigate, useParams, useSearchParams } from "react-router";
 import { useSystemEvents } from "@/api/queries";
@@ -9,6 +12,7 @@ import { useAtlasNavigation } from "@/model/useAtlasNavigation";
 import { useModel } from "@/model/useModel";
 import { thingPath, useKeepParams, useSelection, useSystemRoute, viewPath } from "@/model/useSelection";
 import { CommandPalette } from "./CommandPalette";
+import { handlePaletteShortcut } from "./paletteShortcut";
 import { SideNav } from "./SideNav";
 import { TopBar } from "./TopBar";
 import styles from "./Shell.module.css";
@@ -28,9 +32,9 @@ const SYSTEM_VIEW_CONTEXT: Partial<Record<ViewName, string>> = {
 
 /** True when a key event comes from a text field (shortcuts should ignore it). Views reuse it. */
 export const isTyping = (t: EventTarget | null) =>
-  t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName));
+  t instanceof HTMLElement && (t.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(t.tagName) || t.getAttribute("role") === "combobox");
 
-function useShellShortcuts(openPalette: () => void, paletteOpen: boolean) {
+function useShellShortcuts(togglePalette: () => void, paletteOpen: boolean) {
   const { focusId, setFocus, clear } = useSelection();
   const { siblings } = useModel();
   const { view } = useSystemRoute();
@@ -43,12 +47,8 @@ function useShellShortcuts(openPalette: () => void, paletteOpen: boolean) {
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
-        e.preventDefault();
-        openPalette();
-        return;
-      }
-      if (paletteOpen || isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (handlePaletteShortcut(e, togglePalette)) return;
+      if (e.defaultPrevented || document.querySelector('[data-state="open"][role="dialog"], [data-state="open"][role="menu"], [data-state="open"][role="listbox"]') || paletteOpen || isTyping(e.target) || e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === "Escape" && focusId) {
         if (detailsOpen) closeDetails();
         else clear();
@@ -71,7 +71,7 @@ function useShellShortcuts(openPalette: () => void, paletteOpen: boolean) {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [focusId, setFocus, clear, siblings, navigate, href, openPalette, paletteOpen, detailsOpen, closeDetails]);
+  }, [focusId, setFocus, clear, siblings, navigate, href, togglePalette, paletteOpen, detailsOpen, closeDetails]);
 }
 
 /** App frame: TopBar over SideNav · main · Inspector (grid `auto 1fr auto`), over the ambient field. */
@@ -89,16 +89,25 @@ function ShellFrame() {
   const { systemId, rev, view } = useSystemRoute();
   const { bundle } = useModel();
   const thing = bundle.model.things.find((entry) => entry.id === thingId);
+  const compact = useCompactLayout();
+  const [navigationOpen, setNavigationOpen] = useState(false);
+  const menuButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => { if (!compact) setNavigationOpen(false); }, [compact]);
   const [paletteOpen, setPaletteOpen] = useState(false);
   const openPalette = useCallback(() => setPaletteOpen(true), []);
-  useShellShortcuts(openPalette, paletteOpen);
+  const togglePalette = useCallback(() => setPaletteOpen((open) => !open), []);
+  useShellShortcuts(togglePalette, paletteOpen);
   useSystemEvents();
   const { enabled } = useEffectsPreference();
   return (
     <div className={styles.shell} data-effects={enabled ? "on" : "off"} data-view={view}>
       <a className="sr-only" href="#main">Skip to content</a>
-      <TopBar onOpenPalette={openPalette} />
-      <SideNav />
+      <TopBar onOpenPalette={openPalette} navigation={compact ? <Button ref={menuButton} onClick={() => setNavigationOpen(true)} aria-expanded={navigationOpen} aria-haspopup="dialog"><HamburgerMenuIcon /> Menu</Button> : undefined} />
+      {compact ? <Sheet open={navigationOpen} onOpenChange={setNavigationOpen} title="Navigation" side="left" className={styles.navigationSheet}
+        onEscapeKeyDown={(event) => event.stopPropagation()}
+        onCloseAutoFocus={(event) => { event.preventDefault(); menuButton.current?.focus(); }}>
+        <SideNav onNavigate={() => setNavigationOpen(false)} />
+      </Sheet> : <SideNav />}
       <main id="main" className={styles.main} tabIndex={-1}>
         {thing && view && view !== "overview" && view !== "map" && <nav className={styles.breadcrumb} aria-label="Thing workspace breadcrumb">
           <Link to={viewPath(systemId, rev, "overview")} className="u-marker">{bundle.model.system.name}</Link>

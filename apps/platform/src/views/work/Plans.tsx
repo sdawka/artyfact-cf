@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useAdminToken } from "@/api/adminToken";
@@ -51,16 +52,16 @@ export function Plans() {
     <section aria-labelledby="realization-plans" className={styles.panel}>
       <div className={styles.detailHead}>
         <h2 id="realization-plans">Realizations</h2>
-        <button
+        <Button
           type="button"
-          className={`u-brackets ${styles.btn}`}
+          variant="secondary"
           aria-pressed={drafting}
           disabled={!api}
           aria-describedby={!api ? "realization-plans-fixture" : undefined}
           onClick={() => setPanel(drafting ? null : "plan", { evolution: null, realization: null })}
         >
           Plan implementation
-        </button>
+        </Button>
       </div>
       <p>A Realization implements a pinned accepted Genome. Its Tasks run in isolated forks; Task Attempts preserve retry history.</p>
       {!api && <p id="realization-plans-fixture" className={styles.muted}>{FIXTURE_REASON}</p>}
@@ -76,7 +77,7 @@ export function Plans() {
         <ul className={planStyles.planList} aria-label="Realization plans">
           {plans.data.plans.map((p) => (
             <li key={p.id} className={styles.inlineRow}>
-              <button type="button" className={styles.textBtn} aria-pressed={selected === p.id} onClick={() => setPlan(selected === p.id ? null : p.id, { task: null })}>{p.title}</button>
+              <Button type="button" variant="ghost" aria-pressed={selected === p.id} onClick={() => setPlan(selected === p.id ? null : p.id, { task: null })}>{p.title}</Button>
               <span>{p.status}</span>
               <span className={styles.muted}>{plural(p.tasks.length, "task")}</span>
               {p.tasks.some((t) => t.status === "submitted") && <TaskStatus status="submitted" title="A task awaits selection" />}

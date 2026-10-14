@@ -4,6 +4,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { ChangelogRow } from "../../../shared/api";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
+import { chooseSelect } from "../testing/select";
 import { SYSTEM, entry, newer, older } from "./testData";
 
 const URL = `/s/${SYSTEM}/r/head/changelog`;
@@ -109,8 +110,18 @@ describe("Changelog", () => {
   it("filters by Evolution", async () => {
     renderApp(URL, undefined, seed());
     await list();
-    fireEvent.change(screen.getByLabelText("Evolution"), { target: { value: "evolution.2" } });
+    await chooseSelect(screen.getByRole("combobox", { name: "Evolution" }), "People screen (evolution.2)");
     await waitFor(async () => expect(rowsOf(await list())).toHaveLength(1));
+  });
+
+  it("preserves an unknown Evolution and clears it with All", async () => {
+    const { router } = renderApp(`${URL}?evolution=evolution.unknown`, undefined, seed());
+    const trigger = await screen.findByRole("combobox", { name: "Evolution" });
+    expect(trigger.tagName).toBe("BUTTON");
+    expect(trigger.textContent).toContain("evolution.unknown");
+    await chooseSelect(trigger, "All");
+    await waitFor(() => expect(router.state.location.search).toBe(""));
+    expect(rowsOf(await list())).toHaveLength(2);
   });
 
   it("says the changelog could not be loaded, not that it is empty", async () => {

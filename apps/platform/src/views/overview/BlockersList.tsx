@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { useState } from "react";
 import type { Finding } from "@artyfact/model";
 import { useReadiness } from "@/api/queries";
@@ -19,16 +20,15 @@ function FindingRow({ f, id }: { f: Finding; id: string }) {
       </div>
       <p className={styles.plainText}>{f.message}</p>
       <p className={styles.action}><span className={styles.muted}>Next action</span> {blockerAction(f.rule)}</p>
-      <button
+      <Button variant="secondary"
         type="button"
-        className={`u-brackets ${styles.smallButton}`}
-        aria-expanded={open}
+                aria-expanded={open}
         aria-controls={id}
         onClick={() => setOpen((o) => !o)}
       >
         {open ? "Hide" : "Explain"}
         <span className="sr-only"> {f.rule} {f.subject ?? ""}</span>
-      </button>
+      </Button>
       {open && <div id={id} className={styles.derivation}><Derivation finding={f} /></div>}
     </li>
   );
@@ -39,15 +39,14 @@ function Group({ rule, items, prefix }: { rule: string; items: Finding[]; prefix
   if (items.length === 1) return <FindingRow f={items[0]!} id={`${prefix}-${rule}-0`} />;
   return (
     <li className={styles.group}>
-      <button
+      <Button variant="secondary"
         type="button"
-        className={`u-brackets ${styles.groupButton}`}
-        aria-expanded={open}
+                aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
       >
         <code className={styles.rule}>{rule}</code> <span className={styles.muted}>{items.length} findings</span>
         <span className="sr-only">{open ? ", hide" : ", show"}</span>
-      </button>
+      </Button>
       <p className={styles.action}><span className={styles.muted}>Next action</span> {blockerAction(rule)}</p>
       {open && (
         <ul className={styles.plain}>

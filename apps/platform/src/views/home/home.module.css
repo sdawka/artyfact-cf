@@ -17,18 +17,6 @@
   text-decoration: none;
 }
 .wordmark:hover { color: var(--color-brand-primary); }
-.retry {
-  padding: 0 var(--spacing-2);
-  color: var(--color-text-secondary);
-  background: none;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--border-radius-sm);
-  font: inherit;
-  font-size: var(--font-size-xs);
-  line-height: 1.8;
-  cursor: pointer;
-}
-.retry:hover { color: var(--color-text-primary); }
 .main {
   max-width: 72rem;
   margin: 0 auto;
@@ -37,7 +25,7 @@
 .main:focus { outline: none; }
 .h1 { margin: 0 0 var(--spacing-6); }
 .h2 { margin: 0 0 var(--spacing-4); font-size: var(--font-size-xl); }
-.parts { display: grid; gap: var(--spacing-3); margin-top: var(--spacing-9); }
+.parts { display: grid; gap: var(--spacing-3); margin-top: var(--spacing-8); }
 .grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr));

@@ -1,3 +1,4 @@
+import { chooseSelect } from "../testing/select";
 import type { QueryClient } from "@tanstack/react-query";
 import { act, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -392,7 +393,7 @@ describe("New Evolution", () => {
     fireEvent.change(within(panel).getByLabelText("Affected nodes"), { target: { value: "screen.people" } });
     fireEvent.click(within(panel).getByRole("button", { name: "Add node" }));
     expect(within(panel).getByRole("button", { name: "Remove screen.people" })).toBeTruthy();
-    fireEvent.change(within(panel).getByLabelText("Risk"), { target: { value: "low" } });
+    await chooseSelect(within(panel).getByRole("combobox", { name: "Risk" }), "low");
     fireEvent.change(within(panel).getByLabelText("Admin token"), { target: { value: "s3cret" } });
     fireEvent.click(within(panel).getByRole("button", { name: "Create Evolution" }));
     await waitFor(() => expect(router.state.location.search).toBe("?evolution=evolution.new"));
@@ -431,6 +432,7 @@ it('Genome Evolution work cannot target an app implementation',async()=>{
  const genomeEvolution=fixtureBundle().model.evolutions.find(e=>e.kind==='genome-amendment')!;
  renderApp(`${WORK}?evolution=${genomeEvolution.id}&panel=start`);
  const target=await screen.findByLabelText('Target');
- expect(within(target).queryByRole('option',{name:'app'})).toBeNull();
- expect(within(target).getByRole('option',{name:'genome'})).toBeTruthy();
+ fireEvent.keyDown(target,{key:'Enter'});
+ expect(screen.queryByRole('option',{name:'app'})).toBeNull();
+ expect(await screen.findByRole('option',{name:'genome'})).toBeTruthy();
 });

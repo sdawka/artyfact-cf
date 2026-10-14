@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { useCallback, useMemo } from "react";
 import { Link } from "react-router";
 import type { Evolution, Realization } from "../../../shared/api";
@@ -45,8 +46,8 @@ export function EvolutionDetail({ evolution: e, realizations }: { evolution: Evo
           </p>
         </div>
         <div className={styles.actions}>
-          <button type="button" className={`u-brackets ${styles.btn}`} aria-pressed={panel === "start"} onClick={() => setPanel(panel === "start" ? null : "start")}>Start work</button>
-          <Link className={`u-brackets ${styles.reviewLink}`} to={href("review", { evolution: e.id, realization: null, panel: "promote" })}>Promote in Review</Link>
+          <Button type="button" variant="secondary" aria-pressed={panel === "start"} onClick={() => setPanel(panel === "start" ? null : "start")}>Start work</Button>
+          <Button asChild className="u-brackets"><Link to={href("review", { evolution: e.id, realization: null, panel: "promote" })}>Promote in Review</Link></Button>
         </div>
       </header>
       <p className={styles.intentFull}>{e.intent}</p>

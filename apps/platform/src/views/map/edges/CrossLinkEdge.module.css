@@ -24,3 +24,9 @@
 @media (prefers-reduced-motion: reduce) {
   .path, .label { transition: none; }
 }
+
+.path.active { stroke: var(--color-brand-primary); filter: drop-shadow(0 0 4px color-mix(in oklch, var(--color-brand-primary) 55%, transparent)); }
+.label[data-active] { border-color: var(--color-brand-primary); box-shadow: 0 0 12px color-mix(in oklch, var(--color-brand-primary) 14%, transparent); }
+:global([data-effects="off"]) .path.active { filter: none; }
+:global([data-effects="off"]) .label[data-active] { box-shadow: none; }
+@media (forced-colors: active) { .path.active { stroke: Highlight; filter: none; } .label[data-active] { border-color: Highlight; box-shadow: none; } }

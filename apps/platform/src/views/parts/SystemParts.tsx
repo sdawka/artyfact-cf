@@ -1,3 +1,4 @@
+import { Button, Input } from "@/components/ui";
 import { useMutation } from "@tanstack/react-query";
 import { useId, useState } from "react";
 import { ApiRequestError, getSystemPart, getSystemParts } from "@/api/client";
@@ -25,13 +26,13 @@ function PrivateCatalog({ systemId }: { systemId: string }) {
     <p>Enter an admin token to inspect this System’s private packages. A System realization secret also grants read access.</p>
     <form className={styles.auth} onSubmit={(event) => { event.preventDefault(); detail.reset(); catalog.mutate(); }}>
       <label htmlFor={uid}>Admin token</label>
-      <input id={uid} type="password" autoComplete="off" disabled={catalog.isPending || detail.isPending} value={token} onChange={(event) => { setToken(event.target.value); catalog.reset(); detail.reset(); }} />
-      <button className="u-brackets" type="submit" disabled={!token.trim() || catalog.isPending || detail.isPending}>Load private Parts</button>
+      <Input id={uid} type="password" autoComplete="off" disabled={catalog.isPending || detail.isPending} value={token} onChange={(event) => { setToken(event.target.value); catalog.reset(); detail.reset(); }} />
+      <Button variant="secondary" type="submit" disabled={!token.trim() || catalog.isPending || detail.isPending}>Load private Parts</Button>
     </form>
     {catalog.isPending && <p role="status">Loading private Parts…</p>}
     {catalog.isError && <p role="alert">{errorMessage(catalog.error)}</p>}
     {catalog.isSuccess && (catalog.data.parts.length === 0 ? <p>No private Parts in this System.</p> : <ul className={styles.list}>
-      {catalog.data.parts.map((part) => <li key={`${part.partId}@${part.version}`}><button className="u-marker" onClick={() => detail.mutate({ id: part.partId, version: part.version })}>{part.name || part.partId} {part.version}</button><span>{part.digest}</span></li>)}
+      {catalog.data.parts.map((part) => <li key={`${part.partId}@${part.version}`}><Button variant="ghost" className="u-marker" onClick={() => detail.mutate({ id: part.partId, version: part.version })}>{part.name || part.partId} {part.version}</Button><span>{part.digest}</span></li>)}
     </ul>)}
     {detail.isPending && <p role="status">Loading pinned package…</p>}
     {detail.isError && <p role="alert">{errorMessage(detail.error)}</p>}

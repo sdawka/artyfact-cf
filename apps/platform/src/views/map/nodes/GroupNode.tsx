@@ -3,6 +3,7 @@ import { kindColour, titleOf, useKindView } from "@/model/kinds";
 import { useModel } from "@/model/useModel";
 import { CandidateHalo } from "../overlays/CandidateHalo";
 import { LayerBadges, useRealizationCount } from "./NodeOverlays";
+import { relationBorderStyle } from "../atlasRelationStyle";
 import styles from "./nodes.module.css";
 import type { GroupFlowNode } from "./types";
 
@@ -16,6 +17,9 @@ export function GroupNode({ data, selected }: NodeProps<GroupFlowNode>) {
   return (
     <div
       className={styles.group}
+      style={relationBorderStyle(data.relation)}
+      data-related={!!data.relation || undefined}
+      data-emphasized={data.emphasized || undefined}
       data-map-node={node.id}
       data-role="scope"
       data-dim={dim || undefined}

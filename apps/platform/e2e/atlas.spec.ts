@@ -570,6 +570,7 @@ test("scope reveal runs once while selection, Details and layer changes preserve
   await testInfo.attach("atlas-normal-motion-frame", { path: framePath, contentType: "image/png" });
   await surface.evaluate(async (element) => { const animation = element.getAnimations()[0]!; animation.play(); await animation.finished; });
   expect((await scopeMotions(page))[0]!.finished).toBe(true);
+  await settle(page);
   const stableGeometry = await geometry(page), stableCamera = await camera(page);
   // Both selections are visible at the fitted camera, so no pan disturbs the camera under test.
   await pressTile(page, "GD.connect");

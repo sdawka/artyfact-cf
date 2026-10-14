@@ -1,3 +1,4 @@
+import { Button, Input, Textarea } from "@/components/ui";
 import { useId, useMemo, useState, type ReactNode } from "react";
 import { Link } from "react-router";
 import type { Finding, SystemImportReview, SystemImportReviewAcceptResponse, ProposalPlanNode } from "../../../../shared/api";
@@ -145,9 +146,9 @@ function Findings({ findings }: { findings: readonly Finding[] }) {
         ))}
       </ul>
       {sorted.length > FIRST_FINDINGS && (
-        <button type="button" className={`u-brackets ${own.more}`} aria-expanded={all} onClick={() => setAll((a) => !a)}>
+        <Button type="button" variant="secondary" className={own.more} aria-expanded={all} onClick={() => setAll((a) => !a)}>
           {all ? "Show fewer" : `Show all ${sorted.length}`}
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -188,12 +189,12 @@ function ImportDecision({ accept, fixture, blocker, rejected, outcome }: {
     <div className={styles.decision}>
       <div className={styles.fieldBlock}>
         <label htmlFor={ids.token}>Admin token</label>
-        <input id={ids.token} type="password" value={adminToken} disabled={!!outcome} autoComplete="off" onChange={(e) => setAdminToken(e.target.value)} />
+        <Input id={ids.token} type="password" value={adminToken} disabled={!!outcome} autoComplete="off" onChange={(e) => setAdminToken(e.target.value)} />
       </div>
       <div className={styles.fieldBlock}>
         <label htmlFor={ids.interp}>Accepted interpretation</label>
         <p id={`${ids.interp}-hint`} className={styles.muted}>Recorded with the import. Say how this Genome should be read.</p>
-        <textarea
+        <Textarea
           id={ids.interp}
           aria-describedby={`${ids.interp}-hint`}
           rows={3}
@@ -204,15 +205,15 @@ function ImportDecision({ accept, fixture, blocker, rejected, outcome }: {
         {error && <p className={styles.error} role="alert">{error}</p>}
       </div>
       <div className={styles.actions}>
-        <button
+        <Button
           type="button"
-          className={`u-brackets ${styles.primary}`}
+          variant="primary"
           disabled={!!outcome || !!acceptWhy || accept.isPending}
           aria-describedby={acceptWhy ? ids.why : undefined}
           onClick={doAccept}
         >
           {accept.isPending ? "Accepting…" : rejected.length ? `Accept import, remove ${rejected.length} rejected` : "Accept import"}
-        </button>
+        </Button>
         {acceptWhy && <p id={ids.why} className={styles.muted}>{acceptWhy}</p>}
       </div>
       {accept.error && <p className={styles.error} role="alert">{accept.error.message}</p>}

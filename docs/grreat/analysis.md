@@ -21,3 +21,14 @@ Iteration 3 limits, 2026-10-13 (see [[journals/2026-10-13-iteration-3]]): one we
 Public `/model` page revision from main: [[journals/2026-10-13-model-page]]. Its capability gaps are recorded in [[roadmap]].
 
 Ontology Driven Development page acceptance: [[journals/2026-10-13-ontology-driven-development]]. Benefits precede the explicit meta ontology; existing model distinctions and illustrative labels remain. Full local and hosted CI passed; PR #57 merged at 1b79e93, and the public site is deployed at 100% with live desktop/mobile/no-JS, keyboard, layout and route checks passing. The platform release remains separate; remote sync stays pending.
+
+## Application polish review — 2026-10-14T00:49:25-04:00
+
+| Accepted criterion | Evidence | Remaining gap |
+| --- | --- | --- |
+| Spacious shared controls, native forms/selectors, modal focus/ESC and responsive navigation | Runtime regressions, actual Tabs Chromium proof and 95 fixture browser checks in the final integrated gate | Hosted review/checks; live release smoke |
+| Relation glow and interruption-safe Enter/Up/Locate, history and motion preferences | Atlas camera regressions and browser cases pass in the full gate | Live release smoke |
+| Preserve latest lifecycle behaviour while applying UI polish | Upstream `5014bb5` integrated, overlap independently reviewed; 2823 units and 16 fake-platform browser cases pass | Existing real-Artifacts runbook path remains unverified |
+| Canonical tracking and delivery | Full 10-step CI passes; 7 GRREAT records validate; RPC preview applies 0 records | PR/hosted checks; separate Artyfact sync destination confirmation |
+
+No merge, deployment or remote GRREAT apply is claimed for this branch.

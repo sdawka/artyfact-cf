@@ -93,11 +93,11 @@ test.describe("ambient shell", () => {
     });
     await expect(selected).toHaveCSS("outline-style", "solid");
     await expect(selected).toHaveCSS("outline-width", "2px");
-    await expect(selected).toHaveCSS("outline-offset", "-3px");
+    await expect(selected).toHaveCSS("outline-offset", "-5px");
     await expect(selected).toHaveCSS("outline-color", brand);
-    // Hover glow can still be transitioning; the settled selection is an inset ring.
+    // Selection keeps its approved relation glow after hover leaves the tile.
     await page.mouse.move(10, 10);
-    await expect(selected).toHaveCSS("box-shadow", "none");
+    await expect(selected).not.toHaveCSS("box-shadow", "none");
     await expect(page.locator("[data-edge-flow]").first()).toBeAttached();
     await expect.poll(async () => (await fxEvents(page)).filter((e) => e.kind === "select").length).toBeGreaterThan(0);
     const sel = (await fxEvents(page)).find((e) => e.kind === "select")!;

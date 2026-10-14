@@ -16,12 +16,14 @@ export function CommandPalette({ open, onOpenChange }: { open: boolean; onOpenCh
   const effects = useEffectsPreference();
   return (
     <Command.Dialog
+      vimBindings={false}
+      data-effects={effects.enabled ? "on" : "off"}
       open={open}
       onOpenChange={onOpenChange}
       label="Go to node"
       className={styles.dialog}
-      overlayClassName={styles.overlay}
-      contentClassName={styles.content}
+      overlayClassName={`${styles.overlay} ${!effects.enabled ? styles.motionOff : ""}`}
+      contentClassName={`${styles.content} ${!effects.enabled ? styles.motionOff : ""}`}
     >
       <Command.Input className={styles.input} placeholder="Go to a node, criterion, journey…" />
       <Command.List className={styles.list}>

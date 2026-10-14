@@ -1,3 +1,4 @@
+import { Button, Checkbox, Input } from "@/components/ui";
 import { useId, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router";
 import type { TemplateUpgradeAction, TemplateUpgradeFile, TemplateUpgradePlan } from "../../../shared/api";
@@ -69,16 +70,16 @@ export function AppTemplateCard() {
         </p>
       )}
       <div className={workStyles.actions}>
-        <button
+        <Button
           type="button"
-          className={`u-brackets ${workStyles.primary}`}
+          variant="primary"
           disabled={!!reason || !data}
           aria-expanded={open}
           aria-describedby={reason ? `${uid}-why` : undefined}
           onClick={() => setOpen((o) => !o)}
         >
           Review upgrade
-        </button>
+        </Button>
         {reason && <span id={`${uid}-why`} className={workStyles.reason}>{reason}</span>}
       </div>
       {open && data && !data.upToDate && <TemplateUpgradePanel plan={data} />}
@@ -132,7 +133,7 @@ export function TemplateUpgradePanel({ plan }: { plan: TemplateUpgradePlan }) {
                   <span className={styles.muted}>{f.reason}</span>
                   {action === "conflict" && (
                     <label>
-                      <input type="checkbox" checked={include.includes(f.path)} onChange={(e) => toggle(f.path, e.target.checked)} aria-label={`Use template version of ${f.path}`} />
+                      <Checkbox checked={include.includes(f.path)} onChange={(e) => toggle(f.path, e.target.checked)} aria-label={`Use template version of ${f.path}`} />
                       {" "}use template version
                     </label>
                   )}
@@ -146,12 +147,12 @@ export function TemplateUpgradePanel({ plan }: { plan: TemplateUpgradePlan }) {
       <form onSubmit={submit} className={workStyles.form}>
         <div className={workStyles.field}>
           <label htmlFor={`${uid}-k`}>Admin token</label>
-          <input id={`${uid}-k`} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} autoComplete="off" />
+          <Input id={`${uid}-k`} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} autoComplete="off" />
         </div>
         <div className={workStyles.actions}>
-          <button type="submit" className={`u-brackets ${workStyles.primary}`} disabled={apply.isPending}>
+          <Button type="submit" variant="primary" disabled={apply.isPending}>
             {apply.isPending ? "Starting…" : "Start upgrade"}
-          </button>
+          </Button>
         </div>
         {apply.isError && <p role="alert" className={workStyles.error}>{upgradeError(apply.error)}</p>}
       </form>

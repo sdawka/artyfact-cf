@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { useId } from "react";
 import type { RealizationPlan, Task } from "../../../../shared/lifecycle";
 import { CopyButton } from "@/components/CopyButton/CopyButton";
@@ -34,7 +35,7 @@ export function WaveCommands({ plan, wave, tasks, now, hidden, onHide }: Props) 
           <CopyButton value={waveScript(shown.map((l) => l.pair))} label="Copy all" />
         ) : (
           <>
-            <button type="button" className={`u-brackets ${workStyles.btn}`} disabled aria-describedby={`${uid}-none`}>Copy all</button>
+            <Button type="button" variant="secondary" disabled aria-describedby={`${uid}-none`}>Copy all</Button>
             <span id={`${uid}-none`} className={workStyles.reason}>Every command is hidden.</span>
           </>
         )}
@@ -49,7 +50,7 @@ export function WaveCommands({ plan, wave, tasks, now, hidden, onHide }: Props) 
               <code className={styles.commandLine}>{l.line}</code>
               <span className={workStyles.inlineRow}>
                 <CopyButton value={l.line} />
-                <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => onHide(l.id)} aria-label={`Hide the command for ${l.title}`}>Hide</button>
+                <Button type="button" variant="secondary" onClick={() => onHide(l.id)} aria-label={`Hide the command for ${l.title}`}>Hide</Button>
               </span>
             </li>
           ),

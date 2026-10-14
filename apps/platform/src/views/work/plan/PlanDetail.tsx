@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { useCallback, useEffect, useId, useState } from "react";
 import type { RealizationPlan } from "../../../../shared/lifecycle";
 import { useAdminToken } from "@/api/adminToken";
@@ -56,15 +57,15 @@ export function PlanDetail({ plan, writeReason, busy, error, run }: Props) {
         <strong data-testid="plan-counts">{planCountsLine(plan)}</strong>
         {plan.status !== "promoted" && plan.status !== "integrated" && (
           <>
-            <button
+            <Button
               type="button"
-              className={`u-brackets ${workStyles.btn}`}
+              variant="secondary"
               disabled={!!integrate || busy}
               aria-describedby={integrate ? `${uid}-i` : undefined}
               onClick={() => run(() => lifecycleApi.integrate(plan.systemId, plan.id, token))}
             >
               Integrate selected Task results
-            </button>
+            </Button>
             {integrate && <span id={`${uid}-i`} className={workStyles.reason}>{integrate}</span>}
           </>
         )}

@@ -49,7 +49,8 @@ test.describe("iteration 2 on a live deployment", () => {
     await page.getByLabel("Message").fill(`Live check ${title}`);
     await page.getByRole("textbox", { name: "Why" }).fill("Exercises the real Git push.");
     const evolution = page.getByLabel("Evolution", { exact: true });
-    await evolution.selectOption((await evolution.locator("option", { hasText: title }).last().getAttribute("value")) ?? "");
+    await evolution.click();
+    await page.getByRole("listbox").getByRole("option").filter({ hasText: title }).last().click();
     await page.getByLabel("Your name").fill("E2E");
     await page.getByLabel("Admin token").fill(token);
     await page.getByRole("button", { name: "Commit", exact: true }).click();

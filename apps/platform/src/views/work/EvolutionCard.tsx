@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { useId } from "react";
 import type { Evolution } from "../../../shared/api";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
@@ -29,7 +30,7 @@ export function EvolutionCard({ evolution: e, selected, onSelect, awaiting = 0, 
   const pass = verdicts.filter((v) => v === "pass").length;
   const extra = e.affectedNodes.length - MAX_CHIPS;
   return (
-    <button
+    <Button
       type="button"
       className={`u-brackets ${styles.card}`}
       aria-pressed={selected}
@@ -61,6 +62,6 @@ export function EvolutionCard({ evolution: e, selected, onSelect, awaiting = 0, 
           {e.dependsOn.map((id) => <NodeChip key={id} id={id} size="sm" interactive={false} />)}
         </span>
       )}
-    </button>
+    </Button>
   );
 }

@@ -1,3 +1,4 @@
+import { Button, Checkbox, Input, Textarea } from "@/components/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { Link } from "react-router";
@@ -158,8 +159,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
             {candidates.map((c) => (
               <li key={c.id}>
                 <label>
-                  <input
-                    type="checkbox"
+                  <Checkbox
                     checked={selected.includes(c.id)}
                     onChange={(e) => setSelection(e.target.checked ? [...selected, c.id] : selected.filter((x) => x !== c.id))}
                   />{" "}
@@ -217,7 +217,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
           {!!refused?.blocking.length && (
             <>
               <IssueList items={refused.blocking} />
-              <button type="button" className={`u-brackets ${styles.btn}`} onClick={refresh}>Refresh</button>
+              <Button type="button" variant="secondary" onClick={refresh}>Refresh</Button>
             </>
           )}
         </div>
@@ -230,7 +230,7 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
             A candidate built on an earlier head is refused until its agent rebases the fork on{" "}
             <code>{shortSha(stale.currentHead)}</code> and submits again: <code>artyfact submit</code>.
           </p>
-          <button type="button" className={`u-brackets ${styles.btn}`} onClick={refresh}>Refresh</button>
+          <Button type="button" variant="secondary" onClick={refresh}>Refresh</Button>
         </div>
       )}
       {promote.isError && !stale && !refused && <p role="alert" className={styles.error}>{promote.error.message}</p>}
@@ -238,22 +238,22 @@ export function PromotionPanel({ evolution }: { evolution: Evolution }) {
       <form onSubmit={submit} className={styles.form}>
         <div className={styles.field}>
           <label htmlFor={`${uid}-r`}>Rationale</label>
-          <textarea id={`${uid}-r`} value={rationale} onChange={(e) => { setRationaleEdited(true); setRationale(e.target.value); }} rows={4} required />
+          <Textarea id={`${uid}-r`} value={rationale} onChange={(e) => { setRationaleEdited(true); setRationale(e.target.value); }} rows={4} required />
           {editorWhy && !rationaleEdited && <p className={styles.muted}>Rationale pending: pre-filled from the editor commit's why. Edit it to confirm.</p>}
         </div>
         {advisoryCount > 0 && (
           <label className={styles.check}>
-            <input type="checkbox" checked={ack} onChange={(e) => setAck(e.target.checked)} /> My rationale addresses the {advisoryCount} advisor{advisoryCount === 1 ? "y" : "ies"}
+            <Checkbox checked={ack} onChange={(e) => setAck(e.target.checked)} /> My rationale addresses the {advisoryCount} advisor{advisoryCount === 1 ? "y" : "ies"}
           </label>
         )}
         <div className={styles.field}>
           <label htmlFor={`${uid}-t`}>Admin token</label>
-          <input id={`${uid}-t`} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} autoComplete="off" />
+          <Input id={`${uid}-t`} type="password" value={adminToken} onChange={(e) => setAdminToken(e.target.value)} autoComplete="off" />
         </div>
         <div className={styles.actions}>
-          <button type="submit" className={`u-brackets ${styles.primary}`} disabled={reasons.length > 0 || promote.isPending} aria-describedby={reasons.length ? `${uid}-why` : undefined}>
+          <Button type="submit" variant="primary" disabled={reasons.length > 0 || promote.isPending} aria-describedby={reasons.length ? `${uid}-why` : undefined}>
             {promote.isPending ? "Promoting…" : "Promote"}
-          </button>
+          </Button>
         </div>
         {reasons.length > 0 && (
           <ul id={`${uid}-why`} className={styles.reasons} aria-label="Why promotion is disabled">

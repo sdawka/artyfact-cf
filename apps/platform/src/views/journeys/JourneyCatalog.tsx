@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import type { Journey } from "@/model/types";
 import styles from "./JourneyCatalog.module.css";
@@ -15,7 +16,7 @@ export function JourneyCatalog({ journeys, activeId, onSelect }: JourneyCatalogP
       <ul className={styles.list}>
         {journeys.map((j) => (
           <li key={j.id} className={styles.item} data-deferred={j.deferred || undefined}>
-            <button
+            <Button variant="ghost"
               type="button"
               className={`u-brackets ${j.id === activeId ? "u-brackets--on " : ""}${styles.select}`}
               aria-current={j.id === activeId ? "true" : undefined}
@@ -26,7 +27,7 @@ export function JourneyCatalog({ journeys, activeId, onSelect }: JourneyCatalogP
                 {j.deferred && <span className={styles.deferred}>deferred</span>}
               </span>
               <span className={styles.goal}>{j.actorGoal}</span>
-            </button>
+            </Button>
             {j.features.length > 0 && (
               <span className={styles.features}>
                 {j.features.map((f) => (

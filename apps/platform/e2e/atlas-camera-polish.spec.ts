@@ -1,0 +1,63 @@
+import { writeFile } from "node:fs/promises";
+import { expect, test, type Page } from "@playwright/test";
+import { mockApi, defaultMockData } from "./mockApi";
+const MAP = "/s/system.peopling/r/head/map";
+const tile = (page: Page, id: string) => page.locator(`[data-map-node="${id}"]`);
+async function sampledTravel(page: Page, action: () => Promise<unknown>) {
+  const sample = page.evaluate(() => new Promise<string[]>(resolve => {
+    const values: string[] = []; let start: number | null = null;
+    const frame = () => { start ??= performance.now(); values.push(document.querySelector<HTMLElement>(".react-flow__viewport")?.style.transform ?? "missing"); if (performance.now() - start > 550) resolve(values); else requestAnimationFrame(frame); };
+    document.addEventListener("click", frame, { once: true, capture: true });
+  }));
+  await action();
+  return sample;
+}
+for (const width of [1440, 390]) test(`relation glow and anchored camera travel at ${width}px @fixture`, async ({ page }, info) => {
+  await page.setViewportSize({ width, height: 900 });
+  await page.addInitScript(() => localStorage.setItem("artyfact.effects", "on"));
+  await mockApi(page, defaultMockData());
+  await page.goto(`${MAP}?scope=screen.people`);
+  await expect(tile(page, "component.AddContactDialog")).toBeAttached();
+  // Tree Locate frames a real tile without changing scope or entering it.
+  await page.getByRole("button", { name: "Tree", exact: true }).click();
+  await page.getByRole("treeitem").filter({ hasText: "AddContactDialog" }).first().click();
+  await page.getByRole("button", { name: "Close map navigation" }).click();
+  await page.waitForTimeout(240);
+  await expect(tile(page, "component.AddContactDialog")).toHaveAttribute("data-selected", "true");
+  const targetBox = (await tile(page, "component.AddContactDialog").boundingBox())!;
+  const canvasBox = (await page.getByTestId("atlas-canvas").boundingBox())!;
+  expect(Math.abs(targetBox.x + targetBox.width / 2 - canvasBox.x - canvasBox.width / 2)).toBeLessThan(3);
+  expect(Math.abs(targetBox.y + targetBox.height / 2 - canvasBox.y - canvasBox.height / 2)).toBeLessThan(3);
+  expect(await page.locator("[data-related]").count()).toBeGreaterThan(1);
+  await page.screenshot({ path: info.outputPath(`atlas-${width}-selected.png`) });
+  await page.getByRole("button", { name: "Clear selection" }).click();
+  await tile(page, "component.AddContactDialog").hover();
+  await expect(tile(page, "component.AddContactDialog")).toHaveAttribute("data-emphasized", "true");
+  await page.screenshot({ path: info.outputPath(`atlas-${width}-hover.png`) });
+  await tile(page, "component.AddContactDialog").click();
+  const before = await page.locator(".react-flow__viewport").getAttribute("style");
+  const samples = await sampledTravel(page, () => page.getByRole("button", { name: "Enter AddContactDialog", exact: true }).click());
+  await expect(page.getByTestId("atlas-canvas")).toHaveAttribute("data-scope", "component.AddContactDialog");
+  expect(new Set(samples).size).toBeGreaterThan(5);
+  await page.screenshot({ path: info.outputPath(`atlas-${width}-entered.png`) });
+  const up = await sampledTravel(page, () => page.getByRole("button", { name: "Up", exact: true }).click());
+  await expect(page.getByTestId("atlas-canvas")).toHaveAttribute("data-scope", "screen.people");
+  expect(new Set(up).size).toBeGreaterThan(5);
+  expect(await page.locator(".react-flow__viewport").getAttribute("style")).toBe(before);
+  await page.screenshot({ path: info.outputPath(`atlas-${width}-up.png`) });
+  await tile(page, "component.AddContactDialog").click();
+  await page.getByRole("button", { name: /Connections/ }).click();
+  const connected = await sampledTravel(page, () => page.getByRole("region", { name: "Selected connections" }).getByRole("button", { name: "Locate Create or edit private contact", exact: true }).first().click());
+  expect(new Set(connected).size).toBeGreaterThan(3);
+  await expect(tile(page, "operation.contact.save")).toHaveAttribute("data-selected", "true");
+  await page.screenshot({ path: info.outputPath(`atlas-${width}-connected.png`) });
+  if (!await page.getByRole("region", { name: "Selected connections" }).isVisible()) await page.getByRole("button", { name: /Connections/ }).click();
+  const crossScope = await sampledTravel(page, () => page.getByRole("region", { name: "Selected connections" }).getByRole("button", { name: "Locate Save", exact: true }).first().click());
+  await expect(page.getByTestId("atlas-canvas")).toHaveAttribute("data-scope", "component.AddContactDialog");
+  await expect(tile(page, "affordance.AddContactDialog.save")).toHaveAttribute("data-selected", "true");
+  expect(new Set(crossScope).size).toBeGreaterThan(5);
+  await page.screenshot({ path: info.outputPath(`atlas-${width}-cross-scope-locate.png`) });
+  const samplePath = info.outputPath("camera-samples.json");
+  await writeFile(samplePath, JSON.stringify({ enter: samples, up, connected, crossScope }));
+  await info.attach("camera-samples", { path: samplePath, contentType: "application/json" });
+});

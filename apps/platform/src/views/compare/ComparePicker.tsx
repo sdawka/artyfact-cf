@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { RevisionPicker } from "@/components/RevisionPicker/RevisionPicker";
 import type { RevisionOption } from "@/model/revisions";
 import styles from "./compare.module.css";
@@ -14,9 +15,9 @@ export function ComparePicker({ from, to, options, onChange }: Props) {
   return (
     <div className={styles.picker}>
       <RevisionPicker id="compare-from" label="From" value={from} options={options} onChange={(v) => onChange({ from: v, to })} />
-      <button type="button" className={`u-brackets ${styles.btn}`} onClick={() => onChange({ from: to, to: from })}>
+      <Button type="button" variant="secondary" onClick={() => onChange({ from: to, to: from })}>
         <span aria-hidden="true">⇄ </span>Swap
-      </button>
+      </Button>
       <RevisionPicker id="compare-to" label="To" value={to} options={options} onChange={(v) => onChange({ from, to: v })} />
     </div>
   );

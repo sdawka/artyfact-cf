@@ -1,9 +1,16 @@
+import { ArchiveIcon, ArrowRightIcon, CheckCircledIcon, CheckIcon, CodeIcon, CommitIcon, CounterClockwiseClockIcon, DashboardIcon, GlobeIcon, MixIcon, RocketIcon, TriangleUpIcon } from "@radix-ui/react-icons";
 import { NavLink } from "react-router";
 import { useKindViews, VIEW_GLYPHS, VIEW_GROUPS, VIEW_KINDS, VIEW_LABELS, type ViewName } from "@/model/kinds";
 import { useReviewCount } from "@/model/useReviewCount";
 import { useWorkCount } from "@/model/useWorkCount";
 import { useKeepParams, useSystemRoute } from "@/model/useSelection";
 import styles from "./SideNav.module.css";
+
+const NAV_ICONS: Record<ViewName, typeof GlobeIcon> = {
+  map: GlobeIcon, overview: DashboardIcon, journeys: ArrowRightIcon, theory: TriangleUpIcon,
+  code: CodeIcon, work: CommitIcon, review: CheckCircledIcon, evaluations: CheckIcon,
+  changelog: CounterClockwiseClockIcon, compare: MixIcon, phenome: RocketIcon,
+};
 
 /** Every view on the rail, in rail order (Overview, then Genome, Proteome, Phenome). */
 export const NAV_VIEWS: { view: ViewName; glyph: string }[] = VIEW_GROUPS.flatMap((g) =>
@@ -12,6 +19,7 @@ export const NAV_VIEWS: { view: ViewName; glyph: string }[] = VIEW_GROUPS.flatMa
 
 function NavItem({ view, href, count = 0 }: { view: ViewName; href: string; count?: number }) {
   const label = VIEW_LABELS[view];
+  const Icon = NAV_ICONS[view];
   return (
     <li>
       <NavLink
@@ -20,7 +28,7 @@ function NavItem({ view, href, count = 0 }: { view: ViewName; href: string; coun
         title={label}
         aria-label={count > 0 ? `${label}, ${count} waiting` : undefined}
       >
-        <span className={styles.glyph} aria-hidden="true">{VIEW_GLYPHS[view]}</span>
+        <span className={styles.glyph} aria-hidden="true"><Icon /></span>
         <span className={styles.label}>{label}</span>
         {count > 0 && <span className={styles.count} data-tone="attention">{count}</span>}
       </NavLink>
@@ -29,7 +37,7 @@ function NavItem({ view, href, count = 0 }: { view: ViewName; href: string; coun
 }
 
 /** Overview, then one group per layer headed by its name with its question beneath. Every link keeps the global params. */
-export function SideNav() {
+export function SideNav({ onNavigate }: { onNavigate?: () => void } = {}) {
   const href = useKeepParams();
   const { systemId, rev } = useSystemRoute();
   const views = useKindViews();
@@ -39,7 +47,7 @@ export function SideNav() {
   const shown = (v: ViewName) => !VIEW_KINDS[v] || views.declares(VIEW_KINDS[v]);
   const item = (v: ViewName) => <NavItem key={v} view={v} href={href(v)} count={v === "review" ? reviewCount : v === "work" ? workCount : 0} />;
   return (
-    <nav className={`shell-nav ${styles.nav}`} aria-label="Views">
+    <nav className={`shell-nav ${styles.nav}`} aria-label="Views" onClick={(event) => { if ((event.target as HTMLElement).closest("a")) onNavigate?.(); }}>
       {VIEW_GROUPS.map((g) =>
         g.label === null ? (
           <ul key="top" className={styles.list}>
@@ -61,7 +69,7 @@ export function SideNav() {
           </div>
         ),
       )}
-      <NavLink className={styles.link} to={`/s/${encodeURIComponent(systemId)}/r/${encodeURIComponent(rev)}/parts`} title="Private Parts"><span className={styles.glyph} aria-hidden="true">▧</span><span className={styles.label}>Private Parts</span></NavLink>
+      <NavLink className={styles.link} to={`/s/${encodeURIComponent(systemId)}/r/${encodeURIComponent(rev)}/parts`} title="Private Parts"><span className={styles.glyph} aria-hidden="true"><ArchiveIcon /></span><span className={styles.label}>Private Parts</span></NavLink>
     </nav>
   );
 }

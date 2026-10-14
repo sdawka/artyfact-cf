@@ -1,3 +1,4 @@
+import { Button, Textarea } from "@/components/ui";
 import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import type { Candidate } from "../../../../shared/api";
@@ -55,10 +56,10 @@ export function PlanReview({ plan, writeReason, busy, run }: Props) {
       >
         <div className={workStyles.field}>
           <label htmlFor="promotion-rationale">Promotion rationale</label>
-          <textarea id="promotion-rationale" value={rationale} onChange={(e) => setRationale(e.target.value)} required />
+          <Textarea id="promotion-rationale" value={rationale} onChange={(e) => setRationale(e.target.value)} required />
         </div>
         <div className={workStyles.actions}>
-          <button className={`u-brackets ${workStyles.primary}`} disabled={!!promoteReason || busy || !rationale.trim()} aria-describedby={promoteReason ? `${uid}-p` : undefined}>Promote reviewed implementation</button>
+          <Button type="submit" variant="primary" disabled={!!promoteReason || busy || !rationale.trim()} aria-describedby={promoteReason ? `${uid}-p` : undefined}>Promote reviewed implementation</Button>
           {promoteReason && <span id={`${uid}-p`} className={workStyles.reason}>{promoteReason}</span>}
         </div>
       </form>
@@ -76,7 +77,7 @@ export function BindingChanges({ plan, artifactId, candidate, token }: { plan: R
   return (
     <details>
       <summary>Changed files and Genome nodes for {artifactId}</summary>
-      <ul>{candidate?.changedPaths.map((file) => <li key={file}><button type="button" className={workStyles.textBtn} onClick={() => setPath(file)} aria-pressed={file === path}>{file}</button></li>)}</ul>
+      <ul>{candidate?.changedPaths.map((file) => <li key={file}><Button type="button" variant="ghost" size="compact" onClick={() => setPath(file)} aria-pressed={file === path}>{file}</Button></li>)}</ul>
       <ul>{candidate?.changedSubjects.map((node) => <li key={node}><code>{node}</code></li>)}</ul>
       {diff.isLoading && <p role="status">Loading reviewed file changes…</p>}
       {diff.error && <p role="alert">{(diff.error as Error).message}</p>}

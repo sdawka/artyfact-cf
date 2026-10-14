@@ -71,7 +71,7 @@ export function InspectorDrawer() {
   const entry = focusId ? m.byId(focusId) : undefined;
   const Body = useTabComponent(tab);
   return (
-    <Drawer open={open} label="Inspector" width={width} onWidthChange={setWidth}>
+    <Drawer open={open} label="Inspector" width={width} onWidthChange={setWidth} onClose={close}>
       <div ref={container} className={styles.inspector}>
         {entry ? (
           <>

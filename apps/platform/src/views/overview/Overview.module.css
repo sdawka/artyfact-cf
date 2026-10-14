@@ -68,17 +68,6 @@ p.muted { margin: 0; }
 .level { color: var(--color-text-subtle); font-size: var(--font-size-xs); }
 .action { margin: 0; font-size: var(--font-size-sm); }
 .group { display: grid; gap: var(--spacing-1); justify-items: start; }
-.groupButton, .smallButton {
-  padding: var(--spacing-1) var(--spacing-2);
-  color: var(--color-text-primary);
-  background: none;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--border-radius-sm);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-.groupButton:hover, .smallButton:hover { border-color: var(--color-border); }
 .derivation { width: 100%; padding: var(--spacing-2) var(--spacing-3); background: var(--color-background); border-radius: var(--border-radius-sm); }
 .facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: var(--spacing-2) var(--spacing-4); margin: 0; font-size: var(--font-size-sm); }
 .facts dt { color: var(--color-text-subtle); }

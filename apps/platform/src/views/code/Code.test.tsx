@@ -1,3 +1,4 @@
+import { chooseSelect } from "../testing/select";
 import type { QueryClient } from "@tanstack/react-query";
 import { cleanup, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -69,11 +70,11 @@ async function editCurrent(text: string) {
   typeInEditor(document.body, text);
 }
 
-function fillSheet(opts: { evolution?: string; token?: string } = {}) {
+async function fillSheet(opts: { evolution?: string; token?: string } = {}) {
   const sheet = screen.getByRole("complementary", { name: "Commit" });
   fireEvent.change(within(sheet).getByLabelText("Message"), { target: { value: "Tidy the Genome" } });
   fireEvent.change(within(sheet).getByLabelText("Why"), { target: { value: "Clearer purpose" } });
-  fireEvent.change(within(sheet).getByLabelText("Evolution"), { target: { value: opts.evolution ?? EVOLUTION.id } });
+  await chooseSelect(within(sheet).getByRole("combobox", { name: "Evolution" }), opts.evolution === "__new" ? "New evolution…" : `${EVOLUTION.title} (${EVOLUTION.id})`);
   fireEvent.change(within(sheet).getByLabelText("Your name"), { target: { value: "sam" } });
   if (opts.token !== "") fireEvent.change(within(sheet).getByLabelText("Admin token"), { target: { value: opts.token ?? "admin-1" } });
   return sheet;
@@ -126,7 +127,7 @@ describe("Code page", () => {
 
     fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
     const sheet = await screen.findByRole("complementary", { name: "Commit" });
-    fillSheet();
+    await fillSheet();
     fireEvent.click(within(sheet).getByRole("button", { name: "Commit" }));
 
     await waitFor(() => expect(router.state.location.pathname).toBe(`/s/${SYSTEM}/r/head/work`));
@@ -164,7 +165,7 @@ describe("Code page", () => {
     await editCurrent("x: 1\n");
     fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
     const sheet = await screen.findByRole("complementary", { name: "Commit" });
-    fillSheet({ evolution: "__new" });
+    await fillSheet({ evolution: "__new" });
     fireEvent.change(within(sheet).getByLabelText("Evolution title"), { target: { value: "Rename" } });
     fireEvent.change(within(sheet).getByLabelText("Evolution intent"), { target: { value: "Say it plainly" } });
     fireEvent.click(within(sheet).getByRole("button", { name: "Commit" }));
@@ -183,7 +184,7 @@ describe("Code page", () => {
     await editCurrent("x: 1\n");
     fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
     const sheet = await screen.findByRole("complementary", { name: "Commit" });
-    fillSheet({ evolution: "__new" });
+    await fillSheet({ evolution: "__new" });
     fireEvent.change(within(sheet).getByLabelText("Evolution title"), { target: { value: "Rename" } });
     fireEvent.change(within(sheet).getByLabelText("Evolution intent"), { target: { value: "Say it plainly" } });
     fireEvent.click(within(sheet).getByRole("button", { name: "Commit" }));
@@ -202,7 +203,7 @@ describe("Code page", () => {
     await editCurrent("x: 1\n");
     fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
     const sheet = await screen.findByRole("complementary", { name: "Commit" });
-    fillSheet();
+    await fillSheet();
     fireEvent.click(within(sheet).getByRole("button", { name: "Commit" }));
     expect((await within(sheet).findByRole("alert")).textContent).toBe("Commit needs the admin token (401). Set the admin token in the header and try again.");
     fireEvent.click(within(sheet).getByRole("button", { name: "Retry commit" }));
@@ -223,7 +224,7 @@ describe("Code page", () => {
     await editCurrent("x: 1\n");
     fireEvent.click(screen.getByRole("link", { name: "Commit…" }));
     let sheet = await screen.findByRole("complementary", { name: "Commit" });
-    fillSheet();
+    await fillSheet();
     fireEvent.click(within(sheet).getByRole("button", { name: "Commit" }));
     expect((await within(sheet).findByRole("alert")).textContent).toMatch(/protected/);
 

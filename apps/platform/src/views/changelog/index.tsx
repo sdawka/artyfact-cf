@@ -1,3 +1,4 @@
+import { Select, Button } from "@/components/ui";
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { useChangelog } from "@/api/queries";
@@ -53,19 +54,15 @@ export default function ChangelogView() {
       <h1 id="view-title">Changelog</h1>
       <div className={styles.toolbar}>
         <label htmlFor="changelog-evolution">Evolution</label>
-        <select id="changelog-evolution" value={evolution} onChange={(e) => setParam("evolution", e.target.value || null)}>
-          <option value="">All</option>
-          {evolutions.map((e) => <option key={e.id} value={e.id}>{e.title ? `${e.title} (${e.id})` : e.id}</option>)}
-          {evolution && !evolutions.some((e) => e.id === evolution) && <option value={evolution}>{evolution}</option>}
-        </select>
-        <button
+        <Select id="changelog-evolution" value={evolution} onChange={(value) => setParam("evolution", value || null)} options={[{ value: "", label: "All" }, ...evolutions.map((e) => ({ value: e.id, label: e.title ? `${e.title} (${e.id})` : e.id }))]} />
+        <Button
           type="button"
-          className={`u-brackets ${styles.btn} ${styles.push}`}
+          variant="secondary" className={styles.push}
           aria-pressed={creating}
           onClick={() => setParam("panel", creating ? null : "new")}
         >
           + Evolution
-        </button>
+        </Button>
       </div>
       {creating && (
         <NewEvolutionPanel
@@ -78,7 +75,7 @@ export default function ChangelogView() {
       ) : q.isError ? (
         <EmptyState
           title="Could not load the changelog."
-          action={<button type="button" className={`u-brackets ${styles.btn}`} onClick={() => void q.refetch()}>Retry</button>}
+          action={<Button type="button" variant="secondary" onClick={() => void q.refetch()}>Retry</Button>}
         >
           The System commits could not be fetched. This is not the same as having none.
         </EmptyState>
@@ -96,9 +93,9 @@ export default function ChangelogView() {
             ))}
           </ol>
           {q.hasNextPage && (
-            <button type="button" className={`u-brackets ${styles.btn}`} disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>
+            <Button type="button" variant="secondary" disabled={q.isFetchingNextPage} onClick={() => void q.fetchNextPage()}>
               {q.isFetchingNextPage ? "Loading…" : "Load older commits"}
-            </button>
+            </Button>
           )}
         </>
       )}

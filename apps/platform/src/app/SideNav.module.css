@@ -1,62 +1,42 @@
 .nav {
-  padding: var(--spacing-3) var(--spacing-2);
+  width: 256px;
+  box-sizing: border-box;
+  min-height: 0;
+  padding: 24px 16px;
   border-right: 1px solid var(--color-border-subtle);
   overflow-y: auto;
   background: var(--surface-veil);
-  -webkit-backdrop-filter: var(--backdrop-veil);
   backdrop-filter: var(--backdrop-veil);
 }
-.list {
-  display: grid;
-  gap: var(--spacing-1);
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.group { margin-top: var(--spacing-4); }
-.groupHead {
-  margin: 0;
-  padding: 0 var(--spacing-3);
-  color: var(--color-text-secondary);
-  font-size: var(--font-size-sm);
-}
-.question {
-  margin: 0 0 var(--spacing-1);
-  padding: 0 var(--spacing-3);
-  color: var(--color-text-subtle);
-  font-size: var(--font-size-xs);
-}
+.list { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.group { margin-top: 28px; }
+.groupHead { margin: 0; padding: 0 12px; color: var(--color-text-secondary); font-size: var(--font-size-sm); }
+.question { margin: 4px 0 12px; padding: 0 12px; color: var(--color-text-subtle); font-size: var(--font-size-xs); }
 .link {
-  display: inline-flex;
+  display: grid;
+  grid-template-columns: 20px minmax(0, 1fr) auto;
   align-items: center;
-  gap: var(--spacing-2);
-  padding: var(--spacing-2) var(--spacing-3);
+  gap: 12px;
+  width: 100%;
+  min-height: 44px;
+  box-sizing: border-box;
+  padding: 8px 12px;
+  color: var(--color-text-secondary);
+  text-decoration: none;
+  border-radius: var(--border-radius-md);
+  transition: box-shadow var(--motion-duration-fast) var(--motion-easing-ease-out), background-color var(--motion-duration-fast) var(--motion-easing-ease-out);
 }
-.glyph {
-  width: 1.25em;
-  text-align: center;
-}
-.count {
-  padding-left: var(--spacing-1);
-  color: var(--color-status-warning);
-  font-size: var(--font-size-xs);
-  font-variant-numeric: tabular-nums;
-}
-@media (max-width: 640px) {
-  .nav { padding: var(--spacing-2) var(--spacing-1); }
-  .group { margin-top: var(--spacing-2); }
-  .link { padding: var(--spacing-2); }
-  /* The layer heads stay visible (smaller); the question and view labels collapse to their accessible text. */
-  .groupHead { padding: 0 var(--spacing-1); font-size: var(--font-size-xs); }
-  .question,
-  .label {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip-path: inset(50%);
-    white-space: nowrap;
-  }
+.link:hover { color: var(--color-text-primary); background: var(--color-background-hover); }
+.link[aria-current="page"] { color: var(--color-brand-primary); background: var(--color-background-active); box-shadow: var(--shadow-glow-accent-soft); }
+.link[aria-current="page"]:hover { box-shadow: var(--shadow-glow-accent); }
+.glyph { width: 20px; text-align: center; }
+.label { min-width: 0; }
+.count { color: var(--color-status-warning); font-size: var(--font-size-xs); font-variant-numeric: tabular-nums; }
+.nav > .link { margin-top: 24px; }
+@media (max-width: 1023px) { .nav { width: 100%; padding: 12px 0; border: 0; background: none; backdrop-filter: none; } }
+
+.glyph { display: flex; align-items: center; justify-content: center; }
+.glyph svg { width: 18px; height: 18px; }
+@media (forced-colors: active) {
+  .link[aria-current="page"] { outline: 2px solid Highlight; outline-offset: -2px; font-weight: 700; }
 }

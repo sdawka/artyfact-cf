@@ -1,3 +1,4 @@
+import { Button, Input } from "@/components/ui";
 import { useId, useState } from "react";
 import type { RealizationPlan, Task } from "../../../../shared/lifecycle";
 import { CopyButton } from "@/components/CopyButton/CopyButton";
@@ -48,7 +49,7 @@ export function TaskDetail({ task: t, plan, now, writeReason, commandHidden, sel
       <div className={workStyles.rhead}>
         <h4 id={`${uid}-h`}>{t.title}</h4>
         <TaskStatus status={displayStatus(t, plan)} />
-        <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={onClose}>Close task</button>
+        <Button type="button" variant="secondary" onClick={onClose}>Close task</Button>
       </div>
       <p className={workStyles.muted}><code>{t.id}</code> · binding <code>{t.artifactId}</code></p>
 
@@ -107,7 +108,7 @@ export function TaskDetail({ task: t, plan, now, writeReason, commandHidden, sel
       <h5>Depends on</h5>
       {t.dependsOn.length ? (
         <ul className={workStyles.chips}>
-          {t.dependsOn.map((d) => <li key={d}><button type="button" className={workStyles.textBtn} onClick={() => onOpenTask(d)}>{titleOf(plan, d)}</button></li>)}
+          {t.dependsOn.map((d) => <li key={d}><Button type="button" variant="ghost" size="compact" onClick={() => onOpenTask(d)}>{titleOf(plan, d)}</Button></li>)}
         </ul>
       ) : <p className={workStyles.muted}>Nothing; it can start in its wave.</p>}
 
@@ -128,12 +129,12 @@ export function TaskDetail({ task: t, plan, now, writeReason, commandHidden, sel
         <form onSubmit={select} className={workStyles.form}>
           <div className={workStyles.field}>
             <label htmlFor={`${uid}-c`}>Reviewed candidate ID for {t.title}</label>
-            <input id={`${uid}-c`} value={candidate} onChange={(e) => setCandidate(e.target.value)} autoComplete="off" required />
+            <Input id={`${uid}-c`} value={candidate} onChange={(e) => setCandidate(e.target.value)} autoComplete="off" required />
           </div>
           <div className={workStyles.actions}>
-            <button type="submit" className={`u-brackets ${workStyles.primary}`} disabled={!!writeReason || selecting || !candidate.trim()} aria-describedby={writeReason ? `${uid}-w` : undefined}>
+            <Button type="submit" variant="primary" disabled={!!writeReason || selecting || !candidate.trim()} aria-describedby={writeReason ? `${uid}-w` : undefined}>
               {selecting ? "Selecting…" : "Select reviewed Task result"}
-            </button>
+            </Button>
             {writeReason && <span id={`${uid}-w`} className={workStyles.reason}>{writeReason}</span>}
           </div>
         </form>

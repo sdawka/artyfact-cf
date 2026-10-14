@@ -1,17 +1,15 @@
 import { useRef, useState } from "react";
 import {
-  AmbientField, EffectsProvider, SurfaceField, SURFACE_PRESET_NAMES, type AmbientFieldHandle, type SurfaceHandle, type SurfacePresetName,
+  AmbientField, SurfaceField, SURFACE_PRESET_NAMES, type AmbientFieldHandle, type SurfaceHandle, type SurfacePresetName,
 } from "@artyfact/effects";
-import type { UiVerdict as Verdict } from "@/model/status";
+import { DotsHorizontalIcon, GearIcon } from '@radix-ui/react-icons';
+import { Button, IconButton, Input, Textarea, Checkbox, Select, Menu, Popover, Dialog, Sheet, ToggleGroup, Tabs } from '@/components/ui';
+import { Card } from '@/components/Card/Card';
+import { StatusChip } from '@/components/StatusChip/StatusChip';
+import { VerdictBadge } from '@/components/VerdictBadge/VerdictBadge';
+import { EmptyState } from '@/components/EmptyState/EmptyState';
+import { EffectsPreferenceProvider, useEffectsPreference } from '@/effects/effectsPreference';
 import styles from "./StylePage.module.css";
-
-const VERDICTS: { verdict: Verdict; glyph: string }[] = [
-  { verdict: "pass", glyph: "✓" },
-  { verdict: "fail", glyph: "×" },
-  { verdict: "unknown", glyph: "?" },
-  { verdict: "stale", glyph: "↻" },
-  { verdict: "not-run", glyph: "–" },
-];
 
 const TABS = ["Overview", "Map", "Work"];
 
@@ -34,26 +32,26 @@ function SurfaceTile({ preset }: { preset: SurfacePresetName }) {
       <figcaption>
         <span className={styles.muted}>Illustrative System state.</span>
       </figcaption>
-      <button type="button" className={`u-brackets ${styles.smallButton}`} onClick={() => surface.current?.pulse(1)}>
+      <Button className="u-brackets" onClick={() => surface.current?.pulse(1)}>
         Pulse<span className="sr-only"> {preset}</span>
-      </button>
+      </Button>
     </figure>
   );
 }
 
 function EffectsSection() {
-  const [enabled, setEnabled] = useState(true);
+  const {enabled, setEnabled} = useEffectsPreference();
   const [intensity, setIntensity] = useState(0.5);
   const field = useRef<AmbientFieldHandle>(null);
   return (
-    <EffectsProvider enabled={enabled}>
+    <>
       <h2>Signature effects</h2>
       <p>
         Glow and haze mark signature moments, state changes and selection. They are decorative, follow reduced motion,
         and the page reads the same with them off.
       </p>
       <label className={styles.toggle}>
-        <input type="checkbox" checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> Effects on
+        <Checkbox checked={enabled} onChange={(e) => setEnabled(e.target.checked)} /> Effects on
       </label>
       <div className={styles.surfaceGrid}>
         {SURFACE_PRESET_NAMES.map((p) => <SurfaceTile key={p} preset={p} />)}
@@ -79,57 +77,54 @@ function EffectsSection() {
         <span className={styles.glow} data-glow="success">success</span>
         <span className={styles.glow} data-glow="error">error</span>
       </p>
-    </EffectsProvider>
+    </>
   );
 }
 
-/** Living style sheet for the whimsy theme, served at /style. */
+/** Living examples use the same controls and persisted Effects preference as the application. */
 export function StylePage() {
-  const [tab, setTab] = useState("Map");
-  return (
-    <main className={styles.page}>
-      <p className={`wordmark ${styles.wordmark}`}>
-        artyfact
-      </p>
-      <h1 className={styles.title}>Style sheet</h1>
-      <p>
-        A System is what you are building and why. This page shows the pieces every view is made
-        from, so they stay the same across the app. Display lettering is for the wordmark and page
-        titles only; everything else uses the body face.
-      </p>
-
-      <h2>Bracket card</h2>
-      <div
-        className={`u-brackets ${styles.card}`}
-        tabIndex={0}
-      >
-        Hover or focus this card to see the corner brackets.
+  return <EffectsPreferenceProvider><StyleExamples /></EffectsPreferenceProvider>;
+}
+function StyleExamples() {
+  const [tab,setTab] = useState('Map');
+  const [filter,setFilter] = useState('');
+  const [dialog,setDialog] = useState(false);
+  const [sheet,setSheet] = useState(false);
+  const [choice,setChoice] = useState('Nothing selected');
+  const effects = useEffectsPreference();
+  return <main className={styles.page} data-effects={effects.enabled ? 'on' : 'off'}>
+    <p className={`wordmark ${styles.wordmark}`}>artyfact</p>
+    <h1 className={styles.title}>Style sheet</h1>
+    <p>A System is what you are building and why. These are the shared pieces used throughout the application.</p>
+    <h2>Buttons and fields</h2>
+    <Card title="Create a change" headingLevel={3}>
+      <div className={styles.controls}>
+        <Button variant="primary">Primary action</Button><Button>Secondary action</Button><Button variant="ghost">Quiet action</Button><Button disabled>Unavailable</Button>
+        <IconButton label="Settings" variant="ghost"><GearIcon /></IconButton>
       </div>
-
-      <h2>Segmented tabs</h2>
-      <div className="u-segments" role="tablist">
-        {TABS.map((t) => (
-          <button key={t} role="tab" aria-selected={t === tab} onClick={() => setTab(t)}>
-            {t}
-          </button>
-        ))}
+      <div className={styles.fields}>
+        <label>Title<Input name="title" placeholder="Describe the change" required /></label>
+        <label>Context<Textarea name="context" placeholder="What should happen?" /></label>
+        <label className={styles.toggle}><Checkbox defaultChecked /> Include supporting evidence</label>
+        <label>Unavailable field<Input disabled value="Waiting for evidence" readOnly /></label>
+        <label>Scope<Select label="Scope" name="scope" value={filter} onChange={setFilter} options={[{value:'',label:'All',group:'Scope'},{value:'genome',label:'Genome',group:'Scope'},{value:'proteome',label:'Proteome',group:'Scope'},{value:'phenome',label:'Phenome',group:'Scope'},{value:'unavailable',label:'Unavailable',disabled:true,group:'Other'}]} /></label>
       </div>
-
-      <h2>Marker link</h2>
-      <p>
-        Read the <a className="u-marker" href="/style">task packet</a> before you start work.
-      </p>
-
-      <h2>Verdicts</h2>
-      <p className={styles.verdicts}>
-        {VERDICTS.map(({ verdict, glyph }) => (
-          <span key={verdict} className="u-verdict" data-verdict={verdict}>
-            <span aria-hidden="true">{glyph}</span> {verdict}
-          </span>
-        ))}
-      </p>
-
-      <EffectsSection />
-    </main>
-  );
+    </Card>
+    <h2>Menus and overlays</h2>
+    <div className={styles.controls}>
+      <Menu label="Example actions" trigger={<Button><DotsHorizontalIcon /> Actions</Button>} items={[{id:'review',label:'Review',onSelect:()=>setChoice('Review selected')},{id:'current',label:'Current view',checked:true,group:'View'},{id:'unavailable',label:'Unavailable',disabled:true,group:'View'}]} />
+      <Popover label="Example details" trigger={<Button>Details</Button>}><p>Supporting context stays close to its control.</p><Button variant="ghost">Read more</Button></Popover>
+      <Dialog open={dialog} onOpenChange={setDialog} title="Example dialog" description="Review before continuing." trigger={<Button>Open dialog</Button>}><label>Change title<Input autoFocus placeholder="Title" /></label><div className={styles.controls}><Button variant="primary" onClick={()=>setDialog(false)}>Continue</Button><Button onClick={()=>setDialog(false)}>Cancel</Button></div></Dialog>
+      <Sheet open={sheet} onOpenChange={setSheet} title="Example sheet" side="bottom" trigger={<Button>Open sheet</Button>}><p>Details remain readable on a narrow screen.</p></Sheet>
+    </div>
+    <p role="status">{choice}</p>
+    <h2>Tabs and choices</h2>
+    <Tabs tabs={TABS.map(id=>({id,label:id}))} value={tab} onChange={setTab} label="Example workspace"><p>{tab} content</p></Tabs>
+    <ToggleGroup tabs={TABS.map(id=>({id,label:id}))} value={tab} onChange={setTab} label="Example layer" />
+    <h2>States and verdicts</h2>
+    <div className={styles.controls}><StatusChip status="needs-review" label="Needs review" tone="attention" />{(['pass','fail','unknown','stale','not-run'] as const).map(verdict=><VerdictBadge key={verdict} verdict={verdict} />)}</div>
+    <EmptyState title="No evidence yet" action={<Button>Add evidence</Button>}>Run an evaluation to collect the first result.</EmptyState>
+    <p>Read the <a className="u-marker" href="/style">task packet</a> before you start work.</p>
+    <EffectsSection />
+  </main>;
 }

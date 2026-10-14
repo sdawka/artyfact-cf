@@ -2,6 +2,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { qk } from "@/api/queries";
 import { renderApp } from "@/testing/render";
+import { chooseSelect } from "../testing/select";
 import { SYSTEM, evaluation } from "../work/testData";
 
 const URL = `/s/${SYSTEM}/r/head/evaluations`;
@@ -23,12 +24,12 @@ describe("Evaluations view", () => {
     ]));
     await screen.findByRole("table");
     expect(screen.getAllByRole("row")).toHaveLength(4);
-    fireEvent.change(screen.getByLabelText("Verdict"), { target: { value: "fail" } });
+    await chooseSelect(screen.getByRole("combobox", { name: "Verdict" }), "fail");
     expect(screen.getAllByRole("row")).toHaveLength(2);
-    fireEvent.change(screen.getByLabelText("Verdict"), { target: { value: "" } });
-    fireEvent.change(screen.getByLabelText("Candidate"), { target: { value: "cand.1" } });
+    await chooseSelect(screen.getByRole("combobox", { name: "Verdict" }), "All");
+    await chooseSelect(screen.getByRole("combobox", { name: "Candidate" }), "cand.1");
     expect(screen.getAllByRole("row")).toHaveLength(2);
-    fireEvent.change(screen.getByLabelText("Execution"), { target: { value: "error" } });
+    await chooseSelect(screen.getByRole("combobox", { name: "Execution" }), "error");
     expect(screen.getByText("No evaluations match these filters.")).toBeTruthy();
   });
 
@@ -38,7 +39,7 @@ describe("Evaluations view", () => {
       evaluation({ id: "e2", criterion: "C.webapp.health", verdict: "fail" }),
     ]));
     await screen.findByRole("table");
-    expect((screen.getByLabelText("Criterion") as HTMLSelectElement).value).toBe("C.webapp.health");
+    expect(screen.getByRole("combobox", { name: "Criterion" }).textContent).toContain("C.webapp.health");
     expect(screen.getAllByRole("row")).toHaveLength(2);
   });
 

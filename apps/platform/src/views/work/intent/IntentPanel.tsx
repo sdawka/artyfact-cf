@@ -1,3 +1,4 @@
+import { Button, Textarea } from "@/components/ui";
 import { useEffect, useId, useRef, useState } from "react";
 import type { IntentAcceptResponse } from "../../../../shared/api";
 import { useAdminToken } from "@/api/adminToken";
@@ -58,9 +59,9 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
         <h2 id={`${uid}-h`} ref={heading} tabIndex={-1}>Describe a change</h2>
         <span className={workStyles.inlineRow}>
           {proposalId && !fixture && (
-            <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => setProposalId(null)}>Start over</button>
+            <Button type="button" variant="secondary" onClick={() => setProposalId(null)}>Start over</Button>
           )}
-          <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={onClose}>Back to board</button>
+          <Button type="button" variant="secondary" onClick={onClose}>Back to board</Button>
         </span>
       </div>
 
@@ -68,7 +69,7 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
         <p className={workStyles.inlineRow}>
           <span className={workStyles.muted}>Starting from</span>
           <NodeChip id={anchor} size="sm" showId interactive={false} />
-          <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => setAnchor(null)}>Clear anchor</button>
+          <Button type="button" variant="secondary" onClick={() => setAnchor(null)}>Clear anchor</Button>
         </p>
       )}
 
@@ -76,17 +77,17 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
         <form onSubmit={submit} className={workStyles.form}>
           <div className={workStyles.field}>
             <label htmlFor={`${uid}-m`}>What should change?</label>
-            <textarea id={`${uid}-m`} rows={3} value={message} onChange={(e) => setMessage(e.target.value)} disabled={fixture} />
+            <Textarea id={`${uid}-m`} rows={3} value={message} onChange={(e) => setMessage(e.target.value)} disabled={fixture} />
           </div>
           <div className={workStyles.actions}>
-            <button
+            <Button
               type="submit"
-              className={`u-brackets ${shown ? workStyles.btn : workStyles.primary}`}
+              variant={shown ? "secondary" : "primary"}
               disabled={!!reason || create.isPending}
               aria-describedby={reason ? `${uid}-why` : undefined}
             >
               {create.isPending ? "Proposing…" : "Propose changes"}
-            </button>
+            </Button>
             {reason && <span id={`${uid}-why`} className={workStyles.reason}>{reason}</span>}
           </div>
           {create.isError && <p role="alert" className={workStyles.error}>{intentError(create.error)}</p>}
@@ -104,13 +105,13 @@ export function IntentPanel({ onAccepted, onClose }: { onAccepted(res: IntentAcc
           {settled.res.deferralError && <p className={workStyles.error}>The deferred changes were not kept: {settled.res.deferralError}.</p>}
           <span className={workStyles.inlineRow}>
             {settled.res.deferred && (
-              <button type="button" className={`u-brackets ${workStyles.primary}`} onClick={() => setProposalId(settled.res.deferred!.proposal)}>
+              <Button type="button" variant="primary" className="u-brackets" onClick={() => setProposalId(settled.res.deferred!.proposal)}>
                 Continue with deferred
-              </button>
+              </Button>
             )}
-            <button type="button" className={`u-brackets ${workStyles.btn}`} onClick={() => onAccepted(settled.res)}>
+            <Button type="button" variant="secondary" className="u-brackets" onClick={() => onAccepted(settled.res)}>
               Open the accepted change
-            </button>
+            </Button>
           </span>
         </div>
       )}

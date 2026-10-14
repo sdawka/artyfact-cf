@@ -199,20 +199,6 @@ code, kbd, pre { font-family: var(--font-code); }
   border-radius: var(--border-radius-md);
 }
 
-/* Shell rules (adapted from the compsys sidebar/nav rules). */
-.shell-nav a {
-  color: var(--color-text-secondary);
-  border-radius: var(--border-radius-md);
-  text-decoration: none;
-}
-.shell-nav a:hover {
-  color: var(--color-text-primary);
-  background: var(--color-background-hover);
-}
-.shell-nav a[aria-current="page"] {
-  color: var(--color-brand-primary);
-  background: var(--color-background-active);
-}
 .shell-label { color: var(--color-text-subtle); }
 .shell-rule { border-color: var(--color-border-subtle); }
 

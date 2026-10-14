@@ -1,46 +1,12 @@
-.wrap { position: relative; }
-.button {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--spacing-1);
-  padding: var(--spacing-1) var(--spacing-3);
-  color: var(--color-text-secondary);
-  background: var(--color-surface-primary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--border-radius-md);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-.button:hover { color: var(--color-text-primary); }
 .pop {
-  position: absolute;
-  top: calc(100% + var(--spacing-2));
-  right: 0;
-  z-index: 20;
-  display: grid;
-  gap: var(--spacing-2);
-  width: min(22rem, 90vw);
-  padding: var(--spacing-3);
-  color: var(--color-text-primary);
-  background: var(--color-surface-primary);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--border-radius-md);
-  box-shadow: var(--shadow-glow-accent);
+  width: min(22rem, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  box-sizing: border-box;
 }
-.title { margin: 0; font-size: var(--font-size-md); }
-.label { display: block; margin-bottom: var(--spacing-1); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.title { margin: 0 0 16px; font-size: var(--font-size-lg); }
+.label { display: block; margin-bottom: 8px; font-size: var(--font-size-sm); color: var(--color-text-secondary); }
 .pop input { width: 100%; box-sizing: border-box; }
-.note { margin: var(--spacing-2) 0; color: var(--color-text-subtle); font-size: var(--font-size-xs); }
-.actions { display: flex; gap: var(--spacing-2); }
-.save, .forget {
-  padding: var(--spacing-1) var(--spacing-3);
-  color: var(--color-text-primary);
-  background: none;
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--border-radius-sm);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-.save:disabled, .forget:disabled { opacity: 0.5; cursor: default; }
+.note { margin: 16px 0; color: var(--color-text-subtle); font-size: var(--font-size-xs); }
+.actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.mobileAnchor { position: absolute !important; top: 16px; right: 64px; width: 1px !important; height: 1px !important; min-height: 0 !important; padding: 0 !important; overflow: hidden; opacity: 0; pointer-events: none; }

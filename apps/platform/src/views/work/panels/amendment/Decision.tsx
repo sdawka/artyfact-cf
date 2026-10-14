@@ -1,3 +1,4 @@
+import { Button, Input, Textarea } from "@/components/ui";
 import { useId, useState } from "react";
 import { Link } from "react-router";
 import { useAdminTokenField } from "@/api/adminToken";
@@ -81,14 +82,14 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
     <div className={styles.decision}>
       <div className={styles.fieldBlock}>
         <label htmlFor={ids.token}>Admin token</label>
-        <input id={ids.token} type="password" value={adminToken} disabled={!!outcome} autoComplete="off" onChange={(e) => setAdminToken(e.target.value)} />
+        <Input id={ids.token} type="password" value={adminToken} disabled={!!outcome} autoComplete="off" onChange={(e) => setAdminToken(e.target.value)} />
       </div>
       <div className={styles.fieldBlock}>
         <label htmlFor={ids.interp}>Accepted interpretation</label>
         <p id={`${ids.interp}-hint`} className={styles.muted}>
           Recorded with the amendment. Say how the Genome should now be read.
         </p>
-        <textarea
+        <Textarea
           id={ids.interp}
           aria-describedby={`${ids.interp}-hint`}
           rows={4}
@@ -100,15 +101,15 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
         {acceptError && <p className={styles.error} role="alert">{acceptError}</p>}
       </div>
       <div className={styles.actions}>
-        <button
+        <Button
           type="button"
-          className={`u-brackets ${styles.primary}`}
+          variant="primary"
           disabled={!!acceptDisabledReason || accept.isPending}
           aria-describedby={acceptDisabledReason ? ids.why : undefined}
           onClick={doAccept}
         >
           {accept.isPending ? "Accepting…" : "Accept amendment"}
-        </button>
+        </Button>
         {acceptDisabledReason && !outcome && <p id={ids.why} className={styles.muted}>{acceptDisabledReason}</p>}
       </div>
       {accept.error && <p className={styles.error} role="alert">{accept.error.message}</p>}
@@ -116,19 +117,18 @@ export function Decision({ evolutionId, realization, candidateId, commit, initia
 
       <div className={styles.fieldBlock}>
         <label htmlFor={ids.reason}>Rejection reason</label>
-        <textarea id={ids.reason} rows={2} value={reason} disabled={!!outcome} onChange={(e) => setReason(e.target.value)} />
+        <Textarea id={ids.reason} rows={2} value={reason} disabled={!!outcome} onChange={(e) => setReason(e.target.value)} />
         {rejectError && <p className={styles.error} role="alert">{rejectError}</p>}
       </div>
       <div className={styles.actions}>
-        <button
+        <Button variant="secondary"
           type="button"
-          className="u-brackets"
           disabled={!!rejectDisabledReason || reject.isPending}
           aria-describedby={rejectDisabledReason ? `${ids.why}-reject` : undefined}
           onClick={doReject}
         >
           {reject.isPending ? "Rejecting…" : "Reject amendment"}
-        </button>
+        </Button>
         {rejectDisabledReason && !outcome && <p id={`${ids.why}-reject`} className={styles.muted}>{rejectDisabledReason}</p>}
       </div>
 

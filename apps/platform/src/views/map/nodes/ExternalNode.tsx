@@ -2,6 +2,7 @@ import { Handle, Position, type NodeProps } from "@xyflow/react";
 import { kindColour, useKindView } from "@/model/kinds";
 import type { External } from "@/model/types";
 import { useModel } from "@/model/useModel";
+import { relationBorderStyle } from "../atlasRelationStyle";
 import styles from "./nodes.module.css";
 import type { ExternalFlowNode } from "./types";
 
@@ -11,7 +12,7 @@ export function ExternalNode({ data, selected }: NodeProps<ExternalFlowNode>) {
   const info = useKindView(node.kind);
   const ext = useModel().byId(node.id)?.item as External | undefined;
   return (
-    <div className={`${styles.node} ${styles.external}`} data-map-node={node.id} data-role="external" data-dim={dim || undefined} data-selected={selected || undefined} data-status={data.status}>
+    <div className={`${styles.node} ${styles.external}`} style={relationBorderStyle(data.relation)} data-related={!!data.relation || undefined} data-emphasized={data.emphasized || undefined} data-map-node={node.id} data-role="external" data-dim={dim || undefined} data-selected={selected || undefined} data-status={data.status}>
       <Handle type="target" position={Position.Left} className={styles.handle} isConnectable={false} />
       <div className={styles.title}>
         <span className={styles.glyph} style={kindColour(info)} aria-hidden="true">{info.glyph}</span>

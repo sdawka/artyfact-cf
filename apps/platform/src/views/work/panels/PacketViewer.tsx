@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { useEffect, useState } from "react";
 import { countdown, useNow } from "../lib";
 import { Markdown } from "../Markdown";
@@ -17,9 +18,9 @@ function CopyText({ value, label }: { value: string; label: string }) {
   };
   return (
     <>
-      <button type="button" className={`u-brackets ${styles.btn}`} onClick={copy} aria-label={label}>
+      <Button type="button" variant="secondary" onClick={copy} aria-label={label}>
         {state === "idle" ? label : state === "copied" ? "Copied" : "Copy failed"}
-      </button>
+      </Button>
       <span className="sr-only" role="status">{state === "idle" ? "" : state === "copied" ? "Copied" : "Copy failed"}</span>
     </>
   );
@@ -54,7 +55,7 @@ export function PacketViewer({ markdown, cli, expiresAt, remote }: PacketViewerP
               <pre className={styles.cliLine}><code>{cli}</code></pre>
               <div className={styles.actions}>
                 <CopyText value={cli} label="Copy command" />
-                <button type="button" className={`u-brackets ${styles.btn}`} onClick={() => setHidden(true)}>I have copied it, hide</button>
+                <Button type="button" variant="secondary" onClick={() => setHidden(true)}>I have copied it, hide</Button>
               </div>
             </>
           ) : (

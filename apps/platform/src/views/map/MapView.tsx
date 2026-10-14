@@ -1,3 +1,5 @@
+import { Button, Checkbox, IconButton } from "@/components/ui";
+import { Cross2Icon } from "@radix-ui/react-icons";
 import { ReactFlow, ReactFlowProvider } from "@xyflow/react";
 import { useLocation } from "react-router";
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
@@ -23,6 +25,8 @@ import { useCandidateTouches } from "./overlays/useCandidateTouches";
 import { DEFAULT_FILTERS, ENVIRONMENT_SCOPE, mapScopeFor, useFindingSubjects, useMapGraph, type MapFilterState } from "./useMapGraph";
 import { layoutAtlas } from "./atlasLayout";
 import { atlasFlowEdges, atlasFlowNodes } from "./atlasFlow";
+import { selectedBoundaryEdges } from "./atlasConnections";
+import type { AtlasTravel } from "./atlasCameraMotion";
 import { AtlasCamera, saveAtlasCamera } from "./AtlasCamera";
 import { AtlasSelection } from "./AtlasSelection";
 import { useDepthGestures } from "./useDepthGestures";
@@ -54,12 +58,16 @@ export function MapView() {
   const views = useKindViews();
   const navigation = useAtlasNavigation();
   const location = useLocation();
+  const currentLocationKey = useRef(location.key);
+  currentLocationKey.current = location.key;
   const { focusId, layer, candidates } = useSelection();
   const { systemId, rev } = useSystemRoute();
   const [filters, setFilters] = useState<MapFilterState>(DEFAULT_FILTERS);
   const [panel, setPanel] = useState<"tree" | "filters" | null>(null);
   const [showAll, setShowAll] = useState(false);
   const graph = useMapGraph(navigation.scope, filters);
+  const committedScope = useRef(graph.scope);
+  useEffect(() => { committedScope.current = graph.scope; }, [graph.scope]);
   const layout = useMemo(() => layoutAtlas(graph), [graph]);
   const touches = useCandidateTouches(candidates);
   const halos = useMemo(() => candidateHalos(index, graph, touches), [index, graph, touches]);
@@ -69,47 +77,83 @@ export function MapView() {
   const [navigationPanel, setNavigationPanel] = useState<HTMLElement | null>(null);
   useAtlasReveal(surface, graph.scope);
   useAtlasReveal(navigationPanel, panel, 140);
+  const [hoverId, setHoverId] = useState<string | null>(null);
+  const [travel, setTravel] = useState<AtlasTravel | null>(null);
+  const travelSequence = useRef(0);
   const [focusFrame, setFocusFrame] = useState<string | null>(null);
   const [locate, setLocate] = useState<{ id: string; sequence: number } | null>(null);
-  const [pendingLocate, setPendingLocate] = useState<{ id: string; scope: string; requestKey?: string } | null>(null);
+  const [pendingLocate, setPendingLocate] = useState<{ id: string; scope: string; requestKey?: string; sourceKey?: string } | null>(null);
   const cameraKey = `${systemId}/${rev}/${graph.scope}`;
-  const openScope = useCallback((id: string, keyboard = false) => {
-    if (!index.children(id).length || id === graph.scope || index.byId(id)?.type === "external") return;
-    navigation.enter(id);
+  const openScope = useCallback((id: string, keyboard = false, afterClickSelection = false) => {
+    if (!index.children(id).length || id === committedScope.current || index.byId(id)?.type === "external") return;
+    setPendingLocate(null);
+    const selectedSearch = new URLSearchParams(location.search);
+    selectedSearch.set("scope", graph.scope); selectedSearch.set("focus", id); selectedSearch.delete("inspect");
+    const pendingSelection = afterClickSelection ? { historyKey: location.key, search: `?${selectedSearch}` } : undefined;
+    setTravel({ pendingSelection, historyKey: pendingSelection ? undefined : committedScope.current === graph.scope ? location.key : undefined, source: committedScope.current, id, target: id, kind: "enter", sequence: ++travelSequence.current });
     if (keyboard) setFocusFrame(id);
-  }, [index, graph.scope, navigation]);
+  }, [index, graph.scope, navigation, location.key, location.search]);
   const goUp = useCallback(() => {
-    if (graph.scope === ENVIRONMENT_SCOPE) return;
-    navigation.up();
-    setFocusFrame(index.parent(graph.scope)?.id ?? ENVIRONMENT_SCOPE);
-  }, [navigation, graph.scope, index]);
+    const source = committedScope.current;
+    if (source === ENVIRONMENT_SCOPE) return;
+    const target = source === index.model.system.id ? ENVIRONMENT_SCOPE : index.parent(source)?.id ?? ENVIRONMENT_SCOPE;
+    setPendingLocate(null);
+    setTravel({ historyKey: source === graph.scope ? location.key : undefined, source, id: source, target, kind: "up", sequence: ++travelSequence.current });
+    setFocusFrame(target);
+  }, [navigation, graph.scope, index, location.key]);
   useDepthGestures(canvas, (id) => { const target = id ?? focusId; if (target) openScope(target); }, goUp);
   const locateNode = useCallback((id: string) => {
     if (graph.ids.has(id)) {
+      setPendingLocate(null);
+      ++travelSequence.current; setTravel(null);
       navigation.select(id);
       setLocate((last) => ({ id, sequence: (last?.sequence ?? 0) + 1 }));
       return;
     }
     setFilters(DEFAULT_FILTERS);
     const next = index.byId(id)?.type === "external" ? ENVIRONMENT_SCOPE : (index.parent(id)?.id ?? mapScopeFor(index, id));
-    setPendingLocate({ id, scope: next });
-    navigation.enter(next);
-  }, [graph, index, navigation]);
+    const ownerSequence = ++travelSequence.current;
+    setPendingLocate(null);
+    if (next === graph.scope) { setPendingLocate({ id, scope: next, sourceKey: location.key }); setTravel(null); return; }
+    const projected = [...index.path(id)].reverse().find(entry => graph.ids.has(entry.id))?.id ?? graph.scope;
+    setTravel({ historyKey: committedScope.current === graph.scope ? location.key : undefined, source: committedScope.current, id: projected, target: next, focus: id, kind: "locate", sequence: ownerSequence });
+  }, [graph, index, navigation, location.key]);
+  useEffect(() => {
+    // Rapid depth actions may arrive before their just-committed source scope renders.
+    if (!travel || travel.historyKey || travel.source !== graph.scope) return;
+    // A double-click includes a selecting click. Wait for that exact URL replacement;
+    // other focus/layer/Details changes still cancel this gesture before it can enter.
+    if (travel.pendingSelection && location.search !== travel.pendingSelection.search) {
+      if (location.key !== travel.pendingSelection.historyKey) { ++travelSequence.current; setTravel(null); setPendingLocate(null); }
+      return;
+    }
+    setTravel({ ...travel, historyKey: location.key, pendingSelection: undefined });
+  }, [travel, graph.scope, location.key, location.search]);
+  useEffect(() => {
+    if (!travel?.historyKey || travel.historyKey === location.key) return;
+    ++travelSequence.current; setTravel(null); setPendingLocate(null);
+  }, [location.key, travel]);
+  useEffect(() => {
+    if (!pendingLocate?.sourceKey || location.key === pendingLocate.sourceKey) return;
+    ++travelSequence.current; setTravel(null); setPendingLocate(null);
+  }, [location.key, pendingLocate]);
   useEffect(() => {
     const requested = (location.state as { atlasLocate?: string } | null)?.atlasLocate;
     const requestKey = `${systemId}/${rev}/${location.key}`;
     if (!requested || requested !== focusId || consumedLocateEntries.has(requestKey)) return;
     setFilters(DEFAULT_FILTERS);
-    setPendingLocate({ id: requested, scope: graph.scope, requestKey });
+    setPendingLocate({ id: requested, scope: graph.scope, requestKey, sourceKey: location.key });
   }, [location, focusId, graph.scope, systemId, rev]);
   useEffect(() => {
     if (!pendingLocate) return;
+    // Effects share one render closure: reject an unauthorized arrival before any selection/camera write.
+    if (pendingLocate.sourceKey && location.key !== pendingLocate.sourceKey) return;
     if (graph.scope !== pendingLocate.scope || !graph.ids.has(pendingLocate.id)) return;
     if (pendingLocate.requestKey) consumedLocateEntries.add(pendingLocate.requestKey);
     if (focusId !== pendingLocate.id) navigation.select(pendingLocate.id);
     setLocate((last) => ({ id: pendingLocate.id, sequence: (last?.sequence ?? 0) + 1 }));
     setPendingLocate(null);
-  }, [pendingLocate, graph, focusId, navigation]);
+  }, [pendingLocate, graph, focusId, navigation, location.key]);
   useEffect(() => {
     const onKey = (event: globalThis.KeyboardEvent) => {
       if (event.key !== "Backspace" || event.defaultPrevented || isTyping(event.target) || event.metaKey || event.ctrlKey || event.altKey || document.querySelector("[role=dialog][aria-modal=true]")) return;
@@ -127,8 +171,22 @@ export function MapView() {
     return parts.join(", ");
   }, [layer, rollup, board, halos]);
   const status = useMemo(() => new Map(graph.nodes.map((node) => [node.id, nodeStatus(rollup(node.id))])), [graph, rollup]);
-  const nodes = useMemo(() => atlasFlowNodes(graph, layout, { layer, focusId, halos, status, onOpen: openScope, describe }), [graph, layout, layer, focusId, halos, status, openScope, describe]);
-  const edges = useMemo(() => atlasFlowEdges(graph, focusId, showAll, index), [graph, focusId, showAll, index]);
+  const relationEdges = useMemo(() => [...new Map([
+    ...selectedBoundaryEdges(graph, focusId, index), ...selectedBoundaryEdges(graph, hoverId, index),
+  ].map(edge => [edge.id, edge])).values()], [graph, focusId, hoverId, index]);
+  const emphasizedIds = useMemo(() => new Set([focusId, hoverId].filter((id): id is string => !!id)), [focusId, hoverId]);
+  const nodes = useMemo(() => atlasFlowNodes(graph, layout, { layer, focusId, halos, status, relationEdges, emphasizedIds, onOpen: openScope, describe }), [graph, layout, layer, focusId, halos, status, relationEdges, emphasizedIds, openScope, describe]);
+  const edges = useMemo(() => atlasFlowEdges(graph, focusId, showAll, index, hoverId), [graph, focusId, showAll, index, hoverId]);
+  useEffect(() => { setHoverId(null); }, [graph.scope]);
+  const finishTravel = useCallback((request: AtlasTravel) => {
+    if (request.sequence !== travelSequence.current || (request.historyKey && request.historyKey !== currentLocationKey.current)) return false;
+    committedScope.current = request.target;
+    if (request.kind === "locate" && request.focus) navigation.locate(request.focus);
+    else navigation.enter(request.target);
+    setTravel(null);
+    return true;
+  }, [navigation]);
+  const cancelTravel = useCallback(() => { ++travelSequence.current; setTravel(null); setPendingLocate(null); }, []);
   useEffect(() => {
     if (!focusFrame || !canvas || focusFrame !== graph.scope) return;
     const id = graph.scope === ENVIRONMENT_SCOPE ? index.model.system.id : graph.scope;
@@ -166,17 +224,17 @@ export function MapView() {
         <div className={styles.overlay}><LayerSwitch /></div>
       </div>
       <div className={styles.toolbar}>
-        <button onClick={goUp} disabled={graph.scope === ENVIRONMENT_SCOPE}>Up</button>
-        {graph.scope === ENVIRONMENT_SCOPE && index.children(index.model.system.id).length > 0 && <button onClick={() => openScope(index.model.system.id)}>Enter {index.model.system.name}</button>}
-        <button onClick={() => setPanel((last) => last === "tree" ? null : "tree")} aria-expanded={panel === "tree"} aria-controls="atlas-navigation">Tree</button>
-        <button onClick={() => setPanel((last) => last === "filters" ? null : "filters")} aria-expanded={panel === "filters"} aria-controls="atlas-navigation">Filters</button>
-        <label className={styles.showAll}><input type="checkbox" checked={showAll} onChange={(event) => setShowAll(event.target.checked)} />Show all connections</label>
+        <Button size="compact" onClick={goUp} disabled={graph.scope === ENVIRONMENT_SCOPE}>Up</Button>
+        {graph.scope === ENVIRONMENT_SCOPE && index.children(index.model.system.id).length > 0 && <Button size="compact" onClick={() => openScope(index.model.system.id)}>Enter {index.model.system.name}</Button>}
+        <Button size="compact" onClick={() => setPanel((last) => last === "tree" ? null : "tree")} aria-expanded={panel === "tree"} aria-controls="atlas-navigation">Tree</Button>
+        <Button size="compact" onClick={() => setPanel((last) => last === "filters" ? null : "filters")} aria-expanded={panel === "filters"} aria-controls="atlas-navigation">Filters</Button>
+        <label className={styles.showAll}><Checkbox checked={showAll} onChange={(event) => setShowAll(event.target.checked)} />Show all connections</label>
         <span className={styles.hint}>Drag or scroll to pan. Enter to explore. D for Details.</span>
       </div>
     </header>
     <div className={styles.canvas} ref={setCanvas} onKeyDown={onCanvasKeyDown} data-layer={layer} data-scope={graph.scope} data-testid="atlas-canvas">
       {panel && <aside ref={setNavigationPanel} id="atlas-navigation" className={styles.navigation} aria-label="Map navigation">
-        <div className={styles.panelHead}><strong>{panel === "tree" ? "Containment" : "Filters"}</strong><button onClick={() => setPanel(null)} aria-label="Close map navigation">×</button></div>
+        <div className={styles.panelHead}><strong>{panel === "tree" ? "Containment" : "Filters"}</strong><IconButton size="compact" label="Close map navigation" onClick={() => setPanel(null)}><Cross2Icon /></IconButton></div>
         {panel === "tree" ? <HierarchyTree scope={graph.scope === ENVIRONMENT_SCOPE ? index.model.system.id : graph.scope} focusId={focusId} onSelect={locateNode} /> : <MapFilters value={filters} onChange={setFilters} kinds={kinds} linkTypes={links} findingCount={findingCount} />}
       </aside>}
       <div className={styles.flowSurface} ref={setSurface} data-testid="atlas-surface">
@@ -187,14 +245,19 @@ export function MapView() {
           minZoom={0.15} maxZoom={2} nodesDraggable={false} nodesConnectable={false} elementsSelectable={false} edgesFocusable={false}
           elevateNodesOnSelect={false} deleteKeyCode={null} selectionKeyCode={null} multiSelectionKeyCode={null}
           zoomOnDoubleClick={false} zoomOnScroll={false} zoomOnPinch={false} zoomActivationKeyCode={null} panOnScroll
-          onNodeClick={(_, node) => navigation.select(node.id)} onNodeDoubleClick={(_, node) => openScope(node.id)}
-          onPaneClick={() => navigation.select(null)}
+          onNodeMouseEnter={(_, node) => setHoverId(node.id)} onNodeMouseLeave={() => setHoverId(null)}
+          onNodeClick={(event, node) => {
+            if (event.detail > 1) return; // The second click belongs to the double-click Enter gesture.
+            cancelTravel();
+            if (focusId !== node.id || new URLSearchParams(location.search).has("inspect")) navigation.select(node.id);
+          }} onNodeDoubleClick={(event, node) => openScope(node.id, false, event.detail > 1)}
+          onPaneClick={() => { cancelTravel(); navigation.select(null); }}
           onMoveStart={(event, viewport) => { if (event) saveAtlasCamera(cameraKey, viewport); canvas?.dispatchEvent(new Event("atlas-camera-move")); }}
           onMove={(event, viewport) => { if (event) saveAtlasCamera(cameraKey, viewport); canvas?.dispatchEvent(new Event("atlas-camera-move")); }}
           onMoveEnd={(event, viewport) => { if (event) saveAtlasCamera(cameraKey, viewport); canvas?.dispatchEvent(new Event("atlas-camera-move")); }}
           proOptions={{ hideAttribution: true }}
         >
-          <AtlasCamera cameraKey={cameraKey} layout={layout} canvas={canvas} graph={graph} focusId={focusId} locate={locate} onLocate={locateNode} />
+          <AtlasCamera cameraKey={cameraKey} layout={layout} canvas={canvas} graph={graph} focusId={focusId} travel={travel} onTravel={finishTravel} onCancelTravel={cancelTravel} locate={locate} onLocate={locateNode} />
         </ReactFlow>
       </ReactFlowProvider>
       </div>

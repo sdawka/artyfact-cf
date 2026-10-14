@@ -13,6 +13,95 @@ const search = (router: { state: { location: { search: string } } }) => new URLS
 const key = (k: string, init: KeyboardEventInit = {}) => act(() => void fireEvent.keyDown(window, { key: k, ...init }));
 
 describe("Shell", () => {
+  it.each([
+    ["/", "Go to a System or Part"],
+    ["/parts/part.ui.buttons/2.1.0", "Go to a System or Part"],
+    [`${BASE}/overview`, "Go to node"],
+  ])("palette shortcuts defer to other overlays and toggle normally at %s", async (path, title) => {
+    renderApp(path);
+    const admin = await screen.findByRole("button", { name: "Admin token" });
+    await act(() => admin.click());
+    const input = await screen.findByLabelText("Token for admin actions");
+    await waitFor(() => expect(document.activeElement).toBe(input));
+    const blocked = new KeyboardEvent("keydown", { key: "k", ctrlKey: true, bubbles: true, cancelable: true });
+    await act(() => { input.dispatchEvent(blocked); });
+    expect(blocked.defaultPrevented).toBe(true);
+    expect(screen.queryByRole("dialog", { name: title })).toBeNull();
+    expect(document.activeElement).toBe(input);
+    await act(() => void fireEvent.keyDown(input, { key: "Escape" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Admin token" })).toBeNull());
+    const consumed = new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true, cancelable: true });
+    consumed.preventDefault();
+    await act(() => { window.dispatchEvent(consumed); });
+    expect(screen.queryByRole("dialog", { name: title })).toBeNull();
+    key("k", { metaKey: true });
+    const palette = await screen.findByRole("dialog", { name: title });
+    await act(() => void fireEvent.keyDown(within(palette).getByRole("combobox"), { key: "k", ctrlKey: true }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: title })).toBeNull());
+  });
+
+  it("restores the Home palette trigger after Escape", async () => {
+    renderApp("/");
+    const trigger = await screen.findByRole("button", { name: "Go to…" });
+    trigger.focus();
+    await act(() => trigger.click());
+    const dialog = await screen.findByRole("dialog", { name: "Go to a System or Part" });
+    await act(() => void fireEvent.keyDown(within(dialog).getByRole("combobox"), { key: "Escape" }));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Go to a System or Part" })).toBeNull());
+    await waitFor(() => expect(document.activeElement).toBe(trigger));
+  });
+
+  it("moves focus from mobile More to the token input and restores More on close", async () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    try {
+      renderApp("/");
+      const more = await screen.findByRole("button", { name: "More" });
+      more.focus();
+      await act(() => void fireEvent.keyDown(more, { key: "ArrowDown" }));
+      const admin = await screen.findByRole("menuitem", { name: "Admin token" });
+      await act(() => admin.click());
+      const input = await screen.findByLabelText("Token for admin actions");
+      await waitFor(() => expect(document.activeElement).toBe(input));
+      await act(() => void fireEvent.keyDown(input, { key: "Escape" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Admin token" })).toBeNull());
+      await waitFor(() => expect(document.activeElement).toBe(more));
+    } finally {
+      cleanup();
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
+    }
+  });
+
+  it("opens full labelled mobile navigation and closes only that overlay on Escape", async () => {
+    const originalWidth = window.innerWidth;
+    Object.defineProperty(window, "innerWidth", { configurable: true, value: 390 });
+    try {
+      const { router } = renderApp(`${BASE}/map?focus=screen.people&layer=proteome`);
+      const menu = await screen.findByRole("button", { name: "Menu" });
+      await act(() => menu.click());
+      const drawer = await screen.findByRole("dialog", { name: "Navigation" });
+      expect(within(drawer).getByRole("link", { name: /Journeys/ }).textContent).toContain("Journeys");
+      await act(() => void fireEvent.keyDown(within(drawer).getByRole("link", { name: /Map/ }), { key: "Escape" }));
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull());
+      expect(search(router).get("focus")).toBe("screen.people");
+      expect(document.activeElement).toBe(menu);
+      await act(() => menu.click());
+      await act(() => within(screen.getByRole("dialog", { name: "Navigation" })).getByRole("link", { name: /Map/ }).click());
+      await waitFor(() => expect(router.state.location.pathname).toBe(`${BASE}/map`));
+      expect(search(router).get("layer")).toBe("proteome");
+      expect(screen.queryByRole("dialog", { name: "Navigation" })).toBeNull();
+      await act(() => {
+        Object.defineProperty(window, "innerWidth", { configurable: true, value: 1280 });
+        fireEvent(window, new Event("resize"));
+      });
+      expect(screen.queryByRole("button", { name: "Menu" })).toBeNull();
+      expect(screen.getByRole("navigation", { name: "Views" })).toBeTruthy();
+    } finally {
+      cleanup();
+      Object.defineProperty(window, "innerWidth", { configurable: true, value: originalWidth });
+    }
+  });
+
   it("renders Home at /", async () => {
     const { router } = renderApp("/");
     expect(await screen.findByRole("heading", { level: 1, name: "Systems" })).toBeTruthy();
@@ -38,7 +127,7 @@ describe("Shell", () => {
     ]);
     const links = within(nav).getAllByRole("link");
     expect(links.map((l) => l.textContent)).toEqual([
-      "▦Map", "◎Overview", "⇢Journeys", "△Theory", "{}Code", "⎇Work", "◧Review", "✓Evaluations", "↺Changelog", "◍Deployments", "▧Private Parts",
+      "Map", "Overview", "Journeys", "Theory", "Code", "Work", "Review", "Evaluations", "Changelog", "Deployments", "Private Parts",
     ]);
     expect(within(groups[2]!).getByRole("link", { name: /Deployments/ }).getAttribute("href")).toContain(`${BASE}/phenome`);
     expect(within(nav).getByRole("link", { name: "Private Parts" }).getAttribute("href")).toBe(`${BASE}/parts`);
@@ -66,7 +155,7 @@ describe("Shell", () => {
   it("hides the Review count at zero", async () => {
     renderApp(`${BASE}/overview`);
     const nav = await screen.findByRole("navigation", { name: "Views" });
-    expect(within(nav).getByRole("link", { name: "Review" }).textContent).toBe("◧Review");
+    expect(within(nav).getByRole("link", { name: "Review" }).textContent).toBe("Review");
   });
 
   it("keeps the rail inside a Thing workspace and resolves Review there", async () => {
@@ -288,9 +377,9 @@ describe("Shell", () => {
     renderApp(`${BASE}/overview?focus=screen.people`);
     const handle = await screen.findByRole("separator", { name: "Resize Inspector" });
     const before = Number(handle.getAttribute("aria-valuenow"));
-    act(() => void fireEvent.keyDown(handle, { key: "ArrowLeft" }));
-    expect(Number(handle.getAttribute("aria-valuenow"))).toBe(before + 16);
     act(() => void fireEvent.keyDown(handle, { key: "ArrowRight" }));
+    expect(Number(handle.getAttribute("aria-valuenow"))).toBe(before - 16);
+    act(() => void fireEvent.keyDown(handle, { key: "ArrowLeft" }));
     expect(Number(handle.getAttribute("aria-valuenow"))).toBe(before);
   });
 

@@ -14,6 +14,8 @@
 .count { color: var(--color-text-subtle); font-weight: var(--font-weight-normal); }
 .cards { display: grid; gap: var(--spacing-3); margin: 0; padding: 0; list-style: none; }
 .card {
+  justify-content: stretch;
+  align-items: start;
   display: grid;
   gap: var(--spacing-2);
   width: 100%;
@@ -53,44 +55,16 @@
 .conflict { padding: 0 var(--spacing-2); color: var(--color-text-secondary); font-size: var(--font-size-xs); border: 1px solid var(--color-border); border-radius: var(--border-radius-sm); }
 .conflict[data-kind="hard-semantic"], .conflict[data-kind="file"] { color: var(--verdict-fail); border-color: var(--verdict-fail); }
 .conflict[data-kind="evidence"] { border-style: dashed; }
-.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-2); }
-.btn, .primary {
-  padding: var(--spacing-1) var(--spacing-3);
-  color: var(--color-text-primary);
-  background: var(--color-surface-secondary);
-  border: 1px solid var(--color-border);
-  border-radius: var(--border-radius-sm);
-  font: inherit;
-  font-size: var(--font-size-sm);
-  cursor: pointer;
-}
-.btn[aria-pressed="true"] { border-color: var(--color-brand-primary); color: var(--color-brand-primary); }
-.primary { color: var(--color-text-inverse); background: var(--color-brand-primary); border-color: var(--color-brand-primary); }
-.primary:disabled { color: var(--color-text-disabled); background: var(--color-surface-disabled); border-color: var(--color-border-subtle); cursor: not-allowed; }
-.btn:focus-visible, .primary:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
-/* Primary action glow (effect tokens): on hover and keyboard focus, alongside the focus outline, never instead of it. */
-.primary { transition: box-shadow 160ms ease-out; }
-.primary:not(:disabled):hover, .primary:not(:disabled):focus-visible { box-shadow: var(--shadow-glow-accent); }
-@media (prefers-reduced-motion: reduce) { .primary { transition: none; } }
+.actions { display: flex; flex-wrap: wrap; align-items: center; gap: var(--spacing-3); }
+
 
 /* Panels and forms */
 .panel { display: grid; gap: var(--spacing-3); padding: var(--spacing-4); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-md); }
 .panel h3, .panel h4 { margin: 0; }
 .panel h4 { font-size: var(--font-size-sm); color: var(--color-text-subtle); font-weight: var(--font-weight-medium); }
-.form { display: grid; gap: var(--spacing-3); max-width: 40rem; }
-.field { display: grid; gap: var(--spacing-1); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
-.field input, .field select, .field textarea {
-  padding: var(--spacing-1) var(--spacing-2);
-  color: var(--color-text-primary);
-  background: var(--color-background);
-  border: 1px solid var(--color-border-subtle);
-  border-radius: var(--border-radius-sm);
-  font: inherit;
-}
-.field input:hover, .field select:hover, .field textarea:hover,
-.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible { border-width: 2px; padding: calc(var(--spacing-1) - 1px) calc(var(--spacing-2) - 1px); }
-.field input:focus-visible, .field select:focus-visible, .field textarea:focus-visible { border-color: var(--color-brand-primary); outline: none; }
-.check { display: flex; gap: var(--spacing-2); align-items: center; font-size: var(--font-size-sm); }
+.form { display: grid; gap: var(--spacing-4); max-width: 40rem; }
+.field { display: grid; gap: var(--spacing-2); font-size: var(--font-size-sm); color: var(--color-text-secondary); }
+.check { min-height: var(--control-height); display: flex; gap: var(--spacing-2); align-items: center; font-size: var(--font-size-sm); }
 .fieldset { margin: 0; padding: var(--spacing-3); border: 1px solid var(--color-border-subtle); border-radius: var(--border-radius-sm); }
 .reason, .reasons { color: var(--color-text-secondary); font-size: var(--font-size-sm); }
 .reasons { margin: 0; padding-left: var(--spacing-4); }
@@ -128,17 +102,3 @@
 /* Attention: something on this card waits on a person. */
 .attention { color: var(--color-status-warning); font-size: var(--font-size-sm); }
 .overlapChip { padding: 0 var(--spacing-2); color: var(--color-status-warning); font-size: var(--font-size-xs); border: 1px solid var(--color-status-warning); border-radius: var(--border-radius-sm); }
-.reviewLink { padding: var(--spacing-1) var(--spacing-3); color: var(--color-text-primary); background: var(--color-surface-secondary); border: 1px solid var(--color-border); text-decoration: none; }
-.reviewLink:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }
-.textBtn {
-  padding: var(--spacing-1) var(--spacing-2);
-  color: var(--color-text-secondary);
-  background: none;
-  border: 0;
-  font: inherit;
-  font-size: var(--font-size-sm);
-  text-decoration: underline;
-  cursor: pointer;
-}
-.textBtn:hover, .textBtn[aria-pressed="true"] { color: var(--color-brand-primary); }
-.textBtn:focus-visible { outline: var(--focus-ring); outline-offset: 2px; }

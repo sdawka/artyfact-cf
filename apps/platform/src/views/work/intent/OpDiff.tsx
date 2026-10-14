@@ -1,3 +1,4 @@
+import { Checkbox } from "@/components/ui";
 import type { ProposalProblem, ProposedOp } from "../../../../shared/api";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { StatusChip } from "@/components/StatusChip/StatusChip";
@@ -86,7 +87,7 @@ export function OpDiff({ op, included, onToggle, problems, disabled }: {
     <li className={styles.op} data-op={op.op} data-included={included}>
       {onToggle ? (
         <label className={styles.opHead}>
-          <input type="checkbox" checked={!!included} disabled={disabled} onChange={(e) => onToggle(e.target.checked)} />
+          <Checkbox checked={!!included} disabled={disabled} onChange={(e) => onToggle(e.target.checked)} />
           {head}
         </label>
       ) : (

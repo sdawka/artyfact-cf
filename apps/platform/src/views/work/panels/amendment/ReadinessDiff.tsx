@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui";
 import { useId, useState } from "react";
 import { NodeChip } from "@/components/NodeChip/NodeChip";
 import { Derivation } from "@/components/Derivation/Derivation";
@@ -17,9 +18,9 @@ function Row({ finding }: { finding: Finding }) {
         {finding.subject && <NodeChip id={finding.subject} size="sm" />}
       </div>
       <p className={styles.message}>{finding.message}</p>
-      <button type="button" className={styles.link} aria-expanded={open} aria-controls={panel} onClick={() => setOpen((o) => !o)}>
+      <Button variant="ghost" type="button" className={styles.link} aria-expanded={open} aria-controls={panel} onClick={() => setOpen((o) => !o)}>
         <span aria-hidden="true">{open ? "▾" : "▸"}</span> Derivation
-      </button>
+      </Button>
       <div id={panel} hidden={!open}>
         {open && <Derivation finding={finding} />}
       </div>
