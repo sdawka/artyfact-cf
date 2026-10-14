@@ -11,7 +11,9 @@ import {
 } from "../../shared/api";
 import { isBlocking } from "../../shared/verdict";
 import type { TemplateUpgradeNoScaffold, TemplateUpgradePlan, TemplateUpgradeRequest, TemplateUpgradeResponse } from "../../shared/api";
-import type { IntentAccept, IntentAcceptResponse, IntentReply, IntentRequest, Proposal } from "../../shared/api";
+import type { IntentAccept, IntentAcceptResponse, IntentDecisionsRequest, IntentReply, IntentRequest, Proposal } from "../../shared/api";
+// review
+import type { SystemImportReview, SystemImportReviewAccept, SystemImportReviewAcceptResponse } from "../../shared/api";
 import type { ModelJson, UiBundle } from "@/model/types";
 
 /** Any non-2xx response. `body` is the parsed {@link ApiError} when the server sent one. */
@@ -390,6 +392,26 @@ export const replyIntent = (systemId: string, proposalId: string, body: IntentRe
 /** Applies `opIds` (the rest are rejected). 409 {@link StaleBaseError} when the Genome moved; 422 when an op lacks one it depends on. */
 export const acceptIntent = (systemId: string, proposalId: string, body: IntentAccept, adminToken?: string) =>
   writeOrThrow("Accepting a proposal", () => post<IntentAcceptResponse>(paths.intentAccept(systemId, proposalId), body, bearer(adminToken)));
+
+/** Decides agreement-tree nodes in one batch; a decision on a parent clears its descendants'. Returns the proposal. */
+export const decideIntent = (systemId: string, proposalId: string, body: IntentDecisionsRequest, adminToken?: string) =>
+  writeOrThrow("Deciding changes", () =>
+    request<Proposal>(routes.intentDecisions(systemId, proposalId), { method: "PUT", body: JSON.stringify(body), ...(adminToken && { headers: bearer(adminToken) }) }),
+  );
+
+// ---------------------------------------------------------------------------
+// review: the System import review of an imported System (agreement tree over the imported Genome)
+// ---------------------------------------------------------------------------
+
+/** The pending or accepted import review; 404 when the System was imported without one. Not available on fixture data. */
+export async function getImportReview(systemId: string): Promise<SystemImportReview> {
+  if (await isFixtureMode()) throw notInFixture("The import review");
+  return request<SystemImportReview>(routes.importReview(systemId));
+}
+
+/** Admin: accept the import; `rejectedNodes` are removed at once by an accepted Genome amendment. */
+export const acceptImportReview = (systemId: string, body: SystemImportReviewAccept, adminToken?: string) =>
+  writeOrThrow("Accept import", () => post<SystemImportReviewAcceptResponse>(routes.importReviewAccept(systemId), body, bearer(adminToken)));
 
 // ---------------------------------------------------------------------------
 // App template upgrades
