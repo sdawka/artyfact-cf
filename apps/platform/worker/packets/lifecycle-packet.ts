@@ -3,9 +3,11 @@
  * else is working, and what this task builds on, read from the plan's `analysis` and its tasks. Never carries the
  * write token or the attempt secret; the start response hands those over separately.
  */
+import { layerOf, type CriterionLayer, type SystemModel } from "@artyfact/model";
 import type { LifecycleTaskPacket, PacketTaskRef, RealizationPlan, Task, TaskAttempt, TaskConflict } from "../../shared/lifecycle";
 import { globMatch } from "../artifacts/source-map";
-import { protectedPathsFor } from "./task-packet";
+import { MODEL_PREFIX, nodeFilesFor, TASK_PROTECTED } from "../lifecycle-model";
+import { hooksOf } from "../promotion";
 
 /** The 1-based wave holding `taskId` (`analysis.waves[i]` is wave i + 1), or null when no wave places it. */
 export function waveOf(plan: Pick<RealizationPlan, "analysis">, taskId: string): number | null {
@@ -99,12 +101,26 @@ export interface PacketInput {
   remote: string;
   reviewUrl: string;
   now?: number;
+  /** The pinned Genome's model: names each node's file under `system/` and each check's layer. */
+  model?: SystemModel;
+}
+
+/** Layer of each of the task's checks (docs/design/task-fork-model.md §3); an id the Genome lacks is `realization`. */
+export function checkLayersOf(m: SystemModel, checks: string[]): Record<string, CriterionLayer> {
+  return Object.fromEntries(checks.map((id) => { const c = m.criteria.find((c) => c.id === id); return [id, c ? layerOf(c, hooksOf(m, c)) : "realization"]; }));
+}
+
+const MODEL_RULE = `Only change ${MODEL_PREFIX}/ if the model cannot be realized as written; say why in the checkpoint. A changed ${MODEL_PREFIX}/ is judged against the whole ontology and reviewed as a model change.`;
+type ModelFields = Pick<LifecycleTaskPacket, "checkLayers" | "model">;
+function modelFields(plan: RealizationPlan, task: Task, m?: SystemModel): ModelFields {
+  if (!m) return {};
+  return { checkLayers: checkLayersOf(m, task.checks), model: { prefix: MODEL_PREFIX, genomeCommit: plan.genome.commit, nodeFiles: nodeFilesFor(m, [...new Set([...task.writeNodes, ...task.readNodes])]) } };
 }
 
 /** The task's AGENTS.md lines (no block markers; the CLI merges them into its own block). */
-export function renderLifecycleAgentsMd(plan: RealizationPlan, task: Task, f: Fields, reviewUrl: string): string {
+export function renderLifecycleAgentsMd(plan: RealizationPlan, task: Task, f: Fields, reviewUrl: string, model?: ModelFields["model"]): string {
   const dependents = plan.tasks.filter((t) => t.dependsOn.includes(task.id)).map((t) => t.id);
-  const dnt = [...f.doNotTouch.map((d) => `${d.globs.join(", ")} (${d.taskId})`), protectedPathsFor("app").join(", ")];
+  const dnt = [...f.doNotTouch.map((d) => `${d.globs.join(", ")} (${d.taskId})`), TASK_PROTECTED.join(", ")];
   const builds = f.buildsOn.map((b) => {
     const dep = plan.tasks.find((t) => t.id === b.taskId)!;
     return dep.artifactId === task.artifactId
@@ -118,6 +134,7 @@ export function renderLifecycleAgentsMd(plan: RealizationPlan, task: Task, f: Fi
     `Concurrent tasks: ${f.concurrent.length ? f.concurrent.map((c) => `${c.taskId} (${c.status}${c.wave === null ? "" : `, wave ${c.wave}`})`).join("; ") : "none"}.`,
     ...(builds.length ? [`Builds on: ${builds.join("; ")}.`] : []),
     `After you: ${dependents.length ? `${dependents.join(", ")} ${dependents.length === 1 ? "starts" : "start"} once this task is selected` : "no task waits on this one"}.`,
+    ...(model ? [`The pinned Genome ${model.genomeCommit.slice(0, 12)} is in ${MODEL_PREFIX}/ (read it whole; your nodes: ${Object.entries(model.nodeFiles).map(([id, file]) => `${id} in ${file}`).join(", ") || "see TASK_PACKET.md"}). ${MODEL_RULE}`] : []),
     "Implement only the pinned Genome, permitted paths, and Task scope. Run its checks.",
     "Check the attempt with `artyfact task status`.",
     'Checkpoint with `artyfact task checkpoint "What changed and what remains"`.',
@@ -129,8 +146,13 @@ export function renderLifecycleAgentsMd(plan: RealizationPlan, task: Task, f: Fi
   ].join("\n");
 }
 
-function renderMarkdown(plan: RealizationPlan, task: Task, attempt: PacketInput["attempt"], f: Fields, reviewUrl: string): string {
+function renderMarkdown(plan: RealizationPlan, task: Task, attempt: PacketInput["attempt"], f: Fields, reviewUrl: string, mf: ModelFields = {}): string {
   const list = (xs: string[]) => (xs.length ? xs.map((x) => `- ${x}`).join("\n") : "_none_");
+  const layered = (layer: CriterionLayer) => task.checks.filter((id) => mf.checkLayers?.[id] === layer);
+  const checks = mf.checkLayers
+    ? (["genome", "realization", "phenome"] as const).filter((l) => layered(l).length).map((l) => `${l}: ${layered(l).join(", ")}`).join("; ") || "_none_"
+    : task.checks.join(", ");
+  const nodeLine = (id: string) => `\`${id}\`${mf.model?.nodeFiles[id] ? ` in \`${mf.model.nodeFiles[id]}\`` : ""}`;
   return [
     `# ${task.title}`,
     "",
@@ -140,7 +162,7 @@ function renderMarkdown(plan: RealizationPlan, task: Task, attempt: PacketInput[
     "",
     task.steps.map((s, i) => `${i + 1}. ${s}`).join("\n"),
     "",
-    `Checks: ${task.checks.join(", ")}`,
+    `Checks: ${checks}`,
     `Review: ${reviewUrl}`,
     `Checkpoint and submit using attempt ${attempt.id} generation ${attempt.generation}.`,
     "",
@@ -160,13 +182,21 @@ function renderMarkdown(plan: RealizationPlan, task: Task, attempt: PacketInput[
     "### Builds on",
     list(f.buildsOn.map((b) => `\`${b.taskId}\` ${b.title}${b.candidateId ? `, candidate \`${b.candidateId}\`` : ""}`)),
     "",
+    ...(mf.model ? [
+      "## Model",
+      `The whole pinned Genome (${mf.model.genomeCommit}) is in \`${mf.model.prefix}/\` of this fork. Read it before you change code; it is the reference, not a suggestion.`,
+      `Write nodes (what this task realizes): ${task.writeNodes.map(nodeLine).join(", ") || "_none_"}`,
+      `Read nodes: ${task.readNodes.map(nodeLine).join(", ") || "_none_"}`,
+      MODEL_RULE,
+      "",
+    ] : []),
   ].join("\n");
 }
 
 /** The full packet for a started attempt. */
 export function lifecyclePacket(i: PacketInput): LifecycleTaskPacket {
   const { plan, task, attempt, reviewUrl } = i;
-  const f = packetFields(plan, task, i.now);
+  const f = packetFields(plan, task, i.now), mf = modelFields(plan, task, i.model);
   return {
     systemId: plan.systemId,
     planId: plan.id,
@@ -183,8 +213,9 @@ export function lifecyclePacket(i: PacketInput): LifecycleTaskPacket {
     permittedGlobs: task.footprint.globs,
     checks: task.checks,
     reviewUrl,
-    markdown: renderMarkdown(plan, task, attempt, f, reviewUrl),
+    markdown: renderMarkdown(plan, task, attempt, f, reviewUrl, mf),
     ...f,
-    agentsMd: renderLifecycleAgentsMd(plan, task, f, reviewUrl),
+    ...mf,
+    agentsMd: renderLifecycleAgentsMd(plan, task, f, reviewUrl, mf.model),
   };
 }

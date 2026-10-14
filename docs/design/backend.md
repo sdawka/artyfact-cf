@@ -42,7 +42,7 @@ Builds and deployments (iteration 2, [`docs/ci.md`](../ci.md)): a new app candid
 | hook | criterion | verdict |
 |---|---|---|
 | exists | C.webapp.exists | required files present & non-empty at commit |
-| scope | C.system.promotion | changed ⊆ permitted; `system/**` in app realization → fail; unmapped → unknown |
+| scope | C.system.promotion | changed ⊆ permitted; `system/**` in a legacy app realization → fail; in a Task fork `system/**` is the pinned model and a change to it is the candidate's model delta, judged on its own (docs/design/task-fork-model.md); unmapped → unknown |
 | genome-amendment | C.system.structure | loadGenome on fork `system/` valid → status awaiting-admin |
 | overlap | C.system.readiness | ConflictReport{file \| soft-semantic \| hard-semantic \| evidence} across concurrent candidates; via `overlap()` |
 | health | C.webapp.health | fetch `previewUrl/health`, compare buildId; no URL → not-run/unknown |

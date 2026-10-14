@@ -1,5 +1,5 @@
 import { analyzeTasks, type TaskDefinition } from '@artyfact/model';
-import type { RealizationPlan, Task, TaskAttempt, TaskClaimRequest, IntegratedBinding } from '../../shared/lifecycle';
+import type { RealizationPlan, Task, TaskAttempt, TaskClaimRequest, IntegratedBinding, TaskModel } from '../../shared/lifecycle';
 import type { SystemManifest, ArtifactBinding } from '../../shared/api';
 import { nowIso } from '../util';
 
@@ -58,8 +58,8 @@ export class LifecycleStore {
   t.attempts.push(attempt);t.status='claimed';p.status='implementing';p.integration=[];this.save(p);
   return {plan:p,task:t,attempt,previous,createFork:!last};
  }
- activate(pid:string,tid:string,aid:string,generation:number,input:{tokenId:string;tokenExpires:string;remote:string;secretHash:string}):RealizationPlan {
-  const {plan,task,attempt}=this.fence(pid,tid,aid,generation);attempt.status='working';task.status='working';
+ activate(pid:string,tid:string,aid:string,generation:number,input:{tokenId:string;tokenExpires:string;remote:string;secretHash:string;model?:TaskModel}):RealizationPlan {
+  const {plan,task,attempt}=this.fence(pid,tid,aid,generation);attempt.status='working';task.status='working';if(input.model)task.model=input.model;
   this.sql.exec("UPDATE realizations SET token_id=?,token_expires=?,remote=?,secret_hash=?,status='working',updated_at=? WHERE id=?",input.tokenId,input.tokenExpires,input.remote,input.secretHash,nowIso(),attempt.realizationId);return this.save(plan);
  }
  end(pid:string,tid:string,aid:string,generation:number):void {const p=this.get(pid),t=this.task(p,tid),a=t.attempts.at(-1);if(a?.id!==aid||a.generation!==generation)return;a.status='ended';t.status='pending';this.sql.exec("UPDATE realizations SET secret_hash=NULL,status='rejected' WHERE id=?",a.realizationId);this.save(p);}

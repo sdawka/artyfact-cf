@@ -13,7 +13,7 @@ async function rootTree(repo: ArtifactsRepoLike, commit: string): Promise<string
 }
 
 /** Resolve the tree object at `prefix` under `commit`, or null if the prefix does not exist. */
-async function treeAt(repo: ArtifactsRepoLike, commit: string, prefix: string): Promise<string | null> {
+export async function treeAt(repo: ArtifactsRepoLike, commit: string, prefix: string): Promise<string | null> {
   let tree = await rootTree(repo, commit);
   for (const part of normPrefix(prefix).split("/").filter(Boolean)) {
     const entries = await repo.readTree(tree);
@@ -71,7 +71,8 @@ export async function walkTree(
 const isYaml = (p: string) => /\.ya?ml$/.test(p);
 const INTENT_BRIEF = "intent/brief.md";
 const INTENT_MANIFEST = "intent/manifest.json";
-const isGenomeSource = (p: string) => isYaml(p) || p === INTENT_BRIEF || p === INTENT_MANIFEST;
+/** A Genome source file (Genome-relative path): YAML, or one of the two intent sidecars. Nothing else is part of the model. */
+export const isGenomeSource = (p: string): boolean => isYaml(p) || p === INTENT_BRIEF || p === INTENT_MANIFEST;
 
 /** Where the Genome lives in a repo: root (`node.yaml`, or a legacy `system.yaml`) or `system/`. */
 export async function genomePrefix(repo: ArtifactsRepoLike, commit: string): Promise<string> {

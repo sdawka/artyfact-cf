@@ -37,6 +37,8 @@ interface Secrets {
   FAKE_ARTIFACTS?: string;
   /** With FAKE_ARTIFACTS=1: `peopling` (default), `artyfact` (the repo-root genome/) or `both`. */
   FAKE_SEED?: string;
+  /** `1`: the fake platform also seeds a Task candidate that changes the pinned model (docs/design/task-fork-model.md), for the Review demo. */
+  FAKE_MODEL_DELTA?: string;
   /**
    * Cross-script Workflows binding to artyfact-ci (wrangler.jsonc `workflows`). Typed here as optional because
    * wrangler.test.jsonc omits it; `wrangler types` emits it as required, so drop that generated line after regenerating.

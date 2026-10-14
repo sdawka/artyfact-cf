@@ -324,7 +324,7 @@ export class SystemAuthority extends DurableObject<Env> {
   realizationBindingId(rid:string):string|null {const row=this.one('SELECT task_binding_id FROM realizations WHERE id=?',rid);return row?.task_binding_id?String(row.task_binding_id):null;}
   realizationPinnedGenome(rid:string):{repo:string;commit:string}|null {const row=this.one('SELECT pinned_genome,pinned_genome_repo FROM realizations WHERE id=?',rid);return row?.pinned_genome&&row.pinned_genome_repo?{repo:String(row.pinned_genome_repo),commit:String(row.pinned_genome)}:null;}
   lifecycleFence(pid:string,tid:string,aid:string,generation:number) { return this.lifecycle().fence(pid,tid,aid,generation); }
-  lifecycleActivate(pid:string,tid:string,aid:string,generation:number,input:{tokenId:string;tokenExpires:string;remote:string;secretHash:string}): RealizationPlan { return this.ctx.storage.transactionSync(()=>this.lifecycle().activate(pid,tid,aid,generation,input)); }
+  lifecycleActivate(pid:string,tid:string,aid:string,generation:number,input:{tokenId:string;tokenExpires:string;remote:string;secretHash:string;model?:import('../../shared/lifecycle').TaskModel}): RealizationPlan { return this.ctx.storage.transactionSync(()=>this.lifecycle().activate(pid,tid,aid,generation,input)); }
   lifecycleEnd(pid:string,tid:string,aid:string,generation:number): void { this.ctx.storage.transactionSync(()=>this.lifecycle().end(pid,tid,aid,generation)); }
   lifecycleCheckpoint(pid:string,tid:string,aid:string,generation:number,input:{message:string;commit?:string}) { return this.ctx.storage.transactionSync(()=>{const f=this.lifecycle().fence(pid,tid,aid,generation);const seq=Number(this.one('SELECT COALESCE(MAX(seq),0)+1 AS n FROM checkpoints WHERE realization_id=?',f.attempt.realizationId)!.n);this.sql.exec('INSERT INTO checkpoints (realization_id,seq,message,commit_hash,created_at) VALUES (?,?,?,?,?)',f.attempt.realizationId,seq,input.message,input.commit??null,nowIso());const plan=this.lifecycle().heartbeat(pid,tid,aid,generation);return {plan,task:this.lifecycle().task(plan,tid)};}); }
   lifecycleCandidate(pid:string,tid:string,aid:string,generation:number,input:Omit<CandidateInput,'realizationId'>) { return this.ctx.storage.transactionSync(()=>{const f=this.lifecycle().fence(pid,tid,aid,generation);const out=this.recordCandidate({...input,realizationId:f.attempt.realizationId});const plan=this.lifecycle().submitted(pid,tid,aid,generation);return {plan,task:this.lifecycle().task(plan,tid),...out};}); }
@@ -341,23 +341,27 @@ export class SystemAuthority extends DurableObject<Env> {
    * Plan promotion. A gate refusal comes back as `{ok:false, code, blocking, advisories}` (a thrown PromotionBlockedError
    * would lose its class and items over RPC); every other refusal still throws.
    */
-  async lifecyclePromote(pid:string,input:{candidateIds:string[];expectedHead:string|null;rationale:string;gates:Record<string,GateCriterion[]>;by:string}):Promise<({ok:true}&{plan:RealizationPlan;commit:SystemCommit;ended:EndedCredential[]})|{ok:false;code:PromotionBlockedError['code'];blocking:GateItem[];advisories:GateItem[]}> {
+  async lifecyclePromote(pid:string,input:{candidateIds:string[];expectedHead:string|null;rationale:string;gates:Record<string,GateCriterion[]>;by:string;genome?:{repo:string;commit:string}}):Promise<({ok:true}&{plan:RealizationPlan;commit:SystemCommit;ended:EndedCredential[]})|{ok:false;code:PromotionBlockedError['code'];blocking:GateItem[];advisories:GateItem[]}> {
     try{return {ok:true,...await this.lifecyclePromoteTx(pid,input)};}
     catch(e){if(e instanceof PromotionBlockedError)return {ok:false,code:e.code,blocking:e.blocking,advisories:e.advisories};throw e;}
   }
-  private async lifecyclePromoteTx(pid:string,input:{candidateIds:string[];expectedHead:string|null;rationale:string;gates:Record<string,GateCriterion[]>;by:string}):Promise<{plan:RealizationPlan;commit:SystemCommit;ended:EndedCredential[]}> {
+  /** `genome`: an accepted integrated model delta; the Genome head moves to that fork commit in the same compare-and-swap (as `accept` does for an amendment fork). */
+  private async lifecyclePromoteTx(pid:string,input:{candidateIds:string[];expectedHead:string|null;rationale:string;gates:Record<string,GateCriterion[]>;by:string;genome?:{repo:string;commit:string}}):Promise<{plan:RealizationPlan;commit:SystemCommit;ended:EndedCredential[]}> {
     const p=this.lifecycle().get(pid),state=this.state()!;
     if(p.status!=='integrated'||!p.integration.length)throw new ConflictError('invalid-state','integrate every binding before promotion');
     const ids=p.integration.map(b=>b.candidateId).sort();if(JSON.stringify(ids)!==JSON.stringify([...input.candidateIds].sort()))throw new ConflictError('invalid-state','reviewed integrated candidates changed');
     if(state.head!==input.expectedHead)throw new StaleBaseRefusal('reviewed System head changed');
-    const prep=await this.prepareCommit({artifactId:'',templateVersions:state.manifest!.templateVersions,hookVersions:state.manifest!.hookVersions},prev=>({ ...prev!, artifacts:{...prev!.artifacts,...Object.fromEntries(p.integration.map(b=>[b.artifactId,{...b.source,realizedGenome:p.genome.commit,realizationPlan:p.id}]))} }));
+    if(input.genome&&state.genomeCommit!==p.genome.commit)throw new StaleBaseRefusal('accepted Genome changed since the plan was pinned; replan before accepting its model delta');
+    const realizedGenome=input.genome?.commit??p.genome.commit;
+    const prep=await this.prepareCommit({artifactId:'',templateVersions:state.manifest!.templateVersions,hookVersions:state.manifest!.hookVersions},prev=>({ ...prev!, ...(input.genome&&{genomeCommit:input.genome.commit}), artifacts:{...prev!.artifacts,...Object.fromEntries(p.integration.map(b=>[b.artifactId,{...b.source,realizedGenome,realizationPlan:p.id}]))} }));
     return this.ctx.storage.transactionSync(()=>{
       const current=this.lifecycle().get(pid);if(this.kv('head')!==prep.head||current.status!=='integrated'||JSON.stringify(current.integration)!==JSON.stringify(p.integration))throw new StaleBaseRefusal('plan or System changed during promotion');
       for(const b of p.integration){const base=p.baseManifest.artifacts[b.artifactId],now=this.readManifest(prep.head)!.artifacts[b.artifactId];if(base.repo!==now?.repo||base.commit!==now.commit)throw new StaleBaseRefusal(`binding ${b.artifactId} changed; replan required`);}
       for(const task of p.tasks){const candidate=task.selectedCandidate?this.candidate(task.selectedCandidate):null;if(!candidate||this.latestCandidate(candidate.realization)?.id!==candidate.id)throw new ConflictError('invalid-state','selected task candidate was superseded; integrate the reviewed latest selection');}
       const cands=p.integration.map(b=>{const c=this.one('SELECT * FROM candidates WHERE id=?',b.candidateId);if(c&&this.latestCandidate(String(c.realization_id))?.id!==c.id)throw new ConflictError('invalid-state','integrated candidate was superseded');if(!c||!['submitted','evaluated','selected'].includes(String(c.state)))throw new ConflictError('invalid-state','integrated candidate unavailable');return {...c,evolution_id:''};});
       const gate=this.checkGate(cands,input.gates,input.rationale);
-      const commit=this.writeCommit(prep,[],{by:input.by,policy:'realization-plan',rationale:input.rationale,candidates:ids,realizationPlan:pid,realizedGenome:p.genome.commit,acknowledged:gate.advisories.map(a=>a.criterion),evidenceProviders:gate.evidenceProviders});
+      const commit=this.writeCommit(prep,[],{by:input.by,policy:'realization-plan',rationale:input.rationale,candidates:ids,realizationPlan:pid,realizedGenome,...(input.genome&&{modelDelta:input.genome}),acknowledged:gate.advisories.map(a=>a.criterion),evidenceProviders:gate.evidenceProviders});
+      if(input.genome){this.setKv('genome_commit',input.genome.commit);this.setKv('genome_source',input.genome.repo);}
       for(const b of p.integration){this.sql.exec("UPDATE candidates SET state='promoted' WHERE id=?",b.candidateId);this.setRealizationStatus(String(this.one('SELECT realization_id FROM candidates WHERE id=?',b.candidateId)!.realization_id),'promoted');}
       const ended=this.endCredentials(p.tasks.flatMap(t=>t.attempts.map(a=>a.realizationId)));
       for(const t of p.tasks){t.status='completed';for(const a of t.attempts)a.status='ended';}
@@ -965,6 +969,7 @@ export class SystemAuthority extends DurableObject<Env> {
       changedPaths: json(r.changed_paths, []),
       changedSubjects: json(r.changed_nodes, []),
       genomeChanges: (manifest.genomeChanges as string[]) ?? [],
+      ...(manifest.model ? { model: manifest.model as Candidate["model"] } : {}),
       submittedAt: String(r.created_at),
       state: String(r.state) as Candidate["state"],
     };

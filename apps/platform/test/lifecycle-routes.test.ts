@@ -5,7 +5,7 @@ import { FakeArtifacts } from './helpers/fake-artifacts';
 import type { TreeEntry } from '../worker/artifacts/client';
 import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
-import { lifecyclePaths, type RealizationPlan, type TaskStartResponse, type TaskSubmitResponse, type ImplementationReview, type PlanPromoteResponse } from '../shared/lifecycle';
+import { lifecyclePaths, type RealizationPlan, type TaskStartResponse, type TaskSubmitResponse, type TaskReview, type ImplementationReview, type PlanPromoteResponse } from '../shared/lifecycle';
 import { setArtifactsOverride } from '../worker/artifacts/client';
 import { resetHooks, setHooks } from '../worker/hooks';
 import { systemStub } from '../worker/service';
@@ -124,7 +124,9 @@ describe('realization plan HTTP lifecycle',()=>{
   for(const id of ['x','y','z']){
    const start=await call<TaskStartResponse>('POST',path(f.systemId,p.id,id,'claim'),{},ADMIN);expect(start.status,JSON.stringify(start.json)).toBe(201);const s=start.json;
    if(id==='z')expect(await kinds(s.task.base.repo,s.task.base.commit)).toEqual({index:'100755',health:'120000'});
-   const pushed=await pushCommit({repo:f.ns.repo(s.task.forkRepo),remote:s.token.remote,token:s.token.value,parent:s.task.base.commit,changes:edits[id],fetch:transport.fetch,author:{name:'Agent',email:'agent@example.com'},message:id});
+   // The agent's clone starts at the fork head: the commit that pins the Genome under system/ on the task's base.
+   expect(s.task.model).toMatchObject({prefix:'system',genomeCommit:p.genome.commit});
+   const pushed=await pushCommit({repo:f.ns.repo(s.task.forkRepo),remote:s.token.remote,token:s.token.value,parent:s.task.model!.commit,changes:edits[id],fetch:transport.fetch,author:{name:'Agent',email:'agent@example.com'},message:id});
    const submitted=await call<TaskSubmitResponse>('POST',path(f.systemId,p.id,id,'submit'),{attemptId:s.attempt.id,generation:s.attempt.generation,commit:pushed.commit},{authorization:`Bearer ${s.secret}`});expect(submitted.status,JSON.stringify(submitted.json)).toBe(201);expect(submitted.json.candidate.changedPaths).toEqual(edits[id].map(e=>e.path));
    expect((await call('POST',path(f.systemId,p.id,id,'select'),{candidateId:submitted.json.candidate.id},ADMIN)).status).toBe(200);
   }
@@ -183,5 +185,63 @@ describe('replayDelta',()=>{
   expect(replayChanges(r,original)).toEqual([expect.objectContaining({path:'run.sh',type:'exec'})]);
   const edit=repo.commit({'run.sh':'echo hi\n','README.md':'r\n'},'edit');
   await expect(replayDelta(repo,base,edit,r,noScope,divergent)).rejects.toMatchObject({code:'divergent'});
+ });
+});
+
+describe('task fork model (docs/design/task-fork-model.md)',()=>{
+ const enc=encodeURIComponent,FILE='system/thing.webapp/section.ui/screen.people/node.yaml';
+ it('seeds the pinned Genome under system/, keeps code footprints, and carries a model delta through review to a Genome move',async()=>{
+  const f=await importFresh(),p=(await call<RealizationPlan>('POST',path(f.systemId),{title:'Model',tasks:[definition]},ADMIN)).json;
+  const start=await call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN);expect(start.status,JSON.stringify(start.json)).toBe(201);const s=start.json;
+  // 1. The fork head is the seed commit: the pinned Genome's source files under system/, nothing else of the Genome repo.
+  expect(s.task.model).toMatchObject({prefix:'system',genomeCommit:p.genome.commit});
+  const fork=f.ns.repo(s.task.forkRepo),[head]=await fork.log({limit:1});expect(head.hash).toBe(s.task.model!.commit);
+  const seeded=await walkTree(fork,s.task.model!.commit),genome=await walkTree(f.ns.repo(f.genomeRepo),p.genome.commit);
+  expect(seeded.get(FILE)).toBe(genome.get(FILE.slice('system/'.length)));expect(seeded.get('system/node.yaml')).toBe(genome.get('node.yaml'));expect(seeded.has('system/README.md')).toBe(false);expect(seeded.get('src/index.ts')).toBe('export default {}');
+  // The brief names the model, the node files and each check's layer.
+  expect(s.packet.model).toMatchObject({prefix:'system',genomeCommit:p.genome.commit,nodeFiles:{'screen.people':FILE}});
+  expect(s.packet.checkLayers).toEqual({'C.people.list':'realization'});
+  expect(s.packet.markdown).toContain('## Model');expect(s.packet.markdown).toContain(`\`screen.people\` in \`${FILE}\``);expect(s.packet.markdown).toContain('Checks: realization: C.people.list');
+  expect(s.packet.agentsMd).toContain('Only change system/ if the model cannot be realized as written');
+  const auth={authorization:`Bearer ${s.secret}`},submit=(commit:string)=>call<TaskSubmitResponse>('POST',path(f.systemId,p.id,'ui','submit'),{attemptId:s.attempt.id,generation:s.attempt.generation,commit},auth);
+  // 2. A code-only candidate on the seeded fork: the model is not a changed path and no model delta is recorded.
+  const code=new Map(seeded);code.set('src/ui/people/index.html','<h1>People</h1>');
+  const c1=await submit(fork.commit(code,'UI'));expect(c1.status,JSON.stringify(c1.json)).toBe(201);
+  expect(c1.json.candidate.changedPaths).toEqual(['src/ui/people/index.html']);expect(c1.json.candidate.model).toBeUndefined();expect(c1.json.evaluations.some(e=>e.criterion==='C.model.review')).toBe(false);
+  // 3. A model edit: the candidate carries the delta, System One's judgment (provider off: unknown) and the review shows both.
+  const edited=new Map(code);edited.set(FILE,edited.get(FILE)!.replace('route: /people','route: /contacts'));
+  const c2=await submit(fork.commit(edited,'Route the People screen at /contacts'));expect(c2.status,JSON.stringify(c2.json)).toBe(201);
+  expect(c2.json.candidate.changedPaths).toEqual([FILE,'src/ui/people/index.html'].sort());
+  expect(c2.json.candidate.model).toMatchObject({prefix:'system',genomeCommit:p.genome.commit,changedPaths:[FILE],changedNodes:['screen.people']});expect(c2.json.candidate.model!.loadError).toBeUndefined();
+  expect(c2.json.candidate.model!.delta.changed.map(c=>c.id)).toEqual(['screen.people']);
+  const judged=c2.json.evaluations.find(e=>e.criterion==='C.model.review');expect(judged).toMatchObject({hook:'model-review',execution:'completed',verdict:'unknown',targetRef:c2.json.candidate.commit});
+  const tr=await call<TaskReview>('GET',lifecyclePaths.taskReview(f.systemId,p.id,'ui').replace(/^\/api/,''),undefined,{});expect(tr.status).toBe(200);
+  expect(tr.json.layers).toMatchObject({'C.model.review':'genome','C.people.list':'realization'});
+  const entry=tr.json.candidates.find(c=>c.candidate.id===c2.json.candidate.id)!;expect(entry.model).toBeDefined();expect(entry.model!.review!.delta.changes.map(c=>c.id)).toEqual(['screen.people']);expect(entry.model!.review!.signals!.length).toBeGreaterThan(0);
+  expect(tr.json.candidates.find(c=>c.candidate.id===c1.json.candidate.id)!.model).toBeUndefined();
+  // A model path compares against the pinned Genome, not the app base.
+  const cmp=await call<{from:{repo:string;text:string|null};to:{text:string|null}}>('GET',`${path(f.systemId,p.id)}/tasks/ui/review/files?candidateId=${enc(c2.json.candidate.id)}&path=${enc(FILE)}`,undefined,{});
+  expect(cmp.status,JSON.stringify(cmp.json)).toBe(200);expect(cmp.json.from.repo).toBe(f.genomeRepo);expect(cmp.json.from.text).toContain('route: /people');expect(cmp.json.to.text).toContain('route: /contacts');
+  // 4. Select, integrate: the integrated commit is a whole snapshot (full model with the edit) and the binding carries the delta.
+  expect((await call('POST',path(f.systemId,p.id,'ui','select'),{candidateId:c2.json.candidate.id},ADMIN)).status).toBe(200);
+  const integrated=await call<ImplementationReview>('POST',lifecyclePaths.integrate(f.systemId,p.id).replace(/^\/api/,''),{},ADMIN);expect(integrated.status,JSON.stringify(integrated.json)).toBe(200);
+  const [b]=integrated.json.bindings;expect(b.model).toMatchObject({changedNodes:['screen.people'],changedPaths:[FILE]});expect(integrated.json.modelDelta).toEqual({source:b.source,model:b.model});expect(integrated.json.layers).toMatchObject({'C.model.review':'genome'});
+  const snapshot=await walkTree(f.ns.repo(b.source.repo),b.source.commit);expect(snapshot.get('system/node.yaml')).toBe(genome.get('node.yaml'));expect(snapshot.get(FILE)).toContain('route: /contacts');expect(snapshot.get('src/ui/people/index.html')).toBe('<h1>People</h1>');
+  const candidate=integrated.json.candidates.find(c=>c.id===b.candidateId)!;expect(candidate.changedPaths).toEqual([FILE,'src/ui/people/index.html'].sort());
+  // 5. Promote refuses an unreviewed model delta; accepted, it moves the Genome to the integrated commit.
+  const body={expectedHead:integrated.json.expectedHead,rationale:'Reviewed',candidateIds:integrated.json.bindings.map(b=>b.candidateId)};
+  const refused=await call<{error:{code:string}}>('POST',lifecyclePaths.promote(f.systemId,p.id).replace(/^\/api/,''),body,ADMIN);expect(refused.status).toBe(409);expect(refused.json.error.code).toBe('model-delta-unreviewed');
+  const promoted=await call<PlanPromoteResponse>('POST',lifecyclePaths.promote(f.systemId,p.id).replace(/^\/api/,''),{...body,acceptModelDelta:true},ADMIN);expect(promoted.status,JSON.stringify(promoted.json)).toBe(200);
+  const state=(await systemStub(env,f.systemId).state())!;expect(state.genomeCommit).toBe(b.source.commit);expect(state.genomeSource).toBe(b.source.repo);expect(state.manifest!.genomeCommit).toBe(b.source.commit);expect(state.manifest!.artifacts['artifact.webapp'].realizedGenome).toBe(b.source.commit);
+  const {genomeAt}=await import('../worker/service');const m=(await genomeAt(env,f.systemId,state.genomeCommit,state.genomeSource)).model;expect(JSON.stringify(m.index.byId['screen.people'].item)).toContain('/contacts');
+ });
+ it('keeps a code-only plan on the pinned Genome after promotion',async()=>{
+  const f=await importFresh(),p=(await call<RealizationPlan>('POST',path(f.systemId),{title:'Code',tasks:[definition]},ADMIN)).json,s=(await call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN)).json;
+  const fork=f.ns.repo(s.task.forkRepo),files=await walkTree(fork,s.task.model!.commit);files.set('src/ui/people/index.html','<h1>People</h1>');
+  const sub=(await call<TaskSubmitResponse>('POST',path(f.systemId,p.id,'ui','submit'),{attemptId:s.attempt.id,generation:s.attempt.generation,commit:fork.commit(files,'UI')},{authorization:`Bearer ${s.secret}`})).json;
+  expect((await call('POST',path(f.systemId,p.id,'ui','select'),{candidateId:sub.candidate.id},ADMIN)).status).toBe(200);
+  const review=(await call<ImplementationReview>('POST',lifecyclePaths.integrate(f.systemId,p.id).replace(/^\/api/,''),{},ADMIN)).json;expect(review.modelDelta).toBeUndefined();expect(review.bindings[0].model).toBeUndefined();
+  const promoted=await call<PlanPromoteResponse>('POST',lifecyclePaths.promote(f.systemId,p.id).replace(/^\/api/,''),{expectedHead:review.expectedHead,rationale:'Reviewed',candidateIds:review.bindings.map(b=>b.candidateId)},ADMIN);expect(promoted.status,JSON.stringify(promoted.json)).toBe(200);
+  const state=(await systemStub(env,f.systemId).state())!;expect(state.genomeCommit).toBe(p.genome.commit);expect(state.genomeSource).toBe(f.genomeRepo);
  });
 });

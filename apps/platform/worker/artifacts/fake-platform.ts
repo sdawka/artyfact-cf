@@ -18,6 +18,8 @@ import { ingestEvents } from "../phenome";
 import { hooksOf } from "../promotion";
 import { genomeAt, importSystem, refreshRegistry, registryStub, startWork, systemStub } from "../service";
 import { buildCandidateManifest, manifestHash } from "./candidates";
+import { walkTree } from "./genome-source";
+import { MODEL_PREFIX } from "../lifecycle-model";
 import { setArtifactsOverride } from "./client";
 import { FakeArtifacts } from "./fake";
 import { fakeReceivePack, type FakeReceivePack } from "./fake-receive-pack";
@@ -126,6 +128,7 @@ async function boot(env: Env): Promise<FakeArtifacts> {
     if (await registryStub(env).hasSystem(systemId)) continue;
     await importSystem(env, { systemId, genomeRepo, appRepo, review: false });
     if (systemId === exampleSystemId) await seedActivity(env, ns, systemId);
+    if (systemId === exampleSystemId && env.FAKE_MODEL_DELTA === "1") await seedModelDelta(env, ns, systemId);
   }
   return ns;
 }
@@ -139,7 +142,34 @@ export const FAKE_ACTIVITY = {
   agent: "agent:seed",
   /** The file the seed candidate adds to the app (a path nothing else touches, so later candidates do not conflict). */
   path: "NOTES.md",
+  /** `FAKE_MODEL_DELTA=1`: the plan and task whose submitted candidate changes the pinned model. */
+  modelPlanTitle: "Model fit: People screen",
+  modelTask: "people-screen",
+  modelNode: "screen.people",
 } as const;
+
+/**
+ * Opt-in (`FAKE_MODEL_DELTA=1`): one pinned plan whose single task is claimed and submitted with a code change and an edit
+ * to its write node under `system/` (the People screen's route), so Review shows a Task candidate with a model delta and
+ * System One's (simulated) judgment of it. Off by default: the e2e specs count queue items and plans.
+ */
+async function seedModelDelta(env: Env, ns: FakeArtifacts, systemId: string): Promise<void> {
+  const { createRealizationPlan, startLifecycleTask, submitLifecycleTask } = await import("../lifecycle-service");
+  const stub = systemStub(env, systemId), state = await stub.state();
+  if (!state?.manifest) throw new Error(`fake seed: ${systemId} has no manifest`);
+  const model = (await genomeAt(env, systemId, state.genomeCommit, state.genomeSource)).model;
+  const artifactId = Object.keys(state.manifest.artifacts)[0]!;
+  const plan = await createRealizationPlan(env, systemId, { title: FAKE_ACTIVITY.modelPlanTitle, tasks: [{ id: FAKE_ACTIVITY.modelTask, title: "Realize the People screen", artifactId, steps: ["Realize screen.people as pinned; change the model only if it cannot be realized as written"], dependsOn: [], readNodes: [], writeNodes: [FAKE_ACTIVITY.modelNode], checks: [] }] });
+  const started = await startLifecycleTask(env, systemId, plan.id, FAKE_ACTIVITY.modelTask, { agentLabel: "agent:seed-model" }, "http://localhost");
+  const fork = ns.repo(started.task.forkRepo), files = await walkTree(fork, started.task.model!.commit);
+  const file = `${MODEL_PREFIX}/${model.origin[FAKE_ACTIVITY.modelNode]}`, text = files.get(file);
+  if (!text) throw new Error(`fake seed: ${file} missing from the seeded fork`);
+  files.set(file, text.replace("route: /people", "route: /contacts"));
+  const glob = started.task.footprint.globs[0] ?? "src/ui/people/**";
+  files.set(glob.replace(/[^/]*[*?[{].*$/, "").replace(/\/?$/, "/seed-model.txt"), "Seeded with the model change.\n");
+  const commit = fork.commit(files, "Route the People screen at /contacts");
+  await submitLifecycleTask(env, systemId, plan.id, FAKE_ACTIVITY.modelTask, { attemptId: started.attempt.id, generation: started.attempt.generation, commit });
+}
 
 /**
  * Populated Deployments and Evaluations on a fresh fake Peopling, through the same services the routes use: one passed

@@ -19,6 +19,9 @@ from the whole model, not an excerpt.
   (a downstream task forked from a predecessor's candidate) keeps it: the predecessor's model edits are part of what was
   selected. Forks the platform makes from the app base (claim, fan-in, integration) are all seeded the same way.
 - Resume never re-seeds unless the fork head is still the unseeded base (a first claim that failed after the fork).
+- A candidate commit with no `system/` at all (a workspace that never carried the model) did not touch the model: no
+  delta, no review. Only Genome source files (YAML and the two intent sidecars) are the model; a README or build
+  output beside them is neither seeded nor a delta.
 - `system/` is read-only by default. The brief (`TASK_PACKET.md`) says the model is in `system/<path>` for each read
   and write node (`LifecycleTaskPacket.model.nodeFiles`, from `SystemModel.origin`), and which node ids the Task
   realizes. `AGENTS.md` carries the same rule.
@@ -67,6 +70,13 @@ a new Genome field:
 `LifecycleTaskPacket.checkLayers`, rendered grouped in `TASK_PACKET.md`, and as `TaskReview.layers` /
 `ImplementationReview.layers` so evidence can be grouped. A model delta is judged on the `genome` layer; the Task's
 checks stay on theirs.
+
+## Demo
+
+`FAKE_MODEL_DELTA=1` with `FAKE_ARTIFACTS=1` also seeds one plan (`Model fit: People screen`, task `people-screen`)
+whose submitted candidate changes `screen.people`'s route under `system/` beside a code change, so Review shows a
+Task candidate with a model delta and System One's simulated judgment (`apps/platform/worker/artifacts/fake-platform.ts`,
+`FAKE_ACTIVITY.modelTask`). It is off by default because the e2e specs count plans and queue items.
 
 ## Review view (for the UI slice)
 
