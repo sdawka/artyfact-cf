@@ -3,6 +3,7 @@ import { ModelContent } from './ModelContent';
 import { LandingStory } from './LandingStory';
 import { PracticeStack } from './PracticeStack';
 import { ModelNesting } from './ModelNesting';
+import { AgentEnvironment } from './AgentEnvironment';
 export type SiteConfig = { platform: string | null; source: string | null };
 export const pages = {
   '/': { title: 'Artyfact — The Git platform that keeps track of the product', description: 'A Git platform for teams of AI agents, on Cloudflare. A model of your product sits next to the code. Change requests, agent work, checks, merges, deploys and runtime events all link back to it.' },
@@ -34,8 +35,9 @@ function Home({ config, landingHtml }: { config: SiteConfig; landingHtml?: strin
       <h1>The next Git platform keeps track of the product, not just the files.</h1>
       <p className="lead">A Git platform for teams of AI agents, on Cloudflare.</p>
       <p>It keeps a multi-level model of your product next to the code. Change requests, agent work, checks, merges, deploys and runtime events all link back to it.</p>
-      <div className="actions"><Platform config={config} /><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a>{config.source && <a className="text-link" href={config.source}>Source</a>}</div>
+      <div className="actions"><Platform config={config} /><a className="button primary u-brackets" href="/connect-agent">Bring your agent</a><a className="text-link" href="#environment">How agents thrive here</a>{config.source && <a className="text-link" href={config.source}>Source</a>}</div>
     </section>
+    <AgentEnvironment />
     <PracticeStack />
     <ModelNesting />
     <section className="section landing-story" id="home-system-story" aria-labelledby="checkout-heading">

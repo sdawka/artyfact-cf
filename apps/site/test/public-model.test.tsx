@@ -44,6 +44,7 @@ it('introduces the Git platform, the practice stack and the prerendered checkout
   const { container } = render(<Site path="/" config={config} />);
   expect(screen.getByRole('heading', { level: 1, name: 'The next Git platform keeps track of the product, not just the files.' })).toBeTruthy();
   expect(container.querySelector('[data-hero-orb]')).toBe(null);
+  expect(screen.getByRole('heading', { name: 'Give your coding agents the environment to thrive.' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'Stop stitching these together.' })).toBeTruthy();
   expect(screen.getByRole('heading', { name: 'The clean merge that still breaks checkout.' })).toBeTruthy();
   expect(container.querySelectorAll('[data-checkout-step]')).toHaveLength(7);
