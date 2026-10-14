@@ -1,13 +1,9 @@
 import type { PlanCounts } from "../../../../shared/api";
 import { plural } from "./lib";
 
-/**
- * Plan work that waits on someone, from `SystemSummary.planCounts`, as separate items: tasks an agent can take now,
- * submitted tasks whose candidate awaits selection, and integrated plans awaiting promotion. Home shows one labelled
- * Needs-you row per item kind (`tasksAwaitText`, `selectionText`, `promotionText`); the rail shows their sum after "Work".
- */
+/** Work attention counts Tasks an agent can take; decisions are counted in Review. */
 export function workWaiting(c: PlanCounts | undefined): number {
-  return c ? c.awaitingAgent + c.submitted + c.integrated : 0;
+  return c ? c.awaitingAgent : 0;
 }
 
 /** "2 tasks await an agent". */

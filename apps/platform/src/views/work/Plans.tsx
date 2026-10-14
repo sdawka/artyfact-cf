@@ -8,7 +8,7 @@ import { useParam } from "./lib";
 import { DraftPanel } from "./plan/DraftPanel";
 import { FIXTURE_REASON, planError, plural, TOKEN_REASON } from "./plan/lib";
 import { PlanDetail } from "./plan/PlanDetail";
-import { planKeys, useApiMode, usePlan, usePlans } from "./plan/queries";
+import { useApiMode, usePlan, usePlans } from "./plan/queries";
 import { TaskStatus } from "./plan/TaskStatus";
 import styles from "./work.module.css";
 import planStyles from "./plan/plan.module.css";
@@ -42,7 +42,7 @@ export function Plans() {
           qc.invalidateQueries({ queryKey: ["plans", systemId] }),
           qc.invalidateQueries({ queryKey: ["plan", systemId] }),
           qc.invalidateQueries({ queryKey: ["implementation-review", systemId] }),
-          qc.invalidateQueries({ queryKey: planKeys.system(systemId) }),
+          qc.invalidateQueries({ queryKey: ["systems"] }),
         ]);
         setBusy(false);
       });
@@ -92,7 +92,7 @@ export function Plans() {
           onCancel={() => setPanel(null)}
           onCreated={(p) => {
             void qc.invalidateQueries({ queryKey: ["plans", systemId] });
-            void qc.invalidateQueries({ queryKey: planKeys.system(systemId) });
+            void qc.invalidateQueries({ queryKey: ["systems"] });
             setPlan(p.id, { panel: null, task: null });
           }}
         />

@@ -1,14 +1,14 @@
 import { Button, Textarea } from "@/components/ui";
 import { useId, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Candidate } from "../../../../shared/api";
-import type { RealizationPlan } from "../../../../shared/lifecycle";
+import type { Candidate } from "../../../shared/api";
+import type { RealizationPlan } from "../../../shared/lifecycle";
 import { LineDiff } from "@/components/LineDiff/LineDiff";
 import { useAdminToken } from "@/api/adminToken";
 import { lifecycleApi } from "@/api/lifecycle";
-import { planError } from "./lib";
-import { planKeys } from "./queries";
-import workStyles from "../work.module.css";
+import { planError } from "../work/plan/lib";
+import { planKeys } from "../work/plan/queries";
+import workStyles from "../work/work.module.css";
 
 interface Props {
   plan: RealizationPlan;
@@ -26,7 +26,7 @@ export function PlanReview({ plan, writeReason, busy, run }: Props) {
   if (review.isLoading) return <p role="status">Loading implementation review…</p>;
   if (review.error) return <p role="alert">{planError("Reading the review", review.error)}</p>;
   const r = review.data;
-  if (!r) return null;
+  if (!r) return <p role="alert">Implementation review is unavailable.</p>;
   const promoteReason = writeReason ?? (r.ready ? null : "The review is not ready; see the blockers above.");
   return (
     <section aria-labelledby="integrated-review">
@@ -51,6 +51,7 @@ export function PlanReview({ plan, writeReason, busy, run }: Props) {
         className={workStyles.form}
         onSubmit={(e) => {
           e.preventDefault();
+          if (promoteReason || busy || !rationale.trim()) return;
           run(() => lifecycleApi.promote(plan.systemId, plan.id, { expectedHead: r.expectedHead, rationale, candidateIds: r.bindings.map((b) => b.candidateId) }, token));
         }}
       >

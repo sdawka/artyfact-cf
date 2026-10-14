@@ -124,9 +124,9 @@ describe("plan and import signifiers", () => {
     const noImport = without(noReview, "import-pending");
     expect(cardSummary(noImport)).toMatchObject({ headline: "2 tasks await an agent", tone: "attention", workHref: "/s/system.x/r/head/work" });
     const noTasks = without(noImport, "tasks-awaiting-agent");
-    expect(cardSummary(noTasks)).toMatchObject({ headline: "a plan awaits promotion", tone: "attention", workHref: "/s/system.x/r/head/work" });
+    expect(cardSummary(noTasks)).toMatchObject({ headline: "a plan awaits promotion", tone: "attention", reviewHref: "/s/system.x/r/head/review" });
     const noPromotion = without(noTasks, "plan-awaiting-promotion");
-    expect(cardSummary({ ...noPromotion, planCounts: counts({ submitted: 2 }) })).toMatchObject({ headline: "2 tasks await selection", tone: "attention", workHref: "/s/system.x/r/head/work" });
+    expect(cardSummary({ ...noPromotion, planCounts: counts({ submitted: 2 }) })).toMatchObject({ headline: "2 tasks await selection", tone: "attention", reviewHref: "/s/system.x/r/head/review" });
     expect(cardSummary(noPromotion)).toMatchObject({ headline: "1 realization evolving", tone: "evolving" });
     expect(cardSummary(noPromotion).workHref).toBeUndefined();
     expect(cardSummary(without(noPromotion, "evolving")).headline).toBe("not built");
@@ -142,9 +142,18 @@ describe("plan and import signifiers", () => {
     expect(rows.map((r) => [`${r.title} · ${r.text}`, r.href])).toEqual([
       ["Peopling · import awaits review", "/s/system.x/r/head/review"],
       ["Peopling · 1 task awaits an agent", "/s/system.x/r/head/work"],
-      ["Peopling · 2 plans await promotion", "/s/system.x/r/head/work"],
-      ["Peopling · 1 task awaits selection", "/s/system.x/r/head/work"],
+      ["Peopling · 2 plans await promotion", "/s/system.x/r/head/review"],
+      ["Peopling · 1 task awaits selection", "/s/system.x/r/head/review"],
     ]);
     expect(rows.every((r) => r.tone === "attention")).toBe(true);
   });
+});
+it("routes plan decisions to Review and agent work to Work",()=>{
+ const sys=(o:Partial<CardSummary>):CardSummary=>({...base,systemId:"system.x",...o});
+ const counts=(o:Partial<NonNullable<CardSummary["planCounts"]>>)=>({open:1,awaitingAgent:0,submitted:0,integrated:0,...o});
+ const s=sys({signifiers:["tasks-awaiting-agent","plan-awaiting-promotion"],planCounts:counts({awaitingAgent:2,submitted:1,integrated:1})});
+ const rows=needsYou([s]);
+ expect(rows.find(r=>r.key.endsWith(":agent"))?.href).toBe("/s/system.x/r/head/work");
+ expect(rows.filter(r=>r.key.endsWith(":select")||r.key.endsWith(":promote")).map(r=>r.href)).toEqual(["/s/system.x/r/head/review","/s/system.x/r/head/review"]);
+ expect(cardSummary({...s,signifiers:[],planCounts:counts({submitted:1})}).reviewHref).toBe("/s/system.x/r/head/review");
 });

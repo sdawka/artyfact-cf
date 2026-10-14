@@ -33,8 +33,8 @@ describe("SideNav Work count", () => {
     }));
     renderApp("/s/system.peopling/r/head/overview");
     const nav = await screen.findByRole("navigation", { name: "Views" });
-    const work = await within(nav).findByRole("link", { name: "Work, 3 waiting" });
-    expect(work.textContent).toMatch(/Work3$/);
+    const work = await within(nav).findByRole("link", { name: "Work, 2 waiting" });
+    expect(work.textContent).toMatch(/Work2$/);
     await waitFor(() => expect(urls).toContain("/api/systems/system.peopling"));
   });
 

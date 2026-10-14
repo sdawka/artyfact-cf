@@ -137,7 +137,7 @@ describe("Realization plans", () => {
     expect(document.getElementById(all.getAttribute("aria-describedby")!)!.textContent).toBe("Every command is hidden.");
   });
 
-  it("opens a task's detail and selects its reviewed candidate, prefilled from the attempt's realization", async () => {
+  it("opens Task execution metadata and links its exact review in Review", async () => {
     const plan = makePlan({ tasks: [task("t1", { status: "submitted", attempts: [{ id: "att", taskId: "t1", generation: 1, realizationId: "r.t1", status: "submitted", agentLabel: "claude", leaseExpiresAt: "2026-10-13T00:00:00Z", createdAt: "" }] }), task("t2"), task("t3", { dependsOn: ["t1", "t2"] })] });
     const calls = stub({ plan });
     render(`/s/${SID}/r/head/work?plan=plan.one&task=t1`, { realizations: [{ id: "r.t1", evolution: "", candidate: "cand.t1", status: "submitted" }] });
@@ -146,10 +146,9 @@ describe("Realization plans", () => {
     expect(within(detail).getByText("src/t1/**")).toBeTruthy();
     expect(within(detail).getByText("Do t1")).toBeTruthy();
     expect(within(detail).getByText(/claude · submitted · generation 1/)).toBeTruthy();
-    const input = within(detail).getByLabelText("Reviewed candidate ID for Task t1") as HTMLInputElement;
-    expect(input.value).toBe("cand.t1");
-    fireEvent.click(within(detail).getByRole("button", { name: "Select reviewed Task result" }));
-    await waitFor(() => expect(calls.find((c) => c.url.endsWith("/tasks/t1/select"))).toMatchObject({ method: "POST", body: { candidateId: "cand.t1" } }));
+    expect(within(detail).getByRole("link",{name:"Review Task result"}).getAttribute("href")).toBe(`/s/${SID}/r/head/review?plan=plan.one&task=t1`);
+    expect(within(detail).queryByRole("button",{name:"Select reviewed Task result"})).toBeNull();
+    expect(calls.some(c=>c.url.endsWith("/select"))).toBe(false);
     // Integrate waits on every selection.
     expect(screen.getByRole("button", { name: "Integrate selected Task results" }).hasAttribute("disabled")).toBe(true);
   });

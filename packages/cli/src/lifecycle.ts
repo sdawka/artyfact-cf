@@ -74,7 +74,7 @@ function printDraft(d:DraftRealizationPlanResponse,io:Io){
  for(const p of d.problems)io.out(`${p.severity}${p.taskId?` (${p.taskId})`:''}: ${p.message}`);
  if(d.provenance.fallback)io.out('planner: deterministic fallback partition');
 }
-const reviewLink=(base:string,s:string,p:string)=>`${base}/s/${encodeURIComponent(s)}/r/head/work?plan=${encodeURIComponent(p)}`;
+const reviewLink=(base:string,s:string,p:string)=>`${base}/s/${encodeURIComponent(s)}/r/head/review?plan=${encodeURIComponent(p)}`;
 export async function lifecycleCommand(command:string,args:string[],io:Io):Promise<number>{
  const {values:v,positionals:p}=parseArgs({args,allowPositionals:true,options:{system:{type:'string'},platform:{type:'string'},file:{type:'string'},dir:{type:'string'},hash:{type:'string'},candidate:{type:'string'},binding:{type:'string'},key:{type:'string'},reason:{type:'string'},'expected-version':{type:'string'},'agent-label':{type:'string'},from:{type:'string'},to:{type:'string'},before:{type:'string'},cursor:{type:'string'},limit:{type:'string'},json:{type:'boolean'},evolution:{type:'string',multiple:true},node:{type:'string',multiple:true},hint:{type:'string'},title:{type:'string'},create:{type:'boolean'},'prepare-only':{type:'boolean'}}});
  const action=p[0];

@@ -5,6 +5,7 @@ Accepted 2026-10-13. This specification implements the user-approved story and p
 ## Decisions and invariants
 
 - An Evolution changes only the Genome. Approval commits the exact reviewed Genome delta. It does not implement, deploy, or change live flags.
+- Compatibility checks cover effective acceptance criteria, source-reference dependencies and hooks, including automatic gates in both accepted revisions; structural contract changes require replan while unrelated changes preserve the original realized Genome.
 - A Realization is implementation of a pinned accepted Genome revision. A new Realization can target an existing revision without a new Evolution.
 - Realization -> Tasks -> agent attempts. A Task owns one artifact binding, one isolated fork, steps, dependencies, ontology read/write scope and checks. One writing attempt is active at a time; retries preserve work and replace credentials.
 - Agents run in the user's local harness. Artyfact owns durable plans, scheduling constraints, review, provenance, and permissions.
@@ -57,3 +58,9 @@ Added 2026-10-13. Additive; old rows and older servers stay readable. Wire types
 - **Planner draft.** `POST lifecyclePaths.draft(systemId)` takes `DraftRealizationPlanRequest` and returns `DraftRealizationPlanResponse`. It persists nothing, and its `request` posts unchanged to create.
 - **Packet.** `LifecycleTaskPacket` gains optional `wave` (1-based), `independence`, `doNotTouch`, `concurrent`, `buildsOn` and `agentsMd`, and keeps `markdown`.
 - **Error codes.** `import-unreviewed` (409) and `rejected-node-referenced` (422). Invalid task lists stay 400 `bad-request` on create, and the draft reports cycles and invalid nodes as `problems`.
+
+## Unified review and local preparation
+
+Task evidence reads use `GET /realization-plans/:pid/tasks/:tid/review` and `/review/files?candidateId=&path=` under the System API. They retain System visibility and verify Task, candidate, manifest, pinned base and changed-path ownership. Task decision URLs use `/review?plan=&task=` and integrated promotion uses `/review?plan=`; Work retains planning, claim/resume and integration. Availability rules are shared by server summaries and CLI recommendations; expired attempts resume with credential fencing and prior work preserved.
+
+`ontology bootstrap --prepare-only` materializes accepted Genome files without provisioning. Changed local Genome content returns through normal import review; custom ontology validation uses the server resolver. Minimal local source scaffolding prepares a binding, while feature implementation remains scoped Task work after approval.

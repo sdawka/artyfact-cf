@@ -1,4 +1,4 @@
-.view { display: grid; gap: var(--spacing-4); max-width: 90rem; }
+.view { display: grid; grid-template-columns: minmax(0, 1fr); min-width: 0; overflow-wrap: anywhere; gap: var(--spacing-4); max-width: 90rem; }
 .lede { max-width: 70ch; margin: 0; color: var(--color-text-secondary); }
 .muted { color: var(--color-text-subtle); }
 .plain { display: grid; gap: var(--spacing-1); margin: 0; padding: 0; list-style: none; }
@@ -8,7 +8,7 @@
 /* On wide screens the queue stays in view (scrolling on its own) while a long review scrolls beside it. */
 @media (min-width: 901px) { .queue { position: sticky; top: var(--spacing-4); max-height: calc(100vh - 6rem); overflow-y: auto; } }
 @media (max-width: 900px) { .panes { grid-template-columns: minmax(0, 1fr); } }
-.detail { display: grid; gap: var(--spacing-3); min-width: 0; }
+.detail { overflow-wrap: anywhere; display: grid; gap: var(--spacing-3); min-width: 0; }
 .context { margin: 0; color: var(--color-text-secondary); font-weight: var(--font-weight-semibold); }
 
 /* The decision queue: the page's memorable element, a ledger of rows with a left rule on the open one. */

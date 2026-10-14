@@ -14,7 +14,7 @@ it('creates a pinned plan through the scoped API and returns its durable review 
  expect(err).toEqual([]);expect(code).toBe(0);
  expect(calls[0]?.url).toBe('http://localhost:1337/api/systems/system.one/realization-plans');
  expect(new Headers(calls[0]?.init?.headers).get('authorization')).toBe('Bearer admin');
- expect(out.join('\n')).toContain('/s/system.one/r/head/work?plan=plan.one');
+ expect(out.join('\n')).toContain('/s/system.one/r/head/review?plan=plan.one');
 });
 it('previews a native import without accepting it',async()=>{
  const file=join(cwd,'ontology.json');writeFileSync(file,JSON.stringify({format:'artyfact.ontology-package@1',id:'custom',version:'1',dependencies:[],templates:{}}));
@@ -67,7 +67,7 @@ it('starts and resumes one task fork with fenced credentials, checkpoints, and s
  const dir=join(cwd,'task-real'),source=join(cwd,'source'),bare=join(cwd,'task.git');mkdirSync(source);const sh=(at:string,...args:string[])=>execFileSync('git',['-C',at,...args],{encoding:'utf8'}).trim();
  sh(cwd,'init','--bare','-q',bare);sh(source,'init','-q','-b','main');writeFileSync(join(source,'app.ts'),'base');sh(source,'add','app.ts');sh(source,'-c','user.name=test','-c','user.email=test@test','commit','-q','-m','base');sh(source,'push','-q',bare,'HEAD:main');sh(bare,'symbolic-ref','HEAD','refs/heads/main');
  const remote=`https://${'a'.repeat(32)}.artifacts.cloudflare.net/git/ns/task.git`,secret='a1'.repeat(32),secret2='b2'.repeat(32),token='fork-write-token';const calls:{url:string;body:any;auth:string|null}[]=[];let generation=1;
- vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{calls.push({url,body:init?.body?JSON.parse(String(init.body)):undefined,auth:new Headers(init?.headers).get('authorization')});if(url.endsWith('/start')||url.endsWith('/resume')){if(url.endsWith('/resume'))generation=2;return Response.json({attempt:{id:`attempt.${generation}`,generation},secret:generation===1?secret:secret2,token:{value:token,remote,expiresAt:'2030-01-01'},remote,packet:{markdown:'Pinned Genome and scope'},reviewUrl:'http://localhost:1337/s/system.one/r/head/work?plan=plan.one'});}return Response.json({task:{status:'submitted'},candidate:{id:'candidate.task'},evaluations:[]});}));
+ vi.stubGlobal('fetch',vi.fn(async(url:string,init?:RequestInit)=>{calls.push({url,body:init?.body?JSON.parse(String(init.body)):undefined,auth:new Headers(init?.headers).get('authorization')});if(url.endsWith('/start')||url.endsWith('/resume')){if(url.endsWith('/resume'))generation=2;return Response.json({attempt:{id:`attempt.${generation}`,generation},secret:generation===1?secret:secret2,token:{value:token,remote,expiresAt:'2030-01-01'},remote,packet:{markdown:'Pinned Genome and scope'},reviewUrl:'http://localhost:1337/s/system.one/r/head/review?plan=plan.one'});}return Response.json({task:{status:'submitted'},candidate:{id:'candidate.task'},evaluations:[]});}));
  const old={count:process.env.GIT_CONFIG_COUNT,key:process.env.GIT_CONFIG_KEY_0,value:process.env.GIT_CONFIG_VALUE_0};process.env.GIT_CONFIG_COUNT='1';process.env.GIT_CONFIG_KEY_0=`url.${bare}.insteadOf`;process.env.GIT_CONFIG_VALUE_0=remote;
  const run=async(args:string[],at=cwd,env:Record<string,string>={})=>{const out:string[]=[],err:string[]=[];const code=await main(args,{cwd:at,env:{ARTYFACT_ADMIN_TOKEN:'admin',ARTYFACT_PLATFORM:'http://localhost:1337',...env},out:s=>out.push(s),err:s=>err.push(s)});return {code,out:out.join('\n'),err:err.join('\n')};};
  try{
@@ -165,7 +165,7 @@ it('plan draft --create posts the draft request unchanged and prints the plan id
   expect(srv.hits.map(h => `${h.method} ${h.url}`)).toEqual(['POST /api/systems/system.one/realization-plans/draft', 'POST /api/systems/system.one/realization-plans']);
   expect(srv.hits[1]!.body).toEqual(draftResponse.request);
   expect(r.out).toContain('plan: plan.new');
-  expect(r.out).toContain('/s/system.one/r/head/work?plan=plan.new');
+  expect(r.out).toContain('/s/system.one/r/head/review?plan=plan.new');
   const needsAdmin = await cli(['plan', 'draft', '--system', 'system.one', '--platform', srv.base], {});
   expect(needsAdmin.code).toBe(1); expect(srv.hits).toHaveLength(2);
  } finally { await srv.close(); }
@@ -391,4 +391,11 @@ it('orders available recovery and fresh tasks by wave and quotes hostile IDs',as
  const r=await cli(['plan','tasks','plan.one','--system','system.one','--platform','https://example.com'],{});
  expect(r.out).toContain(`task resume 'plan one;x' 'task.a'\\''$(touch pwned)'`);
  expect(r.out).not.toContain('task claim');
+});
+
+it('returns an encoded plan review link',async()=>{
+ const out:string[]=[];
+ vi.stubGlobal('fetch',vi.fn(async()=>Response.json({id:'plan/a ?'})));
+ expect(await main(['plan','create','--file',join(cwd,'plan.json'),'--system','system.one','--platform','http://localhost:1337'],{cwd,env:{ARTYFACT_ADMIN_TOKEN:"admin"},out:s=>out.push(s),err:()=>{}})).toBe(0);
+ expect(out.join('\n')).toContain('/s/system.one/r/head/review?plan=plan%2Fa%20%3F');
 });

@@ -3,6 +3,14 @@
 
 ## Now
 
+- Implemented: the seven intention-alignment fixes in [[roadmap]], using parallel Sol agents and one integration PR [#77](https://github.com/sdawka/artyfact-cf/pull/77). Work is execution; Review contains pending decisions. Runtime observations remain separate from implementation evidence and unknown outcome verdicts.
+- Verification: independent Sol reviews are clear after corrections. The complete 10-step local gate passed in 256s: 2872 root units, 98 fixture and 16 fake-provider browser cases, plus all site checks. See [[journals/2026-10-14-intention-fixes]]; exact hosted check results remain attached to PR #77.
+- Next action: review the seven fixes in PR #77 after its final hosted checks are green. No merge or deployment is included.
+- Tracking: seven canonical records validate. Versioned RPC preview returned `pending: missing_credentials`, `applied: 0`; the separate Artyfact destination requirement and prior conflict remain unresolved. Real-Artifacts provisioning is unverified.
+- Last updated: 2026-10-14T10:53:13-04:00.
+
+## Spike baseline
+
 - Investigation: app-intention spike completed against `a3c95f2`; six concrete gaps and one product-coherence recommendation are recorded in [[journals/2026-10-14-intention-spike]]. No product implementation or production changes.
 - Evidence: primary focused suites passed 14 tests; bounded agent suites passed another 60 and 24. Criterion-only overlap false negative reproduced independently. UI suites could not collect because `@radix-ui/react-icons` is missing locally; browser and full CI verification were not performed.
 - Recommended next action: address acceptance-contract drift and Thing-scoped operations, then validate the complete onboarding-to-runtime journey. These fixes are proposed, not started.

@@ -89,7 +89,7 @@ export async function startLifecycleTask(env:Env,sid:string,pid:string,tid:strin
   const token=await withRepo(artifactsFor(env),task.forkRepo,r=>r.createToken('write',Math.min(input.leaseSeconds??900,3600)));tokenId=token.id;
   const remote=remoteUrl(env,task.forkRepo,forked.remote),secret=newRealizationSecret();
   const plan=await rpc(stub.lifecycleActivate(pid,tid,attempt.id,attempt.generation,{tokenId:token.id,tokenExpires:token.expiresAt,remote,secretHash:await sha256Hex(secret)}));
-  const reviewUrl=`${platformUrl.replace(/\/$/,'')}/s/${encodeURIComponent(sid)}/r/head/work?plan=${encodeURIComponent(pid)}`;
+  const reviewUrl=`${platformUrl.replace(/\/$/,'')}/s/${encodeURIComponent(sid)}/r/head/review?plan=${encodeURIComponent(pid)}&task=${encodeURIComponent(tid)}`;
   const current=taskOf(plan,tid),packet=lifecyclePacket({plan,task:current,attempt:current.attempts.at(-1)!,remote,reviewUrl});
   out={plan,task:current,attempt:current.attempts.at(-1)!,secret,token:{value:token.plaintext,expiresAt:token.expiresAt,remote},remote,packet,reviewUrl};
  }catch(e){
