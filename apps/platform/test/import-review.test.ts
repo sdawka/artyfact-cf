@@ -66,13 +66,22 @@ const accept = (systemId: string, body: unknown, headers: Record<string, string>
   call<ImportReviewAcceptResult & ApiError>("POST", `/systems/${systemId}/import-review/accept`, body, headers);
 const getReview = (systemId: string) => call<SystemImportReview & ApiError>("GET", `/systems/${systemId}/import-review`);
 
-/** The routes this slice guards (lifecycle routes are wired by the integration slice). */
-const guarded = (systemId: string) => Promise.all([
-  call<ApiError>("POST", `/systems/${systemId}/evolutions`, { title: "t", intent: "i", kind: "genome-amendment" }, ADMIN),
-  call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" }, ADMIN),
-  call<ApiError>("POST", `/systems/${systemId}/intents`, { message: "add a screen" }, ADMIN),
-  call<ApiError>("POST", `/systems/${systemId}/template-upgrade`, { ref: "head" }, ADMIN),
-]);
+/** Every route that creates or starts work, or moves a Genome change forward. */
+const guarded = (systemId: string) => {
+  const plans = `/systems/${systemId}/realization-plans`, task = `${plans}/plan.1/tasks/t1`, intent = `/systems/${systemId}/intents/proposal.1`;
+  return Promise.all([
+    call<ApiError>("POST", `/systems/${systemId}/evolutions`, { title: "t", intent: "i", kind: "genome-amendment" }, ADMIN),
+    call<ApiError>("POST", `/systems/${systemId}/evolutions/evolution.1/realizations`, { agentLabel: "a" }, ADMIN),
+    call<ApiError>("POST", `/systems/${systemId}/intents`, { message: "add a screen" }, ADMIN),
+    call<ApiError>("POST", `/systems/${systemId}/template-upgrade`, { ref: "head" }, ADMIN),
+    call<ApiError>("POST", plans, { evolutionIds: ["evolution.1"], tasks: [] }, ADMIN),
+    call<ApiError>("POST", `${plans}/draft`, {}, ADMIN),
+    ...["claim", "start", "resume"].map((a) => call<ApiError>("POST", `${task}/${a}`, { agentLabel: "a" }, ADMIN)),
+    call<ApiError>("POST", `${intent}/reply`, { answers: [] }, ADMIN),
+    call<ApiError>("PUT", `${intent}/decisions`, { decisions: [] }, ADMIN),
+    call<ApiError>("POST", `${intent}/accept`, {}, ADMIN),
+  ]);
+};
 
 /** Every file of the amendment's candidate, read from the fork that holds it. */
 async function candidateFiles(ns: FakeArtifacts, systemId: string, realization: string, candidate: string): Promise<Map<string, string>> {
@@ -149,7 +158,7 @@ describe("import review: pending, guard, opt-out", () => {
     expect(forced.json.genomeCommit).not.toBe(imp.genomeCommit);
     expect(forced.json.system.importReview).toEqual({ status: "pending", genomeCommit: forced.json.genomeCommit, nodes: expect.any(Number) });
     expect((await call<SystemsResponse>("GET", "/systems")).json.systems.find((x) => x.systemId === systemId)!.importReview?.status).toBe("pending");
-    expect((await guarded(systemId)).map((r) => r.status)).toEqual([409, 409, 409, 409]);
+    expect((await guarded(systemId)).every((r) => r.status === 409)).toBe(true);
 
     const cleared = await call<ImportSystemResponse>("POST", "/systems/import", { systemId, genomeRepo, appRepo, review: false }, ADMIN);
     expect(cleared.status, JSON.stringify(cleared.json)).toBe(201);
@@ -311,7 +320,7 @@ describe("import review: accept", () => {
     expect((await getReview(systemId)).json.status).toBe("pending");
     const listed = (await call<SystemsResponse>("GET", "/systems")).json.systems.find((x) => x.systemId === systemId)!;
     expect(listed.importReview?.status).toBe("pending");
-    expect((await guarded(systemId)).map((r) => r.status)).toEqual([409, 409, 409, 409]);
+    expect((await guarded(systemId)).every((r) => r.status === 409)).toBe(true);
     // The pushed but unapproved removal is rejected, so nothing can land it behind the pending review.
     const work = (await call<WorkResponse>("GET", `/systems/${systemId}/evolutions`)).json;
     expect(work.realizations.map((r) => r.status)).toEqual(["rejected"]);

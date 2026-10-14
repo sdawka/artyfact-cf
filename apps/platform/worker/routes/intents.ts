@@ -12,9 +12,15 @@ export const intents = new Hono<AppEnv>()
     return c.json(await createProposal(c.env, c.req.param("id"), await body(c)), 201);
   })
   .get("/systems/:id/intents/:pid", requireAdmin, async (c) => c.json(await getProposal(c.env, c.req.param("id"), c.req.param("pid"))))
-  .post("/systems/:id/intents/:pid/reply", requireAdmin, async (c) =>
-    c.json(await replyProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c))))
-  .put("/systems/:id/intents/:pid/decisions", requireAdmin, async (c) =>
-    c.json(await decideProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c))))
-  .post("/systems/:id/intents/:pid/accept", requireAdmin, async (c) =>
-    c.json(await acceptProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c), origin(c)), 201));
+  .post("/systems/:id/intents/:pid/reply", requireAdmin, async (c) => {
+    await assertImportReviewed(c.env, c.req.param("id"));
+    return c.json(await replyProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c)));
+  })
+  .put("/systems/:id/intents/:pid/decisions", requireAdmin, async (c) => {
+    await assertImportReviewed(c.env, c.req.param("id"));
+    return c.json(await decideProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c)));
+  })
+  .post("/systems/:id/intents/:pid/accept", requireAdmin, async (c) => {
+    await assertImportReviewed(c.env, c.req.param("id"));
+    return c.json(await acceptProposal(c.env, c.req.param("id"), c.req.param("pid"), await body(c), origin(c)), 201);
+  });
