@@ -10,6 +10,8 @@ import { ADMIN, call, importFresh, passing } from './helpers/flows';
 import { walkTree } from '../worker/artifacts/genome-source';
 import { fakeReceivePack } from './helpers/fake-receive-pack';
 import { setEditorTransport } from '../worker/editor';
+import { listTree } from '../worker/artifacts/genome-source';
+import { pushCommit, type FileChange } from '../worker/git/push';
 const path=(s:string,p?:string,t?:string,a?:'claim'|'resume'|'submit'|'select')=>(a?lifecyclePaths.action(s,p!,t!,a):p?lifecyclePaths.plan(s,p):lifecyclePaths.plans(s)).replace(/^\/api/,'');
 const definition={id:'ui',title:'People UI',artifactId:'artifact.webapp',steps:['Update people UI'],dependsOn:[],readNodes:[],writeNodes:['screen.people'],checks:['C.people.list']};
 beforeEach(()=>setHooks({runner:()=>passing}));
@@ -79,6 +81,26 @@ describe('realization plan HTTP lifecycle',()=>{
   try{expect((await call('POST',path(f.systemId,p.id,'ui','claim'),{},ADMIN)).status).toBe(500);}finally{restore();}
   const before=await systemStub(env,f.systemId).realizationPlan(p.id),repo=f.ns.repo(before.tasks[0].forkRepo),revoke=repo.revokeToken.bind(repo);repo.revokeToken=async id=>{if(repo.tokens.find(t=>t.id===id)?.revoked)throw new Error('already revoked');return revoke(id);};
   const retried=await call<TaskStartResponse>('POST',path(f.systemId,p.id,'ui','resume'),{},ADMIN);expect(retried.status,JSON.stringify(retried.json)).toBe(201);expect(repo.tokens.filter(t=>!t.revoked)).toHaveLength(1);
+ });
+
+ it('keeps exec bits and symlinks through fan-in and integration',async()=>{
+  const f=await importFresh(),transport=fakeReceivePack(f.ns);setEditorTransport({fetch:transport.fetch});
+  const task=(id:string,globs:string[],deps:string[]=[])=>({id,title:id,artifactId:'artifact.webapp',steps:['Implement'],dependsOn:deps,readNodes:[],writeNodes:[id],checks:[],footprint:{repo:f.appRepo,artifactId:'artifact.webapp',globs,paths:[],unmatched:globs,known:true}});
+  // x: same content, now executable. y: an existing file becomes a symlink with the same text. z builds on both.
+  const p=await systemStub(env,f.systemId).createRealizationPlan({title:'Modes',tasks:[task('x',['src/index.ts']),task('y',['src/worker/health.ts']),task('z',['src/z.txt'],['x','y'])]});
+  const edits:Record<string,FileChange[]>={x:[{path:'src/index.ts',content:'export default {}',type:'exec'}],y:[{path:'src/worker/health.ts',content:'ok',type:'symlink'}],z:[{path:'src/z.txt',content:'z'}]};
+  const kinds=async(repo:string,commit:string)=>{const t=await listTree(f.ns.repo(repo),commit);return {index:t.get('src/index.ts')?.mode,health:t.get('src/worker/health.ts')?.mode};};
+  for(const id of ['x','y','z']){
+   const start=await call<TaskStartResponse>('POST',path(f.systemId,p.id,id,'claim'),{},ADMIN);expect(start.status,JSON.stringify(start.json)).toBe(201);const s=start.json;
+   if(id==='z')expect(await kinds(s.task.base.repo,s.task.base.commit)).toEqual({index:'100755',health:'120000'});
+   const pushed=await pushCommit({repo:f.ns.repo(s.task.forkRepo),remote:s.token.remote,token:s.token.value,parent:s.task.base.commit,changes:edits[id],fetch:transport.fetch,author:{name:'Agent',email:'agent@example.com'},message:id});
+   const submitted=await call<TaskSubmitResponse>('POST',path(f.systemId,p.id,id,'submit'),{attemptId:s.attempt.id,generation:s.attempt.generation,commit:pushed.commit},{authorization:`Bearer ${s.secret}`});expect(submitted.status,JSON.stringify(submitted.json)).toBe(201);expect(submitted.json.candidate.changedPaths).toEqual(edits[id].map(e=>e.path));
+   expect((await call('POST',path(f.systemId,p.id,id,'select'),{candidateId:submitted.json.candidate.id},ADMIN)).status).toBe(200);
+  }
+  const integrated=await call<ImplementationReview>('POST',lifecyclePaths.integrate(f.systemId,p.id).replace(/^\/api/,''),{},ADMIN);expect(integrated.status,JSON.stringify(integrated.json)).toBe(200);
+  const [b]=integrated.json.bindings;expect(await kinds(b.source.repo,b.source.commit)).toEqual({index:'100755',health:'120000'});
+  expect((await listTree(f.ns.repo(b.source.repo),b.source.commit)).get('src/z.txt')?.mode).toBe('100644');
+  const candidate=integrated.json.candidates.find(c=>c.id===b.candidateId)!;expect(candidate.changedPaths).toEqual(['src/index.ts','src/worker/health.ts','src/z.txt']);
  });
 
 });
